@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Keep the Copy/Move dialog fixture criteria compatible with scheduling controls. | The integrated dialog reads transfer, conflict, and wait settings during the native path test. | https://github.com/KRtkovo-eu-AI/salamander/pull/821 | GPT-5.6 Luna Pro |
 // | 2026-11-06 | Check independent sequential wait choices and automatic scheduling with real controls. | Validate upstream integration without weakening Branch path guarantees. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // Actual Copy/Move constructor, Transfer, atomic reader and history update.
 // Dialog base/criteria controls are explicit doubles; HWND text and checkbox I/O are real.
@@ -28,7 +29,13 @@ static const char* LoadStr(int id){return id==IDS_TOOLONGPATH?"path too long":id
 static int SalMessageBox(HWND,const char* text,const char*,UINT){++Messages;LastMessage=text;return IDOK;}
 static int StrICmp(const char*a,const char*b){return _stricmp(a,b);}
 struct CTruncatedString {};
-struct CCriteriaData {int Token=10;};
+struct CCriteriaData
+{
+    int Token=10;
+    BOOL StartOnIdle=FALSE;
+    int TransferMode=CMS_STORAGE_AWARE;
+    int ConflictMode=CMCM_CURRENT;
+};
 class CButton;
 static struct {int CopyMoveOperationPolicy=COSP_ASK;} Configuration;
 struct CTransferInfo
