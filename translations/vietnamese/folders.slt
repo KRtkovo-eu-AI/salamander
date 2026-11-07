@@ -10,8 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"vietnamese translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"Folders"
-1001,0,"About Plugin"
-1003,0,"Browse folders such as Desktop, Control Panel, Recycle Bin, etc."
-1004,0,"'\tDesktop"
-
+1000,1,"Thư mục"
+1001,1,"Về Plugin"
+1003,1,"Duyệt thư mục như Màn hình làm việc, Bảng điều khiển, Thùng rác, v.v."
+1004,1,"'\tMàn hình làm việc"
