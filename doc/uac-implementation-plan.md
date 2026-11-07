@@ -233,7 +233,10 @@ Diagnostický host P2 používá nadále schopnost 0. Instalovaný Samandarin po
 
 - Sestavení Samandarinu, brokeru a sondy x64 v Debug prošlo. Regresní sady lokální F7, transportu a identity rodiče prošly v Debug i Release.
 - Computer Use ověřil v nové sestavě běžné vytvoření Unicode složky a aktualizaci panelů. Stejná binárka mimo chráněnou instalaci při zápisu do chráněného testovacího adresáře zobrazila ERROR_ACCESS_DENIED bez nabídky elevace a cíl nevznikl.
-- Pro chráněný průchod je potřeba ve VM zkopírovat dvojici EXE z finálního sestavení. V samostatných pokusech se zruší výzva pro P3a-zruseno a schválí se výzva pro P3a-schvaleno. Zrušený cíl musí zůstat nepřítomný a schválený musí vzniknout přesně v testovacím rodiči.
+- V chráněném průchodu ve Windows 11 Pro x64 build 26200 se SHA-256 obou EXE shodovala s ověřeným sestavením 0629e0eb. Computer Use vyvolal F7 v chráněném F7-fixture a ověřil, že potvrzení aplikace uvádí přesný cíl a tlačítko správce. Systémový souhlas obsloužil uživatel na zabezpečené ploše.
+- Po volbě Ne ve výzvě pro P3a-zruseno se aplikace vrátila do panelu a složka nevznikla. Po volbě Ano ve výzvě pro P3a-schvaleno vznikla přesně tato složka a objevila se v obou panelech. Po obou pokusech nezůstal běžící broker.
+- Opakovaná F7 se stejným názvem zobrazila chybu 183 bez nové nabídky elevace. Existující složka zůstala zachovaná včetně původního času vytvoření.
+- Chráněný průchod ověřil split-token účet správce. Přihlášení jiným správcem a ztráta spojení byly ověřeny pro handshake P2. Jejich opakování během souborové mutace je další rozšíření testovací matice.
 
 ## 9. Uživatelský tok a stav operace
 
