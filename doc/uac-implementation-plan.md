@@ -314,6 +314,8 @@ Na NTFS v x64 Debug i Release prošly případy záměny zdroje a rodiče, jiné
 
 Ve Windows 11 Pro x64 build 26200 byl pilot `cd1b65d3` ověřen v chráněné složce `P3d-fixture`. Po Shift+Delete, potvrzení akce a volbě Ne v systémové výzvě zůstaly všechny tři testovací soubory se stejným obsahem. Volba Ano odstranila jen `02-approve.txt`. Sousední soubor i soubor ze zrušeného pokusu zůstaly, v Koši nebyla odpovídající položka a broker skončil. Uživatel při testu nahlásil chybějící štít na tlačítku Administrator. Dialog nyní přiřazuje štít tlačítku Administrator samostatně a výchozí fokus ponechává na Zrušit.
 
+V opraveném sestavení `038d02a7` Computer Use vizuálně potvrdil štít na Administrator a výchozí fokus na Zrušit. Escape ukončil kontrolu bez další výzvy UAC a oba zbývající soubory zůstaly v panelu.
+
 ## 9. Uživatelský tok a stav operace
 
 1. Provést běžnou operaci s aktuálním tokenem. Preflight může být informativní, nemá slibovat oprávnění budoucí mutace.
