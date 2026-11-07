@@ -3,6 +3,7 @@
 | 2026-11-07 | Document the UAC architecture, source audit, implementation stages and validation gates. | Plan per-operation elevation without implementing it. |  | GPT-6 (Codex) |
 | 2026-11-07 | Record the first P0 experiment. | Link the prototype and remaining gates. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record the VM elevation matrix. | Capture the result with a separate administrator account. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Record pipe loss and Shell comparisons and select the P0 backend. | Set the first local implementation slice and remaining gates. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -11,7 +12,7 @@ Stav: návrh pro budoucí implementaci, 7. listopadu 2026. Tato změna obsahuje 
 
 Základem je upstream [release/5.0-samandarin-0.16](https://github.com/KRtkovo-eu-AI/salamander/tree/release/5.0-samandarin-0.16), ověřený commit [`16b4cd0176dc82752a11ee6bc09615780b6987a2`](https://github.com/KRtkovo-eu-AI/salamander/commit/16b4cd0176dc82752a11ee6bc09615780b6987a2). Stejný commit měla při založení práce referenční větev `majklvi/salamander:samandarin-0.16`. Pracovní větev je `feature/uac-support`, lokální checkout `C:\Samandarin\uac-support`. Všechny níže uvedené řádky zdrojů odkazují na tento pevný upstream commit, nikoli na proměnlivý HEAD.
 
-**Doporučená architektura:** hlavní aplikace zůstane `asInvoker`; úzce vymezené administrativní souborové operace vykoná samostatný minimální EXE broker spuštěný přes Windows UAC. Uživatelské rozhraní, fronta, rozhodování o konfliktech, konfigurace, pluginy a parsování zůstanou v původním procesu. Finální volbu backendu potvrdí etapa P0 porovnáním s `IFileOperation`.
+**Doporučená architektura:** hlavní aplikace zůstane `asInvoker`; úzce vymezené administrativní souborové operace vykoná samostatný minimální EXE broker spuštěný přes Windows UAC. Uživatelské rozhraní, fronta, rozhodování o konfliktech, konfigurace, pluginy a parsování zůstanou v původním procesu. Volbu backendu dokládá [výsledek P0](#61-výsledky-p0-a-volba-backendu) včetně porovnání s `IFileOperation`.
 
 ## 1. Cíl a rozsah
 
@@ -88,8 +89,8 @@ Přesnější označení chybějící funkce je **integrovaná elevace nativníc
 | Varianta | Přínos | Omezení | Doporučení |
 | --- | --- | --- | --- |
 | `requireAdministrator`/`highestAvailable` pro celé GUI | Malý počáteční zásah. | Zvyšuje práva pluginům, parserům a externím akcím; mění identitu, drag-and-drop a běžné spuštění. | Nepoužít jako implementaci per-operation UAC. |
-| Shell `IFileOperation` | Windows řeší souborové úkony a elevaci; část kódu jej již používá pro Koš. | Nutno porovnat přesné cesty, konflikty, metadata, frontu, progress a přerušení s vlastním enginem. | P0 prototyp; pravděpodobně zachovat pro Koš a případné přesně vymezené shellové úkony. |
-| Samostatný EXE broker + omezené IPC | Umožňuje zachovat vlastní engine a oddělit privilegovaný kód bez COM registrace. | Vlastní bezpečnostní protokol, životní cyklus, odpojení a práce s částečnými výsledky. | Preferovaná varianta pro nativní operace, podmíněná bezpečnostním ověřením. |
+| Shell `IFileOperation` | Windows řeší souborové úkony a elevaci; část kódu jej již používá pro Koš. | Nutno porovnat přesné cesty, konflikty, metadata, frontu, progress a přerušení s vlastním enginem. | Zachovat pro Koš a samostatně ověřené shellové úkony. |
+| Samostatný EXE broker + omezené IPC | Umožňuje zachovat vlastní engine a oddělit privilegovaný kód bez COM registrace. | Vlastní bezpečnostní protokol, životní cyklus, odpojení a práce s částečnými výsledky. | Zvoleno pro nativní operace. Produkční podmínky P2 a P3 zůstávají závazné. |
 | COM elevation moniker | Dokumentovaný způsob elevace malé funkce a standardní marshaling. | Registrace HKLM, lokalizovaný název a COM security pro jiný účet; komplikace portable distribuce. | Záložní varianta, pokud bezpečnost a údržba EXE IPC nevyjdou dobře. |
 | Služba / naplánovaná elevated úloha | Dlouhodobě dostupná privilegovaná část. | Instalace, stálý privilegovaný povrch a samostatná autorizace. | Pro tento rozsah nepřiměřené. |
 
@@ -98,6 +99,24 @@ COM podmínky vycházejí z [The COM Elevation Moniker](https://learn.microsoft.
 U `IFileOperation` nejsou flagy zaměnitelné: `FOFX_SHOWELEVATIONPROMPT` umožňuje UAC při potlačeném error UI, `FOFX_REQUIREELEVATION` odstraňuje předběžné potvrzení očekávané elevace, ne systémový UAC souhlas. `FOFX_EARLYFAILURE` je platný spolu s `FOF_NOERRORUI`; prověřit všechny současné kombinace. Po `PerformOperations` vyhodnotit jednotlivé výsledky a `GetAnyOperationsAborted`, i při úspěšném HRESULT. [SetOperationFlags](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-setoperationflags), [GetAnyOperationsAborted](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-getanyoperationsaborted).
 
 Aktuální [OperationRecyclePath](https://github.com/KRtkovo-eu-AI/salamander/blob/16b4cd0176dc82752a11ee6bc09615780b6987a2/src/operationrecycle.h#L12) odmítá cesty s koncovými tečkami/mezerami, aby Shell nezasáhl jiný objekt. Proto není náhrada všech Win32 operací Shell API automaticky ekvivalentní.
+
+### 6.1 Výsledky P0 a volba backendu
+
+Pokusy proběhly ve vyhrazené Windows 11 Pro x64 VM, build 26200, se zabezpečenou plochou UAC. Shell zkoušel vytvořit jedinou novou složku v chráněném laboratorním adresáři pod Program Files. Přímý CreateDirectoryW ze stejného procesu pokaždé vrátil chybu 5. Pomocný EXE ověřoval spuštění, identitu a životnost spojení pomocí pevných zpráv. Sám v této etapě neprováděl souborové mutace. Podmínky opakování pokusů jsou v [laboratorním postupu](../tools/uac-lab/README.md).
+
+| Scénář | Pozorovaný výsledek | Důsledek pro návrh |
+| --- | --- | --- |
+| EXE, host po ověřeném hello zavře rouru před potvrzením | Zvýšený klient rozpoznal uzavřené spojení a host ověřil jeho ukončení v pětisekundovém limitu. | Klient při ztrátě hostu ukončí relaci. Nový pokus vyžaduje nové rozhodnutí hostu. |
+| EXE, klient skončí po přijetí potvrzení a před doručením testovacího potvrzení výsledku | Host zaznamenal chybu 109 (ERROR_BROKEN_PIPE), ověřil ukončení zvýšeného klienta a test skončil. | Odpojení je selhání transportu. Pokud už mohla začít mutace, host hlásí OutcomeUnknown a před případným opakováním ověří stav. |
+| IFileOperation, kontrola s potlačenou výzvou | NewItem vrátil S_OK při zařazení. PerformOperations a PostNewItem vrátily 0x80270022 (COPYENGINE_E_ACCESS_DENIED_DEST). Aborted bylo 0 a cíl nevznikl. | Ani úspěšné zařazení položky, ani Aborted = 0 nedokládají provedení. |
+| IFileOperation, zrušení výzvy | PerformOperations vrátil 0x80270000 (COPYENGINE_E_USER_CANCELLED). Aborted bylo 1, PostNewItem vrátil 0x80270002 (COPYENGINE_E_REQUIRES_ELEVATION) a cíl nevznikl. | Interpretovat společně výsledek dávky, stav přerušení a výsledek položky. |
+| IFileOperation, schválení výzvy | PerformOperations i PostNewItem vrátily S_OK, Aborted bylo 0 a přesně pojmenovaný cílový adresář vznikl. | Shell v tomto scénáři skutečně zvládl jednoduché vytvoření složky se zvýšenými právy. |
+
+**Rozhodnutí P0:** pro nativní engine zvolit samostatný EXE broker s omezeným protokolem. Na tomto backendu je možné zachovat stávající model fronty, konfliktů a fází operace a výslovně navázat provedení na ověřenou identitu objektů. Pokus se Shellem potvrdil jednoduchý mkdir, ale pro jeho použití v nativním enginu by bylo třeba zvlášť prokázat shodu přesných cest, pravidel přepisu, metadat a výsledků rozpracované dávky. IFileOperation ponechat pro stávající Koš a další samostatně ověřené Shell úkony. Výsledek P0 neposuzuje elevaci Koše pod jiným účtem.
+
+**Další etapa P1a:** oddělit jediný lokální příkaz pro vytvoření koncové složky v existujícím rodiči v nativní větvi F7. Výchozí místo je volání SalCreateDirectoryExW a jeho stávající fallback v [fileswn5.cpp](https://github.com/KRtkovo-eu-AI/salamander/blob/16b4cd0176dc82752a11ee6bc09615780b6987a2/src/fileswn5.cpp#L3092). Zachovat konverze, dialogy, vytváření rodičů ve stávající cestě a oznámení změny. Vymezit typovaný výsledek příkazu s původní Win32 chybou. Ověřit úspěch, kolizi, neplatné jméno, chybějící nebo chráněný rodič, Unicode a dlouhou cestu. První řez P1a je neprivilegovaný a jeho rozsah nevyžaduje úpravu ostatních workerů.
+
+P2 má ověřit produkční bootstrap, distribuci a bezpečné ukončení při ztrátě procesu i kanálu. P3 smí první mutaci zapnout po samostatném ověření identity rodiče včetně jeho výměny a reparse bodů. Po ztrátě spojení po možné mutaci nepoužívat slepé opakování. Počáteční distribuční pilot plánovat jako chráněnou instalaci pro Windows 11 x64 na lokálním NTFS. Rozšíření na portable, starší Windows nebo další souborové systémy vyžaduje vlastní testy.
 
 ## 7. Navržené rozdělení komponent
 
@@ -275,6 +294,6 @@ Podmínky vydání:
 
 Původní plán vychází ze statického auditu upstreamu a rešerše dokumentace Microsoftu. První experiment P0 je popsán v [laboratorním postupu](../tools/uac-lab/README.md). Obsahuje ověření místního spojení, testy odmítnutí chybného protějšku a seznam otevřených podmínek před zapojením brokeru do souborových operací.
 
-Ve vyhrazené VM prošlo schválení i zrušení UAC. Přihlášení jiným správcem původně selhalo při otevírání roury. Po doplnění úzkého práva pro čtení atributů roury prototyp ověřil zvýšený token jiného účtu. Výsledky a zbývající podmínky jsou v laboratorním postupu.
+Ve vyhrazené VM prošlo schválení i zrušení UAC. Přihlášení jiným správcem původně selhalo při otevírání roury. Po doplnění úzkého práva pro čtení atributů roury prototyp ověřil zvýšený token jiného účtu. P0 doplnilo ověření ztráty spojení v obou směrech a srovnání s IFileOperation. Rozhodnutí o backendu a rozsah prvního řezu jsou v části 6.1.
 
 Implementační větev používá stávající [interní draft PR](https://github.com/majklvi/salamander/pull/67) proti referenční větvi samandarin-0.16. U každého běhu kontrol rozlišit skutečně sestavené a analyzované projekty od přeskočených kroků. Výsledky laboratorního prototypu se vykazují zvlášť.

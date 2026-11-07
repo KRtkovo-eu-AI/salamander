@@ -2,6 +2,7 @@
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-07 | Add a one-shot UAC bootstrap experiment. | Test peer binding and token identification before introducing file commands. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Report early helper failures to the host. | Distinguish cross-account startup errors from a pipe timeout. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Exercise both directions of pipe loss. | Verify the one-shot lifecycle before adding file commands. | | GPT-6.1 Sol (Codex) |
 */
 
 #define WIN32_LEAN_AND_MEAN
@@ -132,7 +133,16 @@ void ReportEarlyClientExit(HANDLE child)
     }
 }
 
-int Client(const wchar_t* pipeName, DWORD hostPid)
+enum class Drop { None, Host, Helper };
+constexpr int hostDropObserved = 51;
+constexpr int helperDropInjected = 52;
+
+bool PipeWasClosed(DWORD error)
+{
+    return error == ERROR_BROKEN_PIPE || error == ERROR_NO_DATA || error == ERROR_PIPE_NOT_CONNECTED;
+}
+
+int Client(const wchar_t* pipeName, DWORD hostPid, Drop drop)
 {
     Handle host(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, hostPid));
     if (!host.valid())
@@ -157,8 +167,15 @@ int Client(const wchar_t* pipeName, DWORD hostPid)
     if (!Transfer(pipe.value, message, true))
         return Fail(L"Send hello");
     if (!Transfer(pipe.value, message, false))
-        return Fail(L"Receive acknowledgement");
-    return message == acknowledge ? 0 : Fail(L"Check acknowledgement", ERROR_INVALID_DATA);
+    {
+        const DWORD error = GetLastError();
+        Fail(L"Receive acknowledgement", error);
+        return drop == Drop::Host && PipeWasClosed(error) ? hostDropObserved : 1;
+    }
+    if (message != acknowledge || drop == Drop::Host)
+        return Fail(L"Check acknowledgement", ERROR_INVALID_DATA);
+    // In the helper-loss case, exit without returning the test receipt.
+    return drop == Drop::Helper ? helperDropInjected : 0;
 }
 
 bool QueryTokenUser(HANDLE token, std::vector<BYTE>& buffer)
@@ -206,7 +223,7 @@ bool InspectPipeClient(HANDLE pipe, PSID hostSid, bool& elevated, bool& sameUser
     return true;
 }
 
-int RunHost(bool elevate, bool rejectPeer, bool rejectServer = false)
+int RunHost(bool elevate, bool rejectPeer, bool rejectServer = false, Drop drop = Drop::None)
 {
     Handle selfToken;
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &selfToken.value))
@@ -258,7 +275,13 @@ int RunHost(bool elevate, bool rejectPeer, bool rejectServer = false)
     if (!chars || chars >= exe.size())
         return Fail(L"Get lab executable path");
     exe.resize(chars);
-    const wchar_t* mode = rejectServer ? L"--reject-server-client " : L"--client ";
+    const wchar_t* mode = L"--client ";
+    if (rejectServer)
+        mode = L"--reject-server-client ";
+    else if (drop == Drop::Host)
+        mode = L"--client-drop-host ";
+    else if (drop == Drop::Helper)
+        mode = L"--client-drop-helper ";
     const std::wstring args = mode + name + L" " + std::to_wstring(GetCurrentProcessId());
     Handle child;
     if (elevate)
@@ -347,9 +370,36 @@ int RunHost(bool elevate, bool rejectPeer, bool rejectServer = false)
     if (elevate && !elevated)
         return Fail(L"Verify helper elevation", ERROR_ACCESS_DENIED);
 
+    if (drop == Drop::Host)
+    {
+        // The authenticated client is waiting for its acknowledgement.
+        CloseHandle(pipe.value);
+        pipe.value = nullptr;
+        DWORD code = 0;
+        if (WaitForSingleObject(child.value, timeoutMs) != WAIT_OBJECT_0 ||
+            !GetExitCodeProcess(child.value, &code) || code != hostDropObserved)
+            return Fail(L"Check client exit after host pipe loss", ERROR_INVALID_DATA);
+        std::wprintf(L"Host pipe closed after verified hello. Client observed loss and exited. Elevated: %ls.\n",
+                     elevated ? L"yes" : L"no");
+        return 0;
+    }
+
     message = acknowledge;
     if (!Transfer(pipe.value, message, true))
         return Fail(L"Acknowledge helper");
+    if (drop == Drop::Helper)
+    {
+        if (Transfer(pipe.value, message, false))
+            return Fail(L"Unexpected receipt", ERROR_INVALID_DATA);
+        const DWORD error = GetLastError();
+        DWORD code = 0;
+        if (!PipeWasClosed(error) || WaitForSingleObject(child.value, timeoutMs) != WAIT_OBJECT_0 ||
+            !GetExitCodeProcess(child.value, &code) || code != helperDropInjected)
+            return Fail(L"Check helper pipe loss", error);
+        std::wprintf(L"Helper exited before receipt. Host observed pipe error %lu. Elevated: %ls.\n",
+                     error, elevated ? L"yes" : L"no");
+        return 0;
+    }
     DWORD exitCode = 0;
     if (WaitForSingleObject(child.value, timeoutMs) != WAIT_OBJECT_0 ||
         !GetExitCodeProcess(child.value, &exitCode) || exitCode != 0)
@@ -370,8 +420,22 @@ int wmain(int argc, wchar_t** argv)
         return RunHost(true, false);
     if (argc == 2 && !std::wcscmp(argv[1], L"--reject-server"))
         return RunHost(false, false, true);
+    if (argc == 2 && !std::wcscmp(argv[1], L"--drop-host"))
+        return RunHost(false, false, false, Drop::Host);
+    if (argc == 2 && !std::wcscmp(argv[1], L"--drop-helper"))
+        return RunHost(false, false, false, Drop::Helper);
+    if (argc == 2 && !std::wcscmp(argv[1], L"--runas-drop-host"))
+        return RunHost(true, false, false, Drop::Host);
+    if (argc == 2 && !std::wcscmp(argv[1], L"--runas-drop-helper"))
+        return RunHost(true, false, false, Drop::Helper);
+
     const bool rejectServer = argc == 4 && !std::wcscmp(argv[1], L"--reject-server-client");
-    if (argc == 4 && (rejectServer || !std::wcscmp(argv[1], L"--client")) &&
+    Drop drop = Drop::None;
+    if (argc == 4 && !std::wcscmp(argv[1], L"--client-drop-host"))
+        drop = Drop::Host;
+    else if (argc == 4 && !std::wcscmp(argv[1], L"--client-drop-helper"))
+        drop = Drop::Helper;
+    if (argc == 4 && (rejectServer || drop != Drop::None || !std::wcscmp(argv[1], L"--client")) &&
         !std::wcsncmp(argv[2], pipePrefix, ARRAYSIZE(pipePrefix) - 1) &&
         std::wcslen(argv[2]) == ARRAYSIZE(pipePrefix) - 1 + 38 &&
         std::wcspbrk(argv[2] + ARRAYSIZE(pipePrefix) - 1, L"\\/:") == nullptr)
@@ -379,8 +443,9 @@ int wmain(int argc, wchar_t** argv)
         wchar_t* end = nullptr;
         const unsigned long pid = std::wcstoul(argv[3], &end, 10);
         if (pid && !*end)
-            return Client(argv[2], rejectServer ? GetCurrentProcessId() : pid);
+            return Client(argv[2], rejectServer ? GetCurrentProcessId() : pid, drop);
     }
-    std::fwprintf(stderr, L"Usage: uac-bootstrap-lab --local | --reject-peer | --reject-server | --runas\n");
+    std::fwprintf(stderr, L"Usage: uac-bootstrap-lab --local | --reject-peer | --reject-server | --runas\n"
+                          L"       --drop-host | --drop-helper | --runas-drop-host | --runas-drop-helper\n");
     return 2;
 }
