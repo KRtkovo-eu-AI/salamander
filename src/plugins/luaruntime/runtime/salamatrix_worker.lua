@@ -2,6 +2,7 @@
 -- SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 -- SPDX-License-Identifier: GPL-2.0-or-later
 -- | Date | Summary | Reason | Ticket | Model |
+-- | 2026-11-07 | Forward invocation Find phrase and flags through ui.viewer. | All Salamatrix runtimes must preserve Find context for shared viewers. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
 -- | 2026-11-06 | Normalize shared viewer options across all five workers. | Invalid optional fields are omitted consistently while valid chrome options preserve their types. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 -- | 2026-11-06 | Accept title and window geometry for ui.viewer. | Keep Salamatrix runtime viewer options in parity. |  | Composer |
 
@@ -581,6 +582,12 @@ function ui.viewer(path, renderer)
     for _, key in ipairs({ "title", "documentName" }) do
         value = options[key]
         if type(value) == "string" and value ~= "" then payload[key] = value end
+    end
+    if type(Salamander.invocation.searchPhrase) == "string" and Salamander.invocation.searchPhrase ~= "" then
+        payload.searchPhrase = Salamander.invocation.searchPhrase
+        if type(Salamander.invocation.searchFlags) == "number" and Salamander.invocation.searchFlags >= 0 and math.floor(Salamander.invocation.searchFlags) == Salamander.invocation.searchFlags then
+            payload.searchFlags = Salamander.invocation.searchFlags
+        end
     end
     local window = type(options.window) == "table" and options.window or options
     for _, key in ipairs({ "left", "top", "width", "height", "showCmd" }) do

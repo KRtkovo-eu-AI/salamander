@@ -1,5 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+#
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Include production word-byte classification in the CP1250 viewer regression test. | Ensure double-click boundary classification stays covered by the UTF-8 manifest test. | https://github.com/KRtkovo-eu-AI/salamander/issues/739 | openai/gpt-5.6-luna-pro |
 
 """Run production viewer clipboard code against an isolated in-memory clipboard."""
 
@@ -57,6 +61,8 @@ def generate(output, revision):
         "DWORD GetEffectiveConversionCodePage(")]
     fragments += ["#undef GetLocaleInfoW"]
     fragments += [function(viewer, marker) for marker in (
+        "UINT CViewerWindow::GetLegacyFindCodePage()",
+        "BOOL CViewerWindow::IsFindWordChar(char c)",
         "void CViewerWindow::CodeCharacters(",
         "HGLOBAL\nCViewerWindow::GetSelectedText(",
         "HGLOBAL\nCViewerWindow::GetSelectedTextW(")]

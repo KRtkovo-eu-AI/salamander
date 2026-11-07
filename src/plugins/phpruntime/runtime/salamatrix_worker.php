@@ -3,6 +3,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Forward invocation Find phrase and flags through ui.viewer. | All Salamatrix runtimes must preserve Find context for shared viewers. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
 // | 2026-11-06 | Normalize shared viewer options across all five workers. | Invalid optional fields are omitted consistently while valid chrome options preserve their types. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-06 | Accept title and window geometry for viewer(). | Keep Salamatrix runtime viewer options in parity. |  | Composer |
 
@@ -116,7 +117,7 @@ class SalamatrixSideView {
     public function setDetached($detached) { return $this->sides->setDetached($detached); }
 }
 class SalamatrixUi {
-    private $client; public function __construct($client) { $this->client = $client; }
+    private $client; private $invocation; public function __construct($client, $invocation = array()) { $this->client = $client; $this->invocation = $invocation; }
     public function messageBox($message, $title = 'Salamander', $buttons = 'OK', $icon = 'Information') { $r = $this->client->call('salamander.ui.messageBox', array('message' => $message, 'title' => $title, 'buttons' => $buttons, 'icon' => $icon)); return isset($r['result']) ? $r['result'] : 0; }
     public function notify($message, $title = 'Salamander', $timeoutMs = 5000) { $r = $this->client->call('salamander.ui.notify', array('message' => $message, 'title' => $title, 'timeoutMs' => max(0, (int)$timeoutMs))); return !empty($r['shown']); }
     public function controls() { $r = $this->client->call('salamander.ui.controls', array()); return !empty($r['shown']); }
@@ -127,6 +128,10 @@ class SalamatrixUi {
         $payload = array('path' => (string)$path, 'renderer' => is_string($value) && $value !== '' ? $value : 'auto');
         foreach (array('title', 'documentName') as $key) {
             if (isset($options[$key]) && is_string($options[$key]) && $options[$key] !== '') $payload[$key] = $options[$key];
+        }
+        if (isset($this->invocation['searchPhrase']) && is_string($this->invocation['searchPhrase']) && $this->invocation['searchPhrase'] !== '') {
+            $payload['searchPhrase'] = $this->invocation['searchPhrase'];
+            if (isset($this->invocation['searchFlags']) && is_int($this->invocation['searchFlags']) && $this->invocation['searchFlags'] >= 0) $payload['searchFlags'] = $this->invocation['searchFlags'];
         }
         $window = (isset($options['window']) && is_array($options['window'])) ? $options['window'] : $options;
         foreach (array('left', 'top', 'width', 'height', 'showCmd') as $key) {
@@ -314,7 +319,7 @@ $Salamander->left_side = new SalamatrixSideView($Salamander->sides, 'left');
 $Salamander->right_side = new SalamatrixSideView($Salamander->sides, 'right');
 $Salamander->source_side = new SalamatrixSideView($Salamander->sides, 'source');
 $Salamander->target_side = new SalamatrixSideView($Salamander->sides, 'target');
-$Salamander->ui = new SalamatrixUi($client);
+$Salamander->ui = new SalamatrixUi($client, $Salamander->invocation);
 $Salamander->clipboard = new SalamatrixClipboard($client);
 $Salamander->ai = new SalamatrixAi($client);
 $Salamander->events = new SalamatrixEvents($client);

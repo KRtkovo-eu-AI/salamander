@@ -1,3 +1,9 @@
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Keep PrismSharp's prefilled Find bar hidden on startup. | Match the other viewers when opening a document from the Find window. |  | openai/gpt-5.6-luna-pro |
+| 2026-11-07 | Select PrismSharp double-click words before native selection painting. | Post-dblclick trimming briefly displayed the trailing whitespace selection. | https://github.com/KRtkovo-eu-AI/salamander/issues/735 | openai/gpt-5.6-luna-pro |
+| 2026-11-07 | Trim trailing whitespace from PrismSharp double-click selections. | Native DOM word selection could include the space immediately after a word. | https://github.com/KRtkovo-eu-AI/salamander/issues/735 | openai/gpt-5.6-luna-pro |
+*/
 (function () {
   "use strict";
 
@@ -40,6 +46,7 @@
   const gotoInput = document.getElementById("goto-input");
   const gotoClose = document.getElementById("goto-close");
   let isFindBarOpen = false;
+  let isFindSearchActive = false;
   let isGotoBarOpen = false;
   let gotoTotal = 1;
   // After Edit > Select All the DOM only holds the mounted chunks, so Copy
@@ -401,6 +408,7 @@
     readySent = false;
     selectionActive = false;
     selectAllActive = false;
+    isFindSearchActive = false;
     hideGotoBar();
     gotoTotal = 1;
     pendingPalette = null;
@@ -504,6 +512,7 @@
     scheduleVisibleSync();
 
     if (settings.searchPhrase && settings.searchPhrase.length > 0) {
+      isFindSearchActive = true;
       if (findInput) {
         findInput.value = settings.searchPhrase;
       }
@@ -513,7 +522,6 @@
       if (findWord) {
         findWord.classList.toggle("active", Boolean(settings.searchWholeWords));
       }
-      showFindBar(false);
       triggerSearch();
     }
   }
@@ -1082,6 +1090,85 @@
     return spacer.contains(range.startContainer) || spacer.contains(range.endContainer);
   }
 
+  function selectDoubleClickWord(event) {
+    if (event.detail !== 2) {
+      return;
+    }
+    const textNodes = [];
+    const collectTextNodes = function (node) {
+      if (node.nodeType === 3) {
+        textNodes.push(node);
+        return;
+      }
+      node.childNodes.forEach(collectTextNodes);
+    };
+    collectTextNodes(spacer);
+
+    let caret = null;
+    const pointRange = typeof document.caretRangeFromPoint === "function"
+      ? document.caretRangeFromPoint(event.clientX, event.clientY)
+      : null;
+    if (pointRange) {
+      caret = { node: pointRange.startContainer, offset: pointRange.startOffset };
+    } else if (typeof document.caretPositionFromPoint === "function") {
+      const position = document.caretPositionFromPoint(event.clientX, event.clientY);
+      if (position) {
+        caret = { node: position.offsetNode, offset: position.offset };
+      }
+    }
+    if (!caret || caret.node.nodeType !== 3) {
+      return;
+    }
+
+    const nodeIndex = textNodes.indexOf(caret.node);
+    if (nodeIndex < 0) {
+      return;
+    }
+    const text = textNodes.map(function (node) { return node.data; }).join("");
+    let position = textNodes.slice(0, nodeIndex).reduce(function (length, node) {
+      return length + node.data.length;
+    }, caret.offset);
+    const isWordCharacter = function (character) {
+      return /[\p{L}\p{M}\p{N}_]/u.test(character);
+    };
+    if (position >= text.length || !isWordCharacter(text[position])) {
+      position -= 1;
+    }
+    if (position < 0 || !isWordCharacter(text[position])) {
+      return;
+    }
+
+    let start = position;
+    let end = position + 1;
+    while (start > 0 && isWordCharacter(text[start - 1])) {
+      start -= 1;
+    }
+    while (end < text.length && isWordCharacter(text[end])) {
+      end += 1;
+    }
+
+    const boundary = function (absolute) {
+      let remaining = absolute;
+      for (const node of textNodes) {
+        if (remaining <= node.data.length) {
+          return { node: node, offset: remaining };
+        }
+        remaining -= node.data.length;
+      }
+      const last = textNodes[textNodes.length - 1];
+      return { node: last, offset: last.data.length };
+    };
+    const range = document.createRange();
+    const rangeStart = boundary(start);
+    const rangeEnd = boundary(end);
+    range.setStart(rangeStart.node, rangeStart.offset);
+    range.setEnd(rangeEnd.node, rangeEnd.offset);
+    const selection = document.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    event.preventDefault();
+  }
+
   function onSelectionChange() {
     if (selectAllActive) {
       const current = window.getSelection();
@@ -1385,6 +1472,7 @@
     clearFindHighlight();
     findBar.classList.add("hidden");
     isFindBarOpen = false;
+    isFindSearchActive = false;
     window.focus();
     if (range && !range.collapsed && spacer.contains(range.startContainer)) {
       const sel = window.getSelection();
@@ -1555,7 +1643,7 @@
         // user types there the match is only highlighted; otherwise it is
         // selected as well so it can be copied.
         const typing = findBar && findBar.contains(document.activeElement);
-        const highlighted = length >= 0 && (isFindBarOpen || typing) && setFindHighlight(range);
+        const highlighted = length >= 0 && (isFindBarOpen || isFindSearchActive || typing) && setFindHighlight(range);
         if (highlighted) {
           findHighlightRange = range;
           findHighlightMatch = { line: line, col: col, length: length };
@@ -1708,6 +1796,7 @@
   window.addEventListener("mousedown", function () {
     selectAllActive = false;
   }, true);
+  spacer.addEventListener("mousedown", selectDoubleClickWord);
   window.addEventListener("keydown", function (event) {
     const inInput = event.target && event.target.tagName === "INPUT";
     if (event.ctrlKey && !event.altKey && (event.key === "a" || event.key === "A") && !inInput) {
@@ -1724,6 +1813,9 @@
       showFindBar(true);
     } else if (event.key === "F3") {
       event.preventDefault();
+      if (!isFindBarOpen) {
+        showFindBar(true);
+      }
       triggerNextMatch(!event.shiftKey);
     } else if (event.key === "Escape" && isGotoBarOpen) {
       event.preventDefault();

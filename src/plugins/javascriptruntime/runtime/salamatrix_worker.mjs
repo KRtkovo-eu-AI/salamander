@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Forward invocation Find phrase and flags through ui.viewer. | All Salamatrix runtimes must preserve Find context for shared viewers. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
 // | 2026-11-06 | Normalize shared viewer options across all five workers. | Invalid optional fields are omitted consistently while valid chrome options preserve their types. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 /*
  * Salamatrix JavaScript worker bootstrap.
@@ -436,6 +437,11 @@ const ui = {
     };
     if (typeof opts.title === "string" && opts.title) payload.title = opts.title;
     if (typeof opts.documentName === "string" && opts.documentName) payload.documentName = opts.documentName;
+    if (typeof Salamander.invocation?.searchPhrase === "string" && Salamander.invocation.searchPhrase) {
+      payload.searchPhrase = Salamander.invocation.searchPhrase;
+      if (Number.isInteger(Salamander.invocation.searchFlags) && Salamander.invocation.searchFlags >= 0)
+        payload.searchFlags = Salamander.invocation.searchFlags;
+    }
     const window = opts.window && typeof opts.window === "object" && !Array.isArray(opts.window)
       ? opts.window : opts;
     for (const key of ["left", "top", "width", "height", "showCmd"]) {

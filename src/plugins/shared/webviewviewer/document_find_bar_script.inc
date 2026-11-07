@@ -2,6 +2,7 @@
 static const char kDocumentFindBarScriptUtf8[] = R"DOC_FIND_BAR_JS(
 /* Prism Sharp–compatible Find bar for WebView2 document viewers.
  * Same chrome as virtual-viewer.html / virtual-viewer.js openFindBar.
+ * 2026-11-07: Keep Find query prefilled while the bar remains hidden.
  * Live match paint uses CSS Custom Highlight API (viewer-find-match), so
  * typing keeps focus in #find-input just like Prism Text Viewer. */
 (function () {
@@ -269,6 +270,20 @@ static const char kDocumentFindBarScriptUtf8[] = R"DOC_FIND_BAR_JS(
     }
     showFindBar(true);
     triggerSearch();
+  }
+
+  function setFindQuery(message) {
+    const ui = ensureBar();
+    message = message || {};
+    if (ui.findInput && typeof message.query === "string") {
+      ui.findInput.value = message.query;
+    }
+    if (ui.findCase) {
+      ui.findCase.classList.toggle("active", Boolean(message.matchCase));
+    }
+    if (ui.findWord) {
+      ui.findWord.classList.toggle("active", Boolean(message.wholeWord));
+    }
   }
 
   function remember(query, matchCase, wholeWord) {
@@ -667,6 +682,7 @@ static const char kDocumentFindBarScriptUtf8[] = R"DOC_FIND_BAR_JS(
   }
 
   window.__salamanderOpenFind = openFindBar;
+  window.__salamanderSetFindQuery = setFindQuery;
   window.__salamanderHideFind = hideFindBar;
   window.__salamanderFindNext = function () {
     triggerNextMatch(true);
