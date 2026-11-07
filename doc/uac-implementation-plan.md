@@ -1,6 +1,7 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-07 | Document the UAC architecture, source audit, implementation stages and validation gates. | Plan per-operation elevation without implementing it. |  | GPT-6 (Codex) |
+| 2026-11-07 | Record the first P0 experiment. | Link the prototype and remaining gates. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -269,10 +270,8 @@ Podmínky vydání:
 6. Distribuční artefakty, manifesty, závislosti a podpisy odpovídají auditovanému modelu. Běžně zapisovatelná konfigurace nemění privilegovanou politiku.
 7. Dokumentace přesně uvádí podporované i dosud odložené operace. Testy odložených schopností se nevykazují jako úspěšné testy UAC.
 
-## 13. Stav této plánovací větve
+## 13. Stav implementační větve
 
-Součástí této práce je statický audit uvedeného upstream commitu a rešerše primární dokumentace Microsoftu. Runtime UAC prototyp, build upraveného programu ani interaktivní zkoušky se nyní neprovádějí, protože implementace zatím není požadována.
+Původní plán vychází ze statického auditu upstreamu a rešerše dokumentace Microsoftu. První experiment P0 je popsán v [laboratorním postupu](../tools/uac-lab/README.md). Obsahuje ověření místního spojení, testy odmítnutí chybného protějšku a seznam otevřených podmínek před zapojením brokeru do souborových operací.
 
-Do větve patří pouze tento plán. Po publikování se podle `C:\Samandarin\AGENTS.md` vytvoří nebo znovu použije interní draft PR ve forku proti `samandarin-0.16` pomocí `Ensure-ForkCI.ps1`. Draft zůstane otevřený pro pozdější implementaci a nebude mergován do referenční větve. Upstream implementační PR se v této fázi nezakládá.
-
-U dokumentační změny očekává současný upstream workflow přeskočení kompilace a CodeQL analýzy; testovací workflow může stále běžet. Aktuální stav kontrol patří do odkazu na konkrétní interní PR, nikoli do tvrzení, že UAC již prošlo testy.
+Implementační větev používá stávající [interní draft PR](https://github.com/majklvi/salamander/pull/67) proti referenční větvi samandarin-0.16. U každého běhu kontrol rozlišit skutečně sestavené a analyzované projekty od přeskočených kroků. Výsledky laboratorního prototypu se vykazují zvlášť.
