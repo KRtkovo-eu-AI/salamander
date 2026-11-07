@@ -1,10 +1,12 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Bound copy size and monitor the broker connection. | Abort staging on timeout, disconnect or unexpected data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Copy one ordinary file between verified NTFS directory handles. | Stage and publish a complete copy without replacing a destination. | | GPT-6.1 Sol (Codex) |
 */
 #pragma once
 
 #include "renameleaf.h"
+#include "f7pilot.h"
 #include <objbase.h>
 #include <memory>
 #include <vector>
@@ -16,14 +18,11 @@ namespace UacCopyLeaf
 {
 namespace Detail
 {
-constexpr DWORD plainAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE |
-                                  FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
-
 inline DWORD ReadPlainMetadata(HANDLE file, FILE_BASIC_INFO& basic)
 {
     if (!GetFileInformationByHandleEx(file, FileBasicInfo, &basic, sizeof(basic)))
         return GetLastError();
-    if (!basic.FileAttributes || (basic.FileAttributes & ~plainAttributes))
+    if (!UacF7::IsPlainCopyFile(basic.FileAttributes))
         return ERROR_NOT_SUPPORTED;
 
     alignas(LONGLONG) BYTE streamBuffer[1024]{};
@@ -60,8 +59,18 @@ inline DWORD StageFile(HANDLE parent, HANDLE& file)
                                            0, FILE_CREATE, FILE_DELETE_ON_CLOSE);
 }
 
-inline DWORD CheckCancelled(HANDLE cancel)
+inline DWORD CheckCancelled(HANDLE cancel, HANDLE connection, ULONGLONG deadline)
 {
+    if (GetTickCount64() >= deadline)
+        return ERROR_TIMEOUT;
+    if (connection)
+    {
+        DWORD pending = 0;
+        if (!PeekNamedPipe(connection, nullptr, 0, nullptr, &pending, nullptr))
+            return GetLastError();
+        if (pending)
+            return ERROR_INVALID_DATA;
+    }
     if (!cancel)
         return ERROR_SUCCESS;
     const DWORD result = WaitForSingleObject(cancel, 0);
@@ -72,19 +81,22 @@ inline DWORD CheckCancelled(HANDLE cancel)
     return result == WAIT_OBJECT_0 ? ERROR_CANCELLED : ERROR_INVALID_HANDLE;
 }
 
-inline DWORD CopyData(HANDLE source, HANDLE target, HANDLE cancel)
+inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
+                       HANDLE cancel, HANDLE connection, ULONGLONG deadline)
 {
     std::vector<BYTE> buffer(64 * 1024);
     const DWORD bufferSize = static_cast<DWORD>(buffer.size());
-    for (;;)
+    while (remaining)
     {
-        if (const DWORD error = CheckCancelled(cancel))
+        if (const DWORD error = CheckCancelled(cancel, connection, deadline))
             return error;
         DWORD read = 0;
-        if (!ReadFile(source, buffer.data(), bufferSize, &read, nullptr))
+        const DWORD requested = remaining < bufferSize ? static_cast<DWORD>(remaining) : bufferSize;
+        if (!ReadFile(source, buffer.data(), requested, &read, nullptr))
             return GetLastError();
         if (!read)
-            return ERROR_SUCCESS;
+            return ERROR_HANDLE_EOF;
+        remaining -= read;
 
         for (DWORD offset = 0; offset < read;)
         {
@@ -96,6 +108,7 @@ inline DWORD CopyData(HANDLE source, HANDLE target, HANDLE cancel)
             offset += written;
         }
     }
+    return ERROR_SUCCESS;
 }
 }
 
@@ -106,7 +119,9 @@ inline DWORD CopyData(HANDLE source, HANDLE target, HANDLE cancel)
 inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::ParentIdentity& expectedSourceParent,
                               const FILE_ID_INFO& expectedSource, std::wstring_view sourceName,
                               HANDLE targetParent, const UacDirectoryLeaf::ParentIdentity& expectedTargetParent,
-                              std::wstring_view targetName, HANDLE cancel = nullptr)
+                              std::wstring_view targetName, HANDLE cancel = nullptr,
+                              HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG,
+                              ULONGLONG expectedSize = MAXULONGLONG)
 {
     using namespace UacDirectoryLeaf;
     if (!IsComponent(sourceName) || !IsComponent(targetName))
@@ -125,7 +140,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
         expectedSource.VolumeSerialNumber != actualSourceParent.file.VolumeSerialNumber)
         return ERROR_FILE_INVALID;
 
-    if ((error = Detail::CheckCancelled(cancel)) != ERROR_SUCCESS)
+    if ((error = Detail::CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
         return error;
 
     HANDLE rawSource = nullptr;
@@ -142,6 +157,14 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
     if ((error = Detail::ReadPlainMetadata(source.get(), basic)) != ERROR_SUCCESS)
         return error;
 
+    LARGE_INTEGER size{};
+    if (!GetFileSizeEx(source.get(), &size))
+        return GetLastError();
+    if (size.QuadPart < 0 || static_cast<ULONGLONG>(size.QuadPart) > UacF7::maxPilotCopyBytes)
+        return ERROR_FILE_TOO_LARGE;
+    if (expectedSize != MAXULONGLONG && static_cast<ULONGLONG>(size.QuadPart) != expectedSize)
+        return ERROR_FILE_INVALID;
+
     HANDLE rawTarget = nullptr;
     if ((error = Detail::StageFile(targetParent, rawTarget)) != ERROR_SUCCESS)
         return error;
@@ -149,9 +172,9 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
     FILE_BASIC_INFO targetBasic{};
     if (!GetFileInformationByHandleEx(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
         return GetLastError();
-    if (targetBasic.FileAttributes & ~Detail::plainAttributes)
+    if (!UacF7::IsPlainCopyFile(targetBasic.FileAttributes))
         return ERROR_NOT_SUPPORTED; // Reject unsupported properties inherited at creation.
-    if ((error = Detail::CopyData(source.get(), target.get(), cancel)) != ERROR_SUCCESS)
+    if ((error = Detail::CopyData(source.get(), target.get(), static_cast<ULONGLONG>(size.QuadPart), cancel, connection, deadline)) != ERROR_SUCCESS)
         return error;
 
     FILE_BASIC_INFO current{};
@@ -167,7 +190,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
     basic.FileAttributes = (basic.FileAttributes & ~FILE_ATTRIBUTE_NORMAL) | FILE_ATTRIBUTE_ARCHIVE;
     if (!SetFileInformationByHandle(target.get(), FileBasicInfo, &basic, sizeof(basic)) || !FlushFileBuffers(target.get()))
         return GetLastError();
-    if ((error = Detail::CheckCancelled(cancel)) != ERROR_SUCCESS)
+    if ((error = Detail::CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
         return error;
     if ((error = UacRenameLeaf::Detail::NativeRename(target.get(), targetParent, targetName)) != ERROR_SUCCESS)
         return error;

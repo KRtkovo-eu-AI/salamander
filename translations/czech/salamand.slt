@@ -4186,6 +4186,8 @@ SLGINCOMPLETE,""
 14534,1,"Spojení s pomocným procesem se přerušilo před potvrzením smazání. Před opakováním zkontrolujte, zda soubor stále existuje."
 14535,1,"Přístup byl odepřen. Zobrazit výpis této složky a jejích podsložek jako správce?"
 14536,1,"Výpis správce"
+14537,1,"Přístup byl odepřen. Zkopírovat tento soubor jako správce?"
+14538,1,"Broker se odpojil před potvrzením kopie. Před opakováním zkontrolujte cíl."
 
 [STRINGTABLE 184]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."

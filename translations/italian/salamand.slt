@@ -4186,6 +4186,8 @@ SLGINCOMPLETE,""
 14534,1,"La connessione con il processo ausiliario si è interrotta prima della conferma dell’eliminazione. Verificare se il file esiste ancora prima di riprovare."
 14535,1,"Accesso negato. Elencare questa cartella e le sottocartelle come amministratore?"
 14536,1,"Elenco amministratore"
+14537,1,"Accesso negato. Copiare questo file come amministratore?"
+14538,1,"Il processo ausiliario si è disconnesso prima della conferma della copia. Controllare la destinazione prima di riprovare."
 
 [STRINGTABLE 184]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."

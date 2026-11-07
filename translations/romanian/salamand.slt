@@ -4186,6 +4186,8 @@ SLGINCOMPLETE,""
 14534,1,"Conexiunea cu procesul auxiliar s-a întrerupt înainte de confirmarea ștergerii. Verificați dacă fișierul mai există înainte de a încerca din nou."
 14535,1,"Acces refuzat. Listați acest dosar și subdosarele sale ca administrator?"
 14536,1,"Listare ca administrator"
+14537,1,"Acces refuzat. Copiați acest fișier ca administrator?"
+14538,1,"Procesul auxiliar s-a deconectat înainte de confirmarea copierii. Verificați destinația înainte de a reîncerca."
 
 [STRINGTABLE 184]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."

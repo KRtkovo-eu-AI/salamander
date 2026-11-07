@@ -20,11 +20,12 @@
 | 2026-11-07 | Document the selected-item palette for the approved path. | Make the scope visible using the active color scheme. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Keep the regular directory bar background behind the UAC text. | Use the selected-item foreground only. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the P4a staged one-file copy primitive. | Define the copy and commit behavior before connecting it to F5. | | GPT-6.1 Sol (Codex) |
+| 2026-11-08 | Document the P4b single-file broker copy. | Record both access-denied routes, bounds and acceptance. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
 
-Stav k 8. listopadu 2026: pilot F7 (P3a), přejmenování jednoho souboru (P3b), změna jeho běžných atributů a časů (P3c), pilot trvalého mazání (P3d), pilot procházení chráněného podstromu (P3e) a nativní základ kopírování jednoho souboru (P4a). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
+Stav k 8. listopadu 2026: pilot F7 (P3a), přejmenování jednoho souboru (P3b), změna jeho běžných atributů a časů (P3c), pilot trvalého mazání (P3d), pilot procházení chráněného podstromu (P3e) a kopírování jednoho souboru přes F5 a broker (P4a–P4b). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
 
 Základem je upstream [release/5.0-samandarin-0.16](https://github.com/KRtkovo-eu-AI/salamander/tree/release/5.0-samandarin-0.16), ověřený commit [`16b4cd0176dc82752a11ee6bc09615780b6987a2`](https://github.com/KRtkovo-eu-AI/salamander/commit/16b4cd0176dc82752a11ee6bc09615780b6987a2). Stejný commit měla při založení práce referenční větev `majklvi/salamander:samandarin-0.16`. Pracovní větev je `feature/uac-support`, lokální checkout `C:\Samandarin\uac-support`. Všechny níže uvedené řádky zdrojů odkazují na tento pevný upstream commit, nikoli na proměnlivý HEAD.
 
@@ -343,7 +344,19 @@ Executor založí dočasný soubor relativně k ověřenému cílovému adresá�
 
 Nativní zkoušky na NTFS prošly v Debug i Release. Zahrnují shodu víceblokových dat, prázdný soubor, časy a běžné atributy, dlouhou cestu s Unicode, odmítnutí chybné identity zdroje či cíle, souběžného zapisovače, zrušení před zápisem, kolizi, úklid po přejmenování před potvrzením a odmítnutí souboru s alternativním datovým proudem.
 
-P4a poskytuje základ pro P4b. P4b má přidat jednorázový požadavek brokeru pro dvojici ověřených adresářů a jednu položku F5, s výslovným zobrazením zdroje a cíle, pravdivým průběhem a výsledkem při ztrátě spojení. Privilegovanou přípravu podstromů, přepis, dávky a přesun rozšíří navazující díly P4 po samostatných testech.
+P4a poskytuje základ pro P4b. P4b přidává jednorázový požadavek brokeru pro dvojici ověřených adresářů a jednu položku F5, s výslovným zobrazením zdroje a cíle, pravdivým průběhem a výsledkem při ztrátě spojení. Privilegovanou přípravu podstromů, přepis, dávky a přesun rozšíří navazující díly P4 po samostatných testech.
+
+### 8.13 P4b — jeden soubor přes F5 a broker
+
+Pilot pokrývá jeden běžný soubor do 16 MiB v diskových panelech a existující rodiče na lokálním NTFS. Stávající F5 nejprve zkusí běžný přístup. Odepření čtení zdroje nebo vytvoření cíle může nabídnout správce. Pokud se při přípravě nepodaří přečíst seznam proudů kvůli odepřenému přístupu ke zdroji, kontrolu úplnosti provede broker. Dialog ukáže obě přesné cesty, nabídne tlačítko se štítem a výchozí volbu Cancel.
+
+Host drží identitu zdroje a obou rodičů přes potvrzení. Broker zkontroluje identity a očekávanou délku a použije executor P4a. Úspěch započítá worker až po přijetí výsledku. Broker kontroluje spojení během kopírování i před zveřejněním souboru. Lhůta pilotu pro kopírování je 30 sekund a kontroluje se mezi kroky I/O. Při ztrátě odpovědi host vyzve ke kontrole cíle před dalším pokusem. Stávající fronta drží přístup k dotčeným diskům až do vyhodnocení operace. [Kontrola stavu spojení přes PeekNamedPipe](https://learn.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-peeknamedpipe).
+
+Rozsah zahrnuje kopii do nového názvu s běžnými volbami. Přepis, rekurze, přesun, speciální metadata, omezení přenosové rychlosti a režim kontroly konfliktů předem patří mimo tento pilot. Broker kontroluje alternativní proudy i u chráněného zdroje a soubor s dalšími proudy odmítne.
+
+Nativní testy v Debug a Release pokryly také nesoulad očekávané velikosti, vypršení lhůty a ztrátu spojení před zveřejněním cíle. Prošly stávající testy autentizace brokeru a plánování workeru.
+
+V izolované Windows 11 x64 VM prošly všechny čtyři zkoušky F5 v panelu. Volba Ne pro 01-target-cancel.txt a 03-source-cancel.txt ponechala zdroj a cíl nevznikl. Volba Ano pro 02-target-approve.txt vytvořila v chráněné složce kopii o 340 000 bajtech a pro 04-source-approve.txt vytvořila z chráněného zdroje kopii o 240 000 bajtech. SHA-256 obou kopií souhlasil s výchozím souborem. Běžná kontrolní kopie přes F5 proběhla bez výzvy. Po dokončení v cílech nebyly dočasné soubory a broker skončil.
 
 ## 9. Uživatelský tok a stav operace
 

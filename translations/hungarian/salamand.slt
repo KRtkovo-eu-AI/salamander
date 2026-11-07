@@ -4186,6 +4186,8 @@ SLGINCOMPLETE,""
 14534,1,"A segédfolyamattal megszakadt a kapcsolat a törlés megerősítése előtt. Újrapróbálkozás előtt ellenőrizd, hogy a fájl még létezik-e."
 14535,1,"A hozzáférés megtagadva. Listázod ezt a mappát és almappáit rendszergazdaként?"
 14536,1,"Rendszergazdai lista"
+14537,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként?"
+14538,1,"A segédfolyamat kapcsolata a másolás visszaigazolása előtt megszakadt. Újrapróbálkozás előtt ellenőrizze a célt."
 
 [STRINGTABLE 184]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."

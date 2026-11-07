@@ -4186,6 +4186,8 @@ SLGINCOMPLETE,""
 14534,1,"Le processus auxiliaire s’est déconnecté avant la confirmation de la suppression. Vérifiez si le fichier existe toujours avant de réessayer."
 14535,1,"Accès refusé. Afficher ce dossier et ses sous-dossiers en tant qu’administrateur ?"
 14536,1,"Liste administrateur"
+14537,1,"Accès refusé. Copier ce fichier en tant qu’administrateur ?"
+14538,1,"Le processus auxiliaire s’est déconnecté avant la confirmation de la copie. Vérifiez la destination avant de réessayer."
 
 [STRINGTABLE 184]
 14991,1,"Lecture des associations depuis le stockage de fichiers, veuillez patienter..."

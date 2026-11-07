@@ -4,6 +4,7 @@
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-07 | Run eligible permanent deletion with the verified file executor. | Preserve the original file identity across ordinary attempts and elevated consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Run one-file basic metadata changes through the verified executor. | Offer elevation only after an ordinary access denial and retain worker accounting. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Offer one verified broker copy after ordinary access is denied. | Keep the existing worker lease and only count an acknowledged copy. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -488,6 +489,7 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     ClearReadonlyMask = 0xFFFFFFFF;
     InvertRecycleBin = FALSE;
     AllowPermanentDeletePilot = FALSE;
+    AllowCopyPilot = FALSE;
     CanUseRecycleBin = TRUE;
     SameRootButDiffVolume = FALSE;
     TargetPathSupADS = FALSE;
@@ -5596,6 +5598,49 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
     }
 }
 
+static bool TryCopyWithBroker(HWND progress, const COperation& op, COperations& script,
+                              CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success)
+{
+    if (!script.AllowCopyPilot || script.Count != 1 || script.CopySecurity || script.CopyAttrs || script.OverwriteOlder ||
+        (op.OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED)) != 0 || !UacF7::IsPlainCopyFile(op.Attr) ||
+        op.FileSize.Value > UacF7::maxPilotCopyBytes || !op.SourceNameWValid || !op.TargetNameWValid)
+        return false;
+
+    BOOL limited = FALSE;
+    DWORD limit = 0;
+    script.GetSpeedLimit(&limited, &limit);
+    if (limited)
+        return false;
+
+    const std::wstring targetPath = WorkerOperationPathW(op.TargetName, op.TargetNameW.c_str());
+    if (GetFileAttributesW(targetPath.c_str()) != INVALID_FILE_ATTRIBUTES)
+        return false;
+    const DWORD targetError = GetLastError();
+    if (targetError != ERROR_FILE_NOT_FOUND && targetError != ERROR_ACCESS_DENIED)
+        return false;
+
+    UacF7::PreparedCopy request;
+    if (!request.Prepare(op.SourceNameW, op.TargetNameW, op.FileSize.Value))
+        return false;
+    success = FALSE;
+    WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+    if (*dlgData.CancelWorker)
+        return true;
+    const auto sourceDisplay = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
+    const auto targetDisplay = SalPathRemoveExtendedPrefixW(op.TargetNameW.c_str());
+    const auto sourceText = SalWideToMultiBytePath(sourceDisplay.c_str(), CP_UTF8);
+    const auto targetText = SalWideToMultiBytePath(targetDisplay.c_str(), CP_UTF8);
+    UacF7::CopyPrompt prompt{request, sourceText.c_str(), targetText.c_str()};
+    SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_COPY, reinterpret_cast<LPARAM>(&prompt));
+    if (!prompt.result.unknown && prompt.result.error == ERROR_SUCCESS)
+    {
+        totalDone += op.Size;
+        script.AddBytesToTFSandSetProgressSize(op.FileSize, totalDone);
+        success = TRUE;
+    }
+    return true;
+}
+
 BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
                 COperations* script, CQuadWord& totalDone,
                 DWORD clearReadonlyMask, BOOL* skip, BOOL lantasticCheck,
@@ -5610,6 +5655,17 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
     // CreateFile would trim the spaces/dots and copy a different file or under a different name
     BOOL invalidSrcName = FileNameIsInvalid(op->SourceName, TRUE);
     BOOL invalidTgtName = FileNameIsInvalid(op->TargetName, TRUE);
+
+    if ((op->OpFlags & OPFL_UAC_COPY_SOURCE) != 0)
+    {
+        BOOL success = FALSE;
+        if (!invalidSrcName && !invalidTgtName && TryCopyWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
+            return success;
+        int answer = IDCANCEL;
+        char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(IDS_ERRORCOPY), op->SourceName, GetErrorText(ERROR_ACCESS_DENIED)};
+        SendMessage(hProgressDlg, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
+        return FALSE;
+    }
 
     // optimization: skipping all "older and identical" files is about 4x faster,
     // slowing down when the file is newer is 5%, so it should be well worth it
@@ -5763,6 +5819,18 @@ COPY_AGAIN:
                         out = SalCreateFileEx(op->TargetName, GENERIC_WRITE | (script->CopyAttrs ? GENERIC_READ : 0), 0, fileAttrs, &encryptionNotSupported);
                         if (!encryptionNotSupported && script->CopyAttrs && out == INVALID_HANDLE_VALUE) // in case read access to the directory is not allowed (we added it only for setting the Compressed attribute), try creating a write-only file
                             out = SalCreateFileEx(op->TargetName, GENERIC_WRITE, 0, fileAttrs, &encryptionNotSupported);
+                    }
+
+                    if (out == INVALID_HANDLE_VALUE && !invalidTgtName && !copyADS && !copyAsEncrypted &&
+                        !isMove && GetLastError() == ERROR_ACCESS_DENIED)
+                    {
+                        BOOL success = FALSE;
+                        if (TryCopyWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
+                        {
+                            HANDLES(CloseHandle(in));
+                            return success;
+                        }
+                        SetLastError(ERROR_ACCESS_DENIED);
                     }
 
                     if (out == INVALID_HANDLE_VALUE && encryptionNotSupported && dlgData.FileOutLossEncrAll && !lossEncryptionAttr)
@@ -6749,6 +6817,13 @@ COPY_AGAIN:
             WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
             if (*dlgData.CancelWorker)
                 return FALSE;
+
+            if (err == ERROR_ACCESS_DENIED && !isMove && !copyADS && !copyAsEncrypted && !invalidTgtName)
+            {
+                BOOL success = FALSE;
+                if (TryCopyWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
+                    return success;
+            }
 
             if (dlgData.SkipAllFileOpenIn)
                 goto SKIP_OPEN_IN;
@@ -9516,7 +9591,7 @@ static BOOL CanUseParallelCopy(const COperations* script, const COperation* oper
            script->CopyMoveTransferMode == CMS_STORAGE_AWARE &&
            !script->CopySecurity && !script->CopyAttrs && !script->OverwriteOlder &&
            operation->Opcode == ocCopyFile &&
-           (operation->OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED)) == 0 &&
+           (operation->OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED | OPFL_UAC_COPY_SOURCE)) == 0 &&
            !FileNameIsInvalid(operation->SourceName, TRUE) && !FileNameIsInvalid(operation->TargetName, TRUE);
 }
 

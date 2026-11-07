@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-06 | Combine drop scheduling with owned Unicode source paths. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
+// | 2026-11-08 | Defer inaccessible source metadata to the verified copy. | A protected file cannot proceed without broker validation. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -16,6 +17,7 @@
 #include "fileswnd.h"
 #include "dialogs.h"
 #include "worker.h"
+#include "uacbroker/f7pilot.h"
 #include "workerpath.h"
 #include "branch_view_text.h"
 #include "cache.h"
@@ -3158,6 +3160,14 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             DWORD err = GetLastError();
                             if (invalidSrcName)
                                 err = ERROR_INVALID_NAME;
+                            if (err == ERROR_ACCESS_DENIED && type == atCopy && script->AllowCopyPilot &&
+                                !script->CopySecurity && !script->CopyAttrs && !script->OverwriteOlder &&
+                                targetPathState == tpsNotEncryptedExisting && UacF7::IsPlainCopyFile(op.Attr) &&
+                                op.FileSize.Value <= UacF7::maxPilotCopyBytes)
+                            {
+                                op.OpFlags |= OPFL_UAC_COPY_SOURCE;
+                                goto ADS_DISCOVERY_COMPLETE;
+                            }
                             int res;
                             if (ErrFileSkipAll)
                                 res = IDB_SKIP;
@@ -3193,6 +3203,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 }
             }
 
+        ADS_DISCOVERY_COMPLETE:
             if (script->BytesPerCluster == 0)
                 TRACE_E("How is it possible that script->BytesPerCluster is not yet set???");
             else

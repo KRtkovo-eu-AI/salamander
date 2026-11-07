@@ -4186,6 +4186,8 @@ SLGINCOMPLETE,""
 14534,1,"La conexión con el proceso auxiliar se interrumpió antes de confirmar la eliminación. Compruebe si el archivo sigue existiendo antes de volver a intentarlo."
 14535,1,"Acceso denegado. ¿Listar esta carpeta y sus subcarpetas como administrador?"
 14536,1,"Listado de administrador"
+14537,1,"Acceso denegado. ¿Copiar este archivo como administrador?"
+14538,1,"El proceso auxiliar se desconectó antes de confirmar la copia. Comprueba el destino antes de volver a intentarlo."
 
 [STRINGTABLE 184]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."

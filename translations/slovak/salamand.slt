@@ -4186,6 +4186,8 @@ SLGINCOMPLETE,""
 14534,1,"Spojenie s pomocným procesom sa prerušilo pred potvrdením odstránenia. Pred opakovaním skontrolujte, či súbor ešte existuje."
 14535,1,"Prístup bol odmietnutý. Zobraziť výpis tohto priečinka a jeho podpriečinkov ako správca?"
 14536,1,"Výpis správcu"
+14537,1,"Prístup bol odmietnutý. Skopírovať tento súbor ako správca?"
+14538,1,"Pomocný proces sa odpojil pred potvrdením kopírovania. Pred opakovaním skontrolujte cieľ."
 
 [STRINGTABLE 184]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."

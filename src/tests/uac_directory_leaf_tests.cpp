@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Test the broker copy guard conditions. | Reject a stale size, an expired deadline and a lost connection before publishing. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify a staged copy on real NTFS. | Exercise file content, collisions, cancellation and unsupported source metadata. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Check repeated rooted directory reads on real NTFS. | Verify refresh returns fresh wide entries and reparse traversal fails. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Test verified permanent file deletion on NTFS. | Cover replacement, locks, special attributes and long Unicode names. | | GPT-6.1 Sol (Codex) |
@@ -179,6 +180,23 @@ int wmain(int argc, wchar_t** argv)
         return 2;
     copyError = copy(original.get(), L"copy-\u672c.bin", copyId, cancelled.get());
     Check(copyError == ERROR_CANCELLED && !Exists(copyTarget), "cancel before staging a copy", copyError);
+
+    const auto guardedCopy = [&](HANDLE pipe, ULONGLONG deadline, ULONGLONG size)
+    {
+        return UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, copyId, L"copy-\u65e5.bin",
+                                             original.get(), expected, L"copy-\u672c.bin", nullptr, pipe, deadline, size);
+    };
+    copyError = guardedCopy(nullptr, MAXULONGLONG, content.size() - 1);
+    Check(copyError == ERROR_FILE_INVALID && !Exists(copyTarget), "reject a stale source length", copyError);
+    copyError = guardedCopy(nullptr, GetTickCount64(), content.size());
+    Check(copyError == ERROR_TIMEOUT && !Exists(copyTarget), "expired copy deadline leaves no target", copyError);
+    HANDLE rawPipeRead = nullptr, rawPipeWrite = nullptr;
+    if (!CreatePipe(&rawPipeRead, &rawPipeWrite, nullptr, 0))
+        return 2;
+    const Handle pipeRead(rawPipeRead);
+    CloseHandle(rawPipeWrite);
+    copyError = guardedCopy(pipeRead.get(), MAXULONGLONG, content.size());
+    Check(copyError == ERROR_BROKEN_PIPE && !Exists(copyTarget), "disconnected copy request leaves no target", copyError);
 
     copyError = copy(original.get(), L"copy-\u672c.bin", copyId);
     WIN32_FILE_ATTRIBUTE_DATA sourceData{}, targetData{};

@@ -4186,6 +4186,8 @@ SLGINCOMPLETE,""
 14534,1,"De verbinding met het hulpproces werd verbroken voordat het verwijderen was bevestigd. Controleer of het bestand nog bestaat voordat u het opnieuw probeert."
 14535,1,"Toegang geweigerd. Deze map en de submappen als administrator weergeven?"
 14536,1,"Administratorweergave"
+14537,1,"Toegang geweigerd. Dit bestand als administrator kopiëren?"
+14538,1,"De broker verbrak de verbinding voordat de kopie werd bevestigd. Controleer het doel voordat u het opnieuw probeert."
 
 [STRINGTABLE 184]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."

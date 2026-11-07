@@ -4,6 +4,7 @@
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-07 | Mark explicitly permanent single-file delete operations. | Keep Shell recycling outside the UAC delete pilot. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Mark eligible basic metadata operations and define their UI message. | Keep the broker pilot scoped to a single regular file. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Mark one-file F5 requests and deferred source discovery. | Keep other copy and move paths on their normal route. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -47,6 +48,7 @@ void ReleaseWorker();
 
 constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 13;
 constexpr WPARAM WORKER_DIALOG_UAC_DELETE = 14;
+constexpr WPARAM WORKER_DIALOG_UAC_COPY = 15;
 
 struct CChangeAttrsData
 {
@@ -254,6 +256,7 @@ enum COperationCode
 #define OPFL_ALLOW_CASE_ONLY_RENAME 0x00000100 // allow renames where source and target differ only by letter case
 #define OPFL_PARALLEL_DONE 0x00000200 // copy file already completed by rolling lookahead
 #define OPFL_PARALLEL_DIR_PREPARED 0x00000400 // directory created/resolved by rolling lookahead
+#define OPFL_UAC_COPY_SOURCE 0x00000800       // ordinary source access failed before ADS discovery
 enum CCopyMoveItemState
 {
     cmisUnscanned,
@@ -394,6 +397,7 @@ public:
     DWORD ClearReadonlyMask; // for automatically clearing the read-only flag from CD-ROMs
     BOOL InvertRecycleBin;   // invert Recycle Bin usage
     BOOL AllowPermanentDeletePilot;
+    BOOL AllowCopyPilot;
 
     int FilesCount;
     int DirsCount;
