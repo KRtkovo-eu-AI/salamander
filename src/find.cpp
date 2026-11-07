@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Publish Find changes in batches and store logs in the worker. | Keep large searches independent of window message handling. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Post coalesced Find result refreshes asynchronously. | Keep the search worker from blocking the GUI thread during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // CommentsTranslationProject: TRANSLATED
 
@@ -11,6 +12,14 @@
 #include "find.h"
 #include "md5.h"
 #include "common/widepath.h"
+
+static void AddFindLog(CGrepData* data, DWORD flags, const char* text, const char* path)
+{
+    // The worker owns the input buffers only for this call. Copy into bounded
+    // dialog-owned storage without synchronously entering the Find UI thread.
+    data->Log->Add(flags, text, path);
+    InterlockedExchange(&data->RefreshPending, TRUE);
+}
 
 char* FindNamedHistory[FIND_NAMED_HISTORY_SIZE];
 char* FindLookInHistory[FIND_LOOKIN_HISTORY_SIZE];
@@ -856,7 +865,7 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
                 log.Flags = FLI_ERROR;
                 log.Text = buf;
                 log.Path = fullPath;
-                SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+                AddFindLog(data, log.Flags, log.Text, log.Path);
 
                 return FALSE;
             }
@@ -908,7 +917,7 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
         log.Flags = FLI_ERROR;
         log.Text = buf;
         log.Path = fullPath;
-        SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+        AddFindLog(data, log.Flags, log.Text, log.Path);
 
         return FALSE;
     }
@@ -1293,7 +1302,7 @@ BOOL TestFileContentAux(BOOL& ok, CQuadWord& fileOffset, const CQuadWord& totalS
                     log.Flags = FLI_ERROR;
                     log.Text = data->RegExp.GetLastErrorText();
                     log.Path = NULL;
-                    SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+                    AddFindLog(data, log.Flags, log.Text, log.Path);
                     return FALSE; // do not search this file further
                 }
 
@@ -1354,7 +1363,7 @@ BOOL TestFileContentAux(BOOL& ok, CQuadWord& fileOffset, const CQuadWord& totalS
         log.Flags = FLI_ERROR;
         log.Text = LoadStr(IDS_FILEREADERROR2);
         log.Path = path;
-        SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+        AddFindLog(data, log.Flags, log.Text, log.Path);
         ok = FALSE;   // not found
         return FALSE; // do not continue searching
     }
@@ -1438,7 +1447,7 @@ BOOL TestFileContent(DWORD sizeLow, DWORD sizeHigh, const char* path, CGrepData*
             log.Flags = FLI_ERROR;
             log.Text = buf;
             log.Path = path;
-            SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+            AddFindLog(data, log.Flags, log.Text, log.Path);
         }
     }
 
@@ -1447,11 +1456,8 @@ BOOL TestFileContent(DWORD sizeLow, DWORD sizeHigh, const char* path, CGrepData*
 
 static void RequestFindResultsRefresh(CGrepData* data)
 {
-    if (InterlockedExchange(&data->RefreshPosted, TRUE) == FALSE &&
-        !PostMessage(data->HWindow, WM_USER_ADDFILE, 0, 0))
-    {
-        InterlockedExchange(&data->RefreshPosted, FALSE);
-    }
+    // Let the dialog timer publish batches without filling its input queue.
+    InterlockedExchange(&data->RefreshPending, TRUE);
 }
 
 BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeHigh,
@@ -1481,17 +1487,7 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
                 }
                 else
                 {
-                    // request a listview redraw after every 100 added items
-                    // also after 0.5 seconds has passed since the last redraw
-                    // we also call update for each item when grepping
-                    if (data->FoundFilesListView->GetCount() >= data->FoundVisibleCount + 100 ||
-                        GetTickCount() - data->FoundVisibleTick >= 500
-                        /* || data->Grep*/) // a half-second update interval is enough even for grepping
-                    {
-                        RequestFindResultsRefresh(data);
-                    }
-                    else
-                        data->NeedRefresh = TRUE; // we will redraw at latest after 0.5 second
+                    RequestFindResultsRefresh(data);
                 }
             }
             else
@@ -1518,7 +1514,7 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
         log.Flags = FLI_ERROR;
         log.Text = LoadStr(IDS_CANTSHOWRESULTS);
         log.Path = NULL;
-        SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+        AddFindLog(data, log.Flags, log.Text, log.Path);
 
         data->StopSearch = TRUE;
         return FALSE;
@@ -1552,7 +1548,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
         log.Flags = FLI_INFO;
         log.Text = LoadStr(IDS_FINDLOG_SKIP);
         log.Path = path;
-        SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+        AddFindLog(data, log.Flags, log.Text, log.Path);
         return;
     }
 
@@ -1564,7 +1560,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
         log.Flags = FLI_ERROR;
         log.Text = LoadStr(IDS_TOOLONGNAME);
         log.Path = path;
-        SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+        AddFindLog(data, log.Flags, log.Text, log.Path);
         return;
     }
 
@@ -1593,14 +1589,6 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
             BOOL ignoreDir = isDir && (lstrcmp(file.cFileName, ".") == 0 || lstrcmp(file.cFileName, "..") == 0);
             if (ignoreDir || (end - path) + lstrlen(file.cFileName) < _countof(path))
             {
-                // after finding an item without displaying it and once 0.5 s have passed since the last redraw,
-                // we request the listview to redraw
-                if (data->NeedRefresh && GetTickCount() - data->FoundVisibleTick >= 500)
-                {
-                    RequestFindResultsRefresh(data);
-                    data->NeedRefresh = FALSE;
-                }
-
                 if (file.cFileName[0] != 0 && !ignoreDir)
                 {
                     // add all files and directories except "." and ".."
@@ -1718,7 +1706,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
                         log.Text = LoadStr(IDS_TOOLONGNAME);
                         strcpy_s(end, _countof(path) - (end - path), file.cFileName);
                         log.Path = path;
-                        SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+                        AddFindLog(data, log.Flags, log.Text, log.Path);
                     }
                 }
             }
@@ -1731,7 +1719,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
                 strcpy_s(message, path);
                 strcat_s(message, file.cFileName);
                 log.Path = message;
-                SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+                AddFindLog(data, log.Flags, log.Text, log.Path);
             }
             if (data->StopSearch)
             {
@@ -1754,7 +1742,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
             log.Flags = FLI_ERROR;
             log.Text = message;
             log.Path = path;
-            SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+            AddFindLog(data, log.Flags, log.Text, log.Path);
 
             if (end - path > 3)
                 *(end - 1) = '\\';
@@ -1798,7 +1786,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
             log.Flags = FLI_ERROR | FLI_IGNORE;
             log.Text = message;
             log.Path = path;
-            SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+            AddFindLog(data, log.Flags, log.Text, log.Path);
 
             if (end - path > 3)
                 *(end - 1) = '\\';
@@ -1895,7 +1883,6 @@ unsigned GrepThreadFBody(void* ptr)
     //  Sleep(200);  // give the dialog a moment to redraw...
     CGrepData* data = (CGrepData*)ptr;
     HRESULT tagsCOM = data->Criteria.HasTags() ? CoInitializeEx(NULL, COINIT_MULTITHREADED) : S_FALSE;
-    data->NeedRefresh = FALSE;
     data->Criteria.PrepareForTest();
     char path[MAX_PATH];
     char* end;

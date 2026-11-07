@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Share Find publication state and own log storage. | Coordinate result and error updates across the search and dialog threads. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Post coalesced Find result refreshes asynchronously. | Keep the search worker from blocking the GUI thread during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Add SafeHandleContextMenuMsg for shell-extension SEH. | Find dialog HandleMenuMsg must not live inside WindowProc SEH. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -10,8 +11,7 @@
 
 #include <string>
 
-// structure for adding messages to the Find Log; sent as the message parameter
-// of WM_USER_ADDLOG; parameters will be copied into the log data (can be deallocated after returning)
+// Parameters passed to the Find log are copied before Add returns.
 #define FLI_INFO 0x00000000   // INFORMATION item
 #define FLI_ERROR 0x00000001  // ERROR item
 #define FLI_IGNORE 0x00000002 // allow the Ignore button on this item
@@ -22,8 +22,6 @@ struct FIND_LOG_ITEM
     const char* Path; // path to a file or directory, may be NULL
 };
 
-#define WM_USER_ADDLOG WM_APP + 210     // add an item to the log [FIND_LOG_ITEM* item, 0]
-#define WM_USER_ADDFILE WM_APP + 211    // [0, 0]
 #define WM_USER_SETREADING WM_APP + 212 // [0, 0] - request to repaint the status bar ("Reading:")
 #define WM_USER_BUTTONS WM_APP + 213    // call EnableButtons() yourself [HWND hButton]
 #define WM_USER_FLASHICON WM_APP + 214  // after activating the find, flash the status icon
@@ -144,6 +142,8 @@ public:
 #define FIND_DUPLICATES_SIZE 0x00000002    // same size
 #define FIND_DUPLICATES_CONTENT 0x00000004 // same content
 
+class CFindLog;
+
 struct CGrepData
 {
     BOOL FindDuplicates; // do we search for duplicates?
@@ -167,13 +167,11 @@ struct CGrepData
     BOOL StopSearch;    // the main thread sets this to terminate the grep thread
     BOOL SearchStopped; // has it been terminated or not?
     HWND HWindow;       // window the grep thread communicates with
+    CFindLog* Log;      // dialog-owned storage; worker copies messages without calling the UI
     TIndirectArray<CSearchForData>* Data;
     CFoundFilesListView* FoundFilesListView; // found files are loaded here
-    // two criteria for updating the list view
-    int FoundVisibleCount;  // number of items displayed in the list view
-    DWORD FoundVisibleTick; // when it was last displayed
-    BOOL NeedRefresh;       // need to refresh the display (an item was added without being shown)
-    volatile LONG RefreshPosted; // is a result-list refresh already queued?
+    int FoundVisibleCount; // number of displayed items; accessed only by the dialog thread
+    volatile LONG RefreshPending; // result or log changes waiting for the dialog timer
 
     CSearchingString* SearchingText;  // synchronized "Searching" text in the Find status bar
     CSearchingString* SearchingText2; // [optional] second text on the right; used for "Total: 35%"
@@ -441,10 +439,17 @@ struct CFindLogItem
 class CFindLog
 {
 protected:
+    CRITICAL_SECTION Section;
     TDirectArray<CFindLogItem> Items;
     int SkippedErrors; // number of errors that were not stored
     int ErrorCount;
     int InfoCount;
+
+    void CleanUnlocked();
+    BOOL AddUnlocked(DWORD flags, const char* text, const char* path);
+
+    CFindLog(const CFindLog&) = delete;
+    CFindLog& operator=(const CFindLog&) = delete;
 
 public:
     CFindLog();
@@ -453,11 +458,14 @@ public:
     void Clean(); // releases all held items
 
     BOOL Add(DWORD flags, const char* text, const char* path);
-    int GetCount() { return Items.Count; }
-    int GetSkippedCount() { return SkippedErrors; }
+    int GetCount();
+    int GetSkippedCount();
+    // The dialog reads borrowed items only from its immutable owned snapshot.
     const CFindLogItem* Get(int index);
-    int GetErrorCount() { return ErrorCount; }
-    int GetInfoCount() { return InfoCount; }
+    int GetErrorCount();
+    int GetInfoCount();
+    // Target must be a separate, caller-owned log not shared with another thread.
+    BOOL CopySnapshotTo(CFindLog& target);
 };
 
 //*********************************************************************************

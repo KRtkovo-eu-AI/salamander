@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Publish Find results on the dialog timer. | Keep the message loop responsive and flush all results on completion or Stop. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Coalesce asynchronous Find result refreshes. | Keep large searches from synchronously blocking on list-view updates. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Forward Find ContextMenu messages to SafeHandleContextMenuMsg. | HandleMenuMsg SEH must stay out of WindowProc (C2712). | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -1752,6 +1753,8 @@ CFindDialog::CFindDialog(HWND hCenterAgainst, const char* initPath)
     StateOfFindCloseQuery = sofcqNotUsed;
     CanClose = TRUE;
     GrepThread = NULL;
+    GrepData.FoundVisibleCount = 0;
+    GrepData.RefreshPending = FALSE;
     char buf[100];
     sprintf(buf, "%s ", LoadStr(IDS_FF_SEARCHING));
     SearchingText.SetBase(buf);
@@ -2352,6 +2355,7 @@ void CFindDialog::StartSearch(WORD command)
 
     EnumFileNamesChangeSourceUID(FoundFilesListView->HWindow, &(FoundFilesListView->EnumFileNamesSourceUID));
 
+    GrepData.FoundVisibleCount = 0;
     ListView_SetItemCount(FoundFilesListView->HWindow, 0);
     UpdateWindow(FoundFilesListView->HWindow);
 
@@ -2458,6 +2462,7 @@ void CFindDialog::StartSearch(WORD command)
     GrepData.Data = &SearchForData;
     GrepData.StopSearch = FALSE;
     GrepData.HWindow = HWindow;
+    GrepData.Log = &Log;
 
     // advanced search
     memmove(&GrepData.Criteria, &Data.Criteria, sizeof(Data.Criteria));
@@ -2475,9 +2480,7 @@ void CFindDialog::StartSearch(WORD command)
     }
 
     GrepData.FoundFilesListView = FoundFilesListView;
-    GrepData.FoundVisibleCount = 0;
-    GrepData.FoundVisibleTick = GetTickCount();
-    GrepData.RefreshPosted = FALSE;
+    GrepData.RefreshPending = FALSE;
 
     GrepData.SearchingText = &SearchingText;
     GrepData.SearchingText2 = &SearchingText2;
@@ -2502,7 +2505,7 @@ void CFindDialog::StartSearch(WORD command)
 
     SearchInProgress = TRUE;
 
-    // start a timer to update the dirty text
+    // Publish result/log batches and update progress at a bounded UI rate.
     SetTimer(HWindow, IDT_REPAINT, 100, NULL);
 
     // force the first refresh of the status bar
@@ -2541,6 +2544,7 @@ void CFindDialog::StopSearch()
     if (GrepThread != NULL)
         HANDLES(CloseHandle(GrepThread));
     GrepThread = NULL;
+    InterlockedExchange(&GrepData.RefreshPending, FALSE);
 
     SearchInProgress = FALSE;
     if (OKButton != NULL) // trigger the drop-down arrow
@@ -2551,7 +2555,7 @@ void CFindDialog::StopSearch()
     }
     SetDlgItemText(HWindow, IDOK, FindNowText);
 
-    // stop the timer used for updating the text
+    // Stop periodic updates; the final result/log state is flushed below.
     KillTimer(HWindow, IDT_REPAINT);
 
     // if the second text appeared during search, it's time to hide it
@@ -2563,6 +2567,8 @@ void CFindDialog::StopSearch()
 
     SearchingText.Set("");
     UpdateStatusBar = FALSE;
+    // Publish everything after the worker exits, before an automatic log dialog can open.
+    UpdateListViewItems();
     if (!GrepData.SearchStopped)
     {
         DWORD items = FoundFilesListView->GetCount();
@@ -2585,7 +2591,6 @@ void CFindDialog::StopSearch()
     SetWindowText(HWindow, LoadStr(IDS_FF_NAME));
     if (GrepData.Refine != 0)
         FoundFilesListView->DestroyDataForRefine();
-    UpdateListViewItems();
     if (FoundFilesListView != NULL)
         FoundFilesListView->ApplyCurrentSort();
     EnableControls();
@@ -2744,21 +2749,24 @@ void CFindDialog::UpdateListViewItems()
     {
         int count = FoundFilesListView->GetCount();
 
-        // inform the list view about the new item count
-        ListView_SetItemCountEx(FoundFilesListView->HWindow,
-                                count,
-                                LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
-        // for the first added data, select the first item
-        if (GrepData.FoundVisibleCount == 0 && count > 0)
-            ListView_SetItemState(FoundFilesListView->HWindow, 0,
-                                  LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED)
+        BOOL countChanged = count != GrepData.FoundVisibleCount;
+        if (countChanged)
+        {
+            // Preserve native list-view accessibility, avoiding redundant count updates.
+            ListView_SetItemCountEx(FoundFilesListView->HWindow,
+                                   count,
+                                   LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
+            if (GrepData.FoundVisibleCount == 0 && count > 0)
+                ListView_SetItemState(FoundFilesListView->HWindow, 0,
+                                     LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
 
-                // write the number of items above the list view
-                TBHeader->SetFoundCount(count);
+            TBHeader->SetFoundCount(count);
+            GrepData.FoundVisibleCount = count;
+        }
         TBHeader->SetErrorsInfosCount(Log.GetErrorCount(), Log.GetInfoCount());
 
         // when minimized, display the item count in the title
-        if (IsIconic(HWindow))
+        if (countChanged && IsIconic(HWindow))
         {
             char buf[MAX_PATH + 100];
             if (SearchInProgress)
@@ -2770,10 +2778,6 @@ void CFindDialog::UpdateListViewItems()
                 lstrcpy(buf, LoadStr(IDS_FF_NAME));
             SetWindowText(HWindow, buf);
         }
-
-        // used by the search thread to know when to notify us next
-        GrepData.FoundVisibleCount = count;
-        GrepData.FoundVisibleTick = GetTickCount();
 
         EnableToolBar();
     }
@@ -3516,6 +3520,10 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         if (wParam == IDT_REPAINT)
         {
+            // Consume before reading the data so changes during publication remain pending.
+            if (SearchInProgress && InterlockedExchange(&GrepData.RefreshPending, FALSE))
+                UpdateListViewItems();
+
             char buf[MAX_PATH + 50];
             if (SearchingText.GetDirty())
             {
@@ -4833,21 +4841,6 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
             }
         }
         break;
-    }
-
-    case WM_USER_ADDFILE:
-    {
-        InterlockedExchange(&GrepData.RefreshPosted, FALSE);
-        UpdateListViewItems();
-        return 0;
-    }
-
-    case WM_USER_ADDLOG:
-    {
-        // running in the find thread
-        FIND_LOG_ITEM* item = (FIND_LOG_ITEM*)wParam;
-        Log.Add(item->Flags, item->Text, item->Path);
-        return 0;
     }
 
     case WM_USER_BUTTONS:
