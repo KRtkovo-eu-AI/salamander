@@ -1,5 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+//
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Skip hidden and system files in Branch scans, except cloud placeholders. | Match the ordinary panel hide option. | https://github.com/KRtkovo-eu-AI/salamander/pull/818 | Grok 4.7 |
 #pragma once
 
 #include <windows.h>
@@ -165,6 +169,9 @@ public:
 std::wstring Join(const std::wstring& directory, const std::wstring& name);
 std::wstring ExtendedPath(const std::wstring& path);
 bool IsWithin(const std::wstring& root, const std::wstring& path);
+// True when the hide-hidden/system option must drop this name. Cloud
+// placeholders stay visible, matching ordinary ReadDirectory.
+bool OmitHiddenSystemEntry(DWORD attributes, DWORD reparseTag);
 } }
 
 struct CBranchViewRestoreState
