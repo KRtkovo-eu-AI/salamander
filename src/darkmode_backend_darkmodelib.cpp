@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Refresh newly created dark-mode child controls without recursive tree reentry. | A same-state root refresh must discover controls created after the initial dialog pass without reapplying the tree once per descendant. | | GPT-5.6 Luna Pro |
 
 #include "precomp.h"
 
@@ -139,7 +141,17 @@ void ApplyTree(HWND hwnd)
         const bool wasApplied = appliedState != NULL;
         const bool wasDark = appliedState == reinterpret_cast<HANDLE>(2);
         if (wasApplied && wasDark == dark)
+        {
+            // The root may be refreshed after a dialog creates a new child control.
+            // Refresh the children once, but never recurse through each descendant
+            // as a separate DarkModeApplyTree root.
+            ConfigureDarkModelib(dark);
+            if (dark)
+                dmlib::setChildCtrlsSubclassAndTheme(hwnd);
+            else
+                dmlib::setChildCtrlsTheme(hwnd);
             return;
+        }
 
         ConfigureDarkModelib(dark);
         if (dark)
