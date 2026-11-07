@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Count retained Find results for Debug diagnostics. | Include results that are pending, displayed or held for refinement. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Publish Find results on the dialog timer. | Keep the message loop responsive and flush all results on completion or Stop. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Coalesce asynchronous Find result refreshes. | Keep large searches from synchronously blocking on list-view updates. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Forward Find ContextMenu messages to SafeHandleContextMenuMsg. | HandleMenuMsg SEH must stay out of WindowProc (C2712). | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
@@ -341,6 +342,17 @@ void CFindOptions::InitMenu(CMenuPopup* popup, BOOL enabled, int originalCount)
 //
 // CFoundFilesData
 //
+
+#ifdef _DEBUG
+volatile LONG CFoundFilesData::DebugLiveCount = 0;
+
+bool CFoundFilesData::HasLargeDebugResultSet()
+{
+    // Each retained result contributes several blocks to the process-wide CRT heap walk.
+    constexpr LONG LargeResultCount = 100000;
+    return InterlockedCompareExchange(&DebugLiveCount, 0, 0) >= LargeResultCount;
+}
+#endif
 
 BOOL CFoundFilesData::Set(const char* path, const char* name, const CQuadWord& size, DWORD attr,
                           const FILETIME* lastWrite, BOOL isDir)

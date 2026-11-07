@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Track live Find results in Debug builds. | Defer expensive periodic heap walks while large result sets remain allocated. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Share Find publication state and own log storage. | Coordinate result and error updates across the search and dialog threads. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Post coalesced Find result refreshes asynchronously. | Keep the search worker from blocking the GUI thread during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Add SafeHandleContextMenuMsg for shell-extension SEH. | Find dialog HandleMenuMsg must not live inside WindowProc SEH. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
@@ -542,14 +543,29 @@ struct CFoundFilesData
         IsDir = 0;
         Selected = 0;
         Different = 0;
+#ifdef _DEBUG
+        InterlockedIncrement(&DebugLiveCount);
+#endif
     }
+    CFoundFilesData(const CFoundFilesData&) = delete;
+    CFoundFilesData& operator=(const CFoundFilesData&) = delete;
     ~CFoundFilesData()
     {
         if (Path != NULL)
             free(Path);
         if (Name != NULL)
             free(Name);
+#ifdef _DEBUG
+        InterlockedDecrement(&DebugLiveCount);
+#endif
     }
+#ifdef _DEBUG
+private:
+    static volatile LONG DebugLiveCount;
+
+public:
+    static bool HasLargeDebugResultSet();
+#endif
     BOOL Set(const char* path, const char* name, const CQuadWord& size, DWORD attr,
              const FILETIME* lastWrite, BOOL isDir);
     BOOL SetW(const wchar_t* path, const wchar_t* name, const CQuadWord& size, DWORD attr,
