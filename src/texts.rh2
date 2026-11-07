@@ -1,3 +1,4 @@
+// | 2026-11-07 | Reserve F7 elevation message IDs. | Localize consent and uncertain-result handling. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-04 | Describe a missing extension runtime. | Activation failed silently when the interpreter or runtime provider was not installed. | | Grok 4.7 |
 // WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
@@ -3143,5 +3144,8 @@
 #define IDS_FILELAUNCH_LONGPATH_GUIDE                    14526
 
 #define IDS_FILELAUNCH_ERROR_CODE                    14527
+
+#define IDS_UAC_MKDIR_CONFIRM                        14528
+#define IDS_UAC_MKDIR_UNKNOWN                        14529
 
 #endif // __TEXTS_RH2

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Build the F7 broker host transport. | Share the verified one-shot handshake with the application. | | GPT-6.1 Sol (Codex) | -->
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -528,6 +530,11 @@
     <ClCompile Include="..\fileswn3.cpp">
     </ClCompile>
     <ClCompile Include="..\fileswn4.cpp">
+    </ClCompile>
+    <ClCompile Include="..\uacbroker\uacbroker.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>SAM_UAC_F7_HOST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>Sync</ExceptionHandling>
     </ClCompile>
     <ClCompile Include="..\fileswn5.cpp">
     </ClCompile>

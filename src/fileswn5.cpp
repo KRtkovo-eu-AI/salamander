@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-07 | Separate local F7 leaf creation from panel UI. | Verify or preserve the F7 local creation contract. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-06 | Keep archive metadata cache invalidation with strict path decoding. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
@@ -8,6 +9,7 @@
 
 #include "precomp.h"
 #include "fileactionpath.h"
+#include "uacbroker/f7pilot.h"
 
 #include <new>
 #include <functional>
@@ -3113,7 +3115,44 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                 {
                     HCURSOR oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
-                    const LocalDirectoryCreateResult result = CreateLocalDirectoryLeaf(path, pathW);
+                    LocalDirectoryCreateResult result = CreateLocalDirectoryLeaf(path, pathW);
+                    if (!result.Created && result.Error == ERROR_ACCESS_DENIED && newDir[0] == 0)
+                    {
+                        UacF7::PreparedLeaf request;
+                        if (request.Prepare(pathW))
+                        {
+                            SetCursor(oldCur);
+                            const std::string message = std::string(LoadStr(IDS_UAC_MKDIR_CONFIRM)) + "\n\n" + path;
+                            const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+                            MSGBOXEX_PARAMS confirm{};
+                            confirm.HParent = HWindow;
+                            confirm.Text = message.c_str();
+                            confirm.Caption = LoadStr(IDS_CREATEDIRECTORY_TITLE);
+                            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_SHIELDONDEFBTN;
+                            confirm.AliasBtnNames = alias.c_str();
+                            if (SalMessageBoxEx(&confirm) != IDOK)
+                            {
+                                EndStopRefresh();
+                                return;
+                            }
+
+                            const auto elevated = request.Execute(HWindow);
+                            if (elevated.unknown)
+                            {
+                                MainWindow->PostChangeOnPathNotification(checkPath, FALSE);
+                                SalMessageBox(HWindow, LoadStr(IDS_UAC_MKDIR_UNKNOWN),
+                                              LoadStr(IDS_ERRORCREATINGDIR), MB_OK | MB_ICONEXCLAMATION);
+                                EndStopRefresh();
+                                return;
+                            }
+                            if (elevated.error == ERROR_CANCELLED)
+                            {
+                                EndStopRefresh();
+                                return;
+                            }
+                            result = {elevated.error == ERROR_SUCCESS ? TRUE : FALSE, elevated.error};
+                        }
+                    }
                     if (result.Created)
                     {
                         SetCursor(oldCur);

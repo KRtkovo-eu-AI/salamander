@@ -7,6 +7,7 @@
 | 2026-11-07 | Add the P2 broker bootstrap and test procedure. | Track verified transport and the isolated VM acceptance gate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record interactive P2 acceptance results. | Verify the exact staged broker pair in the isolated VM. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record the P3a verified-parent experiment. | Prove object identity under substitution before authorizing a broker write. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Record the protected F7 broker pilot. | Track the one-leaf capability and VM validation. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -223,6 +224,16 @@ V izolované Windows 11 Pro x64 VM na NTFS byl ověřen kandidát pro vytvořen�
 Kontrolní běh Computer Use otevřel běžnou F7 v oddělené kopii nainstalované verze Samandarin 0.15.1. V dialogu byl zadán vlastní testovací název a vznik složky byl ověřen na disku. Výsledek této kontroly se vztahuje k běžné F7. Nativní test nové operace používá skutečné NTFS objekty a testovací proces bez elevace.
 
 Pro napojení do F7 musí host zachytit identitu rodiče před souhlasem, držet ji pro tuto žádost a broker musí ověřit cestu od důvěryhodného kořene téhož svazku. Broker smí přijmout pouze jednu žádost o jeden potomek. Při otevření náhrady, nedostupné identitě, cizím svazku nebo nepodporované cestě operaci odmítne. Ještě je potřeba napojit autentizovaný instalační host Samandarinu, doplnit jednorázový příkaz a ověřit jeho výsledek po skutečném souhlasu UAC. Stávající protokol P2 má masku schopností 0.
+
+### 8.7 Pilot F7 s jednorázovým příkazem
+
+P3a propojuje nativní F7 s ověřenou operací vytvoření jediného potomka. Běžný pokus proběhne se stávajícími právy. Po chybě ERROR_ACCESS_DENIED nabídne ověřený host v chráněné pilotní instalaci pokračování jako správce, pokud rodič už existoval a má ověřitelnou identitu na lokálním NTFS. Před souhlasem drží host handle rodiče a porovná původní DOS cestu s průchodem od kořene svazku. Broker autentizuje instalovaný salamand.exe, znovu otevře rodiče relativně k GUID svazku a porovná FileId i sériové číslo. Jediný příkaz vytvoří složku na otevřeném objektu a předá přesný Win32 výsledek. Při ztrátě spojení po zahájení žádosti host obnoví výpis a označí výsledek za neznámý.
+
+Diagnostický host P2 používá nadále schopnost 0. Instalovaný Samandarin používá pouze schopnost 1 pro mkdir. Balíček pilotu se ručně ověřuje v Program Files\\Open Samandarin UAC. Tato etapa nepřidává instalační distribuci.
+
+- Sestavení Samandarinu, brokeru a sondy x64 v Debug prošlo. Regresní sady lokální F7, transportu a identity rodiče prošly v Debug i Release.
+- Computer Use ověřil v nové sestavě běžné vytvoření Unicode složky a aktualizaci panelů. Stejná binárka mimo chráněnou instalaci při zápisu do chráněného testovacího adresáře zobrazila ERROR_ACCESS_DENIED bez nabídky elevace a cíl nevznikl.
+- Pro chráněný průchod je potřeba ve VM zkopírovat dvojici EXE z finálního sestavení. V samostatných pokusech se zruší výzva pro P3a-zruseno a schválí se výzva pro P3a-schvaleno. Zrušený cíl musí zůstat nepřítomný a schválený musí vzniknout přesně v testovacím rodiči.
 
 ## 9. Uživatelský tok a stav operace
 

@@ -1,9 +1,16 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-07 | Add the one-shot UAC broker and its diagnostic host. | Verify a protected launch, peer identity and shutdown before introducing commands. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Add the authenticated one-leaf F7 pilot. | Bind consent to the verified NTFS directory and one request. | | GPT-6.1 Sol (Codex) |
 */
 
+#ifdef SAM_UAC_F7_HOST
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0A00
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #include <aclapi.h>
 #include <sddl.h>
@@ -17,6 +24,17 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "f7pilot.h"
+#ifdef SAM_UAC_F7_HOST
+#pragma comment(lib, "advapi32.lib")
+#pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "shell32.lib")
+#pragma comment(lib, "uuid.lib")
+#pragma comment(lib, "ntdll.lib")
+#endif
+#if defined(SAM_UAC_BROKER) || defined(SAM_UAC_F7_HOST)
+#include "directoryleaf.h"
+#endif
 
 namespace
 {
@@ -30,12 +48,14 @@ Handle Adopt(HANDLE h) { return Handle(h != INVALID_HANDLE_VALUE ? h : nullptr);
 
 constexpr wchar_t pipePrefix[] = LR"(\\.\pipe\OpenSamandarin-UAC-)";
 constexpr wchar_t probeImage[] = L"uacbrokerprobe.exe";
+[[maybe_unused]] constexpr wchar_t appImage[] = L"salamand.exe";
 constexpr wchar_t brokerImage[] = L"uacbroker.exe";
 constexpr DWORD pipeAccess = FILE_READ_DATA | FILE_WRITE_DATA | FILE_READ_ATTRIBUTES | SYNCHRONIZE;
 constexpr DWORD processAccess = PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE;
 constexpr DWORD timeoutMs = 5000;
 constexpr DWORD protocolVersion = 1;
 constexpr DWORD capabilities = 0;
+[[maybe_unused]] constexpr DWORD mkdirCapability = 1;
 
 enum class Phase : DWORD { Hello = 1, Accept = 2, Done = 3 };
 struct Frame
@@ -91,7 +111,7 @@ DWORD FinishIo(HANDLE pipe, OVERLAPPED& io, DWORD& count, ULONGLONG deadline)
     return error == ERROR_IO_PENDING ? FinishIo(pipe, io, unused, deadline) : error;
 }
 
-DWORD Exchange(HANDLE pipe, Frame& frame, bool send, ULONGLONG deadline)
+DWORD Exchange(HANDLE pipe, Frame& frame, bool send, ULONGLONG deadline, bool byteStream = false)
 {
     if (GetTickCount64() >= deadline)
         return ERROR_TIMEOUT;
@@ -103,7 +123,7 @@ DWORD Exchange(HANDLE pipe, Frame& frame, bool send, ULONGLONG deadline)
     DWORD count = 0;
     BYTE input[sizeof(Frame) + 1]{};
     const BOOL complete = send ? WriteFile(pipe, &frame, sizeof(frame), &count, &io)
-                               : ReadFile(pipe, input, sizeof(input), &count, &io);
+                               : ReadFile(pipe, input, byteStream ? sizeof(frame) : sizeof(input), &count, &io);
     if (!complete)
     {
         const DWORD error = GetLastError();
@@ -118,9 +138,9 @@ DWORD Exchange(HANDLE pipe, Frame& frame, bool send, ULONGLONG deadline)
     return ERROR_SUCCESS;
 }
 
-bool Matches(const Frame& frame, Phase phase)
+bool Matches(const Frame& frame, Phase phase, DWORD capability = capabilities)
 {
-    return frame.version == protocolVersion && frame.capabilityMask == capabilities && frame.phase == phase;
+    return frame.version == protocolVersion && frame.capabilityMask == capability && frame.phase == phase;
 }
 
 bool LiveInSession(HANDLE peer, DWORD pid)
@@ -264,7 +284,120 @@ struct ComApartment
     ~ComApartment() { if (SUCCEEDED(result)) CoUninitialize(); }
 };
 
+#if defined(SAM_UAC_BROKER) || defined(SAM_UAC_F7_HOST)
+struct MkdirHeader
+{
+    ULONGLONG serial;
+    FILE_ID_128 id;
+    DWORD relativeLength;
+    DWORD leafLength;
+};
+static_assert(sizeof(MkdirHeader) == 32);
+
+constexpr std::wstring_view volumePrefix = LR"(\\?\Volume)";
+constexpr size_t volumeLength = volumePrefix.size() + 38;
+
+Handle OpenVolumeRoot(std::wstring_view volume)
+{
+    if (volume.size() != volumeLength ||
+        !UacDirectoryLeaf::Equal(volume.substr(0, volumePrefix.size()), volumePrefix))
+        return {};
+    const std::wstring guid(volume.substr(volumePrefix.size()));
+    GUID id{};
+    if (guid.front() != L'{' || guid.back() != L'}' || FAILED(CLSIDFromString(guid.c_str(), &id)))
+        return {};
+    const std::wstring name = std::wstring(volume) + L"\\";
+    if (GetDriveTypeW(name.c_str()) != DRIVE_FIXED)
+        return {};
+    return Adopt(CreateFileW(name.c_str(), FILE_TRAVERSE | FILE_READ_ATTRIBUTES,
+                             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                             FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+}
+
+DWORD OpenMkdirParent(HANDLE root, std::wstring_view relative, Handle& parent, UacDirectoryLeaf::ParentIdentity& identity)
+{
+    if (relative.empty())
+    {
+        HANDLE copy = nullptr;
+        if (!DuplicateHandle(GetCurrentProcess(), root, GetCurrentProcess(), &copy, 0, FALSE, DUPLICATE_SAME_ACCESS))
+            return GetLastError();
+        parent = Adopt(copy);
+        return UacDirectoryLeaf::ReadParentIdentity(parent.get(), identity);
+    }
+    HANDLE raw = nullptr;
+    const DWORD error = UacDirectoryLeaf::OpenParentBelowRoot(root, relative, raw, identity);
+    parent = Adopt(raw);
+    return error;
+}
+
+// The client reads an exact number of bytes in byte mode. The message-mode
+// server rejects larger replies with ERROR_MORE_DATA.
+DWORD TransferMkdir(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGLONG deadline)
+{
+    if (GetTickCount64() >= deadline)
+        return ERROR_TIMEOUT;
+    const auto event = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    if (!event)
+        return GetLastError();
+    OVERLAPPED io{};
+    io.hEvent = event.get();
+    DWORD count = 0;
+    const BOOL complete = send ? WriteFile(pipe, buffer, length, &count, &io)
+                               : ReadFile(pipe, buffer, length, &count, &io);
+    if (!complete)
+    {
+        const DWORD error = GetLastError();
+        const DWORD finished = error == ERROR_IO_PENDING ? FinishIo(pipe, io, count, deadline) : error;
+        if (finished)
+            return finished;
+    }
+    return count == length ? ERROR_SUCCESS : ERROR_INVALID_DATA;
+}
+#endif
+
 #ifdef SAM_UAC_BROKER
+DWORD ReceiveMkdir(HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG deadline, DWORD& result)
+{
+    MkdirHeader header{};
+    DWORD error = TransferMkdir(pipe, &header, sizeof(header), false, deadline);
+    if (error)
+        return error;
+    if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
+        header.leafLength > UacDirectoryLeaf::maxComponent)
+        return ERROR_INVALID_DATA;
+    std::wstring payload(volumeLength + header.relativeLength + header.leafLength, L'\0');
+    error = TransferMkdir(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), false, deadline);
+    if (error)
+        return error;
+
+    const std::wstring_view data(payload);
+    const auto volume = data.substr(0, volumeLength);
+    const auto relative = data.substr(volumeLength, header.relativeLength);
+    const auto leaf = data.substr(volumeLength + header.relativeLength);
+    if (!UacDirectoryLeaf::IsComponent(leaf) || volume.find(L'\0') != std::wstring_view::npos)
+        return ERROR_INVALID_DATA;
+    const auto root = OpenVolumeRoot(volume);
+    if (!root)
+    {
+        result = ERROR_NOT_SUPPORTED;
+        return ERROR_SUCCESS;
+    }
+    Handle parent;
+    UacDirectoryLeaf::ParentIdentity actual;
+    result = OpenMkdirParent(root.get(), relative, parent, actual);
+    if (result)
+        return ERROR_SUCCESS;
+
+    UacDirectoryLeaf::ParentIdentity expected;
+    expected.file.VolumeSerialNumber = header.serial;
+    expected.file.FileId = header.id;
+    expected.volume.assign(volume);
+    if (!LiveInSession(host, hostPid) || GetTickCount64() >= deadline)
+        return ERROR_OPERATION_ABORTED;
+    result = UacDirectoryLeaf::CreateVerifiedLeaf(parent.get(), expected, leaf);
+    return ERROR_SUCCESS;
+}
+
 int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hostPid)
 {
     HANDLE rawToken = nullptr;
@@ -274,9 +407,11 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
     if (!Elevated(token.get()))
         return Report(Untrusted, L"Broker requires elevation", ERROR_ELEVATION_REQUIRED);
     const auto host = Adopt(OpenProcess(processAccess, FALSE, hostPid));
-    const auto hostImage = install.OpenImage(probeImage);
+    const bool appHost = host && install.MatchesProcess(host.get(), appImage);
+    const wchar_t* hostName = appHost ? appImage : probeImage;
+    const auto hostImage = install.OpenImage(hostName);
     if (!host || !hostImage || !LiveInSession(host.get(), hostPid) ||
-        !install.MatchesProcess(host.get(), probeImage))
+        !install.MatchesProcess(host.get(), hostName))
         return Report(Untrusted, L"Verify host image and session", ERROR_ACCESS_DENIED);
 
     const auto pipe = Adopt(CreateFileW(pipeName, pipeAccess, 0, nullptr, OPEN_EXISTING,
@@ -287,18 +422,29 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
     if (!ExpectedPipePeer(pipe.get(), host.get(), hostPid, true))
         return Report(Untrusted, L"Verify pipe server", ERROR_ACCESS_DENIED);
     const auto deadline = GetTickCount64() + timeoutMs;
-    Frame frame{protocolVersion, capabilities, Phase::Hello};
+    const DWORD capability = appHost ? mkdirCapability : capabilities;
+    Frame frame{protocolVersion, capability, Phase::Hello};
     DWORD error = Exchange(pipe.get(), frame, true, deadline);
     if (error)
         return IoError(L"Send hello", error);
-    error = Exchange(pipe.get(), frame, false, deadline);
+    error = Exchange(pipe.get(), frame, false, deadline, appHost);
     if (error)
         return IoError(L"Read accept", error);
-    if (!Matches(frame, Phase::Accept))
+    if (!Matches(frame, Phase::Accept, capability))
         return Report(ProtocolError, L"Validate accept", ERROR_INVALID_DATA);
     if (!LiveInSession(host.get(), hostPid))
         return Report(Untrusted, L"Host exited", ERROR_ACCESS_DENIED);
-    frame = {protocolVersion, capabilities, Phase::Done};
+    if (appHost)
+    {
+        DWORD result = ERROR_GEN_FAILURE;
+        error = ReceiveMkdir(pipe.get(), host.get(), hostPid, deadline, result);
+        if (error)
+            return IoError(L"Receive mkdir", error);
+        error = TransferMkdir(pipe.get(), &result, sizeof(result), true, deadline);
+        if (error)
+            return IoError(L"Send mkdir result", error);
+    }
+    frame = {protocolVersion, capability, Phase::Done};
     error = Exchange(pipe.get(), frame, true, deadline);
     return error ? IoError(L"Send done", error) : Ok;
 }
@@ -359,7 +505,11 @@ bool InspectPipeClient(HANDLE pipe, bool& elevated)
     return true;
 }
 
-int RunProbe(const InstallLocation& install, bool drop, bool badVersion)
+int RunProbe(const InstallLocation& install, bool drop, bool badVersion
+#ifdef SAM_UAC_F7_HOST
+             , HWND owner, MkdirHeader* mkdir, std::wstring* payload, UacF7::Result* result
+#endif
+)
 {
     auto pipeName = std::wstring();
     auto pipe = CreateEndpoint(pipeName);
@@ -372,7 +522,11 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion)
     const auto args = pipeName + L" " + std::to_wstring(GetCurrentProcessId());
     SHELLEXECUTEINFOW launch{sizeof(launch)};
     launch.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
+#ifdef SAM_UAC_F7_HOST
+    launch.hwnd = owner;
+#else
     launch.hwnd = GetConsoleWindow();
+#endif
     launch.lpVerb = L"runas";
     launch.lpFile = exe.c_str();
     launch.lpParameters = args.c_str();
@@ -381,6 +535,9 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion)
     if (!ShellExecuteExW(&launch))
     {
         const DWORD error = GetLastError();
+#ifdef SAM_UAC_F7_HOST
+        result->error = error;
+#endif
         return Report(error == ERROR_CANCELLED ? Cancelled : Failed, L"Launch broker", error);
     }
     const auto child = Adopt(launch.hProcess);
@@ -402,26 +559,46 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion)
     error = Exchange(pipe.get(), frame, false, deadline);
     if (error)
         return IoError(L"Read hello", error);
-    if (!Matches(frame, Phase::Hello))
+#ifdef SAM_UAC_F7_HOST
+    const DWORD capability = mkdirCapability;
+#else
+    const DWORD capability = capabilities;
+#endif
+    if (!Matches(frame, Phase::Hello, capability))
         return Report(ProtocolError, L"Validate hello", ERROR_INVALID_DATA);
     bool elevated = false;
     if (!InspectPipeClient(pipe.get(), elevated) || !elevated || !LiveInSession(child.get(), pid))
         return Report(Untrusted, L"Verify elevated identification token", ERROR_ACCESS_DENIED);
 
+#ifdef SAM_UAC_F7_HOST
+    DWORD operationError = ERROR_GEN_FAILURE;
+#endif
     if (drop)
         pipe.reset();
     else
     {
-        frame = {badVersion ? protocolVersion + 1 : protocolVersion, capabilities, Phase::Accept};
+        frame = {badVersion ? protocolVersion + 1 : protocolVersion, capability, Phase::Accept};
         error = Exchange(pipe.get(), frame, true, deadline);
         if (error)
             return IoError(L"Send accept", error);
+#ifdef SAM_UAC_F7_HOST
+        result->unknown = true;
+        error = TransferMkdir(pipe.get(), mkdir, sizeof(*mkdir), true, deadline);
+        if (!error)
+            error = TransferMkdir(pipe.get(), payload->data(), static_cast<DWORD>(payload->size() * sizeof(wchar_t)), true, deadline);
+        if (error)
+            return IoError(L"Send mkdir", error);
+
+        error = TransferMkdir(pipe.get(), &operationError, sizeof(operationError), false, deadline);
+        if (error)
+            return IoError(L"Read mkdir result", error);
+#endif
         if (!badVersion)
         {
             error = Exchange(pipe.get(), frame, false, deadline);
             if (error)
                 return IoError(L"Read done", error);
-            if (!Matches(frame, Phase::Done))
+            if (!Matches(frame, Phase::Done, capability))
                 return Report(ProtocolError, L"Validate done", ERROR_INVALID_DATA);
         }
     }
@@ -430,12 +607,98 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion)
     if (WaitForSingleObject(child.get(), timeoutMs) != WAIT_OBJECT_0 ||
         !GetExitCodeProcess(child.get(), &code) || code != expected)
         return Report(Failed, L"Unexpected broker exit", code);
+#ifdef SAM_UAC_F7_HOST
+    result->error = operationError;
+    result->unknown = false;
+#else
     std::wprintf(L"Authenticated elevated broker exited (%lu), expected (%lu).\n", code, expected);
+#endif
     return Ok;
 }
 #endif
 }
 
+#ifdef SAM_UAC_F7_HOST
+namespace UacF7
+{
+PreparedLeaf::~PreparedLeaf()
+{
+    if (parent)
+        CloseHandle(parent);
+}
+
+bool PreparedLeaf::Prepare(const std::wstring& path)
+{
+    // An ordinary or portable copy must never offer the pilot.
+    InstallLocation install;
+    if (parent || !install.Open() || !install.MatchesProcess(GetCurrentProcess(), appImage) ||
+        !install.OpenImage(appImage) || !install.OpenImage(brokerImage))
+        return false;
+
+    std::wstring_view input(path);
+    if (input.substr(0, 4) == LR"(\\?\)")
+        input.remove_prefix(4);
+    if (input.size() < 4 || input.size() > UacDirectoryLeaf::maxNativeName ||
+        !((input[0] >= L'A' && input[0] <= L'Z') || (input[0] >= L'a' && input[0] <= L'z')) ||
+        input[1] != L':' || input[2] != L'\\')
+        return false;
+    const size_t split = input.rfind(L'\\');
+    const auto finalName = input.substr(split + 1);
+    if (!UacDirectoryLeaf::IsComponent(finalName))
+        return false;
+    const std::wstring drive(input.substr(0, 3));
+    wchar_t guid[volumeLength + 2]{};
+    if (GetDriveTypeW(drive.c_str()) != DRIVE_FIXED ||
+        !GetVolumeNameForVolumeMountPointW(drive.c_str(), guid, ARRAYSIZE(guid)) ||
+        wcslen(guid) != volumeLength + 1 || guid[volumeLength] != L'\\')
+        return false;
+    const std::wstring_view volumeName(guid, volumeLength);
+    const auto root = OpenVolumeRoot(volumeName);
+    if (!root)
+        return false;
+
+    const auto parentPath = split == 2 ? std::wstring_view{} : input.substr(3, split - 3);
+    Handle opened;
+    UacDirectoryLeaf::ParentIdentity snapshot;
+    if (OpenMkdirParent(root.get(), parentPath, opened, snapshot) ||
+        !UacDirectoryLeaf::Equal(snapshot.volume, volumeName))
+        return false;
+    // Verify that the DOS path presented in F7 names the same object as
+    // the volume-relative walk. Reject any redirected or substituted drive.
+    const std::wstring originalPath = LR"(\\?\)" + std::wstring(input.substr(0, split == 2 ? 3 : split));
+    const auto original = Adopt(CreateFileW(originalPath.c_str(), FILE_READ_ATTRIBUTES,
+                                             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                                             FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    UacDirectoryLeaf::ParentIdentity visible;
+    if (!original || UacDirectoryLeaf::ReadParentIdentity(original.get(), visible) ||
+        !UacDirectoryLeaf::SameParent(snapshot, visible))
+        return false;
+    volume = snapshot.volume;
+    relative.assign(parentPath);
+    leaf.assign(finalName);
+    serial = snapshot.file.VolumeSerialNumber;
+    std::memcpy(fileId, snapshot.file.FileId.Identifier, sizeof(fileId));
+    parent = opened.release();
+    return true;
+}
+
+Result PreparedLeaf::Execute(HWND owner) const
+{
+    Result result;
+    const ComApartment com;
+    InstallLocation install;
+    if (!parent || FAILED(com.result) || !install.Open() ||
+        !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))
+        return result;
+    MkdirHeader header{serial, {},
+                       static_cast<DWORD>(relative.size()), static_cast<DWORD>(leaf.size())};
+    std::memcpy(header.id.Identifier, fileId, sizeof(fileId));
+    std::wstring payload = volume + relative + leaf;
+    RunProbe(install, false, false, owner, &header, &payload, &result);
+    return result;
+}
+}
+#else
 int wmain(int argc, wchar_t** argv)
 {
 #ifdef SAM_UAC_BROKER
@@ -471,3 +734,4 @@ int wmain(int argc, wchar_t** argv)
     return RunProbe(install, drop, badVersion);
 #endif
 }
+#endif

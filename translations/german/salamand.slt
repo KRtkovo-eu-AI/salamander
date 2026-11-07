@@ -4177,6 +4177,8 @@ SLGINCOMPLETE,""
 14525,0,"Windows long-path support"
 14526,0,"An administrator can enable the Windows policy:\nComputer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths.\n\nIts registry equivalent is REG_DWORD LongPathsEnabled = 1 under:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nRestart affected applications; restarting Windows may also be necessary. Applications must support long paths themselves. This is not a way to override a security denial, and Shell or the target program may still reject the path. Salamander does not change this setting."
 14527,0,"Windows error:"
+14528,1,"Zugriff verweigert. Diesen Ordner als Administrator erstellen?"
+14529,1,"Die Verbindung zum Hilfsprozess wurde getrennt, bevor das Ergebnis bestätigt wurde. Prüfen Sie das Ziel, bevor Sie es erneut versuchen."
 
 [STRINGTABLE 184]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."

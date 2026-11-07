@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Add F7 elevation strings. | Describe the exact action and a lost result. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Describe a missing extension runtime. | Activation failed silently when the interpreter or runtime provider was not installed. | | Grok 4.7 |
 // | 2026-11-04 | Keep the missing-runtime strings valid for the resource compiler. | A backslash before a quote was read as the end of the string. | | Grok 4.7 |
@@ -2349,6 +2350,8 @@ STRINGTABLE
  IDS_BRANCH_REFRESH_STOPPED, "Branch View - refresh stopped; previous results retained (%I64u files)"
  IDS_BRANCH_PREPARING, "Branch View - preparing %I64u files; %I64u previous results retained"
  IDS_FILELAUNCH_ERROR_CODE, "Windows error:"
+ IDS_UAC_MKDIR_CONFIRM, "Access was denied. Create this folder as an administrator?"
+ IDS_UAC_MKDIR_UNKNOWN, "The broker disconnected before the result was confirmed. Check the destination before retrying."
  IDS_FILELAUNCH_PROGRAM_FAILED, "The program could not be started safely through Windows. It was not retried using another launch method."
  IDS_FILELAUNCH_DOCUMENT_FAILED, "The item could not be opened through Windows Shell. The selected item was not retried using another launch method."
  IDS_FILELAUNCH_LONGPATH_OFF, "Windows long-path setting: disabled."
