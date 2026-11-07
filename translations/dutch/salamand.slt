@@ -4184,6 +4184,8 @@ SLGINCOMPLETE,""
 14532,1,"De verbinding met het hulpproces werd verbroken voordat het resultaat was bevestigd. Controleer de kenmerken en tijden van het bestand voordat u het opnieuw probeert."
 14533,1,"Toegang geweigerd. Dit bestand als administrator permanent verwijderen?"
 14534,1,"De verbinding met het hulpproces werd verbroken voordat het verwijderen was bevestigd. Controleer of het bestand nog bestaat voordat u het opnieuw probeert."
+14535,1,"Toegang geweigerd. Deze map en de submappen als administrator weergeven?"
+14536,1,"Administratorweergave"
 
 [STRINGTABLE 184]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."

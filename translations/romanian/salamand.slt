@@ -4184,6 +4184,8 @@ SLGINCOMPLETE,""
 14532,1,"Conexiunea cu procesul auxiliar s-a întrerupt înainte de confirmarea rezultatului. Verificați atributele și marcajele de timp ale fișierului înainte de a încerca din nou."
 14533,1,"Acces refuzat. Ștergeți definitiv acest fișier ca administrator?"
 14534,1,"Conexiunea cu procesul auxiliar s-a întrerupt înainte de confirmarea ștergerii. Verificați dacă fișierul mai există înainte de a încerca din nou."
+14535,1,"Acces refuzat. Listați acest dosar și subdosarele sale ca administrator?"
+14536,1,"Listare ca administrator"
 
 [STRINGTABLE 184]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."

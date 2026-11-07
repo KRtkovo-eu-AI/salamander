@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Own the protected directory listing session per panel. | End authorization on exit and keep listing data distinct from Branch View. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-05 | Persist Copy/Move transfer, conflict, and wait defaults in CCriteriaData. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
 // | 2026-11-05 | Add SafeHandleContextMenuMsg2 for shell-extension SEH. | Panel ContextMenu HandleMenuMsg must not live inside WindowProc SEH. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -16,6 +17,8 @@ struct CExplorerPropertyCache;
 #include "panel_temporary_selection.h"
 #include <string>
 #include <vector>
+#include <memory>
+#include "uacbroker/f7pilot.h"
 
 #ifndef SAL_MAX_PATH
 #define SAL_MAX_PATH 32768
@@ -879,6 +882,9 @@ public:
     ULONGLONG PanelTabId;
 
     CBranchViewState* BranchView; // core-owned disk collection, NULL for ordinary panels
+    std::unique_ptr<UacF7::ListingSession> ProtectedListing;
+    std::vector<WIN32_FIND_DATAW> ProtectedListingEntries;
+    bool KeepProtectedListing = false;
 
     BOOL IsBranchView() const;
     BOOL IsBranchViewScanning() const;

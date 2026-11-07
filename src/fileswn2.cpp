@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-07 | Route disk navigation and refresh through the approved listing session. | Reuse consent inside the root and release it on exit. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -1265,7 +1267,7 @@ void CFilesWindow::Execute(int index)
                 // Vista: we handle unlistable junction points: change path to junction point target
                 char junctTgtPath[MAX_PATH];
                 int repPointType;
-                if (GetPathDriveType() == DRIVE_FIXED && (dir->Attr & FILE_ATTRIBUTE_REPARSE_POINT) &&
+                if (!ProtectedListing && GetPathDriveType() == DRIVE_FIXED && (dir->Attr & FILE_ATTRIBUTE_REPARSE_POINT) &&
                     GetReparsePointDestination(fullName, junctTgtPath, MAX_PATH, &repPointType, TRUE) &&
                     repPointType == 2 /* JUNCTION POINT */ &&
                     SalPathAppend(fullName, "*", MAX_PATH + 10))
@@ -2648,6 +2650,11 @@ void CFilesWindow::UpdateTreeView(BOOL active)
 void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOOL newPathIsTheSame,
                                     BOOL isRefresh, BOOL canChangeSourceUID)
 {
+    if (!cancel && !KeepProtectedListing)
+    {
+        ProtectedListing.reset();
+        ProtectedListingEntries.clear();
+    }
     if (!cancel && (!newPathIsTheSame || !isRefresh)) LeaveBranchView();
     CALL_STACK_MESSAGE6("CFilesWindow::CloseCurrentPath(, %d, %d, %d, %d, %d)",
                         cancel, detachFS, newPathIsTheSame, isRefresh, canChangeSourceUID);
@@ -3045,7 +3052,87 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
 
         DWORD err, lastErr;
         BOOL pathInvalid, cut;
-        SalCheckAndRestorePathWithCut(parent, changedPath, tryNet, err, lastErr, pathInvalid, cut, FALSE);
+        bool protectedPath = false;
+        const std::wstring requestedWide = SalMultiByteToWidePath(changedPath, IsValidPathUtf8Text(changedPath) ? CP_UTF8 : CP_ACP);
+        if (ProtectedListing && ProtectedListing->Contains(requestedWide))
+        {
+            std::vector<WIN32_FIND_DATAW> listing;
+            const DWORD listError = ProtectedListing->List(requestedWide, listing);
+            if (listError == ERROR_SUCCESS)
+            {
+                ProtectedListingEntries = std::move(listing);
+                protectedPath = true;
+            }
+            else if (!isRefresh && ProtectedListing->IsOpen())
+            {
+                CloseCurrentPath(parent, TRUE, detachFS, FALSE, isRefresh, FALSE);
+                EndStopRefresh();
+                if (setWait)
+                    SetCursor(oldCur);
+                SalMessageBox(parent, GetErrorText(listError), LoadStr(IDS_ERRORCHANGINGDIR), MB_OK | MB_ICONEXCLAMATION);
+                return FALSE;
+            }
+        }
+        const bool leavingProtected = ProtectedListing && !protectedPath;
+        if (leavingProtected && !ProtectedListing->IsOpen())
+        {
+            ProtectedListing.reset();
+            ProtectedListingEntries.clear();
+        }
+        if (!protectedPath && !leavingProtected && !isRefresh && !closeCalled && Is(ptDisk) &&
+            !IsBranchView() && requestedWide.size() > 3 && requestedWide[1] == L':' &&
+            GetDriveTypeW(requestedWide.substr(0, 3).c_str()) == DRIVE_FIXED)
+        {
+            const std::wstring exact = SalPathAddExtendedPrefixW(requestedWide.c_str());
+            HANDLE probe = CreateFileW(exact.c_str(), FILE_LIST_DIRECTORY,
+                                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+                                        OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+            if (probe != INVALID_HANDLE_VALUE)
+                CloseHandle(probe);
+            else if (GetLastError() == ERROR_ACCESS_DENIED)
+            {
+                auto session = std::make_unique<UacF7::ListingSession>();
+                if (session->Prepare(requestedWide))
+                {
+                    const std::string message = std::string(LoadStr(IDS_UAC_LIST_CONFIRM)) + "\n\n" +
+                                                SalWideToMultiBytePath(requestedWide.c_str(), CP_UTF8);
+                    const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+                    MSGBOXEX_PARAMS consent{};
+                    consent.HParent = parent;
+                    consent.Text = message.c_str();
+                    consent.Caption = LoadStr(IDS_ERRORCHANGINGDIR);
+                    consent.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_SHIELDONDEFBTN;
+                    consent.AliasBtnNames = alias.c_str();
+                    DWORD listingError = ERROR_CANCELLED;
+                    if (SalMessageBoxEx(&consent) == IDOK)
+                    {
+                        listingError = session->Start(parent);
+                        if (!listingError)
+                            listingError = session->List(requestedWide, ProtectedListingEntries);
+                    }
+                    if (listingError)
+                    {
+                        CloseCurrentPath(parent, TRUE, detachFS, FALSE, isRefresh, FALSE);
+                        EndStopRefresh();
+                        if (setWait)
+                            SetCursor(oldCur);
+                        if (listingError != ERROR_CANCELLED)
+                            SalMessageBox(parent, GetErrorText(listingError), LoadStr(IDS_ERRORCHANGINGDIR),
+                                          MB_OK | MB_ICONEXCLAMATION);
+                        return FALSE;
+                    }
+                    ProtectedListing = std::move(session);
+                    protectedPath = true;
+                }
+            }
+        }
+        if (protectedPath)
+        {
+            err = lastErr = ERROR_SUCCESS;
+            pathInvalid = cut = FALSE;
+        }
+        else
+            SalCheckAndRestorePathWithCut(parent, changedPath, tryNet, err, lastErr, pathInvalid, cut, FALSE);
         if (cut)
         { // invalidate proposed listbox settings (we'll list a different path)
             suggestedTopIndex = -1;
@@ -3093,7 +3180,9 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                     MainWindow->CanAddToDirHistory = FALSE;
                 }
 
+                KeepProtectedListing = protectedPath;
                 CloseCurrentPath(parent, FALSE, detachFS, samePath, isRefresh, !samePath); // success, we switch to the new path
+                KeepProtectedListing = false;
 
                 if (samePath)
                 {
@@ -3125,7 +3214,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
             // Refresh tree view AFTER file list loads so the file list appears immediately
             // and the tree view update (which may do disk I/O) doesn't block the UI.
             RefreshHostedTreeViews();
-            if (isRefresh && !cannotList && GetMonitorChanges() && !AutomaticRefresh)
+            if (isRefresh && !protectedPath && !cannotList && GetMonitorChanges() && !AutomaticRefresh)
             {                                                                                                                // auto-refresh failure; we verify whether the directory displayed in the panel is being deleted (happened to me while deleting through the network from another machine) ... If ignored, the panel will never refresh (because auto-refresh is broken)
                 Sleep(400);                                                                                                  // we take a break, so the deletion can proceed (so the directory becomes deleted enough to become unlistable)
                                                                                                                              //        TRACE_I("Calling CommonRefresh again... (unable to receive change notifications, first listing was OK, but maybe current directory is being deleted)");
@@ -3133,6 +3222,11 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
             }
             if (cannotList)
             { // the selected path can't be listed ("access denied" or low_memory) or it was alreadydeleted
+                if (protectedPath)
+                {
+                    ProtectedListing.reset();
+                    ProtectedListingEntries.clear();
+                }
 
             FIXED_DRIVE:
 

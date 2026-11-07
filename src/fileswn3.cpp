@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-07 | Render the verified broker listing through the existing disk panel. | Use exact wide names and keep preview providers out of protected listings. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -823,6 +825,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 
     //  MainWindow->ReleaseMenuNew();  // in case of it's about this directory
     const bool branchListing = IsBranchView() != FALSE;
+    const bool protectedListing = ProtectedListing && ProtectedListing->Contains(GetPathW());
+    const bool bufferedListing = branchListing || protectedListing;
     HiddenDirsFilesReason = 0;
     HiddenDirsCount = HiddenFilesCount = 0;
 
@@ -876,7 +880,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         CIconSizeEnum iconSize = GetIconSizeForCurrentViewMode();
         IconCache->SetIconSize(iconSize, GetIconSize(iconSize));
 
-        BOOL readThumbnails = (GetViewMode() == vmThumbnails);
+        BOOL readThumbnails = !protectedListing && GetViewMode() == vmThumbnails;
 
         CALL_STACK_MESSAGE1("CFilesWindow::ReadDirectory::disk1");
         // choosing plugins which can load thumbnails (for optimization)
@@ -907,7 +911,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         // the full on-disk name never passes through that fixed UTF-8 buffer.
         const bool useWideDiskPath = GetPathW() != NULL && GetPathW()[0] != 0 &&
                                      (GetACP() == CP_UTF8 || strlen(GetPath()) >= MAX_PATH);
-        if (branchListing)
+        if (bufferedListing)
             SetCurrentDirectoryToSystem();
         else if (useWideDiskPath)
         {
@@ -940,7 +944,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 
         //--- getting drive type (we will not bother network drives with getting shares)
         UINT drvType = branchListing ? GetPathDriveType() : MyGetDriveType(GetPath());
-        BOOL testShares = !branchListing && drvType != DRIVE_REMOTE;
+        BOOL testShares = !bufferedListing && drvType != DRIVE_REMOTE;
         if (testShares)
             Shares.PrepareSearch(GetPath());
         switch (drvType)
@@ -977,6 +981,9 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
             break;
         }
         }
+
+        if (protectedListing)
+            UseSystemIcons = FALSE;
 
         const char* s = GetPath();
         char* st = fileName;
@@ -1074,7 +1081,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         // after 2000 ms we will show a window with a cancel prompt
         char buf[32768 + 1000];
         _snprintf_s(buf, _countof(buf), _TRUNCATE, LoadStr(IDS_READINGPATHESC), GetPath());
-        if (!branchListing) CreateSafeWaitWindow(buf, NULL, 2000, TRUE, MainWindow->HWindow);
+        if (!bufferedListing) CreateSafeWaitWindow(buf, NULL, 2000, TRUE, MainWindow->HWindow);
 
         DWORD lastEscCheckTime;
         //lastEscCheckTime = GetTickCount() - 200;  // the first ESC will go immediately
@@ -1091,22 +1098,23 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         // Legacy narrow panel consumers have fixed basename buffers. Keep
         // their UTF-8-safe display mirror bounded; NameW and Branch metadata
         // remain exact and are authoritative for every filesystem action.
-        auto loadBranchEntry = [&](size_t index) -> BOOL {
-            if (index >= BranchView->Entries.size()) { SetLastError(ERROR_NO_MORE_FILES); return FALSE; }
-            fileDataW = BranchView->Entries[index].Data;
+        const size_t bufferedCount = branchListing ? BranchView->Entries.size() : ProtectedListingEntries.size();
+        auto loadBufferedEntry = [&](size_t index) -> BOOL {
+            if (index >= bufferedCount) { SetLastError(ERROR_NO_MORE_FILES); return FALSE; }
+            fileDataW = branchListing ? BranchView->Entries[index].Data : ProtectedListingEntries[index];
             CopyFindDataWToA(fileDataW, fileData);
             return TRUE;
         };
         BOOL wideSearch = FALSE;
         HANDLE search;
         size_t branchIndex = 0;
-        if (branchListing)
+        if (bufferedListing)
         {
             wideSearch = TRUE;
-            search = BranchView->Entries.empty() ? INVALID_HANDLE_VALUE : (HANDLE)1;
+            search = bufferedCount == 0 ? INVALID_HANDLE_VALUE : (HANDLE)1;
             if (search != INVALID_HANDLE_VALUE)
             {
-                loadBranchEntry(0);
+                loadBufferedEntry(0);
             }
             else SetLastError(ERROR_NO_MORE_FILES);
         }
@@ -1129,7 +1137,8 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         if (search == INVALID_HANDLE_VALUE)
         {
             DWORD err = GetLastError();
-            DestroySafeWaitWindow();
+            if (!bufferedListing)
+                DestroySafeWaitWindow();
             if (err == ERROR_FILE_NOT_FOUND || err == ERROR_NO_MORE_FILES)
             {
                 if (!upDir)
@@ -1221,7 +1230,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 NumberOfItemsInCurDir++;
 
                 // test ESC - doesn't user want to interrupt reading?
-                if (!branchListing && GetTickCount() - lastEscCheckTime >= 200) // 5 times per second
+                if (!bufferedListing && GetTickCount() - lastEscCheckTime >= 200) // 5 times per second
                 {
                     if (UserWantsToCancelSafeWaitWindow())
                     {
@@ -1345,7 +1354,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                     if (search != NULL)
                     {
                         DestroySafeWaitWindow();
-                        if (!branchListing) HANDLES(FindClose(search));
+                        if (!bufferedListing) HANDLES(FindClose(search));
                     }
                     TRACE_E(LOW_MEMORY);
                     SetCurrentDirectoryToSystem();
@@ -1407,7 +1416,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         if (search != NULL)
                         {
                             DestroySafeWaitWindow();
-                            if (!branchListing) HANDLES(FindClose(search));
+                            if (!bufferedListing) HANDLES(FindClose(search));
                         }
                         TRACE_E(LOW_MEMORY);
                         SetCurrentDirectoryToSystem();
@@ -1463,7 +1472,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         if (search != NULL)
                         {
                             DestroySafeWaitWindow();
-                            if (!branchListing) HANDLES(FindClose(search));
+                        if (!bufferedListing) HANDLES(FindClose(search));
                         }
                         SetCurrentDirectoryToSystem();
                         Files->DestroyMembers();
@@ -1553,7 +1562,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                         if (search != NULL)
                         {
                             DestroySafeWaitWindow();
-                            if (!branchListing) HANDLES(FindClose(search));
+                            if (!bufferedListing) HANDLES(FindClose(search));
                         }
                         SetCurrentDirectoryToSystem();
                         Files->DestroyMembers();
@@ -1714,14 +1723,17 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
 #endif                     // _WIN64
                     break; // the second pass (adding ".." or win64 redirected-dir)
                 }
-            } while (branchListing ? loadBranchEntry(++branchIndex) :
+            } while (bufferedListing ? loadBufferedEntry(++branchIndex) :
                      wideSearch ? (FindNextFileW(search, &fileDataW) ? (CopyFindDataWToA(fileDataW, fileData), TRUE) : FALSE) : FindNextFile(search, &fileData));
             DWORD err = GetLastError();
 
             if (search != NULL) // the first pass
             {
-                DestroySafeWaitWindow();
-                if (!branchListing) HANDLES(FindClose(search));
+                if (!bufferedListing)
+                {
+                    DestroySafeWaitWindow();
+                    HANDLES(FindClose(search));
+                }
             }
 
             if (testFindNextErr && err != ERROR_NO_MORE_FILES)
@@ -1738,9 +1750,9 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         {
             upDir = FALSE;
             *(fileNameEnd - 1) = 0; // it's not logical, but times ".." are from current directory
-            if (!UNCRootUpDir && !branchListing)
+            if (!UNCRootUpDir && !bufferedListing)
                 search = HANDLES_Q(FindFirstFile(fileName, &fileData));
-            else if (branchListing) search = INVALID_HANDLE_VALUE;
+            else if (bufferedListing) search = INVALID_HANDLE_VALUE;
             else
                 search = INVALID_HANDLE_VALUE;
             if (search == INVALID_HANDLE_VALUE)
@@ -1766,12 +1778,12 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 fileData.dwReserved0 = fileData.dwReserved1 = 0;
             }
             else
-                if (!branchListing) HANDLES(FindClose(search));
+                if (!bufferedListing) HANDLES(FindClose(search));
             search = NULL;                                              // the second/third pass
             fileData.dwFileAttributes |= FILE_ATTRIBUTE_DIRECTORY;      // this is ptDisk
             fileData.dwFileAttributes &= ~FILE_ATTRIBUTE_REPARSE_POINT; // need to remove flag FILE_ATTRIBUTE_REPARSE_POINT, otherwise link overlay will be on ".."
             strcpy(fileData.cFileName, "..");
-            if (branchListing) wcscpy_s(fileDataW.cFileName, L"..");
+            if (bufferedListing) wcscpy_s(fileDataW.cFileName, L"..");
             fileData.cAlternateFileName[0] = 0;
             st = fileData.cFileName;
             len = (int)strlen(st);
@@ -1784,7 +1796,7 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
     FIND_NEXT_WIN64_REDIRECTEDDIR:
 
         BOOL dirWithSameNameExists;
-        if (!branchListing && foundWin64RedirectedDirs < 10 &&
+        if (!bufferedListing && foundWin64RedirectedDirs < 10 &&
             AddWin64RedirectedDir(GetPath(), Dirs, &fileData, &foundWin64RedirectedDirs, &dirWithSameNameExists))
         {
             foundWin64RedirectedDirs++; // e.g. under system32 there can be 5, I've added some reserve to 10...

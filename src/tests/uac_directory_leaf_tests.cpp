@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Check repeated rooted directory reads on real NTFS. | Verify refresh returns fresh wide entries and reparse traversal fails. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Test verified permanent file deletion on NTFS. | Cover replacement, locks, special attributes and long Unicode names. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Exercise the basic metadata executor on real NTFS files. | Verify independent fields, stale snapshots, and preservation of the verified source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Probe NTFS native rename with a directory handle. | Verify the target cannot be redirected before adding broker rename. | | GPT-6.1 Sol (Codex) |
@@ -7,6 +8,7 @@
 */
 #include "../uacbroker/metadataleaf.h"
 #include "../uacbroker/deleteleaf.h"
+#include "../uacbroker/listing.h"
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
@@ -70,6 +72,27 @@ int wmain(int argc, wchar_t** argv)
     if (rawRoot == INVALID_HANDLE_VALUE)
         return 2;
     const Handle root(rawRoot);
+    HANDLE rawListing = nullptr;
+    ParentIdentity listingIdentity;
+    DWORD listingError = OpenParentBelowRoot(root.get(), L"destination", rawListing, listingIdentity, FILE_LIST_DIRECTORY);
+    if (listingError != ERROR_SUCCESS)
+        return 2;
+    const Handle listing(rawListing);
+    std::vector<WIN32_FIND_DATAW> entries;
+    listingError = UacListing::Enumerate(listing.get(), entries);
+    Check(listingError == ERROR_SUCCESS && entries.size() == 1 &&
+              std::wstring_view(entries.front().cFileName) == L"nested",
+          "enumerate the approved directory by handle", listingError);
+    if (!CreateRenameSource(fixture + L"\\destination\\\u6771\u4eac.txt"))
+        return 2;
+    listingError = UacListing::Enumerate(listing.get(), entries);
+    bool foundUnicode = false;
+    for (const auto& entry : entries)
+        foundUnicode |= std::wstring_view(entry.cFileName) == L"\u6771\u4eac.txt";
+    Check(listingError == ERROR_SUCCESS && entries.size() == 2 && foundUnicode,
+          "refresh the same directory handle and observe new Unicode entries", listingError);
+    listingError = OpenParentBelowRoot(listing.get(), L"..\\junction", rawListing, listingIdentity, FILE_LIST_DIRECTORY);
+    Check(listingError == ERROR_INVALID_NAME && !rawListing, "reject escape from approved listing root", listingError);
 
     HANDLE rawParent = nullptr;
     ParentIdentity expected;

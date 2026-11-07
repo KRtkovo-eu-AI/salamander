@@ -15,11 +15,12 @@
 | 2026-11-07 | Document the P3c basic metadata pilot. | Track the single-file attribute and timestamp command and its acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Document the P3d permanent delete pilot. | Record its limited scope, verified NTFS operation and VM cases. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record P3d acceptance and the Administrator button shield. | Verify real consent and preserve Cancel as the default. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Document the P3e protected directory listing pilot and VM evidence. | Track reuse and termination of one rooted listing session. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
 
-Stav k 7. listopadu 2026: pilot F7 (P3a), přejmenování jednoho souboru (P3b), změna jeho běžných atributů a časů (P3c) a pilot trvalého mazání (P3d). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
+Stav k 7. listopadu 2026: pilot F7 (P3a), přejmenování jednoho souboru (P3b), změna jeho běžných atributů a časů (P3c), pilot trvalého mazání (P3d) a pilot procházení chráněného podstromu (P3e). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
 
 Základem je upstream [release/5.0-samandarin-0.16](https://github.com/KRtkovo-eu-AI/salamander/tree/release/5.0-samandarin-0.16), ověřený commit [`16b4cd0176dc82752a11ee6bc09615780b6987a2`](https://github.com/KRtkovo-eu-AI/salamander/commit/16b4cd0176dc82752a11ee6bc09615780b6987a2). Stejný commit měla při založení práce referenční větev `majklvi/salamander:samandarin-0.16`. Pracovní větev je `feature/uac-support`, lokální checkout `C:\Samandarin\uac-support`. Všechny níže uvedené řádky zdrojů odkazují na tento pevný upstream commit, nikoli na proměnlivý HEAD.
 
@@ -315,6 +316,20 @@ Na NTFS v x64 Debug i Release prošly případy záměny zdroje a rodiče, jiné
 Ve Windows 11 Pro x64 build 26200 byl pilot `cd1b65d3` ověřen v chráněné složce `P3d-fixture`. Po Shift+Delete, potvrzení akce a volbě Ne v systémové výzvě zůstaly všechny tři testovací soubory se stejným obsahem. Volba Ano odstranila jen `02-approve.txt`. Sousední soubor i soubor ze zrušeného pokusu zůstaly, v Koši nebyla odpovídající položka a broker skončil. Uživatel při testu nahlásil chybějící štít na tlačítku Administrator. Dialog nyní přiřazuje štít tlačítku Administrator samostatně a výchozí fokus ponechává na Zrušit.
 
 V opraveném sestavení `038d02a7` Computer Use vizuálně potvrdil štít na Administrator a výchozí fokus na Zrušit. Escape ukončil kontrolu bez další výzvy UAC a oba zbývající soubory zůstaly v panelu.
+
+### 8.11 P3e — výpis chráněného podstromu v panelu
+
+Po odepření výpisu při explicitní navigaci může uživatel schválit konkrétní adresář na lokálním NTFS. Host před spuštěním brokeru zachytí identitu kořene. Broker ověří stejný objekt a otevře ho pro výpis. Každý další požadavek přijímá pouze relativní cestu vůči otevřenému kořeni a odmítá průchod přes reparse body. Vyhrazená relace umožňuje pouze výpis názvů a metadat, maximálně 4096 položek na adresář. Pilot vynechává názvy, které neprojdou stávající kontrolou běžných komponent cest Win32. Čtení obsahu a změny souborů vyžadují oprávnění běžného procesu nebo vlastní autorizaci dané operace.
+
+Panel označuje relaci textem `[Administrator listing]`. Uvnitř stejného podstromu používá jedno spojení pro navigaci a obnovu. Při opuštění podstromu nebo zavření panelu spojení zaniká. Broker ho ukončí také po 15 minutách bez požadavku. Automatická obnova sama novou elevaci nespouští.
+
+Před zahájením P3e prošel commit P3d `648cf484` sestavením pro Win32, x64 a ARM64, všemi 214 testy a kontrolou Source Growth. [CodeQL bez nových nálezů](https://github.com/majklvi/salamander/runs/128548192172).
+
+Na Windows 11 Pro x64 build 26200 běžný výpis kořene a jeho první podsložky skončil odepřením přístupu. V panelu zobrazil broker po volbě Administrator kořen a dvě úrovně podsložek. Nový `refresh-marker.txt` se objevil po návratu do okna. Ruční Ctrl+R i návrat přes `..` uvnitř podstromu proběhly bez další výzvy. PID brokeru `26648` zůstal stejný a po návratu do nadřazené běžné složky proces skončil a označení panelu zmizelo. U prvního běhu uživatel nepotvrdil zobrazení úvodní systémové výzvy.
+
+V opakované zkoušce běžel host jako standardní účet `SamandarinUacTest`, ověřený podle SID. Uživatel potvrdil skutečnou systémovou výzvu přihlašovacími údaji jiného správce. Výpis kořene, vstup do podsložky, Ctrl+R a návrat do kořene použily stejný broker (PID `21640`) bez další výzvy. Po odchodu z podstromu proces skončil a panel opět zobrazil běžný výpis.
+
+Nativní test ověřil obnovení výpisu nad stejným handlem, novou položku s názvem Unicode a odmítnutí cesty opouštějící kořen. Pro P4 zůstává samostatným krokem discovery pro kopírování a přesun s kontrolou úplnosti a navazující autorizací operace.
 
 ## 9. Uživatelský tok a stav operace
 

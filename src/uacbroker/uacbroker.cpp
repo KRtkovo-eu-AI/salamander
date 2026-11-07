@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Add an authenticated rooted directory listing session. | Support repeated read-only requests under one approved root. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Route one permanent file deletion through the authenticated broker. | Execute only the verified leaf and keep recycle operations separate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add the one-file basic metadata broker command. | Authenticate and validate a bounded attributes and timestamps request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Reconstruct the pipe path from a canonical GUID. | Keep elevated file opens within the local broker pipe namespace and address CodeQL findings. | | GPT-6.1 Sol (Codex) |
@@ -39,6 +40,7 @@
 #if defined(SAM_UAC_BROKER) || defined(SAM_UAC_F7_HOST)
 #include "metadataleaf.h"
 #include "deleteleaf.h"
+#include "listing.h"
 #endif
 
 namespace
@@ -65,7 +67,9 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD renameCapability = 2;
 [[maybe_unused]] constexpr DWORD metadataCapability = 4;
 [[maybe_unused]] constexpr DWORD deleteCapability = 8;
-[[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability | deleteCapability;
+[[maybe_unused]] constexpr DWORD listingCapability = 16;
+[[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
+                                                 deleteCapability | listingCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -330,6 +334,7 @@ struct RequestHeader
     DWORD sourceLength;
 };
 static_assert(sizeof(RequestHeader) == 56);
+struct ListingReply { DWORD error; DWORD count; };
 
 constexpr std::wstring_view volumePrefix = LR"(\\?\Volume)";
 constexpr size_t volumeLength = volumePrefix.size() + 38;
@@ -393,7 +398,7 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
 #endif
 
 #ifdef SAM_UAC_BROKER
-DWORD ReceiveRequest(HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG deadline, DWORD& result)
+DWORD ReceiveRequest(HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG deadline, DWORD& result, Handle& listingRoot)
 {
     RequestHeader header{};
     DWORD error = TransferRequest(pipe, &header, sizeof(header), false, deadline);
@@ -403,9 +408,11 @@ DWORD ReceiveRequest(HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG deadline
     const bool mkdir = header.operation == Operation::Mkdir;
     const bool setMetadata = header.operation == Operation::Metadata;
     const bool deleteFile = header.operation == Operation::Delete;
+    const bool list = header.operation == Operation::List;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
         header.leafLength > UacDirectoryLeaf::maxComponent || header.sourceLength > UacDirectoryLeaf::maxComponent ||
-        (!rename && !mkdir && !setMetadata && !deleteFile) || rename != (header.sourceLength != 0))
+        (!rename && !mkdir && !setMetadata && !deleteFile && !list) || rename != (header.sourceLength != 0) ||
+        (list && !header.relativeLength))
         return ERROR_INVALID_DATA;
     std::wstring payload(volumeLength + header.relativeLength + header.leafLength + header.sourceLength, L'\0');
     error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), false, deadline);
@@ -427,6 +434,7 @@ DWORD ReceiveRequest(HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG deadline
     const auto leaf = data.substr(volumeLength + header.relativeLength, header.leafLength);
     const auto source = data.substr(volumeLength + header.relativeLength + header.leafLength);
     if (!UacDirectoryLeaf::IsComponent(leaf) || (rename && !UacDirectoryLeaf::IsComponent(source)) ||
+        (list && leaf != UacListing::marker) ||
         volume.find(L'\0') != std::wstring_view::npos)
         return ERROR_INVALID_DATA;
     const auto root = OpenVolumeRoot(volume);
@@ -437,7 +445,14 @@ DWORD ReceiveRequest(HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG deadline
     }
     Handle parent;
     UacDirectoryLeaf::ParentIdentity actual;
-    result = OpenRequestParent(root.get(), relative, parent, actual);
+    if (list)
+    {
+        HANDLE raw = nullptr;
+        result = UacDirectoryLeaf::OpenParentBelowRoot(root.get(), relative, raw, actual, FILE_LIST_DIRECTORY);
+        parent = Adopt(raw);
+    }
+    else
+        result = OpenRequestParent(root.get(), relative, parent, actual);
     if (result)
         return ERROR_SUCCESS;
 
@@ -456,9 +471,57 @@ DWORD ReceiveRequest(HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG deadline
         result = UacMetadataLeaf::SetVerifiedMetadata(parent.get(), expected, sourceIdentity, leaf, metadata);
     else if (deleteFile)
         result = UacDeleteLeaf::DeleteVerifiedFile(parent.get(), expected, sourceIdentity, leaf);
+    else if (list)
+    {
+        if (UacDirectoryLeaf::SameParent(expected, actual))
+            listingRoot = std::move(parent);
+        else
+            result = ERROR_FILE_INVALID;
+    }
     else
         result = UacDirectoryLeaf::CreateVerifiedLeaf(parent.get(), expected, leaf);
     return ERROR_SUCCESS;
+}
+
+DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root)
+{
+    constexpr ULONGLONG idleTimeoutMs = 15 * 60 * 1000;
+    std::vector<WIN32_FIND_DATAW> entries;
+    for (;;)
+    {
+        DWORD length = 0;
+        DWORD error = TransferRequest(pipe, &length, sizeof(length), false, GetTickCount64() + idleTimeoutMs);
+        if (error)
+            return error;
+        if (length > UacDirectoryLeaf::maxNativeName || !LiveInSession(host, hostPid))
+            return ERROR_INVALID_DATA;
+        const auto deadline = GetTickCount64() + timeoutMs;
+        std::wstring relative(length, L'\0');
+        if (length)
+        {
+            error = TransferRequest(pipe, relative.data(), length * static_cast<DWORD>(sizeof(wchar_t)), false, deadline);
+            if (error)
+                return error;
+        }
+        UacDirectoryLeaf::ParentIdentity identity;
+        Handle child;
+        if (length)
+        {
+            HANDLE raw = nullptr;
+            error = UacDirectoryLeaf::OpenParentBelowRoot(root, relative, raw, identity, FILE_LIST_DIRECTORY);
+            child = Adopt(raw);
+        }
+        else
+            error = UacDirectoryLeaf::ReadParentIdentity(root, identity);
+        if (!error)
+            error = UacListing::Enumerate(child ? child.get() : root, entries);
+        ListingReply reply{error, error ? 0 : static_cast<DWORD>(entries.size())};
+        error = TransferRequest(pipe, &reply, sizeof(reply), true, deadline);
+        if (!error && reply.count)
+            error = TransferRequest(pipe, entries.data(), reply.count * static_cast<DWORD>(sizeof(WIN32_FIND_DATAW)), true, deadline);
+        if (error)
+            return error;
+    }
 }
 
 int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hostPid)
@@ -500,12 +563,15 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
     if (appHost)
     {
         DWORD result = ERROR_GEN_FAILURE;
-        error = ReceiveRequest(pipe.get(), host.get(), hostPid, deadline, result);
+        Handle listingRoot;
+        error = ReceiveRequest(pipe.get(), host.get(), hostPid, deadline, result, listingRoot);
         if (error)
             return IoError(L"Receive request", error);
         error = TransferRequest(pipe.get(), &result, sizeof(result), true, deadline);
         if (error)
             return IoError(L"Send request result", error);
+        if (listingRoot)
+            return IoError(L"Listing session ended", ServeListings(pipe.get(), host.get(), hostPid, listingRoot.get()));
     }
     frame = {protocolVersion, capability, Phase::Done};
     error = Exchange(pipe.get(), frame, true, deadline);
@@ -571,7 +637,8 @@ bool InspectPipeClient(HANDLE pipe, bool& elevated)
 
 int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
-             , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result
+             , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result,
+               HANDLE* listingPipe = nullptr
 #endif
 )
 {
@@ -658,6 +725,13 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline);
         if (error)
             return IoError(L"Read request result", error);
+        if (listingPipe && operationError == ERROR_SUCCESS)
+        {
+            *listingPipe = pipe.release();
+            result->error = ERROR_SUCCESS;
+            result->unknown = false;
+            return Ok;
+        }
 #endif
         if (!badVersion)
         {
@@ -761,7 +835,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
         return false;
     Handle openedSource;
     FILE_ID_INFO sourceIdentity{};
-    if (requested != Operation::Mkdir)
+    if (requested != Operation::Mkdir && requested != Operation::List)
     {
         HANDLE raw = nullptr;
         if (UacRenameLeaf::Detail::OpenSource(opened.get(), finalName, raw, 0,
@@ -831,6 +905,92 @@ Result PreparedLeaf::Execute(HWND owner) const
     MetadataChange requestMetadata = metadata;
     RunProbe(install, false, false, owner, &header, &payload, operation == Operation::Metadata ? &requestMetadata : nullptr, &result);
     return result;
+}
+
+ListingSession::~ListingSession()
+{
+    Close();
+}
+
+void ListingSession::Close()
+{
+    if (pipe)
+    {
+        CloseHandle(pipe);
+        pipe = nullptr;
+    }
+}
+
+bool ListingSession::Prepare(const std::wstring& path)
+{
+    if (path.size() <= 3 || path.back() == L'\\' ||
+        !prepared.PrepareTarget(path + L"\\" + UacListing::marker, Operation::List, {}, nullptr))
+        return false;
+    root = path;
+    return true;
+}
+
+DWORD ListingSession::Start(HWND owner)
+{
+    const ComApartment com;
+    InstallLocation install;
+    if (root.empty() || pipe || FAILED(com.result) || !install.Open() ||
+        !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))
+        return ERROR_ACCESS_DENIED;
+    RequestHeader header{prepared.serial, {}, {}, Operation::List,
+                         static_cast<DWORD>(prepared.relative.size()), static_cast<DWORD>(prepared.leaf.size()), 0};
+    std::memcpy(header.parentId.Identifier, prepared.fileId, sizeof(prepared.fileId));
+    std::wstring payload = prepared.volume + prepared.relative + prepared.leaf;
+    Result result;
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &pipe);
+    return result.error;
+}
+
+bool ListingSession::Contains(const std::wstring& path) const
+{
+    return pipe && path.compare(0, root.size(), root) == 0 &&
+           (path.size() == root.size() || (path.size() > root.size() && path[root.size()] == L'\\'));
+}
+
+DWORD ListingSession::List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries)
+{
+    entries.clear();
+    if (!Contains(path))
+        return ERROR_ACCESS_DENIED;
+    std::wstring relative = path.size() == root.size() ? std::wstring{} : path.substr(root.size() + 1);
+    if (relative.size() > UacDirectoryLeaf::maxNativeName)
+        return ERROR_FILENAME_EXCED_RANGE;
+    const auto deadline = GetTickCount64() + timeoutMs;
+    DWORD length = static_cast<DWORD>(relative.size());
+    DWORD error = TransferRequest(pipe, &length, sizeof(length), true, deadline);
+    if (!error && length)
+        error = TransferRequest(pipe, relative.data(), length * static_cast<DWORD>(sizeof(wchar_t)), true, deadline);
+    ListingReply reply{};
+    if (!error)
+        error = TransferRequest(pipe, &reply, sizeof(reply), false, deadline);
+    if (!error && (reply.count > UacListing::maxEntries || (reply.error && reply.count)))
+        error = ERROR_INVALID_DATA;
+    if (!error && reply.count)
+    {
+        entries.resize(reply.count);
+        error = TransferRequest(pipe, entries.data(), reply.count * static_cast<DWORD>(sizeof(WIN32_FIND_DATAW)), false, deadline);
+        if (!error)
+        {
+            for (const auto& entry : entries)
+                if (!UacDirectoryLeaf::IsComponent(std::wstring_view(entry.cFileName, wcsnlen_s(entry.cFileName, ARRAYSIZE(entry.cFileName)))))
+                {
+                    error = ERROR_INVALID_DATA;
+                    break;
+                }
+        }
+    }
+    if (error)
+    {
+        entries.clear();
+        Close();
+        return error;
+    }
+    return reply.error;
 }
 }
 #else

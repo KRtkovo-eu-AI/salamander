@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Declare one rooted read-only listing session. | Keep one authorization across navigation and refresh. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Declare the one-file permanent delete request. | Pin the original file across UAC consent and retries. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add a typed request for basic file metadata. | Share one operation between the ordinary token and the broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Capture a file identity for the shared F2 rename path. | Keep the source and parent pinned across consent. | | GPT-6.1 Sol (Codex) |
@@ -9,10 +10,11 @@
 
 #include <windows.h>
 #include <string>
+#include <vector>
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5 };
 
 struct Result
 {
@@ -51,6 +53,7 @@ public:
     Result Execute(HWND owner) const;
 
 private:
+    friend class ListingSession;
     bool PrepareTarget(const std::wstring& path, Operation requested, const std::wstring& renameTo,
                        const MetadataChange* change);
     HANDLE parent = nullptr;
@@ -61,6 +64,27 @@ private:
     std::wstring volume, relative, leaf, sourceLeaf;
     MetadataChange metadata{};
     Operation operation = Operation::Mkdir;
+};
+
+class ListingSession
+{
+public:
+    ListingSession() = default;
+    ~ListingSession();
+    ListingSession(const ListingSession&) = delete;
+    ListingSession& operator=(const ListingSession&) = delete;
+
+    bool Prepare(const std::wstring& path);
+    DWORD Start(HWND owner);
+    bool Contains(const std::wstring& path) const;
+    DWORD List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries);
+    bool IsOpen() const { return pipe != nullptr; }
+
+private:
+    void Close();
+    PreparedLeaf prepared;
+    std::wstring root;
+    HANDLE pipe = nullptr;
 };
 
 struct LeafPrompt

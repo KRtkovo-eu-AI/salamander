@@ -3,6 +3,7 @@
 // | 2026-11-07 | Add the confirmation for elevated rename. | Identify both paths before invoking Windows UAC. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Add basic metadata consent and disconnect strings. | Explain the protected operation and unconfirmed outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Add permanent-delete elevation messages. | Name the irreversible operation and report an unconfirmed result. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Describe the protected listing consent and status. | Explain its scope and read-only access. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Describe a missing extension runtime. | Activation failed silently when the interpreter or runtime provider was not installed. | | Grok 4.7 |
 // | 2026-11-04 | Keep the missing-runtime strings valid for the resource compiler. | A backslash before a quote was read as the end of the string. | | Grok 4.7 |
@@ -2360,6 +2361,8 @@ STRINGTABLE
  IDS_UAC_METADATA_UNKNOWN, "The broker disconnected before the result was confirmed. Check the file's attributes and times before retrying."
  IDS_UAC_DELETE_CONFIRM, "Access was denied. Permanently delete this file as an administrator?"
  IDS_UAC_DELETE_UNKNOWN, "The broker disconnected before deletion was confirmed. Check whether the file still exists before retrying."
+ IDS_UAC_LIST_CONFIRM, "Access was denied. List this folder and its subfolders as an administrator?"
+ IDS_UAC_LIST_ACTIVE, "Administrator listing"
  IDS_FILELAUNCH_PROGRAM_FAILED, "The program could not be started safely through Windows. It was not retried using another launch method."
  IDS_FILELAUNCH_DOCUMENT_FAILED, "The item could not be opened through Windows Shell. The selected item was not retried using another launch method."
  IDS_FILELAUNCH_LONGPATH_OFF, "Windows long-path setting: disabled."

@@ -4184,6 +4184,8 @@ SLGINCOMPLETE,""
 14532,1,"Die Verbindung zum Hilfsprozess wurde vor der Bestätigung des Ergebnisses getrennt. Prüfen Sie vor einem erneuten Versuch die Attribute und Zeitstempel der Datei."
 14533,1,"Zugriff verweigert. Diese Datei als Administrator endgültig löschen?"
 14534,1,"Die Verbindung zum Hilfsprozess wurde vor der Bestätigung der Löschung getrennt. Prüfen Sie vor einem erneuten Versuch, ob die Datei noch vorhanden ist."
+14535,1,"Zugriff verweigert. Diesen Ordner und seine Unterordner als Administrator auflisten?"
+14536,1,"Administratoransicht"
 
 [STRINGTABLE 184]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
