@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Paint grouped property headers in ListView postpaint. | Preserve dark group headers after removing unsafe post-WM_PAINT client overpainting. | | GPT-5.6 Luna Pro |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -3282,7 +3285,7 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
             if (DarkModeShouldUseDarkColors())
             {
                 if (customDraw->nmcd.dwDrawStage == CDDS_PREPAINT)
-                    result = CDRF_NOTIFYITEMDRAW;
+                    result = CDRF_NOTIFYITEMDRAW | CDRF_NOTIFYPOSTPAINT;
                 else if (customDraw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
                 {
                     customDraw->clrTextBk = DarkModeGetDialogBackgroundColor();
@@ -3293,6 +3296,11 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
                 {
                     if (customDraw->dwItemType == LVCDI_ITEM)
                         DrawDarkModeListViewCheckboxes(hdr->hwndFrom, customDraw, 1);
+                }
+                else if (customDraw->nmcd.dwDrawStage == CDDS_POSTPAINT)
+                {
+                    PaintDarkListViewGroupHeaders(hdr->hwndFrom, customDraw->nmcd.hdc,
+                                                  DarkModeGetDialogBackgroundColor());
                 }
             }
             SetWindowLongPtr(HWindow, DWLP_MSGRESULT, result);

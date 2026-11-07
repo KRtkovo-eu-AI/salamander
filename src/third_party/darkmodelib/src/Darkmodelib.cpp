@@ -1,4 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Keep themed scrolling separate from custom-drawn list clients. | Applying the Explorer client theme and double buffering over owner-drawn controls caused items to disappear during native scrolling. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Restore shared ListView buffering and theming. | The global scrollbar-only change regressed ListViews outside the Customize dialog; only owner-drawn ListBoxes need the isolated theme exception. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Leave draggable owner-drawn ListBoxes to MakeDragList. | The darkmodelib border subclass and scrollbar theme can interfere with the drag-list subclass during native scrolling. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Theme draggable ListBox chrome without replacing its client renderer. | Owner-drawn controls must retain MakeDragList and WM_DRAWITEM while still receiving dark scrollbars and borders. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Keep ListView client painting native in dark mode. | The Explorer client theme and library-added double buffering can leave custom-drawn rows blank after native scrolling. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Restore the established ListView theme and buffering path. | The scrollbar-only experiment regressed previously stable ListViews without fixing the repaint defect. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Limit ListView subclassing to controls that need it. | Avoid placing an unnecessary subclass in the native scroll path of ordinary custom-drawn ListViews. | | GPT-5.6 Luna Pro |
 
 /*
  * Copyright (c) 2025-2026 ozone10
@@ -1405,6 +1413,9 @@ static void setCustomBorderForListBoxOrEditCtrlSubclassAndTheme(HWND hWnd, DarkM
 {
 	const auto nStyle = ::GetWindowLongPtr(hWnd, GWL_STYLE);
 	const bool hasScrollBar = ((nStyle & WS_HSCROLL) == WS_HSCROLL) || ((nStyle & WS_VSCROLL) == WS_VSCROLL);
+	const bool isOwnerDrawListBox = isListBox &&
+		((nStyle & LBS_OWNERDRAWFIXED) == LBS_OWNERDRAWFIXED ||
+		 (nStyle & LBS_OWNERDRAWVARIABLE) == LBS_OWNERDRAWVARIABLE);
 
 	// edit control without scroll bars
 	if (dmlib_subclass::isThemePrefered()
@@ -1423,17 +1434,24 @@ static void setCustomBorderForListBoxOrEditCtrlSubclassAndTheme(HWND hWnd, DarkM
 	}
 	else
 	{
-		if (p.m_theme && (isListBox || hasScrollBar))
-		{
-			// dark scroll bars for list box or edit control
-			::SetWindowTheme(hWnd, p.m_themeClassName, nullptr);
+        if (p.m_theme && (isListBox || hasScrollBar))
+        {
+            if (isOwnerDrawListBox)
+            {
+                ::SetWindowTheme(hWnd, nullptr,
+                                 dmlib::isExperimentalActive() ? L"DarkMode_Explorer::ScrollBar" : nullptr);
+            }
+            else
+            {
+                ::SetWindowTheme(hWnd, p.m_themeClassName, nullptr);
+            }
 		}
 
 		const auto nExStyle = ::GetWindowLongPtr(hWnd, GWL_EXSTYLE);
 		const bool hasClientEdge = (nExStyle & WS_EX_CLIENTEDGE) == WS_EX_CLIENTEDGE;
 
 		if (const bool isCBoxListBox = isListBox && (nStyle & LBS_COMBOBOX) == LBS_COMBOBOX;
-			p.m_subclass && hasClientEdge && !isCBoxListBox)
+            p.m_subclass && hasClientEdge && !isCBoxListBox)
 		{
 			dmlib::setCustomBorderForListBoxOrEditCtrlSubclass(hWnd);
 		}
@@ -1629,7 +1647,16 @@ static void setComboBoxExCtrlSubclass(HWND hWnd, DarkModeParams p) noexcept
  */
 void dmlib::setListViewCtrlSubclass(HWND hWnd)
 {
-	dmlib_subclass::SetSubclass(hWnd, dmlib_subclass::ListViewSubclass, dmlib_subclass::SubclassID::listView);
+	const auto style = ::GetWindowLongPtr(hWnd, GWL_STYLE);
+	const auto extendedStyle = ListView_GetExtendedListViewStyle(hWnd);
+	const bool isReportWithGridlines =
+		((style & LVS_TYPEMASK) == LVS_REPORT) && ((extendedStyle & LVS_EX_GRIDLINES) != 0);
+	const bool supportsLabelEditing = (style & LVS_EDITLABELS) != 0;
+
+	if (isReportWithGridlines || supportsLabelEditing)
+		dmlib_subclass::SetSubclass(hWnd, dmlib_subclass::ListViewSubclass, dmlib_subclass::SubclassID::listView);
+	else
+		dmlib_subclass::RemoveSubclass(hWnd, dmlib_subclass::ListViewSubclass, dmlib_subclass::SubclassID::listView);
 }
 
 /**

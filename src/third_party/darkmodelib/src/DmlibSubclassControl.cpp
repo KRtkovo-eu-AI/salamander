@@ -9,6 +9,9 @@
 
 // This file is part of darkmodelib library.
 
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Repaint dark ListView contents after native scrolling. | Prevent dark-theme scroll operations from exposing unpainted ListView items. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Stop intercepting native ListView scrolling. | Let the common control own its paint cycle; the surface subclass now avoids the overpainting defect directly. | | GPT-5.6 Luna Pro |
 
 #include "StdAfx.h"
 

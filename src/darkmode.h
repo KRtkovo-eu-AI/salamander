@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Expose dark ListView group-header painting for custom draw postpaint. | Group headers must be painted after native ListView rendering without a separate GetDC pass. | | GPT-5.6 Luna Pro |
 
 #pragma once
 
@@ -114,6 +117,7 @@ void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF ba
 void RemoveListViewWhiteClientEdge(HWND listView);
 bool ShouldCustomDrawListViewCheckboxes();
 void DrawDarkModeListViewCheckboxes(HWND listView, NMLVCUSTOMDRAW* customDraw, int columnCount);
+void PaintDarkListViewGroupHeaders(HWND hwnd, HDC hdc, COLORREF background);
 void DarkModeApplyStaticTextColors(HWND hwndParent, HWND specificCtrl);
 void DarkModeUpdateTabControlOverflowButtons(HWND tabControl);
 void DarkModePreserveCustomTabControl(HWND tabControl);
