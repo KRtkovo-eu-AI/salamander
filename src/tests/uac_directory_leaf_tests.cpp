@@ -1,8 +1,9 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Probe NTFS native rename with a directory handle. | Verify the target cannot be redirected before adding broker rename. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Test anchored mkdir against real NTFS substitutions. | Verify that a replacement path and reparse points cannot redirect a creation. | | GPT-6.1 Sol (Codex) |
 */
-#include "../uacbroker/directoryleaf.h"
+#include "../uacbroker/renameleaf.h"
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
@@ -19,6 +20,29 @@ bool DirectoryExists(const std::wstring& path)
 {
     const DWORD attr = GetFileAttributesW(path.c_str());
     return attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY);
+}
+
+Handle CreateRenameSource(const std::wstring& path)
+{
+    const HANDLE file = CreateFileW(path.c_str(), DELETE, FILE_SHARE_READ, nullptr,
+                                    CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    return Handle(file == INVALID_HANDLE_VALUE ? nullptr : file);
+}
+
+Handle OpenIdentity(const std::wstring& path, FILE_ID_INFO& identity)
+{
+    const HANDLE file = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                    OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    Handle handle(file == INVALID_HANDLE_VALUE ? nullptr : file);
+    if (handle && !GetFileInformationByHandleEx(handle.get(), FileIdInfo, &identity, sizeof(identity)))
+        handle.reset();
+    return handle;
+}
+
+bool Exists(const std::wstring& path)
+{
+    return GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
 }
 
 int failures = 0;
@@ -78,6 +102,75 @@ int wmain(int argc, wchar_t** argv)
     error = CreateVerifiedLeaf(original.get(), expected, leaf);
     Check(error == ERROR_ALREADY_EXISTS && DirectoryExists(intended), "collision preserves existing folder", error);
 
+    const auto sourcePath = fixture + L"\\rename-source";
+    const auto renamedPath = moved + L"\\rename-\u6771\u4eac";
+    const auto replacedPath = ancestor + L"\\parent\\rename-\u6771\u4eac";
+    auto source = CreateRenameSource(sourcePath);
+    if (!source)
+        return 2;
+    error = UacRenameLeaf::Detail::NativeRename(source.get(), original.get(), L"rename-\u6771\u4eac");
+    Check(error == ERROR_SUCCESS && Exists(renamedPath) && !Exists(sourcePath) && !Exists(replacedPath),
+          "native rename stays on the held target after directory substitution", error);
+    source.reset();
+
+    const auto collisionPath = moved + L"\\collision-source";
+    if (!CreateRenameSource(collisionPath))
+        return 2;
+    FILE_ID_INFO sourceId{};
+    FILE_ID_INFO targetId{};
+    const auto pinnedSource = OpenIdentity(collisionPath, sourceId);
+    const auto pinnedTarget = OpenIdentity(renamedPath, targetId);
+    if (!pinnedSource || !pinnedTarget)
+        return 2;
+    error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, sourceId, L"collision-source", L"rename-\u6771\u4eac");
+    FILE_ID_INFO targetAfter{};
+    Check((error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS) && Exists(collisionPath) &&
+              OpenIdentity(renamedPath, targetAfter) &&
+              std::memcmp(targetId.FileId.Identifier, targetAfter.FileId.Identifier, sizeof(targetId.FileId.Identifier)) == 0,
+          "verified rename collision preserves source and target identity", error);
+
+    error = UacRenameLeaf::RenameVerifiedFile(substitute.get(), expected, sourceId, L"collision-source", L"wrong-parent");
+    Check(error == ERROR_FILE_INVALID && !Exists(ancestor + L"\\parent\\wrong-parent"),
+          "rename rejects a replacement parent", error);
+
+    const auto movedSource = moved + L"\\held-source";
+    if (!MoveFileExW(collisionPath.c_str(), movedSource.c_str(), 0) || !CreateRenameSource(collisionPath))
+        return 2;
+    error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, sourceId, L"collision-source", L"wrong-file");
+    Check(error == ERROR_FILE_INVALID && Exists(collisionPath) && Exists(movedSource) && !Exists(moved + L"\\wrong-file"),
+          "rename rejects a substituted source while the original ID is pinned", error);
+
+    const auto alias = moved + L"\\hard-link";
+    if (!CreateHardLinkW(alias.c_str(), movedSource.c_str(), nullptr))
+        return 2;
+    error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, sourceId, L"held-source", L"wrong-file");
+    Check(error == ERROR_NOT_SUPPORTED && Exists(alias) && Exists(movedSource) && !Exists(moved + L"\\wrong-file"),
+          "rename rejects a multiply linked source", error);
+    if (!DeleteFileW(alias.c_str()))
+        return 2;
+    error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, sourceId, L"held-source", L"HELD-SOURCE");
+    Check(error == ERROR_NOT_SUPPORTED && Exists(movedSource), "case-only rename stays outside the primitive", error);
+    error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, sourceId, L"held-source", L"new:stream");
+    Check(error == ERROR_INVALID_NAME && Exists(movedSource), "rename rejects an alternate stream name", error);
+    const HANDLE writer = CreateFileW(movedSource.c_str(), FILE_WRITE_DATA,
+                                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                      OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (writer == INVALID_HANDLE_VALUE)
+        return 2;
+    error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, sourceId, L"held-source", L"wrong-file");
+    Check(error == ERROR_SHARING_VIOLATION && Exists(movedSource) && !Exists(moved + L"\\wrong-file"),
+          "verified rename refuses a concurrent writer", error);
+    CloseHandle(writer);
+    error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, sourceId, leaf, L"wrong-file");
+    Check(error == ERROR_ACCESS_DENIED && DirectoryExists(intended) && !Exists(moved + L"\\wrong-file"),
+          "the file-only primitive leaves a directory source intact", error);
+    error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, sourceId, L"held-source", L"verified-\u6771\u4eac");
+    FILE_ID_INFO verifiedId{};
+    Check(error == ERROR_SUCCESS && !Exists(movedSource) && OpenIdentity(moved + L"\\verified-\u6771\u4eac", verifiedId) &&
+              std::memcmp(sourceId.FileId.Identifier, verifiedId.FileId.Identifier, sizeof(sourceId.FileId.Identifier)) == 0 &&
+              !Exists(ancestor + L"\\parent\\verified-\u6771\u4eac"),
+          "verified rename preserves the source identity in the held parent", error);
+
     for (const auto invalid : {L"..", L"parent\\escaped", L"parent/escaped", L"x:ads", L"NUL.txt", L"x.", L"x "})
     {
         error = CreateVerifiedLeaf(original.get(), expected, invalid);
@@ -135,6 +228,14 @@ int wmain(int argc, wchar_t** argv)
         CloseHandle(raced);
     Check(!DirectoryExists(fixture + L"\\destination\\race-leaf"),
           "native call cannot follow a parent tag added after validation", racedResult);
+    const auto raceSourcePath = fixture + L"\\rename-race-source";
+    source = CreateRenameSource(raceSourcePath);
+    if (!source)
+        return 2;
+    const DWORD renameRace = UacRenameLeaf::Detail::NativeRename(source.get(), mutableParent.get(), L"rename-race-target");
+    Check(!Exists(fixture + L"\\destination\\rename-race-target"),
+          "native rename cannot follow a target tag added after validation", renameRace);
+    source.reset();
     struct { DWORD tag; WORD length; WORD reserved; } remove{IO_REPARSE_TAG_MOUNT_POINT, 0, 0};
     if (!DeviceIoControl(writable.get(), FSCTL_DELETE_REPARSE_POINT, &remove, sizeof(remove), nullptr, 0, &bytes, nullptr))
     {
@@ -144,6 +245,8 @@ int wmain(int argc, wchar_t** argv)
 
     Check(racedResult != ERROR_SUCCESS || DirectoryExists(mutablePath + L"\\race-leaf"),
           "successful raced creation stays in the original object", racedResult);
+    Check(renameRace == ERROR_SUCCESS ? Exists(mutablePath + L"\\rename-race-target") : Exists(raceSourcePath),
+          "raced rename either stays in the original object or preserves the source", renameRace);
 
     const std::wstring first = L"long-" + std::wstring(175, L'\u65e5');
     const std::wstring second(100, L'\u672c');
@@ -157,12 +260,20 @@ int wmain(int argc, wchar_t** argv)
     Handle longParent(rawParent);
     error = CreateVerifiedLeaf(longParent.get(), expected, leaf);
     Check(error == ERROR_SUCCESS && DirectoryExists(longPath + L"\\" + leaf), "create exact Unicode leaf on a long path", error);
+    const auto longSource = longPath + L"\\source-\u65e5";
+    const auto longTarget = longPath + L"\\target-\u672c";
+    FILE_ID_INFO longId{};
+    if (!CreateRenameSource(longSource) || !OpenIdentity(longSource, longId))
+        return 2;
+    const DWORD longRename = UacRenameLeaf::RenameVerifiedFile(longParent.get(), expected, longId, L"source-\u65e5", L"target-\u672c");
+    Check(longRename == ERROR_SUCCESS && !Exists(longSource) && Exists(longTarget), "rename exact Unicode leaf on a long path", longRename);
+    const BOOL removedFile = DeleteFileW((longRename == ERROR_SUCCESS ? longTarget : longSource).c_str());
 
     longParent.reset();
     // The Python runner may have a MAX_PATH-limited filesystem API.
     const BOOL removedLeaf = error == ERROR_SUCCESS ? RemoveDirectoryW((longPath + L"\\" + leaf).c_str()) : TRUE;
     const BOOL removedParent = RemoveDirectoryW(longPath.c_str());
     const BOOL removedFirst = RemoveDirectoryW((fixture + L"\\" + first).c_str());
-    Check(removedLeaf && removedParent && removedFirst, "remove only the owned long-path fixture");
+    Check(removedFile && removedLeaf && removedParent && removedFirst, "remove only the owned long-path fixture");
     return failures ? 1 : 0;
 }

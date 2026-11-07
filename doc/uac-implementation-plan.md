@@ -8,11 +8,12 @@
 | 2026-11-07 | Record interactive P2 acceptance results. | Verify the exact staged broker pair in the isolated VM. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record the P3a verified-parent experiment. | Prove object identity under substitution before authorizing a broker write. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record the protected F7 broker pilot. | Track the one-leaf capability and VM validation. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Record the P3b native rename proof and pilot boundary. | Verify target anchoring and source identity before exposing a second broker command. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
 
-Stav: návrh pro budoucí implementaci, 7. listopadu 2026. Tato změna obsahuje pouze dokumentaci; nemění zdrojový kód, manifesty, instalátor ani workflow.
+Stav k 7. listopadu 2026: funkční pilot F7 (P3a) a nativní ověření přejmenování (P3b). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
 
 Základem je upstream [release/5.0-samandarin-0.16](https://github.com/KRtkovo-eu-AI/salamander/tree/release/5.0-samandarin-0.16), ověřený commit [`16b4cd0176dc82752a11ee6bc09615780b6987a2`](https://github.com/KRtkovo-eu-AI/salamander/commit/16b4cd0176dc82752a11ee6bc09615780b6987a2). Stejný commit měla při založení práce referenční větev `majklvi/salamander:samandarin-0.16`. Pracovní větev je `feature/uac-support`, lokální checkout `C:\Samandarin\uac-support`. Všechny níže uvedené řádky zdrojů odkazují na tento pevný upstream commit, nikoli na proměnlivý HEAD.
 
@@ -238,6 +239,16 @@ Diagnostický host P2 používá nadále schopnost 0. Instalovaný Samandarin po
 - Opakovaná F7 se stejným názvem zobrazila chybu 183 bez nové nabídky elevace. Existující složka zůstala zachovaná včetně původního času vytvoření.
 - Chráněný průchod ověřil split-token účet správce. Přihlášení jiným správcem a ztráta spojení byly ověřeny pro handshake P2. Jejich opakování během souborové mutace je další rozšíření testovací matice.
 
+### 8.8 P3b — přejmenování jednoho souboru
+
+P0 nedokázalo relativní přejmenování přes Win32 `SetFileInformationByHandle`. Nativní `NtSetInformationFile` s `FileRenameInformation` přijalo jednoduché jméno relativní k otevřenému cílovému adresáři a s vypnutým přepisem. V izolované VM na NTFS zůstala mutace po přejmenování a výměně cílového rodiče na původním objektu. Junction vložený do otevřeného cílového adresáře po validaci vrátil chybu 1921, zdroj zůstal zachovaný a v cíli junction nic nevzniklo. [NtSetInformationFile](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntsetinformationfile) · [FILE_RENAME_INFORMATION](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information)
+
+`RenameVerifiedFile` v `src/uacbroker/renameleaf.h` omezuje první variantu na jeden běžný soubor v témže ověřeném rodiči na NTFS. Porovnává identitu rodiče i zdroje, otevírá zdroj relativně k rodiči s právem DELETE a bez sdílení pro zápis nebo smazání a předá jádru cílové jméno bez práva přepsat cíl. Volající drží handly původního rodiče a zdroje až do dokončení. Rozsah zatím vylučuje adresáře, změnu pouze velikosti písmen, zdroj s více hardlinky a přejmenování mezi rodiči.
+
+Nativní testy prošly v x64 Debug, x64 Release a Win32 Release ve Windows 11 Pro build 26200. Ověřily zachování identity při úspěchu a kolizi, odmítnutí záměny rodiče i zdroje, souběžného zápisu, hardlinku a syntaxe pro ADS. Ověřily také Unicode názvy pod cestou delší než 260 znaků a zopakovaly kontroly mkdir.
+
+Před zpřístupněním v aplikaci je třeba přidat samostatný jednorázový příkaz brokeru a použít jej po neúspěšném běžném pokusu z `RenameFileInternalW`, společného pro dialog a Quick Rename. Nabídka elevace musí uvádět obě jména a větev pro přepsání cíle musí zůstat oddělená. VM akceptace musí zahrnout potvrzení a zrušení UAC, kolizi vzniklou během souhlasu, jiný účet správce a odpojení před i po mutaci. Tato dílčí etapa ověřila nativní operaci bez elevace. Broker zatím přijímá pouze mkdir.
+
 ## 9. Uživatelský tok a stav operace
 
 1. Provést běžnou operaci s aktuálním tokenem. Preflight může být informativní, nemá slibovat oprávnění budoucí mutace.
@@ -282,7 +293,7 @@ Nové texty patří do lokalizačního systému. Dialogy musí respektovat proje
 
 ## 11. Implementační etapy a akceptační podmínky
 
-Etapy níže jsou budoucí práce. V tomto plánovacím commitu se neprovádí ani prototyp P0.
+Tabulka uvádí cílové podmínky etap. Průběžné výsledky a zúžení pilotů jsou v oddílu 8.
 
 | Etapa | Obsah | Závislost | Podmínka dokončení |
 | --- | --- | --- | --- |
