@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Post coalesced Find result refreshes asynchronously. | Keep the search worker from blocking the GUI thread during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Add SafeHandleContextMenuMsg for shell-extension SEH. | Find dialog HandleMenuMsg must not live inside WindowProc SEH. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -172,6 +173,7 @@ struct CGrepData
     int FoundVisibleCount;  // number of items displayed in the list view
     DWORD FoundVisibleTick; // when it was last displayed
     BOOL NeedRefresh;       // need to refresh the display (an item was added without being shown)
+    volatile LONG RefreshPosted; // is a result-list refresh already queued?
 
     CSearchingString* SearchingText;  // synchronized "Searching" text in the Find status bar
     CSearchingString* SearchingText2; // [optional] second text on the right; used for "Total: 35%"

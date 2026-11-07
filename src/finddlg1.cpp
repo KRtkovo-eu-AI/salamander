@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Coalesce asynchronous Find result refreshes. | Keep large searches from synchronously blocking on list-view updates. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Forward Find ContextMenu messages to SafeHandleContextMenuMsg. | HandleMenuMsg SEH must stay out of WindowProc (C2712). | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -2476,6 +2477,7 @@ void CFindDialog::StartSearch(WORD command)
     GrepData.FoundFilesListView = FoundFilesListView;
     GrepData.FoundVisibleCount = 0;
     GrepData.FoundVisibleTick = GetTickCount();
+    GrepData.RefreshPosted = FALSE;
 
     GrepData.SearchingText = &SearchingText;
     GrepData.SearchingText2 = &SearchingText2;
@@ -4835,6 +4837,7 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
 
     case WM_USER_ADDFILE:
     {
+        InterlockedExchange(&GrepData.RefreshPosted, FALSE);
         UpdateListViewItems();
         return 0;
     }
