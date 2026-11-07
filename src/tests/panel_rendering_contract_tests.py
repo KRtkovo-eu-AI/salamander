@@ -815,6 +815,19 @@ def main() -> int:
         print("detach and cross-side move must synchronously populate the exposed source tab")
         return 1
 
+    selected_tab = re.search(
+        r"void CMainWindow::OnPanelTabSelected\(CPanelSide side, int index\)"
+        r".*?\n\}",
+        mainwnd3,
+        re.DOTALL,
+    )
+    if (
+        selected_tab is None
+        or "SwitchPanelTab(panel, false);" not in selected_tab.group(0)
+    ):
+        print("direct tab selection must synchronously populate the selected panel")
+        return 1
+
     tab_context_menu = re.search(
         r"void CMainWindow::OnPanelTabContextMenu\(.*?"
         r"void CMainWindow::OnPanelTabNewTabAreaContextMenu",

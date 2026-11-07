@@ -1128,7 +1128,10 @@ void CMainWindow::OnPanelTabSelected(CPanelSide side, int index)
     }
     CFilesWindow* panel = tabs[index];
     if (panel != NULL)
-        SwitchPanelTab(panel);
+        // A direct tab-control selection exposes the panel immediately.  Finish
+        // its refresh before returning so the newly visible tab cannot retain
+        // the previous tab's listing until another message-loop turn.
+        SwitchPanelTab(panel, false);
 }
 
 void CMainWindow::OnPanelTabContextMenu(CPanelSide side, int index, const POINT& screenPt)
