@@ -267,10 +267,10 @@ COMMENT,"Versiunea romana"
 253,11,98,211,12,1,"Nu intreba pe viitor si lasa intotdeauna textele n&eschimbate"
 
 [MENU 400]
-0,1,"&Optiuni"
+0,1,"&Fisier"
 401,1,"&Exporta Setari...\tCtrl+E"
 402,1,"&Importa Setari...\tCtrl+I"
-0,1,"&Optiuni"
+0,1,"&Vizualizeaza"
 403,1,"Pre&vizualizeaza Casuta Mesaje SFX...\tCtr+V"
 0,1,"&Optiuni"
 404,1,"&Reseteaza Tot\tCtrl+Shift+R"

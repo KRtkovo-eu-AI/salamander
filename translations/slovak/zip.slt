@@ -267,10 +267,10 @@ COMMENT,"Slovenská verzia"
 253,11,98,205,12,1,"Nepýtať sa a vždy ponechať te&xty nezmenené"
 
 [MENU 400]
-0,1,"Nast&avenie"
+0,1,"&Súbor"
 401,1,"&Exportovať nastavenia...\tCtrl+E"
 402,1,"&Importovať nastavenia...\tCtrl+I"
-0,1,"Nast&avenie"
+0,1,"&Zobrazenie"
 403,1,"&Náhľad SFX Dialógového okna...\tCtr+V"
 0,1,"Nast&avenie"
 404,1,"&Resetovať všetko\tCtrl+Shift+R"

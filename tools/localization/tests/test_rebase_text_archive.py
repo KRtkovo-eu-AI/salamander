@@ -53,5 +53,89 @@ class RebaseTextArchiveTests(unittest.TestCase):
         text = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("[char]::IsWhiteSpace($previousChar) -and [char]::IsWhiteSpace($nextChar)", text)
 
+    def test_menu_popup_ids_use_fifo_queues(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("New-IdItemQueueMap", text)
+        self.assertIn("Add-IdItemToQueueMap", text)
+        self.assertIn("Get-IdItemFromQueueMap", text)
+        self.assertIn("Queue[object]", text)
+        self.assertNotIn("$legacyItems[$item.Id] = $item", text)
+
+    def test_duplicate_menu_popup_ids_preserve_distinct_titles(self):
+        import shutil
+        import subprocess
+        import tempfile
+        from pathlib import Path
+
+        pwsh = shutil.which("pwsh") or shutil.which("powershell")
+        if pwsh is None:
+            self.skipTest("PowerShell is required to execute rebase_text_archive.ps1")
+
+        current = """[EXPORTINFO]
+PROJECTNAME,"x"
+TEXTVERSION,"1"
+VERSION,"1"
+
+[TRANSLATION]
+LANGID,1033
+
+[MENU 6010]
+0,0,"&File"
+6050,0,"&Open"
+0,0,"&Edit"
+6062,0,"&Copy"
+0,0,"&Help"
+6091,0,"&Contents"
+"""
+        legacy = """[EXPORTINFO]
+PROJECTNAME,"x"
+TEXTVERSION,"1"
+VERSION,"1"
+
+[TRANSLATION]
+LANGID,1029
+
+[MENU 6010]
+0,1,"&Soubor"
+6050,1,"&Otevrit"
+0,1,"&Upravit"
+6062,1,"&Kopirovat"
+0,1,"Napoveda"
+6091,1,"&Obsah"
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            current_path = root / "current.slt"
+            legacy_path = root / "legacy.slt"
+            output_path = root / "out.slt"
+            current_path.write_text(current, encoding="utf-8-sig")
+            legacy_path.write_text(legacy, encoding="utf-8-sig")
+            completed = subprocess.run(
+                [
+                    pwsh,
+                    "-NoProfile",
+                    "-File",
+                    str(SCRIPT),
+                    "-CurrentArchive",
+                    str(current_path),
+                    "-LegacyArchive",
+                    str(legacy_path),
+                    "-OutputArchive",
+                    str(output_path),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr or completed.stdout)
+            popups = [
+                line
+                for line in output_path.read_text(encoding="utf-8-sig").splitlines()
+                if line.startswith("0,")
+            ]
+            self.assertEqual(
+                popups,
+                ['0,1,"&Soubor"', '0,1,"&Upravit"', '0,1,"Napoveda"'],
+            )
+
 if __name__ == "__main__":
     unittest.main()

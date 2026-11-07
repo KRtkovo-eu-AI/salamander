@@ -1,7 +1,8 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Restore saved Copy/Move transfer, conflict, and wait dialog defaults. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
 // | 2026-11-05 | Survive faulty shell extension SEH in Recycle Bin deletes. | SHFileOperation shell handlers must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -678,9 +679,25 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
             conflictMode = CMCM_CURRENT;
         if (transferMode != CMS_SEQUENTIAL && transferMode != CMS_STORAGE_AWARE)
             transferMode = CMS_STORAGE_AWARE;
-        int operationSchedulingOverride = CopyMoveGetSchedulingOverride(transferMode, FALSE);
+        BOOL legacyWait = FALSE;
         if (CopyMoveOptions.Get() != NULL) // if they exist, pull the defaults
+        {
             criteria = *CopyMoveOptions.Get();
+            // Saved transfer/conflict/wait take precedence over Configuration preferences,
+            // including Keep last selected. Older profiles without these keys keep using
+            // the global preferences for the three scheduling controls.
+            if (criteria.HasSchedulingDefaults)
+            {
+                transferMode = criteria.TransferMode;
+                conflictMode = criteria.ConflictMode;
+                legacyWait = criteria.StartOnIdle;
+                if (transferMode != CMS_SEQUENTIAL && transferMode != CMS_STORAGE_AWARE)
+                    transferMode = CMS_STORAGE_AWARE;
+                if (conflictMode != CMCM_CURRENT && conflictMode != CMCM_SCAN_AHEAD)
+                    conflictMode = CMCM_CURRENT;
+            }
+        }
+        int operationSchedulingOverride = CopyMoveGetSchedulingOverride(transferMode, legacyWait);
         CCriteriaData* criteriaPtr = NULL; // pointer to 'criteria'; if NULL, they are ignored
         BOOL keepBranchPaths = FALSE;
         BOOL copyToExistingDir = FALSE;
