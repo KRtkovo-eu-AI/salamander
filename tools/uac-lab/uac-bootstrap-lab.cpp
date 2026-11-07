@@ -1,6 +1,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-07 | Add a one-shot UAC bootstrap experiment. | Test peer binding and token identification before introducing file commands. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Report early helper failures to the host. | Distinguish cross-account startup errors from a pipe timeout. | | GPT-6.1 Sol (Codex) |
 */
 
 #define WIN32_LEAN_AND_MEAN
@@ -100,17 +101,48 @@ bool SameSession(DWORD peerPid)
            selfSession == peerSession;
 }
 
+constexpr DWORD openHostFailure = 0x51000000;
+constexpr DWORD openPipeFailure = 0x52000000;
+constexpr DWORD failureKindMask = 0xff000000;
+constexpr DWORD failureErrorMask = 0x00ffffff;
+
+int ReportEarlyClientFailure(const wchar_t* step, DWORD kind)
+{
+    const DWORD error = GetLastError();
+    Fail(step, error);
+    return static_cast<int>(kind | (error & failureErrorMask));
+}
+
+void ReportEarlyClientExit(HANDLE child)
+{
+    DWORD code = 0;
+    if (WaitForSingleObject(child, 0) != WAIT_OBJECT_0 || !GetExitCodeProcess(child, &code))
+        return;
+    switch (code & failureKindMask)
+    {
+    case openHostFailure:
+        Fail(L"Helper: open host process", code & failureErrorMask);
+        break;
+    case openPipeFailure:
+        Fail(L"Helper: open pipe", code & failureErrorMask);
+        break;
+    default:
+        Fail(L"Helper exited before connecting", code);
+        break;
+    }
+}
+
 int Client(const wchar_t* pipeName, DWORD hostPid)
 {
     Handle host(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, hostPid));
     if (!host.valid())
-        return Fail(L"Open host process");
-    Handle pipe(CreateFileW(pipeName, FILE_READ_DATA | FILE_WRITE_DATA | SYNCHRONIZE, 0,
+        return ReportEarlyClientFailure(L"Open host process", openHostFailure);
+    Handle pipe(CreateFileW(pipeName, FILE_READ_DATA | FILE_WRITE_DATA | FILE_READ_ATTRIBUTES | SYNCHRONIZE, 0,
                             nullptr, OPEN_EXISTING,
                             FILE_FLAG_OVERLAPPED | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION,
                             nullptr));
     if (!pipe.valid())
-        return Fail(L"Open pipe");
+        return ReportEarlyClientFailure(L"Open pipe", openPipeFailure);
     ULONG serverPid = 0;
     if (!GetNamedPipeServerProcessId(pipe.value, &serverPid))
         return Fail(L"Query pipe server");
@@ -194,8 +226,8 @@ int RunHost(bool elevate, bool rejectPeer, bool rejectServer = false)
         return Fail(L"Format host SID");
 
     // The host creates the first and only instance. The elevated client needs
-    // read/write data and synchronize, never FILE_CREATE_PIPE_INSTANCE.
-    std::wstring sddl = L"D:P(A;;0x00100003;;;BA)(A;;GA;;;";
+    // read/write data, read attributes and synchronize, never FILE_CREATE_PIPE_INSTANCE.
+    std::wstring sddl = L"D:P(A;;0x00100083;;;BA)(A;;GA;;;";
     sddl += sid;
     sddl += L")";
     LocalFree(sid);
@@ -276,7 +308,11 @@ int RunHost(bool elevate, bool rejectPeer, bool rejectServer = false)
     if (!childPid)
         return Fail(L"Get launched process identity");
     if (!Connect(pipe.value))
-        return Fail(L"Connect to helper");
+    {
+        const DWORD error = GetLastError();
+        ReportEarlyClientExit(child.value);
+        return Fail(L"Connect to helper", error);
+    }
     ULONG clientPid = 0;
     if (!GetNamedPipeClientProcessId(pipe.value, &clientPid))
         return Fail(L"Query pipe client");

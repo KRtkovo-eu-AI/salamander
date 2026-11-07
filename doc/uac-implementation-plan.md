@@ -2,6 +2,7 @@
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-07 | Document the UAC architecture, source audit, implementation stages and validation gates. | Plan per-operation elevation without implementing it. |  | GPT-6 (Codex) |
 | 2026-11-07 | Record the first P0 experiment. | Link the prototype and remaining gates. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Record the VM elevation matrix. | Capture the result with a separate administrator account. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -273,5 +274,7 @@ Podmínky vydání:
 ## 13. Stav implementační větve
 
 Původní plán vychází ze statického auditu upstreamu a rešerše dokumentace Microsoftu. První experiment P0 je popsán v [laboratorním postupu](../tools/uac-lab/README.md). Obsahuje ověření místního spojení, testy odmítnutí chybného protějšku a seznam otevřených podmínek před zapojením brokeru do souborových operací.
+
+Ve vyhrazené VM prošlo schválení i zrušení UAC. Přihlášení jiným správcem původně selhalo při otevírání roury. Po doplnění úzkého práva pro čtení atributů roury prototyp ověřil zvýšený token jiného účtu. Výsledky a zbývající podmínky jsou v laboratorním postupu.
 
 Implementační větev používá stávající [interní draft PR](https://github.com/majklvi/salamander/pull/67) proti referenční větvi samandarin-0.16. U každého běhu kontrol rozlišit skutečně sestavené a analyzované projekty od přeskočených kroků. Výsledky laboratorního prototypu se vykazují zvlášť.
