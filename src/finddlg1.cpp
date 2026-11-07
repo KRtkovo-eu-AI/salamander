@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Indicate background Find work with the system app-starting cursor. | Show active searches and sorts while retaining native interaction cursors. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Publish only the visible Find viewport to UI Automation. | Preserve native rendering, keyboard interaction, and legacy accessibility. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Defer Find sorting until enumeration ends. | Publish the final activity after result preparation and optional sorting. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Acknowledge watchdog requests from the Find message handler. | Let the main window distinguish a stalled dialog from an active search. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -546,6 +547,13 @@ std::wstring CFoundFilesData::GetTextW(int i, int fileNameFormat) const
 namespace
 {
 constexpr UINT_PTR FindSortTimer = 0xF615;
+constexpr UINT FindRefreshActivityCursor = WM_APP + 218;
+
+bool FindUsesActivityCursor(CFindActivity activity)
+{
+    return activity == CFindActivity::Searching || activity == CFindActivity::Sorting ||
+           activity == CFindActivity::Stopping || activity == CFindActivity::Finishing;
+}
 
 int CompareFindSortText(const std::wstring& first, const std::wstring& second)
 {
@@ -1361,6 +1369,8 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     LRESULT uiaResult;
     if (HandleUiaMessage(uMsg, wParam, lParam, uiaResult))
         return uiaResult;
+    if (uMsg == WM_SETCURSOR && FindDialog->SetActivityCursor(reinterpret_cast<HWND>(wParam), lParam))
+        return TRUE;
 
     SLOW_CALL_STACK_MESSAGE4("CFoundFilesListView::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
@@ -1991,11 +2001,40 @@ int GetFindActivityStringID(CFindActivity activity)
     }
 }
 
+bool CFindDialog::SetActivityCursor(HWND target, LPARAM cursorMessage)
+{
+    if (!FindUsesActivityCursor(Activity) || target == NULL || LOWORD(cursorMessage) != HTCLIENT ||
+        HIWORD(cursorMessage) == 0 || GetCapture() != NULL || !IsWindowEnabled(HWindow))
+        return false;
+
+    const HWND list = FoundFilesListView != NULL ? FoundFilesListView->HWindow : NULL;
+    if (target != HWindow && target != list)
+    {
+        if (list == NULL || ::GetParent(target) != list || target != ListView_GetHeader(list))
+            return false;
+
+        // Sorting can start with the mouse still over the column header. Keep
+        // the native resize cursor at the divider and other special header areas.
+        HDHITTESTINFO hit = {};
+        if (!GetCursorPos(&hit.pt) || !ScreenToClient(target, &hit.pt) ||
+            SendMessage(target, HDM_HITTEST, 0, reinterpret_cast<LPARAM>(&hit)) < 0 ||
+            hit.flags != HHT_ONHEADER)
+            return false;
+    }
+
+    const HCURSOR cursor = LoadCursor(NULL, IDC_APPSTARTING);
+    if (cursor == NULL)
+        return false;
+    SetCursor(cursor);
+    return true;
+}
+
 void CFindDialog::SetFindActivity(CFindActivity activity)
 {
     if (Activity == activity)
         return;
 
+    const bool refreshCursor = FindUsesActivityCursor(Activity) != FindUsesActivityCursor(activity);
     Activity = activity;
     UpdateFindWatchdogActivity(Watchdog.get(), activity);
     if (HStatusBar != NULL)
@@ -2003,6 +2042,8 @@ void CFindDialog::SetFindActivity(CFindActivity activity)
     EnableWindow(GetDlgItem(HWindow, IDOK),
                  activity != CFindActivity::Stopping && activity != CFindActivity::Finishing &&
                      activity != CFindActivity::Sorting);
+    if (refreshCursor && HWindow != NULL)
+        PostMessage(HWindow, FindRefreshActivityCursor, 0, 0);
 }
 
 void CFindDialog::UpdateFindActivityPart(BOOL initialize)
@@ -3543,6 +3584,32 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_USER_FIND_HEARTBEAT:
         AcknowledgeFindWatchdog(Watchdog.get(), wParam);
         return TRUE;
+
+    case WM_SETCURSOR:
+        if (SetActivityCursor(reinterpret_cast<HWND>(wParam), lParam))
+        {
+            SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
+            return TRUE;
+        }
+        break;
+
+    case FindRefreshActivityCursor:
+    {
+        // Let the hovered control choose its cursor again even if the mouse
+        // did not move. Never send synchronous cursor messages to another thread.
+        POINT point;
+        if (GetCapture() == NULL && GetCursorPos(&point))
+        {
+            const HWND hovered = WindowFromPoint(point);
+            if (hovered != NULL && GetWindowThreadProcessId(hovered, NULL) == GetCurrentThreadId() &&
+                (hovered == HWindow || IsChild(HWindow, hovered)))
+            {
+                const LRESULT hit = SendMessage(hovered, WM_NCHITTEST, 0, MAKELPARAM(point.x, point.y));
+                SendMessage(hovered, WM_SETCURSOR, reinterpret_cast<WPARAM>(hovered), MAKELPARAM(hit, WM_MOUSEMOVE));
+            }
+        }
+        return TRUE;
+    }
 
     case WM_INITDIALOG:
     {

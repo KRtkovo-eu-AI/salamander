@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Expose the Find activity cursor to the native list. | Keep the indication local to the Find dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Give Find a lifetime-safe UI Automation model. | Keep offscreen rows discoverable without expanding the complete native list. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Distinguish Find finalization from completion. | Report when the worker is done and the dialog is still preparing results. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Share optional Find watchdog state between the owning dialog and main window. | Keep heartbeat and search progress independent of the result model. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -882,6 +883,8 @@ protected:
     BOOL FlashIconsOnActivation; // flash the status icons when we get activated
 
     char FindNowText[100];
+
+    bool SetActivityCursor(HWND target, LPARAM cursorMessage);
 
 public:
     std::atomic<CStateOfFindCloseQueryEnum> StateOfFindCloseQuery; // main thread asks the Find thread whether the window can close; unsynchronized, used only during shutdown, more than enough...
