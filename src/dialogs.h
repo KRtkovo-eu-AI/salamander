@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Allow a shield on OK independently of the default action. | Keep destructive UAC confirmations safe by default. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Remember the splash fork-line rectangle. | The community-fork sentence sits under the bold version. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Explain when an extension runtime is missing. | Installing a Salamatrix extension whose interpreter is absent failed activation with no dialog. | | Grok 4.7 |
@@ -152,6 +153,9 @@ protected:
 // ****************************************************************************
 
 #define MESSAGEBOX_MAXBUTTONS 4 // maximum number of buttons
+
+// Internal flag for the host; the public MSGBOXEX_PARAMS layout stays unchanged.
+constexpr DWORD MSGBOXEX_SHIELDONOKBTN = 0x04000000;
 
 class CMessageBox : public CCommonDialog
 {

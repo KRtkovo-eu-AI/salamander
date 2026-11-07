@@ -14,6 +14,7 @@
 | 2026-11-07 | Record the extended P3b matrix in the isolated VM. | Verify a late collision, a different administrator, and disconnects around the rename. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Document the P3c basic metadata pilot. | Track the single-file attribute and timestamp command and its acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Document the P3d permanent delete pilot. | Record its limited scope, verified NTFS operation and VM cases. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Record P3d acceptance and the Administrator button shield. | Verify real consent and preserve Cancel as the default. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -309,7 +310,9 @@ Pilot se spouští v diskovém panelu pro jeden běžný soubor na lokálním NT
 
 Host drží handle původního souboru a rodiče přes souhlas i ruční Retry. Broker je znovu otevře relativně k ověřenému svazku, zkontroluje jejich identity, typ a počet hardlinků. Smazání požaduje `DELETE` bez sdílení pro práci s daty, kontroly spuštěného obrazu se zachovávají a příznak pro obejití Jen pro čtení se nepoužívá. `FileDispositionInfoEx` odstraní ověřené jméno při zavření mutačního handlu i při otevřeném handlu hosta pro čtení identity. Maska schopností hosta a brokeru je 15. [FILE_DISPOSITION_INFORMATION_EX](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddk/ns-ntddk-_file_disposition_information_ex)
 
-Na NTFS v x64 Debug i Release prošly případy záměny zdroje a rodiče, jiného hardlinku, otevřeného čtenáře, atributu Jen pro čtení, syntaxe ADS a dlouhé Unicode cesty. Test také ověřil odstranění pouze ověřeného jména, zatímco původní handle pro čtení identity zůstal otevřený. Regresní test původního workeru prošel pro trvalé smazání i Koš včetně chyby Koše bez následného trvalého mazání. Sestavení aplikace, brokeru a sondy x64 Debug a test transportu prošly.
+Na NTFS v x64 Debug i Release prošly případy záměny zdroje a rodiče, jiného hardlinku, otevřeného čtenáře, atributu Jen pro čtení, syntaxe ADS a dlouhé Unicode cesty. Test také ověřil odstranění pouze ověřeného jména, zatímco původní handle pro čtení identity zůstal otevřený. Regresní test původního workeru prošel pro trvalé smazání i Koš včetně chyby Koše bez následného trvalého mazání. Prošlo sestavení aplikace, brokeru a sondy x64 Debug, sestavení brokeru a sondy Win32 a ARM64 Debug a test transportu.
+
+Ve Windows 11 Pro x64 build 26200 byl pilot `cd1b65d3` ověřen v chráněné složce `P3d-fixture`. Po Shift+Delete, potvrzení akce a volbě Ne v systémové výzvě zůstaly všechny tři testovací soubory se stejným obsahem. Volba Ano odstranila jen `02-approve.txt`. Sousední soubor i soubor ze zrušeného pokusu zůstaly, v Koši nebyla odpovídající položka a broker skončil. Uživatel při testu nahlásil chybějící štít na tlačítku Administrator. Dialog nyní přiřazuje štít tlačítku Administrator samostatně a výchozí fokus ponechává na Zrušit.
 
 ## 9. Uživatelský tok a stav operace
 

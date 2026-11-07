@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Show the shield on Administrator in permanent-delete consent. | Keep Cancel as the default independently of the shield. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Confirm the exact permanent delete path in the progress dialog. | Default to Cancel and report an unconfirmed deletion without replay. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Show the metadata UAC consent on the progress dialog thread. | Keep secure consent and uncertain results in the existing UI. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -1756,7 +1757,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             confirm.HParent = HWindow;
             confirm.Text = message.c_str();
             confirm.Caption = LoadStr(deleting ? IDS_CONFIRM_DELETE_TITLE : IDS_CHANGEATTRSTITLE);
-            confirm.Flags = MSGBOXEX_OKCANCEL | (deleting ? MSGBOXEX_ICONEXCLAMATION | MSGBOXEX_DEFBUTTON2
+            confirm.Flags = MSGBOXEX_OKCANCEL | (deleting ? MSGBOXEX_ICONEXCLAMATION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN
                                                          : MSGBOXEX_ICONQUESTION | MSGBOXEX_SHIELDONDEFBTN);
             confirm.AliasBtnNames = alias.c_str();
             if (SalMessageBoxEx(&confirm) == IDOK && !CancelWorker)

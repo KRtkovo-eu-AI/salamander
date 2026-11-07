@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Put the UAC shield on the explicit OK button when requested. | Allow Cancel to retain default focus. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -1077,9 +1080,16 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 #define BCM_FIRST 0x1600 // Button control messages
 #define BCM_SETSHIELD (BCM_FIRST + 0x000C)
 
-        if (WindowsVistaAndLater && (flagsEx & MSGBOXEX_SHIELDONDEFBTN))
+        if (WindowsVistaAndLater)
         {
-            SendMessage(GetDlgItem(HWindow, btnID[defIndex]), BCM_SETSHIELD, 0, TRUE);
+            const int shieldButton = (Flags & MSGBOXEX_SHIELDONOKBTN) ? IDOK :
+                                     ((flagsEx & MSGBOXEX_SHIELDONDEFBTN) ? btnID[defIndex] : 0);
+            if (shieldButton != 0)
+            {
+                HWND button = GetDlgItem(HWindow, shieldButton);
+                if (button != NULL)
+                    SendMessage(button, BCM_SETSHIELD, 0, TRUE);
+            }
         }
 
         // move the checkbox and line
