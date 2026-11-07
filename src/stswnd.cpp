@@ -3,6 +3,7 @@
 
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Retain the directory bar background for the protected path. | Highlight only the foreground using the selection color. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Highlight the approved path suffix with the selection palette. | Preserve readability and existing path hit-testing. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Show a UAC shield for protected directory listings. | Paint the system shield after the visible path and reuse the localized tooltip. | | GPT-6.1 Sol (Codex) |
 */
@@ -1239,10 +1240,8 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                 {
                     const int origin = truncateEnd ? TextRect.left
                                                    : TextRect.left - EllipsedWidth + FilesWindow->GetTextEllipsisWidthEnv();
-                    administratorText = {origin + (first > 0 ? AlpDX[first - 1] : 0), textY,
-                                         min(origin + AlpDX[last - 1], TextRect.right),
-                                         min(textY + FilesWindow->GetEnvFontHeight(), r.bottom)};
-                    FillRectSolid(dc, &administratorText, GetCOLORREF(CurrentColors[ITEM_BK_SELECTED]));
+                    administratorText = {origin + (first > 0 ? AlpDX[first - 1] : 0), r.top,
+                                         min(origin + AlpDX[last - 1], TextRect.right), r.bottom};
                 }
             }
 
