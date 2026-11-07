@@ -11,6 +11,7 @@
 | 2026-11-07 | Record the P3b native rename proof and pilot boundary. | Verify target anchoring and source identity before exposing a second broker command. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Document the P3b panel and broker integration. | Track the shared rename path, validation and VM acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record the four P3b consent tests in the isolated VM. | Verify both panel entry points with real UAC approval and cancellation. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Record the extended P3b matrix in the isolated VM. | Verify a late collision, a different administrator, and disconnects around the rename. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -266,7 +267,20 @@ V chráněné instalaci se SHA-256 aplikace, brokeru a anglického jazykového m
 | Quick Rename přímo v panelu | Ne | `03-quick-cancel.txt` zůstal, `03-quick-must-not-exist.txt` chyběl. |
 | Quick Rename přímo v panelu | Ano | `04-quick-approve.txt` byl přejmenován na `04-quick-schváleno-日本.txt`. |
 
-Po všech čtyřech průchodech se aplikace vrátila do panelu. U schválených případů oba panely zobrazily přesný nový název. Kontrola na disku potvrdila původní obsah všech čtyř souborů, absenci nežádoucích jmen a ukončení brokeru. Kolize vzniklá během souhlasu, použití jiného účtu správce a odpojení v okolí mutace zůstávají v rozšířené matici. Nativní test ověřuje kolizi bez přepsání a P2 pokrývá jiný účet i odpojení pro samotný transport.
+Po všech čtyřech průchodech se aplikace vrátila do panelu. U schválených případů oba panely zobrazily přesný nový název. Kontrola na disku potvrdila původní obsah všech čtyř souborů, absenci nežádoucích jmen a ukončení brokeru.
+
+**Kolize během souhlasu.** V chráněné složce `P3b-extended-01` cíl při nabídce elevace chyběl. Nezávislý zvýšený proces vytvořil cíl pomocí `CreateNew` a zaznamenal, že původní PID systémové výzvy byl po zápisu stále živý. Po volbě Ano běžný broker vrátil chybu 183. Computer Use potvrdil chybový dialog bez volby přepsání. Zdroj i kolidující cíl na disku obsahovaly původní, navzájem odlišná data. Hash cíle odpovídal záznamu z doby souhlasu a broker skončil.
+
+**Jiný účet správce.** Test spustil běžný pilotní host pod standardním účtem `SamandarinUacTest`. Vlastníka procesu potvrdil SID z `Win32_Process.GetOwnerSid`. Ve výzvě Windows uživatel použil odlišný účet správce. V okně standardního účtu se zobrazil `02-other-admin-target.txt`. Na disku měl cíl obsah původního zdroje, zdrojové jméno chybělo a broker skončil.
+
+**Ztráta spojení před a po přejmenování.** Běžný host běžel proti dočasnému laboratornímu brokeru sestavenému mimo repozitář. Broker ukončil rouru po autentizaci a příjmu požadavku, buď těsně před voláním `RenameVerifiedFile`, nebo po jeho úspěchu před odesláním výsledku. V obou případech uživatel schválil systémovou výzvu UAC.
+
+| Bod odpojení | Ověřený stav na disku |
+| --- | --- |
+| Před přejmenováním | `03-before-source.txt` zachoval původní obsah a `03-before-target.txt` nevznikl. |
+| Po přejmenování, před odpovědí | `04-after-target.txt` měl původní obsah a `04-after-source.txt` chyběl. |
+
+V obou případech Computer Use potvrdil hlášení, že výsledek nebyl ověřen, s výzvou ke kontrole cíle před opakováním. Po zavření hlášení se výpis obnovil, po druhém testu oba panely ukázaly nový název a žádný požadavek se automaticky neopakoval. Kontrola po všech čtyřech rozšířených scénářích potvrdila očekávaný stav souborů a ukončení brokeru. V chráněné instalaci byl obnoven běžný broker a jeho SHA-256 se shodoval s ověřenou sestavou pilotu. Rozšířená akceptace P3b je tím uzavřena.
 
 ## 9. Uživatelský tok a stav operace
 
