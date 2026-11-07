@@ -10,6 +10,7 @@
 | 2026-11-07 | Record the protected F7 broker pilot. | Track the one-leaf capability and VM validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record the P3b native rename proof and pilot boundary. | Verify target anchoring and source identity before exposing a second broker command. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Document the P3b panel and broker integration. | Track the shared rename path, validation and VM acceptance. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Record the four P3b consent tests in the isolated VM. | Verify both panel entry points with real UAC approval and cancellation. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -252,9 +253,20 @@ Commit `a408ffe5` zapojuje příkaz do `RenameFileInternalW`, společného pro d
 
 Instalovaný host a broker používají masku 3 s jednou zprávou označenou jako mkdir nebo rename. Sonda používá masku 0 a původní handshake. Starší host či broker s maskou 1 se s novou verzí nedomluví. Privilegované otevření IPC používá pevný lokální prefix a název znovu sestavený ze zpracovaného GUID. Testy odmítly neplatný GUID, cizí stroj i doplněnou část cesty.
 
-Lokálně prošlo sestavení aplikace, brokeru a sondy x64 Debug a sestavení brokeru a sondy Win32 a ARM64 Debug. Regresní sady NTFS, IPC a lokální F7 prošly v x64 Debug i Release. VM akceptace sleduje potvrzení a zrušení UAC pro oba vstupy, kolizi vzniklou během souhlasu, jiný účet správce a odpojení před i po mutaci.
+Lokálně prošlo sestavení aplikace, brokeru a sondy x64 Debug a sestavení brokeru a sondy Win32 a ARM64 Debug. Regresní sady NTFS, IPC a lokální F7 prošly v x64 Debug i Release. Běh CI nad `3132907e` prošel ve třech architekturách. Prošlo 214 testů včetně opravené fixture Branch View. CodeQL po opravě validace názvu roury nezjistil nové nálezy. [Nativní a Python testy](https://github.com/majklvi/salamander/actions/runs/42411773209/job/128521282800) · [CodeQL](https://github.com/majklvi/salamander/runs/128524066284)
 
 Computer Use v izolované VM ověřil s binárkou `a408ffe5` bez elevace dialog F2 (`normal.txt` → `běžný-東京.txt`) i úpravu názvu přímo v panelu (`běžný-東京.txt` → `inline-ověřeno.txt`). Po obou změnách se aktualizovaly oba panely. Interaktivní zkoušky s UAC používají samostatné soubory v chráněném `P3b-fixture`.
+
+V chráněné instalaci se SHA-256 aplikace, brokeru a anglického jazykového modulu shodovaly se sestavením `a408ffe5`. Computer Use ověřil ve Windows 11 Pro x64 build 26200 čtyři případy. Volby na zabezpečené ploše provedl uživatel se split-token účtem správce.
+
+| Vstup | Volba UAC | Ověřený výsledek |
+| --- | --- | --- |
+| Dialog F2 | Ne | `01-dialog-cancel.txt` zůstal, `01-dialog-must-not-exist.txt` chyběl. |
+| Dialog F2 | Ano | `02-dialog-approve.txt` byl přejmenován na `02-dialog-schváleno-東京.txt`. |
+| Quick Rename přímo v panelu | Ne | `03-quick-cancel.txt` zůstal, `03-quick-must-not-exist.txt` chyběl. |
+| Quick Rename přímo v panelu | Ano | `04-quick-approve.txt` byl přejmenován na `04-quick-schváleno-日本.txt`. |
+
+Po všech čtyřech průchodech se aplikace vrátila do panelu. U schválených případů oba panely zobrazily přesný nový název. Kontrola na disku potvrdila původní obsah všech čtyř souborů, absenci nežádoucích jmen a ukončení brokeru. Kolize vzniklá během souhlasu, použití jiného účtu správce a odpojení v okolí mutace zůstávají v rozšířené matici. Nativní test ověřuje kolizi bez přepsání a P2 pokrývá jiný účet i odpojení pro samotný transport.
 
 ## 9. Uživatelský tok a stav operace
 
