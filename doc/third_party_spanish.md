@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Limitar los avisos de terceros a componentes externos y sincronizar los avisos localizados. | Eliminar el historial de implementación y portabilidad del documento de atribución. |  | GPT-5.6 |
 | 2026-11-06 | Credit pd4d10/json-viewer for JSON Web Viewer. | La extensión JSON de Salamatrix WebView2 proporciona este renderizador. |  | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
