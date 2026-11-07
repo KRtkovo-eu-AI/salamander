@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Forward invocation Find phrase and flags through ui.viewer. | All Salamatrix runtimes must preserve Find context for shared viewers. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
 # | 2026-11-06 | Normalize shared viewer options across all five workers. | Invalid optional fields are omitted consistently while valid chrome options preserve their types. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Accept title and window geometry for ui.viewer. | Keep Salamatrix runtime viewer options in parity. |  | Composer |
 """Small standard-library Salamatrix worker for Python extensions.
@@ -361,8 +362,9 @@ class _Side:
 
 
 class _UI:
-    def __init__(self, transport: _Transport) -> None:
+    def __init__(self, transport: _Transport, invocation: Optional[dict] = None) -> None:
         self._transport = transport
+        self._invocation = invocation or {}
 
     def message_box(self, message: str, title: str = "Salamander",
                     buttons: str = "OK", icon: str = "Information") -> int:
@@ -397,6 +399,12 @@ class _UI:
                 value = options.get("document_name")
             if isinstance(value, str) and value:
                 payload[key] = value
+        search_phrase = self._invocation.get("searchPhrase")
+        if isinstance(search_phrase, str) and search_phrase:
+            payload["searchPhrase"] = search_phrase
+            search_flags = self._invocation.get("searchFlags")
+            if isinstance(search_flags, int) and not isinstance(search_flags, bool) and search_flags >= 0:
+                payload["searchFlags"] = search_flags
         window = options.get("window") if isinstance(options.get("window"), dict) else options
         for key in ("left", "top", "width", "height", "showCmd"):
             value = window.get(key)
@@ -803,7 +811,7 @@ class _Salamander:
         self.file_operations = _FileOperations(transport)
         self.file_system = _FileSystem(transport)
         self.sides = _Sides(transport)
-        self.ui = _UI(transport)
+        self.ui = _UI(transport, self.invocation)
         self.clipboard = _Clipboard(transport)
         self.ai = _AI(transport)
         self.events = _Events(transport)

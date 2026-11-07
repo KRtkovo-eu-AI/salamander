@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Forward Find phrase and flags through Salamatrix viewer invocations. | Webview viewers must prefill Find when opened from the Find window. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
 // | 2026-11-05 | Rasterize Salamatrix FS SVG icons at 16/32/48. | Thumbnail/Tiles views requested SALICONSIZE_48 but icons were forced to 16px. | | Composer |
 // | 2026-11-06 | Apply ViewFile placement and default JSON Viewer title on the host. | Title/size must work even when the worker drops ui.viewer options. |  | Composer |
 // | 2026-11-06 | Pass viewer title, placement, package icon, and GUI bridge. | JSON Viewer (nodeJS) needs correct chrome, size, and Find menus. |  | Composer |
@@ -1133,6 +1134,22 @@ public:
                 slash = slashFwd;
             Owner->PendingViewerDocumentName = slash != NULL ? slash + 1 : name;
         }
+        const char* viewerLabel = NULL;
+        const char* searchPhrase = NULL;
+        DWORD searchFlags = 0;
+        if (viewerData != NULL &&
+            viewerData->Size >= sizeof(CSalamanderPluginViewerSelectionData))
+        {
+            const CSalamanderPluginViewerSelectionData* selection =
+                static_cast<const CSalamanderPluginViewerSelectionData*>(viewerData);
+            if (selection->SelectionMagic ==
+                SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC)
+            {
+                viewerLabel = selection->ViewerLabel;
+                searchPhrase = selection->SearchPhrase;
+                searchFlags = selection->SearchFlags;
+            }
+        }
         std::string invocation =
             std::string("{\"role\":\"viewer\",\"path\":\"") +
             JsonEscape(name) + "\",\"window\":{" +
@@ -1145,17 +1162,13 @@ public:
             "},\"enumFilesSourceUID\":" +
             std::to_string(enumFilesSourceUID) +
             ",\"enumFilesCurrentIndex\":" +
-            std::to_string(enumFilesCurrentIndex) + "}";
-        const char* viewerLabel = NULL;
-        if (viewerData != NULL &&
-            viewerData->Size >= sizeof(CSalamanderPluginViewerSelectionData))
+            std::to_string(enumFilesCurrentIndex);
+        if (searchPhrase != NULL && searchPhrase[0] != '\0')
         {
-            const CSalamanderPluginViewerSelectionData* selection =
-                static_cast<const CSalamanderPluginViewerSelectionData*>(viewerData);
-            if (selection->SelectionMagic ==
-                SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC)
-                viewerLabel = selection->ViewerLabel;
+            invocation += ",\"searchPhrase\":\"" + JsonEscape(searchPhrase) +
+                          "\",\"searchFlags\":" + std::to_string(searchFlags);
         }
+        invocation += "}";
         return Owner->RunViewer(name, invocation.c_str(), viewerLabel);
     }
 
@@ -6380,11 +6393,15 @@ BOOL WINAPI PackageManager::HostDispatch(
         std::string renderer = "auto";
         std::string title;
         std::string documentName;
+        std::string searchPhrase;
+        int searchFlags = 0;
         if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "path", &path) || path.empty())
             return CopyResult("{\"ok\":false,\"error\":\"viewer path is required\"}", resultJson, resultCapacity, resultLength);
         Runtime::Protocol::Json::FindStringMember(payloadJson, "renderer", &renderer);
         Runtime::Protocol::Json::FindStringMember(payloadJson, "title", &title);
         Runtime::Protocol::Json::FindStringMember(payloadJson, "documentName", &documentName);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "searchPhrase", &searchPhrase);
+        Runtime::Protocol::Json::FindIntegerMember(payloadJson, "searchFlags", &searchFlags);
         // Keep a stable window title even when an older worker drops `title`.
         if (title.empty())
         {
@@ -6552,6 +6569,11 @@ BOOL WINAPI PackageManager::HostDispatch(
         request.iconSmall = iconSmall;
         request.destroyIcons = destroyIcons;
         request.documentName = customDocumentName.empty() ? NULL : customDocumentName.c_str();
+        std::wstring customSearchPhrase;
+        if (!searchPhrase.empty() && !ToWide(searchPhrase, &customSearchPhrase))
+            return CopyResult("{\"ok\":false,\"error\":\"viewer search phrase is not valid UTF-8\"}", resultJson, resultCapacity, resultLength);
+        request.searchPhrase = customSearchPhrase.empty() ? NULL : customSearchPhrase.c_str();
+        request.searchFlags = searchFlags >= 0 ? static_cast<DWORD>(searchFlags) : 0;
         // NativeViewer_Show takes ownership of destroyIcons handles, including on failure.
         const bool opened = NativeViewer_Show(request);
         return CopyResult(std::string("{\"ok\":true,\"opened\":") + (opened ? "true}" : "false}"),

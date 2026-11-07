@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Forward invocation Find phrase and flags through ui.viewer. | All Salamatrix runtimes must preserve Find context for shared viewers. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
 # | 2026-11-06 | Bind SMX1 pipes to strict BOM-free UTF-8 streams. | Preserve Unicode wire payloads independently of the Windows console code page. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Normalize shared viewer options across all five workers. | Invalid optional fields are omitted consistently while valid chrome options preserve their types. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Accept title and window geometry for Viewer. | Keep Salamatrix runtime viewer options in parity. |  | Composer |
@@ -374,6 +375,12 @@ $ui | Add-Member ScriptMethod Viewer {
     if ($map.renderer -is [string] -and $map.renderer.Length -gt 0) { $arguments.renderer = $map.renderer }
     foreach ($key in @('title', 'documentName')) {
         if ($map[$key] -is [string] -and $map[$key].Length -gt 0) { $arguments[$key] = $map[$key] }
+    }
+    if ($Salamander.invocation.searchPhrase -is [string] -and $Salamander.invocation.searchPhrase.Length -gt 0) {
+        $arguments.searchPhrase = $Salamander.invocation.searchPhrase
+        if (($Salamander.invocation.searchFlags -is [int] -or $Salamander.invocation.searchFlags -is [long]) -and $Salamander.invocation.searchFlags -ge 0) {
+            $arguments.searchFlags = $Salamander.invocation.searchFlags
+        }
     }
     $window = $map
     if ($map.window -is [hashtable]) { $window = $map.window }

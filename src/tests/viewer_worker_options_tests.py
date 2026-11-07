@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Verify Find phrase and flags round-trip through every runtime worker. | Shared viewer invocations must preserve Find context for issue #758. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
 # | 2026-11-06 | Round-trip UTF-8 paths under legacy PowerShell console encodings. | Reproduce the CI Unicode failure without changing the caller console or weakening payload parity. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Compare real five-runtime viewer calls over SMX1. | Assert shared optional-field types, omission, defaults, return values and host errors. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 """Run actual isolated workers against a fake host; never open a viewer or touch source files."""
@@ -125,7 +126,9 @@ def worker_test(language, interpreter, directory, console_code_page=None):
     cases = [{"options": options, "expectError": False, "expectedOpen": True} for options, _ in CASES]
     cases += [{"options": {}, "expectError": False, "expectedOpen": False}] * 3
     cases += [{"options": {}, "expectError": True, "expectedOpen": False}]
-    invocation = json.dumps({"path": PATH, "cases": cases}, ensure_ascii=True, separators=(",", ":"))
+    invocation = json.dumps({"path": PATH, "cases": cases,
+                             "searchPhrase": "Běloučký", "searchFlags": 3},
+                            ensure_ascii=True, separators=(",", ":"))
     worker = ROOT / "src/plugins" / WORKERS[language]
     if language == "powershell":
         command = [interpreter, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(worker), "-EntryPoint", str(entry), "-InvocationJson", invocation, "-OneShot"]
@@ -177,7 +180,8 @@ def worker_test(language, interpreter, directory, console_code_page=None):
                 raise AssertionError(f"{language} worker failed: {payload}")
             response = {"ok": True}
             if kind == "call" and payload.get("method") == "salamander.ui.viewer.open":
-                expected = {"method": "salamander.ui.viewer.open", "path": PATH, "renderer": "auto"}
+                expected = {"method": "salamander.ui.viewer.open", "path": PATH, "renderer": "auto",
+                            "searchPhrase": "Běloučký", "searchFlags": 3}
                 if calls < len(CASES):
                     expected.update(CASES[calls][1])
                 assert payload == expected, f"{language} case {calls}: {payload!r} != {expected!r}"

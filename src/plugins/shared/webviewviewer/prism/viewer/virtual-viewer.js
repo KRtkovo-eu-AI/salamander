@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Keep PrismSharp's prefilled Find bar hidden on startup. | Match the other viewers when opening a document from the Find window. |  | openai/gpt-5.6-luna-pro |
 | 2026-11-07 | Select PrismSharp double-click words before native selection painting. | Post-dblclick trimming briefly displayed the trailing whitespace selection. | https://github.com/KRtkovo-eu-AI/salamander/issues/735 | openai/gpt-5.6-luna-pro |
 | 2026-11-07 | Trim trailing whitespace from PrismSharp double-click selections. | Native DOM word selection could include the space immediately after a word. | https://github.com/KRtkovo-eu-AI/salamander/issues/735 | openai/gpt-5.6-luna-pro |
 */
@@ -45,6 +46,7 @@
   const gotoInput = document.getElementById("goto-input");
   const gotoClose = document.getElementById("goto-close");
   let isFindBarOpen = false;
+  let isFindSearchActive = false;
   let isGotoBarOpen = false;
   let gotoTotal = 1;
   // After Edit > Select All the DOM only holds the mounted chunks, so Copy
@@ -406,6 +408,7 @@
     readySent = false;
     selectionActive = false;
     selectAllActive = false;
+    isFindSearchActive = false;
     hideGotoBar();
     gotoTotal = 1;
     pendingPalette = null;
@@ -509,6 +512,7 @@
     scheduleVisibleSync();
 
     if (settings.searchPhrase && settings.searchPhrase.length > 0) {
+      isFindSearchActive = true;
       if (findInput) {
         findInput.value = settings.searchPhrase;
       }
@@ -518,7 +522,6 @@
       if (findWord) {
         findWord.classList.toggle("active", Boolean(settings.searchWholeWords));
       }
-      showFindBar(false);
       triggerSearch();
     }
   }
@@ -1469,6 +1472,7 @@
     clearFindHighlight();
     findBar.classList.add("hidden");
     isFindBarOpen = false;
+    isFindSearchActive = false;
     window.focus();
     if (range && !range.collapsed && spacer.contains(range.startContainer)) {
       const sel = window.getSelection();
@@ -1639,7 +1643,7 @@
         // user types there the match is only highlighted; otherwise it is
         // selected as well so it can be copied.
         const typing = findBar && findBar.contains(document.activeElement);
-        const highlighted = length >= 0 && (isFindBarOpen || typing) && setFindHighlight(range);
+        const highlighted = length >= 0 && (isFindBarOpen || isFindSearchActive || typing) && setFindHighlight(range);
         if (highlighted) {
           findHighlightRange = range;
           findHighlightMatch = { line: line, col: col, length: length };
@@ -1809,6 +1813,9 @@
       showFindBar(true);
     } else if (event.key === "F3") {
       event.preventDefault();
+      if (!isFindBarOpen) {
+        showFindBar(true);
+      }
       triggerNextMatch(!event.shiftKey);
     } else if (event.key === "Escape" && isGotoBarOpen) {
       event.preventDefault();

@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Open PrismSharp's Find bar when F3 navigates a hidden search. | Match the Find bar behavior of the other Salamatrix webview viewers. |  | openai/gpt-5.6-luna-pro |
+| 2026-11-07 | Keep PrismSharp's prefilled Find bar hidden on startup. | Match the other viewers when opening a document from the Find window. |  | openai/gpt-5.6-luna-pro |
 | 2026-11-07 | Verify PrismSharp double-click selection is applied before native painting. | Prevent a visible intermediate selection containing trailing whitespace. | https://github.com/KRtkovo-eu-AI/salamander/issues/735 | openai/gpt-5.6-luna-pro |
 | 2026-11-07 | Test PrismSharp double-click selection trimming. | Ensure a selected word does not include its following whitespace. | https://github.com/KRtkovo-eu-AI/salamander/issues/735 | openai/gpt-5.6-luna-pro |
 */
@@ -85,6 +87,7 @@ function frontend() {
   const body = new Element("body"), spacer = new Element("main"), status = new Element("div");
   const named = new Map();  // find bar controls and any other id the page looks up
   const findBar = new Element("div");
+  findBar.classList.add("hidden");
   named.set("viewer-find-bar", findBar);
   body.appendChild(spacer); body.appendChild(status);
   const selection = {
@@ -214,8 +217,12 @@ function testDoubleClickDoesNotSelectTrailingWhitespace() {
 function testFindStateIsClearedOnReset() {
   const f = frontend();
   const input = f.named.get("find-input"), count = f.named.get("find-count"), bar = f.named.get("viewer-find-bar");
-  f.init(40, { searchPhrase: "needle", searchCaseSensitive: true });
-  check(input.value === "needle" && !bar.classList.contains("hidden"), "an external search phrase opens the find bar");
+  f.init(40, { searchPhrase: "needle", searchCaseSensitive: true, searchWholeWords: true });
+  const matchCase = f.named.get("find-case"), wholeWord = f.named.get("find-word");
+  check(input.value === "needle" && bar.classList.contains("hidden"), "an external search phrase pre-fills but does not open the find bar");
+  check(matchCase.classList.contains("active") && wholeWord.classList.contains("active"), "an external search phrase preserves its match flags while hidden");
+  f.windowListeners.keydown.forEach(handler => handler({ key: "F3", shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, target: {}, preventDefault() {} }));
+  check(!bar.classList.contains("hidden"), "F3 opens the hidden find bar before navigating the next match");
   count.textContent = "1 of 3"; input.classList.add("no-results");
   f.send({ type: "reset" });
   check(input.value === "" && count.textContent === "" && !input.classList.contains("no-results"),
