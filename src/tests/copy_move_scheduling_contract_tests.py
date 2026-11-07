@@ -1,5 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Cover Copy/Move reset-and-hide behavior. | Reset and hide options must reset values before collapsing the dialog. |  | openai/gpt-5.6-luna-pro |
+# | 2026-11-07 | Verify Copy/Move reset restores the configured wait behavior. | Reset options and defaults must derive Wait until from the transfer preference. |  | openai/gpt-5.6-luna-pro |
+# | 2026-11-05 | Cover Copy/Move Save options as defaults for transfer, conflict, and wait. | Regression for dialog defaults that were not persisted. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
 
 from pathlib import Path
 
@@ -39,6 +44,8 @@ def main() -> None:
     dialogs_h = (src / "dialogs.h").read_text(encoding="utf-8")
     fileswn6 = (src / "fileswn6.cpp").read_text(encoding="utf-8")
     fileswn8 = (src / "fileswn8.cpp").read_text(encoding="utf-8")
+    fileswnd_h = (src / "fileswnd.h").read_text(encoding="utf-8")
+    fileswna = (src / "fileswna.cpp").read_text(encoding="utf-8")
     mainwnd2 = (src / "mainwnd2.cpp").read_text(encoding="utf-8")
     lang_rc = (src / "lang/lang.rc").read_text(encoding="utf-8")
     lang_rh = (src / "lang/lang.rh").read_text(encoding="utf-8")
@@ -164,7 +171,7 @@ def main() -> None:
             "transfer selector updates wait controls immediately")
     require(dialogs3, "IsWindowEnabled(GetDlgItem(HWindow, IDC_CM_STARTONIDLE))",
             "disabled checkbox cannot overwrite the saved Legacy choice")
-    require(fileswn8, "CopyMoveGetSchedulingOverride(transferMode, FALSE)",
+    require(fileswn8, "CopyMoveGetSchedulingOverride(transferMode, legacyWait)",
             "Copy/Move defaults use the same mode-aware admission mapping")
     require(fileswn6, "CopyMoveGetSchedulingOverride(\n                script->CopyMoveTransferMode, FALSE)",
             "silent Copy/Move uses the same admission contract")
@@ -674,6 +681,100 @@ def main() -> None:
     assert "IDC_PROGRESS_OVERWRITE_ALL" in progress
     assert "IDC_PROGRESS_SKIP_ALL" in progress
     assert "IDS_COPYMOVE_CONFLICT_SCAN_STATUS" in resources
+
+    # Save options as defaults must persist transfer/conflict/wait independently of
+    # the older criteria flags (OverwriteOlder, masks, speed limit, ...).
+    require(fileswnd_h, "BOOL StartOnIdle;",
+            "persisted Legacy wait choice on Copy/Move defaults")
+    require(fileswnd_h, "int TransferMode;",
+            "persisted transfer mode on Copy/Move defaults")
+    require(fileswnd_h, "int ConflictMode;",
+            "persisted conflict mode on Copy/Move defaults")
+    require(fileswnd_h, "BOOL HasSchedulingDefaults;",
+            "marker that scheduling defaults were explicitly saved")
+    criteria_reset = function_slice(fileswna, "void CCriteriaData::Reset()",
+                                    "CCriteriaData&\nCCriteriaData::operator=")
+    require(criteria_reset, "StartOnIdle = FALSE;",
+            "wait default reset")
+    require(criteria_reset, "TransferMode = CMS_STORAGE_AWARE;",
+            "transfer mode default reset")
+    require(criteria_reset, "ConflictMode = CMCM_CURRENT;",
+            "conflict mode default reset")
+    require(criteria_reset, "HasSchedulingDefaults = FALSE;",
+            "scheduling-defaults marker reset")
+    criteria_dirty = function_slice(fileswna, "BOOL CCriteriaData::IsDirty()",
+                                    "BOOL CCriteriaData::AgreeMasksAndAdvanced(const CFileData*")
+    require(criteria_dirty, "StartOnIdle",
+            "wait alone makes saved defaults dirty")
+    require(criteria_dirty, "TransferMode != CMS_STORAGE_AWARE",
+            "non-default transfer mode makes saved defaults dirty")
+    require(criteria_dirty, "ConflictMode != CMCM_CURRENT",
+            "non-default conflict mode makes saved defaults dirty")
+    require(fileswna, 'CRITERIADATA_STARTONIDLE_REG = "Start On Idle"',
+            "registry key for wait default")
+    require(fileswna, 'CRITERIADATA_TRANSFERMODE_REG = "Transfer Mode"',
+            "registry key for transfer default")
+    require(fileswna, 'CRITERIADATA_CONFLICTMODE_REG = "Conflict Mode"',
+            "registry key for conflict default")
+    criteria_save = function_slice(fileswna, "BOOL CCriteriaData::Save(HKEY hKey)",
+                                   "BOOL CCriteriaData::Load(HKEY hKey)")
+    require(criteria_save, "HasSchedulingDefaults || StartOnIdle != def.StartOnIdle",
+            "scheduling keys are written once dialog defaults include them")
+    criteria_load = function_slice(fileswna, "BOOL CCriteriaData::Load(HKEY hKey)",
+                                   "// CCopyMoveOptions")
+    require(criteria_load,
+            "HasSchedulingDefaults = hasStartOnIdle || hasTransferMode || hasConflictMode;",
+            "Load detects presence of scheduling defaults for migration")
+    save_defaults = function_slice(
+        dialogs3,
+        "case 2: // Save options as defaults",
+        "delete popup;")
+    require(save_defaults, "Criteria->HasSchedulingDefaults = TRUE;",
+            "Save options as defaults marks scheduling fields as persisted")
+    require(save_defaults, "CopyMoveOptions.Set(Criteria);",
+            "Save options as defaults stores criteria including scheduling")
+    require(transfer, "Criteria->TransferMode = *TransferModeInOut;",
+            "dialog transfer mode is copied into saved criteria")
+    require(transfer, "Criteria->StartOnIdle = LegacyWait;",
+            "dialog Legacy wait choice is copied into saved criteria")
+    require(transfer, "Criteria->ConflictMode = *ConflictModeInOut;",
+            "dialog conflict mode is copied into saved criteria")
+    reset_and_hide = function_slice(
+        dialogs3,
+        "case 1: // Reset and hide options",
+        "case 2: // Save options as defaults")
+    forbid(reset_and_hide, "CopyMoveOptions.Set(NULL);",
+           "Reset and hide changing saved Copy/Move options")
+    require(reset_and_hide, "Criteria->Reset();",
+            "Reset and hide resets current Copy/Move options")
+    require(reset_and_hide, "PostMessage(HWindow, WM_COMMAND, MAKELPARAM(IDC_MORE, BN_CLICKED), 0);",
+            "Reset and hide collapses the dialog after resetting")
+    reset_defaults = function_slice(
+        dialogs3,
+        "case 3: // Reset options and defaults",
+        "delete popup;")
+    require(reset_defaults, "CopyMoveOptions.Set(NULL);",
+            "Reset options and defaults clears saved Copy/Move options")
+    require(reset_defaults, "Configuration.CopyMoveScheduling == CMTP_KEEP_LAST",
+            "Reset restores transfer mode from global preference")
+    require(reset_defaults, "Configuration.CopyMoveConflictPreference == CMCP_KEEP_LAST",
+            "Reset restores conflict mode from global preference")
+    require(reset_defaults, "LegacyWait = TransferModeInOut != NULL && *TransferModeInOut == CMS_SEQUENTIAL;",
+            "Reset restores Wait until from the configured transfer preference")
+    require(reset_defaults, "Criteria->StartOnIdle = LegacyWait;",
+            "Reset stores the restored Wait until choice in dialog criteria")
+    require(reset_defaults, "CopyMoveGetSchedulingOverride(mode, LegacyWait)",
+            "Reset maps the restored Wait until choice to the operation override")
+    require(fileswn8, "if (criteria.HasSchedulingDefaults)",
+            "saved scheduling defaults override Configuration on reopen")
+    require(fileswn8, "legacyWait = criteria.StartOnIdle;",
+            "reopen restores the saved Legacy wait choice")
+    require(fileswn8, "transferMode = criteria.TransferMode;",
+            "reopen restores the saved transfer mode")
+    require(fileswn8, "conflictMode = criteria.ConflictMode;",
+            "reopen restores the saved conflict mode")
+    require(fileswn8, "CopyMoveGetSchedulingOverride(transferMode, legacyWait)",
+            "reopen maps saved wait through the shared admission helper")
 
     print("copy_move_scheduling_contract_tests: ok")
 
