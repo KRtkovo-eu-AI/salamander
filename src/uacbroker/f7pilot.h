@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Expose the approved listing root to the panel. | Locate the protected suffix for display. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Declare one rooted read-only listing session. | Keep one authorization across navigation and refresh. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Declare the one-file permanent delete request. | Pin the original file across UAC consent and retries. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add a typed request for basic file metadata. | Share one operation between the ordinary token and the broker. | | GPT-6.1 Sol (Codex) |
@@ -77,6 +78,7 @@ public:
     bool Prepare(const std::wstring& path);
     DWORD Start(HWND owner);
     bool Contains(const std::wstring& path) const;
+    const std::wstring& GetRoot() const { return root; }
     DWORD List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries);
     bool IsOpen() const { return pipe != nullptr; }
 

@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-07 | Model the protected-listing caption state. | Verify the UTF-8 scope boundary and that virtual paths clear it. | | GPT-6.1 Sol (Codex) |
 #include <windows.h>
 #include <string>
 #include <vector>
@@ -57,7 +58,19 @@ struct Rows {int Count=0;std::vector<File> Values;File& At(int i){return Values[
 struct ListFacade {int GetTopIndex(){return 13;}};
 struct TopMemory {int Pushes=0,Clears=0;std::string Saved;void Push(const char* path,int top){if(top==13)++Pushes;Saved=path;}void Clear(){++Clears;}};
 struct HeaderHistory {int Type=-1;std::string Archive,Inside;void AddPath(int type,const char* archive,const char* inside,void*,void*){Type=type;Archive=archive;Inside=inside?inside:"";}};
-struct HeaderText {std::string Text;int RootLength=-1;void SetText(const char* text,int root=-1){Text=text;RootLength=root;}};
+struct HeaderText {
+ std::string Text;
+ int RootLength=-1,AdministratorPathStart=-1;
+ void SetText(const char* text,int root=-1){Text=text;RootLength=root;}
+ void SetAdministratorListing(int start){AdministratorPathStart=start;}
+};
+struct ListingScope {
+ std::wstring Root;
+ const std::wstring& GetRoot() const{return Root;}
+ bool Contains(const std::wstring& path) const {
+  return path==Root||(path.size()>Root.size()&&path[Root.size()]==L'\\'&&path.compare(0,Root.size(),Root)==0);
+ }
+};
 struct HeaderFilter {const char* GetMasksString(){return "*.txt";}};
 struct HeaderParent {int Calls=0;void UpdatePanelTabTitle(CFilesWindow*){++Calls;}};
 struct HeaderFS {const char* GetPluginFSName(){return "fixture";}BOOL NotEmpty(){return FALSE;}BOOL GetCurrentPath(char*){return FALSE;}void* GetInterface(){return nullptr;}HeaderFS* GetPluginInterfaceForFS(){return this;}int GetPluginFSNameIndex(){return 0;}void ConvertPathToExternal(const char*,int,char*){}};
@@ -69,6 +82,7 @@ public:
  void ChangePathToDisk(HWND,const char* path,int,void*,void*,BOOL,BOOL,BOOL,void*,BOOL,int){++UnloadChanges;UnloadPath=path;if(UnloadChangeOK){Disk=TRUE;ArchiveView=FSView=FALSE;}}
  void ChangeToRescuePathOrFixedDrive(HWND,void*,BOOL,BOOL,int){++UnloadRescues;if(UnloadChangeOK){Disk=TRUE;ArchiveView=FSView=FALSE;}}
  HeaderHistory History;HeaderHistory* PathHistory=&History;HeaderText Header;HeaderText* DirectoryLine=&Header;
+ ListingScope* ProtectedListing=nullptr;
  HeaderFilter Filter;BOOL FilterEnabled=FALSE;HeaderParent HeaderOwner;HeaderParent* Parent=&HeaderOwner;HeaderFS FS;
  BOOL ArchiveView=FALSE,FSView=FALSE;std::string ArchiveName,ArchiveInside;
  HeaderFS* GetPluginFS(){return &FS;}const char* GetZIPPath(){return ArchiveInside.c_str();}
@@ -171,7 +185,19 @@ int wmain(){
  for(int mode=0;mode<3;++mode){Reset();CFilesWindow panel;panel.Set(root,sources[0]);panel.ChangeOK=FALSE;panel.ChangeNoChange=mode==0;panel.SkipNoChangeWrite=mode==2;panel.TryEnterFileAsArchive(0);Check(panel.TopIndexMem.Pushes==0&&panel.TopIndexMem.Clears==(mode==1?1:0),"archive failure/no-change/early tab-unlock cancel preserve correct history");Check(panel.Began==panel.Ended,"archive refusal balances suspension");}
  Reset();CFilesWindow panel;panel.Set(root,sources[0]);panel.Files->At(0).Archive=TRUE;panel.CtrlPageDnOrEnter(VK_NEXT);Check(panel.Executes==1&&panel.Changes==0,"known archive keeps existing Execute route");
  panel.TryEnterFileAsArchive(-1);panel.TryEnterFileAsArchive(2);Check(panel.Changes==0,"invalid indexes never probe");
- CFilesWindow caption;caption.Set(root,sources[0]);caption.Branch=FALSE;caption.DirectoryLineSetText();Check(caption.Header.Text==caption.Root,"ordinary disk header unchanged");caption.Branch=TRUE;caption.FilterEnabled=TRUE;caption.DirectoryLineSetText();Check(caption.Header.Text==caption.Root+"  [*.txt]  [ready]"&&caption.Header.RootLength==(int)caption.Root.size(),"Branch status and filter caption unchanged");caption.Branch=FALSE;caption.Disk=FALSE;caption.FSView=TRUE;caption.FilterEnabled=FALSE;caption.DirectoryLineSetText();Check(caption.Header.Text=="fixture:","plugin-FS virtual path contract unchanged");
+ CFilesWindow caption;
+ caption.Set(root,sources[0]);caption.Branch=FALSE;caption.DirectoryLineSetText();
+ Check(caption.Header.Text==caption.Root&&caption.Header.AdministratorPathStart==-1,"ordinary disk header unchanged");
+ caption.Branch=TRUE;caption.FilterEnabled=TRUE;caption.DirectoryLineSetText();
+ Check(caption.Header.Text==caption.Root+"  [*.txt]  [ready]"&&caption.Header.RootLength==(int)caption.Root.size(),"Branch status and filter caption unchanged");
+ ListingScope approved{deep};
+ caption.Set(deep+L"\\child",sources[0]);caption.Branch=FALSE;caption.ProtectedListing=&approved;caption.DirectoryLineSetText();
+ const auto prefix=deep.substr(0,deep.rfind(L'\\')+1);
+ Check(caption.Header.AdministratorPathStart==(int)SalWideToMultiBytePath(prefix.c_str(),CP_UTF8).size()&&
+       caption.Header.RootLength==(int)caption.Root.size()&&caption.Header.Text==caption.Root+"\\*.txt",
+       "protected caption starts at the UTF-8 scope boundary and leaves the filter outside the path");
+ caption.Disk=FALSE;caption.FSView=TRUE;caption.FilterEnabled=FALSE;caption.DirectoryLineSetText();
+ Check(caption.Header.Text=="fixture:"&&caption.Header.AdministratorPathStart==-1,"plugin-FS virtual path clears the protected caption");
  char untouched='Q';Check(!caption.GetGeneralPath(NULL,10,FALSE)&&!caption.GetGeneralPath(&untouched,-1,FALSE)&&untouched=='Q',"invalid general-path arguments fail without writing");
  bool clean=true;for(auto i=FilesOwned.rbegin();i!=FilesOwned.rend();++i){Check(i->rfind(root+L"\\",0)==0,"owned cleanup root");clean=DeleteFileW(Exact(*i).c_str())!=FALSE&&clean;}for(auto i=DirsOwned.rbegin();i!=DirsOwned.rend();++i)clean=RemoveDirectoryW(Exact(*i).c_str())!=FALSE&&clean;Check(clean,"cleanup only owned Unicode/long-path fixtures");
  std::printf("Actual archive-entry route: %d checks, %d failures\n",Checks,Failed);return Failed?1:0;

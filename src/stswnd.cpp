@@ -3,6 +3,7 @@
 
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Highlight the approved path suffix with the selection palette. | Preserve readability and existing path hit-testing. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Show a UAC shield for protected directory listings. | Paint the system shield after the visible path and reuse the localized tooltip. | | GPT-6.1 Sol (Codex) |
 */
 
@@ -541,20 +542,20 @@ void CStatusWindow::SetThrobberTooltip(const char* throbberTooltip)
         ThrobberTooltip = DupStr(throbberTooltip);
 }
 
-void CStatusWindow::SetAdministratorListing(bool active)
+void CStatusWindow::SetAdministratorListing(int pathStart)
 {
-    if (active == (AdministratorShield != NULL))
+    if (pathStart == AdministratorPathStart)
         return;
 
-    if (active)
+    AdministratorPathStart = pathStart;
+    if (pathStart >= 0 && AdministratorShield == NULL)
     {
         SHSTOCKICONINFO info{};
         info.cbSize = sizeof(info);
-        if (FAILED(SHGetStockIconInfo(SIID_SHIELD, SHGSI_ICON | SHGSI_SMALLICON, &info)))
-            return;
-        AdministratorShield = info.hIcon;
+        if (SUCCEEDED(SHGetStockIconInfo(SIID_SHIELD, SHGSI_ICON | SHGSI_SMALLICON, &info)))
+            AdministratorShield = info.hIcon;
     }
-    else
+    else if (pathStart < 0 && AdministratorShield != NULL)
     {
         DestroyIcon(AdministratorShield);
         AdministratorShield = NULL;
@@ -1227,6 +1228,48 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     SetTextColor(dc, GetPanelHighlightTextColor());
             }
 
+            RECT administratorText{};
+            if (AdministratorPathStart >= 0)
+            {
+                // Map source offsets to the visible path, excluding filter text and omitted components.
+                const int visibleStart = truncateEnd ? 0 : TextLen - visibleChars;
+                const int first = max(AdministratorPathStart, visibleStart);
+                const int last = min(PathLen == -1 ? TextLen : PathLen, truncateEnd ? visibleChars : TextLen);
+                if (first < last)
+                {
+                    const int origin = truncateEnd ? TextRect.left
+                                                   : TextRect.left - EllipsedWidth + FilesWindow->GetTextEllipsisWidthEnv();
+                    administratorText = {origin + (first > 0 ? AlpDX[first - 1] : 0), textY,
+                                         min(origin + AlpDX[last - 1], TextRect.right),
+                                         min(textY + FilesWindow->GetEnvFontHeight(), r.bottom)};
+                    FillRectSolid(dc, &administratorText, GetCOLORREF(CurrentColors[ITEM_BK_SELECTED]));
+                }
+            }
+
+            const auto drawPathText = [&](int x, const char* text, int count)
+            {
+                if (IsRectEmpty(&administratorText) || x >= administratorText.right)
+                {
+                    ExtTextOut(dc, x, textY, 0, NULL, text, count, NULL);
+                    return;
+                }
+
+                // Use the same text runs with separate clips to preserve shaping and path hit-testing.
+                if (x < administratorText.left)
+                {
+                    const RECT prefix{TextRect.left, r.top, administratorText.left, r.bottom};
+                    ExtTextOut(dc, x, textY, ETO_CLIPPED, &prefix, text, count, NULL);
+                }
+                const COLORREF previous = SetTextColor(dc, GetCOLORREF(CurrentColors[ITEM_FG_SELECTED]));
+                ExtTextOut(dc, x, textY, ETO_CLIPPED, &administratorText, text, count, NULL);
+                SetTextColor(dc, previous);
+                if (administratorText.right < TextRect.right)
+                {
+                    const RECT suffix{administratorText.right, r.top, TextRect.right, r.bottom};
+                    ExtTextOut(dc, x, textY, ETO_CLIPPED, &suffix, text, count, NULL);
+                }
+            };
+
             int firstClipChar = 2 * TextLen;
             int lastClipChar = 2 * TextLen;
             if (hotItem != NULL)
@@ -1240,23 +1283,22 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
             {
                 if (truncateEnd)
                 { // bez zkraceni nebo ustrizen konec
-                    ExtTextOut(dc, TextRect.left, textY, 0, NULL, Text, min(visibleChars, firstClipChar), NULL);
+                    drawPathText(TextRect.left, Text, min(visibleChars, firstClipChar));
                     if (visibleChars < min(TextLen, firstClipChar)) // pokud byl ustrizen konec -> pripojime "..."
                     {
                         int offset = (visibleChars > 0) ? AlpDX[visibleChars - 1] : 0;
-                        ExtTextOut(dc, TextRect.left + offset, textY, 0, NULL, "...", 3, NULL);
+                        drawPathText(TextRect.left + offset, "...", 3);
                     }
                 }
                 else
                 { // uriznuta cast za root slozkou
                     // root cast
                     int rootChars = HotTrackItems[0].Chars;
-                    ExtTextOut(dc, TextRect.left, textY, 0, NULL, Text, rootChars, NULL);
+                    drawPathText(TextRect.left, Text, rootChars);
                     // "..."
-                    ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1], textY, 0, NULL, "...", 3, NULL);
+                    drawPathText(TextRect.left + AlpDX[rootChars - 1], "...", 3);
                     // zbytek
-                    ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1] + FilesWindow->GetTextEllipsisWidthEnv(),
-                               textY, 0, NULL, Text + TextLen - visibleChars, visibleChars, NULL);
+                    drawPathText(TextRect.left + AlpDX[rootChars - 1] + FilesWindow->GetTextEllipsisWidthEnv(), Text + TextLen - visibleChars, visibleChars);
                 }
             }
 
@@ -1265,11 +1307,11 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
             {
                 // bez zkraceni nebo ustrizen konec
                 int visibleChars2 = visibleChars - lastClipChar;
-                ExtTextOut(dc, TextRect.left + AlpDX[lastClipChar - 1], textY, 0, NULL, Text + lastClipChar, visibleChars2, NULL);
+                drawPathText(TextRect.left + AlpDX[lastClipChar - 1], Text + lastClipChar, visibleChars2);
                 if (visibleChars < TextLen) // pokud byl ustrizen konec -> pripojime "..."
                 {
                     int offset = (visibleChars > 0) ? AlpDX[visibleChars - 1] : 0;
-                    ExtTextOut(dc, TextRect.left + offset, textY, 0, NULL, "...", 3, NULL);
+                    drawPathText(TextRect.left + offset, "...", 3);
                 }
             }
             // vykreslime druhou cast textu (za hotItem dal) -- zkracovani uprosted
@@ -1281,7 +1323,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
 
                 if (lastClipChar <= rootChars)
                 {
-                    ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1], textY, 0, NULL, "...", 3, NULL); // "..."
+                    drawPathText(TextRect.left + AlpDX[rootChars - 1], "...", 3); // "..."
                     firstChar += EllipsedChars;                                                           // posuneme se pres vypustene znaky
                 }
                 else
@@ -1289,8 +1331,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     if (firstChar < rootChars + EllipsedChars) // je potreba preskocit pripadne zpetne lomitko, ktere by lezlo do vypustky
                         firstChar = rootChars + EllipsedChars;
                 }
-                ExtTextOut(dc, TextRect.left + AlpDX[firstChar - 1] - EllipsedWidth + FilesWindow->GetTextEllipsisWidthEnv(),
-                           textY, 0, NULL, Text + firstChar, TextLen - firstChar, NULL);
+                drawPathText(TextRect.left + AlpDX[firstChar - 1] - EllipsedWidth + FilesWindow->GetTextEllipsisWidthEnv(), Text + firstChar, TextLen - firstChar);
             }
 
             // zobrazime hot track polozku
@@ -1319,12 +1360,11 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     {
                         showChars = visibleChars - hotItem->Offset;
                         int offset = (visibleChars > 0) ? AlpDX[visibleChars - 1] : 0;
-                        ExtTextOut(dc, TextRect.left + offset, textY, 0, NULL, "...", 3, NULL);
+                        drawPathText(TextRect.left + offset, "...", 3);
                     }
                     if (showChars > 0)
                     {
-                        ExtTextOut(dc, TextRect.left + hotItem->PixelsOffset, textY, 0, NULL,
-                                   Text + hotItem->Offset, showChars, NULL);
+                        drawPathText(TextRect.left + hotItem->PixelsOffset, Text + hotItem->Offset, showChars);
                     }
                 }
                 else
@@ -1332,16 +1372,15 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                     int showChars = hotItem->Chars;
 
                     int rootChars = HotTrackItems[0].Chars;
-                    ExtTextOut(dc, TextRect.left, textY, 0, NULL, Text, rootChars, NULL);
+                    drawPathText(TextRect.left, Text, rootChars);
                     if (showChars > rootChars)
                     {
                         // "..."
-                        ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1], textY, 0, NULL, "...", 3, NULL);
+                        drawPathText(TextRect.left + AlpDX[rootChars - 1], "...", 3);
                         if (showChars - rootChars - EllipsedChars > 0)
                         {
                             // zbytek
-                            ExtTextOut(dc, TextRect.left + AlpDX[rootChars - 1] + FilesWindow->GetTextEllipsisWidthEnv(),
-                                       textY, 0, NULL, Text + rootChars + EllipsedChars, showChars - rootChars - EllipsedChars, NULL);
+                            drawPathText(TextRect.left + AlpDX[rootChars - 1] + FilesWindow->GetTextEllipsisWidthEnv(), Text + rootChars + EllipsedChars, showChars - rootChars - EllipsedChars);
                         }
                     }
                 }
