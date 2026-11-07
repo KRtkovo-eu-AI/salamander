@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Share opening of a specific Find result. | Let accessibility invoke the verified row without relying on later focus. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Hide repeated Find entries after background path sorting. | Only compare adjacent rows once their path order has been published. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Open Find messages from a stable log snapshot. | Allow the worker to keep recording errors while the dialog is in use. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell extension SEH in Find context menus. | Find QueryContextMenu/InvokeCommand/HandleMenuMsg must not terminate. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
@@ -1674,23 +1675,28 @@ void CFindDialog::OnOpen(BOOL onlyFocused)
         if (index != -1)
         {
             CFoundFilesData* file = FoundFilesListView->At(index);
-            BOOL setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // already waiting?
-            HCURSOR oldCur;
-            if (setWait)
-                oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
-
-            char fullPath[MAX_PATH];
-            std::wstring fullPathW = file->GetFullNameW();
-            std::string fullPathA = SalWideToMultiBytePath(fullPathW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
-            lstrcpyn(fullPath, fullPathA.empty() ? file->Path : fullPathA.c_str(), MAX_PATH);
-            if (fullPath[0] != 0)
-                MainWindow->FileHistory->AddFile(fhitOpen, 0, fullPath);
-
-            ExecuteAssociation(HWindow, file->Path, file->Name);
-            if (setWait)
-                SetCursor(oldCur);
+            OpenResult(*file);
         }
     } while (!onlyFocused && index != -1);
+}
+
+void CFindDialog::OpenResult(const CFoundFilesData& file)
+{
+    BOOL setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // already waiting?
+    HCURSOR oldCur;
+    if (setWait)
+        oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
+
+    char fullPath[MAX_PATH];
+    std::wstring fullPathW = file.GetFullNameW();
+    std::string fullPathA = SalWideToMultiBytePath(fullPathW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    lstrcpyn(fullPath, fullPathA.empty() ? file.Path : fullPathA.c_str(), MAX_PATH);
+    if (fullPath[0] != 0)
+        MainWindow->FileHistory->AddFile(fhitOpen, 0, fullPath);
+
+    ExecuteAssociation(HWindow, file.Path, file.Name);
+    if (setWait)
+        SetCursor(oldCur);
 }
 
 //****************************************************************************

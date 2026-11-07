@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Initialize COM on the Find window thread. | Allow the UI Automation provider to marshal its thread-safe interfaces. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Report Find as finalizing when only its worker has finished. | Reserve the final state for results the dialog has published. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Track Find heartbeat and worker progress separately. | Report a stalled Find window without waiting for its UI or result locks. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Separate worker completion from user Stop. | The dialog observes actual thread exit asynchronously. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -2266,6 +2267,7 @@ unsigned ThreadFindDialogMessageLoopBody(void* parameter)
 
     { // this block ensures destructors are called properly before calling _end_thread() (see below)
         SetThreadNameInVCAndTrace("FindDialog");
+        const HRESULT automationCom = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
         TRACE_I("Begin");
         CTFDData* data = (CTFDData*)parameter;
         CFindDialog* findDialog = data->FindDialog;
@@ -2334,6 +2336,8 @@ unsigned ThreadFindDialogMessageLoopBody(void* parameter)
             }
         }
 
+        if (SUCCEEDED(automationCom))
+            CoUninitialize();
         TRACE_I("End");
     }
 

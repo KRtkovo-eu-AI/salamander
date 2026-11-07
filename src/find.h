@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Give Find a lifetime-safe UI Automation model. | Keep offscreen rows discoverable without expanding the complete native list. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Distinguish Find finalization from completion. | Report when the worker is done and the dialog is still preparing results. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Share optional Find watchdog state between the owning dialog and main window. | Keep heartbeat and search progress independent of the result model. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Hold Find results alive for independent sort jobs. | Keep the visible result model and selection usable while sorting. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -638,6 +639,8 @@ protected:
 };
 
 struct CFindSortJob;
+class CFindUiaState;
+struct IRawElementProviderSimple;
 
 class CFoundFilesListView : public CWindow
 {
@@ -655,6 +658,17 @@ protected:
     BOOL ApplyingSort = FALSE;
     BOOL HideDuplicatesAfterSort = FALSE;
     CFindActivity ActivityBeforeSort = CFindActivity::Idle;
+
+    friend class CFindUiaState;
+    friend class CFindDialog;
+    std::shared_ptr<CFindUiaState> UiaState;
+    IRawElementProviderSimple* UiaProvider = NULL;
+    bool UiaClosing = false;
+    UINT_PTR UiaRevision = 0;
+    void InvalidateUiaRows(); // under DataCriticalSection once the window is initialized
+    void RefreshUiaView();
+    void ReleaseUiaView();
+    bool HandleUiaMessage(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result);
 
     void ShowSortingActivity();
     void PublishSort(const CFindSortJob& job);
@@ -956,6 +970,7 @@ protected:
     void OnInvertSelection();
     void OnShowLog();
     void OnOpen(BOOL onlyFocused);
+    void OpenResult(const CFoundFilesData& file);
     void UpdateStatusText(); // if we are not in search mode, displays the count and total size of selected items
 
     // OLE clipboard operations

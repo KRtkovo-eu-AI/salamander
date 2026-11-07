@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Include the Find UI Automation provider. | Build the virtualized result view. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+-->
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -554,6 +558,10 @@
     </ClCompile>
     <ClCompile Include="..\finddlg2.cpp">
     </ClCompile>
+    <ClCompile Include="..\finduia.cpp">
+    </ClCompile>
+    <ClCompile Include="..\finduiaprovider.cpp">
+    </ClCompile>
     <ClCompile Include="..\geticon.cpp">
     </ClCompile>
     <ClCompile Include="..\gui.cpp">
@@ -1037,6 +1045,8 @@
     <ClInclude Include="..\filter.h">
     </ClInclude>
     <ClInclude Include="..\find.h">
+    </ClInclude>
+    <ClInclude Include="..\finduia.h">
     </ClInclude>
     <ClInclude Include="..\geticon.h">
     </ClInclude>

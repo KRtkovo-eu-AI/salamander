@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Publish only the visible Find viewport to UI Automation. | Preserve native rendering, keyboard interaction, and legacy accessibility. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Defer Find sorting until enumeration ends. | Publish the final activity after result preparation and optional sorting. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Acknowledge watchdog requests from the Find message handler. | Let the main window distinguish a stalled dialog from an active search. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Sort Find results on a separate thread. | Keep dialog messages responsive while computing result order. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -29,6 +30,7 @@
 #include "viewer.h"
 #include "shellib.h"
 #include "find.h"
+#include "finduia.h"
 #include "gui.h"
 #include "plugins/shared/listview_sort_header.h"
 #include "usermenu.h"
@@ -497,7 +499,7 @@ std::wstring CFoundFilesData::GetTextW(int i, int fileNameFormat) const
 
     case 3:
     {
-        wchar_t buffer[100];
+        wchar_t buffer[100] = {};
         SYSTEMTIME st;
         FILETIME ft;
         if (FileTimeToLocalFileTime(&LastWrite, &ft) &&
@@ -507,13 +509,13 @@ std::wstring CFoundFilesData::GetTextW(int i, int fileNameFormat) const
                 swprintf_s(buffer, L"%u.%u.%u", st.wDay, st.wMonth, st.wYear);
         }
         else
-            wcscpy_s(buffer, LoadStrW(IDS_INVALID_DATEORTIME));
+            LoadStringW(HLanguage, IDS_INVALID_DATEORTIME, buffer, _countof(buffer));
         return buffer;
     }
 
     case 4:
     {
-        wchar_t buffer[100];
+        wchar_t buffer[100] = {};
         SYSTEMTIME st;
         FILETIME ft;
         if (FileTimeToLocalFileTime(&LastWrite, &ft) &&
@@ -523,7 +525,7 @@ std::wstring CFoundFilesData::GetTextW(int i, int fileNameFormat) const
                 swprintf_s(buffer, L"%u:%02u:%02u", st.wHour, st.wMinute, st.wSecond);
         }
         else
-            wcscpy_s(buffer, LoadStrW(IDS_INVALID_DATEORTIME));
+            LoadStringW(HLanguage, IDS_INVALID_DATEORTIME, buffer, _countof(buffer));
         return buffer;
     }
 
@@ -602,6 +604,7 @@ CFoundFilesListView::CFoundFilesListView(HWND dlg, int ctrlID, CFindDialog* find
     SortBy = -1;
     ReverseSort = FALSE;
     HANDLES(InitializeCriticalSection(&DataCriticalSection));
+    InvalidateUiaRows();
 
     // add this panel to the array of sources for enumerating files in viewers
     EnumFileNamesAddSourceUID(HWindow, &EnumFileNamesSourceUID);
@@ -611,6 +614,7 @@ CFoundFilesListView::CFoundFilesListView(HWND dlg, int ctrlID, CFindDialog* find
 
 CFoundFilesListView::~CFoundFilesListView()
 {
+    ReleaseUiaView();
     if (SortThread != NULL)
         HANDLES(CloseHandle(SortThread));
     if (SortJob != NULL)
@@ -633,14 +637,18 @@ CFoundFilesListView::At(int index)
 
 void CFoundFilesListView::DestroyMembers()
 {
+    HANDLES(EnterCriticalSection(&DataCriticalSection));
     ++ResultRevision;
+    InvalidateUiaRows();
     Data.DestroyMembers();
+    HANDLES(LeaveCriticalSection(&DataCriticalSection));
 }
 
 void CFoundFilesListView::Delete(int index)
 {
     HANDLES(EnterCriticalSection(&DataCriticalSection));
     ++ResultRevision;
+    InvalidateUiaRows();
     Data.Delete(index);
     HANDLES(LeaveCriticalSection(&DataCriticalSection));
 }
@@ -678,8 +686,11 @@ BOOL CFoundFilesListView::TakeDataForRefine()
             return FALSE;
         }
     }
+    HANDLES(EnterCriticalSection(&DataCriticalSection));
     ++ResultRevision;
+    InvalidateUiaRows();
     Data.DetachMembers();
+    HANDLES(LeaveCriticalSection(&DataCriticalSection));
     return TRUE;
 }
 
@@ -1053,6 +1064,7 @@ void CFoundFilesListView::PublishSort(const CFindSortJob& job)
     // Publish the sorted snapshot in one short lock after checking its revision.
     HANDLES(EnterCriticalSection(&DataCriticalSection));
     memcpy(Data.GetData(), job.Items.data(), count * sizeof(CFoundFilesData*));
+    InvalidateUiaRows();
     if (job.Duplicates)
         SetDifferentByGroup(count);
     HANDLES(LeaveCriticalSection(&DataCriticalSection));
@@ -1073,6 +1085,7 @@ void CFoundFilesListView::PublishSort(const CFindSortJob& job)
         }
     }
     ApplyingSort = FALSE;
+    RefreshUiaView();
     ListView_RedrawItems(HWindow, 0, count - 1);
     InvalidateSortHeader();
     FindDialog->EnableToolBar();
@@ -1345,6 +1358,10 @@ BOOL GetNextItemFromFind(int index, char* path, char* name, void* param)
 LRESULT
 CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    LRESULT uiaResult;
+    if (HandleUiaMessage(uMsg, wParam, lParam, uiaResult))
+        return uiaResult;
+
     SLOW_CALL_STACK_MESSAGE4("CFoundFilesListView::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
@@ -1659,7 +1676,13 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
     }
-    return CWindow::WindowProc(uMsg, wParam, lParam);
+    const bool refresh = uMsg == WM_PAINT || uMsg == WM_SIZE || uMsg == WM_SETFOCUS || uMsg == WM_KILLFOCUS ||
+                         uMsg == WM_VSCROLL || uMsg == WM_HSCROLL || uMsg == LVM_SETITEMCOUNT;
+    const auto uia = refresh ? UiaState : nullptr;
+    const LRESULT result = CWindow::WindowProc(uMsg, wParam, lParam);
+    if (uia)
+        QueueFindUiaEvents(uia, uia->Refresh());
+    return result;
 }
 
 BOOL CFoundFilesListView::InitColumns()
@@ -3933,6 +3956,13 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             popup->Track(flags, r.left, r.bottom, HWindow, &r);
         }
+        break;
+    }
+
+    case WM_MOVE:
+    {
+        if (FoundFilesListView != NULL)
+            FoundFilesListView->RefreshUiaView();
         break;
     }
 
