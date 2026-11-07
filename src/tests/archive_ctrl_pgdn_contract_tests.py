@@ -1,5 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Assert archive-association provenance survives migrations. | Prevent #748 cleanup from replacing user-selected owners and keep per-extension metadata available for #733. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
+# | 2026-11-05 | Assert 7-Zip no longer steals TAR/ZIP/UnRAR panel extensions. | Guard the issue #748 association ownership fix. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | Composer |
 
 from pathlib import Path
 import re
@@ -13,9 +17,13 @@ PLUGINS_H = SRC / "plugins.h"
 PLUGINS1 = SRC / "plugins1.cpp"
 FILESWN0 = SRC / "fileswn0.cpp"
 PACK_H = SRC / "pack.h"
+PACK3 = SRC / "pack3.cpp"
 PACK1 = SRC / "pack1.cpp"
+DIALOGSP = SRC / "dialogsp.cpp"
 FILESWND_H = SRC / "fileswnd.h"
+MAINWND2 = SRC / "mainwnd2.cpp"
 SEVEN_ZIP = SRC / "plugins" / "7zip" / "7zip.cpp"
+TAR_DLL = SRC / "plugins" / "tar" / "tardll.cpp"
 
 REMOVED_DOC_EXTS = (
     "doc",
@@ -51,6 +59,38 @@ REMOVED_DOC_EXTS = (
     "otg",
     "epub",
     "xpi",
+)
+
+# Panel extensions owned by dedicated plugins; 7-Zip must not claim them for Enter.
+DEDICATED_PANEL_EXTS = (
+    "tgz",
+    "tbz",
+    "taz",
+    "tar",
+    "gz",
+    "bz",
+    "bz2",
+    "z",
+    "rpm",
+    "cpio",
+    "deb",
+    "zip",
+    "jar",
+    "rar",
+)
+
+TAR_FAMILY_EXTS = (
+    "tgz",
+    "tbz",
+    "taz",
+    "tar",
+    "gz",
+    "bz",
+    "bz2",
+    "z",
+    "rpm",
+    "cpio",
+    "deb",
 )
 
 
@@ -186,32 +226,110 @@ def main() -> int:
 
     seven_zip = SEVEN_ZIP.read_text(encoding="utf-8")
     require(
-        re.search(r"#define\s+CURRENT_CONFIG_VERSION\s+8\b", seven_zip) is not None,
-        "7-Zip CURRENT_CONFIG_VERSION must be 7",
+        re.search(r"#define\s+CURRENT_CONFIG_VERSION\s+9\b", seven_zip) is not None,
+        "7-Zip CURRENT_CONFIG_VERSION must be 9",
     )
     connect_start = seven_zip.index("void CPluginInterface::Connect")
     connect_end = seven_zip.index("void CPluginInterface::Event", connect_start)
     connect = seven_zip[connect_start:connect_end]
     require(
         "ConfigVersion < 8" in connect and "ForceRemovePanelArchiver" in connect,
-        "Connect must ForceRemovePanelArchiver on ConfigVersion < 7",
+        "Connect must ForceRemovePanelArchiver on ConfigVersion < 8",
     )
     require(
-        'GetPluginDataFromSuffix("zip.spl")' in (SRC / "mainwnd2.cpp").read_text(encoding="utf-8"),
+        "ConfigVersion < 9" in connect,
+        "Connect must ForceRemovePanelArchiver dedicated extensions on ConfigVersion < 9",
+    )
+    mainwnd2 = MAINWND2.read_text(encoding="utf-8")
+    require(
+        'GetPluginDataFromSuffix("zip.spl")' in mainwnd2,
         "post-load migration must also clean imported ZIP-owned document rows",
     )
+    require(
+        'GetPluginDataFromSuffix("tar.spl")' in mainwnd2
+        and "EnsureExtensionsForPlugin" in mainwnd2
+        and "tarFamilyExts" in mainwnd2,
+        "post-load migration must restore TAR ownership of the tar/gzip family",
+    )
+    require(
+        'GetPluginDataFromSuffix("unrar.spl")' in mainwnd2,
+        "post-load migration must strip tar-family extensions from UnRAR-owned rows",
+    )
+    pack_h = PACK_H.read_text(encoding="utf-8")
+    require(
+        "EnsureExtensionsForPlugin" in pack_h,
+        "CPackerFormatConfig must expose EnsureExtensionsForPlugin",
+    )
 
-    association_masks = []
-    association_masks.extend(re.findall(r'AddPanelArchiver\(\s*"([^"]*)"', connect))
-    association_masks.extend(re.findall(r'AddCustomUnpacker\(\s*"[^"]*"\s*,\s*"([^"]*)"', connect))
+    pack3 = PACK3.read_text(encoding="utf-8")
+    require(
+        'SALAMANDER_PPA_USEREXTENSIONS = "User Extension List"' in pack3,
+        "archive associations must have a persistent user-extension registry value",
+    )
+    set_format = function_body(pack3, "BOOL CPackerFormatConfig::SetFormat")
+    require(
+        "FilterUserExtensions(data->UserExtensions, ext)" in set_format,
+        "rewriting a row must retain user provenance for extensions that remain",
+    )
+    require(
+        "void CPackerFormatConfig::MarkFormatAsUserOverride" in pack3
+        and "Formats[index]->UserExtensions" in pack3,
+        "the configuration editor must be able to mark a row's extensions as user-owned",
+    )
+    save = function_body(pack3, "BOOL CPackerFormatConfig::Save")
+    require(
+        "SALAMANDER_PPA_USEREXTENSIONS" in save,
+        "user provenance must be persisted with archive-association rows",
+    )
+    load = function_body(pack3, "BOOL CPackerFormatConfig::Load(HKEY hKey)")
+    require(
+        "SALAMANDER_PPA_USEREXTENSIONS" in load and "hasUserExtensions" in load,
+        "user provenance must be optional when loading pre-provenance configurations",
+    )
+    remove_for_plugin = function_body(pack3, "void CPackerFormatConfig::RemoveExtensionsForPlugin")
+    remove_legacy = function_body(pack3, "void CPackerFormatConfig::RemoveExtensionsFromLegacyRows")
+    require(
+        "IsExtensionInList(data->UserExtensions" in remove_for_plugin
+        and "IsExtensionInList(data->UserExtensions" in remove_legacy,
+        "both cleanup passes must retain explicitly user-owned extensions",
+    )
+    ensure = function_body(pack3, "void CPackerFormatConfig::EnsureExtensionsForPlugin")
+    require(
+        "IsExtensionInList(data->Ext, extension" in ensure,
+        "TAR restoration must not create a duplicate association over an existing owner",
+    )
+    require(
+        "IsUserOverride(i, s + 1)" in plugins1,
+        "ForceRemovePanelArchiver must retain explicitly user-owned extensions",
+    )
+    dialogsp = DIALOGSP.read_text(encoding="utf-8")
+    require(
+        dialogsp.count("MarkFormatAsUserOverride") >= 3,
+        "all archive-association edits in Configuration must record user provenance",
+    )
+
+    panel_masks = []
+    panel_masks.extend(re.findall(r'AddPanelArchiver\(\s*"([^"]*)"', connect))
     groups = re.search(
         r"panelArchiverExtensionGroups\[\]\s*=\s*\{(.*?)\};",
         connect,
         re.DOTALL,
     )
     require(groups is not None, "panelArchiverExtensionGroups was not found")
-    association_masks.extend(re.findall(r'"([^"]*)"', groups.group(1)))
-    require(association_masks, "no 7-Zip panel/unpacker association strings found")
+    panel_masks.extend(re.findall(r'"([^"]*)"', groups.group(1)))
+    require(panel_masks, "no 7-Zip panel association strings found")
+    panel_present = set()
+    for mask in panel_masks:
+        panel_present.update(split_extensions(mask))
+    stolen = [ext for ext in DEDICATED_PANEL_EXTS if ext in panel_present]
+    require(
+        not stolen,
+        "7-Zip AddPanelArchiver must not contain dedicated-plugin extensions: "
+        + ", ".join(stolen),
+    )
+
+    association_masks = list(panel_masks)
+    association_masks.extend(re.findall(r'AddCustomUnpacker\(\s*"[^"]*"\s*,\s*"([^"]*)"', connect))
     present = set()
     for mask in association_masks:
         present.update(split_extensions(mask))
@@ -238,6 +356,52 @@ def main() -> int:
     require(
         not missing_force,
         "ForceRemovePanelArchiver list is missing " + ", ".join(missing_force),
+    )
+    dedicated_list = re.search(
+        r"removedDedicatedExts\[\]\s*=\s*\{(.*?)\};",
+        connect,
+        re.DOTALL,
+    )
+    require(dedicated_list is not None, "removedDedicatedExts was not found")
+    dedicated_removed = set(re.findall(r'"([^"]*)"', dedicated_list.group(1)))
+    missing_dedicated = [ext for ext in DEDICATED_PANEL_EXTS if ext not in dedicated_removed]
+    require(
+        not missing_dedicated,
+        "removedDedicatedExts is missing " + ", ".join(missing_dedicated),
+    )
+
+    # Custom unpacker must still accept TAR-family masks for Unpack / Ctrl+PgDown.
+    unpacker_masks = re.findall(r'AddCustomUnpacker\(\s*"[^"]*"\s*,\s*"([^"]*)"', connect)
+    unpacker_present = set()
+    for mask in unpacker_masks:
+        unpacker_present.update(split_extensions(mask))
+    for ext in ("tgz", "tar", "gz", "zip", "rar"):
+        require(ext in unpacker_present, f"7-Zip custom unpacker must still list *.{ext}")
+
+    tar_dll = TAR_DLL.read_text(encoding="utf-8")
+    tar_connect_start = tar_dll.index("void CPluginInterface::Connect")
+    tar_panel = re.search(
+        r'AddPanelArchiver\(\s*"([^"]*)"',
+        tar_dll[tar_connect_start:],
+    )
+    require(tar_panel is not None, "TAR AddPanelArchiver was not found")
+    tar_panel_exts = split_extensions(tar_panel.group(1))
+    missing_tar = [ext for ext in TAR_FAMILY_EXTS if ext not in tar_panel_exts]
+    require(
+        not missing_tar,
+        "TAR AddPanelArchiver is missing " + ", ".join(missing_tar),
+    )
+    tar_family_list = re.search(
+        r"tarFamilyExts\[\]\s*=\s*\{(.*?)\};",
+        mainwnd2,
+        re.DOTALL,
+    )
+    require(tar_family_list is not None, "tarFamilyExts was not found in mainwnd2.cpp")
+    migrated = set(re.findall(r'"([^"]*)"', tar_family_list.group(1)))
+    missing_migrated = [ext for ext in TAR_FAMILY_EXTS if ext not in migrated]
+    require(
+        not missing_migrated,
+        "tarFamilyExts migration list is missing " + ", ".join(missing_migrated),
     )
 
     plugins_h = PLUGINS_H.read_text(encoding="utf-8")

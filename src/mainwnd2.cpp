@@ -2,8 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Preserve user-owned archive extensions during migration. | Apply #748 ownership repair only to unmarked defaults and retain provenance for future per-type configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Expand the import-anyway message without a LoadStr printf format. | CodeQL rejected the localized IDS_IMPORTCFG_NOTOURVER template as a non-constant format string. | https://github.com/KRtkovo-eu-AI/salamander/issues/742 | Composer |
 // | 2026-11-05 | Ask Yes/No before importing a config file for another version. | The "import anyway" prompt only had OK, so the action could not be confirmed or cancelled. | https://github.com/KRtkovo-eu-AI/salamander/issues/742 | Composer |
+// | 2026-11-05 | Restore TAR ownership of .tgz/.tar.gz panel associations after load. | Imported mega-rows and 7-Zip grouping left Zip/UnRAR owning tar family extensions. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | Composer |
 // | 2026-11-04 | Re-ensure the active tab is visible after panel config load/show. | Overflow scroll must run again after the tab strip is shown with its final width. | | Composer |
 // | 2026-11-04 | Select the first real tab when loading a clean panel config. | Missing TabCount left CurSel on the "+" button after first-run creation. | | Composer |
 // | 2026-11-04 | Load toolbar layouts using the real buffer size. | Panel toolbars now persist the same catalog as the middle toolbar. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
@@ -5273,6 +5275,43 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                 PackerFormatConfig.RemoveExtensionsFromLegacyRows(
                     removedDocumentExts, static_cast<int>(_countof(removedDocumentExts)),
                     legacyArchiveMarkers, static_cast<int>(_countof(legacyArchiveMarkers)));
+
+                // TAR is the canonical panel owner for the tar/gzip family.
+                // Broad 7-Zip AddPanelArchiver groups historically merged those
+                // extensions into ZIP/UnRAR/7-Zip rows (and plugin-index rebuilds
+                // then left Zip/UnRAR opening .tgz). Strip the family from the
+                // non-TAR owners and restore a TAR-owned row.
+                static const char* const tarFamilyExts[] = {
+                    "tgz", "tbz", "taz", "tar", "gz", "bz", "bz2", "z", "rpm", "cpio", "deb"};
+                if (sevenZip != NULL)
+                {
+                    PackerFormatConfig.RemoveExtensionsForPlugin(
+                        Plugins.GetIndexJustForConnect(sevenZip), tarFamilyExts,
+                        static_cast<int>(_countof(tarFamilyExts)));
+                }
+                if (zip != NULL)
+                {
+                    PackerFormatConfig.RemoveExtensionsForPlugin(
+                        Plugins.GetIndexJustForConnect(zip), tarFamilyExts,
+                        static_cast<int>(_countof(tarFamilyExts)));
+                }
+                CPluginData* unrar = Plugins.GetPluginDataFromSuffix("unrar.spl");
+                if (unrar != NULL)
+                {
+                    PackerFormatConfig.RemoveExtensionsForPlugin(
+                        Plugins.GetIndexJustForConnect(unrar), tarFamilyExts,
+                        static_cast<int>(_countof(tarFamilyExts)));
+                }
+                PackerFormatConfig.RemoveExtensionsFromLegacyRows(
+                    tarFamilyExts, static_cast<int>(_countof(tarFamilyExts)),
+                    legacyArchiveMarkers, static_cast<int>(_countof(legacyArchiveMarkers)));
+                CPluginData* tar = Plugins.GetPluginDataFromSuffix("tar.spl");
+                if (tar != NULL)
+                {
+                    PackerFormatConfig.EnsureExtensionsForPlugin(
+                        Plugins.GetIndexJustForConnect(tar), tarFamilyExts,
+                        static_cast<int>(_countof(tarFamilyExts)));
+                }
             }
             CloseKey(actKey);
         }

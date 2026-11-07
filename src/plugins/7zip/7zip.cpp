@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-05 | Stop panel-archiver registration of TAR/ZIP/UnRAR-owned extensions. | Prevent 7-Zip Connect from stealing .tgz/.tar.gz and related associations. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | Composer |
 
 #include "precomp.h"
 #include "dbg.h"
@@ -213,7 +216,10 @@ int ConfigVersion = 0;
 //    archiver and custom unpacker lists so Enter opens the associated app.
 // 8: repeat the cleanup with the complete document extension set, including
 //    combined packer/unpacker rows left by older configurations.
-#define CURRENT_CONFIG_VERSION 8
+// 9: stop claiming TAR/ZIP/UnRAR panel extensions (tgz/tar/gz/zip/rar/...) so
+//    Connect no longer merges them into foreign association rows; keep them on
+//    the custom unpacker and CanOpenArchive probe paths instead.
+#define CURRENT_CONFIG_VERSION 9
 const char* CONFIG_VERSION = "Version";
 
 CConfig Config;
@@ -702,10 +708,15 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
     // AddViewer and AddPanelArchiver will fall under the UPGRADE SECTION
     //  salamander->AddViewer("*.7z", FALSE); // default (plugin install), otherwise Salamander ignores it
 
+    // Keep dedicated plugins as Enter owners: TAR (tgz/tar/gz/...), ZIP (zip/jar),
+    // and UnRAR (rar). Aliases that those plugins do not register (gzip/bzip2/tbz2/tpz,
+    // zipx/z01, r00, udeb) stay here. Custom unpacker / CanOpenArchive still cover the
+    // full 7-Zip format set for Unpack and Ctrl+PgDown.
     static const char* const panelArchiverExtensionGroups[] = {
-        "7z;xz;txz;bz2;bzip2;tbz2;tbz;gz;gzip;tgz;tpz;tar;ova;zip;z01;zipx;jar;wim;swm;esd",
-        "apm;apfs;ar;a;deb;udeb;lib;arj;cab;chm;chi;chq;chw;hxs;hxi;hxr;hxq;hxw;lit;cpio;cramfs;dmg;img;ext;ext2;ext3;ext4;fat;gpt;hfs;hfsx;ihex;iso;lzh;lha;lzma;mbr",
-        "msi;msp;nsis;ntfs;qcow;qcow2;qcow2c;rar;r00;rpm;squashfs;udf;scap;uefi;uefif;vdi;vhd;vhdx;vmdk;xar;z;taz"};
+        "7z;xz;txz;ova;z01;zipx;wim;swm;esd",
+        "gzip;bzip2;tbz2;tpz",
+        "apm;apfs;ar;a;udeb;lib;arj;cab;chm;chi;chq;chw;hxs;hxi;hxr;hxq;hxw;lit;cramfs;dmg;img;ext;ext2;ext3;ext4;fat;gpt;hfs;hfsx;ihex;iso;lzh;lha;lzma;mbr",
+        "msi;msp;nsis;ntfs;qcow;qcow2;qcow2c;r00;squashfs;udf;scap;uefi;uefif;vdi;vhd;vhdx;vmdk;xar"};
     for (unsigned i = 0; i < sizeof(panelArchiverExtensionGroups) / sizeof(panelArchiverExtensionGroups[0]); i++)
         salamander->AddPanelArchiver(panelArchiverExtensionGroups[i], TRUE, FALSE);
 
@@ -727,6 +738,14 @@ void CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamand
             "epub", "xpi"};
         for (unsigned i = 0; i < sizeof(removedDocumentExts) / sizeof(removedDocumentExts[0]); i++)
             salamander->ForceRemovePanelArchiver(removedDocumentExts[i]);
+    }
+    if (ConfigVersion < 9) // hand TAR/ZIP/UnRAR panel extensions back to dedicated plugins
+    {
+        static const char* const removedDedicatedExts[] = {
+            "tgz", "tbz", "taz", "tar", "gz", "bz", "bz2", "z", "rpm", "cpio", "deb",
+            "zip", "jar", "rar"};
+        for (unsigned i = 0; i < sizeof(removedDedicatedExts) / sizeof(removedDedicatedExts[0]); i++)
+            salamander->ForceRemovePanelArchiver(removedDedicatedExts[i]);
     }
 
     /* used by the export_mnu.py script, which generates salmenu.mnu for the Translator

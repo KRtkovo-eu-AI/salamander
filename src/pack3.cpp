@@ -1,5 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Persist and honor user-owned archive-association extensions. | Keep automatic plugin migrations from overwriting Configuration assignments. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-05 | Add EnsureExtensionsForPlugin for TAR-family archive association repair. | Restoring .tgz/.tar.gz panel ownership after imported association corruption. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -70,6 +74,7 @@ const char* SALAMANDER_PPA_EXTENSIONS = "Extension List";
 const char* SALAMANDER_PPA_PINDEX = "Packer Index";
 const char* SALAMANDER_PPA_UINDEX = "Unpacker Index";
 const char* SALAMANDER_PPA_USEPACKER = "Packer Supported";
+const char* SALAMANDER_PPA_USEREXTENSIONS = "User Extension List";
 // predefined packers configuration
 const char* SALAMANDER_PPC_TITLE = "Packer Title";
 const char* SALAMANDER_PPC_PACKEXE = "Packer Executable";
@@ -560,11 +565,49 @@ int CPackerFormatConfig::AddFormat()
     return index;
 }
 
+static BOOL IsExtensionInList(const char* list, const char* extension, size_t extensionLength)
+{
+    const char* begin = list;
+    while (begin != NULL && *begin != 0)
+    {
+        const char* end = strchr(begin, ';');
+        const size_t length = end != NULL ? static_cast<size_t>(end - begin) : strlen(begin);
+        if (length == extensionLength && _strnicmp(begin, extension, length) == 0)
+            return TRUE;
+        if (end == NULL)
+            break;
+        begin = end + 1;
+    }
+    return FALSE;
+}
+
+static std::string FilterUserExtensions(const char* userExtensions, const char* extensions)
+{
+    std::string filtered;
+    const char* begin = userExtensions;
+    while (begin != NULL && *begin != 0)
+    {
+        const char* end = strchr(begin, ';');
+        const size_t length = end != NULL ? static_cast<size_t>(end - begin) : strlen(begin);
+        if (IsExtensionInList(extensions, begin, length))
+        {
+            if (!filtered.empty())
+                filtered += ';';
+            filtered.append(begin, length);
+        }
+        if (end == NULL)
+            break;
+        begin = end + 1;
+    }
+    return filtered;
+}
+
 BOOL CPackerFormatConfig::SetFormat(int index, const char* ext, BOOL usePacker,
                                     const int packerIndex, const int unpackerIndex, BOOL old)
 
 {
     CPackerFormatConfigData* data = Formats[index];
+    std::string userExtensions = FilterUserExtensions(data->UserExtensions, ext);
     data->Destroy();
 
     data->Ext = DupStr(ext);
@@ -575,6 +618,8 @@ BOOL CPackerFormatConfig::SetFormat(int index, const char* ext, BOOL usePacker,
         data->PackerIndex = -1;
     data->UnpackerIndex = unpackerIndex;
     data->OldType = old;
+    if (!userExtensions.empty())
+        data->UserExtensions = DupStr(userExtensions.c_str());
 
     if (data->IsValid())
         return TRUE;
@@ -584,6 +629,21 @@ BOOL CPackerFormatConfig::SetFormat(int index, const char* ext, BOOL usePacker,
         Formats.Delete(index);
         return FALSE;
     }
+}
+
+void CPackerFormatConfig::MarkFormatAsUserOverride(int index)
+{
+    CPackerFormatConfigData* data = Formats[index];
+    if (data->UserExtensions != NULL)
+        free(data->UserExtensions);
+    data->UserExtensions = data->Ext != NULL ? DupStr(data->Ext) : NULL;
+}
+
+BOOL CPackerFormatConfig::IsUserOverride(int index, const char* extension)
+{
+    if (index < 0 || index >= Formats.Count || extension == NULL || *extension == 0)
+        return FALSE;
+    return IsExtensionInList(Formats[index]->UserExtensions, extension, strlen(extension));
 }
 
 void CPackerFormatConfig::RemoveExtensionsForPlugin(int pluginIndex, const char* const* extensions, int extensionCount)
@@ -605,12 +665,15 @@ void CPackerFormatConfig::RemoveExtensionsForPlugin(int pluginIndex, const char*
             const char* end = strchr(begin, ';');
             const size_t length = end != NULL ? static_cast<size_t>(end - begin) : strlen(begin);
             bool remove = false;
-            for (int j = 0; j < extensionCount; ++j)
+            if (!IsExtensionInList(data->UserExtensions, begin, length))
             {
-                if (strlen(extensions[j]) == length && _strnicmp(begin, extensions[j], length) == 0)
+                for (int j = 0; j < extensionCount; ++j)
                 {
-                    remove = true;
-                    break;
+                    if (strlen(extensions[j]) == length && _strnicmp(begin, extensions[j], length) == 0)
+                    {
+                        remove = true;
+                        break;
+                    }
                 }
             }
             if (!remove)
@@ -667,12 +730,15 @@ void CPackerFormatConfig::RemoveExtensionsFromLegacyRows(const char* const* exte
             const char* end = strchr(begin, ';');
             const size_t length = end != NULL ? static_cast<size_t>(end - begin) : strlen(begin);
             bool remove = false;
-            for (int j = 0; j < extensionCount; ++j)
+            if (!IsExtensionInList(data->UserExtensions, begin, length))
             {
-                if (strlen(extensions[j]) == length && _strnicmp(begin, extensions[j], length) == 0)
+                for (int j = 0; j < extensionCount; ++j)
                 {
-                    remove = true;
-                    break;
+                    if (strlen(extensions[j]) == length && _strnicmp(begin, extensions[j], length) == 0)
+                    {
+                        remove = true;
+                        break;
+                    }
                 }
             }
             if (!remove)
@@ -687,6 +753,65 @@ void CPackerFormatConfig::RemoveExtensionsFromLegacyRows(const char* const* exte
             Formats.Delete(i);
         else if (strcmp(kept.c_str(), data->Ext) != 0)
             SetFormat(i, kept.c_str(), data->UsePacker, data->PackerIndex, data->UnpackerIndex, data->OldType);
+    }
+    BuildArray();
+}
+
+void CPackerFormatConfig::EnsureExtensionsForPlugin(int pluginIndex, const char* const* extensions, int extensionCount)
+{
+    if (pluginIndex < 0 || extensions == NULL || extensionCount <= 0)
+        return;
+
+    const int unpackerIndex = -pluginIndex - 1;
+    int ownedIndex = -1;
+    for (int i = 0; i < Formats.Count; ++i)
+    {
+        if (Formats[i]->UnpackerIndex == unpackerIndex)
+        {
+            ownedIndex = i;
+            break;
+        }
+    }
+
+    std::string missing;
+    for (int j = 0; j < extensionCount; ++j)
+    {
+        const char* extension = extensions[j];
+        if (extension == NULL || *extension == 0)
+            continue;
+
+        bool owned = false;
+        for (int i = 0; i < Formats.Count && !owned; ++i)
+        {
+            CPackerFormatConfigData* data = Formats[i];
+            owned = IsExtensionInList(data->Ext, extension, strlen(extension));
+        }
+        if (!owned)
+        {
+            if (!missing.empty())
+                missing += ';';
+            missing += extension;
+        }
+    }
+
+    if (missing.empty())
+        return;
+
+    if (ownedIndex >= 0)
+    {
+        CPackerFormatConfigData* data = Formats[ownedIndex];
+        std::string combined = data->Ext != NULL ? data->Ext : "";
+        if (!combined.empty() && combined[combined.size() - 1] != ';')
+            combined += ';';
+        combined += missing;
+        SetFormat(ownedIndex, combined.c_str(), data->UsePacker, data->PackerIndex, data->UnpackerIndex, data->OldType);
+    }
+    else
+    {
+        const int index = AddFormat();
+        if (index == -1)
+            return;
+        SetFormat(index, missing.c_str(), FALSE, -1, unpackerIndex, FALSE);
     }
     BuildArray();
 }
@@ -756,6 +881,8 @@ BOOL CPackerFormatConfig::Load(CPackerFormatConfig& src)
         if (!SetFormat(index, src.GetExt(i), src.GetUsePacker(i),
                        src.GetPackerIndex(i), src.GetUnpackerIndex(i), src.GetOldType(i)))
             return FALSE;
+        if (src.Formats[i]->UserExtensions != NULL)
+            Formats[index]->UserExtensions = DupStr(src.Formats[i]->UserExtensions);
     }
     return TRUE;
 }
@@ -775,6 +902,9 @@ BOOL CPackerFormatConfig::Save(int index, HKEY hKey)
     d = GetUnpackerIndex(index);
     if (ret)
         ret &= SetValue(hKey, SALAMANDER_PPA_UINDEX, REG_DWORD, &d, sizeof(d));
+    if (ret && Formats[index]->UserExtensions != NULL)
+        ret &= SetValue(hKey, SALAMANDER_PPA_USEREXTENSIONS, REG_SZ,
+                        Formats[index]->UserExtensions, -1);
     return ret;
 }
 
@@ -784,6 +914,8 @@ BOOL CPackerFormatConfig::Load(HKEY hKey)
 
     char ext[MAX_PATH + 2];
     ext[0] = 0;
+    char userExtensions[MAX_PATH + 2];
+    userExtensions[0] = 0;
     DWORD packerIndex, unpackerIndex, usePacker;
 
     BOOL ret = TRUE;
@@ -795,6 +927,8 @@ BOOL CPackerFormatConfig::Load(HKEY hKey)
         ret &= GetValue(hKey, SALAMANDER_PPA_PINDEX, REG_DWORD, &packerIndex, sizeof(DWORD));
     if (ret)
         ret &= GetValue(hKey, SALAMANDER_PPA_UINDEX, REG_DWORD, &unpackerIndex, sizeof(DWORD));
+    const BOOL hasUserExtensions = GetValue(hKey, SALAMANDER_PPA_USEREXTENSIONS,
+                                            REG_SZ, userExtensions, max);
 
     if (ret)
     {
@@ -809,6 +943,12 @@ BOOL CPackerFormatConfig::Load(HKEY hKey)
         }
         ret &= SetFormat(index, ext, usePacker, packerIndex, unpackerIndex,
                          Configuration.ConfigVersion < 6);
+        if (ret && hasUserExtensions)
+        {
+            std::string filtered = FilterUserExtensions(userExtensions, ext);
+            if (!filtered.empty())
+                Formats[index]->UserExtensions = DupStr(filtered.c_str());
+        }
     }
 
     return ret;
