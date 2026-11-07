@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Check asynchronous Stop and deferred Find close. | Keep cancellation and worker completion distinct. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 # | 2026-11-07 | Check timed Find batches and owned worker logs. | Protect final publication, count updates and dialog lifetime without requiring a GUI. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 # | 2026-11-07 | Add Find search scheduling contracts. | Prevent large Find searches from blocking on synchronous result-list refreshes. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 
@@ -55,8 +56,8 @@ def main() -> int:
     start = function_body(finddlg1, "void CFindDialog::StartSearch(WORD command)")
     ordered(start, "GrepData.FoundVisibleCount = 0;",
             "ListView_SetItemCount(FoundFilesListView->HWindow, 0);", "Log.Clean();", "UpdateListViewItems();",
-            "GrepData.Log = &Log;", "GrepData.RefreshPending = FALSE;", "CreateThread(",
-            "SetTimer(HWindow, IDT_REPAINT, 100, NULL);")
+            "GrepData.Log = &Log;", "GrepData.RefreshPending = FALSE;",
+            "SetTimer(HWindow, IDT_REPAINT, 100, NULL)", "CreateThread(")
     require(start.count("GrepData.FoundVisibleCount = 0;") == 1,
             "Append must retain the count republished before the worker starts")
 
@@ -68,20 +69,29 @@ def main() -> int:
     add_found = function_body(find_cpp, "BOOL AddFoundItem(")
     ordered(add_found, "data->FoundFilesListView->Add(foundData);", "RequestFindResultsRefresh(data);")
     grep = function_body(find_cpp, "unsigned GrepThreadFBody(void* ptr)")
-    ordered(grep, "data->SearchStopped = data->StopSearch;", "RequestFindResultsRefresh(data);",
-            "PostMessage(data->HWindow, WM_COMMAND, IDC_FIND_STOP, 0);")
+    ordered(grep, "data->SearchStopped = data->StopSearch;", "RequestFindResultsRefresh(data);")
+    require("IDC_FIND_STOP" not in grep,
+            "the worker must not send the same command as the user's Stop button")
 
     timer = function_body(finddlg1, "if (wParam == IDT_REPAINT)")
+    ordered(timer, "WaitForSingleObject(GrepThread, 0) == WAIT_OBJECT_0", "FinishSearch();")
     require(re.search(r"if \(SearchInProgress && InterlockedExchange\(&GrepData.RefreshPending, FALSE\)\)"
                       r"\s+UpdateListViewItems\(\);", timer) is not None,
             "an active search must consume pending work before each timed publication")
     stop = function_body(finddlg1, "void CFindDialog::StopSearch()")
-    ordered(stop, "GrepData.StopSearch = TRUE;", "WaitForSingleObject(GrepThread, 100)",
-            "CloseHandle(GrepThread)", "GrepThread = NULL;",
+    ordered(stop, "SearchStopRequested = true;", "GrepData.StopSearch = true;",
+            "SetFindActivity(CFindActivity::Stopping);")
+    require(all(code not in stop for code in ("WaitForSingleObject", "PeekMessage", "FinishSearch")),
+            "Stop must return without waiting or pumping a nested message loop")
+    finish = function_body(finddlg1, "void CFindDialog::FinishSearch()")
+    ordered(finish, "CloseHandle(GrepThread)", "GrepThread = NULL;",
             "InterlockedExchange(&GrepData.RefreshPending, FALSE);", "KillTimer(HWindow, IDT_REPAINT);",
-            "UpdateListViewItems();", "OnShowLog();", "EnableControls();")
-    require(re.search(r"^    UpdateListViewItems\(\);$", stop, re.MULTILINE) is not None,
+            "UpdateListViewItems();", "OnShowLog();", "EnableControls();", "OnFindWorkIdle();")
+    require(re.search(r"^    UpdateListViewItems\(\);$", finish, re.MULTILINE) is not None,
             "completion and cancellation must publish the joined worker's final state even without a pending tick")
+    close = function_body(finddlg1, "case WM_USER_CLOSEFIND:")
+    ordered(close, "GrepThread != NULL || FinishingSearch || IsSortingFindResults()",
+            "CloseWhenFindIdle = true;", "return 0;", "DestroyWindow(HWindow);")
 
     update = function_body(finddlg1, "void CFindDialog::UpdateListViewItems()")
     ordered(update, "count != GrepData.FoundVisibleCount", "if (countChanged)")

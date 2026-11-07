@@ -2,16 +2,184 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Track Find heartbeat and worker progress separately. | Report a stalled Find window without waiting for its UI or result locks. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Separate worker completion from user Stop. | The dialog observes actual thread exit asynchronously. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Publish Find changes in batches and store logs in the worker. | Keep large searches independent of window message handling. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Post coalesced Find result refreshes asynchronously. | Keep the search worker from blocking the GUI thread during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
+#include <algorithm>
+#include <memory>
+#include <vector>
+
 #include "cfgdlg.h"
 #include "find.h"
 #include "md5.h"
 #include "common/widepath.h"
+
+enum class CFindWorkerOutcome
+{
+    Running,
+    Completed,
+    Stopped
+};
+
+class CFindWatchdog
+{
+public:
+    // The main window owns scheduling. Find and its worker publish scalar data only.
+    std::atomic<UINT_PTR> Acknowledged{0};
+    std::atomic<CFindActivity> Activity{CFindActivity::Idle};
+    std::atomic<unsigned> ResultCount{0};
+    std::atomic<CFindWorkerOutcome> Outcome{CFindWorkerOutcome::Running};
+    std::atomic<bool> Closed{false};
+};
+
+namespace
+{
+constexpr ULONGLONG FindHangThresholdMs = 5000;
+constexpr UINT FindWatchdogPeriodMs = 750;
+
+struct CFindWatchdogEntry
+{
+    HWND Window;
+    std::shared_ptr<CFindWatchdog> State;
+    UINT_PTR Request = 0;
+    ULONGLONG SentAt = 0;
+};
+
+// Both registration and polling run on the main window thread.
+std::vector<CFindWatchdogEntry> FindWatchdogs;
+UINT_PTR NextFindHeartbeat = 0;
+
+void TrackFindWatchdog(HWND mainWindow, HWND findWindow, const std::shared_ptr<CFindWatchdog>& state)
+{
+    if (!state || !findWindow || GetCurrentThreadId() != GetWindowThreadProcessId(mainWindow, NULL))
+        return;
+
+    if (FindWatchdogs.empty() && !SetTimer(mainWindow, IDT_FIND_WATCHDOG, FindWatchdogPeriodMs, NULL))
+        return;
+
+    try
+    {
+        FindWatchdogs.push_back({findWindow, state});
+    }
+    catch (const std::bad_alloc&)
+    {
+        TRACE_E(LOW_MEMORY);
+        if (FindWatchdogs.empty())
+            KillTimer(mainWindow, IDT_FIND_WATCHDOG);
+    }
+}
+
+void RecordFindWatchdogResult(CFindWatchdog* watchdog, int index)
+{
+    if (watchdog != NULL && index >= 0)
+        UpdateFindWatchdogResultCount(watchdog, static_cast<unsigned>(index) + 1);
+}
+}
+
+void UpdateFindWatchdogActivity(CFindWatchdog* watchdog, CFindActivity activity)
+{
+    if (watchdog == NULL)
+        return;
+    if (activity == CFindActivity::Searching)
+    {
+        UpdateFindWatchdogResultCount(watchdog, 0);
+        watchdog->Outcome.store(CFindWorkerOutcome::Running, std::memory_order_relaxed);
+    }
+    watchdog->Activity.store(activity, std::memory_order_release);
+}
+
+void UpdateFindWatchdogResultCount(CFindWatchdog* watchdog, unsigned count)
+{
+    if (watchdog != NULL)
+        watchdog->ResultCount.store(count, std::memory_order_relaxed);
+}
+
+void AcknowledgeFindWatchdog(CFindWatchdog* watchdog, UINT_PTR request)
+{
+    if (watchdog != NULL)
+        watchdog->Acknowledged.store(request, std::memory_order_release);
+}
+
+void CloseFindWatchdog(CFindWatchdog* watchdog)
+{
+    if (watchdog != NULL)
+        watchdog->Closed.store(true, std::memory_order_release);
+}
+
+std::wstring PollFindWatchdogs(HWND mainWindow)
+{
+    FindWatchdogs.erase(std::remove_if(FindWatchdogs.begin(), FindWatchdogs.end(),
+                                      [](const CFindWatchdogEntry& entry)
+                                      {
+                                          return entry.State->Closed.load(std::memory_order_acquire) || !IsWindow(entry.Window);
+                                      }),
+                        FindWatchdogs.end());
+    if (FindWatchdogs.empty())
+    {
+        KillTimer(mainWindow, IDT_FIND_WATCHDOG);
+        return {};
+    }
+
+    const ULONGLONG now = GetTickCount64();
+    const CFindWatchdogEntry* stalled = NULL;
+    for (CFindWatchdogEntry& entry : FindWatchdogs)
+    {
+        if (entry.Request == entry.State->Acknowledged.load(std::memory_order_acquire))
+            entry.Request = 0;
+        if (entry.Request == 0)
+        {
+            if (++NextFindHeartbeat == 0)
+                ++NextFindHeartbeat;
+            if (PostMessage(entry.Window, WM_USER_FIND_HEARTBEAT, NextFindHeartbeat, 0))
+            {
+                entry.Request = NextFindHeartbeat;
+                entry.SentAt = now;
+            }
+        }
+        else if (now - entry.SentAt >= FindHangThresholdMs &&
+                 (stalled == NULL || entry.SentAt < stalled->SentAt))
+        {
+            stalled = &entry;
+        }
+    }
+    if (stalled == NULL)
+        return {};
+
+    CFindActivity activity = stalled->State->Activity.load(std::memory_order_acquire);
+    const CFindWorkerOutcome outcome = stalled->State->Outcome.load(std::memory_order_acquire);
+    const unsigned resultCount = stalled->State->ResultCount.load(std::memory_order_relaxed);
+    if (activity == CFindActivity::Searching || activity == CFindActivity::Stopping)
+    {
+        if (outcome == CFindWorkerOutcome::Completed)
+            activity = CFindActivity::Finished;
+        else if (outcome == CFindWorkerOutcome::Stopped)
+            activity = CFindActivity::Stopped;
+    }
+
+    wchar_t phase[128] = {};
+    wchar_t format[256] = {};
+    LoadStringW(HLanguage, GetFindActivityStringID(activity), phase, _countof(phase));
+    int formatID = activity == CFindActivity::Idle ? IDS_FIND_ACTIVITY_HUNG_FORMAT : IDS_FIND_ACTIVITY_HUNG_COUNT_FORMAT;
+    if (LoadStringW(HLanguage, formatID, format, _countof(format)) == 0)
+        return {};
+
+    std::wstring notice(format);
+    const wchar_t* fields[] = {L"{0}", L"{1}", L"{2}"};
+    const std::wstring values[] = {std::to_wstring((now - stalled->SentAt) / 1000), phase,
+                                  std::to_wstring(resultCount)};
+    for (size_t i = 0; i < _countof(fields); ++i)
+    {
+        size_t pos = notice.find(fields[i]);
+        if (pos != std::wstring::npos)
+            notice.replace(pos, 3, values[i]);
+    }
+    return notice;
+}
 
 static void AddFindLog(CGrepData* data, DWORD flags, const char* text, const char* path)
 {
@@ -1135,7 +1303,7 @@ void CDuplicateCandidates::Examine(CGrepData* data)
     int i;
     for (i = 0; i < Count; i++)
     {
-        data->FoundFilesListView->Add(At(i));
+        const int index = data->FoundFilesListView->Add(At(i));
         if (!data->FoundFilesListView->IsGood())
         {
             TRACE_E(LOW_MEMORY);
@@ -1148,6 +1316,7 @@ void CDuplicateCandidates::Examine(CGrepData* data)
             DetachMembers();
             return;
         }
+        RecordFindWatchdogResult(data->Watchdog, index);
     }
     DetachMembers();
     return;
@@ -1478,7 +1647,7 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
             if (duplicateCandidates == NULL)
             {
                 // duplicateCandidates == NULL, adding the item to data->FoundFilesListView
-                data->FoundFilesListView->Add(foundData);
+                const int index = data->FoundFilesListView->Add(foundData);
                 if (!data->FoundFilesListView->IsGood())
                 {
                     data->FoundFilesListView->ResetState();
@@ -1487,6 +1656,7 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
                 }
                 else
                 {
+                    RecordFindWatchdogResult(data->Watchdog, index);
                     RequestFindResultsRefresh(data);
                 }
             }
@@ -1996,10 +2166,12 @@ unsigned GrepThreadFBody(void* ptr)
 
     data->SearchStopped = data->StopSearch;
     RequestFindResultsRefresh(data); // update the listview
-    PostMessage(data->HWindow, WM_COMMAND, IDC_FIND_STOP, 0);
     if (data->Criteria.HasTags() && SUCCEEDED(tagsCOM))
         CoUninitialize();
     TRACE_I("End");
+    if (data->Watchdog != NULL)
+        data->Watchdog->Outcome.store(data->SearchStopped ? CFindWorkerOutcome::Stopped : CFindWorkerOutcome::Completed,
+                                     std::memory_order_release);
     return 0;
 }
 
@@ -2096,6 +2268,7 @@ struct CTFDData
 {
     CFindDialog* FindDialog;
     BOOL Success;
+    HWND DialogWindow;
 };
 
 unsigned ThreadFindDialogMessageLoopBody(void* parameter)
@@ -2118,6 +2291,7 @@ unsigned ThreadFindDialogMessageLoopBody(void* parameter)
 
         if (findDialog->Create() != NULL)
         {
+            data->DialogWindow = findDialog->HWindow;
             SetForegroundWindow(findDialog->HWindow);
             UpdateWindow(findDialog->HWindow);
         }
@@ -2216,7 +2390,18 @@ BOOL OpenFindDialog(HWND hCenterAgainst, const char* initPath)
     CFindDialog* findDlg = new CFindDialog(hCenterAgainst, initPath);
     if (findDlg != NULL && findDlg->IsGood())
     {
-        CTFDData data;
+        std::shared_ptr<CFindWatchdog> watchdog;
+        try
+        {
+            watchdog = std::make_shared<CFindWatchdog>();
+        }
+        catch (const std::bad_alloc&)
+        {
+            TRACE_E(LOW_MEMORY);
+        }
+        findDlg->SetWatchdog(watchdog);
+
+        CTFDData data = {};
         data.FindDialog = findDlg;
 
         DWORD ThreadID;
@@ -2234,6 +2419,7 @@ BOOL OpenFindDialog(HWND hCenterAgainst, const char* initPath)
             goto ERROR_TFD_CREATE;
         }
         AddAuxThread(loop); // add the thread among existing viewers (killed on exit)
+        TrackFindWatchdog(hCenterAgainst, data.DialogWindow, watchdog);
         SetCursor(hOldCur);
         return TRUE;
     }

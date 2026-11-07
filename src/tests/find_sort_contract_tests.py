@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Verify asynchronous Find sorting boundaries. | Preserve sort semantics and wait for sorted data before hiding duplicate rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 
 from pathlib import Path
 
@@ -54,28 +57,43 @@ def check_find(src: Path) -> None:
     sort_items = function_slice(
         finddlg1,
         "void CFoundFilesListView::SortItems(int sortBy, BOOL reverse, BOOL force)",
-        "void CFoundFilesListView::SetDifferentByGroup()")
+        "void CFoundFilesListView::SetDifferentByGroup(int count)")
     require(sort_items, "if (sortBy == 4)", "Find Date and Time share one key")
     require(sort_items, "sortBy = 3;", "Find Time column maps to Date")
     require(sort_items, "if (sortBy == 5 || sortBy < 0)", "Find Attr column stays unsortable")
     require(sort_items, "ReverseSort = !ReverseSort;", "second SortItems call on the same column toggles reverse")
     require(sort_items, "ReverseSort = force ? reverse : FALSE;", "new column starts ascending unless forced")
-    require(finddlg2, "FoundFilesListView->SortItems(1, FALSE, TRUE);",
+    require(finddlg2, "FoundFilesListView->SortAndHideDuplicateNames();",
+            "Hide Duplicates requests background Path sort")
+    require(finddlg1, "SortItems(1, FALSE, TRUE);",
             "Hide Duplicates forces Path sort without toggling reverse")
+
+    worker = function_slice(finddlg1, "DWORD WINAPI CFindSortJob::Run(void* context)",
+                            "CFoundFilesListView::CFoundFilesListView(")
+    require(worker, "std::sort(job->Items.begin()", "Find sort works on the job snapshot")
+    require_absent(worker, "SendMessage", "window calls from the sort worker")
+    apply = function_slice(finddlg1, "void CFoundFilesListView::ApplyCurrentSort()",
+                           "void CFoundFilesListView::PublishSort(")
+    require(apply, "job->Mixed = Configuration.FindSortFilesAndDirsTogether;",
+            "Find captures the mixed grouping option for each sort job")
+    require(apply, "ResultRevision != job->Revision", "Find rejects a stale result snapshot")
+    require(apply, "WaitForSingleObject(SortThread, 0)", "Find polls the sort worker without blocking")
+    require_after(apply, "PublishSort(*job);", "FindDialog->OnHideDuplicateNamesSorted(",
+                  "Hide Duplicates waits for the sorted order")
+    require_after(apply, "PublishSort(*job);", "SortJob = NULL;",
+                  "the sort remains active until native list publication is complete")
 
     compare = function_slice(
         finddlg1,
-        "int CFoundFilesListView::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, int sortBy)",
-        "int CFoundFilesListView::CompareDuplicatesFunc(")
-    require(compare, "const BOOL mixed = Configuration.FindSortFilesAndDirsTogether;",
-            "Find CompareFunc reads the mixed grouping option")
-    require(compare, "if (mixed || f1->IsDir == f2->IsDir)",
+        "int CFindSortJob::Compare(",
+        "int CFindSortJob::CompareDuplicates(")
+    require(compare, "if (Mixed || f1->IsDir == f2->IsDir)",
             "Find mixed grouping skips directory/file separation")
     require(compare, "res = f1->IsDir ? -1 : 1;",
             "Find keeps directories above files when mixed grouping is off")
     require(compare, "if (ReverseSort && res != 0)",
             "Find reverse applies to the sort criterion")
-    if compare.find("if (mixed || f1->IsDir == f2->IsDir)") > compare.find("res = f1->IsDir ? -1 : 1;"):
+    if compare.find("if (Mixed || f1->IsDir == f2->IsDir)") > compare.find("res = f1->IsDir ? -1 : 1;"):
         raise AssertionError("Find must not reverse directory/file grouping when mixed is off")
 
     header = function_slice(

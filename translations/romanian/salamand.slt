@@ -4122,6 +4122,13 @@ SLGINCOMPLETE,""
 
 [STRINGTABLE 180]
 14464,1,"Se așteaptă deoarece stocarea nu a putut fi identificată"
+14465,1,"Pregătit"
+14466,1,"Căutare"
+14467,1,"Sortare"
+14468,1,"Oprire în curs"
+14469,1,"Finalizat"
+14470,1,"Fereastra de căutare nu răspunde de {0} s - {1}"
+14471,1,"Fereastra de căutare nu răspunde de {0} s - {1} - Rezultate: {2}"
 14473,1,"Rezolutie graduala a conflictelor din coada"
 14474,1,"Scaneaza inainte si continua cu elemente fara conflicte"
 14475,1,"Pastreaza ultima selectie in dialogul Copiere/M0care"

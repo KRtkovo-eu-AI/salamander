@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Hide repeated Find entries after background path sorting. | Only compare adjacent rows once their path order has been published. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Open Find messages from a stable log snapshot. | Allow the worker to keep recording errors while the dialog is in use. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell extension SEH in Find context menus. | Find QueryContextMenu/InvokeCommand/HandleMenuMsg must not terminate. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -82,21 +83,27 @@ void CFindDialog::OnHideSelection()
 
 void CFindDialog::OnHideDuplicateNames()
 {
-    HWND hListView = FoundFilesListView->HWindow;
-    DWORD totalCount = ListView_GetItemCount(hListView);
-    if (totalCount == 0)
+    const int count = ListView_GetItemCount(FoundFilesListView->HWindow);
+    if (count < 2)
         return;
 
-    HCURSOR hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
+    if (GrepData.FindDuplicates)
+        OnHideDuplicateNamesSorted(count); // duplicate mode does not support path ordering
+    else
+        FoundFilesListView->SortAndHideDuplicateNames();
+}
 
-    // sort by path
-    FoundFilesListView->SortItems(1, FALSE, TRUE);
+void CFindDialog::OnHideDuplicateNamesSorted(int sortedCount)
+{
+    HWND hListView = FoundFilesListView->HWindow;
+    const int totalCount = ListView_GetItemCount(hListView);
+    HCURSOR hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
     // discard the item if it has the same path and name as the previous one
     int deletedCount = 0;
     CFoundFilesData* lastData = NULL;
     int i;
-    for (i = totalCount - 1; i >= 0; i--)
+    for (i = sortedCount - 1; i >= 0; i--)
     {
         if (lastData == NULL)
             lastData = FoundFilesListView->At(i);

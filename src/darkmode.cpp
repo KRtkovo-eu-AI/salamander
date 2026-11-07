@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Paint status bar text as Unicode. | Keep localized Find activity readable in dark mode. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 
 #include "precomp.h"
 #include <tchar.h>
@@ -1684,13 +1687,25 @@ void PaintDarkStatusBar(HWND hwnd, HDC hdc)
         part.left += borders[2] + 2;
         part.right -= borders[0] + 2;
 
-        const LRESULT textLen = SendMessage(hwnd, SB_GETTEXTLENGTH, i, 0);
+        const LRESULT textLen = SendMessageW(hwnd, SB_GETTEXTLENGTHW, i, 0);
         const DWORD flags = HIWORD(textLen);
-        const int rawTextLen = static_cast<int>(LOWORD(textLen));
-        const int len = rawTextLen < 1023 ? rawTextLen : 1023;
-        TCHAR text[1024];
-        text[0] = 0;
-        const LRESULT itemData = SendMessage(hwnd, SB_GETTEXT, i, reinterpret_cast<LPARAM>(text));
+        const int len = LOWORD(textLen);
+        WCHAR shortText[1024] = {};
+        WCHAR* text = shortText;
+        std::wstring longText;
+        if (len >= static_cast<int>(_countof(shortText)))
+        {
+            try
+            {
+                longText.resize(len + 1);
+                text = longText.data();
+            }
+            catch (const std::bad_alloc&)
+            {
+                continue;
+            }
+        }
+        const LRESULT itemData = SendMessageW(hwnd, SB_GETTEXTW, i, reinterpret_cast<LPARAM>(text));
 
         if ((flags & SBT_OWNERDRAW) != 0 && len == 0)
         {
@@ -1709,7 +1724,7 @@ void PaintDarkStatusBar(HWND hwnd, HDC hdc)
         else
         {
             text[len] = 0;
-            DrawText(hdc, text, -1, &part, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX | DT_PATH_ELLIPSIS);
+            DrawTextW(hdc, text, -1, &part, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX | DT_PATH_ELLIPSIS);
         }
     }
 
@@ -1778,7 +1793,8 @@ LRESULT CALLBACK DarkStatusBarSubclass(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         }
         break;
 
-    case SB_SETTEXT:
+    case SB_SETTEXTA:
+    case SB_SETTEXTW:
     case SB_SETPARTS:
     case WM_SETTEXT:
     case WM_SIZE:

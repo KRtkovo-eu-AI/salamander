@@ -4122,6 +4122,13 @@ SLGINCOMPLETE,""
 
 [STRINGTABLE 180]
 14464,1,"Várakozás, mert a tároló nem azonosítható"
+14465,1,"Kész"
+14466,1,"Keresés"
+14467,1,"Rendezés"
+14468,1,"Leállítás"
+14469,1,"Befejezve"
+14470,1,"A keresőablak {0} másodperce nem válaszol - {1}"
+14471,1,"A keresőablak {0} másodperce nem válaszol - {1} - Találatok: {2}"
 14473,1,"A konfliktusok fokozatos feloldása a sorban"
 14474,1,"Előre vizsgálat, és folytatás nem ütköző elemekkel"
 14475,1,"Az utoljára kijelölt megőrzése a Másolás/Áthelyezés párbeszédben"

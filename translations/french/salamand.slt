@@ -4122,6 +4122,13 @@ SLGINCOMPLETE,""
 
 [STRINGTABLE 180]
 14464,1,"en attente, le stockage n'a pas pu etre identifie"
+14465,1,"Prêt"
+14466,1,"Recherche"
+14467,1,"Tri"
+14468,1,"Arrêt en cours"
+14469,1,"Terminé"
+14470,1,"La fenêtre de recherche ne répond plus depuis {0} s - {1}"
+14471,1,"La fenêtre de recherche ne répond plus depuis {0} s - {1} - Résultats : {2}"
 14473,1,"Résolution progressive des conflits dans la file"
 14474,1,"Rechercher plus loin et continuer avec les éléments non conflictuels"
 14475,1,"Conserver la dernière sélection dans la boîte de dialogue Copier/Déplacer"
