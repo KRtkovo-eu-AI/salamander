@@ -12,11 +12,12 @@
 | 2026-11-07 | Document the P3b panel and broker integration. | Track the shared rename path, validation and VM acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record the four P3b consent tests in the isolated VM. | Verify both panel entry points with real UAC approval and cancellation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record the extended P3b matrix in the isolated VM. | Verify a late collision, a different administrator, and disconnects around the rename. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Document the P3c basic metadata pilot. | Track the single-file attribute and timestamp command and its acceptance. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
 
-Stav k 7. listopadu 2026: pilot F7 (P3a) a přejmenování jednoho souboru (P3b). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
+Stav k 7. listopadu 2026: pilot F7 (P3a), přejmenování jednoho souboru (P3b) a změna jeho běžných atributů a časů (P3c). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
 
 Základem je upstream [release/5.0-samandarin-0.16](https://github.com/KRtkovo-eu-AI/salamander/tree/release/5.0-samandarin-0.16), ověřený commit [`16b4cd0176dc82752a11ee6bc09615780b6987a2`](https://github.com/KRtkovo-eu-AI/salamander/commit/16b4cd0176dc82752a11ee6bc09615780b6987a2). Stejný commit měla při založení práce referenční větev `majklvi/salamander:samandarin-0.16`. Pracovní větev je `feature/uac-support`, lokální checkout `C:\Samandarin\uac-support`. Všechny níže uvedené řádky zdrojů odkazují na tento pevný upstream commit, nikoli na proměnlivý HEAD.
 
@@ -281,6 +282,25 @@ Po všech čtyřech průchodech se aplikace vrátila do panelu. U schválených 
 | Po přejmenování, před odpovědí | `04-after-target.txt` měl původní obsah a `04-after-source.txt` chyběl. |
 
 V obou případech Computer Use potvrdil hlášení, že výsledek nebyl ověřen, s výzvou ke kontrole cíle před opakováním. Po zavření hlášení se výpis obnovil, po druhém testu oba panely ukázaly nový název a žádný požadavek se automaticky neopakoval. Kontrola po všech čtyřech rozšířených scénářích potvrdila očekávaný stav souborů a ukončení brokeru. V chráněné instalaci byl obnoven běžný broker a jeho SHA-256 se shodoval s ověřenou sestavou pilotu. Rozšířená akceptace P3b je tím uzavřena.
+
+### 8.9 P3c — běžné atributy a časy jednoho souboru
+
+Commit `78668151` zapojuje pilot do dialogu Ctrl+F2 a workeru `ocChangeAttrs` pro jeden běžný soubor na lokálním NTFS v chráněné instalaci. Podporuje Archiv, Jen pro čtení, Skrytý, Systémový a časy vytvoření, posledního přístupu a poslední změny. Adresáře, více položek, rekurze, Branch View, soubory se zvláštními atributy, komprese a EFS zůstávají na stávající cestě.
+
+Běžný token a broker používají stejný executor. Po ověření rodiče, identity souboru a původních atributů zapíše vybrané hodnoty jediným `SetFileInformationByHandle(FileBasicInfo)` s právem `FILE_WRITE_ATTRIBUTES`. Nulová pole zachovají nevybrané hodnoty. Executor odmítá nepodporované příznaky a záporné speciální hodnoty časů. Při běžném `ERROR_ACCESS_DENIED` zobrazí progress dialog konkrétní cestu a nabídku správce. Zrušení ukončí tento požadavek. Při ztrátě výsledku aplikace upozorní na neověřený výsledek, obnoví výpis a operaci automaticky neopakuje. [FILE_BASIC_INFO](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_basic_info) · [FILE_BASIC_INFORMATION](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_file_basic_information)
+
+Maska schopností aplikace a brokeru je 7. Nová operace přidává pevný 32bajtový blok metadat k jednorázovému požadavku. Sonda se schopností 0 používá původní handshake. Host a broker z různých generací pilotu se při nesouhlasící masce odmítnou.
+
+Nativní NTFS testy v x64 Debug i Release ověřily současný zápis atributů a všech tří časů, zachování nevybraných časů a atributu Jen pro čtení, vynulování běžných atributů přes `FILE_ATTRIBUTE_NORMAL`, odmítnutí odlišné identity a mezitím změněných atributů, nepovolené příznaky a dlouhou Unicode cestu. Prošly také testy stávajícího workeru atributů, NTFS komprese a EFS a transportu. Sestavení aplikace, brokeru a sondy x64 Debug a brokeru a sondy Win32 a ARM64 Debug prošlo.
+
+Computer Use ověřil ve Windows 11 Pro x64 build 26200 stejné sestavení aplikace, brokeru a anglického modulu podle SHA-256. V chráněné složce `P3c-fixture` nabídla aplikace správce až po odmítnutí běžného zápisu a v každé nabídce uvedla přesnou cestu.
+
+- U `01-cancel.txt` byla ve Windows zvolena možnost Ne. První kontrola po návratu do panelu potvrdila původní atribut Archiv, všechny tři původní časy a obsah. Následné čtení obsahu při ověřování změnilo NTFS čas posledního přístupu až po této kontrole.
+- U `02-approve.txt` se v chráněné složce zapsaly přesně zvolené atributy Archiv a Jen pro čtení a všechny tři časy na `2026-11-07T21:44:11Z`. Panel zobrazil nový čas poslední změny a atributy. Obsah souboru zůstal stejný. Uživatel při tomto průchodu systémovou výzvu neviděl, proto byl souhlas zopakován pod standardním účtem.
+- Samandarin pod `SamandarinUacTest` měl ověřený SID vlastníka procesu. Uživatel potvrdil systémovou výzvu jiným účtem správce. Broker u stejného souboru odebral Jen pro čtení a nastavil čas poslední změny na `2026-11-07T21:50:54Z`. Čas vytvoření i čas posledního přístupu zůstaly na hodnotách naměřených před tímto pokusem.
+- U zapisovatelného `normal.txt` prošla změna na Archiv a Systémový bez výzvy. Obsah zůstal stejný. Po testech nezůstal běžet žádný broker.
+
+Na commitu `78668151` prošla sestavení Win32, x64 a ARM64 i všech 214 nativních a Python testů. [Nativní a Python testy](https://github.com/majklvi/salamander/actions/runs/42416998027/job/128537178973)
 
 ## 9. Uživatelský tok a stav operace
 
