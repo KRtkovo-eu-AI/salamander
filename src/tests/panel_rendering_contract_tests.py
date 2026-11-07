@@ -3,6 +3,19 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
 # | 2026-11-04 | Reject process-wide CLR Stop in the managed bridges. | Stopping the CLR prevents JSON Viewer from opening again in the same process. | | Grok 4.7 |
+# | 2026-11-07 | Keep draggable owner-drawn ListBoxes on the native drag-list path. | MakeDragList installs its own subclass and must not be combined with darkmodelib client-border handling. | | GPT-5.6 Luna Pro |
+# | 2026-11-07 | Require dark ListView repaint after native scrolling. | Keep the shared darkmode scroll-paint fix from regressing across dialogs and plugins. | | GPT-5.6 Luna Pro |
+# | 2026-11-07 | Prevent dark ListView surface overpainting. | Keep post-paint filling limited to rows that are actually visible. | | GPT-5.6 Luna Pro |
+# | 2026-11-07 | Keep dark ListView painting native. | Prevent a post-WM_PAINT GetDC pass from overwriting item content during scrolling. | | GPT-5.6 Luna Pro |
+# | 2026-11-07 | Separate dark scrollbars from custom client painting. | Prevent themed client buffering from hiding owner-drawn ListBox and ListView items while scrolling. | | GPT-5.6 Luna Pro |
+# | 2026-11-07 | Keep the shared ListView theme path stable. | Prevent the owner-drawn ListBox workaround from changing unrelated ListView dialogs. | | GPT-5.6 Luna Pro |
+# | 2026-11-07 | Keep ListView theming single-sourced. | Prevent the legacy recursive path from reapplying a darkmodelib-owned common-control theme. | | GPT-5.6 Luna Pro |
+# | 2026-11-07 | Keep ListView refresh ownership single-sourced. | Prevent the color refresh from reapplying legacy ListView themes and subclasses after darkmodelib. | | GPT-5.6 Luna Pro |
+# | 2026-11-07 | Keep normal ListView client painting native. | The darkmode library must theme only the scrollbar so scrolling does not lose custom-drawn rows. | | GPT-5.6 Luna Pro |
+# | 2026-11-07 | Restore the established ListView contract. | The scrollbar-only client-theme experiment regressed stable ListViews without fixing scrolling. | | GPT-5.6 Luna Pro |
+# | 2026-11-07 | Avoid unnecessary ListView scroll-path subclassing. | Ordinary custom-drawn ListViews should delegate scrolling directly to the common control. | | GPT-5.6 Luna Pro |
+# | 2026-11-07 | Prevent recursive dark-mode tree reapplication. | Reapplying themes and invalidations once per descendant can interrupt native ListView scrolling and repainting. | | GPT-5.6 Luna Pro |
+# | 2026-11-07 | Restore dark chrome for draggable owner-drawn lists. | Keep MakeDragList client behavior while theming its scrollbar and border. | | GPT-5.6 Luna Pro |
 
 from pathlib import Path
 import re
@@ -24,6 +37,9 @@ def main() -> int:
     fileswndb = (ROOT / "fileswnb.cpp").read_text(encoding="utf-8")
     dialogs5 = (ROOT / "dialogs5.cpp").read_text(encoding="utf-8")
     darkmodelib_controls = (ROOT / "third_party/darkmodelib/src/DmlibSubclassControl.cpp").read_text(encoding="utf-8")
+    darkmodelib = (ROOT / "third_party/darkmodelib/src/Darkmodelib.cpp").read_text(encoding="utf-8")
+    darkmode = (ROOT / "darkmode.cpp").read_text(encoding="utf-8")
+    toolbar3 = (ROOT / "toolbar3.cpp").read_text(encoding="utf-8")
     icon_cache_header = (ROOT / "icncache.h").read_text(encoding="utf-8")
     icon_cache = (ROOT / "icncache.cpp").read_text(encoding="utf-8")
     icon_list = (ROOT / "iconlist.cpp").read_text(encoding="utf-8")
@@ -40,6 +56,126 @@ def main() -> int:
     salamdr4 = (ROOT / "salamdr4.cpp").read_text(encoding="utf-8")
     samandarin = (ROOT / "plugins/samandarin/samandarin.cpp").read_text(encoding="utf-8")
     managed_bridge = (ROOT / "plugins/samandarin/managed_bridge.cpp").read_text(encoding="utf-8")
+
+    list_view_start = darkmodelib_controls.find(
+        "LRESULT CALLBACK dmlib_subclass::ListViewSubclass("
+    )
+    list_view_end = darkmodelib_controls.find("\n/**", list_view_start)
+    if list_view_start == -1 or list_view_end == -1:
+        print("dark ListView subclass must remain available for the shared repaint fix")
+        return 1
+    list_view_subclass = darkmodelib_controls[list_view_start:list_view_end]
+    if (
+        "repaintListViewAfterScroll" in darkmodelib_controls
+        or "WM_SETREDRAW, FALSE" in list_view_subclass
+        or "WM_SETREDRAW, TRUE" in list_view_subclass
+    ):
+        print("dark ListView scrolling must use the native paint cycle")
+        return 1
+
+    surface_subclass_start = darkmode.find(
+        "LRESULT CALLBACK DarkListViewSurfaceSubclass("
+    )
+    surface_subclass_end = darkmode.find("\nvoid EnsureDarkListViewSurfaceSubclass", surface_subclass_start)
+    if surface_subclass_start == -1 or surface_subclass_end == -1:
+        print("dark ListView surface subclass must remain available")
+        return 1
+    surface_subclass = darkmode[surface_subclass_start:surface_subclass_end]
+    if "if (msg == WM_PAINT" in surface_subclass or "GetDC(hwnd)" in surface_subclass:
+        print("dark ListView surface subclass must not paint over the native WM_PAINT cycle")
+        return 1
+
+    list_theme_start = darkmodelib.find(
+        "static void setListViewCtrlSubclassAndTheme("
+    )
+    list_theme_end = darkmodelib.find("\n/**", list_theme_start)
+    if list_theme_start == -1 or list_theme_end == -1:
+        print("dark ListView theme setup must remain available")
+        return 1
+    list_theme = darkmodelib[list_theme_start:list_theme_end]
+    if "ListView_SetExtendedListViewStyle(hWnd, lvExStyle | LVS_EX_DOUBLEBUFFER)" not in list_theme:
+        print("shared ListView setup must retain its established double buffering")
+        return 1
+
+    list_subclass_start = darkmodelib.find("void dmlib::setListViewCtrlSubclass(HWND hWnd)")
+    list_subclass_end = darkmodelib.find("\n/**", list_subclass_start)
+    if list_subclass_start == -1 or list_subclass_end == -1:
+        print("ListView subclass setup must remain available")
+        return 1
+    list_subclass = darkmodelib[list_subclass_start:list_subclass_end]
+    if "LVS_EX_GRIDLINES" not in list_subclass or "LVS_EDITLABELS" not in list_subclass:
+        print("ListView subclassing must be limited to gridline or label-edit controls")
+        return 1
+    if "RemoveSubclass(hWnd, dmlib_subclass::ListViewSubclass" not in list_subclass:
+        print("ordinary ListViews must be able to leave the native scroll path untouched")
+        return 1
+
+    if "DarkMode_Explorer::ScrollBar" not in darkmodelib:
+        print("dark controls must retain a separately themed scrollbar path")
+        return 1
+    if "isOwnerDrawListBox" not in darkmodelib or "DarkMode_Explorer::ScrollBar" not in darkmodelib:
+        print("draggable owner-drawn ListBoxes must retain a dedicated dark scrollbar path")
+        return 1
+    if "!isCBoxListBox)" not in darkmodelib:
+        print("draggable owner-drawn ListBoxes must retain the dark border path")
+        return 1
+
+    list_view_update_start = darkmode.find("void DarkModeUpdateListViewColors(")
+    if list_view_update_start == -1:
+        print("dark ListView color refresh must remain available")
+        return 1
+    list_view_update = darkmode[list_view_update_start:]
+    if "#if !USE_DARKMODELIB\n    DarkModeApplyWindow(listView);\n#endif" not in list_view_update:
+        print("darkmodelib-owned ListViews must not use the legacy window theme refresh")
+        return 1
+    if "#if !USE_DARKMODELIB\n    EnsureDarkListViewSurfaceSubclass" not in list_view_update:
+        print("darkmodelib-owned ListViews must not receive the legacy surface subclass")
+        return 1
+    if "#if !USE_DARKMODELIB\n        DarkModeApplyWindow(header);\n#endif" not in list_view_update:
+        print("darkmodelib-owned ListView headers must not use the legacy window theme refresh")
+        return 1
+    list_tree_start = darkmode.find("if (wcscmp(className, L\"SysListView32\") == 0 || wcscmp(className, L\"SysTreeView32\") == 0)")
+    list_tree_end = darkmode.find("// Common controls do not consistently treat CLR_DEFAULT", list_tree_start)
+    if list_tree_start == -1 or list_tree_end == -1:
+        print("global ListView and TreeView theme handling must remain explicit")
+        return 1
+    list_tree_theme = darkmode[list_tree_start:list_tree_end]
+    if "DarkModeBackendDarkModelib::UpdateListViewColors(hwnd" in list_tree_theme:
+        print("darkmodelib ListViews must not be refreshed twice during tree traversal")
+        return 1
+    dark_list_view_start = darkmodelib.find("void dmlib::setDarkListView(HWND hWnd)")
+    dark_list_view_end = darkmodelib.find("static void setDarkCheckboxes", dark_list_view_start)
+    if dark_list_view_start == -1 or dark_list_view_end == -1:
+        print("dark ListView scrollbar theme helper must remain available")
+        return 1
+    dark_list_view = darkmodelib[dark_list_view_start:dark_list_view_end]
+    if "setDarkThemeExperimental(hWnd)" not in dark_list_view:
+        print("dark ListViews must retain the established dark theme helper")
+        return 1
+    if "gSetWindowTheme(hwnd, wantDark ? L\"DarkMode_Explorer\" : nullptr, nullptr);" not in darkmode:
+        print("global dark ListViews must retain their existing client theme path")
+        return 1
+    list_tree_start = darkmode.find("if (wcscmp(className, L\"SysListView32\") == 0 || wcscmp(className, L\"SysTreeView32\") == 0)")
+    list_tree_end = darkmode.find("// Common controls do not consistently treat CLR_DEFAULT", list_tree_start)
+    if list_tree_start == -1 or list_tree_end == -1:
+        print("global ListView and TreeView theme handling must remain explicit")
+        return 1
+    list_tree_theme = darkmode[list_tree_start:list_tree_end]
+    if "#if USE_DARKMODELIB" not in list_tree_theme or "wcscmp(className, L\"SysListView32\") != 0" not in list_tree_theme:
+        print("darkmodelib-owned ListViews must not be themed twice by the legacy path")
+        return 1
+    dark_mode_apply_tree_start = darkmode.find("void DarkModeApplyTree(HWND hwnd)")
+    dark_mode_apply_tree_end = darkmode.find("\nvoid DarkModeApplyMenuBar", dark_mode_apply_tree_start)
+    if dark_mode_apply_tree_start == -1 or dark_mode_apply_tree_end == -1:
+        print("dark-mode tree application function must remain available")
+        return 1
+    dark_mode_apply_tree = darkmode[dark_mode_apply_tree_start:dark_mode_apply_tree_end]
+    if "EnumChildWindows(hwnd, ApplyTreeCallback" in dark_mode_apply_tree:
+        print("dark-mode control trees must not be recursively reapplied per descendant")
+        return 1
+    if "ScrollFixSubclass" in toolbar3 or "kScrollFixSubclassId" in toolbar3:
+        print("Customize toolbar must not use a synchronous scroll repaint workaround")
+        return 1
 
     if "IsSolidBlackIcon" not in geticon or "IsInvalidShellIcon" in geticon:
         print("shell icon validation must reject only the proven solid-black corruption")

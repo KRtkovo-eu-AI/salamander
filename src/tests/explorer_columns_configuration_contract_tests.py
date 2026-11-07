@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Require grouped ListView headers in native custom-draw postpaint. | Keep the group-header rendering contract after removing unsafe post-WM_PAINT client overpainting. | | GPT-5.6 Luna Pro |
 
 from pathlib import Path
 import sys
@@ -18,6 +21,7 @@ def main() -> int:
     header = (ROOT / "salamand.h").read_text(encoding="utf-8")
     dialog = (ROOT / "dialogs4.cpp").read_text(encoding="utf-8")
     dark_mode = (ROOT / "darkmode.cpp").read_text(encoding="utf-8")
+    dark_mode_header = (ROOT / "darkmode.h").read_text(encoding="utf-8")
     edit_list = (ROOT / "edtlbwnd.cpp").read_text(encoding="utf-8")
     panel = (ROOT / "fileswn9.cpp").read_text(encoding="utf-8")
     menu = (ROOT / "mainwnd3.cpp").read_text(encoding="utf-8")
@@ -76,7 +80,8 @@ def main() -> int:
         and "GetDPIForWindow(hwnd)" not in dark_mode
         and "FillRectWithColor(hdc, visibleRect, background);" in dark_mode
         and "DrawTextW(hdc, header, -1, &textRect, format);" in dark_mode
-        and "PaintDarkListViewGroupHeaders(hwnd, hdc, background);" in dark_mode
+        and "void PaintDarkListViewGroupHeaders(HWND hwnd, HDC hdc, COLORREF background);" in dark_mode_header
+        and "PaintDarkListViewGroupHeaders(hdr->hwndFrom, customDraw->nmcd.hdc" in dialog
         and "customDraw->dwItemType == LVCDI_ITEM" in dialog
         and "LVGMF_TEXTCOLOR" not in dialog,
         "dark grouped list views must repaint actual group rectangles after native painting and not treat groups as checkbox items",

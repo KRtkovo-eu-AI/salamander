@@ -1,5 +1,16 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Export the dark ListView group-header painter. | The custom-draw caller needs a linkable public symbol instead of the anonymous-namespace implementation. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Paint only the unused visible ListView surface. | The previous last-model-item lookup could fail for off-screen items and overpaint the entire dark ListView after scrolling. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Keep ListView painting inside the native paint cycle. | A post-WM_PAINT GetDC pass could overwrite native item pixels after scrolling. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Keep dark ListView client painting native while theming scrollbars. | The Explorer client theme interfered with item repainting during wheel and keyboard scrolling. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Restore the shared ListView theme path. | The scrollbar-only theme changed unrelated dialogs and caused regressions outside Customize toolbar. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Let darkmodelib own ListView theme application. | Avoid applying the same common-control theme twice during global dark-mode refreshes. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Remove the remaining legacy ListView refresh owner. | Darkmodelib must not be followed by the legacy window theme and surface subclass during scroll-sensitive refreshes. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Avoid reapplying darkmodelib during legacy ListView traversal. | Darkmodelib already configures every child before the legacy color traversal; repeating its theme and subclass setup can reset native scroll paint state. | | GPT-5.6 Luna Pro |
+// | 2026-11-07 | Apply dark mode to each control tree only once. | A second EnumChildWindows recursion reapplied themes and invalidations to descendants, disrupting native scrolling and repainting. | | GPT-5.6 Luna Pro |
 
 #include "precomp.h"
 #include <tchar.h>
@@ -1933,7 +1944,7 @@ void PaintDarkListViewBorder(HWND hwnd)
     ReleaseDC(hwnd, hdc);
 }
 
-void PaintDarkListViewGroupHeaders(HWND hwnd, HDC hdc, COLORREF background)
+void PaintDarkListViewGroupHeadersImpl(HWND hwnd, HDC hdc, COLORREF background)
 {
     if (hwnd == NULL || hdc == NULL ||
         SendMessage(hwnd, LVM_ISGROUPVIEWENABLED, 0, 0) == FALSE)
@@ -2013,56 +2024,6 @@ LRESULT CALLBACK DarkListViewSurfaceSubclass(HWND hwnd, UINT msg, WPARAM wParam,
     if ((msg == WM_NCPAINT || msg == WM_NCACTIVATE || msg == WM_SIZE) && ShouldUseDarkColorsForSurfaces())
         PaintDarkListViewBorder(hwnd);
 
-    if (msg == WM_PAINT && ShouldUseDarkColorsForSurfaces())
-    {
-        HDC hdc = GetDC(hwnd);
-        if (hdc == NULL)
-            return result;
-
-#if USE_DARKMODELIB
-        const COLORREF background = dmlib::getCtrlBackgroundColor();
-#else
-        const COLORREF background = DarkModeGetColors().background;
-#endif
-        RECT unused;
-        GetClientRect(hwnd, &unused);
-        int count = ListView_GetItemCount(hwnd);
-        if (count > 0)
-        {
-            HWND header = ListView_GetHeader(hwnd);
-            int columnCount = header != NULL ? Header_GetItemCount(header) : 0;
-            if (columnCount > 0)
-            {
-                RECT lastColumn;
-                if (Header_GetItemRect(header, columnCount - 1, &lastColumn))
-                {
-                    MapWindowPoints(header, hwnd, reinterpret_cast<POINT*>(&lastColumn), 2);
-                    int firstVisible = ListView_GetTopIndex(hwnd);
-                    int lastVisible = (std::min)(count - 1, firstVisible + ListView_GetCountPerPage(hwnd));
-                    for (int i = firstVisible; i <= lastVisible; ++i)
-                    {
-                        RECT row;
-                        if (ListView_GetItemRect(hwnd, i, &row, LVIR_BOUNDS))
-                        {
-                            row.left = (std::max)(row.left, lastColumn.right);
-                            row.right = unused.right;
-                            if (row.left < row.right)
-                                FillRectWithColor(hdc, row, background);
-                        }
-                    }
-                }
-            }
-
-            RECT lastItem;
-            if (ListView_GetItemRect(hwnd, count - 1, &lastItem, LVIR_BOUNDS))
-                unused.top = (std::min)(unused.bottom, lastItem.bottom);
-        }
-        if (unused.top < unused.bottom)
-            FillRectWithColor(hdc, unused, background);
-        PaintDarkListViewGroupHeaders(hwnd, hdc, background);
-        ReleaseDC(hwnd, hdc);
-        PaintDarkListViewBorder(hwnd);
-    }
     return result;
 }
 
@@ -2143,12 +2104,6 @@ bool ShouldUseDarkColorsForSurfaces()
 bool ShouldApplyNativeDarkEnhancements()
 {
     return DarkModeIsWindowsDarkSchemeSelectedInternal() && !IsHighContrast();
-}
-
-BOOL CALLBACK ApplyTreeCallback(HWND hwnd, LPARAM)
-{
-    DarkModeApplyTree(hwnd);
-    return TRUE;
 }
 
 void HookDarkScrollbars()
@@ -2289,6 +2244,9 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
     {
         if (wcscmp(className, L"SysListView32") == 0 || wcscmp(className, L"SysTreeView32") == 0)
         {
+#if USE_DARKMODELIB
+            if (wcscmp(className, L"SysListView32") != 0)
+#endif
             gSetWindowTheme(hwnd, wantDark ? L"DarkMode_Explorer" : nullptr, nullptr);
             // Common controls do not consistently treat CLR_DEFAULT as a
             // reset value here (TreeView can interpret it as black), so restore
@@ -2306,9 +2264,7 @@ void ApplyListTreeThemeRecursive(HWND hwnd, bool wantDark)
                 ListView_SetTextBkColor(hwnd, bg);
                 ListView_SetBkColor(hwnd, bg);
 #endif
-#if USE_DARKMODELIB
-                DarkModeBackendDarkModelib::UpdateListViewColors(hwnd, fg, bg, wantDark && ShouldUseDarkColorsForSurfaces());
-#else
+#if !USE_DARKMODELIB
                 HWND header = ListView_GetHeader(hwnd);
                 if (header != NULL)
                     EnsureDarkHeaderSubclass(header, wantDark && ShouldUseDarkColorsForSurfaces());
@@ -2473,6 +2429,11 @@ void EnsureInitialized()
 
 } // namespace
 
+void PaintDarkListViewGroupHeaders(HWND hwnd, HDC hdc, COLORREF background)
+{
+    PaintDarkListViewGroupHeadersImpl(hwnd, hdc, background);
+}
+
 bool DarkModeIsWindowsDarkSchemeSelected()
 {
     return gWindowsDarkSchemeSelected;
@@ -2622,7 +2583,6 @@ void DarkModeApplyTree(HWND hwnd)
 
     DarkModeApplyWindow(hwnd);
     ApplyListTreeThemeRecursive(hwnd, DarkModeIsWindowsDarkSchemeSelected());
-    EnumChildWindows(hwnd, ApplyTreeCallback, 0);
 }
 
 void DarkModeApplyMenuBar(HWND hwnd)
@@ -2904,7 +2864,9 @@ void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF ba
     DarkModeBackendDarkModelib::UpdateListViewColors(listView, resolvedText, resolvedBackground, applyHeaderColors);
 #endif
 
+#if !USE_DARKMODELIB
     DarkModeApplyWindow(listView);
+#endif
 
     ListView_SetTextColor(listView, resolvedText);
 #if USE_DARKMODELIB
@@ -2915,12 +2877,16 @@ void DarkModeUpdateListViewColors(HWND listView, COLORREF textColor, COLORREF ba
     ListView_SetTextBkColor(listView, resolvedBackground);
     ListView_SetBkColor(listView, resolvedBackground);
 #endif
+#if !USE_DARKMODELIB
     EnsureDarkListViewSurfaceSubclass(listView, applyHeaderColors && ShouldUseDarkColorsForSurfaces());
+#endif
 
     HWND header = ListView_GetHeader(listView);
     if (header != NULL)
     {
+#if !USE_DARKMODELIB
         DarkModeApplyWindow(header);
+#endif
         if (applyHeaderColors)
         {
             SendMessage(header, HDM_SETTEXTCOLOR, 0, static_cast<LPARAM>(resolvedText));
