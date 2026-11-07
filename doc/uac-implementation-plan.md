@@ -9,11 +9,12 @@
 | 2026-11-07 | Record the P3a verified-parent experiment. | Prove object identity under substitution before authorizing a broker write. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record the protected F7 broker pilot. | Track the one-leaf capability and VM validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record the P3b native rename proof and pilot boundary. | Verify target anchoring and source identity before exposing a second broker command. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Document the P3b panel and broker integration. | Track the shared rename path, validation and VM acceptance. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
 
-Stav k 7. listopadu 2026: funkční pilot F7 (P3a) a nativní ověření přejmenování (P3b). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
+Stav k 7. listopadu 2026: pilot F7 (P3a) a přejmenování jednoho souboru (P3b). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
 
 Základem je upstream [release/5.0-samandarin-0.16](https://github.com/KRtkovo-eu-AI/salamander/tree/release/5.0-samandarin-0.16), ověřený commit [`16b4cd0176dc82752a11ee6bc09615780b6987a2`](https://github.com/KRtkovo-eu-AI/salamander/commit/16b4cd0176dc82752a11ee6bc09615780b6987a2). Stejný commit měla při založení práce referenční větev `majklvi/salamander:samandarin-0.16`. Pracovní větev je `feature/uac-support`, lokální checkout `C:\Samandarin\uac-support`. Všechny níže uvedené řádky zdrojů odkazují na tento pevný upstream commit, nikoli na proměnlivý HEAD.
 
@@ -247,7 +248,13 @@ P0 nedokázalo relativní přejmenování přes Win32 `SetFileInformationByHandl
 
 Nativní testy prošly v x64 Debug, x64 Release a Win32 Release ve Windows 11 Pro build 26200. Ověřily zachování identity při úspěchu a kolizi, odmítnutí záměny rodiče i zdroje, souběžného zápisu, hardlinku a syntaxe pro ADS. Ověřily také Unicode názvy pod cestou delší než 260 znaků a zopakovaly kontroly mkdir.
 
-Před zpřístupněním v aplikaci je třeba přidat samostatný jednorázový příkaz brokeru a použít jej po neúspěšném běžném pokusu z `RenameFileInternalW`, společného pro dialog a Quick Rename. Nabídka elevace musí uvádět obě jména a větev pro přepsání cíle musí zůstat oddělená. VM akceptace musí zahrnout potvrzení a zrušení UAC, kolizi vzniklou během souhlasu, jiný účet správce a odpojení před i po mutaci. Tato dílčí etapa ověřila nativní operaci bez elevace. Broker zatím přijímá pouze mkdir.
+Commit `a408ffe5` zapojuje příkaz do `RenameFileInternalW`, společného pro dialog F2 i přejmenování přímo v panelu. Běžný pokus předchází nabídce. V běžném diskovém panelu může host nabídnout pokračování po `ERROR_ACCESS_DENIED`, pokud cílová položka chybí a původní cesty odpovídají otevřenému rodiči a zdroji. Nabídka ukáže obě plné cesty. Zrušení skončí návratem do panelu, potvrzený úspěch použije běžné přejmenování položky v panelu a obnovu výpisu. Kolize po zahájení požadavku vrátí chybu a nepřejde do větve pro přepsání. Při neověřeném výsledku host obnoví výpis a vyžádá kontrolu cíle před opakováním.
+
+Instalovaný host a broker používají masku 3 s jednou zprávou označenou jako mkdir nebo rename. Sonda používá masku 0 a původní handshake. Starší host či broker s maskou 1 se s novou verzí nedomluví. Privilegované otevření IPC používá pevný lokální prefix a název znovu sestavený ze zpracovaného GUID. Testy odmítly neplatný GUID, cizí stroj i doplněnou část cesty.
+
+Lokálně prošlo sestavení aplikace, brokeru a sondy x64 Debug a sestavení brokeru a sondy Win32 a ARM64 Debug. Regresní sady NTFS, IPC a lokální F7 prošly v x64 Debug i Release. VM akceptace sleduje potvrzení a zrušení UAC pro oba vstupy, kolizi vzniklou během souhlasu, jiný účet správce a odpojení před i po mutaci.
+
+Computer Use v izolované VM ověřil s binárkou `a408ffe5` bez elevace dialog F2 (`normal.txt` → `běžný-東京.txt`) i úpravu názvu přímo v panelu (`běžný-東京.txt` → `inline-ověřeno.txt`). Po obou změnách se aktualizovaly oba panely. Interaktivní zkoušky s UAC používají samostatné soubory v chráněném `P3b-fixture`.
 
 ## 9. Uživatelský tok a stav operace
 

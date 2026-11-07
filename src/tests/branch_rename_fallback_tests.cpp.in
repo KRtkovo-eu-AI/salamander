@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Model the shared rename confirmation dependencies in the Branch View fixture. | Compile the actual panel rename function and check that Branch View stays outside the broker pilot. | | GPT-6.1 Sol (Codex) |
 #include <windows.h>
 #include <string>
 #include <vector>
@@ -16,7 +19,21 @@ std::string SalWideToMultiBytePath(const wchar_t*,UINT=CP_UTF8);
 #define HANDLES_Q(call) (call)
 #define HANDLES(call) (call)
 static constexpr int IDS_TOOLONGNAME=1,IDS_ERRORRENAMINGFILE=2,ptDisk=1,ptPluginFS=2,FS_SERVICE_QUICKRENAME=1;
+static constexpr int IDS_UAC_RENAME_CONFIRM=3,IDS_AS_ADMIN_TITLE=4,IDS_RENAME_TITLE=5,IDS_UAC_MKDIR_UNKNOWN=6;
+static constexpr UINT MSGBOXEX_OKCANCEL=1,MSGBOXEX_ICONQUESTION=2,MSGBOXEX_SHIELDONDEFBTN=4;
 static int Errors=0,LegacyCalls=0,Remaps=0,Updates=0,Sleeps=0,Wakes=0,Checks=0,Failed=0;
+static int ElevationAttempts=0;
+struct MSGBOXEX_PARAMS { HWND HParent; const char* Text; const char* Caption; UINT Flags; const char* AliasBtnNames; };
+static int SalMessageBoxEx(const MSGBOXEX_PARAMS*) { return IDCANCEL; }
+namespace UacF7
+{
+struct PreparedLeaf
+{
+    struct Result { DWORD error; bool unknown; };
+    bool Prepare(const std::wstring&, const std::wstring&) { ++ElevationAttempts; return false; }
+    Result Execute(HWND) const { return {ERROR_GEN_FAILURE, false}; }
+};
+}
 static const char* LoadStr(int){return "test";}
 static const char* GetErrorText(DWORD){return "test error";}
 static int SalMessageBox(HWND,const char*,const char*,UINT){++Errors;return IDOK;}
@@ -127,6 +144,7 @@ int wmain()
  }
  CFilesWindow ordinary;BOOL change=FALSE,retry=TRUE;ordinary.Branch=FALSE;ordinary.RenameFileInternal(NULL,"ordinary.txt",FALSE,&change,&retry);
  Check(LegacyCalls==1&&!change,"ordinary panel still selects untouched legacy remainder");
+ Check(ElevationAttempts==0,"Branch View does not offer a broker rename");
  Check(DestroyWindow(owner)!=FALSE,"destroy owned control parent");
  // A deliberately failing mutation must also leave no deep fixture behind.
  for(const auto& file:OwnedFiles)if(GetFileAttributesW(Exact(file).c_str())!=INVALID_FILE_ATTRIBUTES){Check(file.rfind(root+L"\\",0)==0&&DeleteFileW(Exact(file).c_str()),"cleanup leftover owned source after failure");}
