@@ -1,5 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Verify CP1250 word-byte classification used by viewer double-click selection. | Prevent regression of accented legacy bytes being treated as word boundaries under UTF-8. | https://github.com/KRtkovo-eu-AI/salamander/issues/739 | openai/gpt-5.6-luna-pro |
+*/
 
 // Only the OS clipboard boundary and viewer file I/O are replaced. The selection,
 // conversion-table transform, decoder, command, and clipboard encoders are production code.
@@ -114,6 +119,9 @@ public:
     int FatalErrors = 0;
     int PrepareCalls = 0;
 
+    UINT GetLegacyFindCodePage() const;
+    BOOL IsFindWordChar(char c) const;
+
     void Load(const std::string& bytes)
     {
         Storage.assign(bytes.begin(), bytes.end());
@@ -226,6 +234,11 @@ static void TestLegacy()
         return;
     }
     const std::string issue("B\xEC" "lou\xE8" "k\xFD" " k\xF9\xF2\r\n ");
+    for (unsigned char character : {static_cast<unsigned char>(0xEC), static_cast<unsigned char>(0xE8),
+                                   static_cast<unsigned char>(0xFD), static_cast<unsigned char>(0xF9),
+                                   static_cast<unsigned char>(0xF2)})
+        Check(viewer.IsFindWordChar((char)character), "CP1250 accented byte is a word character");
+    Check(!viewer.IsFindWordChar(' '), "space remains a word boundary");
     viewer.Load(issue);
     CheckExport(viewer, issue, L"Běloučký kůň\r\n ", "issue #740 CP1250");
     viewer.StartSelection = 12;
