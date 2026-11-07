@@ -387,6 +387,49 @@ function Format-KeyedTextItem
     return '{0},{1},"{2}"' -f $Current.Id, $state, $text
 }
 
+function New-IdItemQueueMap
+{
+    # POPUP menu titles all use resource ID 0. A plain hashtable would keep only
+    # the last ID 0 translation (often Help) and rewrite every popup title.
+    # Keep a FIFO queue per ID so duplicate IDs match in source order.
+    return @{}
+}
+
+function Add-IdItemToQueueMap
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Map,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Item
+    )
+
+    if (-not $Map.ContainsKey($Item.Id))
+    {
+        $Map[$Item.Id] = New-Object System.Collections.Generic.Queue[object]
+    }
+    $Map[$Item.Id].Enqueue($Item)
+}
+
+function Get-IdItemFromQueueMap
+{
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Map,
+
+        [Parameter(Mandatory = $true)]
+        [int]$Id
+    )
+
+    if ($Map.ContainsKey($Id) -and $Map[$Id].Count -gt 0)
+    {
+        return $Map[$Id].Dequeue()
+    }
+
+    return $null
+}
+
 function Merge-DialogSection
 {
     param(
@@ -407,7 +450,7 @@ function Merge-DialogSection
     $mergedLines.Add((Format-DialogCaption -Current $currentCaption -Legacy $legacyCaption))
     $Stats.DialogCaptions++
 
-    $legacyItems = @{}
+    $legacyItems = New-IdItemQueueMap
     $legacyItemsInOrder = @()
     foreach ($line in ($LegacySection.Lines | Select-Object -Skip 1))
     {
@@ -417,7 +460,7 @@ function Merge-DialogSection
         }
 
         $item = Parse-DialogItem $line
-        $legacyItems[$item.Id] = $item
+        Add-IdItemToQueueMap -Map $legacyItems -Item $item
         $legacyItemsInOrder += $item
     }
 
@@ -434,7 +477,11 @@ function Merge-DialogSection
     for ($i = 0; $i -lt $currentItemsInOrder.Count; $i++)
     {
         $currentItem = $currentItemsInOrder[$i]
-        $legacyItem = if ($legacyItems.ContainsKey($currentItem.Id)) { $legacyItems[$currentItem.Id] } elseif ($allowOrdinalFallback) { $legacyItemsInOrder[$i] } else { $null }
+        $legacyItem = Get-IdItemFromQueueMap -Map $legacyItems -Id $currentItem.Id
+        if ($null -eq $legacyItem -and $allowOrdinalFallback)
+        {
+            $legacyItem = $legacyItemsInOrder[$i]
+        }
         if ($null -ne $legacyItem)
         {
             $Stats.DialogItems++
@@ -461,7 +508,7 @@ function Merge-KeyedSection
         [string]$StatKey
     )
 
-    $legacyItems = @{}
+    $legacyItems = New-IdItemQueueMap
     $legacyItemsInOrder = @()
     foreach ($line in $LegacySection.Lines)
     {
@@ -471,7 +518,7 @@ function Merge-KeyedSection
         }
 
         $item = & $ParseLine $line
-        $legacyItems[$item.Id] = $item
+        Add-IdItemToQueueMap -Map $legacyItems -Item $item
         $legacyItemsInOrder += $item
     }
 
@@ -489,7 +536,11 @@ function Merge-KeyedSection
     for ($i = 0; $i -lt $currentItemsInOrder.Count; $i++)
     {
         $currentItem = $currentItemsInOrder[$i]
-        $legacyItem = if ($legacyItems.ContainsKey($currentItem.Id)) { $legacyItems[$currentItem.Id] } elseif ($allowOrdinalFallback) { $legacyItemsInOrder[$i] } else { $null }
+        $legacyItem = Get-IdItemFromQueueMap -Map $legacyItems -Id $currentItem.Id
+        if ($null -eq $legacyItem -and $allowOrdinalFallback)
+        {
+            $legacyItem = $legacyItemsInOrder[$i]
+        }
         if ($null -ne $legacyItem)
         {
             $script:MergeStats[$StatKey]++

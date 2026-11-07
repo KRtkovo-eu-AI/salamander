@@ -267,10 +267,10 @@ COMMENT,"Česká verze"
 253,11,98,205,12,1,"Neptat se a vždy zanechat te&xty nezměněné"
 
 [MENU 400]
-0,1,"Nast&avení"
+0,1,"&Soubor"
 401,1,"&Exportovat nastavení...\tCtrl+E"
 402,1,"&Importovat nastavení...\tCtrl+I"
-0,1,"Nast&avení"
+0,1,"&Zobrazení"
 403,1,"&Náhled SFX Dialogového okna...\tCtr+V"
 0,1,"Nast&avení"
 404,1,"&Resetovat vše\tCtrl+Shift+R"

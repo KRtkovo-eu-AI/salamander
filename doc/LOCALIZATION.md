@@ -1,3 +1,7 @@
+<!--
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-05 | Document FIFO matching for duplicate menu POPUP IDs. | Prevent Internal Viewer and other menu titles from collapsing to Help after rebase. | https://github.com/KRtkovo-eu-AI/salamander/issues/751 | Composer |
+-->
 # How to Translate Samandarin
 
 For routine work, use only `tools/localization/localize.ps1`. The other scripts in that directory are implementation details.
@@ -212,6 +216,7 @@ Before any API call, `rebase_text_archive.ps1` merges the existing translation a
 - When reusing an existing stringtable translation, the rebase verifies technical tokens such as placeholders, escapes, tags, and accelerator count. If they do not match, the current English text is left as `state=0` for translation/review instead of blindly reusing a risky translation.
 - Dialog and menu section IDs can still use a guarded fallback: if a dialog/menu section ID changed but the number of sections of that type did not change, the rebase can fall back to matching sections by type and order.
 - If dialog/menu item IDs changed inside a matched section and the item count is unchanged, the rebase can fall back to matching items by order. This fallback is not used for `STRINGTABLE`.
+- Menu `POPUP` titles all use resource ID `0`. Rebase and source-text matching therefore keep a FIFO queue per ID instead of last-wins, so File/Edit/View/Help keep distinct translations. A menu whose every top-level title became Help (or Options/Other) is a regression of that matching.
 - New sections or items that cannot be matched safely keep the English text but are explicitly marked `state=0`; the translation step must translate them.
 - If an entire module has no legacy archive yet, the script forces translation of the current skeleton instead of treating the English skeleton as already translated.
 

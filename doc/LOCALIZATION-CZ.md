@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-05 | Document FIFO matching for duplicate menu POPUP IDs. | Prevent Internal Viewer and other menu titles from collapsing to Help after rebase. | https://github.com/KRtkovo-eu-AI/salamander/issues/751 | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
 # Jak přeložit Samandarin
@@ -214,6 +215,7 @@ Před jakýmkoliv API voláním `rebase_text_archive.ps1` sloučí existující 
 - Při převzetí existujícího stringtable překladu rebase kontroluje technické tokeny jako placeholdery, escape sekvence, tagy a počet akcelerátorů. Pokud nesedí, ponechá aktuální anglický text jako `state=0` pro překlad/review místo slepého převzetí rizikového překladu.
 - Dialogy a menu mohou dál použít hlídaný fallback: pokud se změnilo ID sekce dialogu/menu, ale počet sekcí daného typu se nezměnil, rebase umí fallback podle typu a pořadí sekce.
 - Pokud se v nalezené dialog/menu sekci změnila ID položek a počet položek je stejný, rebase umí fallback podle pořadí položek. Tento fallback se nepoužívá pro `STRINGTABLE`.
+- Titulky menu `POPUP` mají všechny resource ID `0`. Rebase i párování zdrojového textu proto používají FIFO frontu podle ID místo last-wins, aby File/Edit/View/Help zůstaly oddělené. Menu, kde je každý top-level titul Nápověda (nebo Možnosti/Ostatní), je regrese tohoto párování.
 - Nové sekce nebo položky, které nejde bezpečně spárovat, ponechají anglický text, ale explicitně dostanou `state=0`; překladový krok je tedy musí přeložit.
 - Pokud pro celý modul zatím neexistuje legacy archiv, skript vynutí překlad aktuální kostry místo toho, aby anglickou kostru považoval za přeloženou.
 

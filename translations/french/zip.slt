@@ -267,10 +267,10 @@ COMMENT,"Version française"
 253,11,98,205,12,1,"Ne plus demander et toujours laisser les textes &inchangés"
 
 [MENU 400]
-0,1,"&Options"
+0,1,"&Fchier"
 401,1,"Réglages &Export...\tCtrl+E"
 402,1,"Réglages &Import...\tCtrl+I"
-0,1,"&Options"
+0,1,"&Visualiser"
 403,1,"Pré&visualiser la Boîte e dialogue SFX...\tCtr+V"
 0,1,"&Options"
 404,1,"&Tout réinitialiser\tCtrl+Shift+R"

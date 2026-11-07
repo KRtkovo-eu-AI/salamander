@@ -93,24 +93,43 @@ def parse_items(lines: list[str], force: bool = False) -> list[Item]:
         items.append(Item(index, key, section, match.group("text"), match.group("prefix"), match.group("ending") or ""))
     return items
 
-def item_map_by_resource(lines: list[str]) -> dict[tuple[str, str], Item]:
-    return {(item.section, item.prefix.split(',', 1)[0]): item for item in parse_items(lines, True)}
+def resource_id(item: Item) -> str:
+    return item.prefix.split(',', 1)[0]
+
+def item_queues_by_resource(lines: list[str]) -> dict[tuple[str, str], list[Item]]:
+    """Map (section, resource-id) to items in file order.
+
+    Menu POPUP titles all use resource ID 0. A last-wins map would keep only
+    Help and attach the wrong English source text to every popup.
+    """
+    queues: dict[tuple[str, str], list[Item]] = {}
+    for item in parse_items(lines, True):
+        key = (item.section, resource_id(item))
+        queues.setdefault(key, []).append(item)
+    return queues
+
+def take_queued_item(queues: dict[tuple[str, str], list[Item]], section: str, res_id: str) -> Item | None:
+    key = (section, res_id)
+    bucket = queues.get(key)
+    if not bucket:
+        return None
+    return bucket.pop(0)
 
 def attach_source_text(items: list[Item], source_lines: list[str] | None) -> list[Item]:
     if source_lines is None:
         for item in items:
             item.source_text = item.text
         return items
-    source_items = item_map_by_resource(source_lines)
+    source_queues = item_queues_by_resource(source_lines)
     for item in items:
-        source_item = source_items.get((item.section, item.prefix.split(',', 1)[0]))
+        source_item = take_queued_item(source_queues, item.section, resource_id(item))
         item.source_text = source_item.text if source_item else item.text
     return items
 
 def translation_context(lines: list[str], source_lines: list[str] | None, selected: set[str], limit: int = 80) -> list[dict[str, str]]:
     if source_lines is None or limit <= 0:
         return []
-    source_items = item_map_by_resource(source_lines)
+    source_queues = item_queues_by_resource(source_lines)
     examples = []
     for item in parse_items(lines, True):
         if item.key in selected:
@@ -118,7 +137,7 @@ def translation_context(lines: list[str], source_lines: list[str] | None, select
         match = LINE_RE.match(lines[item.index])
         if not match or match.group("state") != "1":
             continue
-        source_item = source_items.get((item.section, item.prefix.split(',', 1)[0]))
+        source_item = take_queued_item(source_queues, item.section, resource_id(item))
         if not source_item or source_item.text == item.text:
             continue
         examples.append({"source": source_item.text, "translation": item.text})
@@ -127,13 +146,13 @@ def translation_context(lines: list[str], source_lines: list[str] | None, select
     return examples
 
 def trim_items(lines: list[str], source_lines: list[str]) -> list[Item]:
-    source_items = item_map_by_resource(source_lines)
+    source_queues = item_queues_by_resource(source_lines)
     items = []
     for item in parse_items(lines, True):
         match = LINE_RE.match(lines[item.index])
         if not match or match.group("state") != "1":
             continue
-        source_item = source_items.get((item.section, item.prefix.split(',', 1)[0]))
+        source_item = take_queued_item(source_queues, item.section, resource_id(item))
         if not source_item:
             continue
         item.source_text = source_item.text
