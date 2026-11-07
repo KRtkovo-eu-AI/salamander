@@ -1,5 +1,9 @@
 ﻿// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+//
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Cover hidden and system files in the Branch scan filter. | Keep the hide option aligned with ordinary panels. | https://github.com/KRtkovo-eu-AI/salamander/pull/818 | Grok 4.7 |
 #include "../branch_view.h"
 #include <stdio.h>
 #include <set>
@@ -185,6 +189,12 @@ int wmain()
     std::wstring hidden = Join(fixture.Root, L"hidden"); fixture.Directory(hidden);
     SetFileAttributesW(ExtendedPath(hidden).c_str(), FILE_ATTRIBUTE_HIDDEN);
     fixture.File(Join(hidden, L"hidden.txt"));
+    const std::wstring hiddenFile = Join(a, L"hidden-file.txt");
+    const std::wstring systemFile = Join(a, L"system-file.txt");
+    fixture.File(hiddenFile);
+    fixture.File(systemFile);
+    SetFileAttributesW(ExtendedPath(hiddenFile).c_str(), FILE_ATTRIBUTE_HIDDEN);
+    SetFileAttributesW(ExtendedPath(systemFile).c_str(), FILE_ATTRIBUTE_SYSTEM);
     for (int i = 0; i != 600; ++i) fixture.File(Join(a, L"file" + std::to_wstring(i) + L".bin"));
 
     const std::wstring cycle = Join(a, L"cycle");
@@ -196,7 +206,7 @@ int wmain()
     Scan scan; Progress progress;
     Check(scan.Start(fixture.Root, false), "start recursive scan");
     auto all = Collect(scan, progress);
-    Check(all.size() == 605 && progress.Files == 605, "complete recursive count across batches");
+    Check(all.size() == 607 && progress.Files == 607, "complete recursive count across batches");
     Check(progress.Errors == 0 && !progress.Cancelled, "successful final state");
     if (hasCycle) Check(progress.SkippedLinks == 1, "cycle skipped without following out-of-tree link");
     std::set<std::wstring> identities;
@@ -251,15 +261,28 @@ int wmain()
         CloseHandle(writer);
     }
     CloseHandle(changing.Stop);
-    Check(!progress.Running && duringChanges.size() >= 605, "first scan finishes despite continuously changing tree");
+    Check(!progress.Running && duringChanges.size() >= 607, "first scan finishes despite continuously changing tree");
     liveSchedule.Finished(GetTickCount64());
     Check(!liveSchedule.Due(GetTickCount64()), "completed real scan remains visible during automatic cooldown");
     Check(scan.Start(fixture.Root, false), "take complete snapshot after mutations");
     auto afterChanges = Collect(scan, progress);
-    Check(afterChanges.size() == 605 && !SameSnapshot(all, afterChanges), "later scan captures changes without stale transient rows");
+    Check(afterChanges.size() == 607 && !SameSnapshot(all, afterChanges), "later scan captures changes without stale transient rows");
+    Check(!OmitHiddenSystemEntry(FILE_ATTRIBUTE_ARCHIVE, 0), "normal file stays visible");
+    Check(OmitHiddenSystemEntry(FILE_ATTRIBUTE_HIDDEN, 0), "hidden file is omitted");
+    Check(OmitHiddenSystemEntry(FILE_ATTRIBUTE_SYSTEM, 0), "system file is omitted");
+    Check(!OmitHiddenSystemEntry(FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_REPARSE_POINT, 0x80000015L),
+          "cloud placeholder stays visible");
     Check(scan.Start(fixture.Root, true), "restart filtered scan");
     auto filtered = Collect(scan, progress);
-    Check(filtered.size() == 604, "hidden directory traversal policy");
+    bool sawHiddenFile = false, sawSystemFile = false, sawHiddenDirFile = false;
+    for (const auto& entry : filtered)
+    {
+        if (entry.FullPath() == hiddenFile) sawHiddenFile = true;
+        if (entry.FullPath() == systemFile) sawSystemFile = true;
+        if (wcscmp(entry.Data.cFileName, L"hidden.txt") == 0) sawHiddenDirFile = true;
+    }
+    Check(filtered.size() == 604 && !sawHiddenFile && !sawSystemFile && !sawHiddenDirFile,
+          "hidden directory traversal and hidden/system file policy");
 
     // A new generation owns independent result storage; abandoned batches must
     // never leak into another location even when a previous worker returns late.

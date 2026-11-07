@@ -1,5 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+//
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Skip hidden and system files in Branch scans, except cloud placeholders. | Match the ordinary panel hide option. | https://github.com/KRtkovo-eu-AI/salamander/pull/818 | Grok 4.7 |
 #ifndef BRANCH_VIEW_TEST
 #include "precomp.h"
 #endif
@@ -8,7 +12,17 @@
 #include <new>
 #include <algorithm>
 
+#ifndef IO_REPARSE_TAG_FILE_PLACEHOLDER
+#define IO_REPARSE_TAG_FILE_PLACEHOLDER (0x80000015L)
+#endif
+
 namespace Salamander { namespace BranchView {
+bool OmitHiddenSystemEntry(DWORD attributes, DWORD reparseTag)
+{
+    if ((attributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) == 0)
+        return false;
+    return !((attributes & FILE_ATTRIBUTE_REPARSE_POINT) && reparseTag == IO_REPARSE_TAG_FILE_PLACEHOLDER);
+}
 std::wstring Join(const std::wstring& directory, const std::wstring& name)
 {
     return directory + (!directory.empty() && directory.back() != L'\\' ? L"\\" : L"") + name;
@@ -145,9 +159,10 @@ DWORD WINAPI Scan::Run(void* context)
                     if (InterlockedCompareExchange(&state->Cancelled, 0, 0)) break;
                     if (wcscmp(data.cFileName, L".") == 0 || wcscmp(data.cFileName, L"..") == 0) continue;
                     const bool isDirectory = (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+                    if (state->HideHiddenSystem && OmitHiddenSystemEntry(data.dwFileAttributes, data.dwReserved0))
+                        continue;
                     if (isDirectory)
                     {
-                        if (state->HideHiddenSystem && (data.dwFileAttributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM))) continue;
                         // Follow cloud/other ordinary reparse directories, but not
                         // name-surrogate links (junctions and symbolic links).
                         if ((data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) && IsReparseTagNameSurrogate(data.dwReserved0))
