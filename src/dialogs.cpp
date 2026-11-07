@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Confirm the exact permanent delete path in the progress dialog. | Default to Cancel and report an unconfirmed deletion without replay. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Show the metadata UAC consent on the progress dialog thread. | Keep secure consent and uncertain results in the existing UI. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -1744,21 +1745,26 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
 
         case WORKER_DIALOG_UAC_METADATA:
+        case WORKER_DIALOG_UAC_DELETE:
         {
-            auto& prompt = *reinterpret_cast<UacF7::MetadataPrompt*>(lParam);
-            const std::string message = std::string(LoadStr(IDS_UAC_METADATA_CONFIRM)) + "\n\n" + prompt.path;
+            const bool deleting = wParam == WORKER_DIALOG_UAC_DELETE;
+            auto& prompt = *reinterpret_cast<UacF7::LeafPrompt*>(lParam);
+            const std::string message = std::string(LoadStr(deleting ? IDS_UAC_DELETE_CONFIRM : IDS_UAC_METADATA_CONFIRM)) +
+                                        "\n\n" + prompt.path;
             const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
             MSGBOXEX_PARAMS confirm{};
             confirm.HParent = HWindow;
             confirm.Text = message.c_str();
-            confirm.Caption = LoadStr(IDS_CHANGEATTRSTITLE);
-            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_SHIELDONDEFBTN;
+            confirm.Caption = LoadStr(deleting ? IDS_CONFIRM_DELETE_TITLE : IDS_CHANGEATTRSTITLE);
+            confirm.Flags = MSGBOXEX_OKCANCEL | (deleting ? MSGBOXEX_ICONEXCLAMATION | MSGBOXEX_DEFBUTTON2
+                                                         : MSGBOXEX_ICONQUESTION | MSGBOXEX_SHIELDONDEFBTN);
             confirm.AliasBtnNames = alias.c_str();
             if (SalMessageBoxEx(&confirm) == IDOK && !CancelWorker)
             {
                 prompt.result = prompt.request.Execute(HWindow);
                 if (prompt.result.unknown)
-                    SalMessageBox(HWindow, LoadStr(IDS_UAC_METADATA_UNKNOWN), LoadStr(IDS_ERRORCHANGINGATTRS),
+                    SalMessageBox(HWindow, LoadStr(deleting ? IDS_UAC_DELETE_UNKNOWN : IDS_UAC_METADATA_UNKNOWN),
+                                  LoadStr(deleting ? IDS_ERRORDELETINGFILE : IDS_ERRORCHANGINGATTRS),
                                   MB_OK | MB_ICONEXCLAMATION);
             }
             break;

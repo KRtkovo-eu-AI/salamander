@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Route one permanent file deletion through the authenticated broker. | Execute only the verified leaf and keep recycle operations separate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add the one-file basic metadata broker command. | Authenticate and validate a bounded attributes and timestamps request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Reconstruct the pipe path from a canonical GUID. | Keep elevated file opens within the local broker pipe namespace and address CodeQL findings. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add the authenticated one-file rename command. | Reuse the protected broker launch while keeping mkdir and rename separately validated. | | GPT-6.1 Sol (Codex) |
@@ -37,6 +38,7 @@
 #endif
 #if defined(SAM_UAC_BROKER) || defined(SAM_UAC_F7_HOST)
 #include "metadataleaf.h"
+#include "deleteleaf.h"
 #endif
 
 namespace
@@ -62,7 +64,8 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD mkdirCapability = 1;
 [[maybe_unused]] constexpr DWORD renameCapability = 2;
 [[maybe_unused]] constexpr DWORD metadataCapability = 4;
-[[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability;
+[[maybe_unused]] constexpr DWORD deleteCapability = 8;
+[[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability | deleteCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -315,7 +318,7 @@ struct ComApartment
 };
 
 #if defined(SAM_UAC_BROKER) || defined(SAM_UAC_F7_HOST)
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3 };
+using UacF7::Operation;
 struct RequestHeader
 {
     ULONGLONG serial;
@@ -399,9 +402,10 @@ DWORD ReceiveRequest(HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG deadline
     const bool rename = header.operation == Operation::Rename;
     const bool mkdir = header.operation == Operation::Mkdir;
     const bool setMetadata = header.operation == Operation::Metadata;
+    const bool deleteFile = header.operation == Operation::Delete;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
         header.leafLength > UacDirectoryLeaf::maxComponent || header.sourceLength > UacDirectoryLeaf::maxComponent ||
-        (!rename && !mkdir && !setMetadata) || rename != (header.sourceLength != 0))
+        (!rename && !mkdir && !setMetadata && !deleteFile) || rename != (header.sourceLength != 0))
         return ERROR_INVALID_DATA;
     std::wstring payload(volumeLength + header.relativeLength + header.leafLength + header.sourceLength, L'\0');
     error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), false, deadline);
@@ -450,6 +454,8 @@ DWORD ReceiveRequest(HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG deadline
     }
     else if (setMetadata)
         result = UacMetadataLeaf::SetVerifiedMetadata(parent.get(), expected, sourceIdentity, leaf, metadata);
+    else if (deleteFile)
+        result = UacDeleteLeaf::DeleteVerifiedFile(parent.get(), expected, sourceIdentity, leaf);
     else
         result = UacDirectoryLeaf::CreateVerifiedLeaf(parent.get(), expected, leaf);
     return ERROR_SUCCESS;
@@ -691,15 +697,21 @@ PreparedLeaf::~PreparedLeaf()
 
 bool PreparedLeaf::Prepare(const std::wstring& path, const std::wstring& renameTo)
 {
-    return PrepareTarget(path, renameTo, nullptr);
+    return PrepareTarget(path, renameTo.empty() ? Operation::Mkdir : Operation::Rename, renameTo, nullptr);
 }
 
 bool PreparedLeaf::PrepareMetadata(const std::wstring& path, const MetadataChange& change)
 {
-    return UacMetadataLeaf::IsValid(change) && PrepareTarget(path, {}, &change);
+    return UacMetadataLeaf::IsValid(change) && PrepareTarget(path, Operation::Metadata, {}, &change);
 }
 
-bool PreparedLeaf::PrepareTarget(const std::wstring& path, const std::wstring& renameTo, const MetadataChange* change)
+bool PreparedLeaf::PrepareDelete(const std::wstring& path)
+{
+    return PrepareTarget(path, Operation::Delete, {}, nullptr);
+}
+
+bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, const std::wstring& renameTo,
+                                 const MetadataChange* change)
 {
     // An ordinary or portable copy must never offer the pilot.
     InstallLocation install;
@@ -716,7 +728,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, const std::wstring& r
         return false;
     const size_t split = input.rfind(L'\\');
     const auto finalName = input.substr(split + 1);
-    const bool rename = !renameTo.empty();
+    const bool rename = requested == Operation::Rename;
     if (!UacDirectoryLeaf::IsComponent(finalName) ||
         (rename && (!UacDirectoryLeaf::IsComponent(renameTo) || UacDirectoryLeaf::Equal(finalName, renameTo))))
         return false;
@@ -749,7 +761,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, const std::wstring& r
         return false;
     Handle openedSource;
     FILE_ID_INFO sourceIdentity{};
-    if (rename || change)
+    if (requested != Operation::Mkdir)
     {
         HANDLE raw = nullptr;
         if (UacRenameLeaf::Detail::OpenSource(opened.get(), finalName, raw, 0,
@@ -768,6 +780,8 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, const std::wstring& r
             return false;
         if (change && UacMetadataLeaf::CheckAttributes(openedSource.get(), *change))
             return false;
+        if (requested == Operation::Delete && UacDeleteLeaf::CheckAttributes(openedSource.get()))
+            return false;
         if (rename)
             sourceLeaf.assign(finalName);
         std::memcpy(sourceId, sourceIdentity.FileId.Identifier, sizeof(sourceId));
@@ -779,17 +793,15 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, const std::wstring& r
     std::memcpy(fileId, snapshot.file.FileId.Identifier, sizeof(fileId));
     parent = opened.release();
     source = openedSource.release();
+    operation = requested;
     if (change)
-    {
         metadata = *change;
-        isMetadata = true;
-    }
     return true;
 }
 
-DWORD PreparedLeaf::ExecuteLocalMetadata() const
+DWORD PreparedLeaf::ExecuteLocal() const
 {
-    if (!parent || !isMetadata)
+    if (!parent || (operation != Operation::Metadata && operation != Operation::Delete))
         return ERROR_INVALID_PARAMETER;
     UacDirectoryLeaf::ParentIdentity expectedParent{};
     expectedParent.file.VolumeSerialNumber = serial;
@@ -797,6 +809,8 @@ DWORD PreparedLeaf::ExecuteLocalMetadata() const
     expectedParent.volume = volume;
     FILE_ID_INFO expectedSource{serial, {}};
     std::memcpy(expectedSource.FileId.Identifier, sourceId, sizeof(sourceId));
+    if (operation == Operation::Delete)
+        return UacDeleteLeaf::DeleteVerifiedFile(parent, expectedParent, expectedSource, leaf);
     return UacMetadataLeaf::SetVerifiedMetadata(parent, expectedParent, expectedSource, leaf, metadata);
 }
 
@@ -808,7 +822,6 @@ Result PreparedLeaf::Execute(HWND owner) const
     if (!parent || FAILED(com.result) || !install.Open() ||
         !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))
         return result;
-    const Operation operation = isMetadata ? Operation::Metadata : source ? Operation::Rename : Operation::Mkdir;
     RequestHeader header{serial, {}, {}, operation,
                          static_cast<DWORD>(relative.size()), static_cast<DWORD>(leaf.size()),
                          static_cast<DWORD>(sourceLeaf.size())};
@@ -816,7 +829,7 @@ Result PreparedLeaf::Execute(HWND owner) const
     std::memcpy(header.sourceId.Identifier, sourceId, sizeof(sourceId));
     std::wstring payload = volume + relative + leaf + sourceLeaf;
     MetadataChange requestMetadata = metadata;
-    RunProbe(install, false, false, owner, &header, &payload, isMetadata ? &requestMetadata : nullptr, &result);
+    RunProbe(install, false, false, owner, &header, &payload, operation == Operation::Metadata ? &requestMetadata : nullptr, &result);
     return result;
 }
 }

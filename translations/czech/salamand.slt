@@ -4182,6 +4182,8 @@ SLGINCOMPLETE,""
 14530,1,"Přístup byl odepřen. Přejmenovat tento soubor jako správce? První řádek uvádí současnou cestu, druhý novou."
 14531,1,"Přístup byl odepřen. Použít požadované atributy a časy tohoto souboru jako správce?"
 14532,1,"Spojení s pomocným procesem se přerušilo před potvrzením výsledku. Před opakováním zkontrolujte atributy a časy souboru."
+14533,1,"Přístup byl odepřen. Trvale smazat tento soubor jako správce?"
+14534,1,"Spojení s pomocným procesem se přerušilo před potvrzením smazání. Před opakováním zkontrolujte, zda soubor stále existuje."
 
 [STRINGTABLE 184]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."

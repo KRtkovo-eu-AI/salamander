@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Identify one-file actions explicitly routed to permanent deletion. | Never infer broker consent from a failed recycle operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-05 | Restore saved Copy/Move transfer, conflict, and wait dialog defaults. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
 // | 2026-11-05 | Survive faulty shell extension SEH in Recycle Bin deletes. | SHFileOperation shell handlers must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -1362,6 +1363,8 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
 
                     script->InvertRecycleBin = invertRecycleBin;
                     script->CanUseRecycleBin = canUseRecycleBin;
+                    script->AllowPermanentDeletePilot = type == atDelete && recycle == 0 &&
+                                                         canUseRecycleBin && count <= 1 && !IsBranchView();
 
                     char* auxTargetPath = NULL;
                     if (type == atCopy || type == atMove)

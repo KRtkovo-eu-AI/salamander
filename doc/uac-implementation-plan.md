@@ -13,11 +13,12 @@
 | 2026-11-07 | Record the four P3b consent tests in the isolated VM. | Verify both panel entry points with real UAC approval and cancellation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record the extended P3b matrix in the isolated VM. | Verify a late collision, a different administrator, and disconnects around the rename. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Document the P3c basic metadata pilot. | Track the single-file attribute and timestamp command and its acceptance. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Document the P3d permanent delete pilot. | Record its limited scope, verified NTFS operation and VM cases. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
 
-Stav k 7. listopadu 2026: pilot F7 (P3a), přejmenování jednoho souboru (P3b) a změna jeho běžných atributů a časů (P3c). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
+Stav k 7. listopadu 2026: pilot F7 (P3a), přejmenování jednoho souboru (P3b), změna jeho běžných atributů a časů (P3c) a pilot trvalého mazání (P3d). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
 
 Základem je upstream [release/5.0-samandarin-0.16](https://github.com/KRtkovo-eu-AI/salamander/tree/release/5.0-samandarin-0.16), ověřený commit [`16b4cd0176dc82752a11ee6bc09615780b6987a2`](https://github.com/KRtkovo-eu-AI/salamander/commit/16b4cd0176dc82752a11ee6bc09615780b6987a2). Stejný commit měla při založení práce referenční větev `majklvi/salamander:samandarin-0.16`. Pracovní větev je `feature/uac-support`, lokální checkout `C:\Samandarin\uac-support`. Všechny níže uvedené řádky zdrojů odkazují na tento pevný upstream commit, nikoli na proměnlivý HEAD.
 
@@ -301,6 +302,14 @@ Computer Use ověřil ve Windows 11 Pro x64 build 26200 stejné sestavení aplik
 - U zapisovatelného `normal.txt` prošla změna na Archiv a Systémový bez výzvy. Obsah zůstal stejný. Po testech nezůstal běžet žádný broker.
 
 Na commitu `78668151` prošla sestavení Win32, x64 a ARM64 i všech 214 nativních a Python testů. [Nativní a Python testy](https://github.com/majklvi/salamander/actions/runs/42416998027/job/128537178973)
+
+### 8.10 P3d — trvalé smazání jednoho souboru
+
+Pilot se spouští v diskovém panelu pro jeden běžný soubor na lokálním NTFS, pokud dialog i worker vyhodnotily zvolenou operaci jako trvalé smazání. Používá stávající potvrzení akce a následně běžný token. Po `ERROR_ACCESS_DENIED` zobrazí přesnou cestu a výslovnou nabídku trvalého smazání jako správce. Výchozím tlačítkem je Zrušit. Po neověřeném výsledku obnoví panel a vyžádá kontrolu položky před novým pokusem. Koš, adresáře, dávky, Branch View a soubory s jinými atributy než Archiv nebo Normální zůstávají na stávajících cestách.
+
+Host drží handle původního souboru a rodiče přes souhlas i ruční Retry. Broker je znovu otevře relativně k ověřenému svazku, zkontroluje jejich identity, typ a počet hardlinků. Smazání požaduje `DELETE` bez sdílení pro práci s daty, kontroly spuštěného obrazu se zachovávají a příznak pro obejití Jen pro čtení se nepoužívá. `FileDispositionInfoEx` odstraní ověřené jméno při zavření mutačního handlu i při otevřeném handlu hosta pro čtení identity. Maska schopností hosta a brokeru je 15. [FILE_DISPOSITION_INFORMATION_EX](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddk/ns-ntddk-_file_disposition_information_ex)
+
+Na NTFS v x64 Debug i Release prošly případy záměny zdroje a rodiče, jiného hardlinku, otevřeného čtenáře, atributu Jen pro čtení, syntaxe ADS a dlouhé Unicode cesty. Test také ověřil odstranění pouze ověřeného jména, zatímco původní handle pro čtení identity zůstal otevřený. Regresní test původního workeru prošel pro trvalé smazání i Koš včetně chyby Koše bez následného trvalého mazání. Sestavení aplikace, brokeru a sondy x64 Debug a test transportu prošly.
 
 ## 9. Uživatelský tok a stav operace
 

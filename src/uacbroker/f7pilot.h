@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Declare the one-file permanent delete request. | Pin the original file across UAC consent and retries. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add a typed request for basic file metadata. | Share one operation between the ordinary token and the broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Capture a file identity for the shared F2 rename path. | Keep the source and parent pinned across consent. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Declare the one-leaf F7 elevation pilot. | Hold the verified parent across consent and distinguish uncertain outcomes. | | GPT-6.1 Sol (Codex) |
@@ -11,6 +12,8 @@
 
 namespace UacF7
 {
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4 };
+
 struct Result
 {
     DWORD error = ERROR_GEN_FAILURE;
@@ -19,6 +22,10 @@ struct Result
 
 constexpr DWORD basicAttributes = FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_READONLY |
                                   FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
+inline bool IsPlainDeleteFile(DWORD attributes)
+{
+    return attributes == FILE_ATTRIBUTE_NORMAL || attributes == FILE_ATTRIBUTE_ARCHIVE;
+}
 struct MetadataChange
 {
     LONGLONG created = 0;
@@ -39,11 +46,13 @@ public:
 
     bool Prepare(const std::wstring& path, const std::wstring& renameTo = {});
     bool PrepareMetadata(const std::wstring& path, const MetadataChange& change);
-    DWORD ExecuteLocalMetadata() const;
+    bool PrepareDelete(const std::wstring& path);
+    DWORD ExecuteLocal() const;
     Result Execute(HWND owner) const;
 
 private:
-    bool PrepareTarget(const std::wstring& path, const std::wstring& renameTo, const MetadataChange* change);
+    bool PrepareTarget(const std::wstring& path, Operation requested, const std::wstring& renameTo,
+                       const MetadataChange* change);
     HANDLE parent = nullptr;
     HANDLE source = nullptr;
     ULONGLONG serial = 0;
@@ -51,10 +60,10 @@ private:
     BYTE sourceId[16]{};
     std::wstring volume, relative, leaf, sourceLeaf;
     MetadataChange metadata{};
-    bool isMetadata = false;
+    Operation operation = Operation::Mkdir;
 };
 
-struct MetadataPrompt
+struct LeafPrompt
 {
     const PreparedLeaf& request;
     const char* path;

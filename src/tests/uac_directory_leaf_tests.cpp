@@ -1,10 +1,12 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Test verified permanent file deletion on NTFS. | Cover replacement, locks, special attributes and long Unicode names. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Exercise the basic metadata executor on real NTFS files. | Verify independent fields, stale snapshots, and preservation of the verified source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Probe NTFS native rename with a directory handle. | Verify the target cannot be redirected before adding broker rename. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Test anchored mkdir against real NTFS substitutions. | Verify that a replacement path and reparse points cannot redirect a creation. | | GPT-6.1 Sol (Codex) |
 */
 #include "../uacbroker/metadataleaf.h"
+#include "../uacbroker/deleteleaf.h"
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
@@ -234,6 +236,49 @@ int wmain(int argc, wchar_t** argv)
           "clear the basic attributes without resetting any of the three times", error);
     SetFileAttributesW(metadataPath.c_str(), FILE_ATTRIBUTE_NORMAL); // keep failed fixtures removable
 
+    const auto deletePath = moved + L"\\delete-source";
+    const auto relocatedDelete = moved + L"\\delete-original";
+    if (!CreateRenameSource(deletePath))
+        return 2;
+    FILE_ID_INFO deleteId{};
+    const auto pinnedDelete = OpenIdentity(deletePath, deleteId);
+    if (!pinnedDelete || !MoveFileExW(deletePath.c_str(), relocatedDelete.c_str(), 0) || !CreateRenameSource(deletePath))
+        return 2;
+    error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, deleteId, L"delete-source");
+    Check(error == ERROR_FILE_INVALID && Exists(deletePath) && Exists(relocatedDelete),
+          "delete rejects a replacement source and preserves both files", error);
+    error = UacDeleteLeaf::DeleteVerifiedFile(substitute.get(), expected, deleteId, L"delete-original");
+    Check(error == ERROR_FILE_INVALID && Exists(relocatedDelete), "delete rejects a replacement parent", error);
+    error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, deleteId, L"delete-original:stream");
+    Check(error == ERROR_INVALID_NAME && Exists(relocatedDelete), "delete refuses an alternate stream name", error);
+
+    const auto deleteAlias = moved + L"\\delete-alias";
+    if (!CreateHardLinkW(deleteAlias.c_str(), relocatedDelete.c_str(), nullptr))
+        return 2;
+    error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, deleteId, L"delete-original");
+    Check(error == ERROR_NOT_SUPPORTED && Exists(relocatedDelete) && Exists(deleteAlias),
+          "delete refuses an object with another hardlink", error);
+    if (!DeleteFileW(deleteAlias.c_str()))
+        return 2;
+    if (!SetFileAttributesW(relocatedDelete.c_str(), FILE_ATTRIBUTE_READONLY))
+        return 2;
+    error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, deleteId, L"delete-original");
+    Check(error == ERROR_NOT_SUPPORTED && GetFileAttributesW(relocatedDelete.c_str()) == FILE_ATTRIBUTE_READONLY,
+          "delete leaves a read-only file and its attributes intact", error);
+    if (!SetFileAttributesW(relocatedDelete.c_str(), FILE_ATTRIBUTE_NORMAL))
+        return 2;
+    const HANDLE reader = CreateFileW(relocatedDelete.c_str(), GENERIC_READ,
+                                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                      nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (reader == INVALID_HANDLE_VALUE)
+        return 2;
+    error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, deleteId, L"delete-original");
+    Check(error == ERROR_SHARING_VIOLATION && Exists(relocatedDelete), "delete refuses an open data reader", error);
+    CloseHandle(reader);
+    error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, deleteId, L"delete-original");
+    Check(error == ERROR_SUCCESS && !Exists(relocatedDelete) && Exists(deletePath),
+          "delete detaches only the verified name while its identity handle is still open", error);
+
     for (const auto invalid : {L"..", L"parent\\escaped", L"parent/escaped", L"x:ads", L"NUL.txt", L"x.", L"x "})
     {
         error = CreateVerifiedLeaf(original.get(), expected, invalid);
@@ -336,7 +381,11 @@ int wmain(int argc, wchar_t** argv)
     const DWORD longMetadata = UacMetadataLeaf::SetVerifiedMetadata(longParent.get(), expected, longId, L"target-\u672c", longChange);
     Check(longMetadata == ERROR_SUCCESS && GetFileAttributesW(longTarget.c_str()) == longChange.attributes,
           "set attributes on an exact Unicode leaf below a long path", longMetadata);
-    const BOOL removedFile = DeleteFileW((longRename == ERROR_SUCCESS ? longTarget : longSource).c_str());
+    if (longRename == ERROR_SUCCESS && !SetFileAttributesW(longTarget.c_str(), FILE_ATTRIBUTE_ARCHIVE))
+        return 2;
+    const DWORD longDelete = UacDeleteLeaf::DeleteVerifiedFile(longParent.get(), expected, longId, L"target-\u672c");
+    Check(longDelete == ERROR_SUCCESS && !Exists(longTarget), "delete an exact Unicode leaf below a long path", longDelete);
+    const BOOL removedFile = longDelete == ERROR_SUCCESS || DeleteFileW((longRename == ERROR_SUCCESS ? longTarget : longSource).c_str());
 
     longParent.reset();
     // The Python runner may have a MAX_PATH-limited filesystem API.

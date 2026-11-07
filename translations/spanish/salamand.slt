@@ -4182,6 +4182,8 @@ SLGINCOMPLETE,""
 14530,1,"Acceso denegado. ¿Cambiar el nombre de este archivo como administrador? Se muestra primero la ruta actual y después la nueva."
 14531,1,"Acceso denegado. ¿Aplicar los atributos y las fechas solicitados a este archivo como administrador?"
 14532,1,"La conexión con el proceso auxiliar se interrumpió antes de confirmar el resultado. Compruebe los atributos y las fechas del archivo antes de volver a intentarlo."
+14533,1,"Acceso denegado. ¿Eliminar permanentemente este archivo como administrador?"
+14534,1,"La conexión con el proceso auxiliar se interrumpió antes de confirmar la eliminación. Compruebe si el archivo sigue existiendo antes de volver a intentarlo."
 
 [STRINGTABLE 184]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."

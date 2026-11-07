@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Run eligible permanent deletion with the verified file executor. | Preserve the original file identity across ordinary attempts and elevated consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Run one-file basic metadata changes through the verified executor. | Offer elevation only after an ordinary access denial and retain worker accounting. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -486,6 +487,7 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     BytesPerCluster = 0;
     ClearReadonlyMask = 0xFFFFFFFF;
     InvertRecycleBin = FALSE;
+    AllowPermanentDeletePilot = FALSE;
     CanUseRecycleBin = TRUE;
     SameRootButDiffVolume = FALSE;
     TargetPathSupADS = FALSE;
@@ -8845,6 +8847,53 @@ static LONGLONG MetadataFileTime(const FILETIME& time)
     return static_cast<LONGLONG>(value.QuadPart);
 }
 
+static BOOL ExecuteVerifiedWorkerLeaf(HWND progress, const COperation& op, const UacF7::PreparedLeaf& request,
+                                      CProgressDlgData& dlgData, WPARAM promptKind, int errorTitle)
+{
+    for (;;)
+    {
+        WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+        if (*dlgData.CancelWorker)
+            return FALSE;
+        DWORD error = request.ExecuteLocal();
+        if (error == ERROR_ACCESS_DENIED)
+        {
+            const std::wstring display = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
+            const std::string path = SalWideToMultiBytePath(display.c_str(), CP_UTF8);
+            UacF7::LeafPrompt prompt{request, path.c_str()};
+            SendMessage(progress, WM_USER_DIALOG, promptKind, reinterpret_cast<LPARAM>(&prompt));
+            if (prompt.result.unknown || prompt.result.error == ERROR_CANCELLED)
+                return FALSE;
+            error = prompt.result.error;
+        }
+        if (error == ERROR_SUCCESS)
+            return TRUE;
+        if (*dlgData.CancelWorker)
+            return FALSE;
+        int answer = IDCANCEL;
+        char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(errorTitle), op.SourceName, GetErrorText(error)};
+        SendMessage(progress, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
+        if (answer != IDRETRY)
+            return answer == IDB_SKIP || answer == IDB_SKIPALL;
+    }
+}
+
+static bool TryDeleteVerifiedFile(HWND progress, const COperation& op, const COperations& script,
+                                  CProgressDlgData& dlgData, BOOL& success)
+{
+    // Recheck the worker's actual policy in case it changed after building the script.
+    const bool permanent = (dlgData.UseRecycleBin == 0 && !script.InvertRecycleBin) ||
+                           ((dlgData.UseRecycleBin == 1 || dlgData.UseRecycleBin == 2) && script.InvertRecycleBin);
+    if (!script.AllowPermanentDeletePilot || script.Count != 1 || !permanent || !op.SourceNameWValid ||
+        !UacF7::IsPlainDeleteFile(op.Attr) || FileNameIsInvalid(op.SourceName, TRUE))
+        return false;
+    UacF7::PreparedLeaf request;
+    if (!request.PrepareDelete(op.SourceNameW))
+        return false;
+    success = ExecuteVerifiedWorkerLeaf(progress, op, request, dlgData, WORKER_DIALOG_UAC_DELETE, IDS_ERRORDELETINGFILE);
+    return true;
+}
+
 static bool TryChangeBasicMetadata(HWND progress, COperation& op, const CChangeAttrsData& input,
                                    CProgressDlgData& dlgData, BOOL& success)
 {
@@ -8872,38 +8921,8 @@ static bool TryChangeBasicMetadata(HWND progress, COperation& op, const CChangeA
     UacF7::PreparedLeaf request;
     if (!request.PrepareMetadata(op.SourceNameW, change))
         return false;
-    for (;;)
-    {
-        WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
-        success = FALSE;
-        if (*dlgData.CancelWorker)
-            return true;
-        DWORD error = request.ExecuteLocalMetadata();
-        if (error == ERROR_ACCESS_DENIED)
-        {
-            const std::wstring display = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
-            const std::string path = SalWideToMultiBytePath(display.c_str(), CP_UTF8);
-            UacF7::MetadataPrompt prompt{request, path.c_str()};
-            SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_METADATA, reinterpret_cast<LPARAM>(&prompt));
-            if (prompt.result.unknown || prompt.result.error == ERROR_CANCELLED)
-                return true;
-            error = prompt.result.error;
-        }
-        if (error == ERROR_SUCCESS)
-        {
-            success = TRUE;
-            return true;
-        }
-        if (*dlgData.CancelWorker)
-            return true;
-        int answer = IDCANCEL;
-        char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(IDS_ERRORCHANGINGATTRS), op.SourceName, GetErrorText(error)};
-        SendMessage(progress, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
-        if (answer == IDRETRY)
-            continue;
-        success = answer == IDB_SKIP || answer == IDB_SKIPALL;
-        return true;
-    }
+    success = ExecuteVerifiedWorkerLeaf(progress, op, request, dlgData, WORKER_DIALOG_UAC_METADATA, IDS_ERRORCHANGINGATTRS);
+    return true;
 }
 
 BOOL DoChangeAttrs(HWND hProgressDlg, char* name, const CQuadWord& size, DWORD attrs,
@@ -10871,6 +10890,17 @@ unsigned ThreadWorkerBody(void* parameter)
 
                 if (op->Opcode == ocDeleteFile)
                 {
+                    BOOL deletedOrSkipped = FALSE;
+                    if (TryDeleteVerifiedFile(hProgressDlg, *op, *script, dlgData, deletedOrSkipped))
+                    {
+                        Error = !deletedOrSkipped;
+                        if (deletedOrSkipped)
+                        {
+                            totalDone += op->Size;
+                            SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+                        }
+                        break;
+                    }
                     Error = !DoDeleteFile(hProgressDlg, op->SourceName, op->Size,
                                           script, totalDone, op->Attr, dlgData, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL);
                 }

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Mark explicitly permanent single-file delete operations. | Keep Shell recycling outside the UAC delete pilot. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Mark eligible basic metadata operations and define their UI message. | Keep the broker pilot scoped to a single regular file. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -45,6 +46,7 @@ void InitWorker();
 void ReleaseWorker();
 
 constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 13;
+constexpr WPARAM WORKER_DIALOG_UAC_DELETE = 14;
 
 struct CChangeAttrsData
 {
@@ -391,6 +393,7 @@ public:
 
     DWORD ClearReadonlyMask; // for automatically clearing the read-only flag from CD-ROMs
     BOOL InvertRecycleBin;   // invert Recycle Bin usage
+    BOOL AllowPermanentDeletePilot;
 
     int FilesCount;
     int DirsCount;
