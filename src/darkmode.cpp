@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Export the dark ListView group-header painter. | The custom-draw caller needs a linkable public symbol instead of the anonymous-namespace implementation. | | GPT-5.6 Luna Pro |
 // | 2026-11-07 | Paint only the unused visible ListView surface. | The previous last-model-item lookup could fail for off-screen items and overpaint the entire dark ListView after scrolling. | | GPT-5.6 Luna Pro |
 // | 2026-11-07 | Keep ListView painting inside the native paint cycle. | A post-WM_PAINT GetDC pass could overwrite native item pixels after scrolling. | | GPT-5.6 Luna Pro |
 // | 2026-11-07 | Keep dark ListView client painting native while theming scrollbars. | The Explorer client theme interfered with item repainting during wheel and keyboard scrolling. | | GPT-5.6 Luna Pro |
@@ -1942,7 +1944,7 @@ void PaintDarkListViewBorder(HWND hwnd)
     ReleaseDC(hwnd, hdc);
 }
 
-void PaintDarkListViewGroupHeaders(HWND hwnd, HDC hdc, COLORREF background)
+void PaintDarkListViewGroupHeadersImpl(HWND hwnd, HDC hdc, COLORREF background)
 {
     if (hwnd == NULL || hdc == NULL ||
         SendMessage(hwnd, LVM_ISGROUPVIEWENABLED, 0, 0) == FALSE)
@@ -2426,6 +2428,11 @@ void EnsureInitialized()
 }
 
 } // namespace
+
+void PaintDarkListViewGroupHeaders(HWND hwnd, HDC hdc, COLORREF background)
+{
+    PaintDarkListViewGroupHeadersImpl(hwnd, hdc, background);
+}
 
 bool DarkModeIsWindowsDarkSchemeSelected()
 {
