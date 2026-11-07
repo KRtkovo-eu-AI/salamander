@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Persist user-owned archive-association extensions. | Let #748 repair only default associations and retain provenance for future per-type configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Add EnsureExtensionsForPlugin for TAR-family archive association repair. | Restoring .tgz/.tar.gz panel ownership after imported association corruption. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -605,6 +606,7 @@ public:
     int UnpackerIndex; // reference to the unpacker table
 
     BOOL OldType; // indicates old data (version < 6) - assumes internal ZIP+TAR+PAK?
+    char* UserExtensions; // extensions explicitly assigned through Configuration
 
 public:
     CPackerFormatConfigData()
@@ -621,12 +623,15 @@ public:
     {
         if (Ext != NULL)
             free(Ext);
+        if (UserExtensions != NULL)
+            free(UserExtensions);
         Empty();
     }
 
     void Empty()
     {
         OldType = FALSE;
+        UserExtensions = NULL;
         Ext = NULL;
         UsePacker = FALSE;
         PackerIndex = 500;
@@ -661,6 +666,9 @@ public:
     // sets attributes; if something goes wrong, the item is removed from the array, destroyed and FALSE is returned
     BOOL SetFormat(int index, const char* ext, BOOL usePacker,
                    const int packerIndex, const int unpackerIndex, BOOL old);
+    // Marks every extension currently in the row as explicitly user-owned.
+    void MarkFormatAsUserOverride(int index);
+    BOOL IsUserOverride(int index, const char* extension);
     void SetOldType(int index, BOOL old) { Formats[index]->OldType = old; }
     void SetUnpackerIndex(int index, int unpackerIndex) { Formats[index]->UnpackerIndex = unpackerIndex; }
     void SetUsePacker(int index, BOOL usePacker) { Formats[index]->UsePacker = usePacker; }

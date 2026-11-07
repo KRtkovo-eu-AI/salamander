@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Assert archive-association provenance survives migrations. | Prevent #748 cleanup from replacing user-selected owners and keep per-extension metadata available for #733. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-05 | Assert 7-Zip no longer steals TAR/ZIP/UnRAR panel extensions. | Guard the issue #748 association ownership fix. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | Composer |
 
 from pathlib import Path
@@ -16,7 +17,9 @@ PLUGINS_H = SRC / "plugins.h"
 PLUGINS1 = SRC / "plugins1.cpp"
 FILESWN0 = SRC / "fileswn0.cpp"
 PACK_H = SRC / "pack.h"
+PACK3 = SRC / "pack3.cpp"
 PACK1 = SRC / "pack1.cpp"
+DIALOGSP = SRC / "dialogsp.cpp"
 FILESWND_H = SRC / "fileswnd.h"
 MAINWND2 = SRC / "mainwnd2.cpp"
 SEVEN_ZIP = SRC / "plugins" / "7zip" / "7zip.cpp"
@@ -256,6 +259,53 @@ def main() -> int:
     require(
         "EnsureExtensionsForPlugin" in pack_h,
         "CPackerFormatConfig must expose EnsureExtensionsForPlugin",
+    )
+
+    pack3 = PACK3.read_text(encoding="utf-8")
+    require(
+        'SALAMANDER_PPA_USEREXTENSIONS = "User Extension List"' in pack3,
+        "archive associations must have a persistent user-extension registry value",
+    )
+    set_format = function_body(pack3, "BOOL CPackerFormatConfig::SetFormat")
+    require(
+        "FilterUserExtensions(data->UserExtensions, ext)" in set_format,
+        "rewriting a row must retain user provenance for extensions that remain",
+    )
+    require(
+        "void CPackerFormatConfig::MarkFormatAsUserOverride" in pack3
+        and "Formats[index]->UserExtensions" in pack3,
+        "the configuration editor must be able to mark a row's extensions as user-owned",
+    )
+    save = function_body(pack3, "BOOL CPackerFormatConfig::Save")
+    require(
+        "SALAMANDER_PPA_USEREXTENSIONS" in save,
+        "user provenance must be persisted with archive-association rows",
+    )
+    load = function_body(pack3, "BOOL CPackerFormatConfig::Load(HKEY hKey)")
+    require(
+        "SALAMANDER_PPA_USEREXTENSIONS" in load and "hasUserExtensions" in load,
+        "user provenance must be optional when loading pre-provenance configurations",
+    )
+    remove_for_plugin = function_body(pack3, "void CPackerFormatConfig::RemoveExtensionsForPlugin")
+    remove_legacy = function_body(pack3, "void CPackerFormatConfig::RemoveExtensionsFromLegacyRows")
+    require(
+        "IsExtensionInList(data->UserExtensions" in remove_for_plugin
+        and "IsExtensionInList(data->UserExtensions" in remove_legacy,
+        "both cleanup passes must retain explicitly user-owned extensions",
+    )
+    ensure = function_body(pack3, "void CPackerFormatConfig::EnsureExtensionsForPlugin")
+    require(
+        "IsExtensionInList(data->Ext, extension" in ensure,
+        "TAR restoration must not create a duplicate association over an existing owner",
+    )
+    require(
+        "IsUserOverride(i, s + 1)" in plugins1,
+        "ForceRemovePanelArchiver must retain explicitly user-owned extensions",
+    )
+    dialogsp = DIALOGSP.read_text(encoding="utf-8")
+    require(
+        dialogsp.count("MarkFormatAsUserOverride") >= 3,
+        "all archive-association edits in Configuration must record user provenance",
     )
 
     panel_masks = []

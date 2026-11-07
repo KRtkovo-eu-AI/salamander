@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Preserve user-owned extensions during plugin association cleanup. | Keep upgrade-time ForceRemovePanelArchiver consistent with persistent Configuration provenance. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-06 | Preserve repeated deferred LoadLibrary references before any teardown. | Preserve every LoadLibrary reference across a refused close and provider reload. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-06 | Preserve native exit finalization before deferred module unload. | Combine the port callback gate with upstream runtime-provider shutdown ordering. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-04 | Keep plug-in DLLs mapped until every plug-in Release returns. | Unloading a runtime plug-in before Salamatrix joins its pump thread crashes on exit. | https://github.com/KRtkovo-eu-AI/salamander/issues/770 https://github.com/KRtkovo-eu-AI/salamander/issues/750 | Grok 4.7 |
@@ -1156,7 +1157,8 @@ NEXT_ROUND:
                     ;
                 if (extEnd != NULL)
                     *extEnd = 0;
-                if (StrICmp(s + 1, extension) == 0) // the searched extension found
+                if (StrICmp(s + 1, extension) == 0 &&
+                    !PackerFormatConfig.IsUserOverride(i, s + 1)) // preserve an explicit user assignment
                 {
                     if (s < ext)
                     {

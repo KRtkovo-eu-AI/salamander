@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Mark edited archive associations as user-owned. | Preserve Configuration overrides during automatic plugin migrations and retain per-extension provenance. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -1260,7 +1263,8 @@ void CCfgPageArchivesAssoc::StoreControls()
 
         char ext[MAX_PATH + 2];
         strcpy(ext, Config->GetExt(index));
-        Config->SetFormat(index, ext, usePacker, packIndex, unpackIndex, FALSE);
+        if (Config->SetFormat(index, ext, usePacker, packIndex, unpackIndex, FALSE))
+            Config->MarkFormatAsUserOverride(index);
     }
 }
 
@@ -1348,19 +1352,21 @@ CCfgPageArchivesAssoc::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                             SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
                             return TRUE;
                         }
-                        Config->SetFormat(index, dispInfo->Buffer,
-                                          FALSE,
-                                          0,
-                                          0, FALSE);
+                        if (Config->SetFormat(index, dispInfo->Buffer,
+                                              FALSE,
+                                              0,
+                                              0, FALSE))
+                            Config->MarkFormatAsUserOverride(index);
                         EditLB->SetItemData();
                     }
                     else
                     {
                         int index = (int)dispInfo->ItemID;
-                        Config->SetFormat(index, dispInfo->Buffer,
-                                          Config->GetUsePacker(index),
-                                          Config->GetPackerIndex(index),
-                                          Config->GetUnpackerIndex(index), FALSE);
+                        if (Config->SetFormat(index, dispInfo->Buffer,
+                                              Config->GetUsePacker(index),
+                                              Config->GetPackerIndex(index),
+                                              Config->GetUnpackerIndex(index), FALSE))
+                            Config->MarkFormatAsUserOverride(index);
                     }
 
                     LoadControls();

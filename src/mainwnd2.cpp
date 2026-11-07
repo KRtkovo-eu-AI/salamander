@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Preserve user-owned archive extensions during migration. | Apply #748 ownership repair only to unmarked defaults and retain provenance for future per-type configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Expand the import-anyway message without a LoadStr printf format. | CodeQL rejected the localized IDS_IMPORTCFG_NOTOURVER template as a non-constant format string. | https://github.com/KRtkovo-eu-AI/salamander/issues/742 | Composer |
 // | 2026-11-05 | Ask Yes/No before importing a config file for another version. | The "import anyway" prompt only had OK, so the action could not be confirmed or cancelled. | https://github.com/KRtkovo-eu-AI/salamander/issues/742 | Composer |
 // | 2026-11-05 | Restore TAR ownership of .tgz/.tar.gz panel associations after load. | Imported mega-rows and 7-Zip grouping left Zip/UnRAR owning tar family extensions. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | Composer |
