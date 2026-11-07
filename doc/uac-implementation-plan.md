@@ -6,6 +6,7 @@
 | 2026-11-07 | Record pipe loss and Shell comparisons and select the P0 backend. | Set the first local implementation slice and remaining gates. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add the P2 broker bootstrap and test procedure. | Track verified transport and the isolated VM acceptance gate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record interactive P2 acceptance results. | Verify the exact staged broker pair in the isolated VM. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Record the P3a verified-parent experiment. | Prove object identity under substitution before authorizing a broker write. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -207,6 +208,21 @@ Po první sérii i po běhu pod jiným účtem nezůstal spuštěný žádný br
 Pro přesný commit ca70fb8c prošlo sestavení Win32, x64 i ARM64, nativní a Python testy a CodeQL včetně nahrání SARIF. GitHub u draftu při kontrole nehlásil otevřená upozornění. [Běh CodeQL](https://github.com/majklvi/salamander/actions/runs/42400974697/job/128488939014)
 
 [Postup a očekávané kódy P2](../src/uacbroker/README.md)
+
+### 8.6 P3a: ověření identity rodiče pro mkdir
+
+V izolované Windows 11 Pro x64 VM na NTFS byl ověřen kandidát pro vytvoření jedné složky. Operace vezme otevřený handle rodiče, očekávanou identitu složenou z GUID svazku, sériového čísla a FileId a jeden validovaný název. Volání NtCreateFile s FILE_CREATE vytvoří složku relativně k tomuto handle. FILE_CREATE zachová kolidující objekt. OBJ_DONT_REPARSE a kontrola tagů odmítají přesměrování. [NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile) · [OBJECT_ATTRIBUTES](https://learn.microsoft.com/en-us/windows/win32/api/ntdef/ns-ntdef-_object_attributes)
+
+| Scénář s reálným NTFS | Výsledek v Debug i Release |
+| --- | --- |
+| Přejmenování otevřeného rodiče a vytvoření náhrady na původní cestě | Náhrada měla jinou identitu a byla odmítnuta s chybou 1006. Zápis přes původní handle vytvořil složku výhradně pod původním objektem. |
+| Junction jako rodič nebo mezilehlá komponenta | Otevření bylo odmítnuto. |
+| Přidání junction tagu na už otevřený rodič | Kontrola před zápisem odmítla změnu. Když test přidal tag až po kontrole a zavolal přímo nativní vytvoření, Windows vrátil chybu 1921 a přesměrovaný cíl zůstal prázdný. |
+| Kolize, nepovolený název, Unicode a cesta nad MAX_PATH | Kolize zůstala zachována, průchod k nadřazené složce, ADS a nejednoznačné názvy byly odmítnuty a platná Unicode složka vznikla na správném místě. |
+
+Kontrolní běh Computer Use otevřel běžnou F7 v oddělené kopii nainstalované verze Samandarin 0.15.1. V dialogu byl zadán vlastní testovací název a vznik složky byl ověřen na disku. Výsledek této kontroly se vztahuje k běžné F7. Nativní test nové operace používá skutečné NTFS objekty a testovací proces bez elevace.
+
+Pro napojení do F7 musí host zachytit identitu rodiče před souhlasem, držet ji pro tuto žádost a broker musí ověřit cestu od důvěryhodného kořene téhož svazku. Broker smí přijmout pouze jednu žádost o jeden potomek. Při otevření náhrady, nedostupné identitě, cizím svazku nebo nepodporované cestě operaci odmítne. Ještě je potřeba napojit autentizovaný instalační host Samandarinu, doplnit jednorázový příkaz a ověřit jeho výsledek po skutečném souhlasu UAC. Stávající protokol P2 má masku schopností 0.
 
 ## 9. Uživatelský tok a stav operace
 
