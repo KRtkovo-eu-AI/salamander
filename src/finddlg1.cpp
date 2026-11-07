@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Defer Find sorting until enumeration ends. | Publish the final activity after result preparation and optional sorting. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Acknowledge watchdog requests from the Find message handler. | Let the main window distinguish a stalled dialog from an active search. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Sort Find results on a separate thread. | Keep dialog messages responsive while computing result order. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Make Stop and Find window closure asynchronous. | Keep the dialog responsive while retaining worker data through actual thread exit. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -887,6 +888,10 @@ void CFoundFilesListView::InvalidateSortHeader()
 
 void CFoundFilesListView::ApplyCurrentSort()
 {
+    // SortItems retains the requested column and direction for FinishSearch.
+    if (FindDialog->IsSearchInProgress())
+        return;
+
     if (SortBy < 0)
     {
         InvalidateSortHeader();
@@ -942,7 +947,7 @@ void CFoundFilesListView::ApplyCurrentSort()
     job->Mixed = Configuration.FindSortFilesAndDirsTogether;
     job->Duplicates = FindDialog->GrepData.FindDuplicates;
 
-    // The search thread may append but only this thread removes or replaces rows.
+    // Sorting starts after the search thread has finished publishing result data.
     HANDLES(EnterCriticalSection(&DataCriticalSection));
     memcpy(job->Items.data(), Data.GetData(), count * sizeof(CFoundFilesData*));
     HANDLES(LeaveCriticalSection(&DataCriticalSection));
@@ -1045,7 +1050,7 @@ void CFoundFilesListView::PublishSort(const CFindSortJob& job)
     if (focusedItem != NULL)
         ListView_SetItemState(HWindow, focused, 0, LVIS_FOCUSED);
 
-    // Publish the sorted prefix in one short lock. Rows appended during a search stay at the end.
+    // Publish the sorted snapshot in one short lock after checking its revision.
     HANDLES(EnterCriticalSection(&DataCriticalSection));
     memcpy(Data.GetData(), job.Items.data(), count * sizeof(CFoundFilesData*));
     if (job.Duplicates)
@@ -1952,6 +1957,8 @@ int GetFindActivityStringID(CFindActivity activity)
         return IDS_FIND_ACTIVITY_SORTING;
     case CFindActivity::Stopping:
         return IDS_FIND_ACTIVITY_STOPPING;
+    case CFindActivity::Finishing:
+        return IDS_FIND_ACTIVITY_FINISHING;
     case CFindActivity::Stopped:
         return IDS_STOPPED;
     case CFindActivity::Finished:
@@ -1970,7 +1977,9 @@ void CFindDialog::SetFindActivity(CFindActivity activity)
     UpdateFindWatchdogActivity(Watchdog.get(), activity);
     if (HStatusBar != NULL)
         UpdateFindActivityPart();
-    EnableWindow(GetDlgItem(HWindow, IDOK), activity != CFindActivity::Stopping && activity != CFindActivity::Sorting);
+    EnableWindow(GetDlgItem(HWindow, IDOK),
+                 activity != CFindActivity::Stopping && activity != CFindActivity::Finishing &&
+                     activity != CFindActivity::Sorting);
 }
 
 void CFindDialog::UpdateFindActivityPart(BOOL initialize)
@@ -2664,6 +2673,7 @@ void CFindDialog::FinishSearch()
     CALL_STACK_MESSAGE1("CFindDialog::FinishSearch()");
     // Called only after the worker handle is signaled.
     FinishingSearch = true;
+    SetFindActivity(CFindActivity::Finishing);
     if (!SearchStopRequested && Configuration.MinBeepWhenDone && GetForegroundWindow() != HWindow)
         MessageBeep(0);
     HANDLES(CloseHandle(GrepThread));
@@ -2716,7 +2726,6 @@ void CFindDialog::FinishSearch()
     SetWindowText(HWindow, LoadStr(IDS_FF_NAME));
     if (GrepData.Refine != 0)
         FoundFilesListView->DestroyDataForRefine();
-    SetFindActivity(GrepData.SearchStopped ? CFindActivity::Stopped : CFindActivity::Finished);
     if (FoundFilesListView != NULL && !CloseWhenFindIdle && !FindCloseQueryPending)
         FoundFilesListView->ApplyCurrentSort();
     EnableControls();
@@ -2728,6 +2737,9 @@ void CFindDialog::OnFindWorkIdle()
 {
     if (GrepThread != NULL || FinishingSearch || IsSortingFindResults())
         return;
+
+    if (Activity == CFindActivity::Finishing)
+        SetFindActivity(GrepData.SearchStopped ? CFindActivity::Stopped : CFindActivity::Finished);
 
     if (FindCloseQueryPending)
     {

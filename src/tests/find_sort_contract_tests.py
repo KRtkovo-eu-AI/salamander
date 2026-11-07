@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Check deferred sorting and final Find activity. | Require the last result order before reporting completion. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 # | 2026-11-07 | Verify asynchronous Find sorting boundaries. | Preserve sort semantics and wait for sorted data before hiding duplicate rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 
 from pathlib import Path
@@ -74,6 +75,8 @@ def check_find(src: Path) -> None:
     require_absent(worker, "SendMessage", "window calls from the sort worker")
     apply = function_slice(finddlg1, "void CFoundFilesListView::ApplyCurrentSort()",
                            "void CFoundFilesListView::PublishSort(")
+    require_after(apply, "if (FindDialog->IsSearchInProgress())\n        return;", "CreateThread(",
+                  "Find defers a sort job while results are still being collected")
     require(apply, "job->Mixed = Configuration.FindSortFilesAndDirsTogether;",
             "Find captures the mixed grouping option for each sort job")
     require(apply, "ResultRevision != job->Revision", "Find rejects a stale result snapshot")
@@ -82,6 +85,13 @@ def check_find(src: Path) -> None:
                   "Hide Duplicates waits for the sorted order")
     require_after(apply, "PublishSort(*job);", "SortJob = NULL;",
                   "the sort remains active until native list publication is complete")
+    finish = function_slice(finddlg1, "void CFindDialog::FinishSearch()", "void CFindDialog::OnFindWorkIdle()")
+    require_after(finish, "SearchInProgress = FALSE;", "FoundFilesListView->ApplyCurrentSort();",
+                  "the selected sort is applied after enumeration")
+    require_absent(finish, "CFindActivity::Finished", "a completed label before optional sorting")
+    idle = function_slice(finddlg1, "void CFindDialog::OnFindWorkIdle()", "void CFindDialog::EnableToolBar()")
+    require_after(idle, "IsSortingFindResults())", "CFindActivity::Finished",
+                  "Find shows completion after the final sort is published")
 
     compare = function_slice(
         finddlg1,

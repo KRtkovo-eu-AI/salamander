@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Distinguish Find finalization from completion. | Report when the worker is done and the dialog is still preparing results. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Share optional Find watchdog state between the owning dialog and main window. | Keep heartbeat and search progress independent of the result model. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Hold Find results alive for independent sort jobs. | Keep the visible result model and selection usable while sorting. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Track Find cancellation and deferred close. | Keep worker-owned data alive until completion. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -157,6 +158,7 @@ enum class CFindActivity
     Searching,
     Sorting,
     Stopping,
+    Finishing,
     Stopped,
     Finished
 };

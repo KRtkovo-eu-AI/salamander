@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Report Find as finalizing when only its worker has finished. | Reserve the final state for results the dialog has published. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Track Find heartbeat and worker progress separately. | Report a stalled Find window without waiting for its UI or result locks. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Separate worker completion from user Stop. | The dialog observes actual thread exit asynchronously. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Publish Find changes in batches and store logs in the worker. | Keep large searches independent of window message handling. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -19,13 +20,6 @@
 #include "md5.h"
 #include "common/widepath.h"
 
-enum class CFindWorkerOutcome
-{
-    Running,
-    Completed,
-    Stopped
-};
-
 class CFindWatchdog
 {
 public:
@@ -33,7 +27,7 @@ public:
     std::atomic<UINT_PTR> Acknowledged{0};
     std::atomic<CFindActivity> Activity{CFindActivity::Idle};
     std::atomic<unsigned> ResultCount{0};
-    std::atomic<CFindWorkerOutcome> Outcome{CFindWorkerOutcome::Running};
+    std::atomic<bool> WorkerFinished{false};
     std::atomic<bool> Closed{false};
 };
 
@@ -88,7 +82,7 @@ void UpdateFindWatchdogActivity(CFindWatchdog* watchdog, CFindActivity activity)
     if (activity == CFindActivity::Searching)
     {
         UpdateFindWatchdogResultCount(watchdog, 0);
-        watchdog->Outcome.store(CFindWorkerOutcome::Running, std::memory_order_relaxed);
+        watchdog->WorkerFinished.store(false, std::memory_order_relaxed);
     }
     watchdog->Activity.store(activity, std::memory_order_release);
 }
@@ -151,15 +145,10 @@ std::wstring PollFindWatchdogs(HWND mainWindow)
         return {};
 
     CFindActivity activity = stalled->State->Activity.load(std::memory_order_acquire);
-    const CFindWorkerOutcome outcome = stalled->State->Outcome.load(std::memory_order_acquire);
+    const bool workerFinished = stalled->State->WorkerFinished.load(std::memory_order_acquire);
     const unsigned resultCount = stalled->State->ResultCount.load(std::memory_order_relaxed);
-    if (activity == CFindActivity::Searching || activity == CFindActivity::Stopping)
-    {
-        if (outcome == CFindWorkerOutcome::Completed)
-            activity = CFindActivity::Finished;
-        else if (outcome == CFindWorkerOutcome::Stopped)
-            activity = CFindActivity::Stopped;
-    }
+    if (workerFinished && (activity == CFindActivity::Searching || activity == CFindActivity::Stopping))
+        activity = CFindActivity::Finishing;
 
     wchar_t phase[128] = {};
     wchar_t format[256] = {};
@@ -2170,8 +2159,7 @@ unsigned GrepThreadFBody(void* ptr)
         CoUninitialize();
     TRACE_I("End");
     if (data->Watchdog != NULL)
-        data->Watchdog->Outcome.store(data->SearchStopped ? CFindWorkerOutcome::Stopped : CFindWorkerOutcome::Completed,
-                                     std::memory_order_release);
+        data->Watchdog->WorkerFinished.store(true, std::memory_order_release);
     return 0;
 }
 
