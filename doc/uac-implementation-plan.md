@@ -16,6 +16,7 @@
 | 2026-11-07 | Document the P3d permanent delete pilot. | Record its limited scope, verified NTFS operation and VM cases. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record P3d acceptance and the Administrator button shield. | Verify real consent and preserve Cancel as the default. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Document the P3e protected directory listing pilot and VM evidence. | Track reuse and termination of one rooted listing session. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Document the UAC shield in the protected panel path bar. | Keep the translated status in a tooltip. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -321,7 +322,7 @@ V opraveném sestavení `038d02a7` Computer Use vizuálně potvrdil štít na Ad
 
 Po odepření výpisu při explicitní navigaci může uživatel schválit konkrétní adresář na lokálním NTFS. Host před spuštěním brokeru zachytí identitu kořene. Broker ověří stejný objekt a otevře ho pro výpis. Každý další požadavek přijímá pouze relativní cestu vůči otevřenému kořeni a odmítá průchod přes reparse body. Vyhrazená relace umožňuje pouze výpis názvů a metadat, maximálně 4096 položek na adresář. Pilot vynechává názvy, které neprojdou stávající kontrolou běžných komponent cest Win32. Čtení obsahu a změny souborů vyžadují oprávnění běžného procesu nebo vlastní autorizaci dané operace.
 
-Panel označuje relaci textem `[Administrator listing]`. Uvnitř stejného podstromu používá jedno spojení pro navigaci a obnovu. Při opuštění podstromu nebo zavření panelu spojení zaniká. Broker ho ukončí také po 15 minutách bez požadavku. Automatická obnova sama novou elevaci nespouští.
+Panel označuje relaci systémovým štítem UAC za cestou. Lokalizovaný popisek se zobrazí po najetí na štít. Uvnitř stejného podstromu používá jedno spojení pro navigaci a obnovu. Při opuštění podstromu nebo zavření panelu spojení zaniká. Broker ho ukončí také po 15 minutách bez požadavku. Automatická obnova sama novou elevaci nespouští. Ve VM byl štít vidět v chráněném kořeni i v podsložce a po odchodu do běžné složky zmizel.
 
 Před zahájením P3e prošel commit P3d `648cf484` sestavením pro Win32, x64 a ARM64, všemi 214 testy a kontrolou Source Growth. [CodeQL bez nových nálezů](https://github.com/majklvi/salamander/runs/128548192172).
 

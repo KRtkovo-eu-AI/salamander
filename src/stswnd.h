@@ -1,5 +1,10 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Show a UAC shield for protected directory listings. | Keep the shield separate from the path and the connection security icon. | | GPT-6.1 Sol (Codex) |
+*/
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -87,6 +92,9 @@ protected:
     char* ThrobberTooltip;         // Tooltip; if NULL, nothing is displayed
     int ThrobberID;                // identifier of the throbber (-1 = invalid)
 
+    HICON AdministratorShield = NULL;
+    RECT AdministratorShieldRect{};
+
     CSecurityIconState Security;
     char* SecurityTooltip; // Tooltip; if NULL, nothing is displayed
 
@@ -162,6 +170,7 @@ public:
     BOOL IsThrobberVisible(int throbberID) { return ShowThrobber && ThrobberID == throbberID; }
     void HideThrobberAndSecurityIcon();
 
+    void SetAdministratorListing(bool active);
     void SetSecurity(CSecurityIconState iconState);
     void SetSecurityTooltip(const char* tooltip);
 

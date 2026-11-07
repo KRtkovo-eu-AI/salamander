@@ -1,6 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Show a UAC shield for protected directory listings. | Paint the system shield after the visible path and reuse the localized tooltip. | | GPT-6.1 Sol (Codex) |
+*/
+
 #include "precomp.h"
 #include "common/winlibdpi.h"
 
@@ -172,6 +177,8 @@ CStatusWindow::~CStatusWindow()
         free(SecurityTooltip);
     if (DriveIcon != NULL)
         HANDLES(DestroyIcon(DriveIcon));
+    if (AdministratorShield != NULL)
+        DestroyIcon(AdministratorShield);
     if (ToolBar != NULL)
     {
         if (ToolBar->HWindow != NULL)
@@ -532,6 +539,30 @@ void CStatusWindow::SetThrobberTooltip(const char* throbberTooltip)
     }
     if (throbberTooltip != NULL)
         ThrobberTooltip = DupStr(throbberTooltip);
+}
+
+void CStatusWindow::SetAdministratorListing(bool active)
+{
+    if (active == (AdministratorShield != NULL))
+        return;
+
+    if (active)
+    {
+        SHSTOCKICONINFO info{};
+        info.cbSize = sizeof(info);
+        if (FAILED(SHGetStockIconInfo(SIID_SHIELD, SHGSI_ICON | SHGSI_SMALLICON, &info)))
+            return;
+        AdministratorShield = info.hIcon;
+    }
+    else
+    {
+        DestroyIcon(AdministratorShield);
+        AdministratorShield = NULL;
+        SetRectEmpty(&AdministratorShieldRect);
+    }
+
+    if (HWindow != NULL)
+        InvalidateRect(HWindow, NULL, FALSE);
 }
 
 void CStatusWindow::SetSecurity(CSecurityIconState iconState)
@@ -960,6 +991,7 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
     }
 
     // text
+    SetRectEmpty(&AdministratorShieldRect);
     EllipsedChars = -1;
     EllipsedWidth = -1;
     if (Text != NULL)
@@ -999,6 +1031,11 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
 
         ZoomRect = tmpR;
         ZoomRect.left = ZoomRect.right;
+
+        const int shieldSize = AdministratorShield != NULL
+                                   ? min(WinLibDPIGetSystemMetric(HWindow, SM_CXSMICON), r.bottom - r.top - 4)
+                                   : 0;
+        constexpr int shieldGap = 4;
 
         // zjistim, ktere polozky (text/history/size/zoom) se vejdou do dostupne plochy
         if (isDirectoryLine)
@@ -1059,6 +1096,14 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
                 SecurityRect.left = tmpR.left;
                 SecurityRect.right = tmpR.left + 2 + LOCK_WIDTH + 3;
                 tmpR.left += 2 + LOCK_WIDTH + 3;
+            }
+
+            if (shieldSize > 0 && tmpR.right - tmpR.left >= shieldSize + shieldGap)
+            {
+                tmpR.right -= shieldSize + shieldGap;
+                const int top = (r.top + r.bottom - shieldSize) / 2;
+                SetRect(&AdministratorShieldRect, tmpR.right + shieldGap, top,
+                        tmpR.right + shieldGap + shieldSize, top + shieldSize);
             }
         }
 
@@ -1121,15 +1166,20 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
             else
             {
                 int leftMax = TextRect.right;
+                if (!IsRectEmpty(&AdministratorShieldRect))
+                {
+                    OffsetRect(&AdministratorShieldRect, TextRect.right - tmpR.right, 0);
+                    leftMax = AdministratorShieldRect.right;
+                }
                 if (Hidden)
                 {
-                    HiddenRect.left = TextRect.right + 2;
+                    HiddenRect.left = leftMax + 2;
                     HiddenRect.right = HiddenRect.left + FILTER_WIDTH + 2;
                     leftMax = HiddenRect.right;
                 }
                 if (Throbber)
                 {
-                    ThrobberRect.left = Hidden ? HiddenRect.right : TextRect.right + 2;
+                    ThrobberRect.left = leftMax + (Hidden ? 0 : 2);
                     ThrobberRect.right = ThrobberRect.left + THROBBER_WIDTH + 2;
                     leftMax = ThrobberRect.right;
                 }
@@ -1384,6 +1434,10 @@ void CStatusWindow::Paint(HDC hdc, BOOL highlightText, BOOL highlightHotTrackOnl
         // throbber
         if (ThrobberRect.left < ThrobberRect.right)
             PaintThrobber(dc);
+
+        if (!IsRectEmpty(&AdministratorShieldRect))
+            DrawIconEx(dc, AdministratorShieldRect.left, AdministratorShieldRect.top, AdministratorShield,
+                       shieldSize, shieldSize, 0, NULL, DI_NORMAL);
 
         // security
         if (SecurityRect.left < SecurityRect.right)
@@ -1952,6 +2006,12 @@ CStatusWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
 
+        case 10:
+        {
+            lstrcpyn(text, AdministratorShield != NULL ? LoadStr(IDS_UAC_LIST_ACTIVE) : "", TOOLTIP_TEXT_MAX);
+            break;
+        }
+
         default:
             TRACE_E("Unknown ID:" << id);
             break;
@@ -2003,6 +2063,10 @@ CStatusWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             toolTipID = 8;
         if (isInSecurityRect)
             toolTipID = 9;
+
+        const bool isInAdministratorShield = PtInRect(&AdministratorShieldRect, POINT{xPos, yPos}) != FALSE;
+        if (isInAdministratorShield)
+            toolTipID = 10;
 
         if (wParam & (MK_LBUTTON | MK_MBUTTON | MK_RBUTTON))
             toolTipID = 0;
@@ -2096,7 +2160,7 @@ CStatusWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             POINT p;
             GetCursorPos(&p);
             if (!isInRect && !isInSizeRect && !isInHistory && !isInZoomRect &&
-                    !isInHiddenRect && !isInSecurityRect ||
+                    !isInHiddenRect && !isInSecurityRect && !isInAdministratorShield ||
                 WindowFromPoint(p) != HWindow)
             {
                 WindowProc(WM_MOUSELEAVE, 0, 0);
@@ -2108,7 +2172,7 @@ CStatusWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             // zahajeni capture modu
             if (!MouseCaptured && (isInRect || isInSizeRect || isInHistory ||
-                                   isInZoomRect || isInHiddenRect || isInSecurityRect))
+                                   isInZoomRect || isInHiddenRect || isInSecurityRect || isInAdministratorShield))
             {
                 TRACKMOUSEEVENT tme;
                 tme.cbSize = sizeof(tme);

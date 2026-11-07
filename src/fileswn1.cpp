@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-07 | Mark the panel while it displays an approved protected listing. | Make the read-only scope visible throughout navigation. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Replace the protected-listing suffix with a shield. | Keep the status separate from the displayed path. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -3527,22 +3528,8 @@ void CFilesWindow::DirectoryLineSetText()
     if (path == NULL)
         return;
 
-    if (ProtectedListing && ProtectedListing->Contains(GetPathW()))
-    {
-        std::string text(path);
-        const int pathLength = static_cast<int>(text.size());
-        if (FilterEnabled)
-        {
-            text += "  [";
-            text += Filter.GetMasksString();
-            text += "]";
-        }
-        text += "  [";
-        text += LoadStr(IDS_UAC_LIST_ACTIVE);
-        text += "]";
-        DirectoryLine->SetText(text.c_str(), pathLength);
-    }
-    else if (IsBranchView())
+    DirectoryLine->SetAdministratorListing(Is(ptDisk) && ProtectedListing && ProtectedListing->Contains(GetPathW()));
+    if (IsBranchView())
     {
         std::string branchText(path);
         const int rootLength = (int)branchText.length();
