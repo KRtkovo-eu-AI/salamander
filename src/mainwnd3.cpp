@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Allow Ctrl+H in Branch View. | Send the hidden and system file toggle through its existing panel refresh. | | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell extension SEH in main-window menus. | New/Change-Drive HandleMenuMsg and InvokeCommand must not terminate. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // | 2026-11-04 | Re-ensure the active tab is visible after rebuild/show. | Startup overflow scroll must run again after the tab strip gets its final width. | | Composer |
 // | 2026-11-04 | Open panel-toolbar Hot Paths in that panel. | The button sits beside Change Drive, so it must change the panel that owns the toolbar. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
@@ -4366,6 +4367,7 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_AFOCUSSHORTCUT: // S31b2: exact wide shortcut/link target navigation.
     case CM_BRANCH_OPENPARENT:
     case CM_BRANCH_STOP:
+    case CM_TOGGLEHIDDENFILES:
     case CM_ACTIVEREFRESH:
     case CM_LEFTREFRESH:
     case CM_RIGHTREFRESH:

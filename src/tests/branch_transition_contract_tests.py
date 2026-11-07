@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-07 | Require the hidden/system filter command in Branch View. | Catch a blocked Ctrl+H before the existing refresh handler. | | GPT-6 (Codex) |
 """Transition gates expose only accepted Branch integrations."""
 from pathlib import Path
 import unittest
@@ -31,7 +33,7 @@ class BranchTransitionContracts(unittest.TestCase):
   gate=function('mainwnd3.cpp','static bool BranchReadOnlyCommandAllowed(')
   for forbidden in ('CM_VIEW_WITH','CM_EDIT_WITH','CM_CLIPPASTELINKS'):
    self.assertNotIn('case '+forbidden+':',gate)
-  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_PROPERTIES','CM_CLIPCOPY','CM_CLIPCUT','CM_CLIPPASTE','CM_PACK','CM_UNPACK','CM_CONTEXTMENU'):
+  for allowed in ('CM_OPEN','CM_VIEW','CM_ALTVIEW','CM_EDIT','CM_BRANCH_OPENPARENT','CM_RENAMEFILE','CM_COPYFILES','CM_MOVEFILES','CM_DELETEFILES','CM_PROPERTIES','CM_CLIPCOPY','CM_CLIPCUT','CM_CLIPPASTE','CM_PACK','CM_UNPACK','CM_CONTEXTMENU','CM_TOGGLEHIDDENFILES'):
    self.assertIn('case '+allowed+':',gate)
   self.assertIn('return false;',gate)
  def test_branch_direct_unpack_requires_qualified_backend_and_owned_deletion_sink(self):
