@@ -115,6 +115,7 @@ private:
     BOOL OverwriteCancel;
 
     BOOL WholeFile;
+    BOOL OutputCreated; // only the current successfully created output can be cleaned up
 
     HWND hProgWnd;
 
@@ -128,6 +129,17 @@ public:
     BOOL InitTest();
 
     int NumErrors;
+    // Completion of the requested selection is separate from successful SDK Skip.
+    size_t ExpectedItems;
+    size_t CompletedItems;
+    bool PendingItem;
+    bool ExtractionIncomplete;
+
+    bool IsSelectionComplete() const
+    {
+        return NumErrors == 0 && !ExtractionIncomplete && !PendingItem &&
+               ItemsToExtract.empty() && CompletedItems == ExpectedItems;
+    }
 
     const char* GetFileName() { return TargetFileName; }
     FILETIME GetLastWrite() { return ProcessedFileInfo.LastWrite; }

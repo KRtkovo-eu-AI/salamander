@@ -26,7 +26,7 @@ protected:
     CGUIProgressBarAbstract *ProgressBar1, *ProgressBar2;
     CGUIStaticTextAbstract *Label1, *Label2;
     BOOL WantCancel;
-    char SrcName[MAX_PATH], DestName[MAX_PATH];
+    std::string SrcName, DestName;
     DWORD LastTick, FileProgress, TotalProgress;
     BOOL Changed[4];
 
@@ -92,11 +92,12 @@ protected:
 class CRestoreDialog : public CDialog
 {
 public:
-    CRestoreDialog(HWND parent);
+    CRestoreDialog(HWND parent, const CSalamanderDiskSelection& selection);
 
-    char TargetPath[MAX_PATH];
+    std::string TargetPath;
 
 protected:
+    const CSalamanderDiskSelection& Selection;
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 };
 

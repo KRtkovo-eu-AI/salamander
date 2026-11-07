@@ -1,0 +1,81 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual production snapshot methods; only panel storage/painting/navigation dependencies are doubles.
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <memory>
+#include <set>
+#include <cstdio>
+#include <utility>
+@@STATE@@
+constexpr int ptDisk=0;
+struct Row { std::wstring Identity; BOOL Selected=FALSE; };
+struct Rows { std::vector<Row> Data; int Count=0; Row& At(int n){return Data.at(n);} };
+struct List { int GetTopIndex(){return 7;} int GetXOffset(){return 19;} };
+struct Branch { int PathColumnWidth=333,OriginalViewTemplate=5,OriginalSort=2; DWORD OriginalSortCustomData=71; BOOL OriginalReverseSort=TRUE; std::wstring PendingFocus; std::shared_ptr<CBranchViewRestoreState> RestoreState; std::set<std::wstring> RestoreSelected; };
+struct CFilesWindow {
+ Rows Storage,DirsStorage; Rows* Files=&Storage; Rows* Dirs=&DirsStorage; List Box; List* ListBox=&Box;
+ std::unique_ptr<Branch> Owned=std::make_unique<Branch>(); Branch* BranchView=Owned.get();
+ bool Mode=true,Disk=true; int View=6,Caret=1,Toggles=0,Rebuilds=0;
+ bool IsBranchView(){return Mode;} bool Is(int){return Disk;} int GetViewTemplateIndex(){return View;}
+ int GetCaretIndex(){return Caret;} std::wstring GetItemIdentityW(Row& f){return f.Identity;}
+ void ToggleBranchView(){++Toggles;Mode=true;} void SelectViewTemplate(int v,BOOL,BOOL){View=v;}
+ void BuildColumnsTemplate(){++Rebuilds;}
+ CBranchViewRestoreState CaptureBranchViewState(); void RestoreBranchViewState(const CBranchViewRestoreState&);
+};
+@@METHODS@@
+struct CPluginFSInterfaceAbstract{}; struct CPluginFSInterfaceEncapsulation{};
+#define TRACE_E(x) ((void)0)
+struct CPathHistoryItem {
+ std::string Path; int Top=0; std::string Name; std::shared_ptr<CBranchViewRestoreState> BranchState;
+ CPathHistoryItem(int,const char* p,const char*,void*,CPluginFSInterfaceAbstract*):Path(p){}
+ bool IsTheSamePath(CPathHistoryItem& b,CPluginFSInterfaceEncapsulation*){return Path==b.Path;}
+ void ChangeData(int n,const char* p){Top=n;Name=p?p:"";}
+};
+struct HistoryRows {int Count=0; std::vector<CPathHistoryItem*> Data; CPathHistoryItem* operator[](int n){return Data.at(n);} };
+struct CPathHistory {HistoryRows Paths; int ForwardIndex=-1; void ChangeActualPathData(int,const char*,const char*,CPluginFSInterfaceAbstract*,CPluginFSInterfaceEncapsulation*,int,const char*,const CBranchViewRestoreState*);};
+@@HISTORY@@
+static int checks=0,failures=0;
+static void Check(bool v,const char* message){++checks;if(!v){++failures;std::printf("FAIL %s\n",message);}}
+int main(){
+ CFilesWindow p; const std::wstring a=L"C:\\root\\ascii\\same.png",b=L"C:\\root\\žluťoučký-東京\\same.png",c=L"C:\\root\\"+std::wstring(300,L'漢')+L"\\same.png";
+ p.Storage.Data={{a,FALSE},{b,TRUE},{c,TRUE}};p.Storage.Count=3;
+ auto state=p.CaptureBranchViewState();
+ Check(state.Enabled&&state.Focus==b,"capture full focus identity among equal basenames");
+ Check(state.Selected==std::vector<std::wstring>({b,c}),"capture explicit selection including long Unicode path");
+ Check(state.TopIndex==7&&state.XOffset==19&&state.ViewTemplate==6,"capture viewport and selected layout");
+ Check(state.OriginalSort==2&&state.OriginalSortCustomData==71&&state.OriginalReverseSort,"capture original sort contract");
+ std::swap(p.Storage.Data[0],p.Storage.Data[1]);p.Caret=0;
+ Check(p.CaptureBranchViewState().Focus==b,"reordering does not confuse focus identity");
+ p.Storage.Data[0].Selected=FALSE;
+ Check(state.Selected.size()==2,"snapshot owns selection independently of live panel mutation");
+ SetEnvironmentVariableW(L"SAMANDARIN_EXPERIMENTAL_BRANCH_VIEW",NULL);p.Mode=false;
+ p.RestoreBranchViewState(state);Check(p.Mode&&p.Toggles==1&&p.Rebuilds==1,"public disk restore activates without process opt-in");
+ p.Mode=false;p.Toggles=0;p.Rebuilds=0;
+ SetEnvironmentVariableW(L"SAMANDARIN_EXPERIMENTAL_BRANCH_VIEW",L"1");p.Disk=false;
+ p.RestoreBranchViewState(state);Check(!p.Mode&&p.Toggles==0,"archive/plugin panel rejects disk restoration");
+ p.Disk=true;auto disabled=state;disabled.Enabled=false;p.RestoreBranchViewState(disabled);
+ Check(!p.Mode&&p.Toggles==0,"disabled snapshot does not activate collection");
+ p.RestoreBranchViewState(state);Check(p.Mode&&p.Toggles==1&&p.Rebuilds==1,"enabled disk restore activates and rebuilds once");
+ Check(p.BranchView->PendingFocus==b&&p.BranchView->RestoreSelected==std::set<std::wstring>({b,c}),"restoration preserves exact selected full identities");
+ state.Selected.clear();state.Focus=a;
+ Check(p.BranchView->RestoreState->Selected.size()==2&&p.BranchView->RestoreState->Focus==b,"restore owns snapshot across caller lifetime");
+ auto empty=state;empty.Selected.clear();empty.Focus.clear();p.RestoreBranchViewState(empty);
+ Check(p.BranchView->RestoreSelected.empty()&&p.BranchView->PendingFocus.empty(),"explicit empty selection replaces prior pending selection");
+ CPathHistory history;CPathHistoryItem item(0,"C:\\root",nullptr,nullptr,nullptr);history.Paths.Data={&item};history.Paths.Count=1;
+ auto captured=p.CaptureBranchViewState(); history.ChangeActualPathData(0,"C:\\root",nullptr,nullptr,nullptr,2,"same.png",&captured);
+ Check(item.BranchState&&item.BranchState->Focus==b,"history keeps full identity instead of ambiguous basename");
+ captured.Focus=a;captured.Selected.clear();Check(item.BranchState->Focus==b,"history snapshot owns caller state");
+ history.ChangeActualPathData(0,"C:\\other",nullptr,nullptr,nullptr,0,nullptr,nullptr);
+ Check(item.BranchState&&item.BranchState->Focus==b,"unrelated navigation does not mutate current history entry");
+ history.ChangeActualPathData(0,"C:\\root",nullptr,nullptr,nullptr,0,nullptr,nullptr);
+ Check(!item.BranchState,"ordinary folder update clears stale Branch history metadata");
+ history.ForwardIndex=0;history.ChangeActualPathData(0,"C:\\root",nullptr,nullptr,nullptr,0,nullptr,&captured);
+ Check(!item.BranchState,"history before first entry has no accidental target");
+ p.Mode=false;Check(!p.CaptureBranchViewState().Enabled,"ordinary panel captures disabled Branch state");
+ SetEnvironmentVariableW(L"SAMANDARIN_EXPERIMENTAL_BRANCH_VIEW",NULL);
+ std::printf("Branch restore actual production: %d checks, %d failures\n",checks,failures);return failures?1:0;
+}

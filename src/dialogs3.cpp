@@ -5,6 +5,7 @@
 // | 2026-11-07 | Reset Copy/Move options before hiding the expanded controls. | Reset and hide options only hid the dialog without restoring configured defaults. |  | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Restore Copy/Move wait preference when resetting dialog defaults. | Reset options and defaults discarded the Configuration transfer preference's wait behavior. |  | openai/gpt-5.6-luna-pro |
 // | 2026-11-05 | Save and reset Copy/Move transfer, conflict, and wait dialog defaults. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
+// | 2026-11-06 | Combine Branch path controls with per-operation scheduling controls. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -29,6 +30,7 @@
 #include "worker.h"
 #include "menu.h"
 #include "darkmode.h"
+#include "common/widepath.h"
 
 namespace
 {
@@ -1250,6 +1252,35 @@ MENU_TEMPLATE_ITEM EditNewFileDialogMenu[] =
 // CCopyMoveMoreDialog
 //
 
+// Shared atomic path read for Copy/Move and Unpack; never turn a shortened edit value into an I/O path.
+static BOOL ReadUnpackDialogPath(HWND control, int capacity, std::string& path, int& errorTextID)
+{
+    path.clear();
+    errorTextID = IDS_PATHISINVALID;
+    if (capacity <= 0 || !IsWindow(control) || !IsWindowUnicode(control)) return FALSE;
+    const int length = GetWindowTextLengthW(control);
+    if (length >= SAL_MAX_PATH)
+    {
+        errorTextID = IDS_TOOLONGPATH;
+        return FALSE;
+    }
+    std::vector<wchar_t> text((size_t)length + 1, L'\0');
+    SetLastError(ERROR_SUCCESS);
+    const int copied = GetWindowTextW(control, text.data(), (int)text.size());
+    if (copied != length || (copied == 0 && GetLastError() != ERROR_SUCCESS) ||
+        GetWindowTextLengthW(control) != copied) return FALSE;
+    const std::wstring exact(text.data(), copied);
+    std::string encoded = SalWideToMultiBytePath(exact.c_str(), CP_UTF8);
+    if (SalMultiByteToWidePath(encoded.c_str(), CP_UTF8) != exact) return FALSE;
+    if (encoded.size() >= (size_t)capacity)
+    {
+        errorTextID = IDS_TOOLONGPATH;
+        return FALSE;
+    }
+    path.swap(encoded);
+    return TRUE;
+}
+
 CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSize, char* title,
                                          CTruncatedString* subject, DWORD helpID,
                                          char* history[], int historyCount, CCriteriaData* criteriaInOut,
@@ -1258,11 +1289,14 @@ CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSiz
                                          int* conflictModeInOut,
                                          int* operationSchedulingOverrideInOut,
                                          const std::vector<std::string>* targetPaths,
-                                         BOOL allowChangeTarget)
+                                         BOOL allowChangeTarget, BOOL* keepBranchPathsInOut)
     : CCommonDialog(HLanguage,
                     targetPaths == NULL ? IDD_COPYMOVEMOREDIALOG : IDD_COPYTOSELECTEDDIRSDIALOG,
                     helpID, parent)
 {
+#ifndef _UNICODE
+    UnicodeWnd = TRUE;
+#endif
     if (history == NULL && targetPaths == NULL)
         TRACE_E("CCopyMoveMoreDialog without history is not supported.");
 
@@ -1288,6 +1322,8 @@ CCopyMoveMoreDialog::CCopyMoveMoreDialog(HWND parent, char* path, int pathBufSiz
                   *OperationSchedulingOverrideInOut == COSO_WAIT_ALL);
     TargetPaths = targetPaths;
     AllowChangeTarget = allowChangeTarget;
+    KeepBranchPathsInOut = keepBranchPathsInOut;
+    KeepBranchPathsInOut = keepBranchPathsInOut;
     MoreButton = NULL;
 }
 
@@ -1303,6 +1339,22 @@ CCopyMoveMoreDialog::~CCopyMoveMoreDialog()
 void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCopyMoveMoreDialog::Transfer()");
+    std::string target;
+    if (ti.Type == ttDataFromWindow && TargetPaths == NULL)
+    {
+        HWND control;
+        int errorTextID = IDS_PATHISINVALID;
+        if (Path == NULL || !ti.GetControl(control, IDE_PATH) ||
+            !ReadUnpackDialogPath(ResolveComboEditControl(control), PathBufSize, target, errorTextID))
+        {
+            if (ti.IsGood())
+            {
+                SalMessageBox(HWindow, LoadStr(errorTextID), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                ti.ErrorOn(IDE_PATH);
+            }
+            return; // Do not approve a partial path or change history/options on failure.
+        }
+    }
     if (TargetPaths != NULL)
     {
         if (ti.Type == ttDataToWindow)
@@ -1323,21 +1375,40 @@ void CCopyMoveMoreDialog::Transfer(CTransferInfo& ti)
         {
             if (ti.Type == ttDataToWindow)
             {
-                LoadComboFromStdHistoryValues(hWnd, History, HistoryCount);
-                SendMessage(hWnd, CB_LIMITTEXT, PathBufSize - 1, 0);
-                SetControlTextUtf8(hWnd, Path);
+                SendMessage(hWnd, CB_RESETCONTENT, 0, 0);
+                for (int index = 0; index < HistoryCount; ++index)
+                {
+                    if (History[index] == NULL || History[index][0] == 0) continue;
+                    const std::wstring item = SalMultiByteToWidePath(History[index], IsValidPathUtf8Text(History[index]) ? CP_UTF8 : CP_ACP);
+                    if (!item.empty()) SendMessageW(hWnd, CB_ADDSTRING, 0, (LPARAM)item.c_str());
+                }
+                SendMessage(hWnd, CB_LIMITTEXT, PathBufSize > 0 ? PathBufSize - 1 : 0, 0);
+                const std::wstring initial = SalMultiByteToWidePath(Path, IsValidPathUtf8Text(Path) ? CP_UTF8 : CP_ACP);
+                SetWindowTextW(hWnd, initial.c_str());
             }
             else
             {
-                GetControlTextUtf8(hWnd, Path, PathBufSize);
+                memcpy(Path, target.c_str(), target.size() + 1);
                 AddValueToStdHistoryValues(History, HistoryCount, Path, FALSE);
             }
         }
     }
     else
     {
-        ti.EditLine(IDE_PATH, Path, PathBufSize);
+        if (ti.Type == ttDataFromWindow)
+            memcpy(Path, target.c_str(), target.size() + 1);
+        else
+        {
+            HWND control;
+            if (ti.GetControl(control, IDE_PATH))
+            {
+                const std::wstring initial = SalMultiByteToWidePath(Path, IsValidPathUtf8Text(Path) ? CP_UTF8 : CP_ACP);
+                SetWindowTextW(control, initial.c_str());
+            }
+        }
     }
+    if (KeepBranchPathsInOut != NULL)
+        ti.CheckBox(IDC_BRANCH_KEEP_PATHS, *KeepBranchPathsInOut);
     TransferCriteriaControls(ti);
     if (TransferModeInOut != NULL)
     {
@@ -1602,7 +1673,7 @@ void CCopyMoveMoreDialog::SetOptionsButtonState(BOOL more)
 void CCopyMoveMoreDialog::DisplayMore(BOOL more, BOOL fast)
 {
     // hide the concealed controls so they are removed from the tab order
-    int controls[] = {IDC_CM_NEWER, IDC_CM_STARTONIDLE, IDC_CM_TRANSFERMODE_LABEL, IDC_CM_TRANSFERMODE, IDC_CM_CONFLICTMODE_LABEL, IDC_CM_CONFLICTMODE, IDC_CM_SPEEDLIMIT, IDE_CM_SPEEDLIMIT,
+    int controls[] = {IDC_BRANCH_KEEP_PATHS, IDC_CM_NEWER, IDC_CM_STARTONIDLE, IDC_CM_TRANSFERMODE_LABEL, IDC_CM_TRANSFERMODE, IDC_CM_CONFLICTMODE_LABEL, IDC_CM_CONFLICTMODE, IDC_CM_SPEEDLIMIT, IDE_CM_SPEEDLIMIT,
                       IDC_CM_SPEEDLIMITUNITS, IDC_CM_SECURITY, IDC_CM_COPYATTRS,
                       IDC_CM_DIRTIME, IDC_CM_IGNADS, IDC_CM_EMPTY, IDC_CM_NAMED_MASK, IDC_CM_NAMED,
                       IDC_FILEMASK_HINT, IDC_CM_ADVANCED, IDC_CM_ADVANCED_INFO,
@@ -1624,7 +1695,7 @@ void CCopyMoveMoreDialog::DisplayMore(BOOL more, BOOL fast)
             SendMessage(HWindow, DM_SETDEFID, IDOK, 0);
             SetFocus(GetDlgItem(HWindow, TargetPaths == NULL ? IDE_PATH : IDC_COPY_TARGETDIRS));
         }
-        ShowWindow(hCtrl, more ? SW_SHOW : SW_HIDE);
+        ShowWindow(hCtrl, more && (controls[i] != IDC_BRANCH_KEEP_PATHS || KeepBranchPathsInOut != NULL) ? SW_SHOW : SW_HIDE);
     }
 
     int yOffset = more ? SpacerHeight : -SpacerHeight;
@@ -1643,6 +1714,11 @@ void CCopyMoveMoreDialog::DisplayMore(BOOL more, BOOL fast)
 
     if (!more && !fast) // fast is TRUE when the controls hold default values and don't need resetting
     {
+        if (KeepBranchPathsInOut != NULL)
+        {
+            *KeepBranchPathsInOut = FALSE;
+            CheckDlgButton(HWindow, IDC_BRANCH_KEEP_PATHS, BST_UNCHECKED);
+        }
         Criteria->Reset();
         CTransferInfo ti(HWindow, ttDataToWindow);
         TransferCriteriaControls(ti);
@@ -1725,6 +1801,8 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);
         }
 
+        SetDlgItemText(HWindow, IDC_BRANCH_KEEP_PATHS, LoadStr(IDS_BRANCH_KEEP_PATHS));
+        ShowWindow(GetDlgItem(HWindow, IDC_BRANCH_KEEP_PATHS), KeepBranchPathsInOut != NULL ? SW_SHOW : SW_HIDE);
         UpdateTransferModeControls();
         EnableWindow(GetDlgItem(HWindow, IDC_CM_SECURITY), HavePermissions);
         EnableWindow(GetDlgItem(HWindow, IDC_CM_IGNADS), SupportsADS);
@@ -1765,7 +1843,7 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         GetWindowRect(GetDlgItem(HWindow, IDC_CM_SPACER), &r);
         SpacerHeight = r.bottom - r.top;
 
-        if (!Criteria->IsDirty())
+        if (!Criteria->IsDirty() && KeepBranchPathsInOut == NULL)
             DisplayMore(FALSE, TRUE);
         break;
     }
@@ -1830,6 +1908,7 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case IDC_CM_COPYATTRS:
                 case IDC_CM_SECURITY:
                 case IDC_CM_DIRTIME:
+                case IDC_BRANCH_KEEP_PATHS:
                 case IDC_CM_IGNADS:
                 case IDC_CM_EMPTY:
                 case IDC_CM_NAMED:
@@ -2992,39 +3071,159 @@ CPackDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // CUnpackDialog
 //
 
-CUnpackDialog::CUnpackDialog(HWND parent, char* path, const char* pathAlt, char* mask,
+CUnpackDialog::CUnpackDialog(HWND parent, char* path, int pathBufSize, const char* pathAlt, char* mask,
                              CTruncatedString* subject, CUnpackerConfig* config,
-                             BOOL* delArchiveWhenDone)
+                             BOOL* delArchiveWhenDone, BOOL allowDeleteArchive)
     : CCommonDialog(HLanguage, IDD_UNPACK, IDD_UNPACK, parent)
 {
+#ifndef _UNICODE
+    UnicodeWnd = TRUE;
+#endif
+    PathBufSize = pathBufSize;
     Subject = subject;
     Path = path;
     PathAlt = pathAlt;
     Mask = mask;
     UnpackerConfig = config;
     DelArchiveWhenDone = delArchiveWhenDone;
+    AllowDeleteArchive = allowDeleteArchive;
+}
+
+bool CUnpackDialog::CaptureUnpackerChoices()
+{
+    UnpackerChoices.clear();
+    if (UnpackerConfig == NULL)
+        return false;
+    try
+    {
+        std::vector<CUnpackerChoice> choices;
+        for (int i = 0; i < UnpackerConfig->GetUnpackersCount(); ++i)
+        {
+            CUnpackerChoice choice;
+            const char* title = UnpackerConfig->GetUnpackerTitle(i);
+            const char* ext = UnpackerConfig->GetUnpackerExt(i);
+            if (title == NULL || ext == NULL)
+                return false;
+            choice.Title = title;
+            choice.Extensions = ext;
+            choice.Type = UnpackerConfig->GetUnpackerType(i);
+            choice.OldType = UnpackerConfig->GetUnpackerOldType(i);
+            if (choice.OldType || choice.Type > CUSTOMUNPACKER_EXTERNAL)
+                return false;
+            if (choice.Type == CUSTOMUNPACKER_EXTERNAL)
+            {
+                const char* command = UnpackerConfig->GetUnpackerCmdExecExtract(i);
+                const char* arguments = UnpackerConfig->GetUnpackerCmdArgsExtract(i);
+                if (command == NULL || arguments == NULL)
+                    return false;
+                choice.Command = command;
+                choice.Arguments = arguments;
+                choice.SupportLongNames = UnpackerConfig->GetUnpackerSupLongNames(i);
+                choice.NeedANSIListFile = UnpackerConfig->GetUnpackerNeedANSIListFile(i);
+            }
+            else
+            {
+                choice.Plugin = Plugins.Get(-(choice.Type + 1));
+                if (choice.Plugin == NULL || choice.Plugin->DLLName == NULL)
+                    return false;
+                choice.DLLName = choice.Plugin->DLLName;
+                choice.SupportCustomUnpack = choice.Plugin->SupportCustomUnpack;
+            }
+            choices.push_back(std::move(choice));
+        }
+        UnpackerChoices.swap(choices);
+    }
+    catch (const std::bad_alloc&)
+    {
+        UnpackerChoices.clear();
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return false;
+    }
+    return true;
+}
+
+bool CUnpackDialog::IsUnpackerChoiceCurrent(int index) const
+{
+    if (UnpackerConfig == NULL || index < 0 || (size_t)index >= UnpackerChoices.size() ||
+        index >= UnpackerConfig->GetUnpackersCount())
+        return false;
+    const CUnpackerChoice& choice = UnpackerChoices[index];
+    const char* title = UnpackerConfig->GetUnpackerTitle(index);
+    const char* ext = UnpackerConfig->GetUnpackerExt(index);
+    if (title == NULL || ext == NULL || choice.Title != title || choice.Extensions != ext ||
+        choice.Type != UnpackerConfig->GetUnpackerType(index) || choice.OldType != UnpackerConfig->GetUnpackerOldType(index))
+        return false;
+    if (choice.Type == CUSTOMUNPACKER_EXTERNAL)
+    {
+        const char* command = UnpackerConfig->GetUnpackerCmdExecExtract(index);
+        const char* arguments = UnpackerConfig->GetUnpackerCmdArgsExtract(index);
+        return command != NULL && arguments != NULL && choice.Command == command && choice.Arguments == arguments &&
+               choice.SupportLongNames == UnpackerConfig->GetUnpackerSupLongNames(index) &&
+               choice.NeedANSIListFile == UnpackerConfig->GetUnpackerNeedANSIListFile(index);
+    }
+    CPluginData* live = Plugins.Get(-(choice.Type + 1));
+    return live != NULL && live == choice.Plugin && live->DLLName != NULL &&
+           _stricmp(live->DLLName, choice.DLLName.c_str()) == 0 &&
+           choice.SupportCustomUnpack && live->SupportCustomUnpack == choice.SupportCustomUnpack;
+}
+
+bool CUnpackDialog::IsSelectionCurrent() const
+{
+    return UnpackerConfig != NULL && UnpackerConfig->GetPreferedUnpacker() == SelectedUnpacker &&
+           IsUnpackerChoiceCurrent(SelectedUnpacker);
 }
 
 void CUnpackDialog::EnableDelArcCheckbox()
 {
     int i = (int)SendDlgItemMessage(HWindow, IDC_PACKER, CB_GETCURSEL, 0, 0);
     EnableWindow(GetDlgItem(HWindow, IDC_DELETEARCHIVEFILES),
-                 i != CB_ERR && UnpackerConfig->GetUnpackerType(i) != CUSTOMUNPACKER_EXTERNAL);
+                 AllowDeleteArchive && IsUnpackerChoiceCurrent(i) && UnpackerChoices[i].Type != CUSTOMUNPACKER_EXTERNAL);
 }
 
 void CUnpackDialog::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CUnpackDialog::Transfer()");
     HWND combo;
+    std::string target;
+    if (ti.Type == ttDataFromWindow)
+    {
+        int errorTextID = IDS_PATHISINVALID;
+        if (!ti.GetControl(combo, IDE_PATH) || !ReadUnpackDialogPath(combo, PathBufSize, target, errorTextID))
+        {
+            // Missing controls are already marked by CTransferInfo; do not change caller state.
+            if (ti.IsGood())
+            {
+                SalMessageBox(HWindow, LoadStr(errorTextID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                ti.ErrorOn(IDE_PATH);
+            }
+            return;
+        }
+    }
     if (ti.GetControl(combo, IDC_PACKER))
     {
         if (ti.Type == ttDataToWindow)
         {
+            SelectedUnpacker = -1;
             SendMessage(combo, CB_RESETCONTENT, 0, 0);
-            int i;
-            for (i = 0; i < UnpackerConfig->GetUnpackersCount(); i++)
+            SetLastError(ERROR_RETRY);
+            if (!CaptureUnpackerChoices())
             {
-                SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)UnpackerConfig->GetUnpackerTitle(i));
+                const DWORD error = GetLastError();
+                SalMessageBox(HWindow, GetErrorText(error), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                ti.ErrorOn(IDC_PACKER);
+                return;
+            }
+            for (size_t i = 0; i < UnpackerChoices.size(); ++i)
+            {
+                const LRESULT added = SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)UnpackerChoices[i].Title.c_str());
+                if (added == CB_ERR || added == CB_ERRSPACE)
+                {
+                    UnpackerChoices.clear();
+                    SendMessage(combo, CB_RESETCONTENT, 0, 0);
+                    SalMessageBox(HWindow, GetErrorText(ERROR_NOT_ENOUGH_MEMORY), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                    ti.ErrorOn(IDC_PACKER);
+                    return;
+                }
             }
             // set the position in the combo, preferredUnpacker == -1 -> no selection
             SendMessage(combo, CB_SETCURSEL, (WPARAM)UnpackerConfig->GetPreferedUnpacker(), 0);
@@ -3033,26 +3232,40 @@ void CUnpackDialog::Transfer(CTransferInfo& ti)
         else // ttDataFromWindow
         {
             int i = (int)SendMessage(combo, CB_GETCURSEL, 0, 0);
-            if (i != CB_ERR)
-                UnpackerConfig->SetPreferedUnpacker(i);
-            else
-                UnpackerConfig->SetPreferedUnpacker(-1);
+            if (i != CB_ERR && !IsUnpackerChoiceCurrent(i))
+            {
+                SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                ti.ErrorOn(IDC_PACKER);
+                return;
+            }
+            SelectedUnpacker = i != CB_ERR ? i : -1;
+            UnpackerConfig->SetPreferedUnpacker(SelectedUnpacker);
         }
     }
+    else
+        return; // Missing backend control must not commit any caller fields.
     if (ti.Type == ttDataToWindow)
     {
         ti.GetControl(combo, IDE_PATH);
-        SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)Path);
+        const auto widePath = [](const char* value) {
+            return SalMultiByteToWidePath(value, IsValidPathUtf8Text(value) ? CP_UTF8 : CP_ACP);
+        };
+        const std::wstring initial = widePath(Path);
+        const std::wstring alternate = widePath(PathAlt);
+        SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)initial.c_str());
         // if the alternative path matches the first one, don't add it (target isn't ptDisk)
         if (StrICmp(Path, PathAlt) != 0)
-            SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)PathAlt);
+            SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)alternate.c_str());
+        SendMessage(combo, CB_LIMITTEXT, PathBufSize > 0 ? PathBufSize - 1 : 0, 0);
         SendMessage(combo, CB_SETCURSEL, 0, 0);
-        ti.CheckBox(IDC_DELETEARCHIVEFILES, *DelArchiveWhenDone);
+        SetWindowTextW(combo, initial.c_str());
+        BOOL showDelete = AllowDeleteArchive && *DelArchiveWhenDone;
+        ti.CheckBox(IDC_DELETEARCHIVEFILES, showDelete);
     }
     else
     {
-        ti.EditLine(IDE_PATH, Path, MAX_PATH);
-        if (IsWindowEnabled(GetDlgItem(HWindow, IDC_DELETEARCHIVEFILES)))
+        memcpy(Path, target.c_str(), target.size() + 1);
+        if (AllowDeleteArchive && IsWindowEnabled(GetDlgItem(HWindow, IDC_DELETEARCHIVEFILES)))
             ti.CheckBox(IDC_DELETEARCHIVEFILES, *DelArchiveWhenDone);
         else
             *DelArchiveWhenDone = FALSE;
@@ -3073,7 +3286,10 @@ CUnpackDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         HWND hSubject = GetDlgItem(HWindow, IDS_SUBJECT);
         if (Subject->TruncateText(hSubject))
-            SetWindowText(hSubject, Subject->Get());
+        {
+            if (Subject->IsWide()) SetWindowTextW(hSubject, Subject->GetW());
+            else SetControlTextUtf8(hSubject, Subject->Get());
+        }
 
         CHyperLink* hl = new CHyperLink(HWindow, IDC_FILEMASK_HINT, STF_DOTUNDERLINE);
         if (hl != NULL)

@@ -140,6 +140,28 @@ void SplitPath2(const char* pathToSplit, char* path, char* name, char* ext)
     }
 }
 
+int CZipCommon::RecordArchiveVolume()
+{
+    if (!ArchiveVolumesComplete)
+        return IDS_LOWMEM;
+    if (ArchiveVolumes == NULL)
+        return 0;
+
+    char* volume = _strdup(ZipName);
+    if (volume == NULL)
+    {
+        ArchiveVolumesComplete = false;
+        return IDS_LOWMEM;
+    }
+    if (!ArchiveVolumes->Add(volume))
+    {
+        free(volume); // the array did not accept ownership
+        ArchiveVolumesComplete = false;
+        return IDS_LOWMEM;
+    }
+    return 0;
+}
+
 int CZipCommon::ChangeDisk()
 {
     CALL_STACK_MESSAGE1("CZipCommon::ChangeDisk()");
@@ -207,9 +229,7 @@ int CZipCommon::ChangeDisk()
     } while (retry);
     CHDiskFlags &= ~CHD_FIRST;
     //if (*OriginalCurrentDir)  SetCurrentDirToZipPath();
-    if (ArchiveVolumes != NULL)
-        ArchiveVolumes->Add(_strdup(ZipName));
-    return 0;
+    return RecordArchiveVolume();
 }
 
 void CZipCommon::FindLastFile(char* lastFile)

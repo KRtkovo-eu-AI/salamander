@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Post coalesced Find result refreshes asynchronously. | Keep the search worker from blocking the GUI thread during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -1442,6 +1445,15 @@ BOOL TestFileContent(DWORD sizeLow, DWORD sizeHigh, const char* path, CGrepData*
     return ok;
 }
 
+static void RequestFindResultsRefresh(CGrepData* data)
+{
+    if (InterlockedExchange(&data->RefreshPosted, TRUE) == FALSE &&
+        !PostMessage(data->HWindow, WM_USER_ADDFILE, 0, 0))
+    {
+        InterlockedExchange(&data->RefreshPosted, FALSE);
+    }
+}
+
 BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeHigh,
                   DWORD attr, const FILETIME* lastWrite, BOOL isDir, CGrepData* data,
                   CDuplicateCandidates* duplicateCandidates)
@@ -1476,7 +1488,7 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
                         GetTickCount() - data->FoundVisibleTick >= 500
                         /* || data->Grep*/) // a half-second update interval is enough even for grepping
                     {
-                        SendMessage(data->HWindow, WM_USER_ADDFILE, 0, 0);
+                        RequestFindResultsRefresh(data);
                     }
                     else
                         data->NeedRefresh = TRUE; // we will redraw at latest after 0.5 second
@@ -1585,7 +1597,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
                 // we request the listview to redraw
                 if (data->NeedRefresh && GetTickCount() - data->FoundVisibleTick >= 500)
                 {
-                    SendMessage(data->HWindow, WM_USER_ADDFILE, 0, 0);
+                    RequestFindResultsRefresh(data);
                     data->NeedRefresh = FALSE;
                 }
 
@@ -1996,7 +2008,7 @@ unsigned GrepThreadFBody(void* ptr)
     }
 
     data->SearchStopped = data->StopSearch;
-    SendMessage(data->HWindow, WM_USER_ADDFILE, 0, 0); // update the listview
+    RequestFindResultsRefresh(data); // update the listview
     PostMessage(data->HWindow, WM_COMMAND, IDC_FIND_STOP, 0);
     if (data->Criteria.HasTags() && SUCCEEDED(tagsCOM))
         CoUninitialize();

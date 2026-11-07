@@ -1,0 +1,61 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual ZIP guards/I/O helpers; no filesystem facade. ZIP decompression/host UI are excluded.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <filesystem>
+#include <cstdio>
+#include <cstring>
+#include <new>
+#define ZIP_MAX_PATH 32768
+@@CONVERSIONS@@
+@@ACTUAL@@
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char* label){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",label);}}
+static std::string Utf8(const std::wstring& w){int n=WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,w.data(),(int)w.size(),nullptr,0,nullptr,nullptr);std::string s(n,'\0');if(n)WideCharToMultiByte(CP_UTF8,WC_ERR_INVALID_CHARS,w.data(),(int)w.size(),s.data(),n,nullptr,nullptr);return s;}
+static std::wstring Full(std::filesystem::path p){p.make_preferred();return ZipPathAddExtendedPrefix(ZipPathToWide(Utf8(p.wstring()).c_str()));}
+static bool Write(const std::filesystem::path& p,const char* data){HANDLE h=CreateFileW(Full(p).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);if(h==INVALID_HANDLE_VALUE)return false;DWORD n=0;bool ok=WriteFile(h,data,(DWORD)strlen(data),&n,nullptr)&&n==strlen(data);CloseHandle(h);return ok;}
+static std::string Read(const std::filesystem::path& p){HANDLE h=CreateFileW(Full(p).c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);if(h==INVALID_HANDLE_VALUE)return {};char b[64]={};DWORD n=0;bool ok=ReadFile(h,b,sizeof(b),&n,nullptr)!=FALSE;CloseHandle(h);return ok?std::string(b,n):std::string();}
+int wmain(int argc,wchar_t**argv){
+ setvbuf(stdout,nullptr,_IONBF,0);if(argc!=2)return 2;
+ std::filesystem::path root=std::filesystem::absolute(argv[1]);root.make_preferred();
+ if(root.filename()!=L"owned-fixtures"||std::filesystem::exists(Full(root)))return 3;
+ std::filesystem::create_directories(Full(root));
+ const auto keep=root/L"outside-keep.txt";Check(Write(keep,"outside identity"),"create outside sentinel");
+ const std::vector<std::filesystem::path> shapes={L"ascii",L"unicode-name",L"rodič-東京",std::filesystem::path(L"první-🙂")/L"druhý-東京",std::wstring(100,L'東'),std::filesystem::path(std::wstring(90,L'日'))/std::wstring(90,L'本')/std::wstring(90,L'東')};
+ for(size_t i=0;i<shapes.size();++i){
+  auto parent=root/shapes[i];std::filesystem::create_directories(Full(parent));
+  const std::wstring name=i==1?L"soubor-東京-🙂.txt":L"same.txt";
+  std::string target=Utf8(parent.wstring()),entry=Utf8(name);const auto path=parent/name;const std::string bytes=Utf8(path.wstring());
+  Check(ZipExtractTargetError(target.c_str(),(int)target.size(),entry.c_str(),0,nullptr,false)==ERROR_SUCCESS,"exact target accepts full supported destination");
+  Check(Write(path,"exact payload"),"create real payload through wide extended path");
+  Check(Read(path)=="exact payload","readback exact target identity");
+  Check(SetZipExtractAttributes(bytes.c_str(),FILE_ATTRIBUTE_READONLY|FILE_ATTRIBUTE_HIDDEN)!=FALSE,"actual wide output attributes");
+  const auto attributes=GetFileAttributesW(Full(path).c_str());Check((attributes&(FILE_ATTRIBUTE_READONLY|FILE_ATTRIBUTE_HIDDEN))==(FILE_ATTRIBUTE_READONLY|FILE_ATTRIBUTE_HIDDEN),"read-only and hidden flags verified at exact path");
+  Check(!DeleteZipExtractOutput(bytes.c_str(),false)&&GetFileAttributesW(Full(path).c_str())!=INVALID_FILE_ATTRIBUTES,"ordinary cleanup preserves read-only denial");
+  Check(DeleteZipExtractOutput(bytes.c_str(),true)&&GetFileAttributesW(Full(path).c_str())==INVALID_FILE_ATTRIBUTES,"CRC cleanup clears only read-only and deletes exact output");
+  Check(Read(keep)=="outside identity","outside sentinel untouched");
+  if(i==4)Check(bytes.size()>MAX_PATH&&path.wstring().size()<MAX_PATH,"UTF8 byte-long case verified");
+  if(i==5)Check(path.wstring().size()>MAX_PATH,"full UTF16 long case verified");
+ }
+ const std::string target=Utf8(root.wstring());const auto len=(int)target.size();
+ for(const char* entry:{"..\\outside-keep.txt",".\\same.txt","folder\\..\\same.txt","folder\\.\\same.txt","\\absolute.txt","C:\\drive.txt","file:stream","CON","nul.txt","COM1.log","Lpt9","COM\xc2\xb9.txt","LPT\xc2\xb2","CONIN$","bad.\\x","bad \\x","a\\\\b","x\\","a/b","a?b"})
+  Check(ZipExtractTargetError(target.c_str(),len,entry,0,nullptr,false)==ERROR_INVALID_NAME,"unsafe/ambiguous relative entry refused before I/O");
+ Check(ZipExtractTargetError(target.c_str(),len,"sub\\name.txt",3,nullptr,false)==ERROR_SUCCESS,"valid archive root boundary accepted");
+ Check(ZipExtractTargetError(target.c_str(),len,"sub\\name.txt",2,nullptr,false)==ERROR_INVALID_NAME,"mid-component root boundary refused");
+ Check(ZipExtractTargetError(target.c_str(),len,"name.txt",999,nullptr,false)==ERROR_INVALID_NAME,"out-of-range root refused");
+ Check(ZipExtractTargetError(target.c_str(),len-1,"name.txt",0,nullptr,false)==ERROR_INVALID_NAME,"inconsistent caller target length refused");
+ Check(ZipExtractTargetError(nullptr,0,"name.txt",0,nullptr,false)==ERROR_INVALID_NAME,"null target refused");
+ Check(ZipExtractTargetError(target.c_str(),len,"sub\\name.txt",0,"renamed.txt",false)==ERROR_SUCCESS,"single extraction replacement basename supported");
+ Check(ZipExtractTargetError(target.c_str(),len,"sub\\name.txt",0,"..\\outside.txt",false)==ERROR_INVALID_NAME,"replacement basename cannot inject traversal");
+ const std::string oversized(ZIP_MAX_PATH,'a');Check(ZipExtractTargetError(target.c_str(),len,oversized.c_str(),0,nullptr,false)==ERROR_FILENAME_EXCED_RANGE,"entry byte capacity refused");
+ Check(ZipExtractTargetError(oversized.c_str(),(int)oversized.size(),"x",0,nullptr,false)==ERROR_FILENAME_EXCED_RANGE,"initial destination capacity refused");
+ const std::string boundaryTarget="C:\\"+std::string(ZIP_MAX_PATH-8,'a');Check(ZipExtractTargetError(boundaryTarget.c_str(),(int)boundaryTarget.size(),"xx",0,nullptr,true)==ERROR_SUCCESS,"CRC-only byte boundary fits without filesystem I/O");
+ Check(ZipExtractTargetError(boundaryTarget.c_str(),(int)boundaryTarget.size(),"xxxxx",0,nullptr,true)==ERROR_FILENAME_EXCED_RANGE,"combined separator/name/NUL overflow refused");
+ Check(ZipExtractTargetError(target.c_str(),len,"..\\outside-keep.txt",0,nullptr,true)==ERROR_SUCCESS,"CRC test remains data-only, with no destination operations");
+ Check(Read(keep)=="outside identity","all refusal checks leave outside payload unchanged");
+ std::error_code ec;std::filesystem::remove_all(Full(root),ec);Check(!ec&&!std::filesystem::exists(Full(root)),"remove only owned fixture root");
+ printf("Actual ZIP extraction target: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

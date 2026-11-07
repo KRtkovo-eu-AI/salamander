@@ -516,6 +516,9 @@
     </ClCompile>
     <ClCompile Include="..\filesmap.cpp">
     </ClCompile>
+    <ClCompile Include="..\branch_view.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\fileswn0.cpp">
     </ClCompile>
     <ClCompile Include="..\fileswn1.cpp">
@@ -955,6 +958,19 @@
     <ClInclude Include="..\color.h">
     </ClInclude>
     <ClInclude Include="..\common\widepath.h" />
+    <ClInclude Include="..\common\localizedtext.h" />
+    <ClInclude Include="..\fileactionpath.h" />
+    <ClInclude Include="..\viewerpath.h" />
+    <ClInclude Include="..\workerpath.h" />
+    <ClInclude Include="..\panel_temporary_selection.h" />
+    <ClInclude Include="..\fileactiondisktarget.h" />
+    <ClInclude Include="..\operationrecycle.h" />
+    <ClInclude Include="..\branchshell.h" />
+    <ClInclude Include="..\branchclipboard.h" />
+    <ClInclude Include="..\branchdroptarget.h" />
+    <ClInclude Include="..\branch_view.h" />
+    <ClInclude Include="..\explorerpropertywork.h" />
+    <ClInclude Include="..\branch_view_text.h" />
     <ClInclude Include="..\common\allochan.h">
     </ClInclude>
     <ClInclude Include="..\common\array.h">
@@ -1060,6 +1076,7 @@
     </ClInclude>
     <ClInclude Include="..\plugins\shared\spl_fs.h">
     </ClInclude>
+    <ClInclude Include="..\plugins\shared\spl_diskselection.h" />
     <ClInclude Include="..\plugins\shared\spl_gen.h">
     </ClInclude>
     <ClInclude Include="..\plugins\shared\spl_gui.h">
@@ -1220,6 +1237,13 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\branchprogram.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="salopen\salopen.vcxproj">
+      <Project>{0606C52C-9DA4-468B-B7A6-5C53A360EA91}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
     <ProjectReference Include="lang.vcxproj">
       <Project>{7c7059ba-1fce-4c36-b0b3-d095779cf89f}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

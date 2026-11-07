@@ -33,11 +33,16 @@ extern CSalamanderGUIAbstract* SalamanderGUI;
 class CZIPFileData
 {
 public:
-    CZIPFileData(QWORD qwPackedSize, int nItem, BOOL bUnix) : PackedSize(qwPackedSize), ItemNumber(nItem), Unix(bUnix) {}
+    CZIPFileData(QWORD qwPackedSize, int nItem, BOOL bUnix) : PackedSize(qwPackedSize), ItemNumber(nItem), Unix(bUnix), OwnedNameW(NULL) {}
+    ~CZIPFileData() { free(OwnedNameW); }
 
     QWORD PackedSize;
     int ItemNumber; // # of item in Cetral Directory, not offset
     BOOL Unix;
+    // The legacy directory callback does not adopt CFileData::NameW. Keep its
+    // optional Unicode view alive with the plugin data, released by the normal
+    // ReleasePluginData callback, including rejected entries and listing resets.
+    wchar_t* OwnedNameW;
 };
 
 struct CExtInfo
@@ -201,6 +206,8 @@ public:
     BOOL AESContextValid; // is it necessary to call fcrypt_end?
 
     TIndirectArray2<char>* ArchiveVolumes;
+    bool ArchiveVolumesComplete; // sticky: a dropped internal volume must never reach deletion
+    int RecordArchiveVolume();
 
     CZipCommon(const char* zipName, const char* zipRoot,
                CSalamanderForOperationsAbstract* salamander,
@@ -295,6 +302,8 @@ extern CConfiguration Config;
 
 char* LoadStr(int resID);
 WCHAR* LoadStrW(int resID);
+// Existing ZIP UTF8-first/ACP path conversion, with long-path prefix for I/O.
+std::wstring ZipPathToWide(const char* path);
 bool IsUTF8Encoded(const char* s, int len);
 int ZipEncodeEntryName(const char* utf8Path, bool isDir, char* dest, int destMax, bool* usedUtf8);
 void ZipUtf8ToOemBuffer(char* name, int nameMax);
@@ -302,6 +311,14 @@ void ZipUtf8ToOemBuffer(char* name, int nameMax);
 int InflateBuffer(char* sour, int sourSize, char* dest, int* destSize);
 int LoadSfxFileData(char* fileName, CSfxLang** lang);
 void GetInfo(char* buffer, FILETIME* lastWrite, QWORD size);
+// Multi-volume/SFX still use legacy path scratch buffers. Normal ZIP packing
+// uses the qualified wide path and is not subject to this limit. Check bytes,
+// since UTF-8 can exceed the legacy capacity before its UTF-16 path is long.
+inline bool ZipPackAdvancedPathFits(const char* archive)
+{
+    return archive != NULL && strlen(archive) < MAX_PATH;
+}
+
 int MakeFileName(int number, bool seqNames, const char* archive, char* name,
                  BOOL winZipNames);
 

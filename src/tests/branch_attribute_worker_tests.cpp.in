@@ -1,0 +1,88 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include "@@HEADER@@"
+#include <filesystem>
+#include <vector>
+#include <cstdio>
+struct CQuadWord {ULONGLONG Value=0;CQuadWord(ULONGLONG v=0):Value(v){} CQuadWord& operator+=(const CQuadWord& b){Value+=b.Value;return *this;}};
+struct COperations {CQuadWord TotalSize=100;};
+struct CProgressDlgData {HANDLE WorkerNotSuspended=nullptr;BOOL* CancelWorker=nullptr;BOOL SkipAllChangeAttrs=FALSE;};
+enum {IDB_SKIP=400,IDB_SKIPALL,IDS_ERRORCOMPRESSING,IDS_ERRORENCRYPTING,IDS_COMPRNOTSUPPORTED,IDS_ENCRYPNOTSUPPORTED,IDS_ERRORCHANGINGATTRS,WM_USER_DIALOG=WM_APP+3};
+static int Reply=IDCANCEL,Dialogs=0,Progress=0,Failures=0,Checks=0,FailReadTime=0,FailWriteTime=0,FailRestore=0,FailOpenTime=0,ReadCalls=0,WriteCalls=0,Closes=0;
+static DWORD LastDialogError=0;static bool TimeAttempted=false;
+static char* LoadStr(int){static char s[]="fixture";return s;}
+static char* GetErrorText(DWORD e){LastDialogError=e;return LoadStr(0);}
+static LRESULT Dialog(HWND,UINT,WPARAM kind,LPARAM p){++Dialogs;if(kind==0)*(int*)((char**)p)[0]=Reply;return 0;}
+static void SetProgress(HWND,int,int,CProgressDlgData&){++Progress;}
+static int CaclProg(const CQuadWord&,const CQuadWord&){return 0;}
+static DWORD UncompressFile(char*,DWORD,const wchar_t* = nullptr){return ERROR_INVALID_FUNCTION;}
+static DWORD CompressFile(char*,DWORD,const wchar_t* = nullptr){return ERROR_INVALID_FUNCTION;}
+static DWORD MyDecryptFile(char*,DWORD,BOOL,const wchar_t* = nullptr){return ERROR_INVALID_FUNCTION;}
+static DWORD MyEncryptFile(HWND,char*,DWORD,DWORD,CProgressDlgData&,BOOL&,BOOL,const wchar_t* = nullptr){return ERROR_INVALID_FUNCTION;}
+static BOOL ReadTime(HANDLE h,FILETIME* c,FILETIME* a,FILETIME* m){++ReadCalls;if(FailReadTime>0){--FailReadTime;SetLastError(ERROR_ACCESS_DENIED);return FALSE;}return ::GetFileTime(h,c,a,m);}
+static BOOL WriteTime(HANDLE h,const FILETIME* c,const FILETIME* a,const FILETIME* m){++WriteCalls;TimeAttempted=true;if(FailWriteTime>0){--FailWriteTime;SetLastError(ERROR_ACCESS_DENIED);return FALSE;}return ::SetFileTime(h,c,a,m);}
+static HANDLE OpenTime(LPCWSTR p,DWORD a,DWORD share,LPSECURITY_ATTRIBUTES sec,DWORD disp,DWORD flags,HANDLE t){if(FailOpenTime>0){--FailOpenTime;SetLastError(ERROR_SHARING_VIOLATION);return INVALID_HANDLE_VALUE;}return ::CreateFileW(p,a,share,sec,disp,flags,t);}
+static BOOL Close(HANDLE h){++Closes;return ::CloseHandle(h);}
+static BOOL Attrs(const wchar_t* p,DWORD a){if(FailRestore>0&&TimeAttempted&&(a&FILE_ATTRIBUTE_READONLY)){--FailRestore;SetLastError(ERROR_ACCESS_DENIED);return FALSE;}return ::SetFileAttributesW(p,a);}
+#define HANDLES_Q(x) (x)
+#define HANDLES(x) (x)
+#pragma push_macro("SendMessage")
+#undef SendMessage
+#define SendMessage Dialog
+#define GetFileTime ReadTime
+#define SetFileTime WriteTime
+#define SetFileAttributesW Attrs
+#define CloseHandle Close
+#define CreateFileW OpenTime
+@@WORKER@@
+#undef GetFileTime
+#undef SetFileTime
+#undef SetFileAttributesW
+#undef CloseHandle
+#undef CreateFileW
+#pragma pop_macro("SendMessage")
+static void Check(bool b,const char* label){++Checks;if(!b){++Failures;printf("FAIL: %s\n",label);}}
+static std::wstring Api(const std::filesystem::path& p){return LR"(\\?\)"+p.wstring();}
+static std::string Utf8(const std::wstring& p){int n=WideCharToMultiByte(CP_UTF8,0,p.c_str(),-1,nullptr,0,nullptr,nullptr);std::string s(n,0);WideCharToMultiByte(CP_UTF8,0,p.c_str(),-1,&s[0],n,nullptr,nullptr);s.resize(n-1);return s;}
+static bool Write(const std::filesystem::path& p){HANDLE h=CreateFileW(Api(p).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,0,nullptr);if(h==INVALID_HANDLE_VALUE)return false;DWORD n=0;BOOL ok=WriteFile(h,"owned",5,&n,nullptr);CloseHandle(h);return ok&&n==5;}
+static bool Payload(const std::filesystem::path& p){HANDLE h=CreateFileW(Api(p).c_str(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_EXISTING,0,nullptr);if(h==INVALID_HANDLE_VALUE)return false;char b[5];DWORD n=0;BOOL ok=ReadFile(h,b,5,&n,nullptr);CloseHandle(h);return ok&&n==5&&memcmp(b,"owned",5)==0;}
+static FILETIME Modified(const std::filesystem::path& p){WIN32_FILE_ATTRIBUTE_DATA d={};GetFileAttributesExW(Api(p).c_str(),GetFileExInfoStandard,&d);return d.ftLastWriteTime;}
+static bool Equal(FILETIME a,FILETIME b){return a.dwLowDateTime==b.dwLowDateTime&&a.dwHighDateTime==b.dwHighDateTime;}
+int wmain(int argc,wchar_t** argv){
+ if(argc!=2)return 2;const auto parent=std::filesystem::absolute(argv[1]).lexically_normal();const auto root=parent/L"owned-attributes";if(root.parent_path()!=parent||std::filesystem::exists(root))return 2;
+ std::filesystem::create_directories(root/L"ascii");std::filesystem::create_directories(root/L"東京"/L"český");auto deep=root;for(int i=0;i<4;++i)deep/=std::wstring(65,L'東');std::filesystem::create_directories(std::filesystem::path(Api(deep)));
+ std::vector<std::filesystem::path> files={root/L"ascii"/L"same.txt",root/L"ascii"/L"東京-🙂.txt",root/L"東京"/L"český"/L"same.txt",deep/L"same.txt",root/(std::wstring(100,L'東')+L".txt"),root/L"trail."};
+ auto sentinel=root/L"untouched.txt";Check(Write(sentinel),"create unselected sentinel");DWORD sentinelAttrs=GetFileAttributesW(Api(sentinel).c_str());
+ BOOL cancel=FALSE,compression=FALSE,encryption=FALSE;COperations script;CQuadWord done;CProgressDlgData data;data.CancelWorker=&cancel;data.WorkerNotSuspended=CreateEventW(nullptr,TRUE,TRUE,nullptr);
+ SYSTEMTIME system={2020,1,0,2,3,4,6,0};FILETIME changed={};SystemTimeToFileTime(&system,&changed);
+ for(const auto& file:files){Check(Write(file),"create owned source");auto name=Utf8(sentinel.wstring());auto exact=Api(file);
+  Check(DoChangeAttrs(nullptr,name.data(),1,FILE_ATTRIBUTE_ARCHIVE|FILE_ATTRIBUTE_READONLY,&script,done,nullptr,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_ARCHIVE,data,exact.c_str()),"actual attribute worker on exact long Unicode source");
+  Check((GetFileAttributesW(exact.c_str())&FILE_ATTRIBUTE_READONLY)!=0&&Payload(file),"readonly set and content intact");
+  Check(DoChangeAttrs(nullptr,name.data(),1,FILE_ATTRIBUTE_ARCHIVE|FILE_ATTRIBUTE_READONLY,&script,done,&changed,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_ARCHIVE|FILE_ATTRIBUTE_READONLY,data,exact.c_str()),"modify timestamp while preserving readonly");
+  Check(Equal(Modified(file),changed)&&(GetFileAttributesW(exact.c_str())&FILE_ATTRIBUTE_READONLY)!=0,"exact timestamp persisted and readonly restored");
+  Check(Payload(sentinel)&&GetFileAttributesW(Api(sentinel).c_str())==sentinelAttrs,"unselected sibling unaffected");
+  name=Utf8(file.wstring());Check(DoChangeAttrs(nullptr,name.data(),1,FILE_ATTRIBUTE_ARCHIVE,&script,done,nullptr,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_ARCHIVE|FILE_ATTRIBUTE_READONLY,data,nullptr),"UTF8-only worker fallback opens exact long Unicode source");
+  Check((GetFileAttributesW(exact.c_str())&FILE_ATTRIBUTE_READONLY)==0&&Payload(file)&&Payload(sentinel),"UTF8 fallback changes only intended source");
+ }
+ Check(done.Value==files.size()*3&&Dialogs==0,"success progress counts only completed work");
+ auto directory=deep/L"directory-東京";Check(CreateDirectoryW(Api(directory).c_str(),nullptr)!=FALSE,"create exact long directory");auto dn=Utf8(directory.wstring());
+ Check(DoChangeAttrs(nullptr,dn.data(),1,FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_HIDDEN,&script,done,&changed,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_DIRECTORY,data,Api(directory).c_str())&&Equal(Modified(directory),changed)&&(GetFileAttributesW(Api(directory).c_str())&FILE_ATTRIBUTE_HIDDEN),"actual wide directory attribute and timestamp path");SetFileAttributesW(Api(directory).c_str(),FILE_ATTRIBUTE_DIRECTORY);
+ auto file=files[0];auto name=Utf8(file.wstring());auto exact=Api(file);const FILETIME before=Modified(file);
+ for(int kind=0;kind<4;++kind){Reply=IDCANCEL;data.SkipAllChangeAttrs=FALSE;TimeAttempted=false;FailReadTime=kind==0;FailWriteTime=kind==1;FailRestore=kind==2;FailOpenTime=kind==3;int dialogs=Dialogs,closed=Closes,writes=WriteCalls;auto wasDone=done.Value;
+  Check(!DoChangeAttrs(nullptr,name.data(),1,FILE_ATTRIBUTE_ARCHIVE|FILE_ATTRIBUTE_READONLY,&script,done,&changed,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_ARCHIVE,data,exact.c_str()),"timestamp/read-only failure Cancel is not success");
+  Check(Dialogs==dialogs+1&&LastDialogError==DWORD(kind==3?ERROR_SHARING_VIOLATION:ERROR_ACCESS_DENIED)&&done.Value==wasDone&&Closes==closed+(kind==3?0:1),"failure retains Windows error closes handle and leaves progress unchanged");
+  if(kind==0)Check(WriteCalls==writes&&Equal(Modified(file),before),"failed time read never writes uninitialized timestamps");
+  if(kind!=2)Check((GetFileAttributesW(exact.c_str())&FILE_ATTRIBUTE_READONLY)!=0,"readonly restored even after timestamp failure");
+  FailReadTime=FailWriteTime=FailRestore=FailOpenTime=0;SetFileAttributesW(exact.c_str(),FILE_ATTRIBUTE_ARCHIVE);
+ }
+ for(int reply:std::vector<int>{IDB_SKIP,IDB_SKIPALL,IDRETRY}){Reply=reply;data.SkipAllChangeAttrs=FALSE;FailWriteTime=1;TimeAttempted=false;int dialogs=Dialogs;auto wasDone=done.Value;
+  Check(DoChangeAttrs(nullptr,name.data(),1,FILE_ATTRIBUTE_ARCHIVE,&script,done,&changed,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_ARCHIVE,data,exact.c_str())&&done.Value==wasDone+1&&Dialogs==dialogs+1,"timestamp failure preserves Skip/SkipAll/Retry accounting");
+  Check((reply==IDB_SKIPALL)==(data.SkipAllChangeAttrs!=FALSE),"SkipAll state follows explicit reply only");
+ }
+ data.SkipAllChangeAttrs=FALSE;cancel=TRUE;FailWriteTime=1;int dialogs=Dialogs;auto wasDone=done.Value;
+ Check(!DoChangeAttrs(nullptr,name.data(),1,FILE_ATTRIBUTE_ARCHIVE,&script,done,&changed,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_ARCHIVE,data,exact.c_str())&&Dialogs==dialogs&&done.Value==wasDone,"worker cancellation after failed timestamp bypasses dialog without false success");cancel=FALSE;FailWriteTime=0;
+ auto missing=Utf8((root/L"missing").wstring());Reply=IDCANCEL;
+ Check(!DoChangeAttrs(nullptr,missing.data(),1,FILE_ATTRIBUTE_ARCHIVE,&script,done,nullptr,nullptr,nullptr,compression,encryption,FILE_ATTRIBUTE_ARCHIVE,data,nullptr)&&Payload(sentinel),"missing source uses error Cancel and preserves sibling");
+ CloseHandle(data.WorkerNotSuspended);for(const auto& p:files)SetFileAttributesW(Api(p).c_str(),FILE_ATTRIBUTE_NORMAL);Check(root.parent_path()==parent&&root.filename()==L"owned-attributes","cleanup remains inside owned fixture root");std::filesystem::remove_all(std::filesystem::path(Api(root)));
+ printf("Actual attribute worker: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

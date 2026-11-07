@@ -89,6 +89,10 @@ public:
                               IShellIconOverlayIdentifier** iconReadersIconOverlayIds,
                               BOOL isGoogleDrivePath);
 
+    DWORD GetIconOverlayIndexForPathW(const wchar_t* path, DWORD fileAttrs, int minPriority,
+                                     IShellIconOverlayIdentifier** iconReadersIconOverlayIds,
+                                     BOOL isGoogleDrivePath);
+
     HICON GetIconOverlay(int iconOverlayIndex, CIconSizeEnum iconSize)
     {
         return Overlays[iconOverlayIndex]->IconOverlay[iconSize];

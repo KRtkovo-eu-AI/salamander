@@ -212,6 +212,9 @@ int CZipPack::PackNormal(SalEnumSelection2 next, void* param)
 int CZipPack::PackMultiVol(SalEnumSelection2 next, void* param)
 {
     CALL_STACK_MESSAGE1("CZipPack::PackMultiVol( , )");
+    // Also enforce when the extended-options dialog is suppressed.
+    if (!ZipPackAdvancedPathFits(ZipName))
+        return ErrorID = IDS_TOOLONGZIPNAME;
 
     bool firstSfxDisk = false;
     QWORD ecrecOffs; // for SFX
@@ -431,6 +434,9 @@ int CZipPack::PackMultiVol(SalEnumSelection2 next, void* param)
 int CZipPack::PackSelfExtract(SalEnumSelection2 next, void* param)
 {
     CALL_STACK_MESSAGE1("CZipPack::PackSelfExtract( , )");
+    // Also enforce when the extended-options dialog is suppressed.
+    if (!ZipPackAdvancedPathFits(ZipName))
+        return ErrorID = IDS_TOOLONGZIPNAME;
     int ret;
 
     if (!SalamanderGeneral->SalPathRenameExtension(ZipName, ".exe", MAX_PATH))
@@ -1909,15 +1915,17 @@ int CZipPack::FinishPack(int reason)
 }
 
 int CZipPack::GetDirInfo(const char* name, DWORD* attr, FILETIME* lastWrite)
+try
 {
     CALL_STACK_MESSAGE2("CZipPack::GetDirInfo(%s, , )", name);
-    WIN32_FIND_DATA data;
+    WIN32_FIND_DATAW data;
+    const std::wstring wideName = ZipPathToWide(name);
     HANDLE search;
     int ret;
 
     while (1)
     {
-        search = FindFirstFile(name, &data);
+        search = FindFirstFileW(wideName.c_str(), &data);
         if (search == INVALID_HANDLE_VALUE)
         {
             ret = ProcessError(IDS_ERRACCESDIR, GetLastError(), name, 0, &SkipAllIOErrors);
@@ -1932,6 +1940,10 @@ int CZipPack::GetDirInfo(const char* name, DWORD* attr, FILETIME* lastWrite)
             return 0;
         }
     }
+}
+catch (const std::bad_alloc&)
+{
+    return IDS_LOWMEM;
 }
 
 int CZipPack::IsDirectoryEmpty(const char* name)
@@ -2007,6 +2019,42 @@ int CZipPack::InsertDir(char* dir, TIndirectArray2<TIndirectArray2_char_>& table
     return 0;
 }
 
+// Source names come from the exact UTF-8 root-relative archive callback.
+static BOOL DeletePackedSourceFile(const char* name)
+{
+    std::wstring path = SalamanderDiskSelection::WideFromPath(name);
+    if (path.empty())
+    {
+        SetLastError(ERROR_INVALID_NAME);
+        return FALSE;
+    }
+    if (path.length() >= MAX_PATH && path.compare(0, 4, L"\\\\?\\") != 0)
+        path = path.compare(0, 2, L"\\\\") == 0 ? L"\\\\?\\UNC\\" + path.substr(2) : L"\\\\?\\" + path;
+    return DeleteFileW(path.c_str());
+}
+
+// Remove only the selected, now-empty directory; never recurse into retained data.
+static BOOL RemovePackedSourceDirectory(const char* name)
+{
+    try
+    {
+        std::wstring path = SalamanderDiskSelection::WideFromPath(name);
+        if (path.empty())
+        {
+            SetLastError(ERROR_INVALID_NAME);
+            return FALSE;
+        }
+        if (path.length() >= MAX_PATH && path.compare(0, 4, L"\\\\?\\") != 0)
+            path = path.compare(0, 2, L"\\\\") == 0 ? L"\\\\?\\UNC\\" + path.substr(2) : L"\\\\?\\" + path;
+        return RemoveDirectoryW(path.c_str());
+    }
+    catch (const std::bad_alloc&)
+    {
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return FALSE;
+    }
+}
+
 int CZipPack::CleanUpSource()
 {
     CALL_STACK_MESSAGE1("CZipPack::CleanUpSource()");
@@ -2023,7 +2071,7 @@ int CZipPack::CleanUpSource()
         if (next->Action != AF_ADD && next->Action != AF_OVERWRITE || next->IsDir)
             continue;
         SalamanderGeneral->ClearReadOnlyAttr(next->Name);
-        DeleteFile(next->Name);
+        DeletePackedSourceFile(next->Name);
     }
     //remove directories
     //sort directories by level
@@ -2045,7 +2093,7 @@ int CZipPack::CleanUpSource()
             for (i = 0; i < table[l]->Count; i++)
             {
                 SalamanderGeneral->ClearReadOnlyAttr((*table[l])[i]);
-                if (!RemoveDirectory((*table[l])[i]))
+                if (!RemovePackedSourceDirectory((*table[l])[i]))
                     TRACE_I("error on RemoveDirectory " << GetLastError());
             }
         }
@@ -2937,6 +2985,7 @@ int CZipPack::SaveComment()
             ErrorID = IDS_LOWMEM;
         else
             ErrorID = IDS_NODISPLAY;
+        return ErrorID;
     }
 
     EONewCentrDir.CommentLen = (__UINT16)strlen(Comment);

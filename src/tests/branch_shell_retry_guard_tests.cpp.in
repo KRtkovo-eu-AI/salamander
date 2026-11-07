@@ -1,0 +1,57 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <windows.h>
+#include <cstdio>
+#include <string>
+struct FakeContext {int Releases=0;void Release(){++Releases;}};
+static FakeContext Original,Retried;
+struct CFilesWindow {FakeContext* ContextMenu=&Original;BOOL Branch=TRUE;BOOL IsBranchView(){return Branch;}const char* GetPath(){return "controlled root";}};
+struct MainFacade {HWND HWindow=NULL;} Main;
+static MainFacade* MainWindow=&Main;
+static int Mode=0,Fills=0,Captures=0,HostFallbacks=0,ShellRoutes=0,Checks=0,Failed=0;
+static BOOL Quiet=FALSE,HasOpen=FALSE;static void* SelectionSeen=nullptr;
+static const char* EnumFileNames(int,void*){return "controlled relative identity";}
+static void ShellActionAux5(UINT,CFilesWindow*,HMENU){++Fills;}
+static BOOL ShellContextMenuContainsVerb(FakeContext*,HMENU,const char*){return HasOpen;}
+static FakeContext* CreatePanelShellMenu(HWND,const char*,int,const char*(*)(int,void*),void* selection,BOOL quiet=FALSE){++Captures;SelectionSeen=selection;Quiet=quiet;return Mode==1?nullptr:&Retried;}
+static HMENU RetryPopup(){if(Mode==2)return NULL;return CreatePopupMenu();}
+static DWORD TrackBranchHostContextMenu(CFilesWindow*,POINT){++HostFallbacks;return 42;}
+#define TRACE_E(...) ((void)0)
+#define CreatePopupMenu RetryPopup
+struct Selection { int Sentinel=17; };
+static DWORD Probe(CFilesWindow* panel,HMENU& h,BOOL useSelection,BOOL onlyPanelMenu,BOOL alreadyHaveContextMenu,Selection& selectionEnumData)
+{
+ UINT flags=0;int count=2;POINT pt={};DWORD deferredBranchCommand=0;
+@@PREPARE_AND_GUARD@@
+ ++ShellRoutes;
+ }
+@@FALLBACK@@
+ return deferredBranchCommand;
+}
+#undef CreatePopupMenu
+static void Check(bool ok,const char* name){++Checks;if(!ok){++Failed;std::printf("FAIL: %s\n",name);}}
+int wmain()
+{
+ Selection selection;
+ for(int mode:{0,1,2,3}) {
+  Mode=mode;Fills=Captures=HostFallbacks=ShellRoutes=0;Quiet=FALSE;SelectionSeen=nullptr;HasOpen=FALSE;Original.Releases=Retried.Releases=0;
+  CFilesWindow panel;if(mode==3)panel.ContextMenu=nullptr;
+  HMENU h=CreatePopupMenu();Check(h!=NULL,"actual owned popup fixture created");
+  DWORD cmd=Probe(&panel,h,TRUE,FALSE,FALSE,selection);
+  if(mode==0){Check(cmd==0&&ShellRoutes==1&&HostFallbacks==0&&Captures==1,"valid retry uses Shell route once");}
+  else Check(cmd==42&&ShellRoutes==0&&HostFallbacks==1,"failed retry or initial provider reaches exact host fallback, never invalid Shell route");
+  if(mode==0||mode==1){Check(Quiet&&SelectionSeen==&selection,"retry retains quiet full-selection capture boundary");}
+  Check(Original.Releases==(mode==3?0:1),"original COM provider released once on retry only");
+  if(panel.ContextMenu)panel.ContextMenu->Release();
+  if(h)Check(DestroyMenu(h)!=FALSE,"owned popup cleaned up");
+ }
+ for(BOOL branch:{FALSE,TRUE}) {
+  Mode=1;Fills=Captures=HostFallbacks=ShellRoutes=0;CFilesWindow panel;panel.Branch=branch;
+  HMENU h=CreatePopupMenu();DWORD cmd=Probe(&panel,h,TRUE,TRUE,FALSE,selection);
+  Check(cmd==0&&ShellRoutes==0&&HostFallbacks==0,"panel-only context never gains Branch selection fallback");
+  if(h)DestroyMenu(h);
+ }
+ Mode=0;HasOpen=TRUE;Fills=Captures=HostFallbacks=ShellRoutes=0;CFilesWindow panel;HMENU h=CreatePopupMenu();
+ Check(Probe(&panel,h,TRUE,FALSE,FALSE,selection)==0&&ShellRoutes==1&&Captures==0,"valid original menu with open verb is not retried");DestroyMenu(h);
+ std::printf("Actual Shell retry guard: %d checks, %d failures\n",Checks,Failed);return Failed?1:0;
+}

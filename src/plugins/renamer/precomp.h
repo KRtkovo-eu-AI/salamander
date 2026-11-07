@@ -15,6 +15,10 @@
 #include <commctrl.h>
 #include <limits.h>
 #include <tchar.h>
+#include <string>
+#include <vector>
+#include <new>
+#include <utility>
 
 #if defined(_DEBUG) && defined(_MSC_VER) // without passing file+line to 'new' operator, list of memory leaks shows only 'crtdbg.h(552)'
 #define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
@@ -26,6 +30,7 @@
 #include "spl_base.h"
 #include "spl_file.h"
 #include "spl_gen.h"
+#include "spl_diskselection.h"
 #include "spl_gui.h"
 #include "spl_menu.h"
 #include "spl_vers.h"
@@ -48,6 +53,8 @@
 #include "utils.h"
 #include "varstr.h"
 #include "renamer.h"
+#include "renamer_paths.h"
+#include "renamer_io.h"
 #include "crenamer.h"
 #include "dialogs.h"
 #include "preview.h"

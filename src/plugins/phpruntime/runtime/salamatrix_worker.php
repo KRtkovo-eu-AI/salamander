@@ -3,6 +3,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Normalize shared viewer options across all five workers. | Invalid optional fields are omitted consistently while valid chrome options preserve their types. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-06 | Accept title and window geometry for viewer(). | Keep Salamatrix runtime viewer options in parity. |  | Composer |
 
 const SALAMATRIX_MAX_FRAME_BYTES = 1048576;
@@ -121,18 +122,20 @@ class SalamatrixUi {
     public function controls() { $r = $this->client->call('salamander.ui.controls', array()); return !empty($r['shown']); }
     public function fileProperties($path) { return $this->client->call('salamander.ui.fileProperties', array('path' => (string)$path)); }
     public function viewer($path, $renderer = 'auto') {
-        $payload = array('path' => (string)$path, 'renderer' => 'auto');
         $options = is_array($renderer) ? $renderer : array('renderer' => $renderer);
-        if (isset($options['renderer'])) $payload['renderer'] = (string)$options['renderer'];
-        if (!empty($options['title'])) $payload['title'] = (string)$options['title'];
-        if (!empty($options['documentName'])) $payload['documentName'] = (string)$options['documentName'];
+        $value = isset($options['renderer']) ? $options['renderer'] : null;
+        $payload = array('path' => (string)$path, 'renderer' => is_string($value) && $value !== '' ? $value : 'auto');
+        foreach (array('title', 'documentName') as $key) {
+            if (isset($options[$key]) && is_string($options[$key]) && $options[$key] !== '') $payload[$key] = $options[$key];
+        }
         $window = (isset($options['window']) && is_array($options['window'])) ? $options['window'] : $options;
         foreach (array('left', 'top', 'width', 'height', 'showCmd') as $key) {
-            if (isset($window[$key]) && is_numeric($window[$key])) $payload[$key] = (int)$window[$key];
+            $value = isset($window[$key]) ? $window[$key] : null;
+            if ((is_int($value) || is_float($value)) && $value >= -2147483648 && $value <= 2147483647 && floor($value) == $value) $payload[$key] = (int)$value;
         }
-        if (array_key_exists('alwaysOnTop', $window)) $payload['alwaysOnTop'] = (bool)$window['alwaysOnTop'];
+        if (isset($window['alwaysOnTop']) && is_bool($window['alwaysOnTop'])) $payload['alwaysOnTop'] = $window['alwaysOnTop'];
         $r = $this->client->call('salamander.ui.viewer.open', $payload);
-        return !empty($r['opened']);
+        return isset($r['opened']) && $r['opened'] === true;
     }
     public function uptime() { $r = $this->client->call('salamander.host.uptime', array()); return (string)$r['milliseconds']; }
     public function inputBox($prompt, $title = 'Salamander', $initial = '') { return $this->client->call('salamander.ui.inputBox', array('prompt' => $prompt, 'title' => $title, 'initial' => $initial)); }

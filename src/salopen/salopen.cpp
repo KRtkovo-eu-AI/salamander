@@ -3,6 +3,7 @@
 
 #include <windows.h>
 #include <shlobj.h>
+#include "../branchprogram.h"
 
 #include "lstrfix.h"
 
@@ -688,6 +689,17 @@ void WinMainCRTStartup()
     else
         while (*cmdline != '\0' && *cmdline != ' ' && *cmdline != '\t')
             cmdline++;
+    // Private program broker mode is rejected by older helpers before they
+    // interpret any mapping. The legacy numeric protocol remains unchanged.
+    while (*cmdline == ' ' || *cmdline == '\t') ++cmdline;
+    BOOL branchProgram = FALSE;
+    const char programMode[] = "--branch-program";
+    if (StrNICmp(cmdline, programMode, sizeof(programMode) - 1) == 0 &&
+        (cmdline[sizeof(programMode) - 1] == ' ' || cmdline[sizeof(programMode) - 1] == '\t'))
+    {
+        branchProgram = TRUE;
+        cmdline += sizeof(programMode) - 1;
+    }
     // get params
     DWORD PID, pos;
     DWORD_PTR fileMappingHandle;
@@ -743,6 +755,13 @@ void WinMainCRTStartup()
         //              98, &written, NULL);
         OleUninitialize();
         ExitProcess(1);
+    }
+
+    if (branchProgram)
+    {
+        DWORD result = Salamander::BranchProgram::Receive(PID, (HANDLE)fileMappingHandle, pos);
+        OleUninitialize();
+        ExitProcess(result);
     }
 
     // get file-name from file-mapping (shared memory)

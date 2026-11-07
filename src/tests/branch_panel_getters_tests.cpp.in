@@ -1,0 +1,1203 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// The three production getters, Entry, Entry::FullPath, Join and conversion
+// function are extracted verbatim. Only unrelated panel state is replaced.
+#define NOMINMAX
+#include <windows.h>
+#include <shellapi.h>
+#include "@@FILEACTION_HEADER@@"
+#include "@@PROGRAM_HEADER@@"
+#include "@@TEMP_HEADER@@"
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+#include <functional>
+
+std::wstring SalMultiByteToWidePath(const char*, UINT codePage = CP_ACP);
+@@CONVERSION@@
+@@CONVERSION_UTF8_ACP@@
+@@ORDINARY_JOIN@@
+@@FIND_BASENAME@@
+namespace Salamander { namespace BranchView {
+@@ENTRY@@
+@@JOIN@@
+@@ENTRY_FULL_PATH@@
+} }
+struct CCopyMoveRecord {const char* FileName=nullptr;const wchar_t* FileNameW=nullptr;};
+struct CCopyMoveData {int Count=0;const CCopyMoveRecord* Row=nullptr;const CCopyMoveRecord* At(int) const{return Row;}};
+#define CALL_STACK_MESSAGE2(...)
+@@CUT_DIRECTORY@@
+#undef CALL_STACK_MESSAGE2
+BOOL CutDirectory(char*,char** cutDir=nullptr);
+@@DROP_PARENT@@
+static void Check(bool,const char*);
+static void DropParentTests(){
+ Check(GetDropSourceDirectory(nullptr).empty(),"drop parent rejects null data");
+ CCopyMoveRecord row;CCopyMoveData data{1,&row};
+ Check(GetDropSourceDirectory(&data).empty(),"drop parent rejects empty record");
+ const std::wstring parent=L"C:\\東京\\"+std::wstring(300,L'a');const std::wstring full=parent+L"\\ž-東京.txt";
+ row.FileName="wrong legacy mirror";row.FileNameW=full.c_str();
+ Check(GetDropSourceDirectory(&data)==SalWideToMultiBytePath(parent.c_str(),CP_UTF8),"drop metadata uses exact long Unicode wide source");
+ row.FileNameW=nullptr;const std::string utf8=SalWideToMultiBytePath(full.c_str(),CP_UTF8);row.FileName=utf8.c_str();
+ Check(GetDropSourceDirectory(&data)==SalWideToMultiBytePath(parent.c_str(),CP_UTF8),"legacy UTF8 fallback preserves long parent");
+ row.FileName="C:\\ordinary\\file.txt";Check(GetDropSourceDirectory(&data)=="C:\\ordinary","ordinary drop source parent unchanged");
+ row.FileName="C:\\file.txt";Check(GetDropSourceDirectory(&data)=="C:\\","drive root parent retains slash");
+ row.FileName="file.txt";Check(GetDropSourceDirectory(&data).empty(),"relative source cannot invent a parent");
+ data.Count=0;Check(GetDropSourceDirectory(&data).empty(),"empty drop selection has no parent");
+}
+struct CFileData
+{
+    const char* Name = nullptr;
+    const wchar_t* NameW = nullptr;
+    unsigned NameLen = 0;
+    BOOL Selected = FALSE;
+    unsigned CutToClip = 0, Dirty = 0;
+    BOOL UseWideName() const { return NameW != nullptr; }
+};
+struct CBranchViewState
+{
+    std::vector<Salamander::BranchView::Entry> Entries;
+    std::wstring PendingFocus;
+    bool Enabled = true;
+    std::mutex ItemsMutex;
+    std::unordered_map<const char*, Salamander::BranchView::Entry> Items;
+    std::unordered_map<std::string, const CFileData*> CacheFiles;
+};
+struct TestRows {
+    std::vector<CFileData> Values;
+    int Count = 0;
+    CFileData& At(int i) { return Values.at(i); }
+};
+struct TestMasks {
+    BOOL Ready = TRUE, Match = TRUE;
+    BOOL PrepareMasks(int& error) { error = 0; return Ready; }
+    BOOL AgreeMasks(const char*, const char*) { return Match; }
+};
+const int VIEWER_EXTERNAL = 0, VIEWER_INTERNAL = 1;
+struct CViewerMasksItem { TestMasks* Masks; int ViewerType; };
+struct CViewerMasks {
+    std::vector<CViewerMasksItem*> Values;
+    int Count = 0;
+    CViewerMasksItem* At(int i) { return Values.at(i); }
+};
+struct TestHistory {
+    int Count = 0;
+    std::string Path;
+    void AddFile(int,int,const char* path) { ++Count; Path=path; }
+};
+struct TestPacker { BOOL Archive=FALSE; BOOL PackIsArchive(const char*) {return Archive;} } PackerFormatConfig;
+const int fhitOpen=1, BUTTONS_OK=1, IDS_TOOLONGNAME=1, IDS_ERROROPENINGFILE=2;
+static int DialogCalls=0, ShellCalls=0;
+static BOOL ShellSuccess=TRUE;
+static std::wstring ShellFile, ShellDirectory;
+static std::function<void()> OnShell;
+static BOOL RecordShell(SHELLEXECUTEINFOW* info) {
+    ++ShellCalls; ShellFile=info->lpFile; ShellDirectory=info->lpDirectory;
+    if(OnShell)OnShell();
+    return ShellSuccess;
+}
+static int ProgramCalls=0;
+static HRESULT ProgramResult=S_OK;
+static std::wstring ProgramSource, ProgramDirectory;
+static HRESULT LaunchBranchProgram(HWND, const std::wstring& source, const std::wstring& directory) {
+    ++ProgramCalls;ProgramSource=source;ProgramDirectory=directory;
+    if(OnShell)OnShell();return ProgramResult;
+}
+static void ShowBranchLaunchFailure(HWND, const std::wstring&, HRESULT, bool) {++DialogCalls;}
+#define ShellExecuteExW RecordShell
+struct TestMainWindow {
+    TestHistory History;
+    TestHistory* FileHistory=&History;
+    CViewerMasks* ViewerMasks = nullptr;
+    CViewerMasks* AltViewerMasks = nullptr;
+} TestMain;
+static TestMainWindow* MainWindow = &TestMain;
+static DWORD ParentAttributes = FILE_ATTRIBUTE_DIRECTORY;
+static std::wstring CheckedParent;
+static std::function<DWORD(const wchar_t*)> OnAttributes;
+static DWORD RecordAttributes(const wchar_t* path) {
+    CheckedParent = path;
+    return OnAttributes ? OnAttributes(path) : ParentAttributes;
+}
+#define GetFileAttributesW RecordAttributes
+
+// Recorders for the actual BuildScriptMain per-item source block. Worker I/O
+// is validated separately and by the real host GUI; no test-only copy engine.
+const int atCopy=1, atMove=2, atDelete=3, atChangeAttrs=4, SACCESS_READ=1,SACCESS_READWRITE=3;
+const DWORD OPFL_SRCPATH_IS_NET=1, OPFL_SRCPATH_IS_FAST=2, OPFL_TGTPATH_IS_NET=4;
+struct CopyCriteria {BOOL IgnoreADS=FALSE;};
+struct CQuadWord {
+    DWORD LoDWord=0,HiDWord=0;
+    CQuadWord(DWORD value=0):LoDWord(value){}
+    CQuadWord operator-(const CQuadWord& other) const {return CQuadWord(LoDWord-other.LoDWord);}
+};
+const int ocCreateDir=1,ocLabelForSkipOfCreateDir=2,ocTestCopy=3,CREATE_DIR_SIZE=1;
+static bool FailDup=false;
+static char* DupStr(const char* p){if(FailDup)return nullptr;size_t n=strlen(p)+1;char* r=(char*)malloc(n);if(r)memcpy(r,p,n);return r;}
+struct COperation {
+    int Opcode=0;CQuadWord Size;DWORD Attr=0;char* SourceName=nullptr;char* TargetName=nullptr;
+    std::wstring SourceW,TargetW;
+    void SetSourceNameW(const wchar_t* p){SourceW=p;}
+    void SetTargetNameW(const wchar_t* p){TargetW=p;}
+};
+struct CopyScript {
+    CQuadWord TotalFileSize;
+    std::vector<COperation> Records;
+    int FailAt=-1;BOOL Good=TRUE;
+    int Add(const COperation& op){if(FailAt==(int)Records.size()){Good=FALSE;return -1;}Records.push_back(op);return (int)Records.size()-1;}
+    BOOL IsGood(){return Good;}
+    void ResetState(){Good=TRUE;}
+    ~CopyScript(){for(auto& op:Records)if(op.Opcode==ocCreateDir){free(op.SourceName);free(op.TargetName);}}
+    BOOL SourcePathIsNetwork=FALSE,SameRootButDiffVolume=FALSE,ShowStatus=FALSE;
+    std::vector<std::pair<std::string,int>> Storage;
+    void AddStoragePath(const char* path,int access){Storage.emplace_back(path,access);}
+};
+static int CopyCwdResets=0;
+static std::string ADSQueried;
+static void SetCurrentDirectoryToSystem(){++CopyCwdResets;}
+static BOOL IsPathOnVolumeSupADS(const char* path,void*){ADSQueried=path;return TRUE;}
+static DWORD GetPathFlagsForCopyOp(const char* path,DWORD net,DWORD fast){return path[0]=='\\'?net:fast;}
+static BOOL SameVolume=TRUE;
+static BOOL HasTheSameRootPathAndVolume(const char*,const char*){return SameVolume;}
+struct CPathBuffer {
+    std::vector<char> Bytes=std::vector<char>(4);
+    static bool FailGrowth;
+    BOOL Ensure(int capacity){if(FailGrowth)return FALSE;Bytes.resize(capacity);return TRUE;}
+    char* Data(){return Bytes.data();}
+};
+bool CPathBuffer::FailGrowth=false;
+struct CopyCapture {std::string Parent,Name;BOOL HasDosName=TRUE,ADS=FALSE;DWORD Flags=OPFL_SRCPATH_IS_NET|OPFL_TGTPATH_IS_NET;};
+struct CFilesWindow
+{
+    CBranchViewState* BranchView = nullptr;
+    std::wstring WideRoot = L"C:\\root";
+    std::string AnsiRoot = "C:\\root";
+    bool NullWideRoot = false;
+    const wchar_t* GetPathW() const { return NullWideRoot ? nullptr : WideRoot.c_str(); }
+    const char* GetPath() const { return AnsiRoot.c_str(); }
+    std::wstring GetItemDirectoryW(const CFileData&) const;
+    std::wstring GetItemFullPathW(const CFileData&) const;
+    std::wstring GetItemIdentityW(const CFileData&) const;
+    std::wstring GetItemRelativePathW(const CFileData&) const;
+    TestRows DirRows, FileRows;
+    TestRows* Dirs = &DirRows;
+    TestRows* Files = &FileRows;
+    HWND HWindow = nullptr;
+    int Caret = 0, NavigationCalls = 0, FocusCalls = 0, FocusedIndex = -1, EndRefreshCalls=0, ArchiveCalls=0;
+    std::string OpenedArchive;
+    BOOL NavigationSuccess = TRUE, ViewGatePassed = FALSE;
+    std::function<void()> OnNavigate;
+    std::wstring OpenedDirectory;
+    std::string FocusName;
+    BOOL IsBranchView() const { return BranchView != nullptr && BranchView->Enabled; }
+    int GetCaretIndex() const { return Caret; }
+    HWND GetListBoxHWND() const { return HWindow; }
+    const char* GetItemCacheKeyPtr(const CFileData&) const;
+    const CFileData* GetBranchViewFileByCacheKey(const char*) const;
+    BOOL OpenBranchItemDirectory();
+    char DropPath[32768] = {};
+    int DropTarget = -1;
+    BOOL Disk = TRUE;
+    void SetDropTarget(int i){DropTarget=i;}
+
+    void SetCaretIndex(int index, BOOL) { ++FocusCalls; FocusedIndex = index; Caret = index; }
+    BOOL ChangePathToDiskW(HWND, const wchar_t* path) {
+        ++NavigationCalls; OpenedDirectory = path;
+        if (NavigationSuccess) { BranchView->Enabled = false; if (OnNavigate) OnNavigate(); }
+        return NavigationSuccess;
+    }
+    void EndStopRefresh() {++EndRefreshCalls;}
+    void ChangePathToArchive(const char* path,const char*,int,const char*,BOOL,BOOL*) {++ArchiveCalls;OpenedArchive=path;}
+    int CancelCalls=0, RefreshCalls=0;
+    bool CallbackLocked=false;
+    BOOL Is(int) const {return Disk;}
+    int GetSelCount() {int n=0;for(auto& f:FileRows.Values)n+=f.Selected!=FALSE;for(auto& f:DirRows.Values)n+=f.Selected!=FALSE;return n;}
+    void SetSel(BOOL selected,int index) {if(index<Dirs->Count)Dirs->At(index).Selected=selected;else Files->At(index-Dirs->Count).Selected=selected;}
+    void RepaintListBox(int) {}
+    void SelectFocusedItemAndGetName(CPanelTemporarySelection& selection);
+    void UnselectItemWithName(const CPanelTemporarySelection& selection);
+    void BranchItemRenamed(const char*,const CFileData&,const std::wstring&);
+    void CancelBranchViewScan() {++CancelCalls;if(BranchView->ItemsMutex.try_lock())BranchView->ItemsMutex.unlock();else CallbackLocked=true;}
+    void RefreshBranchView() {++RefreshCalls;if(BranchView->ItemsMutex.try_lock())BranchView->ItemsMutex.unlock();else CallbackLocked=true;}
+    BOOL PrepareCopySource(CFileData*,int,CopyCapture&,CopyScript*,CopyCriteria*);
+    BOOL PrepareRelativeTarget(CFileData*,BOOL,CopyScript*,std::string&);
+    void PropertiesRoute(int,int,int*);
+    void DragRoute(int,int,int*);
+    BOOL ClipboardRoute(int,int,int*,int action=3);
+    BOOL CutToClipChanged=FALSE;
+    void ClearCutToClipFlag(BOOL);
+    BOOL Recycle(int*,int,CFileData*);
+    void Notify(const char*,BOOL);
+    int FreeSpaceCalls=0;
+    void RefreshDiskFreeSpace(BOOL,BOOL){++FreeSpaceCalls;}
+    void ExecuteBranch(CFileData* file);
+    void ViewPolicy(const char* name, BOOL altView, DWORD handlerID);
+
+};
+#include "@@RECYCLE_HEADER@@"
+static const int ptDisk=1;
+struct TestShellItem {std::wstring Path;void Release(){delete this;}};
+struct TestFileOperation {
+    std::vector<std::wstring> Paths;DWORD Flags=0;int PerformCalls=0,Released=0,AbortCalls=0;
+    int FailStage=0,FailItem=-1;BOOL Aborted=FALSE;
+    HRESULT SetOwnerWindow(HWND){return FailStage==1?E_FAIL:S_OK;}
+    HRESULT SetOperationFlags(DWORD flags){Flags=flags;return FailStage==2?E_FAIL:S_OK;}
+    HRESULT DeleteItem(TestShellItem* item,void*){if(FailItem==(int)Paths.size())return E_FAIL;Paths.push_back(item->Path);return S_OK;}
+    HRESULT PerformOperations(){++PerformCalls;return FailStage==3?E_FAIL:S_OK;}
+    HRESULT GetAnyOperationsAborted(BOOL* b){++AbortCalls;*b=Aborted;return FailStage==4?E_FAIL:S_OK;}
+    void Release(){++Released;}
+};
+static TestFileOperation RecycleMock;
+static int ParseCalls=0,ParseFail=-1,RecycleErrors=0;
+static HRESULT MakeOperation(REFCLSID,void*,DWORD,REFIID,void** out){if(RecycleMock.FailStage==5)return E_FAIL;*out=&RecycleMock;return S_OK;}
+static HRESULT MakeShellItem(const wchar_t* path,void*,REFIID,void** out){int i=ParseCalls++;if(i==ParseFail)return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);auto* item=new TestShellItem;item->Path=path;*out=item;return S_OK;}
+struct RecycleOwner {HWND HWindow=nullptr;};static RecycleOwner RecycleWindow;
+static const char* RecycleLoadStr(int){return "fixture";}
+static const char* RecycleErrorText(DWORD){return "fixture";}
+static int RecycleMessage(HWND,const char*,const char*,UINT){++RecycleErrors;return IDOK;}
+static const int IDS_ERRORTITLE=1;
+#define IFileOperation TestFileOperation
+#define IShellItem TestShellItem
+#pragma push_macro("IID_PPV_ARGS")
+#undef IID_PPV_ARGS
+#define IID_PPV_ARGS(pp) IID_NULL,reinterpret_cast<void**>(pp)
+#define CoCreateInstance MakeOperation
+#define SHCreateItemFromParsingName MakeShellItem
+#define MainWindow (&RecycleWindow)
+#define LoadStr RecycleLoadStr
+#define GetErrorText RecycleErrorText
+#define SalMessageBox RecycleMessage
+BOOL CFilesWindow::Recycle(int* selection,int selCount,CFileData* oneFile){
+@@RECYCLE_QUEUE@@
+    return FALSE;
+}
+#undef IFileOperation
+#undef IShellItem
+#pragma pop_macro("IID_PPV_ARGS")
+#undef CoCreateInstance
+#undef SHCreateItemFromParsingName
+#undef MainWindow
+#undef LoadStr
+#undef GetErrorText
+#undef SalMessageBox
+static CRITICAL_SECTION TimeCounterSection;
+static int MyTimeCounter=1,PostedRefresh=0;
+static const UINT WM_USER_REFRESH_DIR=WM_APP+2;
+static BOOL RecordRefresh(HWND,UINT message,WPARAM w,LPARAM stamp){if(message==WM_USER_REFRESH_DIR&&w==TRUE&&stamp>0)++PostedRefresh;return TRUE;}
+#define HANDLES(call) (call)
+#pragma push_macro("PostMessage")
+#undef PostMessage
+#define PostMessage RecordRefresh
+void CFilesWindow::Notify(const char* path,BOOL includingSubdirs){
+@@NOTIFY@@
+}
+#pragma pop_macro("PostMessage")
+#undef HANDLES
+@@GETTERS@@
+@@CACHE@@
+struct CTmpEnumData {int* Indexes;CFilesWindow* Panel;};
+@@SHELL_PATHS@@
+@@SHELL_DIRECTORY@@
+static const char* EnumFileNames(int,void*){return nullptr;}
+struct TestPropertiesMenu {};
+struct TestPropertiesObject {int Releases=0;void Release(){++Releases;}};
+static TestPropertiesMenu PropertiesMenu;
+static TestPropertiesObject PropertiesObject;
+static bool MenuAvailable=true,DataAvailable=true,MenuWasQuiet=false;
+static int PropertiesCalls=0,DataCalls=0;
+static HRESULT PropertiesResult=S_OK;
+static std::vector<std::wstring> PropertiesPaths;
+static TestPropertiesMenu* PropertiesCreateMenu(HWND,const char*,int count,const char*(*)(int,void*),void* raw,BOOL quiet){MenuWasQuiet=quiet;PropertiesPaths=GetPanelShellPaths(count,(CTmpEnumData*)raw);return MenuAvailable&&!PropertiesPaths.empty()?&PropertiesMenu:nullptr;}
+static TestPropertiesObject* PropertiesCreateData(HWND,const char*,int count,const char*(*)(int,void*),void* raw){++DataCalls;PropertiesPaths=GetPanelShellPaths(count,(CTmpEnumData*)raw);return DataAvailable&&!PropertiesPaths.empty()?&PropertiesObject:nullptr;}
+static HRESULT PropertiesShow(TestPropertiesObject*,DWORD){++PropertiesCalls;return PropertiesResult;}
+#define IContextMenu2 TestPropertiesMenu
+#define IDataObject TestPropertiesObject
+#define CreatePanelShellMenu PropertiesCreateMenu
+#define CreatePanelShellData PropertiesCreateData
+#define SHMultiFileProperties PropertiesShow
+#define MainWindow (&RecycleWindow)
+#define SalMessageBox RecycleMessage
+#define GetErrorText RecycleErrorText
+#define LoadStr RecycleLoadStr
+void CFilesWindow::PropertiesRoute(int count,int index,int* indexes){
+    CFilesWindow* panel=this;CTmpEnumData data;data.Indexes=count==0?&index:indexes;data.Panel=panel;
+@@PROPERTIES_DISPATCH@@
+}
+#undef IContextMenu2
+#undef IDataObject
+#undef CreatePanelShellMenu
+#undef CreatePanelShellData
+#undef SHMultiFileProperties
+#undef MainWindow
+#undef SalMessageBox
+#undef GetErrorText
+#undef LoadStr
+static const int saProperties=1,saPermissions=2,saCopyToClipboard=3,saCutToClipboard=4,saContextMenu=5,saLeftDragFiles=6,saRightDragFiles=7;
+static HRESULT DropEffectResult=S_OK,ClipboardResult=S_OK;
+static int DropEffectCalls=0,ClipboardCalls=0;
+static DWORD ExportEffect=0;
+static HRESULT TestSetEffect(TestPropertiesObject*,DWORD effect){++DropEffectCalls;ExportEffect=effect;return DropEffectResult;}
+static HRESULT TestPublish(TestPropertiesObject*){++ClipboardCalls;return ClipboardResult;}
+#define IDataObject TestPropertiesObject
+#define CreatePanelShellData PropertiesCreateData
+#define SetShellDataDropEffect TestSetEffect
+#define OleSetClipboard TestPublish
+#define MainWindow (&RecycleWindow)
+#define SalMessageBox RecycleMessage
+#define GetErrorText RecycleErrorText
+#define LoadStr RecycleLoadStr
+BOOL CFilesWindow::ClipboardRoute(int count,int index,int* indexes,int action){
+    CFilesWindow* panel=this;CTmpEnumData data;data.Indexes=count==0?&index:indexes;data.Panel=panel;
+    BOOL clipboardReady=FALSE;
+@@CLIPBOARD_EXPORT@@
+    return clipboardReady;
+}
+#undef IDataObject
+#undef CreatePanelShellData
+#undef SetShellDataDropEffect
+#undef OleSetClipboard
+#undef MainWindow
+#undef SalMessageBox
+#undef GetErrorText
+#undef LoadStr
+static bool DropAllocationFail=false;
+static int DragCalls=0,DropReleases=0;
+static DWORD DragAllowed=0,DragChosen=DROPEFFECT_COPY;
+static HRESULT DragResult=DRAGDROP_S_DROP;
+static CFilesWindow* DropSourcePanel=nullptr;
+static bool DragHeldSource=false;
+namespace Salamander { namespace BranchView {
+@@DROP_ROOT@@
+} }
+static const char* TestReceive(CFilesWindow* panel,int index,DWORD* effect,int srcType=0){
+@@DROP_RECEIVE@@
+ return nullptr;
+}
+static const char* TestClipboardReceive(CFilesWindow* panel,DWORD* effect){
+@@DROP_CLIP_RECEIVE@@
+ return nullptr;
+}
+static int DestroyedDropData=0;
+static void DestroyCopyMoveData(CCopyMoveData*){++DestroyedDropData;}
+static bool DropPostSuccess=true,DropQueueAllocationFail=false;
+struct CTmpDropData {
+ BOOL Copy=FALSE;char TargetPath[32768]={};CCopyMoveData* Data=nullptr;
+ static void* operator new(size_t n,const std::nothrow_t&) noexcept{return DropQueueAllocationFail?nullptr:std::malloc(n);}
+ static void operator delete(void* p) noexcept{std::free(p);}
+ static void operator delete(void* p,const std::nothrow_t&) noexcept{std::free(p);}
+};
+static CTmpDropData* QueuedDrop=nullptr;
+static BOOL TestPostDrop(HWND,UINT,WPARAM p,LPARAM){if(!DropPostSuccess)return FALSE;QueuedDrop=(CTmpDropData*)p;return TRUE;}
+static const int SAL_MAX_PATH=32768,WM_USER_DROPCOPYMOVE=1;
+#pragma push_macro("PostMessage")
+#undef PostMessage
+#define PostMessage TestPostDrop
+#define lstrcpyn lstrcpynA
+@@DROP_QUEUE@@
+#undef lstrcpyn
+#undef PostMessage
+#pragma pop_macro("PostMessage")
+
+struct CImpIDropSource {
+ DWORD MouseButton=(DWORD)-1;
+ explicit CImpIDropSource(BOOL) noexcept{}
+ static void* operator new(size_t size,const std::nothrow_t&) noexcept{return DropAllocationFail?nullptr:std::malloc(size);}
+ static void operator delete(void* p) noexcept{std::free(p);}
+ static void operator delete(void* p,const std::nothrow_t&) noexcept{std::free(p);}
+ void Release(){++DropReleases;delete this;}
+@@QUERY_CONTINUE_DRAG@@
+};
+static HRESULT TestDoDragDrop(TestPropertiesObject*,CImpIDropSource*,DWORD allowed,DWORD* chosen){++DragCalls;DragHeldSource=DropSourcePanel!=nullptr;DragAllowed=allowed;*chosen=DragChosen;return DragResult;}
+static void ShellActionAux7(TestPropertiesObject* object,CImpIDropSource* source){if(source)source->Release();if(object)object->Release();}
+#define IDataObject TestPropertiesObject
+#define CreatePanelShellData PropertiesCreateData
+#define MainWindow (&RecycleWindow)
+#define DoDragDrop TestDoDragDrop
+void CFilesWindow::DragRoute(int count,int index,int* indexes){
+ CFilesWindow* panel=this;const BOOL useSelection=TRUE;
+@@DRAG_SOURCE@@
+}
+#undef IDataObject
+#undef CreatePanelShellData
+#undef MainWindow
+#undef DoDragDrop
+static const int DRAWFLAG_DIRTY_ONLY=1,DRAWFLAG_SKIP_VISTEST=2;
+#define CALL_STACK_MESSAGE_NONE
+@@CUT_CLEAR@@
+#undef CALL_STACK_MESSAGE_NONE
+static BOOL MarkCut(CFilesWindow* panel,CFilesWindow* anotherPanel,int count,int index,int* indexes,BOOL samePaths){
+    const int action=saCutToClipboard;BOOL repaint=FALSE;
+@@CUT_MARK@@
+    return repaint;
+}
+static bool ShellGatePassed=false;
+static void TestShellGate(CFilesWindow* panel,int action,BOOL useSelection,BOOL onlyPanelMenu){
+    ShellGatePassed=false;
+@@SHELL_GATE@@
+    ShellGatePassed=true;
+}
+
+BOOL CFilesWindow::PrepareCopySource(CFileData* oneFile,int type,CopyCapture& result,CopyScript* script,CopyCriteria* filterCriteria)
+{
+    const char* targetPath="D:\\target";
+    CPathBuffer sourcePathStorage;char* sourcePath=sourcePathStorage.Data();
+    char* useName=const_cast<char*>(oneFile->Name);const char* useDOSName="SAME~1.TXT";
+    BOOL sourceSupADS=FALSE;DWORD srcAndTgtPathsFlags=result.Flags;
+@@COPY_PREP@@
+    result.Parent=sourcePath;result.Name=useName;result.HasDosName=useDOSName!=NULL;
+    result.ADS=sourceSupADS;result.Flags=srcAndTgtPathsFlags;return TRUE;
+}
+BOOL CFilesWindow::PrepareRelativeTarget(CFileData* oneFile,BOOL keepBranchPaths,CopyScript* script,std::string& result)
+{
+    int type=atCopy;char target[]="D:\\target";char* targetPath=target;
+@@COPY_RELATIVE@@
+    result=itemTargetPath;
+    COperation file;file.Opcode=ocTestCopy;if(script->Add(file)<0)return FALSE;
+    script->TotalFileSize=CQuadWord(100);
+@@COPY_LABELS@@
+    return TRUE;
+}
+@@RENAME_METADATA@@
+const int WM_USER_SELCHANGED=WM_APP+1;
+static int RegSetStrCmpEx(const char*a,unsigned al,const char*b,int bl,void*){return al==(unsigned)bl?strncmp(a,b,al):1;}
+static int RegSetStrICmpEx(const char*a,unsigned al,const char*b,int bl,void*){return al==(unsigned)bl?_strnicmp(a,b,al):1;}
+@@TEMP_SELECTION@@
+@@NAVIGATION@@
+void CFilesWindow::ExecuteBranch(CFileData* file) {
+@@EXECUTE@@
+}
+#undef GetFileAttributesW
+#define HANDLES_Q(call) (call)
+@@ARCHIVE_READ@@
+#undef HANDLES_Q
+void CFilesWindow::ViewPolicy(const char* name, BOOL altView, DWORD handlerID) {
+    ViewGatePassed = FALSE;
+@@VIEW_POLICY@@
+    ViewGatePassed = TRUE;
+}
+
+static int Checks = 0, Failures = 0;
+static void Check(bool success, const char* description)
+{
+    ++Checks;
+    if (!success) { ++Failures; std::printf("FAIL: %s\n", description); }
+}
+static void Paths(CFilesWindow& panel, const CFileData& file,
+                  const std::wstring& directory, const std::wstring& full,
+                  const std::wstring& relative, const char* description)
+{
+    Check(panel.GetItemDirectoryW(file) == directory, (std::string(description) + " directory").c_str());
+    Check(panel.GetItemFullPathW(file) == full, (std::string(description) + " full").c_str());
+    Check(panel.GetItemRelativePathW(file) == relative, (std::string(description) + " relative").c_str());
+}
+static void Add(CBranchViewState& state, const CFileData& file,
+                const std::wstring& directory, const std::wstring& actualName,
+                const std::wstring& relative)
+{
+    Salamander::BranchView::Entry entry = {};
+    entry.Directory = directory;
+    entry.RelativePath = relative;
+    if (wcscpy_s(entry.Data.cFileName, actualName.c_str()) != 0) std::abort();
+    entry.CacheKey = SalWideToMultiBytePath(entry.FullPath().c_str(), CP_UTF8);
+    state.Items.emplace(file.Name, std::move(entry));
+}
+static int Utf8Length(const std::wstring& path)
+{
+    return WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, path.c_str(), -1,
+                               nullptr, 0, nullptr, nullptr) - 1;
+}
+static void RelativeCopyTests()
+{
+    CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;
+    std::string name="same.txt";panel.FileRows.Values={{name.c_str(),L"same.txt"}};panel.FileRows.Count=1;
+    Add(state,panel.Files->At(0),L"C:\\root\\a\\東京",L"same.txt",L"a\\東京\\same.txt");
+    OnAttributes=[](const wchar_t*){return INVALID_FILE_ATTRIBUTES;};
+    {
+        CopyScript script;std::string target;
+        Check(panel.PrepareRelativeTarget(&panel.Files->At(0),TRUE,&script,target),"relative copy prepares nested directory/file script");
+        Check(target==SalWideToMultiBytePath(L"D:\\target\\a\\東京",CP_UTF8),"relative copy preserves Unicode subfolders");
+        Check(script.Records.size()==5,"two creates enclose one file with two Skip labels");
+        Check(script.Records[0].Opcode==ocCreateDir&&script.Records[0].TargetW==SalPathAddExtendedPrefixW(L"D:\\target\\a")&&script.Records[1].TargetW==SalPathAddExtendedPrefixW(L"D:\\target\\a\\東京"),"directory operations carry exact wide targets");
+        Check(script.Records[1].SourceW==SalPathAddExtendedPrefixW(L"C:\\root\\a\\東京"),"directory attributes refer to the exact source ancestor");
+        Check(script.Records[3].Opcode==ocLabelForSkipOfCreateDir&&script.Records[3].Attr==1&&script.Records[4].Attr==0,"Skip labels close inner then outer ancestor");
+        Check((DWORD_PTR)script.Records[3].SourceName==100&&(DWORD_PTR)script.Records[4].SourceName==100,"each ancestor Skip label accounts for the file payload");
+    }
+    {CopyScript script;std::string target;Check(panel.PrepareRelativeTarget(&panel.Files->At(0),FALSE,&script,target)&&target=="D:\\target"&&script.Records.size()==1,"unchecked option keeps the existing flat-copy script");}
+    OnAttributes=[](const wchar_t*){return FILE_ATTRIBUTE_DIRECTORY;};
+    {CopyScript script;std::string target;Check(panel.PrepareRelativeTarget(&panel.Files->At(0),TRUE,&script,target)&&script.Records.size()==1,"existing ancestors need no create or Skip records");}
+    OnAttributes=[](const wchar_t*){return INVALID_FILE_ATTRIBUTES;};
+    {CopyScript script;script.FailAt=0;std::string target;Check(!panel.PrepareRelativeTarget(&panel.Files->At(0),TRUE,&script,target)&&script.Records.empty(),"create scheduling failure aborts before file operation");}
+    {CopyScript script;script.FailAt=3;std::string target;Check(!panel.PrepareRelativeTarget(&panel.Files->At(0),TRUE,&script,target),"Skip label scheduling failure rejects incomplete plan");}
+    FailDup=true;
+    {CopyScript script;std::string target;Check(!panel.PrepareRelativeTarget(&panel.Files->At(0),TRUE,&script,target)&&script.Records.empty(),"directory allocation failure cannot schedule a partial file");}
+    FailDup=false;
+    for(const auto& relative:{L"..\\same.txt",L".\\same.txt",L"\\same.txt"}){
+        state.Items.at(name.c_str()).RelativePath=relative;CopyScript script;std::string target;
+        Check(!panel.PrepareRelativeTarget(&panel.Files->At(0),TRUE,&script,target)&&script.Records.empty(),"invalid relative component cannot escape destination");
+    }
+    OnAttributes=nullptr;
+}
+
+
+struct MENU_ITEM_INFO {UINT Mask=0,Type=0,ID=0,State=0;const char* String=nullptr;int ImageIndex=0;};
+static std::vector<MENU_ITEM_INFO> RecordedHostItems;
+static int MenuImages=0,MenuFonts=0;static DWORD HostMenuChoice=0;
+static int HGrayToolBarImageList=1,HHotToolBarImageList=2;
+static const char* HostLoadStr(UINT){return "localized label";}
+struct CMenuPopup {
+ void SetUsePanelContextMenuFont(BOOL enabled){MenuFonts+=enabled!=FALSE;}
+ void SetImageList(int){++MenuImages;}void SetHotImageList(int){++MenuImages;}
+ void InsertItem(int,BOOL,MENU_ITEM_INFO* item){RecordedHostItems.push_back(*item);}
+ void SetDefaultItem(UINT,BOOL){}
+ DWORD Track(UINT,int,int,HWND,void*){return HostMenuChoice;}
+};
+#define LoadStr HostLoadStr
+#define CM_BRANCH_OPENPARENT 100
+#define CM_CLIPCOPY 101
+#define CM_CLIPCUT 102
+#define CM_COPYFILES 103
+#define CM_DELETEFILES 104
+#define CM_EDIT 105
+#define CM_MOVEFILES 106
+#define CM_OPEN 107
+#define CM_PROPERTIES 108
+#define CM_VIEW 109
+#define IDS_ARCHIVEMENU_OPEN 110
+#define IDS_BRANCH_OPENPARENT 111
+#define IDS_MENU_EDIT_COPY 112
+#define IDS_MENU_EDIT_CUT 113
+#define IDS_MENU_FILES_COPY 114
+#define IDS_MENU_FILES_DELETE 115
+#define IDS_MENU_FILES_EDIT 116
+#define IDS_MENU_FILES_MOVE 117
+#define IDS_MENU_FILES_PROPERTIES 118
+#define IDS_MENU_FILES_VIEW 119
+#define IDX_TB_CLIPBOARDCOPY 120
+#define IDX_TB_CLIPBOARDCUT 121
+#define IDX_TB_COPY 122
+#define IDX_TB_DELETE 123
+#define IDX_TB_EDIT 124
+#define IDX_TB_MOVE 125
+#define IDX_TB_PARENTDIR 126
+#define IDX_TB_PROPERTIES 127
+#define IDX_TB_VIEW 128
+#define MENU_MASK_ID 2
+#define MENU_MASK_IMAGEINDEX 4
+#define MENU_MASK_STATE 8
+#define MENU_MASK_STRING 16
+#define MENU_MASK_TYPE 32
+#define MENU_STATE_GRAYED 64
+#define MENU_TRACK_RETURNCMD 128
+#define MENU_TRACK_RIGHTBUTTON 256
+#define MENU_TYPE_SEPARATOR 512
+#define MENU_TYPE_STRING 1024
+@@HOST_MENU_HELPER@@
+static void HostMenuTests(){
+ CFilesWindow panel;panel.FileRows.Count=1;panel.Caret=0;POINT pt={};
+ RecordedHostItems.clear();MenuImages=0;MenuFonts=0;HostMenuChoice=CM_CLIPCOPY;
+ Check(TrackBranchHostContextMenu(&panel,pt)==CM_CLIPCOPY,"host menu returns selected whole-selection copy command");
+ Check(RecordedHostItems.size()==12&&MenuImages==2&&MenuFonts==1,"host popup keeps10 commands,2 separators,shared images and panel font");
+ Check(RecordedHostItems[0].State==0&&RecordedHostItems[3].State==0,"focused file enables open/view/edit/parent commands");
+ panel.Caret=99;RecordedHostItems.clear();HostMenuChoice=0;
+ Check(TrackBranchHostContextMenu(&panel,pt)==0,"cancelled host menu returns no command");
+ Check(RecordedHostItems[0].State==MENU_STATE_GRAYED&&RecordedHostItems[3].State==MENU_STATE_GRAYED,"invalid focus disables focused-file commands");
+ Check(RecordedHostItems[5].State==0&&RecordedHostItems[10].State==0,"whole-selection commands remain separate from focus commands");
+}
+#undef CM_BRANCH_OPENPARENT
+#undef CM_CLIPCOPY
+#undef CM_CLIPCUT
+#undef CM_COPYFILES
+#undef CM_DELETEFILES
+#undef CM_EDIT
+#undef CM_MOVEFILES
+#undef CM_OPEN
+#undef CM_PROPERTIES
+#undef CM_VIEW
+#undef IDS_ARCHIVEMENU_OPEN
+#undef IDS_BRANCH_OPENPARENT
+#undef IDS_MENU_EDIT_COPY
+#undef IDS_MENU_EDIT_CUT
+#undef IDS_MENU_FILES_COPY
+#undef IDS_MENU_FILES_DELETE
+#undef IDS_MENU_FILES_EDIT
+#undef IDS_MENU_FILES_MOVE
+#undef IDS_MENU_FILES_PROPERTIES
+#undef IDS_MENU_FILES_VIEW
+#undef IDX_TB_CLIPBOARDCOPY
+#undef IDX_TB_CLIPBOARDCUT
+#undef IDX_TB_COPY
+#undef IDX_TB_DELETE
+#undef IDX_TB_EDIT
+#undef IDX_TB_MOVE
+#undef IDX_TB_PARENTDIR
+#undef IDX_TB_PROPERTIES
+#undef IDX_TB_VIEW
+#undef MENU_MASK_ID
+#undef MENU_MASK_IMAGEINDEX
+#undef MENU_MASK_STATE
+#undef MENU_MASK_STRING
+#undef MENU_MASK_TYPE
+#undef MENU_STATE_GRAYED
+#undef MENU_TRACK_RETURNCMD
+#undef MENU_TRACK_RIGHTBUTTON
+#undef MENU_TYPE_SEPARATOR
+#undef MENU_TYPE_STRING
+#undef LoadStr
+
+static void ReceiveTests()
+{
+ CFilesWindow panel,source;CBranchViewState branch;branch.Enabled=true;panel.BranchView=&branch;
+ panel.FileRows.Count=5;panel.WideRoot=L"C:\\root-東京";panel.AnsiRoot=SalWideToMultiBytePath(panel.WideRoot.c_str(),CP_UTF8);
+ Check(Salamander::BranchView::IsRootDropTarget(panel.GetPathW(),panel.AnsiRoot.c_str()),"root accepts exact UTF8 transport");
+ Check(!Salamander::BranchView::IsRootDropTarget(panel.GetPathW(),nullptr)&&!Salamander::BranchView::IsRootDropTarget(panel.GetPathW(),"")&&!Salamander::BranchView::IsRootDropTarget(panel.GetPathW(),"C:\\other"),"null empty and other roots rejected");
+ std::string child=panel.AnsiRoot+"\\same.txt";Check(!Salamander::BranchView::IsRootDropTarget(panel.GetPathW(),child.c_str()),"focused basename is never root destination");
+ panel.WideRoot+=std::wstring(300,L'東');panel.AnsiRoot=SalWideToMultiBytePath(panel.WideRoot.c_str(),CP_UTF8);
+ Check(Salamander::BranchView::IsRootDropTarget(panel.GetPathW(),panel.AnsiRoot.c_str()),"long UTF8 root retains complete identity");
+ DropSourcePanel=&source;DWORD effect=DROPEFFECT_COPY|DROPEFFECT_MOVE|DROPEFFECT_LINK;
+ Check(TestReceive(&panel,INT_MAX,&effect)==panel.DropPath&&effect==(DROPEFFECT_COPY|DROPEFFECT_MOVE)&&panel.DropPath==panel.AnsiRoot,"background is exact root with copy move only");
+ for(int row:{0,1,4}){effect=DROPEFFECT_COPY;Check(!TestReceive(&panel,row,&effect)&&effect==0&&panel.DropTarget==-1,"all Branch rows reject receive without file handler");}
+ DropSourcePanel=&panel;effect=DROPEFFECT_MOVE;Check(!TestReceive(&panel,INT_MAX,&effect)&&effect==0,"same-panel receive rejected");
+ DropSourcePanel=nullptr;effect=DROPEFFECT_COPY;Check(!TestReceive(&panel,INT_MAX,&effect)&&effect==0,"external drag rejected");
+ DropSourcePanel=&source;source.Disk=FALSE;effect=DROPEFFECT_COPY;Check(!TestReceive(&panel,INT_MAX,&effect)&&effect==0,"virtual source rejected");source.Disk=TRUE;
+ effect=DROPEFFECT_COPY;Check(!TestReceive(&panel,INT_MAX,&effect,1)&&effect==0,"archive source rejected");
+ effect=DROPEFFECT_LINK;Check(!TestReceive(&panel,INT_MAX,&effect)&&effect==0,"link-only receive rejected");
+ effect=DROPEFFECT_COPY;Check(TestClipboardReceive(&panel,&effect)==panel.DropPath,"clipboard exact root accepted");
+ panel.WideRoot=L"C:\\changed";effect=DROPEFFECT_MOVE;Check(!TestClipboardReceive(&panel,&effect)&&effect==0,"stale clipboard target rejected");
+ CCopyMoveRecord row;CCopyMoveData data{1,&row};DestroyedDropData=0;Check(!DoCopyMove(TRUE,panel.DropPath,&data,&panel)&&DestroyedDropData==1&&!QueuedDrop,"stale callback rejected with owned data cleanup");
+ panel.WideRoot=SalMultiByteToWidePathUtf8OrAcp(panel.DropPath);DropPostSuccess=true;
+ Check(DoCopyMove(FALSE,panel.DropPath,&data,&panel)&&QueuedDrop&&!QueuedDrop->Copy&&QueuedDrop->TargetPath==panel.AnsiRoot,"queue owns exact full root and data");delete QueuedDrop;QueuedDrop=nullptr;
+ DropPostSuccess=false;DestroyedDropData=0;Check(!DoCopyMove(TRUE,panel.DropPath,&data,&panel)&&DestroyedDropData==1&&!QueuedDrop,"post failure frees data without partial queue");DropPostSuccess=true;
+ DropQueueAllocationFail=true;DestroyedDropData=0;Check(!DoCopyMove(TRUE,panel.DropPath,&data,&panel)&&DestroyedDropData==1,"allocation failure preserves cleanup");DropQueueAllocationFail=false;
+ std::string tooLong(32768,'x');DestroyedDropData=0;Check(!DoCopyMove(TRUE,&tooLong[0],&data,&panel)&&DestroyedDropData==1,"overcapacity queue rejects instead of truncating");
+ panel.WideRoot=std::wstring(32768,L'東');effect=DROPEFFECT_COPY;Check(!TestReceive(&panel,INT_MAX,&effect)&&effect==0,"overcapacity background root rejected");
+ DropSourcePanel=nullptr;
+}
+static void PropertiesTests()
+{
+    CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;
+    std::string a="first mirror",b="second mirror";std::wstring name=L"same-東京.txt";
+    panel.FileRows.Values={{a.c_str(),name.c_str()},{b.c_str(),name.c_str()}};panel.FileRows.Count=2;
+    const std::wstring parent=L"C:\\ž-東京\\"+std::wstring(130,L'a')+L"\\"+std::wstring(130,L'b');
+    Add(state,panel.Files->At(0),L"C:\\first",name,L"first\\same-東京.txt");
+    Add(state,panel.Files->At(1),parent,name,L"deep\\same-東京.txt");
+    for(auto& row:panel.FileRows.Values)state.CacheFiles[state.Items.at(row.Name).CacheKey]=&row;
+    int selected[]={0,1};CTmpEnumData data{selected,&panel};
+    auto paths=GetPanelShellPaths(2,&data);
+    Check(paths.size()==2&&paths[0]!=paths[1]&&paths[0]==panel.GetItemFullPathW(panel.Files->At(0))&&paths[1]==panel.GetItemFullPathW(panel.Files->At(1)),"Shell capture retains duplicate exact parents");
+    Check(paths[1].size()>260&&GetPanelShellDirectoryW(data)==L"C:\\first","Shell capture retains long Unicode identity and first actual parent");
+    Check(GetPanelShellPaths(1,nullptr).empty()&&GetPanelShellPaths(0,&data).empty(),"Shell capture rejects null/empty inputs");
+    CTmpEnumData noPanel{selected,nullptr},noIndexes{nullptr,&panel};
+    Check(GetPanelShellPaths(2,&noPanel).empty()&&GetPanelShellPaths(2,&noIndexes).empty(),"Shell capture rejects missing panel/selection");
+    Check(GetPanelShellDirectoryW(noPanel).empty()&&GetPanelShellDirectoryW(noIndexes).empty(),"Shell directory rejects missing panel/selection");
+    int bad[]={0,99};CTmpEnumData invalid{bad,&panel};Check(GetPanelShellPaths(2,&invalid).empty(),"invalid second index cannot publish first item only");
+    state.CacheFiles.erase(state.Items.at(b.c_str()).CacheKey);Check(GetPanelShellPaths(2,&data).empty(),"stale second identity prevents partial Shell selection");
+    int second[]={1};CTmpEnumData stale{second,&panel};Check(GetPanelShellDirectoryW(stale).empty(),"stale source cannot provide synthetic verb directory");
+    state.CacheFiles[state.Items.at(b.c_str()).CacheKey]=&panel.Files->At(1);
+    auto reset=[](){PropertiesCalls=0;DataCalls=0;RecycleErrors=0;PropertiesObject.Releases=0;MenuAvailable=true;DataAvailable=true;PropertiesResult=S_OK;PropertiesPaths.clear();};
+    reset();panel.PropertiesRoute(0,1,nullptr);Check(MenuWasQuiet&&DataCalls==0&&PropertiesCalls==0&&PropertiesPaths.size()==1&&PropertiesPaths[0]==paths[1],"single-item Properties reuses actual-parent Shell menu");
+    reset();MenuAvailable=false;panel.PropertiesRoute(2,0,selected);Check(MenuWasQuiet&&DataCalls==1&&PropertiesCalls==1&&PropertiesPaths==paths,"mixed-parent fallback receives whole exact data object");
+    Check(PropertiesObject.Releases==1&&RecycleErrors==0,"successful merged Properties releases object without error");
+    reset();MenuAvailable=false;PropertiesResult=E_FAIL;panel.PropertiesRoute(2,0,selected);Check(PropertiesCalls==1&&PropertiesObject.Releases==1&&RecycleErrors==1,"Properties failure releases object and reports error");
+    reset();MenuAvailable=false;DataAvailable=false;panel.PropertiesRoute(2,0,selected);Check(PropertiesCalls==0&&PropertiesObject.Releases==0,"failed capture cannot invoke partial Properties");
+    TestShellGate(&panel,saProperties,TRUE,FALSE);Check(ShellGatePassed,"selected Branch Properties passes direct gate");
+    for(int action:{saPermissions,99}){TestShellGate(&panel,action,TRUE,FALSE);Check(!ShellGatePassed,"unverified Shell action remains blocked");}
+    TestShellGate(&panel,saProperties,FALSE,FALSE);Check(!ShellGatePassed,"panel-only Properties remains blocked");
+    TestShellGate(&panel,saProperties,TRUE,TRUE);Check(!ShellGatePassed,"panel menu path remains blocked");
+    TestShellGate(&panel,saCopyToClipboard,TRUE,FALSE);Check(ShellGatePassed,"selected Branch copy passes direct gate");
+    TestShellGate(&panel,saCopyToClipboard,FALSE,FALSE);Check(!ShellGatePassed,"panel-root copy remains blocked");
+    TestShellGate(&panel,saCopyToClipboard,TRUE,TRUE);Check(!ShellGatePassed,"panel-menu copy remains blocked");
+    auto resetCopy=[&](){reset();DropEffectResult=S_OK;ClipboardResult=S_OK;DropEffectCalls=0;ClipboardCalls=0;ExportEffect=0;};
+    resetCopy();Check(panel.ClipboardRoute(2,0,selected)&&PropertiesPaths==paths,"copy exports all exact mixed-parent identities");
+    Check(DropEffectCalls==1&&ClipboardCalls==1&&ExportEffect==(DROPEFFECT_COPY|DROPEFFECT_LINK),"copy sets copy/link effect before one publication");
+    Check(PropertiesObject.Releases==1&&RecycleErrors==0,"copy releases its object after successful publication");
+    resetCopy();Check(panel.ClipboardRoute(0,1,nullptr)&&PropertiesPaths.size()==1&&PropertiesPaths[0]==paths[1],"focused copy retains long Unicode full identity");
+    resetCopy();DropEffectResult=E_FAIL;Check(!panel.ClipboardRoute(2,0,selected)&&ClipboardCalls==0&&PropertiesObject.Releases==1&&RecycleErrors==1,"failed effect prevents publication and releases object");
+    resetCopy();ClipboardResult=E_FAIL;Check(!panel.ClipboardRoute(2,0,selected)&&ClipboardCalls==1&&PropertiesObject.Releases==1&&RecycleErrors==1,"publication failure reports error without success");
+    resetCopy();DataAvailable=false;Check(!panel.ClipboardRoute(2,0,selected)&&DropEffectCalls==0&&ClipboardCalls==0&&PropertiesObject.Releases==0,"failed data capture leaves clipboard untouched");
+    resetCopy();Check(!panel.ClipboardRoute(2,0,bad)&&ClipboardCalls==0,"invalid second row prevents partial clipboard publication");
+    resetCopy();state.CacheFiles.erase(state.Items.at(b.c_str()).CacheKey);Check(!panel.ClipboardRoute(2,0,selected)&&ClipboardCalls==0,"stale second row prevents partial clipboard publication");
+    state.CacheFiles[state.Items.at(b.c_str()).CacheKey]=&panel.Files->At(1);
+    TestShellGate(&panel,saContextMenu,TRUE,FALSE);Check(ShellGatePassed,"selected Branch context menu passes gate");
+    TestShellGate(&panel,saContextMenu,TRUE,TRUE);Check(!ShellGatePassed,"Branch background context menu remains blocked");
+    TestShellGate(&panel,saCutToClipboard,TRUE,FALSE);Check(ShellGatePassed,"selected cut export passes gate");
+    TestShellGate(&panel,saCutToClipboard,FALSE,FALSE);Check(!ShellGatePassed,"panel root cut stays blocked");
+    resetCopy();Check(panel.ClipboardRoute(2,0,selected,saCutToClipboard)&&PropertiesPaths==paths&&ExportEffect==DROPEFFECT_MOVE,"cut exports entire exact selection with MOVE only");
+    resetCopy();DropEffectResult=E_FAIL;Check(!panel.ClipboardRoute(2,0,selected,saCutToClipboard)&&ClipboardCalls==0,"failed cut effect never publishes");
+    CBranchViewState otherState;CFilesWindow other;other.BranchView=&otherState;other.FileRows.Values={{a.c_str(),name.c_str()},{b.c_str(),name.c_str()}};other.FileRows.Count=2;
+    Add(otherState,other.Files->At(0),parent,name,L"deep\\same-東京.txt");Add(otherState,other.Files->At(1),L"C:\\first",name,L"first\\same-東京.txt");
+    for(auto& row:other.FileRows.Values)otherState.CacheFiles[otherState.Items.at(row.Name).CacheKey]=&row;
+    Check(MarkCut(&panel,&other,0,1,nullptr,TRUE)&&panel.Files->At(1).CutToClip&&!panel.Files->At(0).CutToClip,"cut marks only exact selected source");
+    Check(other.Files->At(0).CutToClip&&!other.Files->At(1).CutToClip&&other.CutToClipChanged,"cross-panel cut marks full identity, not duplicate basename");
+    panel.ClearCutToClipFlag(FALSE);other.ClearCutToClipFlag(TRUE);
+    Check(!panel.CutToClipChanged&&!other.CutToClipChanged&&!panel.Files->At(1).CutToClip&&!other.Files->At(0).CutToClip,"cut cleanup clears both panels");
+    Check(panel.Files->At(1).Dirty&&other.Files->At(0).Dirty,"cut cleanup invalidates painted rows");
+    for(int action:{saLeftDragFiles,saRightDragFiles}){TestShellGate(&panel,action,TRUE,FALSE);Check(ShellGatePassed,"verified drag source passes direct gate");}
+    auto resetDrag=[&](){resetCopy();DropAllocationFail=false;DragCalls=0;DropReleases=0;DragHeldSource=false;DropSourcePanel=nullptr;};
+    for(HRESULT result:{DRAGDROP_S_DROP,DRAGDROP_S_CANCEL,E_FAIL}){
+     resetDrag();DragResult=result;panel.DragRoute(2,0,selected);
+     Check(DragCalls==1&&DragHeldSource&&DropSourcePanel==nullptr&&PropertiesPaths==paths,"drag retains entire exact selection and scopes source panel for drop/cancel/error");
+     Check(DragAllowed==(DROPEFFECT_COPY|DROPEFFECT_MOVE|DROPEFFECT_LINK)&&DropReleases==1&&PropertiesObject.Releases==1,"drag uses Windows effect negotiation and releases both objects");
+    }
+    resetDrag();DataAvailable=false;panel.DragRoute(2,0,selected);Check(!DragCalls&&DropReleases==1&&PropertiesObject.Releases==0,"failed drag capture never transfers partial input");
+    resetDrag();DropAllocationFail=true;panel.DragRoute(2,0,selected);Check(!DragCalls&&DropReleases==0&&PropertiesObject.Releases==1,"failed source allocation preserves existing cleanup");
+    resetDrag();panel.DragRoute(2,0,bad);Check(!DragCalls&&DropReleases==1,"invalid second drag row prevents partial transfer");
+    CImpIDropSource query(FALSE);Check(query.QueryContinueDrag(FALSE,MK_LBUTTON)==S_OK,"left drag begins with button held");
+    Check(query.QueryContinueDrag(TRUE,MK_LBUTTON)==DRAGDROP_S_CANCEL,"Escape cancels held drag");
+    Check(query.QueryContinueDrag(FALSE,0)==DRAGDROP_S_DROP,"button release completes drop");
+    CImpIDropSource right(FALSE);Check(right.QueryContinueDrag(FALSE,MK_RBUTTON)==S_OK&&right.QueryContinueDrag(FALSE,MK_LBUTTON)==DRAGDROP_S_CANCEL,"right drag supports initial button and cancels changed button");
+    panel.BranchView=nullptr;panel.WideRoot=L"C:\\ordinary-東京";state.CacheFiles.clear();
+    Check(GetPanelShellPaths(2,&data).size()==2&&GetPanelShellDirectoryW(data)==panel.WideRoot,"ordinary disk capture needs no Branch cache");
+    TestShellGate(&panel,saContextMenu,TRUE,FALSE);Check(ShellGatePassed,"ordinary Shell action unaffected by staged Branch gate");
+}
+
+static void RecycleQueueTests()
+{
+    CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;
+    std::string a="first mirror",b="second mirror",c="long mirror";
+    std::wstring name=L"same-東京.txt",longName=std::wstring(100,L'東')+L".txt";
+    panel.FileRows.Values={{a.c_str(),name.c_str()},{b.c_str(),name.c_str()},{c.c_str(),longName.c_str()}};panel.FileRows.Count=3;
+    Add(state,panel.Files->At(0),L"C:\\first-ž",name,L"first\\same-東京.txt");
+    Add(state,panel.Files->At(1),L"D:\\second-東京",name,L"second\\same-東京.txt");
+    Add(state,panel.Files->At(2),L"C:\\"+std::wstring(110,L'a')+L"\\"+std::wstring(110,L'b')+L"\\東京",longName,L"deep\\"+longName);
+    for(auto& row:panel.FileRows.Values)state.CacheFiles[state.Items.at(row.Name).CacheKey]=&row;
+    int selected[]={0,1,2};
+    auto reset=[](){RecycleMock=TestFileOperation();ParseCalls=0;ParseFail=-1;RecycleErrors=0;};
+    reset();Check(panel.Recycle(selected,3,nullptr),"recycle queues entire mixed-volume selection");
+    Check(RecycleMock.Paths.size()==3&&RecycleMock.Paths[0]==panel.GetItemFullPathW(panel.Files->At(0))&&RecycleMock.Paths[1]==panel.GetItemFullPathW(panel.Files->At(1)),"recycle preserves duplicate exact parent identities");
+    Check(RecycleMock.Paths[2]==panel.GetItemFullPathW(panel.Files->At(2))&&RecycleMock.Paths[2].size()>260,"recycle preserves long Unicode name and parent");
+    Check(RecycleMock.Flags==(FOF_ALLOWUNDO|FOFX_RECYCLEONDELETE|FOFX_ADDUNDORECORD|FOFX_EARLYFAILURE),"recycle-only flags cannot permit permanent fallback");
+    Check(RecycleMock.PerformCalls==1&&RecycleMock.AbortCalls==1&&RecycleMock.Released==1,"one perform after complete queue and checked abort status");
+    for(int stage=1;stage<=4;++stage){reset();RecycleMock.FailStage=stage;Check(!panel.Recycle(selected,3,nullptr)&&RecycleErrors==1&&RecycleMock.Released==1,"COM setup/perform/abort failure is reported");if(stage<=2)Check(ParseCalls==0&&RecycleMock.PerformCalls==0,"failed owner/flags cannot queue or perform");}
+    reset();RecycleMock.FailStage=5;Check(!panel.Recycle(selected,3,nullptr)&&ParseCalls==0&&RecycleMock.PerformCalls==0,"COM creation failure cannot queue or perform");
+    reset();RecycleMock.FailItem=1;Check(!panel.Recycle(selected,3,nullptr)&&RecycleMock.PerformCalls==0&&RecycleMock.Paths.size()==1,"queue failure prevents partial selection perform");
+    reset();ParseFail=1;Check(!panel.Recycle(selected,3,nullptr)&&RecycleMock.PerformCalls==0,"unparsable second source prevents partial selection perform");
+    reset();RecycleMock.Aborted=TRUE;Check(!panel.Recycle(selected,3,nullptr),"user abort is not success");
+    reset();Check(panel.Recycle(nullptr,0,&panel.Files->At(1))&&RecycleMock.Paths.size()==1&&RecycleMock.Paths[0]==panel.GetItemFullPathW(panel.Files->At(1)),"focused one-file recycle resolves exact parent");
+    reset();Check(!panel.Recycle(nullptr,0,nullptr)&&RecycleMock.PerformCalls==0,"null focused source cannot recycle");
+    reset();int bad[]={-1};Check(!panel.Recycle(bad,1,nullptr)&&RecycleMock.PerformCalls==0,"out-of-range selection cannot recycle");
+    reset();Check(!panel.Recycle(nullptr,1,nullptr)&&RecycleMock.PerformCalls==0,"missing selection array cannot recycle");
+    reset();state.CacheFiles.clear();Check(!panel.Recycle(selected,3,nullptr)&&RecycleMock.PerformCalls==0,"stale Branch selection cannot recycle");
+    for(auto& row:panel.FileRows.Values)state.CacheFiles[state.Items.at(row.Name).CacheKey]=&row;
+    reset();state.Items[a.c_str()].Directory=L"C:\\ambiguous.\\parent";state.Items[a.c_str()].CacheKey=SalWideToMultiBytePath(state.Items[a.c_str()].FullPath().c_str(),CP_UTF8);state.CacheFiles[state.Items[a.c_str()].CacheKey]=&panel.Files->At(0);
+    Check(!panel.Recycle(selected,3,nullptr)&&ParseCalls==0&&RecycleMock.PerformCalls==0,"ambiguous ancestor rejected before Shell parser");
+}
+
+static void NotificationTests()
+{
+    CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;panel.WideRoot=L"C:\\東京\\branch";
+    PostedRefresh=0;InitializeCriticalSection(&TimeCounterSection);
+    panel.Notify("C:\\東京\\branch",TRUE);Check(PostedRefresh==1,"completion root notification refreshes Branch");
+    panel.Notify("C:\\東京\\branch\\nested",FALSE);Check(PostedRefresh==2,"descendant notification refreshes Branch");
+    panel.Notify("C:\\東京",TRUE);Check(PostedRefresh==3,"recursive ancestor notification refreshes Branch");
+    panel.Notify("C:\\東京",FALSE);Check(PostedRefresh==3,"nonrecursive ancestor is ignored");
+    panel.Notify("C:\\東京\\branch-other",TRUE);Check(PostedRefresh==3,"prefix sibling is not Branch descendant");
+    panel.Notify("",TRUE);Check(PostedRefresh==3,"empty path cannot refresh unrelated Branch");
+    Check(panel.FreeSpaceCalls==6,"notification retains free-space refresh");
+    panel.WideRoot=L"C:\\東京\\"+std::wstring(300,L'漢');
+    const std::string longRoot=SalWideToMultiBytePath(panel.WideRoot.c_str(),CP_UTF8);
+    panel.Notify(longRoot.c_str(),FALSE);Check(PostedRefresh==4,"full long UTF8 root posts automatic refresh");
+    panel.Notify((longRoot+"\\nested").c_str(),FALSE);Check(PostedRefresh==5,"full long descendant posts automatic refresh");
+    panel.Notify((longRoot+"-sibling").c_str(),TRUE);Check(PostedRefresh==5,"long shared prefix never matches sibling");
+    Check(panel.FreeSpaceCalls==9,"long notifications retain free-space refresh");DeleteCriticalSection(&TimeCounterSection);
+}
+
+static void CopySourceTests()
+{
+    CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;
+    std::string first="same.txt",second="same.txt",wideMirror="short mirror";
+    std::wstring name=L"same.txt",wideName=std::wstring(100,L'東')+L".txt";
+    std::wstring parent=L"C:\\žluťoučký-東京\\"+std::wstring(100,L'a')+L"\\"+std::wstring(100,L'b')+L"\\"+std::wstring(100,L'c');
+    panel.FileRows.Values={{first.c_str(),name.c_str()},{second.c_str(),name.c_str()},{wideMirror.c_str(),wideName.c_str()}};panel.FileRows.Count=3;
+    Add(state,panel.Files->At(0),L"C:\\ascii",name,L"ascii\\same.txt");
+    Add(state,panel.Files->At(1),parent,name,L"deep\\same.txt");
+    Add(state,panel.Files->At(2),L"C:\\ascii",wideName,wideName);
+    for(auto& row:panel.FileRows.Values)state.CacheFiles[state.Items.at(row.Name).CacheKey]=&row;
+    CopyScript script;CopyCapture one,two,wide;
+    Check(panel.PrepareCopySource(&panel.Files->At(0),atCopy,one,&script,nullptr),"copy prepares first duplicate");
+    Check(one.Parent=="C:\\ascii"&&one.Name==first&&!one.HasDosName,"copy owns exact parent/basename without DOS alias");
+    Check(one.ADS&&ADSQueried==one.Parent,"copy probes ADS on actual parent");
+    Check(one.Flags==(OPFL_SRCPATH_IS_FAST|OPFL_TGTPATH_IS_NET),"copy resets source flags and retains target flags");
+    Check(panel.PrepareCopySource(&panel.Files->At(1),atCopy,two,&script,nullptr),"copy prepares long Unicode duplicate");
+    Check(two.Parent==SalWideToMultiBytePath(parent.c_str(),CP_UTF8)&&two.Name==one.Name&&two.Parent!=one.Parent,"flat copy does not conflate duplicate parents");
+    Check(script.Storage.size()==2&&script.Storage[1].first==two.Parent&&script.Storage[1].second==SACCESS_READ,"scheduler records actual long source for read access");
+    Check(panel.PrepareCopySource(&panel.Files->At(2),atCopy,wide,&script,nullptr),"copy accepts wide basename exceeding UTF8 MAX_PATH");
+    Check(wide.Name==SalWideToMultiBytePath(wideName.c_str(),CP_UTF8)&&wide.Name.size()>260,"copy ignores shortened display mirror");
+    const auto old=state.Items.at(first.c_str());state.Items[first.c_str()].Directory=L"\\\\server\\share\\東京";
+    state.Items[first.c_str()].CacheKey=SalWideToMultiBytePath(state.Items[first.c_str()].FullPath().c_str(),CP_UTF8);
+    state.CacheFiles[state.Items[first.c_str()].CacheKey]=&panel.Files->At(0);
+    CopyCapture net;Check(panel.PrepareCopySource(&panel.Files->At(0),atCopy,net,&script,nullptr)&&script.SourcePathIsNetwork,"mixed-parent network scheduling is cumulative");
+    CopyCriteria ignore;ignore.IgnoreADS=TRUE;ADSQueried="not probed";
+    Check(panel.PrepareCopySource(&panel.Files->At(0),atCopy,net,&script,&ignore)&&!net.ADS&&ADSQueried=="not probed","ignore-ADS option remains effective");
+    int resets=CopyCwdResets;const auto queued=script.Storage.size();
+    Check(!panel.PrepareCopySource(&panel.Files->At(0),99,net,&script,nullptr),"unknown action cannot use staged operation boundary");
+    Check(CopyCwdResets==resets+1&&script.Storage.size()==queued,"rejected action restores CWD without scheduling");
+    CopyScript deleting;CopyCapture removed;
+    Check(panel.PrepareCopySource(&panel.Files->At(1),atDelete,removed,&deleting,nullptr),"delete resolves long duplicate parent");
+    Check(removed.Parent==two.Parent&&removed.Name==two.Name&&!removed.HasDosName,"delete exact identity has no DOS fallback");
+    Check(deleting.Storage.empty(),"delete does not inherit copy scheduling probes");
+    Check(panel.PrepareCopySource(&panel.Files->At(2),atDelete,removed,&deleting,nullptr)&&removed.Name==wide.Name,"delete retains full wide basename");
+    CopyScript moving;CopyCapture moved;SameVolume=FALSE;
+    Check(panel.PrepareCopySource(&panel.Files->At(1),atMove,moved,&moving,nullptr),"move resolves long actual parent");
+    Check(moved.Parent==two.Parent&&moved.Name==two.Name&&!moved.HasDosName,"move does not use display/DOS aliases");
+    Check(moving.Storage.size()==1&&moving.Storage[0].first==two.Parent&&moving.Storage[0].second==SACCESS_READWRITE,"move storage access is read/write on actual source");
+    Check(moving.SameRootButDiffVolume&&moving.ShowStatus,"cross-volume move enables copy/delete status");
+    CopyScript local;SameVolume=TRUE;
+    Check(panel.PrepareCopySource(&panel.Files->At(2),atMove,moved,&local,nullptr)&&!local.SameRootButDiffVolume&&!local.ShowStatus,"same-volume move keeps rename optimization");
+    state.CacheFiles.clear();
+    Check(!panel.PrepareCopySource(&panel.Files->At(1),atDelete,removed,&deleting,nullptr),"stale delete cannot schedule destructive I/O");
+    Check(!panel.PrepareCopySource(&panel.Files->At(1),atMove,moved,&moving,nullptr)&&moving.Storage.size()==1,"stale move cannot schedule destructive I/O");
+    state.CacheFiles.clear();
+    Check(!panel.PrepareCopySource(&panel.Files->At(0),atCopy,net,&script,nullptr),"stale cache cannot fall back to root plus basename");
+    state.CacheFiles[state.Items[first.c_str()].CacheKey]=&panel.Files->At(0);CPathBuffer::FailGrowth=true;
+    Check(!panel.PrepareCopySource(&panel.Files->At(0),atCopy,net,&script,nullptr)&&script.Storage.size()==queued,"buffer failure stops before scheduling");
+    CPathBuffer::FailGrowth=false;state.Items[first.c_str()]=old;
+}
+
+// S31b3a1: real per-row planner source block; operation execution stays staged.
+static void AttributeSourceTests()
+{
+    const std::vector<std::pair<std::wstring,std::wstring>> cases={
+        {L"C:\\ascii",L"file.txt"},
+        {L"C:\\ascii",L"東京-🙂.txt"},
+        {L"C:\\東京",L"file.txt"},
+        {L"C:\\東京\\český\\日本",L"same.txt"},
+        {L"C:\\"+std::wstring(100,L'東'),L"same.txt"},
+        {L"C:\\"+std::wstring(100,L'a')+L"\\"+std::wstring(100,L'東')+L"\\"+std::wstring(100,L'b'),L"same.txt"},
+        {L"\\\\server\\share\\東京",L"same.txt"},
+        {L"C:\\",std::wstring(100,L'東')+L".txt"}
+    };
+    for(const auto& fixture:cases)
+    {
+        CBranchViewState state;CFilesWindow panel;panel.BranchView=&state;
+        std::string mirror="short display";
+        panel.FileRows.Values={{mirror.c_str(),fixture.second.c_str()}};panel.FileRows.Count=1;
+        auto& row=panel.Files->At(0);Add(state,row,fixture.first,fixture.second,L"relative");
+        state.CacheFiles[state.Items.at(row.Name).CacheKey]=&row;
+        CopyScript script;CopyCapture result;ADSQueried="untouched";const int resets=CopyCwdResets;
+        Check(panel.PrepareCopySource(&row,atChangeAttrs,result,&script,nullptr),"attributes accept exact current source row");
+        Check(result.Parent==SalWideToMultiBytePath(fixture.first.c_str(),CP_UTF8)&&result.Name==SalWideToMultiBytePath(fixture.second.c_str(),CP_UTF8)&&!result.HasDosName,"attributes preserve full parent and basename without display/DOS alias");
+        Check(script.Storage.empty()&&ADSQueried=="untouched"&&!script.SameRootButDiffVolume&&!script.ShowStatus&&CopyCwdResets==resets,"attributes do not take copy/move scheduling branches");
+        state.CacheFiles.clear();
+        Check(!panel.PrepareCopySource(&row,atChangeAttrs,result,&script,nullptr)&&CopyCwdResets==resets+1,"stale attribute row rejects before scheduling and restores CWD");
+    }
+    Check(cases[4].first.size()<260&&SalWideToMultiBytePath(cases[4].first.c_str(),CP_UTF8).size()>260,"attribute fixture covers byte-long parent");
+    Check(cases[5].first.size()>260,"attribute fixture covers UTF16 long parent");
+}
+
+static void RenameMetadataTests()
+{
+    CBranchViewState state; CFilesWindow panel; panel.BranchView=&state;
+    std::string a="same.txt",b="same.txt",newMirror="renamed.txt";
+    const std::wstring parent=L"C:\\東京\\"+std::wstring(100,L'a')+L"\\"+std::wstring(100,L'b')+L"\\"+std::wstring(100,L'c');
+    const std::wstring renamed=L"přejmenováno-東京-😀.txt";
+    panel.FileRows.Values={{a.c_str(),L"same.txt"},{b.c_str(),L"same.txt"}};panel.FileRows.Count=2;
+    Add(state,panel.Files->At(0),L"C:\\ascii",L"same.txt",L"ascii\\same.txt");
+    Add(state,panel.Files->At(1),parent,L"same.txt",L"東京\\same.txt");
+    const auto oldPath=panel.GetItemFullPathW(panel.Files->At(1));
+    const auto otherKey=state.Items.at(a.c_str()).CacheKey;
+    const auto oldKey=state.Items.at(b.c_str()).CacheKey;
+    state.CacheFiles[otherKey]=&panel.Files->At(0);state.CacheFiles[oldKey]=&panel.Files->At(1);
+    state.Entries={state.Items.at(a.c_str()),state.Items.at(b.c_str())};
+    panel.Files->At(1).Name=newMirror.c_str();panel.Files->At(1).NameW=renamed.c_str();
+    panel.BranchItemRenamed(b.c_str(),panel.Files->At(1),oldPath);
+    Check(state.Items.count(b.c_str())==0&&state.Items.count(newMirror.c_str())==1,"rename remaps the exact name allocation");
+    Check(state.CacheFiles.count(oldKey)==0,"old full-path cache key is removed");
+    const auto newPath=parent+L"\\"+renamed;
+    Check(panel.GetItemFullPathW(panel.Files->At(1))==newPath,"rename keeps the long Unicode real parent");
+    Check(panel.GetItemRelativePathW(panel.Files->At(1))==L"東京\\"+renamed,"rename changes only the relative basename");
+    Check(state.CacheFiles.at(state.Items.at(newMirror.c_str()).CacheKey)==&panel.Files->At(1),"new cache resolves the current renamed row");
+    Check(state.CacheFiles.at(otherKey)==&panel.Files->At(0)&&state.Entries[0].FullPath()==L"C:\\ascii\\same.txt","duplicate basename in another parent is unchanged");
+    Check(state.Entries[1].FullPath()==newPath&&state.PendingFocus==newPath,"snapshot and pending focus use the new full identity");
+    Check(panel.CancelCalls==1&&panel.RefreshCalls==1&&!panel.CallbackLocked,"cancel and refresh run after releasing the metadata lock");
+    panel.BranchItemRenamed(b.c_str(),panel.Files->At(1),oldPath);
+    Check(panel.RefreshCalls==1,"unknown old key cannot remap a different row");
+
+    // Exercise actual panel temporary-selection capture and cleanup after reorder.
+    panel.Caret=1;CPanelTemporarySelection selection;panel.SelectFocusedItemAndGetName(selection);
+    Check(selection.BranchIdentity==newPath&&panel.GetSelCount()==1,"temporary selection owns the focused row's exact Branch identity");
+    std::swap(panel.FileRows.Values[0],panel.FileRows.Values[1]);
+    panel.UnselectItemWithName(selection);
+    Check(panel.GetSelCount()==0,"Cancel cleanup finds the current row after sorting");
+    panel.Files->At(1).Selected=TRUE;panel.Caret=0;panel.SelectFocusedItemAndGetName(selection);
+    Check(selection.BranchIdentity.empty()&&selection.Name.empty(),"explicit selection creates no temporary cleanup ownership");
+    panel.UnselectItemWithName(selection);Check(panel.GetSelCount()==1,"Cancel retains explicit selection");
+    panel.Files->At(1).Selected=FALSE;panel.Caret=0;panel.SelectFocusedItemAndGetName(selection);
+    state.Items.erase(newMirror.c_str());state.Items.erase(a.c_str());
+    panel.FileRows.Values.erase(panel.FileRows.Values.begin());panel.FileRows.Count=1;
+    std::string replacementMirror=newMirror;
+    panel.Files->At(0).Name=replacementMirror.c_str();panel.Files->At(0).NameW=renamed.c_str();panel.Files->At(0).Selected=TRUE;
+    Add(state,panel.Files->At(0),L"C:\\different",renamed,L"different\\"+renamed);
+    panel.UnselectItemWithName(selection);
+    Check(panel.Files->At(0).Selected==TRUE,"missing temporary identity cannot deselect another same-named source");
+}
+
+static void NavigationTests()
+{
+    CBranchViewState state;
+    CFilesWindow panel; panel.BranchView = &state;
+    std::string name1 = "same.txt", name2 = "same.txt";
+    panel.FileRows.Values = {{name1.c_str(), L"same.txt"}, {name2.c_str(), L"same.txt"}};
+    panel.FileRows.Count = 2;
+    const std::wstring longParent = L"C:\\" + std::wstring(100, L'a') + L"\\" + std::wstring(100, L'b') + L"\\" + std::wstring(100, L'c') + L"\\東京";
+    Add(state, panel.Files->At(0), L"C:\\ascii", L"same.txt", L"ascii\\same.txt");
+    Add(state, panel.Files->At(1), longParent, L"same.txt", L"東京\\same.txt");
+    for (int i = 0; i < 2; ++i) {
+        const auto& file = panel.Files->At(i);
+        state.CacheFiles[panel.GetItemCacheKeyPtr(file)] = &file;
+    }
+    for (int i = 0; i < 2; ++i) {
+        state.Enabled = true; panel.Caret = i;
+        const auto& file = panel.Files->At(i);
+        const auto expectedDirectory = panel.GetItemDirectoryW(file);
+        Check(panel.OpenBranchItemDirectory() != FALSE, "actual Open Parent succeeds for exact duplicate identity");
+        Check(panel.OpenedDirectory == expectedDirectory && panel.FocusedIndex == 0 && panel.FocusCalls > 0, "parent and focus remain exact with long Unicode ancestor");
+        Check(!state.Enabled, "successful navigation reaches ordinary panel callback");
+        state.Enabled = true; panel.Caret = i; panel.NavigationSuccess = FALSE;
+        Check(panel.OpenBranchItemDirectory() == FALSE && state.Enabled, "non-destructive navigation callback failure is propagated");
+        panel.NavigationSuccess = TRUE;
+        const int navigationBefore = panel.NavigationCalls;
+        ParentAttributes = INVALID_FILE_ATTRIBUTES;
+        Check(!panel.OpenBranchItemDirectory() && state.Enabled && panel.NavigationCalls == navigationBefore, "vanished parent is rejected before destructive navigation callback");
+        ParentAttributes = FILE_ATTRIBUTE_NORMAL;
+        Check(!panel.OpenBranchItemDirectory() && state.Enabled && panel.NavigationCalls == navigationBefore, "a file cannot substitute for the source directory");
+        ParentAttributes = FILE_ATTRIBUTE_DIRECTORY;
+        const auto checked = expectedDirectory.size() >= MAX_PATH ? L"\\\\?\\" + expectedDirectory : expectedDirectory;
+        Check(CheckedParent == checked, "preflight uses exact wide directory with extended prefix for long paths");
+    }
+    state.Enabled = true; panel.Caret = 1;
+    state.CacheFiles.clear(); const int navigationBefore = panel.NavigationCalls;
+    Check(!panel.OpenBranchItemDirectory() && panel.NavigationCalls == navigationBefore, "missing current cache-row mapping cannot navigate to guessed parent");
+    for (int index : {-1, 2}) {panel.Caret = index; Check(!panel.OpenBranchItemDirectory(), "invalid focus cannot navigate");}
+    const std::wstring expectedWideFocus(100, L'東');
+    std::wstring replacedWideFocus = expectedWideFocus;
+    std::string oldLegacy = "old-lossy-name";
+    panel.FileRows.Values = {{oldLegacy.c_str(), replacedWideFocus.c_str()}};
+    panel.FileRows.Count = 1; panel.Caret = 0; state.Items.clear();
+    Add(state, panel.Files->At(0), longParent, replacedWideFocus, replacedWideFocus);
+    state.CacheFiles[panel.GetItemCacheKeyPtr(panel.Files->At(0))] = &panel.Files->At(0);
+    panel.OnNavigate = [&]() {
+        state.Items.clear(); state.CacheFiles.clear();
+        replacedWideFocus.assign(100, L'X');
+        panel.FileRows.Values = {{"ordinary-other.txt", nullptr}, {"new-lossy-name", expectedWideFocus.c_str()}};
+        panel.FileRows.Count = 2;
+    };
+    Check(panel.OpenBranchItemDirectory() != FALSE, "actual parent navigation tolerates replacement of all original rows and metadata");
+    Check(panel.FocusedIndex == 1 && !state.Enabled, "owned wide basename beyond MAX_PATH UTF8 bytes focuses the exact replacement row");
+    panel.OnNavigate = nullptr;
+    state.Enabled = true;
+    TestMasks match, noMatch; noMatch.Match = FALSE;
+    CViewerMasksItem internal = {&match, VIEWER_INTERNAL}, external = {&match, VIEWER_EXTERNAL}, plugin = {&match, -1}, skippedPlugin = {&noMatch, -1};
+    CViewerMasks normal, alternate; MainWindow->ViewerMasks = &normal; MainWindow->AltViewerMasks = &alternate;
+    normal.Count = 1; alternate.Count = 1; alternate.Values = {&external};
+    for (auto* viewer : {&internal, &external, &plugin}) {
+        normal.Values = {viewer}; panel.ViewPolicy("C:\\東京\\same.txt", FALSE, 0xFFFFFFFF);
+        Check((panel.ViewGatePassed != FALSE) == (viewer != &plugin), "first matching mask allows only core/configured external viewer");
+    }
+    normal.Values = {&plugin, &internal}; normal.Count = 2;
+    panel.ViewPolicy("C:\\same.txt", FALSE, 0xFFFFFFFF);
+    Check(!panel.ViewGatePassed, "unverified matching plugin cannot fall through to launch");
+    normal.Values = {&skippedPlugin, &internal};
+    panel.ViewPolicy("C:\\same.txt", FALSE, 0xFFFFFFFF);
+    Check(panel.ViewGatePassed != FALSE, "nonmatching plugin mask does not block the selected core viewer");
+    panel.ViewPolicy("C:\\same.txt", TRUE, 0xFFFFFFFF);
+    Check(panel.ViewGatePassed != FALSE, "alternate configured external viewer is allowed");
+    panel.ViewPolicy("C:\\same.txt", FALSE, 123);
+    Check(!panel.ViewGatePassed, "unvalidated explicit handler selection stays blocked");
+    panel.ViewPolicy("relative.txt", FALSE, 0xFFFFFFFF);
+    Check(!panel.ViewGatePassed, "non-full viewer path is rejected");
+    state.Enabled = false; normal.Values = {&plugin}; normal.Count = 1;
+    panel.ViewPolicy("C:\\same.txt", FALSE, 123);
+    Check(panel.ViewGatePassed != FALSE, "ordinary panel keeps its previous viewer dispatch policy");
+}
+
+static void EnterTests()
+{
+    const std::vector<std::wstring> parents = {L"\\\\?\\C:\\ascii",L"C:\\"+std::wstring(100,L'東'),L"C:\\"+std::wstring(100,L'a')+L"\\"+std::wstring(100,L'b')+L"\\"+std::wstring(100,L'c')};
+    for(const auto& parent : parents) {
+        CBranchViewState state; CFilesWindow panel;panel.BranchView=&state;
+        std::string legacy="same.zip";panel.FileRows.Values={{legacy.c_str(),L"same.zip"}};panel.FileRows.Count=1;
+        auto* file=&panel.Files->At(0);Add(state,*file,parent,L"same.zip",L"same.zip");
+        state.CacheFiles[panel.GetItemCacheKeyPtr(*file)]=file;
+        const auto full=panel.GetItemFullPathW(*file);
+        PackerFormatConfig.Archive=TRUE;
+        panel.ExecuteBranch(file);
+        Check(panel.ArchiveCalls==1 && panel.OpenedArchive==SalWideToMultiBytePath(full.c_str(),CP_UTF8),"actual archive Enter dispatch keeps exact full identity");
+        Check(panel.EndRefreshCalls==1,"archive Enter balances refresh once");
+        PackerFormatConfig.Archive=FALSE;const int calls=ShellCalls, errors=DialogCalls, history=MainWindow->History.Count;
+        ShellSuccess=TRUE;panel.ExecuteBranch(file);
+        const auto plain=SalPathRemoveExtendedPrefixW(full.c_str());
+        if(plain.size()>=MAX_PATH) {
+            Check(ShellCalls==calls && DialogCalls==errors+1 && MainWindow->History.Count==history,"unsupported long Shell input reports failure without policy bypass or history");
+        } else {
+            Check(ShellCalls==calls+1 && ShellFile==plain,"Shell receives complete UTF16 identity without Win32 extended syntax");
+            Check(ShellDirectory==Salamander::FileActionPaths::InitialDirectory(SalWideToMultiBytePath(parent.c_str(),CP_UTF8).c_str()),"Shell gets the selected item's actual parent");
+            Check(MainWindow->History.Count==history+1 && MainWindow->History.Path==SalWideToMultiBytePath(full.c_str(),CP_UTF8),"successful Shell records original full UTF8 identity");
+            ShellSuccess=FALSE;const int previous=MainWindow->History.Count;panel.ExecuteBranch(file);
+            Check(MainWindow->History.Count==previous,"failed Shell does not record successful-open history");
+            ShellSuccess=TRUE;OnShell=[&](){state.Items.clear();state.CacheFiles.clear();};panel.ExecuteBranch(file);OnShell=nullptr;
+            Check(MainWindow->History.Path==SalWideToMultiBytePath(full.c_str(),CP_UTF8),"owned Shell/history arguments survive metadata destruction during launch");
+        }
+        const int shellBefore=ShellCalls, archiveBefore=panel.ArchiveCalls, endBefore=panel.EndRefreshCalls;
+        state.CacheFiles.clear();panel.ExecuteBranch(file);
+        Check(ShellCalls==shellBefore && panel.ArchiveCalls==archiveBefore && panel.EndRefreshCalls==endBefore+1,"missing cache identity fails closed and balances refresh");
+    }
+}
+static void ProgramDispatchTests()
+{
+    CBranchViewState state; CFilesWindow panel;panel.BranchView=&state;
+    std::string legacy="run.exe";panel.FileRows.Values={{legacy.c_str(),L"run.exe"}};panel.FileRows.Count=1;
+    auto* file=&panel.Files->At(0);const std::wstring parent=L"\\\\?\\C:\\"+std::wstring(280,L'a');
+    Add(state,*file,parent,L"run.exe",L"run.exe");state.CacheFiles[panel.GetItemCacheKeyPtr(*file)]=file;
+    const auto full=panel.GetItemFullPathW(*file);PackerFormatConfig.Archive=FALSE;
+    const int shell=ShellCalls, calls=ProgramCalls, history=MainWindow->History.Count;
+    ProgramResult=S_OK;panel.ExecuteBranch(file);
+    Check(ProgramCalls==calls+1 && ShellCalls==shell,"exe selects program broker before any Shell attempt");
+    Check(ProgramSource==full && ProgramDirectory==parent,"program broker receives complete owned wide source and parent");
+    Check(MainWindow->History.Count==history+1,"successful broker records successful-open history");
+    ProgramResult=E_ACCESSDENIED;const int errors=DialogCalls;panel.ExecuteBranch(file);
+    Check(DialogCalls==errors+1 && MainWindow->History.Count==history+1 && ShellCalls==shell,"denied broker reports failure with no Shell retry or history");
+    ProgramResult=S_OK;OnShell=[&](){state.Items.clear();state.CacheFiles.clear();};panel.ExecuteBranch(file);OnShell=nullptr;
+    Check(MainWindow->History.Path==SalWideToMultiBytePath(full.c_str(),CP_UTF8),"program source/history remains owned after reentrant metadata removal");
+}
+static void ArchiveReadTests(const wchar_t* scratch)
+{
+    const std::wstring root = std::wstring(scratch) + L"\\archive-read";
+    std::vector<std::wstring> dirs, created;
+    auto make = [&](const std::wstring& path) {
+        Check(CreateDirectoryW(SalPathAddExtendedPrefixW(path.c_str()).c_str(), nullptr) != FALSE, "create owned archive test directory");
+        dirs.push_back(path);
+    };
+    make(root);
+    const std::wstring unicode = root + L"\\český-東京-😀";
+    const std::wstring bytes = root + L"\\" + std::wstring(100, L'東');
+    make(unicode); make(bytes);
+    std::wstring deep = unicode;
+    for (int i=0; i<4; ++i) { deep += L"\\" + std::wstring(65, L'a') + std::to_wstring(i); make(deep); }
+    const std::vector<std::wstring> paths = {root+L"\\same.zip",root+L"\\žluťoučký-東京.zip",unicode+L"\\same.zip",bytes+L"\\same.zip",deep+L"\\same.zip"};
+    for(size_t i=0; i<paths.size(); ++i) {
+        const auto extended = SalPathAddExtendedPrefixW(paths[i].c_str());
+        const std::string marker = "archive-identity-" + std::to_string(i);
+        HANDLE output = CreateFileW(extended.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+        Check(output != INVALID_HANDLE_VALUE,"create distinct owned archive source");
+        if(output == INVALID_HANDLE_VALUE) continue;
+        DWORD written=0; Check(WriteFile(output,marker.data(),(DWORD)marker.size(),&written,nullptr) && written==marker.size(),"write exact owned archive marker"); CloseHandle(output); created.push_back(extended);
+        for(DWORD flags : {DWORD(FILE_ATTRIBUTE_NORMAL),DWORD(0)}) {
+            const std::string utf8 = SalWideToMultiBytePath(paths[i].c_str(),CP_UTF8);
+            HANDLE input = OpenArchiveFileForRead(utf8.c_str(),flags);
+            Check(input != INVALID_HANDLE_VALUE,"actual host metadata read opens complete UTF8 archive identity");
+            if(input == INVALID_HANDLE_VALUE)continue;
+            LARGE_INTEGER size={}; FILETIME date={}; char data[64]={}; DWORD read=0;
+            Check(GetFileSizeEx(input,&size) && size.QuadPart==(LONGLONG)marker.size() && GetFileTime(input,nullptr,nullptr,&date),"actual metadata size/time succeeds with original sharing and flags");
+            Check(ReadFile(input,data,sizeof(data),&read,nullptr) && std::string(data,read)==marker,"metadata handle belongs to the exact duplicate source");
+            CloseHandle(input);
+        }
+    }
+    Check(OpenArchiveFileForRead(SalWideToMultiBytePath((deep+L"\\missing.zip").c_str(),CP_UTF8).c_str(),0)==INVALID_HANDLE_VALUE,"missing long archive fails without root fallback");
+    Check(OpenArchiveFileForRead(nullptr,0)==INVALID_HANDLE_VALUE,"null archive does not fall back to panel root");
+    Check(OpenArchiveFileForRead("",0)==INVALID_HANDLE_VALUE,"empty archive does not fall back to panel root");
+    for(const auto& path:created)Check(DeleteFileW(path.c_str())!=FALSE,"remove only owned archive source");
+    for(auto i=dirs.rbegin();i!=dirs.rend();++i)Check(RemoveDirectoryW(SalPathAddExtendedPrefixW(i->c_str()).c_str())!=FALSE,"remove only owned archive fixture directories");
+}
+int wmain(int argc, wchar_t** argv)
+{
+    if(argc!=2)return 2;
+    CFilesWindow panel;
+    CFileData ordinary = {"same.png", L"same.png"};
+    Paths(panel, ordinary, L"C:\\root", L"C:\\root\\same.png", L"same.png", "ordinary panel");
+    panel.WideRoot = L"C:\\žluťoučký\\東京";
+    CFileData unicode = {"lossy-name.png", L"český-東京-\U0001F642.png"};
+    Paths(panel, unicode, panel.WideRoot, panel.WideRoot + L"\\český-東京-\U0001F642.png",
+          L"český-東京-\U0001F642.png", "ordinary wide name and root");
+    panel.NullWideRoot = true;
+    Paths(panel, ordinary, L"C:\\root", L"C:\\root\\same.png", L"same.png", "ordinary null wide root");
+    panel.NullWideRoot = false;
+    panel.WideRoot.clear();
+    CFileData narrow = {"plain.txt", nullptr};
+    Paths(panel, narrow, L"C:\\root", L"C:\\root\\plain.txt", L"plain.txt", "ordinary empty wide root");
+    panel.WideRoot = L"C:\\root";
+
+    CBranchViewState branch;
+    panel.BranchView = &branch;
+    // Identical display text at three distinct addresses is intentional.
+    std::string firstName = "same.png", secondName = "same.png", thirdName = "same.png";
+    CFileData first = {firstName.c_str(), L"same.png"};
+    CFileData second = {secondName.c_str(), L"same.png"};
+    CFileData third = {thirdName.c_str(), L"same.png"};
+    Add(branch, first, L"C:\\root\\ascii", L"same.png", L"ascii\\same.png");
+    Add(branch, second, L"C:\\root\\žluťoučký\\東京", L"same.png", L"žluťoučký\\東京\\same.png");
+    Add(branch, third, L"C:\\root\\third", L"same.png", L"third\\same.png");
+    Paths(panel, first, L"C:\\root\\ascii", L"C:\\root\\ascii\\same.png", L"ascii\\same.png", "duplicate first");
+    Paths(panel, second, L"C:\\root\\žluťoučký\\東京", L"C:\\root\\žluťoučký\\東京\\same.png",
+          L"žluťoučký\\東京\\same.png", "duplicate second");
+    Paths(panel, third, L"C:\\root\\third", L"C:\\root\\third\\same.png", L"third\\same.png", "duplicate third");
+    CFileData reordered = second; // Shallow panel sorting preserves the Name allocation.
+    Paths(panel, reordered, L"C:\\root\\žluťoučký\\東京", L"C:\\root\\žluťoučký\\東京\\same.png",
+          L"žluťoučký\\東京\\same.png", "shallow reordered row");
+
+    std::wstring wideName(100, L'東'); wideName += L"-\U0001F642.png";
+    std::string truncatedMirror = "truncated-name.png";
+    CFileData longUtf8 = {truncatedMirror.c_str(), wideName.c_str()};
+    std::wstring relative = L"žluťoučký\\東京\\" + wideName;
+    std::wstring directory = L"C:\\root\\žluťoučký\\東京";
+    Add(branch, longUtf8, directory, wideName, relative);
+    Check(Utf8Length(directory + L"\\" + wideName) > MAX_PATH &&
+          (directory + L"\\" + wideName).size() < MAX_PATH, "UTF8-only long fixture");
+    Paths(panel, longUtf8, directory, directory + L"\\" + wideName, relative, "UTF8 long exact metadata");
+
+    std::wstring longDirectory = L"C:\\root";
+    std::wstring longRelative;
+    for (int i = 0; i < 20; ++i) { longDirectory += L"\\žluťoučký-東京-directory"; longRelative += L"žluťoučký-東京-directory\\"; }
+    std::string longMirror = "same.png";
+    CFileData longWide = {longMirror.c_str(), L"same.png"};
+    Add(branch, longWide, longDirectory, L"same.png", longRelative + L"same.png");
+    Check(longDirectory.size() > MAX_PATH, "UTF16 long fixture");
+    Paths(panel, longWide, longDirectory, longDirectory + L"\\same.png", longRelative + L"same.png",
+          "Win32 long exact metadata");
+
+    std::string uncMirror = "unc.png";
+    CFileData unc = {uncMirror.c_str(), L"東京.png"};
+    Add(branch, unc, L"\\\\server\\share\\東京", L"東京.png", L"東京\\東京.png");
+    Paths(panel, unc, L"\\\\server\\share\\東京", L"\\\\server\\share\\東京\\東京.png",
+          L"東京\\東京.png", "UNC exact metadata");
+
+    CFileData missing = {"unmapped.png", L"not-the-root-file.png"};
+    Paths(panel, missing, L"", L"", L"", "missing active metadata");
+    std::string recycledMirror = "same.png";
+    CFileData recycled = {recycledMirror.c_str(), L"same.png"};
+    Paths(panel, recycled, L"", L"", L"", "same text new Name pointer cannot steal metadata");
+    branch.Items.erase(second.Name);
+    Paths(panel, second, L"", L"", L"", "removed row cannot reconstruct root path");
+    CFileData malformed = {nullptr, L"otherwise-valid.png"};
+    Paths(panel, malformed, L"", L"", L"", "null identity");
+    CFileData empty = {"", L""};
+    Paths(panel, empty, L"", L"", L"", "empty identity");
+    CFileData up = {"..", L".."};
+    Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "synthetic parent navigation");
+
+    // Disabling keeps metadata until the old listing is released.
+    branch.Enabled = false;
+    Paths(panel, first, L"C:\\root\\ascii", L"C:\\root\\ascii\\same.png", L"ascii\\same.png",
+          "disabled retained Branch row");
+    Paths(panel, missing, L"C:\\root", L"C:\\root\\not-the-root-file.png", L"not-the-root-file.png",
+          "disabled ordinary fallback");
+    Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "disabled parent navigation");
+    branch.Items.clear();
+    Paths(panel, ordinary, L"C:\\root", L"C:\\root\\same.png", L"same.png", "disabled cleared listing");
+    branch.Enabled = true;
+    Paths(panel, ordinary, L"", L"", L"", "new active Branch has no ordinary row fallback");
+    Paths(panel, up, L"C:\\root", L"C:\\root\\..", L"..", "first-scan empty listing parent navigation");
+
+    try { ReceiveTests(); HostMenuTests(); DropParentTests(); PropertiesTests(); RecycleQueueTests(); NotificationTests(); RelativeCopyTests(); CopySourceTests(); AttributeSourceTests(); RenameMetadataTests(); }
+    catch (const std::exception& error) { Check(false,error.what()); }
+    NavigationTests();
+    ArchiveReadTests(argv[1]);
+    EnterTests();
+    ProgramDispatchTests();
+    std::printf("Branch panel getters/navigation: %d checks, %d failures\n", Checks, Failures);
+    return Failures ? 1 : 0;
+}

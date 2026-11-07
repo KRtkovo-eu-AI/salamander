@@ -1,0 +1,80 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual host metadata functions and Windows property handlers, no COM doubles.
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <shlobj.h>
+#include <propsys.h>
+#include <propvarutil.h>
+#include <propkey.h>
+#include <wincodec.h>
+#include <wrl/client.h>
+#include <filesystem>
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <cwctype>
+using Microsoft::WRL::ComPtr;
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char* label){++Checks;if(!ok){++Failures;printf("FAIL: %s error=%lu\n",label,GetLastError());}}
+@@ACTUAL@@
+static std::wstring Extended(const std::wstring& path){return path.rfind(L"\\\\?\\",0)==0?path:L"\\\\?\\"+path;}
+static bool WriteBytes(const std::wstring& path,const std::vector<BYTE>& value){
+ HANDLE h=CreateFileW(Extended(path).c_str(),GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);if(h==INVALID_HANDLE_VALUE)return false;
+ DWORD done=0;bool ok=WriteFile(h,value.data(),static_cast<DWORD>(value.size()),&done,nullptr)&&done==value.size();CloseHandle(h);return ok;
+}
+static std::vector<BYTE> ReadBytes(const std::wstring& path){
+ HANDLE h=CreateFileW(Extended(path).c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);if(h==INVALID_HANDLE_VALUE)return {};
+ DWORD size=GetFileSize(h,nullptr),done=0;std::vector<BYTE> result(size);bool ok=ReadFile(h,result.data(),size,&done,nullptr)&&done==size;CloseHandle(h);return ok?result:std::vector<BYTE>();
+}
+static HRESULT MakeJpeg(IWICImagingFactory* factory,const std::wstring& path){
+ ComPtr<IWICStream> stream;HRESULT hr=factory->CreateStream(&stream);
+ if(SUCCEEDED(hr))hr=stream->InitializeFromFilename(Extended(path).c_str(),GENERIC_WRITE);
+ ComPtr<IWICBitmapEncoder> encoder;if(SUCCEEDED(hr))hr=factory->CreateEncoder(GUID_ContainerFormatJpeg,nullptr,&encoder);
+ if(SUCCEEDED(hr))hr=encoder->Initialize(stream.Get(),WICBitmapEncoderNoCache);
+ ComPtr<IWICBitmapFrameEncode> frame;ComPtr<IPropertyBag2> options;if(SUCCEEDED(hr))hr=encoder->CreateNewFrame(&frame,&options);
+ if(SUCCEEDED(hr))hr=frame->Initialize(options.Get());if(SUCCEEDED(hr))hr=frame->SetSize(2,2);
+ WICPixelFormatGUID format=GUID_WICPixelFormat24bppBGR;if(SUCCEEDED(hr))hr=frame->SetPixelFormat(&format);
+ BYTE pixels[12]={30,60,90,30,60,90,30,60,90,30,60,90};if(SUCCEEDED(hr))hr=frame->WritePixels(2,6,sizeof(pixels),pixels);
+ if(SUCCEEDED(hr))hr=frame->Commit();if(SUCCEEDED(hr))hr=encoder->Commit();return hr;
+}
+static std::vector<BYTE> Pixels(IWICImagingFactory* factory,const std::wstring& path){
+ ComPtr<IWICBitmapDecoder> decoder;HRESULT hr=factory->CreateDecoderFromFilename(Extended(path).c_str(),nullptr,GENERIC_READ,WICDecodeMetadataCacheOnDemand,&decoder);
+ ComPtr<IWICBitmapFrameDecode> frame;if(SUCCEEDED(hr))hr=decoder->GetFrame(0,&frame);
+ ComPtr<IWICFormatConverter> converter;if(SUCCEEDED(hr))hr=factory->CreateFormatConverter(&converter);
+ if(SUCCEEDED(hr))hr=converter->Initialize(frame.Get(),GUID_WICPixelFormat24bppBGR,WICBitmapDitherTypeNone,nullptr,0,WICBitmapPaletteTypeCustom);
+ std::vector<BYTE> result(12);if(SUCCEEDED(hr))hr=converter->CopyPixels(nullptr,6,static_cast<UINT>(result.size()),result.data());return SUCCEEDED(hr)?result:std::vector<BYTE>();
+}
+int wmain(){
+ setvbuf(stdout,nullptr,_IONBF,0);HRESULT init=CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);if(FAILED(init))return 2;
+ {
+ ComPtr<IWICImagingFactory> factory;HRESULT hr=CoCreateInstance(CLSID_WICImagingFactory,nullptr,CLSCTX_INPROC_SERVER,IID_PPV_ARGS(&factory));if(FAILED(hr)){CoUninitialize();return 2;}
+ std::vector<wchar_t> temp(32768);if(!GetTempPathW(static_cast<DWORD>(temp.size()),temp.data()))return 2;
+ const std::wstring root=std::wstring(temp.data())+L"branch-edit-properties-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64());
+ struct Cleanup{std::wstring Root;~Cleanup(){std::error_code ec;std::filesystem::remove_all(Extended(Root),ec);if(ec){++Failures;printf("FAIL: own fixture cleanup %d\n",ec.value());}}}cleanup{root};
+ std::filesystem::create_directories(Extended(root));const std::wstring sentinel=root+L"\\same.jpg";Check(SUCCEEDED(MakeJpeg(factory.Get(),sentinel)),"create unselected same-basename sentinel");const auto sentinelBytes=ReadBytes(sentinel);Check(!sentinelBytes.empty(),"sentinel bytes captured");
+ std::vector<std::wstring> names={L"ascii\\same.jpg",L"ascii\\東京-🙂.jpg",L"日本\\same.jpg",L"日本\\český\\same.jpg",L"byte\\"+std::wstring(100,L'東')+L".jpg",std::wstring(75,L'東')+L"\\"+std::wstring(75,L'日')+L"\\"+std::wstring(75,L'本')+L"\\same.jpg"};
+ for(const auto& name:names){
+  const std::wstring path=root+L"\\"+name;std::filesystem::create_directories(Extended(path.substr(0,path.find_last_of(L'\\'))));
+  Check(SUCCEEDED(MakeJpeg(factory.Get(),path)),"create own actual JPEG at exact wide path");const auto pixels=Pixels(factory.Get(),path);Check(pixels.size()==12,"capture decoded image content");
+  Check(IsFilePropertyWritableW(path.c_str(),PKEY_Keywords)!=FALSE,"actual Windows handler permits keywords for exact source");
+  const std::vector<std::wstring> tags={L"port-test",L"東京-🙂",L"žluťoučký"};hr=WriteFileTagsW(path.c_str(),tags);printf("metadata pathUtf16=%zu tagsHr=0x%08lX\n",path.size(),static_cast<unsigned long>(hr));Check(SUCCEEDED(hr),"actual tags write commits on exact source");
+  std::vector<std::wstring> readTags;Check(SUCCEEDED(ReadFileTagsW(path.c_str(),readTags))&&readTags==tags,"actual tags read preserves Unicode values and order");
+  const std::wstring title=L"Owned title 東京 🙂";Check(IsFilePropertyWritableW(path.c_str(),PKEY_Title)!=FALSE,"actual handler permits title");
+  Check(SUCCEEDED(WriteFilePropertyTextW(path.c_str(),PKEY_Title,title.c_str(),FALSE)),"actual title text write commits");std::wstring readTitle;
+  Check(SUCCEEDED(ReadFilePropertyTextW(path.c_str(),PKEY_Title,readTitle))&&readTitle==title,"actual title read matches Unicode value");
+  Check(Pixels(factory.Get(),path)==pixels,"metadata writes preserve decoded pixels");Check(ReadBytes(sentinel)==sentinelBytes,"unselected same-basename sentinel untouched");
+  Check(SUCCEEDED(WriteFileTagsW(path.c_str(),{})),"explicit tags clear commits");Check(SUCCEEDED(ReadFileTagsW(path.c_str(),readTags))&&readTags.empty(),"cleared tags read empty");
+  Check(SUCCEEDED(WriteFilePropertyTextW(path.c_str(),PKEY_Title,L"ignored",TRUE)),"explicit title clear commits");Check(SUCCEEDED(ReadFilePropertyTextW(path.c_str(),PKEY_Title,readTitle))&&readTitle.empty(),"cleared title reads empty");
+  Check(Pixels(factory.Get(),path)==pixels&&ReadBytes(sentinel)==sentinelBytes,"clear preserves image and sentinel");
+ }
+ const std::wstring ro=root+L"\\readonly.jpg";Check(SUCCEEDED(MakeJpeg(factory.Get(),ro)),"create read-only fixture");const auto before=ReadBytes(ro);
+ Check(SetFileAttributesW(Extended(ro).c_str(),FILE_ATTRIBUTE_READONLY)!=FALSE,"set own read-only attribute");hr=WriteFilePropertyTextW(ro.c_str(),PKEY_Title,L"must not write",FALSE);printf("readonly titleHr=0x%08lX capability=%d\n",static_cast<unsigned long>(hr),IsFilePropertyWritableW(ro.c_str(),PKEY_Title));Check(FAILED(hr),"read-only write reports Windows failure");Check(ReadBytes(ro)==before,"read-only source bytes unchanged");Check(SetFileAttributesW(Extended(ro).c_str(),FILE_ATTRIBUTE_NORMAL)!=FALSE,"restore own fixture attributes");
+ const std::wstring unsupported=root+L"\\unsupported.txt";Check(WriteBytes(unsupported,{65,66,67}),"create unsupported text fixture");hr=WriteFileTagsW(unsupported.c_str(),{L"must not write"});printf("unsupported tagsHr=0x%08lX capability=%d\n",static_cast<unsigned long>(hr),IsFilePropertyWritableW(unsupported.c_str(),PKEY_Keywords));Check(FAILED(hr),"unsupported write reports actual handler failure");Check(ReadBytes(unsupported)==std::vector<BYTE>({65,66,67}),"unsupported bytes unchanged");
+ const std::wstring missing=root+L"\\missing.jpg";Check(FAILED(WriteFileTagsW(missing.c_str(),{L"x"})),"missing source write fails without creating file");Check(GetFileAttributesW(Extended(missing).c_str())==INVALID_FILE_ATTRIBUTES,"missing source remains absent");
+ std::wstring value=L"old";std::vector<std::wstring> tags={L"old"};Check(ReadFilePropertyTextW(nullptr,PKEY_Title,value)==E_INVALIDARG&&value.empty(),"null text read clears output and reports invalid arg");Check(ReadFileTagsW(L"",tags)==E_INVALIDARG&&tags.empty(),"empty tags read clears output and reports invalid arg");
+ Check(WriteFilePropertyTextW(nullptr,PKEY_Title,L"x",FALSE)==E_INVALIDARG&&WriteFileTagsW(L"",{})==E_INVALIDARG,"invalid write arguments refused");Check(!IsFilePropertyWritableW(nullptr,PKEY_Title),"null capability refused");Check(ReadBytes(sentinel)==sentinelBytes,"final sentinel unchanged");
+ }
+ CoUninitialize();printf("Actual edit properties I/O: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

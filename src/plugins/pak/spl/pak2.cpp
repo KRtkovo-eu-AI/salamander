@@ -17,25 +17,21 @@
 static HANDLE CreateFileLongPath(const char* fileName, DWORD desiredAccess, DWORD shareMode,
                                  DWORD creationDisposition, DWORD flagsAndAttributes)
 {
-    std::wstring fileNameW;
-    UINT codePage = GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP;
-    int len = MultiByteToWideChar(codePage, 0, fileName, -1, NULL, 0);
-    if (len > 0)
+    try
     {
-        fileNameW.resize(len);
-        MultiByteToWideChar(codePage, 0, fileName, -1, &fileNameW[0], len);
-        fileNameW.resize(len - 1);
-    }
-    if (!fileNameW.empty())
-    {
+        std::wstring fileNameW = SalamanderDiskSelection::WideFromPath(fileName);
+        if (fileNameW.empty()) { SetLastError(ERROR_INVALID_NAME); return INVALID_HANDLE_VALUE; }
         if (fileNameW.length() >= MAX_PATH && wcsncmp(fileNameW.c_str(), L"\\\\?\\", 4) != 0)
-            fileNameW = wcsncmp(fileNameW.c_str(), L"\\\\", 2) == 0 ? std::wstring(L"\\\\?\\UNC\\") + std::wstring(fileNameW.c_str() + 2)
+            fileNameW = wcsncmp(fileNameW.c_str(), L"\\\\", 2) == 0 ? std::wstring(L"\\\\?\\UNC\\") + fileNameW.substr(2)
                                                                     : std::wstring(L"\\\\?\\") + fileNameW;
         return CreateFileW(fileNameW.c_str(), desiredAccess, shareMode, NULL,
                            creationDisposition, flagsAndAttributes, NULL);
     }
-    return CreateFile(fileName, desiredAccess, shareMode, NULL,
-                      creationDisposition, flagsAndAttributes, NULL);
+    catch (const std::bad_alloc&)
+    {
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return INVALID_HANDLE_VALUE;
+    }
 }
 
 DWORD ComputeDirDepth(const char* fileName)
@@ -603,68 +599,87 @@ CPluginInterfaceForMenuExt::GetMenuItemState(int id, DWORD eventMask)
     return 0;
 }
 
+static std::string OptimizeProgressTitle(const char* pattern, const char* name)
+{
+    std::string title;
+    for (const char* p = pattern; p && *p;)
+    {
+        if (p[0] == '%' && p[1] == '%') { title += '%'; p += 2; }
+        else if (p[0] == '%' && p[1] == 's') { if (name) title += name; p += 2; }
+        else title += *p++;
+    }
+    return title;
+}
+
 BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstract* salamander, HWND parent,
                                                  int id, DWORD eventMask)
 {
     CALL_STACK_MESSAGE3("CPluginInterfaceForMenuExt::ExecuteMenuItem(, , %d, 0x%X)", id,
                         eventMask);
-    if (id != OPTIMIZE_MENUID)
-        return FALSE;
-
-    SalamanderGeneral->SetUserWorkedOnPanelPath(PANEL_SOURCE); // we treat this command as working with the path (it appears in Alt+F12)
-
-    char pakFile[MAX_PATH];
-    char* fileName;
-    char* arch;
-    BOOL selFiles = FALSE;
-    int index = 0;
-
-    InterfaceForArchiver.Salamander = salamander;
-    if (!SalamanderGeneral->GetPanelPath(PANEL_SOURCE, pakFile, MAX_PATH, NULL, &arch))
-        return FALSE;
-
-    if (!arch)
+    if (id != OPTIMIZE_MENUID) return FALSE;
+    try
     {
-        SalamanderGeneral->SalPathAddBackslash(pakFile, MAX_PATH);
-        fileName = pakFile + lstrlen(pakFile);
-        selFiles = eventMask & MENU_EVENT_FILES_SELECTED;
-    }
-
-    InterfaceForArchiver.PakIFace = PAKGetIFace();
-    if (!InterfaceForArchiver.PakIFace)
-    {
-        SalamanderGeneral->ShowMessageBox(LoadStr(IDS_LOWMEM), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
-        return FALSE;
-    }
-    CPakCallbacks pakCalls(&InterfaceForArchiver);
-    InterfaceForArchiver.PakIFace->Init(&pakCalls);
-
-    BOOL changesReported = FALSE; // helper variable - TRUE if path changes have already been reported
-    do
-    {
-        if (arch)
+        CSalamanderDiskSelection selection;
+        std::vector<std::string> paths, directories;
+        if (eventMask & MENU_EVENT_DISK)
         {
-            *arch = NULL;
+            if (!selection.Capture(SalamanderGeneral, PANEL_SOURCE))
+            {
+                char error[1024];
+                SalamanderGeneral->GetErrorText(GetLastError(), error, _countof(error));
+                SalamanderGeneral->ShowMessageBox(error, LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+                return FALSE;
+            }
+            for (int i = 0; i < selection.GetCount(); ++i)
+            {
+                const CSalamanderDiskSelectionItem* item = selection.GetItem(i);
+                if (item->IsDir) continue;
+                paths.push_back(SalamanderDiskSelection::Utf8FromWide(item->FullPathW));
+                directories.push_back(SalamanderDiskSelection::Utf8FromWide(item->DirectoryW));
+            }
         }
         else
         {
-            const CFileData* fileData;
-            if (selFiles)
-                fileData = SalamanderGeneral->GetPanelSelectedItem(PANEL_SOURCE, &index, NULL);
-            else
-                fileData = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, NULL);
-            if (!fileData)
-                break; // end of enumeration, or an error (in the case of GetFocusedItem)
-            lstrcpy(fileName, fileData->Name);
-            DWORD attr = SalamanderGeneral->SalGetFileAttributes(pakFile);
-            if (attr != 0xFFFFFFFF && attr & FILE_ATTRIBUTE_DIRECTORY)
-                continue;
+            // Archive panels keep their existing archive-path contract.
+            std::vector<char> panelPath(4 * SAL_MAX_PATH);
+            char* archive = NULL;
+            if (!SalamanderGeneral->GetPanelPath(PANEL_SOURCE, panelPath.data(),
+                                                static_cast<int>(panelPath.size()), NULL, &archive) || !archive)
+                return FALSE;
+            *archive = 0;
+            paths.push_back(panelPath.data());
+            directories.push_back(SalamanderDiskSelection::Utf8FromWide(
+                SalamanderDiskSelection::Detail::ParentPath(SalamanderDiskSelection::WideFromPath(panelPath.data())).c_str()));
         }
-
-        InterfaceForArchiver.PakFileName = pakFile;
-
-        if (InterfaceForArchiver.PakIFace->OpenPak(pakFile, OP_WRITE_MODE))
+        SalamanderGeneral->SetUserWorkedOnPanelPath(PANEL_SOURCE);
+        InterfaceForArchiver.Salamander = salamander;
+        InterfaceForArchiver.PakIFace = PAKGetIFace();
+        if (!InterfaceForArchiver.PakIFace)
         {
+            SalamanderGeneral->ShowMessageBox(LoadStr(IDS_LOWMEM), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+            return FALSE;
+        }
+        CPakCallbacks pakCalls(&InterfaceForArchiver);
+        struct PakScope
+        {
+            CPluginInterfaceForArchiver* Owner;
+            bool Open = false, Progress = false;
+            ~PakScope()
+            {
+                if (Progress) Owner->Salamander->CloseProgressDialog();
+                if (Open) Owner->PakIFace->ClosePak();
+                PAKReleaseIFace(Owner->PakIFace);
+                Owner->PakIFace = NULL;
+                Owner->PakFileName = NULL;
+            }
+        } scope = {&InterfaceForArchiver};
+        InterfaceForArchiver.PakIFace->Init(&pakCalls);
+        for (size_t i = 0; i < paths.size(); ++i)
+        {
+            const char* pakFile = paths[i].c_str();
+            InterfaceForArchiver.PakFileName = pakFile;
+            if (!InterfaceForArchiver.PakIFace->OpenPak(pakFile, OP_WRITE_MODE | OP_EXISTING_ONLY)) continue;
+            scope.Open = true;
             COptDlgData dlgData;
             InterfaceForArchiver.PakIFace->GetOptimizedState(&dlgData.PakSize, &dlgData.ValData);
             if (DialogBoxParam(HLanguage, MAKEINTRESOURCE(IDD_OPTIMIZE), parent,
@@ -673,34 +688,29 @@ BOOL CPluginInterfaceForMenuExt::ExecuteMenuItem(CSalamanderForOperationsAbstrac
                 unsigned progress;
                 if (InterfaceForArchiver.PakIFace->InitOptimalization(&progress))
                 {
-                    char title[1024];
-                    sprintf(title, LoadStr(IDS_OPTPROGTITLE), SalamanderGeneral->SalPathFindFileName(pakFile));
-                    InterfaceForArchiver.Salamander->OpenProgressDialog(title, FALSE, NULL, FALSE);
-                    InterfaceForArchiver.Salamander->ProgressDialogAddText(LoadStr(IDS_OPTIMIZING), FALSE);
-                    InterfaceForArchiver.Salamander->ProgressSetTotalSize(CQuadWord(progress, 0), CQuadWord(-1, -1));
+                    const std::string title = OptimizeProgressTitle(LoadStr(IDS_OPTPROGTITLE),
+                        SalamanderGeneral->SalPathFindFileName(pakFile));
+                    salamander->OpenProgressDialog(title.c_str(), FALSE, NULL, FALSE);
+                    scope.Progress = true;
+                    salamander->ProgressDialogAddText(LoadStr(IDS_OPTIMIZING), FALSE);
+                    salamander->ProgressSetTotalSize(CQuadWord(progress, 0), CQuadWord(-1, -1));
                     InterfaceForArchiver.PakIFace->OptimizePak();
-                    InterfaceForArchiver.Salamander->CloseProgressDialog();
+                    salamander->CloseProgressDialog();
+                    scope.Progress = false;
                 }
-
-                if (!changesReported) // path change and it has not been reported yet -> report it
-                {
-                    changesReported = TRUE;
-                    // announce the change on the path where the modified PAK files reside (the notification happens after leaving
-                    // the plugin code - after returning from this method)
-                    char pakFileDir[MAX_PATH];
-                    strcpy(pakFileDir, pakFile);
-                    SalamanderGeneral->CutDirectory(pakFileDir); // must work, because it is an existing file
-                    SalamanderGeneral->PostChangeOnPathNotification(pakFileDir, FALSE);
-                }
+                // Each archive may belong to a different directory in Branch View.
+                SalamanderGeneral->PostChangeOnPathNotification(directories[i].c_str(), FALSE);
             }
             InterfaceForArchiver.PakIFace->ClosePak();
+            scope.Open = false;
         }
-
-    } while (selFiles); // loop until the GetSelectedItem method returns NULL
-
-    PAKReleaseIFace(InterfaceForArchiver.PakIFace);
-
-    return TRUE;
+        return TRUE;
+    }
+    catch (const std::bad_alloc&)
+    {
+        SalamanderGeneral->ShowMessageBox(LoadStr(IDS_LOWMEM), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+        return FALSE;
+    }
 }
 
 BOOL WINAPI

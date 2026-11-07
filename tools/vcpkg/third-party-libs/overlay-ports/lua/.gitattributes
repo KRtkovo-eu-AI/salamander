@@ -1,0 +1,4 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-06 | Preserve the pinned port payload bytes on checkout. | Upstream contains deliberate mixed line endings in its port and patch files. | https://github.com/majklvi/salamander/pull/64 | GPT-6 (Codex) |
+# Keep the vendored port byte-identical instead of applying core.autocrlf.
+* -text

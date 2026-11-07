@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <wchar.h>
+#include <limits.h>
 #include <crtdbg.h>
 
 #include "exif.h"
@@ -244,52 +245,96 @@ EXIFGetInfoFromData(const unsigned char* data, unsigned int dataLen, EXIFENUMPRO
     return enumerate_exif_data(exif_data_new_from_data(data, dataLen), enumFunc, lParam);
 }
 
-// Loads exif data without forced fixup of entries
-ExifData* get_exif_data_no_fixups(const char* fileName)
+// Read through the native wide API. The JPEG parser already consumes complete
+// byte buffers; keep filesystem paths out of the legacy libjpeg fopen interface.
+static unsigned char* read_thumbnail_source_w(const wchar_t* name, unsigned int* size)
 {
-    ExifLoader* el;
-    ExifData* ed;
-    const unsigned char* buf;
-    size_t buf_size;
-
-    el = exif_loader_new();
-    if (!el)
-        return NULL;
-    exif_loader_write_file(el, fileName);
-
-    exif_loader_get_buf(el, &buf, &buf_size);
-    if (!buf_size)
-    {
-        exif_loader_unref(el);
-        return NULL;
-    }
-    ed = exif_data_new();
-    if (!ed)
-    {
-        exif_loader_unref(el);
-        return NULL;
-    }
-    exif_data_unset_option(ed, ~0);
-    exif_data_set_data_type(ed, EXIF_DATA_TYPE_UNKNOWN);
-    exif_data_load_data(ed, buf, buf_size);
-    exif_loader_unref(el);
-    return ed;
+    wchar_t* path = duplicate_extended_length_path(name);
+    HANDLE file;
+    LARGE_INTEGER length;
+    unsigned char* data;
+    DWORD read;
+    *size = 0;
+    if (!path) return NULL;
+    file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                       NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+    free(path);
+    if (file == INVALID_HANDLE_VALUE) return NULL;
+    if (!GetFileSizeEx(file, &length) || length.QuadPart <= 0 || (ULONGLONG)length.QuadPart > 0xffffffffULL)
+    { CloseHandle(file); return NULL; }
+    data = malloc((size_t)length.QuadPart);
+    if (!data) { CloseHandle(file); return NULL; }
+    if (!ReadFile(file, data, (DWORD)length.QuadPart, &read, NULL) || read != (DWORD)length.QuadPart)
+    { free(data); CloseHandle(file); return NULL; }
+    CloseHandle(file);
+    *size = read;
+    return data;
 }
 
-BOOL WINAPI EXIFReplaceThumbnail(char* fileName, char* newFile, unsigned char* pData, int size)
+// Preserve the original no-fixups EXIF semantics when loading the same bytes.
+static ExifData* get_exif_data_no_fixups_memory(unsigned char* data, unsigned int size)
+{
+    ExifLoader* loader = exif_loader_new();
+    ExifData* result;
+    const unsigned char* buffer;
+    unsigned int length;
+    if (!loader) return NULL;
+    exif_loader_write(loader, data, size);
+    exif_loader_get_buf(loader, &buffer, &length);
+    if (!length) { exif_loader_unref(loader); return NULL; }
+    result = exif_data_new();
+    if (result)
+    {
+        exif_data_unset_option(result, ~0);
+        exif_data_set_data_type(result, EXIF_DATA_TYPE_UNKNOWN);
+        exif_data_load_data(result, buffer, (unsigned int)length);
+    }
+    exif_loader_unref(loader);
+    return result;
+}
+
+static BOOL save_thumbnail_file_w(JPEGData* jpeg, const wchar_t* name)
+{
+    unsigned char* data = NULL;
+    unsigned int size = 0;
+    DWORD written = 0;
+    HANDLE file;
+    BOOL result = FALSE;
+    wchar_t* path = duplicate_extended_length_path(name);
+    if (!path) return FALSE;
+    jpeg_data_save_data(jpeg, &data, &size);
+    if (!data) { free(path); return FALSE; }
+    file = CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file != INVALID_HANDLE_VALUE)
+    {
+        result = WriteFile(file, data, size, &written, NULL) && written == size && FlushFileBuffers(file);
+        CloseHandle(file);
+        if (!result) DeleteFileW(path);
+    }
+    free(data);
+    free(path);
+    return result;
+}
+
+BOOL WINAPI EXIFReplaceThumbnailW(const wchar_t* fileName, const wchar_t* newFile, unsigned char* pData, int size)
 {
     JPEGData* pJpeg;
     ExifData* pExif;
     BOOL ret = FALSE;
 
-    pJpeg = jpeg_data_new_from_file(fileName);
+    unsigned int sourceSize;
+    unsigned char* source;
+    if (!fileName || !newFile || size < 0 || size > INT_MAX - 6 || (!pData && size != 0)) return FALSE;
+    source = read_thumbnail_source_w(fileName, &sourceSize);
+    if (!source) return FALSE;
+    pJpeg = jpeg_data_new_from_data(source, sourceSize);
     if (pJpeg)
     {
         // NOTE: since sometime in 2009, exif_loader_get_data automatically calls
         // exif_data_fix that fixes or removes bogus tags.
         // I think (Patera 2009.10.06) that we better don't do it.
         //      pExif = jpeg_data_get_exif_data(pJpeg);
-        pExif = get_exif_data_no_fixups(fileName);
+        pExif = get_exif_data_no_fixups_memory(source, sourceSize);
         if (pExif)
         {
             // It is possible there is uncompressed one
@@ -324,10 +369,13 @@ BOOL WINAPI EXIFReplaceThumbnail(char* fileName, char* newFile, unsigned char* p
             {
                 pExif->size = size;
                 pExif->data = malloc(size);
+                if (!pExif->data) { exif_data_unref(pExif); jpeg_data_unref(pJpeg); free(source); return FALSE; }
                 memcpy(pExif->data, pData, size);
                 e = exif_entry_new();
+                if (!e) { exif_data_unref(pExif); jpeg_data_unref(pJpeg); free(source); return FALSE; }
                 exif_content_add_entry(ifd, e);
                 exif_entry_initialize(e, EXIF_TAG_COMPRESSION);
+                if (!e->data) { exif_entry_unref(e); exif_data_unref(pExif); jpeg_data_unref(pJpeg); free(source); return FALSE; }
                 // JPEG compression
                 exif_set_short(e->data, exif_data_get_byte_order(pExif), 6);
                 exif_entry_unref(e);
@@ -339,7 +387,7 @@ BOOL WINAPI EXIFReplaceThumbnail(char* fileName, char* newFile, unsigned char* p
             }
             jpeg_data_set_exif_data(pJpeg, pExif);
             exif_data_unref(pExif);
-            ret = jpeg_data_save_file(pJpeg, newFile);
+            ret = save_thumbnail_file_w(pJpeg, newFile);
         }
         else
         {
@@ -366,25 +414,58 @@ BOOL WINAPI EXIFReplaceThumbnail(char* fileName, char* newFile, unsigned char* p
                     break;
                 default:
                     // any non-APP0 marker -> insert JFXX before it
-                    jpeg_data_append_section(pJpeg);
+                    {
+                        unsigned int previousCount = pJpeg->count;
+                        jpeg_data_append_section(pJpeg);
+                        if (pJpeg->count == previousCount) { jpeg_data_unref(pJpeg); free(source); return FALSE; }
+                    }
                     pSect = &pJpeg->sections[i];
                     memmove(&pSect[1], pSect, (pJpeg->count - i - 1) * sizeof(JPEGSection));
                     pSect->marker = JPEG_MARKER_APP0;
                     pSect->content.generic.size = (6 + size);
                     pSect->content.generic.data = malloc(6 + size);
+                    if (!pSect->content.generic.data) { jpeg_data_unref(pJpeg); free(source); return FALSE; }
                     *(DWORD*)pSect->content.generic.data = 'XXFJ';
                     // NULL temrination of JFXX, version number
                     ((WORD*)pSect->content.generic.data)[2] = 0x1000;
                     memcpy((char*)pSect->content.generic.data + 6, pData, size);
-                    ret = jpeg_data_save_file(pJpeg, newFile);
+                    ret = save_thumbnail_file_w(pJpeg, newFile);
                     i = pJpeg->count;
                 }
             }
         }
         jpeg_data_unref(pJpeg);
     }
+    free(source);
     return ret;
 }
+
+static wchar_t* thumbnail_path_to_wide(const char* name)
+{
+    UINT cp;
+    int length;
+    wchar_t* result;
+    if (!name || !*name) return NULL;
+    cp = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name, -1, NULL, 0) > 0 ? CP_UTF8 : CP_ACP;
+    length = MultiByteToWideChar(cp, 0, name, -1, NULL, 0);
+    if (length <= 0) return NULL;
+    result = malloc((size_t)length * sizeof(wchar_t));
+    if (!result) return NULL;
+    if (MultiByteToWideChar(cp, 0, name, -1, result, length) != length) { free(result); return NULL; }
+    return result;
+}
+
+// Retain the existing exported ABI for older PictView callers.
+BOOL WINAPI EXIFReplaceThumbnail(char* fileName, char* newFile, unsigned char* data, int size)
+{
+    wchar_t* source = thumbnail_path_to_wide(fileName);
+    wchar_t* target = thumbnail_path_to_wide(newFile);
+    BOOL result = source && target && EXIFReplaceThumbnailW(source, target, data, size);
+    free(source);
+    free(target);
+    return result;
+}
+
 
 static void orient_enum_entry(ExifEntry* entry, void* data)
 {

@@ -660,7 +660,7 @@ void CFilesWindow::PluginFSFilesAction(CPluginFSActionType type, CFilesWindow* t
                             char* mask;
                             if (SalSplitWindowsPath(HWindow, LoadStr(copy ? IDS_COPY : IDS_MOVE),
                                                     errTitle, count, targetPath, secondPart, pathIsDir,
-                                                    backslashAtEnd || mustBePath, NULL, NULL, mask))
+                                                    backslashAtEnd || mustBePath, NULL, NULL, mask, SAL_MAX_PATH))
                             {
                                 if (!operationMask && mask != NULL &&
                                     (strcmp(mask, "*.*") == 0 || strcmp(mask, "*") == 0))
@@ -1395,7 +1395,7 @@ void CVisibleItemsArray::RefreshArr(CFilesWindow* panel)
         for (i = firstIndex; i < end; i++)
         {
             CFileData* f = &(i < dirsCount ? panel->Dirs->At(i) : panel->Files->At(i - dirsCount));
-            ArrNames[x++] = f->Name;
+            ArrNames[x++] = const_cast<char*>(panel->GetItemCacheKeyPtr(*f));
             //#ifdef _DEBUG
             //      if (i == firstIndex) TRACE_I("VisibleItemsArray: first=" << f->Name);
             //      if (i + 1 == end) TRACE_I("VisibleItemsArray: last=" << f->Name);

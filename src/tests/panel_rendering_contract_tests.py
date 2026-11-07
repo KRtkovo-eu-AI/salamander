@@ -356,6 +356,11 @@ def main() -> int:
         icon_cache,
         re.DOTALL,
     )
+    prepared_association = re.search(
+        r"BOOL CAssociations::QueryShellAssociationCached\(.*?\n\}",
+        icon_cache,
+        re.DOTALL,
+    )
     if (
         modern_association is None
         or "AssocQueryStringW" not in modern_association.group(0)
@@ -363,8 +368,11 @@ def main() -> int:
         or "associatedInfo.iIcon != genericInfo.iIcon"
         not in modern_association.group(0)
         or association_lookup is None
-        or "QueryShellAssociation(ext, canOpen)"
+        or "QueryShellAssociationCached(ext, canOpen)"
         not in association_lookup.group(0)
+        or prepared_association is None
+        or "QueryShellAssociation(ext, result.CanOpen)" not in prepared_association.group(0)
+        or "PreparedShellAssociations.find(ext)" not in prepared_association.group(0)
         or "InsertData(\"shell: \"" not in association_lookup.group(0)
         or "data.SetIndexAll(-1);" not in association_lookup.group(0)
     ):

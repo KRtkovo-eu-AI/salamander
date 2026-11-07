@@ -10,133 +10,97 @@
 
 CSourceFile::CSourceFile(const CFileData* fileData,
                          const char* path, int pathLen, BOOL isDir)
+    : FullName(NULL), Name(NULL), Ext(NULL), NameLen(0), IsDir(isDir ? 1 : 0), State(0)
 {
-    CALL_STACK_MESSAGE_NONE
-    const char* sourceName = fileData->Name;
-    int sourceNameLen = fileData->NameLen;
-    char* utf8Name = NULL;
-    if (fileData->UseWideName())
-    {
-        int utf8Len = WideCharToMultiByte(CP_UTF8, 0, fileData->NameW, -1, NULL, 0, NULL, NULL);
-        if (utf8Len > 0)
-        {
-            utf8Name = (char*)malloc(utf8Len);
-            if (utf8Name != NULL &&
-                WideCharToMultiByte(CP_UTF8, 0, fileData->NameW, -1, utf8Name, utf8Len, NULL, NULL) > 0)
-            {
-                sourceName = utf8Name;
-                sourceNameLen = utf8Len - 1;
-            }
-        }
-    }
-    NameLen = pathLen + sourceNameLen;
-    if (path[pathLen - 1] != '\\')
-    {
-        FullName = (char*)malloc(++NameLen + 1);
-        memcpy(FullName, path, pathLen);
-        FullName[pathLen++] = '\\';
-    }
-    else
-    {
-        FullName = (char*)malloc(NameLen + 1);
-        memcpy(FullName, path, pathLen);
-    }
-    Name = FullName + pathLen;
-    memcpy(Name, sourceName, sourceNameLen + 1);
-    if (utf8Name != NULL)
-        free(utf8Name);
-    Ext = Name + sourceNameLen;
-    if (!isDir)
-    {
-        char* dot = strrchr(Name, '.');
-        if (dot != NULL && dot > Name)
-            Ext = dot + 1;
-    }
+    std::string fullName(path, pathLen);
+    if (!fullName.empty() && fullName.back() != '\\')
+        fullName += '\\';
+    fullName += fileData->UseWideName() ? RenamerPaths::ToUtf8(fileData->NameW) : fileData->Name;
+    SetName(fullName.c_str());
     Size = fileData->Size;
     Attr = fileData->Attr;
     FileTimeToLocalFileTime(&fileData->LastWrite, &LastWrite);
-    IsDir = isDir ? 1 : 0;
-    State = 0;
+}
+
+CSourceFile::CSourceFile(const CFileData* fileData, const char* fullName, BOOL isDir)
+    : FullName(NULL), Name(NULL), Ext(NULL), NameLen(0), IsDir(isDir ? 1 : 0), State(0)
+{
+    SetName(fullName);
+    if (FullName != NULL && Ext == Name + 1)
+        Ext = FullName + NameLen; // retain the panel constructor's dotfile extension rule
+    Size = fileData->Size;
+    Attr = fileData->Attr;
+    FileTimeToLocalFileTime(&fileData->LastWrite, &LastWrite);
+}
+
+// The SDK supplies complete, owned paths in every disk-panel view.
+CSourceFile::CSourceFile(const CSalamanderDiskSelectionItem& item)
+    : FullName(NULL), Name(NULL), Ext(NULL), NameLen(0), IsDir(item.IsDir ? 1 : 0), State(0)
+{
+    const std::string fullName = RenamerPaths::ToUtf8(item.FullPathW);
+    if (fullName.empty())
+    {
+        SetLastError(ERROR_INVALID_NAME);
+        return;
+    }
+    SetName(fullName.c_str());
+    if (FullName != NULL && Ext == Name + 1)
+        Ext = FullName + NameLen;
+    Size = item.Size;
+    Attr = item.Attr;
+    FileTimeToLocalFileTime(&item.LastWrite, &LastWrite);
 }
 
 CSourceFile::CSourceFile(CSourceFile* orig)
+    : FullName(NULL), Name(NULL), Ext(NULL), NameLen(0), IsDir(orig->IsDir), State(0)
 {
-    CALL_STACK_MESSAGE_NONE
-    FullName = SG->DupStr(orig->FullName);
-    Name = FullName + (orig->Name - orig->FullName);
-    Ext = FullName + (orig->Ext - orig->FullName);
+    SetName(orig->FullName);
+    if (FullName != NULL)
+        Ext = FullName + (orig->Ext - orig->FullName);
     Size = orig->Size;
     Attr = orig->Attr;
     LastWrite = orig->LastWrite;
-    NameLen = orig->NameLen;
-    IsDir = orig->IsDir;
-    State = 0;
 }
 
 CSourceFile::CSourceFile(CSourceFile* orig, const char* newName)
+    : FullName(NULL), Name(NULL), Ext(NULL), NameLen(0), IsDir(orig->IsDir), State(0)
 {
-    CALL_STACK_MESSAGE_NONE
-    FullName = Name = SG->DupStr(newName);
-    Ext = NULL;
-    char* iterator = FullName;
-    while (*iterator != 0)
-    {
-        if (*iterator == '\\')
-        {
-            Name = iterator + 1;
-            Ext = NULL;
-        }
-        if (*iterator == '.' /*&& iterator > Name*/) // ".cvspass" is an extension in Windows
-            Ext = iterator + 1;
-        iterator++;
-    }
-    if (orig->IsDir || Ext == NULL)
-        Ext = iterator; // directories do not have an extension + when a file has no extension
-    NameLen = iterator - FullName;
+    SetName(newName);
     Size = orig->Size;
     Attr = orig->Attr;
     LastWrite = orig->LastWrite;
-    IsDir = orig->IsDir;
-    State = 0;
 }
 
-CSourceFile::CSourceFile(WIN32_FIND_DATA& fd, const char* path, int pathLen)
+CSourceFile::CSourceFile(WIN32_FIND_DATAW& fd, const char* path, int pathLen)
+    : FullName(NULL), Name(NULL), Ext(NULL), NameLen(0), IsDir(FALSE), State(0)
 {
-    CALL_STACK_MESSAGE_NONE
-    NameLen = pathLen + strlen(fd.cFileName) + 1;
-    FullName = (char*)malloc(NameLen + 1);
-    memcpy(FullName, path, pathLen);
-    FullName[pathLen++] = '\\';
-    strcpy(FullName + pathLen, fd.cFileName);
-    Name = FullName + pathLen;
-    Ext = FullName + NameLen;
-    while (--Ext >= Name && *Ext != '.')
-        ;
-    if (Ext < Name)
-        Ext = FullName + NameLen; // ".cvspass" is an extension in Windows
-    else
-        Ext++;
+    std::string fullName(path, pathLen);
+    if (!fullName.empty() && fullName.back() != '\\')
+        fullName += '\\';
+    fullName += RenamerPaths::ToUtf8(fd.cFileName);
+    SetName(fullName.c_str());
     Size = CQuadWord(fd.nFileSizeLow, fd.nFileSizeHigh);
     Attr = fd.dwFileAttributes;
     FileTimeToLocalFileTime(&fd.ftLastWriteTime, &LastWrite);
-    IsDir = FALSE;
-    State = 0;
 }
 
 CSourceFile::~CSourceFile()
 {
-    CALL_STACK_MESSAGE_NONE
-    if (FullName)
-        free(FullName);
+    free(FullName);
 }
 
-CSourceFile*
-CSourceFile::SetName(const char* name)
+CSourceFile* CSourceFile::SetName(const char* name)
 {
-    CALL_STACK_MESSAGE_NONE
-    if (FullName)
-        free(FullName);
-    FullName = Name = SG->DupStr(name);
+    // Allocate first: an unsuccessful undo update must not discard its identity.
+    const size_t length = strlen(name);
+    if (length > INT_MAX)
+        return NULL;
+    char* replacement = (char*)malloc(length + 1);
+    if (replacement == NULL)
+        return NULL;
+    memcpy(replacement, name, length + 1);
+    free(FullName);
+    FullName = Name = replacement;
     Ext = NULL;
     char* iterator = FullName;
     while (*iterator != 0)
@@ -146,13 +110,13 @@ CSourceFile::SetName(const char* name)
             Name = iterator + 1;
             Ext = NULL;
         }
-        if (*iterator == '.' /*&& iterator > Name*/) // ".cvspass" is an extension in Windows
+        if (*iterator == '.') // ".cvspass" is an extension in Windows
             Ext = iterator + 1;
         iterator++;
     }
     if (IsDir || Ext == NULL)
-        Ext = iterator; // directories do not have an extension + when a file has no extension
-    NameLen = iterator - FullName;
+        Ext = iterator;
+    NameLen = (int)length;
     return this;
 }
 
@@ -234,7 +198,7 @@ BOOL CRenamerOptions::Save(HKEY regKey, CSalamanderRegistryAbstract* registry)
 // CRenamer
 //
 
-CRenamer::CRenamer(char (&root)[3 * MAX_PATH], int& rootLen)
+CRenamer::CRenamer(const char* root, int& rootLen)
     : Root(root), RootLen(rootLen)
 {
     CALL_STACK_MESSAGE2("CRenamer::CRenamer(, %d)", rootLen);
@@ -314,10 +278,10 @@ BOOL CRenamer::SetOptions(CRenamerOptions* options)
     return TRUE;
 }
 
-int CRenamer::Rename(CSourceFile* file, int counter, char* newName, char** newPart)
+int CRenamer::Rename(CSourceFile* file, int counter, char* newName, int capacity, char** newPart)
 {
     CALL_STACK_MESSAGE_NONE
-    if (!IsGood())
+    if (!IsGood() || newName == NULL || capacity <= 0)
         return -1;
 
     int pathLen = 0;
@@ -328,12 +292,16 @@ int CRenamer::Rename(CSourceFile* file, int counter, char* newName, char** newPa
         case rsFileName:
         {
             pathLen = (int)(file->Name - file->FullName);
+            if (pathLen >= capacity)
+                return -1;
             memcpy(newName, file->FullName, pathLen);
             break;
         }
         case rsRelativePath:
         {
             pathLen = RootLen;
+            if (pathLen <= 0 || pathLen >= capacity - 1)
+                return -1;
             memcpy(newName, Root, pathLen);
             if (newName[pathLen - 1] != '\\')
                 newName[pathLen++] = '\\';
@@ -356,10 +324,13 @@ int CRenamer::Rename(CSourceFile* file, int counter, char* newName, char** newPa
     int l;
     if (Substitute)
     {
-        char tmp[3 * MAX_PATH];
+        TBuffer<char> temporary;
+        if (!temporary.Reserve(capacity))
+            return -1;
+        char* tmp = temporary.Get();
 
         // expand the New Name into a temporary buffer
-        l = NewName.Execute(tmp, 3 * MAX_PATH, &param);
+        l = NewName.Execute(tmp, capacity, &param);
         if (l < 0)
             return -1;
         // l is strlen(tmp)
@@ -376,10 +347,10 @@ int CRenamer::Rename(CSourceFile* file, int counter, char* newName, char** newPa
             }
 
             // perform the requested substitution in the name
-            int substl = UseRegExp ? RESubst(tmp, namel, newName, 3 * MAX_PATH - pathLen) : BMSubst(tmp, namel, newName, 3 * MAX_PATH - pathLen);
+            int substl = UseRegExp ? RESubst(tmp, namel, newName, capacity - pathLen) : BMSubst(tmp, namel, newName, capacity - pathLen);
 
             // dokopirujeme extension
-            if (substl < 0 || substl + (l - namel) >= 3 * MAX_PATH - pathLen)
+            if (substl < 0 || substl + (l - namel) >= capacity - pathLen)
                 return -1;
             memcpy(newName + substl, tmp + namel, l - namel + 1);
             // calculate new name length : substed name len + appended ext len - '\0'
@@ -388,13 +359,13 @@ int CRenamer::Rename(CSourceFile* file, int counter, char* newName, char** newPa
         else
         {
             // perform the requested substitution
-            l = UseRegExp ? RESubst(tmp, l, newName, 3 * MAX_PATH - pathLen) : BMSubst(tmp, l, newName, 3 * MAX_PATH - pathLen);
+            l = UseRegExp ? RESubst(tmp, l, newName, capacity - pathLen) : BMSubst(tmp, l, newName, capacity - pathLen);
         }
     }
     else
     {
         // expand the New Name
-        l = NewName.Execute(newName, 3 * MAX_PATH - pathLen, &param);
+        l = NewName.Execute(newName, capacity - pathLen, &param);
     }
 
     if (l < 0)

@@ -57,6 +57,7 @@ public:
     //file testing
     bool Test;
     BOOL AllFilesOK;
+    bool WholeArchiveExtracted; // stricter than successful SDK Skip; controls source deletion only
     QWORD ExtractedBytes; //number of bytes 'extracted' from file. Used for testing
 
     //unshrink

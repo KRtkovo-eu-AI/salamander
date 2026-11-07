@@ -1589,25 +1589,34 @@ char* BuildName(char* path, char* name, char* dosName, BOOL* skip, BOOL* skipAll
     if (skip != NULL)
         *skip = FALSE;
     int l1 = (int)strlen(path); // je vzdy na stacku ...
-    int l2, len = l1;
+    int l2 = 0, len = l1;
+    const int pathWideLength = (int)SalMultiByteToWidePath(path, IsValidPathUtf8Text(path) ? CP_UTF8 : CP_ACP).size();
+    int wideLength = pathWideLength;
     if (name != NULL)
     {
         l2 = (int)strlen(name);
         len += l2;
-        if (path[l1 - 1] != '\\')
+        wideLength += (int)SalMultiByteToWidePath(name, IsValidPathUtf8Text(name) ? CP_UTF8 : CP_ACP).size();
+        if (l1 != 0 && path[l1 - 1] != '\\')
+        {
             len++;
-        if (len >= 32767 && dosName != NULL)
+            wideLength++;
+        }
+        if (wideLength >= 32767 && dosName != NULL)
         {
             int l3 = (int)strlen(dosName);
-            if (len - l2 + l3 < 32767)
+            const int dosWideLength = pathWideLength + (l1 != 0 && path[l1 - 1] != '\\' ? 1 : 0) +
+                                      (int)SalMultiByteToWidePath(dosName, IsValidPathUtf8Text(dosName) ? CP_UTF8 : CP_ACP).size();
+            if (dosWideLength < 32767)
             {
                 len = len - l2 + l3;
+                wideLength = dosWideLength;
                 name = dosName;
                 l2 = l3;
             }
         }
     }
-    if (len >= 32767)
+    if (wideLength >= 32767)
     {
         char text[2 * MAX_PATH + 100];
         _snprintf_s(text, _TRUNCATE, LoadStr(IDS_NAMEISTOOLONG), name, path);
@@ -1666,7 +1675,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
     if (name != NULL)
     {
         memmove(txt, path, l1);
-        if (path[l1 - 1] != '\\')
+        if (l1 != 0 && path[l1 - 1] != '\\')
             txt[l1++] = '\\';
         memmove(txt + l1, name, l2 + 1);
     }
@@ -6060,8 +6069,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                                                     // snizime prioritu threadu na "normal" (aby operace prilis nezatezovaly stroj)
                                                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
 
-                                                    CSalamanderForOperations sm(MainWindow->GetActivePanel());
-                                                    data->GetPluginInterfaceForMenuExt()->ExecuteMenuItem(&sm, MainWindow->HWindow, id, 0);
+                                                    data->ExecutePostedMenuItem(MainWindow->GetActivePanel(), MainWindow->HWindow, id, TRUE);
 
                                                     // opet zvysime prioritu threadu, operace dobehla
                                                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);

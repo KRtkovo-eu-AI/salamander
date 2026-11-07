@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 //****************************************************************************
@@ -43,6 +43,9 @@ typedef int(WINAPI* FSalamanderExportInstalledPlugins)(char* buffer, int cchBuff
 
 extern "C" __declspec(dllexport) int __stdcall Samandarin_ExportInstalledPlugins(char* buffer, int cchBuffer)
 {
+    CManagedBridgeNativeCall nativeCall;
+    if (!nativeCall.IsAllowed())
+        return 0;
     HMODULE host = GetModuleHandle(NULL);
     if (host == NULL)
         return 0;
@@ -87,6 +90,9 @@ void AppendUtf8ExportField(std::wstring& output, const char* text)
 
 extern "C" __declspec(dllexport) int __stdcall Samandarin_ExportInstalledExtensions(wchar_t* buffer, int cchBuffer)
 {
+    CManagedBridgeNativeCall nativeCall;
+    if (!nativeCall.IsAllowed())
+        return 0;
     if (SalamanderGeneral == NULL)
         return 0;
 
@@ -537,6 +543,9 @@ BOOL SynchronizeLoadOnStartFlagFromSettings()
 
 extern "C" __declspec(dllexport) BOOL __stdcall Samandarin_LoadSettings(NativeUpdateSettings* settings)
 {
+    CManagedBridgeNativeCall nativeCall;
+    if (!nativeCall.IsAllowed())
+        return FALSE;
     if (settings == nullptr || SalamanderGeneral == NULL)
     {
         return FALSE;
@@ -548,6 +557,9 @@ extern "C" __declspec(dllexport) BOOL __stdcall Samandarin_LoadSettings(NativeUp
 
 extern "C" __declspec(dllexport) BOOL __stdcall Samandarin_SaveSettings(const NativeUpdateSettings* settings)
 {
+    CManagedBridgeNativeCall nativeCall;
+    if (!nativeCall.IsAllowed())
+        return FALSE;
     if (settings == nullptr || SalamanderGeneral == NULL)
     {
         return FALSE;

@@ -61,7 +61,7 @@ def main() -> int:
         duplicate_tab = body(MAINWND3, r"CFilesWindow\* CMainWindow::CreateDuplicatePanelTab\(")
         require_order(duplicate_tab,
                       "CFilesWindow* previousTarget =",
-                      "char sourcePath[2 * MAX_PATH];",
+                      "CPathBuffer sourcePathBuffer(4 * SAL_MAX_PATH);",
                       "CFilesWindow* newPanel = AddPanelTab",
                       "newPanel->ChangeDir(sourcePath);",
                       "SwitchPanelTab(newPanel);")

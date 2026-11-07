@@ -3113,4 +3113,35 @@
 
 //#define CM_TEXTS_MAX                  18000    // maximal texts id
 
+#define IDS_BRANCH_VIEW                        14500
+#define IDS_MENU_BRANCH_VIEW                   14501
+#define IDS_BRANCH_PATH                        14502
+#define IDS_BRANCH_PATH_DESC                   14503
+#define IDS_BRANCH_OPENPARENT                  14504
+#define IDS_BRANCH_STOP                        14505
+#define IDS_BRANCH_SCANNING                    14506
+#define IDS_BRANCH_READY                       14507
+#define IDS_BRANCH_STOPPED                     14508
+#define IDS_BRANCH_ERRORS                      14509
+#define IDS_BRANCH_KEEP_PATHS                  14510
+#define IDS_BRANCH_PATH_LABEL                  14511
+#define IDS_BRANCH_SCAN_FAILED                 14512
+#define IDS_BRANCH_REFRESHING                  14513
+#define IDS_BRANCH_REFRESH_STOPPED             14514
+#define IDS_BRANCH_PREPARING                   14515
+
+#define IDS_FILELAUNCH_PROGRAM_FAILED                    14516
+#define IDS_FILELAUNCH_DOCUMENT_FAILED                   14517
+#define IDS_FILELAUNCH_LONGPATH_OFF                      14518
+#define IDS_FILELAUNCH_LONGPATH_ON                       14519
+#define IDS_FILELAUNCH_LONGPATH_UNSET                    14520
+#define IDS_FILELAUNCH_LONGPATH_UNKNOWN                  14521
+#define IDS_FILELAUNCH_LONGPATH_CAVEAT                   14522
+#define IDS_FILELAUNCH_LAUNCH_CLOSE                      14523
+#define IDS_FILELAUNCH_LONGPATH_GUIDE_BUTTON             14524
+#define IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE              14525
+#define IDS_FILELAUNCH_LONGPATH_GUIDE                    14526
+
+#define IDS_FILELAUNCH_ERROR_CODE                    14527
+
 #endif // __TEXTS_RH2

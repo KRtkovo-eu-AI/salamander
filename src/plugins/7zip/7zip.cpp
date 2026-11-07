@@ -484,16 +484,21 @@ void GetInfo(char* buffer, const FILETIME* lastWrite, UINT64 size)
 
 BOOL SafeDeleteFile(const char* fileName, BOOL& silent)
 {
+    return SafeDeleteFileW(GetSalamanderUnicodeString(fileName).Ptr(), fileName, silent);
+}
+
+BOOL SafeDeleteFileW(const wchar_t* fileName, const char* displayName, BOOL& silent)
+{
     int mbRet;
 
     do
     {
         mbRet = DIALOG_OK;
-        if (!::DeleteFile(fileName) && !silent)
+        if (!::DeleteFileW(GetSalamanderLongPath(UString(fileName)).Ptr()) && !silent)
         {
             DWORD err = ::GetLastError();
             mbRet = SalamanderGeneral->DialogError(SalamanderGeneral->GetMsgBoxParent(), BUTTONS_RETRYSKIPCANCEL,
-                                                   fileName, SalamanderGeneral->GetErrorText(err), LoadStr(IDS_DELETE_ERROR));
+                                                   displayName, SalamanderGeneral->GetErrorText(err), LoadStr(IDS_DELETE_ERROR));
         }
     } while (mbRet == DIALOG_RETRY);
 
@@ -1014,58 +1019,73 @@ void CalcSize(CSalamanderDirectoryAbstract const* dir, const char* mask, CQuadWo
     }
 }
 
-int GatherItems(CSalamanderDirectoryAbstract const* dir, const char* mask, TIndirectArray<CArchiveItemInfo>* archiveItems, char* archivePath)
+int GatherItems(CSalamanderDirectoryAbstract const* dir, const char* mask, TIndirectArray<CArchiveItemInfo>* archiveItems,
+                char* archivePath, int archivePathCapacity)
 {
-    int archivePathLen = lstrlen(archivePath);
-    // files
-    int count = dir->GetFilesCount();
-    int i;
-    for (i = 0; i < count; i++)
+    if (!archiveItems->IsGood())
     {
-        CFileData const* fileData = dir->GetFile(i);
-        if (SalamanderGeneral->AgreeMask(fileData->Name, mask, fileData->Ext[0] != 0) &&
-            fileData->PluginData != 0 &&
-            SalamanderGeneral->SalPathAppend(archivePath, fileData->Name, MAX_PATH)) // reuse archivePath for the file name in the archive
-        {
-            CArchiveItemInfo* aii = new CArchiveItemInfo(archivePath, fileData, FALSE);
-            archivePath[archivePathLen] = '\0';
-            if (aii == NULL)
-            {
-                Error(IDS_INSUFFICIENT_MEMORY);
-                return OPER_CANCEL;
-            }
-            archiveItems->Add(aii);
-        }
-    } // for
-
-    count = dir->GetDirsCount();
-    int j;
-    for (j = 0; j < count; j++)
-    {
-        CFileData const* fileData = dir->GetDir(j);
-        CSalamanderDirectoryAbstract const* subDir = dir->GetSalDir(j);
-        if (SalamanderGeneral->SalPathAppend(archivePath, fileData->Name, MAX_PATH))
-        {
-            // include directories in processing (but only those that have PluginData defined)
-            if (SalamanderGeneral->AgreeMask(fileData->Name, mask,
-                                             strchr(fileData->Name, '.') != NULL) && // for a directory the extension may be missing, so we look for the dot via strchr
-                fileData->PluginData != 0)
-            {
-                CArchiveItemInfo* aii = new CArchiveItemInfo(archivePath, fileData, TRUE);
-                if (aii == NULL)
-                {
-                    Error(IDS_INSUFFICIENT_MEMORY);
-                    return OPER_CANCEL;
-                }
-                archiveItems->Add(aii);
-            }
-
-            if (GatherItems(subDir, mask, archiveItems, archivePath) == OPER_CANCEL)
-                return OPER_CANCEL;
-        }
-        archivePath[archivePathLen] = '\0';
+        Error(IDS_INSUFFICIENT_MEMORY);
+        return OPER_CANCEL;
     }
-
+    const int archivePathLen = (int)strlen(archivePath);
+    // An item is owned by the array only after Add succeeds.
+    const auto addItem = [&](const CFileData* fileData, bool isDir) -> BOOL {
+#ifdef new
+#undef new
+#define SEVENZIP_GATHER_RESTORE_DEBUG_NEW
+#endif
+        CArchiveItemInfo* aii = new (std::nothrow) CArchiveItemInfo(archivePath, fileData, isDir);
+#ifdef SEVENZIP_GATHER_RESTORE_DEBUG_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef SEVENZIP_GATHER_RESTORE_DEBUG_NEW
+#endif
+        if (aii == NULL)
+        {
+            Error(IDS_INSUFFICIENT_MEMORY);
+            return FALSE;
+        }
+        archiveItems->Add(aii);
+        if (!archiveItems->IsGood())
+        {
+            delete aii; // TDirectArray::Add does not take ownership on allocation failure.
+            Error(IDS_INSUFFICIENT_MEMORY);
+            return FALSE;
+        }
+        return TRUE;
+    };
+    for (int i = 0; i < dir->GetFilesCount(); ++i)
+    {
+        const CFileData* fileData = dir->GetFile(i);
+        if (SalamanderGeneral->AgreeMask(fileData->Name, mask, fileData->Ext[0] != 0) && fileData->PluginData != 0)
+        {
+            if (!SalamanderGeneral->SalPathAppend(archivePath, fileData->Name, archivePathCapacity))
+            {
+                Error(IDS_ERRADDFILE_TOOLONG);
+                return OPER_CANCEL;
+            }
+            const BOOL added = addItem(fileData, false);
+            archivePath[archivePathLen] = 0;
+            if (!added) return OPER_CANCEL;
+        }
+    }
+    for (int i = 0; i < dir->GetDirsCount(); ++i)
+    {
+        const CFileData* fileData = dir->GetDir(i);
+        if (!SalamanderGeneral->SalPathAppend(archivePath, fileData->Name, archivePathCapacity))
+        {
+            Error(IDS_ERRADDDIR_TOOLONG);
+            return OPER_CANCEL;
+        }
+        if (SalamanderGeneral->AgreeMask(fileData->Name, mask, strchr(fileData->Name, '.') != NULL) &&
+            fileData->PluginData != 0 && !addItem(fileData, true))
+        {
+            archivePath[archivePathLen] = 0;
+            return OPER_CANCEL;
+        }
+        const int result = GatherItems(dir->GetSalDir(i), mask, archiveItems, archivePath, archivePathCapacity);
+        archivePath[archivePathLen] = 0;
+        if (result == OPER_CANCEL) return OPER_CANCEL;
+    }
     return OPER_OK;
 }
 
@@ -1076,13 +1096,18 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
     CALL_STACK_MESSAGE5("CPluginInterfaceForArchiver::UnpackWholeArchive(, %s, %s, %s, %d,)",
                         fileName, mask, targetDir, delArchiveWhenDone);
 
-    if (delArchiveWhenDone)
-        archiveVolumes->Add(fileName, -2); // FIXME: once the 7-zip plugin learns multi-volume archives (.7z.001, .7z.002, etc.), we must add all archive volumes here (so the entire archive is deleted)
+    if (delArchiveWhenDone && archiveVolumes == NULL)
+    {
+        SetLastError(ERROR_INVALID_PARAMETER);
+        return FALSE;
+    }
+
     CSalamanderDirectoryAbstract* dir = SalamanderGeneral->AllocSalamanderDirectory(FALSE);
     if (dir == NULL)
         return Error(IDS_INSUFFICIENT_MEMORY);
 
     BOOL ret = FALSE;
+    bool wholeArchiveExtracted = false;
 
     C7zClient* client = new C7zClient();
     if (client)
@@ -1098,7 +1123,6 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
                 CalcSize(dir, mask, totalSize, itemCount);
 
                 //
-                BOOL delTempDir = TRUE;
                 if (SalamanderGeneral->TestFreeSpace(SalamanderGeneral->GetMsgBoxParent(),
                                                      targetDir, totalSize, LoadStr(IDS_UNPACKING_ARCHIVE)))
                 {
@@ -1108,16 +1132,24 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
                     char modmask[256];
                     SalamanderGeneral->PrepareMask(modmask, mask);
 
-                    char archivePath[MAX_PATH_LEN];
-                    archivePath[0] = '\0';
-
-                    TIndirectArray<CArchiveItemInfo> archiveItems(itemCount, 10, dtDelete);
-                    if (GatherItems(dir, modmask, &archiveItems, archivePath) != OPER_CANCEL)
+                    char* archivePath = (char*)malloc(SAL_MAX_PATH);
+                    if (archivePath == NULL)
+                        Error(IDS_INSUFFICIENT_MEMORY);
+                    else
                     {
-                        C7zClient* client2 = ((CPluginDataInterface*)pluginData)->Get7zClient();
+                        archivePath[0] = 0;
+                        TIndirectArray<CArchiveItemInfo> archiveItems(itemCount, 10, dtDelete);
+                        if (GatherItems(dir, modmask, &archiveItems, archivePath, SAL_MAX_PATH) != OPER_CANCEL)
+                        {
+                            C7zClient* client2 = ((CPluginDataInterface*)pluginData)->Get7zClient();
 
-                        salamander->ProgressDialogAddText(LoadStr(IDS_UNPACKING), FALSE);
-                        ret = client2->Decompress(salamander, fileName, targetDir, &archiveItems, pluginData->Password) != OPER_CANCEL;
+                            salamander->ProgressDialogAddText(LoadStr(IDS_UNPACKING), FALSE);
+                            const int result = client2->Decompress(salamander, fileName, targetDir, &archiveItems,
+                                                                   pluginData->Password, FALSE, &wholeArchiveExtracted);
+                            ret = result != OPER_CANCEL;
+                            wholeArchiveExtracted = wholeArchiveExtracted && result == OPER_OK;
+                        }
+                        free(archivePath);
                     }
                     salamander->CloseProgressDialog();
                 }
@@ -1147,6 +1179,13 @@ BOOL CPluginInterfaceForArchiver::UnpackWholeArchive(CSalamanderForOperationsAbs
 
     SalamanderGeneral->FreeSalamanderDirectory(dir);
 
+    if (ret && delArchiveWhenDone && !wholeArchiveExtracted)
+        return Error(IDS_UNPACK_INCOMPLETE);
+
+    // Hand off the single supported volume only after extraction and cleanup.
+    // FIXME: multi-volume archives need complete volume discovery before deletion can be qualified.
+    if (ret && delArchiveWhenDone && !archiveVolumes->Add(fileName, -2))
+        return Error(IDS_INSUFFICIENT_MEMORY);
     return ret;
 }
 
@@ -1355,7 +1394,8 @@ BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract
                 if (fi->CanDelete && !fi->IsDir)
                 {
                     // delete the file
-                    CSysString name2 = GetAnsiString(fi->FullPath);
+                    const std::string name2Utf8 = SalamanderDiskSelection::Utf8FromWide(fi->FullPath.Ptr());
+                    const char* name2 = name2Utf8.c_str();
 
                     // drop the read-only attribute if needed
                     SalamanderGeneral->ClearReadOnlyAttr(name2);
@@ -1584,43 +1624,48 @@ CPluginInterfaceForViewer::CanViewFile(const char *name)
 // Menu Handlers
 //
 
+static std::string ArchiveNameMessage(const char* pattern, const std::string& name)
+{
+    std::string text(pattern);
+    const size_t placeholder = text.find("%s");
+    if (placeholder != std::string::npos) text.replace(placeholder, 2, name);
+    return text;
+}
+
 static BOOL TestArchive(CSalamanderForOperationsAbstract* salamander, HWND hParent)
 {
-    // get the path to the focused 7z archive
-    const CFileData* cfd = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, NULL);
-    if (cfd == NULL)
+    CSalamanderDiskSelection selection;
+    if (!selection.Capture(SalamanderGeneral, PANEL_SOURCE, SALDISKSELECTION_FOCUSED_ONLY) ||
+        selection.GetCount() != 1 || selection.GetItem(0)->IsDir) return FALSE;
+    try
+    {
+        const auto* item = selection.GetItem(0);
+        const std::string fileName = SalamanderDiskSelection::Utf8FromWide(item->FullPathW);
+        if (fileName.empty()) { SetLastError(ERROR_INVALID_NAME); return FALSE; }
+        // Prepare all strings before opening the progress dialog.
+        const std::string progress = ArchiveNameMessage(LoadStr(IDS_TESTING_ARCHIVE_NAME),
+            SalamanderDiskSelection::Utf8FromWide(item->NameW));
+        const std::string success = ArchiveNameMessage(LoadStr(IDS_TESTARCHIVEOK), fileName);
+        const std::string corrupt = ArchiveNameMessage(LoadStr(IDS_TESTARCHIVECORRUPTED), fileName);
+        C7zClient client;
+        salamander->OpenProgressDialog(LoadStr(IDS_TESTING_ARCHIVE), FALSE, NULL, FALSE);
+        salamander->ProgressDialogAddText(progress.c_str(), FALSE);
+        const int ret = client.TestArchive(salamander, fileName.c_str());
+        salamander->CloseProgressDialog();
+        if (ret == OPER_OK)
+        {
+            SalamanderGeneral->SalMessageBox(hParent, success.c_str(), LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONINFORMATION);
+            return TRUE;
+        }
+        if (ret == OPER_CONTINUE)
+            SalamanderGeneral->SalMessageBox(hParent, corrupt.c_str(), LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONINFORMATION);
         return FALSE;
-    char fileName[2 * MAX_PATH];
-
-    C7zClient client;
-
-    salamander->OpenProgressDialog(LoadStr(IDS_TESTING_ARCHIVE), FALSE, NULL, FALSE);
-    sprintf(fileName, LoadStr(IDS_TESTING_ARCHIVE_NAME), cfd->Name);
-    salamander->ProgressDialogAddText(fileName, FALSE);
-
-    SalamanderGeneral->GetPanelPath(PANEL_SOURCE, fileName, 2 * MAX_PATH, NULL, NULL);
-    SalamanderGeneral->SalPathAppend(fileName, cfd->Name, 2 * MAX_PATH);
-    int ret = client.TestArchive(salamander, fileName);
-    salamander->CloseProgressDialog();
-
-    if (ret == OPER_OK)
-    {
-        char text[1024];
-        text[0] = '\0';
-        sprintf(text, LoadStr(IDS_TESTARCHIVEOK), fileName);
-        SalamanderGeneral->SalMessageBox(hParent, text, LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONINFORMATION);
-        ret = TRUE;
     }
-    else if (ret == OPER_CONTINUE)
+    catch (const std::bad_alloc&)
     {
-        char text[1024];
-        text[0] = '\0';
-        sprintf(text, LoadStr(IDS_TESTARCHIVECORRUPTED), fileName);
-        SalamanderGeneral->SalMessageBox(hParent, text, LoadStr(IDS_PLUGINNAME), MB_OK | MB_ICONINFORMATION);
-        ret = FALSE;
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return FALSE;
     }
-
-    return ret;
 }
 
 //

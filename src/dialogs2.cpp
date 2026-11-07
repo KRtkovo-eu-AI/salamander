@@ -12,6 +12,7 @@
 #include "configstorage.h"
 #include "usermenu.h"
 #include "execute.h"
+#include "fileactionpath.h"
 #include "plugins.h"
 #include "fileswnd.h"
 #include "mainwnd.h"
@@ -1406,17 +1407,14 @@ CCompareArgsDlg::CCompareArgsDlg(HWND parent, BOOL comparingFiles, char* compare
 
 void CCompareArgsDlg::Validate(CTransferInfo& ti)
 {
-    char buf[MAX_PATH];
-    ti.EditLine(IDE_UMC_NAME1, buf, MAX_PATH);
-    if (buf[0] == 0)
+    if (GetWindowTextLengthW(GetDlgItem(HWindow, IDE_UMC_NAME1)) == 0)
     {
         SalMessageBox(HWindow, LoadStr(IDS_FF_EMPTYSTRING), LoadStr(IDS_ERRORTITLE),
                       MB_OK | MB_ICONEXCLAMATION);
         ti.ErrorOn(IDE_UMC_NAME1);
         return;
     }
-    ti.EditLine(IDE_UMC_NAME2, buf, MAX_PATH);
-    if (buf[0] == 0)
+    if (GetWindowTextLengthW(GetDlgItem(HWindow, IDE_UMC_NAME2)) == 0)
     {
         SalMessageBox(HWindow, LoadStr(IDS_FF_EMPTYSTRING), LoadStr(IDS_ERRORTITLE),
                       MB_OK | MB_ICONEXCLAMATION);
@@ -1427,8 +1425,24 @@ void CCompareArgsDlg::Validate(CTransferInfo& ti)
 
 void CCompareArgsDlg::Transfer(CTransferInfo& ti)
 {
-    ti.EditLine(IDE_UMC_NAME1, CompareName1, MAX_PATH);
-    ti.EditLine(IDE_UMC_NAME2, CompareName2, MAX_PATH);
+    const int controls[] = {IDE_UMC_NAME1, IDE_UMC_NAME2};
+    char* names[] = {CompareName1, CompareName2};
+    for (int i = 0; i < 2; ++i)
+    {
+        std::vector<wchar_t> wide(SAL_MAX_PATH, L'\0');
+        if (ti.Type == ttDataToWindow)
+        {
+            std::wstring value = Salamander::ViewerPaths::Decode(names[i]);
+            if (value.size() < wide.size())
+                memcpy(wide.data(), value.c_str(), (value.size() + 1) * sizeof(wchar_t));
+        }
+        ti.EditLineW(controls[i], wide.data(), (DWORD)wide.size());
+        if (ti.Type == ttDataFromWindow)
+        {
+            std::string value = Salamander::FileActionPaths::Utf8(wide.data());
+            memcpy(names[i], value.c_str(), value.size() + 1);
+        }
+    }
 
     int c = !*CnfrmShowNamesToCompare;
     ti.CheckBox(IDC_UMC_SHOWTHISDLG, c);

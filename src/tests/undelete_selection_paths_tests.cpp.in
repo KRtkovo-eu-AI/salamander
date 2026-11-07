@@ -1,0 +1,253 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual SDK facade, host service, restore implementation and path helpers.
+// Panel/UI and EFS services are simulated; disk I/O uses only owned temp fixtures.
+#define NOMINMAX
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <memory>
+#include <new>
+#include <thread>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <crtdbg.h>
+#include <filesystem>
+#define SAL_MAX_PATH 32768
+#define SALAMANDER_SERVICE_PANEL_ITEM_PATHS "Salamander.PanelItemPaths"
+#define SALAMANDER_PANEL_ITEM_PATHS_VERSION_1_0 0x00010000
+@@CONSTANTS@@
+enum { PANEL_SOURCE=0,PANEL_TARGET=1,PANEL_LEFT=2,PANEL_RIGHT=3,PATH_TYPE_WINDOWS=10,ptDisk=10 };
+#pragma warning(push)
+#pragma warning(disable:4201)
+@@QUAD@@
+#pragma warning(pop)
+struct CFileData {
+ const char* Name=nullptr; const char* Ext=nullptr; const wchar_t* NameW=nullptr;
+ BOOL Selected=FALSE,SizeValid=TRUE,Hidden=FALSE,IsLink=FALSE,IsOffline=FALSE;
+ DWORD Attr=0; CQuadWord Size; FILETIME LastWrite={};
+ BOOL UseWideName()const{return NameW!=nullptr;}
+};
+@@SDK@@
+struct Row {
+ std::string Name,Ext;std::wstring Wide,Full,Directory,Relative; CFileData File;
+ Row(std::wstring name,std::wstring full,std::wstring relative,bool selected):Name("legacy.txt"),Ext("txt"),Wide(std::move(name)),Full(std::move(full)),Relative(std::move(relative)) {
+  Directory=Full.substr(0,Full.find_last_of(L'\\'));File.Name=Name.c_str();File.NameW=Wide.c_str();File.Ext=Ext.c_str();File.Selected=selected;File.Size.Value=9876543210ULL;File.Attr=FILE_ATTRIBUTE_ARCHIVE;File.LastWrite.dwLowDateTime=123;File.Hidden=TRUE;File.IsLink=TRUE;File.IsOffline=TRUE;
+ }
+};
+struct CFilesArray {
+ std::vector<CFileData> Data;std::vector<std::unique_ptr<Row>> Rows;int Count=0;
+ CFilesArray(){Data.reserve(64);}
+ CFileData* GetData(){return Data.data();} CFileData& At(int i){return Data.at(i);}
+ void Clear(){Data.clear();Rows.clear();Count=0;}
+};
+struct CFilesWindow {
+ CFilesArray Directories,FileRows;CFilesArray* Dirs=&Directories;CFilesArray* Files=&FileRows;
+ std::wstring Root=L"C:\\root";std::string RootText="C:\\root";bool Disk=true,Missing=false,ThrowPath=false;int Focus=0;
+ BOOL Is(int type){return Disk&&type==ptDisk;}int GetCaretIndex(){return Focus;}
+ const wchar_t* GetPathW(){return Root.c_str();}const char* GetPath(){return RootText.c_str();}
+ Row* Find(const CFileData& f)const{for(auto a:{Dirs,Files})for(int i=0;i<a->Count;++i)if(&a->Data[i]==&f)return a->Rows[i].get();return nullptr;}
+ std::wstring GetItemFullPathW(const CFileData& f){if(ThrowPath)throw std::bad_alloc();return Missing?L"":Find(f)->Full;}
+ std::wstring GetItemDirectoryW(const CFileData& f){return Missing?L"":Find(f)->Directory;}
+ std::wstring GetItemRelativePathW(const CFileData& f){return Missing?L"":Find(f)->Relative;}
+ CFileData* Add(std::wstring name,std::wstring full,std::wstring relative,bool selected=false,bool dir=false){auto a=dir?Dirs:Files;a->Rows.emplace_back(new Row(std::move(name),std::move(full),std::move(relative),selected));a->Data.push_back(a->Rows.back()->File);++a->Count;return &a->Data.back();}
+ void Clear(){Dirs->Clear();Files->Clear();Root=L"C:\\root";RootText="C:\\root";Disk=true;Missing=false;ThrowPath=false;Focus=0;}
+};
+struct MainWindowStub {CFilesWindow Left,Right;bool RightActive=false;
+ CFilesWindow* GetPanel(int panel){switch(panel){case PANEL_SOURCE:return RightActive?&Right:&Left;case PANEL_TARGET:return RightActive?&Left:&Right;case PANEL_LEFT:return &Left;case PANEL_RIGHT:return &Right;default:return nullptr;}}
+};
+static MainWindowStub Window;static MainWindowStub* MainWindow=&Window;static DWORD MainThreadID;static HWND TestWindow;
+struct CSalamanderGeneralAbstract {
+ bool SnapshotAvailable=true,ResolverAvailable=true,BadInterface=false,BadVersion=false;int RootCalls=0,QueryCalls=0,CountOffset=0;
+ BOOL QueryService(const CSalamanderServiceQuery*,CSalamanderServiceResult*);
+ void CreateSafeWaitWindow(const char*,void*,int,BOOL,HWND){}
+ void DestroySafeWaitWindow(){}
+ BOOL GetSafeWaitWindowClosePressed(){return FALSE;}
+ BOOL TestFreeSpace(HWND,const char*,const CQuadWord&,const char*){return TRUE;}
+ void PostChangeOnPathNotification(const char*,BOOL){}
+ void GetConfigParameter(int,void*,size_t,void*) {}
+ int SalMessageBox(HWND,const char*,const char*,UINT){return IDYES;}
+ int DialogError(HWND,DWORD,const char*,const char*,const char*){return IDCANCEL;}
+ BOOL GetLinkTgtFileSize(HWND,const char*,CQuadWord*,BOOL*,BOOL*){return FALSE;}
+ BOOL SalGetFileSize(HANDLE h,CQuadWord& s,DWORD& e){e=0;SetLastError(0);s.LoDWord=GetFileSize(h,&s.HiDWord);e=GetLastError();return s.LoDWord!=INVALID_FILE_SIZE||e==0;}
+ BOOL SalGetFileSize2(const char*,CQuadWord&,DWORD*){return FALSE;}
+
+ HWND GetMainWindowHWND(){return TestWindow;}
+ BOOL GetPanelPath(int panel,char* path,int capacity,int* type,void*){++RootCalls;auto p=Window.GetPanel(panel);if(!p)return FALSE;*type=p->Disk?PATH_TYPE_WINDOWS:-1;if(p->RootText.size()>=static_cast<size_t>(capacity))return FALSE;strcpy_s(path,capacity,p->RootText.c_str());return TRUE;}
+ BOOL GetPanelSelection(int panel,int* files,int* dirs){auto p=Window.GetPanel(panel);*files=*dirs=0;for(auto a:{p->Dirs,p->Files})for(auto& f:a->Data)if(f.Selected)++(a==p->Dirs?*dirs:*files);*files+=CountOffset;return *files+*dirs!=0;}
+ const CFileData* GetPanelFocusedItem(int panel,BOOL* isDir){auto p=Window.GetPanel(panel);if(p->Focus<0||p->Focus>=p->Dirs->Count+p->Files->Count)return nullptr;bool d=p->Focus<p->Dirs->Count;if(isDir)*isDir=d;return d?&p->Dirs->At(p->Focus):&p->Files->At(p->Focus-p->Dirs->Count);}
+ const CFileData* GetPanelItem(int panel,int* index,BOOL* isDir){auto p=Window.GetPanel(panel);int i=(*index)++;if(i<0||i>=p->Dirs->Count+p->Files->Count)return nullptr;*isDir=i<p->Dirs->Count;return *isDir?&p->Dirs->At(i):&p->Files->At(i-p->Dirs->Count);}
+};
+#include "@@HEADER@@"
+@@HOST@@
+static CDiskSelectionService Service;static CPanelItemPathsService Resolver;
+BOOL CSalamanderGeneralAbstract::QueryService(const CSalamanderServiceQuery* q,CSalamanderServiceResult* r){++QueryCalls;r->Interface=nullptr;r->Version=0;if(strcmp(q->ServiceId,SALAMANDER_SERVICE_DISK_SELECTION)==0){if(!SnapshotAvailable)return FALSE;r->Interface=BadInterface?nullptr:&Service;}else{if(!ResolverAvailable)return FALSE;r->Interface=BadInterface?nullptr:&Resolver;}r->Version=BadVersion?0:q->MinimumVersion;return TRUE;}
+
+
+#define CALL_STACK_MESSAGE1(...) ((void)0)
+#define CALL_STACK_MESSAGE_NONE
+#define HANDLES_Q(x) (x)
+#define HANDLES(x) (x)
+typedef unsigned __int64 QWORD;
+#define MAKEQWORD(lo,hi) ((static_cast<QWORD>(hi)<<32)|(lo))
+enum {BUTTONS_RETRYSKIPCANCEL=1,BUTTONS_RETRYCANCEL=2,DIALOG_CANCEL=IDCANCEL,ooStatic=0};
+@@IDS@@
+static CSalamanderGeneralAbstract General;
+static CSalamanderGeneralAbstract* SalamanderGeneral=&General;
+#include "@@PATHS@@"
+static int Errors=0;
+static DWORD LastReportedError=0;
+template<class T>struct String {
+ static char* LoadStr(int){static char s[]="resource";return s;}
+ static BOOL SysError(int,int){++Errors;LastReportedError=GetLastError();return FALSE;}
+ static BOOL Error(int,int){++Errors;return FALSE;}
+};
+static std::vector<std::wstring> Opened,Created;
+static bool SkipExisting=false,FailCreate=false,WantCancel=false,FailRawOpen=false,FailRawWrite=false;
+static int LiveHandles=0,RawOpens=0,RawCloses=0,ModalCalls=0;
+static bool CancelOnRead=false,CancelAfterRawSuccess=false;
+static DWORD CleanupFailure=0,CleanupLastError=0;
+static int CleanupCalls=0,ReadCalls=0;
+static std::wstring RawPath,RestoreTarget;
+struct SAFE_FILE {HANDLE HFile;};
+struct SafeFiles {
+ BOOL SafeFileOpen(SAFE_FILE* f,const char* path,DWORD access,DWORD share,DWORD create,DWORD flags,HWND,int,DWORD* button,DWORD*){
+  auto w=UndeletePaths::IoPath(UndeletePaths::Wide(path));Opened.push_back(w);
+  f->HFile=CreateFileW(w.c_str(),access,share,nullptr,create,flags,nullptr);
+  if(f->HFile!=INVALID_HANDLE_VALUE){++LiveHandles;return TRUE;}if(button)*button=IDCANCEL;return FALSE;
+ }
+ void SafeFileClose(SAFE_FILE* f){if(f->HFile!=INVALID_HANDLE_VALUE){CloseHandle(f->HFile);--LiveHandles;f->HFile=INVALID_HANDLE_VALUE;}}
+ HANDLE SafeFileCreate(const char* path,DWORD access,DWORD share,DWORD attrs,BOOL dir,HWND,const char*,const char*,DWORD*,BOOL,BOOL* skipped,void*,int,void*,SAFE_FILE* f){
+  auto w=UndeletePaths::IoPath(UndeletePaths::Wide(path));Created.push_back(w);*skipped=FALSE;
+  if(FailCreate)return INVALID_HANDLE_VALUE;
+  if(dir){std::error_code ec;std::filesystem::create_directories(w,ec);return !ec?reinterpret_cast<HANDLE>(1):INVALID_HANDLE_VALUE;}
+  if(SkipExisting&&GetFileAttributesW(w.c_str())!=INVALID_FILE_ATTRIBUTES){*skipped=TRUE;return INVALID_HANDLE_VALUE;}
+  f->HFile=CreateFileW(w.c_str(),access,share,nullptr,CREATE_ALWAYS,attrs,nullptr);
+  if(f->HFile!=INVALID_HANDLE_VALUE)++LiveHandles;return f->HFile;
+ }
+ BOOL SafeFileRead(SAFE_FILE* f,void* data,DWORD n,DWORD* got,HWND,int,void*,void*){++ReadCalls;const BOOL result=ReadFile(f->HFile,data,n,got,nullptr);if(CancelOnRead)WantCancel=true;return result;}
+ BOOL SafeFileWrite(SAFE_FILE* f,const void* data,DWORD n,DWORD* wrote,HWND,int,void*,void*){return WriteFile(f->HFile,data,n,wrote,nullptr);}
+};
+static SafeFiles SafeFileService;static SafeFiles* SalamanderSafeFile=&SafeFileService;
+static char* GetSCFData(FILETIME*,CQuadWord&){static char text[]="metadata";return text;}
+struct CRestoreProgressDlg {
+ HWND HWindow=reinterpret_cast<HWND>(1);
+ CRestoreProgressDlg(HWND,int){}
+ HWND Create(){return HWindow;}
+ void SetFileProgress(DWORD){}void SetTotalProgress(DWORD){}
+ void SetSourceFileName(const char*){}void SetDestFileName(const char*){}
+ BOOL GetWantCancel(){return WantCancel;}
+};
+static bool SizeEscape = false;
+static SHORT FixtureRestoreKeyState(int key){ return key==VK_ESCAPE && SizeEscape ? static_cast<SHORT>(-32768) : 0; }
+static BOOL FixtureDeleteCancelledFileW(LPCWSTR path){
+ ++CleanupCalls;if(CleanupFailure){CleanupLastError=CleanupFailure;SetLastError(CleanupFailure);return FALSE;}
+ const BOOL result=::DeleteFileW(path);CleanupLastError=result?ERROR_SUCCESS:GetLastError();return result;
+}
+static BOOL FakeGetVolumeInformationW(LPCWSTR,LPWSTR,DWORD,LPDWORD,LPDWORD,LPDWORD flags,LPWSTR,DWORD){*flags=FILE_SUPPORTS_ENCRYPTION;return TRUE;}
+struct RawContext{HANDLE File;};
+static DWORD FakeOpenEncryptedFileRawW(LPCWSTR path,ULONG,PVOID* context){
+ ++RawOpens;RawPath=path;if(FailRawOpen)return ERROR_ACCESS_DENIED;
+ HANDLE file=CreateFileW(path,GENERIC_WRITE,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);
+ if(file==INVALID_HANDLE_VALUE)return GetLastError();*context=new RawContext{file};return ERROR_SUCCESS;
+}
+static DWORD FakeWriteEncryptedFileRaw(PFE_IMPORT_FUNC callback,PVOID cookie,PVOID context){
+ if(FailRawWrite)return ERROR_CANCELLED;
+ if(CancelAfterRawSuccess){WantCancel=true;return ERROR_SUCCESS;}
+ char buffer[37];
+ for(;;){ULONG n=sizeof(buffer);DWORD error=callback(reinterpret_cast<PBYTE>(buffer),cookie,&n);if(error)return error;if(!n)return ERROR_SUCCESS;
+  DWORD wrote=0;if(!WriteFile(static_cast<RawContext*>(context)->File,buffer,n,&wrote,nullptr)||wrote!=n)return ERROR_WRITE_FAULT;
+ }
+}
+static void FakeCloseEncryptedFileRaw(PVOID context){++RawCloses;auto p=static_cast<RawContext*>(context);CloseHandle(p->File);delete p;}
+#define GetVolumeInformationW FakeGetVolumeInformationW
+#define OpenEncryptedFileRawW FakeOpenEncryptedFileRawW
+#define WriteEncryptedFileRaw FakeWriteEncryptedFileRaw
+#define CloseEncryptedFileRaw FakeCloseEncryptedFileRaw
+#define DeleteFileW FixtureDeleteCancelledFileW
+#define GetAsyncKeyState FixtureRestoreKeyState
+@@RESTORE@@
+#undef GetAsyncKeyState
+#undef DeleteFileW
+#undef GetVolumeInformationW
+#undef OpenEncryptedFileRawW
+#undef WriteEncryptedFileRaw
+#undef CloseEncryptedFileRaw
+static bool ClearPanelOnModal=false,CancelModal=false;
+struct CRestoreDialog {
+ std::string TargetPath;
+ CRestoreDialog(HWND,const CSalamanderDiskSelection&):TargetPath(UndeletePaths::Utf8(RestoreTarget.c_str())){}
+ int Execute(){++ModalCalls;if(ClearPanelOnModal)Window.Left.Clear();return CancelModal?IDCANCEL:IDOK;}
+};
+@@ENTRY@@
+static int Checks=0,Failures=0;
+static void Check(bool ok,const char* what){++Checks;if(!ok){++Failures;std::fprintf(stderr,"FAIL: %s (error %lu)\n",what,GetLastError());}}
+static void MakeDir(const std::wstring& p){std::error_code ec;std::filesystem::create_directories(UndeletePaths::IoPath(p),ec);Check(!ec,"create fixture directory");}
+static void Write(const std::wstring& p,const std::string& bytes){
+ MakeDir(p.substr(0,p.find_last_of(L'\\')));HANDLE h=CreateFileW(UndeletePaths::IoPath(p).c_str(),GENERIC_WRITE,0,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);Check(h!=INVALID_HANDLE_VALUE,"create fixture file");
+ if(h!=INVALID_HANDLE_VALUE){DWORD n=0;Check(WriteFile(h,bytes.data(),static_cast<DWORD>(bytes.size()),&n,nullptr)&&n==bytes.size(),"write fixture bytes");CloseHandle(h);}
+}
+static std::string Read(const std::wstring& p){HANDLE h=CreateFileW(UndeletePaths::IoPath(p).c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);if(h==INVALID_HANDLE_VALUE)return {};std::string out;char buffer[80];DWORD n;while(ReadFile(h,buffer,sizeof(buffer),&n,nullptr)&&n)out.append(buffer,n);CloseHandle(h);return out;}
+static void Reset(){Window.Left.Clear();Opened.clear();Created.clear();Errors=0;SkipExisting=FailCreate=WantCancel=FailRawOpen=FailRawWrite=ClearPanelOnModal=CancelModal=false;RawOpens=RawCloses=ModalCalls=0;RawPath.clear();CancelOnRead=CancelAfterRawSuccess=SizeEscape=false;CleanupFailure=CleanupLastError=LastReportedError=0;CleanupCalls=ReadCalls=0;}
+static void Select(const std::wstring& full,bool selected=true,bool dir=false){auto n=full.substr(full.find_last_of(L'\\')+1);auto f=Window.Left.Add(n,full,n,selected,dir);f->Size.Value=Read(full).size();}
+int main(){
+ const std::wstring labelName=std::wstring(100,L'東')+L"%s.bin";
+ Check(UndeletePaths::RestoreSubject(L"file \"%s\"",labelName.c_str())==L"file \""+labelName+L"\"","wide restore subject preserves full CJK name and literal percent placeholder");
+ Check(UndeletePaths::RestoreSubject(L"2 files",labelName.c_str())==L"2 files","plural descriptor without placeholder retained");
+ Check(UndeletePaths::RestoreSubject(L"file \"%S\"",labelName.c_str())==L"file \""+labelName+L"\"","host uppercase filename display keeps exact restore subject");
+ MainThreadID=GetCurrentThreadId();std::vector<wchar_t> temp(SAL_MAX_PATH);GetTempPathW(static_cast<DWORD>(temp.size()),temp.data());
+ const std::wstring root=std::wstring(temp.data())+L"undelete-boundary-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64());MakeDir(root);
+ struct Cleanup{std::wstring Root;~Cleanup(){std::error_code ec;std::filesystem::remove_all(UndeletePaths::IoPath(Root),ec);}}cleanup{root};
+ const std::wstring a=root+L"\\ascii\\same.txt",b=root+L"\\žluťoučký東京\\same.txt";Write(a,"first bytes");Write(b,"second bytes");
+ RestoreTarget=root+L"\\output";MakeDir(RestoreTarget);Reset();Select(a);Select(b);SkipExisting=true;ClearPanelOnModal=true;
+ Check(ExecuteRestoreEncrypted(nullptr),"actual entry restores captured selection after modal clears panel");
+ Check(Opened.size()==2&&Opened[0]==UndeletePaths::IoPath(a)&&Opened[1]==UndeletePaths::IoPath(b),"duplicate basenames resolve to distinct actual sources");
+ Check(Created.size()==2&&Created[0]==Created[1],"destination remains flat with ordinary collision handling");
+ Check(Read(RestoreTarget+L"\\same.txt")=="first bytes","skip collision retains first destination");Check(LiveHandles==0,"copy/skip close all source handles");
+ std::wstring longDir=root;for(int i=0;i<7;++i)longDir+=L"\\東京žluťoučkýabcdefghijklmnopqrstuvwxyz0123456789";
+ const std::wstring longFile=longDir+L"\\日本語😀.txt";Write(longFile,"long unicode bytes");Check(longFile.size()>260,"fixture exceeds UTF16 MAX_PATH");
+ RestoreTarget=root+L"\\長い出力";MakeDir(RestoreTarget);Reset();Select(longFile,false);Check(ExecuteRestoreEncrypted(nullptr),"focused-only full long Unicode restore");Check(Read(RestoreTarget+L"\\日本語😀.txt")=="long unicode bytes","Unicode filename content preserved");Check(LiveHandles==0,"long copy closes handles");
+ RestoreTarget=longDir+L"\\output";MakeDir(RestoreTarget);Reset();Select(a);Check(ExecuteRestoreEncrypted(nullptr),"full UTF16-long Unicode target restored");Check(Read(RestoreTarget+L"\\same.txt")=="first bytes","long target bytes preserved");
+ RestoreTarget=root+L"\\長い出力";
+ const std::wstring byteLong=root+L"\\"+std::wstring(90,L'東')+L"\\short.txt";Write(byteLong,"utf8 lengthy");Check(byteLong.size()<260&&UndeletePaths::Utf8(byteLong.c_str()).size()>260,"fixture exceeds UTF8 capacity only");Reset();Select(byteLong);Check(ExecuteRestoreEncrypted(nullptr),"UTF8 byte-long path restored");Check(Read(RestoreTarget+L"\\short.txt")=="utf8 lengthy","UTF8 byte-long source correct");
+ const std::wstring directory=root+L"\\tree東京";Write(directory+L"\\nested\\one.txt","one");Write(directory+L"\\two.txt","two");Reset();Select(directory,true,true);Check(ExecuteRestoreEncrypted(nullptr),"recursive restore wide local find data");Check(Read(RestoreTarget+L"\\tree東京\\nested\\one.txt")=="one"&&Read(RestoreTarget+L"\\tree東京\\two.txt")=="two","recursive siblings both retained");
+ Reset();Select(directory,true,true);SizeEscape=true;Check(!ExecuteRestoreEncrypted(nullptr)&&Opened.empty()&&Created.empty(),"isolated Escape during sizing cancels before restore I/O");
+ Reset();Select(directory,true,true);RestoreTarget=directory;Check(!ExecuteRestoreEncrypted(nullptr)&&Created.empty(),"reject restore directory into own descendant before mutation");
+ RestoreTarget=root+L"\\efs-output";MakeDir(RestoreTarget);DWORD signature[]={7,0x004f0052,0x00530042};std::string backup(reinterpret_cast<char*>(signature),sizeof(signature));backup+="opaque backed-up bytes";
+ const std::wstring bak=longDir+L"\\秘密.bak";Write(bak,backup);Reset();Select(bak);Check(ExecuteRestoreEncrypted(nullptr),"actual EFS flow through stub with exact long Unicode source");Check(RawOpens==1&&RawCloses==1&&RawPath==UndeletePaths::IoPath(RestoreTarget+L"\\秘密"),"wide EFS destination exact and raw context closed");Check(Read(RestoreTarget+L"\\秘密")==backup,"EFS import callback reads actual source bytes");Check(LiveHandles==0,"EFS success closes source handle");
+ Reset();Select(bak);FailRawOpen=true;Check(!ExecuteRestoreEncrypted(nullptr),"EFS open failure reported");Check(RawOpens==1&&RawCloses==0&&LiveHandles==0,"failed EFS open never closes uninitialized context");
+ const std::wstring restoredName=RestoreTarget+L"\\秘密";
+ Write(restoredName,"preserve existing destination");
+ Reset();Select(bak);WantCancel=true;Check(!ExecuteRestoreEncrypted(nullptr),"cancel before restore I/O");
+ Check(RawOpens==0&&RawCloses==0&&LiveHandles==0&&Opened.empty()&&Created.empty()&&Read(restoredName)=="preserve existing destination","pre-cancel never truncates an existing destination or opens RAW import");
+ RestoreTarget=root+L"\\efs-cancel-during-read";MakeDir(RestoreTarget);
+ Reset();Select(bak);CancelOnRead=true;Check(!ExecuteRestoreEncrypted(nullptr),"cancel from RAW read callback");
+ Check(ReadCalls>0&&RawOpens==1&&RawCloses==1&&LiveHandles==0&&CleanupCalls==1&&GetFileAttributesW(UndeletePaths::IoPath(RestoreTarget+L"\\秘密").c_str())==INVALID_FILE_ATTRIBUTES,"midstream cancel closes raw/source and deletes incomplete output");
+ RestoreTarget=root+L"\\efs-cancel-api-result";MakeDir(RestoreTarget);
+ Reset();Select(bak);FailRawWrite=true;Check(!ExecuteRestoreEncrypted(nullptr),"RAW cancellation result is cancellation without progress flag");
+ Check(!WantCancel&&RawCloses==1&&LiveHandles==0&&CleanupCalls==1&&GetFileAttributesW(UndeletePaths::IoPath(RestoreTarget+L"\\秘密").c_str())==INVALID_FILE_ATTRIBUTES,"API Cancel also cleans exact incomplete output");
+ RestoreTarget=root+L"\\efs-cancel-success-race";MakeDir(RestoreTarget);
+ Reset();Select(bak);CancelAfterRawSuccess=true;Check(!ExecuteRestoreEncrypted(nullptr),"cancellation wins over successful RAW API result");
+ Check(RawCloses==1&&LiveHandles==0&&CleanupCalls==1&&GetFileAttributesW(UndeletePaths::IoPath(RestoreTarget+L"\\秘密").c_str())==INVALID_FILE_ATTRIBUTES,"late cancellation cannot report or retain a successful partial output");
+ RestoreTarget=root+L"\\efs-cancel-cleanup-error";MakeDir(RestoreTarget);
+ Reset();Select(bak);CancelOnRead=true;CleanupFailure=ERROR_SHARING_VIOLATION;
+ Check(!ExecuteRestoreEncrypted(nullptr),"cleanup refusal remains a failed cancellation");
+ const auto incomplete=UndeletePaths::IoPath(RestoreTarget+L"\\秘密");
+ Check(RawCloses==1&&LiveHandles==0&&CleanupCalls==1&&Errors==1&&LastReportedError==ERROR_SHARING_VIOLATION&&GetFileAttributesW(incomplete.c_str())!=INVALID_FILE_ATTRIBUTES,"Windows cleanup refusal is reported, never silently ignored or bypassed");
+ Check(Read(bak)==backup,"all cancellation paths preserve backup bytes");
+ Check(DeleteFileW(incomplete.c_str())!=FALSE,"remove only owned incomplete fixture after simulated refusal");
+
+ const std::wstring shortBak=root+L"\\short.bak";Write(shortBak,"bad");Reset();Select(shortBak);Check(ExecuteRestoreEncrypted(nullptr)&&RawOpens==0,"short .bak is copied, never misidentified as EFS backup");Check(Read(RestoreTarget+L"\\short.bak")=="bad","non-backup extension unchanged");
+ Reset();Select(a);FailCreate=true;Check(!ExecuteRestoreEncrypted(nullptr)&&LiveHandles==0,"failed destination create closes source");
+ Reset();Select(a);CancelModal=true;Check(!ExecuteRestoreEncrypted(nullptr)&&Opened.empty(),"destination dialog cancellation has no I/O");
+ Reset();Select(a);Window.Left.Missing=true;Check(!ExecuteRestoreEncrypted(nullptr)&&ModalCalls==0&&Opened.empty(),"failed resolver stops before modal and filesystem operations");
+ Reset();Select(a,false);Select(b,false);Window.Left.Focus=1;Check(UndeletePaths::FocusedImagePath(&General,PANEL_SOURCE)==b,"image default uses actual focus path among duplicate basenames");Window.Left.Missing=true;Check(UndeletePaths::FocusedImagePath(&General,PANEL_SOURCE).empty(),"image default fails closed on unavailable metadata");
+ char legacy[MAX_PATH];Check(UndeletePaths::LegacyImagePath(L"C:\\ascii\\disk.img",legacy,sizeof(legacy))&&strcmp(legacy,"C:\\ascii\\disk.img")==0,"legacy image ASCII roundtrip");
+ Check(!UndeletePaths::LegacyImagePath(longFile,legacy,sizeof(legacy))&&legacy[0]==0,"legacy image refuses oversized path without truncation");
+ if(GetACP()==1250||GetACP()==1252)Check(!UndeletePaths::LegacyImagePath(b,legacy,sizeof(legacy))&&GetLastError()==ERROR_NO_UNICODE_TRANSLATION&&legacy[0]==0,"legacy image refuses lossy ACP path");
+ Check(!UndeletePaths::LegacyImagePath(L"abc",legacy,3)&&GetLastError()==ERROR_FILENAME_EXCED_RANGE&&legacy[0]==0,"legacy image exact buffer includes terminator");
+ Check(!UndeletePaths::LegacyImagePath(L"",legacy,sizeof(legacy))&&legacy[0]==0,"legacy image empty path rejected");
+ Check(UndeletePaths::IoPath(L"\\\\server\\share\\"+std::wstring(280,L'x')).compare(0,8,L"\\\\?\\UNC\\")==0,"long UNC extended prefix");
+ Check(LiveHandles==0,"all test SafeFile handles released");std::printf("Undelete actual paths: %d checks, %d failures; real EFS calls: 0\n",Checks,Failures);return Failures?1:0;
+}

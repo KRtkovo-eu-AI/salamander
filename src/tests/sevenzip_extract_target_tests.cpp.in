@@ -1,0 +1,140 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Real vendor strings/stream and actual callback bodies; host UI/registry facades are explicit.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <ole2.h>
+#include <tchar.h>
+#include <string>
+#include <filesystem>
+#include <map>
+#include <vector>
+#include <cstdio>
+#define INITGUID
+#include "Common/StringConvert.h"
+#include "7zip/Common/FileStreams.h"
+#include "7zip/Archive/IArchive.h"
+bool g_IsNT=true;
+#define SAL_MAX_PATH 32768
+@@STOP_EXTRACTION@@
+@@HELPERS@@
+@@GUARD@@
+@@IDS@@
+enum {DIALOG_OK=1,DIALOG_CANCEL=2,DIALOG_RETRY=3,DIALOG_SKIP=4,DIALOG_SKIPALL=5,DIALOG_YES=6,DIALOG_NO=7,DIALOG_ALL=8,
+ BUTTONS_RETRYSKIPCANCEL=20,MSGBOX_ERROR=21,WM_7ZIP=22,WM_7ZIP_ADDTEXT=23,WM_7ZIP_CREATEFILE=24,WM_7ZIP_SHOWMBOXEX=25,
+ MSGBOXEX_ICONEXCLAMATION=1,MSGBOXEX_YESNOCANCEL=2};
+struct SalSize {UINT64 Value=0;};
+struct CFileData {DWORD Attr=FILE_ATTRIBUTE_HIDDEN;FILETIME LastWrite={};SalSize Size;};
+struct CArchiveItemInfo {AString NameInArchive;const CFileData* FileData;bool IsDir;};
+using ItemsToExtractMap=std::map<UINT32,CArchiveItemInfo*>;
+struct MSGBOXEX_PARAMS {HWND HParent;const char* Caption;const char* Text;int Flags;const char* AliasBtnNames;};
+struct CCreateFileParams {const char* FileName;const char* Name;const char* FileInfo;DWORD* pSilent;BOOL* pSkip;};
+static int Checks=0,Failures=0,CreateMode=0,CreateCalls=0,Messages=0,DataErrorChoice=DIALOG_NO,Errors=0;
+static void Check(bool ok,const char* label){++Checks;if(!ok){++Failures;printf("FAIL: %s error=%lu\n",label,GetLastError());}}
+static const char* LoadStr(int){return "%s";}
+static BOOL SysError(int,DWORD){++Errors;return TRUE;}
+static void GetInfo(char* b,FILETIME*,UINT64){strcpy_s(b,100,"info");}
+struct GeneralFacade {
+ int DeleteChoice=DIALOG_CANCEL,DeleteDialogs=0;bool DirectoryOK=true;
+ HWND GetMsgBoxParent(){return nullptr;}
+ const char* GetErrorText(DWORD){return "error";}
+ int DialogError(HWND,int,const char*,const char*,const char*){++DeleteDialogs;return DeleteChoice;}
+ BOOL CheckAndCreateDirectory(const char* path){if(!DirectoryOK)return FALSE;std::error_code ec;std::filesystem::create_directories(GetSalamanderLongPath(GetSalamanderUnicodeString(path)).Ptr(),ec);return !ec;}
+ BOOL SalPathAppend(char* path,const char* entry,int capacity){size_t n=strlen(path);if(n&&path[n-1]!='\\')strcat_s(path,capacity,"\\");return strcat_s(path,capacity,entry)==0;}
+ void ShowMessageBox(const char*,const char*,int){++Messages;}
+} General;
+static GeneralFacade* SalamanderGeneral=&General;
+BOOL SafeDeleteFileW(const wchar_t*,const char*,BOOL&);
+@@DELETE@@
+class CRetryableOutFileStream:public COutFileStream {public:explicit CRetryableOutFileStream(HWND){} };
+static LRESULT TestSendMessage(HWND,UINT,WPARAM mode,LPARAM param){
+ if(mode==WM_7ZIP_CREATEFILE){++CreateCalls;auto* cfp=reinterpret_cast<CCreateFileParams*>(param);if(CreateMode==1){*cfp->pSkip=TRUE;return 1;}if(CreateMode==2)return 1;
+  auto path=GetSalamanderLongPath(GetSalamanderUnicodeString(cfp->FileName));std::filesystem::create_directories(std::filesystem::path(path.Ptr()).parent_path());
+  HANDLE h=CreateFileW(path.Ptr(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,nullptr);if(h==INVALID_HANDLE_VALUE)return 1;CloseHandle(h);return 0;
+ }
+ if(mode==WM_7ZIP_SHOWMBOXEX)return DataErrorChoice;
+ return 0;
+}
+#undef SendMessage
+#define SendMessage TestSendMessage
+class CExtractCallbackImp {
+public:
+ enum EOperationMode {Ask,Keep,Delete,Overwrite,Skip,Cancel};
+ ItemsToExtractMap& ItemsToExtract;const char* TargetDir;char TargetFileName[SAL_MAX_PATH]={};
+ struct {FILETIME LastWrite={};bool IsDirectory=false,AttributesAreDefined=false;DWORD Attributes=0;UINT64 Size=0;UString FileName;AString Name;} ProcessedFileInfo;
+ size_t ExpectedItems=0,CompletedItems=0;bool PendingItem=false,ExtractionIncomplete=false;
+ @@COMPLETION@@
+ bool ExtractMode=false;CRITICAL_SECTION CSExtract;BOOL DataErrorSilent=FALSE;EOperationMode DataErrorMode=Ask;BOOL DataErrorDeleteSilent=FALSE,SilentDelete=FALSE;
+ DWORD OverwriteSilent=0;BOOL OverwriteSkip=FALSE,OverwriteCancel=FALSE,WholeFile=TRUE,OutputCreated=FALSE;HWND hProgWnd=nullptr;
+ bool PasswordIsDefined=false;UString Password;int NumErrors=0;CRetryableOutFileStream* OutFileStreamSpec=nullptr;CMyComPtr<ISequentialOutStream> OutFileStream;
+ explicit CExtractCallbackImp(ItemsToExtractMap& items,const char* target):ItemsToExtract(items),TargetDir(target){ExpectedItems=items.size();InitializeCriticalSection(&CSExtract);}
+ ~CExtractCallbackImp(){DeleteCriticalSection(&CSExtract);}
+ const char* GetName(){return ProcessedFileInfo.Name;}const char* GetFileName(){return TargetFileName;}FILETIME GetLastWrite(){return ProcessedFileInfo.LastWrite;}UINT64 GetSize(){return ProcessedFileInfo.Size;}
+ DWORD* GetOverwriteSilent(){return &OverwriteSilent;}BOOL* GetOverwriteSkip(){return &OverwriteSkip;}void SetOverwriteCancel(BOOL state=TRUE){OverwriteCancel=state;}
+ void Error(int){++Errors;}
+ void Error(int,const char*){++Errors;}
+ HRESULT GetStream(UINT32,ISequentialOutStream**,INT32);HRESULT PrepareOperation(INT32);HRESULT SetOperationResult(INT32);BOOL OnDataError();void Cleanup();
+};
+@@CALLBACKS@@
+static std::string Read(const UString& path){HANDLE h=CreateFileW(GetSalamanderLongPath(path).Ptr(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);if(h==INVALID_HANDLE_VALUE)return {};char b[32]={};DWORD n=0;bool ok=ReadFile(h,b,sizeof(b),&n,nullptr)!=FALSE;CloseHandle(h);return ok?std::string(b,n):std::string();}
+static bool Write(const UString& path,const char* text){COutFileStream out;if(!out.Open(us2fs(GetSalamanderLongPath(path)),CREATE_NEW))return false;UInt32 n=0;return out.Write(text,(UInt32)strlen(text),&n)==S_OK&&n==strlen(text);}
+int wmain(int argc,wchar_t**argv){
+ if(argc!=2)return 2;std::filesystem::path root=std::filesystem::absolute(argv[1]);if(root.filename()!=L"owned-fixtures")return 3;
+ UString owned=GetSalamanderLongPath(UString(root.c_str()));if(std::filesystem::exists(owned.Ptr()))return 4;std::filesystem::create_directories(owned.Ptr());
+ UString keep((root/L"sentinel.txt").c_str());Check(Write(keep,"keep"),"create independent sentinel");
+ const std::filesystem::path shapes[]={L"ascii",L"unicode-leaf",L"parent-\u6771\u4eac",std::filesystem::path(L"first-\u6771\u4eac")/L"second-\u017elu\u0165",std::wstring(100,L'\u6771'),std::filesystem::path(std::wstring(90,L'a'))/std::wstring(90,L'b')/std::wstring(90,L'c')};
+ for(size_t i=0;i<6;++i){
+  auto parent=root/shapes[i];std::filesystem::create_directories(GetSalamanderLongPath(UString(parent.c_str())).Ptr());AString target=UnicodeStringToMultiByte(UString(parent.c_str()),CP_UTF8);
+  AString name=UnicodeStringToMultiByte(UString(i?L"same-\u6771\u4eac.txt":L"same.txt"),CP_UTF8);UString full((parent/(i?L"same-\u6771\u4eac.txt":L"same.txt")).c_str());
+  CFileData fd;GetSystemTimeAsFileTime(&fd.LastWrite);fd.Size.Value=7;CArchiveItemInfo entry{name,&fd,false};ItemsToExtractMap items;items[0]=&entry;
+  CExtractCallbackImp callback(items,target);ISequentialOutStream* stream=nullptr;CreateMode=0;
+  Check(callback.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract)==S_OK&&stream,"actual callback opens exact Unicode/long output");
+  Check(callback.ProcessedFileInfo.FileName==full,"callback wide identity exact");Check(strcmp(callback.TargetFileName,UnicodeStringToMultiByte(full,CP_UTF8))==0,"full UI byte path preserved after parent check");
+  if(stream){Check(callback.PrepareOperation(NArchive::NExtract::NAskMode::kExtract)==S_OK,"prepare actual callback");UInt32 n=0;Check(stream->Write("payload",7,&n)==S_OK&&n==7,"write real vendor stream");stream->Release();Check(callback.SetOperationResult(NArchive::NExtract::NOperationResult::kOK)==E_STOPEXTRACTION,"finish actual callback");}
+  Check(callback.IsSelectionComplete()&&callback.CompletedItems==1,"successful output result completes requested selection");
+  HANDLE metadata=CreateFileW(GetSalamanderLongPath(full).Ptr(),FILE_READ_ATTRIBUTES,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);FILETIME written={};bool timeOK=metadata!=INVALID_HANDLE_VALUE&&GetFileTime(metadata,nullptr,nullptr,&written);if(metadata!=INVALID_HANDLE_VALUE)CloseHandle(metadata);Check(timeOK&&CompareFileTime(&written,&fd.LastWrite)==0,"stored timestamp equals archive metadata");
+  Check(Read(full)=="payload","readback exact output");Check((GetFileAttributesW(GetSalamanderLongPath(full).Ptr())&FILE_ATTRIBUTE_HIDDEN)!=0,"metadata at exact path");
+  // Skip/Cancel must not own or delete an existing output, including a previous success.
+  for(int mode:{1,2}){items[0]=&entry;callback.OverwriteSkip=FALSE;callback.OverwriteCancel=FALSE;CreateMode=mode;stream=nullptr;const auto r=callback.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract);Check(r==(mode==1?S_OK:E_ABORT)&&stream==nullptr,"overwrite skip/cancel has no output stream");Check(!callback.OutputCreated,"skip/cancel does not own output");callback.Cleanup();Check(!callback.IsSelectionComplete(),"skip/cancel cannot qualify completed extraction");Check(Read(full)=="payload","skip/cancel cleanup preserves bystander file");}
+  // Actual wide cleanup shares old retry policy; readonly denial is preserved.
+  BOOL silent=FALSE;Check(SetFileAttributesW(GetSalamanderLongPath(full).Ptr(),FILE_ATTRIBUTE_READONLY),"set own readonly fixture");General.DeleteChoice=DIALOG_CANCEL;int dialogs=General.DeleteDialogs;
+  Check(!SafeDeleteFileW(full.Ptr(),target,silent)&&General.DeleteDialogs==dialogs+1,"readonly cleanup reports denial and preserves Cancel");Check(Read(full)=="payload","readonly refusal keeps content");Check(SetFileAttributesW(GetSalamanderLongPath(full).Ptr(),FILE_ATTRIBUTE_NORMAL),"restore own attributes");Check(SafeDeleteFileW(full.Ptr(),target,silent),"wide cleanup deletes exact file");
+  items[0]=&entry;CExtractCallbackImp failedParent(items,target);CreateMode=0;General.DirectoryOK=false;stream=nullptr;
+  Check(failedParent.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract)==E_ABORT&&!stream&&failedParent.OutputCreated,"parent failure retains ownership only of just-created output");General.DirectoryOK=true;failedParent.Cleanup();Check(!failedParent.OutputCreated&&GetFileAttributesW(GetSalamanderLongPath(full).Ptr())==INVALID_FILE_ATTRIBUTES,"parent failure cleanup works before PrepareOperation");
+  // Cancel during a partial stream: real callback closes before actual cleanup.
+  items[0]=&entry;CExtractCallbackImp partial(items,target);CreateMode=0;stream=nullptr;Check(partial.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract)==S_OK&&stream,"open own partial output");
+  if(stream){UInt32 n=0;Check(stream->Write("part",4,&n)==S_OK&&n==4,"write partial bytes");stream->Release();}Check(!partial.IsSelectionComplete()&&partial.PendingItem,"pending stream without result is incomplete");partial.Cleanup();Check(GetFileAttributesW(GetSalamanderLongPath(full).Ptr())==INVALID_FILE_ATTRIBUTES&&!partial.OutputCreated,"partial cleanup closes and deletes current output only");
+  // Actual data-error choices preserve Keep/Delete/Cancel semantics on the same wide output.
+  for(int choice:{DIALOG_NO,DIALOG_YES,DIALOG_CANCEL}){
+   items[0]=&entry;CExtractCallbackImp damaged(items,target);stream=nullptr;CreateMode=0;
+   Check(damaged.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract)==S_OK&&stream,"open own data-error output");
+   if(stream){UInt32 n=0;Check(stream->Write("part",4,&n)==S_OK&&n==4,"write own damaged payload");stream->Release();}
+   damaged.PrepareOperation(NArchive::NExtract::NAskMode::kExtract);DataErrorChoice=choice;
+   Check(damaged.OnDataError()==(choice==DIALOG_CANCEL?FALSE:TRUE),"actual data-error choice result");
+   Check(!damaged.OutputCreated,"data-error choice releases output ownership");damaged.Cleanup();
+   if(choice==DIALOG_NO){Check(Read(full)=="part","Keep retains exact partial bytes");BOOL local=FALSE;Check(SafeDeleteFileW(full.Ptr(),target,local),"remove only own kept fixture");}
+   else Check(GetFileAttributesW(GetSalamanderLongPath(full).Ptr())==INVALID_FILE_ATTRIBUTES,"Delete/Cancel removes only current damaged output");
+  }
+  // Actual result callback retains CRC failure even after keeping partial data.
+  items[0]=&entry;CExtractCallbackImp crc(items,target);CreateMode=0;stream=nullptr;
+  Check(crc.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract)==S_OK&&stream,"open own CRC test output");
+  if(stream){stream->Release();crc.PrepareOperation(NArchive::NExtract::NAskMode::kExtract);crc.SetOperationResult(NArchive::NExtract::NOperationResult::kCRCError);}
+  Check(crc.NumErrors==1&&!crc.IsSelectionComplete()&&crc.CompletedItems==0,"actual CRC error cannot count a completed item");
+  {BOOL local=FALSE;Check(SafeDeleteFileW(full.Ptr(),target,local),"remove only own CRC fixture");}
+  CArchiveItemInfo directory{AString("directory"),&fd,true};UString directoryPath((parent/L"directory").c_str());items[0]=&directory;CExtractCallbackImp directories(items,target);stream=nullptr;
+  Check(directories.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract)==S_OK&&!stream,"actual directory-only callback");directories.PrepareOperation(NArchive::NExtract::NAskMode::kExtract);directories.SetOperationResult(NArchive::NExtract::NOperationResult::kOK);Check(directories.IsSelectionComplete(),"successful explicit directory result completes selection");directories.Cleanup();Check((GetFileAttributesW(GetSalamanderLongPath(directoryPath).Ptr())&FILE_ATTRIBUTE_DIRECTORY)!=0,"directory not deleted by file cleanup");Check(RemoveDirectoryW(GetSalamanderLongPath(directoryPath).Ptr()),"remove own directory fixture");
+  items[0]=&directory;General.DirectoryOK=false;CExtractCallbackImp deniedDirectory(items,target);stream=nullptr;
+  Check(deniedDirectory.GetStream(0,&stream,NArchive::NExtract::NAskMode::kExtract)==E_ABORT&&!stream&&!deniedDirectory.OutputCreated,"directory creation failure aborts without output ownership");General.DirectoryOK=true;
+  Check(Read(keep)=="keep","independent sentinel unchanged");
+  if(i==4)Check(target.Len()>MAX_PATH&&wcslen(full.Ptr())<MAX_PATH,"UTF8 byte-long case");if(i==5)Check(wcslen(full.Ptr())>MAX_PATH,"UTF16 long case");
+  auto dir=parent;while(dir!=root){Check(RemoveDirectoryW(GetSalamanderLongPath(UString(dir.c_str())).Ptr()),"remove known own empty directory");dir=dir.parent_path();}
+ }
+ AString target=UnicodeStringToMultiByte(UString(root.c_str()),CP_UTF8);
+ for(const char* entry:{"..\\sentinel.txt",".\\x","sub\\..\\x","\\absolute","C:\\x","x:stream","CON","nul.txt","COM1.log","COM\xc2\xb9.txt","a?b","bad.\\x","bad \\x","a\\\\b","a/leaf","x\\"})Check(SevenZipExtractTargetError(target,entry)==ERROR_INVALID_NAME,"invalid relative name rejected in memory before I/O");
+ Check(SevenZipExtractTargetError(nullptr,"x")==ERROR_INVALID_NAME&&SevenZipExtractTargetError(target,nullptr)==ERROR_INVALID_NAME,"null guard input refused");
+ std::string huge(SAL_MAX_PATH,'a');Check(SevenZipExtractTargetError(huge.c_str(),"x")==ERROR_FILENAME_EXCED_RANGE,"oversized initial target refused before copy");Check(SevenZipExtractTargetError(target,huge.c_str())==ERROR_FILENAME_EXCED_RANGE,"oversized entry refused");
+ CFileData refusedFD;CArchiveItemInfo refused{AString("..\\sentinel.txt"),&refusedFD,false};ItemsToExtractMap rejectedItems;rejectedItems[0]=&refused;CExtractCallbackImp rejected(rejectedItems,target);ISequentialOutStream* refusedStream=nullptr;int beforeCreate=CreateCalls;Check(rejected.GetStream(0,&refusedStream,NArchive::NExtract::NAskMode::kExtract)==S_OK&&!refusedStream&&CreateCalls==beforeCreate&&!rejected.OutputCreated,"actual rejected callback never reaches host create");rejected.Cleanup();
+ std::string combined="C:\\"+std::string(SAL_MAX_PATH-8,'a');Check(SevenZipExtractTargetError(combined.c_str(),"xx")==ERROR_SUCCESS,"combined byte boundary fits without I/O");Check(SevenZipExtractTargetError(combined.c_str(),"xxxxx")==ERROR_FILENAME_EXCED_RANGE,"combined byte overflow refused before assembly");Check(SevenZipExtractTargetError("relative","leaf")==ERROR_INVALID_NAME,"relative output root refused");
+ Check(Read(keep)=="keep","all rejected inputs preserve sentinel");Check(DeleteFileW(keep.Ptr()),"delete only own sentinel");Check(RemoveDirectoryW(owned.Ptr()),"remove verified own root");
+ printf("Actual 7-Zip output callback/target: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

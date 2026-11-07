@@ -598,16 +598,17 @@ const char* __GetHandlesOrigin(C__HandlesOrigin origin)
 C_HandlesDataArray::C_HandlesDataArray()
 {
     Available = Count = 0;
-    Data = (C__HandlesData*)malloc(__HANDLES_ARRAY_DELTA * sizeof(C__HandlesData));
-    if (Data == NULL)
-    {
-        MESSAGE_E(NULL, __HandlesMessageLowMemory, MB_OK | MB_SETFOREGROUND);
-        return;
-    }
-    Available = __HANDLES_ARRAY_DELTA;
+    // An unused tracker must not retain a CRT allocation in a CLR-pinned DLL.
+    // The existing growth path allocates storage on the first registration.
+    Data = NULL;
 }
 
 C_HandlesDataArray::~C_HandlesDataArray()
+{
+    ReleaseStorage();
+}
+
+void C_HandlesDataArray::ReleaseStorage()
 {
     if (Data != NULL)
     {
@@ -621,7 +622,11 @@ C_HandlesDataArray::~C_HandlesDataArray()
 int C_HandlesDataArray::Add(const C__HandlesData& member)
 {
     if (Count == Available)
+    {
         EnlargeArray();
+        if (Count == Available)
+            return -1; // Keep low-memory diagnostics without dereferencing NULL.
+    }
     Count++;
     operator[](Count - 1) = member;
     return Count - 1;
@@ -674,10 +679,19 @@ C__Handles::C__Handles() : __MessagesStrStream(&__MessagesStringBuf), __Messages
 {
     ::InitializeCriticalSection(&CriticalSection);
     CanUseTrace = FALSE;
+    Finalized = FALSE;
 }
 
 C__Handles::~C__Handles()
 {
+    FinalizeForProcessExit();
+    ::DeleteCriticalSection(&CriticalSection);
+}
+
+void C__Handles::FinalizeForProcessExit()
+{
+    if (Finalized)
+        return;
     // vyrazeni handlu, ktere se uvolnuji automaticky
     for (int i = Handles.Count - 1; i >= 0; i--)
     {
@@ -726,7 +740,10 @@ C__Handles::~C__Handles()
         if (CanUseTrace)
             TRACE_I("All monitored handles were closed.");
     }
-    ::DeleteCriticalSection(&CriticalSection);
+    // Diagnostics ran before releasing the registry. A CLR-pinned DLL may
+    // detach after the host debug interface and CRT sentinel have gone away.
+    Handles.ReleaseStorage();
+    Finalized = TRUE;
 }
 
 C__Handles&
@@ -997,14 +1014,43 @@ void C__Handles::CheckClose(BOOL success, const HANDLE handle, C__HandlesType ex
 // Monitored functions:
 //
 
+// Diagnostic path conversion is best effort; allocation failure must never
+// change the real Win32 operation or the handle tracker's success result.
+static char* HandlesWidePathDiagnostic(const wchar_t* path)
+{
+    if (path == NULL) return NULL;
+    const int length = WideCharToMultiByte(CP_UTF8, 0, path, -1, NULL, 0, NULL, NULL);
+    if (length <= 0) return NULL;
+    char* result = static_cast<char*>(malloc(length));
+    if (result != NULL && !WideCharToMultiByte(CP_UTF8, 0, path, -1, result, length, NULL, NULL))
+    { free(result); return NULL; }
+    return result;
+}
+
 HANDLE
-C__Handles::CreateFile(LPCTSTR lpFileName, DWORD dwDesiredAccess,
+C__Handles::CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess,
+                       DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+                       DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes,
+                       HANDLE hTemplateFile)
+{
+    HANDLE ret = ::CreateFileW(lpFileName, dwDesiredAccess, dwShareMode,
+        lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    const DWORD error = GetLastError();
+    char* diagnostic = ret == INVALID_HANDLE_VALUE ? HandlesWidePathDiagnostic(lpFileName) : NULL;
+    CheckCreate(ret != INVALID_HANDLE_VALUE, __htFile, __hoCreateFile, ret, error, TRUE, diagnostic);
+    free(diagnostic);
+    SetLastError(error);
+    return ret;
+}
+
+HANDLE
+C__Handles::CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess,
                        DWORD dwShareMode,
                        LPSECURITY_ATTRIBUTES lpSecurityAttributes,
                        DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes,
                        HANDLE hTemplateFile)
 {
-    HANDLE ret = ::CreateFile(lpFileName, dwDesiredAccess, dwShareMode,
+    HANDLE ret = ::CreateFileA(lpFileName, dwDesiredAccess, dwShareMode,
                               lpSecurityAttributes, dwCreationDisposition,
                               dwFlagsAndAttributes, hTemplateFile);
     char paramsBuf[MAX_PATH + 200];
@@ -2065,11 +2111,24 @@ VOID C__Handles::DeleteCriticalSection(LPCRITICAL_SECTION lpCriticalSection)
 }
 
 HANDLE
-C__Handles::FindFirstFile(LPCTSTR lpFileName, LPWIN32_FIND_DATA lpFindFileData)
+C__Handles::FindFirstFileA(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData)
 {
-    HANDLE ret = ::FindFirstFile(lpFileName, lpFindFileData);
+    HANDLE ret = ::FindFirstFileA(lpFileName, lpFindFileData);
     CheckCreate(ret != INVALID_HANDLE_VALUE, __htFindFile, __hoFindFirstFile,
                 ret, GetLastError(), TRUE, lpFileName);
+    return ret;
+}
+
+HANDLE
+C__Handles::FindFirstFileW(LPCWSTR lpFileName, LPWIN32_FIND_DATAW lpFindFileData)
+{
+    HANDLE ret = ::FindFirstFileW(lpFileName, lpFindFileData);
+    const DWORD error = GetLastError();
+    char* diagnostic = HandlesWidePathDiagnostic(lpFileName);
+    CheckCreate(ret != INVALID_HANDLE_VALUE, __htFindFile, __hoFindFirstFile,
+                ret, error, TRUE, diagnostic);
+    free(diagnostic);
+    SetLastError(error);
     return ret;
 }
 

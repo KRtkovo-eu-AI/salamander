@@ -16,6 +16,7 @@
 
 #include "lib/pvw32dll.h"
 #include "pictview.h"
+#include "unicodetitle.h"
 #include "dialogs.h"
 #ifdef ENABLE_WIA
 #include "wiawrap.h"
@@ -141,6 +142,7 @@ LRESULT CALLBACK ToolTipWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 
 // general Salamander interface - valid from startup until the plugin is closed
 CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
+static CSalamanderViewerEnumerationAbstract* ViewerEnumeration = NULL;
 
 // variable definition for "dbg.h"
 CSalamanderDebugAbstract* SalamanderDebug = NULL;
@@ -681,6 +683,13 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
 
     // obtain the general Salamander interface
     SalamanderGeneral = salamander->GetSalamanderGeneral();
+    CSalamanderServiceQuery enumQuery = {SALAMANDER_SERVICE_VIEWER_ENUMERATION,
+                                        SALAMANDER_VIEWER_ENUMERATION_VERSION_1_0, 0};
+    CSalamanderServiceResult enumResult = {};
+    if (SalamanderGeneral->QueryService(&enumQuery, &enumResult) &&
+        enumResult.Version >= SALAMANDER_VIEWER_ENUMERATION_VERSION_1_0)
+        ViewerEnumeration = static_cast<CSalamanderViewerEnumerationAbstract*>(enumResult.Interface);
+
 
     // set the help file name
     SalamanderGeneral->SetHelpFileName("pictview.chm");
@@ -725,6 +734,107 @@ void CPluginInterface::About(HWND parent)
 {
     CAboutDialog dlg(parent);
     dlg.Execute();
+}
+
+static std::wstring ViewerEnumerationPathW(LPCTSTR name)
+{
+#ifdef _UNICODE
+    return name != NULL ? name : L"";
+#else
+    return PluginMultiByteToWidePath(name, CP_UTF8);
+#endif
+}
+
+static std::string ViewerEnumerationPathA(LPCTSTR name)
+{
+#ifdef _UNICODE
+    return PluginWideToMultiBytePath(name, CP_UTF8);
+#else
+    return name != NULL ? name : "";
+#endif
+}
+
+static BOOL PictViewEnumerateFile(BOOL previous, int srcUID, int* index, LPCTSTR lastName,
+    BOOL preferSelected, BOOL associated, std::basic_string<TCHAR>& name,
+    BOOL* noMoreFiles, BOOL* busy)
+{
+    // lastName may point into name from a previous unsupported-image iteration.
+    std::wstring lastNameW = ViewerEnumerationPathW(lastName);
+    std::string lastNameA = ViewerEnumerationPathA(lastName);
+    name.clear();
+    if (ViewerEnumeration != NULL)
+    {
+        std::vector<wchar_t> path(SAL_MAX_PATH);
+        BOOL ok = previous
+            ? ViewerEnumeration->GetPreviousFileName(srcUID, index, lastNameW.c_str(),
+                preferSelected, associated, &PluginInterface, &path[0], (int)path.size(), noMoreFiles, busy)
+            : ViewerEnumeration->GetNextFileName(srcUID, index, lastNameW.c_str(),
+                preferSelected, associated, &PluginInterface, &path[0], (int)path.size(), noMoreFiles, busy);
+        if (ok)
+        {
+#ifdef _UNICODE
+            name = &path[0];
+#else
+            name = PluginWideToMultiBytePath(&path[0], CP_UTF8);
+#endif
+        }
+        return ok;
+    }
+    // Old hosts only promise MAX_PATH bytes. The larger owned buffer does not
+    // change that contract; it also avoids any stack-sized path storage here.
+    std::vector<char> path(SAL_MAX_PATH);
+    BOOL ok = previous
+        ? SalamanderGeneral->GetPreviousFileNameForViewer(srcUID, index, lastNameA.c_str(),
+            preferSelected, associated, &path[0], noMoreFiles, busy)
+        : SalamanderGeneral->GetNextFileNameForViewer(srcUID, index, lastNameA.c_str(),
+            preferSelected, associated, &path[0], noMoreFiles, busy);
+    if (ok)
+    {
+#ifdef _UNICODE
+        name = PluginMultiByteToWidePath(&path[0], CP_UTF8);
+#else
+        name = &path[0];
+#endif
+    }
+    return ok;
+}
+
+BOOL PictViewGetNextFileName(int srcUID, int* index, LPCTSTR lastName,
+    BOOL preferSelected, BOOL associated, std::basic_string<TCHAR>& name,
+    BOOL* noMoreFiles, BOOL* busy)
+{
+    return PictViewEnumerateFile(FALSE, srcUID, index, lastName, preferSelected,
+                                associated, name, noMoreFiles, busy);
+}
+
+BOOL PictViewGetPreviousFileName(int srcUID, int* index, LPCTSTR lastName,
+    BOOL preferSelected, BOOL associated, std::basic_string<TCHAR>& name,
+    BOOL* noMoreFiles, BOOL* busy)
+{
+    return PictViewEnumerateFile(TRUE, srcUID, index, lastName, preferSelected,
+                                associated, name, noMoreFiles, busy);
+}
+
+BOOL PictViewIsFileSelected(int srcUID, int index, LPCTSTR name, BOOL* selected, BOOL* busy)
+{
+    if (ViewerEnumeration != NULL)
+    {
+        std::wstring path = ViewerEnumerationPathW(name);
+        return ViewerEnumeration->IsFileSelected(srcUID, index, path.c_str(), selected, busy);
+    }
+    std::string path = ViewerEnumerationPathA(name);
+    return SalamanderGeneral->IsFileNameForViewerSelected(srcUID, index, path.c_str(), selected, busy);
+}
+
+BOOL PictViewSetFileSelection(int srcUID, int index, LPCTSTR name, BOOL selected, BOOL* busy)
+{
+    if (ViewerEnumeration != NULL)
+    {
+        std::wstring path = ViewerEnumerationPathW(name);
+        return ViewerEnumeration->SetFileSelection(srcUID, index, path.c_str(), selected, busy);
+    }
+    std::string path = ViewerEnumerationPathA(name);
+    return SalamanderGeneral->SetSelectionOnFileNameForViewer(srcUID, index, path.c_str(), selected, busy);
 }
 
 BOOL CPluginInterface::Release(HWND parent, BOOL force)
@@ -2578,6 +2688,8 @@ CViewerThread::Body()
                                  DLLInstance,
                                  window) != NULL)
             {
+                if (!PictViewUnicodeTitle::Install(window->HWindow))
+                    TRACE_E("Unable to install the Unicode viewer caption procedure.");
                 CALL_STACK_MESSAGE1("ViewerThreadBody::ShowWindow");
 
                 // WARNING! icons obtained here must be destroyed in WM_DESTROY
@@ -3090,13 +3202,13 @@ void CViewerWindow::UpdateEnablers()
         IsWindowVisible(HWindow) && (Renderer.FileName == NULL || *Renderer.FileName != '<' || _tcscmp(Renderer.FileName, pDeletedTitle) == 0))
     {
         BOOL srcBusy, noMoreFiles;
-        TCHAR fileName[MAX_PATH] = _T("");
+        std::basic_string<TCHAR> fileName;
         LPCTSTR openedFileName = Renderer.FileName;
 
         if (Renderer.FileName != NULL && _tcscmp(Renderer.FileName, pDeletedTitle) == 0)
             openedFileName = NULL;
         int enumFilesCurrentIndex = Renderer.EnumFilesCurrentIndex;
-        BOOL ok = SalamanderGeneral->GetPreviousFileNameForViewer(Renderer.EnumFilesSourceUID,
+        BOOL ok = PictViewGetPreviousFileName(Renderer.EnumFilesSourceUID,
                                                                   &enumFilesCurrentIndex,
                                                                   openedFileName, FALSE,
                                                                   TRUE, fileName, &noMoreFiles,
@@ -3108,7 +3220,7 @@ void CViewerWindow::UpdateEnablers()
         {
             // find out whether a previous selected file exists
             enumFilesCurrentIndex = Renderer.EnumFilesCurrentIndex;
-            ok = SalamanderGeneral->GetPreviousFileNameForViewer(Renderer.EnumFilesSourceUID,
+            ok = PictViewGetPreviousFileName(Renderer.EnumFilesSourceUID,
                                                                  &enumFilesCurrentIndex,
                                                                  openedFileName,
                                                                  TRUE /* prefer selected */, TRUE,
@@ -3117,16 +3229,16 @@ void CViewerWindow::UpdateEnablers()
             BOOL isSrcFileSel = FALSE;
             if (ok)
             {
-                ok = SalamanderGeneral->IsFileNameForViewerSelected(Renderer.EnumFilesSourceUID,
+                ok = PictViewIsFileSelected(Renderer.EnumFilesSourceUID,
                                                                     enumFilesCurrentIndex,
-                                                                    fileName, &isSrcFileSel,
+                                                                    fileName.c_str(), &isSrcFileSel,
                                                                     &srcBusy);
             }
             Enablers[vwePrevSelFile] = ok && isSrcFileSel || srcBusy; // only if the previous file is actually selected (or Salamander is busy, the user has to try later)
 
             if (Renderer.FileName != NULL && *Renderer.FileName != '<')
             {
-                ok = SalamanderGeneral->IsFileNameForViewerSelected(Renderer.EnumFilesSourceUID,
+                ok = PictViewIsFileSelected(Renderer.EnumFilesSourceUID,
                                                                     Renderer.EnumFilesCurrentIndex,
                                                                     Renderer.FileName, &IsSrcFileSelected,
                                                                     &srcBusy);
@@ -3139,11 +3251,11 @@ void CViewerWindow::UpdateEnablers()
             }
 
             BOOL deletedFile = Renderer.FileName != NULL && _tcscmp(Renderer.FileName, pDeletedTitle) == 0;
-            fileName[0] = 0;
+            fileName.clear();
             enumFilesCurrentIndex = Renderer.EnumFilesCurrentIndex;
             if (deletedFile && enumFilesCurrentIndex >= 0)
                 enumFilesCurrentIndex--; // prevent skipping the next file after deleting with Space due to files shifting in the panel
-            ok = SalamanderGeneral->GetNextFileNameForViewer(Renderer.EnumFilesSourceUID,
+            ok = PictViewGetNextFileName(Renderer.EnumFilesSourceUID,
                                                              &enumFilesCurrentIndex,
                                                              openedFileName, FALSE,
                                                              TRUE, fileName, &noMoreFiles,
@@ -3151,11 +3263,11 @@ void CViewerWindow::UpdateEnablers()
             Enablers[vweNextFile] = ok || srcBusy; // only if there is another file (or Salamander is busy, the user has to try later)
 
             // find out whether the next file is selected or whether no selected file remains
-            fileName[0] = 0;
+            fileName.clear();
             enumFilesCurrentIndex = Renderer.EnumFilesCurrentIndex;
             if (deletedFile && enumFilesCurrentIndex >= 0)
                 enumFilesCurrentIndex--; // prevent skipping the next file after deleting with Space due to files shifting in the panel
-            ok = SalamanderGeneral->GetNextFileNameForViewer(Renderer.EnumFilesSourceUID,
+            ok = PictViewGetNextFileName(Renderer.EnumFilesSourceUID,
                                                              &enumFilesCurrentIndex,
                                                              openedFileName,
                                                              TRUE /* prefer selected */, TRUE,
@@ -3164,9 +3276,9 @@ void CViewerWindow::UpdateEnablers()
             isSrcFileSel = FALSE;
             if (ok)
             {
-                ok = SalamanderGeneral->IsFileNameForViewerSelected(Renderer.EnumFilesSourceUID,
+                ok = PictViewIsFileSelected(Renderer.EnumFilesSourceUID,
                                                                     enumFilesCurrentIndex,
-                                                                    fileName, &isSrcFileSel,
+                                                                    fileName.c_str(), &isSrcFileSel,
                                                                     &srcBusy);
             }
             Enablers[vweNextSelFile] = ok && isSrcFileSel || srcBusy; // only if the next file is actually selected (or Salamander is busy, the user has to try later)

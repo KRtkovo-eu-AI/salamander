@@ -97,7 +97,7 @@ BOOL HandleChecksumDarkCtlColor(UINT uMsg, WPARAM wParam, LPARAM lParam, INT_PTR
 
 // focus handling from the Verify dialog
 #define CMD_FOCUSFILE 99
-extern char Focus_Path[MAX_PATH];
+extern std::string Focus_Path;
 
 #define DUMP_MEM_OBJECTS
 

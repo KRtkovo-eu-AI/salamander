@@ -1,0 +1,128 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual whole-archive wrapper/snapshot; registry and plugin callback doubles are explicit.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <cstring>
+#include <algorithm>
+#include <functional>
+#define SAL_MAX_PATH 32768
+#define SAL_MAX_EXTENDED_PATH 32768
+enum CPanelSide {cpsLeft,cpsRight};
+enum {ptDisk,ptZIPArchive,ptPluginFS};
+#define PATH_TYPE_WINDOWS 1 // unchanged public spl_gen.h value; checked by generator
+struct CPluginData;
+struct CFilesActionDiskTarget;
+struct CWholeArchiveUnpackerSnapshot { bool IsCurrent(const CPluginData*) const { return true; } bool IsVerifiedBranchSourceUnpacker() const { return false; } bool ValidateBranchTarget(const CFilesActionDiskTarget*,const char*) const { return false; } };
+struct CPluginDataInterfaceAbstract;
+struct Binding { const CPluginDataInterfaceAbstract* Interface=nullptr; BOOL Contains(const CPluginDataInterfaceAbstract* p) const {return p!=nullptr&&p==Interface;} };
+struct CFilesWindow
+{
+    BOOL FilesActionInProgress=FALSE;
+    Binding PluginData; CPluginData* Owner=nullptr; const char* Archive="source.zip";
+    CPluginData* GetPluginDataForPluginIface() {return Owner;}
+    const char* GetZIPArchive() const {return Archive;}
+    int Kind=ptDisk; ULONGLONG Tab=1, Generation=7;
+    BOOL Branch=FALSE, Scanning=FALSE;
+    std::wstring Root=L"C:\\target";
+    mutable unsigned AccessorReads=0;
+    BOOL Is(int kind) const {++AccessorReads;return Kind==kind;}
+    BOOL IsBranchView() const {++AccessorReads;return Branch;}
+    BOOL IsBranchViewScanning() const {++AccessorReads;return Scanning;}
+    ULONGLONG GetPanelTabId() const {++AccessorReads;return Tab;}
+    ULONGLONG GetBranchViewGeneration() const {++AccessorReads;return Generation;}
+    const wchar_t* GetPathW() const {++AccessorReads;return Root.c_str();}
+};
+struct CMainWindow
+{
+    HWND HWindow=nullptr;
+    CFilesWindow *LeftPanel=nullptr,*RightPanel=nullptr;
+    std::vector<CFilesWindow*> Left,Right,Detached;
+    int GetPanelTabCount(CPanelSide side) const {return (int)(side==cpsLeft?Left:Right).size();}
+    CFilesWindow* GetPanelTabAt(CPanelSide side,int index) const {return (side==cpsLeft?Left:Right).at(index);}
+    int GetDetachedTabCount() const {return (int)Detached.size();}
+    CFilesWindow* GetDetachedTabAt(int index) const {return Detached.at(index);}
+};
+@@ACTION@@
+@@WIDE@@
+@@SNAPSHOT@@
+static int Checks=0,Failures=0,OperationContexts=0;
+static void Check(bool ok,const char* label){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",label);}}
+static CMainWindow* MainWindow=nullptr;
+struct CDynamicString {};
+struct CSalamanderForOperations {
+ CFilesWindow* Panel;
+ explicit CSalamanderForOperations(CFilesWindow* panel):Panel(panel){++OperationContexts;}
+};
+struct ArchiverFacade {
+ int Calls=0;BOOL Result=TRUE,Delete=FALSE;CDynamicString* Volumes=nullptr;CFilesWindow* ContextPanel=nullptr;
+ std::string Archive,Mask,Target;
+ BOOL UnpackWholeArchive(CSalamanderForOperations* context,const char* archive,const char* mask,const char* target,BOOL del,CDynamicString* volumes){
+  ++Calls;Archive=archive;Mask=mask;Target=target;Delete=del;Volumes=volumes;ContextPanel=context->Panel;return Result;
+ }
+};
+struct CPluginData {
+ BOOL LoadOK=TRUE;int InitCalls=0;std::function<void()> DuringInit;
+ ArchiverFacade PluginIfaceForArchiver;
+ BOOL InitDLL(HWND){++InitCalls;if(DuringInit)DuringInit();return LoadOK;}
+ @@DECL@@
+};
+#define CALL_STACK_MESSAGE7(...) ((void)0)
+@@WRAPPER@@
+int main(){
+ for(bool mutateSource:{true,false})for(int scenario=0;scenario<=10;++scenario){
+  CFilesWindow source,target,replacement;source.Tab=2;target.Tab=3;replacement.Tab=4;
+  source.Root=L"C:\\source-東京";target.Root=L"C:\\target-東京";
+  CMainWindow main;MainWindow=&main;main.Left={&source,&replacement};main.Right={&target,&replacement};main.LeftPanel=&source;main.RightPanel=&target;
+  CFilesWindow& affected=mutateSource?source:target;
+  if(scenario==6){affected.Branch=TRUE;affected.Generation=17;}
+  if(scenario==8||scenario==9){
+   if(mutateSource){main.Left={&replacement};main.LeftPanel=&replacement;}else{main.Right={&replacement};main.RightPanel=&replacement;}
+   main.Detached={&affected};
+  }
+  CFilesActionDiskTarget capturedSource,capturedTarget;
+  Check(capturedSource.Capture(&main,&source,TRUE),"capture source in actual live registry");Check(capturedTarget.Capture(&main,&target,TRUE),"capture target in actual live registry");
+  CPluginData plugin;OperationContexts=0;unsigned retiredReads=0;bool retired=false;
+  plugin.DuringInit=[&]{switch(scenario){
+   case 1:affected.Root+=L"\\changed";break;
+   case 2:++affected.Tab;break;
+   case 3:
+    if(mutateSource){main.Left={&replacement};main.LeftPanel=&replacement;}else{main.Right={&replacement};main.RightPanel=&replacement;}
+    retired=true;retiredReads=affected.AccessorReads;break;
+   case 4:if(mutateSource)main.LeftPanel=&replacement;else main.RightPanel=&replacement;break;
+   case 5:affected.Kind=ptPluginFS;break;
+   case 6:++affected.Generation;break;
+   case 7:affected.Scanning=TRUE;break;
+   case 8:main.Detached.clear();retired=true;retiredReads=affected.AccessorReads;break;
+   case 10:affected.Branch=TRUE;break;
+  }};
+  CDynamicString volumes;SetLastError(ERROR_SUCCESS);
+  const BOOL result=plugin.UnpackWholeArchive(&source,"C:\\source-東京\\exact.7z","*.txt","C:\\target-東京",TRUE,&volumes,&capturedSource,&capturedTarget);
+  Check(plugin.InitCalls==1,"initialization order preserved before post-init guard");
+  if(scenario==0||scenario==9){
+   const auto& io=plugin.PluginIfaceForArchiver;
+   Check(result&&io.Calls==1&&OperationContexts==1,"current attached/detached identities dispatch exactly once");
+   Check(io.Archive=="C:\\source-東京\\exact.7z"&&io.Mask=="*.txt"&&io.Target=="C:\\target-東京"&&io.Delete&&io.Volumes==&volumes&&io.ContextPanel==&source,"all SDK callback arguments and source context retained");
+  }else{
+   Check(!result&&plugin.PluginIfaceForArchiver.Calls==0&&OperationContexts==0,"invalid source or target cannot reach operation context or I/O");Check(GetLastError()==ERROR_RETRY,"invalid identity reports retry");
+   if(retired)Check(affected.AccessorReads==retiredReads,"removed panel pointer is never dereferenced");
+  }
+ }
+ {
+  CFilesWindow source,target,replacement;source.Tab=2;target.Tab=3;replacement.Tab=4;
+  CMainWindow main;MainWindow=&main;main.Left={&source,&replacement};main.Right={&target};main.LeftPanel=&source;main.RightPanel=&target;
+  CFilesActionDiskTarget sourceSnapshot,targetSnapshot;Check(sourceSnapshot.Capture(&main,&source,TRUE)&&targetSnapshot.Capture(&main,&target,TRUE),"capture routing and failure fixtures");
+  CPluginData wrong;OperationContexts=0;SetLastError(0);
+  Check(!wrong.UnpackWholeArchive(&replacement,"a","*.*","b",FALSE,nullptr,&sourceSnapshot,&targetSnapshot)&&OperationContexts==0&&wrong.PluginIfaceForArchiver.Calls==0&&GetLastError()==ERROR_RETRY,"valid snapshot cannot be routed to a different source context");
+  CPluginData unloaded;unloaded.LoadOK=FALSE;SetLastError(ERROR_MOD_NOT_FOUND);OperationContexts=0;
+  Check(!unloaded.UnpackWholeArchive(&source,"a","*.*","b",FALSE,nullptr,&sourceSnapshot,&targetSnapshot)&&OperationContexts==0&&unloaded.PluginIfaceForArchiver.Calls==0&&GetLastError()==ERROR_MOD_NOT_FOUND,"init failure retains original error without I/O");
+  CPluginData failed;failed.PluginIfaceForArchiver.Result=FALSE;SetLastError(ERROR_ACCESS_DENIED);OperationContexts=0;
+  Check(!failed.UnpackWholeArchive(&source,"a","*.*","b",FALSE,nullptr,&sourceSnapshot,&targetSnapshot)&&OperationContexts==1&&failed.PluginIfaceForArchiver.Calls==1&&GetLastError()==ERROR_ACCESS_DENIED,"backend failure is preserved after valid guard");
+  CPluginData legacy;legacy.DuringInit=[&]{main.Left.clear();main.Right.clear();};OperationContexts=0;
+  Check(legacy.UnpackWholeArchive(&source,"a","*.*","b",FALSE,nullptr)&&legacy.PluginIfaceForArchiver.Calls==1&&OperationContexts==1,"default NULL snapshots retain ordinary existing caller contract");
+ }
+ printf("Actual whole-archive post-init panels: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

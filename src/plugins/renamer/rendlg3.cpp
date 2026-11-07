@@ -5,33 +5,35 @@
 
 BOOL CRenamerDialog::MoveFile(char* sourceName, char* targetName, char* newPart,
                               BOOL overwrite, BOOL isDir, BOOL& skip)
+try
 {
     CALL_STACK_MESSAGE4("CRenamerDialog::MoveFile(, , , %d, %d, %d)", overwrite,
                         isDir, skip);
     // create the path
-    char dir[MAX_PATH];
-    strcpy(dir, targetName);
+    std::vector<char> directory(strlen(targetName) + 2, 0);
+    memcpy(directory.data(), targetName, strlen(targetName) + 1);
+    char* dir = directory.data();
     SG->CutDirectory(dir);
     if (!CheckAndCreateDirectory(dir, dir + (newPart - targetName), skip))
         return FALSE;
 
     // perform the move
-    if (SG->HasTheSameRootPath(sourceName, targetName))
+    if (RenamerIO::SameRoot(sourceName, targetName))
     {
         while (1)
         {
             DWORD err = 0;
-            if (SG->StrICmp(sourceName, targetName) == 0 &&
+            if (RenamerPaths::Compare(sourceName, targetName) == 0 &&
                     strcmp(
                         SG->SalPathFindFileName(sourceName),
                         SG->SalPathFindFileName(targetName)) == 0 ||
-                SG->SalMoveFile(sourceName, targetName, &err))
+                RenamerIO::Move(sourceName, targetName, &err))
                 return TRUE; // success
 
             if ((err == ERROR_ALREADY_EXISTS || err == ERROR_FILE_EXISTS) &&
-                SG->StrICmp(sourceName, targetName) != 0)
+                RenamerPaths::Compare(sourceName, targetName) != 0)
             {
-                DWORD attr = SG->SalGetFileAttributes(targetName);
+                DWORD attr = RenamerIO::Attributes(targetName);
                 if (attr != 0xFFFFFFFF && attr & FILE_ATTRIBUTE_DIRECTORY) // cannot overwrite a directory
                 {
                     return FileError(HWindow, targetName,
@@ -44,10 +46,10 @@ BOOL CRenamerDialog::MoveFile(char* sourceName, char* targetName, char* newPart,
                                    IDS_CNFRM_SHOVERWRITE, IDS_OVEWWRITETITLE, &skip, &Silent))
                     return FALSE;
 
-                SG->ClearReadOnlyAttr(targetName); // so it can be deleted ...
+                RenamerIO::ClearReadOnly(targetName); // so it can be deleted ...
                 while (1)
                 {
-                    if (DeleteFile(targetName))
+                    if (RenamerIO::Delete(targetName))
                         break;
 
                     if (!FileError(HWindow, targetName, IDS_OVERWRITEERROR,
@@ -73,10 +75,10 @@ BOOL CRenamerDialog::MoveFile(char* sourceName, char* targetName, char* newPart,
         if (!CopyFile(sourceName, targetName, overwrite, skip))
             return FALSE;
         // we still need to clean up the file from the sources
-        SG->ClearReadOnlyAttr(sourceName); // so it can be deleted ...
+        RenamerIO::ClearReadOnly(sourceName); // so it can be deleted ...
         while (1)
         {
-            if (DeleteFile(sourceName))
+            if (RenamerIO::Delete(sourceName))
                 break;
 
             if (!FileError(HWindow, sourceName, IDS_DELETEERROR,
@@ -87,10 +89,19 @@ BOOL CRenamerDialog::MoveFile(char* sourceName, char* targetName, char* newPart,
     }
 }
 
+catch (const std::bad_alloc&)
+{
+    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+    skip = FALSE;
+    Error(IDS_LOWMEM);
+    return FALSE;
+}
+
 BOOL CRenamerDialog::CheckAndCreateDirectory(char* directory, char* newPart, BOOL& skip)
+try
 {
     CALL_STACK_MESSAGE2("CRenamerDialog::CheckAndCreateDirectory(, , %d)", skip);
-    WIN32_FIND_DATA fd;
+    WIN32_FIND_DATAW fd;
     HANDLE f;
     char* directoryEnd = directory + strlen(directory);
 
@@ -117,21 +128,23 @@ BOOL CRenamerDialog::CheckAndCreateDirectory(char* directory, char* newPart, BOO
     {
         end = (char*)GetNextPathComponent(start);
         *end = 0;
-        f = FindFirstFile(directory, &fd);
+        f = RenamerIO::FindFirst(directory, &fd);
         if (f == INVALID_HANDLE_VALUE)
             goto CREATE_PATH;
         else
         {
             FindClose(f);
             // adjust the case of the name
-            if (strcmp(start, fd.cFileName))
+            const std::string actualName = RenamerPaths::ToUtf8(fd.cFileName);
+            if (strcmp(start, actualName.c_str()))
             {
-                char old[MAX_PATH];
-                memcpy(old, directory, start - directory);
-                strcpy(old + (start - directory), fd.cFileName);
+                const std::string oldPath = std::string(directory, start - directory) + actualName;
+                std::vector<char> oldBuffer(oldPath.begin(), oldPath.end());
+                oldBuffer.push_back(0);
+                char* old = oldBuffer.data();
                 while (1)
                 {
-                    if (SG->SalMoveFile(old, directory, NULL))
+                    if (RenamerIO::Move(old, directory, NULL))
                     {
                         if (!Undoing)
                             UndoStack.Add(new CUndoStackEntry(directory, old, NULL, FALSE, FALSE));
@@ -160,7 +173,7 @@ BOOL CRenamerDialog::CheckAndCreateDirectory(char* directory, char* newPart, BOO
 
         while (1)
         {
-            if (CreateDirectory(directory, NULL))
+            if (RenamerIO::CreateDir(directory, NULL))
             {
                 if (!Undoing)
                     UndoStack.Add(new CUndoStackEntry(directory, NULL, NULL, FALSE, FALSE));
@@ -175,6 +188,14 @@ BOOL CRenamerDialog::CheckAndCreateDirectory(char* directory, char* newPart, BOO
         start = end + 1;
     }
     return TRUE;
+}
+
+catch (const std::bad_alloc&)
+{
+    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+    skip = FALSE;
+    Error(IDS_LOWMEM);
+    return FALSE;
 }
 
 BOOL CRenamerDialog::CopyFile(char* sourceName, char* targetName, BOOL overwrite,
@@ -192,7 +213,7 @@ COPY_AGAIN:
 
     while (1)
     {
-        in = CreateFile(sourceName, GENERIC_READ,
+        in = RenamerIO::Open(sourceName, GENERIC_READ,
                         FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                         OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
         if (in != INVALID_HANDLE_VALUE)
@@ -200,7 +221,7 @@ COPY_AGAIN:
             HANDLE out;
             while (1)
             {
-                out = CreateFile(targetName, GENERIC_WRITE, 0, NULL,
+                out = RenamerIO::Open(targetName, GENERIC_WRITE, 0, NULL,
                                  CREATE_NEW, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
                 if (out != INVALID_HANDLE_VALUE)
                 {
@@ -230,14 +251,14 @@ COPY_AGAIN:
                                             CloseHandle(in);
                                         if (out != NULL)
                                             CloseHandle(out);
-                                        DeleteFile(targetName);
+                                        RenamerIO::Delete(targetName);
                                         return FALSE;
                                     }
 
                                     // retry
                                     if (out != NULL)
                                         CloseHandle(out); // close the invalid handle
-                                    out = CreateFile(targetName, GENERIC_WRITE, 0, NULL,
+                                    out = RenamerIO::Open(targetName, GENERIC_WRITE, 0, NULL,
                                                      OPEN_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
                                     if (out != INVALID_HANDLE_VALUE) // opened, now set the offset
                                     {
@@ -248,7 +269,7 @@ COPY_AGAIN:
                                         { // cannot get the size or the file is too small, start over
                                             CloseHandle(in);
                                             CloseHandle(out);
-                                            DeleteFile(targetName);
+                                            RenamerIO::Delete(targetName);
                                             goto COPY_AGAIN;
                                         }
                                         else // success (the file is large enough), set the offset
@@ -263,7 +284,7 @@ COPY_AGAIN:
                                             { // cannot set the offset, start over
                                                 CloseHandle(in);
                                                 CloseHandle(out);
-                                                DeleteFile(targetName);
+                                                RenamerIO::Delete(targetName);
                                                 goto COPY_AGAIN;
                                             }
                                             break;
@@ -289,13 +310,13 @@ COPY_AGAIN:
                                         CloseHandle(in);
                                     if (out != NULL)
                                         CloseHandle(out);
-                                    DeleteFile(targetName);
+                                    RenamerIO::Delete(targetName);
                                     return FALSE;
                                 }
 
                                 if (in != NULL)
                                     CloseHandle(in); // close the invalid handle
-                                in = CreateFile(sourceName, GENERIC_READ,
+                                in = RenamerIO::Open(sourceName, GENERIC_READ,
                                                 FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                                                 OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
                                 if (in != INVALID_HANDLE_VALUE) // opened, now set the offset
@@ -307,7 +328,7 @@ COPY_AGAIN:
                                     { // cannot get the size or the file is too small, start over
                                         CloseHandle(in);
                                         CloseHandle(out);
-                                        DeleteFile(targetName);
+                                        RenamerIO::Delete(targetName);
                                         goto COPY_AGAIN;
                                     }
                                     else // success (the file is large enough), set the offset
@@ -322,7 +343,7 @@ COPY_AGAIN:
                                         { // cannot set the offset, start over
                                             CloseHandle(in);
                                             CloseHandle(out);
-                                            DeleteFile(targetName);
+                                            RenamerIO::Delete(targetName);
                                             goto COPY_AGAIN;
                                         }
                                         break;
@@ -344,15 +365,15 @@ COPY_AGAIN:
                     CloseHandle(out);
 
                     DWORD attr;
-                    attr = SG->SalGetFileAttributes(sourceName);
+                    attr = RenamerIO::Attributes(sourceName);
                     if (attr != -1)
-                        SetFileAttributes(targetName, attr | FILE_ATTRIBUTE_ARCHIVE);
+                        RenamerIO::SetAttributes(targetName, attr | FILE_ATTRIBUTE_ARCHIVE);
                     return TRUE;
                 }
                 else
                 {
                     DWORD err = GetLastError();
-                    DWORD attr = SG->SalGetFileAttributes(targetName);
+                    DWORD attr = RenamerIO::Attributes(targetName);
                     if (err == ERROR_FILE_EXISTS || err == ERROR_ALREADY_EXISTS)
                     {
                         // overwrite the file?
@@ -369,10 +390,10 @@ COPY_AGAIN:
                         if (attr != 0xFFFFFFFF && (attr & FILE_ATTRIBUTE_READONLY))
                         {
                             readonly = TRUE;
-                            SetFileAttributes(targetName, attr & (~FILE_ATTRIBUTE_READONLY));
+                            RenamerIO::SetAttributes(targetName, attr & (~FILE_ATTRIBUTE_READONLY));
                         }
 
-                        out = CreateFile(targetName, GENERIC_WRITE, 0, NULL,
+                        out = RenamerIO::Open(targetName, GENERIC_WRITE, 0, NULL,
                                          OPEN_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 
                         if (out != INVALID_HANDLE_VALUE)
@@ -387,7 +408,7 @@ COPY_AGAIN:
                         {
                             err = GetLastError();
                             if (readonly)
-                                SetFileAttributes(targetName, attr);
+                                RenamerIO::SetAttributes(targetName, attr);
                             goto NORMAL_ERROR;
                         }
                     }

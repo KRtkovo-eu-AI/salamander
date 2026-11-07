@@ -3,6 +3,11 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "branch_view.h"
+#include "fileactionpath.h"
+#define SALAMANDER_BRANCHPROGRAM_CLIENT
+#include "branchprogram.h"
+#undef SALAMANDER_BRANCHPROGRAM_CLIENT
 
 #include <uxtheme.h>
 
@@ -848,6 +853,83 @@ void CFilesWindow::HandsOff(BOOL off)
     }
 }
 
+// Older language modules do not contain these new strings. Keep the strings
+// in resources, with an English resource fallback rather than a missing-ID UI.
+static const char* LoadBranchLaunchStr(int id)
+{
+    LPCWSTR resource = NULL;
+    const int length = LoadStringW(HLanguage, id, (LPWSTR)&resource, 0);
+    return LoadStr(id, length > 0 ? HLanguage : GetModuleHandle(NULL));
+}
+// S27a2: registry state is diagnostic information, never a permission grant.
+enum class BranchLongPathSetting { Disabled, Enabled, NotConfigured, Unknown };
+static BranchLongPathSetting ReadBranchLongPathSetting()
+{
+    DWORD value = 0, bytes = sizeof(value), type = 0;
+    HKEY key = NULL;
+    LSTATUS error = RegOpenKeyExW(HKEY_LOCAL_MACHINE,
+        L"SYSTEM\\CurrentControlSet\\Control\\FileSystem", 0, KEY_QUERY_VALUE | KEY_WOW64_64KEY, &key);
+    if (error == ERROR_SUCCESS)
+    {
+        error = RegQueryValueExW(key, L"LongPathsEnabled", NULL, &type, (BYTE*)&value, &bytes);
+        RegCloseKey(key);
+    }
+    if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND) return BranchLongPathSetting::NotConfigured;
+    if (error != ERROR_SUCCESS || type != REG_DWORD || bytes != sizeof(value) || value > 1) return BranchLongPathSetting::Unknown;
+    return value == 1 ? BranchLongPathSetting::Enabled : BranchLongPathSetting::Disabled;
+}
+static HRESULT LaunchBranchProgram(HWND owner, const std::wstring& source, const std::wstring& directory)
+{
+    std::vector<wchar_t> module(32768);
+    const DWORD length = GetModuleFileNameW(NULL, module.data(), (DWORD)module.size());
+    if (length == 0 || length >= module.size()) return HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE);
+    std::wstring helper(module.data(), length);
+    const size_t slash = helper.find_last_of(L'\\');
+    if (slash == std::wstring::npos) return E_FAIL;
+    helper.resize(slash);
+    helper += L"\\utils\\salopen.exe";
+    const std::wstring cwd = Salamander::FileActionPaths::InitialDirectory(
+        SalWideToMultiBytePath(directory.c_str(), CP_UTF8).c_str());
+    return Salamander::BranchProgram::Launch(owner, source, cwd, helper);
+}
+static void ShowBranchLaunchFailure(HWND owner, const std::wstring& source, HRESULT error, bool program)
+{
+    const std::wstring plain = SalPathRemoveExtendedPrefixW(source.c_str());
+    const bool longPath = plain.size() >= MAX_PATH;
+    std::string text = LoadBranchLaunchStr(program ? IDS_FILELAUNCH_PROGRAM_FAILED : IDS_FILELAUNCH_DOCUMENT_FAILED);
+    text += "\n\n"; text += SalWideToMultiBytePath(source.c_str(), CP_UTF8);
+    char code[20]; sprintf_s(code, "0x%08lX", (unsigned long)error);
+    text += "\n\n"; text += LoadBranchLaunchStr(IDS_FILELAUNCH_ERROR_CODE); text += " "; text += code;
+    if (longPath)
+    {
+        int settingId = IDS_FILELAUNCH_LONGPATH_UNKNOWN;
+        switch (ReadBranchLongPathSetting())
+        {
+        case BranchLongPathSetting::Disabled: settingId = IDS_FILELAUNCH_LONGPATH_OFF; break;
+        case BranchLongPathSetting::Enabled: settingId = IDS_FILELAUNCH_LONGPATH_ON; break;
+        case BranchLongPathSetting::NotConfigured: settingId = IDS_FILELAUNCH_LONGPATH_UNSET; break;
+        default: break;
+        }
+        text += "\n\n"; text += LoadBranchLaunchStr(settingId);
+        text += "\n\n"; text += LoadBranchLaunchStr(IDS_FILELAUNCH_LONGPATH_CAVEAT);
+    }
+    std::string buttons = std::to_string(DIALOG_OK) + "\t" + LoadBranchLaunchStr(
+        longPath ? IDS_FILELAUNCH_LONGPATH_GUIDE_BUTTON : IDS_FILELAUNCH_LAUNCH_CLOSE);
+    if (longPath) buttons += "\t" + std::to_string(DIALOG_CANCEL) + "\t" + LoadBranchLaunchStr(IDS_FILELAUNCH_LAUNCH_CLOSE);
+    MSGBOXEX_PARAMS params = {};
+    params.HParent = owner; params.Caption = LoadBranchLaunchStr(IDS_ERROROPENINGFILE); params.Text = text.c_str();
+    params.Flags = (longPath ? MSGBOXEX_OKCANCEL | MSGBOXEX_DEFBUTTON2 : MSGBOXEX_OK) | MSGBOXEX_ICONEXCLAMATION;
+    params.AliasBtnNames = buttons.c_str();
+    if (SalMessageBoxEx(&params) == DIALOG_OK && longPath)
+    {
+        params.Flags = MSGBOXEX_OK | MSGBOXEX_ICONINFORMATION;
+        params.Caption = LoadBranchLaunchStr(IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE);
+        params.Text = LoadBranchLaunchStr(IDS_FILELAUNCH_LONGPATH_GUIDE);
+        params.AliasBtnNames = NULL;
+        SalMessageBoxEx(&params);
+    }
+}
+
 void CFilesWindow::Execute(int index)
 {
     CALL_STACK_MESSAGE2("CFilesWindow::Execute(%d)", index);
@@ -874,6 +956,58 @@ void CFilesWindow::Execute(int index)
             }
 
             CFileData* file = &Files->At(index - Dirs->Count);
+            if (IsBranchView())
+            {
+                if (GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*file)) != file)
+                {
+                    EndStopRefresh();
+                    return;
+                }
+                const std::wstring source = GetItemFullPathW(*file);
+                const std::wstring directory = GetItemDirectoryW(*file);
+                const std::string sourceUtf8 = SalWideToMultiBytePath(source.c_str(), CP_UTF8);
+                if (source.empty() || directory.empty())
+                {
+                    EndStopRefresh();
+                    return;
+                }
+                if (PackerFormatConfig.PackIsArchive(file->Name))
+                {
+                    BOOL noChange;
+                    ChangePathToArchive(sourceUtf8.c_str(), "", -1, NULL, FALSE, &noChange);
+                }
+                else
+                {
+                    HRESULT result = E_FAIL;
+                    const bool program = Salamander::BranchProgram::IsProgram(source.c_str());
+                    if (program)
+                        result = LaunchBranchProgram(GetListBoxHWND(), source, directory);
+                    else
+                    {
+                        // Documents, links and scripts keep their Windows associations.
+                        // No native retry after a failed or denied Shell operation.
+                        const std::wstring shellFile = SalPathRemoveExtendedPrefixW(source.c_str());
+                        if (shellFile.size() >= MAX_PATH)
+                            result = HRESULT_FROM_WIN32(ERROR_FILENAME_EXCED_RANGE);
+                        else
+                        {
+                            const std::wstring launchDirectory = Salamander::FileActionPaths::InitialDirectory(
+                                SalWideToMultiBytePath(directory.c_str(), CP_UTF8).c_str());
+                            SHELLEXECUTEINFOW execute = {sizeof(execute)};
+                            execute.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
+                            execute.hwnd = GetListBoxHWND();
+                            execute.lpFile = shellFile.c_str(); execute.lpDirectory = launchDirectory.c_str();
+                            execute.nShow = SW_SHOWNORMAL;
+                            if (ShellExecuteExW(&execute)) result = S_OK;
+                            else result = Salamander::BranchProgram::LastErrorResult();
+                        }
+                    }
+                    if (SUCCEEDED(result)) MainWindow->FileHistory->AddFile(fhitOpen, 0, sourceUtf8.c_str());
+                    else ShowBranchLaunchFailure(HWindow, source, result, program);
+                }
+                EndStopRefresh();
+                return;
+            }
             char* fileName = file->Name;
             char fullPath[SAL_MAX_PATH];
             char netFSName[SAL_MAX_PATH];
@@ -1334,8 +1468,28 @@ void CFilesWindow::ChangeCustomSortType(DWORD customData, BOOL reverse, BOOL for
     if (focusIndex >= 0 && focusIndex < Dirs->Count + Files->Count)
         d1 = (focusIndex < Dirs->Count) ? Dirs->At(focusIndex) : Files->At(focusIndex - Dirs->Count);
 
-    SortDirectory();
-    RefreshListBox(-1, -1, FocusedIndex, FALSE, FALSE);
+    const BOOL branchListing = IsBranchView();
+    const BOOL suspendIcons = branchListing && (UseSystemIcons || UseThumbnails);
+    if (suspendIcons)
+        SleepIconCacheThread();
+    SortDirectory(); // also rebuilds the Branch cache-key -> row index
+    if (branchListing && d1.Name != NULL)
+    {
+        // Name allocations survive sorting and distinguish identical basenames.
+        // Do not leave the focus on the former row number after Path sorting.
+        for (int i = 0; i < Dirs->Count + Files->Count; ++i)
+        {
+            const CFileData& file = i < Dirs->Count ? Dirs->At(i) : Files->At(i - Dirs->Count);
+            if (file.Name == d1.Name)
+            {
+                focusIndex = i;
+                break;
+            }
+        }
+    }
+    if (suspendIcons)
+        WakeupIconCacheThread();
+    RefreshListBox(-1, -1, branchListing ? focusIndex : FocusedIndex, FALSE, FALSE);
 }
 
 void CFilesWindow::ChangeSortType(CSortType newType, BOOL reverse, BOOL force)
@@ -2494,6 +2648,7 @@ void CFilesWindow::UpdateTreeView(BOOL active)
 void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOOL newPathIsTheSame,
                                     BOOL isRefresh, BOOL canChangeSourceUID)
 {
+    if (!cancel && (!newPathIsTheSame || !isRefresh)) LeaveBranchView();
     CALL_STACK_MESSAGE6("CFilesWindow::CloseCurrentPath(, %d, %d, %d, %d, %d)",
                         cancel, detachFS, newPathIsTheSame, isRefresh, canChangeSourceUID);
 
@@ -2669,6 +2824,11 @@ void CFilesWindow::RefreshPathHistoryData()
     CALL_STACK_MESSAGE1("CFilesWindow::RefreshPathHistoryData()");
 
     int index = GetCaretIndex();
+    if (Is(ptDisk) && Files->Count + Dirs->Count == 0)
+    {
+        const CBranchViewRestoreState branch = CaptureBranchViewState();
+        PathHistory->ChangeActualPathData(0, GetPath(), NULL, NULL, NULL, ListBox->GetTopIndex(), NULL, &branch);
+    }
     if (index >= 0 && index < Files->Count + Dirs->Count) // bounds check to prevent data inconsistency
     {
         int topIndex = ListBox->GetTopIndex();
@@ -2683,7 +2843,8 @@ void CFilesWindow::RefreshPathHistoryData()
         {
             if (Is(ptDisk))
             {
-                PathHistory->ChangeActualPathData(0, GetPath(), NULL, NULL, NULL, topIndex, file->Name);
+                const CBranchViewRestoreState branch = CaptureBranchViewState();
+                PathHistory->ChangeActualPathData(0, GetPath(), NULL, NULL, NULL, topIndex, file->Name, &branch);
             }
             else
             {
@@ -2733,6 +2894,7 @@ void CFilesWindow::RemoveCurrentPathFromHistory()
 
 void CFilesWindow::InvalidateChangesInPanelWeHaveNewListing()
 {
+    AdvanceListingIdentity(); // Includes replacement listings that reuse array addresses.
     NeedRefreshAfterEndOfSM = FALSE;
     NeedRefreshAfterIconsReading = FALSE;
     HANDLES(EnterCriticalSection(&TimeCounterSection));
@@ -3160,6 +3322,16 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
     return ret;
 }
 
+// Archive identity enters here as UTF8 from wide disk/Branch paths. Keep the
+// metadata preflight on the same wide file that the archive engine will open.
+static HANDLE OpenArchiveFileForRead(const char* archive, DWORD flagsAndAttributes)
+{
+    const std::wstring wide = SalMultiByteToWidePath(archive, IsValidPathUtf8Text(archive) ? CP_UTF8 : CP_ACP);
+    const std::wstring extended = SalPathAddExtendedPrefixW(wide.c_str());
+    return HANDLES_Q(CreateFileW(extended.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                NULL, OPEN_EXISTING, flagsAndAttributes, NULL));
+}
+
 BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archivePath,
                                        int suggestedTopIndex, const char* suggestedFocusName,
                                        BOOL forceUpdate, BOOL* noChange, BOOL refreshListBox,
@@ -3299,8 +3471,7 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
             {
                 // retrieve file info (does it exist?, size, date & time)
                 DWORD err2 = NO_ERROR;
-                HANDLE file = HANDLES_Q(CreateFile(archive, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                                   NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL));
+                HANDLE file = OpenArchiveFileForRead(archive, FILE_ATTRIBUTE_NORMAL);
                 if (file != INVALID_HANDLE_VALUE)
                 {
                     GetFileTime(file, NULL, NULL, &archiveDate);
@@ -3426,8 +3597,7 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
             DWORD err;
             if ((err = CheckPath(!isRefresh)) == ERROR_SUCCESS) // no need to restore network connections here ...
             {
-                HANDLE file = HANDLES_Q(CreateFile(archive, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                                   NULL, OPEN_EXISTING, 0, NULL));
+                HANDLE file = OpenArchiveFileForRead(archive, 0);
                 if (file != INVALID_HANDLE_VALUE)
                 {
                     SalGetFileSize(file, archiveSize, err);

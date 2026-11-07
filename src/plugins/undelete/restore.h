@@ -3,4 +3,4 @@
 
 #pragma once
 
-BOOL RestoreEncryptedFiles(const char* targetPath, HWND parent);
+BOOL RestoreEncryptedFiles(const CSalamanderDiskSelection& selection, const char* targetPath, HWND parent);

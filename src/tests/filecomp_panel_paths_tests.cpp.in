@@ -1,0 +1,382 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Production SDK service, conversion helpers and complete Compare command are
+// inserted verbatim. Only panel storage, service discovery and UI/thread launch
+// are replaced. No file is opened and no comparison window is created.
+#define NOMINMAX
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
+#include <memory>
+#include <new>
+#include <string>
+#include <vector>
+#define SAL_MAX_PATH 32768
+#define SizeOf(x) (sizeof(x) / sizeof(x[0]))
+#define CALL_STACK_MESSAGE3(a,b,c) ((void)0)
+enum { PANEL_SOURCE, PANEL_TARGET, PANEL_LEFT, PANEL_RIGHT, PATH_TYPE_WINDOWS=10, ptDisk=10,
+       MID_COMPAREFILES=1, SALCFG_ALWAYSONTOP=1, IDS_LOWMEM=1 };
+struct CQuadWord { DWORD LoDWord=0, HiDWord=0; };
+struct CFileData {
+    CQuadWord Size; DWORD Attr=0; FILETIME LastWrite={};
+    const char* Ext=""; BOOL Selected=FALSE, SizeValid=TRUE, Hidden=FALSE, IsLink=FALSE, IsOffline=FALSE;
+    const char* Name = nullptr;
+    const wchar_t* NameW = nullptr;
+    BOOL UseWideName() const { return NameW != nullptr; }
+};
+#define SALAMANDER_SERVICE_PANEL_ITEM_PATHS "Salamander.PanelItemPaths"
+#define SALAMANDER_PANEL_ITEM_PATHS_VERSION_1_0 0x00010000
+@@SDK@@
+@@CONVERSIONS@@
+struct Row {
+    std::string Name;
+    std::wstring Wide, Full;
+    CFileData Data;
+    bool Selected, Directory;
+    Row(std::wstring name, std::wstring full, bool selected, bool directory, std::string mirror)
+        : Name(mirror.empty() ? PluginWideToMultiBytePath(name.c_str(), CP_UTF8) : mirror),
+          Wide(std::move(name)), Full(std::move(full)), Selected(selected), Directory(directory) {
+        Data.Selected=selected; Data.Name = Name.c_str(); Data.NameW = Wide.c_str();
+    }
+};
+static size_t ArrayAtCalls = 0, ArrayDataCalls = 0;
+struct CFilesArray {
+    std::vector<std::unique_ptr<Row>> Rows;
+    std::vector<CFileData> Data;
+    int Count = 0;
+    CFilesArray() { Data.reserve(64); }
+    CFileData& At(int i) { ++ArrayAtCalls; return Data.at(i); }
+    CFileData* GetData() { ++ArrayDataCalls; return Data.data(); }
+    void Clear() { Rows.clear(); Data.clear(); Count = 0; }
+};
+struct CFilesWindow {
+    CFilesArray Directories, FileRows;
+    CFilesArray* Dirs = &Directories;
+    CFilesArray* Files = &FileRows;
+    const CFileData* Focus = nullptr;
+    std::string Root = "C:\\root";
+    bool Disk = true, FailPath = false, ThrowPath = false, ConstantPath = false;
+    int PathReads = 0;
+    BOOL Is(int type) { return Disk && type == ptDisk; }
+    Row* Find(const CFileData* file) {
+        for (auto array : {Dirs, Files})
+            for (int i=0; i<array->Count; ++i) if (&array->Data[i] == file) return array->Rows[i].get();
+        return nullptr;
+    }
+    std::wstring GetItemFullPathW(const CFileData& file) {
+        ++PathReads;
+        if (ThrowPath) throw std::bad_alloc();
+        if (ConstantPath) return L"C:\\constant.txt";
+        Row* row = Find(&file); return FailPath || row == nullptr ? std::wstring() : row->Full;
+    }
+    const char* GetPath() { return Root.c_str(); }
+    const wchar_t* GetPathW() { return nullptr; }
+    int GetCaretIndex() {
+        for(int i=0;i<Dirs->Count+Files->Count;++i) {
+            const auto* data=i<Dirs->Count?&Dirs->Data[i]:&Files->Data[i-Dirs->Count];
+            if(data==Focus)return i;
+        }
+        return -1;
+    }
+    std::wstring GetItemDirectoryW(const CFileData& item) {
+        const auto full=GetItemFullPathW(item); const auto slash=full.find_last_of(L"\\/");
+        return slash==std::wstring::npos?std::wstring():full.substr(0,slash);
+    }
+    std::wstring GetItemRelativePathW(const CFileData& item) {
+        const auto full=GetItemFullPathW(item); const auto slash=full.find_last_of(L"\\/");
+        return full.empty()?std::wstring():full.substr(slash==std::wstring::npos?0:slash+1);
+    }
+    const CFileData* Add(std::wstring name, std::wstring full, bool selected=false,
+                         bool directory=false, std::string mirror={}) {
+        CFilesArray* array = directory ? Dirs : Files;
+        array->Rows.emplace_back(new Row(std::move(name),std::move(full),selected,directory,std::move(mirror)));
+        array->Data.push_back(array->Rows.back()->Data);
+        ++array->Count; return &array->Data.back();
+    }
+    void Clear() { Dirs->Clear(); Files->Clear(); Focus=nullptr; Disk=true; FailPath=false; ThrowPath=false; ConstantPath=false; PathReads=0; }
+};
+struct MainWindowStub {
+    CFilesWindow Left, Right;
+    bool SourceRight = false;
+    CFilesWindow* GetPanel(int panel) {
+        switch(panel) {
+        case PANEL_LEFT:return &Left;
+        case PANEL_RIGHT:return &Right;
+        case PANEL_SOURCE:return SourceRight ? &Right : &Left;
+        case PANEL_TARGET:return SourceRight ? &Left : &Right;
+        default:return nullptr;
+        }
+    }
+};
+static MainWindowStub Window;
+static MainWindowStub* MainWindow=&Window;
+static DWORD MainThreadID;
+@@SERVICE@@
+static CPanelItemPathsService Service;
+static void* DiskSelectionServiceInterface();
+static HWND TestWindow;
+struct GeneralStub {
+    bool Available=true, DiskAvailable=true, NullInterface=false, OldVersion=false;
+    int RootReads=0;
+    std::vector<int> Worked;
+    BOOL QueryService(const CSalamanderServiceQuery* query, CSalamanderServiceResult* result) {
+        if (!Available) return FALSE;
+        const bool disk=strcmp(query->ServiceId,SALAMANDER_SERVICE_DISK_SELECTION)==0;
+        if(disk&&!DiskAvailable)return FALSE;
+        result->Interface = NullInterface ? nullptr : disk?DiskSelectionServiceInterface():&Service;
+        result->Version = OldVersion ? 0 : query->MinimumVersion;
+        return TRUE;
+    }
+    BOOL GetPanelPath(int panel, char* path, int capacity, int* type, void*) {
+        auto window=Window.GetPanel(panel); if (!window) return FALSE;
+        if (type) *type=window->Disk ? PATH_TYPE_WINDOWS : -1;
+        if (path) {
+            ++RootReads;
+            if ((int)window->Root.size() >= capacity) return FALSE;
+            strcpy_s(path,capacity,window->Root.c_str());
+        }
+        return TRUE;
+    }
+    const CFileData* Enumerate(int panel,int* index,BOOL* isDir,bool selected) {
+        auto window=Window.GetPanel(panel);
+        for (; *index < window->Dirs->Count+window->Files->Count;) {
+            int i=(*index)++;
+            Row* row=i<window->Dirs->Count ? window->Dirs->Rows[i].get() : window->Files->Rows[i-window->Dirs->Count].get();
+            if (!selected || row->Selected) { *isDir=row->Directory; return i<window->Dirs->Count ? &window->Dirs->At(i) : &window->Files->At(i-window->Dirs->Count); }
+        }
+        return nullptr;
+    }
+    const CFileData* GetPanelSelectedItem(int panel,int* index,BOOL* isDir) { return Enumerate(panel,index,isDir,true); }
+    const CFileData* GetPanelItem(int panel,int* index,BOOL* isDir) { return Enumerate(panel,index,isDir,false); }
+    const CFileData* GetPanelFocusedItem(int panel,BOOL* isDir) {
+        auto window=Window.GetPanel(panel); auto file=window->Focus;
+        if (file && isDir) *isDir=window->Find(file)->Directory;
+        return file;
+    }
+    HWND GetMainWindowHWND() { return TestWindow; }
+    BOOL GetPanelSelection(int panel,int* files,int* dirs) {
+        auto window=Window.GetPanel(panel);int f=0,d=0;
+        for(auto array:{window->Dirs,window->Files})for(auto& row:array->Rows)
+            if(row->Selected){if(row->Directory)++d;else ++f;}
+        if(files)*files=f;if(dirs)*dirs=d;return TRUE;
+    }
+    int GetSourcePanel() { return Window.SourceRight ? PANEL_RIGHT : PANEL_LEFT; }
+    void GetConfigParameter(int,void*,size_t,void*) {}
+    void SetUserWorkedOnPanelPath(int panel) { Worked.push_back(panel); }
+    int StrICmp(const char* a,const char* b) { return _stricmp(a,b); }
+    BOOL SalPathAppend(char* path,const char* name,size_t capacity) {
+        std::string full(path); if (!full.empty() && full.back()!='\\') full+='\\';full+=name;
+        if(full.size()>=capacity)return FALSE;strcpy_s(path,capacity,full.c_str());return TRUE;
+    }
+};
+static GeneralStub General;
+static GeneralStub* SG=&General;
+using CSalamanderGeneralAbstract=GeneralStub;
+@@FACADE@@
+@@DISK_SERVICE@@
+static void* DiskSelectionServiceInterface() { static CDiskSelectionService service; return &service; }
+static BOOL AlwaysOnTop=FALSE;
+static int ThreadQueue=0, LaunchCount=0, Checks=0, Failures=0;
+static std::string OpenedFirst,OpenedSecond;
+static void RefreshFileCompDarkModeFromHost() {}
+static void ConfigureFileCompDarkModeFromHost() {}
+static BOOL Error(HWND,int) { return FALSE; }
+struct CFilecompThread {
+    CFilecompThread(const char* a,const char* b,BOOL,const char*) {
+        OpenedFirst=a;OpenedSecond=b;++LaunchCount;
+    }
+    BOOL Create(int) { return FALSE; }
+};
+struct CSalamanderForOperationsAbstract {};
+struct CPluginInterfaceForMenu { BOOL ExecuteMenuItem(CSalamanderForOperationsAbstract*,HWND,int,DWORD); };
+@@HELPERS@@
+@@COMMAND@@
+static void Check(bool ok,const char* what) {
+    ++Checks;if(!ok){++Failures;printf("FAIL %s\n",what);}
+}
+static void Reset(bool right=false) {
+    Window.Left.Clear();Window.Right.Clear();Window.SourceRight=right;
+    Window.Left.Root="C:\\left-root";Window.Right.Root="D:\\right-root";
+    General=GeneralStub(); LaunchCount=0;OpenedFirst.clear();OpenedSecond.clear();
+}
+static void Run() { CPluginInterfaceForMenu command;command.ExecuteMenuItem(nullptr,nullptr,MID_COMPAREFILES,0); }
+static void Expect(const std::wstring& first,const std::wstring& second,const char* name) {
+    Check(LaunchCount==1 && OpenedFirst==PluginWideToMultiBytePath(first.c_str(),CP_UTF8) &&
+          OpenedSecond==PluginWideToMultiBytePath(second.c_str(),CP_UTF8),name);
+}
+static void SelectionTests() {
+    const std::wstring first=L"C:\\left-root\\\u017elu\u0165ou\u010dk\u00fd\\same.txt";
+    const std::wstring second=L"D:\\right-root\\\u6771\u4eac\\same.txt";
+    for (bool right : {false,true}) {
+        Reset(right);auto source=Window.GetPanel(PANEL_SOURCE);auto target=Window.GetPanel(PANEL_TARGET);
+        source->Add(L"same.txt",first,true);source->Add(L"same.txt",second,true);Run();
+        Expect(first,second,"two source selections preserve exact duplicate identities and source order");
+        Check(General.RootReads==0,"service-backed source selections never construct root/name");
+        Reset(right);source=Window.GetPanel(PANEL_SOURCE);target=Window.GetPanel(PANEL_TARGET);
+        source->Add(L"same.txt",first,true);source->Focus=source->Add(L"same.txt",second);Run();
+        Expect(first,second,"selected plus distinct source focus uses source paths");
+        Reset(right);source=Window.GetPanel(PANEL_SOURCE);target=Window.GetPanel(PANEL_TARGET);
+        source->Add(L"same.txt",first,true);target->Add(L"same.txt",second,true);Run();
+        Expect(right?second:first,right?first:second,"source and target selections retain left/right display order");
+        Reset(right);source=Window.GetPanel(PANEL_SOURCE);target=Window.GetPanel(PANEL_TARGET);
+        source->Focus=source->Add(L"same.txt",first);target->Add(L"same.txt",second,true);Run();
+        Expect(right?second:first,right?first:second,"source focus plus one target selection");
+        Reset(right);source=Window.GetPanel(PANEL_SOURCE);target=Window.GetPanel(PANEL_TARGET);
+        source->Focus=source->Add(L"same.txt",first);target->Add(L"other.txt",L"D:\\other.txt");target->Add(L"SAME.TXT",second);Run();
+        Expect(right?second:first,right?first:second,"case-insensitive same-name target uses target real path");
+        Reset(right);source=Window.GetPanel(PANEL_SOURCE);target=Window.GetPanel(PANEL_TARGET);
+        const std::wstring name=std::wstring(110,L'\u6f22')+L"-right.txt";
+        source->Focus=source->Add(name,first.substr(0,first.find_last_of(L'\\')+1)+name,false,false,"bounded-mirror");
+        target->Add(std::wstring(110,L'\u6f22')+L"-wrong.txt",L"D:\\wrong.txt",false,false,"bounded-mirror");
+        target->Add(name,second.substr(0,second.find_last_of(L'\\')+1)+name,false,false,"bounded-mirror");Run();
+        Expect(right?second.substr(0,second.find_last_of(L'\\')+1)+name:first.substr(0,first.find_last_of(L'\\')+1)+name, right?first.substr(0,first.find_last_of(L'\\')+1)+name:second.substr(0,second.find_last_of(L'\\')+1)+name,"same-name lookup ignores colliding truncated UTF8 display mirrors");
+    }
+    Reset();auto source=Window.GetPanel(PANEL_SOURCE);auto target=Window.GetPanel(PANEL_TARGET);
+    source->Focus=source->Add(L"same.txt",first,true);target->Add(L"same.txt",second);Run();
+    Expect(first,second,"selected focused source does not compare itself");
+    Reset();source=Window.GetPanel(PANEL_SOURCE);target=Window.GetPanel(PANEL_TARGET);
+    source->Add(L"same.txt",first,true);source->Focus=source->Add(L"same.txt",second);
+    target->Add(L"x",L"D:\\x",true);target->Add(L"y",L"D:\\y",true);Run();
+    Expect(first,second,"multiple target selections fall back to distinct source focus");
+    Reset();source=Window.GetPanel(PANEL_SOURCE);source->Add(L"a",first,true);source->Add(L"b",second,true);source->Add(L"c",L"C:\\c",true);Run();
+    Expect(L"",L"","three selections preserve existing empty-dialog behavior");
+    Reset();Window.GetPanel(PANEL_SOURCE)->Add(L"directory",L"C:\\directory",true,true);Run();
+    Expect(L"",L"","selected directories are not treated as comparable files");
+}
+static void PathTests() {
+    std::vector<std::wstring> paths={L"C:\\ascii\\a.txt",L"C:\\ascii\\\u010d\u0159.txt",
+        L"C:\\\u017elu\u0165ou\u010dk\u00fd\\\u6771\u4eac\\a.txt",L"\\\\server\\share\\\u6771\u4eac\\a.txt",
+        L"C:\\"+std::wstring(110,L'\u6f22')+L"\\same.txt",L"C:\\"+std::wstring(280,L'a')+L"\\same.txt"};
+    for(const auto& path:paths) {
+        Reset();auto source=Window.GetPanel(PANEL_SOURCE);source->Add(L"same.txt",path,true);source->Add(L"same.txt",L"C:\\second\\same.txt",true);Run();
+        Expect(path,L"C:\\second\\same.txt","complete Compare command preserves Unicode/UNC/UTF8-over260/UTF16-over260 paths");
+    }
+    Reset();auto source=Window.GetPanel(PANEL_SOURCE);source->Add(L"same.txt",L"C:\\actual\\same.txt",true);source->Add(L"other.txt",L"C:\\actual\\other.txt",true);source->FailPath=true;Run();
+    Check(LaunchCount==0 && General.RootReads==0,"service failure aborts comparison without guessed root/name paths");
+    Reset();General.Available=false;source=Window.GetPanel(PANEL_SOURCE);source->Add(L"\u010d\u0159.txt",L"ignored",true);source->Add(L"other.txt",L"ignored",true);Run();
+    Expect(L"C:\\left-root\\\u010d\u0159.txt",L"C:\\left-root\\other.txt","ordinary old host retains root plus wide filename fallback");
+#if @@SNAPSHOT@@
+    CSalamanderDiskSelectionItem snapshotItem={};snapshotItem.FullPathW=L"C:\\actual\\東京\\same.txt";
+    char tiny[8]="filled";Check(!GetFileCompPanelItemPath(&snapshotItem,tiny,sizeof(tiny)) && tiny[0]==0 && GetLastError()==ERROR_INSUFFICIENT_BUFFER,"short UTF8 output fails empty instead of truncating");
+    // S06 integration: the donor's UTF8 consumer-capacity assertion was only
+    // in the retired non-snapshot helper branch. Exercise the owned path too.
+    const std::wstring oversized=L"C:\\"+std::wstring(12000,L'\u6f22')+L"\\same.txt";
+    snapshotItem.FullPathW=oversized.c_str();
+    std::vector<char> full(SAL_MAX_PATH,'x');
+    Check(!GetFileCompPanelItemPath(&snapshotItem,full.data(),(int)full.size()) &&
+          full[0]==0 && GetLastError()==ERROR_INSUFFICIENT_BUFFER,
+          "UTF16 path fitting service capacity cannot overflow UTF8 consumer capacity");
+    for(bool oversizedFirst:{true,false}) {
+        Reset();source=Window.GetPanel(PANEL_SOURCE);
+        source->Add(L"first.txt",oversizedFirst?oversized:L"C:\\first.txt",true);
+        source->Add(L"second.txt",oversizedFirst?L"C:\\second.txt":oversized,true);
+        Run();
+        Check(LaunchCount==0 && General.RootReads==0 && GetLastError()==ERROR_INSUFFICIENT_BUFFER,
+              "complete Compare rejects oversized UTF8 first or second input before launching a thread");
+    }
+    for(int invalid:{0,1}) {
+        Reset();Window.Left.Add(L"same.txt",L"C:\\actual\\same.txt",true);
+        General.NullInterface=invalid==0;General.OldVersion=invalid==1;Run();
+        Check(LaunchCount==0&&General.RootReads==0,"invalid advertised service aborts without guessed fallback");
+    }
+    Reset();Window.Left.Focus=Window.Left.Add(L"same.txt",L"C:\\left-root\\same.txt");
+    Window.Right.Add(L"same.txt",L"D:\\right-root\\one\\same.txt");
+    Window.Right.Add(L"same.txt",L"D:\\right-root\\two\\same.txt");Run();
+    Expect(L"C:\\left-root\\same.txt",L"","ambiguous target basename leaves second path empty instead of guessing");
+#elif @@HAS_HELPER@@
+    Reset();source=Window.GetPanel(PANEL_SOURCE);auto item=source->Add(L"same.txt",L"C:\\actual\\\u6771\u4eac\\same.txt");
+    char tiny[8]="filled";Check(!GetFileCompPanelItemPath(PANEL_SOURCE,item,tiny,sizeof(tiny)) && tiny[0]==0 && GetLastError()==ERROR_INSUFFICIENT_BUFFER,"short UTF8 output fails empty instead of truncating");
+    General.NullInterface=true;char buffer[100]="filled";Check(!GetFileCompPanelItemPath(PANEL_SOURCE,item,buffer,sizeof(buffer)) && buffer[0]==0 && General.RootReads==0,"invalid available service never enables legacy fallback");
+    General.NullInterface=false;General.OldVersion=true;Check(!GetFileCompPanelItemPath(PANEL_SOURCE,item,buffer,sizeof(buffer)) && buffer[0]==0,"older returned service version fails empty");
+    General.OldVersion=false;source->Find(item)->Full=L"C:\\"+std::wstring(12000,L'\u6f22');
+    std::vector<char> full(SAL_MAX_PATH,'x');Check(!GetFileCompPanelItemPath(PANEL_SOURCE,item,full.data(),(int)full.size()) && full[0]==0 && GetLastError()==ERROR_INSUFFICIENT_BUFFER,"UTF16 path fitting service capacity cannot overflow UTF8 consumer capacity");
+#endif
+}
+
+static void ServiceMembershipTests() {
+    Reset();
+    auto& panel=Window.Left;
+    const auto first=panel.Add(L"same.txt",L"C:\\root\\first\\same.txt");
+    const auto middle=panel.Add(L"same.txt",L"C:\\root\\middle\\same.txt");
+    const auto last=panel.Add(L"same.txt",L"C:\\root\\last\\same.txt");
+    const auto directory=panel.Add(L"child",L"C:\\root\\child",false,true);
+    wchar_t output[128];
+    for (const auto item : {first,middle,last,directory}) {
+        Check(Service.GetItemFullPath(PANEL_LEFT,item,output,128) &&
+              std::wstring(output)==panel.Find(item)->Full,
+              "first/middle/last files and directories resolve exact current identities");
+    }
+    const auto reject=[&](int requestedPanel,const CFileData* item,DWORD error,const char* label) {
+        output[0]=L'x'; const int reads=panel.PathReads;
+        const BOOL result=Service.GetItemFullPath(requestedPanel,item,output,128);
+        Check(!result && GetLastError()==error && output[0]==0 && panel.PathReads==reads,label);
+    };
+    const UINT_PTR base=reinterpret_cast<UINT_PTR>(panel.Files->Data.data());
+    reject(PANEL_LEFT,nullptr,ERROR_INVALID_PARAMETER,"null item rejected without path access");
+    reject(PANEL_LEFT,reinterpret_cast<const CFileData*>(UINT_PTR(1)),ERROR_INVALID_PARAMETER,"unmapped foreign address rejected before dereference");
+    reject(PANEL_LEFT,reinterpret_cast<const CFileData*>(~UINT_PTR(0)),ERROR_INVALID_PARAMETER,"maximum foreign address cannot overflow into membership");
+    reject(PANEL_LEFT,reinterpret_cast<const CFileData*>(base-1),ERROR_INVALID_PARAMETER,"address preceding array rejected without pointer subtraction");
+    reject(PANEL_LEFT,reinterpret_cast<const CFileData*>(base+1),ERROR_INVALID_PARAMETER,"interior misaligned address rejected before path access");
+    reject(PANEL_LEFT,panel.Files->Data.data()+panel.Files->Count,ERROR_INVALID_PARAMETER,"one-past-live-array address rejected");
+    const auto other=Window.Right.Add(L"same.txt",L"D:\\elsewhere\\same.txt");
+    reject(PANEL_LEFT,other,ERROR_INVALID_PARAMETER,"other-panel item rejected even with duplicate basename");
+    reject(99,first,ERROR_INVALID_PARAMETER,"invalid panel rejected");
+    panel.Disk=false;
+    reject(PANEL_LEFT,first,ERROR_NOT_SUPPORTED,"non-disk panel rejected");
+    panel.Disk=true;
+    MainThreadID=GetCurrentThreadId()+1;
+    reject(PANEL_LEFT,first,ERROR_INVALID_THREAD_ID,"wrong thread rejected before item inspection");
+    MainThreadID=GetCurrentThreadId();
+    MainWindow=nullptr;
+    reject(PANEL_LEFT,first,ERROR_INVALID_PARAMETER,"missing host window rejected");
+    MainWindow=&Window;
+    struct {wchar_t Text[2]; wchar_t Canary;} shortBuffer={{L'x',L'x'},L'z'};
+    Check(!Service.GetItemFullPath(PANEL_LEFT,first,shortBuffer.Text,2) &&
+          GetLastError()==ERROR_INSUFFICIENT_BUFFER && shortBuffer.Text[0]==0 && shortBuffer.Canary==L'z',
+          "short output remains empty and cannot overwrite adjacent memory");
+    output[0]=L'x';
+    Check(!Service.GetItemFullPath(PANEL_LEFT,first,output,0) && GetLastError()==ERROR_INVALID_PARAMETER && output[0]==L'x',
+          "zero capacity leaves inaccessible output untouched");
+    Check(!Service.GetItemFullPath(PANEL_LEFT,first,nullptr,10) && GetLastError()==ERROR_INVALID_PARAMETER,
+          "null output rejected");
+    panel.FailPath=true;output[0]=L'x';
+    Check(!Service.GetItemFullPath(PANEL_LEFT,first,output,128) && GetLastError()==ERROR_INVALID_DATA && output[0]==0,
+          "missing path fails empty without fabricated fallback");
+    panel.FailPath=false;panel.ThrowPath=true;output[0]=L'x';
+    Check(!Service.GetItemFullPath(PANEL_LEFT,first,output,128) && GetLastError()==ERROR_NOT_ENOUGH_MEMORY && output[0]==0,
+          "path allocation failure retains service error contract");
+    panel.ThrowPath=false;
+    --panel.Files->Count;
+    reject(PANEL_LEFT,last,ERROR_INVALID_PARAMETER,"removed row in allocated capacity is not live membership");
+    ++panel.Files->Count;
+    // Keep the retired allocation alive so its address cannot be recycled.
+    std::vector<CFileData> retired;
+    retired.swap(panel.Files->Data);
+    panel.Files->Data=retired;
+    reject(PANEL_LEFT,first,ERROR_INVALID_PARAMETER,"stale previous-array pointer rejected after reallocation");
+    panel.Files->Count=0;
+    reject(PANEL_LEFT,panel.Files->Data.data(),ERROR_INVALID_PARAMETER,"empty reserved array has no live elements");
+    Reset();
+    panel.ConstantPath=true;
+    const int count=175000;
+    panel.Files->Data.resize(count);
+    panel.Files->Count=count;
+    ArrayAtCalls=ArrayDataCalls=0;
+    const int requests=1000;
+    bool resolved=true;
+    for(int i=0;i<requests;++i) {
+        const int index=count-1-(i%997);
+        resolved=Service.GetItemFullPath(PANEL_LEFT,&panel.Files->Data[index],output,128) && resolved;
+    }
+    Check(resolved,"large current listing resolves all selected rows");
+    Check(ArrayAtCalls<=size_t(requests)*2 && ArrayDataCalls<=size_t(requests)*4,
+          "membership touches a bounded number of array locations independent of 175k rows");
+    printf("Panel membership: %d requests over %d rows, %zu At and %zu GetData calls.\n",
+           requests,count,ArrayAtCalls,ArrayDataCalls);
+}
+int main() {
+    MainThreadID=GetCurrentThreadId();TestWindow=CreateWindowExW(0,L"STATIC",L"",0,0,0,0,0,HWND_MESSAGE,nullptr,GetModuleHandleW(nullptr),nullptr);SelectionTests();PathTests();ServiceMembershipTests();
+    printf("File Comparator panel paths: %d checks, %d failures; no file I/O or UI.\n",Checks,Failures);
+    return Failures ? 1 : 0;
+}

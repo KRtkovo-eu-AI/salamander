@@ -213,6 +213,7 @@ BOOL SysError(int resID, DWORD err, BOOL quiet = FALSE, ...);
 BOOL Warning(int resID, BOOL quiet, ...);
 
 BOOL SafeDeleteFile(const char* fileName, BOOL& silent);
+BOOL SafeDeleteFileW(const wchar_t* fileName, const char* displayName, BOOL& silent);
 
 extern CPluginInterface PluginInterface;
 

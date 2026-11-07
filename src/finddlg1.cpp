@@ -2,10 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Coalesce asynchronous Find result refreshes. | Keep large searches from synchronously blocking on list-view updates. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Forward Find ContextMenu messages to SafeHandleContextMenuMsg. | HandleMenuMsg SEH must stay out of WindowProc (C2712). | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "viewerpath.h"
 
 #include "menu.h"
 #include "cfgdlg.h"
@@ -1413,41 +1415,13 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             else
             {
-                if (FileNamesEnumData.LastFileName[0] != 0) // the full name at 'index' is known; check for shifts and search for a new index if needed
+                int matchingIndex = Salamander::ViewerPaths::FindIndex(index, count,
+                    FileNamesEnumData.LastFileName,
+                    [this](int i) { return Data[i]->GetFullNameW(); });
+                if (matchingIndex >= 0)
                 {
-                    BOOL ok = FALSE;
-                    CFoundFilesData* f = (index >= 0 && index < count) ? Data[index] : NULL;
-                    char fileName[MAX_PATH];
-                    if (f != NULL && f->Path != NULL && f->Name != NULL)
-                    {
-                        lstrcpyn(fileName, f->Path, MAX_PATH);
-                        SalPathAppend(fileName, f->Name, MAX_PATH);
-                        if (StrICmp(fileName, FileNamesEnumData.LastFileName) == 0)
-                        {
-                            ok = TRUE;
-                            indexNotFound = FALSE;
-                        }
-                    }
-                    if (!ok)
-                    { // the name at index 'index' isn't FileNamesEnumData.LastFileName, try to find a new index for that name
-                        int i;
-                        for (i = 0; i < count; i++)
-                        {
-                            f = Data[i];
-                            if (f->Path != NULL && f->Name != NULL)
-                            {
-                                lstrcpyn(fileName, f->Path, MAX_PATH);
-                                SalPathAppend(fileName, f->Name, MAX_PATH);
-                                if (StrICmp(fileName, FileNamesEnumData.LastFileName) == 0)
-                                    break;
-                            }
-                        }
-                        if (i != count) // new index found
-                        {
-                            index = i;
-                            indexNotFound = FALSE;
-                        }
-                    }
+                    index = matchingIndex;
+                    indexNotFound = FALSE;
                 }
                 if (index >= count)
                 {
@@ -1588,8 +1562,7 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 CFoundFilesData* f = Data[index];
                 if (f->Path != NULL && f->Name != NULL)
                 {
-                    lstrcpyn(FileNamesEnumData.FileName, f->Path, MAX_PATH);
-                    SalPathAppend(FileNamesEnumData.FileName, f->Name, MAX_PATH);
+                    FileNamesEnumData.FileName = f->GetFullNameW();
                     FileNamesEnumData.LastFileIndex = index;
                 }
                 else // should never happen
@@ -2504,6 +2477,7 @@ void CFindDialog::StartSearch(WORD command)
     GrepData.FoundFilesListView = FoundFilesListView;
     GrepData.FoundVisibleCount = 0;
     GrepData.FoundVisibleTick = GetTickCount();
+    GrepData.RefreshPosted = FALSE;
 
     GrepData.SearchingText = &SearchingText;
     GrepData.SearchingText2 = &SearchingText2;
@@ -4863,6 +4837,7 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
 
     case WM_USER_ADDFILE:
     {
+        InterlockedExchange(&GrepData.RefreshPosted, FALSE);
         UpdateListViewItems();
         return 0;
     }

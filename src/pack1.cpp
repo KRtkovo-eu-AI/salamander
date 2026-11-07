@@ -11,6 +11,8 @@
 #include "fileswnd.h"
 #include "zip.h"
 #include "pack.h"
+#include "common/widepath.h"
+#include "fileactiondisktarget.h"
 
 //
 // ****************************************************************************
@@ -1434,12 +1436,47 @@ BOOL PackUC2List(const char* archiveFileName, CPackLineArray& lineArray,
 //        pluginData is the interface for working with file/directory data specific to the plugin
 //   OUT:
 
+CPluginData* PackGetVerifiedBranchUnpacker(CFilesWindow* panel, const char* archiveFileName,
+                                               CPluginDataInterfaceAbstract* pluginData)
+{
+    // Qualification of the actual listing owner, never an extension/preferred-packer lookup.
+    if (panel == NULL || archiveFileName == NULL || !panel->Is(ptZIPArchive) ||
+        !panel->PluginData.Contains(pluginData) || StrICmp(panel->GetZIPArchive(), archiveFileName) != 0)
+        return NULL;
+    CPluginData* owner = panel->GetPluginDataForPluginIface();
+    return owner != NULL && owner->SupportPanelView && owner->DLLName != NULL &&
+           (_stricmp(owner->DLLName, "zip\\zip.spl") == 0 ||
+            _stricmp(owner->DLLName, "7zip\\7zip.spl") == 0) ? owner : NULL;
+}
+
+
 BOOL PackUncompress(HWND parent, CFilesWindow* panel, const char* archiveFileName,
                     CPluginDataInterfaceAbstract* pluginData,
                     const char* targetDir, const char* archiveRoot,
-                    SalEnumSelection nextName, void* param)
+                    SalEnumSelection nextName, void* param,
+                    const CFilesActionDiskTarget* diskTarget,
+                    BOOL (*validateSource)(void*), void* sourceContext)
 {
+    if (validateSource != NULL && !validateSource(sourceContext))
+    { SetLastError(ERROR_RETRY); return FALSE; }
     CALL_STACK_MESSAGE4("PackUncompress(, , %s, , %s, %s, ,)", archiveFileName, targetDir, archiveRoot);
+    if (diskTarget != NULL && diskTarget->Branch &&
+        (!diskTarget->DirectoryDefault || targetDir == NULL ||
+         strcmp(targetDir, diskTarget->DefaultPath.c_str()) != 0 ||
+         PackGetVerifiedBranchUnpacker(panel, archiveFileName, pluginData) == NULL))
+        return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_ARCNAME_UNSUP);
+    // The listing's private interface and per-entry data belong to its plugin.
+    // Configuration may change after the archive was opened (including during
+    // startup); never pass that listing to a newly configured unpacker.
+    if (panel != NULL && panel->Is(ptZIPArchive) &&
+        panel->PluginData.Contains(pluginData) &&
+        StrICmp(panel->GetZIPArchive(), archiveFileName) == 0)
+    {
+        CPluginData* owner = panel->GetPluginDataForPluginIface();
+        if (owner == NULL || !owner->SupportPanelView)
+            return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_ARCNAME_UNSUP);
+        return owner->UnpackArchive(panel, archiveFileName, pluginData, targetDir, archiveRoot, nextName, param, diskTarget, validateSource, sourceContext);
+    }
     // find the correct one according to the table
     int format = PackerFormatConfig.PackIsArchive(archiveFileName);
     if (format == 0)
@@ -1447,7 +1484,7 @@ BOOL PackUncompress(HWND parent, CFilesWindow* panel, const char* archiveFileNam
         CPluginData* stored = PackGetPluginForArchiveFile(archiveFileName, panel);
         if (stored == NULL || !stored->SupportPanelView)
             return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_ARCNAME_UNSUP);
-        return stored->UnpackArchive(panel, archiveFileName, pluginData, targetDir, archiveRoot, nextName, param);
+        return stored->UnpackArchive(panel, archiveFileName, pluginData, targetDir, archiveRoot, nextName, param, diskTarget, validateSource, sourceContext);
     }
 
     format--;
@@ -1461,7 +1498,7 @@ BOOL PackUncompress(HWND parent, CFilesWindow* panel, const char* archiveFileNam
         {
             return (*PackErrorHandlerPtr)(parent, IDS_PACKERR_ARCNAME_UNSUP);
         }
-        return plugin->UnpackArchive(panel, archiveFileName, pluginData, targetDir, archiveRoot, nextName, param);
+        return plugin->UnpackArchive(panel, archiveFileName, pluginData, targetDir, archiveRoot, nextName, param, diskTarget, validateSource, sourceContext);
     }
     const SPackBrowseTable* browseTable = ArchiverConfig.GetUnpackerConfigTable(index);
 
@@ -1503,11 +1540,47 @@ BOOL PackUniversalUncompress(HWND parent, const char* command, TPackErrorTable* 
                              const char* initDir, BOOL expandInitDir, CFilesWindow* panel,
                              const BOOL supportLongNames, const char* archiveFileName,
                              const char* targetDir, const char* archiveRoot,
-                             SalEnumSelection nextName, void* param, BOOL needANSIListFile)
+                             SalEnumSelection nextName, void* param, BOOL needANSIListFile,
+                             const CFilesActionDiskTarget* sourceSnapshot, const CFilesActionDiskTarget* diskTarget)
 {
     CALL_STACK_MESSAGE9("PackUniversalUncompress(, %s, , %s, %d, , %d, %s, %s, %s, , , %d)",
                         command, initDir, expandInitDir, supportLongNames, archiveFileName,
                         targetDir, archiveRoot, needANSIListFile);
+
+    const auto contextIsCurrent = [&]() {
+        return (sourceSnapshot == NULL || (sourceSnapshot->Panel == panel && sourceSnapshot->IsCurrent(MainWindow))) &&
+               (diskTarget == NULL || diskTarget->IsCurrent(MainWindow));
+    };
+    if (!contextIsCurrent())
+    {
+        SetLastError(ERROR_RETRY);
+        return FALSE;
+    }
+
+    // Guarded UTF-8 controller calls own the exact legacy-compatible TEMP root.
+    // Do not let the old path==NULL helper copy an unchecked GetTempPathA result.
+    std::string checkedTempRoot;
+    const char* listTempRoot = NULL;
+    if (sourceSnapshot != NULL || diskTarget != NULL)
+    {
+        const auto invalidTempRoot = [&](DWORD error) {
+            (*PackErrorHandlerPtr)(parent, IDS_PACKERR_GENERAL, GetErrorText(error));
+            SetLastError(error);
+            return FALSE;
+        };
+        std::wstring root(SAL_MAX_PATH, L'\0');
+        const DWORD length = GetTempPathW((DWORD)root.size(), root.data());
+        if (length == 0) return invalidTempRoot(GetLastError());
+        if (length >= root.size()) return invalidTempRoot(ERROR_FILENAME_EXCED_RANGE);
+        root.resize(length);
+        checkedTempRoot = SalWideToMultiBytePath(root.c_str(), GetACP());
+        if (checkedTempRoot.empty() || SalMultiByteToWidePath(checkedTempRoot.c_str(), GetACP()) != root)
+            return invalidTempRoot(ERROR_NO_UNICODE_TRANSLATION);
+        const size_t bytes = checkedTempRoot.size();
+        const size_t resultLength = bytes + (checkedTempRoot.back() == char(92) ? 0 : 1) + 4 + 8 + 4;
+        if (resultLength >= MAX_PATH) return invalidTempRoot(ERROR_FILENAME_EXCED_RANGE);
+        listTempRoot = checkedTempRoot.c_str();
+    }
 
     //
     // We must adjust the directory in the archive to the required format
@@ -1549,7 +1622,7 @@ BOOL PackUniversalUncompress(HWND parent, const char* command, TPackErrorTable* 
 
     // Create the name of the temporary file
     char tmpListNameBuf[MAX_PATH];
-    if (!SalGetTempFileName(NULL, "PACK", tmpListNameBuf, TRUE))
+    if (!SalGetTempFileName(listTempRoot, "PACK", tmpListNameBuf, TRUE))
     {
         char buffer[1000];
         strcpy(buffer, "SalGetTempFileName: ");
@@ -1656,6 +1729,15 @@ BOOL PackUniversalUncompress(HWND parent, const char* command, TPackErrorTable* 
         }
     }
 
+    // Free-space prompts and command expansion may dispatch callbacks.
+    if (!contextIsCurrent())
+    {
+        DeleteFile(tmpListNameBuf);
+        RemoveTemporaryDir(tmpDirNameBuf);
+        SetLastError(ERROR_RETRY);
+        return FALSE;
+    }
+
     // and run the external program
     if (!PackExecute(NULL, cmdLine, currentDir, errorTable))
     {
@@ -1722,6 +1804,13 @@ BOOL PackUniversalUncompress(HWND parent, const char* command, TPackErrorTable* 
                 return FALSE;
             }
         }
+    }
+    // The external process wait can close, switch or retarget either panel.
+    if (!contextIsCurrent())
+    {
+        RemoveTemporaryDir(tmpDirNameBuf);
+        SetLastError(ERROR_RETRY);
+        return FALSE;
     }
     if (!panel->MoveFiles(srcDir, targetDir, tmpDirNameBuf, archiveFileName))
     {

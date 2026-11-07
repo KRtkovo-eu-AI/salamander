@@ -1,0 +1,42 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual ZIP recorder and shared array Add; allocation/ownership instrumentation only.
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#define IDS_LOWMEM 37
+static int Checks=0,Failures=0,LiveNames=0,CopyCalls=0,TableCalls=0,BlockCalls=0;
+static bool FailCopy=false,FailTable=false,FailBlock=false;
+static void Check(bool ok,const char* why){++Checks;if(!ok){++Failures;printf("FAIL: %s\n",why);}}
+static char* CopyName(const char* name){++CopyCalls;if(FailCopy)return nullptr;char* p=_strdup(name);if(p)++LiveNames;return p;}
+static void FreeName(void* p){if(p){--LiveNames;free(p);}}
+static void* AllocateBlock(size_t n){++BlockCalls;return FailBlock?nullptr:malloc(n);}
+static void* ResizeTable(void* p,size_t n){++TableCalls;return FailTable?nullptr:realloc(p,n);}
+template<class DATA_TYPE>struct TDirectArray2 {DATA_TYPE** Blocks=nullptr;int BlockSize=1,Count=0;BOOL Add(const DATA_TYPE&);};
+#define malloc AllocateBlock
+#define realloc ResizeTable
+template<class DATA_TYPE>
+@@ARRAY_ADD@@
+#undef realloc
+#undef malloc
+template<class T>struct TIndirectArray2:TDirectArray2<T*> {
+ ~TIndirectArray2(){for(int i=0;i<this->Count;++i)FreeName(this->Blocks[i/this->BlockSize][i%this->BlockSize]);if(this->Blocks){for(int i=0;i<this->Count;++i)free(this->Blocks[i]);free(this->Blocks);}}
+ T*& operator[](int i){return this->Blocks[i/this->BlockSize][i%this->BlockSize];}
+};
+struct CZipCommon {TIndirectArray2<char>* ArchiveVolumes=nullptr;bool ArchiveVolumesComplete=true;const char* ZipName=nullptr;int RecordArchiveVolume();};
+#define _strdup CopyName
+#define free FreeName
+@@RECORDER@@
+#undef free
+#undef _strdup
+static void Reset(){FailCopy=FailTable=FailBlock=false;CopyCalls=TableCalls=BlockCalls=0;Check(LiveNames==0,"previous collection owns no leaked names");}
+int main(){
+ const std::string names[]={"C:\\owned\\archive.zip",u8"C:\\owned\\archive-東京.zip",u8"C:\\parent-東京\\ascii.zip",std::string(u8"C:\\東京\\café\\")+std::string(280,'a')+"\\archive.zip"};
+ for(const auto& name:names){Reset();{TIndirectArray2<char> list;CZipCommon zip;zip.ArchiveVolumes=&list;zip.ZipName=name.c_str();Check(zip.RecordArchiveVolume()==0&&list.Count==1&&zip.ArchiveVolumesComplete,"successful collection accepts one owned exact name");Check(list[0]!=name.c_str()&&strcmp(list[0],name.c_str())==0,"volume is an independent complete copy without path truncation");Check(zip.RecordArchiveVolume()==0&&list.Count==2,"discovery duplicates are retained for existing wrapper dedup");Check(LiveNames==2,"array owns each successful copy");}Check(LiveNames==0,"successful array cleanup frees each accepted name");}
+ for(int failure=0;failure<3;++failure)for(int previous=0;previous<2;++previous){Reset();{TIndirectArray2<char> list;CZipCommon zip;zip.ArchiveVolumes=&list;zip.ZipName=names[0].c_str();if(previous)Check(zip.RecordArchiveVolume()==0,"prior accepted volume setup");FailCopy=failure==0;FailTable=failure==1;FailBlock=failure==2;Check(zip.RecordArchiveVolume()==IDS_LOWMEM&&!zip.ArchiveVolumesComplete,"copy/table/block allocation failure permanently invalidates list");Check(list.Count==previous&&LiveNames==previous,"failed Add frees only unaccepted copy and preserves accepted ownership");if(previous)Check(strcmp(list[0],names[0].c_str())==0,"prior accepted name is intact after growth failure");const int copies=CopyCalls,tables=TableCalls,blocks=BlockCalls;FailCopy=FailTable=FailBlock=false;Check(zip.RecordArchiveVolume()==IDS_LOWMEM&&!zip.ArchiveVolumesComplete,"later success cannot erase failed collection history");Check(CopyCalls==copies&&TableCalls==tables&&BlockCalls==blocks&&list.Count==previous,"sticky failure performs no later allocation or insertion");}Check(LiveNames==0,"failure cleanup has no owned-name leak");}
+ Reset();{CZipCommon zip;zip.ZipName=names[0].c_str();FailCopy=FailTable=FailBlock=true;Check(zip.RecordArchiveVolume()==0&&zip.ArchiveVolumesComplete,"no-delete caller without collection does not allocate");Check(CopyCalls==0&&TableCalls==0&&BlockCalls==0,"no-list extraction never touches copy/table/block allocators");}
+ printf("ZIP internal volume collection: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
+}

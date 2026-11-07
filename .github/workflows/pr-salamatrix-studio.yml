@@ -63,6 +63,13 @@ jobs:
           cache: npm
           cache-dependency-path: src/tools/salamatrix-studio/package-lock.json
 
+      # The syntax tests need an actual interpreter, not an image-dependent
+      # python.exe (which may resolve to a Windows App Execution Alias).
+      - name: Setup Python for generated dispatcher syntax checks
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 

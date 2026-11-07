@@ -1,0 +1,484 @@
+// SPDX-FileCopyrightText: 2026 Open Salamander Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual consumer functions are injected unchanged. Only the UI panel and the
+// separately tested disk snapshot provider are deterministic dependencies.
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <oleauto.h>
+#include <comdef.h>
+#include <algorithm>
+#include <strsafe.h>
+#include <cassert>
+#include <cstring>
+#include <cstdio>
+#include <memory>
+#include <string>
+#include <vector>
+#include <utility>
+#define SAL_MAX_PATH 32768
+#define PATH_TYPE_WINDOWS 1
+#define PATH_TYPE_ARCHIVE 2
+#define PATH_TYPE_FS 3
+#define PANEL_LEFT 1
+#define PANEL_RIGHT 2
+#define SALDISKSELECTION_SELECTED_OR_FOCUSED 0
+#define SALDISKSELECTION_SELECTED_ONLY 1
+#define SALDISKSELECTION_FOCUSED_ONLY 2
+#define SALDISKSELECTION_ALL_ITEMS 3
+#define DECLARE_DISPOBJ_NAME(x)
+#ifndef _ASSERTE
+#define _ASSERTE assert
+#endif
+struct CQuadWord
+{
+    unsigned long long Value;
+    CQuadWord(DWORD low = 0, DWORD high = 0) : Value((static_cast<unsigned long long>(high) << 32) | low) {}
+};
+@@SDK_ITEM@@
+namespace SalamanderDiskSelection { @@CONVERSIONS@@ }
+struct CFileData
+{
+    const char* Name = NULL;
+    const wchar_t* NameW = NULL;
+    const char* Ext = "png";
+    CQuadWord Size;
+    DWORD Attr = FILE_ATTRIBUTE_ARCHIVE;
+    FILETIME LastWrite = {};
+    BOOL SizeValid = TRUE, Hidden = FALSE, IsLink = FALSE, IsOffline = FALSE;
+    BOOL UseWideName() const { return NameW != NULL; }
+};
+struct Row
+{
+    std::wstring Name, Full, Extension = L"png";
+    std::string EncodedName;
+    CSalamanderDiskSelectionItem Item = {};
+    CFileData Data;
+    void Bind()
+    {
+        Item.NameW = Name.c_str(); Item.FullPathW = Full.c_str(); Item.ExtensionW = Extension.c_str();
+        EncodedName = SalamanderDiskSelection::Utf8FromWide(Name.c_str());
+        Data.Name = EncodedName.c_str(); Data.NameW = Name.c_str();
+        Data.Size = Item.Size; Data.Attr = Item.Attr; Data.LastWrite = Item.LastWrite;
+        Data.SizeValid = Item.SizeValid; Data.Hidden = Item.Hidden; Data.IsLink = Item.IsLink; Data.IsOffline = Item.IsOffline;
+    }
+};
+class CSalamanderGeneralAbstract
+{
+public:
+    int Type = PATH_TYPE_WINDOWS;
+    bool FailCapture = false;
+    int CaptureCalls = 0;
+    std::wstring Root = L"C:\\root";
+    std::vector<Row> Rows;
+    void Seal() { for (Row& row : Rows) row.Bind(); }
+    BOOL GetPanelPath(int, char* path, int capacity, int* type, char**)
+    {
+        if (type != NULL) *type = Type;
+        if (path == NULL) return TRUE;
+        const std::string value = SalamanderDiskSelection::Utf8FromWide(Root.c_str());
+        return SUCCEEDED(StringCchCopyA(path, static_cast<size_t>(capacity), value.c_str()));
+    }
+    int GetSourcePanel() const { return PANEL_LEFT; }
+    BOOL GetPanelSelection(int, int* files, int* dirs)
+    {
+        *files = *dirs = 0;
+        for (const Row& row : Rows) if (row.Item.Selected) (row.Item.IsDir ? *dirs : *files)++;
+        return TRUE;
+    }
+    const CFileData* GetPanelItem(int, int* cursor, BOOL* isDir)
+    {
+        if (*cursor < 0 || static_cast<size_t>(*cursor) >= Rows.size()) return NULL;
+        Row& row = Rows[static_cast<size_t>((*cursor)++)];
+        if (isDir != NULL) *isDir = row.Item.IsDir;
+        return &row.Data;
+    }
+    const CFileData* GetPanelSelectedItem(int, int* cursor, BOOL* isDir)
+    {
+        while (*cursor >= 0 && static_cast<size_t>(*cursor) < Rows.size())
+        {
+            Row& row = Rows[static_cast<size_t>((*cursor)++)];
+            if (!row.Item.Selected) continue;
+            if (isDir != NULL) *isDir = row.Item.IsDir;
+            return &row.Data;
+        }
+        return NULL;
+    }
+    const CFileData* GetPanelFocusedItem(int, BOOL* isDir)
+    {
+        for (Row& row : Rows) if (row.Item.Focused)
+        {
+            if (isDir != NULL) *isDir = row.Item.IsDir;
+            return &row.Data;
+        }
+        return NULL;
+    }
+};
+class CSalamanderDiskSelection
+{
+    std::vector<Row> Rows;
+    std::wstring Root;
+public:
+    const wchar_t* GetRootPathW() const { return Root.c_str(); }
+    BOOL Capture(CSalamanderGeneralAbstract* general, int, DWORD mode)
+    {
+        Rows.clear(); Root = general->Root; ++general->CaptureCalls;
+        if (general->FailCapture) { SetLastError(ERROR_RETRY); return FALSE; }
+        for (const Row& row : general->Rows)
+        {
+            if (row.Name == L"..") continue;
+            if (mode == SALDISKSELECTION_SELECTED_ONLY && !row.Item.Selected) continue;
+            if (mode == SALDISKSELECTION_FOCUSED_ONLY && !row.Item.Focused) continue;
+            Rows.push_back(row);
+        }
+        for (Row& row : Rows) row.Bind();
+        return TRUE;
+    }
+    int GetCount() const { return static_cast<int>(Rows.size()); }
+    const CSalamanderDiskSelectionItem* GetItem(int index) const
+    { return index >= 0 && static_cast<size_t>(index) < Rows.size() ? &Rows[static_cast<size_t>(index)].Item : NULL; }
+};
+CSalamanderGeneralAbstract* SalamanderGeneral = NULL;
+
+// Minimal COM shell lets the actual item property/storage code run unchanged.
+struct ISalamanderPanelItem : IDispatch
+{
+    virtual HRESULT STDMETHODCALLTYPE get_Path(BSTR*) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Name(BSTR*) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Size(VARIANT*) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_DateLastModified(DATE*) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Attributes(int*) = 0;
+};
+struct ISalamanderPanelItemCollection : IDispatch
+{
+    virtual HRESULT STDMETHODCALLTYPE get_Item(VARIANT, ISalamanderPanelItem**) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Count(long*) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get__NewEnum(IUnknown**) = 0;
+};
+static int LiveDispatchObjects = 0;
+template<class Derived, class Interface> class CDispatchImpl : public Interface
+{
+    ULONG References = 1;
+public:
+    CDispatchImpl() { ++LiveDispatchObjects; }
+    ~CDispatchImpl() { --LiveDispatchObjects; }
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void** result) { *result = static_cast<Interface*>(this); AddRef(); return S_OK; }
+    ULONG STDMETHODCALLTYPE AddRef() { return ++References; }
+    ULONG STDMETHODCALLTYPE Release() { ULONG remaining = --References; if (!remaining) delete static_cast<Derived*>(this); return remaining; }
+    HRESULT STDMETHODCALLTYPE GetTypeInfoCount(UINT* count) { *count = 0; return S_OK; }
+    HRESULT STDMETHODCALLTYPE GetTypeInfo(UINT, LCID, ITypeInfo**) { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE GetIDsOfNames(REFIID, LPOLESTR*, UINT, LCID, DISPID*) { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE Invoke(DISPID, REFIID, LCID, WORD, DISPPARAMS*, VARIANT*, EXCEPINFO*, UINT*) { return E_NOTIMPL; }
+};
+static void QuadWordToVariant(LARGE_INTEGER size, VARIANT* value)
+{ VariantInit(value); V_VT(value) = VT_UI8; V_UI8(value) = static_cast<ULONGLONG>(size.QuadPart); }
+@@ITEM_CLASS@@
+@@ITEM_METHODS@@
+@@SNAPSHOT_CLASS@@
+@@COLLECTION_CLASSES@@
+@@SNAPSHOT_METHODS@@
+
+namespace Salamatrix { namespace Sides {
+@@SIDE_CONSTANTS@@
+@@SIDE_TYPES@@
+static const DWORD ITEM_INFO_V1_SIZE = static_cast<DWORD>(offsetof(ItemInfo, Extension));
+class SidesService
+{
+public:
+    CSalamanderGeneralAbstract* General;
+    explicit SidesService(CSalamanderGeneralAbstract* general) : General(general) {}
+@@SIDE_METHODS@@
+};
+}}
+namespace Sides = Salamatrix::Sides;
+@@JSON_METHODS@@
+
+@@WIRE_METHODS@@
+
+static int Checks = 0, Failures = 0;
+static void Check(bool condition, const char* name)
+{ ++Checks; if (!condition) { ++Failures; std::printf("FAIL: %s\n", name); } }
+static void Populate(CSalamanderGeneralAbstract& general)
+{
+    general.Rows.clear();
+    const std::wstring unicode = L"\u017Elu\u0165ou\u010Dk\u00FD \u6771\u4EAC";
+    std::wstring utf8Only;
+    for (int i = 0; i < 40; ++i) utf8Only += L"\u6771\u4EAC_";
+    const std::vector<std::wstring> relative = {L"alpha\\same.png", unicode + L"\\same.png",
+        unicode + L"\\vno\u0159en\u00E1\\same.png", L"names\\\u017Elu\u0165ou\u010Dk\u00FD.png",
+        L"short\\\u6771\u4EAC.png", utf8Only + L"\\same.png",
+        std::wstring(120, L'a') + L"\\\u6771\u4EAC\\" + std::wstring(150, L'b') + L"\\same.png"};
+    for (size_t i = 0; i < relative.size(); ++i)
+    {
+        Row row;
+        row.Full = general.Root + L"\\" + relative[i];
+        row.Name = relative[i].substr(relative[i].find_last_of(L'\\') + 1);
+        row.Item.Selected = i != 3;
+        row.Item.Focused = i == 3;
+        row.Item.Size = CQuadWord(100 + static_cast<DWORD>(i), 20);
+        row.Item.Attr = FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_HIDDEN;
+        row.Item.LastWrite = FILETIME{12000 + static_cast<DWORD>(i), 31000000};
+        row.Item.SizeValid = TRUE; row.Item.Hidden = TRUE; row.Item.IsLink = (i == 1); row.Item.IsOffline = (i == 2);
+        row.Item.PanelIndex = static_cast<int>(i);
+        general.Rows.push_back(row);
+    }
+    general.Seal();
+}
+static void AssertItem(ISalamanderPanelItem* object, const Row& row)
+{
+    BSTR path = NULL, name = NULL; VARIANT size; int attrs = 0; DATE date = 0;
+    Check(object != NULL, "Automation item exists");
+    if (object == NULL) return;
+    Check(SUCCEEDED(object->get_Path(&path)) && row.Full == path, "Automation Path preserves exact per-item wide path");
+    Check(SUCCEEDED(object->get_Name(&name)) && row.Name == name, "Automation Name preserves exact Unicode basename");
+    Check(SUCCEEDED(object->get_Size(&size)) && V_UI8(&size) == row.Item.Size.Value, "Automation size preserves high DWORD");
+    Check(SUCCEEDED(object->get_Attributes(&attrs)) && static_cast<DWORD>(attrs) == row.Item.Attr, "Automation attributes preserved");
+    Check(SUCCEEDED(object->get_DateLastModified(&date)), "Automation modified date remains available");
+    SysFreeString(path); SysFreeString(name); VariantClear(&size);
+}
+static void TestAutomation()
+{
+    CSalamanderGeneralAbstract general; Populate(general); SalamanderGeneral = &general;
+    const std::vector<Row> original = general.Rows;
+    CSalamanderAutomationItemsSnapshot snapshot(PANEL_LEFT, FALSE);
+    Check(snapshot.Disk && snapshot.Result == S_OK && snapshot.GetCount() == 7, "Automation all-items captures exactly once");
+    Check(general.CaptureCalls == 1, "Automation collection performs one Capture");
+    general.Rows.clear(); general.Root = L"D:\\changed";
+    for (int i = 0; i < snapshot.GetCount(); ++i)
+    {
+        ISalamanderPanelItem* item = NULL;
+        Check(snapshot.GetItem(i, &item) == S_OK, "captured item survives panel refresh");
+        AssertItem(item, original[static_cast<size_t>(i)]);
+        if (item) item->Release();
+    }
+    Check(general.CaptureCalls == 1, "item reads never recapture refreshed panel");
+    ISalamanderPanelItem* detached = NULL;
+    {
+        Populate(general);
+        CSalamanderAutomationItemsSnapshot transient(PANEL_LEFT, TRUE);
+        Check(transient.GetCount() == 6, "selected-only Automation excludes unselected focus");
+        Check(transient.GetItem(0, &detached) == S_OK, "create independent COM item from transient snapshot");
+    }
+    const Row expected = general.Rows[0]; general.Rows.clear();
+    AssertItem(detached, expected); if (detached) detached->Release();
+    general.FailCapture = true;
+    CSalamanderAutomationItemsSnapshot failed(PANEL_LEFT, TRUE);
+    ISalamanderPanelItem* missing = NULL;
+    Check(FAILED(failed.Result) && failed.GetItem(0, &missing) == HRESULT_FROM_WIN32(ERROR_RETRY) && missing == NULL,
+          "failed disk capture cannot fabricate root-plus-name item");
+    general.FailCapture = false; Populate(general);
+    Row up; up.Name = L".."; up.Full = general.Root + L"\\.."; up.Item.IsDir = TRUE;
+    general.Rows.insert(general.Rows.begin(), up); general.Seal();
+    CSalamanderAutomationItemsSnapshot withUp(PANEL_LEFT, FALSE);
+    Check(withUp.GetCount() == 8 && withUp.UpDir != NULL, "virtual up-directory stays in Automation UI collection");
+    ISalamanderPanelItem* upItem = NULL; withUp.GetItem(0, &upItem);
+    AssertItem(upItem, general.Rows[0]); if (upItem) upItem->Release();
+    general.Type = PATH_TYPE_ARCHIVE;
+    const int calls = general.CaptureCalls;
+    CSalamanderAutomationItemsSnapshot archive(PANEL_LEFT, FALSE);
+    Check(!archive.Disk && archive.Result == S_OK && general.CaptureCalls == calls, "archive collection keeps explicit legacy path");
+}
+static void TestSides()
+{
+    CSalamanderGeneralAbstract general; Populate(general);
+    Sides::SidesService service(&general);
+    std::unique_ptr<Sides::ItemInfo> info(new Sides::ItemInfo);
+    for (size_t i = 0; i < general.Rows.size(); ++i)
+    {
+        const Row& row = general.Rows[i];
+        Check(service.CopyDiskItemInfo(row.Item, info.get()) != FALSE, "copy snapshot to unchanged ItemInfo");
+        const std::string full = SalamanderDiskSelection::Utf8FromWide(row.Full.c_str());
+        Check(full == info->Path && SalamanderDiskSelection::Utf8FromWide(row.Name.c_str()) == info->Name,
+              "Sides ItemInfo holds exact UTF8 identity for duplicate and long names");
+        Check(info->Size.Value == row.Item.Size.Value && info->Attributes == row.Item.Attr && info->SizeValid && info->Hidden &&
+              info->IsLink == row.Item.IsLink && info->IsOffline == row.Item.IsOffline &&
+              info->LastWriteUtc.dwLowDateTime == row.Item.LastWrite.dwLowDateTime && std::strcmp(info->Extension, "png") == 0,
+              "Sides snapshot preserves all existing metadata fields");
+        Check(SideItemJson(*info).find(JsonEscape(full.c_str())) != std::string::npos,
+              "actual shared JSON serializer preserves path bytes for every worker");
+    }
+    Check(service.GetSelectedItem(Sides::SideReferenceSource, 3, info.get()) &&
+          std::string(info->Path) == SalamanderDiskSelection::Utf8FromWide(general.Rows[4].Full.c_str()),
+          "selected getter respects filtered index and exact per-item parent");
+    Check(service.GetFocusedItem(Sides::SideReferenceSource, info.get()) &&
+          std::string(info->Path) == SalamanderDiskSelection::Utf8FromWide(general.Rows[3].Full.c_str()),
+          "focused getter captures focus without selected fallback");
+    info->StructSize = Sides::ITEM_INFO_V1_SIZE;
+    std::memset(info->Extension, 0x5a, sizeof(info->Extension));
+    Check(service.CopyDiskItemInfo(general.Rows[0].Item, info.get()) && info->Extension[0] == 0x5a &&
+          info->Extension[sizeof(info->Extension)-1] == 0x5a, "v1 prefix caller is supported without appended writes");
+    info->StructSize = sizeof(*info);
+    Row tooLong = general.Rows[0]; tooLong.Name.assign(600, L'x'); tooLong.Bind();
+    const std::string before = info->Path;
+    Check(!service.CopyDiskItemInfo(tooLong.Item, info.get()) && GetLastError() == ERROR_INSUFFICIENT_BUFFER && before == info->Path,
+          "fixed public ABI capacity failure leaves prior identity intact, never truncated");
+    general.FailCapture = true;
+    Check(!service.GetSelectedItem(Sides::SideReferenceSource, 0, info.get()) && GetLastError() == ERROR_RETRY,
+          "failed selected capture does not fall back to guessed path");
+    Check(!service.GetFocusedItem(Sides::SideReferenceSource, info.get()) && GetLastError() == ERROR_RETRY,
+          "failed focused capture does not fall back to guessed path");
+    general.FailCapture = false; general.Type = PATH_TYPE_FS;
+    const int calls = general.CaptureCalls;
+    Check(service.GetSelectedItem(Sides::SideReferenceSource, 0, info.get()) && general.CaptureCalls == calls,
+          "plugin-FS selected item keeps existing legacy consumer contract");
+}
+static void TestDynamicJsonContext()
+{
+    CSalamanderGeneralAbstract general;
+    Populate(general);
+    SalamanderGeneral = &general;
+    std::unique_ptr<Sides::ItemInfo> native(new Sides::ItemInfo);
+    for (const Row& row : general.Rows)
+    {
+        Check(Sides::SidesService::CopyDiskItemInfo(row.Item, native.get()) != FALSE, "normal native item fits ABI");
+        Check(SideItemJson(*native) == SideItemJson(row.Item), "wide JSON overload preserves every existing field and value");
+    }
+    general.Root = L"C:";
+    for (int i = 0; i < 60; ++i)
+        general.Root += L"\\" + std::wstring(200, L'\u6771');
+    Row wide;
+    wide.Name = std::wstring(100, L'\u4e2d') + L"." + std::wstring(154, L'\u6587');
+    wide.Extension = wide.Name.substr(wide.Name.find(L'.') + 1);
+    wide.Full = general.Root + L"\\" + wide.Name;
+    wide.Item.Selected = wide.Item.Focused = TRUE;
+    wide.Item.Size = CQuadWord(123, 4); wide.Item.Attr = FILE_ATTRIBUTE_ARCHIVE;
+    wide.Item.SizeValid = TRUE; wide.Item.LastWrite = FILETIME{789, 456};
+    general.Rows.assign(1, wide); general.Seal(); wide = general.Rows[0]; wide.Bind();
+    const std::string name = SalamanderDiskSelection::Utf8FromWide(wide.Name.c_str());
+    const std::string path = SalamanderDiskSelection::Utf8FromWide(wide.Full.c_str());
+    const std::string extension = SalamanderDiskSelection::Utf8FromWide(wide.Extension.c_str());
+    const std::string root = SalamanderDiskSelection::Utf8FromWide(general.Root.c_str());
+    Check(wide.Name.size() == 255 && name.size() > sizeof(native->Name), "valid 255-character CJK name exceeds native byte capacity");
+    Check(extension.size() > sizeof(native->Extension), "valid extension exceeds native byte capacity");
+    Check(path.size() > sizeof(native->Path) && wide.Full.size() < SAL_MAX_PATH, "valid Windows path exceeds native UTF8 byte capacity");
+    Check(root.size() > sizeof(native->Path), "context root also exceeds native byte capacity");
+    const std::string unchanged = native->Path;
+    Check(!Sides::SidesService::CopyDiskItemInfo(wide.Item, native.get()) && GetLastError() == ERROR_INSUFFICIENT_BUFFER && native->Path == unchanged,
+          "native fixed ABI continues to fail explicitly without truncation");
+    const std::string itemJson = SideItemJson(wide.Item);
+    Check(itemJson.find("\"name\":\"" + JsonEscape(name.c_str()) + "\"") != std::string::npos, "dynamic JSON preserves complete CJK name");
+    Check(itemJson.find("\"path\":\"" + JsonEscape(path.c_str()) + "\"") != std::string::npos, "dynamic JSON preserves complete UTF8 long path");
+    Check(itemJson.find("\"extension\":\"" + JsonEscape(extension.c_str()) + "\"") != std::string::npos, "dynamic JSON preserves complete long extension");
+    std::string context;
+    const int captures = general.CaptureCalls;
+    Check(DiskSideContextJson(&general, PANEL_LEFT, &context) != FALSE, "actual disk context bypasses native ItemInfo capacities");
+    Check(general.CaptureCalls == captures + 2, "context captures selected and focused exactly once each");
+    Check(context.find("\"path\":\"" + JsonEscape(root.c_str()) + "\"") != std::string::npos, "context root comes from owned wide snapshot");
+    Check(context.find("\"selectedItems\":[" + itemJson + "]") != std::string::npos, "selected JSON contains complete dynamic item");
+    Check(context.find("\"focusedItem\":" + itemJson) != std::string::npos, "focused JSON contains complete dynamic item");
+    general.Rows.clear(); general.Root = L"C:\\changed";
+    Check(context.find(JsonEscape(path.c_str())) != std::string::npos, "serialized context owns data after panel mutation");
+    Check(DiskSideContextJson(&general, PANEL_LEFT, &context) && context.find("\"selectedItems\":[]") != std::string::npos &&
+          context.find("\"focusedItem\":null") != std::string::npos, "empty panel returns empty selected list and null focus");
+    Row up; up.Name = L".."; up.Full = general.Root + L"\\..";
+    up.Item.IsDir = TRUE; up.Item.Focused = TRUE; up.Item.Size = CQuadWord(0, 0);
+    general.Rows.push_back(up); general.Seal();
+    Check(DiskSideContextJson(&general, PANEL_LEFT, &context) && context.find("\"name\":\"..\"") != std::string::npos &&
+          context.find("\"selectedCount\":0") != std::string::npos && context.find("\"isDirectory\":true") != std::string::npos,
+          "synthetic focused up-directory keeps legacy JSON UI semantics but remains outside selection");
+    general.FailCapture = true;
+    const std::string before = context;
+    Check(!DiskSideContextJson(&general, PANEL_LEFT, &context) && context == before, "failed disk capture cannot return partial context or a legacy guessed path");
+    general.FailCapture = false; general.Rows.assign(70, wide); general.Seal();
+    Check(DiskSideContextJson(&general, PANEL_LEFT, &context) && context.find("\"selectedCount\":70") != std::string::npos &&
+          context.find("\"selectedItemsTruncated\":true") != std::string::npos, "dynamic context keeps existing 64-item limit and total count");
+}
+
+// S10 integration: execute actual collection/enumerator and CUnknownImpl code.
+static void TestEnumeration()
+{
+    CSalamanderGeneralAbstract general; Populate(general); SalamanderGeneral = &general;
+    const std::vector<Row> original = general.Rows;
+    const int baseline = LiveDispatchObjects;
+    auto* collection = new CSalamanderPanelItemCollection(PANEL_LEFT, CSalamanderPanelItemCollection::ItemCollection);
+    long count = 0;
+    Check(collection->get_Count(&count) == S_OK && count == 7, "real collection captures seven items");
+    Check(collection->get_Count(NULL) == E_POINTER, "Count null output rejected");
+    VARIANT key; VariantInit(&key); V_VT(&key) = VT_I4; V_I4(&key) = 3;
+    ISalamanderPanelItem* detached = NULL;
+    Check(collection->get_Item(key, &detached) == S_OK, "real indexed getter returns owned item");
+    IUnknown *first = NULL, *second = NULL;
+    Check(collection->get__NewEnum(&first) == S_OK && collection->get__NewEnum(&second) == S_OK, "independent real NewEnum objects");
+    IEnumVARIANT *enumerator = NULL, *other = NULL;
+    Check(first->QueryInterface(__uuidof(IEnumVARIANT), reinterpret_cast<void**>(&enumerator)) == S_OK, "real enum QI");
+    Check(second->QueryInterface(__uuidof(IEnumVARIANT), reinterpret_cast<void**>(&other)) == S_OK, "second enum QI");
+    first->Release(); second->Release(); const int captures = general.CaptureCalls;
+    std::reverse(general.Rows.begin(), general.Rows.end()); general.Seal();
+    for (Row& row : general.Rows) row.Item.Selected = FALSE;
+    general.Rows.clear(); general.Root = L"D:\\changed";
+    Check(collection->get_Count(&count) == S_OK && count == 7 && general.CaptureCalls == captures, "Count survives sort deselection refresh and row destruction");
+    collection->Release(); AssertItem(detached, original[3]); detached->Release();
+    VARIANT values[8]; for (VARIANT& value : values) VariantInit(&value); ULONG fetched = 0;
+    Check(enumerator->Next(2, values, &fetched) == S_OK && fetched == 2, "Next after collection Release");
+    for (ULONG i = 0; i < fetched; ++i) { AssertItem(static_cast<ISalamanderPanelItem*>(V_DISPATCH(&values[i])), original[i]); VariantClear(&values[i]); }
+    Check(other->Next(1, values, &fetched) == S_OK && fetched == 1, "independent enum starts at zero");
+    AssertItem(static_cast<ISalamanderPanelItem*>(V_DISPATCH(&values[0])), original[0]); VariantClear(&values[0]);
+    Check(enumerator->Reset() == S_OK && general.CaptureCalls == captures, "Reset does not recapture");
+    Check(enumerator->Next(8, values, &fetched) == S_FALSE && fetched == 7, "Next exact final count and S_FALSE");
+    for (ULONG i = 0; i < fetched; ++i) { AssertItem(static_cast<ISalamanderPanelItem*>(V_DISPATCH(&values[i])), original[i]); VariantClear(&values[i]); }
+    Check(enumerator->Next(1, values, &fetched) == S_FALSE && fetched == 0 && V_VT(&values[0]) == VT_EMPTY, "exhaustion returns empty variant");
+    enumerator->Release(); other->Release(); Check(LiveDispatchObjects == baseline, "all dispatch items and collection released");
+    Populate(general); general.FailCapture = true;
+    collection = new CSalamanderPanelItemCollection(PANEL_LEFT, CSalamanderPanelItemCollection::SelectionCollection);
+    count = 99; first = reinterpret_cast<IUnknown*>(1);
+    Check(collection->get_Count(&count) == HRESULT_FROM_WIN32(ERROR_RETRY) && count == 0, "Count propagates capture failure");
+    Check(collection->get__NewEnum(&first) == HRESULT_FROM_WIN32(ERROR_RETRY) && first == NULL, "failed capture publishes no enum");
+    collection->Release(); general.FailCapture = false;
+    std::weak_ptr<CSalamanderAutomationItemsSnapshot> lifetime;
+    { auto captured = std::make_shared<CSalamanderAutomationItemsSnapshot>(PANEL_LEFT, FALSE); lifetime = captured;
+      enumerator = new CSalamanderPanelItemEnumerator(PANEL_LEFT, CSalamanderPanelItemCollection::ItemCollection, captured); }
+    Check(!lifetime.expired(), "enum owns snapshot"); enumerator->Release(); Check(lifetime.expired(), "last Release destroys snapshot");
+    Row wide = original[0]; wide.Name.assign(251, L'\u6771'); wide.Name += L".bin"; wide.Full = L"C:\\owned\\" + wide.Name; wide.Bind();
+    auto* longItem = new CSalamanderPanelItemAutomation(wide.Item);
+    Check(SalamanderDiskSelection::Utf8FromWide(wide.Name.c_str()).size() > MAX_PATH, "valid CJK basename exceeds narrow MAX_PATH bytes");
+    AssertItem(longItem, wide); Check(longItem->get_Path(NULL) == E_POINTER && longItem->get_Name(NULL) == E_POINTER, "null item outputs rejected"); longItem->Release();
+    Check(LiveDispatchObjects == baseline, "no dispatch leaks");
+}
+
+// S11: actual JSON serializer, output-capacity boundary and line protocol.
+static void TestPayloadBoundaries()
+{
+    CSalamanderGeneralAbstract general;
+    general.Root = L"C:\\\u017elu\u0165ou\u010dk\u00fd-\u6771\u4eac";
+    Row row; row.Name = std::wstring(100, L'\u6771') + L".txt";
+    row.Extension = L"txt"; row.Full = general.Root + L"\\quoted\"\t\n\r\b\f\x01\\" + row.Name;
+    row.Item.Selected = row.Item.Focused = TRUE; row.Item.Size = CQuadWord(123, 4);
+    row.Item.LastWrite = FILETIME{789, 456}; row.Item.Attr = FILE_ATTRIBUTE_ARCHIVE;
+    row.Item.SizeValid = TRUE; general.Rows.push_back(row); general.Seal();
+    std::string context;
+    Check(DiskSideContextJson(&general, PANEL_LEFT, &context), "escaped context serialized");
+    std::vector<char> output(context.size() + 2, '#'); DWORD length = 777;
+    Check(!CopyResult(context, output.data(), static_cast<DWORD>(context.size()), &length) && length == 777 && output[0] == '#', "insufficient whole payload capacity has no partial output");
+    Check(CopyResult(context, output.data(), static_cast<DWORD>(context.size() + 1), &length) && length == context.size() && output[context.size()] == 0 && output.back() == '#', "exact payload capacity includes terminator and preserves canary");
+    Check(!CopyResult(context, NULL, 1, &length) && !CopyResult(context, output.data(), 0, &length) && !CopyResult(context, output.data(), 1, NULL), "invalid payload destinations rejected");
+    std::FILE* report = NULL; fopen_s(&report, "s11-escaped.json", "wb");
+    Check(report != NULL, "open owned escaped report");
+    if (report != NULL) { Check(std::fwrite(context.data(), 1, context.size(), report) == context.size(), "write complete escaped JSON"); std::fclose(report); }
+    std::string frame;
+    using namespace Salamatrix::Runtime::Protocol;
+    Check(LineCodec::Encode(MessageResult, 42, context, &frame), "escaped complete context fits wire protocol");
+    LineCodec codec; Frame decoded; BOOL complete = FALSE;
+    Check(codec.Append(frame.data(), frame.size(), &decoded, &complete) && complete && decoded.PayloadJson == context, "actual context wire roundtrip preserves every byte");
+    const std::string prefix = "SMX1\tresult\t42\t";
+    const size_t exactPayload = MaxFrameBytes - prefix.size() - 1;
+    std::string boundary = "{\"x\":\"" + std::string(exactPayload - 8, 'x') + "\"}";
+    Check(boundary.size() == exactPayload && LineCodec::Encode(MessageResult, 42, boundary, &frame) && frame.size() == MaxFrameBytes, "whole-frame exact boundary accepted");
+    boundary.insert(boundary.size() - 2, 1, 'x');
+    Check(!LineCodec::Encode(MessageResult, 42, boundary, &frame), "whole-frame boundary plus one rejected");
+    general.Root = L"C:";
+    for (int i = 0; i < 60; ++i) general.Root += L"\\" + std::wstring(200, L'\u6771');
+    row.Full = general.Root + L"\\" + row.Name; general.Rows.assign(70, row); general.Seal();
+    Check(DiskSideContextJson(&general, PANEL_LEFT, &context) && context.size() > MaxFrameBytes, "large valid context serialized before transport limit");
+    std::vector<char> runtimeResponse(65536, '#'); length = 777;
+    Check(!CopyResult(context, runtimeResponse.data(), static_cast<DWORD>(runtimeResponse.size()), &length) && length == 777 && runtimeResponse.front() == '#' && runtimeResponse.back() == '#', "real provider response capacity rejects oversized context without truncation");
+    Check(!LineCodec::Encode(MessageResult, 42, context, &frame), "oversized real JSON rejected by actual framing");
+    report = NULL; fopen_s(&report, "s11-large.json", "wb"); Check(report != NULL, "open owned large report");
+    if (report != NULL) { Check(std::fwrite(context.data(), 1, context.size(), report) == context.size(), "write complete large JSON"); std::fclose(report); }
+}
+
+int main()
+{
+    TestAutomation(); TestEnumeration(); TestSides(); TestDynamicJsonContext(); TestPayloadBoundaries();
+    std::printf("Actual selection consumers: %d checks, %d failures\n", Checks, Failures);
+    return Failures == 0 ? 0 : 1;
+}

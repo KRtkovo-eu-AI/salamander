@@ -15,6 +15,23 @@
 
 #include "dispimpl.h"
 
+class CSalamanderPanelItemAutomation;
+
+// One UI-thread capture shared by the collection and all its enumerators.
+// The virtual up-directory is kept separately for the legacy Automation UI API.
+class CSalamanderAutomationItemsSnapshot
+{
+public:
+    BOOL Disk;
+    HRESULT Result;
+    CSalamanderDiskSelection Selection;
+    CSalamanderPanelItemAutomation* UpDir;
+    CSalamanderAutomationItemsSnapshot(int panel, BOOL selectedOnly);
+    ~CSalamanderAutomationItemsSnapshot();
+    int GetCount() const;
+    HRESULT GetItem(int index, ISalamanderPanelItem** item) const;
+};
+
 class CSalamanderPanelItemCollection : public CDispatchImpl<CSalamanderPanelItemCollection, ISalamanderPanelItemCollection>
 {
 public:
@@ -29,10 +46,11 @@ public:
 private:
     int m_nPanel;
     CollectionType m_collType;
+    std::shared_ptr<CSalamanderAutomationItemsSnapshot> m_snapshot;
 
     int GetCount()
     {
-        return GetCount(m_nPanel, m_collType);
+        return m_snapshot->Disk ? m_snapshot->GetCount() : GetCount(m_nPanel, m_collType);
     }
 
 public:
@@ -61,11 +79,13 @@ private:
     int m_nPanel;
     CSalamanderPanelItemCollection::CollectionType m_collType;
     int m_iItem;
+    std::shared_ptr<CSalamanderAutomationItemsSnapshot> m_snapshot;
 
-    bool FetchItem(VARIANT* pItem);
+    HRESULT FetchItem(VARIANT* pItem);
 
 public:
-    CSalamanderPanelItemEnumerator(int nPanel, CSalamanderPanelItemCollection::CollectionType type);
+    CSalamanderPanelItemEnumerator(int nPanel, CSalamanderPanelItemCollection::CollectionType type,
+                                 std::shared_ptr<CSalamanderAutomationItemsSnapshot> snapshot);
     ~CSalamanderPanelItemEnumerator();
 
     // IUnknown

@@ -4,6 +4,8 @@
 #pragma once
 
 #include <vector>
+#include <string>
+#include <unordered_map>
 
 //
 // ****************************************************************************
@@ -261,6 +263,12 @@ class CAssociations : public TDirectArray<CAssociationData>
 protected:
     CAssociationsIcons Icons[ICONSIZE_COUNT];
     std::vector<CAssociationsPixelIconSet> PixelIconSets;
+    // Preparation only caches shell answers. It must not insert association
+    // records or claim a source icon while another listing is being drawn.
+    struct CShellAssociationResult { BOOL Associated; BOOL CanOpen; };
+    std::unordered_map<std::string, CShellAssociationResult> PreparedShellAssociations;
+    ULONGLONG ShellAssociationEpoch = 1;
+    BOOL QueryShellAssociationCached(const char* ext, BOOL& canOpen, BOOL prepare = FALSE);
 
 public:
     CAssociations();
@@ -298,6 +306,8 @@ public:
     void ColorsChanged();
 
     void ReadAssociations(BOOL showWaitWnd);
+    void PrepareShellAssociation(const std::string& extension);
+    ULONGLONG GetShellAssociationEpoch() const { return ShellAssociationEpoch; }
 
     // ext musi byt zarovnan po DWORDech
     BOOL IsAssociated(char* ext, BOOL& addtoIconCache, CIconSizeEnum iconSize, int pixelSize);

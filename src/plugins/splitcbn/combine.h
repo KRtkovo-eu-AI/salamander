@@ -3,7 +3,7 @@
 
 #pragma once
 
-BOOL CombineFiles(TIndirectArray<char>& files, LPTSTR targetName,
+BOOL CombineFiles(TIndirectArray<char>& files, const char* targetName,
                   BOOL bOnlyCrc, BOOL bTestCrc, UINT32& Crc,
                   BOOL bTime, FILETIME* origTime, HWND parent,
                   CSalamanderForOperationsAbstract* salamander);

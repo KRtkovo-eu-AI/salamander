@@ -392,6 +392,11 @@ int CZipPack::LoadExPackOptions(unsigned flags)
 
     if (!LoadDefaults())
         return IDS_NODISPLAY;
+    // Defaults can select SFX/multi-volume even when the dialog is hidden.
+    // Return the existing localized error before preview or output creation.
+    if (!ZipPackAdvancedPathFits(ZipName) &&
+        (Options.Action & (PA_MULTIVOL | PA_SELFEXTRACT)))
+        return ErrorID = IDS_TOOLONGZIPNAME;
     if (Config.ShowExOptions)
     {
         if (PackDialog(SalamanderGeneral->GetMainWindowHWND(), this, &Config, &Options, ZipName, flags) != IDOK)
@@ -424,7 +429,15 @@ int CZipPack::LoadExPackOptions(unsigned flags)
 int CZipPack::CreateSFX()
 {
     CALL_STACK_MESSAGE1("CZipPack::CreateSFX()");
-    char exeName[MAX_PATH];
+    std::vector<char> exeName;
+    try
+    {
+        exeName.resize(SAL_MAX_PATH);
+    }
+    catch (const std::bad_alloc&)
+    {
+        return ErrorID = IDS_LOWMEM;
+    }
 
     //MenuSfx = true;
     if (!*Config.DefSfxFile)
@@ -436,9 +449,10 @@ int CZipPack::CreateSFX()
     if (!LoadDefaults())
         return ErrorID = IDS_NODISPLAY;
 
-    lstrcpy(exeName, ZipName);
-    SalamanderGeneral->SalPathRenameExtension(exeName, ".exe", MAX_PATH);
-    CCreateSFXDialog dlg(SalamanderGeneral->GetMainWindowHWND(), ZipName, exeName, &Options, this);
+    memcpy(exeName.data(), ZipName, strlen(ZipName) + 1);
+    if (!SalamanderGeneral->SalPathRenameExtension(exeName.data(), ".exe", static_cast<int>(exeName.size())))
+        return ErrorID = IDS_TOOLONGNAME;
+    CCreateSFXDialog dlg(SalamanderGeneral->GetMainWindowHWND(), ZipName, sizeof(ZipName), exeName.data(), exeName.size(), &Options, this);
     if (dlg.Proceed() != IDOK)
         return ErrorID = IDS_NODISPLAY;
 
@@ -464,10 +478,25 @@ int CZipPack::CreateSFX()
     if (ErrorID)
         return ErrorID;
 
-    if (TestIfExist(exeName))
+    std::string title;
+    std::wstring outputPath;
+    try
+    {
+        outputPath = ZipPathToWide(exeName.data());
+        std::wstring wideTitle = SalamanderDiskSelection::WideFromPath(LoadStr(IDS_SFXPROGTITLE));
+        const size_t placeholder = wideTitle.find(L"%s");
+        if (placeholder != std::wstring::npos)
+            wideTitle.replace(placeholder, 2, SalamanderDiskSelection::WideFromPath(SalamanderGeneral->SalPathFindFileName(exeName.data())));
+        title = SalamanderDiskSelection::Utf8FromWide(wideTitle.c_str());
+    }
+    catch (const std::bad_alloc&)
+    {
+        return ErrorID = IDS_LOWMEM;
+    }
+    if (TestIfExist(exeName.data()))
         return ErrorID;
 
-    ret = CreateCFile(&TempFile, exeName, GENERIC_WRITE, FILE_SHARE_READ,
+    ret = CreateCFile(&TempFile, exeName.data(), GENERIC_WRITE, FILE_SHARE_READ,
                       CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, PE_NOSKIP, NULL,
                       false, false);
     if (ret)
@@ -478,11 +507,9 @@ int CZipPack::CreateSFX()
             return ErrorID = IDS_NODISPLAY;
     }
 
-    char title[1024];
-    sprintf(title, LoadStr(IDS_SFXPROGTITLE), SalamanderGeneral->SalPathFindFileName(exeName));
-    Salamander->OpenProgressDialog(title, FALSE, NULL, FALSE);
+    Salamander->OpenProgressDialog(title.c_str(), FALSE, NULL, FALSE);
     ProgressTotalSize = CQuadWord().SetUI64(ZipFile->Size);
-    ErrorID = WriteSfxExecutable(exeName, Options.SfxSettings.SfxFile, FALSE, 1);
+    ErrorID = WriteSfxExecutable(exeName.data(), Options.SfxSettings.SfxFile, FALSE, 1);
     if (!ErrorID)
     {
         if (!WriteSFXHeader("", unsigned(EOCentrDirOffs + ExtraBytes), (unsigned)ZipFile->Size))
@@ -493,6 +520,7 @@ int CZipPack::CreateSFX()
             char* buffer = (char*)malloc(DECOMPRESS_INBUFFER_SIZE);
             if (!buffer)
                 ErrorID = IDS_LOWMEM;
+            else
             {
                 ErrorID = MoveData(ArchiveDataOffs, 0, ZipFile->Size, buffer);
                 if (!ErrorID && Flush(TempFile, TempFile->OutputBuffer, TempFile->BufferPosition, NULL))
@@ -505,7 +533,7 @@ int CZipPack::CreateSFX()
     Salamander->CloseProgressDialog();
     CloseCFile(TempFile);
     if (ErrorID)
-        DeleteFile(exeName);
+        DeleteFileW(outputPath.c_str());
 
     return ErrorID;
 }

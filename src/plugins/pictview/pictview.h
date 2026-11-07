@@ -534,6 +534,16 @@ void UpdateThumbnails(CSalamanderForOperationsAbstract* Salamander);
 extern HINSTANCE DLLInstance; // handle to the SPL - language-independent resources
 extern HINSTANCE HLanguage;   // handle to the SLG - language-dependent resources
 
+// Optional wide navigation service; wrappers retain the legacy host fallback.
+BOOL PictViewGetNextFileName(int srcUID, int* index, LPCTSTR lastName,
+    BOOL preferSelected, BOOL associated, std::basic_string<TCHAR>& name,
+    BOOL* noMoreFiles, BOOL* busy);
+BOOL PictViewGetPreviousFileName(int srcUID, int* index, LPCTSTR lastName,
+    BOOL preferSelected, BOOL associated, std::basic_string<TCHAR>& name,
+    BOOL* noMoreFiles, BOOL* busy);
+BOOL PictViewIsFileSelected(int srcUID, int index, LPCTSTR name, BOOL* selected, BOOL* busy);
+BOOL PictViewSetFileSelection(int srcUID, int index, LPCTSTR name, BOOL selected, BOOL* busy);
+
 extern CSalamanderGeneralAbstract* SalamanderGeneral;
 extern CSalamanderGUIAbstract* SalamanderGUI;
 extern CPVW32DLL PVW32DLL;

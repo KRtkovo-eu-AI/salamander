@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "precomp.h"
+#include <vector>
 #include <zmouse.h>
 #include <shlobj.h>
 
@@ -115,9 +116,36 @@ CRendererWindow::~CRendererWindow()
     FreeComment();
 }
 
+static std::wstring PictViewTitleText(LPCTSTR text, BOOL filePath = FALSE)
+{
+#ifdef _UNICODE
+    return text != NULL ? text : L"";
+#else
+    return PluginMultiByteToWidePath(text, filePath ? CP_UTF8 : CP_ACP);
+#endif
+}
+
+template<typename... Args>
+static std::wstring PictViewFormatTitle(LPCTSTR format, Args... args)
+{
+    std::wstring wideFormat = PictViewTitleText(format);
+    int count = _scwprintf(wideFormat.c_str(), args...);
+    if (count < 0) return std::wstring();
+    std::wstring text(static_cast<size_t>(count) + 1, L'\0');
+    swprintf_s(&text[0], text.size(), wideFormat.c_str(), args...);
+    text.resize(count);
+    return text;
+}
+
+static void SetPictViewTitle(HWND window, const std::wstring& title)
+{
+    SetWindowTextW(window, title.c_str());
+}
+
 void CRendererWindow::SetTitle()
 {
-    TCHAR buff[SAL_MAX_PATH + 100];
+    std::wstring buff;
+    std::wstring pluginName = PictViewTitleText(LoadStr(IDS_PLUGINNAME));
 
     if (PVHandle != NULL && HasInteractivePreview())
     {
@@ -126,8 +154,8 @@ void CRendererWindow::SetTitle()
         {
             fname = (LPTSTR)_tcsrchr(FileName, '\\') + 1;
         }
-        _sntprintf_s(buff, SizeOf(buff), _TRUNCATE, LoadStr(IDS_TITLE_3D), fname, LoadStr(IDS_PLUGINNAME));
-        SetWindowText(Viewer->HWindow, buff);
+        buff = PictViewFormatTitle(LoadStr(IDS_TITLE_3D), PictViewTitleText(fname, TRUE).c_str(), pluginName.c_str());
+        SetPictViewTitle(Viewer->HWindow, buff);
         return;
     }
 
@@ -185,15 +213,15 @@ void CRendererWindow::SetTitle()
             _stprintf(colors, LoadStr(id), nColors);
         }
         if (pvii.NumOfImages == 1)
-            _sntprintf_s(buff, SizeOf(buff), _TRUNCATE, LoadStr(IDS_TITLE), fname, width, height,
-                         colors, (int)(ZoomFactor / (ZOOM_SCALE_FACTOR / 100)), LoadStr(IDS_PLUGINNAME));
+            buff = PictViewFormatTitle(LoadStr(IDS_TITLE), PictViewTitleText(fname, TRUE).c_str(), width, height,
+                         PictViewTitleText(colors).c_str(), (int)(ZoomFactor / (ZOOM_SCALE_FACTOR / 100)), pluginName.c_str());
         else
-            _sntprintf_s(buff, SizeOf(buff), _TRUNCATE, LoadStr(IDS_TITLE_MULTI), fname, width, height,
-                         colors, pvii.CurrentImage + 1, pvii.NumOfImages, (int)(ZoomFactor / (ZOOM_SCALE_FACTOR / 100)), LoadStr(IDS_PLUGINNAME));
+            buff = PictViewFormatTitle(LoadStr(IDS_TITLE_MULTI), PictViewTitleText(fname, TRUE).c_str(), width, height,
+                         PictViewTitleText(colors).c_str(), pvii.CurrentImage + 1, pvii.NumOfImages, (int)(ZoomFactor / (ZOOM_SCALE_FACTOR / 100)), pluginName.c_str());
     }
     else
-        _tcscpy(buff, LoadStr(IDS_PLUGINNAME));
-    SetWindowText(Viewer->HWindow, buff);
+        buff = pluginName;
+    SetPictViewTitle(Viewer->HWindow, buff);
 }
 
 BOOL CRendererWindow::HasInteractivePreview() const
@@ -420,9 +448,8 @@ BOOL CRendererWindow::OpenFile(LPCTSTR name, int showCmd, HBITMAP hBmp)
 
     if ((code == PVC_OK) && (hBmp == NULL))
     {
-        TCHAR path[SAL_MAX_PATH];
-
-        lstrcpyn(path, name, SizeOf(path));
+        std::vector<TCHAR> historyPath(name, name + _tcslen(name) + 1);
+        LPTSTR path = &historyPath[0];
         // we must not pass 'name' directly to AddToHistory, because it may already come from history
         // and that would lead to a conflict when moving entries
         AddToHistory(TRUE, path);
@@ -3314,7 +3341,7 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
             BOOL ok = FALSE;
             BOOL srcBusy = FALSE;
             BOOL noMoreFiles = FALSE;
-            TCHAR fileName[MAX_PATH] = _T("");
+            std::basic_string<TCHAR> fileName;
             LPCTSTR reallyOpenedFileName, openedFileName = FileName;
             BOOL deletedFile = FileName != NULL && _tcscmp(FileName, LoadStr(IDS_DELETED_TITLE)) == 0;
             if (deletedFile)
@@ -3328,7 +3355,7 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
                 {
                     if (what == CMD_FILE_LAST)
                         enumFilesCurrentIndex = -1;
-                    ok = SalamanderGeneral->GetPreviousFileNameForViewer(EnumFilesSourceUID,
+                    ok = PictViewGetPreviousFileName(EnumFilesSourceUID,
                                                                          &enumFilesCurrentIndex,
                                                                          reallyOpenedFileName,
                                                                          what == CMD_FILE_PREVSELFILE,
@@ -3337,9 +3364,9 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
                     if (ok && (what == CMD_FILE_PREVSELFILE)) // process only selected files
                     {
                         BOOL isSrcFileSel = FALSE;
-                        ok = SalamanderGeneral->IsFileNameForViewerSelected(EnumFilesSourceUID,
+                        ok = PictViewIsFileSelected(EnumFilesSourceUID,
                                                                             enumFilesCurrentIndex,
-                                                                            fileName, &isSrcFileSel,
+                                                                            fileName.c_str(), &isSrcFileSel,
                                                                             &srcBusy);
                         if (ok && !isSrcFileSel)
                             ok = FALSE;
@@ -3356,7 +3383,7 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
                         if (deletedFile && enumFilesCurrentIndex >= 0)
                             enumFilesCurrentIndex--; // ensure that after deleting a file with Space (next-file) we do not skip the next file due to panel shifts
                     }
-                    ok = SalamanderGeneral->GetNextFileNameForViewer(EnumFilesSourceUID,
+                    ok = PictViewGetNextFileName(EnumFilesSourceUID,
                                                                      &enumFilesCurrentIndex,
                                                                      reallyOpenedFileName,
                                                                      what == CMD_FILE_NEXTSELFILE,
@@ -3365,21 +3392,21 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
                     if (ok && (what == CMD_FILE_NEXTSELFILE)) // process only selected files
                     {
                         BOOL isSrcFileSel = FALSE;
-                        ok = SalamanderGeneral->IsFileNameForViewerSelected(EnumFilesSourceUID,
+                        ok = PictViewIsFileSelected(EnumFilesSourceUID,
                                                                             enumFilesCurrentIndex,
-                                                                            fileName, &isSrcFileSel,
+                                                                            fileName.c_str(), &isSrcFileSel,
                                                                             &srcBusy);
                         if (ok && !isSrcFileSel)
                             ok = FALSE;
                     }
                 }
                 // repeat the search file if the found one is not supported by us
-                reallyOpenedFileName = fileName;
-            } while (ok && (!Loading && !InterfaceForViewer.CanViewFile(fileName)) && (what != CMD_FILE_FIRST) && (what != CMD_FILE_LAST));
+                reallyOpenedFileName = fileName.c_str();
+            } while (ok && (!Loading && !InterfaceForViewer.CanViewFile(fileName.c_str())) && (what != CMD_FILE_FIRST) && (what != CMD_FILE_LAST));
 
             if (ok) // we have a new name
             {
-                if (openedFileName == NULL || SalamanderGeneral->StrICmp(fileName, openedFileName) != 0)
+                if (openedFileName == NULL || _tcscmp(fileName.c_str(), openedFileName) != 0)
                 {
                     if (Loading)
                     {
@@ -3394,7 +3421,7 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
                         SetEvent(Viewer->Lock);
                         Viewer->Lock = NULL; // from now on only the disk cache handles it
                     }
-                    if (!OpenFile(fileName, -1, NULL))
+                    if (!OpenFile(fileName.c_str(), -1, NULL))
                     {
                         // the image is corrupted, close the current one
                         if (PVHandle != NULL)
@@ -4794,7 +4821,7 @@ LRESULT CRendererWindow::OnCommand(WPARAM wParam, LPARAM lParam, BOOL* closingVi
                                                                      &srcBusy);
             if (ok)
             {
-                ok = SalamanderGeneral->SetSelectionOnFileNameForViewer(EnumFilesSourceUID,
+                ok = PictViewSetFileSelection(EnumFilesSourceUID,
                                                                         EnumFilesCurrentIndex,
                                                                         FileName, !isFileSelected,
                                                                         &srcBusy);

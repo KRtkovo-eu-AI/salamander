@@ -113,7 +113,7 @@ INT_PTR
 CCommentDialog::Proceed()
 {
     CALL_STACK_MESSAGE1("CCommentDialog::Proceed()");
-    return DialogBoxParam(HLanguage, MAKEINTRESOURCE(IDD_COMMENT),
+    return DialogBoxParamW(HLanguage, MAKEINTRESOURCEW(IDD_COMMENT),
                           Parent, CommentDlgProc, (LPARAM)this);
 }
 
@@ -196,6 +196,15 @@ CCommentDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     return FALSE;
 }
 
+static std::wstring CommentArchiveTitleW(const char* pattern, const char* archive)
+{
+    std::wstring title = SalamanderDiskSelection::WideFromPath(pattern);
+    const size_t placeholder = title.find(L"%s");
+    if (placeholder != std::wstring::npos)
+        title.replace(placeholder, 2, SalamanderDiskSelection::WideFromPath(archive));
+    return title;
+}
+
 BOOL CCommentDialog::OnInit(WPARAM wParam, LPARAM lParam)
 {
     CALL_STACK_MESSAGE3("CCommentDialog::OnInit(0x%IX, 0x%IX)", wParam, lParam);
@@ -206,9 +215,16 @@ BOOL CCommentDialog::OnInit(WPARAM wParam, LPARAM lParam)
     SetDlgItemText(Dlg, IDC_COMMENT, PackObject->Comment);
     SendDlgItemMessage(Dlg, IDC_COMMENT, EM_SETLIMITTEXT, MAX_ZIPCOMMENT - 1, 0);
 
-    char title[MAX_PATH + 128];
-    sprintf(title, LoadStr(IDS_COMMENTDLGTITLE), PackObject->ZipName);
-    SetWindowText(Dlg, title);
+    try
+    {
+        const std::wstring title = CommentArchiveTitleW(LoadStr(IDS_COMMENTDLGTITLE), PackObject->ZipName);
+        SetWindowTextW(Dlg, title.c_str());
+    }
+    catch (const std::bad_alloc&)
+    {
+        EndDialog(Dlg, IDCANCEL);
+        return FALSE;
+    }
     SendMessage(Dlg, WM_SETICON, ICON_SMALL, (WPARAM)LoadIcon(DLLInstance, MAKEINTRESOURCE(IDI_COMMENT)));
 
     // disable the 'save' item

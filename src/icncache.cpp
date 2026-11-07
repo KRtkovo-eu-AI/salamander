@@ -889,6 +889,8 @@ CAssociations::~CAssociations()
 
 void CAssociations::Release()
 {
+    ++ShellAssociationEpoch;
+    PreparedShellAssociations.clear();
     int i;
     for (i = 0; i < Count; i++)
     {
@@ -1760,6 +1762,35 @@ static BOOL QueryShellAssociation(const char* ext, BOOL& canOpen)
     return canOpen || associatedInfo.iIcon != genericInfo.iIcon;
 }
 
+BOOL CAssociations::QueryShellAssociationCached(const char* ext, BOOL& canOpen, BOOL prepare)
+{
+    const auto prepared = PreparedShellAssociations.find(ext);
+    if (prepared != PreparedShellAssociations.end())
+    {
+        canOpen = prepared->second.CanOpen;
+        return prepared->second.Associated;
+    }
+    const ULONGLONG epoch = ShellAssociationEpoch;
+    CShellAssociationResult result;
+    result.Associated = QueryShellAssociation(ext, result.CanOpen);
+    // A shell handler may pump messages, including association invalidation.
+    if (epoch != ShellAssociationEpoch) { canOpen = FALSE; return FALSE; }
+    if (prepare) PreparedShellAssociations.emplace(ext, result);
+    canOpen = result.CanOpen;
+    return result.Associated;
+}
+
+void CAssociations::PrepareShellAssociation(const std::string& extension)
+{
+    // GetIndex reads complete DWORDs, including zero padding past the terminator.
+    std::vector<char> padded(extension.size() + sizeof(DWORD), 0);
+    memcpy(padded.data(), extension.data(), extension.size());
+    int index;
+    if (GetIndex(padded.data(), index)) return;
+    BOOL canOpen;
+    QueryShellAssociationCached(padded.data(), canOpen, TRUE);
+}
+
 BOOL CAssociations::IsAssociated(char* ext, BOOL& addtoIconCache, CIconSizeEnum iconSize, int pixelSize)
 {
     int index;
@@ -1771,17 +1802,21 @@ BOOL CAssociations::IsAssociated(char* ext, BOOL& addtoIconCache, CIconSizeEnum 
         // through the shell (for example PDF and torrent handlers), so add a
         // lazy cache entry and let the normal icon thread read the real file.
         BOOL canOpen;
-        if (QueryShellAssociation(ext, canOpen))
+        if (QueryShellAssociationCached(ext, canOpen))
         {
-            CAssociationData data;
-            data.SetFlag(canOpen ? 1 : 0);
-            data.SetIndexAll(-1);
-            LONG size;
-            char* end = ext + strlen(ext);
-            InsertData("shell: ", index, FALSE, ext, end, data, size, "", "");
-            found = IsGood();
-            if (!found)
-                ResetState();
+            if (GetIndex(ext, index)) found = TRUE;
+            else
+            {
+                CAssociationData data;
+                data.SetFlag(canOpen ? 1 : 0);
+                data.SetIndexAll(-1);
+                LONG size;
+                char* end = ext + strlen(ext);
+                InsertData("shell: ", index, FALSE, ext, end, data, size, "", "");
+                found = IsGood();
+                if (!found)
+                    ResetState();
+            }
         }
     }
     if (found)

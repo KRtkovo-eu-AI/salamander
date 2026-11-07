@@ -120,6 +120,12 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\renamer_paths.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\renamer_io.h">
+      <Filter>h</Filter>
+    </ClInclude>
     <ClInclude Include="..\crenamer.h">
       <Filter>h</Filter>
     </ClInclude>

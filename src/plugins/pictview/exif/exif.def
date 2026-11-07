@@ -1,5 +1,5 @@
 LIBRARY EXIF.DLL
-VERSION 9.0
+VERSION 10.0
 
 EXPORTS EXIFGetVersion
 EXPORTS EXIFGetInfo
@@ -11,3 +11,5 @@ EXPORTS EXIFGetOrientationInfoFromData
 EXPORTS EXIFReplaceThumbnail
 EXPORTS EXIFInitTranslations
 EXPORTS ConvertUTF8ToUCS2
+
+EXPORTS EXIFReplaceThumbnailW

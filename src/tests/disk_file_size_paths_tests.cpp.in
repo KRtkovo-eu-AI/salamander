@@ -1,0 +1,208 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Both production size functions and their actual wide path helpers are inserted
+// verbatim. Handle tracking is disabled; real Win32 I/O is never mocked.
+#define NOMINMAX
+#ifdef UNICODE
+#undef UNICODE
+#endif
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <new>
+#include <string>
+#include <vector>
+#define CALL_STACK_MESSAGE1(text) ((void)0)
+#define TRACE_E(text) ((void)0)
+#define LOW_MEMORY "out of memory"
+#define HANDLES_Q(expression) (expression)
+#define HANDLES(expression) (expression)
+#define SAL_MAX_PATH 32768
+struct CQuadWord
+{
+    DWORD LoDWord = 0, HiDWord = 0;
+    CQuadWord(DWORD low = 0, DWORD high = 0) : LoDWord(low), HiDWord(high) {}
+    void Set(DWORD low, DWORD high) { LoDWord = low; HiDWord = high; }
+};
+@@WIDE_HELPERS@@
+@@GET_SIZE@@
+@@GET_SIZE_PATH@@
+
+static int Checks = 0, Failures = 0;
+static void Check(bool success, const char* description)
+{
+    ++Checks;
+    if (!success) { ++Failures; std::printf("FAIL: %s (Win32 %lu)\n", description, GetLastError()); }
+}
+static std::string Utf8(const std::wstring& value)
+{
+    const int count = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    if (count <= 0) std::abort();
+    std::string result(count, '\0');
+    WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, value.c_str(), -1, &result[0], count, nullptr, nullptr);
+    result.resize(count - 1);
+    return result;
+}
+static std::wstring Extended(const std::wstring& value)
+{
+    return value.compare(0, 4, L"\\\\?\\") == 0 ? value : L"\\\\?\\" + value;
+}
+struct Fixtures
+{
+    std::wstring Root, OldDirectory;
+    std::vector<std::wstring> Files, Directories;
+    Fixtures()
+    {
+        std::vector<wchar_t> buffer(SAL_MAX_PATH);
+        DWORD count = GetCurrentDirectoryW(static_cast<DWORD>(buffer.size()), buffer.data());
+        if (!count || count >= buffer.size()) std::abort();
+        OldDirectory.assign(buffer.data(), count);
+        count = GetTempPathW(static_cast<DWORD>(buffer.size()), buffer.data());
+        if (!count || count >= buffer.size()) std::abort();
+        Root.assign(buffer.data(), count);
+        Root += L"Samandarin-size-" + std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(GetTickCount64());
+        if (!CreateDirectoryW(Root.c_str(), nullptr)) std::abort();
+        Directories.push_back(Root);
+    }
+    bool Owned(const std::wstring& path) const
+    {
+        return path == Root || (path.size() > Root.size() &&
+               path.compare(0, Root.size(), Root) == 0 && path[Root.size()] == L'\\');
+    }
+    ~Fixtures()
+    {
+        Check(SetCurrentDirectoryW(OldDirectory.c_str()) != FALSE, "restore working directory");
+        for (auto i = Files.rbegin(); i != Files.rend(); ++i)
+            Check(Owned(*i) && DeleteFileW(Extended(*i).c_str()) != FALSE, "remove own fixture file");
+        for (auto i = Directories.rbegin(); i != Directories.rend(); ++i)
+            Check(Owned(*i) && RemoveDirectoryW(Extended(*i).c_str()) != FALSE, "remove own fixture directory");
+    }
+    std::wstring Directory(const std::wstring& parent, const std::wstring& name)
+    {
+        const std::wstring path = parent + L"\\" + name;
+        if (!Owned(path) || !CreateDirectoryW(Extended(path).c_str(), nullptr)) std::abort();
+        Directories.push_back(path);
+        return path;
+    }
+    std::wstring File(const std::wstring& parent, const std::wstring& name, DWORD size)
+    {
+        const std::wstring path = parent + L"\\" + name;
+        if (!Owned(path)) std::abort();
+        HANDLE handle = CreateFileW(Extended(path).c_str(), GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (handle == INVALID_HANDLE_VALUE) std::abort();
+        Files.push_back(path);
+        std::string payload(size, 'x');
+        DWORD written = 0;
+        const BOOL ok = WriteFile(handle, payload.data(), size, &written, nullptr);
+        CloseHandle(handle);
+        if (!ok || written != size) std::abort();
+        return path;
+    }
+};
+static void ExpectSize(const std::string& path, DWORD expected, const char* description)
+{
+    CQuadWord size(17, 23);
+    DWORD error = ERROR_GEN_FAILURE;
+    Check(SalGetFileSize2(path.c_str(), size, &error) != FALSE, description);
+    Check(size.LoDWord == expected && size.HiDWord == 0, (std::string(description) + " exact size").c_str());
+    Check(error == ERROR_SUCCESS, (std::string(description) + " success error").c_str());
+}
+static void ExpectError(const char* path, DWORD expected, const char* description)
+{
+    CQuadWord size(17, 23);
+    DWORD error = ERROR_SUCCESS;
+    Check(SalGetFileSize2(path, size, &error) == FALSE, description);
+    Check(size.LoDWord == 0 && size.HiDWord == 0, (std::string(description) + " clears size").c_str());
+    Check(error == expected, (std::string(description) + " exact error").c_str());
+    Check(GetLastError() == expected, (std::string(description) + " Win32 error").c_str());
+}
+int main()
+{
+    {
+        Fixtures fixtures;
+        const std::wstring ascii = fixtures.File(fixtures.Root, L"ordinary.bin", 113);
+        ExpectSize(Utf8(ascii), 113, "ASCII path");
+        const std::wstring unicode = fixtures.File(fixtures.Root, L"český-東京-\U0001F642.bin", 257);
+        ExpectSize(Utf8(unicode), 257, "Unicode filename");
+        const std::wstring first = fixtures.Directory(fixtures.Root, L"žluťoučký");
+        const std::wstring second = fixtures.Directory(first, L"東京-\U0001F642");
+        ExpectSize(Utf8(fixtures.File(second, L"same.bin", 509)), 509, "Unicode multi-component directory");
+
+        const std::wstring utf8Long = fixtures.File(fixtures.Root, std::wstring(90, L'東') + L".bin", 1021);
+        Check(Utf8(utf8Long).size() > MAX_PATH && utf8Long.size() < MAX_PATH, "UTF8-only long fixture");
+        ExpectSize(Utf8(utf8Long), 1021, "UTF8 >260 UTF16 <260");
+
+        std::wstring directory = fixtures.Root;
+        for (int i = 0; i < 12; ++i)
+            directory = fixtures.Directory(directory, L"unicode-東京-component-" + std::to_wstring(i));
+        const std::wstring wideLong = fixtures.File(directory, L"long.bin", 2053);
+        Check(wideLong.size() > MAX_PATH, "UTF16 long fixture");
+        ExpectSize(Utf8(wideLong), 2053, "UTF16 >260");
+        const std::wstring symbolicLink = directory + L"\\東京-link.bin";
+        if (CreateSymbolicLinkW(Extended(symbolicLink).c_str(), Extended(wideLong).c_str(), 0x2))
+        {
+            fixtures.Files.push_back(symbolicLink);
+            ExpectSize(Utf8(symbolicLink), 2053, "long Unicode symbolic link target size");
+        }
+        else if (GetLastError() == ERROR_PRIVILEGE_NOT_HELD || GetLastError() == ERROR_NOT_SUPPORTED)
+            std::puts("Symbolic link creation: unavailable on this machine; file path cases still required.");
+        else
+            Check(false, "create own symbolic link fixture");
+        ExpectSize(Utf8(Extended(wideLong)), 2053, "already extended path");
+        fixtures.Directory(directory, L"sub");
+        ExpectSize(Utf8(directory + L"\\sub\\..\\long.bin"), 2053, "long path navigation components");
+
+        Check(SetCurrentDirectoryW(fixtures.Root.c_str()) != FALSE, "set own fixture cwd");
+        ExpectSize("ordinary.bin", 113, "ordinary relative path");
+        const std::wstring relativeLong = wideLong.substr(fixtures.Root.size() + 1);
+        Check(relativeLong.size() > MAX_PATH, "long relative fixture");
+        ExpectSize(Utf8(relativeLong), 2053, "long relative path");
+        CQuadWord nullErrorSize(17, 23);
+        Check(SalGetFileSize2(Utf8(unicode).c_str(), nullErrorSize, nullptr) &&
+              nullErrorSize.LoDWord == 257 && nullErrorSize.HiDWord == 0, "success with null error output");
+
+        const std::string missing = Utf8(fixtures.Root + L"\\missing.bin");
+        ExpectError(missing.c_str(), ERROR_FILE_NOT_FOUND, "missing file");
+        nullErrorSize.Set(17, 23);
+        Check(!SalGetFileSize2(missing.c_str(), nullErrorSize, nullptr) &&
+              nullErrorSize.LoDWord == 0 && nullErrorSize.HiDWord == 0, "failure with null error output");
+        ExpectError(nullptr, ERROR_INVALID_PARAMETER, "null path");
+        ExpectError("", ERROR_INVALID_PARAMETER, "empty path");
+
+        if (GetACP() != CP_UTF8)
+        {
+            bool tested = false;
+            for (const wchar_t ch : {L'é', L'š', L'Ж', L'日'})
+            {
+                const std::wstring basename = std::wstring(L"legacy-") + ch + L".bin";
+                BOOL substituted = FALSE;
+                char encoded[64] = {};
+                const int count = WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, basename.c_str(), -1,
+                    encoded, static_cast<int>(sizeof(encoded)), nullptr, &substituted);
+                if (count <= 0 || substituted || IsValidPathUtf8Text(encoded)) continue;
+                const std::wstring path = fixtures.File(fixtures.Root, basename, 3079);
+                const std::string ansiPath = Utf8(fixtures.Root) + "\\" + encoded;
+                ExpectSize(ansiPath, 3079, "invalid UTF8 uses exact ACP filename");
+                Check(SalMultiByteToWidePath(encoded, CP_ACP) == basename, "ACP fallback fixture round-trip");
+                tested = true;
+                break;
+            }
+            Check(tested, "found representable invalid-UTF8 ACP filename");
+        }
+        else std::puts("ACP fallback: not applicable to UTF-8 ACP.");
+
+        DWORD before = 0, after = 0;
+        Check(GetProcessHandleCount(GetCurrentProcess(), &before) != FALSE, "read handle baseline");
+        for (int i = 0; i < 100; ++i)
+        {
+            CQuadWord size;
+            if (!SalGetFileSize2(Utf8(unicode).c_str(), size, nullptr)) break;
+        }
+        Check(GetProcessHandleCount(GetCurrentProcess(), &after) && after == before, "no handle leak across repeated reads");
+    }
+    std::printf("Disk file-size paths: %d checks, %d failures (ACP %u)\n", Checks, Failures, GetACP());
+    return Failures ? 1 : 0;
+}

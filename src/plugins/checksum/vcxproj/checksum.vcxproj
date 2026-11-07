@@ -249,6 +249,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\shared\spl_diskselection.h" />
     <ClInclude Include="..\..\shared\arraylt.h">
     </ClInclude>
     <ClInclude Include="..\..\shared\auxtools.h">
@@ -277,6 +278,7 @@
     </ClInclude>
     <ClInclude Include="..\dialogs.h">
     </ClInclude>
+    <ClInclude Include="..\checksum_paths.h" />
     <ClInclude Include="..\misc.h">
     </ClInclude>
     <ClInclude Include="..\precomp.h">

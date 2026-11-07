@@ -284,6 +284,7 @@
     </ClInclude>
     <ClInclude Include="..\..\shared\spl_com.h">
     </ClInclude>
+    <ClInclude Include="..\..\shared\spl_diskselection.h" />
     <ClInclude Include="..\..\shared\spl_gen.h">
     </ClInclude>
     <ClInclude Include="..\..\shared\spl_gui.h">
@@ -296,6 +297,8 @@
     </ClInclude>
     <ClInclude Include="..\..\shared\listview_sort_header.h">
     </ClInclude>
+    <ClInclude Include="..\renamer_paths.h" />
+    <ClInclude Include="..\renamer_io.h" />
     <ClInclude Include="..\crenamer.h">
     </ClInclude>
     <ClInclude Include="..\dialogs.h">

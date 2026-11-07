@@ -1,0 +1,178 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <functional>
+#include <cstdio>
+#include <cstring>
+#define CALL_STACK_MESSAGE_NONE
+#define CALL_STACK_MESSAGE1(...) ((void)0)
+#define CALL_STACK_MESSAGE2(...) ((void)0)
+#define CALL_STACK_MESSAGE4(...) ((void)0)
+#define SAL_MAX_PATH 32768
+#define StrICmp _stricmp
+#include "@@ARC_PROBE_HEADER@@"
+@@CONVERSIONS@@
+@@UTF8_COPY@@
+class ZipProbe {public:BOOL CanOpenArchive(const char*);};
+@@ZIP_PROBE@@
+class CFilesWindow;
+static CFilesWindow* Active=nullptr;
+static std::function<void()> Callback,CheckCallback;
+static int Checks=0,Failed=0,Errors=0,Probes=0,InitCalls=0,EngineCalls=0;
+static std::vector<std::string> SeenPaths,Order;
+static constexpr int ptDisk=1,ptZIPArchive=2,ptPluginFS=3,IDS_TOOLONGNAME=1,IDS_ERRORCHANGINGDIR=2,IDS_FILEISNOTARCHIVE=3,CM_PROPERTIES=4;
+static constexpr DWORD SAL_SDK_VER_CANOPENARCHIVE=@@CAN_OPEN_VERSION@@;
+static constexpr int FSTRYCLOSE_UNLOADCLOSEFS=1;
+static BOOL UnloadCheckOK=TRUE,UnloadChangeOK=TRUE;static int UnloadChecks=0,UnloadChanges=0,UnloadRescues=0;static std::string UnloadPath;
+static BOOL SalCheckAndRestorePathWithCut(HWND,char* path,BOOL& tryNet,DWORD& err,DWORD& last,BOOL& invalid,BOOL& cut,BOOL noReconnect){++UnloadChecks;UnloadPath=path;err=last=0;invalid=cut=FALSE;return !tryNet&&noReconnect&&UnloadCheckOK;}
+static const char* LoadStr(int){return "fixture";}
+static int SalMessageBox(HWND,const char*,const char*,UINT){++Errors;return IDOK;}
+struct MainFacade {HWND HWindow=NULL;} Main;static MainFacade* MainWindow=&Main;
+struct CPluginData;
+struct ArchiverFacade {CPluginData* Owner;BOOL NotEmpty(){return TRUE;}BOOL CanOpenArchive(const char*);};
+struct CPluginData {
+ const char* DLLName;BOOL SupportPanelView=TRUE;DWORD BuiltForVersion=SAL_SDK_VER_CANOPENARCHIVE;BOOL LoadOK=TRUE;
+ ArchiverFacade PluginIfaceForArchiver;
+ explicit CPluginData(const char* name):DLLName(name),PluginIfaceForArchiver{this}{}
+ BOOL InitDLL(HWND,BOOL,BOOL){++InitCalls;return LoadOK;}
+ BOOL CanOpenArchive(const char*);
+};
+static CPluginData Zip("zip\\zip.spl"),Seven("7zip\\7zip.spl"),Old("legacy\\old.spl");
+BOOL ArchiverFacade::CanOpenArchive(const char* name) {
+ ++EngineCalls;Order.emplace_back(Owner->DLLName);std::string owned(name);SeenPaths.push_back(owned);
+ if(Callback){auto callback=Callback;Callback=nullptr;callback();}
+ // The actual ZIP content probe does real wide I/O. 7-Zip is an explicit double
+ // here; actual 7-Zip archive listing is covered by the GUI runtime separately.
+ CheckCallback=nullptr;
+ return Owner==&Zip?ZipProbe().CanOpenArchive(owned.c_str()):FALSE;
+}
+@@CAN_OPEN_WRAPPER@@
+struct PluginList {std::vector<CPluginData*> Values{&Seven,&Old,&Zip};int GetCount(){return (int)Values.size();}CPluginData* Get(int i){return Values[(size_t)i];}} Plugins;
+struct FormatConfig {BOOL Preferred=FALSE;int PackIsArchive(const char*){return Preferred?1:0;}int GetUnpackerIndex(int){return -1;}} PackerFormatConfig;
+struct File {std::string Key="same.data";std::wstring Full;BOOL Archive=FALSE;};
+using CFileData=File;
+struct Rows {int Count=0;std::vector<File> Values;File& At(int i){return Values[(size_t)i];}};
+struct ListFacade {int GetTopIndex(){return 13;}};
+struct TopMemory {int Pushes=0,Clears=0;std::string Saved;void Push(const char* path,int top){if(top==13)++Pushes;Saved=path;}void Clear(){++Clears;}};
+struct HeaderHistory {int Type=-1;std::string Archive,Inside;void AddPath(int type,const char* archive,const char* inside,void*,void*){Type=type;Archive=archive;Inside=inside?inside:"";}};
+struct HeaderText {std::string Text;int RootLength=-1;void SetText(const char* text,int root=-1){Text=text;RootLength=root;}};
+struct HeaderFilter {const char* GetMasksString(){return "*.txt";}};
+struct HeaderParent {int Calls=0;void UpdatePanelTabTitle(CFilesWindow*){++Calls;}};
+struct HeaderFS {const char* GetPluginFSName(){return "fixture";}BOOL NotEmpty(){return FALSE;}BOOL GetCurrentPath(char*){return FALSE;}void* GetInterface(){return nullptr;}HeaderFS* GetPluginInterfaceForFS(){return this;}int GetPluginFSNameIndex(){return 0;}void ConvertPathToExternal(const char*,int,char*){}};
+class CFilesWindow {
+public:
+ HeaderFS PluginFS;
+ BOOL GetGeneralPath(char*,int,BOOL=FALSE);
+ BOOL TestUnloadUsed(HWND parent){BOOL used=TRUE; @@UNLOAD_USED@@ return TRUE;}
+ void ChangePathToDisk(HWND,const char* path,int,void*,void*,BOOL,BOOL,BOOL,void*,BOOL,int){++UnloadChanges;UnloadPath=path;if(UnloadChangeOK){Disk=TRUE;ArchiveView=FSView=FALSE;}}
+ void ChangeToRescuePathOrFixedDrive(HWND,void*,BOOL,BOOL,int){++UnloadRescues;if(UnloadChangeOK){Disk=TRUE;ArchiveView=FSView=FALSE;}}
+ HeaderHistory History;HeaderHistory* PathHistory=&History;HeaderText Header;HeaderText* DirectoryLine=&Header;
+ HeaderFilter Filter;BOOL FilterEnabled=FALSE;HeaderParent HeaderOwner;HeaderParent* Parent=&HeaderOwner;HeaderFS FS;
+ BOOL ArchiveView=FALSE,FSView=FALSE;std::string ArchiveName,ArchiveInside;
+ HeaderFS* GetPluginFS(){return &FS;}const char* GetZIPPath(){return ArchiveInside.c_str();}
+ const char* GetBranchViewStatusText(){return "ready";}
+ void DirectoryLineSetText();
+ BOOL Branch=TRUE,Disk=TRUE,Current=TRUE;ULONGLONG Generation=1;HWND HWindow=NULL;
+ Rows FileStorage,DirStorage;Rows* Files=&FileStorage;Rows* Dirs=&DirStorage;
+ ListFacade List;ListFacade* ListBox=&List;TopMemory TopIndexMem;
+ std::wstring RootW;std::string Root;DWORD PathError=ERROR_SUCCESS;
+ int Began=0,Ended=0,Refreshes=0,Changes=0,Executes=0;BOOL ChangeOK=TRUE,ChangeNoChange=TRUE,SkipNoChangeWrite=FALSE;
+ std::string ChangedPath;CPluginData* Forced=nullptr;
+ void Set(const std::wstring& root,const std::wstring& full){RootW=root;Root=SalWideToMultiBytePath(root.c_str(),CP_UTF8);FileStorage.Values={{"same.data",full,FALSE}};FileStorage.Count=1;}
+ BOOL Is(int type){return (Disk&&type==ptDisk)||(ArchiveView&&type==ptZIPArchive)||(FSView&&type==ptPluginFS);}BOOL IsBranchView(){return Branch;}
+ const char* GetPath(){return Root.c_str();}const wchar_t* GetPathW(){return RootW.c_str();}
+ const char* GetItemCacheKeyPtr(const CFileData& file){return file.Key.c_str();}
+ const CFileData* GetBranchViewFileByCacheKey(const char* key){return Current&&Files->Count==1&&Files->At(0).Key==key?&Files->At(0):nullptr;}
+ std::wstring GetItemFullPathW(const CFileData& file){return file.Full;}
+ ULONGLONG GetBranchViewGeneration(){return Generation;}
+ void BeginStopRefresh(){++Began;}void EndStopRefresh(){++Ended;}
+ DWORD CheckPath(BOOL){if(CheckCallback){auto c=CheckCallback;CheckCallback=nullptr;c();}return PathError;}
+ void RefreshDirectory(){++Refreshes;}int GetCaretIndex(){return 0;}BOOL IsNethoodFS(){return FALSE;}
+ const char* GetZIPArchive(){return ArchiveName.c_str();}CPluginData* GetPluginDataForPluginIface(){return nullptr;}
+ void Execute(int){++Executes;}
+ BOOL ChangePathToArchive(const char* path,const char*,int,const char*,BOOL,BOOL* unchanged,BOOL,int*,BOOL,BOOL,BOOL,CPluginData* forced){
+  ++Changes;ChangedPath=path;Forced=forced;if(!SkipNoChangeWrite)*unchanged=ChangeNoChange;
+  if(ChangeOK){ArchiveView=TRUE;ArchiveName=path;Branch=FALSE;Disk=FALSE;RootW=L"archive panel";Root="archive panel";Files->Values.clear();Files->Count=0;}
+  return ChangeOK;
+ }
+ void TryEnterFileAsArchive(int);
+ void CtrlPageDnOrEnter(WPARAM);
+};
+@@IS_SEVEN@@
+@@GET_PLUGIN@@
+@@PROBE_PLUGIN@@
+@@TRY_ENTER@@
+@@CTRL_PGDN@@
+@@DIRECTORY_TEXT@@
+@@GENERAL_PATH@@
+static void Check(bool ok,const char* name){++Checks;if(!ok){++Failed;std::printf("FAIL: %s (%lu)\n",name,GetLastError());}}
+static std::wstring Exact(const std::wstring& path){return SalPathAddExtendedPrefixW(path.c_str());}
+static std::vector<std::wstring> DirsOwned,FilesOwned;
+static bool Mk(const std::wstring& p){if(!CreateDirectoryW(Exact(p).c_str(),NULL))return false;DirsOwned.push_back(p);return true;}
+static void Put(const std::wstring& p,bool zip){HANDLE h=CreateFileW(Exact(p).c_str(),GENERIC_WRITE,0,NULL,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,NULL);Check(h!=INVALID_HANDLE_VALUE,"create exact owned probe fixture");if(h==INVALID_HANDLE_VALUE)return;FilesOwned.push_back(p);const unsigned char yes[]={0x50,0x4b,3,4,'D','A','T','A'},no[]={'N','O','T','Z','I','P','!','!'};DWORD n=0;Check(WriteFile(h,zip?yes:no,8,&n,NULL)&&n==8,"write controlled content signature");CloseHandle(h);}
+static void Reset(){Callback=nullptr;CheckCallback=nullptr;Errors=Probes=InitCalls=EngineCalls=0;SeenPaths.clear();Order.clear();Plugins.Values={&Seven,&Old,&Zip};Old.BuiltForVersion=SAL_SDK_VER_CANOPENARCHIVE-1;Zip.BuiltForVersion=SAL_SDK_VER_CANOPENARCHIVE;Zip.LoadOK=TRUE;PackerFormatConfig.Preferred=FALSE;}
+int wmain(){
+ for(bool fs:{false,true})for(bool checkOK:{false,true})for(bool changeOK:{false,true}){
+  CFilesWindow p;p.Root=std::string("C:\\")+std::string(700,'x');p.Disk=FALSE;p.ArchiveView=!fs;p.FSView=fs;UnloadCheckOK=checkOK;UnloadChangeOK=changeOK;UnloadChecks=UnloadChanges=UnloadRescues=0;
+  Check(p.TestUnloadUsed(NULL)==BOOL(changeOK),"plugin unload reports actual disk switch outcome");
+  Check(UnloadChecks==1&&UnloadPath==p.Root&&UnloadChanges==int(checkOK)&&UnloadRescues==int(!checkOK),"actual unload branch retains full path and fallback policy");
+ }
+ UnloadCheckOK=UnloadChangeOK=TRUE;
+ DWORD size=GetCurrentDirectoryW(0,NULL);std::vector<wchar_t> cwd(size);if(!GetCurrentDirectoryW(size,cwd.data()))return 2;
+ std::wstring root=std::wstring(cwd.data())+L"\\owned-entry";if(!Mk(root))return 2;
+ std::wstring unicode=root+L"\\\u017elu\u0165ou\u010dk\u00fd-\u6771\u4eac";Check(Mk(unicode),"create Unicode parent");
+ std::wstring bytes=root+L"\\"+std::wstring(100,L'\u65e5');Check(Mk(bytes)&&bytes.size()<MAX_PATH&&SalWideToMultiBytePath(bytes.c_str(),CP_UTF8).size()>MAX_PATH,"UTF-8 byte-long short UTF-16 fixture");
+ std::wstring deep=unicode;for(int i=0;i<4;++i){deep+=L"\\"+std::wstring(65,L'\u65e5');Check(Mk(deep),"create deep exact parent");}Check(deep.size()>MAX_PATH,"UTF-16-long fixture");
+ Put(root+L"\\same.data",true);std::vector<std::wstring> sources;
+ for(const auto& dir:{unicode,bytes,deep}){sources.push_back(dir+L"\\same.data");Put(sources.back(),true);}
+ std::wstring notArchive=unicode+L"\\not.data";Put(notArchive,false);
+ for(const auto& path:sources)for(BOOL branch:{FALSE,TRUE}){
+  Reset();CFilesWindow panel;panel.Branch=branch;panel.Set(root,path);panel.CtrlPageDnOrEnter(VK_NEXT);
+  Check(panel.Changes==1&&panel.Forced==&Zip&&panel.ChangedPath==SalWideToMultiBytePath(path.c_str(),CP_UTF8),"actual CtrlPgDn/probe uses exact archive and forced plugin");
+  Check(panel.Began==1&&panel.Ended==1&&panel.Executes==0,"balanced refresh and no association execution");
+  Check(panel.TopIndexMem.Pushes==1&&panel.TopIndexMem.Saved==SalWideToMultiBytePath(root.c_str(),CP_UTF8),"history uses original disk root after archive clears listing");
+  panel.DirectoryLineSetText();
+  Check(panel.Header.Text==panel.ChangedPath&&panel.History.Archive==panel.ChangedPath&&panel.HeaderOwner.Calls==1,"actual archive header/history retains complete UTF-8 path after opening");
+  panel.ArchiveInside="inside\\nested";panel.FilterEnabled=TRUE;panel.DirectoryLineSetText();
+  Check(panel.Header.Text==panel.ChangedPath+"\\inside\\nested\\*.txt"&&panel.Header.RootLength==(int)(panel.ChangedPath.size()+14),"filtered archive header owns full archive plus virtual path");
+  const std::string generalExpected=panel.ChangedPath+"\\inside\\nested";
+  size_t firstUnicode=generalExpected.find_first_of("\xe6\xe7\xe8\xe9\xc4\xc5");
+  if(firstUnicode==std::string::npos)firstUnicode=1;
+  for(int capacity:{0,1,2,4,511,520,(int)firstUnicode+2,(int)generalExpected.size(),(int)generalExpected.size()+1}) {
+   std::vector<char> buffer((size_t)capacity+2,'#');
+   BOOL complete=panel.GetGeneralPath(buffer.data()+1,capacity,FALSE);
+   Check(complete==((size_t)capacity>generalExpected.size())&&buffer.front()=='#'&&buffer.back()=='#',"general archive path respects capacity, status and canaries");
+   if(capacity>0){auto end=std::find(buffer.begin()+1,buffer.begin()+capacity+1,'\0');Check(end!=buffer.begin()+capacity+1,"general archive path always terminates within caller capacity");std::string clipped(buffer.begin()+1,end);Check(generalExpected.compare(0,clipped.size(),clipped)==0&&(clipped.empty()||MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,clipped.c_str(),(int)clipped.size(),NULL,0)>0),"bounded archive path remains an exact UTF-8 prefix");}
+  }
+  Check(SeenPaths.size()==1&&SeenPaths[0]==panel.ChangedPath&&Order.size()==1&&Order[0]==Zip.DLLName,"old SDK skipped and 7-Zip deferred until after ZIP");
+ }
+ for(int mode=0;mode<12;++mode){
+  Reset();CFilesWindow panel;panel.Set(root,sources[0]);
+  if(mode==0)panel.Current=FALSE;
+  if(mode==1)panel.Files->At(0).Full.clear();
+  if(mode==2)panel.PathError=ERROR_PATH_NOT_FOUND;
+  if(mode==3)CheckCallback=[&]{++panel.Generation;panel.Files->Values.clear();panel.Files->Count=0;};
+  if(mode==4)Callback=[&]{++panel.Generation;panel.Files->Values.clear();panel.Files->Count=0;};
+  if(mode==5)Callback=[&]{panel.RootW=L"different root";panel.Root="different root";};
+  if(mode==6)Callback=[&]{panel.Branch=FALSE;};
+  if(mode==7)panel.Files->At(0).Full=std::wstring(SAL_MAX_PATH,L'a');
+  if(mode==8)panel.Files->At(0).Full=notArchive;
+  if(mode==9)Zip.LoadOK=FALSE;
+  if(mode==10)Callback=[&]{++panel.Generation;};
+  if(mode==11)Callback=[&]{panel.Current=FALSE;};
+  panel.TryEnterFileAsArchive(0);
+  Check(panel.Changes==0,"invalid, stale, changed context, overflow, unsupported content or failed plugin cannot navigate");
+  Check(panel.Began==panel.Ended,"all refusal paths balance refresh suspension");
+  if(mode==0||mode==1||mode==2||mode==3||mode==7)Check(SeenPaths.empty(),"early refusal does not probe borrowed/invalid identity");
+  if(mode==4)Check(SeenPaths.size()==1&&SeenPaths[0]==SalWideToMultiBytePath(sources[0].c_str(),CP_UTF8),"probe input remains owned while row storage is destroyed");
+ }
+ for(int mode=0;mode<3;++mode){Reset();CFilesWindow panel;panel.Set(root,sources[0]);panel.ChangeOK=FALSE;panel.ChangeNoChange=mode==0;panel.SkipNoChangeWrite=mode==2;panel.TryEnterFileAsArchive(0);Check(panel.TopIndexMem.Pushes==0&&panel.TopIndexMem.Clears==(mode==1?1:0),"archive failure/no-change/early tab-unlock cancel preserve correct history");Check(panel.Began==panel.Ended,"archive refusal balances suspension");}
+ Reset();CFilesWindow panel;panel.Set(root,sources[0]);panel.Files->At(0).Archive=TRUE;panel.CtrlPageDnOrEnter(VK_NEXT);Check(panel.Executes==1&&panel.Changes==0,"known archive keeps existing Execute route");
+ panel.TryEnterFileAsArchive(-1);panel.TryEnterFileAsArchive(2);Check(panel.Changes==0,"invalid indexes never probe");
+ CFilesWindow caption;caption.Set(root,sources[0]);caption.Branch=FALSE;caption.DirectoryLineSetText();Check(caption.Header.Text==caption.Root,"ordinary disk header unchanged");caption.Branch=TRUE;caption.FilterEnabled=TRUE;caption.DirectoryLineSetText();Check(caption.Header.Text==caption.Root+"  [*.txt]  [ready]"&&caption.Header.RootLength==(int)caption.Root.size(),"Branch status and filter caption unchanged");caption.Branch=FALSE;caption.Disk=FALSE;caption.FSView=TRUE;caption.FilterEnabled=FALSE;caption.DirectoryLineSetText();Check(caption.Header.Text=="fixture:","plugin-FS virtual path contract unchanged");
+ char untouched='Q';Check(!caption.GetGeneralPath(NULL,10,FALSE)&&!caption.GetGeneralPath(&untouched,-1,FALSE)&&untouched=='Q',"invalid general-path arguments fail without writing");
+ bool clean=true;for(auto i=FilesOwned.rbegin();i!=FilesOwned.rend();++i){Check(i->rfind(root+L"\\",0)==0,"owned cleanup root");clean=DeleteFileW(Exact(*i).c_str())!=FALSE&&clean;}for(auto i=DirsOwned.rbegin();i!=DirsOwned.rend();++i)clean=RemoveDirectoryW(Exact(*i).c_str())!=FALSE&&clean;Check(clean,"cleanup only owned Unicode/long-path fixtures");
+ std::printf("Actual archive-entry route: %d checks, %d failures\n",Checks,Failed);return Failed?1:0;
+}

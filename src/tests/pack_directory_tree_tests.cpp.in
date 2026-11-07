@@ -1,0 +1,145 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Actual recursive scanner and path converters; owned tree/UI/link facades.
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
+#include <filesystem>
+#include <map>
+#include <memory>
+#include <new>
+#include <string>
+#include <vector>
+#define SAL_MAX_PATH 32768
+#define SAL_MAX_EXTENDED_PATH 32768
+#define CALL_STACK_MESSAGE4(...)
+#define HANDLES_Q(x) (x)
+#define HANDLES(x) (x)
+#define SALENUM_SUCCESS 0
+#define SALENUM_ERROR 1
+#define SALENUM_CANCEL 2
+#define ICONOVERLAYINDEX_NOTUSED -1
+#define IDS_CANNOTREADDIR 1
+#define IDS_ERRORTITLE 2
+struct CPathBuffer {
+    std::vector<char> bytes;
+    explicit CPathBuffer(int capacity) : bytes(capacity) {}
+    char* Data() { return bytes.data(); }
+    int Capacity() const { return static_cast<int>(bytes.size()); }
+};
+struct CQuadWord { DWORD LoDWord, HiDWord; CQuadWord(DWORD low=0,DWORD high=0):LoDWord(low),HiDWord(high){} };
+struct CFileData {
+    char* Name = nullptr; char* DosName = nullptr; char* Ext = nullptr;
+    int NameLen = 0, PluginData = 0, Association = 0, Selected = 0, Shared = 0, Archive = 0,
+        SizeValid = 0, Dirty = 0, CutToClip = 0, IconOverlayIndex = 0, IconOverlayDone = 0,
+        Hidden = 0, IsOffline = 0, IsLink = 0;
+    DWORD Attr = 0; FILETIME LastWrite{}; CQuadWord Size;
+};
+struct CSalamanderDirectory {
+    std::map<std::string, CFileData> Files, Dirs;
+    std::map<std::string, std::unique_ptr<CSalamanderDirectory>> Children;
+    ~CSalamanderDirectory() {
+        for (const auto* entries : {&Files, &Dirs}) for (const auto& item : *entries) {
+            free(item.second.Name); free(item.second.DosName);
+        }
+    }
+    BOOL AddDir(const char*, const CFileData& value, void*) { return Dirs.emplace(value.Name,value).second; }
+    BOOL AddFile(const char*, const CFileData& value, void*) { return Files.emplace(value.Name,value).second; }
+    CSalamanderDirectory* GetSalamanderDir(const char* name, BOOL) {
+        auto& child=Children[name]; if(!child) child=std::make_unique<CSalamanderDirectory>(); return child.get();
+    }
+};
+static struct { BOOL SortDirsByExt = FALSE; } Configuration;
+static bool InvalidMessageTemplate=false;
+static const char* LoadStr(int id) { return id==IDS_CANNOTREADDIR ? (InvalidMessageTemplate ? "%n" : "%s: %s") : "owned fixture"; }
+static const char* GetErrorText(DWORD) { return "expected I/O error"; }
+static int SalMessageBox(HWND,const char*,const char*,UINT) { return IDCANCEL; }
+static BOOL UserWantsToCancelSafeWaitWindow() { return FALSE; }
+static char* DupStr(const char* source) { return _strdup(source); }
+static BOOL IsFileLink(const char*) { return FALSE; }
+static BOOL GetLinkTgtFileSize(HWND,const char*,const char*,CQuadWord*,BOOL*,BOOL*) { return FALSE; }
+static BOOL SalPathAppend(char* destination,const char* component,size_t capacity) {
+    const size_t length=strlen(destination), extra=strlen(component);
+    if(length+extra+2>capacity) return FALSE;
+    strcat_s(destination,capacity,"\\"); strcat_s(destination,capacity,component); return TRUE;
+}
+@@WIDE@@
+static bool FailConversion = false;
+static std::string ScannerToBytes(const wchar_t* text, UINT page) {
+    if(FailConversion) throw std::bad_alloc();
+    return SalWideToMultiBytePath(text,page);
+}
+#define SalWideToMultiBytePath ScannerToBytes
+@@SCANNER@@
+#undef SalWideToMultiBytePath
+static int Failures=0, Checks=0;
+static void Check(bool condition,const char* message) { ++Checks; if(!condition){++Failures;std::printf("FAIL %s\n",message);} }
+static void MakeFile(const std::wstring& path) {
+    const auto io=SalPathAddExtendedPrefixW(path.c_str());
+    std::filesystem::create_directories(std::filesystem::path(io).parent_path());
+    HANDLE file=CreateFileW(io.c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+    if(file==INVALID_HANDLE_VALUE) throw std::runtime_error("fixture create");
+    DWORD written=0;const BOOL ok=WriteFile(file,"owned",5,&written,nullptr);CloseHandle(file);
+    if(!ok||written!=5)throw std::runtime_error("fixture write");
+}
+int main(int argc,char** argv) {
+    if(argc!=2)return 2;
+    const std::wstring base=std::filesystem::absolute(argv[1]).wstring();
+    std::vector<std::wstring> roots={L"ascii",L"unicode-file",L"東京",L"東京\\café",
+        std::wstring(50,L'東'),std::wstring(100,L'a')+L"\\"+std::wstring(100,L'b'),L"café"};
+    std::vector<std::wstring> names={L"ordinary.txt",L"東京-😀.txt",L"ordinary.txt",L"žluťoučký.txt",L"東京.txt",L"東京.txt",L"café.txt"};
+    auto path=std::make_unique<char[]>(SAL_MAX_PATH);
+    for(size_t i=0;i<roots.size();++i) {
+        const std::wstring root=base+L"\\"+roots[i];
+        MakeFile(root+L"\\selected\\nested\\"+names[i]);
+        for(BOOL wideNames : {TRUE,FALSE}) {
+            if(!wideNames && i!=0 && i!=6)continue; // ASCII and ACP names preserve legacy bytes
+            const std::string encoded=SalWideToMultiBytePath(root.c_str(),wideNames?CP_UTF8:CP_ACP);
+            strcpy_s(path.get(),SAL_MAX_PATH,encoded.c_str());
+            CSalamanderDirectory tree;int error=SALENUM_SUCCESS;BOOL ignored=FALSE;
+            Check(_ReadDirectoryTree(nullptr,*reinterpret_cast<char(*)[SAL_MAX_PATH]>(path.get()),"selected",&tree,&error,FALSE,&ignored,nullptr,nullptr,wideNames),"recursive scanner succeeds");
+            Check(error==SALENUM_SUCCESS && encoded==path.get(),"success preserves root and status");
+            auto child=tree.Children.find("nested");
+            Check(child!=tree.Children.end(),"selected subdirectory retained");
+            if(child!=tree.Children.end()) {
+                const std::string name=SalWideToMultiBytePath(names[i].c_str(),wideNames?CP_UTF8:CP_ACP);
+                auto found=child->second->Files.find(name);
+                Check(found!=child->second->Files.end()&&child->second->Files.size()==1,"exact file identity survives wide traversal");
+                if(found!=child->second->Files.end()) {
+                    const auto& file=found->second;
+                    Check(file.Size.LoDWord==5&&file.Size.HiDWord==0&&file.NameLen==static_cast<int>(name.size()),"actual size and byte length");
+                    WIN32_FILE_ATTRIBUTE_DATA attributes{};
+                    const auto io=SalPathAddExtendedPrefixW((root+L"\\selected\\nested\\"+names[i]).c_str());
+                    Check(GetFileAttributesExW(io.c_str(),GetFileExInfoStandard,&attributes)&&
+                        file.Attr==attributes.dwFileAttributes&&CompareFileTime(&file.LastWrite,&attributes.ftLastWriteTime)==0,"actual file attributes and timestamp");
+                }
+            }
+        }
+    }
+    // Capacity rejection cannot silently omit a subtree and report completion.
+    const std::string oversized(SAL_MAX_PATH-3,'x');
+    strcpy_s(path.get(),SAL_MAX_PATH,oversized.c_str());
+    int error=SALENUM_SUCCESS;BOOL ignored=FALSE;
+    Check(!_ReadDirectoryTree(nullptr,*reinterpret_cast<char(*)[SAL_MAX_PATH]>(path.get()),"selected",nullptr,&error,FALSE,&ignored,nullptr,nullptr,TRUE)&&error==SALENUM_CANCEL&&GetLastError()==ERROR_FILENAME_EXCED_RANGE,"oversized subtree cancels before I/O");
+    Check(oversized==path.get(),"capacity rejection preserves root");
+    // Error cancellation cannot masquerade as complete enumeration.
+    const std::string encoded=SalWideToMultiBytePath(base.c_str(),CP_UTF8);
+    strcpy_s(path.get(),SAL_MAX_PATH,encoded.c_str());
+    error=SALENUM_SUCCESS;
+    Check(!_ReadDirectoryTree(reinterpret_cast<HWND>(1),*reinterpret_cast<char(*)[SAL_MAX_PATH]>(path.get()),"missing",nullptr,&error,FALSE,&ignored,nullptr,nullptr,TRUE)&&error==SALENUM_CANCEL,"I/O Cancel is preserved");
+    Check(encoded==path.get(),"I/O Cancel restores root");
+    InvalidMessageTemplate=true;error=SALENUM_SUCCESS;
+    Check(!_ReadDirectoryTree(nullptr,*reinterpret_cast<char(*)[SAL_MAX_PATH]>(path.get()),"missing",nullptr,&error,FALSE,&ignored,nullptr,nullptr,TRUE)&&error==SALENUM_ERROR&&GetLastError()==ERROR_INVALID_DATA,"malformed localized error cannot approve incomplete enumeration");
+    Check(encoded==path.get(),"malformed error template restores exact root");
+    InvalidMessageTemplate=false;
+    DWORD before=0,after=0;GetProcessHandleCount(GetCurrentProcess(),&before);
+    FailConversion=true;error=SALENUM_SUCCESS;
+    Check(!_ReadDirectoryTree(nullptr,*reinterpret_cast<char(*)[SAL_MAX_PATH]>(path.get()),"ascii",nullptr,&error,FALSE,&ignored,nullptr,nullptr,TRUE)&&error==SALENUM_CANCEL,"conversion allocation failure cancels");
+    FailConversion=false;GetProcessHandleCount(GetCurrentProcess(),&after);
+    Check(encoded==path.get()&&before==after,"failure restores root and releases Find handle");
+    std::printf("Actual Pack directory scanner: %d checks, %d failures\n",Checks,Failures);
+    return Failures?1:0;
+}

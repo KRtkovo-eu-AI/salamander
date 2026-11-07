@@ -1,5 +1,8 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Capture implicit archive destinations before callbacks and validation. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -14,6 +17,11 @@
 #include "zip.h"
 #include "pack.h"
 #include "common/widepath.h"
+#include "common/localizedtext.h"
+#include "fileactiondisktarget.h"
+#include "fileactionarchivesource.h"
+#include "fileactionpackcontext.h"
+#include "unpackvolumes.h"
 
 //
 // ****************************************************************************
@@ -22,6 +30,11 @@
 
 CPanelTmpEnumData::CPanelTmpEnumData()
 {
+    ExactFileSelection = FALSE;
+    SourcePanel = NULL;
+    ContextIsCurrent = NULL;
+    Context = NULL;
+    ErrGetFileSizeOfLnkTgtIgnAll = FALSE;
     Indexes = NULL;
     CurrentIndex = 0;
     IndexesCount = 0;
@@ -87,6 +100,12 @@ const char* _PanelSalEnumSelection(int enumFiles, const char** dosName, BOOL* is
 
 ENUM_NEXT:
 
+    if (!data->HasCurrentContext())
+    {
+        SetLastError(ERROR_RETRY);
+        if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
+        return NULL;
+    }
     if (data->CurrentIndex >= data->IndexesCount)
         return NULL;
     if (enumFiles == 0)
@@ -144,10 +163,10 @@ ENUM_NEXT:
                     memcpy(data->EnumLastPath, curZIPPath, zipPathLen);
                     if (zipPathLen > 0)
                         data->EnumLastPath[zipPathLen++] = '\\';
-                    strcpy(data->EnumLastPath + zipPathLen, f->Name);
+                    strcpy_s(data->EnumLastPath + zipPathLen, _countof(data->EnumLastPath) - zipPathLen, f->Name);
                     if (data->DiskDirectoryTree != NULL)
                     { // if EnumLastDosPath is used, zipPathLen will be 0
-                        strcpy(data->EnumLastDosPath, (f->DosName == NULL) ? f->Name : f->DosName);
+                        strcpy_s(data->EnumLastDosPath, _countof(data->EnumLastDosPath), (f->DosName == NULL) ? f->Name : f->DosName);
                     }
                     if (data->DiskDirectoryTree == NULL)
                         data->EnumLastDir = data->ArchiveDir;
@@ -196,6 +215,12 @@ ENUM_NEXT:
 
             while (1)
             {
+                if (!data->HasCurrentContext())
+                {
+                    SetLastError(ERROR_RETRY);
+                    if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
+                    return NULL;
+                }
                 if (data->EnumLastDir->IsDirectory(data->EnumLastIndex)) // directory -> descend
                 {
                     CFileData* f = data->EnumLastDir->GetDirEx(data->EnumLastIndex);
@@ -222,12 +247,12 @@ ENUM_NEXT:
                     }
                     else
                     {
-                        strcat(data->EnumLastPath, "\\");
-                        strcat(data->EnumLastPath, f->Name);
+                        strcat_s(data->EnumLastPath, _countof(data->EnumLastPath), "\\");
+                        strcat_s(data->EnumLastPath, _countof(data->EnumLastPath), f->Name);
                         if (data->DiskDirectoryTree != NULL)
                         {
-                            strcat(data->EnumLastDosPath, "\\");
-                            strcat(data->EnumLastDosPath, (f->DosName == NULL) ? f->Name : f->DosName);
+                            strcat_s(data->EnumLastDosPath, _countof(data->EnumLastDosPath), "\\");
+                            strcat_s(data->EnumLastDosPath, _countof(data->EnumLastDosPath), (f->DosName == NULL) ? f->Name : f->DosName);
                         }
                         data->EnumLastDir = data->EnumLastDir->GetSalamanderDir(data->EnumLastIndex);
                         data->EnumLastIndex = 0;
@@ -271,14 +296,14 @@ ENUM_NEXT:
                                 *isDir = FALSE;
                             if (size != NULL)
                                 *size = f->Size;
-                            strcpy(data->EnumTmpFileName, data->EnumLastPath + zipPathLen + (zipPathLen > 0 ? 1 : 0));
-                            strcat(data->EnumTmpFileName, "\\");
-                            strcat(data->EnumTmpFileName, f->Name);
+                            strcpy_s(data->EnumTmpFileName, _countof(data->EnumTmpFileName), data->EnumLastPath + zipPathLen + (zipPathLen > 0 ? 1 : 0));
+                            strcat_s(data->EnumTmpFileName, _countof(data->EnumTmpFileName), "\\");
+                            strcat_s(data->EnumTmpFileName, _countof(data->EnumTmpFileName), f->Name);
                             if (data->DiskDirectoryTree != NULL)
                             {
-                                strcpy(data->EnumTmpDosFileName, data->EnumLastDosPath); // if used, zipPathLen == 0
-                                strcat(data->EnumTmpDosFileName, "\\");
-                                strcat(data->EnumTmpDosFileName, (f->DosName == NULL) ? f->Name : f->DosName);
+                                strcpy_s(data->EnumTmpDosFileName, _countof(data->EnumTmpDosFileName), data->EnumLastDosPath); // if used, zipPathLen == 0
+                                strcat_s(data->EnumTmpDosFileName, _countof(data->EnumTmpDosFileName), "\\");
+                                strcat_s(data->EnumTmpDosFileName, _countof(data->EnumTmpDosFileName), (f->DosName == NULL) ? f->Name : f->DosName);
                                 if (dosName != NULL)
                                     *dosName = data->EnumTmpDosFileName;
                             }
@@ -354,14 +379,14 @@ ENUM_NEXT:
                         if (size != NULL)
                             *size = CQuadWord(0, 0);
                         int zipPathLen = (int)strlen(curZIPPath);
-                        strcpy(data->EnumTmpFileName, data->EnumLastPath + zipPathLen + (zipPathLen > 0 ? 1 : 0));
-                        strcat(data->EnumTmpFileName, "\\");
-                        strcat(data->EnumTmpFileName, subDir);
+                        strcpy_s(data->EnumTmpFileName, _countof(data->EnumTmpFileName), data->EnumLastPath + zipPathLen + (zipPathLen > 0 ? 1 : 0));
+                        strcat_s(data->EnumTmpFileName, _countof(data->EnumTmpFileName), "\\");
+                        strcat_s(data->EnumTmpFileName, _countof(data->EnumTmpFileName), subDir);
                         if (data->DiskDirectoryTree != NULL)
                         {
-                            strcpy(data->EnumTmpDosFileName, data->EnumLastDosPath); // if used, zipPathLen == 0
-                            strcat(data->EnumTmpDosFileName, "\\");
-                            strcat(data->EnumTmpDosFileName, subDirDos);
+                            strcpy_s(data->EnumTmpDosFileName, _countof(data->EnumTmpDosFileName), data->EnumLastDosPath); // if used, zipPathLen == 0
+                            strcat_s(data->EnumTmpDosFileName, _countof(data->EnumTmpDosFileName), "\\");
+                            strcat_s(data->EnumTmpDosFileName, _countof(data->EnumTmpDosFileName), subDirDos);
                             if (dosName != NULL)
                                 *dosName = data->EnumTmpDosFileName;
                         }
@@ -566,9 +591,7 @@ static bool DiskDirBuildEnumeration(HWND parent, int enumFiles,
         if (name.empty() || name == L"..")
             continue;
 
-        std::wstring fullPath = panelPath;
-        if (!SalPathAppendW(fullPath, name.c_str()))
-            return false;
+        std::wstring fullPath = data->Panel->GetItemFullPathW(*file);
         if (DiskDirSamePath(fullPath, data->OutputPath))
             continue;
 
@@ -728,23 +751,150 @@ static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* t
 static BOOL UnpackArchiveToArchiveViaTemp(CFilesWindow* source, CPanelTmpEnumData* data,
                                          char* targetPath, BOOL& invalidPathOrCancel);
 
+// Validate ASCII restrictions as bytes; UTF-8 continuation bytes are not control characters.
+static BOOL IsUnpackDirectoryComponentInvalid(const char* component, size_t length)
+{
+    if (length == 0) return FALSE;
+    return (unsigned char)component[0] <= ' ' ||
+           (unsigned char)component[length - 1] <= ' ' || component[length - 1] == '.';
+}
+
+// The dialog and drop paths share byte capacity, but never a shortened identity.
+static BOOL CopyUnpackDestination(const char* source, char* destination, int capacity)
+{
+    if (source == NULL || destination == NULL || capacity <= 0) return FALSE;
+    const size_t length = strlen(source);
+    if (length >= (size_t)capacity) return FALSE;
+    memmove(destination, source, length + 1);
+    return TRUE;
+}
+
+static BOOL ReadUnpackDiskDestination(const wchar_t* source, char* destination, int capacity)
+{
+    if (source == NULL || *source == 0) return FALSE;
+    const std::string encoded = SalWideToMultiBytePath(source, CP_UTF8);
+    return !encoded.empty() && SalMultiByteToWidePath(encoded.c_str(), CP_UTF8) == source &&
+           CopyUnpackDestination(encoded.c_str(), destination, capacity);
+}
+
+// Best-effort cleanup of the exact newly-created tree: never delete files or follow reparse directories.
+static void RemoveEmptyUnpackDirectoriesW(const std::wstring& root)
+{
+    if (root.empty()) return;
+    std::vector<std::wstring> directories(1, root);
+    for (size_t index = 0; index < directories.size(); ++index)
+    {
+        const std::wstring directory = directories[index];
+        const std::wstring ioPath = SalPathAddExtendedPrefixW(directory.c_str());
+        const DWORD attributes = GetFileAttributesW(ioPath.c_str());
+        if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY) ||
+            (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) continue;
+        std::wstring mask = directory;
+        SalPathAppendW(mask, L"*");
+        WIN32_FIND_DATAW data;
+        const std::wstring ioMask = SalPathAddExtendedPrefixW(mask.c_str());
+        HANDLE find = HANDLES_Q(FindFirstFileW(ioMask.c_str(), &data));
+        if (find == INVALID_HANDLE_VALUE) continue;
+        do
+        {
+            if (!(data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
+                (data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ||
+                wcscmp(data.cFileName, L".") == 0 || wcscmp(data.cFileName, L"..") == 0) continue;
+            std::wstring child = directory;
+            SalPathAppendW(child, data.cFileName);
+            directories.push_back(child);
+        } while (FindNextFileW(find, &data));
+        HANDLES(FindClose(find));
+    }
+    for (size_t index = directories.size(); index > 0; --index)
+    {
+        const std::wstring ioPath = SalPathAddExtendedPrefixW(directories[index - 1].c_str());
+        const DWORD attributes = GetFileAttributesW(ioPath.c_str());
+        if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) &&
+            !(attributes & FILE_ATTRIBUTE_REPARSE_POINT))
+            RemoveDirectoryW(ioPath.c_str()); // succeeds only for an empty ordinary directory
+    }
+}
+
 void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const char* tgtPath,
                                     BOOL* changeTargetRequested)
 {
+    // Resolve the implicit destination before any Branch capability or lifetime snapshot checks.
+    if (!deleteOp && target == NULL && tgtPath == NULL)
+        target = MainWindow->GetOtherPanel(this);
+
+    if (!deleteOp && target != NULL && CFilesActionDiskTarget::FindLive(MainWindow, target) == NULL)
+    {
+        SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    const HWND operationParent = MainWindow != NULL ? MainWindow->HWindow : NULL;
+    CFilesActionArchiveSource archiveSource;
+    if (!deleteOp && !archiveSource.Capture(MainWindow, this))
+    {
+        SalMessageBox(operationParent, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    // Keep the source tab alive through modal and plugin callbacks. Existing
+    // callers may already own the busy flag; restore their exact previous state.
+    struct CArchiveSourceBusyScope
+    {
+        CFilesActionArchiveSource* Source;
+        BOOL Previous;
+        CArchiveSourceBusyScope(CFilesActionArchiveSource* source) : Source(source), Previous(FALSE)
+        {
+            if (Source != NULL) { Previous = Source->Panel->FilesActionInProgress; Source->Panel->FilesActionInProgress = TRUE; }
+        }
+        ~CArchiveSourceBusyScope()
+        {
+            if (Source != NULL)
+            {
+                CFilesWindow* live = CFilesActionDiskTarget::FindLive(MainWindow, Source->Panel);
+                if (live != NULL && live->GetPanelTabId() == Source->Tab) live->FilesActionInProgress = Previous;
+            }
+        }
+    } sourceBusy(deleteOp ? NULL : &archiveSource);
+
+    if (IsBranchView() || target != NULL && target->IsBranchView() &&
+        (deleteOp || !target->Is(ptDisk) ||
+         PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) == NULL)) return; // Only a qualified archive listing can copy to a Branch root.
+
     if (changeTargetRequested != NULL)
         *changeTargetRequested = FALSE;
     CALL_STACK_MESSAGE3("CFilesWindow::UnpackZIPArchive(, %d, %s)", deleteOp, tgtPath);
     if (Files->Count + Dirs->Count == 0)
         return;
 
+    CFilesActionDiskTarget diskTarget;
+    const bool watchDiskTarget = !deleteOp && target != NULL && target->Is(ptDisk);
+    if (watchDiskTarget && !diskTarget.Capture(MainWindow, target, TRUE))
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    const auto validateDiskTarget = [&]() {
+        if (!deleteOp && !archiveSource.IsCurrent(MainWindow))
+        {
+            SalMessageBox(operationParent, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+            return false;
+        }
+        if (!watchDiskTarget || (diskTarget.IsCurrent(MainWindow) &&
+            (!diskTarget.Branch || PackGetVerifiedBranchUnpacker(this, GetZIPArchive(), PluginData.GetInterface()) != NULL))) return true;
+        SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+        return false;
+    };
+
     // restore DefaultDir
     MainWindow->UpdateDefaultDir(MainWindow->GetActivePanel() == this);
+
+    if (!validateDiskTarget()) return;
 
     BeginStopRefresh(); // the snooper takes a break
 
     //---  obtain the files and directories to work with
-    char subject[SAL_MAX_PATH + 100]; // text for the Unpack dialog (which is being unpacked)
-    char path[SAL_MAX_PATH];
+    CPathBuffer subjectBuffer(SAL_MAX_PATH + 100), pathBuffer;
+    char* subject = subjectBuffer.Data(); // text for the Unpack dialog
+    char* path = pathBuffer.Data();
     char expanded[200];
     CPanelTmpEnumData data;
     BOOL subDir;
@@ -817,14 +967,22 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
     str.Set(subject, data.IndexesCount > 1 ? NULL : path);
 
     data.CurrentIndex = 0;
-    data.ZIPPath = GetZIPPath();
+    data.ZIPPath = deleteOp ? GetZIPPath() : archiveSource.ArchiveRoot.c_str();
+    if (!deleteOp)
+    {
+        data.Context = &archiveSource;
+        data.ContextIsCurrent = [](void* context) -> BOOL {
+            return static_cast<CFilesActionArchiveSource*>(context)->IsCurrent(MainWindow);
+        };
+    }
     data.Dirs = Dirs;
     data.Files = Files;
     data.ArchiveDir = GetArchiveDir();
     data.EnumLastDir = NULL;
     data.EnumLastIndex = -1;
 
-    char changesRoot[MAX_PATH]; // directory from which changes on disk are taken into account
+    CPathBuffer changesRootBuffer;
+    char* changesRoot = changesRootBuffer.Data(); // full notification prefix
     changesRoot[0] = 0;
 
     if (!deleteOp) // copy
@@ -839,12 +997,21 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         int sourceDirs = data.IndexesCount - sourceFiles;
 
         //---  obtain the target directory
-        if (!deleteOp && target == NULL && tgtPath == NULL)
-            target = MainWindow->GetOtherPanel(this);
-
-        if (target != NULL && target->Is(ptDisk))
+        if (!validateDiskTarget())
         {
-            strcpy(path, target->GetPath());
+            delete[] data.Indexes;
+            EndStopRefresh();
+            return;
+        }
+        if (watchDiskTarget)
+        {
+            if (!ReadUnpackDiskDestination(diskTarget.Root.c_str(), path, pathBuffer.Capacity()))
+            {
+                SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                delete[] data.Indexes;
+                EndStopRefresh();
+                return;
+            }
 
             target->UserWorkedOnThisPath = TRUE; // default action = operate with the path in the target panel
         }
@@ -905,12 +1072,18 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
             }
         }
 
-        CCopyMoveDialog dlg(HWindow, path, SAL_MAX_PATH, LoadStr(IDS_UNPACKCOPY), &str, IDD_COPYDIALOG,
+        CCopyMoveDialog dlg(HWindow, path, pathBuffer.Capacity(), LoadStr(IDS_UNPACKCOPY), &str, IDD_COPYDIALOG,
                             Configuration.CopyHistory, COPY_HISTORY_SIZE, TRUE,
                             changeTargetRequested != NULL);
 
     _DLG_AGAIN:
 
+        if (!validateDiskTarget())
+        {
+            delete[] data.Indexes;
+            EndStopRefresh();
+            return;
+        }
         int dialogResult = tgtPath != NULL ? IDOK : (int)dlg.Execute();
         if (dialogResult == ID_CHANGE_SELECTED_TARGET_TAB)
         {
@@ -919,9 +1092,36 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         }
         if (dialogResult == IDOK)
         {
-            if (tgtPath != NULL)
-                lstrcpyn(path, tgtPath, MAX_PATH);
+            if (!validateDiskTarget())
+            {
+                delete[] data.Indexes;
+                EndStopRefresh();
+                return;
+            }
+
+            if (tgtPath != NULL && !CopyUnpackDestination(tgtPath, path, pathBuffer.Capacity()))
+            {
+                SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                delete[] data.Indexes;
+                EndStopRefresh();
+                return;
+            }
+            const bool useDefaultDiskTarget = watchDiskTarget && tgtPath == NULL &&
+                                              diskTarget.HasDefaultText(path, pathBuffer.Capacity());
             UpdateWindow(MainWindow->HWindow);
+            if (!validateDiskTarget())
+            {
+                delete[] data.Indexes;
+                EndStopRefresh();
+                return;
+            }
+            if (watchDiskTarget && diskTarget.Branch && !useDefaultDiskTarget)
+            {
+                SalMessageBox(HWindow, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                delete[] data.Indexes;
+                EndStopRefresh();
+                return;
+            }
             //---  for disk paths, convert '/' to '\\' and remove duplicate '\\'
             if (!IsPluginFSPath(path) &&
                 (path[0] != 0 && path[1] == ':' ||                                             // paths like X:...
@@ -940,13 +1140,30 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
             int pathType;
             BOOL pathIsDir;
             char* secondPart;
-            char textBuf[2 * MAX_PATH + 200];
-            if (ParsePath(path, pathType, pathIsDir, secondPart, LoadStr(IDS_ERRORCOPY), NULL, NULL, MAX_PATH))
+            CPathBuffer textBuffer(2 * SAL_MAX_PATH + 200);
+            char* textBuf = textBuffer.Data();
+            const BOOL parsed = ParsePath(path, pathType, pathIsDir, secondPart, LoadStr(IDS_ERRORCOPY), NULL, NULL, pathBuffer.Capacity());
+            if (!validateDiskTarget())
             {
+                delete[] data.Indexes;
+                EndStopRefresh();
+                return;
+            }
+            if (parsed)
+            {
+                if (useDefaultDiskTarget &&
+                    !diskTarget.MatchesParsedDirectoryDefault(path, pathBuffer.Capacity(), secondPart, pathType, pathIsDir))
+                {
+                    SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                    delete[] data.Indexes;
+                    EndStopRefresh();
+                    return;
+                }
                 // instead of a 'switch', use 'if' so that 'break' and 'continue' work correctly
                 if (pathType == PATH_TYPE_WINDOWS) // Windows path (disk + UNC)
                 {
-                    char newDirs[MAX_PATH]; // if a directory is being created for the operation, remember its name (so we can delete it in case of an error)
+                    CPathBuffer newDirsBuffer;
+                    char* newDirs = newDirsBuffer.Data(); // first newly created directory for cleanup
                     newDirs[0] = 0;
 
                     if (pathIsDir) // the existing part of the path is a directory
@@ -973,7 +1190,14 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                             if (Configuration.CnfrmCreatePath) // ask whether the path should be created
                             {
                                 BOOL dontShow = FALSE;
-                                sprintf(textBuf, LoadStr(IDS_MOVECOPY_CREATEPATH), newDirs);
+                                if (!Salamander::LocalizedText::Write(textBuf, static_cast<size_t>(textBuffer.Capacity()), LoadStr(IDS_MOVECOPY_CREATEPATH), newDirs))
+                                {
+                                    // Never present a malformed/truncated target confirmation.
+                                    SalMessageBox(HWindow, GetErrorText(ERROR_INVALID_DATA), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                                    delete[] data.Indexes;
+                                    EndStopRefresh();
+                                    return;
+                                }
 
                                 MSGBOXEX_PARAMS params;
                                 memset(&params, 0, sizeof(params));
@@ -987,7 +1211,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                                 Configuration.CnfrmCreatePath = !dontShow;
                                 if (cont)
                                 {
-                                    SalPathAddBackslash(path, MAX_PATH + 200);
+                                    SalPathAddBackslash(path, pathBuffer.Capacity());
                                     if (tgtPath != NULL)
                                     {
                                         UpdateWindow(MainWindow->HWindow);
@@ -999,48 +1223,57 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                                 }
                             }
 
+                            if (!validateDiskTarget())
+                            {
+                                delete[] data.Indexes;
+                                EndStopRefresh();
+                                return;
+                            }
+                            // Compute notification root before any new directory is created.
+                            memcpy(changesRoot, path, secondPart - path);
+                            changesRoot[secondPart - path] = 0;
                             BOOL ok = TRUE;
+                            bool createdAny = false;
                             char* st = newDirs + (secondPart - path);
                             char* firstSlash = NULL;
                             while (1)
                             {
-                                BOOL invalidPath = *st != 0 && *st <= ' ';
+                                if (!validateDiskTarget())
+                                {
+                                    if (createdAny)
+                                    {
+                                        if (firstSlash != NULL) *firstSlash = 0;
+                                        RemoveEmptyUnpackDirectoriesW(SalMultiByteToWidePath(newDirs, IsValidPathUtf8Text(newDirs) ? CP_UTF8 : CP_ACP));
+                                        MainWindow->PostChangeOnPathNotification(changesRoot, TRUE);
+                                    }
+                                    delete[] data.Indexes;
+                                    EndStopRefresh();
+                                    return;
+                                }
                                 char* slash = strchr(st, '\\');
+                                const size_t componentLength = slash != NULL ? (size_t)(slash - st) : strlen(st);
+                                const BOOL invalidPath = IsUnpackDirectoryComponentInvalid(st, componentLength);
                                 if (slash != NULL)
                                 {
-                                    if (slash > st && (*(slash - 1) <= ' ' || *(slash - 1) == '.'))
-                                        invalidPath = TRUE;
                                     *slash = 0;
                                     if (firstSlash == NULL)
                                         firstSlash = slash;
                                 }
-                                else
+                                std::wstring newDirsW = SalMultiByteToWidePath(newDirs, IsValidPathUtf8Text(newDirs) ? CP_UTF8 : CP_ACP);
+                                if (invalidPath || (newDirsW.empty() || !SalCreateDirectoryExW(newDirsW.c_str(), NULL)))
                                 {
-                                    if (*st != 0)
-                                    {
-                                        char* end = st + strlen(st) - 1;
-                                        if (*end <= ' ' || *end == '.')
-                                            invalidPath = TRUE;
-                                    }
-                                }
-                                std::wstring newDirsW = SalMultiByteToWidePath(newDirs, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
-                                if (invalidPath || !(GetACP() == CP_UTF8 && !newDirsW.empty() ? SalCreateDirectoryExW(newDirsW.c_str(), NULL) : CreateDirectory(newDirs, NULL)))
-                                {
-                                    sprintf(textBuf, LoadStr(IDS_CREATEDIRFAILED), newDirs);
-                                    SalMessageBox(HWindow, textBuf, LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                                    const bool haveMessage = Salamander::LocalizedText::Write(textBuf, static_cast<size_t>(textBuffer.Capacity()), LoadStr(IDS_CREATEDIRFAILED), newDirs);
+                                    SalMessageBox(HWindow, haveMessage ? textBuf : GetErrorText(ERROR_INVALID_DATA), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
                                     ok = FALSE;
                                     break;
                                 }
+                                createdAny = true;
                                 if (slash != NULL)
                                     *slash = '\\';
                                 else
                                     break; // that was the last '\\'
                                 st = slash + 1;
                             }
-
-                            // determine the original path (from which new directories were created)
-                            memcpy(changesRoot, path, secondPart - path);
-                            changesRoot[secondPart - path] = 0;
 
                             if (!ok)
                             {
@@ -1049,7 +1282,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                                 // choose a completely different path next time); the new path is kept (almost dead code)
                                 MainWindow->PostChangeOnPathNotification(changesRoot, TRUE);
 
-                                SalPathAddBackslash(path, MAX_PATH + 200);
+                                SalPathAddBackslash(path, pathBuffer.Capacity());
                                 if (tgtPath != NULL)
                                 {
                                     UpdateWindow(MainWindow->HWindow);
@@ -1068,7 +1301,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                         SalMessageBox(HWindow, LoadStr(IDS_UNPACK_OPMASKSNOTSUP), LoadStr(IDS_ERRORCOPY),
                                       MB_OK | MB_ICONEXCLAMATION);
                         if (backslashAtEnd || mustBePath)
-                            SalPathAddBackslash(path, MAX_PATH + 200);
+                            SalPathAddBackslash(path, pathBuffer.Capacity());
                         if (tgtPath != NULL)
                         {
                             UpdateWindow(MainWindow->HWindow);
@@ -1084,28 +1317,51 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                         strcpy(changesRoot, path);
 
                     //---  actual unpacking
+                    if (!validateDiskTarget())
+                    {
+                        if (newDirs[0] != 0)
+                            RemoveEmptyUnpackDirectoriesW(SalMultiByteToWidePath(newDirs, IsValidPathUtf8Text(newDirs) ? CP_UTF8 : CP_ACP));
+                        if (changesRoot[0] != 0) MainWindow->PostChangeOnPathNotification(changesRoot, TRUE);
+                        delete[] data.Indexes;
+                        EndStopRefresh();
+                        return;
+                    }
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-                    if (PackUncompress(MainWindow->HWindow, this, GetZIPArchive(), PluginData.GetInterface(),
-                                       path, GetZIPPath(), PanelSalEnumSelection, &data))
+                    const BOOL unpacked = PackUncompress(MainWindow->HWindow, this, archiveSource.ArchiveFile.c_str(), archiveSource.PluginData,
+                                       path, archiveSource.ArchiveRoot.c_str(), PanelSalEnumSelection, &data,
+                                       watchDiskTarget ? &diskTarget : NULL, data.ContextIsCurrent, data.Context);
+                    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+                    const bool targetCurrent = validateDiskTarget();
+                    if (unpacked && targetCurrent)
                     {                        // unpacking succeeded
-                        if (tgtPath == NULL) // if it is not drag&drop (selection is not cleared there)
+                        if (tgtPath == NULL && archiveSource.IsCurrent(MainWindow)) // if it is not drag&drop (selection is not cleared there)
                         {
                             SetSel(FALSE, -1, TRUE);                        // explicit redraw
                             PostMessage(HWindow, WM_USER_SELCHANGED, 0, 0); // sel-change notify
                         }
                     }
-                    else
+                    else if (!unpacked)
                     {
                         if (newDirs[0] != 0)
-                            RemoveEmptyDirs(newDirs);
+                            RemoveEmptyUnpackDirectoriesW(SalMultiByteToWidePath(newDirs, IsValidPathUtf8Text(newDirs) ? CP_UTF8 : CP_ACP));
                     }
-                    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
 
-                    if (GetForegroundWindow() == MainWindow->HWindow) // for unknown reasons focus disappears from the panel when dragging to Explorer; return it
+                    if (archiveSource.IsCurrent(MainWindow) && GetForegroundWindow() == MainWindow->HWindow) // restore focus only to the original source
                         RestoreFocusInSourcePanel();
                 }
                 else
                 {
+                    if (strlen(path) >= MAX_PATH)
+                    {
+                        SalMessageBox(HWindow, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                        if (tgtPath != NULL)
+                        {
+                            delete[] data.Indexes;
+                            EndStopRefresh();
+                            return;
+                        }
+                        goto _DLG_AGAIN;
+                    }
                     BOOL invalidPathOrCancel = FALSE;
                     if ((pathType == PATH_TYPE_FS && target != NULL && target->Is(ptPluginFS) &&
                          UnpackArchiveToPluginFSViaTemp(this, target, &data, sourceFiles, sourceDirs,
@@ -1113,7 +1369,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                         (pathType == PATH_TYPE_ARCHIVE &&
                          UnpackArchiveToArchiveViaTemp(this, &data, path, invalidPathOrCancel)))
                     {
-                        if (tgtPath == NULL) // if it is not drag&drop (selection is not cleared there)
+                        if (tgtPath == NULL && archiveSource.IsCurrent(MainWindow)) // if it is not drag&drop (selection is not cleared there)
                         {
                             SetSel(FALSE, -1, TRUE);                        // explicit redraw
                             PostMessage(HWindow, WM_USER_SELCHANGED, 0, 0); // sel-change notify
@@ -1127,7 +1383,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                                           MB_OK | MB_ICONEXCLAMATION);
                             if (pathType == PATH_TYPE_ARCHIVE && (backslashAtEnd || mustBePath))
                             {
-                                SalPathAddBackslash(path, MAX_PATH + 200);
+                                SalPathAddBackslash(path, pathBuffer.Capacity());
                             }
                         }
                         if (tgtPath != NULL)
@@ -1159,7 +1415,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
             if (changesRoot[0] != 0)
                 MainWindow->PostChangeOnPathNotification(changesRoot, TRUE);
             // change in the directory containing the archive (should not occur during unpack, but refresh just in case it does)
-            MainWindow->PostChangeOnPathNotification(GetPath(), FALSE);
+            MainWindow->PostChangeOnPathNotification(archiveSource.Directory.c_str(), FALSE);
         }
     }
     else // delete
@@ -1254,25 +1510,46 @@ void CFilesWindow::DeleteFromZIPArchive()
     UnpackZIPArchive(NULL, TRUE); // almost the same operation
 }
 
-BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], char* name, CSalamanderDirectory* dir,
+BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], const char* name, CSalamanderDirectory* dir,
                         int* errorOccured, BOOL getLinkTgtFileSize, BOOL* errGetFileSizeOfLnkTgtIgnAll,
-                        int* containsDirLinks, char* linkName)
+                        int* containsDirLinks, char* linkName, BOOL wideNames)
 {
+    const size_t originalPathLength = strlen(path);
+    struct CDirectoryPathScope
+    {
+        char* Path;
+        size_t Length;
+        ~CDirectoryPathScope() { Path[Length] = 0; }
+    } pathScope = {path, originalPathLength};
+    try
+    {
     CALL_STACK_MESSAGE4("_ReadDirectoryTree(, %s, %s, , , %d, , ,)", path, name, getLinkTgtFileSize);
     char* end = path + strlen(path);
-    char text[2 * MAX_PATH + 100];
+    CPathBuffer text(2 * SAL_MAX_PATH + 512);
     if ((end - path) + (*(end - 1) != '\\' ? 1 : 0) + strlen(name) + 2 >= _countof(path))
-        return TRUE; // path too long: continue without reporting the error until enumeration is complete
+    {
+        SetLastError(ERROR_FILENAME_EXCED_RANGE);
+        if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
+        return FALSE; // Never report an omitted subtree as complete.
+    }
     if (*(end - 1) != '\\')
     {
         *end++ = '\\';
         *end = 0;
     }
-    strcpy(end, name);
-    strcat(end, "\\*");
+    strcpy_s(end, _countof(path) - (end - path), name);
+    strcat_s(end, _countof(path) - (end - path), "\\*");
 
-    WIN32_FIND_DATA file;
-    HANDLE find = HANDLES_Q(FindFirstFile(path, &file));
+    WIN32_FIND_DATAA legacyFile = {};
+    WIN32_FIND_DATAW file = {};
+    const std::wstring ioMask = wideNames ? SalPathAddExtendedPrefixW(
+        SalMultiByteToWidePath(path, IsValidPathUtf8Text(path) ? CP_UTF8 : CP_ACP).c_str()) : std::wstring();
+    HANDLE find = wideNames ? HANDLES_Q(FindFirstFileW(ioMask.c_str(), &file)) : HANDLES_Q(FindFirstFileA(path, &legacyFile));
+    struct CDirectoryFindScope
+    {
+        HANDLE Handle;
+        ~CDirectoryFindScope() { if (Handle != INVALID_HANDLE_VALUE) HANDLES(FindClose(Handle)); }
+    } findScope = {find};
     *end = 0; // restore the path
     if (find == INVALID_HANDLE_VALUE)
     {
@@ -1281,11 +1558,17 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], char* name, CSa
         {
             if (errorOccured != NULL)
                 *errorOccured = SALENUM_ERROR;
-            strcpy(end, name);
-            sprintf(text, LoadStr(IDS_CANNOTREADDIR), path, GetErrorText(err));
+            strcpy_s(end, _countof(path) - (end - path), name);
+            if (!Salamander::LocalizedText::Write(text.Data(), static_cast<size_t>(text.Capacity()), LoadStr(IDS_CANNOTREADDIR), path, GetErrorText(err)))
+            {
+                if (parent != NULL)
+                    SalMessageBox(parent, GetErrorText(ERROR_INVALID_DATA), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                SetLastError(ERROR_INVALID_DATA);
+                return FALSE;
+            }
             *end = 0; // restore the path
             if (parent != NULL &&
-                SalMessageBox(parent, text, LoadStr(IDS_ERRORTITLE),
+                SalMessageBox(parent, text.Data(), LoadStr(IDS_ERRORTITLE),
                               MB_OKCANCEL | MB_ICONEXCLAMATION) == IDCANCEL)
             {
                 if (errorOccured != NULL)
@@ -1297,7 +1580,7 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], char* name, CSa
     }
     else
     {
-        strcpy(end, name);
+        strcpy_s(end, _countof(path) - (end - path), name);
         char* end2 = end + strlen(end);
         BOOL ok = TRUE;
         CFileData newF = {0}; // we no longer work with these items
@@ -1320,9 +1603,26 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], char* name, CSa
 
         do
         {
-            if (file.cFileName[0] == 0 ||
-                file.cFileName[0] == '.' &&
-                    (file.cFileName[1] == 0 || (file.cFileName[1] == '.' && file.cFileName[2] == 0)))
+            const std::string fileName = wideNames ? SalWideToMultiBytePath(file.cFileName, CP_UTF8) : legacyFile.cFileName;
+            const std::string alternateName = wideNames ? SalWideToMultiBytePath(file.cAlternateFileName, CP_UTF8) : legacyFile.cAlternateFileName;
+            if (!wideNames)
+            {
+                file.dwFileAttributes = legacyFile.dwFileAttributes;
+                file.nFileSizeLow = legacyFile.nFileSizeLow;
+                file.nFileSizeHigh = legacyFile.nFileSizeHigh;
+                file.ftLastWriteTime = legacyFile.ftLastWriteTime;
+            }
+            if (wideNames && (fileName.empty() || SalMultiByteToWidePath(fileName.c_str(), CP_UTF8) != file.cFileName ||
+                SalMultiByteToWidePath(alternateName.c_str(), CP_UTF8) != file.cAlternateFileName))
+            {
+                SetLastError(ERROR_NO_UNICODE_TRANSLATION);
+                ok = FALSE;
+                testFindNextErr = FALSE;
+                break;
+            }
+            if (fileName.c_str()[0] == 0 ||
+                fileName.c_str()[0] == '.' &&
+                    (fileName.c_str()[1] == 0 || (fileName.c_str()[1] == '.' && fileName.c_str()[2] == 0)))
                 continue; // "." a ".."
 
             static DWORD lastBreakCheck = 0;
@@ -1348,7 +1648,7 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], char* name, CSa
                     (file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) // it's a link
                 {                                                                // for a symlink determine the target file size
                     CQuadWord size;
-                    if (SalPathAppend(path, file.cFileName, _countof(path)))
+                    if (SalPathAppend(path, fileName.c_str(), _countof(path)))
                     { // only if the path is not too long (any resulting error will be reported during enumeration)
                         if (GetLinkTgtFileSize(parent, path, NULL, &size, &cancel, errGetFileSizeOfLnkTgtIgnAll))
                             newF.Size = size;
@@ -1361,7 +1661,7 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], char* name, CSa
                     *end2 = 0; // restore 'path' to its original state
                 }
 
-                newF.Name = !cancel ? DupStr(file.cFileName) : NULL;
+                newF.Name = !cancel ? DupStr(fileName.c_str()) : NULL;
                 newF.DosName = NULL;
                 if (cancel || newF.Name == NULL)
                 {
@@ -1369,7 +1669,7 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], char* name, CSa
                     testFindNextErr = FALSE;
                     break;
                 }
-                newF.NameLen = strlen(newF.Name);
+                newF.NameLen = static_cast<int>(strlen(newF.Name));
                 if (!Configuration.SortDirsByExt && (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) // directory, so it is certainly a disk
                 {
                     newF.Ext = newF.Name + newF.NameLen; // directories have no extensions
@@ -1384,9 +1684,9 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], char* name, CSa
                         newF.Ext++;
                 }
 
-                if (file.cAlternateFileName[0] != 0)
+                if (alternateName.c_str()[0] != 0)
                 {
-                    newF.DosName = DupStr(file.cAlternateFileName);
+                    newF.DosName = DupStr(alternateName.c_str());
                     if (newF.DosName == NULL)
                     {
                         free(newF.Name);
@@ -1430,14 +1730,14 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], char* name, CSa
                     {
                         *containsDirLinks = 1; // after finding one simulate an error to end the search immediately
                         *end2 = 0;
-                        _snprintf_s(linkName, SAL_MAX_PATH, _TRUNCATE, "%s\\%s", path, file.cFileName); // truncation is fine, it is only for the message text
+                        _snprintf_s(linkName, SAL_MAX_PATH, _TRUNCATE, "%s\\%s", path, fileName.c_str()); // truncation is fine, it is only for the message text
                         ok = FALSE;
                         testFindNextErr = FALSE;
                         break;
                     }
                 }
-                if (!_ReadDirectoryTree(parent, path, file.cFileName, salDir, errorOccured, getLinkTgtFileSize,
-                                        errGetFileSizeOfLnkTgtIgnAll, containsDirLinks, linkName))
+                if (!_ReadDirectoryTree(parent, path, fileName.c_str(), salDir, errorOccured, getLinkTgtFileSize,
+                                        errGetFileSizeOfLnkTgtIgnAll, containsDirLinks, linkName, wideNames))
                 {
                     ok = FALSE;
                     testFindNextErr = FALSE;
@@ -1464,20 +1764,25 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], char* name, CSa
                     }
                 }
             }
-        } while (FindNextFile(find, &file));
+        } while (wideNames ? FindNextFileW(find, &file) : FindNextFileA(find, &legacyFile));
         DWORD err = GetLastError();
-        HANDLES(FindClose(find));
         *end = 0; // restore the path
 
         if (testFindNextErr && err != ERROR_NO_MORE_FILES)
         {
             if (errorOccured != NULL)
                 *errorOccured = SALENUM_ERROR;
-            strcpy(end, name);
-            sprintf(text, LoadStr(IDS_CANNOTREADDIR), path, GetErrorText(err));
+            strcpy_s(end, _countof(path) - (end - path), name);
+            if (!Salamander::LocalizedText::Write(text.Data(), static_cast<size_t>(text.Capacity()), LoadStr(IDS_CANNOTREADDIR), path, GetErrorText(err)))
+            {
+                if (parent != NULL)
+                    SalMessageBox(parent, GetErrorText(ERROR_INVALID_DATA), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                SetLastError(ERROR_INVALID_DATA);
+                return FALSE;
+            }
             *end = 0; // restore the path
             if (parent != NULL &&
-                SalMessageBox(parent, text, LoadStr(IDS_ERRORTITLE),
+                SalMessageBox(parent, text.Data(), LoadStr(IDS_ERRORTITLE),
                               MB_OKCANCEL | MB_ICONEXCLAMATION) == IDCANCEL)
             {
                 if (errorOccured != NULL)
@@ -1494,6 +1799,14 @@ BOOL _ReadDirectoryTree(HWND parent, char (&path)[SAL_MAX_PATH], char* name, CSa
         }
     }
     return TRUE;
+    }
+    catch (const std::bad_alloc&)
+    {
+        path[originalPathLength] = 0;
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
+        return FALSE;
+    }
 }
 
 CSalamanderDirectory* ReadDirectoryTree(HWND parent, CPanelTmpEnumData* data, int* errorOccured,
@@ -1504,6 +1817,13 @@ CSalamanderDirectory* ReadDirectoryTree(HWND parent, CPanelTmpEnumData* data, in
         *errorOccured = SALENUM_SUCCESS;
     if (containsDirLinks != NULL)
         *containsDirLinks = 0;
+    if (!data->HasCurrentContext())
+    {
+        SetLastError(ERROR_RETRY);
+        if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
+        return NULL;
+    }
+
     BOOL cancel = FALSE;
     if (data->CurrentIndex >= data->IndexesCount || data->WorkPath[0] == 0)
     {
@@ -1542,6 +1862,13 @@ CSalamanderDirectory* ReadDirectoryTree(HWND parent, CPanelTmpEnumData* data, in
         memset(&newF, 0, sizeof(newF));
     while (index < data->IndexesCount)
     {
+        if (!data->HasCurrentContext())
+        {
+            if (dir != NULL) delete dir;
+            SetLastError(ERROR_RETRY);
+            if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
+            return NULL;
+        }
         int i = data->Indexes[index++];
         BOOL isDir = i < data->Dirs->Count;
         CFileData* f = &(isDir ? data->Dirs->At(i) : data->Files->At(i - data->Dirs->Count));
@@ -1601,7 +1928,7 @@ CSalamanderDirectory* ReadDirectoryTree(HWND parent, CPanelTmpEnumData* data, in
 
             strcpy(path, data->WorkPath);
             if (!_ReadDirectoryTree(parent, path, f->Name, salDir, errorOccured, getLinkTgtFileSize,
-                                    &errGetFileSizeOfLnkTgtIgnAll, containsDirLinks, linkName))
+                                    &errGetFileSizeOfLnkTgtIgnAll, containsDirLinks, linkName, data->WideDiskNames))
             {
                 goto RETURN_ERROR;
             }
@@ -1670,6 +1997,93 @@ const char* WINAPI PanelEnumDiskSelection(HWND parent, int enumFiles, const char
         return NULL;
     }
 
+    if (!data->HasCurrentContext())
+    {
+        SetLastError(ERROR_RETRY);
+        if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
+        return NULL;
+    }
+
+    if (data->SourcePanel != NULL && data->ExactFileSelection)
+    {
+        if (data->CurrentIndex >= data->IndexesCount)
+            return NULL;
+        const int selectionIndex = data->CurrentIndex++;
+        const int index = data->Indexes[selectionIndex];
+        if (index < data->Dirs->Count || index >= data->Dirs->Count + data->Files->Count)
+        {
+            if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
+            return NULL;
+        }
+        const CFileData& file = data->Files->At(index - data->Dirs->Count);
+        CQuadWord fileSize = file.Size;
+        try
+        {
+            const std::wstring relativePath = data->SourcePanel->GetItemRelativePathW(file);
+            data->BranchEnumName = SalWideToMultiBytePath(relativePath.c_str(), CP_UTF8);
+            if (relativePath.empty() || data->BranchEnumName.empty())
+            {
+                if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
+                SetLastError(ERROR_INVALID_DATA);
+                return NULL;
+            }
+            if (enumFiles == 3 && (file.Attr & FILE_ATTRIBUTE_REPARSE_POINT) != 0)
+            {
+                if (data->BranchEnumLinkSizeValid.size() != static_cast<size_t>(data->IndexesCount))
+                {
+                    data->BranchEnumLinkSizes.resize(data->IndexesCount);
+                    data->BranchEnumLinkSizeValid.assign(data->IndexesCount, FALSE);
+                }
+                if (data->BranchEnumLinkSizeValid[selectionIndex])
+                    fileSize = data->BranchEnumLinkSizes[selectionIndex];
+                else
+                {
+                    const std::wstring fullPath = data->SourcePanel->GetItemFullPathW(file);
+                    const std::string encodedPath = SalWideToMultiBytePath(fullPath.c_str(), CP_UTF8);
+                    if (fullPath.empty() || encodedPath.empty())
+                    {
+                        if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
+                        SetLastError(ERROR_INVALID_DATA);
+                        return NULL;
+                    }
+                    BOOL cancel = FALSE;
+                    CQuadWord targetSize;
+                    if (GetLinkTgtFileSize(parent, encodedPath.c_str(), NULL, &targetSize,
+                                          &cancel, &data->ErrGetFileSizeOfLnkTgtIgnAll))
+                        fileSize = targetSize;
+                    else if (cancel)
+                    {
+                        if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
+                        return NULL;
+                    }
+                    if (!data->HasCurrentContext())
+                    {
+                        SetLastError(ERROR_RETRY);
+                        if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
+                        return NULL;
+                    }
+                    // A move packer may enumerate again after deleting its
+                    // sources. Retain the resolved (or ignored) size on reset,
+                    // just as ordinary enumeration retains DiskDirectoryTree.
+                    data->BranchEnumLinkSizes[selectionIndex] = fileSize;
+                    data->BranchEnumLinkSizeValid[selectionIndex] = TRUE;
+                }
+            }
+        }
+        catch (const std::bad_alloc&)
+        {
+            if (errorOccured != NULL) *errorOccured = SALENUM_CANCEL;
+            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+            return NULL;
+        }
+        if (dosName != NULL) *dosName = NULL;
+        if (isDir != NULL) *isDir = FALSE;
+        if (size != NULL) *size = fileSize;
+        if (attr != NULL) *attr = file.Attr;
+        if (lastWrite != NULL) *lastWrite = file.LastWrite;
+        return data->BranchEnumName.c_str();
+    }
+
     if (enumFiles > 0)
     {
         if (data->DiskDirectoryTree == NULL)
@@ -1727,6 +2141,8 @@ static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* t
     CALL_STACK_MESSAGE2("UnpackArchiveToPluginFSViaTemp(, , , , , %s,)", targetPath);
 
     invalidPathOrCancel = FALSE;
+    if (!data->HasCurrentContext())
+    { SetLastError(ERROR_RETRY); invalidPathOrCancel = TRUE; return FALSE; }
 
     if (target == NULL || !target->Is(ptPluginFS) || !target->GetPluginFS()->NotEmpty() ||
         !target->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMDISKTOFS))
@@ -1771,8 +2187,8 @@ static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* t
     data->WorkPath[0] = 0;
 
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-    if (PackUncompress(MainWindow->HWindow, source, source->GetZIPArchive(), source->PluginData.GetInterface(),
-                       tempRoot, source->GetZIPPath(), PanelSalEnumSelection, data))
+    if (data->HasCurrentContext() && PackUncompress(MainWindow->HWindow, source, source->GetZIPArchive(), source->PluginData.GetInterface(),
+                       tempRoot, source->GetZIPPath(), PanelSalEnumSelection, data, NULL, data->ContextIsCurrent, data->Context) && data->HasCurrentContext())
     {
         data->Reset();
         lstrcpyn(data->WorkPath, tempRoot, _countof(data->WorkPath));
@@ -1784,7 +2200,7 @@ static BOOL UnpackArchiveToPluginFSViaTemp(CFilesWindow* source, CFilesWindow* t
 
         BOOL moveTempToTarget = target->GetPluginFS()->IsServiceSupported(FS_SERVICE_MOVEFROMDISKTOFS);
         BOOL pluginInvalidPathOrCancel = FALSE;
-        if (target->GetPluginFS()->CopyOrMoveFromDiskToFS(!moveTempToTarget, 3, target->GetPluginFS()->GetPluginFSName(),
+        if (data->HasCurrentContext() && target->GetPluginFS()->CopyOrMoveFromDiskToFS(!moveTempToTarget, 3, target->GetPluginFS()->GetPluginFSName(),
                                                           source->HWindow, tempRoot, PanelEnumDiskSelection, data,
                                                           sourceFiles, sourceDirs, internalTargetPath,
                                                           &pluginInvalidPathOrCancel))
@@ -1816,6 +2232,8 @@ static BOOL UnpackArchiveToArchiveViaTemp(CFilesWindow* source, CPanelTmpEnumDat
     CALL_STACK_MESSAGE2("UnpackArchiveToArchiveViaTemp(, , %s,)", targetPath);
 
     invalidPathOrCancel = FALSE;
+    if (!data->HasCurrentContext())
+    { SetLastError(ERROR_RETRY); invalidPathOrCancel = TRUE; return FALSE; }
 
     char archivePath[2 * MAX_PATH];
     lstrcpyn(archivePath, targetPath, 2 * MAX_PATH);
@@ -1891,8 +2309,8 @@ static BOOL UnpackArchiveToArchiveViaTemp(CFilesWindow* source, CPanelTmpEnumDat
     data->WorkPath[0] = 0;
 
     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-    if (PackUncompress(MainWindow->HWindow, source, source->GetZIPArchive(), source->PluginData.GetInterface(),
-                       tempRoot, source->GetZIPPath(), PanelSalEnumSelection, data))
+    if (data->HasCurrentContext() && PackUncompress(MainWindow->HWindow, source, source->GetZIPArchive(), source->PluginData.GetInterface(),
+                       tempRoot, source->GetZIPPath(), PanelSalEnumSelection, data, NULL, data->ContextIsCurrent, data->Context) && data->HasCurrentContext())
     {
         data->Reset();
         lstrcpyn(data->WorkPath, tempRoot, _countof(data->WorkPath));
@@ -1923,8 +2341,69 @@ static BOOL UnpackArchiveToArchiveViaTemp(CFilesWindow* source, CPanelTmpEnumDat
     return done;
 }
 
-void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* pluginName, int delFilesAfterPacking)
+// Qualified Pack overwrite uses the exact wide destination and clears only RO.
+static BOOL RemoveQualifiedPackArchive(const char* archiveFile)
+try
 {
+    std::wstring path = SalMultiByteToWidePath(archiveFile, IsValidPathUtf8Text(archiveFile) ? CP_UTF8 : CP_ACP);
+    if (path.empty()) { SetLastError(ERROR_INVALID_NAME); return FALSE; }
+    path = SalPathAddExtendedPrefixW(path.c_str());
+    const DWORD attributes = GetFileAttributesW(path.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES) return FALSE;
+    if ((attributes & FILE_ATTRIBUTE_READONLY) != 0 &&
+        !SetFileAttributesW(path.c_str(), attributes & ~FILE_ATTRIBUTE_READONLY)) return FALSE;
+    return DeleteFileW(path.c_str());
+}
+catch (const std::bad_alloc&)
+{ SetLastError(ERROR_NOT_ENOUGH_MEMORY); return FALSE; }
+
+// S27e2 staged activation: only the bundled ZIP/7-Zip packers are verified.
+static BOOL IsVerifiedBranchPacker()
+{
+    const int index = PackerConfig.GetPreferedPacker();
+    if (index < 0 || index >= PackerConfig.GetPackersCount())
+        return FALSE;
+    const int type = PackerConfig.GetPackerType(index);
+    if (type >= 0)
+        return FALSE;
+    const CPluginData* plugin = Plugins.Get(-(type + 1));
+    return plugin != NULL && plugin->SupportCustomPack && plugin->DLLName != NULL &&
+        (_stricmp(plugin->DLLName, "zip\\zip.spl") == 0 ||
+         _stricmp(plugin->DLLName, "7zip\\7zip.spl") == 0);
+}
+
+void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* pluginName, int delFilesAfterPacking)
+try
+{
+    if (CFilesActionDiskTarget::FindLive(MainWindow, this) == NULL ||
+        CFilesActionDiskTarget::FindLive(MainWindow, target) == NULL) return;
+    const bool qualifiedPack = IsBranchView() || target->IsBranchView();
+    if (qualifiedPack && (!Is(ptDisk) || !target->Is(ptDisk) || FilesActionInProgress)) return;
+    const HWND operationParent = MainWindow->HWindow;
+    CFilesActionPackContext packContext;
+    if (qualifiedPack && !packContext.Capture(MainWindow, this, target))
+    {
+        SalMessageBox(operationParent, GetErrorText(ERROR_RETRY), LoadStr(IDS_PACKTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    struct CPackSourceBusyScope
+    {
+        CFilesActionPackContext* Context;
+        BOOL Previous;
+        CPackSourceBusyScope(CFilesActionPackContext* context) : Context(context), Previous(FALSE)
+        { if (Context != NULL) { Previous = Context->Source.Panel->FilesActionInProgress; Context->Source.Panel->FilesActionInProgress = TRUE; } }
+        ~CPackSourceBusyScope()
+        {
+            if (Context != NULL && CFilesActionDiskTarget::FindLive(MainWindow, Context->Source.Panel) != NULL &&
+                Context->Source.Panel->GetPanelTabId() == Context->Source.Tab)
+                Context->Source.Panel->FilesActionInProgress = Previous;
+        }
+    } sourceBusy(qualifiedPack ? &packContext : NULL);
+    const auto contextCurrent = [&]() { return !qualifiedPack || packContext.IsCurrent(MainWindow); };
+    const auto reportChangedContext = [&]() {
+        SalMessageBox(operationParent, GetErrorText(ERROR_RETRY), LoadStr(IDS_PACKTITLE), MB_OK | MB_ICONEXCLAMATION);
+    };
+
     CALL_STACK_MESSAGE4("CFilesWindow::Pack(, %d, %s, %d)", pluginIndex, pluginName, delFilesAfterPacking);
     if (Files->Count + Dirs->Count == 0)
         return;
@@ -1933,31 +2412,46 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
     MainWindow->UpdateDefaultDir(MainWindow->GetActivePanel() == this);
 
     BeginStopRefresh(); // the snooper takes a break
+    struct CPackRefreshScope { ~CPackRefreshScope() { EndStopRefresh(); } } refreshScope;
 
     //---  obtain the files and directories to work with
-    char subject[SAL_MAX_PATH + 100]; // text for the Unpack dialog (that is being unpacked)
-    char path[SAL_MAX_PATH];
+    CPathBuffer subjectBuffer(SAL_MAX_PATH + 100);
+    char* subject = subjectBuffer.Data(); // text for the Unpack dialog (that is being unpacked)
+    CPathBuffer pathBuffer(SAL_MAX_PATH);
+    char* path = pathBuffer.Data();
     char text[1000];
     BOOL nameByItem;
     CPanelTmpEnumData data;
+    std::unique_ptr<int[]> indexesOwner;
     BOOL subDir;
     if (Dirs->Count > 0)
         subDir = (strcmp(Dirs->At(0).Name, "..") == 0);
     else
         subDir = FALSE;
     data.IndexesCount = GetSelCount();
-    char expanded[SAL_MAX_PATH + 100];
-    char archiveBaseName[SAL_MAX_PATH];
+    CPathBuffer expandedBuffer(SAL_MAX_PATH + 100);
+    char* expanded = expandedBuffer.Data();
+    CPathBuffer archiveBaseNameBuffer(SAL_MAX_PATH);
+    char* archiveBaseName = archiveBaseNameBuffer.Data();
     archiveBaseName[0] = 0;
     int files = 0;             // number of selected files
     if (data.IndexesCount > 1) // valid selection
     {
         nameByItem = FALSE;
-        data.Indexes = new int[data.IndexesCount];
+#ifdef new
+#undef new
+#define RESTORE_BRANCH_PACK_SELECTION_DEBUG_NEW_MACRO
+#endif
+        data.Indexes = new (std::nothrow) int[data.IndexesCount];
+        indexesOwner.reset(data.Indexes);
+#ifdef RESTORE_BRANCH_PACK_SELECTION_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_BRANCH_PACK_SELECTION_DEBUG_NEW_MACRO
+#endif
         if (data.Indexes == NULL)
         {
             TRACE_E(LOW_MEMORY);
-            EndStopRefresh(); // the snooper resumes now
+
             return;
         }
         else
@@ -1973,7 +2467,7 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
             }
         }
         // build the subject for the dialog
-        ExpandPluralFilesDirs(expanded, _countof(expanded), files, data.IndexesCount - files, epfdmNormal, FALSE);
+        ExpandPluralFilesDirs(expanded, expandedBuffer.Capacity(), files, data.IndexesCount - files, epfdmNormal, FALSE);
     }
     else // take the selected file or directory
     {
@@ -1996,16 +2490,25 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
 
         if (subDir && index == 0)
         {
-            EndStopRefresh(); // the snooper resumes now
+
             return;           // nothing to do
         }
         else
         {
-            data.Indexes = new int[1];
+#ifdef new
+#undef new
+#define RESTORE_BRANCH_PACK_SELECTION_DEBUG_NEW_MACRO
+#endif
+            data.Indexes = new (std::nothrow) int[1];
+            indexesOwner.reset(data.Indexes);
+#ifdef RESTORE_BRANCH_PACK_SELECTION_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_BRANCH_PACK_SELECTION_DEBUG_NEW_MACRO
+#endif
             if (data.Indexes == NULL)
             {
                 TRACE_E(LOW_MEMORY);
-                EndStopRefresh(); // the snooper resumes now
+
                 return;
             }
             else
@@ -2017,7 +2520,7 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
                 if (!isDir)
                     files = 1;
                 CFileData* f = isDir ? &Dirs->At(index) : &Files->At(index - Dirs->Count);
-                lstrcpyn(archiveBaseName, f->Name, _countof(archiveBaseName));
+                lstrcpyn(archiveBaseName, f->Name, archiveBaseNameBuffer.Capacity());
                 AlterFileName(path, f->Name, -1, Configuration.FileNameFormat, 0, index < Dirs->Count);
                 strcpy(expanded, LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE));
             }
@@ -2031,14 +2534,28 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
     data.ZIPPath = GetZIPPath();
     data.Dirs = Dirs;
     data.Files = Files;
+    if (qualifiedPack)
+    {
+        data.Context = &packContext;
+        data.WideDiskNames = TRUE;
+        data.ContextIsCurrent = [](void* context) -> BOOL {
+            return static_cast<CFilesActionPackContext*>(context)->IsCurrent(MainWindow);
+        };
+    }
+    data.SourcePanel = this;
+    data.ExactFileSelection = Is(ptDisk);
+    for (int item = 0; item < data.IndexesCount && data.ExactFileSelection; ++item)
+        if (data.Indexes[item] < Dirs->Count) data.ExactFileSelection = FALSE;
     data.ArchiveDir = GetArchiveDir();
     lstrcpyn(data.WorkPath, GetPath(), _countof(data.WorkPath));
     data.EnumLastDir = NULL;
     data.EnumLastIndex = -1;
 
     //---  we are packing into a new file, ask for its name
-    char fileBuf[SAL_MAX_PATH];    // file we will pack into
-    char fileBufAlt[SAL_MAX_PATH]; // alternative name shown in the Pack dialog combo box
+    CPathBuffer fileBufBuffer(SAL_MAX_PATH);
+    char* fileBuf = fileBufBuffer.Data();    // file we will pack into
+    CPathBuffer fileBufAltBuffer(SAL_MAX_PATH);
+    char* fileBufAlt = fileBufAltBuffer.Data(); // alternative name shown in the Pack dialog combo box
 
     if (data.IndexesCount == 1 && archiveBaseName[0] != 0) // if only one item (file/directory) is selected, the archive inherits its name
     {
@@ -2047,8 +2564,8 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
         if (data.Indexes[0] < Dirs->Count || ext == NULL) // ".cvspass" is treated as an extension in Windows ...
                                                           //  if (data.Indexes[0] < Dirs->Count || ext == NULL || ext == itemName)
         {                                                 // subdirectory or no extension
-            lstrcpyn(fileBuf, itemName, _countof(fileBuf));
-            if (strlen(fileBuf) + 1 < _countof(fileBuf))
+            lstrcpyn(fileBuf, itemName, fileBufBuffer.Capacity());
+            if (strlen(fileBuf) + 1 < static_cast<size_t>(fileBufBuffer.Capacity()))
                 strcat(fileBuf, ".");
         }
         else
@@ -2064,7 +2581,8 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
         if (end > GetPath() && *(end - 1) == '\\')
             end--;
         const char* dir = end;
-        char root[SAL_MAX_PATH];
+        CPathBuffer rootBuffer(SAL_MAX_PATH);
+        char* root = rootBuffer.Data();
         GetRootPath(root, GetPath());
         const char* min = GetPath() + strlen(root);
         while (dir > min && *(dir - 1) != '\\')
@@ -2094,8 +2612,8 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
         {
             sprintf(subject, LoadStr(IDS_PLUGINPACKERNOTFOUND), pluginName);
             SalMessageBox(HWindow, subject, LoadStr(IDS_PACKTITLE), MB_OK | MB_ICONEXCLAMATION);
-            delete[] (data.Indexes);
-            EndStopRefresh(); // the snooper resumes now
+            indexesOwner.reset();
+
             return;
         }
     }
@@ -2117,22 +2635,30 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
         if (Configuration.UseAnotherPanelForPack)
             target->UserWorkedOnThisPath = TRUE; // default action = work with the path in the target panel
 
-        int l = (int)strlen(target->GetPath());
-        if (l > 0 && target->GetPath()[l - 1] == '\\')
+        const char* targetRoot = qualifiedPack ? packContext.Target.DefaultPath.c_str() : target->GetPath();
+        int l = (int)strlen(targetRoot);
+        if (l > 0 && targetRoot[l - 1] == '\\')
             l--;
         int ll = (int)strlen(buff);
         if (l + 2 + ll < SAL_MAX_PATH)
         {
             memmove(buff + l + 1, buff, ll + 1);
             buff[l] = '\\';
-            memcpy(buff, target->GetPath(), l);
+            memcpy(buff, targetRoot, l);
+        }
+        else if (qualifiedPack)
+        {
+            SalMessageBox(operationParent, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_PACKTITLE), MB_OK | MB_ICONEXCLAMATION);
+            indexesOwner.reset();
+
+            return;
         }
     }
 
     // if no item is selected, choose the focused item and store its name
-    char temporarySelected[SAL_MAX_PATH];
-    temporarySelected[0] = 0;
-    SelectFocusedItemAndGetName(temporarySelected, _countof(temporarySelected));
+    CPanelTemporarySelection temporarySelected;
+    temporarySelected.Clear();
+    SelectFocusedItemAndGetName(temporarySelected);
 
     if (delFilesAfterPacking == 1)
         PackerConfig.Move = TRUE;
@@ -2145,6 +2671,15 @@ void CFilesWindow::Pack(CFilesWindow* target, int pluginIndex, const char* plugi
     BOOL first = TRUE;
 
 _PACK_AGAIN:
+
+    if (qualifiedPack) packContext.Backend = NULL; // A confirmed retry may choose a different packer.
+    if (!contextCurrent())
+    {
+        reportChangedContext();
+        indexesOwner.reset();
+
+        return;
+    }
 
     CPackDialog dlg(HWindow, fileBuf, fileBufAlt, &str, &PackerConfig);
 
@@ -2167,10 +2702,23 @@ _PACK_AGAIN:
     if (dlg.Execute() == IDOK)
     {
         UpdateWindow(MainWindow->HWindow);
+        if (!contextCurrent())
+        { reportChangedContext(); indexesOwner.reset(); return; }
+        if (qualifiedPack && !IsVerifiedBranchPacker())
+        {
+            SalMessageBox(HWindow, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(IDS_PACKTITLE), MB_OK | MB_ICONEXCLAMATION);
+            goto _PACK_AGAIN;
+        }
+        if (qualifiedPack && !packContext.BindBackend(MainWindow))
+        {
+            SalMessageBox(HWindow, GetErrorText(GetLastError()), LoadStr(IDS_PACKTITLE), MB_OK | MB_ICONEXCLAMATION);
+            goto _PACK_AGAIN;
+        }
         //--- adjust the archive name to its full form
         int errTextID;
         BOOL empty = FALSE;
-        char nextFocus[SAL_MAX_PATH];
+        CPathBuffer nextFocusBuffer(SAL_MAX_PATH);
+        char* nextFocus = nextFocusBuffer.Data();
         nextFocus[0] = 0;
         if (SalGetFullName(fileBuf, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus, NULL, SAL_MAX_PATH))
         {
@@ -2186,7 +2734,8 @@ _PACK_AGAIN:
                 CreateSafeWaitWindow(LoadStr(IDS_ANALYSINGDIRTREEESC), NULL, 3000, TRUE, NULL);
 
                 // try to find the first directory link; if found, simulate an error to stop the search
-                char linkName[SAL_MAX_PATH];
+                CPathBuffer linkNameBuffer(SAL_MAX_PATH);
+                char* linkName = linkNameBuffer.Data();
                 linkName[0] = 0;
                 ReadDirectoryTree(NULL /* silent mode */, &data, NULL, FALSE, &containsDirLinks, linkName);
 
@@ -2211,8 +2760,12 @@ _PACK_AGAIN:
                     performPack = FALSE;
             }
 
+            if (!contextCurrent())
+            { reportChangedContext(); indexesOwner.reset(); return; }
+
             //--- confirmation for adding (updating) to an existing archive
-            if (performPack && Configuration.CnfrmAddToArchive && FileExists(fileBuf))
+            if (performPack && Configuration.CnfrmAddToArchive && (qualifiedPack ?
+                GetFileAttributesW(SalPathAddExtendedPrefixW(SalMultiByteToWidePath(fileBuf, IsValidPathUtf8Text(fileBuf) ? CP_UTF8 : CP_ACP).c_str()).c_str()) != INVALID_FILE_ATTRIBUTES : FileExists(fileBuf)))
             {
                 BOOL dontShow = !Configuration.CnfrmAddToArchive;
 
@@ -2242,11 +2795,13 @@ _PACK_AGAIN:
                                    &dontShow,
                                    NULL, 0, NULL, alias, NULL, NULL);
                 int msgBoxRed = msgBox.Execute();
+                if (!contextCurrent())
+                { reportChangedContext(); indexesOwner.reset(); return; }
                 performPack = (msgBoxRed == IDYES);
                 if (msgBoxRed == IDNO) // OVERWRITE
                 {
-                    ClearReadOnlyAttr(fileBuf); // so it can be deleted...
-                    if (!DeleteFile(fileBuf))
+                    if (!qualifiedPack) ClearReadOnlyAttr(fileBuf); // so it can be deleted...
+                    if (!(qualifiedPack ? RemoveQualifiedPackArchive(fileBuf) : DeleteFile(fileBuf)))
                     {
                         DWORD err;
                         err = GetLastError();
@@ -2264,10 +2819,13 @@ _PACK_AGAIN:
             //---  actual packing
             if (performPack)
             {
-                SetCurrentDirectory(GetPath());
+                if (!contextCurrent())
+                { reportChangedContext(); indexesOwner.reset(); return; }
+                const char* sourceRoot = qualifiedPack ? packContext.Source.DefaultPath.c_str() : GetPath();
+                SetCurrentDirectory(sourceRoot);
                 SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-                if (PackerConfig.ExecutePacker(this, fileBuf, PackerConfig.Move, GetPath(),
-                                               PanelEnumDiskSelection, &data))
+                if (PackerConfig.ExecutePacker(this, fileBuf, PackerConfig.Move, sourceRoot,
+                                               PanelEnumDiskSelection, &data, data.ContextIsCurrent, data.Context) && contextCurrent())
                 { // packing succeeded
                     // if (nextFocus[0] != 0) strcpy(NextFocusName, nextFocus);
                     FocusFirstNewItem = TRUE; // focus also archives renamed by a plugin (e.g. SFX -> archive.exe)
@@ -2286,7 +2844,7 @@ _PACK_AGAIN:
                 if (PackerConfig.Move)
                 {
                     // changes in the current directory in the panel including its subdirectories
-                    MainWindow->PostChangeOnPathNotification(GetPath(), TRUE);
+                    MainWindow->PostChangeOnPathNotification(qualifiedPack ? packContext.Source.DefaultPath.c_str() : GetPath(), TRUE);
                 }
             }
         }
@@ -2298,62 +2856,157 @@ _PACK_AGAIN:
     }
 
     // if we selected an item, deselect it again
-    UnselectItemWithName(temporarySelected);
+    if (contextCurrent()) UnselectItemWithName(temporarySelected);
 
     UpdateWindow(MainWindow->HWindow);
-    delete[] (data.Indexes);
+    indexesOwner.reset();
 
     //---  if any Salamander window is active, suspend mode ends
-    EndStopRefresh();
+
 }
+catch (const std::bad_alloc&)
+{
+    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+    SalMessageBox(MainWindow != NULL ? MainWindow->HWindow : NULL,
+                  GetErrorText(ERROR_NOT_ENOUGH_MEMORY), LoadStr(IDS_PACKTITLE), MB_OK | MB_ICONEXCLAMATION);
+}
+
+// Capture the actual archive identity before modal callbacks; display names are not I/O paths.
+static BOOL PrepareUnpackArchiveSource(CFilesWindow* panel, const CFileData& file,
+                                       std::string& source, int& errorTextID, std::string* sourceDirectory = NULL)
+{
+    source.clear();
+    if (sourceDirectory != NULL) sourceDirectory->clear();
+    errorTextID = IDS_PATHISINVALID;
+    const std::wstring exact = panel->GetItemFullPathW(file);
+    if (exact.empty()) return FALSE;
+    std::string encoded = SalWideToMultiBytePath(exact.c_str(), CP_UTF8);
+    if (encoded.empty() || SalMultiByteToWidePath(encoded.c_str(), CP_UTF8) != exact)
+        return FALSE;
+    if (encoded.size() >= SAL_MAX_PATH)
+    {
+        errorTextID = IDS_TOOLONGPATH; // Legacy archiver API byte capacity; never pass a shortened identity.
+        return FALSE;
+    }
+    if (sourceDirectory != NULL)
+    {
+        // Keep the parent of this exact item, including its drive/share root separator.
+        const wchar_t* leaf = SalPathFindFileNameW(exact.c_str());
+        if (leaf == exact.c_str() || *leaf == 0) return FALSE;
+        const std::wstring parent(exact.c_str(), (size_t)(leaf - exact.c_str()));
+        std::string parentText = SalWideToMultiBytePath(parent.c_str(), CP_UTF8);
+        if (parentText.empty() || SalMultiByteToWidePath(parentText.c_str(), CP_UTF8) != parent)
+            return FALSE;
+        sourceDirectory->swap(parentText);
+    }
+    source.swap(encoded);
+    return TRUE;
+}
+
 
 void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* pluginName, const char* unpackMask)
 {
+    if (CFilesActionDiskTarget::FindLive(MainWindow, this) == NULL ||
+        CFilesActionDiskTarget::FindLive(MainWindow, target) == NULL) return;
+    if (target == NULL || !Is(ptDisk) ||
+        ((IsBranchView() || target->IsBranchView()) && !target->Is(ptDisk))) return; // Branch operations require disk source and target.
+
     CALL_STACK_MESSAGE4("CFilesWindow::Unpack(, %d, %s, %s)", pluginIndex, pluginName, unpackMask);
+
+    if (FilesActionInProgress || pluginIndex < -1) return;
+    CFilesActionDiskTarget sourceSnapshot, diskTarget;
+    const bool watchDiskTarget = target->Is(ptDisk);
+    if (!sourceSnapshot.Capture(MainWindow, this, TRUE) ||
+        (watchDiskTarget && !diskTarget.Capture(MainWindow, target, TRUE))) return;
+    const bool branchOperation = sourceSnapshot.Branch || (watchDiskTarget && diskTarget.Branch);
+    const HWND parent = MainWindow->HWindow;
+    const auto panelsAreCurrent = [&]() {
+        return sourceSnapshot.IsCurrent(MainWindow) && (!watchDiskTarget || diskTarget.IsCurrent(MainWindow));
+    };
+    const auto reportChangedContext = [&]() {
+        SalMessageBox(parent, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+    };
+    const auto notifyPath = [&](const char* path, BOOL recursive) {
+        if (MainWindow != NULL) MainWindow->PostChangeOnPathNotification(path, recursive);
+    };
 
     // restore DefaultDir
     MainWindow->UpdateDefaultDir(MainWindow->GetActivePanel() == this);
+
+    if (!panelsAreCurrent()) { reportChangedContext(); return; }
 
     int i = GetCaretIndex();
     if (i >= Dirs->Count && i < Dirs->Count + Files->Count)
     {
         BeginStopRefresh();
+        struct CUnpackRefreshScope
+        {
+            ~CUnpackRefreshScope() { EndStopRefresh(); }
+        } refreshScope;
 
         CFileData* file = &Files->At(i - Dirs->Count);
-        char path[SAL_MAX_PATH];
-        char pathAlt[MAX_PATH]; // alternate path displayed in the UnPack dialog combo box
-        char mask[MAX_PATH];
-        char subject[SAL_MAX_PATH + 100];
+        std::string archiveSource, sourceDirectory;
+        int sourceErrorTextID;
+        if (!PrepareUnpackArchiveSource(this, *file, archiveSource, sourceErrorTextID, &sourceDirectory))
+        {
+            SalMessageBox(parent, LoadStr(sourceErrorTextID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+            return;
+        }
+        CPathBuffer pathBuffer, alternateBuffer, fileNameBuffer, subjectBuffer(SAL_MAX_PATH + 100);
+        char* path = pathBuffer.Data();
+        char* pathAlt = alternateBuffer.Data();
+        char* fileName = fileNameBuffer.Data();
+        char* subject = subjectBuffer.Data();
+        char mask[MAX_PATH]; // file mask, not a filesystem path
         path[0] = 0;
         pathAlt[0] = 0;
         if (target->Is(ptDisk))
         {
+            const std::wstring targetW = target->GetPathW();
+            const std::string targetText = SalWideToMultiBytePath(targetW.c_str(), CP_UTF8);
+            if (targetW.empty() || targetText.size() >= (size_t)pathBuffer.Capacity() ||
+                SalMultiByteToWidePath(targetText.c_str(), CP_UTF8) != targetW)
+            {
+                SalMessageBox(parent, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                return;
+            }
             if (Configuration.UseAnotherPanelForUnpack)
             {
                 target->UserWorkedOnThisPath = TRUE; // default action = work with the path in the target panel
-                strcpy(path, target->GetPath());
+                strcpy(path, targetText.c_str());
             }
             else
-                strcpy(pathAlt, target->GetPath());
+                strcpy(pathAlt, targetText.c_str());
         }
-        char fileName[MAX_PATH];
-        AlterFileName(fileName, file->Name, -1, Configuration.FileNameFormat, 0, FALSE);
+        std::wstring fileNameW;
+        if (file->UseWideName())
+            fileNameW = file->NameW; // preserve the exact wide basename rather than interpreting UTF8 bytes through ACP case tables
+        else
+        {
+            AlterFileName(fileName, file->Name, -1, Configuration.FileNameFormat, 0, FALSE);
+            fileNameW = SalMultiByteToWidePath(fileName, IsValidPathUtf8Text(fileName) ? CP_UTF8 : CP_ACP);
+        }
+        const std::string displayName = SalWideToMultiBytePath(fileNameW.c_str(), CP_UTF8);
+        if (displayName.empty() || displayName.size() >= (size_t)fileNameBuffer.Capacity() ||
+            SalMultiByteToWidePath(displayName.c_str(), CP_UTF8) != fileNameW)
+        {
+            SalMessageBox(parent, LoadStr(IDS_PATHISINVALID), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+            return;
+        }
+        strcpy(fileName, displayName.c_str());
         if (Configuration.UseSubdirNameByArchiveForUnpack)
         {
-            int i2;
-            for (i2 = 0; i2 < 2; i2++) // for path and pathAlt
+            std::string stem = displayName;
+            const size_t dot = stem.find_last_of('.');
+            if (dot != std::string::npos && dot + 1 < stem.size()) stem.resize(dot);
+            for (int index = 0; index < 2; ++index)
             {
-                char* buff = (i2 == 0) ? path : pathAlt;
-                int l = (int)strlen(buff);
-                if (l + (l > 0 && buff[l - 1] != '\\' ? 1 : 0) + (file->Ext - file->Name) - (*file->Ext == 0 ? 0 : 1) < MAX_PATH)
+                char* buffer = index == 0 ? path : pathAlt;
+                if (!stem.empty() && !SalPathAppend(buffer, stem.c_str(), pathBuffer.Capacity()))
                 {
-                    if (l > 0 && buff[l - 1] != '\\')
-                        buff[l++] = '\\';
-                    memcpy(buff + l, fileName, file->Ext - file->Name);
-                    buff[l + (file->Ext - file->Name) - (*file->Ext == 0 ? 0 : 1)] = 0;
+                    SalMessageBox(parent, LoadStr(IDS_TOOLONGPATH), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                    return;
                 }
-                else
-                    TRACE_E("CFilesWindow::Unpack(): too long path to add archive name!");
             }
         }
         if (unpackMask != NULL)
@@ -2361,7 +3014,9 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
         else
             strcpy(mask, "*.*");
         CTruncatedString str;
-        str.Set(LoadStr(IDS_UNPACKARCHIVE), fileName);
+        const char* prompt = LoadStr(IDS_UNPACKARCHIVE);
+        const std::wstring promptW = SalMultiByteToWidePath(prompt, IsValidPathUtf8Text(prompt) ? CP_UTF8 : CP_ACP);
+        str.SetW(promptW.c_str(), fileNameW.c_str());
 
         if (pluginIndex != -1)
         {
@@ -2376,9 +3031,8 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
             }
             if (i2 == UnpackerConfig.GetUnpackersCount()) // requested plugin not found
             {
-                sprintf(subject, LoadStr(IDS_PLUGINUNPACKERNOTFOUND), pluginName);
-                SalMessageBox(HWindow, subject, LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
-                EndStopRefresh(); // the snooper resumes now
+                const bool haveMessage = Salamander::LocalizedText::Write(subject, static_cast<size_t>(subjectBuffer.Capacity()), LoadStr(IDS_PLUGINUNPACKERNOTFOUND), pluginName);
+                SalMessageBox(parent, haveMessage ? subject : GetErrorText(ERROR_INVALID_DATA), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
                 return;
             }
         }
@@ -2414,140 +3068,179 @@ void CFilesWindow::Unpack(CFilesWindow* target, int pluginIndex, const char* plu
                 }
             }
         }
+        const std::string offeredDiskTarget = watchDiskTarget ?
+            (Configuration.UseAnotherPanelForUnpack ? path : pathAlt) : "";
         BOOL delArchiveWhenDone = FALSE;
-    DO_AGAIN:
-
-        if (CUnpackDialog(HWindow, path, pathAlt, mask, &str, &UnpackerConfig, &delArchiveWhenDone).Execute() == IDOK)
+        while (true)
         {
-            UpdateWindow(MainWindow->HWindow);
-            //--- adjust the archive name to its full form
+            if (!panelsAreCurrent()) { reportChangedContext(); return; }
+            CUnpackDialog dialog(parent, path, pathBuffer.Capacity(), pathAlt, mask, &str, &UnpackerConfig, &delArchiveWhenDone, TRUE);
+            if (dialog.Execute() != IDOK) break;
+
+            CWholeArchiveUnpackerSnapshot backendSnapshot;
+            if (!panelsAreCurrent() || !dialog.IsSelectionCurrent() || !backendSnapshot.Capture(&UnpackerConfig, TRUE))
+            {
+                reportChangedContext();
+                return;
+            }
+            if (branchOperation && !backendSnapshot.IsVerifiedBranchSourceUnpacker())
+            {
+                SalMessageBox(parent, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                return;
+            }
+            bool branchTargetBound = false;
+            const auto contextIsCurrent = [&]() {
+                return panelsAreCurrent() && dialog.IsSelectionCurrent() && backendSnapshot.IsCurrent() &&
+                       (!branchOperation || backendSnapshot.IsVerifiedBranchSourceUnpacker()) &&
+                       (!branchTargetBound || backendSnapshot.ValidateBranchTarget(&diskTarget, path));
+            };
+            UpdateWindow(parent);
+            if (!contextIsCurrent()) { reportChangedContext(); return; }
+
+            // Only the offered panel destination is an implicit root; manual paths retain normal resolution.
+            const bool useOfferedDiskTarget = watchDiskTarget && !offeredDiskTarget.empty() &&
+                strcmp(path, offeredDiskTarget.c_str()) == 0;
+            const auto offeredRootExists = [&]() {
+                if (!useOfferedDiskTarget) return true;
+                const std::wstring root = diskTarget.Root.length() >= MAX_PATH ?
+                    SalPathAddExtendedPrefixW(diskTarget.Root.c_str()) : diskTarget.Root;
+                const DWORD attrs = GetFileAttributesW(root.c_str());
+                return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
+            };
             int errTextID;
-            char nextFocus[SAL_MAX_PATH];
+            CPathBuffer nextFocusBuffer;
+            char* nextFocus = nextFocusBuffer.Data();
             nextFocus[0] = 0;
-            const char* text = NULL;
-            if (!SalGetFullName(path, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus))
+            const char* errorText = NULL;
+            if (!SalGetFullName(path, &errTextID, sourceDirectory.c_str(), nextFocus, NULL, pathBuffer.Capacity()))
             {
                 if (errTextID == IDS_EMPTYNAMENOTALLOWED)
-                    strcpy(path, GetPath());
+                    strcpy(path, sourceDirectory.c_str());
                 else
-                    text = LoadStr(errTextID);
+                    errorText = LoadStr(errTextID);
             }
-            if (text == NULL)
+            if (errorText != NULL)
             {
-                int l = (int)strlen(GetPath());
-                if (l > 0 && GetPath()[l - 1] == '\\')
-                    l--;
-                memcpy(subject, GetPath(), l);
-                sprintf(subject + l, "\\%s", file->Name);
-                char newDir[MAX_PATH];
-                std::wstring pathW = SalMultiByteToWidePath(path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
-                std::wstring newDirW;
-                BOOL createdOK = GetACP() == CP_UTF8 && !pathW.empty() ?
-                                     CheckAndCreateDirectoryW(pathW.c_str(), NULL, TRUE, &newDirW, TRUE) :
-                                     CheckAndCreateDirectory(path, NULL, TRUE, NULL, 0, newDir, FALSE, TRUE);
-                if (createdOK)
+                SalMessageBox(parent, errorText, LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                continue;
+            }
+            if (watchDiskTarget && diskTarget.Branch)
+            {
+                if (!useOfferedDiskTarget || strcmp(path, offeredDiskTarget.c_str()) != 0)
                 {
-                    if (!newDirW.empty())
-                    {
-                        std::string newDirA = SalWideToMultiBytePath(newDirW.c_str(), CP_UTF8);
-                        lstrcpyn(newDir, newDirA.c_str(), MAX_PATH);
-                    }
-                    // launch the unpacker
-                    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-                    CDynamicStringImp archiveVolumes;
-                    if (!UnpackerConfig.ExecuteUnpacker(MainWindow->HWindow, this, subject, mask,
-                                                        path, delArchiveWhenDone,
-                                                        delArchiveWhenDone ? &archiveVolumes : NULL))
-                    {
-                        if (newDir[0] != 0)
-                            RemoveEmptyDirs(newDir);
-                    }
-                    else // unpacking succeeded (no Cancel, Skip may have occurred)
-                    {
-                        if (delArchiveWhenDone && archiveVolumes.Length > 0)
-                        {
-                            char* name = archiveVolumes.Text;
-                            BOOL skipAll = FALSE;
-                            do
-                            {
-                                if (*name != 0)
-                                {
-                                    while (1)
-                                    {
-                                        ClearReadOnlyAttr(name); // allow deletion of read-only files too
-                                        if (!DeleteFile(name) && !skipAll)
-                                        {
-                                            DWORD err = GetLastError();
-                                            if (err == ERROR_FILE_NOT_FOUND)
-                                                break; // if the user already managed to delete the file, all is OK
-                                            int res = (int)CFileErrorDlg(MainWindow->HWindow, LoadStr(IDS_ERRORDELETINGFILE), name, GetErrorText(err)).Execute();
-                                            if (res == IDB_SKIPALL)
-                                                skipAll = TRUE;
-                                            if (res == IDB_SKIPALL || res == IDB_SKIP)
-                                                break;           // skip
-                                            if (res == IDCANCEL) // cancel
-                                            {
-                                                name = archiveVolumes.Text + archiveVolumes.Length - 1;
-                                                nextFocus[0] = 0; // keep the cursor on the archive, do not jump to the directory with the unpacked archive
-                                                break;
-                                            }
-                                            // let IDRETRY attempt the next loop iteration
-                                        }
-                                        else
-                                            break; // deleted
-                                    }
-                                }
-                                name = name + strlen(name) + 1;
-                            } while (name - archiveVolumes.Text < archiveVolumes.Length);
-                        }
-                        if (nextFocus[0] != 0)
-                        {
-                            strcpy(NextFocusName, nextFocus);
-                            PostMessage(HWindow, WM_USER_DONEXTFOCUS, 0, 0); // it is a directory, must be
-                        }
-                    }
-                    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+                    SalMessageBox(parent, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                    return;
+                }
+                if (!backendSnapshot.BindBranchTarget(&diskTarget, path)) { reportChangedContext(); return; }
+                branchTargetBound = true;
+            }
+            if (!contextIsCurrent() || !offeredRootExists()) { reportChangedContext(); return; }
+            if (!backendSnapshot.ValidateExternalPaths(archiveSource.c_str(), path))
+            {
+                const DWORD error = GetLastError();
+                SalMessageBox(parent, GetErrorText(error), LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
+                continue;
+            }
+            const std::wstring pathW = SalMultiByteToWidePath(path, IsValidPathUtf8Text(path) ? CP_UTF8 : CP_ACP);
+            std::wstring newDirW;
+            const BOOL createdOK = !pathW.empty() && CheckAndCreateDirectoryW(pathW.c_str(), parent, TRUE, &newDirW, TRUE);
+            std::string newDir = SalWideToMultiBytePath(newDirW.c_str(), CP_UTF8);
+            if (!contextIsCurrent() || !offeredRootExists())
+            {
+                if (!newDir.empty()) RemoveEmptyUnpackDirectoriesW(newDirW);
+                reportChangedContext();
+                return;
+            }
+            if (!createdOK)
+            {
+                if (!newDir.empty())
+                {
+                    CutDirectory(newDir.data());
+                    notifyPath(newDir.c_str(), TRUE);
+                }
+                continue;
+            }
 
-                    //---  refresh directories that are not automaticallyrefreshed
-                    // change in the directory containing the archive (should not happen during unpack,
-                    // but refresh anyway)
-                    MainWindow->PostChangeOnPathNotification(GetPath(), FALSE);
-                    if (newDir[0] != 0) // some new subdirectories were created along the path
+            CDynamicStringImp archiveVolumes;
+            BOOL unpacked;
+            DWORD unpackError;
+            {
+                struct CUnpackPriorityScope
+                {
+                    CUnpackPriorityScope() { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL); }
+                    ~CUnpackPriorityScope() { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL); }
+                } priorityScope;
+                SetLastError(ERROR_SUCCESS);
+                unpacked = UnpackerConfig.ExecuteUnpacker(MainWindow->HWindow, this, archiveSource.c_str(), mask,
+                    path, delArchiveWhenDone, delArchiveWhenDone ? &archiveVolumes : NULL,
+                    &backendSnapshot, &sourceSnapshot, watchDiskTarget ? &diskTarget : NULL);
+                unpackError = GetLastError();
+            }
+            if (!unpacked)
+            {
+                if (!newDir.empty()) RemoveEmptyUnpackDirectoriesW(newDirW);
+            }
+            else if (contextIsCurrent())
+            {
+                if (delArchiveWhenDone && archiveVolumes.Length > 0)
+                {
+                    std::vector<CUnpackArchiveVolume> volumes;
+                    if (!PrepareUnpackArchiveVolumes(archiveVolumes.Text, archiveVolumes.Length, archiveVolumes.Allocated,
+                                                     archiveSource.c_str(), backendSnapshot.IsVerifiedBranchSourceUnpacker(), volumes))
                     {
-                        CutDirectory(newDir); // should always work (path to the first newly created directory)
-                        // changes in the directory where the first new subdirectory was created
-                        MainWindow->PostChangeOnPathNotification(newDir, TRUE);
+                        const DWORD error = GetLastError();
+                        nextFocus[0] = 0;
+                        SalMessageBox(parent, GetErrorText(error), LoadStr(IDS_ERRORDELETINGFILE), MB_OK | MB_ICONEXCLAMATION);
                     }
                     else
                     {
-                        // changes in the directory where files were unpacked
-                        MainWindow->PostChangeOnPathNotification(path, TRUE);
+                        BOOL skipAll = FALSE;
+                        bool stopDeleting = false;
+                        for (const auto& volume : volumes)
+                        {
+                            while (true)
+                            {
+                                if (!contextIsCurrent()) { stopDeleting = true; nextFocus[0] = 0; break; }
+                                if (!DeleteUnpackArchiveVolumeW(volume.Path.c_str()) && !skipAll)
+                                {
+                                    const DWORD error = GetLastError();
+                                    if (error == ERROR_FILE_NOT_FOUND) break;
+                                    const int response = (int)CFileErrorDlg(parent, LoadStr(IDS_ERRORDELETINGFILE), volume.Display.c_str(), GetErrorText(error)).Execute();
+                                    if (!contextIsCurrent()) { stopDeleting = true; nextFocus[0] = 0; break; }
+                                    if (response == IDB_SKIPALL) skipAll = TRUE;
+                                    if (response == IDB_SKIPALL || response == IDB_SKIP) break;
+                                    if (response == IDCANCEL) { stopDeleting = true; nextFocus[0] = 0; break; }
+                                }
+                                else break;
+                            }
+                            if (stopDeleting) break;
+                        }
                     }
                 }
-                else
+                // A volume error dialog may have dispatched callbacks since the success check above.
+                if (contextIsCurrent() && !sourceSnapshot.Branch)
                 {
-                    if (newDir[0] != 0)
+                    NextFocusName[0] = 0;
+                    if (nextFocus[0] != 0 && strlen(nextFocus) < sizeof(NextFocusName))
                     {
-                        CutDirectory(newDir); // should always work (path to the first newly created directory)
-
-                        //---  refresh directories that are not automatically refreshed
-                        // if creating directories failed, report changes immediately (the user may
-                        // choose a completely different path next time); the newly created path is kept (almost dead code)
-                        MainWindow->PostChangeOnPathNotification(newDir, TRUE);
+                        strcpy(NextFocusName, nextFocus);
+                        PostMessage(HWindow, WM_USER_DONEXTFOCUS, 0, 0);
                     }
-                    goto DO_AGAIN;
                 }
             }
-            else
+            const bool changedContext = !contextIsCurrent();
+            // No source members/getters after callbacks: the original directory is owned by the snapshot.
+            notifyPath(sourceSnapshot.DefaultPath.c_str(), FALSE);
+            if (!newDir.empty())
             {
-                SalMessageBox(HWindow, text, LoadStr(IDS_ERRORUNPACK), MB_OK | MB_ICONEXCLAMATION);
-                goto DO_AGAIN;
+                CutDirectory(newDir.data());
+                notifyPath(newDir.c_str(), TRUE);
             }
+            else notifyPath(path, TRUE);
+            if (changedContext || (!unpacked && unpackError == ERROR_RETRY)) reportChangedContext();
+            break;
         }
-        UpdateWindow(MainWindow->HWindow);
-
-        //---  if any Salamander window is active, suspend mode ends
-        EndStopRefresh();
+        UpdateWindow(parent);
     }
 }
 
@@ -2676,6 +3369,30 @@ void CFilesWindow::AcceptChangeOnPathNotification(const char* path, BOOL includi
     CALL_STACK_MESSAGE3("CFilesWindow::AcceptChangeOnPathNotification(%s, %d)",
                         path, includingSubdirs);
 
+    if (IsBranchView())
+    {
+        std::wstring changed = SalMultiByteToWidePath(path, CP_UTF8);
+        if (changed.empty())
+            changed = SalMultiByteToWidePath(path, CP_ACP);
+        std::wstring root = GetPathW();
+        while (!root.empty() && root.back() == L'\\') root.pop_back();
+        while (!changed.empty() && changed.back() == L'\\') changed.pop_back();
+        const BOOL descendant = changed.size() >= root.size() &&
+            CompareStringOrdinal(changed.c_str(), (int)root.size(), root.c_str(), (int)root.size(), TRUE) == CSTR_EQUAL &&
+            (changed.size() == root.size() || changed[root.size()] == L'\\');
+        const BOOL ancestor = includingSubdirs && root.size() >= changed.size() &&
+            CompareStringOrdinal(root.c_str(), (int)changed.size(), changed.c_str(), (int)changed.size(), TRUE) == CSTR_EQUAL &&
+            (root.size() == changed.size() || root[changed.size()] == L'\\');
+        if (!changed.empty() && (descendant || ancestor))
+        {
+            HANDLES(EnterCriticalSection(&TimeCounterSection));
+            const int stamp = MyTimeCounter++;
+            HANDLES(LeaveCriticalSection(&TimeCounterSection));
+            PostMessage(HWindow, WM_USER_REFRESH_DIR, TRUE, stamp);
+        }
+        RefreshDiskFreeSpace(TRUE, TRUE);
+        return;
+    }
     BOOL refresh = FALSE;
     if ((Is(ptDisk) || Is(ptZIPArchive)) && (!AutomaticRefresh || GetNetworkDrive()))
     {

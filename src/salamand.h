@@ -132,6 +132,8 @@ public:
 //
 // ****************************************************************************
 
+struct CBranchViewRestoreState;
+
 class CPathHistoryItem
 {
 protected:
@@ -143,6 +145,7 @@ protected:
 
     int TopIndex;      // top index at the time the panel state was saved
     char* FocusedName; // focused item at the time the panel state was saved
+    std::shared_ptr<CBranchViewRestoreState> BranchState;
 
 public:
     CPathHistoryItem(int type, const char* pathOrArchiveOrFSName,
@@ -195,7 +198,8 @@ public:
                               const char* archivePathOrFSUserPart,
                               CPluginFSInterfaceAbstract* pluginFS,
                               CPluginFSInterfaceEncapsulation* curPluginFS,
-                              int topIndex, const char* focusedName);
+                              int topIndex, const char* focusedName,
+                              const CBranchViewRestoreState* branchState = NULL);
 
     // deletes the current path from the history only if the given path matches the current
     // path in the history

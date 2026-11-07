@@ -1,3 +1,5 @@
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-06 | Normalize shared viewer options across all five workers. | Invalid optional fields are omitted consistently while valid chrome options preserve their types. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 /*
  * Salamatrix JavaScript worker bootstrap.
  *
@@ -426,22 +428,22 @@ const ui = {
     path: String(path),
   }),
   viewer: (path, options = {}) => {
-    const opts = options && typeof options === "object" ? options : {};
+    const opts = typeof options === "string" ? { renderer: options }
+      : options && typeof options === "object" && !Array.isArray(options) ? options : {};
     const payload = {
       path: String(path),
-      renderer: String(opts.renderer || "auto"),
+      renderer: typeof opts.renderer === "string" && opts.renderer ? opts.renderer : "auto",
     };
-    if (opts.title != null && String(opts.title))
-      payload.title = String(opts.title);
-    if (opts.documentName != null && String(opts.documentName))
-      payload.documentName = String(opts.documentName);
-    const window = opts.window && typeof opts.window === "object" ? opts.window : opts;
+    if (typeof opts.title === "string" && opts.title) payload.title = opts.title;
+    if (typeof opts.documentName === "string" && opts.documentName) payload.documentName = opts.documentName;
+    const window = opts.window && typeof opts.window === "object" && !Array.isArray(opts.window)
+      ? opts.window : opts;
     for (const key of ["left", "top", "width", "height", "showCmd"]) {
-      if (window[key] != null && Number.isFinite(Number(window[key])))
-        payload[key] = Number(window[key]);
+      const value = window[key];
+      if (typeof value === "number" && Number.isInteger(value) && value >= -2147483648 && value <= 2147483647)
+        payload[key] = value;
     }
-    if (window.alwaysOnTop != null)
-      payload.alwaysOnTop = Boolean(window.alwaysOnTop);
+    if (typeof window.alwaysOnTop === "boolean") payload.alwaysOnTop = window.alwaysOnTop;
     return hostCall("salamander.ui.viewer.open", payload)
       .then((result) => result.opened === true);
   },

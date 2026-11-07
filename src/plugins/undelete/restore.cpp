@@ -64,341 +64,268 @@ static DWORD WINAPI RestoreCallback(PBYTE data, PVOID _ctx, PULONG plen)
     return ERROR_SUCCESS;
 }
 
-static BOOL RestoreFile(const char* fileName, const char* sourcePath, const char* targetPath)
+// SafeFile owns retry/overwrite/skip policy. Keep each successfully opened
+// handle scoped so cancellation and allocation failure cannot leak it.
+struct CRestoreSafeFile
 {
-    CALL_STACK_MESSAGE4("RestoreFile(%s, %s, %s)", fileName, sourcePath, targetPath);
+    SAFE_FILE File;
+    CRestoreSafeFile() { memset(&File, 0, sizeof(File)); File.HFile = INVALID_HANDLE_VALUE; }
+    void Close() { if (File.HFile != INVALID_HANDLE_VALUE) { SalamanderSafeFile->SafeFileClose(&File); File.HFile = INVALID_HANDLE_VALUE; } }
+    ~CRestoreSafeFile() { Close(); }
+};
+struct CRestoreFind
+{
+    HANDLE Handle;
+    explicit CRestoreFind(HANDLE handle) : Handle(handle) {}
+    ~CRestoreFind() { if (Handle != INVALID_HANDLE_VALUE) HANDLES(FindClose(Handle)); }
+};
+struct CRestoreRawContext
+{
+    PVOID Context;
+    CRestoreRawContext() : Context(NULL) {}
+    ~CRestoreRawContext() { if (Context != NULL) CloseEncryptedFileRaw(Context); }
+};
 
-    BOOL ret = TRUE;
-    char srcpath[2 * MAX_PATH];
-    char dstpath[2 * MAX_PATH];
-
-    // prepare source and target paths
-    lstrcpyn(srcpath, sourcePath, 2 * MAX_PATH);
-    lstrcpyn(dstpath, targetPath, 2 * MAX_PATH);
-    SalamanderGeneral->SalPathAppend(srcpath, fileName, 2 * MAX_PATH);
-    SalamanderGeneral->SalPathAppend(dstpath, fileName, 2 * MAX_PATH);
-
-    // open source file
-    SAFE_FILE srcfile;
-    DWORD button;
-    if (!SalamanderSafeFile->SafeFileOpen(&srcfile, srcpath, GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING,
-                                          FILE_FLAG_SEQUENTIAL_SCAN, hProgressWnd, BUTTONS_RETRYSKIPCANCEL, &button, &SrcSilentMask))
-    {
+static BOOL RestoreFile(const std::wstring& source, const std::wstring& destination)
+{
+    if (Progress->GetWantCancel()) return FALSE;
+    const std::wstring sourceIO = UndeletePaths::IoPath(source);
+    const std::string sourceUtf8 = UndeletePaths::Utf8(source.c_str());
+    CRestoreSafeFile srcfile;
+    DWORD button = DIALOG_CANCEL;
+    if (!SalamanderSafeFile->SafeFileOpen(&srcfile.File, sourceUtf8.c_str(), GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING,
+                                        FILE_FLAG_SEQUENTIAL_SCAN, hProgressWnd, BUTTONS_RETRYSKIPCANCEL, &button, &SrcSilentMask))
         return button != DIALOG_CANCEL;
-    }
 
-    // get information from source file
-    DWORD attr = FILE_ATTRIBUTE_NORMAL;
-    CQuadWord size(0, 0);
-    WIN32_FIND_DATA w32fd;
-    HANDLE hfind = FindFirstFile(srcpath, &w32fd);
-    if (hfind != INVALID_HANDLE_VALUE)
-    {
-        attr = w32fd.dwFileAttributes;
-        size = CQuadWord(w32fd.nFileSizeLow, w32fd.nFileSizeHigh);
-        FindClose(hfind);
-    }
-    FILETIME times[3];
-    GetFileTime(srcfile.HFile, times, times + 1, times + 2);
-
-    // ensure it really is backup of encrypted file:
-    // - extension must be .bak
-    BOOL real = FALSE;
-    if (strlen(srcpath) > 3)
-        real = !_stricmp(srcpath + strlen(srcpath) - 4, ".bak");
-    // - it must contain 'ROBS' signature
-    DWORD sig[3], numread;
-    if (real && ReadFile(srcfile.HFile, sig, sizeof(sig), &numread, NULL) &&
-        numread == sizeof(sig) && (sig[1] != 0x004f0052 || sig[2] != 0x00530042))
-        real = FALSE;
-    SetFilePointer(srcfile.HFile, 0, NULL, FILE_BEGIN);
-
-    // remove .bak extension for target file, if it is real backup
+    BY_HANDLE_FILE_INFORMATION info = {};
+    if (!GetFileInformationByHandle(srcfile.File.HFile, &info))
+        return String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED);
+    CQuadWord size(info.nFileSizeLow, info.nFileSizeHigh);
+    FILETIME times[3] = {info.ftCreationTime, info.ftLastAccessTime, info.ftLastWriteTime};
+    DWORD sig[3] = {}, numread = 0;
+    BOOL real = source.size() >= 4 && _wcsicmp(source.c_str() + source.size() - 4, L".bak") == 0;
     if (real)
-        dstpath[strlen(dstpath) - 4] = 0;
+        real = ReadFile(srcfile.File.HFile, sig, sizeof(sig), &numread, NULL) && numread == sizeof(sig) &&
+               sig[1] == 0x004f0052 && sig[2] == 0x00530042;
+    LARGE_INTEGER zero = {};
+    if (!SetFilePointerEx(srcfile.File.HFile, zero, NULL, FILE_BEGIN))
+        return String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED);
 
-    // init progress
+    std::wstring target = destination;
+    if (real) target.resize(target.size() - 4);
+    const std::wstring targetIO = UndeletePaths::IoPath(target);
+    const std::string targetUtf8 = UndeletePaths::Utf8(target.c_str());
+    if (sourceIO.empty() || targetIO.empty())
+        return String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED);
+    if (CompareStringOrdinal(sourceIO.c_str(), -1, targetIO.c_str(), -1, TRUE) == CSTR_EQUAL)
+    { SetLastError(ERROR_SHARING_VIOLATION); return String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED); }
+    // Allocate before creating/truncating any destination file.
+    std::vector<BYTE> buffer(real ? 0 : COPY_BUFFER_SIZE);
     FileProgress = 1;
     FileTotal = size.Value + 1;
     TotalProgress++;
     UpdateRestoreProgress();
-    Progress->SetSourceFileName(srcpath);
-    Progress->SetDestFileName(dstpath);
+    Progress->SetSourceFileName(sourceUtf8.c_str());
+    Progress->SetDestFileName(targetUtf8.c_str());
 
-    // create target file
-    SAFE_FILE dstfile;
-    BOOL skipped;
-    HANDLE hdst = SalamanderSafeFile->SafeFileCreate(dstpath, GENERIC_WRITE, FILE_SHARE_READ,
-                                                     FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, FALSE, hProgressWnd, srcpath,
-                                                     GetSCFData(times, size), &DstSilentMask, TRUE, &skipped, NULL, 0, NULL, &dstfile);
+    // Progress/UI callbacks above may have requested cancellation. Do not
+    // create or truncate a destination after that request.
+    if (Progress->GetWantCancel()) return FALSE;
+
+    CRestoreSafeFile dstfile;
+    BOOL skipped = FALSE;
+    HANDLE hdst = SalamanderSafeFile->SafeFileCreate(targetUtf8.c_str(), GENERIC_WRITE, FILE_SHARE_READ,
+                                                    FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, FALSE, hProgressWnd, sourceUtf8.c_str(),
+                                                    GetSCFData(times, size), &DstSilentMask, TRUE, &skipped, NULL, 0, NULL, &dstfile.File);
     if (skipped)
     {
-        SalamanderSafeFile->SafeFileClose(&srcfile);
-        // skip file in progress
         FileProgress = 0;
         TotalProgress += size.Value;
         UpdateRestoreProgress();
         return TRUE;
     }
-    if (hdst == INVALID_HANDLE_VALUE)
-        return FALSE;
-
-    // recover encrypted files from backup
-    if (real)
+    if (hdst == INVALID_HANDLE_VALUE) return FALSE;
+    BOOL cancelled = Progress->GetWantCancel();
+    BOOL ret = !cancelled;
+    if (ret && real)
     {
-        // OpenEncryptedFileRaw (and others) unfortunately has own write to output file, we will open file
-        // with SafeFileCreate anyway for error handling, but we need to close it
-        SalamanderSafeFile->SafeFileClose(&dstfile);
-
-        // restore
-        IMPORT_CONTEXT ctx = {&srcfile, hProgressWnd};
-        PVOID context;
-        DWORD result;
-        if ((result = OpenEncryptedFileRaw(dstpath, CREATE_FOR_IMPORT, &context)) != ERROR_SUCCESS ||
-            (result = WriteEncryptedFileRaw(RestoreCallback, (PVOID)&ctx, context)) != ERROR_SUCCESS)
+        dstfile.Close(); // EFS owns its output handle, after SafeFile's overwrite decision.
+        IMPORT_CONTEXT ctx = {&srcfile.File, hProgressWnd};
+        CRestoreRawContext raw;
+        DWORD result = OpenEncryptedFileRawW(targetIO.c_str(), CREATE_FOR_IMPORT, &raw.Context);
+        if (result == ERROR_SUCCESS)
+            result = WriteEncryptedFileRaw(RestoreCallback, &ctx, raw.Context);
+        if (result == ERROR_CANCELLED) cancelled = TRUE;
+        if (result != ERROR_SUCCESS)
         {
-            if (result != ERROR_CANCELLED) // return on cancel from user
-            {
-                SetLastError(result);
-                String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED);
-            }
+            if (result != ERROR_CANCELLED)
+            { SetLastError(result); String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED); }
             ret = FALSE;
         }
-        CloseEncryptedFileRaw(context);
     }
-    else // otherwise only copy
+    else if (ret)
     {
-        BYTE* buffer = new BYTE[COPY_BUFFER_SIZE];
-
         do
         {
-            DWORD numwritten;
-            if (!SalamanderSafeFile->SafeFileRead(&srcfile, buffer, COPY_BUFFER_SIZE, &numread, hProgressWnd, BUTTONS_RETRYCANCEL, NULL, NULL) ||
-                !SalamanderSafeFile->SafeFileWrite(&dstfile, buffer, numread, &numwritten, hProgressWnd, BUTTONS_RETRYCANCEL, NULL, NULL) ||
-                Progress->GetWantCancel())
-            {
-                ret = FALSE;
-                break;
-            }
+            DWORD numwritten = 0;
+            if (!SalamanderSafeFile->SafeFileRead(&srcfile.File, buffer.data(), COPY_BUFFER_SIZE, &numread, hProgressWnd, BUTTONS_RETRYCANCEL, NULL, NULL) ||
+                !SalamanderSafeFile->SafeFileWrite(&dstfile.File, buffer.data(), numread, &numwritten, hProgressWnd, BUTTONS_RETRYCANCEL, NULL, NULL) ||
+                numwritten != numread || Progress->GetWantCancel())
+            { ret = FALSE; break; }
             FileProgress += numread;
             TotalProgress += numread;
             UpdateRestoreProgress();
         } while (numread == COPY_BUFFER_SIZE);
-
-        delete[] buffer;
-        SalamanderSafeFile->SafeFileClose(&dstfile);
     }
-    SalamanderSafeFile->SafeFileClose(&srcfile);
-
-    // set time and attributes
+    dstfile.Close();
+    srcfile.Close();
+    cancelled = cancelled || Progress->GetWantCancel();
+    if (cancelled) ret = FALSE;
     if (ret)
     {
-        HANDLE hf = CreateFile(dstpath, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
-        if (hf != INVALID_HANDLE_VALUE)
-        {
-            SetFileTime(hf, times, times + 1, times + 2);
-            CloseHandle(hf);
-        }
-        SetFileAttributes(dstpath, attr | FILE_ATTRIBUTE_ENCRYPTED);
+        HANDLE file = CreateFileW(targetIO.c_str(), FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+        if (file != INVALID_HANDLE_VALUE)
+        { SetFileTime(file, times, times + 1, times + 2); CloseHandle(file); }
+        SetFileAttributesW(targetIO.c_str(), info.dwFileAttributes | FILE_ATTRIBUTE_ENCRYPTED);
     }
-    // on cancel remove incomplete file
-    else if (Progress->GetWantCancel())
+    else if (cancelled && !DeleteFileW(targetIO.c_str()))
     {
-        DeleteFile(dstpath);
+        const DWORD error = GetLastError();
+        if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND)
+        {
+            // Cancellation is not a successful restore. If Windows prevents
+            // cleanup, report the retained incomplete output instead of silently
+            // discarding the delete error or bypassing access/sharing checks.
+            SetLastError(error);
+            String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED);
+        }
     }
-
     return ret;
 }
 
-static BOOL RestoreDir(const char* fileName, const char* sourcePath, const char* targetPath)
+static BOOL RestoreDir(const std::wstring& source, const std::wstring& target)
 {
-    CALL_STACK_MESSAGE4("RestoreDir(%s, %s, %s)", fileName, sourcePath, targetPath);
-
-    // prepare source and target paths
-    char srcpath[2 * MAX_PATH], dstpath[2 * MAX_PATH];
-    lstrcpyn(srcpath, sourcePath, 2 * MAX_PATH);
-    lstrcpyn(dstpath, targetPath, 2 * MAX_PATH);
-    SalamanderGeneral->SalPathAppend(srcpath, fileName, 2 * MAX_PATH);
-    SalamanderGeneral->SalPathAppend(dstpath, fileName, 2 * MAX_PATH);
-
-    // update progress
+    if (Progress->GetWantCancel()) return FALSE;
+    const std::string sourceUtf8 = UndeletePaths::Utf8(source.c_str());
+    const std::string targetUtf8 = UndeletePaths::Utf8(target.c_str());
     FileProgress = 0;
     FileTotal = 1;
     TotalProgress++;
     UpdateRestoreProgress();
-    Progress->SetSourceFileName(srcpath);
-    Progress->SetDestFileName(dstpath);
-
-    // create directory
-    BOOL skipped;
-    if (SalamanderSafeFile->SafeFileCreate(dstpath, 0, 0, 0, TRUE, hProgressWnd, NULL, NULL,
-                                           &DirSilentMask, TRUE, &skipped, NULL, 0, NULL, NULL) == INVALID_HANDLE_VALUE)
-    {
+    Progress->SetSourceFileName(sourceUtf8.c_str());
+    Progress->SetDestFileName(targetUtf8.c_str());
+    BOOL skipped = FALSE;
+    if (SalamanderSafeFile->SafeFileCreate(targetUtf8.c_str(), 0, 0, 0, TRUE, hProgressWnd, NULL, NULL,
+                                         &DirSilentMask, TRUE, &skipped, NULL, 0, NULL, NULL) == INVALID_HANDLE_VALUE)
         return skipped;
-    }
-
-    // list and restore all files in directory
+    WIN32_FIND_DATAW data;
+    const std::wstring pattern = UndeletePaths::IoPath(UndeletePaths::Join(source, L"*"));
+    CRestoreFind find(HANDLES_Q(FindFirstFileW(pattern.c_str(), &data)));
+    if (find.Handle == INVALID_HANDLE_VALUE)
+        return String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED);
     BOOL ret = TRUE;
-    HANDLE hFind;
-    static WIN32_FIND_DATA fd;
-    int plen = (int)strlen(srcpath);
-    strcat(srcpath, "\\*");
-
-    if ((hFind = HANDLES_Q(FindFirstFile(srcpath, &fd))) != INVALID_HANDLE_VALUE)
+    do
     {
-        srcpath[plen] = 0;
-        do
+        if (wcscmp(data.cFileName, L".") && wcscmp(data.cFileName, L".."))
         {
-            if (fd.cFileName[0] != 0 && strcmp(fd.cFileName, ".") && strcmp(fd.cFileName, ".."))
-            {
-                if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-                    ret = RestoreDir(fd.cFileName, srcpath, dstpath);
-                else
-                    ret = RestoreFile(fd.cFileName, srcpath, dstpath);
-            }
-        } while (ret && FindNextFile(hFind, &fd));
-        HANDLES(FindClose(hFind));
-    }
-    srcpath[plen] = 0;
-
-    // set attribute
-    DWORD attr = SalamanderGeneral->SalGetFileAttributes(srcpath);
-    if (attr != INVALID_FILE_ATTRIBUTES)
-        SetFileAttributes(dstpath, attr);
-
-    return ret;
+            const std::wstring childSource = UndeletePaths::Join(source, data.cFileName);
+            const std::wstring childTarget = UndeletePaths::Join(target, data.cFileName);
+            ret = (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? RestoreDir(childSource, childTarget) : RestoreFile(childSource, childTarget);
+        }
+        if (!ret || Progress->GetWantCancel()) return FALSE;
+    } while (FindNextFileW(find.Handle, &data));
+    if (GetLastError() != ERROR_NO_MORE_FILES)
+        return String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED);
+    DWORD attr = GetFileAttributesW(UndeletePaths::IoPath(source).c_str());
+    if (attr != INVALID_FILE_ATTRIBUTES) SetFileAttributesW(UndeletePaths::IoPath(target).c_str(), attr);
+    return TRUE;
 }
 
-static QWORD GetDirSize(char* path, char* dirname, BOOL* cancel)
+static QWORD GetDirSize(const std::wstring& source, BOOL* cancel)
 {
-    SLOW_CALL_STACK_MESSAGE3("GetDirSize(%s, %s)", path, dirname);
-
-    HANDLE hFind;
-    static WIN32_FIND_DATA fd;
-    int plen1 = (int)strlen(path);
-    SalamanderGeneral->SalPathAppend(path, dirname, MAX_PATH);
-    int plen2 = (int)strlen(path);
-    strcat(path, "\\*");
+    WIN32_FIND_DATAW data;
+    const std::wstring pattern = UndeletePaths::IoPath(UndeletePaths::Join(source, L"*"));
+    CRestoreFind find(HANDLES_Q(FindFirstFileW(pattern.c_str(), &data)));
+    if (find.Handle == INVALID_HANDLE_VALUE)
+    { *cancel = TRUE; String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED); return 0; }
     QWORD total = 0;
-
-    if ((hFind = HANDLES_Q(FindFirstFile(path, &fd))) != INVALID_HANDLE_VALUE)
+    do
     {
-        path[plen2] = 0;
-        do
-        {
-            if (fd.cFileName[0] != 0 && strcmp(fd.cFileName, ".") && strcmp(fd.cFileName, ".."))
-            {
-                if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-                    total += GetDirSize(path, fd.cFileName, cancel) + 1;
-                else
-                    total += MAKEQWORD(fd.nFileSizeLow, fd.nFileSizeHigh) + 1;
-            }
-
-            if (*cancel || (GetAsyncKeyState(VK_ESCAPE) & 0x8001) ||
-                SalamanderGeneral->GetSafeWaitWindowClosePressed())
-            {
-                HANDLES(FindClose(hFind));
-                *cancel = TRUE;
-                return 0;
-            }
-        } while (FindNextFile(hFind, &fd));
-        HANDLES(FindClose(hFind));
-    }
-    path[plen1] = 0;
-
+        if (wcscmp(data.cFileName, L".") && wcscmp(data.cFileName, L".."))
+            total += (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? GetDirSize(UndeletePaths::Join(source, data.cFileName), cancel) + 1 : MAKEQWORD(data.nFileSizeLow, data.nFileSizeHigh) + 1;
+        if (*cancel || (GetAsyncKeyState(VK_ESCAPE) & 0x8001) || SalamanderGeneral->GetSafeWaitWindowClosePressed())
+        { *cancel = TRUE; return 0; }
+    } while (FindNextFileW(find.Handle, &data));
+    if (GetLastError() != ERROR_NO_MORE_FILES)
+    { *cancel = TRUE; String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED); }
     return total;
 }
 
-BOOL RestoreEncryptedFiles(const char* targetPath, HWND parent)
+struct CRestoreWaitScope
 {
-    CALL_STACK_MESSAGE2("RestoreEncryptedFiles(%s, )", targetPath);
+    ~CRestoreWaitScope() { SalamanderGeneral->DestroySafeWaitWindow(); }
+};
+struct CRestoreProgressScope
+{
+    HWND Parent, Window;
+    CRestoreProgressScope(HWND parent, HWND window) : Parent(parent), Window(window) { EnableWindow(Parent, FALSE); }
+    ~CRestoreProgressScope() { EnableWindow(Parent, TRUE); DestroyWindow(Window); Progress = NULL; hProgressWnd = NULL; }
+};
 
-    // check EFS support on target path
-    char resolvedPath[MAX_PATH];
-    UndeleteGetResolvedRootPath(targetPath, resolvedPath);
-
-    DWORD flags;
-    if (!GetVolumeInformation(resolvedPath, NULL, 0, NULL, NULL, &flags, NULL, 0) ||
-        !(flags & FILE_SUPPORTS_ENCRYPTION))
+BOOL RestoreEncryptedFiles(const CSalamanderDiskSelection& selection, const char* targetPath, HWND parent)
+try
+{
+    const std::wstring target = UndeletePaths::Absolute(UndeletePaths::Wide(targetPath));
+    if (target.empty() || selection.GetCount() == 0)
+    { SetLastError(ERROR_INVALID_PARAMETER); return String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED); }
+    // Reject restoring a directory into itself or one of its descendants,
+    // before creating any output or beginning recursive enumeration.
+    for (int i = 0; i < selection.GetCount(); ++i)
     {
+        const CSalamanderDiskSelectionItem& item = *selection.GetItem(i);
+        if (!item.IsDir) continue;
+        const std::wstring source = UndeletePaths::Comparable(UndeletePaths::Absolute(item.FullPathW));
+        const std::wstring destination = UndeletePaths::Comparable(UndeletePaths::Join(target, item.NameW));
+        if (destination.size() >= source.size() && !source.empty() &&
+            CompareStringOrdinal(source.c_str(), static_cast<int>(source.size()), destination.c_str(), static_cast<int>(source.size()), TRUE) == CSTR_EQUAL &&
+            (destination.size() == source.size() || destination[source.size()] == L'\\'))
+        { SetLastError(ERROR_INVALID_PARAMETER); return String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED); }
+    }
+    std::vector<wchar_t> root(SAL_MAX_PATH);
+    DWORD flags = 0;
+    if (!GetVolumePathNameW(UndeletePaths::IoPath(target).c_str(), root.data(), static_cast<DWORD>(root.size())) ||
+        !GetVolumeInformationW(root.data(), NULL, 0, NULL, NULL, &flags, NULL, 0) || !(flags & FILE_SUPPORTS_ENCRYPTION))
         return String<char>::Error(IDS_RESTORE, IDS_NOEFS);
-    }
 
-    // init
-    char sourcePath[MAX_PATH];
-    SalamanderGeneral->GetPanelPath(PANEL_SOURCE, sourcePath, MAX_PATH, NULL, NULL);
-    int selfiles, seldirs;
-    SalamanderGeneral->GetPanelSelection(PANEL_SOURCE, &selfiles, &seldirs);
-    BOOL focused = (selfiles == 0 && seldirs == 0);
-
-    // get total size of selected files and directories
-    SalamanderGeneral->CreateSafeWaitWindow(String<char>::LoadStr(IDS_READINGTREE), NULL, 1500, TRUE, parent);
-    const CFileData* fd;
-    FileProgress = FileTotal = 0;
-    TotalProgress = GrandTotal = 0;
-    BOOL isdir, cancel = FALSE;
-    int index = 0;
-    while (!cancel)
+    FileProgress = FileTotal = TotalProgress = GrandTotal = 0;
+    BOOL cancel = FALSE;
     {
-        if (focused)
-            fd = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, &isdir);
-        else
-            fd = SalamanderGeneral->GetPanelSelectedItem(PANEL_SOURCE, &index, &isdir);
-        if (fd == NULL)
-            break;
-
-        if (isdir)
-            GrandTotal += GetDirSize(sourcePath, fd->Name, &cancel);
-        else
-            GrandTotal += fd->Size.Value;
-
-        if (focused)
-            break;
+        SalamanderGeneral->CreateSafeWaitWindow(String<char>::LoadStr(IDS_READINGTREE), NULL, 1500, TRUE, parent);
+        CRestoreWaitScope wait;
+        for (int i = 0; i < selection.GetCount() && !cancel; ++i)
+        {
+            const CSalamanderDiskSelectionItem& item = *selection.GetItem(i);
+            GrandTotal += (item.IsDir ? GetDirSize(item.FullPathW, &cancel) : item.Size.Value) + 1;
+        }
     }
-    SalamanderGeneral->DestroySafeWaitWindow();
-    if (cancel)
-        return FALSE;
-
-    // test free space
-    if (!SalamanderGeneral->TestFreeSpace(parent, targetPath, CQuadWord().SetUI64(GrandTotal), String<char>::LoadStr(IDS_RESTORE)))
-        return FALSE;
-
-    // todo: test if sourcePath == targetPath - it is error
-
-    // open progress
+    if (cancel || !SalamanderGeneral->TestFreeSpace(parent, targetPath, CQuadWord().SetUI64(GrandTotal), String<char>::LoadStr(IDS_RESTORE))) return FALSE;
     CRestoreProgressDlg dlg(parent, ooStatic);
-    if (dlg.Create() == NULL)
-        return String<char>::SysError(IDS_UNDELETE, IDS_ERROROPENINGPROGRESS);
-    EnableWindow(parent, FALSE);
+    if (dlg.Create() == NULL) return String<char>::SysError(IDS_UNDELETE, IDS_ERROROPENINGPROGRESS);
+    CRestoreProgressScope progress(parent, dlg.HWindow);
     Progress = &dlg;
     hProgressWnd = dlg.HWindow;
     SetForegroundWindow(hProgressWnd);
-
-    // restore
-    BOOL ret = TRUE;
-    index = 0;
     SrcSilentMask = DstSilentMask = DirSilentMask = 0;
-    while (ret)
+    for (int i = 0; i < selection.GetCount(); ++i)
     {
-        if (focused)
-            fd = SalamanderGeneral->GetPanelFocusedItem(PANEL_SOURCE, &isdir);
-        else
-            fd = SalamanderGeneral->GetPanelSelectedItem(PANEL_SOURCE, &index, &isdir);
-        if (fd == NULL)
-            break;
-
-        if (isdir)
-            ret = RestoreDir(fd->Name, sourcePath, targetPath);
-        else
-            ret = RestoreFile(fd->Name, sourcePath, targetPath);
-
-        if (focused)
-            break;
+        const CSalamanderDiskSelectionItem& item = *selection.GetItem(i);
+        const std::wstring destination = UndeletePaths::Join(target, item.NameW);
+        if (!(item.IsDir ? RestoreDir(item.FullPathW, destination) : RestoreFile(item.FullPathW, destination))) return FALSE;
     }
-
-    // close progress
-    EnableWindow(parent, TRUE);
-    DestroyWindow(hProgressWnd);
-
-    return ret;
+    return TRUE;
+}
+catch (const std::bad_alloc&)
+{
+    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+    return String<char>::SysError(IDS_UNDELETE, IDS_ERRORENCRYPTED);
 }

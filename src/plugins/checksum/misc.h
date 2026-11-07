@@ -4,7 +4,7 @@
 #pragma once
 
 BOOL Error(HWND hParent, int lastErr, int title, int error, ...);
-BOOL SafeReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nBytesToRead, DWORD* pnBytesRead, char* fileName, HWND parent, BOOL* skippedReadError = NULL, BOOL* skipAllReadErrors = NULL);
+BOOL SafeReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nBytesToRead, DWORD* pnBytesRead, const char* fileName, HWND parent, BOOL* skippedReadError = NULL, BOOL* skipAllReadErrors = NULL);
 BOOL SafeWriteFile(HANDLE hFile, LPVOID lpBuffer, DWORD nBytesToWrite, DWORD* pnBytesWritten, char* fileName, HWND parent);
 BOOL SafeOpenCreateFile(LPCTSTR fileName, DWORD desiredAccess, DWORD shareMode, DWORD creationDisposition,
                         DWORD flagsAndAttributes, HANDLE* hFile, BOOL* skip, int* silent, HWND parent);

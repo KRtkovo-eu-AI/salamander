@@ -1,5 +1,7 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Keep third-party notices limited to external components and synchronize localized notices. | Remove implementation and porting history from the attribution document. |  | GPT-5.6 |
+| 2026-11-06 | Retain the pinned Lua port with a verified source mirror. | Keep clean CI builds available during Lua.org timeouts. | https://github.com/majklvi/salamander/pull/64 | GPT-6 (Codex) |
 | 2026-11-05 | Credit pd4d10/json-viewer for JSON Web Viewer. | Salamatrix WebView2 JSON extension vendors that renderer. |  | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
@@ -14,7 +16,6 @@ making their work available.
 
 | Component | Used for | Attribution and license notes |
 | --- | --- | --- |
-| Microsoft Win32 documentation | Background drive free-space queries | The query and connection checks follow Microsoft Corporation's [GetDiskFreeSpaceExW](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getdiskfreespaceexw) quota semantics and [WNetGetConnectionW](https://learn.microsoft.com/en-us/windows/win32/api/winnetwk/nf-winnetwk-wnetgetconnectionw) disconnected-mapping status. Used as API references; no third-party source code copied. |
 | REGEXP | Regular expression matching | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | AES code | Cryptographic routines | Written by Dr Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
 | PNGLite | PNG image support | Based on PNGLite by Daniel Karling. Copyright (C) 2007 Daniel Karling. |
@@ -26,7 +27,7 @@ making their work available.
 | LGPL libraries | Shared third-party libraries | Licensed under the GNU Library General Public License. A copy of the license is included with this software. |
 | Unicode and Win32 Long Paths | Filename handling portions | Samandarin includes filename handling code and implementation work derived from, or substantially informed by, fork [Sally](https://github.com/0xeb/sally) by [Elias Bachaalany (0xeb)](https://github.com/0xeb). Licensed under the GNU Library General Public License. |
 | Lua 5.5.0 | Bundled interpreter for the Salamatrix Lua Runtime | [Lua.org, PUC-Rio](https://www.lua.org/), installed from the pinned vcpkg `lua[tools]` package. Copyright (c) 1994-2025 Lua.org, PUC-Rio. MIT License; the complete notice is distributed as `plugins/extension-runtimes/luaruntime/runtime/LICENSE-LUA.txt`. |
-| win32-darkmodelib | Native Windows dark-mode support for shared and Salamatrix dialogs | Vendored from [ozone10/win32-darkmodelib](https://github.com/ozone10/win32-darkmodelib), commit `b58eb027c4a114c1b1c8fd09870ead982f1b1e72`. Copyright (c) 2025-2026 ozone10. Licensed under the Mozilla Public License 2.0, with portions under the MIT License; see `src/third_party/darkmodelib/LICENSE.md` and `LICENSE-MIT.md`. |
+| win32-darkmodelib | Native Windows dark-mode support for shared and Salamatrix dialogs | Vendored from [ozone10/win32-darkmodelib](https://github.com/ozone10/win32-darkmodelib). Copyright (c) 2025-2026 ozone10. Licensed under the Mozilla Public License 2.0, with portions under the MIT License; see `src/third_party/darkmodelib/LICENSE.md` and `LICENSE-MIT.md`. |
 | llama.cpp | On-demand CPU inference executable for SalamatrixAI | [ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp), pinned release `b10107`. MIT License; the configuration downloader retrieves the runtime and its license notice directly for the user. |
 | Qwen2.5-Coder 1.5B Instruct GGUF | Recommended local SalamatrixAI model | [Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF), pinned `q4_k_m` file. Apache License 2.0; the configuration downloader retrieves the model and license notice directly for the user. |
 | Qwen2.5-Coder 0.5B Instruct GGUF | Lightweight, English-prompt-only local SalamatrixAI model | [Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF), pinned `q4_k_m` file. Apache License 2.0; the configuration downloader retrieves the model and license notice directly for the user. |
@@ -61,7 +62,7 @@ making their work available.
 | Microsoft .NET Framework 4.8 | JSON Viewer plugin | Provided by Microsoft Corporation under the Microsoft .NET Framework license terms. |
 | pd4d10/json-viewer 2.2.0 | JSON Viewer (nodeJS) Salamatrix extension | Port of Firefox's JSON Viewer for Chromium by Rongjian Zhang ([pd4d10/json-viewer](https://github.com/pd4d10/json-viewer)). MIT License for the wrapper; the bundled UI includes Mozilla DevTools JSON Viewer code under MPL-2.0 and React under MIT. Vendored as `src/extensions/json-viewer-nodejs/vendor/pd4d10-json-viewer/` (`content-script.js` from the Chrome Web Store package). |
 | Prism.js 1.29.0 | Viewer Frame (Salamatrix and Prism Text Viewer) | By Lea Verou and PrismJS contributors, released under the MIT License. |
-| Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | By Microsoft Corporation, distributed under the BSD 3-Clause License. Prism virtual-host naming follows Microsoft's [virtual host mapping guidance](https://learn.microsoft.com/en-us/dotnet/api/microsoft.web.webview2.core.corewebview2.setvirtualhostnametofoldermapping) to avoid navigation delays with `.local`. Bounded Prism instance reuse follows Microsoft's [WebView2 performance guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/performance#avoid-redundant-webview2-instances). |
+| Microsoft.Web.WebView2 1.0.2420.47 | Viewer Frame | By Microsoft Corporation, distributed under the BSD 3-Clause License. |
 | Markdig 0.36.2 | MarkdigRenderer for WebView2 Render Viewer | By Alexandre Mutel and contributors, released under the BSD 2-Clause License. |
 
 ## Network, Synchronization, and Device Plugins

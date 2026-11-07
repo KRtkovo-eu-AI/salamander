@@ -3,11 +3,15 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#include "common/widepath.h"
 
 #include "cfgdlg.h"
+#include "mainwnd.h"
 #include "plugins.h"
+#include "fileswnd.h"
 #include "zip.h"
 #include "pack.h"
+#include "fileactiondisktarget.h"
 
 // custom packers / unpackers
 const char* SALAMANDER_CPU_TITLE = "Title";
@@ -775,8 +779,11 @@ BOOL CPackerConfig::SetPackerTitle(int index, const char* title)
 }
 
 BOOL CPackerConfig::ExecutePacker(CFilesWindow* panel, const char* zipFile, BOOL move,
-                                  const char* sourcePath, SalEnumSelection2 next, void* param)
+                                  const char* sourcePath, SalEnumSelection2 next, void* param,
+                                  BOOL (*validateContext)(void*), void* context)
 {
+    if (validateContext != NULL && !validateContext(context))
+    { SetLastError(ERROR_RETRY); return FALSE; }
     CALL_STACK_MESSAGE4("CPackerConfig::ExecutePacker(, %s, %d, %s, , ,)",
                         zipFile, move, sourcePath);
     if (PreferedPacker >= 0 && PreferedPacker < Packers.Count)
@@ -799,7 +806,7 @@ BOOL CPackerConfig::ExecutePacker(CFilesWindow* panel, const char* zipFile, BOOL
                     TRACE_E(LOW_MEMORY);
                     return FALSE;
                 }
-                sprintf(command, "%s %s", data->CmdExecMove, data->CmdArgsMove);
+                sprintf_s(command, strlen(data->CmdExecMove) + strlen(data->CmdArgsMove) + 2, "%s %s", data->CmdExecMove, data->CmdArgsMove);
             }
             else
             {
@@ -810,7 +817,7 @@ BOOL CPackerConfig::ExecutePacker(CFilesWindow* panel, const char* zipFile, BOOL
                     TRACE_E(LOW_MEMORY);
                     return FALSE;
                 }
-                sprintf(command, "%s %s", data->CmdExecCopy, data->CmdArgsCopy);
+                sprintf_s(command, strlen(data->CmdExecCopy) + strlen(data->CmdArgsCopy) + 2, "%s %s", data->CmdExecCopy, data->CmdArgsCopy);
             }
             BOOL ret = PackUniversalCompress(NULL, command, NULL, sourcePath, FALSE,
                                              data->SupportLongNames, zipFile, sourcePath, NULL,
@@ -823,7 +830,7 @@ BOOL CPackerConfig::ExecutePacker(CFilesWindow* panel, const char* zipFile, BOOL
             CPluginData* plugin = Plugins.Get(-data->Type - 1);
             if (plugin != NULL && plugin->SupportCustomPack)
             {
-                return plugin->PackToArchive(panel, zipFile, "", move, sourcePath, next, param);
+                return plugin->PackToArchive(panel, zipFile, "", move, sourcePath, next, param, validateContext, context);
             }
             else
                 TRACE_E("Unexpected situation in CPackerConfig::ExecutePacker().");
@@ -1417,12 +1424,209 @@ BOOL CUnpackerConfig::SetUnpackerTitle(int index, const char* title)
     return data->Title != NULL;
 }
 
+bool CWholeArchiveUnpackerSnapshot::Capture(CUnpackerConfig* configuration, BOOL allowExternal)
+{
+    Configuration = NULL;
+    Entry = NULL;
+    Plugin = NULL;
+    Index = -1;
+    Type = 0;
+    Title.clear();
+    Extensions.clear();
+    DLLName.clear();
+    Command.clear();
+    Arguments.clear();
+    BranchTargetDirectory.clear();
+    SupportLongNames = NeedANSIListFile = FALSE;
+    // This object has process lifetime; never dereference an arbitrary saved configuration pointer.
+    if (configuration != &UnpackerConfig)
+    {
+        SetLastError(ERROR_RETRY);
+        return false;
+    }
+    const int index = configuration->PreferedUnpacker;
+    if (index < 0 || index >= configuration->Unpackers.Count)
+    {
+        SetLastError(ERROR_RETRY);
+        return false;
+    }
+    const CUnpackerConfigData* entry = configuration->Unpackers[index];
+    if (entry == NULL || entry->OldType || entry->Type > CUSTOMUNPACKER_EXTERNAL ||
+        (entry->Type == CUSTOMUNPACKER_EXTERNAL && !allowExternal) || entry->Title == NULL || entry->Ext == NULL)
+    {
+        SetLastError(ERROR_RETRY);
+        return false;
+    }
+    const bool external = entry->Type == CUSTOMUNPACKER_EXTERNAL;
+    const int pluginIndex = external ? -1 : -(entry->Type + 1); // avoid negating INT_MIN before bounds validation
+    CPluginData* plugin = external ? NULL : Plugins.Get(pluginIndex);
+    if (external ? (entry->CmdExecExtract == NULL || entry->CmdArgsExtract == NULL) :
+        (plugin == NULL || !plugin->SupportCustomUnpack || plugin->DLLName == NULL || plugin->DLLName[0] == 0))
+    {
+        SetLastError(ERROR_RETRY);
+        return false;
+    }
+    try
+    {
+        Title = entry->Title;
+        Extensions = entry->Ext;
+        if (external)
+        {
+            Command = entry->CmdExecExtract;
+            Arguments = entry->CmdArgsExtract;
+            SupportLongNames = entry->SupportLongNames;
+            NeedANSIListFile = entry->NeedANSIListFile;
+        }
+        else
+            DLLName = plugin->DLLName;
+    }
+    catch (const std::bad_alloc&)
+    {
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+        return false;
+    }
+    Entry = entry;
+    Plugin = plugin;
+    Index = index;
+    Type = entry->Type;
+    Configuration = configuration;
+    return true;
+}
+
+bool CWholeArchiveUnpackerSnapshot::IsCurrent(const CPluginData* expectedPlugin) const
+{
+    if (Configuration != &UnpackerConfig || Index < 0 ||
+        UnpackerConfig.PreferedUnpacker != Index || Index >= UnpackerConfig.Unpackers.Count ||
+        UnpackerConfig.Unpackers[Index] != Entry || Entry == NULL)
+        return false;
+    // MoveUnpacker copies row contents, so pointer equality alone does not preserve the choice.
+    const CUnpackerConfigData* entry = UnpackerConfig.Unpackers[Index];
+    if (entry->OldType || entry->Type != Type || Type > CUSTOMUNPACKER_EXTERNAL || entry->Title == NULL || entry->Ext == NULL ||
+        Title != entry->Title || Extensions != entry->Ext)
+        return false;
+    if (Type == CUSTOMUNPACKER_EXTERNAL)
+        return expectedPlugin == NULL && Plugin == NULL && entry->CmdExecExtract != NULL && entry->CmdArgsExtract != NULL &&
+               Command == entry->CmdExecExtract && Arguments == entry->CmdArgsExtract &&
+               SupportLongNames == entry->SupportLongNames && NeedANSIListFile == entry->NeedANSIListFile;
+    CPluginData* live = Plugins.Get(-(Type + 1));
+    return live != NULL && live == Plugin && (expectedPlugin == NULL || live == expectedPlugin) &&
+           live->SupportCustomUnpack && live->DLLName != NULL && _stricmp(live->DLLName, DLLName.c_str()) == 0;
+}
+
+bool CWholeArchiveUnpackerSnapshot::IsVerifiedBranchSourceUnpacker() const
+{
+    // S31b6c5: qualify the selected bundled backend, not an extension/listing owner.
+    return Type < CUSTOMUNPACKER_EXTERNAL && IsCurrent() &&
+           (_stricmp(DLLName.c_str(), "zip\\zip.spl") == 0 ||
+            _stricmp(DLLName.c_str(), "7zip\\7zip.spl") == 0);
+}
+
+bool CWholeArchiveUnpackerSnapshot::BindBranchTarget(const CFilesActionDiskTarget* target, const char* directory)
+{
+    BranchTargetDirectory.clear();
+    if (target == NULL || !target->Branch || !target->DirectoryDefault ||
+        !target->IsCurrent(MainWindow) || !IsVerifiedBranchSourceUnpacker() || directory == NULL)
+        return false;
+    const size_t length = strlen(directory);
+    if (length == 0 || length >= SAL_MAX_PATH || target->DefaultPath.empty() || !IsValidPathUtf8Text(directory)) return false;
+    // The offered default is the root itself or its single generated archive-stem child.
+    try
+    {
+        const std::string prefix = target->DefaultPath + (target->DefaultPath.back() == '\\' ? "" : "\\");
+        if (target->DefaultPath != directory)
+        {
+            if (length <= prefix.size() || memcmp(directory, prefix.c_str(), prefix.size()) != 0) return false;
+            const char* child = directory + prefix.size();
+            // Reject Win32 aliases, including a stem such as ".. " that could resolve outside the root.
+            if (directory[length - 1] == '.' || directory[length - 1] == ' ' ||
+                strpbrk(child, "\\/:*?\"<>|") != NULL) return false;
+        }
+        BranchTargetDirectory = directory;
+    }
+    catch (const std::bad_alloc&) { SetLastError(ERROR_NOT_ENOUGH_MEMORY); return false; }
+    if (ValidateBranchTarget(target, directory)) return true;
+    BranchTargetDirectory.clear();
+    return false;
+}
+
+bool CWholeArchiveUnpackerSnapshot::ValidateBranchTarget(const CFilesActionDiskTarget* target, const char* directory) const
+{
+    if (target == NULL || !target->Branch) return true; // ordinary/legacy caller contract
+    if (!target->DirectoryDefault || !target->IsCurrent(MainWindow) || !IsVerifiedBranchSourceUnpacker() ||
+        BranchTargetDirectory.empty() || directory == NULL || BranchTargetDirectory != directory) return false;
+    const std::wstring root = target->Root.length() >= MAX_PATH ?
+        SalPathAddExtendedPrefixW(target->Root.c_str()) : target->Root;
+    const DWORD attrs = GetFileAttributesW(root.c_str());
+    return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
+bool CWholeArchiveUnpackerSnapshot::ValidateExternalPaths(const char* source, const char* target) const
+{
+    if (Type != CUSTOMUNPACKER_EXTERNAL) return true;
+    // This legacy backend still uses MAX_PATH buffers and narrow Win32/CRT I/O.
+    // Guard the UTF-8 controller input before creating directories or entering that backend.
+    const char* paths[] = {source, target};
+    for (const char* path : paths)
+    {
+        if (path == NULL || strlen(path) >= MAX_PATH)
+        {
+            SetLastError(ERROR_FILENAME_EXCED_RANGE);
+            return false;
+        }
+        if (*path == 0 || !IsValidPathUtf8Text(path))
+        {
+            SetLastError(ERROR_INVALID_NAME);
+            return false;
+        }
+        const std::wstring exact = SalMultiByteToWidePath(path, CP_UTF8);
+        if (exact.empty() || SalMultiByteToWidePath(path, GetACP()) != exact)
+        {
+            SetLastError(ERROR_NO_UNICODE_TRANSLATION);
+            return false;
+        }
+    }
+    // SalGetTempFileName appends a separator, "PACK", up to eight DWORD hex digits and ".tmp".
+    const size_t length = strlen(target);
+    const size_t resultLength = length + (target[length - 1] == char(92) ? 0 : 1) + 4 + 8 + 4;
+    if (resultLength >= MAX_PATH)
+    {
+        SetLastError(ERROR_FILENAME_EXCED_RANGE);
+        return false;
+    }
+    return true;
+}
+
 BOOL CUnpackerConfig::ExecuteUnpacker(HWND parent, CFilesWindow* panel, const char* zipFile, const char* mask,
-                                      const char* targetDir, BOOL delArchiveWhenDone, CDynamicString* archiveVolumes)
+                                      const char* targetDir, BOOL delArchiveWhenDone, CDynamicString* archiveVolumes,
+                                      const CWholeArchiveUnpackerSnapshot* backendSnapshot,
+                                      const CFilesActionDiskTarget* sourceSnapshot, const CFilesActionDiskTarget* diskTarget)
 {
     CALL_STACK_MESSAGE5("CUnpackerConfig::ExecuteUnpacker(, %s, %s, %s, %d, )",
                         zipFile, mask, targetDir, delArchiveWhenDone);
-    if (PreferedUnpacker != -1 && PreferedUnpacker < Unpackers.Count)
+    if ((backendSnapshot == NULL && (sourceSnapshot != NULL || diskTarget != NULL)) ||
+        (backendSnapshot != NULL && (backendSnapshot->Configuration != this || !backendSnapshot->IsCurrent())))
+    {
+        SetLastError(ERROR_RETRY);
+        return FALSE;
+    }
+    CFilesWindow* liveSource = CFilesActionDiskTarget::FindLive(MainWindow, panel);
+    if ((sourceSnapshot != NULL && sourceSnapshot->Branch) || (liveSource != NULL && liveSource->IsBranchView()) || (diskTarget != NULL && diskTarget->Branch))
+    {
+        if (sourceSnapshot == NULL || sourceSnapshot->Panel != panel || !sourceSnapshot->IsCurrent(MainWindow) ||
+            diskTarget == NULL || !diskTarget->IsCurrent(MainWindow) ||
+            (delArchiveWhenDone && archiveVolumes == NULL) || backendSnapshot == NULL || !backendSnapshot->IsVerifiedBranchSourceUnpacker())
+        {
+            SetLastError(ERROR_NOT_SUPPORTED);
+            return FALSE;
+        }
+    }
+    if (backendSnapshot != NULL && !backendSnapshot->ValidateBranchTarget(diskTarget, targetDir))
+    {
+        SetLastError(ERROR_RETRY);
+        return FALSE;
+    }
+    if (backendSnapshot != NULL && !backendSnapshot->ValidateExternalPaths(zipFile, targetDir)) return FALSE;
+    if (PreferedUnpacker >= 0 && PreferedUnpacker < Unpackers.Count)
     {
         CUnpackerConfigData* data = Unpackers[PreferedUnpacker];
         if (data->Type == CUSTOMUNPACKER_EXTERNAL)
@@ -1444,17 +1648,17 @@ BOOL CUnpackerConfig::ExecuteUnpacker(HWND parent, CFilesWindow* panel, const ch
             char* tmpMask2 = tmpMask;
             BOOL ret = PackUniversalUncompress(parent, command, NULL, targetDir, FALSE, panel,
                                                data->SupportLongNames, zipFile, targetDir,
-                                               NULL, PackEnumMask, &tmpMask, data->NeedANSIListFile);
+                                               NULL, PackEnumMask, &tmpMask, data->NeedANSIListFile, sourceSnapshot, diskTarget);
             free(tmpMask2);
             free(command);
             return ret;
         }
         else
         {
-            CPluginData* plugin = Plugins.Get(-data->Type - 1);
+            CPluginData* plugin = Plugins.Get(-(data->Type + 1));
             if (plugin != NULL && plugin->SupportCustomUnpack)
             {
-                return plugin->UnpackWholeArchive(panel, zipFile, mask, targetDir, delArchiveWhenDone, archiveVolumes);
+                return plugin->UnpackWholeArchive(panel, zipFile, mask, targetDir, delArchiveWhenDone, archiveVolumes, sourceSnapshot, diskTarget, backendSnapshot);
             }
             else
                 TRACE_E("Unexpected situation in CUnpackerConfig::ExecuteUnpacker().");

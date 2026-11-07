@@ -9,6 +9,8 @@
 //modes for opening the PAK
 #define OP_READ_MODE GENERIC_READ
 #define OP_WRITE_MODE (GENERIC_READ | GENERIC_WRITE)
+// Internal option for commands acting on an existing archive, never creating it.
+#define OP_EXISTING_ONLY 0x00000001
 
 #define PAK_MAXPATH 256
 

@@ -1,0 +1,136 @@
+// SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <cstring>
+#include <algorithm>
+std::wstring SalMultiByteToWidePath(const char*,UINT=CP_UTF8);
+std::string SalWideToMultiBytePath(const wchar_t*,UINT=CP_UTF8);
+@@CONVERSIONS@@
+@@CONVERT_NAME@@
+@@DIALOG_TEXT@@
+#define TRACE_E(...) ((void)0)
+#define CALL_STACK_MESSAGE2(...) ((void)0)
+#define HANDLES_Q(call) (call)
+#define HANDLES(call) (call)
+static constexpr int IDS_TOOLONGNAME=1,IDS_ERRORRENAMINGFILE=2,ptDisk=1,ptPluginFS=2,FS_SERVICE_QUICKRENAME=1;
+static int Errors=0,LegacyCalls=0,Remaps=0,Updates=0,Sleeps=0,Wakes=0,Checks=0,Failed=0;
+static const char* LoadStr(int){return "test";}
+static const char* GetErrorText(DWORD){return "test error";}
+static int SalMessageBox(HWND,const char*,const char*,UINT){++Errors;return IDOK;}
+static void GetFileOverwriteInfoW(char* text,size_t,HANDLE,DWORD){strcpy_s(text,101,"owned test");}
+static BOOL TryBypassDosNameOverwriteW(const std::wstring&,const std::wstring&,const std::wstring&,DWORD*){return FALSE;}
+static void ClearReadOnlyAttrW(const std::wstring& path,DWORD attrs){SetFileAttributesW(path.c_str(),attrs&~FILE_ATTRIBUTE_READONLY);}
+struct COverwriteDlg { COverwriteDlg(HWND,const char*,const char*,const char*,const char*,BOOL){} int Execute(){return IDNO;} };
+struct CFileData {
+ std::string Mirror;std::wstring Wide,Parent;const char* Name=nullptr;const wchar_t* NameW=nullptr;
+ bool UseWideName()const{return true;}
+ void Assign(const std::wstring& name){Wide=name;Mirror=SalWideToMultiBytePath(name.c_str(),CP_UTF8);Name=Mirror.c_str();NameW=Wide.c_str();}
+};
+static void UpdateFileDataNameAfterRename(CFileData* f,const std::wstring& name,BOOL){++Updates;f->Assign(name);}
+struct Visible {int Calls=0;void InvalidateArr(){++Calls;}};
+struct MainWindowFacade {std::vector<std::string> Notifications;void PostChangeOnPathNotification(const char* path,BOOL){Notifications.push_back(path);}};
+static MainWindowFacade Window;
+static MainWindowFacade* MainWindow=&Window;
+struct FakeFS {bool NotEmpty(){return false;}bool IsServiceSupported(int){return false;}const char* GetPluginFSName(){return "";}BOOL QuickRename(const char*,int,HWND,CFileData&,BOOL,char*,BOOL&){return FALSE;}};
+struct Rows {int Count=0;CFileData Item;CFileData& At(int){return Item;}};
+struct EditFacade {
+ HWND HWindow=nullptr;bool Unicode=false;int WideCreates=0,AnsiCreates=0;bool Closed=false;
+ void SetUnicodeWindow(BOOL unicode){Unicode=unicode!=FALSE;}
+ void SetCloseEnabled(BOOL){}
+ template<class... Args> HWND CreateExW(Args...){++WideCreates;SetLastError(ERROR_NOT_ENOUGH_MEMORY);return NULL;}
+ HWND CreateEx(DWORD ex,const char* type,const char* text,DWORD style,int x,int y,int w,int h,HWND parent,HMENU menu,HINSTANCE instance,void*) {
+  ++AnsiCreates;HWindow=CreateWindowExA(ex,type,text,style,x,y,w,h,parent,menu,instance,NULL);return HWindow;
+ }
+};
+static HINSTANCE HInstance=GetModuleHandleW(NULL);
+class CFilesWindow {
+public:
+ BOOL Branch=TRUE,Current=TRUE;HWND HWindow=NULL;Rows Storage,Empty;Rows* Files=&Storage;Rows* Dirs=&Empty;
+ Visible VisibleItemsArray,VisibleItemsArraySurround;EditFacade QuickRenameWindow;FakeFS FS;
+ char NextFocusName[32768]={};std::string Root;
+ BOOL IsBranchView(){return Branch;}BOOL Is(int type){return type==ptDisk;}
+ int GetCaretIndex(){return 0;}const char* GetPath(){return Root.c_str();}
+ FakeFS* GetPluginFS(){return &FS;}HWND GetListBoxHWND(){return HWindow;}
+ const char* GetItemCacheKeyPtr(const CFileData& f){return f.Name;}
+ const CFileData* GetBranchViewFileByCacheKey(const char*){return Current?&Storage.Item:NULL;}
+ std::wstring GetItemDirectoryW(const CFileData& f){return f.Parent;}
+ std::wstring GetItemFullPathW(const CFileData& f){return f.Parent+L"\\"+f.Wide;}
+ void SleepIconCacheThread(){++Sleeps;}void WakeupIconCacheThread(){++Wakes;}
+ void BranchItemRenamed(const char*,const CFileData&,const std::wstring&){++Remaps;}
+ void QuickRenameEnd(){QuickRenameWindow.Closed=true;if(QuickRenameWindow.HWindow){DestroyWindow(QuickRenameWindow.HWindow);QuickRenameWindow.HWindow=NULL;}}
+ void RenameFileInternal(CFileData*,const char*,BOOL,BOOL*,BOOL*);
+ void RenameFileInternalW(CFileData*,const std::wstring&,BOOL,BOOL*,BOOL*);
+ BOOL HandeQuickRenameWindowKey(WPARAM);
+ HWND ForcedAnsiEdit(const char* formatedFileName) {
+  std::wstring formatedFileNameW=MultiByteFileNameToWideBest(formatedFileName);CFileData* f=&Storage.Item;
+  RECT r={0,0,250,25};
+@@CREATE_EDIT@@
+  (void)unicodeEdit; // Remaining presentation/selection code is outside this facade.
+  return hWnd;
+ }
+};
+@@RENAME_WIDE@@
+void CFilesWindow::RenameFileInternal(CFileData* f,const char* formatedFileName,BOOL isDir,BOOL* mayChange,BOOL* tryAgain)
+{
+@@BRANCH_ROUTE@@
+ // The ordinary legacy remainder is deliberately outside this narrow facade.
+ // Its sentinel proves Branch dispatch returned before legacy mask/root work.
+ ++LegacyCalls;*tryAgain=FALSE;(void)f;(void)formatedFileName;(void)isDir;(void)mayChange;
+}
+@@QUICK_KEY@@
+static void Check(bool ok,const char* name){++Checks;if(!ok){++Failed;std::printf("FAIL: %s (%lu)\n",name,GetLastError());}}
+static std::wstring Exact(const std::wstring& path){return SalPathAddExtendedPrefixW(path.c_str());}
+static std::vector<std::wstring> OwnedFiles;
+static void Write(const std::wstring& path,const char* content){HANDLE h=CreateFileW(Exact(path).c_str(),GENERIC_WRITE,0,NULL,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,NULL);Check(h!=INVALID_HANDLE_VALUE,"create owned source");if(h!=INVALID_HANDLE_VALUE){OwnedFiles.push_back(path);DWORD n=0;Check(WriteFile(h,content,(DWORD)strlen(content),&n,NULL)&&n==strlen(content),"write owned contents");CloseHandle(h);}}
+static std::string Read(const std::wstring& path){HANDLE h=CreateFileW(Exact(path).c_str(),GENERIC_READ,0,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL);if(h==INVALID_HANDLE_VALUE)return "ABSENT";char text[64]={};DWORD n=0;ReadFile(h,text,63,&n,NULL);CloseHandle(h);return std::string(text,n);}
+int wmain()
+{
+ DWORD size=GetCurrentDirectoryW(0,NULL);std::vector<wchar_t> cwd(size);if(!GetCurrentDirectoryW(size,cwd.data()))return 2;
+ std::wstring root=std::wstring(cwd.data())+L"\\owned-rename";if(!CreateDirectoryW(root.c_str(),NULL))return 2;
+ std::vector<std::wstring> dirs={root};
+ std::wstring parent=root+L"\\\u017elu\u0165ou\u010dk\u00fd-\u6771\u4eac";
+ Check(CreateDirectoryW(parent.c_str(),NULL)!=FALSE,"create Unicode real parent");dirs.push_back(parent);
+ std::wstring longParent=parent;for(int i=0;i<4;++i){longParent+=L"\\"+std::wstring(65,L'\u65e5');Check(CreateDirectoryW(Exact(longParent).c_str(),NULL)!=FALSE,"create exact long parent");dirs.push_back(longParent);}
+ Check(longParent.size()>MAX_PATH,"real parent exceeds UTF-16 MAX_PATH");
+ HWND owner=CreateWindowExW(0,L"STATIC",L"Owned native fallback fixture",WS_OVERLAPPED,0,0,300,50,NULL,NULL,HInstance,NULL);
+ Check(owner!=NULL,"create owned hidden control parent");
+ for(const auto& directory: {parent,longParent}) {
+  CFilesWindow panel;panel.HWindow=owner;panel.Root=SalWideToMultiBytePath(root.c_str(),CP_UTF8);panel.Storage.Count=1;
+  auto& f=panel.Storage.Item;f.Parent=directory;f.Assign(L"\u65e5\U0001f600.txt");
+  std::wstring source=directory+L"\\"+f.Wide,wrong=root+L"\\"+f.Wide;
+  Write(source,"RIGHT");Write(wrong,"ROOT-SENTINEL");
+  HWND edit=panel.ForcedAnsiEdit("renamed.txt");
+  Check(edit!=NULL&&!IsWindowUnicode(edit)&&panel.QuickRenameWindow.WideCreates==1&&panel.QuickRenameWindow.AnsiCreates==1,"failed wide create reaches real ANSI edit control");
+  int remaps=Remaps,sleeps=Sleeps,wakes=Wakes;
+  Check(panel.HandeQuickRenameWindowKey(VK_RETURN)!=FALSE&&panel.QuickRenameWindow.Closed,"actual ANSI Enter completes rename and closes edit");
+  Check(Read(source)=="ABSENT"&&Read(directory+L"\\renamed.txt")=="RIGHT","ANSI fallback renames exact nested file via actual wide implementation");
+  Check(Read(wrong)=="ROOT-SENTINEL"&&Read(root+L"\\renamed.txt")=="ABSENT","duplicate root basename is untouched");
+  Check(LegacyCalls==0&&Remaps==remaps+1&&Updates>0&&Sleeps==sleeps+1&&Wakes==wakes+1,"route bypasses legacy and retains remap/cache locking calls");
+  BOOL change=FALSE,retry=FALSE;
+  const std::wstring target=L"p\u0159ejmenov\u00e1no-\u6771\u4eac-\U0001f600.txt";
+  panel.RenameFileInternal(&f,SalWideToMultiBytePath(target.c_str(),CP_UTF8).c_str(),FALSE,&change,&retry);
+  Check(change&&!retry&&Read(directory+L"\\"+target)=="RIGHT","direct fallback preserves UTF-8-first new basename");
+  Check(f.Wide==target,"actual wide path updates metadata adapter with complete new name");
+  panel.Current=FALSE;change=FALSE;retry=TRUE;
+  panel.RenameFileInternal(&f,"stale.txt",FALSE,&change,&retry);
+  Check(!change&&!retry&&Read(directory+L"\\"+target)=="RIGHT"&&Read(directory+L"\\stale.txt")=="ABSENT","stale metadata guard stops forced ANSI route before I/O");
+  panel.Current=TRUE;change=FALSE;retry=FALSE;
+  panel.RenameFileInternal(&f,"bad/name.txt",FALSE,&change,&retry);
+  Check(!change&&retry&&Read(directory+L"\\"+target)=="RIGHT","invalid basename remains refused by actual wide validator");
+  Write(directory+L"\\occupied.txt","KEEP");int errors=Errors;
+  panel.RenameFileInternal(&f,"occupied.txt",FALSE,&change,&retry);
+  Check(retry&&Read(directory+L"\\occupied.txt")=="KEEP"&&Read(directory+L"\\"+target)=="RIGHT"&&Errors==errors,"collision No preserves both files without replacing data");
+  Check(DeleteFileW(Exact(directory+L"\\occupied.txt").c_str())&&DeleteFileW(Exact(directory+L"\\"+target).c_str())&&DeleteFileW(Exact(wrong).c_str()),"cleanup owned files only");
+ }
+ CFilesWindow ordinary;BOOL change=FALSE,retry=TRUE;ordinary.Branch=FALSE;ordinary.RenameFileInternal(NULL,"ordinary.txt",FALSE,&change,&retry);
+ Check(LegacyCalls==1&&!change,"ordinary panel still selects untouched legacy remainder");
+ Check(DestroyWindow(owner)!=FALSE,"destroy owned control parent");
+ // A deliberately failing mutation must also leave no deep fixture behind.
+ for(const auto& file:OwnedFiles)if(GetFileAttributesW(Exact(file).c_str())!=INVALID_FILE_ATTRIBUTES){Check(file.rfind(root+L"\\",0)==0&&DeleteFileW(Exact(file).c_str()),"cleanup leftover owned source after failure");}
+ bool clean=true;for(auto i=dirs.rbegin();i!=dirs.rend();++i){if(i->rfind(root,0)!=0){clean=false;continue;}clean=RemoveDirectoryW(Exact(*i).c_str())!=FALSE&&clean;}
+ Check(clean,"clean only isolated exact fixture directories");
+ std::printf("Actual ANSI rename fallback: %d checks, %d failures\n",Checks,Failed);return Failed?1:0;
+}

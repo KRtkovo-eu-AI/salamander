@@ -37,101 +37,100 @@ CSalamanderPanelItemAutomation::CSalamanderPanelItemAutomation(const CFileData* 
 
 CSalamanderPanelItemAutomation::~CSalamanderPanelItemAutomation()
 {
-    delete[] m_pszFullPath;
+
 }
 
 void CSalamanderPanelItemAutomation::_ctor()
 {
-    m_pszFullPath = NULL;
-    m_cchFullPath = 0;
-    m_pszName = NULL;
+    m_fullPath.clear();
+    m_name.clear();
     m_size.QuadPart = 0;
     m_dwAttributes = INVALID_FILE_ATTRIBUTES;
     m_dateLastModified = 0;
 }
 
+static std::wstring AutomationItemPathToWide(const char* path)
+{
+    if (path == NULL || *path == 0)
+        return std::wstring();
+    UINT codePage = CP_UTF8;
+    DWORD flags = MB_ERR_INVALID_CHARS;
+    int length = MultiByteToWideChar(codePage, flags, path, -1, NULL, 0);
+    if (length == 0)
+    {
+        codePage = CP_ACP;
+        flags = 0;
+        length = MultiByteToWideChar(codePage, flags, path, -1, NULL, 0);
+    }
+    if (length <= 0)
+        return std::wstring();
+    std::wstring result(static_cast<size_t>(length), L'\0');
+    MultiByteToWideChar(codePage, flags, path, -1, &result[0], length);
+    result.resize(static_cast<size_t>(length - 1));
+    return result;
+}
+
+CSalamanderPanelItemAutomation::CSalamanderPanelItemAutomation(const CSalamanderDiskSelectionItem& item)
+{
+    _ctor();
+    Set(item);
+}
+
+void CSalamanderPanelItemAutomation::Set(const CSalamanderDiskSelectionItem& item)
+{
+    // Copy before publishing: COM item objects outlive the panel and snapshot.
+    std::wstring fullPath(item.FullPathW != NULL ? item.FullPathW : L"");
+    std::wstring name(item.NameW != NULL ? item.NameW : L"");
+    m_fullPath.swap(fullPath);
+    m_name.swap(name);
+    m_dwAttributes = item.Attr;
+    m_size.QuadPart = item.Size.Value;
+    m_dateLastModified = 0;
+    FILETIME local;
+    SYSTEMTIME system;
+    if (FileTimeToLocalFileTime(&item.LastWrite, &local) && FileTimeToSystemTime(&local, &system))
+        SystemTimeToVariantTime(&system, &m_dateLastModified);
+}
+
 void CSalamanderPanelItemAutomation::Set(const CFileData* pData, PCTSTR pszPath)
 {
-    size_t cchNewLen;
-    bool bHasSlash = false;
-    size_t cchPathLenA;
-    size_t cchNameLenA;
-    size_t cchPathLenW;
-    size_t cchNameLenW;
-    FILETIME ftLocal;
-    SYSTEMTIME st;
-
-    _ASSERTE(pszPath != NULL && *pszPath != 0);
-
-    cchPathLenA = _tcslen(pszPath);
-    if (cchPathLenA > 0)
-    {
-        bHasSlash = pszPath[cchPathLenA - 1] == _T('\\');
-    }
-
-    cchNameLenA = _tcslen(pData->Name);
-
-    cchPathLenW = MultiByteToWideChar(CP_ACP, 0, pszPath, (int)cchPathLenA, NULL, 0);
-    cchNameLenW = MultiByteToWideChar(CP_ACP, 0, pData->Name, (int)cchNameLenA, NULL, 0);
-
-    cchNewLen = cchPathLenW + cchNameLenW + (bHasSlash ? 0 : 1) + 1;
-    if (cchNewLen > m_cchFullPath)
-    {
-        cchNewLen = (cchNewLen + 127) & ~0x7F; // align to multiple of 128 bytes
-
-        delete[] m_pszFullPath;
-        m_pszFullPath = m_pszName = NULL;
-
-        m_pszFullPath = new WCHAR[cchNewLen];
-        m_cchFullPath = cchNewLen;
-    }
-
-    cchPathLenW = MultiByteToWideChar(CP_ACP, 0, pszPath, (int)cchPathLenA, m_pszFullPath, (int)m_cchFullPath);
-    if (!bHasSlash)
-    {
-        m_pszFullPath[cchPathLenW] = L'\\';
-        ++cchPathLenW;
-    }
-
-    cchNameLenW = MultiByteToWideChar(CP_ACP, 0, pData->Name, (int)cchNameLenA, m_pszFullPath + cchPathLenW, (int)(m_cchFullPath - cchPathLenW));
-    m_pszFullPath[cchPathLenW + cchNameLenW] = L'\0';
-
-    m_pszName = PathFindFileNameW(m_pszFullPath);
-
-    m_dwAttributes = pData->Attr;
-    m_size.QuadPart = pData->Size.Value;
-
-    m_dateLastModified = 0;
-    if (FileTimeToLocalFileTime(&pData->LastWrite, &ftLocal))
-    {
-        if (FileTimeToSystemTime(&ftLocal, &st))
-        {
-            SystemTimeToVariantTime(&st, &m_dateLastModified);
-        }
-    }
+    // Archive/FS and the virtual '..' UI item retain their original semantics.
+    // Disk files enter through the immutable full-path snapshot overload above.
+    std::wstring path = AutomationItemPathToWide(pszPath);
+    std::wstring name = pData->UseWideName() ? pData->NameW : AutomationItemPathToWide(pData->Name);
+    if (!path.empty() && path.back() != L'\\')
+        path += L'\\';
+    path += name;
+    CSalamanderDiskSelectionItem item = {};
+    item.FullPathW = path.c_str();
+    item.NameW = name.c_str();
+    item.Attr = pData->Attr;
+    item.Size = pData->Size;
+    item.LastWrite = pData->LastWrite;
+    Set(item);
 }
 
 void CSalamanderPanelItemAutomation::Set(const CFileData* pData, int nPanel)
 {
-    TCHAR szPath[MAX_PATH];
-
-    SalamanderGeneral->GetPanelPath(nPanel, szPath, _countof(szPath), NULL, NULL);
-
-    Set(pData, szPath);
+    std::vector<char> path(SAL_MAX_PATH, '\0');
+    if (SalamanderGeneral->GetPanelPath(nPanel, path.data(), static_cast<int>(path.size()), NULL, NULL))
+        Set(pData, path.data());
 }
 
 /* [propget][id] */ HRESULT STDMETHODCALLTYPE CSalamanderPanelItemAutomation::get_Path(
     /* [retval][out] */ BSTR* path)
 {
-    *path = SysAllocString(m_pszFullPath);
-    return S_OK;
+    if (path == NULL) return E_POINTER;
+    *path = SysAllocString(m_fullPath.c_str());
+    return *path != NULL ? S_OK : E_OUTOFMEMORY;
 }
 
 /* [propget][id] */ HRESULT STDMETHODCALLTYPE CSalamanderPanelItemAutomation::get_Name(
     /* [retval][out] */ BSTR* name)
 {
-    *name = SysAllocString(m_pszName);
-    return S_OK;
+    if (name == NULL) return E_POINTER;
+    *name = SysAllocString(m_name.c_str());
+    return *name != NULL ? S_OK : E_OUTOFMEMORY;
 }
 
 /* [propget][id] */ HRESULT STDMETHODCALLTYPE CSalamanderPanelItemAutomation::get_Size(

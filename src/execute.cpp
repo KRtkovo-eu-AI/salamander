@@ -7,6 +7,7 @@
 #include "plugins.h"
 #include "usermenu.h"
 #include "execute.h"
+#include "common/widepath.h"
 #include "cfgdlg.h"
 #include "shellib.h"
 
@@ -580,7 +581,9 @@ struct CExecuteExpData
 {
     const char* Name;
     const char* DosName;
-    char Buffer[SAL_MAX_PATH];
+    CPathBuffer Storage;
+    char* Buffer;
+    CExecuteExpData() : Storage(3 * SAL_MAX_PATH), Buffer(Storage.Data()) {}
     BOOL* FileNameUsed;
 
     CUserMenuAdvancedData* UserMenuAdvancedData; // applies only to User Menu, otherwise NULL here

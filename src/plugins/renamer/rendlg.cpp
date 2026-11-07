@@ -778,7 +778,10 @@ CRenamerDialog::CRenamerDialog(HWND parent)
 
     Undoing = FALSE;
 
-    // load the selection from the panel
+    Root = NULL;
+    RootLen = 0;
+    SelectionValid = FALSE;
+    // Snapshot the selection before creating the dialog worker thread.
     LoadSelection();
 }
 
@@ -1202,25 +1205,60 @@ void CRenamerDialog::SetWait(BOOL wait)
 void CRenamerDialog::LoadSelection()
 {
     CALL_STACK_MESSAGE1("CRenamerDialog::LoadSelection()");
-    int files = 0, dirs = 0;
-    SG->GetPanelSelection(PANEL_SOURCE, &files, &dirs);
-
-    SG->GetPanelPath(PANEL_SOURCE, Root, 3 * MAX_PATH, NULL, NULL);
-    RootLen = (int)strlen(Root);
-
-    // load the selection from the panel
-    const CFileData* fd;
-    BOOL isDir = FALSE;
-    if (files + dirs == 0)
+    SelectionValid = FALSE;
+    try
     {
-        fd = SG->GetPanelFocusedItem(PANEL_SOURCE, &isDir);
-        NotRenamedFiles.Add(new CSourceFile(fd, Root, RootLen, isDir));
+        if (!RootBuffer.Reserve(RenamerPaths::Capacity))
+            throw std::bad_alloc();
+        Root = RootBuffer.Get();
+        Root[0] = 0;
+        CSalamanderDiskSelection selection;
+        if (selection.Capture(SG, PANEL_SOURCE))
+        {
+            const std::string encoded = RenamerPaths::ToUtf8(selection.GetRootPathW());
+            if (!encoded.empty() && encoded.size() < (size_t)RenamerPaths::Capacity)
+            {
+                memcpy(Root, encoded.c_str(), encoded.size() + 1);
+                RootLen = (int)encoded.size();
+                SelectionValid = selection.GetCount() > 0;
+                for (int i = 0; i < selection.GetCount(); ++i)
+                {
+                    const CSalamanderDiskSelectionItem* item = selection.GetItem(i);
+                    CSourceFile* source = item != NULL ? NewSourceFile(*item) : NULL;
+                    if (source == NULL)
+                    {
+                        SelectionValid = FALSE;
+                        break;
+                    }
+                    NotRenamedFiles.Add(source);
+                    if (!NotRenamedFiles.IsGood())
+                    {
+                        delete source;
+                        NotRenamedFiles.ResetState();
+                        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+                        SelectionValid = FALSE;
+                        break;
+                    }
+                }
+            }
+            else
+                SetLastError(ERROR_INSUFFICIENT_BUFFER);
+        }
     }
-    else
+    catch (const std::bad_alloc&)
     {
-        int i = 0;
-        while ((fd = SG->GetPanelSelectedItem(PANEL_SOURCE, &i, &isDir)) != NULL)
-            NotRenamedFiles.Add(new CSourceFile(fd, Root, RootLen, isDir));
+        SelectionValid = FALSE;
+        SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+    }
+    if (!SelectionValid)
+    {
+        DWORD error = GetLastError();
+        if (error == ERROR_SUCCESS)
+            error = ERROR_INVALID_DATA;
+        NotRenamedFiles.DestroyMembers();
+        SetLastError(error);
+        FileError(GetParent(), Root != NULL ? Root : "", IDS_ERRREADDIR,
+                  FALSE, NULL, NULL, IDS_ERROR);
     }
 }
 
@@ -1262,7 +1300,15 @@ void CRenamerDialog::ReloadSourceFiles()
     EnableWindow(HWindow, FALSE);
 
     BOOL success = TRUE;
-    char pathBuf[MAX_PATH];
+    TBuffer<char> pathStorage;
+    if (!pathStorage.Reserve(RenamerPaths::Capacity))
+    {
+        EnableWindow(HWindow, TRUE);
+        SetWait(FALSE);
+        Error(IDS_LOWMEM);
+        return;
+    }
+    char* pathBuf = pathStorage.Get();
     strcpy(pathBuf, Root);
     SkipAllLongNames = FALSE;
     SkipAllBadDirs = FALSE;
@@ -1280,6 +1326,14 @@ void CRenamerDialog::ReloadSourceFiles()
             ProcessRenamed && i < RenamedFiles.Count ? RenamedFiles[i++] : NotRenamedFiles[j++];
         if (subdirs && item->IsDir)
         {
+            const size_t parentLength = item->Name - item->FullName;
+            if (parentLength >= (size_t)RenamerPaths::Capacity)
+            {
+                success = FALSE;
+                break;
+            }
+            memcpy(pathBuf, item->FullName, parentLength);
+            pathBuf[parentLength] = 0;
             success = LoadSubdir(pathBuf, item->Name);
             if (!success)
                 break;
@@ -1288,7 +1342,22 @@ void CRenamerDialog::ReloadSourceFiles()
         {
             if (SalMaskGroup->AgreeMasks(item->Name, item->IsDir ? NULL : item->Ext))
             {
-                SourceFiles.Add(new CSourceFile(item));
+                CSourceFile* copy = NewSourceFile(item);
+                if (copy == NULL)
+                {
+                    Error(IDS_LOWMEM);
+                    success = FALSE;
+                    break;
+                }
+                SourceFiles.Add(copy);
+                if (!SourceFiles.IsGood())
+                {
+                    delete copy;
+                    SourceFiles.ResetState();
+                    Error(IDS_LOWMEM);
+                    success = FALSE;
+                    break;
+                }
                 if (item->IsDir)
                     dirs++;
             }
@@ -1380,8 +1449,8 @@ void CRenamerDialog::ReloadSourceFiles()
 BOOL CRenamerDialog::LoadSubdir(char* path, const char* subdir)
 {
     CALL_STACK_MESSAGE2("CRenamerDialog::LoadSubdir(, %s)", subdir);
-    BOOL b = SG->SalPathAppend(path, subdir, MAX_PATH);
-    if (!b || !SG->SalPathAppend(path, "*.*", MAX_PATH))
+    BOOL b = SG->SalPathAppend(path, subdir, RenamerPaths::Capacity);
+    if (!b || !SG->SalPathAppend(path, "*.*", RenamerPaths::Capacity))
     {
         if (b)
             SG->CutDirectory(path); // trim the subdirectory portion
@@ -1391,10 +1460,10 @@ BOOL CRenamerDialog::LoadSubdir(char* path, const char* subdir)
         return skip;
     }
 
-    WIN32_FIND_DATA fd;
+    WIN32_FIND_DATAW fd;
     HANDLE hFind;
 
-    while ((hFind = FindFirstFile(path, &fd)) == INVALID_HANDLE_VALUE)
+    while ((hFind = RenamerIO::FindFirst(path, &fd)) == INVALID_HANDLE_VALUE)
     {
         BOOL skip;
         if (!FileError(HWindow, path, IDS_ERRREADDIR, TRUE,
@@ -1450,11 +1519,22 @@ BOOL CRenamerDialog::LoadSubdir(char* path, const char* subdir)
             Preview->SetItemCount(0, 0, 3);
         }
 
-        if (fd.cFileName[0] != 0 && strcmp(fd.cFileName, ".") && strcmp(fd.cFileName, ".."))
+        if (fd.cFileName[0] != 0 && wcscmp(fd.cFileName, L".") && wcscmp(fd.cFileName, L".."))
         {
+            std::string childName;
+            try
+            {
+                childName = RenamerPaths::ToUtf8(fd.cFileName);
+            }
+            catch (const std::bad_alloc&)
+            {
+                Error(IDS_LOWMEM);
+                ret = FALSE;
+                break;
+            }
             if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
             {
-                if (!LoadSubdir(path, fd.cFileName))
+                if (!LoadSubdir(path, childName.c_str()))
                 {
                     ret = FALSE;
                     break;
@@ -1462,17 +1542,33 @@ BOOL CRenamerDialog::LoadSubdir(char* path, const char* subdir)
             }
             else
             {
-                char* ext = _tcsrchr(fd.cFileName, '.');
+                const char* ext = strrchr(childName.c_str(), '.');
                 if (!ext)
-                    ext = fd.cFileName + strlen(fd.cFileName); // ".cvspass" is an extension in Windows
+                    ext = childName.c_str() + childName.size(); // ".cvspass" is an extension in Windows
                 else
                     ext++;
 
-                if (SalMaskGroup->AgreeMasks(fd.cFileName, ext))
+                if (SalMaskGroup->AgreeMasks(childName.c_str(), ext))
                 {
-                    CSourceFile* item = new CSourceFile(fd, path, pathLen);
-                    if (item->NameLen < MAX_PATH)
+                    CSourceFile* item = NewSourceFile(fd, path, pathLen);
+                    if (item == NULL)
+                    {
+                        Error(IDS_LOWMEM);
+                        ret = FALSE;
+                        break;
+                    }
+                    if (item->NameLen < RenamerPaths::Capacity)
+                    {
                         SourceFiles.Add(item);
+                        if (!SourceFiles.IsGood())
+                        {
+                            delete item;
+                            SourceFiles.ResetState();
+                            Error(IDS_LOWMEM);
+                            ret = FALSE;
+                            break;
+                        }
+                    }
                     else
                     {
                         BOOL skip;
@@ -1489,7 +1585,7 @@ BOOL CRenamerDialog::LoadSubdir(char* path, const char* subdir)
             }
         }
 
-        while (!FindNextFile(hFind, &fd))
+        while (!FindNextFileW(hFind, &fd))
         {
             if (GetLastError() == ERROR_NO_MORE_FILES ||
                 !FileError(HWindow, path, IDS_ERRREADDIR, TRUE,
@@ -2506,7 +2602,7 @@ HANDLE
 CRenamerDialogThread::Create(CThreadQueue& queue)
 {
     CALL_STACK_MESSAGE1("CRenamerDialogThread::Create()");
-    if (!Dialog)
+    if (!Dialog || !Dialog->HasValidSelection())
         return NULL;
 
     return CThread::Create(queue);

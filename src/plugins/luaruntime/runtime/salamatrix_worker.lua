@@ -2,6 +2,7 @@
 -- SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 -- SPDX-License-Identifier: GPL-2.0-or-later
 -- | Date | Summary | Reason | Ticket | Model |
+-- | 2026-11-06 | Normalize shared viewer options across all five workers. | Invalid optional fields are omitted consistently while valid chrome options preserve their types. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 -- | 2026-11-06 | Accept title and window geometry for ui.viewer. | Keep Salamatrix runtime viewer options in parity. |  | Composer |
 
 local MAX_FRAME_BYTES = 1024 * 1024
@@ -574,25 +575,22 @@ function ui.file_properties(path)
     })
 end
 function ui.viewer(path, renderer)
-    local payload = { path = tostring(path), renderer = "auto" }
     local options = type(renderer) == "table" and renderer or { renderer = renderer }
-    payload.renderer = tostring(options.renderer or "auto")
-    if options.title ~= nil and tostring(options.title) ~= "" then
-        payload.title = tostring(options.title)
-    end
-    if options.documentName ~= nil and tostring(options.documentName) ~= "" then
-        payload.documentName = tostring(options.documentName)
+    local value = options.renderer
+    local payload = { path = tostring(path), renderer = type(value) == "string" and value ~= "" and value or "auto" }
+    for _, key in ipairs({ "title", "documentName" }) do
+        value = options[key]
+        if type(value) == "string" and value ~= "" then payload[key] = value end
     end
     local window = type(options.window) == "table" and options.window or options
     for _, key in ipairs({ "left", "top", "width", "height", "showCmd" }) do
-        if window[key] ~= nil then
-            payload[key] = tonumber(window[key])
+        value = window[key]
+        if type(value) == "number" and value >= -2147483648 and value <= 2147483647 and math.floor(value) == value then
+            payload[key] = value
         end
     end
-    if window.alwaysOnTop ~= nil then
-        payload.alwaysOnTop = not not window.alwaysOnTop
-    end
-    return host_call("salamander.ui.viewer.open", payload).opened
+    if type(window.alwaysOnTop) == "boolean" then payload.alwaysOnTop = window.alwaysOnTop end
+    return host_call("salamander.ui.viewer.open", payload).opened == true
 end
 function ui.uptime() return tostring(host_call("salamander.host.uptime", {}).milliseconds) end
 function ui.input_box(prompt, title, initial)

@@ -36,6 +36,7 @@ public:
 
 public:
     int IconIndex;  // no synchronization needed, see CSFVMD5Dialog::SetItemTextAndIcon()
+    std::string FullPath; // owned exact source path, independent of display/export name
     char* Name;     // unchanged after adding to the array = no synchronized access needed
     CQuadWord Size; // unchanged after adding to the array = no synchronized access needed
     BOOL FileExist; // unchanged after adding to the array = no synchronized access needed
@@ -64,7 +65,7 @@ protected:
     void IncreaseProgress(const CQuadWord& delta);
     virtual void DeleteItem(int index);
     void ScrollToItem(int i);
-    void AddFileListItem(const char* name, CQuadWord size, BOOL fileExist);
+    BOOL AddFileListItem(const char* name, CQuadWord size, BOOL fileExist, const char* fullPath = NULL);
     void SetRowsDirty(int firstRow, int lastRow);
 
     void EnterDataCS() { HANDLES(EnterCriticalSection(&DataCS)); }
@@ -133,7 +134,8 @@ typedef struct _SEEDFILEINFO
     CQuadWord Size;
     bool bDir;
     DWORD Attr;
-    char Name[1];
+    std::string Name;
+    std::string FullPath;
 } SEEDFILEINFO;
 
 typedef TIndirectArray<SEEDFILEINFO> TSeedFileList;
@@ -144,12 +146,12 @@ public:
     CCalculateDialog(HWND parent, BOOL alwaysOnTop, TSeedFileList* pFileList, const char* sourcePath);
 
 protected:
-    BOOL AddDir(char (&path)[SAL_MAX_PATH], size_t root, BOOL* ignoreAll);
+    BOOL AddDir(const std::wstring& path, const std::string& relative, BOOL* ignoreAll);
     BOOL GetFileList();
     virtual void OnThreadEnd();
     void EnableButtons(BOOL bEnable);
     virtual void DeleteItem(int index);
-    BOOL GetSaveFileName(LPTSTR buffer, LPCTSTR title = NULL);
+    BOOL GetSaveFileName(std::wstring& result, LPCTSTR title = NULL);
     void SaveHashes();
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
     void OnContextMenu(int x, int y, eHASH_TYPE forceCopyHash = HT_COUNT);
@@ -169,7 +171,7 @@ protected:
 struct FILEINFO
 {
     // nothing in this structure changes after it is added to the array = no synchronized access needed
-    char fileName[MAX_PATH];
+    std::string fileName;
     char digest[DIGEST_MAX_SIZE];
     CQuadWord size;
     BOOL bFileExist;
@@ -178,20 +180,20 @@ struct FILEINFO
 class CVerifyDialog : public CSFVMD5Dialog
 {
 public:
-    CVerifyDialog(HWND parent, BOOL alwaysOnTop, char* path, char* file);
+    CVerifyDialog(HWND parent, BOOL alwaysOnTop, const char* path, const char* file);
 
 protected:
     void LTrimStr(char* str);
     //char* GetLine(FILE* f, char* buffer, int max);
-    char* LoadFile(char* name);
+    char* LoadFile(const char* name);
     BOOL AnalyzeSourceFile();
     BOOL LoadSourceFile();
     virtual void OnThreadEnd();
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     TIndirectArray<FILEINFO> fileList;
-    char* sourcePath;
-    char* sourceFile;
+    const char* sourcePath;
+    const char* sourceFile;
     SHashInfo* pHashInfo;
     BOOL bCanceled;
     int nCorrupt, nMissing, nSkipped;

@@ -18,6 +18,9 @@
 #include <ostream>
 #include <stdio.h>
 #include <winioctl.h>
+#include <string>
+#include <vector>
+#include <new>
 
 #if defined(_DEBUG) && defined(_MSC_VER) // without passing file+line to 'new' operator, list of memory leaks shows only 'crtdbg.h(552)'
 #define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
@@ -30,6 +33,8 @@
 #include "spl_base.h"
 #include "spl_arc.h"
 #include "spl_gen.h"
+#include "spl_diskselection.h"
+#include "../undelete_paths.h"
 #include "spl_fs.h"
 #include "spl_menu.h"
 #include "spl_gui.h"

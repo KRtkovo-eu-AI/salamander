@@ -10,6 +10,7 @@
 */
 
 #include "precomp.h"
+#include "viewerpath.h"
 
 #include <string>
 #include <usp10.h>
@@ -40,10 +41,7 @@ HANDLE ViewerContinue = NULL;
 
 static std::wstring ViewerPathToWide(const char* path)
 {
-    std::wstring wide = SalMultiByteToWidePath(path, CP_UTF8);
-    if (wide.empty() && GetACP() != CP_UTF8)
-        wide = SalMultiByteToWidePath(path, CP_ACP);
-    return wide;
+    return Salamander::ViewerPaths::Decode(path);
 }
 
 static HANDLE OpenViewerFileForRead(const std::wstring& fileNameW, const char* fileName)
@@ -84,8 +82,7 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
     //  TRACE_I("MoresStanislav: ThreadViewerMessageLoopBody 1");
     CTVData* data = (CTVData*)parameter;
     CViewerWindow* view = data->View;
-    char name[SAL_MAX_PATH];
-    lstrcpyn(name, data->Name, SAL_MAX_PATH);
+    std::wstring name = Salamander::ViewerPaths::FullPath(ViewerPathToWide(data->Name).c_str());
     char captionBuf[SAL_MAX_PATH];
     const char* caption = NULL;
     BOOL wholeCaption = FALSE;
@@ -168,8 +165,8 @@ unsigned ThreadViewerMessageLoopBody(void* parameter)
     if (ok) // if the window was created, run the application loop
     {
         CALL_STACK_MESSAGE1("ThreadViewerMessageLoopBody::message_loop");
-        if (SalGetFullName(name, NULL, NULL, NULL, NULL, SAL_MAX_PATH))
-            view->OpenFile(name, caption, wholeCaption);
+        if (!name.empty())
+            view->OpenFileW(name.c_str(), caption, wholeCaption);
 
         MSG msg;
         HWND viewHWindow = view->HWindow; // because WM_QUIT leaves the window object unallocated
@@ -966,8 +963,8 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
     CALL_STACK_MESSAGE3("CViewerWindow::OpenFile(%s, %s)", file, caption);
     CancelLogViewRetry();
     StopLogViewWatcher();
-    char fileName[SAL_MAX_PATH];
-    lstrcpyn(fileName, file, SAL_MAX_PATH);
+    std::string fileNameCopy = file != NULL ? file : "";
+    const char* fileName = fileNameCopy.c_str();
 
     if (Caption != NULL)
     {
@@ -1021,7 +1018,7 @@ void CViewerWindow::OpenFile(const char* file, const char* caption, BOOL wholeCa
 
 void CViewerWindow::OpenFileW(const wchar_t* file, const char* caption, BOOL wholeCaption)
 {
-    std::string fileA = SalWideToMultiBytePath(file, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    std::string fileA = SalWideToMultiBytePath(file, CP_UTF8);
     OpenFile(fileA.c_str(), caption, wholeCaption);
     FileNameW = file != NULL ? file : L"";
     if (LogViewMode)
