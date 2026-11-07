@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Omezení oznámení třetích stran na externí komponenty a synchronizace lokalizací. | Odstranění historie implementace a portování z dokumentu s atribucemi. |  | GPT-5.6 |
 | 2026-11-05 | Uvedení pd4d10/json-viewer u JSON Web Vieweru. | Salamatrix WebView2 JSON rozšíření dodává tento renderer. |  | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
