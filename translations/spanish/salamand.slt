@@ -4179,6 +4179,7 @@ SLGINCOMPLETE,""
 14527,0,"Windows error:"
 14528,1,"Acceso denegado. ¿Crear esta carpeta como administrador?"
 14529,1,"La conexión con el proceso auxiliar se interrumpió antes de confirmar el resultado. Compruebe el destino antes de volver a intentarlo."
+14530,1,"Acceso denegado. ¿Cambiar el nombre de este archivo como administrador? Se muestra primero la ruta actual y después la nueva."
 
 [STRINGTABLE 184]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."

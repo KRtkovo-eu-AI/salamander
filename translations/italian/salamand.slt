@@ -4179,6 +4179,7 @@ SLGINCOMPLETE,""
 14527,0,"Windows error:"
 14528,1,"Accesso negato. Creare questa cartella come amministratore?"
 14529,1,"La connessione al processo ausiliario si è interrotta prima della conferma del risultato. Controllare la destinazione prima di riprovare."
+14530,1,"Accesso negato. Rinominare questo file come amministratore? Il percorso attuale è indicato per primo, seguito da quello nuovo."
 
 [STRINGTABLE 184]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."

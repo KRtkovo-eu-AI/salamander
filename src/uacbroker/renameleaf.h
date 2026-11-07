@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Share the anchored source open and identity check with the panel host. | Capture the file identity before requesting elevation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add an NTFS rename primitive for a single file under a verified parent. | Establish a no-overwrite command boundary before broker and panel integration. | | GPT-6.1 Sol (Codex) |
 */
 #pragma once
@@ -40,37 +41,40 @@ inline DWORD NativeRename(HANDLE source, HANDLE targetParent, std::wstring_view 
     return status >= 0 ? ERROR_SUCCESS : RtlNtStatusToDosError(status);
 }
 
-inline DWORD OpenSource(HANDLE parent, std::wstring_view leaf, HANDLE& source)
+inline DWORD OpenSource(HANDLE parent, std::wstring_view leaf, HANDLE& source, bool rename)
 {
     const auto bytes = static_cast<USHORT>(leaf.size() * sizeof(wchar_t));
     UNICODE_STRING objectName{bytes, bytes, const_cast<wchar_t*>(leaf.data())};
     OBJECT_ATTRIBUTES attributes{};
     InitializeObjectAttributes(&attributes, &objectName, OBJ_CASE_INSENSITIVE | OBJ_DONT_REPARSE, parent, nullptr);
     IO_STATUS_BLOCK io{};
-    const NTSTATUS status = NtCreateFile(&source, DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
-                                         &attributes, &io, nullptr, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN,
+    const ACCESS_MASK access = FILE_READ_ATTRIBUTES | SYNCHRONIZE | (rename ? DELETE : 0);
+    const ULONG sharing = rename ? FILE_SHARE_READ : FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    const NTSTATUS status = NtCreateFile(&source, access, &attributes, &io, nullptr, FILE_ATTRIBUTE_NORMAL, sharing, FILE_OPEN,
                                          FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_REPARSE_POINT,
                                          nullptr, 0);
     return status >= 0 ? ERROR_SUCCESS : RtlNtStatusToDosError(status);
 }
 
-inline DWORD VerifySource(HANDLE source, const FILE_ID_INFO& expected)
+inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity)
 {
     FILE_ATTRIBUTE_TAG_INFO attributes{};
     FILE_STANDARD_INFO standard{};
-    FILE_ID_INFO actual{};
     if (!GetFileInformationByHandleEx(source, FileAttributeTagInfo, &attributes, sizeof(attributes)) ||
         !GetFileInformationByHandleEx(source, FileStandardInfo, &standard, sizeof(standard)) ||
-        !GetFileInformationByHandleEx(source, FileIdInfo, &actual, sizeof(actual)))
+        !GetFileInformationByHandleEx(source, FileIdInfo, &identity, sizeof(identity)))
         return GetLastError();
     if (attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
         return ERROR_REPARSE_TAG_INVALID;
-    if (standard.NumberOfLinks != 1 || standard.DeletePending)
+    if (standard.Directory || standard.NumberOfLinks != 1 || standard.DeletePending)
         return ERROR_NOT_SUPPORTED;
-    if (actual.VolumeSerialNumber != expected.VolumeSerialNumber ||
-        std::memcmp(actual.FileId.Identifier, expected.FileId.Identifier, sizeof(actual.FileId.Identifier)) != 0)
-        return ERROR_FILE_INVALID;
     return ERROR_SUCCESS;
+}
+
+inline bool SameSource(const FILE_ID_INFO& actual, const FILE_ID_INFO& expected)
+{
+    return actual.VolumeSerialNumber == expected.VolumeSerialNumber &&
+           std::memcmp(actual.FileId.Identifier, expected.FileId.Identifier, sizeof(actual.FileId.Identifier)) == 0;
 }
 }
 
@@ -93,10 +97,13 @@ inline DWORD RenameVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIde
         return ERROR_FILE_INVALID;
 
     HANDLE source = nullptr;
-    error = Detail::OpenSource(parent, from, source);
+    error = Detail::OpenSource(parent, from, source, true);
     if (error != ERROR_SUCCESS)
         return error;
-    error = Detail::VerifySource(source, expectedSource);
+    FILE_ID_INFO actualSource{};
+    error = Detail::ReadSourceIdentity(source, actualSource);
+    if (error == ERROR_SUCCESS && !Detail::SameSource(actualSource, expectedSource))
+        error = ERROR_FILE_INVALID;
     if (error == ERROR_SUCCESS)
         error = Detail::NativeRename(source, parent, to);
     CloseHandle(source);

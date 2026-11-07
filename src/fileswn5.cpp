@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-07 | Separate local F7 leaf creation from panel UI. | Verify or preserve the F7 local creation contract. | | GPT-6.1 Sol (Codex) |
@@ -3542,7 +3543,47 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
         tgtPath = SalPathAddExtendedPrefixW(tgtPath.c_str());
 
     *mayChange = TRUE;
-    if (MoveFileExW(srcPath.c_str(), tgtPath.c_str(), 0))
+    bool renamed = MoveFileExW(srcPath.c_str(), tgtPath.c_str(), 0) != FALSE;
+    DWORD err = renamed ? ERROR_SUCCESS : GetLastError();
+    bool offeredElevation = false;
+    if (err == ERROR_ACCESS_DENIED && !isDir && !IsBranchView() &&
+        GetFileAttributesW(tgtPath.c_str()) == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND)
+    {
+        UacF7::PreparedLeaf request;
+        if (request.Prepare(srcPath, newNameW))
+        {
+            offeredElevation = true;
+            const std::string message = std::string(LoadStr(IDS_UAC_RENAME_CONFIRM)) + "\n\n" +
+                                        WidePathToDialogText(srcPathDisplay) + "\n" + WidePathToDialogText(tgtPathDisplay);
+            const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+            MSGBOXEX_PARAMS confirm{};
+            confirm.HParent = HWindow;
+            confirm.Text = message.c_str();
+            confirm.Caption = LoadStr(IDS_RENAME_TITLE);
+            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_SHIELDONDEFBTN;
+            confirm.AliasBtnNames = alias.c_str();
+            err = ERROR_CANCELLED;
+            if (SalMessageBoxEx(&confirm) == IDOK)
+            {
+                const auto result = request.Execute(HWindow);
+                err = result.error;
+                if (result.unknown)
+                {
+                    SalMessageBox(HWindow, LoadStr(IDS_UAC_MKDIR_UNKNOWN),
+                                  LoadStr(IDS_ERRORRENAMINGFILE), MB_OK | MB_ICONEXCLAMATION);
+                    err = ERROR_CANCELLED;
+                }
+                else
+                    renamed = err == ERROR_SUCCESS;
+            }
+            if (err == ERROR_CANCELLED)
+            {
+                *tryAgain = FALSE;
+                err = ERROR_SUCCESS;
+            }
+        }
+    }
+    if (renamed)
     {
         std::string nextFocus = SalWideToMultiBytePath(newNameW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
         lstrcpyn(NextFocusName, nextFocus.c_str(), MAX_PATH);
@@ -3556,8 +3597,7 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     }
     else
     {
-        DWORD err = GetLastError();
-        if ((err == ERROR_ALREADY_EXISTS || err == ERROR_FILE_EXISTS) &&
+        if (!offeredElevation && (err == ERROR_ALREADY_EXISTS || err == ERROR_FILE_EXISTS) &&
             CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, srcPathDisplay.c_str(), -1, tgtPathDisplay.c_str(), -1) != CSTR_EQUAL)
         {
             BOOL dosNameConflict = TryBypassDosNameOverwriteW(srcPath, tgtPath, tgtPathDisplay, &err);

@@ -4179,6 +4179,7 @@ SLGINCOMPLETE,""
 14527,0,"Windows error:"
 14528,1,"Prístup bol odmietnutý. Vytvoriť tento priečinok ako správca?"
 14529,1,"Spojenie s pomocným procesom sa prerušilo pred potvrdením výsledku. Pred opakovaním skontrolujte cieľ."
+14530,1,"Prístup bol odmietnutý. Premenovať tento súbor ako správca? Prvý riadok uvádza súčasnú cestu, druhý novú."
 
 [STRINGTABLE 184]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."

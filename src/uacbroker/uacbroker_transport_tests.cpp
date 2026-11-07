@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Test canonical local pipe names and reject other path inputs. | Guard the elevated pipe path validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Exercise broker peer checks against a real local pipe. | Reject wrong process IDs and an unelevated identification token. | | GPT-6.1 Sol (Codex) |
 */
 
@@ -43,6 +44,11 @@ int wmain(int argc, wchar_t** argv)
 
     std::wstring name;
     auto pipe = CreateEndpoint(name);
+    if (name.empty() || ParsePipeName(name) != name ||
+        !ParsePipeName(LR"(\\server\pipe\OpenSamandarin-UAC-{00000000-0000-0000-0000-000000000000})").empty() ||
+        !ParsePipeName(std::wstring(pipePrefix) + L"{00000000-0000-0000-0000-00000000000Z}").empty() ||
+        !ParsePipeName(name + L"\\other").empty())
+        return 11;
     std::wstring exe(32768, L'\0');
     const DWORD chars = GetModuleFileNameW(nullptr, exe.data(), static_cast<DWORD>(exe.size()));
     if (!pipe || !chars || chars >= exe.size())

@@ -4179,6 +4179,7 @@ SLGINCOMPLETE,""
 14527,0,"Windows error:"
 14528,1,"A hozzáférés megtagadva. Létrehozza ezt a mappát rendszergazdaként?"
 14529,1,"A kapcsolat megszakadt a segédfolyamattal az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizze a célt."
+14530,1,"A hozzáférés megtagadva. Átnevezi a fájlt rendszergazdaként? Az első sor a jelenlegi, a második az új elérési út."
 
 [STRINGTABLE 184]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."

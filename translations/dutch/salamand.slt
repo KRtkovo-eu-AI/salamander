@@ -4179,6 +4179,7 @@ SLGINCOMPLETE,""
 14527,0,"Windows error:"
 14528,1,"Toegang geweigerd. Deze map als beheerder maken?"
 14529,1,"De verbinding met het hulpproces is verbroken voordat het resultaat kon worden bevestigd. Controleer het doel voordat u het opnieuw probeert."
+14530,1,"Toegang geweigerd. Dit bestand hernoemen als administrator? Eerst staat het huidige pad, daarna het nieuwe pad."
 
 [STRINGTABLE 184]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."

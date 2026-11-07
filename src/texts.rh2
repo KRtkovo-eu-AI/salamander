@@ -1,3 +1,4 @@
+// | 2026-11-07 | Reserve the elevation confirmation for rename. | Prompt with the source and destination paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve F7 elevation message IDs. | Localize consent and uncertain-result handling. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-04 | Describe a missing extension runtime. | Activation failed silently when the interpreter or runtime provider was not installed. | | Grok 4.7 |
@@ -3147,5 +3148,6 @@
 
 #define IDS_UAC_MKDIR_CONFIRM                        14528
 #define IDS_UAC_MKDIR_UNKNOWN                        14529
+#define IDS_UAC_RENAME_CONFIRM                       14530
 
 #endif // __TEXTS_RH2

@@ -4179,6 +4179,7 @@ SLGINCOMPLETE,""
 14527,0,"Windows error:"
 14528,1,"Zugriff verweigert. Diesen Ordner als Administrator erstellen?"
 14529,1,"Die Verbindung zum Hilfsprozess wurde getrennt, bevor das Ergebnis bestätigt wurde. Prüfen Sie das Ziel, bevor Sie es erneut versuchen."
+14530,1,"Zugriff verweigert. Diese Datei als Administrator umbenennen? Zuerst wird der aktuelle Pfad angezeigt, danach der neue."
 
 [STRINGTABLE 184]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
