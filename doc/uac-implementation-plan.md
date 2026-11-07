@@ -19,11 +19,12 @@
 | 2026-11-07 | Document the UAC shield in the protected panel path bar. | Keep the translated status in a tooltip. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Document the selected-item palette for the approved path. | Make the scope visible using the active color scheme. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Keep the regular directory bar background behind the UAC text. | Use the selected-item foreground only. | | GPT-6.1 Sol (Codex) |
+| 2026-11-08 | Record the P4a staged one-file copy primitive. | Define the copy and commit behavior before connecting it to F5. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
 
-Stav k 7. listopadu 2026: pilot F7 (P3a), přejmenování jednoho souboru (P3b), změna jeho běžných atributů a časů (P3c), pilot trvalého mazání (P3d) a pilot procházení chráněného podstromu (P3e). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
+Stav k 8. listopadu 2026: pilot F7 (P3a), přejmenování jednoho souboru (P3b), změna jeho běžných atributů a časů (P3c), pilot trvalého mazání (P3d), pilot procházení chráněného podstromu (P3e) a nativní základ kopírování jednoho souboru (P4a). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
 
 Základem je upstream [release/5.0-samandarin-0.16](https://github.com/KRtkovo-eu-AI/salamander/tree/release/5.0-samandarin-0.16), ověřený commit [`16b4cd0176dc82752a11ee6bc09615780b6987a2`](https://github.com/KRtkovo-eu-AI/salamander/commit/16b4cd0176dc82752a11ee6bc09615780b6987a2). Stejný commit měla při založení práce referenční větev `majklvi/salamander:samandarin-0.16`. Pracovní větev je `feature/uac-support`, lokální checkout `C:\Samandarin\uac-support`. Všechny níže uvedené řádky zdrojů odkazují na tento pevný upstream commit, nikoli na proměnlivý HEAD.
 
@@ -333,6 +334,16 @@ Na Windows 11 Pro x64 build 26200 běžný výpis kořene a jeho první podslož
 V opakované zkoušce běžel host jako standardní účet `SamandarinUacTest`, ověřený podle SID. Uživatel potvrdil skutečnou systémovou výzvu přihlašovacími údaji jiného správce. Výpis kořene, vstup do podsložky, Ctrl+R a návrat do kořene použily stejný broker (PID `21640`) bez další výzvy. Po odchodu z podstromu proces skončil a panel opět zobrazil běžný výpis.
 
 Nativní test ověřil obnovení výpisu nad stejným handlem, novou položku s názvem Unicode a odmítnutí cesty opouštějící kořen. Pro P4 zůstává samostatným krokem discovery pro kopírování a přesun s kontrolou úplnosti a navazující autorizací operace.
+
+### 8.12 P4a — kopie jednoho souboru mezi ověřenými adresáři
+
+Nativní executor `UacCopyLeaf::CopyVerifiedFile` ověřuje identitu obou rodičů na lokálním NTFS a identitu zdrojového souboru. Zdroj otevře pro čtení bez sdílení zápisu nebo mazání. Kopíruje nejmenovaný datový proud, základní časy a podporované atributy. Kopie dědí zabezpečení cílového adresáře a dostane bit Archive stejně jako běžné F5 při vypnuté volbě přesného zachování atributů. Zdroj s dalšími datovými proudy, rozšířenými atributy, více pevnými odkazy, reparse tagem nebo dalšími speciálními atributy executor odmítne.
+
+Executor založí dočasný soubor relativně k ověřenému cílovému adresáři s příznakem mazání při zavření. Po úplném zápisu, nastavení metadat, flushi a kontrole zrušení provede přejmenování bez přepisu. Příznak mazání při zavření zruší až po přejmenování. Kolize zachová stávající cíl. Zavření před potvrzením odstraní dočasný nebo již přejmenovaný objekt. Zdroj zůstává zachovaný. [Mazání při zavření a příznaky dispozice souboru](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntddk/ns-ntddk-_file_disposition_information_ex).
+
+Nativní zkoušky na NTFS prošly v Debug i Release. Zahrnují shodu víceblokových dat, prázdný soubor, časy a běžné atributy, dlouhou cestu s Unicode, odmítnutí chybné identity zdroje či cíle, souběžného zapisovače, zrušení před zápisem, kolizi, úklid po přejmenování před potvrzením a odmítnutí souboru s alternativním datovým proudem.
+
+P4a poskytuje základ pro P4b. P4b má přidat jednorázový požadavek brokeru pro dvojici ověřených adresářů a jednu položku F5, s výslovným zobrazením zdroje a cíle, pravdivým průběhem a výsledkem při ztrátě spojení. Privilegovanou přípravu podstromů, přepis, dávky a přesun rozšíří navazující díly P4 po samostatných testech.
 
 ## 9. Uživatelský tok a stav operace
 

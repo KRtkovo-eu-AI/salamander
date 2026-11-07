@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-08 | Link GUID generation for the copy staging fixture. | Exercise the real NTFS copy executor. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-07 | Run the verified-parent mkdir experiment. | Exercise physical NTFS path swaps and junction rejection. | | GPT-6.1 Sol (Codex) |
 
 """Run the P3a verified-directory-handle fixture with real NTFS I/O."""
@@ -39,7 +40,7 @@ def main():
         try:
             build = run([
                 compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX",
-                *flags, str(source), "/Fe:" + str(exe), "/link", "ntdll.lib",
+                *flags, str(source), "/Fe:" + str(exe), "/link", "ntdll.lib", "ole32.lib",
             ], cwd=folder, env=env, timeout=35)
             if build.returncode:
                 return build.returncode

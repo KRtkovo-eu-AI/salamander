@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify a staged copy on real NTFS. | Exercise file content, collisions, cancellation and unsupported source metadata. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Check repeated rooted directory reads on real NTFS. | Verify refresh returns fresh wide entries and reparse traversal fails. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Test verified permanent file deletion on NTFS. | Cover replacement, locks, special attributes and long Unicode names. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Exercise the basic metadata executor on real NTFS files. | Verify independent fields, stale snapshots, and preservation of the verified source. | | GPT-6.1 Sol (Codex) |
@@ -9,6 +10,7 @@
 #include "../uacbroker/metadataleaf.h"
 #include "../uacbroker/deleteleaf.h"
 #include "../uacbroker/listing.h"
+#include "../uacbroker/copyleaf.h"
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
@@ -43,6 +45,30 @@ Handle OpenIdentity(const std::wstring& path, FILE_ID_INFO& identity)
     if (handle && !GetFileInformationByHandleEx(handle.get(), FileIdInfo, &identity, sizeof(identity)))
         handle.reset();
     return handle;
+}
+
+bool WriteFixture(const std::wstring& path, const std::vector<BYTE>& data)
+{
+    const HANDLE raw = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (raw == INVALID_HANDLE_VALUE)
+        return false;
+    const Handle file(raw);
+    DWORD written = 0;
+    return WriteFile(file.get(), data.data(), static_cast<DWORD>(data.size()), &written, nullptr) && written == data.size();
+}
+
+bool HasContents(const std::wstring& path, const std::vector<BYTE>& expected)
+{
+    const HANDLE raw = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (raw == INVALID_HANDLE_VALUE)
+        return false;
+    const Handle file(raw);
+    std::vector<BYTE> data(expected.size() + 1);
+    DWORD read = 0;
+    if (!ReadFile(file.get(), data.data(), static_cast<DWORD>(data.size()), &read, nullptr))
+        return false;
+    data.resize(read);
+    return data == expected;
 }
 
 bool Exists(const std::wstring& path)
@@ -127,6 +153,91 @@ int wmain(int argc, wchar_t** argv)
           "held handle creates only under the original parent after swap", error);
     error = CreateVerifiedLeaf(original.get(), expected, leaf);
     Check(error == ERROR_ALREADY_EXISTS && DirectoryExists(intended), "collision preserves existing folder", error);
+
+    const auto copySource = fixture + L"\\destination\\copy-\u65e5.bin";
+    const auto copyTarget = moved + L"\\copy-\u672c.bin";
+    std::vector<BYTE> content(192 * 1024 + 17);
+    for (size_t i = 0; i < content.size(); ++i)
+        content[i] = static_cast<BYTE>(i % 251);
+    FILE_ID_INFO copyId{};
+    if (!WriteFixture(copySource, content) || !SetFileAttributesW(copySource.c_str(), FILE_ATTRIBUTE_HIDDEN) ||
+        !OpenIdentity(copySource, copyId))
+        return 2;
+    const auto copy = [&](HANDLE target, std::wstring_view name, const FILE_ID_INFO& identity, HANDLE cancel = nullptr)
+    {
+        return UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, identity, L"copy-\u65e5.bin",
+                                             target, expected, name, cancel);
+    };
+    DWORD copyError = copy(substitute.get(), L"copy-\u672c.bin", copyId);
+    Check(copyError == ERROR_FILE_INVALID && !Exists(copyTarget), "reject a swapped copy target directory", copyError);
+    FILE_ID_INFO staleCopyId = copyId;
+    staleCopyId.FileId.Identifier[0] ^= 1;
+    copyError = copy(original.get(), L"copy-\u672c.bin", staleCopyId);
+    Check(copyError == ERROR_FILE_INVALID && !Exists(copyTarget), "reject a stale copy source identity", copyError);
+    Handle cancelled(CreateEventW(nullptr, TRUE, TRUE, nullptr));
+    if (!cancelled)
+        return 2;
+    copyError = copy(original.get(), L"copy-\u672c.bin", copyId, cancelled.get());
+    Check(copyError == ERROR_CANCELLED && !Exists(copyTarget), "cancel before staging a copy", copyError);
+
+    copyError = copy(original.get(), L"copy-\u672c.bin", copyId);
+    WIN32_FILE_ATTRIBUTE_DATA sourceData{}, targetData{};
+    Check(copyError == ERROR_SUCCESS && HasContents(copyTarget, content), "publish complete copy at the original target", copyError);
+    Check(HasContents(copySource, content), "source contents stay intact");
+    const bool haveMetadata = GetFileAttributesExW(copySource.c_str(), GetFileExInfoStandard, &sourceData) &&
+                              GetFileAttributesExW(copyTarget.c_str(), GetFileExInfoStandard, &targetData);
+    Check(haveMetadata && (sourceData.dwFileAttributes | FILE_ATTRIBUTE_ARCHIVE) == targetData.dwFileAttributes, "preserve ordinary attributes and set archive on the copy", targetData.dwFileAttributes);
+    Check(haveMetadata && CompareFileTime(&sourceData.ftCreationTime, &targetData.ftCreationTime) == 0,
+          "preserve source creation time");
+    Check(haveMetadata && CompareFileTime(&sourceData.ftLastWriteTime, &targetData.ftLastWriteTime) == 0,
+          "preserve source modification time");
+
+    const auto copyCollisionPath = moved + L"\\copy-collision.bin";
+    const std::vector<BYTE> existing{13, 42};
+    if (!WriteFixture(copyCollisionPath, existing))
+        return 2;
+    copyError = copy(original.get(), L"copy-collision.bin", copyId);
+    Check(copyError == ERROR_ALREADY_EXISTS && HasContents(copyCollisionPath, existing),
+          "commit refuses to replace an existing target", copyError);
+    WIN32_FIND_DATAW stagedData{};
+    const HANDLE staged = FindFirstFileW((moved + L"\\.samandarin-copy-*.tmp").c_str(), &stagedData);
+    Check(staged == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_NOT_FOUND, "no staging files after success or collision");
+    if (staged != INVALID_HANDLE_VALUE)
+        FindClose(staged);
+
+    HANDLE rawUncommitted = nullptr;
+    copyError = UacCopyLeaf::Detail::StageFile(original.get(), rawUncommitted);
+    if (copyError)
+        return 2;
+    Handle uncommitted(rawUncommitted);
+    copyError = UacRenameLeaf::Detail::NativeRename(uncommitted.get(), original.get(), L"uncommitted-copy.bin");
+    uncommitted.reset();
+    Check(copyError == ERROR_SUCCESS && !Exists(moved + L"\\uncommitted-copy.bin"),
+          "closing after rename but before commit removes the uncommitted target", copyError);
+
+    const HANDLE rawWriter = CreateFileW(copySource.c_str(), FILE_WRITE_DATA, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (rawWriter == INVALID_HANDLE_VALUE)
+        return 2;
+    Handle copyWriter(rawWriter);
+    copyError = copy(original.get(), L"copy-busy.bin", copyId);
+    copyWriter.reset();
+    Check(copyError == ERROR_SHARING_VIOLATION && !Exists(moved + L"\\copy-busy.bin"),
+          "refuse a concurrent writer before copying", copyError);
+
+    const auto emptySource = fixture + L"\\destination\\empty-copy-source";
+    FILE_ID_INFO emptyId{};
+    if (!WriteFixture(emptySource, {}) || !OpenIdentity(emptySource, emptyId))
+        return 2;
+    copyError = UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, emptyId, L"empty-copy-source",
+                                             original.get(), expected, L"empty-copy-target");
+    Check(copyError == ERROR_SUCCESS && HasContents(moved + L"\\empty-copy-target", {}),
+          "publish an empty file", copyError);
+
+    if (!WriteFixture(copySource + L":named", existing))
+        return 2;
+    copyError = copy(original.get(), L"copy-with-stream.bin", copyId);
+    Check(copyError == ERROR_NOT_SUPPORTED && !Exists(moved + L"\\copy-with-stream.bin"),
+          "reject alternate streams before publishing a copy", copyError);
 
     const auto sourcePath = fixture + L"\\rename-source";
     const auto renamedPath = moved + L"\\rename-\u6771\u4eac";
@@ -404,6 +515,12 @@ int wmain(int argc, wchar_t** argv)
     const DWORD longMetadata = UacMetadataLeaf::SetVerifiedMetadata(longParent.get(), expected, longId, L"target-\u672c", longChange);
     Check(longMetadata == ERROR_SUCCESS && GetFileAttributesW(longTarget.c_str()) == longChange.attributes,
           "set attributes on an exact Unicode leaf below a long path", longMetadata);
+    const auto longCopyPath = longPath + L"\\copy-\u6771\u4eac";
+    const DWORD longCopy = UacCopyLeaf::CopyVerifiedFile(longParent.get(), expected, longId, L"target-\u672c",
+                                                        longParent.get(), expected, L"copy-\u6771\u4eac");
+    Check(longCopy == ERROR_SUCCESS && HasContents(longCopyPath, {}), "copy exact Unicode leaves below a long path", longCopy);
+    if (longCopy == ERROR_SUCCESS && !DeleteFileW(longCopyPath.c_str()))
+        return 2;
     if (longRename == ERROR_SUCCESS && !SetFileAttributesW(longTarget.c_str(), FILE_ATTRIBUTE_ARCHIVE))
         return 2;
     const DWORD longDelete = UacDeleteLeaf::DeleteVerifiedFile(longParent.get(), expected, longId, L"target-\u672c");
