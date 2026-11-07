@@ -1,6 +1,7 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-07 | Document the protected P2 diagnostic pair. | Make startup and shutdown checks repeatable in the VM. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Link the completed VM acceptance test. | Track the verified broker and host binaries. | | GPT-6.1 Sol (Codex) |
 -->
 
 # P2 UAC broker handshake
@@ -26,3 +27,5 @@ The protected-path check assumes an administrator controls the staged package. P
 Run python -B src/tests/uacbroker_transport_tests.py --configuration Debug or Release. The fixture uses real Windows pipe endpoints and two processes. It checks server and client PID mismatches, the client's identification token, peer exit after disconnect and cancellation of a connection deadline. It does not request elevation. The projects were built locally with warnings as errors for x64, Win32 and ARM64. The embedded execution levels, uiAccess=false and dependent load flag 0x0800 were inspected. The protected launch guard rejected the probe in the build directory.
 
 The isolated VM scenarios in the table require the staged pair and a person at the secure desktop. The P0 results used different laboratory executables and are not results for this pair.
+
+All five P2 VM scenarios passed for the x64 pair built from ca70fb8c. The alternate-account run started the same protected probe from a standard account and completed with an elevated broker, exit code 0 on both processes, and no remaining broker or probe process. See the [recorded results](../../doc/uac-implementation-plan.md#85-akceptační-test-p2-ve-vm).

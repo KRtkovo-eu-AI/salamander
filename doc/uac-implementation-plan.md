@@ -5,6 +5,7 @@
 | 2026-11-07 | Record the VM elevation matrix. | Capture the result with a separate administrator account. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record pipe loss and Shell comparisons and select the P0 backend. | Set the first local implementation slice and remaining gates. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add the P2 broker bootstrap and test procedure. | Track verified transport and the isolated VM acceptance gate. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Record interactive P2 acceptance results. | Verify the exact staged broker pair in the isolated VM. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -189,6 +190,24 @@ Broker je svázán s jednou operací/dávkou. Ukončí se po dokončení, zruše
 
 První mutace používají standardní administrativní token bez automatického backup/restore/take-ownership bypassu. Pozdější explicitní kopírování zabezpečení dostane vlastní kontrakt a krátké zapnutí pouze nutných privilegií s obnovením původního stavu. Vlastnictví TrustedInstaller, explicitní deny ACL nebo chybějící EFS klíč nejsou obecně řešitelné pouhým UAC souhlasem.
 
+### 8.5 Akceptační test P2 ve VM
+
+Test proběhl 7. listopadu 2026 ve vyhrazené Windows 11 Pro x64 VM, build 26200, se zapnutou zabezpečenou plochou UAC. Použili jsme dvojici binárek z commitu ca70fb8c. Kontrola SHA-256 potvrdila shodu obou kopií v Program Files s lokálními sestaveními. Vlastníkem obou kopií byla skupina Administrators. Protokol měl verzi 1 a masku schopností 0.
+
+| Scénář | Výsledek v izolované VM |
+| --- | --- |
+| Schválení UAC ze sníženého tokenu správce | Host ověřil PID a zvýšený identifikační token brokeru. Proběhly všechny tři zprávy. Broker i host skončili kódem 0. |
+| Uzavření roury hostem po ověření brokeru | Broker zaznamenal odpojení a skončil kódem 5. Host ověřil jeho ukončení a test vrátil 0. |
+| Nekompatibilní verze po ověření brokeru | Broker odmítl odpověď a skončil kódem 4. Host ověřil jeho ukončení a test vrátil 0. |
+| Odmítnutí UAC | ShellExecuteExW vrátil ERROR_CANCELLED (1223) a host skončil kódem 2. |
+| Přihlášení jiným správcem ze standardního účtu | Diagnostický host běžel pod standardním účtem mimo skupinu Administrators. Po zadání údajů správce ověřil zvýšený identifikační token a dokončil výměnu. Broker i host skončili kódem 0. |
+
+Po první sérii i po běhu pod jiným účtem nezůstal spuštěný žádný broker ani diagnostický host. Oddělený nativní test skutečné roury v Debug a Release ověřil odmítnutí nesprávného PID na straně klienta i serveru, nezvýšený identifikační token, odpojení a vypršení časového limitu. Ve VM bylo odpojení vyvoláno uzavřením roury hostem během výměny. Pozorovaný výsledek se vztahuje k tomuto testu spojení a ukončení.
+
+Pro přesný commit ca70fb8c prošlo sestavení Win32, x64 i ARM64, nativní a Python testy a CodeQL včetně nahrání SARIF. GitHub u draftu při kontrole nehlásil otevřená upozornění. [Běh CodeQL](https://github.com/majklvi/salamander/actions/runs/42400974697/job/128488939014)
+
+[Postup a očekávané kódy P2](../src/uacbroker/README.md)
+
 ## 9. Uživatelský tok a stav operace
 
 1. Provést běžnou operaci s aktuálním tokenem. Preflight může být informativní, nemá slibovat oprávnění budoucí mutace.
@@ -297,6 +316,6 @@ Původní plán vychází ze statického auditu upstreamu a rešerše dokumentac
 
 Ve vyhrazené VM prošlo schválení i zrušení UAC. Přihlášení jiným správcem původně selhalo při otevírání roury. Po doplnění úzkého práva pro čtení atributů roury prototyp ověřil zvýšený token jiného účtu. P0 doplnilo ověření ztráty spojení v obou směrech a srovnání s IFileOperation. Rozhodnutí o backendu a rozsah prvního řezu jsou v části 6.1.
 
-P2 přidává samostatný broker a diagnostický host s pevnou instalační cestou, ověřením procesů a verzovanou výměnou bez souborových příkazů. Nativní test ověřuje PID obou stran, identifikační token, uzavření roury a časový limit. Výsledky a kroky pro skutečnou elevaci nového páru jsou v [postupu P2](../src/uacbroker/README.md). Před produkční distribucí platí kontroly podpisu a instalace z části 8.1.
+P2 přidává samostatný broker a diagnostický host s pevnou instalační cestou, ověřením procesů a verzovanou výměnou bez souborových příkazů. Nativní test ověřuje PID obou stran, identifikační token, uzavření roury a časový limit. Pět akceptačních scénářů ve VM prošlo na přesném páru z ca70fb8c. Výsledky jsou v části 8.5 a postup opakování v [postupu P2](../src/uacbroker/README.md). Před produkční distribucí platí kontroly podpisu a instalace z části 8.1.
 
 Implementační větev používá stávající [interní draft PR](https://github.com/majklvi/salamander/pull/67) proti referenční větvi samandarin-0.16. U každého běhu kontrol rozlišit skutečně sestavené a analyzované projekty od přeskočených kroků. Výsledky laboratorního prototypu se vykazují zvlášť.
