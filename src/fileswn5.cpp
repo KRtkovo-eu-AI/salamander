@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Separate local F7 leaf creation from panel UI. | Verify or preserve the F7 local creation contract. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-06 | Keep archive metadata cache invalidation with strict path decoding. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -2990,6 +2991,29 @@ BOOL CutDoubleQuotesFromBothSides(char* path)
     return FALSE;
 }
 
+struct LocalDirectoryCreateResult
+{
+    BOOL Created;
+    DWORD Error;
+};
+
+// The panel prepares the path and its parents before attempting the final component.
+static LocalDirectoryCreateResult CreateLocalDirectoryLeaf(const char* path, const std::wstring& pathW)
+{
+    if (FileNameInvalidForManualCreate(path))
+        return {FALSE, ERROR_INVALID_NAME};
+
+    if (!pathW.empty())
+    {
+        const BOOL created = SalCreateDirectoryExW(pathW.c_str(), NULL);
+        return {created, created ? ERROR_SUCCESS : GetLastError()};
+    }
+
+    DWORD error = ERROR_SUCCESS;
+    const BOOL created = SalCreateDirectoryEx(path, &error);
+    return {created, error};
+}
+
 void CFilesWindow::CreateDir(CFilesWindow* target)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::CreateDir()");
@@ -3089,17 +3113,8 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                 {
                     HCURSOR oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
-                    DWORD err;
-                    BOOL invalidName = FileNameInvalidForManualCreate(path);
-                    BOOL created = FALSE;
-                    if (!invalidName && !pathW.empty())
-                    {
-                        created = SalCreateDirectoryExW(pathW.c_str(), NULL);
-                        err = created ? ERROR_SUCCESS : GetLastError();
-                    }
-                    else if (!invalidName)
-                        created = SalCreateDirectoryEx(path, &err);
-                    if (!invalidName && created)
+                    const LocalDirectoryCreateResult result = CreateLocalDirectoryLeaf(path, pathW);
+                    if (result.Created)
                     {
                         SetCursor(oldCur);
                         if (nextFocus[0] != 0)
@@ -3113,11 +3128,9 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                     }
                     else
                     {
-                        if (invalidName)
-                            err = ERROR_INVALID_NAME;
                         SetCursor(oldCur);
 
-                        CFileErrorDlg dlg2(HWindow, LoadStr(IDS_ERRORCREATINGDIR), path, GetErrorText(err), FALSE, IDD_ERROR3);
+                        CFileErrorDlg dlg2(HWindow, LoadStr(IDS_ERRORCREATINGDIR), path, GetErrorText(result.Error), FALSE, IDD_ERROR3);
                         dlg2.Execute();
                         goto CREATE_AGAIN;
                     }

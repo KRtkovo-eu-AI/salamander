@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Exercise F7 results and exact paths on real owned directories. | Verify or preserve the F7 local creation contract. | | GPT-6.1 Sol (Codex) |
 #include <windows.h>
+#include <sddl.h>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -48,6 +51,8 @@ static BOOL TestRemoveDirectoryW(LPCWSTR path)
 #define RemoveDirectoryW TestRemoveDirectoryW
 #include "@@WORKER_PATH_HEADER@@"
 @@HOST_WRAPPER@@
+@@WIDE_WRAPPER@@
+@@F7_COMMAND@@
 class CSalamanderGeneral { public: BOOL SalCreateDirectoryEx(const char*, DWORD*); };
 #define CALL_STACK_MESSAGE1(message) ((void)0)
 @@SDK_WRAPPER@@
@@ -159,6 +164,62 @@ int wmain()
         Check(!invoke("absent\\child", NULL, viaSdk), "optional error pointer works on failure");
         Check(SetCurrentDirectoryW(previous.c_str()) != FALSE, "restore working directory");
     }
+    // F7 calls the real leaf command after path preparation in the panel.
+    auto createLeaf = [](const std::wstring& path, bool wide) {
+        return CreateLocalDirectoryLeaf(Utf8(path).c_str(), wide ? path : std::wstring());
+    };
+    auto checkLeaf = [&](const std::wstring& path, bool wide, DWORD expected, const char* label) {
+        const auto result = createLeaf(path, wide);
+        if (result.Created && expected == ERROR_SUCCESS)
+            dirs.push_back(path);
+        Check((result.Created != FALSE) == (expected == ERROR_SUCCESS) && result.Error == expected &&
+                  (expected != ERROR_SUCCESS || IsDir(path)), label);
+    };
+
+    const std::wstring unicodeParent = unicode + L"\\rodi\u010d";
+    if (!make(unicodeParent, false)) return 2;
+    const std::wstring longParent = unicodeParent + L"\\" + std::wstring(180, L'a');
+    if (!make(longParent, false)) return 2;
+    for (bool wide : {true, false})
+    {
+        const std::wstring tag = wide ? L"f7-wide-" : L"f7-fallback-";
+        const std::wstring ascii = root + L"\\" + tag + L"ascii";
+        checkLeaf(ascii, wide, ERROR_SUCCESS, "F7 creates a single ASCII leaf");
+        checkLeaf(root + L"\\" + tag + L"\u6771\u4eac", wide, ERROR_SUCCESS, "F7 keeps a Unicode leaf");
+        checkLeaf(unicodeParent + L"\\" + tag + L"ascii", wide, ERROR_SUCCESS, "F7 keeps multiple Unicode parents");
+        const auto bytes = root + L"\\" + tag + std::wstring(100, L'\u65e5');
+        Check(Utf8(bytes).size() > MAX_PATH && bytes.size() < MAX_PATH, "F7 fixture is long in UTF-8 only");
+        checkLeaf(bytes, wide, ERROR_SUCCESS, "F7 accepts UTF-8 byte-long path");
+        const auto longLeaf = longParent + L"\\" + tag + std::wstring(90, L'\u65e5');
+        Check(longLeaf.size() > MAX_PATH, "F7 fixture is long in UTF-16");
+        checkLeaf(longLeaf, wide, ERROR_SUCCESS, "F7 accepts a long UTF-16 path");
+        checkLeaf(ascii, wide, ERROR_ALREADY_EXISTS, "F7 reports a directory collision");
+        checkLeaf(root + L"\\absent\\" + tag + L"leaf", wide, ERROR_PATH_NOT_FOUND, "F7 reports a missing parent");
+        Check(!IsDir(root + L"\\absent"), "F7 leaf command does not create parents");
+        const auto invalid = root + L"\\" + tag + L"invalid";
+        checkLeaf(invalid + L".", wide, ERROR_INVALID_NAME, "F7 refuses the invalid final name");
+        Check(!IsDir(invalid) && !IsDir(invalid + L"."), "F7 invalid name creates neither exact nor normalized leaf");
+    }
+
+    const std::wstring protectedParent = root + L"\\protected";
+    PSECURITY_DESCRIPTOR descriptor = nullptr;
+    // Deny FILE_ADD_SUBDIRECTORY only on this owned parent.
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            L"D:P(D;;0x4;;;WD)(A;;FA;;;WD)", SDDL_REVISION_1, &descriptor, nullptr))
+        return 2;
+    SECURITY_ATTRIBUTES attributes{sizeof(attributes), descriptor, FALSE};
+    const BOOL protectedCreated = CreateDirectoryW(protectedParent.c_str(), &attributes);
+    LocalFree(descriptor);
+    if (!protectedCreated) return 2;
+    dirs.push_back(protectedParent);
+    const auto protectedLeaf = protectedParent + L"\\new-leaf";
+    const auto fallbackDecoy = root + L"\\must-not-create";
+    const auto denied = CreateLocalDirectoryLeaf(Utf8(fallbackDecoy).c_str(), protectedLeaf);
+    Check(!denied.Created && denied.Error == ERROR_ACCESS_DENIED &&
+              !IsDir(protectedLeaf) && !IsDir(fallbackDecoy),
+          "F7 reports the wide access denial without retrying the fallback path");
+    checkLeaf(protectedLeaf, false, ERROR_ACCESS_DENIED, "F7 fallback reports the actual access denial");
+
     // Invalid UTF-8 keeps legacy ACP input usable; the oracle decodes explicitly.
     if (GetACP() != CP_UTF8)
     {
