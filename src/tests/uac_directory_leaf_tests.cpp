@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Adapt ZIP publication tests to the fixed archive revision. | Exercise the same metadata as the broker protocol. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Add ZIP publication and recovery cases to the native fixture. | Cover verified commit, a stale revision and recovery with a competing file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify bounded archive ranges and opening. | Cover ZIP64 offsets without weakening viewer limits. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check detailed protected inventory against ordinary NTFS size queries. | Cover empty, normal, compressed and sparse file sizes. | | GPT-6.1 Sol (Codex) |
@@ -1062,7 +1063,7 @@ bool CheckZipUpdate(const std::wstring& fixture, HANDLE root)
         return false;
 
     Revision stale = expected;
-    ++stale.size.QuadPart;
+    ++stale.size;
     auto result = Publish(parent.get(), identity, leaf, stale, stage.get(), journal.get(), nullptr, MAXULONGLONG);
     Check(result.error == ERROR_FILE_INVALID && !result.published && HasContents(path, {1, 2}),
           "reject a stale ZIP revision and retain the original", result.error);
@@ -1075,7 +1076,7 @@ bool CheckZipUpdate(const std::wstring& fixture, HANDLE root)
 
     UacZipUpdate::Detail::RecoveryRecord record;
     record.parent = identity.file;
-    record.replacement = expected.id;
+    record.replacement = UacZipUpdate::RevisionIdentity(expected);
     std::copy(leaf.begin(), leaf.end(), record.leaf);
     if (FAILED(CoCreateGuid(&record.nonce)))
         return false;
@@ -1085,7 +1086,7 @@ bool CheckZipUpdate(const std::wstring& fixture, HANDLE root)
         Revision current;
         if (!file || ReadRevision(file.get(), current))
             return false;
-        record.original = current.id;
+        record.original = UacZipUpdate::RevisionIdentity(current);
         if (UacZipUpdate::Detail::WriteRecord(journal.get(), record) ||
             NativeRename(file.get(), parent.get(), backup))
             return false;

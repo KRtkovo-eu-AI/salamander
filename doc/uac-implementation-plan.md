@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Document ZIP recovery journal and the locked archive revision. | Record the broker boundary for updating and restoring a protected archive. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Describe verified ZIP update publication and recovery. | Track the write backend and remaining ZIP integration. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record protected ZIP selection extraction. | Track manifest bounds, one target consent, and partial outcomes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record single-entry protected ZIP extraction. | Separate source reads from bounded destination publication. | | GPT-6.1 Sol (Codex) |
@@ -810,7 +811,11 @@ Sestavení x64 Debug prošlo pro aplikaci, ZIP plugin, broker a sondu. Funkční
 
 **Připravené zveřejnění změněného ZIPu.** Jádro zápisu znovu ověřuje rodiče, ID souboru, časy a velikost. Po zajištění výhradního přístupu k originálu uloží záznam o obnově a přejmenuje originál na jedinečný záložní název. Potom zveřejní připravený soubor pod původním názvem. Oba kroky používají handly a odmítají přepsat existující položku. Při kolizi zkusí obnovit originál, pokud je jeho název volný. Jinak zachová originál v záloze. Obnova po přerušení porovnává zaznamenaná ID a uklízí pouze známou zálohu po potvrzeném zveřejnění nového souboru.
 
-Jádro vyžaduje chráněný výhradně otevřený žurnál a pracovní soubor s ověřenými oprávněními. Zbývá dodat jejich správu v brokeru, přípravu změněného archivu v ZIP pluginu a napojení na běžné příkazy archivního panelu. Nativní sada se scénáři úspěšného zveřejnění, odmítnutí zastaralé revize a obnovy při kolizi se zkompilovala v x64 Debug i Release. Její spuštění a ověření ve VM proběhnou společně s F3 a F5.
+Jádro vyžaduje chráněný výhradně otevřený žurnál a pracovní soubor s ověřenými oprávněními. Zbývá vytvořit pracovní soubor v brokeru, připravit změněný archiv v ZIP pluginu a napojit běžné příkazy archivního panelu. Nativní sada se scénáři úspěšného zveřejnění, odmítnutí zastaralé revize a obnovy při kolizi se zkompilovala v x64 Debug i Release. Její spuštění a ověření ve VM proběhnou společně s F3 a F5.
+
+**Žurnál a revize otevřeného ZIPu.** Broker ukládá žurnál v ověřené instalační složce a otvírá jej výhradně. Klíč odvozuje z identity svazku a rodiče. Každý žurnál pojme jednu nedokončenou změnu v rodiči. Příkaz obnovy porovnává přesný název archivu i jeho rodiče se záznamem. Obnova může proběhnout i po zániku původního jména. Po vyřešení stavu broker odstraní prázdný žurnál. Čtecí relace vrací kromě velikosti také ID, časy a atributy přímo z handlu, ze kterého následně čte. Díky tomu může zápis porovnat stav se skutečně načtenou revizí.
+
+Sestavení x64 Debug aplikace, brokeru, sondy a nativní sady prošlo. Příkaz obnovy ještě čeká na napojení v panelu a na společnou akceptaci.
 
 ## 9. Uživatelský tok a stav operace
 

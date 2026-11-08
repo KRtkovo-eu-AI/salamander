@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Use the revision captured during brokered archive open. | Recheck the same fixed fields before publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Publish a prepared ZIP through verified file handles. | Preserve the original on collisions and support recovery after broker loss. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
@@ -11,22 +12,39 @@ namespace UacZipUpdate
 {
 using Handle = std::unique_ptr<void, decltype(&CloseHandle)>;
 
-struct Revision
+using Revision = UacF7::ArchiveRevision;
+
+inline FILE_ID_INFO RevisionIdentity(const Revision& revision)
 {
-    FILE_ID_INFO id{};
-    FILE_BASIC_INFO basic{};
-    LARGE_INTEGER size{};
-};
+    FILE_ID_INFO id{revision.serial, {}};
+    std::memcpy(id.FileId.Identifier, revision.fileId, sizeof(revision.fileId));
+    return id;
+}
+
+inline void SetRevision(Revision& revision, const FILE_ID_INFO& id, const FILE_BASIC_INFO& basic, LARGE_INTEGER size)
+{
+    revision.serial = id.VolumeSerialNumber;
+    std::memcpy(revision.fileId, id.FileId.Identifier, sizeof(revision.fileId));
+    revision.size = size.QuadPart;
+    revision.created = basic.CreationTime.QuadPart;
+    revision.modified = basic.LastWriteTime.QuadPart;
+    revision.changed = basic.ChangeTime.QuadPart;
+    revision.attributes = basic.FileAttributes;
+}
 
 inline DWORD ReadRevision(HANDLE file, Revision& revision)
 {
-    DWORD error = UacRenameLeaf::Detail::ReadSourceIdentity(file, revision.id);
+    FILE_ID_INFO id{};
+    DWORD error = UacRenameLeaf::Detail::ReadSourceIdentity(file, id);
     if (error)
         return error;
-    if (!GetFileInformationByHandleEx(file, FileBasicInfo, &revision.basic, sizeof(revision.basic)) ||
-        !GetFileSizeEx(file, &revision.size))
+    FILE_BASIC_INFO basic{};
+    LARGE_INTEGER size{};
+    if (!GetFileInformationByHandleEx(file, FileBasicInfo, &basic, sizeof(basic)) ||
+        !GetFileSizeEx(file, &size))
         return GetLastError();
-    return revision.size.QuadPart >= 0 ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+    SetRevision(revision, id, basic, size);
+    return revision.size >= 0 ? ERROR_SUCCESS : ERROR_FILE_INVALID;
 }
 
 namespace Detail
@@ -203,14 +221,15 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
     Revision actual;
     if ((error = ReadRevision(original.get(), actual)) != ERROR_SUCCESS)
         return {error};
-    if (!SameSource(actual.id, expectedOriginal.id) ||
-        !UacCopyLeaf::Detail::SameBasicMetadata(actual.basic, expectedOriginal.basic) ||
-        actual.size.QuadPart != expectedOriginal.size.QuadPart)
+    if (!SameSource(RevisionIdentity(actual), RevisionIdentity(expectedOriginal)) ||
+        actual.created != expectedOriginal.created || actual.modified != expectedOriginal.modified ||
+        actual.changed != expectedOriginal.changed || actual.attributes != expectedOriginal.attributes ||
+        actual.size != expectedOriginal.size)
         return {ERROR_FILE_INVALID};
 
     RecoveryRecord record;
     record.parent = expectedParent.file;
-    record.original = actual.id;
+    record.original = RevisionIdentity(actual);
     std::copy(leaf.begin(), leaf.end(), record.leaf);
     if (!GetFileInformationByHandleEx(stage, FileIdInfo, &record.replacement, sizeof(record.replacement)) ||
         !FlushFileBuffers(stage))

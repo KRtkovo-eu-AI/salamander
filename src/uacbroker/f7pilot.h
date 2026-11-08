@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Bind ZIP recovery to a prepared path and return the opened archive revision. | Capture authoritative metadata while the archive is still locked. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Describe the bounded ZIP selection wire format. | Authorize a fixed manifest beneath one verified directory. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare bounded publication of a decoded ZIP entry. | Reuse verified destinations and keep archive parsing in the host. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Scope archive read limits to a batch. | Reuse the verified file across refreshes. | | GPT-6.1 Sol (Codex) |
@@ -42,7 +43,7 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, RecoverZipUpdate = 21 };
 
 inline bool IsRename(Operation operation)
 {
@@ -75,6 +76,19 @@ struct ZipSelectionEntry
     FILETIME modified;
 };
 static_assert(sizeof(ZipSelectionEntry) == 24);
+
+struct ArchiveRevision
+{
+    ULONGLONG serial = 0;
+    BYTE fileId[16]{};
+    LONGLONG size = 0;
+    LONGLONG created = 0;
+    LONGLONG modified = 0;
+    LONGLONG changed = 0;
+    DWORD attributes = 0;
+    DWORD reserved = 0;
+};
+static_assert(sizeof(ArchiveRevision) == 64);
 
 constexpr DWORD archiveReadBlock = 64 * 1024;
 constexpr DWORD archiveReadBudget = 64 * 1024 * 1024;
@@ -178,6 +192,7 @@ public:
     bool PrepareView(const std::wstring& path) { return PrepareTarget(path, Operation::View, {}, nullptr); }
     Result ReadViewerSnapshot(HWND owner, std::vector<BYTE>& snapshot) const;
     bool PrepareZipSelection(const std::wstring& directory);
+    bool PrepareZipRecovery(const std::wstring& path);
     DWORD WriteZipSelectionLocal(const std::vector<BYTE>& bytes) const;
     Result WriteZipSelection(HWND owner, std::vector<BYTE>& bytes) const;
     DWORD ExecuteLocal() const;
@@ -309,12 +324,13 @@ public:
     DWORD BeginRead();
     DWORD Read(ULONGLONG offset, void* bytes, DWORD count);
     DWORD EndRead();
-    ULONGLONG Size() const { return size; }
+    ULONGLONG Size() const { return static_cast<ULONGLONG>(revision.size); }
+    const ArchiveRevision& Revision() const { return revision; }
 
 private:
     PreparedLeaf prepared;
     HANDLE pipe = nullptr;
-    ULONGLONG size = 0;
+    ArchiveRevision revision;
     DWORD SendControl(ArchiveReadControl control, ULONGLONG limit);
     void Close();
     ULONGLONG deadline = 0;
