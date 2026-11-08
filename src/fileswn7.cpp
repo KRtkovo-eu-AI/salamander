@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Prevent copying and deleting from the protected archive pilot. | Keep the archive listing read-only. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-06 | Capture implicit archive destinations before callbacks and validation. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -819,6 +820,8 @@ static void RemoveEmptyUnpackDirectoriesW(const std::wstring& root)
 void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const char* tgtPath,
                                     BOOL* changeTargetRequested)
 {
+    if (IsProtectedZip())
+        return;
     // Resolve the implicit destination before any Branch capability or lifetime snapshot checks.
     if (!deleteOp && target == NULL && tgtPath == NULL)
         target = MainWindow->GetOtherPanel(this);
@@ -1507,6 +1510,8 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
 void CFilesWindow::DeleteFromZIPArchive()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::DeleteFromZIPArchive()");
+    if (IsProtectedZip())
+        return;
     UnpackZIPArchive(NULL, TRUE); // almost the same operation
 }
 

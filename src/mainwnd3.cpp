@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-07 | Allow Ctrl+H in Branch View. | Send the hidden and system file toggle through its existing panel refresh. | | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell extension SEH in main-window menus. | New/Change-Drive HandleMenuMsg and InvokeCommand must not terminate. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
@@ -439,7 +440,7 @@ bool CMainWindow::InsertPanelTabInstance(CPanelSide side, int index, CFilesWindo
 }
 
 void CMainWindow::RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars,
-                                      bool postRefreshMessage)
+                                      bool postRefreshMessage, bool explicitRefresh)
 {
     if (panel == NULL || panel->HWindow == NULL)
         return;
@@ -457,7 +458,9 @@ void CMainWindow::RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars
     int refreshId = MyTimeCounter++;
     HANDLES(LeaveCriticalSection(&TimeCounterSection));
 
-    if (postRefreshMessage)
+    if (explicitRefresh && panel->IsProtectedZip())
+        panel->RefreshDirectory(FALSE, FALSE, FALSE, true);
+    else if (postRefreshMessage)
         PostMessage(panel->HWindow, WM_USER_REFRESH_DIR, 0, (LPARAM)refreshId);
     else
         SendMessage(panel->HWindow, WM_USER_REFRESH_DIR, 0, (LPARAM)refreshId);
@@ -7430,13 +7433,13 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_LEFTREFRESH: // refresh the left panel
         {
-            RequestPanelRefresh(LeftPanel, true); // maybe the user refreshed to update the drives list?
+            RequestPanelRefresh(LeftPanel, true, false, true); // maybe the user refreshed to update the drives list?
             return 0;
         }
 
         case CM_RIGHTREFRESH: // refresh the right panel
         {
-            RequestPanelRefresh(RightPanel, true); // maybe the user refreshed to update the drives list?
+            RequestPanelRefresh(RightPanel, true, false, true); // maybe the user refreshed to update the drives list?
             return 0;
         }
 
@@ -7634,7 +7637,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_ACTIVEREFRESH: // refresh praveho panelu
         {
-            RequestPanelRefresh(activePanel, true); // maybe the user refreshed to update the drives list?
+            RequestPanelRefresh(activePanel, true, false, true); // maybe the user refreshed to update the drives list?
             return 0;
         }
 

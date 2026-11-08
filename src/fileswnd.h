@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-08 | Opt in to protected ZIP listing for direct panel entry. | Keep history and refresh on their existing paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Distinguish directory timestamps from other copy options. | Let protected F5 accept the one option it already implements. | | GPT-6.1 Sol (Codex) |
@@ -885,6 +886,7 @@ public:
     ULONGLONG PanelTabId;
 
     CBranchViewState* BranchView; // core-owned disk collection, NULL for ordinary panels
+    bool ProtectedZip = false;
     std::unique_ptr<UacF7::ListingSession> ProtectedListing;
     std::vector<WIN32_FIND_DATAW> ProtectedListingEntries;
     bool KeepProtectedListing = false;
@@ -1609,9 +1611,10 @@ public:
     // 'forceReloadThumbnails' is TRUE when all thumbnails need to be regenerated again (not only those
     // of changed files); 'isInactiveRefresh' is TRUE when refreshing an inactive window-we load
     // only visible icons/thumbnails/overlays; others are loaded once the main window becomes active
+    bool IsProtectedZip() { return Is(ptZIPArchive) && ProtectedZip; }
     BOOL ShouldShowWaitCursorForRefresh();
     void RefreshDirectory(BOOL probablyUselessRefresh = FALSE, BOOL forceReloadThumbnails = FALSE,
-                          BOOL isInactiveRefresh = FALSE);
+                          BOOL isInactiveRefresh = FALSE, bool explicitProtectedZip = false);
 
     // read-dir (archives, FS, disk), sort
     // parent is the parent message box

@@ -1,7 +1,9 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Export the standard protected ZIP panel listing. | Return normal plugin-owned metadata and discard partial failures. | | GPT-6.1 Sol (Codex) |
 
 #include "precomp.h"
+#include "../../common/zipread.h"
 #include <tchar.h>
 #include <crtdbg.h>
 #include <ostream>
@@ -1020,6 +1022,43 @@ void CPluginDataInterface::ColumnWidthWasChanged(BOOL leftPanel, const CColumn* 
 // ****************************************************************************
 // CPluginInterfaceForArchiver
 //
+
+DWORD WINAPI SalamanderListZipPanelV1(const SalZipReadSourceV1* source, CSalamanderDirectoryAbstract* dir,
+                                      CPluginDataInterfaceAbstract** pluginData)
+{
+    if (!source || !source->Read || !dir || !pluginData)
+        return ERROR_INVALID_PARAMETER;
+    *pluginData = nullptr;
+    CPluginDataInterface* data = nullptr;
+    DWORD error = ERROR_NOT_ENOUGH_MEMORY;
+    try
+    {
+        CZipList list("", nullptr);
+        error = list.OpenSource(*source);
+        if (error)
+            return error;
+        data = new CPluginDataInterface();
+        if (!data)
+            return ERROR_NOT_ENOUGH_MEMORY;
+        BOOL haveFiles = FALSE;
+        if (list.List(dir, haveFiles, data) == 0)
+        {
+            *pluginData = data;
+            return ERROR_SUCCESS;
+        }
+        error = list.RangeError ? list.RangeError : ERROR_INVALID_DATA;
+    }
+    catch (const std::bad_alloc&)
+    {
+        error = ERROR_NOT_ENOUGH_MEMORY;
+    }
+    if (data)
+    {
+        dir->Clear(data);
+        delete data;
+    }
+    return error;
+}
 
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander,
                                               const char* fileName,

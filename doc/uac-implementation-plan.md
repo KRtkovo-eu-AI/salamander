@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify the protected ZIP64 archive panel. | Record folder navigation, manual refresh, cancellation, and ordinary ZIP behavior. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define the protected ZIP panel acceptance gate. | Require the existing archive panel and compare an elevated plugin host. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the protected ZIP64 listing pilot. | Document the bounded protocol and local and VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Revise protected archive reads for ZIP64. | Use bounded reads from the original and keep the archive parser at ordinary integrity. | | GPT-6.1 Sol (Codex) |
@@ -767,6 +768,12 @@ V izolované Windows 11 VM se po registraci ZIP pluginu v pilotním profilu a vo
 Elevovaný host ZIP pluginu je technická alternativa. Musel by být samostatným procesem spuštěným přes UAC, načíst ověřenou kopii pluginu z chráněné instalace a vracet serializované výsledky. Stávající plugin používá ukazatele na rozhraní hosta a data položek, která nelze předat mezi procesy přímo. Přenos výpisu do běžného panelu by proto vyžadoval nový adaptér i v této variantě. Blokový zdroj umožní použít existující objekty panelu i pluginu uvnitř běžného procesu. [Načítání DLL za běhu](https://learn.microsoft.com/en-us/windows/win32/dlls/run-time-dynamic-linking)
 
 Akceptační minimum je chráněný ZIP64 otevřený přímo v panelu, vstup do podsložky, návrat a Ctrl+R. Po zrušení souhlasu zůstane původní diskový panel. Samostatný textový výpis není výsledkem určeným k vydání. Pokud se nepodaří dosáhnout tohoto minima, práce na archivech se pozastaví.
+
+**Napojení na běžný archivní panel.** ZIP plugin přijímá ověřený blokový zdroj přes interní export a volá stávající parser výpisu. Vrací běžný strom a data položek do `ChangePathToArchive`, která použije standardní `ptZIPArchive`. Absolutní názvy, názvy s diskem a položky s komponentou `..` se ve stromu nezobrazují. Štít a zvýraznění v cestě označují chráněný archiv. Broker po načtení výpisu ukončí relaci. Navigace po stromu používá načtená data. Ctrl+R znovu vyžádá souhlas a po úplném úspěchu vymění výpis. Automatická obnova pracuje s načteným stromem. Při zrušení nebo chybě ruční obnovy zůstane dosavadní výpis. Otevírání, rozbalování a úpravy položek vyžadují další napojení.
+
+V izolované Windows 11 VM se chráněný řídký ZIP64 o logické velikosti 5 GiB otevřel ve standardním archivním panelu s plnou cestou a štítem. Vstup do `dír` zobrazil `東.txt` a velikosti 17 a 19 bajtů ve sloupcích Size a Packed. Návrat do kořene zobrazil `dír` a `empty`. Obě navigace prošly bez další výzvy. Položka s nadřazenou komponentou zůstala mimo strom. Ctrl+R po druhém schválení obnovil výpis v panelu. Zrušení další obnovy v dialogu Samandarinu zachovalo předchozí výpis. Prošel také odchod z archivu na disk a otevření běžného ZIPu bez UAC. Běžný token měl čtení originálu stále odepřené. Otisky šesti pilotních souborů souhlasily a po zkoušce neběžel žádný broker.
+
+Lokálně prošlo sestavení x64 Debug, zkouška blokového ZIP64 a šest archivních regresních sad s 1 349 kontrolami v Debug i Release. Prošly také kontrakty diskových operací, přechodů a akcí Branch View a nativní zkoušky identity cíle rozbalení. Akceptační minimum pro pokračování P6f je splněné.
 
 ## 9. Uživatelský tok a stav operace
 

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Keep F3 from reopening a listing-only protected archive. | Use the existing command enabler and guard direct calls. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Enable the metadata pilot for one selected file. | Keep recursive, batch and special-attribute operations on the established worker route. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
@@ -1801,6 +1802,8 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
 {
     CALL_STACK_MESSAGE6("CFilesWindow::ViewFile(%s, %d, %u, %d, %d)", name, altView, handlerID,
                         enumFileNamesSourceUID, enumFileNamesLastFileIndex);
+    if (name == NULL && IsProtectedZip())
+        return;
     const bool panelF3 = name == NULL && Is(ptDisk) && !IsBranchView() && !altView && handlerID == 0xFFFFFFFF;
     const bool deferredPathCheck = panelF3 && ProtectedListing &&
                                    ProtectedListing->Contains(SalPathRemoveExtendedPrefixW(GetPathW()));

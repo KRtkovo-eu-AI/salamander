@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Identify explicit panel refresh commands. | Prompt for a fresh archive read only on user refresh. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -661,7 +662,7 @@ public:
     void EnsurePanelRefreshAndRequest(CFilesWindow* panel, bool rebuildDriveBars,
                                       bool postRefreshMessage = false);
     void RequestPanelRefresh(CFilesWindow* panel, bool rebuildDriveBars,
-                             bool postRefreshMessage = false);
+                             bool postRefreshMessage = false, bool explicitRefresh = false);
     std::wstring GetPanelTabDisplayText(CFilesWindow* panel) const;
     void UpdatePanelTabTitle(CFilesWindow* panel);
     void UpdatePanelTabColor(CFilesWindow* panel);

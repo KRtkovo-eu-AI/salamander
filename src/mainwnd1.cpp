@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Disable entry content actions for the protected listing. | Keep metadata and navigation available. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-04 | Reflect context help on panel toolbars and bound toolbar saves. | Panel toolbars can now hold the shared help button, and their layouts use the larger buffers. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -6735,7 +6736,7 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
             int format = PackerFormatConfig.PackIsArchive(activePanel->GetZIPArchive());
             if (format != 0) // we found a supported archive
             {
-                archiveEdit = PackerFormatConfig.GetUsePacker(format - 1); // does it have an edit?
+                archiveEdit = !activePanel->IsProtectedZip() && PackerFormatConfig.GetUsePacker(format - 1); // does it have an edit?
             }
         }
 
@@ -6844,9 +6845,10 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     obj->CheckAndSet(&EnablerFiles, files);
     obj->CheckAndSet(&EnablerFileOnDisk, file && onDisk);
     obj->CheckAndSet(&EnablerFileOrDirLinkOnDisk, (file || linkOnDisk) && onDisk);
-    obj->CheckAndSet(&EnablerFileOnDiskOrArchive, file && (onDisk || archive));
+    const bool archiveContentsAvailable = archive && !activePanel->IsProtectedZip();
+    obj->CheckAndSet(&EnablerFileOnDiskOrArchive, file && (onDisk || archiveContentsAvailable));
     obj->CheckAndSet(&EnablerFilesOnDisk, onDisk && files);
-    obj->CheckAndSet(&EnablerFilesOnDiskOrArchive, (onDisk || archive) && files);
+    obj->CheckAndSet(&EnablerFilesOnDiskOrArchive, (onDisk || archiveContentsAvailable) && files);
     obj->CheckAndSet(&EnablerOccupiedSpace, (onDisk || archive && (activePanel->ValidFileData & VALID_DATA_SIZE)) && files);
     obj->CheckAndSet(&EnablerFilesOnDiskCompress, onDisk && compress && files);
     obj->CheckAndSet(&EnablerFilesOnDiskEncrypt, onDisk && encrypt && files);
@@ -6889,13 +6891,13 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
     obj->CheckAndSet(&EnablerCreateDir, (onDisk ||
                                          validPluginFS && activePanel->GetPluginFS()->IsServiceSupported(FS_SERVICE_CREATEDIR)));
     obj->CheckAndSet(&EnablerViewFile, file &&
-                                           (onDisk || archive ||
+                                           (onDisk || archiveContentsAvailable ||
                                             validPluginFS && activePanel->GetPluginFS()->IsServiceSupported(FS_SERVICE_VIEWFILE)));
     obj->CheckAndSet(&EnablerFilesDelete, files &&
                                               (onDisk || archiveEdit ||
                                                validPluginFS && activePanel->GetPluginFS()->IsServiceSupported(FS_SERVICE_DELETE)));
     obj->CheckAndSet(&EnablerFilesCopy, files &&
-                                            (onDisk || archive ||
+                                            (onDisk || archiveContentsAvailable ||
                                              validPluginFS && activePanel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS)));
     obj->CheckAndSet(&EnablerFilesMove, files &&
                                             (onDisk ||

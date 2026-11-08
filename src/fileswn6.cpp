@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-08 | Merge protected and ordinary Ctrl+Q measurements. | Keep the per-file logical sizes available even when a disk metric is unavailable. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the common protected read confirmation. | Share the same prompt with the internal viewer. | | GPT-6.1 Sol (Codex) |
@@ -3542,6 +3543,11 @@ void CFilesWindow::ExecuteFromArchive(int index, BOOL edit, HWND editWithMenuPar
                                       const POINT* editWithMenuPoint)
 {
     CALL_STACK_MESSAGE3("CFilesWindow::ExecuteFromArchive(%d, %d)", index, edit);
+    if (IsProtectedZip())
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_UAC_ZIP_LIST_ONLY), LoadStr(IDS_UAC_ZIP_TITLE), MB_OK | MB_ICONINFORMATION);
+        return;
+    }
     if (CheckPath(TRUE) != ERROR_SUCCESS)
         return;
 

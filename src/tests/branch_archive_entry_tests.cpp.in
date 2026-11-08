@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-07 | Model the protected-listing caption state. | Verify the UTF-8 scope boundary and that virtual paths clear it. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Verify the protected ZIP panel header. | Cover the archive shield and intact virtual path. | | GPT-6.1 Sol (Codex) |
 #include <windows.h>
 #include <string>
 #include <vector>
@@ -83,6 +84,8 @@ public:
  void ChangeToRescuePathOrFixedDrive(HWND,void*,BOOL,BOOL,int){++UnloadRescues;if(UnloadChangeOK){Disk=TRUE;ArchiveView=FSView=FALSE;}}
  HeaderHistory History;HeaderHistory* PathHistory=&History;HeaderText Header;HeaderText* DirectoryLine=&Header;
  ListingScope* ProtectedListing=nullptr;
+ bool ProtectedZip=false;
+ bool IsProtectedZip(){return ArchiveView && ProtectedZip;}
  HeaderFilter Filter;BOOL FilterEnabled=FALSE;HeaderParent HeaderOwner;HeaderParent* Parent=&HeaderOwner;HeaderFS FS;
  BOOL ArchiveView=FALSE,FSView=FALSE;std::string ArchiveName,ArchiveInside;
  HeaderFS* GetPluginFS(){return &FS;}const char* GetZIPPath(){return ArchiveInside.c_str();}
@@ -151,6 +154,10 @@ int wmain(){
   Check(panel.Header.Text==panel.ChangedPath&&panel.History.Archive==panel.ChangedPath&&panel.HeaderOwner.Calls==1,"actual archive header/history retains complete UTF-8 path after opening");
   panel.ArchiveInside="inside\\nested";panel.FilterEnabled=TRUE;panel.DirectoryLineSetText();
   Check(panel.Header.Text==panel.ChangedPath+"\\inside\\nested\\*.txt"&&panel.Header.RootLength==(int)(panel.ChangedPath.size()+14),"filtered archive header owns full archive plus virtual path");
+  panel.ProtectedZip=true;
+  panel.DirectoryLineSetText();
+  Check(panel.Header.AdministratorPathStart==int(panel.ChangedPath.rfind('\\')+1)&&
+        panel.Header.Text==panel.ChangedPath+"\\inside\\nested\\*.txt","protected ZIP uses the regular archive path and shields the archive name");
   const std::string generalExpected=panel.ChangedPath+"\\inside\\nested";
   size_t firstUnicode=generalExpected.find_first_of("\xe6\xe7\xe8\xe9\xc4\xc5");
   if(firstUnicode==std::string::npos)firstUnicode=1;

@@ -1,3 +1,4 @@
+// | 2026-11-08 | Assign the listing-only archive message. | Reuse the protected ZIP dialog title. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve consent and status text for protected listings. | Show the active authorization in the panel. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve plain inventory labels. | Keep translations out of format-string arguments. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve F5 tree pilot messages. | Localize scoped consent and an uncertain result. | | GPT-6.1 Sol (Codex) |
@@ -3220,5 +3221,6 @@
 #define IDS_UAC_EDIT_ADMIN_UNTRUSTED                 14574
 #define IDS_UAC_ZIP_TITLE                            14575
 #define IDS_UAC_ZIP_CONFIRM                          14576
+#define IDS_UAC_ZIP_LIST_ONLY                        14577
 
 #endif // __TEXTS_RH2

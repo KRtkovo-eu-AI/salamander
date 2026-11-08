@@ -1,6 +1,8 @@
 LIBRARY ZIP.SPL
+; | 2026-11-08 | Expose the private panel adapter. | Preserve the public plugin ABI. | | GPT-6.1 Sol (Codex) |
 ; | 2026-11-08 | Export the private ZIP listing function. | Keep the existing plugin entry points available. | | GPT-6.1 Sol (Codex) |
 
 EXPORTS SalamanderPluginEntry
 EXPORTS SalamanderPluginGetReqVer
 EXPORTS SalamanderListZipSourceV1
+EXPORTS SalamanderListZipPanelV1

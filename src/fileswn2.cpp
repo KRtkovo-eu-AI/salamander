@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Publish a complete protected listing in the standard archive panel. | Refresh explicitly and preserve the existing tree on failure. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer a protected ZIP listing after ordinary read denial. | Reuse the internal viewer for read-only output. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Route disk navigation and refresh through the approved listing session. | Reuse consent inside the root and release it on exit. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -23,7 +24,6 @@
 #include "filesbox.h"
 #include "common/widepath.h"
 #include "common/zipread.h"
-#include "viewer.h"
 #include "dialogs.h"
 #include "stswnd.h"
 #include "snooper.h"
@@ -2727,6 +2727,7 @@ void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOO
                 SetArchiveDir(NULL);
                 SetPluginIface(NULL);
                 // a couple more resets for better clarity
+                ProtectedZip = false;
                 SetZIPArchive("");
                 SetZIPPath("");
 
@@ -3438,7 +3439,6 @@ struct ProtectedZipListing
     std::vector<BYTE> block = std::vector<BYTE>(UacF7::archiveReadBlock);
     ULONGLONG cachedOffset = 0;
     DWORD cachedSize = 0;
-    std::vector<BYTE> text{0xef, 0xbb, 0xbf};
 
     static DWORD WINAPI Read(void* context, ULONGLONG offset, void* bytes, DWORD count)
     {
@@ -3467,30 +3467,23 @@ struct ProtectedZipListing
         return ERROR_SUCCESS;
     }
 
-    static DWORD WINAPI Entry(void* context, const char* name, DWORD length)
-    {
-        auto& text = static_cast<ProtectedZipListing*>(context)->text;
-        const std::string input(name, length);
-        const std::string utf8 = IsValidPathUtf8Text(input.c_str()) ? input :
-            SalWideToMultiBytePath(SalMultiByteToWidePath(input.c_str(), CP_ACP).c_str(), CP_UTF8);
-        constexpr size_t maxOutput = 4 * 1024 * 1024;
-        if (utf8.size() + 2 > maxOutput - text.size())
-            return ERROR_FILE_TOO_LARGE;
-        text.insert(text.end(), utf8.begin(), utf8.end());
-        text.insert(text.end(), {'\r', '\n'});
-        return ERROR_SUCCESS;
-    }
 };
 
-DWORD ReadProtectedZip(HWND owner, const std::wstring& path, std::unique_ptr<std::vector<BYTE>>& text)
+DWORD ReadProtectedZip(HWND owner, const char* archive, CSalamanderDirectory& directory,
+                       CPluginData*& plugin, CPluginDataInterfaceAbstract*& pluginData,
+                       CQuadWord& size, FILETIME& date)
 {
+    const std::wstring path = SalPathRemoveExtendedPrefixW(
+        SalMultiByteToWidePath(archive, IsValidPathUtf8Text(archive) ? CP_UTF8 : CP_ACP).c_str());
+    if (path.size() < 4 || _wcsicmp(path.c_str() + path.size() - 4, L".zip") != 0)
+        return ERROR_NOT_SUPPORTED;
     UacF7::ArchiveReadSession session;
     if (!session.Prepare(path))
         return ERROR_ACCESS_DENIED;
-    CPluginData* plugin = Plugins.GetPluginDataFromSuffix("zip\\zip.spl");
+    plugin = Plugins.GetPluginDataFromSuffix("zip\\zip.spl");
     if (!plugin || !plugin->InitDLL(owner, TRUE))
         return ERROR_NOT_SUPPORTED;
-    const auto list = reinterpret_cast<SalListZipSourceV1>(GetProcAddress(plugin->GetPluginDLL(), "SalamanderListZipSourceV1"));
+    const auto list = reinterpret_cast<SalListZipPanelV1>(GetProcAddress(plugin->GetPluginDLL(), "SalamanderListZipPanelV1"));
     if (!list)
         return ERROR_NOT_SUPPORTED;
     if (!ConfirmProtectedRead(owner, IDS_UAC_ZIP_TITLE, IDS_UAC_ZIP_CONFIRM, path))
@@ -3500,41 +3493,24 @@ DWORD ReadProtectedZip(HWND owner, const std::wstring& path, std::unique_ptr<std
         return startError;
 
     ProtectedZipListing listing{session};
-    const SalZipReadSourceV1 source{session.Size(), &listing, ProtectedZipListing::Read, ProtectedZipListing::Entry};
-    const DWORD error = list(&source);
+    const SalZipReadSourceV1 source{session.Size(), &listing, ProtectedZipListing::Read, nullptr};
+    const std::wstring extended = SalPathAddExtendedPrefixW(path.c_str());
+    EnterPlugin();
+    const DWORD error = list(&source, &directory, &pluginData);
+    LeavePlugin();
     if (error)
         return error;
-    text = std::make_unique<std::vector<BYTE>>(std::move(listing.text));
-    return ERROR_SUCCESS;
-}
+#ifdef _DEBUG
+    if (pluginData)
+        plugin->OpenedPDCounter++;
+#endif
 
-bool ShowProtectedZip(HWND owner, const char* archive)
-{
-    const std::wstring path = SalPathRemoveExtendedPrefixW(
-        SalMultiByteToWidePath(archive, IsValidPathUtf8Text(archive) ? CP_UTF8 : CP_ACP).c_str());
-    if (path.size() < 4 || _wcsicmp(path.c_str() + path.size() - 4, L".zip") != 0)
-        return false;
-    DWORD error;
-    try
-    {
-        std::unique_ptr<std::vector<BYTE>> text;
-        error = ReadProtectedZip(owner, path, text);
-        if (!error)
-        {
-            RECT area{};
-            if (!GetWindowRect(MainWindow->HWindow, &area))
-                return true;
-            OpenViewer(archive, vtText, area.left, area.top, area.right - area.left, area.bottom - area.top,
-                       SW_SHOWNORMAL, FALSE, NULL, NULL, NULL, -1, -1, std::move(text));
-        }
-    }
-    catch (const std::bad_alloc&)
-    {
-        error = ERROR_NOT_ENOUGH_MEMORY;
-    }
-    if (error && error != ERROR_CANCELLED)
-        DialogError(owner, BUTTONS_OK, archive, GetErrorText(error), LoadStr(IDS_UAC_ZIP_TITLE));
-    return true;
+    size.SetUI64(session.Size());
+    WIN32_FILE_ATTRIBUTE_DATA attributes{};
+    date = {};
+    if (GetFileAttributesExW(extended.c_str(), GetFileExInfoStandard, &attributes))
+        date = attributes.ftLastWriteTime;
+    return ERROR_SUCCESS;
 }
 }
 
@@ -3590,6 +3566,14 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
     }
     archive = backup1;
 
+    const bool sameProtectedZip = IsProtectedZip() && StrICmp(GetZIPArchive(), archive) == 0;
+    if (sameProtectedZip && isRefresh && !allowProtectedZip)
+    {
+        if (failReason != NULL)
+            *failReason = CHPPFR_SUCCESS;
+        return TRUE; // RefreshDirectory retains the authorized listing on background refresh.
+    }
+
     //---  start the waiting cursor
     BOOL setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // is it already waiting?
     HCURSOR oldCur;
@@ -3607,7 +3591,7 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
     BOOL checkPath = TRUE;
     BOOL forceUpdateInt = FALSE; // is path change required? (possibly even to disk)
     BOOL tryPathWithArchiveOnError = isHistory;
-    if (!Is(ptZIPArchive) || StrICmp(GetZIPArchive(), archive) != 0) // not the archive or a different archive
+    if (!Is(ptZIPArchive) || StrICmp(GetZIPArchive(), archive) != 0 || (sameProtectedZip && forceUpdate && allowProtectedZip))
     {
 
     _REOPEN_ARCHIVE:
@@ -3688,14 +3672,11 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                 else
                     err2 = GetLastError();
 
-                if (err2 != NO_ERROR)
+                const char* extension = strrchr(archive, '.');
+                const bool protectedZip = allowProtectedZip && err2 == ERROR_ACCESS_DENIED &&
+                                          extension && _stricmp(extension, ".zip") == 0;
+                if (err2 != NO_ERROR && !protectedZip)
                 {
-                    if (allowProtectedZip && err2 == ERROR_ACCESS_DENIED && ShowProtectedZip(HWindow, archive))
-                    {
-                        if (failReason != NULL)
-                            *failReason = CHPPFR_INVALIDPATH;
-                        goto ERROR_1;
-                    }
                     if (!isRefresh) // during refresh missing-path messages are not displayed
                         DialogError(HWindow, BUTTONS_OK, archive, GetErrorText(err2), LoadStr(IDS_ERROROPENINGFILE));
                     if (failReason != NULL)
@@ -3711,14 +3692,34 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                 SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
                 CPluginDataInterfaceAbstract* pluginData = NULL;
                 CPluginData* plugin = NULL;
-                if (!nullFile)
-                    CreateSafeWaitWindow(LoadStr(IDS_LISTINGARCHIVE), NULL, 2000, FALSE, MainWindow->HWindow);
-                if (nullFile || PackList(this, archive, *newArchiveDir, pluginData, plugin, pluginForOpen))
+                bool listed = false;
+                if (protectedZip)
+                {
+                    nullFile = FALSE;
+                    try
+                    {
+                        err2 = ReadProtectedZip(HWindow, archive, *newArchiveDir, plugin, pluginData, archiveSize, archiveDate);
+                    }
+                    catch (const std::bad_alloc&)
+                    {
+                        err2 = ERROR_NOT_ENOUGH_MEMORY;
+                    }
+                    listed = err2 == ERROR_SUCCESS;
+                    if (!listed && err2 != ERROR_CANCELLED)
+                        DialogError(HWindow, BUTTONS_OK, archive, GetErrorText(err2), LoadStr(IDS_UAC_ZIP_TITLE));
+                }
+                else
+                {
+                    if (!nullFile)
+                        CreateSafeWaitWindow(LoadStr(IDS_LISTINGARCHIVE), NULL, 2000, FALSE, MainWindow->HWindow);
+                    listed = nullFile || PackList(this, archive, *newArchiveDir, pluginData, plugin, pluginForOpen);
+                }
+                if (listed)
                 {
                     // free the cache so it does not linger in the object
                     newArchiveDir->FreeAddCache();
 
-                    if (!nullFile)
+                    if (!protectedZip && !nullFile)
                         DestroySafeWaitWindow();
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
 
@@ -3751,6 +3752,7 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                         DirectoryLine->HideThrobberAndSecurityIcon();
 
                     SetPanelType(ptZIPArchive);
+                    ProtectedZip = protectedZip;
                     SetPath(path);
                     UpdateDriveIcon(FALSE);
                     SetArchiveDir(newArchiveDir);
@@ -3775,7 +3777,8 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                 }
                 else
                 {
-                    DestroySafeWaitWindow(); // nullFile must be FALSE, so the check is omitted...
+                    if (!protectedZip)
+                        DestroySafeWaitWindow(); // nullFile must be FALSE
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
                     TRACE_I("Unable to open file " << archive << ".");
                     delete newArchiveDir;

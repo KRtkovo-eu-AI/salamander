@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Keep clipboard transfer disabled for the protected ZIP pilot. | Preserve the listing-only boundary. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-05 | Survive faulty shell extension SEH in SafeInvokeCommand. | Shell InvokeCommand failures must degrade instead of terminating. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -493,6 +494,8 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
 
 BOOL CFilesWindow::ClipboardPasteToArcOrFS(BOOL onlyTest, DWORD* pasteDefEffect)
 {
+    if (IsProtectedZip())
+        return FALSE;
     CALL_STACK_MESSAGE2("CFilesWindow::ClipboardPasteToArcOrFS(%d,)", onlyTest);
     if (pasteDefEffect != NULL)
         *pasteDefEffect = 0;
@@ -616,12 +619,16 @@ BOOL CFilesWindow::ClipboardPasteToArcOrFS(BOOL onlyTest, DWORD* pasteDefEffect)
 
 void CFilesWindow::ClipboardCopy()
 {
+    if (IsProtectedZip())
+        return;
     CALL_STACK_MESSAGE1("CFilesWindow::ClipboardCopy()");
     ShellAction(this, saCopyToClipboard);
 }
 
 void CFilesWindow::ClipboardCut()
 {
+    if (IsProtectedZip())
+        return;
     CALL_STACK_MESSAGE1("CFilesWindow::ClipboardCut()");
     ShellAction(this, saCutToClipboard);
 }

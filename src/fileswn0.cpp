@@ -1,6 +1,7 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Carry manual protected ZIP refresh into archive navigation. | Keep the existing refresh rollback behavior. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-05 | Survive faulty shell extension SEH in panel menu messages. | New submenu and ContextMenu HandleMenuMsg must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -2447,7 +2448,8 @@ BOOL CFilesWindow::ShouldShowWaitCursorForRefresh()
            !GetPluginFS()->IsServiceSupported(FS_SERVICE_NO_REFRESH_WAIT_CURSOR);
 }
 
-void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloadThumbnails, BOOL isInactiveRefresh)
+void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloadThumbnails, BOOL isInactiveRefresh,
+                                    bool explicitProtectedZip)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::RefreshDirectory()");
     if (IsBranchView() && !BranchView->Applying)
@@ -2772,7 +2774,7 @@ void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloa
     case ptZIPArchive:
     {
         result = ChangePathToArchive(GetZIPArchive(), GetZIPPath(), -1, NULL, TRUE, &noChange,
-                                     FALSE, NULL, TRUE);
+                                     FALSE, NULL, TRUE, FALSE, FALSE, NULL, explicitProtectedZip);
 
         // path valid + no change, we perform common-refresh because of Ctrl+H (requires read-dir)
         if (result && noChange)
