@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record the P4m NTFS overwrite probe. | Establish which rename modes permit a target substitution. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document cancellation of a running protected F5 copy. | Track cleanup before publication and acknowledged success after it. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the P4k CI result and allocation fix. | Keep the next stage gated on clean analysis. | https://github.com/majklvi/salamander/runs/128721425272 | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P4j CodeQL and the protected F5 queue pilot. | Track queue admission and isolated VM acceptance. | | GPT-6.1 Sol (Codex) |
@@ -498,6 +499,25 @@ V izolované Windows VM byl přes Computer Use připraven běžný vstup F5 a u�
 - U `18-late-cancel` skript viděl zveřejněný cíl ještě před odpovědí brokeru. Pozdní Cancel kopii ponechal. SHA-256 obou souborů odpovídal zdroji, vznikla prázdná podsložka, zdroj zůstal a počet pracovních složek byl nula. Broker řádně skončil a Samandarin se vrátil do panelu.
 
 Po zkouškách se obnovil běžný broker P4l a ověřil se jeho SHA-256.
+
+P4l na commitu `1051f6d6` prošla sestavením Win32, x64 a ARM64, 214 testy, kontrolou růstu zdrojů a CodeQL bez nových nálezů. [Testy P4l](https://github.com/majklvi/salamander/actions/runs/42479961132/job/128729574366) · [Výsledek CodeQL](https://github.com/majklvi/salamander/runs/128733331657).
+
+### 8.24 P4m — ověření přepisu cíle na NTFS
+
+Volitelný režim `--overwrite-probe` v existující nativní sadě ověřuje výměnu souboru v dočasné složce. Porovnává běžný a POSIX přepis přes `FileRenameInfoEx` při čtyřech kombinacích práv a sdílení cílového handlu. Samostatná zkouška simuluje přesné pořadí schválení, výměny cíle a následného přepisu ve stejném rodiči. Ověřuje identitu objektů i bajty, které zůstaly pod cílovým jménem. [Příznaky nativního přejmenování](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information).
+
+V izolované VM s Windows 11, sestavením 26200, a NTFS vyšly v Debug i Release shodně tyto výsledky:
+
+| Otevření původního cíle | Souběžné otevření pro smazání | Běžný přepis | POSIX přepis |
+| --- | --- | --- | --- |
+| Pouze atributy, bez sdílení pro smazání | Povoleno | Chyba 5 | Povoleno |
+| Čtení dat, bez sdílení pro smazání | Chyba 32 | Chyba 5 | Chyba 32 |
+| Výhradní čtení dat a právo smazat | Chyba 32 | Chyba 5 | Chyba 32 |
+| Čtení dat se sdílením pro smazání | Povoleno | Chyba 5 | Povoleno |
+
+Při proložené zkoušce si schválený handle ponechal původní ID, zatímco cílové jméno už patřilo druhému objektu. Následující POSIX přepis odstranil právě druhý objekt z cílového jména. Ověření rodiče a samotného handlu proto k autorizaci výměny nestačí. Stávající broker nadále používá zveřejnění bez přepisu. Přepis lze zapojit až s postupem, který spojí schválenou identitu se samotnou mutací a vyřeší obnovu při částečném výsledku. Časná kontrola ID před přejmenováním takovou podmínku v jádře nevytvoří.
+
+V každé konfiguraci prošlo všech devět kontrol experimentu. Běžný běh nativní sady v Release prošel se 117 kontrolami. Pokus používal pouze dočasné testovací soubory a nevyžadoval novou výzvu UAC.
 
 ## 9. Uživatelský tok a stav operace
 

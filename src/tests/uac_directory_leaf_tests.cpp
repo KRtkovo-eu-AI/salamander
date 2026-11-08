@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Probe how NTFS replacement interacts with target handles. | Establish the identity boundary before adding protected overwrite. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise tree cancellation received through a pipe. | Distinguish the valid control byte from unrelated data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Test exclusive journal recovery on NTFS. | Reap an owned orphan and preserve unrelated or substituted directories. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise mandatory integrity on staged tree objects. | Check Windows access decisions and preserve destination DACL inheritance. | | GPT-6.1 Sol (Codex) |
@@ -551,15 +552,133 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent, bool high)
           "a hard link refuses the whole recovery before deleting any entry", result.error);
     return true;
 }
+DWORD ReplaceForProbe(HANDLE source, std::wstring_view target, bool posix)
+{
+    constexpr DWORD replaceExisting = 1;
+    constexpr DWORD posixSemantics = 2;
+    const auto bytes = static_cast<DWORD>(target.size() * sizeof(wchar_t));
+    const auto length = static_cast<DWORD>(sizeof(FILE_RENAME_INFO)) + bytes;
+    const auto buffer = std::make_unique<BYTE[]>(length);
+    auto& info = *reinterpret_cast<FILE_RENAME_INFO*>(buffer.get());
+    info.Flags = replaceExisting | (posix ? posixSemantics : 0);
+    info.FileNameLength = bytes;
+    std::memcpy(info.FileName, target.data(), bytes);
+    return SetFileInformationByHandle(source, FileRenameInfoEx, &info, length) ? ERROR_SUCCESS : GetLastError();
+}
+
+bool CheckOverwrite(const std::wstring& fixture)
+{
+    constexpr DWORD shareAll = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    const auto open = [](const std::wstring& path, DWORD access, DWORD share) {
+        const HANDLE raw = CreateFileW(path.c_str(), access, share, nullptr, OPEN_EXISTING, 0, nullptr);
+        return Handle(raw != INVALID_HANDLE_VALUE ? raw : nullptr);
+    };
+    struct TargetPin
+    {
+        const wchar_t* name;
+        DWORD access;
+        DWORD share;
+    };
+    const TargetPin pins[] = {
+        {L"metadata", FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE},
+        {L"read-no-delete-share", FILE_READ_DATA, FILE_SHARE_READ},
+        {L"exclusive-delete", FILE_READ_DATA | DELETE, 0},
+        {L"delete-sharing", FILE_READ_DATA, shareAll},
+    };
+    const std::vector<BYTE> original{1, 2, 3};
+    const std::vector<BYTE> replacement{4, 5, 6};
+    for (const auto& pin : pins)
+    {
+        for (const bool posix : {false, true})
+        {
+            const std::wstring tag = std::wstring(pin.name) + (posix ? L"-posix" : L"-legacy");
+            const auto target = fixture + L"\\" + tag + L"-target";
+            const auto source = fixture + L"\\" + tag + L"-source";
+            if (!WriteFixture(target, original) || !WriteFixture(source, replacement))
+                return false;
+
+            auto held = open(target, pin.access, pin.share);
+            auto staged = open(source, DELETE, shareAll);
+            if (!held || !staged)
+                return false;
+            FILE_ID_INFO approvedId{}, stagedId{}, heldId{}, currentId{};
+            if (!GetFileInformationByHandleEx(held.get(), FileIdInfo, &approvedId, sizeof(approvedId)) ||
+                !GetFileInformationByHandleEx(staged.get(), FileIdInfo, &stagedId, sizeof(stagedId)))
+                return false;
+
+            const HANDLE competing = CreateFileW(target.c_str(), DELETE, shareAll, nullptr, OPEN_EXISTING, 0, nullptr);
+            const DWORD deleteOpen = competing == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
+            if (competing != INVALID_HANDLE_VALUE)
+                CloseHandle(competing);
+            const DWORD rename = ReplaceForProbe(staged.get(), target, posix);
+            const bool originalHandleStayed = GetFileInformationByHandleEx(held.get(), FileIdInfo, &heldId, sizeof(heldId)) &&
+                UacRenameLeaf::Detail::SameSource(approvedId, heldId);
+            held.reset();
+            staged.reset();
+            const auto current = OpenIdentity(target, currentId);
+            const bool changed = current && UacRenameLeaf::Detail::SameSource(stagedId, currentId);
+            const bool oldNameStayed = current && UacRenameLeaf::Detail::SameSource(approvedId, currentId);
+            std::printf("PROBE: %ls delete-open=%lu rename=%lu old-handle-stayed=%d name-replaced=%d\n",
+                         tag.c_str(), deleteOpen, rename, originalHandleStayed, changed);
+            Check(originalHandleStayed && (rename == ERROR_SUCCESS
+                      ? changed && !Exists(source) && HasContents(target, replacement)
+                      : oldNameStayed && HasContents(source, replacement) && HasContents(target, original)),
+                  "replacement result matches the identities and bytes on disk", rename);
+        }
+    }
+    // Interleave an independent replacement after the identity snapshot and
+    // before the publisher's syscall. Both operate inside the same NTFS parent.
+    const auto target = fixture + L"\\approved-\u6771\u4eac.txt";
+    const auto rival = fixture + L"\\competing-copy.txt";
+    const auto source = fixture + L"\\staged-copy.txt";
+    const std::vector<BYTE> rivalContents{7, 8, 9};
+    if (!WriteFixture(target, original) || !WriteFixture(rival, rivalContents) || !WriteFixture(source, replacement))
+        return false;
+    FILE_ID_INFO approvedId{}, intermediateId{}, finalId{}, heldId{};
+    const auto approved = OpenIdentity(target, approvedId);
+    auto competing = open(rival, DELETE, shareAll);
+    auto staged = open(source, DELETE, shareAll);
+    if (!approved || !competing || !staged)
+        return false;
+    const DWORD first = ReplaceForProbe(competing.get(), target, true);
+    competing.reset();
+    if (first != ERROR_SUCCESS)
+    {
+        std::printf("PROBE: interleaving unavailable on this Windows build (%lu)\n", first);
+        return failures == 0;
+    }
+    const auto intermediate = OpenIdentity(target, intermediateId);
+    if (!intermediate || !HasContents(target, rivalContents) ||
+        UacRenameLeaf::Detail::SameSource(approvedId, intermediateId))
+        return false;
+    const DWORD second = ReplaceForProbe(staged.get(), target, true);
+    staged.reset();
+    const auto final = OpenIdentity(target, finalId);
+    if (!final)
+        return false;
+    const bool approvedHandleStayed = GetFileInformationByHandleEx(approved.get(), FileIdInfo, &heldId, sizeof(heldId)) &&
+        UacRenameLeaf::Detail::SameSource(approvedId, heldId);
+    const bool intermediateNameChanged = !UacRenameLeaf::Detail::SameSource(intermediateId, finalId);
+    std::printf("PROBE: interleaved rename=%lu old-handle-stayed=%d substituted-name-replaced=%d\n",
+                second, approvedHandleStayed, intermediateNameChanged);
+    Check(approvedHandleStayed && (second == ERROR_SUCCESS
+              ? intermediateNameChanged && HasContents(target, replacement)
+              : !intermediateNameChanged && HasContents(target, rivalContents) && HasContents(source, replacement)),
+          "a stale approval handle does not identify the pathname used by replacement", second);
+    return failures == 0;
+}
 }
 
 int wmain(int argc, wchar_t** argv)
 {
     using namespace UacDirectoryLeaf;
     const bool high = argc == 3 && std::wstring_view(argv[2]) == L"--high-integrity";
-    if (argc != 2 && !high)
+    const bool overwrite = argc == 3 && std::wstring_view(argv[2]) == L"--overwrite-probe";
+    if (argc != 2 && !high && !overwrite)
         return 2;
     const std::wstring fixture = L"\\\\?\\" + std::wstring(argv[1]);
+    if (overwrite)
+        return CheckOverwrite(fixture) ? 0 : 1;
     const HANDLE rawRoot = CreateFileW(fixture.c_str(), FILE_TRAVERSE | FILE_READ_ATTRIBUTES | FILE_LIST_DIRECTORY,
                                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
                                         OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
