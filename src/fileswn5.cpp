@@ -5,6 +5,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Name junctions in the protected rename prompt. | Use the verified broker request to describe the object to the user. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer elevation for one directory symbolic link. | Reuse the link-specific prompt in F2 and Quick Rename. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer a separate consent prompt for file symbolic links. | Name the affected link for both F2 and Quick Rename. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Separate local F7 leaf creation from panel UI. | Verify or preserve the F7 local creation contract. | | GPT-6.1 Sol (Codex) |
@@ -3556,12 +3557,16 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
         GetFileAttributesW(tgtPath.c_str()) == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND)
     {
         UacF7::PreparedLeaf request;
-        const bool prepared = link ? request.PrepareRenameSymlink(srcPath, newNameW, isDir != FALSE)
+        const bool prepared = link ? request.PrepareRenameLink(srcPath, newNameW, isDir != FALSE)
                                    : request.Prepare(srcPath, newNameW);
         if (prepared)
         {
             offeredElevation = true;
-            const int text = link ? IDS_UAC_RENAME_SYMLINK_CONFIRM : IDS_UAC_RENAME_CONFIRM;
+            int text = IDS_UAC_RENAME_CONFIRM;
+            if (request.IsJunctionRename())
+                text = IDS_UAC_RENAME_JUNCTION_CONFIRM;
+            else if (link)
+                text = IDS_UAC_RENAME_SYMLINK_CONFIRM;
             const std::string message = std::string(LoadStr(text)) + "\n\n" +
                                         WidePathToDialogText(srcPathDisplay) + "\n" + WidePathToDialogText(tgtPathDisplay);
             const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);

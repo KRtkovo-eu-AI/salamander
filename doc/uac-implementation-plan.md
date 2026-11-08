@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record P5j junction rename. | Document the accepted junction format and the local and VM results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5i directory symbolic-link rename. | Document the type check and the local and VM results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5h file symbolic-link rename. | Document the no-follow boundary and the local and VM results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5g NTFS compression preservation in F5. | Document consent, attribute behavior, and local and VM evidence. | | GPT-6.1 Sol (Codex) |
@@ -614,6 +615,14 @@ F2 a Quick Rename podporují přes broker i jeden adresářový symbolický odka
 Lokálně prošlo sestavení x64 Debug, všech 151 nativních kontrol v Debug i Release, transport brokeru a testy konverzních tabulek a Branch View. Nativní zkoušky ověřily přejmenování Unicode názvu se shodnou identitou a binárními reparse daty, zachování obsahu odkazovaného adresáře, kolizi, odmítnutí přesunu mezi rodiči, rozlišení souborového a adresářového odkazu a odmítnutí tagu junction.
 
 V izolované Windows 11 VM se po volbě Ano v Quick Rename přejmenoval 01-approve-dirlink na 01-renamed-dirlink. Kontrola potvrdila shodná reparse data a obsah dostupný přes nový název. Po volbě Ne při F2 zůstal 02-cancel-dirlink pod původním názvem se shodnými reparse daty. Při pokusu o přejmenování 03-junction zobrazil F2 chybu 5 bez nabídky správce a junction zůstal na místě. Kontrolní soubory ve všech třech odkazovaných adresářích měly původní SHA-256 a otisky instalovaných binárek souhlasily s pilotem.
+
+### 8.35 P5j — přejmenování junction
+
+F2 a Quick Rename umí přes broker přejmenovat jeden junction na místním NTFS v témže rodiči bez přepisu. Host nejprve provede běžný pokus, po odepření nabídne správce se štítem, oběma cestami a výchozí volbou Zrušit. Samostatný typ požadavku váže souhlas na junction. Host i broker ověří identitu otevřeného adresářového odkazu a tag IO_REPARSE_TAG_MOUNT_POINT. Kontrola formátu přijímá uložený cíl v podobě absolutní cesty s písmenem jednotky. Ověří délky a rozsahy obou názvů v reparse datech a odmítne cesty s GUID svazku i jiné nepodporované jmenné prostory. Přejmenování používá výhradně handle odkazu a ověřeného rodiče. [Formát reparse dat](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/ca069dad-ed16-42aa-b057-b6b207f447cc) a [přípojné body svazků](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-volume)
+
+Lokálně prošlo sestavení x64 Debug, všech 157 nativních kontrol v Debug i Release, transport brokeru, testy Branch View a konverzních tabulek. Na NTFS se přejmenoval junction s názvem v Unicode v cestě delší než MAX_PATH při zachování identity, přesných reparse dat a obsahu cíle. Kolize zachovala obě položky. Zkouška formátu na syntetických reparse datech pokryla odmítnutí cesty s GUID svazku, UNC, špatně zarovnaného názvu a zkráceného bufferu.
+
+V izolované Windows 11 VM zobrazily F2 i Quick Rename nabídku správce pro junction s oběma cestami, štítem a výchozí volbou Zrušit. Po volbě Ano při F2 se 01-approve-junction přejmenoval na 01-renamed-junction se shodnými reparse daty a obsahem dostupným přes nový název. Po volbě Ne při Quick Rename zůstal 02-cancel-junction pod původním názvem se shodnými reparse daty a nový název nevznikl. Kontrolní soubory v obou odkazovaných složkách měly původní SHA-256 a otisky instalovaných binárek souhlasily s pilotem.
 
 ## 9. Uživatelský tok a stav operace
 

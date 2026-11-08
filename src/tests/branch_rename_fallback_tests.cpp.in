@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Model junction rename consent dependencies. | Continue compiling the real Branch View rename implementation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Model the source type in the rename test fixture. | Keep compiling the real panel code for Branch View. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Model the symbolic-link rename consent dependencies. | Compile the shared panel implementation in the Branch View test. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Model the shared rename confirmation dependencies in the Branch View fixture. | Compile the actual panel rename function and check that Branch View stays outside the broker pilot. | | GPT-6.1 Sol (Codex) |
@@ -21,7 +22,7 @@ std::string SalWideToMultiBytePath(const wchar_t*,UINT=CP_UTF8);
 #define HANDLES_Q(call) (call)
 #define HANDLES(call) (call)
 static constexpr int IDS_TOOLONGNAME=1,IDS_ERRORRENAMINGFILE=2,ptDisk=1,ptPluginFS=2,FS_SERVICE_QUICKRENAME=1;
-static constexpr int IDS_UAC_RENAME_CONFIRM=3,IDS_AS_ADMIN_TITLE=4,IDS_RENAME_TITLE=5,IDS_UAC_MKDIR_UNKNOWN=6,IDS_UAC_RENAME_SYMLINK_CONFIRM=7;
+static constexpr int IDS_UAC_RENAME_CONFIRM=3,IDS_AS_ADMIN_TITLE=4,IDS_RENAME_TITLE=5,IDS_UAC_MKDIR_UNKNOWN=6,IDS_UAC_RENAME_SYMLINK_CONFIRM=7,IDS_UAC_RENAME_JUNCTION_CONFIRM=8;
 static constexpr UINT MSGBOXEX_OKCANCEL=1,MSGBOXEX_ICONQUESTION=2,MSGBOXEX_SHIELDONDEFBTN=4,MSGBOXEX_DEFBUTTON2=8,MSGBOXEX_SHIELDONOKBTN=16;
 static int Errors=0,LegacyCalls=0,Remaps=0,Updates=0,Sleeps=0,Wakes=0,Checks=0,Failed=0;
 static int ElevationAttempts=0;
@@ -33,7 +34,8 @@ struct PreparedLeaf
 {
     struct Result { DWORD error; bool unknown; };
     bool Prepare(const std::wstring&, const std::wstring&) { ++ElevationAttempts; return false; }
-    bool PrepareRenameSymlink(const std::wstring&, const std::wstring&, bool) { ++ElevationAttempts; return false; }
+    bool IsJunctionRename() const { return false; }
+    bool PrepareRenameLink(const std::wstring&, const std::wstring&, bool) { ++ElevationAttempts; return false; }
     Result Execute(HWND) const { return {ERROR_GEN_FAILURE, false}; }
 };
 }

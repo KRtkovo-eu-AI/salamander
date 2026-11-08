@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Validate a junction before renaming it in place. | Accept a drive-letter junction without resolving it or accepting volume GUID mounts. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Rename a verified directory symbolic link in place. | Open the reparse object without traversing it and enforce the approved type. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Rename a verified file symbolic link in its current parent. | Keep the link target and all other reparse types out of the operation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Recognize one cancel control for tree transfers. | Keep the other transfer commands strict. | | GPT-6.1 Sol (Codex) |
@@ -14,13 +15,20 @@
 
 #include "directoryleaf.h"
 #include <cstddef>
+#include <vector>
+#include <winioctl.h>
 
 extern "C" NTSYSAPI NTSTATUS NTAPI NtSetInformationFile(
     HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG, FILE_INFORMATION_CLASS);
 
 namespace UacRenameLeaf
 {
-enum class MoveKind { OrdinaryFile, RenameFile, RenameSymlink, RenameDirectorySymlink };
+enum class MoveKind { OrdinaryFile, RenameFile, RenameSymlink, RenameDirectorySymlink, RenameJunction };
+
+inline bool IsDirectoryLink(MoveKind kind)
+{
+    return kind == MoveKind::RenameDirectorySymlink || kind == MoveKind::RenameJunction;
+}
 
 namespace Detail
 {
@@ -73,7 +81,58 @@ inline DWORD OpenSource(HANDLE parent, std::wstring_view leaf, HANDLE& source, A
                         MoveKind kind = MoveKind::RenameFile)
 {
     return OpenFile(parent, leaf, source, extraAccess, sharing, FILE_OPEN, 0, nullptr,
-                    kind == MoveKind::RenameDirectorySymlink);
+                    IsDirectoryLink(kind));
+}
+
+// Fixed fields of MS-FSCC Mount Point Reparse Data Buffer.
+struct MountPointHeader
+{
+    DWORD tag;
+    USHORT dataLength, reserved, substituteOffset, substituteLength, printOffset, printLength;
+};
+static_assert(sizeof(MountPointHeader) == 16);
+
+inline DWORD CheckJunctionData(const WCHAR* buffer, size_t bytes)
+{
+    if (bytes < sizeof(MountPointHeader))
+        return ERROR_INVALID_REPARSE_DATA;
+    MountPointHeader header{};
+    std::memcpy(&header, buffer, sizeof(header));
+    constexpr size_t commonHeaderSize = offsetof(MountPointHeader, substituteOffset);
+    const size_t pathBytes = bytes - sizeof(header);
+    const auto validRange = [pathBytes](size_t offset, size_t length) {
+        return offset % sizeof(WCHAR) == 0 && length % sizeof(WCHAR) == 0 &&
+               offset <= pathBytes && length <= pathBytes - offset;
+    };
+    if (header.tag != IO_REPARSE_TAG_MOUNT_POINT)
+        return ERROR_REPARSE_TAG_INVALID;
+    if (header.dataLength != bytes - commonHeaderSize ||
+        !validRange(header.substituteOffset, header.substituteLength) ||
+        !validRange(header.printOffset, header.printLength))
+        return ERROR_INVALID_REPARSE_DATA;
+
+    const std::wstring_view target(buffer + (sizeof(header) + header.substituteOffset) / sizeof(WCHAR),
+                                   header.substituteLength / sizeof(WCHAR));
+    constexpr std::wstring_view prefix = L"\\??\\";
+    if (target.size() < prefix.size() + 3 || target.substr(0, prefix.size()) != prefix)
+        return ERROR_NOT_SUPPORTED;
+    const auto path = target.substr(prefix.size());
+    const WCHAR drive = path.front();
+    if (!((drive >= L'A' && drive <= L'Z') || (drive >= L'a' && drive <= L'z')) ||
+        path[1] != L':' || path[2] != L'\\' || path.find(L'\0') != std::wstring_view::npos ||
+        path.find_first_of(L":/", 3) != std::wstring_view::npos)
+        return ERROR_NOT_SUPPORTED;
+    return ERROR_SUCCESS;
+}
+
+inline DWORD CheckJunction(HANDLE source)
+{
+    std::vector<WCHAR> data(MAXIMUM_REPARSE_DATA_BUFFER_SIZE / sizeof(WCHAR));
+    const DWORD capacity = static_cast<DWORD>(data.size() * sizeof(WCHAR));
+    DWORD bytes = 0;
+    if (!DeviceIoControl(source, FSCTL_GET_REPARSE_POINT, nullptr, 0, data.data(), capacity, &bytes, nullptr))
+        return GetLastError();
+    return bytes <= capacity ? CheckJunctionData(data.data(), bytes) : ERROR_INVALID_REPARSE_DATA;
 }
 
 inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity, MoveKind kind = MoveKind::RenameFile)
@@ -84,14 +143,19 @@ inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity, MoveKind 
         !GetFileInformationByHandleEx(source, FileStandardInfo, &standard, sizeof(standard)) ||
         !GetFileInformationByHandleEx(source, FileIdInfo, &identity, sizeof(identity)))
         return GetLastError();
-    const bool directory = kind == MoveKind::RenameDirectorySymlink;
-    const bool symlink = directory || kind == MoveKind::RenameSymlink;
-    const bool reparse = (attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
-    if (symlink ? (!reparse || attributes.ReparseTag != IO_REPARSE_TAG_SYMLINK) : reparse)
+    const bool directory = IsDirectoryLink(kind);
+    const bool junction = kind == MoveKind::RenameJunction;
+    DWORD expectedTag = 0;
+    if (junction)
+        expectedTag = IO_REPARSE_TAG_MOUNT_POINT;
+    else if (directory || kind == MoveKind::RenameSymlink)
+        expectedTag = IO_REPARSE_TAG_SYMLINK;
+    const DWORD tag = (attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ? attributes.ReparseTag : 0;
+    if (tag != expectedTag || (tag == 0 && (attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)))
         return ERROR_REPARSE_TAG_INVALID;
     if ((standard.Directory != FALSE) != directory || standard.NumberOfLinks != 1 || standard.DeletePending)
         return ERROR_NOT_SUPPORTED;
-    return ERROR_SUCCESS;
+    return junction ? CheckJunction(source) : ERROR_SUCCESS;
 }
 
 inline constexpr BYTE treeCancelSignal = 1;

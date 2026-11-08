@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify junction rename and mount-point rejection. | Exercise real NTFS junction data and malformed or unsupported substitute names. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise verified directory symbolic-link rename. | Check type, collision, parent binding, and unchanged reparse data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check the scoped rename of an NTFS file symbolic link. | Verify the exact object and preserve the stored link target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise explicit NTFS compression preservation. | Verify content, exact attributes, compression format, and ADS refusal. | | GPT-6.1 Sol (Codex) |
@@ -1696,6 +1697,76 @@ int wmain(int argc, wchar_t** argv)
     Handle longParent(rawParent);
     error = CreateVerifiedLeaf(longParent.get(), expected, leaf);
     Check(error == ERROR_SUCCESS && DirectoryExists(longPath + L"\\" + leaf), "create exact Unicode leaf on a long path", error);
+    using UacRenameLeaf::Detail::MountPointHeader;
+    const auto mountData = [](std::wstring_view substitute) {
+        std::vector<WCHAR> buffer(sizeof(MountPointHeader) / sizeof(WCHAR) + substitute.size());
+        MountPointHeader info{};
+        info.tag = IO_REPARSE_TAG_MOUNT_POINT;
+        info.substituteLength = static_cast<USHORT>(substitute.size() * sizeof(WCHAR));
+        info.dataLength = static_cast<USHORT>(sizeof(info) - offsetof(MountPointHeader, substituteOffset) +
+                                              info.substituteLength);
+        std::memcpy(buffer.data(), &info, sizeof(info));
+        std::copy(substitute.begin(), substitute.end(), buffer.begin() + sizeof(info) / sizeof(WCHAR));
+        return buffer;
+    };
+    const auto checkMountData = [](const std::vector<WCHAR>& data) {
+        return UacRenameLeaf::Detail::CheckJunctionData(data.data(), data.size() * sizeof(WCHAR));
+    };
+    const auto volumeData = mountData(L"\\??\\Volume{01234567-89ab-cdef-0123-456789abcdef}\\");
+    const DWORD volumeError = checkMountData(volumeData);
+    Check(volumeError == ERROR_NOT_SUPPORTED, "reject the volume GUID namespace despite the matching mount-point tag", volumeError);
+    const DWORD uncError = checkMountData(mountData(L"\\??\\UNC\\server\\share"));
+    Check(uncError == ERROR_NOT_SUPPORTED, "reject an unsupported junction target namespace", uncError);
+    auto malformed = mountData(L"\\??\\C:\\fixture");
+    malformed[offsetof(MountPointHeader, substituteOffset) / sizeof(WCHAR)] = 1;
+    const DWORD malformedError = checkMountData(malformed);
+    Check(malformedError == ERROR_INVALID_REPARSE_DATA, "reject a misaligned substitute name before reading it", malformedError);
+    malformed.pop_back();
+    const DWORD truncated = checkMountData(malformed);
+    Check(truncated == ERROR_INVALID_REPARSE_DATA, "reject a truncated mount-point buffer", truncated);
+
+    const auto longJunction = longPath + L"\\junction-\u65e5";
+    const auto renamedJunction = longPath + L"\\junction-\u672c";
+    const auto junctionSentinel = fixture + L"\\destination\\junction-sentinel.txt";
+    if (!CreateDirectoryW(longJunction.c_str(), nullptr) || !WriteFixture(junctionSentinel, content))
+        return 2;
+    DWORD donorBytes = 0;
+    {
+        const auto newJunction = openReparse(longJunction, GENERIC_WRITE);
+        DWORD written = 0;
+        if (!newJunction ||
+            !DeviceIoControl(donor.get(), FSCTL_GET_REPARSE_POINT, nullptr, 0, tag.get(),
+                             MAXIMUM_REPARSE_DATA_BUFFER_SIZE, &donorBytes, nullptr) ||
+            !DeviceIoControl(newJunction.get(), FSCTL_SET_REPARSE_POINT, tag.get(), donorBytes, nullptr, 0, &written, nullptr))
+            return 2;
+    }
+    DWORD junctionRename = ERROR_GEN_FAILURE;
+    {
+        FILE_ID_INFO beforeId{}, afterId{};
+        const auto beforeJunction = OpenIdentity(longJunction, beforeId, true);
+        if (!beforeJunction)
+            return 2;
+        junctionRename = UacRenameLeaf::RenameVerifiedFile(longParent.get(), expected, beforeId,
+            L"junction-\u65e5", leaf, UacRenameLeaf::MoveKind::RenameJunction);
+        Check((junctionRename == ERROR_ALREADY_EXISTS || junctionRename == ERROR_FILE_EXISTS) &&
+                  DirectoryExists(longJunction) && DirectoryExists(longPath + L"\\" + leaf),
+              "junction rename keeps both entries on collision", junctionRename);
+        junctionRename = UacRenameLeaf::RenameVerifiedFile(longParent.get(), expected, beforeId,
+            L"junction-\u65e5", L"junction-\u672c", UacRenameLeaf::MoveKind::RenameJunction);
+        const auto afterJunction = OpenIdentity(renamedJunction, afterId, true);
+        std::vector<BYTE> afterData(MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+        DWORD actualBytes = 0;
+        Check(junctionRename == ERROR_SUCCESS && !Exists(longJunction) && afterJunction &&
+                  UacRenameLeaf::Detail::SameSource(beforeId, afterId) &&
+                  DeviceIoControl(afterJunction.get(), FSCTL_GET_REPARSE_POINT, nullptr, 0, afterData.data(),
+                                  static_cast<DWORD>(afterData.size()), &actualBytes, nullptr) &&
+                  actualBytes == donorBytes && std::memcmp(tag.get(), afterData.data(), donorBytes) == 0 &&
+                  HasContents(junctionSentinel, content) && HasContents(renamedJunction + L"\\junction-sentinel.txt", content),
+              "rename a Unicode junction below a long path without changing its identity, data or target", junctionRename);
+    }
+    if (!RemoveDirectoryW((junctionRename == ERROR_SUCCESS ? renamedJunction : longJunction).c_str()))
+        return 2;
+
     const auto longSource = longPath + L"\\source-\u65e5";
     const auto longTarget = longPath + L"\\target-\u672c";
     FILE_ID_INFO longId{};
