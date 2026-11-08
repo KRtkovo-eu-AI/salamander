@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Carry ordinary attributes through EFS publication. | Keep source flags without changing its encryption. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Publish verified EFS payloads with destination permissions. | Keep deletion armed until the published metadata has been verified. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
@@ -169,6 +170,8 @@ inline DWORD PublishPayload(const Workspace& workspace, HANDLE target,
     metadata.CreationTime = sourceTimes.CreationTime;
     metadata.LastWriteTime = sourceTimes.LastWriteTime;
     metadata.LastAccessTime = sourceTimes.LastAccessTime;
+    if (sourceTimes.FileAttributes & FILE_ATTRIBUTE_ENCRYPTED)
+        metadata.FileAttributes = UacCopyLeaf::Detail::CopiedAttributes(sourceTimes.FileAttributes & ~FILE_ATTRIBUTE_ENCRYPTED);
     if (!SetFileInformationByHandle(payload.get(), FileBasicInfo, &metadata, sizeof(metadata)))
         return GetLastError();
     if ((error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline)) != ERROR_SUCCESS)

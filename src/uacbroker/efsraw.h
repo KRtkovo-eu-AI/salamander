@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Check the host connection during EFS transfer. | Stop raw callbacks after a disconnect. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Wrap bounded EFS Raw transfers. | Keep encrypted bytes intact and isolate the path-dependent open from transfer. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
+#include "renameleaf.h"
 #include <windows.h>
 #include <winefs.h>
 #include <algorithm>
@@ -38,14 +40,14 @@ public:
         return error;
     }
 
-    DWORD Read(std::vector<BYTE>& bytes, size_t maximum, ULONGLONG deadline)
+    DWORD Read(std::vector<BYTE>& bytes, size_t maximum, ULONGLONG deadline, HANDLE connection = nullptr)
     {
         bytes.clear();
         if (!value)
             return ERROR_INVALID_HANDLE;
         if (GetTickCount64() >= deadline)
             return ERROR_TIMEOUT;
-        ExportState state{bytes, maximum, deadline};
+        ExportState state{bytes, maximum, deadline, connection};
         const DWORD result = ReadEncryptedFileRaw(Export, &state, value);
         DWORD error = state.error ? state.error : result;
         if (!error && bytes.empty())
@@ -57,7 +59,7 @@ public:
         return error;
     }
 
-    DWORD Write(const std::vector<BYTE>& bytes, ULONGLONG deadline)
+    DWORD Write(const std::vector<BYTE>& bytes, ULONGLONG deadline, HANDLE connection = nullptr)
     {
         if (!value)
             return ERROR_INVALID_HANDLE;
@@ -65,7 +67,7 @@ public:
             return ERROR_INVALID_DATA;
         if (GetTickCount64() >= deadline)
             return ERROR_TIMEOUT;
-        ImportState state{bytes, deadline};
+        ImportState state{bytes, deadline, connection};
         const DWORD error = WriteEncryptedFileRaw(Import, &state, value);
         if (state.error)
             return state.error;
@@ -82,6 +84,7 @@ private:
         std::vector<BYTE>& bytes;
         size_t maximum;
         ULONGLONG deadline;
+        HANDLE connection;
         DWORD error = ERROR_SUCCESS;
     };
 
@@ -89,6 +92,7 @@ private:
     {
         const std::vector<BYTE>& bytes;
         ULONGLONG deadline;
+        HANDLE connection;
         size_t offset = 0;
         DWORD error = ERROR_SUCCESS;
     };
@@ -98,8 +102,8 @@ private:
         auto& state = *static_cast<ExportState*>(context);
         if (state.error)
             return state.error;
-        if (GetTickCount64() >= state.deadline)
-            return state.error = ERROR_TIMEOUT;
+        if (const DWORD error = UacRenameLeaf::Detail::CheckTransferConnection(state.connection, state.deadline))
+            return state.error = error;
         if (length > state.maximum - state.bytes.size() || length > state.bytes.max_size() - state.bytes.size())
             return state.error = ERROR_FILE_TOO_LARGE;
         if (!length)
@@ -120,8 +124,8 @@ private:
         auto& state = *static_cast<ImportState*>(context);
         if (state.error)
             return state.error;
-        if (GetTickCount64() >= state.deadline)
-            return state.error = ERROR_TIMEOUT;
+        if (const DWORD error = UacRenameLeaf::Detail::CheckTransferConnection(state.connection, state.deadline))
+            return state.error = error;
         *length = static_cast<ULONG>(std::min<size_t>(*length, state.bytes.size() - state.offset));
         if (*length)
         {

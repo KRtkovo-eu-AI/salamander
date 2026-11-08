@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise the verified EFS transfer end to end. | Validate the path shared with the elevated broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify EFS publication and inherited destination permissions. | Exercise cancellation, no-replace collision and workspace cleanup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise EFS workspace recovery on NTFS. | Retain the original link and reject substitutions in live and deferred cleanup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise bounded EFS Raw export and import. | Verify ciphertext preservation and measure the source-handle sharing boundary. | | GPT-6.1 Sol (Codex) |
@@ -59,7 +60,7 @@
 #include "../uacbroker/viewleaf.h"
 #include "../findtagstream.h"
 #include "../uacbroker/efsraw.h"
-#include "../uacbroker/efspublish.h"
+#include "../uacbroker/efscopy.h"
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
@@ -1605,6 +1606,40 @@ static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const F
         if (error)
             return false;
     }
+    constexpr wchar_t encryptedLeaf[] = L"\u6771-restored.txt";
+    constexpr wchar_t copiedLeaf[] = L"\u6771-integrated-copy.txt";
+    const auto copied = targetPath + L"\\" + copiedLeaf;
+    const HANDLE rawSourceParent = CreateFileW(folder.c_str(), FILE_TRAVERSE | FILE_READ_ATTRIBUTES, share, nullptr,
+                                              OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (rawSourceParent == INVALID_HANDLE_VALUE)
+        return false;
+    const Handle sourceParent(rawSourceParent);
+    UacDirectoryLeaf::ParentIdentity sourceParentId;
+    if (UacDirectoryLeaf::ReadParentIdentity(sourceParent.get(), sourceParentId))
+        return false;
+    auto copy = [&](ULONGLONG expectedSize) {
+        return UacEfsWorkspace::CopyVerifiedFile(sourceParent.get(), sourceParentId, sourceId, encryptedLeaf,
+                                                 target.get(), targetId, copiedLeaf, expectedSize, parent.get(), parentId,
+                                                 journal.get(), rawSecurity, nullptr, MAXULONGLONG);
+    };
+    DWORD result = copy(plaintext.size() + 1);
+    Check(result == ERROR_FILE_INVALID && !Exists(copied), "reject a stale EFS size before starting the raw transfer", result);
+    const auto originalPath = folder + L"\\" + encryptedLeaf;
+    const DWORD originalAttrs = GetFileAttributesW(originalPath.c_str());
+    if (originalAttrs == INVALID_FILE_ATTRIBUTES ||
+        !SetFileAttributesW(originalPath.c_str(), originalAttrs | FILE_ATTRIBUTE_HIDDEN))
+        return false;
+    result = copy(plaintext.size());
+    const DWORD copiedAttrs = GetFileAttributesW(copied.c_str());
+    Check(!result && copiedAttrs != INVALID_FILE_ATTRIBUTES &&
+              (copiedAttrs & (FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_HIDDEN)) ==
+                  (FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_HIDDEN) &&
+              HasContents(copied, plaintext),
+          "transfer and publish an encrypted file through the complete verified EFS path", result);
+
+    result = copy(plaintext.size());
+    Check((result == ERROR_FILE_EXISTS || result == ERROR_ALREADY_EXISTS) && HasContents(copied, plaintext),
+          "the complete EFS transfer does not overwrite an existing file", result);
     LARGE_INTEGER size{};
     Check(GetFileSizeEx(journal.get(), &size) && !size.QuadPart, "clear the EFS journal after verified cleanup");
     return failures == 0;
@@ -1696,6 +1731,15 @@ static bool CheckEfsRaw(const std::wstring& folder, const wchar_t* fixturePath)
               "EFS Raw cannot open a source pinned by a separate delete handle", error);
     }
     {
+        const auto writer = open(restored.c_str(), FILE_WRITE_DATA, share);
+        if (!writer)
+            return false;
+        UacEfsRaw::Context input;
+        const DWORD error = input.Open(volumePath.c_str(), 0);
+        Check(error == ERROR_ACCESS_DENIED || error == ERROR_SHARING_VIOLATION,
+              "EFS Raw cannot open while a writer already owns the encrypted file", error);
+    }
+    {
         UacEfsRaw::Context input;
         if (input.Open(volumePath.c_str(), 0))
             return false;
@@ -1704,6 +1748,11 @@ static bool CheckEfsRaw(const std::wstring& folder, const wchar_t* fixturePath)
         const auto identity = open(restored.c_str(), FILE_READ_ATTRIBUTES, share);
         Check(!competitor && competingError == ERROR_SHARING_VIOLATION && identity,
               "an open EFS Raw context blocks deletion but allows reading identity", competingError);
+
+        const auto writer = open(restored.c_str(), FILE_WRITE_DATA, share);
+        const DWORD writerError = writer ? ERROR_SUCCESS : GetLastError();
+        Check(!writer && writerError == ERROR_SHARING_VIOLATION,
+              "an open EFS Raw export excludes a concurrent data writer", writerError);
 
         std::vector<BYTE> limited;
         const DWORD error = input.Read(limited, 1, MAXULONGLONG);
@@ -1716,6 +1765,19 @@ static bool CheckEfsRaw(const std::wstring& folder, const wchar_t* fixturePath)
         std::vector<BYTE> expired;
         const DWORD error = input.Read(expired, raw.size(), GetTickCount64());
         Check(error == ERROR_TIMEOUT && expired.empty(), "reject an expired raw export", error);
+    }
+    {
+        HANDLE reader = nullptr, writer = nullptr;
+        if (!CreatePipe(&reader, &writer, nullptr, 0))
+            return false;
+        const Handle connection(reader);
+        CloseHandle(writer);
+        UacEfsRaw::Context input;
+        if (input.Open(volumePath.c_str(), 0))
+            return false;
+        std::vector<BYTE> interrupted;
+        const DWORD error = input.Read(interrupted, raw.size(), MAXULONGLONG, connection.get());
+        Check(error == ERROR_BROKEN_PIPE && interrupted.empty(), "discard EFS raw bytes when the host disconnects", error);
     }
     {
         const HANDLE rawParent = CreateFileW(folder.c_str(), FILE_ADD_FILE | FILE_READ_ATTRIBUTES,
