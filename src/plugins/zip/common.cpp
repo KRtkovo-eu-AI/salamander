@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Open verified range sources for ZIP entry reads. | Bound ZIP64 extra-field reads by the actual header. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Read ZIP metadata through a bounded callback. | Validate ZIP64 offsets and keep protected listing on one file. | | GPT-6.1 Sol (Codex) |
 
 #include "precomp.h"
@@ -518,6 +519,26 @@ CZipCommon::~CZipCommon()
         SetCurrentDirectory(OriginalCurrentDir);
     if (Comment)
         free(Comment);
+}
+
+DWORD CZipCommon::OpenReadSource(const SalZipReadSourceV1& source)
+{
+    Extract = false; // Never search for or open additional volumes.
+    RangeSource = &source;
+    ZipFile = static_cast<CFile*>(calloc(1, sizeof(CFile)));
+    if (!ZipFile)
+        return ERROR_NOT_ENOUGH_MEMORY;
+    ZipFile->File = INVALID_HANDLE_VALUE;
+    ZipFile->Size = source.Size;
+    if (!source.Size || CheckZip() || EOCentrDir.StartDisk ||
+        (EOCentrDir.DiskNum != 0 && (!Zip64 || EOCentrDir.DiskNum != 0xFFFF)) ||
+        EOCentrDir.DiskTotalEntries != EOCentrDir.TotalEntries ||
+        EOCentrDir.CommentLen != ZipFile->Size - EOCentrDirOffs - sizeof(CEOCentrDirRecord))
+        return RangeError ? RangeError : ERROR_INVALID_DATA;
+    if (EOCentrDir.TotalEntries > 4096)
+        return ERROR_FILE_TOO_LARGE;
+
+    return ERROR_SUCCESS;
 }
 
 int CZipCommon::CheckZip()
@@ -1597,21 +1618,27 @@ void CZipCommon::ProcessHeader(CFileHeader* fileHeader, CFileInfo* fileInfo)
         unsigned iterator = sizeof(CFileHeader) + fileHeader->NameLen;
 
         // locate the Zip64 extra header
+        const unsigned extraEnd = sizeof(CFileHeader) + fileHeader->NameLen + fileHeader->ExtraLen;
         BOOL found = FALSE;
-        while (iterator + 4 < sizeof(CFileHeader) + fileHeader->NameLen + fileHeader->ExtraLen)
+        WORD fieldSize = 0;
+        while (extraEnd - iterator >= 4)
         {
-            if (NEXT(WORD) == ZIP64_HEADER_ID)
+            const WORD tag = NEXT(WORD);
+            fieldSize = NEXT(WORD);
+            if (fieldSize > extraEnd - iterator)
+                break;
+            if (tag == ZIP64_HEADER_ID)
             {
                 found = TRUE;
                 break;
             }
-            iterator += NEXT(WORD);
+            iterator += fieldSize;
         }
 
         // read the values from the header
         if (found)
         {
-            if (NEXT(WORD) >= expectedZip64Size)
+            if (fieldSize >= expectedZip64Size)
             {
                 if (fileInfo->Size == 0xFFFFFFFF)
                     fileInfo->Size = NEXT(QWORD);

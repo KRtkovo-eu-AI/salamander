@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Use the common verified range-source initializer. | Share ZIP64 and single-volume checks. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Build protected listings through the regular ZIP directory parser. | Keep invalid paths out of the browsable tree. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | List one ZIP or ZIP64 from the private read source. | Emit display names only and bound the number of entries. | | GPT-6.1 Sol (Codex) |
 
@@ -52,29 +53,9 @@ static wchar_t* DupZipUtf8NameW(const char* name, int nameLen)
     return nameW;
 }
 
-DWORD CZipList::OpenSource(const SalZipReadSourceV1& source)
-{
-    Extract = false; // Never search for or open additional volumes.
-    RangeSource = &source;
-    ZipFile = static_cast<CFile*>(calloc(1, sizeof(CFile)));
-    if (!ZipFile)
-        return ERROR_NOT_ENOUGH_MEMORY;
-    ZipFile->File = INVALID_HANDLE_VALUE;
-    ZipFile->Size = source.Size;
-    if (!source.Size || CheckZip() || EOCentrDir.StartDisk ||
-        (EOCentrDir.DiskNum != 0 && (!Zip64 || EOCentrDir.DiskNum != 0xFFFF)) ||
-        EOCentrDir.DiskTotalEntries != EOCentrDir.TotalEntries ||
-        EOCentrDir.CommentLen != ZipFile->Size - EOCentrDirOffs - sizeof(CEOCentrDirRecord))
-        return RangeError ? RangeError : ERROR_INVALID_DATA;
-    if (EOCentrDir.TotalEntries > 4096)
-        return ERROR_FILE_TOO_LARGE;
-
-    return ERROR_SUCCESS;
-}
-
 DWORD CZipList::ListSource(const SalZipReadSourceV1& source)
 {
-    const DWORD openError = OpenSource(source);
+    const DWORD openError = OpenReadSource(source);
     if (openError)
         return openError;
     std::vector<char> header(MAX_HEADER_SIZE);

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Read ZIP entries through the existing authorization. | Use the same bounded broker batch as the panel listing. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reuse one protected ZIP authorization for explicit refresh. | Release the broker session when the archive panel closes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Publish a complete protected listing in the standard archive panel. | Refresh explicitly and preserve the existing tree on failure. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer a protected ZIP listing after ordinary read denial. | Reuse the internal viewer for read-only output. | | GPT-6.1 Sol (Codex) |
@@ -3531,6 +3532,32 @@ DWORD ReadProtectedZip(HWND owner, const char* archive, CSalamanderDirectory& di
         date = attributes.ftLastWriteTime;
     return ERROR_SUCCESS;
 }
+}
+
+DWORD CFilesWindow::ReadProtectedZipEntry(const CFileData& file, const char* name, ULONGLONG maxBytes,
+                                         SalZipWrite write, void* context)
+{
+    if (!IsProtectedZip() || !ProtectedZipSession || !ProtectedZipSession->IsOpen())
+        return ERROR_PIPE_NOT_CONNECTED;
+    CPluginData* plugin = GetPluginDataForPluginIface();
+    if (!plugin)
+        return ERROR_NOT_SUPPORTED;
+    const auto read = reinterpret_cast<SalReadZipEntryV1>(
+        GetProcAddress(plugin->GetPluginDLL(), "SalamanderReadZipEntryV1"));
+    if (!read)
+        return ERROR_NOT_SUPPORTED;
+
+    auto& session = *ProtectedZipSession;
+    ProtectedZipListing listing{session};
+    const SalZipReadSourceV1 source{session.Size(), &listing, ProtectedZipListing::Read, nullptr};
+    const DWORD beginError = session.BeginRead();
+    if (beginError)
+        return beginError;
+    EnterPlugin();
+    const DWORD error = read(&source, name, &file, maxBytes, write, context);
+    LeavePlugin();
+    const DWORD endError = session.EndRead();
+    return error ? error : endError;
 }
 
 BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archivePath,

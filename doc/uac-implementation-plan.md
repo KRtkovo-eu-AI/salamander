@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record the protected ZIP F3 implementation. | Track the verified entry reader and deferred joint acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Limit the current UAC scope to core functions and ZIP. | Sequence the remaining ZIP work and defer other plugins and public SDK changes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify persistent protected ZIP authorization. | Reuse one broker across manual refreshes and release it on archive exit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify the protected ZIP64 archive panel. | Record folder navigation, manual refresh, cancellation, and ordinary ZIP behavior. | | GPT-6.1 Sol (Codex) |
@@ -788,6 +789,10 @@ ZIP je jediný plugin v aktuální etapě UAC. Jeho běžný archivní panel už
 1. **F3 pro jednu položku chráněného ZIPu.** Propojit interní prohlížeč s ověřenou položkou a stávajícím dekompresorem ZIPu. Čtení použije otevřenou relaci archivu bez další výzvy. Ověřit identitu položky, velikost výstupu, CRC, poškozený archiv a ztrátu spojení. Do interního prohlížeče předat výsledek až po úspěšném dokončení.
 2. **Rozbalování přes F5.** Nejprve jedna položka do běžně zapisovatelného cíle, potom rozšíření na výběr. Chráněný zdroj dál využije otevřenou relaci. Chráněný cíl vyžaduje samostatné schválení zápisu pro přesně uvedené umístění. Ověřit kolize, zrušení, úklid a názvy položek před vytvořením souborů.
 3. **Změny archivu.** Přidání, nahrazení a odstranění položek vyžadují výslovný zápis do archivu. Připravit obsah s běžnými právy a bezpečné zveřejnění posoudit samostatně podle závěrů P4m. Po dobu otevřené čtecí relace drží broker zdroj proti přepsání. Přechod do režimu zápisu musí znovu ověřit identitu originálu a řešit konflikt či přerušení mezi přípravou a zveřejněním.
+
+**Implementace F3.** Interní prohlížeč dostane ověřený snímek jedné vybrané položky o velikosti nejvýše 16 MiB. ZIP plugin použije položku z existujícího panelu, ověří její pořadí, jméno a velikosti proti centrálnímu adresáři a porovná název a parametry s lokální hlavičkou. Podporuje metody Stored a Deflate. Před otevřením prohlížeče ověří délku rozbalených dat a CRC. Broker znovu použije otevřenou relaci archivu. Nový souhlas se pro F3 nevyvolává a výsledek zůstává v paměti.
+
+Aplikace a ZIP plugin prošly sestavením x64 Debug. Funkční testy a ověření v izolované VM jsou naplánované společně s dalšími funkcemi ZIPu.
 
 ## 9. Uživatelský tok a stav operace
 

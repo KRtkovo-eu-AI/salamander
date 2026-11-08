@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Export the ZIP entry reader privately. | Keep the public plugin ABI and ordinary unpacking intact. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Export the standard protected ZIP panel listing. | Return normal plugin-owned metadata and discard partial failures. | | GPT-6.1 Sol (Codex) |
 
 #include "precomp.h"
@@ -1034,7 +1035,7 @@ DWORD WINAPI SalamanderListZipPanelV1(const SalZipReadSourceV1* source, CSalaman
     try
     {
         CZipList list("", nullptr);
-        error = list.OpenSource(*source);
+        error = list.OpenReadSource(*source);
         if (error)
             return error;
         data = new CPluginDataInterface();
@@ -1058,6 +1059,22 @@ DWORD WINAPI SalamanderListZipPanelV1(const SalZipReadSourceV1* source, CSalaman
         delete data;
     }
     return error;
+}
+
+DWORD WINAPI SalamanderReadZipEntryV1(const SalZipReadSourceV1* source, const char* name, const CFileData* file,
+                                      ULONGLONG maxBytes, SalZipWrite write, void* context)
+{
+    if (!source || !source->Read || !name || !file || !write)
+        return ERROR_INVALID_PARAMETER;
+    try
+    {
+        CZipUnpack unpack("", "", nullptr, nullptr);
+        return unpack.ReadSourceEntry(*source, name, *file, maxBytes, write, context);
+    }
+    catch (const std::bad_alloc&)
+    {
+        return ERROR_NOT_ENOUGH_MEMORY;
+    }
 }
 
 BOOL CPluginInterfaceForArchiver::ListArchive(CSalamanderForOperationsAbstract* salamander,

@@ -1,7 +1,12 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Decode one ZIP entry from the approved source. | Reuse the ZIP parser and host Deflate engine with exact size and CRC checks. | | GPT-6.1 Sol (Codex) |
 
 #include "precomp.h"
+#include "../../common/zipread.h"
+#include "spl_zlib.h"
+#include <vector>
+#include <memory>
 #include <tchar.h>
 #include <string>
 #include <new>
@@ -220,6 +225,116 @@ int CZipUnpack::UnpackArchive(const char* targetDir, SalEnumSelection next, void
     return ErrorID;
 }
 
+DWORD CZipUnpack::ReadSourceEntry(const SalZipReadSourceV1& source, const char* name, const CFileData& file,
+                                    ULONGLONG maxBytes, SalZipWrite write, void* context)
+{
+    if (!file.PluginData || file.Size.Value > maxBytes)
+        return file.PluginData ? ERROR_FILE_TOO_LARGE : ERROR_INVALID_DATA;
+    const auto& listed = *reinterpret_cast<const CZIPFileData*>(file.PluginData);
+    const DWORD openError = OpenReadSource(source);
+    if (openError)
+        return openError;
+    if (listed.ItemNumber < 0 || listed.ItemNumber >= EOCentrDir.TotalEntries)
+        return ERROR_INVALID_DATA;
+
+    CFileInfo entry;
+    std::string rawName;
+    if (FindFile(name, &entry, listed.ItemNumber, &rawName))
+        return RangeError ? RangeError : ERROR_INVALID_DATA;
+    if (entry.Size != file.Size.Value || entry.CompSize != listed.PackedSize ||
+        entry.StartDisk || entry.IsDir || entry.LocHeaderOffs >= CentrDirOffs ||
+        (entry.FileAttr & FILE_ATTRIBUTE_REPARSE_POINT))
+        return ERROR_INVALID_DATA;
+    if ((entry.Flag & GPF_ENCRYPTED) || (entry.Method != CM_STORED && entry.Method != CM_DEFLATED))
+        return ERROR_NOT_SUPPORTED;
+
+    std::vector<BYTE> input(MAX_HEADER_SIZE);
+    auto* local = reinterpret_cast<CLocalFileHeader*>(input.data());
+    if (ReadLocalHeader(local, entry.LocHeaderOffs))
+        return RangeError ? RangeError : ERROR_INVALID_DATA;
+    if (local->Method != entry.Method || local->Flag != entry.Flag ||
+        local->NameLen != rawName.size() || memcmp(input.data() + sizeof(*local), rawName.data(), rawName.size()) != 0 ||
+        ZipFile->FilePointer > CentrDirOffs || entry.CompSize > CentrDirOffs - ZipFile->FilePointer)
+        return ERROR_INVALID_DATA;
+
+    QWORD remaining = entry.CompSize;
+    QWORD written = 0;
+    DWORD crc = INIT_CRC;
+    auto emit = [&](const BYTE* bytes, DWORD count) {
+        if (count > entry.Size - written)
+            return static_cast<DWORD>(ERROR_INVALID_DATA);
+        if (!count)
+            return static_cast<DWORD>(ERROR_SUCCESS);
+        crc = SalamanderGeneral->UpdateCrc32(bytes, count, crc);
+        written += count;
+        return write(context, bytes, count);
+    };
+    auto fill = [&]() -> DWORD {
+        const auto count = static_cast<unsigned>(min(remaining, static_cast<QWORD>(input.size())));
+        if (Read(ZipFile, input.data(), count, nullptr, nullptr))
+            return 0;
+        remaining -= count;
+        return count;
+    };
+
+    DWORD error = ERROR_SUCCESS;
+    if (entry.Method == CM_STORED)
+    {
+        if (entry.CompSize != entry.Size)
+            return ERROR_INVALID_DATA;
+        while (remaining && !error)
+        {
+            const DWORD count = fill();
+            if (!count)
+                return RangeError ? RangeError : ERROR_HANDLE_EOF;
+            error = emit(input.data(), count);
+        }
+    }
+    else
+    {
+        std::vector<BYTE> output(MAX_HEADER_SIZE);
+        auto* zlib = SalamanderGeneral->GetSalamanderZLIB();
+        CSalZLIB state{};
+        const int init = zlib->InflateInit2(&state, -15); // ZIP stores raw Deflate.
+        if (init != SAL_Z_OK)
+            return init == SAL_Z_MEM_ERROR ? ERROR_NOT_ENOUGH_MEMORY : ERROR_INVALID_DATA;
+        int result;
+        do
+        {
+            if (!state.avail_in && remaining)
+            {
+                state.avail_in = fill();
+                if (!state.avail_in)
+                {
+                    error = RangeError ? RangeError : ERROR_HANDLE_EOF;
+                    break;
+                }
+                state.next_in = input.data();
+            }
+            const UINT available = state.avail_in;
+            state.next_out = output.data();
+            state.avail_out = static_cast<UINT>(output.size());
+            result = zlib->Inflate(&state, SAL_Z_NO_FLUSH);
+            const DWORD produced = static_cast<DWORD>(output.size()) - state.avail_out;
+            if (result != SAL_Z_OK && result != SAL_Z_STREAM_END)
+                error = result == SAL_Z_MEM_ERROR ? ERROR_NOT_ENOUGH_MEMORY : ERROR_INVALID_DATA;
+            else if (result == SAL_Z_OK && !produced && state.avail_in == available)
+                error = ERROR_INVALID_DATA;
+            else
+                error = emit(output.data(), produced);
+        } while (!error && result != SAL_Z_STREAM_END);
+        if (!error && (remaining || state.avail_in))
+            error = ERROR_INVALID_DATA;
+        zlib->InflateEnd(&state);
+    }
+
+    if (error)
+        return error;
+    if (written != entry.Size)
+        return ERROR_INVALID_DATA;
+    return crc == entry.Crc ? ERROR_SUCCESS : ERROR_CRC;
+}
+
 int CZipUnpack::UnpackOneFile(const char* nameInZip, const CFileData* fileData, const char* targetPath, const char* newFileName)
 {
     CALL_STACK_MESSAGE3("CZipUnpack::UnpackOneFile(%s, , %s)", nameInZip, targetPath);
@@ -380,7 +495,7 @@ int CZipUnpack::UnpackWholeArchive(const char* mask, const char* targetDir)
     return ErrorID;
 }
 
-int CZipUnpack::FindFile(LPCTSTR name, CFileInfo* fileInfo, int nItem)
+int CZipUnpack::FindFile(LPCTSTR name, CFileInfo* fileInfo, int nItem, std::string* rawName)
 {
     CALL_STACK_MESSAGE2("CZipUnpack::FindFile(%s, )", name);
     CFileHeader* centralHeader;
@@ -391,16 +506,12 @@ int CZipUnpack::FindFile(LPCTSTR name, CFileInfo* fileInfo, int nItem)
     DWORD pathFlag = Unix ? 0 : NORM_IGNORECASE;
     BOOL found = FALSE;
 
-    centralHeader = (CFileHeader*)malloc(MAX_HEADER_SIZE);
-    tempName = (char*)malloc(MAX_HEADER_SIZE);
+    const std::unique_ptr<void, decltype(&free)> headerStorage(malloc(MAX_HEADER_SIZE), free);
+    const std::unique_ptr<void, decltype(&free)> nameStorage(malloc(MAX_HEADER_SIZE), free);
+    centralHeader = static_cast<CFileHeader*>(headerStorage.get());
+    tempName = static_cast<char*>(nameStorage.get());
     if (!centralHeader || !tempName)
-    {
-        if (centralHeader)
-            free(centralHeader);
-        if (tempName)
-            free(tempName);
         return IDS_LOWMEM;
-    }
     readOffset = CentrDirOffs + ExtraBytes;
     readSize = 0;
     if (DiskNum != CentrDirStartDisk && MultiVol)
@@ -417,6 +528,8 @@ int CZipUnpack::FindFile(LPCTSTR name, CFileInfo* fileInfo, int nItem)
         if (errorID)
             break;
         readSize += s;
+        if (RangeSource && readSize > CentrDirSize)
+            break;
         if (i == nItem)
         {
             unsigned int tempNameLen = ProcessName(centralHeader, tempName);
@@ -427,12 +540,11 @@ int CZipUnpack::FindFile(LPCTSTR name, CFileInfo* fileInfo, int nItem)
                 LPCTSTR str = _tcsrchr(name, '\\');
                 int pathLen;
                 pathLen = str ? (int)(str - name + 1) : 0;
-                if ((CompareString(LOCALE_USER_DEFAULT, pathFlag,
-                                   name, pathLen,
-                                   tempName, pathLen) == CSTR_EQUAL) &&
-                    (CompareString(LOCALE_USER_DEFAULT, 0,
-                                   name + pathLen, nameLen - pathLen,
-                                   tempName + pathLen, nameLen - pathLen) == CSTR_EQUAL))
+                const bool matches = RangeSource ? memcmp(name, tempName, nameLen) == 0 :
+                    ((CompareString(LOCALE_USER_DEFAULT, pathFlag, name, pathLen, tempName, pathLen) == CSTR_EQUAL) &&
+                     (CompareString(LOCALE_USER_DEFAULT, 0, name + pathLen, nameLen - pathLen,
+                                    tempName + pathLen, nameLen - pathLen) == CSTR_EQUAL));
+                if (matches)
                 {
                     ProcessHeader(centralHeader, fileInfo);
                     if (!fileInfo->IsDir)
@@ -444,6 +556,8 @@ int CZipUnpack::FindFile(LPCTSTR name, CFileInfo* fileInfo, int nItem)
                             errorID = IDS_LOWMEM;
                             break;
                         }
+                        if (rawName)
+                            rawName->assign(reinterpret_cast<const char*>(centralHeader) + sizeof(CFileHeader), centralHeader->NameLen);
                         found = TRUE;
                         break;
                     }
@@ -453,8 +567,6 @@ int CZipUnpack::FindFile(LPCTSTR name, CFileInfo* fileInfo, int nItem)
     }
     if (!found)
         errorID = IDS_FILENOTFOUND;
-    free(centralHeader);
-    free(tempName);
     return errorID;
 }
 

@@ -1,7 +1,11 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Include the private entry reader types. | Use one callback contract across ZIP implementation files. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Declare a range-backed single-entry decoder. | Keep output under caller control. | | GPT-6.1 Sol (Codex) |
 
 #pragma once
+
+#include "../../common/zipread.h"
 
 /*
 int MatchFiles(CDynamicArray *namesArray, CExtractInfo *info);
@@ -77,12 +81,14 @@ public:
     }
 
     int UnpackArchive(const char* targetDir, SalEnumSelection next, void* param);
+    DWORD ReadSourceEntry(const SalZipReadSourceV1& source, const char* name, const CFileData& file,
+                          ULONGLONG maxBytes, SalZipWrite write, void* context);
     int UnpackOneFile(const char* nameInZip, const CFileData* fileData, const char* targetPath, const char* newFileName);
     int UnpackWholeArchive(const char* mask, const char* targetDir);
 
     //int EnumFiles(CDynamicArray * namesArray, SalEnumSelection next, void * param);
     //int MatchFiles(CDynamicArray *namesArray);
-    int FindFile(LPCTSTR name, CFileInfo* fileInfo, int nItem);
+    int FindFile(LPCTSTR name, CFileInfo* fileInfo, int nItem, std::string* rawName = nullptr);
     int PrepareMaskArray(TIndirectArray2<char>& maskArray, const char* masks);
     int MatchFilesToMask(TIndirectArray2<char>& maskArray);
     int InflateFile(CFileInfo* fileInfo, BOOL deflate64, int* errorID);

@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Share ZIP range-source validation between listing and entry reads. | Keep the ordinary file-based entry points. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Accept a private ZIP range source. | Keep existing file-backed ZIP paths intact. | | GPT-6.1 Sol (Codex) |
 
 #pragma once
@@ -220,6 +221,7 @@ public:
 
     ~CZipCommon();
 
+    DWORD OpenReadSource(const SalZipReadSourceV1& source);
     int CheckZip();
 
     //file IO

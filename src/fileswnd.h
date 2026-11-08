@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Expose the current ZIP session to entry actions. | Keep the stream tied to the panel archive. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Own the approved ZIP read session in the panel. | Keep authorization scoped to the open archive. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Opt in to protected ZIP listing for direct panel entry. | Keep history and refresh on their existing paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Distinguish directory timestamps from other copy options. | Let protected F5 accept the one option it already implements. | | GPT-6.1 Sol (Codex) |
@@ -23,6 +24,7 @@ struct CExplorerPropertyCache;
 #include <vector>
 #include <memory>
 #include "uacbroker/f7pilot.h"
+#include "common/zipread.h"
 
 #ifndef SAL_MAX_PATH
 #define SAL_MAX_PATH 32768
@@ -1614,6 +1616,8 @@ public:
     // of changed files); 'isInactiveRefresh' is TRUE when refreshing an inactive window-we load
     // only visible icons/thumbnails/overlays; others are loaded once the main window becomes active
     bool IsProtectedZip() { return Is(ptZIPArchive) && ProtectedZip; }
+    DWORD ReadProtectedZipEntry(const CFileData& file, const char* name, ULONGLONG maxBytes,
+                                SalZipWrite write, void* context);
     BOOL ShouldShowWaitCursorForRefresh();
     void RefreshDirectory(BOOL probablyUselessRefresh = FALSE, BOOL forceReloadThumbnails = FALSE,
                           BOOL isInactiveRefresh = FALSE, bool explicitProtectedZip = false);
