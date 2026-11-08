@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Distinguish directory timestamps from other copy options. | Let protected F5 accept the one option it already implements. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Own the protected directory listing session per panel. | End authorization on exit and keep listing data distinct from Branch View. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-05 | Persist Copy/Move transfer, conflict, and wait defaults in CCriteriaData. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
 // | 2026-11-05 | Add SafeHandleContextMenuMsg2 for shell-extension SEH. | Panel ContextMenu HandleMenuMsg must not live inside WindowProc SEH. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
@@ -125,6 +126,7 @@ public:
 
     // it returns TRUE if any criterion is set
     BOOL IsDirty();
+    BOOL HasOptionsOtherThanDirectoryTimes() const;
 
     // if the file 'file' matches UseMasks/Masks and UseAdvanced/Advanced
     // it returns TRUE; if it doesn't match, it returns FALSE

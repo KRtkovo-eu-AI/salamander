@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Accept explicit directory timestamp preservation in protected F5. | The registered tree copy already restores directory times. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use nonthrowing allocation for the protected F5 pilot. | Make the low-memory checks match allocation behavior. | https://github.com/majklvi/salamander/runs/128721425272 | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Submit protected F5 tree copies to the operation queue. | Wait for admission before asking for administrator consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer protected F5 for a single directory and the registered target. | Bind the consent prompt to both complete paths. | | GPT-6.1 Sol (Codex) |
@@ -862,7 +863,8 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     break;
 
                 if (type == atCopy && Is(ptDisk) && !IsBranchView() && !ProtectedListing && count <= 1 &&
-                    !criteriaPtr && conflictMode == CMCM_CURRENT && operationSchedulingOverride == COSO_DEFAULT)
+                    !criteria.HasOptionsOtherThanDirectoryTimes() &&
+                    conflictMode == CMCM_CURRENT && operationSchedulingOverride == COSO_DEFAULT)
                 {
                     const int index = count ? indexes[0] : GetCaretIndex();
                     if (index >= (subDir ? 1 : 0) && index < Dirs->Count)

@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Document P5b directory time preservation in protected F5. | Record the explicit option and its pilot limits. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document P5a directory timestamps and local validation. | Track the first bounded metadata extension after the transfer pilots. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the P4n NTFS source-retirement probe. | Verify the late-stream race before enabling cross-volume F6. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the P4m NTFS overwrite probe. | Establish which rename modes permit a target substitution. | | GPT-6.1 Sol (Codex) |
@@ -542,6 +543,14 @@ Host získá širokou cestu přímo z položky panelu. Před souhlasem porovná 
 Lokálně prošlo sestavení x64 Debug, 123 nativních kontrol v Debug i Release, test komunikace brokeru, test plánování a test konverzních tabulek. Nové kontroly pokrývají nezávislé nastavení časů, Unicode cestu, odmítnutí změny atributů, neaktuální atributy, junction a nahrazení adresáře se stejným jménem.
 
 V izolované Windows 11 VM byla oběma zkouškám společná změna pouze položky Modified přes Ctrl+F2. Computer Use ověřil úplnou cestu složky a štít u tlačítka Administrator. Po volbě Ne u složky `01-cancel` zůstaly výchozí časy. Po volbě Ano u `02-approve` odpovídal čas poslední změny přesně hodnotě z dialogu `2026-11-08 14:39:31` místního času. Kontrola na disku potvrdila původní čas vytvoření, atributy obou složek, časy poslední změny obou vnořených testovacích souborů i otisky instalovaných binárek.
+
+### 8.27 P5b — zachování časů složek při chráněném F5
+
+Volba Preserve dates and times of directories je přípustná při rekurzivním F5 jedné složky do registrovaného chráněného cíle. Ostatní volby posuzuje stejná kontrola jako před P5b. Filtry, změny zacházení s ADS, přeskakování prázdných složek, zachování zabezpečení a atributů, změny plánování i další dříve vyloučené volby vedou do stávajícího kopírovacího toku. Obyčejný F5 používá původní sadu kritérií. Broker dále obnovuje časy kořene i podsložek na pracovním stromu před jeho zveřejněním.
+
+Lokálně prošlo sestavení x64 Debug, 124 nativních kontrol v Debug i Release, test plánování kopírování a test transportu brokeru. Nativní zkouška kontroluje vytvoření a poslední změnu kořene i vnořené složky s názvem v Unicode.
+
+V izolované Windows 11 VM otevřel F5 se zapnutou volbou Preserve dates and times of directories nabídku správce. Po schválení ve Windows souhlasily časy vytvoření a poslední změny kořene i vnořené složky, SHA-256 obou souborů a otisky nainstalovaného sestavení. Prázdná podsložka se zkopírovala a v cíli nezůstala žádná pracovní složka. Druhá zkouška s dodatečnou volbou Only files skončila běžnou chybou 5 při vytváření cílové složky. Nabídka správce se neobjevila a druhý cílový strom nevznikl.
 
 ## 9. Uživatelský tok a stav operace
 

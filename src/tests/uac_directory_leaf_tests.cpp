@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Check creation and last-write times on the published directory tree. | Cover both the selected root and a nested Unicode directory. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify timestamp-only directory metadata. | Cover Unicode, stale identities and reparse rejection. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe stream creation before source retirement. | Test the precondition for deleting the source after copying. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe how NTFS replacement interacts with target handles. | Establish the identity boundary before adding protected overwrite. | | GPT-6.1 Sol (Codex) |
@@ -312,16 +313,20 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent, bool high)
         !WriteFixture(source + longLeaf, {9}))
         return false;
 
-    const FILETIME modification{0, 0x01DA0000};
-    {
-        const HANDLE raw = CreateFileW((source + nested).c_str(), FILE_WRITE_ATTRIBUTES, 0, nullptr,
+    const FILETIME creation{0, 0x01D90000};
+    const FILETIME rootModification{0, 0x01DA0000};
+    const FILETIME nestedModification{0, 0x01DB0000};
+    const auto setDirectoryTimes = [&](const std::wstring& path, const FILETIME& modification) {
+        const HANDLE raw = CreateFileW(path.c_str(), FILE_WRITE_ATTRIBUTES, 0, nullptr,
                                        OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
         if (raw == INVALID_HANDLE_VALUE)
             return false;
         const Handle directory(raw);
-        if (!SetFileTime(directory.get(), nullptr, nullptr, &modification))
-            return false;
-    }
+        return SetFileTime(directory.get(), &creation, nullptr, &modification) != FALSE;
+    };
+    if (!setDirectoryTimes(source, rootModification) ||
+        !setDirectoryTimes(source + nested, nestedModification))
+        return false;
 
     HANDLE rawSource = nullptr, rawTarget = nullptr;
     ParentIdentity sourceId, targetId;
@@ -361,10 +366,16 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent, bool high)
               HasContents(published + file, {4, 8, 15, 16, 23, 42}) && DirectoryExists(published + L"\\empty") &&
               HasContents(source + file, {4, 8, 15, 16, 23, 42}) && HasContents(published + longLeaf, {9}),
           "publish a complete Unicode tree with an empty directory and preserve the source", result.error);
-    WIN32_FILE_ATTRIBUTE_DATA copiedDirectory{};
-    Check(GetFileAttributesExW((published + nested).c_str(), GetFileExInfoStandard, &copiedDirectory) &&
-              CompareFileTime(&copiedDirectory.ftLastWriteTime, &modification) == 0,
-          "preserve the last-write time of an ordinary nested directory");
+    const auto hasDirectoryTimes = [&](const std::wstring& path, const FILETIME& modification) {
+        WIN32_FILE_ATTRIBUTE_DATA data{};
+        return GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &data) &&
+               CompareFileTime(&data.ftCreationTime, &creation) == 0 &&
+               CompareFileTime(&data.ftLastWriteTime, &modification) == 0;
+    };
+    Check(hasDirectoryTimes(published, rootModification),
+          "preserve creation and last-write times of the published directory root");
+    Check(hasDirectoryTimes(published + nested, nestedModification),
+          "preserve creation and last-write times of a nested Unicode directory");
     const auto reference = target + L"\\reference";
     if (!CreateDirectoryW(reference.c_str(), nullptr) || !CreateDirectoryW((reference + nested).c_str(), nullptr) ||
         !WriteFixture(reference + file, {0}))
