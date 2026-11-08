@@ -4190,6 +4190,9 @@ SLGINCOMPLETE,""
 14538,1,"A segédfolyamat kapcsolata a másolás visszaigazolása előtt megszakadt. Újrapróbálkozás előtt ellenőrizze a célt."
 14539,1,"A hozzáférés megtagadva. Áthelyezi ezt a fájlt rendszergazdaként?"
 14540,1,"A segédfolyamat kapcsolata az áthelyezés visszaigazolása előtt megszakadt. Újrapróbálkozás előtt ellenőrizze a forrást és a célt."
+14541,1,"Védett mappafa leltára"
+14542,1,"Fájlok: %s\nAlmappák: %s\nLogikai méret (bájt): %s"
+14543,1,"A mappafa teljes bejárása sikertelen. A részleges eredmények nem jelennek meg."
 
 [STRINGTABLE 184]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."

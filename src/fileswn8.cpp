@@ -7,6 +7,7 @@
 // | 2026-11-05 | Survive faulty shell extension SEH in Recycle Bin deletes. | SHFileOperation shell handlers must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // | 2026-11-08 | Enable the broker copy pilot for a single disk-panel F5. | Keep directory and multi-selection transfers on their current route. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow the one-file broker move from disk-panel F6. | Preserve the existing operation queue. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Show the protected subtree inventory from Alt+F10. | Report logical bytes only after a complete scan of the selected directory. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -292,6 +293,43 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
         return;
     if ((type == atCopy || type == atMove) && target == NULL)
         return;
+
+    if (type == atCountSize && countSizeMode == 0 && Is(ptDisk) && ProtectedListing &&
+        !FilesActionInProgress && GetSelCount() == 1)
+    {
+        int index = -1;
+        if (GetSelItems(1, &index) == 1 && index >= 0 && index < Dirs->Count &&
+            strcmp(Dirs->At(index).Name, "..") != 0)
+        {
+            const auto path = SalPathRemoveExtendedPrefixW(GetItemFullPathW(Dirs->At(index)).c_str());
+            if (ProtectedListing->Contains(path))
+            {
+                UacF7::DirectoryInventory inventory;
+                const DWORD error = ProtectedListing->Inventory(path, inventory);
+                std::string message = SalWideToMultiBytePath(path.c_str(), CP_UTF8) + "\n\n";
+                if (error)
+                {
+                    message += LoadStr(IDS_UAC_INVENTORY_INCOMPLETE);
+                    message += "\n";
+                    message += GetErrorText(error);
+                }
+                else
+                {
+                    CQuadWord size;
+                    size.Value = inventory.bytes;
+                    char files[50], directories[50], bytes[50], summary[1024];
+                    _snprintf_s(summary, _TRUNCATE, LoadStr(IDS_UAC_INVENTORY_SUMMARY),
+                                NumberToStr(files, CQuadWord(inventory.files, 0)),
+                                NumberToStr(directories, CQuadWord(inventory.directories, 0)),
+                                NumberToStr(bytes, size));
+                    message += summary;
+                }
+                SalMessageBox(HWindow, message.c_str(), LoadStr(IDS_UAC_INVENTORY_TITLE),
+                              MB_OK | (error ? MB_ICONEXCLAMATION : MB_ICONINFORMATION));
+                return;
+            }
+        }
+    }
 
     CFilesActionDiskTarget diskTarget;
     const bool watchDiskTarget = (type == atCopy || type == atMove) && target->Is(ptDisk);

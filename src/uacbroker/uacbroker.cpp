@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Serve strict recursive inventory on a listing session. | Keep the request anchored inside the approved root. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Dispatch a same-volume move over the authenticated transfer request. | Use the verified parents and return a terminal operation result. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Authenticate and dispatch a single verified copy. | Bind the request to both directory identities and monitor transport loss. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add an authenticated rooted directory listing session. | Support repeated read-only requests under one approved root. | | GPT-6.1 Sol (Codex) |
@@ -74,8 +75,9 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD listingCapability = 16;
 [[maybe_unused]] constexpr DWORD copyCapability = 32;
 [[maybe_unused]] constexpr DWORD moveCapability = 64;
+[[maybe_unused]] constexpr DWORD inventoryCapability = 128;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
-                                                 deleteCapability | listingCapability | copyCapability | moveCapability;
+                                                 deleteCapability | listingCapability | copyCapability | moveCapability | inventoryCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -546,6 +548,8 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root)
         DWORD error = TransferRequest(pipe, &length, sizeof(length), false, GetTickCount64() + idleTimeoutMs);
         if (error)
             return error;
+        const bool inventoryRequest = (length & UacListing::inventoryRequest) != 0;
+        length &= ~UacListing::inventoryRequest;
         if (length > UacDirectoryLeaf::maxNativeName || !LiveInSession(host, hostPid))
             return ERROR_INVALID_DATA;
         const auto deadline = GetTickCount64() + timeoutMs;
@@ -566,10 +570,17 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root)
         }
         else
             error = UacDirectoryLeaf::ReadParentIdentity(root, identity);
+        UacF7::DirectoryInventory inventory;
         if (!error)
-            error = UacListing::Enumerate(child ? child.get() : root, entries);
-        ListingReply reply{error, error ? 0 : static_cast<DWORD>(entries.size())};
+        {
+            HANDLE directory = child ? child.get() : root;
+            error = inventoryRequest ? UacListing::Inventory(directory, deadline - 250, inventory)
+                                     : UacListing::Enumerate(directory, entries);
+        }
+        ListingReply reply{error, error || inventoryRequest ? 0 : static_cast<DWORD>(entries.size())};
         error = TransferRequest(pipe, &reply, sizeof(reply), true, deadline);
+        if (!error && !reply.error && inventoryRequest)
+            error = TransferRequest(pipe, &inventory, sizeof(inventory), true, deadline);
         if (!error && reply.count)
             error = TransferRequest(pipe, entries.data(), reply.count * static_cast<DWORD>(sizeof(WIN32_FIND_DATAW)), true, deadline);
         if (error)
@@ -1047,19 +1058,55 @@ bool ListingSession::Contains(const std::wstring& path) const
            (path.size() == root.size() || (path.size() > root.size() && path[root.size()] == L'\\'));
 }
 
-DWORD ListingSession::List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries)
+DWORD ListingSession::SendPath(const std::wstring& path, DWORD flags, ULONGLONG deadline)
 {
-    entries.clear();
     if (!Contains(path))
         return ERROR_ACCESS_DENIED;
     std::wstring relative = path.size() == root.size() ? std::wstring{} : path.substr(root.size() + 1);
     if (relative.size() > UacDirectoryLeaf::maxNativeName)
         return ERROR_FILENAME_EXCED_RANGE;
+    DWORD request = static_cast<DWORD>(relative.size()) | flags;
+    DWORD error = TransferRequest(pipe, &request, sizeof(request), true, deadline);
+    if (!error && !relative.empty())
+        error = TransferRequest(pipe, relative.data(), static_cast<DWORD>(relative.size() * sizeof(wchar_t)), true, deadline);
+    if (error)
+        Close();
+    return error;
+}
+
+DWORD ListingSession::Inventory(const std::wstring& path, DirectoryInventory& inventory)
+{
+    inventory = {};
     const auto deadline = GetTickCount64() + timeoutMs;
-    DWORD length = static_cast<DWORD>(relative.size());
-    DWORD error = TransferRequest(pipe, &length, sizeof(length), true, deadline);
-    if (!error && length)
-        error = TransferRequest(pipe, relative.data(), length * static_cast<DWORD>(sizeof(wchar_t)), true, deadline);
+    DWORD error = SendPath(path, UacListing::inventoryRequest, deadline);
+    if (error)
+        return error;
+    ListingReply reply{};
+    error = TransferRequest(pipe, &reply, sizeof(reply), false, deadline);
+    if (!error && reply.count)
+        error = ERROR_INVALID_DATA;
+    if (!error && !reply.error)
+    {
+        DirectoryInventory complete;
+        error = TransferRequest(pipe, &complete, sizeof(complete), false, deadline);
+        if (!error && (complete.directories > UacListing::maxEntries ||
+                       complete.files > UacListing::maxEntries - complete.directories))
+            error = ERROR_INVALID_DATA;
+        if (!error)
+            inventory = complete;
+    }
+    if (error)
+        Close();
+    return error ? error : reply.error;
+}
+
+DWORD ListingSession::List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries)
+{
+    entries.clear();
+    const auto deadline = GetTickCount64() + timeoutMs;
+    DWORD error = SendPath(path, 0, deadline);
+    if (error)
+        return error;
     ListingReply reply{};
     if (!error)
         error = TransferRequest(pipe, &reply, sizeof(reply), false, deadline);

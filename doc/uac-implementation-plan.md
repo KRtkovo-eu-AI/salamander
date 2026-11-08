@@ -22,11 +22,12 @@
 | 2026-11-08 | Record the P4a staged one-file copy primitive. | Define the copy and commit behavior before connecting it to F5. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document the P4b single-file broker copy. | Record both access-denied routes, bounds and acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document the P4c same-volume F6 pilot. | Track the transfer gate, verified rename and VM results. | | GPT-6.1 Sol (Codex) |
+| 2026-11-08 | Document the P4d protected subtree inventory. | Record strict scanning and the VM acceptance. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
 
-Stav k 8. listopadu 2026: pilot F7 (P3a), přejmenování jednoho souboru (P3b), změna jeho běžných atributů a časů (P3c), pilot trvalého mazání (P3d), pilot procházení chráněného podstromu (P3e) a piloty kopírování přes F5 a přesunu přes F6 (P4a–P4c). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
+Stav k 8. listopadu 2026: pilot F7 (P3a), přejmenování jednoho souboru (P3b), změna jeho běžných atributů a časů (P3c), pilot trvalého mazání (P3d), pilot procházení chráněného podstromu (P3e) a piloty kopírování přes F5 a přesunu přes F6 (P4a–P4c) a soupis chráněného podstromu (P4d). Výsledky a zbývající podmínky jsou v oddílech 8 a 11.
 
 Základem je upstream [release/5.0-samandarin-0.16](https://github.com/KRtkovo-eu-AI/salamander/tree/release/5.0-samandarin-0.16), ověřený commit [`16b4cd0176dc82752a11ee6bc09615780b6987a2`](https://github.com/KRtkovo-eu-AI/salamander/commit/16b4cd0176dc82752a11ee6bc09615780b6987a2). Stejný commit měla při založení práce referenční větev `majklvi/salamander:samandarin-0.16`. Pracovní větev je `feature/uac-support`, lokální checkout `C:\Samandarin\uac-support`. Všechny níže uvedené řádky zdrojů odkazují na tento pevný upstream commit, nikoli na proměnlivý HEAD.
 
@@ -368,6 +369,18 @@ P4c zavádí F6 pro jeden běžný soubor s běžnými volbami, existující cí
 Nativní testy v Debug i Release ověřily zachování ID souboru a obsahu, odmítnutí nesouhlasící identity svazku a záměny cílového adresáře, kolizi a odpojení před přejmenováním. Pilot používá stejný souborový objekt, takže může být ověřen samostatně před přesunem mezi svazky, který vyžaduje kopii a následné odstranění zdroje. Privilegovaný soupis podstromu, přepis a dávky zůstávají samostatnými kroky P4.
 
 V izolované Windows 11 x64 VM prošly čtyři zkoušky F6 s Computer Use. Volba Ne pro 01-target-cancel.txt a 03-source-cancel.txt ponechala původní soubory a cílové soubory nevznikly. Volba Ano přesunula 02-target-approve.txt do chráněné složky a 04-source-approve.txt z chráněné složky do běžné. Oba výsledky se zobrazily v panelech a měly původní SHA-256 i ID souboru. Po zkoušce žádný broker neběžel.
+
+### 8.15 P4d — ověřený soupis chráněného podstromu
+
+P4c na commitu `09f69b9c` prošla sestavením Win32, x64 a ARM64, kontrolou růstu zdrojů, všemi 214 testy a CodeQL bez nových nálezů. [Nativní a Python testy](https://github.com/majklvi/salamander/actions/runs/42429710501/job/128575707993) · [CodeQL](https://github.com/majklvi/salamander/runs/128578678485).
+
+P4d ověřuje procházení před rekurzivním kopírováním. V panelu s aktivním administrátorským výpisem zobrazí Alt+F10 pro jednu vybranou podsložku počet souborů, počet podsložek a logický součet bajtů hlavních datových proudů. Výsledkem je souhrn živého výpisu. Seznam identit pro následné kopírování a záruka konzistentního snímku zůstávají navazujícím krokem. [Metadata NTFS používaná při výpisu](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_id_extd_dir_info).
+
+Broker použije stávající schválené spojení. Každý podadresář otevírá relativně k již otevřenému rodiči. Reparse point, nejednoznačný název, chyba výpisu, překročení 4096 položek či 32 úrovní nebo vypršení lhůty znamenají chybu celého soupisu. Panel v takovém případě zobrazí důvod bez dílčích hodnot. Nativní testy v Debug i Release pokryly vnořený Unicode soubor, junction, nejednoznačný název, oba limity a vypršení lhůty.
+
+V izolované VM uživatel jednou schválil výzvu Windows pro vstup do složky 01-protected. Přes Computer Use vrátilo Alt+F10 pro 01-complete tři soubory, jednu podsložku a 15 logických bajtů. U 02-with-junction panel zobrazil chybu 4393 a skryl všechny dílčí hodnoty. Oba požadavky obsloužil broker se stejným PID bez další výzvy UAC. Kontrolní soubor za odkazem měl nadále 11 bajtů. Po návratu mimo schválený podstrom zmizel štít u cesty a broker se ukončil.
+
+Přesun mezi svazky zůstává oddělený. NTFS spravuje sdílení po proudech, takže protokol pro následné odstranění zdroje musí řešit souběžné vytvoření alternativního datového proudu. [Sdílení datových proudů NTFS](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams).
 
 ## 9. Uživatelský tok a stav operace
 

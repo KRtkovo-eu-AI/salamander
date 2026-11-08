@@ -4190,6 +4190,9 @@ SLGINCOMPLETE,""
 14538,1,"De broker verbrak de verbinding voordat de kopie werd bevestigd. Controleer het doel voordat u het opnieuw probeert."
 14539,1,"Toegang geweigerd. Dit bestand als administrator verplaatsen?"
 14540,1,"De broker verbrak de verbinding voordat de verplaatsing werd bevestigd. Controleer bron en doel voordat u het opnieuw probeert."
+14541,1,"Inventaris van beschermde submappen"
+14542,1,"Bestanden: %s\nSubmappen: %s\nLogische grootte (bytes): %s"
+14543,1,"De submappen konden niet volledig worden gescand. Gedeeltelijke resultaten worden niet getoond."
 
 [STRINGTABLE 184]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."

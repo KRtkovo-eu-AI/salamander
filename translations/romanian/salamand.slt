@@ -4190,6 +4190,9 @@ SLGINCOMPLETE,""
 14538,1,"Procesul auxiliar s-a deconectat înainte de confirmarea copierii. Verificați destinația înainte de a reîncerca."
 14539,1,"Acces refuzat. Mutați acest fișier ca administrator?"
 14540,1,"Procesul auxiliar s-a deconectat înainte de confirmarea mutării. Verificați sursa și destinația înainte de a reîncerca."
+14541,1,"Inventarul subarborelui protejat"
+14542,1,"Fișiere: %s\nSubfoldere: %s\nDimensiune logică (octeți): %s"
+14543,1,"Subarborele nu a putut fi parcurs complet. Rezultatele parțiale nu sunt afișate."
 
 [STRINGTABLE 184]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."

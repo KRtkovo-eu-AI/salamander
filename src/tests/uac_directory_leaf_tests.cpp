@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Check strict recursive inventory on NTFS. | Verify Unicode contents and suppress results on timeout or reparse entries. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise a verified same-volume move. | Check identity, collisions, cancellation and peer loss. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Test the broker copy guard conditions. | Reject a stale size, an expired deadline and a lost connection before publishing. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify a staged copy on real NTFS. | Exercise file content, collisions, cancellation and unsupported source metadata. | | GPT-6.1 Sol (Codex) |
@@ -93,7 +94,7 @@ int wmain(int argc, wchar_t** argv)
     if (argc != 2)
         return 2;
     const std::wstring fixture = L"\\\\?\\" + std::wstring(argv[1]);
-    const HANDLE rawRoot = CreateFileW(fixture.c_str(), FILE_TRAVERSE | FILE_READ_ATTRIBUTES,
+    const HANDLE rawRoot = CreateFileW(fixture.c_str(), FILE_TRAVERSE | FILE_READ_ATTRIBUTES | FILE_LIST_DIRECTORY,
                                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
                                         OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
                                         nullptr);
@@ -121,6 +122,39 @@ int wmain(int argc, wchar_t** argv)
           "refresh the same directory handle and observe new Unicode entries", listingError);
     listingError = OpenParentBelowRoot(listing.get(), L"..\\junction", rawListing, listingIdentity, FILE_LIST_DIRECTORY);
     Check(listingError == ERROR_INVALID_NAME && !rawListing, "reject escape from approved listing root", listingError);
+
+    UacF7::DirectoryInventory inventory;
+    const auto inventoryFile = fixture + L"\\destination\\nested\\\u65e5.bin";
+    if (!WriteFixture(inventoryFile, {1, 2, 3}))
+        return 2;
+    DWORD inventoryError = UacListing::Inventory(listing.get(), MAXULONGLONG, inventory);
+    Check(inventoryError == ERROR_SUCCESS && inventory.files == 2 && inventory.directories == 1 && inventory.bytes == 3,
+          "strict inventory sums a nested Unicode file and an empty file", inventoryError);
+    inventoryError = UacListing::Inventory(root.get(), MAXULONGLONG, inventory);
+    Check(inventoryError == ERROR_REPARSE_TAG_INVALID && !inventory.files && !inventory.directories && !inventory.bytes,
+          "a junction aborts inventory without publishing partial counts", inventoryError);
+    inventoryError = UacListing::Inventory(listing.get(), GetTickCount64(), inventory);
+    Check(inventoryError == ERROR_TIMEOUT && !inventory.files && !inventory.directories && !inventory.bytes,
+          "an expired inventory deadline publishes no counts", inventoryError);
+
+    DWORD remaining = 0;
+    inventoryError = UacListing::Detail::ScanDirectory(listing.get(), 0, remaining, MAXULONGLONG, inventory);
+    Check(inventoryError == ERROR_BUFFER_OVERFLOW && !inventory.files && !inventory.directories && !inventory.bytes,
+          "inventory rejects a directory exceeding its remaining entry budget", inventoryError);
+    remaining = UacListing::maxEntries;
+    inventoryError = UacListing::Detail::ScanDirectory(listing.get(), UacListing::maxInventoryDepth + 1,
+                                                       remaining, MAXULONGLONG, inventory);
+    Check(inventoryError == ERROR_BUFFER_OVERFLOW && !inventory.files && !inventory.directories && !inventory.bytes,
+          "inventory refuses to traverse beyond its depth limit", inventoryError);
+
+    const auto ambiguousName = fixture + L"\\destination\\nested\\ambiguous.";
+    if (!WriteFixture(ambiguousName, {4}))
+        return 2;
+    inventoryError = UacListing::Inventory(listing.get(), MAXULONGLONG, inventory);
+    Check(inventoryError == ERROR_INVALID_NAME && !inventory.files && !inventory.directories && !inventory.bytes,
+          "a filtered name prevents publishing an incomplete inventory", inventoryError);
+    if (!DeleteFileW(ambiguousName.c_str()))
+        return 2;
 
     HANDLE rawParent = nullptr;
     ParentIdentity expected;

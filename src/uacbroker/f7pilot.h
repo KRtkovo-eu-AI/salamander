@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Expose a bounded inventory for an approved directory. | Use the existing read-only listing session. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share the prepared transfer with same-volume F6. | Bind source and destination to a typed move request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare a bounded one-file copy request. | Hold both parent identities across UAC. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Expose the approved listing root to the panel. | Locate the protected suffix for display. | | GPT-6.1 Sol (Codex) |
@@ -99,6 +100,14 @@ struct TransferPrompt
     Result result{ERROR_CANCELLED, false};
 };
 
+struct DirectoryInventory
+{
+    ULONGLONG bytes = 0;
+    DWORD files = 0;
+    DWORD directories = 0;
+};
+static_assert(sizeof(DirectoryInventory) == 16);
+
 class ListingSession
 {
 public:
@@ -112,9 +121,11 @@ public:
     bool Contains(const std::wstring& path) const;
     const std::wstring& GetRoot() const { return root; }
     DWORD List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries);
+    DWORD Inventory(const std::wstring& path, DirectoryInventory& inventory);
     bool IsOpen() const { return pipe != nullptr; }
 
 private:
+    DWORD SendPath(const std::wstring& path, DWORD flags, ULONGLONG deadline);
     void Close();
     PreparedLeaf prepared;
     std::wstring root;

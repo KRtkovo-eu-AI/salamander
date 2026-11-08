@@ -4190,6 +4190,9 @@ SLGINCOMPLETE,""
 14538,1,"Der Broker wurde vor der Bestätigung der Kopie getrennt. Prüfen Sie das Ziel vor einem erneuten Versuch."
 14539,1,"Zugriff verweigert. Diese Datei als Administrator verschieben?"
 14540,1,"Der Broker wurde vor der Bestätigung des Verschiebens getrennt. Prüfen Sie Quelle und Ziel vor einem erneuten Versuch."
+14541,1,"Bestandsaufnahme des geschützten Unterbaums"
+14542,1,"Dateien: %s\nUnterordner: %s\nLogische Größe (Byte): %s"
+14543,1,"Der Unterbaum konnte nicht vollständig geprüft werden. Teilergebnisse werden nicht angezeigt."
 
 [STRINGTABLE 184]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
