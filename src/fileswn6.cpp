@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Offer protected counting from Ctrl+Q as well as Space. | Ctrl+Q normally calculates allocated disk space. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Count a denied subtree through its verified read-only broker. | Keep Ctrl+Q and Space totals complete when access is approved. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain EFS failures during copy planning. | Keep the no-decryption boundary visible before any broker offer. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Keep the eligible protected security copy in source planning. | Defer inaccessible source validation to the verified broker. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Pass the exact selected directory-link path to the delete pilot. | Use the panel Unicode path without changing recursive planning. | | GPT-6.1 Sol (Codex) |
@@ -1561,6 +1563,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     if (countSize)
                     {
                         oldTotalSize = script->TotalSize;
+                        oneFile->SizeValid = 0;
                     }
                     if (!BuildScriptDir(script, type, sourcePath, sourceSupADS, targetPath,
                                         targetPathState, targetSupADS, targetIsFAT32, mask,
@@ -2440,6 +2443,47 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                         strcpy(*sourceEnd == '\\' ? sourceEnd + 1 : sourceEnd, dirDOSName); // modify sourcePath (it's used further for handling found files and directories)
                         goto BROWSE_DIR;
                     }
+                }
+            }
+            if (type == atCountSize && err == ERROR_ACCESS_DENIED && !ErrListDirSkipAll &&
+                !(sourceDirAttr & FILE_ATTRIBUTE_REPARSE_POINT))
+            {
+                // This is the exact path passed to the failed FindFirstFileA.
+                const auto path = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(sourcePath, GetACP()).c_str());
+                UacF7::ListingSession temporary;
+                const bool reuse = ProtectedListing && ProtectedListing->Contains(path);
+                if (reuse || temporary.Prepare(path))
+                {
+                    ShowSafeWaitWindow(FALSE);
+                    DWORD inventoryError = ERROR_CANCELLED;
+                    UacF7::DirectoryInventory inventory;
+                    if (reuse || ConfirmProtectedDirectoryRead(HWindow, IDS_UAC_INVENTORY_TITLE, IDS_UAC_SIZE_CONFIRM, path))
+                    {
+                        inventoryError = reuse ? ERROR_SUCCESS : temporary.Start(HWindow);
+                        if (!inventoryError)
+                            inventoryError = (reuse ? *ProtectedListing : temporary).Inventory(path, inventory);
+                    }
+                    if (inventoryError && inventoryError != ERROR_CANCELLED)
+                    {
+                        const std::string message = std::string(LoadStr(IDS_UAC_INVENTORY_INCOMPLETE)) + "\n\n" +
+                                                    SalWideToMultiBytePath(path.c_str(), CP_UTF8) + "\n" +
+                                                    GetErrorText(inventoryError);
+                        SalMessageBox(HWindow, message.c_str(), LoadStr(IDS_UAC_INVENTORY_TITLE),
+                                      MB_OK | MB_ICONEXCLAMATION);
+                    }
+                    ShowSafeWaitWindow(TRUE);
+                    *sourceEnd = 0;
+                    if (targetEnd != NULL)
+                        *targetEnd = 0;
+                    if (inventoryError)
+                        return FALSE;
+                    CQuadWord size;
+                    size.Value = inventory.bytes;
+                    script->CountSizeUsedBroker = true;
+                    script->TotalSize += size;
+                    script->FilesCount += inventory.files;
+                    script->DirsCount += inventory.directories;
+                    return TRUE;
                 }
             }
             if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES)

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Resume metadata Find in one verified protected subtree. | Keep ordinary search running during consent and use one bounded read-only session. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Post coalesced Find result refreshes asynchronously. | Keep the search worker from blocking the GUI thread during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // CommentsTranslationProject: TRANSLATED
 
@@ -11,6 +12,8 @@
 #include "find.h"
 #include "md5.h"
 #include "common/widepath.h"
+#include "uacbroker/f7pilot.h"
+#include <mutex>
 
 char* FindNamedHistory[FIND_NAMED_HISTORY_SIZE];
 char* FindLookInHistory[FIND_LOOKIN_HISTORY_SIZE];
@@ -1456,7 +1459,8 @@ static void RequestFindResultsRefresh(CGrepData* data)
 
 BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeHigh,
                   DWORD attr, const FILETIME* lastWrite, BOOL isDir, CGrepData* data,
-                  CDuplicateCandidates* duplicateCandidates)
+                  CDuplicateCandidates* duplicateCandidates,
+                  const wchar_t* pathW = nullptr, const wchar_t* nameW = nullptr)
 {
     if (duplicateCandidates != NULL && isDir) // directories are irrelevant to us when searching for duplicates
         return TRUE;
@@ -1464,9 +1468,9 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
     CFoundFilesData* foundData = new CFoundFilesData;
     if (foundData != NULL)
     {
-        BOOL good = foundData->Set(path, name,
-                                   CQuadWord(sizeLow, sizeHigh),
-                                   attr, lastWrite, isDir);
+        const CQuadWord size(sizeLow, sizeHigh);
+        const BOOL good = pathW ? foundData->SetW(pathW, nameW, size, attr, lastWrite, isDir)
+                               : foundData->Set(path, name, size, attr, lastWrite, isDir);
         if (good)
         {
             if (duplicateCandidates == NULL)
@@ -1526,6 +1530,154 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
     return TRUE;
 }
 
+namespace
+{
+class FindProtectedRequest
+{
+public:
+    ~FindProtectedRequest()
+    {
+        if (launchThread)
+        {
+            WaitForSingleObject(launchThread, INFINITE);
+            HANDLES(CloseHandle(launchThread));
+        }
+    }
+
+    bool Begin(CGrepData* search, const char* deniedPath, CMaskGroup* masksGroup,
+               BOOL recursive, int searchRootLength, CFindIgnore* ignore)
+    {
+        if (launchThread || search->StopSearch || search->Grep || search->FindDuplicates || search->Criteria.HasTags())
+            return false;
+        path = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(deniedPath, GetACP()).c_str());
+        if (!session.Prepare(path))
+            return false;
+
+        data = search;
+        masks = masksGroup;
+        includeSubDirs = recursive != FALSE;
+        rootLength = searchRootLength;
+        launchThread = HANDLES(CreateThread(NULL, 0, Launch, this, 0, nullptr));
+        if (!launchThread)
+            return false;
+        // The ordinary traversal keeps using this snapshot until it returns to its caller.
+        ignoreSnapshot.reset(ignore);
+        return true;
+    }
+
+    bool OwnsIgnoreList(CFindIgnore* ignore) const { return ignoreSnapshot && ignoreSnapshot.get() == ignore; }
+
+    void Finish()
+    {
+        if (!launchThread)
+            return;
+        if (!data->StopSearch && WaitForSingleObject(launchThread, 0) == WAIT_TIMEOUT)
+            data->SearchingText->Set(LoadStr(IDS_UAC_FIND_WAIT));
+        WaitForSingleObject(launchThread, INFINITE);
+        if (data->StopSearch)
+            return;
+        if (result != ERROR_SUCCESS)
+        {
+            Log(path, result);
+            return;
+        }
+
+        data->SearchingText->Set(LoadStr(IDS_UAC_FIND_SCOPE));
+        size_t remaining = 4096;
+        Scan(path, 0, remaining);
+    }
+
+private:
+    static DWORD WINAPI Launch(void* context)
+    {
+#ifndef CALLSTK_DISABLE
+        CCallStack stack;
+#endif
+        auto& request = *static_cast<FindProtectedRequest*>(context);
+        static std::mutex consentMutex;
+        const std::unique_lock<std::mutex> consent(consentMutex, std::try_to_lock);
+        if (!consent.owns_lock())
+        {
+            request.result = ERROR_BUSY;
+            return 0;
+        }
+        if (SendMessage(request.data->HWindow, WM_USER_FIND_PROTECTED_CONSENT,
+                        reinterpret_cast<WPARAM>(&request.path), 0) && !request.data->StopSearch)
+            request.result = request.session.Start(request.data->HWindow);
+        return 0;
+    }
+
+    void Log(const std::wstring& directory, DWORD error)
+    {
+        const std::string pathText = SalWideToMultiBytePath(directory.c_str(), CP_UTF8);
+        const std::string text = error == ERROR_CANCELLED ? LoadStr(IDS_FINDLOG_SKIP) : GetErrorText(error);
+        const DWORD flags = error == ERROR_CANCELLED ? FLI_INFO : FLI_ERROR;
+        FIND_LOG_ITEM log{flags, text.c_str(), pathText.c_str()};
+        SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
+    }
+
+    void Scan(const std::wstring& directory, unsigned depth, size_t& remaining)
+    {
+        if (data->StopSearch)
+            return;
+        if (!remaining || depth > 32)
+        {
+            Log(directory, ERROR_BUFFER_OVERFLOW);
+            return;
+        }
+        if (ignoreSnapshot)
+        {
+            const std::string legacyPath = SalWideToMultiBytePath(directory.c_str(), GetACP()) + "\\";
+            if (ignoreSnapshot->Contains(legacyPath.c_str(), rootLength))
+            {
+                Log(directory, ERROR_CANCELLED);
+                return;
+            }
+        }
+
+        std::vector<WIN32_FIND_DATAW> entries;
+        DWORD error = session.List(directory, entries);
+        if (!error && entries.size() > remaining)
+            error = ERROR_BUFFER_OVERFLOW;
+        if (error)
+        {
+            Log(directory, error);
+            return;
+        }
+        remaining -= entries.size();
+        for (auto& file : entries)
+        {
+            if (data->StopSearch)
+                return;
+            CQuadWord size(file.nFileSizeLow, file.nFileSizeHigh);
+            const bool isDir = (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+            if (masks->AgreeMasksW(file.cFileName, nullptr) &&
+                data->Criteria.Test(file.dwFileAttributes, &size, &file.ftLastWriteTime))
+            {
+                AddFoundItem(nullptr, nullptr, file.nFileSizeLow, file.nFileSizeHigh, file.dwFileAttributes,
+                             &file.ftLastWriteTime, isDir, data, nullptr, directory.c_str(), file.cFileName);
+            }
+            if (includeSubDirs && isDir && !(file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT))
+            {
+                std::wstring child = directory;
+                SalPathAppendW(child, file.cFileName);
+                Scan(child, depth + 1, remaining);
+            }
+        }
+    }
+
+    UacF7::ListingSession session;
+    std::wstring path;
+    std::unique_ptr<CFindIgnore> ignoreSnapshot;
+    CGrepData* data = nullptr;
+    CMaskGroup* masks = nullptr;
+    HANDLE launchThread = nullptr;
+    DWORD result = ERROR_CANCELLED;
+    int rootLength = 0;
+    bool includeSubDirs = false;
+};
+}
+
 // 'dirStack' stores directories for late grepping. Otherwise,
 // during searching in the current directory, recursive searching in subdirectories would occur. With this
 // trick all files and directories matching the criteria are found first and
@@ -1541,7 +1693,8 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
                      CMaskGroup* masksGroup, BOOL includeSubDirs, CGrepData* data,
                      TDirectArray<char*>* dirStack, int dirStackCount,
                      CDuplicateCandidates* duplicateCandidates,
-                     CFindIgnore* ignoreList, char (&message)[2 * MAX_PATH])
+                     CFindIgnore* ignoreList, char (&message)[2 * MAX_PATH],
+                     FindProtectedRequest& protectedRequest)
 {
     SLOW_CALL_STACK_MESSAGE6("SearchDirectory(%s, , %d, %s, %d, , , %d, , )", path, startPathLen,
                              masksGroup->GetMasksString(), includeSubDirs, dirStackCount);
@@ -1708,7 +1861,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
                             strcat_s(end, _countof(path) - (end - path), "\\");
                             l++;
                             SearchDirectory(path, end + l, startPathLen, masksGroup, includeSubDirs, data, NULL,
-                                            0, duplicateCandidates, ignoreList, message);
+                                            0, duplicateCandidates, ignoreList, message, protectedRequest);
                         }
                     }
                     else
@@ -1774,7 +1927,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
                     strcpy_s(end, _countof(path) - (end - path), newFileName);
                     strcat_s(end, _countof(path) - (end - path), "\\");
                     SearchDirectory(path, end + strlen(end), startPathLen, masksGroup, includeSubDirs, data,
-                                    dirStack, dirStackCount, duplicateCandidates, ignoreList, message);
+                                    dirStack, dirStackCount, duplicateCandidates, ignoreList, message, protectedRequest);
                 }
             }
             // and release data from this level
@@ -1792,13 +1945,13 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
             else
                 *end = 0;
 
-            sprintf(message, LoadStr(IDS_DIRERRORFORMAT), GetErrorText(err));
-
-            FIND_LOG_ITEM log;
-            log.Flags = FLI_ERROR | FLI_IGNORE;
-            log.Text = message;
-            log.Path = path;
-            SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+            if (err != ERROR_ACCESS_DENIED ||
+                !protectedRequest.Begin(data, path, masksGroup, includeSubDirs, startPathLen, ignoreList))
+            {
+                sprintf(message, LoadStr(IDS_DIRERRORFORMAT), GetErrorText(err));
+                FIND_LOG_ITEM log{FLI_ERROR | FLI_IGNORE, message, path};
+                SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+            }
 
             if (end - path > 3)
                 *(end - 1) = '\\';
@@ -1926,6 +2079,7 @@ unsigned GrepThreadFBody(void* ptr)
     }
     else
     {
+        FindProtectedRequest protectedRequest;
         // if we search for duplicates, data are primarily placed into this array
         // after scanning all directories, the array is sorted (by name or by size)
         // if content is checked, MD5 is calculated for ambiguous cases
@@ -1988,9 +2142,9 @@ unsigned GrepThreadFBody(void* ptr)
 
                 char message[2 * MAX_PATH];
                 SearchDirectory(path, end, (int)(end - path), mg, includeSubDirs, data, dirStack, 0,
-                                duplicateCandidates, ignoreList, message);
+                                duplicateCandidates, ignoreList, message, protectedRequest);
 
-                if (ignoreList != NULL)
+                if (!protectedRequest.OwnsIgnoreList(ignoreList))
                     delete ignoreList;
 
                 if (dirStack != NULL)
@@ -1999,6 +2153,8 @@ unsigned GrepThreadFBody(void* ptr)
                     break;
             }
         }
+        RequestFindResultsRefresh(data); // publish ordinary results before waiting for consent
+        protectedRequest.Finish();
         if (duplicateCandidates != NULL)
         {
             if (!data->StopSearch)

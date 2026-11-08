@@ -2,12 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Route protected Find consent separately from traversal. | Keep cancellation visible to both search threads. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Post coalesced Find result refreshes asynchronously. | Keep the search worker from blocking the GUI thread during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Add SafeHandleContextMenuMsg for shell-extension SEH. | Find dialog HandleMenuMsg must not live inside WindowProc SEH. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
+#include <atomic>
 #include <string>
 
 // structure for adding messages to the Find Log; sent as the message parameter
@@ -27,6 +29,8 @@ struct FIND_LOG_ITEM
 #define WM_USER_SETREADING WM_APP + 212 // [0, 0] - request to repaint the status bar ("Reading:")
 #define WM_USER_BUTTONS WM_APP + 213    // call EnableButtons() yourself [HWND hButton]
 #define WM_USER_FLASHICON WM_APP + 214  // after activating the find, flash the status icon
+
+#define WM_USER_FIND_PROTECTED_CONSENT (WM_APP + 215) // synchronous [const std::wstring* folder, 0]
 
 extern BOOL IsNotAlpha[256];
 
@@ -164,7 +168,7 @@ struct CGrepData
     DWORD AttributesValue; // then compare
     CFilterCriteria Criteria;
     // control and data
-    BOOL StopSearch;    // the main thread sets this to terminate the grep thread
+    std::atomic_bool StopSearch{false}; // the dialog requests cancellation of the search
     BOOL SearchStopped; // has it been terminated or not?
     HWND HWindow;       // window the grep thread communicates with
     TIndirectArray<CSearchForData>* Data;

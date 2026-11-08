@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Offer explicit administrator consent for a protected read. | Keep the exact folder and operation visible in a shared prompt. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe a refused EFS broker copy. | Report the exact boundary when EFS is detected after consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify the security scope in F5 consent. | Show the owner and access rules covered by the request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe junction deletion in the consent prompt. | Identify the link and explain that its target is kept. | | GPT-6.1 Sol (Codex) |
@@ -34,6 +35,20 @@
 #include "menu.h"
 #include "consts.h"
 #include "common/widepath.h"
+
+bool ConfirmProtectedDirectoryRead(HWND owner, int caption, int description, const std::wstring& path)
+{
+    const std::string message = std::string(LoadStr(description)) + "\n\n" +
+                                SalWideToMultiBytePath(path.c_str(), CP_UTF8);
+    const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+    MSGBOXEX_PARAMS consent{};
+    consent.HParent = owner;
+    consent.Text = message.c_str();
+    consent.Caption = LoadStr(caption);
+    consent.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
+    consent.AliasBtnNames = alias.c_str();
+    return SalMessageBoxEx(&consent) == IDOK;
+}
 #include "uacbroker/f7pilot.h"
 
 CConfiguration Configuration;

@@ -9,6 +9,8 @@
 // | 2026-11-07 | Reserve the elevation confirmation for rename. | Prompt with the source and destination paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve F7 elevation message IDs. | Localize consent and uncertain-result handling. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Label logical size in a protected Ctrl+Q calculation. | Keep occupied space separate from logical file bytes. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Localize protected size and Find actions. | Explain the exact scope of metadata access. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve the unconfirmed recycle result message. | Localize the Shell result. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve the EFS copy refusal message. | Localize the protected-copy boundary. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve protected security-copy consent text. | Localize the new operation. | | GPT-6.1 Sol (Codex) |
@@ -3200,5 +3202,10 @@
 #define IDS_UAC_COPY_SECURITY_CONFIRM               14560
 #define IDS_UAC_COPY_EFS_UNSUPPORTED                14561
 #define IDS_UAC_RECYCLE_NOT_CONFIRMED                14562
+#define IDS_UAC_SIZE_CONFIRM                         14563
+#define IDS_UAC_FIND_CONFIRM                         14564
+#define IDS_UAC_FIND_WAIT                            14565
+#define IDS_UAC_FIND_SCOPE                           14566
+#define IDS_UAC_SIZE_LOGICAL_ONLY                    14567
 
 #endif // __TEXTS_RH2

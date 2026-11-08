@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record P6 protected logical sizing and metadata Find. | Reuse the rooted listing broker and verify ordinary search continues while consent is pending. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Close the P5 metadata and Recycle Bin matrix. | Record EFS refusal and Shell recycling acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5n explicit security preservation in F5. | Document the bounded DACL and ownership contract and its verification. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5m permanent junction deletion. | Document the junction checks and local and VM evidence. | | GPT-6.1 Sol (Codex) |
@@ -681,6 +682,23 @@ V izolované Windows 11 VM zamítl F5 kopii šifrovaného souboru do chráněné
 | Odkazy (P5h–m) | Přejmenování nebo výslovné trvalé smazání jednoho souborového či adresářového symbolického odkazu nebo junction. Operace mění odkaz a zachovává jeho cíl. |
 | EFS (P5o) | Běžná podpora s klíčem volajícího zůstává k dispozici. Kopie přes broker se při zjištění EFS odmítne. |
 | Koš (P5o) | Ověřená recyklace a obnova pod účtem volajícího. Chráněná operace vyžadující správce se odmítne, dokud nebude k dispozici ověřená recyklace do Koše původního uživatele. |
+
+
+### 8.41 P6a — logická velikost složek
+
+Ctrl+Q, příkaz pro výpočet velikosti všech složek a mezerník při zapnuté volbě výpočtu velikosti zkusí běžný průchod. Když narazí na odepření výpisu složky, kterou může ověřit stávající broker, nabídnou správce se štítem, přesnou cestou a výchozí volbou Zrušit. Použije se pouze součet logických bajtů schváleného podstromu. Po zrušení nebo neúplném výpisu se pro právě počítanou složku neuloží částečná velikost. Mimo ověřitelný rozsah zůstává původní dialog pro chyby čtení. Odkazy se přes broker nesledují. Pokud Ctrl+Q použije broker, ukáže společný součet logické velikosti a počty položek. Přidělené místo, komprimovanou velikost a histogram v takovém případě nezobrazuje. Běžný Ctrl+Q dál používá původní dialog. Pokud panel už má schválený výpis pro danou cestu, výpočet jej může použít bez další výzvy.
+
+### 8.42 P6b — Find podle názvu a metadat
+
+Alt+F7 může při odepření výpisu nabídnout pro první ověřitelnou chráněnou složku v běžícím hledání samostatný přístup správce. Dialog uvádí kořen a rozsah. Samostatné vlákno obslouží souhlas a otevře relaci brokeru, zatímco původní pracovní vlákno prochází ostatní dostupné složky. Běžné výsledky zpřístupní před čekáním na souhlas. Po běžném průchodu zpracuje výsledky ze schváleného podstromu a ukončí relaci. Pokud už jiné okno Find žádá o souhlas, souběžná žádost skončí jako zaneprázdněná. Při zamítnutí zachová běžné výsledky a uvede přeskočený podstrom v protokolu hledání. Další odepřené složky se zaznamenají běžným způsobem.
+
+Broker poskytuje pouze výpis názvů a metadat. Aplikace použije stávající masky, atributové, velikostní a časové podmínky a pravidla ignorování. Výpis používá přesné názvy v Unicode, má limit 4096 položek a hloubku 32 a nesestupuje přes reparse body. Hledání obsahu, tagů a duplicit zůstává běžnou operací. Samostatný návrh a ověření zbývá pro chráněné čtení ve vieweru, edit-copy-commit, archivy a případné SDK.
+
+Společné lokální ověření zahrnulo sestavení x64 Debug aplikace, prostředků, brokeru a sondy, 177 nativních kontrol brokeru v Debug i Release, autentizaci a odpojení transportu, regrese plánování Findu, řazení a polí Look In, 50 kontrol diskových operací a přechodů panelu, 405 nativních kontrol panelu v Debug i Release a test konverzních tabulek.
+
+V izolované Windows 11 VM se po schválení výpočtu mezerníkem zobrazilo 18 bajtů, tedy 7 z dostupné a 11 z chráněné složky. První pilot u Ctrl+Q použil běžný dialog s chybou 5, protože zkratka míří na výpočet obsazeného místa. Opravený pilot u Ctrl+Q nabídl správce, po schválení zobrazil 18 logických bajtů a výslovně uvedl, že obsazené místo nebylo změřeno. Zrušení opakovaného výpočtu v nabídce Samandarinu ponechalo v panelu údaj DIR bez částečné velikosti. Po této zkoušce byl z počtu podsložek v souhrnu odečten vybraný kořen a lokální sestavení znovu prošlo.
+
+V prvním pilotu Find dialog nepředal výsledek volby Administrator pracovnímu vláknu, což odhalila zkouška v běžném okně. Opravený pilot ukázal dostupný soubor visible.p6hit (7 bajtů) už během čekání na souhlas pro první chráněnou složku. Po schválení doplnil 東-protected.p6hit (11 bajtů) z vnořené chráněné složky a maska *.p6hit vyloučila excluded.txt. Po zamítnutí výzvy Windows v druhém stromu zůstal jeden dostupný výsledek a protokol oznámil přeskočení. Po zkouškách neběžel žádný broker.
 
 
 ## 9. Uživatelský tok a stav operace

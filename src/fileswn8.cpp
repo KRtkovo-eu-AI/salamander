@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Show only measured totals when Ctrl+Q uses the broker. | Do not display an incomplete allocation total or histogram. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Check Shell recycle intent and item receipts in the disk panel. | Keep cancellation and permanent deletion separate. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Capture the selected Ignore ADS option for one-file F5. | Limit the broker option to an explicit copy choice. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Accept explicit directory timestamp preservation in protected F5. | The registered tree copy already restores directory times. | | GPT-6.1 Sol (Codex) |
@@ -1625,11 +1626,30 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                         {
                             if (res2 && type == atCountSize && countSizeMode == 0)
                             {
-                                CSizeResultsDlg result(MainWindow->HWindow, script->TotalSize,
-                                                       script->CompressedSize, script->OccupiedSpace,
-                                                       script->FilesCount, script->DirsCount,
-                                                       &script->Sizes);
-                                result.Execute();
+                                if (script->CountSizeUsedBroker)
+                                {
+                                    char number[50];
+                                    std::string message = std::string(LoadStr(IDS_UAC_SIZE_LOGICAL_ONLY)) + "\n\n";
+                                    message += LoadStr(IDS_UAC_INVENTORY_FILES);
+                                    message += NumberToStr(number, CQuadWord(script->FilesCount, 0));
+                                    message += "\n";
+                                    message += LoadStr(IDS_UAC_INVENTORY_DIRECTORIES);
+                                    const int selectedDirs = count == 0 ? 1 : dirs;
+                                    message += NumberToStr(number, CQuadWord(script->DirsCount - selectedDirs, 0));
+                                    message += "\n";
+                                    message += LoadStr(IDS_UAC_INVENTORY_BYTES);
+                                    message += NumberToStr(number, script->TotalSize);
+                                    SalMessageBox(HWindow, message.c_str(), LoadStr(IDS_UAC_INVENTORY_TITLE),
+                                                  MB_OK | MB_ICONINFORMATION);
+                                }
+                                else
+                                {
+                                    CSizeResultsDlg result(MainWindow->HWindow, script->TotalSize,
+                                                           script->CompressedSize, script->OccupiedSpace,
+                                                           script->FilesCount, script->DirsCount,
+                                                           &script->Sizes);
+                                    result.Execute();
+                                }
                             }
                             else
                                 UpdateWindow(MainWindow->HWindow);

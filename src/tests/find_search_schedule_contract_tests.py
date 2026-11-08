@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-08 | Check protected Find consent handoff. | Publish ordinary hits before waiting and return consent to the launcher. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-07 | Add Find search scheduling contracts. | Prevent large Find searches from blocking on synchronous result-list refreshes. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 
 from pathlib import Path
@@ -46,8 +47,8 @@ def main() -> int:
             "Find refresh requests must not synchronously call the dialog")
     require("InterlockedExchange(&data->RefreshPosted, FALSE);" in request_refresh,
             "a failed refresh post must release the coalescing flag")
-    require(find_cpp.count("RequestFindResultsRefresh(data);") == 3,
-            "incremental, periodic, and final Find refreshes must use the helper")
+    require(find_cpp.count("RequestFindResultsRefresh(data);") == 4,
+            "incremental, periodic, pre-consent, and final Find refreshes must use the helper")
     require("SendMessage(data->HWindow, WM_USER_ADDFILE" not in find_cpp,
             "the Find worker must not synchronously send result refresh messages")
 
@@ -63,6 +64,12 @@ def main() -> int:
             "the final result refresh must be queued before search completion")
     require("SendMessage(data->HWindow, WM_USER_ADDLOG" in find_cpp,
             "synchronous log delivery must remain for stack-owned log payloads")
+
+    require(grep_body.index("RequestFindResultsRefresh(data);") < grep_body.index("protectedRequest.Finish();"),
+            "ordinary hits must be published before waiting for administrator consent")
+    consent = function_body(finddlg1, "case WM_USER_FIND_PROTECTED_CONSENT:")
+    require("SetWindowLongPtr(HWindow, DWLP_MSGRESULT, approved);" in consent and "return TRUE;" in consent,
+            "Find is a dialog and must return approval through DWLP_MSGRESULT")
 
     print("find_search_schedule_contract_tests: ok")
     return 0
