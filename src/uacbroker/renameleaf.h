@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Rename a verified directory symbolic link in place. | Open the reparse object without traversing it and enforce the approved type. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Rename a verified file symbolic link in its current parent. | Keep the link target and all other reparse types out of the operation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Recognize one cancel control for tree transfers. | Keep the other transfer commands strict. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Allow a creation descriptor for native files. | Apply mandatory integrity before the staged file is visible. | | GPT-6.1 Sol (Codex) |
@@ -19,7 +20,7 @@ extern "C" NTSYSAPI NTSTATUS NTAPI NtSetInformationFile(
 
 namespace UacRenameLeaf
 {
-enum class MoveKind { OrdinaryFile, RenameFile, RenameSymlink };
+enum class MoveKind { OrdinaryFile, RenameFile, RenameSymlink, RenameDirectorySymlink };
 
 namespace Detail
 {
@@ -50,7 +51,8 @@ inline DWORD NativeRename(HANDLE source, HANDLE targetParent, std::wstring_view 
 }
 
 inline DWORD OpenFile(HANDLE parent, std::wstring_view leaf, HANDLE& source, ACCESS_MASK extraAccess, ULONG sharing,
-                      ULONG disposition, ULONG options, PSECURITY_DESCRIPTOR security = nullptr)
+                      ULONG disposition, ULONG options, PSECURITY_DESCRIPTOR security = nullptr,
+                      bool allowDirectory = false)
 {
     const auto bytes = static_cast<USHORT>(leaf.size() * sizeof(wchar_t));
     UNICODE_STRING objectName{bytes, bytes, const_cast<wchar_t*>(leaf.data())};
@@ -58,18 +60,23 @@ inline DWORD OpenFile(HANDLE parent, std::wstring_view leaf, HANDLE& source, ACC
     InitializeObjectAttributes(&attributes, &objectName, OBJ_CASE_INSENSITIVE | OBJ_DONT_REPARSE, parent, security);
     IO_STATUS_BLOCK io{};
     const ACCESS_MASK access = FILE_READ_ATTRIBUTES | SYNCHRONIZE | extraAccess;
+    // Leave the type unrestricted for directory links. The opened object's
+    // attributes are verified before any mutation.
+    const ULONG typeOption = allowDirectory ? 0 : FILE_NON_DIRECTORY_FILE;
     const NTSTATUS status = NtCreateFile(&source, access, &attributes, &io, nullptr, FILE_ATTRIBUTE_NORMAL, sharing, disposition,
-                                         FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_REPARSE_POINT | options,
+                                         typeOption | FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_REPARSE_POINT | options,
                                          nullptr, 0);
     return status >= 0 ? ERROR_SUCCESS : RtlNtStatusToDosError(status);
 }
 
-inline DWORD OpenSource(HANDLE parent, std::wstring_view leaf, HANDLE& source, ACCESS_MASK extraAccess, ULONG sharing)
+inline DWORD OpenSource(HANDLE parent, std::wstring_view leaf, HANDLE& source, ACCESS_MASK extraAccess, ULONG sharing,
+                        MoveKind kind = MoveKind::RenameFile)
 {
-    return OpenFile(parent, leaf, source, extraAccess, sharing, FILE_OPEN, 0);
+    return OpenFile(parent, leaf, source, extraAccess, sharing, FILE_OPEN, 0, nullptr,
+                    kind == MoveKind::RenameDirectorySymlink);
 }
 
-inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity, bool symlink = false)
+inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity, MoveKind kind = MoveKind::RenameFile)
 {
     FILE_ATTRIBUTE_TAG_INFO attributes{};
     FILE_STANDARD_INFO standard{};
@@ -77,10 +84,12 @@ inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity, bool syml
         !GetFileInformationByHandleEx(source, FileStandardInfo, &standard, sizeof(standard)) ||
         !GetFileInformationByHandleEx(source, FileIdInfo, &identity, sizeof(identity)))
         return GetLastError();
+    const bool directory = kind == MoveKind::RenameDirectorySymlink;
+    const bool symlink = directory || kind == MoveKind::RenameSymlink;
     const bool reparse = (attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
     if (symlink ? (!reparse || attributes.ReparseTag != IO_REPARSE_TAG_SYMLINK) : reparse)
         return ERROR_REPARSE_TAG_INVALID;
-    if (standard.Directory || standard.NumberOfLinks != 1 || standard.DeletePending)
+    if ((standard.Directory != FALSE) != directory || standard.NumberOfLinks != 1 || standard.DeletePending)
         return ERROR_NOT_SUPPORTED;
     return ERROR_SUCCESS;
 }
@@ -125,7 +134,7 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
         expectedParent.file.VolumeSerialNumber != expectedTarget.file.VolumeSerialNumber)
         return ERROR_NOT_SAME_DEVICE;
     const bool sameParent = SameParent(expectedParent, expectedTarget);
-    if ((sameParent && Equal(from, to)) || (kind == MoveKind::RenameSymlink && !sameParent))
+    if ((sameParent && Equal(from, to)) || (kind != MoveKind::OrdinaryFile && !sameParent))
         return ERROR_NOT_SUPPORTED;
 
     ParentIdentity actual;
@@ -148,11 +157,11 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
         return ERROR_FILE_INVALID;
 
     HANDLE source = nullptr;
-    error = Detail::OpenSource(parent, from, source, DELETE, FILE_SHARE_READ);
+    error = Detail::OpenSource(parent, from, source, DELETE, FILE_SHARE_READ, kind);
     if (error != ERROR_SUCCESS)
         return error;
     FILE_ID_INFO actualSource{};
-    error = Detail::ReadSourceIdentity(source, actualSource, kind == MoveKind::RenameSymlink);
+    error = Detail::ReadSourceIdentity(source, actualSource, kind);
     if (error == ERROR_SUCCESS && !Detail::SameSource(actualSource, expectedSource))
         error = ERROR_FILE_INVALID;
     if (error == ERROR_SUCCESS && kind == MoveKind::OrdinaryFile)
@@ -173,9 +182,8 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
 
 inline DWORD RenameVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
                                 const FILE_ID_INFO& expectedSource, std::wstring_view from, std::wstring_view to,
-                                bool symlink = false)
+                                MoveKind kind = MoveKind::RenameFile)
 {
-    return MoveVerifiedFile(parent, expectedParent, expectedSource, from, parent, expectedParent, to,
-                            symlink ? MoveKind::RenameSymlink : MoveKind::RenameFile);
+    return MoveVerifiedFile(parent, expectedParent, expectedSource, from, parent, expectedParent, to, kind);
 }
 }

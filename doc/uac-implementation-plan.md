@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record P5i directory symbolic-link rename. | Document the type check and the local and VM results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5h file symbolic-link rename. | Document the no-follow boundary and the local and VM results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5g NTFS compression preservation in F5. | Document consent, attribute behavior, and local and VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5f sparse F5 preservation. | Document local and VM evidence for data and allocation. | | GPT-6.1 Sol (Codex) |
@@ -605,6 +606,14 @@ Přejmenování jednoho souborového symbolického odkazu na místním NTFS podp
 Lokálně prošlo sestavení x64 Debug, všech 145 nativních kontrol v Debug i Release a testy transportu, plánování, konverzních tabulek a přejmenování v Branch View. Nové zkoušky ověřily zachování identity a binárních reparse dat u Unicode názvu, zachování obsahu cíle odkazu, přejmenování odkazu na neexistující soubor, kolizi a odmítnutí jiné identity i nesprávného typu položky.
 
 V izolované Windows 11 VM zobrazily F2 i Quick Rename přímo v panelu nabídku správce pro symbolický odkaz s oběma cestami, štítem a výchozím tlačítkem Zrušit. Po volbě Ano při F2 se 01-approve-link.txt přejmenoval na 01-renamed-link.txt. Kontrola potvrdila shodu reparse dat a obsahu dostupného přes nový název. Po volbě Ne při Quick Rename zůstal 02-cancel-link.txt zachovaný se shodnými reparse daty a 02-renamed-link.txt nevznikl. Otisky obou souborů, na něž odkazy ukazují, i otisky pilotních binárek souhlasily.
+
+### 8.34 P5i — přejmenování adresářového symbolického odkazu
+
+F2 a Quick Rename podporují přes broker i jeden adresářový symbolický odkaz na místním NTFS. Operace mění jeho název ve stejném rodiči bez přepisu. Host použije samostatný typ požadavku a nabídku správce pro symbolický odkaz se štítem, oběma cestami a výchozí volbou Zrušit. Broker otevře položku relativně k ověřenému rodiči s FILE_OPEN_REPARSE_POINT. Na otevřeném objektu ověří příznak adresáře, tag IO_REPARSE_TAG_SYMLINK a schválenou identitu. Cílovou cestu uloženou v odkazu k přejmenování nepoužije. Junction, běžné adresáře, jiné typy reparse bodů a přesun mezi rodiči jsou mimo rozsah této operace. [NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile) a [operace s reparse body](https://learn.microsoft.com/en-us/windows/win32/fileio/reparse-point-operations)
+
+Lokálně prošlo sestavení x64 Debug, všech 151 nativních kontrol v Debug i Release, transport brokeru a testy konverzních tabulek a Branch View. Nativní zkoušky ověřily přejmenování Unicode názvu se shodnou identitou a binárními reparse daty, zachování obsahu odkazovaného adresáře, kolizi, odmítnutí přesunu mezi rodiči, rozlišení souborového a adresářového odkazu a odmítnutí tagu junction.
+
+V izolované Windows 11 VM se po volbě Ano v Quick Rename přejmenoval 01-approve-dirlink na 01-renamed-dirlink. Kontrola potvrdila shodná reparse data a obsah dostupný přes nový název. Po volbě Ne při F2 zůstal 02-cancel-dirlink pod původním názvem se shodnými reparse daty. Při pokusu o přejmenování 03-junction zobrazil F2 chybu 5 bez nabídky správce a junction zůstal na místě. Kontrolní soubory ve všech třech odkazovaných adresářích měly původní SHA-256 a otisky instalovaných binárek souhlasily s pilotem.
 
 ## 9. Uživatelský tok a stav operace
 

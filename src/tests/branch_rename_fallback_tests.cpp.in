@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Model the source type in the rename test fixture. | Keep compiling the real panel code for Branch View. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Model the symbolic-link rename consent dependencies. | Compile the shared panel implementation in the Branch View test. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Model the shared rename confirmation dependencies in the Branch View fixture. | Compile the actual panel rename function and check that Branch View stays outside the broker pilot. | | GPT-6.1 Sol (Codex) |
 #include <windows.h>
@@ -32,7 +33,7 @@ struct PreparedLeaf
 {
     struct Result { DWORD error; bool unknown; };
     bool Prepare(const std::wstring&, const std::wstring&) { ++ElevationAttempts; return false; }
-    bool PrepareRenameSymlink(const std::wstring&, const std::wstring&) { ++ElevationAttempts; return false; }
+    bool PrepareRenameSymlink(const std::wstring&, const std::wstring&, bool) { ++ElevationAttempts; return false; }
     Result Execute(HWND) const { return {ERROR_GEN_FAILURE, false}; }
 };
 }

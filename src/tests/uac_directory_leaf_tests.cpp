@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise verified directory symbolic-link rename. | Check type, collision, parent binding, and unchanged reparse data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check the scoped rename of an NTFS file symbolic link. | Verify the exact object and preserve the stored link target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise explicit NTFS compression preservation. | Verify content, exact attributes, compression format, and ADS refusal. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise sparse F5 staging with real NTFS I/O. | Check contents, allocation gaps, and rejection of named streams. | | GPT-6.1 Sol (Codex) |
@@ -55,11 +56,12 @@ Handle CreateRenameSource(const std::wstring& path)
     return Handle(file == INVALID_HANDLE_VALUE ? nullptr : file);
 }
 
-Handle OpenIdentity(const std::wstring& path, FILE_ID_INFO& identity)
+Handle OpenIdentity(const std::wstring& path, FILE_ID_INFO& identity, bool directory = false)
 {
     const HANDLE file = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
                                     FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-                                    OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+                                    OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT |
+                                                       (directory ? FILE_FLAG_BACKUP_SEMANTICS : 0), nullptr);
     Handle handle(file == INVALID_HANDLE_VALUE ? nullptr : file);
     if (handle && !GetFileInformationByHandleEx(handle.get(), FileIdInfo, &identity, sizeof(identity)))
         handle.reset();
@@ -1386,7 +1388,7 @@ int wmain(int argc, wchar_t** argv)
           "verified rename preserves the source identity in the held parent", error);
 
     error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, verifiedId,
-                                               L"verified-\u6771\u4eac", L"ordinary-as-link", true);
+                                               L"verified-\u6771\u4eac", L"ordinary-as-link", UacRenameLeaf::MoveKind::RenameSymlink);
     Check(error == ERROR_REPARSE_TAG_INVALID && !Exists(moved + L"\\ordinary-as-link"),
           "the symbolic-link operation rejects an ordinary file", error);
 
@@ -1416,13 +1418,13 @@ int wmain(int argc, wchar_t** argv)
         error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, linkId, L"symbolic-\u6771", L"symbolic-\u4eac");
         Check(error == ERROR_REPARSE_TAG_INVALID && Exists(linkSource) && !Exists(linkTarget),
               "ordinary rename still rejects a symbolic link", error);
-        error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, linkId, L"symbolic-\u6771", L"symbolic-referent", true);
+        error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, linkId, L"symbolic-\u6771", L"symbolic-referent", UacRenameLeaf::MoveKind::RenameSymlink);
         Check((error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS) && Exists(linkSource) && HasContents(referent, content),
               "symbolic-link rename preserves both entries on collision", error);
-        error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, verifiedId, L"symbolic-\u6771", L"symbolic-\u4eac", true);
+        error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, verifiedId, L"symbolic-\u6771", L"symbolic-\u4eac", UacRenameLeaf::MoveKind::RenameSymlink);
         Check(error == ERROR_FILE_INVALID && Exists(linkSource) && !Exists(linkTarget),
               "symbolic-link rename rejects a different source identity", error);
-        error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, linkId, L"symbolic-\u6771", L"symbolic-\u4eac", true);
+        error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, linkId, L"symbolic-\u6771", L"symbolic-\u4eac", UacRenameLeaf::MoveKind::RenameSymlink);
         FILE_ID_INFO renamedLinkId{};
         const auto renamedLink = OpenIdentity(linkTarget, renamedLinkId);
         Check(error == ERROR_SUCCESS && !Exists(linkSource) && renamedLink &&
@@ -1437,17 +1439,68 @@ int wmain(int argc, wchar_t** argv)
         if (!pinnedDangling)
             return 2;
         error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, danglingId,
-                                                   L"dangling-source", L"dangling-target", true);
+                                                   L"dangling-source", L"dangling-target", UacRenameLeaf::MoveKind::RenameSymlink);
         Check(error == ERROR_SUCCESS && !Exists(dangling) &&
                   OpenIdentity(moved + L"\\dangling-target", renamedDanglingId) &&
                   UacRenameLeaf::Detail::SameSource(danglingId, renamedDanglingId) &&
                   !Exists(moved + L"\\missing-referent"),
               "rename a dangling link without opening or creating its target", error);
+
+        const auto dirSource = moved + L"\\directory-link-\u6771";
+        const auto dirTarget = moved + L"\\directory-link-\u4eac";
+        const auto dirReferent = moved + L"\\directory-referent";
+        const auto sentinel = dirReferent + L"\\sentinel.txt";
+        if (!CreateDirectoryW(dirReferent.c_str(), nullptr) || !WriteFixture(sentinel, content) ||
+            !CreateSymbolicLinkW(dirSource.c_str(), L"directory-referent",
+                                 SYMBOLIC_LINK_FLAG_DIRECTORY | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE))
+            return 2;
+        FILE_ID_INFO directoryLinkId{}, renamedDirectoryLinkId{};
+        const auto directoryLink = OpenIdentity(dirSource, directoryLinkId, true);
+        if (!directoryLink || !readLink(directoryLink.get(), beforeLink))
+            return 2;
+        const auto dirKind = UacRenameLeaf::MoveKind::RenameDirectorySymlink;
+        const auto renameDirectory = [&](const FILE_ID_INFO& id, std::wstring_view from, std::wstring_view to) {
+            return UacRenameLeaf::RenameVerifiedFile(original.get(), expected, id, from, to, dirKind);
+        };
+        error = renameDirectory(renamedLinkId, L"symbolic-\u4eac", L"wrong-link-type");
+        Check(error == ERROR_NOT_SUPPORTED && !Exists(moved + L"\\wrong-link-type"),
+              "directory link rename rejects a file link", error);
+        error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, directoryLinkId,
+                                                   L"directory-link-\u6771", L"wrong-link-type",
+                                                   UacRenameLeaf::MoveKind::RenameSymlink);
+        Check(error != ERROR_SUCCESS && !Exists(moved + L"\\wrong-link-type"),
+              "file link rename rejects a directory link", error);
+        error = renameDirectory(directoryLinkId, L"directory-link-\u6771", L"directory-referent");
+        Check((error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS) &&
+                  DirectoryExists(dirSource) && HasContents(sentinel, content),
+              "directory link rename cannot replace an existing directory", error);
+        error = UacRenameLeaf::MoveVerifiedFile(original.get(), expected, directoryLinkId, L"directory-link-\u6771",
+                                                 listing.get(), listingIdentity, L"moved-directory-link", dirKind);
+        Check(error == ERROR_NOT_SUPPORTED && DirectoryExists(dirSource),
+              "directory link cannot move to a different parent through rename", error);
+        error = renameDirectory(directoryLinkId, L"directory-link-\u6771", L"directory-link-\u4eac");
+        const auto renamedDirectory = OpenIdentity(dirTarget, renamedDirectoryLinkId, true);
+        Check(error == ERROR_SUCCESS && !Exists(dirSource) && renamedDirectory &&
+                  UacRenameLeaf::Detail::SameSource(directoryLinkId, renamedDirectoryLinkId) &&
+                  readLink(renamedDirectory.get(), afterLink) && beforeLink == afterLink &&
+                  HasContents(sentinel, content) && HasContents(dirTarget + L"\\sentinel.txt", content),
+              "rename a Unicode directory link and preserve the link and its referent", error);
     }
     else if (GetLastError() == ERROR_PRIVILEGE_NOT_HELD)
         std::puts("SKIP: creating the symbolic-link fixture requires Developer Mode or SeCreateSymbolicLinkPrivilege");
     else
         return 2;
+
+    ParentIdentity junctionParent;
+    FILE_ID_INFO junctionId{};
+    const auto pinnedJunction = OpenIdentity(fixture + L"\\junction", junctionId, true);
+    if (!pinnedJunction || ReadParentIdentity(root.get(), junctionParent))
+        return 2;
+    error = UacRenameLeaf::RenameVerifiedFile(root.get(), junctionParent, junctionId, L"junction", L"junction-renamed",
+                                               UacRenameLeaf::MoveKind::RenameDirectorySymlink);
+    Check(error == ERROR_REPARSE_TAG_INVALID && DirectoryExists(fixture + L"\\junction") &&
+              !Exists(fixture + L"\\junction-renamed"),
+          "directory link rename rejects the junction tag", error);
 
     const auto metadataPath = moved + L"\\verified-\u6771\u4eac";
     const auto metadataFile = OpenIdentity(metadataPath, verifiedId);

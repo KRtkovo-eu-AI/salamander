@@ -5,6 +5,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Offer elevation for one directory symbolic link. | Reuse the link-specific prompt in F2 and Quick Rename. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer a separate consent prompt for file symbolic links. | Name the affected link for both F2 and Quick Rename. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Separate local F7 leaf creation from panel UI. | Verify or preserve the F7 local creation contract. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-06 | Keep archive metadata cache invalidation with strict path decoding. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
@@ -3550,12 +3551,13 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     bool renamed = MoveFileExW(srcPath.c_str(), tgtPath.c_str(), 0) != FALSE;
     DWORD err = renamed ? ERROR_SUCCESS : GetLastError();
     bool offeredElevation = false;
-    if (err == ERROR_ACCESS_DENIED && !isDir && !IsBranchView() &&
+    const bool link = (f->Attr & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+    if (err == ERROR_ACCESS_DENIED && (!isDir || link) && !IsBranchView() &&
         GetFileAttributesW(tgtPath.c_str()) == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND)
     {
         UacF7::PreparedLeaf request;
-        const bool link = (f->Attr & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
-        const bool prepared = link ? request.PrepareRenameSymlink(srcPath, newNameW) : request.Prepare(srcPath, newNameW);
+        const bool prepared = link ? request.PrepareRenameSymlink(srcPath, newNameW, isDir != FALSE)
+                                   : request.Prepare(srcPath, newNameW);
         if (prepared)
         {
             offeredElevation = true;

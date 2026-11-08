@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Validate directory symbolic links through anchored source opens. | Keep the visible path and broker bound to the same link object. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate and validate symbolic-link rename. | Check the same link identity and type in the panel and broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate and dispatch compressed-file copy. | Keep exact attributes bound to a distinct authenticated operation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate preservation of named streams in default protected F5. | Require protected staging before writing the copied streams. | | GPT-6.1 Sol (Codex) |
@@ -97,11 +98,13 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD copyPreserveAdsCapability = 8192;
 [[maybe_unused]] constexpr DWORD copyCompressedCapability = 16384;
 [[maybe_unused]] constexpr DWORD renameSymlinkCapability = 32768;
+[[maybe_unused]] constexpr DWORD renameDirectorySymlinkCapability = 65536;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
                                                  inventoryCapability | copyTreeCapability | cancelTreeCapability |
                                                  directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
-                                                 copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability;
+                                                 copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability |
+                                                 renameDirectorySymlinkCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -356,6 +359,16 @@ struct ComApartment
 
 #if defined(SAM_UAC_BROKER) || defined(SAM_UAC_F7_HOST)
 using UacF7::Operation;
+
+UacRenameLeaf::MoveKind RenameKind(Operation operation)
+{
+    if (operation == Operation::RenameDirectorySymlink)
+        return UacRenameLeaf::MoveKind::RenameDirectorySymlink;
+    if (operation == Operation::RenameSymlink)
+        return UacRenameLeaf::MoveKind::RenameSymlink;
+    return UacRenameLeaf::MoveKind::RenameFile;
+}
+
 struct RequestHeader
 {
     ULONGLONG serial;
@@ -838,7 +851,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     if (rename)
     {
         result = UacRenameLeaf::RenameVerifiedFile(parent.get(), expected, sourceIdentity, source, leaf,
-                                                   header.operation == Operation::RenameSymlink);
+                                                   RenameKind(header.operation));
     }
     else if (transfer)
     {
@@ -1253,9 +1266,10 @@ bool PreparedLeaf::Prepare(const std::wstring& path, const std::wstring& renameT
     return PrepareTarget(path, renameTo.empty() ? Operation::Mkdir : Operation::Rename, renameTo, nullptr);
 }
 
-bool PreparedLeaf::PrepareRenameSymlink(const std::wstring& path, const std::wstring& renameTo)
+bool PreparedLeaf::PrepareRenameSymlink(const std::wstring& path, const std::wstring& renameTo, bool directory)
 {
-    return PrepareTarget(path, Operation::RenameSymlink, renameTo, nullptr);
+    const auto requested = directory ? Operation::RenameDirectorySymlink : Operation::RenameSymlink;
+    return PrepareTarget(path, requested, renameTo, nullptr);
 }
 
 bool PreparedLeaf::PrepareMetadata(const std::wstring& path, const MetadataChange& change)
@@ -1341,19 +1355,21 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
     }
     else if (requested != Operation::Mkdir && requested != Operation::List)
     {
+        const auto kind = RenameKind(requested);
         HANDLE raw = nullptr;
         if (UacRenameLeaf::Detail::OpenSource(opened.get(), finalName, raw, 0,
-                                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE))
+                                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, kind))
             return false;
         openedSource = Adopt(raw);
         const std::wstring sourcePath = LR"(\\?\)" + std::wstring(input);
+        const DWORD flags = FILE_FLAG_OPEN_REPARSE_POINT |
+                            (requested == Operation::RenameDirectorySymlink ? FILE_FLAG_BACKUP_SEMANTICS : 0);
         const auto visibleSource = Adopt(CreateFileW(sourcePath.c_str(), FILE_READ_ATTRIBUTES,
                                                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                                      nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+                                                      nullptr, OPEN_EXISTING, flags, nullptr));
         FILE_ID_INFO visibleIdentity{};
-        const bool symlink = requested == Operation::RenameSymlink;
-        if (!visibleSource || UacRenameLeaf::Detail::ReadSourceIdentity(visibleSource.get(), visibleIdentity, symlink) ||
-            UacRenameLeaf::Detail::ReadSourceIdentity(openedSource.get(), sourceIdentity, symlink) ||
+        if (!visibleSource || UacRenameLeaf::Detail::ReadSourceIdentity(visibleSource.get(), visibleIdentity, kind) ||
+            UacRenameLeaf::Detail::ReadSourceIdentity(openedSource.get(), sourceIdentity, kind) ||
             !UacRenameLeaf::Detail::SameSource(visibleIdentity, sourceIdentity) ||
             sourceIdentity.VolumeSerialNumber != snapshot.file.VolumeSerialNumber)
             return false;
