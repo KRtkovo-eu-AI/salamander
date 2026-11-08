@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise verified permanent directory symbolic-link deletion. | Check type, identity, dangling links and target preservation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify permanent deletion of a file symbolic link. | Check the typed identity guard and preserve the linked file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify junction rename and mount-point rejection. | Exercise real NTFS junction data and malformed or unsupported substitute names. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise verified directory symbolic-link rename. | Check type, collision, parent binding, and unchanged reparse data. | | GPT-6.1 Sol (Codex) |
@@ -1394,7 +1395,7 @@ int wmain(int argc, wchar_t** argv)
     Check(error == ERROR_REPARSE_TAG_INVALID && !Exists(moved + L"\\ordinary-as-link"),
           "the symbolic-link operation rejects an ordinary file", error);
 
-    error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, verifiedId, L"verified-\u6771\u4eac", true);
+    error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, verifiedId, L"verified-\u6771\u4eac", UacF7::Operation::DeleteSymlink);
     Check(error == ERROR_REPARSE_TAG_INVALID && Exists(moved + L"\\verified-\u6771\u4eac"),
           "typed symbolic-link deletion rejects an ordinary file", error);
 
@@ -1492,19 +1493,39 @@ int wmain(int argc, wchar_t** argv)
                   HasContents(sentinel, content) && HasContents(dirTarget + L"\\sentinel.txt", content),
               "rename a Unicode directory link and preserve the link and its referent", error);
 
-        error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, renamedDirectoryLinkId, L"directory-link-\u4eac", true);
+        error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, renamedDirectoryLinkId, L"directory-link-\u4eac", UacF7::Operation::DeleteSymlink);
         Check(error != ERROR_SUCCESS && DirectoryExists(dirTarget) && HasContents(sentinel, content),
               "typed file-link deletion refuses a directory symbolic link", error);
-        error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, renamedLinkId, L"symbolic-\u4eac");
+        constexpr auto deleteDirectoryLink = UacF7::Operation::DeleteDirectorySymlink;
+        error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, renamedLinkId, L"symbolic-\u4eac", deleteDirectoryLink);
+        Check(error == ERROR_NOT_SUPPORTED && Exists(linkTarget),
+              "typed directory-link deletion refuses a file symbolic link", error);
+        error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, renamedLinkId, L"directory-link-\u4eac", deleteDirectoryLink);
+        Check(error == ERROR_FILE_INVALID && DirectoryExists(dirTarget) && HasContents(sentinel, content),
+              "typed directory-link deletion rejects a stale source identity", error);
+        error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, renamedDirectoryLinkId, L"directory-link-\u4eac", deleteDirectoryLink);
+        Check(error == ERROR_SUCCESS && !Exists(dirTarget) && DirectoryExists(dirReferent) && HasContents(sentinel, content),
+              "delete the Unicode directory link while its identity is held and preserve its contents at the target", error);
+        const auto danglingDirectory = moved + L"\\dangling-directory-link";
+        FILE_ID_INFO danglingDirectoryId{};
+        if (!CreateSymbolicLinkW(danglingDirectory.c_str(), L"missing-directory",
+                                 SYMBOLIC_LINK_FLAG_DIRECTORY | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) ||
+            !OpenIdentity(danglingDirectory, danglingDirectoryId, true))
+            return 2;
+        error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, danglingDirectoryId, L"dangling-directory-link", deleteDirectoryLink);
+        Check(error == ERROR_SUCCESS && !Exists(danglingDirectory) && !Exists(moved + L"\\missing-directory"),
+              "delete a dangling directory link without requiring its target", error);
+
+        error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, renamedLinkId, L"symbolic-\u4eac");
         Check(error == ERROR_REPARSE_TAG_INVALID && Exists(linkTarget),
               "ordinary deletion refuses a file symbolic link", error);
-        error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, verifiedId, L"symbolic-\u4eac", true);
+        error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, verifiedId, L"symbolic-\u4eac", UacF7::Operation::DeleteSymlink);
         Check(error == ERROR_FILE_INVALID && Exists(linkTarget),
               "typed symbolic-link deletion rejects a stale source identity", error);
-        error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, renamedLinkId, L"symbolic-\u4eac", true);
+        error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, renamedLinkId, L"symbolic-\u4eac", UacF7::Operation::DeleteSymlink);
         Check(error == ERROR_SUCCESS && !Exists(linkTarget) && HasContents(referent, content),
               "delete the Unicode link while its identity is held and preserve the linked file", error);
-        error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, renamedDanglingId, L"dangling-target", true);
+        error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, renamedDanglingId, L"dangling-target", UacF7::Operation::DeleteSymlink);
         Check(error == ERROR_SUCCESS && !Exists(moved + L"\\dangling-target") && !Exists(moved + L"\\missing-referent"),
               "delete a dangling file link without requiring its target", error);
     }
@@ -1523,6 +1544,10 @@ int wmain(int argc, wchar_t** argv)
     Check(error == ERROR_REPARSE_TAG_INVALID && DirectoryExists(fixture + L"\\junction") &&
               !Exists(fixture + L"\\junction-renamed"),
           "directory link rename rejects the junction tag", error);
+    error = UacDeleteLeaf::DeleteVerifiedLeaf(root.get(), junctionParent, junctionId, L"junction",
+                                            UacF7::Operation::DeleteDirectorySymlink);
+    Check(error == ERROR_REPARSE_TAG_INVALID && DirectoryExists(fixture + L"\\junction"),
+          "typed directory-link deletion refuses a junction", error);
 
     const auto metadataPath = moved + L"\\verified-\u6771\u4eac";
     const auto metadataFile = OpenIdentity(metadataPath, verifiedId);
@@ -1594,25 +1619,25 @@ int wmain(int argc, wchar_t** argv)
     const auto pinnedDelete = OpenIdentity(deletePath, deleteId);
     if (!pinnedDelete || !MoveFileExW(deletePath.c_str(), relocatedDelete.c_str(), 0) || !CreateRenameSource(deletePath))
         return 2;
-    error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, deleteId, L"delete-source");
+    error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, deleteId, L"delete-source");
     Check(error == ERROR_FILE_INVALID && Exists(deletePath) && Exists(relocatedDelete),
           "delete rejects a replacement source and preserves both files", error);
-    error = UacDeleteLeaf::DeleteVerifiedFile(substitute.get(), expected, deleteId, L"delete-original");
+    error = UacDeleteLeaf::DeleteVerifiedLeaf(substitute.get(), expected, deleteId, L"delete-original");
     Check(error == ERROR_FILE_INVALID && Exists(relocatedDelete), "delete rejects a replacement parent", error);
-    error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, deleteId, L"delete-original:stream");
+    error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, deleteId, L"delete-original:stream");
     Check(error == ERROR_INVALID_NAME && Exists(relocatedDelete), "delete refuses an alternate stream name", error);
 
     const auto deleteAlias = moved + L"\\delete-alias";
     if (!CreateHardLinkW(deleteAlias.c_str(), relocatedDelete.c_str(), nullptr))
         return 2;
-    error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, deleteId, L"delete-original");
+    error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, deleteId, L"delete-original");
     Check(error == ERROR_NOT_SUPPORTED && Exists(relocatedDelete) && Exists(deleteAlias),
           "delete refuses an object with another hardlink", error);
     if (!DeleteFileW(deleteAlias.c_str()))
         return 2;
     if (!SetFileAttributesW(relocatedDelete.c_str(), FILE_ATTRIBUTE_READONLY))
         return 2;
-    error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, deleteId, L"delete-original");
+    error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, deleteId, L"delete-original");
     Check(error == ERROR_NOT_SUPPORTED && GetFileAttributesW(relocatedDelete.c_str()) == FILE_ATTRIBUTE_READONLY,
           "delete leaves a read-only file and its attributes intact", error);
     if (!SetFileAttributesW(relocatedDelete.c_str(), FILE_ATTRIBUTE_NORMAL))
@@ -1622,10 +1647,10 @@ int wmain(int argc, wchar_t** argv)
                                       nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (reader == INVALID_HANDLE_VALUE)
         return 2;
-    error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, deleteId, L"delete-original");
+    error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, deleteId, L"delete-original");
     Check(error == ERROR_SHARING_VIOLATION && Exists(relocatedDelete), "delete refuses an open data reader", error);
     CloseHandle(reader);
-    error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, deleteId, L"delete-original");
+    error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, deleteId, L"delete-original");
     Check(error == ERROR_SUCCESS && !Exists(relocatedDelete) && Exists(deletePath),
           "delete detaches only the verified name while its identity handle is still open", error);
 
@@ -1809,7 +1834,7 @@ int wmain(int argc, wchar_t** argv)
         return 2;
     if (longRename == ERROR_SUCCESS && !SetFileAttributesW(longTarget.c_str(), FILE_ATTRIBUTE_ARCHIVE))
         return 2;
-    const DWORD longDelete = UacDeleteLeaf::DeleteVerifiedFile(longParent.get(), expected, longId, L"target-\u672c");
+    const DWORD longDelete = UacDeleteLeaf::DeleteVerifiedLeaf(longParent.get(), expected, longId, L"target-\u672c");
     Check(longDelete == ERROR_SUCCESS && !Exists(longTarget), "delete an exact Unicode leaf below a long path", longDelete);
     const BOOL removedFile = longDelete == ERROR_SUCCESS || DeleteFileW((longRename == ERROR_SUCCESS ? longTarget : longSource).c_str());
 

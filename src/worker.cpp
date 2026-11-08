@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Route one permanent directory symbolic-link delete to the verified worker. | Keep the recycling policy and unsupported object types on their established paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the verified delete flow for one file symbolic link. | Keep recycling and directory links on their existing paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow F5 to preserve supported compressed-file attributes through UAC. | Use a distinct request only with the copy attributes option. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Admit sparse files to the default F5 broker path. | Retain existing eligibility for move and explicit ADS omission. | | GPT-6.1 Sol (Codex) |
@@ -8993,20 +8994,31 @@ static BOOL ExecuteVerifiedWorkerLeaf(HWND progress, const COperation& op, const
     }
 }
 
-static bool TryDeleteVerifiedFile(HWND progress, const COperation& op, const COperations& script,
+static bool TryDeleteVerifiedLeaf(HWND progress, const COperation& op, const COperations& script,
                                   CProgressDlgData& dlgData, BOOL& success)
 {
     // Recheck the worker's actual policy in case it changed after building the script.
     const bool permanent = (dlgData.UseRecycleBin == 0 && !script.InvertRecycleBin) ||
                            ((dlgData.UseRecycleBin == 1 || dlgData.UseRecycleBin == 2) && script.InvertRecycleBin);
-    const bool symlink = UacF7::IsPlainDeleteSymlink(op.Attr);
     if (!script.AllowPermanentDeletePilot || script.Count != 1 || !permanent || !op.SourceNameWValid ||
-        (!symlink && !UacF7::IsPlainDeleteFile(op.Attr)) || FileNameIsInvalid(op.SourceName, TRUE))
+        FileNameIsInvalid(op.SourceName, TRUE))
         return false;
+
+    UacF7::Operation operation;
+    if (op.Opcode == ocDeleteDirLink && UacF7::IsPlainDeleteSymlink(op.Attr, true))
+        operation = UacF7::Operation::DeleteDirectorySymlink;
+    else if (op.Opcode == ocDeleteFile && UacF7::IsPlainDeleteSymlink(op.Attr))
+        operation = UacF7::Operation::DeleteSymlink;
+    else if (op.Opcode == ocDeleteFile && UacF7::IsPlainDeleteFile(op.Attr))
+        operation = UacF7::Operation::Delete;
+    else
+        return false;
+
     UacF7::PreparedLeaf request;
-    if (!request.PrepareDelete(op.SourceNameW, symlink))
+    if (!request.PrepareDelete(op.SourceNameW, operation))
         return false;
-    success = ExecuteVerifiedWorkerLeaf(progress, op, request, dlgData, WORKER_DIALOG_UAC_DELETE, IDS_ERRORDELETINGFILE);
+    const int errorTitle = op.Opcode == ocDeleteDirLink ? IDS_ERRORDELETINGDIRLINK : IDS_ERRORDELETINGFILE;
+    success = ExecuteVerifiedWorkerLeaf(progress, op, request, dlgData, WORKER_DIALOG_UAC_DELETE, errorTitle);
     return true;
 }
 
@@ -11034,19 +11046,19 @@ unsigned ThreadWorkerBody(void* parameter)
 
                 SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
 
+                BOOL deletedOrSkipped = FALSE;
+                if (TryDeleteVerifiedLeaf(hProgressDlg, *op, *script, dlgData, deletedOrSkipped))
+                {
+                    Error = !deletedOrSkipped;
+                    if (deletedOrSkipped)
+                    {
+                        totalDone += op->Size;
+                        SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+                    }
+                    break;
+                }
                 if (op->Opcode == ocDeleteFile)
                 {
-                    BOOL deletedOrSkipped = FALSE;
-                    if (TryDeleteVerifiedFile(hProgressDlg, *op, *script, dlgData, deletedOrSkipped))
-                    {
-                        Error = !deletedOrSkipped;
-                        if (deletedOrSkipped)
-                        {
-                            totalDone += op->Size;
-                            SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
-                        }
-                        break;
-                    }
                     Error = !DoDeleteFile(hProgressDlg, op->SourceName, op->Size,
                                           script, totalDone, op->Attr, dlgData, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL);
                 }

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Detach a verified directory symbolic link by handle. | Use an anchored no-follow open and reject other directory reparse tags. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Delete a verified file symbolic link by handle. | Check the reparse tag and retain the ordinary-file rules. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Delete a single ordinary file by its verified NTFS handle. | Avoid reopening a path for deletion or changing file attributes. | | GPT-6.1 Sol (Codex) |
 */
@@ -10,21 +11,35 @@
 
 namespace UacDeleteLeaf
 {
-inline DWORD CheckAttributes(HANDLE file, bool symlink = false)
+inline UacRenameLeaf::MoveKind SourceKind(UacF7::Operation operation)
+{
+    if (operation == UacF7::Operation::DeleteDirectorySymlink)
+        return UacRenameLeaf::MoveKind::RenameDirectorySymlink;
+    if (operation == UacF7::Operation::DeleteSymlink)
+        return UacRenameLeaf::MoveKind::RenameSymlink;
+    return UacRenameLeaf::MoveKind::RenameFile;
+}
+
+inline DWORD CheckAttributes(HANDLE file, UacF7::Operation operation)
 {
     FILE_ATTRIBUTE_TAG_INFO attributes{};
     if (!GetFileInformationByHandleEx(file, FileAttributeTagInfo, &attributes, sizeof(attributes)))
         return GetLastError();
+    const bool symlink = operation != UacF7::Operation::Delete;
     if (symlink && attributes.ReparseTag != IO_REPARSE_TAG_SYMLINK)
         return ERROR_REPARSE_TAG_INVALID;
-    const bool supported = symlink ? UacF7::IsPlainDeleteSymlink(attributes.FileAttributes)
+    const bool directory = operation == UacF7::Operation::DeleteDirectorySymlink;
+    const bool supported = symlink ? UacF7::IsPlainDeleteSymlink(attributes.FileAttributes, directory)
                                    : UacF7::IsPlainDeleteFile(attributes.FileAttributes);
     return supported ? ERROR_SUCCESS : ERROR_NOT_SUPPORTED;
 }
 
-inline DWORD DeleteVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
-                                const FILE_ID_INFO& expectedSource, std::wstring_view leaf, bool symlink = false)
+inline DWORD DeleteVerifiedLeaf(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
+                                const FILE_ID_INFO& expectedSource, std::wstring_view leaf,
+                                UacF7::Operation operation = UacF7::Operation::Delete)
 {
+    if (!UacF7::IsLeafDelete(operation))
+        return ERROR_INVALID_PARAMETER;
     if (!UacDirectoryLeaf::IsComponent(leaf))
         return ERROR_INVALID_NAME;
     UacDirectoryLeaf::ParentIdentity actualParent;
@@ -37,16 +52,16 @@ inline DWORD DeleteVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIde
 
     HANDLE file = nullptr;
     // A read-attributes identity handle can coexist with this exclusive data open.
-    error = UacRenameLeaf::Detail::OpenSource(parent, leaf, file, DELETE, 0);
+    const auto kind = SourceKind(operation);
+    error = UacRenameLeaf::Detail::OpenSource(parent, leaf, file, DELETE, 0, kind);
     if (error != ERROR_SUCCESS)
         return error;
     FILE_ID_INFO actualSource{};
-    const auto kind = symlink ? UacRenameLeaf::MoveKind::RenameSymlink : UacRenameLeaf::MoveKind::RenameFile;
     error = UacRenameLeaf::Detail::ReadSourceIdentity(file, actualSource, kind);
     if (error == ERROR_SUCCESS && !UacRenameLeaf::Detail::SameSource(actualSource, expectedSource))
         error = ERROR_FILE_INVALID;
     if (error == ERROR_SUCCESS)
-        error = CheckAttributes(file, symlink);
+        error = CheckAttributes(file, operation);
     if (error == ERROR_SUCCESS)
     {
         // Detach the verified name on close even while the host retains its identity handle.

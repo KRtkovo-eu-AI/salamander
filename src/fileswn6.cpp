@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Pass the exact selected directory-link path to the delete pilot. | Use the panel Unicode path without changing recursive planning. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Defer ADS discovery for eligible compressed copies. | Use the same UAC eligibility for inaccessible sources and targets. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Keep eligible sparse files when initial source access is denied. | Let the F5 broker verify the source when ADS discovery could not open it. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Carry the exact selected directory path for basic metadata. | Use the panel wide path for the directory timestamp request. | | GPT-6.1 Sol (Codex) |
@@ -1569,8 +1570,11 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                         SetCurrentDirectoryToSystem();
                         return FALSE;
                     }
-                    if (type == atChangeAttrs && !attrsData->SubDirs && selCount <= 1 &&
-                        !IsBranchView() && script->Count == 1)
+                    const bool directoryLinkDelete = type == atDelete && script->AllowPermanentDeletePilot &&
+                                                     script->Count == 1 && script->At(0).Opcode == ocDeleteDirLink;
+                    const bool directoryMetadata = type == atChangeAttrs && !attrsData->SubDirs && selCount <= 1 &&
+                                                   !IsBranchView() && script->Count == 1;
+                    if (directoryLinkDelete || directoryMetadata)
                     {
                         const auto path = GetItemFullPathW(*oneFile);
                         if (!path.empty())

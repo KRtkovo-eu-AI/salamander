@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record P5l permanent directory symbolic-link deletion. | Document scope and local and VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5k permanent file symbolic-link deletion. | Document scope and local and VM checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5j junction rename. | Document the accepted junction format and the local and VM results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5i directory symbolic-link rename. | Document the type check and the local and VM results. | | GPT-6.1 Sol (Codex) |
@@ -632,6 +633,14 @@ Pilot trvalého smazání přijímá jeden souborový symbolický odkaz na míst
 Lokálně prošlo sestavení x64 Debug, všech 163 nativních kontrol v Debug i Release, transport brokeru, test konverzních tabulek a regresní zkouška DoDeleteFile pro trvalé smazání a Koš. Nativní zkoušky ověřily odstranění odkazu s názvem v Unicode při drženém handle, zachování cílového souboru, smazání odkazu na neexistující cíl a odmítnutí nesprávného typu a jiné identity.
 
 V izolované Windows 11 VM se při Shift+Delete po potvrzení běžného dotazu a schválení UAC odstranil 01-approve-link.txt. Po volbě Ne ve výzvě Windows pro 02-cancel-link.txt zůstal tento odkaz na místě se shodnými reparse daty. Oba soubory, na které odkazy ukazovaly, měly původní SHA-256. Otisky instalovaných binárek souhlasily s pilotem.
+
+### 8.37 P5l — trvalé smazání adresářového symbolického odkazu
+
+Shift+Delete podporuje přes broker jeden adresářový symbolický odkaz na místním NTFS. Worker znovu ověří trvalou operaci a používá přesnou cestu z panelu. Po odepření běžného pokusu nabídne správce s popisem trvalého smazání odkazu, jeho cestou, štítem a výchozí volbou Zrušit. Samostatný typ požadavku váže schválení na adresářový symbolický odkaz. Host i broker ověří identitu rodiče a odkazu, typ adresáře a tag IO_REPARSE_TAG_SYMLINK. Broker otevře odkaz bez následování cíle a odstraní pouze jeho název pomocí ověřeného handle. Pilot se vztahuje na jednotlivé adresářové symbolické odkazy. [Symbolické odkazy ve Windows](https://learn.microsoft.com/en-us/windows/win32/fileio/symbolic-link-effects-on-file-systems-functions)
+
+Lokálně prošlo sestavení x64 Debug, všech 168 nativních kontrol v Debug i Release, transport brokeru, test konverzních tabulek a regresní test trvalého smazání a Koše. Nativní zkoušky ověřily smazání adresářového odkazu s názvem v Unicode při drženém handle, zachování cílového adresáře i kontrolního souboru, odstranění odkazu na neexistující složku a odmítnutí záměny identity, souborového odkazu i junction.
+
+V izolované Windows 11 VM se po potvrzení běžného dotazu Shift+Delete a volbě Ano v UAC odstranil 01-approve-dirlink. Po volbě Ne u 02-cancel-dirlink zůstal druhý odkaz na místě a jeho reparse data byla shodná s výchozími. Kontrolní soubory v obou odkazovaných složkách měly původní SHA-256 a otisky instalovaných binárek souhlasily s pilotem.
 
 ## 9. Uživatelský tok a stav operace
 
