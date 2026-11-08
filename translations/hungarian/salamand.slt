@@ -4188,6 +4188,8 @@ SLGINCOMPLETE,""
 14536,1,"Rendszergazdai lista"
 14537,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként?"
 14538,1,"A segédfolyamat kapcsolata a másolás visszaigazolása előtt megszakadt. Újrapróbálkozás előtt ellenőrizze a célt."
+14539,1,"A hozzáférés megtagadva. Áthelyezi ezt a fájlt rendszergazdaként?"
+14540,1,"A segédfolyamat kapcsolata az áthelyezés visszaigazolása előtt megszakadt. Újrapróbálkozás előtt ellenőrizze a forrást és a célt."
 
 [STRINGTABLE 184]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."

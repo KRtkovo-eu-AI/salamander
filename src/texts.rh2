@@ -1,4 +1,5 @@
 // | 2026-11-07 | Reserve consent and status text for protected listings. | Show the active authorization in the panel. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Add the F6 elevation text. | Identify the move and its uncertain outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add the one-file UAC copy prompts. | Describe consent and uncertain results. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve permanent-delete elevation messages. | Explain irreversible deletion and a lost result. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve basic metadata consent and disconnect strings. | Localize the metadata pilot. | | GPT-6.1 Sol (Codex) |
@@ -3161,5 +3162,7 @@
 #define IDS_UAC_LIST_ACTIVE                          14536
 #define IDS_UAC_COPY_CONFIRM                         14537
 #define IDS_UAC_COPY_UNKNOWN                         14538
+#define IDS_UAC_MOVE_CONFIRM                         14539
+#define IDS_UAC_MOVE_UNKNOWN                         14540
 
 #endif // __TEXTS_RH2

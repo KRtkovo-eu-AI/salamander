@@ -4188,6 +4188,8 @@ SLGINCOMPLETE,""
 14536,1,"Listare ca administrator"
 14537,1,"Acces refuzat. Copiați acest fișier ca administrator?"
 14538,1,"Procesul auxiliar s-a deconectat înainte de confirmarea copierii. Verificați destinația înainte de a reîncerca."
+14539,1,"Acces refuzat. Mutați acest fișier ca administrator?"
+14540,1,"Procesul auxiliar s-a deconectat înainte de confirmarea mutării. Verificați sursa și destinația înainte de a reîncerca."
 
 [STRINGTABLE 184]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."

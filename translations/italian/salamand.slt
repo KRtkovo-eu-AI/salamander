@@ -4188,6 +4188,8 @@ SLGINCOMPLETE,""
 14536,1,"Elenco amministratore"
 14537,1,"Accesso negato. Copiare questo file come amministratore?"
 14538,1,"Il processo ausiliario si è disconnesso prima della conferma della copia. Controllare la destinazione prima di riprovare."
+14539,1,"Accesso negato. Spostare questo file come amministratore?"
+14540,1,"Il processo ausiliario si è disconnesso prima della conferma dello spostamento. Controllare l’origine e la destinazione prima di riprovare."
 
 [STRINGTABLE 184]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."

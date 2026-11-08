@@ -5,6 +5,7 @@
 // | 2026-11-07 | Run eligible permanent deletion with the verified file executor. | Preserve the original file identity across ordinary attempts and elevated consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Run one-file basic metadata changes through the verified executor. | Offer elevation only after an ordinary access denial and retain worker accounting. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer one verified broker copy after ordinary access is denied. | Keep the existing worker lease and only count an acknowledged copy. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Offer a verified same-volume move after access denial. | Complete the existing F6 item only after an authenticated result. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -489,7 +490,7 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     ClearReadonlyMask = 0xFFFFFFFF;
     InvertRecycleBin = FALSE;
     AllowPermanentDeletePilot = FALSE;
-    AllowCopyPilot = FALSE;
+    AllowTransferPilot = FALSE;
     CanUseRecycleBin = TRUE;
     SameRootButDiffVolume = FALSE;
     TargetPathSupADS = FALSE;
@@ -5598,12 +5599,14 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
     }
 }
 
-static bool TryCopyWithBroker(HWND progress, const COperation& op, COperations& script,
+static bool TryTransferWithBroker(HWND progress, const COperation& op, COperations& script,
                               CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success)
 {
-    if (!script.AllowCopyPilot || script.Count != 1 || script.CopySecurity || script.CopyAttrs || script.OverwriteOlder ||
-        (op.OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED)) != 0 || !UacF7::IsPlainCopyFile(op.Attr) ||
-        op.FileSize.Value > UacF7::maxPilotCopyBytes || !op.SourceNameWValid || !op.TargetNameWValid)
+    const bool moving = op.Opcode == ocMoveFile;
+    if (!script.AllowTransferPilot || script.Count != 1 || script.CopySecurity || script.CopyAttrs || script.OverwriteOlder ||
+        (op.OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED)) != 0 || !op.SourceNameWValid || !op.TargetNameWValid ||
+        (moving ? !UacF7::IsPlainDeleteFile(op.Attr)
+                : (!UacF7::IsPlainCopyFile(op.Attr) || op.FileSize.Value > UacF7::maxPilotCopyBytes)))
         return false;
 
     BOOL limited = FALSE;
@@ -5619,8 +5622,8 @@ static bool TryCopyWithBroker(HWND progress, const COperation& op, COperations& 
     if (targetError != ERROR_FILE_NOT_FOUND && targetError != ERROR_ACCESS_DENIED)
         return false;
 
-    UacF7::PreparedCopy request;
-    if (!request.Prepare(op.SourceNameW, op.TargetNameW, op.FileSize.Value))
+    UacF7::PreparedTransfer request;
+    if (!request.Prepare(op.SourceNameW, op.TargetNameW, op.FileSize.Value, moving))
         return false;
     success = FALSE;
     WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
@@ -5630,12 +5633,15 @@ static bool TryCopyWithBroker(HWND progress, const COperation& op, COperations& 
     const auto targetDisplay = SalPathRemoveExtendedPrefixW(op.TargetNameW.c_str());
     const auto sourceText = SalWideToMultiBytePath(sourceDisplay.c_str(), CP_UTF8);
     const auto targetText = SalWideToMultiBytePath(targetDisplay.c_str(), CP_UTF8);
-    UacF7::CopyPrompt prompt{request, sourceText.c_str(), targetText.c_str()};
-    SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_COPY, reinterpret_cast<LPARAM>(&prompt));
+    UacF7::TransferPrompt prompt{request, sourceText.c_str(), targetText.c_str()};
+    SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
     if (!prompt.result.unknown && prompt.result.error == ERROR_SUCCESS)
     {
         totalDone += op.Size;
-        script.AddBytesToTFSandSetProgressSize(op.FileSize, totalDone);
+        if (moving)
+            SetProgress(progress, 0, CaclProg(totalDone, script.TotalSize), dlgData);
+        else
+            script.AddBytesToTFSandSetProgressSize(op.FileSize, totalDone);
         success = TRUE;
     }
     return true;
@@ -5659,7 +5665,7 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
     if ((op->OpFlags & OPFL_UAC_COPY_SOURCE) != 0)
     {
         BOOL success = FALSE;
-        if (!invalidSrcName && !invalidTgtName && TryCopyWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
+        if (!invalidSrcName && !invalidTgtName && TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
             return success;
         int answer = IDCANCEL;
         char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(IDS_ERRORCOPY), op->SourceName, GetErrorText(ERROR_ACCESS_DENIED)};
@@ -5825,7 +5831,7 @@ COPY_AGAIN:
                         !isMove && GetLastError() == ERROR_ACCESS_DENIED)
                     {
                         BOOL success = FALSE;
-                        if (TryCopyWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
+                        if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
                         {
                             HANDLES(CloseHandle(in));
                             return success;
@@ -6821,7 +6827,7 @@ COPY_AGAIN:
             if (err == ERROR_ACCESS_DENIED && !isMove && !copyADS && !copyAsEncrypted && !invalidTgtName)
             {
                 BOOL success = FALSE;
-                if (TryCopyWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
+                if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
                     return success;
             }
 
@@ -7089,6 +7095,12 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                 DWORD err = GetLastError();
                 if (invalidName)
                     err = ERROR_INVALID_NAME;
+                if (err == ERROR_ACCESS_DENIED && !dir && !*novellRenamePatch)
+                {
+                    BOOL success = FALSE;
+                    if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
+                        return success;
+                }
                 // Novell patch - before calling MoveFile we need to drop the read-only attribute
                 if (!invalidName && *novellRenamePatch || err == ERROR_ACCESS_DENIED)
                 {

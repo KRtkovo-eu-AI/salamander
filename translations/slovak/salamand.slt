@@ -4188,6 +4188,8 @@ SLGINCOMPLETE,""
 14536,1,"Výpis správcu"
 14537,1,"Prístup bol odmietnutý. Skopírovať tento súbor ako správca?"
 14538,1,"Pomocný proces sa odpojil pred potvrdením kopírovania. Pred opakovaním skontrolujte cieľ."
+14539,1,"Prístup bol odmietnutý. Presunúť tento súbor ako správca?"
+14540,1,"Pomocný proces sa odpojil pred potvrdením presunu. Pred opakovaním skontrolujte zdroj aj cieľ."
 
 [STRINGTABLE 184]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."

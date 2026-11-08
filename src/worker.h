@@ -5,6 +5,7 @@
 // | 2026-11-07 | Mark explicitly permanent single-file delete operations. | Keep Shell recycling outside the UAC delete pilot. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Mark eligible basic metadata operations and define their UI message. | Keep the broker pilot scoped to a single regular file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Mark one-file F5 requests and deferred source discovery. | Keep other copy and move paths on their normal route. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Share the one-file transfer flag between F5 and F6. | Use the same worker consent path. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -48,7 +49,7 @@ void ReleaseWorker();
 
 constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 13;
 constexpr WPARAM WORKER_DIALOG_UAC_DELETE = 14;
-constexpr WPARAM WORKER_DIALOG_UAC_COPY = 15;
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 15;
 
 struct CChangeAttrsData
 {
@@ -397,7 +398,7 @@ public:
     DWORD ClearReadonlyMask; // for automatically clearing the read-only flag from CD-ROMs
     BOOL InvertRecycleBin;   // invert Recycle Bin usage
     BOOL AllowPermanentDeletePilot;
-    BOOL AllowCopyPilot;
+    BOOL AllowTransferPilot;
 
     int FilesCount;
     int DirsCount;

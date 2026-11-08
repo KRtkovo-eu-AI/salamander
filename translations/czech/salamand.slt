@@ -4188,6 +4188,8 @@ SLGINCOMPLETE,""
 14536,1,"Výpis správce"
 14537,1,"Přístup byl odepřen. Zkopírovat tento soubor jako správce?"
 14538,1,"Broker se odpojil před potvrzením kopie. Před opakováním zkontrolujte cíl."
+14539,1,"Přístup byl odepřen. Přesunout tento soubor jako správce?"
+14540,1,"Broker se odpojil před potvrzením přesunu. Před opakováním zkontrolujte zdroj i cíl."
 
 [STRINGTABLE 184]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."

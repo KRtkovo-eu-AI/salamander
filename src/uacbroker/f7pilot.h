@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Share the prepared transfer with same-volume F6. | Bind source and destination to a typed move request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare a bounded one-file copy request. | Hold both parent identities across UAC. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Expose the approved listing root to the panel. | Locate the protected suffix for display. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Declare one rooted read-only listing session. | Keep one authorization across navigation and refresh. | | GPT-6.1 Sol (Codex) |
@@ -16,7 +17,7 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7 };
 
 constexpr ULONGLONG maxPilotCopyBytes = 16 * 1024 * 1024;
 constexpr DWORD plainCopyAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE |
@@ -64,7 +65,7 @@ public:
 
 private:
     friend class ListingSession;
-    friend class PreparedCopy;
+    friend class PreparedTransfer;
     bool PrepareTarget(const std::wstring& path, Operation requested, const std::wstring& renameTo,
                        const MetadataChange* change);
     HANDLE parent = nullptr;
@@ -77,11 +78,12 @@ private:
     Operation operation = Operation::Mkdir;
 };
 
-class PreparedCopy
+class PreparedTransfer
 {
 public:
-    bool Prepare(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize);
+    bool Prepare(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize, bool moving);
     Result Execute(HWND owner) const;
+    bool IsMove() const { return source.operation == Operation::Move; }
 
 private:
     PreparedLeaf source;
@@ -89,9 +91,9 @@ private:
     ULONGLONG size = 0;
 };
 
-struct CopyPrompt
+struct TransferPrompt
 {
-    const PreparedCopy& request;
+    const PreparedTransfer& request;
     const char* sourcePath;
     const char* targetPath;
     Result result{ERROR_CANCELLED, false};

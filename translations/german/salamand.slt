@@ -4188,6 +4188,8 @@ SLGINCOMPLETE,""
 14536,1,"Administratoransicht"
 14537,1,"Zugriff verweigert. Diese Datei als Administrator kopieren?"
 14538,1,"Der Broker wurde vor der Bestätigung der Kopie getrennt. Prüfen Sie das Ziel vor einem erneuten Versuch."
+14539,1,"Zugriff verweigert. Diese Datei als Administrator verschieben?"
+14540,1,"Der Broker wurde vor der Bestätigung des Verschiebens getrennt. Prüfen Sie Quelle und Ziel vor einem erneuten Versuch."
 
 [STRINGTABLE 184]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."

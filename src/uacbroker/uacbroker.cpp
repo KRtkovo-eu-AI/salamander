@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Dispatch a same-volume move over the authenticated transfer request. | Use the verified parents and return a terminal operation result. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Authenticate and dispatch a single verified copy. | Bind the request to both directory identities and monitor transport loss. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add an authenticated rooted directory listing session. | Support repeated read-only requests under one approved root. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Route one permanent file deletion through the authenticated broker. | Execute only the verified leaf and keep recycle operations separate. | | GPT-6.1 Sol (Codex) |
@@ -72,8 +73,9 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD deleteCapability = 8;
 [[maybe_unused]] constexpr DWORD listingCapability = 16;
 [[maybe_unused]] constexpr DWORD copyCapability = 32;
+[[maybe_unused]] constexpr DWORD moveCapability = 64;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
-                                                 deleteCapability | listingCapability | copyCapability;
+                                                 deleteCapability | listingCapability | copyCapability | moveCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -419,15 +421,17 @@ DWORD ReceiveRequest(HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG& deadlin
     const bool deleteFile = header.operation == Operation::Delete;
     const bool list = header.operation == Operation::List;
     const bool copy = header.operation == Operation::Copy;
+    const bool move = header.operation == Operation::Move;
+    const bool transfer = copy || move;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
         header.leafLength > UacDirectoryLeaf::maxComponent || header.sourceLength > UacDirectoryLeaf::maxComponent ||
-        (!rename && !mkdir && !setMetadata && !deleteFile && !list && !copy) || rename != (header.sourceLength != 0) ||
-        (list && !header.relativeLength) || copy != (header.targetLeafLength != 0) ||
+        (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer) || rename != (header.sourceLength != 0) ||
+        (list && !header.relativeLength) || transfer != (header.targetLeafLength != 0) ||
         header.targetRelativeLength > UacDirectoryLeaf::maxNativeName || header.targetLeafLength > UacDirectoryLeaf::maxComponent ||
-        header.copySize > UacF7::maxPilotCopyBytes || (!copy && (header.targetRelativeLength || header.copySize)))
+        header.copySize > UacF7::maxPilotCopyBytes || (!copy && header.copySize) || (!transfer && header.targetRelativeLength))
         return ERROR_INVALID_DATA;
     const size_t primarySize = volumeLength + header.relativeLength + header.leafLength + header.sourceLength;
-    const size_t targetSize = copy ? volumeLength + header.targetRelativeLength + header.targetLeafLength : 0;
+    const size_t targetSize = transfer ? volumeLength + header.targetRelativeLength + header.targetLeafLength : 0;
     std::wstring payload(primarySize + targetSize, L'\0');
     error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), false, deadline);
     if (error)
@@ -481,7 +485,7 @@ DWORD ReceiveRequest(HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG& deadlin
     {
         result = UacRenameLeaf::RenameVerifiedFile(parent.get(), expected, sourceIdentity, source, leaf);
     }
-    else if (copy)
+    else if (transfer)
     {
         const auto targetVolume = data.substr(primarySize, volumeLength);
         const auto targetRelative = data.substr(primarySize + volumeLength, header.targetRelativeLength);
@@ -501,11 +505,19 @@ DWORD ReceiveRequest(HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG& deadlin
         {
             const UacDirectoryLeaf::ParentIdentity expectedTarget{{header.targetSerial, header.targetParentId},
                                                                  std::wstring(targetVolume)};
-            const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
-            deadline = copyDeadline + timeoutMs;
-            result = UacCopyLeaf::CopyVerifiedFile(parent.get(), expected, sourceIdentity, leaf,
-                                                   targetParent.get(), expectedTarget, targetLeaf,
-                                                   nullptr, pipe, copyDeadline, header.copySize);
+            if (move)
+            {
+                result = UacRenameLeaf::MoveVerifiedFile(parent.get(), expected, sourceIdentity, leaf,
+                                                         targetParent.get(), expectedTarget, targetLeaf, true, pipe, deadline);
+            }
+            else
+            {
+                const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
+                deadline = copyDeadline + timeoutMs;
+                result = UacCopyLeaf::CopyVerifiedFile(parent.get(), expected, sourceIdentity, leaf,
+                                                       targetParent.get(), expectedTarget, targetLeaf,
+                                                       nullptr, pipe, copyDeadline, header.copySize);
+            }
         }
     }
     else if (setMetadata)
@@ -766,9 +778,9 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         if (request->operation == Operation::Copy)
             deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
         error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline);
-        if (!error && request->operation == Operation::Copy)
+        if (!error && (request->operation == Operation::Copy || request->operation == Operation::Move))
         {
-            // The authenticated reply is sent only after the copy handle closes.
+            // The authenticated reply is sent only after the operation handles close.
             result->error = operationError;
             result->unknown = false;
         }
@@ -956,16 +968,20 @@ Result PreparedLeaf::Execute(HWND owner) const
     return result;
 }
 
-bool PreparedCopy::Prepare(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize)
+bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstring& targetPath,
+                               ULONGLONG expectedSize, bool moving)
 {
-    if (expectedSize > maxPilotCopyBytes || !source.PrepareTarget(sourcePath, Operation::Copy, {}, nullptr) ||
+    if ((!moving && expectedSize > maxPilotCopyBytes) ||
+        !source.PrepareTarget(sourcePath, moving ? Operation::Move : Operation::Copy, {}, nullptr) ||
         !target.Prepare(targetPath))
         return false;
-    size = expectedSize;
+    if (moving && (source.serial != target.serial || !UacDirectoryLeaf::Equal(source.volume, target.volume)))
+        return false;
+    size = moving ? 0 : expectedSize;
     return true;
 }
 
-Result PreparedCopy::Execute(HWND owner) const
+Result PreparedTransfer::Execute(HWND owner) const
 {
     Result result;
     const ComApartment com;
@@ -974,7 +990,7 @@ Result PreparedCopy::Execute(HWND owner) const
         !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))
         return result;
 
-    RequestHeader header{source.serial, {}, {}, Operation::Copy,
+    RequestHeader header{source.serial, {}, {}, source.operation,
                          static_cast<DWORD>(source.relative.size()), static_cast<DWORD>(source.leaf.size()), 0,
                          target.serial, {}, static_cast<DWORD>(target.relative.size()), static_cast<DWORD>(target.leaf.size()), size};
     std::memcpy(header.parentId.Identifier, source.fileId, sizeof(source.fileId));

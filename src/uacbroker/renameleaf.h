@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Move one verified file across directories on the same volume. | Reuse the no-replace native rename without changing ordinary F6. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share anchored leaf opens with the staging file. | Keep temporary file creation relative to the verified target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Share the anchored source open with basic metadata changes. | Keep access and sharing specific to each operation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Share the anchored source open and identity check with the panel host. | Capture the file identity before requesting elevation. | | GPT-6.1 Sol (Codex) |
@@ -78,6 +79,18 @@ inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity)
     return ERROR_SUCCESS;
 }
 
+inline DWORD CheckTransferConnection(HANDLE connection, ULONGLONG deadline)
+{
+    if (GetTickCount64() >= deadline)
+        return ERROR_TIMEOUT;
+    if (!connection)
+        return ERROR_SUCCESS;
+    DWORD pending = 0;
+    if (!PeekNamedPipe(connection, nullptr, 0, nullptr, &pending, nullptr))
+        return GetLastError();
+    return pending ? ERROR_INVALID_DATA : ERROR_SUCCESS;
+}
+
 inline bool SameSource(const FILE_ID_INFO& actual, const FILE_ID_INFO& expected)
 {
     return actual.VolumeSerialNumber == expected.VolumeSerialNumber &&
@@ -86,14 +99,20 @@ inline bool SameSource(const FILE_ID_INFO& actual, const FILE_ID_INFO& expected)
 }
 
 // The caller keeps the original parent and source identity handles alive
-// until completion. The same verified parent is used for both names.
-inline DWORD RenameVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
-                                const FILE_ID_INFO& expectedSource, std::wstring_view from, std::wstring_view to)
+// until completion. A cross-directory move also pins its destination parent.
+inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
+                              const FILE_ID_INFO& expectedSource, std::wstring_view from,
+                              HANDLE targetParent, const UacDirectoryLeaf::ParentIdentity& expectedTarget,
+                              std::wstring_view to, bool ordinaryOnly = true,
+                              HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG)
 {
     using namespace UacDirectoryLeaf;
     if (!IsComponent(from) || !IsComponent(to))
         return ERROR_INVALID_NAME;
-    if (Equal(from, to))
+    if (!Equal(expectedParent.volume, expectedTarget.volume) ||
+        expectedParent.file.VolumeSerialNumber != expectedTarget.file.VolumeSerialNumber)
+        return ERROR_NOT_SAME_DEVICE;
+    if (SameParent(expectedParent, expectedTarget) && Equal(from, to))
         return ERROR_NOT_SUPPORTED;
 
     ParentIdentity actual;
@@ -101,6 +120,18 @@ inline DWORD RenameVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIde
     if (error != ERROR_SUCCESS)
         return error;
     if (!SameParent(expectedParent, actual) || expectedSource.VolumeSerialNumber != actual.file.VolumeSerialNumber)
+        return ERROR_FILE_INVALID;
+
+    if (parent != targetParent)
+    {
+        ParentIdentity actualTarget;
+        error = ReadParentIdentity(targetParent, actualTarget);
+        if (error)
+            return error;
+        if (!SameParent(expectedTarget, actualTarget))
+            return ERROR_FILE_INVALID;
+    }
+    else if (!SameParent(expectedTarget, actual))
         return ERROR_FILE_INVALID;
 
     HANDLE source = nullptr;
@@ -111,9 +142,25 @@ inline DWORD RenameVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIde
     error = Detail::ReadSourceIdentity(source, actualSource);
     if (error == ERROR_SUCCESS && !Detail::SameSource(actualSource, expectedSource))
         error = ERROR_FILE_INVALID;
+    if (error == ERROR_SUCCESS && ordinaryOnly)
+    {
+        FILE_ATTRIBUTE_TAG_INFO attributes{};
+        if (!GetFileInformationByHandleEx(source, FileAttributeTagInfo, &attributes, sizeof(attributes)))
+            error = GetLastError();
+        else if (attributes.FileAttributes != FILE_ATTRIBUTE_NORMAL && attributes.FileAttributes != FILE_ATTRIBUTE_ARCHIVE)
+            error = ERROR_NOT_SUPPORTED;
+    }
     if (error == ERROR_SUCCESS)
-        error = Detail::NativeRename(source, parent, to);
+        error = Detail::CheckTransferConnection(connection, deadline);
+    if (error == ERROR_SUCCESS)
+        error = Detail::NativeRename(source, targetParent, to);
     CloseHandle(source);
     return error;
+}
+
+inline DWORD RenameVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
+                                const FILE_ID_INFO& expectedSource, std::wstring_view from, std::wstring_view to)
+{
+    return MoveVerifiedFile(parent, expectedParent, expectedSource, from, parent, expectedParent, to, false);
 }
 }

@@ -4,6 +4,7 @@
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-06 | Combine drop scheduling with owned Unicode source paths. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-08 | Defer inaccessible source metadata to the verified copy. | A protected file cannot proceed without broker validation. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Share the transfer eligibility flag with F6. | Keep deferred ADS discovery restricted to F5. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -3160,7 +3161,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             DWORD err = GetLastError();
                             if (invalidSrcName)
                                 err = ERROR_INVALID_NAME;
-                            if (err == ERROR_ACCESS_DENIED && type == atCopy && script->AllowCopyPilot &&
+                            if (err == ERROR_ACCESS_DENIED && type == atCopy && script->AllowTransferPilot &&
                                 !script->CopySecurity && !script->CopyAttrs && !script->OverwriteOlder &&
                                 targetPathState == tpsNotEncryptedExisting && UacF7::IsPlainCopyFile(op.Attr) &&
                                 op.FileSize.Value <= UacF7::maxPilotCopyBytes)

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Share the transfer connection guard. | Check for disconnect before the native operation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Bound copy size and monitor the broker connection. | Abort staging on timeout, disconnect or unexpected data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Copy one ordinary file between verified NTFS directory handles. | Stage and publish a complete copy without replacing a destination. | | GPT-6.1 Sol (Codex) |
 */
@@ -61,16 +62,8 @@ inline DWORD StageFile(HANDLE parent, HANDLE& file)
 
 inline DWORD CheckCancelled(HANDLE cancel, HANDLE connection, ULONGLONG deadline)
 {
-    if (GetTickCount64() >= deadline)
-        return ERROR_TIMEOUT;
-    if (connection)
-    {
-        DWORD pending = 0;
-        if (!PeekNamedPipe(connection, nullptr, 0, nullptr, &pending, nullptr))
-            return GetLastError();
-        if (pending)
-            return ERROR_INVALID_DATA;
-    }
+    if (const DWORD error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline))
+        return error;
     if (!cancel)
         return ERROR_SUCCESS;
     const DWORD result = WaitForSingleObject(cancel, 0);

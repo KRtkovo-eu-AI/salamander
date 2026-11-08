@@ -6,6 +6,7 @@
 // | 2026-11-07 | Confirm the exact permanent delete path in the progress dialog. | Default to Cancel and report an unconfirmed deletion without replay. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Show the metadata UAC consent on the progress dialog thread. | Keep secure consent and uncertain results in the existing UI. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show the exact F5 source and target before broker consent. | Default to Cancel and show failures without replay. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Show exact F6 paths and the move-specific result. | Share the F5 consent UI while keeping the requested action explicit. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -1746,24 +1747,26 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
 
-        case WORKER_DIALOG_UAC_COPY:
+        case WORKER_DIALOG_UAC_TRANSFER:
         {
-            auto& prompt = *reinterpret_cast<UacF7::CopyPrompt*>(lParam);
-            const std::string message = std::string(LoadStr(IDS_UAC_COPY_CONFIRM)) + "\n\n" +
+            auto& prompt = *reinterpret_cast<UacF7::TransferPrompt*>(lParam);
+            const bool moving = prompt.request.IsMove();
+            const std::string message = std::string(LoadStr(moving ? IDS_UAC_MOVE_CONFIRM : IDS_UAC_COPY_CONFIRM)) + "\n\n" +
                                         prompt.sourcePath + "\n -> " + prompt.targetPath;
             const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
             MSGBOXEX_PARAMS confirm{};
             confirm.HParent = HWindow;
             confirm.Text = message.c_str();
-            confirm.Caption = LoadStr(IDS_COPY);
+            confirm.Caption = LoadStr(moving ? IDS_MOVE : IDS_COPY);
             confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
             confirm.AliasBtnNames = alias.c_str();
             if (SalMessageBoxEx(&confirm) == IDOK && !CancelWorker)
             {
                 prompt.result = prompt.request.Execute(HWindow);
                 if (prompt.result.unknown || (prompt.result.error != ERROR_SUCCESS && prompt.result.error != ERROR_CANCELLED))
-                    SalMessageBox(HWindow, prompt.result.unknown ? LoadStr(IDS_UAC_COPY_UNKNOWN) : GetErrorText(prompt.result.error),
-                                  LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                    SalMessageBox(HWindow, prompt.result.unknown ? LoadStr(moving ? IDS_UAC_MOVE_UNKNOWN : IDS_UAC_COPY_UNKNOWN)
+                                                                 : GetErrorText(prompt.result.error),
+                                  LoadStr(moving ? IDS_ERRORMOVE : IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
             }
             break;
         }

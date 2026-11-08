@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise a verified same-volume move. | Check identity, collisions, cancellation and peer loss. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Test the broker copy guard conditions. | Reject a stale size, an expired deadline and a lost connection before publishing. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify a staged copy on real NTFS. | Exercise file content, collisions, cancellation and unsupported source metadata. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Check repeated rooted directory reads on real NTFS. | Verify refresh returns fresh wide entries and reparse traversal fails. | | GPT-6.1 Sol (Codex) |
@@ -256,6 +257,36 @@ int wmain(int argc, wchar_t** argv)
     copyError = copy(original.get(), L"copy-with-stream.bin", copyId);
     Check(copyError == ERROR_NOT_SUPPORTED && !Exists(moved + L"\\copy-with-stream.bin"),
           "reject alternate streams before publishing a copy", copyError);
+
+    const auto moveSourcePath = fixture + L"\\destination\\move-\u65e5.bin";
+    const auto moveTargetPath = moved + L"\\move-\u672c.bin";
+    FILE_ID_INFO moveId{};
+    if (!WriteFixture(moveSourcePath, content) || !OpenIdentity(moveSourcePath, moveId))
+        return 2;
+    const auto move = [&](HANDLE directory, const ParentIdentity& identity, std::wstring_view name, HANDLE pipe = nullptr)
+    {
+        return UacRenameLeaf::MoveVerifiedFile(listing.get(), listingIdentity, moveId, L"move-\u65e5.bin",
+                                               directory, identity, name, true, pipe);
+    };
+    auto moveError = move(substitute.get(), expected, L"move-\u672c.bin");
+    Check(moveError == ERROR_FILE_INVALID && Exists(moveSourcePath) && !Exists(moveTargetPath),
+          "move rejects a substituted destination directory", moveError);
+    auto foreign = expected;
+    foreign.file.VolumeSerialNumber ^= 1;
+    moveError = move(original.get(), foreign, L"move-\u672c.bin");
+    Check(moveError == ERROR_NOT_SAME_DEVICE && Exists(moveSourcePath) && !Exists(moveTargetPath),
+          "move rejects a different volume", moveError);
+    moveError = move(original.get(), expected, L"copy-collision.bin");
+    Check(moveError == ERROR_ALREADY_EXISTS && HasContents(copyCollisionPath, existing) && Exists(moveSourcePath),
+          "move collision preserves source and existing destination", moveError);
+    moveError = move(original.get(), expected, L"move-\u672c.bin", pipeRead.get());
+    Check(moveError == ERROR_BROKEN_PIPE && Exists(moveSourcePath) && !Exists(moveTargetPath),
+          "move aborts when its peer has disconnected before rename", moveError);
+    moveError = move(original.get(), expected, L"move-\u672c.bin");
+    FILE_ID_INFO movedId{};
+    Check(moveError == ERROR_SUCCESS && !Exists(moveSourcePath) && HasContents(moveTargetPath, content) &&
+              OpenIdentity(moveTargetPath, movedId) && UacRenameLeaf::Detail::SameSource(movedId, moveId),
+          "cross-directory move preserves the file ID and bytes", moveError);
 
     const auto sourcePath = fixture + L"\\rename-source";
     const auto renamedPath = moved + L"\\rename-\u6771\u4eac";

@@ -4188,6 +4188,8 @@ SLGINCOMPLETE,""
 14536,1,"Listado de administrador"
 14537,1,"Acceso denegado. ¿Copiar este archivo como administrador?"
 14538,1,"El proceso auxiliar se desconectó antes de confirmar la copia. Comprueba el destino antes de volver a intentarlo."
+14539,1,"Acceso denegado. ¿Mover este archivo como administrador?"
+14540,1,"El proceso auxiliar se desconectó antes de confirmar el movimiento. Comprueba el origen y el destino antes de volver a intentarlo."
 
 [STRINGTABLE 184]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
