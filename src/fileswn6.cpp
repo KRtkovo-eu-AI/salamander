@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Retain exact selected paths for each direct directory item. | Prevent batch script position from changing the verified target. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Merge protected and ordinary Ctrl+Q measurements. | Keep the per-file logical sizes available even when a disk metric is unavailable. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the common protected read confirmation. | Share the same prompt with the internal viewer. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer protected counting from Ctrl+Q as well as Space. | Ctrl+Q normally calculates allocated disk space. | | GPT-6.1 Sol (Codex) |
@@ -1568,6 +1569,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                         oldTotalSize = script->TotalSize;
                         oneFile->SizeValid = 0;
                     }
+                    const int firstItemOperation = script->Count;
                     if (!BuildScriptDir(script, type, sourcePath, sourceSupADS, targetPath,
                                         targetPathState, targetSupADS, targetIsFAT32, mask,
                                         useName, useDOSName, attrsData, NULL, oneFile->Attr,
@@ -1578,15 +1580,19 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                         SetCurrentDirectoryToSystem();
                         return FALSE;
                     }
-                    const bool directoryLinkDelete = type == atDelete && script->AllowPermanentDeletePilot &&
-                                                     script->Count == 1 && script->At(0).Opcode == ocDeleteDirLink;
-                    const bool directoryMetadata = type == atChangeAttrs && !attrsData->SubDirs && selCount <= 1 &&
-                                                   !IsBranchView() && script->Count == 1;
-                    if (directoryLinkDelete || directoryMetadata)
+                    if (script->Count == firstItemOperation + 1)
                     {
-                        const auto path = GetItemFullPathW(*oneFile);
-                        if (!path.empty())
-                            script->At(0).SetSourceNameW(path.c_str());
+                        auto& operation = script->At(firstItemOperation);
+                        const bool directoryLinkDelete = type == atDelete && script->AllowPermanentDeletePilot &&
+                                                         operation.Opcode == ocDeleteDirLink;
+                        const bool directoryMetadata = type == atChangeAttrs && !attrsData->SubDirs && !IsBranchView() &&
+                                                       operation.Opcode == ocChangeAttrs;
+                        if (directoryLinkDelete || directoryMetadata)
+                        {
+                            const auto path = GetItemFullPathW(*oneFile);
+                            if (!path.empty())
+                                operation.SetSourceNameW(path.c_str());
+                        }
                     }
                     if (countSize)
                     {

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Explain the scope of elevated batch items. | Make cancellation and completed items predictable. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify the protected F5 replacement. | Show the authorized replacement paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share the protected read consent prompt with F3. | Keep the scope and shield consistent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer explicit administrator consent for a protected read. | Keep the exact folder and operation visible in a shared prompt. | | GPT-6.1 Sol (Codex) |
@@ -1795,8 +1796,10 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             else if (prompt.request.IgnoresAds())
                 confirmText = IDS_UAC_COPY_IGNORE_ADS_CONFIRM;
             const int unknownText = moving ? IDS_UAC_MOVE_UNKNOWN : IDS_UAC_COPY_UNKNOWN;
-            const std::string message = std::string(LoadStr(confirmText)) + "\n\n" +
-                                        prompt.sourcePath + "\n -> " + prompt.targetPath;
+            std::string message = std::string(LoadStr(confirmText)) + "\n\n" +
+                                  prompt.sourcePath + "\n -> " + prompt.targetPath;
+            if (Script->Count > 1)
+                message += std::string("\n\n") + LoadStr(IDS_UAC_BATCH_ITEM_SCOPE);
             const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
             MSGBOXEX_PARAMS confirm{};
             confirm.HParent = HWindow;
@@ -1850,7 +1853,9 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 confirmText = attributes ? IDS_UAC_DIRECTORY_ATTRS_CONFIRM : IDS_UAC_DIRECTORY_TIMES_CONFIRM;
                 unknownText = attributes ? IDS_UAC_DIRECTORY_ATTRS_UNKNOWN : IDS_UAC_DIRECTORY_TIMES_UNKNOWN;
             }
-            const std::string message = std::string(LoadStr(confirmText)) + "\n\n" + prompt.path;
+            std::string message = std::string(LoadStr(confirmText)) + "\n\n" + prompt.path;
+            if (Script->Count > 1)
+                message += std::string("\n\n") + LoadStr(IDS_UAC_BATCH_ITEM_SCOPE);
             const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
             MSGBOXEX_PARAMS confirm{};
             confirm.HParent = HWindow;

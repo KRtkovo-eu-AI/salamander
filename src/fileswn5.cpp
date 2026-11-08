@@ -6,6 +6,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Permit verified metadata for multiple selected items. | Preserve nonrecursive basic-metadata scope. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share ZIP snapshot buffering with F5. | Keep F3 on the same validated decoder. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Open one protected ZIP entry with F3. | Keep verified bytes in the existing internal viewer snapshot. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer explicit editor elevation on protected F4. | Open the original with the configured editor under explicit Windows consent. | | GPT-6.1 Sol (Codex) |
@@ -1528,7 +1529,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
 
                 CChangeAttrsData dlgData{};
                 dlgData.AllowBasicMetadataPilot = !branchAttributes && !setCompress && !setEncryption &&
-                                                  !chDlg.RecurseSubDirs && selectedCount <= 1;
+                                                  !chDlg.RecurseSubDirs;
                 dlgData.ChangeTimeModified = chDlg.ChangeTimeModified;
                 if (dlgData.ChangeTimeModified)
                 {

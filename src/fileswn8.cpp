@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Permit per-item elevation in file batches. | Retain the direct disk and conflict-mode boundaries. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route disk-panel F5 into the open protected ZIP. | Add or replace entries without deleting disk sources. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Display complete protected space measurements and enable estimates. | Keep both Ctrl+Q entry points on the same dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Mark protected allocation and compressed size as unknown. | Show logical totals in the standard Calculate Occupied Space dialog. | | GPT-6.1 Sol (Codex) |
@@ -1569,10 +1570,10 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     script->InvertRecycleBin = invertRecycleBin;
                     script->CanUseRecycleBin = canUseRecycleBin;
                     script->AllowPermanentDeletePilot = type == atDelete && recycle == 0 &&
-                                                         canUseRecycleBin && count <= 1 && !IsBranchView();
+                                                         canUseRecycleBin && !IsBranchView();
 
                     script->AllowTransferPilot = (type == atCopy || type == atMove) && watchDiskTarget && !copyToSelectedDirs &&
-                                             !IsBranchView() && !target->IsBranchView() && dirs == 0 && count <= 1 &&
+                                             !IsBranchView() && !target->IsBranchView() && dirs == 0 &&
                                              conflictMode == CMCM_CURRENT;
                     script->IgnoreTransferAds = type == atCopy && criteriaPtr != NULL && criteriaPtr->IgnoreADS;
 

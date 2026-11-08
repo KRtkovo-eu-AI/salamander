@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record per-item UAC in native operation batches. | Document cancellation, existing worker boundaries and pending VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the protected disk overwrite pilot. | Document the verified replacement and VM acceptance boundary. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Start the native overwrite work after ZIP acceptance. | Share the verified exchange before wiring disk conflicts. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record final protected ZIP acceptance. | Preserve disk, CRC, cancellation and disconnect evidence. | | GPT-6.1 Sol (Codex) |
@@ -564,6 +565,12 @@ P4m na commitu `499339b1` prošla sestavením Win32, x64 a ARM64, 214 testy, kon
 **Pilot diskového přepisu F5.** Worker zachytí revizi existujícího cíle před dialogem o konfliktu. U cíle zobrazeného v dialogu zkontroluje shodu revize. Nabídku správce zobrazí po odepření běžného pokusu, pokud místní worker cíl ještě nezměnil. Nabídka uvádí obě cesty a výslovně žádá o souhlas s nahrazením. Broker znovu ověří oba rodiče, identitu zdroje a revizi cíle. Připravený soubor převezme oprávnění a čas vytvoření cíle, data a čas poslední změny zdroje. Žurnál a záložní jméno diskového přepisu jsou oddělené od ZIPu. Zveřejnění používá dvě přejmenování bez přepisu. Při kolizi nebo ztrátě spojení se pokusí vrátit původní soubor bez přepisu cizí položky. Neověřený výsledek se hlásí s pokynem ke kontrole cíle.
 
 Pilot pokrývá jeden běžný soubor do 16 MiB na místním NTFS. Vyžaduje dostupnou identitu původního cíle. Alternativní proudy, rozšířené atributy, další volby kopie a dávky čekají na samostatné rozšíření. Debug i Release prošly 210 nativními kontrolami včetně odmítnutí odlišné identity cíle, zachování cizí kolize a obnovy původního souboru po přerušení výměny. Testy pokrývají společný mechanismus výměny a žurnál. Celý tok F5 s opravdovou elevací a kontrolou oprávnění výsledku čeká na společnou akceptaci ve VM.
+
+**Dávky s per-položkovým souhlasem.** Stávající sériová větev workeru používá ověřené operace i pro výběr více položek. Přímé souborové F5 a F6 při režimu konfliktů Current zahrnují kopii do volného názvu, podporovaný přepis a přesun na stejném svazku. Trvalé smazání používá ověřené operace nad jednotlivými soubory a podporovanými odkazy. Změny běžných atributů a časů fungují pro více přímo vybraných položek bez rekurze. Pro přímé složky a adresářové odkazy se přesná cesta při sestavení skriptu ukládá u příslušné položky.
+
+Každá žádost platí pro jedinou zobrazenou položku. Zrušení výzvy ukončí zbytek dávky a hotové změny zůstanou na disku. Neověřená mutace ukončí běh s pokynem ke kontrole a bez automatického opakování. Podporované chyby lokálního provedení respektují existující Skip All. Průběh se posune po ověřeném výsledku nebo výslovném přeskočení. Paralelní pracovní vlákna žádnou výzvu nespouštějí. Elevaci provádí sériová větev po převzetí položky od koordinátoru.
+
+Lokálně prošlo sestavení x64 Debug, 210 nativních kontrol a kontroly stavů konfliktu a plánování. Testy pokrývají dílčí operace a stávající koordinátor. Scénář celé dávky s kombinací místních položek, schválených položek a pozdějšího zrušení je připraven k ověření v rámci společné akceptace. Režim Scan Ahead, souhlas pro více položek v jedné relaci a zvýšené operace nad celým stromem zůstávají otevřené.
 
 ### 8.25 P4n — ověření odstranění zdroje po kopii na NTFS
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Process approved leaves in the existing worker sequence. | Preserve progress and stop the batch on a canceled or unconfirmed elevated operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer the verified F5 replacement after ordinary access is denied. | Capture the conflict before consent and exclude locally modified targets. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain denied protected EFS copies. | Keep ordinary EFS success and existing retry choices available. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route the explicit F5 security option to the broker. | Keep security copy independent of move and other copy options. | | GPT-6.1 Sol (Codex) |
@@ -5638,14 +5639,13 @@ static void ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
     if (!prompt.result.unknown && prompt.result.error == ERROR_SUCCESS)
     {
         totalDone += op.Size;
-        if (moving)
-            SetProgress(progress, 0, CaclProg(totalDone, script.TotalSize), dlgData);
-        else
+        if (!moving)
         {
             const CQuadWord mainWork = max(op.FileSize, COPY_MIN_FILE_SIZE);
             const CQuadWord namedBytes = (op.OpFlags & OPFL_COPY_ADS) != 0 && op.Size > mainWork ? op.Size - mainWork : CQuadWord(0, 0);
             script.AddBytesToTFSandSetProgressSize(op.FileSize + namedBytes, totalDone);
         }
+        SetProgress(progress, 0, CaclProg(totalDone, script.TotalSize), dlgData);
         success = TRUE;
     }
 }
@@ -5654,7 +5654,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
                               CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success)
 {
     const bool moving = op.Opcode == ocMoveFile;
-    if (!script.AllowTransferPilot || script.Count != 1 || script.OverwriteOlder ||
+    if (!script.AllowTransferPilot || script.OverwriteOlder ||
         (op.OpFlags & OPFL_AS_ENCRYPTED) != 0 || !op.SourceNameWValid || !op.TargetNameWValid ||
         (moving ? (script.CopySecurity || script.CopyAttrs || (op.OpFlags & OPFL_COPY_ADS) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))
                 : (!UacF7::IsEligibleFileCopy(op.Attr, script.CopyAttrs, script.IgnoreTransferAds, script.CopySecurity) ||
@@ -5693,7 +5693,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
 static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
                                    const CProgressDlgData& dlgData, UacF7::PreparedTransfer& request)
 {
-    if (op.Opcode != ocCopyFile || !script.AllowTransferPilot || script.Count != 1 ||
+    if (op.Opcode != ocCopyFile || !script.AllowTransferPilot ||
         script.OverwriteOlder || script.CopySecurity || script.CopyAttrs || script.IgnoreTransferAds ||
         dlgData.ConflictDecisionInjected || !op.SourceNameWValid || !op.TargetNameWValid ||
         (op.OpFlags & (OPFL_AS_ENCRYPTED | OPFL_COPY_ADS)) || !UacF7::IsPlainCopyFile(op.Attr))
@@ -5721,13 +5721,35 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
 
     if ((op->OpFlags & OPFL_UAC_COPY_SOURCE) != 0)
     {
-        BOOL success = FALSE;
-        if (!invalidSrcName && !invalidTgtName && TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
-            return success;
-        int answer = IDCANCEL;
-        char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(IDS_ERRORCOPY), op->SourceName, GetErrorText(ERROR_ACCESS_DENIED)};
-        SendMessage(hProgressDlg, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
-        return FALSE;
+        int answer;
+        do
+        {
+            WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+            if (*dlgData.CancelWorker)
+                return FALSE;
+            if (dlgData.SkipAllFileOpenIn)
+                break;
+            BOOL success = FALSE;
+            if (!invalidSrcName && !invalidTgtName &&
+                TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
+                return success;
+            answer = IDCANCEL;
+            char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(IDS_ERRORCOPY), op->SourceName, GetErrorText(ERROR_ACCESS_DENIED)};
+            SendMessage(hProgressDlg, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
+            if (answer == IDCANCEL)
+                return FALSE;
+            if (answer == IDB_SKIPALL)
+                dlgData.SkipAllFileOpenIn = TRUE;
+        } while (answer == IDRETRY);
+
+        CQuadWord transferred;
+        script->GetTFSandResetTrSpeedIfNeeded(&transferred);
+        totalDone += op->Size;
+        SetTFSandPSforSkippedFile(op, transferred, script, totalDone);
+        SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+        if (skip != NULL)
+            *skip = TRUE;
+        return TRUE;
     }
 
     // optimization: skipping all "older and identical" files is about 4x faster,
@@ -5885,7 +5907,7 @@ COPY_AGAIN:
                     }
 
                     if (out == INVALID_HANDLE_VALUE && !invalidTgtName && !copyAsEncrypted &&
-                        !isMove && GetLastError() == ERROR_ACCESS_DENIED)
+                        !isMove && !dlgData.SkipAllFileOpenOut && GetLastError() == ERROR_ACCESS_DENIED)
                     {
                         BOOL success = FALSE;
                         if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
@@ -6453,7 +6475,8 @@ COPY_AGAIN:
                         BOOL errDeletingFile = FALSE;
                         UacF7::PreparedTransfer overwrite;
                         const bool targetExists = err == ERROR_FILE_EXISTS || err == ERROR_ALREADY_EXISTS;
-                        bool canElevateOverwrite = !isMove && !copyAsEncrypted && mustDeleteFileBeforeOverwrite != 1 &&
+                        bool canElevateOverwrite = !isMove && !copyAsEncrypted && !dlgData.SkipAllFileOpenOut &&
+                                                   mustDeleteFileBeforeOverwrite != 1 &&
                                                    (targetExists || err == ERROR_ACCESS_DENIED) &&
                                                    PrepareWorkerOverwrite(*op, *script, dlgData, overwrite);
                         if (targetExists || canElevateOverwrite)
@@ -6910,7 +6933,7 @@ COPY_AGAIN:
             if (*dlgData.CancelWorker)
                 return FALSE;
 
-            if (err == ERROR_ACCESS_DENIED && !isMove && !copyAsEncrypted && !invalidTgtName)
+            if (err == ERROR_ACCESS_DENIED && !isMove && !copyAsEncrypted && !invalidTgtName && !dlgData.SkipAllFileOpenIn)
             {
                 BOOL success = FALSE;
                 if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
@@ -9033,6 +9056,9 @@ static BOOL ExecuteVerifiedWorkerLeaf(HWND progress, const COperation& op, const
         if (*dlgData.CancelWorker)
             return FALSE;
         DWORD error = request.ExecuteLocal();
+        BOOL& skipAll = promptKind == WORKER_DIALOG_UAC_DELETE ? dlgData.SkipAllDeleteErr : dlgData.SkipAllChangeAttrs;
+        if (error != ERROR_SUCCESS && skipAll)
+            return TRUE;
         if (error == ERROR_ACCESS_DENIED)
         {
             const std::wstring display = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
@@ -9050,6 +9076,8 @@ static BOOL ExecuteVerifiedWorkerLeaf(HWND progress, const COperation& op, const
         int answer = IDCANCEL;
         char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(errorTitle), op.SourceName, GetErrorText(error)};
         SendMessage(progress, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
+        if (answer == IDB_SKIPALL)
+            skipAll = TRUE;
         if (answer != IDRETRY)
             return answer == IDB_SKIP || answer == IDB_SKIPALL;
     }
@@ -9061,7 +9089,7 @@ static bool TryDeleteVerifiedLeaf(HWND progress, const COperation& op, const COp
     // Recheck the worker's actual policy in case it changed after building the script.
     const bool permanent = (dlgData.UseRecycleBin == 0 && !script.InvertRecycleBin) ||
                            ((dlgData.UseRecycleBin == 1 || dlgData.UseRecycleBin == 2) && script.InvertRecycleBin);
-    if (!script.AllowPermanentDeletePilot || script.Count != 1 || !permanent || !op.SourceNameWValid ||
+    if (!script.AllowPermanentDeletePilot || !permanent || !op.SourceNameWValid ||
         FileNameIsInvalid(op.SourceName, TRUE))
         return false;
 
@@ -11182,7 +11210,7 @@ unsigned ThreadWorkerBody(void* parameter)
                 SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
 
                 BOOL metadataSuccess = FALSE;
-                if (script->Count == 1 && TryChangeBasicMetadata(hProgressDlg, *op, *attrsData, dlgData, metadataSuccess))
+                if (TryChangeBasicMetadata(hProgressDlg, *op, *attrsData, dlgData, metadataSuccess))
                 {
                     Error = !metadataSuccess;
                     if (metadataSuccess)
