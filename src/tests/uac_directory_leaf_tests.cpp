@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise actual F6 source retirement. | Keep both source links on cancellation and remove them only for a receipted target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the durable destination receipt after source removal. | Refuse missing or substituted targets before clearing move recovery. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify guarded F6 target publication through multiple read blocks. | Preserve collisions and hold the published file against replacement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test the verified F6 source guard. | Cover preexisting metadata writers, ADS and writable mappings. | | GPT-6.1 Sol (Codex) |
@@ -1807,13 +1808,24 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
         FILE_ID_INFO targetId{};
         error = guard.PublishCopy(wrongParent.get(), targetParent, completedLeaf, moveContent.size(), nullptr,
                                   nullptr, MAXULONGLONG, target, targetId);
-        if (error || RememberDestination(journal.get(), security.get(), expected, wrongParent.get(), completedLeaf,
-                                         target.get(), targetId))
+        if (error)
+            return false;
+        const Handle cancelled(CreateEventW(nullptr, TRUE, TRUE, nullptr));
+        if (!cancelled)
+            return false;
+        auto retire = [&](HANDLE cancel = nullptr) {
+            return guard.RetirePublishedSource(parent.get(), storage.get(), journal.get(), security.get(),
+                wrongParent.get(), completedLeaf, target.get(), targetId, cancel, nullptr, MAXULONGLONG);
+        };
+        error = retire(cancelled.get());
+        Check(error == ERROR_CANCELLED && !guard.Check(2) && Exists(sourcePath) && Exists(retained),
+              "leave both source links when cancellation arrives after publication but before retirement", error);
+        error = retire();
+        Check(!error && !guard.File() && !Exists(sourcePath) && !Exists(retained) && !empty(),
+              "retire the original and recovery links only after flushing the exact destination receipt", error);
+        if (error)
             return false;
     }
-    // Simulate a completed source retirement. Production does not call this test path.
-    if (!DeleteFileW(sourcePath.c_str()) || !DeleteFileW(retained.c_str()))
-        return false;
     journal.reset();
     journal = openJournal(OPEN_EXISTING);
     if (!journal || !MoveFileExW(completed.c_str(), movedTarget.c_str(), 0))

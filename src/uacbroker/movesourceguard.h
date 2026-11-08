@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Retire both F6 source links after the destination receipt. | Preserve a recoverable source until the last unlink. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Publish a copy of a guarded move source. | Read the overlapped source without releasing its lock and retain the exact destination handle. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Guard the default stream of an F6 source. | Exclude earlier opens and refuse unsupported streams or metadata. | | GPT-6.1 Sol (Codex) |
 #pragma once
@@ -118,6 +119,77 @@ public:
         return Check(2) ? ERROR_PARTIAL_COPY : ERROR_SUCCESS;
     }
 
+    // The caller retains the exclusive published target until this returns.
+    // On error the caller can close the guard and recover any surviving link.
+    DWORD RetirePublishedSource(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DESCRIPTOR journalSecurity,
+                                HANDLE targetParent, std::wstring_view targetLeaf, HANDLE target,
+                                const FILE_ID_INFO& targetId, HANDLE cancel, HANDLE connection, ULONGLONG deadline)
+    {
+        using namespace Detail;
+        DWORD error = Check(2);
+        if (error)
+            return error;
+
+        UacDirectoryLeaf::ParentIdentity original, privateParent;
+        FILE_ID_INFO journalId{};
+        error = ValidateStorage(parent, storage, journal, journalSecurity, original, privateParent, journalId);
+        if (error)
+            return error;
+        LARGE_INTEGER length{};
+        if (!GetFileSizeEx(journal, &length))
+            return GetLastError();
+        if (length.QuadPart != sealedRecordSize)
+            return ERROR_INVALID_DATA;
+        Record record{};
+        DWORD bytes = 0;
+        if (!SetFilePointerEx(journal, {}, nullptr, FILE_BEGIN) || !ReadFile(journal, &record, sizeof(record), &bytes, nullptr))
+            return GetLastError();
+        if (bytes != sizeof(record) || record.version != 2 || !record.length || record.length > ARRAYSIZE(record.leaf) ||
+            !UacRenameLeaf::Detail::SameSource(record.file, identity) ||
+            UacRenameLeaf::Detail::SameSource(identity, journalId) ||
+            !UacRenameLeaf::Detail::SameSource(record.originalParent, original.file) ||
+            !UacRenameLeaf::Detail::SameSource(record.privateParent, privateParent.file) ||
+            !UacDirectoryLeaf::Equal(original.volume, std::wstring_view(record.volume, ARRAYSIZE(record.volume))))
+            return ERROR_FILE_INVALID;
+
+        const std::wstring_view leaf(record.leaf, record.length);
+        const auto alias = RecoveryName(record.nonce);
+        if (alias.empty())
+            return ERROR_INVALID_DATA;
+        std::wstring path;
+        if ((error = CheckOpenedLeaf(parent, leaf, source.get(), path)) != ERROR_SUCCESS)
+            return error;
+        const auto dacl = std::make_unique<DaclRecord>();
+        if (!ReadFile(journal, dacl.get(), sizeof(*dacl), &bytes, nullptr))
+            return GetLastError();
+        if (bytes != sizeof(*dacl) || !dacl->original.Valid() || !dacl->sealed.Valid() || !dacl->sealed.protectedDacl)
+            return ERROR_INVALID_DATA;
+        const auto current = std::make_unique<DaclSnapshot>();
+        auto verifySeal = [&](HANDLE file) -> DWORD {
+            const DWORD status = current->Read(file);
+            return status ? status : current->Matches(dacl->sealed) ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+        };
+        if ((error = verifySeal(source.get())) != ERROR_SUCCESS)
+            return error;
+        {
+            Handle retained(nullptr, CloseHandle);
+            if ((error = OpenOriginal(storage, alias, identity, retained)) != ERROR_SUCCESS)
+                return error;
+        }
+
+        if ((error = UacCopyLeaf::Detail::CheckCancelled(cancel, connection, deadline)) ||
+            (error = RememberDestination(journal, journalSecurity, identity, targetParent, targetLeaf, target, targetId)) ||
+            (error = RemoveLink(parent, leaf, 2, cancel, connection, deadline)))
+            return error;
+
+        // Until the final unlink, the protected alias still contains the source.
+        if ((error = CheckNoPriorSourceOpens(storage, alias, identity)) ||
+            (error = Open(storage, alias, identity, 1)) ||
+            (error = verifySeal(source.get())))
+            return error;
+        return RemoveLink(storage, alias, 1, cancel, connection, deadline);
+    }
+
     DWORD Check(DWORD links) const
     {
         if (!source)
@@ -139,6 +211,26 @@ public:
     }
 
 private:
+    DWORD RemoveLink(HANDLE parent, std::wstring_view leaf, DWORD links,
+                     HANDLE cancel, HANDLE connection, ULONGLONG deadline)
+    {
+        DWORD error = Check(links);
+        if (error)
+            return error;
+        if ((error = UacCopyLeaf::Detail::CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
+            return error;
+        FILE_DISPOSITION_INFO remove{TRUE};
+        if (!SetFileInformationByHandle(source.get(), FileDispositionInfo, &remove, sizeof(remove)))
+            return GetLastError();
+        Close();
+
+        HANDLE raw = nullptr;
+        error = UacRenameLeaf::Detail::OpenSource(parent, leaf, raw, 0,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
+        const Detail::Handle remaining(raw, CloseHandle);
+        return error == ERROR_FILE_NOT_FOUND ? ERROR_SUCCESS : error ? error : ERROR_FILE_INVALID;
+    }
+
     void Close()
     {
         if (source)

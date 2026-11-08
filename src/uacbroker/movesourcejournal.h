@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Retire both F6 source links after the destination receipt. | Preserve a recoverable source until the last unlink. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Persist the verified F6 destination. | A completed move requires the exact published target even after process loss. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Journal the original DACL before sealing a move source. | Recover the exact inherited or protected ACL after an interrupted move. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Journal an exact source recovery link. | Restore an interrupted move without replacing a different file. | | GPT-6.1 Sol (Codex) |
@@ -129,6 +130,22 @@ inline DWORD OpenedPath(HANDLE file, std::wstring& path)
         return ERROR_FILENAME_EXCED_RANGE;
     path.resize(actual);
     return ERROR_SUCCESS;
+}
+
+inline DWORD CheckOpenedLeaf(HANDLE parent, std::wstring_view leaf, HANDLE file, std::wstring& path)
+{
+    if (!UacDirectoryLeaf::IsComponent(leaf))
+        return ERROR_INVALID_NAME;
+    std::wstring parentPath;
+    DWORD error = OpenedPath(parent, parentPath);
+    if (error)
+        return error;
+    if ((error = OpenedPath(file, path)) != ERROR_SUCCESS)
+        return error;
+    if (parentPath.back() != L'\\')
+        parentPath += L'\\';
+    parentPath += leaf;
+    return UacDirectoryLeaf::Equal(parentPath, path) ? ERROR_SUCCESS : ERROR_FILE_INVALID;
 }
 
 inline std::wstring RecoveryName(const GUID& nonce)
@@ -345,14 +362,9 @@ inline DWORD RememberDestination(HANDLE journal, PSECURITY_DESCRIPTOR journalSec
     if (targetId.VolumeSerialNumber != parent.file.VolumeSerialNumber ||
         UacRenameLeaf::Detail::SameSource(record.file, targetId))
         return ERROR_FILE_INVALID;
-    std::wstring parentPath, path;
-    if ((error = OpenedPath(targetParent, parentPath)) || (error = OpenedPath(target, path)))
+    std::wstring path;
+    if ((error = CheckOpenedLeaf(targetParent, targetLeaf, target, path)) != ERROR_SUCCESS)
         return error;
-    if (parentPath.back() != L'\\')
-        parentPath += L'\\';
-    parentPath += targetLeaf;
-    if (!UacDirectoryLeaf::Equal(parentPath, path))
-        return ERROR_FILE_INVALID;
 
     const auto receipt = std::make_unique<DestinationRecord>();
     receipt->nonce = record.nonce;

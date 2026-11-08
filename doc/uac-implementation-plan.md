@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record the F6 source retirement sequence. | Verify both unlinks against a durable pinned target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record durable F6 target verification during recovery. | Retain incomplete or substituted receipts. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record guarded destination publication for F6. | Keep the source lock and pin the exact new target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record source guard and filter reservation for F6. | Exclude writers that opened before the journaled DACL seal. | | GPT-6.1 Sol (Codex) |
@@ -667,6 +668,10 @@ V x64 Debug i Release prošlo 75 kontrol zdroje F6 a 248 běžných kontrol. Pro
 **Potvrzení zveřejněného cíle v žurnálu F6.** Brokerový executor může po zveřejnění a ještě s drženým cílem uložit jeho cestu s GUID svazku, ID rodiče a ID souboru. Potvrzení je svázané s identifikátorem konkrétního zdrojového záznamu a před dalším krokem se trvale zapíše. Pokud při obnově ještě existuje původní jméno nebo ochranný odkaz, obnoví zdroj jako dříve a zveřejněný cíl ponechá. Pokud obě jména chybí, úplný záznam se vyčistí pouze po znovuotevření stejného cíle bez průchodu body přesměrování a po ověření obou identit. Chybějící nebo podstrčený cíl žurnál nezmění.
 
 V x64 Debug i Release prošlo 80 nativních kontrol F6 a 248 obecných nativních kontrol. Zkouška odmítla zapsat otevřený cíl pod nesprávným jménem. Po simulovaném dokončení odstranění zdroje a novém otevření žurnálu odmítla chybějící i jiný soubor pod týmž jménem a záznam vyčistila teprve po návratu přesného cíle. Šlo o dva rodiče na jednom svazku. Produkční postup nevratného odstranění zdroje a test na dvou svazcích zůstávají otevřené.
+
+**Odebrání obou zdrojových odkazů po zveřejnění.** Nativní executor nejprve ověří původní jméno, ochranný odkaz, žurnál a dočasnou DACL. Až po trvalém zápisu potvrzení drženého cíle odebere původní odkaz z ověřeného handlu. Ochranný odkaz ještě obsahuje celý zdroj. Executor jej znovu výhradně otevře, zkontroluje stejné ID, zbývající počet odkazů a dočasnou DACL a teprve potom jej odebere. Kontrola zrušení a spojení před každým odebráním nechá při přerušení dosud existující odkaz k obnově.
+
+V x64 Debug i Release prošlo 82 nativních kontrol F6 a 248 obecných kontrol. Po zrušení po zveřejnění a před odebráním zdroje zůstaly oba odkazy. Při potvrzeném dokončení nativní executor odebral oba a znovuotevřený žurnál uzavřel stav teprve po ověření přesného cíle. Zkouška běžela na dvou ověřených rodičích téhož svazku. Zapojení do provozního brokeru a akceptace na dvou svazcích ještě zbývají.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 
