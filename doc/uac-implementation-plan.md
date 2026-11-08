@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Describe verified ZIP update publication and recovery. | Track the write backend and remaining ZIP integration. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record protected ZIP selection extraction. | Track manifest bounds, one target consent, and partial outcomes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record single-entry protected ZIP extraction. | Separate source reads from bounded destination publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the protected ZIP F3 implementation. | Track the verified entry reader and deferred joint acceptance. | | GPT-6.1 Sol (Codex) |
@@ -805,6 +806,11 @@ Lokální sestavení x64 Debug prošlo pro aplikaci, ZIP plugin, broker, sondu a
 Zápis pod běžným tokenem i broker používají stejný seznam. Při odepření před vznikem výstupu stačí jeden souhlas pro vybraný archivní obsah a uvedenou cílovou složku. Broker ověří rodiče a odmítne kolize kořenů před zápisem. Složky vytváří relativně k ověřeným handlům, soubory zveřejňuje do volných názvů a nepřepisuje ani neslučuje existující položky. Při pozdější chybě ohlásí částečný výsledek. Při ztrátě potvrzení vyžádá kontrolu cíle před opakováním.
 
 Sestavení x64 Debug prošlo pro aplikaci, ZIP plugin, broker a sondu. Funkční ověření výběru, prázdných složek, jediného souhlasu pro chráněný cíl a pozdní kolize patří do společné akceptace. Změny obsahu archivu jsou další etapa.
+
+
+**Připravené zveřejnění změněného ZIPu.** Jádro zápisu znovu ověřuje rodiče, ID souboru, časy a velikost. Po zajištění výhradního přístupu k originálu uloží záznam o obnově a přejmenuje originál na jedinečný záložní název. Potom zveřejní připravený soubor pod původním názvem. Oba kroky používají handly a odmítají přepsat existující položku. Při kolizi zkusí obnovit originál, pokud je jeho název volný. Jinak zachová originál v záloze. Obnova po přerušení porovnává zaznamenaná ID a uklízí pouze známou zálohu po potvrzeném zveřejnění nového souboru.
+
+Jádro vyžaduje chráněný výhradně otevřený žurnál a pracovní soubor s ověřenými oprávněními. Zbývá dodat jejich správu v brokeru, přípravu změněného archivu v ZIP pluginu a napojení na běžné příkazy archivního panelu. Nativní sada se scénáři úspěšného zveřejnění, odmítnutí zastaralé revize a obnovy při kolizi se zkompilovala v x64 Debug i Release. Její spuštění a ověření ve VM proběhnou společně s F3 a F5.
 
 ## 9. Uživatelský tok a stav operace
 

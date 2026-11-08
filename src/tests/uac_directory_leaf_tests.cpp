@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Add ZIP publication and recovery cases to the native fixture. | Cover verified commit, a stale revision and recovery with a competing file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify bounded archive ranges and opening. | Cover ZIP64 offsets without weakening viewer limits. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check detailed protected inventory against ordinary NTFS size queries. | Cover empty, normal, compressed and sparse file sizes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise read-only viewer snapshots on NTFS. | Verify exact bytes, empty files, identity checks and the size bound. | | GPT-6.1 Sol (Codex) |
@@ -39,6 +40,7 @@
 #include "../uacbroker/deleteleaf.h"
 #include "../uacbroker/listing.h"
 #include "../uacbroker/copyleaf.h"
+#include "../uacbroker/zipupdate.h"
 #include "../uacbroker/copytree.h"
 #include "../uacbroker/viewleaf.h"
 #include <winioctl.h>
@@ -1012,6 +1014,96 @@ static bool CheckDetailedInventory(const std::wstring& fixture, HANDLE root)
     return true;
 }
 
+bool CheckZipUpdate(const std::wstring& fixture, HANDLE root)
+{
+    using UacZipUpdate::Publish;
+    using UacZipUpdate::ReadRevision;
+    using UacZipUpdate::Recover;
+    using UacZipUpdate::Revision;
+    using UacRenameLeaf::Detail::NativeRename;
+    const std::wstring folder = fixture + L"\\zip-update";
+    if (!CreateDirectoryW(folder.c_str(), nullptr))
+        return false;
+    HANDLE rawParent = nullptr;
+    UacDirectoryLeaf::ParentIdentity identity;
+    if (UacDirectoryLeaf::OpenParentBelowRoot(root, L"zip-update", rawParent, identity))
+        return false;
+    const Handle parent(rawParent);
+    constexpr std::wstring_view leaf = L"\u6771.zip";
+    const std::wstring path = folder + L"\\" + std::wstring(leaf);
+    const HANDLE rawJournal = CreateFileW((folder + L"\\journal").c_str(), GENERIC_READ | GENERIC_WRITE, 0,
+                                          nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (rawJournal == INVALID_HANDLE_VALUE)
+        return false;
+    const Handle journal(rawJournal);
+    if (!WriteFixture(path, {1, 2}))
+        return false;
+
+    auto open = [&](ACCESS_MASK access) {
+        HANDLE file = nullptr;
+        if (UacZipUpdate::Detail::Open(parent.get(), leaf, file, access))
+            return Handle{};
+        return Handle(file);
+    };
+    Revision expected;
+    {
+        auto file = open(0);
+        if (!file || ReadRevision(file.get(), expected))
+            return false;
+    }
+    HANDLE rawStage = nullptr;
+    std::wstring stageName;
+    if (UacCopyLeaf::Detail::StageFile(parent.get(), rawStage, stageName, false))
+        return false;
+    Handle stage(rawStage);
+    const BYTE data[] = {3, 4, 5};
+    DWORD written = 0;
+    if (!WriteFile(stage.get(), data, sizeof(data), &written, nullptr) || written != sizeof(data))
+        return false;
+
+    Revision stale = expected;
+    ++stale.size.QuadPart;
+    auto result = Publish(parent.get(), identity, leaf, stale, stage.get(), journal.get(), nullptr, MAXULONGLONG);
+    Check(result.error == ERROR_FILE_INVALID && !result.published && HasContents(path, {1, 2}),
+          "reject a stale ZIP revision and retain the original", result.error);
+    result = Publish(parent.get(), identity, leaf, expected, stage.get(), journal.get(), nullptr, MAXULONGLONG);
+    stage.reset();
+    Check(!result.error && !result.recoveryError && result.published && HasContents(path, {3, 4, 5}),
+          "publish the complete verified ZIP replacement", result.error ? result.error : result.recoveryError);
+    if (!result.published)
+        return false;
+
+    UacZipUpdate::Detail::RecoveryRecord record;
+    record.parent = identity.file;
+    record.replacement = expected.id;
+    std::copy(leaf.begin(), leaf.end(), record.leaf);
+    if (FAILED(CoCreateGuid(&record.nonce)))
+        return false;
+    const auto backup = UacZipUpdate::Detail::BackupName(record.nonce);
+    {
+        auto file = open(DELETE);
+        Revision current;
+        if (!file || ReadRevision(file.get(), current))
+            return false;
+        record.original = current.id;
+        if (UacZipUpdate::Detail::WriteRecord(journal.get(), record) ||
+            NativeRename(file.get(), parent.get(), backup))
+            return false;
+    }
+    const auto backupPath = folder + L"\\" + backup;
+    if (!WriteFixture(path, {6}))
+        return false;
+    DWORD error = Recover(parent.get(), identity, leaf, journal.get());
+    Check(error == ERROR_FILE_INVALID && HasContents(path, {6}) && HasContents(backupPath, {3, 4, 5}),
+          "keep both files when an unrelated item occupies the ZIP name", error);
+    if (!DeleteFileW(path.c_str()))
+        return false;
+    error = Recover(parent.get(), identity, leaf, journal.get());
+    Check(!error && HasContents(path, {3, 4, 5}) && !Exists(backupPath),
+          "restore the exact original after an interrupted ZIP publication", error);
+    return true;
+}
+
 int wmain(int argc, wchar_t** argv)
 {
     using namespace UacDirectoryLeaf;
@@ -1032,7 +1124,7 @@ int wmain(int argc, wchar_t** argv)
     const Handle root(rawRoot);
     if (moveSource)
         return CheckMoveSource(fixture, root.get()) ? 0 : 1;
-    if (!CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high))
+    if (!CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) || !CheckZipUpdate(fixture, root.get()))
         return 2;
     HANDLE rawListing = nullptr;
     ParentIdentity listingIdentity;
