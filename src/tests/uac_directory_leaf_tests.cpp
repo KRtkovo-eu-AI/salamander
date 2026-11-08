@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise source manifest revalidation on NTFS. | Detect replacements and new entries even when a size summary would miss them. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check strict recursive inventory on NTFS. | Verify Unicode contents and suppress results on timeout or reparse entries. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise a verified same-volume move. | Check identity, collisions, cancellation and peer loss. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Test the broker copy guard conditions. | Reject a stale size, an expired deadline and a lost connection before publishing. | | GPT-6.1 Sol (Codex) |
@@ -130,6 +131,57 @@ int wmain(int argc, wchar_t** argv)
     DWORD inventoryError = UacListing::Inventory(listing.get(), MAXULONGLONG, inventory);
     Check(inventoryError == ERROR_SUCCESS && inventory.files == 2 && inventory.directories == 1 && inventory.bytes == 3,
           "strict inventory sums a nested Unicode file and an empty file", inventoryError);
+    UacListing::SubtreeManifest manifest;
+    DWORD manifestError = UacListing::CaptureManifest(listing.get(), MAXULONGLONG, manifest);
+    FILE_ID_INFO nestedFileId{};
+    const Handle nestedFile = OpenIdentity(inventoryFile, nestedFileId);
+    Check(manifestError == ERROR_SUCCESS && nestedFile && manifest.entries.size() == 3 &&
+              manifest.entries[0].parent == UacListing::manifestRoot && manifest.entries[0].name == L"nested" &&
+              manifest.entries[1].parent == 0 && manifest.entries[1].name == L"\u65e5.bin" &&
+              std::memcmp(manifest.entries[1].id.Identifier, nestedFileId.FileId.Identifier,
+                          sizeof(nestedFileId.FileId.Identifier)) == 0,
+          "record the NTFS file identity and its exact Unicode name and parent", manifestError);
+    manifestError = UacListing::VerifyManifest(listing.get(), MAXULONGLONG, manifest);
+    Check(manifestError == ERROR_SUCCESS, "unchanged subtree matches the source manifest", manifestError);
+    const auto renamedFile = fixture + L"\\destination\\nested\\held-original.bin";
+    if (!MoveFileExW(inventoryFile.c_str(), renamedFile.c_str(), 0) ||
+        !WriteFixture(inventoryFile, {1, 2, 3}) || !DeleteFileW(renamedFile.c_str()))
+        return 2;
+    manifestError = UacListing::VerifyManifest(listing.get(), MAXULONGLONG, manifest);
+    Check(manifestError == ERROR_FILE_INVALID, "a same-name same-size replacement has a different identity", manifestError);
+
+    manifestError = UacListing::CaptureManifest(listing.get(), MAXULONGLONG, manifest);
+    if (manifestError)
+        return 2;
+    const std::wstring longDirectory = fixture + L"\\destination\\nested\\" + std::wstring(180, L'\u76ee');
+    const std::wstring longFile = longDirectory + L"\\" + std::wstring(160, L'\u7dd1') + L".bin";
+    if (!CreateDirectoryW(longDirectory.c_str(), nullptr) || !WriteFixture(longFile, {4, 5}))
+        return 2;
+    manifestError = UacListing::VerifyManifest(listing.get(), MAXULONGLONG, manifest);
+    Check(manifestError == ERROR_FILE_INVALID, "reject a newly added subtree with a long Unicode path", manifestError);
+    manifestError = UacListing::CaptureManifest(listing.get(), MAXULONGLONG, manifest);
+    Check(manifestError == ERROR_SUCCESS && manifest.entries.size() == 5 && manifest.inventory.bytes == 5,
+          "capture identities through a long Unicode path", manifestError);
+    if (!DeleteFileW(longFile.c_str()) || !RemoveDirectoryW(longDirectory.c_str()))
+        return 2;
+    manifestError = UacListing::VerifyManifest(listing.get(), MAXULONGLONG, manifest);
+    Check(manifestError == ERROR_FILE_INVALID, "reject removed entries from the captured source", manifestError);
+
+    const std::wstring empty = fixture + L"\\destination\\empty";
+    const std::wstring originalEmpty = fixture + L"\\destination\\held-empty";
+    if (!CreateDirectoryW(empty.c_str(), nullptr) ||
+        UacListing::CaptureManifest(listing.get(), MAXULONGLONG, manifest) ||
+        !MoveFileExW(empty.c_str(), originalEmpty.c_str(), 0) ||
+        !CreateDirectoryW(empty.c_str(), nullptr) || !RemoveDirectoryW(originalEmpty.c_str()))
+        return 2;
+    manifestError = UacListing::VerifyManifest(listing.get(), MAXULONGLONG, manifest);
+    Check(manifestError == ERROR_FILE_INVALID, "reject a same-name replacement of an empty directory", manifestError);
+    if (!RemoveDirectoryW(empty.c_str()))
+        return 2;
+
+    manifestError = UacListing::CaptureManifest(root.get(), MAXULONGLONG, manifest);
+    Check(manifestError == ERROR_REPARSE_TAG_INVALID && manifest.entries.empty() && manifest.root.volume.empty(),
+          "publish no manifest when the scan encounters a junction", manifestError);
     inventoryError = UacListing::Inventory(root.get(), MAXULONGLONG, inventory);
     Check(inventoryError == ERROR_REPARSE_TAG_INVALID && !inventory.files && !inventory.directories && !inventory.bytes,
           "a junction aborts inventory without publishing partial counts", inventoryError);
@@ -138,13 +190,14 @@ int wmain(int argc, wchar_t** argv)
           "an expired inventory deadline publishes no counts", inventoryError);
 
     DWORD remaining = 0;
-    inventoryError = UacListing::Detail::ScanDirectory(listing.get(), 0, remaining, MAXULONGLONG, inventory);
-    Check(inventoryError == ERROR_BUFFER_OVERFLOW && !inventory.files && !inventory.directories && !inventory.bytes,
+    inventoryError = UacListing::Detail::ScanDirectory(listing.get(), 0, UacListing::manifestRoot,
+                                                        remaining, MAXULONGLONG, manifest);
+    Check(inventoryError == ERROR_BUFFER_OVERFLOW && manifest.entries.empty(),
           "inventory rejects a directory exceeding its remaining entry budget", inventoryError);
     remaining = UacListing::maxEntries;
     inventoryError = UacListing::Detail::ScanDirectory(listing.get(), UacListing::maxInventoryDepth + 1,
-                                                       remaining, MAXULONGLONG, inventory);
-    Check(inventoryError == ERROR_BUFFER_OVERFLOW && !inventory.files && !inventory.directories && !inventory.bytes,
+                                                       UacListing::manifestRoot, remaining, MAXULONGLONG, manifest);
+    Check(inventoryError == ERROR_BUFFER_OVERFLOW && manifest.entries.empty(),
           "inventory refuses to traverse beyond its depth limit", inventoryError);
 
     const auto ambiguousName = fixture + L"\\destination\\nested\\ambiguous.";

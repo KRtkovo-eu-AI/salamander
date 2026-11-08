@@ -23,6 +23,7 @@
 | 2026-11-08 | Document the P4b single-file broker copy. | Record both access-denied routes, bounds and acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document the P4c same-volume F6 pilot. | Track the transfer gate, verified rename and VM results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document the P4d protected subtree inventory. | Record strict scanning and the VM acceptance. | | GPT-6.1 Sol (Codex) |
+| 2026-11-08 | Document P4e source manifest revalidation. | Define the input and verification required by the recursive copy pilot. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -381,6 +382,14 @@ Broker použije stávající schválené spojení. Každý podadresář otevír�
 V izolované VM uživatel jednou schválil výzvu Windows pro vstup do složky 01-protected. Přes Computer Use vrátilo Alt+F10 pro 01-complete tři soubory, jednu podsložku a 15 logických bajtů. U 02-with-junction panel zobrazil chybu 4393 a skryl všechny dílčí hodnoty. Oba požadavky obsloužil broker se stejným PID bez další výzvy UAC. Kontrolní soubor za odkazem měl nadále 11 bajtů. Po návratu mimo schválený podstrom zmizel štít u cesty a broker se ukončil.
 
 Přesun mezi svazky zůstává oddělený. NTFS spravuje sdílení po proudech, takže protokol pro následné odstranění zdroje musí řešit souběžné vytvoření alternativního datového proudu. [Sdílení datových proudů NTFS](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams).
+
+### 8.16 P4e — seznam identit zdrojového podstromu
+
+Broker vytváří pro schválený podstrom interní manifest. Uloží identitu kořene a u každé položky přesný název, index rodiče, 128bitové ID souboru, atributy a logickou velikost souboru. Před sestupem porovná identitu právě otevřené složky s identitou z výpisu. Stávající Alt+F10 odvodí souhrn ze stejného průchodu. Formát odpovědi brokeru ani ovládání panelu se nemění. [Identita souboru ve Win32](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_id_info).
+
+Opakovaný průchod ověří identitu kořene a shodu zachycených položek. Testy na NTFS v Debug i Release pokryly nezměněný strom, nahrazení souboru se stejným názvem, velikostí a obsahem, nahrazení prázdné složky se stejným názvem, přidané a odebrané položky, dlouhé cesty v Unicode a odmítnutí částečného manifestu u odkazu typu junction. Broker se sestavil pro x64 v Debug i Release a prošla také nativní zkouška komunikace.
+
+Manifest vychází ze živého výpisu a neobsahuje obsah souborů ani seznam alternativních datových proudů. Navazující pilot rekurzivního kopírování musí ověřovat identitu přímo na otevřených zdrojových handlech, uplatnit pravidla pro datové proudy a metadata, sestavit kopii v dočasném cílovém podstromu a teprve po ověření zveřejnit celý výsledek bez přepisu existujícího cíle.
 
 ## 9. Uživatelský tok a stav operace
 
