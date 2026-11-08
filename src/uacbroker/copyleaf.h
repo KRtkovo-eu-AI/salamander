@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Copy sparse extents from a guarded source handle. | Preserve holes without releasing the source oplock. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Publish a copy of a guarded move source. | Read the overlapped source without releasing its lock and retain the exact destination handle. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
@@ -125,6 +126,31 @@ inline DWORD CheckCancelled(HANDLE cancel, HANDLE connection, ULONGLONG deadline
     return result == WAIT_OBJECT_0 ? ERROR_CANCELLED : ERROR_INVALID_HANDLE;
 }
 
+inline DWORD FinishOverlappedCopyIo(HANDLE file, OVERLAPPED& io, BOOL completed,
+                                    DWORD& bytes, HANDLE cancel, HANDLE connection, ULONGLONG deadline)
+{
+    if (!completed)
+    {
+        const DWORD started = GetLastError();
+        if (started != ERROR_IO_PENDING)
+            return started;
+        for (;;)
+        {
+            const DWORD state = WaitForSingleObject(io.hEvent, 50);
+            if (state == WAIT_OBJECT_0)
+                break;
+            const DWORD error = state == WAIT_TIMEOUT ? CheckCancelled(cancel, connection, deadline) : GetLastError();
+            if (error)
+            {
+                CancelIoEx(file, &io);
+                GetOverlappedResult(file, &io, &bytes, TRUE);
+                return error;
+            }
+        }
+    }
+    return GetOverlappedResult(file, &io, &bytes, FALSE) ? ERROR_SUCCESS : GetLastError();
+}
+
 inline DWORD ReadOverlappedBlock(HANDLE source, BYTE* buffer, DWORD length, ULONGLONG position, HANDLE event,
                                  DWORD& bytes, HANDLE cancel, HANDLE connection, ULONGLONG deadline)
 {
@@ -132,30 +158,13 @@ inline DWORD ReadOverlappedBlock(HANDLE source, BYTE* buffer, DWORD length, ULON
     io.Offset = static_cast<DWORD>(position);
     io.OffsetHigh = static_cast<DWORD>(position >> 32);
     io.hEvent = event;
-    if (!ReadFile(source, buffer, length, nullptr, &io))
-    {
-        const DWORD started = GetLastError();
-        if (started != ERROR_IO_PENDING)
-            return started;
-        for (;;)
-        {
-            const DWORD state = WaitForSingleObject(event, 50);
-            if (state == WAIT_OBJECT_0)
-                break;
-            const DWORD error = state == WAIT_TIMEOUT ? CheckCancelled(cancel, connection, deadline) : GetLastError();
-            if (error)
-            {
-                CancelIoEx(source, &io);
-                GetOverlappedResult(source, &io, &bytes, TRUE);
-                return error;
-            }
-        }
-    }
-    return GetOverlappedResult(source, &io, &bytes, FALSE) ? ERROR_SUCCESS : GetLastError();
+    const BOOL completed = ReadFile(source, buffer, length, nullptr, &io);
+    return FinishOverlappedCopyIo(source, io, completed, bytes, cancel, connection, deadline);
 }
 
 inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
-                       HANDLE cancel, HANDLE connection, ULONGLONG deadline, bool overlappedSource = false)
+                       HANDLE cancel, HANDLE connection, ULONGLONG deadline, bool overlappedSource = false,
+                       ULONGLONG position = 0)
 {
     std::vector<BYTE> buffer(64 * 1024);
     const DWORD bufferSize = static_cast<DWORD>(buffer.size());
@@ -163,7 +172,6 @@ inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
         overlappedSource ? CreateEventW(nullptr, TRUE, FALSE, nullptr) : nullptr, CloseHandle);
     if (overlappedSource && !event)
         return GetLastError();
-    ULONGLONG position = 0;
     while (remaining)
     {
         if (const DWORD error = CheckCancelled(cancel, connection, deadline))
@@ -205,7 +213,7 @@ inline DWORD ReadCompression(HANDLE file, USHORT& format)
 }
 
 inline DWORD CopySparseData(HANDLE source, HANDLE target, LONGLONG size,
-                            HANDLE cancel, HANDLE connection, ULONGLONG deadline)
+                            HANDLE cancel, HANDLE connection, ULONGLONG deadline, bool overlappedSource)
 {
     DWORD bytes = 0;
     if (!DeviceIoControl(target, FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &bytes, nullptr))
@@ -221,8 +229,20 @@ inline DWORD CopySparseData(HANDLE source, HANDLE target, LONGLONG size,
     request.Length = eof;
     std::vector<FILE_ALLOCATED_RANGE_BUFFER> ranges(4096);
     const auto capacity = static_cast<DWORD>(ranges.size() * sizeof(ranges[0]));
-    if (!DeviceIoControl(source, FSCTL_QUERY_ALLOCATED_RANGES, &request, sizeof(request),
-                         ranges.data(), capacity, &bytes, nullptr))
+    if (overlappedSource)
+    {
+        const std::unique_ptr<void, decltype(&CloseHandle)> event(CreateEventW(nullptr, TRUE, FALSE, nullptr), CloseHandle);
+        if (!event)
+            return GetLastError();
+        OVERLAPPED io{};
+        io.hEvent = event.get();
+        const BOOL completed = DeviceIoControl(source, FSCTL_QUERY_ALLOCATED_RANGES, &request, sizeof(request),
+                                               ranges.data(), capacity, nullptr, &io);
+        if (DWORD error = FinishOverlappedCopyIo(source, io, completed, bytes, cancel, connection, deadline))
+            return error;
+    }
+    else if (!DeviceIoControl(source, FSCTL_QUERY_ALLOCATED_RANGES, &request, sizeof(request),
+                              ranges.data(), capacity, &bytes, nullptr))
         return GetLastError();
     if (bytes > capacity || bytes % sizeof(ranges[0]))
         return ERROR_INVALID_DATA;
@@ -235,10 +255,10 @@ inline DWORD CopySparseData(HANDLE source, HANDLE target, LONGLONG size,
         if (start < previousEnd || start >= size || range.Length.QuadPart <= 0)
             return ERROR_INVALID_DATA;
         const LONGLONG length = (std::min)(range.Length.QuadPart, size - start);
-        if (!SetFilePointerEx(source, range.FileOffset, nullptr, FILE_BEGIN) ||
+        if ((!overlappedSource && !SetFilePointerEx(source, range.FileOffset, nullptr, FILE_BEGIN)) ||
             !SetFilePointerEx(target, range.FileOffset, nullptr, FILE_BEGIN))
             return GetLastError();
-        if (const DWORD error = CopyData(source, target, length, cancel, connection, deadline))
+        if (const DWORD error = CopyData(source, target, length, cancel, connection, deadline, overlappedSource, start))
             return error;
         previousEnd = start + length;
     }
@@ -423,7 +443,9 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         (copySecurity && policy == StreamPolicy::IgnoreNamed))
         return ERROR_INVALID_PARAMETER;
     DWORD allowedAttributes = UacF7::plainCopyAttributes;
-    if (preserveCompression)
+    if (moveTarget)
+        allowedAttributes = UacF7::crossVolumeMoveAttributes;
+    else if (preserveCompression)
         allowedAttributes = UacF7::compressedCopyAttributes;
     else if (location && policy == StreamPolicy::PreserveNamed)
         allowedAttributes |= FILE_ATTRIBUTE_SPARSE_FILE;
@@ -504,7 +526,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         if (!DeviceIoControl(target.get(), FSCTL_SET_COMPRESSION, &format, sizeof(format), nullptr, 0, &bytes, nullptr))
             return GetLastError();
     }
-    error = sparse ? CopySparseData(source, target.get(), size.QuadPart, cancel, connection, deadline)
+    error = sparse ? CopySparseData(source, target.get(), size.QuadPart, cancel, connection, deadline, moveTarget != nullptr)
                    : CopyData(source, target.get(), size.QuadPart, cancel, connection, deadline, moveTarget != nullptr);
     if (error)
         return error;

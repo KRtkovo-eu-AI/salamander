@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record sparse F6 publication. | Track allocated ranges and guarded source retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record F6 completion after an ordinary cross-volume copy. | Verify both identities and the copied data before deleting the source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record broker integration for guarded cross-volume F6. | Preserve ordinary moves and isolate the verified retry. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the F6 source retirement sequence. | Verify both unlinks against a durable pinned target. | | GPT-6.1 Sol (Codex) |
@@ -682,6 +683,10 @@ V Debug i Release prošla sada autentizace a 11 scénářů reálné dávkové r
 **F6 po úspěšné běžné kopii.** Pokud mezi dvěma pevnými svazky NTFS selže až odstranění zdroje s chybou 5, worker může požádat o dokončení přesunu. Zachytí identitu obou položek ze skutečných handlů běžného kopírování. Broker ověří revizi cíle, pod výhradními handly porovná velikost, čas poslední změny a všechny bajty, znovu ověří revizi cíle a před odstraněním zdroje cílová data zapíše z vyrovnávací paměti na disk. Obsah cíle nepřepisuje. Pro dodatečný rámec s revizí používají aplikace, broker a sonda verzi protokolu 2.
 
 V x64 Debug a Release prošlo 86 nativních kontrol včetně zachycení ID cíle ze zapisovacího handlu a odmítnutí stejně velké kopie s jediným změněným bajtem v posledním bloku. Prošly kontroly autentizace a 12 scénářů skutečné dávkové roury v obou konfiguracích. Nový scénář ověřil načtení rámce revize a odmítnutí požadavku na témže svazku bez změny souborů. Aplikace, broker a sonda prošly sestavením x64 Debug. K akceptaci zůstává skutečný přesun přes F6 mezi dvěma zapisovatelnými svazky NTFS, včetně případu odepřeného smazání zdroje.
+
+**Řídký soubor při F6 mezi svazky.** Pokud už běžné čtení zdroje nebo vytvoření nového cíle vyžaduje elevaci, broker může nyní přesunout i řídký soubor s jediným datovým proudem. Z oplockem chráněného handlu čte přidělené rozsahy pomocí asynchronního I/O a v cíli zachová řídkou alokaci i logickou délku. Záznam a pořadí odstraňování zdrojových odkazů zůstávají stejné jako u běžného souboru. Tato varianta používá stávající limit 16 MiB a cíl bez kolize. Dokončení přesunu po odepření samotného smazání zatím zůstává omezené na běžný soubor. [FSCTL_QUERY_ALLOCATED_RANGES](https://learn.microsoft.com/en-us/windows/win32/api/winioctl/ni-winioctl-fsctl_query_allocated_ranges) · [Asynchronní DeviceIoControl](https://learn.microsoft.com/windows/win32/api/ioapiset/nf-ioapiset-deviceiocontrol).
+
+V x64 Debug i Release prošlo 91 kontrol F6 včetně zkoušky dvou přidělených rozsahů a nealokované oblasti, shody celého obsahu, odmítnutí běžné kopie jako náhrady za řídký zdroj, odstranění zdroje až po zveřejnění cíle a uzavření záznamu obnovy. Prošla také obecná nativní sada v obou konfiguracích a sestavení aplikace, brokeru a sondy x64 Debug. Samotný tok F6 přes dva zapisovatelné svazky zůstává ve společné akceptaci ve VM.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

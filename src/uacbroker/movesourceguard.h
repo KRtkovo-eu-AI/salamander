@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Allow guarded sparse F6 publication. | Recheck the sparse source under the same seal until unlink. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Compare an existing F6 copy with its guarded source. | Prove the destination bytes before permitting a late source removal. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Retire both F6 source links after the destination receipt. | Preserve a recoverable source until the last unlink. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Publish a copy of a guarded move source. | Read the overlapped source without releasing its lock and retain the exact destination handle. | | GPT-6.1 Sol (Codex) |
@@ -131,8 +132,8 @@ public:
         if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(target, basic)) != ERROR_SUCCESS)
             return error;
         FILE_BASIC_INFO sourceBasic{};
-        if (!GetFileInformationByHandleEx(source.get(), FileBasicInfo, &sourceBasic, sizeof(sourceBasic)))
-            return GetLastError();
+        if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), sourceBasic)) != ERROR_SUCCESS)
+            return error;
         if (sourceBasic.LastWriteTime.QuadPart != basic.LastWriteTime.QuadPart)
             return ERROR_FILE_INVALID;
         LARGE_INTEGER from{}, to{};
@@ -254,7 +255,8 @@ public:
         if (standard.NumberOfLinks != links)
             return ERROR_FILE_INVALID;
         FILE_BASIC_INFO metadata{};
-        if (DWORD error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), metadata))
+        if (DWORD error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), metadata, false,
+                UacCopyLeaf::StreamPolicy::RequireDefault, UacF7::crossVolumeMoveAttributes))
             return error;
         const DWORD state = WaitForSingleObject(event.get(), 0);
         if (state == WAIT_TIMEOUT)

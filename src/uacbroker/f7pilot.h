@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Describe sparse guarded F6 sources. | Share the allowed attributes between the worker and broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Finish F6 when only source deletion needs elevation. | Verify the original copy identities and content before retiring the source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Dispatch guarded F6 moves across fixed NTFS volumes. | Keep source retirement and recovery in one scoped broker request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
@@ -189,6 +190,12 @@ inline bool IsPlainDeleteFile(DWORD attributes)
 {
     return attributes == FILE_ATTRIBUTE_NORMAL || attributes == FILE_ATTRIBUTE_ARCHIVE;
 }
+constexpr DWORD crossVolumeMoveAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_SPARSE_FILE;
+inline bool IsCrossVolumeMoveFile(DWORD attributes)
+{
+    return attributes && !(attributes & ~crossVolumeMoveAttributes);
+}
+
 inline bool IsPlainDeleteLink(DWORD attributes, bool directory = false)
 {
     const DWORD required = FILE_ATTRIBUTE_REPARSE_POINT | (directory ? FILE_ATTRIBUTE_DIRECTORY : 0);

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise sparse publication and retirement through the F6 source guard. | Verify bytes, a physical hole and the recovery receipt. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test existing-copy verification for late F6 completion. | Refuse even a last-byte difference in a same-sized destination. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise actual F6 source retirement. | Keep both source links on cancellation and remove them only for a receipted target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the durable destination receipt after source removal. | Refuse missing or substituted targets before clearing move recovery. | | GPT-6.1 Sol (Codex) |
@@ -1881,6 +1882,84 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
     error = recover(parent.get());
     Check(!error && empty() && !Exists(sourcePath) && HasContents(completed, moveContent),
           "clear a completed move only after reopening the exact durable target", error);
+
+    constexpr DWORD sparseSize = 4 * 1024 * 1024;
+    constexpr DWORD secondExtent = sparseSize / 2;
+    std::vector<BYTE> sparseBytes(sparseSize);
+    sparseBytes[0] = 17;
+    sparseBytes[secondExtent] = 29;
+    {
+        const HANDLE file = CreateFileW(sourcePath.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+        if (file == INVALID_HANDLE_VALUE)
+            return false;
+        const Handle writer(file);
+        DWORD bytes = 0;
+        LARGE_INTEGER position{};
+        position.QuadPart = secondExtent;
+        if (!DeviceIoControl(file, FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &bytes, nullptr) ||
+            !WriteFile(file, sparseBytes.data(), 1, &bytes, nullptr) || bytes != 1 ||
+            !SetFilePointerEx(file, position, nullptr, FILE_BEGIN) ||
+            !WriteFile(file, sparseBytes.data() + secondExtent, 1, &bytes, nullptr) || bytes != 1)
+            return false;
+        position.QuadPart = sparseSize;
+        if (!SetFilePointerEx(file, position, nullptr, FILE_BEGIN) || !SetEndOfFile(file))
+            return false;
+    }
+    FILE_ID_INFO sparseId{};
+    if (!OpenIdentity(sourcePath, sparseId) ||
+        OpenSource(parent.get(), leaf, raw, DELETE | READ_CONTROL | WRITE_DAC, FILE_SHARE_READ))
+        return false;
+    source.reset(raw);
+    error = Arm(parent.get(), leaf, source.get(), sparseId, storage.get(), journal.get(), security.get(), name, seal);
+    source.reset();
+    if (error || CheckNoPriorSourceOpens(parent.get(), leaf, sparseId))
+        return false;
+
+    SourceGuard guard;
+    error = guard.Open(parent.get(), leaf, sparseId, 2);
+    if (error)
+        return false;
+    UacDirectoryLeaf::ParentIdentity targetParent;
+    if (UacDirectoryLeaf::ReadParentIdentity(wrongParent.get(), targetParent))
+        return false;
+    constexpr wchar_t denseLeaf[] = L"dense-candidate.bin";
+    const auto densePath = wrongDirectory + L"\\" + denseLeaf;
+    if (!WriteFixture(densePath, sparseBytes) ||
+        OpenSource(wrongParent.get(), denseLeaf, raw, FILE_READ_DATA | FILE_READ_EA | FILE_WRITE_DATA, 0))
+        return false;
+    {
+        const Handle dense(raw);
+        error = guard.VerifyExistingCopy(dense.get(), sparseSize, nullptr, MAXULONGLONG);
+        Check(error == ERROR_NOT_SUPPORTED && !guard.Check(2),
+              "refuse late retirement of a sparse source against a dense copy", error);
+    }
+
+    constexpr wchar_t sparseLeaf[] = L"sparse-move.bin";
+    const auto sparsePath = wrongDirectory + L"\\" + sparseLeaf;
+    UacMoveSourceJournal::Detail::Handle sparseTarget(nullptr, CloseHandle);
+    FILE_ID_INFO sparseTargetId{};
+    error = guard.PublishCopy(wrongParent.get(), targetParent, sparseLeaf, sparseSize,
+                             nullptr, nullptr, MAXULONGLONG, sparseTarget, sparseTargetId);
+    Check(!error && sparseTarget && !guard.Check(2), "publish sparse extents while the source is sealed", error);
+    if (error)
+        return false;
+    FILE_ALLOCATED_RANGE_BUFFER query{}, extent{};
+    query.FileOffset.QuadPart = sparseSize / 4;
+    query.Length.QuadPart = sparseSize / 8;
+    DWORD extentBytes = 0;
+    FILE_BASIC_INFO sparseMetadata{};
+    Check(GetFileInformationByHandleEx(sparseTarget.get(), FileBasicInfo, &sparseMetadata, sizeof(sparseMetadata)) &&
+              (sparseMetadata.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE) &&
+              DeviceIoControl(sparseTarget.get(), FSCTL_QUERY_ALLOCATED_RANGES, &query, sizeof(query),
+                              &extent, sizeof(extent), &extentBytes, nullptr) && extentBytes == 0,
+          "keep the sparse flag and an unallocated range in the pinned destination");
+    error = guard.RetirePublishedSource(parent.get(), storage.get(), journal.get(), security.get(),
+        wrongParent.get(), sparseLeaf, sparseTarget.get(), sparseTargetId, nullptr, nullptr, MAXULONGLONG);
+    sparseTarget.reset();
+    Check(!error && !Exists(sourcePath) && !Exists(storageDirectory + L"\\" + name) && HasContents(sparsePath, sparseBytes),
+          "retire the sparse source only after preserving its logical contents", error);
+    error = recover(parent.get());
+    Check(!error && empty() && HasContents(sparsePath, sparseBytes), "verify and clear the sparse move receipt", error);
     return failures == 0;
 }
 

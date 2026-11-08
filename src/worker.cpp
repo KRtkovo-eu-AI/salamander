@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Offer brokered cross-volume F6 for sparse files. | Limit the new route to a guarded copy that preserves sparse ranges. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Capture the handles used by an ordinary F6 copy. | Complete denied source deletion only for that exact copy. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Route denied cross-volume F6 to the broker. | Avoid removing the source twice after a confirmed move. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve and verify EFS alternate data streams. | Keep the source stream inventory consistent through encrypted export and publication. | | GPT-6.1 Sol (Codex) |
@@ -5706,7 +5707,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     if (!script.AllowTransferPilot || script.OverwriteOlder ||
         ((op.OpFlags & OPFL_AS_ENCRYPTED) != 0 && !encrypted) ||
         !op.SourceNameWValid || !op.TargetNameWValid ||
-        (moving ? (script.CopySecurity || script.CopyAttrs || (op.OpFlags & OPFL_COPY_ADS) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))
+        (moving ? (script.CopySecurity || script.CopyAttrs || (op.OpFlags & OPFL_COPY_ADS) != 0 || !UacF7::IsCrossVolumeMoveFile(op.Attr))
                 : (!UacF7::IsEligibleFileCopy(op.Attr, script.CopyAttrs, script.IgnoreTransferAds, script.CopySecurity) ||
                    op.FileSize.Value > UacF7::maxPilotCopyBytes)))
         return false;
@@ -5736,7 +5737,8 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     else if (script.IgnoreTransferAds)
         operation = UacF7::Operation::CopyIgnoreAds;
     UacF7::PreparedTransfer request;
-    if (!request.Prepare(op.SourceNameW, op.TargetNameW, op.FileSize.Value, operation))
+    if (!request.Prepare(op.SourceNameW, op.TargetNameW, op.FileSize.Value, operation) ||
+        (moving && !request.IsCrossVolumeMove() && !UacF7::IsPlainDeleteFile(op.Attr)))
         return false;
     if ((encrypted || request.IsCrossVolumeMove()) && input && *input != INVALID_HANDLE_VALUE)
     {

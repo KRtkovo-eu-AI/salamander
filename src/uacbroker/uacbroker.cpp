@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Accept sparse sources in the cross-volume F6 broker. | Keep copy completion after ordinary copying subject to its existing metadata checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Finish F6 when only source deletion needs elevation. | Verify the original copy identities and content before retiring the source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Dispatch guarded F6 moves across fixed NTFS volumes. | Keep source retirement and recovery in one scoped broker request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
@@ -1077,7 +1078,9 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
             static_cast<ULONGLONG>(standard.EndOfFile.QuadPart) != size)
             return ERROR_FILE_INVALID;
         FILE_BASIC_INFO basic{};
-        if ((status = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), basic)) ||
+        const DWORD allowed = copiedTarget ? UacF7::plainCopyAttributes : UacF7::crossVolumeMoveAttributes;
+        if ((status = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), basic, false,
+                UacCopyLeaf::StreamPolicy::RequireDefault, allowed)) ||
             (status = UacCopyLeaf::Detail::CheckCancelled(nullptr, pipe, deadline)))
             return status;
         std::wstring alias;
