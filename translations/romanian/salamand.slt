@@ -4195,6 +4195,8 @@ SLGINCOMPLETE,""
 14544,1,"Fișiere: "
 14545,1,"Subfoldere: "
 14546,1,"Dimensiune logică (octeți): "
+14547,1,"Copiați acest folder și conținutul său la destinația înregistrată ca administrator?"
+14548,1,"Copierea folderului sau curățarea nu a putut fi confirmată. Verificați destinația înainte de a reîncerca."
 
 [STRINGTABLE 184]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."

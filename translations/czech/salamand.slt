@@ -4195,6 +4195,8 @@ SLGINCOMPLETE,""
 14544,1,"Soubory: "
 14545,1,"Podsložky: "
 14546,1,"Logická velikost (bajty): "
+14547,1,"Zkopírovat tuto složku a její obsah do registrovaného cíle jako správce?"
+14548,1,"Kopírování složky nebo úklid se nepodařilo potvrdit. Před opakováním zkontrolujte cíl."
 
 [STRINGTABLE 184]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."

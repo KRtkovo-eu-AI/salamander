@@ -4195,6 +4195,8 @@ SLGINCOMPLETE,""
 14544,1,"Bestanden: "
 14545,1,"Submappen: "
 14546,1,"Logische grootte (bytes): "
+14547,1,"Deze map en de inhoud als beheerder naar de geregistreerde bestemming kopiëren?"
+14548,1,"Het kopiëren of opruimen kon niet worden bevestigd. Controleer de bestemming voordat u het opnieuw probeert."
 
 [STRINGTABLE 184]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."

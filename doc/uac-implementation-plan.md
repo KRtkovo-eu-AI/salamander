@@ -27,6 +27,7 @@
 | 2026-11-08 | Record the P4d CodeQL result and the inventory label fix. | Track the format-string regression and its validation. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document the P4f native tree copy pilot. | Record tested publication, rollback and the remaining broker integration gate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document the P4g staging integrity profile. | Record verified access isolation and inherited destination DACLs. | | GPT-6.1 Sol (Codex) |
+| 2026-11-08 | Document the registered P4h F5 pilot. | Describe consent, target identity provisioning and broker checks. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -419,6 +420,16 @@ Nativní testy v Debug i Release porovnaly zděděné ACE a příznaky DACL u ko
 V izolované VM prošel také běh Release se skutečným cílem s vysokou integritou (`ExitCode=0`). Test použil token běžícího Průzkumníka se střední integritou a stejným SID jako zvýšený testovací proces. Výpis, přidání položky, otevření pro smazání a přístup ke známému pracovnímu souboru pro čtení, zápis nebo změnu DACL vrátily `ERROR_ACCESS_DENIED`. Zděděné DACL hotové kopie odpovídaly běžně vytvořeným položkám.
 
 Při doplňkové zkoušce se tokenu s nízkou integritou nepodařilo otevřít pracovní kořen pro zjištění identity ani s nulovým požadovaným přístupem. Pro F5 proto nelze předpokládat, že běžný token získá identitu vysoce chráněného cíle. Pilot musí před souhlasem vymezit konkrétní zdroj a cíl a získat očekávanou identitu z důvěryhodného zdroje. Broker ji po souhlasu ověří na cílovém rodiči otevřeném s `READ_CONTROL`. Zkoušky brokeru v izolované VM zůstávají samostatným krokem podle oddílu 8.17.
+
+### 8.19 P4h — F5 pro jednu složku do registrovaného cíle
+
+P4g na commitu `4cb69ff2` prošla sestavením Win32, x64 a ARM64, všemi 214 testy a CodeQL bez nových nálezů. [Testy P4g](https://github.com/majklvi/salamander/actions/runs/42466977906/job/128688661453) · [CodeQL P4g](https://github.com/majklvi/salamander/runs/128692125171).
+
+V chráněné pilotní instalaci správce spustí `uacbroker.exe --register-tree-target`. Příkaz vytvoří nebo ověří vyhrazený adresář `UacTreeTarget` s profilem z P4g a uloží jeho sériové číslo svazku a ID adresáře do chráněného souboru `uac-tree-target.id`. Samandarin může záznam číst, jeho zápis je vyhrazený správcům a systému. Stávající registrace se nepřepisuje, pokud cíl mezitím změnil identitu.
+
+Při F5 vybere uživatel jednu složku v místním panelu a zadá přesnou cestu registrovaného cíle. Pilot vyžaduje výchozí volby kopírování. Dialog se štítem zobrazí celý zdroj a výslednou cílovou cestu. Broker po UAC nezávisle načte registraci, znovu ověří identity rodiče zdroje, zdrojové složky a cíle, a teprve potom spustí omezenou kopii z P4f a P4g. Výsledek při chybě úklidu nebo ztrátě potvrzení vyžaduje kontrolu cíle před opakováním. Jiné cíle, výběry a volby používají stávající kopírovací tok.
+
+V izolované VM se podařilo cíl zaregistrovat a pomocí Computer Use ověřit skutečnou cestu z F5. Po volbě Ne zdroj zůstal a kopie nevznikla. Po volbě Ano se SHA-256 obou souborů, včetně vnořeného souboru s názvem v Unicode, shodovaly se zdrojem. Vznikla i prázdná podsložka a ve chráněném cíli nezůstala žádná pracovní složka. F5 do běžného cíle zkopírovalo obdobný strom bez výzvy UAC. Prošlo také 110 nativních kontrol NTFS, zkouška komunikace brokeru a kontrola plánování kopírování. Samostatná akceptace jiným účtem správce, kolize vzniklé během souhlasu a odpojení nebo tvrdého ukončení v průběhu kopírování ještě zbývá.
 
 ## 9. Uživatelský tok a stav operace
 

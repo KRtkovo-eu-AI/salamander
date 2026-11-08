@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Offer protected F5 for a single directory and the registered target. | Bind the consent prompt to both complete paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Append localized inventory labels as text. | Resolve the CodeQL non-constant format alert. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Identify one-file actions explicitly routed to permanent deletion. | Never infer broker consent from a failed recycle operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-05 | Restore saved Copy/Move transfer, conflict, and wait dialog defaults. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
@@ -811,6 +812,45 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
 
                 if (copyToSelectedDirs)
                     break;
+
+                if (type == atCopy && Is(ptDisk) && !IsBranchView() && !ProtectedListing && count <= 1 &&
+                    !criteriaPtr && conflictMode == CMCM_CURRENT && operationSchedulingOverride == COSO_DEFAULT)
+                {
+                    const int index = count ? indexes[0] : GetCaretIndex();
+                    if (index >= (subDir ? 1 : 0) && index < Dirs->Count)
+                    {
+                        const auto source = GetItemFullPathW(Dirs->At(index));
+                        auto entered = SalMultiByteToWidePath(path, CP_UTF8);
+                        if (entered.empty())
+                            entered = SalMultiByteToWidePath(path, CP_ACP);
+                        UacF7::PreparedTransfer request;
+                        std::wstring destination;
+                        if (request.PrepareTree(source, entered, destination))
+                        {
+                            const std::string message = std::string(LoadStr(IDS_UAC_TREE_COPY_CONFIRM)) + "\n\n" +
+                                SalWideToMultiBytePath(SalPathRemoveExtendedPrefixW(source.c_str()).c_str(), CP_UTF8) + "\n -> " +
+                                SalWideToMultiBytePath(destination.c_str(), CP_UTF8);
+                            const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+                            MSGBOXEX_PARAMS confirm{};
+                            confirm.HParent = HWindow;
+                            confirm.Text = message.c_str();
+                            confirm.Caption = LoadStr(IDS_COPY);
+                            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
+                            confirm.AliasBtnNames = alias.c_str();
+                            if (SalMessageBoxEx(&confirm) == IDOK && validateDiskTarget())
+                            {
+                                const auto result = request.Execute(HWindow);
+                                if (result.unknown || (result.error != ERROR_SUCCESS && result.error != ERROR_CANCELLED))
+                                    SalMessageBox(HWindow, result.unknown ? LoadStr(IDS_UAC_TREE_COPY_UNKNOWN) : GetErrorText(result.error),
+                                                  LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                                if (!result.unknown && result.error == ERROR_SUCCESS)
+                                    MainWindow->PostChangeOnPathNotification(SalWideToMultiBytePath(entered.c_str(), CP_UTF8).c_str(), TRUE);
+                            }
+                            res = IDCANCEL; // The broker handled this request outside the ordinary script.
+                            break;
+                        }
+                    }
+                }
 
                 const bool useDefaultDiskTarget = watchDiskTarget && diskTarget.HasDefaultText(path, SAL_MAX_PATH);
 

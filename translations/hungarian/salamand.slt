@@ -4195,6 +4195,8 @@ SLGINCOMPLETE,""
 14544,1,"Fájlok: "
 14545,1,"Almappák: "
 14546,1,"Logikai méret (bájt): "
+14547,1,"Másolja ezt a mappát és tartalmát rendszergazdaként a regisztrált célhelyre?"
+14548,1,"A mappa másolását vagy a takarítást nem sikerült megerősíteni. Újrapróbálkozás előtt ellenőrizze a célhelyet."
 
 [STRINGTABLE 184]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."

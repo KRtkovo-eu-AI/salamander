@@ -4195,6 +4195,8 @@ SLGINCOMPLETE,""
 14544,1,"File: "
 14545,1,"Sottocartelle: "
 14546,1,"Dimensione logica (byte): "
+14547,1,"Copiare questa cartella e il suo contenuto nella destinazione registrata come amministratore?"
+14548,1,"Impossibile confermare la copia della cartella o la pulizia. Controllare la destinazione prima di riprovare."
 
 [STRINGTABLE 184]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."

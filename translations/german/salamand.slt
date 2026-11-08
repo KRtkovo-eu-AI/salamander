@@ -4195,6 +4195,8 @@ SLGINCOMPLETE,""
 14544,1,"Dateien: "
 14545,1,"Unterordner: "
 14546,1,"Logische Größe (Byte): "
+14547,1,"Diesen Ordner mit seinem Inhalt als Administrator an das registrierte Ziel kopieren?"
+14548,1,"Das Kopieren oder Aufräumen konnte nicht bestätigt werden. Prüfen Sie das Ziel, bevor Sie es erneut versuchen."
 
 [STRINGTABLE 184]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."

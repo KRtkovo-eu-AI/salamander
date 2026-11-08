@@ -4195,6 +4195,8 @@ SLGINCOMPLETE,""
 14544,1,"Súbory: "
 14545,1,"Podpriečinky: "
 14546,1,"Logická veľkosť (bajty): "
+14547,1,"Skopírovať tento priečinok a jeho obsah do zaregistrovaného cieľa ako správca?"
+14548,1,"Kopírovanie priečinka alebo čistenie sa nepodarilo potvrdiť. Pred opakovaním skontrolujte cieľ."
 
 [STRINGTABLE 184]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."

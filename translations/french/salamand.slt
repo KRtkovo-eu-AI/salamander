@@ -4195,6 +4195,8 @@ SLGINCOMPLETE,""
 14544,1,"Fichiers : "
 14545,1,"Sous-dossiers : "
 14546,1,"Taille logique (octets) : "
+14547,1,"Copier ce dossier et son contenu vers la destination enregistrée en tant qu’administrateur ?"
+14548,1,"La copie du dossier ou son nettoyage n’a pas pu être confirmé. Vérifiez la destination avant de réessayer."
 
 [STRINGTABLE 184]
 14991,1,"Lecture des associations depuis le stockage de fichiers, veuillez patienter..."

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Declare the registered F5 tree pilot. | Bind a directory source to a fixed protected target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Expose a bounded inventory for an approved directory. | Use the existing read-only listing session. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share the prepared transfer with same-volume F6. | Bind source and destination to a typed move request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare a bounded one-file copy request. | Hold both parent identities across UAC. | | GPT-6.1 Sol (Codex) |
@@ -14,11 +15,12 @@
 
 #include <windows.h>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8 };
 
 constexpr ULONGLONG maxPilotCopyBytes = 16 * 1024 * 1024;
 constexpr DWORD plainCopyAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE |
@@ -83,6 +85,7 @@ class PreparedTransfer
 {
 public:
     bool Prepare(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize, bool moving);
+    bool PrepareTree(const std::wstring& sourcePath, std::wstring_view targetDirectory, std::wstring& destination);
     Result Execute(HWND owner) const;
     bool IsMove() const { return source.operation == Operation::Move; }
 
