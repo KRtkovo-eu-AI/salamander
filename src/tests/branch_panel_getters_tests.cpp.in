@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Model Shell recycle intent and item receipts. | Verify rejection of permanent mode and unconfirmed results. | | GPT-6.1 Sol (Codex) |
 // The three production getters, Entry, Entry::FullPath, Join and conversion
 // function are extracted verbatim. Only unrelated panel state is replaced.
 #define NOMINMAX
@@ -243,24 +246,42 @@ struct CFilesWindow
 static const int ptDisk=1;
 struct TestShellItem {std::wstring Path;void Release(){delete this;}};
 struct TestFileOperation {
-    std::vector<std::wstring> Paths;DWORD Flags=0;int PerformCalls=0,Released=0,AbortCalls=0;
+    std::vector<std::wstring> Paths;
+    std::vector<IFileOperationProgressSink*> Sinks;DWORD Flags=0;int PerformCalls=0,Released=0,AbortCalls=0;
     int FailStage=0,FailItem=-1;BOOL Aborted=FALSE;
+    bool PermanentIntent=false,MissingReceipt=false;
+    HRESULT ItemResult=S_OK;
     HRESULT SetOwnerWindow(HWND){return FailStage==1?E_FAIL:S_OK;}
     HRESULT SetOperationFlags(DWORD flags){Flags=flags;return FailStage==2?E_FAIL:S_OK;}
-    HRESULT DeleteItem(TestShellItem* item,void*){if(FailItem==(int)Paths.size())return E_FAIL;Paths.push_back(item->Path);return S_OK;}
-    HRESULT PerformOperations(){++PerformCalls;return FailStage==3?E_FAIL:S_OK;}
+    HRESULT DeleteItem(TestShellItem* item,IFileOperationProgressSink* sink){if(FailItem==(int)Paths.size())return E_FAIL;Paths.push_back(item->Path);Sinks.push_back(sink);return S_OK;}
+    HRESULT PerformOperations()
+    {
+        ++PerformCalls;
+        if(FailStage==3)return E_FAIL;
+        if(Aborted)return S_OK;
+        for(auto* sink:Sinks)
+        {
+            HRESULT result=sink->PreDeleteItem(PermanentIntent ? 0 : TSF_DELETE_RECYCLE_IF_POSSIBLE, nullptr);
+            if(SUCCEEDED(result))
+                result=sink->PostDeleteItem(TSF_DELETE_RECYCLE_IF_POSSIBLE,nullptr,ItemResult,
+                    MissingReceipt ? nullptr : reinterpret_cast<IShellItem*>(this));
+            if(FAILED(result))return result;
+        }
+        return S_OK;
+    }
     HRESULT GetAnyOperationsAborted(BOOL* b){++AbortCalls;*b=Aborted;return FailStage==4?E_FAIL:S_OK;}
     void Release(){++Released;}
 };
 static TestFileOperation RecycleMock;
 static int ParseCalls=0,ParseFail=-1,RecycleErrors=0;
+static std::string RecycleLastMessage;
 static HRESULT MakeOperation(REFCLSID,void*,DWORD,REFIID,void** out){if(RecycleMock.FailStage==5)return E_FAIL;*out=&RecycleMock;return S_OK;}
 static HRESULT MakeShellItem(const wchar_t* path,void*,REFIID,void** out){int i=ParseCalls++;if(i==ParseFail)return HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);auto* item=new TestShellItem;item->Path=path;*out=item;return S_OK;}
 struct RecycleOwner {HWND HWindow=nullptr;};static RecycleOwner RecycleWindow;
 static const char* RecycleLoadStr(int){return "fixture";}
 static const char* RecycleErrorText(DWORD){return "fixture";}
-static int RecycleMessage(HWND,const char*,const char*,UINT){++RecycleErrors;return IDOK;}
-static const int IDS_ERRORTITLE=1;
+static int RecycleMessage(HWND,const char* message,const char*,UINT){++RecycleErrors;RecycleLastMessage=message;return IDOK;}
+static const int IDS_ERRORTITLE=1,IDS_UAC_RECYCLE_NOT_CONFIRMED=2;
 #define IFileOperation TestFileOperation
 #define IShellItem TestShellItem
 #pragma push_macro("IID_PPV_ARGS")
@@ -767,16 +788,26 @@ static void RecycleQueueTests()
     for(auto& row:panel.FileRows.Values)state.CacheFiles[state.Items.at(row.Name).CacheKey]=&row;
     int selected[]={0,1,2};
     auto reset=[](){RecycleMock=TestFileOperation();ParseCalls=0;ParseFail=-1;RecycleErrors=0;};
+    Check(NormalizeRecycleResult(COPYENGINE_E_REQUIRES_ELEVATION)==HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED),"recycle reports required elevation as access denied");
+    Check(NormalizeRecycleResult(COPYENGINE_E_USER_CANCELLED)==HRESULT_FROM_WIN32(ERROR_CANCELLED),"recycle recognizes Shell cancellation");
+    Check(NormalizeRecycleResult(COPYENGINE_E_RECYCLE_UNKNOWN_ERROR)==COPYENGINE_E_RECYCLE_UNKNOWN_ERROR,"recycle preserves the original unknown Shell error");
     reset();Check(panel.Recycle(selected,3,nullptr),"recycle queues entire mixed-volume selection");
     Check(RecycleMock.Paths.size()==3&&RecycleMock.Paths[0]==panel.GetItemFullPathW(panel.Files->At(0))&&RecycleMock.Paths[1]==panel.GetItemFullPathW(panel.Files->At(1)),"recycle preserves duplicate exact parent identities");
     Check(RecycleMock.Paths[2]==panel.GetItemFullPathW(panel.Files->At(2))&&RecycleMock.Paths[2].size()>260,"recycle preserves long Unicode name and parent");
-    Check(RecycleMock.Flags==(FOF_ALLOWUNDO|FOFX_RECYCLEONDELETE|FOFX_ADDUNDORECORD|FOFX_EARLYFAILURE),"recycle-only flags cannot permit permanent fallback");
+    Check((RecycleMock.Flags & (FOFX_RECYCLEONDELETE | FOF_NOERRORUI | FOFX_EARLYFAILURE | FOF_WANTNUKEWARNING)) ==
+        (FOFX_RECYCLEONDELETE | FOF_NOERRORUI | FOFX_EARLYFAILURE | FOF_WANTNUKEWARNING) &&
+        !(RecycleMock.Flags & (FOFX_SHOWELEVATIONPROMPT | FOF_NOCONFIRMATION)),"recycle does not prompt for elevation or silently accept permanent deletion");
     Check(RecycleMock.PerformCalls==1&&RecycleMock.AbortCalls==1&&RecycleMock.Released==1,"one perform after complete queue and checked abort status");
+    reset();RecycleMock.ItemResult=COPYENGINE_E_RECYCLE_UNKNOWN_ERROR;
+    Check(!panel.Recycle(selected,3,nullptr)&&RecycleErrors==1&&RecycleLastMessage.find("0x80270035")!=std::string::npos,
+          "unknown Shell error is shown with its original code");
     for(int stage=1;stage<=4;++stage){reset();RecycleMock.FailStage=stage;Check(!panel.Recycle(selected,3,nullptr)&&RecycleErrors==1&&RecycleMock.Released==1,"COM setup/perform/abort failure is reported");if(stage<=2)Check(ParseCalls==0&&RecycleMock.PerformCalls==0,"failed owner/flags cannot queue or perform");}
     reset();RecycleMock.FailStage=5;Check(!panel.Recycle(selected,3,nullptr)&&ParseCalls==0&&RecycleMock.PerformCalls==0,"COM creation failure cannot queue or perform");
     reset();RecycleMock.FailItem=1;Check(!panel.Recycle(selected,3,nullptr)&&RecycleMock.PerformCalls==0&&RecycleMock.Paths.size()==1,"queue failure prevents partial selection perform");
     reset();ParseFail=1;Check(!panel.Recycle(selected,3,nullptr)&&RecycleMock.PerformCalls==0,"unparsable second source prevents partial selection perform");
     reset();RecycleMock.Aborted=TRUE;Check(!panel.Recycle(selected,3,nullptr),"user abort is not success");
+    reset();RecycleMock.PermanentIntent=true;Check(!panel.Recycle(selected,3,nullptr)&&RecycleErrors==1,"reject permanent delete intent before it runs");
+    reset();RecycleMock.MissingReceipt=true;Check(!panel.Recycle(selected,3,nullptr)&&RecycleErrors==1,"missing Recycle Bin receipt cannot be reported as success");
     reset();Check(panel.Recycle(nullptr,0,&panel.Files->At(1))&&RecycleMock.Paths.size()==1&&RecycleMock.Paths[0]==panel.GetItemFullPathW(panel.Files->At(1)),"focused one-file recycle resolves exact parent");
     reset();Check(!panel.Recycle(nullptr,0,nullptr)&&RecycleMock.PerformCalls==0,"null focused source cannot recycle");
     reset();int bad[]={-1};Check(!panel.Recycle(bad,1,nullptr)&&RecycleMock.PerformCalls==0,"out-of-range selection cannot recycle");

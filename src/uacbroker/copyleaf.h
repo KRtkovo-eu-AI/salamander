@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Return a distinct failure for EFS sources and staging. | Refuse a copy that could silently decrypt an encrypted file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve a verified protected DACL and owner and group at file creation. | Require exact readback and avoid elevating security privileges. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve LZNT1 compression on a verified staged file. | Validate compression and basic attributes before publishing the copy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve sparse allocation in the default one-file F5 pilot. | Copy allocated ranges into a sparse stage before publishing. | | GPT-6.1 Sol (Codex) |
@@ -69,6 +70,8 @@ inline DWORD ReadPlainMetadata(HANDLE file, FILE_BASIC_INFO& basic, bool directo
 {
     if (!GetFileInformationByHandleEx(file, FileBasicInfo, &basic, sizeof(basic)))
         return GetLastError();
+    if (basic.FileAttributes & FILE_ATTRIBUTE_ENCRYPTED)
+        return ERROR_FILE_ENCRYPTED;
     const bool validFile = basic.FileAttributes && !(basic.FileAttributes & ~allowedAttributes);
     if (directory ? basic.FileAttributes != FILE_ATTRIBUTE_DIRECTORY : !validFile)
         return ERROR_NOT_SUPPORTED;
@@ -436,6 +439,8 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     FILE_BASIC_INFO targetBasic{};
     if (!GetFileInformationByHandleEx(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
         return GetLastError();
+    if (targetBasic.FileAttributes & FILE_ATTRIBUTE_ENCRYPTED)
+        return ERROR_FILE_ENCRYPTED;
     if (!UacF7::IsPlainCopyFile(targetBasic.FileAttributes) &&
         !(preserveCompression && UacF7::IsCompressedCopyFile(targetBasic.FileAttributes)))
         return ERROR_NOT_SUPPORTED;

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Explain denied protected EFS copies. | Keep ordinary EFS success and existing retry choices available. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route the explicit F5 security option to the broker. | Keep security copy independent of move and other copy options. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer the verified delete path for one eligible junction. | Use the classified request for permanent deletion only. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route one permanent directory symbolic-link delete to the verified worker. | Keep the recycling policy and unsupported object types on their established paths. | | GPT-6.1 Sol (Codex) |
@@ -6822,9 +6823,12 @@ COPY_AGAIN:
                             ret = IDCANCEL;
                             char* data[4];
                             data[0] = (char*)&ret;
+                            const DWORD encryption = op->Attr | (copyAsEncrypted ? FILE_ATTRIBUTE_ENCRYPTED : 0);
+                            std::string message = !isMove && !errDeletingFile && UacF7::IsEfsCopyFailure(encryption, err)
+                                                      ? LoadStr(IDS_UAC_COPY_EFS_UNSUPPORTED) : GetErrorText(err);
                             data[1] = LoadStr(errDeletingFile ? IDS_ERRORDELETINGFILE : IDS_ERROROPENINGFILE);
                             data[2] = op->TargetName;
-                            data[3] = GetErrorText(err);
+                            data[3] = message.data();
                             SendMessage(hProgressDlg, WM_USER_DIALOG, 0, (LPARAM)data);
                             switch (ret)
                             {
@@ -6869,12 +6873,16 @@ COPY_AGAIN:
 
             int ret;
             ret = IDCANCEL;
-            char* data[4];
-            data[0] = (char*)&ret;
-            data[1] = LoadStr(IDS_ERROROPENINGFILE);
-            data[2] = op->SourceName;
-            data[3] = GetErrorText(err);
-            SendMessage(hProgressDlg, WM_USER_DIALOG, 0, (LPARAM)data);
+            {
+                char* data[4];
+                data[0] = (char*)&ret;
+                std::string message = !isMove && UacF7::IsEfsCopyFailure(op->Attr, err)
+                                          ? LoadStr(IDS_UAC_COPY_EFS_UNSUPPORTED) : GetErrorText(err);
+                data[1] = LoadStr(IDS_ERROROPENINGFILE);
+                data[2] = op->SourceName;
+                data[3] = message.data();
+                SendMessage(hProgressDlg, WM_USER_DIALOG, 0, (LPARAM)data);
+            }
             switch (ret)
             {
             case IDRETRY:

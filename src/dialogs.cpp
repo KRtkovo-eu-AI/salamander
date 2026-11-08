@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe a refused EFS broker copy. | Report the exact boundary when EFS is detected after consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify the security scope in F5 consent. | Show the owner and access rules covered by the request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe junction deletion in the consent prompt. | Identify the link and explain that its target is kept. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify directory symbolic links in permanent-delete consent. | Make clear that the linked folder is kept. | | GPT-6.1 Sol (Codex) |
@@ -1789,8 +1790,13 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 prompt.result = prompt.request.Execute(HWindow);
                 if (prompt.result.unknown || (prompt.result.error != ERROR_SUCCESS && prompt.result.error != ERROR_CANCELLED))
-                    SalMessageBox(HWindow, prompt.result.unknown ? LoadStr(unknownText) : GetErrorText(prompt.result.error),
+                {
+                    const std::string error = prompt.result.unknown ? LoadStr(unknownText)
+                        : (!moving && UacF7::IsEfsCopyFailure(0, prompt.result.error)
+                               ? LoadStr(IDS_UAC_COPY_EFS_UNSUPPORTED) : GetErrorText(prompt.result.error));
+                    SalMessageBox(HWindow, error.c_str(),
                                   LoadStr(moving ? IDS_ERRORMOVE : IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                }
             }
             break;
         }

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Check Shell recycle intent and item receipts in the disk panel. | Keep cancellation and permanent deletion separate. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Capture the selected Ignore ADS option for one-file F5. | Limit the broker option to an explicit copy choice. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Accept explicit directory timestamp preservation in protected F5. | The registered tree copy already restores directory times. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use nonthrowing allocation for the protected F5 pilot. | Make the low-memory checks match allocation behavior. | https://github.com/majklvi/salamander/runs/128721425272 | GPT-6.1 Sol (Codex) |
@@ -149,6 +150,7 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
     {
         // IFileOperation accepts exact Unicode identities across different parents and
         // supports long paths. Never feed a synthetic root/name pair to the recycle bin.
+        OperationRecycleProgress progress;
         IFileOperation* operation = NULL;
         HRESULT result = CoCreateInstance(CLSID_FileOperation, NULL, CLSCTX_INPROC_SERVER,
                                            IID_PPV_ARGS(&operation));
@@ -156,7 +158,7 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
             return FALSE;
         result = operation->SetOwnerWindow(MainWindow->HWindow);
         if (SUCCEEDED(result))
-            result = operation->SetOperationFlags(FOF_ALLOWUNDO | FOFX_RECYCLEONDELETE | FOFX_ADDUNDORECORD | FOFX_EARLYFAILURE);
+            result = operation->SetOperationFlags(OperationRecycleFlags);
         const int total = selCount > 0 ? selCount : 1;
         for (int item = 0; item < total && SUCCEEDED(result); ++item)
         {
@@ -186,7 +188,7 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
             result = SHCreateItemFromParsingName(shellPath.c_str(), NULL, IID_PPV_ARGS(&shellItem));
             if (SUCCEEDED(result))
             {
-                result = operation->DeleteItem(shellItem, NULL);
+                result = operation->DeleteItem(shellItem, &progress);
                 shellItem->Release();
             }
         }
@@ -197,11 +199,22 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
         BOOL aborted = TRUE;
         if (SUCCEEDED(result))
             result = operation->GetAnyOperationsAborted(&aborted);
+        if (SUCCEEDED(result) && aborted)
+            result = HRESULT_FROM_WIN32(ERROR_CANCELLED);
+        result = progress.Result(result, total);
         operation->Release();
-        if (FAILED(result))
+        if (FAILED(result) && result != HRESULT_FROM_WIN32(ERROR_CANCELLED))
         {
-            const DWORD error = HRESULT_FACILITY(result) == FACILITY_WIN32 ? HRESULT_CODE(result) : ERROR_GEN_FAILURE;
-            SalMessageBox(HWindow, GetErrorText(error), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+            std::string message = std::string(LoadStr(IDS_UAC_RECYCLE_NOT_CONFIRMED)) + "\n\n";
+            if (HRESULT_FACILITY(result) == FACILITY_WIN32)
+                message += GetErrorText(HRESULT_CODE(result));
+            else
+            {
+                char code[16];
+                sprintf_s(code, "(0x%08lX)", static_cast<unsigned long>(result));
+                message += code;
+            }
+            SalMessageBox(HWindow, message.c_str(), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
         }
         return SUCCEEDED(result) && !aborted;
     }

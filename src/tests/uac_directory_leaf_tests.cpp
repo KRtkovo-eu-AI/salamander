@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Check EFS copy error classification. | Keep EFS failures distinct from ordinary access and sharing errors. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the protected security-copy option. | Verify exact owner, group and ACL and refuse unsupported inheritance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise permanent junction deletion on real NTFS. | Verify type and identity checks and preserve the target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise verified permanent directory symbolic-link deletion. | Check type, identity, dangling links and target preservation. | | GPT-6.1 Sol (Codex) |
@@ -1292,6 +1293,12 @@ int wmain(int argc, wchar_t** argv)
     Check(copyError == ERROR_NOT_SUPPORTED && !Exists(moved + L"\\compressed-with-ads.bin") &&
               HasContents(compressedSource + L":named", existing),
           "refuse compressed files with named streams without publishing a partial copy", copyError);
+
+    Check(UacF7::IsEfsCopyFailure(FILE_ATTRIBUTE_ENCRYPTED, ERROR_ACCESS_DENIED) &&
+              UacF7::IsEfsCopyFailure(0, ERROR_NO_USER_KEYS) &&
+              !UacF7::IsEfsCopyFailure(FILE_ATTRIBUTE_NORMAL, ERROR_ACCESS_DENIED) &&
+              !UacF7::IsEfsCopyFailure(FILE_ATTRIBUTE_ENCRYPTED, ERROR_SHARING_VIOLATION),
+          "classify protected EFS failures without masking ordinary access and sharing errors");
 
     const auto securitySource = fixture + L"\\destination\\security-\u6771.bin";
     const auto securityTarget = moved + L"\\security-\u4eac.bin";

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-08 | Check the shared Shell recycle flags. | Keep recycling and permanent deletion separate. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-07 | Require the hidden/system filter command in Branch View. | Catch a blocked Ctrl+H before the existing refresh handler. | | GPT-6 (Codex) |
 """Transition gates expose only accepted Branch integrations."""
 from pathlib import Path
@@ -154,7 +155,7 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertIn('!IsBranchView() && type == atDelete && selCount <= 1',builder)
  def test_branch_recycle_keeps_force_policy_and_checks_setup_failures(self):
   part=function('fileswn8.cpp','BOOL CFilesWindow::DeleteThroughRecycleBin(')
-  self.assertIn('result = operation->SetOperationFlags(FOF_ALLOWUNDO | FOFX_RECYCLEONDELETE | FOFX_ADDUNDORECORD | FOFX_EARLYFAILURE)',part)
+  self.assertIn('result = operation->SetOperationFlags(OperationRecycleFlags)',part)
   self.assertIn('result = operation->SetOwnerWindow',part)
   self.assertIn('result = operation->GetAnyOperationsAborted',part)
   self.assertIn('GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*file)) != file',part)

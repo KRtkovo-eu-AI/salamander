@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Distinguish EFS failures in the copy pilot. | Keep the existing ordinary EFS path and fail closed at the broker boundary. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define a typed protected security copy. | Bind owner, group and explicit permissions to the F5 request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare a separate junction deletion request. | Keep approval bound to the verified link type. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare a directory symbolic-link deletion operation. | Bind the approved type without extending deletion to other directory objects. | | GPT-6.1 Sol (Codex) |
@@ -81,6 +82,12 @@ inline bool IsEligibleFileCopy(DWORD attributes, bool copyAttributes, bool ignor
     if (copyAttributes)
         return !ignoreAds && IsCompressedCopyFile(attributes);
     return ignoreAds ? IsPlainCopyFile(attributes) : IsDefaultCopyFile(attributes);
+}
+
+inline bool IsEfsCopyFailure(DWORD attributes, DWORD error)
+{
+    return error == ERROR_FILE_ENCRYPTED || error == ERROR_NO_USER_KEYS || error == ERROR_DECRYPTION_FAILED ||
+           (error == ERROR_ACCESS_DENIED && (attributes & FILE_ATTRIBUTE_ENCRYPTED));
 }
 
 struct Result

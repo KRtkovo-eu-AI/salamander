@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Explain EFS failures during copy planning. | Keep the no-decryption boundary visible before any broker offer. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Keep the eligible protected security copy in source planning. | Defer inaccessible source validation to the verified broker. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Pass the exact selected directory-link path to the delete pilot. | Use the panel Unicode path without changing recursive planning. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Defer ADS discovery for eligible compressed copies. | Use the same UAC eligibility for inaccessible sources and targets. | | GPT-6.1 Sol (Codex) |
@@ -3190,9 +3191,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                                 res = IDB_SKIP;
                             else
                             {
-                                res = (int)CFileErrorDlg(HWindow, LoadStr(IDS_ERROROPENINGFILE), op.SourceName,
-                                                         GetErrorText(err))
-                                          .Execute();
+                                const std::string message = type == atCopy && UacF7::IsEfsCopyFailure(op.Attr, err)
+                                                          ? LoadStr(IDS_UAC_COPY_EFS_UNSUPPORTED) : GetErrorText(err);
+                                res = (int)CFileErrorDlg(HWindow, LoadStr(IDS_ERROROPENINGFILE), op.SourceName, message.c_str()).Execute();
                             }
                             switch (res)
                             {

@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-08 | Check the shared Shell recycle flags. | Keep recycling and permanent deletion separate. | | GPT-6.1 Sol (Codex) |
 """Contracts keeping Branch View operations on exact per-item identities."""
 from pathlib import Path
 import unittest
@@ -85,7 +87,7 @@ class BranchOperationsContracts(unittest.TestCase):
         self.assertIn('GetItemFullPathW(*file)', text)
         self.assertIn('OperationRecyclePath(path, shellPath)', text)
         self.assertIn('SHCreateItemFromParsingName(shellPath.c_str()', text)
-        self.assertIn('operation->DeleteItem(shellItem, NULL)', text)
+        self.assertIn('operation->DeleteItem(shellItem, &progress)', text)
         self.assertIn('operation->PerformOperations()', text)
     def test_selected_extension_recycle_uses_exact_wide_shell_operation(self):
         text = source('worker.cpp')
@@ -186,7 +188,8 @@ class BranchOperationsContracts(unittest.TestCase):
         self.assertIn('if (Is(ptDisk))', part)
         self.assertIn('GetItemFullPathW(*file)', part)
         self.assertIn('OperationRecyclePath(path, shellPath)', part)
-        self.assertIn('FOFX_RECYCLEONDELETE', part)
+        self.assertIn('OperationRecycleFlags', part)
+        self.assertIn('FOFX_RECYCLEONDELETE', source('operationrecycle.h'))
         self.assertIn('OperationRecycleDriveTypeW(SalPathAddExtendedPrefixW(GetPathW()))', text)
         self.assertLess(part.index('operation->DeleteItem'), part.index('operation->PerformOperations'))
     def test_direct_delete_receives_owned_wide_name(self):

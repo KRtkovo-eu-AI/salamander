@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Close the P5 metadata and Recycle Bin matrix. | Record EFS refusal and Shell recycling acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5n explicit security preservation in F5. | Document the bounded DACL and ownership contract and its verification. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5m permanent junction deletion. | Document the junction checks and local and VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5l permanent directory symbolic-link deletion. | Document scope and local and VM evidence. | | GPT-6.1 Sol (Codex) |
@@ -659,6 +660,28 @@ Volba Preserve owners and permissions (not inherited) on NTFS drives umožňuje 
 Lokálně prošlo sestavení x64 Debug, všech 176 nativních kontrol v Debug i Release a testy transportu, plánování a konverzních tabulek. Zkoušky ověřily shodného vlastníka, primární skupinu, chráněnou DACL a data souboru s názvem v Unicode. Ověřily i odmítnutí zděděné DACL, nevyhovující ochrany, explicitního integritního štítku a kolize.
 
 V izolované Windows 11 VM zobrazilo F5 při zapnutém zachování vlastníka a oprávnění nabídku správce se štítem a s oběma cestami. Po volbě Ano u 01-security-approve.txt měla kopie stejný SHA-256, stejného vlastníka a primární skupinu a binárně shodnou DACL s vypnutým děděním. Po volbě Ne u 02-security-cancel.txt cíl nevznikl. Obsah a zabezpečení obou zdrojů zůstaly shodné s výchozími, v cíli nezůstal pracovní soubor a otisky instalovaných binárek odpovídaly pilotu.
+
+### 8.40 P5o — EFS a Koš
+
+Chráněné F5 hlásí samostatnou chybu EFS, pokud kopie při běžném pokusu selže a aplikace zjistí šifrovaný soubor nebo relevantní chybu EFS. Broker odmítne šifrovaný zdroj i pracovní cíl, u něhož zjistí šifrování, před zápisem obsahu. Běžná kopie s aktuálním tokenem dál využívá stávající podporu EFS. Pro zvýšený přenos by bylo nutné samostatně navrhnout použití EFS Raw API a ověřit obnovitelnost a dostupnost klíčů pro původního uživatele. [Záloha a obnova EFS](https://learn.microsoft.com/en-us/windows/win32/fileio/backup-and-restore-of-encrypted-files)
+
+Přesun do Koše v diskovém panelu používá IFileOperation s identitou volajícího. Při chybě se zpracování zastaví bez požadavku na elevaci. Kontrola před smazáním vyžaduje, aby Shell požadoval recyklaci, a úspěch vyžaduje potvrzení o nové položce Koše u každé požadované položky. Shell má povolené výslovné varování, pokud by měl položku zničit. Samandarin po chybě nepřepíná na Shift+Delete a broker žádost o recyklaci nezpracovává. Stejné kontroly používá pracovní cesta pro přesun podle přípony. [Příznaky IFileOperation](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-setoperationflags) · [Výsledek PostDeleteItem](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperationprogresssink-postdeleteitem)
+
+Společný lokální běh ověřil sestavení aplikace, anglických prostředků, brokeru a sondy x64 Debug. V Debug i Release prošlo 177 nativních kontrol brokeru, 48 kontrol workeru mazání a 405 kontrol panelu a navigace. Prošlo také 50 zdrojových kontrol operací a přechodů panelu, test transportu a test konverzních tabulek. Regrese pokryly skutečnou recyklaci, odmítnutí trvalého smazání nabídnutého backendem a chybějící potvrzení o položce Koše.
+
+V izolované Windows 11 VM zamítl F5 kopii šifrovaného souboru do chráněné složky s vysvětlením EFS, bez výzvy správce. Zdroj měl původní SHA-256 a atribut Encrypted, cíl nevznikl. Běžný soubor se objevil v Koši volajícího se správnou původní cestou, obnovil se na původní místo a měl stejný SHA-256. Ze standardního účtu SamandarinUacTest finální pilot přesun chráněného souboru odmítl a ukázal Access is denied (5). První sestavení chybu Shellu nesprávně zobrazilo jako chybu zařízení (31). Oprava mapuje známá odmítnutí a pro neznámý výsledek zachovává skutečný kód Shellu. Chráněný soubor zůstal na místě se stejným SHA-256 a otisky všech čtyř instalovaných souborů odpovídaly finálnímu pilotu.
+
+#### Rozsah dokončené P5
+
+| Oblast | Podporovaný rozsah |
+| --- | --- |
+| Ctrl+F2 (P5a, P5c) | Časy a běžné atributy jedné složky na místním NTFS. |
+| Rekurzivní F5 (P5b) | Zachování časů složek v registrovaném cíli a v mezích pilotu P4. |
+| Jednosouborové F5 (P5d–g, P5n) | Samostatné varianty pro vědomé vynechání ADS, zachování ADS, sparse, LZNT1 a ověřeného vlastníka, primární skupiny a chráněné explicitní DACL. Rozsah kombinací, velikostí a práv určují předchozí oddíly. |
+| Odkazy (P5h–m) | Přejmenování nebo výslovné trvalé smazání jednoho souborového či adresářového symbolického odkazu nebo junction. Operace mění odkaz a zachovává jeho cíl. |
+| EFS (P5o) | Běžná podpora s klíčem volajícího zůstává k dispozici. Kopie přes broker se při zjištění EFS odmítne. |
+| Koš (P5o) | Ověřená recyklace a obnova pod účtem volajícího. Chráněná operace vyžadující správce se odmítne, dokud nebude k dispozici ověřená recyklace do Koše původního uživatele. |
+
 
 ## 9. Uživatelský tok a stav operace
 
