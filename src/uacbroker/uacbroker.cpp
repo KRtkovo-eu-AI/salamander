@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Read bounded archive ranges over an authenticated session. | Keep one verified source open until completion or disconnect. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify installed editors for host-side runas. | Keep the executable and its directory chain pinned across consent. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Return validated detailed size results over the listing pipe. | Keep ordinary listing and logical inventory replies unchanged. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Return one bounded viewer snapshot on the authenticated pipe. | Send complete read-only bytes without transferring file or process handles. | | GPT-6.1 Sol (Codex) |
@@ -115,13 +116,14 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD copySecurityCapability = 2097152;
 [[maybe_unused]] constexpr DWORD viewCapability = 4194304;
 [[maybe_unused]] constexpr DWORD sizeDetailsCapability = 8388608;
+[[maybe_unused]] constexpr DWORD archiveReadCapability = 16777216;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
                                                  inventoryCapability | copyTreeCapability | cancelTreeCapability |
                                                  directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
                                                  copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability |
                                                  renameDirectorySymlinkCapability | renameJunctionCapability | deleteSymlinkCapability |
-                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability;
+                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -794,7 +796,7 @@ DWORD RegisterTreeTarget(const InstallLocation& install)
 }
 
 DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, DWORD hostPid,
-                     ULONGLONG& deadline, DWORD& result, Handle& listingRoot, std::vector<BYTE>& snapshot, bool& snapshotRequest)
+                     ULONGLONG& deadline, DWORD& result, Handle& listingRoot, std::vector<BYTE>& snapshot, bool& snapshotRequest, Handle& archive, LARGE_INTEGER& archiveSize)
 {
     RequestHeader header{};
     DWORD error = TransferRequest(pipe, &header, sizeof(header), false, deadline);
@@ -807,13 +809,14 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool list = header.operation == Operation::List;
     const bool view = header.operation == Operation::View;
     snapshotRequest = view;
+    const bool readArchive = header.operation == Operation::ReadArchive;
     const bool copy = UacF7::IsFileCopy(header.operation);
     const bool move = header.operation == Operation::Move;
     const bool tree = header.operation == Operation::CopyTree;
     const bool transfer = copy || move || tree;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
         header.leafLength > UacDirectoryLeaf::maxComponent || header.sourceLength > UacDirectoryLeaf::maxComponent ||
-        (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer && !view) || rename != (header.sourceLength != 0) ||
+        (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer && !view && !readArchive) || rename != (header.sourceLength != 0) ||
         (list && !header.relativeLength) || transfer != (header.targetLeafLength != 0) ||
         header.targetRelativeLength > UacDirectoryLeaf::maxNativeName || header.targetLeafLength > UacDirectoryLeaf::maxComponent ||
         header.copySize > UacF7::maxPilotCopyBytes || (!copy && header.copySize) || (!transfer && header.targetRelativeLength))
@@ -964,6 +967,13 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     }
     else if (view)
         result = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), expected, sourceIdentity, leaf, deadline, snapshot);
+    else if (readArchive)
+    {
+        HANDLE raw = nullptr;
+        FILE_BASIC_INFO initial{};
+        result = UacViewLeaf::OpenVerifiedRead(parent.get(), expected, sourceIdentity, leaf, deadline, raw, archiveSize, initial);
+        archive = Adopt(raw);
+    }
     else if (setMetadata)
         result = UacMetadataLeaf::SetVerifiedMetadata(parent.get(), expected, sourceIdentity, leaf, metadata);
     else if (deleteFile)
@@ -978,6 +988,33 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     else
         result = UacDirectoryLeaf::CreateVerifiedLeaf(parent.get(), expected, leaf);
     return ERROR_SUCCESS;
+}
+
+DWORD ServeArchive(HANDLE pipe, HANDLE file, ULONGLONG size, ULONGLONG deadline)
+{
+    std::vector<BYTE> buffer(UacF7::archiveReadBlock);
+    DWORD remaining = UacF7::archiveReadBudget;
+    for (;;)
+    {
+        UacF7::ArchiveReadRange range{};
+        DWORD error = TransferRequest(pipe, &range, sizeof(range), false, deadline);
+        if (error)
+            return error == ERROR_BROKEN_PIPE ? ERROR_SUCCESS : error;
+        if (!UacF7::ValidArchiveRange(range, size, remaining))
+            return ERROR_INVALID_DATA;
+        LARGE_INTEGER position{};
+        position.QuadPart = static_cast<LONGLONG>(range.offset);
+        DWORD read = 0;
+        if (!SetFilePointerEx(file, position, nullptr, FILE_BEGIN) ||
+            !ReadFile(file, buffer.data(), range.size, &read, nullptr))
+            return GetLastError();
+        if (read != range.size)
+            return ERROR_HANDLE_EOF;
+        remaining -= read;
+        error = TransferRequest(pipe, buffer.data(), read, true, deadline);
+        if (error)
+            return error;
+    }
 }
 
 DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root)
@@ -1082,7 +1119,10 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
         Handle listingRoot;
         std::vector<BYTE> snapshot;
         bool snapshotRequest = false;
-        error = ReceiveRequest(install, pipe.get(), host.get(), hostPid, deadline, result, listingRoot, snapshot, snapshotRequest);
+        Handle archive;
+        LARGE_INTEGER archiveSize{};
+        error = ReceiveRequest(install, pipe.get(), host.get(), hostPid, deadline, result, listingRoot, snapshot,
+                               snapshotRequest, archive, archiveSize);
         if (error)
             return IoError(L"Receive request", error);
         error = TransferRequest(pipe.get(), &result, sizeof(result), true, deadline);
@@ -1096,6 +1136,15 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
                 error = TransferRequest(pipe.get(), snapshot.data(), bytes, true, deadline);
             if (error)
                 return IoError(L"Send viewer snapshot", error);
+        }
+        if (archive)
+        {
+            error = TransferRequest(pipe.get(), &archiveSize.QuadPart, sizeof(archiveSize.QuadPart), true, deadline);
+            if (error)
+                return IoError(L"Send archive size", error);
+            error = ServeArchive(pipe.get(), archive.get(), static_cast<ULONGLONG>(archiveSize.QuadPart),
+                                 GetTickCount64() + UacF7::archiveReadTimeoutMs);
+            return error ? IoError(L"Archive read session ended", error) : Ok;
         }
         if (listingRoot)
             return IoError(L"Listing session ended", ServeListings(pipe.get(), host.get(), hostPid, listingRoot.get()));
@@ -1165,7 +1214,8 @@ bool InspectPipeClient(HANDLE pipe, bool& elevated)
 int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
              , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result,
-               HANDLE* listingPipe = nullptr, HANDLE cancel = nullptr, std::vector<BYTE>* snapshot = nullptr
+               HANDLE* sessionPipe = nullptr, HANDLE cancel = nullptr, std::vector<BYTE>* snapshot = nullptr,
+               ULONGLONG* archiveSize = nullptr
 #endif
 )
 {
@@ -1287,9 +1337,15 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
                     return IoError(L"Read viewer snapshot", error);
             }
         }
-        if (listingPipe && operationError == ERROR_SUCCESS)
+        if (sessionPipe && operationError == ERROR_SUCCESS)
         {
-            *listingPipe = pipe.release();
+            if (archiveSize)
+            {
+                error = TransferRequest(pipe.get(), archiveSize, sizeof(*archiveSize), false, deadline);
+                if (error || *archiveSize > MAXLONGLONG)
+                    return IoError(L"Read archive size", error ? error : ERROR_INVALID_DATA);
+            }
+            *sessionPipe = pipe.release();
             result->error = ERROR_SUCCESS;
             result->unknown = false;
             return Ok;
@@ -1684,6 +1740,54 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel) const
     std::wstring payload = source.volume + source.relative + source.leaf + target.volume + target.relative + target.leaf;
     RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, cancel);
     return result;
+}
+
+ArchiveReadSession::~ArchiveReadSession()
+{
+    if (pipe)
+        CloseHandle(pipe);
+}
+
+bool ArchiveReadSession::Prepare(const std::wstring& path)
+{
+    return prepared.PrepareTarget(path, Operation::ReadArchive, {}, nullptr);
+}
+
+DWORD ArchiveReadSession::Start(HWND owner)
+{
+    const ComApartment com;
+    InstallLocation install;
+    if (!prepared.parent || pipe || FAILED(com.result) || !install.Open() ||
+        !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))
+        return ERROR_ACCESS_DENIED;
+    RequestHeader header{prepared.serial, {}, {}, Operation::ReadArchive,
+                         static_cast<DWORD>(prepared.relative.size()), static_cast<DWORD>(prepared.leaf.size()),
+                         0, 0, {}, 0, 0, 0};
+    std::memcpy(header.parentId.Identifier, prepared.fileId, sizeof(prepared.fileId));
+    std::memcpy(header.sourceId.Identifier, prepared.sourceId, sizeof(prepared.sourceId));
+    std::wstring payload = prepared.volume + prepared.relative + prepared.leaf;
+    Result result;
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &pipe, nullptr, nullptr, &size);
+    deadline = GetTickCount64() + archiveReadTimeoutMs;
+    return result.error;
+}
+
+DWORD ArchiveReadSession::Read(ULONGLONG offset, void* bytes, DWORD count)
+{
+    ArchiveReadRange range{offset, count, 0};
+    if (!pipe || !ValidArchiveRange(range, size, remaining))
+        return ERROR_INVALID_DATA;
+    DWORD error = TransferRequest(pipe, &range, sizeof(range), true, deadline);
+    if (!error)
+        error = TransferRequest(pipe, bytes, count, false, deadline);
+    if (error)
+    {
+        CloseHandle(pipe);
+        pipe = nullptr;
+        return error;
+    }
+    remaining -= count;
+    return ERROR_SUCCESS;
 }
 
 ListingSession::~ListingSession()

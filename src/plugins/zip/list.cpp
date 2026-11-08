@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | List one ZIP or ZIP64 from the private read source. | Emit display names only and bound the number of entries. | | GPT-6.1 Sol (Codex) |
 
 #include "precomp.h"
+#include "../../common/zipread.h"
+#include <vector>
 #include <new>
 #include <crtdbg.h>
 #include <ostream>
@@ -45,6 +48,63 @@ static wchar_t* DupZipUtf8NameW(const char* name, int nameLen)
     }
     nameW[wideLen] = 0;
     return nameW;
+}
+
+DWORD CZipList::ListSource(const SalZipReadSourceV1& source)
+{
+    Extract = false; // Never search for or open additional volumes.
+    RangeSource = &source;
+    ZipFile = static_cast<CFile*>(calloc(1, sizeof(CFile)));
+    if (!ZipFile)
+        return ERROR_NOT_ENOUGH_MEMORY;
+    ZipFile->File = INVALID_HANDLE_VALUE;
+    ZipFile->Size = source.Size;
+    if (!source.Size || CheckZip() || EOCentrDir.StartDisk ||
+        (EOCentrDir.DiskNum != 0 && (!Zip64 || EOCentrDir.DiskNum != 0xFFFF)) ||
+        EOCentrDir.DiskTotalEntries != EOCentrDir.TotalEntries ||
+        EOCentrDir.CommentLen != ZipFile->Size - EOCentrDirOffs - sizeof(CEOCentrDirRecord))
+        return RangeError ? RangeError : ERROR_INVALID_DATA;
+    if (EOCentrDir.TotalEntries > 4096)
+        return ERROR_FILE_TOO_LARGE;
+
+    std::vector<char> header(MAX_HEADER_SIZE);
+    std::vector<char> name(MAX_HEADER_SIZE);
+    QWORD offset = CentrDirOffs + ExtraBytes;
+    const QWORD end = offset + CentrDirSize;
+    DWORD entries = 0;
+    while (offset < end)
+    {
+        if (++entries > 4096)
+            return ERROR_FILE_TOO_LARGE;
+        auto* entry = reinterpret_cast<CFileHeader*>(header.data());
+        if (ReadCentralHeader(entry, &offset, nullptr) || offset > end)
+            return RangeError ? RangeError : ERROR_INVALID_DATA;
+        const DWORD length = ProcessName(entry, name.data());
+        if (!length)
+            return ERROR_INVALID_DATA;
+        if (entry->ExternAttr & FILE_ATTRIBUTE_DIRECTORY)
+            name[length] = '/';
+        const DWORD error = source.Entry(source.Context, name.data(),
+                                         length + ((entry->ExternAttr & FILE_ATTRIBUTE_DIRECTORY) != 0));
+        if (error)
+            return error;
+    }
+    return entries == EOCentrDir.TotalEntries ? ERROR_SUCCESS : ERROR_INVALID_DATA;
+}
+
+DWORD WINAPI SalamanderListZipSourceV1(const SalZipReadSourceV1* source)
+{
+    if (!source || !source->Read || !source->Entry)
+        return ERROR_INVALID_PARAMETER;
+    try
+    {
+        CZipList zip("", nullptr);
+        return zip.ListSource(*source);
+    }
+    catch (const std::bad_alloc&)
+    {
+        return ERROR_NOT_ENOUGH_MEMORY;
+    }
 }
 
 int CZipList::ListArchive(CSalamanderDirectoryAbstract* dir, BOOL& haveFiles)

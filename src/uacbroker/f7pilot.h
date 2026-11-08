@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Declare the bounded archive read session. | Share its range contract across the broker and host. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Pin a trusted installed editor before an explicit F4 elevation. | Keep editor launch entirely on the host side. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare detailed read-only size results. | Keep logical file sizes separate from optional disk measurements. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare a one-file viewer snapshot request. | Bind the read-only data to one verified file. | | GPT-6.1 Sol (Codex) |
@@ -38,7 +39,7 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19 };
 
 inline bool IsRename(Operation operation)
 {
@@ -56,6 +57,23 @@ inline bool IsFileCopy(Operation operation)
 {
     return operation == Operation::Copy || operation == Operation::CopyIgnoreAds ||
            operation == Operation::CopyCompressed || operation == Operation::CopySecurity;
+}
+
+constexpr DWORD archiveReadBlock = 64 * 1024;
+constexpr DWORD archiveReadBudget = 64 * 1024 * 1024;
+constexpr ULONGLONG archiveReadTimeoutMs = 30000;
+struct ArchiveReadRange
+{
+    ULONGLONG offset;
+    DWORD size;
+    DWORD reserved;
+};
+static_assert(sizeof(ArchiveReadRange) == 16);
+
+inline bool ValidArchiveRange(const ArchiveReadRange& range, ULONGLONG fileSize, DWORD remaining)
+{
+    return !range.reserved && range.size && range.size <= archiveReadBlock && range.size <= remaining &&
+           range.offset <= fileSize && range.size <= fileSize - range.offset;
 }
 
 constexpr DWORD maxViewerSnapshotBytes = 16 * 1024 * 1024;
@@ -151,6 +169,7 @@ public:
 
 private:
     friend class ListingSession;
+    friend class ArchiveReadSession;
     friend class PreparedTransfer;
     bool PrepareTarget(const std::wstring& path, Operation requested, const std::wstring& renameTo,
                        const MetadataChange* change);
@@ -254,6 +273,26 @@ private:
     PreparedLeaf prepared;
     std::wstring root;
     HANDLE pipe = nullptr;
+};
+
+class ArchiveReadSession
+{
+public:
+    ArchiveReadSession() = default;
+    ~ArchiveReadSession();
+    ArchiveReadSession(const ArchiveReadSession&) = delete;
+    ArchiveReadSession& operator=(const ArchiveReadSession&) = delete;
+    bool Prepare(const std::wstring& path);
+    DWORD Start(HWND owner);
+    DWORD Read(ULONGLONG offset, void* bytes, DWORD count);
+    ULONGLONG Size() const { return size; }
+
+private:
+    PreparedLeaf prepared;
+    HANDLE pipe = nullptr;
+    ULONGLONG size = 0;
+    ULONGLONG deadline = 0;
+    DWORD remaining = archiveReadBudget;
 };
 
 struct LeafPrompt

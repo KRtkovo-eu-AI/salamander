@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Accept a private ZIP range source. | Keep existing file-backed ZIP paths intact. | | GPT-6.1 Sol (Codex) |
 
 #pragma once
 
@@ -163,9 +164,13 @@ struct CFile
     unsigned BigFile : 1; // the file can be larger than 4GB
 };
 
+struct SalZipReadSourceV1;
+
 class CZipCommon
 {
 public:
+    const SalZipReadSourceV1* RangeSource = nullptr;
+    DWORD RangeError = ERROR_SUCCESS;
     CFile* ZipFile;             //zip file hanndle
     char ZipName[SAL_MAX_PATH]; //name of zip file
     const char* ZipRoot;

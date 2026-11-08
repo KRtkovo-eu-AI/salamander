@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Read ZIP metadata through a bounded callback. | Validate ZIP64 offsets and keep protected listing on one file. | | GPT-6.1 Sol (Codex) |
 
 #include "precomp.h"
+#include "../../common/zipread.h"
 #include <crtdbg.h>
 #include <ostream>
 #include <stdio.h>
@@ -576,6 +578,19 @@ int CZipCommon::Read(CFile* file, void* buffer, unsigned bytesToRead,
             toRead = unsigned(file->Size - file->FilePointer);
     else
         toRead = 0;
+    if (RangeSource && file == ZipFile)
+    {
+        if (toRead != bytesToRead && !bytesRead)
+            RangeError = ERROR_HANDLE_EOF;
+        else if (toRead)
+            RangeError = RangeSource->Read(RangeSource->Context, file->FilePointer, buffer, toRead);
+        if (RangeError)
+            return ERR_CANCEL;
+        file->FilePointer += toRead;
+        if (bytesRead)
+            *bytesRead = toRead;
+        return 0;
+    }
     if (toRead != bytesToRead && !bytesRead)
         return ProcessError(IDS_EOF, 0, file->FileName, file->Flags | PE_NORETRY, skipAll);
     if (toRead)
@@ -886,7 +901,8 @@ int CZipCommon::CreateCFile(CFile** file, LPCTSTR fileName, unsigned int access,
 int CZipCommon::CloseCFile(CFile* file)
 {
     CALL_STACK_MESSAGE1("CZipCommon::CloseCFile()");
-    CloseHandle(file->File);
+    if (file->File != INVALID_HANDLE_VALUE)
+        CloseHandle(file->File);
     free(file->FileName);
     if (file->OutputBuffer)
         free(file->OutputBuffer);
@@ -1075,7 +1091,7 @@ int CZipCommon::FindEOCentrDirSig(BOOL* success)
                                 break;
                             }
                         }
-                        if (EOCentrDir.CommentLen)
+                        if (!RangeSource && EOCentrDir.CommentLen)
                         {
                             Comment = (char*)malloc(EOCentrDir.CommentLen + 1);
                             if (!Comment)
@@ -1140,7 +1156,7 @@ int CZipCommon::FindEOCentrDirSig(BOOL* success)
                                     break;
                                 }
                             }
-                            if (EOCentrDir.CommentLen)
+                            if (!RangeSource && EOCentrDir.CommentLen)
                             {
                                 Comment = (char*)malloc(EOCentrDir.CommentLen + 1);
                                 if (!Comment)
@@ -1298,6 +1314,11 @@ int CZipCommon::FindZip64EOCentrDirLocator()
     if (zip64Locator.Signature != SIG_ZIP64LOCATOR)
         return 0;
 
+    if (RangeSource && (zip64Locator.Zip64StartDisk || zip64Locator.TotalDisks != 1 ||
+                        ZipFile->FilePointer < sizeof(zip64Locator) + sizeof(CZip64EOCentrDirRecord) ||
+                        zip64Locator.Zip64Offset > ZipFile->FilePointer - sizeof(zip64Locator) - sizeof(CZip64EOCentrDirRecord)))
+        return IDS_ERRFORMAT;
+
     // switch to the disk containing the Zip64 end of central directory record
     if (MultiVol &&
         (EOCentrDir.DiskNum == 0xFFFF ||
@@ -1314,6 +1335,11 @@ int CZipCommon::FindZip64EOCentrDirLocator()
     ZipFile->FilePointer = Zip64EOCentrDirOffs = zip64Locator.Zip64Offset;
     if (Read(ZipFile, &zip64Record, sizeof(zip64Record), NULL, NULL))
         return IDS_NODISPLAY;
+
+    if (RangeSource && (zip64Record.Signature != SIG_ZIP64EOCENTRDIR ||
+                        zip64Record.DiskNum || zip64Record.StartDisk ||
+                        zip64Record.DiskTotalEntries != zip64Record.TotalEntries))
+        return IDS_ERRFORMAT;
 
     // replace the data with corrected values
     Zip64 = true;
@@ -1354,7 +1380,7 @@ int CZipCommon::FindZip64EOCentrDirLocator()
     {
         CZip64EOCentrDirRecordVer2 zip64RecordVer2;
 
-        if (Read(ZipFile, &zip64RecordVer2, sizeof(zip64Record), NULL, NULL))
+        if (Read(ZipFile, &zip64RecordVer2, RangeSource ? sizeof(zip64RecordVer2) : sizeof(zip64Record), NULL, NULL))
             return IDS_NODISPLAY;
         if ((zip64RecordVer2.Method != CM_STORED) || (zip64RecordVer2.AlgID != 0))
         {
@@ -1375,6 +1401,8 @@ int CZipCommon::CheckForExtraBytes()
     if (MultiVol)
         return 0;
 
+    if (RangeSource && (CentrDirOffs > ZipFile->Size || CentrDirSize > ZipFile->Size - CentrDirOffs))
+        return IDS_ERRFORMAT;
     QWORD endOfCentrDir = CentrDirOffs + CentrDirSize;
     QWORD expectedEndOfCentrDir = Zip64 ? Zip64EOCentrDirOffs : EOCentrDirOffs;
 

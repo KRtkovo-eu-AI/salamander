@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify bounded archive ranges and opening. | Cover ZIP64 offsets without weakening viewer limits. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check detailed protected inventory against ordinary NTFS size queries. | Cover empty, normal, compressed and sparse file sizes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise read-only viewer snapshots on NTFS. | Verify exact bytes, empty files, identity checks and the size bound. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check EFS copy error classification. | Keep EFS failures distinct from ordinary access and sharing errors. | | GPT-6.1 Sol (Codex) |
@@ -910,6 +911,27 @@ static bool CheckViewerSnapshot(const std::wstring& fixture, HANDLE root)
     if (!SetFilePointerEx(writer.get(), limit, nullptr, FILE_BEGIN) || !SetEndOfFile(writer.get()))
         return false;
     writer.reset();
+
+    HANDLE archiveRaw = nullptr;
+    LARGE_INTEGER archiveSize{};
+    FILE_BASIC_INFO archiveInfo{};
+    const DWORD archiveError = UacViewLeaf::OpenVerifiedRead(parent.get(), parentIdentity, largeId, L"large.txt",
+                                                            MAXULONGLONG, archiveRaw, archiveSize, archiveInfo);
+    const Handle archive(archiveRaw);
+    Check(archiveError == ERROR_SUCCESS && archive && archiveSize.QuadPart == limit.QuadPart,
+          "open a verified archive above the viewer snapshot limit", archiveError);
+    const ULONGLONG zip64Size = 5ULL * 1024 * 1024 * 1024;
+    const DWORD block = UacF7::archiveReadBlock;
+    Check(UacF7::ValidArchiveRange({zip64Size - block, block, 0}, zip64Size, block),
+          "accept an archive range beyond the 32-bit offset limit", 0);
+    Check(!UacF7::ValidArchiveRange({MAXULONGLONG - 5, 8, 0}, MAXULONGLONG, block) &&
+              !UacF7::ValidArchiveRange({zip64Size, 1, 0}, zip64Size, block),
+          "reject archive range overflow and reads beyond EOF", 0);
+    Check(!UacF7::ValidArchiveRange({0, block + 1, 0}, zip64Size, block + 1) &&
+              !UacF7::ValidArchiveRange({0, block, 0}, zip64Size, block - 1) &&
+              !UacF7::ValidArchiveRange({0, 1, 1}, zip64Size, block) &&
+              !UacF7::ValidArchiveRange({0, 0, 0}, zip64Size, block),
+          "reject oversized, over-budget and malformed archive ranges", 0);
 
     std::vector<BYTE> snapshot;
     DWORD error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, identity, leaf, MAXULONGLONG, snapshot);

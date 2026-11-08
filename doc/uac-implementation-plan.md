@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record the protected ZIP64 listing pilot. | Document the bounded protocol and local and VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Revise protected archive reads for ZIP64. | Use bounded reads from the original and keep the archive parser at ordinary integrity. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Design the protected ZIP listing pilot. | Separate protected source reads from elevated extraction and verify ZIP staging constraints. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record explicit administrator editing on F4. | Document the original-file flow, editor validation, and pilot checks. | | GPT-6.1 Sol (Codex) |
@@ -753,6 +754,12 @@ V izolované Windows 11 VM se po volbě Ano otevřel chráněný originál v Poz
 **Provedené ověření návrhu.** Místní prototyp ve Windows použil čtečku Pythonu nad řídkým ZIP64 o logické délce 5 368 709 349 bajtů. Našel položku s názvem v Unicode a ověřil její obsah po přečtení 559 bajtů z disku, včetně offsetů nad 4 GiB. Jde o ověření blokového přístupu. Integrace ZIP pluginu a brokeru tím ověřena není. Předchozí zkouška sdílení dočasného souboru vrátila při použití parametrů z CZipList chybu 32. Šest stávajících archivních regresních sad prošlo s 1 343 kontrolami v každé z konfigurací Debug a Release.
 
 **Akceptace implementace.** Lokálně ověřit běžný ZIP, ZIP64 s centrálním adresářem za 4 GiB, skutečný vícegigabajtový soubor a objem přenosu při výpisu. Pokrýt přetečení rozsahu, vadný centrální adresář, nadlimitní počet položek, Unicode a dlouhé cesty. Ve VM ověřit běžný ZIP bez výzvy, zrušení UAC, souhlas jiného správce, odmítnutí výměny zdroje během souhlasu, ztrátu spojení během čtení a uvolnění souboru po všech výsledcích.
+
+**Implementace a výsledek pilotu.** Enter a dvojklik zapojují výpis po odepření běžného čtení a po výslovném souhlasu. Broker používá bloky do 64 KiB, přenos do 64 MiB a relaci na 30 sekund. ZIP plugin předává hostu názvy položek přes interní verzovaný export. Výsledný text v UTF-8 má limit 4 MiB a zobrazí se v interním prohlížeči. Export běží uvnitř běžného procesu Samandarinu. Prohlížeč dostane pouze výpis a broker po čtení uvolní soubor.
+
+Lokálně prošlo sestavení x64 Debug pro aplikaci, broker, ZIP plugin a oba jazykové moduly. Prošlo 190 nativních kontrol v Debug i Release, test autentizovaného transportu a 1 343 archivních regresních kontrol v každé konfiguraci. Test nad exportem x64 Release s vypnutou instrumentací zásobníku přečetl z řídkého ZIP64 1 308 bajtů a dosáhl offsetu 5 368 709 557. Pokryl běžný ZIP, poškozený centrální adresář, více svazků, limit položek a chyby čtecího callbacku.
+
+V izolované Windows 11 VM se po registraci ZIP pluginu v pilotním profilu a volbě Ano zobrazily všechny tři položky chráněného ZIP64 o délce 5 368 709 599 bajtů, včetně názvu v Unicode, prázdné složky a názvu s nadřazenou komponentou zobrazeného jako text. Běžný token měl čtení originálu odepřené. Po volbě Ne se výpis druhého archivu neotevřel. Běžný ZIP se otevřel v archivním panelu bez UAC. Otisky šesti pilotních souborů souhlasily a po testu neběžel žádný broker. Výměna zdroje během výzvy, přerušení uprostřed čtení, souhlas jiného správce a měření na fyzicky vícegigabajtovém archivu zbývají pro rozšířenou akceptaci.
 
 ## 9. Uživatelský tok a stav operace
 

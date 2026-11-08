@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Opt in to protected ZIP listing for direct panel entry. | Keep history and refresh on their existing paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Distinguish directory timestamps from other copy options. | Let protected F5 accept the one option it already implements. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Own the protected directory listing session per panel. | End authorization on exit and keep listing data distinct from Branch View. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-05 | Persist Copy/Move transfer, conflict, and wait defaults in CCriteriaData. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
@@ -1311,7 +1312,7 @@ public:
                              const char* suggestedFocusName = NULL, BOOL forceUpdate = FALSE,
                              BOOL* noChange = NULL, BOOL refreshListBox = TRUE, int* failReason = NULL,
                              BOOL isRefresh = FALSE, BOOL canFocusFileName = FALSE, BOOL isHistory = FALSE,
-                             CPluginData* forcedPlugin = NULL);
+                             CPluginData* forcedPlugin = NULL, bool allowProtectedZip = false);
     // change path to the plug-in FS;
     // if suggestedTopIndex != -1 the top index will be set;
     // if suggestedFocusName != NULL and present in the new list, it will be focused;

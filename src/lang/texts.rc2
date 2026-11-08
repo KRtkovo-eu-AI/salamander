@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe protected ZIP consent and read-only output. | Keep viewer refresh guidance valid for both snapshots and ZIP listings. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify the executable and document before administrator editing. | Make the scope of the Windows prompt clear. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the protected size operation in the consent prompt. | Cover both logical and detailed size calculations. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Label unmeasured values in the full size dialog. | Distinguish an unavailable value from a zero measurement. | | GPT-6.1 Sol (Codex) |
@@ -2403,10 +2404,12 @@ STRINGTABLE
  IDS_UAC_FIND_SCOPE, "Searching names and metadata with administrator access."
  IDS_UAC_VIEW_CONFIRM, "Access was denied. Open a read-only snapshot of this file in the internal viewer as an administrator? The snapshot is limited to 16 MB."
  IDS_UAC_VIEW_SNAPSHOT, "Administrator snapshot"
- IDS_UAC_VIEW_REFRESH, "This is a read-only snapshot. Use F3 from the panel to request a new snapshot."
+ IDS_UAC_VIEW_REFRESH, "This is a read-only snapshot. Return to the panel to request a new snapshot."
  IDS_UAC_VIEW_UNAVAILABLE, "The protected file could not be opened in the internal viewer."
  IDS_UAC_EDIT_ADMIN_TITLE, "Edit as Administrator"
  IDS_UAC_EDIT_ADMIN_CONFIRM, "Access was denied. Open the original file with the configured editor as an administrator? Windows will request permission for the editor shown below."
+ IDS_UAC_ZIP_TITLE, "Protected ZIP Listing"
+ IDS_UAC_ZIP_CONFIRM, "Access was denied. Read the contents of this ZIP as an administrator? The archive will be opened for reading only."
  IDS_UAC_EDIT_ADMIN_UNTRUSTED, "Administrator mode requires an editor executable in a protected Windows or Program Files directory."
  IDS_UAC_SIZE_NOT_AVAILABLE, "Not available"
  IDS_UAC_COPY_CONFIRM, "Access was denied. Copy this file and its alternate data streams as an administrator?"

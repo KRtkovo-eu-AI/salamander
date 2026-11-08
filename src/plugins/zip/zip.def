@@ -1,4 +1,6 @@
 LIBRARY ZIP.SPL
+; | 2026-11-08 | Export the private ZIP listing function. | Keep the existing plugin entry points available. | | GPT-6.1 Sol (Codex) |
 
 EXPORTS SalamanderPluginEntry
 EXPORTS SalamanderPluginGetReqVer
+EXPORTS SalamanderListZipSourceV1
