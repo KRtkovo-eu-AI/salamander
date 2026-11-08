@@ -4,6 +4,7 @@
 // CommentsTranslationProject: TRANSLATED
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Accept an optional read-only snapshot in the internal viewer. | Keep the normal file reader and plugin entry points available. | | GPT-6.1 Sol (Codex) |
 | 2026-11-04 | Cache sparse line-number checkpoints for Internal Viewer. | Avoid O(n) full-file rescans on every paint/status update near EOF (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 | 2026-11-05 | Cache previous visual-row size for line-up scrolling. | Scroll-up still recomputed ZeroLineSize on every step while scroll-down reused FirstLineSize (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 | 2026-11-05 | Cache decoded wrap-row starts per logical line. | Line-up through wrapped UTF-8 rows re-walked the whole logical line on every step (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
@@ -12,7 +13,9 @@
 
 #pragma once
 
+#include <memory>
 #include <string>
+#include <vector>
 
 #define VIEW_BUFFER_SIZE 60000 // 0.5 * VIEW_BUFFER_SIZE must be > max. length \
                                // of a displayable line
@@ -144,8 +147,10 @@ public:
     // CMenuBar object is released, otherwise WinLib can still dispatch to it.
     void DestroyViewerMenuControls();
 
-    void OpenFile(const char* file, const char* caption, BOOL wholeCaption); // does not manage Lock
-    void OpenFileW(const wchar_t* file, const char* caption, BOOL wholeCaption); // does not manage Lock
+    void OpenFile(const char* file, const char* caption, BOOL wholeCaption,
+                  std::unique_ptr<std::vector<BYTE>> snapshot = {}); // does not manage Lock
+    void OpenFileW(const wchar_t* file, const char* caption, BOOL wholeCaption,
+                   std::unique_ptr<std::vector<BYTE>> snapshot = {}); // does not manage Lock
 
     virtual BOOL Is(int type) { return type == otViewerWindow || CWindow::Is(type); }
     BOOL IsGood() { return Buffer != NULL && ViewerFont != NULL; }
@@ -393,6 +398,9 @@ protected:
     unsigned char* RawBuffer; // original bytes, with size VIEW_BUFFER_SIZE
     unsigned char* GetSearchBuffer() { return FindDialog.HexMode ? RawBuffer : Buffer; }
     char* FileName;        // currently viewed file
+    std::unique_ptr<const std::vector<BYTE>> ProtectedSnapshot;
+    BOOL GetViewerSize(HANDLE file, CQuadWord& size, DWORD& error) const;
+    BOOL ReadViewerAt(HANDLE file, ULONGLONG offset, void* buffer, DWORD bytes, DWORD& read) const;
     std::wstring FileNameW; // Unicode filename for local file I/O when available
     __int64 Seek,          // offset of byte 0 in Buffer within the file
         Loaded,            // number of valid bytes in Buffer
@@ -590,4 +598,4 @@ extern HANDLE ViewerContinue; // helper event - waiting for the message-loop thr
 BOOL OpenViewer(const char* name, CViewType mode, int left, int top, int width, int height,
                 UINT showCmd, BOOL returnLock, HANDLE* lock, BOOL* lockOwner,
                 CSalamanderPluginViewerData* viewerData, int enumFileNamesSourceUID,
-                int enumFileNamesLastFileIndex);
+                int enumFileNamesLastFileIndex, std::unique_ptr<std::vector<BYTE>> snapshot = {});

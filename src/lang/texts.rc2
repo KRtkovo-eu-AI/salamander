@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Explain protected viewer snapshots. | Keep the read-only scope and size limit visible. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Label logical size in a protected Ctrl+Q calculation. | Keep occupied space separate from logical file bytes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe protected size and Find actions. | Make consent specific to the requested subtree and operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain unconfirmed Shell recycling. | Keep the operation result distinct from permanent deletion. | | GPT-6.1 Sol (Codex) |
@@ -2397,6 +2398,10 @@ STRINGTABLE
  IDS_UAC_FIND_CONFIRM, "Access was denied. Search names and metadata in this folder as an administrator? The search continues in accessible folders while you decide."
  IDS_UAC_FIND_WAIT, "Waiting for administrator access to a protected folder..."
  IDS_UAC_FIND_SCOPE, "Searching names and metadata with administrator access."
+ IDS_UAC_VIEW_CONFIRM, "Access was denied. Open a read-only snapshot of this file in the internal viewer as an administrator? The snapshot is limited to 16 MB."
+ IDS_UAC_VIEW_SNAPSHOT, "Administrator snapshot"
+ IDS_UAC_VIEW_REFRESH, "This is a read-only snapshot. Use F3 from the panel to request a new snapshot."
+ IDS_UAC_VIEW_UNAVAILABLE, "The protected file could not be opened in the internal viewer."
  IDS_UAC_SIZE_LOGICAL_ONLY, "Only logical size is available for this calculation. Occupied disk space was not measured for protected folders."
  IDS_UAC_COPY_CONFIRM, "Access was denied. Copy this file and its alternate data streams as an administrator?"
  IDS_UAC_COPY_IGNORE_ADS_CONFIRM, "Access was denied. Copy this file without its alternate data streams as an administrator?"

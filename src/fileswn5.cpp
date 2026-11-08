@@ -5,6 +5,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Offer one-file protected F3 in the internal viewer. | Request consent only after the ordinary local open is denied. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Name junctions in the protected rename prompt. | Use the verified broker request to describe the object to the user. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer elevation for one directory symbolic link. | Reuse the link-specific prompt in F2 and Quick Rename. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer a separate consent prompt for file symbolic links. | Name the affected link for both F2 and Quick Rename. | | GPT-6.1 Sol (Codex) |
@@ -1799,12 +1800,16 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
 {
     CALL_STACK_MESSAGE6("CFilesWindow::ViewFile(%s, %d, %u, %d, %d)", name, altView, handlerID,
                         enumFileNamesSourceUID, enumFileNamesLastFileIndex);
+    const bool panelF3 = name == NULL && Is(ptDisk) && !IsBranchView() && !altView && handlerID == 0xFFFFFFFF;
+    const bool deferredPathCheck = panelF3 && ProtectedListing &&
+                                   ProtectedListing->Contains(SalPathRemoveExtendedPrefixW(GetPathW()));
+    std::wstring protectedCandidate;
     // verify that the file is on an accessible path
     if (name == NULL) // file from the panel
     {
         if (Is(ptDisk) || Is(ptZIPArchive))
         {
-            if (CheckPath(TRUE) != ERROR_SUCCESS)
+            if (!deferredPathCheck && CheckPath(TRUE) != ERROR_SUCCESS)
                 return;
         }
     }
@@ -1837,6 +1842,9 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                 if (enumFileNamesLastFileIndex == -1)
                     enumFileNamesLastFileIndex = i - Dirs->Count;
                 const std::wstring wideName = GetItemFullPathW(*f);
+                if (panelF3 && !(f->Attr & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
+                                           FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_OFFLINE)))
+                    protectedCandidate = SalPathRemoveExtendedPrefixW(wideName.c_str());
                 unicodeDiskFileName = SalWideToMultiBytePath(wideName.c_str(), CP_UTF8);
                 if (unicodeDiskFileName.empty())
                     return;
@@ -2026,7 +2034,8 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
     HANDLE lock = NULL;
     BOOL lockOwner = FALSE;
     ViewFileInt(HWindow, name, altView, handlerID, useDiskCache, lock, lockOwner, addToHistory,
-                enumFileNamesSourceUID, enumFileNamesLastFileIndex);
+                enumFileNamesSourceUID, enumFileNamesLastFileIndex,
+                protectedCandidate.empty() ? nullptr : &protectedCandidate, deferredPathCheck);
 
     if (useDiskCache)
     {
@@ -2043,7 +2052,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
 
 BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, BOOL returnLock,
                  HANDLE& lock, BOOL& lockOwner, BOOL addToHistory, int enumFileNamesSourceUID,
-                 int enumFileNamesLastFileIndex)
+                 int enumFileNamesLastFileIndex, const std::wstring* protectedCandidate, bool deferredPathCheck)
 {
     BOOL success = FALSE;
     lock = NULL;
@@ -2144,7 +2153,13 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
     {
         //    if (MakeFileAvailOfflineIfOneDriveOnWin81(parent, name))
         //    {
-        if (addToHistory)
+        if (deferredPathCheck && viewer->ViewerType != VIEWER_INTERNAL)
+        {
+            const std::string directory(name, namePart - name - 1);
+            if (SalCheckPath(TRUE, directory.c_str(), ERROR_SUCCESS, TRUE, parent) != ERROR_SUCCESS)
+                return FALSE;
+        }
+        if (addToHistory && viewer->ViewerType != VIEWER_INTERNAL)
             MainWindow->FileHistory->AddFile(fhitView, viewer->HandlerID, name); // add file to history
 
         switch (viewer->ViewerType)
@@ -2234,6 +2249,41 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
 
         case VIEWER_INTERNAL:
         {
+            std::unique_ptr<std::vector<BYTE>> snapshot;
+            if (protectedCandidate && protectedCandidate->size() > 3 && (*protectedCandidate)[1] == L':' &&
+                GetDriveTypeW(protectedCandidate->substr(0, 3).c_str()) == DRIVE_FIXED)
+            {
+                const std::wstring ioName = SalPathAddExtendedPrefixW(protectedCandidate->c_str());
+                HANDLE probe = HANDLES_Q(CreateFileW(ioName.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                                    nullptr, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, nullptr));
+                if (probe != INVALID_HANDLE_VALUE)
+                    HANDLES(CloseHandle(probe));
+                else if (GetLastError() == ERROR_ACCESS_DENIED)
+                {
+                    UacF7::PreparedLeaf request;
+                    if (request.PrepareView(*protectedCandidate))
+                    {
+                        if (!ConfirmProtectedRead(parent, IDS_VIEWERTITLE, IDS_UAC_VIEW_CONFIRM, *protectedCandidate))
+                            return FALSE;
+                        snapshot = std::make_unique<std::vector<BYTE>>();
+                        const UacF7::Result result = request.ReadViewerSnapshot(parent, *snapshot);
+                        if (result.error != ERROR_SUCCESS || result.unknown)
+                        {
+                            if (result.error != ERROR_CANCELLED)
+                            {
+                                const std::string message = std::string(LoadStr(IDS_UAC_VIEW_UNAVAILABLE)) +
+                                                            "\n\n" + GetErrorText(result.error);
+                                SalMessageBox(parent, message.c_str(), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+                            }
+                            return FALSE;
+                        }
+                        // A protected snapshot authorizes only this one file.
+                        enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1;
+                    }
+                }
+            }
+            if (addToHistory)
+                MainWindow->FileHistory->AddFile(fhitView, viewer->HandlerID, name);
             if (Configuration.SavePosition &&
                 Configuration.WindowPlacement.length != 0)
             {
@@ -2257,7 +2307,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                            place.rcNormalPosition.bottom - place.rcNormalPosition.top,
                            place.showCmd,
                            returnLock, &lockAux, &lockOwnerAux, NULL,
-                           enumFileNamesSourceUID, enumFileNamesLastFileIndex))
+                           enumFileNamesSourceUID, enumFileNamesLastFileIndex, std::move(snapshot)))
             {
                 success = TRUE;
                 if (returnLock && lockAux != NULL)

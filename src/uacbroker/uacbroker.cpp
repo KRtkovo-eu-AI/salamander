@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Return one bounded viewer snapshot on the authenticated pipe. | Send complete read-only bytes without transferring file or process handles. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate and dispatch an explicit security copy. | Use the protected-object checks and strict stream policy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate junction deletion through the existing leaf broker. | Advertise support for the separately typed request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate and route permanent directory symbolic-link deletion. | Keep local and elevated execution bound to the same typed request. | | GPT-6.1 Sol (Codex) |
@@ -63,6 +64,7 @@
 #include "copyleaf.h"
 #ifdef SAM_UAC_BROKER
 #include "copytree.h"
+#include "viewleaf.h"
 #endif
 #endif
 
@@ -109,13 +111,14 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD deleteDirectorySymlinkCapability = 524288;
 [[maybe_unused]] constexpr DWORD deleteJunctionCapability = 1048576;
 [[maybe_unused]] constexpr DWORD copySecurityCapability = 2097152;
+[[maybe_unused]] constexpr DWORD viewCapability = 4194304;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
                                                  inventoryCapability | copyTreeCapability | cancelTreeCapability |
                                                  directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
                                                  copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability |
                                                  renameDirectorySymlinkCapability | renameJunctionCapability | deleteSymlinkCapability |
-                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability;
+                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -788,7 +791,7 @@ DWORD RegisterTreeTarget(const InstallLocation& install)
 }
 
 DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, DWORD hostPid,
-                     ULONGLONG& deadline, DWORD& result, Handle& listingRoot)
+                     ULONGLONG& deadline, DWORD& result, Handle& listingRoot, std::vector<BYTE>& snapshot, bool& snapshotRequest)
 {
     RequestHeader header{};
     DWORD error = TransferRequest(pipe, &header, sizeof(header), false, deadline);
@@ -799,13 +802,15 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool setMetadata = header.operation == Operation::Metadata;
     const bool deleteFile = UacF7::IsLeafDelete(header.operation);
     const bool list = header.operation == Operation::List;
+    const bool view = header.operation == Operation::View;
+    snapshotRequest = view;
     const bool copy = UacF7::IsFileCopy(header.operation);
     const bool move = header.operation == Operation::Move;
     const bool tree = header.operation == Operation::CopyTree;
     const bool transfer = copy || move || tree;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
         header.leafLength > UacDirectoryLeaf::maxComponent || header.sourceLength > UacDirectoryLeaf::maxComponent ||
-        (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer) || rename != (header.sourceLength != 0) ||
+        (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer && !view) || rename != (header.sourceLength != 0) ||
         (list && !header.relativeLength) || transfer != (header.targetLeafLength != 0) ||
         header.targetRelativeLength > UacDirectoryLeaf::maxNativeName || header.targetLeafLength > UacDirectoryLeaf::maxComponent ||
         header.copySize > UacF7::maxPilotCopyBytes || (!copy && header.copySize) || (!transfer && header.targetRelativeLength))
@@ -954,6 +959,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             }
         }
     }
+    else if (view)
+        result = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), expected, sourceIdentity, leaf, deadline, snapshot);
     else if (setMetadata)
         result = UacMetadataLeaf::SetVerifiedMetadata(parent.get(), expected, sourceIdentity, leaf, metadata);
     else if (deleteFile)
@@ -1060,12 +1067,23 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
     {
         DWORD result = ERROR_GEN_FAILURE;
         Handle listingRoot;
-        error = ReceiveRequest(install, pipe.get(), host.get(), hostPid, deadline, result, listingRoot);
+        std::vector<BYTE> snapshot;
+        bool snapshotRequest = false;
+        error = ReceiveRequest(install, pipe.get(), host.get(), hostPid, deadline, result, listingRoot, snapshot, snapshotRequest);
         if (error)
             return IoError(L"Receive request", error);
         error = TransferRequest(pipe.get(), &result, sizeof(result), true, deadline);
         if (error)
             return IoError(L"Send request result", error);
+        if (snapshotRequest && result == ERROR_SUCCESS)
+        {
+            DWORD bytes = static_cast<DWORD>(snapshot.size());
+            error = TransferRequest(pipe.get(), &bytes, sizeof(bytes), true, deadline);
+            if (!error && bytes)
+                error = TransferRequest(pipe.get(), snapshot.data(), bytes, true, deadline);
+            if (error)
+                return IoError(L"Send viewer snapshot", error);
+        }
         if (listingRoot)
             return IoError(L"Listing session ended", ServeListings(pipe.get(), host.get(), hostPid, listingRoot.get()));
     }
@@ -1134,7 +1152,7 @@ bool InspectPipeClient(HANDLE pipe, bool& elevated)
 int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
              , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result,
-               HANDLE* listingPipe = nullptr, HANDLE cancel = nullptr
+               HANDLE* listingPipe = nullptr, HANDLE cancel = nullptr, std::vector<BYTE>* snapshot = nullptr
 #endif
 )
 {
@@ -1199,6 +1217,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 
 #ifdef SAM_UAC_F7_HOST
     DWORD operationError = ERROR_GEN_FAILURE;
+    std::vector<BYTE> receivedSnapshot;
 #endif
     if (drop)
         pipe.reset();
@@ -1231,6 +1250,30 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         }
         if (error)
             return IoError(L"Read request result", error);
+        if (snapshot && operationError == ERROR_SUCCESS)
+        {
+            DWORD bytes = 0;
+            error = TransferRequest(pipe.get(), &bytes, sizeof(bytes), false, deadline);
+            if (!error && bytes > UacF7::maxViewerSnapshotBytes)
+                error = ERROR_INVALID_DATA;
+            if (error)
+                return IoError(L"Read viewer snapshot size", error);
+            try
+            {
+                receivedSnapshot.resize(bytes);
+            }
+            catch (const std::bad_alloc&)
+            {
+                result->error = ERROR_NOT_ENOUGH_MEMORY;
+                return Failed;
+            }
+            if (bytes)
+            {
+                error = TransferRequest(pipe.get(), receivedSnapshot.data(), bytes, false, deadline);
+                if (error)
+                    return IoError(L"Read viewer snapshot", error);
+            }
+        }
         if (listingPipe && operationError == ERROR_SUCCESS)
         {
             *listingPipe = pipe.release();
@@ -1254,6 +1297,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         !GetExitCodeProcess(child.get(), &code) || code != expected)
         return Report(Failed, L"Unexpected broker exit", code);
 #ifdef SAM_UAC_F7_HOST
+    if (snapshot && operationError == ERROR_SUCCESS)
+        snapshot->swap(receivedSnapshot);
     result->error = operationError;
     result->unknown = request->operation == Operation::CopyTree && operationError == ERROR_PARTIAL_COPY;
 #else
@@ -1442,6 +1487,25 @@ Result PreparedLeaf::Execute(HWND owner) const
     std::wstring payload = volume + relative + leaf + sourceLeaf;
     MetadataChange requestMetadata = metadata;
     RunProbe(install, false, false, owner, &header, &payload, operation == Operation::Metadata ? &requestMetadata : nullptr, &result);
+    return result;
+}
+
+Result PreparedLeaf::ReadViewerSnapshot(HWND owner, std::vector<BYTE>& snapshot) const
+{
+    snapshot.clear();
+    Result result;
+    const ComApartment com;
+    InstallLocation install;
+    if (!parent || operation != Operation::View || FAILED(com.result) || !install.Open() ||
+        !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))
+        return result;
+    RequestHeader header{serial, {}, {}, operation,
+                         static_cast<DWORD>(relative.size()), static_cast<DWORD>(leaf.size()),
+                         0, 0, {}, 0, 0, 0};
+    std::memcpy(header.parentId.Identifier, fileId, sizeof(fileId));
+    std::memcpy(header.sourceId.Identifier, sourceId, sizeof(sourceId));
+    std::wstring payload = volume + relative + leaf;
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, nullptr, &snapshot);
     return result;
 }
 

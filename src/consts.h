@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Accept a verified panel path in the internal viewer dispatcher. | Other entry points keep their current access behavior. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-04 | Stop Ctrl+arrow on both sides of spaces too. | Spaces were still skipped while punctuation already stopped before and after. | | Composer |
 // | 2026-11-04 | Describe punctuation runs as edit word boundaries. | Ctrl+arrow now stops around every punctuation and symbol run. | | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -658,7 +659,8 @@ void RemoveEmptyDirs(const char* dir);
 // popsany parametry a navratove hodnoty
 BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, BOOL returnLock,
                  HANDLE& lock, BOOL& lockOwner, BOOL addToHistory, int enumFileNamesSourceUID,
-                 int enumFileNamesLastFileIndex);
+                 int enumFileNamesLastFileIndex, const std::wstring* protectedCandidate = nullptr,
+                 bool deferredPathCheck = false);
 
 // prevede string ('str' o delce 'len') na unsigned __int64 (muze predchazet
 // znamenko '+'; ignoruje white-spaces na zacatku a konci retezce);

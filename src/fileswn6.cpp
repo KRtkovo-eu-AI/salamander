@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Use the common protected read confirmation. | Share the same prompt with the internal viewer. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer protected counting from Ctrl+Q as well as Space. | Ctrl+Q normally calculates allocated disk space. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Count a denied subtree through its verified read-only broker. | Keep Ctrl+Q and Space totals complete when access is approved. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain EFS failures during copy planning. | Keep the no-decryption boundary visible before any broker offer. | | GPT-6.1 Sol (Codex) |
@@ -2457,7 +2458,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     ShowSafeWaitWindow(FALSE);
                     DWORD inventoryError = ERROR_CANCELLED;
                     UacF7::DirectoryInventory inventory;
-                    if (reuse || ConfirmProtectedDirectoryRead(HWindow, IDS_UAC_INVENTORY_TITLE, IDS_UAC_SIZE_CONFIRM, path))
+                    if (reuse || ConfirmProtectedRead(HWindow, IDS_UAC_INVENTORY_TITLE, IDS_UAC_SIZE_CONFIRM, path))
                     {
                         inventoryError = reuse ? ERROR_SUCCESS : temporary.Start(HWindow);
                         if (!inventoryError)

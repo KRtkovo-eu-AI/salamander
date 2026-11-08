@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Share the protected read consent prompt with F3. | Keep the scope and shield consistent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Declare the protected read consent prompt. | Use the same shield and default Cancel for size and Find. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Allow a shield on OK independently of the default action. | Keep destructive UAC confirmations safe by default. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -157,7 +158,7 @@ protected:
 
 // Internal flag for the host; the public MSGBOXEX_PARAMS layout stays unchanged.
 constexpr DWORD MSGBOXEX_SHIELDONOKBTN = 0x04000000;
-bool ConfirmProtectedDirectoryRead(HWND owner, int caption, int description, const std::wstring& path);
+bool ConfirmProtectedRead(HWND owner, int caption, int description, const std::wstring& path);
 
 class CMessageBox : public CCommonDialog
 {

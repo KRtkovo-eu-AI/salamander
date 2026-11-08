@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Use the common protected read confirmation. | Share the same prompt with the internal viewer. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show a protected subtree consent prompt from Find. | Let the ordinary Find worker continue independently. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Coalesce asynchronous Find result refreshes. | Keep large searches from synchronously blocking on list-view updates. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Forward Find ContextMenu messages to SafeHandleContextMenuMsg. | HandleMenuMsg SEH must stay out of WindowProc (C2712). | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
@@ -4847,7 +4848,7 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
     case WM_USER_FIND_PROTECTED_CONSENT:
     {
         const bool approved = !GrepData.StopSearch &&
-                              ConfirmProtectedDirectoryRead(HWindow, IDS_FINDTITLE, IDS_UAC_FIND_CONFIRM,
+                              ConfirmProtectedRead(HWindow, IDS_FINDTITLE, IDS_UAC_FIND_CONFIRM,
                                                             *reinterpret_cast<const std::wstring*>(wParam));
         SetWindowLongPtr(HWindow, DWLP_MSGRESULT, approved);
         return TRUE;

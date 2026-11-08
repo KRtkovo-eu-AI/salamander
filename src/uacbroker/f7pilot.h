@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Declare a one-file viewer snapshot request. | Bind the read-only data to one verified file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Distinguish EFS failures in the copy pilot. | Keep the existing ordinary EFS path and fail closed at the broker boundary. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define a typed protected security copy. | Bind owner, group and explicit permissions to the F5 request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare a separate junction deletion request. | Keep approval bound to the verified link type. | | GPT-6.1 Sol (Codex) |
@@ -35,7 +36,7 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18 };
 
 inline bool IsRename(Operation operation)
 {
@@ -55,6 +56,7 @@ inline bool IsFileCopy(Operation operation)
            operation == Operation::CopyCompressed || operation == Operation::CopySecurity;
 }
 
+constexpr DWORD maxViewerSnapshotBytes = 16 * 1024 * 1024;
 constexpr ULONGLONG maxPilotCopyBytes = 16 * 1024 * 1024;
 constexpr DWORD plainCopyAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE |
                                       FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
@@ -135,6 +137,8 @@ public:
     bool IsDirectorySymlinkDelete() const { return operation == Operation::DeleteDirectorySymlink; }
     bool IsJunctionDelete() const { return operation == Operation::DeleteJunction; }
     bool IsSymlinkDelete() const { return operation == Operation::DeleteSymlink; }
+    bool PrepareView(const std::wstring& path) { return PrepareTarget(path, Operation::View, {}, nullptr); }
+    Result ReadViewerSnapshot(HWND owner, std::vector<BYTE>& snapshot) const;
     DWORD ExecuteLocal() const;
     Result Execute(HWND owner) const;
     bool IsDirectoryMetadata() const

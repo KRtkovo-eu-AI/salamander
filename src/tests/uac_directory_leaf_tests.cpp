@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise read-only viewer snapshots on NTFS. | Verify exact bytes, empty files, identity checks and the size bound. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check EFS copy error classification. | Keep EFS failures distinct from ordinary access and sharing errors. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the protected security-copy option. | Verify exact owner, group and ACL and refuse unsupported inheritance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise permanent junction deletion on real NTFS. | Verify type and identity checks and preserve the target. | | GPT-6.1 Sol (Codex) |
@@ -37,6 +38,7 @@
 #include "../uacbroker/listing.h"
 #include "../uacbroker/copyleaf.h"
 #include "../uacbroker/copytree.h"
+#include "../uacbroker/viewleaf.h"
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
@@ -875,6 +877,56 @@ bool CheckDirectoryMetadata(const std::wstring& fixture, HANDLE root)
 }
 }
 
+static bool CheckViewerSnapshot(const std::wstring& fixture, HANDLE root)
+{
+    const auto component = std::wstring(160, L'\u65e5');
+    const auto path = fixture + L"\\" + component;
+    const auto leaf = std::wstring(110, L'\u6771') + L".txt";
+    const auto name = path + L"\\" + leaf;
+    const std::vector<BYTE> expected{0xef, 0xbb, 0xbf, 'A', 0, 'Z'};
+    if (!CreateDirectoryW(path.c_str(), nullptr) || !WriteFixture(name, expected) ||
+        !WriteFixture(path + L"\\empty.txt", {}) || !WriteFixture(path + L"\\large.txt", {}))
+        return false;
+    UacDirectoryLeaf::ParentIdentity parentIdentity;
+    HANDLE rawParent = nullptr;
+    if (UacDirectoryLeaf::OpenParentBelowRoot(root, component, rawParent, parentIdentity))
+        return false;
+    const Handle parent(rawParent);
+    FILE_ID_INFO identity{}, emptyId{}, largeId{};
+    const Handle original = OpenIdentity(name, identity);
+    const Handle empty = OpenIdentity(path + L"\\empty.txt", emptyId);
+    const Handle large = OpenIdentity(path + L"\\large.txt", largeId);
+    if (!original || !empty || !large)
+        return false;
+    const HANDLE writerRaw = CreateFileW((path + L"\\large.txt").c_str(), GENERIC_WRITE,
+                                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                         nullptr, OPEN_EXISTING, 0, nullptr);
+    if (writerRaw == INVALID_HANDLE_VALUE)
+        return false;
+    Handle writer(writerRaw);
+    LARGE_INTEGER limit{};
+    limit.QuadPart = UacF7::maxViewerSnapshotBytes + 1;
+    if (!SetFilePointerEx(writer.get(), limit, nullptr, FILE_BEGIN) || !SetEndOfFile(writer.get()))
+        return false;
+    writer.reset();
+
+    std::vector<BYTE> snapshot;
+    DWORD error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, identity, leaf, MAXULONGLONG, snapshot);
+    Check(error == ERROR_SUCCESS && snapshot == expected && HasContents(name, expected),
+          "read exact bytes of a verified long Unicode viewer file", error);
+    error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, emptyId, L"empty.txt", MAXULONGLONG, snapshot);
+    Check(error == ERROR_SUCCESS && snapshot.empty(), "open an empty protected viewer file", error);
+    error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, largeId, L"large.txt", MAXULONGLONG, snapshot);
+    Check(error == ERROR_FILE_TOO_LARGE && snapshot.empty(), "refuse an oversized viewer file before transferring bytes", error);
+    error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, identity, leaf, GetTickCount64(), snapshot);
+    Check(error == ERROR_TIMEOUT && snapshot.empty(), "refuse a viewer read after its deadline", error);
+    error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, identity, L"empty.txt", MAXULONGLONG, snapshot);
+    Check(error == ERROR_FILE_INVALID && snapshot.empty(), "reject a different file identity for the viewer", error);
+    error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, identity, L"..\\empty.txt", MAXULONGLONG, snapshot);
+    Check(error == ERROR_INVALID_NAME && snapshot.empty(), "reject a path in a single viewer leaf request", error);
+    return true;
+}
+
 int wmain(int argc, wchar_t** argv)
 {
     using namespace UacDirectoryLeaf;
@@ -895,7 +947,7 @@ int wmain(int argc, wchar_t** argv)
     const Handle root(rawRoot);
     if (moveSource)
         return CheckMoveSource(fixture, root.get()) ? 0 : 1;
-    if (!CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high))
+    if (!CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high))
         return 2;
     HANDLE rawListing = nullptr;
     ParentIdentity listingIdentity;

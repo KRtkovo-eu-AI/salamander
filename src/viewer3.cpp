@@ -4,6 +4,7 @@
 // CommentsTranslationProject: TRANSLATED
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Label the protected viewer snapshot and keep refresh explicit. | Avoid re-opening a protected object from automatic viewer activity. | | GPT-6.1 Sol (Codex) |
 | 2026-11-05 | Keep previous-line size cache in sync on line-up/line-down. | Scroll-up after EOF was still O(FindPreviousEOL) per step while scroll-down reused FirstLineSize (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 */
 
@@ -373,6 +374,8 @@ void CViewerWindow::SetViewerCaption()
         }
         if (!encoding.empty()) caption += L" - [" + encoding + L"]";
     }
+    if (ProtectedSnapshot)
+        caption += L" - [" + ViewerTextToWide(LoadStr(IDS_UAC_VIEW_SNAPSHOT)) + L"]";
     SetWindowTextW(HWindow, caption.c_str());
 }
 
@@ -2642,6 +2645,11 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case CM_REREADFILE:
         {
+            if (ProtectedSnapshot)
+            {
+                SalMessageBox(HWindow, LoadStr(IDS_UAC_VIEW_REFRESH), LoadStr(IDS_VIEWERTITLE), MB_OK | MB_ICONINFORMATION);
+                return 0;
+            }
             if (MouseDrag)
                 return 0;
             ExitTextMode = FALSE;

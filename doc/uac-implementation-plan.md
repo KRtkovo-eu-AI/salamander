@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record protected F3 viewer snapshots and compact size results. | Describe the single-file authorization and VM checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P6 protected logical sizing and metadata Find. | Reuse the rooted listing broker and verify ordinary search continues while consent is pending. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Close the P5 metadata and Recycle Bin matrix. | Record EFS refusal and Shell recycling acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5n explicit security preservation in F5. | Document the bounded DACL and ownership contract and its verification. | | GPT-6.1 Sol (Codex) |
@@ -699,6 +700,19 @@ Společné lokální ověření zahrnulo sestavení x64 Debug aplikace, prostře
 V izolované Windows 11 VM se po schválení výpočtu mezerníkem zobrazilo 18 bajtů, tedy 7 z dostupné a 11 z chráněné složky. První pilot u Ctrl+Q použil běžný dialog s chybou 5, protože zkratka míří na výpočet obsazeného místa. Opravený pilot u Ctrl+Q nabídl správce, po schválení zobrazil 18 logických bajtů a výslovně uvedl, že obsazené místo nebylo změřeno. Zrušení opakovaného výpočtu v nabídce Samandarinu ponechalo v panelu údaj DIR bez částečné velikosti. Po této zkoušce byl z počtu podsložek v souhrnu odečten vybraný kořen a lokální sestavení znovu prošlo.
 
 V prvním pilotu Find dialog nepředal výsledek volby Administrator pracovnímu vláknu, což odhalila zkouška v běžném okně. Opravený pilot ukázal dostupný soubor visible.p6hit (7 bajtů) už během čekání na souhlas pro první chráněnou složku. Po schválení doplnil 東-protected.p6hit (11 bajtů) z vnořené chráněné složky a maska *.p6hit vyloučila excluded.txt. Po zamítnutí výzvy Windows v druhém stromu zůstal jeden dostupný výsledek a protokol oznámil přeskočení. Po zkouškách neběžel žádný broker.
+
+
+### 8.43 P6c — chráněný soubor v interním prohlížeči přes F3
+
+F3 z běžného diskového panelu nejprve zkusí otevřít přesnou cestu s aktuálním tokenem. Pokud masky vybraly vestavěný textový/hexadecimální prohlížeč a čtení skončí chybou 5, může aplikace u jednoho ověřitelného souboru na místním NTFS zobrazit nabídku správce. Nabídka uvádí plnou cestu a výchozí volbou je Zrušit. Externí prohlížeče, pluginy a otevření z historie tuto nabídku nepoužívají.
+
+Broker při čtení porovná identitu rodiče i souboru a otevře přesný název relativně k ověřenému rodiči. Běžné soubory čte do 16 MiB a odmítá reparse body, vícenásobné pevné odkazy, EFS a offline soubory. Vrací pouze dokončený snímek bajtů přes autentizovaný kanál. Interní prohlížeč vykresluje i vyhledává v paměti běžného procesu. Broker končí před otevřením prohlížeče a nepředává handle ani nevytváří aplikační dočasnou kopii na disku. Titulek označuje snímek správce. Pro nové čtení se použije F3 z panelu. Živé sledování a přechod na další soubor v režimu chráněného snímku nejsou součástí pilotu.
+
+Výsledek chráněného součtu z P4d/P6a používá zmenšený dialog Ctrl+Q. Zobrazuje celkovou logickou velikost a počty souborů a adresářů. Odhad a pole pro obsazené a komprimované místo jsou skryté. Běžný výpočet dál používá plný dialog.
+
+Lokálně prošlo sestavení x64 Debug aplikace, prostředků, brokeru a sondy. V Debug i Release prošlo 183 nativních kontrol brokeru a testy Unicode, hexadecimálního zobrazení a navigace prohlížeče. Nové zkoušky četly přesné bajty dlouhé Unicode cesty a prázdného souboru a ověřily odmítnutí jiné identity, přetečení limitu, neplatného názvu a vypršení lhůty. Prošel transport, konverzní tabulky a regrese Findu a panelu.
+
+V izolované Windows 11 VM běžný token nedokázal přečíst obsah obou chráněných souborů. F3 přes broker otevřelo soubor 01-view-approve-東.txt (129 825 bajtů) a označilo jej jako snímek správce. V textu byl vidět začátek P6C-BEGIN i konec P6C-END po Ctrl+End. Hexadecimální režim ukázal původní bajty UTF-8 BOM a Ctrl+R odkázalo na nové F3 z panelu. Zrušený F3 u 02-view-cancel.txt prohlížeč neotevřel. Běžný soubor otevřel F3 přímo. Po skončení neběžel žádný broker. Otisky všech instalovaných binárek odpovídaly sestavení. Ctrl+Q po schválení zobrazil v kompaktním dialogu dva soubory, dva adresáře a 18 bajtů.
 
 
 ## 9. Uživatelský tok a stav operace

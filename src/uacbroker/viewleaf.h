@@ -1,0 +1,81 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Read one verified file into a bounded viewer snapshot. | Release the elevated file before the viewer opens. | | GPT-6.1 Sol (Codex) |
+#pragma once
+
+#include "f7pilot.h"
+#include "renameleaf.h"
+#include <memory>
+#include <new>
+
+namespace UacViewLeaf
+{
+inline DWORD ReadVerifiedSnapshot(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
+                                  const FILE_ID_INFO& expectedSource, std::wstring_view leaf,
+                                  ULONGLONG deadline, std::vector<BYTE>& snapshot)
+{
+    snapshot.clear();
+    if (!UacDirectoryLeaf::IsComponent(leaf))
+        return ERROR_INVALID_NAME;
+    if (GetTickCount64() >= deadline)
+        return ERROR_TIMEOUT;
+
+    UacDirectoryLeaf::ParentIdentity actualParent;
+    DWORD error = UacDirectoryLeaf::ReadParentIdentity(parent, actualParent);
+    if (error)
+        return error;
+    if (!UacDirectoryLeaf::SameParent(actualParent, expectedParent))
+        return ERROR_FILE_INVALID;
+
+    HANDLE raw = nullptr;
+    error = UacRenameLeaf::Detail::OpenSource(parent, leaf, raw, FILE_READ_DATA, FILE_SHARE_READ);
+    if (error)
+        return error;
+    const auto close = [](void* handle) { CloseHandle(handle); };
+    const std::unique_ptr<void, decltype(close)> file(raw, close);
+    FILE_ID_INFO actualSource{};
+    if ((error = UacRenameLeaf::Detail::ReadSourceIdentity(file.get(), actualSource)) != ERROR_SUCCESS)
+        return error;
+    if (!UacRenameLeaf::Detail::SameSource(actualSource, expectedSource))
+        return ERROR_FILE_INVALID;
+
+    FILE_BASIC_INFO initial{};
+    LARGE_INTEGER size{};
+    if (!GetFileInformationByHandleEx(file.get(), FileBasicInfo, &initial, sizeof(initial)) ||
+        !GetFileSizeEx(file.get(), &size))
+        return GetLastError();
+    if (initial.FileAttributes & (FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_OFFLINE |
+                                  FILE_ATTRIBUTE_RECALL_ON_OPEN | FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS))
+        return ERROR_NOT_SUPPORTED;
+    if (size.QuadPart < 0 || static_cast<ULONGLONG>(size.QuadPart) > UacF7::maxViewerSnapshotBytes)
+        return ERROR_FILE_TOO_LARGE;
+
+    std::vector<BYTE> complete;
+    try
+    {
+        complete.resize(static_cast<size_t>(size.QuadPart));
+    }
+    catch (const std::bad_alloc&)
+    {
+        return ERROR_NOT_ENOUGH_MEMORY;
+    }
+    DWORD count = 0;
+    if (!complete.empty() && !ReadFile(file.get(), complete.data(), static_cast<DWORD>(complete.size()), &count, nullptr))
+        return GetLastError();
+    if (GetTickCount64() >= deadline)
+        return ERROR_TIMEOUT;
+    FILE_BASIC_INFO after{};
+    LARGE_INTEGER afterSize{};
+    if (!GetFileInformationByHandleEx(file.get(), FileBasicInfo, &after, sizeof(after)) ||
+        !GetFileSizeEx(file.get(), &afterSize))
+        return GetLastError();
+    if (count != complete.size() || afterSize.QuadPart != size.QuadPart ||
+        after.LastWriteTime.QuadPart != initial.LastWriteTime.QuadPart ||
+        after.ChangeTime.QuadPart != initial.ChangeTime.QuadPart ||
+        after.FileAttributes != initial.FileAttributes)
+        return ERROR_FILE_INVALID;
+    snapshot.swap(complete);
+    return ERROR_SUCCESS;
+}
+}
