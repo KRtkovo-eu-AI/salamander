@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Test the verified F6 source guard. | Cover preexisting metadata writers, ADS and writable mappings. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test sealed F6 recovery after a hard process exit. | Preserve inherited ACLs and refuse unauthorized ACL changes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Probe an NTFS file-wide write seal. | Test whether an exact temporary DACL closes the alias and file-ID races. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise encrypted named-stream copies and concurrent writes. | Verify raw EFS output before committing the target. | | GPT-6.1 Sol (Codex) |
@@ -74,7 +75,7 @@
 #include "../findtagstream.h"
 #include "../uacbroker/efsraw.h"
 #include "../uacbroker/efscopy.h"
-#include "../uacbroker/movesourcejournal.h"
+#include "../uacbroker/movesourceguard.h"
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
@@ -1186,6 +1187,120 @@ bool CheckMoveSourceSecuritySeal(const std::wstring& fixture, HANDLE root)
     return failures == 0;
 }
 
+bool CheckVerifiedMoveSourceGuard(const std::wstring& fixture, HANDLE root)
+{
+    using UacMoveSourceJournal::SourceGuard;
+    constexpr wchar_t leaf[] = L"guarded-\u6771";
+    constexpr DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    const auto path = fixture + L"\\" + leaf;
+    FILE_ID_INFO identity{};
+    if (!WriteFixture(path, {1, 2, 3}) || !OpenIdentity(path, identity))
+        return false;
+    auto open = [&](const std::wstring& file, DWORD access) {
+        const HANDLE raw = CreateFileW(file.c_str(), access, share, nullptr, OPEN_EXISTING, 0, nullptr);
+        return Handle(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+    };
+
+    SourceGuard guard;
+    auto wrong = identity;
+    ++wrong.FileId.Identifier[0];
+    DWORD error = guard.Open(root, leaf, wrong, 1);
+    Check(error == ERROR_FILE_INVALID && !guard.File(), "refuse a substituted source before using its oplock", error);
+    if (guard.File())
+        return false;
+    for (const DWORD access : {static_cast<DWORD>(FILE_WRITE_EA), static_cast<DWORD>(WRITE_DAC)})
+    {
+        const auto writer = open(path, access);
+        if (!writer)
+            return false;
+        error = guard.Open(root, leaf, identity, 1);
+        Check((error == ERROR_OPLOCK_NOT_GRANTED || error == ERROR_SHARING_VIOLATION) && !guard.File(),
+              "refuse a source with a preexisting metadata writer", error);
+        if (guard.File())
+            return false;
+    }
+    const DWORD uncontestedFilter = UacMoveSourceJournal::CheckNoPriorSourceOpens(root, leaf, identity);
+    Check(!uncontestedFilter, "reserve a filter oplock when there are no prior opens", uncontestedFilter);
+    {
+        const auto writer = open(path, FILE_WRITE_ATTRIBUTES);
+        if (!writer)
+            return false;
+        const DWORD reserved = UacMoveSourceJournal::CheckNoPriorSourceOpens(root, leaf, identity);
+        Check(reserved == ERROR_OPLOCK_NOT_GRANTED || reserved == ERROR_SHARING_VIOLATION,
+              "refuse a preexisting attribute handle at the filter reservation", reserved);
+
+        const Handle done(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        if (!done)
+            return false;
+        std::thread competitor;
+        DWORD result = ERROR_GEN_FAILURE, state = WAIT_FAILED, after = ERROR_GEN_FAILURE;
+        {
+            SourceGuard metadataGuard;
+            error = metadataGuard.Open(root, leaf, identity, 1);
+            if (!error)
+            {
+                competitor = std::thread([&] {
+                    FILE_BASIC_INFO attributes{};
+                    attributes.LastWriteTime.QuadPart = 132000000000000000LL;
+                    result = SetFileInformationByHandle(writer.get(), FileBasicInfo, &attributes, sizeof(attributes))
+                        ? ERROR_SUCCESS : GetLastError();
+                    SetEvent(done.get());
+                });
+                state = WaitForSingleObject(done.get(), 1000);
+                after = metadataGuard.Check(1);
+            }
+        }
+        if (competitor.joinable())
+            competitor.join();
+        std::printf("PROBE: guarded-write-attributes open=%lu completed-while-held=%d write=%lu check=%lu\n",
+                    error, state == WAIT_OBJECT_0, result, after);
+        Check(error == ERROR_OPLOCK_NOT_GRANTED || error == ERROR_SHARING_VIOLATION ||
+                  (!error && (state == WAIT_OBJECT_0 || state == WAIT_TIMEOUT)),
+              "classify a preexisting attribute handle and its operation while the source is guarded", error);
+    }
+    {
+        auto writer = open(path, GENERIC_READ | GENERIC_WRITE);
+        if (!writer)
+            return false;
+        const Handle mapping(CreateFileMappingW(writer.get(), nullptr, PAGE_READWRITE, 0, 0, nullptr));
+        void* view = mapping ? MapViewOfFile(mapping.get(), FILE_MAP_WRITE, 0, 0, 0) : nullptr;
+        if (!view)
+            return false;
+        writer.reset();
+        error = guard.Open(root, leaf, identity, 1);
+        const bool unmapped = UnmapViewOfFile(view) != FALSE;
+        Check(unmapped && (error == ERROR_OPLOCK_NOT_GRANTED || error == ERROR_SHARING_VIOLATION) && !guard.File(),
+              "refuse a writable mapping even after its original handle closes", error);
+        if (guard.File())
+            return false;
+    }
+    const auto ads = path + L":named";
+    if (!WriteFixture(ads, {9}))
+        return false;
+    {
+        const auto writer = open(ads, FILE_WRITE_DATA);
+        if (!writer)
+            return false;
+        error = guard.Open(root, leaf, identity, 1);
+        Check(error == ERROR_NOT_SUPPORTED && !guard.File(),
+              "refuse a live named-stream writer without treating the main stream as the whole file", error);
+        if (guard.File())
+            return false;
+    }
+    if (!DeleteFileW(ads.c_str()))
+        return false;
+    const auto alias = path + L"-alias";
+    if (!CreateHardLinkW(alias.c_str(), path.c_str(), nullptr))
+        return false;
+    error = guard.Open(root, leaf, identity, 1);
+    Check(error == ERROR_FILE_INVALID && !guard.File(), "reject an unexpected additional link", error);
+    if (guard.File() || !DeleteFileW(alias.c_str()))
+        return false;
+    error = guard.Open(root, leaf, identity, 1);
+    Check(!error && !guard.Check(1), "hold the verified source exclusively after the competitors release it", error);
+    return failures == 0;
+}
+
 int HoldMoveSourcePending(const std::wstring& fixture, const wchar_t* signal)
 {
     const Handle ready(OpenEventW(EVENT_MODIFY_STATE, FALSE, signal));
@@ -1506,7 +1621,7 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
     if (!GetSecurityDescriptorOwner(security.get(), &owner, &defaulted) || !ConvertSidToStringSidW(owner, &ownerName))
         return false;
     const std::unique_ptr<void, decltype(&LocalFree)> sid(ownerName, LocalFree);
-    const std::wstring sealSddl = std::wstring(L"D:P(A;;RC;;;OW)(A;;0x00170080;;;") + ownerName + L")";
+    const std::wstring sealSddl = std::wstring(L"D:P(A;;RC;;;OW)(A;;0x00170089;;;") + ownerName + L")";
     PSECURITY_DESCRIPTOR sealRaw = nullptr, foreignRaw = nullptr;
     if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(sealSddl.c_str(), SDDL_REVISION_1, &sealRaw, nullptr))
         return false;
@@ -1570,6 +1685,14 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
               HasContents(sourcePath, {1, 2, 3}) && HasContents(stream, {9}) && !Exists(retained) && empty(),
           "restore the inherited source DACL under its original parent after a hard exit", error);
     restored.reset();
+    if (!DeleteFileW(stream.c_str()))
+        return false;
+    raw = nullptr;
+    error = OpenSource(parent.get(), leaf, raw, FILE_WRITE_ATTRIBUTES,
+                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
+    Handle priorWriter(raw);
+    if (error)
+        return false;
 
     raw = nullptr;
     error = OpenSource(parent.get(), leaf, raw, DELETE | READ_CONTROL | WRITE_DAC, FILE_SHARE_READ);
@@ -1578,13 +1701,24 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
         return false;
     retained = storageDirectory + L"\\" + name;
     source.reset();
+    error = CheckNoPriorSourceOpens(parent.get(), leaf, expected);
+    Check(error == ERROR_OPLOCK_NOT_GRANTED || error == ERROR_SHARING_VIOLATION,
+          "refuse a metadata handle that predates the journaled DACL seal", error);
+    priorWriter.reset();
+    error = CheckNoPriorSourceOpens(parent.get(), leaf, expected);
+    Check(!error, "reserve the filter on the same sealed source after the prior handle closes", error);
+    {
+        SourceGuard guard;
+        error = guard.Open(parent.get(), leaf, expected, 2);
+        Check(!error && !guard.Check(2), "reopen the sealed source with the expected recovery link still present", error);
+    }
     error = recover(parent.get());
     raw = nullptr;
     const DWORD openCancelled = OpenSource(parent.get(), leaf, raw, READ_CONTROL, FILE_SHARE_READ);
     restored.reset(raw);
     UacEfsWorkspace::Detail::FileSecurity cancelledSecurity;
     Check(!error && !openCancelled && !cancelledSecurity.Read(restored.get()) && originalSecurity.Matches(cancelledSecurity) &&
-              HasContents(stream, {9}) && !Exists(retained) && empty(),
+              HasContents(sourcePath, {1, 2, 3}) && !Exists(retained) && empty(),
           "restore the DACL and retire only the recovery link when the original name still exists", error);
     return failures == 0;
 }
@@ -2603,7 +2737,7 @@ int wmain(int argc, wchar_t** argv)
     if (moveSource)
         return CheckMoveSource(fixture, root.get()) && CheckMoveSourceGuards(fixture, root.get()) &&
                        CheckMoveSourceExtendedAttributeGuard(fixture, root.get()) && CheckMoveSourceOplock(fixture) &&
-                       CheckMoveSourceSecuritySeal(fixture, root.get()) &&
+                       CheckMoveSourceSecuritySeal(fixture, root.get()) && CheckVerifiedMoveSourceGuard(fixture, root.get()) &&
                        CheckMoveSourceRecoveryLink(fixture, root.get()) && CheckMoveSourceJournal(fixture) ? 0 : 1;
     if (!CheckFindTagStream() || !CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
         !CheckZipSelection(fixture, root.get()) || !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::Zip) ||

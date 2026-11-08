@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record source guard and filter reservation for F6. | Exclude writers that opened before the journaled DACL seal. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record durable ACL recovery for interrupted F6 source handling. | Preserve the original name and DACL without replacing independent changes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the F6 source DACL and recovery-rights probe. | Verify file-wide exclusion and reopening by exact identity. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record verified EFS Raw named-stream copies. | Keep encrypted metadata combinations and concurrent changes explicit. | | GPT-6.1 Sol (Codex) |
@@ -652,6 +653,10 @@ V x64 Debug i Release prošlo 51 kontrol zdroje F6. Pro produkční zapojení je
 **Trvalá obnova DACL zdroje F6.** Volitelná druhá verze žurnálu před vytvořením ochranného odkazu a před změnou oprávnění uloží původní a dočasnou DACL spolu s vlastníkem, skupinou a příznakem ochrany proti dědění. Obnova dál ověřuje svazek, oba rodiče a ID souboru. Při změně DACL, vlastníka nebo skupiny mimo zaznamenané stavy ponechá žurnál a ochranný odkaz. Pokud původní jméno chybí, obnoví nejprve toto jméno bez přepisu. Pak použije původní DACL v kontextu jejího původního rodiče a znovu ji porovná. Záznam první verze zůstává čitelný.
 
 V x64 Debug i Release prošlo 57 kontrol režimu zdroje F6 a 248 běžných nativních kontrol. Po tvrdém ukončení pomocného procesu se znovuotevřel žurnál a obnovilo se stejné ID, zděděná DACL a data hlavního i alternativního proudu. Samostatně prošla obnova při zachovaném původním názvu a odmítnutí nezávisle změněné DACL. Tato obnova je zatím nativní součást budoucího přesunu. Zbývá vyloučit už otevřené zapisovatele a ověřit zveřejnění cíle a nevratné odstranění zdroje na dvou svazcích.
+
+**Vyloučení dříve otevřených handlů při F6.** Výhradní oplock hlavního proudu odmítl dříve otevřený zápis EA i změnu DACL. Samotný ale připustil dříve otevřený FILE_WRITE_ATTRIBUTES, který změnil čas bez přerušení oplocku. Rezervace filtrového oplocku stejného handlu odmítla chybou 300. Nativní zkouška nejprve zapsala a použila dočasnou DACL, zavřela handle brokeru a ověřila, že rezervace selže, dokud starý handle existuje. Po jeho uzavření prošla rezervace a stejné ID šlo otevřít výhradně se dvěma očekávanými odkazy. Samostatná kontrola odmítla zapisovatelné paměťové mapování i po uzavření původního handlu, otevřený alternativní proud a další neočekávaný pevný odkaz. [Rezervace filtrového oplocku](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntcreatefile).
+
+V x64 Debug i Release prošlo 70 kontrol zdroje F6 a 248 běžných nativních kontrol. Zkouška používá dočasné soubory na jednom svazku. Ještě zbývá zapojit tuto posloupnost do brokeru, propojit zveřejnění cíle s žurnálem a ověřit dokončení na dvou svazcích. Ochrana zdroje v této zkoušce ověřuje pouze běžný soubor s hlavním datovým proudem.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

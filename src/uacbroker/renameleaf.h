@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Allow an overlapped relative file open for F6. | Request an exclusive oplock on the exact source name. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share anchored hard link creation. | Preserve the file identity without opening its original path again. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share the no-replace exchange for staged file updates. | Preserve the verified original when a replacement collides or is interrupted. | | GPT-6.1 Sol (Codex) |
@@ -86,19 +87,20 @@ inline DWORD NativeHardLink(HANDLE source, HANDLE targetParent, std::wstring_vie
 
 inline DWORD OpenFile(HANDLE parent, std::wstring_view leaf, HANDLE& source, ACCESS_MASK extraAccess, ULONG sharing,
                       ULONG disposition, ULONG options, PSECURITY_DESCRIPTOR security = nullptr,
-                      bool allowDirectory = false)
+                      bool allowDirectory = false, bool overlapped = false)
 {
     const auto bytes = static_cast<USHORT>(leaf.size() * sizeof(wchar_t));
     UNICODE_STRING objectName{bytes, bytes, const_cast<wchar_t*>(leaf.data())};
     OBJECT_ATTRIBUTES attributes{};
     InitializeObjectAttributes(&attributes, &objectName, OBJ_CASE_INSENSITIVE | OBJ_DONT_REPARSE, parent, security);
     IO_STATUS_BLOCK io{};
-    const ACCESS_MASK access = FILE_READ_ATTRIBUTES | SYNCHRONIZE | extraAccess;
+    const ACCESS_MASK access = FILE_READ_ATTRIBUTES | (overlapped ? 0 : SYNCHRONIZE) | extraAccess;
     // Leave the type unrestricted for directory links. The opened object's
     // attributes are verified before any mutation.
     const ULONG typeOption = allowDirectory ? 0 : FILE_NON_DIRECTORY_FILE;
+    const ULONG ioOption = overlapped ? 0 : FILE_SYNCHRONOUS_IO_NONALERT;
     const NTSTATUS status = NtCreateFile(&source, access, &attributes, &io, nullptr, FILE_ATTRIBUTE_NORMAL, sharing, disposition,
-                                         typeOption | FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_REPARSE_POINT | options,
+                                         typeOption | ioOption | FILE_OPEN_REPARSE_POINT | options,
                                          nullptr, 0);
     return status >= 0 ? ERROR_SUCCESS : RtlNtStatusToDosError(status);
 }
