@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Probe an NTFS file-wide write seal. | Test whether an exact temporary DACL closes the alias and file-ID races. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise encrypted named-stream copies and concurrent writes. | Verify raw EFS output before committing the target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe exclusive NTFS oplocks during F6 source retirement. | Observe separate-stream and extended-attribute writes against a held oplock. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
@@ -1074,6 +1075,113 @@ bool CheckMoveSourceOplock(const std::wstring& fixture)
             Check(error == ERROR_NOT_SUPPORTED, "verify the extended attribute written during the oplock", error);
         }
     }
+    return failures == 0;
+}
+
+bool CheckMoveSourceSecuritySeal(const std::wstring& fixture, HANDLE root)
+{
+    constexpr DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    const auto name = fixture + L"\\security-seal-source";
+    const auto alias = fixture + L"\\security-seal-alias";
+    if (!WriteFixture(name, {1, 2, 3}) || !CreateHardLinkW(alias.c_str(), name.c_str(), nullptr))
+        return false;
+    const auto open = [&](const std::wstring& path, DWORD access, DWORD disposition = OPEN_EXISTING) {
+        const HANDLE raw = CreateFileW(path.c_str(), access, share, nullptr, disposition, 0, nullptr);
+        return Handle(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+    };
+    auto source = open(name, FILE_READ_ATTRIBUTES | READ_CONTROL | WRITE_DAC);
+    auto existing = open(alias, WRITE_DAC);
+    if (!source || !existing)
+        return false;
+
+    PSECURITY_DESCRIPTOR savedRaw = nullptr, sealRaw = nullptr;
+    PACL saved = nullptr, seal = nullptr;
+    PSID owner = nullptr;
+    DWORD error = GetSecurityInfo(source.get(), SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+                                  &owner, nullptr, &saved, nullptr, &savedRaw);
+    const std::unique_ptr<void, decltype(&LocalFree)> savedSecurity(savedRaw, LocalFree);
+    SECURITY_DESCRIPTOR_CONTROL control{};
+    DWORD revision = 0;
+    UacEfsWorkspace::Detail::FileSecurity before;
+    if (error || !owner || !saved || before.Read(source.get()) || !GetSecurityDescriptorControl(savedRaw, &control, &revision) ||
+        !ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(D;;FA;;;OW)(D;;FA;;;WD)",
+                                                               SDDL_REVISION_1, &sealRaw, nullptr))
+        return false;
+    const std::unique_ptr<void, decltype(&LocalFree)> sealedSecurity(sealRaw, LocalFree);
+    BOOL present = FALSE, defaulted = FALSE;
+    FILE_ID_INFO identity{};
+    if (!GetSecurityDescriptorDacl(sealRaw, &present, &seal, &defaulted) || !present || !seal ||
+        !GetFileInformationByHandleEx(source.get(), FileIdInfo, &identity, sizeof(identity)))
+        return false;
+    error = SetSecurityInfo(source.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                            nullptr, nullptr, seal, nullptr);
+    if (error)
+        return false;
+
+    for (const auto& path : {name, alias})
+    {
+        const auto named = open(path + L":sealed", FILE_WRITE_DATA, CREATE_NEW);
+        const DWORD createError = named ? ERROR_SUCCESS : GetLastError();
+        const auto writeDacl = open(path, WRITE_DAC);
+        const DWORD daclError = writeDacl ? ERROR_SUCCESS : GetLastError();
+        Check(!named && createError == ERROR_ACCESS_DENIED && !writeDacl && daclError == ERROR_ACCESS_DENIED,
+              "deny a new named stream and suppress the owner's implicit WRITE_DAC through each link", createError);
+    }
+    FILE_ID_DESCRIPTOR id{};
+    id.dwSize = sizeof(id);
+    id.Type = ExtendedFileIdType;
+    id.ExtendedFileId = identity.FileId;
+    const HANDLE reopened = OpenFileById(root, &id, FILE_WRITE_EA | WRITE_DAC, share, nullptr, 0);
+    const DWORD byIdError = reopened == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
+    const Handle byId(byIdError ? nullptr : reopened);
+    Check(byIdError == ERROR_ACCESS_DENIED, "deny a new metadata writer opened by file ID", byIdError);
+
+    const SECURITY_INFORMATION flags = DACL_SECURITY_INFORMATION |
+        (control & SE_DACL_PROTECTED ? PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION);
+    error = SetSecurityInfo(existing.get(), SE_FILE_OBJECT, flags, nullptr, nullptr, saved, nullptr);
+    std::printf("PROBE: restore DACL using a handle opened before the seal=%lu\n", error);
+    if (error)
+        error = SetSecurityInfo(source.get(), SE_FILE_OBJECT, flags, nullptr, nullptr, saved, nullptr);
+    Check(!error && HasContents(name, {1, 2, 3}) && HasContents(alias, {1, 2, 3}),
+          "restore both names of the original file after the write-seal experiment", error);
+    if (error)
+        return false;
+
+    LPWSTR recoverySid = nullptr;
+    if (!ConvertSidToStringSidW(owner, &recoverySid))
+        return false;
+    const std::unique_ptr<void, decltype(&LocalFree)> sid(recoverySid, LocalFree);
+    // The fixture uses the current owner in place of the elevated Administrators
+    // group. The mask grants only READ_CONTROL, WRITE_DAC, SYNCHRONIZE and READ_ATTRIBUTES.
+    const std::wstring recoveryDacl = std::wstring(L"D:P(A;;RC;;;OW)(A;;0x00160080;;;") + recoverySid + L")";
+    PSECURITY_DESCRIPTOR recoveryRaw = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(recoveryDacl.c_str(), SDDL_REVISION_1, &recoveryRaw, nullptr))
+        return false;
+    const std::unique_ptr<void, decltype(&LocalFree)> recoverySecurity(recoveryRaw, LocalFree);
+    PACL recovery = nullptr;
+    if (!GetSecurityDescriptorDacl(recoveryRaw, &present, &recovery, &defaulted) || !present || !recovery)
+        return false;
+    error = SetSecurityInfo(source.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                            nullptr, nullptr, recovery, nullptr);
+    if (error)
+        return false;
+    source.reset();
+    existing.reset();
+
+    const auto named = open(alias + L":sealed-recovery", FILE_WRITE_DATA, CREATE_NEW);
+    const DWORD namedError = named ? ERROR_SUCCESS : GetLastError();
+    Check(!named && namedError == ERROR_ACCESS_DENIED,
+          "the recovery-only ACL does not grant access to create a new named stream", namedError);
+    const HANDLE reopenedForRecovery = OpenFileById(root, &id, FILE_READ_ATTRIBUTES | READ_CONTROL | WRITE_DAC, share, nullptr, 0);
+    const Handle restore(reopenedForRecovery == INVALID_HANDLE_VALUE ? nullptr : reopenedForRecovery);
+    FILE_ID_INFO actual{};
+    if (!restore || !GetFileInformationByHandleEx(restore.get(), FileIdInfo, &actual, sizeof(actual)) ||
+        !UacRenameLeaf::Detail::SameSource(identity, actual))
+        return false;
+    error = SetSecurityInfo(restore.get(), SE_FILE_OBJECT, flags, nullptr, nullptr, saved, nullptr);
+    UacEfsWorkspace::Detail::FileSecurity after;
+    Check(!error && !after.Read(restore.get()) && before.Matches(after) && HasContents(alias, {1, 2, 3}),
+          "reopen the same identity with only recovery rights and restore the original DACL", error);
     return failures == 0;
 }
 
@@ -2405,6 +2513,7 @@ int wmain(int argc, wchar_t** argv)
     if (moveSource)
         return CheckMoveSource(fixture, root.get()) && CheckMoveSourceGuards(fixture, root.get()) &&
                        CheckMoveSourceExtendedAttributeGuard(fixture, root.get()) && CheckMoveSourceOplock(fixture) &&
+                       CheckMoveSourceSecuritySeal(fixture, root.get()) &&
                        CheckMoveSourceRecoveryLink(fixture, root.get()) && CheckMoveSourceJournal(fixture) ? 0 : 1;
     if (!CheckFindTagStream() || !CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
         !CheckZipSelection(fixture, root.get()) || !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::Zip) ||
