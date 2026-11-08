@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Document cancellation of a running protected F5 copy. | Track cleanup before publication and acknowledged success after it. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the P4k CI result and allocation fix. | Keep the next stage gated on clean analysis. | https://github.com/majklvi/salamander/runs/128721425272 | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P4j CodeQL and the protected F5 queue pilot. | Track queue admission and isolated VM acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Document the UAC architecture, source audit, implementation stages and validation gates. | Plan per-operation elevation without implementing it. |  | GPT-6 (Codex) |
@@ -480,6 +481,23 @@ V izolované VM byly dvě úlohy F5 zařazeny v jednom procesu. První čekala n
 Ve finálním sestavení se stav čekání zobrazil bez zavádějícího popisku Storage-aware. Druhou úlohu šlo zrušit přímo ve frontě, zatímco první nabídka správce zůstala otevřená. Po uzavření první nabídky byly obě úlohy ukončené a Windows neotevřel systémovou výzvu. Tato etapa řídí přidělení a zrušení čekající úlohy. Po spuštění brokeru se kopírování dokončuje jako jedna operace.
 
 GitHub CI pro P4k na commitu `bcb8e25e` dokončila sestavení Win32, x64 a ARM64, 214 testů a kontrolu růstu zdrojů. CodeQL označil kontrolu nulového ukazatele po běžném `new` ve vytvoření skriptu fronty. Oprava používá `std::nothrow` u skriptu i připraveného požadavku, takže existující kontroly odpovídají způsobu alokace. [Testy P4k](https://github.com/majklvi/salamander/actions/runs/42475983806/job/128717387727) · [Nález CodeQL](https://github.com/majklvi/salamander/runs/128721425272).
+
+Opravená P4k na commitu `fde75378` prošla sestavením Win32, x64 a ARM64, 214 testy, kontrolou růstu zdrojů a CodeQL bez nových nálezů. [Testy](https://github.com/majklvi/salamander/actions/runs/42477577204) · [Výsledek CodeQL](https://github.com/majklvi/salamander/runs/128726793684).
+
+### 8.23 P4l — zrušení běžící chráněné kopie přes F5
+
+Po souhlasu spouští požadavek pracovní vlákno. Okno průběhu může přijmout Cancel a odeslat řídicí bajt přes stávající autentizované spojení. Broker jej přijímá pouze pro kopii stromu. Host při odeslání ponechá čtení odpovědi otevřené. Nový příznak schopnosti zajistí, že host i broker použijí stejný formát. [Souběžné čtení a zápis v pojmenované rouře](https://learn.microsoft.com/en-us/windows/win32/ipc/synchronous-and-overlapped-input-and-output).
+
+Broker kontroluje zrušení během kopírování i těsně před atomickým zveřejněním. Při včasném zrušení uklidí jen vlastní pracovní složku a teprve poté vrátí zrušení. Pokud už cíl zveřejnil, vrátí úspěch a host obnoví výpis cíle. Selhání úklidu nebo ztráta odpovědi zachovávají stav neověřeného výsledku z předchozího pilotu. Ostatní příkazy dál odmítají neočekávaná data v rouře. [Kontrola čekajících dat bez odebrání z roury](https://learn.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-peeknamedpipe).
+
+Sestavení x64 Debug prošlo. V Debug i Release prošlo 117 nativních kontrol, včetně odmítnutí neplatného řídicího bajtu. Prošly i test transportu, test plánování a test konverzních tabulek.
+
+V izolované Windows VM byl přes Computer Use připraven běžný vstup F5 a uživatel potvrdil systémové výzvy. Laboratorní broker čekal na stejný řídicí bajt ve dvou předem určených bodech. Pozorovací skript ověřil pořadí fází a stav na disku.
+
+- U `17-active-cancel` už byl první soubor v pracovní složce. Po Cancel a Yes se cíl nezveřejnil, zdroj zůstal a pracovní složka zmizela. Broker řádně skončil a Samandarin se vrátil do panelu.
+- U `18-late-cancel` skript viděl zveřejněný cíl ještě před odpovědí brokeru. Pozdní Cancel kopii ponechal. SHA-256 obou souborů odpovídal zdroji, vznikla prázdná podsložka, zdroj zůstal a počet pracovních složek byl nula. Broker řádně skončil a Samandarin se vrátil do panelu.
+
+Po zkouškách se obnovil běžný broker P4l a ověřil se jeho SHA-256.
 
 ## 9. Uživatelský tok a stav operace
 

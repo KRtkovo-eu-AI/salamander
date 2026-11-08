@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Keep Cancel responsive during a protected tree copy. | Show the confirmed result even after a cancel request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show tree copy consent from the admitted progress dialog. | Keep queued tree operations behind the FIFO barrier. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Show the shield on Administrator in permanent-delete consent. | Keep Cancel as the default independently of the shield. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Confirm the exact permanent delete path in the progress dialog. | Default to Cancel and report an unconfirmed deletion without replay. | | GPT-6.1 Sol (Codex) |
@@ -1603,8 +1604,8 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         //--- worker request to show a dialog
     case WM_USER_DIALOG:
     {
-        if (CancelWorker)
-            return TRUE; // should terminate, it should not request anything
+        if (CancelWorker && wParam != WORKER_DIALOG_UAC_TREE_RESULT)
+            return TRUE; // other worker prompts are suppressed after cancellation
 
         if (DelayParallelProgressShow)
         {
@@ -1757,7 +1758,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             const bool moving = prompt.request.IsMove();
             const bool tree = prompt.request.IsTree();
             const int confirmText = tree ? IDS_UAC_TREE_COPY_CONFIRM : (moving ? IDS_UAC_MOVE_CONFIRM : IDS_UAC_COPY_CONFIRM);
-            const int unknownText = tree ? IDS_UAC_TREE_COPY_UNKNOWN : (moving ? IDS_UAC_MOVE_UNKNOWN : IDS_UAC_COPY_UNKNOWN);
+            const int unknownText = moving ? IDS_UAC_MOVE_UNKNOWN : IDS_UAC_COPY_UNKNOWN;
             const std::string message = std::string(LoadStr(confirmText)) + "\n\n" +
                                         prompt.sourcePath + "\n -> " + prompt.targetPath;
             const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
@@ -1767,15 +1768,25 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             confirm.Caption = LoadStr(moving ? IDS_MOVE : IDS_COPY);
             confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
             confirm.AliasBtnNames = alias.c_str();
-            if (SalMessageBoxEx(&confirm) == IDOK && !CancelWorker)
+            prompt.approved = SalMessageBoxEx(&confirm) == IDOK && !CancelWorker;
+            if (prompt.approved && !tree)
             {
                 prompt.result = prompt.request.Execute(HWindow);
                 if (prompt.result.unknown || (prompt.result.error != ERROR_SUCCESS && prompt.result.error != ERROR_CANCELLED))
                     SalMessageBox(HWindow, prompt.result.unknown ? LoadStr(unknownText) : GetErrorText(prompt.result.error),
                                   LoadStr(moving ? IDS_ERRORMOVE : IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
-                else if (tree && prompt.result.error == ERROR_SUCCESS)
-                    MainWindow->PostChangeOnPathNotification(Script->WaitInQueueTo, TRUE);
             }
+            break;
+        }
+
+        case WORKER_DIALOG_UAC_TREE_RESULT:
+        {
+            const auto& result = *reinterpret_cast<const UacF7::Result*>(lParam);
+            if (result.unknown || (result.error != ERROR_SUCCESS && result.error != ERROR_CANCELLED))
+                SalMessageBox(HWindow, result.unknown ? LoadStr(IDS_UAC_TREE_COPY_UNKNOWN) : GetErrorText(result.error),
+                              LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+            else if (result.error == ERROR_SUCCESS)
+                MainWindow->PostChangeOnPathNotification(Script->WaitInQueueTo, TRUE);
             break;
         }
 

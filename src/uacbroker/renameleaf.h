@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Recognize one cancel control for tree transfers. | Keep the other transfer commands strict. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Allow a creation descriptor for native files. | Apply mandatory integrity before the staged file is visible. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Move one verified file across directories on the same volume. | Reuse the no-replace native rename without changing ordinary F6. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share anchored leaf opens with the staging file. | Keep temporary file creation relative to the verified target. | | GPT-6.1 Sol (Codex) |
@@ -80,16 +81,22 @@ inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity)
     return ERROR_SUCCESS;
 }
 
-inline DWORD CheckTransferConnection(HANDLE connection, ULONGLONG deadline)
+inline constexpr BYTE treeCancelSignal = 1;
+
+inline DWORD CheckTransferConnection(HANDLE connection, ULONGLONG deadline, bool treeCopy = false)
 {
     if (GetTickCount64() >= deadline)
         return ERROR_TIMEOUT;
     if (!connection)
         return ERROR_SUCCESS;
-    DWORD pending = 0;
-    if (!PeekNamedPipe(connection, nullptr, 0, nullptr, &pending, nullptr))
+    BYTE signal = 0;
+    DWORD read = 0, pending = 0;
+    if (!PeekNamedPipe(connection, &signal, sizeof(signal), &read, &pending, nullptr))
         return GetLastError();
-    return pending ? ERROR_INVALID_DATA : ERROR_SUCCESS;
+    if (!pending)
+        return ERROR_SUCCESS;
+    return treeCopy && pending == sizeof(signal) && read == sizeof(signal) && signal == treeCancelSignal
+               ? ERROR_CANCELLED : ERROR_INVALID_DATA;
 }
 
 inline bool SameSource(const FILE_ID_INFO& actual, const FILE_ID_INFO& expected)

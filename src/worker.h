@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Declare the terminal tree-copy UI message. | Report broker outcomes even when the user requested cancellation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Carry the prepared protected tree copy in the worker script. | Keep the verified request alive through queue admission. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Mark explicitly permanent single-file delete operations. | Keep Shell recycling outside the UAC delete pilot. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Mark eligible basic metadata operations and define their UI message. | Keep the broker pilot scoped to a single regular file. | | GPT-6.1 Sol (Codex) |
@@ -52,6 +53,7 @@ void ReleaseWorker();
 constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 13;
 constexpr WPARAM WORKER_DIALOG_UAC_DELETE = 14;
 constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 15;
+constexpr WPARAM WORKER_DIALOG_UAC_TREE_RESULT = 16;
 
 struct CChangeAttrsData
 {

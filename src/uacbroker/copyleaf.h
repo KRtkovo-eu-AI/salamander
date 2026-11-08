@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Check tree cancellation while copying staged data. | Stop before publishing the staged tree. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Apply tree staging integrity before copying bytes. | Keep the one-file path unchanged and verify protection on staged files. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share copying from a held file handle. | Let tree staging pin source handles and journal created file identities. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share the transfer connection guard. | Check for disconnect before the native operation. | | GPT-6.1 Sol (Codex) |
@@ -82,9 +83,9 @@ inline DWORD StageFile(HANDLE parent, HANDLE& file, PSECURITY_DESCRIPTOR securit
     return UacRenameLeaf::Detail::OpenFile(parent, name, file, access, 0, FILE_CREATE, FILE_DELETE_ON_CLOSE, security);
 }
 
-inline DWORD CheckCancelled(HANDLE cancel, HANDLE connection, ULONGLONG deadline)
+inline DWORD CheckCancelled(HANDLE cancel, HANDLE connection, ULONGLONG deadline, bool treeCopy = false)
 {
-    if (const DWORD error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline))
+    if (const DWORD error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline, treeCopy))
         return error;
     if (!cancel)
         return ERROR_SUCCESS;
@@ -97,13 +98,13 @@ inline DWORD CheckCancelled(HANDLE cancel, HANDLE connection, ULONGLONG deadline
 }
 
 inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
-                       HANDLE cancel, HANDLE connection, ULONGLONG deadline)
+                       HANDLE cancel, HANDLE connection, ULONGLONG deadline, bool treeCopy)
 {
     std::vector<BYTE> buffer(64 * 1024);
     const DWORD bufferSize = static_cast<DWORD>(buffer.size());
     while (remaining)
     {
-        if (const DWORD error = CheckCancelled(cancel, connection, deadline))
+        if (const DWORD error = CheckCancelled(cancel, connection, deadline, treeCopy))
             return error;
         DWORD read = 0;
         const DWORD requested = remaining < bufferSize ? static_cast<DWORD>(remaining) : bufferSize;
@@ -153,7 +154,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return GetLastError();
     if (!UacF7::IsPlainCopyFile(targetBasic.FileAttributes))
         return ERROR_NOT_SUPPORTED;
-    if ((error = CopyData(source, target.get(), static_cast<ULONGLONG>(size.QuadPart), cancel, connection, deadline)) != ERROR_SUCCESS)
+    if ((error = CopyData(source, target.get(), static_cast<ULONGLONG>(size.QuadPart), cancel, connection, deadline, protection != nullptr)) != ERROR_SUCCESS)
         return error;
 
     FILE_BASIC_INFO current{};
@@ -170,7 +171,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return GetLastError();
     if (created && !GetFileInformationByHandleEx(target.get(), FileIdInfo, created, sizeof(*created)))
         return GetLastError();
-    if ((error = CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
+    if ((error = CheckCancelled(cancel, connection, deadline, protection != nullptr)) != ERROR_SUCCESS)
         return error;
     if ((error = UacRenameLeaf::Detail::NativeRename(target.get(), targetParent, targetName)) != ERROR_SUCCESS)
         return error;

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Execute consented tree transfers on the worker thread. | Keep the dialog available for cancellation until the broker replies. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Dispatch the protected tree copy after queue admission. | Count one completion only when the broker confirms publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Run eligible permanent deletion with the verified file executor. | Preserve the original file identity across ordinary attempts and elevated consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Run one-file basic metadata changes through the verified executor. | Offer elevation only after an ordinary access denial and retain worker accounting. | | GPT-6.1 Sol (Codex) |
@@ -10646,6 +10647,7 @@ unsigned ThreadWorkerBody(void* parameter)
         GainWriteOwnerAccess();
 
     HWND hProgressDlg = data->HProgressDlg;
+    const HANDLE cancelWorkerEvent = data->CancelWorkerEvent;
     void* buffer = data->Buffer;
     BOOL bufferIsAllocated = data->BufferIsAllocated;
     CChangeAttrsData* attrsData = (CChangeAttrsData*)data->Buffer;
@@ -10785,6 +10787,11 @@ unsigned ThreadWorkerBody(void* parameter)
 
                 UacF7::TransferPrompt prompt{*script->ProtectedTreeTransfer, op->SourceName, op->TargetName};
                 SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
+                if (prompt.approved && WaitForSingleObject(cancelWorkerEvent, 0) == WAIT_TIMEOUT)
+                {
+                    prompt.result = prompt.request.Execute(hProgressDlg, cancelWorkerEvent);
+                    SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TREE_RESULT, reinterpret_cast<LPARAM>(&prompt.result));
+                }
                 Error = prompt.result.unknown || prompt.result.error != ERROR_SUCCESS;
                 if (!Error)
                 {

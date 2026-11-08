@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise tree cancellation received through a pipe. | Distinguish the valid control byte from unrelated data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Test exclusive journal recovery on NTFS. | Reap an owned orphan and preserve unrelated or substituted directories. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise mandatory integrity on staged tree objects. | Check Windows access decisions and preserve destination DACL inheritance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise bounded NTFS tree copying. | Verify whole-tree publication and rollback of owned temporary entries. | | GPT-6.1 Sol (Codex) |
@@ -467,6 +468,20 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent, bool high)
     result = copyTree(from.get(), sourceId, to.get(), targetId, L"disconnected", nullptr, read.get());
     Check(result.error == ERROR_BROKEN_PIPE && !result.cleanupError && noStaging(),
           "refuse to stage a tree after the peer disconnects", result.error);
+
+    for (const BYTE signal : {UacRenameLeaf::Detail::treeCancelSignal, BYTE{0}})
+    {
+        if (!CreatePipe(&rawRead, &rawWrite, nullptr, 0))
+            return false;
+        const Handle cancelRead(rawRead), cancelWrite(rawWrite);
+        DWORD written = 0;
+        if (!WriteFile(cancelWrite.get(), &signal, sizeof(signal), &written, nullptr) || written != sizeof(signal))
+            return false;
+        const DWORD expected = signal == UacRenameLeaf::Detail::treeCancelSignal ? ERROR_CANCELLED : ERROR_INVALID_DATA;
+        result = copyTree(from.get(), sourceId, to.get(), targetId, L"pipe-cancel", nullptr, cancelRead.get());
+        Check(result.error == expected && !result.cleanupError && noStaging() && !Exists(target + L"\\pipe-cancel"),
+              "accept only the defined tree cancel signal before publication", result.error);
+    }
 
     using UacCopyTree::Detail::Stage;
     using UacCopyTree::Detail::RecoveryRecord;

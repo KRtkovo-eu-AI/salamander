@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Send tree cancellation without giving up the authenticated reply. | Resolve cancellation races using the broker result. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Register additional protected tree-copy destinations. | Bind each destination to a protected path and an identity-specific recovery journal. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Hold the protected tree journal exclusively. | Serialize recovery and copying under the registered target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Bind authenticated tree copy to a registered target. | Recheck both directory identities after UAC. | | GPT-6.1 Sol (Codex) |
@@ -83,9 +84,10 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD moveCapability = 64;
 [[maybe_unused]] constexpr DWORD inventoryCapability = 128;
 [[maybe_unused]] constexpr DWORD copyTreeCapability = 256;
+[[maybe_unused]] constexpr DWORD cancelTreeCapability = 512;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
-                                                 inventoryCapability | copyTreeCapability;
+                                                 inventoryCapability | copyTreeCapability | cancelTreeCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -535,7 +537,7 @@ DWORD OpenRequestParent(HANDLE root, std::wstring_view relative, Handle& parent,
 
 // The client reads an exact number of bytes in byte mode. The message-mode
 // server rejects larger replies with ERROR_MORE_DATA.
-DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGLONG deadline)
+DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGLONG deadline, HANDLE cancel = nullptr)
 {
     if (GetTickCount64() >= deadline)
         return ERROR_TIMEOUT;
@@ -550,7 +552,21 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
     if (!complete)
     {
         const DWORD error = GetLastError();
-        const DWORD finished = error == ERROR_IO_PENDING ? FinishIo(pipe, io, count, deadline) : error;
+        if (error != ERROR_IO_PENDING)
+            return error;
+        if (cancel)
+        {
+            const HANDLE events[] = {io.hEvent, cancel};
+            const auto now = GetTickCount64();
+            const DWORD remaining = now < deadline ? static_cast<DWORD>(deadline - now) : 0;
+            if (WaitForMultipleObjects(ARRAYSIZE(events), events, FALSE, remaining) == WAIT_OBJECT_0 + 1)
+            {
+                BYTE signal = UacRenameLeaf::Detail::treeCancelSignal;
+                // Keep the read pending. A reply can confirm that publication won the race.
+                TransferRequest(pipe, &signal, sizeof(signal), true, deadline);
+            }
+        }
+        const DWORD finished = FinishIo(pipe, io, count, deadline);
         if (finished)
             return finished;
     }
@@ -1068,7 +1084,7 @@ bool InspectPipeClient(HANDLE pipe, bool& elevated)
 int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
              , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result,
-               HANDLE* listingPipe = nullptr
+               HANDLE* listingPipe = nullptr, HANDLE cancel = nullptr
 #endif
 )
 {
@@ -1155,7 +1171,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         const bool tree = request->operation == Operation::CopyTree;
         if (request->operation == Operation::Copy || tree)
             deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
-        error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline);
+        error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline, tree ? cancel : nullptr);
         if (!error && (request->operation == Operation::Copy || request->operation == Operation::Move || tree))
         {
             // The authenticated reply is sent only after the operation handles close.
@@ -1396,7 +1412,7 @@ bool PreparedTransfer::PrepareTree(const std::wstring& sourcePath, std::wstring_
     return true;
 }
 
-Result PreparedTransfer::Execute(HWND owner) const
+Result PreparedTransfer::Execute(HWND owner, HANDLE cancel) const
 {
     Result result;
     const ComApartment com;
@@ -1413,7 +1429,7 @@ Result PreparedTransfer::Execute(HWND owner) const
     std::memcpy(header.sourceId.Identifier, source.sourceId, sizeof(source.sourceId));
     std::memcpy(header.targetParentId.Identifier, target.fileId, sizeof(target.fileId));
     std::wstring payload = source.volume + source.relative + source.leaf + target.volume + target.relative + target.leaf;
-    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result);
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, cancel);
     return result;
 }
 
