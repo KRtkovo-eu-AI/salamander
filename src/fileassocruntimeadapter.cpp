@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Preserve imported legacy rows during projection. | Existing runtime rows already contain command metadata unavailable in the canonical record, so unchanged legacy rows must remain active while user edits are resolved. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Add the stable plugin runtime resolver. | Map canonical plugin targets to current runtime indexes only when plugin capabilities support the requested association. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 
 #include "precomp.h"
@@ -133,9 +134,14 @@ bool BeginRuntimeProjection(void* opaque)
     context->StagedEditors.DestroyMembers();
     context->StagedPacker.DeleteAllFormats();
 
-    // Editors have no canonical command metadata yet; preserve their complete
-    // legacy rows in the staging area instead of inventing replacement commands.
+    // Preserve complete legacy rows while the canonical record only carries
+    // the target identity. User rows are layered onto these staged defaults.
+    if (!context->StagedViewers.Load(*context->MainWindow->ViewerMasks) ||
+        !context->StagedAlternateViewers.Load(*context->MainWindow->AltViewerMasks))
+        return false;
     if (!context->StagedEditors.Load(*context->MainWindow->EditorMasks))
+        return false;
+    if (!context->StagedPacker.Load(PackerFormatConfig))
         return false;
     return true;
 }
@@ -145,6 +151,9 @@ bool ApplyRuntimeProjection(const Association& association, void* opaque)
     RuntimeAdapterContext* context = static_cast<RuntimeAdapterContext*>(opaque);
     if (context == NULL)
         return false;
+
+    if (association.AssociationProvenance == Provenance::Legacy)
+        return true;
 
     switch (association.AssociationCategory)
     {
@@ -194,10 +203,25 @@ bool CommitRuntimeProjection(void* opaque)
 
 bool ResolvePluginRuntimeAssociation(const Association& association, void* context)
 {
+    if (association.AssociationProvenance == Provenance::Legacy)
+        return true;
+
     PluginRuntimeResolverContext* resolver =
         static_cast<PluginRuntimeResolverContext*>(context);
-    if (resolver == NULL || resolver->Plugins == NULL ||
-        association.AssociationTarget.Kind != TargetKind::Plugin ||
+    if (resolver == NULL)
+        return false;
+
+    if (association.AssociationTarget.Kind == TargetKind::BuiltIn &&
+        (association.AssociationCategory == Category::View ||
+         association.AssociationCategory == Category::AlternateView) &&
+        association.AssociationTarget.StableId == "internal")
+    {
+        resolver->LastResolution = PluginRuntimeResolution();
+        resolver->LastResolution.RuntimeViewerType = VIEWER_INTERNAL;
+        return true;
+    }
+
+    if (resolver->Plugins == NULL || association.AssociationTarget.Kind != TargetKind::Plugin ||
         association.AssociationTarget.StableId.empty())
         return false;
 

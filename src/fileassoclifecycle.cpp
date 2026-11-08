@@ -1,10 +1,13 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Import legacy associations on first canonical load. | Show existing viewer, editor, and archive defaults in the new matrix without forcing manual pattern entry. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Expose transactional canonical model editing. | Project a candidate before publishing it to lifecycle state so the new configuration page is atomic. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Add guarded canonical association lifecycle hooks. | Keep legacy runtime configuration active until a complete projection adapter is registered. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 
 #include "precomp.h"
 #include "fileassoclifecycle.h"
+#include "fileassocmigration.h"
 #include "configstorage.h"
 
 namespace Salamander
@@ -89,6 +92,15 @@ BOOL LoadCanonicalAssociationsForLifecycle(CConfigurationStorage& storage,
     if (!loaded.LoadFromConfigurationStorage(storage, CanonicalAssociationKey, error))
         return FALSE;
 
+    if (loaded.Associations().empty())
+    {
+        CFileAssociationModel legacy;
+        LegacyMigrationReport migrationReport;
+        BuildLegacyAssociationDefaults(&legacy, &migrationReport, NULL);
+        if (!legacy.Associations().empty())
+            loaded = legacy;
+    }
+
     LifecycleState& state = State();
     state.Model = loaded;
     state.Loaded = true;
@@ -126,12 +138,67 @@ BOOL SaveCanonicalAssociationsForLifecycle(CConfigurationStorage& storage,
         error->clear();
 
     LifecycleState& state = State();
-    if (!state.Loaded || state.Model.Associations().empty() ||
+    if (!state.Loaded ||
         !HasRegisteredOperations() || !state.ProjectionSucceeded ||
         state.ProjectionBlocked)
         return TRUE;
 
     return state.Model.SaveToConfigurationStorage(storage, CanonicalAssociationKey, error);
+}
+
+BOOL CopyCanonicalAssociationsForConfiguration(CFileAssociationModel* model,
+                                               std::string* error)
+{
+    if (error != NULL)
+        error->clear();
+    if (model == NULL)
+    {
+        SetError(error, "canonical association model output is required");
+        return FALSE;
+    }
+    if (!State().Loaded)
+    {
+        SetError(error, "canonical association model is not loaded");
+        return FALSE;
+    }
+    *model = State().Model;
+    return TRUE;
+}
+
+BOOL ReplaceCanonicalAssociationsForConfiguration(const CFileAssociationModel& model,
+                                                  std::string* error)
+{
+    if (error != NULL)
+        error->clear();
+
+    LifecycleState& state = State();
+    if (!state.Loaded)
+    {
+        SetError(error, "canonical association model is not loaded");
+        return FALSE;
+    }
+
+    CFileAssociationModel candidate;
+    if (!candidate.ReplaceAssociations(model.Associations(), error))
+        return FALSE;
+
+    RuntimeProjectionReport report;
+    if (!candidate.Associations().empty())
+    {
+        if (!HasRegisteredOperations())
+        {
+            SetError(error, "runtime association projection adapter is not registered");
+            return FALSE;
+        }
+        if (!ProjectRuntimeAssociations(candidate, RegisteredOperations(), &report, error))
+            return FALSE;
+    }
+
+    state.Model = candidate;
+    state.ProjectionReport = report;
+    state.ProjectionSucceeded = true;
+    state.ProjectionBlocked = false;
+    return TRUE;
 }
 
 bool IsCanonicalRuntimeLoaded()

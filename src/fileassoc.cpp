@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Add transactional replacement for the configuration editor. | Normalize and validate edited rows before replacing the live model. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Add configuration-storage persistence entry points. | Route canonical associations through registry and portable configuration storage without duplicating serialization. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Persist and validate the association record count. | Detect gaps in numeric registry records rather than silently loading a truncated model. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Preserve serialized association provenance during load. | Legacy conflicts must remain visible and must not be rewritten as ordinary legacy rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -244,7 +245,7 @@ bool CFileAssociationModel::SetUnassigned(const char* pattern, Category category
 }
 
 bool CFileAssociationModel::ResetUserOverride(const char* pattern, Category category,
-                                              PanelOperation operation)
+                                               PanelOperation operation)
 {
     std::string normalized;
     if (!NormalizePattern(pattern, &normalized))
@@ -263,6 +264,28 @@ bool CFileAssociationModel::ResetUserOverride(const char* pattern, Category cate
         }
     }
     return removed;
+}
+
+bool CFileAssociationModel::ReplaceAssociations(const std::vector<Association>& associations,
+                                                std::string* error)
+{
+    std::vector<Association> replacement;
+    replacement.reserve(associations.size());
+    for (size_t i = 0; i < associations.size(); ++i)
+    {
+        Association item = associations[i];
+        if (!NormalizePattern(item.Pattern.c_str(), &item.Pattern, error))
+            return false;
+        replacement.push_back(item);
+    }
+
+    CFileAssociationModel candidate;
+    candidate.Items.swap(replacement);
+    if (!candidate.Validate(error))
+        return false;
+
+    Items.swap(candidate.Items);
+    return true;
 }
 
 bool CFileAssociationModel::Validate(std::string* error) const

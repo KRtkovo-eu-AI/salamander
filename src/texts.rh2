@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Add canonical association provenance identifiers. | Give the configuration editor localized labels for default, user, legacy, disabled, and conflict rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Localize the finishing phase in Find. | Distinguish a finished search worker from results still being finalized. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Localize Find activity and response warnings. | Describe Find progress in the dialog and main window. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-04 | Describe a missing extension runtime. | Activation failed silently when the interpreter or runtime provider was not installed. | | Grok 4.7 |
@@ -3148,6 +3149,53 @@
 #define IDS_FILELAUNCH_LONGPATH_UNSET                    14520
 #define IDS_FILELAUNCH_LONGPATH_UNKNOWN                  14521
 #define IDS_FILELAUNCH_LONGPATH_CAVEAT                   14522
+
+#define IDS_FILEASSOCIATIONS                              14530
+#define IDS_FILEASSOCIATION_PATTERN                       14531
+#define IDS_FILEASSOCIATION_CATEGORY                      14532
+#define IDS_FILEASSOCIATION_OPERATION                     14533
+#define IDS_FILEASSOCIATION_TARGET                        14534
+#define IDS_FILEASSOCIATION_TARGET_ID                     14535
+#define IDS_FILEASSOCIATION_STATUS                        14536
+#define IDS_FILEASSOCIATION_ADD                           14537
+#define IDS_FILEASSOCIATION_DELETE                        14538
+#define IDS_FILEASSOCIATION_RESET                         14539
+#define IDS_FILEASSOCIATION_UNASSIGNED                    14540
+#define IDS_FILEASSOCIATION_VIEW                          14541
+#define IDS_FILEASSOCIATION_ALTERNATE_VIEW                14542
+#define IDS_FILEASSOCIATION_EDIT                          14543
+#define IDS_FILEASSOCIATION_PANEL_ARCHIVE                 14544
+#define IDS_FILEASSOCIATION_NOT_APPLICABLE                14545
+#define IDS_FILEASSOCIATION_LIST_UNPACK                   14546
+#define IDS_FILEASSOCIATION_DELETE_PACK                   14547
+#define IDS_FILEASSOCIATION_BUILT_IN                      14548
+#define IDS_FILEASSOCIATION_PLUGIN                        14549
+#define IDS_FILEASSOCIATION_PRESET                        14550
+#define IDS_FILEASSOCIATION_STATUS_READY                  14551
+#define IDS_FILEASSOCIATION_STATUS_CONFLICT               14552
+#define IDS_FILEASSOCIATION_DEFAULT                      14553
+#define IDS_FILEASSOCIATION_USER                         14554
+#define IDS_FILEASSOCIATION_LEGACY                       14555
+#define IDS_FILEASSOCIATION_DISABLED                     14556
+#define IDS_FILEASSOCIATION_CONFLICT                     14557
+#define IDS_FILEASSOCIATION_SEARCH                       14558
+#define IDS_FILEASSOCIATION_FILTER_CATEGORY              14559
+#define IDS_FILEASSOCIATION_FILTER_PROVENANCE            14560
+#define IDS_FILEASSOCIATION_FILTER_ALL                   14561
+#define IDS_FILEASSOCIATION_FILTER_CONFLICTS             14562
+#define IDS_FILEASSOCIATION_MATRIX_PATTERN               14563
+#define IDS_FILEASSOCIATION_MATRIX_VIEW                  14564
+#define IDS_FILEASSOCIATION_MATRIX_ALTERNATE             14565
+#define IDS_FILEASSOCIATION_MATRIX_EDIT                  14566
+#define IDS_FILEASSOCIATION_MATRIX_ARCHIVE               14567
+#define IDS_FILEASSOCIATION_LEGEND                       14568
+#define IDS_FILEASSOCIATION_GUIDANCE                     14569
+#define IDS_FILEASSOCIATION_NO_TARGETS                   14570
+#define IDS_FILEASSOCIATION_INTERNAL_VIEWER              14571
+#define IDS_FILEASSOCIATION_LEGACY_RUNTIME               14572
+#define IDS_FILEASSOCIATION_SELECT_PLUGIN                 14573
+#define IDS_FILEASSOCIATION_NO_PRESET                    14574
+#define IDS_FILEASSOCIATION_PATTERN_EMPTY                14575
 #define IDS_FILELAUNCH_LAUNCH_CLOSE                      14523
 #define IDS_FILELAUNCH_LONGPATH_GUIDE_BUTTON             14524
 #define IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE              14525

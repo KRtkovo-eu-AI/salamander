@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Add transactional replacement for the configuration editor. | Let the canonical association page edit a complete model without exposing private storage or partially applying invalid rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Add configuration-storage persistence entry points. | Route canonical associations through registry and portable configuration storage without duplicating serialization. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Document complete association record persistence. | Ensure schema consumers can detect missing numeric records instead of accepting truncated input. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Make the persistence API self-contained. | Ensure consumers see the Windows registry handle and Boolean types declared by the public header. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -87,6 +88,10 @@ public:
     bool SetUnassigned(const char* pattern, Category category, PanelOperation operation,
                        std::string* error = NULL);
     bool ResetUserOverride(const char* pattern, Category category, PanelOperation operation);
+
+    void Clear() { Items.clear(); }
+    bool ReplaceAssociations(const std::vector<Association>& associations,
+                             std::string* error = NULL);
 
     bool Validate(std::string* error = NULL) const;
     const Association* FindExactEffective(const char* pattern, Category category,

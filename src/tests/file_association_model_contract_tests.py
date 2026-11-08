@@ -1,6 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-08 | Check responsive matrix and Internal Viewer registration. | Prevent regressions in headers, scrolling, page navigation and access to the existing viewer settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+# | 2026-11-08 | Check matrix filters and localized target states. | Keep the redesigned association page usable for archive-only rows, disabled overrides, and missing targets. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+# | 2026-11-08 | Check resource-table separators. | Prevent rc.exe crashes caused by trailing commas after STRINGTABLE values. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+# | 2026-11-08 | Check canonical editor provenance and multi-row editing. | Prevent the new page from hiding row origin metadata or making Add / Update unable to create additional entries. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+# | 2026-11-08 | Check the canonical association configuration page. | Prevent the implementation from stopping at backend projection while the legacy pages remain the only UI. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-08 | Check qualified lifecycle adapter calls. | Keep source-contract checks aligned with the namespace-qualified C++ integration points. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-08 | Check stable plugin runtime resolution. | Ensure canonical plugin targets use persisted identities and capability checks instead of session ordinals. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-08 | Check transactional runtime projection callbacks. | Keep incomplete target resolution from mutating the legacy runtime projection. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -22,6 +27,15 @@ FILTERS = ROOT / "src" / "vcxproj" / "salamand.vcxproj.filters"
 ARRAY = ROOT / "src" / "common" / "array.h"
 PACK_HEADER = ROOT / "src" / "pack.h"
 PACK_IMPLEMENTATION = ROOT / "src" / "pack3.cpp"
+LIFECYCLE_HEADER = ROOT / "src" / "fileassoclifecycle.h"
+LIFECYCLE_IMPLEMENTATION = ROOT / "src" / "fileassoclifecycle.cpp"
+CFG_HEADER = ROOT / "src" / "cfgdlg.h"
+DIALOGS4 = ROOT / "src" / "dialogs4.cpp"
+DIALOGS5 = ROOT / "src" / "dialogs5.cpp"
+LANG_HEADER = ROOT / "src" / "lang" / "lang.rh"
+LANG_RESOURCE = ROOT / "src" / "lang" / "lang.rc"
+TEXTS_HEADER = ROOT / "src" / "texts.rh2"
+TEXTS_RESOURCE = ROOT / "src" / "lang" / "texts.rc2"
 
 
 def require(condition: bool, message: str) -> None:
@@ -48,6 +62,15 @@ def main() -> None:
     pack_implementation = PACK_IMPLEMENTATION.read_text(encoding="utf-8")
     project = PROJECT.read_text(encoding="utf-8")
     filters = FILTERS.read_text(encoding="utf-8")
+    lifecycle_header = LIFECYCLE_HEADER.read_text(encoding="utf-8")
+    lifecycle_implementation = LIFECYCLE_IMPLEMENTATION.read_text(encoding="utf-8")
+    cfg_header = CFG_HEADER.read_text(encoding="utf-8")
+    dialogs4 = DIALOGS4.read_text(encoding="utf-8")
+    dialogs5 = DIALOGS5.read_text(encoding="utf-8")
+    lang_header = LANG_HEADER.read_text(encoding="utf-8")
+    lang_resource = LANG_RESOURCE.read_text(encoding="utf-8")
+    texts_header = TEXTS_HEADER.read_text(encoding="utf-8")
+    texts_resource = TEXTS_RESOURCE.read_text(encoding="utf-8")
 
     for enum_name in ("Category", "PanelOperation", "Provenance", "TargetKind"):
         require(f"enum class {enum_name}" in header, f"missing canonical {enum_name} enum")
@@ -187,10 +210,92 @@ def main() -> None:
             "ProjectRuntimeAssociations" in lifecycle and
             "runtime association projection adapter is not registered" in lifecycle,
             "canonical lifecycle must load temporary state and guard unavailable projection")
-    require("if (!state.Loaded || state.Model.Associations().empty()" in lifecycle and
+    require("if (!state.Loaded ||" in lifecycle and
             "!state.ProjectionSucceeded" in lifecycle and
             "return TRUE;" in lifecycle,
-            "blocked or empty canonical state must not create or overwrite persisted state")
+            "blocked canonical state must not create or overwrite persisted state")
+    require("ReplaceAssociations" in header and
+            "replacement.reserve(associations.size())" in implementation and
+            "Items.swap(candidate.Items)" in implementation,
+            "the model must expose atomic replacement for the configuration editor")
+    require("CopyCanonicalAssociationsForConfiguration" in lifecycle_header and
+            "ReplaceCanonicalAssociationsForConfiguration" in lifecycle_header and
+            "candidate.ReplaceAssociations(model.Associations(), error)" in lifecycle_implementation and
+            "ProjectRuntimeAssociations(candidate" in lifecycle_implementation,
+            "lifecycle must validate and project UI edits before publishing them")
+    require("class CCfgPageFileAssociations" in cfg_header and
+            "std::vector<Salamander::FileAssociations::Association> Rows" in cfg_header and
+            "CopyCanonicalAssociationsForConfiguration" in dialogs5 and
+            "ReplaceCanonicalAssociationsForConfiguration" in dialogs5 and
+            "BuildCandidate" in dialogs5 and
+            "ProvenanceText" in dialogs5 and
+            "Rows.push_back(item)" in dialogs5 and
+            "IDL_FILEASSOCIATIONS" in dialogs5,
+            "the canonical association editor must load, edit, and commit model rows")
+    require("BuildLegacyAssociationDefaults" in migration_header and
+            "viewerTables[2]" in migration and
+            "PackerFormatConfig.GetFormatsCount" in migration,
+            "the canonical editor must collect existing viewer, editor, and archive defaults")
+    require("MatrixRow" in cfg_header and
+            "FilterCategory" in cfg_header and
+            "FilterProvenance" in cfg_header and
+            "ConflictsOnly" in cfg_header and
+            "IDC_FILEASSOCIATION_TARGETCATALOG" in dialogs5 and
+            "NM_CUSTOMDRAW" in dialogs5 and
+            "SupportPanelView" in dialogs5 and
+            "SupportPanelEdit" in dialogs5,
+            "the redesigned editor must expose matrix filtering, badges, and compatible target selection")
+    require('"SysListView32"' in lang_resource and
+            "LVS_REPORT" in lang_resource and
+            "WS_HSCROLL" in lang_resource and
+            "LVS_OWNERDRAWFIXED" not in lang_resource[lang_resource.index("IDD_CFGPAGE_FILEASSOCIATIONS"):lang_resource.index("IDD_CFGPAGE_VIEWERS")],
+            "the association matrix must use a report list view with headers and scrolling")
+    require("ListView_InsertColumn" in dialogs5 and
+            "ListView_SetItemText" in dialogs5 and
+            "LVN_ITEMCHANGED" in dialogs5 and
+            "NM_CUSTOMDRAW" in dialogs5 and
+            "WinLibDPIToLogical(HWindow" in dialogs5 and
+            "WinLibDPIFromLogical(HWindow" in dialogs5,
+            "the association matrix must support selectable rows, colored cells, and DPI-aware layout")
+    association_validate = dialogs5[dialogs5.index("void CCfgPageFileAssociations::Validate"):dialogs5.index("INT_PTR CCfgPageFileAssociations::DialogProc")]
+    require("BuildCandidate" not in association_validate and
+            "NormalizePattern" in association_validate and
+            "ReadControls" in association_validate,
+            "page navigation validation must not reject unrelated whole-model conflicts")
+    require("previousStableId" in dialogs5 and
+            "previousTargetKind" in dialogs5,
+            "unavailable plugin targets must not make page navigation impossible")
+    require("IDD_CFGPAGE_FILEASSOCIATIONS" in lang_header and
+            "IDL_FILEASSOCIATIONS" in lang_resource and
+            "IDC_FILEASSOCIATION_CATEGORY" in lang_resource and
+            "IDS_FILEASSOCIATIONS" in texts_header and
+            "IDS_FILEASSOCIATION_STATUS_CONFLICT" in texts_resource,
+            "the canonical association editor must have resource-backed controls and text")
+    require("IDS_FILEASSOCIATION_INTERNAL_VIEWER" in texts_header and
+            "IDS_FILEASSOCIATION_LEGACY_RUNTIME" in texts_header and
+            "IDS_FILEASSOCIATION_NO_TARGETS" in texts_resource and
+            "IDS_FILEASSOCIATION_PATTERN_EMPTY" in texts_resource,
+            "new association UI states must use localized resource strings")
+    require("IDD_CFGPAGE_FILEASSOCIATIONS DIALOGEX 50, 10, 420, 300" in lang_resource and
+            "IDC_FILEASSOCIATION_TARGETCATALOG" in lang_resource and
+            "IDC_FILEASSOCIATION_FILTER_PROVENANCE" in lang_resource,
+            "the association page resource must contain the redesigned matrix controls")
+    association_string_lines = [
+        line.strip()
+        for line in texts_resource.splitlines()
+        if "IDS_FILEASSOCIATION" in line or "IDS_FILELAUNCH_LONGPATH_CAVEAT" in line
+    ]
+    require(all(not line.endswith('",') for line in association_string_lines),
+            "association STRINGTABLE entries must not have trailing commas")
+    page_tree = dialogs4[dialogs4.index("Add(&PageFileAssociations"):dialogs4.index("void CConfigurationDlg::EnsureTabsPageVisibility")]
+    require("Add(&PageFileAssociations" in page_tree and
+            "Add(&PageViewer" in page_tree and
+            "Add(&PagePP" in page_tree and
+            "Add(&Page13" not in page_tree and
+            "Add(&Page14" not in page_tree and
+            "Add(&Page15" not in page_tree and
+            "Add(&PageP4" not in page_tree,
+            "the legacy association pages must not remain in the normal configuration tree")
     require("Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle" in mainwnd and
             "Salamander::FileAssociations::LoadCanonicalAssociationsForLifecycle" in mainwnd,
             "main lifecycle must invoke guarded canonical load and save hooks")

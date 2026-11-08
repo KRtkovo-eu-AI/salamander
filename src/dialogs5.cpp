@@ -2,6 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Use a responsive report matrix for file associations. | Keep headers, scrolling, colored provenance cells, detail controls and action buttons usable at every page size. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Display provenance and allow multiple association rows. | Make the canonical editor usable for defaults, conflicts, overrides, and newly added entries. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Publish canonical association edits only when configuration is accepted. | Keep validation and Cancel side-effect free while retaining transactional runtime projection. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Implement the canonical file-association editor page. | Provide one editable, validated UI for viewers, editors, and panel archive associations. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-04 | Ask Salamatrix to integrate extension installs before listing them. | A package copied after startup stayed invisible in Plugin Manager until another restart. | | Grok 4.7 |
 // | 2026-11-04 | Explain when an extension runtime is missing. | Installing a Salamatrix extension whose interpreter is absent failed activation with no dialog. | | Grok 4.7 |
 // | 2026-11-04 | Match the missing-runtime dialog linkage to its declaration. | The dllexport definition did not match the earlier declaration. | | Grok 4.7 |
@@ -36,6 +40,7 @@
 #include "common/winlibdpi.h"
 #include "plugins/salamatrix/salamatrix_storage.h"
 #include "plugins/salamatrix/salamatrix_ui.h"
+#include "fileassoclifecycle.h"
 #include "third_party/darkmodelib/include/Darkmodelib.h"
 
 static char LastSelectedPluginDLLName[MAX_PATH] = {0}; // after reopening Plugins Manager, select the last chosen plugin
@@ -3478,6 +3483,964 @@ CCfgPageDrives::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 CCfgPageViewEdit::CCfgPageViewEdit()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_VIEWEDIT /*, empty page has no help */, PSP_USETITLE, NULL)
 {
+}
+
+//
+// ****************************************************************************
+// CCfgPageFileAssociations
+//
+
+CCfgPageFileAssociations::CCfgPageFileAssociations()
+    : CCommonPropSheetPage(LoadStr(IDS_FILEASSOCIATIONS), HLanguage,
+                           IDD_CFGPAGE_FILEASSOCIATIONS, IDD_CFGPAGE_FILEASSOCIATIONS,
+                           PSP_USETITLE, NULL),
+       Selected(-1), SelectedCategory(0), SelectedOperation(0), SelectedMatrixRow(-1),
+       FilterCategory(-1), FilterProvenance(-1), ConflictsOnly(FALSE), Updating(FALSE)
+{
+}
+
+const char* CCfgPageFileAssociations::CategoryText(
+    Salamander::FileAssociations::Category category) const
+{
+    switch (category)
+    {
+    case Salamander::FileAssociations::Category::View:
+        return LoadStr(IDS_FILEASSOCIATION_VIEW);
+    case Salamander::FileAssociations::Category::AlternateView:
+        return LoadStr(IDS_FILEASSOCIATION_ALTERNATE_VIEW);
+    case Salamander::FileAssociations::Category::Edit:
+        return LoadStr(IDS_FILEASSOCIATION_EDIT);
+    case Salamander::FileAssociations::Category::PanelArchive:
+        return LoadStr(IDS_FILEASSOCIATION_PANEL_ARCHIVE);
+    }
+    return "";
+}
+
+const char* CCfgPageFileAssociations::OperationText(
+    Salamander::FileAssociations::PanelOperation operation) const
+{
+    switch (operation)
+    {
+    case Salamander::FileAssociations::PanelOperation::NotApplicable:
+        return LoadStr(IDS_FILEASSOCIATION_NOT_APPLICABLE);
+    case Salamander::FileAssociations::PanelOperation::ListUnpack:
+        return LoadStr(IDS_FILEASSOCIATION_LIST_UNPACK);
+    case Salamander::FileAssociations::PanelOperation::DeletePack:
+        return LoadStr(IDS_FILEASSOCIATION_DELETE_PACK);
+    }
+    return "";
+}
+
+const char* CCfgPageFileAssociations::TargetText(
+    Salamander::FileAssociations::TargetKind target) const
+{
+    switch (target)
+    {
+    case Salamander::FileAssociations::TargetKind::BuiltIn:
+        return LoadStr(IDS_FILEASSOCIATION_BUILT_IN);
+    case Salamander::FileAssociations::TargetKind::Plugin:
+        return LoadStr(IDS_FILEASSOCIATION_PLUGIN);
+    case Salamander::FileAssociations::TargetKind::Preset:
+        return LoadStr(IDS_FILEASSOCIATION_PRESET);
+    case Salamander::FileAssociations::TargetKind::Unassigned:
+        return LoadStr(IDS_FILEASSOCIATION_UNASSIGNED);
+    }
+    return "";
+}
+
+const char* CCfgPageFileAssociations::ProvenanceText(
+    Salamander::FileAssociations::Provenance provenance) const
+{
+    switch (provenance)
+    {
+    case Salamander::FileAssociations::Provenance::Default:
+        return LoadStr(IDS_FILEASSOCIATION_DEFAULT);
+    case Salamander::FileAssociations::Provenance::User:
+        return LoadStr(IDS_FILEASSOCIATION_USER);
+    case Salamander::FileAssociations::Provenance::Legacy:
+        return LoadStr(IDS_FILEASSOCIATION_LEGACY);
+    case Salamander::FileAssociations::Provenance::Disabled:
+        return LoadStr(IDS_FILEASSOCIATION_DISABLED);
+    case Salamander::FileAssociations::Provenance::Conflict:
+        return LoadStr(IDS_FILEASSOCIATION_CONFLICT);
+    }
+    return "";
+}
+
+void CCfgPageFileAssociations::SetStatus(const char* text)
+{
+    SetDlgItemText(HWindow, IDC_FILEASSOCIATION_STATUS, text != NULL ? text : "");
+}
+
+const char* CCfgPageFileAssociations::MatrixCellText(int index, bool archive) const
+{
+    static char text[256];
+    text[0] = 0;
+    if (index < 0 || index >= static_cast<int>(Rows.size()))
+        return "-";
+
+    const Salamander::FileAssociations::Association& item = Rows[index];
+    std::vector<char> displayName(1024);
+    const char* target = TargetText(item.AssociationTarget.Kind);
+    if (item.AssociationProvenance == Salamander::FileAssociations::Provenance::Legacy)
+        target = LoadStr(IDS_FILEASSOCIATION_LEGACY_RUNTIME);
+    else if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin &&
+             !item.AssociationTarget.StableId.empty())
+    {
+        const int pluginIndex = Plugins.FindByStableId(item.AssociationTarget.StableId.c_str());
+        CPluginData* plugin = pluginIndex >= 0 ? Plugins.Get(pluginIndex) : NULL;
+        if (plugin != NULL)
+        {
+            plugin->GetDisplayName(displayName.data(), static_cast<int>(displayName.size()));
+            target = displayName.data();
+        }
+    }
+    _snprintf_s(text, sizeof(text), _TRUNCATE, "%s", target);
+    (void)archive;
+    return text;
+}
+
+const char* CCfgPageFileAssociations::MatrixStatusText(const MatrixRow& row) const
+{
+    static char text[256];
+    const int indexes[5] = {row.View, row.AlternateView, row.Edit, row.ListUnpack, row.DeletePack};
+    int statusIndex = -1;
+    for (int i = 0; i < 5; ++i)
+    {
+        if (indexes[i] >= 0)
+        {
+            statusIndex = indexes[i];
+            break;
+        }
+    }
+
+    const Salamander::FileAssociations::Provenance status =
+        row.Conflict ? Salamander::FileAssociations::Provenance::Conflict :
+        (statusIndex >= 0 ? Rows[statusIndex].AssociationProvenance :
+                            Salamander::FileAssociations::Provenance::Default);
+    _snprintf_s(text, sizeof(text), _TRUNCATE, "%s", ProvenanceText(status));
+    return text;
+}
+
+const char* CCfgPageFileAssociations::MatrixArchiveCellText(const MatrixRow& row) const
+{
+    static char text[512];
+    const std::string listUnpack = MatrixCellText(row.ListUnpack, true);
+    const std::string deletePack = MatrixCellText(row.DeletePack, true);
+    _snprintf_s(text, sizeof(text), _TRUNCATE, "%s: %s; %s: %s",
+                LoadStr(IDS_FILEASSOCIATION_LIST_UNPACK),
+                listUnpack.c_str(),
+                LoadStr(IDS_FILEASSOCIATION_DELETE_PACK),
+                deletePack.c_str());
+    return text;
+}
+
+bool CCfgPageFileAssociations::MatrixRowVisible(const MatrixRow& row) const
+{
+    char search[256];
+    GetDlgItemText(HWindow, IDE_FILEASSOCIATION_SEARCH, search, sizeof(search));
+    if (search[0] != 0)
+    {
+        const size_t searchLength = strlen(search);
+        bool found = false;
+        for (size_t i = 0; i + searchLength <= row.Pattern.size(); ++i)
+            if (_strnicmp(row.Pattern.c_str() + i, search, searchLength) == 0)
+            {
+                found = true;
+                break;
+            }
+        if (!found)
+            return false;
+    }
+    if (ConflictsOnly && !row.Conflict)
+        return false;
+    if (FilterCategory >= 0)
+    {
+        if (FilterCategory == 3)
+        {
+            if (row.ListUnpack < 0 && row.DeletePack < 0)
+                return false;
+        }
+        else
+        {
+            const int indexes[3] = {row.View, row.AlternateView, row.Edit};
+            if (FilterCategory >= 3 || indexes[FilterCategory] < 0)
+                return false;
+        }
+    }
+    if (FilterProvenance >= 0)
+    {
+        bool found = false;
+        const int indexes[5] = {row.View, row.AlternateView, row.Edit, row.ListUnpack, row.DeletePack};
+        for (int i = 0; i < 5; ++i)
+            if (indexes[i] >= 0 && static_cast<int>(Rows[indexes[i]].AssociationProvenance) == FilterProvenance)
+                found = true;
+        if (!found)
+            return false;
+    }
+    return true;
+}
+
+int CCfgPageFileAssociations::SelectedAssociationIndex(const MatrixRow& row) const
+{
+    if (SelectedCategory == static_cast<int>(Salamander::FileAssociations::Category::View))
+        return row.View;
+    if (SelectedCategory == static_cast<int>(Salamander::FileAssociations::Category::AlternateView))
+        return row.AlternateView;
+    if (SelectedCategory == static_cast<int>(Salamander::FileAssociations::Category::Edit))
+        return row.Edit;
+    return SelectedOperation == static_cast<int>(Salamander::FileAssociations::PanelOperation::DeletePack)
+               ? row.DeletePack
+               : row.ListUnpack;
+}
+
+void CCfgPageFileAssociations::RebuildMatrix()
+{
+    MatrixRows.clear();
+    for (size_t i = 0; i < Rows.size(); ++i)
+    {
+        int rowIndex = -1;
+        for (size_t j = 0; j < MatrixRows.size(); ++j)
+            if (MatrixRows[j].Pattern == Rows[i].Pattern)
+                rowIndex = static_cast<int>(j);
+        if (rowIndex < 0)
+        {
+            MatrixRow row;
+            row.Pattern = Rows[i].Pattern;
+            MatrixRows.push_back(row);
+            rowIndex = static_cast<int>(MatrixRows.size()) - 1;
+        }
+
+        MatrixRow& row = MatrixRows[rowIndex];
+        const Salamander::FileAssociations::Association& item = Rows[i];
+        int* slot = NULL;
+        if (item.AssociationCategory == Salamander::FileAssociations::Category::View)
+            slot = &row.View;
+        else if (item.AssociationCategory == Salamander::FileAssociations::Category::AlternateView)
+            slot = &row.AlternateView;
+        else if (item.AssociationCategory == Salamander::FileAssociations::Category::Edit)
+            slot = &row.Edit;
+        else if (item.Operation == Salamander::FileAssociations::PanelOperation::DeletePack)
+            slot = &row.DeletePack;
+        else
+            slot = &row.ListUnpack;
+
+        const Salamander::FileAssociations::Provenance provenance = item.AssociationProvenance;
+        const int priority = provenance == Salamander::FileAssociations::Provenance::Conflict ? 4 :
+                             (provenance == Salamander::FileAssociations::Provenance::User ||
+                              provenance == Salamander::FileAssociations::Provenance::Disabled) ? 3 :
+                             provenance == Salamander::FileAssociations::Provenance::Legacy ? 2 : 1;
+        const int currentPriority = *slot < 0 ? 0 :
+                                     Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict ? 4 :
+                                     (Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::User ||
+                                      Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled) ? 3 :
+                                     Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::Legacy ? 2 : 1;
+        if (priority > currentPriority)
+            *slot = static_cast<int>(i);
+        if (item.AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict)
+            row.Conflict = true;
+    }
+}
+
+void CCfgPageFileAssociations::PopulateTargetCatalog()
+{
+    Updating = TRUE;
+    HWND catalog = GetDlgItem(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG);
+    SendMessage(catalog, CB_RESETCONTENT, 0, 0);
+    TargetCatalog.clear();
+
+    Salamander::FileAssociations::TargetKind kind = static_cast<Salamander::FileAssociations::TargetKind>(
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA,
+                           SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETCURSEL, 0, 0), 0));
+    if (kind == Salamander::FileAssociations::TargetKind::BuiltIn)
+    {
+        TargetCatalog.push_back({"internal", LoadStr(IDS_FILEASSOCIATION_INTERNAL_VIEWER), kind});
+    }
+    else if (kind == Salamander::FileAssociations::TargetKind::Plugin)
+    {
+        for (int i = 0; i < Plugins.GetCount(); ++i)
+        {
+            CPluginData* plugin = Plugins.Get(i);
+            if (plugin == NULL || plugin->GetStableId()[0] == 0)
+                continue;
+            if (SelectedCategory == static_cast<int>(Salamander::FileAssociations::Category::PanelArchive) &&
+                SelectedOperation == static_cast<int>(Salamander::FileAssociations::PanelOperation::ListUnpack) &&
+                !plugin->SupportPanelView)
+                continue;
+            if (SelectedCategory == static_cast<int>(Salamander::FileAssociations::Category::PanelArchive) &&
+                SelectedOperation == static_cast<int>(Salamander::FileAssociations::PanelOperation::DeletePack) &&
+                !plugin->SupportPanelEdit)
+                continue;
+            if (SelectedCategory != static_cast<int>(Salamander::FileAssociations::Category::PanelArchive) &&
+                !plugin->SupportViewer)
+                continue;
+            std::vector<char> displayName(1024);
+            plugin->GetDisplayName(displayName.data(), static_cast<int>(displayName.size()));
+            TargetCatalog.push_back({plugin->GetStableId(), displayName.data(), kind});
+        }
+    }
+    else if (kind == Salamander::FileAssociations::TargetKind::Preset)
+    {
+        // Preset command metadata is not available in the old runtime. Keep
+        // imported legacy presets selectable, but never invent a new one.
+        if (Selected >= 0 && Selected < static_cast<int>(Rows.size()) &&
+            !Rows[Selected].AssociationTarget.StableId.empty())
+            TargetCatalog.push_back({Rows[Selected].AssociationTarget.StableId,
+                                     Rows[Selected].AssociationTarget.StableId, kind});
+    }
+    else
+        TargetCatalog.push_back({"", LoadStr(IDS_FILEASSOCIATION_UNASSIGNED), kind});
+
+    if (TargetCatalog.empty())
+        TargetCatalog.push_back({"", LoadStr(IDS_FILEASSOCIATION_NO_TARGETS), kind});
+
+    for (size_t i = 0; i < TargetCatalog.size(); ++i)
+    {
+        int item = static_cast<int>(SendMessage(catalog, CB_ADDSTRING, 0,
+                                                (LPARAM)TargetCatalog[i].DisplayName.c_str()));
+        SendMessage(catalog, CB_SETITEMDATA, item, static_cast<LPARAM>(i));
+    }
+    SendMessage(catalog, CB_SETCURSEL, TargetCatalog.empty() ? -1 : 0, 0);
+    Updating = FALSE;
+}
+
+void CCfgPageFileAssociations::LoadSelectedControls()
+{
+    Updating = TRUE;
+    if (Selected < 0 || Selected >= static_cast<int>(Rows.size()))
+    {
+        SetDlgItemText(HWindow, IDE_FILEASSOCIATION_PATTERN, "");
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_CATEGORY, CB_SETCURSEL, 0, 0);
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_SETCURSEL, 0, 0);
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_SETCURSEL, 0, 0);
+        PopulateTargetCatalog();
+        SetStatus(LoadStr(IDS_FILEASSOCIATION_GUIDANCE));
+        Updating = FALSE;
+        return;
+    }
+
+    const Salamander::FileAssociations::Association& item = Rows[Selected];
+    SelectedCategory = static_cast<int>(item.AssociationCategory);
+    SelectedOperation = static_cast<int>(item.Operation);
+    SetDlgItemText(HWindow, IDE_FILEASSOCIATION_PATTERN, item.Pattern.c_str());
+    for (int i = 0; i < 4; ++i)
+        if ((int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_CATEGORY, CB_GETITEMDATA, i, 0) == SelectedCategory)
+            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_CATEGORY, CB_SETCURSEL, i, 0);
+    for (int i = 0; i < 3; ++i)
+        if ((int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_GETITEMDATA, i, 0) == SelectedOperation)
+            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_SETCURSEL, i, 0);
+    for (int i = 0; i < 4; ++i)
+        if ((int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA, i, 0) ==
+            static_cast<int>(item.AssociationTarget.Kind))
+            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_SETCURSEL, i, 0);
+    PopulateTargetCatalog();
+    for (size_t i = 0; i < TargetCatalog.size(); ++i)
+        if (TargetCatalog[i].StableId == item.AssociationTarget.StableId)
+            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_SETCURSEL, i, 0);
+    SetStatus(item.AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict
+                  ? LoadStr(IDS_FILEASSOCIATION_STATUS_CONFLICT)
+                  : LoadStr(IDS_FILEASSOCIATION_GUIDANCE));
+    Updating = FALSE;
+}
+
+void CCfgPageFileAssociations::RefreshList()
+{
+    Updating = TRUE;
+    RebuildMatrix();
+    if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
+    {
+        SelectedMatrixRow = -1;
+        for (size_t i = 0; i < MatrixRows.size(); ++i)
+            if (MatrixRows[i].Pattern == Rows[Selected].Pattern)
+            {
+                SelectedMatrixRow = static_cast<int>(i);
+                break;
+            }
+    }
+    HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
+    ListView_DeleteAllItems(list);
+    for (size_t i = 0; i < MatrixRows.size(); ++i)
+    {
+        if (!MatrixRowVisible(MatrixRows[i]))
+            continue;
+        const MatrixRow& row = MatrixRows[i];
+        LVITEM item;
+        ZeroMemory(&item, sizeof(item));
+        item.mask = LVIF_TEXT | LVIF_PARAM;
+        item.iItem = ListView_GetItemCount(list);
+        item.pszText = const_cast<char*>(row.Pattern.c_str());
+        item.lParam = static_cast<LPARAM>(i);
+        const int listIndex = ListView_InsertItem(list, &item);
+        if (listIndex >= 0)
+        {
+            ListView_SetItemText(list, listIndex, 1,
+                                 const_cast<char*>(MatrixCellText(row.View, false)));
+            ListView_SetItemText(list, listIndex, 2,
+                                 const_cast<char*>(MatrixCellText(row.AlternateView, false)));
+            ListView_SetItemText(list, listIndex, 3,
+                                 const_cast<char*>(MatrixCellText(row.Edit, false)));
+            ListView_SetItemText(list, listIndex, 4,
+                                 const_cast<char*>(MatrixArchiveCellText(row)));
+            ListView_SetItemText(list, listIndex, 5,
+                                 const_cast<char*>(MatrixStatusText(row)));
+        }
+    }
+    if (SelectedMatrixRow >= 0)
+    {
+        for (int i = 0; i < ListView_GetItemCount(list); ++i)
+        {
+            LVITEM item;
+            ZeroMemory(&item, sizeof(item));
+            item.mask = LVIF_PARAM;
+            item.iItem = i;
+            if (ListView_GetItem(list, &item) && item.lParam == SelectedMatrixRow)
+            {
+                ListView_SetItemState(list, i, LVIS_SELECTED | LVIS_FOCUSED,
+                                      LVIS_SELECTED | LVIS_FOCUSED);
+                ListView_EnsureVisible(list, i, FALSE);
+                break;
+            }
+        }
+    }
+    Updating = FALSE;
+    LoadSelectedControls();
+    InvalidateRect(list, NULL, FALSE);
+}
+
+BOOL CCfgPageFileAssociations::ReadControls(
+    Salamander::FileAssociations::Association& item, std::string* error)
+{
+    const Salamander::FileAssociations::TargetKind previousTargetKind = item.AssociationTarget.Kind;
+    const std::string previousStableId = item.AssociationTarget.StableId;
+    std::vector<char> pattern(1024);
+    GetDlgItemText(HWindow, IDE_FILEASSOCIATION_PATTERN, pattern.data(),
+                   static_cast<int>(pattern.size()));
+
+    item.Pattern = pattern.data();
+    item.AssociationCategory = static_cast<Salamander::FileAssociations::Category>(
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_CATEGORY, CB_GETITEMDATA,
+                           SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_CATEGORY,
+                                              CB_GETCURSEL, 0, 0), 0));
+    item.Operation = static_cast<Salamander::FileAssociations::PanelOperation>(
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_GETITEMDATA,
+                           SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION,
+                                              CB_GETCURSEL, 0, 0), 0));
+    item.AssociationTarget.Kind = static_cast<Salamander::FileAssociations::TargetKind>(
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA,
+                           SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND,
+                                              CB_GETCURSEL, 0, 0), 0));
+    int targetIndex = static_cast<int>(SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
+                                                          CB_GETCURSEL, 0, 0));
+    if (targetIndex >= 0 && targetIndex < static_cast<int>(TargetCatalog.size()) &&
+        !TargetCatalog[targetIndex].StableId.empty())
+        item.AssociationTarget.StableId = TargetCatalog[targetIndex].StableId;
+    else if (previousTargetKind == item.AssociationTarget.Kind &&
+             (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin ||
+              item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Preset) &&
+             !previousStableId.empty())
+        item.AssociationTarget.StableId = previousStableId;
+    else
+        item.AssociationTarget.StableId.clear();
+    if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Unassigned)
+        item.AssociationTarget.StableId.clear();
+    if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin &&
+        item.AssociationTarget.StableId.empty())
+    {
+        if (error != NULL)
+            *error = LoadStr(IDS_FILEASSOCIATION_SELECT_PLUGIN);
+        return FALSE;
+    }
+    if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Preset &&
+        item.AssociationTarget.StableId.empty())
+    {
+        if (error != NULL)
+            *error = LoadStr(IDS_FILEASSOCIATION_NO_PRESET);
+        return FALSE;
+    }
+    if (item.Pattern.empty())
+    {
+        if (error != NULL)
+            *error = LoadStr(IDS_FILEASSOCIATION_PATTERN_EMPTY);
+        return FALSE;
+    }
+    return TRUE;
+}
+
+BOOL CCfgPageFileAssociations::BuildCandidate(
+    Salamander::FileAssociations::CFileAssociationModel& candidate,
+    std::string* error)
+{
+    std::vector<Salamander::FileAssociations::Association> editedRows = Rows;
+    if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
+    {
+        Salamander::FileAssociations::Association item = editedRows[Selected];
+        if (!ReadControls(item, error))
+            return FALSE;
+        editedRows[Selected] = item;
+    }
+
+    if (!candidate.ReplaceAssociations(editedRows, error))
+        return FALSE;
+    Rows.swap(editedRows);
+    return TRUE;
+}
+
+void CCfgPageFileAssociations::Transfer(CTransferInfo& ti)
+{
+    if (ti.Type != ttDataToWindow)
+    {
+        Salamander::FileAssociations::CFileAssociationModel candidate;
+        std::string error;
+        if (!BuildCandidate(candidate, &error) ||
+            !Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
+                candidate, &error))
+        {
+            SetStatus(error.c_str());
+            ti.ErrorOn(IDC_FILEASSOCIATION_STATUS);
+        }
+        return;
+    }
+
+    Salamander::FileAssociations::CFileAssociationModel model;
+    std::string error;
+    if (!Salamander::FileAssociations::CopyCanonicalAssociationsForConfiguration(&model, &error))
+    {
+        Rows.clear();
+        Selected = -1;
+        SetStatus(error.c_str());
+        return;
+    }
+    Rows = model.Associations();
+    Selected = Rows.empty() ? -1 : 0;
+    SelectedMatrixRow = -1;
+    RefreshList();
+}
+
+void CCfgPageFileAssociations::Validate(CTransferInfo& ti)
+{
+    std::string error;
+    if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
+    {
+        Salamander::FileAssociations::Association item = Rows[Selected];
+        if (!ReadControls(item, &error))
+        {
+            SetStatus(error.c_str());
+            ti.ErrorOn(IDE_FILEASSOCIATION_PATTERN);
+            return;
+        }
+        std::string normalizedPattern;
+        if (!Salamander::FileAssociations::CFileAssociationModel::NormalizePattern(
+                item.Pattern.c_str(), &normalizedPattern, &error))
+        {
+            SetStatus(error.c_str());
+            ti.ErrorOn(IDE_FILEASSOCIATION_PATTERN);
+            return;
+        }
+        item.Pattern = normalizedPattern;
+        Rows[Selected] = item;
+        RefreshList();
+    }
+    SetStatus(LoadStr(IDS_FILEASSOCIATION_STATUS_READY));
+}
+
+INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+    case WM_INITDIALOG:
+    {
+        HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
+        ListView_SetExtendedListViewStyle(list, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES |
+                                                LVS_EX_DOUBLEBUFFER);
+        const int columnTextIds[6] = {
+            IDS_FILEASSOCIATION_PATTERN,
+            IDS_FILEASSOCIATION_VIEW,
+            IDS_FILEASSOCIATION_ALTERNATE_VIEW,
+            IDS_FILEASSOCIATION_EDIT,
+            IDS_FILEASSOCIATION_PANEL_ARCHIVE,
+            IDS_FILEASSOCIATION_STATUS};
+        const int columnWidths[6] = {110, 95, 95, 70, 220, 75};
+        for (int i = 0; i < 6; ++i)
+        {
+            LVCOLUMN column;
+            ZeroMemory(&column, sizeof(column));
+            column.mask = LVCF_TEXT | LVCF_WIDTH;
+            column.pszText = LoadStr(columnTextIds[i]);
+            column.cx = WinLibDPIFromLogical(HWindow, columnWidths[i]);
+            ListView_InsertColumn(list, i, &column);
+        }
+        SetDlgItemText(HWindow, IDC_STATIC_1, LoadStr(IDS_FILEASSOCIATION_SEARCH));
+        SetDlgItemText(HWindow, IDC_STATIC_2, LoadStr(IDS_FILEASSOCIATION_FILTER_CATEGORY));
+        SetDlgItemText(HWindow, IDC_STATIC_3, LoadStr(IDS_FILEASSOCIATION_PATTERN));
+        SetDlgItemText(HWindow, IDC_STATIC_4, LoadStr(IDS_FILEASSOCIATION_CATEGORY));
+        SetDlgItemText(HWindow, IDC_STATIC_5, LoadStr(IDS_FILEASSOCIATION_OPERATION));
+        SetDlgItemText(HWindow, IDC_STATIC_6, LoadStr(IDS_FILEASSOCIATION_TARGET));
+        SetDlgItemText(HWindow, IDC_STATIC_7, LoadStr(IDS_FILEASSOCIATION_TARGET_ID));
+        SetDlgItemText(HWindow, IDC_FILEASSOCIATION_FILTER_CONFLICTS,
+                       LoadStr(IDS_FILEASSOCIATION_FILTER_CONFLICTS));
+        SetDlgItemText(HWindow, IDC_FILEASSOCIATION_LEGEND, LoadStr(IDS_FILEASSOCIATION_LEGEND));
+        SetDlgItemText(HWindow, IDB_FILEASSOCIATION_ADD, LoadStr(IDS_FILEASSOCIATION_ADD));
+        SetDlgItemText(HWindow, IDB_FILEASSOCIATION_DELETE, LoadStr(IDS_FILEASSOCIATION_DELETE));
+        SetDlgItemText(HWindow, IDB_FILEASSOCIATION_RESET, LoadStr(IDS_FILEASSOCIATION_RESET));
+        SetDlgItemText(HWindow, IDB_FILEASSOCIATION_UNASSIGNED,
+                       LoadStr(IDS_FILEASSOCIATION_UNASSIGNED));
+        SetDlgItemText(HWindow, IDC_FILEASSOCIATION_HELP, LoadStr(IDS_FILEASSOCIATION_GUIDANCE));
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_FILTER_CATEGORY, CB_ADDSTRING, 0,
+                           (LPARAM)LoadStr(IDS_FILEASSOCIATION_FILTER_ALL));
+        for (int i = 0; i < 4; ++i)
+            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_FILTER_CATEGORY, CB_ADDSTRING, 0,
+                               (LPARAM)CategoryText(static_cast<Salamander::FileAssociations::Category>(i)));
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_FILTER_CATEGORY, CB_SETCURSEL, 0, 0);
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_FILTER_PROVENANCE, CB_ADDSTRING, 0,
+                           (LPARAM)LoadStr(IDS_FILEASSOCIATION_FILTER_ALL));
+        for (int i = 0; i < 5; ++i)
+            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_FILTER_PROVENANCE, CB_ADDSTRING, 0,
+                               (LPARAM)ProvenanceText(static_cast<Salamander::FileAssociations::Provenance>(i)));
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_FILTER_PROVENANCE, CB_SETCURSEL, 0, 0);
+        for (int i = 0; i < 4; ++i)
+        {
+            const Salamander::FileAssociations::Category category =
+                static_cast<Salamander::FileAssociations::Category>(i);
+            int index = (int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_CATEGORY,
+                                                CB_ADDSTRING, 0, (LPARAM)CategoryText(category));
+            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_CATEGORY, CB_SETITEMDATA, index, i);
+        }
+        for (int i = 0; i < 3; ++i)
+        {
+            const Salamander::FileAssociations::PanelOperation operation =
+                static_cast<Salamander::FileAssociations::PanelOperation>(i);
+            int index = (int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION,
+                                                CB_ADDSTRING, 0, (LPARAM)OperationText(operation));
+            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_SETITEMDATA, index, i);
+        }
+        for (int i = 0; i < 4; ++i)
+        {
+            const Salamander::FileAssociations::TargetKind target =
+                static_cast<Salamander::FileAssociations::TargetKind>(i);
+            int index = (int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND,
+                                                CB_ADDSTRING, 0, (LPARAM)TargetText(target));
+            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_SETITEMDATA, index, i);
+        }
+        PopulateTargetCatalog();
+        RECT clientRect;
+        GetClientRect(HWindow, &clientRect);
+        SendMessage(HWindow, WM_SIZE, SIZE_RESTORED,
+                    MAKELPARAM(clientRect.right - clientRect.left, clientRect.bottom - clientRect.top));
+        UpdateWindow(HWindow);
+        break;
+    }
+
+    case WM_SIZE:
+        if (HWindow != NULL && wParam != SIZE_MINIMIZED)
+        {
+            const int width = WinLibDPIToLogical(HWindow, LOWORD(lParam));
+            const int height = WinLibDPIToLogical(HWindow, HIWORD(lParam));
+            const int right = max(420, width) - 4;
+            const int listBottom = max(90, height - 154);
+            const int detailTop = listBottom + 23;
+            const int buttonTop = max(detailTop + 73, height - 30);
+            const int searchRight = max(120, right - 219);
+
+            struct ControlLayout
+            {
+                int id;
+                int left;
+                int top;
+                int right;
+                int bottom;
+            };
+            const ControlLayout controls[] = {
+                {IDC_STATIC_1, 4, 5, 44, 13},
+                {IDE_FILEASSOCIATION_SEARCH, 47, 3, searchRight, 15},
+                {IDC_STATIC_2, searchRight + 6, 5, searchRight + 37, 13},
+                {IDC_FILEASSOCIATION_FILTER_CATEGORY, searchRight + 40, 3, right - 97, 15},
+                {IDC_FILEASSOCIATION_FILTER_PROVENANCE, right - 94, 3, right, 15},
+                {IDC_FILEASSOCIATION_FILTER_CONFLICTS, 4, 18, 108, 30},
+                {IDL_FILEASSOCIATIONS, 4, 34, right, listBottom},
+                {IDC_FILEASSOCIATION_LEGEND, 4, listBottom + 3, right, listBottom + 21},
+                {IDC_STATIC_3, 4, detailTop + 2, 49, detailTop + 15},
+                {IDE_FILEASSOCIATION_PATTERN, 52, detailTop, right, detailTop + 15},
+                {IDC_STATIC_4, 4, detailTop + 18, 49, detailTop + 31},
+                {IDC_FILEASSOCIATION_CATEGORY, 52, detailTop + 16, width / 2 + 16, detailTop + 31},
+                {IDC_STATIC_5, width / 2 + 24, detailTop + 18, width / 2 + 69, detailTop + 31},
+                {IDC_FILEASSOCIATION_OPERATION, width / 2 + 72, detailTop + 16, right, detailTop + 31},
+                {IDC_STATIC_6, 4, detailTop + 34, 49, detailTop + 47},
+                {IDC_FILEASSOCIATION_TARGETKIND, 52, detailTop + 32, width / 2 + 16, detailTop + 47},
+                {IDC_STATIC_7, width / 2 + 24, detailTop + 34, width / 2 + 69, detailTop + 47},
+                {IDC_FILEASSOCIATION_TARGETCATALOG, width / 2 + 72, detailTop + 32, right, detailTop + 47},
+                {IDC_FILEASSOCIATION_STATUS, 4, detailTop + 50, right, detailTop + 72},
+                {IDB_FILEASSOCIATION_ADD, 4, buttonTop, 90, buttonTop + 14},
+                {IDB_FILEASSOCIATION_DELETE, 94, buttonTop, 156, buttonTop + 14},
+                {IDB_FILEASSOCIATION_RESET, 160, buttonTop, 242, buttonTop + 14},
+                {IDB_FILEASSOCIATION_UNASSIGNED, 246, buttonTop, 334, buttonTop + 14},
+                {IDC_FILEASSOCIATION_HELP, right - 78, buttonTop, right, buttonTop + 14}};
+            for (size_t i = 0; i < sizeof(controls) / sizeof(controls[0]); ++i)
+            {
+                const ControlLayout& control = controls[i];
+                MoveWindow(GetDlgItem(HWindow, control.id),
+                           WinLibDPIFromLogical(HWindow, control.left),
+                           WinLibDPIFromLogical(HWindow, control.top),
+                           WinLibDPIFromLogical(HWindow, max(0, control.right - control.left)),
+                           WinLibDPIFromLogical(HWindow, max(0, control.bottom - control.top)), TRUE);
+            }
+        }
+        break;
+
+    case WM_COMMAND:
+        if (Updating)
+            break;
+        switch (LOWORD(wParam))
+        {
+        case IDC_FILEASSOCIATION_CATEGORY:
+            if (HIWORD(wParam) == CBN_SELCHANGE)
+            {
+                SelectedCategory = static_cast<int>(SendDlgItemMessage(
+                    HWindow, IDC_FILEASSOCIATION_CATEGORY, CB_GETITEMDATA,
+                    SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_CATEGORY, CB_GETCURSEL, 0, 0), 0));
+                if (SelectedCategory != static_cast<int>(Salamander::FileAssociations::Category::PanelArchive))
+                    SelectedOperation = static_cast<int>(Salamander::FileAssociations::PanelOperation::NotApplicable);
+                else if (SelectedOperation == static_cast<int>(Salamander::FileAssociations::PanelOperation::NotApplicable))
+                    SelectedOperation = static_cast<int>(Salamander::FileAssociations::PanelOperation::ListUnpack);
+                if (SelectedMatrixRow >= 0 && SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
+                {
+                    const int index = SelectedAssociationIndex(MatrixRows[SelectedMatrixRow]);
+                    if (index >= 0)
+                        Selected = index;
+                }
+                PopulateTargetCatalog();
+            }
+            break;
+        case IDC_FILEASSOCIATION_OPERATION:
+            if (HIWORD(wParam) == CBN_SELCHANGE)
+            {
+                SelectedOperation = static_cast<int>(SendDlgItemMessage(
+                    HWindow, IDC_FILEASSOCIATION_OPERATION, CB_GETITEMDATA,
+                    SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_GETCURSEL, 0, 0), 0));
+                if (SelectedMatrixRow >= 0 && SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
+                {
+                    const int index = SelectedAssociationIndex(MatrixRows[SelectedMatrixRow]);
+                    if (index >= 0)
+                        Selected = index;
+                }
+                PopulateTargetCatalog();
+            }
+            break;
+        case IDE_FILEASSOCIATION_SEARCH:
+            if (HIWORD(wParam) == EN_CHANGE)
+                RefreshList();
+            break;
+        case IDC_FILEASSOCIATION_FILTER_CATEGORY:
+            if (HIWORD(wParam) == CBN_SELCHANGE)
+            {
+                FilterCategory = (int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_FILTER_CATEGORY,
+                                                          CB_GETCURSEL, 0, 0) - 1;
+                RefreshList();
+            }
+            break;
+        case IDC_FILEASSOCIATION_FILTER_PROVENANCE:
+            if (HIWORD(wParam) == CBN_SELCHANGE)
+            {
+                FilterProvenance = (int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_FILTER_PROVENANCE,
+                                                            CB_GETCURSEL, 0, 0) - 1;
+                RefreshList();
+            }
+            break;
+        case IDC_FILEASSOCIATION_FILTER_CONFLICTS:
+            if (HIWORD(wParam) == BN_CLICKED)
+            {
+                ConflictsOnly = IsDlgButtonChecked(HWindow, IDC_FILEASSOCIATION_FILTER_CONFLICTS) == BST_CHECKED;
+                RefreshList();
+            }
+            break;
+        case IDC_FILEASSOCIATION_TARGETKIND:
+            if (HIWORD(wParam) == CBN_SELCHANGE)
+                PopulateTargetCatalog();
+            break;
+        case IDB_FILEASSOCIATION_ADD:
+        {
+            Salamander::FileAssociations::Association item;
+            item.AssociationCategory = Salamander::FileAssociations::Category::View;
+            item.Operation = Salamander::FileAssociations::PanelOperation::NotApplicable;
+            item.AssociationTarget = Salamander::FileAssociations::Target();
+            item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
+            item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
+            std::string error;
+            if (!ReadControls(item, &error))
+            {
+                SetStatus(error.c_str());
+                break;
+            }
+            std::string normalizedPattern;
+            if (!Salamander::FileAssociations::CFileAssociationModel::NormalizePattern(
+                    item.Pattern.c_str(), &normalizedPattern, &error))
+            {
+                SetStatus(error.c_str());
+                break;
+            }
+            item.Pattern = normalizedPattern;
+            const bool canUpdate =
+                Selected >= 0 && Selected < static_cast<int>(Rows.size()) &&
+                normalizedPattern == Rows[Selected].Pattern &&
+                item.AssociationCategory == Rows[Selected].AssociationCategory &&
+                item.Operation == Rows[Selected].Operation;
+            if (canUpdate)
+            {
+                const Salamander::FileAssociations::Provenance previousProvenance =
+                    Rows[Selected].AssociationProvenance;
+                item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
+                item.SourceProvenance = Rows[Selected].SourceProvenance;
+                if (previousProvenance == Salamander::FileAssociations::Provenance::Default ||
+                    previousProvenance == Salamander::FileAssociations::Provenance::Legacy)
+                {
+                    // Keep the shipped/imported row so Reset can reveal it again.
+                    Rows.push_back(item);
+                    Selected = static_cast<int>(Rows.size()) - 1;
+                }
+                else
+                    Rows[Selected] = item;
+            }
+            else
+            {
+                item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
+                item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
+                Rows.push_back(item);
+                Selected = static_cast<int>(Rows.size()) - 1;
+            }
+            RefreshList();
+            break;
+        }
+        case IDB_FILEASSOCIATION_DELETE:
+            if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
+            {
+                Rows.erase(Rows.begin() + Selected);
+                if (Selected >= static_cast<int>(Rows.size()))
+                    Selected = static_cast<int>(Rows.size()) - 1;
+                SelectedMatrixRow = -1;
+                RefreshList();
+            }
+            break;
+        case IDB_FILEASSOCIATION_RESET:
+            if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
+            {
+                if (Rows[Selected].AssociationProvenance == Salamander::FileAssociations::Provenance::User ||
+                    Rows[Selected].AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled)
+                    Rows.erase(Rows.begin() + Selected);
+                if (Selected >= static_cast<int>(Rows.size()))
+                    Selected = static_cast<int>(Rows.size()) - 1;
+                SelectedMatrixRow = -1;
+                RefreshList();
+            }
+            break;
+        case IDB_FILEASSOCIATION_UNASSIGNED:
+            if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
+            {
+                Salamander::FileAssociations::Association disabled = Rows[Selected];
+                for (size_t i = Rows.size(); i > 0; --i)
+                {
+                    const Salamander::FileAssociations::Association& item = Rows[i - 1];
+                    if (item.Pattern == disabled.Pattern &&
+                        item.AssociationCategory == disabled.AssociationCategory &&
+                        item.Operation == disabled.Operation &&
+                        (item.AssociationProvenance == Salamander::FileAssociations::Provenance::User ||
+                         item.AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled))
+                        Rows.erase(Rows.begin() + i - 1);
+                }
+                disabled.AssociationTarget = Salamander::FileAssociations::Target(
+                    Salamander::FileAssociations::TargetKind::Unassigned);
+                disabled.AssociationProvenance = Salamander::FileAssociations::Provenance::Disabled;
+                disabled.SourceProvenance = Salamander::FileAssociations::Provenance::User;
+                Rows.push_back(disabled);
+                Selected = static_cast<int>(Rows.size()) - 1;
+                RefreshList();
+            }
+            break;
+        case IDC_FILEASSOCIATION_HELP:
+            SetStatus(LoadStr(IDS_FILEASSOCIATION_GUIDANCE));
+            break;
+        }
+        break;
+    case WM_NOTIFY:
+        if (!Updating && reinterpret_cast<LPNMHDR>(lParam)->idFrom == IDL_FILEASSOCIATIONS)
+        {
+            LPNMHDR header = reinterpret_cast<LPNMHDR>(lParam);
+            if (header->code == NM_CUSTOMDRAW)
+            {
+                NMLVCUSTOMDRAW* draw = reinterpret_cast<NMLVCUSTOMDRAW*>(lParam);
+                if (draw->nmcd.dwDrawStage == CDDS_PREPAINT)
+                    return CDRF_NOTIFYITEMDRAW;
+                if (draw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
+                    return CDRF_NOTIFYSUBITEMDRAW;
+                if (draw->nmcd.dwDrawStage == (CDDS_ITEMPREPAINT | CDDS_SUBITEM))
+                {
+                    LVITEM item;
+                    ZeroMemory(&item, sizeof(item));
+                    item.mask = LVIF_PARAM;
+                    item.iItem = static_cast<int>(draw->nmcd.dwItemSpec);
+                    if (ListView_GetItem(GetDlgItem(HWindow, IDL_FILEASSOCIATIONS), &item) &&
+                        item.lParam >= 0 && item.lParam < static_cast<LPARAM>(MatrixRows.size()) &&
+                        draw->iSubItem > 0 && draw->iSubItem < 6)
+                    {
+                        const MatrixRow& row = MatrixRows[item.lParam];
+                        int associationIndex = -1;
+                        if (draw->iSubItem == 1) associationIndex = row.View;
+                        else if (draw->iSubItem == 2) associationIndex = row.AlternateView;
+                        else if (draw->iSubItem == 3) associationIndex = row.Edit;
+                        else if (draw->iSubItem == 4) associationIndex = row.ListUnpack >= 0 ? row.ListUnpack : row.DeletePack;
+
+                        COLORREF color = RGB(80, 120, 180);
+                        if (draw->iSubItem == 5 && row.Conflict)
+                            color = RGB(180, 55, 50);
+                        else if (associationIndex >= 0)
+                        {
+                            switch (Rows[associationIndex].AssociationProvenance)
+                            {
+                            case Salamander::FileAssociations::Provenance::User: color = RGB(50, 145, 75); break;
+                            case Salamander::FileAssociations::Provenance::Legacy: color = RGB(175, 120, 35); break;
+                            case Salamander::FileAssociations::Provenance::Disabled: color = RGB(100, 100, 100); break;
+                            case Salamander::FileAssociations::Provenance::Conflict: color = RGB(180, 55, 50); break;
+                            default: break;
+                            }
+                        }
+                        draw->clrText = RGB(255, 255, 255);
+                        draw->clrTextBk = color;
+                    }
+                }
+                return CDRF_DODEFAULT;
+            }
+            if (header->code == LVN_ITEMCHANGED)
+            {
+                const NMLISTVIEW* notification = reinterpret_cast<const NMLISTVIEW*>(lParam);
+                if ((notification->uChanged & LVIF_STATE) != 0 &&
+                    (notification->uNewState & LVIS_SELECTED) != 0 &&
+                    (notification->uOldState & LVIS_SELECTED) == 0)
+                {
+                    LVITEM item;
+                    ZeroMemory(&item, sizeof(item));
+                    item.mask = LVIF_PARAM;
+                    item.iItem = notification->iItem;
+                    if (ListView_GetItem(GetDlgItem(HWindow, IDL_FILEASSOCIATIONS), &item) &&
+                        item.lParam >= 0 && item.lParam < static_cast<LPARAM>(MatrixRows.size()))
+                    {
+                        SelectedMatrixRow = static_cast<int>(item.lParam);
+                        const MatrixRow& row = MatrixRows[SelectedMatrixRow];
+                        if (row.View >= 0) SelectedCategory = 0;
+                        else if (row.AlternateView >= 0) SelectedCategory = 1;
+                        else if (row.Edit >= 0) SelectedCategory = 2;
+                        else SelectedCategory = 3;
+                        if (SelectedCategory == 3)
+                            SelectedOperation = row.ListUnpack >= 0
+                                                    ? static_cast<int>(Salamander::FileAssociations::PanelOperation::ListUnpack)
+                                                    : static_cast<int>(Salamander::FileAssociations::PanelOperation::DeletePack);
+                        Selected = SelectedAssociationIndex(row);
+                        LoadSelectedControls();
+                    }
+                }
+                return 0;
+            }
+        }
+        break;
+    }
+    return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
 }
 
 //

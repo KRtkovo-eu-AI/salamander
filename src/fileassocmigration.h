@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Collect legacy viewer, editor, and archive defaults. | Populate the canonical page from the existing runtime configuration instead of asking users to retype every pattern. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Report the runtime projection gate. | Prevent target-only migrated rows from being mistaken for a complete legacy runtime projection. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Add loss-aware legacy association migration. | Prevent grouped masks, exclusions, malformed masks, and unstable targets from entering the canonical model. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 
@@ -45,6 +46,10 @@ bool MigrateLegacyAssociations(CFileAssociationModel* model,
                                size_t candidateCount,
                                LegacyMigrationReport* report,
                                std::string* error = NULL);
+
+bool BuildLegacyAssociationDefaults(CFileAssociationModel* model,
+                                    LegacyMigrationReport* report = NULL,
+                                    std::string* error = NULL);
 
 } // namespace FileAssociations
 } // namespace Salamander

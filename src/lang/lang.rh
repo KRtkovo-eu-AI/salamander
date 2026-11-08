@@ -1,3 +1,5 @@
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Add canonical file-association control identifiers. | Keep the new configuration dialog's controls stable across resource builds. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
 // Used by lang.rc
@@ -294,11 +296,30 @@
 #define IDT_GUIDPATH                    572
 #define IDT_BPC                         573
 #define IDD_CFGPAGE_VIEWEDIT            575
+#define IDD_CFGPAGE_FILEASSOCIATIONS    576
 #define IDD_CFGPAGE_VIEWERS             580
 #define IDL_FILEMASKS                   584
 #define IDS_MASKSHDR                    585
 #define IDC_VIEW_TYPE                   586
 #define IDD_CFGPAGE_EDITORS             590
+#define IDL_FILEASSOCIATIONS             6301
+#define IDE_FILEASSOCIATION_PATTERN      6302
+#define IDC_FILEASSOCIATION_CATEGORY     6303
+#define IDC_FILEASSOCIATION_OPERATION    6304
+#define IDC_FILEASSOCIATION_TARGETKIND   6305
+#define IDE_FILEASSOCIATION_TARGETID     6306
+#define IDC_FILEASSOCIATION_STATUS      6307
+#define IDB_FILEASSOCIATION_ADD         6308
+#define IDB_FILEASSOCIATION_DELETE      6309
+#define IDB_FILEASSOCIATION_RESET       6310
+#define IDB_FILEASSOCIATION_UNASSIGNED  6311
+#define IDE_FILEASSOCIATION_SEARCH      6312
+#define IDC_FILEASSOCIATION_FILTER_CATEGORY 6313
+#define IDC_FILEASSOCIATION_FILTER_PROVENANCE 6314
+#define IDC_FILEASSOCIATION_FILTER_CONFLICTS 6315
+#define IDC_FILEASSOCIATION_TARGETCATALOG 6316
+#define IDC_FILEASSOCIATION_LEGEND      6317
+#define IDC_FILEASSOCIATION_HELP        6318
 #define IDD_CFGPAGE_APPEARANCE          595
 #define IDC_NOTHIDDENSYSTEM             596
 #define IDC_USESALOPEN                  597
@@ -900,7 +921,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        8205
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         6301
+#define _APS_NEXT_CONTROL_VALUE         6312
 #define _APS_NEXT_SYMED_VALUE           103
 #endif
 #endif

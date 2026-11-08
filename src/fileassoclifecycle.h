@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Expose transactional canonical model editing. | Allow the configuration page to replace validated associations without mutating legacy runtime state on failure. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Add guarded canonical association lifecycle hooks. | Keep legacy runtime configuration active until a complete projection adapter is registered. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 
 #pragma once
@@ -28,6 +29,11 @@ BOOL LoadCanonicalAssociationsForLifecycle(CConfigurationStorage& storage,
 // creating or overwriting the canonical root.
 BOOL SaveCanonicalAssociationsForLifecycle(CConfigurationStorage& storage,
                                            std::string* error = NULL);
+
+BOOL CopyCanonicalAssociationsForConfiguration(CFileAssociationModel* model,
+                                                std::string* error = NULL);
+BOOL ReplaceCanonicalAssociationsForConfiguration(const CFileAssociationModel& model,
+                                                   std::string* error = NULL);
 
 bool IsCanonicalRuntimeLoaded();
 bool IsCanonicalRuntimeProjectionBlocked();

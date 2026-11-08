@@ -2,10 +2,16 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Keep Internal Viewer accessible beside canonical associations. | Restore the existing viewer settings page after removing only the obsolete association pages. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-04 | Enlarge the persisted panel-toolbar layouts. | The shared button catalog no longer fits in the old 200-byte buffers. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
+// | 2026-11-08 | Show provenance and support adding multiple canonical rows. | Make defaults, legacy conflicts, and user overrides visible while allowing the editor to build a complete association list. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Keep canonical association edits transactional until OK. | Prevent page validation followed by Cancel from publishing changes to the live runtime. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Add the canonical file-association configuration page. | Replace the legacy viewer/editor pages with one editable, provenance-aware association surface. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
+
+#include "fileassoc.h"
 
 class CColorArrowButton;
 
@@ -1044,6 +1050,76 @@ public:
     CCfgPageViewEdit();
 };
 
+//****************************************************************************
+//
+// CCfgPageFileAssociations
+//
+
+class CCfgPageFileAssociations : public CCommonPropSheetPage
+{
+protected:
+    struct MatrixRow
+    {
+        std::string Pattern;
+        int View;
+        int AlternateView;
+        int Edit;
+        int ListUnpack;
+        int DeletePack;
+        bool Conflict;
+
+        MatrixRow()
+            : View(-1), AlternateView(-1), Edit(-1), ListUnpack(-1), DeletePack(-1), Conflict(false) {}
+    };
+
+    struct TargetCatalogItem
+    {
+        std::string StableId;
+        std::string DisplayName;
+        Salamander::FileAssociations::TargetKind Kind;
+    };
+
+    std::vector<Salamander::FileAssociations::Association> Rows;
+    std::vector<MatrixRow> MatrixRows;
+    std::vector<TargetCatalogItem> TargetCatalog;
+    int Selected;
+    int SelectedCategory;
+    int SelectedOperation;
+    int SelectedMatrixRow;
+    int FilterCategory;
+    int FilterProvenance;
+    BOOL ConflictsOnly;
+    BOOL Updating;
+
+    void RebuildMatrix();
+    void PopulateTargetCatalog();
+    void RefreshList();
+    void LoadSelectedControls();
+    BOOL BuildCandidate(Salamander::FileAssociations::CFileAssociationModel& candidate,
+                        std::string* error = NULL);
+    BOOL ReadControls(Salamander::FileAssociations::Association& item,
+                      std::string* error = NULL);
+    const char* CategoryText(Salamander::FileAssociations::Category category) const;
+    const char* OperationText(Salamander::FileAssociations::PanelOperation operation) const;
+    const char* TargetText(Salamander::FileAssociations::TargetKind target) const;
+    const char* ProvenanceText(Salamander::FileAssociations::Provenance provenance) const;
+    void SetStatus(const char* text);
+    const char* MatrixCellText(int index, bool archive) const;
+    const char* MatrixArchiveCellText(const MatrixRow& row) const;
+    const char* MatrixStatusText(const MatrixRow& row) const;
+    bool MatrixRowVisible(const MatrixRow& row) const;
+    int SelectedAssociationIndex(const MatrixRow& row) const;
+
+public:
+    CCfgPageFileAssociations();
+
+    virtual void Transfer(CTransferInfo& ti);
+    virtual void Validate(CTransferInfo& ti);
+
+protected:
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+};
+
 //
 // ****************************************************************************
 
@@ -1427,6 +1503,7 @@ public:
     CCfgPageConfirmations PageConfirmations;
     CCfgPageDrives PageDrives;
     CCfgPageViewEdit PageViewEdit;
+    CCfgPageFileAssociations PageFileAssociations;
     CCfgPageViewers Page13;
     CCfgPageViewers Page14;
     CCfgPageEditors Page15;
