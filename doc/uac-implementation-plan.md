@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record the additional cross-volume source guard probes. | Establish the behavior of NTFS attributes and delete-pending under contention. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record per-item UAC in native operation batches. | Document cancellation, existing worker boundaries and pending VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the protected disk overwrite pilot. | Document the verified replacement and VM acceptance boundary. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Start the native overwrite work after ZIP acceptance. | Share the verified exchange before wiring disk conflicts. | | GPT-6.1 Sol (Codex) |
@@ -581,6 +582,10 @@ V izolované Windows 11 VM (sestavení 26200, NTFS) výhradní otevření zdroje
 Oba scénáře prošly v Debug i Release s deseti kontrolami na běh. Běžná nativní sada v Release prošla se 117 kontrolami a zkouška P4m v Debug s devíti. Pokus použil dvě dočasné složky na stejném svazku, protože ověřoval výhradně podmínku odstranění zdroje. Podpora F6 mezi svazky přes broker zatím zůstává vypnutá. Její podmínkou je zachování všech dat zdroje až do bezpečného odstranění, včetně dat zapsaných mezi poslední kontrolou a samotnou mutací. Při zjištěné změně po zveřejnění kopie má host ponechat zdroj a výslovně hlásit částečný výsledek.
 
 P4n na commitu `a2250b31` prošla sestavením Win32, x64 a ARM64, 214 testy, kontrolou růstu zdrojů a CodeQL bez nových nálezů. [Testy P4n](https://github.com/majklvi/salamander/actions/runs/42483559361/job/128740485489) · [Výsledek CodeQL](https://github.com/majklvi/salamander/runs/128744670405).
+
+**Doplňující zkouška ochrany zdroje.** V Debug i Release prošlo dvanáct nativních kontrol režimu `--move-source-probe`. Příznak Read-only zablokoval vytvoření nového proudu chybou 5. Současně ale druhý handle s právem `FILE_WRITE_ATTRIBUTES` otevřel tentýž soubor a příznak úspěšně odstranil i za výhradního otevření hlavního proudu. Stav DeletePending zablokoval nový proud chybou 5. Už otevřený zapisující handle alternativního proudu dál zapisoval a po zrušení DeletePending test tyto bajty přečetl. Pád po nastavení DeletePending může navíc spustit odstranění při zavření handlu dříve, než broker stihne ověřit obsah. [Sdílení datových proudů](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams) · [FileDispositionInformation](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/12c3dd1c-14f6-4229-9d29-75fb2cb392f6).
+
+Pro NTFS je potřeba ověřit mechanismus, který před nevratným odstraněním zachová identifikovaný zdroj i při pádu a při pozdním zápisu do jiného proudu. Oplock na hlavním proudu platí pro tento proud. TxF Microsoft doporučuje nahradit jiným mechanismem, proto na něm produkční F6 nebude záviset. [Oplocky na datových proudech](https://learn.microsoft.com/en-us/windows-hardware/drivers/ifs/oplock-overview) · [Doporučení k TxF](https://learn.microsoft.com/en-us/windows/win32/fileio/transactional-ntfs-portal).
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

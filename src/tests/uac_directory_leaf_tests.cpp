@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Probe read-only and delete-pending source guards. | Exercise new and already open NTFS streams before designing retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the shared file exchange on NTFS. | Verify deadline and backup-name collisions leave the original intact. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Test ZIP journal cleanup through the named archive. | Keep coverage of preserving the original on an interrupted write. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise protected ZIP selection output on NTFS. | Verify nested names, empty directories and all-or-nothing manifest validation. | | GPT-6.1 Sol (Codex) |
@@ -797,6 +798,77 @@ bool CheckMoveSource(const std::wstring& fixture, HANDLE root)
     }
     return failures == 0;
 }
+bool CheckMoveSourceGuards(const std::wstring& fixture, HANDLE root)
+{
+    constexpr DWORD shareAll = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    const auto path = fixture + L"\\guard-probe";
+    const auto existingStream = path + L":existing";
+    const auto newStream = path + L":new";
+    const std::vector<BYTE> original{1};
+    if (!WriteFixture(path, original))
+        return false;
+
+    HANDLE raw = nullptr;
+    const DWORD open = UacRenameLeaf::Detail::OpenSource(root, L"guard-probe", raw,
+        FILE_READ_DATA | FILE_READ_EA | FILE_WRITE_ATTRIBUTES | DELETE, 0);
+    if (open)
+        return false;
+    Handle source(raw);
+    auto openStream = [&](const std::wstring& name, DWORD access, DWORD disposition, DWORD& error) -> Handle {
+        const HANDLE file = CreateFileW(name.c_str(), access, shareAll, nullptr, disposition, 0, nullptr);
+        error = file == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
+        return Handle(error ? nullptr : file);
+    };
+    auto setAttributes = [](HANDLE file, DWORD attributes) {
+        FILE_BASIC_INFO basic{};
+        basic.FileAttributes = attributes;
+        return SetFileInformationByHandle(file, FileBasicInfo, &basic, sizeof(basic)) != FALSE;
+    };
+
+    if (!setAttributes(source.get(), FILE_ATTRIBUTE_READONLY))
+        return false;
+    DWORD readonlyStreamError = ERROR_SUCCESS;
+    auto readonlyStream = openStream(newStream, FILE_WRITE_DATA, CREATE_NEW, readonlyStreamError);
+    readonlyStream.reset();
+    DWORD attributeOpenError = ERROR_SUCCESS;
+    const auto attributeWriter = openStream(path, FILE_WRITE_ATTRIBUTES, OPEN_EXISTING, attributeOpenError);
+    const bool clearedByPeer = attributeWriter && setAttributes(attributeWriter.get(), FILE_ATTRIBUTE_NORMAL);
+    if (!clearedByPeer && !setAttributes(source.get(), FILE_ATTRIBUTE_NORMAL))
+        return false;
+    std::printf("PROBE: readonly-new-stream=%lu attribute-writer=%lu peer-cleared-readonly=%d\n",
+                readonlyStreamError, attributeOpenError, clearedByPeer);
+
+    DWORD existingError = ERROR_SUCCESS;
+    auto writer = openStream(existingStream, FILE_WRITE_DATA, CREATE_NEW, existingError);
+    if (!writer)
+        return false;
+    FILE_DISPOSITION_INFO disposition{TRUE};
+    const BOOL pending = SetFileInformationByHandle(source.get(), FileDispositionInfo, &disposition, sizeof(disposition));
+    const DWORD pendingError = pending ? ERROR_SUCCESS : GetLastError();
+    if (!pending)
+    {
+        std::printf("PROBE: delete-pending=%lu\\n", pendingError);
+        return false;
+    }
+    DWORD pendingStreamError = ERROR_SUCCESS;
+    const auto pendingStream = openStream(path + L":after-delete-pending", FILE_WRITE_DATA, CREATE_NEW, pendingStreamError);
+    const BYTE added = 9;
+    DWORD written = 0;
+    const BOOL writtenWhilePending = WriteFile(writer.get(), &added, sizeof(added), &written, nullptr);
+    const DWORD pendingWriteError = writtenWhilePending ? ERROR_SUCCESS : GetLastError();
+    disposition.DeleteFile = FALSE;
+    const BOOL cleared = SetFileInformationByHandle(source.get(), FileDispositionInfo, &disposition, sizeof(disposition));
+    const DWORD clearError = cleared ? ERROR_SUCCESS : GetLastError();
+    writer.reset();
+    source.reset();
+    std::printf("PROBE: delete-pending-new-stream=%lu existing-write=%lu clear-pending=%lu\n",
+                pendingStreamError, pendingWriteError, clearError);
+    Check(cleared && HasContents(path, original), "clear delete-pending and keep the original main stream", clearError);
+    Check(!writtenWhilePending || (written == sizeof(added) && HasContents(existingStream, {added})),
+          "detect bytes written through an existing alternate stream while delete-pending", pendingWriteError);
+    return failures == 0;
+}
+
 bool CheckDirectoryMetadata(const std::wstring& fixture, HANDLE root)
 {
     using namespace UacDirectoryLeaf;
@@ -1211,7 +1283,7 @@ int wmain(int argc, wchar_t** argv)
         return 2;
     const Handle root(rawRoot);
     if (moveSource)
-        return CheckMoveSource(fixture, root.get()) ? 0 : 1;
+        return CheckMoveSource(fixture, root.get()) && CheckMoveSourceGuards(fixture, root.get()) ? 0 : 1;
     if (!CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
         !CheckZipSelection(fixture, root.get()) || !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::Zip) ||
         !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::DiskCopy))
