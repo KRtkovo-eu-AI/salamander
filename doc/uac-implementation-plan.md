@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record the F6 oplock and delete-pending experiments. | Isolate the limits of stream and extended-attribute exclusion. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record active cancellation of scoped file transfers. | Preserve completed copies and stop the rest of the batch. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record security metadata with F5 streams and sparse allocation. | Verify supported combinations without dropping payload data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the P7 installer and payload preflight. | Track the signed pilot and remaining distribution checks. | | GPT-6.1 Sol (Codex) |
@@ -637,6 +638,8 @@ V x64 Debug i Release prošlo 23 kontrol zdroje přesunu a 55 kontrol EFS. Sesta
 V x64 Debug i Release prošlo 37 kontrol zdroje přesunu, 237 běžných nativních kontrol a 55 kontrol EFS. Sestavení x64 Debug prošlo. Zkoušky ověřily znovuotevření žurnálu po tvrdém ukončení pomocného procesu, obnovu ID i alternativního proudu, odmítnutí změněného rodiče, podstrčeného odkazu, kolize, zkráceného žurnálu a blokovaného zdroje. Žurnál je nativní součást budoucího brokeru F6. Před zapojením zbývá bezpečné odstranění posledního odkazu po ověřené kopii a akceptace na dvou svazcích.
 
 **Pozdní rozšířené atributy zdroje.** Samostatný handle s právem FILE_WRITE_EA šel otevřít i při výhradním čtení hlavního proudu. Zápis rozšířeného atributu uspěl během DeletePending a po jeho zrušení ho kontrola metadat odhalila chybou 50. V Debug i Release prošlo 39 kontrol zdroje. Podmínka nevratného odstranění musí pokrýt i tento zápis. Produkční F6 mezi svazky zůstává otevřené.
+
+**Oplock a ochranný odkaz F6.** Zkouška na místním NTFS požádala o výhradní oplock s příznaky READ, WRITE a HANDLE na hlavním proudu. Pokud už byl otevřený handle s právem FILE_WRITE_EA, NTFS žádost odmítl chybou 300. Bez tohoto handlu oplock vznikl, ale jiné vlákno vytvořilo alternativní proud a zapsalo do něj, aniž se oplock přerušil. Po nastavení DeletePending přes stejný handle odmítl NTFS nový proud přes původní jméno chybou 5. Zápis přes druhý pevný odkaz uspěl i v tomto stavu, opět bez přerušení oplocku. Následné čtení ověřilo zapsaný bajt. V x64 Debug i Release prošlo 45 kontrol režimu --move-source-probe. Tato kombinace tedy sama neposkytuje potřebnou podmínku pro bezpečné odstranění posledního odkazu. [Rozsah oplocků na NTFS](https://learn.microsoft.com/en-us/windows-hardware/drivers/ifs/oplock-overview) · [FSCTL_REQUEST_OPLOCK](https://learn.microsoft.com/en-us/windows/win32/api/winioctl/ni-winioctl-fsctl_request_oplock).
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

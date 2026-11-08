@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Probe exclusive NTFS oplocks during F6 source retirement. | Observe separate-stream and extended-attribute writes against a held oplock. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify permanent-delete and metadata job boundaries. | Distinguish link types and enforce the selected metadata policy. | | GPT-6.1 Sol (Codex) |
@@ -74,6 +75,7 @@
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
+#include <thread>
 
 extern "C" NTSYSAPI NTSTATUS NTAPI NtSetEaFile(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG);
 
@@ -941,6 +943,136 @@ bool CheckMoveSourceExtendedAttributeGuard(const std::wstring& fixture, HANDLE r
                 openError, writeError, error);
     Check(status < 0 ? error == ERROR_SUCCESS : error == ERROR_NOT_SUPPORTED,
           "inspect extended attributes written while the source name was delete-pending", error);
+    return failures == 0;
+}
+
+bool CheckMoveSourceOplock(const std::wstring& fixture)
+{
+    constexpr DWORD shareAll = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    constexpr DWORD sourceAccess = FILE_READ_DATA | FILE_READ_EA | DELETE | SYNCHRONIZE;
+    enum class Probe { NewStream, ExistingEaWriter, DeletePending };
+    for (const auto probe : {Probe::NewStream, Probe::ExistingEaWriter, Probe::DeletePending})
+    {
+        const bool openEaBeforeLock = probe == Probe::ExistingEaWriter;
+        const bool markPending = probe == Probe::DeletePending;
+        const auto path = fixture + (openEaBeforeLock ? L"\\oplock-existing-ea" :
+                                     markPending ? L"\\oplock-pending" : L"\\oplock-new-stream");
+        const auto alias = path + L"-alias";
+        if (!WriteFixture(path, {1, 2, 3}) || (markPending && !CreateHardLinkW(alias.c_str(), path.c_str(), nullptr)))
+            return false;
+        auto open = [](const std::wstring& name, DWORD access, DWORD share, DWORD disposition, DWORD flags = 0) {
+            const HANDLE file = CreateFileW(name.c_str(), access, share, nullptr, disposition, flags, nullptr);
+            return Handle(file == INVALID_HANDLE_VALUE ? nullptr : file);
+        };
+        auto source = open(path, sourceAccess, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED);
+        const auto existingEa = openEaBeforeLock ? open(path, FILE_WRITE_EA, shareAll, OPEN_EXISTING) : Handle{};
+        const Handle completion(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        const Handle peerDone(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        if (!source || !completion || !peerDone || (openEaBeforeLock && !existingEa))
+            return false;
+
+        REQUEST_OPLOCK_INPUT_BUFFER request{REQUEST_OPLOCK_CURRENT_VERSION, sizeof(request),
+            OPLOCK_LEVEL_CACHE_READ | OPLOCK_LEVEL_CACHE_WRITE | OPLOCK_LEVEL_CACHE_HANDLE, REQUEST_OPLOCK_INPUT_FLAG_REQUEST};
+        REQUEST_OPLOCK_OUTPUT_BUFFER reply{};
+        OVERLAPPED overlapped{};
+        overlapped.hEvent = completion.get();
+        DWORD bytes = 0;
+        if (DeviceIoControl(source.get(), FSCTL_REQUEST_OPLOCK, &request, sizeof(request), &reply, sizeof(reply),
+                            &bytes, &overlapped))
+            return false;
+        const DWORD grant = GetLastError();
+        std::printf("PROBE: RWH preopened-ea=%d delete-pending=%d grant=%lu\n", openEaBeforeLock, markPending, grant);
+        if (grant != ERROR_IO_PENDING)
+        {
+            Check(openEaBeforeLock && (grant == ERROR_OPLOCK_NOT_GRANTED || grant == ERROR_SHARING_VIOLATION),
+                  "the exclusive oplock requires no competing handles on the default stream", grant);
+            continue;
+        }
+
+        FILE_DISPOSITION_INFO disposition{TRUE};
+        const bool pending = !markPending || SetFileInformationByHandle(source.get(), FileDispositionInfo, &disposition, sizeof(disposition));
+        if (!pending)
+        {
+            const DWORD error = GetLastError();
+            CancelIoEx(source.get(), &overlapped);
+            GetOverlappedResult(source.get(), &overlapped, &bytes, TRUE);
+            Check(false, "set DeletePending under the held oplock", error);
+            continue;
+        }
+
+        DWORD peerError = ERROR_GEN_FAILURE;
+        DWORD originalNameError = ERROR_SUCCESS;
+        const auto peerPath = (markPending ? alias : path) + L":late";
+        std::thread peer([&] {
+            if (openEaBeforeLock)
+            {
+                struct
+                {
+                    ULONG next = 0;
+                    UCHAR flags = 0;
+                    UCHAR nameLength = 4;
+                    USHORT valueLength = 1;
+                    CHAR nameAndValue[6] = {'T', 'E', 'S', 'T', '\0', 9};
+                } ea;
+                IO_STATUS_BLOCK io{};
+                const NTSTATUS status = NtSetEaFile(existingEa.get(), &io, &ea, sizeof(ea));
+                peerError = status < 0 ? RtlNtStatusToDosError(status) : ERROR_SUCCESS;
+            }
+            else
+            {
+                if (markPending)
+                {
+                    const auto originalStream = open(path + L":pending", FILE_WRITE_DATA, shareAll, CREATE_NEW);
+                    originalNameError = originalStream ? ERROR_SUCCESS : GetLastError();
+                }
+                const auto stream = open(peerPath, FILE_WRITE_DATA, shareAll, CREATE_NEW);
+                if (!stream)
+                    peerError = GetLastError();
+                else
+                {
+                    const BYTE value = 9;
+                    DWORD written = 0;
+                    if (WriteFile(stream.get(), &value, sizeof(value), &written, nullptr))
+                        peerError = written == sizeof(value) ? ERROR_SUCCESS : ERROR_WRITE_FAULT;
+                    else
+                        peerError = GetLastError();
+                }
+            }
+            SetEvent(peerDone.get());
+        });
+        const HANDLE events[] = {completion.get(), peerDone.get()};
+        const DWORD first = WaitForMultipleObjects(ARRAYSIZE(events), events, FALSE, 1500);
+        const bool completedWhileHeld = WaitForSingleObject(peerDone.get(), 0) == WAIT_OBJECT_0;
+        const bool broken = WaitForSingleObject(completion.get(), 0) == WAIT_OBJECT_0;
+        CancelIoEx(source.get(), &overlapped);
+        GetOverlappedResult(source.get(), &overlapped, &bytes, TRUE);
+        bool clearedPending = true;
+        if (markPending)
+        {
+            disposition.DeleteFile = FALSE;
+            clearedPending = SetFileInformationByHandle(source.get(), FileDispositionInfo, &disposition, sizeof(disposition)) != FALSE;
+        }
+        source.reset(); // A completed break may still need acknowledgement.
+        peer.join();
+        const bool lateWrite = completedWhileHeld && !broken && peerError == ERROR_SUCCESS;
+        std::printf("PROBE: RWH preopened-ea=%d delete-pending=%d first=%lu peer-while-held=%d broken=%d original=%lu write=%lu\n",
+                    openEaBeforeLock, markPending, first, completedWhileHeld, broken, originalNameError, peerError);
+        if (markPending)
+            Check(clearedPending && HasContents(path, {1, 2, 3}),
+                  "clear DeletePending and keep the exact source after the combined probe");
+        Check(first == WAIT_OBJECT_0 || first == WAIT_OBJECT_0 + 1,
+              "observe a write or oplock break before releasing the guard", first);
+        if (!openEaBeforeLock)
+            Check(peerError != ERROR_SUCCESS || HasContents(peerPath, {9}),
+                  "verify the alternate-stream bytes written by the competing handle", peerError);
+        if (lateWrite && openEaBeforeLock)
+        {
+            FILE_BASIC_INFO basic{};
+            const auto check = open(path, FILE_READ_EA | FILE_READ_ATTRIBUTES, shareAll, OPEN_EXISTING);
+            const DWORD error = check ? UacCopyLeaf::Detail::ReadPlainMetadata(check.get(), basic) : GetLastError();
+            Check(error == ERROR_NOT_SUPPORTED, "verify the extended attribute written during the oplock", error);
+        }
+    }
     return failures == 0;
 }
 
@@ -2200,7 +2332,7 @@ int wmain(int argc, wchar_t** argv)
     const Handle root(rawRoot);
     if (moveSource)
         return CheckMoveSource(fixture, root.get()) && CheckMoveSourceGuards(fixture, root.get()) &&
-                       CheckMoveSourceExtendedAttributeGuard(fixture, root.get()) &&
+                       CheckMoveSourceExtendedAttributeGuard(fixture, root.get()) && CheckMoveSourceOplock(fixture) &&
                        CheckMoveSourceRecoveryLink(fixture, root.get()) && CheckMoveSourceJournal(fixture) ? 0 : 1;
     if (!CheckFindTagStream() || !CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
         !CheckZipSelection(fixture, root.get()) || !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::Zip) ||
