@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record final protected ZIP acceptance. | Preserve disk, CRC, cancellation and disconnect evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Keep interrupted ZIP handling internal to the write. | Remove the standalone command and record the VM edit results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record ZIP recovery and the first acceptance results. | Track successful read and extraction and the diagnosed Windows ACL difference. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document protected ZIP editing from the panel. | Track staging, validation, delete and F5 additions. | | GPT-6.1 Sol (Codex) |
@@ -838,6 +839,10 @@ Diskové zdroje při F5 zůstávají na místě. Sestavení x64 Debug aplikace, 
 V izolované VM otevřelo F3 položku `dír/東-view.txt` v interním prohlížeči s očekávaným textem. Vstup do podsložky, návrat i Ctrl+R použily stejnou čtecí autorizaci. F5 do běžného cíle vytvořilo výběr obou složek včetně prázdné složky. F5 do chráněného cíle po jednom souhlasu vytvořilo `dír` se dvěma soubory. SHA-256 souborů se v obou cílech shodovaly.
 
 První pokus o přidání a nahrazení v chráněném ZIP64 skončil chybou 1006. Otisk originálu se nezměnil. Diagnostika oddělila revizi od bezpečnostního popisu. ID a revize souhlasily, stejně jako vlastník, skupina a obě ACL. Windows při vytvoření nového souboru změnil příznaky `SE_DACL_AUTO_INHERITED` a `SE_SACL_AUTO_INHERITED` z `0xBC14` na `0xB014`. Broker nyní porovnává přítomnost a ochranu ACL proti dědění a všechny položky ACL včetně jejich vlastních příznaků dědění. Opravené sestavení ve VM přidalo položku add.txt, nahradilo replace.txt a odstranilo remove.txt po schválení zápisu. Zamítnutí zápisu ponechalo keep.txt v archivu a F3 ho poté otevřelo ze stejné relace. [Příznaky bezpečnostního popisu ve Windows](https://learn.microsoft.com/en-us/windows/win32/secauthz/security-descriptor-control).
+
+Finální sestavení ověřil instalační manifest SHA-256. Kontrola ZIPu na disku potvrdila obsah `add.txt`, `replace.txt` a `keep.txt` podle očekávaných otisků, zachovaná oprávnění, chybějící `remove.txt` a nulový počet pracovních souborů v cílové složce. Původní čtecí ZIP měl stejný SHA-256. Záměrně poškozená položka skončila ve F3 chybou CRC 23. Po zamítnutí cílové výzvy F5 nevznikl `cancel-target.txt`. Po ukončení testovacího čtecího brokeru skončilo F3 chybou spojení 232 a prohlížeč se neotevřel. Samandarin zůstal spuštěný a návrat do diskového panelu fungoval. V nabídce Files finálního sestavení samostatný příkaz obnovy chybí.
+
+Při akceptaci změn byl vstupní ZIP64 záměrně malý. Offset přes 4 GiB ověřil samostatný test blokového čtení. Pro tuto etapu platí uvedené limity na velikost položky a výběru při F3 a F5, na počet položek a na velikost pracovního archivu při zápisu.
 
 ## 9. Uživatelský tok a stav operace
 
