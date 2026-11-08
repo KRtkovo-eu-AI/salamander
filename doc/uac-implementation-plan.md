@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Add a durable cross-volume source recovery journal. | Bind recovery to verified NTFS names and file identities. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify a source recovery link across process termination. | Establish exact recovery and expose remaining NTFS write paths. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Return known transfer failures to ordinary error handling. | Preserve completed work and scoped consent after a skipped failure. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Reuse transfer consent within a scoped job. | Bind subsequent requests to the approved operation and parent identities. | | GPT-6.1 Sol (Codex) |
@@ -612,6 +613,10 @@ Pro NTFS je potřeba ověřit mechanismus, který před nevratným odstraněním
 **Zachování identity zdroje pevným odkazem.** Relativní vytvoření odkazu z ověřeného handlu uchovalo tentýž soubor po odstranění původního názvu, včetně alternativního proudu zapsaného po nastavení DeletePending. Samostatný testovací proces skončil tvrdým ukončením s otevřeným handlem původního jména. Ochranný odkaz zůstal čitelný se všemi ověřovanými daty a původní název šel obnovit se stejným ID. Pokud pod původním názvem mezitím vznikl cizí soubor, obnova vrátila 183 a zachovala obě položky. Společný nativní helper používá i EFS. [Pevné odkazy NTFS](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-hardlink) · [FileDispositionInformation](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/12c3dd1c-14f6-4229-9d29-75fb2cb392f6).
 
 V x64 Debug i Release prošlo 23 kontrol zdroje přesunu a 55 kontrol EFS. Sestavení aplikace, brokeru a sondy x64 Debug prošlo. Nový proud přes původní název v DeletePending selhal s chybou 5, ale nový proud přes druhý známý název i otevření podle ID uspěly. Pevný odkaz tedy umožňuje obnovu po přerušení. Produkční F6 mezi svazky ještě vyžaduje trvalý záznam o obnově a ověřenou podmínku pro bezpečné odstranění posledního odkazu. Zkouška používá pouze dočasné soubory na jednom svazku. [OpenFileById](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-openfilebyid).
+
+**Trvalý žurnál obnovy zdroje F6.** Před vytvořením ochranného odkazu zapíše a vyprázdní na disk záznam s GUID svazku, identitou obou rodičů, ID zdroje a původním názvem. Žurnál i úložiště vyžadují ověřeného vlastníka a soukromou DACL. Obnova přejmenuje ověřený odkaz zpět bez přepisu, pokud původní jméno chybí. Pokud původní jméno stále odkazuje na stejný soubor, drží je čtecím handlem bez sdílení pro smazání, dokud pracovní odkaz skutečně nezmizí. Handle na samotném pracovním odkazu POSIX přepis původního jména nezastavil. Čtecí handle otevřený přes původní jméno ho zablokoval chybou 32.
+
+V x64 Debug i Release prošlo 37 kontrol zdroje přesunu, 237 běžných nativních kontrol a 55 kontrol EFS. Sestavení x64 Debug prošlo. Zkoušky ověřily znovuotevření žurnálu po tvrdém ukončení pomocného procesu, obnovu ID i alternativního proudu, odmítnutí změněného rodiče, podstrčeného odkazu, kolize, zkráceného žurnálu a blokovaného zdroje. Žurnál je nativní součást budoucího brokeru F6. Před zapojením zbývá bezpečné odstranění posledního odkazu po ověřené kopii a akceptace na dvou svazcích.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

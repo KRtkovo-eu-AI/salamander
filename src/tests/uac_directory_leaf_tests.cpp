@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise a durable move source journal. | Recover after process death and refuse wrong parents and substitutions. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify recovery through an exact source hard link. | Preserve late streams and refuse collisions when restoring the source name. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify retry scope after a definitive broker error. | Preserve matching overwrite approval and reject a changed object. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify the transfer job scope boundary. | Reject other operations, paths and parent identities. | | GPT-6.1 Sol (Codex) |
@@ -65,6 +66,7 @@
 #include "../findtagstream.h"
 #include "../uacbroker/efsraw.h"
 #include "../uacbroker/efscopy.h"
+#include "../uacbroker/movesourcejournal.h"
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
@@ -925,6 +927,28 @@ bool InterruptPendingMoveSource(const std::wstring& fixture)
            GetExitCodeProcess(child.get(), &code) && code == 17;
 }
 
+PSECURITY_DESCRIPTOR PrivateTestSecurity()
+{
+    HANDLE rawToken = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &rawToken))
+        return nullptr;
+    const Handle token(rawToken);
+    DWORD length = 0;
+    GetTokenInformation(token.get(), TokenUser, nullptr, 0, &length);
+    std::vector<BYTE> tokenData(length);
+    if (!length || !GetTokenInformation(token.get(), TokenUser, tokenData.data(), length, &length))
+        return nullptr;
+    PWSTR sid = nullptr;
+    if (!ConvertSidToStringSidW(reinterpret_cast<const TOKEN_USER*>(tokenData.data())->User.Sid, &sid))
+        return nullptr;
+    const std::unique_ptr<void, decltype(&LocalFree)> sidText(sid, LocalFree);
+    const std::wstring sddl = std::wstring(L"O:") + sid + L"D:P(A;;FA;;;" + sid + L")";
+    PSECURITY_DESCRIPTOR rawSecurity = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &rawSecurity, nullptr))
+        return nullptr;
+    return rawSecurity;
+}
+
 bool CheckMoveSourceRecoveryLink(const std::wstring& fixture, HANDLE root)
 {
     using namespace UacRenameLeaf::Detail;
@@ -1029,6 +1053,149 @@ bool CheckMoveSourceRecoveryLink(const std::wstring& fixture, HANDLE root)
           "the retained source survives process termination with its alternate data intact");
     error = NativeHardLink(retained.get(), root, sourceLeaf);
     Check(!error && HasContents(original + L":before", {late}), "restore the source name after process termination", error);
+    return failures == 0;
+}
+
+bool CheckMoveSourceJournal(const std::wstring& fixture)
+{
+    using namespace UacMoveSourceJournal;
+    using namespace UacRenameLeaf::Detail;
+    const std::unique_ptr<void, decltype(&LocalFree)> security(PrivateTestSecurity(), LocalFree);
+    if (!security)
+        return false;
+    SECURITY_ATTRIBUTES attributes{sizeof(attributes), security.get(), FALSE};
+    const auto originalDirectory = fixture + L"\\move-original";
+    const auto storageDirectory = fixture + L"\\move-private";
+    const auto wrongDirectory = fixture + L"\\move-wrong-parent";
+    if (!CreateDirectoryW(originalDirectory.c_str(), nullptr) || !CreateDirectoryW(storageDirectory.c_str(), &attributes) ||
+        !CreateDirectoryW(wrongDirectory.c_str(), &attributes))
+        return false;
+    auto openDirectory = [](const std::wstring& path) {
+        const HANDLE raw = CreateFileW(path.c_str(), FILE_TRAVERSE | FILE_ADD_FILE | READ_CONTROL,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        return Handle(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+    };
+    const auto parent = openDirectory(originalDirectory);
+    const auto storage = openDirectory(storageDirectory);
+    const auto wrongParent = openDirectory(wrongDirectory);
+    const auto journalPath = storageDirectory + L"\\journal";
+    auto openJournal = [&](DWORD disposition) {
+        const HANDLE raw = CreateFileW(journalPath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, &attributes,
+                                       disposition, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        return Handle(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+    };
+    auto journal = openJournal(CREATE_NEW);
+    if (!parent || !storage || !wrongParent || !journal)
+        return false;
+    auto recover = [&](HANDLE candidate) { return Recover(candidate, storage.get(), journal.get(), security.get()); };
+    auto empty = [&]() {
+        LARGE_INTEGER bytes{};
+        return GetFileSizeEx(journal.get(), &bytes) && !bytes.QuadPart;
+    };
+    Check(!recover(parent.get()) && empty(), "an empty move journal needs no recovery");
+
+    constexpr wchar_t leaf[] = L"recover-\u6771.txt";
+    const auto sourcePath = originalDirectory + L"\\" + leaf;
+    const auto stream = sourcePath + L":named";
+    if (!WriteFixture(sourcePath, {1, 2, 3}) || !WriteFixture(stream, {9}))
+        return false;
+    HANDLE raw = nullptr;
+    auto openSource = [&]() {
+        raw = nullptr;
+        const DWORD error = OpenSource(parent.get(), leaf, raw, DELETE | FILE_READ_DATA, 0);
+        return Handle(error ? nullptr : raw);
+    };
+    auto source = openSource();
+    FILE_ID_INFO expected{};
+    if (!source || ReadSourceIdentity(source.get(), expected))
+        return false;
+
+    std::wstring name;
+    auto arm = [&](const FILE_ID_INFO& identity) {
+        return Arm(parent.get(), leaf, source.get(), identity, storage.get(), journal.get(), security.get(), name);
+    };
+    auto wrong = expected;
+    ++wrong.FileId.Identifier[0];
+    DWORD error = arm(wrong);
+    Check(error == ERROR_FILE_INVALID && empty(), "refuse a stale source identity before arming move recovery", error);
+    error = arm(expected);
+    Check(!error && !name.empty() && !empty(), "record and arm the move recovery link", error);
+    if (error)
+        return false;
+    const auto aliasName = name;
+    auto retained = storageDirectory + L"\\" + name;
+    error = arm(expected);
+    Check(error == ERROR_BUSY && !empty(), "keep an armed move record until explicit recovery", error);
+    error = recover(parent.get());
+    Check(error == ERROR_SHARING_VIOLATION && Exists(retained) && !empty(),
+          "leave the move journal and recovery link intact while the original is locked", error);
+    source.reset();
+    error = recover(wrongParent.get());
+    Check(error == ERROR_FILE_INVALID && Exists(retained) && !empty(), "refuse to recover into a different source parent", error);
+    const auto displaced = retained + L".held";
+    if (!MoveFileExW(retained.c_str(), displaced.c_str(), 0) || !WriteFixture(retained, {7}))
+        return false;
+    error = recover(parent.get());
+    Check(error == ERROR_FILE_INVALID && HasContents(retained, {7}) && Exists(displaced) && !empty(),
+          "refuse a substituted recovery link without modifying either object", error);
+    if (!DeleteFileW(retained.c_str()) || !MoveFileExW(displaced.c_str(), retained.c_str(), 0))
+        return false;
+    {
+        HANDLE rawGuard = nullptr;
+        error = OpenSource(storage.get(), aliasName, rawGuard, DELETE | FILE_READ_DATA, FILE_SHARE_READ);
+        if (error) Check(false, "open the recovery guard", error);
+        if (error)
+            return false;
+        const Handle guard(rawGuard);
+        HANDLE rawOriginalPin = nullptr;
+        const DWORD pinError = OpenSource(parent.get(), leaf, rawOriginalPin, FILE_READ_DATA, FILE_SHARE_READ);
+        const Handle originalPin(rawOriginalPin);
+        Check(!pinError && originalPin, "pin the original name while holding the recovery link for deletion", pinError);
+        const auto rivalPath = originalDirectory + L"\\rival";
+        if (!WriteFixture(rivalPath, {7}))
+            return false;
+        const HANDLE rawRival = CreateFileW(rivalPath.c_str(), DELETE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (rawRival == INVALID_HANDLE_VALUE) Check(false, "open the rival object", GetLastError());
+        if (rawRival == INVALID_HANDLE_VALUE)
+            return false;
+        const Handle rival(rawRival);
+        error = ReplaceForProbe(rival.get(), sourcePath, true);
+        Check(error == ERROR_SHARING_VIOLATION, "the original read pin blocks POSIX replacement during recovery cleanup", error);
+    }
+    error = recover(parent.get());
+    Check(!error && !Exists(retained) && HasContents(stream, {9}) && empty(),
+          "retire the recovery link when the unchanged original name is still present", error);
+
+    source = openSource();
+    if (!source || arm(expected))
+        return false;
+    retained = storageDirectory + L"\\" + name;
+    source.reset();
+    journal.reset();
+    if (!InterruptPendingMoveSource(originalDirectory) || Exists(sourcePath))
+        return false;
+    journal = openJournal(OPEN_EXISTING);
+    if (!journal || !WriteFixture(sourcePath, {7}))
+        return false;
+    error = recover(parent.get());
+    Check(error == ERROR_FILE_INVALID && HasContents(sourcePath, {7}) && HasContents(retained + L":named", {9}) && !empty(),
+          "leave a post-crash source-name collision and the retained data intact", error);
+    if (!DeleteFileW(sourcePath.c_str()))
+        return false;
+    error = recover(parent.get());
+    FILE_ID_INFO recovered{};
+    const auto identity = OpenIdentity(sourcePath, recovered);
+    Check(!error && identity && SameSource(expected, recovered) && HasContents(stream, {9}) && !Exists(retained) && empty(),
+          "reopen the durable journal and restore the source identity and streams after process death", error);
+    Check(!recover(parent.get()) && empty(), "a recovered move journal can be opened again without further changes");
+    const BYTE truncated = 1;
+    DWORD written = 0;
+    if (!WriteFile(journal.get(), &truncated, sizeof(truncated), &written, nullptr) || written != sizeof(truncated))
+        return false;
+    error = recover(parent.get());
+    Check(error == ERROR_INVALID_DATA && !empty() && HasContents(stream, {9}),
+          "refuse to apply a truncated move journal", error);
     return failures == 0;
 }
 
@@ -1549,24 +1716,10 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
 static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const FILE_ID_INFO& sourceId,
                               const std::vector<BYTE>& plaintext)
 {
-    HANDLE rawToken = nullptr;
-    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &rawToken))
+    const std::unique_ptr<void, decltype(&LocalFree)> security(PrivateTestSecurity(), LocalFree);
+    if (!security)
         return false;
-    const Handle token(rawToken);
-    DWORD length = 0;
-    GetTokenInformation(token.get(), TokenUser, nullptr, 0, &length);
-    std::vector<BYTE> tokenData(length);
-    if (!length || !GetTokenInformation(token.get(), TokenUser, tokenData.data(), length, &length))
-        return false;
-    PWSTR sid = nullptr;
-    if (!ConvertSidToStringSidW(reinterpret_cast<const TOKEN_USER*>(tokenData.data())->User.Sid, &sid))
-        return false;
-    const std::unique_ptr<void, decltype(&LocalFree)> sidText(sid, LocalFree);
-    const std::wstring sddl = std::wstring(L"O:") + sid + L"D:P(A;;FA;;;" + sid + L")";
-    PSECURITY_DESCRIPTOR rawSecurity = nullptr;
-    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &rawSecurity, nullptr))
-        return false;
-    const std::unique_ptr<void, decltype(&LocalFree)> security(rawSecurity, LocalFree);
+    const auto rawSecurity = security.get();
 
     const auto base = folder + L"\\efs-private";
     SECURITY_ATTRIBUTES attributes{sizeof(attributes), rawSecurity, FALSE};
@@ -1625,7 +1778,7 @@ static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const F
         if (error)
             return false;
         std::wstring stage(32768, L'\0');
-        length = GetFinalPathNameByHandleW(workspace.Directory(), stage.data(), static_cast<DWORD>(stage.size()), FILE_NAME_OPENED);
+        DWORD length = GetFinalPathNameByHandleW(workspace.Directory(), stage.data(), static_cast<DWORD>(stage.size()), FILE_NAME_OPENED);
         if (!length || length >= stage.size())
             return false;
         stage.resize(length);
@@ -1988,7 +2141,7 @@ int wmain(int argc, wchar_t** argv)
     const Handle root(rawRoot);
     if (moveSource)
         return CheckMoveSource(fixture, root.get()) && CheckMoveSourceGuards(fixture, root.get()) &&
-                       CheckMoveSourceRecoveryLink(fixture, root.get()) ? 0 : 1;
+                       CheckMoveSourceRecoveryLink(fixture, root.get()) && CheckMoveSourceJournal(fixture) ? 0 : 1;
     if (!CheckFindTagStream() || !CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
         !CheckZipSelection(fixture, root.get()) || !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::Zip) ||
         !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::DiskCopy))
