@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Route eligible encrypted F5 failures to the broker. | Preserve ciphertext and release the normal copy handle before elevation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Process approved leaves in the existing worker sequence. | Preserve progress and stop the batch on a canceled or unconfirmed elevated operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer the verified F5 replacement after ordinary access is denied. | Capture the conflict before consent and exclude locally modified targets. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain denied protected EFS copies. | Keep ordinary EFS success and existing retry choices available. | | GPT-6.1 Sol (Codex) |
@@ -506,6 +507,7 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     InvertRecycleBin = FALSE;
     AllowPermanentDeletePilot = FALSE;
     AllowTransferPilot = FALSE;
+    AllowEncryptedTransferPilot = FALSE;
     IgnoreTransferAds = FALSE;
     CanUseRecycleBin = TRUE;
     SameRootButDiffVolume = FALSE;
@@ -5651,11 +5653,13 @@ static void ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
 }
 
 static bool TryTransferWithBroker(HWND progress, const COperation& op, COperations& script,
-                              CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success)
+                              CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success, HANDLE* input = nullptr)
 {
     const bool moving = op.Opcode == ocMoveFile;
+    const bool encrypted = !moving && UacF7::IsEncryptedCopyFile(op.Attr);
     if (!script.AllowTransferPilot || script.OverwriteOlder ||
-        (op.OpFlags & OPFL_AS_ENCRYPTED) != 0 || !op.SourceNameWValid || !op.TargetNameWValid ||
+        ((op.OpFlags & OPFL_AS_ENCRYPTED) != 0 && !encrypted) ||
+        (encrypted && (!script.AllowEncryptedTransferPilot || (op.OpFlags & OPFL_COPY_ADS) != 0)) || !op.SourceNameWValid || !op.TargetNameWValid ||
         (moving ? (script.CopySecurity || script.CopyAttrs || (op.OpFlags & OPFL_COPY_ADS) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))
                 : (!UacF7::IsEligibleFileCopy(op.Attr, script.CopyAttrs, script.IgnoreTransferAds, script.CopySecurity) ||
                    op.FileSize.Value > UacF7::maxPilotCopyBytes)))
@@ -5677,6 +5681,8 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     auto operation = UacF7::Operation::Copy;
     if (moving)
         operation = UacF7::Operation::Move;
+    else if (encrypted)
+        operation = UacF7::Operation::CopyEncrypted;
     else if (script.CopySecurity)
         operation = UacF7::Operation::CopySecurity;
     else if (script.CopyAttrs)
@@ -5686,6 +5692,13 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     UacF7::PreparedTransfer request;
     if (!request.Prepare(op.SourceNameW, op.TargetNameW, op.FileSize.Value, operation))
         return false;
+    if (encrypted && input)
+    {
+        // Raw export and subsequent removal of the private hard link need
+        // the original user's copy handle to be closed.
+        HANDLES(CloseHandle(*input));
+        *input = INVALID_HANDLE_VALUE;
+    }
     ExecuteWorkerTransfer(progress, op, script, totalDone, dlgData, success, request);
     return true;
 }
@@ -5906,13 +5919,15 @@ COPY_AGAIN:
                             out = SalCreateFileEx(op->TargetName, GENERIC_WRITE, 0, fileAttrs, &encryptionNotSupported);
                     }
 
-                    if (out == INVALID_HANDLE_VALUE && !invalidTgtName && !copyAsEncrypted &&
+                    if (out == INVALID_HANDLE_VALUE && !invalidTgtName &&
+                        (!copyAsEncrypted || UacF7::IsEncryptedCopyFile(op->Attr)) &&
                         !isMove && !dlgData.SkipAllFileOpenOut && GetLastError() == ERROR_ACCESS_DENIED)
                     {
                         BOOL success = FALSE;
-                        if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
+                        if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, &in))
                         {
-                            HANDLES(CloseHandle(in));
+                            if (in != INVALID_HANDLE_VALUE)
+                                HANDLES(CloseHandle(in));
                             return success;
                         }
                         SetLastError(ERROR_ACCESS_DENIED);
@@ -6933,7 +6948,9 @@ COPY_AGAIN:
             if (*dlgData.CancelWorker)
                 return FALSE;
 
-            if (err == ERROR_ACCESS_DENIED && !isMove && !copyAsEncrypted && !invalidTgtName && !dlgData.SkipAllFileOpenIn)
+            if (!isMove && !invalidTgtName && !dlgData.SkipAllFileOpenIn &&
+                ((!copyAsEncrypted && err == ERROR_ACCESS_DENIED) ||
+                 (UacF7::IsEncryptedCopyFile(op->Attr) && UacF7::IsEfsCopyFailure(op->Attr, err))))
             {
                 BOOL success = FALSE;
                 if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))

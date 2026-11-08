@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Track eligibility of single-file EFS jobs. | Keep multi-file consent scoped to the job. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Track complete protected disk measurements separately. | An unavailable measurement must not invalidate the logical file sizes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Distinguish protected logical totals from allocation totals. | Avoid showing partial allocation as occupied space. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Carry the explicit F5 stream option. | Preserve the difference between user choice and failed stream discovery. | | GPT-6.1 Sol (Codex) |
@@ -408,6 +409,7 @@ public:
     BOOL InvertRecycleBin;   // invert Recycle Bin usage
     BOOL AllowPermanentDeletePilot;
     BOOL AllowTransferPilot;
+    BOOL AllowEncryptedTransferPilot;
     BOOL IgnoreTransferAds;
     std::unique_ptr<UacF7::PreparedTransfer> ProtectedTreeTransfer;
 

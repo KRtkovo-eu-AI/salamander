@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Add the encrypted F5 request. | Carry an explicit EFS copy contract through the broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Add an exact-file scope for protected Find. | Bind single-file consent to a verified identity. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Give protected Find a dedicated read-only scope. | Keep panel listings separate from content sessions. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define a separate protected copy overwrite request. | Bind the overwrite to a captured target revision. | | GPT-6.1 Sol (Codex) |
@@ -49,7 +50,7 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26 };
 
 inline bool IsRename(Operation operation)
 {
@@ -66,7 +67,8 @@ inline bool IsLeafDelete(Operation operation)
 inline bool IsFileCopy(Operation operation)
 {
     return operation == Operation::Copy || operation == Operation::CopyIgnoreAds ||
-           operation == Operation::CopyCompressed || operation == Operation::CopySecurity;
+           operation == Operation::CopyCompressed || operation == Operation::CopySecurity ||
+           operation == Operation::CopyEncrypted;
 }
 
 constexpr DWORD maxZipSelectionBytes = 64 * 1024 * 1024;
@@ -138,8 +140,15 @@ inline bool IsCompressedCopyFile(DWORD attributes)
     return (attributes & FILE_ATTRIBUTE_COMPRESSED) && !(attributes & ~compressedCopyAttributes);
 }
 
+inline bool IsEncryptedCopyFile(DWORD attributes)
+{
+    return (attributes & FILE_ATTRIBUTE_ENCRYPTED) && !(attributes & ~(plainCopyAttributes | FILE_ATTRIBUTE_ENCRYPTED));
+}
+
 inline bool IsEligibleFileCopy(DWORD attributes, bool copyAttributes, bool ignoreAds, bool copySecurity)
 {
+    if (IsEncryptedCopyFile(attributes))
+        return !copySecurity && !ignoreAds;
     if (copySecurity)
         return !copyAttributes && !ignoreAds && IsPlainCopyFile(attributes);
     if (copyAttributes)
@@ -239,6 +248,7 @@ public:
     bool MatchesOverwriteTarget(HANDLE file) const;
     bool IsOverwrite() const { return source.operation == Operation::CopyOverwrite; }
     bool PreservesSecurity() const { return source.operation == Operation::CopySecurity; }
+    bool PreservesEncryption() const { return source.operation == Operation::CopyEncrypted; }
     bool PreservesCompression() const { return source.operation == Operation::CopyCompressed; }
     bool IgnoresAds() const { return source.operation == Operation::CopyIgnoreAds; }
 

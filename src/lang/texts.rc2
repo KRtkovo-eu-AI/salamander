@@ -1,5 +1,6 @@
 ﻿// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Add an explicit EFS consent prompt. | Describe preservation of encryption. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the single-file Find grant. | Show the file scope before Windows consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use Find consent wording that covers duplicate content comparison. | Describe the granted access rather than the matching algorithm. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain protected content-search consent. | Identify content reading before elevation. | | GPT-6.1 Sol (Codex) |
@@ -2439,6 +2440,7 @@ STRINGTABLE
  IDS_UAC_COPY_IGNORE_ADS_CONFIRM, "Access was denied. Copy this file without its alternate data streams as an administrator?"
  IDS_UAC_COPY_COMPRESSED_CONFIRM, "Access was denied. Copy this file and preserve its NTFS compression as an administrator?"
  IDS_UAC_COPY_SECURITY_CONFIRM, "Access was denied. Copy this file and preserve its NTFS owner, group, and explicit permissions as an administrator?"
+ IDS_UAC_COPY_ENCRYPTED_CONFIRM, "Access was denied. Copy this file as an administrator and preserve its EFS encryption?"
  IDS_UAC_COPY_EFS_UNSUPPORTED, "This EFS copy could not be completed. Administrator mode cannot preserve the EFS encryption for this operation."
  IDS_UAC_COPY_UNKNOWN, "The broker disconnected before the copy was confirmed. Check the destination before retrying."
  IDS_UAC_MOVE_CONFIRM, "Access was denied. Move this file as an administrator?"

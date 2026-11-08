@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe EFS preservation in the F5 consent. | Identify what the elevated copy will preserve. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain the scope of elevated batch items. | Make cancellation and completed items predictable. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify the protected F5 replacement. | Show the authorized replacement paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share the protected read consent prompt with F3. | Keep the scope and shield consistent. | | GPT-6.1 Sol (Codex) |
@@ -1791,6 +1792,8 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 confirmText = IDS_UAC_TREE_COPY_CONFIRM;
             else if (prompt.request.PreservesSecurity())
                 confirmText = IDS_UAC_COPY_SECURITY_CONFIRM;
+            else if (prompt.request.PreservesEncryption())
+                confirmText = IDS_UAC_COPY_ENCRYPTED_CONFIRM;
             else if (prompt.request.PreservesCompression())
                 confirmText = IDS_UAC_COPY_COMPRESSED_CONFIRM;
             else if (prompt.request.IgnoresAds())

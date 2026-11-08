@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Allow reading the audit ACL of a reference child. | Verify the destination policy for EFS publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Publish ZIP entry bytes directly from the verified manifest. | Avoid duplicating each decoded file in the broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Publish verified ZIP output from a staged file. | Commit into a vacant name only and discard partial writes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Return a distinct failure for EFS sources and staging. | Refuse a copy that could silently decrypt an encrypted file. | | GPT-6.1 Sol (Codex) |
@@ -94,7 +95,7 @@ inline DWORD CopiedAttributes(DWORD attributes)
 }
 
 inline DWORD StageFile(HANDLE parent, HANDLE& file, std::wstring& name, bool readSecurity,
-                       PSECURITY_DESCRIPTOR security = nullptr, bool readData = false)
+                       PSECURITY_DESCRIPTOR security = nullptr, bool readData = false, bool readAudit = false)
 {
     GUID id{};
     WCHAR guid[39]{};
@@ -102,7 +103,8 @@ inline DWORD StageFile(HANDLE parent, HANDLE& file, std::wstring& name, bool rea
         return ERROR_GEN_FAILURE;
     name = std::wstring(L".samandarin-copy-") + guid + L".tmp";
     const ACCESS_MASK access = FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | DELETE |
-                               (readSecurity || security ? READ_CONTROL : 0) | (readData ? FILE_READ_DATA : 0);
+                               (readSecurity || security ? READ_CONTROL : 0) | (readData ? FILE_READ_DATA : 0) |
+                               (readAudit ? ACCESS_SYSTEM_SECURITY : 0);
     return UacRenameLeaf::Detail::OpenFile(parent, name, file, access, 0, FILE_CREATE, FILE_DELETE_ON_CLOSE, security);
 }
 

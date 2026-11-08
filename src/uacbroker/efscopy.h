@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Pass the audit verification mode to publication. | Enforce full destination checks for elevated copies. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Connect EFS Raw, staging and publication. | Copy the verified encrypted object with no plaintext fallback. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
@@ -14,7 +15,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
                               HANDLE target, const UacDirectoryLeaf::ParentIdentity& expectedTarget,
                               std::wstring_view targetLeaf, ULONGLONG size,
                               HANDLE privateParent, const FILE_ID_INFO& privateId, HANDLE journal,
-                              PSECURITY_DESCRIPTOR security, HANDLE connection, ULONGLONG deadline)
+                              PSECURITY_DESCRIPTOR security, HANDLE connection, ULONGLONG deadline, bool readAudit = false)
 {
     using namespace Detail;
     if (!UacDirectoryLeaf::IsComponent(sourceLeaf) || !UacDirectoryLeaf::IsComponent(targetLeaf))
@@ -85,8 +86,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
             if (!GetFileInformationByHandleEx(source.get(), FileBasicInfo, &basic, sizeof(basic)) ||
                 !GetFileSizeEx(source.get(), &bytes))
                 return GetLastError();
-            if (!(basic.FileAttributes & FILE_ATTRIBUTE_ENCRYPTED) ||
-                (basic.FileAttributes & ~(UacF7::plainCopyAttributes | FILE_ATTRIBUTE_ENCRYPTED)) ||
+            if (!UacF7::IsEncryptedCopyFile(basic.FileAttributes) ||
                 bytes.QuadPart < 0 || static_cast<ULONGLONG>(bytes.QuadPart) != size)
                 return ERROR_FILE_INVALID;
             if ((error = UacCopyLeaf::Detail::CheckPlainStreamsAndEa(source.get(), false,
@@ -104,7 +104,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
             if (error)
                 return error;
         }
-        return PublishPayload(workspace, target, expectedTarget, targetLeaf, size, basic, connection, deadline);
+        return PublishPayload(workspace, target, expectedTarget, targetLeaf, size, basic, connection, deadline, readAudit);
     };
     error = copy();
     return workspace.Cleanup() ? ERROR_PARTIAL_COPY : error;

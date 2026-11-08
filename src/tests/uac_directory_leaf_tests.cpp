@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Check eligibility for the encrypted F5 request. | Prevent unsupported metadata combinations. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the verified EFS transfer end to end. | Validate the path shared with the elevated broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify EFS publication and inherited destination permissions. | Exercise cancellation, no-replace collision and workspace cleanup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise EFS workspace recovery on NTFS. | Retain the original link and reject substitutions in live and deferred cleanup. | | GPT-6.1 Sol (Codex) |
@@ -2263,6 +2264,14 @@ int wmain(int argc, wchar_t** argv)
             content.size(), UacCopyLeaf::StreamPolicy::RequireDefault, verify, false, true);
     };
     copyError = copySecurity(trustedFixture);
+    constexpr DWORD encrypted = FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_ARCHIVE;
+    Check(UacF7::IsFileCopy(UacF7::Operation::CopyEncrypted) &&
+              UacF7::IsEligibleFileCopy(encrypted, false, false, false) &&
+              UacF7::IsEligibleFileCopy(encrypted, true, false, false) &&
+              !UacF7::IsEligibleFileCopy(encrypted, false, true, false) &&
+              !UacF7::IsEligibleFileCopy(encrypted, false, false, true) &&
+              !UacF7::IsEligibleFileCopy(encrypted | FILE_ATTRIBUTE_REPARSE_POINT, false, false, false),
+          "route only supported EFS combinations through the encrypted request");
     Check(copyError == ERROR_NOT_SUPPORTED && !Exists(securityTarget),
           "security copy rejects an inherited DACL", copyError);
     PSECURITY_DESCRIPTOR rawSecurity = nullptr;

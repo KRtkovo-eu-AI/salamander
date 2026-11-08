@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Connect encrypted F5 requests to the elevated broker. | Use a protected same-volume workspace and verify destination policy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Serve exactly one consented file to Find. | Hold the verified source handle and refuse other paths or listing operations. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Stream blocks for Find from the authorized subtree. | Reject content on listing-only sessions and cap reading without whole-file buffering. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Wire a typed disk overwrite into the protected broker. | Copy through a stage that retains the verified target security before journaled publication. | | GPT-6.1 Sol (Codex) |
@@ -81,6 +82,7 @@
 #include "zipupdate.h"
 #ifdef SAM_UAC_BROKER
 #include "copytree.h"
+#include "efscopy.h"
 #include "viewleaf.h"
 #endif
 #endif
@@ -930,6 +932,53 @@ private:
     TOKEN_PRIVILEGES previous{};
 };
 
+DWORD CopyEncryptedFile(const InstallLocation& install, HANDLE sourceParent,
+                        const UacDirectoryLeaf::ParentIdentity& sourceParentId,
+                        const FILE_ID_INFO& sourceId, std::wstring_view sourceLeaf,
+                        HANDLE target, const UacDirectoryLeaf::ParentIdentity& targetId,
+                        std::wstring_view targetLeaf, ULONGLONG size, HANDLE pipe, ULONGLONG deadline)
+{
+    UacDirectoryLeaf::ParentIdentity installId;
+    DWORD error = UacDirectoryLeaf::ReadParentIdentity(install.DirectoryHandle(), installId);
+    if (error)
+        return error;
+    if (!UacDirectoryLeaf::Equal(installId.volume, sourceParentId.volume) ||
+        !UacDirectoryLeaf::Equal(installId.volume, targetId.volume))
+        return ERROR_NOT_SAME_DEVICE;
+
+    PSECURITY_DESCRIPTOR rawSecurity = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"O:BAD:P(A;;FA;;;BA)(A;;FA;;;SY)",
+                                                               SDDL_REVISION_1, &rawSecurity, nullptr))
+        return GetLastError();
+    const std::unique_ptr<void, LocalFreeDeleter> security(rawSecurity);
+    HANDLE raw = nullptr;
+    error = UacDirectoryLeaf::Detail::NativeDirectory(install.DirectoryHandle(), L"uac-efs-private",
+        FILE_OPEN_IF, raw, FILE_ADD_SUBDIRECTORY | FILE_LIST_DIRECTORY | READ_CONTROL, security.get(),
+        FILE_SHARE_READ | FILE_SHARE_WRITE);
+    if (error)
+        return error;
+    const auto storage = Adopt(raw);
+    FILE_ID_INFO storageId{};
+    if (!GetFileInformationByHandleEx(storage.get(), FileIdInfo, &storageId, sizeof(storageId)))
+        return GetLastError();
+    if ((error = UacEfsWorkspace::Detail::CheckPrivate(storage.get(), security.get())) != ERROR_SUCCESS)
+        return error;
+
+    Handle journal;
+    error = OpenProtectedJournal(install, L"uac-efs-recovery.dat", FILE_OPEN_IF, false, journal);
+    if (error)
+        return error;
+
+    ScopedTokenPrivilege audit, backup, restore;
+    if ((error = audit.Enable(L"SeSecurityPrivilege")) != ERROR_SUCCESS ||
+        (error = backup.Enable(L"SeBackupPrivilege")) != ERROR_SUCCESS ||
+        (error = restore.Enable(L"SeRestorePrivilege")) != ERROR_SUCCESS)
+        return error;
+    return UacEfsWorkspace::CopyVerifiedFile(sourceParent, sourceParentId, sourceId, sourceLeaf, target, targetId,
+                                             targetLeaf, size, storage.get(), storageId, journal.get(), security.get(),
+                                             pipe, deadline, true);
+}
+
 struct ReplacementSecurity
 {
     std::unique_ptr<void, LocalFreeDeleter> descriptor;
@@ -1370,6 +1419,13 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 result = CopyOverExistingFile(install, parent.get(), expected, sourceIdentity, leaf,
                                               targetParent.get(), expectedTarget, targetLeaf, overwriteTarget,
                                               header.copySize, pipe, copyDeadline);
+            }
+            else if (header.operation == Operation::CopyEncrypted)
+            {
+                const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
+                deadline = copyDeadline + timeoutMs;
+                result = CopyEncryptedFile(install, parent.get(), expected, sourceIdentity, leaf, targetParent.get(),
+                                           expectedTarget, targetLeaf, header.copySize, pipe, copyDeadline);
             }
             else if (move)
             {
@@ -1900,7 +1956,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         {
             // The authenticated reply is sent only after the operation handles close.
             result->error = operationError;
-            result->unknown = (tree || zipUpdateFile || overwriteTarget) && operationError == ERROR_PARTIAL_COPY;
+            result->unknown = (tree || zipUpdateFile || overwriteTarget || request->operation == Operation::CopyEncrypted) &&
+                              operationError == ERROR_PARTIAL_COPY;
         }
         if (error)
             return IoError(L"Read request result", error);
@@ -2340,6 +2397,14 @@ bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstrin
         return false;
     if (moving && (source.serial != target.serial || !UacDirectoryLeaf::Equal(source.volume, target.volume)))
         return false;
+    if (operation == Operation::CopyEncrypted)
+    {
+        InstallLocation install;
+        UacDirectoryLeaf::ParentIdentity installed;
+        if (!install.Open() || UacDirectoryLeaf::ReadParentIdentity(install.DirectoryHandle(), installed) ||
+            !UacDirectoryLeaf::Equal(source.volume, installed.volume) || !UacDirectoryLeaf::Equal(target.volume, installed.volume))
+            return false;
+    }
     size = moving ? 0 : expectedSize;
     return true;
 }
