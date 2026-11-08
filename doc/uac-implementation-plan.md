@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record single-entry protected ZIP extraction. | Separate source reads from bounded destination publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the protected ZIP F3 implementation. | Track the verified entry reader and deferred joint acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Limit the current UAC scope to core functions and ZIP. | Sequence the remaining ZIP work and defer other plugins and public SDK changes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify persistent protected ZIP authorization. | Reuse one broker across manual refreshes and release it on archive exit. | | GPT-6.1 Sol (Codex) |
@@ -793,6 +794,10 @@ ZIP je jediný plugin v aktuální etapě UAC. Jeho běžný archivní panel už
 **Implementace F3.** Interní prohlížeč dostane ověřený snímek jedné vybrané položky o velikosti nejvýše 16 MiB. ZIP plugin použije položku z existujícího panelu, ověří její pořadí, jméno a velikosti proti centrálnímu adresáři a porovná název a parametry s lokální hlavičkou. Podporuje metody Stored a Deflate. Před otevřením prohlížeče ověří délku rozbalených dat a CRC. Broker znovu použije otevřenou relaci archivu. Nový souhlas se pro F3 nevyvolává a výsledek zůstává v paměti.
 
 Aplikace a ZIP plugin prošly sestavením x64 Debug. Funkční testy a ověření v izolované VM jsou naplánované společně s dalšími funkcemi ZIPu.
+
+**Implementace F5 pro jednu položku.** Běžný dialog rozbalení přijme existující místní složku. Host načte položku přes otevřenou relaci a ověří délku i CRC ještě před zápisem. Nejprve zkusí zveřejnit soubor s běžným tokenem. Při odepření přístupu nabídne samostatný souhlas pro konkrétní cíl a zobrazí zdrojovou položku i výslednou cestu. Broker dostane již rozbalené bajty a čas poslední změny. Znovu ověří identitu rodiče a vytvoří soubor s děděnými oprávněními. Pracovní soubor zveřejní do volného názvu až po dokončení zápisu. Kolize ponechá existující soubor a neověřený výsledek vyžádá kontrolu cíle před opakováním. Limit rozbalené položky je 16 MiB.
+
+Lokální sestavení x64 Debug prošlo pro aplikaci, ZIP plugin, broker, sondu a jazykové moduly. Funkční zkoušky včetně zrušení cílového souhlasu, kolize a kontroly úklidu jsou odložené do společné akceptace. Další část rozšíří F5 na výběr položek a složky.
 
 ## 9. Uživatelský tok a stav operace
 

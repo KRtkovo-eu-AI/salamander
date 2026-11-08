@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Publish verified ZIP output from a staged file. | Commit into a vacant name only and discard partial writes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Return a distinct failure for EFS sources and staging. | Refuse a copy that could silently decrypt an encrypted file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve a verified protected DACL and owner and group at file creation. | Require exact readback and avoid elevating security privileges. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve LZNT1 compression on a verified staged file. | Validate compression and basic attributes before publishing the copy. | | GPT-6.1 Sol (Codex) |
@@ -554,6 +555,51 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return GetLastError();
     return ERROR_SUCCESS;
 }
+}
+
+// Publish already decoded, verified host bytes into a new regular file.
+inline DWORD PublishZipEntry(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expected,
+                             std::wstring_view name, const std::vector<BYTE>& bytes, FILETIME modified,
+                             HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG)
+{
+    if (!UacDirectoryLeaf::IsComponent(name) || bytes.size() > UacF7::maxPilotCopyBytes)
+        return ERROR_INVALID_PARAMETER;
+    UacDirectoryLeaf::ParentIdentity actual;
+    DWORD error = UacDirectoryLeaf::ReadParentIdentity(parent, actual);
+    if (error)
+        return error;
+    if (!UacDirectoryLeaf::SameParent(expected, actual))
+        return ERROR_FILE_INVALID;
+    if ((error = Detail::CheckCancelled(nullptr, connection, deadline)) != ERROR_SUCCESS)
+        return error;
+
+    HANDLE raw = nullptr;
+    std::wstring stageName;
+    if ((error = Detail::StageFile(parent, raw, stageName, false)) != ERROR_SUCCESS)
+        return error;
+    const std::unique_ptr<void, decltype(&CloseHandle)> stage(raw, CloseHandle);
+    FILE_BASIC_INFO basic{};
+    if (!GetFileInformationByHandleEx(stage.get(), FileBasicInfo, &basic, sizeof(basic)))
+        return GetLastError();
+    if (basic.FileAttributes & FILE_ATTRIBUTE_ENCRYPTED)
+        return ERROR_FILE_ENCRYPTED;
+    if (!UacF7::IsPlainCopyFile(basic.FileAttributes))
+        return ERROR_NOT_SUPPORTED;
+    DWORD written = 0;
+    if (!bytes.empty() && !WriteFile(stage.get(), bytes.data(), static_cast<DWORD>(bytes.size()), &written, nullptr))
+        return GetLastError();
+    if (written != bytes.size())
+        return ERROR_WRITE_FAULT;
+    if (!SetFileTime(stage.get(), nullptr, nullptr, &modified) || !FlushFileBuffers(stage.get()))
+        return GetLastError();
+    if ((error = Detail::CheckCancelled(nullptr, connection, deadline)) != ERROR_SUCCESS)
+        return error;
+    if ((error = UacRenameLeaf::Detail::NativeRename(stage.get(), parent, name)) != ERROR_SUCCESS)
+        return error;
+
+    FILE_DISPOSITION_INFO_EX commit{FILE_DISPOSITION_FLAG_ON_CLOSE};
+    return SetFileInformationByHandle(stage.get(), FileDispositionInfoEx, &commit, sizeof(commit))
+        ? ERROR_SUCCESS : GetLastError();
 }
 
 // Copies the unnamed stream, supported basic metadata and the selected named

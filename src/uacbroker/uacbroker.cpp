@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Publish decoded ZIP bytes through the authenticated broker. | Carry one verified destination and a bounded payload. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Keep the approved archive handle until the panel disconnects. | Bound each read batch without expiring an idle archive. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Read bounded archive ranges over an authenticated session. | Keep one verified source open until completion or disconnect. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify installed editors for host-side runas. | Keep the executable and its directory chain pinned across consent. | | GPT-6.1 Sol (Codex) |
@@ -118,13 +119,14 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD viewCapability = 4194304;
 [[maybe_unused]] constexpr DWORD sizeDetailsCapability = 8388608;
 [[maybe_unused]] constexpr DWORD archiveReadCapability = 33554432;
+[[maybe_unused]] constexpr DWORD zipEntryWriteCapability = 67108864;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
                                                  inventoryCapability | copyTreeCapability | cancelTreeCapability |
                                                  directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
                                                  copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability |
                                                  renameDirectorySymlinkCapability | renameJunctionCapability | deleteSymlinkCapability |
-                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability;
+                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability | zipEntryWriteCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -812,16 +814,17 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool view = header.operation == Operation::View;
     snapshotRequest = view;
     const bool readArchive = header.operation == Operation::ReadArchive;
+    const bool writeZipEntry = header.operation == Operation::WriteZipEntry;
     const bool copy = UacF7::IsFileCopy(header.operation);
     const bool move = header.operation == Operation::Move;
     const bool tree = header.operation == Operation::CopyTree;
     const bool transfer = copy || move || tree;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
         header.leafLength > UacDirectoryLeaf::maxComponent || header.sourceLength > UacDirectoryLeaf::maxComponent ||
-        (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer && !view && !readArchive) || rename != (header.sourceLength != 0) ||
+        (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer && !view && !readArchive && !writeZipEntry) || rename != (header.sourceLength != 0) ||
         (list && !header.relativeLength) || transfer != (header.targetLeafLength != 0) ||
         header.targetRelativeLength > UacDirectoryLeaf::maxNativeName || header.targetLeafLength > UacDirectoryLeaf::maxComponent ||
-        header.copySize > UacF7::maxPilotCopyBytes || (!copy && header.copySize) || (!transfer && header.targetRelativeLength))
+        header.copySize > UacF7::maxPilotCopyBytes || (!copy && !writeZipEntry && header.copySize) || (!transfer && header.targetRelativeLength))
         return ERROR_INVALID_DATA;
     const size_t primarySize = volumeLength + header.relativeLength + header.leafLength + header.sourceLength;
     const size_t targetSize = transfer ? volumeLength + header.targetRelativeLength + header.targetLeafLength : 0;
@@ -837,6 +840,27 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             return error;
         if (!UacMetadataLeaf::IsValid(metadata))
             return ERROR_INVALID_DATA;
+    }
+
+    FILETIME zipModified{};
+    std::vector<BYTE> zipBytes;
+    if (writeZipEntry)
+    {
+        deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
+        error = TransferRequest(pipe, &zipModified, sizeof(zipModified), false, deadline);
+        if (error)
+            return error;
+        try
+        {
+            zipBytes.resize(static_cast<size_t>(header.copySize));
+        }
+        catch (const std::bad_alloc&)
+        {
+            return ERROR_NOT_ENOUGH_MEMORY;
+        }
+        if (!zipBytes.empty() &&
+            (error = TransferRequest(pipe, zipBytes.data(), static_cast<DWORD>(zipBytes.size()), false, deadline)) != ERROR_SUCCESS)
+            return error;
     }
 
     const std::wstring_view data(payload);
@@ -969,6 +993,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     }
     else if (view)
         result = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), expected, sourceIdentity, leaf, deadline, snapshot);
+    else if (writeZipEntry)
+        result = UacCopyLeaf::PublishZipEntry(parent.get(), expected, leaf, zipBytes, zipModified, pipe, deadline);
     else if (readArchive)
     {
         HANDLE raw = nullptr;
@@ -1233,7 +1259,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
              , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result,
                HANDLE* sessionPipe = nullptr, HANDLE cancel = nullptr, std::vector<BYTE>* snapshot = nullptr,
-               ULONGLONG* archiveSize = nullptr
+               ULONGLONG* archiveSize = nullptr, std::vector<BYTE>* zipBytes = nullptr,
+               FILETIME* zipModified = nullptr
 #endif
 )
 {
@@ -1315,6 +1342,13 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
             error = TransferRequest(pipe.get(), payload->data(), static_cast<DWORD>(payload->size() * sizeof(wchar_t)), true, deadline);
         if (!error && metadata)
             error = TransferRequest(pipe.get(), metadata, sizeof(*metadata), true, deadline);
+        if (!error && zipBytes)
+        {
+            deadline = GetTickCount64() + copyTimeoutMs + timeoutMs;
+            error = TransferRequest(pipe.get(), zipModified, sizeof(*zipModified), true, deadline);
+            if (!error && !zipBytes->empty())
+                error = TransferRequest(pipe.get(), zipBytes->data(), static_cast<DWORD>(zipBytes->size()), true, deadline);
+        }
         if (error)
             return IoError(L"Send request", error);
 
@@ -1323,7 +1357,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         if (copy || tree)
             deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
         error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline, tree ? cancel : nullptr);
-        if (!error && (copy || request->operation == Operation::Move || tree))
+        if (!error && (copy || request->operation == Operation::Move || tree || zipBytes))
         {
             // The authenticated reply is sent only after the operation handles close.
             result->error = operationError;
@@ -1501,7 +1535,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
             return false;
         std::memcpy(sourceId, anchored.file.FileId.Identifier, sizeof(sourceId));
     }
-    else if (requested != Operation::Mkdir && requested != Operation::List)
+    else if (requested != Operation::Mkdir && requested != Operation::List && requested != Operation::WriteZipEntry)
     {
         const bool deleting = IsLeafDelete(requested);
         const auto kind = deleting ? UacDeleteLeaf::SourceKind(requested) : RenameKind(requested);
@@ -1541,6 +1575,36 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
     if (change)
         metadata = *change;
     return true;
+}
+
+DWORD PreparedLeaf::WriteZipEntryLocal(const std::vector<BYTE>& bytes, FILETIME modified) const
+{
+    if (!parent || operation != Operation::WriteZipEntry)
+        return ERROR_INVALID_PARAMETER;
+    UacDirectoryLeaf::ParentIdentity expected{};
+    expected.file.VolumeSerialNumber = serial;
+    std::memcpy(expected.file.FileId.Identifier, fileId, sizeof(fileId));
+    expected.volume = volume;
+    return UacCopyLeaf::PublishZipEntry(parent, expected, leaf, bytes, modified);
+}
+
+Result PreparedLeaf::WriteZipEntry(HWND owner, std::vector<BYTE>& bytes, FILETIME modified) const
+{
+    Result result;
+    const ComApartment com;
+    InstallLocation install;
+    if (!parent || operation != Operation::WriteZipEntry || bytes.size() > maxPilotCopyBytes ||
+        FAILED(com.result) || !install.Open() ||
+        !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))
+        return result;
+    RequestHeader header{serial, {}, {}, operation,
+                         static_cast<DWORD>(relative.size()), static_cast<DWORD>(leaf.size()),
+                         0, 0, {}, 0, 0, bytes.size()};
+    std::memcpy(header.parentId.Identifier, fileId, sizeof(fileId));
+    std::wstring payload = volume + relative + leaf;
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result,
+             nullptr, nullptr, nullptr, nullptr, &bytes, &modified);
+    return result;
 }
 
 DWORD PreparedLeaf::ExecuteLocal() const

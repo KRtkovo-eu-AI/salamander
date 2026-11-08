@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Share bounded ZIP entry buffering across F3 and F5. | Publish or display only verified bytes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Expose the current ZIP session to entry actions. | Keep the stream tied to the panel archive. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Own the approved ZIP read session in the panel. | Keep authorization scoped to the open archive. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Opt in to protected ZIP listing for direct panel entry. | Keep history and refresh on their existing paths. | | GPT-6.1 Sol (Codex) |
@@ -1616,6 +1617,7 @@ public:
     // of changed files); 'isInactiveRefresh' is TRUE when refreshing an inactive window-we load
     // only visible icons/thumbnails/overlays; others are loaded once the main window becomes active
     bool IsProtectedZip() { return Is(ptZIPArchive) && ProtectedZip; }
+    DWORD ReadProtectedZipEntry(const CFileData& file, const std::string& entry, std::vector<BYTE>& bytes);
     DWORD ReadProtectedZipEntry(const CFileData& file, const char* name, ULONGLONG maxBytes,
                                 SalZipWrite write, void* context);
     BOOL ShouldShowWaitCursorForRefresh();

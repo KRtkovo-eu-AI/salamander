@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Declare bounded publication of a decoded ZIP entry. | Reuse verified destinations and keep archive parsing in the host. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Scope archive read limits to a batch. | Reuse the verified file across refreshes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare the bounded archive read session. | Share its range contract across the broker and host. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Pin a trusted installed editor before an explicit F4 elevation. | Keep editor launch entirely on the host side. | | GPT-6.1 Sol (Codex) |
@@ -40,7 +41,7 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipEntry = 20 };
 
 inline bool IsRename(Operation operation)
 {
@@ -161,6 +162,9 @@ public:
     bool IsSymlinkDelete() const { return operation == Operation::DeleteSymlink; }
     bool PrepareView(const std::wstring& path) { return PrepareTarget(path, Operation::View, {}, nullptr); }
     Result ReadViewerSnapshot(HWND owner, std::vector<BYTE>& snapshot) const;
+    bool PrepareZipEntry(const std::wstring& path) { return PrepareTarget(path, Operation::WriteZipEntry, {}, nullptr); }
+    DWORD WriteZipEntryLocal(const std::vector<BYTE>& bytes, FILETIME modified) const;
+    Result WriteZipEntry(HWND owner, std::vector<BYTE>& bytes, FILETIME modified) const;
     DWORD ExecuteLocal() const;
     Result Execute(HWND owner) const;
     bool IsDirectoryMetadata() const

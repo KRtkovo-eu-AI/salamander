@@ -1,5 +1,6 @@
 ﻿// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe protected extraction and its limited consent. | Clarify the supported operations in the archive panel. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe protected ZIP consent and read-only output. | Keep viewer refresh guidance valid for both snapshots and ZIP listings. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify the executable and document before administrator editing. | Make the scope of the Windows prompt clear. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the protected size operation in the consent prompt. | Cover both logical and detailed size calculations. | | GPT-6.1 Sol (Codex) |
@@ -2410,7 +2411,9 @@ STRINGTABLE
  IDS_UAC_EDIT_ADMIN_TITLE, "Edit as Administrator"
  IDS_UAC_EDIT_ADMIN_CONFIRM, "Access was denied. Open the original file with the configured editor as an administrator? Windows will request permission for the editor shown below."
  IDS_UAC_ZIP_TITLE, "Protected ZIP Listing"
- IDS_UAC_ZIP_LIST_ONLY, "This protected ZIP is open for browsing. Opening, extracting, and changing its entries are unavailable."
+ IDS_UAC_ZIP_LIST_ONLY, "Use F3 to view a file or F5 to extract it. Opening in an external application and editing this ZIP are unavailable."
+ IDS_UAC_ZIP_WRITE_CONFIRM, "Access was denied. Extract this ZIP entry to the shown destination as an administrator?"
+ IDS_UAC_ZIP_EXTRACT_ONE, "Select one file in this protected ZIP and an existing local destination folder."
  IDS_UAC_ZIP_CONFIRM, "Access was denied. Read the contents of this ZIP as an administrator? The archive will be opened for reading only."
  IDS_UAC_EDIT_ADMIN_UNTRUSTED, "Administrator mode requires an editor executable in a protected Windows or Program Files directory."
  IDS_UAC_SIZE_NOT_AVAILABLE, "Not available"

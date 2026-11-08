@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Prevent copying and deleting from the protected archive pilot. | Keep the archive listing read-only. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Connect protected ZIP extraction to the existing F5 dialog. | Use the open source authorization and ask separately only for a denied target write. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-06 | Capture implicit archive destinations before callbacks and validation. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -817,10 +818,60 @@ static void RemoveEmptyUnpackDirectoriesW(const std::wstring& root)
     }
 }
 
+static BOOL UnpackProtectedZipEntry(CFilesWindow* panel, const CFileData& file,
+                                    const char* archiveRoot, const char* directory)
+{
+    DWORD error = ERROR_NOT_ENOUGH_MEMORY;
+    bool unknown = false;
+    try
+    {
+        std::string entry(archiveRoot);
+        if (!entry.empty())
+            entry += '\\';
+        entry += file.Name;
+        const std::wstring displaySource = SalMultiByteToWidePath(
+            (std::string(panel->GetZIPArchive()) + '\\' + entry).c_str(), CP_UTF8);
+        std::wstring target = SalMultiByteToWidePath(directory, IsValidPathUtf8Text(directory) ? CP_UTF8 : CP_ACP);
+        const std::wstring name = file.NameW ? file.NameW :
+            SalMultiByteToWidePath(file.Name, IsValidPathUtf8Text(file.Name) ? CP_UTF8 : CP_ACP);
+        UacF7::PreparedLeaf request;
+        if (!target.empty() && !name.empty() && SalPathAppendW(target, name.c_str()) && request.PrepareZipEntry(target))
+        {
+            std::vector<BYTE> bytes;
+            error = panel->ReadProtectedZipEntry(file, entry, bytes);
+            if (!error)
+            {
+                const FILETIME modified = file.LastWrite;
+                error = request.WriteZipEntryLocal(bytes, modified);
+                if (error == ERROR_ACCESS_DENIED)
+                {
+                    if (!ConfirmProtectedRead(panel->HWindow, IDS_UNPACKCOPY, IDS_UAC_ZIP_WRITE_CONFIRM,
+                                              displaySource + L"\n\n" + SalPathRemoveExtendedPrefixW(target.c_str())))
+                        return FALSE;
+                    const UacF7::Result result = request.WriteZipEntry(panel->HWindow, bytes, modified);
+                    error = result.error;
+                    unknown = result.unknown;
+                }
+            }
+        }
+        else
+            error = ERROR_NOT_SUPPORTED;
+    }
+    catch (const std::bad_alloc&)
+    {
+        error = ERROR_NOT_ENOUGH_MEMORY;
+    }
+    if (unknown || (error && error != ERROR_CANCELLED))
+        SalMessageBox(panel->HWindow, unknown ? LoadStr(IDS_UAC_COPY_UNKNOWN) : GetErrorText(error),
+                      LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+    return !unknown && error == ERROR_SUCCESS;
+}
+
 void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const char* tgtPath,
                                     BOOL* changeTargetRequested)
 {
-    if (IsProtectedZip())
+    const bool protectedZip = IsProtectedZip();
+    if (protectedZip && deleteOp)
         return;
     // Resolve the implicit destination before any Branch capability or lifetime snapshot checks.
     if (!deleteOp && target == NULL && tgtPath == NULL)
@@ -832,6 +883,18 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         return;
     }
     const HWND operationParent = MainWindow != NULL ? MainWindow->HWindow : NULL;
+    if (protectedZip)
+    {
+        int index = GetCaretIndex();
+        const int selected = GetSelCount();
+        if (selected == 1)
+            GetSelItems(1, &index);
+        if (selected > 1 || index < Dirs->Count || index >= Dirs->Count + Files->Count)
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_UAC_ZIP_EXTRACT_ONE), LoadStr(IDS_UNPACKCOPY), MB_OK | MB_ICONINFORMATION);
+            return;
+        }
+    }
     CFilesActionArchiveSource archiveSource;
     if (!deleteOp && !archiveSource.Capture(MainWindow, this))
     {
@@ -1162,6 +1225,13 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                     EndStopRefresh();
                     return;
                 }
+                if (protectedZip && (pathType != PATH_TYPE_WINDOWS || !pathIsDir || *secondPart))
+                {
+                    SalMessageBox(HWindow, LoadStr(IDS_UAC_ZIP_EXTRACT_ONE), LoadStr(IDS_UNPACKCOPY), MB_OK | MB_ICONINFORMATION);
+                    delete[] data.Indexes;
+                    EndStopRefresh();
+                    return;
+                }
                 // instead of a 'switch', use 'if' so that 'break' and 'continue' work correctly
                 if (pathType == PATH_TYPE_WINDOWS) // Windows path (disk + UNC)
                 {
@@ -1330,9 +1400,11 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                         return;
                     }
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-                    const BOOL unpacked = PackUncompress(MainWindow->HWindow, this, archiveSource.ArchiveFile.c_str(), archiveSource.PluginData,
-                                       path, archiveSource.ArchiveRoot.c_str(), PanelSalEnumSelection, &data,
-                                       watchDiskTarget ? &diskTarget : NULL, data.ContextIsCurrent, data.Context);
+                    const BOOL unpacked = protectedZip
+                        ? UnpackProtectedZipEntry(this, Files->At(data.Indexes[0] - Dirs->Count), archiveSource.ArchiveRoot.c_str(), path)
+                        : PackUncompress(MainWindow->HWindow, this, archiveSource.ArchiveFile.c_str(), archiveSource.PluginData,
+                                         path, archiveSource.ArchiveRoot.c_str(), PanelSalEnumSelection, &data,
+                                         watchDiskTarget ? &diskTarget : NULL, data.ContextIsCurrent, data.Context);
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
                     const bool targetCurrent = validateDiskTarget();
                     if (unpacked && targetCurrent)

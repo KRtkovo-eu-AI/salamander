@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Collect one decoded entry for the caller. | Keep partial or invalid output out of viewer and file publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Read ZIP entries through the existing authorization. | Use the same bounded broker batch as the panel listing. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reuse one protected ZIP authorization for explicit refresh. | Release the broker session when the archive panel closes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Publish a complete protected listing in the standard archive panel. | Refresh explicitly and preserve the existing tree on failure. | | GPT-6.1 Sol (Codex) |
@@ -3532,6 +3533,31 @@ DWORD ReadProtectedZip(HWND owner, const char* archive, CSalamanderDirectory& di
         date = attributes.ftLastWriteTime;
     return ERROR_SUCCESS;
 }
+}
+
+namespace
+{
+DWORD WINAPI AppendProtectedZipBytes(void* context, const BYTE* bytes, DWORD count)
+{
+    auto& data = *static_cast<std::vector<BYTE>*>(context);
+    if (count > UacF7::maxPilotCopyBytes - data.size())
+        return ERROR_FILE_TOO_LARGE;
+    data.insert(data.end(), bytes, bytes + count);
+    return ERROR_SUCCESS;
+}
+}
+
+DWORD CFilesWindow::ReadProtectedZipEntry(const CFileData& file, const std::string& entry, std::vector<BYTE>& bytes)
+{
+    bytes.clear();
+    if (file.Size.Value > UacF7::maxPilotCopyBytes)
+        return ERROR_FILE_TOO_LARGE;
+    bytes.reserve(static_cast<size_t>(file.Size.Value));
+    const DWORD error = ReadProtectedZipEntry(file, entry.c_str(), UacF7::maxPilotCopyBytes,
+                                             AppendProtectedZipBytes, &bytes);
+    if (error)
+        bytes.clear();
+    return error;
 }
 
 DWORD CFilesWindow::ReadProtectedZipEntry(const CFileData& file, const char* name, ULONGLONG maxBytes,

@@ -6,6 +6,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Share ZIP snapshot buffering with F5. | Keep F3 on the same validated decoder. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Open one protected ZIP entry with F3. | Keep verified bytes in the existing internal viewer snapshot. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer explicit editor elevation on protected F4. | Open the original with the configured editor under explicit Windows consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer one-file protected F3 in the internal viewer. | Request consent only after the ordinary local open is denied. | | GPT-6.1 Sol (Codex) |
@@ -1798,18 +1799,6 @@ void CFilesWindow::FindFile()
     OpenFindDialog(MainWindow->HWindow, Is(ptDisk) ? GetPath() : "");
 }
 
-namespace
-{
-DWORD WINAPI AppendZipViewerBytes(void* context, const BYTE* bytes, DWORD count)
-{
-    auto& snapshot = *static_cast<std::vector<BYTE>*>(context);
-    if (count > UacF7::maxViewerSnapshotBytes - snapshot.size())
-        return ERROR_FILE_TOO_LARGE;
-    snapshot.insert(snapshot.end(), bytes, bytes + count);
-    return ERROR_SUCCESS;
-}
-}
-
 void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumFileNamesSourceUID,
                             int enumFileNamesLastFileIndex)
 {
@@ -1833,9 +1822,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
                 entry += file.Name;
                 const std::string title = std::string(GetZIPArchive()) + '\\' + entry;
                 auto snapshot = std::make_unique<std::vector<BYTE>>();
-                snapshot->reserve(static_cast<size_t>(file.Size.Value));
-                error = ReadProtectedZipEntry(file, entry.c_str(), UacF7::maxViewerSnapshotBytes,
-                                              AppendZipViewerBytes, snapshot.get());
+                error = ReadProtectedZipEntry(file, entry, *snapshot);
                 if (!error)
                 {
                     RECT area{};
