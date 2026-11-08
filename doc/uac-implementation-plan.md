@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Design the protected ZIP listing pilot. | Separate protected source reads from elevated extraction and verify ZIP staging constraints. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record explicit administrator editing on F4. | Document the original-file flow, editor validation, and pilot checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record detailed protected Ctrl+Q measurements. | Verify the existing occupied-space dialog and editable estimate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Keep protected totals in the full Ctrl+Q dialog. | Use identical geometry and controls for both access modes. | | GPT-6.1 Sol (Codex) |
@@ -735,6 +736,18 @@ Při elevaci je přípustný ověřený spustitelný soubor v chráněné složc
 Lokálně prošlo sestavení x64 Debug, 186 nativních kontrol v každé z konfigurací Debug a Release, transport brokeru, regrese akcí Branch View a kontrakty Findu.
 
 V izolované Windows 11 VM se po volbě Ano otevřel chráněný originál v Poznámkovém bloku a Ctrl+S uložil kontrolní řádek přímo do něj. Po zrušení druhé systémové výzvy se Samandarin vrátil do panelu a druhý originál měl původní SHA-256. Třetí kontrolní soubor zůstal beze změny a otisky pilotních binárek odpovídaly sestavení.
+
+### 8.46 P6f — návrh chráněného výpisu ZIP
+
+**Vstup z panelu.** Běžný Enter nebo dvojklik volá `ChangePathToArchive`. Host nejprve zkouší `OpenArchiveFileForRead` a teprve potom volá `PackList`. Další části archivního panelu předávají tutéž cestu pluginu při obnovení, rozbalování a změnách archivu. První pilot proto při odepření čtení jednoho místního `.zip` z běžného diskového panelu nabídne samostatný výpis obsahu jen pro čtení. Nabídka se váže na přímou akci v panelu a ukáže úplnou cestu. Obnova, historie a automatické zjišťování formátu zůstanou na běžné cestě. Pro běžně čitelný ZIP se nadále otevře standardní archivní panel.
+
+**Čtení.** Host po souhlasu použije existující ověřený snímek souboru z P6c, včetně limitu 16 MiB a ověření identit rodiče a souboru. Broker předá pouze bajty a ukončí se. Host předá snímek vestavěnému ZIP parseru, který poběží s běžnými právy a využije své stávající čtení centrálního adresáře. Pro pilot navrhnout interní verzované rozhraní ZIP pluginu pro výpis ze snímku a ponechat veřejné SDK beze změny. Výpis zachází s názvy položek jako s textem, má strop 4 096 položek a musí skončit s jednoznačným hlášením při překročení limitu. Pilot přijme jednosvazkový ZIP. Rozdělené archivy, požadavky na heslo, další pluginy a externí nástroje zůstanou mimo tento tok.
+
+**Životnost dat.** Snímek zůstane v paměti po dobu parsování. Do dialogu se předají pouze položky výpisu. Chráněná data se neukládají do uživatelské dočasné složky ani do diskové cache aplikace. Místní pokus ve Windows se souborem s příznakem `FILE_FLAG_DELETE_ON_CLOSE` vrátil při novém otevření s parametry z `CZipList::ListArchive` chybu 32. Kontrolní otevření se sdílením mazání prošlo a zavření handle soubor odstranilo. Předání obyčejné dočasné cesty stávajícímu ZIP pluginu tedy nefunguje s touto zárukou úklidu. [Sdílení a FILE_FLAG_DELETE_ON_CLOSE](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew)
+
+**Chráněný cíl je další etapa.** Vstupní body `PackUnpackOneFile`, `PackUncompress` a tok celého archivu mají samostatné kontrakty. Pro první pokus se zápisem rozbalit jednu běžnou položku s běžnými právy, ověřit vzniklý zdroj a použít existující autorizovanou kopii do volného názvu. Souhlas ukáže položku i konečnou cestu. Před zapojením je potřeba ověřit odmítnutí průchodu mimo vyhrazenou pracovní složku, reparse bodů, hardlinků, kolizí a změn identity během výzvy. Rozbalení dávky, přepis existujícího cíle a smazání archivu po rozbalení zůstávají oddělené.
+
+**Akceptace implementace.** Lokálně ověřit běžné ZIPy, Unicode a dlouhé cesty, poškozený centrální adresář, vícesvazkový ZIP, nadlimitní vstup a názvy s absolutní cestou nebo s `..`. Ve VM ověřit běžný ZIP bez výzvy, zrušení chráněného výpisu, správný seznam po schválení jiným účtem správce, odmítnutí výměny zdroje během souhlasu a ukončení brokeru před parsováním. Pro tento návrh proběhl místní pokus se sdílením handle a regresní zkoušky stávajících archivních cest. Šest sad ověřilo 1 343 případů v každé z konfigurací Debug a Release, včetně identity zdroje, archivních akcí Branch View, ověření cíle po inicializaci pluginu a sběru svazků ZIP. Interaktivní akceptace UAC naváže na funkční pilot.
 
 ## 9. Uživatelský tok a stav operace
 
