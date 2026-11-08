@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify EFS publication and inherited destination permissions. | Exercise cancellation, no-replace collision and workspace cleanup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise EFS workspace recovery on NTFS. | Retain the original link and reject substitutions in live and deferred cleanup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise bounded EFS Raw export and import. | Verify ciphertext preservation and measure the source-handle sharing boundary. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check the exact-file Find protocol boundary. | Reject path selection and directory operations on the pinned file. | | GPT-6.1 Sol (Codex) |
@@ -58,7 +59,7 @@
 #include "../uacbroker/viewleaf.h"
 #include "../findtagstream.h"
 #include "../uacbroker/efsraw.h"
-#include "../uacbroker/efsworkspace.h"
+#include "../uacbroker/efspublish.h"
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
@@ -1433,7 +1434,32 @@ static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const F
     const Handle journal(rawJournal);
     auto recover = [&] { return UacEfsWorkspace::Recover(parent.get(), parentId, journal.get(), rawSecurity); };
 
-    for (const bool substitute : {false, true})
+    const auto targetPath = folder + L"\\destination";
+    const HANDLE rawTarget = CreateFileW(targetPath.c_str(), FILE_TRAVERSE | FILE_ADD_FILE | READ_CONTROL, share, nullptr,
+                                          OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (rawTarget == INVALID_HANDLE_VALUE)
+        return false;
+    const Handle target(rawTarget);
+    UacDirectoryLeaf::ParentIdentity targetId;
+    if (UacDirectoryLeaf::ReadParentIdentity(target.get(), targetId))
+        return false;
+    const auto referencePath = targetPath + L"\\ordinary-reference.txt";
+    if (!WriteFixture(referencePath, {}))
+        return false;
+    const HANDLE rawReference = CreateFileW(referencePath.c_str(), READ_CONTROL, share, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (rawReference == INVALID_HANDLE_VALUE)
+        return false;
+    const Handle reference(rawReference);
+    UacEfsWorkspace::Detail::FileSecurity referenceSecurity;
+    if (referenceSecurity.Read(reference.get()))
+        return false;
+
+    FILE_BASIC_INFO sourceTimes{};
+    if (!GetFileInformationByHandleEx(source, FileBasicInfo, &sourceTimes, sizeof(sourceTimes)))
+        return false;
+    enum class Scenario { Locked, Substitute, Collision, GuardedClose, Publish };
+    for (const auto scenario : {Scenario::Locked, Scenario::Substitute, Scenario::Collision,
+                                Scenario::GuardedClose, Scenario::Publish})
     {
         UacEfsWorkspace::Workspace workspace;
         DWORD error = workspace.Create(parent.get(), parentId, journal.get(), source, sourceId, rawSecurity);
@@ -1479,10 +1505,79 @@ static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const F
               "transfer ciphertext between the verified workspace link and payload", error);
         if (error)
             return false;
-        if (substitute)
+        if (scenario == Scenario::Publish || scenario == Scenario::Collision || scenario == Scenario::GuardedClose)
+        {
+            constexpr wchar_t leaf[] = L"\u6771-efs-copy.txt";
+            const auto final = targetPath + L"\\" + leaf;
+            auto publish = [&](const UacDirectoryLeaf::ParentIdentity& identity, ULONGLONG deadline = MAXULONGLONG) {
+                return UacEfsWorkspace::PublishPayload(workspace, target.get(), identity, leaf, plaintext.size(),
+                                                        sourceTimes, nullptr, deadline);
+            };
+            auto wrong = targetId;
+            wrong.file.FileId.Identifier[0] ^= 1;
+            error = publish(wrong);
+            Check(error == ERROR_FILE_INVALID && Exists(payload) && !Exists(final),
+                  "refuse publishing EFS data into a different destination parent", error);
+            error = publish(targetId, GetTickCount64());
+            Check(error == ERROR_TIMEOUT && Exists(payload) && !Exists(final),
+                  "cancel an expired EFS publication before changing the destination", error);
+            if (scenario == Scenario::Collision)
+            {
+                if (!WriteFixture(final, {9}))
+                    return false;
+                error = publish(targetId);
+                Check((error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS) && HasContents(final, {9}),
+                      "leave an existing destination unchanged on EFS publication collision", error);
+                if (!DeleteFileW(final.c_str()))
+                    return false;
+            }
+            else if (scenario == Scenario::GuardedClose)
+            {
+                UacEfsWorkspace::Detail::Handle guarded(nullptr, CloseHandle);
+                error = UacEfsWorkspace::Detail::OpenPublicationPayload(workspace, guarded);
+                if (!error)
+                    error = UacRenameLeaf::Detail::NativeRename(guarded.get(), target.get(), leaf);
+                Check(!error && Exists(final), "rename the guarded EFS object before finalizing its permissions", error);
+                guarded.reset();
+                Check(!Exists(final) && !Exists(payload), "delete an uncommitted EFS object when its guarded handle closes");
+            }
+            else
+            {
+                error = publish(targetId);
+                const HANDLE rawFinal = CreateFileW(final.c_str(), READ_CONTROL | FILE_READ_ATTRIBUTES, share, nullptr,
+                                                    OPEN_EXISTING, 0, nullptr);
+                const Handle finalHandle(rawFinal == INVALID_HANDLE_VALUE ? nullptr : rawFinal);
+                FILE_BASIC_INFO finalTimes{};
+                Check(finalHandle && GetFileInformationByHandleEx(finalHandle.get(), FileBasicInfo, &finalTimes, sizeof(finalTimes)) &&
+                          finalTimes.CreationTime.QuadPart == sourceTimes.CreationTime.QuadPart &&
+                          finalTimes.LastWriteTime.QuadPart == sourceTimes.LastWriteTime.QuadPart &&
+                          finalTimes.LastAccessTime.QuadPart == sourceTimes.LastAccessTime.QuadPart,
+                      "preserve all three EFS timestamps before the copy is opened");
+                const DWORD finalAttrs = GetFileAttributesW(final.c_str());
+                FILE_ID_INFO finalId{};
+                const auto identity = OpenIdentity(final, finalId);
+                Check(!error && identity && UacRenameLeaf::Detail::SameSource(workspace.PayloadId(), finalId) &&
+                          finalAttrs != INVALID_FILE_ATTRIBUTES && (finalAttrs & FILE_ATTRIBUTE_ENCRYPTED) &&
+                          HasContents(final, plaintext),
+                      "publish only the verified encrypted payload and preserve the owner's data", error);
+                UacEfsWorkspace::Detail::FileSecurity finalSecurity;
+                Check(finalHandle && !finalSecurity.Read(finalHandle.get()) && referenceSecurity.Matches(finalSecurity),
+                      "match the owner, group, inherited DACL and integrity label of an ordinary destination file");
+            }
+            error = workspace.Cleanup();
+            Check(!error && !DirectoryExists(stage), "retire only the EFS workspace after publication or collision", error);
+            if (scenario == Scenario::Publish)
+                Check(HasContents(final, plaintext), "workspace cleanup leaves the published EFS copy intact");
+            continue;
+        }
+        if (scenario == Scenario::Substitute)
         {
             if (!MoveFileW(payload.c_str(), held.c_str()) || !WriteFixture(payload, {9}))
                 return false;
+            UacEfsWorkspace::Detail::Handle guarded(nullptr, CloseHandle);
+            error = UacEfsWorkspace::Detail::OpenPublicationPayload(workspace, guarded);
+            Check(error == ERROR_FILE_INVALID && !guarded && HasContents(payload, {9}),
+                  "refuse to arm deletion on a substituted EFS payload", error);
             error = workspace.Cleanup();
             Check(error == ERROR_FILE_INVALID && HasContents(payload, {9}) && Exists(sourceLink),
                   "refuse a substituted payload before deleting any recorded EFS object", error);
