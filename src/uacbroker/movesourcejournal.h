@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Persist the verified F6 destination. | A completed move requires the exact published target even after process loss. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Journal the original DACL before sealing a move source. | Recover the exact inherited or protected ACL after an interrupted move. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Journal an exact source recovery link. | Restore an interrupted move without replacing a different file. | | GPT-6.1 Sol (Codex) |
 #pragma once
@@ -101,6 +102,35 @@ inline DWORD CheckOrRestoreDacl(HANDLE originalName, DaclRecord& record, bool re
     return current->Matches(record.original) ? ERROR_SUCCESS : ERROR_FILE_INVALID;
 }
 
+struct DestinationRecord
+{
+    GUID nonce{};
+    FILE_ID_INFO parent{}, file{};
+    DWORD length = 0;
+    wchar_t path[UacDirectoryLeaf::maxNativeName]{};
+};
+
+constexpr LONGLONG sealedRecordSize = sizeof(Record) + sizeof(DaclRecord);
+constexpr LONGLONG completedRecordSize = sealedRecordSize + sizeof(DestinationRecord);
+
+inline DWORD OpenedPath(HANDLE file, std::wstring& path)
+{
+    constexpr DWORD flags = FILE_NAME_OPENED | VOLUME_NAME_GUID;
+    const DWORD length = GetFinalPathNameByHandleW(file, nullptr, 0, flags);
+    if (!length)
+        return GetLastError();
+    if (length > UacDirectoryLeaf::maxNativeName)
+        return ERROR_FILENAME_EXCED_RANGE;
+    path.resize(length);
+    const DWORD actual = GetFinalPathNameByHandleW(file, path.data(), length, flags);
+    if (!actual)
+        return GetLastError();
+    if (actual >= length)
+        return ERROR_FILENAME_EXCED_RANGE;
+    path.resize(actual);
+    return ERROR_SUCCESS;
+}
+
 inline std::wstring RecoveryName(const GUID& nonce)
 {
     wchar_t guid[39]{};
@@ -140,6 +170,57 @@ inline DWORD CheckIdentity(HANDLE file, const FILE_ID_INFO& expected)
     return !(attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) &&
                    !standard.DeletePending && UacRenameLeaf::Detail::SameSource(actual, expected) ?
                ERROR_SUCCESS : ERROR_FILE_INVALID;
+}
+
+inline DWORD VerifyDestination(const DestinationRecord& record, const GUID& nonce, Handle& target)
+{
+    if (record.nonce != nonce || record.length <= volumeLength + 1 || record.length > ARRAYSIZE(record.path) ||
+        record.file.VolumeSerialNumber != record.parent.VolumeSerialNumber)
+        return ERROR_INVALID_DATA;
+    const std::wstring_view path(record.path, record.length);
+    constexpr std::wstring_view prefix = LR"(\\?\Volume)";
+    const auto volume = path.substr(0, volumeLength);
+    GUID id{};
+    if (!UacDirectoryLeaf::Equal(volume.substr(0, prefix.size()), prefix) ||
+        FAILED(CLSIDFromString(std::wstring(volume.substr(prefix.size())).c_str(), &id)) ||
+        path[volumeLength] != L'\\')
+        return ERROR_INVALID_DATA;
+    const size_t last = path.find_last_of(L'\\');
+    const auto leaf = path.substr(last + 1);
+    if (!UacDirectoryLeaf::IsComponent(leaf))
+        return ERROR_INVALID_DATA;
+
+    const std::wstring rootPath(path.substr(0, volumeLength + 1));
+    const HANDLE rawRoot = CreateFileW(rootPath.c_str(), FILE_READ_ATTRIBUTES | FILE_TRAVERSE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (rawRoot == INVALID_HANDLE_VALUE)
+        return GetLastError();
+    const Handle root(rawRoot, CloseHandle);
+    Handle parent(nullptr, CloseHandle);
+    UacDirectoryLeaf::ParentIdentity actual;
+    DWORD error;
+    if (last == volumeLength)
+        error = UacDirectoryLeaf::ReadParentIdentity(root.get(), actual);
+    else
+    {
+        HANDLE rawParent = nullptr;
+        const auto relative = path.substr(volumeLength + 1, last - volumeLength - 1);
+        error = UacDirectoryLeaf::OpenParentBelowRoot(root.get(), relative, rawParent, actual);
+        parent.reset(rawParent);
+    }
+    if (error)
+        return error;
+    if (!UacDirectoryLeaf::SameParent(actual, {record.parent, std::wstring(volume)}))
+        return ERROR_FILE_INVALID;
+
+    HANDLE raw = nullptr;
+    error = UacRenameLeaf::Detail::OpenSource(parent ? parent.get() : root.get(), leaf, raw,
+                                              FILE_READ_DATA, FILE_SHARE_READ);
+    if (error)
+        return error;
+    target.reset(raw);
+    return CheckIdentity(target.get(), record.file);
 }
 
 inline DWORD OpenOriginal(HANDLE parent, std::wstring_view leaf, const FILE_ID_INFO& expected, Handle& file, bool pin = false)
@@ -233,6 +314,60 @@ inline DWORD Arm(HANDLE parent, std::wstring_view leaf, HANDLE source, const FIL
     return dacl ? dacl->sealed.Apply(source) : ERROR_SUCCESS;
 }
 
+// The caller still holds the published destination without write or delete
+// sharing. A flushed receipt must precede any irreversible source removal.
+inline DWORD RememberDestination(HANDLE journal, PSECURITY_DESCRIPTOR journalSecurity, const FILE_ID_INFO& sourceId,
+                                 HANDLE targetParent, std::wstring_view targetLeaf, HANDLE target,
+                                 const FILE_ID_INFO& targetId)
+{
+    using namespace Detail;
+    if (!UacDirectoryLeaf::IsComponent(targetLeaf))
+        return ERROR_INVALID_NAME;
+    DWORD error = UacRecoveryJournal::CheckPrivate(journal, journalSecurity);
+    if (error)
+        return error;
+    LARGE_INTEGER size{};
+    if (!GetFileSizeEx(journal, &size))
+        return GetLastError();
+    if (size.QuadPart != sealedRecordSize)
+        return ERROR_INVALID_DATA;
+    Record record{};
+    DWORD bytes = 0;
+    if (!SetFilePointerEx(journal, {}, nullptr, FILE_BEGIN) || !ReadFile(journal, &record, sizeof(record), &bytes, nullptr))
+        return GetLastError();
+    if (bytes != sizeof(record) || record.version != 2 ||
+        !UacRenameLeaf::Detail::SameSource(record.file, sourceId))
+        return ERROR_FILE_INVALID;
+
+    UacDirectoryLeaf::ParentIdentity parent;
+    if ((error = UacDirectoryLeaf::ReadParentIdentity(targetParent, parent)) || (error = CheckIdentity(target, targetId)))
+        return error;
+    if (targetId.VolumeSerialNumber != parent.file.VolumeSerialNumber ||
+        UacRenameLeaf::Detail::SameSource(record.file, targetId))
+        return ERROR_FILE_INVALID;
+    std::wstring parentPath, path;
+    if ((error = OpenedPath(targetParent, parentPath)) || (error = OpenedPath(target, path)))
+        return error;
+    if (parentPath.back() != L'\\')
+        parentPath += L'\\';
+    parentPath += targetLeaf;
+    if (!UacDirectoryLeaf::Equal(parentPath, path))
+        return ERROR_FILE_INVALID;
+
+    const auto receipt = std::make_unique<DestinationRecord>();
+    receipt->nonce = record.nonce;
+    receipt->parent = parent.file;
+    receipt->file = targetId;
+    receipt->length = static_cast<DWORD>(path.size());
+    std::memcpy(receipt->path, path.data(), path.size() * sizeof(wchar_t));
+    if (!SetFilePointerEx(journal, size, nullptr, FILE_BEGIN) ||
+        !WriteFile(journal, receipt.get(), sizeof(*receipt), &bytes, nullptr))
+        return GetLastError();
+    if (bytes != sizeof(*receipt))
+        return ERROR_WRITE_FAULT;
+    return FlushFileBuffers(journal) ? ERROR_SUCCESS : GetLastError();
+}
+
 inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DESCRIPTOR security)
 {
     using namespace Detail;
@@ -246,7 +381,7 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
         return GetLastError();
     if (!size.QuadPart)
         return ERROR_SUCCESS;
-    if (size.QuadPart != sizeof(Record) && size.QuadPart != sizeof(Record) + sizeof(DaclRecord))
+    if (size.QuadPart != sizeof(Record) && (size.QuadPart < sealedRecordSize || size.QuadPart > completedRecordSize))
         return ERROR_INVALID_DATA;
 
     Record record{};
@@ -255,7 +390,7 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
         return GetLastError();
     const bool hasDacl = record.version == 2;
     if (bytes != sizeof(record) || (!hasDacl && record.version != 1) ||
-        size.QuadPart != static_cast<LONGLONG>(sizeof(Record) + (hasDacl ? sizeof(DaclRecord) : 0)) ||
+        (hasDacl ? size.QuadPart < sealedRecordSize : size.QuadPart != sizeof(Record)) ||
         !record.length || record.length > ARRAYSIZE(record.leaf) ||
         record.file.VolumeSerialNumber != original.file.VolumeSerialNumber ||
         UacRenameLeaf::Detail::SameSource(record.file, journalId))
@@ -295,6 +430,17 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
         error = UacRenameLeaf::Detail::OpenSource(parent, leaf, raw, access,
                                                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
         source.reset(raw);
+        if (error == ERROR_FILE_NOT_FOUND && !retained && size.QuadPart == completedRecordSize)
+        {
+            const auto receipt = std::make_unique<DestinationRecord>();
+            if (!ReadFile(journal, receipt.get(), sizeof(*receipt), &bytes, nullptr))
+                return GetLastError();
+            if (bytes != sizeof(*receipt))
+                return ERROR_INVALID_DATA;
+            Handle target(nullptr, CloseHandle);
+            error = VerifyDestination(*receipt, record.nonce, target);
+            return error ? error : UacRecoveryJournal::ClearRecord(journal);
+        }
         if (error == ERROR_FILE_NOT_FOUND && retained)
         {
             if ((error = CheckOrRestoreDacl(retained.get(), *dacl, false)) != ERROR_SUCCESS)

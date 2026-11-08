@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the durable destination receipt after source removal. | Refuse missing or substituted targets before clearing move recovery. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify guarded F6 target publication through multiple read blocks. | Preserve collisions and hold the published file against replacement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test the verified F6 source guard. | Cover preexisting metadata writers, ADS and writable mappings. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test sealed F6 recovery after a hard process exit. | Preserve inherited ACLs and refuse unauthorized ACL changes. | | GPT-6.1 Sol (Codex) |
@@ -1765,6 +1766,14 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
         error = ReplaceForProbe(rival.get(), targetPath, true);
         Check(error == ERROR_SHARING_VIOLATION && !guard.Check(2),
               "the pinned destination refuses replacement while the source is still protected", error);
+        error = RememberDestination(journal.get(), security.get(), expected, wrongParent.get(), L"wrong-name",
+                                    target.get(), targetId);
+        Check(error == ERROR_FILE_INVALID, "refuse to record a published file under a different name", error);
+        error = RememberDestination(journal.get(), security.get(), expected, wrongParent.get(), targetLeaf,
+                                    target.get(), targetId);
+        Check(!error, "flush the receipt for the still-pinned destination", error);
+        if (error)
+            return false;
         target.reset();
         Check(HasContents(targetPath, moveContent), "publish every block from the overlapped source in order");
     }
@@ -1776,6 +1785,52 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
     Check(!error && !openCancelled && !cancelledSecurity.Read(restored.get()) && originalSecurity.Matches(cancelledSecurity) &&
               HasContents(sourcePath, moveContent) && !Exists(retained) && empty(),
           "restore the DACL and retire only the recovery link when the original name still exists", error);
+    restored.reset();
+
+    raw = nullptr;
+    error = OpenSource(parent.get(), leaf, raw, DELETE | READ_CONTROL | WRITE_DAC, FILE_SHARE_READ);
+    source.reset(raw);
+    if (error || Arm(parent.get(), leaf, source.get(), expected, storage.get(), journal.get(), security.get(), name, seal))
+        return false;
+    retained = storageDirectory + L"\\" + name;
+    source.reset();
+    constexpr wchar_t completedLeaf[] = L"committed-\u6771";
+    const auto completed = wrongDirectory + L"\\" + completedLeaf;
+    const auto movedTarget = wrongDirectory + L"\\original-published-target";
+    {
+        SourceGuard guard;
+        UacDirectoryLeaf::ParentIdentity targetParent;
+        if (guard.Open(parent.get(), leaf, expected, 2) ||
+            UacDirectoryLeaf::ReadParentIdentity(wrongParent.get(), targetParent))
+            return false;
+        UacMoveSourceJournal::Detail::Handle target(nullptr, CloseHandle);
+        FILE_ID_INFO targetId{};
+        error = guard.PublishCopy(wrongParent.get(), targetParent, completedLeaf, moveContent.size(), nullptr,
+                                  nullptr, MAXULONGLONG, target, targetId);
+        if (error || RememberDestination(journal.get(), security.get(), expected, wrongParent.get(), completedLeaf,
+                                         target.get(), targetId))
+            return false;
+    }
+    // Simulate a completed source retirement. Production does not call this test path.
+    if (!DeleteFileW(sourcePath.c_str()) || !DeleteFileW(retained.c_str()))
+        return false;
+    journal.reset();
+    journal = openJournal(OPEN_EXISTING);
+    if (!journal || !MoveFileExW(completed.c_str(), movedTarget.c_str(), 0))
+        return false;
+    error = recover(parent.get());
+    Check(error == ERROR_FILE_NOT_FOUND && !empty() && !Exists(sourcePath),
+          "retain a completed move receipt if the recorded target is missing", error);
+    if (!WriteFixture(completed, {6}))
+        return false;
+    error = recover(parent.get());
+    Check(error == ERROR_FILE_INVALID && !empty() && HasContents(completed, {6}) && !Exists(sourcePath),
+          "retain the receipt and leave a substituted target untouched", error);
+    if (!DeleteFileW(completed.c_str()) || !MoveFileExW(movedTarget.c_str(), completed.c_str(), 0))
+        return false;
+    error = recover(parent.get());
+    Check(!error && empty() && !Exists(sourcePath) && HasContents(completed, moveContent),
+          "clear a completed move only after reopening the exact durable target", error);
     return failures == 0;
 }
 
