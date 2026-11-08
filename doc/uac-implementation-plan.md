@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record the P4k CI result and allocation fix. | Keep the next stage gated on clean analysis. | https://github.com/majklvi/salamander/runs/128721425272 | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P4j CodeQL and the protected F5 queue pilot. | Track queue admission and isolated VM acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Document the UAC architecture, source audit, implementation stages and validation gates. | Plan per-operation elevation without implementing it. |  | GPT-6 (Codex) |
 | 2026-11-07 | Record the first P0 experiment. | Link the prototype and remaining gates. | | GPT-6.1 Sol (Codex) |
@@ -477,6 +478,8 @@ Sestavení x64 Debug a test smlouvy fronty prošly. Prošlo 115 nativních kontr
 V izolované VM byly dvě úlohy F5 zařazeny v jednom procesu. První čekala na volbu Administrator a druhá měla stav čekání na aktivní kopírování či přesun. Po zrušení první systémové výzvy se otevřela nabídka správce pro druhou úlohu. Po potvrzení druhé výzvy zůstal první zdroj zachován a jeho cíl nevznikl. V druhém cíli s diakritikou souhlasily SHA-256 kořenového a vnořeného souboru, zůstala zachována prázdná podsložka, cesty se nezaměnily a nezůstala žádná pracovní složka. Ověřily se také otisky instalovaných souborů.
 
 Ve finálním sestavení se stav čekání zobrazil bez zavádějícího popisku Storage-aware. Druhou úlohu šlo zrušit přímo ve frontě, zatímco první nabídka správce zůstala otevřená. Po uzavření první nabídky byly obě úlohy ukončené a Windows neotevřel systémovou výzvu. Tato etapa řídí přidělení a zrušení čekající úlohy. Po spuštění brokeru se kopírování dokončuje jako jedna operace.
+
+GitHub CI pro P4k na commitu `bcb8e25e` dokončila sestavení Win32, x64 a ARM64, 214 testů a kontrolu růstu zdrojů. CodeQL označil kontrolu nulového ukazatele po běžném `new` ve vytvoření skriptu fronty. Oprava používá `std::nothrow` u skriptu i připraveného požadavku, takže existující kontroly odpovídají způsobu alokace. [Testy P4k](https://github.com/majklvi/salamander/actions/runs/42475983806/job/128717387727) · [Nález CodeQL](https://github.com/majklvi/salamander/runs/128721425272).
 
 ## 9. Uživatelský tok a stav operace
 

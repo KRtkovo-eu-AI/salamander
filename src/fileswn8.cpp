@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Use nonthrowing allocation for the protected F5 pilot. | Make the low-memory checks match allocation behavior. | https://github.com/majklvi/salamander/runs/128721425272 | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Submit protected F5 tree copies to the operation queue. | Wait for admission before asking for administrator consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer protected F5 for a single directory and the registered target. | Bind the consent prompt to both complete paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Append localized inventory labels as text. | Resolve the CodeQL non-constant format alert. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
@@ -284,7 +285,10 @@ static bool StartProtectedTreeCopy(std::unique_ptr<UacF7::PreparedTransfer> requ
     const auto sourceText = SalWideToMultiBytePath(SalPathRemoveExtendedPrefixW(source.c_str()).c_str(), CP_UTF8);
     const auto targetText = SalWideToMultiBytePath(destination.c_str(), CP_UTF8);
     const auto directoryText = SalWideToMultiBytePath(targetDirectory.c_str(), CP_UTF8);
-    COperations* script = new COperations(1, 1, NULL, NULL, NULL);
+#pragma push_macro("new")
+#undef new
+    COperations* script = new (std::nothrow) COperations(1, 1, NULL, NULL, NULL);
+#pragma pop_macro("new")
     if (script == NULL)
         return false;
 
@@ -867,7 +871,10 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                         auto entered = SalMultiByteToWidePath(path, CP_UTF8);
                         if (entered.empty())
                             entered = SalMultiByteToWidePath(path, CP_ACP);
-                        std::unique_ptr<UacF7::PreparedTransfer> request(new UacF7::PreparedTransfer);
+#pragma push_macro("new")
+#undef new
+                        std::unique_ptr<UacF7::PreparedTransfer> request(new (std::nothrow) UacF7::PreparedTransfer);
+#pragma pop_macro("new")
                         std::wstring destination;
                         if (request && request->PrepareTree(source, entered, destination))
                         {
