@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Show shared WebView2 viewer windows in the Windows taskbar. | Owned top-level windows are omitted from the taskbar unless they opt in with WS_EX_APPWINDOW. |  | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Open PrismSharp Find bar for F3 navigation. | F3 and Shift+F3 must reveal the search dialog before moving between matches. |  | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Preserve hidden Find prefill across shared webview viewers. | Find-triggered viewers must carry the phrase without opening the dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Preserve the requested owner when creating and reusing native viewers. | Closing Prism/WebView2 must return activation to the window that opened the viewer. | https://github.com/KRtkovo-eu-AI/salamander/issues/757 | OpenAI GPT-5.6 Luna Pro |
@@ -1520,7 +1521,11 @@ public:
         int width = (std::max)(parameters_->placement.right - parameters_->placement.left, 320L);
         int height = (std::max)(parameters_->placement.bottom - parameters_->placement.top, 240L);
         std::wstring title = WindowTitle();
-        window_ = CreateWindowExW(parameters_->alwaysOnTop ? WS_EX_TOPMOST : 0, className, title.c_str(),
+        // Keep the owner for activation and lifecycle coordination, but opt the
+        // owned top-level window into its own taskbar button.
+        const DWORD extendedStyle = WS_EX_APPWINDOW |
+            (parameters_->alwaysOnTop ? WS_EX_TOPMOST : 0);
+        window_ = CreateWindowExW(extendedStyle, className, title.c_str(),
                                   WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
                                   parameters_->placement.left, parameters_->placement.top, width, height,
                                   IsWindow(parameters_->owner) ? parameters_->owner : nullptr,

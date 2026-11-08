@@ -1,5 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Open Salamander Authors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-08 | Guard the shared viewer taskbar window style. | WebView2 render, PrismSharp, and JSON Viewer must keep independent taskbar buttons. |  | openai/gpt-5.6-luna-pro |
 
 from pathlib import Path
 import re
@@ -608,6 +612,14 @@ def main() -> None:
         or "pendingPreparationResult_" not in native_viewer
     ):
         raise AssertionError("native_viewer.cpp must support full-text search and parallel preparation")
+    if (
+        "const DWORD extendedStyle = WS_EX_APPWINDOW |" not in native_viewer
+        or "CreateWindowExW(extendedStyle, className" not in native_viewer
+        or "IsWindow(parameters_->owner) ? parameters_->owner : nullptr" not in native_viewer
+    ):
+        raise AssertionError(
+            "shared viewer windows must keep their owner and opt into independent taskbar buttons"
+        )
 
     # Edit menu, print, go to line, DevTools policy.
     for token in (
