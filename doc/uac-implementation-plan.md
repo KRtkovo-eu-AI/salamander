@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record ZIP recovery and the first acceptance results. | Track successful read and extraction and the diagnosed Windows ACL difference. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document protected ZIP editing from the panel. | Track staging, validation, delete and F5 additions. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document streamed ZIP replacement and session handoff. | Track the implemented write protocol before wiring ZIP commands. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document ZIP recovery journal and the locked archive revision. | Record the broker boundary for updating and restoring a protected archive. | | GPT-6.1 Sol (Codex) |
@@ -827,7 +828,15 @@ Aplikace, broker a sonda se zkompilovaly v x64 Debug a nativní sada v x64 Relea
 
 **Změny ZIPu z panelu.** Delete používá běžný dialog pro výběr položek k odstranění. F5 z diskového panelu do otevřeného chráněného ZIPu používá běžný dialog kopírování, včetně cílové podsložky, a řeší kolize podle nastavení ZIP pluginu. Plugin pod běžným tokenem přidá, nahradí nebo odstraní položky ve pracovní kopii v profilu uživatele. Před nabídkou zápisu aplikace zkontroluje, že výsledný ZIP lze načíst a že panel stále odpovídá původnímu výpisu. Výzva k zápisu ukáže cestu k originálu. Po potvrzeném zápisu se výpis obnoví z nové relace.
 
-Diskové zdroje při F5 zůstávají na místě. U chráněného ZIPu zatím chybí příkaz obnovy dostupný po restartu aplikace. Sestavení x64 Debug aplikace, ZIP pluginu, brokeru a sondy prošlo. Zkoušky výsledků na disku, ZIP64, kolizí, zrušení a obnovy proběhnou v rámci společné akceptace.
+Diskové zdroje při F5 zůstávají na místě. Sestavení x64 Debug aplikace, ZIP pluginu, brokeru a sondy prošlo. Zkoušky výsledků na disku, ZIP64, kolizí, zrušení a obnovy proběhnou v rámci společné akceptace.
+
+**Obnova po přerušení.** V diskovém panelu otevři původní složku ZIPu a zvol Files → Recover Interrupted ZIP Update. Příkaz po souhlasu otevře pouze žurnál této složky. Název a ID archivu převezme z žurnálu, takže funguje i po restartu nebo zániku původního názvu. Chybějící originál obnoví bez přepisu. Pokud je název obsazen jiným objektem, oba soubory zachová.
+
+**Společná akceptace ZIPu.** Aplikace, ZIP plugin, jazykové moduly, broker a sonda se zkompilovaly v x64 Debug. Nativní sada prošla v x64 Debug i Release se 199 kontrolami. Ověřila mimo jiné Unicode a prázdnou podsložku při extrakci, odmítnutí duplicit a kolizí, zápis připraveného archivu, odmítnutí zastaralé revize a obnovu podle žurnálu. Prošla nativní kontrola brokerového spojení a šest archivních regresních sad. Samostatná zkouška reálného ZIP pluginu přečetla 1 308 bajtů a ověřila přístup na offset 5 368 709 557 v ZIP64, poškozené a vícesvazkové záznamy a chyby callbacku.
+
+V izolované VM otevřelo F3 položku `dír/東-view.txt` v interním prohlížeči s očekávaným textem. Vstup do podsložky, návrat i Ctrl+R použily stejnou čtecí autorizaci. F5 do běžného cíle vytvořilo výběr obou složek včetně prázdné složky. F5 do chráněného cíle po jednom souhlasu vytvořilo `dír` se dvěma soubory. SHA-256 souborů se v obou cílech shodovaly.
+
+První pokus o přidání a nahrazení v chráněném ZIP64 skončil chybou 1006. Otisk originálu se nezměnil. Diagnostika oddělila revizi od bezpečnostního popisu. ID a revize souhlasily, stejně jako vlastník, skupina a obě ACL. Windows při vytvoření nového souboru změnil příznaky `SE_DACL_AUTO_INHERITED` a `SE_SACL_AUTO_INHERITED` z `0xBC14` na `0xB014`. Broker nyní porovnává přítomnost a ochranu ACL proti dědění a všechny položky ACL včetně jejich vlastních příznaků dědění. Opravené sestavení čeká na opakování zkoušky zápisu ve VM. [Příznaky bezpečnostního popisu ve Windows](https://learn.microsoft.com/en-us/windows/win32/secauthz/security-descriptor-control).
 
 ## 9. Uživatelský tok a stav operace
 

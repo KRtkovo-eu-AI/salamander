@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Prepare interrupted ZIP recovery from a folder. | Work after restart or loss of the original name. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare streamed protected ZIP preparation and replacement. | Reopen the committed archive through the same write consent. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Bind ZIP recovery to a prepared path and return the opened archive revision. | Capture authoritative metadata while the archive is still locked. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Describe the bounded ZIP selection wire format. | Authorize a fixed manifest beneath one verified directory. | | GPT-6.1 Sol (Codex) |
@@ -196,7 +197,7 @@ public:
     bool PrepareView(const std::wstring& path) { return PrepareTarget(path, Operation::View, {}, nullptr); }
     Result ReadViewerSnapshot(HWND owner, std::vector<BYTE>& snapshot) const;
     bool PrepareZipSelection(const std::wstring& directory);
-    bool PrepareZipRecovery(const std::wstring& path);
+    bool PrepareZipRecovery(const std::wstring& directory);
     DWORD WriteZipSelectionLocal(const std::vector<BYTE>& bytes) const;
     Result WriteZipSelection(HWND owner, std::vector<BYTE>& bytes) const;
     DWORD ExecuteLocal() const;

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Prevent copying and deleting from the protected archive pilot. | Keep the archive listing read-only. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Recover the recorded ZIP update in the selected disk folder. | Revalidate the panel after consent and refresh on success. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Apply ZIP edits to the requested archive subdirectory. | Reject invalid internal path components before staging. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Connect protected ZIP deletion to the ordinary archive selection. | Edit a private copy, validate it and request consent to publish. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Expand a protected ZIP selection into a bounded output manifest. | Preserve nested folders and report incomplete extraction. | | GPT-6.1 Sol (Codex) |
@@ -1077,6 +1078,38 @@ DWORD WINAPI ValidateZipEditName(void*, const char*, DWORD)
 {
     return ERROR_SUCCESS;
 }
+}
+
+void CFilesWindow::RecoverProtectedZip()
+try
+{
+    CFilesActionDiskTarget target;
+    if (FilesActionInProgress || !target.Capture(MainWindow, this))
+        return;
+    const std::wstring path = GetPathW();
+    UacF7::PreparedLeaf request;
+    if (!request.PrepareZipRecovery(path))
+    {
+        SalMessageBox(HWindow, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(IDS_UAC_ZIP_EDIT_TITLE), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    if (!ConfirmProtectedRead(HWindow, IDS_UAC_ZIP_EDIT_TITLE, IDS_UAC_ZIP_RECOVER_CONFIRM, path) ||
+        !target.IsCurrent(MainWindow))
+        return;
+    const auto result = request.Execute(HWindow);
+    if (!result.error && !result.unknown)
+        MainWindow->PostChangeOnPathNotification(target.DefaultPath.c_str(), FALSE);
+    if (result.error == ERROR_CANCELLED && !result.unknown)
+        return;
+    const char* message = result.unknown ? LoadStr(IDS_UAC_ZIP_EDIT_UNKNOWN) :
+        result.error == ERROR_NOT_FOUND ? LoadStr(IDS_UAC_ZIP_RECOVER_NONE) :
+        result.error ? GetErrorText(result.error) : LoadStr(IDS_UAC_ZIP_RECOVER_DONE);
+    SalMessageBox(HWindow, message, LoadStr(IDS_UAC_ZIP_EDIT_TITLE),
+                  MB_OK | (result.unknown || (result.error && result.error != ERROR_NOT_FOUND) ? MB_ICONEXCLAMATION : MB_ICONINFORMATION));
+}
+catch (const std::bad_alloc&)
+{
+    SalMessageBox(HWindow, GetErrorText(ERROR_NOT_ENOUGH_MEMORY), LoadStr(IDS_UAC_ZIP_EDIT_TITLE), MB_OK | MB_ICONEXCLAMATION);
 }
 
 bool CFilesWindow::CanEditProtectedZip()

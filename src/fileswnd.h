@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Declare the panel recovery command. | Allow recovery even without an open ZIP panel. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Accept an explicit internal ZIP destination. | Keep the normal F5 path field for protected archive additions. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Expose the protected ZIP editor to archive commands. | Share the staging path for delete and pack. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share bounded ZIP entry buffering across F3 and F5. | Publish or display only verified bytes. | | GPT-6.1 Sol (Codex) |
@@ -1620,6 +1621,7 @@ public:
     // only visible icons/thumbnails/overlays; others are loaded once the main window becomes active
     bool IsProtectedZip() { return Is(ptZIPArchive) && ProtectedZip; }
     bool CanEditProtectedZip();
+    void RecoverProtectedZip();
     bool EditProtectedZip(const char* sourcePath, SalEnumSelection2 add, SalEnumSelection remove, void* context,
                           const char* archiveRoot = nullptr);
     DWORD ReadProtectedZipEntry(const CFileData& file, const std::string& entry, std::vector<BYTE>& bytes);

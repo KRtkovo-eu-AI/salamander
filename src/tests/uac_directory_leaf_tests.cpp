@@ -1,5 +1,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise protected ZIP selection output on NTFS. | Verify nested names, empty directories and all-or-nothing manifest validation. | | GPT-6.1 Sol (Codex) |
+| 2026-11-08 | Test restoring a missing ZIP by selecting its parent. | Match the recovery command after application restart. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise ZIP publication with a pinned original. | Match the broker-owned handle used throughout staging. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Adapt ZIP publication tests to the fixed archive revision. | Exercise the same metadata as the broker protocol. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Add ZIP publication and recovery cases to the native fixture. | Cover verified commit, a stale revision and recovery with a competing file. | | GPT-6.1 Sol (Codex) |
@@ -43,6 +45,7 @@
 #include "../uacbroker/listing.h"
 #include "../uacbroker/copyleaf.h"
 #include "../uacbroker/zipupdate.h"
+#include "../uacbroker/zipselection.h"
 #include "../uacbroker/copytree.h"
 #include "../uacbroker/viewleaf.h"
 #include <winioctl.h>
@@ -1016,6 +1019,57 @@ static bool CheckDetailedInventory(const std::wstring& fixture, HANDLE root)
     return true;
 }
 
+bool CheckZipSelection(const std::wstring& fixture, HANDLE root)
+{
+    const std::wstring folder = fixture + L"\\zip-extract";
+    if (!CreateDirectoryW(folder.c_str(), nullptr))
+        return false;
+    HANDLE raw = nullptr;
+    UacDirectoryLeaf::ParentIdentity identity;
+    if (UacDirectoryLeaf::OpenParentBelowRoot(root, L"zip-extract", raw, identity))
+        return false;
+    const Handle parent(raw);
+    std::vector<BYTE> manifest;
+    const auto append = [&](DWORD index, std::wstring_view name, bool directory, const std::vector<BYTE>& contents) {
+        FILETIME time{};
+        GetSystemTimeAsFileTime(&time);
+        const UacF7::ZipSelectionEntry entry{index, static_cast<DWORD>(name.size()),
+                                            static_cast<DWORD>(contents.size()), directory ? 1U : 0U, time};
+        const auto* header = reinterpret_cast<const BYTE*>(&entry);
+        manifest.insert(manifest.end(), header, header + sizeof(entry));
+        const auto* bytes = reinterpret_cast<const BYTE*>(name.data());
+        manifest.insert(manifest.end(), bytes, bytes + name.size() * sizeof(wchar_t));
+        manifest.insert(manifest.end(), contents.begin(), contents.end());
+    };
+
+    constexpr DWORD top = UacF7::zipSelectionRoot;
+    append(top, L"root", true, {});
+    append(0, L"\u6771.txt", false, {1, 2, 3});
+    append(0, L"empty", true, {});
+    auto error = UacZipSelection::Publish(parent.get(), identity, manifest);
+    Check(!error && HasContents(folder + L"\\root\\\u6771.txt", {1, 2, 3}) &&
+          DirectoryExists(folder + L"\\root\\empty"), "extract nested Unicode and empty ZIP entries", error);
+
+    error = UacZipSelection::Publish(parent.get(), identity, manifest);
+    Check(error == ERROR_ALREADY_EXISTS && HasContents(folder + L"\\root\\\u6771.txt", {1, 2, 3}),
+          "reject an existing ZIP extraction root without changing its files", error);
+
+    manifest.clear();
+    append(top, L"unpublished.txt", false, {4});
+    append(top, L"..", true, {});
+    error = UacZipSelection::Publish(parent.get(), identity, manifest);
+    Check(error == ERROR_INVALID_NAME && !Exists(folder + L"\\unpublished.txt"),
+          "reject an invalid ZIP component before any output is created", error);
+
+    manifest.clear();
+    append(top, L"duplicate.txt", false, {5});
+    append(top, L"DUPLICATE.TXT", false, {6});
+    error = UacZipSelection::Publish(parent.get(), identity, manifest);
+    Check(error == ERROR_ALREADY_EXISTS && !Exists(folder + L"\\duplicate.txt"),
+          "reject case-insensitive duplicate output names before extraction", error);
+    return true;
+}
+
 bool CheckZipUpdate(const std::wstring& fixture, HANDLE root)
 {
     using UacZipUpdate::Publish;
@@ -1107,9 +1161,11 @@ bool CheckZipUpdate(const std::wstring& fixture, HANDLE root)
           "keep both files when an unrelated item occupies the ZIP name", error);
     if (!DeleteFileW(path.c_str()))
         return false;
-    error = Recover(parent.get(), identity, leaf, journal.get());
+    error = Recover(parent.get(), identity, {}, journal.get());
     Check(!error && HasContents(path, {3, 4, 5}) && !Exists(backupPath),
           "restore the exact original after an interrupted ZIP publication", error);
+    Check(Recover(parent.get(), identity, {}, journal.get()) == ERROR_NOT_FOUND,
+          "report no pending ZIP recovery in this folder after restoring the original");
     return true;
 }
 
@@ -1133,7 +1189,8 @@ int wmain(int argc, wchar_t** argv)
     const Handle root(rawRoot);
     if (moveSource)
         return CheckMoveSource(fixture, root.get()) ? 0 : 1;
-    if (!CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) || !CheckZipUpdate(fixture, root.get()))
+    if (!CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
+        !CheckZipSelection(fixture, root.get()) || !CheckZipUpdate(fixture, root.get()))
         return 2;
     HANDLE rawListing = nullptr;
     ParentIdentity listingIdentity;

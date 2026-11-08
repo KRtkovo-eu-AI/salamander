@@ -1,5 +1,6 @@
 ﻿// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Explain how to recover an interrupted ZIP update. | Make recovery discoverable after the archive name disappears. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the separate protected ZIP write consent. | Explain when to check or refresh the archive after the broker responds. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe protected ZIP selection consent and partial outcomes. | Keep retry decisions explicit. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe protected extraction and its limited consent. | Clarify the supported operations in the archive panel. | | GPT-6.1 Sol (Codex) |
@@ -2419,8 +2420,12 @@ STRINGTABLE
  IDS_UAC_ZIP_EXTRACT_PARTIAL, "Extraction stopped after creating part of the ZIP selection. Check the destination before retrying."
  IDS_UAC_ZIP_EDIT_TITLE, "Protected ZIP Update"
  IDS_UAC_ZIP_EDIT_CONFIRM, "Save the prepared changes to this ZIP as an administrator?"
- IDS_UAC_ZIP_EDIT_UNKNOWN, "Windows did not confirm a complete ZIP update. Check the archive and recover the original if necessary before retrying."
+ IDS_UAC_ZIP_EDIT_UNKNOWN, "Windows did not confirm a complete ZIP update. Check the archive. To recover the recorded update, open its folder and choose Files > Recover Interrupted ZIP Update before retrying."
  IDS_UAC_ZIP_EDIT_REFRESH, "The ZIP was updated. Refresh the archive panel to display the new contents."
+ IDS_UAC_ZIP_RECOVER_MENU, "Recover Interrupted ZIP Update..."
+ IDS_UAC_ZIP_RECOVER_CONFIRM, "Recover the interrupted ZIP update recorded for this folder as an administrator?"
+ IDS_UAC_ZIP_RECOVER_NONE, "There is no recorded ZIP update to recover in this folder."
+ IDS_UAC_ZIP_RECOVER_DONE, "The interrupted ZIP update has been resolved."
  IDS_UAC_ZIP_CONFIRM, "Access was denied. Read the contents of this ZIP as an administrator? The archive will be opened for reading only."
  IDS_UAC_EDIT_ADMIN_UNTRUSTED, "Administrator mode requires an editor executable in a protected Windows or Program Files directory."
  IDS_UAC_SIZE_NOT_AVAILABLE, "Not available"
