@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Share copying from a held file handle. | Let tree staging pin source handles and journal created file identities. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share the transfer connection guard. | Check for disconnect before the native operation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Bound copy size and monitor the broker connection. | Abort staging on timeout, disconnect or unexpected data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Copy one ordinary file between verified NTFS directory handles. | Stage and publish a complete copy without replacing a destination. | | GPT-6.1 Sol (Codex) |
@@ -19,25 +20,23 @@ namespace UacCopyLeaf
 {
 namespace Detail
 {
-inline DWORD ReadPlainMetadata(HANDLE file, FILE_BASIC_INFO& basic)
+inline DWORD CheckPlainStreamsAndEa(HANDLE file, bool directory)
 {
-    if (!GetFileInformationByHandleEx(file, FileBasicInfo, &basic, sizeof(basic)))
-        return GetLastError();
-    if (!UacF7::IsPlainCopyFile(basic.FileAttributes))
-        return ERROR_NOT_SUPPORTED;
-
     alignas(LONGLONG) BYTE streamBuffer[1024]{};
-    if (!GetFileInformationByHandleEx(file, FileStreamInfo, streamBuffer, sizeof(streamBuffer)))
+    if (GetFileInformationByHandleEx(file, FileStreamInfo, streamBuffer, sizeof(streamBuffer)))
+    {
+        const auto& stream = *reinterpret_cast<const FILE_STREAM_INFO*>(streamBuffer);
+        constexpr std::wstring_view defaultStream = L"::$DATA";
+        if (directory || stream.NextEntryOffset || stream.StreamNameLength != defaultStream.size() * sizeof(wchar_t) ||
+            std::wstring_view(stream.StreamName, defaultStream.size()) != defaultStream)
+            return ERROR_NOT_SUPPORTED;
+    }
+    else
     {
         const DWORD error = GetLastError();
-        return error == ERROR_MORE_DATA || error == ERROR_INSUFFICIENT_BUFFER ? ERROR_NOT_SUPPORTED : error;
+        if (!directory || error != ERROR_HANDLE_EOF)
+            return error == ERROR_MORE_DATA || error == ERROR_INSUFFICIENT_BUFFER ? ERROR_NOT_SUPPORTED : error;
     }
-
-    const auto& stream = *reinterpret_cast<const FILE_STREAM_INFO*>(streamBuffer);
-    constexpr std::wstring_view defaultStream = L"::$DATA";
-    if (stream.NextEntryOffset || stream.StreamNameLength != defaultStream.size() * sizeof(wchar_t) ||
-        std::wstring_view(stream.StreamName, defaultStream.size()) != defaultStream)
-        return ERROR_NOT_SUPPORTED;
 
     IO_STATUS_BLOCK io{};
     ULONG eaSize = 0;
@@ -46,6 +45,28 @@ inline DWORD ReadPlainMetadata(HANDLE file, FILE_BASIC_INFO& basic)
     if (status < 0)
         return RtlNtStatusToDosError(status);
     return eaSize ? ERROR_NOT_SUPPORTED : ERROR_SUCCESS;
+}
+
+inline DWORD ReadPlainMetadata(HANDLE file, FILE_BASIC_INFO& basic, bool directory = false)
+{
+    if (!GetFileInformationByHandleEx(file, FileBasicInfo, &basic, sizeof(basic)))
+        return GetLastError();
+    if (directory ? basic.FileAttributes != FILE_ATTRIBUTE_DIRECTORY : !UacF7::IsPlainCopyFile(basic.FileAttributes))
+        return ERROR_NOT_SUPPORTED;
+    return CheckPlainStreamsAndEa(file, directory);
+}
+
+inline bool SameBasicMetadata(const FILE_BASIC_INFO& first, const FILE_BASIC_INFO& second)
+{
+    return first.ChangeTime.QuadPart == second.ChangeTime.QuadPart &&
+           first.CreationTime.QuadPart == second.CreationTime.QuadPart &&
+           first.LastWriteTime.QuadPart == second.LastWriteTime.QuadPart &&
+           first.FileAttributes == second.FileAttributes;
+}
+
+inline DWORD CopiedAttributes(DWORD attributes)
+{
+    return (attributes & ~FILE_ATTRIBUTE_NORMAL) | FILE_ATTRIBUTE_ARCHIVE;
 }
 
 inline DWORD StageFile(HANDLE parent, HANDLE& file)
@@ -103,6 +124,59 @@ inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
     }
     return ERROR_SUCCESS;
 }
+
+inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_view targetName,
+                            HANDLE cancel, HANDLE connection, ULONGLONG deadline, ULONGLONG expectedSize,
+                            FILE_BASIC_INFO& basic, FILE_ID_INFO* created = nullptr)
+{
+    DWORD error = ReadPlainMetadata(source, basic);
+    if (error)
+        return error;
+    LARGE_INTEGER size{};
+    if (!GetFileSizeEx(source, &size))
+        return GetLastError();
+    if (size.QuadPart < 0 || static_cast<ULONGLONG>(size.QuadPart) > UacF7::maxPilotCopyBytes)
+        return ERROR_FILE_TOO_LARGE;
+    if (expectedSize != MAXULONGLONG && static_cast<ULONGLONG>(size.QuadPart) != expectedSize)
+        return ERROR_FILE_INVALID;
+
+    HANDLE rawTarget = nullptr;
+    if ((error = StageFile(targetParent, rawTarget)) != ERROR_SUCCESS)
+        return error;
+    const std::unique_ptr<void, decltype(&CloseHandle)> target(rawTarget, CloseHandle);
+    FILE_BASIC_INFO targetBasic{};
+    if (!GetFileInformationByHandleEx(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
+        return GetLastError();
+    if (!UacF7::IsPlainCopyFile(targetBasic.FileAttributes))
+        return ERROR_NOT_SUPPORTED;
+    if ((error = CopyData(source, target.get(), static_cast<ULONGLONG>(size.QuadPart), cancel, connection, deadline)) != ERROR_SUCCESS)
+        return error;
+
+    FILE_BASIC_INFO current{};
+    if ((error = ReadPlainMetadata(source, current)) != ERROR_SUCCESS)
+        return error;
+    if (!SameBasicMetadata(basic, current))
+        return ERROR_FILE_INVALID;
+
+    // Follow the ordinary copy behavior when the exact-attribute option is off.
+    targetBasic = basic;
+    targetBasic.ChangeTime.QuadPart = 0;
+    targetBasic.FileAttributes = CopiedAttributes(basic.FileAttributes);
+    if (!SetFileInformationByHandle(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)) || !FlushFileBuffers(target.get()))
+        return GetLastError();
+    if (created && !GetFileInformationByHandleEx(target.get(), FileIdInfo, created, sizeof(*created)))
+        return GetLastError();
+    if ((error = CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
+        return error;
+    if ((error = UacRenameLeaf::Detail::NativeRename(target.get(), targetParent, targetName)) != ERROR_SUCCESS)
+        return error;
+
+    // A failure or process exit before the commit discards the staged file.
+    FILE_DISPOSITION_INFO_EX commit{FILE_DISPOSITION_FLAG_ON_CLOSE};
+    if (!SetFileInformationByHandle(target.get(), FileDispositionInfoEx, &commit, sizeof(commit)))
+        return GetLastError();
+    return ERROR_SUCCESS;
+}
 }
 
 // Copies only the unnamed data stream and supported basic metadata. The new
@@ -147,52 +221,6 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
     if (!UacRenameLeaf::Detail::SameSource(actualSource, expectedSource))
         return ERROR_FILE_INVALID;
     FILE_BASIC_INFO basic{};
-    if ((error = Detail::ReadPlainMetadata(source.get(), basic)) != ERROR_SUCCESS)
-        return error;
-
-    LARGE_INTEGER size{};
-    if (!GetFileSizeEx(source.get(), &size))
-        return GetLastError();
-    if (size.QuadPart < 0 || static_cast<ULONGLONG>(size.QuadPart) > UacF7::maxPilotCopyBytes)
-        return ERROR_FILE_TOO_LARGE;
-    if (expectedSize != MAXULONGLONG && static_cast<ULONGLONG>(size.QuadPart) != expectedSize)
-        return ERROR_FILE_INVALID;
-
-    HANDLE rawTarget = nullptr;
-    if ((error = Detail::StageFile(targetParent, rawTarget)) != ERROR_SUCCESS)
-        return error;
-    const std::unique_ptr<void, decltype(&CloseHandle)> target(rawTarget, CloseHandle);
-    FILE_BASIC_INFO targetBasic{};
-    if (!GetFileInformationByHandleEx(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
-        return GetLastError();
-    if (!UacF7::IsPlainCopyFile(targetBasic.FileAttributes))
-        return ERROR_NOT_SUPPORTED; // Reject unsupported properties inherited at creation.
-    if ((error = Detail::CopyData(source.get(), target.get(), static_cast<ULONGLONG>(size.QuadPart), cancel, connection, deadline)) != ERROR_SUCCESS)
-        return error;
-
-    FILE_BASIC_INFO current{};
-    if ((error = Detail::ReadPlainMetadata(source.get(), current)) != ERROR_SUCCESS)
-        return error;
-    if (basic.ChangeTime.QuadPart != current.ChangeTime.QuadPart ||
-        basic.LastWriteTime.QuadPart != current.LastWriteTime.QuadPart ||
-        basic.FileAttributes != current.FileAttributes)
-        return ERROR_FILE_INVALID;
-
-    // Follow the ordinary copy behavior when the exact-attribute option is off.
-    basic.ChangeTime.QuadPart = 0;
-    basic.FileAttributes = (basic.FileAttributes & ~FILE_ATTRIBUTE_NORMAL) | FILE_ATTRIBUTE_ARCHIVE;
-    if (!SetFileInformationByHandle(target.get(), FileBasicInfo, &basic, sizeof(basic)) || !FlushFileBuffers(target.get()))
-        return GetLastError();
-    if ((error = Detail::CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
-        return error;
-    if ((error = UacRenameLeaf::Detail::NativeRename(target.get(), targetParent, targetName)) != ERROR_SUCCESS)
-        return error;
-
-    // Keep the on-close deletion armed through the rename. A failure or
-    // process exit before the commit can only discard the complete copy.
-    FILE_DISPOSITION_INFO_EX commit{FILE_DISPOSITION_FLAG_ON_CLOSE};
-    if (!SetFileInformationByHandle(target.get(), FileDispositionInfoEx, &commit, sizeof(commit)))
-        return GetLastError();
-    return ERROR_SUCCESS;
+    return Detail::CopyOpenedFile(source.get(), targetParent, targetName, cancel, connection, deadline, expectedSize, basic);
 }
 }

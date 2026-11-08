@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise bounded NTFS tree copying. | Verify whole-tree publication and rollback of owned temporary entries. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise source manifest revalidation on NTFS. | Detect replacements and new entries even when a size summary would miss them. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check strict recursive inventory on NTFS. | Verify Unicode contents and suppress results on timeout or reparse entries. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise a verified same-volume move. | Check identity, collisions, cancellation and peer loss. | | GPT-6.1 Sol (Codex) |
@@ -15,6 +16,7 @@
 #include "../uacbroker/deleteleaf.h"
 #include "../uacbroker/listing.h"
 #include "../uacbroker/copyleaf.h"
+#include "../uacbroker/copytree.h"
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
@@ -87,6 +89,137 @@ void Check(bool passed, const char* label, DWORD error = 0)
     if (!passed)
         ++failures;
 }
+
+bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent)
+{
+    using namespace UacDirectoryLeaf;
+    const std::wstring source = fixture + L"\\tree-source";
+    const std::wstring target = fixture + L"\\tree-target";
+    const std::wstring nested = L"\\a-\u76ee\u9332";
+    const std::wstring file = nested + L"\\\u65e5.bin";
+    const std::wstring longChild = nested + L"\\" + std::wstring(170, L'\u76ee');
+    const std::wstring longLeaf = longChild + L"\\" + std::wstring(150, L'\u7dd1') + L".bin";
+    const std::wstring published = target + L"\\published";
+    if (!CreateDirectoryW(source.c_str(), nullptr) || !CreateDirectoryW(target.c_str(), nullptr) ||
+        !CreateDirectoryW((source + nested).c_str(), nullptr) ||
+        !CreateDirectoryW((source + longChild).c_str(), nullptr) ||
+        !CreateDirectoryW((source + L"\\empty").c_str(), nullptr) ||
+        !WriteFixture(source + file, {4, 8, 15, 16, 23, 42}) ||
+        !WriteFixture(source + longLeaf, {9}))
+        return false;
+
+    const FILETIME modification{0, 0x01DA0000};
+    {
+        const HANDLE raw = CreateFileW((source + nested).c_str(), FILE_WRITE_ATTRIBUTES, 0, nullptr,
+                                       OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+        if (raw == INVALID_HANDLE_VALUE)
+            return false;
+        const Handle directory(raw);
+        if (!SetFileTime(directory.get(), nullptr, nullptr, &modification))
+            return false;
+    }
+
+    HANDLE rawSource = nullptr, rawTarget = nullptr;
+    ParentIdentity sourceId, targetId;
+    if (OpenParentBelowRoot(parent, L"tree-source", rawSource, sourceId, FILE_LIST_DIRECTORY | FILE_READ_EA))
+        return false;
+    const Handle from(rawSource);
+    if (OpenParentBelowRoot(parent, L"tree-target", rawTarget, targetId, FILE_LIST_DIRECTORY))
+        return false;
+    const Handle to(rawTarget);
+    const auto noStaging = [&]() {
+        std::vector<WIN32_FIND_DATAW> entries;
+        if (UacListing::Enumerate(to.get(), entries))
+            return false;
+        for (const auto& entry : entries)
+            if (std::wstring_view(entry.cFileName).substr(0, ARRAYSIZE(UacCopyTree::stagePrefix) - 1) == UacCopyTree::stagePrefix)
+                return false;
+        return true;
+    };
+
+    auto result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"published");
+    Check(!result.error && !result.cleanupError && noStaging() &&
+              HasContents(published + file, {4, 8, 15, 16, 23, 42}) && DirectoryExists(published + L"\\empty") &&
+              HasContents(source + file, {4, 8, 15, 16, 23, 42}) && HasContents(published + longLeaf, {9}),
+          "publish a complete Unicode tree with an empty directory and preserve the source", result.error);
+    WIN32_FILE_ATTRIBUTE_DATA copiedDirectory{};
+    Check(GetFileAttributesExW((published + nested).c_str(), GetFileExInfoStandard, &copiedDirectory) &&
+              CompareFileTime(&copiedDirectory.ftLastWriteTime, &modification) == 0,
+          "preserve the last-write time of an ordinary nested directory");
+
+    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"published");
+    Check((result.error == ERROR_ALREADY_EXISTS || result.error == ERROR_FILE_EXISTS) && !result.cleanupError &&
+              noStaging() && HasContents(published + file, {4, 8, 15, 16, 23, 42}),
+          "roll back the staged tree and preserve the existing destination on collision", result.error);
+
+    const auto adsFile = source + L"\\z-unsupported.bin";
+    if (!WriteFixture(adsFile, {0}) || !WriteFixture(adsFile + L":stream", {5}))
+        return false;
+    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"unsupported");
+    Check(result.error == ERROR_NOT_SUPPORTED && !result.cleanupError && noStaging() &&
+              !Exists(target + L"\\unsupported") && HasContents(adsFile + L":stream", {5}),
+          "unsupported file streams abort after staging earlier entries and remove the temporary tree", result.error);
+    if (!DeleteFileW(adsFile.c_str()) || !WriteFixture(source + nested + L":stream", {7}))
+        return false;
+    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"directory-stream");
+    Check(result.error == ERROR_NOT_SUPPORTED && !result.cleanupError && noStaging() && !Exists(target + L"\\directory-stream"),
+          "reject a directory with an alternate stream", result.error);
+    if (!DeleteFileW((source + nested + L":stream").c_str()))
+        return false;
+
+    const auto oversized = source + L"\\too-big.bin";
+    {
+        const HANDLE raw = CreateFileW(oversized.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (raw == INVALID_HANDLE_VALUE)
+            return false;
+        const Handle fileHandle(raw);
+        LARGE_INTEGER size{};
+        size.QuadPart = UacF7::maxPilotCopyBytes + 1;
+        if (!SetFilePointerEx(fileHandle.get(), size, nullptr, FILE_BEGIN) || !SetEndOfFile(fileHandle.get()))
+            return false;
+    }
+    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"oversized");
+    Check(result.error == ERROR_FILE_TOO_LARGE && !result.cleanupError && noStaging(),
+          "reject a tree above the total byte budget", result.error);
+    if (!DeleteFileW(oversized.c_str()))
+        return false;
+
+    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), sourceId, L"wrong-parent");
+    Check(result.error == ERROR_FILE_INVALID && !result.cleanupError && noStaging(),
+          "reject a substituted destination parent before staging", result.error);
+    result = UacCopyTree::CopyVerifiedTree(from.get(), targetId, to.get(), targetId, L"wrong-source");
+    Check(result.error == ERROR_FILE_INVALID && !result.cleanupError && noStaging(),
+          "reject a substituted source root before staging", result.error);
+    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, from.get(), sourceId, L"inside");
+    Check(result.error == ERROR_INVALID_PARAMETER && !Exists(source + L"\\inside"),
+          "reject copying a tree into itself", result.error);
+    HANDLE rawNested = nullptr;
+    ParentIdentity nestedId;
+    if (OpenParentBelowRoot(from.get(), std::wstring_view(nested).substr(1), rawNested, nestedId))
+        return false;
+    const Handle descendant(rawNested);
+    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, descendant.get(), nestedId, L"inside");
+    Check(result.error == ERROR_INVALID_PARAMETER && !Exists(source + nested + L"\\inside"),
+          "reject a destination below the source root by identity", result.error);
+    const Handle cancel(CreateEventW(nullptr, TRUE, TRUE, nullptr));
+    if (!cancel)
+        return false;
+    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"cancelled", cancel.get());
+    Check(result.error == ERROR_CANCELLED && !result.cleanupError && noStaging() && !Exists(target + L"\\cancelled"),
+          "honor a signalled cancellation before staging a tree", result.error);
+    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"timed-out", nullptr, nullptr, GetTickCount64());
+    Check(result.error == ERROR_TIMEOUT && !result.cleanupError && noStaging(),
+          "honor an expired tree copy deadline before staging", result.error);
+    HANDLE rawRead = nullptr, rawWrite = nullptr;
+    if (!CreatePipe(&rawRead, &rawWrite, nullptr, 0))
+        return false;
+    const Handle read(rawRead);
+    CloseHandle(rawWrite);
+    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"disconnected", nullptr, read.get());
+    Check(result.error == ERROR_BROKEN_PIPE && !result.cleanupError && noStaging(),
+          "refuse to stage a tree after the peer disconnects", result.error);
+    return true;
+}
 }
 
 int wmain(int argc, wchar_t** argv)
@@ -102,6 +235,8 @@ int wmain(int argc, wchar_t** argv)
     if (rawRoot == INVALID_HANDLE_VALUE)
         return 2;
     const Handle root(rawRoot);
+    if (!CheckTreeCopy(fixture, root.get()))
+        return 2;
     HANDLE rawListing = nullptr;
     ParentIdentity listingIdentity;
     DWORD listingError = OpenParentBelowRoot(root.get(), L"destination", rawListing, listingIdentity, FILE_LIST_DIRECTORY);

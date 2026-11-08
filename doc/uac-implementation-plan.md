@@ -25,6 +25,7 @@
 | 2026-11-08 | Document the P4d protected subtree inventory. | Record strict scanning and the VM acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document P4e source manifest revalidation. | Define the input and verification required by the recursive copy pilot. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the P4d CodeQL result and the inventory label fix. | Track the format-string regression and its validation. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
+| 2026-11-08 | Document the P4f native tree copy pilot. | Record tested publication, rollback and the remaining broker integration gate. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -393,6 +394,18 @@ Broker vytváří pro schválený podstrom interní manifest. Uloží identitu k
 Opakovaný průchod ověří identitu kořene a shodu zachycených položek. Testy na NTFS v Debug i Release pokryly nezměněný strom, nahrazení souboru se stejným názvem, velikostí a obsahem, nahrazení prázdné složky se stejným názvem, přidané a odebrané položky, dlouhé cesty v Unicode a odmítnutí částečného manifestu u odkazu typu junction. Broker se sestavil pro x64 v Debug i Release a prošla také nativní zkouška komunikace.
 
 Manifest vychází ze živého výpisu a neobsahuje obsah souborů ani seznam alternativních datových proudů. Navazující pilot rekurzivního kopírování musí ověřovat identitu přímo na otevřených zdrojových handlech, uplatnit pravidla pro datové proudy a metadata, sestavit kopii v dočasném cílovém podstromu a teprve po ověření zveřejnit celý výsledek bez přepisu existujícího cíle.
+
+### 8.17 P4f — nativní pilot rekurzivního kopírování
+
+P4e včetně opravy dialogu Alt+F10 na commitu `71b43a1e` prošla sestavením Win32, x64 a ARM64, všemi 214 testy a CodeQL bez nových nálezů. [Testy P4e](https://github.com/majklvi/salamander/actions/runs/42464318006/job/128680211059) · [CodeQL P4e](https://github.com/majklvi/salamander/runs/128684176188).
+
+Nativní executor ve vyhrazeném cíli kopíruje jeden běžný podstrom NTFS s nejvýše 128 položkami a 16 MiB dat. Ověří identitu zdrojového kořene, cílového rodiče a jednotlivých otevřených položek. Kopie běžných souborů používá stejná pravidla pro hlavní datový proud a metadata jako P4b. Pilot odmítá alternativní datové proudy, rozšířené atributy, reparse points a nepodporované typy souborů. Pracovní kopie dědí oprávnění cílového rodiče.
+
+Po sestavení dočasného stromu executor znovu ověří zdroj a porovná názvy, identity, atributy a velikosti ve skutečném dočasném stromu. Hotovou kopii zveřejní jediným přejmenováním bez přepisu. Při zachycené chybě odstraní pouze dočasné objekty, které sám vytvořil. Výsledek rozlišuje chybu operace a chybu úklidu. Tvrdé ukončení procesu může zanechat dočasný adresář. Kontroly probíhají nad živým NTFS a neposkytují konzistentní snímek v čase. [Přejmenování na NTFS](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information).
+
+V Debug i Release prošlo 104 nativních kontrol včetně dlouhých cest v Unicode, prázdné podsložky, zachování času změny, kolize cíle, odmítnutí ADS na souboru i složce, záměny identity a přerušení před kopírováním. V testu kolize a při chybě po zahájení kopie nevznikl nový cílový strom a dočasné položky se uklidily.
+
+Před připojením k F5 je potřeba zajistit dočasný prostor proti souběžným změnám ze standardního procesu a zachovat očekávané dědění cílových oprávnění. Stejnosvazkové přejmenování samo dědičná oprávnění nepřepočítá. Akceptace brokeru má ověřit běžný souhlas i jiný účet správce, zrušení, kolizi během souhlasu, ztrátu spojení v průběhu kopie a stav po tvrdém ukončení. [Dědění oprávnění při přesunu na stejném svazku](https://learn.microsoft.com/en-us/troubleshoot/windows-server/windows-security/inherited-permissions-not-automatically-update).
 
 ## 9. Uživatelský tok a stav operace
 

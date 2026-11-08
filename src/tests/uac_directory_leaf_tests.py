@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-08 | Clean up the owned fixture with extended paths. | Remove long Unicode files even after a native assertion fails. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Link GUID generation for the copy staging fixture. | Exercise the real NTFS copy executor. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-07 | Run the verified-parent mkdir experiment. | Exercise physical NTFS path swaps and junction rejection. | | GPT-6.1 Sol (Codex) |
 
@@ -47,6 +48,7 @@ def main():
             return run([str(exe), str(fixture)], cwd=folder, env=env, timeout=15).returncode
         finally:
             junction.rmdir()
+            shutil.rmtree("\\\\?\\" + str(fixture))
 
 
 if __name__ == "__main__":
