@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify guarded F6 target publication through multiple read blocks. | Preserve collisions and hold the published file against replacement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test the verified F6 source guard. | Cover preexisting metadata writers, ADS and writable mappings. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test sealed F6 recovery after a hard process exit. | Preserve inherited ACLs and refuse unauthorized ACL changes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Probe an NTFS file-wide write seal. | Test whether an exact temporary DACL closes the alias and file-ID races. | | GPT-6.1 Sol (Codex) |
@@ -1685,8 +1686,21 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
               HasContents(sourcePath, {1, 2, 3}) && HasContents(stream, {9}) && !Exists(retained) && empty(),
           "restore the inherited source DACL under its original parent after a hard exit", error);
     restored.reset();
+    std::vector<BYTE> moveContent(3 * 64 * 1024 + 7);
+    for (size_t i = 0; i < moveContent.size(); ++i)
+        moveContent[i] = static_cast<BYTE>((i ^ (i >> 8)) & 0xff);
     if (!DeleteFileW(stream.c_str()))
         return false;
+    {
+        const HANDLE file = CreateFileW(sourcePath.c_str(), GENERIC_WRITE, 0, nullptr, TRUNCATE_EXISTING, 0, nullptr);
+        if (file == INVALID_HANDLE_VALUE)
+            return false;
+        const Handle writer(file);
+        DWORD transferred = 0;
+        if (!WriteFile(writer.get(), moveContent.data(), static_cast<DWORD>(moveContent.size()), &transferred, nullptr) ||
+            transferred != moveContent.size())
+            return false;
+    }
     raw = nullptr;
     error = OpenSource(parent.get(), leaf, raw, FILE_WRITE_ATTRIBUTES,
                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
@@ -1711,6 +1725,48 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
         SourceGuard guard;
         error = guard.Open(parent.get(), leaf, expected, 2);
         Check(!error && !guard.Check(2), "reopen the sealed source with the expected recovery link still present", error);
+        if (error)
+            return false;
+        UacDirectoryLeaf::ParentIdentity targetParent;
+        if (UacDirectoryLeaf::ReadParentIdentity(wrongParent.get(), targetParent))
+            return false;
+        constexpr wchar_t targetLeaf[] = L"pinned-\u6771-copy";
+        const auto targetPath = wrongDirectory + L"\\" + targetLeaf;
+        const auto rivalPath = wrongDirectory + L"\\move-rival";
+        UacMoveSourceJournal::Detail::Handle target(nullptr, CloseHandle);
+        FILE_ID_INFO targetId{};
+        const auto publish = [&](HANDLE cancel = nullptr) {
+            return guard.PublishCopy(wrongParent.get(), targetParent, targetLeaf, moveContent.size(),
+                                     cancel, nullptr, MAXULONGLONG, target, targetId);
+        };
+        const Handle cancelled(CreateEventW(nullptr, TRUE, TRUE, nullptr));
+        if (!cancelled)
+            return false;
+        error = publish(cancelled.get());
+        Check(error == ERROR_CANCELLED && !target && !Exists(targetPath) && !guard.Check(2),
+              "cancel a guarded copy without publishing a target or changing the source", error);
+        if (!WriteFixture(targetPath, {7}) || !WriteFixture(rivalPath, {8}))
+            return false;
+        error = publish();
+        Check((error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS) && !target && HasContents(targetPath, {7}),
+              "preserve the existing target on a guarded publication collision", error);
+        if (!DeleteFileW(targetPath.c_str()))
+            return false;
+        error = publish();
+        FILE_ID_INFO actual{};
+        Check(!error && target && !ReadSourceIdentity(target.get(), actual) && SameSource(targetId, actual),
+              "retain the exact destination handle after guarded publication", error);
+        if (error)
+            return false;
+        const HANDLE rawRival = CreateFileW(rivalPath.c_str(), DELETE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (rawRival == INVALID_HANDLE_VALUE)
+            return false;
+        const Handle rival(rawRival);
+        error = ReplaceForProbe(rival.get(), targetPath, true);
+        Check(error == ERROR_SHARING_VIOLATION && !guard.Check(2),
+              "the pinned destination refuses replacement while the source is still protected", error);
+        target.reset();
+        Check(HasContents(targetPath, moveContent), "publish every block from the overlapped source in order");
     }
     error = recover(parent.get());
     raw = nullptr;
@@ -1718,7 +1774,7 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
     restored.reset(raw);
     UacEfsWorkspace::Detail::FileSecurity cancelledSecurity;
     Check(!error && !openCancelled && !cancelledSecurity.Read(restored.get()) && originalSecurity.Matches(cancelledSecurity) &&
-              HasContents(sourcePath, {1, 2, 3}) && !Exists(retained) && empty(),
+              HasContents(sourcePath, moveContent) && !Exists(retained) && empty(),
           "restore the DACL and retire only the recovery link when the original name still exists", error);
     return failures == 0;
 }

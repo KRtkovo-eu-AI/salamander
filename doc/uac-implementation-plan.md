@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record guarded destination publication for F6. | Keep the source lock and pin the exact new target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record source guard and filter reservation for F6. | Exclude writers that opened before the journaled DACL seal. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record durable ACL recovery for interrupted F6 source handling. | Preserve the original name and DACL without replacing independent changes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the F6 source DACL and recovery-rights probe. | Verify file-wide exclusion and reopening by exact identity. | | GPT-6.1 Sol (Codex) |
@@ -657,6 +658,10 @@ V x64 Debug i Release prošlo 57 kontrol režimu zdroje F6 a 248 běžných nati
 **Vyloučení dříve otevřených handlů při F6.** Výhradní oplock hlavního proudu odmítl dříve otevřený zápis EA i změnu DACL. Samotný ale připustil dříve otevřený FILE_WRITE_ATTRIBUTES, který změnil čas bez přerušení oplocku. Rezervace filtrového oplocku stejného handlu odmítla chybou 300. Nativní zkouška nejprve zapsala a použila dočasnou DACL, zavřela handle brokeru a ověřila, že rezervace selže, dokud starý handle existuje. Po jeho uzavření prošla rezervace a stejné ID šlo otevřít výhradně se dvěma očekávanými odkazy. Samostatná kontrola odmítla zapisovatelné paměťové mapování i po uzavření původního handlu, otevřený alternativní proud a další neočekávaný pevný odkaz. [Rezervace filtrového oplocku](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntcreatefile).
 
 V x64 Debug i Release prošlo 70 kontrol zdroje F6 a 248 běžných nativních kontrol. Zkouška používá dočasné soubory na jednom svazku. Ještě zbývá zapojit tuto posloupnost do brokeru, propojit zveřejnění cíle s žurnálem a ověřit dokončení na dvou svazcích. Ochrana zdroje v této zkoušce ověřuje pouze běžný soubor s hlavním datovým proudem.
+
+**Zveřejnění cílové kopie při F6.** Nativní executor čte hlavní datový proud přes stejný asynchronní handle, na kterém drží výhradní oplock. Kontroluje zrušení a spojení také při čekání na čtecí blok. Ověří rodiče cíle, vytvoří pracovní soubor, zapíše data a metadata a zveřejní jej bez přepisu. Po přejmenování vyprázdní buffery a ponechá otevřený výhradní handle cíle i jeho ID. Pokud kontrola zdroje selže až po zveřejnění, vrátí částečný výsledek. [Asynchronní čtení](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-readfile) · [Vyprázdnění bufferů](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers).
+
+V x64 Debug i Release prošlo 75 kontrol zdroje F6 a 248 běžných kontrol. Prošel přenos více bloků do cíle s Unicode názvem, zrušení před zveřejněním, zachování kolizního souboru a odmítnutí POSIX přepisu drženého cíle chybou 32. Prošlo také sestavení aplikace, brokeru a sondy v x64 Debug. Tyto zkoušky používají dva ověřené rodiče na jednom svazku. Před nevratným odstraněním zdroje zbývá zaznamenat potvrzené ID cíle do trvalého žurnálu, zapojit executor do brokeru a ověřit skutečný přesun na dvou svazcích.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

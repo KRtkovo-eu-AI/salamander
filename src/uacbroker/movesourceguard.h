@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Publish a copy of a guarded move source. | Read the overlapped source without releasing its lock and retain the exact destination handle. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Guard the default stream of an F6 source. | Exclude earlier opens and refuse unsupported streams or metadata. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
@@ -89,6 +90,33 @@ public:
     }
 
     HANDLE File() const { return source.get(); }
+
+    DWORD PublishCopy(HANDLE targetParent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
+                      std::wstring_view leaf, ULONGLONG size, HANDLE cancel, HANDLE connection, ULONGLONG deadline,
+                      Detail::Handle& target, FILE_ID_INFO& targetId) const
+    {
+        if (target)
+            return ERROR_INVALID_PARAMETER;
+        targetId = {};
+        if (!UacDirectoryLeaf::IsComponent(leaf))
+            return ERROR_INVALID_NAME;
+        UacDirectoryLeaf::ParentIdentity actual;
+        DWORD error = UacDirectoryLeaf::ReadParentIdentity(targetParent, actual);
+        if (error)
+            return error;
+        if (!UacDirectoryLeaf::SameParent(actual, expectedParent))
+            return ERROR_FILE_INVALID;
+        if ((error = Check(2)) != ERROR_SUCCESS)
+            return error;
+        FILE_BASIC_INFO basic{};
+        FILE_ID_INFO publishedId{};
+        error = UacCopyLeaf::Detail::CopyOpenedFile(source.get(), targetParent, leaf, cancel, connection, deadline,
+            size, basic, &publishedId, nullptr, UacCopyLeaf::StreamPolicy::RequireDefault, nullptr, false, nullptr, &target);
+        if (error)
+            return error;
+        targetId = publishedId;
+        return Check(2) ? ERROR_PARTIAL_COPY : ERROR_SUCCESS;
+    }
 
     DWORD Check(DWORD links) const
     {

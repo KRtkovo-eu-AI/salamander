@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Publish a copy of a guarded move source. | Read the overlapped source without releasing its lock and retain the exact destination handle. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Allow reading the audit ACL of a reference child. | Verify the destination policy for EFS publication. | | GPT-6.1 Sol (Codex) |
@@ -124,22 +125,63 @@ inline DWORD CheckCancelled(HANDLE cancel, HANDLE connection, ULONGLONG deadline
     return result == WAIT_OBJECT_0 ? ERROR_CANCELLED : ERROR_INVALID_HANDLE;
 }
 
+inline DWORD ReadOverlappedBlock(HANDLE source, BYTE* buffer, DWORD length, ULONGLONG position, HANDLE event,
+                                 DWORD& bytes, HANDLE cancel, HANDLE connection, ULONGLONG deadline)
+{
+    OVERLAPPED io{};
+    io.Offset = static_cast<DWORD>(position);
+    io.OffsetHigh = static_cast<DWORD>(position >> 32);
+    io.hEvent = event;
+    if (!ReadFile(source, buffer, length, nullptr, &io))
+    {
+        const DWORD started = GetLastError();
+        if (started != ERROR_IO_PENDING)
+            return started;
+        for (;;)
+        {
+            const DWORD state = WaitForSingleObject(event, 50);
+            if (state == WAIT_OBJECT_0)
+                break;
+            const DWORD error = state == WAIT_TIMEOUT ? CheckCancelled(cancel, connection, deadline) : GetLastError();
+            if (error)
+            {
+                CancelIoEx(source, &io);
+                GetOverlappedResult(source, &io, &bytes, TRUE);
+                return error;
+            }
+        }
+    }
+    return GetOverlappedResult(source, &io, &bytes, FALSE) ? ERROR_SUCCESS : GetLastError();
+}
+
 inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
-                       HANDLE cancel, HANDLE connection, ULONGLONG deadline)
+                       HANDLE cancel, HANDLE connection, ULONGLONG deadline, bool overlappedSource = false)
 {
     std::vector<BYTE> buffer(64 * 1024);
     const DWORD bufferSize = static_cast<DWORD>(buffer.size());
+    const std::unique_ptr<void, decltype(&CloseHandle)> event(
+        overlappedSource ? CreateEventW(nullptr, TRUE, FALSE, nullptr) : nullptr, CloseHandle);
+    if (overlappedSource && !event)
+        return GetLastError();
+    ULONGLONG position = 0;
     while (remaining)
     {
         if (const DWORD error = CheckCancelled(cancel, connection, deadline))
             return error;
         DWORD read = 0;
         const DWORD requested = remaining < bufferSize ? static_cast<DWORD>(remaining) : bufferSize;
-        if (!ReadFile(source, buffer.data(), requested, &read, nullptr))
+        if (overlappedSource)
+        {
+            if (DWORD error = ReadOverlappedBlock(source, buffer.data(), requested, position, event.get(),
+                                                  read, cancel, connection, deadline))
+                return error;
+        }
+        else if (!ReadFile(source, buffer.data(), requested, &read, nullptr))
             return GetLastError();
         if (!read)
             return ERROR_HANDLE_EOF;
         remaining -= read;
+        position += read;
 
         for (DWORD offset = 0; offset < read;)
         {
@@ -370,8 +412,11 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                             const UacCopyTree::Detail::StageProtection* protection = nullptr,
                             StreamPolicy policy = StreamPolicy::RequireDefault,
                             const CopySourceLocation* location = nullptr, bool preserveCompression = false,
-                            const CopySecuritySnapshot* copySecurity = nullptr)
+                            const CopySecuritySnapshot* copySecurity = nullptr,
+                            StreamHandle* moveTarget = nullptr)
 {
+    if (moveTarget && (*moveTarget || policy != StreamPolicy::RequireDefault || preserveCompression || copySecurity))
+        return ERROR_INVALID_PARAMETER;
     if ((preserveCompression || copySecurity) && !location)
         return ERROR_INVALID_PARAMETER;
     if ((preserveCompression && policy != StreamPolicy::RequireDefault) ||
@@ -436,9 +481,9 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     if (copySecurity)
         stageDescriptor = copySecurity->Descriptor();
     if ((error = StageFile(targetParent, rawTarget, stageName, !inputs.empty(),
-                           stageDescriptor, preserveCompression)) != ERROR_SUCCESS)
+                           stageDescriptor, preserveCompression || moveTarget)) != ERROR_SUCCESS)
         return error;
-    const std::unique_ptr<void, decltype(&CloseHandle)> target(rawTarget, CloseHandle);
+    StreamHandle target(rawTarget, CloseHandle);
     if (protection && (error = protection->Check(target.get(), false)) != ERROR_SUCCESS)
         return error;
     if ((copySecurity || !inputs.empty()) && (!location->verifyStage || !location->verifyStage(target.get(), false)))
@@ -460,7 +505,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             return GetLastError();
     }
     error = sparse ? CopySparseData(source, target.get(), size.QuadPart, cancel, connection, deadline)
-                   : CopyData(source, target.get(), size.QuadPart, cancel, connection, deadline);
+                   : CopyData(source, target.get(), size.QuadPart, cancel, connection, deadline, moveTarget != nullptr);
     if (error)
         return error;
 
@@ -558,9 +603,13 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return error;
 
     // A failure or process exit before the commit discards the staged file.
+    if (moveTarget && !FlushFileBuffers(target.get()))
+        return GetLastError();
     FILE_DISPOSITION_INFO_EX commit{FILE_DISPOSITION_FLAG_ON_CLOSE};
     if (!SetFileInformationByHandle(target.get(), FileDispositionInfoEx, &commit, sizeof(commit)))
         return GetLastError();
+    if (moveTarget)
+        *moveTarget = std::move(target);
     return ERROR_SUCCESS;
 }
 }
