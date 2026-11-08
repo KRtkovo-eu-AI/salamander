@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Keep the same full size results dialog for protected totals. | Preserve the layout and leave unavailable values disabled. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show protected totals in the compact size dialog. | Use the Ctrl+Q layout for measured values and omit allocation controls. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
@@ -518,42 +519,12 @@ CSizeResultsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
-        GetDlgItemText(HWindow, IDS_OCCUPIED, UnknownText, 100); // obtain the "unknown" string for later use
+        lstrcpyn(UnknownText, LoadStr(IDS_UAC_SIZE_NOT_AVAILABLE), _countof(UnknownText));
 
         char buf[100];
 
         SetWindowText(GetDlgItem(HWindow, IDS_FILESCOUNT), NumberToStr(buf, CQuadWord(Files, 0)));
         SetWindowText(GetDlgItem(HWindow, IDS_DIRSCOUNT), NumberToStr(buf, CQuadWord(Dirs, 0)));
-
-        if (Sizes == nullptr)
-        {
-            SetWindowText(HWindow, LoadStr(IDS_UAC_INVENTORY_TITLE));
-            SetWindowText(GetDlgItem(HWindow, IDS_SIZE), PrintDiskSize(buf, Size, 1));
-            RECT first{}, footer{}, margin{0, 0, 0, 6};
-            GetWindowRect(GetDlgItem(HWindow, IDC_STATIC_5), &first);
-            GetWindowRect(GetDlgItem(HWindow, IDC_STATIC_15), &footer);
-            MapDialogRect(HWindow, &margin);
-            const int shift = first.top + margin.bottom - footer.top;
-            for (int id : {IDC_STATIC_5, IDS_OCCUPIED, IDC_STATIC_6, IDS_DISKUTILIZATION,
-                           IDC_STATIC_7, IDS_COMPSIZE, IDC_STATIC_8, IDS_COMPRATIO,
-                           IDC_STATIC_9, IDC_STATIC_10, IDC_STATIC_11, IDC_EST_CLUSTER,
-                           IDC_STATIC_12, IDC_STATIC_13, IDC_EST_SIZE, IDC_STATIC_14,
-                           IDC_EST_UTIL, IDC_STAYONFILESYSTEM})
-                ShowWindow(GetDlgItem(HWindow, id), SW_HIDE);
-            for (int id : {IDC_STATIC_15, IDOK, IDHELP})
-            {
-                HWND control = GetDlgItem(HWindow, id);
-                RECT bounds{};
-                GetWindowRect(control, &bounds);
-                MapWindowPoints(HWND_DESKTOP, HWindow, reinterpret_cast<POINT*>(&bounds), 2);
-                SetWindowPos(control, nullptr, bounds.left, bounds.top + shift, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-            }
-            RECT bounds{};
-            GetWindowRect(HWindow, &bounds);
-            SetWindowPos(HWindow, nullptr, 0, 0, bounds.right - bounds.left, bounds.bottom - bounds.top + shift,
-                         SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-            break;
-        }
 
         if (Occupied != CQuadWord(-1, -1))
         {
@@ -576,6 +547,8 @@ CSizeResultsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         else
         {
+            SetDlgItemText(HWindow, IDS_OCCUPIED, UnknownText);
+            SetDlgItemText(HWindow, IDS_DISKUTILIZATION, UnknownText);
             EnableWindow(GetDlgItem(HWindow, IDS_OCCUPIED), FALSE);
             EnableWindow(GetDlgItem(HWindow, IDS_DISKUTILIZATION), FALSE);
         }
@@ -597,6 +570,8 @@ CSizeResultsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         else
         {
+            SetDlgItemText(HWindow, IDS_COMPSIZE, UnknownText);
+            SetDlgItemText(HWindow, IDS_COMPRATIO, UnknownText);
             EnableWindow(GetDlgItem(HWindow, IDS_COMPSIZE), FALSE);
             EnableWindow(GetDlgItem(HWindow, IDS_COMPRATIO), FALSE);
         }

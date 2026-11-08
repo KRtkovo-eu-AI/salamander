@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Keep protected totals in the full Ctrl+Q dialog. | Use identical geometry and controls for both access modes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record protected F3 viewer snapshots and compact size results. | Describe the single-file authorization and VM checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P6 protected logical sizing and metadata Find. | Reuse the rooted listing broker and verify ordinary search continues while consent is pending. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Close the P5 metadata and Recycle Bin matrix. | Record EFS refusal and Shell recycling acceptance. | | GPT-6.1 Sol (Codex) |
@@ -708,11 +709,11 @@ F3 z běžného diskového panelu nejprve zkusí otevřít přesnou cestu s aktu
 
 Broker při čtení porovná identitu rodiče i souboru a otevře přesný název relativně k ověřenému rodiči. Běžné soubory čte do 16 MiB a odmítá reparse body, vícenásobné pevné odkazy, EFS a offline soubory. Vrací pouze dokončený snímek bajtů přes autentizovaný kanál. Interní prohlížeč vykresluje i vyhledává v paměti běžného procesu. Broker končí před otevřením prohlížeče a nepředává handle ani nevytváří aplikační dočasnou kopii na disku. Titulek označuje snímek správce. Pro nové čtení se použije F3 z panelu. Živé sledování a přechod na další soubor v režimu chráněného snímku nejsou součástí pilotu.
 
-Výsledek chráněného součtu z P4d/P6a používá zmenšený dialog Ctrl+Q. Zobrazuje celkovou logickou velikost a počty souborů a adresářů. Odhad a pole pro obsazené a komprimované místo jsou skryté. Běžný výpočet dál používá plný dialog.
+Výsledek chráněného součtu z P4d/P6a používá stejný dialog Calculate Occupied Space jako běžné Ctrl+Q se stejným titulkem, rozměry i ovládacími prvky. Zobrazuje logickou velikost a počty souborů a adresářů. Pro neúplná měření obsazeného a komprimovaného místa a pro odhad jsou příslušné hodnoty označené jako nedostupné.
 
 Lokálně prošlo sestavení x64 Debug aplikace, prostředků, brokeru a sondy. V Debug i Release prošlo 183 nativních kontrol brokeru a testy Unicode, hexadecimálního zobrazení a navigace prohlížeče. Nové zkoušky četly přesné bajty dlouhé Unicode cesty a prázdného souboru a ověřily odmítnutí jiné identity, přetečení limitu, neplatného názvu a vypršení lhůty. Prošel transport, konverzní tabulky a regrese Findu a panelu.
 
-V izolované Windows 11 VM běžný token nedokázal přečíst obsah obou chráněných souborů. F3 přes broker otevřelo soubor 01-view-approve-東.txt (129 825 bajtů) a označilo jej jako snímek správce. V textu byl vidět začátek P6C-BEGIN i konec P6C-END po Ctrl+End. Hexadecimální režim ukázal původní bajty UTF-8 BOM a Ctrl+R odkázalo na nové F3 z panelu. Zrušený F3 u 02-view-cancel.txt prohlížeč neotevřel. Běžný soubor otevřel F3 přímo. Po skončení neběžel žádný broker. Otisky všech instalovaných binárek odpovídaly sestavení. Ctrl+Q po schválení zobrazil v kompaktním dialogu dva soubory, dva adresáře a 18 bajtů.
+V izolované Windows 11 VM běžný token nedokázal přečíst obsah obou chráněných souborů. F3 přes broker otevřelo soubor 01-view-approve-東.txt (129 825 bajtů) a označilo jej jako snímek správce. V textu byl vidět začátek P6C-BEGIN i konec P6C-END po Ctrl+End. Hexadecimální režim ukázal původní bajty UTF-8 BOM a Ctrl+R odkázalo na nové F3 z panelu. Zrušený F3 u 02-view-cancel.txt prohlížeč neotevřel. Běžný soubor otevřel F3 přímo. Po skončení neběžel žádný broker. Otisky všech instalovaných binárek odpovídaly sestavení. První varianta součtu Ctrl+Q zobrazila dva soubory, dva adresáře a 18 bajtů ve zmenšeném dialogu. Po sjednocení měly běžný a chráněný výsledek ve VM stejný titulek Calculate Occupied Space, rozměry 383 × 359 px a shodné rozložení. Běžný výpočet ukázal 15 logických bajtů a 4 096 bajtů obsazeného místa. Chráněný výpočet po schválení ukázal 18 logických bajtů, dva soubory a dva adresáře. Neměřené hodnoty byly označené Not available. Sestavení x64 Debug a regrese diskových operací, přechodů panelu, Findu a konverzních tabulek prošly.
 
 
 ## 9. Uživatelský tok a stav operace

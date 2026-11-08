@@ -9,6 +9,7 @@
 // | 2026-11-07 | Reserve the elevation confirmation for rename. | Prompt with the source and destination paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve F7 elevation message IDs. | Localize consent and uncertain-result handling. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Localize unavailable results in the occupied space dialog. | Use the normal layout for a partial set of measured values. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Localize the protected internal viewer. | Explain one-file consent and how to refresh a snapshot. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Label logical size in a protected Ctrl+Q calculation. | Keep occupied space separate from logical file bytes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Localize protected size and Find actions. | Explain the exact scope of metadata access. | | GPT-6.1 Sol (Codex) |
@@ -3207,7 +3208,7 @@
 #define IDS_UAC_FIND_CONFIRM                         14564
 #define IDS_UAC_FIND_WAIT                            14565
 #define IDS_UAC_FIND_SCOPE                           14566
-#define IDS_UAC_SIZE_LOGICAL_ONLY                    14567
+#define IDS_UAC_SIZE_NOT_AVAILABLE                  14567
 #define IDS_UAC_VIEW_CONFIRM                         14568
 #define IDS_UAC_VIEW_SNAPSHOT                        14569
 #define IDS_UAC_VIEW_REFRESH                         14570

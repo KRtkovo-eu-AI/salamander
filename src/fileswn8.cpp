@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Mark protected allocation and compressed size as unknown. | Show logical totals in the standard Calculate Occupied Space dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reuse Ctrl+Q layout for protected size results. | Keep both protected inventory entry points compact. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show only measured totals when Ctrl+Q uses the broker. | Do not display an incomplete allocation total or histogram. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Check Shell recycle intent and item receipts in the disk panel. | Keep cancellation and permanent deletion separate. | | GPT-6.1 Sol (Codex) |
@@ -1618,8 +1619,10 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                         {
                             if (res2 && type == atCountSize && countSizeMode == 0)
                             {
+                                const CQuadWord unknown(-1, -1);
                                 CSizeResultsDlg result(MainWindow->HWindow, script->TotalSize,
-                                                       script->CompressedSize, script->OccupiedSpace,
+                                                       script->CountSizeUsedBroker ? unknown : script->CompressedSize,
+                                                       script->CountSizeUsedBroker ? unknown : script->OccupiedSpace,
                                                        script->FilesCount, script->DirsCount,
                                                        script->CountSizeUsedBroker ? nullptr : &script->Sizes);
                                 result.Execute();
