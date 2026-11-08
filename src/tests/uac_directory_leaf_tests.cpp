@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise ZIP publication with a pinned original. | Match the broker-owned handle used throughout staging. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Adapt ZIP publication tests to the fixed archive revision. | Exercise the same metadata as the broker protocol. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Add ZIP publication and recovery cases to the native fixture. | Cover verified commit, a stale revision and recovery with a competing file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify bounded archive ranges and opening. | Cover ZIP64 offsets without weakening viewer limits. | | GPT-6.1 Sol (Codex) |
@@ -1064,10 +1065,17 @@ bool CheckZipUpdate(const std::wstring& fixture, HANDLE root)
 
     Revision stale = expected;
     ++stale.size;
-    auto result = Publish(parent.get(), identity, leaf, stale, stage.get(), journal.get(), nullptr, MAXULONGLONG);
+    auto publish = [&](const Revision& revision) -> UacZipUpdate::PublishResult {
+        HANDLE raw = nullptr;
+        if (const DWORD error = UacZipUpdate::Detail::Open(parent.get(), leaf, raw, DELETE))
+            return {error};
+        UacZipUpdate::Handle original(raw, CloseHandle);
+        return Publish(parent.get(), identity, leaf, revision, original, stage.get(), journal.get(), nullptr, MAXULONGLONG);
+    };
+    auto result = publish(stale);
     Check(result.error == ERROR_FILE_INVALID && !result.published && HasContents(path, {1, 2}),
           "reject a stale ZIP revision and retain the original", result.error);
-    result = Publish(parent.get(), identity, leaf, expected, stage.get(), journal.get(), nullptr, MAXULONGLONG);
+    result = publish(expected);
     stage.reset();
     Check(!result.error && !result.recoveryError && result.published && HasContents(path, {3, 4, 5}),
           "publish the complete verified ZIP replacement", result.error ? result.error : result.recoveryError);

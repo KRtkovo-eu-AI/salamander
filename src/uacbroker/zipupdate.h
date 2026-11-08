@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Publish through the handle held throughout staging. | Verify the same original immediately before both renames. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the revision captured during brokered archive open. | Recheck the same fixed fields before publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Publish a prepared ZIP through verified file handles. | Preserve the original on collisions and support recovery after broker loss. | | GPT-6.1 Sol (Codex) |
 #pragma once
@@ -194,12 +195,25 @@ struct PublishResult
     bool published = false;
 };
 
-// The caller supplies a fully written, exclusive delete-on-close stage in
-// this parent, with validated metadata and access control. The journal must
-// be trusted, exclusive and already recovered before staging starts.
+inline DWORD CheckRevision(HANDLE original, const Revision& expected)
+{
+    Revision actual;
+    const DWORD error = ReadRevision(original, actual);
+    if (error)
+        return error;
+    return UacRenameLeaf::Detail::SameSource(RevisionIdentity(actual), RevisionIdentity(expected)) &&
+           actual.created == expected.created && actual.modified == expected.modified &&
+           actual.changed == expected.changed && actual.attributes == expected.attributes &&
+           actual.size == expected.size ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+}
+
+// The caller supplies the original opened for delete without sharing write
+// or delete, and a fully written, exclusive delete-on-close stage in its
+// parent. The journal must be trusted, exclusive and empty.
 inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
-                             std::wstring_view leaf, const Revision& expectedOriginal, HANDLE stage,
-                             HANDLE journal, HANDLE connection, ULONGLONG deadline)
+                             std::wstring_view leaf, const Revision& expectedOriginal, Handle& original,
+                             HANDLE stage, HANDLE journal, HANDLE connection, ULONGLONG deadline,
+                             FILE_ID_INFO* published = nullptr)
 {
     using namespace Detail;
     using namespace UacRenameLeaf::Detail;
@@ -214,22 +228,12 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
     if (journalSize.QuadPart)
         return {ERROR_INVALID_DATA};
 
-    HANDLE rawOriginal = nullptr;
-    if ((error = Open(parent, leaf, rawOriginal, DELETE)) != ERROR_SUCCESS)
+    if ((error = CheckRevision(original.get(), expectedOriginal)) != ERROR_SUCCESS)
         return {error};
-    Handle original(rawOriginal, CloseHandle);
-    Revision actual;
-    if ((error = ReadRevision(original.get(), actual)) != ERROR_SUCCESS)
-        return {error};
-    if (!SameSource(RevisionIdentity(actual), RevisionIdentity(expectedOriginal)) ||
-        actual.created != expectedOriginal.created || actual.modified != expectedOriginal.modified ||
-        actual.changed != expectedOriginal.changed || actual.attributes != expectedOriginal.attributes ||
-        actual.size != expectedOriginal.size)
-        return {ERROR_FILE_INVALID};
 
     RecoveryRecord record;
     record.parent = expectedParent.file;
-    record.original = RevisionIdentity(actual);
+    record.original = RevisionIdentity(expectedOriginal);
     std::copy(leaf.begin(), leaf.end(), record.leaf);
     if (!GetFileInformationByHandleEx(stage, FileIdInfo, &record.replacement, sizeof(record.replacement)) ||
         !FlushFileBuffers(stage))
@@ -258,6 +262,8 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
         FILE_DISPOSITION_INFO_EX keep{FILE_DISPOSITION_FLAG_ON_CLOSE};
         if (SetFileInformationByHandle(stage, FileDispositionInfoEx, &keep, sizeof(keep)))
         {
+            if (published)
+                *published = record.replacement;
             DWORD cleanup = RemoveBackup(original.get());
             original.reset();
             if (!cleanup)

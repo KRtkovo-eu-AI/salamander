@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Declare streamed protected ZIP preparation and replacement. | Reopen the committed archive through the same write consent. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Bind ZIP recovery to a prepared path and return the opened archive revision. | Capture authoritative metadata while the archive is still locked. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Describe the bounded ZIP selection wire format. | Authorize a fixed manifest beneath one verified directory. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare bounded publication of a decoded ZIP entry. | Reuse verified destinations and keep archive parsing in the host. | | GPT-6.1 Sol (Codex) |
@@ -43,7 +44,7 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, RecoverZipUpdate = 21 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, RecoverZipUpdate = 21, WriteZipUpdate = 22 };
 
 inline bool IsRename(Operation operation)
 {
@@ -93,7 +94,10 @@ static_assert(sizeof(ArchiveRevision) == 64);
 constexpr DWORD archiveReadBlock = 64 * 1024;
 constexpr DWORD archiveReadBudget = 64 * 1024 * 1024;
 constexpr ULONGLONG archiveReadTimeoutMs = 30000;
-enum class ArchiveReadControl : DWORD { Begin = 1, End = 2 };
+enum class ArchiveReadControl : DWORD { Begin = 1, End = 2, Release = 3 };
+constexpr ULONGLONG maxZipUpdateBytes = 64ULL * 1024 * 1024 * 1024;
+constexpr DWORD zipUpdateTimeoutMs = 10 * 60 * 1000;
+constexpr DWORD zipUpdateCommit = 1;
 struct ArchiveReadRange
 {
     ULONGLONG offset;
@@ -324,6 +328,8 @@ public:
     DWORD BeginRead();
     DWORD Read(ULONGLONG offset, void* bytes, DWORD count);
     DWORD EndRead();
+    DWORD CopyTo(HANDLE output, HANDLE cancel = nullptr);
+    Result Replace(HWND owner, HANDLE preparedFile);
     ULONGLONG Size() const { return static_cast<ULONGLONG>(revision.size); }
     const ArchiveRevision& Revision() const { return revision; }
 

@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Document streamed ZIP replacement and session handoff. | Track the implemented write protocol before wiring ZIP commands. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document ZIP recovery journal and the locked archive revision. | Record the broker boundary for updating and restoring a protected archive. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Describe verified ZIP update publication and recovery. | Track the write backend and remaining ZIP integration. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record protected ZIP selection extraction. | Track manifest bounds, one target consent, and partial outcomes. | | GPT-6.1 Sol (Codex) |
@@ -816,6 +817,12 @@ Jádro vyžaduje chráněný výhradně otevřený žurnál a pracovní soubor s
 **Žurnál a revize otevřeného ZIPu.** Broker ukládá žurnál v ověřené instalační složce a otvírá jej výhradně. Klíč odvozuje z identity svazku a rodiče. Každý žurnál pojme jednu nedokončenou změnu v rodiči. Příkaz obnovy porovnává přesný název archivu i jeho rodiče se záznamem. Obnova může proběhnout i po zániku původního jména. Po vyřešení stavu broker odstraní prázdný žurnál. Čtecí relace vrací kromě velikosti také ID, časy a atributy přímo z handlu, ze kterého následně čte. Díky tomu může zápis porovnat stav se skutečně načtenou revizí.
 
 Sestavení x64 Debug aplikace, brokeru, sondy a nativní sady prošlo. Příkaz obnovy ještě čeká na napojení v panelu a na společnou akceptaci.
+
+**Přenos a zápis změněného ZIPu.** Aplikace umí z otevřené relace připravit pracovní kopii na disku. Čte v 64KiB blocích a každých 64 MiB obnoví časový a objemový limit čtecí dávky. Pro zápis zachová původní čtecí relaci až do souhlasu s novým brokerem. Autentizovaný broker poté počká na potvrzené uvolnění původního handlu, ověří revizi a otevře originál proti souběžnému zápisu a přejmenování. Nová verze se po blocích přijímá do pracovního souboru ve stejném rodiči. Limit pro tuto operaci je 64 GiB a přenos má časový limit deset minut. Broker obsah ZIPu neinterpretuje.
+
+Zápis je omezený na běžný soubor NTFS bez alternativních datových proudů a rozšířených atributů. Pracovní soubor dostane bezpečnostní popis originálu a broker před zveřejněním porovná vlastníka, skupinu, ACL a příznaky dědění. Ke zveřejnění potřebuje potvrzení konce přenosu. Po zápisu může stejný broker předat panelu novou čtecí relaci, takže otevření změněného archivu nepotřebuje třetí souhlas. Prázdný žurnál a nedokončený pracovní soubor se uklidí při běžném přerušení spojení. Pokud výměna zanechá stav k obnově, žurnál zůstane.
+
+Aplikace, broker a sonda se zkompilovaly v x64 Debug a nativní sada v x64 Release. Zbývá připravit změněný soubor ve stávajícím ZIP pluginu, napojit příkazy panelu a provést společné zkoušky včetně zachování oprávnění v izolované VM.
 
 ## 9. Uživatelský tok a stav operace
 
