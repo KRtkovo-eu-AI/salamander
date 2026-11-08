@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share anchored hard link creation. | Preserve the file identity without opening its original path again. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share the no-replace exchange for staged file updates. | Preserve the verified original when a replacement collides or is interrupted. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Validate a junction before renaming it in place. | Accept a drive-letter junction without resolving it or accepting volume GUID mounts. | | GPT-6.1 Sol (Codex) |
@@ -183,9 +184,9 @@ inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity, MoveKind 
     return junction ? CheckJunction(source) : ERROR_SUCCESS;
 }
 
-inline constexpr BYTE treeCancelSignal = 1;
+inline constexpr BYTE transferCancelSignal = 1;
 
-inline DWORD CheckTransferConnection(HANDLE connection, ULONGLONG deadline, bool treeCopy = false)
+inline DWORD CheckTransferConnection(HANDLE connection, ULONGLONG deadline)
 {
     if (GetTickCount64() >= deadline)
         return ERROR_TIMEOUT;
@@ -197,7 +198,7 @@ inline DWORD CheckTransferConnection(HANDLE connection, ULONGLONG deadline, bool
         return GetLastError();
     if (!pending)
         return ERROR_SUCCESS;
-    return treeCopy && pending == sizeof(signal) && read == sizeof(signal) && signal == treeCancelSignal
+    return pending == sizeof(signal) && read == sizeof(signal) && signal == transferCancelSignal
                ? ERROR_CANCELLED : ERROR_INVALID_DATA;
 }
 

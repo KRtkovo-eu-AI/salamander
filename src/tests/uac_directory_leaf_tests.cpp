@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify permanent-delete and metadata job boundaries. | Distinguish link types and enforce the selected metadata policy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe late NTFS extended attributes. | Check whether the source guard blocks a separate metadata writer. | | GPT-6.1 Sol (Codex) |
@@ -532,7 +533,7 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent, bool high)
     Check(result.error == ERROR_BROKEN_PIPE && !result.cleanupError && noStaging(),
           "refuse to stage a tree after the peer disconnects", result.error);
 
-    for (const BYTE signal : {UacRenameLeaf::Detail::treeCancelSignal, BYTE{0}})
+    for (const BYTE signal : {UacRenameLeaf::Detail::transferCancelSignal, BYTE{0}})
     {
         if (!CreatePipe(&rawRead, &rawWrite, nullptr, 0))
             return false;
@@ -540,7 +541,7 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent, bool high)
         DWORD written = 0;
         if (!WriteFile(cancelWrite.get(), &signal, sizeof(signal), &written, nullptr) || written != sizeof(signal))
             return false;
-        const DWORD expected = signal == UacRenameLeaf::Detail::treeCancelSignal ? ERROR_CANCELLED : ERROR_INVALID_DATA;
+        const DWORD expected = signal == UacRenameLeaf::Detail::transferCancelSignal ? ERROR_CANCELLED : ERROR_INVALID_DATA;
         result = copyTree(from.get(), sourceId, to.get(), targetId, L"pipe-cancel", nullptr, cancelRead.get());
         Check(result.error == expected && !result.cleanupError && noStaging() && !Exists(target + L"\\pipe-cancel"),
               "accept only the defined tree cancel signal before publication", result.error);
@@ -2388,6 +2389,21 @@ int wmain(int argc, wchar_t** argv)
     CloseHandle(rawPipeWrite);
     copyError = guardedCopy(pipeRead.get(), MAXULONGLONG, content.size());
     Check(copyError == ERROR_BROKEN_PIPE && !Exists(copyTarget), "disconnected copy request leaves no target", copyError);
+
+    for (const BYTE signal : {UacRenameLeaf::Detail::transferCancelSignal, BYTE{0}})
+    {
+        HANDLE rawControlRead = nullptr, rawControlWrite = nullptr;
+        if (!CreatePipe(&rawControlRead, &rawControlWrite, nullptr, 0))
+            return 2;
+        const Handle controlRead(rawControlRead), controlWrite(rawControlWrite);
+        DWORD written = 0;
+        if (!WriteFile(controlWrite.get(), &signal, sizeof(signal), &written, nullptr) || written != sizeof(signal))
+            return 2;
+        const DWORD expectedError = signal == UacRenameLeaf::Detail::transferCancelSignal ? ERROR_CANCELLED : ERROR_INVALID_DATA;
+        copyError = guardedCopy(controlRead.get(), MAXULONGLONG, content.size());
+        Check(copyError == expectedError && !Exists(copyTarget) && HasContents(copySource, content),
+              "cancel an ordinary copy from the pipe while rejecting malformed control data", copyError);
+    }
 
     copyError = copy(original.get(), L"copy-\u672c.bin", copyId);
     WIN32_FILE_ATTRIBUTE_DATA sourceData{}, targetData{};

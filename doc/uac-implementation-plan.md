@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record active cancellation of scoped file transfers. | Preserve completed copies and stop the rest of the batch. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record security metadata with F5 streams and sparse allocation. | Verify supported combinations without dropping payload data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the P7 installer and payload preflight. | Track the signed pilot and remaining distribution checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify repeated scoped requests on a real broker pipe. | Cover collision, authorization boundaries and disconnect before mutation. | | GPT-6.1 Sol (Codex) |
@@ -608,6 +609,10 @@ Sestavení aplikace, anglických zdrojů, brokeru a sondy v x64 Debug prošlo. V
 **Nativní akceptace dávkového kanálu.** Test otevře skutečnou lokální pojmenovanou rouru a použije stejnou obsluhu požadavků jako broker po autentizaci. V jednom spojení první F5 vrátí kolizi se zachováním cíle a další položka se zkopíruje. Změna cílového rodiče se odmítne před mutací. Ctrl+F2 přijme odlišné výchozí atributy a odmítne atribut mimo schválenou politiku. Mazací relace odstraní dvě ověřené položky. Přerušení po odeslání hlavičky a před daty požadavku ukončí obsluhu a zachová čekající soubor.
 
 V Debug i Release prošlo osm nových kontrol a původní zkouška autentizace lokální roury. V x64 Debug prošlo sestavení aplikace, brokeru a sondy a v Release také 243 nativních kontrol. Zkouška používá dočasné soubory na NTFS a nevstupuje do produkčního spouštění přes systémovou výzvu. Počet skutečných výzev, výběr Skip v dialogu a elevaci jiným správcem dál pokrývá plánovaná akceptace ve VM.
+
+**Zrušení aktivní dávky F5 a F6.** Dialog průběhu vyřizuje souhlas a samotný přenos provádí worker. Ten vlastní schválené relace až do skončení úlohy. Potvrzené zrušení průběhu odešle brokeru řídicí zprávu, zatímco host dál čeká na výsledek rozpracované položky. Pokud zpráva předběhne zveřejnění, broker zruší rozpracovanou kopii. Pokud už byl výsledek zveřejněný, zůstane zachovaný a započítá se mezi dokončené položky. Pozdní zpráva po zveřejnění ukončí relaci před další položkou. Při ztrátě potvrzení se zobrazí pokyn ke kontrole výsledku.
+
+V x64 Debug i Release prošlo 248 nativních kontrol a deset scénářů reálného dávkového kanálu. Před zveřejněním zrušení ponechalo zdroj i cíl v původním stavu a ukončilo relaci. Po zveřejnění relace skončila a hotová kopie zůstala. Sestavení aplikace, brokeru a sondy v x64 Debug prošlo. Skutečné ovládání tlačítka Zrušit v dialogu průběhu bude součástí společné akceptace ve VM.
 
 ### 8.25 P4n — ověření odstranění zdroje po kopii na NTFS
 

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the live scoped job dispatcher directly. | Run the same loop with an owned test pipe and NTFS fixtures. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Authenticate repeated leaf mutation requests. | Enforce the first approved parent, operation and metadata choices. | | GPT-6.1 Sol (Codex) |
@@ -614,7 +615,8 @@ DWORD OpenRequestParent(HANDLE root, std::wstring_view relative, Handle& parent,
 
 // The client reads an exact number of bytes in byte mode. The message-mode
 // server rejects larger replies with ERROR_MORE_DATA.
-DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGLONG deadline, HANDLE cancel = nullptr)
+DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGLONG deadline, HANDLE cancel = nullptr,
+                      DWORD* transferred = nullptr)
 {
     if (GetTickCount64() >= deadline)
         return ERROR_TIMEOUT;
@@ -638,7 +640,7 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
             const DWORD remaining = now < deadline ? static_cast<DWORD>(deadline - now) : 0;
             if (WaitForMultipleObjects(ARRAYSIZE(events), events, FALSE, remaining) == WAIT_OBJECT_0 + 1)
             {
-                BYTE signal = UacRenameLeaf::Detail::treeCancelSignal;
+                BYTE signal = UacRenameLeaf::Detail::transferCancelSignal;
                 // Keep the read pending. A reply can confirm that publication won the race.
                 TransferRequest(pipe, &signal, sizeof(signal), true, deadline);
             }
@@ -647,6 +649,8 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
         if (finished)
             return finished;
     }
+    if (transferred)
+        *transferred = count;
     return count == length ? ERROR_SUCCESS : ERROR_INVALID_DATA;
 }
 
@@ -1134,7 +1138,7 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
     Handle stage;
     ReplacementSecurity security;
     if ((error = PrepareReplacementFiles(targetParent, targetLeaf, expectedTarget, original, stage, security, kind)) != ERROR_SUCCESS ||
-        (error = UacCopyLeaf::Detail::CopyData(source.get(), stage.get(), bytes, nullptr, pipe, deadline, false)) != ERROR_SUCCESS)
+        (error = UacCopyLeaf::Detail::CopyData(source.get(), stage.get(), bytes, nullptr, pipe, deadline)) != ERROR_SUCCESS)
         return error;
 
     FILE_BASIC_INFO currentSource{};
@@ -1226,9 +1230,17 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                      UacF7::TransferJobScope* jobScope = nullptr)
 {
     RequestHeader header{};
-    DWORD error = TransferRequest(pipe, &header, sizeof(header), false, deadline);
+    DWORD received = 0;
+    DWORD error = TransferRequest(pipe, &header, sizeof(header), false, deadline, nullptr, &received);
     if (error)
+    {
+        // Cancellation can reach the pipe just after the preceding mutation
+        // committed. Preserve its reply and end the job before a new request.
+        if (jobScope && received == sizeof(BYTE) &&
+            *reinterpret_cast<const BYTE*>(&header) == UacRenameLeaf::Detail::transferCancelSignal)
+            return ERROR_CANCELLED;
         return error;
+    }
     if (jobScope)
     {
         if (!UacF7::CanShareTransferJob(header.operation))
@@ -1725,7 +1737,7 @@ DWORD ServeTransferJob(const InstallLocation& install, HANDLE pipe, HANDLE host,
                                      unusedRoot, unusedSnapshot, unusedView, unusedZip, unusedListing,
                                      unusedArchive, unusedRevision, &scope);
         if (error)
-            return error;
+            return error == ERROR_CANCELLED ? ERROR_SUCCESS : error;
         error = TransferRequest(pipe, &result, sizeof(result), true, deadline);
         if (error || !UacF7::CanContinueTransferJob(result))
             return error;
@@ -2026,7 +2038,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         const bool copy = UacF7::IsFileCopy(request->operation) || overwriteTarget;
         if (copy || tree || zipBytes)
             deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
-        error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline, tree ? cancel : nullptr);
+        error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline, cancel);
         if (!error && (transferJob || copy || request->operation == Operation::Move || tree || zipBytes ||
                        zipUpdateFile))
         {
@@ -2339,7 +2351,7 @@ bool PreparedLeaf::IsInJob(const TransferJobSession& job) const
 }
 
 static Result RepeatTransferJob(HANDLE& pipe, RequestHeader& header, std::wstring& payload,
-                                void* extra, DWORD extraBytes, MetadataJobPolicy* policy = nullptr)
+                                void* extra, DWORD extraBytes, MetadataJobPolicy* policy = nullptr, HANDLE cancel = nullptr)
 {
     Result result;
     auto deadline = GetTickCount64() + timeoutMs;
@@ -2362,7 +2374,7 @@ static Result RepeatTransferJob(HANDLE& pipe, RequestHeader& header, std::wstrin
     if (!error)
     {
         deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
-        error = TransferRequest(pipe, &result.error, sizeof(result.error), false, deadline);
+        error = TransferRequest(pipe, &result.error, sizeof(result.error), false, deadline, cancel);
     }
     if (error)
         result.error = error;
@@ -2650,7 +2662,7 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* 
     if (job && !CanShareJob())
         return result;
     if (job && IsInJob(*job))
-        return RepeatTransferJob(job->pipe, header, payload, IsOverwrite() ? &revision : nullptr, sizeof(revision));
+        return RepeatTransferJob(job->pipe, header, payload, IsOverwrite() ? &revision : nullptr, sizeof(revision), nullptr, cancel);
     if (job)
     {
         job->Close();

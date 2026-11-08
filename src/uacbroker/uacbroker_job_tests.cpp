@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Verify a queued cancellation on the live broker pipe. | Prove the dispatcher ends the scoped session without publishing the pending file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Exercise scoped mutations through the real broker dispatcher. | Validate repeated requests and scope rejection on NTFS without interactive elevation. | | GPT-6.1 Sol (Codex) |
 
 #define SAM_UAC_BROKER
@@ -81,7 +82,7 @@ class JobPipe
 public:
     ~JobPipe() { Finish(); }
 
-    bool Open()
+    bool Open(HANDLE readyToDispatch = nullptr)
     {
         GUID id{};
         if (FAILED(CoCreateGuid(&id)))
@@ -89,15 +90,16 @@ public:
         const auto name = PipeName(id);
         server = Adopt(CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED |
             FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_REJECT_REMOTE_CLIENTS,
-            1, 256, 256, 0, nullptr));
+            1, 4096, 4096, 0, nullptr));
         if (!server)
             return false;
-        dispatcher = std::thread([this, name] {
+        dispatcher = std::thread([this, name, readyToDispatch] {
             const ComApartment com;
             if (FAILED(com.result))
                 return;
             const auto peer = Adopt(CreateFileW(name.c_str(), pipeAccess, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr));
-            if (peer && ExpectedPipePeer(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), true))
+            if (peer && ExpectedPipePeer(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), true) &&
+                (!readyToDispatch || WaitForSingleObject(readyToDispatch, timeoutMs) == WAIT_OBJECT_0))
             {
                 const InstallLocation install;
                 dispatchError = ServeTransferJob(install, peer.get(), GetCurrentProcess(), GetCurrentProcessId(),
@@ -115,9 +117,18 @@ public:
         return dispatchError;
     }
 
+    DWORD CancelIdle()
+    {
+        BYTE signal = UacRenameLeaf::Detail::transferCancelSignal;
+        if (const DWORD error = TransferRequest(server.get(), &signal, sizeof(signal), true, GetTickCount64() + timeoutMs))
+            return error;
+        dispatcher.join();
+        return Finish();
+    }
+
     bool Request(Operation operation, const Directory& source, std::wstring_view leaf, DWORD& result,
                  const Directory* target = nullptr, UacF7::MetadataChange* change = nullptr,
-                 UacF7::MetadataJobPolicy* policy = nullptr, bool stopBeforePayload = false)
+                 UacF7::MetadataJobPolicy* policy = nullptr, bool stopBeforePayload = false, HANDLE cancelBeforeDispatch = nullptr)
     {
         const auto file = Adopt(CreateFileW(source.File(leaf).c_str(), FILE_READ_ATTRIBUTES,
             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
@@ -150,6 +161,12 @@ public:
             (change && TransferRequest(server.get(), change, sizeof(*change), true, deadline)) ||
             (policy && TransferRequest(server.get(), policy, sizeof(*policy), true, deadline)))
             return false;
+        if (cancelBeforeDispatch)
+        {
+            BYTE signal = UacRenameLeaf::Detail::transferCancelSignal;
+            if (TransferRequest(server.get(), &signal, sizeof(signal), true, deadline) || !SetEvent(cancelBeforeDispatch))
+                return false;
+        }
         return !TransferRequest(server.get(), &result, sizeof(result), false, deadline);
     }
 
@@ -185,6 +202,39 @@ void CheckCopyJob(const Directory& source, const Directory& target, const Direct
     Check(!job.Request(Operation::Copy, source, third, error, &outside) && job.Finish() == ERROR_ACCESS_DENIED &&
               IsAbsent(outside.File(third)) && HasByte(source.File(third), 3),
           "a different destination parent is refused before mutation");
+}
+
+void CheckCancelledCopyJob(const Directory& source, const Directory& target)
+{
+    const auto ready = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    JobPipe job;
+    constexpr wchar_t pending[] = L"pending-cancel";
+    if (!ready || !WriteByte(source.File(pending), 4) || !job.Open(ready.get()))
+    {
+        Check(false, "prepare the cancellable copy job");
+        return;
+    }
+    DWORD error = ERROR_GEN_FAILURE;
+    const bool cancelled = job.Request(Operation::Copy, source, pending, error, &target, nullptr, nullptr, false, ready.get());
+    Check(cancelled && error == ERROR_CANCELLED &&
+              !job.Request(Operation::Copy, source, pending, error, &target) && job.Finish() == ERROR_SUCCESS &&
+              IsAbsent(target.File(pending)) && HasByte(source.File(pending), 4),
+          "a cancel control keeps the source, leaves no target and ends the scoped broker job");
+}
+
+void CheckLateCopyCancellation(const Directory& source, const Directory& target)
+{
+    JobPipe job;
+    constexpr wchar_t finished[] = L"late-cancel";
+    if (!WriteByte(source.File(finished), 5) || !job.Open())
+    {
+        Check(false, "prepare cancellation after publication");
+        return;
+    }
+    DWORD error = ERROR_GEN_FAILURE;
+    Check(job.Request(Operation::Copy, source, finished, error, &target) && !error &&
+              job.CancelIdle() == ERROR_SUCCESS && HasByte(target.File(finished), 5) && HasByte(source.File(finished), 5),
+          "a late cancel ends the job cleanly and preserves the already published copy");
 }
 
 void CheckMetadataJob(const Directory& source)
@@ -257,6 +307,8 @@ int wmain()
     if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
         return 2;
     CheckCopyJob(source, target, outside);
+    CheckCancelledCopyJob(source, target);
+    CheckLateCopyCancellation(source, target);
     CheckMetadataJob(source);
     CheckDeleteJob(source);
     return failures ? 1 : 0;

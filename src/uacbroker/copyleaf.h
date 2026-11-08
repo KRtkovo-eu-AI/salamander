@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Allow reading the audit ACL of a reference child. | Verify the destination policy for EFS publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Publish ZIP entry bytes directly from the verified manifest. | Avoid duplicating each decoded file in the broker. | | GPT-6.1 Sol (Codex) |
@@ -109,9 +110,9 @@ inline DWORD StageFile(HANDLE parent, HANDLE& file, std::wstring& name, bool rea
     return UacRenameLeaf::Detail::OpenFile(parent, name, file, access, 0, FILE_CREATE, FILE_DELETE_ON_CLOSE, security);
 }
 
-inline DWORD CheckCancelled(HANDLE cancel, HANDLE connection, ULONGLONG deadline, bool treeCopy = false)
+inline DWORD CheckCancelled(HANDLE cancel, HANDLE connection, ULONGLONG deadline)
 {
-    if (const DWORD error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline, treeCopy))
+    if (const DWORD error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline))
         return error;
     if (!cancel)
         return ERROR_SUCCESS;
@@ -124,13 +125,13 @@ inline DWORD CheckCancelled(HANDLE cancel, HANDLE connection, ULONGLONG deadline
 }
 
 inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
-                       HANDLE cancel, HANDLE connection, ULONGLONG deadline, bool treeCopy)
+                       HANDLE cancel, HANDLE connection, ULONGLONG deadline)
 {
     std::vector<BYTE> buffer(64 * 1024);
     const DWORD bufferSize = static_cast<DWORD>(buffer.size());
     while (remaining)
     {
-        if (const DWORD error = CheckCancelled(cancel, connection, deadline, treeCopy))
+        if (const DWORD error = CheckCancelled(cancel, connection, deadline))
             return error;
         DWORD read = 0;
         const DWORD requested = remaining < bufferSize ? static_cast<DWORD>(remaining) : bufferSize;
@@ -195,7 +196,7 @@ inline DWORD CopySparseData(HANDLE source, HANDLE target, LONGLONG size,
         if (!SetFilePointerEx(source, range.FileOffset, nullptr, FILE_BEGIN) ||
             !SetFilePointerEx(target, range.FileOffset, nullptr, FILE_BEGIN))
             return GetLastError();
-        if (const DWORD error = CopyData(source, target, length, cancel, connection, deadline, false))
+        if (const DWORD error = CopyData(source, target, length, cancel, connection, deadline))
             return error;
         previousEnd = start + length;
     }
@@ -459,7 +460,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             return GetLastError();
     }
     error = sparse ? CopySparseData(source, target.get(), size.QuadPart, cancel, connection, deadline)
-                   : CopyData(source, target.get(), size.QuadPart, cancel, connection, deadline, protection != nullptr);
+                   : CopyData(source, target.get(), size.QuadPart, cancel, connection, deadline);
     if (error)
         return error;
 
@@ -476,7 +477,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             error = OpenDataStream(targetParent, stageName, stream, targetId, true, output);
             if (error)
                 return error;
-            error = CopyData(inputs[outputs.size()].get(), output.get(), stream.size, cancel, connection, deadline, false);
+            error = CopyData(inputs[outputs.size()].get(), output.get(), stream.size, cancel, connection, deadline);
             if (error)
                 return error;
             if (!FlushFileBuffers(output.get()))
@@ -535,7 +536,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             (error = CheckPlainStreamsAndEa(target.get(), false, policy)) != ERROR_SUCCESS)
             return error;
     }
-    if ((error = CheckCancelled(cancel, connection, deadline, protection != nullptr)) != ERROR_SUCCESS)
+    if ((error = CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
         return error;
     if ((error = UacRenameLeaf::Detail::NativeRename(target.get(), targetParent, targetName)) != ERROR_SUCCESS)
         return error;

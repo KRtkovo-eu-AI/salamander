@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share one consent across matching leaf mutations. | Display the approved directory and preserve default Cancel. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Report only uncertain broker outcomes in the consent dialog. | Let the ordinary worker dialog handle confirmed failures. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reuse approved F5 and F6 scopes in the progress dialog. | Ask again only for a different scope. | | GPT-6.1 Sol (Codex) |
@@ -1635,7 +1636,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         //--- worker request to show a dialog
     case WM_USER_DIALOG:
     {
-        if (CancelWorker && wParam != WORKER_DIALOG_UAC_TREE_RESULT)
+        if (CancelWorker && wParam != WORKER_DIALOG_UAC_TREE_RESULT && wParam != WORKER_DIALOG_UAC_TRANSFER_UNKNOWN)
             return TRUE; // other worker prompts are suppressed after cancellation
 
         if (DelayParallelProgressShow)
@@ -1801,46 +1802,33 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 confirmText = IDS_UAC_COPY_COMPRESSED_CONFIRM;
             else if (prompt.request.IgnoresAds())
                 confirmText = IDS_UAC_COPY_IGNORE_ADS_CONFIRM;
-            const int unknownText = moving ? IDS_UAC_MOVE_UNKNOWN : IDS_UAC_COPY_UNKNOWN;
             const bool shareJob = Script->Count > 1 && prompt.request.CanShareJob();
-            auto existing = std::find_if(TransferJobs.begin(), TransferJobs.end(),
-                                         [&](const auto& job) { return prompt.request.IsInJob(job); });
-            if (existing == TransferJobs.end())
+            std::string message = std::string(LoadStr(confirmText)) + "\n\n" +
+                                  prompt.sourcePath + "\n -> " + prompt.targetPath;
+            if (shareJob)
             {
-                std::string message = std::string(LoadStr(confirmText)) + "\n\n" +
-                                      prompt.sourcePath + "\n -> " + prompt.targetPath;
-                if (shareJob)
-                {
-                    auto parent = [](std::string_view path) { return path.substr(0, path.rfind('\\') + 1); };
-                    message += std::string("\n\n") + LoadStr(IDS_UAC_TRANSFER_JOB_SCOPE) + "\n" +
-                               std::string(parent(prompt.sourcePath)) + "\n -> " + std::string(parent(prompt.targetPath));
-                }
-                else if (Script->Count > 1)
-                    message += std::string("\n\n") + LoadStr(IDS_UAC_BATCH_ITEM_SCOPE);
-                const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
-                MSGBOXEX_PARAMS confirm{};
-                confirm.HParent = HWindow;
-                confirm.Text = message.c_str();
-                confirm.Caption = LoadStr(moving ? IDS_MOVE : IDS_COPY);
-                confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
-                confirm.AliasBtnNames = alias.c_str();
-                prompt.approved = SalMessageBoxEx(&confirm) == IDOK && !CancelWorker;
+                auto parent = [](std::string_view path) { return path.substr(0, path.rfind('\\') + 1); };
+                message += std::string("\n\n") + LoadStr(IDS_UAC_TRANSFER_JOB_SCOPE) + "\n" +
+                           std::string(parent(prompt.sourcePath)) + "\n -> " + std::string(parent(prompt.targetPath));
             }
-            else
-                prompt.approved = !CancelWorker;
+            else if (Script->Count > 1)
+                message += std::string("\n\n") + LoadStr(IDS_UAC_BATCH_ITEM_SCOPE);
+            const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+            MSGBOXEX_PARAMS confirm{};
+            confirm.HParent = HWindow;
+            confirm.Text = message.c_str();
+            confirm.Caption = LoadStr(moving ? IDS_MOVE : IDS_COPY);
+            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
+            confirm.AliasBtnNames = alias.c_str();
+            prompt.approved = SalMessageBoxEx(&confirm) == IDOK && !CancelWorker;
+            break;
+        }
 
-            if (prompt.approved && !tree)
-            {
-                UacF7::TransferJobSession* job = nullptr;
-                if (shareJob)
-                    job = existing != TransferJobs.end() ? &*existing : &TransferJobs.emplace_back();
-                prompt.result = prompt.request.Execute(HWindow, nullptr, job);
-                if (CancelWorker && job)
-                    job->Close();
-                if (prompt.result.unknown)
-                    SalMessageBox(HWindow, LoadStr(unknownText),
-                                  LoadStr(moving ? IDS_ERRORMOVE : IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
-            }
+        case WORKER_DIALOG_UAC_TRANSFER_UNKNOWN:
+        {
+            const bool moving = lParam != 0;
+            SalMessageBox(HWindow, LoadStr(moving ? IDS_UAC_MOVE_UNKNOWN : IDS_UAC_COPY_UNKNOWN),
+                          LoadStr(moving ? IDS_ERRORMOVE : IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
             break;
         }
 

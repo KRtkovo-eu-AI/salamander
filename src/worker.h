@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Store the approved basic attribute choices. | Reuse the same policy across metadata items. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the shared job flag for EFS. | Retire the single-file eligibility gate. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Track eligibility of single-file EFS jobs. | Keep multi-file consent scoped to the job. | | GPT-6.1 Sol (Codex) |
@@ -60,6 +61,7 @@ constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 13;
 constexpr WPARAM WORKER_DIALOG_UAC_DELETE = 14;
 constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 15;
 constexpr WPARAM WORKER_DIALOG_UAC_TREE_RESULT = 16;
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER_UNKNOWN = 17;
 
 struct CChangeAttrsData
 {

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve worker error choices for leaf mutations. | Return cancelled elevation to the ordinary retry and skip dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Resume the ordinary transfer error flow after known UAC outcomes. | Preserve skipped items, progress and confirmed overwrite revisions. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow protected EFS in the serial transfer batch. | Keep one authorization per compatible scope. | | GPT-6.1 Sol (Codex) |
@@ -33,6 +34,8 @@
 #include "worker.h"
 #include "workerpath.h"
 #include "operationrecycle.h"
+
+#include <list>
 #include "common/widepath.h"
 #include "uacbroker/f7pilot.h"
 
@@ -2123,6 +2126,8 @@ struct CProgressDlgData
 {
     HANDLE WorkerNotSuspended;
     BOOL* CancelWorker;
+    HANDLE CancelWorkerEvent;
+    std::list<UacF7::TransferJobSession> TransferJobs;
     int* OperationProgress;
     int* SummaryProgress;
     BOOL AsyncProgressPublication;
@@ -5638,13 +5643,39 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
     const auto targetDisplay = SalPathRemoveExtendedPrefixW(op.TargetNameW.c_str());
     const auto sourceText = SalWideToMultiBytePath(sourceDisplay.c_str(), CP_UTF8);
     const auto targetText = SalWideToMultiBytePath(targetDisplay.c_str(), CP_UTF8);
-    UacF7::TransferPrompt prompt{request, sourceText.c_str(), targetText.c_str()};
-    SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
-    if (prompt.result.unknown)
-        return true;
-    if (prompt.result.error != ERROR_SUCCESS)
+    const bool shareJob = script.Count > 1 && request.CanShareJob();
+    auto& jobs = dlgData.TransferJobs;
+    auto existing = std::find_if(jobs.begin(), jobs.end(), [&](const auto& job) { return request.IsInJob(job); });
+    if (existing == jobs.end())
     {
-        error = prompt.result.error;
+        UacF7::TransferPrompt prompt{request, sourceText.c_str(), targetText.c_str()};
+        SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
+        if (!prompt.approved)
+        {
+            error = ERROR_CANCELLED;
+            return *dlgData.CancelWorker != FALSE;
+        }
+    }
+    const HANDLE cancel = dlgData.CancelWorkerEvent;
+    if (WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0)
+    {
+        jobs.clear();
+        return true;
+    }
+    UacF7::TransferJobSession* job = nullptr;
+    if (shareJob)
+        job = existing != jobs.end() ? &*existing : &jobs.emplace_back();
+    const auto result = request.Execute(progress, cancel, job);
+    if (WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0 || result.unknown)
+        jobs.clear();
+    if (result.unknown)
+    {
+        SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, moving);
+        return true;
+    }
+    if (result.error != ERROR_SUCCESS)
+    {
+        error = result.error;
         return *dlgData.CancelWorker != FALSE;
     }
     totalDone += op.Size;
@@ -10748,6 +10779,7 @@ unsigned ThreadWorkerBody(void* parameter)
     CProgressDlgData dlgData;
     dlgData.WorkerNotSuspended = data->WorkerNotSuspended;
     dlgData.CancelWorker = data->CancelWorker;
+    dlgData.CancelWorkerEvent = data->CancelWorkerEvent;
     dlgData.OperationProgress = data->OperationProgress;
     dlgData.SummaryProgress = data->SummaryProgress;
     dlgData.OverwriteAll = dlgData.OverwriteHiddenAll = dlgData.DeleteHiddenAll =
@@ -11365,6 +11397,7 @@ unsigned ThreadWorkerBody(void* parameter)
         free(tgtBuffer);
     if (bufferIsAllocated)
         free(buffer);
+    dlgData.TransferJobs.clear();
     *dlgData.CancelWorker = Error;                  // if this was triggered by Cancel, make that obvious ...
     SendMessage(hProgressDlg, WM_COMMAND, IDOK, 0); // we're done ...
     WaitForSingleObject(wContinue, INFINITE);       // we need to stop the main thread

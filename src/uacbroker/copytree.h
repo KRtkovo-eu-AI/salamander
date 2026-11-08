@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Honor tree cancel at every existing publication checkpoint. | Roll back owned staging before returning cancellation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Recover only a durably recorded tree stage. | Preserve published copies and serialize recovery with active copies. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Require protected tree staging from creation through publication. | Enforce the approved integrity profile without replacing inherited DACLs. | | GPT-6.1 Sol (Codex) |
@@ -342,7 +343,7 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
         return {ERROR_INVALID_NAME};
     if (Equal(leaf.substr(0, ARRAYSIZE(stagePrefix) - 1), stagePrefix))
         return {ERROR_INVALID_NAME};
-    DWORD error = CheckCancelled(cancel, connection, deadline, true);
+    DWORD error = CheckCancelled(cancel, connection, deadline);
     if (error)
         return {error};
     ParentIdentity targetIdentity;
@@ -378,7 +379,7 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
     FILE_BASIC_INFO rootBasic{};
     if ((error = ReadPlainMetadata(source, rootBasic, true)) != ERROR_SUCCESS)
         return {error};
-    if ((error = CheckCancelled(cancel, connection, deadline, true)) != ERROR_SUCCESS)
+    if ((error = CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
         return {error};
 
     Detail::Stage stage(manifest);
@@ -393,7 +394,7 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
             return error;
         for (size_t i = 0; i < manifest.entries.size(); ++i)
         {
-            if ((error = CheckCancelled(cancel, connection, deadline, true)) != ERROR_SUCCESS)
+            if ((error = CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
                 return error;
             const auto& record = manifest.entries[i];
             const bool directory = (record.attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
@@ -444,7 +445,7 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
             return error;
         for (size_t i = manifest.entries.size(); i > 0; --i)
         {
-            if ((error = CheckCancelled(cancel, connection, deadline, true)) != ERROR_SUCCESS)
+            if ((error = CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
                 return error;
             auto& state = stage.entries[i - 1];
             const bool directory = state.stagedDirectory != nullptr;
@@ -474,7 +475,7 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
         if ((error = protection.Check(target, true)) != ERROR_SUCCESS)
             return error;
         stage.CloseChildren();
-        if ((error = CheckCancelled(cancel, connection, deadline, true)) != ERROR_SUCCESS)
+        if ((error = CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
             return error;
         return stage.Publish(target, leaf);
     };
