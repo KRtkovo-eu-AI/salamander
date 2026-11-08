@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Expose strict private ZIP stage editing. | Publish only a completed ZIP update and never move the ordinary source files. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Export the ZIP entry reader privately. | Keep the public plugin ABI and ordinary unpacking intact. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Export the standard protected ZIP panel listing. | Return normal plugin-owned metadata and discard partial failures. | | GPT-6.1 Sol (Codex) |
 
@@ -1185,6 +1186,34 @@ BOOL CPluginInterfaceForArchiver::UnpackOneFile(CSalamanderForOperationsAbstract
     CRT_MEM_DUMP_ALL_OBJECTS_SINCE
 
     return TRUE;
+}
+
+DWORD WINAPI SalamanderEditZipStageV1(CSalamanderForOperationsAbstract* salamander, const char* stage,
+                                      const char* archiveRoot, const char* sourcePath,
+                                      SalEnumSelection2 add, SalEnumSelection remove, void* context)
+{
+    if (!salamander || !stage || !*stage || !archiveRoot ||
+        (add != nullptr) == (remove != nullptr) || (add && (!sourcePath || !*sourcePath)))
+        return ERROR_INVALID_PARAMETER;
+    try
+    {
+        if (*archiveRoot == '\\')
+            ++archiveRoot;
+        CZipPack pack(stage, archiveRoot, salamander, true);
+        int error = pack.ErrorID;
+        if (!error)
+            error = add ? pack.PackToArchive(FALSE, sourcePath, add, context)
+                        : pack.DeleteFromArchive(remove, context);
+        if (error && error != IDS_NODISPLAY)
+            SalamanderGeneral->ShowMessageBox(LoadStr(error), LoadStr(IDS_PLUGINNAME), MSGBOX_ERROR);
+        if (pack.UserBreak || pack.NothingToDo)
+            return ERROR_CANCELLED;
+        return error || pack.Fatal || !pack.RecoverOK ? ERROR_INVALID_DATA : ERROR_SUCCESS;
+    }
+    catch (const std::bad_alloc&)
+    {
+        return ERROR_NOT_ENOUGH_MEMORY;
+    }
 }
 
 BOOL CPluginInterfaceForArchiver::PackToArchive(CSalamanderForOperationsAbstract* salamander, const char* fileName,

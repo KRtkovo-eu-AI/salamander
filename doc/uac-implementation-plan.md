@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Document protected ZIP editing from the panel. | Track staging, validation, delete and F5 additions. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document streamed ZIP replacement and session handoff. | Track the implemented write protocol before wiring ZIP commands. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document ZIP recovery journal and the locked archive revision. | Record the broker boundary for updating and restoring a protected archive. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Describe verified ZIP update publication and recovery. | Track the write backend and remaining ZIP integration. | | GPT-6.1 Sol (Codex) |
@@ -823,6 +824,10 @@ Sestavení x64 Debug aplikace, brokeru, sondy a nativní sady prošlo. Příkaz 
 Zápis je omezený na běžný soubor NTFS bez alternativních datových proudů a rozšířených atributů. Pracovní soubor dostane bezpečnostní popis originálu a broker před zveřejněním porovná vlastníka, skupinu, ACL a příznaky dědění. Ke zveřejnění potřebuje potvrzení konce přenosu. Po zápisu může stejný broker předat panelu novou čtecí relaci, takže otevření změněného archivu nepotřebuje třetí souhlas. Prázdný žurnál a nedokončený pracovní soubor se uklidí při běžném přerušení spojení. Pokud výměna zanechá stav k obnově, žurnál zůstane.
 
 Aplikace, broker a sonda se zkompilovaly v x64 Debug a nativní sada v x64 Release. Zbývá připravit změněný soubor ve stávajícím ZIP pluginu, napojit příkazy panelu a provést společné zkoušky včetně zachování oprávnění v izolované VM.
+
+**Změny ZIPu z panelu.** Delete používá běžný dialog pro výběr položek k odstranění. F5 z diskového panelu do otevřeného chráněného ZIPu používá běžný dialog kopírování, včetně cílové podsložky, a řeší kolize podle nastavení ZIP pluginu. Plugin pod běžným tokenem přidá, nahradí nebo odstraní položky ve pracovní kopii v profilu uživatele. Před nabídkou zápisu aplikace zkontroluje, že výsledný ZIP lze načíst a že panel stále odpovídá původnímu výpisu. Výzva k zápisu ukáže cestu k originálu. Po potvrzeném zápisu se výpis obnoví z nové relace.
+
+Diskové zdroje při F5 zůstávají na místě. U chráněného ZIPu zatím chybí příkaz obnovy dostupný po restartu aplikace. Sestavení x64 Debug aplikace, ZIP pluginu, brokeru a sondy prošlo. Zkoušky výsledků na disku, ZIP64, kolizí, zrušení a obnovy proběhnou v rámci společné akceptace.
 
 ## 9. Uživatelský tok a stav operace
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Route disk-panel F5 into the open protected ZIP. | Add or replace entries without deleting disk sources. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Display complete protected space measurements and enable estimates. | Keep both Ctrl+Q entry points on the same dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Mark protected allocation and compressed size as unknown. | Show logical totals in the standard Calculate Occupied Space dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reuse Ctrl+Q layout for protected size results. | Keep both protected inventory entry points compact. | | GPT-6.1 Sol (Codex) |
@@ -34,6 +35,7 @@
 #include "mapi.h"
 #include "common/widepath.h"
 #include "fileactiondisktarget.h"
+#include "fileactionarchivesource.h"
 #include "operationrecycle.h"
 
 
@@ -407,6 +409,31 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
         }
     }
 
+    struct ZipPackSource
+    {
+        CFilesActionDiskTarget disk;
+        ULONGLONG listing = 0;
+
+        static BOOL Check(void* data)
+        {
+            const auto& source = *static_cast<const ZipPackSource*>(data);
+            return source.disk.IsCurrent(MainWindow) &&
+                   source.disk.Panel->GetListingIdentityGeneration() == source.listing;
+        }
+    } zipSource;
+    CFilesActionArchiveSource zipTarget;
+    const bool watchZipTarget = (type == atCopy || type == atMove) && Is(ptDisk) && target->IsProtectedZip();
+    if (watchZipTarget)
+    {
+        if (!zipTarget.Capture(MainWindow, target) || !zipSource.disk.Capture(MainWindow, this))
+        {
+            SalMessageBox(HWindow, GetErrorText(ERROR_RETRY),
+                          LoadStr(type == atCopy ? IDS_ERRORCOPY : IDS_ERRORMOVE), MB_OK | MB_ICONEXCLAMATION);
+            return;
+        }
+        zipSource.listing = GetListingIdentityGeneration();
+    }
+
     CFilesActionDiskTarget diskTarget;
     const bool watchDiskTarget = (type == atCopy || type == atMove) && target->Is(ptDisk);
     if (watchDiskTarget && !diskTarget.Capture(MainWindow, target))
@@ -598,13 +625,9 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
 
                     // if packing to the archive in the other panel is not possible, leave the path empty
                     int format = PackerFormatConfig.PackIsArchive(target->GetZIPArchive());
-                    if (format != 0) // we found a supported archive
-                    {
-                        if (!PackerFormatConfig.GetUsePacker(format - 1)) // no edit -> empty operation target
-                        {
-                            path[0] = 0;
-                        }
-                    }
+                    if (watchZipTarget ? !target->CanEditProtectedZip() || type != atCopy :
+                        format != 0 && !PackerFormatConfig.GetUsePacker(format - 1))
+                        path[0] = 0;
                 }
                 else
                 {
@@ -1050,6 +1073,45 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                             }
 
                             *secondPart = 0; // 'path' holds the archive file name
+                            if (watchZipTarget && StrICmp(path, zipTarget.ArchiveFile.c_str()) == 0)
+                            {
+                                if (!zipTarget.IsCurrent(MainWindow) || !ZipPackSource::Check(&zipSource))
+                                {
+                                    SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(IDS_UAC_ZIP_EDIT_TITLE),
+                                                  MB_OK | MB_ICONEXCLAMATION);
+                                }
+                                else if (type != atCopy || !zipTarget.Panel->CanEditProtectedZip())
+                                {
+                                    SalMessageBox(HWindow, GetErrorText(ERROR_NOT_SUPPORTED), LoadStr(IDS_UAC_ZIP_EDIT_TITLE),
+                                                  MB_OK | MB_ICONEXCLAMATION);
+                                }
+                                else
+                                {
+                                    data.ContextIsCurrent = ZipPackSource::Check;
+                                    data.Context = &zipSource;
+                                    const std::string directory = SalWideToMultiBytePath(GetPathW(), CP_UTF8);
+                                    if (directory.empty() || directory.size() >= sizeof(data.WorkPath))
+                                        SalMessageBox(HWindow, GetErrorText(ERROR_FILENAME_EXCED_RANGE),
+                                                      LoadStr(IDS_UAC_ZIP_EDIT_TITLE), MB_OK | MB_ICONEXCLAMATION);
+                                    else
+                                    {
+                                        memcpy(data.WorkPath, directory.c_str(), directory.size() + 1);
+                                        data.WideDiskNames = TRUE;
+                                        if (zipTarget.Panel->EditProtectedZip(directory.c_str(), PanelEnumDiskSelection, nullptr,
+                                                                              &data, hasPath ? secondPart + 1 : "") &&
+                                            ZipPackSource::Check(&zipSource))
+                                        {
+                                            SetSel(FALSE, -1, TRUE);
+                                            PostMessage(HWindow, WM_USER_SELCHANGED, 0, 0);
+                                        }
+                                    }
+                                }
+                                delete[] indexes;
+                                EndStopRefresh();
+                                EndSuspendMode();
+                                FilesActionInProgress = FALSE;
+                                return;
+                            }
                             BOOL haveSize = FALSE;
                             CQuadWord size;
                             DWORD err;

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Disable entry content actions for the protected listing. | Keep metadata and navigation available. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Enable archive deletion for an open protected ZIP with a verified editor. | Preserve ordinary archive capability checks. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Enable extraction from the protected archive panel. | Keep archive mutations disabled. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Enable F3 for a protected ZIP entry. | Keep external view and transfer actions on their separate routes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-04 | Reflect context help on panel toolbars and bound toolbar saves. | Panel toolbars can now hold the shared help button, and their layouts use the larger buffers. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
@@ -6736,10 +6737,10 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
         if (archive)
         {
             int format = PackerFormatConfig.PackIsArchive(activePanel->GetZIPArchive());
-            if (format != 0) // we found a supported archive
-            {
-                archiveEdit = !activePanel->IsProtectedZip() && PackerFormatConfig.GetUsePacker(format - 1); // does it have an edit?
-            }
+            if (activePanel->IsProtectedZip())
+                archiveEdit = activePanel->CanEditProtectedZip();
+            else if (format != 0)
+                archiveEdit = PackerFormatConfig.GetUsePacker(format - 1);
         }
 
         upDir = (activePanel->Dirs->Count != 0 &&

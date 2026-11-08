@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Edit the prepared ZIP in place with standard ZIP options. | Report no-op deletion and truncation failure before publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #include "precomp.h"
@@ -82,7 +83,13 @@ int CZipPack::PackToArchive(BOOL move, const char* sourcePath,
 
     flags |= (noexist ? PD_NEWARCHIVE : 0) | (Removable ? PD_REMOVALBE : 0);
 
-    if ((ErrorID = LoadExPackOptions(flags)) != 0)
+    if (StagedEdit)
+    {
+        Options = DefOptions;
+        Options.Action = PA_NORMAL;
+        Config.BackupZip = false;
+    }
+    else if ((ErrorID = LoadExPackOptions(flags)) != 0)
         return ErrorID;
     if (Options.Encrypt && Config.Level < 1)
         return ErrorID = IDS_ECRYPTSTORED;
@@ -96,7 +103,7 @@ int CZipPack::PackToArchive(BOOL move, const char* sourcePath,
     if (*(SourcePath + SourceLen - 1) == '\\')
         SourceLen--;
     SkipAllIOErrors = false;
-    Move = move ? true : false;
+    Move = !StagedEdit && move;
     Pack = true;
 
     if (*OriginalCurrentDir)
@@ -156,6 +163,8 @@ int CZipPack::DeleteFromArchive(SalEnumSelection next, void* param)
     }
     Options.Action = PA_NORMAL;
     Options.Encrypt = false;
+    if (StagedEdit)
+        Config.BackupZip = false;
     TCHAR title[1024];
     _stprintf(title, LoadStr(IDS_DELPROGTITLE), SalamanderGeneral->SalPathFindFileName(ZipName));
     Salamander->OpenProgressDialog(title, TRUE, NULL, FALSE);
@@ -187,6 +196,8 @@ int CZipPack::DeleteFromArchive(SalEnumSelection next, void* param)
                     {
                         MatchedTotalSize = CQuadWord(0, 0);
                         ErrorID = CZipCommon::MatchFiles(DelFiles, delNames, dirs, NewCentrDir);
+                        if (StagedEdit && !ErrorID && !DelFiles.Count)
+                            NothingToDo = true;
                         if (!ErrorID && DelFiles.Count)
                         {
                             QuickSortHeaders(0, DelFiles.Count - 1, DelFiles);
@@ -253,7 +264,8 @@ int CZipPack::DeleteFromArchive(SalEnumSelection next, void* param)
                                                 {
                                                     if (!Flush(TempFile, TempFile->OutputBuffer, TempFile->BufferPosition, NULL))
                                                     {
-                                                        SetEndOfFile(TempFile->File);
+                                                        if (!SetEndOfFile(TempFile->File) && StagedEdit)
+                                                            ErrorID = IDS_ERRWRITE;
                                                     }
                                                     else
                                                         ErrorID = IDS_NODISPLAY;
