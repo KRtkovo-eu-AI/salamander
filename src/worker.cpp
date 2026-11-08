@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Dispatch the protected tree copy after queue admission. | Count one completion only when the broker confirms publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Run eligible permanent deletion with the verified file executor. | Preserve the original file identity across ordinary attempts and elevated consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Run one-file basic metadata changes through the verified executor. | Offer elevation only after an ordinary access denial and retain worker accounting. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer one verified broker copy after ordinary access is denied. | Keep the existing worker lease and only count an acknowledged copy. | | GPT-6.1 Sol (Codex) |
@@ -560,6 +561,12 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     LastProgBufLimTestTime = GetTickCount() - 1000;
     LastFileBlockCount = 0;
     LastFileStartTime = GetTickCount();
+}
+
+COperations::~COperations()
+{
+    HANDLES(DeleteCriticalSection(&ConflictCS));
+    HANDLES(DeleteCriticalSection(&StatusCS));
 }
 
 void COperations::AddStoragePath(const char* path, int access)
@@ -10762,6 +10769,30 @@ unsigned ThreadWorkerBody(void* parameter)
 
             switch (op->Opcode)
             {
+            case ocCopyProtectedTree:
+            {
+                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+                if (*dlgData.CancelWorker)
+                {
+                    Error = TRUE;
+                    break;
+                }
+                pd.Operation = opStrCopying;
+                pd.Source = op->SourceName;
+                pd.Preposition = opStrCopyingPrep;
+                pd.Target = op->TargetName;
+                SetProgressDialog(hProgressDlg, &pd, dlgData);
+
+                UacF7::TransferPrompt prompt{*script->ProtectedTreeTransfer, op->SourceName, op->TargetName};
+                SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
+                Error = prompt.result.unknown || prompt.result.error != ERROR_SUCCESS;
+                if (!Error)
+                {
+                    totalDone += op->Size;
+                    SetProgress(hProgressDlg, 1000, CaclProg(totalDone, script->TotalSize), dlgData);
+                }
+                break;
+            }
             case ocCopyFile:
             {
                 if ((op->OpFlags & OPFL_PARALLEL_DONE) != 0)

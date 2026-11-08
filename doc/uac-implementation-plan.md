@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record P4j CodeQL and the protected F5 queue pilot. | Track queue admission and isolated VM acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Document the UAC architecture, source audit, implementation stages and validation gates. | Plan per-operation elevation without implementing it. |  | GPT-6 (Codex) |
 | 2026-11-07 | Record the first P0 experiment. | Link the prototype and remaining gates. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Record the VM elevation matrix. | Capture the result with a separate administrator account. | | GPT-6.1 Sol (Codex) |
@@ -464,6 +465,18 @@ Správce může z chráněné pilotní instalace zaregistrovat až osm dalších
 Samandarin před souhlasem porovná zadanou cestu s chráněným registračním záznamem. Broker po souhlasu nezávisle ověří záznam, fyzickou identitu i ochranu cílové cesty a podrží otevřené nadřazené složky bez sdílení pro smazání. Další cíle mají oddělené žurnály odvozené od fyzické identity. Uživatel nadále vybírá jednu zdrojovou složku a zadává cestu registrovaného cíle v běžném dialogu F5.
 
 V izolované VM se pomocí Computer Use ověřilo F5 do dvou chráněných složek mimo instalaci na místním svazku `C:`. Druhý název obsahoval diakritiku. Po obou souhlasech se shodovaly SHA-256 kořenového i vnořeného souboru a vznikly prázdné podsložky. Každá kopie skončila jen ve svém cíli. Záznamy dvou oddělených žurnálů odpovídaly identitám registrovaných cílů a SHA-256 původního žurnálu se nezměnil. V obou cílech byl počet zbylých pracovních složek nula. Správní registrace odmítla cíl pod zapisovatelným rodičem a zachovala obsazený slot při pokusu přiřadit mu jiný cíl. V Debug i Release prošlo 115 nativních kontrol a prošla zkouška komunikace brokeru.
+
+Sestavení Win32, x64 a ARM64, 214 testů a kontrola růstu zdrojového kódu prošly na commitu `430e0d4f`. CodeQL dokončil analýzu bez nových nálezů při čtvrtém pokusu. Předchozí běhy skončily při stahování zlib s HTTP 503. [Kontroly PR #67](https://github.com/majklvi/salamander/pull/67/checks) · [Výsledek CodeQL](https://github.com/majklvi/salamander/runs/128714391662).
+
+### 8.22 P4k — fronta pro chráněnou kopii stromu přes F5
+
+Připravený požadavek drží ověřený zdroj a identitu zaregistrovaného cíle, zatímco je ve stávající frontě kopírování a přesunu. Fronta jej zpracuje sériově jako jeden celek. Dialog se štítem se otevírá až po přidělení úlohy. Během čekání lze úlohu zrušit. Stav dokončení a oznámení změny cíle vyžadují potvrzený výsledek brokeru. Rozhraní zobrazuje stav operace bez odhadu průběhu v bajtech. Vypršení spojení s neznámým výsledkem zachovává upozornění z pilotu a vyžaduje ověření cíle před případným dalším pokusem.
+
+Sestavení x64 Debug a test smlouvy fronty prošly. Prošlo 115 nativních kontrol adresářových a souborových operací a nativní test autentizace transportu včetně přerušení spojení.
+
+V izolované VM byly dvě úlohy F5 zařazeny v jednom procesu. První čekala na volbu Administrator a druhá měla stav čekání na aktivní kopírování či přesun. Po zrušení první systémové výzvy se otevřela nabídka správce pro druhou úlohu. Po potvrzení druhé výzvy zůstal první zdroj zachován a jeho cíl nevznikl. V druhém cíli s diakritikou souhlasily SHA-256 kořenového a vnořeného souboru, zůstala zachována prázdná podsložka, cesty se nezaměnily a nezůstala žádná pracovní složka. Ověřily se také otisky instalovaných souborů.
+
+Ve finálním sestavení se stav čekání zobrazil bez zavádějícího popisku Storage-aware. Druhou úlohu šlo zrušit přímo ve frontě, zatímco první nabídka správce zůstala otevřená. Po uzavření první nabídky byly obě úlohy ukončené a Windows neotevřel systémovou výzvu. Tato etapa řídí přidělení a zrušení čekající úlohy. Po spuštění brokeru se kopírování dokončuje jako jedna operace.
 
 ## 9. Uživatelský tok a stav operace
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Show tree copy consent from the admitted progress dialog. | Keep queued tree operations behind the FIFO barrier. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Show the shield on Administrator in permanent-delete consent. | Keep Cancel as the default independently of the shield. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Confirm the exact permanent delete path in the progress dialog. | Default to Cancel and report an unconfirmed deletion without replay. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Show the metadata UAC consent on the progress dialog thread. | Keep secure consent and uncertain results in the existing UI. | | GPT-6.1 Sol (Codex) |
@@ -468,7 +469,7 @@ CProgressDialog::CProgressDialog(HWND parent, COperations* script, const char* c
     NextTimeLeftUpdateTime = GetTickCount();
     TimeLeftLastValue.SetUI64(0);
 
-    if (Script != NULL && Script->IsCopyOrMoveOperation)
+    if (Script != NULL && Script->IsCopyOrMoveOperation && !Script->ProtectedTreeTransfer)
     {
         const char* mode = LoadStr(IDS_COPYMOVE_SCHED_TITLE_STORAGEAWARE);
         if (Script->CopyMoveTransferMode == CMS_SEQUENTIAL)
@@ -1366,9 +1367,12 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
         }
 
-        Worker = StartWorker(Script, HWindow, AttrsData, ConvertData, WContinue,
-                             WorkerNotSuspended, CancelWorkerEvent, &CancelWorker, &OperationProgress,
-                             &SummaryProgress);
+        if (Script->ProtectedTreeTransfer)
+            EnableWindow(GetDlgItem(HWindow, IDB_PAUSERESUME), FALSE);
+        if (!Script->ProtectedTreeTransfer || IsInQueue)
+            Worker = StartWorker(Script, HWindow, AttrsData, ConvertData, WContinue,
+                                 WorkerNotSuspended, CancelWorkerEvent, &CancelWorker, &OperationProgress,
+                                 &SummaryProgress);
         if (Worker == NULL)
         {
             if (IsInQueue)
@@ -1751,7 +1755,10 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             auto& prompt = *reinterpret_cast<UacF7::TransferPrompt*>(lParam);
             const bool moving = prompt.request.IsMove();
-            const std::string message = std::string(LoadStr(moving ? IDS_UAC_MOVE_CONFIRM : IDS_UAC_COPY_CONFIRM)) + "\n\n" +
+            const bool tree = prompt.request.IsTree();
+            const int confirmText = tree ? IDS_UAC_TREE_COPY_CONFIRM : (moving ? IDS_UAC_MOVE_CONFIRM : IDS_UAC_COPY_CONFIRM);
+            const int unknownText = tree ? IDS_UAC_TREE_COPY_UNKNOWN : (moving ? IDS_UAC_MOVE_UNKNOWN : IDS_UAC_COPY_UNKNOWN);
+            const std::string message = std::string(LoadStr(confirmText)) + "\n\n" +
                                         prompt.sourcePath + "\n -> " + prompt.targetPath;
             const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
             MSGBOXEX_PARAMS confirm{};
@@ -1764,9 +1771,10 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 prompt.result = prompt.request.Execute(HWindow);
                 if (prompt.result.unknown || (prompt.result.error != ERROR_SUCCESS && prompt.result.error != ERROR_CANCELLED))
-                    SalMessageBox(HWindow, prompt.result.unknown ? LoadStr(moving ? IDS_UAC_MOVE_UNKNOWN : IDS_UAC_COPY_UNKNOWN)
-                                                                 : GetErrorText(prompt.result.error),
+                    SalMessageBox(HWindow, prompt.result.unknown ? LoadStr(unknownText) : GetErrorText(prompt.result.error),
                                   LoadStr(moving ? IDS_ERRORMOVE : IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                else if (tree && prompt.result.error == ERROR_SUCCESS)
+                    MainWindow->PostChangeOnPathNotification(Script->WaitInQueueTo, TRUE);
             }
             break;
         }
@@ -2386,6 +2394,8 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
         case CM_RESUMEOPER:   // resume posted from the operations queue
         case IDB_PAUSERESUME: // pause/resume
         {
+            if (LOWORD(wParam) == IDB_PAUSERESUME && Script != NULL && Script->ProtectedTreeTransfer)
+                return TRUE;
             if ((LOWORD(wParam) == CM_RESUMEOPER || AcceptCommands) && CanClose && !CancelWorker)
             {
                 AutoPaused = FALSE; // this may be a manual pause/resume or an automatic resume

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Submit protected F5 tree copies to the operation queue. | Wait for admission before asking for administrator consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer protected F5 for a single directory and the registered target. | Bind the consent prompt to both complete paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Append localized inventory labels as text. | Resolve the CodeQL non-constant format alert. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Identify one-file actions explicitly routed to permanent deletion. | Never infer broker consent from a failed recycle operation. | | GPT-6.1 Sol (Codex) |
@@ -274,6 +275,49 @@ void PluginFSConvertPathToExternal(char* path)
         if (plugin != NULL && plugin->InitDLL(MainWindow->HWindow, FALSE, TRUE, FALSE)) // the plugin may not be loaded, let it load if needed
             plugin->GetPluginInterfaceForFS()->ConvertPathToExternal(fsName, fsNameIndex, fsUserPart);
     }
+}
+
+static bool StartProtectedTreeCopy(std::unique_ptr<UacF7::PreparedTransfer> request,
+                                   const std::wstring& source, const std::wstring& destination,
+                                   const std::wstring& targetDirectory)
+{
+    const auto sourceText = SalWideToMultiBytePath(SalPathRemoveExtendedPrefixW(source.c_str()).c_str(), CP_UTF8);
+    const auto targetText = SalWideToMultiBytePath(destination.c_str(), CP_UTF8);
+    const auto directoryText = SalWideToMultiBytePath(targetDirectory.c_str(), CP_UTF8);
+    COperations* script = new COperations(1, 1, NULL, NULL, NULL);
+    if (script == NULL)
+        return false;
+
+    COperation op;
+    op.Opcode = ocCopyProtectedTree;
+    op.Size = CQuadWord(1, 0);
+    op.SourceName = DupStr(sourceText.c_str());
+    op.TargetName = DupStr(targetText.c_str());
+    script->WaitInQueueFrom = DupStr(sourceText.c_str());
+    script->WaitInQueueTo = DupStr(directoryText.c_str());
+    if (op.SourceName != NULL && op.TargetName != NULL &&
+        script->WaitInQueueFrom != NULL && script->WaitInQueueTo != NULL)
+        script->Add(op);
+    if (script->Count != 1)
+    {
+        free(op.SourceName);
+        free(op.TargetName);
+        if (!script->IsGood())
+            script->ResetState();
+        FreeScript(script);
+        return false;
+    }
+
+    script->TotalSize = op.Size;
+    script->ProtectedTreeTransfer = std::move(request);
+    script->IsCopyOrMoveOperation = TRUE;
+    script->IsCopyOperation = TRUE;
+    // The broker publishes the entire tree as one unit.
+    script->OperationSchedulingPolicy = COSP_GLOBAL_SEQUENTIAL;
+    if (StartProgressDialog(script, LoadStr(IDS_COPY), NULL, NULL))
+        return true;
+    FreeScript(script);
+    return false;
 }
 
 // countSizeMode - 0 normal calculation, 1 calculation for the selected item,
@@ -823,30 +867,14 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                         auto entered = SalMultiByteToWidePath(path, CP_UTF8);
                         if (entered.empty())
                             entered = SalMultiByteToWidePath(path, CP_ACP);
-                        UacF7::PreparedTransfer request;
+                        std::unique_ptr<UacF7::PreparedTransfer> request(new UacF7::PreparedTransfer);
                         std::wstring destination;
-                        if (request.PrepareTree(source, entered, destination))
+                        if (request && request->PrepareTree(source, entered, destination))
                         {
-                            const std::string message = std::string(LoadStr(IDS_UAC_TREE_COPY_CONFIRM)) + "\n\n" +
-                                SalWideToMultiBytePath(SalPathRemoveExtendedPrefixW(source.c_str()).c_str(), CP_UTF8) + "\n -> " +
-                                SalWideToMultiBytePath(destination.c_str(), CP_UTF8);
-                            const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
-                            MSGBOXEX_PARAMS confirm{};
-                            confirm.HParent = HWindow;
-                            confirm.Text = message.c_str();
-                            confirm.Caption = LoadStr(IDS_COPY);
-                            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
-                            confirm.AliasBtnNames = alias.c_str();
-                            if (SalMessageBoxEx(&confirm) == IDOK && validateDiskTarget())
-                            {
-                                const auto result = request.Execute(HWindow);
-                                if (result.unknown || (result.error != ERROR_SUCCESS && result.error != ERROR_CANCELLED))
-                                    SalMessageBox(HWindow, result.unknown ? LoadStr(IDS_UAC_TREE_COPY_UNKNOWN) : GetErrorText(result.error),
-                                                  LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
-                                if (!result.unknown && result.error == ERROR_SUCCESS)
-                                    MainWindow->PostChangeOnPathNotification(SalWideToMultiBytePath(entered.c_str(), CP_UTF8).c_str(), TRUE);
-                            }
-                            res = IDCANCEL; // The broker handled this request outside the ordinary script.
+                            if (validateDiskTarget() && !StartProtectedTreeCopy(std::move(request), source, destination, entered))
+                                SalMessageBox(HWindow, GetErrorText(ERROR_NOT_ENOUGH_MEMORY),
+                                              LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                            res = IDCANCEL; // This tree copy has its own worker script.
                             break;
                         }
                     }

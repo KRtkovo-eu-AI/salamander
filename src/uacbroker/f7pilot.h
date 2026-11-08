@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Identify queued tree transfers in the consent dialog. | Reuse the tree-specific consent and result strings. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare the registered F5 tree pilot. | Bind a directory source to a fixed protected target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Expose a bounded inventory for an approved directory. | Use the existing read-only listing session. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share the prepared transfer with same-volume F6. | Bind source and destination to a typed move request. | | GPT-6.1 Sol (Codex) |
@@ -88,6 +89,7 @@ public:
     bool PrepareTree(const std::wstring& sourcePath, std::wstring_view targetDirectory, std::wstring& destination);
     Result Execute(HWND owner) const;
     bool IsMove() const { return source.operation == Operation::Move; }
+    bool IsTree() const { return source.operation == Operation::CopyTree; }
 
 private:
     PreparedLeaf source;

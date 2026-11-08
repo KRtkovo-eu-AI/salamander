@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Carry the prepared protected tree copy in the worker script. | Keep the verified request alive through queue admission. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Mark explicitly permanent single-file delete operations. | Keep Shell recycling outside the UAC delete pilot. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Mark eligible basic metadata operations and define their UI message. | Keep the broker pilot scoped to a single regular file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Mark one-file F5 requests and deferred source discovery. | Keep other copy and move paths on their normal route. | | GPT-6.1 Sol (Codex) |
@@ -13,6 +14,7 @@
 #include <string>
 #include <vector>
 #include <deque>
+#include <memory>
 #include "storagesched.h"
 
 #define CREATE_DIR_SIZE CQuadWord(4096, 0) // operation cost estimates (uncached measurements based on worker thread runtimes)
@@ -72,6 +74,7 @@ struct CConvertData // data used by ocConvert
 };
 
 class COperations;
+namespace UacF7 { class PreparedTransfer; }
 struct CProgressDlgArrItem;
 
 struct CStartProgressDialogData
@@ -244,6 +247,7 @@ enum COperationCode
     ocConvert,
     ocLabelForSkipOfCreateDir, // label to jump to when the script skips on ocCreateDirXXX; WARNING: SourceName and TargetName store the LO- and HI-DWORD of the total file sizes (including ADS) contained in the skipped directory; WARNING: Attr stores the ocCreateDirXXX index in the COperations array for that directory
     ocCopyDirTime,             // Move/Copy: when filterCriteria->PreserveDirTime==TRUE copy the directory timestamps; WARNING: lastWrite is stored in SourceName and Attr (applies to every type; just two DWORDs)
+    ocCopyProtectedTree,
 };
 
 #define OPFL_OVERWROLDERALRTESTED 0x00000001 // the "overwrite older, skip other existing" test has already been performed
@@ -399,6 +403,7 @@ public:
     BOOL InvertRecycleBin;   // invert Recycle Bin usage
     BOOL AllowPermanentDeletePilot;
     BOOL AllowTransferPilot;
+    std::unique_ptr<UacF7::PreparedTransfer> ProtectedTreeTransfer;
 
     int FilesCount;
     int DirsCount;
@@ -543,7 +548,7 @@ private:
 
 public:
     COperations(int base, int delta, char* waitInQueueSubject, char* waitInQueueFrom, char* waitInQueueTo);
-    ~COperations() { HANDLES(DeleteCriticalSection(&ConflictCS)); HANDLES(DeleteCriticalSection(&StatusCS)); }
+    ~COperations();
 
     void SetWorkPath1(const char* path, BOOL inclSubDirs)
     {
