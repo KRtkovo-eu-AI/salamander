@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Detach a verified junction by handle. | Reuse the junction format check and reject other reparse types. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Detach a verified directory symbolic link by handle. | Use an anchored no-follow open and reject other directory reparse tags. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Delete a verified file symbolic link by handle. | Check the reparse tag and retain the ordinary-file rules. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Delete a single ordinary file by its verified NTFS handle. | Avoid reopening a path for deletion or changing file attributes. | | GPT-6.1 Sol (Codex) |
@@ -13,6 +14,8 @@ namespace UacDeleteLeaf
 {
 inline UacRenameLeaf::MoveKind SourceKind(UacF7::Operation operation)
 {
+    if (operation == UacF7::Operation::DeleteJunction)
+        return UacRenameLeaf::MoveKind::RenameJunction;
     if (operation == UacF7::Operation::DeleteDirectorySymlink)
         return UacRenameLeaf::MoveKind::RenameDirectorySymlink;
     if (operation == UacF7::Operation::DeleteSymlink)
@@ -25,12 +28,14 @@ inline DWORD CheckAttributes(HANDLE file, UacF7::Operation operation)
     FILE_ATTRIBUTE_TAG_INFO attributes{};
     if (!GetFileInformationByHandleEx(file, FileAttributeTagInfo, &attributes, sizeof(attributes)))
         return GetLastError();
-    const bool symlink = operation != UacF7::Operation::Delete;
-    if (symlink && attributes.ReparseTag != IO_REPARSE_TAG_SYMLINK)
+    const bool link = operation != UacF7::Operation::Delete;
+    const bool junction = operation == UacF7::Operation::DeleteJunction;
+    const DWORD expectedTag = junction ? IO_REPARSE_TAG_MOUNT_POINT : IO_REPARSE_TAG_SYMLINK;
+    if (link && attributes.ReparseTag != expectedTag)
         return ERROR_REPARSE_TAG_INVALID;
-    const bool directory = operation == UacF7::Operation::DeleteDirectorySymlink;
-    const bool supported = symlink ? UacF7::IsPlainDeleteSymlink(attributes.FileAttributes, directory)
-                                   : UacF7::IsPlainDeleteFile(attributes.FileAttributes);
+    const bool directory = UacRenameLeaf::IsDirectoryLink(SourceKind(operation));
+    const bool supported = link ? UacF7::IsPlainDeleteLink(attributes.FileAttributes, directory)
+                                : UacF7::IsPlainDeleteFile(attributes.FileAttributes);
     return supported ? ERROR_SUCCESS : ERROR_NOT_SUPPORTED;
 }
 

@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record P5m permanent junction deletion. | Document the junction checks and local and VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5l permanent directory symbolic-link deletion. | Document scope and local and VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5k permanent file symbolic-link deletion. | Document scope and local and VM checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5j junction rename. | Document the accepted junction format and the local and VM results. | | GPT-6.1 Sol (Codex) |
@@ -641,6 +642,14 @@ Shift+Delete podporuje přes broker jeden adresářový symbolický odkaz na mí
 Lokálně prošlo sestavení x64 Debug, všech 168 nativních kontrol v Debug i Release, transport brokeru, test konverzních tabulek a regresní test trvalého smazání a Koše. Nativní zkoušky ověřily smazání adresářového odkazu s názvem v Unicode při drženém handle, zachování cílového adresáře i kontrolního souboru, odstranění odkazu na neexistující složku a odmítnutí záměny identity, souborového odkazu i junction.
 
 V izolované Windows 11 VM se po potvrzení běžného dotazu Shift+Delete a volbě Ano v UAC odstranil 01-approve-dirlink. Po volbě Ne u 02-cancel-dirlink zůstal druhý odkaz na místě a jeho reparse data byla shodná s výchozími. Kontrolní soubory v obou odkazovaných složkách měly původní SHA-256 a otisky instalovaných binárek souhlasily s pilotem.
+
+### 8.38 P5m — trvalé smazání junction
+
+Shift+Delete podporuje přes broker trvalé smazání jednoho junction na místním NTFS. Host používá přesnou cestu z panelu a po odepření běžného pokusu nabídne správce se štítem, cestou junction a výchozí volbou Zrušit. Samostatný typ požadavku váže souhlas na junction. Host i broker ověřují rodiče, identitu adresářového odkazu a tag IO_REPARSE_TAG_MOUNT_POINT. Stejná kontrola formátu jako v P5j přijímá absolutní cesty s písmenem jednotky a odmítá formát s GUID svazku. Broker otevře junction bez následování cíle a odstraní pouze jeho název pomocí ověřeného handle. [Chování odstranění junction ve Windows](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-removedirectoryw)
+
+Lokálně prošlo sestavení x64 Debug, všech 171 nativních kontrol v Debug i Release, transport brokeru, test konverzních tabulek a regresní test trvalého smazání a Koše. Nativní zkoušky ověřily smazání junction s názvem v Unicode pod dlouhou cestou při drženém handle, zachování cílové složky s kontrolním souborem a odmítnutí nesprávné identity a adresářového symbolického odkazu. Test sdílené kontroly formátu odmítl syntetická reparse data s GUID svazku.
+
+V izolované Windows 11 VM se po potvrzení Shift+Delete a volbě Ano v UAC odstranil 01-approve-junction. Po volbě Ne zůstal 02-cancel-junction na místě se shodnými reparse daty. Kontrolní soubory v obou odkazovaných složkách měly původní SHA-256. Otisky instalovaných binárek souhlasily s pilotem.
 
 ## 9. Uživatelský tok a stav operace
 

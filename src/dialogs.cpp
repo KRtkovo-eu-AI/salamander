@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe junction deletion in the consent prompt. | Identify the link and explain that its target is kept. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify directory symbolic links in permanent-delete consent. | Make clear that the linked folder is kept. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify file symbolic links in permanent-delete consent. | Describe the exact object approved for deletion. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe compression preservation in F5 consent. | Show the attribute requested from the broker. | | GPT-6.1 Sol (Codex) |
@@ -1809,7 +1810,9 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             auto& prompt = *reinterpret_cast<UacF7::LeafPrompt*>(lParam);
             int confirmText = deleting ? IDS_UAC_DELETE_CONFIRM : IDS_UAC_METADATA_CONFIRM;
             int unknownText = deleting ? IDS_UAC_DELETE_UNKNOWN : IDS_UAC_METADATA_UNKNOWN;
-            if (prompt.request.IsDirectorySymlinkDelete())
+            if (prompt.request.IsJunctionDelete())
+                confirmText = IDS_UAC_DELETE_JUNCTION_CONFIRM;
+            else if (prompt.request.IsDirectorySymlinkDelete())
                 confirmText = IDS_UAC_DELETE_DIRECTORY_SYMLINK_CONFIRM;
             else if (prompt.request.IsSymlinkDelete())
                 confirmText = IDS_UAC_DELETE_SYMLINK_CONFIRM;

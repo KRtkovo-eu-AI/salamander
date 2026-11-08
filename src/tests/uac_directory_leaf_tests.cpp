@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise permanent junction deletion on real NTFS. | Verify type and identity checks and preserve the target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise verified permanent directory symbolic-link deletion. | Check type, identity, dangling links and target preservation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify permanent deletion of a file symbolic link. | Check the typed identity guard and preserve the linked file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify junction rename and mount-point rejection. | Exercise real NTFS junction data and malformed or unsupported substitute names. | | GPT-6.1 Sol (Codex) |
@@ -1496,6 +1497,10 @@ int wmain(int argc, wchar_t** argv)
         error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, renamedDirectoryLinkId, L"directory-link-\u4eac", UacF7::Operation::DeleteSymlink);
         Check(error != ERROR_SUCCESS && DirectoryExists(dirTarget) && HasContents(sentinel, content),
               "typed file-link deletion refuses a directory symbolic link", error);
+        error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, renamedDirectoryLinkId, L"directory-link-\u4eac",
+                                                UacF7::Operation::DeleteJunction);
+        Check(error == ERROR_REPARSE_TAG_INVALID && DirectoryExists(dirTarget) && HasContents(sentinel, content),
+              "typed junction deletion rejects a directory symbolic link", error);
         constexpr auto deleteDirectoryLink = UacF7::Operation::DeleteDirectorySymlink;
         error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, renamedLinkId, L"symbolic-\u4eac", deleteDirectoryLink);
         Check(error == ERROR_NOT_SUPPORTED && Exists(linkTarget),
@@ -1809,8 +1814,21 @@ int wmain(int argc, wchar_t** argv)
                   actualBytes == donorBytes && std::memcmp(tag.get(), afterData.data(), donorBytes) == 0 &&
                   HasContents(junctionSentinel, content) && HasContents(renamedJunction + L"\\junction-sentinel.txt", content),
               "rename a Unicode junction below a long path without changing its identity, data or target", junctionRename);
+        if (junctionRename == ERROR_SUCCESS && afterJunction)
+        {
+            constexpr auto deleteJunction = UacF7::Operation::DeleteJunction;
+            const DWORD stale = UacDeleteLeaf::DeleteVerifiedLeaf(longParent.get(), expected, expected.file,
+                                                                 L"junction-\u672c", deleteJunction);
+            Check(stale == ERROR_FILE_INVALID && DirectoryExists(renamedJunction),
+                  "typed junction deletion rejects a stale identity", stale);
+            const DWORD deleted = UacDeleteLeaf::DeleteVerifiedLeaf(longParent.get(), expected, afterId,
+                                                                   L"junction-\u672c", deleteJunction);
+            Check(deleted == ERROR_SUCCESS && !Exists(renamedJunction) && HasContents(junctionSentinel, content),
+                  "delete a Unicode junction below a long path and preserve the linked folder", deleted);
+        }
     }
-    if (!RemoveDirectoryW((junctionRename == ERROR_SUCCESS ? renamedJunction : longJunction).c_str()))
+    const auto remainingJunction = junctionRename == ERROR_SUCCESS ? renamedJunction : longJunction;
+    if (Exists(remainingJunction) && !RemoveDirectoryW(remainingJunction.c_str()))
         return 2;
 
     const auto longSource = longPath + L"\\source-\u65e5";

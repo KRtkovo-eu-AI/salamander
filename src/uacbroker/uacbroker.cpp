@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Negotiate junction deletion through the existing leaf broker. | Advertise support for the separately typed request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate and route permanent directory symbolic-link deletion. | Keep local and elevated execution bound to the same typed request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate and dispatch protected file symbolic-link deletion. | Check the approved object type in both the local and elevated paths. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate and dispatch a scoped junction rename. | Verify junction data on the anchored handle and keep the link target unopened. | | GPT-6.1 Sol (Codex) |
@@ -105,13 +106,14 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD renameJunctionCapability = 131072;
 [[maybe_unused]] constexpr DWORD deleteSymlinkCapability = 262144;
 [[maybe_unused]] constexpr DWORD deleteDirectorySymlinkCapability = 524288;
+[[maybe_unused]] constexpr DWORD deleteJunctionCapability = 1048576;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
                                                  inventoryCapability | copyTreeCapability | cancelTreeCapability |
                                                  directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
                                                  copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability |
                                                  renameDirectorySymlinkCapability | renameJunctionCapability | deleteSymlinkCapability |
-                                                 deleteDirectorySymlinkCapability;
+                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability;
 
 std::wstring PipeName(const GUID& id)
 {

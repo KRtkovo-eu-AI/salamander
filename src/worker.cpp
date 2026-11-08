@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Offer the verified delete path for one eligible junction. | Use the classified request for permanent deletion only. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route one permanent directory symbolic-link delete to the verified worker. | Keep the recycling policy and unsupported object types on their established paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the verified delete flow for one file symbolic link. | Keep recycling and directory links on their existing paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow F5 to preserve supported compressed-file attributes through UAC. | Use a distinct request only with the copy attributes option. | | GPT-6.1 Sol (Codex) |
@@ -9005,9 +9006,9 @@ static bool TryDeleteVerifiedLeaf(HWND progress, const COperation& op, const COp
         return false;
 
     UacF7::Operation operation;
-    if (op.Opcode == ocDeleteDirLink && UacF7::IsPlainDeleteSymlink(op.Attr, true))
+    if (op.Opcode == ocDeleteDirLink && UacF7::IsPlainDeleteLink(op.Attr, true))
         operation = UacF7::Operation::DeleteDirectorySymlink;
-    else if (op.Opcode == ocDeleteFile && UacF7::IsPlainDeleteSymlink(op.Attr))
+    else if (op.Opcode == ocDeleteFile && UacF7::IsPlainDeleteLink(op.Attr))
         operation = UacF7::Operation::DeleteSymlink;
     else if (op.Opcode == ocDeleteFile && UacF7::IsPlainDeleteFile(op.Attr))
         operation = UacF7::Operation::Delete;
@@ -9015,7 +9016,9 @@ static bool TryDeleteVerifiedLeaf(HWND progress, const COperation& op, const COp
         return false;
 
     UacF7::PreparedLeaf request;
-    if (!request.PrepareDelete(op.SourceNameW, operation))
+    if (!request.PrepareDelete(op.SourceNameW, operation) &&
+        (operation != UacF7::Operation::DeleteDirectorySymlink ||
+         !request.PrepareDelete(op.SourceNameW, UacF7::Operation::DeleteJunction)))
         return false;
     const int errorTitle = op.Opcode == ocDeleteDirLink ? IDS_ERRORDELETINGDIRLINK : IDS_ERRORDELETINGFILE;
     success = ExecuteVerifiedWorkerLeaf(progress, op, request, dlgData, WORKER_DIALOG_UAC_DELETE, errorTitle);

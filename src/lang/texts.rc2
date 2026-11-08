@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe junction deletion as a separate operation. | Identify the exact object covered by administrator consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe permanent deletion of a directory symbolic link. | Show the approved object in the broker consent prompt. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe permanent deletion of a file symbolic link. | Identify the link in the broker consent prompt. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe junction rename consent. | Tell users which link object the broker will rename. | | GPT-6.1 Sol (Codex) |
@@ -2382,6 +2383,7 @@ STRINGTABLE
  IDS_UAC_DELETE_CONFIRM, "Access was denied. Permanently delete this file as an administrator?"
  IDS_UAC_DELETE_SYMLINK_CONFIRM, "Access was denied. Permanently delete this symbolic link as an administrator? The linked file will be kept."
  IDS_UAC_DELETE_DIRECTORY_SYMLINK_CONFIRM, "Access was denied. Permanently delete this directory symbolic link as an administrator? The linked folder will be kept."
+ IDS_UAC_DELETE_JUNCTION_CONFIRM, "Access was denied. Permanently delete this directory junction as an administrator? The linked folder will be kept."
  IDS_UAC_DELETE_UNKNOWN, "The broker disconnected before deletion was confirmed. Check whether the file still exists before retrying."
  IDS_UAC_LIST_CONFIRM, "Access was denied. List this folder and its subfolders as an administrator?"
  IDS_UAC_LIST_ACTIVE, "Administrator listing"
