@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify that explicit Ignore ADS leaves the original streams intact. | Check the copied data and preserve the strict default. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify basic attributes and times on the same directory handle. | Cover setting and clearing flags without changing descendants. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check creation and last-write times on the published directory tree. | Cover both the selected root and a nested Unicode directory. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify timestamp-only directory metadata. | Cover Unicode, stale identities and reparse rejection. | | GPT-6.1 Sol (Codex) |
@@ -1126,6 +1127,14 @@ int wmain(int argc, wchar_t** argv)
     copyError = copy(original.get(), L"copy-with-stream.bin", copyId);
     Check(copyError == ERROR_NOT_SUPPORTED && !Exists(moved + L"\\copy-with-stream.bin"),
           "reject alternate streams before publishing a copy", copyError);
+    const auto mainOnly = moved + L"\\copy-main-only.bin";
+    copyError = UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, copyId, L"copy-\u65e5.bin",
+                                             original.get(), expected, L"copy-main-only.bin", nullptr, nullptr,
+                                             MAXULONGLONG, content.size(), UacCopyLeaf::StreamPolicy::IgnoreNamed);
+    Check(copyError == ERROR_SUCCESS && HasContents(mainOnly, content) &&
+              ProbeAccess(mainOnly + L":named", GENERIC_READ, 0) == ERROR_FILE_NOT_FOUND &&
+              HasContents(copySource, content) && HasContents(copySource + L":named", existing),
+          "copy the main stream only after explicit selection and preserve both original streams", copyError);
 
     const auto moveSourcePath = fixture + L"\\destination\\move-\u65e5.bin";
     const auto moveTargetPath = moved + L"\\move-\u672c.bin";

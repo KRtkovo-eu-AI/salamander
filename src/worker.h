@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Carry the explicit F5 stream option. | Preserve the difference between user choice and failed stream discovery. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Declare the terminal tree-copy UI message. | Report broker outcomes even when the user requested cancellation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Carry the prepared protected tree copy in the worker script. | Keep the verified request alive through queue admission. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Mark explicitly permanent single-file delete operations. | Keep Shell recycling outside the UAC delete pilot. | | GPT-6.1 Sol (Codex) |
@@ -405,6 +406,7 @@ public:
     BOOL InvertRecycleBin;   // invert Recycle Bin usage
     BOOL AllowPermanentDeletePilot;
     BOOL AllowTransferPilot;
+    BOOL IgnoreTransferAds;
     std::unique_ptr<UacF7::PreparedTransfer> ProtectedTreeTransfer;
 
     int FilesCount;

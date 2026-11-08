@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Route the main-stream-only copy over the authenticated broker. | Negotiate the new request and retain all existing copy validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Advertise support for basic directory attributes. | Match the host and broker before offering a metadata write. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Pin directory timestamp requests before consent. | Verify the visible directory and its volume-relative identity. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Send tree cancellation without giving up the authenticated reply. | Resolve cancellation races using the broker result. | | GPT-6.1 Sol (Codex) |
@@ -89,10 +90,11 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD cancelTreeCapability = 512;
 [[maybe_unused]] constexpr DWORD directoryTimesCapability = 1024;
 [[maybe_unused]] constexpr DWORD directoryAttrsCapability = 2048;
+[[maybe_unused]] constexpr DWORD copyIgnoreAdsCapability = 4096;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
                                                  inventoryCapability | copyTreeCapability | cancelTreeCapability |
-                                                 directoryTimesCapability | directoryAttrsCapability;
+                                                 directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -764,7 +766,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool setMetadata = header.operation == Operation::Metadata;
     const bool deleteFile = header.operation == Operation::Delete;
     const bool list = header.operation == Operation::List;
-    const bool copy = header.operation == Operation::Copy;
+    const bool copy = UacF7::IsFileCopy(header.operation);
     const bool move = header.operation == Operation::Move;
     const bool tree = header.operation == Operation::CopyTree;
     const bool transfer = copy || move || tree;
@@ -905,7 +907,10 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 deadline = copyDeadline + timeoutMs;
                 result = UacCopyLeaf::CopyVerifiedFile(parent.get(), expected, sourceIdentity, leaf,
                                                        targetParent.get(), expectedTarget, targetLeaf,
-                                                       nullptr, pipe, copyDeadline, header.copySize);
+                                                       nullptr, pipe, copyDeadline, header.copySize,
+                                                       header.operation == Operation::CopyIgnoreAds
+                                                           ? UacCopyLeaf::StreamPolicy::IgnoreNamed
+                                                           : UacCopyLeaf::StreamPolicy::RequireDefault);
             }
         }
     }
@@ -1174,10 +1179,11 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
             return IoError(L"Send request", error);
 
         const bool tree = request->operation == Operation::CopyTree;
-        if (request->operation == Operation::Copy || tree)
+        const bool copy = UacF7::IsFileCopy(request->operation);
+        if (copy || tree)
             deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
         error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline, tree ? cancel : nullptr);
-        if (!error && (request->operation == Operation::Copy || request->operation == Operation::Move || tree))
+        if (!error && (copy || request->operation == Operation::Move || tree))
         {
             // The authenticated reply is sent only after the operation handles close.
             result->error = operationError;
@@ -1388,10 +1394,11 @@ Result PreparedLeaf::Execute(HWND owner) const
 }
 
 bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstring& targetPath,
-                               ULONGLONG expectedSize, bool moving)
+                               ULONGLONG expectedSize, Operation operation)
 {
-    if ((!moving && expectedSize > maxPilotCopyBytes) ||
-        !source.PrepareTarget(sourcePath, moving ? Operation::Move : Operation::Copy, {}, nullptr) ||
+    const bool moving = operation == Operation::Move;
+    if ((!moving && (!IsFileCopy(operation) || expectedSize > maxPilotCopyBytes)) ||
+        !source.PrepareTarget(sourcePath, operation, {}, nullptr) ||
         !target.Prepare(targetPath))
         return false;
     if (moving && (source.serial != target.serial || !UacDirectoryLeaf::Equal(source.volume, target.volume)))

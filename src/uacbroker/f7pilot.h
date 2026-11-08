@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Define a distinct copy command that skips named streams. | Keep the selected data policy bound to the authorized request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Expose whether the metadata request includes attributes. | Keep time-only consent text specific. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Expose the directory timestamp request type. | Let the prompt describe the correct item. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Carry explicit tree consent and an optional cancellation event. | Let the worker execute while the dialog stays responsive. | | GPT-6.1 Sol (Codex) |
@@ -24,7 +25,12 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9 };
+
+inline bool IsFileCopy(Operation operation)
+{
+    return operation == Operation::Copy || operation == Operation::CopyIgnoreAds;
+}
 
 constexpr ULONGLONG maxPilotCopyBytes = 16 * 1024 * 1024;
 constexpr DWORD plainCopyAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE |
@@ -93,11 +99,12 @@ private:
 class PreparedTransfer
 {
 public:
-    bool Prepare(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize, bool moving);
+    bool Prepare(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize, Operation operation);
     bool PrepareTree(const std::wstring& sourcePath, std::wstring_view targetDirectory, std::wstring& destination);
     Result Execute(HWND owner, HANDLE cancel = nullptr) const;
     bool IsMove() const { return source.operation == Operation::Move; }
     bool IsTree() const { return source.operation == Operation::CopyTree; }
+    bool IgnoresAds() const { return source.operation == Operation::CopyIgnoreAds; }
 
 private:
     PreparedLeaf source;

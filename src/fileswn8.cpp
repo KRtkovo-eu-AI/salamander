@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Capture the selected Ignore ADS option for one-file F5. | Limit the broker option to an explicit copy choice. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Accept explicit directory timestamp preservation in protected F5. | The registered tree copy already restores directory times. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use nonthrowing allocation for the protected F5 pilot. | Make the low-memory checks match allocation behavior. | https://github.com/majklvi/salamander/runs/128721425272 | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Submit protected F5 tree copies to the operation queue. | Wait for admission before asking for administrator consent. | | GPT-6.1 Sol (Codex) |
@@ -1490,6 +1491,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     script->AllowTransferPilot = (type == atCopy || type == atMove) && watchDiskTarget && !copyToSelectedDirs &&
                                              !IsBranchView() && !target->IsBranchView() && dirs == 0 && count <= 1 &&
                                              conflictMode == CMCM_CURRENT;
+                    script->IgnoreTransferAds = type == atCopy && criteriaPtr != NULL && criteriaPtr->IgnoreADS;
 
                     char* auxTargetPath = NULL;
                     if (type == atCopy || type == atMove)

@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Explain the main-stream-only copy in its consent prompt. | Tell the user which data will be copied. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the folder attribute change. | Identify the selected folder and report an uncertain outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the directory timestamp operation. | Explain consent and uncertainty for a folder. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use plain inventory labels. | Keep translations out of format-string arguments. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
@@ -2375,6 +2376,7 @@ STRINGTABLE
  IDS_UAC_LIST_CONFIRM, "Access was denied. List this folder and its subfolders as an administrator?"
  IDS_UAC_LIST_ACTIVE, "Administrator listing"
  IDS_UAC_COPY_CONFIRM, "Access was denied. Copy this file as an administrator?"
+ IDS_UAC_COPY_IGNORE_ADS_CONFIRM, "Access was denied. Copy this file without its alternate data streams as an administrator?"
  IDS_UAC_COPY_UNKNOWN, "The broker disconnected before the copy was confirmed. Check the destination before retrying."
  IDS_UAC_MOVE_CONFIRM, "Access was denied. Move this file as an administrator?"
  IDS_UAC_MOVE_UNKNOWN, "The broker disconnected before the move was confirmed. Check the source and destination before retrying."

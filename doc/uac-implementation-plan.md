@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Document P5d explicit Ignore ADS for protected F5. | Record stream handling in the broker and the VM checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document P5c basic directory attributes. | Track bounded Ctrl+F2 changes and their verification. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document P5b directory time preservation in protected F5. | Record the explicit option and its pilot limits. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document P5a directory timestamps and local validation. | Track the first bounded metadata extension after the transfer pilots. | | GPT-6.1 Sol (Codex) |
@@ -560,6 +561,14 @@ Pilot P5a nyní přijímá také příznaky Archiv, Jen pro čtení, Skrytý a S
 Lokálně prošlo sestavení x64 Debug, 127 nativních kontrol v Debug i Release a testy transportu brokeru, plánování kopírování a konverzních tabulek. Testy ověřily nastavení a odebrání všech čtyř příznaků, nezávislou změnu času, zachování vnořeného souboru a odmítnutí komprese, záměny složky, změněných atributů i junction.
 
 V izolované Windows 11 VM zobrazil Ctrl+F2 nabídku správce se štítem a přesnou cestou. Po volbě Ne u složky 01-cancel zůstaly atributy i časy původní. Po volbě Ano u 02-approve měla složka příznak Archiv a čas poslední změny 2026-11-08 14:54:59 místního času, přesně podle dialogu. Čas vytvoření složky, atributy a časy poslední změny obou vnořených testovacích souborů zůstaly zachovány. Kontrola také potvrdila otisky instalovaných binárek.
+
+### 8.29 P5d — kopie hlavního proudu přes F5 s volbou Ignore ADS
+
+Volba Ignore alternate data streams (ADS) je dostupná pro jednu běžnou kopii F5 přes broker do volného názvu na místním NTFS. Samandarin použije samostatný typ požadavku a v nabídce správce zobrazí obě cesty i informaci o vynechání alternativních proudů. Broker přeskočí výpis pojmenovaných proudů, kopíruje hlavní proud a ponechá zdroj zachovaný. Nadále ověřuje identitu, očekávanou velikost, přípustné atributy, rozšířené atributy a nepřítomnost kolize. Výchozí režim odmítá zdroj s ADS. Přenos obsahu ADS, přesun F6 a kopie celých stromů patří do samostatných případů. [Datové proudy NTFS](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams).
+
+Lokálně prošlo sestavení x64 Debug, všech 128 nativních kontrol v Debug i Release, test transportu a test plánování. Nativní zkouška ověřila odmítnutí ADS ve výchozím režimu a výslovnou kopii hlavního proudu se zachováním obou proudů zdroje.
+
+V izolované Windows 11 VM Computer Use ověřil aktivní volbu a nabídku správce se štítem. Po volbě Ano pro 01-ignore-approve.txt měl cíl shodný SHA-256 hlavního proudu a obsahoval právě hlavní proud. Pojmenovaný proud zdroje měl původní obsah. Při výchozím F5 pro 02-default-strict.txt běžná cesta skončila chybou 5 bez nabídky správce. Druhý cíl nevznikl a jeho zdrojový ADS zůstal zachovaný. V cílové složce nezůstal pracovní soubor a otisky pilotního sestavení souhlasily.
 
 ## 9. Uživatelský tok a stav operace
 

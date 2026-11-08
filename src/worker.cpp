@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Select the typed main-stream-only copy request. | Keep default copy and move strict about named streams. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow a basic attribute update for a selected directory. | Preserve the item type and the existing single-item limits. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route directory timestamps through the basic metadata worker. | Use the broker only for a single nonrecursive time-only request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Execute consented tree transfers on the worker thread. | Keep the dialog available for cancellation until the broker replies. | | GPT-6.1 Sol (Codex) |
@@ -495,6 +496,7 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     InvertRecycleBin = FALSE;
     AllowPermanentDeletePilot = FALSE;
     AllowTransferPilot = FALSE;
+    IgnoreTransferAds = FALSE;
     CanUseRecycleBin = TRUE;
     SameRootButDiffVolume = FALSE;
     TargetPathSupADS = FALSE;
@@ -5632,8 +5634,10 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     if (targetError != ERROR_FILE_NOT_FOUND && targetError != ERROR_ACCESS_DENIED)
         return false;
 
+    const auto operation = moving ? UacF7::Operation::Move
+                                  : (script.IgnoreTransferAds ? UacF7::Operation::CopyIgnoreAds : UacF7::Operation::Copy);
     UacF7::PreparedTransfer request;
-    if (!request.Prepare(op.SourceNameW, op.TargetNameW, op.FileSize.Value, moving))
+    if (!request.Prepare(op.SourceNameW, op.TargetNameW, op.FileSize.Value, operation))
         return false;
     success = FALSE;
     WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);

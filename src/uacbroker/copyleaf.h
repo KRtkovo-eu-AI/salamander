@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Allow explicitly omitting named data streams from one file copy. | Retain extended-attribute and file identity checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check tree cancellation while copying staged data. | Stop before publishing the staged tree. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Apply tree staging integrity before copying bytes. | Keep the one-file path unchanged and verify protection on staged files. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share copying from a held file handle. | Let tree staging pin source handles and journal created file identities. | | GPT-6.1 Sol (Codex) |
@@ -21,24 +22,29 @@ extern "C" NTSYSAPI NTSTATUS NTAPI NtQueryInformationFile(
 
 namespace UacCopyLeaf
 {
+enum class StreamPolicy { RequireDefault, IgnoreNamed };
+
 namespace Detail
 {
-inline DWORD CheckPlainStreamsAndEa(HANDLE file, bool directory)
+inline DWORD CheckPlainStreamsAndEa(HANDLE file, bool directory, StreamPolicy policy)
 {
-    alignas(LONGLONG) BYTE streamBuffer[1024]{};
-    if (GetFileInformationByHandleEx(file, FileStreamInfo, streamBuffer, sizeof(streamBuffer)))
+    if (policy == StreamPolicy::RequireDefault)
     {
-        const auto& stream = *reinterpret_cast<const FILE_STREAM_INFO*>(streamBuffer);
-        constexpr std::wstring_view defaultStream = L"::$DATA";
-        if (directory || stream.NextEntryOffset || stream.StreamNameLength != defaultStream.size() * sizeof(wchar_t) ||
-            std::wstring_view(stream.StreamName, defaultStream.size()) != defaultStream)
-            return ERROR_NOT_SUPPORTED;
-    }
-    else
-    {
-        const DWORD error = GetLastError();
-        if (!directory || error != ERROR_HANDLE_EOF)
-            return error == ERROR_MORE_DATA || error == ERROR_INSUFFICIENT_BUFFER ? ERROR_NOT_SUPPORTED : error;
+        alignas(LONGLONG) BYTE streamBuffer[1024]{};
+        if (GetFileInformationByHandleEx(file, FileStreamInfo, streamBuffer, sizeof(streamBuffer)))
+        {
+            const auto& stream = *reinterpret_cast<const FILE_STREAM_INFO*>(streamBuffer);
+            constexpr std::wstring_view defaultStream = L"::$DATA";
+            if (directory || stream.NextEntryOffset || stream.StreamNameLength != defaultStream.size() * sizeof(wchar_t) ||
+                std::wstring_view(stream.StreamName, defaultStream.size()) != defaultStream)
+                return ERROR_NOT_SUPPORTED;
+        }
+        else
+        {
+            const DWORD error = GetLastError();
+            if (!directory || error != ERROR_HANDLE_EOF)
+                return error == ERROR_MORE_DATA || error == ERROR_INSUFFICIENT_BUFFER ? ERROR_NOT_SUPPORTED : error;
+        }
     }
 
     IO_STATUS_BLOCK io{};
@@ -50,13 +56,14 @@ inline DWORD CheckPlainStreamsAndEa(HANDLE file, bool directory)
     return eaSize ? ERROR_NOT_SUPPORTED : ERROR_SUCCESS;
 }
 
-inline DWORD ReadPlainMetadata(HANDLE file, FILE_BASIC_INFO& basic, bool directory = false)
+inline DWORD ReadPlainMetadata(HANDLE file, FILE_BASIC_INFO& basic, bool directory = false,
+                              StreamPolicy policy = StreamPolicy::RequireDefault)
 {
     if (!GetFileInformationByHandleEx(file, FileBasicInfo, &basic, sizeof(basic)))
         return GetLastError();
     if (directory ? basic.FileAttributes != FILE_ATTRIBUTE_DIRECTORY : !UacF7::IsPlainCopyFile(basic.FileAttributes))
         return ERROR_NOT_SUPPORTED;
-    return CheckPlainStreamsAndEa(file, directory);
+    return CheckPlainStreamsAndEa(file, directory, policy);
 }
 
 inline bool SameBasicMetadata(const FILE_BASIC_INFO& first, const FILE_BASIC_INFO& second)
@@ -130,9 +137,10 @@ inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
 inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_view targetName,
                             HANDLE cancel, HANDLE connection, ULONGLONG deadline, ULONGLONG expectedSize,
                             FILE_BASIC_INFO& basic, FILE_ID_INFO* created = nullptr,
-                            const UacCopyTree::Detail::StageProtection* protection = nullptr)
+                            const UacCopyTree::Detail::StageProtection* protection = nullptr,
+                            StreamPolicy policy = StreamPolicy::RequireDefault)
 {
-    DWORD error = ReadPlainMetadata(source, basic);
+    DWORD error = ReadPlainMetadata(source, basic, false, policy);
     if (error)
         return error;
     LARGE_INTEGER size{};
@@ -158,7 +166,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return error;
 
     FILE_BASIC_INFO current{};
-    if ((error = ReadPlainMetadata(source, current)) != ERROR_SUCCESS)
+    if ((error = ReadPlainMetadata(source, current, false, policy)) != ERROR_SUCCESS)
         return error;
     if (!SameBasicMetadata(basic, current))
         return ERROR_FILE_INVALID;
@@ -193,7 +201,8 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
                               HANDLE targetParent, const UacDirectoryLeaf::ParentIdentity& expectedTargetParent,
                               std::wstring_view targetName, HANDLE cancel = nullptr,
                               HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG,
-                              ULONGLONG expectedSize = MAXULONGLONG)
+                              ULONGLONG expectedSize = MAXULONGLONG,
+                              StreamPolicy policy = StreamPolicy::RequireDefault)
 {
     using namespace UacDirectoryLeaf;
     if (!IsComponent(sourceName) || !IsComponent(targetName))
@@ -226,6 +235,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
     if (!UacRenameLeaf::Detail::SameSource(actualSource, expectedSource))
         return ERROR_FILE_INVALID;
     FILE_BASIC_INFO basic{};
-    return Detail::CopyOpenedFile(source.get(), targetParent, targetName, cancel, connection, deadline, expectedSize, basic);
+    return Detail::CopyOpenedFile(source.get(), targetParent, targetName, cancel, connection, deadline,
+                                  expectedSize, basic, nullptr, nullptr, policy);
 }
 }
