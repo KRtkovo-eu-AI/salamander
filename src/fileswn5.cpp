@@ -5,6 +5,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Offer explicit editor elevation on protected F4. | Open the original with the configured editor under explicit Windows consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer one-file protected F3 in the internal viewer. | Request consent only after the ordinary local open is denied. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Name junctions in the protected rename prompt. | Use the verified broker request to describe the object to the user. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer elevation for one directory symbolic link. | Reuse the link-specific prompt in F2 and Quick Rename. | | GPT-6.1 Sol (Codex) |
@@ -2360,6 +2361,20 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
     return success;
 }
 
+static bool NeedsAdministratorForEdit(const std::wstring& path)
+{
+    if (path.size() <= 3 || path[1] != L':' || GetDriveTypeW(path.substr(0, 3).c_str()) != DRIVE_FIXED)
+        return false;
+    const auto ioPath = SalPathAddExtendedPrefixW(path.c_str());
+    HANDLE file = HANDLES_Q(CreateFileW(ioPath.c_str(), FILE_WRITE_DATA,
+                                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                      OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    if (file == INVALID_HANDLE_VALUE)
+        return GetLastError() == ERROR_ACCESS_DENIED;
+    HANDLES(CloseHandle(file));
+    return false;
+}
+
 void CFilesWindow::EditFile(char* name, DWORD handlerID)
 {
     CALL_STACK_MESSAGE3("CFilesWindow::EditFile(%s, %u)", name, handlerID);
@@ -2369,10 +2384,14 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
         return;
     }
 
+    const bool panelF4 = name == NULL && Is(ptDisk) && !IsBranchView() && handlerID == 0xFFFFFFFF;
+    const bool deferredPathCheck = panelF4 && ProtectedListing &&
+                                   ProtectedListing->Contains(SalPathRemoveExtendedPrefixW(GetPathW()));
+    std::wstring protectedCandidate;
     // verify that the file is on an accessible path
     if (name == NULL)
     {
-        if (CheckPath(TRUE) != ERROR_SUCCESS)
+        if (!deferredPathCheck && CheckPath(TRUE) != ERROR_SUCCESS)
             return;
     }
     else
@@ -2400,6 +2419,9 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
             if (Is(ptDisk))
             {
                 const std::wstring wideName = GetItemFullPathW(*f);
+                if (panelF4 && !(f->Attr & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
+                                           FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_OFFLINE)))
+                    protectedCandidate = SalPathRemoveExtendedPrefixW(wideName.c_str());
                 unicodeDiskFileName = SalWideToMultiBytePath(wideName.c_str(), CP_UTF8);
                 if (unicodeDiskFileName.empty())
                     return;
@@ -2512,6 +2534,27 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
                 SalMessageBoxEx(&params);
                 return;
             }
+
+            if (NeedsAdministratorForEdit(protectedCandidate))
+            {
+                UacF7::ElevatedEditor elevated;
+                if (!elevated.Prepare(Salamander::ViewerPaths::Decode(expCommand.Data())))
+                {
+                    SalMessageBox(HWindow, LoadStr(IDS_UAC_EDIT_ADMIN_UNTRUSTED), LoadStr(IDS_UAC_EDIT_ADMIN_TITLE),
+                                  MB_OK | MB_ICONEXCLAMATION);
+                    return;
+                }
+                const std::wstring details = protectedCandidate + L"\n\n" + elevated.GetExecutable();
+                if (ConfirmProtectedRead(HWindow, IDS_UAC_EDIT_ADMIN_TITLE, IDS_UAC_EDIT_ADMIN_CONFIRM, details))
+                {
+                    const DWORD error = elevated.Launch(HWindow, protectedCandidate);
+                    if (error && error != ERROR_CANCELLED)
+                        SalMessageBox(HWindow, GetErrorText(error), LoadStr(IDS_UAC_EDIT_ADMIN_TITLE), MB_OK | MB_ICONEXCLAMATION);
+                }
+                return;
+            }
+            if (deferredPathCheck && CheckPath(TRUE) != ERROR_SUCCESS)
+                return;
 
             STARTUPINFO si;
             PROCESS_INFORMATION pi;

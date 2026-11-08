@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify installed editors for host-side runas. | Keep the executable and its directory chain pinned across consent. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Return validated detailed size results over the listing pipe. | Keep ordinary listing and logical inventory replies unchanged. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Return one bounded viewer snapshot on the authenticated pipe. | Send complete read-only bytes without transferring file or process handles. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate and dispatch an explicit security copy. | Use the protected-object checks and strict stream policy. | | GPT-6.1 Sol (Codex) |
@@ -1519,6 +1520,116 @@ Result PreparedLeaf::ReadViewerSnapshot(HWND owner, std::vector<BYTE>& snapshot)
     std::wstring payload = volume + relative + leaf;
     RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, nullptr, &snapshot);
     return result;
+}
+
+ElevatedEditor::~ElevatedEditor()
+{
+    for (HANDLE handle : pinned)
+        CloseHandle(handle);
+}
+
+bool ElevatedEditor::Prepare(const std::wstring& command)
+{
+    if (!pinned.empty())
+        return false;
+    std::wstring resolved;
+    std::wstring_view path(command);
+    if (path.size() >= 2 && path.front() == L'"' && path.back() == L'"')
+        path = path.substr(1, path.size() - 2);
+    if (UacDirectoryLeaf::Equal(path, L"notepad.exe"))
+    {
+        // The built-in default uses a bare name. Resolve it without PATH or the document directory.
+        PWSTR windows = nullptr;
+        if (FAILED(SHGetKnownFolderPath(FOLDERID_Windows, KF_FLAG_DEFAULT_PATH, nullptr, &windows)))
+            return false;
+        const std::unique_ptr<wchar_t, decltype(&CoTaskMemFree)> folder(windows, CoTaskMemFree);
+        resolved = std::wstring(folder.get()) + L"\\notepad.exe";
+        path = resolved;
+    }
+    if (path.size() < 8 || path[1] != L':' || path[2] != L'\\' ||
+        path.find(L'"') != std::wstring_view::npos ||
+        !UacDirectoryLeaf::Equal(path.substr(path.size() - 4), L".exe"))
+        return false;
+
+    std::wstring root;
+    for (const KNOWNFOLDERID* folder : {&FOLDERID_Windows, &FOLDERID_ProgramFiles, &FOLDERID_ProgramFilesX86,
+                                      &FOLDERID_ProgramFilesX64})
+    {
+        PWSTR raw = nullptr;
+        if (FAILED(SHGetKnownFolderPath(*folder, KF_FLAG_DEFAULT_PATH, nullptr, &raw)))
+            continue;
+        const std::wstring candidate(raw);
+        CoTaskMemFree(raw);
+        if (path.size() > candidate.size() && path[candidate.size()] == L'\\' &&
+            UacDirectoryLeaf::Equal(path.substr(0, candidate.size()), candidate))
+        {
+            root = candidate;
+            break;
+        }
+    }
+    if (root.size() < 3 || GetDriveTypeW(root.substr(0, 3).c_str()) != DRIVE_FIXED)
+        return false;
+    auto parent = Adopt(CreateFileW(root.c_str(), FILE_READ_ATTRIBUTES | FILE_TRAVERSE | READ_CONTROL,
+                                    FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+                                    FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, nullptr));
+    if (!parent || !ProtectedObject(parent.get(), true))
+        return false;
+    std::vector<Handle> verified;
+    verified.push_back(std::move(parent));
+
+    auto relative = path.substr(root.size() + 1);
+    size_t separator = relative.find(L'\\');
+    while (separator != std::wstring_view::npos)
+    {
+        const auto component = relative.substr(0, separator);
+        if (!UacDirectoryLeaf::IsComponent(component) || verified.size() == 32)
+            return false;
+        HANDLE raw = nullptr;
+        if (UacDirectoryLeaf::Detail::NativeDirectory(verified.back().get(), component, FILE_OPEN, raw,
+                                                        READ_CONTROL, nullptr, FILE_SHARE_READ | FILE_SHARE_WRITE))
+            return false;
+        auto child = Adopt(raw);
+        if (!ProtectedObject(child.get(), true))
+            return false;
+        verified.push_back(std::move(child));
+        relative.remove_prefix(separator + 1);
+        separator = relative.find(L'\\');
+    }
+    if (!UacDirectoryLeaf::IsComponent(relative))
+        return false;
+    HANDLE raw = nullptr;
+    if (UacRenameLeaf::Detail::OpenSource(verified.back().get(), relative, raw, FILE_READ_DATA | READ_CONTROL, FILE_SHARE_READ))
+        return false;
+    auto image = Adopt(raw);
+    if (!ProtectedObject(image.get(), false))
+        return false;
+    verified.push_back(std::move(image));
+
+    executable.assign(path);
+    directory.assign(path.substr(0, path.rfind(L'\\')));
+    pinned.reserve(verified.size());
+    for (auto& handle : verified)
+        pinned.push_back(handle.release());
+    return true;
+}
+
+DWORD ElevatedEditor::Launch(HWND owner, const std::wstring& document) const
+{
+    if (pinned.empty() || document.empty() || document.find(L'"') != std::wstring::npos)
+        return ERROR_INVALID_PARAMETER;
+    const std::wstring arguments = L"\"" + document + L"\"";
+    const ComApartment com;
+    if (FAILED(com.result))
+        return ERROR_GEN_FAILURE;
+    SHELLEXECUTEINFOW launch{sizeof(launch)};
+    launch.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
+    launch.hwnd = owner;
+    launch.lpVerb = L"runas";
+    launch.lpFile = executable.c_str();
+    launch.lpParameters = arguments.c_str();
+    launch.lpDirectory = directory.c_str();
+    launch.nShow = SW_SHOWNORMAL;
+    return ShellExecuteExW(&launch) ? ERROR_SUCCESS : GetLastError();
 }
 
 bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstring& targetPath,

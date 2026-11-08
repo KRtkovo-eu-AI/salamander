@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Identify the executable and document before administrator editing. | Make the scope of the Windows prompt clear. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the protected size operation in the consent prompt. | Cover both logical and detailed size calculations. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Label unmeasured values in the full size dialog. | Distinguish an unavailable value from a zero measurement. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain protected viewer snapshots. | Keep the read-only scope and size limit visible. | | GPT-6.1 Sol (Codex) |
@@ -2404,6 +2405,9 @@ STRINGTABLE
  IDS_UAC_VIEW_SNAPSHOT, "Administrator snapshot"
  IDS_UAC_VIEW_REFRESH, "This is a read-only snapshot. Use F3 from the panel to request a new snapshot."
  IDS_UAC_VIEW_UNAVAILABLE, "The protected file could not be opened in the internal viewer."
+ IDS_UAC_EDIT_ADMIN_TITLE, "Edit as Administrator"
+ IDS_UAC_EDIT_ADMIN_CONFIRM, "Access was denied. Open the original file with the configured editor as an administrator? Windows will request permission for the editor shown below."
+ IDS_UAC_EDIT_ADMIN_UNTRUSTED, "Administrator mode requires an editor executable in a protected Windows or Program Files directory."
  IDS_UAC_SIZE_NOT_AVAILABLE, "Not available"
  IDS_UAC_COPY_CONFIRM, "Access was denied. Copy this file and its alternate data streams as an administrator?"
  IDS_UAC_COPY_IGNORE_ADS_CONFIRM, "Access was denied. Copy this file without its alternate data streams as an administrator?"

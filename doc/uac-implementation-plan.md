@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record explicit administrator editing on F4. | Document the original-file flow, editor validation, and pilot checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record detailed protected Ctrl+Q measurements. | Verify the existing occupied-space dialog and editable estimate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Keep protected totals in the full Ctrl+Q dialog. | Use identical geometry and controls for both access modes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record protected F3 viewer snapshots and compact size results. | Describe the single-file authorization and VM checks. | | GPT-6.1 Sol (Codex) |
@@ -724,6 +725,16 @@ Ctrl+Q požádá v již schválené relaci o podrobný výpis metadat. Broker se
 Lokálně prošlo sestavení x64 Debug, 186 nativních kontrol v Debug i Release, transport brokeru a regrese diskových operací, Findu a konverzních tabulek. Zkoušky porovnaly běžné a chráněné měření komprimovaného a řídkého souboru a ověřily logické velikosti všech položek včetně prázdného souboru.
 
 V izolované Windows 11 VM ukázal jediný schválený Ctrl+Q společný výsledek dostupné a chráněné části. Dva soubory měly dohromady 18 logických i komprimovaných bajtů a zabraly 8 192 bajtů. Výchozí odhad při 4 096 bajtech na cluster byl 8 192 bajtů. Po zadání 512 bajtů se odhad změnil na 1 024 bajtů a naměřené obsazené místo zůstalo 8 192 bajtů.
+
+### 8.45 P6e — editor jako správce přes F4
+
+Pokud běžný pokus otevřít jeden lokální soubor pro zápis skončí odepřením přístupu, F4 nabídne spuštění nakonfigurovaného editoru jako správce přímo nad originálem. Dialog ukáže cestu k souboru i editoru, má tlačítko se štítem a výchozí volbu Cancel. Windows zpracuje souhlas pro editor pomocí `ShellExecuteExW` s verbem `runas`. Samandarin dál běží s běžnými právy. Zápis provádí editor a řídí se jeho způsobem ukládání. Zkouška pracovní kopie vedla k této přímé variantě. Přepis originálu přes broker zůstává oddělený od P6e a nadále podléhá závěrům P4m. [Spuštění aplikace pomocí ShellExecute](https://learn.microsoft.com/en-us/windows/win32/shell/launch)
+
+Při elevaci je přípustný ověřený spustitelný soubor v chráněné složce Windows nebo Program Files. Výchozí `notepad.exe` se vyhledá přímo ve složce Windows. Host ověřuje oprávnění a drží otevřené handly ke spustitelnému souboru a adresářům do návratu ze spuštění. Editor dostane jediný argument s absolutní cestou k originálu a pracovní adresář editoru. Běžná konfigurace argumentů a pracovního adresáře se uplatní v běžném F4.
+
+Lokálně prošlo sestavení x64 Debug, 186 nativních kontrol v každé z konfigurací Debug a Release, transport brokeru, regrese akcí Branch View a kontrakty Findu.
+
+V izolované Windows 11 VM se po volbě Ano otevřel chráněný originál v Poznámkovém bloku a Ctrl+S uložil kontrolní řádek přímo do něj. Po zrušení druhé systémové výzvy se Samandarin vrátil do panelu a druhý originál měl původní SHA-256. Třetí kontrolní soubor zůstal beze změny a otisky pilotních binárek odpovídaly sestavení.
 
 ## 9. Uživatelský tok a stav operace
 

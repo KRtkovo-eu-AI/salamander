@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Pin a trusted installed editor before an explicit F4 elevation. | Keep editor launch entirely on the host side. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare detailed read-only size results. | Keep logical file sizes separate from optional disk measurements. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare a one-file viewer snapshot request. | Bind the read-only data to one verified file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Distinguish EFS failures in the copy pilot. | Keep the existing ordinary EFS path and fail closed at the broker boundary. | | GPT-6.1 Sol (Codex) |
@@ -179,6 +180,24 @@ private:
     PreparedLeaf source;
     PreparedLeaf target;
     ULONGLONG size = 0;
+};
+
+class ElevatedEditor
+{
+public:
+    ElevatedEditor() = default;
+    ~ElevatedEditor();
+    ElevatedEditor(const ElevatedEditor&) = delete;
+    ElevatedEditor& operator=(const ElevatedEditor&) = delete;
+
+    bool Prepare(const std::wstring& executable);
+    const std::wstring& GetExecutable() const { return executable; }
+    DWORD Launch(HWND owner, const std::wstring& document) const;
+
+private:
+    std::wstring executable;
+    std::wstring directory;
+    std::vector<HANDLE> pinned;
 };
 
 struct TransferPrompt
