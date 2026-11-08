@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Use the shared staged-file exchange for ZIP writes. | Keep revision checks and journal lifecycle in the archive publisher. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Keep ZIP rollback scoped to the original archive name. | Remove parent-only recovery from the internal publication helper. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Restore an interrupted ZIP from its parent folder. | Derive the exact archive name from the verified journal. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Publish through the handle held throughout staging. | Verify the same original immediately before both renames. | | GPT-6.1 Sol (Codex) |
@@ -254,34 +255,16 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
         return {error};
     if ((error = WriteRecord(journal, record)) != ERROR_SUCCESS)
         return {error, ClearRecord(journal)};
-    if ((error = CheckTransferConnection(connection, deadline)) != ERROR_SUCCESS ||
-        (error = NativeRename(original.get(), parent, backupName)) != ERROR_SUCCESS)
-        return {error, ClearRecord(journal)};
+    const auto exchange = ReplaceStagedFile(parent, original.get(), stage, leaf, backupName, connection, deadline);
+    if (exchange.error)
+        return {exchange.error, exchange.rollbackError ? exchange.rollbackError : ClearRecord(journal)};
 
-    error = CheckTransferConnection(connection, deadline);
-    if (!error)
-        error = NativeRename(stage, parent, leaf);
-    if (!error)
-    {
-        FILE_DISPOSITION_INFO_EX keep{FILE_DISPOSITION_FLAG_ON_CLOSE};
-        if (SetFileInformationByHandle(stage, FileDispositionInfoEx, &keep, sizeof(keep)))
-        {
-            if (published)
-                *published = record.replacement;
-            DWORD cleanup = RemoveBackup(original.get());
-            original.reset();
-            if (!cleanup)
-                cleanup = ClearRecord(journal);
-            return {ERROR_SUCCESS, cleanup, true};
-        }
-
-        error = GetLastError();
-        // The stage still owns the name until it closes. Leave the journal
-        // and backup available to recover once delete-on-close has run.
-        return {error, ERROR_PARTIAL_COPY};
-    }
-
-    const DWORD rollback = NativeRename(original.get(), parent, leaf);
-    return {error, rollback ? rollback : ClearRecord(journal)};
+    if (published)
+        *published = record.replacement;
+    DWORD cleanup = RemoveBackup(original.get());
+    original.reset();
+    if (!cleanup)
+        cleanup = ClearRecord(journal);
+    return {ERROR_SUCCESS, cleanup, true};
 }
 }

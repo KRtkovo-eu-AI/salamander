@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Start the native overwrite work after ZIP acceptance. | Share the verified exchange before wiring disk conflicts. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record final protected ZIP acceptance. | Preserve disk, CRC, cancellation and disconnect evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Keep interrupted ZIP handling internal to the write. | Remove the standalone command and record the VM edit results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record ZIP recovery and the first acceptance results. | Track successful read and extraction and the diagnosed Windows ACL difference. | | GPT-6.1 Sol (Codex) |
@@ -558,6 +559,8 @@ Při proložené zkoušce si schválený handle ponechal původní ID, zatímco 
 V každé konfiguraci prošlo všech devět kontrol experimentu. Běžný běh nativní sady v Release prošel se 117 kontrolami. Pokus používal pouze dočasné testovací soubory a nevyžadoval novou výzvu UAC.
 
 P4m na commitu `499339b1` prošla sestavením Win32, x64 a ARM64, 214 testy, kontrolou růstu zdrojů a CodeQL bez nových nálezů. [Testy P4m](https://github.com/majklvi/salamander/actions/runs/42481818507/job/128735228970) · [Výsledek CodeQL](https://github.com/majklvi/salamander/runs/128739507797).
+
+**Nativní přepis po dokončení ZIPu.** Společná výměna připraveného souboru pracuje s ověřeným handlem původního cíle. Přesune jej na volný záložní název a zveřejní připravený soubor pod uvolněným názvem. Při kolizi nebo ztrátě spojení se pokusí vrátit původní soubor bez přepisu cizí položky. Zápis ZIPu používá tuto výměnu se stávajícím žurnálem. Dalším krokem je zachytit konkrétní konflikt v diskovém F5, připravit náhradu se zachováním sémantiky metadat cíle a napojit žurnál a výsledek na diskový worker. Běžné diskové F5 zatím tuto výměnu nepoužívá.
 
 ### 8.25 P4n — ověření odstranění zdroje po kopii na NTFS
 

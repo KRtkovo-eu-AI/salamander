@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise the shared file exchange on NTFS. | Verify deadline and backup-name collisions leave the original intact. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Test ZIP journal cleanup through the named archive. | Keep coverage of preserving the original on an interrupted write. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise protected ZIP selection output on NTFS. | Verify nested names, empty directories and all-or-nothing manifest validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Test restoring a missing ZIP by selecting its parent. | Match the recovery command after application restart. | | GPT-6.1 Sol (Codex) |
@@ -1130,6 +1131,25 @@ bool CheckZipUpdate(const std::wstring& fixture, HANDLE root)
     auto result = publish(stale);
     Check(result.error == ERROR_FILE_INVALID && !result.published && HasContents(path, {1, 2}),
           "reject a stale ZIP revision and retain the original", result.error);
+    const std::wstring occupiedBackup = folder + L"\\occupied.bak";
+    if (!WriteFixture(occupiedBackup, {7}))
+        return false;
+    {
+        auto original = open(DELETE);
+        if (!original)
+            return false;
+        const auto cancelled = UacRenameLeaf::Detail::ReplaceStagedFile(
+            parent.get(), original.get(), stage.get(), leaf, L"cancelled.bak", nullptr, 0);
+        Check(cancelled.error == ERROR_TIMEOUT && !cancelled.rollbackError &&
+              !Exists(folder + L"\\cancelled.bak"),
+              "abort the shared file exchange before moving the original", cancelled.error);
+        const auto collision = UacRenameLeaf::Detail::ReplaceStagedFile(
+            parent.get(), original.get(), stage.get(), leaf, L"occupied.bak", nullptr, MAXULONGLONG);
+        Check((collision.error == ERROR_ALREADY_EXISTS || collision.error == ERROR_FILE_EXISTS) &&
+              !collision.rollbackError && HasContents(occupiedBackup, {7}),
+              "preserve a competing backup name during staged replacement", collision.error);
+    }
+    Check(HasContents(path, {1, 2}), "failed exchanges leave the original at its name");
     result = publish(expected);
     stage.reset();
     Check(!result.error && !result.recoveryError && result.published && HasContents(path, {3, 4, 5}),

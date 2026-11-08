@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Share the no-replace exchange for staged file updates. | Preserve the verified original when a replacement collides or is interrupted. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Validate a junction before renaming it in place. | Accept a drive-letter junction without resolving it or accepting volume GUID mounts. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Rename a verified directory symbolic link in place. | Open the reparse object without traversing it and enforce the approved type. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Rename a verified file symbolic link in its current parent. | Keep the link target and all other reparse types out of the operation. | | GPT-6.1 Sol (Codex) |
@@ -174,6 +175,45 @@ inline DWORD CheckTransferConnection(HANDLE connection, ULONGLONG deadline, bool
         return ERROR_SUCCESS;
     return treeCopy && pending == sizeof(signal) && read == sizeof(signal) && signal == treeCancelSignal
                ? ERROR_CANCELLED : ERROR_INVALID_DATA;
+}
+
+struct StagedReplacement
+{
+    DWORD error;
+    DWORD rollbackError = ERROR_SUCCESS;
+};
+
+// The caller verifies the original and holds it against writes and deletes.
+// The stage is exclusive and delete-on-close. The caller records the backup
+// before invoking this exchange and retires it after successful publication.
+inline StagedReplacement ReplaceStagedFile(HANDLE parent, HANDLE original, HANDLE stage,
+                                           std::wstring_view leaf, std::wstring_view backup,
+                                           HANDLE connection, ULONGLONG deadline)
+{
+    if (!UacDirectoryLeaf::IsComponent(leaf) || !UacDirectoryLeaf::IsComponent(backup) ||
+        UacDirectoryLeaf::Equal(leaf, backup))
+        return {ERROR_INVALID_NAME};
+
+    DWORD error = CheckTransferConnection(connection, deadline);
+    if (!error)
+        error = NativeRename(original, parent, backup);
+    if (error)
+        return {error};
+
+    error = CheckTransferConnection(connection, deadline);
+    if (!error)
+        error = NativeRename(stage, parent, leaf);
+    if (error)
+        return {error, NativeRename(original, parent, leaf)};
+
+    FILE_DISPOSITION_INFO_EX keep{FILE_DISPOSITION_FLAG_ON_CLOSE};
+    if (!SetFileInformationByHandle(stage, FileDispositionInfoEx, &keep, sizeof(keep)))
+    {
+        // The stage still owns the name until it closes. Leave the backup
+        // and its journal so the caller can handle the interrupted exchange.
+        return {GetLastError(), ERROR_PARTIAL_COPY};
+    }
+    return {ERROR_SUCCESS};
 }
 
 inline bool SameSource(const FILE_ID_INFO& actual, const FILE_ID_INFO& expected)
