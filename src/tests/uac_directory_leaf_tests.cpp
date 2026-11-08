@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise mandatory integrity on staged tree objects. | Check Windows access decisions and preserve destination DACL inheritance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise bounded NTFS tree copying. | Verify whole-tree publication and rollback of owned temporary entries. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise source manifest revalidation on NTFS. | Detect replacements and new entries even when a size summary would miss them. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check strict recursive inventory on NTFS. | Verify Unicode contents and suppress results on timeout or reparse entries. | | GPT-6.1 Sol (Codex) |
@@ -90,7 +91,199 @@ void Check(bool passed, const char* label, DWORD error = 0)
         ++failures;
 }
 
-bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent)
+bool ReadDacl(const std::wstring& path, PACL& acl, PSECURITY_DESCRIPTOR& descriptor)
+{
+    return GetNamedSecurityInfoW(path.c_str(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr, &acl,
+                                 nullptr, &descriptor) == ERROR_SUCCESS && acl;
+}
+
+bool SameInheritedDacl(const std::wstring& reference, const std::wstring& copied)
+{
+    PACL first = nullptr, second = nullptr;
+    PSECURITY_DESCRIPTOR rawFirst = nullptr, rawSecond = nullptr;
+    const bool haveFirst = ReadDacl(reference, first, rawFirst);
+    const std::unique_ptr<void, decltype(&LocalFree)> firstDescriptor(rawFirst, LocalFree);
+    const bool haveSecond = ReadDacl(copied, second, rawSecond);
+    const std::unique_ptr<void, decltype(&LocalFree)> secondDescriptor(rawSecond, LocalFree);
+    if (!haveFirst || !haveSecond || first->AceCount != second->AceCount)
+        return false;
+    SECURITY_DESCRIPTOR_CONTROL firstFlags{}, secondFlags{};
+    DWORD revision = 0;
+    if (!GetSecurityDescriptorControl(rawFirst, &firstFlags, &revision) ||
+        !GetSecurityDescriptorControl(rawSecond, &secondFlags, &revision) ||
+        ((firstFlags ^ secondFlags) & (SE_DACL_PROTECTED | SE_DACL_AUTO_INHERITED)))
+        return false;
+    bool inherited = false;
+    for (DWORD i = 0; i < first->AceCount; ++i)
+    {
+        void* a = nullptr;
+        void* b = nullptr;
+        if (!GetAce(first, i, &a) || !GetAce(second, i, &b))
+            return false;
+        const auto* firstAce = static_cast<const ACE_HEADER*>(a);
+        const auto* secondAce = static_cast<const ACE_HEADER*>(b);
+        if (firstAce->AceSize != secondAce->AceSize || std::memcmp(a, b, firstAce->AceSize) != 0)
+            return false;
+        inherited |= (firstAce->AceFlags & INHERITED_ACE) != 0;
+    }
+    return inherited;
+}
+
+Handle LowerIntegrityToken(bool high)
+{
+    HANDLE raw = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE, &raw))
+        return {};
+    const Handle processToken(raw);
+    if (high)
+    {
+        DWORD shellPid = 0;
+        GetWindowThreadProcessId(GetShellWindow(), &shellPid);
+        const Handle shell(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, shellPid));
+        if (!shell || !OpenProcessToken(shell.get(), TOKEN_QUERY | TOKEN_DUPLICATE, &raw))
+        {
+            Check(false, "open the interactive shell token", GetLastError());
+            return {};
+        }
+        const Handle filtered(raw);
+        struct UserBuffer
+        {
+            TOKEN_USER user;
+            BYTE sid[SECURITY_MAX_SID_SIZE];
+        } elevated{}, medium{};
+        struct LabelBuffer
+        {
+            TOKEN_MANDATORY_LABEL label;
+            BYTE sid[SECURITY_MAX_SID_SIZE];
+        } integrity{};
+        TOKEN_ELEVATION elevation{};
+        DWORD size = 0;
+        if (!GetTokenInformation(processToken.get(), TokenUser, &elevated, sizeof(elevated), &size) ||
+            !GetTokenInformation(filtered.get(), TokenUser, &medium, sizeof(medium), &size) ||
+            !GetTokenInformation(filtered.get(), TokenIntegrityLevel, &integrity, sizeof(integrity), &size) ||
+            !GetTokenInformation(filtered.get(), TokenElevation, &elevation, sizeof(elevation), &size))
+        {
+            Check(false, "read the interactive shell token identity and integrity", GetLastError());
+            return {};
+        }
+        const PSID label = integrity.label.Label.Sid;
+        if (!EqualSid(elevated.user.User.Sid, medium.user.User.Sid) || elevation.TokenIsElevated ||
+            *GetSidSubAuthorityCount(label) != 1 || *GetSidSubAuthority(label, 0) != SECURITY_MANDATORY_MEDIUM_RID)
+        {
+            Check(false, "the interactive shell must be unelevated at medium integrity under the same user");
+            return {};
+        }
+        if (!DuplicateTokenEx(filtered.get(), TOKEN_QUERY | TOKEN_IMPERSONATE, nullptr, SecurityImpersonation,
+                             TokenImpersonation, &raw))
+        {
+            Check(false, "duplicate the interactive shell token", GetLastError());
+            return {};
+        }
+        return Handle(raw);
+    }
+    if (!DuplicateTokenEx(processToken.get(), TOKEN_QUERY | TOKEN_IMPERSONATE | TOKEN_ADJUST_DEFAULT, nullptr,
+                         SecurityImpersonation, TokenImpersonation, &raw))
+        return {};
+    Handle lower(raw);
+    alignas(DWORD) BYTE sid[SECURITY_MAX_SID_SIZE]{};
+    DWORD size = sizeof(sid);
+    if (!CreateWellKnownSid(WinLowLabelSid, nullptr, sid, &size))
+        return {};
+    TOKEN_MANDATORY_LABEL label{{sid, SE_GROUP_INTEGRITY}};
+    if (!SetTokenInformation(lower.get(), TokenIntegrityLevel, &label, sizeof(label) + size))
+        return {};
+    return lower;
+}
+
+DWORD ProbeAccess(const std::wstring& path, DWORD desired, DWORD flags)
+{
+    const HANDLE raw = CreateFileW(path.c_str(), desired, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                   nullptr, OPEN_EXISTING, flags, nullptr);
+    if (raw == INVALID_HANDLE_VALUE)
+        return GetLastError();
+    CloseHandle(raw);
+    return ERROR_SUCCESS;
+}
+
+bool CheckStagingProtection(HANDLE target, const std::wstring& sourcePath,
+                            UacCopyTree::Detail::StageProtection& protection, bool high)
+{
+    using namespace UacCopyTree::Detail;
+    const DWORD protectionError = protection.Prepare(target);
+    if (protectionError)
+    {
+        Check(false, "prepare the protection probe", protectionError);
+        return false;
+    }
+    UacListing::SubtreeManifest manifest;
+    Stage stage(manifest);
+    const DWORD stageError = stage.Create(target, protection);
+    if (stageError)
+    {
+        Check(false, "create the protected staging probe", stageError);
+        return false;
+    }
+    std::wstring root(32768, L'\0');
+    const DWORD length = GetFinalPathNameByHandleW(stage.root.get(), root.data(), static_cast<DWORD>(root.size()), FILE_NAME_OPENED);
+    if (!length || length >= root.size())
+    {
+        Check(false, "read the staging probe path", GetLastError());
+        return false;
+    }
+    root.resize(length);
+    std::unique_ptr<void, decltype(&CloseHandle)> child(nullptr, CloseHandle);
+    const DWORD childError = OpenDirectory(stage.root.get(), L"child", child, READ_CONTROL | DELETE, FILE_CREATE,
+                                            protection.Directory());
+    if (childError)
+    {
+        Check(false, "create the nested staging probe", childError);
+        return false;
+    }
+    const HANDLE raw = CreateFileW(sourcePath.c_str(), FILE_READ_DATA | FILE_READ_EA | FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+                                   nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (raw == INVALID_HANDLE_VALUE)
+    {
+        Check(false, "open the staging probe source", GetLastError());
+        return false;
+    }
+    const ::Handle source(raw);
+    FILE_BASIC_INFO basic{};
+    const DWORD copyError = UacCopyLeaf::Detail::CopyOpenedFile(source.get(), child.get(), L"file.bin", nullptr, nullptr,
+                                                                 MAXULONGLONG, 6, basic, nullptr, &protection);
+    if (copyError)
+    {
+        Check(false, "copy a file into the staging probe", copyError);
+        return false;
+    }
+    const auto file = root + L"\\child\\file.bin";
+    const auto nested = root + L"\\child";
+    const ::Handle low = LowerIntegrityToken(high);
+    if (!low)
+        return false;
+    if (!SetThreadToken(nullptr, low.get()))
+    {
+        Check(false, "impersonate the lower-integrity token", GetLastError());
+        return false;
+    }
+    const DWORD listing = ProbeAccess(root, FILE_LIST_DIRECTORY, FILE_FLAG_BACKUP_SEMANTICS);
+    const DWORD childWrite = ProbeAccess(nested, FILE_ADD_FILE, FILE_FLAG_BACKUP_SEMANTICS);
+    const DWORD fileRead = ProbeAccess(file, GENERIC_READ, 0);
+    const DWORD fileWrite = ProbeAccess(file, GENERIC_WRITE, 0);
+    const DWORD fileAcl = ProbeAccess(file, WRITE_DAC, 0);
+    const DWORD deleteRoot = ProbeAccess(root, DELETE, FILE_FLAG_BACKUP_SEMANTICS);
+    if (!RevertToSelf())
+        return false;
+    Check(listing == ERROR_ACCESS_DENIED && childWrite == ERROR_ACCESS_DENIED && deleteRoot == ERROR_ACCESS_DENIED,
+          "lower-integrity token cannot list, add entries to, or delete the staging tree", childWrite);
+    Check(fileRead == ERROR_ACCESS_DENIED && fileWrite == ERROR_ACCESS_DENIED && fileAcl == ERROR_ACCESS_DENIED,
+          "lower-integrity token cannot read, write, or change the staged file DACL", fileAcl);
+    if (!DeleteFileW(file.c_str()) || Remove(child.get()))
+        return false;
+    child.reset();
+    return stage.Rollback() == ERROR_SUCCESS;
+}
+
+bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent, bool high)
 {
     using namespace UacDirectoryLeaf;
     const std::wstring source = fixture + L"\\tree-source";
@@ -100,7 +293,13 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent)
     const std::wstring longChild = nested + L"\\" + std::wstring(170, L'\u76ee');
     const std::wstring longLeaf = longChild + L"\\" + std::wstring(150, L'\u7dd1') + L".bin";
     const std::wstring published = target + L"\\published";
-    if (!CreateDirectoryW(source.c_str(), nullptr) || !CreateDirectoryW(target.c_str(), nullptr) ||
+    PSECURITY_DESCRIPTOR rawDescriptor = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(high ? L"S:(ML;OICI;NWNR;;;HI)" : L"S:(ML;OICI;NWNR;;;ME)", SDDL_REVISION_1,
+                                                               &rawDescriptor, nullptr))
+        return false;
+    const std::unique_ptr<void, decltype(&LocalFree)> targetDescriptor(rawDescriptor, LocalFree);
+    SECURITY_ATTRIBUTES security{sizeof(security), rawDescriptor, FALSE};
+    if (!CreateDirectoryW(source.c_str(), nullptr) || !CreateDirectoryW(target.c_str(), &security) ||
         !CreateDirectoryW((source + nested).c_str(), nullptr) ||
         !CreateDirectoryW((source + longChild).c_str(), nullptr) ||
         !CreateDirectoryW((source + L"\\empty").c_str(), nullptr) ||
@@ -124,7 +323,7 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent)
     if (OpenParentBelowRoot(parent, L"tree-source", rawSource, sourceId, FILE_LIST_DIRECTORY | FILE_READ_EA))
         return false;
     const Handle from(rawSource);
-    if (OpenParentBelowRoot(parent, L"tree-target", rawTarget, targetId, FILE_LIST_DIRECTORY))
+    if (OpenParentBelowRoot(parent, L"tree-target", rawTarget, targetId, FILE_LIST_DIRECTORY | READ_CONTROL))
         return false;
     const Handle to(rawTarget);
     const auto noStaging = [&]() {
@@ -137,7 +336,15 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent)
         return true;
     };
 
-    auto result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"published");
+    const auto copyTree = [high](HANDLE from, const ParentIdentity& fromId, HANDLE to, const ParentIdentity& toId,
+                             std::wstring_view name, HANDLE cancel = nullptr, HANDLE pipe = nullptr,
+                             ULONGLONG deadline = MAXULONGLONG) {
+        if (high)
+            return UacCopyTree::CopyVerifiedTree(from, fromId, to, toId, name, cancel, pipe, deadline);
+        UacCopyTree::Detail::StageProtection protection(false);
+        return UacCopyTree::Detail::CopyVerifiedTree(from, fromId, to, toId, name, protection, cancel, pipe, deadline);
+    };
+    auto result = copyTree(from.get(), sourceId, to.get(), targetId, L"published");
     Check(!result.error && !result.cleanupError && noStaging() &&
               HasContents(published + file, {4, 8, 15, 16, 23, 42}) && DirectoryExists(published + L"\\empty") &&
               HasContents(source + file, {4, 8, 15, 16, 23, 42}) && HasContents(published + longLeaf, {9}),
@@ -146,8 +353,42 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent)
     Check(GetFileAttributesExW((published + nested).c_str(), GetFileExInfoStandard, &copiedDirectory) &&
               CompareFileTime(&copiedDirectory.ftLastWriteTime, &modification) == 0,
           "preserve the last-write time of an ordinary nested directory");
+    const auto reference = target + L"\\reference";
+    if (!CreateDirectoryW(reference.c_str(), nullptr) || !CreateDirectoryW((reference + nested).c_str(), nullptr) ||
+        !WriteFixture(reference + file, {0}))
+        return false;
+    Check(SameInheritedDacl(reference, published) && SameInheritedDacl(reference + nested, published + nested) &&
+              SameInheritedDacl(reference + file, published + file),
+          "published directories and files retain the DACLs of ordinary destination children");
+    UacCopyTree::Detail::StageProtection protection(high);
+    const HANDLE rawReference = CreateFileW(reference.c_str(), READ_CONTROL, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                          nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    if (rawReference == INVALID_HANDLE_VALUE)
+        return false;
+    const Handle referenceDirectory(rawReference);
+    const DWORD referenceLabel = protection.Check(referenceDirectory.get(), true);
+    Check(referenceLabel == ERROR_SUCCESS, "ordinary destination directories inherit the same integrity policy", referenceLabel);
+    const HANDLE rawReferenceFile = CreateFileW((reference + file).c_str(), READ_CONTROL, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                              nullptr, OPEN_EXISTING, 0, nullptr);
+    if (rawReferenceFile == INVALID_HANDLE_VALUE)
+    {
+        Check(false, "open the ordinary reference file for label inspection", GetLastError());
+        return false;
+    }
+    const Handle referenceFile(rawReferenceFile);
+    const DWORD referenceFileLabel = protection.Check(referenceFile.get(), false);
+    Check(referenceFileLabel == ERROR_SUCCESS, "ordinary destination files inherit the same integrity policy", referenceFileLabel);
+    if (!CheckStagingProtection(to.get(), source + file, protection, high))
+        return false;
+    if (!high)
+    {
+        result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"wrong-profile");
+        Check(result.error == ERROR_NOT_SUPPORTED && !result.cleanupError && noStaging() &&
+                  !Exists(target + L"\\wrong-profile"),
+              "the production profile rejects a medium-integrity destination before staging", result.error);
+    }
 
-    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"published");
+    result = copyTree(from.get(), sourceId, to.get(), targetId, L"published");
     Check((result.error == ERROR_ALREADY_EXISTS || result.error == ERROR_FILE_EXISTS) && !result.cleanupError &&
               noStaging() && HasContents(published + file, {4, 8, 15, 16, 23, 42}),
           "roll back the staged tree and preserve the existing destination on collision", result.error);
@@ -155,13 +396,13 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent)
     const auto adsFile = source + L"\\z-unsupported.bin";
     if (!WriteFixture(adsFile, {0}) || !WriteFixture(adsFile + L":stream", {5}))
         return false;
-    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"unsupported");
+    result = copyTree(from.get(), sourceId, to.get(), targetId, L"unsupported");
     Check(result.error == ERROR_NOT_SUPPORTED && !result.cleanupError && noStaging() &&
               !Exists(target + L"\\unsupported") && HasContents(adsFile + L":stream", {5}),
           "unsupported file streams abort after staging earlier entries and remove the temporary tree", result.error);
     if (!DeleteFileW(adsFile.c_str()) || !WriteFixture(source + nested + L":stream", {7}))
         return false;
-    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"directory-stream");
+    result = copyTree(from.get(), sourceId, to.get(), targetId, L"directory-stream");
     Check(result.error == ERROR_NOT_SUPPORTED && !result.cleanupError && noStaging() && !Exists(target + L"\\directory-stream"),
           "reject a directory with an alternate stream", result.error);
     if (!DeleteFileW((source + nested + L":stream").c_str()))
@@ -178,19 +419,19 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent)
         if (!SetFilePointerEx(fileHandle.get(), size, nullptr, FILE_BEGIN) || !SetEndOfFile(fileHandle.get()))
             return false;
     }
-    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"oversized");
+    result = copyTree(from.get(), sourceId, to.get(), targetId, L"oversized");
     Check(result.error == ERROR_FILE_TOO_LARGE && !result.cleanupError && noStaging(),
           "reject a tree above the total byte budget", result.error);
     if (!DeleteFileW(oversized.c_str()))
         return false;
 
-    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), sourceId, L"wrong-parent");
+    result = copyTree(from.get(), sourceId, to.get(), sourceId, L"wrong-parent");
     Check(result.error == ERROR_FILE_INVALID && !result.cleanupError && noStaging(),
           "reject a substituted destination parent before staging", result.error);
-    result = UacCopyTree::CopyVerifiedTree(from.get(), targetId, to.get(), targetId, L"wrong-source");
+    result = copyTree(from.get(), targetId, to.get(), targetId, L"wrong-source");
     Check(result.error == ERROR_FILE_INVALID && !result.cleanupError && noStaging(),
           "reject a substituted source root before staging", result.error);
-    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, from.get(), sourceId, L"inside");
+    result = copyTree(from.get(), sourceId, from.get(), sourceId, L"inside");
     Check(result.error == ERROR_INVALID_PARAMETER && !Exists(source + L"\\inside"),
           "reject copying a tree into itself", result.error);
     HANDLE rawNested = nullptr;
@@ -198,16 +439,16 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent)
     if (OpenParentBelowRoot(from.get(), std::wstring_view(nested).substr(1), rawNested, nestedId))
         return false;
     const Handle descendant(rawNested);
-    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, descendant.get(), nestedId, L"inside");
+    result = copyTree(from.get(), sourceId, descendant.get(), nestedId, L"inside");
     Check(result.error == ERROR_INVALID_PARAMETER && !Exists(source + nested + L"\\inside"),
           "reject a destination below the source root by identity", result.error);
     const Handle cancel(CreateEventW(nullptr, TRUE, TRUE, nullptr));
     if (!cancel)
         return false;
-    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"cancelled", cancel.get());
+    result = copyTree(from.get(), sourceId, to.get(), targetId, L"cancelled", cancel.get());
     Check(result.error == ERROR_CANCELLED && !result.cleanupError && noStaging() && !Exists(target + L"\\cancelled"),
           "honor a signalled cancellation before staging a tree", result.error);
-    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"timed-out", nullptr, nullptr, GetTickCount64());
+    result = copyTree(from.get(), sourceId, to.get(), targetId, L"timed-out", nullptr, nullptr, GetTickCount64());
     Check(result.error == ERROR_TIMEOUT && !result.cleanupError && noStaging(),
           "honor an expired tree copy deadline before staging", result.error);
     HANDLE rawRead = nullptr, rawWrite = nullptr;
@@ -215,7 +456,7 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent)
         return false;
     const Handle read(rawRead);
     CloseHandle(rawWrite);
-    result = UacCopyTree::CopyVerifiedTree(from.get(), sourceId, to.get(), targetId, L"disconnected", nullptr, read.get());
+    result = copyTree(from.get(), sourceId, to.get(), targetId, L"disconnected", nullptr, read.get());
     Check(result.error == ERROR_BROKEN_PIPE && !result.cleanupError && noStaging(),
           "refuse to stage a tree after the peer disconnects", result.error);
     return true;
@@ -225,7 +466,8 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent)
 int wmain(int argc, wchar_t** argv)
 {
     using namespace UacDirectoryLeaf;
-    if (argc != 2)
+    const bool high = argc == 3 && std::wstring_view(argv[2]) == L"--high-integrity";
+    if (argc != 2 && !high)
         return 2;
     const std::wstring fixture = L"\\\\?\\" + std::wstring(argv[1]);
     const HANDLE rawRoot = CreateFileW(fixture.c_str(), FILE_TRAVERSE | FILE_READ_ATTRIBUTES | FILE_LIST_DIRECTORY,
@@ -235,7 +477,7 @@ int wmain(int argc, wchar_t** argv)
     if (rawRoot == INVALID_HANDLE_VALUE)
         return 2;
     const Handle root(rawRoot);
-    if (!CheckTreeCopy(fixture, root.get()))
+    if (!CheckTreeCopy(fixture, root.get(), high))
         return 2;
     HANDLE rawListing = nullptr;
     ParentIdentity listingIdentity;

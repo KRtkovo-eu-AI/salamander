@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Allow a creation descriptor for native directories. | Protect the staged tree from the moment of creation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Allow anchored directory opens to request enumeration access. | Reuse the no-reparse walk for approved listings. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Add a directory creation primitive anchored to a verified NTFS handle. | Prove the P3a parent identity requirement before enabling privileged F7. | | GPT-6.1 Sol (Codex) |
 */
@@ -94,7 +95,8 @@ inline bool SameParent(const ParentIdentity& a, const ParentIdentity& b)
 namespace Detail
 {
 inline DWORD NativeDirectory(HANDLE root, std::wstring_view name, ULONG disposition, HANDLE& directory,
-                             ACCESS_MASK extraAccess = 0)
+                             ACCESS_MASK extraAccess = 0, PSECURITY_DESCRIPTOR security = nullptr,
+                             ULONG sharing = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
 {
     directory = nullptr;
     if (name.empty() || name.size() > maxNativeName)
@@ -102,11 +104,11 @@ inline DWORD NativeDirectory(HANDLE root, std::wstring_view name, ULONG disposit
     const auto bytes = static_cast<USHORT>(name.size() * sizeof(wchar_t));
     UNICODE_STRING objectName{bytes, bytes, const_cast<wchar_t*>(name.data())};
     OBJECT_ATTRIBUTES attributes{};
-    InitializeObjectAttributes(&attributes, &objectName, OBJ_CASE_INSENSITIVE | OBJ_DONT_REPARSE, root, nullptr);
+    InitializeObjectAttributes(&attributes, &objectName, OBJ_CASE_INSENSITIVE | OBJ_DONT_REPARSE, root, security);
     IO_STATUS_BLOCK io{};
     const NTSTATUS result = NtCreateFile(&directory, FILE_READ_ATTRIBUTES | FILE_TRAVERSE | SYNCHRONIZE | extraAccess,
                                          &attributes, &io, nullptr, FILE_ATTRIBUTE_NORMAL,
-                                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, disposition,
+                                         sharing, disposition,
                                          FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_REPARSE_POINT,
                                          nullptr, 0);
     return result >= 0 ? ERROR_SUCCESS : RtlNtStatusToDosError(result);

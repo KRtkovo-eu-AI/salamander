@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Apply tree staging integrity before copying bytes. | Keep the one-file path unchanged and verify protection on staged files. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share copying from a held file handle. | Let tree staging pin source handles and journal created file identities. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share the transfer connection guard. | Check for disconnect before the native operation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Bound copy size and monitor the broker connection. | Abort staging on timeout, disconnect or unexpected data. | | GPT-6.1 Sol (Codex) |
@@ -9,6 +10,7 @@
 
 #include "renameleaf.h"
 #include "f7pilot.h"
+#include "copytreeacl.h"
 #include <objbase.h>
 #include <memory>
 #include <vector>
@@ -69,16 +71,15 @@ inline DWORD CopiedAttributes(DWORD attributes)
     return (attributes & ~FILE_ATTRIBUTE_NORMAL) | FILE_ATTRIBUTE_ARCHIVE;
 }
 
-inline DWORD StageFile(HANDLE parent, HANDLE& file)
+inline DWORD StageFile(HANDLE parent, HANDLE& file, PSECURITY_DESCRIPTOR security = nullptr)
 {
     GUID id{};
     WCHAR guid[39]{};
     if (FAILED(CoCreateGuid(&id)) || !StringFromGUID2(id, guid, ARRAYSIZE(guid)))
         return ERROR_GEN_FAILURE;
     const std::wstring name = std::wstring(L".samandarin-copy-") + guid + L".tmp";
-    return UacRenameLeaf::Detail::OpenFile(parent, name, file,
-                                           FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | DELETE,
-                                           0, FILE_CREATE, FILE_DELETE_ON_CLOSE);
+    const ACCESS_MASK access = FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | DELETE | (security ? READ_CONTROL : 0);
+    return UacRenameLeaf::Detail::OpenFile(parent, name, file, access, 0, FILE_CREATE, FILE_DELETE_ON_CLOSE, security);
 }
 
 inline DWORD CheckCancelled(HANDLE cancel, HANDLE connection, ULONGLONG deadline)
@@ -127,7 +128,8 @@ inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
 
 inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_view targetName,
                             HANDLE cancel, HANDLE connection, ULONGLONG deadline, ULONGLONG expectedSize,
-                            FILE_BASIC_INFO& basic, FILE_ID_INFO* created = nullptr)
+                            FILE_BASIC_INFO& basic, FILE_ID_INFO* created = nullptr,
+                            const UacCopyTree::Detail::StageProtection* protection = nullptr)
 {
     DWORD error = ReadPlainMetadata(source, basic);
     if (error)
@@ -141,9 +143,11 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return ERROR_FILE_INVALID;
 
     HANDLE rawTarget = nullptr;
-    if ((error = StageFile(targetParent, rawTarget)) != ERROR_SUCCESS)
+    if ((error = StageFile(targetParent, rawTarget, protection ? protection->File() : nullptr)) != ERROR_SUCCESS)
         return error;
     const std::unique_ptr<void, decltype(&CloseHandle)> target(rawTarget, CloseHandle);
+    if (protection && (error = protection->Check(target.get(), false)) != ERROR_SUCCESS)
+        return error;
     FILE_BASIC_INFO targetBasic{};
     if (!GetFileInformationByHandleEx(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
         return GetLastError();

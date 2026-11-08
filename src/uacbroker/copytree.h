@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Require protected tree staging from creation through publication. | Enforce the approved integrity profile without replacing inherited DACLs. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Stage and publish one bounded NTFS tree. | Exercise the native executor before enabling a broker request. | | GPT-6.1 Sol (Codex) |
 */
 #pragma once
@@ -32,10 +33,11 @@ struct Entry
 };
 
 inline DWORD OpenDirectory(HANDLE parent, std::wstring_view name, Handle& directory,
-                           ACCESS_MASK access, ULONG disposition)
+                           ACCESS_MASK access, ULONG disposition, PSECURITY_DESCRIPTOR security = nullptr,
+                           ULONG sharing = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
 {
     HANDLE raw = nullptr;
-    const DWORD error = UacDirectoryLeaf::Detail::NativeDirectory(parent, name, disposition, raw, access);
+    const DWORD error = UacDirectoryLeaf::Detail::NativeDirectory(parent, name, disposition, raw, access, security, sharing);
     if (!error)
         directory.reset(raw);
     return error;
@@ -72,14 +74,15 @@ public:
         return index == UacListing::manifestRoot ? root.get() : entries[index].stagedDirectory.get();
     }
 
-    DWORD Create(HANDLE target)
+    DWORD Create(HANDLE target, const StageProtection& protection)
     {
         GUID id{};
         wchar_t guid[39]{};
         if (FAILED(CoCreateGuid(&id)) || !StringFromGUID2(id, guid, ARRAYSIZE(guid)))
             return ERROR_GEN_FAILURE;
         return OpenDirectory(target, std::wstring(stagePrefix) + guid, root,
-                             DELETE | FILE_WRITE_ATTRIBUTES | FILE_READ_EA | FILE_LIST_DIRECTORY, FILE_CREATE);
+                             DELETE | FILE_WRITE_ATTRIBUTES | FILE_READ_EA | FILE_LIST_DIRECTORY | READ_CONTROL,
+                             FILE_CREATE, protection.Directory(), FILE_SHARE_READ | FILE_SHARE_WRITE);
     }
 
     DWORD Verify(ULONGLONG deadline) const
@@ -192,15 +195,10 @@ inline DWORD RestoreDirectoryTimes(HANDLE target, FILE_BASIC_INFO basic)
     basic.FileAttributes = 0;
     return SetFileInformationByHandle(target, FileBasicInfo, &basic, sizeof(basic)) ? ERROR_SUCCESS : GetLastError();
 }
-}
-
-// Native pilot. The caller must exclusively control the target namespace and
-// its inherited ACLs for the entire operation. Do not expose this directly as
-// a privileged request for an arbitrary destination.
 inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIdentity& expectedSource,
                                HANDLE target, const UacDirectoryLeaf::ParentIdentity& expectedTarget,
-                               std::wstring_view leaf, HANDLE cancel = nullptr, HANDLE connection = nullptr,
-                               ULONGLONG deadline = MAXULONGLONG)
+                               std::wstring_view leaf, StageProtection& protection, HANDLE cancel,
+                               HANDLE connection, ULONGLONG deadline)
 {
     using namespace UacCopyLeaf::Detail;
     using namespace UacDirectoryLeaf;
@@ -234,6 +232,8 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
             if ((record.attributes & FILE_ATTRIBUTE_DIRECTORY) &&
                 UacListing::Detail::SameId(record.id, targetIdentity.file.FileId))
                 return {ERROR_INVALID_PARAMETER};
+    if ((error = protection.Prepare(target)) != ERROR_SUCCESS)
+        return {error};
 
     FILE_BASIC_INFO rootBasic{};
     if ((error = ReadPlainMetadata(source, rootBasic, true)) != ERROR_SUCCESS)
@@ -242,11 +242,13 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
         return {error};
 
     Detail::Stage stage(manifest);
-    if ((error = stage.Create(target)) != ERROR_SUCCESS)
+    if ((error = stage.Create(target, protection)) != ERROR_SUCCESS)
         return {error};
 
     const auto finish = [&]() -> DWORD {
         FILE_BASIC_INFO targetBasic{};
+        if ((error = protection.Check(stage.root.get(), true)) != ERROR_SUCCESS)
+            return error;
         if ((error = ReadPlainMetadata(stage.root.get(), targetBasic, true)) != ERROR_SUCCESS)
             return error;
         for (size_t i = 0; i < manifest.entries.size(); ++i)
@@ -266,12 +268,15 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
                     (error = ReadPlainMetadata(state.source.get(), state.basic, true)))
                     return error;
                 error = Detail::OpenDirectory(targetParent, record.name, state.stagedDirectory,
-                                              DELETE | FILE_WRITE_ATTRIBUTES | FILE_READ_EA, FILE_CREATE);
+                                              DELETE | FILE_WRITE_ATTRIBUTES | FILE_READ_EA | READ_CONTROL,
+                                              FILE_CREATE, protection.Directory());
                 if (error)
                     return error;
                 state.created = true;
                 if (!GetFileInformationByHandleEx(state.stagedDirectory.get(), FileIdInfo, &state.stagedId, sizeof(state.stagedId)))
                     return GetLastError();
+                if ((error = protection.Check(state.stagedDirectory.get(), true)) != ERROR_SUCCESS)
+                    return error;
                 if ((error = ReadPlainMetadata(state.stagedDirectory.get(), targetBasic, true)) != ERROR_SUCCESS)
                     return error;
             }
@@ -288,7 +293,7 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
                 if (!UacRenameLeaf::Detail::SameSource(actual, expected))
                     return ERROR_FILE_INVALID;
                 error = CopyOpenedFile(raw, targetParent, record.name, cancel, connection, deadline,
-                                       record.bytes, state.basic, &state.stagedId);
+                                       record.bytes, state.basic, &state.stagedId, &protection);
                 if (error)
                     return error;
                 state.created = true;
@@ -324,6 +329,10 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
             return error;
         if (!SameParent(targetIdentity, expectedTarget))
             return ERROR_FILE_INVALID;
+        if ((error = protection.Check(stage.root.get(), true)) != ERROR_SUCCESS)
+            return error;
+        if ((error = protection.Check(target, true)) != ERROR_SUCCESS)
+            return error;
         stage.CloseChildren();
         if ((error = CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
             return error;
@@ -331,5 +340,18 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
     };
     error = finish();
     return {error, stage.Rollback()};
+}
+}
+
+// The first broker pilot supports only targets that already require high
+// integrity on newly created children. The destination handle needs READ_CONTROL.
+inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIdentity& expectedSource,
+                               HANDLE target, const UacDirectoryLeaf::ParentIdentity& expectedTarget,
+                               std::wstring_view leaf, HANDLE cancel = nullptr, HANDLE connection = nullptr,
+                               ULONGLONG deadline = MAXULONGLONG)
+{
+    Detail::StageProtection protection(true);
+    return Detail::CopyVerifiedTree(source, expectedSource, target, expectedTarget, leaf, protection,
+                                    cancel, connection, deadline);
 }
 }

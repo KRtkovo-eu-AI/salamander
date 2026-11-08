@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-08 | Link Windows access-control APIs for the staged tree tests. | Exercise real NTFS integrity descriptors. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Clean up the owned fixture with extended paths. | Remove long Unicode files even after a native assertion fails. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Link GUID generation for the copy staging fixture. | Exercise the real NTFS copy executor. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-07 | Run the verified-parent mkdir experiment. | Exercise physical NTFS path swaps and junction rejection. | | GPT-6.1 Sol (Codex) |
@@ -15,6 +16,7 @@ from safe_file_paths_tests import ROOT, compiler_environment, run
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--configuration", choices=("Debug", "Release"), default="Debug")
+    parser.add_argument("--high-integrity", action="store_true")
     args = parser.parse_args()
     env = compiler_environment()
     compiler = shutil.which("cl", path=env.get("PATH"))
@@ -41,11 +43,14 @@ def main():
         try:
             build = run([
                 compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX",
-                *flags, str(source), "/Fe:" + str(exe), "/link", "ntdll.lib", "ole32.lib",
+                *flags, str(source), "/Fe:" + str(exe), "/link", "ntdll.lib", "ole32.lib", "advapi32.lib", "user32.lib",
             ], cwd=folder, env=env, timeout=35)
             if build.returncode:
                 return build.returncode
-            return run([str(exe), str(fixture)], cwd=folder, env=env, timeout=15).returncode
+            arguments = [str(exe), str(fixture)]
+            if args.high_integrity:
+                arguments.append("--high-integrity")
+            return run(arguments, cwd=folder, env=env, timeout=15).returncode
         finally:
             junction.rmdir()
             shutil.rmtree("\\\\?\\" + str(fixture))

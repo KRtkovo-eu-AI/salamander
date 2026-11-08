@@ -26,6 +26,7 @@
 | 2026-11-08 | Document P4e source manifest revalidation. | Define the input and verification required by the recursive copy pilot. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the P4d CodeQL result and the inventory label fix. | Track the format-string regression and its validation. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document the P4f native tree copy pilot. | Record tested publication, rollback and the remaining broker integration gate. | | GPT-6.1 Sol (Codex) |
+| 2026-11-08 | Document the P4g staging integrity profile. | Record verified access isolation and inherited destination DACLs. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -406,6 +407,18 @@ Po sestavení dočasného stromu executor znovu ověří zdroj a porovná názvy
 V Debug i Release prošlo 104 nativních kontrol včetně dlouhých cest v Unicode, prázdné podsložky, zachování času změny, kolize cíle, odmítnutí ADS na souboru i složce, záměny identity a přerušení před kopírováním. V testu kolize a při chybě po zahájení kopie nevznikl nový cílový strom a dočasné položky se uklidily.
 
 Před připojením k F5 je potřeba zajistit dočasný prostor proti souběžným změnám ze standardního procesu a zachovat očekávané dědění cílových oprávnění. Stejnosvazkové přejmenování samo dědičná oprávnění nepřepočítá. Akceptace brokeru má ověřit běžný souhlas i jiný účet správce, zrušení, kolizi během souhlasu, ztrátu spojení v průběhu kopie a stav po tvrdém ukončení. [Dědění oprávnění při přesunu na stejném svazku](https://learn.microsoft.com/en-us/troubleshoot/windows-server/windows-security/inherited-permissions-not-automatically-update).
+
+### 8.18 P4g — ochrana dočasného stromu a dědění DACL
+
+P4f na commitu `443b94c7` prošla sestavením Win32, x64 a ARM64, všemi 214 testy a CodeQL bez nových nálezů. [Testy P4f](https://github.com/majklvi/salamander/actions/runs/42465725484/job/128684701676) · [CodeQL P4f](https://github.com/majklvi/salamander/runs/128688223176).
+
+První profil podporuje jen cíle NTFS s děditelným štítkem vysoké integrity, který zakazuje čtení i zápis procesům s nižší integritou. Executor ověří profil cíle před vytvořením pracovní složky a před zveřejněním. Každou pracovní složku a soubor vytvoří s odpovídajícím štítkem a ověří jej dřív, než do objektu zapíše kopírovaná data. DACL se při vytvoření nadále dědí od rodiče a jediné přejmenování hotového stromu je zachová. U pracovní kořenové složky executor drží handle bez sdílení pro smazání. [Řízení integrity ve Windows](https://learn.microsoft.com/en-us/windows/win32/secauthz/mandatory-integrity-control) · [Dědění ACE](https://learn.microsoft.com/en-us/windows/win32/secauthz/ace-inheritance-rules).
+
+Nativní testy v Debug i Release porovnaly zděděné ACE a příznaky DACL u kořene, vnořené složky a souboru s běžně vytvořenými položkami ve stejném cíli. Token s nižší integritou dostal zákaz výpisu, zápisu, čtení, změny DACL a otevření pro smazání i se znalostí přesné pracovní cesty. Běžný cíl bez profilu vysoké integrity se odmítne před vytvořením pracovní složky.
+
+V izolované VM prošel také běh Release se skutečným cílem s vysokou integritou (`ExitCode=0`). Test použil token běžícího Průzkumníka se střední integritou a stejným SID jako zvýšený testovací proces. Výpis, přidání položky, otevření pro smazání a přístup ke známému pracovnímu souboru pro čtení, zápis nebo změnu DACL vrátily `ERROR_ACCESS_DENIED`. Zděděné DACL hotové kopie odpovídaly běžně vytvořeným položkám.
+
+Při doplňkové zkoušce se tokenu s nízkou integritou nepodařilo otevřít pracovní kořen pro zjištění identity ani s nulovým požadovaným přístupem. Pro F5 proto nelze předpokládat, že běžný token získá identitu vysoce chráněného cíle. Pilot musí před souhlasem vymezit konkrétní zdroj a cíl a získat očekávanou identitu z důvěryhodného zdroje. Broker ji po souhlasu ověří na cílovém rodiči otevřeném s `READ_CONTROL`. Zkoušky brokeru v izolované VM zůstávají samostatným krokem podle oddílu 8.17.
 
 ## 9. Uživatelský tok a stav operace
 
