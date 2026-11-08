@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Admit sparse files to the default F5 broker path. | Retain existing eligibility for move and explicit ADS omission. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Admit one-file F5 with planned named streams. | Keep the planned ADS bytes in the copy progress total. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Select the typed main-stream-only copy request. | Keep default copy and move strict about named streams. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow a basic attribute update for a selected directory. | Preserve the item type and the existing single-item limits. | | GPT-6.1 Sol (Codex) |
@@ -5619,7 +5620,8 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     if (!script.AllowTransferPilot || script.Count != 1 || script.CopySecurity || script.CopyAttrs || script.OverwriteOlder ||
         (op.OpFlags & OPFL_AS_ENCRYPTED) != 0 || !op.SourceNameWValid || !op.TargetNameWValid ||
         (moving ? ((op.OpFlags & OPFL_COPY_ADS) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))
-                : (!UacF7::IsPlainCopyFile(op.Attr) || op.FileSize.Value > UacF7::maxPilotCopyBytes)))
+                : (!(script.IgnoreTransferAds ? UacF7::IsPlainCopyFile(op.Attr) : UacF7::IsDefaultCopyFile(op.Attr)) ||
+                   op.FileSize.Value > UacF7::maxPilotCopyBytes)))
         return false;
 
     BOOL limited = FALSE;

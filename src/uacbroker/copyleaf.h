@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Preserve sparse allocation in the default one-file F5 pilot. | Copy allocated ranges into a sparse stage before publishing. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve bounded NTFS data streams on a verified staged file. | Publish the file and its named streams together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Allow explicitly omitting named data streams from one file copy. | Retain extended-attribute and file identity checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check tree cancellation while copying staged data. | Stop before publishing the staged tree. | | GPT-6.1 Sol (Codex) |
@@ -15,6 +16,7 @@
 #include "f7pilot.h"
 #include "copytreeacl.h"
 #include <objbase.h>
+#include <winioctl.h>
 #include <algorithm>
 #include <memory>
 #include <vector>
@@ -60,11 +62,13 @@ inline DWORD CheckPlainStreamsAndEa(HANDLE file, bool directory, StreamPolicy po
 }
 
 inline DWORD ReadPlainMetadata(HANDLE file, FILE_BASIC_INFO& basic, bool directory = false,
-                              StreamPolicy policy = StreamPolicy::RequireDefault)
+                              StreamPolicy policy = StreamPolicy::RequireDefault, bool allowSparse = false)
 {
     if (!GetFileInformationByHandleEx(file, FileBasicInfo, &basic, sizeof(basic)))
         return GetLastError();
-    if (directory ? basic.FileAttributes != FILE_ATTRIBUTE_DIRECTORY : !UacF7::IsPlainCopyFile(basic.FileAttributes))
+    const bool validFile = allowSparse ? UacF7::IsDefaultCopyFile(basic.FileAttributes)
+                                       : UacF7::IsPlainCopyFile(basic.FileAttributes);
+    if (directory ? basic.FileAttributes != FILE_ATTRIBUTE_DIRECTORY : !validFile)
         return ERROR_NOT_SUPPORTED;
     return CheckPlainStreamsAndEa(file, directory, policy);
 }
@@ -79,7 +83,7 @@ inline bool SameBasicMetadata(const FILE_BASIC_INFO& first, const FILE_BASIC_INF
 
 inline DWORD CopiedAttributes(DWORD attributes)
 {
-    return (attributes & ~FILE_ATTRIBUTE_NORMAL) | FILE_ATTRIBUTE_ARCHIVE;
+    return (attributes & ~(FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_SPARSE_FILE)) | FILE_ATTRIBUTE_ARCHIVE;
 }
 
 inline DWORD StageFile(HANDLE parent, HANDLE& file, std::wstring& name, bool readSecurity,
@@ -134,6 +138,47 @@ inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
                 return ERROR_WRITE_FAULT;
             offset += written;
         }
+    }
+    return ERROR_SUCCESS;
+}
+
+inline DWORD CopySparseData(HANDLE source, HANDLE target, LONGLONG size,
+                            HANDLE cancel, HANDLE connection, ULONGLONG deadline)
+{
+    DWORD bytes = 0;
+    if (!DeviceIoControl(target, FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &bytes, nullptr))
+        return GetLastError();
+    LARGE_INTEGER eof{};
+    eof.QuadPart = size;
+    if (!SetFilePointerEx(target, eof, nullptr, FILE_BEGIN) || !SetEndOfFile(target))
+        return GetLastError();
+    if (!size)
+        return ERROR_SUCCESS;
+
+    FILE_ALLOCATED_RANGE_BUFFER request{};
+    request.Length = eof;
+    std::vector<FILE_ALLOCATED_RANGE_BUFFER> ranges(4096);
+    const auto capacity = static_cast<DWORD>(ranges.size() * sizeof(ranges[0]));
+    if (!DeviceIoControl(source, FSCTL_QUERY_ALLOCATED_RANGES, &request, sizeof(request),
+                         ranges.data(), capacity, &bytes, nullptr))
+        return GetLastError();
+    if (bytes > capacity || bytes % sizeof(ranges[0]))
+        return ERROR_INVALID_DATA;
+
+    LONGLONG previousEnd = 0;
+    for (size_t index = 0; index < bytes / sizeof(ranges[0]); ++index)
+    {
+        const auto& range = ranges[index];
+        const LONGLONG start = range.FileOffset.QuadPart;
+        if (start < previousEnd || start >= size || range.Length.QuadPart <= 0)
+            return ERROR_INVALID_DATA;
+        const LONGLONG length = (std::min)(range.Length.QuadPart, size - start);
+        if (!SetFilePointerEx(source, range.FileOffset, nullptr, FILE_BEGIN) ||
+            !SetFilePointerEx(target, range.FileOffset, nullptr, FILE_BEGIN))
+            return GetLastError();
+        if (const DWORD error = CopyData(source, target, length, cancel, connection, deadline, false))
+            return error;
+        previousEnd = start + length;
     }
     return ERROR_SUCCESS;
 }
@@ -237,7 +282,8 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                             StreamPolicy policy = StreamPolicy::RequireDefault,
                             const CopySourceLocation* location = nullptr)
 {
-    DWORD error = ReadPlainMetadata(source, basic, false, policy);
+    const bool allowSparse = location && policy == StreamPolicy::PreserveNamed;
+    DWORD error = ReadPlainMetadata(source, basic, false, policy, allowSparse);
     if (error)
         return error;
     LARGE_INTEGER size{};
@@ -248,6 +294,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     if (expectedSize != MAXULONGLONG && static_cast<ULONGLONG>(size.QuadPart) != expectedSize)
         return ERROR_FILE_INVALID;
 
+    const bool sparse = (basic.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE) != 0;
     std::vector<DataStream> streams;
     std::vector<StreamHandle> inputs, outputs;
     if (policy == StreamPolicy::PreserveNamed)
@@ -256,6 +303,8 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             return ERROR_INVALID_PARAMETER;
         if ((error = ReadDataStreams(source, streams)) != ERROR_SUCCESS)
             return error;
+        if (sparse && streams.size() != 1)
+            return ERROR_NOT_SUPPORTED;
         for (const auto& stream : streams)
         {
             if (stream.suffix == L"::$DATA")
@@ -286,7 +335,9 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return GetLastError();
     if (!UacF7::IsPlainCopyFile(targetBasic.FileAttributes))
         return ERROR_NOT_SUPPORTED;
-    if ((error = CopyData(source, target.get(), static_cast<ULONGLONG>(size.QuadPart), cancel, connection, deadline, protection != nullptr)) != ERROR_SUCCESS)
+    error = sparse ? CopySparseData(source, target.get(), size.QuadPart, cancel, connection, deadline)
+                   : CopyData(source, target.get(), size.QuadPart, cancel, connection, deadline, protection != nullptr);
+    if (error)
         return error;
 
     if (!inputs.empty())
@@ -312,7 +363,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     }
 
     FILE_BASIC_INFO current{};
-    if ((error = ReadPlainMetadata(source, current, false, policy)) != ERROR_SUCCESS)
+    if ((error = ReadPlainMetadata(source, current, false, policy, allowSparse)) != ERROR_SUCCESS)
         return error;
     if (!SameBasicMetadata(basic, current))
         return ERROR_FILE_INVALID;
@@ -323,6 +374,13 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     targetBasic.FileAttributes = CopiedAttributes(basic.FileAttributes);
     if (!SetFileInformationByHandle(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)) || !FlushFileBuffers(target.get()))
         return GetLastError();
+    if (sparse)
+    {
+        if (!GetFileInformationByHandleEx(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
+            return GetLastError();
+        if (!(targetBasic.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE))
+            return ERROR_FILE_INVALID;
+    }
     if (created && !GetFileInformationByHandleEx(target.get(), FileIdInfo, created, sizeof(*created)))
         return GetLastError();
     if (policy == StreamPolicy::PreserveNamed)

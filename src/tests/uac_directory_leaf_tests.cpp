@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise sparse F5 staging with real NTFS I/O. | Check contents, allocation gaps, and rejection of named streams. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise verified preservation of named NTFS streams. | Check exact data and refusal when staging protection is unavailable. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify that explicit Ignore ADS leaves the original streams intact. | Check the copied data and preserve the strict default. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify basic attributes and times on the same directory handle. | Cover setting and clearing flags without changing descendants. | | GPT-6.1 Sol (Codex) |
@@ -1168,6 +1169,64 @@ int wmain(int argc, wchar_t** argv)
     copyError = preserve(trustedFixture);
     Check(copyError == ERROR_ALREADY_EXISTS && HasContents(preserved + L":named", existing),
           "leave the existing file and its streams intact on collision", copyError);
+
+    constexpr DWORD sparseLength = 4 * 1024 * 1024;
+    const auto sparseSource = fixture + L"\\destination\\sparse-\u6771.bin";
+    const auto sparseTarget = moved + L"\\sparse-\u6771.bin";
+    std::vector<BYTE> sparseBytes(sparseLength);
+    sparseBytes[0] = 17;
+    sparseBytes[2 * 1024 * 1024] = 29;
+    {
+        const HANDLE raw = CreateFileW(sparseSource.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+        if (raw == INVALID_HANDLE_VALUE)
+            return 2;
+        const Handle file(raw);
+        DWORD count = 0;
+        LARGE_INTEGER position{};
+        if (!DeviceIoControl(raw, FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &count, nullptr) ||
+            !WriteFile(raw, sparseBytes.data(), 1, &count, nullptr) || count != 1)
+            return 2;
+        position.QuadPart = 2 * 1024 * 1024;
+        if (!SetFilePointerEx(raw, position, nullptr, FILE_BEGIN) ||
+            !WriteFile(raw, sparseBytes.data() + position.QuadPart, 1, &count, nullptr) || count != 1)
+            return 2;
+        position.QuadPart = sparseLength;
+        if (!SetFilePointerEx(raw, position, nullptr, FILE_BEGIN) || !SetEndOfFile(raw))
+            return 2;
+    }
+    FILE_ID_INFO sparseId{};
+    if (!OpenIdentity(sparseSource, sparseId))
+        return 2;
+    const auto copySparse = [&](std::wstring_view leaf) {
+        return UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, sparseId, L"sparse-\u6771.bin",
+            original.get(), expected, leaf, nullptr, nullptr, MAXULONGLONG, sparseLength,
+            UacCopyLeaf::StreamPolicy::PreserveNamed);
+    };
+    copyError = copySparse(L"sparse-\u6771.bin");
+    Check(copyError == ERROR_SUCCESS && HasContents(sparseTarget, sparseBytes) && HasContents(sparseSource, sparseBytes),
+          "preserve sparse data and logical length including the trailing hole", copyError);
+    const auto hasHole = [](const std::wstring& path) {
+        const HANDLE raw = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (raw == INVALID_HANDLE_VALUE)
+            return false;
+        const Handle file(raw);
+        FILE_ALLOCATED_RANGE_BUFFER query{}, range{};
+        query.FileOffset.QuadPart = 1024 * 1024;
+        query.Length.QuadPart = 512 * 1024;
+        DWORD count = 0;
+        return DeviceIoControl(raw, FSCTL_QUERY_ALLOCATED_RANGES, &query, sizeof(query), &range, sizeof(range),
+                               &count, nullptr) && count == 0;
+    };
+    const DWORD sparseAttributes = GetFileAttributesW(sparseTarget.c_str());
+    Check(sparseAttributes != INVALID_FILE_ATTRIBUTES && (sparseAttributes & FILE_ATTRIBUTE_SPARSE_FILE) &&
+              hasHole(sparseSource) && hasHole(sparseTarget),
+          "preserve a genuinely unallocated NTFS range and the sparse attribute", copyError);
+    if (!WriteFixture(sparseSource + L":named", existing))
+        return 2;
+    copyError = copySparse(L"sparse-with-ads.bin");
+    Check(copyError == ERROR_NOT_SUPPORTED && !Exists(moved + L"\\sparse-with-ads.bin") &&
+              HasContents(sparseSource + L":named", existing),
+          "reject sparse files with named streams without publishing a partial copy", copyError);
 
     const auto moveSourcePath = fixture + L"\\destination\\move-\u65e5.bin";
     const auto moveTargetPath = moved + L"\\move-\u672c.bin";

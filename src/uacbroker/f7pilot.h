@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Recognize sparse files for the default F5 pilot. | Keep the plain-file check available for other operations. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define a distinct copy command that skips named streams. | Keep the selected data policy bound to the authorized request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Expose whether the metadata request includes attributes. | Keep time-only consent text specific. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Expose the directory timestamp request type. | Let the prompt describe the correct item. | | GPT-6.1 Sol (Codex) |
@@ -38,6 +39,11 @@ constexpr DWORD plainCopyAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARC
 inline bool IsPlainCopyFile(DWORD attributes)
 {
     return attributes && !(attributes & ~plainCopyAttributes);
+}
+
+inline bool IsDefaultCopyFile(DWORD attributes)
+{
+    return attributes && !(attributes & ~(plainCopyAttributes | FILE_ATTRIBUTE_SPARSE_FILE));
 }
 
 struct Result

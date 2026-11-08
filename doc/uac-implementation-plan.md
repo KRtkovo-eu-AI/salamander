@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record P5f sparse F5 preservation. | Document local and VM evidence for data and allocation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5e preservation of named streams in protected F5. | Document the pilot scope and local and VM results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document P5d explicit Ignore ADS for protected F5. | Record stream handling in the broker and the VM checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document P5c basic directory attributes. | Track bounded Ctrl+F2 changes and their verification. | | GPT-6.1 Sol (Codex) |
@@ -578,6 +579,14 @@ Výchozí F5 přes broker může u jedné běžné kopie na místním NTFS do vo
 Lokálně prošlo sestavení x64 Debug, všech 132 nativních kontrol v Debug i Release, test transportu a kontrola plánování. Nativní zkoušky ověřily více pojmenovaných proudů včetně prázdného proudu s názvem v Unicode, výslovné vynechání ADS, odmítnutí pracovní kopie bez ověřené ochrany, otevřený zapisovač a kolizi cíle bez přepsání.
 
 V izolované Windows 11 VM ukázal F5 nabídku správce se štítem, obě cesty a informaci o kopírování alternativních proudů. Po volbě Ano u 01-preserve-approve.txt souhlasil SHA-256 hlavního proudu, úplný seznam názvů a délek proudů i obsah proudů named a second. Cíl obsahoval také prázdný proud s názvem empty-東京. Po volbě Ne u 02-preserve-cancel.txt cílový soubor nevznikl. Oba zdroje včetně ADS zůstaly zachované, v cíli nezbyl pracovní soubor a otisky pilotních binárek souhlasily.
+
+### 8.31 P5f — zachování řídkého souboru při F5
+
+Výchozí F5 přes broker podporuje jeden řídký soubor bez pojmenovaných proudů na místním NTFS do volného názvu. Limit 16 MiB platí pro logickou délku včetně nealokovaných mezer. Broker otevře ověřený zdroj bez sdílení pro zápis, označí pracovní soubor jako řídký pomocí FSCTL_SET_SPARSE a nastaví jeho logickou délku. Zapíše jen rozsahy nahlášené jako alokované funkcí FSCTL_QUERY_ALLOCATED_RANGES. Před zveřejněním ověří příznak SparseFile, metadata zdroje, seznam proudů a připojení k hostiteli. Pracovní kopii zveřejní až po dokončení zápisu bez přepsání případné kolize. Kombinace řídkého souboru s ADS, F5 s volbou Ignore ADS pro řídký soubor, F6 a kopírování řídkých souborů uvnitř stromu jsou mimo tento pilot. [Řídké soubory](https://learn.microsoft.com/en-us/windows/win32/fileio/sparse-file-operations) a [dotaz na alokované rozsahy](https://learn.microsoft.com/en-us/windows/win32/api/winioctl/ni-winioctl-fsctl_query_allocated_ranges)
+
+Lokálně prošlo sestavení x64 Debug, všech 135 nativních kontrol v Debug i Release a testy transportu, plánování a konverzních tabulek. Nativní zkouška použila název v Unicode, ověřila obsah, logickou délku s koncovou mezerou, atribut SparseFile a skutečně nealokovaný rozsah. Zkouška kombinace s ADS ověřila chybu 50 před zveřejněním cíle a zachování pojmenovaného proudu zdroje.
+
+V izolované Windows 11 VM nabídlo F5 správce se štítem pro kopii do chráněného cíle. Po volbě Ano u 01-sparse-approve.bin měla kopie shodný SHA-256, logickou délku 4 MiB, příznak SparseFile a stejné dva alokované rozsahy po 64 KiB na offsetech 0 a 2 MiB. Po volbě Ne u 02-sparse-cancel.bin cíl nevznikl. Otisky obou zdrojů zůstaly shodné, v cíli nezůstal pracovní soubor a otisky instalovaných binárek souhlasily s pilotem. Opakované sestavení po opravě komentářů mělo stejný otisk sekce strojového kódu aplikace jako pilot.
 
 ## 9. Uživatelský tok a stav operace
 
