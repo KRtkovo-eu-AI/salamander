@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Expose stable plugin registry identities. | Allow canonical file associations to resolve plugins without relying on session array ordinals. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-06 | Retain all deferred provider references across reload and shutdown retry. | Preserve every LoadLibrary reference across a refused close and provider reload. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-06 | Combine native exit readiness with deferred module unload. | Preserve managed callback gates and runtime-provider mapping during upstream integration. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-04 | Keep plug-in DLLs mapped until every plug-in Release returns. | Unloading a runtime plug-in before Salamatrix joins its pump thread crashes on exit. | https://github.com/KRtkovo-eu-AI/salamander/issues/770 https://github.com/KRtkovo-eu-AI/salamander/issues/750 | Grok 4.7 |
@@ -2594,6 +2595,9 @@ public:
 
     BOOL IsGood() { return Name != NULL; } // was the constructor successful?
 
+    // RegKeyName is the persisted plugin identity; it is not a session array index.
+    const char* GetStableId() const { return RegKeyName != NULL ? RegKeyName : ""; }
+
     // returns the plugin interface
     CPluginInterfaceEncapsulation* GetPluginInterface() { return &PluginIface; }
     CPluginInterfaceForFSEncapsulation* GetPluginInterfaceForFS() { return &PluginIfaceForFS; }
@@ -3160,6 +3164,9 @@ public:
 
     // returns the number of plugins
     int GetCount() { return Data.Count; }
+
+    // Resolves the persisted plugin identity to the current session index.
+    int FindByStableId(const char* stableId) const;
 
     // Queries the process-wide Salamander service registry for core UI
     // consumers that do not own a plugin interface (for example Plugin

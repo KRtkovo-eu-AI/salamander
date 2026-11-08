@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Register the complete canonical runtime adapter after archive setup. | Ensure staged canonical rows resolve against the final plugin and packer indexes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Connect guarded canonical association lifecycle hooks. | Load canonical associations without replacing legacy runtime state when projection metadata is unavailable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Preserve user-owned archive extensions during migration. | Apply #748 ownership repair only to unmarked defaults and retain provenance for future per-type configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Expand the import-anyway message without a LoadStr printf format. | CodeQL rejected the localized IDS_IMPORTCFG_NOTOURVER template as a non-constant format string. | https://github.com/KRtkovo-eu-AI/salamander/issues/742 | Composer |
 // | 2026-11-05 | Ask Yes/No before importing a config file for another version. | The "import anyway" prompt only had OK, so the action could not be confirmed or cancelled. | https://github.com/KRtkovo-eu-AI/salamander/issues/742 | Composer |
@@ -28,6 +30,8 @@
 #include "tabwnd.h"
 #include "mainwnd.h"
 #include "configstorage.h"
+#include "fileassoclifecycle.h"
+#include "fileassocruntimeadapter.h"
 #include "cfgdlg.h"
 #include "storagesched.h"
 #include "usermenu.h"
@@ -4081,6 +4085,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
             //---  editors
 
             SaveEditors(salamander, SALAMANDER_EDITORS_REG, EditorMasks);
+            Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
+                ConfigurationStorage, NULL);
 
             if (GlobalSaveWaitWindow == NULL)
                 analysing.SetProgressPos(++savingProgress); // 7
@@ -5317,6 +5323,15 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         }
 
         Plugins.CheckData(); // adjust loaded data
+
+        // Project canonical associations only after all plugin, viewer and
+        // archive indexes are final. The adapter commits staged replacements
+        // only after every target and derived archive lookup has succeeded.
+        Salamander::FileAssociations::RuntimeProjectionOperations runtimeProjection;
+        Salamander::FileAssociations::AttachPluginRuntimeAdapter(&runtimeProjection, this, &Plugins);
+        Salamander::FileAssociations::RegisterCanonicalRuntimeProjection(runtimeProjection);
+        Salamander::FileAssociations::LoadCanonicalAssociationsForLifecycle(
+            ConfigurationStorage, NULL);
 
         //---  user menu
 
