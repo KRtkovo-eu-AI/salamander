@@ -28,6 +28,7 @@
 | 2026-11-08 | Document the P4f native tree copy pilot. | Record tested publication, rollback and the remaining broker integration gate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document the P4g staging integrity profile. | Record verified access isolation and inherited destination DACLs. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document the registered P4h F5 pilot. | Describe consent, target identity provisioning and broker checks. | | GPT-6.1 Sol (Codex) |
+| 2026-11-08 | Record P4h failure and alternate-account acceptance. | Distinguish clean rollback from the protected residue of forced broker termination. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -429,7 +430,18 @@ V chráněné pilotní instalaci správce spustí `uacbroker.exe --register-tree
 
 Při F5 vybere uživatel jednu složku v místním panelu a zadá přesnou cestu registrovaného cíle. Pilot vyžaduje výchozí volby kopírování. Dialog se štítem zobrazí celý zdroj a výslednou cílovou cestu. Broker po UAC nezávisle načte registraci, znovu ověří identity rodiče zdroje, zdrojové složky a cíle, a teprve potom spustí omezenou kopii z P4f a P4g. Výsledek při chybě úklidu nebo ztrátě potvrzení vyžaduje kontrolu cíle před opakováním. Jiné cíle, výběry a volby používají stávající kopírovací tok.
 
-V izolované VM se podařilo cíl zaregistrovat a pomocí Computer Use ověřit skutečnou cestu z F5. Po volbě Ne zdroj zůstal a kopie nevznikla. Po volbě Ano se SHA-256 obou souborů, včetně vnořeného souboru s názvem v Unicode, shodovaly se zdrojem. Vznikla i prázdná podsložka a ve chráněném cíli nezůstala žádná pracovní složka. F5 do běžného cíle zkopírovalo obdobný strom bez výzvy UAC. Prošlo také 110 nativních kontrol NTFS, zkouška komunikace brokeru a kontrola plánování kopírování. Samostatná akceptace jiným účtem správce, kolize vzniklé během souhlasu a odpojení nebo tvrdého ukončení v průběhu kopírování ještě zbývá.
+V izolované VM se podařilo cíl zaregistrovat a pomocí Computer Use ověřit skutečnou cestu z F5. Po volbě Ne zdroj zůstal a kopie nevznikla. Po volbě Ano se SHA-256 obou souborů, včetně vnořeného souboru s názvem v Unicode, shodovaly se zdrojem. Vznikla i prázdná podsložka a ve chráněném cíli nezůstala žádná pracovní složka. F5 do běžného cíle zkopírovalo obdobný strom bez výzvy UAC. Prošlo také 110 nativních kontrol NTFS, zkouška komunikace brokeru a kontrola plánování kopírování.
+
+Rozšířená akceptace v izolované VM:
+
+- **Jiný účet správce.** Samandarin běžel pod ověřeným SID standardního účtu `SamandarinUacTest`. Po zadání údajů správce do Windows se shodovaly SHA-256 obou souborů, vznikla prázdná podsložka a nezůstal pracovní strom.
+- **Kolize během souhlasu.** Zkušební proces vytvořil cílovou složku a kontrolní soubor, dokud výzva Windows ještě běžela. Samandarin po schválení zobrazil chybu 183. Cílová složka obsahovala pouze původní kontrolní soubor se stejným SHA-256 a pracovní strom se uklidil.
+- **Tvrdé ukončení brokeru po zápisu prvního souboru.** Laboratorní sestavení se po zápisu pozastavilo, aby bylo možné ukončit přesně ověřený proces. Zdroj zůstal zachovaný a finální cíl nevznikl. Samandarin vyzval ke kontrole cíle před opakováním. V cíli zůstala chráněná pracovní složka. Běžný token dostal odepřený výpis i čtení známého souboru.
+- **Ztráta hostitele po zápisu prvního souboru.** Po ukončení testovacího procesu Samandarinu broker zaznamenal odpojení a skončil s kódem 5. Finální cíl nevznikl, zdroj se nezměnil a broker pracovní strom odstranil.
+
+Po zkouškách byl obnoven běžný broker, jeho SHA-256 se shodoval s ověřeným sestavením P4h a pozůstatek byl odstraněn až po kontrole jeho cesty a obsahu. Před rozšířením rekurzivní kopie na další cíle zbývá navrhnout bezpečný automatický úklid po tvrdém ukončení brokeru. Název s předponou `.samandarin-tree-` sám nedokládá původ složky. Úklid musí ověřovat vlastnictví konkrétní pracovní složky a vyloučit souběh s aktivní operací.
+
+Implementační commit P4h `e6a6f30b` prošel sestavením Win32, x64 a ARM64, všemi 214 testy a CodeQL bez nových nálezů. [Testy P4h](https://github.com/majklvi/salamander/actions/runs/42468338533/job/128693002504) · [CodeQL P4h](https://github.com/majklvi/salamander/runs/128696541547).
 
 ## 9. Uživatelský tok a stav operace
 
