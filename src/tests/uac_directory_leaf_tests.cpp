@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise EFS workspace recovery on NTFS. | Retain the original link and reject substitutions in live and deferred cleanup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise bounded EFS Raw export and import. | Verify ciphertext preservation and measure the source-handle sharing boundary. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check the exact-file Find protocol boundary. | Reject path selection and directory operations on the pinned file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the read-only Find property stream. | Check bounded reads, large offsets, cancellation and clone lifetime. | | GPT-6.1 Sol (Codex) |
@@ -57,6 +58,7 @@
 #include "../uacbroker/viewleaf.h"
 #include "../findtagstream.h"
 #include "../uacbroker/efsraw.h"
+#include "../uacbroker/efsworkspace.h"
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
@@ -1389,6 +1391,130 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
     return true;
 }
 
+static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const FILE_ID_INFO& sourceId,
+                              const std::vector<BYTE>& plaintext)
+{
+    HANDLE rawToken = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &rawToken))
+        return false;
+    const Handle token(rawToken);
+    DWORD length = 0;
+    GetTokenInformation(token.get(), TokenUser, nullptr, 0, &length);
+    std::vector<BYTE> tokenData(length);
+    if (!length || !GetTokenInformation(token.get(), TokenUser, tokenData.data(), length, &length))
+        return false;
+    PWSTR sid = nullptr;
+    if (!ConvertSidToStringSidW(reinterpret_cast<const TOKEN_USER*>(tokenData.data())->User.Sid, &sid))
+        return false;
+    const std::unique_ptr<void, decltype(&LocalFree)> sidText(sid, LocalFree);
+    const std::wstring sddl = std::wstring(L"O:") + sid + L"D:P(A;;FA;;;" + sid + L")";
+    PSECURITY_DESCRIPTOR rawSecurity = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &rawSecurity, nullptr))
+        return false;
+    const std::unique_ptr<void, decltype(&LocalFree)> security(rawSecurity, LocalFree);
+
+    const auto base = folder + L"\\efs-private";
+    SECURITY_ATTRIBUTES attributes{sizeof(attributes), rawSecurity, FALSE};
+    if (!CreateDirectoryW(base.c_str(), &attributes))
+        return false;
+    constexpr DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    const HANDLE rawParent = CreateFileW(base.c_str(), FILE_LIST_DIRECTORY | FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY | READ_CONTROL,
+        share, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (rawParent == INVALID_HANDLE_VALUE)
+        return false;
+    const Handle parent(rawParent);
+    FILE_ID_INFO parentId{};
+    if (!GetFileInformationByHandleEx(parent.get(), FileIdInfo, &parentId, sizeof(parentId)))
+        return false;
+    const auto journalPath = base + L"\\journal";
+    const HANDLE rawJournal = CreateFileW(journalPath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, &attributes, CREATE_NEW, 0, nullptr);
+    if (rawJournal == INVALID_HANDLE_VALUE)
+        return false;
+    const Handle journal(rawJournal);
+    auto recover = [&] { return UacEfsWorkspace::Recover(parent.get(), parentId, journal.get(), rawSecurity); };
+
+    for (const bool substitute : {false, true})
+    {
+        UacEfsWorkspace::Workspace workspace;
+        DWORD error = workspace.Create(parent.get(), parentId, journal.get(), source, sourceId, rawSecurity);
+        Check(!error, "create and journal a private EFS workspace with a verified source link", error);
+        if (error)
+            return false;
+        error = workspace.CreatePayload(rawSecurity);
+        Check(!error, "durably record the private payload before allowing raw import", error);
+        if (error)
+            return false;
+        std::wstring stage(32768, L'\0');
+        length = GetFinalPathNameByHandleW(workspace.Directory(), stage.data(), static_cast<DWORD>(stage.size()), FILE_NAME_OPENED);
+        if (!length || length >= stage.size())
+            return false;
+        stage.resize(length);
+        const auto sourceLink = stage + L"\\" + UacEfsWorkspace::sourceName;
+        const auto payload = stage + L"\\" + UacEfsWorkspace::payloadName;
+        const auto held = base + L"\\displaced.efs";
+        std::wstring guidStage(32768, L'\0');
+        length = GetFinalPathNameByHandleW(workspace.Directory(), guidStage.data(), static_cast<DWORD>(guidStage.size()),
+                                          VOLUME_NAME_GUID | FILE_NAME_OPENED);
+        if (!length || length >= guidStage.size())
+            return false;
+        guidStage.resize(length);
+        std::vector<BYTE> raw;
+        {
+            UacEfsRaw::Context input;
+            error = input.Open((guidStage + L"\\" + UacEfsWorkspace::sourceName).c_str(), 0);
+            if (!error)
+                error = input.Read(raw, 32 * 1024 * 1024, MAXULONGLONG);
+        }
+        if (error)
+            return false;
+        {
+            UacEfsRaw::Context output;
+            error = output.Open((guidStage + L"\\" + UacEfsWorkspace::payloadName).c_str(), CREATE_FOR_IMPORT);
+            if (!error)
+                error = output.Write(raw, MAXULONGLONG);
+        }
+        const DWORD payloadAttributes = GetFileAttributesW(payload.c_str());
+        Check(!error && payloadAttributes != INVALID_FILE_ATTRIBUTES &&
+                  (payloadAttributes & FILE_ATTRIBUTE_ENCRYPTED) && HasContents(payload, plaintext),
+              "transfer ciphertext between the verified workspace link and payload", error);
+        if (error)
+            return false;
+        if (substitute)
+        {
+            if (!MoveFileW(payload.c_str(), held.c_str()) || !WriteFixture(payload, {9}))
+                return false;
+            error = workspace.Cleanup();
+            Check(error == ERROR_FILE_INVALID && HasContents(payload, {9}) && Exists(sourceLink),
+                  "refuse a substituted payload before deleting any recorded EFS object", error);
+            error = recover();
+            Check(error == ERROR_FILE_INVALID && HasContents(payload, {9}) && Exists(sourceLink),
+                  "recovery also refuses a substitute with the recorded payload name", error);
+            if (!DeleteFileW(payload.c_str()) || !MoveFileW(held.c_str(), payload.c_str()))
+                return false;
+        }
+        else
+        {
+            const HANDLE rawLock = CreateFileW(payload.c_str(), FILE_READ_DATA, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+            if (rawLock == INVALID_HANDLE_VALUE)
+                return false;
+            const Handle lock(rawLock);
+            error = workspace.Cleanup();
+            Check(error == ERROR_SHARING_VIOLATION && Exists(payload) && Exists(sourceLink),
+                  "leave a journaled EFS workspace when cleanup is interrupted", error);
+        }
+        error = recover();
+        FILE_STANDARD_INFO info{};
+        Check(!error && !DirectoryExists(stage) &&
+                  GetFileInformationByHandleEx(source, FileStandardInfo, &info, sizeof(info)) && info.NumberOfLinks == 1,
+              "recover only the recorded EFS workspace and keep the original link", error);
+        if (error)
+            return false;
+    }
+    LARGE_INTEGER size{};
+    Check(GetFileSizeEx(journal.get(), &size) && !size.QuadPart, "clear the EFS journal after verified cleanup");
+    return failures == 0;
+}
+
 static bool CheckEfsRaw(const std::wstring& folder, const wchar_t* fixturePath)
 {
     const DWORD attrs = GetFileAttributesW(fixturePath);
@@ -1462,6 +1588,8 @@ static bool CheckEfsRaw(const std::wstring& folder, const wchar_t* fixturePath)
           "retain the staged identity and EFS encryption after import");
     Check(HasContents(restored, plaintext), "the original EFS key holder reads the same bytes from the restored file");
     Check(HasContents(fixturePath, plaintext), "raw transfer leaves the original readable");
+    if (!CheckEfsWorkspace(folder, restoredIdentity.get(), current, plaintext))
+        return false;
 
     {
         const auto guard = open(restored.c_str(), DELETE, FILE_SHARE_READ);
