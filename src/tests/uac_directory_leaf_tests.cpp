@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise the read-only Find property stream. | Check bounded reads, large offsets, cancellation and clone lifetime. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cover scoped content opens used by Find. | Check long Unicode paths, ranges beyond snapshots and scope escapes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe read-only and delete-pending source guards. | Exercise new and already open NTFS streams before designing retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the shared file exchange on NTFS. | Verify deadline and backup-name collisions leave the original intact. | | GPT-6.1 Sol (Codex) |
@@ -52,6 +53,7 @@
 #include "../uacbroker/zipselection.h"
 #include "../uacbroker/copytree.h"
 #include "../uacbroker/viewleaf.h"
+#include "../findtagstream.h"
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
@@ -961,6 +963,71 @@ bool CheckDirectoryMetadata(const std::wstring& fixture, HANDLE root)
 }
 }
 
+static bool CheckFindTagStream()
+{
+    struct Fixture
+    {
+        DWORD calls = 0;
+        ULONGLONG last = 0;
+        DWORD error = ERROR_SUCCESS;
+    } fixture;
+    auto read = [](void* context, ULONGLONG offset, void* output, DWORD bytes) -> DWORD {
+        auto& fixture = *static_cast<Fixture*>(context);
+        ++fixture.calls;
+        fixture.last = offset;
+        if (fixture.error)
+            return fixture.error;
+        for (DWORD i = 0; i < bytes; ++i)
+            static_cast<BYTE*>(output)[i] = static_cast<BYTE>(offset + i);
+        return ERROR_SUCCESS;
+    };
+    constexpr ULONGLONG length = (5ULL << 30) + 9;
+    auto* stream = CFindTagStream::Create(length, 3, read, &fixture);
+    if (!stream)
+        return false;
+
+    STATSTG stat{};
+    HRESULT hr = stream->Stat(&stat, STATFLAG_NONAME);
+    Check(hr == S_OK && stat.cbSize.QuadPart == length && stat.grfMode == STGM_READ,
+          "advertise a large read-only tag stream", hr);
+    BYTE bytes[8]{};
+    ULONG count = 0;
+    hr = stream->Read(bytes, sizeof(bytes), &count);
+    Check(hr == S_OK && count == sizeof(bytes) && bytes[7] == 7 && fixture.calls == 3,
+          "split property reads into bounded broker blocks", hr);
+
+    LARGE_INTEGER move{};
+    move.QuadPart = -2;
+    ULARGE_INTEGER position{};
+    hr = stream->Seek(move, STREAM_SEEK_END, &position);
+    Check(hr == S_OK && position.QuadPart == length - 2, "seek to a 64-bit property offset", hr);
+    IStream* clone = nullptr;
+    if (FAILED(stream->Clone(&clone)))
+    {
+        stream->Release();
+        return false;
+    }
+    hr = stream->Read(bytes, sizeof(bytes), &count);
+    Check(hr == S_FALSE && count == 2 && fixture.last == length - 2,
+          "return a partial property read at end of file", hr);
+    hr = clone->Read(bytes, 1, &count);
+    Check(hr == S_OK && count == 1 && fixture.last == length - 2,
+          "keep an independent seek position for a property stream clone", hr);
+    hr = clone->Write(bytes, 1, &count);
+    Check(hr == STG_E_ACCESSDENIED && count == 0, "reject property stream writes", hr);
+
+    fixture.error = ERROR_BROKEN_PIPE;
+    hr = clone->Read(bytes, 1, &count);
+    const auto error = stream->Detach();
+    Check(hr == HRESULT_FROM_WIN32(ERROR_BROKEN_PIPE) && !count && error == ERROR_BROKEN_PIPE,
+          "retain a broker failure even if a property handler ignores it", error);
+    hr = clone->Read(bytes, 1, &count);
+    Check(hr == STG_E_REVERTED && !count, "revoke outstanding property stream clones after reading", hr);
+    clone->Release();
+    stream->Release();
+    return true;
+}
+
 static bool CheckViewerSnapshot(const std::wstring& fixture, HANDLE root)
 {
     const auto component = std::wstring(160, L'\u65e5');
@@ -1326,7 +1393,7 @@ int wmain(int argc, wchar_t** argv)
     const Handle root(rawRoot);
     if (moveSource)
         return CheckMoveSource(fixture, root.get()) && CheckMoveSourceGuards(fixture, root.get()) ? 0 : 1;
-    if (!CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
+    if (!CheckFindTagStream() || !CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
         !CheckZipSelection(fixture, root.get()) || !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::Zip) ||
         !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::DiskCopy))
         return 2;

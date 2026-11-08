@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-08 | Link COM interface identifiers for Find stream tests. | Exercise the host stream using the native suite. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Add an optional NTFS source-retirement probe. | Verify the boundary of a held source handle. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Add an optional NTFS overwrite probe. | Measure rename behavior on the Windows build under test. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Link Windows access-control APIs for the staged tree tests. | Exercise real NTFS integrity descriptors. | | GPT-6.1 Sol (Codex) |
@@ -48,7 +49,7 @@ def main():
         try:
             build = run([
                 compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX",
-                *flags, str(source), "/Fe:" + str(exe), "/link", "ntdll.lib", "ole32.lib", "advapi32.lib", "user32.lib",
+                *flags, str(source), "/Fe:" + str(exe), "/link", "ntdll.lib", "ole32.lib", "advapi32.lib", "user32.lib", "uuid.lib",
             ], cwd=folder, env=env, timeout=35)
             if build.returncode:
                 return build.returncode

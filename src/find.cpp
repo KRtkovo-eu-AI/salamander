@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Match tags in the authorized Find subtree. | Read keywords through the host and require a verified broker close. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Include approved protected files in duplicate groups. | Use the same ordering and digest progress for both sources. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Search protected file contents with the existing matcher. | Consume bounded blocks after the ordinary traversal while retaining search options. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Resume metadata Find in one verified protected subtree. | Keep ordinary search running during consent and use one bounded read-only session. | | GPT-6.1 Sol (Codex) |
@@ -12,6 +13,7 @@
 
 #include "cfgdlg.h"
 #include "find.h"
+#include "findtagstream.h"
 #include "md5.h"
 #include "common/widepath.h"
 #include "uacbroker/f7pilot.h"
@@ -1551,10 +1553,10 @@ public:
     bool Begin(CGrepData* search, const char* deniedPath, CMaskGroup* masksGroup,
                BOOL recursive, int searchRootLength, CFindIgnore* ignore)
     {
-        if (launchThread || search->StopSearch || search->Criteria.HasTags())
+        if (launchThread || search->StopSearch)
             return false;
         path = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(deniedPath, GetACP()).c_str());
-        readContent = search->Grep || FindDuplicateContent(*search);
+        readContent = search->Grep || search->Criteria.HasTags() || FindDuplicateContent(*search);
         if (!session.Prepare(path, readContent))
             return false;
 
@@ -1588,6 +1590,11 @@ public:
         }
 
         data->SearchingText->Set(LoadStr(IDS_UAC_FIND_SCOPE));
+        if (data->Criteria.HasTags())
+        {
+            const auto text = SalMultiByteToWidePath(data->Criteria.GetTagsText(), CP_UTF8);
+            ParseFileTagsW(text.c_str(), requestedTags);
+        }
         size_t remaining = 4096;
         Scan(path, 0, remaining, candidates);
         return &session;
@@ -1684,6 +1691,54 @@ private:
         return found && !data->StopSearch;
     }
 
+    static DWORD ReadTagBlock(void* context, ULONGLONG offset, void* output, DWORD bytes)
+    {
+        auto& request = *static_cast<FindProtectedRequest*>(context);
+        return request.data->StopSearch ? ERROR_CANCELLED : request.session.ReadContent(offset, output, bytes);
+    }
+
+    bool MatchTags(const std::wstring& directory, const WIN32_FIND_DATAW& file, const CQuadWord& listedSize)
+    {
+        std::wstring filePath = directory;
+        SalPathAppendW(filePath, file.cFileName);
+        const std::string pathText = SalWideToMultiBytePath(filePath.c_str(), CP_UTF8);
+        data->SearchingText->Set(pathText.c_str());
+        ULONGLONG size = 0;
+        FILETIME modified{};
+        DWORD error = session.OpenContent(filePath, size, modified);
+        if (error)
+        {
+            Log(filePath, error);
+            return false;
+        }
+        std::vector<std::wstring> tags;
+        if (size != listedSize.Value || CompareFileTime(&modified, &file.ftLastWriteTime) != 0)
+            error = ERROR_FILE_INVALID;
+        else
+        {
+            auto* stream = CFindTagStream::Create(size, UacF7::archiveReadBlock, ReadTagBlock, this);
+            if (stream)
+            {
+                const HRESULT hr = ReadFileTagsFromStreamW(filePath.c_str(), stream, tags);
+                error = stream->Detach();
+                stream->Release();
+                if (!error && FAILED(hr))
+                    error = static_cast<DWORD>(hr);
+            }
+            else
+                error = ERROR_NOT_ENOUGH_MEMORY;
+        }
+        const DWORD closeError = session.CloseContent();
+        if (data->StopSearch)
+            return false;
+        if (error || closeError)
+        {
+            Log(filePath, error ? error : closeError);
+            return false;
+        }
+        return FileTagValuesMatchW(tags, requestedTags, data->Criteria.GetTagsMode()) != FALSE;
+    }
+
     bool VerifyEmptyCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file)
     {
         std::wstring filePath = directory;
@@ -1739,6 +1794,7 @@ private:
             const bool isDir = (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
             if (masks->AgreeMasksW(file.cFileName, nullptr) &&
                 data->Criteria.Test(file.dwFileAttributes, &size, &file.ftLastWriteTime) &&
+                (!data->Criteria.HasTags() || (!isDir && (requestedTags.empty() || MatchTags(directory, file, size)))) &&
                 (!data->Grep || (!isDir && MatchContent(directory, file, size))) &&
                 (!candidates || (!isDir && (!readContent || size.Value || VerifyEmptyCandidate(directory, file)))))
             {
@@ -1756,6 +1812,7 @@ private:
 
     UacF7::ListingSession session;
     std::vector<char> content;
+    std::vector<std::wstring> requestedTags;
     std::wstring path;
     std::unique_ptr<CFindIgnore> ignoreSnapshot;
     CGrepData* data = nullptr;
