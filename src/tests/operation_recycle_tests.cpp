@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Probe the native Shell recycle destination and source guard. | Establish whether explicit destination or exclusive handles can enforce the required contract. | | GPT-6.1 Sol (Codex) |
 // S20c adapted from PR #769: recycle-only fixture; shell/clipboard covered later.
 #include "../operationrecycle.h"
 #include <cstdio>
+#include <cstring>
+#include <string_view>
 #include <filesystem>
+#include <memory>
+#include <sddl.h>
+#include <shlguid.h>
 #include <vector>
+
+#pragma comment(lib, "advapi32.lib")
 static int failures = 0;
 static void Check(bool condition, const char* name)
 {
@@ -18,7 +26,129 @@ static bool MakeFile(const std::wstring& path)
     CloseHandle(file);
     return true;
 }
-int wmain()
+template<class Interface>
+struct ReleaseShell
+{
+    void operator()(Interface* value) const { if (value) value->Release(); }
+};
+template<class Interface>
+using ShellPtr = std::unique_ptr<Interface, ReleaseShell<Interface>>;
+
+static std::wstring CurrentSid()
+{
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token))
+        return {};
+    DWORD size = 0;
+    GetTokenInformation(token, TokenUser, nullptr, 0, &size);
+    std::vector<BYTE> data(size);
+    PWSTR sid = nullptr;
+    if (size && GetTokenInformation(token, TokenUser, data.data(), size, &size))
+        ConvertSidToStringSidW(reinterpret_cast<const TOKEN_USER*>(data.data())->User.Sid, &sid);
+    CloseHandle(token);
+    const std::wstring result = sid ? sid : L"";
+    if (sid)
+        LocalFree(sid);
+    return result;
+}
+
+static bool ReadFileId(const wchar_t* path, FILE_ID_INFO& id)
+{
+    HANDLE file = CreateFileW(path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                              nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (file == INVALID_HANDLE_VALUE)
+        return false;
+    const BOOL result = GetFileInformationByHandleEx(file, FileIdInfo, &id, sizeof(id));
+    CloseHandle(file);
+    return result != FALSE;
+}
+
+static bool ProbeTransferRecycle(const std::filesystem::path& folder)
+{
+    if (!CreateDirectoryW(folder.c_str(), nullptr))
+        return false;
+    const auto explicitDestination = folder / L"other-destination";
+    if (!CreateDirectoryW(explicitDestination.c_str(), nullptr))
+        return false;
+
+    IShellItem* raw = nullptr;
+    HRESULT hr = SHCreateItemFromParsingName(folder.c_str(), nullptr, IID_PPV_ARGS(&raw));
+    const ShellPtr<IShellItem> parent(raw);
+    ITransferSource* rawTransfer = nullptr;
+    if (SUCCEEDED(hr))
+        hr = parent->BindToHandler(nullptr, BHID_Transfer, IID_PPV_ARGS(&rawTransfer));
+    const ShellPtr<ITransferSource> transfer(rawTransfer);
+    if (FAILED(hr))
+    {
+        std::printf("ITransferSource bind=0x%08lX\n", static_cast<unsigned long>(hr));
+        return false;
+    }
+    const std::wstring sid = CurrentSid();
+    if (sid.empty())
+        return false;
+
+    for (int mode = 0; mode != 3; ++mode)
+    {
+        const auto path = folder / (L"samandarin-transfer-" + std::to_wstring(mode) + L".txt");
+        if (!MakeFile(path.wstring()))
+            return false;
+        FILE_ID_INFO before{};
+        if (!ReadFileId(path.c_str(), before))
+            return false;
+        raw = nullptr;
+        hr = SHCreateItemFromParsingName(path.c_str(), nullptr, IID_PPV_ARGS(&raw));
+        const ShellPtr<IShellItem> source(raw);
+        raw = nullptr;
+        if (SUCCEEDED(hr))
+        {
+            hr = mode == 1
+                ? SHCreateItemFromParsingName(explicitDestination.c_str(), nullptr, IID_PPV_ARGS(&raw))
+                : SHGetKnownFolderItem(FOLDERID_RecycleBinFolder, KF_FLAG_DEFAULT, nullptr, IID_PPV_ARGS(&raw));
+        }
+        const ShellPtr<IShellItem> destination(raw);
+        if (FAILED(hr))
+            return false;
+
+        HANDLE guard = INVALID_HANDLE_VALUE;
+        if (mode == 2)
+        {
+            guard = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES | DELETE, FILE_SHARE_READ, nullptr,
+                                OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+            if (guard == INVALID_HANDLE_VALUE)
+                return false;
+        }
+        raw = nullptr;
+        hr = transfer->RecycleItem(source.get(), destination.get(), TSF_DELETE_RECYCLE_IF_POSSIBLE, &raw);
+        const ShellPtr<IShellItem> receipt(raw);
+        if (guard != INVALID_HANDLE_VALUE)
+            CloseHandle(guard);
+        std::printf("ITransferSource case=%d result=0x%08lX receipt=%d\n", mode, static_cast<unsigned long>(hr),
+                    receipt ? 1 : 0);
+        const bool present = GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
+        if (mode == 2)
+        {
+            Check(hr == COPYENGINE_E_SHARING_VIOLATION_SRC && !receipt && present,
+                  "Shell cannot recycle the original while an exclusive delete handle pins its name");
+            continue;
+        }
+
+        PWSTR receiptPath = nullptr;
+        FILE_ID_INFO after{};
+        const bool hasPath = receipt && SUCCEEDED(receipt->GetDisplayName(SIGDN_FILESYSPATH, &receiptPath)) && receiptPath;
+        const auto recycleSid = L"\\$Recycle.Bin\\" + sid + L"\\";
+        const bool inCurrentBin = hasPath && std::wstring_view(receiptPath).find(recycleSid) != std::wstring_view::npos;
+        const bool sameFile = hasPath && ReadFileId(receiptPath, after) &&
+                              before.VolumeSerialNumber == after.VolumeSerialNumber &&
+                              std::memcmp(before.FileId.Identifier, after.FileId.Identifier, sizeof(before.FileId.Identifier)) == 0;
+        CoTaskMemFree(receiptPath);
+        Check(SUCCEEDED(hr) && !present && inCurrentBin && sameFile,
+              mode == 0 ? "Shell recycle preserves file identity in the caller's bin"
+                        : "an alternate destination item does not change the NTFS Shell's bin");
+    }
+    return true;
+}
+
+int wmain(int argc, wchar_t** argv)
 {
     HRESULT initialized = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
     if (FAILED(initialized)) return 2;
@@ -31,6 +161,20 @@ int wmain()
         (L"samandarin-branch-operations-" + std::to_wstring(GetCurrentProcessId()) +
          L"-" + std::to_wstring(GetTickCount64()));
     std::error_code error;
+    if (argc == 2 && std::wstring_view(argv[1]) == L"--transfer-probe")
+    {
+        const bool complete = ProbeTransferRecycle(root);
+        if (root.parent_path() == testParent &&
+            root.filename().wstring().find(L"samandarin-branch-operations-") == 0)
+            std::filesystem::remove_all(std::filesystem::path(L"\\\\?\\" + root.wstring()), error);
+        CoUninitialize();
+        return complete && failures == 0 ? 0 : 1;
+    }
+    if (argc != 1)
+    {
+        CoUninitialize();
+        return 2;
+    }
     std::filesystem::create_directories(root / L"prvni-\u0161\u017e\u6f22", error);
     std::filesystem::create_directories(root / L"druhy-\u00e9\u03b1\U0001f600", error);
     std::filesystem::path longParent = root;

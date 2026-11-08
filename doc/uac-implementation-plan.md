@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record the Shell transfer recycling probe. | Verify caller ownership and the source-sharing boundary before protected recycling. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record exact-file Find grants. | Document authorization, mixed-scope search and local validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record independent Find scopes. | Document serialized consent, cancellation and scoped duplicate reads. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record protected Find keywords. | Document host-side parsing, verified stream limits and local evidence. | | GPT-6.1 Sol (Codex) |
@@ -715,6 +716,10 @@ Přesun do Koše v diskovém panelu používá IFileOperation s identitou volaj�
 Společný lokální běh ověřil sestavení aplikace, anglických prostředků, brokeru a sondy x64 Debug. V Debug i Release prošlo 177 nativních kontrol brokeru, 48 kontrol workeru mazání a 405 kontrol panelu a navigace. Prošlo také 50 zdrojových kontrol operací a přechodů panelu, test transportu a test konverzních tabulek. Regrese pokryly skutečnou recyklaci, odmítnutí trvalého smazání nabídnutého backendem a chybějící potvrzení o položce Koše.
 
 V izolované Windows 11 VM zamítl F5 kopii šifrovaného souboru do chráněné složky s vysvětlením EFS, bez výzvy správce. Zdroj měl původní SHA-256 a atribut Encrypted, cíl nevznikl. Běžný soubor se objevil v Koši volajícího se správnou původní cestou, obnovil se na původní místo a měl stejný SHA-256. Ze standardního účtu SamandarinUacTest finální pilot přesun chráněného souboru odmítl a ukázal Access is denied (5). První sestavení chybu Shellu nesprávně zobrazilo jako chybu zařízení (31). Oprava mapuje známá odmítnutí a pro neznámý výsledek zachovává skutečný kód Shellu. Chráněný soubor zůstal na místě se stejným SHA-256 a otisky všech čtyř instalovaných souborů odpovídaly finálnímu pilotu.
+
+**Zkouška výslovného cíle Koše a ověřené identity.** Volitelný režim `operation_recycle_tests.exe --transfer-probe` vytváří pouze vlastní zkušební soubory. Na lokálním NTFS ve Windows 11 (sestavení 26200) vrátil `ITransferSource::RecycleItem` potvrzenou položku s původním ID souboru v Koši volajícího. Stejně dopadl pokus s jiným existujícím adresářem předaným jako cílový Shell objekt. Implementace Shellu použila Koš volajícího i v tomto případě. Parametr cíle proto v tomto backendu neposkytuje důkaz, že spuštění pod jiným správcem použije Koš původního uživatele. S drženým handlem s právem DELETE bez sdílení mazání operace vrátila `COPYENGINE_E_SHARING_VIOLATION_SRC` a zdroj zůstal na místě. Zkouška tedy nepotvrdila ani možnost předat Shellu zdroj zajištěný tímto typem zámku. [ITransferSource::RecycleItem](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-itransfersource-recycleitem).
+
+V Debug i Release prošly tři kontroly této zkoušky a patnáct běžných regresí Koše. Další experiment má použít IFileOperation spuštěné z původního účtu s volbou `FOFX_SHOWELEVATIONPROMPT`. Při souhlasu stejným i jiným správcem je nutné doložit příslušnost potvrzené položky ke Koši původního účtu, zachování identity a obnovu na původní cestu. Volba podle dokumentace určuje zobrazení výzvy. Volající z ní nemůže vyvodit cílový účet. Produkční chráněná recyklace zůstává otevřená. [Příznaky IFileOperation](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-setoperationflags).
 
 #### Rozsah dokončené P5
 
