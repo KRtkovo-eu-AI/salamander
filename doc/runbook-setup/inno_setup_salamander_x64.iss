@@ -1,4 +1,5 @@
 ; | Date | Summary | Reason | Ticket | Model |
+; | 2026-11-08 | Localize the UAC pilot destination message. | Show the required directory in all installer languages. | | GPT-6.1 Sol (Codex) |
 ; | 2026-11-08 | Package a separately identified signed UAC pilot. | Stage only the protected installer pair and keep portable packaging separate. | | GPT-6.1 Sol (Codex) |
 ; | 2026-11-06 | Rename JSON Web Viewer to JSON Viewer (nodeJS). | Match the requested product name in the installer plugin list. |  | Composer |
 ; | 2026-11-05 | Ship the Salamatrix JSON Web Viewer extension. | Offer a lightweight WebView2 alternative to JSON Viewer .NET. |  | Composer |
@@ -113,6 +114,21 @@ Name: "slovak"; MessagesFile: "compiler:Languages\Slovak.isl"; LicenseFile: "{#S
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"; LicenseFile: "{#SourcePath}\license.spanish.txt"
 
 [CustomMessages]
+#ifdef UacBrokerPilot
+english.UacPilotInstallLocation=The UAC pilot requires a standard installation in %1.
+chinesesimplified.UacPilotInstallLocation=UAC 试用版必须以标准模式安装到 %1。
+czech.UacPilotInstallLocation=Pilot UAC vyžaduje standardní instalaci do složky %1.
+dutch.UacPilotInstallLocation=De UAC-proefversie vereist een standaardinstallatie in %1.
+french.UacPilotInstallLocation=La version pilote UAC exige une installation standard dans %1.
+german.UacPilotInstallLocation=Die UAC-Pilotversion erfordert eine Standardinstallation in %1.
+hungarian.UacPilotInstallLocation=Az UAC-próbaverziót szabványos módon a(z) %1 mappába kell telepíteni.
+italian.UacPilotInstallLocation=La versione pilota UAC richiede un’installazione standard in %1.
+romanian.UacPilotInstallLocation=Versiunea pilot UAC necesită o instalare standard în %1.
+russian.UacPilotInstallLocation=Для пилотной версии UAC требуется стандартная установка в папку %1.
+slovak.UacPilotInstallLocation=Pilot UAC vyžaduje štandardnú inštaláciu do priečinka %1.
+spanish.UacPilotInstallLocation=La versión piloto de UAC requiere una instalación estándar en %1.
+#endif
+
 english.RemoveUserConfigQuestion=Do you want to remove the Open Samandarin user configuration?
 english.FileStorage=File storage:
 english.RegistryKey=Registry key:
@@ -1731,7 +1747,7 @@ begin
   Result := '';
   if IsPortableInstall() or
      (CompareText(RemoveBackslashUnlessRoot(ExpandConstant('{app}')), GetStandardDefaultDir()) <> 0) then
-    Result := 'The UAC pilot requires a standard installation in ' + GetStandardDefaultDir() + '.';
+    Result := FmtMessage(CustomMessage('UacPilotInstallLocation'), [GetStandardDefaultDir()]);
 end;
 #else
 function GetStandardDefaultDir(): String;

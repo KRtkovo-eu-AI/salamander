@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record all pilot installer message translations. | Verify that each setup language includes the required path. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the F6 oplock and delete-pending experiments. | Isolate the limits of stream and extended-attribute exclusion. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record active cancellation of scoped file transfers. | Preserve completed copies and stop the rest of the batch. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record security metadata with F5 streams and sparse allocation. | Verify supported combinations without dropping payload data. | | GPT-6.1 Sol (Codex) |
@@ -1036,6 +1037,8 @@ Budoucí změny rozdělit na malé revizovatelné commity podle těchto hranic. 
 Volitelný profil Inno Setup pro x64 zahrnuje podepsaný host a broker ze stejného sestavení a používá chráněnou instalační cestu ověřovanou brokerem. Má samostatnou identitu instalace a názvy zástupců. Odinstalace pilotu zachová sdílený profil aplikace. Běžný instalační profil broker nepřidává. Postup sestavení a kontroly podepsaného obsahu je v dokumentaci brokeru.
 
 Místní kontrola dvojice Debug x64 ověřila architekturu, manifesty asInvoker a requireAdministrator s uiAccess=false, příznak načítání závislostí 0x0800 a seznam importovaných knihoven brokeru. Přísný režim správně odmítl nepodepsanou dvojici. Laboratorní režim odmítl broker dosazený místo hosta. Podpis skutečných artefaktů, kompilace instalátoru a zkoušky čisté instalace, aktualizace, odinstalace a výměny binárky ve VM zůstávají otevřené.
+
+Hlášení o povinné standardní instalaci do chráněné cesty je dostupné ve všech 12 jazycích instalátoru. Statická kontrola potvrdila přesnou shodu se seznamem jazyků a jediný zástupný parametr pro cestu v každém překladu. Zobrazení hlášení v sestaveném instalátoru patří do akceptace.
 
 ## 12. Testovací strategie
 
