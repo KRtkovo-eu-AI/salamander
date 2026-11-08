@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Negotiate and dispatch protected file symbolic-link deletion. | Check the approved object type in both the local and elevated paths. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate and dispatch a scoped junction rename. | Verify junction data on the anchored handle and keep the link target unopened. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Validate directory symbolic links through anchored source opens. | Keep the visible path and broker bound to the same link object. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate and validate symbolic-link rename. | Check the same link identity and type in the panel and broker. | | GPT-6.1 Sol (Codex) |
@@ -101,12 +102,13 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD renameSymlinkCapability = 32768;
 [[maybe_unused]] constexpr DWORD renameDirectorySymlinkCapability = 65536;
 [[maybe_unused]] constexpr DWORD renameJunctionCapability = 131072;
+[[maybe_unused]] constexpr DWORD deleteSymlinkCapability = 262144;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
                                                  inventoryCapability | copyTreeCapability | cancelTreeCapability |
                                                  directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
                                                  copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability |
-                                                 renameDirectorySymlinkCapability | renameJunctionCapability;
+                                                 renameDirectorySymlinkCapability | renameJunctionCapability | deleteSymlinkCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -788,7 +790,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool rename = UacF7::IsRename(header.operation);
     const bool mkdir = header.operation == Operation::Mkdir;
     const bool setMetadata = header.operation == Operation::Metadata;
-    const bool deleteFile = header.operation == Operation::Delete;
+    const bool deleteFile = UacF7::IsFileDelete(header.operation);
     const bool list = header.operation == Operation::List;
     const bool copy = UacF7::IsFileCopy(header.operation);
     const bool move = header.operation == Operation::Move;
@@ -947,7 +949,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     else if (setMetadata)
         result = UacMetadataLeaf::SetVerifiedMetadata(parent.get(), expected, sourceIdentity, leaf, metadata);
     else if (deleteFile)
-        result = UacDeleteLeaf::DeleteVerifiedFile(parent.get(), expected, sourceIdentity, leaf);
+        result = UacDeleteLeaf::DeleteVerifiedFile(parent.get(), expected, sourceIdentity, leaf,
+                                                 header.operation == Operation::DeleteSymlink);
     else if (list)
     {
         if (UacDirectoryLeaf::SameParent(expected, actual))
@@ -1283,9 +1286,9 @@ bool PreparedLeaf::PrepareMetadata(const std::wstring& path, const MetadataChang
     return UacMetadataLeaf::IsValid(change) && PrepareTarget(path, Operation::Metadata, {}, &change);
 }
 
-bool PreparedLeaf::PrepareDelete(const std::wstring& path)
+bool PreparedLeaf::PrepareDelete(const std::wstring& path, bool symlink)
 {
-    return PrepareTarget(path, Operation::Delete, {}, nullptr);
+    return PrepareTarget(path, symlink ? Operation::DeleteSymlink : Operation::Delete, {}, nullptr);
 }
 
 bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, const std::wstring& renameTo,
@@ -1361,7 +1364,8 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
     }
     else if (requested != Operation::Mkdir && requested != Operation::List)
     {
-        const auto kind = RenameKind(requested);
+        const bool deleteSymlink = requested == Operation::DeleteSymlink;
+        const auto kind = deleteSymlink ? UacRenameLeaf::MoveKind::RenameSymlink : RenameKind(requested);
         HANDLE raw = nullptr;
         if (UacRenameLeaf::Detail::OpenSource(opened.get(), finalName, raw, 0,
                                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, kind))
@@ -1381,7 +1385,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
             return false;
         if (change && UacMetadataLeaf::CheckAttributes(openedSource.get(), *change))
             return false;
-        if (requested == Operation::Delete && UacDeleteLeaf::CheckAttributes(openedSource.get()))
+        if (IsFileDelete(requested) && UacDeleteLeaf::CheckAttributes(openedSource.get(), deleteSymlink))
             return false;
         if (rename)
             sourceLeaf.assign(finalName);
@@ -1402,7 +1406,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
 
 DWORD PreparedLeaf::ExecuteLocal() const
 {
-    if (!parent || (operation != Operation::Metadata && operation != Operation::Delete))
+    if (!parent || (operation != Operation::Metadata && !IsFileDelete(operation)))
         return ERROR_INVALID_PARAMETER;
     UacDirectoryLeaf::ParentIdentity expectedParent{};
     expectedParent.file.VolumeSerialNumber = serial;
@@ -1410,8 +1414,8 @@ DWORD PreparedLeaf::ExecuteLocal() const
     expectedParent.volume = volume;
     FILE_ID_INFO expectedSource{serial, {}};
     std::memcpy(expectedSource.FileId.Identifier, sourceId, sizeof(sourceId));
-    if (operation == Operation::Delete)
-        return UacDeleteLeaf::DeleteVerifiedFile(parent, expectedParent, expectedSource, leaf);
+    if (IsFileDelete(operation))
+        return UacDeleteLeaf::DeleteVerifiedFile(parent, expectedParent, expectedSource, leaf, IsSymlinkDelete());
     return UacMetadataLeaf::SetVerifiedMetadata(parent, expectedParent, expectedSource, leaf, metadata);
 }
 

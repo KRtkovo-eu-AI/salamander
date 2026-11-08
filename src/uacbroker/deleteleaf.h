@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Delete a verified file symbolic link by handle. | Check the reparse tag and retain the ordinary-file rules. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Delete a single ordinary file by its verified NTFS handle. | Avoid reopening a path for deletion or changing file attributes. | | GPT-6.1 Sol (Codex) |
 */
 #pragma once
@@ -9,16 +10,20 @@
 
 namespace UacDeleteLeaf
 {
-inline DWORD CheckAttributes(HANDLE file)
+inline DWORD CheckAttributes(HANDLE file, bool symlink = false)
 {
     FILE_ATTRIBUTE_TAG_INFO attributes{};
     if (!GetFileInformationByHandleEx(file, FileAttributeTagInfo, &attributes, sizeof(attributes)))
         return GetLastError();
-    return UacF7::IsPlainDeleteFile(attributes.FileAttributes) ? ERROR_SUCCESS : ERROR_NOT_SUPPORTED;
+    if (symlink && attributes.ReparseTag != IO_REPARSE_TAG_SYMLINK)
+        return ERROR_REPARSE_TAG_INVALID;
+    const bool supported = symlink ? UacF7::IsPlainDeleteSymlink(attributes.FileAttributes)
+                                   : UacF7::IsPlainDeleteFile(attributes.FileAttributes);
+    return supported ? ERROR_SUCCESS : ERROR_NOT_SUPPORTED;
 }
 
 inline DWORD DeleteVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
-                                const FILE_ID_INFO& expectedSource, std::wstring_view leaf)
+                                const FILE_ID_INFO& expectedSource, std::wstring_view leaf, bool symlink = false)
 {
     if (!UacDirectoryLeaf::IsComponent(leaf))
         return ERROR_INVALID_NAME;
@@ -36,11 +41,12 @@ inline DWORD DeleteVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIde
     if (error != ERROR_SUCCESS)
         return error;
     FILE_ID_INFO actualSource{};
-    error = UacRenameLeaf::Detail::ReadSourceIdentity(file, actualSource);
+    const auto kind = symlink ? UacRenameLeaf::MoveKind::RenameSymlink : UacRenameLeaf::MoveKind::RenameFile;
+    error = UacRenameLeaf::Detail::ReadSourceIdentity(file, actualSource, kind);
     if (error == ERROR_SUCCESS && !UacRenameLeaf::Detail::SameSource(actualSource, expectedSource))
         error = ERROR_FILE_INVALID;
     if (error == ERROR_SUCCESS)
-        error = CheckAttributes(file);
+        error = CheckAttributes(file, symlink);
     if (error == ERROR_SUCCESS)
     {
         // Detach the verified name on close even while the host retains its identity handle.

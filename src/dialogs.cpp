@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Identify file symbolic links in permanent-delete consent. | Describe the exact object approved for deletion. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe compression preservation in F5 consent. | Show the attribute requested from the broker. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | State when a protected F5 skips named streams. | Make the selected stream behavior visible at consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Select consent text for folder attributes. | Keep timestamp-only and ordinary file prompts specific. | | GPT-6.1 Sol (Codex) |
@@ -1807,7 +1808,9 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             auto& prompt = *reinterpret_cast<UacF7::LeafPrompt*>(lParam);
             int confirmText = deleting ? IDS_UAC_DELETE_CONFIRM : IDS_UAC_METADATA_CONFIRM;
             int unknownText = deleting ? IDS_UAC_DELETE_UNKNOWN : IDS_UAC_METADATA_UNKNOWN;
-            if (prompt.request.IsDirectoryMetadata())
+            if (prompt.request.IsSymlinkDelete())
+                confirmText = IDS_UAC_DELETE_SYMLINK_CONFIRM;
+            else if (prompt.request.IsDirectoryMetadata())
             {
                 const bool attributes = prompt.request.ChangesAttributes();
                 confirmText = attributes ? IDS_UAC_DIRECTORY_ATTRS_CONFIRM : IDS_UAC_DIRECTORY_TIMES_CONFIRM;

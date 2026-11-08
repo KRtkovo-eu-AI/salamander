@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record P5k permanent file symbolic-link deletion. | Document scope and local and VM checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5j junction rename. | Document the accepted junction format and the local and VM results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5i directory symbolic-link rename. | Document the type check and the local and VM results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5h file symbolic-link rename. | Document the no-follow boundary and the local and VM results. | | GPT-6.1 Sol (Codex) |
@@ -623,6 +624,14 @@ F2 a Quick Rename umí přes broker přejmenovat jeden junction na místním NTF
 Lokálně prošlo sestavení x64 Debug, všech 157 nativních kontrol v Debug i Release, transport brokeru, testy Branch View a konverzních tabulek. Na NTFS se přejmenoval junction s názvem v Unicode v cestě delší než MAX_PATH při zachování identity, přesných reparse dat a obsahu cíle. Kolize zachovala obě položky. Zkouška formátu na syntetických reparse datech pokryla odmítnutí cesty s GUID svazku, UNC, špatně zarovnaného názvu a zkráceného bufferu.
 
 V izolované Windows 11 VM zobrazily F2 i Quick Rename nabídku správce pro junction s oběma cestami, štítem a výchozí volbou Zrušit. Po volbě Ano při F2 se 01-approve-junction přejmenoval na 01-renamed-junction se shodnými reparse daty a obsahem dostupným přes nový název. Po volbě Ne při Quick Rename zůstal 02-cancel-junction pod původním názvem se shodnými reparse daty a nový název nevznikl. Kontrolní soubory v obou odkazovaných složkách měly původní SHA-256 a otisky instalovaných binárek souhlasily s pilotem.
+
+### 8.36 P5k — trvalé smazání souborového symbolického odkazu
+
+Pilot trvalého smazání přijímá jeden souborový symbolický odkaz na místním NTFS s příznakem reparse point a volitelným příznakem Archiv. Worker ověří, že operace je skutečně trvalá, a použije samostatný typ požadavku pro odkaz. Nejprve zkusí zápis pod běžným tokenem. Po odepření zobrazí nabídku správce se štítem, úplnou cestou odkazu a výchozí volbou Zrušit. Host a broker ověřují identitu rodiče i odkazu. Broker otevře odkaz bez následování cíle, vyžaduje tag IO_REPARSE_TAG_SYMLINK a nastaví smazání na ověřeném handle. Odpojení názvu nevyžaduje existenci cílového souboru. Pilot je omezený na trvalé smazání jednoho souborového odkazu. [Chování symbolických odkazů ve Windows](https://learn.microsoft.com/en-us/windows/win32/fileio/symbolic-link-effects-on-file-systems-functions)
+
+Lokálně prošlo sestavení x64 Debug, všech 163 nativních kontrol v Debug i Release, transport brokeru, test konverzních tabulek a regresní zkouška DoDeleteFile pro trvalé smazání a Koš. Nativní zkoušky ověřily odstranění odkazu s názvem v Unicode při drženém handle, zachování cílového souboru, smazání odkazu na neexistující cíl a odmítnutí nesprávného typu a jiné identity.
+
+V izolované Windows 11 VM se při Shift+Delete po potvrzení běžného dotazu a schválení UAC odstranil 01-approve-link.txt. Po volbě Ne ve výzvě Windows pro 02-cancel-link.txt zůstal tento odkaz na místě se shodnými reparse daty. Oba soubory, na které odkazy ukazovaly, měly původní SHA-256. Otisky instalovaných binárek souhlasily s pilotem.
 
 ## 9. Uživatelský tok a stav operace
 

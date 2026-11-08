@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Use the verified delete flow for one file symbolic link. | Keep recycling and directory links on their existing paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow F5 to preserve supported compressed-file attributes through UAC. | Use a distinct request only with the copy attributes option. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Admit sparse files to the default F5 broker path. | Retain existing eligibility for move and explicit ADS omission. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Admit one-file F5 with planned named streams. | Keep the planned ADS bytes in the copy progress total. | | GPT-6.1 Sol (Codex) |
@@ -8998,11 +8999,12 @@ static bool TryDeleteVerifiedFile(HWND progress, const COperation& op, const COp
     // Recheck the worker's actual policy in case it changed after building the script.
     const bool permanent = (dlgData.UseRecycleBin == 0 && !script.InvertRecycleBin) ||
                            ((dlgData.UseRecycleBin == 1 || dlgData.UseRecycleBin == 2) && script.InvertRecycleBin);
+    const bool symlink = UacF7::IsPlainDeleteSymlink(op.Attr);
     if (!script.AllowPermanentDeletePilot || script.Count != 1 || !permanent || !op.SourceNameWValid ||
-        !UacF7::IsPlainDeleteFile(op.Attr) || FileNameIsInvalid(op.SourceName, TRUE))
+        (!symlink && !UacF7::IsPlainDeleteFile(op.Attr)) || FileNameIsInvalid(op.SourceName, TRUE))
         return false;
     UacF7::PreparedLeaf request;
-    if (!request.PrepareDelete(op.SourceNameW))
+    if (!request.PrepareDelete(op.SourceNameW, symlink))
         return false;
     success = ExecuteVerifiedWorkerLeaf(progress, op, request, dlgData, WORKER_DIALOG_UAC_DELETE, IDS_ERRORDELETINGFILE);
     return true;

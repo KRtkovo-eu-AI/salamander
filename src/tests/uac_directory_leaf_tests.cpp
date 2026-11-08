@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify permanent deletion of a file symbolic link. | Check the typed identity guard and preserve the linked file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify junction rename and mount-point rejection. | Exercise real NTFS junction data and malformed or unsupported substitute names. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise verified directory symbolic-link rename. | Check type, collision, parent binding, and unchanged reparse data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check the scoped rename of an NTFS file symbolic link. | Verify the exact object and preserve the stored link target. | | GPT-6.1 Sol (Codex) |
@@ -1393,6 +1394,10 @@ int wmain(int argc, wchar_t** argv)
     Check(error == ERROR_REPARSE_TAG_INVALID && !Exists(moved + L"\\ordinary-as-link"),
           "the symbolic-link operation rejects an ordinary file", error);
 
+    error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, verifiedId, L"verified-\u6771\u4eac", true);
+    Check(error == ERROR_REPARSE_TAG_INVALID && Exists(moved + L"\\verified-\u6771\u4eac"),
+          "typed symbolic-link deletion rejects an ordinary file", error);
+
     const auto linkSource = moved + L"\\symbolic-\u6771";
     const auto linkTarget = moved + L"\\symbolic-\u4eac";
     const auto referent = moved + L"\\symbolic-referent";
@@ -1486,6 +1491,22 @@ int wmain(int argc, wchar_t** argv)
                   readLink(renamedDirectory.get(), afterLink) && beforeLink == afterLink &&
                   HasContents(sentinel, content) && HasContents(dirTarget + L"\\sentinel.txt", content),
               "rename a Unicode directory link and preserve the link and its referent", error);
+
+        error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, renamedDirectoryLinkId, L"directory-link-\u4eac", true);
+        Check(error != ERROR_SUCCESS && DirectoryExists(dirTarget) && HasContents(sentinel, content),
+              "typed file-link deletion refuses a directory symbolic link", error);
+        error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, renamedLinkId, L"symbolic-\u4eac");
+        Check(error == ERROR_REPARSE_TAG_INVALID && Exists(linkTarget),
+              "ordinary deletion refuses a file symbolic link", error);
+        error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, verifiedId, L"symbolic-\u4eac", true);
+        Check(error == ERROR_FILE_INVALID && Exists(linkTarget),
+              "typed symbolic-link deletion rejects a stale source identity", error);
+        error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, renamedLinkId, L"symbolic-\u4eac", true);
+        Check(error == ERROR_SUCCESS && !Exists(linkTarget) && HasContents(referent, content),
+              "delete the Unicode link while its identity is held and preserve the linked file", error);
+        error = UacDeleteLeaf::DeleteVerifiedFile(original.get(), expected, renamedDanglingId, L"dangling-target", true);
+        Check(error == ERROR_SUCCESS && !Exists(moved + L"\\dangling-target") && !Exists(moved + L"\\missing-referent"),
+              "delete a dangling file link without requiring its target", error);
     }
     else if (GetLastError() == ERROR_PRIVILEGE_NOT_HELD)
         std::puts("SKIP: creating the symbolic-link fixture requires Developer Mode or SeCreateSymbolicLinkPrivilege");

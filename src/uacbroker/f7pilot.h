@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Declare a typed file symbolic-link deletion request. | Keep consent and eligible attributes separate from ordinary files. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare a distinct junction rename operation. | Keep the approved reparse type explicit in the protocol. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Distinguish directory symbolic-link rename on the wire. | Bind the approved source type to the operation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare a typed symbolic-link rename request. | Bind the approved object type to the broker operation. | | GPT-6.1 Sol (Codex) |
@@ -30,12 +31,17 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14 };
 
 inline bool IsRename(Operation operation)
 {
     return operation == Operation::Rename || operation == Operation::RenameSymlink ||
            operation == Operation::RenameDirectorySymlink || operation == Operation::RenameJunction;
+}
+
+inline bool IsFileDelete(Operation operation)
+{
+    return operation == Operation::Delete || operation == Operation::DeleteSymlink;
 }
 
 inline bool IsFileCopy(Operation operation)
@@ -82,6 +88,12 @@ inline bool IsPlainDeleteFile(DWORD attributes)
 {
     return attributes == FILE_ATTRIBUTE_NORMAL || attributes == FILE_ATTRIBUTE_ARCHIVE;
 }
+inline bool IsPlainDeleteSymlink(DWORD attributes)
+{
+    constexpr DWORD allowed = FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_ARCHIVE;
+    return (attributes & FILE_ATTRIBUTE_REPARSE_POINT) && !(attributes & ~allowed);
+}
+
 struct MetadataChange
 {
     LONGLONG created = 0;
@@ -104,7 +116,8 @@ public:
     bool PrepareRenameLink(const std::wstring& path, const std::wstring& renameTo, bool directory);
     bool IsJunctionRename() const { return operation == Operation::RenameJunction; }
     bool PrepareMetadata(const std::wstring& path, const MetadataChange& change);
-    bool PrepareDelete(const std::wstring& path);
+    bool PrepareDelete(const std::wstring& path, bool symlink);
+    bool IsSymlinkDelete() const { return operation == Operation::DeleteSymlink; }
     DWORD ExecuteLocal() const;
     Result Execute(HWND owner) const;
     bool IsDirectoryMetadata() const
