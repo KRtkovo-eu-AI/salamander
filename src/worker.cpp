@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Capture the handles used by an ordinary F6 copy. | Complete denied source deletion only for that exact copy. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Route denied cross-volume F6 to the broker. | Avoid removing the source twice after a confirmed move. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve and verify EFS alternate data streams. | Keep the source stream inventory consistent through encrypted export and publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
@@ -5680,6 +5681,11 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
         error = result.error;
         return *dlgData.CancelWorker != FALSE;
     }
+    if (request.IsMoveCompletion())
+    {
+        success = TRUE; // The ordinary copy already accounted for the item.
+        return true;
+    }
     totalDone += op.Size;
     if (!moving || request.IsCrossVolumeMove())
     {
@@ -5756,12 +5762,19 @@ static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
     return !limited && request.PrepareOverwrite(op.SourceNameW, op.TargetNameW, op.FileSize.Value);
 }
 
+struct MoveCopyReceipt
+{
+    UacF7::MoveFileIdentity source{}, target{};
+    bool sourceCaptured = false;
+    bool captured = false;
+};
+
 BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
                 COperations* script, CQuadWord& totalDone,
                 DWORD clearReadonlyMask, BOOL* skip, BOOL lantasticCheck,
                 int& mustDeleteFileBeforeOverwrite, int& allocWholeFileOnStart,
                 CProgressDlgData& dlgData, BOOL copyADS, BOOL copyAsEncrypted,
-                BOOL isMove, CAsyncCopyParams*& asyncPar)
+                BOOL isMove, CAsyncCopyParams*& asyncPar, MoveCopyReceipt* moveReceipt = nullptr)
 {
     if (script->CopyAttrs && copyAsEncrypted)
         TRACE_E("DoCopyFile(): unexpected parameter value: copyAsEncrypted is TRUE when script->CopyAttrs is TRUE!");
@@ -5895,6 +5908,8 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
     script->GetTFSandResetTrSpeedIfNeeded(&lastTransferredFileSize);
 
 COPY_AGAIN:
+        if (moveReceipt)
+            *moveReceipt = {};
 
     operationDone = CQuadWord(0, 0);
     HANDLE in;
@@ -6270,6 +6285,8 @@ COPY_AGAIN:
                         }
                     }
 
+                    if (moveReceipt)
+                        moveReceipt->sourceCaptured = UacF7::CaptureMoveFileIdentity(in, moveReceipt->source);
                     HANDLES(CloseHandle(in));
                     in = NULL;
 
@@ -6356,6 +6373,8 @@ COPY_AGAIN:
                                 }
                             }
                         }
+                        if (moveReceipt && moveReceipt->sourceCaptured)
+                            moveReceipt->captured = UacF7::CaptureMoveFileIdentity(out, moveReceipt->target);
                         if (!HANDLES(CloseHandle(out)))
                         {
                             out = NULL;
@@ -7674,10 +7693,15 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
         }
 
         BOOL skip;
+        MoveCopyReceipt receipt;
+        const bool capture = script->AllowTransferPilot && !script->CopyAttrs && !script->CopySecurity &&
+                             !script->OverwriteOlder && !copyADS && !copyAsEncrypted &&
+                             op->SourceNameWValid && op->TargetNameWValid && UacF7::IsPlainDeleteFile(op->Attr) &&
+                             op->FileSize.Value <= UacF7::maxPilotCopyBytes;
         BOOL notError = DoCopyFile(op, hProgressDlg, buffer, script, totalDone,
                                    clearReadonlyMask, &skip, lantasticCheck,
                                    mustDeleteFileBeforeOverwrite, allocWholeFileOnStart,
-                                   dlgData, copyADS, copyAsEncrypted, TRUE, asyncPar);
+                                   dlgData, copyADS, copyAsEncrypted, TRUE, asyncPar, capture ? &receipt : nullptr);
         if (notError && !skip) // still need to clean up the file from the source
         {
             WorkerClearReadOnlyW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL)); // ensure it can be deleted
@@ -7695,6 +7719,15 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                     if (dlgData.SkipAllDeleteErr)
                         return TRUE;
 
+                    UacF7::PreparedTransfer request;
+                    if (err == ERROR_ACCESS_DENIED && receipt.captured &&
+                        request.PrepareMoveCompletion(op->SourceNameW, op->TargetNameW, op->FileSize.Value,
+                                                      receipt.source, receipt.target))
+                    {
+                        BOOL success = FALSE;
+                        if (ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, request, err))
+                            return success;
+                    }
                     int ret = IDCANCEL;
                     char* data[4];
                     data[0] = (char*)&ret;

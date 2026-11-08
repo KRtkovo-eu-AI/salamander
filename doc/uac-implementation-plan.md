@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record F6 completion after an ordinary cross-volume copy. | Verify both identities and the copied data before deleting the source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record broker integration for guarded cross-volume F6. | Preserve ordinary moves and isolate the verified retry. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the F6 source retirement sequence. | Verify both unlinks against a durable pinned target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record durable F6 target verification during recovery. | Retain incomplete or substituted receipts. | | GPT-6.1 Sol (Codex) |
@@ -676,7 +677,11 @@ V x64 Debug i Release prošlo 82 nativních kontrol F6 a 248 obecných kontrol. 
 
 **Zapojení F6 mezi svazky do brokeru.** Když běžná obsluha při čtení zdroje nebo vytvoření nového cíle narazí na odepření přístupu, může požádat o přesun mezi dvěma pevnými svazky NTFS. Jde o samostatnou schopnost protokolu s ověřenými rodiči, ID zdroje a očekávanou velikostí. Broker pro zdroj na instalačním svazku použije soukromé úložiště pod instalací. Na jiném svazku vytvoří nebo otevře stejné soukromé úložiště pod kořenem, jehož ACL musí bránit podstrčení či odebrání existující položky. Před operací obnoví případný záznam stejného zdrojového rodiče. Po chybě se pokusí obnovit zdroj a již zveřejněný cíl označí jako částečný výsledek. Po potvrzeném přesunu worker už zdroj znovu nemaže.
 
-V Debug i Release prošla sada autentizace a 11 scénářů reálné dávkové roury. Nová zkouška odmítla požadavek na přesun mezi svazky pod dvěma rodiči téhož svazku a oba stavy ponechala beze změny. Sestavení aplikace, brokeru a sondy x64 Debug prošlo. Nová cesta pokrývá běžný soubor s jediným datovým proudem do volného názvu v mezích velikosti pilotu. Akceptace na dvou svazcích, větev běžné kopie následované odepřením smazání zdroje a ostatní kombinace metadat zůstávají otevřené.
+V Debug i Release prošla sada autentizace a 11 scénářů reálné dávkové roury. Nová zkouška odmítla požadavek na přesun mezi svazky pod dvěma rodiči téhož svazku a oba stavy ponechala beze změny. Sestavení aplikace, brokeru a sondy x64 Debug prošlo. Nová cesta pokrývá běžný soubor s jediným datovým proudem do volného názvu v mezích velikosti pilotu. V této etapě zbývala akceptace na dvou svazcích, větev běžné kopie následované odepřením smazání zdroje a ostatní kombinace metadat.
+
+**F6 po úspěšné běžné kopii.** Pokud mezi dvěma pevnými svazky NTFS selže až odstranění zdroje s chybou 5, worker může požádat o dokončení přesunu. Zachytí identitu obou položek ze skutečných handlů běžného kopírování. Broker ověří revizi cíle, pod výhradními handly porovná velikost, čas poslední změny a všechny bajty, znovu ověří revizi cíle a před odstraněním zdroje cílová data zapíše z vyrovnávací paměti na disk. Obsah cíle nepřepisuje. Pro dodatečný rámec s revizí používají aplikace, broker a sonda verzi protokolu 2.
+
+V x64 Debug a Release prošlo 86 nativních kontrol včetně zachycení ID cíle ze zapisovacího handlu a odmítnutí stejně velké kopie s jediným změněným bajtem v posledním bloku. Prošly kontroly autentizace a 12 scénářů skutečné dávkové roury v obou konfiguracích. Nový scénář ověřil načtení rámce revize a odmítnutí požadavku na témže svazku bez změny souborů. Aplikace, broker a sonda prošly sestavením x64 Debug. K akceptaci zůstává skutečný přesun přes F6 mezi dvěma zapisovatelnými svazky NTFS, včetně případu odepřeného smazání zdroje.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

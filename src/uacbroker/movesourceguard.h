@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Compare an existing F6 copy with its guarded source. | Prove the destination bytes before permitting a late source removal. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Retire both F6 source links after the destination receipt. | Preserve a recoverable source until the last unlink. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Publish a copy of a guarded move source. | Read the overlapped source without releasing its lock and retain the exact destination handle. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Guard the default stream of an F6 source. | Exclude earlier opens and refuse unsupported streams or metadata. | | GPT-6.1 Sol (Codex) |
@@ -117,6 +118,57 @@ public:
             return error;
         targetId = publishedId;
         return Check(2) ? ERROR_PARTIAL_COPY : ERROR_SUCCESS;
+    }
+
+    // The destination is already present and exclusively held. This check
+    // does not modify either file or publish a new destination.
+    DWORD VerifyExistingCopy(HANDLE target, ULONGLONG size, HANDLE connection, ULONGLONG deadline) const
+    {
+        DWORD error = Check(2);
+        if (error)
+            return error;
+        FILE_BASIC_INFO basic{};
+        if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(target, basic)) != ERROR_SUCCESS)
+            return error;
+        FILE_BASIC_INFO sourceBasic{};
+        if (!GetFileInformationByHandleEx(source.get(), FileBasicInfo, &sourceBasic, sizeof(sourceBasic)))
+            return GetLastError();
+        if (sourceBasic.LastWriteTime.QuadPart != basic.LastWriteTime.QuadPart)
+            return ERROR_FILE_INVALID;
+        LARGE_INTEGER from{}, to{};
+        if (!GetFileSizeEx(source.get(), &from) || !GetFileSizeEx(target, &to))
+            return GetLastError();
+        if (from.QuadPart < 0 || from.QuadPart != to.QuadPart || static_cast<ULONGLONG>(from.QuadPart) != size)
+            return ERROR_FILE_INVALID;
+        if (!SetFilePointerEx(target, {}, nullptr, FILE_BEGIN))
+            return GetLastError();
+        const Detail::Handle readEvent(CreateEventW(nullptr, TRUE, FALSE, nullptr), CloseHandle);
+        if (!readEvent)
+            return GetLastError();
+        constexpr DWORD block = 64 * 1024;
+        std::vector<BYTE> original(block), copy(block);
+        ULONGLONG offset = 0;
+        while (offset < size)
+        {
+            if ((error = UacCopyLeaf::Detail::CheckCancelled(nullptr, connection, deadline)) != ERROR_SUCCESS)
+                return error;
+            const DWORD length = static_cast<DWORD>((std::min)(size - offset, static_cast<ULONGLONG>(block)));
+            DWORD read = 0, readCopy = 0;
+            error = UacCopyLeaf::Detail::ReadOverlappedBlock(source.get(), original.data(), length, offset, readEvent.get(),
+                                                          read, nullptr, connection, deadline);
+            if (error)
+                return error;
+            if (!ReadFile(target, copy.data(), length, &readCopy, nullptr))
+                return GetLastError();
+            if (read != length || readCopy != length || std::memcmp(original.data(), copy.data(), length))
+                return ERROR_FILE_INVALID;
+            offset += length;
+        }
+        if ((error = Check(2)) != ERROR_SUCCESS)
+            return error;
+        if ((error = UacCopyLeaf::Detail::CheckCancelled(nullptr, connection, deadline)) != ERROR_SUCCESS)
+            return error;
+        return FlushFileBuffers(target) ? ERROR_SUCCESS : GetLastError();
     }
 
     // The caller retains the exclusive published target until this returns.

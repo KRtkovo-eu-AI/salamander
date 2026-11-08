@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Exercise the late F6 request framing. | Read the destination revision before evaluating the volume boundary. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Reject a cross-volume command on one volume. | Verify the broker dispatches the distinct F6 request safely. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Verify a queued cancellation on the live broker pipe. | Prove the dispatcher ends the scoped session without publishing the pending file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Exercise scoped mutations through the real broker dispatcher. | Validate repeated requests and scope rejection on NTFS without interactive elevation. | | GPT-6.1 Sol (Codex) |
@@ -129,7 +130,8 @@ public:
 
     bool Request(Operation operation, const Directory& source, std::wstring_view leaf, DWORD& result,
                  const Directory* target = nullptr, UacF7::MetadataChange* change = nullptr,
-                 UacF7::MetadataJobPolicy* policy = nullptr, bool stopBeforePayload = false, HANDLE cancelBeforeDispatch = nullptr)
+                 UacF7::MetadataJobPolicy* policy = nullptr, bool stopBeforePayload = false, HANDLE cancelBeforeDispatch = nullptr,
+                 UacF7::ArchiveRevision* revision = nullptr)
     {
         const auto file = Adopt(CreateFileW(source.File(leaf).c_str(), FILE_READ_ATTRIBUTES,
             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
@@ -160,7 +162,8 @@ public:
             return true;
         if (TransferRequest(server.get(), payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline) ||
             (change && TransferRequest(server.get(), change, sizeof(*change), true, deadline)) ||
-            (policy && TransferRequest(server.get(), policy, sizeof(*policy), true, deadline)))
+            (policy && TransferRequest(server.get(), policy, sizeof(*policy), true, deadline)) ||
+            (revision && TransferRequest(server.get(), revision, sizeof(*revision), true, deadline)))
             return false;
         if (cancelBeforeDispatch)
         {
@@ -251,6 +254,20 @@ void CheckCrossVolumeBoundary(const Directory& source, const Directory& target)
     Check(job.Request(Operation::MoveAcrossVolume, source, leaf, error, &target) &&
               error == ERROR_NOT_SAME_DEVICE && HasByte(source.File(leaf), 5) && IsAbsent(target.File(leaf)),
           "reject the cross-volume command on the same NTFS volume before modifying either parent");
+    JobPipe completion;
+    UacF7::ArchiveRevision revision{};
+    if (!WriteByte(target.File(leaf), 5) || !completion.Open())
+    {
+        Check(false, "prepare the existing-copy boundary fixture");
+        return;
+    }
+    const auto file = Adopt(CreateFileW(target.File(leaf).c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    Check(file && !UacZipUpdate::ReadRevision(file.get(), revision) &&
+              completion.Request(Operation::FinishCrossVolumeMove, source, leaf, error, &target,
+                                 nullptr, nullptr, false, nullptr, &revision) &&
+              error == ERROR_NOT_SAME_DEVICE && HasByte(source.File(leaf), 5) && HasByte(target.File(leaf), 5),
+          "consume the late move target revision and reject a same-volume completion without changing either file");
 }
 
 void CheckMetadataJob(const Directory& source)

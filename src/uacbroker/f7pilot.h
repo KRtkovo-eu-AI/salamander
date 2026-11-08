@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Finish F6 when only source deletion needs elevation. | Verify the original copy identities and content before retiring the source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Dispatch guarded F6 moves across fixed NTFS volumes. | Keep source retirement and recovery in one scoped broker request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Scope permanent deletion and metadata jobs. | Keep link types, parent identity and approved metadata values separate. | | GPT-6.1 Sol (Codex) |
@@ -56,7 +57,7 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28 };
 
 inline bool IsRename(Operation operation)
 {
@@ -90,6 +91,14 @@ struct ZipSelectionEntry
     FILETIME modified;
 };
 static_assert(sizeof(ZipSelectionEntry) == 24);
+
+struct MoveFileIdentity
+{
+    ULONGLONG serial = 0;
+    BYTE id[16]{};
+};
+
+bool CaptureMoveFileIdentity(HANDLE file, MoveFileIdentity& identity);
 
 struct ArchiveRevision
 {
@@ -266,7 +275,7 @@ private:
 
 inline bool IsMoveTransfer(Operation operation)
 {
-    return operation == Operation::Move || operation == Operation::MoveAcrossVolume;
+    return operation == Operation::Move || operation == Operation::MoveAcrossVolume || operation == Operation::FinishCrossVolumeMove;
 }
 
 inline bool CanShareTransferJob(Operation operation)
@@ -345,13 +354,16 @@ class PreparedTransfer
 {
 public:
     bool Prepare(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize, Operation operation);
+    bool PrepareMoveCompletion(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize,
+                               const MoveFileIdentity& copiedSource, const MoveFileIdentity& copiedTarget);
     bool PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize);
     bool PrepareTree(const std::wstring& sourcePath, std::wstring_view targetDirectory, std::wstring& destination);
     Result Execute(HWND owner, HANDLE cancel = nullptr, TransferJobSession* job = nullptr) const;
     bool IsInJob(const TransferJobSession& job) const;
     bool CanShareJob() const { return CanShareTransferJob(source.operation); }
     bool IsMove() const { return IsMoveTransfer(source.operation); }
-    bool IsCrossVolumeMove() const { return source.operation == Operation::MoveAcrossVolume; }
+    bool IsCrossVolumeMove() const { return IsMove() && source.operation != Operation::Move; }
+    bool IsMoveCompletion() const { return source.operation == Operation::FinishCrossVolumeMove; }
     bool IsTree() const { return source.operation == Operation::CopyTree; }
     bool MatchesOverwriteTarget(HANDLE file) const;
     OverwriteApproval Approval() const;

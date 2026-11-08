@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Test existing-copy verification for late F6 completion. | Refuse even a last-byte difference in a same-sized destination. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise actual F6 source retirement. | Keep both source links on cancellation and remove them only for a receipted target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the durable destination receipt after source removal. | Refuse missing or substituted targets before clearing move recovery. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify guarded F6 target publication through multiple read blocks. | Preserve collisions and hold the published file against replacement. | | GPT-6.1 Sol (Codex) |
@@ -1804,6 +1805,43 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
         if (guard.Open(parent.get(), leaf, expected, 2) ||
             UacDirectoryLeaf::ReadParentIdentity(wrongParent.get(), targetParent))
             return false;
+        constexpr wchar_t existingLeaf[] = L"already-copied-\u6771";
+        const auto existingPath = wrongDirectory + L"\\" + existingLeaf;
+        auto different = moveContent;
+        different.back() ^= 1;
+        FILETIME lastWrite{};
+        if (!GetFileTime(guard.File(), nullptr, nullptr, &lastWrite))
+            return false;
+        for (const auto* content : {&different, &moveContent})
+        {
+            FILE_ID_INFO writtenId{};
+            {
+                const HANDLE rawOutput = CreateFileW(existingPath.c_str(), GENERIC_WRITE, 0, nullptr,
+                                                      CREATE_NEW, 0, nullptr);
+                const Handle output(rawOutput == INVALID_HANDLE_VALUE ? nullptr : rawOutput);
+                DWORD count = 0;
+                if (!output || !WriteFile(output.get(), content->data(), static_cast<DWORD>(content->size()), &count, nullptr) ||
+                    count != content->size() || !SetFileTime(output.get(), nullptr, nullptr, &lastWrite))
+                    return false;
+                const bool captured = GetFileInformationByHandleEx(output.get(), FileIdInfo, &writtenId, sizeof(writtenId)) != FALSE;
+                Check(captured, "capture the target identity from the ordinary write-only handle");
+                if (!captured)
+                    return false;
+            }
+            HANDLE rawCopy = nullptr;
+            error = OpenSource(wrongParent.get(), existingLeaf, rawCopy, FILE_READ_DATA | FILE_READ_EA | FILE_WRITE_DATA, 0);
+            {
+                const Handle existingCopy(rawCopy);
+                FILE_ID_INFO reopened{};
+                if (error || ReadSourceIdentity(existingCopy.get(), reopened) || !SameSource(reopened, writtenId))
+                    return false;
+                error = guard.VerifyExistingCopy(existingCopy.get(), moveContent.size(), nullptr, MAXULONGLONG);
+                const DWORD expectedError = content == &moveContent ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+                Check(error == expectedError, "compare every block of the already copied F6 destination", error);
+            }
+            if (!HasContents(existingPath, *content) || !DeleteFileW(existingPath.c_str()))
+                return false;
+        }
         UacMoveSourceJournal::Detail::Handle target(nullptr, CloseHandle);
         FILE_ID_INFO targetId{};
         error = guard.PublishCopy(wrongParent.get(), targetParent, completedLeaf, moveContent.size(), nullptr,

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Finish F6 when only source deletion needs elevation. | Verify the original copy identities and content before retiring the source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Dispatch guarded F6 moves across fixed NTFS volumes. | Keep source retirement and recovery in one scoped broker request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
@@ -114,7 +115,8 @@ constexpr DWORD pipeAccess = FILE_READ_DATA | FILE_WRITE_DATA | FILE_READ_ATTRIB
 constexpr DWORD processAccess = PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE;
 constexpr DWORD timeoutMs = 5000;
 [[maybe_unused]] constexpr DWORD copyTimeoutMs = 30000;
-constexpr DWORD protocolVersion = 1;
+// Version 2 adds the revision frame for late cross-volume F6 completion.
+constexpr DWORD protocolVersion = 2;
 constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD mkdirCapability = 1;
 [[maybe_unused]] constexpr DWORD renameCapability = 2;
@@ -1002,7 +1004,8 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
                         const UacDirectoryLeaf::ParentIdentity& sourceParentId, const FILE_ID_INFO& sourceId,
                         std::wstring_view sourceLeaf, HANDLE targetParent,
                         const UacDirectoryLeaf::ParentIdentity& targetParentId, std::wstring_view targetLeaf,
-                        ULONGLONG size, HANDLE pipe, ULONGLONG deadline)
+                        ULONGLONG size, HANDLE pipe, ULONGLONG deadline,
+                        const UacF7::ArchiveRevision* copiedTarget = nullptr)
 {
     using namespace UacMoveSourceJournal;
     if (UacDirectoryLeaf::Equal(sourceParentId.volume, targetParentId.volume))
@@ -1087,10 +1090,27 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
             return status;
         UacMoveSourceJournal::Detail::Handle target(nullptr, CloseHandle);
         FILE_ID_INFO targetId{};
-        status = guard.PublishCopy(targetParent, targetParentId, targetLeaf, size, nullptr, pipe, deadline, target, targetId);
-        published = target != nullptr;
-        if (status)
-            return status;
+        if (copiedTarget)
+        {
+            status = UacRenameLeaf::Detail::OpenSource(targetParent, targetLeaf, raw,
+                FILE_READ_DATA | FILE_READ_EA | FILE_WRITE_DATA, 0);
+            if (status)
+                return status;
+            target.reset(raw);
+            if ((status = UacZipUpdate::CheckRevision(target.get(), *copiedTarget)) ||
+                (status = guard.VerifyExistingCopy(target.get(), size, pipe, deadline)) ||
+                (status = UacZipUpdate::CheckRevision(target.get(), *copiedTarget)))
+                return status;
+            targetId = UacZipUpdate::RevisionIdentity(*copiedTarget);
+            published = true; // From here an interrupted retirement can leave a partial move.
+        }
+        else
+        {
+            status = guard.PublishCopy(targetParent, targetParentId, targetLeaf, size, nullptr, pipe, deadline, target, targetId);
+            published = target != nullptr;
+            if (status)
+                return status;
+        }
         status = guard.RetirePublishedSource(sourceParent, storage.get(), journal.get(), security.get(),
                                              targetParent, targetLeaf, target.get(), targetId, nullptr, pipe, deadline);
         return status ? status : UacRecoveryJournal::ClearRecord(journal.get());
@@ -1377,7 +1397,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     zipUpdate = header.operation == Operation::WriteZipUpdate;
     const bool overwrite = header.operation == Operation::CopyOverwrite;
     const bool copy = UacF7::IsFileCopy(header.operation) || overwrite;
-    const bool crossMove = header.operation == Operation::MoveAcrossVolume;
+    const bool finishMove = header.operation == Operation::FinishCrossVolumeMove;
+    const bool crossMove = header.operation == Operation::MoveAcrossVolume || finishMove;
     const bool move = UacF7::IsMoveTransfer(header.operation);
     const bool tree = header.operation == Operation::CopyTree;
     const bool transfer = copy || move || tree;
@@ -1431,7 +1452,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             return ERROR_ACCESS_DENIED;
     }
     UacF7::ArchiveRevision overwriteTarget;
-    if (overwrite)
+    if (overwrite || finishMove)
     {
         error = TransferRequest(pipe, &overwriteTarget, sizeof(overwriteTarget), false, deadline);
         if (error)
@@ -1597,7 +1618,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
                 deadline = copyDeadline + timeoutMs;
                 result = MoveAcrossVolumes(install, parent.get(), expected, sourceIdentity, leaf,
-                                           targetParent.get(), expectedTarget, targetLeaf, header.copySize, pipe, copyDeadline);
+                                           targetParent.get(), expectedTarget, targetLeaf, header.copySize, pipe, copyDeadline,
+                                           finishMove ? &overwriteTarget : nullptr);
             }
             else if (move)
             {
@@ -2158,7 +2180,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 
         const bool tree = request->operation == Operation::CopyTree;
         const bool copy = UacF7::IsFileCopy(request->operation) || overwriteTarget;
-        const bool crossMove = request->operation == Operation::MoveAcrossVolume;
+        const bool crossMove = UacF7::IsMoveTransfer(request->operation) && request->operation != Operation::Move;
         if (copy || crossMove || tree || zipBytes)
             deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
         error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline, cancel);
@@ -2704,6 +2726,37 @@ bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstrin
     return true;
 }
 
+bool CaptureMoveFileIdentity(HANDLE file, MoveFileIdentity& identity)
+{
+    FILE_ID_INFO native{};
+    if (!GetFileInformationByHandleEx(file, FileIdInfo, &native, sizeof(native)))
+        return false;
+    identity.serial = native.VolumeSerialNumber;
+    std::memcpy(identity.id, native.FileId.Identifier, sizeof(identity.id));
+    return true;
+}
+
+bool PreparedTransfer::PrepareMoveCompletion(const std::wstring& sourcePath, const std::wstring& targetPath,
+                                              ULONGLONG expectedSize, const MoveFileIdentity& copiedSource,
+                                              const MoveFileIdentity& copiedTarget)
+{
+    if (!Prepare(sourcePath, targetPath, expectedSize, Operation::Move) || !IsCrossVolumeMove() ||
+        source.serial != copiedSource.serial ||
+        std::memcmp(source.sourceId, copiedSource.id, sizeof(source.sourceId)))
+        return false;
+    PreparedLeaf existing;
+    if (!existing.PrepareView(targetPath) || existing.serial != target.serial ||
+        !UacDirectoryLeaf::Equal(existing.volume, target.volume) ||
+        std::memcmp(existing.fileId, target.fileId, sizeof(target.fileId)) ||
+        UacZipUpdate::ReadRevision(existing.source, overwriteTarget) ||
+        overwriteTarget.serial != copiedTarget.serial ||
+        std::memcmp(overwriteTarget.fileId, copiedTarget.id, sizeof(copiedTarget.id)) ||
+        static_cast<ULONGLONG>(overwriteTarget.size) != expectedSize || !IsPlainCopyFile(overwriteTarget.attributes))
+        return false;
+    source.operation = Operation::FinishCrossVolumeMove;
+    return true;
+}
+
 bool PreparedTransfer::PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath,
                                         ULONGLONG expectedSize)
 {
@@ -2794,17 +2847,18 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* 
     std::memcpy(header.targetParentId.Identifier, target.fileId, sizeof(target.fileId));
     std::wstring payload = source.volume + source.relative + source.leaf + target.volume + target.relative + target.leaf;
     ArchiveRevision revision = overwriteTarget;
+    ArchiveRevision* targetRevision = IsOverwrite() || IsMoveCompletion() ? &revision : nullptr;
     if (job && !CanShareJob())
         return result;
     if (job && IsInJob(*job))
-        return RepeatTransferJob(job->pipe, header, payload, IsOverwrite() ? &revision : nullptr, sizeof(revision), nullptr, cancel);
+        return RepeatTransferJob(job->pipe, header, payload, targetRevision, sizeof(revision), nullptr, cancel);
     if (job)
     {
         job->Close();
         job->scope = JobScope();
     }
     RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, cancel,
-             nullptr, nullptr, nullptr, nullptr, IsOverwrite() ? &revision : nullptr, job ? &job->pipe : nullptr);
+             nullptr, nullptr, nullptr, nullptr, targetRevision, job ? &job->pipe : nullptr);
     return result;
 }
 
