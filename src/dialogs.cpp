@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Reuse approved F5 and F6 scopes in the progress dialog. | Ask again only for a different scope. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe EFS preservation in the F5 consent. | Identify what the elevated copy will preserve. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain the scope of elevated batch items. | Make cancellation and completed items predictable. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify the protected F5 replacement. | Show the authorized replacement paths. | | GPT-6.1 Sol (Codex) |
@@ -1799,21 +1800,41 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             else if (prompt.request.IgnoresAds())
                 confirmText = IDS_UAC_COPY_IGNORE_ADS_CONFIRM;
             const int unknownText = moving ? IDS_UAC_MOVE_UNKNOWN : IDS_UAC_COPY_UNKNOWN;
-            std::string message = std::string(LoadStr(confirmText)) + "\n\n" +
-                                  prompt.sourcePath + "\n -> " + prompt.targetPath;
-            if (Script->Count > 1)
-                message += std::string("\n\n") + LoadStr(IDS_UAC_BATCH_ITEM_SCOPE);
-            const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
-            MSGBOXEX_PARAMS confirm{};
-            confirm.HParent = HWindow;
-            confirm.Text = message.c_str();
-            confirm.Caption = LoadStr(moving ? IDS_MOVE : IDS_COPY);
-            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
-            confirm.AliasBtnNames = alias.c_str();
-            prompt.approved = SalMessageBoxEx(&confirm) == IDOK && !CancelWorker;
+            const bool shareJob = Script->Count > 1 && prompt.request.CanShareJob();
+            auto existing = std::find_if(TransferJobs.begin(), TransferJobs.end(),
+                                         [&](const auto& job) { return prompt.request.IsInJob(job); });
+            if (existing == TransferJobs.end())
+            {
+                std::string message = std::string(LoadStr(confirmText)) + "\n\n" +
+                                      prompt.sourcePath + "\n -> " + prompt.targetPath;
+                if (shareJob)
+                {
+                    auto parent = [](std::string_view path) { return path.substr(0, path.rfind('\\') + 1); };
+                    message += std::string("\n\n") + LoadStr(IDS_UAC_TRANSFER_JOB_SCOPE) + "\n" +
+                               std::string(parent(prompt.sourcePath)) + "\n -> " + std::string(parent(prompt.targetPath));
+                }
+                else if (Script->Count > 1)
+                    message += std::string("\n\n") + LoadStr(IDS_UAC_BATCH_ITEM_SCOPE);
+                const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+                MSGBOXEX_PARAMS confirm{};
+                confirm.HParent = HWindow;
+                confirm.Text = message.c_str();
+                confirm.Caption = LoadStr(moving ? IDS_MOVE : IDS_COPY);
+                confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
+                confirm.AliasBtnNames = alias.c_str();
+                prompt.approved = SalMessageBoxEx(&confirm) == IDOK && !CancelWorker;
+            }
+            else
+                prompt.approved = !CancelWorker;
+
             if (prompt.approved && !tree)
             {
-                prompt.result = prompt.request.Execute(HWindow);
+                UacF7::TransferJobSession* job = nullptr;
+                if (shareJob)
+                    job = existing != TransferJobs.end() ? &*existing : &TransferJobs.emplace_back();
+                prompt.result = prompt.request.Execute(HWindow, nullptr, job);
+                if (CancelWorker && job)
+                    job->Close();
                 if (prompt.result.unknown || (prompt.result.error != ERROR_SUCCESS && prompt.result.error != ERROR_CANCELLED))
                 {
                     const std::string error = prompt.result.unknown ? LoadStr(unknownText)
@@ -2196,6 +2217,8 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
         {
             if (!IsWindowEnabled(HWindow)) // there is a modal dialog above this dialog (a message box asking about operation canceling or reporting an error)
                 CloseAllOwnedEnabledDialogs(HWindow);
+            for (auto& job : TransferJobs)
+                job.Close();
             CancelWorker = TRUE; // set worker cancel
             if (CancelWorkerEvent != NULL) SetEvent(CancelWorkerEvent);
             EnableWindow(GetDlgItem(HWindow, IDB_PAUSERESUME), FALSE);
@@ -2387,6 +2410,8 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
                 CloseAllOwnedEnabledDialogs(HWindow);
             if (InSendMessage())
                 ReplyMessage(0);                   // let the worker continue
+            for (auto& job : TransferJobs)
+                job.Close();
             Script = NULL;                         // script is freed in the worker thread, so we must not use it here anymore
             SetEvent(WContinue);                   // worker may start deleting the script
             WaitForSingleObject(Worker, INFINITE); // wait until it finishes and exits
@@ -2441,6 +2466,8 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
 
                 if (ret == IDYES)
                 {
+                    for (auto& job : TransferJobs)
+                        job.Close();
                     CancelWorker = TRUE; // set cancel of the worker
                     if (CancelWorkerEvent != NULL) SetEvent(CancelWorkerEvent);
                     EnableWindow(GetDlgItem(HWindow, IDB_PAUSERESUME), FALSE);

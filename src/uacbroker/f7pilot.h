@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Define the scope and lifetime of a transfer job. | Reuse authorization only for matching operations and parent identities. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Add the encrypted F5 request. | Carry an explicit EFS copy contract through the broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Add an exact-file scope for protected Find. | Bind single-file consent to a verified identity. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Give protected Find a dedicated read-only scope. | Keep panel listings separate from content sessions. | | GPT-6.1 Sol (Codex) |
@@ -44,6 +45,7 @@
 #pragma once
 
 #include <windows.h>
+#include <cstring>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -236,13 +238,56 @@ private:
     Operation operation = Operation::Mkdir;
 };
 
+inline bool CanShareTransferJob(Operation operation)
+{
+    return IsFileCopy(operation) || operation == Operation::Move || operation == Operation::CopyOverwrite;
+}
+
+struct TransferJobScope
+{
+    Operation operation = Operation::Mkdir;
+    struct Parent
+    {
+        ULONGLONG serial;
+        BYTE id[16];
+    };
+    Parent source{}, target{};
+    std::wstring sourcePath, targetPath;
+
+    bool Matches(const TransferJobScope& other) const
+    {
+        return operation == other.operation && source.serial == other.source.serial &&
+               target.serial == other.target.serial &&
+               std::memcmp(source.id, other.source.id, sizeof(source.id)) == 0 &&
+               std::memcmp(target.id, other.target.id, sizeof(target.id)) == 0 &&
+               sourcePath == other.sourcePath && targetPath == other.targetPath;
+    }
+};
+
+class TransferJobSession
+{
+public:
+    TransferJobSession() = default;
+    TransferJobSession(const TransferJobSession&) = delete;
+    TransferJobSession& operator=(const TransferJobSession&) = delete;
+    ~TransferJobSession();
+    void Close();
+
+private:
+    friend class PreparedTransfer;
+    HANDLE pipe = nullptr;
+    TransferJobScope scope;
+};
+
 class PreparedTransfer
 {
 public:
     bool Prepare(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize, Operation operation);
     bool PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize);
     bool PrepareTree(const std::wstring& sourcePath, std::wstring_view targetDirectory, std::wstring& destination);
-    Result Execute(HWND owner, HANDLE cancel = nullptr) const;
+    Result Execute(HWND owner, HANDLE cancel = nullptr, TransferJobSession* job = nullptr) const;
+    bool IsInJob(const TransferJobSession& job) const;
+    bool CanShareJob() const { return CanShareTransferJob(source.operation); }
     bool IsMove() const { return source.operation == Operation::Move; }
     bool IsTree() const { return source.operation == Operation::CopyTree; }
     bool MatchesOverwriteTarget(HANDLE file) const;
@@ -253,6 +298,7 @@ public:
     bool IgnoresAds() const { return source.operation == Operation::CopyIgnoreAds; }
 
 private:
+    TransferJobScope JobScope() const;
     PreparedLeaf source;
     PreparedLeaf target;
     ArchiveRevision overwriteTarget;

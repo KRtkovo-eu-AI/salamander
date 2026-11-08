@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Reuse transfer consent within a scoped job. | Bind subsequent requests to the approved operation and parent identities. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Route one encrypted file through the F5 broker. | Use an explicit consent and verify inherited destination security. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify the complete EFS Raw copy path. | Bind source metadata to the guarded export and test cancellation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record guarded EFS publication. | Verify encrypted content, inherited permissions and rollback. | | GPT-6.1 Sol (Codex) |
@@ -583,6 +584,10 @@ Pilot pokrývá jeden běžný soubor do 16 MiB na místním NTFS. Vyžaduje dos
 Každá žádost platí pro jedinou zobrazenou položku. Zrušení výzvy ukončí zbytek dávky a hotové změny zůstanou na disku. Neověřená mutace ukončí běh s pokynem ke kontrole a bez automatického opakování. Podporované chyby lokálního provedení respektují existující Skip All. Průběh se posune po ověřeném výsledku nebo výslovném přeskočení. Paralelní pracovní vlákna žádnou výzvu nespouštějí. Elevaci provádí sériová větev po převzetí položky od koordinátoru.
 
 Lokálně prošlo sestavení x64 Debug, 210 nativních kontrol a kontroly stavů konfliktu a plánování. Testy pokrývají dílčí operace a stávající koordinátor. Scénář celé dávky s kombinací místních položek, schválených položek a pozdějšího zrušení je připraven k ověření v rámci společné akceptace. Režim Scan Ahead, souhlas pro více položek v jedné relaci a zvýšené operace nad celým stromem zůstávají otevřené.
+
+**Sdílený souhlas pro přímé dávky F5 a F6.** Po podporované chybě běžného workeru zobrazí potvrzení první položku i obě rodičovské složky. Autentizovaný broker přijímá další požadavky pouze pro shodný typ operace, dvě cesty rodičů, jejich svazky a ID. Každá položka má dál vlastní ověření identity, limitů a kolize. Přepis vyžaduje samostatný rozsah a stávající rozhodnutí o jednotlivém konfliktu. Stejný mechanismus používají i způsobilé šifrované soubory EFS. Jiný rozsah vyžaduje nový souhlas. Dialog průběhu drží relace pouze pro tuto úlohu a uzavře je při dokončení nebo zrušení. Broker skončí i při ztrátě spojení, první chybě zvýšené operace nebo po patnácti minutách bez požadavku.
+
+V x64 Debug prošlo sestavení aplikace, jazykových zdrojů, brokeru a sondy. Po interní chybě linkeru jazykového projektu uspělo opakování s 64bitovým linkerem bez inkrementálního linkování. V Debug i Release prošlo 232 nativních kontrol včetně odmítnutí širší cesty, jiného svazku, změněného rodiče a nepovoleného typu požadavku. Stávající zkouška autentizace lokálního kanálu prošla. Skutečný počet výzev u běžící dávky, návrat ke stávajícím volbám po odmítnutí či chybě elevace, další typy dávkových mutací a ověření v izolované VM zůstávají otevřené.
 
 ### 8.25 P4n — ověření odstranění zdroje po kopii na NTFS
 

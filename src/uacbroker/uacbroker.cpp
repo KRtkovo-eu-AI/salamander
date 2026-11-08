@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Keep an authenticated broker for a bounded transfer job. | Check each request against the first approved operation and parent pair. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Connect encrypted F5 requests to the elevated broker. | Use a protected same-volume workspace and verify destination policy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Serve exactly one consented file to Find. | Hold the verified source handle and refuse other paths or listing operations. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Stream blocks for Find from the authorized subtree. | Reject content on listing-only sessions and cap reading without whole-file buffering. | | GPT-6.1 Sol (Codex) |
@@ -132,6 +133,7 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD copySecurityCapability = 2097152;
 [[maybe_unused]] constexpr DWORD viewCapability = 4194304;
 [[maybe_unused]] constexpr DWORD sizeDetailsCapability = 8388608;
+[[maybe_unused]] constexpr DWORD transferJobCapability = 0x02000000;
 [[maybe_unused]] constexpr DWORD archiveReadCapability = 67108864;
 [[maybe_unused]] constexpr DWORD zipSelectionWriteCapability = 134217728;
 [[maybe_unused]] constexpr DWORD zipUpdateCapability = 536870912;
@@ -144,7 +146,7 @@ constexpr DWORD capabilities = 0;
                                                  directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
                                                  copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability |
                                                  renameDirectorySymlinkCapability | renameJunctionCapability | deleteSymlinkCapability |
-                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability | zipSelectionWriteCapability | zipUpdateCapability | copyOverwriteCapability | findContentCapability | findFileCapability;
+                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability | zipSelectionWriteCapability | zipUpdateCapability | copyOverwriteCapability | findContentCapability | findFileCapability | transferJobCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -169,7 +171,7 @@ std::wstring PipeName(const GUID& id)
     return canonical;
 }
 
-enum class Phase : DWORD { Hello = 1, Accept = 2, Done = 3 };
+enum class Phase : DWORD { Hello = 1, Accept = 2, Done = 3, AcceptTransferJob = 4 };
 struct Frame
 {
     DWORD version;
@@ -1215,12 +1217,21 @@ DWORD WriteZipUpdate(const InstallLocation& install, HANDLE root, std::wstring_v
 }
 
 DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, DWORD hostPid,
-                     ULONGLONG& deadline, DWORD& result, Handle& listingRoot, std::vector<BYTE>& snapshot, bool& snapshotRequest, bool& zipUpdate, Operation& listingScope, Handle& archive, UacF7::ArchiveRevision& archiveRevision)
+                     ULONGLONG& deadline, DWORD& result, Handle& listingRoot, std::vector<BYTE>& snapshot, bool& snapshotRequest, bool& zipUpdate, Operation& listingScope, Handle& archive, UacF7::ArchiveRevision& archiveRevision,
+                     UacF7::TransferJobScope* jobScope = nullptr)
 {
     RequestHeader header{};
     DWORD error = TransferRequest(pipe, &header, sizeof(header), false, deadline);
     if (error)
         return error;
+    if (jobScope)
+    {
+        if (!UacF7::CanShareTransferJob(header.operation))
+            return ERROR_ACCESS_DENIED;
+        // The idle allowance covers only the next header. The request body
+        // must arrive within the normal transaction deadline.
+        deadline = GetTickCount64() + timeoutMs;
+    }
     const bool rename = UacF7::IsRename(header.operation);
     const bool mkdir = header.operation == Operation::Mkdir;
     const bool setMetadata = header.operation == Operation::Metadata;
@@ -1255,6 +1266,19 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), false, deadline);
     if (error)
         return error;
+    if (jobScope)
+    {
+        UacF7::TransferJobScope requested{
+            header.operation, {header.serial, {}}, {header.targetSerial, {}},
+            payload.substr(0, volumeLength + header.relativeLength),
+            payload.substr(primarySize, volumeLength + header.targetRelativeLength)};
+        std::memcpy(requested.source.id, header.parentId.Identifier, sizeof(requested.source.id));
+        std::memcpy(requested.target.id, header.targetParentId.Identifier, sizeof(requested.target.id));
+        if (jobScope->operation == Operation::Mkdir)
+            *jobScope = std::move(requested);
+        else if (!jobScope->Matches(requested))
+            return ERROR_ACCESS_DENIED;
+    }
     UacF7::MetadataChange metadata{};
     if (setMetadata)
     {
@@ -1704,10 +1728,34 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
     error = Exchange(pipe.get(), frame, false, deadline, appHost);
     if (error)
         return IoError(L"Read accept", error);
-    if (!Matches(frame, Phase::Accept, capability))
+    const bool transferJob = appHost && Matches(frame, Phase::AcceptTransferJob, capability);
+    if (!transferJob && !Matches(frame, Phase::Accept, capability))
         return Report(ProtocolError, L"Validate accept", ERROR_INVALID_DATA);
     if (!LiveInSession(host.get(), hostPid))
         return Report(Untrusted, L"Host exited", ERROR_ACCESS_DENIED);
+    if (transferJob)
+    {
+        UacF7::TransferJobScope scope;
+        while (LiveInSession(host.get(), hostPid))
+        {
+            DWORD result = ERROR_GEN_FAILURE;
+            Handle unusedRoot, unusedArchive;
+            std::vector<BYTE> unusedSnapshot;
+            bool unusedView = false, unusedZip = false;
+            Operation unusedListing = Operation::List;
+            UacF7::ArchiveRevision unusedRevision;
+            error = ReceiveRequest(install, pipe.get(), host.get(), hostPid, deadline, result,
+                                   unusedRoot, unusedSnapshot, unusedView, unusedZip, unusedListing,
+                                   unusedArchive, unusedRevision, &scope);
+            if (error)
+                return IoError(L"Receive transfer job request", error);
+            error = TransferRequest(pipe.get(), &result, sizeof(result), true, deadline);
+            if (error || result)
+                return error ? IoError(L"Send transfer job result", error) : Ok;
+            deadline = GetTickCount64() + 15 * 60 * 1000;
+        }
+        return Ok;
+    }
     if (appHost)
     {
         DWORD result = ERROR_GEN_FAILURE;
@@ -1818,7 +1866,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
              , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result,
                HANDLE* sessionPipe = nullptr, HANDLE cancel = nullptr, std::vector<BYTE>* snapshot = nullptr,
                UacF7::ArchiveRevision* archiveRevision = nullptr, std::vector<BYTE>* zipBytes = nullptr,
-               HANDLE zipUpdateFile = nullptr, UacF7::ArchiveRevision* overwriteTarget = nullptr
+               HANDLE zipUpdateFile = nullptr, UacF7::ArchiveRevision* overwriteTarget = nullptr,
+               HANDLE* transferJob = nullptr
 #endif
 )
 {
@@ -1889,7 +1938,12 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         pipe.reset();
     else
     {
-        frame = {badVersion ? protocolVersion + 1 : protocolVersion, capability, Phase::Accept};
+        Phase accept = Phase::Accept;
+#ifdef SAM_UAC_F7_HOST
+        if (transferJob)
+            accept = Phase::AcceptTransferJob;
+#endif
+        frame = {badVersion ? protocolVersion + 1 : protocolVersion, capability, accept};
         error = Exchange(pipe.get(), frame, true, deadline);
         if (error)
             return IoError(L"Send accept", error);
@@ -1961,6 +2015,12 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         }
         if (error)
             return IoError(L"Read request result", error);
+        if (transferJob)
+        {
+            if (!operationError)
+                *transferJob = pipe.release();
+            return Ok;
+        }
         if (snapshot && operationError == ERROR_SUCCESS)
         {
             DWORD bytes = 0;
@@ -2447,7 +2507,33 @@ bool PreparedTransfer::PrepareTree(const std::wstring& sourcePath, std::wstring_
     return true;
 }
 
-Result PreparedTransfer::Execute(HWND owner, HANDLE cancel) const
+TransferJobSession::~TransferJobSession()
+{
+    Close();
+}
+
+void TransferJobSession::Close()
+{
+    if (pipe)
+        CloseHandle(pipe);
+    pipe = nullptr;
+}
+
+TransferJobScope PreparedTransfer::JobScope() const
+{
+    TransferJobScope scope{source.operation, {source.serial, {}}, {target.serial, {}},
+                           source.volume + source.relative, target.volume + target.relative};
+    std::memcpy(scope.source.id, source.fileId, sizeof(source.fileId));
+    std::memcpy(scope.target.id, target.fileId, sizeof(target.fileId));
+    return scope;
+}
+
+bool PreparedTransfer::IsInJob(const TransferJobSession& job) const
+{
+    return job.pipe && CanShareJob() && job.scope.Matches(JobScope());
+}
+
+Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* job) const
 {
     Result result;
     const ComApartment com;
@@ -2465,8 +2551,40 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel) const
     std::memcpy(header.targetParentId.Identifier, target.fileId, sizeof(target.fileId));
     std::wstring payload = source.volume + source.relative + source.leaf + target.volume + target.relative + target.leaf;
     ArchiveRevision revision = overwriteTarget;
+    if (job && !CanShareJob())
+        return result;
+    if (job && IsInJob(*job))
+    {
+        auto deadline = GetTickCount64() + timeoutMs;
+        DWORD error = TransferRequest(job->pipe, &header, sizeof(header), true, deadline);
+        if (!error)
+        {
+            result.unknown = !IsOverwrite();
+            error = TransferRequest(job->pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline);
+        }
+        if (!error && IsOverwrite())
+        {
+            result.unknown = true;
+            error = TransferRequest(job->pipe, &revision, sizeof(revision), true, deadline);
+        }
+        deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
+        if (!error)
+            error = TransferRequest(job->pipe, &result.error, sizeof(result.error), false, deadline);
+        if (error)
+            result.error = error;
+        else
+            result.unknown = result.error == ERROR_PARTIAL_COPY;
+        if (result.error)
+            job->Close();
+        return result;
+    }
+    if (job)
+    {
+        job->Close();
+        job->scope = JobScope();
+    }
     RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, cancel,
-             nullptr, nullptr, nullptr, nullptr, IsOverwrite() ? &revision : nullptr);
+             nullptr, nullptr, nullptr, nullptr, IsOverwrite() ? &revision : nullptr, job ? &job->pipe : nullptr);
     return result;
 }
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Keep transfer authorizations with the progress dialog. | Close every scope when its job ends. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share the protected read consent prompt with F3. | Keep the scope and shield consistent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Declare the protected read consent prompt. | Use the same shield and default Cancel for size and Find. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Allow a shield on OK independently of the default action. | Keep destructive UAC confirmations safe by default. | | GPT-6.1 Sol (Codex) |
@@ -13,10 +14,12 @@
 
 #pragma once
 
+#include <list>
 #include <string>
 #include <vector>
 
 #include "plugins/salamatrix/salamatrix_extensions.h"
+#include "uacbroker/f7pilot.h"
 
 // Shows one dialog for extensions whose Salamatrix runtime provider or
 // interpreter is missing. A NULL extension id reports every such extension.
@@ -351,6 +354,7 @@ BOOL StartProgressDialog(COperations* script, const char* caption,
 class CProgressDialog : public CCommonDialog
 {
     friend class CConflictPromptPresentationGuard;
+    std::list<UacF7::TransferJobSession> TransferJobs;
 
 public:
     CProgressDialog(HWND parent, COperations* script, const char* caption,

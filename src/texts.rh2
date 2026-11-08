@@ -10,6 +10,7 @@
 // | 2026-11-07 | Reserve the elevation confirmation for rename. | Prompt with the source and destination paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve F7 elevation message IDs. | Localize consent and uncertain-result handling. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Add the transfer job consent resource. | Show the approved parent paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add the EFS copy consent resource. | Show the elevated operation accurately. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve the exact-file Find prompt. | Localize the scope of protected content consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve the protected content-search prompt. | Localize the explicit content scope. | | GPT-6.1 Sol (Codex) |
@@ -3244,5 +3245,6 @@
 #define IDS_UAC_FIND_CONTENT_CONFIRM                 14587
 #define IDS_UAC_FIND_FILE_CONFIRM                    14588
 #define IDS_UAC_COPY_ENCRYPTED_CONFIRM                14589
+#define IDS_UAC_TRANSFER_JOB_SCOPE                   14590
 
 #endif // __TEXTS_RH2

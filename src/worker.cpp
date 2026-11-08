@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Allow protected EFS in the serial transfer batch. | Keep one authorization per compatible scope. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route eligible encrypted F5 failures to the broker. | Preserve ciphertext and release the normal copy handle before elevation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Process approved leaves in the existing worker sequence. | Preserve progress and stop the batch on a canceled or unconfirmed elevated operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer the verified F5 replacement after ordinary access is denied. | Capture the conflict before consent and exclude locally modified targets. | | GPT-6.1 Sol (Codex) |
@@ -507,7 +508,6 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
     InvertRecycleBin = FALSE;
     AllowPermanentDeletePilot = FALSE;
     AllowTransferPilot = FALSE;
-    AllowEncryptedTransferPilot = FALSE;
     IgnoreTransferAds = FALSE;
     CanUseRecycleBin = TRUE;
     SameRootButDiffVolume = FALSE;
@@ -5659,7 +5659,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     const bool encrypted = !moving && UacF7::IsEncryptedCopyFile(op.Attr);
     if (!script.AllowTransferPilot || script.OverwriteOlder ||
         ((op.OpFlags & OPFL_AS_ENCRYPTED) != 0 && !encrypted) ||
-        (encrypted && (!script.AllowEncryptedTransferPilot || (op.OpFlags & OPFL_COPY_ADS) != 0)) || !op.SourceNameWValid || !op.TargetNameWValid ||
+        (encrypted && (op.OpFlags & OPFL_COPY_ADS) != 0) || !op.SourceNameWValid || !op.TargetNameWValid ||
         (moving ? (script.CopySecurity || script.CopyAttrs || (op.OpFlags & OPFL_COPY_ADS) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))
                 : (!UacF7::IsEligibleFileCopy(op.Attr, script.CopyAttrs, script.IgnoreTransferAds, script.CopySecurity) ||
                    op.FileSize.Value > UacF7::maxPilotCopyBytes)))

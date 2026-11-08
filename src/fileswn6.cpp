@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Allow eligible encrypted sources in batch discovery. | Defer blocked reads to the authorized transfer job. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Queue eligible protected EFS sources for F5. | Preserve EFS when ordinary stream discovery is denied. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Retain exact selected paths for each direct directory item. | Prevent batch script position from changing the verified target. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Merge protected and ordinary Ctrl+Q measurements. | Keep the per-file logical sizes available even when a disk metric is unavailable. | | GPT-6.1 Sol (Codex) |
@@ -3254,7 +3255,6 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                                  (UacF7::IsEncryptedCopyFile(op.Attr) && UacF7::IsEfsCopyFailure(op.Attr, err))) &&
                                 type == atCopy && script->AllowTransferPilot &&
                                 !script->OverwriteOlder &&
-                                (!(op.Attr & FILE_ATTRIBUTE_ENCRYPTED) || script->AllowEncryptedTransferPilot) &&
                                 targetPathState == tpsNotEncryptedExisting &&
                                 UacF7::IsEligibleFileCopy(op.Attr, script->CopyAttrs, script->IgnoreTransferAds, script->CopySecurity) &&
                                 op.FileSize.Value <= UacF7::maxPilotCopyBytes)

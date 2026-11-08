@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify the transfer job scope boundary. | Reject other operations, paths and parent identities. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check eligibility for the encrypted F5 request. | Prevent unsupported metadata combinations. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the verified EFS transfer end to end. | Validate the path shared with the elevated broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify EFS publication and inherited destination permissions. | Exercise cancellation, no-replace collision and workspace cleanup. | | GPT-6.1 Sol (Codex) |
@@ -2272,6 +2273,27 @@ int wmain(int argc, wchar_t** argv)
               !UacF7::IsEligibleFileCopy(encrypted, false, false, true) &&
               !UacF7::IsEligibleFileCopy(encrypted | FILE_ATTRIBUTE_REPARSE_POINT, false, false, false),
           "route only supported EFS combinations through the encrypted request");
+    UacF7::TransferJobScope scope{UacF7::Operation::Copy, {1, {}}, {2, {}}, L"source", L"target"};
+    scope.source.id[0] = 3;
+    scope.target.id[0] = 4;
+    Check(UacF7::CanShareTransferJob(scope.operation) && scope.Matches(scope) &&
+              UacF7::CanShareTransferJob(UacF7::Operation::CopyEncrypted) &&
+              UacF7::CanShareTransferJob(UacF7::Operation::CopyOverwrite) &&
+              !UacF7::CanShareTransferJob(UacF7::Operation::Delete) &&
+              !UacF7::CanShareTransferJob(UacF7::Operation::CopyTree),
+          "limit shared consent to supported disk transfer types");
+    auto another = scope;
+    another.operation = UacF7::Operation::CopyOverwrite;
+    Check(!scope.Matches(another), "reject overwrite outside a no-replace copy job");
+    another = scope;
+    ++another.source.id[0];
+    Check(!scope.Matches(another), "reject a replaced source parent in a transfer job");
+    another = scope;
+    ++another.target.serial;
+    Check(!scope.Matches(another), "reject a different destination volume in a transfer job");
+    another = scope;
+    another.targetPath += L"\\subfolder";
+    Check(!scope.Matches(another), "reject a wider destination path even when the supplied ID matches");
     Check(copyError == ERROR_NOT_SUPPORTED && !Exists(securityTarget),
           "security copy rejects an inherited DACL", copyError);
     PSECURITY_DESCRIPTOR rawSecurity = nullptr;
