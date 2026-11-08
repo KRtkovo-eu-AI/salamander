@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Scope permanent deletion and metadata jobs. | Keep link types, parent identity and approved metadata values separate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Keep overwrite approval bound to the verified revision. | Reuse a conflict decision only for the same source and destination. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define the scope and lifetime of a transfer job. | Reuse authorization only for matching operations and parent identities. | | GPT-6.1 Sol (Codex) |
@@ -154,7 +155,7 @@ inline bool IsEligibleFileCopy(DWORD attributes, bool copyAttributes, bool ignor
     if (IsEncryptedCopyFile(attributes))
         return !copySecurity && !ignoreAds;
     if (copySecurity)
-        return !copyAttributes && !ignoreAds && IsPlainCopyFile(attributes);
+        return !copyAttributes && !ignoreAds && IsDefaultCopyFile(attributes);
     if (copyAttributes)
         return !ignoreAds && IsCompressedCopyFile(attributes);
     return ignoreAds ? IsPlainCopyFile(attributes) : IsDefaultCopyFile(attributes);

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify permanent-delete and metadata job boundaries. | Distinguish link types and enforce the selected metadata policy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe late NTFS extended attributes. | Check whether the source guard blocks a separate metadata writer. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise a durable move source journal. | Recover after process death and refuse wrong parents and substitutions. | | GPT-6.1 Sol (Codex) |
@@ -2726,6 +2727,48 @@ int wmain(int argc, wchar_t** argv)
     copyError = copySecurity(trustedFixture);
     Check(copyError == ERROR_ALREADY_EXISTS && HasContents(securityTarget, content),
           "security copy refuses to replace an existing target", copyError);
+
+    // Both the main file and the alternate stream must be present before
+    // the exact security descriptor can be considered successfully copied.
+    const auto securityAdsTarget = moved + L"\\security-streams-\u4eac.bin";
+    const auto securityAds = securitySource + L":\u6771";
+    if (!WriteFixture(securityAds, existing))
+        return 2;
+    const auto copySecurityWithStreams = [&](UacCopyLeaf::StageVerifier verify) {
+        return UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, securityId, L"security-\u6771.bin",
+            original.get(), expected, L"security-streams-\u4eac.bin", nullptr, nullptr, MAXULONGLONG,
+            content.size(), UacCopyLeaf::StreamPolicy::PreserveNamed, verify, false, true);
+    };
+    copyError = copySecurityWithStreams(trustedFixture);
+    const auto securityWithStreams = openSecurity(securityAdsTarget);
+    Check(copyError == ERROR_SUCCESS && securityWithStreams &&
+              securitySnapshot.Verify(securityWithStreams.get()) == ERROR_SUCCESS &&
+              HasContents(securityAdsTarget, content) && HasContents(securityAdsTarget + L":\u6771", existing),
+          "copy a named data stream with the exact protected ACL, owner and primary group", copyError);
+    copyError = copySecurityWithStreams(trustedFixture);
+    Check(copyError == ERROR_ALREADY_EXISTS && HasContents(securityAdsTarget + L":\u6771", existing),
+          "collision preserves the existing secured file's named stream", copyError);
+    if (!DeleteFileW(securityAds.c_str()))
+        return 2;
+
+    if (!DeleteFileW((sparseSource + L":named").c_str()) ||
+        SetNamedSecurityInfoW(const_cast<wchar_t*>(sparseSource.c_str()), SE_FILE_OBJECT,
+                              DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                              nullptr, nullptr, explicitDacl, nullptr) != ERROR_SUCCESS)
+        return 2;
+    const auto securitySparseTarget = moved + L"\\security-sparse-\u4eac.bin";
+    copyError = UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, sparseId, L"sparse-\u6771.bin",
+        original.get(), expected, L"security-sparse-\u4eac.bin", nullptr, nullptr, MAXULONGLONG,
+        sparseBytes.size(), UacCopyLeaf::StreamPolicy::PreserveNamed, trustedFixture, false, true);
+    const auto sparseOriginalSecurity = openSecurity(sparseSource);
+    const auto sparseCopiedSecurity = openSecurity(securitySparseTarget);
+    UacCopyLeaf::Detail::CopySecuritySnapshot sparseSecurity;
+    Check(UacF7::IsEligibleFileCopy(FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ARCHIVE, false, false, true) &&
+              copyError == ERROR_SUCCESS && sparseOriginalSecurity && sparseCopiedSecurity &&
+              sparseSecurity.Read(sparseOriginalSecurity.get()) == ERROR_SUCCESS &&
+              sparseSecurity.Verify(sparseCopiedSecurity.get()) == ERROR_SUCCESS &&
+              HasContents(securitySparseTarget, sparseBytes) && hasHole(securitySparseTarget),
+          "preserve sparse allocation and exact protected security in one copy", copyError);
 
     PSECURITY_DESCRIPTOR labelDescriptor = nullptr;
     if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the live scoped job dispatcher directly. | Run the same loop with an owned test pipe and NTFS fixtures. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Authenticate repeated leaf mutation requests. | Enforce the first approved parent, operation and metadata choices. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Retain transfer consent after confirmed item failures. | Let the user skip a failed item and continue the same job. | | GPT-6.1 Sol (Codex) |
@@ -1477,7 +1478,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 const bool preserveCompression = header.operation == Operation::CopyCompressed;
                 const bool preserveSecurity = header.operation == Operation::CopySecurity;
                 auto policy = UacCopyLeaf::StreamPolicy::PreserveNamed;
-                if (preserveCompression || preserveSecurity)
+                if (preserveCompression)
                     policy = UacCopyLeaf::StreamPolicy::RequireDefault;
                 else if (header.operation == Operation::CopyIgnoreAds)
                     policy = UacCopyLeaf::StreamPolicy::IgnoreNamed;

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Allow reading the audit ACL of a reference child. | Verify the destination policy for EFS publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Publish ZIP entry bytes directly from the verified manifest. | Avoid duplicating each decoded file in the broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Publish verified ZIP output from a staged file. | Commit into a vacant name only and discard partial writes. | | GPT-6.1 Sol (Codex) |
@@ -370,7 +371,10 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                             const CopySourceLocation* location = nullptr, bool preserveCompression = false,
                             const CopySecuritySnapshot* copySecurity = nullptr)
 {
-    if ((preserveCompression || copySecurity) && (!location || policy != StreamPolicy::RequireDefault))
+    if ((preserveCompression || copySecurity) && !location)
+        return ERROR_INVALID_PARAMETER;
+    if ((preserveCompression && policy != StreamPolicy::RequireDefault) ||
+        (copySecurity && policy == StreamPolicy::IgnoreNamed))
         return ERROR_INVALID_PARAMETER;
     DWORD allowedAttributes = UacF7::plainCopyAttributes;
     if (preserveCompression)
@@ -637,7 +641,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
     if ((error = Detail::CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
         return error;
 
-    if (preserveSecurity && (preserveCompression || policy != StreamPolicy::RequireDefault || !verifyStage))
+    if (preserveSecurity && (preserveCompression || policy == StreamPolicy::IgnoreNamed || !verifyStage))
         return ERROR_INVALID_PARAMETER;
     HANDLE rawSource = nullptr;
     const ACCESS_MASK sourceAccess = FILE_READ_DATA | FILE_READ_EA | (preserveSecurity ? READ_CONTROL : 0);
