@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise bounded EFS Raw export and import. | Verify ciphertext preservation and measure the source-handle sharing boundary. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check the exact-file Find protocol boundary. | Reject path selection and directory operations on the pinned file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the read-only Find property stream. | Check bounded reads, large offsets, cancellation and clone lifetime. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cover scoped content opens used by Find. | Check long Unicode paths, ranges beyond snapshots and scope escapes. | | GPT-6.1 Sol (Codex) |
@@ -55,6 +56,7 @@
 #include "../uacbroker/copytree.h"
 #include "../uacbroker/viewleaf.h"
 #include "../findtagstream.h"
+#include "../uacbroker/efsraw.h"
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
@@ -1387,17 +1389,168 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
     return true;
 }
 
+static bool CheckEfsRaw(const std::wstring& folder, const wchar_t* fixturePath)
+{
+    const DWORD attrs = GetFileAttributesW(fixturePath);
+    if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_ENCRYPTED) ||
+        (attrs & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)))
+        return false;
+    constexpr DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    auto open = [&](const wchar_t* path, DWORD access, DWORD sharing) {
+        const HANDLE raw = CreateFileW(path, access, sharing, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        return Handle(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+    };
+    std::vector<BYTE> plaintext;
+    {
+        const auto original = open(fixturePath, GENERIC_READ, share);
+        LARGE_INTEGER size{};
+        if (!original || !GetFileSizeEx(original.get(), &size) || size.QuadPart < 1 || size.QuadPart > 1024 * 1024)
+            return false;
+        plaintext.resize(static_cast<size_t>(size.QuadPart));
+        DWORD read = 0;
+        if (!ReadFile(original.get(), plaintext.data(), static_cast<DWORD>(plaintext.size()), &read, nullptr) ||
+            read != plaintext.size())
+            return false;
+    }
+
+    std::vector<BYTE> raw;
+    {
+        UacEfsRaw::Context input;
+        const DWORD openError = input.Open(fixturePath, 0);
+        if (openError)
+            return false;
+        const DWORD error = input.Read(raw, 32 * 1024 * 1024, MAXULONGLONG);
+        Check(!error && !raw.empty() && raw != plaintext, "export encrypted data without producing the plaintext", error);
+        if (error)
+            return false;
+    }
+
+    const auto restored = folder + L"\\\u6771-restored.txt";
+    if (!WriteFixture(restored, {}))
+        return false;
+    FILE_ID_INFO prior{}, current{};
+    {
+        const auto stage = OpenIdentity(restored, prior);
+        if (!stage)
+            return false;
+    }
+    // Use the volume-qualified form accepted by EFS Raw instead of the
+    // extended DOS path used by other native filesystem tests.
+    std::wstring volumePath(32768, L'\0');
+    {
+        const auto stage = open(restored.c_str(), FILE_READ_ATTRIBUTES, share);
+        const DWORD length = stage ? GetFinalPathNameByHandleW(stage.get(), volumePath.data(),
+            static_cast<DWORD>(volumePath.size()), VOLUME_NAME_GUID) : 0;
+        if (!length || length >= volumePath.size())
+            return false;
+        volumePath.resize(length);
+    }
+    {
+        UacEfsRaw::Context output;
+        DWORD error = output.Open(volumePath.c_str(), CREATE_FOR_IMPORT);
+        if (!error)
+            error = output.Write(raw, MAXULONGLONG);
+        Check(!error, "import raw data to a volume-qualified staged filename", error);
+        if (error)
+            return false;
+    }
+
+    const auto restoredIdentity = OpenIdentity(restored, current);
+    const DWORD restoredAttrs = GetFileAttributesW(restored.c_str());
+    Check(restoredIdentity && UacRenameLeaf::Detail::SameSource(prior, current) &&
+              restoredAttrs != INVALID_FILE_ATTRIBUTES && (restoredAttrs & FILE_ATTRIBUTE_ENCRYPTED),
+          "retain the staged identity and EFS encryption after import");
+    Check(HasContents(restored, plaintext), "the original EFS key holder reads the same bytes from the restored file");
+    Check(HasContents(fixturePath, plaintext), "raw transfer leaves the original readable");
+
+    {
+        const auto guard = open(restored.c_str(), DELETE, FILE_SHARE_READ);
+        if (!guard)
+            return false;
+        UacEfsRaw::Context input;
+        const DWORD error = input.Open(volumePath.c_str(), 0);
+        Check(error == ERROR_ACCESS_DENIED || error == ERROR_SHARING_VIOLATION,
+              "EFS Raw cannot open a source pinned by a separate delete handle", error);
+    }
+    {
+        UacEfsRaw::Context input;
+        if (input.Open(volumePath.c_str(), 0))
+            return false;
+        const auto competitor = open(restored.c_str(), DELETE, share);
+        const DWORD competingError = competitor ? ERROR_SUCCESS : GetLastError();
+        const auto identity = open(restored.c_str(), FILE_READ_ATTRIBUTES, share);
+        Check(!competitor && competingError == ERROR_SHARING_VIOLATION && identity,
+              "an open EFS Raw context blocks deletion but allows reading identity", competingError);
+
+        std::vector<BYTE> limited;
+        const DWORD error = input.Read(limited, 1, MAXULONGLONG);
+        Check(error == ERROR_FILE_TOO_LARGE && limited.empty(), "discard an oversized raw export", error);
+    }
+    {
+        UacEfsRaw::Context input;
+        if (input.Open(volumePath.c_str(), 0))
+            return false;
+        std::vector<BYTE> expired;
+        const DWORD error = input.Read(expired, raw.size(), GetTickCount64());
+        Check(error == ERROR_TIMEOUT && expired.empty(), "reject an expired raw export", error);
+    }
+    {
+        const HANDLE rawParent = CreateFileW(folder.c_str(), FILE_ADD_FILE | FILE_READ_ATTRIBUTES,
+            share, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        if (rawParent == INVALID_HANDLE_VALUE)
+            return false;
+        const Handle parent(rawParent);
+        constexpr wchar_t name[] = L"raw-alias.txt";
+        struct
+        {
+            BOOLEAN replaceIfExists;
+            HANDLE rootDirectory;
+            ULONG fileNameLength;
+            WCHAR fileName[ARRAYSIZE(name)];
+        } link{};
+        link.rootDirectory = parent.get();
+        link.fileNameLength = sizeof(name) - sizeof(wchar_t);
+        std::memcpy(link.fileName, name, sizeof(name));
+        IO_STATUS_BLOCK io{};
+        const NTSTATUS status = NtSetInformationFile(restoredIdentity.get(), &io, &link, sizeof(link),
+                                                     static_cast<FILE_INFORMATION_CLASS>(11));
+        FILE_ID_INFO aliasId{};
+        const auto alias = OpenIdentity(folder + L"\\" + name, aliasId);
+        Check(status >= 0 && alias && UacRenameLeaf::Detail::SameSource(current, aliasId),
+              "create a hard link to the EFS file from its verified identity handle",
+              status < 0 ? RtlNtStatusToDosError(status) : ERROR_SUCCESS);
+        if (status < 0 || !alias)
+            return false;
+
+        const auto moved = folder + L"\\moved-original.txt";
+        if (!MoveFileExW(restored.c_str(), moved.c_str(), 0) || !WriteFixture(restored, {7}))
+            return false;
+        const auto volumeAlias = volumePath.substr(0, volumePath.find_last_of(L'\\') + 1) + name;
+        UacEfsRaw::Context input;
+        DWORD error = input.Open(volumeAlias.c_str(), 0);
+        std::vector<BYTE> aliasData;
+        if (!error)
+            error = input.Read(aliasData, 32 * 1024 * 1024, MAXULONGLONG);
+        Check(!error && aliasData == raw && HasContents(restored, {7}),
+              "export the verified EFS alias after a different file takes the former name", error);
+    }
+    return failures == 0;
+}
+
 int wmain(int argc, wchar_t** argv)
 {
     using namespace UacDirectoryLeaf;
     const bool high = argc == 3 && std::wstring_view(argv[2]) == L"--high-integrity";
     const bool overwrite = argc == 3 && std::wstring_view(argv[2]) == L"--overwrite-probe";
     const bool moveSource = argc == 3 && std::wstring_view(argv[2]) == L"--move-source-probe";
-    if (argc != 2 && !high && !overwrite && !moveSource)
+    const bool efsRaw = argc == 4 && std::wstring_view(argv[2]) == L"--efs-source";
+    if (argc != 2 && !high && !overwrite && !moveSource && !efsRaw)
         return 2;
     const std::wstring fixture = L"\\\\?\\" + std::wstring(argv[1]);
     if (overwrite)
         return CheckOverwrite(fixture) ? 0 : 1;
+    if (efsRaw)
+        return CheckEfsRaw(fixture, argv[3]) ? 0 : 1;
     const HANDLE rawRoot = CreateFileW(fixture.c_str(), FILE_TRAVERSE | FILE_READ_ATTRIBUTES | FILE_LIST_DIRECTORY,
                                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
                                         OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,

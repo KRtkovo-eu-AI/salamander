@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-08 | Accept an existing EFS fixture in the native suite. | Avoid creating a certificate during automated testing. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Link COM interface identifiers for Find stream tests. | Exercise the host stream using the native suite. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Add an optional NTFS source-retirement probe. | Verify the boundary of a held source handle. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Add an optional NTFS overwrite probe. | Measure rename behavior on the Windows build under test. | | GPT-6.1 Sol (Codex) |
@@ -23,6 +24,7 @@ def main():
     mode.add_argument("--high-integrity", action="store_true")
     mode.add_argument("--overwrite-probe", action="store_true")
     mode.add_argument("--move-source-probe", action="store_true")
+    mode.add_argument("--efs-source", type=Path, help="existing encrypted lab file readable by the current account")
     args = parser.parse_args()
     env = compiler_environment()
     compiler = shutil.which("cl", path=env.get("PATH"))
@@ -60,6 +62,8 @@ def main():
                 arguments.append("--overwrite-probe")
             if args.move_source_probe:
                 arguments.append("--move-source-probe")
+            if args.efs_source:
+                arguments.extend(("--efs-source", str(args.efs_source.resolve(strict=True))))
             return run(arguments, cwd=folder, env=env, timeout=15).returncode
         finally:
             junction.rmdir()
