@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Serve exactly one consented file to Find. | Hold the verified source handle and refuse other paths or listing operations. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Stream blocks for Find from the authorized subtree. | Reject content on listing-only sessions and cap reading without whole-file buffering. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Wire a typed disk overwrite into the protected broker. | Copy through a stage that retains the verified target security before journaled publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Remove the broker command for standalone ZIP recovery. | Keep interrupted publication handling scoped to the exact archive being written. | | GPT-6.1 Sol (Codex) |
@@ -134,13 +135,14 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD zipUpdateCapability = 536870912;
 [[maybe_unused]] constexpr DWORD copyOverwriteCapability = 1073741824;
 [[maybe_unused]] constexpr DWORD findContentCapability = 0x80000000;
+[[maybe_unused]] constexpr DWORD findFileCapability = 0x10000000;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
                                                  inventoryCapability | copyTreeCapability | cancelTreeCapability |
                                                  directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
                                                  copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability |
                                                  renameDirectorySymlinkCapability | renameJunctionCapability | deleteSymlinkCapability |
-                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability | zipSelectionWriteCapability | zipUpdateCapability | copyOverwriteCapability | findContentCapability;
+                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability | zipSelectionWriteCapability | zipUpdateCapability | copyOverwriteCapability | findContentCapability | findFileCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -1164,7 +1166,7 @@ DWORD WriteZipUpdate(const InstallLocation& install, HANDLE root, std::wstring_v
 }
 
 DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, DWORD hostPid,
-                     ULONGLONG& deadline, DWORD& result, Handle& listingRoot, std::vector<BYTE>& snapshot, bool& snapshotRequest, bool& zipUpdate, bool& findContent, Handle& archive, UacF7::ArchiveRevision& archiveRevision)
+                     ULONGLONG& deadline, DWORD& result, Handle& listingRoot, std::vector<BYTE>& snapshot, bool& snapshotRequest, bool& zipUpdate, Operation& listingScope, Handle& archive, UacF7::ArchiveRevision& archiveRevision)
 {
     RequestHeader header{};
     DWORD error = TransferRequest(pipe, &header, sizeof(header), false, deadline);
@@ -1174,11 +1176,12 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool mkdir = header.operation == Operation::Mkdir;
     const bool setMetadata = header.operation == Operation::Metadata;
     const bool deleteFile = UacF7::IsLeafDelete(header.operation);
-    findContent = header.operation == Operation::FindContent;
-    const bool list = header.operation == Operation::List || findContent;
+    listingScope = header.operation;
+    const bool list = listingScope == Operation::List || listingScope == Operation::FindContent;
+    const bool findFile = listingScope == Operation::FindFile;
     const bool view = header.operation == Operation::View;
     snapshotRequest = view;
-    const bool readArchive = header.operation == Operation::ReadArchive;
+    const bool readArchive = header.operation == Operation::ReadArchive || findFile;
     const bool writeZipSelection = header.operation == Operation::WriteZipSelection;
     zipUpdate = header.operation == Operation::WriteZipUpdate;
     const bool overwrite = header.operation == Operation::CopyOverwrite;
@@ -1402,9 +1405,14 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         FILE_BASIC_INFO initial{};
         LARGE_INTEGER archiveSize{};
         result = UacViewLeaf::OpenVerifiedRead(parent.get(), expected, sourceIdentity, leaf, deadline, raw, archiveSize, initial);
-        archive = Adopt(raw);
-        if (!result)
-            UacZipUpdate::SetRevision(archiveRevision, sourceIdentity, initial, archiveSize);
+        if (findFile)
+            listingRoot = Adopt(raw);
+        else
+        {
+            archive = Adopt(raw);
+            if (!result)
+                UacZipUpdate::SetRevision(archiveRevision, sourceIdentity, initial, archiveSize);
+        }
     }
     else if (setMetadata)
         result = UacMetadataLeaf::SetVerifiedMetadata(parent.get(), expected, sourceIdentity, leaf, metadata);
@@ -1471,13 +1479,20 @@ DWORD ServeArchive(HANDLE pipe, Handle file, ULONGLONG size)
 }
 
 DWORD ServeFindContent(HANDLE pipe, HANDLE root, std::wstring_view relative, ULONGLONG& budget,
-                       ULONGLONG deadline)
+                       ULONGLONG deadline, bool singleFile)
 {
     HANDLE opened = nullptr;
     LARGE_INTEGER size{};
     FILE_BASIC_INFO initial{};
-    const DWORD openError = UacViewLeaf::OpenScopedRead(root, relative, deadline, opened, size, initial);
-    const auto file = Adopt(opened);
+    DWORD openError = ERROR_SUCCESS;
+    if (!singleFile)
+        openError = UacViewLeaf::OpenScopedRead(root, relative, deadline, opened, size, initial);
+    else if (!GetFileSizeEx(root, &size) || !GetFileInformationByHandleEx(root, FileBasicInfo, &initial, sizeof(initial)))
+        openError = GetLastError();
+    else if (size.QuadPart < 0)
+        openError = ERROR_FILE_INVALID;
+    const auto owned = Adopt(opened);
+    const HANDLE file = singleFile ? root : owned.get();
     DWORD status = openError;
     DWORD error = TransferRequest(pipe, &status, sizeof(status), true, deadline);
     if (error || openError)
@@ -1500,8 +1515,8 @@ DWORD ServeFindContent(HANDLE pipe, HANDLE root, std::wstring_view relative, ULO
             FILE_BASIC_INFO current{};
             LARGE_INTEGER currentSize{};
             status = ERROR_SUCCESS;
-            if (!GetFileInformationByHandleEx(file.get(), FileBasicInfo, &current, sizeof(current)) ||
-                !GetFileSizeEx(file.get(), &currentSize))
+            if (!GetFileInformationByHandleEx(file, FileBasicInfo, &current, sizeof(current)) ||
+                !GetFileSizeEx(file, &currentSize))
                 status = GetLastError();
             else if (currentSize.QuadPart != size.QuadPart || !UacCopyLeaf::Detail::SameBasicMetadata(initial, current))
                 status = ERROR_FILE_INVALID;
@@ -1517,8 +1532,8 @@ DWORD ServeFindContent(HANDLE pipe, HANDLE root, std::wstring_view relative, ULO
             LARGE_INTEGER position{};
             position.QuadPart = static_cast<LONGLONG>(range.offset);
             DWORD received = 0;
-            if (!SetFilePointerEx(file.get(), position, nullptr, FILE_BEGIN) ||
-                !ReadFile(file.get(), buffer.data(), range.size, &received, nullptr))
+            if (!SetFilePointerEx(file, position, nullptr, FILE_BEGIN) ||
+                !ReadFile(file, buffer.data(), range.size, &received, nullptr))
                 status = GetLastError();
             else if (received != range.size)
                 status = ERROR_HANDLE_EOF;
@@ -1533,7 +1548,7 @@ DWORD ServeFindContent(HANDLE pipe, HANDLE root, std::wstring_view relative, ULO
     }
 }
 
-DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, bool findContent)
+DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operation scope)
 {
     constexpr ULONGLONG idleTimeoutMs = 15 * 60 * 1000;
     ULONGLONG contentBudget = UacListing::contentBudget;
@@ -1547,10 +1562,9 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, bool f
         const bool inventoryRequest = (length & UacListing::inventoryRequest) != 0;
         const bool sizeDetails = (length & UacListing::sizeDetailsRequest) != 0;
         const bool contentRequest = (length & UacListing::contentRequest) != 0;
-        if ((sizeDetails && !inventoryRequest) || (contentRequest && (!findContent || inventoryRequest)))
-            return ERROR_INVALID_DATA;
         length &= ~(UacListing::inventoryRequest | UacListing::sizeDetailsRequest | UacListing::contentRequest);
-        if (length > UacDirectoryLeaf::maxNativeName || !LiveInSession(host, hostPid))
+        if ((sizeDetails && !inventoryRequest) || !UacListing::ValidRequestScope(scope, length, inventoryRequest, contentRequest) ||
+            length > UacDirectoryLeaf::maxNativeName || !LiveInSession(host, hostPid))
             return ERROR_INVALID_DATA;
         const auto deadline = GetTickCount64() + timeoutMs;
         std::wstring relative(length, L'\0');
@@ -1562,7 +1576,7 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, bool f
         }
         if (contentRequest)
         {
-            error = ServeFindContent(pipe, root, relative, contentBudget, deadline);
+            error = ServeFindContent(pipe, root, relative, contentBudget, deadline, scope == Operation::FindFile);
             if (error)
                 return error;
             continue;
@@ -1643,11 +1657,12 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
         DWORD result = ERROR_GEN_FAILURE;
         Handle listingRoot;
         std::vector<BYTE> snapshot;
-        bool snapshotRequest = false, zipUpdate = false, findContent = false;
+        bool snapshotRequest = false, zipUpdate = false;
+        Operation listingScope = Operation::List;
         Handle archive;
         UacF7::ArchiveRevision archiveRevision;
         error = ReceiveRequest(install, pipe.get(), host.get(), hostPid, deadline, result, listingRoot, snapshot,
-                               snapshotRequest, zipUpdate, findContent, archive, archiveRevision);
+                               snapshotRequest, zipUpdate, listingScope, archive, archiveRevision);
         if (error)
             return IoError(L"Receive request", error);
         error = TransferRequest(pipe.get(), &result, sizeof(result), true, deadline);
@@ -1678,7 +1693,7 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
             return error ? IoError(L"Archive read session ended", error) : Ok;
         }
         if (listingRoot)
-            return IoError(L"Listing session ended", ServeListings(pipe.get(), host.get(), hostPid, listingRoot.get(), findContent));
+            return IoError(L"Listing session ended", ServeListings(pipe.get(), host.get(), hostPid, listingRoot.get(), listingScope));
     }
     frame = {protocolVersion, capability, Phase::Done};
     error = Exchange(pipe.get(), frame, true, deadline);
@@ -2587,6 +2602,14 @@ bool ListingSession::Prepare(const std::wstring& path, bool findContent)
     return true;
 }
 
+bool ListingSession::PrepareFile(const std::wstring& path)
+{
+    if (!prepared.PrepareTarget(path, Operation::FindFile, {}, nullptr))
+        return false;
+    root = path;
+    return true;
+}
+
 DWORD ListingSession::Start(HWND owner)
 {
     const ComApartment com;
@@ -2598,6 +2621,7 @@ DWORD ListingSession::Start(HWND owner)
                          static_cast<DWORD>(prepared.relative.size()), static_cast<DWORD>(prepared.leaf.size()), 0,
                          0, {}, 0, 0, 0};
     std::memcpy(header.parentId.Identifier, prepared.fileId, sizeof(prepared.fileId));
+    std::memcpy(header.sourceId.Identifier, prepared.sourceId, sizeof(prepared.sourceId));
     std::wstring payload = prepared.volume + prepared.relative + prepared.leaf;
     Result result;
     RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &pipe);
@@ -2606,13 +2630,15 @@ DWORD ListingSession::Start(HWND owner)
 
 bool ListingSession::Contains(const std::wstring& path) const
 {
+    if (prepared.operation == Operation::FindFile)
+        return pipe && path == root;
     return pipe && path.compare(0, root.size(), root) == 0 &&
            (path.size() == root.size() || (path.size() > root.size() && path[root.size()] == L'\\'));
 }
 
 DWORD ListingSession::SendPath(const std::wstring& path, DWORD flags, ULONGLONG deadline)
 {
-    if (contentOpen || !Contains(path))
+    if (contentOpen || !Contains(path) || (prepared.operation == Operation::FindFile && flags != UacListing::contentRequest))
         return ERROR_ACCESS_DENIED;
     std::wstring relative = path.size() == root.size() ? std::wstring{} : path.substr(root.size() + 1);
     if (relative.size() > UacDirectoryLeaf::maxNativeName)
@@ -2630,7 +2656,8 @@ DWORD ListingSession::OpenContent(const std::wstring& path, ULONGLONG& size, FIL
 {
     size = 0;
     modified = {};
-    if (prepared.operation != Operation::FindContent || path.size() <= root.size())
+    if (prepared.operation != Operation::FindFile &&
+        (prepared.operation != Operation::FindContent || path.size() <= root.size()))
         return ERROR_ACCESS_DENIED;
     const auto deadline = GetTickCount64() + timeoutMs;
     DWORD error = SendPath(path, UacListing::contentRequest, deadline);

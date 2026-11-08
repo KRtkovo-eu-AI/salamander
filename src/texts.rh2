@@ -10,6 +10,7 @@
 // | 2026-11-07 | Reserve the elevation confirmation for rename. | Prompt with the source and destination paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve F7 elevation message IDs. | Localize consent and uncertain-result handling. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Reserve the exact-file Find prompt. | Localize the scope of protected content consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve the protected content-search prompt. | Localize the explicit content scope. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve the UAC batch scope message. | Localize the per-item consent boundary. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve the F5 replacement prompt. | Localize overwrite consent. | | GPT-6.1 Sol (Codex) |
@@ -3240,5 +3241,6 @@
 #define IDS_UAC_COPY_OVERWRITE_CONFIRM               14585
 #define IDS_UAC_BATCH_ITEM_SCOPE                     14586
 #define IDS_UAC_FIND_CONTENT_CONFIRM                 14587
+#define IDS_UAC_FIND_FILE_CONFIRM                    14588
 
 #endif // __TEXTS_RH2

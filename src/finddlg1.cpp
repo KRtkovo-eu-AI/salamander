@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Show a single-file Find consent prompt. | Distinguish the named file from a folder-wide grant. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Distinguish content-search consent from metadata consent. | Show the access required by the active Find options. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the common protected read confirmation. | Share the same prompt with the internal viewer. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show a protected subtree consent prompt from Find. | Let the ordinary Find worker continue independently. | | GPT-6.1 Sol (Codex) |
@@ -4848,8 +4849,11 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
 
     case WM_USER_FIND_PROTECTED_CONSENT:
     {
+        const auto scope = static_cast<FindConsentScope>(lParam);
+        const int prompt = scope == FindConsentScope::File ? IDS_UAC_FIND_FILE_CONFIRM :
+                           scope == FindConsentScope::Content ? IDS_UAC_FIND_CONTENT_CONFIRM : IDS_UAC_FIND_CONFIRM;
         const bool approved = !GrepData.StopSearch &&
-                              ConfirmProtectedRead(HWindow, IDS_FINDTITLE, lParam ? IDS_UAC_FIND_CONTENT_CONFIRM : IDS_UAC_FIND_CONFIRM,
+                              ConfirmProtectedRead(HWindow, IDS_FINDTITLE, prompt,
                                                             *reinterpret_cast<const std::wstring*>(wParam));
         SetWindowLongPtr(HWindow, DWLP_MSGRESULT, approved);
         return TRUE;

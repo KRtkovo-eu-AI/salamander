@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Separate single-file and rooted Find frames. | Deny listing, inventory and other names on an exact-file grant. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define a bounded Find content request. | Scope the byte budget to an authorized listing session. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Collect allocation and per-file sizes for protected Ctrl+Q. | Match ordinary cluster rounding and query sparse and compressed files by verified handle. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Capture and recheck subtree identities. | Prepare a bounded source manifest for recursive copy. | | GPT-6.1 Sol (Codex) |
@@ -31,6 +32,13 @@ struct ContentInfo
     FILETIME modified;
 };
 static_assert(sizeof(ContentInfo) == 16);
+
+inline bool ValidRequestScope(UacF7::Operation scope, DWORD pathLength, bool inventory, bool content)
+{
+    if (scope == UacF7::Operation::FindFile)
+        return content && !inventory && pathLength == 0;
+    return !content || (scope == UacF7::Operation::FindContent && !inventory && pathLength != 0);
+}
 static_assert(sizeof(WIN32_FIND_DATAW) == 592);
 inline constexpr wchar_t marker[] = L"listing";
 

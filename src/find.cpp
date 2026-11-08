@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Queue unreadable files discovered by the ordinary Find traversal. | Require exact-file consent for denied text or keyword reads. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Request exact-file access for protected Find candidates. | Share the verified content reader across text, keywords and duplicate comparison. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Queue multiple independently authorized Find roots. | Serialize prompts and route duplicate reads to the original scope. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Match tags in the authorized Find subtree. | Read keywords through the host and require a verified broker close. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Include approved protected files in duplicate groups. | Use the same ordering and digest progress for both sources. | | GPT-6.1 Sol (Codex) |
@@ -20,6 +22,7 @@
 #include "uacbroker/f7pilot.h"
 #include <array>
 #include <mutex>
+#include <optional>
 
 char* FindNamedHistory[FIND_NAMED_HISTORY_SIZE];
 char* FindLookInHistory[FIND_LOOKIN_HISTORY_SIZE];
@@ -687,6 +690,52 @@ constexpr size_t maxFindProtectedScopes = 32;
 static_assert(maxFindProtectedScopes < (1u << 6)); // CFoundFilesData::ProtectedScope
 using FindProtectedSessions = std::array<UacF7::ListingSession*, maxFindProtectedScopes>;
 
+namespace
+{
+struct FindConsent
+{
+    CGrepData* data;
+    const std::wstring& path;
+    UacF7::ListingSession& session;
+    FindConsentScope scope;
+    DWORD result = ERROR_CANCELLED;
+
+    static DWORD WINAPI Launch(void* context)
+    {
+#ifndef CALLSTK_DISABLE
+        CCallStack stack;
+#endif
+        auto& request = *static_cast<FindConsent*>(context);
+        if (request.data->StopSearch)
+            return 0;
+        static std::mutex consentMutex;
+        const std::unique_lock<std::mutex> consent(consentMutex, std::try_to_lock);
+        if (!consent.owns_lock())
+            request.result = ERROR_BUSY;
+        else if (SendMessage(request.data->HWindow, WM_USER_FIND_PROTECTED_CONSENT,
+                             reinterpret_cast<WPARAM>(&request.path), static_cast<LPARAM>(request.scope)) &&
+                 !request.data->StopSearch)
+            request.result = request.session.Start(request.data->HWindow);
+        return 0;
+    }
+};
+
+DWORD AuthorizeFindFile(CGrepData* data, const std::wstring& path, UacF7::ListingSession& session)
+{
+    if (data->StopSearch)
+        return ERROR_CANCELLED;
+    if (!session.PrepareFile(path))
+        return ERROR_ACCESS_DENIED;
+    FindConsent consent{data, path, session, FindConsentScope::File};
+    HANDLE thread = HANDLES(CreateThread(nullptr, 0, FindConsent::Launch, &consent, 0, nullptr));
+    if (!thread)
+        return ERROR_NOT_ENOUGH_MEMORY;
+    WaitForSingleObject(thread, INFINITE);
+    HANDLES(CloseHandle(thread));
+    return consent.result;
+}
+}
+
 static bool FindDuplicateContent(const CGrepData& data)
 {
     constexpr DWORD flags = FIND_DUPLICATES_SIZE | FIND_DUPLICATES_CONTENT;
@@ -702,7 +751,7 @@ public:
     // - removing single files
     // - setting the Group variable
     // - setting the Different flag
-    void Examine(CGrepData* data, const FindProtectedSessions& protectedSessions);
+    void Examine(CGrepData* data, const FindProtectedSessions& protectedSessions, size_t remainingFileConsents);
 
 protected:
     // compares two records using criteria byName, bySize and byMD5
@@ -738,7 +787,7 @@ protected:
     // (then, the variable data->StopSearch is set to TRUE)
     BOOL GetMD5Digest(CGrepData* data, CFoundFilesData* file,
                       int* progress, CQuadWord* readSize, const CQuadWord* totalSize,
-                      UacF7::ListingSession* protectedSession);
+                      UacF7::ListingSession* protectedSession, size_t& remainingFileConsents);
 };
 
 int CDuplicateCandidates::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2,
@@ -845,9 +894,9 @@ LABEL_QuickSort:
 
 BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
                                         int* progress, CQuadWord* readSize, const CQuadWord* totalSize,
-                                        UacF7::ListingSession* protectedSession)
+                                        UacF7::ListingSession* protectedSession, size_t& remainingFileConsents)
 {
-    const bool scoped = file->ProtectedScope != 0;
+    bool scoped = file->ProtectedScope != 0;
     const std::wstring fullPath = file->GetFullNameW();
     const std::string display = SalWideToMultiBytePath(fullPath.c_str(), CP_UTF8);
     data->SearchingText->Set(display.c_str());
@@ -855,6 +904,29 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
     DWORD error = ERROR_SUCCESS;
     ULONGLONG size = 0;
     bool opened = false;
+    UacF7::ListingSession singleFile;
+    if (!scoped)
+    {
+        const std::wstring apiPath = SalPathAddExtendedPrefixW(fullPath.c_str());
+        local = HANDLES_Q(CreateFileW(apiPath.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                      NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+        opened = local != INVALID_HANDLE_VALUE;
+        if (!opened)
+        {
+            error = GetLastError();
+            if (error == ERROR_ACCESS_DENIED && remainingFileConsents &&
+                !(file->Attr & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_ENCRYPTED)))
+            {
+                --remainingFileConsents;
+                error = AuthorizeFindFile(data, fullPath, singleFile);
+                if (!error)
+                {
+                    protectedSession = &singleFile;
+                    scoped = true;
+                }
+            }
+        }
+    }
     if (scoped)
     {
         FILETIME modified{};
@@ -862,15 +934,6 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
         opened = error == ERROR_SUCCESS;
         if (opened && (size != file->Size.Value || CompareFileTime(&modified, &file->LastWrite) != 0))
             error = ERROR_FILE_INVALID;
-    }
-    else
-    {
-        const std::wstring apiPath = SalPathAddExtendedPrefixW(fullPath.c_str());
-        local = HANDLES_Q(CreateFileW(apiPath.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                      NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
-        opened = local != INVALID_HANDLE_VALUE;
-        if (!opened)
-            error = GetLastError();
     }
     BYTE buffer[DUPLICATES_BUFFER_SIZE];
     MD5 context;
@@ -918,7 +981,8 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
     {
         char message[MAX_PATH + 100];
         sprintf(message, LoadStr(opened ? IDS_ERROR_READING_FILE2 : IDS_ERROR_OPENING_FILE2), GetErrorText(error));
-        FIND_LOG_ITEM log{FLI_ERROR, message, display.c_str()};
+        const DWORD flags = error == ERROR_CANCELLED ? FLI_INFO : FLI_ERROR;
+        FIND_LOG_ITEM log{flags, error == ERROR_CANCELLED ? LoadStr(IDS_FINDLOG_SKIP) : message, display.c_str()};
         SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
         return FALSE;
     }
@@ -1021,7 +1085,8 @@ void CDuplicateCandidates::SetGroupByDifferentFlag()
     }
 }
 
-void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions& protectedSessions)
+void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions& protectedSessions,
+                                   size_t remainingFileConsents)
 {
     if (Count == 0)
         return;
@@ -1097,7 +1162,7 @@ void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions&
                 {
                     const unsigned scope = file->ProtectedScope;
                     auto* session = scope && scope <= protectedSessions.size() ? protectedSessions[scope - 1] : nullptr;
-                    if (!GetMD5Digest(data, file, &progress, &readSize, &totalSize, session))
+                    if (!GetMD5Digest(data, file, &progress, &readSize, &totalSize, session, remainingFileConsents))
                     {
                         if (data->StopSearch)
                         {
@@ -1375,8 +1440,11 @@ BOOL TestFileContentAux(BOOL& ok, CQuadWord& fileOffset, const CQuadWord& totalS
     }
 }
 
-BOOL TestFileContent(DWORD sizeLow, DWORD sizeHigh, const char* path, CGrepData* data, BOOL isLink)
+BOOL TestFileContent(DWORD sizeLow, DWORD sizeHigh, const char* path, CGrepData* data, BOOL isLink,
+                     bool* openDenied = nullptr)
 {
+    if (openDenied)
+        *openDenied = false;
     CQuadWord totalSize(sizeLow, sizeHigh);
     CQuadWord fileOffset(0, 0);
     DWORD viewSize = 0;
@@ -1442,7 +1510,14 @@ BOOL TestFileContent(DWORD sizeLow, DWORD sizeHigh, const char* path, CGrepData*
             HANDLES(CloseHandle(hFile));
         }
         else
+        {
             err = GetLastError();
+            if (openDenied && !isLink && err == ERROR_ACCESS_DENIED)
+            {
+                *openDenied = true;
+                return FALSE;
+            }
+        }
 
         if (err != ERROR_SUCCESS || getLinkFileSizeErr)
         {
@@ -1560,11 +1635,12 @@ public:
 
     bool Prepare(CGrepData* search, std::wstring deniedPath, CMaskGroup* masksGroup,
                  BOOL recursive, int searchRootLength, const std::shared_ptr<CFindIgnore>& ignore,
-                 unsigned scope)
+                 unsigned scope, const WIN32_FIND_DATAA* file)
     {
         path = std::move(deniedPath);
-        readContent = search->Grep || search->Criteria.HasTags() || FindDuplicateContent(*search);
-        if (!session.Prepare(path, readContent))
+        singleFile = file != nullptr;
+        readContent = singleFile || search->Grep || search->Criteria.HasTags() || FindDuplicateContent(*search);
+        if (singleFile ? !session.PrepareFile(path) : !session.Prepare(path, readContent))
             return false;
 
         data = search;
@@ -1573,17 +1649,29 @@ public:
         rootLength = searchRootLength;
         ignoreSnapshot = ignore;
         scopeId = scope;
+        if (file)
+        {
+            const auto* name = SalPathFindFileNameW(path.c_str());
+            if (wcscpy_s(fileEntry.cFileName, name) != 0)
+                return false;
+            fileEntry.dwFileAttributes = file->dwFileAttributes;
+            fileEntry.nFileSizeLow = file->nFileSizeLow;
+            fileEntry.nFileSizeHigh = file->nFileSizeHigh;
+            fileEntry.ftLastWriteTime = file->ftLastWriteTime;
+        }
         return true;
     }
 
-    bool Matches(const std::wstring& deniedPath, const CMaskGroup* masksGroup) const
+    bool Matches(const std::wstring& deniedPath, const CMaskGroup* masksGroup, bool file) const
     {
-        return masks == masksGroup && path == deniedPath;
+        return singleFile == file && masks == masksGroup && path == deniedPath;
     }
 
     bool Start()
     {
-        launchThread = HANDLES(CreateThread(NULL, 0, Launch, this, 0, nullptr));
+        consent.emplace(FindConsent{data, path, session, singleFile ? FindConsentScope::File :
+                                    readContent ? FindConsentScope::Content : FindConsentScope::Metadata});
+        launchThread = HANDLES(CreateThread(NULL, 0, FindConsent::Launch, &*consent, 0, nullptr));
         return launchThread != nullptr;
     }
 
@@ -1602,9 +1690,9 @@ public:
         launchThread = nullptr;
         if (data->StopSearch)
             return nullptr;
-        if (result != ERROR_SUCCESS)
+        if (consent->result != ERROR_SUCCESS)
         {
-            Log(path, result);
+            Log(path, consent->result);
             return nullptr;
         }
 
@@ -1614,31 +1702,21 @@ public:
             const auto text = SalMultiByteToWidePath(data->Criteria.GetTagsText(), CP_UTF8);
             ParseFileTagsW(text.c_str(), requestedTags);
         }
-        size_t remaining = 4096;
-        Scan(path, 0, remaining, candidates);
+        if (singleFile)
+        {
+            const auto slash = path.find_last_of(L'\\');
+            const auto directory = path.substr(0, slash == 2 ? 3 : slash);
+            AddCandidate(directory, fileEntry, candidates);
+        }
+        else
+        {
+            size_t remaining = 4096;
+            Scan(path, 0, remaining, candidates);
+        }
         return FindDuplicateContent(*data) ? &session : nullptr;
     }
 
 private:
-    static DWORD WINAPI Launch(void* context)
-    {
-#ifndef CALLSTK_DISABLE
-        CCallStack stack;
-#endif
-        auto& request = *static_cast<FindProtectedRequest*>(context);
-        static std::mutex consentMutex;
-        const std::unique_lock<std::mutex> consent(consentMutex, std::try_to_lock);
-        if (!consent.owns_lock())
-        {
-            request.result = ERROR_BUSY;
-            return 0;
-        }
-        if (SendMessage(request.data->HWindow, WM_USER_FIND_PROTECTED_CONSENT,
-                        reinterpret_cast<WPARAM>(&request.path), request.readContent) && !request.data->StopSearch)
-            request.result = request.session.Start(request.data->HWindow);
-        return 0;
-    }
-
     void Log(const std::wstring& directory, DWORD error)
     {
         const std::string pathText = SalWideToMultiBytePath(directory.c_str(), CP_UTF8);
@@ -1809,23 +1887,29 @@ private:
         {
             if (data->StopSearch)
                 return;
-            CQuadWord size(file.nFileSizeLow, file.nFileSizeHigh);
+            AddCandidate(directory, file, candidates);
             const bool isDir = (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-            if (masks->AgreeMasksW(file.cFileName, nullptr) &&
-                data->Criteria.Test(file.dwFileAttributes, &size, &file.ftLastWriteTime) &&
-                (!data->Criteria.HasTags() || (!isDir && (requestedTags.empty() || MatchTags(directory, file, size)))) &&
-                (!data->Grep || (!isDir && MatchContent(directory, file, size))) &&
-                (!candidates || (!isDir && (!readContent || size.Value || VerifyEmptyCandidate(directory, file)))))
-            {
-                AddFoundItem(nullptr, nullptr, file.nFileSizeLow, file.nFileSizeHigh, file.dwFileAttributes,
-                             &file.ftLastWriteTime, isDir, data, candidates, directory.c_str(), file.cFileName, scopeId);
-            }
             if (includeSubDirs && isDir && !(file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT))
             {
                 std::wstring child = directory;
                 SalPathAppendW(child, file.cFileName);
                 Scan(child, depth + 1, remaining, candidates);
             }
+        }
+    }
+
+    void AddCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates)
+    {
+        CQuadWord size(file.nFileSizeLow, file.nFileSizeHigh);
+        const bool isDir = (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        if (masks->AgreeMasksW(file.cFileName, nullptr) &&
+            data->Criteria.Test(file.dwFileAttributes, &size, &file.ftLastWriteTime) &&
+            (!data->Criteria.HasTags() || (!isDir && (requestedTags.empty() || MatchTags(directory, file, size)))) &&
+            (!data->Grep || (!isDir && MatchContent(directory, file, size))) &&
+            (!candidates || (!isDir && (!FindDuplicateContent(*data) || size.Value || VerifyEmptyCandidate(directory, file)))))
+        {
+            AddFoundItem(nullptr, nullptr, file.nFileSizeLow, file.nFileSizeHigh, file.dwFileAttributes,
+                         &file.ftLastWriteTime, isDir, data, candidates, directory.c_str(), file.cFileName, scopeId);
         }
     }
 
@@ -1837,18 +1921,21 @@ private:
     CGrepData* data = nullptr;
     CMaskGroup* masks = nullptr;
     HANDLE launchThread = nullptr;
-    DWORD result = ERROR_CANCELLED;
+    std::optional<FindConsent> consent;
+    WIN32_FIND_DATAW fileEntry{};
     int rootLength = 0;
     unsigned scopeId = 0;
     bool includeSubDirs = false;
     bool readContent = false;
+    bool singleFile = false;
 };
 
 class FindProtectedQueue
 {
 public:
     bool Add(CGrepData* search, const char* deniedPath, CMaskGroup* masks,
-             BOOL recursive, int rootLength, const std::shared_ptr<CFindIgnore>& ignore)
+             BOOL recursive, int rootLength, const std::shared_ptr<CFindIgnore>& ignore,
+             const WIN32_FIND_DATAA* file = nullptr)
     {
         if (search->StopSearch)
             return false;
@@ -1856,14 +1943,14 @@ public:
         {
             auto path = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(deniedPath, GetACP()).c_str());
             for (size_t i = 0; i < count; ++i)
-                if (requests[i]->Matches(path, masks))
+                if (requests[i]->Matches(path, masks, file != nullptr))
                     return true;
             if (count == requests.size())
                 return false;
 
             auto request = std::make_unique<FindProtectedRequest>();
             if (!request->Prepare(search, std::move(path), masks, recursive, rootLength, ignore,
-                                  static_cast<unsigned>(count + 1)))
+                                  static_cast<unsigned>(count + 1), file))
                 return false;
             // Let ordinary traversal continue during the first consent. Queue
             // later requests without opening more simultaneous dialogs.
@@ -1877,6 +1964,8 @@ public:
             return false;
         }
     }
+
+    size_t Remaining() const { return requests.size() - count; }
 
     FindProtectedSessions Finish(CDuplicateCandidates* candidates)
     {
@@ -1985,6 +2074,9 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
                         if (masksGroup->AgreeMasks(file.cFileName, NULL)) // mask is OK
                         {
                             BOOL ok = TRUE;
+                            bool openDenied = false;
+                            const bool canQueueFile = !isDir &&
+                                !(file.dwFileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_ENCRYPTED));
                             if (data->Criteria.HasTags())
                             {
                                 if (isDir)
@@ -1992,8 +2084,20 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
                                 else
                                 {
                                     strcpy_s(end, _countof(path) - (end - path), file.cFileName);
-                                    std::wstring pathW = SalMultiByteToWidePath(path, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
-                                    ok = data->Criteria.TestTags(pathW.c_str());
+                                    const auto pathW = SalMultiByteToWidePath(path, GetACP());
+                                    if (canQueueFile)
+                                    {
+                                        // The Shell property store can return empty keywords for an unreadable file.
+                                        const auto apiPath = SalPathAddExtendedPrefixW(pathW.c_str());
+                                        HANDLE readable = HANDLES_Q(CreateFileW(apiPath.c_str(), FILE_READ_DATA,
+                                            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                                            FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+                                        if (readable != INVALID_HANDLE_VALUE)
+                                            HANDLES(CloseHandle(readable));
+                                        else
+                                            openDenied = GetLastError() == ERROR_ACCESS_DENIED;
+                                    }
+                                    ok = !openDenied && data->Criteria.TestTags(pathW.c_str());
                                 }
                             }
                             if (ok && data->Grep)
@@ -2007,8 +2111,14 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
                                     // links: file.nFileSizeLow == 0 && file.nFileSizeHigh == 0, the file size
                                     // must be additionally obtained via SalGetFileSize()
                                     BOOL isLink = (file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
-                                    ok = TestFileContent(file.nFileSizeLow, file.nFileSizeHigh, path, data, isLink);
+                                    ok = TestFileContent(file.nFileSizeLow, file.nFileSizeHigh, path, data, isLink,
+                                                         canQueueFile ? &openDenied : nullptr);
                                 }
+                            }
+                            if (openDenied && !protectedQueue.Add(data, path, masksGroup, FALSE, startPathLen, ignoreList, &file))
+                            {
+                                FIND_LOG_ITEM log{FLI_ERROR, GetErrorText(ERROR_ACCESS_DENIED), path};
+                                SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
                             }
 
                             // if the item matches all criteria,
@@ -2374,7 +2484,7 @@ unsigned GrepThreadFBody(void* ptr)
         if (duplicateCandidates != NULL)
         {
             if (!data->StopSearch)
-                duplicateCandidates->Examine(data, protectedSessions);
+                duplicateCandidates->Examine(data, protectedSessions, protectedQueue.Remaining());
             delete duplicateCandidates;
         }
     }

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Distinguish exact-file Find consent. | Report the scope explicitly in the dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Bind duplicate candidates to a specific consented scope. | Distinguish independent protected roots. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify protected duplicate candidates. | Keep later content reads on the session that authorized the candidate. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route protected Find consent separately from traversal. | Keep cancellation visible to both search threads. | | GPT-6.1 Sol (Codex) |
@@ -32,7 +33,8 @@ struct FIND_LOG_ITEM
 #define WM_USER_BUTTONS WM_APP + 213    // call EnableButtons() yourself [HWND hButton]
 #define WM_USER_FLASHICON WM_APP + 214  // after activating the find, flash the status icon
 
-#define WM_USER_FIND_PROTECTED_CONSENT (WM_APP + 215) // synchronous [const std::wstring* folder, reads content]
+#define WM_USER_FIND_PROTECTED_CONSENT (WM_APP + 215) // synchronous [const std::wstring* path, FindConsentScope]
+enum class FindConsentScope : LPARAM { Metadata, Content, File };
 
 extern BOOL IsNotAlpha[256];
 

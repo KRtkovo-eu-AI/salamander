@@ -1,5 +1,6 @@
 ﻿// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe the single-file Find grant. | Show the file scope before Windows consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use Find consent wording that covers duplicate content comparison. | Describe the granted access rather than the matching algorithm. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain protected content-search consent. | Identify content reading before elevation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain cancellation in an elevated batch. | Distinguish completed changes from remaining items. | | GPT-6.1 Sol (Codex) |
@@ -2409,6 +2410,7 @@ STRINGTABLE
  IDS_UAC_LIST_CONFIRM, "Access was denied. List this folder and its subfolders as an administrator?"
  IDS_UAC_LIST_ACTIVE, "Administrator listing"
  IDS_UAC_SIZE_CONFIRM, "Access was denied. Calculate the size of this folder and its subfolders as an administrator?"
+ IDS_UAC_FIND_FILE_CONFIRM, "Access was denied. Read this file for the current search as an administrator?"
  IDS_UAC_FIND_CONTENT_CONFIRM, "Access was denied. Read file contents in this folder for the current search as an administrator? The search continues in accessible folders while you decide."
  IDS_UAC_FIND_CONFIRM, "Access was denied. Search names and metadata in this folder as an administrator? The search continues in accessible folders while you decide."
  IDS_UAC_FIND_WAIT, "Waiting for administrator access to a protected folder..."

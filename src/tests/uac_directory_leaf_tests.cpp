@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Check the exact-file Find protocol boundary. | Reject path selection and directory operations on the pinned file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the read-only Find property stream. | Check bounded reads, large offsets, cancellation and clone lifetime. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cover scoped content opens used by Find. | Check long Unicode paths, ranges beyond snapshots and scope escapes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe read-only and delete-pending source guards. | Exercise new and already open NTFS streams before designing retirement. | | GPT-6.1 Sol (Codex) |
@@ -965,6 +966,19 @@ bool CheckDirectoryMetadata(const std::wstring& fixture, HANDLE root)
 
 static bool CheckFindTagStream()
 {
+    using UacF7::Operation;
+    using UacListing::ValidRequestScope;
+    Check(ValidRequestScope(Operation::FindFile, 0, false, true) &&
+              !ValidRequestScope(Operation::FindFile, 1, false, true),
+          "an exact-file Find grant accepts only a content request with no path");
+    Check(!ValidRequestScope(Operation::FindFile, 0, false, false) &&
+              !ValidRequestScope(Operation::FindFile, 0, true, false) &&
+              !ValidRequestScope(Operation::FindFile, 0, true, true),
+          "an exact-file Find grant refuses directory listing and inventory");
+    Check(ValidRequestScope(Operation::FindContent, 1, false, true) &&
+              !ValidRequestScope(Operation::FindContent, 0, false, true) &&
+              !ValidRequestScope(Operation::List, 1, false, true),
+          "directory content reads require a named file and an explicit content grant");
     struct Fixture
     {
         DWORD calls = 0;

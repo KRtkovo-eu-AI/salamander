@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-08 | Check exact-file consent routing. | Distinguish refused local content reads from elevated scope. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Check multiple protected Find scopes. | Keep prompts serial and bind duplicate reads to the granting scope. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Cover the protected duplicate pipeline. | Verify collection order and scoped content validation. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Check protected Find consent handoff. | Publish ordinary hits before waiting and return consent to the launcher. | | GPT-6.1 Sol (Codex) |
@@ -70,7 +71,7 @@ def main() -> int:
     require(grep_body.index("RequestFindResultsRefresh(data);") < grep_body.index("protectedQueue.Finish(duplicateCandidates);"),
             "ordinary hits must be published before waiting for administrator consent")
     require(grep_body.index("protectedQueue.Finish(duplicateCandidates);") <
-            grep_body.index("duplicateCandidates->Examine(data, protectedSessions);"),
+            grep_body.index("duplicateCandidates->Examine(data, protectedSessions, protectedQueue.Remaining());"),
             "protected candidates must join ordinary candidates before grouping and hashing")
     queue_add = function_body(find_cpp, "bool Add(CGrepData* search, const char* deniedPath")
     require("count == 0 && !request->Start()" in queue_add and "count == requests.size()" in queue_add,
@@ -87,7 +88,15 @@ def main() -> int:
             "protectedSession->CloseContent()" in digest and
             digest.index("protectedSession->CloseContent()") < digest.index("context.finalize()"),
             "protected duplicate digests must use and validate the authorized content stream")
+    require("AuthorizeFindFile(data, fullPath, singleFile)" in digest and
+            "remainingFileConsents" in digest,
+            "a denied ordinary duplicate read must have a bounded exact-file fallback")
+    traversal = function_body(find_cpp, "void SearchDirectory(")
+    require("openDenied && !protectedQueue.Add(" in traversal and
+            "ignoreList, &file)" in traversal,
+            "a denied ordinary text or tag read must queue a single file")
     consent = function_body(finddlg1, "case WM_USER_FIND_PROTECTED_CONSENT:")
+    require("IDS_UAC_FIND_FILE_CONFIRM" in consent, "an exact-file grant needs its own prompt")
     require("SetWindowLongPtr(HWindow, DWLP_MSGRESULT, approved);" in consent and "return TRUE;" in consent,
             "Find is a dialog and must return approval through DWLP_MSGRESULT")
 

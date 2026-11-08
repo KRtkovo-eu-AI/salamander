@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record exact-file Find grants. | Document authorization, mixed-scope search and local validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record independent Find scopes. | Document serialized consent, cancellation and scoped duplicate reads. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record protected Find keywords. | Document host-side parsing, verified stream limits and local evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record protected duplicate search. | Document metadata grouping, scoped hashing and pending VM acceptance. | | GPT-6.1 Sol (Codex) |
@@ -746,7 +747,7 @@ V prvním pilotu Find dialog nepředal výsledek volby Administrator pracovnímu
 
 **Rozšíření Findu o obsah.** Pokud hledání používá podmínku na obsah, souhlas výslovně uvádí čtení souborů ve schváleném podstromu. Běžný průchod pokračuje v dostupných složkách a zpřístupní jejich výsledky před čekáním na souhlas. Chráněné čtení má vlastní typ relace. Relace pro běžný výpis panelu příkaz pro obsah odmítne. Broker otevře jeden běžný soubor relativně ke schválenému kořeni, odmítne reparse body, vícenásobné pevné odkazy, ADS v požadované cestě, EFS a offline soubory. Vrací bloky do 64 KiB a počítá nejvýše 64 GiB přenesených dat na relaci. Při zavření porovná velikost, časy a atributy s otevřeným souborem. Host znovu použije stávající hledání textu a regulárních výrazů včetně hranic slov a nastavení konců řádků. Drží nejvýše 256 KiB dat souboru a po chybě čtení nepřidá soubor jako shodu.
 
-Lokálně prošlo sestavení x64 Debug, testy transportu a 215 nativních kontrol v Debug i Release. Zkoušky ověřily přesné bajty na dlouhé vnořené Unicode cestě, čtení za hranicí snímku F3 a odmítnutí úniku z kořene, ADS a pevného odkazu. Integrovaná zkouška hledání, potvrzení, zrušení a hraničních shod při čtení po blocích patří do společné akceptace ve VM. Jednotlivé chráněné soubory v jinak čitelném adresáři zůstávají otevřené.
+Lokálně prošlo sestavení x64 Debug, testy transportu a 215 nativních kontrol v Debug i Release. Zkoušky ověřily přesné bajty na dlouhé vnořené Unicode cestě, čtení za hranicí snímku F3 a odmítnutí úniku z kořene, ADS a pevného odkazu. Integrovaná zkouška hledání, potvrzení, zrušení a hraničních shod při čtení po blocích patří do společné akceptace ve VM.
 
 **Duplicity v chráněném podstromu.** Ověřený výpis přidá kandidáty do společného seskupování podle názvu a velikosti. Při porovnávání obsahu žádá Find o přístup k obsahu a drží schválenou relaci i během druhého průchodu. Obsah čte pouze u kandidátů, kteří prošli prvním seskupením. Neprázdné soubory zpracuje stávajícím algoritmem MD5 s omezeným pracovním bufferem. Prázdný chráněný soubor ověří otevřením proti výpisu. Chyba čtení, změněný soubor nebo neověřené zavření vyloučí daného kandidáta. Po odmítnutí souhlasu zůstane hledání omezené na dostupné kandidáty.
 
@@ -759,6 +760,10 @@ Lokálně prošlo sestavení x64 Debug, 223 nativních kontrol v Debug i Release
 **Více chráněných kořenů v jednom hledání.** Find zachytí až 32 ověřitelných odepřených složek, každou s vlastní identitou, maskou a pravidly ignorování. První souhlas může běžet souběžně s běžným průchodem. Další nabídky zpracuje po zveřejnění dostupných výsledků, po jedné. Zamítnutí přeskočí dotčený podstrom. Stop zruší čekající nabídky. Kořeny nad limitem se zaznamenají jako odepřený přístup. Každá schválená relace je omezená na svůj kořen. U duplicit podle obsahu zůstává otevřená až do porovnání a kandidát je výslovně vázaný na relaci, která jej našla. Ostatní relace se zavřou po průchodu příslušným podstromem.
 
 Lokálně prošlo sestavení x64 Debug a kontroly plánování, řazení a výběru kořenů Findu. Kontrola plánování ověřuje pořadí běžných výsledků a čekání, potlačení nabídky po Stop a přiřazení kandidáta k jeho vlastní relaci. Společná akceptace ve VM pokryje dva chráněné kořeny, odmítnutí prvního a souhlas s druhým, Stop mezi žádostmi a porovnání duplicit mezi třemi různými rozsahy.
+
+**Chráněný soubor v čitelné složce.** Pokud běžný průchod může vypsat složku, ale otevření kandidáta pro text nebo tagy skončí odepřením přístupu, Find zařadí jednotlivý soubor do fronty. Při duplicitách podle obsahu nabídne stejnou cestu až u kandidáta z užší skupiny, který běžným tokenem nelze otevřít. Obojí sdílí limit 32 žádostí na jedno hledání. Nabídka ukazuje úplnou cestu k souboru a uděluje pouze přístup k jeho obsahu. Broker ověří rodiče a identitu souboru zachycenou před souhlasem a ponechá otevřený stejný handle. Relace odmítá výpis, inventář i jakýkoli požadavek s cestou. Schválené čtení jde přes stejný blokový protokol pro text, tagy a otisk duplicit. Zrušení ponechá jiné výsledky. Záznam doplní nepodporované a nadlimitní položky. Tento krok pokrývá běžný průchod Findu, nikoli zužování už zobrazeného seznamu.
+
+Lokálně prošlo sestavení x64 Debug, 226 nativních kontrol v Debug i Release, test transportu a kontroly plánování, řazení a výběru kořenů Findu. Kontroly rozlišují platný požadavek na jediný soubor od požadavku s cizím názvem, výpisem nebo inventářem. Schválení a zrušení v čitelné složce s jedním chráněným souborem a pokus o změnu jeho identity během souhlasu patří do společné akceptace ve VM.
 
 ### 8.43 P6c — chráněný soubor v interním prohlížeči přes F3
 
