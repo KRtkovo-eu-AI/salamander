@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Remove the broker command for standalone ZIP recovery. | Keep interrupted publication handling scoped to the exact archive being written. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Accept the same ZIP ACLs after NTFS normalizes inheritance history bits. | Preserve effective policy while allowing protected ZIP publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Bind the ZIP recovery request to an approved parent folder. | Allow explicit recovery after the original name disappears. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Stage and publish a streamed ZIP through an authenticated broker. | Preserve the original archive security descriptor and reopen the committed identity. | | GPT-6.1 Sol (Codex) |
@@ -128,7 +129,6 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD sizeDetailsCapability = 8388608;
 [[maybe_unused]] constexpr DWORD archiveReadCapability = 67108864;
 [[maybe_unused]] constexpr DWORD zipSelectionWriteCapability = 134217728;
-[[maybe_unused]] constexpr DWORD zipRecoveryCapability = 1073741824;
 [[maybe_unused]] constexpr DWORD zipUpdateCapability = 536870912;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
@@ -136,7 +136,7 @@ constexpr DWORD capabilities = 0;
                                                  directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
                                                  copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability |
                                                  renameDirectorySymlinkCapability | renameJunctionCapability | deleteSymlinkCapability |
-                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability | zipSelectionWriteCapability | zipRecoveryCapability | zipUpdateCapability;
+                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability | zipSelectionWriteCapability | zipUpdateCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -792,19 +792,6 @@ struct RemoveEmptyZipJournal
     }
 };
 
-DWORD RecoverZipUpdate(const InstallLocation& install, HANDLE parent, const UacDirectoryLeaf::ParentIdentity& identity,
-                       HANDLE pipe, ULONGLONG deadline)
-{
-    Handle journal;
-    DWORD error = OpenZipJournal(install, identity, FILE_OPEN, journal);
-    if (error)
-        return error == ERROR_FILE_NOT_FOUND ? ERROR_NOT_FOUND : error;
-    const RemoveEmptyZipJournal retire{journal};
-    if ((error = UacRenameLeaf::Detail::CheckTransferConnection(pipe, deadline)) != ERROR_SUCCESS)
-        return error;
-    return UacZipUpdate::Recover(parent, identity, {}, journal.get());
-}
-
 DWORD WriteTreeRegistration(const InstallLocation& install, std::wstring_view name, FILE_ID_INFO& file,
                             std::wstring_view text = {})
 {
@@ -1119,7 +1106,6 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     snapshotRequest = view;
     const bool readArchive = header.operation == Operation::ReadArchive;
     const bool writeZipSelection = header.operation == Operation::WriteZipSelection;
-    const bool recoverZipUpdate = header.operation == Operation::RecoverZipUpdate;
     zipUpdate = header.operation == Operation::WriteZipUpdate;
     const bool copy = UacF7::IsFileCopy(header.operation);
     const bool move = header.operation == Operation::Move;
@@ -1127,7 +1113,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool transfer = copy || move || tree;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
         header.leafLength > UacDirectoryLeaf::maxComponent || header.sourceLength > UacDirectoryLeaf::maxComponent ||
-        (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer && !view && !readArchive && !writeZipSelection && !recoverZipUpdate && !zipUpdate) || rename != (header.sourceLength != 0) ||
+        (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer && !view && !readArchive && !writeZipSelection && !zipUpdate) || rename != (header.sourceLength != 0) ||
         (list && !header.relativeLength) || transfer != (header.targetLeafLength != 0) ||
         header.targetRelativeLength > UacDirectoryLeaf::maxNativeName || header.targetLeafLength > UacDirectoryLeaf::maxComponent ||
         header.copySize > (zipUpdate ? UacF7::maxZipUpdateBytes :
@@ -1175,7 +1161,6 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const auto source = data.substr(volumeLength + header.relativeLength + header.leafLength, header.sourceLength);
     if (!UacDirectoryLeaf::IsComponent(leaf) || (rename && !UacDirectoryLeaf::IsComponent(source)) ||
         (list && leaf != UacListing::marker) || (writeZipSelection && leaf != UacZipSelection::marker) ||
-        (recoverZipUpdate && leaf != UacZipUpdate::Detail::recoveryMarker) ||
         (zipUpdate && !UacZipUpdate::Detail::IsZipLeaf(leaf)) ||
         volume.find(L'\0') != std::wstring_view::npos)
         return ERROR_INVALID_DATA;
@@ -1318,13 +1303,6 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         result = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), expected, sourceIdentity, leaf, deadline, snapshot);
     else if (writeZipSelection)
         result = UacZipSelection::Publish(parent.get(), expected, zipBytes, pipe, deadline);
-    else if (recoverZipUpdate)
-    {
-        if (!UacDirectoryLeaf::SameParent(actual, expected))
-            result = ERROR_FILE_INVALID;
-        else
-            result = RecoverZipUpdate(install, parent.get(), actual, pipe, deadline);
-    }
     else if (readArchive)
     {
         HANDLE raw = nullptr;
@@ -1736,7 +1714,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
             deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
         error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline, tree ? cancel : nullptr);
         if (!error && (copy || request->operation == Operation::Move || tree || zipBytes ||
-                       zipUpdateFile || request->operation == Operation::RecoverZipUpdate))
+                       zipUpdateFile))
         {
             // The authenticated reply is sent only after the operation handles close.
             result->error = operationError;
@@ -1875,9 +1853,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
     const size_t split = input.rfind(L'\\');
     const auto finalName = input.substr(split + 1);
     const bool rename = IsRename(requested);
-    const bool recoverZipUpdate = requested == Operation::RecoverZipUpdate;
     if (!UacDirectoryLeaf::IsComponent(finalName) ||
-        (recoverZipUpdate && finalName != UacZipUpdate::Detail::recoveryMarker) ||
         (rename && (!UacDirectoryLeaf::IsComponent(renameTo) || UacDirectoryLeaf::Equal(finalName, renameTo))))
         return false;
     const std::wstring drive(input.substr(0, 3));
@@ -1929,7 +1905,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
             return false;
         std::memcpy(sourceId, anchored.file.FileId.Identifier, sizeof(sourceId));
     }
-    else if (requested != Operation::Mkdir && requested != Operation::List && requested != Operation::WriteZipSelection && !recoverZipUpdate)
+    else if (requested != Operation::Mkdir && requested != Operation::List && requested != Operation::WriteZipSelection)
     {
         const bool deleting = IsLeafDelete(requested);
         const auto kind = deleting ? UacDeleteLeaf::SourceKind(requested) : RenameKind(requested);
@@ -1977,15 +1953,6 @@ bool PreparedLeaf::PrepareZipSelection(const std::wstring& directory)
         return false;
     const auto separator = directory.back() == L'\\' ? L"" : L"\\";
     return PrepareTarget(directory + separator + UacZipSelection::marker, Operation::WriteZipSelection, {}, nullptr);
-}
-
-bool PreparedLeaf::PrepareZipRecovery(const std::wstring& directory)
-{
-    if (directory.empty())
-        return false;
-    const auto separator = directory.back() == L'\\' ? L"" : L"\\";
-    return PrepareTarget(directory + separator + UacZipUpdate::Detail::recoveryMarker,
-                         Operation::RecoverZipUpdate, {}, nullptr);
 }
 
 DWORD PreparedLeaf::WriteZipSelectionLocal(const std::vector<BYTE>& bytes) const

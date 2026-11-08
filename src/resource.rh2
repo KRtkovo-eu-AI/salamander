@@ -1,3 +1,4 @@
+// | 2026-11-08 | Remove the standalone ZIP recovery command ID. | Keep only existing ZIP commands. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add the ZIP recovery command ID. | Route recovery through the existing Files menu. | | GPT-6.1 Sol (Codex) |
 // WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
 #ifndef __RESOURCE_RH2
@@ -354,7 +355,6 @@
 #define CM_RIGHT_BRANCHVIEW    1182
 #define CM_BRANCH_OPENPARENT   1183
 #define CM_BRANCH_STOP         1184
-#define CM_RECOVERZIP          1185
 
 #define CM_DETACHTAB           1140
 

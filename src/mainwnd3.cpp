@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Remove the standalone ZIP recovery command route. | Limit UAC to existing ZIP commands. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Dispatch explicit ZIP recovery from a disk panel. | Use the normal guarded command route for attached and detached panels. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Allow Ctrl+H in Branch View. | Send the hidden and system file toggle through its existing panel refresh. | | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell extension SEH in main-window menus. | New/Change-Drive HandleMenuMsg and InvokeCommand must not terminate. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
@@ -4356,7 +4357,6 @@ static bool BranchReadOnlyCommandAllowed(UINT command)
     case CM_LAST_PLUGIN_CMD: // router; OnLastCommand validates the current plugin/ID
     case CM_PACK:
     case CM_UNPACK: // S31b6c5a: controller qualifies bundled ZIP and ordinary disk target.
-    case CM_RECOVERZIP:
     case CM_CONTEXTMENU:
     case CM_RENAMEFILE:
     case CM_OPEN:
@@ -7978,11 +7978,6 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             }
             return 0;
         }
-
-        case CM_RECOVERZIP:
-            if (activePanel->Is(ptDisk) && !activePanel->IsBranchView())
-                activePanel->RecoverProtectedZip();
-            return 0;
 
         case CM_UNPACK:
         {

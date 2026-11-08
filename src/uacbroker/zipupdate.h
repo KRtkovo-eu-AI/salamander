@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Keep ZIP rollback scoped to the original archive name. | Remove parent-only recovery from the internal publication helper. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Restore an interrupted ZIP from its parent folder. | Derive the exact archive name from the verified journal. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Publish through the handle held throughout staging. | Verify the same original immediately before both renames. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the revision captured during brokered archive open. | Recheck the same fixed fields before publication. | | GPT-6.1 Sol (Codex) |
@@ -51,8 +52,6 @@ inline DWORD ReadRevision(HANDLE file, Revision& revision)
 
 namespace Detail
 {
-inline constexpr wchar_t recoveryMarker[] = L".samandarin-zip-recovery";
-
 struct RecoveryRecord
 {
     ULONGLONG version = 1;
@@ -126,14 +125,13 @@ inline DWORD RemoveBackup(HANDLE file)
 }
 
 // Only use a broker-owned, exclusively held journal. Recovery is scoped to
-// the same verified parent and exact archive name. An empty leaf means that
-// the user selected the parent and the journal supplies its single archive.
+// the same verified parent and exact archive name. It never replaces a name.
 inline DWORD Recover(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expected,
                      std::wstring_view leaf, HANDLE journal)
 {
     using namespace Detail;
     using UacRenameLeaf::Detail::SameSource;
-    if (!leaf.empty() && !IsZipLeaf(leaf))
+    if (!IsZipLeaf(leaf))
         return ERROR_INVALID_NAME;
     DWORD error = CheckParent(parent, expected);
     if (error)
@@ -142,7 +140,7 @@ inline DWORD Recover(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expe
     if (!GetFileSizeEx(journal, &size))
         return GetLastError();
     if (!size.QuadPart)
-        return leaf.empty() ? ERROR_NOT_FOUND : ERROR_SUCCESS;
+        return ERROR_SUCCESS;
 
     RecoveryRecord record;
     DWORD read = 0;
@@ -154,12 +152,11 @@ inline DWORD Recover(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expe
     const auto* end = std::find(std::begin(record.leaf), std::end(record.leaf), L'\0');
     const std::wstring_view recorded(record.leaf, end - record.leaf);
     if (read != sizeof(record) || record.version != 1 || !IsZipLeaf(recorded) ||
-        (!leaf.empty() && recorded != leaf) || !SameSource(record.parent, expected.file) ||
+        recorded != leaf || !SameSource(record.parent, expected.file) ||
         record.original.VolumeSerialNumber != expected.file.VolumeSerialNumber ||
         record.replacement.VolumeSerialNumber != expected.file.VolumeSerialNumber ||
         SameSource(record.original, record.replacement))
         return ERROR_INVALID_DATA;
-    leaf = recorded;
     const auto backupName = BackupName(record.nonce);
     if (backupName.empty())
         return ERROR_INVALID_DATA;

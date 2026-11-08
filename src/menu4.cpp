@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Remove Recover Interrupted ZIP Update from Files. | Keep the same commands for ordinary and protected ZIPs. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Expose interrupted ZIP recovery in the Files menu. | Work from the archive parent without an existing file. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -217,7 +218,6 @@ MENU_TEMPLATE_ITEM MainMenuTemplate[] =
         {MNTT_IT, IDS_MENU_FILES_CONVERT, MNTS_A, CM_CONVERTFILES, IDX_TB_CONVERT, 0, &EnablerFilesOnDisk},
         {MNTT_IT, IDS_MENU_FILES_PACK, MNTS_B | MNTS_I | MNTS_A, CM_PACK, IDX_TB_PACK, 0, &EnablerFilesOnDisk},
         {MNTT_IT, IDS_MENU_FILES_UNPACK, MNTS_B | MNTS_I | MNTS_A, CM_UNPACK, IDX_TB_UNPACK, 0, &EnablerFileOnDisk},
-        {MNTT_IT, IDS_UAC_ZIP_RECOVER_MENU, MNTS_I | MNTS_A, CM_RECOVERZIP, -1, 0, &EnablerOnDisk},
         {MNTT_SP, -1, MNTS_B | MNTS_I | MNTS_A, 0, -1, 0, NULL},
         {MNTT_PB, IDS_MENU_FILES_NEW, MNTS_B | MNTS_I | MNTS_A, CML_FILES_NEW, -1, 0, &EnablerOnDisk},
         {MNTT_PE},

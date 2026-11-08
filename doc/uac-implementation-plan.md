@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Keep interrupted ZIP handling internal to the write. | Remove the standalone command and record the VM edit results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record ZIP recovery and the first acceptance results. | Track successful read and extraction and the diagnosed Windows ACL difference. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document protected ZIP editing from the panel. | Track staging, validation, delete and F5 additions. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document streamed ZIP replacement and session handoff. | Track the implemented write protocol before wiring ZIP commands. | | GPT-6.1 Sol (Codex) |
@@ -816,9 +817,9 @@ Sestavení x64 Debug prošlo pro aplikaci, ZIP plugin, broker a sondu. Funkční
 
 Jádro vyžaduje chráněný výhradně otevřený žurnál a pracovní soubor s ověřenými oprávněními. Zbývá vytvořit pracovní soubor v brokeru, připravit změněný archiv v ZIP pluginu a napojit běžné příkazy archivního panelu. Nativní sada se scénáři úspěšného zveřejnění, odmítnutí zastaralé revize a obnovy při kolizi se zkompilovala v x64 Debug i Release. Její spuštění a ověření ve VM proběhnou společně s F3 a F5.
 
-**Žurnál a revize otevřeného ZIPu.** Broker ukládá žurnál v ověřené instalační složce a otvírá jej výhradně. Klíč odvozuje z identity svazku a rodiče. Každý žurnál pojme jednu nedokončenou změnu v rodiči. Příkaz obnovy porovnává přesný název archivu i jeho rodiče se záznamem. Obnova může proběhnout i po zániku původního jména. Po vyřešení stavu broker odstraní prázdný žurnál. Čtecí relace vrací kromě velikosti také ID, časy a atributy přímo z handlu, ze kterého následně čte. Díky tomu může zápis porovnat stav se skutečně načtenou revizí.
+**Žurnál a revize otevřeného ZIPu.** Broker ukládá žurnál v ověřené instalační složce a otvírá jej výhradně. Klíč odvozuje z identity svazku a rodiče. Každý žurnál pojme jednu nedokončenou změnu v rodiči. Kontrola při příštím schváleném zápisu porovnává název a identitu rodiče se záznamem. Po vyřešení stavu broker odstraní prázdný žurnál. Čtecí relace vrací kromě velikosti také ID, časy a atributy přímo z handlu, ze kterého následně čte. Díky tomu může zápis porovnat stav se skutečně načtenou revizí.
 
-Sestavení x64 Debug aplikace, brokeru, sondy a nativní sady prošlo. Příkaz obnovy ještě čeká na napojení v panelu a na společnou akceptaci.
+Sestavení x64 Debug aplikace, brokeru, sondy a nativní sady prošlo. Žurnál používá broker při schváleném zápisu.
 
 **Přenos a zápis změněného ZIPu.** Aplikace umí z otevřené relace připravit pracovní kopii na disku. Čte v 64KiB blocích a každých 64 MiB obnoví časový a objemový limit čtecí dávky. Pro zápis zachová původní čtecí relaci až do souhlasu s novým brokerem. Autentizovaný broker poté počká na potvrzené uvolnění původního handlu, ověří revizi a otevře originál proti souběžnému zápisu a přejmenování. Nová verze se po blocích přijímá do pracovního souboru ve stejném rodiči. Limit pro tuto operaci je 64 GiB a přenos má časový limit deset minut. Broker obsah ZIPu neinterpretuje.
 
@@ -830,13 +831,13 @@ Aplikace, broker a sonda se zkompilovaly v x64 Debug a nativní sada v x64 Relea
 
 Diskové zdroje při F5 zůstávají na místě. Sestavení x64 Debug aplikace, ZIP pluginu, brokeru a sondy prošlo. Zkoušky výsledků na disku, ZIP64, kolizí, zrušení a obnovy proběhnou v rámci společné akceptace.
 
-**Obnova po přerušení.** V diskovém panelu otevři původní složku ZIPu a zvol Files → Recover Interrupted ZIP Update. Příkaz po souhlasu otevře pouze žurnál této složky. Název a ID archivu převezme z žurnálu, takže funguje i po restartu nebo zániku původního názvu. Chybějící originál obnoví bez přepisu. Pokud je název obsazen jiným objektem, oba soubory zachová.
+**Ochrana originálu při zápisu.** Samostatný příkaz obnovy a jeho požadavek na broker byly na žádost uživatele odstraněny. Ochrana originálu je součástí běžné operace zápisu. Pokud se zveřejnění přeruší před dokončením, broker zkusí vrátit originál pod původní jméno. Pokud jméno už patří jiné položce nebo proces mezitím skončil, původní obsah zůstane v záložním souboru ve stejné složce.
 
 **Společná akceptace ZIPu.** Aplikace, ZIP plugin, jazykové moduly, broker a sonda se zkompilovaly v x64 Debug. Nativní sada prošla v x64 Debug i Release se 199 kontrolami. Ověřila mimo jiné Unicode a prázdnou podsložku při extrakci, odmítnutí duplicit a kolizí, zápis připraveného archivu, odmítnutí zastaralé revize a obnovu podle žurnálu. Prošla nativní kontrola brokerového spojení a šest archivních regresních sad. Samostatná zkouška reálného ZIP pluginu přečetla 1 308 bajtů a ověřila přístup na offset 5 368 709 557 v ZIP64, poškozené a vícesvazkové záznamy a chyby callbacku.
 
 V izolované VM otevřelo F3 položku `dír/東-view.txt` v interním prohlížeči s očekávaným textem. Vstup do podsložky, návrat i Ctrl+R použily stejnou čtecí autorizaci. F5 do běžného cíle vytvořilo výběr obou složek včetně prázdné složky. F5 do chráněného cíle po jednom souhlasu vytvořilo `dír` se dvěma soubory. SHA-256 souborů se v obou cílech shodovaly.
 
-První pokus o přidání a nahrazení v chráněném ZIP64 skončil chybou 1006. Otisk originálu se nezměnil. Diagnostika oddělila revizi od bezpečnostního popisu. ID a revize souhlasily, stejně jako vlastník, skupina a obě ACL. Windows při vytvoření nového souboru změnil příznaky `SE_DACL_AUTO_INHERITED` a `SE_SACL_AUTO_INHERITED` z `0xBC14` na `0xB014`. Broker nyní porovnává přítomnost a ochranu ACL proti dědění a všechny položky ACL včetně jejich vlastních příznaků dědění. Opravené sestavení čeká na opakování zkoušky zápisu ve VM. [Příznaky bezpečnostního popisu ve Windows](https://learn.microsoft.com/en-us/windows/win32/secauthz/security-descriptor-control).
+První pokus o přidání a nahrazení v chráněném ZIP64 skončil chybou 1006. Otisk originálu se nezměnil. Diagnostika oddělila revizi od bezpečnostního popisu. ID a revize souhlasily, stejně jako vlastník, skupina a obě ACL. Windows při vytvoření nového souboru změnil příznaky `SE_DACL_AUTO_INHERITED` a `SE_SACL_AUTO_INHERITED` z `0xBC14` na `0xB014`. Broker nyní porovnává přítomnost a ochranu ACL proti dědění a všechny položky ACL včetně jejich vlastních příznaků dědění. Opravené sestavení ve VM přidalo položku add.txt, nahradilo replace.txt a odstranilo remove.txt po schválení zápisu. Zamítnutí zápisu ponechalo keep.txt v archivu a F3 ho poté otevřelo ze stejné relace. [Příznaky bezpečnostního popisu ve Windows](https://learn.microsoft.com/en-us/windows/win32/secauthz/security-descriptor-control).
 
 ## 9. Uživatelský tok a stav operace
 

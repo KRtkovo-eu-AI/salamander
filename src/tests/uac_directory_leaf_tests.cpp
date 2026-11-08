@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Test ZIP journal cleanup through the named archive. | Keep coverage of preserving the original on an interrupted write. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise protected ZIP selection output on NTFS. | Verify nested names, empty directories and all-or-nothing manifest validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Test restoring a missing ZIP by selecting its parent. | Match the recovery command after application restart. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise ZIP publication with a pinned original. | Match the broker-owned handle used throughout staging. | | GPT-6.1 Sol (Codex) |
@@ -1161,11 +1162,11 @@ bool CheckZipUpdate(const std::wstring& fixture, HANDLE root)
           "keep both files when an unrelated item occupies the ZIP name", error);
     if (!DeleteFileW(path.c_str()))
         return false;
-    error = Recover(parent.get(), identity, {}, journal.get());
+    error = Recover(parent.get(), identity, leaf, journal.get());
     Check(!error && HasContents(path, {3, 4, 5}) && !Exists(backupPath),
           "restore the exact original after an interrupted ZIP publication", error);
-    Check(Recover(parent.get(), identity, {}, journal.get()) == ERROR_NOT_FOUND,
-          "report no pending ZIP recovery in this folder after restoring the original");
+    Check(Recover(parent.get(), identity, leaf, journal.get()) == ERROR_SUCCESS,
+          "allow another ZIP write after clearing the completed publication journal");
     return true;
 }
 
