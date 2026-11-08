@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Defer ADS discovery for eligible compressed copies. | Use the same UAC eligibility for inaccessible sources and targets. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Keep eligible sparse files when initial source access is denied. | Let the F5 broker verify the source when ADS discovery could not open it. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Carry the exact selected directory path for basic metadata. | Use the panel wide path for the directory timestamp request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-06 | Combine drop scheduling with owned Unicode source paths. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
@@ -3171,9 +3172,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             if (invalidSrcName)
                                 err = ERROR_INVALID_NAME;
                             if (err == ERROR_ACCESS_DENIED && type == atCopy && script->AllowTransferPilot &&
-                                !script->CopySecurity && !script->CopyAttrs && !script->OverwriteOlder &&
+                                !script->CopySecurity && !script->OverwriteOlder &&
                                 targetPathState == tpsNotEncryptedExisting &&
-                                (script->IgnoreTransferAds ? UacF7::IsPlainCopyFile(op.Attr) : UacF7::IsDefaultCopyFile(op.Attr)) &&
+                                UacF7::IsEligibleFileCopy(op.Attr, script->CopyAttrs, script->IgnoreTransferAds) &&
                                 op.FileSize.Value <= UacF7::maxPilotCopyBytes)
                             {
                                 op.OpFlags |= OPFL_UAC_COPY_SOURCE;

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Define a typed compressed-file copy. | Bind preservation of NTFS compression to the consent request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Recognize sparse files for the default F5 pilot. | Keep the plain-file check available for other operations. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define a distinct copy command that skips named streams. | Keep the selected data policy bound to the authorized request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Expose whether the metadata request includes attributes. | Keep time-only consent text specific. | | GPT-6.1 Sol (Codex) |
@@ -26,11 +27,11 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10 };
 
 inline bool IsFileCopy(Operation operation)
 {
-    return operation == Operation::Copy || operation == Operation::CopyIgnoreAds;
+    return operation == Operation::Copy || operation == Operation::CopyIgnoreAds || operation == Operation::CopyCompressed;
 }
 
 constexpr ULONGLONG maxPilotCopyBytes = 16 * 1024 * 1024;
@@ -44,6 +45,20 @@ inline bool IsPlainCopyFile(DWORD attributes)
 inline bool IsDefaultCopyFile(DWORD attributes)
 {
     return attributes && !(attributes & ~(plainCopyAttributes | FILE_ATTRIBUTE_SPARSE_FILE));
+}
+
+constexpr DWORD compressedCopyAttributes = plainCopyAttributes | FILE_ATTRIBUTE_COMPRESSED;
+
+inline bool IsCompressedCopyFile(DWORD attributes)
+{
+    return (attributes & FILE_ATTRIBUTE_COMPRESSED) && !(attributes & ~compressedCopyAttributes);
+}
+
+inline bool IsEligibleFileCopy(DWORD attributes, bool copyAttributes, bool ignoreAds)
+{
+    if (copyAttributes)
+        return !ignoreAds && IsCompressedCopyFile(attributes);
+    return ignoreAds ? IsPlainCopyFile(attributes) : IsDefaultCopyFile(attributes);
 }
 
 struct Result
@@ -110,6 +125,7 @@ public:
     Result Execute(HWND owner, HANDLE cancel = nullptr) const;
     bool IsMove() const { return source.operation == Operation::Move; }
     bool IsTree() const { return source.operation == Operation::CopyTree; }
+    bool PreservesCompression() const { return source.operation == Operation::CopyCompressed; }
     bool IgnoresAds() const { return source.operation == Operation::CopyIgnoreAds; }
 
 private:

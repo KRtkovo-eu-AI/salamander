@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise explicit NTFS compression preservation. | Verify content, exact attributes, compression format, and ADS refusal. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise sparse F5 staging with real NTFS I/O. | Check contents, allocation gaps, and rejection of named streams. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise verified preservation of named NTFS streams. | Check exact data and refusal when staging protection is unavailable. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify that explicit Ignore ADS leaves the original streams intact. | Check the copied data and preserve the strict default. | | GPT-6.1 Sol (Codex) |
@@ -1227,6 +1228,62 @@ int wmain(int argc, wchar_t** argv)
     Check(copyError == ERROR_NOT_SUPPORTED && !Exists(moved + L"\\sparse-with-ads.bin") &&
               HasContents(sparseSource + L":named", existing),
           "reject sparse files with named streams without publishing a partial copy", copyError);
+
+    const auto compressedSource = fixture + L"\\destination\\compressed-\u6771.bin";
+    const auto compressedTarget = moved + L"\\compressed-\u6771.bin";
+    const std::vector<BYTE> compressedBytes(128 * 1024, 17);
+    if (!WriteFixture(compressedSource, compressedBytes))
+        return 2;
+    {
+        const HANDLE raw = CreateFileW(compressedSource.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr,
+                                       OPEN_EXISTING, 0, nullptr);
+        if (raw == INVALID_HANDLE_VALUE)
+            return 2;
+        const Handle file(raw);
+        USHORT format = COMPRESSION_FORMAT_LZNT1;
+        DWORD count = 0;
+        if (!DeviceIoControl(raw, FSCTL_SET_COMPRESSION, &format, sizeof(format), nullptr, 0, &count, nullptr))
+            return 2;
+    }
+    if (!SetFileAttributesW(compressedSource.c_str(), FILE_ATTRIBUTE_HIDDEN))
+        return 2;
+    FILE_ID_INFO compressedId{};
+    if (!OpenIdentity(compressedSource, compressedId))
+        return 2;
+    const auto copyCompressed = [&](std::wstring_view leaf, bool preserveCompression) {
+        return UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, compressedId, L"compressed-\u6771.bin",
+            original.get(), expected, leaf, nullptr, nullptr, MAXULONGLONG, compressedBytes.size(),
+            preserveCompression ? UacCopyLeaf::StreamPolicy::RequireDefault : UacCopyLeaf::StreamPolicy::PreserveNamed,
+            nullptr, preserveCompression);
+    };
+    copyError = copyCompressed(L"compressed-\u6771.bin", false);
+    Check(copyError == ERROR_NOT_SUPPORTED && !Exists(compressedTarget),
+          "refuse compressed files outside the explicit attributes request", copyError);
+    copyError = copyCompressed(L"compressed-\u6771.bin", true);
+    USHORT copiedFormat = COMPRESSION_FORMAT_NONE;
+    {
+        const HANDLE raw = CreateFileW(compressedTarget.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+                                       OPEN_EXISTING, 0, nullptr);
+        if (raw != INVALID_HANDLE_VALUE)
+        {
+            const Handle file(raw);
+            if (UacCopyLeaf::Detail::ReadCompression(raw, copiedFormat) != ERROR_SUCCESS)
+                return 2;
+        }
+    }
+    Check(copyError == ERROR_SUCCESS && copiedFormat == COMPRESSION_FORMAT_LZNT1 &&
+              GetFileAttributesW(compressedTarget.c_str()) == (FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_HIDDEN) &&
+              HasContents(compressedTarget, compressedBytes) && HasContents(compressedSource, compressedBytes),
+          "copy an explicitly selected LZNT1 file with exact attributes and contents", copyError);
+    copyError = copyCompressed(L"compressed-\u6771.bin", true);
+    Check(copyError == ERROR_ALREADY_EXISTS && HasContents(compressedTarget, compressedBytes),
+          "preserve an existing compressed destination on collision", copyError);
+    if (!WriteFixture(compressedSource + L":named", existing))
+        return 2;
+    copyError = copyCompressed(L"compressed-with-ads.bin", true);
+    Check(copyError == ERROR_NOT_SUPPORTED && !Exists(moved + L"\\compressed-with-ads.bin") &&
+              HasContents(compressedSource + L":named", existing),
+          "refuse compressed files with named streams without publishing a partial copy", copyError);
 
     const auto moveSourcePath = fixture + L"\\destination\\move-\u65e5.bin";
     const auto moveTargetPath = moved + L"\\move-\u672c.bin";

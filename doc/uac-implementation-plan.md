@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record P5g NTFS compression preservation in F5. | Document consent, attribute behavior, and local and VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5f sparse F5 preservation. | Document local and VM evidence for data and allocation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5e preservation of named streams in protected F5. | Document the pilot scope and local and VM results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document P5d explicit Ignore ADS for protected F5. | Record stream handling in the broker and the VM checks. | | GPT-6.1 Sol (Codex) |
@@ -587,6 +588,14 @@ Výchozí F5 přes broker podporuje jeden řídký soubor bez pojmenovaných pro
 Lokálně prošlo sestavení x64 Debug, všech 135 nativních kontrol v Debug i Release a testy transportu, plánování a konverzních tabulek. Nativní zkouška použila název v Unicode, ověřila obsah, logickou délku s koncovou mezerou, atribut SparseFile a skutečně nealokovaný rozsah. Zkouška kombinace s ADS ověřila chybu 50 před zveřejněním cíle a zachování pojmenovaného proudu zdroje.
 
 V izolované Windows 11 VM nabídlo F5 správce se štítem pro kopii do chráněného cíle. Po volbě Ano u 01-sparse-approve.bin měla kopie shodný SHA-256, logickou délku 4 MiB, příznak SparseFile a stejné dva alokované rozsahy po 64 KiB na offsetech 0 a 2 MiB. Po volbě Ne u 02-sparse-cancel.bin cíl nevznikl. Otisky obou zdrojů zůstaly shodné, v cíli nezůstal pracovní soubor a otisky instalovaných binárek souhlasily s pilotem. Opakované sestavení po opravě komentářů mělo stejný otisk sekce strojového kódu aplikace jako pilot.
+
+### 8.32 P5g — zachování komprese NTFS při F5
+
+Volba Preserve Archive, Compressed, and Encrypted attributes zpřístupní přes broker kopii jednoho souboru s kompresí LZNT1 na místním NTFS do volného názvu. Pilot přijímá pouze hlavní datový proud, podporované základní atributy a logickou velikost nejvýše 16 MiB. Host posílá samostatný typ požadavku a nabídka správce uvádí kompresi i obě cesty. Broker z ověřeného zdroje přečte formát komprese a nastaví jej na pracovní kopii před zápisem dat. Formát ověří před přejmenováním. NTFS může při přejmenování nastavit Archiv, proto broker na stále výhradně otevřeném souboru po přejmenování obnoví a ověří atributy, než potvrdí výsledek. Při kolizi zachová existující cíl. Kombinace s ADS, EFS a dalšími typy přenosu jsou mimo rozsah pilotu. [Stav komprese](https://learn.microsoft.com/en-us/windows/win32/fileio/compression-state) a [nastavení komprese](https://learn.microsoft.com/en-us/windows/desktop/api/winioctl/ni-winioctl-fsctl_set_compression)
+
+Lokálně prošlo sestavení x64 Debug, všech 139 nativních kontrol v Debug i Release a testy transportu, plánování a konverzních tabulek. Nativní zkoušky ověřily obsah, formát LZNT1 a přesné atributy včetně vypnutého příznaku Archiv, název v Unicode, zachování existujícího cíle při kolizi a odmítnutí komprimovaného zdroje s ADS.
+
+V izolované Windows 11 VM ukázal F5 se zapnutým zachováním atributů nabídku správce se štítem a textem o kompresi. Po volbě Ano u 01-compressed-approve.bin souhlasil SHA-256 i atributy. Kopie měla logickou délku 204 800 bajtů a zabírala 28 672 bajtů stejně jako zdroj. Po volbě Ne u 02-compressed-cancel.bin cíl nevznikl. Výchozí F5 bez zachování atributů u 03-compressed-default.bin zobrazil chybu 5 bez nabídky správce. Otisky a atributy zdrojů souhlasily s výchozím stavem, v cíli nezbyl pracovní soubor a otisky instalovaných binárek souhlasily s pilotem.
 
 ## 9. Uživatelský tok a stav operace
 

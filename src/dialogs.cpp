@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe compression preservation in F5 consent. | Show the attribute requested from the broker. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | State when a protected F5 skips named streams. | Make the selected stream behavior visible at consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Select consent text for folder attributes. | Keep timestamp-only and ordinary file prompts specific. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe a folder timestamp change in the UAC prompt. | Distinguish the directory and file scopes. | | GPT-6.1 Sol (Codex) |
@@ -1763,6 +1764,8 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             int confirmText = moving ? IDS_UAC_MOVE_CONFIRM : IDS_UAC_COPY_CONFIRM;
             if (tree)
                 confirmText = IDS_UAC_TREE_COPY_CONFIRM;
+            else if (prompt.request.PreservesCompression())
+                confirmText = IDS_UAC_COPY_COMPRESSED_CONFIRM;
             else if (prompt.request.IgnoresAds())
                 confirmText = IDS_UAC_COPY_IGNORE_ADS_CONFIRM;
             const int unknownText = moving ? IDS_UAC_MOVE_UNKNOWN : IDS_UAC_COPY_UNKNOWN;

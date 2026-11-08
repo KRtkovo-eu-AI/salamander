@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Preserve LZNT1 compression on a verified staged file. | Validate compression and basic attributes before publishing the copy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve sparse allocation in the default one-file F5 pilot. | Copy allocated ranges into a sparse stage before publishing. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve bounded NTFS data streams on a verified staged file. | Publish the file and its named streams together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Allow explicitly omitting named data streams from one file copy. | Retain extended-attribute and file identity checks. | | GPT-6.1 Sol (Codex) |
@@ -62,12 +63,12 @@ inline DWORD CheckPlainStreamsAndEa(HANDLE file, bool directory, StreamPolicy po
 }
 
 inline DWORD ReadPlainMetadata(HANDLE file, FILE_BASIC_INFO& basic, bool directory = false,
-                              StreamPolicy policy = StreamPolicy::RequireDefault, bool allowSparse = false)
+                              StreamPolicy policy = StreamPolicy::RequireDefault,
+                              DWORD allowedAttributes = UacF7::plainCopyAttributes)
 {
     if (!GetFileInformationByHandleEx(file, FileBasicInfo, &basic, sizeof(basic)))
         return GetLastError();
-    const bool validFile = allowSparse ? UacF7::IsDefaultCopyFile(basic.FileAttributes)
-                                       : UacF7::IsPlainCopyFile(basic.FileAttributes);
+    const bool validFile = basic.FileAttributes && !(basic.FileAttributes & ~allowedAttributes);
     if (directory ? basic.FileAttributes != FILE_ATTRIBUTE_DIRECTORY : !validFile)
         return ERROR_NOT_SUPPORTED;
     return CheckPlainStreamsAndEa(file, directory, policy);
@@ -87,14 +88,15 @@ inline DWORD CopiedAttributes(DWORD attributes)
 }
 
 inline DWORD StageFile(HANDLE parent, HANDLE& file, std::wstring& name, bool readSecurity,
-                       PSECURITY_DESCRIPTOR security = nullptr)
+                       PSECURITY_DESCRIPTOR security = nullptr, bool readData = false)
 {
     GUID id{};
     WCHAR guid[39]{};
     if (FAILED(CoCreateGuid(&id)) || !StringFromGUID2(id, guid, ARRAYSIZE(guid)))
         return ERROR_GEN_FAILURE;
     name = std::wstring(L".samandarin-copy-") + guid + L".tmp";
-    const ACCESS_MASK access = FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | DELETE | (readSecurity || security ? READ_CONTROL : 0);
+    const ACCESS_MASK access = FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | DELETE |
+                               (readSecurity || security ? READ_CONTROL : 0) | (readData ? FILE_READ_DATA : 0);
     return UacRenameLeaf::Detail::OpenFile(parent, name, file, access, 0, FILE_CREATE, FILE_DELETE_ON_CLOSE, security);
 }
 
@@ -140,6 +142,14 @@ inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
         }
     }
     return ERROR_SUCCESS;
+}
+
+inline DWORD ReadCompression(HANDLE file, USHORT& format)
+{
+    DWORD bytes = 0;
+    if (!DeviceIoControl(file, FSCTL_GET_COMPRESSION, nullptr, 0, &format, sizeof(format), &bytes, nullptr))
+        return GetLastError();
+    return bytes == sizeof(format) ? ERROR_SUCCESS : ERROR_INVALID_DATA;
 }
 
 inline DWORD CopySparseData(HANDLE source, HANDLE target, LONGLONG size,
@@ -280,12 +290,28 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                             FILE_BASIC_INFO& basic, FILE_ID_INFO* created = nullptr,
                             const UacCopyTree::Detail::StageProtection* protection = nullptr,
                             StreamPolicy policy = StreamPolicy::RequireDefault,
-                            const CopySourceLocation* location = nullptr)
+                            const CopySourceLocation* location = nullptr, bool preserveCompression = false)
 {
-    const bool allowSparse = location && policy == StreamPolicy::PreserveNamed;
-    DWORD error = ReadPlainMetadata(source, basic, false, policy, allowSparse);
+    if (preserveCompression && (!location || policy != StreamPolicy::RequireDefault))
+        return ERROR_INVALID_PARAMETER;
+    DWORD allowedAttributes = UacF7::plainCopyAttributes;
+    if (preserveCompression)
+        allowedAttributes = UacF7::compressedCopyAttributes;
+    else if (location && policy == StreamPolicy::PreserveNamed)
+        allowedAttributes |= FILE_ATTRIBUTE_SPARSE_FILE;
+    DWORD error = ReadPlainMetadata(source, basic, false, policy, allowedAttributes);
     if (error)
         return error;
+    USHORT format = COMPRESSION_FORMAT_NONE;
+    if (preserveCompression)
+    {
+        if (!UacF7::IsCompressedCopyFile(basic.FileAttributes))
+            return ERROR_NOT_SUPPORTED;
+        if ((error = ReadCompression(source, format)) != ERROR_SUCCESS)
+            return error;
+        if (format != COMPRESSION_FORMAT_LZNT1)
+            return ERROR_NOT_SUPPORTED;
+    }
     LARGE_INTEGER size{};
     if (!GetFileSizeEx(source, &size))
         return GetLastError();
@@ -323,7 +349,8 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
 
     std::wstring stageName;
     HANDLE rawTarget = nullptr;
-    if ((error = StageFile(targetParent, rawTarget, stageName, !inputs.empty(), protection ? protection->File() : nullptr)) != ERROR_SUCCESS)
+    if ((error = StageFile(targetParent, rawTarget, stageName, !inputs.empty(),
+                           protection ? protection->File() : nullptr, preserveCompression)) != ERROR_SUCCESS)
         return error;
     const std::unique_ptr<void, decltype(&CloseHandle)> target(rawTarget, CloseHandle);
     if (protection && (error = protection->Check(target.get(), false)) != ERROR_SUCCESS)
@@ -333,8 +360,15 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     FILE_BASIC_INFO targetBasic{};
     if (!GetFileInformationByHandleEx(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
         return GetLastError();
-    if (!UacF7::IsPlainCopyFile(targetBasic.FileAttributes))
+    if (!UacF7::IsPlainCopyFile(targetBasic.FileAttributes) &&
+        !(preserveCompression && UacF7::IsCompressedCopyFile(targetBasic.FileAttributes)))
         return ERROR_NOT_SUPPORTED;
+    if (preserveCompression)
+    {
+        DWORD bytes = 0;
+        if (!DeviceIoControl(target.get(), FSCTL_SET_COMPRESSION, &format, sizeof(format), nullptr, 0, &bytes, nullptr))
+            return GetLastError();
+    }
     error = sparse ? CopySparseData(source, target.get(), size.QuadPart, cancel, connection, deadline)
                    : CopyData(source, target.get(), size.QuadPart, cancel, connection, deadline, protection != nullptr);
     if (error)
@@ -363,7 +397,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     }
 
     FILE_BASIC_INFO current{};
-    if ((error = ReadPlainMetadata(source, current, false, policy, allowSparse)) != ERROR_SUCCESS)
+    if ((error = ReadPlainMetadata(source, current, false, policy, allowedAttributes)) != ERROR_SUCCESS)
         return error;
     if (!SameBasicMetadata(basic, current))
         return ERROR_FILE_INVALID;
@@ -371,15 +405,29 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     // Follow the ordinary copy behavior when the exact-attribute option is off.
     targetBasic = basic;
     targetBasic.ChangeTime.QuadPart = 0;
-    targetBasic.FileAttributes = CopiedAttributes(basic.FileAttributes);
+    targetBasic.FileAttributes = preserveCompression ? basic.FileAttributes & ~FILE_ATTRIBUTE_COMPRESSED
+                                                     : CopiedAttributes(basic.FileAttributes);
+    if (!targetBasic.FileAttributes)
+        targetBasic.FileAttributes = FILE_ATTRIBUTE_NORMAL;
     if (!SetFileInformationByHandle(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)) || !FlushFileBuffers(target.get()))
         return GetLastError();
     if (sparse)
     {
-        if (!GetFileInformationByHandleEx(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
+        FILE_BASIC_INFO actual{};
+        if (!GetFileInformationByHandleEx(target.get(), FileBasicInfo, &actual, sizeof(actual)))
             return GetLastError();
-        if (!(targetBasic.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE))
+        if (!(actual.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE))
             return ERROR_FILE_INVALID;
+    }
+    if (preserveCompression)
+    {
+        USHORT actualFormat = COMPRESSION_FORMAT_NONE;
+        if ((error = ReadCompression(target.get(), actualFormat)) != ERROR_SUCCESS)
+            return error;
+        if (actualFormat != format)
+            return ERROR_FILE_INVALID;
+        if ((error = CheckPlainStreamsAndEa(target.get(), false, policy)) != ERROR_SUCCESS)
+            return error;
     }
     if (created && !GetFileInformationByHandleEx(target.get(), FileIdInfo, created, sizeof(*created)))
         return GetLastError();
@@ -396,6 +444,19 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     if ((error = UacRenameLeaf::Detail::NativeRename(target.get(), targetParent, targetName)) != ERROR_SUCCESS)
         return error;
 
+    if (preserveCompression)
+    {
+        // NTFS can set Archive during rename. The exclusive handle still owns the
+        // delete-on-close file, so a failure here discards the incomplete result.
+        FILE_BASIC_INFO actual{};
+        if (!SetFileInformationByHandle(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)) ||
+            !GetFileInformationByHandleEx(target.get(), FileBasicInfo, &actual, sizeof(actual)) ||
+            !FlushFileBuffers(target.get()))
+            return GetLastError();
+        if (actual.FileAttributes != basic.FileAttributes)
+            return ERROR_FILE_INVALID;
+    }
+
     // A failure or process exit before the commit discards the staged file.
     FILE_DISPOSITION_INFO_EX commit{FILE_DISPOSITION_FLAG_ON_CLOSE};
     if (!SetFileInformationByHandle(target.get(), FileDispositionInfoEx, &commit, sizeof(commit)))
@@ -405,7 +466,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
 }
 
 // Copies the unnamed stream, supported basic metadata and the selected named
-// streams. The new file gets the archive bit and inherits destination security.
+// streams. The new file inherits destination security.
 // The source is kept and the final name cannot replace an existing entry.
 inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::ParentIdentity& expectedSourceParent,
                               const FILE_ID_INFO& expectedSource, std::wstring_view sourceName,
@@ -414,7 +475,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
                               HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG,
                               ULONGLONG expectedSize = MAXULONGLONG,
                               StreamPolicy policy = StreamPolicy::RequireDefault,
-                              StageVerifier verifyStage = nullptr)
+                              StageVerifier verifyStage = nullptr, bool preserveCompression = false)
 {
     using namespace UacDirectoryLeaf;
     if (!IsComponent(sourceName) || !IsComponent(targetName))
@@ -449,6 +510,6 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
     FILE_BASIC_INFO basic{};
     const Detail::CopySourceLocation location{sourceParent, sourceName, actualSource, verifyStage};
     return Detail::CopyOpenedFile(source.get(), targetParent, targetName, cancel, connection, deadline,
-                                  expectedSize, basic, nullptr, nullptr, policy, &location);
+                                  expectedSize, basic, nullptr, nullptr, policy, &location, preserveCompression);
 }
 }

@@ -9,6 +9,7 @@
 // | 2026-11-07 | Reserve the elevation confirmation for rename. | Prompt with the source and destination paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve F7 elevation message IDs. | Localize consent and uncertain-result handling. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Reserve the compressed F5 consent string. | Localize the scope of compression preservation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve the Ignore ADS consent string. | Localize the scope of the explicit copy request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve folder attribute consent and result messages. | Localize the expanded directory metadata operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve the directory timestamp consent strings. | Localize the distinct directory operation. | | GPT-6.1 Sol (Codex) |
@@ -3182,5 +3183,6 @@
 #define IDS_UAC_DIRECTORY_ATTRS_CONFIRM              14551
 #define IDS_UAC_DIRECTORY_ATTRS_UNKNOWN              14552
 #define IDS_UAC_COPY_IGNORE_ADS_CONFIRM             14553
+#define IDS_UAC_COPY_COMPRESSED_CONFIRM             14554
 
 #endif // __TEXTS_RH2

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Allow F5 to preserve supported compressed-file attributes through UAC. | Use a distinct request only with the copy attributes option. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Admit sparse files to the default F5 broker path. | Retain existing eligibility for move and explicit ADS omission. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Admit one-file F5 with planned named streams. | Keep the planned ADS bytes in the copy progress total. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Select the typed main-stream-only copy request. | Keep default copy and move strict about named streams. | | GPT-6.1 Sol (Codex) |
@@ -5617,10 +5618,10 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
                               CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success)
 {
     const bool moving = op.Opcode == ocMoveFile;
-    if (!script.AllowTransferPilot || script.Count != 1 || script.CopySecurity || script.CopyAttrs || script.OverwriteOlder ||
+    if (!script.AllowTransferPilot || script.Count != 1 || script.CopySecurity || script.OverwriteOlder ||
         (op.OpFlags & OPFL_AS_ENCRYPTED) != 0 || !op.SourceNameWValid || !op.TargetNameWValid ||
-        (moving ? ((op.OpFlags & OPFL_COPY_ADS) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))
-                : (!(script.IgnoreTransferAds ? UacF7::IsPlainCopyFile(op.Attr) : UacF7::IsDefaultCopyFile(op.Attr)) ||
+        (moving ? (script.CopyAttrs || (op.OpFlags & OPFL_COPY_ADS) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))
+                : (!UacF7::IsEligibleFileCopy(op.Attr, script.CopyAttrs, script.IgnoreTransferAds) ||
                    op.FileSize.Value > UacF7::maxPilotCopyBytes)))
         return false;
 
@@ -5637,8 +5638,13 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     if (targetError != ERROR_FILE_NOT_FOUND && targetError != ERROR_ACCESS_DENIED)
         return false;
 
-    const auto operation = moving ? UacF7::Operation::Move
-                                  : (script.IgnoreTransferAds ? UacF7::Operation::CopyIgnoreAds : UacF7::Operation::Copy);
+    auto operation = UacF7::Operation::Copy;
+    if (moving)
+        operation = UacF7::Operation::Move;
+    else if (script.CopyAttrs)
+        operation = UacF7::Operation::CopyCompressed;
+    else if (script.IgnoreTransferAds)
+        operation = UacF7::Operation::CopyIgnoreAds;
     UacF7::PreparedTransfer request;
     if (!request.Prepare(op.SourceNameW, op.TargetNameW, op.FileSize.Value, operation))
         return false;
