@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Define a typed protected security copy. | Bind owner, group and explicit permissions to the F5 request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare a separate junction deletion request. | Keep approval bound to the verified link type. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare a directory symbolic-link deletion operation. | Bind the approved type without extending deletion to other directory objects. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare a typed file symbolic-link deletion request. | Keep consent and eligible attributes separate from ordinary files. | | GPT-6.1 Sol (Codex) |
@@ -33,7 +34,7 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17 };
 
 inline bool IsRename(Operation operation)
 {
@@ -49,7 +50,8 @@ inline bool IsLeafDelete(Operation operation)
 
 inline bool IsFileCopy(Operation operation)
 {
-    return operation == Operation::Copy || operation == Operation::CopyIgnoreAds || operation == Operation::CopyCompressed;
+    return operation == Operation::Copy || operation == Operation::CopyIgnoreAds ||
+           operation == Operation::CopyCompressed || operation == Operation::CopySecurity;
 }
 
 constexpr ULONGLONG maxPilotCopyBytes = 16 * 1024 * 1024;
@@ -72,8 +74,10 @@ inline bool IsCompressedCopyFile(DWORD attributes)
     return (attributes & FILE_ATTRIBUTE_COMPRESSED) && !(attributes & ~compressedCopyAttributes);
 }
 
-inline bool IsEligibleFileCopy(DWORD attributes, bool copyAttributes, bool ignoreAds)
+inline bool IsEligibleFileCopy(DWORD attributes, bool copyAttributes, bool ignoreAds, bool copySecurity)
 {
+    if (copySecurity)
+        return !copyAttributes && !ignoreAds && IsPlainCopyFile(attributes);
     if (copyAttributes)
         return !ignoreAds && IsCompressedCopyFile(attributes);
     return ignoreAds ? IsPlainCopyFile(attributes) : IsDefaultCopyFile(attributes);
@@ -155,6 +159,7 @@ public:
     Result Execute(HWND owner, HANDLE cancel = nullptr) const;
     bool IsMove() const { return source.operation == Operation::Move; }
     bool IsTree() const { return source.operation == Operation::CopyTree; }
+    bool PreservesSecurity() const { return source.operation == Operation::CopySecurity; }
     bool PreservesCompression() const { return source.operation == Operation::CopyCompressed; }
     bool IgnoresAds() const { return source.operation == Operation::CopyIgnoreAds; }
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Identify the security scope in F5 consent. | Show the owner and access rules covered by the request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe junction deletion in the consent prompt. | Identify the link and explain that its target is kept. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify directory symbolic links in permanent-delete consent. | Make clear that the linked folder is kept. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify file symbolic links in permanent-delete consent. | Describe the exact object approved for deletion. | | GPT-6.1 Sol (Codex) |
@@ -1767,6 +1768,8 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             int confirmText = moving ? IDS_UAC_MOVE_CONFIRM : IDS_UAC_COPY_CONFIRM;
             if (tree)
                 confirmText = IDS_UAC_TREE_COPY_CONFIRM;
+            else if (prompt.request.PreservesSecurity())
+                confirmText = IDS_UAC_COPY_SECURITY_CONFIRM;
             else if (prompt.request.PreservesCompression())
                 confirmText = IDS_UAC_COPY_COMPRESSED_CONFIRM;
             else if (prompt.request.IgnoresAds())

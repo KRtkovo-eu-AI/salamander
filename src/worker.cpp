@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Route the explicit F5 security option to the broker. | Keep security copy independent of move and other copy options. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer the verified delete path for one eligible junction. | Use the classified request for permanent deletion only. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route one permanent directory symbolic-link delete to the verified worker. | Keep the recycling policy and unsupported object types on their established paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the verified delete flow for one file symbolic link. | Keep recycling and directory links on their existing paths. | | GPT-6.1 Sol (Codex) |
@@ -5621,10 +5622,10 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
                               CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success)
 {
     const bool moving = op.Opcode == ocMoveFile;
-    if (!script.AllowTransferPilot || script.Count != 1 || script.CopySecurity || script.OverwriteOlder ||
+    if (!script.AllowTransferPilot || script.Count != 1 || script.OverwriteOlder ||
         (op.OpFlags & OPFL_AS_ENCRYPTED) != 0 || !op.SourceNameWValid || !op.TargetNameWValid ||
-        (moving ? (script.CopyAttrs || (op.OpFlags & OPFL_COPY_ADS) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))
-                : (!UacF7::IsEligibleFileCopy(op.Attr, script.CopyAttrs, script.IgnoreTransferAds) ||
+        (moving ? (script.CopySecurity || script.CopyAttrs || (op.OpFlags & OPFL_COPY_ADS) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))
+                : (!UacF7::IsEligibleFileCopy(op.Attr, script.CopyAttrs, script.IgnoreTransferAds, script.CopySecurity) ||
                    op.FileSize.Value > UacF7::maxPilotCopyBytes)))
         return false;
 
@@ -5644,6 +5645,8 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     auto operation = UacF7::Operation::Copy;
     if (moving)
         operation = UacF7::Operation::Move;
+    else if (script.CopySecurity)
+        operation = UacF7::Operation::CopySecurity;
     else if (script.CopyAttrs)
         operation = UacF7::Operation::CopyCompressed;
     else if (script.IgnoreTransferAds)

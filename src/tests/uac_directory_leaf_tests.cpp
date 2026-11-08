@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise the protected security-copy option. | Verify exact owner, group and ACL and refuse unsupported inheritance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise permanent junction deletion on real NTFS. | Verify type and identity checks and preserve the target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise verified permanent directory symbolic-link deletion. | Check type, identity, dangling links and target preservation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify permanent deletion of a file symbolic link. | Check the typed identity guard and preserve the linked file. | | GPT-6.1 Sol (Codex) |
@@ -1291,6 +1292,67 @@ int wmain(int argc, wchar_t** argv)
     Check(copyError == ERROR_NOT_SUPPORTED && !Exists(moved + L"\\compressed-with-ads.bin") &&
               HasContents(compressedSource + L":named", existing),
           "refuse compressed files with named streams without publishing a partial copy", copyError);
+
+    const auto securitySource = fixture + L"\\destination\\security-\u6771.bin";
+    const auto securityTarget = moved + L"\\security-\u4eac.bin";
+    FILE_ID_INFO securityId{};
+    if (!WriteFixture(securitySource, content) || !OpenIdentity(securitySource, securityId))
+        return 2;
+    const auto copySecurity = [&](UacCopyLeaf::StageVerifier verify) {
+        return UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, securityId, L"security-\u6771.bin",
+            original.get(), expected, L"security-\u4eac.bin", nullptr, nullptr, MAXULONGLONG,
+            content.size(), UacCopyLeaf::StreamPolicy::RequireDefault, verify, false, true);
+    };
+    copyError = copySecurity(trustedFixture);
+    Check(copyError == ERROR_NOT_SUPPORTED && !Exists(securityTarget),
+          "security copy rejects an inherited DACL", copyError);
+    PSECURITY_DESCRIPTOR rawSecurity = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            L"D:P(A;;FA;;;SY)(A;;FA;;;BA)(A;;FR;;;BU)(A;;FA;;;OW)", SDDL_REVISION_1, &rawSecurity, nullptr))
+        return 2;
+    const std::unique_ptr<void, decltype(&LocalFree)> explicitSecurity(rawSecurity, LocalFree);
+    PACL explicitDacl = nullptr;
+    BOOL present = FALSE, defaulted = FALSE;
+    if (!GetSecurityDescriptorDacl(rawSecurity, &present, &explicitDacl, &defaulted) || !present || !explicitDacl ||
+        SetNamedSecurityInfoW(const_cast<wchar_t*>(securitySource.c_str()), SE_FILE_OBJECT,
+                              DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                              nullptr, nullptr, explicitDacl, nullptr) != ERROR_SUCCESS)
+        return 2;
+    copyError = copySecurity([](HANDLE, bool) { return false; });
+    Check(copyError == ERROR_ACCESS_DENIED && !Exists(securityTarget),
+          "security copy rejects a file that fails the protection check", copyError);
+    copyError = copySecurity(trustedFixture);
+    const auto openSecurity = [](const std::wstring& path) {
+        const HANDLE raw = CreateFileW(path.c_str(), READ_CONTROL, FILE_SHARE_READ, nullptr,
+                                       OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        return Handle(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+    };
+    const auto originalSecurity = openSecurity(securitySource);
+    const auto copiedSecurity = openSecurity(securityTarget);
+    UacCopyLeaf::Detail::CopySecuritySnapshot securitySnapshot;
+    Check(copyError == ERROR_SUCCESS && originalSecurity && copiedSecurity &&
+              securitySnapshot.Read(originalSecurity.get()) == ERROR_SUCCESS &&
+              securitySnapshot.Verify(copiedSecurity.get()) == ERROR_SUCCESS && HasContents(securityTarget, content),
+          "copy the exact protected ACL, owner and primary group with the file data", copyError);
+    copyError = copySecurity(trustedFixture);
+    Check(copyError == ERROR_ALREADY_EXISTS && HasContents(securityTarget, content),
+          "security copy refuses to replace an existing target", copyError);
+
+    PSECURITY_DESCRIPTOR labelDescriptor = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            L"S:(ML;;NRNW;;;ME)", SDDL_REVISION_1, &labelDescriptor, nullptr))
+        return 2;
+    const std::unique_ptr<void, decltype(&LocalFree)> ownedLabel(labelDescriptor, LocalFree);
+    PACL label = nullptr;
+    if (!GetSecurityDescriptorSacl(labelDescriptor, &present, &label, &defaulted) || !present || !label ||
+        SetNamedSecurityInfoW(const_cast<wchar_t*>(securitySource.c_str()), SE_FILE_OBJECT,
+                              LABEL_SECURITY_INFORMATION, nullptr, nullptr, nullptr, label) != ERROR_SUCCESS)
+        return 2;
+    copyError = UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, securityId, L"security-\u6771.bin",
+        original.get(), expected, L"labeled-copy.bin", nullptr, nullptr, MAXULONGLONG,
+        content.size(), UacCopyLeaf::StreamPolicy::RequireDefault, trustedFixture, false, true);
+    Check(copyError == ERROR_NOT_SUPPORTED && !Exists(moved + L"\\labeled-copy.bin"),
+          "security copy refuses an explicit mandatory integrity label", copyError);
 
     const auto moveSourcePath = fixture + L"\\destination\\move-\u65e5.bin";
     const auto moveTargetPath = moved + L"\\move-\u672c.bin";

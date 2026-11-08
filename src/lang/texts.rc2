@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe the protected security copy in consent. | Identify the authorized metadata in the F5 operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe junction deletion as a separate operation. | Identify the exact object covered by administrator consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe permanent deletion of a directory symbolic link. | Show the approved object in the broker consent prompt. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe permanent deletion of a file symbolic link. | Identify the link in the broker consent prompt. | | GPT-6.1 Sol (Codex) |
@@ -2390,6 +2391,7 @@ STRINGTABLE
  IDS_UAC_COPY_CONFIRM, "Access was denied. Copy this file and its alternate data streams as an administrator?"
  IDS_UAC_COPY_IGNORE_ADS_CONFIRM, "Access was denied. Copy this file without its alternate data streams as an administrator?"
  IDS_UAC_COPY_COMPRESSED_CONFIRM, "Access was denied. Copy this file and preserve its NTFS compression as an administrator?"
+ IDS_UAC_COPY_SECURITY_CONFIRM, "Access was denied. Copy this file and preserve its NTFS owner, group, and explicit permissions as an administrator?"
  IDS_UAC_COPY_UNKNOWN, "The broker disconnected before the copy was confirmed. Check the destination before retrying."
  IDS_UAC_MOVE_CONFIRM, "Access was denied. Move this file as an administrator?"
  IDS_UAC_MOVE_UNKNOWN, "The broker disconnected before the move was confirmed. Check the source and destination before retrying."

@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record P5n explicit security preservation in F5. | Document the bounded DACL and ownership contract and its verification. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5m permanent junction deletion. | Document the junction checks and local and VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5l permanent directory symbolic-link deletion. | Document scope and local and VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5k permanent file symbolic-link deletion. | Document scope and local and VM checks. | | GPT-6.1 Sol (Codex) |
@@ -650,6 +651,14 @@ Shift+Delete podporuje přes broker trvalé smazání jednoho junction na místn
 Lokálně prošlo sestavení x64 Debug, všech 171 nativních kontrol v Debug i Release, transport brokeru, test konverzních tabulek a regresní test trvalého smazání a Koše. Nativní zkoušky ověřily smazání junction s názvem v Unicode pod dlouhou cestou při drženém handle, zachování cílové složky s kontrolním souborem a odmítnutí nesprávné identity a adresářového symbolického odkazu. Test sdílené kontroly formátu odmítl syntetická reparse data s GUID svazku.
 
 V izolované Windows 11 VM se po potvrzení Shift+Delete a volbě Ano v UAC odstranil 01-approve-junction. Po volbě Ne zůstal 02-cancel-junction na místě se shodnými reparse daty. Kontrolní soubory v obou odkazovaných složkách měly původní SHA-256. Otisky instalovaných binárek souhlasily s pilotem.
+
+### 8.39 P5n — zachování vlastníka, skupiny a explicitních oprávnění při F5
+
+Volba Preserve owners and permissions (not inherited) on NTFS drives umožňuje přes broker kopii jednoho běžného souboru na místním NTFS do volného názvu, s hlavním datovým proudem do 16 MiB. Pilot přijímá chráněnou DACL tvořenou explicitními pravidly a vyžaduje, aby vlastník i oprávnění zdroje a pracovní kopie prošli existující kontrolou ochrany objektu. Odmítá explicitní integritní štítky, atributy prostředku a centrální přístupové zásady. Rozsah kopie tvoří vlastník, primární skupina a DACL. Broker před zápisem dat vytvoří pracovní soubor s ověřeným deskriptorem. Ověří vlastníka, skupinu, příznak ochrany DACL a obsah pravidel. Před přejmenováním porovná také stav zdroje a před potvrzením výsledku znovu přečte zabezpečení cíle. Použije běžná práva zvýšeného tokenu bez zapnutí dodatečných privilegií. Při chybě pracovní kopii odstraní a při kolizi zachová existující cíl. [Operace s deskriptory zabezpečení](https://learn.microsoft.com/en-us/windows/win32/secauthz/security-descriptor-operations) a [GetSecurityInfo](https://learn.microsoft.com/en-us/windows/win32/api/aclapi/nf-aclapi-getsecurityinfo)
+
+Lokálně prošlo sestavení x64 Debug, všech 176 nativních kontrol v Debug i Release a testy transportu, plánování a konverzních tabulek. Zkoušky ověřily shodného vlastníka, primární skupinu, chráněnou DACL a data souboru s názvem v Unicode. Ověřily i odmítnutí zděděné DACL, nevyhovující ochrany, explicitního integritního štítku a kolize.
+
+V izolované Windows 11 VM zobrazilo F5 při zapnutém zachování vlastníka a oprávnění nabídku správce se štítem a s oběma cestami. Po volbě Ano u 01-security-approve.txt měla kopie stejný SHA-256, stejného vlastníka a primární skupinu a binárně shodnou DACL s vypnutým děděním. Po volbě Ne u 02-security-cancel.txt cíl nevznikl. Obsah a zabezpečení obou zdrojů zůstaly shodné s výchozími, v cíli nezůstal pracovní soubor a otisky instalovaných binárek odpovídaly pilotu.
 
 ## 9. Uživatelský tok a stav operace
 

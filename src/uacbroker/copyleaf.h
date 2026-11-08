@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Preserve a verified protected DACL and owner and group at file creation. | Require exact readback and avoid elevating security privileges. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve LZNT1 compression on a verified staged file. | Validate compression and basic attributes before publishing the copy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve sparse allocation in the default one-file F5 pilot. | Copy allocated ranges into a sparse stage before publishing. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve bounded NTFS data streams on a verified staged file. | Publish the file and its named streams together. | | GPT-6.1 Sol (Codex) |
@@ -277,6 +278,75 @@ inline DWORD OpenDataStream(HANDLE parent, std::wstring_view leaf, const DataStr
     return UacF7::IsPlainCopyFile(basic.FileAttributes) ? ERROR_SUCCESS : ERROR_NOT_SUPPORTED;
 }
 
+class CopySecuritySnapshot
+{
+public:
+    DWORD Read(HANDLE file)
+    {
+        // The pilot copies discretionary access only. Refuse explicit security
+        // policy that could constrain access beyond the DACL.
+        PSECURITY_DESCRIPTOR rawPolicy = nullptr;
+        PACL policy = nullptr;
+        constexpr SECURITY_INFORMATION policyInfo = LABEL_SECURITY_INFORMATION | ATTRIBUTE_SECURITY_INFORMATION |
+                                                    SCOPE_SECURITY_INFORMATION;
+        const DWORD policyError = GetSecurityInfo(file, SE_FILE_OBJECT, policyInfo,
+                                                  nullptr, nullptr, nullptr, &policy, &rawPolicy);
+        const std::unique_ptr<void, decltype(&LocalFree)> policyDescriptor(rawPolicy, LocalFree);
+        if (policyError)
+            return policyError;
+        if (policy && policy->AceCount)
+            return ERROR_NOT_SUPPORTED;
+
+        PSECURITY_DESCRIPTOR raw = nullptr;
+        constexpr SECURITY_INFORMATION info = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION;
+        const DWORD error = GetSecurityInfo(file, SE_FILE_OBJECT, info, &owner, &group, &dacl, nullptr, &raw);
+        descriptor.reset(raw);
+        if (error)
+            return error;
+        SECURITY_DESCRIPTOR_CONTROL control{};
+        DWORD revision = 0;
+        if (!GetSecurityDescriptorControl(raw, &control, &revision))
+            return GetLastError();
+        if (!owner || !group || !dacl || !(control & SE_DACL_PROTECTED) || !IsValidAcl(dacl))
+            return ERROR_NOT_SUPPORTED;
+        if (!GetAclInformation(dacl, &size, sizeof(size), AclSizeInformation))
+            return GetLastError();
+        if (size.AclBytesInUse < sizeof(ACL) || size.AclBytesInUse > dacl->AclSize)
+            return ERROR_INVALID_ACL;
+        for (DWORD index = 0; index < size.AceCount; ++index)
+        {
+            void* ace = nullptr;
+            if (!GetAce(dacl, index, &ace))
+                return GetLastError();
+            if (static_cast<const ACE_HEADER*>(ace)->AceFlags & INHERITED_ACE)
+                return ERROR_NOT_SUPPORTED;
+        }
+        return ERROR_SUCCESS;
+    }
+
+    PSECURITY_DESCRIPTOR Descriptor() const { return descriptor.get(); }
+
+    DWORD Verify(HANDLE file) const
+    {
+        CopySecuritySnapshot current;
+        if (const DWORD error = current.Read(file))
+            return error;
+        if (!EqualSid(owner, current.owner) || !EqualSid(group, current.group) ||
+            dacl->AclRevision != current.dacl->AclRevision || size.AceCount != current.size.AceCount ||
+            size.AclBytesInUse != current.size.AclBytesInUse ||
+            std::memcmp(dacl + 1, current.dacl + 1, size.AclBytesInUse - sizeof(ACL)) != 0)
+            return ERROR_FILE_INVALID;
+        return ERROR_SUCCESS;
+    }
+
+private:
+    std::unique_ptr<void, decltype(&LocalFree)> descriptor{nullptr, LocalFree};
+    PSID owner = nullptr;
+    PSID group = nullptr;
+    PACL dacl = nullptr;
+    ACL_SIZE_INFORMATION size{};
+};
+
 struct CopySourceLocation
 {
     HANDLE parent;
@@ -290,9 +360,10 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                             FILE_BASIC_INFO& basic, FILE_ID_INFO* created = nullptr,
                             const UacCopyTree::Detail::StageProtection* protection = nullptr,
                             StreamPolicy policy = StreamPolicy::RequireDefault,
-                            const CopySourceLocation* location = nullptr, bool preserveCompression = false)
+                            const CopySourceLocation* location = nullptr, bool preserveCompression = false,
+                            const CopySecuritySnapshot* copySecurity = nullptr)
 {
-    if (preserveCompression && (!location || policy != StreamPolicy::RequireDefault))
+    if ((preserveCompression || copySecurity) && (!location || policy != StreamPolicy::RequireDefault))
         return ERROR_INVALID_PARAMETER;
     DWORD allowedAttributes = UacF7::plainCopyAttributes;
     if (preserveCompression)
@@ -349,14 +420,19 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
 
     std::wstring stageName;
     HANDLE rawTarget = nullptr;
+    PSECURITY_DESCRIPTOR stageDescriptor = protection ? protection->File() : nullptr;
+    if (copySecurity)
+        stageDescriptor = copySecurity->Descriptor();
     if ((error = StageFile(targetParent, rawTarget, stageName, !inputs.empty(),
-                           protection ? protection->File() : nullptr, preserveCompression)) != ERROR_SUCCESS)
+                           stageDescriptor, preserveCompression)) != ERROR_SUCCESS)
         return error;
     const std::unique_ptr<void, decltype(&CloseHandle)> target(rawTarget, CloseHandle);
     if (protection && (error = protection->Check(target.get(), false)) != ERROR_SUCCESS)
         return error;
-    if (!inputs.empty() && (!location->verifyStage || !location->verifyStage(target.get(), false)))
+    if ((copySecurity || !inputs.empty()) && (!location->verifyStage || !location->verifyStage(target.get(), false)))
         return ERROR_ACCESS_DENIED;
+    if (copySecurity && (error = copySecurity->Verify(target.get())) != ERROR_SUCCESS)
+        return error;
     FILE_BASIC_INFO targetBasic{};
     if (!GetFileInformationByHandleEx(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
         return GetLastError();
@@ -439,6 +515,13 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         if ((error = ReadDataStreams(target.get(), currentStreams)) != ERROR_SUCCESS || currentStreams != streams)
             return error ? error : ERROR_FILE_INVALID;
     }
+    if (copySecurity)
+    {
+        if ((error = copySecurity->Verify(source)) != ERROR_SUCCESS ||
+            (error = copySecurity->Verify(target.get())) != ERROR_SUCCESS ||
+            (error = CheckPlainStreamsAndEa(target.get(), false, policy)) != ERROR_SUCCESS)
+            return error;
+    }
     if ((error = CheckCancelled(cancel, connection, deadline, protection != nullptr)) != ERROR_SUCCESS)
         return error;
     if ((error = UacRenameLeaf::Detail::NativeRename(target.get(), targetParent, targetName)) != ERROR_SUCCESS)
@@ -457,6 +540,9 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             return ERROR_FILE_INVALID;
     }
 
+    if (copySecurity && (error = copySecurity->Verify(target.get())) != ERROR_SUCCESS)
+        return error;
+
     // A failure or process exit before the commit discards the staged file.
     FILE_DISPOSITION_INFO_EX commit{FILE_DISPOSITION_FLAG_ON_CLOSE};
     if (!SetFileInformationByHandle(target.get(), FileDispositionInfoEx, &commit, sizeof(commit)))
@@ -466,7 +552,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
 }
 
 // Copies the unnamed stream, supported basic metadata and the selected named
-// streams. The new file inherits destination security.
+// streams. The new file inherits destination security unless an explicit descriptor is requested.
 // The source is kept and the final name cannot replace an existing entry.
 inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::ParentIdentity& expectedSourceParent,
                               const FILE_ID_INFO& expectedSource, std::wstring_view sourceName,
@@ -475,7 +561,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
                               HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG,
                               ULONGLONG expectedSize = MAXULONGLONG,
                               StreamPolicy policy = StreamPolicy::RequireDefault,
-                              StageVerifier verifyStage = nullptr, bool preserveCompression = false)
+                              StageVerifier verifyStage = nullptr, bool preserveCompression = false, bool preserveSecurity = false)
 {
     using namespace UacDirectoryLeaf;
     if (!IsComponent(sourceName) || !IsComponent(targetName))
@@ -497,8 +583,11 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
     if ((error = Detail::CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
         return error;
 
+    if (preserveSecurity && (preserveCompression || policy != StreamPolicy::RequireDefault || !verifyStage))
+        return ERROR_INVALID_PARAMETER;
     HANDLE rawSource = nullptr;
-    error = UacRenameLeaf::Detail::OpenSource(sourceParent, sourceName, rawSource, FILE_READ_DATA | FILE_READ_EA, FILE_SHARE_READ);
+    const ACCESS_MASK sourceAccess = FILE_READ_DATA | FILE_READ_EA | (preserveSecurity ? READ_CONTROL : 0);
+    error = UacRenameLeaf::Detail::OpenSource(sourceParent, sourceName, rawSource, sourceAccess, FILE_SHARE_READ);
     if (error)
         return error;
     const std::unique_ptr<void, decltype(&CloseHandle)> source(rawSource, CloseHandle);
@@ -507,9 +596,17 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
         return error;
     if (!UacRenameLeaf::Detail::SameSource(actualSource, expectedSource))
         return ERROR_FILE_INVALID;
+    Detail::CopySecuritySnapshot security;
+    if (preserveSecurity)
+    {
+        if (!verifyStage(source.get(), false))
+            return ERROR_ACCESS_DENIED;
+        if ((error = security.Read(source.get())) != ERROR_SUCCESS)
+            return error;
+    }
     FILE_BASIC_INFO basic{};
     const Detail::CopySourceLocation location{sourceParent, sourceName, actualSource, verifyStage};
     return Detail::CopyOpenedFile(source.get(), targetParent, targetName, cancel, connection, deadline,
-                                  expectedSize, basic, nullptr, nullptr, policy, &location, preserveCompression);
+                                  expectedSize, basic, nullptr, nullptr, policy, &location, preserveCompression, preserveSecurity ? &security : nullptr);
 }
 }

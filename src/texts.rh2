@@ -9,6 +9,7 @@
 // | 2026-11-07 | Reserve the elevation confirmation for rename. | Prompt with the source and destination paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve F7 elevation message IDs. | Localize consent and uncertain-result handling. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Reserve protected security-copy consent text. | Localize the new operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve the junction deletion consent string. | Localize the new operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve directory symbolic-link deletion consent text. | Localize the new typed request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve file symbolic-link deletion consent text. | Localize the scope of the delete request. | | GPT-6.1 Sol (Codex) |
@@ -3194,5 +3195,6 @@
 #define IDS_UAC_DELETE_SYMLINK_CONFIRM              14557
 #define IDS_UAC_DELETE_DIRECTORY_SYMLINK_CONFIRM    14558
 #define IDS_UAC_DELETE_JUNCTION_CONFIRM             14559
+#define IDS_UAC_COPY_SECURITY_CONFIRM               14560
 
 #endif // __TEXTS_RH2

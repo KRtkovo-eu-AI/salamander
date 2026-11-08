@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Negotiate and dispatch an explicit security copy. | Use the protected-object checks and strict stream policy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate junction deletion through the existing leaf broker. | Advertise support for the separately typed request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate and route permanent directory symbolic-link deletion. | Keep local and elevated execution bound to the same typed request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate and dispatch protected file symbolic-link deletion. | Check the approved object type in both the local and elevated paths. | | GPT-6.1 Sol (Codex) |
@@ -107,13 +108,14 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD deleteSymlinkCapability = 262144;
 [[maybe_unused]] constexpr DWORD deleteDirectorySymlinkCapability = 524288;
 [[maybe_unused]] constexpr DWORD deleteJunctionCapability = 1048576;
+[[maybe_unused]] constexpr DWORD copySecurityCapability = 2097152;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
                                                  inventoryCapability | copyTreeCapability | cancelTreeCapability |
                                                  directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
                                                  copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability |
                                                  renameDirectorySymlinkCapability | renameJunctionCapability | deleteSymlinkCapability |
-                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability;
+                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -939,15 +941,16 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
                 deadline = copyDeadline + timeoutMs;
                 const bool preserveCompression = header.operation == Operation::CopyCompressed;
+                const bool preserveSecurity = header.operation == Operation::CopySecurity;
                 auto policy = UacCopyLeaf::StreamPolicy::PreserveNamed;
-                if (preserveCompression)
+                if (preserveCompression || preserveSecurity)
                     policy = UacCopyLeaf::StreamPolicy::RequireDefault;
                 else if (header.operation == Operation::CopyIgnoreAds)
                     policy = UacCopyLeaf::StreamPolicy::IgnoreNamed;
                 result = UacCopyLeaf::CopyVerifiedFile(parent.get(), expected, sourceIdentity, leaf,
                                                        targetParent.get(), expectedTarget, targetLeaf,
                                                        nullptr, pipe, copyDeadline, header.copySize,
-                                                       policy, ProtectedObject, preserveCompression);
+                                                       policy, ProtectedObject, preserveCompression, preserveSecurity);
             }
         }
     }

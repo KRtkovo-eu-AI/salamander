@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Keep the eligible protected security copy in source planning. | Defer inaccessible source validation to the verified broker. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Pass the exact selected directory-link path to the delete pilot. | Use the panel Unicode path without changing recursive planning. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Defer ADS discovery for eligible compressed copies. | Use the same UAC eligibility for inaccessible sources and targets. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Keep eligible sparse files when initial source access is denied. | Let the F5 broker verify the source when ADS discovery could not open it. | | GPT-6.1 Sol (Codex) |
@@ -3176,9 +3177,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             if (invalidSrcName)
                                 err = ERROR_INVALID_NAME;
                             if (err == ERROR_ACCESS_DENIED && type == atCopy && script->AllowTransferPilot &&
-                                !script->CopySecurity && !script->OverwriteOlder &&
+                                !script->OverwriteOlder &&
                                 targetPathState == tpsNotEncryptedExisting &&
-                                UacF7::IsEligibleFileCopy(op.Attr, script->CopyAttrs, script->IgnoreTransferAds) &&
+                                UacF7::IsEligibleFileCopy(op.Attr, script->CopyAttrs, script->IgnoreTransferAds, script->CopySecurity) &&
                                 op.FileSize.Value <= UacF7::maxPilotCopyBytes)
                             {
                                 op.OpFlags |= OPFL_UAC_COPY_SOURCE;
