@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Allow an exact Shell recycle receipt to be inspected. | Verify account and identity without changing ordinary recycling. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Guard Windows Shell recycling against permanent fallback. | Require recycle intent and a per-item Recycle Bin receipt. | | GPT-6.1 Sol (Codex) |
 #pragma once
 #include <windows.h>
@@ -33,6 +34,16 @@ inline HRESULT NormalizeRecycleResult(HRESULT result)
 class OperationRecycleProgress final : public IFileOperationProgressSink
 {
 public:
+    explicit OperationRecycleProgress(bool captureReceipt = false) : captureReceipt(captureReceipt) {}
+    ~OperationRecycleProgress()
+    {
+        if (receipt)
+            receipt->Release();
+    }
+    OperationRecycleProgress(const OperationRecycleProgress&) = delete;
+    OperationRecycleProgress& operator=(const OperationRecycleProgress&) = delete;
+
+    IShellItem* Receipt() const { return receipt; }
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** object) override
     {
         if (!object)
@@ -62,7 +73,14 @@ public:
         else if (!recycled)
             failure = HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED);
         else
+        {
+            if (captureReceipt && !completed)
+            {
+                recycled->AddRef();
+                receipt = recycled;
+            }
             ++completed;
+        }
         return failure;
     }
     HRESULT Result(HRESULT operation, size_t expected) const
@@ -90,6 +108,8 @@ public:
     HRESULT STDMETHODCALLTYPE ResumeTimer() override { return S_OK; }
 
 private:
+    bool captureReceipt;
+    IShellItem* receipt = nullptr;
     LONG references = 1;
     HRESULT failure = S_OK;
     size_t completed = 0;

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Probe late NTFS extended attributes. | Check whether the source guard blocks a separate metadata writer. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise a durable move source journal. | Recover after process death and refuse wrong parents and substitutions. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify recovery through an exact source hard link. | Preserve late streams and refuse collisions when restoring the source name. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify retry scope after a definitive broker error. | Preserve matching overwrite approval and reject a changed object. | | GPT-6.1 Sol (Codex) |
@@ -70,6 +71,8 @@
 #include <winioctl.h>
 #include <cstdio>
 #include <memory>
+
+extern "C" NTSYSAPI NTSTATUS NTAPI NtSetEaFile(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG);
 
 namespace
 {
@@ -882,6 +885,59 @@ bool CheckMoveSourceGuards(const std::wstring& fixture, HANDLE root)
     Check(cleared && HasContents(path, original), "clear delete-pending and keep the original main stream", clearError);
     Check(!writtenWhilePending || (written == sizeof(added) && HasContents(existingStream, {added})),
           "detect bytes written through an existing alternate stream while delete-pending", pendingWriteError);
+    return failures == 0;
+}
+
+bool CheckMoveSourceExtendedAttributeGuard(const std::wstring& fixture, HANDLE root)
+{
+    using namespace UacRenameLeaf::Detail;
+    constexpr wchar_t leaf[] = L"late-ea";
+    const auto path = fixture + L"\\" + leaf;
+    if (!WriteFixture(path, {1, 2, 3}))
+        return false;
+    HANDLE raw = nullptr;
+    DWORD error = OpenSource(root, leaf, raw, DELETE | FILE_READ_DATA | FILE_READ_EA, 0);
+    if (error)
+        return false;
+    const Handle guarded(raw);
+    FILE_BASIC_INFO original{};
+    error = UacCopyLeaf::Detail::ReadPlainMetadata(guarded.get(), original);
+    Check(!error, "the guarded source has no extended attributes before retirement", error);
+    if (error)
+        return false;
+    const HANDLE rawWriter = CreateFileW(path.c_str(), FILE_WRITE_EA,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
+    const DWORD openError = rawWriter == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
+    const Handle writer(openError ? nullptr : rawWriter);
+    if (!writer)
+    {
+        Check(openError == ERROR_ACCESS_DENIED || openError == ERROR_SHARING_VIOLATION,
+              "the source guard excludes an extended-attribute writer on this system", openError);
+        return failures == 0;
+    }
+    FILE_DISPOSITION_INFO disposition{TRUE};
+    if (!SetFileInformationByHandle(guarded.get(), FileDispositionInfo, &disposition, sizeof(disposition)))
+        return false;
+    struct
+    {
+        ULONG next = 0;
+        UCHAR flags = 0;
+        UCHAR nameLength = 4;
+        USHORT valueLength = 1;
+        CHAR nameAndValue[6] = {'T', 'E', 'S', 'T', '\0', 9};
+    } ea;
+    IO_STATUS_BLOCK io{};
+    const NTSTATUS status = NtSetEaFile(writer.get(), &io, &ea, sizeof(ea));
+    disposition.DeleteFile = FALSE;
+    if (!SetFileInformationByHandle(guarded.get(), FileDispositionInfo, &disposition, sizeof(disposition)))
+        return false;
+    FILE_BASIC_INFO current{};
+    error = UacCopyLeaf::Detail::ReadPlainMetadata(guarded.get(), current);
+    const DWORD writeError = status < 0 ? RtlNtStatusToDosError(status) : ERROR_SUCCESS;
+    std::printf("PROBE: guarded-ea-writer=%lu pending-ea-write=%lu after-ea-validation=%lu\n",
+                openError, writeError, error);
+    Check(status < 0 ? error == ERROR_SUCCESS : error == ERROR_NOT_SUPPORTED,
+          "inspect extended attributes written while the source name was delete-pending", error);
     return failures == 0;
 }
 
@@ -2141,6 +2197,7 @@ int wmain(int argc, wchar_t** argv)
     const Handle root(rawRoot);
     if (moveSource)
         return CheckMoveSource(fixture, root.get()) && CheckMoveSourceGuards(fixture, root.get()) &&
+                       CheckMoveSourceExtendedAttributeGuard(fixture, root.get()) &&
                        CheckMoveSourceRecoveryLink(fixture, root.get()) && CheckMoveSourceJournal(fixture) ? 0 : 1;
     if (!CheckFindTagStream() || !CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
         !CheckZipSelection(fixture, root.get()) || !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::Zip) ||

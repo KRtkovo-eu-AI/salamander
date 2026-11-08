@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify late EA writes and prepare Shell recycle acceptance. | Establish source safety and the original-account receipt checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Add a durable cross-volume source recovery journal. | Bind recovery to verified NTFS names and file identities. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify a source recovery link across process termination. | Establish exact recovery and expose remaining NTFS write paths. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Return known transfer failures to ordinary error handling. | Preserve completed work and scoped consent after a skipped failure. | | GPT-6.1 Sol (Codex) |
@@ -618,6 +619,8 @@ V x64 Debug i Release prošlo 23 kontrol zdroje přesunu a 55 kontrol EFS. Sesta
 
 V x64 Debug i Release prošlo 37 kontrol zdroje přesunu, 237 běžných nativních kontrol a 55 kontrol EFS. Sestavení x64 Debug prošlo. Zkoušky ověřily znovuotevření žurnálu po tvrdém ukončení pomocného procesu, obnovu ID i alternativního proudu, odmítnutí změněného rodiče, podstrčeného odkazu, kolize, zkráceného žurnálu a blokovaného zdroje. Žurnál je nativní součást budoucího brokeru F6. Před zapojením zbývá bezpečné odstranění posledního odkazu po ověřené kopii a akceptace na dvou svazcích.
 
+**Pozdní rozšířené atributy zdroje.** Samostatný handle s právem FILE_WRITE_EA šel otevřít i při výhradním čtení hlavního proudu. Zápis rozšířeného atributu uspěl během DeletePending a po jeho zrušení ho kontrola metadat odhalila chybou 50. V Debug i Release prošlo 39 kontrol zdroje. Podmínka nevratného odstranění musí pokrýt i tento zápis. Produkční F6 mezi svazky zůstává otevřené.
+
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 
 První samostatná část P5 rozšiřuje stávající tok metadat o časy vytvoření, posledního přístupu a poslední změny jedné běžné složky na místním NTFS. Tato část je nezávislá na dosud otevřeném přepisu cíle a přesunu mezi svazky z P4. Do pilotu patří výběr jedné složky s vypnutou volbou Include subdirectories a bez změny atributů. Dialog správce výslovně označuje změnu časů a zobrazí úplnou cestu složky. Při běžně dostupném zápisu se použije místní pokus, po odepření lze pokračovat přes broker.
@@ -767,6 +770,10 @@ Sestavení aplikace, anglických zdrojů, brokeru a sondy prošlo v x64 Debug. V
 **Zkouška výslovného cíle Koše a ověřené identity.** Volitelný režim `operation_recycle_tests.exe --transfer-probe` vytváří pouze vlastní zkušební soubory. Na lokálním NTFS ve Windows 11 (sestavení 26200) vrátil `ITransferSource::RecycleItem` potvrzenou položku s původním ID souboru v Koši volajícího. Stejně dopadl pokus s jiným existujícím adresářem předaným jako cílový Shell objekt. Implementace Shellu použila Koš volajícího i v tomto případě. Parametr cíle proto v tomto backendu neposkytuje důkaz, že spuštění pod jiným správcem použije Koš původního uživatele. S drženým handlem s právem DELETE bez sdílení mazání operace vrátila `COPYENGINE_E_SHARING_VIOLATION_SRC` a zdroj zůstal na místě. Zkouška tedy nepotvrdila ani možnost předat Shellu zdroj zajištěný tímto typem zámku. [ITransferSource::RecycleItem](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-itransfersource-recycleitem).
 
 V Debug i Release prošly tři kontroly této zkoušky a patnáct běžných regresí Koše. Další experiment má použít IFileOperation spuštěné z původního účtu s volbou `FOFX_SHOWELEVATIONPROMPT`. Při souhlasu stejným i jiným správcem je nutné doložit příslušnost potvrzené položky ke Koši původního účtu, zachování identity a obnovu na původní cestu. Volba podle dokumentace určuje zobrazení výzvy. Volající z ní nemůže vyvodit cílový účet. Produkční chráněná recyklace zůstává otevřená. [Příznaky IFileOperation](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-setoperationflags).
+
+**Sonda elevace Shellu pro Koš původního uživatele.** Testovací program přijímá `--elevation-probe approve` nebo `--elevation-probe cancel` z původního účtu bez elevace. Používá pouze `recycle-approve.txt` nebo `recycle-cancel.txt` v chráněném adresáři `Open Samandarin UAC\UacRecycleProbe` pod Program Files. Před výzvou vyžaduje odepření DELETE a přesný obsah `Samandarin UAC Recycle probe` zakončený LF. Při potvrzení kontroluje potvrzenou položku přímo v Koši původního SID, stejné ID souboru a návrat na původní cestu přes Shell. Obnova do chráněné složky může vyžadovat další výzvu. Při zrušení vyžaduje stejný zdroj a žádnou potvrzenou položku Koše. [Příznaky IFileOperation](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-setoperationflags) · [Potvrzení položky Koše](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperationprogresssink-postdeleteitem).
+
+V x64 Debug i Release prošly čtyři kontroly nového režimu `--recycle-receipt-probe` na obyčejném souboru a patnáct stávajících regresí Koše. Sestavení aplikace x64 Debug prošlo. Chráněná výzva, zrušení a vlastnictví Koše při souhlasu jiného správce čekají na společnou akceptaci v izolované VM.
 
 #### Rozsah dokončené P5
 
