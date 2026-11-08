@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record the P4n NTFS source-retirement probe. | Verify the late-stream race before enabling cross-volume F6. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the P4m NTFS overwrite probe. | Establish which rename modes permit a target substitution. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document cancellation of a running protected F5 copy. | Track cleanup before publication and acknowledged success after it. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the P4k CI result and allocation fix. | Keep the next stage gated on clean analysis. | https://github.com/majklvi/salamander/runs/128721425272 | GPT-6.1 Sol (Codex) |
@@ -518,6 +519,16 @@ V izolované VM s Windows 11, sestavením 26200, a NTFS vyšly v Debug i Release
 Při proložené zkoušce si schválený handle ponechal původní ID, zatímco cílové jméno už patřilo druhému objektu. Následující POSIX přepis odstranil právě druhý objekt z cílového jména. Ověření rodiče a samotného handlu proto k autorizaci výměny nestačí. Stávající broker nadále používá zveřejnění bez přepisu. Přepis lze zapojit až s postupem, který spojí schválenou identitu se samotnou mutací a vyřeší obnovu při částečném výsledku. Časná kontrola ID před přejmenováním takovou podmínku v jádře nevytvoří.
 
 V každé konfiguraci prošlo všech devět kontrol experimentu. Běžný běh nativní sady v Release prošel se 117 kontrolami. Pokus používal pouze dočasné testovací soubory a nevyžadoval novou výzvu UAC.
+
+P4m na commitu `499339b1` prošla sestavením Win32, x64 a ARM64, 214 testy, kontrolou růstu zdrojů a CodeQL bez nových nálezů. [Testy P4m](https://github.com/majklvi/salamander/actions/runs/42481818507/job/128735228970) · [Výsledek CodeQL](https://github.com/majklvi/salamander/runs/128739507797).
+
+### 8.25 P4n — ověření odstranění zdroje po kopii na NTFS
+
+Volitelný režim `--move-source-probe` v nativní sadě ověřuje zdrojovou část budoucího F6 mezi svazky. Použije stejný nativní executor pro kopírování z otevřeného souboru. V odděleném otevření téhož testovacího souboru pak zkusí zapsat hlavní proud a vytvořit nový alternativní datový proud. Pořadí je deterministické. Alternativní proud vzniká až po zveřejnění kopie a po poslední úspěšné kontrole zdrojových metadat. Pro každý scénář test ověří ID a přečte obsah souborů.
+
+V izolované Windows 11 VM (sestavení 26200, NTFS) výhradní otevření zdroje s právem `DELETE` a čtením dat vrátilo druhému zapisujícímu handlu hlavního proudu chybu 32. Otevření nového pojmenovaného proudu s `FILE_SHARE_DELETE` přesto uspělo. ID zdroje se nezměnilo. Další kontrola metadat proud odhalila a vrátila chybu 50. Při ponechání zdroje zůstaly oba proudy dostupné a hotová kopie obsahovala hlavní proud. Při zkušebním odstranění podle dřívější kontroly uspěla POSIX dispozice. Po uzavření handlu zmizel zdroj i jeho nový proud, který v kopii chyběl. [Sdílení a zámky datových proudů NTFS](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams).
+
+Oba scénáře prošly v Debug i Release s deseti kontrolami na běh. Běžná nativní sada v Release prošla se 117 kontrolami a zkouška P4m v Debug s devíti. Pokus použil dvě dočasné složky na stejném svazku, protože ověřoval výhradně podmínku odstranění zdroje. Podpora F6 mezi svazky přes broker zatím zůstává vypnutá. Její podmínkou je zachování všech dat zdroje až do bezpečného odstranění, včetně dat zapsaných mezi poslední kontrolou a samotnou mutací. Při zjištěné změně po zveřejnění kopie má host ponechat zdroj a výslovně hlásit částečný výsledek.
 
 ## 9. Uživatelský tok a stav operace
 

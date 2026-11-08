@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-08 | Add an optional NTFS source-retirement probe. | Verify the boundary of a held source handle. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Add an optional NTFS overwrite probe. | Measure rename behavior on the Windows build under test. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Link Windows access-control APIs for the staged tree tests. | Exercise real NTFS integrity descriptors. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Clean up the owned fixture with extended paths. | Remove long Unicode files even after a native assertion fails. | | GPT-6.1 Sol (Codex) |
@@ -20,6 +21,7 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--high-integrity", action="store_true")
     mode.add_argument("--overwrite-probe", action="store_true")
+    mode.add_argument("--move-source-probe", action="store_true")
     args = parser.parse_args()
     env = compiler_environment()
     compiler = shutil.which("cl", path=env.get("PATH"))
@@ -55,6 +57,8 @@ def main():
                 arguments.append("--high-integrity")
             if args.overwrite_probe:
                 arguments.append("--overwrite-probe")
+            if args.move_source_probe:
+                arguments.append("--move-source-probe")
             return run(arguments, cwd=folder, env=env, timeout=15).returncode
         finally:
             junction.rmdir()

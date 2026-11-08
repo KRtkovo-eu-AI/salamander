@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Probe stream creation before source retirement. | Test the precondition for deleting the source after copying. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe how NTFS replacement interacts with target handles. | Establish the identity boundary before adding protected overwrite. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise tree cancellation received through a pipe. | Distinguish the valid control byte from unrelated data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Test exclusive journal recovery on NTFS. | Reap an owned orphan and preserve unrelated or substituted directories. | | GPT-6.1 Sol (Codex) |
@@ -667,6 +668,96 @@ bool CheckOverwrite(const std::wstring& fixture)
           "a stale approval handle does not identify the pathname used by replacement", second);
     return failures == 0;
 }
+bool CheckMoveSource(const std::wstring& fixture, HANDLE root)
+{
+    using namespace UacDirectoryLeaf;
+    HANDLE rawParent = nullptr;
+    ParentIdentity targetId;
+    if (OpenParentBelowRoot(root, L"destination", rawParent, targetId))
+        return false;
+    const Handle target(rawParent);
+    const std::vector<BYTE> mainData{1, 2, 3};
+    const std::vector<BYTE> addedData{4, 5, 6};
+    constexpr DWORD shareAll = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+
+    for (const bool simulateDeletion : {false, true})
+    {
+        const std::wstring leaf = simulateDeletion ? L"discard-probe" : L"preserve-probe";
+        const auto original = fixture + L"\\" + leaf;
+        const auto copied = fixture + L"\\destination\\" + leaf;
+        const auto alternate = original + L":late-\u65e5";
+        if (!WriteFixture(original, mainData))
+            return false;
+        HANDLE rawSource = nullptr;
+        if (UacRenameLeaf::Detail::OpenSource(root, leaf, rawSource, FILE_READ_DATA | FILE_READ_EA | DELETE, 0))
+            return false;
+        Handle source(rawSource);
+        FILE_ID_INFO originalId{};
+        if (UacRenameLeaf::Detail::ReadSourceIdentity(source.get(), originalId))
+            return false;
+        FILE_BASIC_INFO snapshot{};
+        const DWORD copyError = UacCopyLeaf::Detail::CopyOpenedFile(source.get(), target.get(), leaf,
+            nullptr, nullptr, MAXULONGLONG, mainData.size(), snapshot);
+        Check(copyError == ERROR_SUCCESS && HasContents(copied, mainData),
+              "publish the main-stream copy while holding an exclusive source handle", copyError);
+        if (copyError)
+            return false;
+
+        const HANDLE mainWriter = CreateFileW(original.c_str(), FILE_WRITE_DATA, shareAll, nullptr, OPEN_EXISTING, 0, nullptr);
+        const DWORD mainOpen = mainWriter == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
+        if (mainWriter != INVALID_HANDLE_VALUE)
+            CloseHandle(mainWriter);
+        Check(mainOpen == ERROR_SHARING_VIOLATION, "refuse a competing main-stream writer", mainOpen);
+
+        // Model the last recheck before the eventual delete request. The
+        // competing stream arrives after it, using the same source name.
+        FILE_BASIC_INFO beforeLateWrite{};
+        const DWORD before = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), beforeLateWrite);
+        Check(before == ERROR_SUCCESS && UacCopyLeaf::Detail::SameBasicMetadata(snapshot, beforeLateWrite),
+              "observe an unchanged, ordinary source at the last pre-delete check", before);
+        if (before)
+            return false;
+        const HANDLE rawStream = CreateFileW(alternate.c_str(), GENERIC_WRITE, shareAll, nullptr, CREATE_NEW, 0, nullptr);
+        const DWORD streamOpen = rawStream == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
+        std::printf("PROBE: %ls main-write-open=%lu late-stream-open=%lu\n", leaf.c_str(), mainOpen, streamOpen);
+        if (streamOpen != ERROR_SUCCESS)
+        {
+            Check(streamOpen == ERROR_SHARING_VIOLATION || streamOpen == ERROR_ACCESS_DENIED,
+                  "report a source guard that also rejects the alternate-stream writer", streamOpen);
+            continue;
+        }
+        {
+            const Handle stream(rawStream);
+            DWORD written = 0;
+            if (!WriteFile(stream.get(), addedData.data(), static_cast<DWORD>(addedData.size()), &written, nullptr) ||
+                written != addedData.size())
+                return false;
+        }
+        FILE_ID_INFO currentId{};
+        FILE_BASIC_INFO afterLateWrite{};
+        const DWORD after = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), afterLateWrite);
+        Check(!UacRenameLeaf::Detail::ReadSourceIdentity(source.get(), currentId) &&
+                  UacRenameLeaf::Detail::SameSource(originalId, currentId) && after == ERROR_NOT_SUPPORTED,
+              "identify the same file with a stream the earlier copy never read", after);
+
+        DWORD dispositionError = ERROR_SUCCESS;
+        if (simulateDeletion)
+        {
+            FILE_DISPOSITION_INFO_EX disposition{FILE_DISPOSITION_FLAG_DELETE | FILE_DISPOSITION_FLAG_POSIX_SEMANTICS |
+                                                 FILE_DISPOSITION_FLAG_FORCE_IMAGE_SECTION_CHECK};
+            if (!SetFileInformationByHandle(source.get(), FileDispositionInfoEx, &disposition, sizeof(disposition)))
+                dispositionError = GetLastError();
+        }
+        source.reset();
+        const bool removed = simulateDeletion && dispositionError == ERROR_SUCCESS;
+        std::printf("PROBE: %ls delete-status=%lu source-removed=%d\n", leaf.c_str(), dispositionError, removed);
+        Check(HasContents(copied, mainData) && !Exists(copied + L":late-\u65e5") &&
+                  (removed ? !Exists(original) && !Exists(alternate)
+                           : HasContents(original, mainData) && HasContents(alternate, addedData)),
+              "observe whether the late bytes survive the chosen source-retirement decision", dispositionError);
+    }
+    return failures == 0;
+}
 }
 
 int wmain(int argc, wchar_t** argv)
@@ -674,7 +765,8 @@ int wmain(int argc, wchar_t** argv)
     using namespace UacDirectoryLeaf;
     const bool high = argc == 3 && std::wstring_view(argv[2]) == L"--high-integrity";
     const bool overwrite = argc == 3 && std::wstring_view(argv[2]) == L"--overwrite-probe";
-    if (argc != 2 && !high && !overwrite)
+    const bool moveSource = argc == 3 && std::wstring_view(argv[2]) == L"--move-source-probe";
+    if (argc != 2 && !high && !overwrite && !moveSource)
         return 2;
     const std::wstring fixture = L"\\\\?\\" + std::wstring(argv[1]);
     if (overwrite)
@@ -686,6 +778,8 @@ int wmain(int argc, wchar_t** argv)
     if (rawRoot == INVALID_HANDLE_VALUE)
         return 2;
     const Handle root(rawRoot);
+    if (moveSource)
+        return CheckMoveSource(fixture, root.get()) ? 0 : 1;
     if (!CheckTreeCopy(fixture, root.get(), high))
         return 2;
     HANDLE rawListing = nullptr;
