@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record durable ACL recovery for interrupted F6 source handling. | Preserve the original name and DACL without replacing independent changes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the F6 source DACL and recovery-rights probe. | Verify file-wide exclusion and reopening by exact identity. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record verified EFS Raw named-stream copies. | Keep encrypted metadata combinations and concurrent changes explicit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record all pilot installer message translations. | Verify that each setup language includes the required path. | | GPT-6.1 Sol (Codex) |
@@ -647,6 +648,10 @@ V x64 Debug i Release prošlo 37 kontrol zdroje přesunu, 237 běžných nativn�
 **Dočasná ochrana zdroje pomocí DACL.** Na zkušebním NTFS odmítla chráněná DACL s položkou Owner Rights nový alternativní proud i otevření pro změnu DACL přes původní a ochranný odkaz. Otevření podle ID pro zápis rozšířených atributů a změnu DACL skončilo také chybou 5. Druhá zkouška ponechala pouze práva pro obnovu ověřenému SID. Po zavření obou původních handlů bylo možné znovu otevřít přesné ID s těmito právy a obnovit původní DACL, vlastníka, skupinu a čitelnost dat ověřila závěrečná kontrola. Zkouška použila SID vlastníka jako náhradu za zamýšlenou skupinu Administrators a oba názvy byly pod stejným rodičem. [Identifikátor Owner Rights](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-identifiers).
 
 V x64 Debug i Release prošlo 51 kontrol zdroje F6. Pro produkční zapojení ještě chybí provázání ochrany s trvalým žurnálem, zkouška obnovení zděděné DACL z jiného rodiče po ukončení procesu a důkaz, že po nasazení DACL nelze pokračovat v zápisu z dříve otevřených handlů. Dokud nejsou splněné, tato zkouška neposkytuje podmínku pro nevratné odstranění zdroje.
+
+**Trvalá obnova DACL zdroje F6.** Volitelná druhá verze žurnálu před vytvořením ochranného odkazu a před změnou oprávnění uloží původní a dočasnou DACL spolu s vlastníkem, skupinou a příznakem ochrany proti dědění. Obnova dál ověřuje svazek, oba rodiče a ID souboru. Při změně DACL, vlastníka nebo skupiny mimo zaznamenané stavy ponechá žurnál a ochranný odkaz. Pokud původní jméno chybí, obnoví nejprve toto jméno bez přepisu. Pak použije původní DACL v kontextu jejího původního rodiče a znovu ji porovná. Záznam první verze zůstává čitelný.
+
+V x64 Debug i Release prošlo 57 kontrol režimu zdroje F6 a 248 běžných nativních kontrol. Po tvrdém ukončení pomocného procesu se znovuotevřel žurnál a obnovilo se stejné ID, zděděná DACL a data hlavního i alternativního proudu. Samostatně prošla obnova při zachovaném původním názvu a odmítnutí nezávisle změněné DACL. Tato obnova je zatím nativní součást budoucího přesunu. Zbývá vyloučit už otevřené zapisovatele a ověřit zveřejnění cíle a nevratné odstranění zdroje na dvou svazcích.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

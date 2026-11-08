@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Test sealed F6 recovery after a hard process exit. | Preserve inherited ACLs and refuse unauthorized ACL changes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Probe an NTFS file-wide write seal. | Test whether an exact temporary DACL closes the alias and file-ID races. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise encrypted named-stream copies and concurrent writes. | Verify raw EFS output before committing the target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe exclusive NTFS oplocks during F6 source retirement. | Observe separate-stream and extended-attribute writes against a held oplock. | | GPT-6.1 Sol (Codex) |
@@ -1485,7 +1486,7 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
         return false;
     error = recover(parent.get());
     FILE_ID_INFO recovered{};
-    const auto identity = OpenIdentity(sourcePath, recovered);
+    auto identity = OpenIdentity(sourcePath, recovered);
     Check(!error && identity && SameSource(expected, recovered) && HasContents(stream, {9}) && !Exists(retained) && empty(),
           "reopen the durable journal and restore the source identity and streams after process death", error);
     Check(!recover(parent.get()) && empty(), "a recovered move journal can be opened again without further changes");
@@ -1496,6 +1497,95 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
     error = recover(parent.get());
     Check(error == ERROR_INVALID_DATA && !empty() && HasContents(stream, {9}),
           "refuse to apply a truncated move journal", error);
+    identity.reset();
+    if (UacRecoveryJournal::ClearRecord(journal.get()))
+        return false;
+    PSID owner = nullptr;
+    BOOL defaulted = FALSE;
+    LPWSTR ownerName = nullptr;
+    if (!GetSecurityDescriptorOwner(security.get(), &owner, &defaulted) || !ConvertSidToStringSidW(owner, &ownerName))
+        return false;
+    const std::unique_ptr<void, decltype(&LocalFree)> sid(ownerName, LocalFree);
+    const std::wstring sealSddl = std::wstring(L"D:P(A;;RC;;;OW)(A;;0x00170080;;;") + ownerName + L")";
+    PSECURITY_DESCRIPTOR sealRaw = nullptr, foreignRaw = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(sealSddl.c_str(), SDDL_REVISION_1, &sealRaw, nullptr))
+        return false;
+    const std::unique_ptr<void, decltype(&LocalFree)> sealSecurity(sealRaw, LocalFree);
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW((sealSddl + L"(A;;0x80;;;WD)").c_str(),
+                                                               SDDL_REVISION_1, &foreignRaw, nullptr))
+        return false;
+    const std::unique_ptr<void, decltype(&LocalFree)> foreignSecurity(foreignRaw, LocalFree);
+    PACL seal = nullptr, foreign = nullptr;
+    BOOL present = FALSE;
+    if (!GetSecurityDescriptorDacl(sealRaw, &present, &seal, &defaulted) || !present || !seal ||
+        !GetSecurityDescriptorDacl(foreignRaw, &present, &foreign, &defaulted) || !present || !foreign)
+        return false;
+
+    raw = nullptr;
+    error = OpenSource(parent.get(), leaf, raw, DELETE | READ_CONTROL | WRITE_DAC, FILE_SHARE_READ);
+    source.reset(raw);
+    UacEfsWorkspace::Detail::FileSecurity originalSecurity;
+    if (error || originalSecurity.Read(source.get()))
+        return false;
+    error = Arm(parent.get(), leaf, source.get(), expected, storage.get(), journal.get(), security.get(), name, seal);
+    Check(!error && !empty(), "flush the original DACL before sealing the verified source", error);
+    if (error)
+        return false;
+    retained = storageDirectory + L"\\" + name;
+
+    auto setAcl = [&](HANDLE file, PACL acl) {
+        return SetSecurityInfo(file, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                               nullptr, nullptr, acl, nullptr);
+    };
+    if (setAcl(source.get(), foreign))
+        return false;
+    source.reset();
+    error = recover(parent.get());
+    Check(error == ERROR_FILE_INVALID && !empty() && Exists(retained),
+          "preserve the move record and recovery link if the DACL changed independently", error);
+
+    raw = nullptr;
+    error = OpenSource(parent.get(), leaf, raw, READ_CONTROL | WRITE_DAC, FILE_SHARE_READ);
+    source.reset(raw);
+    if (!error)
+        error = setAcl(source.get(), seal);
+    Check(!error, "restore the fixture seal for the process-exit test", error);
+    if (error)
+        return false;
+    source.reset();
+    journal.reset();
+    const bool killed = InterruptPendingMoveSource(originalDirectory);
+    Check(killed && !Exists(sourcePath), "terminate the process holding the sealed original name");
+    if (!killed || Exists(sourcePath))
+        return false;
+    journal = openJournal(OPEN_EXISTING);
+    if (!journal)
+        return false;
+    error = recover(parent.get());
+    raw = nullptr;
+    const DWORD openRestored = OpenSource(parent.get(), leaf, raw, READ_CONTROL, FILE_SHARE_READ);
+    Handle restored(raw);
+    UacEfsWorkspace::Detail::FileSecurity restoredSecurity;
+    Check(!error && !openRestored && !restoredSecurity.Read(restored.get()) && originalSecurity.Matches(restoredSecurity) &&
+              HasContents(sourcePath, {1, 2, 3}) && HasContents(stream, {9}) && !Exists(retained) && empty(),
+          "restore the inherited source DACL under its original parent after a hard exit", error);
+    restored.reset();
+
+    raw = nullptr;
+    error = OpenSource(parent.get(), leaf, raw, DELETE | READ_CONTROL | WRITE_DAC, FILE_SHARE_READ);
+    source.reset(raw);
+    if (error || Arm(parent.get(), leaf, source.get(), expected, storage.get(), journal.get(), security.get(), name, seal))
+        return false;
+    retained = storageDirectory + L"\\" + name;
+    source.reset();
+    error = recover(parent.get());
+    raw = nullptr;
+    const DWORD openCancelled = OpenSource(parent.get(), leaf, raw, READ_CONTROL, FILE_SHARE_READ);
+    restored.reset(raw);
+    UacEfsWorkspace::Detail::FileSecurity cancelledSecurity;
+    Check(!error && !openCancelled && !cancelledSecurity.Read(restored.get()) && originalSecurity.Matches(cancelledSecurity) &&
+              HasContents(stream, {9}) && !Exists(retained) && empty(),
+          "restore the DACL and retire only the recovery link when the original name still exists", error);
     return failures == 0;
 }
 
