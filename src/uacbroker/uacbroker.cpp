@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Negotiate preservation of named streams in default protected F5. | Require protected staging before writing the copied streams. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Route the main-stream-only copy over the authenticated broker. | Negotiate the new request and retain all existing copy validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Advertise support for basic directory attributes. | Match the host and broker before offering a metadata write. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Pin directory timestamp requests before consent. | Verify the visible directory and its volume-relative identity. | | GPT-6.1 Sol (Codex) |
@@ -91,10 +92,12 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD directoryTimesCapability = 1024;
 [[maybe_unused]] constexpr DWORD directoryAttrsCapability = 2048;
 [[maybe_unused]] constexpr DWORD copyIgnoreAdsCapability = 4096;
+[[maybe_unused]] constexpr DWORD copyPreserveAdsCapability = 8192;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
                                                  inventoryCapability | copyTreeCapability | cancelTreeCapability |
-                                                 directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability;
+                                                 directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
+                                                 copyPreserveAdsCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -910,7 +913,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                                                        nullptr, pipe, copyDeadline, header.copySize,
                                                        header.operation == Operation::CopyIgnoreAds
                                                            ? UacCopyLeaf::StreamPolicy::IgnoreNamed
-                                                           : UacCopyLeaf::StreamPolicy::RequireDefault);
+                                                           : UacCopyLeaf::StreamPolicy::PreserveNamed,
+                                                       ProtectedObject);
             }
         }
     }

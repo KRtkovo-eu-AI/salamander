@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record P5e preservation of named streams in protected F5. | Document the pilot scope and local and VM results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document P5d explicit Ignore ADS for protected F5. | Record stream handling in the broker and the VM checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document P5c basic directory attributes. | Track bounded Ctrl+F2 changes and their verification. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document P5b directory time preservation in protected F5. | Record the explicit option and its pilot limits. | | GPT-6.1 Sol (Codex) |
@@ -569,6 +570,14 @@ Volba Ignore alternate data streams (ADS) je dostupná pro jednu běžnou kopii 
 Lokálně prošlo sestavení x64 Debug, všech 128 nativních kontrol v Debug i Release, test transportu a test plánování. Nativní zkouška ověřila odmítnutí ADS ve výchozím režimu a výslovnou kopii hlavního proudu se zachováním obou proudů zdroje.
 
 V izolované Windows 11 VM Computer Use ověřil aktivní volbu a nabídku správce se štítem. Po volbě Ano pro 01-ignore-approve.txt měl cíl shodný SHA-256 hlavního proudu a obsahoval právě hlavní proud. Pojmenovaný proud zdroje měl původní obsah. Při výchozím F5 pro 02-default-strict.txt běžná cesta skončila chybou 5 bez nabídky správce. Druhý cíl nevznikl a jeho zdrojový ADS zůstal zachovaný. V cílové složce nezůstal pracovní soubor a otisky pilotního sestavení souhlasily.
+
+### 8.30 P5e — zachování alternativních datových proudů při F5
+
+Výchozí F5 přes broker může u jedné běžné kopie na místním NTFS do volného názvu zachovat hlavní i pojmenované datové proudy. Pilot přijímá nejvýše 64 proudů včetně hlavního, celkem do 16 MiB. Broker ověří identitu zdroje a před zahájením zápisu otevře pojmenované proudy se sdílením pouze pro čtení. Před zveřejněním znovu porovná názvy a velikosti proudů zdroje i pracovní kopie. Pracovní kopii s ADS přijme jen s ověřeným vlastníkem a DACL, které běžnému účtu nedovolí měnit soubor. Pokud cíl tuto ochranu neposkytuje, broker kopii s ADS odmítne. Cílový název se zveřejní najednou se všemi proudy a případná kolize zachová stávající cíl. Výslovné vynechání ADS z P5d zůstává samostatnou volbou. Pilot se vztahuje na kopii jednoho souboru. [Datové proudy NTFS](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams) a [struktura FILE_STREAM_INFO](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_stream_info)
+
+Lokálně prošlo sestavení x64 Debug, všech 132 nativních kontrol v Debug i Release, test transportu a kontrola plánování. Nativní zkoušky ověřily více pojmenovaných proudů včetně prázdného proudu s názvem v Unicode, výslovné vynechání ADS, odmítnutí pracovní kopie bez ověřené ochrany, otevřený zapisovač a kolizi cíle bez přepsání.
+
+V izolované Windows 11 VM ukázal F5 nabídku správce se štítem, obě cesty a informaci o kopírování alternativních proudů. Po volbě Ano u 01-preserve-approve.txt souhlasil SHA-256 hlavního proudu, úplný seznam názvů a délek proudů i obsah proudů named a second. Cíl obsahoval také prázdný proud s názvem empty-東京. Po volbě Ne u 02-preserve-cancel.txt cílový soubor nevznikl. Oba zdroje včetně ADS zůstaly zachované, v cíli nezbyl pracovní soubor a otisky pilotních binárek souhlasily.
 
 ## 9. Uživatelský tok a stav operace
 

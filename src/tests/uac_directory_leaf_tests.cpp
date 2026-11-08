@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise verified preservation of named NTFS streams. | Check exact data and refusal when staging protection is unavailable. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify that explicit Ignore ADS leaves the original streams intact. | Check the copied data and preserve the strict default. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify basic attributes and times on the same directory handle. | Cover setting and clearing flags without changing descendants. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check creation and last-write times on the published directory tree. | Cover both the selected root and a nested Unicode directory. | | GPT-6.1 Sol (Codex) |
@@ -1095,7 +1096,8 @@ int wmain(int argc, wchar_t** argv)
         FindClose(staged);
 
     HANDLE rawUncommitted = nullptr;
-    copyError = UacCopyLeaf::Detail::StageFile(original.get(), rawUncommitted);
+    std::wstring stagedName;
+    copyError = UacCopyLeaf::Detail::StageFile(original.get(), rawUncommitted, stagedName, false);
     if (copyError)
         return 2;
     Handle uncommitted(rawUncommitted);
@@ -1135,6 +1137,37 @@ int wmain(int argc, wchar_t** argv)
               ProbeAccess(mainOnly + L":named", GENERIC_READ, 0) == ERROR_FILE_NOT_FOUND &&
               HasContents(copySource, content) && HasContents(copySource + L":named", existing),
           "copy the main stream only after explicit selection and preserve both original streams", copyError);
+    const auto preserved = moved + L"\\copy-preserved-streams.bin";
+    const auto unicodeStream = L":data-\u6771\u4eac";
+    if (!WriteFixture(copySource + unicodeStream, {}) || !WriteFixture(copySource + L":second", {7, 9}))
+        return 2;
+    const auto preserve = [&](UacCopyLeaf::StageVerifier verifier) {
+        return UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, copyId, L"copy-\u65e5.bin",
+            original.get(), expected, L"copy-preserved-streams.bin", nullptr, nullptr, MAXULONGLONG,
+            content.size(), UacCopyLeaf::StreamPolicy::PreserveNamed, verifier);
+    };
+    copyError = preserve(nullptr);
+    Check(copyError == ERROR_ACCESS_DENIED && !Exists(preserved),
+          "refuse to copy named streams into an unverified stage", copyError);
+    const auto trustedFixture = [](HANDLE, bool) { return true; }; // The native fixture is private to the test.
+    {
+        const HANDLE rawNamed = CreateFileW((copySource + L":named").c_str(), FILE_WRITE_DATA,
+                                            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (rawNamed == INVALID_HANDLE_VALUE)
+            return 2;
+        const Handle writer(rawNamed);
+        copyError = preserve(trustedFixture);
+        Check(copyError == ERROR_SHARING_VIOLATION && !Exists(preserved),
+              "refuse an active writer on a named stream before staging", copyError);
+    }
+    copyError = preserve(trustedFixture);
+    Check(copyError == ERROR_SUCCESS && HasContents(preserved, content) &&
+              HasContents(preserved + L":named", existing) && HasContents(preserved + unicodeStream, {}) &&
+              HasContents(preserved + L":second", {7, 9}) && HasContents(copySource + L":named", existing),
+          "publish multiple named streams including an empty Unicode stream", copyError);
+    copyError = preserve(trustedFixture);
+    Check(copyError == ERROR_ALREADY_EXISTS && HasContents(preserved + L":named", existing),
+          "leave the existing file and its streams intact on collision", copyError);
 
     const auto moveSourcePath = fixture + L"\\destination\\move-\u65e5.bin";
     const auto moveTargetPath = moved + L"\\move-\u672c.bin";

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Admit one-file F5 with planned named streams. | Keep the planned ADS bytes in the copy progress total. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Select the typed main-stream-only copy request. | Keep default copy and move strict about named streams. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow a basic attribute update for a selected directory. | Preserve the item type and the existing single-item limits. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route directory timestamps through the basic metadata worker. | Use the broker only for a single nonrecursive time-only request. | | GPT-6.1 Sol (Codex) |
@@ -5616,8 +5617,8 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
 {
     const bool moving = op.Opcode == ocMoveFile;
     if (!script.AllowTransferPilot || script.Count != 1 || script.CopySecurity || script.CopyAttrs || script.OverwriteOlder ||
-        (op.OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED)) != 0 || !op.SourceNameWValid || !op.TargetNameWValid ||
-        (moving ? !UacF7::IsPlainDeleteFile(op.Attr)
+        (op.OpFlags & OPFL_AS_ENCRYPTED) != 0 || !op.SourceNameWValid || !op.TargetNameWValid ||
+        (moving ? ((op.OpFlags & OPFL_COPY_ADS) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))
                 : (!UacF7::IsPlainCopyFile(op.Attr) || op.FileSize.Value > UacF7::maxPilotCopyBytes)))
         return false;
 
@@ -5655,7 +5656,11 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
         if (moving)
             SetProgress(progress, 0, CaclProg(totalDone, script.TotalSize), dlgData);
         else
-            script.AddBytesToTFSandSetProgressSize(op.FileSize, totalDone);
+        {
+            const CQuadWord mainWork = max(op.FileSize, COPY_MIN_FILE_SIZE);
+            const CQuadWord namedBytes = (op.OpFlags & OPFL_COPY_ADS) != 0 && op.Size > mainWork ? op.Size - mainWork : CQuadWord(0, 0);
+            script.AddBytesToTFSandSetProgressSize(op.FileSize + namedBytes, totalDone);
+        }
         success = TRUE;
     }
     return true;
@@ -5841,7 +5846,7 @@ COPY_AGAIN:
                             out = SalCreateFileEx(op->TargetName, GENERIC_WRITE, 0, fileAttrs, &encryptionNotSupported);
                     }
 
-                    if (out == INVALID_HANDLE_VALUE && !invalidTgtName && !copyADS && !copyAsEncrypted &&
+                    if (out == INVALID_HANDLE_VALUE && !invalidTgtName && !copyAsEncrypted &&
                         !isMove && GetLastError() == ERROR_ACCESS_DENIED)
                     {
                         BOOL success = FALSE;
@@ -6838,7 +6843,7 @@ COPY_AGAIN:
             if (*dlgData.CancelWorker)
                 return FALSE;
 
-            if (err == ERROR_ACCESS_DENIED && !isMove && !copyADS && !copyAsEncrypted && !invalidTgtName)
+            if (err == ERROR_ACCESS_DENIED && !isMove && !copyAsEncrypted && !invalidTgtName)
             {
                 BOOL success = FALSE;
                 if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))

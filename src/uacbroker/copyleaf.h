@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Preserve bounded NTFS data streams on a verified staged file. | Publish the file and its named streams together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Allow explicitly omitting named data streams from one file copy. | Retain extended-attribute and file identity checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check tree cancellation while copying staged data. | Stop before publishing the staged tree. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Apply tree staging integrity before copying bytes. | Keep the one-file path unchanged and verify protection on staged files. | | GPT-6.1 Sol (Codex) |
@@ -14,6 +15,7 @@
 #include "f7pilot.h"
 #include "copytreeacl.h"
 #include <objbase.h>
+#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -22,7 +24,8 @@ extern "C" NTSYSAPI NTSTATUS NTAPI NtQueryInformationFile(
 
 namespace UacCopyLeaf
 {
-enum class StreamPolicy { RequireDefault, IgnoreNamed };
+enum class StreamPolicy { RequireDefault, IgnoreNamed, PreserveNamed };
+using StageVerifier = bool (*)(HANDLE, bool);
 
 namespace Detail
 {
@@ -79,14 +82,15 @@ inline DWORD CopiedAttributes(DWORD attributes)
     return (attributes & ~FILE_ATTRIBUTE_NORMAL) | FILE_ATTRIBUTE_ARCHIVE;
 }
 
-inline DWORD StageFile(HANDLE parent, HANDLE& file, PSECURITY_DESCRIPTOR security = nullptr)
+inline DWORD StageFile(HANDLE parent, HANDLE& file, std::wstring& name, bool readSecurity,
+                       PSECURITY_DESCRIPTOR security = nullptr)
 {
     GUID id{};
     WCHAR guid[39]{};
     if (FAILED(CoCreateGuid(&id)) || !StringFromGUID2(id, guid, ARRAYSIZE(guid)))
         return ERROR_GEN_FAILURE;
-    const std::wstring name = std::wstring(L".samandarin-copy-") + guid + L".tmp";
-    const ACCESS_MASK access = FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | DELETE | (security ? READ_CONTROL : 0);
+    name = std::wstring(L".samandarin-copy-") + guid + L".tmp";
+    const ACCESS_MASK access = FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | DELETE | (readSecurity || security ? READ_CONTROL : 0);
     return UacRenameLeaf::Detail::OpenFile(parent, name, file, access, 0, FILE_CREATE, FILE_DELETE_ON_CLOSE, security);
 }
 
@@ -134,11 +138,104 @@ inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
     return ERROR_SUCCESS;
 }
 
+struct DataStream
+{
+    std::wstring suffix;
+    ULONGLONG size;
+
+    bool operator==(const DataStream& other) const { return suffix == other.suffix && size == other.size; }
+};
+
+inline DWORD ReadDataStreams(HANDLE file, std::vector<DataStream>& streams)
+{
+    constexpr size_t maxStreams = 64;
+    constexpr size_t headerSize = offsetof(FILE_STREAM_INFO, StreamName);
+    constexpr std::wstring_view type = L":$DATA";
+    std::vector<ULONGLONG> buffer(64 * 1024 / sizeof(ULONGLONG));
+    const auto bytes = buffer.size() * sizeof(ULONGLONG);
+    if (!GetFileInformationByHandleEx(file, FileStreamInfo, buffer.data(), static_cast<DWORD>(bytes)))
+        return GetLastError();
+
+    streams.clear();
+    ULONGLONG total = 0;
+    bool mainFound = false;
+    for (size_t offset = 0; ; )
+    {
+        if (bytes - offset < headerSize || streams.size() == maxStreams)
+            return ERROR_NOT_SUPPORTED;
+        const auto& entry = *reinterpret_cast<const FILE_STREAM_INFO*>(reinterpret_cast<const BYTE*>(buffer.data()) + offset);
+        const size_t next = entry.NextEntryOffset;
+        const size_t available = next ? next : bytes - offset;
+        if ((next && (next % alignof(ULONGLONG) || next > bytes - offset)) || available < headerSize ||
+            entry.StreamNameLength % sizeof(wchar_t) || entry.StreamNameLength > available - headerSize ||
+            entry.StreamSize.QuadPart < 0)
+            return ERROR_INVALID_DATA;
+
+        const auto size = static_cast<ULONGLONG>(entry.StreamSize.QuadPart);
+        if (size > UacF7::maxPilotCopyBytes - total)
+            return ERROR_FILE_TOO_LARGE;
+        total += size;
+        const std::wstring_view suffix(entry.StreamName, entry.StreamNameLength / sizeof(wchar_t));
+        if (suffix == L"::$DATA")
+        {
+            if (mainFound)
+                return ERROR_INVALID_DATA;
+            mainFound = true;
+        }
+        else if (suffix.size() <= type.size() + 1 || suffix.front() != L':' ||
+                 suffix.substr(suffix.size() - type.size()) != type ||
+                 !UacDirectoryLeaf::IsComponent(suffix.substr(1, suffix.size() - 1 - type.size())))
+            return ERROR_NOT_SUPPORTED;
+        streams.push_back({std::wstring(suffix), size});
+        if (!next)
+            break;
+        offset += next;
+    }
+    std::sort(streams.begin(), streams.end(), [](const DataStream& a, const DataStream& b) { return a.suffix < b.suffix; });
+    return mainFound ? ERROR_SUCCESS : ERROR_INVALID_DATA;
+}
+
+using StreamHandle = std::unique_ptr<void, decltype(&CloseHandle)>;
+
+inline DWORD OpenDataStream(HANDLE parent, std::wstring_view leaf, const DataStream& stream, const FILE_ID_INFO& identity,
+                            bool create, StreamHandle& opened)
+{
+    // The suffix came from FileStreamInfo and contains one validated component.
+    // The base name is pinned by the caller. Open relative to its verified parent.
+    const auto name = std::wstring(leaf) + stream.suffix;
+    HANDLE raw = nullptr;
+    DWORD error = UacRenameLeaf::Detail::OpenFile(parent, name, raw, create ? FILE_WRITE_DATA : FILE_READ_DATA,
+                                                 create ? FILE_SHARE_DELETE : FILE_SHARE_READ,
+                                                 create ? FILE_CREATE : FILE_OPEN, 0);
+    if (error)
+        return error;
+    opened.reset(raw);
+    FILE_ID_INFO actual{};
+    FILE_BASIC_INFO basic{};
+    LARGE_INTEGER size{};
+    if (!GetFileInformationByHandleEx(raw, FileIdInfo, &actual, sizeof(actual)) ||
+        !GetFileInformationByHandleEx(raw, FileBasicInfo, &basic, sizeof(basic)) || !GetFileSizeEx(raw, &size))
+        return GetLastError();
+    if (!UacRenameLeaf::Detail::SameSource(actual, identity) ||
+        size.QuadPart < 0 || static_cast<ULONGLONG>(size.QuadPart) != (create ? 0 : stream.size))
+        return ERROR_FILE_INVALID;
+    return UacF7::IsPlainCopyFile(basic.FileAttributes) ? ERROR_SUCCESS : ERROR_NOT_SUPPORTED;
+}
+
+struct CopySourceLocation
+{
+    HANDLE parent;
+    std::wstring_view leaf;
+    const FILE_ID_INFO& identity;
+    StageVerifier verifyStage;
+};
+
 inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_view targetName,
                             HANDLE cancel, HANDLE connection, ULONGLONG deadline, ULONGLONG expectedSize,
                             FILE_BASIC_INFO& basic, FILE_ID_INFO* created = nullptr,
                             const UacCopyTree::Detail::StageProtection* protection = nullptr,
-                            StreamPolicy policy = StreamPolicy::RequireDefault)
+                            StreamPolicy policy = StreamPolicy::RequireDefault,
+                            const CopySourceLocation* location = nullptr)
 {
     DWORD error = ReadPlainMetadata(source, basic, false, policy);
     if (error)
@@ -151,12 +248,39 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     if (expectedSize != MAXULONGLONG && static_cast<ULONGLONG>(size.QuadPart) != expectedSize)
         return ERROR_FILE_INVALID;
 
+    std::vector<DataStream> streams;
+    std::vector<StreamHandle> inputs, outputs;
+    if (policy == StreamPolicy::PreserveNamed)
+    {
+        if (!location)
+            return ERROR_INVALID_PARAMETER;
+        if ((error = ReadDataStreams(source, streams)) != ERROR_SUCCESS)
+            return error;
+        for (const auto& stream : streams)
+        {
+            if (stream.suffix == L"::$DATA")
+            {
+                if (stream.size != static_cast<ULONGLONG>(size.QuadPart))
+                    return ERROR_FILE_INVALID;
+                continue;
+            }
+            StreamHandle input(nullptr, CloseHandle);
+            error = OpenDataStream(location->parent, location->leaf, stream, location->identity, false, input);
+            if (error)
+                return error;
+            inputs.push_back(std::move(input));
+        }
+    }
+
+    std::wstring stageName;
     HANDLE rawTarget = nullptr;
-    if ((error = StageFile(targetParent, rawTarget, protection ? protection->File() : nullptr)) != ERROR_SUCCESS)
+    if ((error = StageFile(targetParent, rawTarget, stageName, !inputs.empty(), protection ? protection->File() : nullptr)) != ERROR_SUCCESS)
         return error;
     const std::unique_ptr<void, decltype(&CloseHandle)> target(rawTarget, CloseHandle);
     if (protection && (error = protection->Check(target.get(), false)) != ERROR_SUCCESS)
         return error;
+    if (!inputs.empty() && (!location->verifyStage || !location->verifyStage(target.get(), false)))
+        return ERROR_ACCESS_DENIED;
     FILE_BASIC_INFO targetBasic{};
     if (!GetFileInformationByHandleEx(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
         return GetLastError();
@@ -164,6 +288,28 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return ERROR_NOT_SUPPORTED;
     if ((error = CopyData(source, target.get(), static_cast<ULONGLONG>(size.QuadPart), cancel, connection, deadline, protection != nullptr)) != ERROR_SUCCESS)
         return error;
+
+    if (!inputs.empty())
+    {
+        FILE_ID_INFO targetId{};
+        if (!GetFileInformationByHandleEx(target.get(), FileIdInfo, &targetId, sizeof(targetId)))
+            return GetLastError();
+        for (const auto& stream : streams)
+        {
+            if (stream.suffix == L"::$DATA")
+                continue;
+            StreamHandle output(nullptr, CloseHandle);
+            error = OpenDataStream(targetParent, stageName, stream, targetId, true, output);
+            if (error)
+                return error;
+            error = CopyData(inputs[outputs.size()].get(), output.get(), stream.size, cancel, connection, deadline, false);
+            if (error)
+                return error;
+            if (!FlushFileBuffers(output.get()))
+                return GetLastError();
+            outputs.push_back(std::move(output));
+        }
+    }
 
     FILE_BASIC_INFO current{};
     if ((error = ReadPlainMetadata(source, current, false, policy)) != ERROR_SUCCESS)
@@ -179,6 +325,14 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return GetLastError();
     if (created && !GetFileInformationByHandleEx(target.get(), FileIdInfo, created, sizeof(*created)))
         return GetLastError();
+    if (policy == StreamPolicy::PreserveNamed)
+    {
+        std::vector<DataStream> currentStreams;
+        if ((error = ReadDataStreams(source, currentStreams)) != ERROR_SUCCESS || currentStreams != streams)
+            return error ? error : ERROR_FILE_INVALID;
+        if ((error = ReadDataStreams(target.get(), currentStreams)) != ERROR_SUCCESS || currentStreams != streams)
+            return error ? error : ERROR_FILE_INVALID;
+    }
     if ((error = CheckCancelled(cancel, connection, deadline, protection != nullptr)) != ERROR_SUCCESS)
         return error;
     if ((error = UacRenameLeaf::Detail::NativeRename(target.get(), targetParent, targetName)) != ERROR_SUCCESS)
@@ -192,17 +346,17 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
 }
 }
 
-// Copies only the unnamed data stream and supported basic metadata. The new
-// file gets the archive bit and inherits security from its destination.
-// The source is never
-// removed and the final name cannot replace an existing entry.
+// Copies the unnamed stream, supported basic metadata and the selected named
+// streams. The new file gets the archive bit and inherits destination security.
+// The source is kept and the final name cannot replace an existing entry.
 inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::ParentIdentity& expectedSourceParent,
                               const FILE_ID_INFO& expectedSource, std::wstring_view sourceName,
                               HANDLE targetParent, const UacDirectoryLeaf::ParentIdentity& expectedTargetParent,
                               std::wstring_view targetName, HANDLE cancel = nullptr,
                               HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG,
                               ULONGLONG expectedSize = MAXULONGLONG,
-                              StreamPolicy policy = StreamPolicy::RequireDefault)
+                              StreamPolicy policy = StreamPolicy::RequireDefault,
+                              StageVerifier verifyStage = nullptr)
 {
     using namespace UacDirectoryLeaf;
     if (!IsComponent(sourceName) || !IsComponent(targetName))
@@ -235,7 +389,8 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
     if (!UacRenameLeaf::Detail::SameSource(actualSource, expectedSource))
         return ERROR_FILE_INVALID;
     FILE_BASIC_INFO basic{};
+    const Detail::CopySourceLocation location{sourceParent, sourceName, actualSource, verifyStage};
     return Detail::CopyOpenedFile(source.get(), targetParent, targetName, cancel, connection, deadline,
-                                  expectedSize, basic, nullptr, nullptr, policy);
+                                  expectedSize, basic, nullptr, nullptr, policy, &location);
 }
 }
