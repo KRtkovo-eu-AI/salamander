@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Scope archive read limits to a batch. | Reuse the verified file across refreshes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare the bounded archive read session. | Share its range contract across the broker and host. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Pin a trusted installed editor before an explicit F4 elevation. | Keep editor launch entirely on the host side. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare detailed read-only size results. | Keep logical file sizes separate from optional disk measurements. | | GPT-6.1 Sol (Codex) |
@@ -62,6 +63,7 @@ inline bool IsFileCopy(Operation operation)
 constexpr DWORD archiveReadBlock = 64 * 1024;
 constexpr DWORD archiveReadBudget = 64 * 1024 * 1024;
 constexpr ULONGLONG archiveReadTimeoutMs = 30000;
+enum class ArchiveReadControl : DWORD { Begin = 1, End = 2 };
 struct ArchiveReadRange
 {
     ULONGLONG offset;
@@ -284,15 +286,20 @@ public:
     ArchiveReadSession& operator=(const ArchiveReadSession&) = delete;
     bool Prepare(const std::wstring& path);
     DWORD Start(HWND owner);
+    bool IsOpen() const { return pipe != nullptr; }
+    DWORD BeginRead();
     DWORD Read(ULONGLONG offset, void* bytes, DWORD count);
+    DWORD EndRead();
     ULONGLONG Size() const { return size; }
 
 private:
     PreparedLeaf prepared;
     HANDLE pipe = nullptr;
     ULONGLONG size = 0;
+    DWORD SendControl(ArchiveReadControl control, ULONGLONG limit);
+    void Close();
     ULONGLONG deadline = 0;
-    DWORD remaining = archiveReadBudget;
+    DWORD remaining = 0;
 };
 
 struct LeafPrompt

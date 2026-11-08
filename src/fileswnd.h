@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Own the approved ZIP read session in the panel. | Keep authorization scoped to the open archive. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Opt in to protected ZIP listing for direct panel entry. | Keep history and refresh on their existing paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Distinguish directory timestamps from other copy options. | Let protected F5 accept the one option it already implements. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Own the protected directory listing session per panel. | End authorization on exit and keep listing data distinct from Branch View. | | GPT-6.1 Sol (Codex) |
@@ -887,6 +888,7 @@ public:
 
     CBranchViewState* BranchView; // core-owned disk collection, NULL for ordinary panels
     bool ProtectedZip = false;
+    std::unique_ptr<UacF7::ArchiveReadSession> ProtectedZipSession;
     std::unique_ptr<UacF7::ListingSession> ProtectedListing;
     std::vector<WIN32_FIND_DATAW> ProtectedListingEntries;
     bool KeepProtectedListing = false;

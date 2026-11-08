@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Keep the approved archive handle until the panel disconnects. | Bound each read batch without expiring an idle archive. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Read bounded archive ranges over an authenticated session. | Keep one verified source open until completion or disconnect. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify installed editors for host-side runas. | Keep the executable and its directory chain pinned across consent. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Return validated detailed size results over the listing pipe. | Keep ordinary listing and logical inventory replies unchanged. | | GPT-6.1 Sol (Codex) |
@@ -116,7 +117,7 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD copySecurityCapability = 2097152;
 [[maybe_unused]] constexpr DWORD viewCapability = 4194304;
 [[maybe_unused]] constexpr DWORD sizeDetailsCapability = 8388608;
-[[maybe_unused]] constexpr DWORD archiveReadCapability = 16777216;
+[[maybe_unused]] constexpr DWORD archiveReadCapability = 33554432;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
                                                  inventoryCapability | copyTreeCapability | cancelTreeCapability |
@@ -175,7 +176,8 @@ int IoError(const wchar_t* stage, DWORD error)
 DWORD FinishIo(HANDLE pipe, OVERLAPPED& io, DWORD& count, ULONGLONG deadline)
 {
     const auto now = GetTickCount64();
-    const DWORD remaining = now < deadline ? static_cast<DWORD>(deadline - now) : 0;
+    const DWORD remaining = deadline == MAXULONGLONG ? INFINITE :
+        now < deadline ? static_cast<DWORD>(deadline - now) : 0;
     const DWORD wait = WaitForSingleObject(io.hEvent, remaining);
     if (wait == WAIT_OBJECT_0)
         return GetOverlappedResult(pipe, &io, &count, FALSE) ? ERROR_SUCCESS : GetLastError();
@@ -990,17 +992,34 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     return ERROR_SUCCESS;
 }
 
-DWORD ServeArchive(HANDLE pipe, HANDLE file, ULONGLONG size, ULONGLONG deadline)
+DWORD ServeArchive(HANDLE pipe, HANDLE file, ULONGLONG size)
 {
     std::vector<BYTE> buffer(UacF7::archiveReadBlock);
-    DWORD remaining = UacF7::archiveReadBudget;
+    DWORD remaining = 0;
+    ULONGLONG deadline = 0;
     for (;;)
     {
         UacF7::ArchiveReadRange range{};
-        DWORD error = TransferRequest(pipe, &range, sizeof(range), false, deadline);
+        DWORD error = TransferRequest(pipe, &range, sizeof(range), false, deadline ? deadline : MAXULONGLONG);
         if (error)
-            return error == ERROR_BROKEN_PIPE ? ERROR_SUCCESS : error;
-        if (!UacF7::ValidArchiveRange(range, size, remaining))
+            return error == ERROR_BROKEN_PIPE || error == ERROR_NO_DATA || error == ERROR_PIPE_NOT_CONNECTED
+                ? ERROR_SUCCESS : error;
+        if (range.reserved)
+        {
+            const auto control = static_cast<UacF7::ArchiveReadControl>(range.reserved);
+            if (range.offset || range.size ||
+                control != (deadline ? UacF7::ArchiveReadControl::End : UacF7::ArchiveReadControl::Begin))
+                return ERROR_INVALID_DATA;
+            DWORD status = ERROR_SUCCESS;
+            error = TransferRequest(pipe, &status, sizeof(status), true, GetTickCount64() + timeoutMs);
+            if (error)
+                return error;
+            deadline = control == UacF7::ArchiveReadControl::Begin
+                ? GetTickCount64() + UacF7::archiveReadTimeoutMs : 0;
+            remaining = deadline ? UacF7::archiveReadBudget : 0;
+            continue;
+        }
+        if (!deadline || !UacF7::ValidArchiveRange(range, size, remaining))
             return ERROR_INVALID_DATA;
         LARGE_INTEGER position{};
         position.QuadPart = static_cast<LONGLONG>(range.offset);
@@ -1142,8 +1161,7 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
             error = TransferRequest(pipe.get(), &archiveSize.QuadPart, sizeof(archiveSize.QuadPart), true, deadline);
             if (error)
                 return IoError(L"Send archive size", error);
-            error = ServeArchive(pipe.get(), archive.get(), static_cast<ULONGLONG>(archiveSize.QuadPart),
-                                 GetTickCount64() + UacF7::archiveReadTimeoutMs);
+            error = ServeArchive(pipe.get(), archive.get(), static_cast<ULONGLONG>(archiveSize.QuadPart));
             return error ? IoError(L"Archive read session ended", error) : Ok;
         }
         if (listingRoot)
@@ -1744,8 +1762,18 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel) const
 
 ArchiveReadSession::~ArchiveReadSession()
 {
+    Close();
+}
+
+void ArchiveReadSession::Close()
+{
     if (pipe)
+    {
         CloseHandle(pipe);
+        pipe = nullptr;
+    }
+    deadline = 0;
+    remaining = 0;
 }
 
 bool ArchiveReadSession::Prepare(const std::wstring& path)
@@ -1768,22 +1796,61 @@ DWORD ArchiveReadSession::Start(HWND owner)
     std::wstring payload = prepared.volume + prepared.relative + prepared.leaf;
     Result result;
     RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &pipe, nullptr, nullptr, &size);
-    deadline = GetTickCount64() + archiveReadTimeoutMs;
     return result.error;
+}
+
+DWORD ArchiveReadSession::SendControl(ArchiveReadControl control, ULONGLONG limit)
+{
+    if (!pipe)
+        return ERROR_PIPE_NOT_CONNECTED;
+    ArchiveReadRange range{0, 0, static_cast<DWORD>(control)};
+    DWORD error = TransferRequest(pipe, &range, sizeof(range), true, limit);
+    if (!error)
+    {
+        DWORD status = ERROR_INVALID_DATA;
+        error = TransferRequest(pipe, &status, sizeof(status), false, limit);
+        if (!error)
+            error = status;
+    }
+    if (error)
+        Close();
+    return error;
+}
+
+DWORD ArchiveReadSession::BeginRead()
+{
+    if (deadline)
+        return ERROR_INVALID_STATE;
+    const DWORD error = SendControl(ArchiveReadControl::Begin, GetTickCount64() + timeoutMs);
+    if (!error)
+    {
+        deadline = GetTickCount64() + archiveReadTimeoutMs;
+        remaining = archiveReadBudget;
+    }
+    return error;
+}
+
+DWORD ArchiveReadSession::EndRead()
+{
+    if (!deadline)
+        return ERROR_PIPE_NOT_CONNECTED;
+    const DWORD error = SendControl(ArchiveReadControl::End, deadline);
+    deadline = 0;
+    remaining = 0;
+    return error;
 }
 
 DWORD ArchiveReadSession::Read(ULONGLONG offset, void* bytes, DWORD count)
 {
     ArchiveReadRange range{offset, count, 0};
-    if (!pipe || !ValidArchiveRange(range, size, remaining))
+    if (!pipe || !deadline || !ValidArchiveRange(range, size, remaining))
         return ERROR_INVALID_DATA;
     DWORD error = TransferRequest(pipe, &range, sizeof(range), true, deadline);
     if (!error)
         error = TransferRequest(pipe, bytes, count, false, deadline);
     if (error)
     {
-        CloseHandle(pipe);
-        pipe = nullptr;
+        Close();
         return error;
     }
     remaining -= count;

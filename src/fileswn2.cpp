@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Reuse one protected ZIP authorization for explicit refresh. | Release the broker session when the archive panel closes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Publish a complete protected listing in the standard archive panel. | Refresh explicitly and preserve the existing tree on failure. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer a protected ZIP listing after ordinary read denial. | Reuse the internal viewer for read-only output. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Route disk navigation and refresh through the approved listing session. | Reuse consent inside the root and release it on exit. | | GPT-6.1 Sol (Codex) |
@@ -2727,6 +2728,7 @@ void CFilesWindow::CloseCurrentPath(HWND parent, BOOL cancel, BOOL detachFS, BOO
                 SetArchiveDir(NULL);
                 SetPluginIface(NULL);
                 // a couple more resets for better clarity
+                ProtectedZipSession.reset();
                 ProtectedZip = false;
                 SetZIPArchive("");
                 SetZIPPath("");
@@ -3471,33 +3473,42 @@ struct ProtectedZipListing
 
 DWORD ReadProtectedZip(HWND owner, const char* archive, CSalamanderDirectory& directory,
                        CPluginData*& plugin, CPluginDataInterfaceAbstract*& pluginData,
-                       CQuadWord& size, FILETIME& date)
+                       CQuadWord& size, FILETIME& date, UacF7::ArchiveReadSession* session,
+                       std::unique_ptr<UacF7::ArchiveReadSession>& newSession)
 {
     const std::wstring path = SalPathRemoveExtendedPrefixW(
         SalMultiByteToWidePath(archive, IsValidPathUtf8Text(archive) ? CP_UTF8 : CP_ACP).c_str());
     if (path.size() < 4 || _wcsicmp(path.c_str() + path.size() - 4, L".zip") != 0)
         return ERROR_NOT_SUPPORTED;
-    UacF7::ArchiveReadSession session;
-    if (!session.Prepare(path))
-        return ERROR_ACCESS_DENIED;
     plugin = Plugins.GetPluginDataFromSuffix("zip\\zip.spl");
     if (!plugin || !plugin->InitDLL(owner, TRUE))
         return ERROR_NOT_SUPPORTED;
     const auto list = reinterpret_cast<SalListZipPanelV1>(GetProcAddress(plugin->GetPluginDLL(), "SalamanderListZipPanelV1"));
     if (!list)
         return ERROR_NOT_SUPPORTED;
-    if (!ConfirmProtectedRead(owner, IDS_UAC_ZIP_TITLE, IDS_UAC_ZIP_CONFIRM, path))
-        return ERROR_CANCELLED;
-    const DWORD startError = session.Start(owner);
-    if (startError)
-        return startError;
+    if (!session || !session->IsOpen())
+    {
+        newSession = std::make_unique<UacF7::ArchiveReadSession>();
+        if (!newSession->Prepare(path))
+            return ERROR_ACCESS_DENIED;
+        if (!ConfirmProtectedRead(owner, IDS_UAC_ZIP_TITLE, IDS_UAC_ZIP_CONFIRM, path))
+            return ERROR_CANCELLED;
+        const DWORD startError = newSession->Start(owner);
+        if (startError)
+            return startError;
+        session = newSession.get();
+    }
 
-    ProtectedZipListing listing{session};
-    const SalZipReadSourceV1 source{session.Size(), &listing, ProtectedZipListing::Read, nullptr};
+    ProtectedZipListing listing{*session};
+    const SalZipReadSourceV1 source{session->Size(), &listing, ProtectedZipListing::Read, nullptr};
     const std::wstring extended = SalPathAddExtendedPrefixW(path.c_str());
+    const DWORD beginError = session->BeginRead();
+    if (beginError)
+        return beginError;
     EnterPlugin();
     const DWORD error = list(&source, &directory, &pluginData);
     LeavePlugin();
+    const DWORD endError = session->EndRead();
     if (error)
         return error;
 #ifdef _DEBUG
@@ -3505,7 +3516,15 @@ DWORD ReadProtectedZip(HWND owner, const char* archive, CSalamanderDirectory& di
         plugin->OpenedPDCounter++;
 #endif
 
-    size.SetUI64(session.Size());
+    if (endError)
+    {
+        directory.Clear(pluginData);
+        plugin->GetPluginInterface()->ReleasePluginDataInterface(pluginData);
+        pluginData = nullptr;
+        return endError;
+    }
+
+    size.SetUI64(session->Size());
     WIN32_FILE_ATTRIBUTE_DATA attributes{};
     date = {};
     if (GetFileAttributesExW(extended.c_str(), GetFileExInfoStandard, &attributes))
@@ -3660,8 +3679,10 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
             if (PackerFormatConfig.PackIsArchive(archive) || pluginForOpen != NULL) // is it an archive?
             {
                 // retrieve file info (does it exist?, size, date & time)
+                auto* existingZipSession = sameProtectedZip ? ProtectedZipSession.get() : nullptr;
+                const bool reuseZipSession = existingZipSession && existingZipSession->IsOpen();
                 DWORD err2 = NO_ERROR;
-                HANDLE file = OpenArchiveFileForRead(archive, FILE_ATTRIBUTE_NORMAL);
+                HANDLE file = reuseZipSession ? INVALID_HANDLE_VALUE : OpenArchiveFileForRead(archive, FILE_ATTRIBUTE_NORMAL);
                 if (file != INVALID_HANDLE_VALUE)
                 {
                     GetFileTime(file, NULL, NULL, &archiveDate);
@@ -3670,7 +3691,7 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                     HANDLES(CloseHandle(file));
                 }
                 else
-                    err2 = GetLastError();
+                    err2 = reuseZipSession ? ERROR_ACCESS_DENIED : GetLastError();
 
                 const char* extension = strrchr(archive, '.');
                 const bool protectedZip = allowProtectedZip && err2 == ERROR_ACCESS_DENIED &&
@@ -3693,12 +3714,14 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                 CPluginDataInterfaceAbstract* pluginData = NULL;
                 CPluginData* plugin = NULL;
                 bool listed = false;
+                std::unique_ptr<UacF7::ArchiveReadSession> newZipSession;
                 if (protectedZip)
                 {
                     nullFile = FALSE;
                     try
                     {
-                        err2 = ReadProtectedZip(HWindow, archive, *newArchiveDir, plugin, pluginData, archiveSize, archiveDate);
+                        err2 = ReadProtectedZip(HWindow, archive, *newArchiveDir, plugin, pluginData, archiveSize,
+                                                archiveDate, existingZipSession, newZipSession);
                     }
                     catch (const std::bad_alloc&)
                     {
@@ -3739,6 +3762,9 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
                             isTheSamePath = TRUE;
                     }
 
+                    if (protectedZip && reuseZipSession)
+                        newZipSession = std::move(ProtectedZipSession);
+
                     // success, switch to the new path - because listing the archive can be time-consuming
                     // the path changes even if the target path doesn't exist - applies to
                     // Change Directory (Shift+F7) which otherwise wouldn't change it
@@ -3753,6 +3779,7 @@ BOOL CFilesWindow::ChangePathToArchive(const char* archive, const char* archiveP
 
                     SetPanelType(ptZIPArchive);
                     ProtectedZip = protectedZip;
+                    ProtectedZipSession = std::move(newZipSession);
                     SetPath(path);
                     UpdateDriveIcon(FALSE);
                     SetArchiveDir(newArchiveDir);

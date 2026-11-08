@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify persistent protected ZIP authorization. | Reuse one broker across manual refreshes and release it on archive exit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify the protected ZIP64 archive panel. | Record folder navigation, manual refresh, cancellation, and ordinary ZIP behavior. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define the protected ZIP panel acceptance gate. | Require the existing archive panel and compare an elevated plugin host. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the protected ZIP64 listing pilot. | Document the bounded protocol and local and VM evidence. | | GPT-6.1 Sol (Codex) |
@@ -774,6 +775,10 @@ Akceptační minimum je chráněný ZIP64 otevřený přímo v panelu, vstup do 
 V izolované Windows 11 VM se chráněný řídký ZIP64 o logické velikosti 5 GiB otevřel ve standardním archivním panelu s plnou cestou a štítem. Vstup do `dír` zobrazil `東.txt` a velikosti 17 a 19 bajtů ve sloupcích Size a Packed. Návrat do kořene zobrazil `dír` a `empty`. Obě navigace prošly bez další výzvy. Položka s nadřazenou komponentou zůstala mimo strom. Ctrl+R po druhém schválení obnovil výpis v panelu. Zrušení další obnovy v dialogu Samandarinu zachovalo předchozí výpis. Prošel také odchod z archivu na disk a otevření běžného ZIPu bez UAC. Běžný token měl čtení originálu stále odepřené. Otisky šesti pilotních souborů souhlasily a po zkoušce neběžel žádný broker.
 
 Lokálně prošlo sestavení x64 Debug, zkouška blokového ZIP64 a šest archivních regresních sad s 1 349 kontrolami v Debug i Release. Prošly také kontrakty diskových operací, přechodů a akcí Branch View a nativní zkoušky identity cíle rozbalení. Akceptační minimum pro pokračování P6f je splněné.
+
+**Jedna autorizace po dobu otevření ZIPu.** Nová verze zachovává schválenou relaci a otevřený handle ke stejnému souboru, dokud panel archiv neopustí nebo se spojení nepřeruší. Ctrl+R používá tento zdroj bez další výzvy. Broker čeká mezi čteními a při každém čtení znovu uplatní limit 64 MiB a 30 sekund. Soubor zůstává otevřený jen pro čtení a po dobu relace jej jiné procesy nemohou otevřít pro zápis nebo smazání. Ztráta spojení ponechá poslední výpis a další ruční obnova může požádat o nový souhlas. Otevření a rozbalování jednotlivých položek vyžaduje další zapojení do stejné čtecí relace.
+
+V izolované Windows 11 VM prošel jeden souhlas pro 5GiB ZIP64, vstup do podsložky, Ctrl+R v ní, návrat a další Ctrl+R v kořeni. Obě obnovy prošly bez výzvy. Po 58 sekundách od otevření běžel stejný broker s PID 8068. Po odchodu z archivu na disk neběžel žádný broker. Další pokus o vstup znovu nabídl správce, nabídka byla zrušena v Samandarinu. Otisky všech šesti instalovaných souborů odpovídaly pilotu. Lokálně prošlo sestavení x64 Debug, 190 nativních kontrol v každé z konfigurací Debug a Release, test transportu, 274 kontrol archivního vstupu v obou konfiguracích a 30 kontraktů přechodů.
 
 ## 9. Uživatelský tok a stav operace
 
