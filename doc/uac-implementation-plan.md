@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify repeated scoped requests on a real broker pipe. | Cover collision, authorization boundaries and disconnect before mutation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Reuse scoped consent for permanent deletion and metadata. | Enforce approved parent, item type and attribute and time settings. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify late EA writes and prepare Shell recycle acceptance. | Establish source safety and the original-account receipt checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Add a durable cross-volume source recovery journal. | Bind recovery to verified NTFS names and file identities. | | GPT-6.1 Sol (Codex) |
@@ -601,6 +602,10 @@ V x64 Debug prošlo sestavení aplikace, anglických zdrojů, brokeru a sondy. V
 **Sdílený souhlas pro trvalé mazání a Ctrl+F2.** Další položka stejné úlohy použije stejný autentizovaný broker pouze pod týmž rodičem a pro stejný typ operace. Trvalé smazání běžného souboru, souborového odkazu, adresářového odkazu a junction má oddělené rozsahy. Ctrl+F2 přenáší původní volby nastavení a rušení atributů a broker kontroluje, že každá změna odpovídá těmto volbám a stejným časům. Různé výchozí atributy položek souhlas neruší. Souborová a adresářová metadata mají oddělené rozsahy. Potvrzení ukazuje rozsah a složku. Oba dialogy mají výchozí Cancel. Odmítnutí nebo známá chyba se vrátí k obvyklým volbám Retry, Skip, Skip All a Cancel. Neověřená mutace zastaví úlohu.
 
 Sestavení aplikace, anglických zdrojů, brokeru a sondy v x64 Debug prošlo. V Debug i Release prošlo 243 nativních kontrol. V Debug prošlo také 48 kontrol mazacího workeru, 73 kontrol workeru atributů a zkouška autentizace lokálního kanálu. Počet výzev, skutečné přeskočení prostřední položky a chování se dvěma účty ověří společná akceptace v izolované VM. Rozsah se týká stávajících ověřovaných položek na lokálním NTFS.
+
+**Nativní akceptace dávkového kanálu.** Test otevře skutečnou lokální pojmenovanou rouru a použije stejnou obsluhu požadavků jako broker po autentizaci. V jednom spojení první F5 vrátí kolizi se zachováním cíle a další položka se zkopíruje. Změna cílového rodiče se odmítne před mutací. Ctrl+F2 přijme odlišné výchozí atributy a odmítne atribut mimo schválenou politiku. Mazací relace odstraní dvě ověřené položky. Přerušení po odeslání hlavičky a před daty požadavku ukončí obsluhu a zachová čekající soubor.
+
+V Debug i Release prošlo osm nových kontrol a původní zkouška autentizace lokální roury. V x64 Debug prošlo sestavení aplikace, brokeru a sondy a v Release také 243 nativních kontrol. Zkouška používá dočasné soubory na NTFS a nevstupuje do produkčního spouštění přes systémovou výzvu. Počet skutečných výzev, výběr Skip v dialogu a elevaci jiným správcem dál pokrývá plánovaná akceptace ve VM.
 
 ### 8.25 P4n — ověření odstranění zdroje po kopii na NTFS
 

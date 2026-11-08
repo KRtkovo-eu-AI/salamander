@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise the live scoped job dispatcher directly. | Run the same loop with an owned test pipe and NTFS fixtures. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Authenticate repeated leaf mutation requests. | Enforce the first approved parent, operation and metadata choices. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Retain transfer consent after confirmed item failures. | Let the user skip a failed item and continue the same job. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Keep an authenticated broker for a bounded transfer job. | Check each request against the first approved operation and parent pair. | | GPT-6.1 Sol (Codex) |
@@ -1708,6 +1709,30 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
     }
 }
 
+DWORD ServeTransferJob(const InstallLocation& install, HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG deadline)
+{
+    UacF7::TransferJobScope scope;
+    while (LiveInSession(host, hostPid))
+    {
+        DWORD result = ERROR_GEN_FAILURE;
+        Handle unusedRoot, unusedArchive;
+        std::vector<BYTE> unusedSnapshot;
+        bool unusedView = false, unusedZip = false;
+        Operation unusedListing = Operation::List;
+        UacF7::ArchiveRevision unusedRevision;
+        DWORD error = ReceiveRequest(install, pipe, host, hostPid, deadline, result,
+                                     unusedRoot, unusedSnapshot, unusedView, unusedZip, unusedListing,
+                                     unusedArchive, unusedRevision, &scope);
+        if (error)
+            return error;
+        error = TransferRequest(pipe, &result, sizeof(result), true, deadline);
+        if (error || !UacF7::CanContinueTransferJob(result))
+            return error;
+        deadline = GetTickCount64() + 15 * 60 * 1000;
+    }
+    return ERROR_SUCCESS;
+}
+
 int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hostPid)
 {
     HANDLE rawToken = nullptr;
@@ -1747,26 +1772,8 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
         return Report(Untrusted, L"Host exited", ERROR_ACCESS_DENIED);
     if (transferJob)
     {
-        UacF7::TransferJobScope scope;
-        while (LiveInSession(host.get(), hostPid))
-        {
-            DWORD result = ERROR_GEN_FAILURE;
-            Handle unusedRoot, unusedArchive;
-            std::vector<BYTE> unusedSnapshot;
-            bool unusedView = false, unusedZip = false;
-            Operation unusedListing = Operation::List;
-            UacF7::ArchiveRevision unusedRevision;
-            error = ReceiveRequest(install, pipe.get(), host.get(), hostPid, deadline, result,
-                                   unusedRoot, unusedSnapshot, unusedView, unusedZip, unusedListing,
-                                   unusedArchive, unusedRevision, &scope);
-            if (error)
-                return IoError(L"Receive transfer job request", error);
-            error = TransferRequest(pipe.get(), &result, sizeof(result), true, deadline);
-            if (error || !UacF7::CanContinueTransferJob(result))
-                return error ? IoError(L"Send transfer job result", error) : Ok;
-            deadline = GetTickCount64() + 15 * 60 * 1000;
-        }
-        return Ok;
+        error = ServeTransferJob(install, pipe.get(), host.get(), hostPid, deadline);
+        return error ? IoError(L"Serve transfer job", error) : Ok;
     }
     if (appHost)
     {
