@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Preserve LZNT1 from a guarded source. | Query the compression format through a handle that can be asynchronous. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Copy sparse extents from a guarded source handle. | Preserve holes without releasing the source oplock. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Publish a copy of a guarded move source. | Read the overlapped source without releasing its lock and retain the exact destination handle. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
@@ -206,10 +207,11 @@ inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
 
 inline DWORD ReadCompression(HANDLE file, USHORT& format)
 {
-    DWORD bytes = 0;
-    if (!DeviceIoControl(file, FSCTL_GET_COMPRESSION, nullptr, 0, &format, sizeof(format), &bytes, nullptr))
+    FILE_COMPRESSION_INFO info{};
+    if (!GetFileInformationByHandleEx(file, FileCompressionInfo, &info, sizeof(info)))
         return GetLastError();
-    return bytes == sizeof(format) ? ERROR_SUCCESS : ERROR_INVALID_DATA;
+    format = info.CompressionFormat;
+    return ERROR_SUCCESS;
 }
 
 inline DWORD CopySparseData(HANDLE source, HANDLE target, LONGLONG size,
@@ -433,25 +435,29 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                             StreamPolicy policy = StreamPolicy::RequireDefault,
                             const CopySourceLocation* location = nullptr, bool preserveCompression = false,
                             const CopySecuritySnapshot* copySecurity = nullptr,
-                            StreamHandle* moveTarget = nullptr)
+                            StreamHandle* moveTarget = nullptr, DWORD moveCompressionAttributes = 0)
 {
-    if (moveTarget && (*moveTarget || policy != StreamPolicy::RequireDefault || preserveCompression || copySecurity))
+    if (moveTarget && (*moveTarget || policy != StreamPolicy::RequireDefault || copySecurity))
         return ERROR_INVALID_PARAMETER;
-    if ((preserveCompression || copySecurity) && !location)
+    if (copySecurity && !location)
         return ERROR_INVALID_PARAMETER;
     if ((preserveCompression && policy != StreamPolicy::RequireDefault) ||
         (copySecurity && policy == StreamPolicy::IgnoreNamed))
         return ERROR_INVALID_PARAMETER;
     DWORD allowedAttributes = UacF7::plainCopyAttributes;
-    if (moveTarget)
-        allowedAttributes = UacF7::crossVolumeMoveAttributes;
-    else if (preserveCompression)
+    if (preserveCompression)
         allowedAttributes = UacF7::compressedCopyAttributes;
+    else if (moveTarget)
+        allowedAttributes = UacF7::crossVolumeMoveAttributes;
     else if (location && policy == StreamPolicy::PreserveNamed)
         allowedAttributes |= FILE_ATTRIBUTE_SPARSE_FILE;
     DWORD error = ReadPlainMetadata(source, basic, false, policy, allowedAttributes);
     if (error)
         return error;
+    const DWORD expectedAttributes = moveCompressionAttributes ? moveCompressionAttributes : basic.FileAttributes;
+    if (moveCompressionAttributes && (!moveTarget || !preserveCompression ||
+        ((expectedAttributes ^ basic.FileAttributes) & ~FILE_ATTRIBUTE_ARCHIVE)))
+        return ERROR_FILE_INVALID;
     USHORT format = COMPRESSION_FORMAT_NONE;
     if (preserveCompression)
     {
@@ -562,7 +568,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     // Follow the ordinary copy behavior when the exact-attribute option is off.
     targetBasic = basic;
     targetBasic.ChangeTime.QuadPart = 0;
-    targetBasic.FileAttributes = preserveCompression ? basic.FileAttributes & ~FILE_ATTRIBUTE_COMPRESSED
+    targetBasic.FileAttributes = preserveCompression ? expectedAttributes & ~FILE_ATTRIBUTE_COMPRESSED
                                                      : CopiedAttributes(basic.FileAttributes);
     if (!targetBasic.FileAttributes)
         targetBasic.FileAttributes = FILE_ATTRIBUTE_NORMAL;
@@ -617,7 +623,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             !GetFileInformationByHandleEx(target.get(), FileBasicInfo, &actual, sizeof(actual)) ||
             !FlushFileBuffers(target.get()))
             return GetLastError();
-        if (actual.FileAttributes != basic.FileAttributes)
+        if (actual.FileAttributes != expectedAttributes)
             return ERROR_FILE_INVALID;
     }
 

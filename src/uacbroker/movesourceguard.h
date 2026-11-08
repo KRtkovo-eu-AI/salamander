@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Guard compressed move sources throughout retirement. | Apply the same metadata contract when reopening the recovery link. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow guarded sparse F6 publication. | Recheck the sparse source under the same seal until unlink. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Compare an existing F6 copy with its guarded source. | Prove the destination bytes before permitting a late source removal. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Retire both F6 source links after the destination receipt. | Preserve a recoverable source until the last unlink. | | GPT-6.1 Sol (Codex) |
@@ -50,7 +51,7 @@ inline DWORD CheckNoPriorSourceOpens(HANDLE parent, std::wstring_view leaf, cons
 class SourceGuard
 {
 public:
-    SourceGuard() = default;
+    explicit SourceGuard(DWORD compressedAttributes = 0) : originalCompressedAttributes(compressedAttributes) {}
     SourceGuard(const SourceGuard&) = delete;
     SourceGuard& operator=(const SourceGuard&) = delete;
     ~SourceGuard() { Close(); }
@@ -114,7 +115,8 @@ public:
         FILE_BASIC_INFO basic{};
         FILE_ID_INFO publishedId{};
         error = UacCopyLeaf::Detail::CopyOpenedFile(source.get(), targetParent, leaf, cancel, connection, deadline,
-            size, basic, &publishedId, nullptr, UacCopyLeaf::StreamPolicy::RequireDefault, nullptr, false, nullptr, &target);
+            size, basic, &publishedId, nullptr, UacCopyLeaf::StreamPolicy::RequireDefault, nullptr,
+            originalCompressedAttributes != 0, nullptr, &target, originalCompressedAttributes);
         if (error)
             return error;
         targetId = publishedId;
@@ -255,9 +257,15 @@ public:
         if (standard.NumberOfLinks != links)
             return ERROR_FILE_INVALID;
         FILE_BASIC_INFO metadata{};
+        const DWORD allowed = originalCompressedAttributes ? UacF7::compressedCopyAttributes : UacF7::crossVolumeMoveAttributes;
         if (DWORD error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), metadata, false,
-                UacCopyLeaf::StreamPolicy::RequireDefault, UacF7::crossVolumeMoveAttributes))
+                UacCopyLeaf::StreamPolicy::RequireDefault, allowed))
             return error;
+        // The recovery link can set Archive on the source. Other attribute
+        // changes invalidate the approved compressed move.
+        if (originalCompressedAttributes &&
+            ((metadata.FileAttributes ^ originalCompressedAttributes) & ~FILE_ATTRIBUTE_ARCHIVE))
+            return ERROR_FILE_INVALID;
         const DWORD state = WaitForSingleObject(event.get(), 0);
         if (state == WAIT_TIMEOUT)
             return ERROR_SUCCESS;
@@ -296,6 +304,7 @@ private:
         }
     }
 
+    const DWORD originalCompressedAttributes;
     Detail::Handle source{nullptr, CloseHandle};
     Detail::Handle event{nullptr, CloseHandle};
     FILE_ID_INFO identity{};

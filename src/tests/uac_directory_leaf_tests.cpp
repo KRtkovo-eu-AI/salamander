@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise retirement of a verified compressed F6 source. | Check exact attributes, LZNT1, payload and collision behavior. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise sparse publication and retirement through the F6 source guard. | Verify bytes, a physical hole and the recovery receipt. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test existing-copy verification for late F6 completion. | Refuse even a last-byte difference in a same-sized destination. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise actual F6 source retirement. | Keep both source links on cancellation and remove them only for a receipted target. | | GPT-6.1 Sol (Codex) |
@@ -1960,6 +1961,71 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
           "retire the sparse source only after preserving its logical contents", error);
     error = recover(parent.get());
     Check(!error && empty() && HasContents(sparsePath, sparseBytes), "verify and clear the sparse move receipt", error);
+
+    const std::vector<BYTE> compressedBytes(128 * 1024, 0x61);
+    if (!WriteFixture(sourcePath, compressedBytes))
+        return false;
+    {
+        const HANDLE file = CreateFileW(sourcePath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (file == INVALID_HANDLE_VALUE)
+            return false;
+        const Handle writer(file);
+        USHORT format = COMPRESSION_FORMAT_LZNT1;
+        DWORD bytes = 0;
+        if (!DeviceIoControl(file, FSCTL_SET_COMPRESSION, &format, sizeof(format), nullptr, 0, &bytes, nullptr))
+            return false;
+    }
+    if (!SetFileAttributesW(sourcePath.c_str(), FILE_ATTRIBUTE_NORMAL))
+        return false;
+    const DWORD compressedAttributes = GetFileAttributesW(sourcePath.c_str());
+    FILE_ID_INFO compressedId{};
+    if (compressedAttributes != FILE_ATTRIBUTE_COMPRESSED || !OpenIdentity(sourcePath, compressedId) ||
+        OpenSource(parent.get(), leaf, raw, DELETE | READ_CONTROL | WRITE_DAC, FILE_SHARE_READ))
+        return false;
+    source.reset(raw);
+    error = Arm(parent.get(), leaf, source.get(), compressedId, storage.get(), journal.get(), security.get(), name, seal);
+    source.reset();
+    if (error || CheckNoPriorSourceOpens(parent.get(), leaf, compressedId))
+        return false;
+    error = guard.Open(parent.get(), leaf, compressedId, 2);
+    Check(error == ERROR_NOT_SUPPORTED, "reject a compressed source in the ordinary move scope", error);
+    SourceGuard compressedGuard(compressedAttributes);
+    error = compressedGuard.Open(parent.get(), leaf, compressedId, 2);
+    if (error)
+        return false;
+    constexpr wchar_t compressedLeaf[] = L"compressed-\u6771.bin";
+    const auto compressedPath = wrongDirectory + L"\\" + compressedLeaf;
+    UacMoveSourceJournal::Detail::Handle compressedTarget(nullptr, CloseHandle);
+    FILE_ID_INFO compressedTargetId{};
+    const auto publishCompressed = [&] {
+        return compressedGuard.PublishCopy(wrongParent.get(), targetParent, compressedLeaf, compressedBytes.size(),
+            nullptr, nullptr, MAXULONGLONG, compressedTarget, compressedTargetId);
+    };
+    if (!WriteFixture(compressedPath, {9}))
+        return false;
+    error = publishCompressed();
+    Check((error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS) && !compressedTarget &&
+              HasContents(compressedPath, {9}) && !compressedGuard.Check(2),
+          "keep the existing file on a compressed move collision", error);
+    if (!DeleteFileW(compressedPath.c_str()))
+        return false;
+    error = publishCompressed();
+    if (error)
+        return false;
+    USHORT format = COMPRESSION_FORMAT_NONE;
+    FILE_BASIC_INFO compressedMetadata{};
+    Check(!UacCopyLeaf::Detail::ReadCompression(compressedTarget.get(), format) && format == COMPRESSION_FORMAT_LZNT1 &&
+              GetFileInformationByHandleEx(compressedTarget.get(), FileBasicInfo, &compressedMetadata, sizeof(compressedMetadata)) &&
+              compressedMetadata.FileAttributes == compressedAttributes,
+          "publish a pinned LZNT1 destination with the source attributes");
+    error = compressedGuard.RetirePublishedSource(parent.get(), storage.get(), journal.get(), security.get(),
+        wrongParent.get(), compressedLeaf, compressedTarget.get(), compressedTargetId, nullptr, nullptr, MAXULONGLONG);
+    compressedTarget.reset();
+    Check(!error && !Exists(sourcePath) && !Exists(storageDirectory + L"\\" + name) &&
+              HasContents(compressedPath, compressedBytes), "retire the compressed source after complete publication", error);
+    error = recover(parent.get());
+    Check(!error && empty() && GetFileAttributesW(compressedPath.c_str()) == compressedAttributes,
+          "verify and clear the compressed move receipt", error);
     return failures == 0;
 }
 

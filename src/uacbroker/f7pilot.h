@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Describe guarded F6 with NTFS compression. | Bind the existing exact-attributes option to its own move scope. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe sparse guarded F6 sources. | Share the allowed attributes between the worker and broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Finish F6 when only source deletion needs elevation. | Verify the original copy identities and content before retiring the source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Dispatch guarded F6 moves across fixed NTFS volumes. | Keep source retirement and recovery in one scoped broker request. | | GPT-6.1 Sol (Codex) |
@@ -58,7 +59,7 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29 };
 
 inline bool IsRename(Operation operation)
 {
@@ -282,7 +283,8 @@ private:
 
 inline bool IsMoveTransfer(Operation operation)
 {
-    return operation == Operation::Move || operation == Operation::MoveAcrossVolume || operation == Operation::FinishCrossVolumeMove;
+    return operation == Operation::Move || operation == Operation::MoveAcrossVolume ||
+           operation == Operation::FinishCrossVolumeMove || operation == Operation::MoveCompressed;
 }
 
 inline bool CanShareTransferJob(Operation operation)

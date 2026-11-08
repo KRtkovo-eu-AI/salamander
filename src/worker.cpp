@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Retry exact compressed F6 with the scoped broker. | Honor the existing Copy attributes option before retiring the source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Offer brokered cross-volume F6 for sparse files. | Limit the new route to a guarded copy that preserves sparse ranges. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Capture the handles used by an ordinary F6 copy. | Complete denied source deletion only for that exact copy. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Route denied cross-volume F6 to the broker. | Avoid removing the source twice after a confirmed move. | | GPT-6.1 Sol (Codex) |
@@ -5704,10 +5705,12 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
 {
     const bool moving = op.Opcode == ocMoveFile;
     const bool encrypted = !moving && UacF7::IsEncryptedCopyFile(op.Attr);
+    const bool compressedMove = moving && script.CopyAttrs && UacF7::IsCompressedCopyFile(op.Attr);
     if (!script.AllowTransferPilot || script.OverwriteOlder ||
         ((op.OpFlags & OPFL_AS_ENCRYPTED) != 0 && !encrypted) ||
         !op.SourceNameWValid || !op.TargetNameWValid ||
-        (moving ? (script.CopySecurity || script.CopyAttrs || (op.OpFlags & OPFL_COPY_ADS) != 0 || !UacF7::IsCrossVolumeMoveFile(op.Attr))
+        (moving ? (script.CopySecurity || (op.OpFlags & OPFL_COPY_ADS) != 0 ||
+                   (!compressedMove && (script.CopyAttrs || !UacF7::IsCrossVolumeMoveFile(op.Attr))))
                 : (!UacF7::IsEligibleFileCopy(op.Attr, script.CopyAttrs, script.IgnoreTransferAds, script.CopySecurity) ||
                    op.FileSize.Value > UacF7::maxPilotCopyBytes)))
         return false;
@@ -5727,7 +5730,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
 
     auto operation = UacF7::Operation::Copy;
     if (moving)
-        operation = UacF7::Operation::Move;
+        operation = compressedMove ? UacF7::Operation::MoveCompressed : UacF7::Operation::Move;
     else if (encrypted)
         operation = UacF7::Operation::CopyEncrypted;
     else if (script.CopySecurity)

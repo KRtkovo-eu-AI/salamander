@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Dispatch exact compressed cross-volume moves. | Keep compression preservation inside its authorized F6 job. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Accept sparse sources in the cross-volume F6 broker. | Keep copy completion after ordinary copying subject to its existing metadata checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Finish F6 when only source deletion needs elevation. | Verify the original copy identities and content before retiring the source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Dispatch guarded F6 moves across fixed NTFS volumes. | Keep source retirement and recovery in one scoped broker request. | | GPT-6.1 Sol (Codex) |
@@ -116,8 +117,8 @@ constexpr DWORD pipeAccess = FILE_READ_DATA | FILE_WRITE_DATA | FILE_READ_ATTRIB
 constexpr DWORD processAccess = PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE;
 constexpr DWORD timeoutMs = 5000;
 [[maybe_unused]] constexpr DWORD copyTimeoutMs = 30000;
-// Version 2 adds the revision frame for late cross-volume F6 completion.
-constexpr DWORD protocolVersion = 2;
+// Version 3 adds the compressed cross-volume F6 request.
+constexpr DWORD protocolVersion = 3;
 constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD mkdirCapability = 1;
 [[maybe_unused]] constexpr DWORD renameCapability = 2;
@@ -1006,7 +1007,7 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
                         std::wstring_view sourceLeaf, HANDLE targetParent,
                         const UacDirectoryLeaf::ParentIdentity& targetParentId, std::wstring_view targetLeaf,
                         ULONGLONG size, HANDLE pipe, ULONGLONG deadline,
-                        const UacF7::ArchiveRevision* copiedTarget = nullptr)
+                        bool preserveCompression, const UacF7::ArchiveRevision* copiedTarget)
 {
     using namespace UacMoveSourceJournal;
     if (UacDirectoryLeaf::Equal(sourceParentId.volume, targetParentId.volume))
@@ -1078,17 +1079,21 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
             static_cast<ULONGLONG>(standard.EndOfFile.QuadPart) != size)
             return ERROR_FILE_INVALID;
         FILE_BASIC_INFO basic{};
-        const DWORD allowed = copiedTarget ? UacF7::plainCopyAttributes : UacF7::crossVolumeMoveAttributes;
+        DWORD allowed = copiedTarget ? UacF7::plainCopyAttributes : UacF7::crossVolumeMoveAttributes;
+        if (preserveCompression)
+            allowed = UacF7::compressedCopyAttributes;
         if ((status = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), basic, false,
                 UacCopyLeaf::StreamPolicy::RequireDefault, allowed)) ||
             (status = UacCopyLeaf::Detail::CheckCancelled(nullptr, pipe, deadline)))
             return status;
+        if (preserveCompression && !UacF7::IsCompressedCopyFile(basic.FileAttributes))
+            return ERROR_NOT_SUPPORTED;
         std::wstring alias;
         status = Arm(sourceParent, sourceLeaf, source.get(), sourceId, storage.get(), journal.get(), security.get(), alias, seal);
         source.reset();
         if (status || (status = CheckNoPriorSourceOpens(sourceParent, sourceLeaf, sourceId)))
             return status;
-        SourceGuard guard;
+        SourceGuard guard(preserveCompression ? basic.FileAttributes : 0);
         if ((status = guard.Open(sourceParent, sourceLeaf, sourceId, 2)) != ERROR_SUCCESS)
             return status;
         UacMoveSourceJournal::Detail::Handle target(nullptr, CloseHandle);
@@ -1401,8 +1406,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool overwrite = header.operation == Operation::CopyOverwrite;
     const bool copy = UacF7::IsFileCopy(header.operation) || overwrite;
     const bool finishMove = header.operation == Operation::FinishCrossVolumeMove;
-    const bool crossMove = header.operation == Operation::MoveAcrossVolume || finishMove;
     const bool move = UacF7::IsMoveTransfer(header.operation);
+    const bool crossMove = move && header.operation != Operation::Move;
     const bool tree = header.operation == Operation::CopyTree;
     const bool transfer = copy || move || tree;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
@@ -1622,7 +1627,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 deadline = copyDeadline + timeoutMs;
                 result = MoveAcrossVolumes(install, parent.get(), expected, sourceIdentity, leaf,
                                            targetParent.get(), expectedTarget, targetLeaf, header.copySize, pipe, copyDeadline,
-                                           finishMove ? &overwriteTarget : nullptr);
+                                           header.operation == Operation::MoveCompressed, finishMove ? &overwriteTarget : nullptr);
             }
             else if (move)
             {
@@ -2699,13 +2704,14 @@ DWORD ElevatedEditor::Launch(HWND owner, const std::wstring& document) const
 bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstring& targetPath,
                                ULONGLONG expectedSize, Operation operation)
 {
-    const bool moving = operation == Operation::Move;
+    const bool compressedMove = operation == Operation::MoveCompressed;
+    const bool moving = operation == Operation::Move || compressedMove;
     if ((!moving && (!IsFileCopy(operation) || expectedSize > maxPilotCopyBytes)) ||
         !source.PrepareTarget(sourcePath, operation, {}, nullptr) ||
         !target.Prepare(targetPath))
         return false;
     const bool crossMove = moving && !UacDirectoryLeaf::Equal(source.volume, target.volume);
-    if (moving && !crossMove && source.serial != target.serial)
+    if (moving && !crossMove && (compressedMove || source.serial != target.serial))
         return false;
     if (crossMove)
     {
@@ -2715,7 +2721,7 @@ bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstrin
         // from proving that the sealed source has no earlier opens.
         CloseHandle(source.source);
         source.source = nullptr;
-        source.operation = Operation::MoveAcrossVolume;
+        source.operation = compressedMove ? Operation::MoveCompressed : Operation::MoveAcrossVolume;
     }
     if (operation == Operation::CopyEncrypted)
     {

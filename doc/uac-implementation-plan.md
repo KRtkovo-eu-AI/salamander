@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record compressed F6 publication. | Preserve LZNT1 and the source attributes captured before sealing. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record sparse F6 publication. | Track allocated ranges and guarded source retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record F6 completion after an ordinary cross-volume copy. | Verify both identities and the copied data before deleting the source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record broker integration for guarded cross-volume F6. | Preserve ordinary moves and isolate the verified retry. | | GPT-6.1 Sol (Codex) |
@@ -687,6 +688,10 @@ V x64 Debug a Release prošlo 86 nativních kontrol včetně zachycení ID cíle
 **Řídký soubor při F6 mezi svazky.** Pokud už běžné čtení zdroje nebo vytvoření nového cíle vyžaduje elevaci, broker může nyní přesunout i řídký soubor s jediným datovým proudem. Z oplockem chráněného handlu čte přidělené rozsahy pomocí asynchronního I/O a v cíli zachová řídkou alokaci i logickou délku. Záznam a pořadí odstraňování zdrojových odkazů zůstávají stejné jako u běžného souboru. Tato varianta používá stávající limit 16 MiB a cíl bez kolize. Dokončení přesunu po odepření samotného smazání zatím zůstává omezené na běžný soubor. [FSCTL_QUERY_ALLOCATED_RANGES](https://learn.microsoft.com/en-us/windows/win32/api/winioctl/ni-winioctl-fsctl_query_allocated_ranges) · [Asynchronní DeviceIoControl](https://learn.microsoft.com/windows/win32/api/ioapiset/nf-ioapiset-deviceiocontrol).
 
 V x64 Debug i Release prošlo 91 kontrol F6 včetně zkoušky dvou přidělených rozsahů a nealokované oblasti, shody celého obsahu, odmítnutí běžné kopie jako náhrady za řídký zdroj, odstranění zdroje až po zveřejnění cíle a uzavření záznamu obnovy. Prošla také obecná nativní sada v obou konfiguracích a sestavení aplikace, brokeru a sondy x64 Debug. Samotný tok F6 přes dva zapisovatelné svazky zůstává ve společné akceptaci ve VM.
+
+**Komprimovaný soubor při F6 mezi svazky.** Se zapnutým zachováním atributů má komprimovaný soubor vlastní operaci brokeru a rozsah dávky. Pokud běžné čtení zdroje nebo vytvoření cíle vyžaduje elevaci, broker přečte formát komprese z uzamčeného zdroje a nastaví LZNT1 na pracovní kopii. Před zveřejněním a odebráním zdroje kontroluje formát a ověřuje výsledné atributy proti stavu před vytvořením pomocného odkazu. NTFS při vytvoření odkazu v pokusu přidal Archív i zdroji, který ho původně neměl. Zkouška návratu zdroje potvrdila, že se tento bit zatím neobnoví. Obnova bitu po přerušení proto zůstává otevřená. Operace používá verzi protokolu 3 a zachovává limit 16 MiB, jediný datový proud a volný cílový název. [Čtení formátu komprese podle handlu](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_compression_info) · [Nastavení komprese](https://learn.microsoft.com/en-us/windows/desktop/api/winioctl/ni-winioctl-fsctl_set_compression).
+
+V x64 Debug a Release prošlo 96 kontrol F6, 248 obecných nativních kontrol a 13 scénářů dávkové roury v každé konfiguraci. Zkoušky ověřily LZNT1 a shodu obsahu i atributů, odmítnutí stejného svazku, zachování obsazeného cíle a uzavření záznamu obnovy. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Akceptace na dvou svazcích zůstává ve společné zkoušce ve VM.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 
