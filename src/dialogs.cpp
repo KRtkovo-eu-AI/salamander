@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Share one consent across matching leaf mutations. | Display the approved directory and preserve default Cancel. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Report only uncertain broker outcomes in the consent dialog. | Let the ordinary worker dialog handle confirmed failures. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reuse approved F5 and F6 scopes in the progress dialog. | Ask again only for a different scope. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe EFS preservation in the F5 consent. | Identify what the elevated copy will preserve. | | GPT-6.1 Sol (Codex) |
@@ -1873,20 +1874,37 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 confirmText = attributes ? IDS_UAC_DIRECTORY_ATTRS_CONFIRM : IDS_UAC_DIRECTORY_TIMES_CONFIRM;
                 unknownText = attributes ? IDS_UAC_DIRECTORY_ATTRS_UNKNOWN : IDS_UAC_DIRECTORY_TIMES_UNKNOWN;
             }
-            std::string message = std::string(LoadStr(confirmText)) + "\n\n" + prompt.path;
-            if (Script->Count > 1)
-                message += std::string("\n\n") + LoadStr(IDS_UAC_BATCH_ITEM_SCOPE);
-            const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
-            MSGBOXEX_PARAMS confirm{};
-            confirm.HParent = HWindow;
-            confirm.Text = message.c_str();
-            confirm.Caption = LoadStr(deleting ? IDS_CONFIRM_DELETE_TITLE : IDS_CHANGEATTRSTITLE);
-            confirm.Flags = MSGBOXEX_OKCANCEL | (deleting ? MSGBOXEX_ICONEXCLAMATION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN
-                                                         : MSGBOXEX_ICONQUESTION | MSGBOXEX_SHIELDONDEFBTN);
-            confirm.AliasBtnNames = alias.c_str();
-            if (SalMessageBoxEx(&confirm) == IDOK && !CancelWorker)
+            const bool shareJob = Script->Count > 1;
+            auto existing = std::find_if(TransferJobs.begin(), TransferJobs.end(),
+                                         [&](const auto& job) { return prompt.request.IsInJob(job); });
+            bool approved = existing != TransferJobs.end();
+            if (!approved)
             {
-                prompt.result = prompt.request.Execute(HWindow);
+                std::string message = std::string(LoadStr(confirmText)) + "\n\n" + prompt.path;
+                if (shareJob)
+                {
+                    const std::string_view path(prompt.path);
+                    message += std::string("\n\n") + LoadStr(IDS_UAC_LEAF_JOB_SCOPE) + "\n" +
+                               std::string(path.substr(0, path.rfind('\\') + 1));
+                }
+                const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+                MSGBOXEX_PARAMS confirm{};
+                confirm.HParent = HWindow;
+                confirm.Text = message.c_str();
+                confirm.Caption = LoadStr(deleting ? IDS_CONFIRM_DELETE_TITLE : IDS_CHANGEATTRSTITLE);
+                confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN |
+                                (deleting ? MSGBOXEX_ICONEXCLAMATION : MSGBOXEX_ICONQUESTION);
+                confirm.AliasBtnNames = alias.c_str();
+                approved = SalMessageBoxEx(&confirm) == IDOK;
+            }
+            if (approved && !CancelWorker)
+            {
+                UacF7::TransferJobSession* job = nullptr;
+                if (shareJob)
+                    job = existing != TransferJobs.end() ? &*existing : &TransferJobs.emplace_back();
+                prompt.result = prompt.request.Execute(HWindow, job);
+                if (CancelWorker && job)
+                    job->Close();
                 if (prompt.result.unknown)
                     SalMessageBox(HWindow, LoadStr(unknownText),
                                   LoadStr(deleting ? IDS_ERRORDELETINGFILE : IDS_ERRORCHANGINGATTRS),

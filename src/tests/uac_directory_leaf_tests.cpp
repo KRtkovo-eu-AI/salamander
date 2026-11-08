@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify permanent-delete and metadata job boundaries. | Distinguish link types and enforce the selected metadata policy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe late NTFS extended attributes. | Check whether the source guard blocks a separate metadata writer. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise a durable move source journal. | Recover after process death and refuse wrong parents and substitutions. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify recovery through an exact source hard link. | Preserve late streams and refuse collisions when restoring the source name. | | GPT-6.1 Sol (Codex) |
@@ -2631,9 +2632,12 @@ int wmain(int argc, wchar_t** argv)
     Check(UacF7::CanShareTransferJob(scope.operation) && scope.Matches(scope) &&
               UacF7::CanShareTransferJob(UacF7::Operation::CopyEncrypted) &&
               UacF7::CanShareTransferJob(UacF7::Operation::CopyOverwrite) &&
-              !UacF7::CanShareTransferJob(UacF7::Operation::Delete) &&
+              UacF7::CanShareTransferJob(UacF7::Operation::Delete) &&
+              UacF7::CanShareTransferJob(UacF7::Operation::DeleteJunction) &&
+              UacF7::CanShareTransferJob(UacF7::Operation::Metadata) &&
+              !UacF7::CanShareTransferJob(UacF7::Operation::Rename) &&
               !UacF7::CanShareTransferJob(UacF7::Operation::CopyTree),
-          "limit shared consent to supported disk transfer types");
+          "limit shared consent to supported disk operations");
     auto another = scope;
     another.operation = UacF7::Operation::CopyOverwrite;
     Check(!scope.Matches(another), "reject overwrite outside a no-replace copy job");
@@ -2646,6 +2650,32 @@ int wmain(int argc, wchar_t** argv)
     another = scope;
     another.targetPath += L"\\subfolder";
     Check(!scope.Matches(another), "reject a wider destination path even when the supplied ID matches");
+    UacF7::TransferJobScope metadataScope = scope;
+    metadataScope.operation = UacF7::Operation::Metadata;
+    metadataScope.policy = {FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_HIDDEN};
+    metadataScope.change = {132000000000000000LL, 0, 0, FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_ARCHIVE};
+    auto nextMetadata = metadataScope;
+    nextMetadata.change.expectedAttributes = FILE_ATTRIBUTE_ARCHIVE;
+    nextMetadata.change.attributes = 0;
+    Check(metadataScope.policy.Allows(metadataScope.change) && nextMetadata.policy.Allows(nextMetadata.change) &&
+              metadataScope.Matches(nextMetadata),
+          "share one metadata policy across items with different starting attributes");
+    nextMetadata.change.attributes = FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_READONLY;
+    Check(!nextMetadata.policy.Allows(nextMetadata.change), "reject a metadata request that changes an unapproved bit");
+    nextMetadata = metadataScope;
+    ++nextMetadata.change.created;
+    Check(!metadataScope.Matches(nextMetadata), "reject a timestamp outside the approved metadata scope");
+    nextMetadata = metadataScope;
+    nextMetadata.change.expectedAttributes |= FILE_ATTRIBUTE_DIRECTORY;
+    Check(!metadataScope.Matches(nextMetadata), "separate a file metadata job from a directory metadata job");
+    nextMetadata = metadataScope;
+    nextMetadata.policy.set |= FILE_ATTRIBUTE_READONLY;
+    Check(!metadataScope.Matches(nextMetadata), "require new consent for a different attribute policy");
+    auto deletion = scope;
+    deletion.operation = UacF7::Operation::DeleteSymlink;
+    auto junction = deletion;
+    junction.operation = UacF7::Operation::DeleteJunction;
+    Check(!deletion.Matches(junction), "a file symlink deletion scope cannot authorize a junction deletion");
     Check(UacF7::CanContinueTransferJob(ERROR_ALREADY_EXISTS) &&
               UacF7::CanContinueTransferJob(ERROR_ACCESS_DENIED) &&
               !UacF7::CanContinueTransferJob(ERROR_CANCELLED) &&

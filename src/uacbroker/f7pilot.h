@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Scope permanent deletion and metadata jobs. | Keep link types, parent identity and approved metadata values separate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Keep overwrite approval bound to the verified revision. | Reuse a conflict decision only for the same source and destination. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define the scope and lifetime of a transfer job. | Reuse authorization only for matching operations and parent identities. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Add the encrypted F5 request. | Carry an explicit EFS copy contract through the broker. | | GPT-6.1 Sol (Codex) |
@@ -194,6 +195,25 @@ struct MetadataChange
 };
 static_assert(sizeof(MetadataChange) == 32);
 
+struct MetadataJobPolicy
+{
+    DWORD set = 0;
+    DWORD clear = 0;
+
+    bool Allows(const MetadataChange& change) const
+    {
+        if (((set | clear) & ~basicAttributes) || (set & clear))
+            return false;
+        const DWORD before = change.expectedAttributes & basicAttributes;
+        const DWORD after = (before & ~clear) | set;
+        return change.attributes == (after == before ? 0 : after ? after : FILE_ATTRIBUTE_NORMAL);
+    }
+};
+static_assert(sizeof(MetadataJobPolicy) == 8);
+
+class TransferJobSession;
+struct TransferJobScope;
+
 class PreparedLeaf
 {
 public:
@@ -205,7 +225,7 @@ public:
     bool Prepare(const std::wstring& path, const std::wstring& renameTo = {});
     bool PrepareRenameLink(const std::wstring& path, const std::wstring& renameTo, bool directory);
     bool IsJunctionRename() const { return operation == Operation::RenameJunction; }
-    bool PrepareMetadata(const std::wstring& path, const MetadataChange& change);
+    bool PrepareMetadata(const std::wstring& path, const MetadataChange& change, MetadataJobPolicy policy = {});
     bool PrepareDelete(const std::wstring& path, Operation requested);
     bool IsDirectorySymlinkDelete() const { return operation == Operation::DeleteDirectorySymlink; }
     bool IsJunctionDelete() const { return operation == Operation::DeleteJunction; }
@@ -216,12 +236,13 @@ public:
     DWORD WriteZipSelectionLocal(const std::vector<BYTE>& bytes) const;
     Result WriteZipSelection(HWND owner, std::vector<BYTE>& bytes) const;
     DWORD ExecuteLocal() const;
-    Result Execute(HWND owner) const;
+    Result Execute(HWND owner, TransferJobSession* job = nullptr) const;
+    bool IsInJob(const TransferJobSession& job) const;
     bool IsDirectoryMetadata() const
     {
         return operation == Operation::Metadata && (metadata.expectedAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
     }
-    bool ChangesAttributes() const { return metadata.attributes != 0; }
+    bool ChangesAttributes() const { return (metadata.attributes | metadataPolicy.set | metadataPolicy.clear) != 0; }
 
 private:
     friend class ListingSession;
@@ -235,13 +256,16 @@ private:
     BYTE fileId[16]{};
     BYTE sourceId[16]{};
     std::wstring volume, relative, leaf, sourceLeaf;
+    TransferJobScope JobScope() const;
     MetadataChange metadata{};
+    MetadataJobPolicy metadataPolicy{};
     Operation operation = Operation::Mkdir;
 };
 
 inline bool CanShareTransferJob(Operation operation)
 {
-    return IsFileCopy(operation) || operation == Operation::Move || operation == Operation::CopyOverwrite;
+    return IsFileCopy(operation) || operation == Operation::Move || operation == Operation::CopyOverwrite ||
+           IsLeafDelete(operation) || operation == Operation::Metadata;
 }
 
 inline bool CanContinueTransferJob(DWORD error)
@@ -259,6 +283,8 @@ struct TransferJobScope
     };
     Parent source{}, target{};
     std::wstring sourcePath, targetPath;
+    MetadataJobPolicy policy{};
+    MetadataChange change{};
 
     bool Matches(const TransferJobScope& other) const
     {
@@ -266,7 +292,11 @@ struct TransferJobScope
                target.serial == other.target.serial &&
                std::memcmp(source.id, other.source.id, sizeof(source.id)) == 0 &&
                std::memcmp(target.id, other.target.id, sizeof(target.id)) == 0 &&
-               sourcePath == other.sourcePath && targetPath == other.targetPath;
+               sourcePath == other.sourcePath && targetPath == other.targetPath &&
+               policy.set == other.policy.set && policy.clear == other.policy.clear &&
+               change.created == other.change.created && change.accessed == other.change.accessed &&
+               change.modified == other.change.modified &&
+               ((change.expectedAttributes ^ other.change.expectedAttributes) & FILE_ATTRIBUTE_DIRECTORY) == 0;
     }
 };
 
@@ -281,6 +311,7 @@ public:
 
 private:
     friend class PreparedTransfer;
+    friend class PreparedLeaf;
     HANDLE pipe = nullptr;
     TransferJobScope scope;
 };

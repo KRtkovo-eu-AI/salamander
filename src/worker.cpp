@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Preserve worker error choices for leaf mutations. | Return cancelled elevation to the ordinary retry and skip dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Resume the ordinary transfer error flow after known UAC outcomes. | Preserve skipped items, progress and confirmed overwrite revisions. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow protected EFS in the serial transfer batch. | Keep one authorization per compatible scope. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route eligible encrypted F5 failures to the broker. | Preserve ciphertext and release the normal copy handle before elevation. | | GPT-6.1 Sol (Codex) |
@@ -9116,7 +9117,7 @@ static BOOL ExecuteVerifiedWorkerLeaf(HWND progress, const COperation& op, const
             const std::string path = SalWideToMultiBytePath(display.c_str(), CP_UTF8);
             UacF7::LeafPrompt prompt{request, path.c_str()};
             SendMessage(progress, WM_USER_DIALOG, promptKind, reinterpret_cast<LPARAM>(&prompt));
-            if (prompt.result.unknown || prompt.result.error == ERROR_CANCELLED)
+            if (prompt.result.unknown)
                 return FALSE;
             error = prompt.result.error;
         }
@@ -9189,7 +9190,7 @@ static bool TryChangeBasicMetadata(HWND progress, COperation& op, const CChangeA
         return false;
 
     UacF7::PreparedLeaf request;
-    if (!request.PrepareMetadata(op.SourceNameW, change))
+    if (!request.PrepareMetadata(op.SourceNameW, change, {input.BasicMetadataSet, input.BasicMetadataClear}))
         return false;
     success = ExecuteVerifiedWorkerLeaf(progress, op, request, dlgData, WORKER_DIALOG_UAC_METADATA, IDS_ERRORCHANGINGATTRS);
     return true;

@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Reuse scoped consent for permanent deletion and metadata. | Enforce approved parent, item type and attribute and time settings. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify late EA writes and prepare Shell recycle acceptance. | Establish source safety and the original-account receipt checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Add a durable cross-volume source recovery journal. | Bind recovery to verified NTFS names and file identities. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify a source recovery link across process termination. | Establish exact recovery and expose remaining NTFS write paths. | | GPT-6.1 Sol (Codex) |
@@ -596,6 +597,10 @@ V x64 Debug prošlo sestavení aplikace, jazykových zdrojů, brokeru a sondy. P
 **Návrat po odmítnutí nebo potvrzené chybě.** Přímá kopie F5, přepis F5 a přesun F6 po známém výsledku opět používají své běžné dialogy Retry, Skip, Skip All a Cancel. Přepis při Retry zachová dřívější rozhodnutí pouze pro stejnou identitu zdroje a stejnou revizi cíle. Změna jednoho z nich vyžaduje nové rozhodnutí. Při odepření nebo potvrzené kolizi zůstane už schválená relace otevřená pro další způsobilé položky, pokud uživatel pokračuje. Zrušení, přerušení spojení nebo neověřený částečný výsledek relaci ukončí. Neověřený výsledek ukončí dávku s pokynem ke kontrole cíle.
 
 V x64 Debug prošlo sestavení aplikace, anglických zdrojů, brokeru a sondy. V Debug i Release prošlo 237 nativních kontrol včetně zachování relace po potvrzené kolizi, odmítnutí prázdného schválení a rozlišení změny revize cíle nebo identity zdroje. Skutečný průchod dialogy a přeskočení prostřední položky po jedné výzvě UAC budou součástí společné zkoušky ve VM.
+
+**Sdílený souhlas pro trvalé mazání a Ctrl+F2.** Další položka stejné úlohy použije stejný autentizovaný broker pouze pod týmž rodičem a pro stejný typ operace. Trvalé smazání běžného souboru, souborového odkazu, adresářového odkazu a junction má oddělené rozsahy. Ctrl+F2 přenáší původní volby nastavení a rušení atributů a broker kontroluje, že každá změna odpovídá těmto volbám a stejným časům. Různé výchozí atributy položek souhlas neruší. Souborová a adresářová metadata mají oddělené rozsahy. Potvrzení ukazuje rozsah a složku. Oba dialogy mají výchozí Cancel. Odmítnutí nebo známá chyba se vrátí k obvyklým volbám Retry, Skip, Skip All a Cancel. Neověřená mutace zastaví úlohu.
+
+Sestavení aplikace, anglických zdrojů, brokeru a sondy v x64 Debug prošlo. V Debug i Release prošlo 243 nativních kontrol. V Debug prošlo také 48 kontrol mazacího workeru, 73 kontrol workeru atributů a zkouška autentizace lokálního kanálu. Počet výzev, skutečné přeskočení prostřední položky a chování se dvěma účty ověří společná akceptace v izolované VM. Rozsah se týká stávajících ověřovaných položek na lokálním NTFS.
 
 ### 8.25 P4n — ověření odstranění zdroje po kopii na NTFS
 

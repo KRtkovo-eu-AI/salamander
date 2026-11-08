@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Authenticate repeated leaf mutation requests. | Enforce the first approved parent, operation and metadata choices. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Retain transfer consent after confirmed item failures. | Let the user skip a failed item and continue the same job. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Keep an authenticated broker for a bounded transfer job. | Check each request against the first approved operation and parent pair. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Connect encrypted F5 requests to the elevated broker. | Use a protected same-volume workspace and verify destination policy. | | GPT-6.1 Sol (Codex) |
@@ -134,6 +135,7 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD copySecurityCapability = 2097152;
 [[maybe_unused]] constexpr DWORD viewCapability = 4194304;
 [[maybe_unused]] constexpr DWORD sizeDetailsCapability = 8388608;
+[[maybe_unused]] constexpr DWORD leafJobCapability = 0x01000000;
 [[maybe_unused]] constexpr DWORD transferJobCapability = 0x02000000;
 [[maybe_unused]] constexpr DWORD archiveReadCapability = 67108864;
 [[maybe_unused]] constexpr DWORD zipSelectionWriteCapability = 134217728;
@@ -147,7 +149,7 @@ constexpr DWORD capabilities = 0;
                                                  directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
                                                  copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability |
                                                  renameDirectorySymlinkCapability | renameJunctionCapability | deleteSymlinkCapability |
-                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability | zipSelectionWriteCapability | zipUpdateCapability | copyOverwriteCapability | findContentCapability | findFileCapability | transferJobCapability;
+                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability | zipSelectionWriteCapability | zipUpdateCapability | copyOverwriteCapability | findContentCapability | findFileCapability | transferJobCapability | leafJobCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -1267,19 +1269,6 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), false, deadline);
     if (error)
         return error;
-    if (jobScope)
-    {
-        UacF7::TransferJobScope requested{
-            header.operation, {header.serial, {}}, {header.targetSerial, {}},
-            payload.substr(0, volumeLength + header.relativeLength),
-            payload.substr(primarySize, volumeLength + header.targetRelativeLength)};
-        std::memcpy(requested.source.id, header.parentId.Identifier, sizeof(requested.source.id));
-        std::memcpy(requested.target.id, header.targetParentId.Identifier, sizeof(requested.target.id));
-        if (jobScope->operation == Operation::Mkdir)
-            *jobScope = std::move(requested);
-        else if (!jobScope->Matches(requested))
-            return ERROR_ACCESS_DENIED;
-    }
     UacF7::MetadataChange metadata{};
     if (setMetadata)
     {
@@ -1290,6 +1279,28 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             return ERROR_INVALID_DATA;
     }
 
+    if (jobScope)
+    {
+        UacF7::TransferJobScope requested{
+            header.operation, {header.serial, {}}, {header.targetSerial, {}},
+            payload.substr(0, volumeLength + header.relativeLength),
+            transfer ? payload.substr(primarySize, volumeLength + header.targetRelativeLength) : std::wstring{}};
+        if (setMetadata)
+        {
+            error = TransferRequest(pipe, &requested.policy, sizeof(requested.policy), false, deadline);
+            if (error)
+                return error;
+            requested.change = metadata;
+            if (!requested.policy.Allows(metadata))
+                return ERROR_ACCESS_DENIED;
+        }
+        std::memcpy(requested.source.id, header.parentId.Identifier, sizeof(requested.source.id));
+        std::memcpy(requested.target.id, header.targetParentId.Identifier, sizeof(requested.target.id));
+        if (jobScope->operation == Operation::Mkdir)
+            *jobScope = std::move(requested);
+        else if (!jobScope->Matches(requested))
+            return ERROR_ACCESS_DENIED;
+    }
     UacF7::ArchiveRevision overwriteTarget;
     if (overwrite)
     {
@@ -1868,7 +1879,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
                HANDLE* sessionPipe = nullptr, HANDLE cancel = nullptr, std::vector<BYTE>* snapshot = nullptr,
                UacF7::ArchiveRevision* archiveRevision = nullptr, std::vector<BYTE>* zipBytes = nullptr,
                HANDLE zipUpdateFile = nullptr, UacF7::ArchiveRevision* overwriteTarget = nullptr,
-               HANDLE* transferJob = nullptr
+               HANDLE* transferJob = nullptr, UacF7::MetadataJobPolicy* metadataPolicy = nullptr
 #endif
 )
 {
@@ -1969,6 +1980,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
             error = TransferRequest(pipe.get(), payload->data(), static_cast<DWORD>(payload->size() * sizeof(wchar_t)), true, deadline);
         if (!error && metadata)
             error = TransferRequest(pipe.get(), metadata, sizeof(*metadata), true, deadline);
+        if (!error && metadataPolicy)
+            error = TransferRequest(pipe.get(), metadataPolicy, sizeof(*metadataPolicy), true, deadline);
         if (!error && overwriteTarget)
             error = TransferRequest(pipe.get(), overwriteTarget, sizeof(*overwriteTarget), true, deadline);
         if (!error && zipBytes)
@@ -2006,12 +2019,12 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         if (copy || tree || zipBytes)
             deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
         error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline, tree ? cancel : nullptr);
-        if (!error && (copy || request->operation == Operation::Move || tree || zipBytes ||
+        if (!error && (transferJob || copy || request->operation == Operation::Move || tree || zipBytes ||
                        zipUpdateFile))
         {
             // The authenticated reply is sent only after the operation handles close.
             result->error = operationError;
-            result->unknown = (tree || zipUpdateFile || overwriteTarget || request->operation == Operation::CopyEncrypted) &&
+            result->unknown = (transferJob || tree || zipUpdateFile || overwriteTarget || request->operation == Operation::CopyEncrypted) &&
                               operationError == ERROR_PARTIAL_COPY;
         }
         if (error)
@@ -2124,9 +2137,12 @@ bool PreparedLeaf::PrepareRenameLink(const std::wstring& path, const std::wstrin
            PrepareTarget(path, Operation::RenameJunction, renameTo, nullptr);
 }
 
-bool PreparedLeaf::PrepareMetadata(const std::wstring& path, const MetadataChange& change)
+bool PreparedLeaf::PrepareMetadata(const std::wstring& path, const MetadataChange& change, MetadataJobPolicy policy)
 {
-    return UacMetadataLeaf::IsValid(change) && PrepareTarget(path, Operation::Metadata, {}, &change);
+    if (!UacMetadataLeaf::IsValid(change) || !PrepareTarget(path, Operation::Metadata, {}, &change))
+        return false;
+    metadataPolicy = policy;
+    return true;
 }
 
 bool PreparedLeaf::PrepareDelete(const std::wstring& path, Operation requested)
@@ -2300,7 +2316,59 @@ DWORD PreparedLeaf::ExecuteLocal() const
     return UacMetadataLeaf::SetVerifiedMetadata(parent, expectedParent, expectedSource, leaf, metadata);
 }
 
-Result PreparedLeaf::Execute(HWND owner) const
+TransferJobScope PreparedLeaf::JobScope() const
+{
+    TransferJobScope scope{operation, {serial, {}}, {}, volume + relative, {}};
+    std::memcpy(scope.source.id, fileId, sizeof(fileId));
+    scope.policy = metadataPolicy;
+    scope.change = metadata;
+    return scope;
+}
+
+bool PreparedLeaf::IsInJob(const TransferJobSession& job) const
+{
+    return job.pipe && job.scope.Matches(JobScope());
+}
+
+static Result RepeatTransferJob(HANDLE& pipe, RequestHeader& header, std::wstring& payload,
+                                void* extra, DWORD extraBytes, MetadataJobPolicy* policy = nullptr)
+{
+    Result result;
+    auto deadline = GetTickCount64() + timeoutMs;
+    DWORD error = TransferRequest(pipe, &header, sizeof(header), true, deadline);
+    if (!error)
+    {
+        result.unknown = !extra;
+        error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline);
+    }
+    if (!error && extra)
+    {
+        result.unknown = !policy;
+        error = TransferRequest(pipe, extra, extraBytes, true, deadline);
+    }
+    if (!error && policy)
+    {
+        result.unknown = true;
+        error = TransferRequest(pipe, policy, sizeof(*policy), true, deadline);
+    }
+    if (!error)
+    {
+        deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
+        error = TransferRequest(pipe, &result.error, sizeof(result.error), false, deadline);
+    }
+    if (error)
+        result.error = error;
+    else
+        result.unknown = result.error == ERROR_PARTIAL_COPY;
+    if (error || !CanContinueTransferJob(result.error))
+    {
+        CloseHandle(pipe);
+        pipe = nullptr;
+    }
+    return result;
+}
+
+Result PreparedLeaf::Execute(HWND owner, TransferJobSession* job) const
 {
     Result result;
     const ComApartment com;
@@ -2315,7 +2383,19 @@ Result PreparedLeaf::Execute(HWND owner) const
     std::memcpy(header.sourceId.Identifier, sourceId, sizeof(sourceId));
     std::wstring payload = volume + relative + leaf + sourceLeaf;
     MetadataChange requestMetadata = metadata;
-    RunProbe(install, false, false, owner, &header, &payload, operation == Operation::Metadata ? &requestMetadata : nullptr, &result);
+    auto* change = operation == Operation::Metadata ? &requestMetadata : nullptr;
+    auto policy = metadataPolicy;
+    if (job && (!CanShareTransferJob(operation) || (change && !policy.Allows(*change))))
+        return result;
+    if (job && IsInJob(*job))
+        return RepeatTransferJob(job->pipe, header, payload, change, sizeof(requestMetadata), change ? &policy : nullptr);
+    if (job)
+    {
+        job->Close();
+        job->scope = JobScope();
+    }
+    RunProbe(install, false, false, owner, &header, &payload, change, &result, nullptr, nullptr,
+             nullptr, nullptr, nullptr, nullptr, nullptr, job ? &job->pipe : nullptr, job && change ? &policy : nullptr);
     return result;
 }
 
@@ -2562,30 +2642,7 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* 
     if (job && !CanShareJob())
         return result;
     if (job && IsInJob(*job))
-    {
-        auto deadline = GetTickCount64() + timeoutMs;
-        DWORD error = TransferRequest(job->pipe, &header, sizeof(header), true, deadline);
-        if (!error)
-        {
-            result.unknown = !IsOverwrite();
-            error = TransferRequest(job->pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline);
-        }
-        if (!error && IsOverwrite())
-        {
-            result.unknown = true;
-            error = TransferRequest(job->pipe, &revision, sizeof(revision), true, deadline);
-        }
-        deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
-        if (!error)
-            error = TransferRequest(job->pipe, &result.error, sizeof(result.error), false, deadline);
-        if (error)
-            result.error = error;
-        else
-            result.unknown = result.error == ERROR_PARTIAL_COPY;
-        if (error || !CanContinueTransferJob(result.error))
-            job->Close();
-        return result;
-    }
+        return RepeatTransferJob(job->pipe, header, payload, IsOverwrite() ? &revision : nullptr, sizeof(revision));
     if (job)
     {
         job->Close();

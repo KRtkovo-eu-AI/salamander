@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Store the approved basic attribute choices. | Reuse the same policy across metadata items. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the shared job flag for EFS. | Retire the single-file eligibility gate. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Track eligibility of single-file EFS jobs. | Keep multi-file consent scoped to the job. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Track complete protected disk measurements separately. | An unavailable measurement must not invalidate the logical file sizes. | | GPT-6.1 Sol (Codex) |
@@ -72,6 +73,8 @@ struct CChangeAttrsData
     BOOL ChangeTimeAccessed;
     FILETIME TimeAccessed;
     BOOL AllowBasicMetadataPilot;
+    DWORD BasicMetadataSet;
+    DWORD BasicMetadataClear;
 };
 
 struct CConvertData // data used by ocConvert

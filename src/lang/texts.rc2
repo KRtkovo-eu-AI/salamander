@@ -1,5 +1,6 @@
 ﻿// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe the approved leaf job scope. | Identify the folder and authorization lifetime. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the transfer consent lifetime and paths. | Make the shared scope explicit. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add an explicit EFS consent prompt. | Describe preservation of encryption. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the single-file Find grant. | Show the file scope before Windows consent. | | GPT-6.1 Sol (Codex) |
@@ -2436,6 +2437,7 @@ STRINGTABLE
  IDS_UAC_EDIT_ADMIN_UNTRUSTED, "Administrator mode requires an editor executable in a protected Windows or Program Files directory."
  IDS_UAC_SIZE_NOT_AVAILABLE, "Not available"
  IDS_UAC_TRANSFER_JOB_SCOPE, "Approval also applies to eligible files for this operation in the folders below, until this job ends."
+ IDS_UAC_LEAF_JOB_SCOPE, "Approval also applies to eligible items for this operation in the folder below, until this job ends."
  IDS_UAC_BATCH_ITEM_SCOPE, "Approval applies to this item. Cancel stops the remaining items and keeps completed changes."
  IDS_UAC_COPY_OVERWRITE_CONFIRM, "Access was denied. Replace this existing file as an administrator while keeping the destination permissions?"
  IDS_UAC_COPY_CONFIRM, "Access was denied. Copy this file and its alternate data streams as an administrator?"
