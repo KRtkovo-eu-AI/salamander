@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Bind duplicate candidates to a specific consented scope. | Distinguish independent protected roots. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify protected duplicate candidates. | Keep later content reads on the session that authorized the candidate. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route protected Find consent separately from traversal. | Keep cancellation visible to both search threads. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Post coalesced Find result refreshes asynchronously. | Keep the search worker from blocking the GUI thread during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
@@ -31,7 +32,7 @@ struct FIND_LOG_ITEM
 #define WM_USER_BUTTONS WM_APP + 213    // call EnableButtons() yourself [HWND hButton]
 #define WM_USER_FLASHICON WM_APP + 214  // after activating the find, flash the status icon
 
-#define WM_USER_FIND_PROTECTED_CONSENT (WM_APP + 215) // synchronous [const std::wstring* folder, 0]
+#define WM_USER_FIND_PROTECTED_CONSENT (WM_APP + 215) // synchronous [const std::wstring* folder, reads content]
 
 extern BOOL IsNotAlpha[256];
 
@@ -523,7 +524,7 @@ struct CFoundFilesData
     DWORD_PTR Group;
 
     unsigned IsDir : 1; // 0 - item is a file, 1 - item is a directory
-    unsigned ProtectedCandidate : 1; // duplicate content must use the authorized Find session
+    unsigned ProtectedScope : 6; // one-based Find session for a protected duplicate
     // Selected and Focused are used only locally for StoreItemsState/RestoreItemsState
     unsigned Selected : 1; // 0 - item not selected, 1 - item selected
     unsigned Focused : 1;  // 0 - item is focused, 1 - item is not focused
@@ -538,7 +539,7 @@ struct CFoundFilesData
         ZeroMemory(&LastWrite, sizeof(LastWrite));
         Group = 0;
         IsDir = 0;
-        ProtectedCandidate = 0;
+        ProtectedScope = 0;
         Selected = 0;
         Different = 0;
     }
