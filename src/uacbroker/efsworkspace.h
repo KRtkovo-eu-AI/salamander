@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Reuse the anchored hard link helper. | Apply one component-validation boundary to NTFS aliases. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Journal the EFS workspace and its exact objects. | Recover interrupted raw copies without following replacement paths. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
@@ -83,24 +84,6 @@ inline DWORD AllowReopen(HANDLE file)
 {
     FILE_DISPOSITION_INFO_EX keep{FILE_DISPOSITION_FLAG_ON_CLOSE};
     return SetFileInformationByHandle(file, FileDispositionInfoEx, &keep, sizeof(keep)) ? ERROR_SUCCESS : GetLastError();
-}
-
-inline DWORD CreateSourceLink(HANDLE source, HANDLE directory)
-{
-    struct
-    {
-        BOOLEAN replaceIfExists;
-        HANDLE rootDirectory;
-        ULONG fileNameLength;
-        WCHAR fileName[ARRAYSIZE(sourceName)];
-    } info{};
-    info.rootDirectory = directory;
-    info.fileNameLength = sizeof(sourceName) - sizeof(wchar_t);
-    std::memcpy(info.fileName, sourceName, sizeof(sourceName));
-    IO_STATUS_BLOCK io{};
-    constexpr auto fileLinkInformation = static_cast<FILE_INFORMATION_CLASS>(11);
-    const NTSTATUS status = NtSetInformationFile(source, &io, &info, sizeof(info), fileLinkInformation);
-    return status >= 0 ? ERROR_SUCCESS : RtlNtStatusToDosError(status);
 }
 
 inline DWORD CheckFile(HANDLE file, const FILE_ID_INFO& expected, bool alias)
@@ -240,7 +223,7 @@ public:
             return error;
         }
         journal = journalHandle;
-        return CreateSourceLink(source, directory.get());
+        return UacRenameLeaf::Detail::NativeHardLink(source, directory.get(), sourceName);
     }
 
     DWORD CreatePayload(PSECURITY_DESCRIPTOR security)

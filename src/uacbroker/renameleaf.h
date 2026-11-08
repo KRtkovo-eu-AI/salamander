@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Share anchored hard link creation. | Preserve the file identity without opening its original path again. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share the no-replace exchange for staged file updates. | Preserve the verified original when a replacement collides or is interrupted. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Validate a junction before renaming it in place. | Accept a drive-letter junction without resolving it or accepting volume GUID mounts. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Rename a verified directory symbolic link in place. | Open the reparse object without traversing it and enforce the approved type. | | GPT-6.1 Sol (Codex) |
@@ -56,6 +57,29 @@ inline DWORD NativeRename(HANDLE source, HANDLE targetParent, std::wstring_view 
     IO_STATUS_BLOCK io{};
     constexpr auto renameClass = static_cast<FILE_INFORMATION_CLASS>(10); // FileRenameInformation
     const NTSTATUS status = NtSetInformationFile(source, &io, &info, sizeof(info), renameClass);
+    return status >= 0 ? ERROR_SUCCESS : RtlNtStatusToDosError(status);
+}
+
+inline DWORD NativeHardLink(HANDLE source, HANDLE targetParent, std::wstring_view leaf)
+{
+    if (!UacDirectoryLeaf::IsComponent(leaf))
+        return ERROR_INVALID_NAME;
+
+    // FILE_LINK_INFORMATION with a single, parent-relative component.
+    struct
+    {
+        BOOLEAN replaceIfExists;
+        HANDLE rootDirectory;
+        ULONG fileNameLength;
+        WCHAR fileName[UacDirectoryLeaf::maxComponent + 1];
+    } info{};
+    static_assert(offsetof(decltype(info), fileName) == offsetof(FILE_RENAME_INFO, FileName));
+    info.rootDirectory = targetParent;
+    info.fileNameLength = static_cast<ULONG>(leaf.size() * sizeof(wchar_t));
+    std::memcpy(info.fileName, leaf.data(), info.fileNameLength);
+    IO_STATUS_BLOCK io{};
+    constexpr auto linkClass = static_cast<FILE_INFORMATION_CLASS>(11); // FileLinkInformation
+    const NTSTATUS status = NtSetInformationFile(source, &io, &info, sizeof(info), linkClass);
     return status >= 0 ? ERROR_SUCCESS : RtlNtStatusToDosError(status);
 }
 

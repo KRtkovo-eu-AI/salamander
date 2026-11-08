@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify recovery through an exact source hard link. | Preserve late streams and refuse collisions when restoring the source name. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify retry scope after a definitive broker error. | Preserve matching overwrite approval and reject a changed object. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify the transfer job scope boundary. | Reject other operations, paths and parent identities. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check eligibility for the encrypted F5 request. | Prevent unsupported metadata combinations. | | GPT-6.1 Sol (Codex) |
@@ -879,6 +880,155 @@ bool CheckMoveSourceGuards(const std::wstring& fixture, HANDLE root)
     Check(cleared && HasContents(path, original), "clear delete-pending and keep the original main stream", clearError);
     Check(!writtenWhilePending || (written == sizeof(added) && HasContents(existingStream, {added})),
           "detect bytes written through an existing alternate stream while delete-pending", pendingWriteError);
+    return failures == 0;
+}
+
+int HoldMoveSourcePending(const std::wstring& fixture, const wchar_t* signal)
+{
+    const Handle ready(OpenEventW(EVENT_MODIFY_STATE, FALSE, signal));
+    const auto original = fixture + L"\\recover-\u6771.txt";
+    const HANDLE raw = CreateFileW(original.c_str(), DELETE, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (!ready || raw == INVALID_HANDLE_VALUE)
+        return 1;
+    const Handle source(raw);
+    FILE_DISPOSITION_INFO remove{TRUE};
+    if (!SetFileInformationByHandle(source.get(), FileDispositionInfo, &remove, sizeof(remove)) || !SetEvent(ready.get()))
+        return 2;
+    Sleep(5000); // Allow the parent to terminate this process with the handle still open.
+    return 3;
+}
+
+bool InterruptPendingMoveSource(const std::wstring& fixture)
+{
+    GUID id{};
+    wchar_t guid[39]{};
+    if (FAILED(CoCreateGuid(&id)) || !StringFromGUID2(id, guid, ARRAYSIZE(guid)))
+        return false;
+    const std::wstring name = std::wstring(L"Local\\Samandarin-MoveProbe-") + guid;
+    const Handle ready(CreateEventW(nullptr, TRUE, FALSE, name.c_str()));
+    std::wstring exe(32768, L'\0');
+    const DWORD length = GetModuleFileNameW(nullptr, exe.data(), static_cast<DWORD>(exe.size()));
+    if (!ready || !length || length >= exe.size())
+        return false;
+    exe.resize(length);
+    std::wstring command = L"\"" + exe + L"\" \"" + fixture.substr(4) + L"\" --hold-move-source \"" + name + L"\"";
+    STARTUPINFOW startup{sizeof(startup)};
+    PROCESS_INFORMATION process{};
+    if (!CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
+                        nullptr, nullptr, &startup, &process))
+        return false;
+    const Handle child(process.hProcess), thread(process.hThread);
+    const bool reached = WaitForSingleObject(ready.get(), 3000) == WAIT_OBJECT_0;
+    const BOOL killed = TerminateProcess(child.get(), 17);
+    DWORD code = 0;
+    return WaitForSingleObject(child.get(), 4000) == WAIT_OBJECT_0 && reached && killed &&
+           GetExitCodeProcess(child.get(), &code) && code == 17;
+}
+
+bool CheckMoveSourceRecoveryLink(const std::wstring& fixture, HANDLE root)
+{
+    using namespace UacRenameLeaf::Detail;
+    constexpr DWORD shareAll = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    constexpr wchar_t sourceLeaf[] = L"recover-\u6771.txt";
+    constexpr wchar_t recoveryLeaf[] = L"retained-\u65e5.txt";
+    const auto original = fixture + L"\\" + sourceLeaf;
+    const auto recovery = fixture + L"\\destination\\" + recoveryLeaf;
+    if (!WriteFixture(original, {1, 2, 3}))
+        return false;
+
+    HANDLE raw = nullptr;
+    UacDirectoryLeaf::ParentIdentity parentId;
+    if (UacDirectoryLeaf::OpenParentBelowRoot(root, L"destination", raw, parentId, FILE_ADD_FILE))
+        return false;
+    const Handle parent(raw);
+    DWORD error = OpenSource(root, sourceLeaf, raw, FILE_READ_DATA | FILE_READ_EA | DELETE, 0);
+    if (error)
+        return false;
+    Handle source(raw);
+    FILE_ID_INFO sourceId{};
+    if (ReadSourceIdentity(source.get(), sourceId))
+        return false;
+    error = NativeHardLink(source.get(), parent.get(), L"..\\escape");
+    Check(error == ERROR_INVALID_NAME, "reject a recovery link outside the verified parent", error);
+    error = NativeHardLink(source.get(), parent.get(), recoveryLeaf);
+    if (error)
+    {
+        Check(false, "create a recovery link while the original main stream is guarded", error);
+        return false;
+    }
+    FILE_ID_INFO recoveryId{};
+    {
+        const auto identity = OpenIdentity(recovery, recoveryId);
+        Check(identity && SameSource(sourceId, recoveryId), "bind the recovery link to the exact original object");
+    }
+
+    // An already open alternate stream can keep changing even when the
+    // original name is marked for deletion. The recovery link must retain it.
+    const auto before = original + L":before";
+    const HANDLE rawWriter = CreateFileW(before.c_str(), FILE_WRITE_DATA, shareAll, nullptr, CREATE_NEW, 0, nullptr);
+    if (rawWriter == INVALID_HANDLE_VALUE)
+        return false;
+    Handle writer(rawWriter);
+    FILE_DISPOSITION_INFO remove{TRUE};
+    if (!SetFileInformationByHandle(source.get(), FileDispositionInfo, &remove, sizeof(remove)))
+        return false;
+
+    const auto probeStream = [&](const std::wstring& path) -> DWORD {
+        const HANDLE file = CreateFileW(path.c_str(), FILE_WRITE_DATA, shareAll, nullptr, CREATE_NEW, 0, nullptr);
+        if (file == INVALID_HANDLE_VALUE)
+            return GetLastError();
+        const Handle stream(file);
+        DWORD written = 0;
+        const BYTE data = 8;
+        return WriteFile(stream.get(), &data, sizeof(data), &written, nullptr) && written == sizeof(data) ?
+                   ERROR_SUCCESS : ERROR_WRITE_FAULT;
+    };
+    const DWORD originalPending = probeStream(original + L":after");
+    const DWORD aliasPending = probeStream(recovery + L":after");
+    FILE_ID_DESCRIPTOR descriptor{};
+    descriptor.dwSize = sizeof(descriptor);
+    descriptor.Type = ExtendedFileIdType;
+    descriptor.ExtendedFileId = sourceId.FileId;
+    const HANDLE rawById = OpenFileById(root, &descriptor, FILE_READ_ATTRIBUTES, shareAll, nullptr, 0);
+    const DWORD byIdError = rawById == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
+    if (!byIdError)
+        CloseHandle(rawById);
+    std::printf("PROBE: pending-original-stream=%lu pending-recovery-stream=%lu pending-open-by-id=%lu\n",
+                originalPending, aliasPending, byIdError);
+    Check(originalPending != ERROR_SUCCESS, "block creation of a new stream through the pending original name", originalPending);
+    DWORD written = 0;
+    const BYTE late = 9;
+    Check(WriteFile(writer.get(), &late, sizeof(late), &written, nullptr) && written == sizeof(late),
+          "write through a stream opened before the source name became pending");
+
+    writer.reset();
+    source.reset();
+    Check(!Exists(original) && HasContents(recovery, {1, 2, 3}) && HasContents(recovery + L":before", {late}),
+          "retain the exact source data and late stream after the original handle closes");
+    if (!aliasPending)
+        Check(HasContents(recovery + L":after", {8}), "retain a stream created through the other link while the original is pending");
+
+    FILE_ID_INFO actual{};
+    const auto retained = OpenIdentity(recovery, actual);
+    if (!retained || !SameSource(sourceId, actual) || !WriteFixture(original, {7}))
+        return false;
+    error = NativeHardLink(retained.get(), root, sourceLeaf);
+    Check((error == ERROR_FILE_EXISTS || error == ERROR_ALREADY_EXISTS) && HasContents(original, {7}),
+          "never overwrite a replacement at the original source name during restoration", error);
+    if (!DeleteFileW(original.c_str()))
+        return false;
+    error = NativeHardLink(retained.get(), root, sourceLeaf);
+    FILE_ID_INFO restored{};
+    {
+        const auto opened = OpenIdentity(original, restored);
+        Check(!error && opened && SameSource(sourceId, restored) && HasContents(original + L":before", {late}),
+              "restore the original name and every retained stream from the same file identity", error);
+    }
+    Check(InterruptPendingMoveSource(fixture), "terminate a separate process while it owns a delete-pending source handle");
+    Check(!Exists(original) && HasContents(recovery, {1, 2, 3}) && HasContents(recovery + L":before", {late}),
+          "the retained source survives process termination with its alternate data intact");
+    error = NativeHardLink(retained.get(), root, sourceLeaf);
+    Check(!error && HasContents(original + L":before", {late}), "restore the source name after process termination", error);
     return failures == 0;
 }
 
@@ -1789,25 +1939,13 @@ static bool CheckEfsRaw(const std::wstring& folder, const wchar_t* fixturePath)
             return false;
         const Handle parent(rawParent);
         constexpr wchar_t name[] = L"raw-alias.txt";
-        struct
-        {
-            BOOLEAN replaceIfExists;
-            HANDLE rootDirectory;
-            ULONG fileNameLength;
-            WCHAR fileName[ARRAYSIZE(name)];
-        } link{};
-        link.rootDirectory = parent.get();
-        link.fileNameLength = sizeof(name) - sizeof(wchar_t);
-        std::memcpy(link.fileName, name, sizeof(name));
-        IO_STATUS_BLOCK io{};
-        const NTSTATUS status = NtSetInformationFile(restoredIdentity.get(), &io, &link, sizeof(link),
-                                                     static_cast<FILE_INFORMATION_CLASS>(11));
+        const DWORD status = UacRenameLeaf::Detail::NativeHardLink(restoredIdentity.get(), parent.get(), name);
         FILE_ID_INFO aliasId{};
         const auto alias = OpenIdentity(folder + L"\\" + name, aliasId);
-        Check(status >= 0 && alias && UacRenameLeaf::Detail::SameSource(current, aliasId),
+        Check(status == ERROR_SUCCESS && alias && UacRenameLeaf::Detail::SameSource(current, aliasId),
               "create a hard link to the EFS file from its verified identity handle",
-              status < 0 ? RtlNtStatusToDosError(status) : ERROR_SUCCESS);
-        if (status < 0 || !alias)
+              status);
+        if (status || !alias)
             return false;
 
         const auto moved = folder + L"\\moved-original.txt";
@@ -1828,6 +1966,8 @@ static bool CheckEfsRaw(const std::wstring& folder, const wchar_t* fixturePath)
 int wmain(int argc, wchar_t** argv)
 {
     using namespace UacDirectoryLeaf;
+    if (argc == 4 && std::wstring_view(argv[2]) == L"--hold-move-source")
+        return HoldMoveSourcePending(L"\\\\?\\" + std::wstring(argv[1]), argv[3]);
     const bool high = argc == 3 && std::wstring_view(argv[2]) == L"--high-integrity";
     const bool overwrite = argc == 3 && std::wstring_view(argv[2]) == L"--overwrite-probe";
     const bool moveSource = argc == 3 && std::wstring_view(argv[2]) == L"--move-source-probe";
@@ -1847,7 +1987,8 @@ int wmain(int argc, wchar_t** argv)
         return 2;
     const Handle root(rawRoot);
     if (moveSource)
-        return CheckMoveSource(fixture, root.get()) && CheckMoveSourceGuards(fixture, root.get()) ? 0 : 1;
+        return CheckMoveSource(fixture, root.get()) && CheckMoveSourceGuards(fixture, root.get()) &&
+                       CheckMoveSourceRecoveryLink(fixture, root.get()) ? 0 : 1;
     if (!CheckFindTagStream() || !CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
         !CheckZipSelection(fixture, root.get()) || !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::Zip) ||
         !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::DiskCopy))
