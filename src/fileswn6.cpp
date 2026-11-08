@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Carry the exact selected directory path for basic metadata. | Use the panel wide path for the directory timestamp request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-06 | Combine drop scheduling with owned Unicode source paths. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-08 | Defer inaccessible source metadata to the verified copy. | A protected file cannot proceed without broker validation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share the transfer eligibility flag with F6. | Keep deferred ADS discovery restricted to F5. | | GPT-6.1 Sol (Codex) |
@@ -1565,6 +1566,13 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     {
                         SetCurrentDirectoryToSystem();
                         return FALSE;
+                    }
+                    if (type == atChangeAttrs && !attrsData->SubDirs && selCount <= 1 &&
+                        !IsBranchView() && script->Count == 1)
+                    {
+                        const auto path = GetItemFullPathW(*oneFile);
+                        if (!path.empty())
+                            script->At(0).SetSourceNameW(path.c_str());
                     }
                     if (countSize)
                     {

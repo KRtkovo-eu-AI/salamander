@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe a folder timestamp change in the UAC prompt. | Distinguish the directory and file scopes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Keep Cancel responsive during a protected tree copy. | Show the confirmed result even after a cancel request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show tree copy consent from the admitted progress dialog. | Keep queued tree operations behind the FIFO barrier. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Show the shield on Administrator in permanent-delete consent. | Keep Cancel as the default independently of the shield. | | GPT-6.1 Sol (Codex) |
@@ -1795,8 +1796,12 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             const bool deleting = wParam == WORKER_DIALOG_UAC_DELETE;
             auto& prompt = *reinterpret_cast<UacF7::LeafPrompt*>(lParam);
-            const std::string message = std::string(LoadStr(deleting ? IDS_UAC_DELETE_CONFIRM : IDS_UAC_METADATA_CONFIRM)) +
-                                        "\n\n" + prompt.path;
+            const bool directory = prompt.request.IsDirectoryMetadata();
+            const int confirmText = deleting ? IDS_UAC_DELETE_CONFIRM
+                                              : (directory ? IDS_UAC_DIRECTORY_TIMES_CONFIRM : IDS_UAC_METADATA_CONFIRM);
+            const int unknownText = deleting ? IDS_UAC_DELETE_UNKNOWN
+                                              : (directory ? IDS_UAC_DIRECTORY_TIMES_UNKNOWN : IDS_UAC_METADATA_UNKNOWN);
+            const std::string message = std::string(LoadStr(confirmText)) + "\n\n" + prompt.path;
             const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
             MSGBOXEX_PARAMS confirm{};
             confirm.HParent = HWindow;
@@ -1809,7 +1814,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 prompt.result = prompt.request.Execute(HWindow);
                 if (prompt.result.unknown)
-                    SalMessageBox(HWindow, LoadStr(deleting ? IDS_UAC_DELETE_UNKNOWN : IDS_UAC_METADATA_UNKNOWN),
+                    SalMessageBox(HWindow, LoadStr(unknownText),
                                   LoadStr(deleting ? IDS_ERRORDELETINGFILE : IDS_ERRORCHANGINGATTRS),
                                   MB_OK | MB_ICONEXCLAMATION);
             }

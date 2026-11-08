@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Allow timestamps on one verified directory. | Restrict directory metadata to the selected timestamps. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Set basic metadata once on an identity-verified NTFS file. | Avoid partially applying attributes and times before consent or on a retry. | | GPT-6.1 Sol (Codex) |
 */
 #pragma once
@@ -23,10 +24,17 @@ inline bool IsValidTime(LONGLONG time)
     return FileTimeToSystemTime(&value, &converted) != FALSE;
 }
 
+inline bool IsDirectory(const UacF7::MetadataChange& change)
+{
+    return (change.expectedAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
 inline bool IsValid(const UacF7::MetadataChange& change)
 {
-    return IsOrdinary(change.expectedAttributes) &&
-           (change.attributes == 0 || IsOrdinary(change.attributes)) &&
+    const bool validAttributes = IsDirectory(change)
+        ? !(change.expectedAttributes & ~(FILE_ATTRIBUTE_DIRECTORY | UacF7::basicAttributes)) && change.attributes == 0
+        : IsOrdinary(change.expectedAttributes) && (change.attributes == 0 || IsOrdinary(change.attributes));
+    return validAttributes &&
            (change.attributes || change.created || change.accessed || change.modified) &&
            IsValidTime(change.created) && IsValidTime(change.accessed) && IsValidTime(change.modified);
 }
@@ -56,11 +64,22 @@ inline DWORD SetVerifiedMetadata(HANDLE parent, const UacDirectoryLeaf::ParentId
         return ERROR_FILE_INVALID;
 
     HANDLE file = nullptr;
-    error = UacRenameLeaf::Detail::OpenSource(parent, leaf, file, FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ);
-    if (error != ERROR_SUCCESS)
-        return error;
     FILE_ID_INFO actualSource{};
-    error = UacRenameLeaf::Detail::ReadSourceIdentity(file, actualSource);
+    if (IsDirectory(change))
+    {
+        UacDirectoryLeaf::ParentIdentity directory;
+        error = UacDirectoryLeaf::OpenParentBelowRoot(parent, leaf, file, directory, FILE_WRITE_ATTRIBUTES);
+        if (error != ERROR_SUCCESS)
+            return error;
+        actualSource = directory.file;
+    }
+    else
+    {
+        error = UacRenameLeaf::Detail::OpenSource(parent, leaf, file, FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ);
+        if (error != ERROR_SUCCESS)
+            return error;
+        error = UacRenameLeaf::Detail::ReadSourceIdentity(file, actualSource);
+    }
     if (error == ERROR_SUCCESS && !UacRenameLeaf::Detail::SameSource(actualSource, expectedSource))
         error = ERROR_FILE_INVALID;
     if (error == ERROR_SUCCESS)

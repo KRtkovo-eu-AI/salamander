@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Route directory timestamps through the basic metadata worker. | Use the broker only for a single nonrecursive time-only request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Execute consented tree transfers on the worker thread. | Keep the dialog available for cancellation until the broker replies. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Dispatch the protected tree copy after queue admission. | Count one completion only when the broker confirms publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Run eligible permanent deletion with the verified file executor. | Preserve the original file identity across ordinary attempts and elevated consent. | | GPT-6.1 Sol (Codex) |
@@ -8993,9 +8994,10 @@ static bool TryChangeBasicMetadata(HWND progress, COperation& op, const CChangeA
                                    CProgressDlgData& dlgData, BOOL& success)
 {
     const DWORD desired = static_cast<DWORD>(reinterpret_cast<DWORD_PTR>(op.TargetName));
-    constexpr DWORD allowed = UacF7::basicAttributes | FILE_ATTRIBUTE_NORMAL;
+    constexpr DWORD allowed = UacF7::basicAttributes | FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_DIRECTORY;
+    const bool directory = (op.Attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
     if (!input.AllowBasicMetadataPilot || !op.SourceNameWValid ||
-        ((op.Attr | desired) & ~allowed) != 0)
+        ((op.Attr | desired) & ~allowed) != 0 || (directory && desired != op.Attr))
         return false;
 
     UacF7::MetadataChange change{};

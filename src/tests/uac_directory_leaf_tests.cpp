@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify timestamp-only directory metadata. | Cover Unicode, stale identities and reparse rejection. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe stream creation before source retirement. | Test the precondition for deleting the source after copying. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe how NTFS replacement interacts with target handles. | Establish the identity boundary before adding protected overwrite. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise tree cancellation received through a pipe. | Distinguish the valid control byte from unrelated data. | | GPT-6.1 Sol (Codex) |
@@ -758,6 +759,65 @@ bool CheckMoveSource(const std::wstring& fixture, HANDLE root)
     }
     return failures == 0;
 }
+bool CheckDirectoryTimes(const std::wstring& fixture, HANDLE root)
+{
+    using namespace UacDirectoryLeaf;
+    constexpr std::wstring_view leaf = L"times-\u6771\u4eac";
+    const auto path = fixture + L"\\" + std::wstring(leaf);
+    if (!CreateDirectoryW(path.c_str(), nullptr))
+        return false;
+    HANDLE raw = nullptr;
+    ParentIdentity rootId, directoryId;
+    if (ReadParentIdentity(root, rootId) || OpenParentBelowRoot(root, leaf, raw, directoryId))
+        return false;
+    Handle directory(raw);
+    FILE_BASIC_INFO before{}, after{};
+    if (!GetFileInformationByHandleEx(directory.get(), FileBasicInfo, &before, sizeof(before)))
+        return false;
+
+    UacF7::MetadataChange change{};
+    change.expectedAttributes = before.FileAttributes;
+    change.created = 132000000000000000LL;
+    change.modified = 133000000000000000LL;
+    const auto set = [&](const FILE_ID_INFO& expected, std::wstring_view name) {
+        return UacMetadataLeaf::SetVerifiedMetadata(root, rootId, expected, name, change);
+    };
+    DWORD error = set(directoryId.file, leaf);
+    Check(error == ERROR_SUCCESS &&
+              GetFileInformationByHandleEx(directory.get(), FileBasicInfo, &after, sizeof(after)) &&
+              after.CreationTime.QuadPart == change.created && after.LastWriteTime.QuadPart == change.modified &&
+              after.LastAccessTime.QuadPart == before.LastAccessTime.QuadPart && after.FileAttributes == before.FileAttributes,
+          "set only requested times on a verified Unicode directory", error);
+    change.created = 0;
+    change.modified = 0;
+    change.accessed = 134000000000000000LL;
+    error = set(directoryId.file, leaf);
+    Check(error == ERROR_SUCCESS &&
+              GetFileInformationByHandleEx(directory.get(), FileBasicInfo, &after, sizeof(after)) &&
+              after.CreationTime.QuadPart == 132000000000000000LL && after.LastWriteTime.QuadPart == 133000000000000000LL &&
+              after.LastAccessTime.QuadPart == change.accessed && after.FileAttributes == before.FileAttributes,
+          "set directory access time independently", error);
+
+    change.attributes = FILE_ATTRIBUTE_HIDDEN;
+    error = set(directoryId.file, leaf);
+    Check(error == ERROR_INVALID_DATA && GetFileAttributesW(path.c_str()) == before.FileAttributes,
+          "refuse an attribute mutation in a directory time request", error);
+    change.attributes = 0;
+    change.expectedAttributes ^= FILE_ATTRIBUTE_HIDDEN;
+    error = set(directoryId.file, leaf);
+    Check(error == ERROR_FILE_INVALID, "refuse a stale directory attribute snapshot", error);
+    change.expectedAttributes = before.FileAttributes;
+    error = set(directoryId.file, L"junction");
+    Check(error != ERROR_SUCCESS, "refuse a directory junction before writing timestamps", error);
+
+    const auto moved = fixture + L"\\displaced-times";
+    directory.reset();
+    if (!MoveFileW(path.c_str(), moved.c_str()) || !CreateDirectoryW(path.c_str(), nullptr))
+        return false;
+    error = set(directoryId.file, leaf);
+    Check(error == ERROR_FILE_INVALID, "refuse a substituted directory at the same name", error);
+    return true;
+}
 }
 
 int wmain(int argc, wchar_t** argv)
@@ -780,7 +840,7 @@ int wmain(int argc, wchar_t** argv)
     const Handle root(rawRoot);
     if (moveSource)
         return CheckMoveSource(fixture, root.get()) ? 0 : 1;
-    if (!CheckTreeCopy(fixture, root.get(), high))
+    if (!CheckDirectoryTimes(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high))
         return 2;
     HANDLE rawListing = nullptr;
     ParentIdentity listingIdentity;

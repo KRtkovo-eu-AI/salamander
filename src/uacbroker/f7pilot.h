@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Expose the directory timestamp request type. | Let the prompt describe the correct item. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Carry explicit tree consent and an optional cancellation event. | Let the worker execute while the dialog stays responsive. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Identify queued tree transfers in the consent dialog. | Reuse the tree-specific consent and result strings. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare the registered F5 tree pilot. | Bind a directory source to a fixed protected target. | | GPT-6.1 Sol (Codex) |
@@ -67,6 +68,10 @@ public:
     bool PrepareDelete(const std::wstring& path);
     DWORD ExecuteLocal() const;
     Result Execute(HWND owner) const;
+    bool IsDirectoryMetadata() const
+    {
+        return operation == Operation::Metadata && (metadata.expectedAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    }
 
 private:
     friend class ListingSession;

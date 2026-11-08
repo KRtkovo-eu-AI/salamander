@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Pin directory timestamp requests before consent. | Verify the visible directory and its volume-relative identity. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Send tree cancellation without giving up the authenticated reply. | Resolve cancellation races using the broker result. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Register additional protected tree-copy destinations. | Bind each destination to a protected path and an identity-specific recovery journal. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Hold the protected tree journal exclusively. | Serialize recovery and copying under the registered target. | | GPT-6.1 Sol (Codex) |
@@ -85,9 +86,10 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD inventoryCapability = 128;
 [[maybe_unused]] constexpr DWORD copyTreeCapability = 256;
 [[maybe_unused]] constexpr DWORD cancelTreeCapability = 512;
+[[maybe_unused]] constexpr DWORD directoryTimesCapability = 1024;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
-                                                 inventoryCapability | copyTreeCapability | cancelTreeCapability;
+                                                 inventoryCapability | copyTreeCapability | cancelTreeCapability | directoryTimesCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -1290,7 +1292,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
         return false;
     Handle openedSource;
     FILE_ID_INFO sourceIdentity{};
-    if (requested == Operation::CopyTree)
+    if (requested == Operation::CopyTree || (change && UacMetadataLeaf::IsDirectory(*change)))
     {
         HANDLE raw = nullptr;
         UacDirectoryLeaf::ParentIdentity anchored, visibleDirectory;
@@ -1305,6 +1307,8 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
         if (!visibleSource || UacDirectoryLeaf::ReadParentIdentity(visibleSource.get(), visibleDirectory) ||
             !UacDirectoryLeaf::SameParent(anchored, visibleDirectory) ||
             !UacDirectoryLeaf::Equal(snapshot.volume, anchored.volume))
+            return false;
+        if (change && UacMetadataLeaf::CheckAttributes(openedSource.get(), *change))
             return false;
         std::memcpy(sourceId, anchored.file.FileId.Identifier, sizeof(sourceId));
     }

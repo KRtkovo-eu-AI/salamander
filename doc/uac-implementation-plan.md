@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Document P5a directory timestamps and local validation. | Track the first bounded metadata extension after the transfer pilots. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the P4n NTFS source-retirement probe. | Verify the late-stream race before enabling cross-volume F6. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the P4m NTFS overwrite probe. | Establish which rename modes permit a target substitution. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document cancellation of a running protected F5 copy. | Track cleanup before publication and acknowledged success after it. | | GPT-6.1 Sol (Codex) |
@@ -529,6 +530,18 @@ Volitelný režim `--move-source-probe` v nativní sadě ověřuje zdrojovou č�
 V izolované Windows 11 VM (sestavení 26200, NTFS) výhradní otevření zdroje s právem `DELETE` a čtením dat vrátilo druhému zapisujícímu handlu hlavního proudu chybu 32. Otevření nového pojmenovaného proudu s `FILE_SHARE_DELETE` přesto uspělo. ID zdroje se nezměnilo. Další kontrola metadat proud odhalila a vrátila chybu 50. Při ponechání zdroje zůstaly oba proudy dostupné a hotová kopie obsahovala hlavní proud. Při zkušebním odstranění podle dřívější kontroly uspěla POSIX dispozice. Po uzavření handlu zmizel zdroj i jeho nový proud, který v kopii chyběl. [Sdílení a zámky datových proudů NTFS](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams).
 
 Oba scénáře prošly v Debug i Release s deseti kontrolami na běh. Běžná nativní sada v Release prošla se 117 kontrolami a zkouška P4m v Debug s devíti. Pokus použil dvě dočasné složky na stejném svazku, protože ověřoval výhradně podmínku odstranění zdroje. Podpora F6 mezi svazky přes broker zatím zůstává vypnutá. Její podmínkou je zachování všech dat zdroje až do bezpečného odstranění, včetně dat zapsaných mezi poslední kontrolou a samotnou mutací. Při zjištěné změně po zveřejnění kopie má host ponechat zdroj a výslovně hlásit částečný výsledek.
+
+P4n na commitu `a2250b31` prošla sestavením Win32, x64 a ARM64, 214 testy, kontrolou růstu zdrojů a CodeQL bez nových nálezů. [Testy P4n](https://github.com/majklvi/salamander/actions/runs/42483559361/job/128740485489) · [Výsledek CodeQL](https://github.com/majklvi/salamander/runs/128744670405).
+
+### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
+
+První samostatná část P5 rozšiřuje stávající tok metadat o časy vytvoření, posledního přístupu a poslední změny jedné běžné složky na místním NTFS. Tato část je nezávislá na dosud otevřeném přepisu cíle a přesunu mezi svazky z P4. Do pilotu patří výběr jedné složky s vypnutou volbou Include subdirectories a bez změny atributů. Dialog správce výslovně označuje změnu časů a zobrazí úplnou cestu složky. Při běžně dostupném zápisu se použije místní pokus, po odepření lze pokračovat přes broker.
+
+Host získá širokou cestu přímo z položky panelu. Před souhlasem porovná identitu složky z panelu s identitou otevřenou relativně k ověřenému rodiči. Broker znovu ověří rodiče, složku i původní atributy a použije jedinou aktualizaci `FILE_BASIC_INFO` nad jejím handlem. Zápis nastaví jen požadované časy. Reparse body, záměna složky a změněné atributy vedou k odmítnutí. [Základní metadata Windows](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_basic_info).
+
+Lokálně prošlo sestavení x64 Debug, 123 nativních kontrol v Debug i Release, test komunikace brokeru, test plánování a test konverzních tabulek. Nové kontroly pokrývají nezávislé nastavení časů, Unicode cestu, odmítnutí změny atributů, neaktuální atributy, junction a nahrazení adresáře se stejným jménem.
+
+V izolované Windows 11 VM byla oběma zkouškám společná změna pouze položky Modified přes Ctrl+F2. Computer Use ověřil úplnou cestu složky a štít u tlačítka Administrator. Po volbě Ne u složky `01-cancel` zůstaly výchozí časy. Po volbě Ano u `02-approve` odpovídal čas poslední změny přesně hodnotě z dialogu `2026-11-08 14:39:31` místního času. Kontrola na disku potvrdila původní čas vytvoření, atributy obou složek, časy poslední změny obou vnořených testovacích souborů i otisky instalovaných binárek.
 
 ## 9. Uživatelský tok a stav operace
 
