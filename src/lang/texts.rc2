@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe the protected size operation in the consent prompt. | Cover both logical and detailed size calculations. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Label unmeasured values in the full size dialog. | Distinguish an unavailable value from a zero measurement. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain protected viewer snapshots. | Keep the read-only scope and size limit visible. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Label logical size in a protected Ctrl+Q calculation. | Keep occupied space separate from logical file bytes. | | GPT-6.1 Sol (Codex) |
@@ -2395,7 +2396,7 @@ STRINGTABLE
  IDS_UAC_DELETE_UNKNOWN, "The broker disconnected before deletion was confirmed. Check whether the file still exists before retrying."
  IDS_UAC_LIST_CONFIRM, "Access was denied. List this folder and its subfolders as an administrator?"
  IDS_UAC_LIST_ACTIVE, "Administrator listing"
- IDS_UAC_SIZE_CONFIRM, "Access was denied. Calculate the logical size of this folder and its subfolders as an administrator?"
+ IDS_UAC_SIZE_CONFIRM, "Access was denied. Calculate the size of this folder and its subfolders as an administrator?"
  IDS_UAC_FIND_CONFIRM, "Access was denied. Search names and metadata in this folder as an administrator? The search continues in accessible folders while you decide."
  IDS_UAC_FIND_WAIT, "Waiting for administrator access to a protected folder..."
  IDS_UAC_FIND_SCOPE, "Searching names and metadata with administrator access."

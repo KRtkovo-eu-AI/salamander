@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Declare detailed read-only size results. | Keep logical file sizes separate from optional disk measurements. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare a one-file viewer snapshot request. | Bind the read-only data to one verified file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Distinguish EFS failures in the copy pilot. | Keep the existing ordinary EFS path and fail closed at the broker boundary. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define a typed protected security copy. | Bind owner, group and explicit permissions to the F5 request. | | GPT-6.1 Sol (Codex) |
@@ -197,6 +198,21 @@ struct DirectoryInventory
 };
 static_assert(sizeof(DirectoryInventory) == 16);
 
+constexpr ULONGLONG unavailableSize = MAXULONGLONG;
+
+struct DirectoryDiskSizes
+{
+    ULONGLONG compressed = 0;
+    ULONGLONG occupied = 0;
+};
+static_assert(sizeof(DirectoryDiskSizes) == 16);
+
+struct DirectorySizeDetails
+{
+    DirectoryDiskSizes disk;
+    std::vector<ULONGLONG> fileSizes;
+};
+
 class ListingSession
 {
 public:
@@ -210,7 +226,7 @@ public:
     bool Contains(const std::wstring& path) const;
     const std::wstring& GetRoot() const { return root; }
     DWORD List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries);
-    DWORD Inventory(const std::wstring& path, DirectoryInventory& inventory);
+    DWORD Inventory(const std::wstring& path, DirectoryInventory& inventory, DirectorySizeDetails* details = nullptr);
     bool IsOpen() const { return pipe != nullptr; }
 
 private:

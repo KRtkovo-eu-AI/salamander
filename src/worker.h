@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Track complete protected disk measurements separately. | An unavailable measurement must not invalidate the logical file sizes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Distinguish protected logical totals from allocation totals. | Avoid showing partial allocation as occupied space. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Carry the explicit F5 stream option. | Preserve the difference between user choice and failed stream discovery. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Declare the terminal tree-copy UI message. | Report broker outcomes even when the user requested cancellation. | | GPT-6.1 Sol (Codex) |
@@ -502,6 +503,8 @@ public:
     BOOL ChangeSpeedLimit; // TRUE = the speed limit might change (the worker should reach a state where changing it is easy)
 
     bool CountSizeUsedBroker = false;
+    bool CountSizeCompressionUnavailable = false;
+    bool CountSizeOccupiedUnavailable = false;
     BOOL SkipAllCountSizeErrors; // should all subsequent count-size errors be skipped?
 
     char WorkPath1[MAX_PATH];  // when non-empty string first path processed (used for change notifications)

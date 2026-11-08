@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Return validated detailed size results over the listing pipe. | Keep ordinary listing and logical inventory replies unchanged. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Return one bounded viewer snapshot on the authenticated pipe. | Send complete read-only bytes without transferring file or process handles. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate and dispatch an explicit security copy. | Use the protected-object checks and strict stream policy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Negotiate junction deletion through the existing leaf broker. | Advertise support for the separately typed request. | | GPT-6.1 Sol (Codex) |
@@ -112,13 +113,14 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD deleteJunctionCapability = 1048576;
 [[maybe_unused]] constexpr DWORD copySecurityCapability = 2097152;
 [[maybe_unused]] constexpr DWORD viewCapability = 4194304;
+[[maybe_unused]] constexpr DWORD sizeDetailsCapability = 8388608;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
                                                  inventoryCapability | copyTreeCapability | cancelTreeCapability |
                                                  directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
                                                  copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability |
                                                  renameDirectorySymlinkCapability | renameJunctionCapability | deleteSymlinkCapability |
-                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability;
+                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -988,7 +990,10 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root)
         if (error)
             return error;
         const bool inventoryRequest = (length & UacListing::inventoryRequest) != 0;
-        length &= ~UacListing::inventoryRequest;
+        const bool sizeDetails = (length & UacListing::sizeDetailsRequest) != 0;
+        if (sizeDetails && !inventoryRequest)
+            return ERROR_INVALID_DATA;
+        length &= ~(UacListing::inventoryRequest | UacListing::sizeDetailsRequest);
         if (length > UacDirectoryLeaf::maxNativeName || !LiveInSession(host, hostPid))
             return ERROR_INVALID_DATA;
         const auto deadline = GetTickCount64() + timeoutMs;
@@ -1010,16 +1015,23 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root)
         else
             error = UacDirectoryLeaf::ReadParentIdentity(root, identity);
         UacF7::DirectoryInventory inventory;
+        UacF7::DirectorySizeDetails details;
         if (!error)
         {
             HANDLE directory = child ? child.get() : root;
-            error = inventoryRequest ? UacListing::Inventory(directory, deadline - 250, inventory)
+            error = inventoryRequest ? UacListing::Inventory(directory, deadline - 250, inventory, sizeDetails ? &details : nullptr)
                                      : UacListing::Enumerate(directory, entries);
         }
         ListingReply reply{error, error || inventoryRequest ? 0 : static_cast<DWORD>(entries.size())};
         error = TransferRequest(pipe, &reply, sizeof(reply), true, deadline);
         if (!error && !reply.error && inventoryRequest)
             error = TransferRequest(pipe, &inventory, sizeof(inventory), true, deadline);
+        if (!error && !reply.error && sizeDetails)
+        {
+            error = TransferRequest(pipe, &details.disk, sizeof(details.disk), true, deadline);
+            if (!error && inventory.files)
+                error = TransferRequest(pipe, details.fileSizes.data(), inventory.files * sizeof(ULONGLONG), true, deadline);
+        }
         if (!error && reply.count)
             error = TransferRequest(pipe, entries.data(), reply.count * static_cast<DWORD>(sizeof(WIN32_FIND_DATAW)), true, deadline);
         if (error)
@@ -1625,11 +1637,14 @@ DWORD ListingSession::SendPath(const std::wstring& path, DWORD flags, ULONGLONG 
     return error;
 }
 
-DWORD ListingSession::Inventory(const std::wstring& path, DirectoryInventory& inventory)
+DWORD ListingSession::Inventory(const std::wstring& path, DirectoryInventory& inventory, DirectorySizeDetails* details)
 {
     inventory = {};
+    if (details)
+        *details = {};
     const auto deadline = GetTickCount64() + timeoutMs;
-    DWORD error = SendPath(path, UacListing::inventoryRequest, deadline);
+    const DWORD flags = UacListing::inventoryRequest | (details ? UacListing::sizeDetailsRequest : 0);
+    DWORD error = SendPath(path, flags, deadline);
     if (error)
         return error;
     ListingReply reply{};
@@ -1643,6 +1658,30 @@ DWORD ListingSession::Inventory(const std::wstring& path, DirectoryInventory& in
         if (!error && (complete.directories > UacListing::maxEntries ||
                        complete.files > UacListing::maxEntries - complete.directories))
             error = ERROR_INVALID_DATA;
+        if (!error && details)
+        {
+            DirectorySizeDetails measured;
+            error = TransferRequest(pipe, &measured.disk, sizeof(measured.disk), false, deadline);
+            if (!error && complete.files)
+            {
+                measured.fileSizes.resize(complete.files);
+                error = TransferRequest(pipe, measured.fileSizes.data(), complete.files * sizeof(ULONGLONG), false, deadline);
+            }
+            ULONGLONG sum = 0;
+            for (const auto size : measured.fileSizes)
+            {
+                if (size > complete.bytes - sum)
+                {
+                    error = ERROR_INVALID_DATA;
+                    break;
+                }
+                sum += size;
+            }
+            if (!error && sum != complete.bytes)
+                error = ERROR_INVALID_DATA;
+            if (!error)
+                *details = std::move(measured);
+        }
         if (!error)
             inventory = complete;
     }

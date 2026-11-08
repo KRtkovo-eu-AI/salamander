@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Merge protected and ordinary Ctrl+Q measurements. | Keep the per-file logical sizes available even when a disk metric is unavailable. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the common protected read confirmation. | Share the same prompt with the internal viewer. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer protected counting from Ctrl+Q as well as Space. | Ctrl+Q normally calculates allocated disk space. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Count a denied subtree through its verified read-only broker. | Keep Ctrl+Q and Space totals complete when access is approved. | | GPT-6.1 Sol (Codex) |
@@ -2458,11 +2459,12 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     ShowSafeWaitWindow(FALSE);
                     DWORD inventoryError = ERROR_CANCELLED;
                     UacF7::DirectoryInventory inventory;
+                    UacF7::DirectorySizeDetails details;
                     if (reuse || ConfirmProtectedRead(HWindow, IDS_UAC_INVENTORY_TITLE, IDS_UAC_SIZE_CONFIRM, path))
                     {
                         inventoryError = reuse ? ERROR_SUCCESS : temporary.Start(HWindow);
                         if (!inventoryError)
-                            inventoryError = (reuse ? *ProtectedListing : temporary).Inventory(path, inventory);
+                            inventoryError = (reuse ? *ProtectedListing : temporary).Inventory(path, inventory, onlySize ? nullptr : &details);
                     }
                     if (inventoryError && inventoryError != ERROR_CANCELLED)
                     {
@@ -2484,6 +2486,24 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     script->TotalSize += size;
                     script->FilesCount += inventory.files;
                     script->DirsCount += inventory.directories;
+                    if (!onlySize)
+                    {
+                        const auto merge = [](CQuadWord& total, ULONGLONG value, bool& unavailable) {
+                            if (value >= UacF7::unavailableSize - total.Value)
+                                unavailable = true;
+                            else
+                                total.Value += value;
+                        };
+                        merge(script->CompressedSize, details.disk.compressed, script->CountSizeCompressionUnavailable);
+                        merge(script->OccupiedSpace, details.disk.occupied, script->CountSizeOccupiedUnavailable);
+                        for (const auto bytes : details.fileSizes)
+                        {
+                            if (!script->Sizes.IsGood())
+                                break;
+                            size.Value = bytes;
+                            script->Sizes.Add(size);
+                        }
+                    }
                     return TRUE;
                 }
             }
@@ -3356,6 +3376,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         }
         if (s.LoDWord == 0xFFFFFFFF && err != NO_ERROR)
         {
+            script->CountSizeCompressionUnavailable = true;
+            script->CountSizeOccupiedUnavailable = true;
             if (!script->SkipAllCountSizeErrors)
             {
                 const std::string errorMessage = Salamander::BranchViewText::FormatCompressedSizeError(
@@ -3367,6 +3389,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             s = fileSizeLoc; // cannot determine compressed size, we settle for the normal size
         }
 
+        if (!onlySize && script->BytesPerCluster == 0 && s.Value != 0)
+            script->CountSizeOccupiedUnavailable = true;
         script->Sizes.Add(fileSizeLoc); // the output dialog is prepared for the case when this array is in an error state
         script->TotalSize += fileSizeLoc;
         if (script->BytesPerCluster != 0)

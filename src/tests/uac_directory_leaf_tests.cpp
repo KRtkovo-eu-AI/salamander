@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Check detailed protected inventory against ordinary NTFS size queries. | Cover empty, normal, compressed and sparse file sizes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise read-only viewer snapshots on NTFS. | Verify exact bytes, empty files, identity checks and the size bound. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check EFS copy error classification. | Keep EFS failures distinct from ordinary access and sharing errors. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the protected security-copy option. | Verify exact owner, group and ACL and refuse unsupported inheritance. | | GPT-6.1 Sol (Codex) |
@@ -927,6 +928,68 @@ static bool CheckViewerSnapshot(const std::wstring& fixture, HANDLE root)
     return true;
 }
 
+static bool CheckDetailedInventory(const std::wstring& fixture, HANDLE root)
+{
+    const auto path = fixture + L"\\size-details";
+    if (!CreateDirectoryW(path.c_str(), nullptr) ||
+        !WriteFixture(path + L"\\empty.txt", {}) || !WriteFixture(path + L"\\ordinary.txt", {1, 2, 3}))
+        return false;
+
+    const auto compressed = path + L"\\\u6771-compressed.txt";
+    const auto sparse = path + L"\\sparse.bin";
+    const auto createSpecial = [](const std::wstring& name, bool compress) {
+        const HANDLE raw = CreateFileW(name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+        if (raw == INVALID_HANDLE_VALUE)
+            return false;
+        const Handle file(raw);
+        DWORD count = 0;
+        USHORT format = COMPRESSION_FORMAT_LZNT1;
+        if (!compress && !DeviceIoControl(raw, FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &count, nullptr))
+            return false;
+        const std::vector<BYTE> data(compress ? 128 * 1024 : 1, 'A');
+        if (!WriteFile(raw, data.data(), static_cast<DWORD>(data.size()), &count, nullptr) || count != data.size())
+            return false;
+        if (compress)
+            return DeviceIoControl(raw, FSCTL_SET_COMPRESSION, &format, sizeof(format), nullptr, 0, &count, nullptr) != FALSE;
+        LARGE_INTEGER end{};
+        end.QuadPart = 1024 * 1024;
+        return SetFilePointerEx(raw, end, nullptr, FILE_BEGIN) && SetEndOfFile(raw);
+    };
+    if (!createSpecial(compressed, true) || !createSpecial(sparse, false))
+        return false;
+
+    HANDLE raw = nullptr;
+    UacDirectoryLeaf::ParentIdentity identity;
+    if (UacDirectoryLeaf::OpenParentBelowRoot(root, L"size-details", raw, identity, FILE_LIST_DIRECTORY))
+        return false;
+    const Handle folder(raw);
+    DWORD sectors, bytes, freeClusters, totalClusters;
+    if (!GetDiskFreeSpaceW((identity.volume + L"\\").c_str(), &sectors, &bytes, &freeClusters, &totalClusters))
+        return false;
+    const ULONGLONG cluster = sectors * bytes;
+    UacF7::DirectoryInventory inventory;
+    UacF7::DirectorySizeDetails details;
+    const DWORD error = UacListing::Inventory(folder.get(), MAXULONGLONG, inventory, &details);
+    std::sort(details.fileSizes.begin(), details.fileSizes.end());
+    Check(error == ERROR_SUCCESS && inventory.files == 4 && inventory.directories == 0 &&
+              details.fileSizes == std::vector<ULONGLONG>{0, 3, 128 * 1024, 1024 * 1024},
+          "return complete per-file logical sizes for protected estimates", error);
+    const auto storedSize = [](const std::wstring& name) {
+        DWORD high = 0;
+        const DWORD low = GetCompressedFileSizeW(name.c_str(), &high);
+        return (static_cast<ULONGLONG>(high) << 32) | low;
+    };
+    const auto compressedBytes = storedSize(compressed);
+    const auto sparseBytes = storedSize(sparse);
+    const auto rounded = [cluster](ULONGLONG size) { return size + (cluster - size % cluster) % cluster; };
+    Check(!error && compressedBytes < 128 * 1024 && sparseBytes < 1024 * 1024 &&
+              details.disk.compressed == 3 + compressedBytes + sparseBytes,
+          "measure sparse and compressed files like ordinary Ctrl+Q", error);
+    Check(!error && details.disk.occupied == rounded(3) + rounded(compressedBytes) + rounded(sparseBytes),
+          "round the measured size separately for each protected file", error);
+    return true;
+}
+
 int wmain(int argc, wchar_t** argv)
 {
     using namespace UacDirectoryLeaf;
@@ -947,7 +1010,7 @@ int wmain(int argc, wchar_t** argv)
     const Handle root(rawRoot);
     if (moveSource)
         return CheckMoveSource(fixture, root.get()) ? 0 : 1;
-    if (!CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high))
+    if (!CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high))
         return 2;
     HANDLE rawListing = nullptr;
     ParentIdentity listingIdentity;

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Estimate occupied space only from a complete set of logical file sizes. | Keep estimates correct for empty files and arbitrary cluster sizes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Keep the same full size results dialog for protected totals. | Preserve the layout and leave unavailable values disabled. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show protected totals in the compact size dialog. | Use the Ctrl+Q layout for measured values and omit allocation controls. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -473,21 +474,26 @@ void CSizeResultsDlg::UpdateEstimate()
     SendDlgItemMessage(HWindow, IDC_EST_CLUSTER, WM_GETTEXT, 11, (LPARAM)buf);
     int bytesPerCluster = atoi(buf);
 
-    if (Sizes != NULL && Sizes->IsGood() && bytesPerCluster > 0)
+    bool complete = Sizes != NULL && Sizes->IsGood() && Sizes->Count == Files && bytesPerCluster > 0;
+    CQuadWord estimated(0, 0);
+    if (complete)
     {
-        if (Sizes->Count != Files)
-            TRACE_E("Sizes array is not consistent with number of files.");
-
-        CQuadWord estimated(0, 0);
-        CQuadWord s;
-        int i;
-        for (i = 0; i < Sizes->Count; i++)
+        const auto cluster = static_cast<ULONGLONG>(bytesPerCluster);
+        for (int i = 0; i < Sizes->Count; ++i)
         {
-            s = Sizes->At(i);
-            estimated += s - ((s - CQuadWord(1, 0)) % CQuadWord(bytesPerCluster, 0)) +
-                         CQuadWord(bytesPerCluster - 1, 0);
+            const ULONGLONG bytes = Sizes->At(i).Value;
+            const ULONGLONG padding = (cluster - bytes % cluster) % cluster;
+            if (bytes > MAXULONGLONG - estimated.Value || padding > MAXULONGLONG - estimated.Value - bytes)
+            {
+                complete = false;
+                break;
+            }
+            estimated.Value += bytes + padding;
         }
+    }
 
+    if (complete)
+    {
         SetWindowText(GetDlgItem(HWindow, IDC_EST_SIZE), PrintDiskSize(buf, estimated, 1));
 
         if (estimated == CQuadWord(0, 0))
@@ -614,7 +620,7 @@ CSizeResultsDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SendMessage(hCombo, WM_SETTEXT, 0, (LPARAM)buf);
         }
 
-        if (Sizes == NULL || !Sizes->IsGood())
+        if (Sizes == NULL || !Sizes->IsGood() || Sizes->Count != Files)
             EnableWindow(hCombo, FALSE);
 
         CheckDlgButton(HWindow, IDC_STAYONFILESYSTEM, Configuration.CountSizeStayOnFileSystem ? BST_CHECKED : BST_UNCHECKED);

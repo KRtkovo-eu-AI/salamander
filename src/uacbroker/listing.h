@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Collect allocation and per-file sizes for protected Ctrl+Q. | Match ordinary cluster rounding and query sparse and compressed files by verified handle. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Capture and recheck subtree identities. | Prepare a bounded source manifest for recursive copy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Inventory one approved subtree using strict enumeration. | Reject incomplete scans and reparse points. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Enumerate a bounded directory listing by handle. | Avoid resolving a privileged search path from text. | | GPT-6.1 Sol (Codex) |
@@ -8,6 +9,7 @@
 
 #include "directoryleaf.h"
 #include "f7pilot.h"
+#include "renameleaf.h"
 #include <algorithm>
 #include <cstddef>
 #include <memory>
@@ -19,6 +21,7 @@ namespace UacListing
 constexpr DWORD maxEntries = 4096;
 constexpr unsigned maxInventoryDepth = 32;
 constexpr DWORD inventoryRequest = 0x80000000;
+constexpr DWORD sizeDetailsRequest = 0x40000000;
 static_assert(sizeof(WIN32_FIND_DATAW) == 592);
 inline constexpr wchar_t marker[] = L"listing";
 
@@ -119,8 +122,64 @@ inline bool SameId(const FILE_ID_128& first, const FILE_ID_128& second)
     return std::memcmp(first.Identifier, second.Identifier, sizeof(first.Identifier)) == 0;
 }
 
+struct SizeScan
+{
+    UacF7::DirectorySizeDetails& details;
+    DWORD cluster = 0;
+};
+
+inline DWORD MeasureFile(HANDLE parent, const ManifestEntry& entry, ULONGLONG serial, SizeScan& scan)
+{
+    constexpr DWORD special = FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE;
+    scan.details.fileSizes.push_back(entry.bytes);
+    ULONGLONG stored = entry.bytes;
+    if (entry.attributes & special)
+    {
+        HANDLE raw = nullptr;
+        const DWORD error = UacRenameLeaf::Detail::OpenSource(parent, entry.name, raw, 0,
+                                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
+        const std::unique_ptr<void, decltype(&CloseHandle)> file(raw, CloseHandle);
+        FILE_ID_INFO identity{};
+        FILE_ATTRIBUTE_TAG_INFO attributes{};
+        FILE_STANDARD_INFO size{};
+        FILE_COMPRESSION_INFO compression{};
+        if (error || !GetFileInformationByHandleEx(file.get(), FileIdInfo, &identity, sizeof(identity)) ||
+            !GetFileInformationByHandleEx(file.get(), FileAttributeTagInfo, &attributes, sizeof(attributes)) ||
+            !GetFileInformationByHandleEx(file.get(), FileStandardInfo, &size, sizeof(size)))
+            stored = UacF7::unavailableSize;
+        else if (identity.VolumeSerialNumber != serial || !SameId(entry.id, identity.FileId) ||
+                 (attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) || size.Directory || size.DeletePending ||
+                 (attributes.FileAttributes & special) != (entry.attributes & special) ||
+                 static_cast<ULONGLONG>(size.EndOfFile.QuadPart) != entry.bytes)
+            return ERROR_FILE_INVALID;
+        else if (!GetFileInformationByHandleEx(file.get(), FileCompressionInfo, &compression, sizeof(compression)) ||
+                 compression.CompressedFileSize.QuadPart < 0)
+            stored = UacF7::unavailableSize;
+        else
+            stored = static_cast<ULONGLONG>(compression.CompressedFileSize.QuadPart);
+    }
+
+    auto& disk = scan.details.disk;
+    const auto add = [](ULONGLONG& total, ULONGLONG value) {
+        if (value >= UacF7::unavailableSize - total)
+            total = UacF7::unavailableSize;
+        else
+            total += value;
+    };
+    add(disk.compressed, stored);
+    if (!scan.cluster || stored == UacF7::unavailableSize)
+        disk.occupied = UacF7::unavailableSize;
+    else
+    {
+        const ULONGLONG padding = (scan.cluster - stored % scan.cluster) % scan.cluster;
+        add(disk.occupied, stored);
+        add(disk.occupied, padding);
+    }
+    return ERROR_SUCCESS;
+}
+
 inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWORD& remaining,
-                           ULONGLONG deadline, SubtreeManifest& manifest)
+                           ULONGLONG deadline, SubtreeManifest& manifest, SizeScan* scan = nullptr)
 {
     if (GetTickCount64() >= deadline)
         return ERROR_TIMEOUT;
@@ -168,7 +227,7 @@ inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWOR
                 !SameId(identity.file.FileId, recorded.id))
                 return ERROR_FILE_INVALID;
             ++inventory.directories;
-            if ((error = ScanDirectory(child.get(), depth + 1, index, remaining, deadline, manifest)) != ERROR_SUCCESS)
+            if ((error = ScanDirectory(child.get(), depth + 1, index, remaining, deadline, manifest, scan)) != ERROR_SUCCESS)
                 return error;
         }
         else
@@ -178,6 +237,8 @@ inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWOR
                 return ERROR_ARITHMETIC_OVERFLOW;
             inventory.bytes += bytes;
             ++inventory.files;
+            if (scan && (error = MeasureFile(directory, recorded, manifest.root.file.VolumeSerialNumber, *scan)) != ERROR_SUCCESS)
+                return error;
         }
     }
     return GetTickCount64() < deadline ? ERROR_SUCCESS : ERROR_TIMEOUT;
@@ -186,7 +247,8 @@ inline DWORD ScanDirectory(HANDLE directory, unsigned depth, size_t parent, DWOR
 
 // The manifest describes a live scan. A subsequent copy must still verify the
 // handles it actually uses for I/O and apply its own stream and metadata policy.
-inline DWORD CaptureManifest(HANDLE directory, ULONGLONG deadline, SubtreeManifest& manifest)
+inline DWORD CaptureManifest(HANDLE directory, ULONGLONG deadline, SubtreeManifest& manifest,
+                             UacF7::DirectorySizeDetails* details = nullptr)
 {
     manifest = {};
     if (GetTickCount64() >= deadline)
@@ -196,7 +258,19 @@ inline DWORD CaptureManifest(HANDLE directory, ULONGLONG deadline, SubtreeManife
     if (error)
         return error;
     DWORD remaining = maxEntries;
-    error = Detail::ScanDirectory(directory, 0, manifestRoot, remaining, deadline, complete);
+    UacF7::DirectorySizeDetails measured;
+    Detail::SizeScan scan{measured};
+    if (details)
+    {
+        const auto volume = complete.root.volume + L"\\";
+        DWORD sectors, bytes, freeClusters, totalClusters;
+        if (GetDiskFreeSpaceW(volume.c_str(), &sectors, &bytes, &freeClusters, &totalClusters) &&
+            sectors && bytes <= MAXDWORD / sectors)
+            scan.cluster = sectors * bytes;
+    }
+    error = Detail::ScanDirectory(directory, 0, manifestRoot, remaining, deadline, complete, details ? &scan : nullptr);
+    if (!error && details)
+        *details = std::move(measured);
     if (!error)
         manifest = std::move(complete);
     return error;
@@ -224,10 +298,13 @@ inline DWORD VerifyManifest(HANDLE directory, ULONGLONG deadline, const SubtreeM
     return ERROR_SUCCESS;
 }
 
-inline DWORD Inventory(HANDLE directory, ULONGLONG deadline, UacF7::DirectoryInventory& inventory)
+inline DWORD Inventory(HANDLE directory, ULONGLONG deadline, UacF7::DirectoryInventory& inventory,
+                       UacF7::DirectorySizeDetails* details = nullptr)
 {
+    if (details)
+        *details = {};
     SubtreeManifest manifest;
-    const DWORD error = CaptureManifest(directory, deadline, manifest);
+    const DWORD error = CaptureManifest(directory, deadline, manifest, details);
     inventory = manifest.inventory;
     return error;
 }

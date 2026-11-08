@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record detailed protected Ctrl+Q measurements. | Verify the existing occupied-space dialog and editable estimate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Keep protected totals in the full Ctrl+Q dialog. | Use identical geometry and controls for both access modes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record protected F3 viewer snapshots and compact size results. | Describe the single-file authorization and VM checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P6 protected logical sizing and metadata Find. | Reuse the rooted listing broker and verify ordinary search continues while consent is pending. | | GPT-6.1 Sol (Codex) |
@@ -715,6 +716,14 @@ Lokálně prošlo sestavení x64 Debug aplikace, prostředků, brokeru a sondy. 
 
 V izolované Windows 11 VM běžný token nedokázal přečíst obsah obou chráněných souborů. F3 přes broker otevřelo soubor 01-view-approve-東.txt (129 825 bajtů) a označilo jej jako snímek správce. V textu byl vidět začátek P6C-BEGIN i konec P6C-END po Ctrl+End. Hexadecimální režim ukázal původní bajty UTF-8 BOM a Ctrl+R odkázalo na nové F3 z panelu. Zrušený F3 u 02-view-cancel.txt prohlížeč neotevřel. Běžný soubor otevřel F3 přímo. Po skončení neběžel žádný broker. Otisky všech instalovaných binárek odpovídaly sestavení. První varianta součtu Ctrl+Q zobrazila dva soubory, dva adresáře a 18 bajtů ve zmenšeném dialogu. Po sjednocení měly běžný a chráněný výsledek ve VM stejný titulek Calculate Occupied Space, rozměry 383 × 359 px a shodné rozložení. Běžný výpočet ukázal 15 logických bajtů a 4 096 bajtů obsazeného místa. Chráněný výpočet po schválení ukázal 18 logických bajtů, dva soubory a dva adresáře. Neměřené hodnoty byly označené Not available. Sestavení x64 Debug a regrese diskových operací, přechodů panelu, Findu a konverzních tabulek prošly.
 
+
+### 8.44 P6d — obsazené místo a odhad při chráněném Ctrl+Q
+
+Ctrl+Q požádá v již schválené relaci o podrobný výpis metadat. Broker sečte velikosti běžných souborů a u komprimovaných a řídkých souborů ověří identitu a přečte velikost uložených dat přes handle. Pro obsazené místo zaokrouhlí velikost každého souboru na velikost clusteru zdrojového svazku, stejně jako běžný Ctrl+Q. Klient spojí oba součty s běžnou částí stromu. Pro odhad podle zvoleného clusteru dostane jednotlivé logické velikosti a ověří jejich počet a součet. Pokud chybí údaj o kompresi nebo alokaci, nedostupné zůstanou jen dotčené součty a jejich poměry. Mezerník nadále používá lehčí logický součet. [FileCompressionInfo](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_compression_info)
+
+Lokálně prošlo sestavení x64 Debug, 186 nativních kontrol v Debug i Release, transport brokeru a regrese diskových operací, Findu a konverzních tabulek. Zkoušky porovnaly běžné a chráněné měření komprimovaného a řídkého souboru a ověřily logické velikosti všech položek včetně prázdného souboru.
+
+V izolované Windows 11 VM ukázal jediný schválený Ctrl+Q společný výsledek dostupné a chráněné části. Dva soubory měly dohromady 18 logických i komprimovaných bajtů a zabraly 8 192 bajtů. Výchozí odhad při 4 096 bajtech na cluster byl 8 192 bajtů. Po zadání 512 bajtů se odhad změnil na 1 024 bajtů a naměřené obsazené místo zůstalo 8 192 bajtů.
 
 ## 9. Uživatelský tok a stav operace
 

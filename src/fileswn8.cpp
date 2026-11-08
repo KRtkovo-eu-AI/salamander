@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Display complete protected space measurements and enable estimates. | Keep both Ctrl+Q entry points on the same dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Mark protected allocation and compressed size as unknown. | Show logical totals in the standard Calculate Occupied Space dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reuse Ctrl+Q layout for protected size results. | Keep both protected inventory entry points compact. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show only measured totals when Ctrl+Q uses the broker. | Do not display an incomplete allocation total or histogram. | | GPT-6.1 Sol (Codex) |
@@ -373,7 +374,8 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
             if (ProtectedListing->Contains(path))
             {
                 UacF7::DirectoryInventory inventory;
-                const DWORD error = ProtectedListing->Inventory(path, inventory);
+                UacF7::DirectorySizeDetails details;
+                const DWORD error = ProtectedListing->Inventory(path, inventory, &details);
                 if (error)
                 {
                     const std::string message = SalWideToMultiBytePath(path.c_str(), CP_UTF8) + "\n\n" +
@@ -384,8 +386,20 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                 {
                     CQuadWord size;
                     size.Value = inventory.bytes;
-                    CSizeResultsDlg result(MainWindow->HWindow, size, CQuadWord(-1, -1), CQuadWord(-1, -1),
-                                           inventory.files, inventory.directories + 1, nullptr);
+                    CQuadWord compressed, occupied;
+                    compressed.Value = details.disk.compressed;
+                    occupied.Value = details.disk.occupied;
+                    TDirectArray<CQuadWord> sizes(16, 32);
+                    for (const auto bytes : details.fileSizes)
+                    {
+                        if (!sizes.IsGood())
+                            break;
+                        CQuadWord fileSize;
+                        fileSize.Value = bytes;
+                        sizes.Add(fileSize);
+                    }
+                    CSizeResultsDlg result(MainWindow->HWindow, size, compressed, occupied,
+                                           inventory.files, inventory.directories + 1, &sizes);
                     result.Execute();
                 }
                 return;
@@ -1621,10 +1635,9 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                             {
                                 const CQuadWord unknown(-1, -1);
                                 CSizeResultsDlg result(MainWindow->HWindow, script->TotalSize,
-                                                       script->CountSizeUsedBroker ? unknown : script->CompressedSize,
-                                                       script->CountSizeUsedBroker ? unknown : script->OccupiedSpace,
-                                                       script->FilesCount, script->DirsCount,
-                                                       script->CountSizeUsedBroker ? nullptr : &script->Sizes);
+                                                       script->CountSizeUsedBroker && script->CountSizeCompressionUnavailable ? unknown : script->CompressedSize,
+                                                       script->CountSizeUsedBroker && script->CountSizeOccupiedUnavailable ? unknown : script->OccupiedSpace,
+                                                       script->FilesCount, script->DirsCount, &script->Sizes);
                                 result.Execute();
                             }
                             else
