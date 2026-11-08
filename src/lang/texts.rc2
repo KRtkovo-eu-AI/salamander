@@ -1,4 +1,6 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Localize the finishing phase in Find. | Distinguish a finished search worker from results still being finalized. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Localize Find activity and response warnings. | Describe Find progress in the dialog and main window. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Describe a missing extension runtime. | Activation failed silently when the interpreter or runtime provider was not installed. | | Grok 4.7 |
 // | 2026-11-04 | Keep the missing-runtime strings valid for the resource compiler. | A backslash before a quote was read as the end of the string. | | Grok 4.7 |
@@ -2291,6 +2293,14 @@ STRINGTABLE
  IDS_COPYMOVE_POLICY_STORAGEAWARE, "Storage-aware"
  IDS_COPYMOVE_POLICY_SEQUENTIAL, "Sequential global queue"
  IDS_COPYMOVE_POLICY_ASK, "Ask each operation"
+ IDS_FIND_ACTIVITY_IDLE, "Ready"
+ IDS_FIND_ACTIVITY_SEARCHING, "Searching"
+ IDS_FIND_ACTIVITY_SORTING, "Sorting"
+ IDS_FIND_ACTIVITY_STOPPING, "Stopping"
+ IDS_FIND_ACTIVITY_FINISHED, "Completed"
+ IDS_FIND_ACTIVITY_HUNG_FORMAT, "Find has not responded for {0} s - {1}"
+ IDS_FIND_ACTIVITY_HUNG_COUNT_FORMAT, "Find has not responded for {0} s - {1} - Results: {2}"
+ IDS_FIND_ACTIVITY_FINISHING, "Finishing"
  IDS_COPYMOVE_CONFLICT_CURRENT, "Gradual resolution of conflicts within the queue"
  IDS_COPYMOVE_CONFLICT_SCAN_AHEAD, "Scan ahead and continue with non-conflicting items"
  IDS_COPYMOVE_CONFLICT_KEEP_LAST, "Keep last selected in the Copy/Move dialog"

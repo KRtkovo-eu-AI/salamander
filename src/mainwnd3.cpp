@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Pump main-window messages while Find closes. | Let Find defer destruction until its workers release their data. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Check Find responsiveness on the main window timer. | Use the independent main message loop during a Find stall. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Allow Ctrl+H in Branch View. | Send the hidden and system file toggle through its existing panel refresh. | | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell extension SEH in main-window menus. | New/Change-Drive HandleMenuMsg and InvokeCommand must not terminate. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // | 2026-11-04 | Re-ensure the active tab is visible after rebuild/show. | Startup overflow scroll must run again after the tab strip gets its final width. | | Composer |
@@ -11167,6 +11169,12 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             break;
         }
 
+        case IDT_FIND_WATCHDOG:
+        {
+            SetFindWatchdogNotice(PollFindWatchdogs(HWindow));
+            break;
+        }
+
         default:
         {
             TRACE_E("Unknown WM_TIMER wParam=" << wParam);
@@ -11729,8 +11737,26 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
             {
                 for (i = 0; i < destroyArray.Count; i++)
                 {
-                    if (IsWindow(destroyArray[i])) // if the window still exists
-                        SendMessage(destroyArray[i], WM_USER_CLOSEFIND, 0, 0);
+                    const HWND findWindow = destroyArray[i];
+                    const DWORD findThread = GetWindowThreadProcessId(findWindow, NULL);
+                    if (findThread == 0)
+                        continue;
+
+                    if (!PostMessage(findWindow, WM_USER_CLOSEFIND, 0, 0))
+                        SendMessage(findWindow, WM_USER_CLOSEFIND, 0, 0);
+
+                    // A Find dialog can defer destruction until its workers release its data.
+                    // Keep dispatching main-window messages before continuing to plugin teardown.
+                    while (GetWindowThreadProcessId(findWindow, NULL) == findThread)
+                    {
+                        MsgWaitForMultipleObjects(0, NULL, FALSE, 50, QS_ALLINPUT);
+                        MSG msg;
+                        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+                        {
+                            TranslateMessage(&msg);
+                            DispatchMessage(&msg);
+                        }
+                    }
                 }
             }
 

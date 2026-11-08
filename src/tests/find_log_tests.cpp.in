@@ -1,0 +1,202 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Exercise Find worker log ownership and snapshots. | Catch borrowed storage, inconsistent counters and partial copies under contention or allocation failure. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#include <algorithm>
+#include <atomic>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <new>
+#include <string>
+#include <thread>
+
+#define TRACE_I(...) ((void)0)
+#define TRACE_E(...) ((void)0)
+#define TRACE_C(...) ((void)0)
+#define HANDLES(expression) (expression)
+#include "common/array.h"
+
+// Only the string allocator is substituted. The production log still uses
+// actual Win32 locks and TDirectArray, and all allocation paths use real memory.
+static std::atomic<int> StringBudget{-1};
+static std::atomic<int> LiveStrings{0};
+
+static char* DupStr(const char* text)
+{
+    if (StringBudget == 0)
+        return nullptr;
+    if (StringBudget > 0)
+        --StringBudget;
+    const size_t size = std::strlen(text) + 1;
+    auto* copy = static_cast<char*>(std::malloc(size));
+    if (copy != nullptr)
+    {
+        std::memcpy(copy, text, size);
+        ++LiveStrings;
+    }
+    return copy;
+}
+
+static void ReleaseString(void* text)
+{
+    if (text != nullptr)
+        --LiveStrings;
+    std::free(text);
+}
+
+@@LOG_DECLARATION@@
+#define free ReleaseString
+@@LOG_IMPLEMENTATION@@
+#undef free
+
+struct CGrepData
+{
+    CFindLog* Log;
+    volatile LONG RefreshPending;
+};
+@@WORKER_LOG@@
+
+static int Checks = 0;
+static int Failures = 0;
+
+static void Check(bool result, const char* label)
+{
+    ++Checks;
+    if (!result)
+    {
+        ++Failures;
+        std::fprintf(stderr, "FAIL: %s\n", label);
+    }
+}
+
+static bool HasItem(CFindLog& log, int index, DWORD flags, const char* text, const char* path)
+{
+    const CFindLogItem* item = log.Get(index);
+    return item != nullptr && item->Flags == flags && std::strcmp(item->Text, text) == 0 &&
+           std::strcmp(item->Path, path) == 0;
+}
+
+static void TestWorkerCopiesInput()
+{
+    CFindLog log;
+    CGrepData search{&log, FALSE};
+    std::thread worker([&search]() {
+        char text[] = "worker error";
+        char path[] = u8"C:\\owned\\\u6771\u4eac.txt";
+        AddFindLog(&search, FLI_ERROR | FLI_IGNORE, text, path);
+        text[0] = '!';
+        path[0] = '!';
+        AddFindLog(&search, FLI_INFO, nullptr, nullptr);
+    });
+    worker.join();
+    Check(InterlockedExchange(&search.RefreshPending, FALSE) == TRUE, "worker log marks a GUI publication pending");
+    CFindLog snapshot;
+    Check(log.CopySnapshotTo(snapshot) != FALSE, "snapshot of worker log succeeds");
+    log.Clean();
+    Check(HasItem(snapshot, 0, FLI_ERROR | FLI_IGNORE, "worker error", u8"C:\\owned\\\u6771\u4eac.txt"),
+          "snapshot retains original worker buffers after worker exit and source cleanup");
+    Check(HasItem(snapshot, 1, FLI_INFO, "", ""), "null optional buffers become owned empty strings");
+    Check(snapshot.GetErrorCount() == 1 && snapshot.GetInfoCount() == 1 && snapshot.GetSkippedCount() == 0,
+          "snapshot preserves error and information counters");
+}
+
+static bool OrderedPrefix(CFindLog& snapshot)
+{
+    const int errors = snapshot.GetErrorCount();
+    const int infos = snapshot.GetInfoCount();
+    const int count = snapshot.GetCount();
+    const int total = errors + infos;
+    if (errors != total / 2 || count != (std::min)(total, 301) || snapshot.GetSkippedCount() != total - count)
+        return false;
+    for (int i = 0; i < count; ++i)
+        if (!HasItem(snapshot, i, i % 2 ? FLI_ERROR : FLI_INFO, std::to_string(i).c_str(), ""))
+            return false;
+    return true;
+}
+
+static void TestSnapshotsDuringSearch()
+{
+    CFindLog live;
+    CFindLog initial;
+    std::atomic<bool> firstBatch{false};
+    std::atomic<bool> continueWriting{false};
+    bool allAddsSucceeded = true;
+    std::thread worker([&]() {
+        for (int i = 0; i < 350; ++i)
+        {
+            if (!live.Add(i % 2 ? FLI_ERROR : FLI_INFO, std::to_string(i).c_str(), nullptr))
+                allAddsSucceeded = false;
+            if (i == 49)
+            {
+                firstBatch.store(true);
+                while (!continueWriting.load())
+                    std::this_thread::yield();
+            }
+        }
+    });
+    while (!firstBatch.load())
+        std::this_thread::yield();
+    Check(live.CopySnapshotTo(initial) && initial.GetCount() == 50 && OrderedPrefix(initial),
+          "first snapshot contains the first 50 records in producer order");
+    continueWriting.store(true);
+    for (int i = 0; i < 8; ++i)
+    {
+        CFindLog current;
+        Check(live.CopySnapshotTo(current) && OrderedPrefix(current), "snapshot remains consistent while worker appends");
+    }
+    worker.join();
+    Check(allAddsSucceeded, "storage-cap overflow is recorded without failing the worker");
+    CFindLog final;
+    Check(live.CopySnapshotTo(final) && OrderedPrefix(final), "final snapshot preserves stored item order");
+    Check(final.GetCount() == 301 && final.GetSkippedCount() == 49 &&
+              final.GetErrorCount() == 175 && final.GetInfoCount() == 175,
+          "bounded log copies all counters even for records outside the stored prefix");
+    live.Clean();
+    live.Clean();
+    Check(live.GetCount() == 0 && live.GetSkippedCount() == 0 &&
+              live.GetErrorCount() == 0 && live.GetInfoCount() == 0,
+          "repeated cleanup clears the live log and counters");
+    Check(initial.GetCount() == 50 && OrderedPrefix(initial), "previous snapshot remains readable after later writes and cleanup");
+}
+
+static void TestAllocationFailure()
+{
+    CFindLog log;
+    StringBudget = 0;
+    Check(!log.Add(FLI_ERROR, "lost text", "p"), "text allocation failure is reported");
+    StringBudget = 1;
+    Check(!log.Add(FLI_INFO, "lost path", "p"), "path allocation failure is reported");
+    Check(log.GetCount() == 0 && log.GetErrorCount() == 1 && log.GetInfoCount() == 1 &&
+              log.GetSkippedCount() == 0 && LiveStrings == 0,
+          "failed adds free partial strings while preserving original diagnostic counters");
+    StringBudget = -1;
+    Check(log.Add(FLI_ERROR, "a", "p") && log.Add(FLI_INFO, "b", "q"), "live log can be reused after allocation failure");
+    Check(!log.CopySnapshotTo(log) && HasItem(log, 1, FLI_INFO, "b", "q"), "self-snapshot leaves the source intact");
+    CFindLog target;
+    Check(target.Add(FLI_INFO, "old target", nullptr), "destination initially owns unrelated data");
+    StringBudget = 3;
+    Check(!log.CopySnapshotTo(target), "snapshot reports failure after copying a partial prefix");
+    Check(target.GetCount() == 0 && target.GetErrorCount() == 0 && target.GetInfoCount() == 0 &&
+              target.GetSkippedCount() == 0 && LiveStrings == 4,
+          "failed snapshot clears old destination and partial copies without losing source storage");
+    Check(log.GetCount() == 2 && HasItem(log, 0, FLI_ERROR, "a", "p") && HasItem(log, 1, FLI_INFO, "b", "q"),
+          "failed copy preserves source data");
+    StringBudget = -1;
+    Check(log.CopySnapshotTo(target) && target.GetCount() == 2 && target.GetErrorCount() == 2 && target.GetInfoCount() == 2,
+          "successful retry preserves counters from earlier failed adds");
+}
+
+int main()
+{
+    TestWorkerCopiesInput();
+    TestSnapshotsDuringSearch();
+    TestAllocationFailure();
+    Check(LiveStrings == 0, "destructors release every allocated log string");
+    std::printf("find_log_tests: %d checks, %d failures\n", Checks, Failures);
+    return Failures == 0 ? 0 : 1;
+}

@@ -2,12 +2,26 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Indicate background Find work with the system app-starting cursor. | Show active searches and sorts while retaining native interaction cursors. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Publish only the visible Find viewport to UI Automation. | Preserve native rendering, keyboard interaction, and legacy accessibility. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Defer Find sorting until enumeration ends. | Publish the final activity after result preparation and optional sorting. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Acknowledge watchdog requests from the Find message handler. | Let the main window distinguish a stalled dialog from an active search. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Sort Find results on a separate thread. | Keep dialog messages responsive while computing result order. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Make Stop and Find window closure asynchronous. | Keep the dialog responsive while retaining worker data through actual thread exit. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Add a localized phase field to Find. | Show activity beside the existing status and progress information. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Count retained Find results for Debug diagnostics. | Include results that are pending, displayed or held for refinement. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Publish Find results on the dialog timer. | Keep the message loop responsive and flush all results on completion or Stop. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Coalesce asynchronous Find result refreshes. | Keep large searches from synchronously blocking on list-view updates. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Forward Find ContextMenu messages to SafeHandleContextMenuMsg. | HandleMenuMsg SEH must stay out of WindowProc (C2712). | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 #include "viewerpath.h"
+#include "common/winlibdpi.h"
+
+#include <algorithm>
+#include <new>
+#include <vector>
 
 #include "menu.h"
 #include "cfgdlg.h"
@@ -17,6 +31,7 @@
 #include "viewer.h"
 #include "shellib.h"
 #include "find.h"
+#include "finduia.h"
 #include "gui.h"
 #include "plugins/shared/listview_sort_header.h"
 #include "usermenu.h"
@@ -341,6 +356,17 @@ void CFindOptions::InitMenu(CMenuPopup* popup, BOOL enabled, int originalCount)
 // CFoundFilesData
 //
 
+#ifdef _DEBUG
+volatile LONG CFoundFilesData::DebugLiveCount = 0;
+
+bool CFoundFilesData::HasLargeDebugResultSet()
+{
+    // Each retained result contributes several blocks to the process-wide CRT heap walk.
+    constexpr LONG LargeResultCount = 100000;
+    return InterlockedCompareExchange(&DebugLiveCount, 0, 0) >= LargeResultCount;
+}
+#endif
+
 BOOL CFoundFilesData::Set(const char* path, const char* name, const CQuadWord& size, DWORD attr,
                           const FILETIME* lastWrite, BOOL isDir)
 {
@@ -357,7 +383,7 @@ BOOL CFoundFilesData::Set(const char* path, const char* name, const CQuadWord& s
     Size = size;
     Attr = attr;
     LastWrite = *lastWrite;
-    IsDir = isDir ? 1 : 0;
+    IsDir = isDir != FALSE;
     return TRUE;
 }
 
@@ -474,7 +500,7 @@ std::wstring CFoundFilesData::GetTextW(int i, int fileNameFormat) const
 
     case 3:
     {
-        wchar_t buffer[100];
+        wchar_t buffer[100] = {};
         SYSTEMTIME st;
         FILETIME ft;
         if (FileTimeToLocalFileTime(&LastWrite, &ft) &&
@@ -484,13 +510,13 @@ std::wstring CFoundFilesData::GetTextW(int i, int fileNameFormat) const
                 swprintf_s(buffer, L"%u.%u.%u", st.wDay, st.wMonth, st.wYear);
         }
         else
-            wcscpy_s(buffer, LoadStrW(IDS_INVALID_DATEORTIME));
+            LoadStringW(HLanguage, IDS_INVALID_DATEORTIME, buffer, _countof(buffer));
         return buffer;
     }
 
     case 4:
     {
-        wchar_t buffer[100];
+        wchar_t buffer[100] = {};
         SYSTEMTIME st;
         FILETIME ft;
         if (FileTimeToLocalFileTime(&LastWrite, &ft) &&
@@ -500,7 +526,7 @@ std::wstring CFoundFilesData::GetTextW(int i, int fileNameFormat) const
                 swprintf_s(buffer, L"%u:%02u:%02u", st.wHour, st.wMinute, st.wSecond);
         }
         else
-            wcscpy_s(buffer, LoadStrW(IDS_INVALID_DATEORTIME));
+            LoadStringW(HLanguage, IDS_INVALID_DATEORTIME, buffer, _countof(buffer));
         return buffer;
     }
 
@@ -518,6 +544,67 @@ std::wstring CFoundFilesData::GetTextW(int i, int fileNameFormat) const
 // CFoundFilesListView
 //
 
+namespace
+{
+constexpr UINT_PTR FindSortTimer = 0xF615;
+constexpr UINT FindRefreshActivityCursor = WM_APP + 218;
+
+bool FindUsesActivityCursor(CFindActivity activity)
+{
+    return activity == CFindActivity::Searching || activity == CFindActivity::Sorting ||
+           activity == CFindActivity::Stopping || activity == CFindActivity::Finishing;
+}
+
+int CompareFindSortText(const std::wstring& first, const std::wstring& second)
+{
+    const int result = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, first.c_str(), -1, second.c_str(), -1);
+    return result == 0 ? first.compare(second) : result - CSTR_EQUAL;
+}
+}
+
+struct CFindSortJob
+{
+    volatile LONG References = 1;
+    std::vector<CFoundFilesData*> Items;
+    ULONGLONG Revision = 0;
+    int SortBy = -1;
+    BOOL ReverseSort = FALSE;
+    BOOL Mixed = FALSE;
+    BOOL Duplicates = FALSE;
+
+    ~CFindSortJob()
+    {
+        for (auto* item : Items)
+            item->Release();
+    }
+
+    void Release()
+    {
+        if (InterlockedDecrement(&References) == 0)
+            delete this;
+    }
+
+    int Compare(const CFoundFilesData* f1, const CFoundFilesData* f2) const;
+    int CompareDuplicates(const CFoundFilesData* f1, const CFoundFilesData* f2, BOOL byName) const;
+    static DWORD WINAPI Run(void* context);
+};
+
+DWORD WINAPI CFindSortJob::Run(void* context)
+{
+    auto* job = static_cast<CFindSortJob*>(context);
+    std::sort(job->Items.begin(), job->Items.end(), [job](const auto* first, const auto* second) {
+        if (job->Duplicates)
+        {
+            const int order = job->CompareDuplicates(first, second, job->SortBy == 0);
+            if (order != 0)
+                return order < 0;
+        }
+        return job->Compare(first, second) < 0;
+    });
+    job->Release();
+    return 0;
+}
+
 CFoundFilesListView::CFoundFilesListView(HWND dlg, int ctrlID, CFindDialog* findDialog)
     : Data(1000, 500), DataForRefine(1, 1000), CWindow(dlg, ctrlID)
 {
@@ -525,6 +612,7 @@ CFoundFilesListView::CFoundFilesListView(HWND dlg, int ctrlID, CFindDialog* find
     SortBy = -1;
     ReverseSort = FALSE;
     HANDLES(InitializeCriticalSection(&DataCriticalSection));
+    InvalidateUiaRows();
 
     // add this panel to the array of sources for enumerating files in viewers
     EnumFileNamesAddSourceUID(HWindow, &EnumFileNamesSourceUID);
@@ -534,6 +622,11 @@ CFoundFilesListView::CFoundFilesListView(HWND dlg, int ctrlID, CFindDialog* find
 
 CFoundFilesListView::~CFoundFilesListView()
 {
+    ReleaseUiaView();
+    if (SortThread != NULL)
+        HANDLES(CloseHandle(SortThread));
+    if (SortJob != NULL)
+        SortJob->Release(); // the detached worker only owns and accesses its snapshot
     // remove this panel from the array of sources for enumerating files in viewers
     EnumFileNamesRemoveSourceUID(HWindow);
 
@@ -552,14 +645,18 @@ CFoundFilesListView::At(int index)
 
 void CFoundFilesListView::DestroyMembers()
 {
-    //  HANDLES(EnterCriticalSection(&DataCriticalSection));
+    HANDLES(EnterCriticalSection(&DataCriticalSection));
+    ++ResultRevision;
+    InvalidateUiaRows();
     Data.DestroyMembers();
-    //  HANDLES(LeaveCriticalSection(&DataCriticalSection));
+    HANDLES(LeaveCriticalSection(&DataCriticalSection));
 }
 
 void CFoundFilesListView::Delete(int index)
 {
     HANDLES(EnterCriticalSection(&DataCriticalSection));
+    ++ResultRevision;
+    InvalidateUiaRows();
     Data.Delete(index);
     HANDLES(LeaveCriticalSection(&DataCriticalSection));
 }
@@ -597,7 +694,11 @@ BOOL CFoundFilesListView::TakeDataForRefine()
             return FALSE;
         }
     }
+    HANDLES(EnterCriticalSection(&DataCriticalSection));
+    ++ResultRevision;
+    InvalidateUiaRows();
     Data.DetachMembers();
+    HANDLES(LeaveCriticalSection(&DataCriticalSection));
     return TRUE;
 }
 
@@ -789,33 +890,6 @@ void CFoundFilesListView::ResetState()
     HANDLES(LeaveCriticalSection(&DataCriticalSection));
 }
 
-void CFoundFilesListView::StoreItemsState()
-{
-    int count = GetCount();
-    int i;
-    for (i = 0; i < count; i++)
-    {
-        DWORD state = ListView_GetItemState(HWindow, i, LVIS_FOCUSED | LVIS_SELECTED);
-        Data[i]->Selected = (state & LVIS_SELECTED) != 0 ? 1 : 0;
-        Data[i]->Focused = (state & LVIS_FOCUSED) != 0 ? 1 : 0;
-    }
-}
-
-void CFoundFilesListView::RestoreItemsState()
-{
-    int count = GetCount();
-    int i;
-    for (i = 0; i < count; i++)
-    {
-        DWORD state = 0;
-        if (Data[i]->Selected)
-            state |= LVIS_SELECTED;
-        if (Data[i]->Focused)
-            state |= LVIS_FOCUSED;
-        ListView_SetItemState(HWindow, i, state, LVIS_FOCUSED | LVIS_SELECTED);
-    }
-}
-
 BOOL CFoundFilesListView::ColumnShowsSortArrow(int column) const
 {
     if (SortBy < 0)
@@ -833,44 +907,209 @@ void CFoundFilesListView::InvalidateSortHeader()
 
 void CFoundFilesListView::ApplyCurrentSort()
 {
+    // SortItems retains the requested column and direction for FinishSearch.
+    if (FindDialog->IsSearchInProgress())
+        return;
+
     if (SortBy < 0)
     {
         InvalidateSortHeader();
         return;
     }
 
-    HCURSOR hCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
-    HANDLES(EnterCriticalSection(&DataCriticalSection));
-
-    FindDialog->UpdateListViewItems();
-
-    if (Data.Count > 0)
+    if (IsSorting())
     {
-        StoreItemsState();
-
-        QuickSort(0, Data.Count - 1, SortBy);
-        if (FindDialog->GrepData.FindDuplicates)
-        {
-            QuickSortDuplicates(0, Data.Count - 1, SortBy == 0);
-            SetDifferentByGroup();
-        }
-
-        RestoreItemsState();
-
-        int focusIndex = ListView_GetNextItem(HWindow, -1, LVNI_FOCUSED);
-        if (focusIndex != -1)
-            ListView_EnsureVisible(HWindow, focusIndex, FALSE);
-        ListView_RedrawItems(HWindow, 0, Data.Count - 1);
-        UpdateWindow(HWindow);
+        SortPending = TRUE;
+        ShowSortingActivity();
+        return;
     }
 
+    const int count = GetCount();
+    if (count < 2)
+    {
+        HideDuplicatesAfterSort = FALSE;
+        InvalidateSortHeader();
+        return;
+    }
+
+#ifdef new
+#undef new
+#define RESTORE_FIND_SORT_DEBUG_NEW
+#endif
+    auto* job = new (std::nothrow) CFindSortJob;
+#ifdef RESTORE_FIND_SORT_DEBUG_NEW
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_FIND_SORT_DEBUG_NEW
+#endif
+    if (job == NULL)
+    {
+        HideDuplicatesAfterSort = FALSE;
+        TRACE_E(LOW_MEMORY);
+        return;
+    }
+
+    try
+    {
+        job->Items.resize(count);
+    }
+    catch (const std::bad_alloc&)
+    {
+        delete job;
+        HideDuplicatesAfterSort = FALSE;
+        TRACE_E(LOW_MEMORY);
+        return;
+    }
+
+    job->Revision = ResultRevision;
+    job->SortBy = SortBy;
+    job->ReverseSort = ReverseSort;
+    job->Mixed = Configuration.FindSortFilesAndDirsTogether;
+    job->Duplicates = FindDialog->GrepData.FindDuplicates;
+
+    // Sorting starts after the search thread has finished publishing result data.
+    HANDLES(EnterCriticalSection(&DataCriticalSection));
+    memcpy(job->Items.data(), Data.GetData(), count * sizeof(CFoundFilesData*));
     HANDLES(LeaveCriticalSection(&DataCriticalSection));
+    for (auto* item : job->Items)
+        item->Retain();
+
+    if (SetTimer(FindDialog->HWindow, FindSortTimer, 75, NULL) != 0)
+    {
+        InterlockedIncrement(&job->References);
+        SortThread = HANDLES(CreateThread(NULL, 0, CFindSortJob::Run, job, 0, NULL));
+        if (SortThread != NULL)
+        {
+            SortJob = job;
+            ShowSortingActivity();
+            return;
+        }
+
+        job->Release();
+        KillTimer(FindDialog->HWindow, FindSortTimer);
+    }
+
+    job->Release();
+    HideDuplicatesAfterSort = FALSE;
+    TRACE_E("Unable to start Find result sort");
+}
+
+void CFoundFilesListView::ShowSortingActivity()
+{
+    if (!FindDialog->IsSearchInProgress() && FindDialog->GetFindActivity() != CFindActivity::Sorting)
+    {
+        ActivityBeforeSort = FindDialog->GetFindActivity();
+        FindDialog->SetFindActivity(CFindActivity::Sorting);
+    }
+}
+
+void CFoundFilesListView::PollSort()
+{
+    if (SortThread == NULL || WaitForSingleObject(SortThread, 0) != WAIT_OBJECT_0)
+        return;
+
+    HANDLES(CloseHandle(SortThread));
+    SortThread = NULL;
+    KillTimer(FindDialog->HWindow, FindSortTimer);
+    CFindSortJob* job = SortJob;
+
+    const BOOL stale = SortPending || ResultRevision != job->Revision;
+    SortPending = FALSE;
+    if (!stale)
+    {
+        // Keep the job registered while the list sends synchronous notifications.
+        PublishSort(*job);
+        if (HideDuplicatesAfterSort && !SortPending)
+        {
+            HideDuplicatesAfterSort = FALSE;
+            FindDialog->OnHideDuplicateNamesSorted(static_cast<int>(job->Items.size()));
+        }
+    }
+    const BOOL retry = stale || SortPending;
+    SortPending = FALSE;
+    SortJob = NULL;
+    job->Release();
+
+    if (retry)
+        ApplyCurrentSort();
+    if (!IsSorting())
+    {
+        if (FindDialog->GetFindActivity() == CFindActivity::Sorting)
+            FindDialog->SetFindActivity(ActivityBeforeSort);
+        FindDialog->OnFindWorkIdle();
+    }
+}
+
+void CFoundFilesListView::PublishSort(const CFindSortJob& job)
+{
+    FindDialog->UpdateListViewItems();
+    const int count = static_cast<int>(job.Items.size());
+    const int selected = ListView_GetSelectedCount(HWindow);
+    const bool restoreMultiple = selected > 1 && selected < ListView_GetItemCount(HWindow);
+    const int singleSelected = selected == 1 ? ListView_GetNextItem(HWindow, -1, LVNI_SELECTED) : -1;
+    const int focused = ListView_GetNextItem(HWindow, -1, LVNI_FOCUSED);
+    const int marked = ListView_GetSelectionMark(HWindow);
+    const auto* selectedItem = singleSelected >= 0 && singleSelected < count ? At(singleSelected) : NULL;
+    const auto* focusedItem = focused >= 0 && focused < count ? At(focused) : NULL;
+    const auto* markedItem = marked >= 0 && marked < count ? At(marked) : NULL;
+
+    ApplyingSort = TRUE;
+    if (selectedItem != NULL)
+        ListView_SetItemState(HWindow, singleSelected, 0, LVIS_SELECTED);
+    if (restoreMultiple)
+    {
+        for (auto* item : job.Items)
+            item->Selected = 0;
+        int index = -1;
+        while ((index = ListView_GetNextItem(HWindow, index, LVNI_SELECTED)) >= 0 && index < count)
+        {
+            At(index)->Selected = 1;
+            ListView_SetItemState(HWindow, index, 0, LVIS_SELECTED);
+        }
+    }
+    if (focusedItem != NULL)
+        ListView_SetItemState(HWindow, focused, 0, LVIS_FOCUSED);
+
+    // Publish the sorted snapshot in one short lock after checking its revision.
+    HANDLES(EnterCriticalSection(&DataCriticalSection));
+    memcpy(Data.GetData(), job.Items.data(), count * sizeof(CFoundFilesData*));
+    InvalidateUiaRows();
+    if (job.Duplicates)
+        SetDifferentByGroup(count);
+    HANDLES(LeaveCriticalSection(&DataCriticalSection));
+
+    if (restoreMultiple || selectedItem != NULL || focusedItem != NULL || markedItem != NULL)
+    {
+        for (int i = 0; i < count; ++i)
+        {
+            const auto* item = job.Items[i];
+            const DWORD state = ((item == selectedItem || (restoreMultiple && item->Selected)) ? LVIS_SELECTED : 0) |
+                                (item == focusedItem ? LVIS_FOCUSED : 0);
+            if (state != 0)
+                ListView_SetItemState(HWindow, i, state, state);
+            if (item == markedItem)
+                ListView_SetSelectionMark(HWindow, i);
+            if (item == focusedItem)
+                ListView_EnsureVisible(HWindow, i, FALSE);
+        }
+    }
+    ApplyingSort = FALSE;
+    RefreshUiaView();
+    ListView_RedrawItems(HWindow, 0, count - 1);
     InvalidateSortHeader();
-    SetCursor(hCursor);
+    FindDialog->EnableToolBar();
+}
+
+void CFoundFilesListView::SortAndHideDuplicateNames()
+{
+    HideDuplicatesAfterSort = TRUE;
+    SortItems(1, FALSE, TRUE);
 }
 
 void CFoundFilesListView::SortItems(int sortBy, BOOL reverse, BOOL force)
 {
+    if (HideDuplicatesAfterSort && !force)
+        return;
+
     if (sortBy == 4)
         sortBy = 3; // Time shares LastWrite with Date
     if (sortBy == 5 || sortBy < 0)
@@ -911,116 +1150,39 @@ void CFoundFilesListView::SortItems(int sortBy, BOOL reverse, BOOL force)
     ApplyCurrentSort();
 }
 
-void CFoundFilesListView::SetDifferentByGroup()
+void CFoundFilesListView::SetDifferentByGroup(int count)
 {
-    CFoundFilesData* lastData = NULL;
+    // Alternating colors distinguish successive duplicate groups.
     int different = 0;
-    if (Data.Count > 0)
+    Data[0]->Different = different;
+    for (int i = 1; i < count; ++i)
     {
-        lastData = Data.At(0);
-        lastData->Different = different;
-    }
-    int i;
-    for (i = 1; i < Data.Count; i++)
-    {
-        CFoundFilesData* data = Data.At(i);
-        if (data->Group == lastData->Group)
-        {
-            data->Different = different;
-        }
-        else
-        {
-            different++;
-            if (different > 1)
-                different = 0;
-            lastData = data;
-            lastData->Different = different;
-        }
+        if (Data[i]->Group != Data[i - 1]->Group)
+            different = !different;
+        Data[i]->Different = different;
     }
 }
 
-void CFoundFilesListView::QuickSort(int left, int right, int sortBy)
+int CFindSortJob::Compare(const CFoundFilesData* f1, const CFoundFilesData* f2) const
 {
-
-LABEL_QuickSort2:
-
-    int i = left, j = right;
-    CFoundFilesData* pivot = Data[(i + j) / 2];
-
-    do
-    {
-        while (CompareFunc(Data[i], pivot, sortBy) < 0 && i < right)
-            i++;
-        while (CompareFunc(pivot, Data[j], sortBy) < 0 && j > left)
-            j--;
-
-        if (i <= j)
-        {
-            CFoundFilesData* swap = Data[i];
-            Data[i] = Data[j];
-            Data[j] = swap;
-            i++;
-            j--;
-        }
-    } while (i <= j);
-
-    // the following "nice" code was replaced with a code that is much more stack-efficient  (max. log(N) recursion depth)
-    //  if (left < j) QuickSort(left, j, sortBy);
-    //  if (i < right) QuickSort(i, right, sortBy);
-
-    if (left < j)
-    {
-        if (i < right)
-        {
-            if (j - left < right - i) // both halves need sorting: recurse on the smaller one and process the other via 'goto'
-            {
-                QuickSort(left, j, sortBy);
-                left = i;
-                goto LABEL_QuickSort2;
-            }
-            else
-            {
-                QuickSort(i, right, sortBy);
-                right = j;
-                goto LABEL_QuickSort2;
-            }
-        }
-        else
-        {
-            right = j;
-            goto LABEL_QuickSort2;
-        }
-    }
-    else
-    {
-        if (i < right)
-        {
-            left = i;
-            goto LABEL_QuickSort2;
-        }
-    }
-}
-
-int CFoundFilesListView::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, int sortBy)
-{
+    const int sortBy = SortBy;
     int res;
     int next = sortBy;
-    const BOOL mixed = Configuration.FindSortFilesAndDirsTogether;
     do
     {
-        if (mixed || f1->IsDir == f2->IsDir) // same group, or files and directories sorted together
+        if (Mixed || f1->IsDir == f2->IsDir) // same group, or files and directories sorted together
         {
             switch (next)
             {
             case 0:
             {
-                res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->NameW.c_str(), -1, f2->NameW.c_str(), -1) - CSTR_EQUAL;
+                res = CompareFindSortText(f1->NameW, f2->NameW);
                 break;
             }
 
             case 1:
             {
-                res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->PathW.c_str(), -1, f2->PathW.c_str(), -1) - CSTR_EQUAL;
+                res = CompareFindSortText(f1->PathW, f2->PathW);
                 break;
             }
 
@@ -1066,77 +1228,13 @@ int CFoundFilesListView::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, i
     return res;
 }
 
-// quick sort routine for duplicate mode; it uses a special comparator
-void CFoundFilesListView::QuickSortDuplicates(int left, int right, BOOL byName)
-{
-
-LABEL_QuickSortDuplicates:
-
-    int i = left, j = right;
-    CFoundFilesData* pivot = Data[(i + j) / 2];
-
-    do
-    {
-        while (CompareDuplicatesFunc(Data[i], pivot, byName) < 0 && i < right)
-            i++;
-        while (CompareDuplicatesFunc(pivot, Data[j], byName) < 0 && j > left)
-            j--;
-
-        if (i <= j)
-        {
-            CFoundFilesData* swap = Data[i];
-            Data[i] = Data[j];
-            Data[j] = swap;
-            i++;
-            j--;
-        }
-    } while (i <= j);
-
-    // the following "nice" code was replaced with a code that is much more stack-efficient (max. log(N) recursion depth)
-    //  if (left < j) QuickSortDuplicates(left, j, byName);
-    //  if (i < right) QuickSortDuplicates(i, right, byName);
-
-    if (left < j)
-    {
-        if (i < right)
-        {
-            if (j - left < right - i) // both halves need sorting: recurse on the smaller one and use 'goto' for the other
-            {
-                QuickSortDuplicates(left, j, byName);
-                left = i;
-                goto LABEL_QuickSortDuplicates;
-            }
-            else
-            {
-                QuickSortDuplicates(i, right, byName);
-                right = j;
-                goto LABEL_QuickSortDuplicates;
-            }
-        }
-        else
-        {
-            right = j;
-            goto LABEL_QuickSortDuplicates;
-        }
-    }
-    else
-    {
-        if (i < right)
-        {
-            left = i;
-            goto LABEL_QuickSortDuplicates;
-        }
-    }
-}
-
-// comparator for displayed duplicates; if 'byName', sorting is primarily by name, otherwise by size
-int CFoundFilesListView::CompareDuplicatesFunc(CFoundFilesData* f1, CFoundFilesData* f2, BOOL byName)
+int CFindSortJob::CompareDuplicates(const CFoundFilesData* f1, const CFoundFilesData* f2, BOOL byName) const
 {
     int res;
     if (byName)
     {
         // by name
-        res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->NameW.c_str(), -1, f2->NameW.c_str(), -1) - CSTR_EQUAL;
+        res = CompareFindSortText(f1->NameW, f2->NameW);
         if (res == 0)
         {
             // by size
@@ -1172,7 +1270,7 @@ int CFoundFilesListView::CompareDuplicatesFunc(CFoundFilesData* f1, CFoundFilesD
             if (f1->Size == f2->Size)
             {
                 // by name
-                res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->NameW.c_str(), -1, f2->NameW.c_str(), -1) - CSTR_EQUAL;
+                res = CompareFindSortText(f1->NameW, f2->NameW);
                 if (res == 0)
                 {
                     // by group
@@ -1192,7 +1290,7 @@ int CFoundFilesListView::CompareDuplicatesFunc(CFoundFilesData* f1, CFoundFilesD
         }
     }
     if (res == 0)
-        res = CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, f1->PathW.c_str(), -1, f2->PathW.c_str(), -1) - CSTR_EQUAL;
+        res = CompareFindSortText(f1->PathW, f2->PathW);
     if (ReverseSort && res != 0)
         res = -res;
     return res;
@@ -1268,6 +1366,12 @@ BOOL GetNextItemFromFind(int index, char* path, char* name, void* param)
 LRESULT
 CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    LRESULT uiaResult;
+    if (HandleUiaMessage(uMsg, wParam, lParam, uiaResult))
+        return uiaResult;
+    if (uMsg == WM_SETCURSOR && FindDialog->SetActivityCursor(reinterpret_cast<HWND>(wParam), lParam))
+        return TRUE;
+
     SLOW_CALL_STACK_MESSAGE4("CFoundFilesListView::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
@@ -1582,7 +1686,13 @@ CFoundFilesListView::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         return 0;
     }
     }
-    return CWindow::WindowProc(uMsg, wParam, lParam);
+    const bool refresh = uMsg == WM_PAINT || uMsg == WM_SIZE || uMsg == WM_SETFOCUS || uMsg == WM_KILLFOCUS ||
+                         uMsg == WM_VSCROLL || uMsg == WM_HSCROLL || uMsg == LVM_SETITEMCOUNT;
+    const auto uia = refresh ? UiaState : nullptr;
+    const LRESULT result = CWindow::WindowProc(uMsg, wParam, lParam);
+    if (uia)
+        QueueFindUiaEvents(uia, uia->Refresh());
+    return result;
 }
 
 BOOL CFoundFilesListView::InitColumns()
@@ -1750,8 +1860,9 @@ CFindDialog::CFindDialog(HWND hCenterAgainst, const char* initPath)
     FoundFilesListView = NULL;
     SearchInProgress = FALSE;
     StateOfFindCloseQuery = sofcqNotUsed;
-    CanClose = TRUE;
     GrepThread = NULL;
+    GrepData.FoundVisibleCount = 0;
+    GrepData.RefreshPending = FALSE;
     char buf[100];
     sprintf(buf, "%s ", LoadStr(IDS_FF_SEARCHING));
     SearchingText.SetBase(buf);
@@ -1869,64 +1980,144 @@ void CFindDialog::GetLayoutParams()
     FindTextY = ResultsY - FindTextH;
 }
 
+int GetFindActivityStringID(CFindActivity activity)
+{
+    switch (activity)
+    {
+    case CFindActivity::Searching:
+        return IDS_FIND_ACTIVITY_SEARCHING;
+    case CFindActivity::Sorting:
+        return IDS_FIND_ACTIVITY_SORTING;
+    case CFindActivity::Stopping:
+        return IDS_FIND_ACTIVITY_STOPPING;
+    case CFindActivity::Finishing:
+        return IDS_FIND_ACTIVITY_FINISHING;
+    case CFindActivity::Stopped:
+        return IDS_STOPPED;
+    case CFindActivity::Finished:
+        return IDS_FIND_ACTIVITY_FINISHED;
+    default:
+        return IDS_FIND_ACTIVITY_IDLE;
+    }
+}
+
+bool CFindDialog::SetActivityCursor(HWND target, LPARAM cursorMessage)
+{
+    if (!FindUsesActivityCursor(Activity) || target == NULL || LOWORD(cursorMessage) != HTCLIENT ||
+        HIWORD(cursorMessage) == 0 || GetCapture() != NULL || !IsWindowEnabled(HWindow))
+        return false;
+
+    const HWND list = FoundFilesListView != NULL ? FoundFilesListView->HWindow : NULL;
+    if (target != HWindow && target != list)
+    {
+        if (list == NULL || ::GetParent(target) != list || target != ListView_GetHeader(list))
+            return false;
+
+        // Sorting can start with the mouse still over the column header. Keep
+        // the native resize cursor at the divider and other special header areas.
+        HDHITTESTINFO hit = {};
+        if (!GetCursorPos(&hit.pt) || !ScreenToClient(target, &hit.pt) ||
+            SendMessage(target, HDM_HITTEST, 0, reinterpret_cast<LPARAM>(&hit)) < 0 ||
+            hit.flags != HHT_ONHEADER)
+            return false;
+    }
+
+    const HCURSOR cursor = LoadCursor(NULL, IDC_APPSTARTING);
+    if (cursor == NULL)
+        return false;
+    SetCursor(cursor);
+    return true;
+}
+
+void CFindDialog::SetFindActivity(CFindActivity activity)
+{
+    if (Activity == activity)
+        return;
+
+    const bool refreshCursor = FindUsesActivityCursor(Activity) != FindUsesActivityCursor(activity);
+    Activity = activity;
+    UpdateFindWatchdogActivity(Watchdog.get(), activity);
+    if (HStatusBar != NULL)
+        UpdateFindActivityPart();
+    EnableWindow(GetDlgItem(HWindow, IDOK),
+                 activity != CFindActivity::Stopping && activity != CFindActivity::Finishing &&
+                     activity != CFindActivity::Sorting);
+    if (refreshCursor && HWindow != NULL)
+        PostMessage(HWindow, FindRefreshActivityCursor, 0, 0);
+}
+
+void CFindDialog::UpdateFindActivityPart(BOOL initialize)
+{
+    WCHAR text[64] = {};
+    const int length = LoadStringW(HLanguage, GetFindActivityStringID(Activity), text, _countof(text));
+    SIZE size = {};
+    HDC dc = HANDLES(GetDC(HStatusBar));
+    if (dc != NULL)
+    {
+        HFONT font = reinterpret_cast<HFONT>(SendMessage(HStatusBar, WM_GETFONT, 0, 0));
+        HGDIOBJ oldFont = font != NULL ? SelectObject(dc, font) : NULL;
+        GetTextExtentPoint32W(dc, text, length, &size);
+        if (oldFont != NULL)
+            SelectObject(dc, oldFont);
+        HANDLES(ReleaseDC(HStatusBar, dc));
+    }
+    ActivityPartWidth = size.cx + WinLibDPIFromLogical(HStatusBar, 14);
+    SetTwoStatusParts(TwoParts, initialize);
+    SendMessageW(HStatusBar, SB_SETTEXTW, 2, reinterpret_cast<LPARAM>(text));
+}
+
 void CFindDialog::SetTwoStatusParts(BOOL two, BOOL force)
 {
-    int margin = HMargin - 4;
-    int parts[3] = {margin, -1, -1};
     RECT r;
     GetClientRect(HStatusBar, &r);
 
-    int gripWidth = HMargin;
-    if (!IsZoomed(HWindow))
-        gripWidth = GetSystemMetrics(SM_CXVSCROLL);
+    const int margin = (std::max)(0, HMargin - 4);
+    const int gripWidth = IsZoomed(HWindow) ? HMargin : WinLibDPIGetSystemMetric(HStatusBar, SM_CXVSCROLL);
+    const int progressWidth = two ? WinLibDPIFromLogical(HStatusBar, 104) : 0;
+    const int progressLeft = (std::max)(margin, static_cast<int>(r.right) - gripWidth - progressWidth);
+    const int progressInset = WinLibDPIFromLogical(HStatusBar, 2);
 
-    int progressWidth = 0;
-    int progressHeight = 0;
-    if (two)
+    if (two && HProgressBar == NULL)
     {
-        progressWidth = 104; // 100 plus the frame
-        if (HProgressBar == NULL)
+        HProgressBar = CreateWindowEx(0, PROGRESS_CLASS, NULL,
+                                      WS_CHILD | PBS_SMOOTH,
+                                      0, 0, 0, 0,
+                                      HStatusBar, (HMENU)0, HInstance, NULL);
+        if (HProgressBar != NULL)
         {
-            HProgressBar = CreateWindowEx(0, PROGRESS_CLASS, NULL,
-                                          WS_CHILD | PBS_SMOOTH,
-                                          0, 0,
-                                          progressWidth, r.bottom - 2,
-                                          HStatusBar, (HMENU)0, HInstance, NULL);
             SendMessage(HProgressBar, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
             DarkModeApplyTree(HProgressBar);
         }
     }
-    else
+    else if (!two && HProgressBar != NULL)
     {
-        if (HProgressBar != NULL)
-        {
-            DestroyWindow(HProgressBar);
-            HProgressBar = NULL;
-        }
+        DestroyWindow(HProgressBar);
+        HProgressBar = NULL;
     }
 
-    parts[1] = r.right - progressWidth - gripWidth;
+    const int gap = HProgressBar != NULL ? WinLibDPIFromLogical(HStatusBar, 10) : 0;
+    const int infoRight = (std::max)(margin, progressLeft - gap);
+    // Leave most of the available width for the path or selection summary.
+    const int activityWidth = (std::min)(ActivityPartWidth, (infoRight - margin) / 3);
+    int parts[] = {margin, infoRight - activityWidth, infoRight, -1};
 
     if (HProgressBar != NULL)
-    {
-        parts[1] -= 10; // increase spacing from the progress bar
-        SetWindowPos(HProgressBar, NULL,
-                     r.right - progressWidth - gripWidth, 2, 0, 0,
-                     SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW);
-    }
+        SetWindowPos(HProgressBar, NULL, progressLeft, progressInset, progressWidth,
+                     (std::max)(0, static_cast<int>(r.bottom) - 2 * progressInset),
+                     SWP_NOZORDER | SWP_SHOWWINDOW);
 
     if (TwoParts != two || force)
     {
         TwoParts = two;
         SendMessage(HStatusBar, WM_SETREDRAW, FALSE, 0); // when redraw is enabled, the status bar ends up with a stray frame
-        SendMessage(HStatusBar, SB_SETPARTS, 3, (LPARAM)parts);
+        SendMessage(HStatusBar, SB_SETPARTS, _countof(parts), reinterpret_cast<LPARAM>(parts));
         SendMessage(HStatusBar, SB_SETTEXT, 0 | SBT_NOBORDERS, (LPARAM) "");
-        SendMessage(HStatusBar, SB_SETTEXT, 2 | SBT_NOBORDERS, (LPARAM) "");
+        SendMessage(HStatusBar, SB_SETTEXT, 3 | SBT_NOBORDERS, (LPARAM) "");
         SendMessage(HStatusBar, WM_SETREDRAW, TRUE, 0);
         InvalidateRect(HStatusBar, NULL, TRUE);
     }
     else
-        SendMessage(HStatusBar, SB_SETPARTS, 3, (LPARAM)parts);
+        SendMessage(HStatusBar, SB_SETPARTS, _countof(parts), reinterpret_cast<LPARAM>(parts));
 }
 
 void CFindDialog::LayoutControls()
@@ -2329,7 +2520,8 @@ void CFindDialog::BuildSerchForData()
 void CFindDialog::StartSearch(WORD command)
 {
     CALL_STACK_MESSAGE1("CFindDialog::StartSearch()");
-    if (FoundFilesListView == NULL || GrepThread != NULL)
+    if (FoundFilesListView == NULL || GrepThread != NULL || FinishingSearch ||
+        IsSortingFindResults() || CloseWhenFindIdle || FindCloseQueryPending)
         return;
 
     // if we are searching for duplicates, ask for additional options
@@ -2352,6 +2544,7 @@ void CFindDialog::StartSearch(WORD command)
 
     EnumFileNamesChangeSourceUID(FoundFilesListView->HWindow, &(FoundFilesListView->EnumFileNamesSourceUID));
 
+    GrepData.FoundVisibleCount = 0;
     ListView_SetItemCount(FoundFilesListView->HWindow, 0);
     UpdateWindow(FoundFilesListView->HWindow);
 
@@ -2457,7 +2650,8 @@ void CFindDialog::StartSearch(WORD command)
     BuildSerchForData();
     GrepData.Data = &SearchForData;
     GrepData.StopSearch = FALSE;
-    GrepData.HWindow = HWindow;
+    GrepData.Log = &Log;
+    GrepData.Watchdog = Watchdog.get();
 
     // advanced search
     memmove(&GrepData.Criteria, &Data.Criteria, sizeof(Data.Criteria));
@@ -2475,18 +2669,31 @@ void CFindDialog::StartSearch(WORD command)
     }
 
     GrepData.FoundFilesListView = FoundFilesListView;
-    GrepData.FoundVisibleCount = 0;
-    GrepData.FoundVisibleTick = GetTickCount();
-    GrepData.RefreshPosted = FALSE;
+    GrepData.RefreshPending = FALSE;
 
     GrepData.SearchingText = &SearchingText;
     GrepData.SearchingText2 = &SearchingText2;
 
+    // The timer publishes batches and observes thread exit without waiting.
+    if (SetTimer(HWindow, IDT_REPAINT, 100, NULL) == 0)
+    {
+        TRACE_E("Unable to start the Find publication timer.");
+        if (GrepData.Refine != 0)
+            FoundFilesListView->DestroyDataForRefine();
+        return;
+    }
+
+    SearchStopRequested = false;
+    const CFindActivity previousActivity = GetFindActivity();
+    SetFindActivity(CFindActivity::Searching);
+    UpdateFindWatchdogResultCount(Watchdog.get(), static_cast<unsigned>(GrepData.FoundVisibleCount));
     DWORD threadId;
     GrepThread = HANDLES(CreateThread(NULL, 0, GrepThreadF, &GrepData, 0, &threadId));
     if (GrepThread == NULL)
     {
         TRACE_E("Unable to start GrepThread thread.");
+        KillTimer(HWindow, IDT_REPAINT);
+        SetFindActivity(previousActivity);
         if (GrepData.Refine != 0)
             FoundFilesListView->DestroyDataForRefine();
         return;
@@ -2502,9 +2709,6 @@ void CFindDialog::StartSearch(WORD command)
 
     SearchInProgress = TRUE;
 
-    // start a timer to update the dirty text
-    SetTimer(HWindow, IDT_REPAINT, 100, NULL);
-
     // force the first refresh of the status bar
     SearchingText.SetDirty(TRUE);
     PostMessage(HWindow, WM_TIMER, IDT_REPAINT, 0);
@@ -2519,28 +2723,26 @@ void CFindDialog::StartSearch(WORD command)
 void CFindDialog::StopSearch()
 {
     CALL_STACK_MESSAGE1("CFindDialog::StopSearch()");
-    GrepData.StopSearch = TRUE;
-    MSG msg;
-    while (1)
-    {
-        BOOL oldCanClose = CanClose;
-        CanClose = FALSE; // don't allow closing while we are inside this method
+    if (GrepThread == NULL || SearchStopRequested)
+        return;
 
-        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-        { // message loop for messages from the grep thread
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
+    SearchStopRequested = true;
+    GrepData.StopSearch = true;
+    SetFindActivity(CFindActivity::Stopping);
+    TBHeader->EnableItem(IDC_FIND_STOP, FALSE, FALSE);
+}
 
-        CanClose = oldCanClose;
-        if (GrepThread == NULL)
-            return; // DispatchMessage may call us again and we've already handled closing
-        if (WaitForSingleObject(GrepThread, 100) != WAIT_TIMEOUT)
-            break;
-    }
-    if (GrepThread != NULL)
-        HANDLES(CloseHandle(GrepThread));
+void CFindDialog::FinishSearch()
+{
+    CALL_STACK_MESSAGE1("CFindDialog::FinishSearch()");
+    // Called only after the worker handle is signaled.
+    FinishingSearch = true;
+    SetFindActivity(CFindActivity::Finishing);
+    if (!SearchStopRequested && Configuration.MinBeepWhenDone && GetForegroundWindow() != HWindow)
+        MessageBeep(0);
+    HANDLES(CloseHandle(GrepThread));
     GrepThread = NULL;
+    InterlockedExchange(&GrepData.RefreshPending, FALSE);
 
     SearchInProgress = FALSE;
     if (OKButton != NULL) // trigger the drop-down arrow
@@ -2551,7 +2753,7 @@ void CFindDialog::StopSearch()
     }
     SetDlgItemText(HWindow, IDOK, FindNowText);
 
-    // stop the timer used for updating the text
+    // Stop periodic updates; the final result/log state is flushed below.
     KillTimer(HWindow, IDT_REPAINT);
 
     // if the second text appeared during search, it's time to hide it
@@ -2563,6 +2765,8 @@ void CFindDialog::StopSearch()
 
     SearchingText.Set("");
     UpdateStatusBar = FALSE;
+    // Publish everything after the worker exits, before an automatic log dialog can open.
+    UpdateListViewItems();
     if (!GrepData.SearchStopped)
     {
         DWORD items = FoundFilesListView->GetCount();
@@ -2574,7 +2778,8 @@ void CFindDialog::StopSearch()
         else
             UpdateStatusBar = TRUE;
 
-        if (Log.GetErrorCount() > 0 && Configuration.ShowGrepErrors)
+        if (!CloseWhenFindIdle && !FindCloseQueryPending &&
+            Log.GetErrorCount() > 0 && Configuration.ShowGrepErrors)
             OnShowLog();
     }
     else
@@ -2585,10 +2790,31 @@ void CFindDialog::StopSearch()
     SetWindowText(HWindow, LoadStr(IDS_FF_NAME));
     if (GrepData.Refine != 0)
         FoundFilesListView->DestroyDataForRefine();
-    UpdateListViewItems();
-    if (FoundFilesListView != NULL)
+    if (FoundFilesListView != NULL && !CloseWhenFindIdle && !FindCloseQueryPending)
         FoundFilesListView->ApplyCurrentSort();
     EnableControls();
+    FinishingSearch = false;
+    OnFindWorkIdle();
+}
+
+void CFindDialog::OnFindWorkIdle()
+{
+    if (GrepThread != NULL || FinishingSearch || IsSortingFindResults())
+        return;
+
+    if (Activity == CFindActivity::Finishing)
+        SetFindActivity(GrepData.SearchStopped ? CFindActivity::Stopped : CFindActivity::Finished);
+
+    if (FindCloseQueryPending)
+    {
+        FindCloseQueryPending = false;
+        const BOOL canClose = CanCloseWindow();
+        if (StateOfFindCloseQuery == sofcqSentToFind)
+            StateOfFindCloseQuery = canClose ? sofcqCanClose : sofcqCannotClose;
+    }
+
+    if (CloseWhenFindIdle)
+        PostMessage(HWindow, WM_USER_CLOSEFIND, 0, 0);
 }
 
 void CFindDialog::EnableToolBar()
@@ -2608,7 +2834,7 @@ void CFindDialog::EnableToolBar()
     TBHeader->EnableItem(CM_FIND_PROPERTIES, FALSE, lvFocused && selectedCount > 0);
     TBHeader->EnableItem(CM_FIND_CLIPCUT, FALSE, lvFocused && selectedCount > 0);
     TBHeader->EnableItem(CM_FIND_CLIPCOPY, FALSE, lvFocused && selectedCount > 0);
-    TBHeader->EnableItem(IDC_FIND_STOP, FALSE, SearchInProgress);
+    TBHeader->EnableItem(IDC_FIND_STOP, FALSE, SearchInProgress && !SearchStopRequested);
 }
 
 void CFindDialog::EnableControls(BOOL nextIsButton)
@@ -2743,22 +2969,27 @@ void CFindDialog::UpdateListViewItems()
     if (FoundFilesListView != NULL)
     {
         int count = FoundFilesListView->GetCount();
+        if (!SearchInProgress)
+            UpdateFindWatchdogResultCount(Watchdog.get(), static_cast<unsigned>(count));
 
-        // inform the list view about the new item count
-        ListView_SetItemCountEx(FoundFilesListView->HWindow,
-                                count,
-                                LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
-        // for the first added data, select the first item
-        if (GrepData.FoundVisibleCount == 0 && count > 0)
-            ListView_SetItemState(FoundFilesListView->HWindow, 0,
-                                  LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED)
+        BOOL countChanged = count != GrepData.FoundVisibleCount;
+        if (countChanged)
+        {
+            // Preserve native list-view accessibility, avoiding redundant count updates.
+            ListView_SetItemCountEx(FoundFilesListView->HWindow,
+                                   count,
+                                   LVSICF_NOINVALIDATEALL | LVSICF_NOSCROLL);
+            if (GrepData.FoundVisibleCount == 0 && count > 0)
+                ListView_SetItemState(FoundFilesListView->HWindow, 0,
+                                     LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
 
-                // write the number of items above the list view
-                TBHeader->SetFoundCount(count);
+            TBHeader->SetFoundCount(count);
+            GrepData.FoundVisibleCount = count;
+        }
         TBHeader->SetErrorsInfosCount(Log.GetErrorCount(), Log.GetInfoCount());
 
         // when minimized, display the item count in the title
-        if (IsIconic(HWindow))
+        if (countChanged && IsIconic(HWindow))
         {
             char buf[MAX_PATH + 100];
             if (SearchInProgress)
@@ -2770,10 +3001,6 @@ void CFindDialog::UpdateListViewItems()
                 lstrcpy(buf, LoadStr(IDS_FF_NAME));
             SetWindowText(HWindow, buf);
         }
-
-        // used by the search thread to know when to notify us next
-        GrepData.FoundVisibleCount = count;
-        GrepData.FoundVisibleTick = GetTickCount();
 
         EnableToolBar();
     }
@@ -3241,12 +3468,6 @@ void CFindDialog::InsertDrives(HWND hEdit, BOOL network)
 
 BOOL CFindDialog::CanCloseWindow()
 {
-    // we used to get bug reports with crashes in CFindDialog::StopSearch()
-    // likely because the window was being destroyed while still inside the method
-    // this check on CanClose disappeared after version 1.52
-    if (!CanClose)
-        return FALSE;
-
     // if CShellExecuteWnd windows exist, we offer to cancel closing or send a bug report and terminate
     char reason[BUG_REPORT_REASON_MAX]; // cause of the problem + list of windows (multiline)
     strcpy(reason, "Some faulty shell extension has locked our find window.");
@@ -3360,6 +3581,36 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CFindDialog::DialogProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+    case WM_USER_FIND_HEARTBEAT:
+        AcknowledgeFindWatchdog(Watchdog.get(), wParam);
+        return TRUE;
+
+    case WM_SETCURSOR:
+        if (SetActivityCursor(reinterpret_cast<HWND>(wParam), lParam))
+        {
+            SetWindowLongPtr(HWindow, DWLP_MSGRESULT, TRUE);
+            return TRUE;
+        }
+        break;
+
+    case FindRefreshActivityCursor:
+    {
+        // Let the hovered control choose its cursor again even if the mouse
+        // did not move. Never send synchronous cursor messages to another thread.
+        POINT point;
+        if (GetCapture() == NULL && GetCursorPos(&point))
+        {
+            const HWND hovered = WindowFromPoint(point);
+            if (hovered != NULL && GetWindowThreadProcessId(hovered, NULL) == GetCurrentThreadId() &&
+                (hovered == HWindow || IsChild(HWindow, hovered)))
+            {
+                const LRESULT hit = SendMessage(hovered, WM_NCHITTEST, 0, MAKELPARAM(point.x, point.y));
+                SendMessage(hovered, WM_SETCURSOR, reinterpret_cast<WPARAM>(hovered), MAKELPARAM(hit, WM_MOUSEMOVE));
+            }
+        }
+        return TRUE;
+    }
+
     case WM_INITDIALOG:
     {
         FindDialogQueue.Add(new CWindowQueueItem(HWindow));
@@ -3440,7 +3691,7 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SendMessage(HStatusBar, WM_SETFONT, (WPARAM)HStatusFont, TRUE);
 
         DarkModeApplyTree(HStatusBar);
-        SetTwoStatusParts(FALSE, TRUE);
+        UpdateFindActivityPart(TRUE);
         SendMessage(HStatusBar, SB_SETTEXT, 1 | SBT_NOBORDERS, (LPARAM)LoadStr(IDS_FIND_INIT_HINT));
 
         // assign a menu to the window
@@ -3514,8 +3765,24 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     case WM_TIMER:
     {
+        if (wParam == FindSortTimer)
+        {
+            if (FoundFilesListView != NULL)
+                FoundFilesListView->PollSort();
+            return 0;
+        }
         if (wParam == IDT_REPAINT)
         {
+            if (GrepThread != NULL && WaitForSingleObject(GrepThread, 0) == WAIT_OBJECT_0)
+            {
+                FinishSearch();
+                return 0;
+            }
+
+            // Consume before reading the data so changes during publication remain pending.
+            if (SearchInProgress && InterlockedExchange(&GrepData.RefreshPending, FALSE))
+                UpdateListViewItems();
+
             char buf[MAX_PATH + 50];
             if (SearchingText.GetDirty())
             {
@@ -3604,34 +3871,29 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     // used to test closing the window because Salamander is shutting down
     case WM_USER_QUERYCLOSEFIND:
     {
-        BOOL query = TRUE;
-        if (SearchInProgress)
+        if (SearchInProgress && !SearchStopRequested && !lParam /* quiet */ &&
+            !DoYouWantToStopSearching())
         {
-            if (lParam /* quiet */)
-                StopSearch(); // no need to ask anything, stop the ongoing search anyway
-            else
-            {
-                if (!DoYouWantToStopSearching())
-                    query = FALSE;
-                else
-                {
-                    if (SearchInProgress) // stop searching immediately if the user wants
-                        StopSearch();
-                }
-            }
+            if (StateOfFindCloseQuery == sofcqSentToFind)
+                StateOfFindCloseQuery = sofcqCannotClose;
+            return TRUE;
         }
-        if (query)
-            query = CanCloseWindow();
-        if (StateOfFindCloseQuery == sofcqSentToFind)
-            StateOfFindCloseQuery = query ? sofcqCanClose : sofcqCannotClose;
+
+        FindCloseQueryPending = true;
+        StopSearch();
+        OnFindWorkIdle();
         return TRUE;
     }
 
     // used for remote closing of the window because Salamander is shutting down
     case WM_USER_CLOSEFIND:
     {
-        if (SearchInProgress)
+        if (GrepThread != NULL || FinishingSearch || IsSortingFindResults())
+        {
+            CloseWhenFindIdle = true;
             StopSearch();
+            return 0;
+        }
         DestroyWindow(HWindow);
         return 0;
     }
@@ -3672,11 +3934,12 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
             case CML_FIND_FIND:
             {
-                popup->EnableItem(CM_FIND_NOW, FALSE, !SearchInProgress);
-                popup->EnableItem(CM_FIND_INTERSECT, FALSE, !SearchInProgress && totalCount > 0);
-                popup->EnableItem(CM_FIND_SUBTRACT, FALSE, !SearchInProgress && totalCount > 0);
-                popup->EnableItem(CM_FIND_APPEND, FALSE, !SearchInProgress && totalCount > 0);
-                popup->EnableItem(CM_FIND_DUPLICATES, FALSE, !SearchInProgress);
+                const bool canStartSearch = !SearchInProgress && !IsSortingFindResults();
+                popup->EnableItem(CM_FIND_NOW, FALSE, canStartSearch);
+                popup->EnableItem(CM_FIND_INTERSECT, FALSE, canStartSearch && totalCount > 0);
+                popup->EnableItem(CM_FIND_SUBTRACT, FALSE, canStartSearch && totalCount > 0);
+                popup->EnableItem(CM_FIND_APPEND, FALSE, canStartSearch && totalCount > 0);
+                popup->EnableItem(CM_FIND_DUPLICATES, FALSE, canStartSearch);
                 popup->EnableItem(CM_FIND_MESSAGES, FALSE, Log.GetCount() > 0);
                 break;
             }
@@ -3760,6 +4023,13 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             popup->Track(flags, r.left, r.bottom, HWindow, &r);
         }
+        break;
+    }
+
+    case WM_MOVE:
+    {
+        if (FoundFilesListView != NULL)
+            FoundFilesListView->RefreshUiaView();
         break;
     }
 
@@ -3873,16 +4143,19 @@ CFindDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 return TRUE;
             if (SearchInProgress)
             {
-                if (!DoYouWantToStopSearching())
+                if (!SearchStopRequested && !DoYouWantToStopSearching())
                     return TRUE;
 
-                if (SearchInProgress)
-                    StopSearch();
-
-                if (ProcessingEscape)
-                    return TRUE;
-                else
-                    break;
+                if (!ProcessingEscape)
+                    CloseWhenFindIdle = true;
+                StopSearch();
+                OnFindWorkIdle();
+                return TRUE;
+            }
+            if (FinishingSearch || IsSortingFindResults())
+            {
+                CloseWhenFindIdle = true;
+                return TRUE;
             }
             else
             {
@@ -4682,6 +4955,8 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
 
             case LVN_ITEMCHANGED:
             {
+                if (FoundFilesListView->IsApplyingSort())
+                    break;
                 EnableToolBar();
                 if (!IsSearchInProgress())
                     UpdateStatusBar = TRUE; // the text will be set during Idle time
@@ -4835,21 +5110,6 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
         break;
     }
 
-    case WM_USER_ADDFILE:
-    {
-        InterlockedExchange(&GrepData.RefreshPosted, FALSE);
-        UpdateListViewItems();
-        return 0;
-    }
-
-    case WM_USER_ADDLOG:
-    {
-        // running in the find thread
-        FIND_LOG_ITEM* item = (FIND_LOG_ITEM*)wParam;
-        Log.Add(item->Flags, item->Text, item->Path);
-        return 0;
-    }
-
     case WM_USER_BUTTONS:
     {
         EnableControls(wParam != NULL);
@@ -4896,8 +5156,15 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
 
     case WM_DESTROY:
     {
-        if (SearchInProgress)
-            StopSearch();
+        // Normal close paths defer destruction until the worker has exited.
+        // If Windows destroys the dialog directly, its worker still borrows our data.
+        if (GrepThread != NULL)
+        {
+            GrepData.StopSearch = true;
+            WaitForSingleObject(GrepThread, INFINITE);
+            HANDLES(CloseHandle(GrepThread));
+            GrepThread = NULL;
+        }
 
         if (!DlgFailed)
         {
@@ -4934,6 +5201,7 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
             EditLine = NULL;
         }
 
+        CloseFindWatchdog(Watchdog.get());
         FindDialogQueue.Remove(HWindow);
 
         // if the user copies the search results to the clipboard (Ctrl+C), switches to the main window
