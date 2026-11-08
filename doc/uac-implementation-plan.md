@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Limit the current UAC scope to core functions and ZIP. | Sequence the remaining ZIP work and defer other plugins and public SDK changes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify persistent protected ZIP authorization. | Reuse one broker across manual refreshes and release it on archive exit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify the protected ZIP64 archive panel. | Record folder navigation, manual refresh, cancellation, and ordinary ZIP behavior. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define the protected ZIP panel acceptance gate. | Require the existing archive panel and compare an elevated plugin host. | | GPT-6.1 Sol (Codex) |
@@ -780,6 +781,14 @@ Lokálně prošlo sestavení x64 Debug, zkouška blokového ZIP64 a šest archiv
 
 V izolované Windows 11 VM prošel jeden souhlas pro 5GiB ZIP64, vstup do podsložky, Ctrl+R v ní, návrat a další Ctrl+R v kořeni. Obě obnovy prošly bez výzvy. Po 58 sekundách od otevření běžel stejný broker s PID 8068. Po odchodu z archivu na disk neběžel žádný broker. Další pokus o vstup znovu nabídl správce, nabídka byla zrušena v Samandarinu. Otisky všech šesti instalovaných souborů odpovídaly pilotu. Lokálně prošlo sestavení x64 Debug, 190 nativních kontrol v každé z konfigurací Debug a Release, test transportu, 274 kontrol archivního vstupu v obou konfiguracích a 30 kontraktů přechodů.
 
+### 8.47 Rozsah dokončení ZIPu
+
+ZIP je jediný plugin v aktuální etapě UAC. Jeho běžný archivní panel už používá schválenou čtecí relaci. Další práce vychází z těchto vstupních bodů a zachová běžný tok pro přístupné archivy.
+
+1. **F3 pro jednu položku chráněného ZIPu.** Propojit interní prohlížeč s ověřenou položkou a stávajícím dekompresorem ZIPu. Čtení použije otevřenou relaci archivu bez další výzvy. Ověřit identitu položky, velikost výstupu, CRC, poškozený archiv a ztrátu spojení. Do interního prohlížeče předat výsledek až po úspěšném dokončení.
+2. **Rozbalování přes F5.** Nejprve jedna položka do běžně zapisovatelného cíle, potom rozšíření na výběr. Chráněný zdroj dál využije otevřenou relaci. Chráněný cíl vyžaduje samostatné schválení zápisu pro přesně uvedené umístění. Ověřit kolize, zrušení, úklid a názvy položek před vytvořením souborů.
+3. **Změny archivu.** Přidání, nahrazení a odstranění položek vyžadují výslovný zápis do archivu. Připravit obsah s běžnými právy a bezpečné zveřejnění posoudit samostatně podle závěrů P4m. Po dobu otevřené čtecí relace drží broker zdroj proti přepsání. Přechod do režimu zápisu musí znovu ověřit identitu originálu a řešit konflikt či přerušení mezi přípravou a zveřejněním.
+
 ## 9. Uživatelský tok a stav operace
 
 1. Provést běžnou operaci s aktuálním tokenem. Preflight může být informativní, nemá slibovat oprávnění budoucí mutace.
@@ -818,13 +827,13 @@ Nové texty patří do lokalizačního systému. Dialogy musí respektovat proje
 - **Panel/hledání:** pozdější explicitní autorizovaný listing omezený na kořen a dobu života. Stav musí být viditelný, bez automatické změny ACL adresáře a bez promptů při každém refreshi. Výsledná data nejsou příkazem brokeru.
 - **Viewer:** parsování, náhledy a pluginy zůstávají mimo broker; read-only stream/handle se váže na schválený objekt. Refresh a přechod na další soubor vyžadují nové ověření rozsahu.
 - **Editor:** zvlášť navrhnout explicitní „spustit editor jako správce“ nebo neelevované edit-copy-commit s porovnáním identity/verze původního souboru. Není to automatický fallback běžného `CreateProcessW`.
-- **Archivy a plugin FS:** nepovyšovat parser ZIP ani celý plugin. Později oddělit neprivilegované získání dat od schváleného cílového zápisu a auditovat staging, metadata, symlinky a cleanup. Virtuální pluginové cesty nelze předat jako nativní Windows cesty.
+- **ZIP:** parser běží v běžném procesu. Čtení schváleného archivu, zápis do cíle a změny samotného archivu mají samostatné hranice oprávnění. Ostatní archivační pluginy a pluginové souborové systémy patří do pozdější etapy.
 - **SDK a Salamatrix:** případné nové API až v samostatné etapě. Zachovat prefix vtable starých interface, nové metody pouze připojovat; automatizační schopnosti udržet stejné ve všech pěti runtime providerech podle `AGENTS.md`. Skripty nesmějí získat obecný elevated execute endpoint.
 - **WOW64 a architektury:** helper odpovídá architektuře distribuce; ověřit, že cesty jako `System32` míří na stejný objekt jako v hostu. Nespouštět jinou bitovou variantu jako transparentní náhradu bez explicitního kontraktu. Nepoužívat globální vypínání přesměrování jako univerzální opravu.
 
 ## 11. Implementační etapy a akceptační podmínky
 
-Tabulka uvádí cílové podmínky etap. Průběžné výsledky a zúžení pilotů jsou v oddílu 8.
+Tabulka uvádí cílové podmínky etap. Průběžné výsledky a zúžení pilotů jsou v oddílu 8. V aktuální etapě dokončit ZIP podle 8.47 a běžné interní funkce Salamanderu. Před P7 ověřit zbývající mezery nativních operací podle P3–P6, zejména dávky, přepis cíle, přesun mezi svazky a přesun do Koše. Ostatní pluginy, veřejné SDK a nové automatizační rozhraní UAC navážou samostatně.
 
 | Etapa | Obsah | Závislost | Podmínka dokončení |
 | --- | --- | --- | --- |
@@ -834,7 +843,7 @@ Tabulka uvádí cílové podmínky etap. Průběžné výsledky a zúžení pilo
 | P3 — základní lokální úkony | Nejprve mkdir a same-volume rename, poté běžné atributy/časy a trvalé delete. Společné zapojení F7/rename/Quick Rename a odpovídajících worker opkódů. | P1, P2, review handle/path mutací. | Jeden explicitní prompt, správné skip/cancel, žádná nová mutace po odmítnutí, ověřené chování vůči záměně cíle/rodiče. Nepodporované reparse případy jsou explicitně odmítnuty. |
 | P4 — příprava a copy/move | Privilegovaný discovery omezených podstromů, sériový copy, overwrite, rekurze, cross-volume copy+delete a částečné výsledky; zapojení stávající fronty a koordinátoru. | P3. | Chráněný zdroj/cíl fungují end-to-end, žádné duplikované lease/dokončení, bezpečné retry i po částečné změně, úplnost výběru a progress jsou pravdivé. |
 | P5 — metadata, odkazy a Koš | ADS/EFS/sparse/compression, ACL/owner, directory times, symlink/junction a shell recycle jako jednotlivě ověřené capability. Dle potřeby širší síťový přenos. | P4 + konkrétní bezpečnostní návrh každé capability. | Matice zachování vlastností pro obě identity; žádná tichá ztráta dat/metadat, žádné změny cíle odkazu či fallback z Koše na delete. |
-| P6 — další plochy | Explicitní chráněný listing/search/viewer, následně edit-copy-commit, archivy a případné SDK. Každá plocha jako samostatný návrh a review. | Stabilní P4/P5 podle schopnosti. | Parsery/pluginy zůstávají neelevované, scope přístupu srozumitelný, staré pluginy binárně funkční, případná runtime parity zachována. |
+| P6 — interní funkce a ZIP | Chráněný výpis, Find, výpočet velikosti, interní prohlížeč, explicitní spuštění editoru a práce se ZIPem. | Stabilní P4/P5 podle schopnosti. | Běžný tok funguje s původním tokenem a souhlas pokrývá přesně vymezenou operaci. ZIP používá schválené čtení a samostatně autorizovaný zápis. |
 | P7 — release a provozní ověření | Kompletní security review, fault injection, podepsané artefakty, instalace/update/odinstalace, dokumentace, lokalizace, full CI a interaktivní VM matice. Změřit výkon a teprve potom rozšiřovat elevated paralelizaci. | Všechny capability určené do vydání. | Splněná release kritéria níže, žádné známé kritické IPC/path identity chyby; omezení jasně popsaná. |
 
 První použitelný pilot může skončit po P3; plnohodnotná nativní file-operation podpora vyžaduje P4 a příslušné vlastnosti z P5. Označení „UAC hotovo“ nesmí skrýt nepokryté chráněné zdroje, Koš či již existující metadata volby. P6 může být následné vydání s explicitně uvedeným rozsahem.
