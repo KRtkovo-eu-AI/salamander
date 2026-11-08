@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Dispatch guarded F6 moves across fixed NTFS volumes. | Keep source retirement and recovery in one scoped broker request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the live scoped job dispatcher directly. | Run the same loop with an owned test pipe and NTFS fixtures. | | GPT-6.1 Sol (Codex) |
@@ -89,6 +90,7 @@
 #ifdef SAM_UAC_BROKER
 #include "copytree.h"
 #include "efscopy.h"
+#include "movesourceguard.h"
 #include "viewleaf.h"
 #endif
 #endif
@@ -140,6 +142,7 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD sizeDetailsCapability = 8388608;
 [[maybe_unused]] constexpr DWORD leafJobCapability = 0x01000000;
 [[maybe_unused]] constexpr DWORD transferJobCapability = 0x02000000;
+[[maybe_unused]] constexpr DWORD crossVolumeMoveCapability = 0x04000000;
 [[maybe_unused]] constexpr DWORD archiveReadCapability = 67108864;
 [[maybe_unused]] constexpr DWORD zipSelectionWriteCapability = 134217728;
 [[maybe_unused]] constexpr DWORD zipUpdateCapability = 536870912;
@@ -152,7 +155,7 @@ constexpr DWORD capabilities = 0;
                                                  directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
                                                  copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability |
                                                  renameDirectorySymlinkCapability | renameJunctionCapability | deleteSymlinkCapability |
-                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability | zipSelectionWriteCapability | zipUpdateCapability | copyOverwriteCapability | findContentCapability | findFileCapability | transferJobCapability | leafJobCapability;
+                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability | zipSelectionWriteCapability | zipUpdateCapability | copyOverwriteCapability | findContentCapability | findFileCapability | transferJobCapability | leafJobCapability | crossVolumeMoveCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -291,7 +294,7 @@ bool TrustedSid(PSID sid, PSID installer)
            EqualSid(sid, installer);
 }
 
-bool ProtectedObject(HANDLE handle, bool directory)
+bool ProtectedObject(HANDLE handle, bool directory, bool namespaceOnly)
 {
     FILE_ATTRIBUTE_TAG_INFO info{};
     if (!GetFileInformationByHandleEx(handle, FileAttributeTagInfo, &info, sizeof(info)) ||
@@ -314,9 +317,9 @@ bool ProtectedObject(HANDLE handle, bool directory)
         return false;
 
     // Inherit-only ACEs describe descendants, which we check independently.
-    constexpr DWORD change = GENERIC_ALL | GENERIC_WRITE | WRITE_DAC | WRITE_OWNER | DELETE |
-                             FILE_WRITE_DATA | FILE_APPEND_DATA | FILE_WRITE_EA |
-                             FILE_WRITE_ATTRIBUTES | FILE_DELETE_CHILD;
+    constexpr DWORD commonChange = GENERIC_ALL | GENERIC_WRITE | WRITE_DAC | WRITE_OWNER | DELETE |
+                                   FILE_WRITE_EA | FILE_WRITE_ATTRIBUTES | FILE_DELETE_CHILD;
+    const DWORD change = commonChange | (namespaceOnly ? 0 : FILE_WRITE_DATA | FILE_APPEND_DATA);
     for (DWORD i = 0; i < dacl->AceCount; ++i)
     {
         void* entry = nullptr;
@@ -334,6 +337,11 @@ bool ProtectedObject(HANDLE handle, bool directory)
             return false;
     }
     return true;
+}
+
+bool ProtectedObject(HANDLE handle, bool directory)
+{
+    return ProtectedObject(handle, directory, false);
 }
 
 class InstallLocation
@@ -580,7 +588,7 @@ bool FindTreeTarget(const InstallLocation& install, std::wstring_view path, std:
     return false;
 }
 
-Handle OpenVolumeRoot(std::wstring_view volume)
+Handle OpenVolumeRoot(std::wstring_view volume, ACCESS_MASK extraAccess = 0)
 {
     if (volume.size() != volumeLength ||
         !UacDirectoryLeaf::Equal(volume.substr(0, volumePrefix.size()), volumePrefix))
@@ -592,7 +600,7 @@ Handle OpenVolumeRoot(std::wstring_view volume)
     const std::wstring name = std::wstring(volume) + L"\\";
     if (GetDriveTypeW(name.c_str()) != DRIVE_FIXED)
         return {};
-    return Adopt(CreateFileW(name.c_str(), FILE_TRAVERSE | FILE_READ_ATTRIBUTES,
+    return Adopt(CreateFileW(name.c_str(), FILE_TRAVERSE | FILE_READ_ATTRIBUTES | extraAccess,
                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
                              FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
 }
@@ -990,6 +998,112 @@ DWORD CopyEncryptedFile(const InstallLocation& install, HANDLE sourceParent,
                                              pipe, deadline, true);
 }
 
+DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
+                        const UacDirectoryLeaf::ParentIdentity& sourceParentId, const FILE_ID_INFO& sourceId,
+                        std::wstring_view sourceLeaf, HANDLE targetParent,
+                        const UacDirectoryLeaf::ParentIdentity& targetParentId, std::wstring_view targetLeaf,
+                        ULONGLONG size, HANDLE pipe, ULONGLONG deadline)
+{
+    using namespace UacMoveSourceJournal;
+    if (UacDirectoryLeaf::Equal(sourceParentId.volume, targetParentId.volume))
+        return ERROR_NOT_SAME_DEVICE;
+    if (DWORD error = UacCopyLeaf::Detail::CheckCancelled(nullptr, pipe, deadline))
+        return error;
+
+    UacDirectoryLeaf::ParentIdentity installed;
+    DWORD error = UacDirectoryLeaf::ReadParentIdentity(install.DirectoryHandle(), installed);
+    if (error)
+        return error;
+    Handle volume;
+    HANDLE anchor = install.DirectoryHandle();
+    if (!UacDirectoryLeaf::Equal(sourceParentId.volume, installed.volume))
+    {
+        volume = OpenVolumeRoot(sourceParentId.volume, READ_CONTROL | FILE_ADD_SUBDIRECTORY);
+        if (!volume || !ProtectedObject(volume.get(), true, true))
+            return ERROR_ACCESS_DENIED;
+        anchor = volume.get();
+    }
+
+    PSECURITY_DESCRIPTOR rawSecurity = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"O:BAD:P(A;;FA;;;BA)(A;;FA;;;SY)",
+                                                               SDDL_REVISION_1, &rawSecurity, nullptr))
+        return GetLastError();
+    const std::unique_ptr<void, LocalFreeDeleter> security(rawSecurity);
+    HANDLE raw = nullptr;
+    error = UacDirectoryLeaf::Detail::NativeDirectory(anchor, L"uac-move-private", FILE_OPEN_IF, raw,
+        FILE_ADD_FILE | FILE_LIST_DIRECTORY | READ_CONTROL, security.get(), FILE_SHARE_READ | FILE_SHARE_WRITE);
+    if (error)
+        return error;
+    const auto storage = Adopt(raw);
+    if ((error = UacRecoveryJournal::CheckPrivate(storage.get(), security.get())) != ERROR_SUCCESS)
+        return error;
+    error = UacRenameLeaf::Detail::OpenFile(storage.get(), JournalName(L"move-", sourceParentId), raw,
+        FILE_GENERIC_READ | FILE_GENERIC_WRITE, 0, FILE_OPEN_IF, 0, security.get());
+    if (error)
+        return error;
+    const auto journal = Adopt(raw);
+    auto recover = [&] { return Recover(sourceParent, storage.get(), journal.get(), security.get()); };
+    if (recover())
+        return ERROR_PARTIAL_COPY;
+
+    PSECURITY_DESCRIPTOR rawSeal = nullptr;
+    // Recovery administrators may read, inspect and restore the DACL or delete
+    // this exact file. The ordinary owner retains no implicit WRITE_DAC.
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            L"D:P(A;;RC;;;OW)(A;;0x00170089;;;BA)(A;;0x00170089;;;SY)", SDDL_REVISION_1, &rawSeal, nullptr))
+        return GetLastError();
+    const std::unique_ptr<void, LocalFreeDeleter> sealDescriptor(rawSeal);
+    PACL seal = nullptr;
+    BOOL present = FALSE, defaulted = FALSE;
+    if (!GetSecurityDescriptorDacl(rawSeal, &present, &seal, &defaulted) || !present || !seal)
+        return ERROR_INVALID_ACL;
+
+    bool published = false;
+    error = [&]() -> DWORD {
+        DWORD status = UacRenameLeaf::Detail::OpenSource(sourceParent, sourceLeaf, raw,
+            DELETE | READ_CONTROL | WRITE_DAC | FILE_READ_DATA | FILE_READ_EA, 0);
+        if (status)
+            return status;
+        auto source = Adopt(raw);
+        if ((status = Detail::CheckIdentity(source.get(), sourceId)) != ERROR_SUCCESS)
+            return status;
+        FILE_STANDARD_INFO standard{};
+        if (!GetFileInformationByHandleEx(source.get(), FileStandardInfo, &standard, sizeof(standard)))
+            return GetLastError();
+        if (standard.NumberOfLinks != 1 || standard.EndOfFile.QuadPart < 0 ||
+            static_cast<ULONGLONG>(standard.EndOfFile.QuadPart) != size)
+            return ERROR_FILE_INVALID;
+        FILE_BASIC_INFO basic{};
+        if ((status = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), basic)) ||
+            (status = UacCopyLeaf::Detail::CheckCancelled(nullptr, pipe, deadline)))
+            return status;
+        std::wstring alias;
+        status = Arm(sourceParent, sourceLeaf, source.get(), sourceId, storage.get(), journal.get(), security.get(), alias, seal);
+        source.reset();
+        if (status || (status = CheckNoPriorSourceOpens(sourceParent, sourceLeaf, sourceId)))
+            return status;
+        SourceGuard guard;
+        if ((status = guard.Open(sourceParent, sourceLeaf, sourceId, 2)) != ERROR_SUCCESS)
+            return status;
+        UacMoveSourceJournal::Detail::Handle target(nullptr, CloseHandle);
+        FILE_ID_INFO targetId{};
+        status = guard.PublishCopy(targetParent, targetParentId, targetLeaf, size, nullptr, pipe, deadline, target, targetId);
+        published = target != nullptr;
+        if (status)
+            return status;
+        status = guard.RetirePublishedSource(sourceParent, storage.get(), journal.get(), security.get(),
+                                             targetParent, targetLeaf, target.get(), targetId, nullptr, pipe, deadline);
+        return status ? status : UacRecoveryJournal::ClearRecord(journal.get());
+    }();
+    if (error)
+    {
+        const DWORD rollback = recover();
+        if (published || rollback)
+            return ERROR_PARTIAL_COPY;
+    }
+    return error;
+}
+
 struct ReplacementSecurity
 {
     std::unique_ptr<void, LocalFreeDeleter> descriptor;
@@ -1263,7 +1377,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     zipUpdate = header.operation == Operation::WriteZipUpdate;
     const bool overwrite = header.operation == Operation::CopyOverwrite;
     const bool copy = UacF7::IsFileCopy(header.operation) || overwrite;
-    const bool move = header.operation == Operation::Move;
+    const bool crossMove = header.operation == Operation::MoveAcrossVolume;
+    const bool move = UacF7::IsMoveTransfer(header.operation);
     const bool tree = header.operation == Operation::CopyTree;
     const bool transfer = copy || move || tree;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
@@ -1273,7 +1388,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         header.targetRelativeLength > UacDirectoryLeaf::maxNativeName || header.targetLeafLength > UacDirectoryLeaf::maxComponent ||
         header.copySize > (zipUpdate ? UacF7::maxZipUpdateBytes :
                            writeZipSelection ? UacF7::maxZipSelectionBytes : UacF7::maxPilotCopyBytes) ||
-        (!copy && !writeZipSelection && !zipUpdate && header.copySize) ||
+        (!copy && !crossMove && !writeZipSelection && !zipUpdate && header.copySize) ||
         (writeZipSelection && !header.copySize) || (zipUpdate && header.copySize < 22) ||
         (!transfer && header.targetRelativeLength))
         return ERROR_INVALID_DATA;
@@ -1476,6 +1591,13 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 deadline = copyDeadline + timeoutMs;
                 result = CopyEncryptedFile(install, parent.get(), expected, sourceIdentity, leaf, targetParent.get(),
                                            expectedTarget, targetLeaf, header.copySize, pipe, copyDeadline);
+            }
+            else if (crossMove)
+            {
+                const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
+                deadline = copyDeadline + timeoutMs;
+                result = MoveAcrossVolumes(install, parent.get(), expected, sourceIdentity, leaf,
+                                           targetParent.get(), expectedTarget, targetLeaf, header.copySize, pipe, copyDeadline);
             }
             else if (move)
             {
@@ -2036,15 +2158,16 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 
         const bool tree = request->operation == Operation::CopyTree;
         const bool copy = UacF7::IsFileCopy(request->operation) || overwriteTarget;
-        if (copy || tree || zipBytes)
+        const bool crossMove = request->operation == Operation::MoveAcrossVolume;
+        if (copy || crossMove || tree || zipBytes)
             deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
         error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline, cancel);
-        if (!error && (transferJob || copy || request->operation == Operation::Move || tree || zipBytes ||
+        if (!error && (transferJob || copy || UacF7::IsMoveTransfer(request->operation) || tree || zipBytes ||
                        zipUpdateFile))
         {
             // The authenticated reply is sent only after the operation handles close.
             result->error = operationError;
-            result->unknown = (transferJob || tree || zipUpdateFile || overwriteTarget || request->operation == Operation::CopyEncrypted) &&
+            result->unknown = (transferJob || crossMove || tree || zipUpdateFile || overwriteTarget || request->operation == Operation::CopyEncrypted) &&
                               operationError == ERROR_PARTIAL_COPY;
         }
         if (error)
@@ -2556,8 +2679,19 @@ bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstrin
         !source.PrepareTarget(sourcePath, operation, {}, nullptr) ||
         !target.Prepare(targetPath))
         return false;
-    if (moving && (source.serial != target.serial || !UacDirectoryLeaf::Equal(source.volume, target.volume)))
+    const bool crossMove = moving && !UacDirectoryLeaf::Equal(source.volume, target.volume);
+    if (moving && !crossMove && source.serial != target.serial)
         return false;
+    if (crossMove)
+    {
+        if (expectedSize > maxPilotCopyBytes)
+            return false;
+        // Keeping even an attributes-only host handle would prevent the broker
+        // from proving that the sealed source has no earlier opens.
+        CloseHandle(source.source);
+        source.source = nullptr;
+        source.operation = Operation::MoveAcrossVolume;
+    }
     if (operation == Operation::CopyEncrypted)
     {
         InstallLocation install;
@@ -2566,7 +2700,7 @@ bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstrin
             !UacDirectoryLeaf::Equal(source.volume, installed.volume) || !UacDirectoryLeaf::Equal(target.volume, installed.volume))
             return false;
     }
-    size = moving ? 0 : expectedSize;
+    size = moving && !crossMove ? 0 : expectedSize;
     return true;
 }
 
@@ -2646,7 +2780,8 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* 
     Result result;
     const ComApartment com;
     InstallLocation install;
-    if (!source.source || (source.operation == Operation::CopyTree ? target.relative.empty() : !target.parent) ||
+    if ((!source.source && !IsCrossVolumeMove()) || !source.parent ||
+        (source.operation == Operation::CopyTree ? target.relative.empty() : !target.parent) ||
         FAILED(com.result) || !install.Open() ||
         !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))
         return result;

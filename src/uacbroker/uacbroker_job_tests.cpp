@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Reject a cross-volume command on one volume. | Verify the broker dispatches the distinct F6 request safely. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Verify a queued cancellation on the live broker pipe. | Prove the dispatcher ends the scoped session without publishing the pending file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Exercise scoped mutations through the real broker dispatcher. | Validate repeated requests and scope rejection on NTFS without interactive elevation. | | GPT-6.1 Sol (Codex) |
 
@@ -237,6 +238,21 @@ void CheckLateCopyCancellation(const Directory& source, const Directory& target)
           "a late cancel ends the job cleanly and preserves the already published copy");
 }
 
+void CheckCrossVolumeBoundary(const Directory& source, const Directory& target)
+{
+    JobPipe job;
+    constexpr wchar_t leaf[] = L"cross-volume";
+    if (!WriteByte(source.File(leaf), 5) || !job.Open())
+    {
+        Check(false, "prepare the cross-volume boundary fixture");
+        return;
+    }
+    DWORD error = ERROR_GEN_FAILURE;
+    Check(job.Request(Operation::MoveAcrossVolume, source, leaf, error, &target) &&
+              error == ERROR_NOT_SAME_DEVICE && HasByte(source.File(leaf), 5) && IsAbsent(target.File(leaf)),
+          "reject the cross-volume command on the same NTFS volume before modifying either parent");
+}
+
 void CheckMetadataJob(const Directory& source)
 {
     JobPipe job;
@@ -309,6 +325,7 @@ int wmain()
     CheckCopyJob(source, target, outside);
     CheckCancelledCopyJob(source, target);
     CheckLateCopyCancellation(source, target);
+    CheckCrossVolumeBoundary(source, target);
     CheckMetadataJob(source);
     CheckDeleteJob(source);
     return failures ? 1 : 0;

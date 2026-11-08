@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record broker integration for guarded cross-volume F6. | Preserve ordinary moves and isolate the verified retry. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the F6 source retirement sequence. | Verify both unlinks against a durable pinned target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record durable F6 target verification during recovery. | Retain incomplete or substituted receipts. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record guarded destination publication for F6. | Keep the source lock and pin the exact new target. | | GPT-6.1 Sol (Codex) |
@@ -672,6 +673,10 @@ V x64 Debug i Release prošlo 80 nativních kontrol F6 a 248 obecných nativníc
 **Odebrání obou zdrojových odkazů po zveřejnění.** Nativní executor nejprve ověří původní jméno, ochranný odkaz, žurnál a dočasnou DACL. Až po trvalém zápisu potvrzení drženého cíle odebere původní odkaz z ověřeného handlu. Ochranný odkaz ještě obsahuje celý zdroj. Executor jej znovu výhradně otevře, zkontroluje stejné ID, zbývající počet odkazů a dočasnou DACL a teprve potom jej odebere. Kontrola zrušení a spojení před každým odebráním nechá při přerušení dosud existující odkaz k obnově.
 
 V x64 Debug i Release prošlo 82 nativních kontrol F6 a 248 obecných kontrol. Po zrušení po zveřejnění a před odebráním zdroje zůstaly oba odkazy. Při potvrzeném dokončení nativní executor odebral oba a znovuotevřený žurnál uzavřel stav teprve po ověření přesného cíle. Zkouška běžela na dvou ověřených rodičích téhož svazku. Zapojení do provozního brokeru a akceptace na dvou svazcích ještě zbývají.
+
+**Zapojení F6 mezi svazky do brokeru.** Když běžná obsluha při čtení zdroje nebo vytvoření nového cíle narazí na odepření přístupu, může požádat o přesun mezi dvěma pevnými svazky NTFS. Jde o samostatnou schopnost protokolu s ověřenými rodiči, ID zdroje a očekávanou velikostí. Broker pro zdroj na instalačním svazku použije soukromé úložiště pod instalací. Na jiném svazku vytvoří nebo otevře stejné soukromé úložiště pod kořenem, jehož ACL musí bránit podstrčení či odebrání existující položky. Před operací obnoví případný záznam stejného zdrojového rodiče. Po chybě se pokusí obnovit zdroj a již zveřejněný cíl označí jako částečný výsledek. Po potvrzeném přesunu worker už zdroj znovu nemaže.
+
+V Debug i Release prošla sada autentizace a 11 scénářů reálné dávkové roury. Nová zkouška odmítla požadavek na přesun mezi svazky pod dvěma rodiči téhož svazku a oba stavy ponechala beze změny. Sestavení aplikace, brokeru a sondy x64 Debug prošlo. Nová cesta pokrývá běžný soubor s jediným datovým proudem do volného názvu v mezích velikosti pilotu. Akceptace na dvou svazcích, větev běžné kopie následované odepřením smazání zdroje a ostatní kombinace metadat zůstávají otevřené.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

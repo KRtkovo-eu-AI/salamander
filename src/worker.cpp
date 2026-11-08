@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Route denied cross-volume F6 to the broker. | Avoid removing the source twice after a confirmed move. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve and verify EFS alternate data streams. | Keep the source stream inventory consistent through encrypted export and publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve worker error choices for leaf mutations. | Return cancelled elevation to the ordinary retry and skip dialog. | | GPT-6.1 Sol (Codex) |
@@ -5680,7 +5681,7 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
         return *dlgData.CancelWorker != FALSE;
     }
     totalDone += op.Size;
-    if (!moving)
+    if (!moving || request.IsCrossVolumeMove())
     {
         const CQuadWord mainWork = max(op.FileSize, COPY_MIN_FILE_SIZE);
         const CQuadWord namedBytes = (op.OpFlags & OPFL_COPY_ADS) != 0 && op.Size > mainWork ? op.Size - mainWork : CQuadWord(0, 0);
@@ -5731,10 +5732,10 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     UacF7::PreparedTransfer request;
     if (!request.Prepare(op.SourceNameW, op.TargetNameW, op.FileSize.Value, operation))
         return false;
-    if (encrypted && input)
+    if ((encrypted || request.IsCrossVolumeMove()) && input && *input != INVALID_HANDLE_VALUE)
     {
-        // Raw export and subsequent removal of the private hard link need
-        // the original user's copy handle to be closed.
+        // Raw export and the sealed source guard need the ordinary copy
+        // handle closed before the elevated operation starts.
         HANDLES(CloseHandle(*input));
         *input = INVALID_HANDLE_VALUE;
     }
@@ -5784,7 +5785,11 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
             BOOL success = FALSE;
             if (!invalidSrcName && !invalidTgtName &&
                 TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, error))
+            {
+                if (success && isMove && skip)
+                    *skip = TRUE; // The broker already removed the source.
                 return success;
+            }
             answer = IDCANCEL;
             char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(IDS_ERRORCOPY), op->SourceName, GetErrorText(error)};
             SendMessage(hProgressDlg, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
@@ -5964,13 +5969,15 @@ COPY_AGAIN:
 
                     if (out == INVALID_HANDLE_VALUE && !invalidTgtName &&
                         (!copyAsEncrypted || UacF7::IsEncryptedCopyFile(op->Attr)) &&
-                        !isMove && !dlgData.SkipAllFileOpenOut && GetLastError() == ERROR_ACCESS_DENIED)
+                        !dlgData.SkipAllFileOpenOut && GetLastError() == ERROR_ACCESS_DENIED)
                     {
                         BOOL success = FALSE;
                         if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, transferError, &in))
                         {
                             if (in != INVALID_HANDLE_VALUE)
                                 HANDLES(CloseHandle(in));
+                            if (success && isMove && skip)
+                                *skip = TRUE; // The broker already removed the source.
                             return success;
                         }
                         if (transferError)
@@ -7007,13 +7014,17 @@ COPY_AGAIN:
             if (*dlgData.CancelWorker)
                 return FALSE;
 
-            if (!isMove && !invalidTgtName && !dlgData.SkipAllFileOpenIn &&
+            if (!invalidTgtName && !dlgData.SkipAllFileOpenIn &&
                 ((!copyAsEncrypted && err == ERROR_ACCESS_DENIED) ||
-                 (UacF7::IsEncryptedCopyFile(op->Attr) && UacF7::IsEfsCopyFailure(op->Attr, err))))
+                 (!isMove && UacF7::IsEncryptedCopyFile(op->Attr) && UacF7::IsEfsCopyFailure(op->Attr, err))))
             {
                 BOOL success = FALSE;
                 if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, err))
+                {
+                    if (success && isMove && skip)
+                        *skip = TRUE; // The broker already removed the source.
                     return success;
+                }
             }
 
             if (dlgData.SkipAllFileOpenIn)

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Dispatch guarded F6 moves across fixed NTFS volumes. | Keep source retirement and recovery in one scoped broker request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Scope permanent deletion and metadata jobs. | Keep link types, parent identity and approved metadata values separate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Keep overwrite approval bound to the verified revision. | Reuse a conflict decision only for the same source and destination. | | GPT-6.1 Sol (Codex) |
@@ -55,7 +56,7 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27 };
 
 inline bool IsRename(Operation operation)
 {
@@ -263,9 +264,14 @@ private:
     Operation operation = Operation::Mkdir;
 };
 
+inline bool IsMoveTransfer(Operation operation)
+{
+    return operation == Operation::Move || operation == Operation::MoveAcrossVolume;
+}
+
 inline bool CanShareTransferJob(Operation operation)
 {
-    return IsFileCopy(operation) || operation == Operation::Move || operation == Operation::CopyOverwrite ||
+    return IsFileCopy(operation) || IsMoveTransfer(operation) || operation == Operation::CopyOverwrite ||
            IsLeafDelete(operation) || operation == Operation::Metadata;
 }
 
@@ -344,7 +350,8 @@ public:
     Result Execute(HWND owner, HANDLE cancel = nullptr, TransferJobSession* job = nullptr) const;
     bool IsInJob(const TransferJobSession& job) const;
     bool CanShareJob() const { return CanShareTransferJob(source.operation); }
-    bool IsMove() const { return source.operation == Operation::Move; }
+    bool IsMove() const { return IsMoveTransfer(source.operation); }
+    bool IsCrossVolumeMove() const { return source.operation == Operation::MoveAcrossVolume; }
     bool IsTree() const { return source.operation == Operation::CopyTree; }
     bool MatchesOverwriteTarget(HANDLE file) const;
     OverwriteApproval Approval() const;
