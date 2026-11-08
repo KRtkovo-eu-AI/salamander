@@ -30,6 +30,7 @@
 | 2026-11-08 | Document the registered P4h F5 pilot. | Describe consent, target identity provisioning and broker checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P4h failure and alternate-account acceptance. | Distinguish clean rollback from the protected residue of forced broker termination. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record journaled recovery for interrupted tree copies. | Define the recovery trigger, identity checks and isolated VM result. | | GPT-6.1 Sol (Codex) |
+| 2026-11-08 | Record multiple registered F5 destinations. | Describe protected ancestry and per-target recovery isolation. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -453,6 +454,16 @@ Příští schválená kopie zpracuje předchozí záznam před vytvořením nov
 V Debug i Release prošlo 115 nativních kontrol. Testy ověřily výhradní přístup k žurnálu, odstranění prázdné složky před dokončením záznamu, odstranění zaznamenaného stromu při další kopii, zachování dříve zveřejněné kopie i cizí složky se stejným prefixem a odmítnutí záměny identity i hardlinku.
 
 V izolované VM byl laboratorní broker tvrdě ukončen po zápisu prvního souboru z `08-recovery-crash`. Pracovní strom zůstal, finální cíl nevznikl a Samandarin zobrazil hlášení o nejistém výsledku. Po obnovení ověřeného běžného brokeru P4i uživatel schválil F5 pro `09-recovery-next`. Broker odstranil přesně zaznamenaný pozůstatek a zachoval zdroj přerušené kopie, cizí kontrolní složku se stejným prefixem i dříve dokončenou kopii. Oba nové soubory měly shodné SHA-256 se zdrojem a vznikla i prázdná podsložka.
+
+### 8.21 P4j — další registrované cíle pro F5
+
+P4i na commitu `399462bb` prošla sestavením Win32, x64 a ARM64, všemi 214 testy a CodeQL bez nových nálezů. [Testy P4i](https://github.com/majklvi/salamander/actions/runs/42470427151/job/128699682504) · [CodeQL P4i](https://github.com/majklvi/salamander/runs/128703700204).
+
+Správce může z chráněné pilotní instalace zaregistrovat až osm dalších existujících složek příkazem `uacbroker.exe --register-tree-target <1–8> "<absolutní cesta>"`. Broker požaduje místní pevný svazek NTFS, chráněné nadřazené složky a děditelný štítek vysoké integrity cíle z P4g. Cestu projde po jednotlivých komponentách a odmítne reparse points. Záznam sváže cestu s GUID svazku, jeho sériovým číslem a ID cílové složky. Obsazený slot nelze tímto příkazem přepsat. Původní registrace a její žurnál zůstávají použitelné. [Identita souboru ve Win32](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_id_info).
+
+Samandarin před souhlasem porovná zadanou cestu s chráněným registračním záznamem. Broker po souhlasu nezávisle ověří záznam, fyzickou identitu i ochranu cílové cesty a podrží otevřené nadřazené složky bez sdílení pro smazání. Další cíle mají oddělené žurnály odvozené od fyzické identity. Uživatel nadále vybírá jednu zdrojovou složku a zadává cestu registrovaného cíle v běžném dialogu F5.
+
+V izolované VM se pomocí Computer Use ověřilo F5 do dvou chráněných složek mimo instalaci na místním svazku `C:`. Druhý název obsahoval diakritiku. Po obou souhlasech se shodovaly SHA-256 kořenového i vnořeného souboru a vznikly prázdné podsložky. Každá kopie skončila jen ve svém cíli. Záznamy dvou oddělených žurnálů odpovídaly identitám registrovaných cílů a SHA-256 původního žurnálu se nezměnil. V obou cílech byl počet zbylých pracovních složek nula. Správní registrace odmítla cíl pod zapisovatelným rodičem a zachovala obsazený slot při pokusu přiřadit mu jiný cíl. V Debug i Release prošlo 115 nativních kontrol a prošla zkouška komunikace brokeru.
 
 ## 9. Uživatelský tok a stav operace
 

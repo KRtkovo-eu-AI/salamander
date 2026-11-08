@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Register additional protected tree-copy destinations. | Bind each destination to a protected path and an identity-specific recovery journal. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Hold the protected tree journal exclusively. | Serialize recovery and copying under the registered target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Bind authenticated tree copy to a registered target. | Recheck both directory identities after UAC. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Serve strict recursive inventory on a listing session. | Keep the request anchored inside the approved root. | | GPT-6.1 Sol (Codex) |
@@ -361,6 +362,59 @@ constexpr std::wstring_view volumePrefix = LR"(\\?\Volume)";
 constexpr size_t volumeLength = volumePrefix.size() + 38;
 constexpr wchar_t treeTargetName[] = L"UacTreeTarget";
 constexpr wchar_t treeRegistrationName[] = L"uac-tree-target.id";
+constexpr unsigned treeTargetSlots = 8;
+
+struct RegisteredTreeTarget
+{
+    UacDirectoryLeaf::ParentIdentity identity;
+    std::wstring path;
+    std::wstring relative;
+};
+
+std::wstring TreeSlotName(unsigned slot)
+{
+    return L"uac-tree-target-" + std::to_wstring(slot) + L".v1";
+}
+
+std::wstring_view TrimTreePath(std::wstring_view path)
+{
+    if (path.substr(0, 4) == LR"(\\?\)")
+        path.remove_prefix(4);
+    if (!path.empty() && path.back() == L'\\')
+        path.remove_suffix(1);
+    return path;
+}
+
+bool IsTreePath(std::wstring_view path)
+{
+    if (path.size() < 4 || path.size() > UacDirectoryLeaf::maxNativeName ||
+        !((path[0] >= L'A' && path[0] <= L'Z') || (path[0] >= L'a' && path[0] <= L'z')) ||
+        path[1] != L':' || path[2] != L'\\')
+        return false;
+    path.remove_prefix(3);
+    for (unsigned depth = 0; depth < 32; ++depth)
+    {
+        const auto split = path.find(L'\\');
+        if (!UacDirectoryLeaf::IsComponent(path.substr(0, split)))
+            return false;
+        if (split == std::wstring_view::npos)
+            return true;
+        path.remove_prefix(split + 1);
+    }
+    return false;
+}
+
+bool ReadTreeVolume(std::wstring_view path, std::wstring& volume)
+{
+    const std::wstring drive(path.substr(0, 3));
+    wchar_t name[volumeLength + 2]{};
+    if (GetDriveTypeW(drive.c_str()) != DRIVE_FIXED ||
+        !GetVolumeNameForVolumeMountPointW(drive.c_str(), name, ARRAYSIZE(name)) ||
+        wcslen(name) != volumeLength + 1 || name[volumeLength] != L'\\')
+        return false;
+    volume.assign(name, volumeLength);
+    return true;
+}
 
 bool ReadTreeRegistration(const InstallLocation& install, UacDirectoryLeaf::ParentIdentity& registered,
                           std::wstring& relative)
@@ -389,6 +443,61 @@ bool ReadTreeRegistration(const InstallLocation& install, UacDirectoryLeaf::Pare
     registered.volume = std::move(location.volume);
     relative = directory.substr(3) + L"\\" + treeTargetName;
     return true;
+}
+
+bool ReadTreeSlot(const InstallLocation& install, unsigned slot, RegisteredTreeTarget& registered)
+{
+    HANDLE raw = nullptr;
+    if (UacRenameLeaf::Detail::OpenSource(install.DirectoryHandle(), TreeSlotName(slot), raw,
+                                         FILE_READ_DATA | READ_CONTROL, FILE_SHARE_READ))
+        return false;
+    const auto record = Adopt(raw);
+    FILE_ID_INFO file{};
+    LARGE_INTEGER size{};
+    DWORD bytes = 0;
+    constexpr LONGLONG headerSize = sizeof(file);
+    if (!ProtectedObject(record.get(), false) || !GetFileSizeEx(record.get(), &size) ||
+        size.QuadPart < headerSize + static_cast<LONGLONG>((volumeLength + 4) * sizeof(wchar_t)) ||
+        size.QuadPart > headerSize + static_cast<LONGLONG>((volumeLength + UacDirectoryLeaf::maxNativeName) * sizeof(wchar_t)) ||
+        (size.QuadPart - headerSize) % sizeof(wchar_t) ||
+        !ReadFile(record.get(), &file, sizeof(file), &bytes, nullptr) || bytes != sizeof(file))
+        return false;
+    const auto textBytes = static_cast<DWORD>(size.QuadPart - headerSize);
+    std::wstring text(textBytes / sizeof(wchar_t), L'\0');
+    if (!ReadFile(record.get(), text.data(), textBytes, &bytes, nullptr) || bytes != textBytes)
+        return false;
+    const auto path = std::wstring_view(text).substr(volumeLength);
+    std::wstring volume;
+    if (!IsTreePath(path) || !ReadTreeVolume(path, volume) ||
+        !UacDirectoryLeaf::Equal(volume, std::wstring_view(text).substr(0, volumeLength)))
+        return false;
+    registered = {{file, std::move(volume)}, std::wstring(path), std::wstring(path.substr(3))};
+    return true;
+}
+
+// The host matches the entered DOS path. The broker matches the authenticated
+// volume-relative request against the same administrator-owned registration.
+bool FindTreeTarget(const InstallLocation& install, std::wstring_view path, std::wstring_view volume,
+                    RegisteredTreeTarget& registered)
+{
+    const auto matches = [&](const RegisteredTreeTarget& candidate) {
+        return volume.empty() ? UacDirectoryLeaf::Equal(path, candidate.path)
+                              : path == candidate.relative && UacDirectoryLeaf::Equal(volume, candidate.identity.volume);
+    };
+    RegisteredTreeTarget candidate;
+    candidate.path = install.ImagePath(treeTargetName);
+    if (ReadTreeRegistration(install, candidate.identity, candidate.relative) && matches(candidate))
+    {
+        registered = std::move(candidate);
+        return true;
+    }
+    for (unsigned slot = 1; slot <= treeTargetSlots; ++slot)
+        if (ReadTreeSlot(install, slot, candidate) && matches(candidate))
+        {
+            registered = std::move(candidate);
+            return true;
+        }
+    return false;
 }
 
 Handle OpenVolumeRoot(std::wstring_view volume)
@@ -450,7 +559,58 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
 #endif
 
 #ifdef SAM_UAC_BROKER
-DWORD OpenTreeJournal(const InstallLocation& install, Handle& journal)
+DWORD OpenProtectedTree(HANDLE volume, std::wstring_view relative, std::vector<Handle>& pinned,
+                        UacDirectoryLeaf::ParentIdentity& identity)
+{
+    HANDLE parent = volume;
+    for (;;)
+    {
+        const auto split = relative.find(L'\\');
+        const auto component = relative.substr(0, split);
+        if (!UacDirectoryLeaf::IsComponent(component) || pinned.size() == 32)
+            return ERROR_INVALID_NAME;
+        HANDLE raw = nullptr;
+        const DWORD error = UacDirectoryLeaf::Detail::NativeDirectory(parent, component, FILE_OPEN, raw,
+            READ_CONTROL, nullptr, FILE_SHARE_READ | FILE_SHARE_WRITE);
+        if (error)
+            return error;
+        auto directory = Adopt(raw);
+        if (!ProtectedObject(directory.get(), true))
+            return ERROR_ACCESS_DENIED;
+        parent = directory.get();
+        pinned.push_back(std::move(directory));
+        if (split == std::wstring_view::npos)
+            return UacDirectoryLeaf::ReadParentIdentity(parent, identity);
+        relative.remove_prefix(split + 1);
+    }
+}
+
+std::wstring TreeJournalName(const InstallLocation& install, const UacDirectoryLeaf::ParentIdentity& target)
+{
+    UacDirectoryLeaf::ParentIdentity legacy;
+    std::wstring legacyRelative;
+    if (ReadTreeRegistration(install, legacy, legacyRelative) && UacDirectoryLeaf::SameParent(legacy, target))
+        return L"uac-tree-recovery.dat";
+    constexpr wchar_t hex[] = L"0123456789abcdef";
+    std::wstring name = L"uac-tree-recovery-" + target.volume.substr(volumePrefix.size());
+    // Make the journal key invariant to the volume GUID's case, even in a
+    // case-sensitive installation directory.
+    for (auto& ch : name)
+        if (ch >= L'A' && ch <= L'F')
+            ch += L'a' - L'A';
+    name += L'-';
+    for (int shift = 60; shift >= 0; shift -= 4)
+        name += hex[(target.file.VolumeSerialNumber >> shift) & 15];
+    name += L'-';
+    for (const BYTE value : target.file.FileId.Identifier)
+    {
+        name += hex[value >> 4];
+        name += hex[value & 15];
+    }
+    return name + L".dat";
+}
+
+DWORD OpenTreeJournal(const InstallLocation& install, const UacDirectoryLeaf::ParentIdentity& target, Handle& journal)
 {
     PSECURITY_DESCRIPTOR rawSecurity = nullptr;
     if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"O:BAD:P(A;;FA;;;BA)(A;;FA;;;SY)",
@@ -458,7 +618,7 @@ DWORD OpenTreeJournal(const InstallLocation& install, Handle& journal)
         return GetLastError();
     const std::unique_ptr<void, LocalFreeDeleter> security(rawSecurity);
     HANDLE raw = nullptr;
-    const DWORD error = UacRenameLeaf::Detail::OpenFile(install.DirectoryHandle(), L"uac-tree-recovery.dat", raw,
+    const DWORD error = UacRenameLeaf::Detail::OpenFile(install.DirectoryHandle(), TreeJournalName(install, target), raw,
         FILE_GENERIC_READ | FILE_GENERIC_WRITE, 0, FILE_OPEN_IF, 0, security.get());
     if (error)
         return error;
@@ -467,6 +627,77 @@ DWORD OpenTreeJournal(const InstallLocation& install, Handle& journal)
     if (!ProtectedObject(journal.get(), false))
         return ERROR_ACCESS_DENIED;
     return UacRenameLeaf::Detail::ReadSourceIdentity(journal.get(), identity);
+}
+
+DWORD WriteTreeRegistration(const InstallLocation& install, std::wstring_view name, FILE_ID_INFO& file,
+                            std::wstring_view text = {})
+{
+    PSECURITY_DESCRIPTOR rawSecurity = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"O:BAD:P(A;;FA;;;BA)(A;;FA;;;SY)(A;;FR;;;BU)",
+                                                               SDDL_REVISION_1, &rawSecurity, nullptr))
+        return GetLastError();
+    const std::unique_ptr<void, LocalFreeDeleter> security(rawSecurity);
+    HANDLE raw = nullptr;
+    const DWORD error = UacRenameLeaf::Detail::OpenFile(install.DirectoryHandle(), name, raw, FILE_WRITE_DATA | DELETE,
+                                                        0, FILE_CREATE, FILE_DELETE_ON_CLOSE, security.get());
+    if (error)
+        return error;
+    const auto record = Adopt(raw);
+    DWORD written = 0;
+    if (!WriteFile(record.get(), &file, sizeof(file), &written, nullptr))
+        return GetLastError();
+    if (written != sizeof(file))
+        return ERROR_WRITE_FAULT;
+    if (!text.empty())
+    {
+        const auto bytes = static_cast<DWORD>(text.size() * sizeof(wchar_t));
+        if (!WriteFile(record.get(), text.data(), bytes, &written, nullptr))
+            return GetLastError();
+        if (written != bytes)
+            return ERROR_WRITE_FAULT;
+    }
+    if (!FlushFileBuffers(record.get()))
+        return GetLastError();
+    FILE_DISPOSITION_INFO_EX commit{FILE_DISPOSITION_FLAG_ON_CLOSE};
+    return SetFileInformationByHandle(record.get(), FileDispositionInfoEx, &commit, sizeof(commit)) ? ERROR_SUCCESS : GetLastError();
+}
+
+DWORD RegisterTreeSlot(const InstallLocation& install, unsigned slot, std::wstring_view supplied)
+{
+    const auto path = TrimTreePath(supplied);
+    std::wstring volume;
+    if (slot < 1 || slot > treeTargetSlots || !IsTreePath(path) || !ReadTreeVolume(path, volume))
+        return ERROR_INVALID_PARAMETER;
+    if (UacDirectoryLeaf::Equal(path, install.ImagePath(treeTargetName)))
+        return ERROR_ALREADY_EXISTS; // The original registration retains its original recovery journal.
+    const auto root = OpenVolumeRoot(volume);
+    if (!root)
+        return ERROR_NOT_SUPPORTED;
+    std::vector<Handle> pinned;
+    UacDirectoryLeaf::ParentIdentity identity;
+    DWORD error = OpenProtectedTree(root.get(), path.substr(3), pinned, identity);
+    if (error)
+        return error;
+    if ((error = UacCopyTree::Detail::StageProtection(true).Check(pinned.back().get(), true)) != ERROR_SUCCESS)
+        return error;
+
+    // Ensure that the path shown to the user resolves to the pinned object.
+    constexpr DWORD pathFlags = FILE_NAME_OPENED | VOLUME_NAME_DOS;
+    const DWORD capacity = GetFinalPathNameByHandleW(pinned.back().get(), nullptr, 0, pathFlags);
+    if (!capacity || capacity > UacDirectoryLeaf::maxNativeName + 5)
+        return ERROR_FILE_INVALID;
+    std::wstring visible(capacity, L'\0');
+    const DWORD length = GetFinalPathNameByHandleW(pinned.back().get(), visible.data(), capacity, pathFlags);
+    if (!length || length >= capacity ||
+        !UacDirectoryLeaf::Equal(path, TrimTreePath(std::wstring_view(visible.data(), length))) ||
+        !UacDirectoryLeaf::Equal(identity.volume, volume))
+        return ERROR_FILE_INVALID;
+
+    RegisteredTreeTarget existing;
+    if (ReadTreeSlot(install, slot, existing))
+        return UacDirectoryLeaf::Equal(existing.path, path) && UacDirectoryLeaf::SameParent(existing.identity, identity)
+            ? ERROR_SUCCESS : ERROR_FILE_EXISTS;
+    return WriteTreeRegistration(install, TreeSlotName(slot), identity.file, volume + std::wstring(path));
 }
 
 DWORD RegisterTreeTarget(const InstallLocation& install)
@@ -497,24 +728,7 @@ DWORD RegisterTreeTarget(const InstallLocation& install)
     if (ReadTreeRegistration(install, existing, relative))
         return UacDirectoryLeaf::SameParent(existing, identity) ? ERROR_SUCCESS : ERROR_FILE_INVALID;
 
-    rawSecurity = nullptr;
-    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"O:BAD:P(A;;FA;;;BA)(A;;FA;;;SY)(A;;FR;;;BU)",
-                                                               SDDL_REVISION_1, &rawSecurity, nullptr))
-        return GetLastError();
-    const std::unique_ptr<void, LocalFreeDeleter> recordSecurity(rawSecurity);
-    raw = nullptr;
-    error = UacRenameLeaf::Detail::OpenFile(install.DirectoryHandle(), treeRegistrationName, raw, FILE_WRITE_DATA | DELETE,
-                                            0, FILE_CREATE, FILE_DELETE_ON_CLOSE, recordSecurity.get());
-    const auto record = Adopt(raw);
-    if (error)
-        return error;
-    DWORD written = 0;
-    if (!WriteFile(record.get(), &identity.file, sizeof(identity.file), &written, nullptr) || !FlushFileBuffers(record.get()))
-        return GetLastError();
-    if (written != sizeof(identity.file))
-        return ERROR_WRITE_FAULT;
-    FILE_DISPOSITION_INFO_EX commit{FILE_DISPOSITION_FLAG_ON_CLOSE};
-    return SetFileInformationByHandle(record.get(), FileDispositionInfoEx, &commit, sizeof(commit)) ? ERROR_SUCCESS : GetLastError();
+    return WriteTreeRegistration(install, treeRegistrationName, identity.file);
 }
 
 DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, DWORD hostPid,
@@ -606,10 +820,9 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                                                               std::wstring(targetVolume)};
         if (tree)
         {
-            UacDirectoryLeaf::ParentIdentity registered;
-            std::wstring registeredRelative;
-            if (targetLeaf != leaf || !ReadTreeRegistration(install, registered, registeredRelative) ||
-                targetRelative != registeredRelative || !UacDirectoryLeaf::SameParent(registered, expectedTarget) ||
+            RegisteredTreeTarget registered;
+            if (targetLeaf != leaf || !FindTreeTarget(install, targetRelative, targetVolume, registered) ||
+                !UacDirectoryLeaf::SameParent(registered.identity, expectedTarget) ||
                 !UacDirectoryLeaf::SameParent(actual, expected))
             {
                 result = ERROR_FILE_INVALID;
@@ -626,9 +839,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         UacDirectoryLeaf::ParentIdentity targetIdentity;
         if (tree)
         {
-            HANDLE raw = nullptr;
-            result = UacDirectoryLeaf::OpenParentBelowRoot(targetRoot.get(), targetRelative, raw, targetIdentity, READ_CONTROL);
-            targetParent = Adopt(raw);
+            std::vector<Handle> pinned;
+            result = OpenProtectedTree(targetRoot.get(), targetRelative, pinned, targetIdentity);
             if (!result && !UacDirectoryLeaf::SameParent(expectedTarget, targetIdentity))
                 result = ERROR_FILE_INVALID;
             if (!result)
@@ -644,12 +856,12 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 if (!result)
                 {
                     Handle journal;
-                    result = OpenTreeJournal(install, journal);
+                    result = OpenTreeJournal(install, expectedTarget, journal);
                     if (!result)
                     {
                         const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
                         deadline = copyDeadline + timeoutMs;
-                        const auto copied = UacCopyTree::CopyVerifiedTree(sourceHandle.get(), sourceDirectory, targetParent.get(),
+                        const auto copied = UacCopyTree::CopyVerifiedTree(sourceHandle.get(), sourceDirectory, pinned.back().get(),
                                                                         expectedTarget, targetLeaf, nullptr, pipe, copyDeadline,
                                                                         journal.get());
                         result = copied.cleanupError ? ERROR_PARTIAL_COPY : copied.error;
@@ -1167,25 +1379,20 @@ bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstrin
 
 bool PreparedTransfer::PrepareTree(const std::wstring& sourcePath, std::wstring_view targetDirectory, std::wstring& destination)
 {
-    if (targetDirectory.size() >= 4 && targetDirectory.substr(0, 4) == LR"(\\?\)")
-        targetDirectory.remove_prefix(4);
-    if (!targetDirectory.empty() && targetDirectory.back() == L'\\')
-        targetDirectory.remove_suffix(1);
+    targetDirectory = TrimTreePath(targetDirectory);
     InstallLocation install;
-    if (!install.Open())
+    if (!IsTreePath(targetDirectory) || !install.Open())
         return false;
-    const auto registeredDirectory = install.ImagePath(treeTargetName);
-    if (!UacDirectoryLeaf::Equal(targetDirectory, registeredDirectory))
-        return false;
-    UacDirectoryLeaf::ParentIdentity registered;
-    if (!ReadTreeRegistration(install, registered, target.relative) ||
+    RegisteredTreeTarget registered;
+    if (!FindTreeTarget(install, targetDirectory, {}, registered) ||
         !source.PrepareTarget(sourcePath, Operation::CopyTree, {}, nullptr))
         return false;
-    target.volume = std::move(registered.volume);
-    target.serial = registered.file.VolumeSerialNumber;
-    std::memcpy(target.fileId, registered.file.FileId.Identifier, sizeof(target.fileId));
+    target.relative = std::move(registered.relative);
+    target.volume = std::move(registered.identity.volume);
+    target.serial = registered.identity.file.VolumeSerialNumber;
+    std::memcpy(target.fileId, registered.identity.file.FileId.Identifier, sizeof(target.fileId));
     target.leaf = source.leaf;
-    destination = registeredDirectory + L"\\" + target.leaf;
+    destination = registered.path + L"\\" + target.leaf;
     return true;
 }
 
@@ -1339,7 +1546,7 @@ int wmain(int argc, wchar_t** argv)
 #ifdef SAM_UAC_BROKER
     if (!SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32))
         return Report(Failed, L"Restrict DLL lookup", GetLastError());
-    const bool registerTree = argc == 2 && wcscmp(argv[1], L"--register-tree-target") == 0;
+    const bool registerTree = (argc == 2 || argc == 4) && wcscmp(argv[1], L"--register-tree-target") == 0;
     if (!registerTree && argc != 3)
         return Untrusted;
     std::wstring pipeName;
@@ -1369,7 +1576,15 @@ int wmain(int argc, wchar_t** argv)
         return Report(Untrusted, L"Verify broker image", ERROR_ACCESS_DENIED);
     if (registerTree)
     {
-        const DWORD error = RegisterTreeTarget(install);
+        unsigned slot = 0;
+        if (argc == 4)
+        {
+            const std::wstring_view value(argv[2]);
+            if (value.size() != 1 || value.front() < L'1' || value.front() > L'8')
+                return Report(Failed, L"Invalid tree registration slot", ERROR_INVALID_PARAMETER);
+            slot = static_cast<unsigned>(value.front() - L'0');
+        }
+        const DWORD error = slot ? RegisterTreeSlot(install, slot, argv[3]) : RegisterTreeTarget(install);
         return error ? Report(Failed, L"Register tree target", error) : Ok;
     }
     return RunBroker(install, pipeName.c_str(), hostPid);
