@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Rename a verified file symbolic link in its current parent. | Keep the link target and all other reparse types out of the operation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Recognize one cancel control for tree transfers. | Keep the other transfer commands strict. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Allow a creation descriptor for native files. | Apply mandatory integrity before the staged file is visible. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Move one verified file across directories on the same volume. | Reuse the no-replace native rename without changing ordinary F6. | | GPT-6.1 Sol (Codex) |
@@ -18,6 +19,8 @@ extern "C" NTSYSAPI NTSTATUS NTAPI NtSetInformationFile(
 
 namespace UacRenameLeaf
 {
+enum class MoveKind { OrdinaryFile, RenameFile, RenameSymlink };
+
 namespace Detail
 {
 inline DWORD NativeRename(HANDLE source, HANDLE targetParent, std::wstring_view leaf)
@@ -66,7 +69,7 @@ inline DWORD OpenSource(HANDLE parent, std::wstring_view leaf, HANDLE& source, A
     return OpenFile(parent, leaf, source, extraAccess, sharing, FILE_OPEN, 0);
 }
 
-inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity)
+inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity, bool symlink = false)
 {
     FILE_ATTRIBUTE_TAG_INFO attributes{};
     FILE_STANDARD_INFO standard{};
@@ -74,7 +77,8 @@ inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity)
         !GetFileInformationByHandleEx(source, FileStandardInfo, &standard, sizeof(standard)) ||
         !GetFileInformationByHandleEx(source, FileIdInfo, &identity, sizeof(identity)))
         return GetLastError();
-    if (attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
+    const bool reparse = (attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+    if (symlink ? (!reparse || attributes.ReparseTag != IO_REPARSE_TAG_SYMLINK) : reparse)
         return ERROR_REPARSE_TAG_INVALID;
     if (standard.Directory || standard.NumberOfLinks != 1 || standard.DeletePending)
         return ERROR_NOT_SUPPORTED;
@@ -111,7 +115,7 @@ inline bool SameSource(const FILE_ID_INFO& actual, const FILE_ID_INFO& expected)
 inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
                               const FILE_ID_INFO& expectedSource, std::wstring_view from,
                               HANDLE targetParent, const UacDirectoryLeaf::ParentIdentity& expectedTarget,
-                              std::wstring_view to, bool ordinaryOnly = true,
+                              std::wstring_view to, MoveKind kind = MoveKind::OrdinaryFile,
                               HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG)
 {
     using namespace UacDirectoryLeaf;
@@ -120,7 +124,8 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
     if (!Equal(expectedParent.volume, expectedTarget.volume) ||
         expectedParent.file.VolumeSerialNumber != expectedTarget.file.VolumeSerialNumber)
         return ERROR_NOT_SAME_DEVICE;
-    if (SameParent(expectedParent, expectedTarget) && Equal(from, to))
+    const bool sameParent = SameParent(expectedParent, expectedTarget);
+    if ((sameParent && Equal(from, to)) || (kind == MoveKind::RenameSymlink && !sameParent))
         return ERROR_NOT_SUPPORTED;
 
     ParentIdentity actual;
@@ -147,10 +152,10 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
     if (error != ERROR_SUCCESS)
         return error;
     FILE_ID_INFO actualSource{};
-    error = Detail::ReadSourceIdentity(source, actualSource);
+    error = Detail::ReadSourceIdentity(source, actualSource, kind == MoveKind::RenameSymlink);
     if (error == ERROR_SUCCESS && !Detail::SameSource(actualSource, expectedSource))
         error = ERROR_FILE_INVALID;
-    if (error == ERROR_SUCCESS && ordinaryOnly)
+    if (error == ERROR_SUCCESS && kind == MoveKind::OrdinaryFile)
     {
         FILE_ATTRIBUTE_TAG_INFO attributes{};
         if (!GetFileInformationByHandleEx(source, FileAttributeTagInfo, &attributes, sizeof(attributes)))
@@ -167,8 +172,10 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
 }
 
 inline DWORD RenameVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
-                                const FILE_ID_INFO& expectedSource, std::wstring_view from, std::wstring_view to)
+                                const FILE_ID_INFO& expectedSource, std::wstring_view from, std::wstring_view to,
+                                bool symlink = false)
 {
-    return MoveVerifiedFile(parent, expectedParent, expectedSource, from, parent, expectedParent, to, false);
+    return MoveVerifiedFile(parent, expectedParent, expectedSource, from, parent, expectedParent, to,
+                            symlink ? MoveKind::RenameSymlink : MoveKind::RenameFile);
 }
 }

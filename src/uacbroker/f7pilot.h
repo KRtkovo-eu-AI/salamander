@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Declare a typed symbolic-link rename request. | Bind the approved object type to the broker operation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define a typed compressed-file copy. | Bind preservation of NTFS compression to the consent request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Recognize sparse files for the default F5 pilot. | Keep the plain-file check available for other operations. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define a distinct copy command that skips named streams. | Keep the selected data policy bound to the authorized request. | | GPT-6.1 Sol (Codex) |
@@ -27,7 +28,12 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11 };
+
+inline bool IsRename(Operation operation)
+{
+    return operation == Operation::Rename || operation == Operation::RenameSymlink;
+}
 
 inline bool IsFileCopy(Operation operation)
 {
@@ -92,6 +98,7 @@ public:
     PreparedLeaf& operator=(const PreparedLeaf&) = delete;
 
     bool Prepare(const std::wstring& path, const std::wstring& renameTo = {});
+    bool PrepareRenameSymlink(const std::wstring& path, const std::wstring& renameTo);
     bool PrepareMetadata(const std::wstring& path, const MetadataChange& change);
     bool PrepareDelete(const std::wstring& path);
     DWORD ExecuteLocal() const;

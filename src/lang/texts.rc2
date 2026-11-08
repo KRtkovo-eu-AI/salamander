@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe the affected symbolic link in rename consent. | Identify the object affected by the broker. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain compression preservation in F5 consent. | Name the attribute covered by the administrator request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe default protected copy with alternate data streams. | Show the data covered by the administrator request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain the main-stream-only copy in its consent prompt. | Tell the user which data will be copied. | | GPT-6.1 Sol (Codex) |
@@ -2367,6 +2368,7 @@ STRINGTABLE
  IDS_UAC_MKDIR_CONFIRM, "Access was denied. Create this folder as an administrator?"
  IDS_UAC_MKDIR_UNKNOWN, "The broker disconnected before the result was confirmed. Check the destination before retrying."
  IDS_UAC_RENAME_CONFIRM, "Access was denied. Rename this file as an administrator? The current path is shown first, followed by the new path."
+ IDS_UAC_RENAME_SYMLINK_CONFIRM, "Access was denied. Rename this symbolic link as an administrator?"
  IDS_UAC_METADATA_CONFIRM, "Access was denied. Apply the requested attributes and times to this file as an administrator?"
  IDS_UAC_METADATA_UNKNOWN, "The broker disconnected before the result was confirmed. Check the file's attributes and times before retrying."
  IDS_UAC_DIRECTORY_TIMES_CONFIRM, "Access was denied. Set the requested times on this folder as an administrator?"

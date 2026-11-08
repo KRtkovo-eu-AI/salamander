@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Check the scoped rename of an NTFS file symbolic link. | Verify the exact object and preserve the stored link target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise explicit NTFS compression preservation. | Verify content, exact attributes, compression format, and ADS refusal. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise sparse F5 staging with real NTFS I/O. | Check contents, allocation gaps, and rejection of named streams. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise verified preservation of named NTFS streams. | Check exact data and refusal when staging protection is unavailable. | | GPT-6.1 Sol (Codex) |
@@ -1293,7 +1294,7 @@ int wmain(int argc, wchar_t** argv)
     const auto move = [&](HANDLE directory, const ParentIdentity& identity, std::wstring_view name, HANDLE pipe = nullptr)
     {
         return UacRenameLeaf::MoveVerifiedFile(listing.get(), listingIdentity, moveId, L"move-\u65e5.bin",
-                                               directory, identity, name, true, pipe);
+                                               directory, identity, name, UacRenameLeaf::MoveKind::OrdinaryFile, pipe);
     };
     auto moveError = move(substitute.get(), expected, L"move-\u672c.bin");
     Check(moveError == ERROR_FILE_INVALID && Exists(moveSourcePath) && !Exists(moveTargetPath),
@@ -1383,6 +1384,70 @@ int wmain(int argc, wchar_t** argv)
               std::memcmp(sourceId.FileId.Identifier, verifiedId.FileId.Identifier, sizeof(sourceId.FileId.Identifier)) == 0 &&
               !Exists(ancestor + L"\\parent\\verified-\u6771\u4eac"),
           "verified rename preserves the source identity in the held parent", error);
+
+    error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, verifiedId,
+                                               L"verified-\u6771\u4eac", L"ordinary-as-link", true);
+    Check(error == ERROR_REPARSE_TAG_INVALID && !Exists(moved + L"\\ordinary-as-link"),
+          "the symbolic-link operation rejects an ordinary file", error);
+
+    const auto linkSource = moved + L"\\symbolic-\u6771";
+    const auto linkTarget = moved + L"\\symbolic-\u4eac";
+    const auto referent = moved + L"\\symbolic-referent";
+    if (!WriteFixture(referent, content))
+        return 2;
+    if (CreateSymbolicLinkW(linkSource.c_str(), L"symbolic-referent", SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE))
+    {
+        FILE_ID_INFO linkId{};
+        const auto pinnedLink = OpenIdentity(linkSource, linkId);
+        if (!pinnedLink)
+            return 2;
+        const auto readLink = [](HANDLE file, std::vector<BYTE>& data) {
+            data.resize(MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+            DWORD bytes = 0;
+            if (!DeviceIoControl(file, FSCTL_GET_REPARSE_POINT, nullptr, 0,
+                                 data.data(), static_cast<DWORD>(data.size()), &bytes, nullptr))
+                return false;
+            data.resize(bytes);
+            return true;
+        };
+        std::vector<BYTE> beforeLink, afterLink;
+        if (!readLink(pinnedLink.get(), beforeLink))
+            return 2;
+        error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, linkId, L"symbolic-\u6771", L"symbolic-\u4eac");
+        Check(error == ERROR_REPARSE_TAG_INVALID && Exists(linkSource) && !Exists(linkTarget),
+              "ordinary rename still rejects a symbolic link", error);
+        error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, linkId, L"symbolic-\u6771", L"symbolic-referent", true);
+        Check((error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS) && Exists(linkSource) && HasContents(referent, content),
+              "symbolic-link rename preserves both entries on collision", error);
+        error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, verifiedId, L"symbolic-\u6771", L"symbolic-\u4eac", true);
+        Check(error == ERROR_FILE_INVALID && Exists(linkSource) && !Exists(linkTarget),
+              "symbolic-link rename rejects a different source identity", error);
+        error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, linkId, L"symbolic-\u6771", L"symbolic-\u4eac", true);
+        FILE_ID_INFO renamedLinkId{};
+        const auto renamedLink = OpenIdentity(linkTarget, renamedLinkId);
+        Check(error == ERROR_SUCCESS && !Exists(linkSource) && renamedLink &&
+                  UacRenameLeaf::Detail::SameSource(linkId, renamedLinkId) &&
+                  readLink(renamedLink.get(), afterLink) && beforeLink == afterLink && HasContents(referent, content),
+              "rename the exact Unicode link and preserve its raw reparse data and referent", error);
+        const auto dangling = moved + L"\\dangling-source";
+        if (!CreateSymbolicLinkW(dangling.c_str(), L"missing-referent", SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE))
+            return 2;
+        FILE_ID_INFO danglingId{}, renamedDanglingId{};
+        const auto pinnedDangling = OpenIdentity(dangling, danglingId);
+        if (!pinnedDangling)
+            return 2;
+        error = UacRenameLeaf::RenameVerifiedFile(original.get(), expected, danglingId,
+                                                   L"dangling-source", L"dangling-target", true);
+        Check(error == ERROR_SUCCESS && !Exists(dangling) &&
+                  OpenIdentity(moved + L"\\dangling-target", renamedDanglingId) &&
+                  UacRenameLeaf::Detail::SameSource(danglingId, renamedDanglingId) &&
+                  !Exists(moved + L"\\missing-referent"),
+              "rename a dangling link without opening or creating its target", error);
+    }
+    else if (GetLastError() == ERROR_PRIVILEGE_NOT_HELD)
+        std::puts("SKIP: creating the symbolic-link fixture requires Developer Mode or SeCreateSymbolicLinkPrivilege");
+    else
+        return 2;
 
     const auto metadataPath = moved + L"\\verified-\u6771\u4eac";
     const auto metadataFile = OpenIdentity(metadataPath, verifiedId);

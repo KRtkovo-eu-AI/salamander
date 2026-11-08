@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record P5h file symbolic-link rename. | Document the no-follow boundary and the local and VM results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5g NTFS compression preservation in F5. | Document consent, attribute behavior, and local and VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5f sparse F5 preservation. | Document local and VM evidence for data and allocation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P5e preservation of named streams in protected F5. | Document the pilot scope and local and VM results. | | GPT-6.1 Sol (Codex) |
@@ -596,6 +597,14 @@ Volba Preserve Archive, Compressed, and Encrypted attributes zpřístupní přes
 Lokálně prošlo sestavení x64 Debug, všech 139 nativních kontrol v Debug i Release a testy transportu, plánování a konverzních tabulek. Nativní zkoušky ověřily obsah, formát LZNT1 a přesné atributy včetně vypnutého příznaku Archiv, název v Unicode, zachování existujícího cíle při kolizi a odmítnutí komprimovaného zdroje s ADS.
 
 V izolované Windows 11 VM ukázal F5 se zapnutým zachováním atributů nabídku správce se štítem a textem o kompresi. Po volbě Ano u 01-compressed-approve.bin souhlasil SHA-256 i atributy. Kopie měla logickou délku 204 800 bajtů a zabírala 28 672 bajtů stejně jako zdroj. Po volbě Ne u 02-compressed-cancel.bin cíl nevznikl. Výchozí F5 bez zachování atributů u 03-compressed-default.bin zobrazil chybu 5 bez nabídky správce. Otisky a atributy zdrojů souhlasily s výchozím stavem, v cíli nezbyl pracovní soubor a otisky instalovaných binárek souhlasily s pilotem.
+
+### 8.33 P5h — přejmenování souborového symbolického odkazu
+
+Přejmenování jednoho souborového symbolického odkazu na místním NTFS podporuje F2 i Quick Rename ve stejném rodičovském adresáři do volného názvu. Po odepření běžného pokusu nabídka správce se štítem uvede, že se přejmenovává odkaz, a ukáže starou i novou cestu. Výchozí volba je Zrušit. Host používá samostatný typ požadavku a ověří shodu identity odkazu z cesty panelu a z otevřeného rodiče. Broker odkaz otevře relativně k ověřenému rodiči s FILE_OPEN_REPARSE_POINT, vyžaduje tag IO_REPARSE_TAG_SYMLINK a stejnou identitu a provede nativní přejmenování bez přepisu. Cílovou cestu uloženou v odkazu neotevírá a nepřepisuje. Adresářové odkazy, junction, další reparse tagy a přesun odkazu mezi složkami jsou mimo rozsah pilotu. [Chování funkcí se symbolickými odkazy](https://learn.microsoft.com/en-us/windows/win32/fileio/symbolic-link-effects-on-file-systems-functions) a [NtCreateFile](https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntcreatefile)
+
+Lokálně prošlo sestavení x64 Debug, všech 145 nativních kontrol v Debug i Release a testy transportu, plánování, konverzních tabulek a přejmenování v Branch View. Nové zkoušky ověřily zachování identity a binárních reparse dat u Unicode názvu, zachování obsahu cíle odkazu, přejmenování odkazu na neexistující soubor, kolizi a odmítnutí jiné identity i nesprávného typu položky.
+
+V izolované Windows 11 VM zobrazily F2 i Quick Rename přímo v panelu nabídku správce pro symbolický odkaz s oběma cestami, štítem a výchozím tlačítkem Zrušit. Po volbě Ano při F2 se 01-approve-link.txt přejmenoval na 01-renamed-link.txt. Kontrola potvrdila shodu reparse dat a obsahu dostupného přes nový název. Po volbě Ne při Quick Rename zůstal 02-cancel-link.txt zachovaný se shodnými reparse daty a 02-renamed-link.txt nevznikl. Otisky obou souborů, na něž odkazy ukazují, i otisky pilotních binárek souhlasily.
 
 ## 9. Uživatelský tok a stav operace
 

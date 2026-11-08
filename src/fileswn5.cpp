@@ -5,6 +5,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Offer a separate consent prompt for file symbolic links. | Name the affected link for both F2 and Quick Rename. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Separate local F7 leaf creation from panel UI. | Verify or preserve the F7 local creation contract. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-06 | Keep archive metadata cache invalidation with strict path decoding. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -3553,17 +3554,21 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
         GetFileAttributesW(tgtPath.c_str()) == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND)
     {
         UacF7::PreparedLeaf request;
-        if (request.Prepare(srcPath, newNameW))
+        const bool link = (f->Attr & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+        const bool prepared = link ? request.PrepareRenameSymlink(srcPath, newNameW) : request.Prepare(srcPath, newNameW);
+        if (prepared)
         {
             offeredElevation = true;
-            const std::string message = std::string(LoadStr(IDS_UAC_RENAME_CONFIRM)) + "\n\n" +
+            const int text = link ? IDS_UAC_RENAME_SYMLINK_CONFIRM : IDS_UAC_RENAME_CONFIRM;
+            const std::string message = std::string(LoadStr(text)) + "\n\n" +
                                         WidePathToDialogText(srcPathDisplay) + "\n" + WidePathToDialogText(tgtPathDisplay);
             const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
             MSGBOXEX_PARAMS confirm{};
             confirm.HParent = HWindow;
             confirm.Text = message.c_str();
             confirm.Caption = LoadStr(IDS_RENAME_TITLE);
-            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_SHIELDONDEFBTN;
+            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION |
+                            (link ? (MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN) : MSGBOXEX_SHIELDONDEFBTN);
             confirm.AliasBtnNames = alias.c_str();
             err = ERROR_CANCELLED;
             if (SalMessageBoxEx(&confirm) == IDOK)
