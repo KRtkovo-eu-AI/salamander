@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Advertise support for basic directory attributes. | Match the host and broker before offering a metadata write. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Pin directory timestamp requests before consent. | Verify the visible directory and its volume-relative identity. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Send tree cancellation without giving up the authenticated reply. | Resolve cancellation races using the broker result. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Register additional protected tree-copy destinations. | Bind each destination to a protected path and an identity-specific recovery journal. | | GPT-6.1 Sol (Codex) |
@@ -87,9 +88,11 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD copyTreeCapability = 256;
 [[maybe_unused]] constexpr DWORD cancelTreeCapability = 512;
 [[maybe_unused]] constexpr DWORD directoryTimesCapability = 1024;
+[[maybe_unused]] constexpr DWORD directoryAttrsCapability = 2048;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
-                                                 inventoryCapability | copyTreeCapability | cancelTreeCapability | directoryTimesCapability;
+                                                 inventoryCapability | copyTreeCapability | cancelTreeCapability |
+                                                 directoryTimesCapability | directoryAttrsCapability;
 
 std::wstring PipeName(const GUID& id)
 {

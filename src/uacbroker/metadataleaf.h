@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Allow basic attributes on one verified directory. | Keep directory changes in the same bounded metadata update. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Allow timestamps on one verified directory. | Restrict directory metadata to the selected timestamps. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Set basic metadata once on an identity-verified NTFS file. | Avoid partially applying attributes and times before consent or on a retry. | | GPT-6.1 Sol (Codex) |
 */
@@ -31,10 +32,10 @@ inline bool IsDirectory(const UacF7::MetadataChange& change)
 
 inline bool IsValid(const UacF7::MetadataChange& change)
 {
-    const bool validAttributes = IsDirectory(change)
-        ? !(change.expectedAttributes & ~(FILE_ATTRIBUTE_DIRECTORY | UacF7::basicAttributes)) && change.attributes == 0
-        : IsOrdinary(change.expectedAttributes) && (change.attributes == 0 || IsOrdinary(change.attributes));
-    return validAttributes &&
+    const bool validExpected = IsDirectory(change)
+        ? (change.expectedAttributes & ~(FILE_ATTRIBUTE_DIRECTORY | UacF7::basicAttributes)) == 0
+        : IsOrdinary(change.expectedAttributes);
+    return validExpected && (change.attributes == 0 || IsOrdinary(change.attributes)) &&
            (change.attributes || change.created || change.accessed || change.modified) &&
            IsValidTime(change.created) && IsValidTime(change.accessed) && IsValidTime(change.modified);
 }

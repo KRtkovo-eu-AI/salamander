@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify basic attributes and times on the same directory handle. | Cover setting and clearing flags without changing descendants. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check creation and last-write times on the published directory tree. | Cover both the selected root and a nested Unicode directory. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify timestamp-only directory metadata. | Cover Unicode, stale identities and reparse rejection. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe stream creation before source retirement. | Test the precondition for deleting the source after copying. | | GPT-6.1 Sol (Codex) |
@@ -770,12 +771,18 @@ bool CheckMoveSource(const std::wstring& fixture, HANDLE root)
     }
     return failures == 0;
 }
-bool CheckDirectoryTimes(const std::wstring& fixture, HANDLE root)
+bool CheckDirectoryMetadata(const std::wstring& fixture, HANDLE root)
 {
     using namespace UacDirectoryLeaf;
     constexpr std::wstring_view leaf = L"times-\u6771\u4eac";
     const auto path = fixture + L"\\" + std::wstring(leaf);
     if (!CreateDirectoryW(path.c_str(), nullptr))
+        return false;
+    const auto child = path + L"\\child.txt";
+    if (!WriteFixture(child, {1, 2, 3}))
+        return false;
+    WIN32_FILE_ATTRIBUTE_DATA childBefore{};
+    if (!GetFileAttributesExW(child.c_str(), GetFileExInfoStandard, &childBefore))
         return false;
     HANDLE raw = nullptr;
     ParentIdentity rootId, directoryId;
@@ -809,11 +816,35 @@ bool CheckDirectoryTimes(const std::wstring& fixture, HANDLE root)
               after.LastAccessTime.QuadPart == change.accessed && after.FileAttributes == before.FileAttributes,
           "set directory access time independently", error);
 
-    change.attributes = FILE_ATTRIBUTE_HIDDEN;
+    change.accessed = 0;
+    change.modified = 131000000000000000LL;
+    change.attributes = UacF7::basicAttributes;
+    error = set(directoryId.file, leaf);
+    Check(error == ERROR_SUCCESS &&
+              GetFileInformationByHandleEx(directory.get(), FileBasicInfo, &after, sizeof(after)) &&
+              after.FileAttributes == (FILE_ATTRIBUTE_DIRECTORY | UacF7::basicAttributes) &&
+              after.LastWriteTime.QuadPart == change.modified && after.CreationTime.QuadPart == 132000000000000000LL,
+          "set all basic directory flags and the requested time", error);
+    change.expectedAttributes = FILE_ATTRIBUTE_DIRECTORY | UacF7::basicAttributes;
+    change.attributes = FILE_ATTRIBUTE_NORMAL;
+    change.modified = 0;
+    error = set(directoryId.file, leaf);
+    Check(error == ERROR_SUCCESS &&
+              GetFileInformationByHandleEx(directory.get(), FileBasicInfo, &after, sizeof(after)) &&
+              after.FileAttributes == before.FileAttributes && after.LastWriteTime.QuadPart == 131000000000000000LL,
+          "clear the basic flags without removing the directory bit or changing its time", error);
+    WIN32_FILE_ATTRIBUTE_DATA childAfter{};
+    Check(GetFileAttributesExW(child.c_str(), GetFileExInfoStandard, &childAfter) &&
+              childAfter.dwFileAttributes == childBefore.dwFileAttributes &&
+              CompareFileTime(&childBefore.ftLastWriteTime, &childAfter.ftLastWriteTime) == 0,
+          "leave the contents of the verified directory untouched");
+    change.expectedAttributes = before.FileAttributes;
+    change.attributes = FILE_ATTRIBUTE_COMPRESSED;
     error = set(directoryId.file, leaf);
     Check(error == ERROR_INVALID_DATA && GetFileAttributesW(path.c_str()) == before.FileAttributes,
-          "refuse an attribute mutation in a directory time request", error);
+          "refuse a non-basic attribute in a directory metadata request", error);
     change.attributes = 0;
+    change.accessed = 134000000000000000LL;
     change.expectedAttributes ^= FILE_ATTRIBUTE_HIDDEN;
     error = set(directoryId.file, leaf);
     Check(error == ERROR_FILE_INVALID, "refuse a stale directory attribute snapshot", error);
@@ -851,7 +882,7 @@ int wmain(int argc, wchar_t** argv)
     const Handle root(rawRoot);
     if (moveSource)
         return CheckMoveSource(fixture, root.get()) ? 0 : 1;
-    if (!CheckDirectoryTimes(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high))
+    if (!CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high))
         return 2;
     HANDLE rawListing = nullptr;
     ParentIdentity listingIdentity;

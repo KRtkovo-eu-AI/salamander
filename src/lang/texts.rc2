@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe the folder attribute change. | Identify the selected folder and report an uncertain outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the directory timestamp operation. | Explain consent and uncertainty for a folder. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use plain inventory labels. | Keep translations out of format-string arguments. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe consent and an uncertain tree copy result. | Show the complete scope of one registered F5 request. | | GPT-6.1 Sol (Codex) |
@@ -2367,6 +2368,8 @@ STRINGTABLE
  IDS_UAC_METADATA_UNKNOWN, "The broker disconnected before the result was confirmed. Check the file's attributes and times before retrying."
  IDS_UAC_DIRECTORY_TIMES_CONFIRM, "Access was denied. Set the requested times on this folder as an administrator?"
  IDS_UAC_DIRECTORY_TIMES_UNKNOWN, "The broker disconnected before the result was confirmed. Check the folder's times before retrying."
+ IDS_UAC_DIRECTORY_ATTRS_CONFIRM, "Access was denied. Apply the requested attributes and any selected times to this folder as an administrator?"
+ IDS_UAC_DIRECTORY_ATTRS_UNKNOWN, "The broker disconnected before the result was confirmed. Check the folder's attributes and times before retrying."
  IDS_UAC_DELETE_CONFIRM, "Access was denied. Permanently delete this file as an administrator?"
  IDS_UAC_DELETE_UNKNOWN, "The broker disconnected before deletion was confirmed. Check whether the file still exists before retrying."
  IDS_UAC_LIST_CONFIRM, "Access was denied. List this folder and its subfolders as an administrator?"

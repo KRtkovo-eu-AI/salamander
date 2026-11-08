@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Expose whether the metadata request includes attributes. | Keep time-only consent text specific. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Expose the directory timestamp request type. | Let the prompt describe the correct item. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Carry explicit tree consent and an optional cancellation event. | Let the worker execute while the dialog stays responsive. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Identify queued tree transfers in the consent dialog. | Reuse the tree-specific consent and result strings. | | GPT-6.1 Sol (Codex) |
@@ -72,6 +73,7 @@ public:
     {
         return operation == Operation::Metadata && (metadata.expectedAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
     }
+    bool ChangesAttributes() const { return metadata.attributes != 0; }
 
 private:
     friend class ListingSession;

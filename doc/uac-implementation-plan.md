@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Document P5c basic directory attributes. | Track bounded Ctrl+F2 changes and their verification. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document P5b directory time preservation in protected F5. | Record the explicit option and its pilot limits. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document P5a directory timestamps and local validation. | Track the first bounded metadata extension after the transfer pilots. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the P4n NTFS source-retirement probe. | Verify the late-stream race before enabling cross-volume F6. | | GPT-6.1 Sol (Codex) |
@@ -551,6 +552,14 @@ Volba Preserve dates and times of directories je přípustná při rekurzivním 
 Lokálně prošlo sestavení x64 Debug, 124 nativních kontrol v Debug i Release, test plánování kopírování a test transportu brokeru. Nativní zkouška kontroluje vytvoření a poslední změnu kořene i vnořené složky s názvem v Unicode.
 
 V izolované Windows 11 VM otevřel F5 se zapnutou volbou Preserve dates and times of directories nabídku správce. Po schválení ve Windows souhlasily časy vytvoření a poslední změny kořene i vnořené složky, SHA-256 obou souborů a otisky nainstalovaného sestavení. Prázdná podsložka se zkopírovala a v cíli nezůstala žádná pracovní složka. Druhá zkouška s dodatečnou volbou Only files skončila běžnou chybou 5 při vytváření cílové složky. Nabídka správce se neobjevila a druhý cílový strom nevznikl.
+
+### 8.28 P5c — běžné atributy jedné složky přes Ctrl+F2
+
+Pilot P5a nyní přijímá také příznaky Archiv, Jen pro čtení, Skrytý a Systémový jedné běžné složky na místním NTFS. Uživatel může změnit samotné atributy nebo je spojit s vybranými časy. Host zkusí zápis s běžným tokenem a po odepření ukáže nabídku správce se štítem a úplnou cestou složky. Broker před zápisem znovu ověří identitu a původní atributy a zapíše požadované hodnoty jedním voláním s FILE_BASIC_INFO. Složka zůstává adresářem i po odebrání všech běžných příznaků. Pilot je omezený na jednu položku bez rekurze a odmítá reparse body i zvláštní atributy včetně komprese a EFS. [Atributy Windows](https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants) · [FILE_BASIC_INFO](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_basic_info).
+
+Lokálně prošlo sestavení x64 Debug, 127 nativních kontrol v Debug i Release a testy transportu brokeru, plánování kopírování a konverzních tabulek. Testy ověřily nastavení a odebrání všech čtyř příznaků, nezávislou změnu času, zachování vnořeného souboru a odmítnutí komprese, záměny složky, změněných atributů i junction.
+
+V izolované Windows 11 VM zobrazil Ctrl+F2 nabídku správce se štítem a přesnou cestou. Po volbě Ne u složky 01-cancel zůstaly atributy i časy původní. Po volbě Ano u 02-approve měla složka příznak Archiv a čas poslední změny 2026-11-08 14:54:59 místního času, přesně podle dialogu. Čas vytvoření složky, atributy a časy poslední změny obou vnořených testovacích souborů zůstaly zachovány. Kontrola také potvrdila otisky instalovaných binárek.
 
 ## 9. Uživatelský tok a stav operace
 
