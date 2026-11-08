@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record protected duplicate search. | Document metadata grouping, scoped hashing and pending VM acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record protected Find content streaming. | Document explicit scope, local evidence and remaining acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the additional cross-volume source guard probes. | Establish the behavior of NTFS attributes and delete-pending under contention. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record per-item UAC in native operation batches. | Document cancellation, existing worker boundaries and pending VM evidence. | | GPT-6.1 Sol (Codex) |
@@ -743,7 +744,11 @@ V prvním pilotu Find dialog nepředal výsledek volby Administrator pracovnímu
 
 **Rozšíření Findu o obsah.** Pokud hledání používá podmínku na obsah, souhlas výslovně uvádí čtení souborů ve schváleném podstromu. Běžný průchod pokračuje v dostupných složkách a zpřístupní jejich výsledky před čekáním na souhlas. Chráněné čtení má vlastní typ relace. Relace pro běžný výpis panelu příkaz pro obsah odmítne. Broker otevře jeden běžný soubor relativně ke schválenému kořeni, odmítne reparse body, vícenásobné pevné odkazy, ADS v požadované cestě, EFS a offline soubory. Vrací bloky do 64 KiB a počítá nejvýše 64 GiB přenesených dat na relaci. Při zavření porovná velikost, časy a atributy s otevřeným souborem. Host znovu použije stávající hledání textu a regulárních výrazů včetně hranic slov a nastavení konců řádků. Drží nejvýše 256 KiB dat souboru a po chybě čtení nepřidá soubor jako shodu.
 
-Lokálně prošlo sestavení x64 Debug, testy transportu a 215 nativních kontrol v Debug i Release. Zkoušky ověřily přesné bajty na dlouhé vnořené Unicode cestě, čtení za hranicí snímku F3 a odmítnutí úniku z kořene, ADS a pevného odkazu. Integrovaná zkouška hledání, potvrzení, zrušení a hraničních shod při čtení po blocích patří do společné akceptace ve VM. První odepřený podstrom zůstává současným rozsahem nabídky. Jednotlivé chráněné soubory v jinak čitelném adresáři, více chráněných kořenů, tagy a duplicity zůstávají otevřené.
+Lokálně prošlo sestavení x64 Debug, testy transportu a 215 nativních kontrol v Debug i Release. Zkoušky ověřily přesné bajty na dlouhé vnořené Unicode cestě, čtení za hranicí snímku F3 a odmítnutí úniku z kořene, ADS a pevného odkazu. Integrovaná zkouška hledání, potvrzení, zrušení a hraničních shod při čtení po blocích patří do společné akceptace ve VM. První odepřený podstrom zůstává současným rozsahem nabídky. Jednotlivé chráněné soubory v jinak čitelném adresáři, více chráněných kořenů a tagy zůstávají otevřené.
+
+**Duplicity v chráněném podstromu.** Ověřený výpis přidá kandidáty do společného seskupování podle názvu a velikosti. Při porovnávání obsahu žádá Find o přístup k obsahu a drží schválenou relaci i během druhého průchodu. Obsah čte pouze u kandidátů, kteří prošli prvním seskupením. Neprázdné soubory zpracuje stávajícím algoritmem MD5 s omezeným pracovním bufferem. Prázdný chráněný soubor ověří otevřením proti výpisu. Chyba čtení, změněný soubor nebo neověřené zavření vyloučí daného kandidáta. Po odmítnutí souhlasu zůstane hledání omezené na dostupné kandidáty.
+
+Lokálně prošlo sestavení x64 Debug, 215 nativních kontrol a kontroly plánování, řazení a výběru kořenů Findu. Kontrola plánování zahrnuje zařazení chráněných kandidátů před seskupováním a ověření relace před dokončením otisku. Scénář s dvojicí dostupný–chráněný, rozdílným obsahem stejné velikosti, zrušením a odpojením brokeru patří do společné akceptace ve VM.
 
 ### 8.43 P6c — chráněný soubor v interním prohlížeči přes F3
 

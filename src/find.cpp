@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Include approved protected files in duplicate groups. | Use the same ordering and digest progress for both sources. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Search protected file contents with the existing matcher. | Consume bounded blocks after the ordinary traversal while retaining search options. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Resume metadata Find in one verified protected subtree. | Keep ordinary search running during consent and use one bounded read-only session. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Post coalesced Find result refreshes asynchronously. | Keep the search worker from blocking the GUI thread during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
@@ -678,6 +679,12 @@ BOOL CFindIgnore::Set(int index, BOOL enabled, const char* path)
 //    These get a Group variable so that sets can be distinguished in the result window.
 //
 
+static bool FindDuplicateContent(const CGrepData& data)
+{
+    constexpr DWORD flags = FIND_DUPLICATES_SIZE | FIND_DUPLICATES_CONTENT;
+    return data.FindDuplicates && (data.FindDupFlags & flags) == flags;
+}
+
 class CDuplicateCandidates : public TIndirectArray<CFoundFilesData>
 {
 public:
@@ -687,7 +694,7 @@ public:
     // - removing single files
     // - setting the Group variable
     // - setting the Different flag
-    void Examine(CGrepData* data);
+    void Examine(CGrepData* data, UacF7::ListingSession* protectedSession);
 
 protected:
     // compares two records using criteria byName, bySize and byMD5
@@ -722,7 +729,8 @@ protected:
     // the method returns FALSE on read errors or when the user aborts the operation
     // (then, the variable data->StopSearch is set to TRUE)
     BOOL GetMD5Digest(CGrepData* data, CFoundFilesData* file,
-                      int* progress, CQuadWord* readSize, const CQuadWord* totalSize);
+                      int* progress, CQuadWord* readSize, const CQuadWord* totalSize,
+                      UacF7::ListingSession* protectedSession);
 };
 
 int CDuplicateCandidates::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2,
@@ -828,94 +836,87 @@ LABEL_QuickSort:
 #define DUPLICATES_BUFFER_SIZE 16384 // buffer size for MD5 calculation
 
 BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
-                                        int* progress, CQuadWord* readSize, const CQuadWord* totalSize)
+                                        int* progress, CQuadWord* readSize, const CQuadWord* totalSize,
+                                        UacF7::ListingSession* protectedSession)
 {
-    // build full path to the file
-    char fullPath[MAX_PATH];
-    lstrcpyn(fullPath, file->Path, MAX_PATH);
-    SalPathAppend(fullPath, file->Name, MAX_PATH);
-
-    data->SearchingText->Set(fullPath); // set the current file
-
-    // open the file for reading with sequential access
-    HANDLE hFile = HANDLES_Q(CreateFile(fullPath, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                        NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
-    if (hFile != INVALID_HANDLE_VALUE)
+    const bool scoped = file->ProtectedCandidate != 0;
+    const std::wstring fullPath = file->GetFullNameW();
+    const std::string display = SalWideToMultiBytePath(fullPath.c_str(), CP_UTF8);
+    data->SearchingText->Set(display.c_str());
+    HANDLE local = INVALID_HANDLE_VALUE;
+    DWORD error = ERROR_SUCCESS;
+    ULONGLONG size = 0;
+    bool opened = false;
+    if (scoped)
     {
-        BYTE buffer[DUPLICATES_BUFFER_SIZE];
-        MD5 context;
-        DWORD read; // number of bytes that were actually read
-        while (TRUE)
-        {
-            // read a segment from a file 'file' into 'buffer'
-            if (!ReadFile(hFile, buffer, DUPLICATES_BUFFER_SIZE, &read, NULL))
-            {
-                // error reading the file
-                DWORD err = GetLastError();
-                HANDLES(CloseHandle(hFile));
-
-                char buf[MAX_PATH + 100];
-                sprintf(buf, LoadStr(IDS_ERROR_READING_FILE2), GetErrorText(err));
-                FIND_LOG_ITEM log;
-                log.Flags = FLI_ERROR;
-                log.Text = buf;
-                log.Path = fullPath;
-                SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
-
-                return FALSE;
-            }
-
-            // does the user want to stop the operation?
-            if (data->StopSearch)
-            {
-                HANDLES(CloseHandle(hFile));
-                return FALSE;
-            }
-
-            // if anything was read, update the MD5
-            if (read > 0)
-            {
-                context.update(buffer, read);
-
-                // compute and display progress (if the 'progress' value changed)
-                *readSize += CQuadWord(read, 0);
-                char buff[100];
-                int newProgress = *readSize >= *totalSize ? (totalSize->Value == 0 ? 0 : 100) : (int)((*readSize * CQuadWord(100, 0)) / *totalSize).Value;
-                if (newProgress != *progress)
-                {
-                    *progress = newProgress;
-                    buff[0] = (BYTE)newProgress; // pass the numeric value directly instead of a string
-                    buff[1] = 0;
-                    data->SearchingText2->Set(buff); // update the total progress
-                }
-            }
-
-            // if fewer bytes were read than the buffer size, we are done
-            if (read != DUPLICATES_BUFFER_SIZE)
-                break;
-        }
-        HANDLES(CloseHandle(hFile));
-
-        context.finalize();
-        memcpy((BYTE*)file->Group, context.digest, MD5_DIGEST_SIZE);
-
-        return TRUE;
+        FILETIME modified{};
+        error = protectedSession ? protectedSession->OpenContent(fullPath, size, modified) : ERROR_ACCESS_DENIED;
+        opened = error == ERROR_SUCCESS;
+        if (opened && (size != file->Size.Value || CompareFileTime(&modified, &file->LastWrite) != 0))
+            error = ERROR_FILE_INVALID;
     }
     else
     {
-        // error occured while opening the file
-        DWORD err = GetLastError();
+        const std::wstring apiPath = SalPathAddExtendedPrefixW(fullPath.c_str());
+        local = HANDLES_Q(CreateFileW(apiPath.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                      NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+        opened = local != INVALID_HANDLE_VALUE;
+        if (!opened)
+            error = GetLastError();
+    }
+    BYTE buffer[DUPLICATES_BUFFER_SIZE];
+    MD5 context;
+    ULONGLONG offset = 0;
+    while (!error && !data->StopSearch)
+    {
+        DWORD read = 0;
+        if (scoped)
+        {
+            if (offset == size)
+                break;
+            read = static_cast<DWORD>(std::min<ULONGLONG>(sizeof(buffer), size - offset));
+            error = protectedSession->ReadContent(offset, buffer, read);
+            offset += read;
+        }
+        else if (!ReadFile(local, buffer, sizeof(buffer), &read, NULL))
+            error = GetLastError();
 
-        char buf[MAX_PATH + 100];
-        sprintf(buf, LoadStr(IDS_ERROR_OPENING_FILE2), GetErrorText(err));
-        FIND_LOG_ITEM log;
-        log.Flags = FLI_ERROR;
-        log.Text = buf;
-        log.Path = fullPath;
-        SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
-
+        if (error || !read || data->StopSearch)
+            break;
+        context.update(buffer, read);
+        *readSize += CQuadWord(read, 0);
+        const int newProgress = *readSize >= *totalSize ? (totalSize->Value == 0 ? 0 : 100)
+            : static_cast<int>(((*readSize * CQuadWord(100, 0)) / *totalSize).Value);
+        if (newProgress != *progress)
+        {
+            *progress = newProgress;
+            char value[] = {static_cast<char>(newProgress), 0};
+            data->SearchingText2->Set(value);
+        }
+        if (!scoped && read != sizeof(buffer))
+            break;
+    }
+    if (scoped && protectedSession)
+    {
+        const DWORD closeError = protectedSession->CloseContent();
+        if (!error)
+            error = closeError;
+    }
+    if (local != INVALID_HANDLE_VALUE)
+        HANDLES(CloseHandle(local));
+    if (data->StopSearch)
+        return FALSE;
+    if (error)
+    {
+        char message[MAX_PATH + 100];
+        sprintf(message, LoadStr(opened ? IDS_ERROR_READING_FILE2 : IDS_ERROR_OPENING_FILE2), GetErrorText(error));
+        FIND_LOG_ITEM log{FLI_ERROR, message, display.c_str()};
+        SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
         return FALSE;
     }
+    context.finalize();
+    memcpy(reinterpret_cast<BYTE*>(file->Group), context.digest, MD5_DIGEST_SIZE);
+    return TRUE;
 }
 
 void CDuplicateCandidates::RemoveSingleFiles(BOOL byName, BOOL bySize, BOOL byMD5)
@@ -1012,7 +1013,7 @@ void CDuplicateCandidates::SetGroupByDifferentFlag()
     }
 }
 
-void CDuplicateCandidates::Examine(CGrepData* data)
+void CDuplicateCandidates::Examine(CGrepData* data, UacF7::ListingSession* protectedSession)
 {
     if (Count == 0)
         return;
@@ -1022,7 +1023,7 @@ void CDuplicateCandidates::Examine(CGrepData* data)
     // extract criteria for duplicate search
     BOOL byName = (data->FindDupFlags & FIND_DUPLICATES_NAME) != 0;
     BOOL bySize = (data->FindDupFlags & FIND_DUPLICATES_SIZE) != 0;
-    BOOL byContent = bySize && (data->FindDupFlags & FIND_DUPLICATES_CONTENT) != 0;
+    const bool byContent = FindDuplicateContent(*data);
 
     // search completed, preparing results (MD5 computation may still follow)
     data->SearchingText->Set(LoadStr(IDS_FIND_DUPS_RESULTS));
@@ -1086,7 +1087,7 @@ void CDuplicateCandidates::Examine(CGrepData* data)
                 CFoundFilesData* file = At(i);
                 if (file->Size > CQuadWord(0, 0))
                 {
-                    if (!GetMD5Digest(data, file, &progress, &readSize, &totalSize))
+                    if (!GetMD5Digest(data, file, &progress, &readSize, &totalSize, protectedSession))
                     {
                         if (data->StopSearch)
                         {
@@ -1461,7 +1462,8 @@ static void RequestFindResultsRefresh(CGrepData* data)
 BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeHigh,
                   DWORD attr, const FILETIME* lastWrite, BOOL isDir, CGrepData* data,
                   CDuplicateCandidates* duplicateCandidates,
-                  const wchar_t* pathW = nullptr, const wchar_t* nameW = nullptr)
+                  const wchar_t* pathW = nullptr, const wchar_t* nameW = nullptr,
+                  bool protectedCandidate = false)
 {
     if (duplicateCandidates != NULL && isDir) // directories are irrelevant to us when searching for duplicates
         return TRUE;
@@ -1502,6 +1504,7 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
             else
             {
                 // duplicateCandidates != NULL, adding the item to duplicateCandidates
+                foundData->ProtectedCandidate = protectedCandidate;
                 duplicateCandidates->Add(foundData);
                 if (!duplicateCandidates->IsGood())
                 {
@@ -1548,10 +1551,11 @@ public:
     bool Begin(CGrepData* search, const char* deniedPath, CMaskGroup* masksGroup,
                BOOL recursive, int searchRootLength, CFindIgnore* ignore)
     {
-        if (launchThread || search->StopSearch || search->FindDuplicates || search->Criteria.HasTags())
+        if (launchThread || search->StopSearch || search->Criteria.HasTags())
             return false;
         path = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(deniedPath, GetACP()).c_str());
-        if (!session.Prepare(path, search->Grep != FALSE))
+        readContent = search->Grep || FindDuplicateContent(*search);
+        if (!session.Prepare(path, readContent))
             return false;
 
         data = search;
@@ -1568,24 +1572,25 @@ public:
 
     bool OwnsIgnoreList(CFindIgnore* ignore) const { return ignoreSnapshot && ignoreSnapshot.get() == ignore; }
 
-    void Finish()
+    UacF7::ListingSession* Finish(CDuplicateCandidates* candidates)
     {
         if (!launchThread)
-            return;
+            return nullptr;
         if (!data->StopSearch && WaitForSingleObject(launchThread, 0) == WAIT_TIMEOUT)
             data->SearchingText->Set(LoadStr(IDS_UAC_FIND_WAIT));
         WaitForSingleObject(launchThread, INFINITE);
         if (data->StopSearch)
-            return;
+            return nullptr;
         if (result != ERROR_SUCCESS)
         {
             Log(path, result);
-            return;
+            return nullptr;
         }
 
         data->SearchingText->Set(LoadStr(IDS_UAC_FIND_SCOPE));
         size_t remaining = 4096;
-        Scan(path, 0, remaining);
+        Scan(path, 0, remaining, candidates);
+        return &session;
     }
 
 private:
@@ -1603,7 +1608,7 @@ private:
             return 0;
         }
         if (SendMessage(request.data->HWindow, WM_USER_FIND_PROTECTED_CONSENT,
-                        reinterpret_cast<WPARAM>(&request.path), request.data->Grep) && !request.data->StopSearch)
+                        reinterpret_cast<WPARAM>(&request.path), request.readContent) && !request.data->StopSearch)
             request.result = request.session.Start(request.data->HWindow);
         return 0;
     }
@@ -1679,7 +1684,25 @@ private:
         return found && !data->StopSearch;
     }
 
-    void Scan(const std::wstring& directory, unsigned depth, size_t& remaining)
+    bool VerifyEmptyCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file)
+    {
+        std::wstring filePath = directory;
+        SalPathAppendW(filePath, file.cFileName);
+        ULONGLONG size = 0;
+        FILETIME modified{};
+        DWORD error = session.OpenContent(filePath, size, modified);
+        if (!error)
+        {
+            error = session.CloseContent();
+            if (!error && (size || CompareFileTime(&modified, &file.ftLastWriteTime) != 0))
+                error = ERROR_FILE_INVALID;
+        }
+        if (error)
+            Log(filePath, error);
+        return !error;
+    }
+
+    void Scan(const std::wstring& directory, unsigned depth, size_t& remaining, CDuplicateCandidates* candidates)
     {
         if (data->StopSearch)
             return;
@@ -1716,16 +1739,17 @@ private:
             const bool isDir = (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
             if (masks->AgreeMasksW(file.cFileName, nullptr) &&
                 data->Criteria.Test(file.dwFileAttributes, &size, &file.ftLastWriteTime) &&
-                (!data->Grep || (!isDir && MatchContent(directory, file, size))))
+                (!data->Grep || (!isDir && MatchContent(directory, file, size))) &&
+                (!candidates || (!isDir && (!readContent || size.Value || VerifyEmptyCandidate(directory, file)))))
             {
                 AddFoundItem(nullptr, nullptr, file.nFileSizeLow, file.nFileSizeHigh, file.dwFileAttributes,
-                             &file.ftLastWriteTime, isDir, data, nullptr, directory.c_str(), file.cFileName);
+                             &file.ftLastWriteTime, isDir, data, candidates, directory.c_str(), file.cFileName, true);
             }
             if (includeSubDirs && isDir && !(file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT))
             {
                 std::wstring child = directory;
                 SalPathAppendW(child, file.cFileName);
-                Scan(child, depth + 1, remaining);
+                Scan(child, depth + 1, remaining, candidates);
             }
         }
     }
@@ -1740,6 +1764,7 @@ private:
     DWORD result = ERROR_CANCELLED;
     int rootLength = 0;
     bool includeSubDirs = false;
+    bool readContent = false;
 };
 }
 
@@ -2219,11 +2244,11 @@ unsigned GrepThreadFBody(void* ptr)
             }
         }
         RequestFindResultsRefresh(data); // publish ordinary results before waiting for consent
-        protectedRequest.Finish();
+        auto* protectedSession = protectedRequest.Finish(duplicateCandidates);
         if (duplicateCandidates != NULL)
         {
             if (!data->StopSearch)
-                duplicateCandidates->Examine(data);
+                duplicateCandidates->Examine(data, protectedSession);
             delete duplicateCandidates;
         }
     }

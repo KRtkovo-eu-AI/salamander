@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-08 | Cover the protected duplicate pipeline. | Verify collection order and scoped content validation. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Check protected Find consent handoff. | Publish ordinary hits before waiting and return consent to the launcher. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-07 | Add Find search scheduling contracts. | Prevent large Find searches from blocking on synchronous result-list refreshes. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 
@@ -65,8 +66,16 @@ def main() -> int:
     require("SendMessage(data->HWindow, WM_USER_ADDLOG" in find_cpp,
             "synchronous log delivery must remain for stack-owned log payloads")
 
-    require(grep_body.index("RequestFindResultsRefresh(data);") < grep_body.index("protectedRequest.Finish();"),
+    require(grep_body.index("RequestFindResultsRefresh(data);") < grep_body.index("protectedRequest.Finish(duplicateCandidates);"),
             "ordinary hits must be published before waiting for administrator consent")
+    require(grep_body.index("protectedRequest.Finish(duplicateCandidates);") <
+            grep_body.index("duplicateCandidates->Examine(data, protectedSession);"),
+            "protected candidates must join ordinary candidates before grouping and hashing")
+    digest = function_body(find_cpp, "BOOL CDuplicateCandidates::GetMD5Digest(")
+    require("protectedSession->ReadContent(offset, buffer, read)" in digest and
+            "protectedSession->CloseContent()" in digest and
+            digest.index("protectedSession->CloseContent()") < digest.index("context.finalize()"),
+            "protected duplicate digests must use and validate the authorized content stream")
     consent = function_body(finddlg1, "case WM_USER_FIND_PROTECTED_CONSENT:")
     require("SetWindowLongPtr(HWindow, DWLP_MSGRESULT, approved);" in consent and "return TRUE;" in consent,
             "Find is a dialog and must return approval through DWLP_MSGRESULT")

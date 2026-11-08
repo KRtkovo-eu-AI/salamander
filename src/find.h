@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Identify protected duplicate candidates. | Keep later content reads on the session that authorized the candidate. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route protected Find consent separately from traversal. | Keep cancellation visible to both search threads. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Post coalesced Find result refreshes asynchronously. | Keep the search worker from blocking the GUI thread during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Add SafeHandleContextMenuMsg for shell-extension SEH. | Find dialog HandleMenuMsg must not live inside WindowProc SEH. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
@@ -522,6 +523,7 @@ struct CFoundFilesData
     DWORD_PTR Group;
 
     unsigned IsDir : 1; // 0 - item is a file, 1 - item is a directory
+    unsigned ProtectedCandidate : 1; // duplicate content must use the authorized Find session
     // Selected and Focused are used only locally for StoreItemsState/RestoreItemsState
     unsigned Selected : 1; // 0 - item not selected, 1 - item selected
     unsigned Focused : 1;  // 0 - item is focused, 1 - item is not focused
@@ -536,6 +538,7 @@ struct CFoundFilesData
         ZeroMemory(&LastWrite, sizeof(LastWrite));
         Group = 0;
         IsDir = 0;
+        ProtectedCandidate = 0;
         Selected = 0;
         Different = 0;
     }
