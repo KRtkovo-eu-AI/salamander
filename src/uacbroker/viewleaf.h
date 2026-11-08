@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Open a scoped content file relative to a verified directory. | Share read-only validation with the viewer and ZIP. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share verified file opening with archive reads. | Keep the snapshot limit specific to the viewer. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Read one verified file into a bounded viewer snapshot. | Release the elevated file before the viewer opens. | | GPT-6.1 Sol (Codex) |
 #pragma once
@@ -12,8 +13,7 @@
 
 namespace UacViewLeaf
 {
-inline DWORD OpenVerifiedRead(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
-                              const FILE_ID_INFO& expectedSource, std::wstring_view leaf,
+inline DWORD OpenRead(HANDLE parent, const FILE_ID_INFO* expectedSource, std::wstring_view leaf,
                               ULONGLONG deadline, HANDLE& opened, LARGE_INTEGER& size, FILE_BASIC_INFO& initial)
 {
     opened = nullptr;
@@ -22,15 +22,8 @@ inline DWORD OpenVerifiedRead(HANDLE parent, const UacDirectoryLeaf::ParentIdent
     if (GetTickCount64() >= deadline)
         return ERROR_TIMEOUT;
 
-    UacDirectoryLeaf::ParentIdentity actualParent;
-    DWORD error = UacDirectoryLeaf::ReadParentIdentity(parent, actualParent);
-    if (error)
-        return error;
-    if (!UacDirectoryLeaf::SameParent(actualParent, expectedParent))
-        return ERROR_FILE_INVALID;
-
     HANDLE raw = nullptr;
-    error = UacRenameLeaf::Detail::OpenSource(parent, leaf, raw, FILE_READ_DATA, FILE_SHARE_READ);
+    DWORD error = UacRenameLeaf::Detail::OpenSource(parent, leaf, raw, FILE_READ_DATA, FILE_SHARE_READ);
     if (error)
         return error;
     const auto close = [](void* handle) { CloseHandle(handle); };
@@ -38,7 +31,7 @@ inline DWORD OpenVerifiedRead(HANDLE parent, const UacDirectoryLeaf::ParentIdent
     FILE_ID_INFO actualSource{};
     if ((error = UacRenameLeaf::Detail::ReadSourceIdentity(file.get(), actualSource)) != ERROR_SUCCESS)
         return error;
-    if (!UacRenameLeaf::Detail::SameSource(actualSource, expectedSource))
+    if (expectedSource && !UacRenameLeaf::Detail::SameSource(actualSource, *expectedSource))
         return ERROR_FILE_INVALID;
 
     if (!GetFileInformationByHandleEx(file.get(), FileBasicInfo, &initial, sizeof(initial)) ||
@@ -51,6 +44,42 @@ inline DWORD OpenVerifiedRead(HANDLE parent, const UacDirectoryLeaf::ParentIdent
         return ERROR_FILE_INVALID;
     opened = file.release();
     return ERROR_SUCCESS;
+}
+
+inline DWORD OpenVerifiedRead(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
+                              const FILE_ID_INFO& expectedSource, std::wstring_view leaf,
+                              ULONGLONG deadline, HANDLE& opened, LARGE_INTEGER& size, FILE_BASIC_INFO& initial)
+{
+    opened = nullptr;
+    UacDirectoryLeaf::ParentIdentity actualParent;
+    const DWORD error = UacDirectoryLeaf::ReadParentIdentity(parent, actualParent);
+    if (error)
+        return error;
+    if (!UacDirectoryLeaf::SameParent(actualParent, expectedParent))
+        return ERROR_FILE_INVALID;
+    return OpenRead(parent, &expectedSource, leaf, deadline, opened, size, initial);
+}
+
+inline DWORD OpenScopedRead(HANDLE root, std::wstring_view relative, ULONGLONG deadline,
+                            HANDLE& opened, LARGE_INTEGER& size, FILE_BASIC_INFO& initial)
+{
+    opened = nullptr;
+    const auto split = relative.find_last_of(L'\\');
+    if (split == 0)
+        return ERROR_INVALID_NAME;
+    if (split == std::wstring_view::npos)
+    {
+        UacDirectoryLeaf::ParentIdentity identity;
+        const DWORD error = UacDirectoryLeaf::ReadParentIdentity(root, identity);
+        return error ? error : OpenRead(root, nullptr, relative, deadline, opened, size, initial);
+    }
+    HANDLE raw = nullptr;
+    UacDirectoryLeaf::ParentIdentity identity;
+    const DWORD error = UacDirectoryLeaf::OpenParentBelowRoot(root, relative.substr(0, split), raw, identity);
+    if (error)
+        return error;
+    const std::unique_ptr<void, decltype(&CloseHandle)> parent(raw, CloseHandle);
+    return OpenRead(parent.get(), nullptr, relative.substr(split + 1), deadline, opened, size, initial);
 }
 
 inline DWORD ReadVerifiedSnapshot(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,

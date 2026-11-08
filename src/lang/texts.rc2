@@ -1,5 +1,6 @@
 ﻿// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Explain protected content-search consent. | Identify content reading before elevation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain cancellation in an elevated batch. | Distinguish completed changes from remaining items. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the protected F5 replacement. | Distinguish replacement from creating a new copy. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Remove the standalone ZIP recovery wording. | Describe where to check an unconfirmed ZIP update. | | GPT-6.1 Sol (Codex) |
@@ -2407,6 +2408,7 @@ STRINGTABLE
  IDS_UAC_LIST_CONFIRM, "Access was denied. List this folder and its subfolders as an administrator?"
  IDS_UAC_LIST_ACTIVE, "Administrator listing"
  IDS_UAC_SIZE_CONFIRM, "Access was denied. Calculate the size of this folder and its subfolders as an administrator?"
+ IDS_UAC_FIND_CONTENT_CONFIRM, "Access was denied. Search file contents in this folder as an administrator? The search continues in accessible folders while you decide."
  IDS_UAC_FIND_CONFIRM, "Access was denied. Search names and metadata in this folder as an administrator? The search continues in accessible folders while you decide."
  IDS_UAC_FIND_WAIT, "Waiting for administrator access to a protected folder..."
  IDS_UAC_FIND_SCOPE, "Searching names and metadata with administrator access."

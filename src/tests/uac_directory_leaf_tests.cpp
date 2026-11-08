@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Cover scoped content opens used by Find. | Check long Unicode paths, ranges beyond snapshots and scope escapes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe read-only and delete-pending source guards. | Exercise new and already open NTFS streams before designing retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the shared file exchange on NTFS. | Verify deadline and backup-name collisions leave the original intact. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Test ZIP journal cleanup through the named archive. | Keep coverage of preserving the original on an interrupted write. | | GPT-6.1 Sol (Codex) |
@@ -1028,7 +1029,48 @@ static bool CheckViewerSnapshot(const std::wstring& fixture, HANDLE root)
     Check(error == ERROR_FILE_INVALID && snapshot.empty(), "reject a different file identity for the viewer", error);
     error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, identity, L"..\\empty.txt", MAXULONGLONG, snapshot);
     Check(error == ERROR_INVALID_NAME && snapshot.empty(), "reject a path in a single viewer leaf request", error);
-    return true;
+
+    HANDLE scopedRaw = nullptr;
+    FILE_BASIC_INFO scopedInfo{};
+    LARGE_INTEGER scopedSize{};
+    error = UacViewLeaf::OpenScopedRead(root, component + L"\\" + leaf, MAXULONGLONG,
+                                        scopedRaw, scopedSize, scopedInfo);
+    {
+        const Handle scoped(scopedRaw);
+        BYTE bytes[6]{};
+        DWORD read = 0;
+        Check(!error && scopedSize.QuadPart == sizeof(bytes) &&
+                  ReadFile(scoped.get(), bytes, sizeof(bytes), &read, nullptr) &&
+                  read == sizeof(bytes) && std::equal(expected.begin(), expected.end(), bytes),
+              "read a nested Unicode Find candidate beyond MAX_PATH through its root", error);
+    }
+    error = UacViewLeaf::OpenScopedRead(root, component + L"\\large.txt", MAXULONGLONG,
+                                        scopedRaw, scopedSize, scopedInfo);
+    {
+        const Handle scoped(scopedRaw);
+        LARGE_INTEGER last{};
+        last.QuadPart = limit.QuadPart - 1;
+        BYTE value = 1;
+        DWORD read = 0;
+        Check(!error && scopedSize.QuadPart == limit.QuadPart &&
+                  SetFilePointerEx(scoped.get(), last, nullptr, FILE_BEGIN) &&
+                  ReadFile(scoped.get(), &value, 1, &read, nullptr) && read == 1 && value == 0,
+              "read a Find range past the viewer snapshot limit", error);
+    }
+    error = UacViewLeaf::OpenScopedRead(parent.get(), L"..\\guard-probe", MAXULONGLONG,
+                                        scopedRaw, scopedSize, scopedInfo);
+    Check(error == ERROR_INVALID_NAME && !scopedRaw, "reject escaping the Find root", error);
+    error = UacViewLeaf::OpenScopedRead(root, component + L"\\empty.txt:stream", MAXULONGLONG,
+                                        scopedRaw, scopedSize, scopedInfo);
+    Check(error == ERROR_INVALID_NAME && !scopedRaw, "reject a named stream in Find", error);
+
+    const auto alias = path + L"\\hardlink.txt";
+    if (!CreateHardLinkW(alias.c_str(), name.c_str(), nullptr))
+        return false;
+    error = UacViewLeaf::OpenScopedRead(parent.get(), L"hardlink.txt", MAXULONGLONG,
+                                        scopedRaw, scopedSize, scopedInfo);
+    Check(error == ERROR_NOT_SUPPORTED && !scopedRaw, "reject a multiply linked Find candidate", error);
+    return DeleteFileW(alias.c_str()) != FALSE;
 }
 
 static bool CheckDetailedInventory(const std::wstring& fixture, HANDLE root)

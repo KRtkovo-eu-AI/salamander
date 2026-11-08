@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Define a bounded Find content request. | Scope the byte budget to an authorized listing session. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Collect allocation and per-file sizes for protected Ctrl+Q. | Match ordinary cluster rounding and query sparse and compressed files by verified handle. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Capture and recheck subtree identities. | Prepare a bounded source manifest for recursive copy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Inventory one approved subtree using strict enumeration. | Reject incomplete scans and reparse points. | | GPT-6.1 Sol (Codex) |
@@ -22,6 +23,14 @@ constexpr DWORD maxEntries = 4096;
 constexpr unsigned maxInventoryDepth = 32;
 constexpr DWORD inventoryRequest = 0x80000000;
 constexpr DWORD sizeDetailsRequest = 0x40000000;
+constexpr DWORD contentRequest = 0x20000000;
+constexpr ULONGLONG contentBudget = 64ULL * 1024 * 1024 * 1024;
+struct ContentInfo
+{
+    ULONGLONG size;
+    FILETIME modified;
+};
+static_assert(sizeof(ContentInfo) == 16);
 static_assert(sizeof(WIN32_FIND_DATAW) == 592);
 inline constexpr wchar_t marker[] = L"listing";
 

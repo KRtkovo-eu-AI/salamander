@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Search protected file contents with the existing matcher. | Consume bounded blocks after the ordinary traversal while retaining search options. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Resume metadata Find in one verified protected subtree. | Keep ordinary search running during consent and use one bounded read-only session. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Post coalesced Find result refreshes asynchronously. | Keep the search worker from blocking the GUI thread during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // CommentsTranslationProject: TRANSLATED
@@ -1253,7 +1254,7 @@ BOOL TestFileContentAux(BOOL& ok, CQuadWord& fileOffset, const CQuadWord& totalS
                 if (nextBeg == NULL)
                     nextBeg = end;
 
-                if (end == endLimit &&                               // if no line ending character was found
+                if (end == endLimit && endLimit == totalEnd &&       // the line may continue beyond this view
                     fileOffset + CQuadWord(viewSize, 0) < totalSize) // the end of the file is not in the file view
                 {                                                    // the line can continue beyond the boundary of the current view of the file
                     fileOffset += CQuadWord(DWORD(beg - txt), 0);
@@ -1547,10 +1548,10 @@ public:
     bool Begin(CGrepData* search, const char* deniedPath, CMaskGroup* masksGroup,
                BOOL recursive, int searchRootLength, CFindIgnore* ignore)
     {
-        if (launchThread || search->StopSearch || search->Grep || search->FindDuplicates || search->Criteria.HasTags())
+        if (launchThread || search->StopSearch || search->FindDuplicates || search->Criteria.HasTags())
             return false;
         path = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(deniedPath, GetACP()).c_str());
-        if (!session.Prepare(path))
+        if (!session.Prepare(path, search->Grep != FALSE))
             return false;
 
         data = search;
@@ -1602,7 +1603,7 @@ private:
             return 0;
         }
         if (SendMessage(request.data->HWindow, WM_USER_FIND_PROTECTED_CONSENT,
-                        reinterpret_cast<WPARAM>(&request.path), 0) && !request.data->StopSearch)
+                        reinterpret_cast<WPARAM>(&request.path), request.data->Grep) && !request.data->StopSearch)
             request.result = request.session.Start(request.data->HWindow);
         return 0;
     }
@@ -1614,6 +1615,68 @@ private:
         const DWORD flags = error == ERROR_CANCELLED ? FLI_INFO : FLI_ERROR;
         FIND_LOG_ITEM log{flags, text.c_str(), pathText.c_str()};
         SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
+    }
+
+    bool MatchContent(const std::wstring& directory, const WIN32_FIND_DATAW& file, const CQuadWord& listedSize)
+    {
+        if (!listedSize.Value)
+            return false;
+        std::wstring filePath = directory;
+        SalPathAppendW(filePath, file.cFileName);
+        const std::string pathText = SalWideToMultiBytePath(filePath.c_str(), CP_UTF8);
+        data->SearchingText->Set(pathText.c_str());
+
+        if (content.empty())
+        {
+            try
+            {
+                content.resize(4 * UacF7::archiveReadBlock);
+            }
+            catch (const std::bad_alloc&)
+            {
+                Log(filePath, ERROR_NOT_ENOUGH_MEMORY);
+                return false;
+            }
+        }
+
+        ULONGLONG bytes = 0;
+        FILETIME modified{};
+        DWORD error = session.OpenContent(filePath, bytes, modified);
+        if (error)
+        {
+            Log(filePath, error);
+            return false;
+        }
+        if (bytes != listedSize.Value || CompareFileTime(&modified, &file.ftLastWriteTime) != 0)
+            error = ERROR_FILE_INVALID;
+
+        CQuadWord offset(0, 0);
+        BOOL found = FALSE;
+        while (!error && !data->StopSearch && offset < listedSize)
+        {
+            const DWORD viewSize = static_cast<DWORD>(std::min<ULONGLONG>(content.size(), bytes - offset.Value));
+            for (DWORD position = 0; position < viewSize && !error && !data->StopSearch;)
+            {
+                const DWORD count = std::min<DWORD>(UacF7::archiveReadBlock, viewSize - position);
+                error = session.ReadContent(offset.Value + position, content.data() + position, count);
+                position += count;
+            }
+            if (error || data->StopSearch)
+                break;
+            const CQuadWord before(offset);
+            if (!TestFileContentAux(found, offset, listedSize, viewSize, pathText.c_str(), content.data(), data) || found)
+                break;
+            if (!data->StopSearch && offset == before)
+                error = ERROR_INVALID_DATA;
+        }
+        const DWORD closeError = session.CloseContent();
+        if (error || closeError)
+        {
+            if (!data->StopSearch)
+                Log(filePath, error ? error : closeError);
+            return false;
+        }
+        return found && !data->StopSearch;
     }
 
     void Scan(const std::wstring& directory, unsigned depth, size_t& remaining)
@@ -1652,7 +1715,8 @@ private:
             CQuadWord size(file.nFileSizeLow, file.nFileSizeHigh);
             const bool isDir = (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
             if (masks->AgreeMasksW(file.cFileName, nullptr) &&
-                data->Criteria.Test(file.dwFileAttributes, &size, &file.ftLastWriteTime))
+                data->Criteria.Test(file.dwFileAttributes, &size, &file.ftLastWriteTime) &&
+                (!data->Grep || (!isDir && MatchContent(directory, file, size))))
             {
                 AddFoundItem(nullptr, nullptr, file.nFileSizeLow, file.nFileSizeHigh, file.dwFileAttributes,
                              &file.ftLastWriteTime, isDir, data, nullptr, directory.c_str(), file.cFileName);
@@ -1667,6 +1731,7 @@ private:
     }
 
     UacF7::ListingSession session;
+    std::vector<char> content;
     std::wstring path;
     std::unique_ptr<CFindIgnore> ignoreSnapshot;
     CGrepData* data = nullptr;

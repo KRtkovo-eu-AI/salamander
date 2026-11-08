@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record protected Find content streaming. | Document explicit scope, local evidence and remaining acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the additional cross-volume source guard probes. | Establish the behavior of NTFS attributes and delete-pending under contention. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record per-item UAC in native operation batches. | Document cancellation, existing worker boundaries and pending VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the protected disk overwrite pilot. | Document the verified replacement and VM acceptance boundary. | | GPT-6.1 Sol (Codex) |
@@ -731,7 +732,7 @@ Ctrl+Q, příkaz pro výpočet velikosti všech složek a mezerník při zapnut�
 
 Alt+F7 může při odepření výpisu nabídnout pro první ověřitelnou chráněnou složku v běžícím hledání samostatný přístup správce. Dialog uvádí kořen a rozsah. Samostatné vlákno obslouží souhlas a otevře relaci brokeru, zatímco původní pracovní vlákno prochází ostatní dostupné složky. Běžné výsledky zpřístupní před čekáním na souhlas. Po běžném průchodu zpracuje výsledky ze schváleného podstromu a ukončí relaci. Pokud už jiné okno Find žádá o souhlas, souběžná žádost skončí jako zaneprázdněná. Při zamítnutí zachová běžné výsledky a uvede přeskočený podstrom v protokolu hledání. Další odepřené složky se zaznamenají běžným způsobem.
 
-Broker poskytuje pouze výpis názvů a metadat. Aplikace použije stávající masky, atributové, velikostní a časové podmínky a pravidla ignorování. Výpis používá přesné názvy v Unicode, má limit 4096 položek a hloubku 32 a nesestupuje přes reparse body. Hledání obsahu, tagů a duplicit zůstává běžnou operací. Samostatný návrh a ověření zbývá pro chráněné čtení ve vieweru, edit-copy-commit, archivy a případné SDK.
+Původní pilot poskytoval výpis názvů a metadat. Aplikace používá stávající masky, atributové, velikostní a časové podmínky a pravidla ignorování. Výpis používá přesné názvy v Unicode, má limit 4096 položek a hloubku 32 a nesestupuje přes reparse body.
 
 Společné lokální ověření zahrnulo sestavení x64 Debug aplikace, prostředků, brokeru a sondy, 177 nativních kontrol brokeru v Debug i Release, autentizaci a odpojení transportu, regrese plánování Findu, řazení a polí Look In, 50 kontrol diskových operací a přechodů panelu, 405 nativních kontrol panelu v Debug i Release a test konverzních tabulek.
 
@@ -739,6 +740,10 @@ V izolované Windows 11 VM se po schválení výpočtu mezerníkem zobrazilo 18 
 
 V prvním pilotu Find dialog nepředal výsledek volby Administrator pracovnímu vláknu, což odhalila zkouška v běžném okně. Opravený pilot ukázal dostupný soubor visible.p6hit (7 bajtů) už během čekání na souhlas pro první chráněnou složku. Po schválení doplnil 東-protected.p6hit (11 bajtů) z vnořené chráněné složky a maska *.p6hit vyloučila excluded.txt. Po zamítnutí výzvy Windows v druhém stromu zůstal jeden dostupný výsledek a protokol oznámil přeskočení. Po zkouškách neběžel žádný broker.
 
+
+**Rozšíření Findu o obsah.** Pokud hledání používá podmínku na obsah, souhlas výslovně uvádí čtení souborů ve schváleném podstromu. Běžný průchod pokračuje v dostupných složkách a zpřístupní jejich výsledky před čekáním na souhlas. Chráněné čtení má vlastní typ relace. Relace pro běžný výpis panelu příkaz pro obsah odmítne. Broker otevře jeden běžný soubor relativně ke schválenému kořeni, odmítne reparse body, vícenásobné pevné odkazy, ADS v požadované cestě, EFS a offline soubory. Vrací bloky do 64 KiB a počítá nejvýše 64 GiB přenesených dat na relaci. Při zavření porovná velikost, časy a atributy s otevřeným souborem. Host znovu použije stávající hledání textu a regulárních výrazů včetně hranic slov a nastavení konců řádků. Drží nejvýše 256 KiB dat souboru a po chybě čtení nepřidá soubor jako shodu.
+
+Lokálně prošlo sestavení x64 Debug, testy transportu a 215 nativních kontrol v Debug i Release. Zkoušky ověřily přesné bajty na dlouhé vnořené Unicode cestě, čtení za hranicí snímku F3 a odmítnutí úniku z kořene, ADS a pevného odkazu. Integrovaná zkouška hledání, potvrzení, zrušení a hraničních shod při čtení po blocích patří do společné akceptace ve VM. První odepřený podstrom zůstává současným rozsahem nabídky. Jednotlivé chráněné soubory v jinak čitelném adresáři, více chráněných kořenů, tagy a duplicity zůstávají otevřené.
 
 ### 8.43 P6c — chráněný soubor v interním prohlížeči přes F3
 

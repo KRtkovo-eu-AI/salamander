@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Give protected Find a dedicated read-only scope. | Keep panel listings separate from content sessions. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define a separate protected copy overwrite request. | Bind the overwrite to a captured target revision. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Remove the standalone broker ZIP recovery operation. | Keep journal handling internal to the authorized write. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Prepare interrupted ZIP recovery from a folder. | Work after restart or loss of the original name. | | GPT-6.1 Sol (Codex) |
@@ -47,7 +48,7 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24 };
 
 inline bool IsRename(Operation operation)
 {
@@ -305,8 +306,11 @@ public:
     ListingSession(const ListingSession&) = delete;
     ListingSession& operator=(const ListingSession&) = delete;
 
-    bool Prepare(const std::wstring& path);
+    bool Prepare(const std::wstring& path, bool findContent = false);
     DWORD Start(HWND owner);
+    DWORD OpenContent(const std::wstring& path, ULONGLONG& size, FILETIME& modified);
+    DWORD ReadContent(ULONGLONG offset, void* buffer, DWORD bytes);
+    DWORD CloseContent();
     bool Contains(const std::wstring& path) const;
     const std::wstring& GetRoot() const { return root; }
     DWORD List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries);
@@ -319,6 +323,7 @@ private:
     PreparedLeaf prepared;
     std::wstring root;
     HANDLE pipe = nullptr;
+    bool contentOpen = false;
 };
 
 class ArchiveReadSession
