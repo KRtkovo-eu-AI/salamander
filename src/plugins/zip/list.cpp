@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Record each ZIP entry offset from the ordinary parser. | Let protected selection reads seek directly to their records. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the common verified range-source initializer. | Share ZIP64 and single-volume checks. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Build protected listings through the regular ZIP directory parser. | Keep invalid paths out of the browsable tree. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | List one ZIP or ZIP64 from the private read source. | Emit display names only and bound the number of entries. | | GPT-6.1 Sol (Codex) |
@@ -259,7 +260,7 @@ START_LIST:
 #undef new
 #define ZIP_LIST_RESTORE_DEBUG_NEW
 #endif
-            file.PluginData = (DWORD_PTR) new (std::nothrow) CZIPFileData(fileInfo.CompSize, cnt, Unix);
+            file.PluginData = (DWORD_PTR) new (std::nothrow) CZIPFileData(fileInfo.CompSize, readOffset - s, cnt, Unix);
 #ifdef ZIP_LIST_RESTORE_DEBUG_NEW
 #define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
 #undef ZIP_LIST_RESTORE_DEBUG_NEW

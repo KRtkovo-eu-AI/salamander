@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Keep ordinary archive extraction on its original lookup. | Protected reads use the verified record offset. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Include the private entry reader types. | Use one callback contract across ZIP implementation files. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Declare a range-backed single-entry decoder. | Keep output under caller control. | | GPT-6.1 Sol (Codex) |
 
@@ -88,7 +89,7 @@ public:
 
     //int EnumFiles(CDynamicArray * namesArray, SalEnumSelection next, void * param);
     //int MatchFiles(CDynamicArray *namesArray);
-    int FindFile(LPCTSTR name, CFileInfo* fileInfo, int nItem, std::string* rawName = nullptr);
+    int FindFile(LPCTSTR name, CFileInfo* fileInfo, int nItem);
     int PrepareMaskArray(TIndirectArray2<char>& maskArray, const char* masks);
     int MatchFilesToMask(TIndirectArray2<char>& maskArray);
     int InflateFile(CFileInfo* fileInfo, BOOL deflate64, int* errorID);

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Prevent copying and deleting from the protected archive pilot. | Keep the archive listing read-only. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Expand a protected ZIP selection into a bounded output manifest. | Preserve nested folders and report incomplete extraction. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Connect protected ZIP extraction to the existing F5 dialog. | Use the open source authorization and ask separately only for a denied target write. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-06 | Capture implicit archive destinations before callbacks and validation. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -818,51 +819,142 @@ static void RemoveEmptyUnpackDirectoriesW(const std::wstring& root)
     }
 }
 
-static BOOL UnpackProtectedZipEntry(CFilesWindow* panel, const CFileData& file,
-                                    const char* archiveRoot, const char* directory)
+namespace
+{
+class ProtectedZipSelection
+{
+public:
+    explicit ProtectedZipSelection(CFilesWindow& panel) : panel(panel) {}
+
+    DWORD Add(const CFileData& file, bool directory, const std::string& root,
+              DWORD parent = UacF7::zipSelectionRoot, DWORD depth = 1)
+    {
+        if (count == UacF7::maxZipSelectionEntries || depth > UacF7::maxZipSelectionDepth)
+            return ERROR_FILE_TOO_LARGE;
+        const auto name = DiskDirFileNameW(&file);
+        if (name.empty() || name.size() > 255)
+            return ERROR_INVALID_NAME;
+        std::string path = root;
+        if (!path.empty())
+            path += '\\';
+        path += file.Name;
+
+        const ULONGLONG size = directory ? 0 : file.Size.Value;
+        if (size > UacF7::maxPilotCopyBytes ||
+            sizeof(UacF7::ZipSelectionEntry) + name.size() * sizeof(wchar_t) + size >
+                UacF7::maxZipSelectionBytes - wire.size())
+            return ERROR_FILE_TOO_LARGE;
+        std::vector<BYTE> data;
+        if (!directory)
+        {
+            const DWORD error = panel.ReadProtectedZipEntry(file, path, data);
+            if (error)
+                return error;
+            if (data.size() != size)
+                return ERROR_INVALID_DATA;
+        }
+
+        const DWORD index = count++;
+        const UacF7::ZipSelectionEntry header{
+            parent, static_cast<DWORD>(name.size()), static_cast<DWORD>(size), directory ? 1UL : 0UL, file.LastWrite
+        };
+        Append(&header, sizeof(header));
+        Append(name.data(), name.size() * sizeof(wchar_t));
+        if (!data.empty())
+            Append(data.data(), data.size());
+        if (!directory)
+            return ERROR_SUCCESS;
+
+        auto* tree = panel.GetArchiveDir();
+        auto* dirs = tree->GetDirs(path.c_str());
+        auto* files = tree->GetFiles(path.c_str());
+        if (!dirs || !files)
+            return ERROR_INVALID_DATA;
+        for (int i = 0; i < dirs->Count; ++i)
+        {
+            const DWORD error = Add(dirs->At(i), true, path, index, depth + 1);
+            if (error)
+                return error;
+        }
+        for (int i = 0; i < files->Count; ++i)
+        {
+            const DWORD error = Add(files->At(i), false, path, index, depth + 1);
+            if (error)
+                return error;
+        }
+        return ERROR_SUCCESS;
+    }
+
+    std::vector<BYTE> wire;
+
+private:
+    void Append(const void* data, size_t size)
+    {
+        const auto* bytes = static_cast<const BYTE*>(data);
+        wire.insert(wire.end(), bytes, bytes + size);
+    }
+
+    CFilesWindow& panel;
+    DWORD count = 0;
+};
+}
+
+static BOOL UnpackProtectedZipSelection(CFilesWindow* panel, const CPanelTmpEnumData& data,
+                                       const char* archiveRoot, const char* directory)
 {
     DWORD error = ERROR_NOT_ENOUGH_MEMORY;
     bool unknown = false;
     try
     {
-        std::string entry(archiveRoot);
-        if (!entry.empty())
-            entry += '\\';
-        entry += file.Name;
-        const std::wstring displaySource = SalMultiByteToWidePath(
-            (std::string(panel->GetZIPArchive()) + '\\' + entry).c_str(), CP_UTF8);
-        std::wstring target = SalMultiByteToWidePath(directory, IsValidPathUtf8Text(directory) ? CP_UTF8 : CP_ACP);
-        const std::wstring name = file.NameW ? file.NameW :
-            SalMultiByteToWidePath(file.Name, IsValidPathUtf8Text(file.Name) ? CP_UTF8 : CP_ACP);
-        UacF7::PreparedLeaf request;
-        if (!target.empty() && !name.empty() && SalPathAppendW(target, name.c_str()) && request.PrepareZipEntry(target))
+        std::string displaySource = panel->GetZIPArchive();
+        if (*archiveRoot)
         {
-            std::vector<BYTE> bytes;
-            error = panel->ReadProtectedZipEntry(file, entry, bytes);
+            displaySource += '\\';
+            displaySource += archiveRoot;
+        }
+        const auto target = SalMultiByteToWidePath(directory, IsValidPathUtf8Text(directory) ? CP_UTF8 : CP_ACP);
+        UacF7::PreparedLeaf request;
+        if (target.empty() || !request.PrepareZipSelection(target))
+            error = ERROR_NOT_SUPPORTED;
+        else
+        {
+            ProtectedZipSelection selection(*panel);
+            error = ERROR_SUCCESS;
+            for (int i = 0; i < data.IndexesCount && !error; ++i)
+            {
+                const int index = data.Indexes[i];
+                if (index < 0 || index >= data.Dirs->Count + data.Files->Count)
+                {
+                    error = ERROR_INVALID_DATA;
+                    break;
+                }
+                const bool isDir = index < data.Dirs->Count;
+                const auto& file = isDir ? data.Dirs->At(index) : data.Files->At(index - data.Dirs->Count);
+                error = selection.Add(file, isDir, archiveRoot);
+            }
             if (!error)
             {
-                const FILETIME modified = file.LastWrite;
-                error = request.WriteZipEntryLocal(bytes, modified);
+                error = request.WriteZipSelectionLocal(selection.wire);
                 if (error == ERROR_ACCESS_DENIED)
                 {
                     if (!ConfirmProtectedRead(panel->HWindow, IDS_UNPACKCOPY, IDS_UAC_ZIP_WRITE_CONFIRM,
-                                              displaySource + L"\n\n" + SalPathRemoveExtendedPrefixW(target.c_str())))
+                                              SalMultiByteToWidePath(displaySource.c_str(), CP_UTF8) + L"\n\n" +
+                                              SalPathRemoveExtendedPrefixW(target.c_str())))
                         return FALSE;
-                    const UacF7::Result result = request.WriteZipEntry(panel->HWindow, bytes, modified);
+                    const UacF7::Result result = request.WriteZipSelection(panel->HWindow, selection.wire);
                     error = result.error;
                     unknown = result.unknown;
                 }
             }
         }
-        else
-            error = ERROR_NOT_SUPPORTED;
     }
     catch (const std::bad_alloc&)
     {
         error = ERROR_NOT_ENOUGH_MEMORY;
     }
     if (unknown || (error && error != ERROR_CANCELLED))
-        SalMessageBox(panel->HWindow, unknown ? LoadStr(IDS_UAC_COPY_UNKNOWN) : GetErrorText(error),
+        SalMessageBox(panel->HWindow, unknown ? LoadStr(IDS_UAC_COPY_UNKNOWN) :
+                      error == ERROR_PARTIAL_COPY ? LoadStr(IDS_UAC_ZIP_EXTRACT_PARTIAL) : GetErrorText(error),
                       LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
     return !unknown && error == ERROR_SUCCESS;
 }
@@ -883,18 +975,6 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
         return;
     }
     const HWND operationParent = MainWindow != NULL ? MainWindow->HWindow : NULL;
-    if (protectedZip)
-    {
-        int index = GetCaretIndex();
-        const int selected = GetSelCount();
-        if (selected == 1)
-            GetSelItems(1, &index);
-        if (selected > 1 || index < Dirs->Count || index >= Dirs->Count + Files->Count)
-        {
-            SalMessageBox(HWindow, LoadStr(IDS_UAC_ZIP_EXTRACT_ONE), LoadStr(IDS_UNPACKCOPY), MB_OK | MB_ICONINFORMATION);
-            return;
-        }
-    }
     CFilesActionArchiveSource archiveSource;
     if (!deleteOp && !archiveSource.Capture(MainWindow, this))
     {
@@ -1227,7 +1307,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                 }
                 if (protectedZip && (pathType != PATH_TYPE_WINDOWS || !pathIsDir || *secondPart))
                 {
-                    SalMessageBox(HWindow, LoadStr(IDS_UAC_ZIP_EXTRACT_ONE), LoadStr(IDS_UNPACKCOPY), MB_OK | MB_ICONINFORMATION);
+                    SalMessageBox(HWindow, LoadStr(IDS_UAC_ZIP_EXTRACT_TARGET), LoadStr(IDS_UNPACKCOPY), MB_OK | MB_ICONINFORMATION);
                     delete[] data.Indexes;
                     EndStopRefresh();
                     return;
@@ -1401,7 +1481,7 @@ void CFilesWindow::UnpackZIPArchive(CFilesWindow* target, BOOL deleteOp, const c
                     }
                     SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
                     const BOOL unpacked = protectedZip
-                        ? UnpackProtectedZipEntry(this, Files->At(data.Indexes[0] - Dirs->Count), archiveSource.ArchiveRoot.c_str(), path)
+                        ? UnpackProtectedZipSelection(this, data, archiveSource.ArchiveRoot.c_str(), path)
                         : PackUncompress(MainWindow->HWindow, this, archiveSource.ArchiveFile.c_str(), archiveSource.PluginData,
                                          path, archiveSource.ArchiveRoot.c_str(), PanelSalEnumSelection, &data,
                                          watchDiskTarget ? &diskTarget : NULL, data.ContextIsCurrent, data.Context);

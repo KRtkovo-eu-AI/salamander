@@ -10,6 +10,7 @@
 // | 2026-11-07 | Reserve the elevation confirmation for rename. | Prompt with the source and destination paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve F7 elevation message IDs. | Localize consent and uncertain-result handling. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Identify protected ZIP selection errors. | Distinguish partial extraction from a lost reply. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add protected extraction messages. | Distinguish source reading from destination elevation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add protected ZIP listing message identifiers. | Localize the consent dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Localize explicit elevation of the configured editor. | Distinguish the editor action from a broker file operation. | | GPT-6.1 Sol (Codex) |
@@ -3224,6 +3225,7 @@
 #define IDS_UAC_ZIP_CONFIRM                          14576
 #define IDS_UAC_ZIP_LIST_ONLY                        14577
 #define IDS_UAC_ZIP_WRITE_CONFIRM                    14578
-#define IDS_UAC_ZIP_EXTRACT_ONE                      14579
+#define IDS_UAC_ZIP_EXTRACT_TARGET                   14579
+#define IDS_UAC_ZIP_EXTRACT_PARTIAL                  14580
 
 #endif // __TEXTS_RH2

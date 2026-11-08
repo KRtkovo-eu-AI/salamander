@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-08 | Keep the verified central-directory offset in ZIP listing data. | Avoid rescanning preceding entries during protected extraction. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share ZIP range-source validation between listing and entry reads. | Keep the ordinary file-based entry points. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Accept a private ZIP range source. | Keep existing file-backed ZIP paths intact. | | GPT-6.1 Sol (Codex) |
 
@@ -35,10 +36,12 @@ extern CSalamanderGUIAbstract* SalamanderGUI;
 class CZIPFileData
 {
 public:
-    CZIPFileData(QWORD qwPackedSize, int nItem, BOOL bUnix) : PackedSize(qwPackedSize), ItemNumber(nItem), Unix(bUnix), OwnedNameW(NULL) {}
+    CZIPFileData(QWORD qwPackedSize, QWORD centralOffset, int nItem, BOOL bUnix)
+        : PackedSize(qwPackedSize), CentralOffset(centralOffset), ItemNumber(nItem), Unix(bUnix), OwnedNameW(NULL) {}
     ~CZIPFileData() { free(OwnedNameW); }
 
     QWORD PackedSize;
+    QWORD CentralOffset;
     int ItemNumber; // # of item in Cetral Directory, not offset
     BOOL Unix;
     // The legacy directory callback does not adopt CFileData::NameW. Keep its

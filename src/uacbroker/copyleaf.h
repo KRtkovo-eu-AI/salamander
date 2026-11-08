@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Publish ZIP entry bytes directly from the verified manifest. | Avoid duplicating each decoded file in the broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Publish verified ZIP output from a staged file. | Commit into a vacant name only and discard partial writes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Return a distinct failure for EFS sources and staging. | Refuse a copy that could silently decrypt an encrypted file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve a verified protected DACL and owner and group at file creation. | Require exact readback and avoid elevating security privileges. | | GPT-6.1 Sol (Codex) |
@@ -559,10 +560,10 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
 
 // Publish already decoded, verified host bytes into a new regular file.
 inline DWORD PublishZipEntry(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expected,
-                             std::wstring_view name, const std::vector<BYTE>& bytes, FILETIME modified,
+                             std::wstring_view name, const BYTE* bytes, DWORD count, FILETIME modified,
                              HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG)
 {
-    if (!UacDirectoryLeaf::IsComponent(name) || bytes.size() > UacF7::maxPilotCopyBytes)
+    if (!UacDirectoryLeaf::IsComponent(name) || count > UacF7::maxPilotCopyBytes)
         return ERROR_INVALID_PARAMETER;
     UacDirectoryLeaf::ParentIdentity actual;
     DWORD error = UacDirectoryLeaf::ReadParentIdentity(parent, actual);
@@ -586,9 +587,9 @@ inline DWORD PublishZipEntry(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
     if (!UacF7::IsPlainCopyFile(basic.FileAttributes))
         return ERROR_NOT_SUPPORTED;
     DWORD written = 0;
-    if (!bytes.empty() && !WriteFile(stage.get(), bytes.data(), static_cast<DWORD>(bytes.size()), &written, nullptr))
+    if (count && !WriteFile(stage.get(), bytes, count, &written, nullptr))
         return GetLastError();
-    if (written != bytes.size())
+    if (written != count)
         return ERROR_WRITE_FAULT;
     if (!SetFileTime(stage.get(), nullptr, nullptr, &modified) || !FlushFileBuffers(stage.get()))
         return GetLastError();
