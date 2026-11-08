@@ -1,4 +1,5 @@
 // | 2026-11-07 | Reserve consent and status text for protected listings. | Show the active authorization in the panel. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-08 | Reserve plain inventory labels. | Keep translations out of format-string arguments. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the protected subtree inventory. | Distinguish logical size from occupied space and suppress incomplete results. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add the F6 elevation text. | Identify the move and its uncertain outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add the one-file UAC copy prompts. | Describe consent and uncertain results. | | GPT-6.1 Sol (Codex) |
@@ -3166,7 +3167,9 @@
 #define IDS_UAC_MOVE_CONFIRM                         14539
 #define IDS_UAC_MOVE_UNKNOWN                         14540
 #define IDS_UAC_INVENTORY_TITLE                     14541
-#define IDS_UAC_INVENTORY_SUMMARY                   14542
 #define IDS_UAC_INVENTORY_INCOMPLETE                14543
+#define IDS_UAC_INVENTORY_FILES                     14544
+#define IDS_UAC_INVENTORY_DIRECTORIES               14545
+#define IDS_UAC_INVENTORY_BYTES                     14546
 
 #endif // __TEXTS_RH2

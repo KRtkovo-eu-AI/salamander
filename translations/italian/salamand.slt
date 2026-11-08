@@ -4191,8 +4191,10 @@ SLGINCOMPLETE,""
 14539,1,"Accesso negato. Spostare questo file come amministratore?"
 14540,1,"Il processo ausiliario si è disconnesso prima della conferma dello spostamento. Controllare l’origine e la destinazione prima di riprovare."
 14541,1,"Inventario del sottoalbero protetto"
-14542,1,"File: %s\nSottocartelle: %s\nDimensione logica (byte): %s"
 14543,1,"Impossibile esaminare tutto il sottoalbero. I risultati parziali non vengono mostrati."
+14544,1,"File: "
+14545,1,"Sottocartelle: "
+14546,1,"Dimensione logica (byte): "
 
 [STRINGTABLE 184]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."

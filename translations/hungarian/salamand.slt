@@ -4191,8 +4191,10 @@ SLGINCOMPLETE,""
 14539,1,"A hozzáférés megtagadva. Áthelyezi ezt a fájlt rendszergazdaként?"
 14540,1,"A segédfolyamat kapcsolata az áthelyezés visszaigazolása előtt megszakadt. Újrapróbálkozás előtt ellenőrizze a forrást és a célt."
 14541,1,"Védett mappafa leltára"
-14542,1,"Fájlok: %s\nAlmappák: %s\nLogikai méret (bájt): %s"
 14543,1,"A mappafa teljes bejárása sikertelen. A részleges eredmények nem jelennek meg."
+14544,1,"Fájlok: "
+14545,1,"Almappák: "
+14546,1,"Logikai méret (bájt): "
 
 [STRINGTABLE 184]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."

@@ -24,6 +24,7 @@
 | 2026-11-08 | Document the P4c same-volume F6 pilot. | Track the transfer gate, verified rename and VM results. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document the P4d protected subtree inventory. | Record strict scanning and the VM acceptance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document P4e source manifest revalidation. | Define the input and verification required by the recursive copy pilot. | | GPT-6.1 Sol (Codex) |
+| 2026-11-08 | Record the P4d CodeQL result and the inventory label fix. | Track the format-string regression and its validation. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -384,6 +385,8 @@ V izolované VM uživatel jednou schválil výzvu Windows pro vstup do složky 0
 Přesun mezi svazky zůstává oddělený. NTFS spravuje sdílení po proudech, takže protokol pro následné odstranění zdroje musí řešit souběžné vytvoření alternativního datového proudu. [Sdílení datových proudů NTFS](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams).
 
 ### 8.16 P4e — seznam identit zdrojového podstromu
+
+P4d na commitu `bb96d871` prošla sestavením Win32, x64 a ARM64 a všemi 214 testy. CodeQL našel lokalizovaný text předaný jako formát do `_snprintf_s`. Oprava připojuje jednotlivé lokalizované popisky a čísla přímo, takže překlady se už nevyhodnocují jako formátovací řetězec. [Testy P4d](https://github.com/majklvi/salamander/actions/runs/42462877960/job/128675780226) · [Nález CodeQL](https://github.com/majklvi/salamander/security/code-scanning/13).
 
 Broker vytváří pro schválený podstrom interní manifest. Uloží identitu kořene a u každé položky přesný název, index rodiče, 128bitové ID souboru, atributy a logickou velikost souboru. Před sestupem porovná identitu právě otevřené složky s identitou z výpisu. Stávající Alt+F10 odvodí souhrn ze stejného průchodu. Formát odpovědi brokeru ani ovládání panelu se nemění. [Identita souboru ve Win32](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_id_info).
 

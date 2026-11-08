@@ -4191,8 +4191,10 @@ SLGINCOMPLETE,""
 14539,1,"Acceso denegado. ¿Mover este archivo como administrador?"
 14540,1,"El proceso auxiliar se desconectó antes de confirmar el movimiento. Comprueba el origen y el destino antes de volver a intentarlo."
 14541,1,"Inventario del subárbol protegido"
-14542,1,"Archivos: %s\nSubcarpetas: %s\nTamaño lógico (bytes): %s"
 14543,1,"No se pudo examinar todo el subárbol. No se muestran resultados parciales."
+14544,1,"Archivos: "
+14545,1,"Subcarpetas: "
+14546,1,"Tamaño lógico (bytes): "
 
 [STRINGTABLE 184]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."

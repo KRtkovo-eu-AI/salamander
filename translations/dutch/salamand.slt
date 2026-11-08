@@ -4191,8 +4191,10 @@ SLGINCOMPLETE,""
 14539,1,"Toegang geweigerd. Dit bestand als administrator verplaatsen?"
 14540,1,"De broker verbrak de verbinding voordat de verplaatsing werd bevestigd. Controleer bron en doel voordat u het opnieuw probeert."
 14541,1,"Inventaris van beschermde submappen"
-14542,1,"Bestanden: %s\nSubmappen: %s\nLogische grootte (bytes): %s"
 14543,1,"De submappen konden niet volledig worden gescand. Gedeeltelijke resultaten worden niet getoond."
+14544,1,"Bestanden: "
+14545,1,"Submappen: "
+14546,1,"Logische grootte (bytes): "
 
 [STRINGTABLE 184]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."

@@ -4191,8 +4191,10 @@ SLGINCOMPLETE,""
 14539,1,"Přístup byl odepřen. Přesunout tento soubor jako správce?"
 14540,1,"Broker se odpojil před potvrzením přesunu. Před opakováním zkontrolujte zdroj i cíl."
 14541,1,"Soupis chráněného podstromu"
-14542,1,"Soubory: %s\nPodsložky: %s\nLogická velikost (bajty): %s"
 14543,1,"Podstrom se nepodařilo projít celý. Částečné výsledky se nezobrazují."
+14544,1,"Soubory: "
+14545,1,"Podsložky: "
+14546,1,"Logická velikost (bajty): "
 
 [STRINGTABLE 184]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."

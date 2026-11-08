@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Append localized inventory labels as text. | Resolve the CodeQL non-constant format alert. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Identify one-file actions explicitly routed to permanent deletion. | Never infer broker consent from a failed recycle operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-05 | Restore saved Copy/Move transfer, conflict, and wait dialog defaults. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
 // | 2026-11-05 | Survive faulty shell extension SEH in Recycle Bin deletes. | SHFileOperation shell handlers must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
@@ -317,12 +318,15 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                 {
                     CQuadWord size;
                     size.Value = inventory.bytes;
-                    char files[50], directories[50], bytes[50], summary[1024];
-                    _snprintf_s(summary, _TRUNCATE, LoadStr(IDS_UAC_INVENTORY_SUMMARY),
-                                NumberToStr(files, CQuadWord(inventory.files, 0)),
-                                NumberToStr(directories, CQuadWord(inventory.directories, 0)),
-                                NumberToStr(bytes, size));
-                    message += summary;
+                    char number[50];
+                    message += LoadStr(IDS_UAC_INVENTORY_FILES);
+                    message += NumberToStr(number, CQuadWord(inventory.files, 0));
+                    message += "\n";
+                    message += LoadStr(IDS_UAC_INVENTORY_DIRECTORIES);
+                    message += NumberToStr(number, CQuadWord(inventory.directories, 0));
+                    message += "\n";
+                    message += LoadStr(IDS_UAC_INVENTORY_BYTES);
+                    message += NumberToStr(number, size);
                 }
                 SalMessageBox(HWindow, message.c_str(), LoadStr(IDS_UAC_INVENTORY_TITLE),
                               MB_OK | (error ? MB_ICONEXCLAMATION : MB_ICONINFORMATION));

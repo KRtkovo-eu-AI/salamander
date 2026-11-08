@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Use plain inventory labels. | Keep translations out of format-string arguments. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the protected subtree inventory. | Distinguish logical size from occupied space and suppress incomplete results. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add the F6 elevation text. | Identify the move and its uncertain outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add the one-file UAC copy prompts. | Describe consent and uncertain results. | | GPT-6.1 Sol (Codex) |
@@ -2371,8 +2372,10 @@ STRINGTABLE
  IDS_UAC_MOVE_CONFIRM, "Access was denied. Move this file as an administrator?"
  IDS_UAC_MOVE_UNKNOWN, "The broker disconnected before the move was confirmed. Check the source and destination before retrying."
  IDS_UAC_INVENTORY_TITLE, "Protected subtree inventory"
- IDS_UAC_INVENTORY_SUMMARY, "Files: %s\nSubfolders: %s\nLogical size (bytes): %s"
  IDS_UAC_INVENTORY_INCOMPLETE, "The subtree could not be scanned completely. Partial results are hidden."
+ IDS_UAC_INVENTORY_FILES, "Files: "
+ IDS_UAC_INVENTORY_DIRECTORIES, "Subfolders: "
+ IDS_UAC_INVENTORY_BYTES, "Logical size (bytes): "
  IDS_FILELAUNCH_PROGRAM_FAILED, "The program could not be started safely through Windows. It was not retried using another launch method."
  IDS_FILELAUNCH_DOCUMENT_FAILED, "The item could not be opened through Windows Shell. The selected item was not retried using another launch method."
  IDS_FILELAUNCH_LONGPATH_OFF, "Windows long-path setting: disabled."

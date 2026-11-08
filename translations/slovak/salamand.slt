@@ -4191,8 +4191,10 @@ SLGINCOMPLETE,""
 14539,1,"Prístup bol odmietnutý. Presunúť tento súbor ako správca?"
 14540,1,"Pomocný proces sa odpojil pred potvrdením presunu. Pred opakovaním skontrolujte zdroj aj cieľ."
 14541,1,"Súpis chráneného podstromu"
-14542,1,"Súbory: %s\nPodpriečinky: %s\nLogická veľkosť (bajty): %s"
 14543,1,"Podstrom sa nepodarilo prejsť celý. Čiastočné výsledky sa nezobrazujú."
+14544,1,"Súbory: "
+14545,1,"Podpriečinky: "
+14546,1,"Logická veľkosť (bajty): "
 
 [STRINGTABLE 184]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."
