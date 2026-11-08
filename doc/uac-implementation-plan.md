@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Record the P7 installer and payload preflight. | Track the signed pilot and remaining distribution checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify repeated scoped requests on a real broker pipe. | Cover collision, authorization boundaries and disconnect before mutation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Reuse scoped consent for permanent deletion and metadata. | Enforce approved parent, item type and attribute and time settings. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify late EA writes and prepare Shell recycle acceptance. | Establish source safety and the original-account receipt checks. | | GPT-6.1 Sol (Codex) |
@@ -1016,6 +1017,12 @@ Tabulka uvádí cílové podmínky etap. Průběžné výsledky a zúžení pilo
 První použitelný pilot může skončit po P3; plnohodnotná nativní file-operation podpora vyžaduje P4 a příslušné vlastnosti z P5. Označení „UAC hotovo“ nesmí skrýt nepokryté chráněné zdroje, Koš či již existující metadata volby. P6 může být následné vydání s explicitně uvedeným rozsahem.
 
 Budoucí změny rozdělit na malé revizovatelné commity podle těchto hranic. Refactoring bez elevace, transport, jednotlivé privilegované příkazy a integraci UI nemíchat do jedné nerozlišitelné změny. Praktická náročnost je nejvyšší u identity objektů, částečných operací, IPC pod jiným účtem a konfliktového koordinátoru; samotné `runas` je malá část práce. Kalendářní odhad má smysl až po výsledcích P0/P1.
+
+### P7 — sestavení instalačního pilotu
+
+Volitelný profil Inno Setup pro x64 zahrnuje podepsaný host a broker ze stejného sestavení a používá chráněnou instalační cestu ověřovanou brokerem. Má samostatnou identitu instalace a názvy zástupců. Odinstalace pilotu zachová sdílený profil aplikace. Běžný instalační profil broker nepřidává. Postup sestavení a kontroly podepsaného obsahu je v dokumentaci brokeru.
+
+Místní kontrola dvojice Debug x64 ověřila architekturu, manifesty asInvoker a requireAdministrator s uiAccess=false, příznak načítání závislostí 0x0800 a seznam importovaných knihoven brokeru. Přísný režim správně odmítl nepodepsanou dvojici. Laboratorní režim odmítl broker dosazený místo hosta. Podpis skutečných artefaktů, kompilace instalátoru a zkoušky čisté instalace, aktualizace, odinstalace a výměny binárky ve VM zůstávají otevřené.
 
 ## 12. Testovací strategie
 

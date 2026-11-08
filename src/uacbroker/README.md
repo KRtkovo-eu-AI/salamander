@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Document the signed UAC pilot installer. | Make payload inspection and packaging repeatable. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Document the protected P2 diagnostic pair. | Make startup and shutdown checks repeatable in the VM. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Link the completed VM acceptance test. | Track the verified broker and host binaries. | | GPT-6.1 Sol (Codex) |
 -->
@@ -29,3 +30,16 @@ Run python -B src/tests/uacbroker_transport_tests.py --configuration Debug or Re
 The isolated VM scenarios in the table require the staged pair and a person at the secure desktop. The P0 results used different laboratory executables and are not results for this pair.
 
 All five P2 VM scenarios passed for the x64 pair built from ca70fb8c. The alternate-account run started the same protected probe from a standard account and completed with an elevated broker, exit code 0 on both processes, and no remaining broker or probe process. See the [recorded results](../../doc/uac-implementation-plan.md#85-akceptační-test-p2-ve-vm).
+
+## Signed x64 pilot installer
+
+Use this installer in the isolated acceptance VM. Stage the standard x64 Release payload and copy the matching x64 Release uacbroker.exe from output/uac/Release_x64 to the payload root next to salamand.exe. The diagnostic probe is a separate test executable. Sign both images with the existing Certum release process after staging. Use the same signing certificate and timestamp both images.
+
+Run the following from the repository root with mt.exe and dumpbin.exe on PATH. The verifier also accepts their absolute paths via -Mt and -Dumpbin.
+
+    powershell.exe -NoProfile -File tools/codesign/verify_uac_payload.ps1 -PayloadDir <payload>
+    iscc.exe doc/runbook-setup/inno_setup_salamander_x64.iss /DUacBrokerPilot /DPayloadDir="<payload>"
+
+The verifier checks Authenticode trust, timestamp presence, the shared signer, image architecture, embedded execution levels, and the broker's dependent DLL policy. Record the reported SHA-256 hashes with the build revision. The optional -UnsignedLab switch is for inspecting local builds. The pilot installer requires signed images and a standard installation in Program Files/Open Samandarin UAC. The pilot has separate uninstall registration and shortcut names. The application still uses the standard profile namespace, which the pilot uninstaller preserves.
+
+Before distribution, sign the compiled installer, verify its signature and the installed binary hashes, and exercise clean install, update, uninstall, and rejection of a substituted image in the isolated VM.

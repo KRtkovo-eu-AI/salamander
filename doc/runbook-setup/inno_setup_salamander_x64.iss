@@ -1,4 +1,5 @@
 ; | Date | Summary | Reason | Ticket | Model |
+; | 2026-11-08 | Package a separately identified signed UAC pilot. | Stage only the protected installer pair and keep portable packaging separate. | | GPT-6.1 Sol (Codex) |
 ; | 2026-11-06 | Rename JSON Web Viewer to JSON Viewer (nodeJS). | Match the requested product name in the installer plugin list. |  | Composer |
 ; | 2026-11-05 | Ship the Salamatrix JSON Web Viewer extension. | Offer a lightweight WebView2 alternative to JSON Viewer .NET. |  | Composer |
 ; | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -31,7 +32,13 @@
 
 #define AppToInstallName "Open Samandarin"
 #define SamandarinVersion "0.16"
-#define AppToInstallDisplayName "Open Samandarin " + SamandarinVersion + " (x64)"
+#ifdef UacBrokerPilot
+  #define AppToInstallDisplayName "Open Samandarin UAC Pilot " + SamandarinVersion + " (x64)"
+  #define AppToInstallShortcutName "Open Samandarin UAC Pilot (x64)"
+#else
+  #define AppToInstallDisplayName "Open Samandarin " + SamandarinVersion + " (x64)"
+  #define AppToInstallShortcutName "Open Samandarin (x64)"
+#endif
 #define AppToInstallVersion "5.0-samandarin-" + SamandarinVersion
 #define AppToInstallPublisher "Ondřej Kotas (KRtekTM)"
 #define AppToInstallCopyright "© 2026 " + AppToInstallPublisher + " KRtkovo.eu"
@@ -48,7 +55,11 @@
 #endif
 
 [Setup]
+#ifdef UacBrokerPilot
+AppId=OpenSamandarin-UAC-Pilot-x64
+#else
 AppId=OpenSalamanderSamandarin-x64
+#endif
 AppCopyright=AppToInstallCopyright
 AppName={#AppToInstallName}
 AppVersion={#AppToInstallVersion}
@@ -68,7 +79,11 @@ DefaultGroupName={#AppToInstallName}
 DisableDirPage=no
 DisableProgramGroupPage=yes
 DisableFinishedPage=yes
+#ifdef UacBrokerPilot
+OutputBaseFilename={#AppToInstallVersion}_win_x64_uac_pilot
+#else
 OutputBaseFilename={#AppToInstallVersion}_win_x64
+#endif
 PrivilegesRequired=admin
 SetupArchitecture=x64
 SetupIconFile=..\..\src\res\samandarin.ico
@@ -850,7 +865,12 @@ Source: "{#PayloadDir}\plugins\extension-runtimes\powershellruntime\powershellru
 Source: "{#PayloadDir}\plugins\extension-runtimes\powershellruntime\runtime\salamatrix_worker.ps1"; DestDir: "{app}\plugins\extension-runtimes\powershellruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('powershellruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\pythonruntime\pythonruntime.spl"; DestDir: "{app}\plugins\extension-runtimes\pythonruntime"; Flags: ignoreversion; Check: IsPluginSelected('pythonruntime')
 Source: "{#PayloadDir}\plugins\extension-runtimes\pythonruntime\runtime\salamatrix_worker.py"; DestDir: "{app}\plugins\extension-runtimes\pythonruntime\runtime"; Flags: ignoreversion; Check: IsPluginSelected('pythonruntime')
+#ifdef UacBrokerPilot
+Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion signcheck
+Source: "{#PayloadDir}\uacbroker.exe"; DestDir: "{app}"; Flags: ignoreversion signcheck
+#else
 Source: "{#PayloadDir}\salamand.exe"; DestDir: "{app}"; Flags: ignoreversion
+#endif
 Source: "{#PayloadDir}\salamand.exe.config"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PayloadDir}\configstorage.ini"; DestDir: "{app}"; Flags: ignoreversion; Permissions: users-modify; Check: ShouldInstallConfigStorage
 Source: "{#SourcePath}plugin-receipts.json"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist uninsneveruninstall; Permissions: users-modify
@@ -1140,8 +1160,8 @@ Source: "{#PayloadDir}\vcruntime140_1.dll"; DestDir: "{app}"; Flags: ignoreversi
 Source: "{#PayloadDir}\utils\MarkdigRenderer.exe"; DestDir: "{app}\utils"; Flags: ignoreversion
 Source: "{#PayloadDir}\utils\WebView2Loader.dll"; DestDir: "{app}\utils"; Flags: ignoreversion
 [Icons]
-Name: "{autodesktop}\Open Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Check: ShouldCreateShortcut('desktop')
-Name: "{group}\Open Samandarin (x64)"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Check: ShouldCreateShortcut('startmenu')
+Name: "{autodesktop}\{#AppToInstallShortcutName}"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Check: ShouldCreateShortcut('desktop')
+Name: "{group}\{#AppToInstallShortcutName}"; Filename: "{app}\{#AppToInstallExeName}"; WorkingDir: "{app}"; Check: ShouldCreateShortcut('startmenu')
 
 [Run]
 Filename: "{app}\{#AppToInstallExeName}"; Parameters: "-welcome -language ""{language}"""; Description: "{cm:LaunchProgram}"; Flags: nowait postinstall; Check: ShouldRunApplication
@@ -1700,6 +1720,20 @@ begin
   Result := Assigned(InstallModePage) and (InstallModePage.SelectedValueIndex = 1);
 end;
 
+#ifdef UacBrokerPilot
+function GetStandardDefaultDir(): String;
+begin
+  Result := ExpandConstant('{autopf}\Open Samandarin UAC');
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  if IsPortableInstall() or
+     (CompareText(RemoveBackslashUnlessRoot(ExpandConstant('{app}')), GetStandardDefaultDir()) <> 0) then
+    Result := 'The UAC pilot requires a standard installation in ' + GetStandardDefaultDir() + '.';
+end;
+#else
 function GetStandardDefaultDir(): String;
 var
   InstallLocation: String;
@@ -1716,6 +1750,7 @@ begin
   end;
   Result := ExpandConstant('{autopf}\Open Samandarin');
 end;
+#endif
 
 function GetPortableDefaultDir(): String;
 begin
@@ -2081,6 +2116,9 @@ function InitializeUninstall(): Boolean;
 begin
   Result := True;
   DeleteUserConfiguration := False;
+#ifdef UacBrokerPilot
+  { The application uses the same configuration namespace as the standard build. }
+#else
   DeleteUserConfigurationFilePath := '';
   DeleteUserConfigurationFromFile := IsFileConfigurationStorageSelected();
 
@@ -2114,6 +2152,7 @@ begin
         mbConfirmation,
         MB_YESNO) = IDYES;
   end;
+#endif
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
@@ -2150,8 +2189,10 @@ var
 begin
   if CurStep = ssPostInstall then
   begin
+#ifndef UacBrokerPilot
     CollectPreviousVersionUninstallKeysForAppDir;
     RemovePreviousVersionUninstallKeys;
+#endif
 
     { Mirrors the setup_x64.inf IncrementFileContent metadata by ensuring plugins.ver exists.
       The legacy installer used the registry value
