@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Report only uncertain broker outcomes in the consent dialog. | Let the ordinary worker dialog handle confirmed failures. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reuse approved F5 and F6 scopes in the progress dialog. | Ask again only for a different scope. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe EFS preservation in the F5 consent. | Identify what the elevated copy will preserve. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain the scope of elevated batch items. | Make cancellation and completed items predictable. | | GPT-6.1 Sol (Codex) |
@@ -1835,14 +1836,9 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 prompt.result = prompt.request.Execute(HWindow, nullptr, job);
                 if (CancelWorker && job)
                     job->Close();
-                if (prompt.result.unknown || (prompt.result.error != ERROR_SUCCESS && prompt.result.error != ERROR_CANCELLED))
-                {
-                    const std::string error = prompt.result.unknown ? LoadStr(unknownText)
-                        : (!moving && UacF7::IsEfsCopyFailure(0, prompt.result.error)
-                               ? LoadStr(IDS_UAC_COPY_EFS_UNSUPPORTED) : GetErrorText(prompt.result.error));
-                    SalMessageBox(HWindow, error.c_str(),
+                if (prompt.result.unknown)
+                    SalMessageBox(HWindow, LoadStr(unknownText),
                                   LoadStr(moving ? IDS_ERRORMOVE : IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
-                }
             }
             break;
         }

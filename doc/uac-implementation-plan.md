@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Return known transfer failures to ordinary error handling. | Preserve completed work and scoped consent after a skipped failure. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Reuse transfer consent within a scoped job. | Bind subsequent requests to the approved operation and parent identities. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Route one encrypted file through the F5 broker. | Use an explicit consent and verify inherited destination security. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify the complete EFS Raw copy path. | Bind source metadata to the guarded export and test cancellation. | | GPT-6.1 Sol (Codex) |
@@ -588,6 +589,10 @@ Lokálně prošlo sestavení x64 Debug, 210 nativních kontrol a kontroly stavů
 **Sdílený souhlas pro přímé dávky F5 a F6.** Po podporované chybě běžného workeru zobrazí potvrzení první položku i obě rodičovské složky. Autentizovaný broker přijímá další požadavky pouze pro shodný typ operace, dvě cesty rodičů, jejich svazky a ID. Každá položka má dál vlastní ověření identity, limitů a kolize. Přepis vyžaduje samostatný rozsah a stávající rozhodnutí o jednotlivém konfliktu. Stejný mechanismus používají i způsobilé šifrované soubory EFS. Jiný rozsah vyžaduje nový souhlas. Dialog průběhu drží relace pouze pro tuto úlohu a uzavře je při dokončení nebo zrušení. Broker skončí i při ztrátě spojení, první chybě zvýšené operace nebo po patnácti minutách bez požadavku.
 
 V x64 Debug prošlo sestavení aplikace, jazykových zdrojů, brokeru a sondy. Po interní chybě linkeru jazykového projektu uspělo opakování s 64bitovým linkerem bez inkrementálního linkování. V Debug i Release prošlo 232 nativních kontrol včetně odmítnutí širší cesty, jiného svazku, změněného rodiče a nepovoleného typu požadavku. Stávající zkouška autentizace lokálního kanálu prošla. Skutečný počet výzev u běžící dávky, návrat ke stávajícím volbám po odmítnutí či chybě elevace, další typy dávkových mutací a ověření v izolované VM zůstávají otevřené.
+
+**Návrat po odmítnutí nebo potvrzené chybě.** Přímá kopie F5, přepis F5 a přesun F6 po známém výsledku opět používají své běžné dialogy Retry, Skip, Skip All a Cancel. Přepis při Retry zachová dřívější rozhodnutí pouze pro stejnou identitu zdroje a stejnou revizi cíle. Změna jednoho z nich vyžaduje nové rozhodnutí. Při odepření nebo potvrzené kolizi zůstane už schválená relace otevřená pro další způsobilé položky, pokud uživatel pokračuje. Zrušení, přerušení spojení nebo neověřený částečný výsledek relaci ukončí. Neověřený výsledek ukončí dávku s pokynem ke kontrole cíle.
+
+V x64 Debug prošlo sestavení aplikace, anglických zdrojů, brokeru a sondy. V Debug i Release prošlo 237 nativních kontrol včetně zachování relace po potvrzené kolizi, odmítnutí prázdného schválení a rozlišení změny revize cíle nebo identity zdroje. Skutečný průchod dialogy a přeskočení prostřední položky po jedné výzvě UAC budou součástí společné zkoušky ve VM.
 
 ### 8.25 P4n — ověření odstranění zdroje po kopii na NTFS
 

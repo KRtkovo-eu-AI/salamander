@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Resume the ordinary transfer error flow after known UAC outcomes. | Preserve skipped items, progress and confirmed overwrite revisions. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow protected EFS in the serial transfer batch. | Keep one authorization per compatible scope. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route eligible encrypted F5 failures to the broker. | Preserve ciphertext and release the normal copy handle before elevation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Process approved leaves in the existing worker sequence. | Preserve progress and stop the batch on a canceled or unconfirmed elevated operation. | | GPT-6.1 Sol (Codex) |
@@ -5623,37 +5624,42 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
     }
 }
 
-static void ExecuteWorkerTransfer(HWND progress, const COperation& op, COperations& script,
+static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperations& script,
                                   CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success,
-                                  UacF7::PreparedTransfer& request)
+                                  UacF7::PreparedTransfer& request, DWORD& error)
 {
     const bool moving = request.IsMove();
     success = FALSE;
     WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
     if (*dlgData.CancelWorker)
-        return;
+        return true;
     const auto sourceDisplay = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
     const auto targetDisplay = SalPathRemoveExtendedPrefixW(op.TargetNameW.c_str());
     const auto sourceText = SalWideToMultiBytePath(sourceDisplay.c_str(), CP_UTF8);
     const auto targetText = SalWideToMultiBytePath(targetDisplay.c_str(), CP_UTF8);
     UacF7::TransferPrompt prompt{request, sourceText.c_str(), targetText.c_str()};
     SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
-    if (!prompt.result.unknown && prompt.result.error == ERROR_SUCCESS)
+    if (prompt.result.unknown)
+        return true;
+    if (prompt.result.error != ERROR_SUCCESS)
     {
-        totalDone += op.Size;
-        if (!moving)
-        {
-            const CQuadWord mainWork = max(op.FileSize, COPY_MIN_FILE_SIZE);
-            const CQuadWord namedBytes = (op.OpFlags & OPFL_COPY_ADS) != 0 && op.Size > mainWork ? op.Size - mainWork : CQuadWord(0, 0);
-            script.AddBytesToTFSandSetProgressSize(op.FileSize + namedBytes, totalDone);
-        }
-        SetProgress(progress, 0, CaclProg(totalDone, script.TotalSize), dlgData);
-        success = TRUE;
+        error = prompt.result.error;
+        return *dlgData.CancelWorker != FALSE;
     }
+    totalDone += op.Size;
+    if (!moving)
+    {
+        const CQuadWord mainWork = max(op.FileSize, COPY_MIN_FILE_SIZE);
+        const CQuadWord namedBytes = (op.OpFlags & OPFL_COPY_ADS) != 0 && op.Size > mainWork ? op.Size - mainWork : CQuadWord(0, 0);
+        script.AddBytesToTFSandSetProgressSize(op.FileSize + namedBytes, totalDone);
+    }
+    SetProgress(progress, 0, CaclProg(totalDone, script.TotalSize), dlgData);
+    success = TRUE;
+    return true;
 }
 
 static bool TryTransferWithBroker(HWND progress, const COperation& op, COperations& script,
-                              CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success, HANDLE* input = nullptr)
+                              CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success, DWORD& error, HANDLE* input = nullptr)
 {
     const bool moving = op.Opcode == ocMoveFile;
     const bool encrypted = !moving && UacF7::IsEncryptedCopyFile(op.Attr);
@@ -5699,8 +5705,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
         HANDLES(CloseHandle(*input));
         *input = INVALID_HANDLE_VALUE;
     }
-    ExecuteWorkerTransfer(progress, op, script, totalDone, dlgData, success, request);
-    return true;
+    return ExecuteWorkerTransfer(progress, op, script, totalDone, dlgData, success, request, error);
 }
 
 static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
@@ -5742,12 +5747,13 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
                 return FALSE;
             if (dlgData.SkipAllFileOpenIn)
                 break;
+            DWORD error = ERROR_ACCESS_DENIED;
             BOOL success = FALSE;
             if (!invalidSrcName && !invalidTgtName &&
-                TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
+                TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, error))
                 return success;
             answer = IDCANCEL;
-            char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(IDS_ERRORCOPY), op->SourceName, GetErrorText(ERROR_ACCESS_DENIED)};
+            char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(IDS_ERRORCOPY), op->SourceName, GetErrorText(error)};
             SendMessage(hProgressDlg, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
             if (answer == IDCANCEL)
                 return FALSE;
@@ -5845,6 +5851,7 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
         ~CDisableProgressBufferLimit() { Script->EnableProgressBufferLimit(FALSE); }
     } DisableProgressBufferLimit(script);
 
+    UacF7::OverwriteApproval approvedOverwrite{};
     CQuadWord operationDone;
     CQuadWord lastTransferredFileSize;
     script->GetTFSandResetTrSpeedIfNeeded(&lastTransferredFileSize);
@@ -5892,11 +5899,14 @@ COPY_AGAIN:
             CQuadWord fileSize = op->FileSize;
 
             HANDLE out;
+            DWORD transferError;
             BOOL lossEncryptionAttr = FALSE;
             BOOL skipAllocWholeFileOnStart = FALSE;
             while (1)
             {
             OPEN_TGT_FILE:
+
+                transferError = ERROR_SUCCESS;
 
                 BOOL encryptionNotSupported = FALSE;
                 DWORD fileAttrs = asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN |
@@ -5924,12 +5934,14 @@ COPY_AGAIN:
                         !isMove && !dlgData.SkipAllFileOpenOut && GetLastError() == ERROR_ACCESS_DENIED)
                     {
                         BOOL success = FALSE;
-                        if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, &in))
+                        if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, transferError, &in))
                         {
                             if (in != INVALID_HANDLE_VALUE)
                                 HANDLES(CloseHandle(in));
                             return success;
                         }
+                        if (transferError)
+                            goto CREATE_ERROR;
                         SetLastError(ERROR_ACCESS_DENIED);
                     }
 
@@ -6464,7 +6476,8 @@ COPY_AGAIN:
                             totalDone += op->Size;
                             SetTFSandPSforSkippedFile(op, lastTransferredFileSize, script, totalDone);
 
-                            HANDLES(CloseHandle(in));
+                            if (in != INVALID_HANDLE_VALUE)
+                                HANDLES(CloseHandle(in));
                             SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
                             if (skip != NULL)
                                 *skip = TRUE;
@@ -6475,7 +6488,8 @@ COPY_AGAIN:
                         {
                         CANCEL_OPEN2:
 
-                            HANDLES(CloseHandle(in));
+                            if (in != INVALID_HANDLE_VALUE)
+                                HANDLES(CloseHandle(in));
                             return FALSE;
                         }
                         }
@@ -6484,19 +6498,22 @@ COPY_AGAIN:
                     {
                     CREATE_ERROR:
 
-                        DWORD err = GetLastError();
+                        DWORD err = transferError ? transferError : GetLastError();
                         if (invalidTgtName)
                             err = ERROR_INVALID_NAME;
                         BOOL errDeletingFile = FALSE;
                         UacF7::PreparedTransfer overwrite;
                         const bool targetExists = err == ERROR_FILE_EXISTS || err == ERROR_ALREADY_EXISTS;
-                        bool canElevateOverwrite = !isMove && !copyAsEncrypted && !dlgData.SkipAllFileOpenOut &&
+                        bool canElevateOverwrite = !transferError && !isMove && !copyAsEncrypted && !dlgData.SkipAllFileOpenOut &&
                                                    mustDeleteFileBeforeOverwrite != 1 &&
                                                    (targetExists || err == ERROR_ACCESS_DENIED) &&
                                                    PrepareWorkerOverwrite(*op, *script, dlgData, overwrite);
+                        if (transferError)
+                            goto NORMAL_ERROR;
                         if (targetExists || canElevateOverwrite)
                         {
-                            if (!dlgData.OverwriteAll && (dlgData.CnfrmFileOver || script->OverwriteOlder))
+                            if (!dlgData.OverwriteAll && (dlgData.CnfrmFileOver || script->OverwriteOlder) &&
+                                (!canElevateOverwrite || !overwrite.MatchesApproval(approvedOverwrite)))
                             {
                                 char sAttr[101], tAttr[101];
                                 BOOL getTimeFailed;
@@ -6597,10 +6614,14 @@ COPY_AGAIN:
                                 // CREATE_NEW denied access before the ordinary conflict path.
                                 if (!canElevateOverwrite)
                                     goto NORMAL_ERROR;
-                                HANDLES(CloseHandle(in));
                                 BOOL success = FALSE;
-                                ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, overwrite);
-                                return success;
+                                if (ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, overwrite, err))
+                                {
+                                    HANDLES(CloseHandle(in));
+                                    return success;
+                                }
+                                approvedOverwrite = overwrite.Approval();
+                                goto NORMAL_ERROR;
                             }
 
                             DWORD attr = GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str());
@@ -6695,10 +6716,13 @@ COPY_AGAIN:
                                             SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), attr);
                                         if (canElevateOverwrite && !chAttr && err == ERROR_ACCESS_DENIED)
                                         {
-                                            HANDLES(CloseHandle(in));
                                             BOOL success = FALSE;
-                                            ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, overwrite);
-                                            return success;
+                                            if (ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, overwrite, err))
+                                            {
+                                                HANDLES(CloseHandle(in));
+                                                return success;
+                                            }
+                                            approvedOverwrite = overwrite.Approval();
                                         }
                                         errDeletingFile = TRUE;
                                         goto NORMAL_ERROR;
@@ -6920,6 +6944,8 @@ COPY_AGAIN:
                             switch (ret)
                             {
                             case IDRETRY:
+                                if (in == INVALID_HANDLE_VALUE)
+                                    goto COPY_AGAIN;
                                 break;
 
                             case IDB_SKIPALL:
@@ -6953,7 +6979,7 @@ COPY_AGAIN:
                  (UacF7::IsEncryptedCopyFile(op->Attr) && UacF7::IsEfsCopyFailure(op->Attr, err))))
             {
                 BOOL success = FALSE;
-                if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
+                if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, err))
                     return success;
             }
 
@@ -7225,11 +7251,19 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                 DWORD err = GetLastError();
                 if (invalidName)
                     err = ERROR_INVALID_NAME;
-                if (err == ERROR_ACCESS_DENIED && !dir && !*novellRenamePatch)
+                bool elevatedAttemptFailed = false;
+                if (err == ERROR_ACCESS_DENIED && !dir && !*novellRenamePatch && !dlgData.SkipAllMoveErrors)
                 {
+                    DWORD transferError = ERROR_SUCCESS;
                     BOOL success = FALSE;
-                    if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success))
+                    if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, transferError))
                         return success;
+                    if (transferError)
+                    {
+                        elevatedAttemptFailed = true;
+                        err = transferError;
+                        goto NORMAL_ERROR;
+                    }
                 }
                 // Novell patch - before calling MoveFile we need to drop the read-only attribute
                 if (!invalidName && *novellRenamePatch || err == ERROR_ACCESS_DENIED)
@@ -7548,7 +7582,7 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                     if (dlgData.SkipAllMoveErrors)
                         goto SKIP_MOVE_ERROR;
 
-                    if (err == ERROR_SHARING_VIOLATION && ++autoRetryAttempts <= 2)
+                    if (!elevatedAttemptFailed && err == ERROR_SHARING_VIOLATION && ++autoRetryAttempts <= 2)
                     {               // auto-retry added to handle move errors while directory icons are being read (SHGetFileInfo running in parallel with MoveFile)
                         Sleep(100); // wait a moment before the next attempt
                     }

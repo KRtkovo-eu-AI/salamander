@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Verify retry scope after a definitive broker error. | Preserve matching overwrite approval and reject a changed object. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Verify the transfer job scope boundary. | Reject other operations, paths and parent identities. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Check eligibility for the encrypted F5 request. | Prevent unsupported metadata combinations. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise the verified EFS transfer end to end. | Validate the path shared with the elevated broker. | | GPT-6.1 Sol (Codex) |
@@ -2294,6 +2295,23 @@ int wmain(int argc, wchar_t** argv)
     another = scope;
     another.targetPath += L"\\subfolder";
     Check(!scope.Matches(another), "reject a wider destination path even when the supplied ID matches");
+    Check(UacF7::CanContinueTransferJob(ERROR_ALREADY_EXISTS) &&
+              UacF7::CanContinueTransferJob(ERROR_ACCESS_DENIED) &&
+              !UacF7::CanContinueTransferJob(ERROR_CANCELLED) &&
+              !UacF7::CanContinueTransferJob(ERROR_PARTIAL_COPY),
+          "retain a transfer job after a confirmed collision and close it after cancellation or uncertain publication");
+    UacF7::OverwriteApproval approval{};
+    Check(!approval.Matches(approval), "an empty overwrite approval never bypasses confirmation");
+    approval.captured = true;
+    approval.revision.fileId[0] = 3;
+    approval.sourceId[0] = 4;
+    auto approvedRetry = approval;
+    Check(approval.Matches(approvedRetry), "reuse the same overwrite decision on retry");
+    ++approvedRetry.revision.changed;
+    Check(!approval.Matches(approvedRetry), "require a new overwrite decision after a target revision changes");
+    approvedRetry = approval;
+    ++approvedRetry.sourceId[0];
+    Check(!approval.Matches(approvedRetry), "require a new overwrite decision after a source identity changes");
     Check(copyError == ERROR_NOT_SUPPORTED && !Exists(securityTarget),
           "security copy rejects an inherited DACL", copyError);
     PSECURITY_DESCRIPTOR rawSecurity = nullptr;

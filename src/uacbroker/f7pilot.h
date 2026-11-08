@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Keep overwrite approval bound to the verified revision. | Reuse a conflict decision only for the same source and destination. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define the scope and lifetime of a transfer job. | Reuse authorization only for matching operations and parent identities. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Add the encrypted F5 request. | Carry an explicit EFS copy contract through the broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Add an exact-file scope for protected Find. | Bind single-file consent to a verified identity. | | GPT-6.1 Sol (Codex) |
@@ -243,6 +244,11 @@ inline bool CanShareTransferJob(Operation operation)
     return IsFileCopy(operation) || operation == Operation::Move || operation == Operation::CopyOverwrite;
 }
 
+inline bool CanContinueTransferJob(DWORD error)
+{
+    return error != ERROR_PARTIAL_COPY && error != ERROR_CANCELLED;
+}
+
 struct TransferJobScope
 {
     Operation operation = Operation::Mkdir;
@@ -279,6 +285,24 @@ private:
     TransferJobScope scope;
 };
 
+struct OverwriteApproval
+{
+    ArchiveRevision revision;
+    ULONGLONG sourceSerial = 0;
+    bool captured = false;
+    BYTE sourceId[16]{};
+
+    bool Matches(const OverwriteApproval& other) const
+    {
+        return captured && other.captured && sourceSerial == other.sourceSerial && revision.serial == other.revision.serial &&
+               std::memcmp(revision.fileId, other.revision.fileId, sizeof(revision.fileId)) == 0 &&
+               revision.size == other.revision.size && revision.created == other.revision.created &&
+               revision.modified == other.revision.modified && revision.changed == other.revision.changed &&
+               revision.attributes == other.revision.attributes &&
+               std::memcmp(sourceId, other.sourceId, sizeof(sourceId)) == 0;
+    }
+};
+
 class PreparedTransfer
 {
 public:
@@ -291,6 +315,11 @@ public:
     bool IsMove() const { return source.operation == Operation::Move; }
     bool IsTree() const { return source.operation == Operation::CopyTree; }
     bool MatchesOverwriteTarget(HANDLE file) const;
+    OverwriteApproval Approval() const;
+    bool MatchesApproval(const OverwriteApproval& approval) const
+    {
+        return IsOverwrite() && Approval().Matches(approval);
+    }
     bool IsOverwrite() const { return source.operation == Operation::CopyOverwrite; }
     bool PreservesSecurity() const { return source.operation == Operation::CopySecurity; }
     bool PreservesEncryption() const { return source.operation == Operation::CopyEncrypted; }

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Retain transfer consent after confirmed item failures. | Let the user skip a failed item and continue the same job. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Keep an authenticated broker for a bounded transfer job. | Check each request against the first approved operation and parent pair. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Connect encrypted F5 requests to the elevated broker. | Use a protected same-volume workspace and verify destination policy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Serve exactly one consented file to Find. | Hold the verified source handle and refuse other paths or listing operations. | | GPT-6.1 Sol (Codex) |
@@ -1750,7 +1751,7 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
             if (error)
                 return IoError(L"Receive transfer job request", error);
             error = TransferRequest(pipe.get(), &result, sizeof(result), true, deadline);
-            if (error || result)
+            if (error || !UacF7::CanContinueTransferJob(result))
                 return error ? IoError(L"Send transfer job result", error) : Ok;
             deadline = GetTickCount64() + 15 * 60 * 1000;
         }
@@ -2017,7 +2018,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
             return IoError(L"Read request result", error);
         if (transferJob)
         {
-            if (!operationError)
+            if (UacF7::CanContinueTransferJob(operationError))
                 *transferJob = pipe.release();
             return Ok;
         }
@@ -2483,6 +2484,13 @@ bool PreparedTransfer::PrepareOverwrite(const std::wstring& sourcePath, const st
     return true;
 }
 
+OverwriteApproval PreparedTransfer::Approval() const
+{
+    OverwriteApproval approval{overwriteTarget, source.serial, true};
+    std::memcpy(approval.sourceId, source.sourceId, sizeof(approval.sourceId));
+    return approval;
+}
+
 bool PreparedTransfer::MatchesOverwriteTarget(HANDLE file) const
 {
     return IsOverwrite() && UacZipUpdate::CheckRevision(file, overwriteTarget) == ERROR_SUCCESS;
@@ -2574,7 +2582,7 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* 
             result.error = error;
         else
             result.unknown = result.error == ERROR_PARTIAL_COPY;
-        if (result.error)
+        if (error || !CanContinueTransferJob(result.error))
             job->Close();
         return result;
     }
