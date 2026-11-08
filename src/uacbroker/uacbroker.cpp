@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Hold the protected tree journal exclusively. | Serialize recovery and copying under the registered target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Bind authenticated tree copy to a registered target. | Recheck both directory identities after UAC. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Serve strict recursive inventory on a listing session. | Keep the request anchored inside the approved root. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Dispatch a same-volume move over the authenticated transfer request. | Use the verified parents and return a terminal operation result. | | GPT-6.1 Sol (Codex) |
@@ -449,6 +450,25 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
 #endif
 
 #ifdef SAM_UAC_BROKER
+DWORD OpenTreeJournal(const InstallLocation& install, Handle& journal)
+{
+    PSECURITY_DESCRIPTOR rawSecurity = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"O:BAD:P(A;;FA;;;BA)(A;;FA;;;SY)",
+                                                               SDDL_REVISION_1, &rawSecurity, nullptr))
+        return GetLastError();
+    const std::unique_ptr<void, LocalFreeDeleter> security(rawSecurity);
+    HANDLE raw = nullptr;
+    const DWORD error = UacRenameLeaf::Detail::OpenFile(install.DirectoryHandle(), L"uac-tree-recovery.dat", raw,
+        FILE_GENERIC_READ | FILE_GENERIC_WRITE, 0, FILE_OPEN_IF, 0, security.get());
+    if (error)
+        return error;
+    journal = Adopt(raw);
+    FILE_ID_INFO identity{};
+    if (!ProtectedObject(journal.get(), false))
+        return ERROR_ACCESS_DENIED;
+    return UacRenameLeaf::Detail::ReadSourceIdentity(journal.get(), identity);
+}
+
 DWORD RegisterTreeTarget(const InstallLocation& install)
 {
     PSECURITY_DESCRIPTOR rawSecurity = nullptr;
@@ -623,11 +643,17 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                     result = ERROR_FILE_INVALID;
                 if (!result)
                 {
-                    const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
-                    deadline = copyDeadline + timeoutMs;
-                    const auto copied = UacCopyTree::CopyVerifiedTree(sourceHandle.get(), sourceDirectory, targetParent.get(),
-                                                                    expectedTarget, targetLeaf, nullptr, pipe, copyDeadline);
-                    result = copied.cleanupError ? ERROR_PARTIAL_COPY : copied.error;
+                    Handle journal;
+                    result = OpenTreeJournal(install, journal);
+                    if (!result)
+                    {
+                        const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
+                        deadline = copyDeadline + timeoutMs;
+                        const auto copied = UacCopyTree::CopyVerifiedTree(sourceHandle.get(), sourceDirectory, targetParent.get(),
+                                                                        expectedTarget, targetLeaf, nullptr, pipe, copyDeadline,
+                                                                        journal.get());
+                        result = copied.cleanupError ? ERROR_PARTIAL_COPY : copied.error;
+                    }
                 }
             }
             return ERROR_SUCCESS;

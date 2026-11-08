@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Recover only a durably recorded tree stage. | Preserve published copies and serialize recovery with active copies. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Require protected tree staging from creation through publication. | Enforce the approved integrity profile without replacing inherited DACLs. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Stage and publish one bounded NTFS tree. | Exercise the native executor before enabling a broker request. | | GPT-6.1 Sol (Codex) |
 */
@@ -34,10 +35,10 @@ struct Entry
 
 inline DWORD OpenDirectory(HANDLE parent, std::wstring_view name, Handle& directory,
                            ACCESS_MASK access, ULONG disposition, PSECURITY_DESCRIPTOR security = nullptr,
-                           ULONG sharing = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+                           ULONG sharing = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, ULONG options = 0)
 {
     HANDLE raw = nullptr;
-    const DWORD error = UacDirectoryLeaf::Detail::NativeDirectory(parent, name, disposition, raw, access, security, sharing);
+    const DWORD error = UacDirectoryLeaf::Detail::NativeDirectory(parent, name, disposition, raw, access, security, sharing, options);
     if (!error)
         directory.reset(raw);
     return error;
@@ -63,6 +64,124 @@ inline DWORD Remove(HANDLE object)
     return SetFileInformationByHandle(object, FileDispositionInfo, &remove, sizeof(remove)) ? ERROR_SUCCESS : GetLastError();
 }
 
+struct RecoveryRecord
+{
+    ULONGLONG version = 1;
+    GUID nonce{};
+    FILE_ID_INFO target{};
+    FILE_ID_INFO stage{};
+};
+static_assert(sizeof(RecoveryRecord) == 72);
+
+inline std::wstring StageName(const GUID& id)
+{
+    wchar_t guid[39]{};
+    return StringFromGUID2(id, guid, ARRAYSIZE(guid)) ? std::wstring(stagePrefix) + guid : std::wstring{};
+}
+
+inline DWORD RecordStage(HANDLE journal, HANDLE stage, const GUID& nonce, const FILE_ID_INFO& target)
+{
+    RecoveryRecord record;
+    record.nonce = nonce;
+    record.target = target;
+    DWORD written = 0;
+    if (!GetFileInformationByHandleEx(stage, FileIdInfo, &record.stage, sizeof(record.stage)) ||
+        !SetFilePointerEx(journal, {}, nullptr, FILE_BEGIN) ||
+        !WriteFile(journal, &record, sizeof(record), &written, nullptr))
+        return GetLastError();
+    if (written != sizeof(record))
+        return ERROR_WRITE_FAULT;
+    return FlushFileBuffers(journal) ? ERROR_SUCCESS : GetLastError();
+}
+
+// The caller holds the trusted journal exclusively through recovery and copy.
+inline DWORD RecoverStage(HANDLE journal, HANDLE target, const FILE_ID_INFO& targetId,
+                          const StageProtection& protection, ULONGLONG deadline)
+{
+    LARGE_INTEGER size{};
+    if (!GetFileSizeEx(journal, &size))
+        return GetLastError();
+    if (size.QuadPart == 0)
+        return ERROR_SUCCESS;
+    RecoveryRecord record;
+    if (size.QuadPart != sizeof(record))
+        return ERROR_INVALID_DATA;
+    DWORD read = 0;
+    if (!SetFilePointerEx(journal, {}, nullptr, FILE_BEGIN) ||
+        !ReadFile(journal, &record, sizeof(record), &read, nullptr))
+        return GetLastError();
+    if (read != sizeof(record) || record.version != 1 ||
+        !UacRenameLeaf::Detail::SameSource(record.target, targetId) ||
+        record.stage.VolumeSerialNumber != targetId.VolumeSerialNumber)
+        return ERROR_INVALID_DATA;
+
+    const auto name = StageName(record.nonce);
+    if (name.empty())
+        return ERROR_INVALID_DATA;
+    Handle root(nullptr, CloseHandle);
+    constexpr ACCESS_MASK directoryAccess = DELETE | FILE_LIST_DIRECTORY | READ_CONTROL;
+    constexpr ULONG sharing = FILE_SHARE_READ | FILE_SHARE_WRITE;
+    DWORD error = OpenDirectory(target, name, root, directoryAccess, FILE_OPEN, nullptr, sharing);
+    if (error == ERROR_FILE_NOT_FOUND)
+        return ERROR_SUCCESS; // A previous publication or rollback removed this exact staging name.
+    if (error)
+        return error;
+    if ((error = CheckDirectory(root.get(), record.stage)) ||
+        (error = protection.Check(root.get(), true)))
+        return error;
+
+    UacListing::SubtreeManifest manifest;
+    if ((error = UacListing::CaptureManifest(root.get(), deadline, manifest)) != ERROR_SUCCESS)
+        return error;
+    if (manifest.entries.size() > maxTreeEntries || manifest.inventory.bytes > UacF7::maxPilotCopyBytes)
+        return ERROR_FILE_TOO_LARGE;
+    std::vector<Handle> opened;
+    opened.reserve(manifest.entries.size());
+    for (const auto& item : manifest.entries)
+    {
+        if (GetTickCount64() >= deadline)
+            return ERROR_TIMEOUT;
+        const HANDLE parent = item.parent == UacListing::manifestRoot ? root.get() : opened[item.parent].get();
+        const bool directory = (item.attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        const FILE_ID_INFO expected{record.stage.VolumeSerialNumber, item.id};
+        Handle object(nullptr, CloseHandle);
+        if (directory)
+        {
+            if ((error = OpenDirectory(parent, item.name, object, directoryAccess, FILE_OPEN, nullptr, sharing)) ||
+                (error = CheckDirectory(object.get(), expected)))
+                return error;
+        }
+        else
+        {
+            HANDLE raw = nullptr;
+            error = UacRenameLeaf::Detail::OpenSource(parent, item.name, raw, DELETE | READ_CONTROL, FILE_SHARE_READ);
+            if (error)
+                return error;
+            object.reset(raw);
+            FILE_ID_INFO actual{};
+            if ((error = UacRenameLeaf::Detail::ReadSourceIdentity(object.get(), actual)) != ERROR_SUCCESS)
+                return error;
+            if (!UacRenameLeaf::Detail::SameSource(actual, expected))
+                return ERROR_FILE_INVALID;
+        }
+        if ((error = protection.Check(object.get(), directory)) != ERROR_SUCCESS)
+            return error;
+        opened.push_back(std::move(object));
+    }
+    // Refuse suspicious or changed trees before marking any object for deletion.
+    if ((error = UacListing::VerifyManifest(root.get(), deadline, manifest)) != ERROR_SUCCESS)
+        return error;
+    for (auto item = opened.rbegin(); item != opened.rend(); ++item)
+    {
+        if (GetTickCount64() >= deadline)
+            return ERROR_TIMEOUT;
+        if ((error = Remove(item->get())) != ERROR_SUCCESS)
+            return error;
+        item->reset();
+    }
+    return Remove(root.get());
+}
+
 class Stage
 {
 public:
@@ -74,15 +193,31 @@ public:
         return index == UacListing::manifestRoot ? root.get() : entries[index].stagedDirectory.get();
     }
 
-    DWORD Create(HANDLE target, const StageProtection& protection)
+    DWORD Create(HANDLE target, const StageProtection& protection, HANDLE journal = nullptr,
+                 const FILE_ID_INFO& targetId = {})
     {
         GUID id{};
-        wchar_t guid[39]{};
-        if (FAILED(CoCreateGuid(&id)) || !StringFromGUID2(id, guid, ARRAYSIZE(guid)))
+        if (FAILED(CoCreateGuid(&id)))
             return ERROR_GEN_FAILURE;
-        return OpenDirectory(target, std::wstring(stagePrefix) + guid, root,
-                             DELETE | FILE_WRITE_ATTRIBUTES | FILE_READ_EA | FILE_LIST_DIRECTORY | READ_CONTROL,
-                             FILE_CREATE, protection.Directory(), FILE_SHARE_READ | FILE_SHARE_WRITE);
+        const auto name = StageName(id);
+        if (name.empty())
+            return ERROR_GEN_FAILURE;
+        DWORD error = OpenDirectory(target, name, root,
+                                    DELETE | FILE_WRITE_ATTRIBUTES | FILE_READ_EA | FILE_LIST_DIRECTORY | READ_CONTROL,
+                                    FILE_CREATE, protection.Directory(), FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                    journal ? FILE_DELETE_ON_CLOSE : 0);
+        if (error || !journal)
+            return error;
+        error = RecordStage(journal, root.get(), id, targetId);
+        if (!error)
+        {
+            FILE_DISPOSITION_INFO_EX keep{FILE_DISPOSITION_FLAG_ON_CLOSE};
+            if (!SetFileInformationByHandle(root.get(), FileDispositionInfoEx, &keep, sizeof(keep)))
+                error = GetLastError();
+        }
+        if (error)
+            root.reset(); // Still empty and armed for deletion.
+        return error;
     }
 
     DWORD Verify(ULONGLONG deadline) const
@@ -198,11 +333,13 @@ inline DWORD RestoreDirectoryTimes(HANDLE target, FILE_BASIC_INFO basic)
 inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIdentity& expectedSource,
                                HANDLE target, const UacDirectoryLeaf::ParentIdentity& expectedTarget,
                                std::wstring_view leaf, StageProtection& protection, HANDLE cancel,
-                               HANDLE connection, ULONGLONG deadline)
+                               HANDLE connection, ULONGLONG deadline, HANDLE journal = nullptr)
 {
     using namespace UacCopyLeaf::Detail;
     using namespace UacDirectoryLeaf;
     if (!IsComponent(leaf))
+        return {ERROR_INVALID_NAME};
+    if (Equal(leaf.substr(0, ARRAYSIZE(stagePrefix) - 1), stagePrefix))
         return {ERROR_INVALID_NAME};
     DWORD error = CheckCancelled(cancel, connection, deadline);
     if (error)
@@ -234,6 +371,8 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
                 return {ERROR_INVALID_PARAMETER};
     if ((error = protection.Prepare(target)) != ERROR_SUCCESS)
         return {error};
+    if (journal && (error = RecoverStage(journal, target, expectedTarget.file, protection, deadline)) != ERROR_SUCCESS)
+        return {error};
 
     FILE_BASIC_INFO rootBasic{};
     if ((error = ReadPlainMetadata(source, rootBasic, true)) != ERROR_SUCCESS)
@@ -242,7 +381,7 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
         return {error};
 
     Detail::Stage stage(manifest);
-    if ((error = stage.Create(target, protection)) != ERROR_SUCCESS)
+    if ((error = stage.Create(target, protection, journal, expectedTarget.file)) != ERROR_SUCCESS)
         return {error};
 
     const auto finish = [&]() -> DWORD {
@@ -348,10 +487,10 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
 inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIdentity& expectedSource,
                                HANDLE target, const UacDirectoryLeaf::ParentIdentity& expectedTarget,
                                std::wstring_view leaf, HANDLE cancel = nullptr, HANDLE connection = nullptr,
-                               ULONGLONG deadline = MAXULONGLONG)
+                               ULONGLONG deadline = MAXULONGLONG, HANDLE journal = nullptr)
 {
     Detail::StageProtection protection(true);
     return Detail::CopyVerifiedTree(source, expectedSource, target, expectedTarget, leaf, protection,
-                                    cancel, connection, deadline);
+                                    cancel, connection, deadline, journal);
 }
 }

@@ -29,6 +29,7 @@
 | 2026-11-08 | Document the P4g staging integrity profile. | Record verified access isolation and inherited destination DACLs. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document the registered P4h F5 pilot. | Describe consent, target identity provisioning and broker checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record P4h failure and alternate-account acceptance. | Distinguish clean rollback from the protected residue of forced broker termination. | | GPT-6.1 Sol (Codex) |
+| 2026-11-08 | Record journaled recovery for interrupted tree copies. | Define the recovery trigger, identity checks and isolated VM result. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Plán implementace podpory UAC v Open Samandarin
@@ -442,6 +443,16 @@ Rozšířená akceptace v izolované VM:
 Po zkouškách byl obnoven běžný broker, jeho SHA-256 se shodoval s ověřeným sestavením P4h a pozůstatek byl odstraněn až po kontrole jeho cesty a obsahu. Před rozšířením rekurzivní kopie na další cíle zbývá navrhnout bezpečný automatický úklid po tvrdém ukončení brokeru. Název s předponou `.samandarin-tree-` sám nedokládá původ složky. Úklid musí ověřovat vlastnictví konkrétní pracovní složky a vyloučit souběh s aktivní operací.
 
 Implementační commit P4h `e6a6f30b` prošel sestavením Win32, x64 a ARM64, všemi 214 testy a CodeQL bez nových nálezů. [Testy P4h](https://github.com/majklvi/salamander/actions/runs/42468338533/job/128693002504) · [CodeQL P4h](https://github.com/majklvi/salamander/runs/128696541547).
+
+### 8.20 P4i — automatický úklid po tvrdém ukončení brokeru
+
+Při schváleném F5 do registrovaného cíle broker výhradně otevře soubor `uac-tree-recovery.dat` v chráněné instalaci. Souběžný požadavek při obsazeném žurnálu skončí chybou sdílení. Broker uloží vygenerovaný název pracovní složky a identity cílového rodiče a pracovní složky včetně sériového čísla svazku. Při vytváření prázdné složky je aktivní odstranění při zavření. Broker je vypne až po uložení a synchronizaci záznamu, před prvním zápisem kopírovaných dat. [Odstranění při zavření](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/2e860264-018a-47b3-8555-565a13b35a45) · [Synchronizace souboru](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers).
+
+Příští schválená kopie zpracuje předchozí záznam před vytvořením nové pracovní složky. Broker otevírá jen zaznamenaný pracovní název, porovná identity, ověří profil integrity a před smazáním otevře a zkontroluje celý omezený strom po jednotlivých položkách. Nepodporovaný objekt, reparse point, hardlink nebo nesoulad identity úklid zastaví. Pokud zaznamenaný název po běžném dokončení nebo úklidu už neexistuje, další kopie pokračuje. Broker podle prefixu nevyhledává další složky. Starší pozůstatky bez záznamu ponechá k ručnímu posouzení.
+
+V Debug i Release prošlo 115 nativních kontrol. Testy ověřily výhradní přístup k žurnálu, odstranění prázdné složky před dokončením záznamu, odstranění zaznamenaného stromu při další kopii, zachování dříve zveřejněné kopie i cizí složky se stejným prefixem a odmítnutí záměny identity i hardlinku.
+
+V izolované VM byl laboratorní broker tvrdě ukončen po zápisu prvního souboru z `08-recovery-crash`. Pracovní strom zůstal, finální cíl nevznikl a Samandarin zobrazil hlášení o nejistém výsledku. Po obnovení ověřeného běžného brokeru P4i uživatel schválil F5 pro `09-recovery-next`. Broker odstranil přesně zaznamenaný pozůstatek a zachoval zdroj přerušené kopie, cizí kontrolní složku se stejným prefixem i dříve dokončenou kopii. Oba nové soubory měly shodné SHA-256 se zdrojem a vznikla i prázdná podsložka.
 
 ## 9. Uživatelský tok a stav operace
 

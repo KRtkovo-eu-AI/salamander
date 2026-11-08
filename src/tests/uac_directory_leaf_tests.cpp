@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Test exclusive journal recovery on NTFS. | Reap an owned orphan and preserve unrelated or substituted directories. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise mandatory integrity on staged tree objects. | Check Windows access decisions and preserve destination DACL inheritance. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise bounded NTFS tree copying. | Verify whole-tree publication and rollback of owned temporary entries. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Exercise source manifest revalidation on NTFS. | Detect replacements and new entries even when a size summary would miss them. | | GPT-6.1 Sol (Codex) |
@@ -336,13 +337,20 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent, bool high)
         return true;
     };
 
-    const auto copyTree = [high](HANDLE from, const ParentIdentity& fromId, HANDLE to, const ParentIdentity& toId,
+    const auto journalPath = fixture + L"\\recovery.dat";
+    const HANDLE rawJournal = CreateFileW(journalPath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+    if (rawJournal == INVALID_HANDLE_VALUE)
+        return false;
+    const Handle journal(rawJournal);
+    Check(ProbeAccess(journalPath, GENERIC_READ | GENERIC_WRITE, 0) == ERROR_SHARING_VIOLATION,
+          "the active copy holds its recovery journal exclusively");
+    const auto copyTree = [high, &journal](HANDLE from, const ParentIdentity& fromId, HANDLE to, const ParentIdentity& toId,
                              std::wstring_view name, HANDLE cancel = nullptr, HANDLE pipe = nullptr,
                              ULONGLONG deadline = MAXULONGLONG) {
         if (high)
-            return UacCopyTree::CopyVerifiedTree(from, fromId, to, toId, name, cancel, pipe, deadline);
+            return UacCopyTree::CopyVerifiedTree(from, fromId, to, toId, name, cancel, pipe, deadline, journal.get());
         UacCopyTree::Detail::StageProtection protection(false);
-        return UacCopyTree::Detail::CopyVerifiedTree(from, fromId, to, toId, name, protection, cancel, pipe, deadline);
+        return UacCopyTree::Detail::CopyVerifiedTree(from, fromId, to, toId, name, protection, cancel, pipe, deadline, journal.get());
     };
     auto result = copyTree(from.get(), sourceId, to.get(), targetId, L"published");
     Check(!result.error && !result.cleanupError && noStaging() &&
@@ -459,6 +467,73 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent, bool high)
     result = copyTree(from.get(), sourceId, to.get(), targetId, L"disconnected", nullptr, read.get());
     Check(result.error == ERROR_BROKEN_PIPE && !result.cleanupError && noStaging(),
           "refuse to stage a tree after the peer disconnects", result.error);
+
+    using UacCopyTree::Detail::Stage;
+    using UacCopyTree::Detail::RecoveryRecord;
+    UacListing::SubtreeManifest emptyManifest;
+    if (protection.Prepare(to.get()))
+        return false;
+    {
+        UacCopyTree::Detail::Handle empty(nullptr, CloseHandle);
+        const DWORD error = UacCopyTree::Detail::OpenDirectory(to.get(), L"unrecorded-empty", empty, DELETE,
+            FILE_CREATE, protection.Directory(), FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_DELETE_ON_CLOSE);
+        if (error)
+            return false;
+    }
+    Check(!Exists(target + L"\\unrecorded-empty"), "an empty stage is removed before its journal is committed");
+    const auto orphan = [&]() -> std::wstring {
+        Stage stage(emptyManifest);
+        const DWORD error = stage.Create(to.get(), protection, journal.get(), targetId.file);
+        if (error)
+        {
+            Check(false, "create a journaled stage", error);
+            return {};
+        }
+        RecoveryRecord record;
+        DWORD bytes = 0;
+        if (!SetFilePointerEx(journal.get(), {}, nullptr, FILE_BEGIN) ||
+            !ReadFile(journal.get(), &record, sizeof(record), &bytes, nullptr) || bytes != sizeof(record))
+            return {};
+        const auto path = target + L"\\" + UacCopyTree::Detail::StageName(record.nonce);
+        if (!CreateDirectoryW((path + L"\\nested").c_str(), nullptr) ||
+            !WriteFixture(path + L"\\nested\\first.txt", {1, 2, 3}))
+            return {};
+        stage.root.reset(); // Leave the disk state of a process that died after journaling.
+        return path;
+    };
+    const auto abandoned = orphan();
+    const auto unrelated = target + L"\\.samandarin-tree-{11111111-1111-1111-1111-111111111111}";
+    if (abandoned.empty() || !CreateDirectoryW(unrelated.c_str(), nullptr) ||
+        !WriteFixture(unrelated + L"\\keep.bin", {7}))
+        return false;
+    HANDLE rawPublished = nullptr;
+    ParentIdentity publishedId;
+    if (OpenParentBelowRoot(to.get(), L"published", rawPublished, publishedId, FILE_LIST_DIRECTORY | FILE_READ_EA))
+        return false;
+    const Handle publishedSource(rawPublished);
+    result = copyTree(publishedSource.get(), publishedId, to.get(), targetId, L"recovered");
+    Check(!result.error && !result.cleanupError && !Exists(abandoned) && HasContents(unrelated + L"\\keep.bin", {7}) &&
+              HasContents(target + L"\\recovered" + file, {4, 8, 15, 16, 23, 42}) && HasContents(published + file, {4, 8, 15, 16, 23, 42}),
+          "next copy reaps only the journaled orphan and preserves a published copy and a lookalike", result.error);
+
+    const auto replaced = orphan();
+    const auto original = target + L"\\held-original-stage";
+    if (replaced.empty() || !MoveFileExW(replaced.c_str(), original.c_str(), 0) ||
+        !CreateDirectoryW(replaced.c_str(), nullptr) || !WriteFixture(replaced + L"\\keep.bin", {8}))
+        return false;
+    result = copyTree(from.get(), sourceId, to.get(), targetId, L"refused");
+    Check(result.error == ERROR_FILE_INVALID && !Exists(target + L"\\refused") &&
+              HasContents(replaced + L"\\keep.bin", {8}) && HasContents(original + L"\\nested\\first.txt", {1, 2, 3}),
+          "a substituted stage identity blocks cleanup and preserves both trees", result.error);
+
+    const auto linked = orphan();
+    if (linked.empty() || !CreateHardLinkW((linked + L"\\z-hardlink.bin").c_str(), (published + file).c_str(), nullptr))
+        return false;
+    result = copyTree(publishedSource.get(), publishedId, to.get(), targetId, L"refused-link");
+    Check(result.error == ERROR_NOT_SUPPORTED && !Exists(target + L"\\refused-link") &&
+              HasContents(linked + L"\\nested\\first.txt", {1, 2, 3}) &&
+              HasContents(linked + L"\\z-hardlink.bin", {4, 8, 15, 16, 23, 42}) && HasContents(published + file, {4, 8, 15, 16, 23, 42}),
+          "a hard link refuses the whole recovery before deleting any entry", result.error);
     return true;
 }
 }
