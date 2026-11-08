@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Define the protected ZIP panel acceptance gate. | Require the existing archive panel and compare an elevated plugin host. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Record the protected ZIP64 listing pilot. | Document the bounded protocol and local and VM evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Revise protected archive reads for ZIP64. | Use bounded reads from the original and keep the archive parser at ordinary integrity. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Design the protected ZIP listing pilot. | Separate protected source reads from elevated extraction and verify ZIP staging constraints. | | GPT-6.1 Sol (Codex) |
@@ -760,6 +761,12 @@ V izolované Windows 11 VM se po volbě Ano otevřel chráněný originál v Poz
 Lokálně prošlo sestavení x64 Debug pro aplikaci, broker, ZIP plugin a oba jazykové moduly. Prošlo 190 nativních kontrol v Debug i Release, test autentizovaného transportu a 1 343 archivních regresních kontrol v každé konfiguraci. Test nad exportem x64 Release s vypnutou instrumentací zásobníku přečetl z řídkého ZIP64 1 308 bajtů a dosáhl offsetu 5 368 709 557. Pokryl běžný ZIP, poškozený centrální adresář, více svazků, limit položek a chyby čtecího callbacku.
 
 V izolované Windows 11 VM se po registraci ZIP pluginu v pilotním profilu a volbě Ano zobrazily všechny tři položky chráněného ZIP64 o délce 5 368 709 599 bajtů, včetně názvu v Unicode, prázdné složky a názvu s nadřazenou komponentou zobrazeného jako text. Běžný token měl čtení originálu odepřené. Po volbě Ne se výpis druhého archivu neotevřel. Běžný ZIP se otevřel v archivním panelu bez UAC. Otisky šesti pilotních souborů souhlasily a po testu neběžel žádný broker. Výměna zdroje během výzvy, přerušení uprostřed čtení, souhlas jiného správce a měření na fyzicky vícegigabajtovém archivu zbývají pro rozšířenou akceptaci.
+
+**Podmínka pro pokračování P6f.** Textový výpis zůstává ověřením čtení velkého archivu. Uživatelský tok musí otevřít stejný archivní panel jako běžný ZIP. Adaptér předá blokový zdroj stávajícímu `CZipList::List` a naplní `CSalamanderDirectory` včetně dat ZIP pluginu. `ChangePathToArchive` po úplném úspěchu použije svou běžnou větev pro `ptZIPArchive`. Podadresáře a návrat k rodiči pak používají existující navigaci. Ctrl+R potřebuje chráněnou čtecí cestu nebo novou autorizaci pro tentýž originál. Otevření a extrakce položky mají samostatné vstupní body, které dnes znovu otevírají archiv podle cesty. Do jejich napojení musí panel omezit nepodporované akce a srozumitelně označit režim jen pro čtení.
+
+Elevovaný host ZIP pluginu je technická alternativa. Musel by být samostatným procesem spuštěným přes UAC, načíst ověřenou kopii pluginu z chráněné instalace a vracet serializované výsledky. Stávající plugin používá ukazatele na rozhraní hosta a data položek, která nelze předat mezi procesy přímo. Přenos výpisu do běžného panelu by proto vyžadoval nový adaptér i v této variantě. Blokový zdroj umožní použít existující objekty panelu i pluginu uvnitř běžného procesu. [Načítání DLL za běhu](https://learn.microsoft.com/en-us/windows/win32/dlls/run-time-dynamic-linking)
+
+Akceptační minimum je chráněný ZIP64 otevřený přímo v panelu, vstup do podsložky, návrat a Ctrl+R. Po zrušení souhlasu zůstane původní diskový panel. Samostatný textový výpis není výsledkem určeným k vydání. Pokud se nepodaří dosáhnout tohoto minima, práce na archivech se pozastaví.
 
 ## 9. Uživatelský tok a stav operace
 
