@@ -1072,22 +1072,24 @@ bool CheckZipSelection(const std::wstring& fixture, HANDLE root)
     return true;
 }
 
-bool CheckZipUpdate(const std::wstring& fixture, HANDLE root)
+bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::ReplacementKind kind)
 {
     using UacZipUpdate::Publish;
     using UacZipUpdate::ReadRevision;
     using UacZipUpdate::Recover;
     using UacZipUpdate::Revision;
     using UacRenameLeaf::Detail::NativeRename;
-    const std::wstring folder = fixture + L"\\zip-update";
+    const bool zip = kind == UacZipUpdate::ReplacementKind::Zip;
+    const wchar_t* component = zip ? L"zip-update" : L"disk-overwrite";
+    const std::wstring folder = fixture + L"\\" + component;
     if (!CreateDirectoryW(folder.c_str(), nullptr))
         return false;
     HANDLE rawParent = nullptr;
     UacDirectoryLeaf::ParentIdentity identity;
-    if (UacDirectoryLeaf::OpenParentBelowRoot(root, L"zip-update", rawParent, identity))
+    if (UacDirectoryLeaf::OpenParentBelowRoot(root, component, rawParent, identity))
         return false;
     const Handle parent(rawParent);
-    constexpr std::wstring_view leaf = L"\u6771.zip";
+    const std::wstring_view leaf = zip ? L"\u6771.zip" : L"\u6771.txt";
     const std::wstring path = folder + L"\\" + std::wstring(leaf);
     const HANDLE rawJournal = CreateFileW((folder + L"\\journal").c_str(), GENERIC_READ | GENERIC_WRITE, 0,
                                           nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -1120,17 +1122,17 @@ bool CheckZipUpdate(const std::wstring& fixture, HANDLE root)
         return false;
 
     Revision stale = expected;
-    ++stale.size;
+    stale.fileId[0] ^= 1;
     auto publish = [&](const Revision& revision) -> UacZipUpdate::PublishResult {
         HANDLE raw = nullptr;
         if (const DWORD error = UacZipUpdate::Detail::Open(parent.get(), leaf, raw, DELETE))
             return {error};
         UacZipUpdate::Handle original(raw, CloseHandle);
-        return Publish(parent.get(), identity, leaf, revision, original, stage.get(), journal.get(), nullptr, MAXULONGLONG);
+        return Publish(parent.get(), identity, leaf, revision, original, stage.get(), journal.get(), nullptr, MAXULONGLONG, nullptr, kind);
     };
     auto result = publish(stale);
     Check(result.error == ERROR_FILE_INVALID && !result.published && HasContents(path, {1, 2}),
-          "reject a stale ZIP revision and retain the original", result.error);
+          "reject a stale replacement identity and retain the original", result.error);
     const std::wstring occupiedBackup = folder + L"\\occupied.bak";
     if (!WriteFixture(occupiedBackup, {7}))
         return false;
@@ -1153,7 +1155,7 @@ bool CheckZipUpdate(const std::wstring& fixture, HANDLE root)
     result = publish(expected);
     stage.reset();
     Check(!result.error && !result.recoveryError && result.published && HasContents(path, {3, 4, 5}),
-          "publish the complete verified ZIP replacement", result.error ? result.error : result.recoveryError);
+          "publish the complete verified replacement", result.error ? result.error : result.recoveryError);
     if (!result.published)
         return false;
 
@@ -1163,7 +1165,7 @@ bool CheckZipUpdate(const std::wstring& fixture, HANDLE root)
     std::copy(leaf.begin(), leaf.end(), record.leaf);
     if (FAILED(CoCreateGuid(&record.nonce)))
         return false;
-    const auto backup = UacZipUpdate::Detail::BackupName(record.nonce);
+    const auto backup = UacZipUpdate::Detail::BackupName(record.nonce, kind);
     {
         auto file = open(DELETE);
         Revision current;
@@ -1177,16 +1179,16 @@ bool CheckZipUpdate(const std::wstring& fixture, HANDLE root)
     const auto backupPath = folder + L"\\" + backup;
     if (!WriteFixture(path, {6}))
         return false;
-    DWORD error = Recover(parent.get(), identity, leaf, journal.get());
+    DWORD error = Recover(parent.get(), identity, leaf, journal.get(), kind);
     Check(error == ERROR_FILE_INVALID && HasContents(path, {6}) && HasContents(backupPath, {3, 4, 5}),
-          "keep both files when an unrelated item occupies the ZIP name", error);
+          "keep both files when an unrelated item occupies the destination name", error);
     if (!DeleteFileW(path.c_str()))
         return false;
-    error = Recover(parent.get(), identity, leaf, journal.get());
+    error = Recover(parent.get(), identity, leaf, journal.get(), kind);
     Check(!error && HasContents(path, {3, 4, 5}) && !Exists(backupPath),
-          "restore the exact original after an interrupted ZIP publication", error);
-    Check(Recover(parent.get(), identity, leaf, journal.get()) == ERROR_SUCCESS,
-          "allow another ZIP write after clearing the completed publication journal");
+          "restore the exact original after an interrupted publication", error);
+    Check(Recover(parent.get(), identity, leaf, journal.get(), kind) == ERROR_SUCCESS,
+          "allow another replacement after clearing the completed publication journal");
     return true;
 }
 
@@ -1211,7 +1213,8 @@ int wmain(int argc, wchar_t** argv)
     if (moveSource)
         return CheckMoveSource(fixture, root.get()) ? 0 : 1;
     if (!CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
-        !CheckZipSelection(fixture, root.get()) || !CheckZipUpdate(fixture, root.get()))
+        !CheckZipSelection(fixture, root.get()) || !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::Zip) ||
+        !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::DiskCopy))
         return 2;
     HANDLE rawListing = nullptr;
     ParentIdentity listingIdentity;

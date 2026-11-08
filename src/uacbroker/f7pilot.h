@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Define a separate protected copy overwrite request. | Bind the overwrite to a captured target revision. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Remove the standalone broker ZIP recovery operation. | Keep journal handling internal to the authorized write. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Prepare interrupted ZIP recovery from a folder. | Work after restart or loss of the original name. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Declare streamed protected ZIP preparation and replacement. | Reopen the committed archive through the same write consent. | | GPT-6.1 Sol (Codex) |
@@ -46,7 +47,7 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23 };
 
 inline bool IsRename(Operation operation)
 {
@@ -228,10 +229,13 @@ class PreparedTransfer
 {
 public:
     bool Prepare(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize, Operation operation);
+    bool PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize);
     bool PrepareTree(const std::wstring& sourcePath, std::wstring_view targetDirectory, std::wstring& destination);
     Result Execute(HWND owner, HANDLE cancel = nullptr) const;
     bool IsMove() const { return source.operation == Operation::Move; }
     bool IsTree() const { return source.operation == Operation::CopyTree; }
+    bool MatchesOverwriteTarget(HANDLE file) const;
+    bool IsOverwrite() const { return source.operation == Operation::CopyOverwrite; }
     bool PreservesSecurity() const { return source.operation == Operation::CopySecurity; }
     bool PreservesCompression() const { return source.operation == Operation::CopyCompressed; }
     bool IgnoresAds() const { return source.operation == Operation::CopyIgnoreAds; }
@@ -239,6 +243,7 @@ public:
 private:
     PreparedLeaf source;
     PreparedLeaf target;
+    ArchiveRevision overwriteTarget;
     ULONGLONG size = 0;
 };
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Offer the verified F5 replacement after ordinary access is denied. | Capture the conflict before consent and exclude locally modified targets. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain denied protected EFS copies. | Keep ordinary EFS success and existing retry choices available. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route the explicit F5 security option to the broker. | Keep security copy independent of move and other copy options. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer the verified delete path for one eligible junction. | Use the classified request for permanent deletion only. | | GPT-6.1 Sol (Codex) |
@@ -5619,6 +5620,36 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
     }
 }
 
+static void ExecuteWorkerTransfer(HWND progress, const COperation& op, COperations& script,
+                                  CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success,
+                                  UacF7::PreparedTransfer& request)
+{
+    const bool moving = request.IsMove();
+    success = FALSE;
+    WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+    if (*dlgData.CancelWorker)
+        return;
+    const auto sourceDisplay = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
+    const auto targetDisplay = SalPathRemoveExtendedPrefixW(op.TargetNameW.c_str());
+    const auto sourceText = SalWideToMultiBytePath(sourceDisplay.c_str(), CP_UTF8);
+    const auto targetText = SalWideToMultiBytePath(targetDisplay.c_str(), CP_UTF8);
+    UacF7::TransferPrompt prompt{request, sourceText.c_str(), targetText.c_str()};
+    SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
+    if (!prompt.result.unknown && prompt.result.error == ERROR_SUCCESS)
+    {
+        totalDone += op.Size;
+        if (moving)
+            SetProgress(progress, 0, CaclProg(totalDone, script.TotalSize), dlgData);
+        else
+        {
+            const CQuadWord mainWork = max(op.FileSize, COPY_MIN_FILE_SIZE);
+            const CQuadWord namedBytes = (op.OpFlags & OPFL_COPY_ADS) != 0 && op.Size > mainWork ? op.Size - mainWork : CQuadWord(0, 0);
+            script.AddBytesToTFSandSetProgressSize(op.FileSize + namedBytes, totalDone);
+        }
+        success = TRUE;
+    }
+}
+
 static bool TryTransferWithBroker(HWND progress, const COperation& op, COperations& script,
                               CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success)
 {
@@ -5655,30 +5686,22 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     UacF7::PreparedTransfer request;
     if (!request.Prepare(op.SourceNameW, op.TargetNameW, op.FileSize.Value, operation))
         return false;
-    success = FALSE;
-    WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
-    if (*dlgData.CancelWorker)
-        return true;
-    const auto sourceDisplay = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
-    const auto targetDisplay = SalPathRemoveExtendedPrefixW(op.TargetNameW.c_str());
-    const auto sourceText = SalWideToMultiBytePath(sourceDisplay.c_str(), CP_UTF8);
-    const auto targetText = SalWideToMultiBytePath(targetDisplay.c_str(), CP_UTF8);
-    UacF7::TransferPrompt prompt{request, sourceText.c_str(), targetText.c_str()};
-    SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
-    if (!prompt.result.unknown && prompt.result.error == ERROR_SUCCESS)
-    {
-        totalDone += op.Size;
-        if (moving)
-            SetProgress(progress, 0, CaclProg(totalDone, script.TotalSize), dlgData);
-        else
-        {
-            const CQuadWord mainWork = max(op.FileSize, COPY_MIN_FILE_SIZE);
-            const CQuadWord namedBytes = (op.OpFlags & OPFL_COPY_ADS) != 0 && op.Size > mainWork ? op.Size - mainWork : CQuadWord(0, 0);
-            script.AddBytesToTFSandSetProgressSize(op.FileSize + namedBytes, totalDone);
-        }
-        success = TRUE;
-    }
+    ExecuteWorkerTransfer(progress, op, script, totalDone, dlgData, success, request);
     return true;
+}
+
+static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
+                                   const CProgressDlgData& dlgData, UacF7::PreparedTransfer& request)
+{
+    if (op.Opcode != ocCopyFile || !script.AllowTransferPilot || script.Count != 1 ||
+        script.OverwriteOlder || script.CopySecurity || script.CopyAttrs || script.IgnoreTransferAds ||
+        dlgData.ConflictDecisionInjected || !op.SourceNameWValid || !op.TargetNameWValid ||
+        (op.OpFlags & (OPFL_AS_ENCRYPTED | OPFL_COPY_ADS)) || !UacF7::IsPlainCopyFile(op.Attr))
+        return false;
+    BOOL limited = FALSE;
+    DWORD limit = 0;
+    script.GetSpeedLimit(&limited, &limit);
+    return !limited && request.PrepareOverwrite(op.SourceNameW, op.TargetNameW, op.FileSize.Value);
 }
 
 BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
@@ -6428,8 +6451,12 @@ COPY_AGAIN:
                         if (invalidTgtName)
                             err = ERROR_INVALID_NAME;
                         BOOL errDeletingFile = FALSE;
-                        if (err == ERROR_FILE_EXISTS || // overwrite the file?
-                            err == ERROR_ALREADY_EXISTS)
+                        UacF7::PreparedTransfer overwrite;
+                        const bool targetExists = err == ERROR_FILE_EXISTS || err == ERROR_ALREADY_EXISTS;
+                        bool canElevateOverwrite = !isMove && !copyAsEncrypted && mustDeleteFileBeforeOverwrite != 1 &&
+                                                   (targetExists || err == ERROR_ACCESS_DENIED) &&
+                                                   PrepareWorkerOverwrite(*op, *script, dlgData, overwrite);
+                        if (targetExists || canElevateOverwrite)
                         {
                             if (!dlgData.OverwriteAll && (dlgData.CnfrmFileOver || script->OverwriteOlder))
                             {
@@ -6444,11 +6471,13 @@ COPY_AGAIN:
                                                            OPEN_EXISTING, 0, NULL));
                                 if (out != INVALID_HANDLE_VALUE)
                                 {
+                                    canElevateOverwrite = canElevateOverwrite && overwrite.MatchesOverwriteTarget(out);
                                     GetFileOverwriteInfo(tAttr, _countof(tAttr), out, op->TargetName, &tFileTime, &getTimeFailed);
                                     HANDLES(CloseHandle(out));
                                 }
                                 else
                                 {
+                                    canElevateOverwrite = false;
                                     getTimeFailed = TRUE;
                                     strcpy(tAttr, LoadStr(IDS_ERR_FILEOPEN));
                                 }
@@ -6523,6 +6552,17 @@ COPY_AGAIN:
                                     return FALSE;
                                 }
                                 }
+                            }
+
+                            if (!targetExists)
+                            {
+                                // CREATE_NEW denied access before the ordinary conflict path.
+                                if (!canElevateOverwrite)
+                                    goto NORMAL_ERROR;
+                                HANDLES(CloseHandle(in));
+                                BOOL success = FALSE;
+                                ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, overwrite);
+                                return success;
                             }
 
                             DWORD attr = GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str());
@@ -6615,6 +6655,13 @@ COPY_AGAIN:
                                         err = GetLastError();
                                         if (chAttr)
                                             SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), attr);
+                                        if (canElevateOverwrite && !chAttr && err == ERROR_ACCESS_DENIED)
+                                        {
+                                            HANDLES(CloseHandle(in));
+                                            BOOL success = FALSE;
+                                            ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, overwrite);
+                                            return success;
+                                        }
                                         errDeletingFile = TRUE;
                                         goto NORMAL_ERROR;
                                     }
@@ -6647,6 +6694,7 @@ COPY_AGAIN:
                                             return TRUE;
                                         }
                                         chAttr = TRUE;
+                                        canElevateOverwrite = false;
                                         SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), 0);
                                     }
                                     // GENERIC_READ for 'out' slows asynchronous copying from disk to network (measured 95 MB/s instead of 111 MB/s on Win7 x64 GLAN)
@@ -6712,6 +6760,7 @@ COPY_AGAIN:
                                         continue;
                                     }
 
+                                    canElevateOverwrite = false;
                                     // on target paths that support ADS also delete ADS on the target file (CREATE_ALWAYS should remove them, but on home W2K and XP they simply stay; no idea why, W2K and XP in VMWare delete ADS normally)
                                     if (script->TargetPathSupADS && !DeleteAllADS(out, op->TargetName))
                                     {

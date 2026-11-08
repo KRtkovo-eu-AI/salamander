@@ -1,5 +1,6 @@
 ﻿// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Describe the protected F5 replacement. | Distinguish replacement from creating a new copy. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Remove the standalone ZIP recovery wording. | Describe where to check an unconfirmed ZIP update. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Explain how to recover an interrupted ZIP update. | Make recovery discoverable after the archive name disappears. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the separate protected ZIP write consent. | Explain when to check or refresh the archive after the broker responds. | | GPT-6.1 Sol (Codex) |
@@ -2426,6 +2427,7 @@ STRINGTABLE
  IDS_UAC_ZIP_CONFIRM, "Access was denied. Read the contents of this ZIP as an administrator? The archive will be opened for reading only."
  IDS_UAC_EDIT_ADMIN_UNTRUSTED, "Administrator mode requires an editor executable in a protected Windows or Program Files directory."
  IDS_UAC_SIZE_NOT_AVAILABLE, "Not available"
+ IDS_UAC_COPY_OVERWRITE_CONFIRM, "Access was denied. Replace this existing file as an administrator while keeping the destination permissions?"
  IDS_UAC_COPY_CONFIRM, "Access was denied. Copy this file and its alternate data streams as an administrator?"
  IDS_UAC_COPY_IGNORE_ADS_CONFIRM, "Access was denied. Copy this file without its alternate data streams as an administrator?"
  IDS_UAC_COPY_COMPRESSED_CONFIRM, "Access was denied. Copy this file and preserve its NTFS compression as an administrator?"

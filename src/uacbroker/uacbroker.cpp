@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Wire a typed disk overwrite into the protected broker. | Copy through a stage that retains the verified target security before journaled publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Remove the broker command for standalone ZIP recovery. | Keep interrupted publication handling scoped to the exact archive being written. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Accept the same ZIP ACLs after NTFS normalizes inheritance history bits. | Preserve effective policy while allowing protected ZIP publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Bind the ZIP recovery request to an approved parent folder. | Allow explicit recovery after the original name disappears. | | GPT-6.1 Sol (Codex) |
@@ -130,13 +131,14 @@ constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD archiveReadCapability = 67108864;
 [[maybe_unused]] constexpr DWORD zipSelectionWriteCapability = 134217728;
 [[maybe_unused]] constexpr DWORD zipUpdateCapability = 536870912;
+[[maybe_unused]] constexpr DWORD copyOverwriteCapability = 1073741824;
 [[maybe_unused]] constexpr DWORD appCapabilities = mkdirCapability | renameCapability | metadataCapability |
                                                  deleteCapability | listingCapability | copyCapability | moveCapability |
                                                  inventoryCapability | copyTreeCapability | cancelTreeCapability |
                                                  directoryTimesCapability | directoryAttrsCapability | copyIgnoreAdsCapability |
                                                  copyPreserveAdsCapability | copyCompressedCapability | renameSymlinkCapability |
                                                  renameDirectorySymlinkCapability | renameJunctionCapability | deleteSymlinkCapability |
-                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability | zipSelectionWriteCapability | zipUpdateCapability;
+                                                 deleteDirectorySymlinkCapability | deleteJunctionCapability | copySecurityCapability | viewCapability | sizeDetailsCapability | archiveReadCapability | zipSelectionWriteCapability | zipUpdateCapability | copyOverwriteCapability;
 
 std::wstring PipeName(const GUID& id)
 {
@@ -924,7 +926,7 @@ private:
     TOKEN_PRIVILEGES previous{};
 };
 
-struct ZipFileSecurity
+struct ReplacementSecurity
 {
     std::unique_ptr<void, LocalFreeDeleter> descriptor;
     PSID owner = nullptr;
@@ -964,7 +966,7 @@ struct ZipFileSecurity
 
     DWORD Verify(HANDLE file) const
     {
-        ZipFileSecurity actual;
+        ReplacementSecurity actual;
         if (const DWORD error = actual.Read(file))
             return error;
         // NTFS may omit the auto-inheritance bookkeeping bits on a newly created file.
@@ -978,8 +980,9 @@ struct ZipFileSecurity
     }
 };
 
-DWORD PrepareZipUpdateFiles(HANDLE parent, std::wstring_view leaf, const UacF7::ArchiveRevision& revision,
-                            UacZipUpdate::Handle& original, Handle& stage, ZipFileSecurity& security)
+DWORD PrepareReplacementFiles(HANDLE parent, std::wstring_view leaf, const UacF7::ArchiveRevision& revision,
+                              UacZipUpdate::Handle& original, Handle& stage, ReplacementSecurity& security,
+                              UacZipUpdate::ReplacementKind kind)
 {
     ScopedTokenPrivilege audit;
     DWORD error = audit.Enable(L"SeSecurityPrivilege");
@@ -1003,7 +1006,8 @@ DWORD PrepareZipUpdateFiles(HANDLE parent, std::wstring_view leaf, const UacF7::
     wchar_t guid[39]{};
     if (!StringFromGUID2(id, guid, ARRAYSIZE(guid)))
         return ERROR_GEN_FAILURE;
-    const std::wstring name = std::wstring(L".samandarin-zip-") + guid + L".tmp";
+    const auto prefix = kind == UacZipUpdate::ReplacementKind::Zip ? L".samandarin-zip-" : L".samandarin-overwrite-";
+    const std::wstring name = std::wstring(prefix) + guid + L".tmp";
     {
         ScopedTokenPrivilege restore;
         if ((error = restore.Enable(L"SeRestorePrivilege")) != ERROR_SUCCESS)
@@ -1026,6 +1030,72 @@ DWORD PrepareZipUpdateFiles(HANDLE parent, std::wstring_view leaf, const UacF7::
         ? ERROR_SUCCESS : GetLastError();
 }
 
+DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
+                           const UacDirectoryLeaf::ParentIdentity& expectedSourceParent,
+                           const FILE_ID_INFO& expectedSource, std::wstring_view sourceLeaf,
+                           HANDLE targetParent, const UacDirectoryLeaf::ParentIdentity& expectedTargetParent,
+                           std::wstring_view targetLeaf, const UacF7::ArchiveRevision& expectedTarget,
+                           ULONGLONG bytes, HANDLE pipe, ULONGLONG deadline)
+{
+    constexpr auto kind = UacZipUpdate::ReplacementKind::DiskCopy;
+    using UacZipUpdate::Detail::CheckParent;
+    DWORD error = CheckParent(sourceParent, expectedSourceParent);
+    if (!error)
+        error = CheckParent(targetParent, expectedTargetParent);
+    if (error)
+        return error;
+    if (UacRenameLeaf::Detail::SameSource(expectedSource, UacZipUpdate::RevisionIdentity(expectedTarget)))
+        return ERROR_INVALID_PARAMETER;
+
+    HANDLE raw = nullptr;
+    error = UacRenameLeaf::Detail::OpenSource(sourceParent, sourceLeaf, raw, FILE_READ_DATA | FILE_READ_EA, FILE_SHARE_READ);
+    if (error)
+        return error;
+    const auto source = Adopt(raw);
+    if ((error = UacZipUpdate::Detail::CheckIdentity(source.get(), expectedSource)) != ERROR_SUCCESS)
+        return error;
+    FILE_BASIC_INFO sourceBasic{};
+    if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), sourceBasic)) != ERROR_SUCCESS)
+        return error;
+    LARGE_INTEGER length{};
+    if (!GetFileSizeEx(source.get(), &length))
+        return GetLastError();
+    if (length.QuadPart < 0 || static_cast<ULONGLONG>(length.QuadPart) != bytes)
+        return ERROR_FILE_INVALID;
+
+    Handle journal;
+    const RemoveEmptyZipJournal retire{journal};
+    const auto journalName = JournalName(L"uac-overwrite-recovery-", expectedTargetParent);
+    if ((error = OpenProtectedJournal(install, journalName, FILE_OPEN_IF, true, journal)) != ERROR_SUCCESS ||
+        (error = UacZipUpdate::Recover(targetParent, expectedTargetParent, targetLeaf, journal.get(), kind)) != ERROR_SUCCESS)
+        return error;
+
+    UacZipUpdate::Handle original(nullptr, CloseHandle);
+    Handle stage;
+    ReplacementSecurity security;
+    if ((error = PrepareReplacementFiles(targetParent, targetLeaf, expectedTarget, original, stage, security, kind)) != ERROR_SUCCESS ||
+        (error = UacCopyLeaf::Detail::CopyData(source.get(), stage.get(), bytes, nullptr, pipe, deadline, false)) != ERROR_SUCCESS)
+        return error;
+
+    FILE_BASIC_INFO currentSource{};
+    if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), currentSource)) != ERROR_SUCCESS)
+        return error;
+    if (!UacCopyLeaf::Detail::SameBasicMetadata(sourceBasic, currentSource))
+        return ERROR_FILE_INVALID;
+
+    FILE_BASIC_INFO metadata{};
+    metadata.LastWriteTime = sourceBasic.LastWriteTime;
+    metadata.FileAttributes = UacCopyLeaf::Detail::CopiedAttributes(sourceBasic.FileAttributes);
+    if (!SetFileInformationByHandle(stage.get(), FileBasicInfo, &metadata, sizeof(metadata)))
+        return GetLastError();
+    if ((error = security.Verify(original.get())) != ERROR_SUCCESS ||
+        (error = security.Verify(stage.get())) != ERROR_SUCCESS)
+        return error;
+    const auto publication = UacZipUpdate::Publish(targetParent, expectedTargetParent, targetLeaf, expectedTarget,
+                                                   original, stage.get(), journal.get(), pipe, deadline, nullptr, kind);
+    return publication.recoveryError ? ERROR_PARTIAL_COPY : publication.error;
+}
+
 DWORD WriteZipUpdate(const InstallLocation& install, HANDLE root, std::wstring_view relative, std::wstring_view leaf,
                      const UacDirectoryLeaf::ParentIdentity& expected, const UacF7::ArchiveRevision& revision,
                      ULONGLONG bytes, HANDLE pipe, ULONGLONG& deadline, DWORD& result, Handle& archive,
@@ -1044,9 +1114,10 @@ DWORD WriteZipUpdate(const InstallLocation& install, HANDLE root, std::wstring_v
         result = UacZipUpdate::Recover(parent.get(), actual, leaf, journal.get());
     UacZipUpdate::Handle original(nullptr, CloseHandle);
     Handle stage;
-    ZipFileSecurity security;
+    ReplacementSecurity security;
     if (!result)
-        result = PrepareZipUpdateFiles(parent.get(), leaf, revision, original, stage, security);
+        result = PrepareReplacementFiles(parent.get(), leaf, revision, original, stage, security,
+                                         UacZipUpdate::ReplacementKind::Zip);
 
     DWORD error = TransferRequest(pipe, &result, sizeof(result), true, deadline);
     if (error)
@@ -1107,7 +1178,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool readArchive = header.operation == Operation::ReadArchive;
     const bool writeZipSelection = header.operation == Operation::WriteZipSelection;
     zipUpdate = header.operation == Operation::WriteZipUpdate;
-    const bool copy = UacF7::IsFileCopy(header.operation);
+    const bool overwrite = header.operation == Operation::CopyOverwrite;
+    const bool copy = UacF7::IsFileCopy(header.operation) || overwrite;
     const bool move = header.operation == Operation::Move;
     const bool tree = header.operation == Operation::CopyTree;
     const bool transfer = copy || move || tree;
@@ -1135,6 +1207,16 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         if (error)
             return error;
         if (!UacMetadataLeaf::IsValid(metadata))
+            return ERROR_INVALID_DATA;
+    }
+
+    UacF7::ArchiveRevision overwriteTarget;
+    if (overwrite)
+    {
+        error = TransferRequest(pipe, &overwriteTarget, sizeof(overwriteTarget), false, deadline);
+        if (error)
+            return error;
+        if (overwriteTarget.reserved || overwriteTarget.size < 0 || overwriteTarget.serial != header.targetSerial)
             return ERROR_INVALID_DATA;
     }
 
@@ -1275,7 +1357,15 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         result = OpenRequestParent(targetRoot.get(), targetRelative, targetParent, targetIdentity);
         if (!result)
         {
-            if (move)
+            if (overwrite)
+            {
+                const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
+                deadline = copyDeadline + timeoutMs;
+                result = CopyOverExistingFile(install, parent.get(), expected, sourceIdentity, leaf,
+                                              targetParent.get(), expectedTarget, targetLeaf, overwriteTarget,
+                                              header.copySize, pipe, copyDeadline);
+            }
+            else if (move)
             {
                 result = UacRenameLeaf::MoveVerifiedFile(parent.get(), expected, sourceIdentity, leaf,
                                                          targetParent.get(), expectedTarget, targetLeaf,
@@ -1582,7 +1672,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
              , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result,
                HANDLE* sessionPipe = nullptr, HANDLE cancel = nullptr, std::vector<BYTE>* snapshot = nullptr,
                UacF7::ArchiveRevision* archiveRevision = nullptr, std::vector<BYTE>* zipBytes = nullptr,
-               HANDLE zipUpdateFile = nullptr
+               HANDLE zipUpdateFile = nullptr, UacF7::ArchiveRevision* overwriteTarget = nullptr
 #endif
 )
 {
@@ -1678,6 +1768,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
             error = TransferRequest(pipe.get(), payload->data(), static_cast<DWORD>(payload->size() * sizeof(wchar_t)), true, deadline);
         if (!error && metadata)
             error = TransferRequest(pipe.get(), metadata, sizeof(*metadata), true, deadline);
+        if (!error && overwriteTarget)
+            error = TransferRequest(pipe.get(), overwriteTarget, sizeof(*overwriteTarget), true, deadline);
         if (!error && zipBytes)
         {
             deadline = GetTickCount64() + copyTimeoutMs + timeoutMs;
@@ -1709,7 +1801,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         }
 
         const bool tree = request->operation == Operation::CopyTree;
-        const bool copy = UacF7::IsFileCopy(request->operation);
+        const bool copy = UacF7::IsFileCopy(request->operation) || overwriteTarget;
         if (copy || tree || zipBytes)
             deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
         error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline, tree ? cancel : nullptr);
@@ -1718,7 +1810,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         {
             // The authenticated reply is sent only after the operation handles close.
             result->error = operationError;
-            result->unknown = (tree || zipUpdateFile) && operationError == ERROR_PARTIAL_COPY;
+            result->unknown = (tree || zipUpdateFile || overwriteTarget) && operationError == ERROR_PARTIAL_COPY;
         }
         if (error)
             return IoError(L"Read request result", error);
@@ -1791,7 +1883,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
     if (snapshot && operationError == ERROR_SUCCESS)
         snapshot->swap(receivedSnapshot);
     result->error = operationError;
-    result->unknown = (request->operation == Operation::CopyTree || zipUpdateFile) && operationError == ERROR_PARTIAL_COPY;
+    result->unknown = (request->operation == Operation::CopyTree || zipUpdateFile || overwriteTarget) && operationError == ERROR_PARTIAL_COPY;
 #else
     std::wprintf(L"Authenticated elevated broker exited (%lu), expected (%lu).\n", code, expected);
 #endif
@@ -2162,6 +2254,25 @@ bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstrin
     return true;
 }
 
+bool PreparedTransfer::PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath,
+                                        ULONGLONG expectedSize)
+{
+    if (expectedSize > maxPilotCopyBytes ||
+        !source.PrepareTarget(sourcePath, Operation::CopyOverwrite, {}, nullptr) ||
+        !target.PrepareView(targetPath) ||
+        UacZipUpdate::ReadRevision(target.source, overwriteTarget) ||
+        !IsPlainCopyFile(overwriteTarget.attributes) ||
+        (overwriteTarget.attributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)))
+        return false;
+    size = expectedSize;
+    return true;
+}
+
+bool PreparedTransfer::MatchesOverwriteTarget(HANDLE file) const
+{
+    return IsOverwrite() && UacZipUpdate::CheckRevision(file, overwriteTarget) == ERROR_SUCCESS;
+}
+
 bool PreparedTransfer::PrepareTree(const std::wstring& sourcePath, std::wstring_view targetDirectory, std::wstring& destination)
 {
     targetDirectory = TrimTreePath(targetDirectory);
@@ -2198,7 +2309,9 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel) const
     std::memcpy(header.sourceId.Identifier, source.sourceId, sizeof(source.sourceId));
     std::memcpy(header.targetParentId.Identifier, target.fileId, sizeof(target.fileId));
     std::wstring payload = source.volume + source.relative + source.leaf + target.volume + target.relative + target.leaf;
-    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, cancel);
+    ArchiveRevision revision = overwriteTarget;
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, cancel,
+             nullptr, nullptr, nullptr, nullptr, IsOverwrite() ? &revision : nullptr);
     return result;
 }
 

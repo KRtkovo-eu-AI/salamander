@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Identify the protected F5 replacement. | Show the authorized replacement paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share the protected read consent prompt with F3. | Keep the scope and shield consistent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer explicit administrator consent for a protected read. | Keep the exact folder and operation visible in a shared prompt. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe a refused EFS broker copy. | Report the exact boundary when EFS is detected after consent. | | GPT-6.1 Sol (Codex) |
@@ -1783,7 +1784,9 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             const bool moving = prompt.request.IsMove();
             const bool tree = prompt.request.IsTree();
             int confirmText = moving ? IDS_UAC_MOVE_CONFIRM : IDS_UAC_COPY_CONFIRM;
-            if (tree)
+            if (prompt.request.IsOverwrite())
+                confirmText = IDS_UAC_COPY_OVERWRITE_CONFIRM;
+            else if (tree)
                 confirmText = IDS_UAC_TREE_COPY_CONFIRM;
             else if (prompt.request.PreservesSecurity())
                 confirmText = IDS_UAC_COPY_SECURITY_CONFIRM;
