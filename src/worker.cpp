@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Preserve and verify EFS alternate data streams. | Keep the source stream inventory consistent through encrypted export and publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve worker error choices for leaf mutations. | Return cancelled elevation to the ordinary retry and skip dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Resume the ordinary transfer error flow after known UAC outcomes. | Preserve skipped items, progress and confirmed overwrite revisions. | | GPT-6.1 Sol (Codex) |
@@ -5697,7 +5698,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     const bool encrypted = !moving && UacF7::IsEncryptedCopyFile(op.Attr);
     if (!script.AllowTransferPilot || script.OverwriteOlder ||
         ((op.OpFlags & OPFL_AS_ENCRYPTED) != 0 && !encrypted) ||
-        (encrypted && (op.OpFlags & OPFL_COPY_ADS) != 0) || !op.SourceNameWValid || !op.TargetNameWValid ||
+        !op.SourceNameWValid || !op.TargetNameWValid ||
         (moving ? (script.CopySecurity || script.CopyAttrs || (op.OpFlags & OPFL_COPY_ADS) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))
                 : (!UacF7::IsEligibleFileCopy(op.Attr, script.CopyAttrs, script.IgnoreTransferAds, script.CopySecurity) ||
                    op.FileSize.Value > UacF7::maxPilotCopyBytes)))

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Preserve and verify EFS alternate data streams. | Keep the source stream inventory consistent through encrypted export and publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Pass the audit verification mode to publication. | Enforce full destination checks for elevated copies. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Connect EFS Raw, staging and publication. | Copy the verified encrypted object with no plaintext fallback. | | GPT-6.1 Sol (Codex) |
 #pragma once
@@ -78,6 +79,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
         constexpr size_t maxRawBytes = 2 * UacF7::maxPilotCopyBytes;
         FILE_BASIC_INFO basic{};
         std::vector<BYTE> encrypted;
+        std::vector<UacCopyLeaf::Detail::DataStream> streams;
         {
             UacEfsRaw::Context input;
             error = input.Open((path + sourceName).c_str(), 0);
@@ -90,10 +92,22 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
                 bytes.QuadPart < 0 || static_cast<ULONGLONG>(bytes.QuadPart) != size)
                 return ERROR_FILE_INVALID;
             if ((error = UacCopyLeaf::Detail::CheckPlainStreamsAndEa(source.get(), false,
-                                                                    UacCopyLeaf::StreamPolicy::RequireDefault)) != ERROR_SUCCESS)
+                                                                    UacCopyLeaf::StreamPolicy::PreserveNamed)) != ERROR_SUCCESS ||
+                (error = UacCopyLeaf::Detail::ReadDataStreams(source.get(), streams)) != ERROR_SUCCESS)
                 return error;
             error = input.Read(encrypted, maxRawBytes, deadline, connection);
             if (error)
+                return error;
+            // EFS protects the streams it opened, but a new named stream can
+            // appear during export. Verify the list under the same context.
+            FILE_BASIC_INFO current{};
+            if (!GetFileInformationByHandleEx(source.get(), FileBasicInfo, &current, sizeof(current)))
+                return GetLastError();
+            if (!UacCopyLeaf::Detail::SameBasicMetadata(basic, current))
+                return ERROR_FILE_INVALID;
+            if ((error = UacCopyLeaf::Detail::CheckPlainStreamsAndEa(source.get(), false,
+                                                                    UacCopyLeaf::StreamPolicy::PreserveNamed)) != ERROR_SUCCESS ||
+                (error = VerifyStreams(source.get(), streams)) != ERROR_SUCCESS)
                 return error;
         }
         {
@@ -104,7 +118,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
             if (error)
                 return error;
         }
-        return PublishPayload(workspace, target, expectedTarget, targetLeaf, size, basic, connection, deadline, readAudit);
+        return PublishPayload(workspace, target, expectedTarget, targetLeaf, size, basic, connection, deadline, readAudit, &streams);
     };
     error = copy();
     return workspace.Cleanup() ? ERROR_PARTIAL_COPY : error;

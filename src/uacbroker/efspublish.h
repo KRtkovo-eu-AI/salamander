@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Preserve and verify EFS alternate data streams. | Keep the source stream inventory consistent through encrypted export and publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve audit and system access policy at EFS publication. | Compare the full destination policy before disarming deletion. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Carry ordinary attributes through EFS publication. | Keep source flags without changing its encryption. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Publish verified EFS payloads with destination permissions. | Keep deletion armed until the published metadata has been verified. | | GPT-6.1 Sol (Codex) |
@@ -78,6 +79,14 @@ private:
     SECURITY_DESCRIPTOR_CONTROL control{};
 };
 
+inline DWORD VerifyStreams(HANDLE file, const std::vector<UacCopyLeaf::Detail::DataStream>& expected)
+{
+    std::vector<UacCopyLeaf::Detail::DataStream> actual;
+    if (const DWORD error = UacCopyLeaf::Detail::ReadDataStreams(file, actual))
+        return error;
+    return actual == expected ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+}
+
 inline DWORD OpenPublicationPayload(const Workspace& workspace, Handle& payload, bool readAudit = false)
 {
     HANDLE raw = nullptr;
@@ -108,7 +117,8 @@ inline DWORD OpenPublicationPayload(const Workspace& workspace, Handle& payload,
 inline DWORD PublishPayload(const Workspace& workspace, HANDLE target,
                             const UacDirectoryLeaf::ParentIdentity& expectedTarget, std::wstring_view leaf,
                             ULONGLONG expectedSize, const FILE_BASIC_INFO& sourceTimes,
-                            HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG, bool readAudit = false)
+                            HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG, bool readAudit = false,
+                            const std::vector<UacCopyLeaf::Detail::DataStream>* expectedStreams = nullptr)
 {
     using namespace Detail;
     if (!UacDirectoryLeaf::IsComponent(leaf))
@@ -142,6 +152,8 @@ inline DWORD PublishPayload(const Workspace& workspace, HANDLE target,
     if (!(attributes.FileAttributes & FILE_ATTRIBUTE_ENCRYPTED) || size.QuadPart < 0 ||
         static_cast<ULONGLONG>(size.QuadPart) != expectedSize)
         return ERROR_FILE_INVALID;
+    if (expectedStreams && (error = VerifyStreams(payload.get(), *expectedStreams)) != ERROR_SUCCESS)
+        return error;
 
     FileSecurity destinationSecurity;
     {

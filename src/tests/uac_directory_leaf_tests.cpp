@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-08 | Exercise encrypted named-stream copies and concurrent writes. | Verify raw EFS output before committing the target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Probe exclusive NTFS oplocks during F6 source retirement. | Observe separate-stream and extended-attribute writes against a held oplock. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Preserve named data streams when copying protected permissions. | Combine the existing staged security and stream validation. | | GPT-6.1 Sol (Codex) |
@@ -2019,6 +2020,26 @@ static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const F
             error = publish(targetId, GetTickCount64());
             Check(error == ERROR_TIMEOUT && Exists(payload) && !Exists(final),
                   "cancel an expired EFS publication before changing the destination", error);
+            if (scenario == Scenario::Publish)
+            {
+                const std::vector<UacCopyLeaf::Detail::DataStream> missingStream{{L"::$DATA", plaintext.size()},
+                                                                               {L":missing:$DATA", 1}};
+                error = UacEfsWorkspace::PublishPayload(workspace, target.get(), targetId, leaf, plaintext.size(),
+                                                         sourceTimes, nullptr, MAXULONGLONG, false, &missingStream);
+                Check(error == ERROR_FILE_INVALID && !Exists(final),
+                      "refuse an EFS import whose stream inventory differs from the source", error);
+                // The refused publication arms cleanup for the opened payload.
+                if (Exists(payload) || workspace.CreatePayload(rawSecurity))
+                    return false;
+                {
+                    UacEfsRaw::Context output;
+                    error = output.Open((guidStage + L"\\" + UacEfsWorkspace::payloadName).c_str(), CREATE_FOR_IMPORT);
+                    if (!error)
+                        error = output.Write(raw, MAXULONGLONG);
+                }
+                if (error)
+                    return false;
+            }
             if (scenario == Scenario::Collision)
             {
                 if (!WriteFixture(final, {9}))
@@ -2137,6 +2158,18 @@ static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const F
     result = copy(plaintext.size());
     Check((result == ERROR_FILE_EXISTS || result == ERROR_ALREADY_EXISTS) && HasContents(copied, plaintext),
           "the complete EFS transfer does not overwrite an existing file", result);
+
+    const auto namedSource = originalPath + L":\u6771-integrated";
+    const auto namedTarget = copied + L":\u6771-integrated";
+    const std::vector<BYTE> streamData{3, 5, 7};
+    if (!DeleteFileW(copied.c_str()) || !WriteFixture(namedSource, streamData))
+        return false;
+    result = copy(plaintext.size());
+    Check(!result && HasContents(copied, plaintext) && HasContents(namedTarget, streamData) &&
+              HasContents(namedSource, streamData) && (GetFileAttributesW(copied.c_str()) & FILE_ATTRIBUTE_ENCRYPTED),
+          "preserve both the main data and a Unicode named stream through encrypted F5 publication", result);
+    if (!DeleteFileW(namedSource.c_str()))
+        return false;
     LARGE_INTEGER size{};
     Check(GetFileSizeEx(journal.get(), &size) && !size.QuadPart, "clear the EFS journal after verified cleanup");
     return failures == 0;
@@ -2275,6 +2308,45 @@ static bool CheckEfsRaw(const std::wstring& folder, const wchar_t* fixturePath)
         std::vector<BYTE> interrupted;
         const DWORD error = input.Read(interrupted, raw.size(), MAXULONGLONG, connection.get());
         Check(error == ERROR_BROKEN_PIPE && interrupted.empty(), "discard EFS raw bytes when the host disconnects", error);
+    }
+    {
+        const auto named = restored + L":\u6771-raw";
+        const auto extra = restored + L":late-raw";
+        if (!WriteFixture(named, {8, 9}))
+            return false;
+        {
+            const auto writer = open(named.c_str(), FILE_WRITE_DATA, share);
+            if (!writer)
+                return false;
+            UacEfsRaw::Context input;
+            const DWORD error = input.Open(volumePath.c_str(), 0);
+            Check(error == ERROR_ACCESS_DENIED || error == ERROR_SHARING_VIOLATION,
+                  "EFS Raw refuses to export a source with a preexisting named-stream writer", error);
+        }
+        {
+            UacEfsRaw::Context input;
+            if (input.Open(volumePath.c_str(), 0))
+                return false;
+            for (const DWORD access : {static_cast<DWORD>(FILE_WRITE_DATA), static_cast<DWORD>(DELETE)})
+            {
+                const auto writer = open(named.c_str(), access, share);
+                const DWORD error = writer ? ERROR_SUCCESS : GetLastError();
+                Check(!writer && (error == ERROR_ACCESS_DENIED || error == ERROR_SHARING_VIOLATION),
+                      "EFS Raw pins the existing named stream against writes and deletion", error);
+            }
+            std::vector<UacCopyLeaf::Detail::DataStream> streams;
+            if (UacCopyLeaf::Detail::ReadDataStreams(restoredIdentity.get(), streams))
+                return false;
+            const HANDLE rawExtra = CreateFileW(extra.c_str(), FILE_WRITE_DATA, share, nullptr, CREATE_NEW, 0, nullptr);
+            const DWORD createError = rawExtra == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
+            if (!createError)
+                CloseHandle(rawExtra);
+            const DWORD error = UacEfsWorkspace::Detail::VerifyStreams(restoredIdentity.get(), streams);
+            Check(createError ? error == ERROR_SUCCESS : error == ERROR_FILE_INVALID,
+                  "detect a new named stream if the EFS context permits its creation", error);
+        }
+        if (!DeleteFileW(named.c_str()) || (Exists(extra) && !DeleteFileW(extra.c_str())))
+            return false;
     }
     {
         const HANDLE rawParent = CreateFileW(folder.c_str(), FILE_ADD_FILE | FILE_READ_ATTRIBUTES,
