@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Render conflict explanations through a dedicated status control subclass. | Ensure theme painting cannot overwrite the conflict text color. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Track conflict status text for contrast-aware rendering. | Keep conflict explanations highlighted independently of which competing row currently owns the editor selection. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add direct painting support for the association matrix. | Render cell colors and status badges after the native list-view paint. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Replace association detail selectors with action tabs. | Keep editor state tied to one of five matrix actions and avoid category/operation combo races. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -1152,6 +1153,9 @@ protected:
     int MatrixTargetIconIndex(int associationIndex);
     bool IsExtensionViewerLabel(const std::string& label) const;
     std::string MatrixConflictDetails(const Salamander::FileAssociations::Association& item) const;
+    static LRESULT CALLBACK ConflictStatusSubclassProc(HWND window, UINT message, WPARAM wParam,
+                                                        LPARAM lParam, UINT_PTR subclassId,
+                                                        DWORD_PTR referenceData);
     int MatrixSourceKind(const MatrixRow& row) const;
     std::string MatrixSourceText(const MatrixRow& row) const;
     void UpdateCategoryTabs();
