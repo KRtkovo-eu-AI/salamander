@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Exercise the verified Shell recycle source gate. | Refuse a substituted file without moving either object. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Test exact Shell recycle path admission. | Reject paths that would be reinterpreted after removing the Win32 prefix. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind recycle receipts to a volume GUID and the original account. | Reject wrong-account and wrong-volume evidence even through mounted folders. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add an original-account Shell elevation probe. | Require an exact receipt and verify the restored file identity. | | GPT-6.1 Sol (Codex) |
@@ -38,78 +39,7 @@ struct ReleaseShell
 template<class Interface>
 using ShellPtr = std::unique_ptr<Interface, ReleaseShell<Interface>>;
 
-static std::wstring CurrentSid()
-{
-    HANDLE token = nullptr;
-    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token))
-        return {};
-    DWORD size = 0;
-    GetTokenInformation(token, TokenUser, nullptr, 0, &size);
-    std::vector<BYTE> data(size);
-    PWSTR sid = nullptr;
-    if (size && GetTokenInformation(token, TokenUser, data.data(), size, &size))
-        ConvertSidToStringSidW(reinterpret_cast<const TOKEN_USER*>(data.data())->User.Sid, &sid);
-    CloseHandle(token);
-    const std::wstring result = sid ? sid : L"";
-    if (sid)
-        LocalFree(sid);
-    return result;
-}
-
-static bool SameFileId(const FILE_ID_INFO& first, const FILE_ID_INFO& second)
-{
-    return first.VolumeSerialNumber == second.VolumeSerialNumber &&
-           std::memcmp(first.FileId.Identifier, second.FileId.Identifier, sizeof(first.FileId.Identifier)) == 0;
-}
-
-static bool ReadFileId(const wchar_t* path, FILE_ID_INFO& id, std::wstring* normalizedPath = nullptr)
-{
-    HANDLE file = CreateFileW(path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                              nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
-    if (file == INVALID_HANDLE_VALUE)
-        return false;
-    FILE_ATTRIBUTE_TAG_INFO attributes{};
-    bool result = GetFileInformationByHandleEx(file, FileIdInfo, &id, sizeof(id)) &&
-                  GetFileInformationByHandleEx(file, FileAttributeTagInfo, &attributes, sizeof(attributes)) &&
-                  !(attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT));
-    if (result && normalizedPath)
-    {
-        constexpr DWORD flags = FILE_NAME_NORMALIZED | VOLUME_NAME_GUID;
-        const DWORD capacity = GetFinalPathNameByHandleW(file, nullptr, 0, flags);
-        if (!capacity || capacity > 32768)
-            result = false;
-        else
-        {
-            normalizedPath->resize(capacity);
-            const DWORD length = GetFinalPathNameByHandleW(file, normalizedPath->data(), capacity, flags);
-            result = length && length < capacity;
-            normalizedPath->resize(result ? length : 0);
-        }
-    }
-    CloseHandle(file);
-    return result;
-}
-
-static std::wstring_view VolumeRoot(std::wstring_view path)
-{
-    constexpr std::wstring_view prefix = LR"(\\?\Volume{)";
-    constexpr size_t end = prefix.size() + 36;
-    if (path.size() <= end + 1 || path.substr(0, prefix.size()) != prefix ||
-        path[end] != L'}' || path[end + 1] != L'\\')
-        return {};
-    return path.substr(0, end + 2);
-}
-
-static bool InOriginalRecycleBin(std::wstring_view normalizedSource, std::wstring_view normalizedReceipt, const std::wstring& sid)
-{
-    const auto volume = VolumeRoot(normalizedSource);
-    const auto parentEnd = normalizedReceipt.find_last_of(L'\\');
-    if (volume.empty() || sid.empty() || parentEnd == std::wstring_view::npos)
-        return false;
-    const auto expected = std::wstring(volume) + LR"($Recycle.Bin\)" + sid;
-    return CompareStringOrdinal(normalizedReceipt.data(), static_cast<int>(parentEnd),
-                                expected.c_str(), static_cast<int>(expected.size()), TRUE) == CSTR_EQUAL;
-}
+using namespace OperationRecycleDetail;
 
 static bool ProbeTransferRecycle(const std::filesystem::path& folder)
 {
@@ -140,7 +70,7 @@ static bool ProbeTransferRecycle(const std::filesystem::path& folder)
         const auto path = folder / (L"samandarin-transfer-" + std::to_wstring(mode) + L".txt");
         if (!MakeFile(path.wstring()))
             return false;
-        FILE_ID_INFO before{};
+        RecycleFileId before{};
         std::wstring normalizedSource;
         if (!ReadFileId(path.c_str(), before, &normalizedSource) || VolumeRoot(normalizedSource).empty())
             return false;
@@ -182,7 +112,7 @@ static bool ProbeTransferRecycle(const std::filesystem::path& folder)
         }
 
         PWSTR receiptPath = nullptr;
-        FILE_ID_INFO after{};
+        RecycleFileId after{};
         const bool hasPath = receipt && SUCCEEDED(receipt->GetDisplayName(SIGDN_FILESYSPATH, &receiptPath)) && receiptPath;
         std::wstring normalizedReceipt;
         const bool sameFile = hasPath && ReadFileId(receiptPath, after, &normalizedReceipt) && SameFileId(before, after);
@@ -227,51 +157,32 @@ static bool MatchesProbeContents(const std::filesystem::path& path, std::string_
 static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool requestElevation, bool cancel, std::string_view expected)
 {
     const auto sid = CurrentSid();
-    FILE_ID_INFO initial{};
-    std::wstring normalizedSource;
-    if (sid.empty() || !ReadFileId(source.c_str(), initial, &normalizedSource) ||
-        VolumeRoot(normalizedSource).empty() || !MatchesProbeContents(source, expected))
+    VerifiedSource original;
+    if (sid.empty() || !ReadFileId(source.c_str(), original.id, &original.normalizedPath) ||
+        VolumeRoot(original.normalizedPath).empty() || !MatchesProbeContents(source, expected))
         return false;
 
-    OperationRecycleProgress progress(true);
-    IFileOperation* rawOperation = nullptr;
-    HRESULT hr = CoCreateInstance(CLSID_FileOperation, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&rawOperation));
-    const ShellPtr<IFileOperation> operation(rawOperation);
-    const DWORD elevation = requestElevation ? FOFX_SHOWELEVATIONPROMPT : 0;
-    if (SUCCEEDED(hr))
-        hr = operation->SetOperationFlags(OperationRecycleFlags | FOF_SILENT | elevation);
+    OperationRecycleProgress progress(true, &original);
     std::wstring shellPath;
+    HRESULT hr = OperationRecyclePath(source.wstring(), shellPath);
     if (SUCCEEDED(hr))
-        hr = OperationRecyclePath(source.wstring(), shellPath);
-    IShellItem* rawSource = nullptr;
-    if (SUCCEEDED(hr))
-        hr = SHCreateItemFromParsingName(shellPath.c_str(), nullptr, IID_PPV_ARGS(&rawSource));
-    const ShellPtr<IShellItem> item(rawSource);
-    if (SUCCEEDED(hr))
-        hr = operation->DeleteItem(item.get(), &progress);
-    if (SUCCEEDED(hr))
-        hr = FinishShellOperation(operation.get());
-    hr = progress.Result(hr, 1);
+        hr = RunSingleRecycleOperation(nullptr, shellPath, progress, requestElevation);
     std::printf("IFileOperation recycle=0x%08lX receipt=%d\n", static_cast<unsigned long>(hr), progress.Receipt() != nullptr);
 
-    FILE_ID_INFO after{};
+    RecycleFileId after{};
     if (cancel)
     {
         Check(hr == HRESULT_FROM_WIN32(ERROR_CANCELLED) && !progress.Receipt() &&
-                  ReadFileId(source.c_str(), after) && SameFileId(initial, after) && MatchesProbeContents(source, expected),
+                  ReadFileId(source.c_str(), after) && SameFileId(original.id, after) && MatchesProbeContents(source, expected),
               "cancelled Windows elevation leaves the same source and no recycle receipt");
         return failures == 0;
     }
     if (FAILED(hr) || !progress.Receipt())
         return false;
 
-    PWSTR rawPath = nullptr;
-    const HRESULT pathResult = progress.Receipt()->GetDisplayName(SIGDN_FILESYSPATH, &rawPath);
-    const std::unique_ptr<wchar_t, decltype(&CoTaskMemFree)> receiptPath(rawPath, CoTaskMemFree);
     std::wstring normalizedReceipt;
-    const bool same = SUCCEEDED(pathResult) && receiptPath && ReadFileId(receiptPath.get(), after, &normalizedReceipt) &&
-                      SameFileId(initial, after);
-    const bool inCallerBin = same && InOriginalRecycleBin(normalizedSource, normalizedReceipt, sid);
+    const bool same = ReadShellItemIdentity(progress.Receipt(), after, normalizedReceipt) && SameFileId(original.id, after);
+    const bool inCallerBin = same && InOriginalRecycleBin(original.normalizedPath, normalizedReceipt, sid);
     const bool sourceAbsent = GetFileAttributesW(source.c_str()) == INVALID_FILE_ATTRIBUTES &&
                               GetLastError() == ERROR_FILE_NOT_FOUND;
     Check(sourceAbsent, "the original source name is absent after recycling");
@@ -279,14 +190,14 @@ static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool reques
     Check(same, "the Recycle Bin item has the original file ID");
     if (!requestElevation && inCallerBin)
     {
-        auto anotherVolume = normalizedSource;
+        auto anotherVolume = original.normalizedPath;
         constexpr size_t firstGuidDigit = std::wstring_view(LR"(\\?\Volume{)").size();
         anotherVolume[firstGuidDigit] = anotherVolume[firstGuidDigit] == L'0' ? L'1' : L'0';
         Check(!InOriginalRecycleBin(anotherVolume, normalizedReceipt, sid) &&
-                  !InOriginalRecycleBin(normalizedSource, normalizedReceipt, sid + L"-1"),
+                  !InOriginalRecycleBin(original.normalizedPath, normalizedReceipt, sid + L"-1"),
               "reject a receipt from a different volume or account");
-        const auto bin = std::wstring(VolumeRoot(normalizedSource)) + LR"(other\$Recycle.Bin\)" + sid;
-        Check(!InOriginalRecycleBin(normalizedSource, bin + L"\\item", sid),
+        const auto bin = std::wstring(VolumeRoot(original.normalizedPath)) + LR"(other\$Recycle.Bin\)" + sid;
+        Check(!InOriginalRecycleBin(original.normalizedPath, bin + L"\\item", sid),
               "reject a lookalike bin nested under an unrelated folder");
     }
     if (!sourceAbsent || !inCallerBin || !same)
@@ -295,7 +206,8 @@ static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool reques
     IShellItem* rawParent = nullptr;
     hr = SHCreateItemFromParsingName(source.parent_path().c_str(), nullptr, IID_PPV_ARGS(&rawParent));
     const ShellPtr<IShellItem> parent(rawParent);
-    rawOperation = nullptr;
+    IFileOperation* rawOperation = nullptr;
+    const DWORD elevation = requestElevation ? FOFX_SHOWELEVATIONPROMPT : 0;
     if (SUCCEEDED(hr))
         hr = CoCreateInstance(CLSID_FileOperation, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&rawOperation));
     const ShellPtr<IFileOperation> restore(rawOperation);
@@ -306,7 +218,7 @@ static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool reques
     if (SUCCEEDED(hr))
         hr = FinishShellOperation(restore.get());
     std::printf("IFileOperation restore=0x%08lX\n", static_cast<unsigned long>(hr));
-    Check(SUCCEEDED(hr) && ReadFileId(source.c_str(), after) && SameFileId(initial, after) && MatchesProbeContents(source, expected),
+    Check(SUCCEEDED(hr) && ReadFileId(source.c_str(), after) && SameFileId(original.id, after) && MatchesProbeContents(source, expected),
           "restore the same item from the original user's Recycle Bin to its original name");
     return failures == 0;
 }
@@ -444,6 +356,18 @@ int wmain(int argc, wchar_t** argv)
     Check(SUCCEEDED(OperationRecyclePath(LR"(C:\auxiliary\nul-backup.txt)", shellPath)) &&
               SUCCEEDED(OperationRecyclePath(LR"(\\server\share\directory\file.txt)", shellPath)),
           "keep ordinary drive and UNC file paths");
+    const auto stale = root / L"stale-recycle.txt";
+    const auto earlier = root / L"earlier-recycle.txt";
+    VerifiedSource original;
+    if (!MakeFile(stale.wstring()) || !ReadFileId(stale.c_str(), original.id, &original.normalizedPath) ||
+        !MoveFileExW(stale.c_str(), earlier.c_str(), 0) || !MakeFile(stale.wstring()))
+        return 2;
+    OperationRecycleProgress checked(true, &original);
+    RecycleFileId earlierId{};
+    Check(RunSingleRecycleOperation(nullptr, stale.wstring(), checked) == HRESULT_FROM_WIN32(ERROR_FILE_INVALID) &&
+              !checked.Receipt() && GetFileAttributesW(stale.c_str()) != INVALID_FILE_ATTRIBUTES &&
+              ReadFileId(earlier.c_str(), earlierId) && SameFileId(original.id, earlierId),
+          "reject a source replaced after capture without recycling either file");
     const std::wstring byteLongPath = (root / (std::wstring(100, L'\u6f22') + L".txt")).wstring();
     Check(byteLongPath.size() < MAX_PATH && MakeFile(byteLongPath), "create UTF8-over-260 fixture with short UTF16 path");
     const std::vector<std::wstring> recyclePaths = {

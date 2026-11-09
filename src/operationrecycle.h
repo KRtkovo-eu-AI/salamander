@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Share the single-item Shell recycle and receipt checks. | Validate exact source identity before the Shell starts processing. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Reject Shell path normalization aliases before recycling. | Keep exact disk paths separate from Shell and DOS namespaces. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Reject alternate stream and device aliases before recycling. | Pass the Shell only absolute filesystem paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow an exact Shell recycle receipt to be inspected. | Verify account and identity without changing ordinary recycling. | | GPT-6.1 Sol (Codex) |
@@ -10,8 +11,13 @@
 #include <sherrors.h>
 #include <shlobj.h>
 #include <shellapi.h>
+#include <sddl.h>
+#include <cstring>
+#include <memory>
+#include <new>
 #include <string>
 #include <string_view>
+#include <vector>
 
 // Keep recycling in the calling user's Shell context. Access failures stop the
 // operation without requesting a different user's token.
@@ -33,11 +39,130 @@ inline HRESULT NormalizeRecycleResult(HRESULT result)
     }
 }
 
+namespace OperationRecycleDetail
+{
+inline std::wstring CurrentSid()
+{
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token))
+        return {};
+    DWORD size = 0;
+    GetTokenInformation(token, TokenUser, nullptr, 0, &size);
+    std::vector<BYTE> data(size);
+    PWSTR sid = nullptr;
+    if (size && GetTokenInformation(token, TokenUser, data.data(), size, &size))
+        ConvertSidToStringSidW(reinterpret_cast<const TOKEN_USER*>(data.data())->User.Sid, &sid);
+    CloseHandle(token);
+    const std::wstring result = sid ? sid : L"";
+    if (sid)
+        LocalFree(sid);
+    return result;
+}
+
+// The application's SDK target hides FileIdInfo. Use its documented layout
+// for the opt-in NTFS identity check without raising the application target.
+struct RecycleFileId
+{
+    ULONGLONG VolumeSerialNumber;
+    BYTE FileId[16];
+};
+constexpr auto recycleFileIdInfo = static_cast<FILE_INFO_BY_HANDLE_CLASS>(18);
+#if NTDDI_VERSION >= NTDDI_WIN8
+static_assert(sizeof(RecycleFileId) == sizeof(FILE_ID_INFO) && recycleFileIdInfo == FileIdInfo);
+#endif
+
+inline bool SameFileId(const RecycleFileId& first, const RecycleFileId& second)
+{
+    return first.VolumeSerialNumber == second.VolumeSerialNumber &&
+           std::memcmp(first.FileId, second.FileId, sizeof(first.FileId)) == 0;
+}
+
+inline bool ReadFileId(const wchar_t* path, RecycleFileId& id, std::wstring* normalizedPath = nullptr)
+{
+    HANDLE file = CreateFileW(path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                              nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (file == INVALID_HANDLE_VALUE)
+        return false;
+    FILE_ATTRIBUTE_TAG_INFO attributes{};
+    bool result = GetFileInformationByHandleEx(file, recycleFileIdInfo, &id, sizeof(id)) &&
+                  GetFileInformationByHandleEx(file, FileAttributeTagInfo, &attributes, sizeof(attributes)) &&
+                  !(attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT));
+    if (result && normalizedPath)
+    {
+        constexpr DWORD flags = FILE_NAME_NORMALIZED | VOLUME_NAME_GUID;
+        const DWORD capacity = GetFinalPathNameByHandleW(file, nullptr, 0, flags);
+        if (!capacity || capacity > 32768)
+            result = false;
+        else
+        {
+            normalizedPath->resize(capacity);
+            const DWORD length = GetFinalPathNameByHandleW(file, normalizedPath->data(), capacity, flags);
+            result = length && length < capacity;
+            normalizedPath->resize(result ? length : 0);
+        }
+    }
+    CloseHandle(file);
+    return result;
+}
+
+inline std::wstring_view VolumeRoot(std::wstring_view path)
+{
+    constexpr std::wstring_view prefix = LR"(\\?\Volume{)";
+    constexpr size_t end = prefix.size() + 36;
+    if (path.size() <= end + 1 || path.substr(0, prefix.size()) != prefix ||
+        path[end] != L'}' || path[end + 1] != L'\\')
+        return {};
+    return path.substr(0, end + 2);
+}
+
+inline bool InOriginalRecycleBin(std::wstring_view normalizedSource, std::wstring_view normalizedReceipt, const std::wstring& sid)
+{
+    const auto volume = VolumeRoot(normalizedSource);
+    const auto parentEnd = normalizedReceipt.find_last_of(L'\\');
+    if (volume.empty() || sid.empty() || parentEnd == std::wstring_view::npos)
+        return false;
+    const auto expected = std::wstring(volume) + LR"($Recycle.Bin\)" + sid;
+    return CompareStringOrdinal(normalizedReceipt.data(), static_cast<int>(parentEnd),
+                                expected.c_str(), static_cast<int>(expected.size()), TRUE) == CSTR_EQUAL;
+}
+
+inline bool ReadShellItemIdentity(IShellItem* item, RecycleFileId& id, std::wstring& normalizedPath)
+{
+    PWSTR path = nullptr;
+    const HRESULT hr = item ? item->GetDisplayName(SIGDN_FILESYSPATH, &path) : E_INVALIDARG;
+    const std::unique_ptr<wchar_t, decltype(&CoTaskMemFree)> name(path, CoTaskMemFree);
+    return SUCCEEDED(hr) && name && ReadFileId(name.get(), id, &normalizedPath);
+}
+
+struct VerifiedSource
+{
+    RecycleFileId id{};
+    std::wstring normalizedPath;
+
+    HRESULT Check(IShellItem* item) const
+    {
+        try
+        {
+            RecycleFileId actual{};
+            std::wstring actualPath;
+            return ReadShellItemIdentity(item, actual, actualPath) && SameFileId(id, actual) &&
+                   actualPath == normalizedPath ? S_OK : HRESULT_FROM_WIN32(ERROR_FILE_INVALID);
+        }
+        catch (const std::bad_alloc&)
+        {
+            return E_OUTOFMEMORY;
+        }
+    }
+};
+}
+
 // The caller retains this sink until it releases IFileOperation.
 class OperationRecycleProgress final : public IFileOperationProgressSink
 {
 public:
-    explicit OperationRecycleProgress(bool captureReceipt = false) : captureReceipt(captureReceipt) {}
+    explicit OperationRecycleProgress(bool captureReceipt = false,
+                                      const OperationRecycleDetail::VerifiedSource* source = nullptr)
+        : captureReceipt(captureReceipt), source(source) {}
     ~OperationRecycleProgress()
     {
         if (receipt)
@@ -61,10 +186,12 @@ public:
     ULONG STDMETHODCALLTYPE AddRef() override { return static_cast<ULONG>(InterlockedIncrement(&references)); }
     ULONG STDMETHODCALLTYPE Release() override { return static_cast<ULONG>(InterlockedDecrement(&references)); }
 
-    HRESULT STDMETHODCALLTYPE PreDeleteItem(DWORD flags, IShellItem*) override
+    HRESULT STDMETHODCALLTYPE PreDeleteItem(DWORD flags, IShellItem* item) override
     {
         if (!(flags & TSF_DELETE_RECYCLE_IF_POSSIBLE))
             failure = HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED);
+        else if (source && SUCCEEDED(failure))
+            failure = source->Check(item);
         return failure;
     }
     HRESULT STDMETHODCALLTYPE PostDeleteItem(DWORD, IShellItem*, HRESULT result, IShellItem* recycled) override
@@ -112,6 +239,7 @@ public:
 
 private:
     bool captureReceipt;
+    const OperationRecycleDetail::VerifiedSource* source;
     IShellItem* receipt = nullptr;
     LONG references = 1;
     HRESULT failure = S_OK;
@@ -192,23 +320,17 @@ inline UINT OperationRecycleDriveTypeW(const std::wstring& exactPath)
     return GetDriveTypeW(volume.c_str());
 }
 
-// One selected-extension worker item, preserving the same Unicode/long-path
-// identity as the direct Win32 operation. The caller owns the usual error UI.
-inline DWORD RecycleOperationFileW(HWND owner, const std::wstring& exactPath)
+// The caller has validated the Shell path and initialized COM.
+inline HRESULT RunSingleRecycleOperation(HWND owner, const std::wstring& shellPath,
+                                        OperationRecycleProgress& progress, bool showElevation = false)
 {
-    std::wstring shellPath;
-    HRESULT result = OperationRecyclePath(exactPath, shellPath);
-    if (FAILED(result)) return HRESULT_CODE(result);
-    const HRESULT initialized = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
-    if (FAILED(initialized) && initialized != RPC_E_CHANGED_MODE)
-        return ERROR_GEN_FAILURE;
-    OperationRecycleProgress progress;
     IFileOperation* operation = NULL;
     IShellItem* item = NULL;
-    result = CoCreateInstance(CLSID_FileOperation, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&operation));
+    HRESULT result = CoCreateInstance(CLSID_FileOperation, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&operation));
     if (SUCCEEDED(result)) result = operation->SetOwnerWindow(owner);
     if (SUCCEEDED(result))
-        result = operation->SetOperationFlags(OperationRecycleFlags | FOF_SILENT);
+        result = operation->SetOperationFlags(OperationRecycleFlags | FOF_SILENT |
+                                              (showElevation ? FOFX_SHOWELEVATIONPROMPT : 0));
     if (SUCCEEDED(result)) result = SHCreateItemFromParsingName(shellPath.c_str(), NULL, IID_PPV_ARGS(&item));
     if (SUCCEEDED(result)) result = operation->DeleteItem(item, &progress);
     if (SUCCEEDED(result)) result = operation->PerformOperations();
@@ -221,6 +343,21 @@ inline DWORD RecycleOperationFileW(HWND owner, const std::wstring& exactPath)
     result = progress.Result(result, 1);
     if (item != NULL) item->Release();
     if (operation != NULL) operation->Release();
+    return result;
+}
+
+// One selected-extension worker item, preserving the same Unicode/long-path
+// identity as the direct Win32 operation. The caller owns the usual error UI.
+inline DWORD RecycleOperationFileW(HWND owner, const std::wstring& exactPath)
+{
+    std::wstring shellPath;
+    HRESULT result = OperationRecyclePath(exactPath, shellPath);
+    if (FAILED(result)) return HRESULT_CODE(result);
+    const HRESULT initialized = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    if (FAILED(initialized) && initialized != RPC_E_CHANGED_MODE)
+        return ERROR_GEN_FAILURE;
+    OperationRecycleProgress progress;
+    result = RunSingleRecycleOperation(owner, shellPath, progress);
     if (SUCCEEDED(initialized)) CoUninitialize();
     if (SUCCEEDED(result)) return ERROR_SUCCESS;
     return HRESULT_FACILITY(result) == FACILITY_WIN32 ? HRESULT_CODE(result) : ERROR_NOT_SUPPORTED;
