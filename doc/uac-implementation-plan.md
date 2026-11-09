@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify shared F5 consent in the P7 virtual machine. | Confirm two files with one prompt and require fresh consent for a new job. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Stage a shared P7 acceptance candidate. | Bind the VM and release checks to one verified build and evidence manifest. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Keep confirmed protected recycle results after a late Shell failure. | Use one exact receipt to distinguish completed work from cancellation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Kill the EFS copy fixture before and after publication commits. | Verify the committed file and workspace recovery after a real process exit. | | GPT-6.1 Sol (Codex) |
@@ -1357,6 +1358,8 @@ Společný lokální běh x64 Release prošel 303 kontrolami souborového jádra
 | P7 a distribuce | Porovnat skutečné otisky s manifestem, ověřit český dialog, profil účtu, vhodné DPI a obě barevná schémata. Změřit privátní bajty aplikace a brokeru při odpovídající běžné a schválené dávce. Ověřit finální podpisy a CI/CodeQL na přesné publikované revizi. |
 
 Ke každé zkoušce zaznamenat revizi, verzi Windows a architekturu, typ účtu a volbu ve výzvě, stav souborů a procesů, případně otisky a oprávnění. Výsledky této matice jsou dosud otevřené.
+
+**VM, F5 v jednom rozsahu a zrušení nové úlohy.** Na Windows 11 Pro x64 (26200) s ověřeným pilotem `10da008c` byly přes Computer Use vybrány dva soubory ze stejného rodiče a zkopírovány do jedné chráněné složky. Uživatel potvrdil jedinou systémovou výzvu. Obě kopie odpovídaly zdrojům podle SHA-256. Další F5 pro třetí soubor vyvolalo novou výzvu a uživatel zvolil Ne. Třetí cíl nevznikl, zdroje i první dvě kopie zůstaly a po skončení nezůstal pracovní soubor ani broker. Při prvním nasazení byla stará aplikace ještě zamčená. Po doběhnutí ukončení a úpravě laboratorního skriptu o opakování při sdílecím konfliktu prošla kontrola otisků instalovaných binárek. Záznam je v `C:/Samandarin/builds/uac-p7-10da008c/f5-vm-evidence.json`. Tento běh ověřil kopii do volného názvu a nový souhlas. Smíšený výběr, Scan Ahead a závody při přepisu zůstávají v matici.
 
 ### 12.3 CI a přijetí vydání
 
