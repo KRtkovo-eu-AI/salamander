@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Trace the ordinary Shell refusal on the exact P7 fixture. | Separate the original ACL failure from the approved elevated retry. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Keep native progress exact over the 64-bit byte range. | Prevent wrapped percentages for large F6 batches. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the local volume boundary on the live broker pipe. | Refuse remote and device namespaces even with valid local file IDs. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Recheck two-volume moves and EFS on the current implementation. | Verify cancellation, stream preservation and encrypted raw I/O after the progress changes. | | GPT-6.1 Sol (Codex) |
@@ -1434,6 +1435,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, hranice místního svazku.** Nativní testy v x64 Debug i Release poslaly skutečným brokerovým kanálem tři požadavky s platnými NTFS ID zdroje a rodičů. Nahradily identifikátor svazku zdroje běžnou UNC cestou, identifikátor svazku cíle rozšířenou UNC cestou a cíl F6 názvem zařízení GLOBALROOT. Každý požadavek dostal ERROR_NOT_SUPPORTED. Zdroj měl původní obsah a cíl nevznikl. Zkouška ověřuje hranici protokolu pro lokální operace. Chování běžné operace přes skutečné SMB připojení a mapovaný disk zůstává v matici. Výstupy jsou v C:/Samandarin/builds/uac-p7-afe152a1/volume-admission-Debug.log a volume-admission-Release.log.
 
 **P7, výpočet průběhu pro velké F6 a dávky.** Společný výpočet nativních ukazatelů zachovává běžnou celočíselnou cestu a u hodnot, jejichž násobení tisícem by přeteklo, vyhledá přesnou dosaženou hranici. V x64 Debug i Release prošlo 20 992 srovnání skutečné funkce s referenční aritmetikou, včetně všech hranic ukazatele při maximální 64bitové hodnotě, prázdného celku a dokončené operace. Prošla kompilace workeru x64 Release a kontrola rozvržení průběhových dialogů. Jde o aritmetické ověření, bez takto velkých testovacích souborů. Důkazy jsou v C:/Samandarin/builds/uac-p7-afe152a1/progress-arithmetic.
+
+**P7, výchozí stav diagnostiky Koše.** Laboratorní sonda přijímá přímo existující zkušební soubor P7-recycle-02-approve.txt. V režimu baseline bez žádosti o elevaci prošla příprava Shellu, zařazení i PreDeleteItem včetně kontroly identity. PostDeleteItem i PerformOperations vrátily COPYENGINE_E_ACCESS_DENIED_SRC (0x80270021). Potvrzení položky Koše nevzniklo. Nezávislá kontrola zachytila stejnou cestu, NTFS ID a SHA-256 zdroje. Režim approve použije stejný soubor, povolí systémovou výzvu a při potvrzeném přesunu ověří Koš původního SID i obnovu. Výchozí protokol je v C:/Samandarin/builds/uac-p7-10da008c/recycle-trace/p7-shell-baseline.log. Výsledek režimu approve dosud chybí.
 
 ### 12.3 CI a přijetí vydání
 
