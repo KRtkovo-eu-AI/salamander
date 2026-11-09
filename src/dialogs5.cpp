@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Paint association matrix cells and status badges per subitem. | Apply the dark palette and provenance badges after native list-view painting. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Replace association detail selectors with five action tabs. | Keep the chosen matrix action stable and bind Pack/Unpack to dedicated pages. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Correct wildcard editor targets and paint the matrix after native theming. | Resolve the legacy editor ID to its configured executable and keep cell backgrounds and state badges visible in dark mode. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Show the configured default editor for `*.*` in the matrix. | Reflect the Category Edit fallback even when it has no separate universal-pattern association row. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -4812,12 +4813,13 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 tabText += " - ";
                 tabText += operationText;
             }
-            TCITEM tabItem;
+            TCITEMA tabItem;
             ZeroMemory(&tabItem, sizeof(tabItem));
             tabItem.mask = TCIF_TEXT;
             tabItem.pszText = const_cast<char*>(tabText.c_str());
-            TabCtrl_InsertItem(actionTabs, i, &tabItem);
+            SendMessageA(actionTabs, TCM_INSERTITEMA, i, reinterpret_cast<LPARAM>(&tabItem));
         }
+        ShowWindow(actionTabs, SW_SHOW);
         SelectedCategory = actionCategories[0];
         SelectedOperation = actionOperations[0];
         UpdateActionTabSelection();
@@ -4944,10 +4946,10 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 {IDE_FILEASSOCIATION_PATTERN, 62, detailTop + 20, right - 8, detailTop + 38},
                 {IDC_STATIC_4, 10, detailTop + 40, 58, detailTop + 49},
                 {IDC_FILEASSOCIATION_ACTION_TABS, 10, detailTop + 49, right - 8, detailBottom - 4},
-                {IDC_STATIC_6, 18, detailTop + 78, 58, detailTop + 93},
-                {IDC_FILEASSOCIATION_TARGETKIND, 62, detailTop + 75, right - 16, detailTop + 93},
-                {IDC_STATIC_7, 18, detailTop + 103, 58, detailTop + 118},
-                {IDC_FILEASSOCIATION_TARGETCATALOG, 62, detailTop + 100, right - 16, detailTop + 118},
+                {IDC_STATIC_6, 18, detailTop + 78, 82, detailTop + 93},
+                {IDC_FILEASSOCIATION_TARGETKIND, 88, detailTop + 75, right - 16, detailTop + 93},
+                {IDC_STATIC_7, 18, detailTop + 103, 82, detailTop + 118},
+                {IDC_FILEASSOCIATION_TARGETCATALOG, 88, detailTop + 100, right - 16, detailTop + 118},
                 {IDC_FILEASSOCIATION_STATUS, 18, detailTop + 123, right - 16, detailBottom - 12},
                 {0, 0, 0, 0, 0}};
             for (size_t i = 0; i < sizeof(controls) / sizeof(controls[0]); ++i)
@@ -5344,6 +5346,54 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
         break;
     case WM_NOTIFY:
     if (reinterpret_cast<LPNMHDR>(lParam)->idFrom == IDC_FILEASSOCIATION_ACTION_TABS &&
+        reinterpret_cast<LPNMHDR>(lParam)->code == NM_CUSTOMDRAW)
+        {
+            NMCUSTOMDRAW* draw = reinterpret_cast<NMCUSTOMDRAW*>(lParam);
+            if (draw->dwDrawStage == CDDS_PREPAINT)
+            {
+                SetWindowLongPtr(HWindow, DWLP_MSGRESULT, CDRF_NOTIFYITEMDRAW);
+                return TRUE;
+            }
+            if (draw->dwDrawStage == CDDS_ITEMPREPAINT)
+            {
+                const int tabIndex = static_cast<int>(draw->dwItemSpec);
+                HWND tabs = GetDlgItem(HWindow, IDC_FILEASSOCIATION_ACTION_TABS);
+                RECT tabRect;
+                if (tabIndex >= 0 && TabCtrl_GetItemRect(tabs, tabIndex, &tabRect))
+                {
+                    const bool dark = Configuration.UseWindowsDarkMode != FALSE;
+                    const bool selected = TabCtrl_GetCurSel(tabs) == tabIndex;
+                    const COLORREF face = selected ? (dark ? RGB(30, 110, 190) : RGB(0, 105, 190))
+                                                   : (dark ? RGB(48, 48, 48) : GetSysColor(COLOR_BTNFACE));
+                    const COLORREF textColor = dark ? RGB(255, 255, 255) : GetSysColor(COLOR_BTNTEXT);
+                    HBRUSH brush = CreateSolidBrush(face);
+                    if (brush != NULL)
+                    {
+                        FillRect(draw->hdc, &tabRect, brush);
+                        DeleteObject(brush);
+                    }
+                    FrameRect(draw->hdc, &tabRect, GetSysColorBrush(dark ? COLOR_GRAYTEXT : COLOR_BTNShadow));
+                    char text[128] = {0};
+                    TCITEMA item;
+                    ZeroMemory(&item, sizeof(item));
+                    item.mask = TCIF_TEXT;
+                    item.pszText = text;
+                    item.cchTextMax = _countof(text);
+                    if (TabCtrl_GetItem(tabs, tabIndex, &item))
+                    {
+                        SetBkMode(draw->hdc, TRANSPARENT);
+                        SetTextColor(draw->hdc, textColor);
+                        DrawTextA(draw->hdc, text, -1, &tabRect,
+                                  DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+                    }
+                }
+                SetWindowLongPtr(HWindow, DWLP_MSGRESULT, CDRF_SKIPDEFAULT);
+                return TRUE;
+            }
+            SetWindowLongPtr(HWindow, DWLP_MSGRESULT, CDRF_DODEFAULT);
+            return TRUE;
+        }
+    if (reinterpret_cast<LPNMHDR>(lParam)->idFrom == IDC_FILEASSOCIATION_ACTION_TABS &&
         reinterpret_cast<LPNMHDR>(lParam)->code == TCN_SELCHANGE && !Updating)
         {
             const int tabIndex = TabCtrl_GetCurSel(GetDlgItem(HWindow, IDC_FILEASSOCIATION_ACTION_TABS));
@@ -5385,57 +5435,39 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                     const bool dark = Configuration.UseWindowsDarkMode != FALSE;
                     draw->clrText = dark ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT);
                     draw->clrTextBk = dark ? RGB(56, 56, 56) : GetSysColor(COLOR_WINDOW);
+                    return returnCustomDraw(CDRF_NOTIFYSUBITEMDRAW | CDRF_NOTIFYPOSTPAINT | CDRF_NEWFONT);
+                }
+                if (draw->nmcd.dwDrawStage == (CDDS_ITEMPREPAINT | CDDS_SUBITEM))
+                {
+                    const bool dark = Configuration.UseWindowsDarkMode != FALSE;
+                    HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
+                    const bool selected = (ListView_GetItemState(
+                        list, static_cast<int>(draw->nmcd.dwItemSpec), LVIS_SELECTED) & LVIS_SELECTED) != 0;
+                    draw->clrText = selected ? GetSysColor(COLOR_HIGHLIGHTTEXT)
+                                             : dark ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT);
+                    draw->clrTextBk = selected ? GetSysColor(COLOR_HIGHLIGHT)
+                                               : dark ? RGB(56, 56, 56) : GetSysColor(COLOR_WINDOW);
                     return returnCustomDraw(CDRF_NOTIFYPOSTPAINT | CDRF_NEWFONT);
                 }
-                if (draw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
+                if (draw->nmcd.dwDrawStage == (CDDS_ITEMPOSTPAINT | CDDS_SUBITEM))
                 {
-                    LVITEM item;
-                    ZeroMemory(&item, sizeof(item));
-                    item.mask = LVIF_PARAM;
-                    item.iItem = static_cast<int>(draw->nmcd.dwItemSpec);
                     HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
-                    if (ListView_GetItem(list, &item) &&
-                        item.lParam >= 0 && item.lParam < static_cast<LPARAM>(MatrixRows.size()) &&
-                        draw->nmcd.hdc != NULL)
+                    const int rowIndex = static_cast<int>(draw->nmcd.dwItemSpec);
+                    LVITEM rowItem;
+                    ZeroMemory(&rowItem, sizeof(rowItem));
+                    rowItem.mask = LVIF_PARAM;
+                    rowItem.iItem = rowIndex;
+                    if (draw->nmcd.hdc != NULL && ListView_GetItem(list, &rowItem) &&
+                        rowItem.lParam >= 0 && rowItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
                     {
-                        const MatrixRow& row = MatrixRows[item.lParam];
+                        const MatrixRow& row = MatrixRows[rowItem.lParam];
                         const bool dark = Configuration.UseWindowsDarkMode != FALSE;
-                        const bool selected = (ListView_GetItemState(list, item.iItem, LVIS_SELECTED) & LVIS_SELECTED) != 0;
-                        const int statusIndexes[5] = {row.View, row.AlternateView, row.Edit,
-                                                       row.DeletePack, row.ListUnpack};
-                        int statusAssociation = -1;
-                        for (int i = 0; i < 5; ++i)
-                            if (statusIndexes[i] >= 0)
-                            {
-                                statusAssociation = statusIndexes[i];
-                                break;
-                            }
-                        Salamander::FileAssociations::Provenance state =
-                            statusAssociation >= 0 ? Rows[statusAssociation].AssociationProvenance
-                                                   : Salamander::FileAssociations::Provenance::Default;
-                        if (row.Conflict)
-                            state = Salamander::FileAssociations::Provenance::Conflict;
-                        if (state == Salamander::FileAssociations::Provenance::Legacy)
-                            state = Salamander::FileAssociations::Provenance::Default;
-                        COLORREF badgeColor = dark ? RGB(106, 80, 170) : RGB(225, 215, 250);
-                        switch (state)
+                        const bool selected = (ListView_GetItemState(list, rowIndex, LVIS_SELECTED) & LVIS_SELECTED) != 0;
+                        RECT cell;
+                        if (ListView_GetSubItemRect(list, rowIndex, draw->iSubItem, LVIR_BOUNDS, &cell))
                         {
-                        case Salamander::FileAssociations::Provenance::User:
-                            badgeColor = dark ? RGB(32, 120, 55) : RGB(205, 238, 215); break;
-                        case Salamander::FileAssociations::Provenance::Disabled:
-                            badgeColor = dark ? RGB(115, 115, 115) : RGB(225, 225, 225); break;
-                        case Salamander::FileAssociations::Provenance::Conflict:
-                            badgeColor = dark ? RGB(190, 64, 58) : RGB(250, 210, 205); break;
-                        default: break;
-                        }
-
-                        for (int subItem = 0; subItem < 8; ++subItem)
-                        {
-                            RECT cell;
-                            if (!ListView_GetSubItemRect(list, item.iItem, subItem, LVIR_BOUNDS, &cell))
-                                continue;
                             RECT content = cell;
-                            InflateRect(&content, -1, -1); // preserve the list-view grid lines
+                            InflateRect(&content, -1, -1);
                             HBRUSH background = CreateSolidBrush(
                                 selected ? GetSysColor(COLOR_HIGHLIGHT)
                                          : dark ? RGB(56, 56, 56) : GetSysColor(COLOR_WINDOW));
@@ -5444,80 +5476,104 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                                 FillRect(draw->nmcd.hdc, &content, background);
                                 DeleteObject(background);
                             }
-
                             int associationIndex = -1;
-                            if (subItem == 1) associationIndex = row.View;
-                            else if (subItem == 2) associationIndex = row.AlternateView;
-                            else if (subItem == 3) associationIndex = row.Edit;
-                            else if (subItem == 4) associationIndex = row.DeletePack;
-                            else if (subItem == 5) associationIndex = row.ListUnpack;
+                            if (draw->iSubItem == 1) associationIndex = row.View;
+                            else if (draw->iSubItem == 2) associationIndex = row.AlternateView;
+                            else if (draw->iSubItem == 3) associationIndex = row.Edit;
+                            else if (draw->iSubItem == 4) associationIndex = row.DeletePack;
+                            else if (draw->iSubItem == 5) associationIndex = row.ListUnpack;
 
-                            if (subItem == 6)
+                            if (draw->iSubItem != 6)
                             {
-                                char text[128];
-                                ListView_GetItemText(list, item.iItem, subItem, text, _countof(text));
-                                SIZE textSize = {0, 0};
-                                GetTextExtentPoint32(draw->nmcd.hdc, text, static_cast<int>(strlen(text)), &textSize);
-                                const int pillHeight = max(0, min(content.bottom - content.top - 2, 18));
-                                const int pillWidth = max(0, min(content.right - content.left - 6, textSize.cx + 18));
-                                if (pillWidth > 0 && pillHeight > 0)
+                                RECT textRect = content;
+                                textRect.left += 4;
+                                if (associationIndex >= 0 && MatrixImageList != NULL)
                                 {
-                                    RECT pill = {content.left + 3,
-                                                 content.top + (content.bottom - content.top - pillHeight) / 2,
-                                                 content.left + 3 + pillWidth,
-                                                 content.top + (content.bottom - content.top - pillHeight) / 2 + pillHeight};
-                                    HBRUSH brush = CreateSolidBrush(badgeColor);
-                                    HPEN pen = CreatePen(PS_SOLID, 1, badgeColor);
-                                    if (brush != NULL && pen != NULL)
+                                    LVITEM imageItem;
+                                    ZeroMemory(&imageItem, sizeof(imageItem));
+                                    imageItem.mask = LVIF_IMAGE;
+                                    imageItem.iItem = rowIndex;
+                                    imageItem.iSubItem = draw->iSubItem;
+                                    if (ListView_GetItem(list, &imageItem) && imageItem.iImage >= 0)
                                     {
-                                        const int savedDc = SaveDC(draw->nmcd.hdc);
-                                        HGDIOBJ oldBrush = SelectObject(draw->nmcd.hdc, brush);
-                                        HGDIOBJ oldPen = SelectObject(draw->nmcd.hdc, pen);
-                                        RoundRect(draw->nmcd.hdc, pill.left, pill.top, pill.right, pill.bottom,
-                                                  pillHeight, pillHeight);
-                                        SelectObject(draw->nmcd.hdc, oldBrush);
-                                        SelectObject(draw->nmcd.hdc, oldPen);
-                                        SetBkMode(draw->nmcd.hdc, TRANSPARENT);
-                                        SetTextColor(draw->nmcd.hdc, dark ? RGB(255, 255, 255) : RGB(25, 25, 25));
-                                        DrawText(draw->nmcd.hdc, text, -1, &pill,
-                                                 DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-                                        if (savedDc != 0)
-                                            RestoreDC(draw->nmcd.hdc, savedDc);
+                                        int iconWidth = 0;
+                                        int iconHeight = 0;
+                                        ImageList_GetIconSize(MatrixImageList, &iconWidth, &iconHeight);
+                                        ImageList_Draw(MatrixImageList, imageItem.iImage, draw->nmcd.hdc,
+                                                       content.left + 4,
+                                                       content.top + max(0, (content.bottom - content.top - iconHeight) / 2),
+                                                       ILD_TRANSPARENT);
+                                        textRect.left += iconWidth + 8;
                                     }
-                                    if (brush != NULL) DeleteObject(brush);
-                                    if (pen != NULL) DeleteObject(pen);
                                 }
-                                continue;
+                                char cellText[1024];
+                                ListView_GetItemText(list, rowIndex, draw->iSubItem, cellText, _countof(cellText));
+                                SetBkMode(draw->nmcd.hdc, TRANSPARENT);
+                                SetTextColor(draw->nmcd.hdc, selected ? GetSysColor(COLOR_HIGHLIGHTTEXT)
+                                                                      : dark ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT));
+                                DrawText(draw->nmcd.hdc, cellText, -1, &textRect,
+                                         DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
                             }
 
-                            RECT textRect = content;
-                            textRect.left += 4;
-                            if (associationIndex >= 0 && MatrixImageList != NULL)
+                            if (draw->iSubItem == 6)
                             {
-                                LVITEM imageItem;
-                                ZeroMemory(&imageItem, sizeof(imageItem));
-                                imageItem.mask = LVIF_IMAGE;
-                                imageItem.iItem = item.iItem;
-                                imageItem.iSubItem = subItem;
-                                if (ListView_GetItem(list, &imageItem) && imageItem.iImage >= 0)
+                            const int indexes[5] = {row.View, row.AlternateView, row.Edit,
+                                                    row.DeletePack, row.ListUnpack};
+                            int statusIndex = -1;
+                            for (int i = 0; i < 5; ++i)
+                                if (indexes[i] >= 0)
                                 {
-                                    int iconWidth = 0;
-                                    int iconHeight = 0;
-                                    ImageList_GetIconSize(MatrixImageList, &iconWidth, &iconHeight);
-                                    ImageList_Draw(MatrixImageList, imageItem.iImage, draw->nmcd.hdc,
-                                                   content.left + 4,
-                                                   content.top + max(0, (content.bottom - content.top - iconHeight) / 2),
-                                                   ILD_TRANSPARENT);
-                                    textRect.left += iconWidth + 8;
+                                    statusIndex = indexes[i];
+                                    break;
                                 }
+                            Salamander::FileAssociations::Provenance state = row.Conflict
+                                ? Salamander::FileAssociations::Provenance::Conflict
+                                : statusIndex >= 0 ? Rows[statusIndex].AssociationProvenance
+                                                   : Salamander::FileAssociations::Provenance::Default;
+                                char text[128];
+                                ListView_GetItemText(list, rowIndex, 6, text, _countof(text));
+                                COLORREF color = dark ? RGB(106, 80, 170) : RGB(225, 215, 250);
+                                switch (state)
+                                {
+                                case Salamander::FileAssociations::Provenance::User:
+                                    color = dark ? RGB(32, 120, 55) : RGB(205, 238, 215); break;
+                                case Salamander::FileAssociations::Provenance::Disabled:
+                                    color = dark ? RGB(115, 115, 115) : RGB(225, 225, 225); break;
+                                case Salamander::FileAssociations::Provenance::Conflict:
+                                    color = dark ? RGB(190, 64, 58) : RGB(250, 210, 205); break;
+                                default: break;
+                                }
+                                SetBkMode(draw->nmcd.hdc, TRANSPARENT);
+                                SIZE textSize = {0, 0};
+                                GetTextExtentPoint32(draw->nmcd.hdc, text,
+                                                     static_cast<int>(strlen(text)), &textSize);
+                                const int pillHeight = max(1, min(content.bottom - content.top - 2, 16));
+                                const int pillWidth = max(1, min(content.right - content.left - 6,
+                                                                 textSize.cx + 16));
+                                RECT pill = {content.left + 3,
+                                             content.top + (content.bottom - content.top - pillHeight) / 2,
+                                             content.left + 3 + pillWidth,
+                                             content.top + (content.bottom - content.top - pillHeight) / 2 + pillHeight};
+                                HBRUSH brush = CreateSolidBrush(color);
+                                HPEN pen = CreatePen(PS_SOLID, 1, color);
+                                if (brush != NULL && pen != NULL)
+                                {
+                                    const int savedDc = SaveDC(draw->nmcd.hdc);
+                                    HGDIOBJ oldBrush = SelectObject(draw->nmcd.hdc, brush);
+                                    HGDIOBJ oldPen = SelectObject(draw->nmcd.hdc, pen);
+                                    RoundRect(draw->nmcd.hdc, pill.left, pill.top, pill.right, pill.bottom,
+                                              pillHeight, pillHeight);
+                                    SelectObject(draw->nmcd.hdc, oldBrush);
+                                    SelectObject(draw->nmcd.hdc, oldPen);
+                                    SetTextColor(draw->nmcd.hdc, dark ? RGB(255, 255, 255) : RGB(25, 25, 25));
+                                    DrawText(draw->nmcd.hdc, text, -1, &pill,
+                                             DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+                                    if (savedDc != 0)
+                                        RestoreDC(draw->nmcd.hdc, savedDc);
+                                }
+                                if (brush != NULL) DeleteObject(brush);
+                                if (pen != NULL) DeleteObject(pen);
                             }
-                            char text[1024];
-                            ListView_GetItemText(list, item.iItem, subItem, text, _countof(text));
-                            SetBkMode(draw->nmcd.hdc, TRANSPARENT);
-                            SetTextColor(draw->nmcd.hdc, selected ? GetSysColor(COLOR_HIGHLIGHTTEXT)
-                                                                  : dark ? RGB(255, 255, 255) : RGB(25, 25, 25));
-                            DrawText(draw->nmcd.hdc, text, -1, &textRect,
-                                     DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
                         }
                     }
                     return returnCustomDraw(CDRF_DODEFAULT);
@@ -5531,8 +5587,8 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                     HBRUSH background = CreateSolidBrush(dark ? RGB(56, 56, 56) : GetSysColor(COLOR_WINDOW));
                     if (background != NULL)
                     {
-                        HWND headerWindow = ListView_GetHeader(list);
                         RECT lastColumn;
+                        HWND headerWindow = ListView_GetHeader(list);
                         const int columnCount = Header_GetItemCount(headerWindow);
                         if (columnCount > 0 && Header_GetItemRect(headerWindow, columnCount - 1, &lastColumn))
                         {
@@ -5540,31 +5596,12 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                             if (unused.left < unused.right)
                                 FillRect(draw->nmcd.hdc, &unused, background);
                         }
-                        const int topIndex = ListView_GetTopIndex(list);
-                        const int count = ListView_GetItemCount(list);
-                        const int pageCount = ListView_GetCountPerPage(list);
-                        int lastVisible = min(count - 1, topIndex + max(0, pageCount - 1));
-                        RECT lastRow;
-                        while (lastVisible >= topIndex &&
-                               (!ListView_GetItemRect(list, lastVisible, &lastRow, LVIR_BOUNDS) ||
-                                lastRow.top >= client.bottom))
-                            --lastVisible;
-                        if (lastVisible < 0 || lastVisible < topIndex)
-                        {
-                            FillRect(draw->nmcd.hdc, &client, background);
-                        }
-                        else if (lastRow.bottom < client.bottom)
-                        {
-                            RECT unused = {client.left, lastRow.bottom, client.right, client.bottom};
-                            FillRect(draw->nmcd.hdc, &unused, background);
-                        }
                         DeleteObject(background);
                     }
                     return returnCustomDraw(CDRF_DODEFAULT);
                 }
                 return returnCustomDraw(CDRF_DODEFAULT);
-            }
-            if (header->code == LVN_ITEMCHANGED)
+            }            if (header->code == LVN_ITEMCHANGED)
             {
                 const NMLISTVIEW* notification = reinterpret_cast<const NMLISTVIEW*>(lParam);
                 if ((notification->uChanged & LVIF_STATE) != 0 &&
