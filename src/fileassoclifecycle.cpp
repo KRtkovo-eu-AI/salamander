@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Defer default association import until Configuration opens. | Prevent early startup from persisting an incomplete clean-configuration snapshot before plugin defaults finish loading. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Materialize migrated associations without restarting. | Let the configuration page display clean/default and migrated rows immediately after lifecycle load. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Import legacy associations on first canonical load. | Show existing viewer, editor, and archive defaults in the new matrix without forcing manual pattern entry. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Expose transactional canonical model editing. | Project a candidate before publishing it to lifecycle state so the new configuration page is atomic. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -26,11 +27,12 @@ struct LifecycleState
     CFileAssociationModel Model;
     RuntimeProjectionReport ProjectionReport;
     bool Loaded;
+    bool Materialized;
     bool ProjectionSucceeded;
     bool ProjectionBlocked;
 
     LifecycleState()
-        : Loaded(false), ProjectionSucceeded(false), ProjectionBlocked(false) {}
+        : Loaded(false), Materialized(false), ProjectionSucceeded(false), ProjectionBlocked(false) {}
 };
 
 LifecycleState& State()
@@ -153,18 +155,10 @@ BOOL LoadCanonicalAssociationsForLifecycle(CConfigurationStorage& storage,
     LifecycleState& state = State();
     state.Model = loaded;
     state.Loaded = true;
-    const BOOL wasEmpty = state.Model.Associations().empty() ? TRUE : FALSE;
-    if (!MaterializeLegacyDefaults(state, error))
-        return FALSE;
+    state.Materialized = !state.Model.Associations().empty();
 
     if (!ProjectLoadedState(state, error))
         return FALSE;
-
-    // Persist the materialized model immediately. This makes a clean/default
-    // configuration stable before the next process start, while a blocked
-    // projection remains protected by SaveCanonicalAssociationsForLifecycle.
-    if (wasEmpty && state.ProjectionSucceeded)
-        state.Model.SaveToConfigurationStorage(storage, CanonicalAssociationKey, NULL);
     return TRUE;
 }
 
@@ -175,7 +169,7 @@ BOOL SaveCanonicalAssociationsForLifecycle(CConfigurationStorage& storage,
         error->clear();
 
     LifecycleState& state = State();
-    if (!state.Loaded ||
+    if (!state.Loaded || !state.Materialized ||
         !HasRegisteredOperations() || !state.ProjectionSucceeded ||
         state.ProjectionBlocked)
         return TRUE;
@@ -215,6 +209,7 @@ BOOL EnsureCanonicalAssociationsMaterializedForConfiguration(std::string* error)
     }
     if (!MaterializeLegacyDefaults(state, error))
         return FALSE;
+    state.Materialized = true;
     return ProjectLoadedState(state, error);
 }
 
@@ -248,6 +243,7 @@ BOOL ReplaceCanonicalAssociationsForConfiguration(const CFileAssociationModel& m
     }
 
     state.Model = candidate;
+    state.Materialized = true;
     state.ProjectionReport = report;
     state.ProjectionSucceeded = true;
     state.ProjectionBlocked = false;
