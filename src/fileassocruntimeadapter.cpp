@@ -52,7 +52,7 @@ bool StageViewerAssociation(const Association& association, CViewerMasks* destin
 
     CViewerMasksItem* item = new CViewerMasksItem(association.Pattern.c_str(), "", "", "",
                                                    viewerType, FALSE);
-    if (item == NULL || !item->IsGood())
+    if (!item->IsGood())
     {
         delete item;
         return false;
