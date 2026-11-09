@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Cancel F6 after verification reports progress. | Keep both source names and the existing destination during an active cancellation. | | Codex |
 | 2026-11-09 | Interrupt F6 while the last source link is delete-pending. | Verify recovery recognizes a completed retirement after a hard exit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise EFS publication refusal. | Preserve the original and clear staging if the overwrite journal cannot be acquired. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Race a new destination against a paused overwrite. | Verify interrupted recovery preserves the competing file and the exact backup. | | GPT-6.1 Sol (Codex) |
@@ -2172,6 +2173,31 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
                     Check(error == ERROR_CANCELLED && !guard.Check(2) && Exists(sourcePath) && Exists(retained),
                           "keep both source links when the host cancels verification of the existing F6 copy", error);
                     BYTE pending = 0;
+                    if (!ReadFile(connection.get(), &pending, sizeof(pending), &bytes, nullptr) ||
+                        bytes != sizeof(pending) || pending != cancelSignal)
+                        return false;
+                    struct CancelOnProgress
+                    {
+                        HANDLE host;
+                        ULONGLONG verified = 0;
+                    } activeCancel{host.get()};
+                    const UacCopyLeaf::Detail::CopyProgress cancelProgress{
+                        [](void* context, ULONGLONG count, ULONGLONG) -> DWORD {
+                            auto& state = *static_cast<CancelOnProgress*>(context);
+                            state.verified += count;
+                            const BYTE signal = UacRenameLeaf::Detail::transferCancelSignal;
+                            DWORD written = 0;
+                            if (!WriteFile(state.host, &signal, sizeof(signal), &written, nullptr))
+                                return GetLastError();
+                            return written == sizeof(signal) ? ERROR_SUCCESS : ERROR_WRITE_FAULT;
+                        }, &activeCancel};
+                    error = guard.VerifyExistingCopy(existingCopy.get(), moveContent.size(), connection.get(),
+                                                     MAXULONGLONG, &cancelProgress);
+                    Check(error == ERROR_CANCELLED && activeCancel.verified > 0 &&
+                              activeCancel.verified < moveContent.size() && !guard.Check(2) &&
+                              Exists(sourcePath) && Exists(retained) &&
+                              !Detail::CheckIdentity(existingCopy.get(), writtenId),
+                          "cancel F6 after verified progress while preserving both source links and the copy", error);
                     if (!ReadFile(connection.get(), &pending, sizeof(pending), &bytes, nullptr) ||
                         bytes != sizeof(pending) || pending != cancelSignal)
                         return false;
