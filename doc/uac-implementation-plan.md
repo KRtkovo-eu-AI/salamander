@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record the verified F6 stream inventory. | Acquire and recheck per-stream locks against the same file ID. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record NTFS named-stream oplock and unlink evidence. | Define the source guard needed for moves that preserve ADS. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record F6 source access denied during preparation. | Pass eligible cross-volume moves through the verified worker retry. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record F6 cancellation and partial replies. | Preserve the broker outcome across one-shot and shared sessions. | | GPT-6.1 Sol (Codex) |
@@ -714,6 +715,10 @@ V Debug i Release prošlo 18 kontrol transportní sady včetně dvou nových kon
 **Pojmenované proudy při F6 mezi svazky.** Lokální NTFS zkouška prokázala, že rezervace oplocku hlavního proudu při otevřeném zapisovateli pojmenovaného proudu uspěje. Rezervace přímo na pojmenovaném proudu otevřeného zapisovatele odmítne. Po zavření původního handlu ale propustí existující zapisovatelnou mapu. Tu odmítne až výhradní oplock RWH na témže pojmenovaném proudu. Obě kontroly proto musí proběhnout pro každý ověřený proud. Zkouška také ověřila odstranění jednoho ze dvou pevných odkazů při aktivním oplocku pojmenovaného proudu. Oplock zůstal platný a proud pod druhým odkazem zachoval obsah. Při odstranění posledního odkazu přešla položka do stavu čekajícího na smazání. Teprve po zavření handlu pojmenovaného proudu otevření potvrdilo chybu 2, že soubor už neexistuje. [Sdílení a oplocky proudů NTFS](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams).
 
 V Debug a Release prošlo 112 kontrol F6 a 248 obecných nativních kontrol. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Do produkčního F6 se ADS ještě nezapínají. K dokončení je potřeba připojit zámky všech proudů k přenosu, ověřit cíl po zveřejnění a v produkčním toku ověřit zánik posledního odkazu po zavření proudů.
+
+**Uzamčení inventáře proudů pro F6.** Samostatná část ochrany zdroje načte seznam proudů, ověří identitu souboru, na každém pojmenovaném proudu provede rezervaci a získá výhradní oplock. Každý otevřený proud ověří podle ID, velikosti a typu. Po otevření všech proudů znovu porovná seznam a stav zámků. Stejnou kontrolu lze zopakovat před odstraněním zdroje. Pokud některý proud nelze otevřít, uvolní se i všechny dříve získané zámky. Použití předpokládá dočasnou DACL zdroje, která zamezí novým zápisům.
+
+V x64 Debug a Release prošlo 116 kontrol F6. Nové zkoušky ověřily odmítnutí jiného ID, uvolnění dřívějších zámků při konfliktu na dalším proudu, prázdný Unicode proud a zjištění pozdě přidaného proudu. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Produkční F6 zatím proudy nenabízí. Zbývá připojit ověřené handly ke kopírování, chránit proudy cíle a potvrdit odstranění posledního odkazu po zavření zdrojových proudů.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

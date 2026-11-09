@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Hold and recheck the named streams of a sealed source. | Keep each stream locked and bind the inventory to the same NTFS identity. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Probe earlier opens on an individual NTFS data stream. | Separate per-stream exclusion from the file-wide source DACL. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Create the recovery link on the already guarded file. | Keep verification and link creation on a single handle. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Guard compressed move sources throughout retirement. | Apply the same metadata contract when reopening the recovery link. | | GPT-6.1 Sol (Codex) |
@@ -67,6 +68,117 @@ inline DWORD RequestExclusiveStreamOplock(HANDLE file, OVERLAPPED& io, REQUEST_O
     const DWORD status = complete ? ERROR_OPLOCK_NOT_GRANTED : GetLastError();
     return status == ERROR_IO_PENDING ? ERROR_SUCCESS : status;
 }
+
+// The caller seals the file before locking its named streams, so new writes
+// cannot start between each stream's filter reservation and exclusive open.
+class NamedSourceStreams
+{
+    struct Lock
+    {
+        Detail::Handle file{nullptr, CloseHandle};
+        Detail::Handle event{nullptr, CloseHandle};
+        OVERLAPPED io{};
+        REQUEST_OPLOCK_OUTPUT_BUFFER reply{};
+        bool pending = false;
+
+        ~Lock()
+        {
+            if (pending)
+            {
+                DWORD bytes = 0;
+                CancelIoEx(file.get(), &io);
+                GetOverlappedResult(file.get(), &io, &bytes, TRUE);
+            }
+        }
+    };
+
+public:
+    DWORD Open(HANDLE main, HANDLE parent, std::wstring_view leaf, const FILE_ID_INFO& expected)
+    {
+        if (!inventory.empty())
+            return ERROR_ALREADY_INITIALIZED;
+        if (!UacDirectoryLeaf::IsComponent(leaf))
+            return ERROR_INVALID_NAME;
+        DWORD error = Detail::CheckIdentity(main, expected);
+        if (error)
+            return error;
+        std::vector<UacCopyLeaf::Detail::DataStream> snapshot;
+        error = UacCopyLeaf::Detail::ReadDataStreams(main, snapshot);
+        if (error)
+            return error;
+
+        std::vector<std::unique_ptr<Lock>> acquired;
+        for (const auto& stream : snapshot)
+        {
+            if (stream.suffix == L"::$DATA")
+                continue;
+            if ((error = CheckNoPriorSourceOpens(parent, leaf, expected, stream.suffix)) != ERROR_SUCCESS)
+                return error;
+            auto lock = std::make_unique<Lock>();
+            lock->event.reset(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+            if (!lock->event)
+                return GetLastError();
+            lock->io.hEvent = lock->event.get();
+            const auto name = std::wstring(leaf) + stream.suffix;
+            HANDLE raw = nullptr;
+            error = UacRenameLeaf::Detail::OpenFile(parent, name, raw, FILE_READ_DATA | SYNCHRONIZE,
+                FILE_SHARE_READ | FILE_SHARE_DELETE, FILE_OPEN, FILE_OPEN_REQUIRING_OPLOCK, nullptr, false, true);
+            if (error)
+                return error;
+            lock->file.reset(raw);
+            error = RequestExclusiveStreamOplock(raw, lock->io, lock->reply);
+            if (error)
+                return error;
+            lock->pending = true;
+            if ((error = Detail::CheckIdentity(raw, expected)) != ERROR_SUCCESS)
+                return error;
+            FILE_BASIC_INFO basic{};
+            LARGE_INTEGER size{};
+            if (!GetFileInformationByHandleEx(raw, FileBasicInfo, &basic, sizeof(basic)) || !GetFileSizeEx(raw, &size))
+                return GetLastError();
+            if (!UacF7::IsPlainCopyFile(basic.FileAttributes))
+                return ERROR_NOT_SUPPORTED;
+            if (size.QuadPart < 0 || static_cast<ULONGLONG>(size.QuadPart) != stream.size)
+                return ERROR_FILE_INVALID;
+            acquired.push_back(std::move(lock));
+        }
+        inventory = std::move(snapshot);
+        locks = std::move(acquired);
+        identity = expected;
+        error = Check(main);
+        if (error)
+        {
+            locks.clear();
+            inventory.clear();
+        }
+        return error;
+    }
+
+    DWORD Check(HANDLE main) const
+    {
+        if (inventory.empty())
+            return ERROR_INVALID_HANDLE;
+        if (DWORD error = Detail::CheckIdentity(main, identity))
+            return error;
+        std::vector<UacCopyLeaf::Detail::DataStream> current;
+        if (DWORD error = UacCopyLeaf::Detail::ReadDataStreams(main, current))
+            return error;
+        if (current != inventory)
+            return ERROR_FILE_INVALID;
+        for (const auto& lock : locks)
+        {
+            const DWORD state = WaitForSingleObject(lock->event.get(), 0);
+            if (state != WAIT_TIMEOUT)
+                return state == WAIT_OBJECT_0 ? ERROR_SHARING_VIOLATION : GetLastError();
+        }
+        return ERROR_SUCCESS;
+    }
+
+private:
+    FILE_ID_INFO identity{};
+    std::vector<UacCopyLeaf::Detail::DataStream> inventory;
+    std::vector<std::unique_ptr<Lock>> locks;
+};
 
 // The oplock covers the default stream. A file-wide DACL seal is still
 // required before committing a move so another name cannot gain a new stream.

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify one lock set against the complete named-stream inventory. | Refuse an earlier writer and notice late stream creation before retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Probe the named-stream boundary of an F6 source. | Detect earlier ADS writers and writable views independently from the main stream. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise pipe cancellation and host loss after F6 publication. | Keep both source links until the broker has authorization to retire them. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise F6 recovery before and after guarded link creation. | Verify the seal is reversible before NTFS changes the source link count. | | GPT-6.1 Sol (Codex) |
@@ -1350,6 +1351,38 @@ bool CheckVerifiedMoveSourceGuard(const std::wstring& fixture, HANDLE root)
         const auto mainFile = open(path, DELETE);
         const bool checked = mainFile && probeNamedOplock(uncontested);
         Check(checked && !uncontested, "acquire a named-stream oplock while holding the main file for deletion", uncontested);
+    }
+    {
+        const auto extra = path + L":\u6771-empty";
+        if (!WriteFixture(extra, {}))
+            return false;
+        const auto mainFile = open(path, DELETE);
+        if (!mainFile)
+            return false;
+        UacMoveSourceJournal::NamedSourceStreams named;
+        error = named.Open(mainFile.get(), root, leaf, wrong);
+        Check(error == ERROR_FILE_INVALID, "refuse a named-stream inventory from a different file ID", error);
+        {
+            const auto writer = open(extra, FILE_WRITE_DATA);
+            if (!writer)
+                return false;
+            error = named.Open(mainFile.get(), root, leaf, identity);
+            Check((error == ERROR_SHARING_VIOLATION || error == ERROR_OPLOCK_NOT_GRANTED) &&
+                      named.Check(mainFile.get()) == ERROR_INVALID_HANDLE,
+                  "release any earlier stream locks if a later stream has a writer", error);
+        }
+        error = named.Open(mainFile.get(), root, leaf, identity);
+        Check(!error && !named.Check(mainFile.get()), "lock the full inventory including an empty Unicode stream", error);
+        if (error)
+            return false;
+        const auto late = path + L":late-stream";
+        const HANDLE rawLate = CreateFileW(late.c_str(), GENERIC_WRITE, share, nullptr, CREATE_NEW, 0, nullptr);
+        if (rawLate == INVALID_HANDLE_VALUE)
+            return false;
+        const Handle lateFile(rawLate);
+        error = named.Check(mainFile.get());
+        Check(error == ERROR_FILE_INVALID,
+              "refuse retirement if a new named stream appears in the guarded inventory", error);
     }
     constexpr wchar_t aliasLeaf[] = L"named-unlink-alias";
     const auto namedAlias = fixture + L"\\" + aliasLeaf;
