@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Validate the Win32 and ARM64 P7 Release payloads. | Check the actual release binaries and exercise the Win32 broker transport under WOW64. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Build a combined x64 P7 acceptance payload. | Bind the current host, broker, probe and all language modules to one tested candidate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Complete and verify all UAC translation archives. | Ensure each shipped language contains the full UAC text set. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Complete the Spanish and Italian UAC strings. | Verify localized UAC messages in both built language modules. | | GPT-6.1 Sol (Codex) |
@@ -1513,6 +1514,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, společná kontrola všech překladů UAC.** Doplněny nizozemský, ruský, maďarský, rumunský a zjednodušený čínský archiv. Kvůli shodě při zpětném exportu bylo v nizozemském a rumunském archivu nutné upravit šířku jednoho stávajícího popisku v dialogu kompatibility o dvě jednotky. Sestavení všech jedenácti překladových modulů najednou prošlo importem i zpětným exportem bez chyb. Přímé čtení z binárních modulů podle jejich LANGID potvrdilo 65 jedinečných textů UAC v každém jazyce, celkem 715. Výpis je v C:/Samandarin/builds/uac-p6j/p7-all-uac-languages/verified-uac-strings.txt. Kontrola rozvržení nad úplnými moduly stále hlásí jedenáct neblokujících varování. Vizuální ověření rozvržení zůstává otevřené.
 
 **P7, společný kandidát 700f8f3c.** Z aktuálních zdrojů sestaveny aplikace, broker a sonda v x64 Release. Balíček v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/payload obsahuje i anglický modul a jedenáct ověřených překladů. Manifest eviduje velikost a SHA-256 všech 15 souborů. Laboratorní ověřovač potvrdil dvojici protokolu 10, manifesty a omezení načítání brokeru na System32. Nativní transportní zkouška s těmito obrazy ověřila role a odmítla starý broker protokolu 8. Prošly také kontroly Findu, workeru, plánování, konfliktů a nativního průběhu. Proti stejnému x64 Release pilotu 7b0826d7 narostl host o 1024 B na 5444096 B, broker má stále 1332736 B. Podpis, měření běhu a nasazení tohoto kandidáta do chráněného umístění zbývají. Rozpracované zkoušky EFS a Findu mají nadále původní ověřený pilot.
+
+**P7, Win32 a ARM64 Release.** Na zdrojích společného kandidáta prošlo sestavení aplikace, brokeru a sondy pro obě architektury. Laboratorní ověřovač zkontroloval příslušné architektury, protokol 10, manifesty a závislosti obou dvojic. Nativní sada sestavená překladačem x86 prošla pod WOW64 na Windows 11 x64 build 26200. Zahrnula skutečnou lokální rouru a všech 50 kontrol úloh brokeru. Podpis, chráněné nasazení, interaktivní běh Win32 a nativní běh ARM64 zůstávají k ověření. Záznamy jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/cross-architecture-payloads.json a transport-Win32-on-x64.log.
 
 ### 12.3 CI a přijetí vydání
 
