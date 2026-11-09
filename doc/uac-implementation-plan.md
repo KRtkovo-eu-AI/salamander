@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Kill the EFS copy fixture before and after publication commits. | Verify the committed file and workspace recovery after a real process exit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Bind ordinary F6 source retirement to both copied identities. | Stop when either file name has been substituted before the UAC retry. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Measure equivalent x64 Release images for closed-scope cleanup. | Record the individual and combined size delta before VM memory measurement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Release closed broker scopes during batches. | Keep only connected scopes available for the next item. | | GPT-6.1 Sol (Codex) |
@@ -1308,6 +1309,8 @@ Prošlo 129 kontrol F6 v x64 Debug i Release, 284 obecných nativních kontrol v
 Ve VM se stejným vstupem porovnat běžnou dávku a dávku po souhlasu. V každém běhu zaznamenat privátní bajty aplikace a ověřeného brokeru ve stejném okamžiku před operací, během přenosu a po skončení. U zvýšené dávky zaznamenat také okamžik po potvrzené chybě a před další položkou. Podpisy a měření privátní paměti zůstávají otevřené.
 
 **Ověřené dokončení F6 po běžné kopii.** U způsobilých přímo vybraných souborů s ověřenými identitami na různých místních svazcích NTFS drží aplikace při odstranění zdroje cílovou kopii otevřenou bez sdílení zápisu a smazání. Zdroj ověří na stejném handlu, na němž nastaví odstranění, stejným nízkoúrovňovým postupem jako broker. Dosazený zdroj nebo cíl ukončí ověřované dokončení. Odepřený přístup může nadále vést k brokeru, který kontroluje oba soubory i obsah. Prošlo 303 nativních kontrol v x64 Debug i Release a 14 kontrol workeru. Nové zkoušky ověřily zachycení cílové identity ze zapisovacího handlu, odmítnutí obou záměn a odstranění správného zdroje. Sestavení x64 Release se stejnými přepínači proti `eb9d0dbf` zvětšilo aplikaci z 5 437 440 na 5 438 464 B, broker zůstal na 1 019 904 B, celkem 6 457 344 → 6 458 368 B. Přibylo ověření a otevření cíle v aplikaci. Integrovaná zkouška na dvou svazcích a měření privátní paměti zbývají do společné VM akceptace.
+
+**Tvrdé ukončení při zveřejňování EFS kopie.** Nativní zkouška spustila skutečnou šifrovanou kopii v pomocném procesu a ukončila jej po ověření výsledku těsně před vypnutím odstranění při zavření a poté v samostatném běhu těsně po něm. V prvním případě cílový soubor zmizel, ve druhém zůstal zašifrovaný se stejným obsahem. V obou případech obnova uklidila pouze zaznamenaný pracovní prostor a pomocný odkaz, vyprázdnila žurnál a zachovala původní soubor. Prošlo 67 kontrol EFS v x64 Debug i Release. Zkušební body se kompilují pouze do nativního testu. Ověření s jiným účtem správce bez klíče původního uživatele a se systémovou výzvou patří do společné akceptace.
 
 ## 12. Testovací strategie
 

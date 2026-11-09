@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Expose EFS publication checkpoints to the native test only. | Test abrupt process loss before and after publication commits. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify EFS data and metadata after publication. | Keep guarded deletion active until the final encrypted object is confirmed. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve and verify EFS alternate data streams. | Keep the source stream inventory consistent through encrypted export and publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve audit and system access policy at EFS publication. | Compare the full destination policy before disarming deletion. | | GPT-6.1 Sol (Codex) |
@@ -131,6 +132,10 @@ inline DWORD OpenPublicationPayload(const Workspace& workspace, Handle& payload,
 
 }
 
+#ifdef SAM_UAC_EFS_FAULT_TEST
+void PauseEfsPublicationForTest(bool committed);
+#endif
+
 // The caller retains the exclusive workspace journal, and keeps the verified
 // destination parent open for the duration of this operation. Its token must
 // be able to create an ordinary child and set that child's security.
@@ -225,9 +230,15 @@ inline DWORD PublishPayload(const Workspace& workspace, HANDLE target,
     if ((error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline)) != ERROR_SUCCESS)
         return error;
 
+#ifdef SAM_UAC_EFS_FAULT_TEST
+    PauseEfsPublicationForTest(false);
+#endif
     FILE_DISPOSITION_INFO_EX keep{FILE_DISPOSITION_FLAG_ON_CLOSE};
     if (!SetFileInformationByHandle(payload.get(), FileDispositionInfoEx, &keep, sizeof(keep)))
         return GetLastError();
+#ifdef SAM_UAC_EFS_FAULT_TEST
+    PauseEfsPublicationForTest(true);
+#endif
     return ERROR_SUCCESS;
 }
 }

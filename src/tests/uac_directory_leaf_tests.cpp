@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Kill an EFS copy around its publication commit. | Verify that recovery preserves committed ciphertext and retires only recorded staging. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the local F6 finish rejects substituted files. | Keep the original and the copy until both captured identities match. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test restoring the cleared Archive attribute on compressed F6 rollback. | Verify the attribute, source bytes and removal of the recovery alias. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify combined NTFS compression and security in F5. | Check named data, compression, and explicit permissions together. | | GPT-6.1 Sol (Codex) |
@@ -97,6 +98,7 @@
 */
 #define SAM_UAC_REPLACEMENT_FAULT_TEST
 #define SAM_UAC_COPY_FAULT_TEST
+#define SAM_UAC_EFS_FAULT_TEST
 #include "../uacbroker/metadataleaf.h"
 #include "../uacbroker/deleteleaf.h"
 #include "../uacbroker/listing.h"
@@ -124,6 +126,18 @@ static ReplacementFaultPoint replacementFaultPoint{};
 void PauseReplacementAt(ReplacementFaultPoint point)
 {
     if (replacementFaultSignal && point == replacementFaultPoint && SetEvent(replacementFaultSignal))
+        Sleep(7000);
+}
+}
+
+namespace UacEfsWorkspace
+{
+static HANDLE efsFaultSignal = nullptr;
+static bool efsFaultCommitted = false;
+
+void PauseEfsPublicationForTest(bool committed)
+{
+    if (efsFaultSignal && committed == efsFaultCommitted && SetEvent(efsFaultSignal))
         Sleep(7000);
 }
 }
@@ -3496,6 +3510,42 @@ bool CheckOverwriteProcessExit(const std::wstring& fixture)
     return failures == 0;
 }
 
+static int HoldEfsPublication(const std::wstring& folder, const wchar_t* signal, bool committed)
+{
+    const Handle ready(OpenEventW(EVENT_MODIFY_STATE, FALSE, signal));
+    const std::unique_ptr<void, decltype(&LocalFree)> security(PrivateTestSecurity(), LocalFree);
+    const auto base = folder + L"\\efs-private";
+    constexpr DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+    const auto openParent = [&](const std::wstring& path, DWORD access) {
+        const HANDLE raw = CreateFileW(path.c_str(), access, share, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        return Handle(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+    };
+    const auto privateParent = openParent(base, FILE_LIST_DIRECTORY | FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY | READ_CONTROL);
+    const auto sourceParent = openParent(folder, FILE_TRAVERSE | FILE_READ_ATTRIBUTES);
+    const auto target = openParent(folder + L"\\destination", FILE_TRAVERSE | FILE_ADD_FILE | READ_CONTROL);
+    const HANDLE rawJournal = CreateFileW((base + L"\\journal").c_str(), GENERIC_READ | GENERIC_WRITE, 0,
+                                          nullptr, OPEN_EXISTING, 0, nullptr);
+    const Handle journal(rawJournal == INVALID_HANDLE_VALUE ? nullptr : rawJournal);
+    constexpr wchar_t sourceLeaf[] = L"\u6771-restored.txt";
+    FILE_ID_INFO sourceId{}, privateId{};
+    const auto source = OpenIdentity(folder + L"\\" + sourceLeaf, sourceId);
+    UacDirectoryLeaf::ParentIdentity sourceParentId, targetId;
+    LARGE_INTEGER size{};
+    if (!ready || !security || !privateParent || !sourceParent || !target || !journal || !source ||
+        !GetFileSizeEx(source.get(), &size) || size.QuadPart < 0 ||
+        !GetFileInformationByHandleEx(privateParent.get(), FileIdInfo, &privateId, sizeof(privateId)) ||
+        UacDirectoryLeaf::ReadParentIdentity(sourceParent.get(), sourceParentId) ||
+        UacDirectoryLeaf::ReadParentIdentity(target.get(), targetId))
+        return 2;
+    UacEfsWorkspace::efsFaultSignal = ready.get();
+    UacEfsWorkspace::efsFaultCommitted = committed;
+    UacEfsWorkspace::CopyVerifiedFile(sourceParent.get(), sourceParentId, sourceId, sourceLeaf,
+        target.get(), targetId, L"interrupted-efs.txt", size.QuadPart, privateParent.get(), privateId,
+        journal.get(), security.get(), nullptr, MAXULONGLONG);
+    return 3;
+}
+
 static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const FILE_ID_INFO& sourceId,
                               const std::vector<BYTE>& plaintext)
 {
@@ -3521,7 +3571,7 @@ static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const F
     const HANDLE rawJournal = CreateFileW(journalPath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, &attributes, CREATE_NEW, 0, nullptr);
     if (rawJournal == INVALID_HANDLE_VALUE)
         return false;
-    const Handle journal(rawJournal);
+    Handle journal(rawJournal);
     auto recover = [&] { return UacEfsWorkspace::Recover(parent.get(), parentId, journal.get(), rawSecurity); };
 
     const auto targetPath = folder + L"\\destination";
@@ -3780,6 +3830,40 @@ static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const F
         return false;
     LARGE_INTEGER size{};
     Check(GetFileSizeEx(journal.get(), &size) && !size.QuadPart, "clear the EFS journal after verified cleanup");
+    const auto interruptedPath = targetPath + L"\\interrupted-efs.txt";
+    for (const bool committed : {false, true})
+    {
+        journal.reset();
+        if (!InterruptFixtureChild(folder, committed ? L"--hold-efs 1" : L"--hold-efs 0"))
+        {
+            Check(false, "reach the EFS publication checkpoint before terminating the child");
+            return false;
+        }
+        const auto destinationMatches = [&] {
+            return committed ? HasContents(interruptedPath, plaintext) &&
+                               (GetFileAttributesW(interruptedPath.c_str()) & FILE_ATTRIBUTE_ENCRYPTED)
+                             : !Exists(interruptedPath);
+        };
+        Check(destinationMatches(), committed ? "keep the encrypted destination after abrupt exit following commit" :
+                                                "remove the uncommitted encrypted destination on abrupt exit");
+        const HANDLE reopened = CreateFileW(journalPath.c_str(), GENERIC_READ | GENERIC_WRITE, 0,
+                                            nullptr, OPEN_EXISTING, 0, nullptr);
+        if (reopened == INVALID_HANDLE_VALUE)
+            return false;
+        journal.reset(reopened);
+        const bool pending = GetFileSizeEx(journal.get(), &size) && size.QuadPart > 0;
+        const DWORD recovery = recover();
+        FILE_STANDARD_INFO info{};
+        WIN32_FIND_DATAW entry{};
+        const HANDLE stages = FindFirstFileW((base + L"\\.samandarin-efs-*").c_str(), &entry);
+        const bool removed = stages == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_NOT_FOUND;
+        if (stages != INVALID_HANDLE_VALUE)
+            FindClose(stages);
+        Check(pending && !recovery && removed && GetFileSizeEx(journal.get(), &size) && !size.QuadPart &&
+                  GetFileInformationByHandleEx(source, FileStandardInfo, &info, sizeof(info)) && info.NumberOfLinks == 1 &&
+                  HasContents(originalPath, plaintext) && destinationMatches(),
+              "recover the EFS workspace without changing the original or the commit result", recovery);
+    }
     return failures == 0;
 }
 
@@ -3995,6 +4079,9 @@ int wmain(int argc, wchar_t** argv)
     if (argc == 5 && std::wstring_view(argv[2]) == L"--hold-overwrite" && argv[3][0] >= L'0' &&
         argv[3][0] <= L'5' && argv[3][1] == 0)
         return HoldOverwrite(L"\\\\?\\" + std::wstring(argv[1]), argv[4], static_cast<unsigned>(argv[3][0] - L'0'));
+    if (argc == 5 && std::wstring_view(argv[2]) == L"--hold-efs" &&
+        (std::wstring_view(argv[3]) == L"0" || std::wstring_view(argv[3]) == L"1"))
+        return HoldEfsPublication(L"\\\\?\\" + std::wstring(argv[1]), argv[4], argv[3][0] == L'1');
     const bool high = argc == 3 && std::wstring_view(argv[2]) == L"--high-integrity";
     const bool overwrite = argc == 3 && std::wstring_view(argv[2]) == L"--overwrite-probe";
     const bool moveSource = argc == 3 && std::wstring_view(argv[2]) == L"--move-source-probe";
