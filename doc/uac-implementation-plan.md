@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the current UAC release candidate and language resources. | Bind the payload checks to protocol 10 and both compiled translations. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Repair the ZIP regression harnesses and record the CI baseline. | Recheck the failures on the published ZIP revision before a consolidated push. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record protected Recycle Bin acceptance failure. | The approved VM attempt returned access denied and preserved the original. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the active UAC caption shield in the VM. | Confirm it appears alongside native progress during a real transfer. | | GPT-6.1 Sol (Codex) |
@@ -1419,6 +1420,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **Diagnostika chráněného Koše.** Mimo pracovní větev je sestavená sonda recycle-trace pro x64 Release. Zaznamenává jednotlivé výsledky konfigurace, zařazení a vykonání operace IFileOperation, kontroly PreDeleteItem i potvrzení PostDeleteItem před převodem výsledku na Win32. Běžný Koš prošel 21 kontrolami a přesun s ověřením dokladu a obnovou 12 kontrolami. Chráněná zkouška čeká na spuštění pod původním účtem bez elevace.
 
 **CI na publikované revizi e49d48b1.** Na [interním PR 67](https://github.com/majklvi/salamander/pull/67) prošla sestavení x64, Win32 a ARM64. Analýza C++ doběhla a výsledná kontrola CodeQL ohlásila dva nálezy v dynamickém formátování chyb Findu. Lokální oprava dosazuje text chyby do přeložené šablony jako obyčejný text. Nativní CI selhalo ve třech archivních testech kvůli změně deklarace, nové větvi rozbalení a chybějícím modelům v testu životnosti ZIP. Po přizpůsobení testů prošly všechny tři lokálně. Prošly také tři kontroly Findu, sada transportu brokeru a sestavení aplikace x64 Release. Ověření oprav na GitHubu čeká na společný push.
+
+**P7, laboratorní distribuce a jazyky kandidáta afe152a1.** x64 Release aplikace, broker i sonda mají protokol 10 a správnou roli. Ověřovač přijal nepodepsanou dvojici v laboratorním režimu. Zkontroloval manifesty, načítání závislostí brokeru pouze ze System32 a nepřítomnost odložených importů. Odmítl dvojici se starším brokerem protokolu 8 a záměnu hostu se sondou stejné verze. Režim vydání odmítl nepodepsaný pár. Ve skutečných jazykových binárkách se pod LANGID 1033 a 1029 ověřilo všech 65 prostředků IDS_UAC proti anglickým a českým zdrojům. Důkazy s SHA-256 a negativními případy jsou v C:/Samandarin/builds/uac-p7-afe152a1. Podpis schváleným Certum certifikátem, chráněné nasazení podepsaného páru a vizuální matice zůstávají otevřené.
 
 ### 12.3 CI a přijetí vydání
 
