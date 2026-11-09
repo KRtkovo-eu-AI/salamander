@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Refuse a visibly stale overwrite before opening its journal. | Avoid touching recovery state for an invalid approval. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Reject a mismatched UAC image before launch. | Verify the embedded protocol without executing the peer. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Use a longer shared timeout for streamed F6. | Keep the host connected and cancellable until the broker finishes or rolls back. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Enable named streams in ordinary cross-volume F6. | Require protected destination streams before committing the move. | | GPT-6.1 Sol (Codex) |
@@ -1305,6 +1306,18 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
         return GetLastError();
     if (length.QuadPart < 0 || static_cast<ULONGLONG>(length.QuadPart) != bytes)
         return ERROR_FILE_INVALID;
+
+    // Reject a visible stale target before touching recovery state. A missing
+    // or unreadable target can still need recovery. Publication checks the
+    // revision again under an exclusive handle after recovery.
+    HANDLE candidate = nullptr;
+    if (!UacRenameLeaf::Detail::OpenSource(targetParent, targetLeaf, candidate, 0,
+                                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE))
+    {
+        const auto current = Adopt(candidate);
+        if (UacZipUpdate::CheckRevision(current.get(), expectedTarget) == ERROR_FILE_INVALID)
+            return ERROR_FILE_INVALID;
+    }
 
     Handle journal;
     const RemoveEmptyZipJournal retire{journal};

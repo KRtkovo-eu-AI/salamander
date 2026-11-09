@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify stale overwrite rejection through the broker pipe. | Reject changed destinations before touching recovery state. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record installer-time verification of the UAC pair. | Fail the pilot build if payload validation fails. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record stricter Shell recycle path admission. | Avoid normalization aliases before queuing deletion. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record concurrent publication through two broker jobs. | Verify one winner and no lost sources on NTFS. | | GPT-6.1 Sol (Codex) |
@@ -1170,6 +1171,8 @@ Společná lokální kontrola x64 Release prošla 248 kontrolami souborového j�
 **Ověření přímo při kompilaci instalátoru.** Profil UAC spouští při preprocessingu stejný přísný ověřovač, který kontroluje časově označené podpisy, shodu certifikátu, architekturu, manifesty, verzi protokolu a závislosti brokeru. Nenulový návratový kód ukončí sestavení. Ověřovač používá vestavěné moduly spuštěné verze PowerShellu i při zděděném vyhledávacím prostředí z PowerShellu 7.
 
 V Inno Setup 7.1.1 běžný profil prošel preprocessingem bez položky pro broker. Profil UAC ukončil kompilaci kódem 2 kvůli nepodepsané dvojici v cestě s mezerami. Samostatná laboratorní kontrola přijala dvojici s protokolem 5 a odmítla kombinaci 5 a 4. Kladná kompilace s podepsanou dvojicí, podpis výsledného instalátoru a jeho akceptace ve VM zůstávají otevřené. [Návratový kód preprocesoru při spuštění ověřovače](https://jrsoftware.org/is6help/topic_exec.htm).
+
+**Změněný cíl po schválení přepisu.** Je-li aktuální revize cíle dostupná a liší se od schválené, broker odmítne přepis ještě před otevřením žurnálu. U chybějícího nebo nedostupného cíle zůstává postup obnovy dostupný. Před zveřejněním se dál ověřuje revize při otevření proti zápisu a smazání. Test přes pojmenovanou rouru odmítl dosazený soubor s novým ID i změnu atributů souboru se stejným ID a ověřil, že relace může po odmítnutí přijmout další požadavek. Prošlo 24 kontrol úloh, samostatná kontrola transportu a sestavení brokeru v x64 Debug i Release. Systémový souhlas a návrat do dialogu kolize se ověří společně ve VM.
 
 ## 12. Testovací strategie
 

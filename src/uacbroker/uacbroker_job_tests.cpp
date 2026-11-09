@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Exercise stale overwrite consent through the broker dispatcher. | Verify an externally replaced target survives and the job can continue. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Race two live copy jobs for the same target. | Verify no-replace publication across broker sessions. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Test the 64-bit F6 request size boundary. | Reject over-limit moves before any transfer and retain the lower F5 limit. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Check the source admission used for protected F6. | Cover sparse, exact compression and metadata combinations before broker launch. | | GPT-6.1 Sol (Codex) |
@@ -249,6 +250,38 @@ void CheckCompetingCopyJobs(const Directory& first, const Directory& second, con
           "two scoped copy jobs publish exactly one destination and preserve both sources");
 }
 
+void CheckStaleOverwriteJob(const Directory& source, const Directory& target)
+{
+    constexpr wchar_t leaf[] = L"\u6771-overwrite";
+    const auto targetPath = target.File(leaf);
+    const auto formerPath = target.File(L"former-overwrite");
+    UacF7::ArchiveRevision approved{};
+    const auto readRevision = [&] {
+        const auto file = Adopt(CreateFileW(targetPath.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+                                            nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        return file && !UacZipUpdate::ReadRevision(file.get(), approved);
+    };
+    JobPipe job;
+    if (!WriteByte(source.File(leaf), 8) || !WriteByte(targetPath, 9) || !readRevision() ||
+        !MoveFileExW(targetPath.c_str(), formerPath.c_str(), 0) || !WriteByte(targetPath, 10) || !job.Open())
+    {
+        Check(false, "prepare a replaced overwrite target after capturing its revision");
+        return;
+    }
+
+    DWORD error = ERROR_GEN_FAILURE;
+    Check(job.Request(Operation::CopyOverwrite, source, leaf, error, &target,
+                      nullptr, nullptr, false, nullptr, &approved) &&
+              error == ERROR_FILE_INVALID && HasByte(targetPath, 10) && HasByte(formerPath, 9) && HasByte(source.File(leaf), 8),
+          "an overwrite approval cannot replace a newly substituted file");
+    Check(readRevision() && SetFileAttributesW(targetPath.c_str(), FILE_ATTRIBUTE_HIDDEN) &&
+              job.Request(Operation::CopyOverwrite, source, leaf, error, &target,
+                          nullptr, nullptr, false, nullptr, &approved) &&
+              error == ERROR_FILE_INVALID && HasByte(targetPath, 10) &&
+              (GetFileAttributesW(targetPath.c_str()) & FILE_ATTRIBUTE_HIDDEN),
+          "the same broker rejects a revised target with the same file identity");
+}
+
 void CheckCancelledCopyJob(const Directory& source, const Directory& target)
 {
     const auto ready = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
@@ -434,6 +467,7 @@ int wmain()
         return 2;
     CheckCopyJob(source, target, outside);
     CheckCompetingCopyJobs(source, outside, target);
+    CheckStaleOverwriteJob(source, target);
     CheckCancelledCopyJob(source, target);
     CheckLateCopyCancellation(source, target);
     CheckCrossVolumeBoundary(source, target);
