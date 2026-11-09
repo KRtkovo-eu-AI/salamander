@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Exercise a competing protected overwrite journal. | Verify a live copy job does not publish while the target journal is locked. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Use an isolated install directory for dispatcher tests. | Exercise the absent disk-overwrite journal on a real pipe. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Test changing copy metadata options after consent. | Reject a changed operation even when both parent identities match. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify the exact-file Find wire scope. | Refuse enumeration, names and out-of-range requests on a live pipe. | | GPT-6.1 Sol (Codex) |
@@ -403,6 +404,30 @@ void CheckCompetingCopyJobs(const Directory& first, const Directory& second, con
     Check(started && firstReply && secondReply && (firstWon || secondWon) &&
               HasByte(first.File(leaf), 6) && HasByte(second.File(leaf), 7),
           "two scoped copy jobs publish exactly one destination and preserve both sources");
+}
+
+void CheckActiveOverwriteJournal(const Directory& source, const Directory& target)
+{
+    constexpr wchar_t leaf[] = L"locked-overwrite-journal";
+    const auto journalName = DiskOverwriteJournalName(target.identity);
+    auto journal = Adopt(CreateFileW(journalName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr,
+                                    CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr));
+    JobPipe job;
+    if (!journal || !WriteByte(source.File(leaf), 47) || !job.Open())
+    {
+        Check(false, "prepare a copy while a competing overwrite holds the parent journal");
+        return;
+    }
+
+    DWORD error = ERROR_GEN_FAILURE;
+    Check(job.Request(Operation::Copy, source, leaf, error, &target) &&
+              error == ERROR_SHARING_VIOLATION && IsAbsent(target.File(leaf)) && HasByte(source.File(leaf), 47),
+          "an already locked overwrite journal blocks publication by a competing broker");
+    journal.reset();
+    Check(DeleteFileW(journalName.c_str()) &&
+              job.Request(Operation::Copy, source, leaf, error, &target) && !error &&
+              HasByte(target.File(leaf), 47) && HasByte(source.File(leaf), 47),
+          "the same job can copy after the competing journal is released");
 }
 
 void CheckStaleOverwriteJob(const Directory& source, const Directory& target)
@@ -850,6 +875,7 @@ int wmain()
     CheckCopyJob(source, target, outside);
     CheckCopyOptionScope(source, target);
     CheckCompetingCopyJobs(source, outside, target);
+    CheckActiveOverwriteJournal(source, target);
     CheckStaleOverwriteJob(source, target);
     CheckCancelledCopyJob(source, target);
     CheckLateCopyCancellation(source, target);

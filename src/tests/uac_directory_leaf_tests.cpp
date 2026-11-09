@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Race a new destination against a paused overwrite. | Verify interrupted recovery preserves the competing file and the exact backup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Retry a crashed F5 overwrite as a new copy. | Restore the exact original and report a conflict while ignoring unrelated recovery records. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Interrupt F6 after recording the published target. | Verify recovery of the exact original after a hard exit during source retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise the tree and EFS progress sources. | Check exact manifest bytes and the encrypted import total. | | GPT-6.1 Sol (Codex) |
@@ -1581,7 +1582,8 @@ int HoldMoveSourcePending(const std::wstring& fixture, const wchar_t* signal)
     return 3;
 }
 
-bool InterruptFixtureChild(const std::wstring& fixture, const std::wstring& mode)
+template<class OnReady>
+bool InterruptFixtureChild(const std::wstring& fixture, const std::wstring& mode, OnReady onReady)
 {
     GUID id{};
     wchar_t guid[39]{};
@@ -1603,10 +1605,16 @@ bool InterruptFixtureChild(const std::wstring& fixture, const std::wstring& mode
     const Handle child(process.hProcess), thread(process.hThread);
     const HANDLE waitFor[] = {ready.get(), child.get()};
     const bool reached = WaitForMultipleObjects(ARRAYSIZE(waitFor), waitFor, FALSE, 3000) == WAIT_OBJECT_0;
+    const bool observed = reached && onReady();
     const BOOL killed = TerminateProcess(child.get(), 17);
     DWORD code = 0;
-    return WaitForSingleObject(child.get(), 4000) == WAIT_OBJECT_0 && reached && killed &&
+    return WaitForSingleObject(child.get(), 4000) == WAIT_OBJECT_0 && observed && killed &&
            GetExitCodeProcess(child.get(), &code) && code == 17;
+}
+
+bool InterruptFixtureChild(const std::wstring& fixture, const std::wstring& mode)
+{
+    return InterruptFixtureChild(fixture, mode, [] { return true; });
 }
 
 bool InterruptPendingMoveSource(const std::wstring& fixture)
@@ -3542,7 +3550,11 @@ bool CheckOverwriteProcessExit(const std::wstring& fixture)
         if (!CreateDirectoryW(folder.c_str(), nullptr) || !WriteFixture(final, overwriteOriginal) ||
             !WriteFixture(sentinel, {9}) || !OpenIdentity(final, originalId))
             return false;
-        if (!InterruptFixtureChild(folder, L"--hold-overwrite " + id))
+        const bool concurrentCreate = scenario.point == ReplacementFaultPoint::BackupRenamed;
+        const std::vector<BYTE> rival{91, 92};
+        if (!InterruptFixtureChild(folder, L"--hold-overwrite " + id, [&] {
+                return !concurrentCreate || WriteFixture(final, rival);
+            }))
         {
             Check(false, scenario.label);
             return false;
@@ -3567,6 +3579,22 @@ bool CheckOverwriteProcessExit(const std::wstring& fixture)
         const bool noStage = stageSearch == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_NOT_FOUND;
         if (stageSearch != INVALID_HANDLE_VALUE)
             FindClose(stageSearch);
+        if (concurrentCreate)
+        {
+            const DWORD blocked = Recover(parent.get(), identity, overwriteCrashLeaf, journal.get(),
+                ReplacementKind::DiskCopy, nullptr, RecoveryIntent::CopyToNewName);
+            LARGE_INTEGER size{};
+            FILE_ID_INFO backupId{};
+            Check(blocked == ERROR_FILE_INVALID && HasContents(final, rival) &&
+                      HasContents(backup, overwriteOriginal) && OpenIdentity(backup, backupId) &&
+                      UacRenameLeaf::Detail::SameSource(backupId, originalId) &&
+                      GetFileSizeEx(journal.get(), &size) && size.QuadPart != 0,
+                  "a competing file published during the rename gap leaves the original and its journal intact", blocked);
+            const auto rivalPath = folder + L"\\retained-rival.txt";
+            if (!MoveFileExW(final.c_str(), rivalPath.c_str(), 0))
+                return false;
+            Check(HasContents(rivalPath, rival), "retain the rival under its independent name before resuming recovery");
+        }
         const bool committed = scenario.point >= ReplacementFaultPoint::StageKept;
         const auto& expected = committed ? overwriteReplacement : overwriteOriginal;
         const bool before = noStage && Exists(final) == scenario.finalExists && Exists(backup) == scenario.backupExists &&
