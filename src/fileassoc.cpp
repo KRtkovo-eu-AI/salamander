@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Allow user overrides to replace conflicting plugin targets. | Validation must accept a chosen user target alongside retained conflict candidates so Apply can commit it. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Fix error reporting in custom-handler storage helpers. | Free functions cannot call the association model's private SetError method. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Migrate stored editor presets to Built-in targets. | Keep existing configurations compatible while retiring Preset from the editor. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Persist named custom handler catalogs. | Keep custom viewers and editors tied to the selected configuration and resolve them by stable ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -878,8 +879,15 @@ bool CFileAssociationModel::IsExactOverridePair(const Association& first,
     const Provenance secondLayer = second.AssociationProvenance == Provenance::Conflict
                                        ? second.SourceProvenance
                                        : second.AssociationProvenance;
-    const bool firstDefault = firstLayer == Provenance::Default || firstLayer == Provenance::Legacy;
-    const bool secondDefault = secondLayer == Provenance::Default || secondLayer == Provenance::Legacy;
+    // A migrated conflict represents multiple plugin/extension candidates at
+    // the same exact key. A user choice must be allowed to shadow every one
+    // of those candidates just like it shadows an ordinary default row.
+    const bool firstDefault = firstLayer == Provenance::Default ||
+                              firstLayer == Provenance::Legacy ||
+                              first.AssociationProvenance == Provenance::Conflict;
+    const bool secondDefault = secondLayer == Provenance::Default ||
+                               secondLayer == Provenance::Legacy ||
+                               second.AssociationProvenance == Provenance::Conflict;
     const bool firstUser = first.AssociationProvenance == Provenance::User ||
                            first.AssociationProvenance == Provenance::Disabled;
     const bool secondUser = second.AssociationProvenance == Provenance::User ||
