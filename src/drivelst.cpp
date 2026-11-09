@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Allow Hot Paths to precede plug-in items in Change Drive. | Reorder the two menu blocks when configured while preserving the default order and Drive Bar behavior. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell extension SEH in drive menus. | Drive context-menu QueryContextMenu/InvokeCommand must not terminate. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -1925,6 +1926,57 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
     ZeroMemory(&drvSeparator, sizeof(drvSeparator));
     drvSeparator.DriveType = drvtSeparator;
 
+    BOOL hasHotPaths = FALSE;
+    auto addHotPaths = [&]() -> BOOL {
+        drv.DestroyIcon = FALSE;
+        drv.HIcon = HFavoritIcon;
+        drv.HGrayIcon = NULL;
+        drv.PluginFS = NULL;
+        drv.DLLName = NULL;
+        drv.MountPointPath = NULL;
+        BOOL addSeparator = (Drives->Count > 0 && !IsLastItemSeparator());
+        for (int hotPathIndex = 0; hotPathIndex < HOT_PATHS_COUNT; hotPathIndex++)
+        {
+            if (MainWindow->HotPaths.GetVisible(hotPathIndex))
+            {
+                char srcName[MAX_PATH];
+                MainWindow->HotPaths.GetName(hotPathIndex, srcName, MAX_PATH);
+                if (srcName[0] != 0 && MainWindow->HotPaths.GetPathLen(hotPathIndex) > 0)
+                {
+                    if (addSeparator)
+                    {
+                        Drives->Add(drvSeparator);
+                        addSeparator = FALSE;
+                    }
+                    char text[MAX_PATH + 10];
+                    if (hotPathIndex < 10)
+                        sprintf(text, "%d\t%s", hotPathIndex == 9 ? 0 : hotPathIndex + 1, srcName);
+                    else
+                        sprintf(text, "\t%s", srcName);
+                    DuplicateAmpersands(text + 2, MAX_PATH);
+
+                    char* alloc = DupStr(text);
+                    if (alloc == NULL)
+                    {
+                        TRACE_E(LOW_MEMORY);
+                        return FALSE;
+                    }
+                    drv.DriveType = drvtHotPath;
+                    drv.Param = hotPathIndex;
+                    drv.DriveText = alloc;
+                    drv.Accessible = TRUE;
+                    drv.Shared = FALSE;
+                    Drives->Add(drv);
+                    drv.DestroyIcon = FALSE;
+                    hasHotPaths = TRUE;
+                }
+            }
+        }
+        return TRUE;
+    };
+
+    BOOL hotPathsAdded = FALSE;
+
     if (copyDrives != NULL) // optimization: data is just copied (e.g. it's the second Drives Bar, so we copy the data from the first Drives Bar, for which we got it from the system a few ms ago)
     {
         CachedDrivesMask = copyCachedDrivesMask;
@@ -2188,6 +2240,15 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
         AddMountedFolderDrives(drv, getGrayIcons);
         if (Drives->Count > firstMountPointIndex && firstMountPointIndex > 0)
             Drives->Insert(firstMountPointIndex, drvSeparator);
+    }
+
+    if (!forDriveBar && Configuration.ChangeDriveHotPathsFirst)
+    {
+        if (!addHotPaths())
+            return FALSE;
+        hotPathsAdded = TRUE;
+        if (hasHotPaths && Drives->Count > 0 && !IsLastItemSeparator())
+            Drives->Add(drvSeparator);
     }
 
     // we will add disconnected and active FS
@@ -2508,52 +2569,9 @@ BOOL CDrivesList::BuildData(BOOL noTimeout, TDirectArray<CDriveData>* copyDrives
         }
     }
 
-    // loading hot paths
-    drv.DestroyIcon = FALSE;
-    drv.HIcon = HFavoritIcon;
-    drv.HGrayIcon = NULL;
-    BOOL addSeparator = (Drives->Count > 0 && !IsLastItemSeparator()); // wed do not want two separators in a row
-    for (i = 0; i < HOT_PATHS_COUNT; i++)
-    {
-        if (MainWindow->HotPaths.GetVisible(i))
-        {
-            char srcName[MAX_PATH];
-            MainWindow->HotPaths.GetName(i, srcName, MAX_PATH);
-            if (srcName[0] != 0 && MainWindow->HotPaths.GetPathLen(i) > 0)
-            {
-                if (addSeparator)
-                {
-                    // adding separator
-                    Drives->Add(drvSeparator);
-                    addSeparator = FALSE;
-                }
-                char text[MAX_PATH + 10];
-                if (i < 10)
-                    sprintf(text, "%d\t%s", i == 9 ? 0 : i + 1, srcName);
-                else
-                    sprintf(text, "\t%s", srcName);
-                // double '&' so that it is not displayed as an underline
-                DuplicateAmpersands(text + 2, MAX_PATH);
-
-                char* alloc = DupStr(text);
-                if (alloc != NULL)
-                {
-                    drv.DriveType = drvtHotPath;
-                    drv.Param = i;
-                    drv.DriveText = alloc;
-                    drv.Accessible = TRUE;
-                    drv.Shared = FALSE;
-                    Drives->Add(drv);
-                    drv.DestroyIcon = FALSE; // I won't clean up other icons anymore
-                }
-                else
-                {
-                    TRACE_E(LOW_MEMORY);
-                    return FALSE;
-                }
-            }
-        }
-    }
+    // Load Hot Paths after plug-in items by default; menu ordering does not affect the Drive Bar.
+    if (!hotPathsAdded && !addHotPaths())
+        return FALSE;
 
     // we don't want a separator at the end
     if (Drives->Count > 0 && IsLastItemSeparator())

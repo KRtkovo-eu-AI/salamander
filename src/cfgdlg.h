@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add the Change Drive block order setting. | Persist whether Plugin items or Hot Paths appear first in the Change Drive menu. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Render conflict explanations through a dedicated status control subclass. | Ensure theme painting cannot overwrite the conflict text color. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Track conflict status text for contrast-aware rendering. | Keep conflict explanations highlighted independently of which competing row currently owns the editor selection. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add direct painting support for the association matrix. | Render cell colors and status badges after the native list-view paint. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -514,6 +515,7 @@ struct CConfiguration
     int ChangeDriveShowAnother;   // display the Another panel path item
     int ChangeDriveShowNet;       // display the Network item
     int ChangeDriveCloudStorage;  // display items for cloud storage (Google Drive, etc.)
+    int ChangeDriveHotPathsFirst; // display Hot Paths before plug-in items in the Change Drive menu
 
     // Packers / Unpackers
     int UseAnotherPanelForPack;

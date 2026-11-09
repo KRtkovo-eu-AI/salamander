@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Default Change Drive menu to show Plugin items first. | Preserve the current block order unless the user chooses Hot Paths first. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Add custom viewer/editor pages below File Associations. | Expose saved named handlers as editable configuration targets. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Make extension bar visible by default in new default configuration. | Show the extension bar on clean install/default config so new users see it. | | opencode |
 // | 2026-11-09 | Multiselect for the Selected Properties list in Choose Custom Properties. | Allow Remove, Move up, and Move down to operate on all selected items at once; show multi-select info in the Property information panel and disable the favorite button. | | opencode |
@@ -822,6 +823,7 @@ CConfiguration::CConfiguration()
     ChangeDriveShowAnother = TRUE;
     ChangeDriveShowNet = TRUE;
     ChangeDriveCloudStorage = TRUE;
+    ChangeDriveHotPathsFirst = FALSE;
 
     MenuIndex = 0;
     MenuBreak = TRUE;
