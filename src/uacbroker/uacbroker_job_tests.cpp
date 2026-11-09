@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Test changing copy metadata options after consent. | Reject a changed operation even when both parent identities match. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify the exact-file Find wire scope. | Refuse enumeration, names and out-of-range requests on a live pipe. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Disconnect one of two protected Find content sessions. | Verify the other broker session continues reading. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise nonlocal volume names on the broker pipe. | Reject UNC and device aliases before copying or moving any file. | | GPT-6.1 Sol (Codex) |
@@ -333,6 +334,33 @@ void CheckCopyJob(const Directory& source, const Directory& target, const Direct
     Check(!job.Request(Operation::Copy, source, third, error, &outside) && job.Finish() == ERROR_ACCESS_DENIED &&
               IsAbsent(outside.File(third)) && HasByte(source.File(third), 3),
           "a different destination parent is refused before mutation");
+}
+
+void CheckCopyOptionScope(const Directory& source, const Directory& target)
+{
+    constexpr wchar_t approved[] = L"copy-option-approved";
+    constexpr wchar_t pending[] = L"copy-option-pending";
+    if (!WriteByte(source.File(approved), 41) || !WriteByte(source.File(pending), 43))
+    {
+        Check(false, "prepare files for checking changes to approved copy options");
+        return;
+    }
+    const std::pair<Operation, const char*> differentOptions[] = {
+        {Operation::CopyIgnoreAds, "ordinary copy consent cannot omit named streams in a later item"},
+        {Operation::CopyCompressedSecurity, "ordinary copy consent cannot add compression and security in a later item"},
+    };
+    for (const auto& [operation, reason] : differentOptions)
+    {
+        JobPipe job;
+        DWORD error = ERROR_GEN_FAILURE;
+        const bool alreadyCopied = !IsAbsent(target.File(approved));
+        const bool ordinaryCopy = job.Open() && job.Request(Operation::Copy, source, approved, error, &target) &&
+            (alreadyCopied ? (error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS) : error == ERROR_SUCCESS);
+        Check(ordinaryCopy && !job.Request(operation, source, pending, error, &target) &&
+                  job.Finish() == ERROR_ACCESS_DENIED && HasByte(target.File(approved), 41) &&
+                  HasByte(source.File(pending), 43) && IsAbsent(target.File(pending)),
+              reason);
+    }
 }
 
 void CheckCompetingCopyJobs(const Directory& first, const Directory& second, const Directory& target)
@@ -814,6 +842,7 @@ int wmain()
     CheckFindContentDisconnect(source, outside);
     CheckExactFindScope(source);
     CheckCopyJob(source, target, outside);
+    CheckCopyOptionScope(source, target);
     CheckCompetingCopyJobs(source, outside, target);
     CheckStaleOverwriteJob(source, target);
     CheckCancelledCopyJob(source, target);

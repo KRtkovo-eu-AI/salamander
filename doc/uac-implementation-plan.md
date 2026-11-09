@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify copy option changes cannot reuse broker consent. | Exercise both denials on live pipes and prepare the combined metadata panel test. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Validate the Win32 and ARM64 P7 Release payloads. | Check the actual release binaries and exercise the Win32 broker transport under WOW64. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Build a combined x64 P7 acceptance payload. | Bind the current host, broker, probe and all language modules to one tested candidate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Complete and verify all UAC translation archives. | Ensure each shipped language contains the full UAC text set. | | GPT-6.1 Sol (Codex) |
@@ -1516,6 +1517,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, společný kandidát 700f8f3c.** Z aktuálních zdrojů sestaveny aplikace, broker a sonda v x64 Release. Balíček v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/payload obsahuje i anglický modul a jedenáct ověřených překladů. Manifest eviduje velikost a SHA-256 všech 15 souborů. Laboratorní ověřovač potvrdil dvojici protokolu 10, manifesty a omezení načítání brokeru na System32. Nativní transportní zkouška s těmito obrazy ověřila role a odmítla starý broker protokolu 8. Prošly také kontroly Findu, workeru, plánování, konfliktů a nativního průběhu. Proti stejnému x64 Release pilotu 7b0826d7 narostl host o 1024 B na 5444096 B, broker má stále 1332736 B. Podpis, měření běhu a nasazení tohoto kandidáta do chráněného umístění zbývají. Rozpracované zkoušky EFS a Findu mají nadále původní ověřený pilot.
 
 **P7, Win32 a ARM64 Release.** Na zdrojích společného kandidáta prošlo sestavení aplikace, brokeru a sondy pro obě architektury. Laboratorní ověřovač zkontroloval příslušné architektury, protokol 10, manifesty a závislosti obou dvojic. Nativní sada sestavená překladačem x86 prošla pod WOW64 na Windows 11 x64 build 26200. Zahrnula skutečnou lokální rouru a všech 50 kontrol úloh brokeru. Podpis, chráněné nasazení, interaktivní běh Win32 a nativní běh ARM64 zůstávají k ověření. Záznamy jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/cross-architecture-payloads.json a transport-Win32-on-x64.log.
+
+**P7, změna voleb v otevřené kopírovací úloze.** Po obyčejném kopírování broker při shodné identitě zdrojového a cílového rodiče odmítl nový požadavek na vynechání ADS i nový požadavek na zachování komprese a zabezpečení. Obě relace skončily chybou 5 a bez vytvoření nového cíle. Dokončená kopie i zdroj další položky zůstaly beze změny. Sada skutečné roury má 52 úspěšných kontrol v x64 Debug i Release. Pro kladnou zkoušku F5 v panelu je ve VM připraven komprimovaný 08-combined-metadata.bin s pojmenovaným proudem a chráněnou DACL. Skript Invoke-P7F5CombinedMetadata.ps1 v režimu Evidence porovná hlavní SHA-256, proudy, kompresi, vlastníka, skupinu a explicitní DACL. Interaktivní kopie ještě neproběhla.
 
 ### 12.3 CI a přijetí vydání
 
