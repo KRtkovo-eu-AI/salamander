@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Lock the journal after a live copy writes its first block. | Reproduce a replacement starting after the copy's initial journal check. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise a competing protected overwrite journal. | Verify a live copy job does not publish while the target journal is locked. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Use an isolated install directory for dispatcher tests. | Exercise the absent disk-overwrite journal on a real pipe. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Test changing copy metadata options after consent. | Reject a changed operation even when both parent identities match. | | GPT-6.1 Sol (Codex) |
@@ -25,12 +26,33 @@
 
 #define SAM_UAC_BROKER
 #define SAM_UAC_BROKER_JOB_TEST
+#define SAM_UAC_COPY_FAULT_TEST
 #define wmain InstalledBrokerMain
 #include "uacbroker.cpp"
 #undef wmain
 
 #include <initializer_list>
 #include <thread>
+
+namespace UacCopyLeaf::Detail
+{
+struct CopyPause
+{
+    HANDLE staged;
+    HANDLE resume;
+};
+thread_local const CopyPause* activePause = nullptr;
+
+void AfterCopyBlockForTest(HANDLE, HANDLE)
+{
+    const auto* pause = activePause;
+    if (!pause)
+        return;
+    activePause = nullptr;
+    if (SetEvent(pause->staged))
+        WaitForSingleObject(pause->resume, timeoutMs);
+}
+}
 
 namespace
 {
@@ -104,7 +126,8 @@ public:
     ~JobPipe() { Finish(); }
 
     bool Open(HANDLE readyToDispatch = nullptr, HANDLE findRoot = nullptr,
-              Operation findScope = Operation::FindContent)
+              Operation findScope = Operation::FindContent,
+              const UacCopyLeaf::Detail::CopyPause* copyPause = nullptr)
     {
         GUID id{};
         if (FAILED(CoCreateGuid(&id)))
@@ -115,7 +138,7 @@ public:
             1, 4096, 4096, 0, nullptr));
         if (!server)
             return false;
-        dispatcher = std::thread([this, name, readyToDispatch, findRoot, findScope] {
+        dispatcher = std::thread([this, name, readyToDispatch, findRoot, findScope, copyPause] {
             const ComApartment com;
             if (FAILED(com.result))
                 return;
@@ -133,6 +156,7 @@ public:
                     FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr)));
                 if (!install.DirectoryHandle())
                     return;
+                UacCopyLeaf::Detail::activePause = copyPause;
                 dispatchError = ServeTransferJob(install, peer.get(), GetCurrentProcess(), GetCurrentProcessId(),
                                                  GetTickCount64() + timeoutMs);
             }
@@ -428,6 +452,40 @@ void CheckActiveOverwriteJournal(const Directory& source, const Directory& targe
               job.Request(Operation::Copy, source, leaf, error, &target) && !error &&
               HasByte(target.File(leaf), 47) && HasByte(source.File(leaf), 47),
           "the same job can copy after the competing journal is released");
+}
+
+void CheckLateOverwriteJournal(const Directory& source, const Directory& target)
+{
+    constexpr wchar_t leaf[] = L"late-overwrite-journal";
+    const auto staged = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto resume = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const UacCopyLeaf::Detail::CopyPause pause{staged.get(), resume.get()};
+    JobPipe job;
+    if (!staged || !resume || !WriteByte(source.File(leaf), 51) ||
+        !job.Open(nullptr, nullptr, Operation::FindContent, &pause))
+    {
+        Check(false, "prepare a copy that pauses after passing the initial journal check");
+        return;
+    }
+    DWORD error = ERROR_GEN_FAILURE;
+    bool replied = false;
+    std::thread copy([&] { replied = job.Request(Operation::Copy, source, leaf, error, &target); });
+    const bool copying = WaitForSingleObject(staged.get(), timeoutMs) == WAIT_OBJECT_0;
+    const auto journalName = DiskOverwriteJournalName(target.identity);
+    auto journal = copying ? Adopt(CreateFileW(journalName.c_str(), GENERIC_READ | GENERIC_WRITE, 0,
+                                               nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr)) : Handle{};
+    const bool released = SetEvent(resume.get()) != FALSE;
+    copy.join();
+    Check(copying && journal && released && replied && error == ERROR_SHARING_VIOLATION &&
+              IsAbsent(target.File(leaf)) && HasByte(source.File(leaf), 51),
+          "a journal opened during data transfer blocks the staged copy at publication");
+    if (!journal)
+        return;
+    journal.reset();
+    Check(DeleteFileW(journalName.c_str()) &&
+              job.Request(Operation::Copy, source, leaf, error, &target) && !error &&
+              HasByte(target.File(leaf), 51) && HasByte(source.File(leaf), 51) && IsAbsent(journalName),
+          "after the late writer releases its journal, the same copy can publish and retire its empty journal");
 }
 
 void CheckStaleOverwriteJob(const Directory& source, const Directory& target)
@@ -876,6 +934,7 @@ int wmain()
     CheckCopyOptionScope(source, target);
     CheckCompetingCopyJobs(source, outside, target);
     CheckActiveOverwriteJournal(source, target);
+    CheckLateOverwriteJournal(source, target);
     CheckStaleOverwriteJob(source, target);
     CheckCancelledCopyJob(source, target);
     CheckLateCopyCancellation(source, target);

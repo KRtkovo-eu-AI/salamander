@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Gate EFS publication against a simultaneous overwrite. | Keep the encrypted stage private until the destination can be published. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Expose EFS publication checkpoints to the native test only. | Test abrupt process loss before and after publication commits. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify EFS data and metadata after publication. | Keep guarded deletion active until the final encrypted object is confirmed. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve and verify EFS alternate data streams. | Keep the source stream inventory consistent through encrypted export and publication. | | GPT-6.1 Sol (Codex) |
@@ -143,7 +144,8 @@ inline DWORD PublishPayload(const Workspace& workspace, HANDLE target,
                             const UacDirectoryLeaf::ParentIdentity& expectedTarget, std::wstring_view leaf,
                             ULONGLONG expectedSize, const FILE_BASIC_INFO& sourceTimes,
                             HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG, bool readAudit = false,
-                            const std::vector<UacCopyLeaf::Detail::DataStream>* expectedStreams = nullptr)
+                            const std::vector<UacCopyLeaf::Detail::DataStream>* expectedStreams = nullptr,
+                            const UacCopyLeaf::Detail::PublicationGate* gate = nullptr)
 {
     using namespace Detail;
     if (!UacDirectoryLeaf::IsComponent(leaf))
@@ -204,6 +206,8 @@ inline DWORD PublishPayload(const Workspace& workspace, HANDLE target,
         return ERROR_FILE_INVALID;
 
     if ((error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline)) != ERROR_SUCCESS)
+        return error;
+    if (gate && (error = gate->acquire(gate->context, connection, deadline)) != ERROR_SUCCESS)
         return error;
     if ((error = UacRenameLeaf::Detail::NativeRename(payload.get(), target, leaf)) != ERROR_SUCCESS)
         return error;

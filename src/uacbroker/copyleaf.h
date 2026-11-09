@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Hold the overwrite journal at copy publication. | Coordinate the final rename without locking during data transfer. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Carry the known total alongside copy progress. | Use the verified manifest or raw stream size when available. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Count staged copy bytes. | Report progress for regular, named and sparse streams. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Combine compressed stream transfer with exact security. | Keep both staging checks active through publication. | | GPT-6.1 Sol (Codex) |
@@ -180,6 +181,12 @@ inline DWORD ReadOverlappedBlock(HANDLE source, BYTE* buffer, DWORD length, ULON
 #ifdef SAM_UAC_COPY_FAULT_TEST
 void AfterCopyBlockForTest(HANDLE target, HANDLE connection);
 #endif
+
+struct PublicationGate
+{
+    DWORD (*acquire)(void* context, HANDLE connection, ULONGLONG deadline);
+    void* context;
+};
 
 struct CopyProgress
 {
@@ -565,7 +572,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                             const CopySourceLocation* location = nullptr, bool preserveCompression = false,
                             const CopySecuritySnapshot* copySecurity = nullptr,
                             StreamHandle* moveTarget = nullptr, DWORD moveCompressionAttributes = 0,
-                            const CopyProgress* progress = nullptr)
+                            const CopyProgress* progress = nullptr, const PublicationGate* gate = nullptr)
 {
     if (moveTarget && (*moveTarget || policy == StreamPolicy::IgnoreNamed || copySecurity ||
         (policy == StreamPolicy::PreserveNamed && (!location || !location->lockedInputs || !location->lockedInventory))))
@@ -786,6 +793,8 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     }
     if ((error = CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
         return error;
+    if (gate && (error = gate->acquire(gate->context, connection, deadline)) != ERROR_SUCCESS)
+        return error;
     if ((error = UacRenameLeaf::Detail::NativeRename(target.get(), targetParent, targetName)) != ERROR_SUCCESS)
         return error;
 
@@ -873,7 +882,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
                               ULONGLONG expectedSize = MAXULONGLONG,
                               StreamPolicy policy = StreamPolicy::RequireDefault,
                               StageVerifier verifyStage = nullptr, bool preserveCompression = false, bool preserveSecurity = false,
-                              const Detail::CopyProgress* progress = nullptr)
+                              const Detail::CopyProgress* progress = nullptr, const Detail::PublicationGate* gate = nullptr)
 {
     using namespace UacDirectoryLeaf;
     if (!IsComponent(sourceName) || !IsComponent(targetName))
@@ -920,6 +929,6 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
     const Detail::CopySourceLocation location{sourceParent, sourceName, actualSource, verifyStage};
     return Detail::CopyOpenedFile(source.get(), targetParent, targetName, cancel, connection, deadline,
                                   expectedSize, basic, nullptr, nullptr, policy, &location, preserveCompression, preserveSecurity ? &security : nullptr,
-                                  nullptr, 0, progress);
+                                  nullptr, 0, progress, gate);
 }
 }

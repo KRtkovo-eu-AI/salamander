@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise EFS publication refusal. | Preserve the original and clear staging if the overwrite journal cannot be acquired. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Race a new destination against a paused overwrite. | Verify interrupted recovery preserves the competing file and the exact backup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Retry a crashed F5 overwrite as a new copy. | Restore the exact original and report a conflict while ignoring unrelated recovery records. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Interrupt F6 after recording the published target. | Verify recovery of the exact original after a hard exit during source retirement. | | GPT-6.1 Sol (Codex) |
@@ -3907,10 +3908,11 @@ static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const F
     UacDirectoryLeaf::ParentIdentity sourceParentId;
     if (UacDirectoryLeaf::ReadParentIdentity(sourceParent.get(), sourceParentId))
         return false;
-    auto copy = [&](ULONGLONG expectedSize, const UacCopyLeaf::Detail::CopyProgress* progress = nullptr) {
+    auto copy = [&](ULONGLONG expectedSize, const UacCopyLeaf::Detail::CopyProgress* progress = nullptr,
+                    const UacCopyLeaf::Detail::PublicationGate* gate = nullptr) {
         return UacEfsWorkspace::CopyVerifiedFile(sourceParent.get(), sourceParentId, sourceId, encryptedLeaf,
                                                  target.get(), targetId, copiedLeaf, expectedSize, parent.get(), parentId,
-                                                 journal.get(), rawSecurity, nullptr, MAXULONGLONG, false, progress);
+                                                 journal.get(), rawSecurity, nullptr, MAXULONGLONG, false, progress, gate);
     };
     DWORD result = copy(plaintext.size() + 1);
     Check(result == ERROR_FILE_INVALID && !Exists(copied), "reject a stale EFS size before starting the raw transfer", result);
@@ -3919,6 +3921,18 @@ static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const F
     if (originalAttrs == INVALID_FILE_ATTRIBUTES ||
         !SetFileAttributesW(originalPath.c_str(), originalAttrs | FILE_ATTRIBUTE_HIDDEN))
         return false;
+    unsigned gateCalls = 0;
+    const UacCopyLeaf::Detail::PublicationGate deny{
+        [](void* context, HANDLE, ULONGLONG) -> DWORD {
+            ++*static_cast<unsigned*>(context);
+            return ERROR_SHARING_VIOLATION;
+        }, &gateCalls};
+    LARGE_INTEGER journalSize{};
+    result = copy(plaintext.size(), nullptr, &deny);
+    Check(result == ERROR_SHARING_VIOLATION && gateCalls == 1 && !Exists(copied) &&
+              HasContents(originalPath, plaintext) && GetFileSizeEx(journal.get(), &journalSize) && !journalSize.QuadPart,
+          "a blocked EFS publication leaves no destination or pending private workspace", result);
+
     TransferProgressSample sample;
     const auto progress = sample.Sink();
     result = copy(plaintext.size(), &progress);

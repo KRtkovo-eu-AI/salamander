@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Forward the EFS publication gate. | Share the overwrite interlock without adding it to raw export and import. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Publish encrypted import progress. | Use the exported raw buffer size without estimating plaintext work. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve and verify EFS alternate data streams. | Keep the source stream inventory consistent through encrypted export and publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Pass the audit verification mode to publication. | Enforce full destination checks for elevated copies. | | GPT-6.1 Sol (Codex) |
@@ -18,7 +19,8 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
                               std::wstring_view targetLeaf, ULONGLONG size,
                               HANDLE privateParent, const FILE_ID_INFO& privateId, HANDLE journal,
                               PSECURITY_DESCRIPTOR security, HANDLE connection, ULONGLONG deadline, bool readAudit = false,
-                              const UacCopyLeaf::Detail::CopyProgress* progress = nullptr)
+                              const UacCopyLeaf::Detail::CopyProgress* progress = nullptr,
+                              const UacCopyLeaf::Detail::PublicationGate* gate = nullptr)
 {
     using namespace Detail;
     if (!UacDirectoryLeaf::IsComponent(sourceLeaf) || !UacDirectoryLeaf::IsComponent(targetLeaf))
@@ -128,7 +130,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
             if (error)
                 return error;
         }
-        return PublishPayload(workspace, target, expectedTarget, targetLeaf, size, basic, connection, deadline, readAudit, &streams);
+        return PublishPayload(workspace, target, expectedTarget, targetLeaf, size, basic, connection, deadline, readAudit, &streams, gate);
     };
     error = copy();
     return workspace.Cleanup() ? ERROR_PARTIAL_COPY : error;
