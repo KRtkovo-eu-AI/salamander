@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Create the Find stop event through the tracked wrapper. | Build Debug and Release with the same unnamed event. | | Codex |
 // | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 // | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
 // | 2026-11-08 | Show a single-file Find consent prompt. | Distinguish the named file from a folder-wide grant. | | GPT-6.1 Sol (Codex) |
@@ -2490,7 +2491,7 @@ void CFindDialog::StartSearch(WORD command)
     GrepData.SearchingText = &SearchingText;
     GrepData.SearchingText2 = &SearchingText2;
 
-    GrepData.StopEvent = HANDLES(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    GrepData.StopEvent = HANDLES(CreateEvent(nullptr, TRUE, FALSE, nullptr));
     DWORD threadId;
     GrepThread = HANDLES(CreateThread(NULL, 0, GrepThreadF, &GrepData, 0, &threadId));
     if (GrepThread == NULL)

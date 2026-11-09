@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Require the tracked Find stop event wrapper. | Keep the source contract compatible with Debug handle tracking. | | Codex |
 # | 2026-11-09 | Distinguish declined files from skipped directories in the Find log. | Cover both exact-file consent paths. | | Codex |
 # | 2026-11-09 | Guard foreground restoration after broker consent. | Keep Find attached to its own invoking window. | | Codex |
 # | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
@@ -54,7 +55,7 @@ def main() -> int:
     require("GrepData.RefreshPosted = FALSE;" in start_search,
             "StartSearch must clear the queued-refresh flag before creating the worker")
 
-    require(start_search.index("GrepData.StopEvent = HANDLES(CreateEventW(") < start_search.index("CreateThread("),
+    require(start_search.index("GrepData.StopEvent = HANDLES(CreateEvent(") < start_search.index("CreateThread("),
             "Find must prepare the broker cancellation event before starting the worker")
     stop_search = function_body(finddlg1, "void CFindDialog::StopSearch()")
     require(stop_search.index("SetEvent(GrepData.StopEvent);") < stop_search.index("WaitForSingleObject(GrepThread,") <

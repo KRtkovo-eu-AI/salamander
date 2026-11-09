@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Fix the Find stop-event wrapper after fork CI. | Restore Debug builds across all three architectures. | | Codex |
 | 2026-11-09 | Reconcile the four UAC acceptance areas with current evidence. | Separate local acceptance from release and account gaps. | | Codex |
 | 2026-11-09 | Verify the deep-path F7 dialog in the latest Win32 host. | Cover dark mode, keyboard scrolling and default cancellation under WOW64. | | Codex |
 | 2026-11-09 | Verify Win32 and ARM64 images after the deep F7 path fix. | Match the current host to its broker, resources and native test coverage. | | Codex |
@@ -1783,6 +1784,8 @@ Stav vychází z lokální revize c84c9a82 a z otevřeného draftu PR 67 na publ
 | Vydání, architektury a lokalizace | GitHub ověřil všech 13 kontrol na 7bd944c8, včetně všech sestavení, nativních a Python testů a skutečné analýzy CodeQL. Pozdější lokální host 7bb644cb prošel Release sestavením pro všechny tři architektury a interaktivním F7 na x64 a pod WOW64. | Celé CI a CodeQL pro aktuální lokální změny, nativní běh ARM64, platný podpis s časovým razítkem a interaktivní ověření vyššího DPI a zbývající matice Windows a účtů. |
 
 Opakovaný výpis GitHubu je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f7-czech-light/pr67-acceptance-current.json. Důkazy po jednotlivých zkouškách jsou ve výše uvedených záznamech.
+
+**P7, první ověření společného pushu 7b60555b.** Draft PR 67 přijal 48 lokálních commitů najednou. Všechna tři sestavení Debug skončila stejnou chybou C2039 v finddlg1.cpp při volání HANDLES(CreateEventW). Debug používá C__Handles a jeho obal se jmenuje CreateEvent. Oprava používá stejný obal jako ostatní volání a zachovává nepojmenovanou ručně resetovanou událost ve výchozím nesignalizovaném stavu. Prošel test kontraktu plánování Findu a cílený překlad finddlg1.cpp s varováními jako chybami pro Debug Win32, x64 i ARM64. CodeQL se na 7b60555b kvůli neúspěšnému sestavení přeskočil. [První běh PR Build](https://github.com/majklvi/salamander/actions/runs/42698291795).
 
 ### 12.3 CI a přijetí vydání
 
