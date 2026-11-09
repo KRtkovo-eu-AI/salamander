@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify interruption during protected F5 overwrite in the VM. | Prove that the original and journal survive when the broker exits before publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify language module architectures in the release payload. | Detect the Win32 pilot packaging mismatch before startup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Accept protected Win32 F7 under WOW64. | Verify cancellation and elevation through the matched Win32 broker in Program Files (x86). | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Compare localization dialog templates with the fork base. | Separate unchanged dialog geometry from runtime sizing of the UAC prompts. | | GPT-6.1 Sol (Codex) |
@@ -1560,6 +1561,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, chráněný Win32 F7 pod WOW64.** Ve Windows 11 x64 build 26200 byly otiskem ověřeny host a broker protokolu 10 v Program Files (x86). První spuštění selhalo při načítání angličtiny, protože laboratorní skript přibalil modul x64. Kontrola hlaviček PE potvrdila x64 8664 u nesprávného souboru a x86 014C u jeho náhrady a hosta. Po výměně jediného souboru se panel spustil a obě zkoušky F7 zobrazily systémovou výzvu. Po zrušení složka 01-win32-cancel nevznikla, po schválení vznikla pouze 02-win32-approve a žádný broker po dokončení nezůstal. Důkaz je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/wow64-panel/protected-f7-evidence.json. Nativní běh ARM64 zůstává k ověření.
 
 **P7, architektura jazykových modulů při kontrole distribuce.** Samostatný ověřovač vyžaduje u vydání anglický modul a kontroluje architekturu zabalených modulů SLG. V režimu nepodepsané laboratoře přijme i samostatný pár aplikace a brokeru bez složky lang. Prošel kandidát x64 se dvanácti moduly, ověřená instalace Win32 s jedním modulem a kandidát ARM64 s nově sestaveným anglickým modulem. Negativní zkouška odmítla chybějící angličtinu, modul x64 na místě angličtiny Win32 i další modul x64 vedle správné angličtiny Win32. Režim vydání odmítl skutečný nepodepsaný obraz. Kontrola x64 prošla i v PowerShellu 5.1. Výpisy jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/language-architecture-verifier.json a arm64-language-verifier.json. Podpis a nativní běh ARM64 zůstávají k ověření.
+
+**P7, tvrdé ukončení F5 při přepisu ve VM.** Po schváleném přepisu jediného testovacího souboru 09-overwrite-crash.txt ukončil laboratorní broker sám sebe po přejmenování pracovní kopie do cílového názvu a před zrušením příznaku odstranění při zavření handlu. Po ukončení cíl chyběl, zdroj byl beze změny, jediná záloha měla přesné ID i SHA-256 původního cíle a existoval jeden neprázdný žurnál. Běžný broker byl poté obnoven a ověřen otiskem. Záznam je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f5-overwrite-crash/interruption-evidence.json. Zkouška úmyslně ponechává žurnál i zálohu pro ověření opakování. Běžná chráněná kopie do volného názvu podle kontroly kódu žurnál přepisu neotevírá. Opakování musí nejprve obnovit původní soubor a vyžádat si nové rozhodnutí o přepisu.
 
 ### 12.3 CI a přijetí vydání
 
