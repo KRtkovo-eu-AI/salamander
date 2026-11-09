@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Restrict the Shell recycle retry to same-account elevation. | A credential-based Shell retry can move the file into another account’s Recycle Bin. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Let the Shell retry recycling after requesting elevation. | Keep revalidating the exact source without treating an intermediate callback as final. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Resolve protected recycle completion from its exact receipt. | Keep a verified move when the Shell reports a later aggregate error. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify a complete recycle receipt. | Check the original name and the original account's bin on the same volume. | | GPT-6.1 Sol (Codex) |
@@ -44,6 +45,38 @@ inline HRESULT NormalizeRecycleResult(HRESULT result)
 
 namespace OperationRecycleDetail
 {
+inline bool IsSameAccountRecyclePolicy(TOKEN_ELEVATION_TYPE type, DWORD consentPolicy)
+{
+    // 0 elevates the current administrator directly; 2, 4 and 5 use consent.
+    // Credential prompts (1 and 3) can switch to a different administrator.
+    return type == TokenElevationTypeLimited &&
+           (consentPolicy == 0 || consentPolicy == 2 || consentPolicy == 4 || consentPolicy == 5);
+}
+
+inline bool CanRequestSameAccountRecycle()
+{
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token))
+        return false;
+    TOKEN_ELEVATION_TYPE type = TokenElevationTypeDefault;
+    DWORD size = 0;
+    const BOOL read = GetTokenInformation(token, TokenElevationType, &type, sizeof(type), &size);
+    CloseHandle(token);
+    if (!read || type != TokenElevationTypeLimited)
+        return false;
+
+    constexpr auto policy = LR"(SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System)";
+    HKEY key = nullptr;
+    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, policy, 0, KEY_QUERY_VALUE | KEY_WOW64_64KEY, &key) != ERROR_SUCCESS)
+        return false;
+    DWORD consent = 0;
+    size = sizeof(consent);
+    const auto result = RegGetValueW(key, nullptr, L"ConsentPromptBehaviorAdmin",
+                                     RRF_RT_REG_DWORD, nullptr, &consent, &size);
+    RegCloseKey(key);
+    return result == ERROR_SUCCESS && IsSameAccountRecyclePolicy(type, consent);
+}
+
 inline std::wstring CurrentSid()
 {
     HANDLE token = nullptr;
