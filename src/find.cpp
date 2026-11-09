@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Report declined Find file access as cancellation. | Keep the directory-skip message for actual directories. | | Codex |
 // | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 // | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 // | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
@@ -1124,7 +1125,7 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
         return FALSE;
     if (error)
     {
-        const auto message = error == ERROR_CANCELLED ? std::string(LoadStr(IDS_FINDLOG_SKIP)) :
+        const auto message = error == ERROR_CANCELLED ? std::string(GetErrorText(error)) :
             FormatFindError(opened ? IDS_ERROR_READING_FILE2 : IDS_ERROR_OPENING_FILE2, error);
         const DWORD flags = error == ERROR_CANCELLED ? FLI_INFO : FLI_ERROR;
         FIND_LOG_ITEM log{flags, message.c_str(), display.c_str()};
@@ -1860,7 +1861,7 @@ public:
             return nullptr;
         if (consent->result != ERROR_SUCCESS)
         {
-            Log(path, consent->result);
+            Log(path, consent->result, singleFile);
             if (singleFile && data->Refine == 2)
                 PublishSingleFile(nullptr, false);
             return nullptr;
@@ -1880,12 +1881,12 @@ public:
     }
 
 private:
-    void Log(const std::wstring& directory, DWORD error)
+    void Log(const std::wstring& entryPath, DWORD error, bool isFile = false)
     {
         if (error == ERROR_CANCELLED && data->StopSearch)
             return;
-        const std::string pathText = SalWideToMultiBytePath(directory.c_str(), CP_UTF8);
-        const std::string text = error == ERROR_CANCELLED ? LoadStr(IDS_FINDLOG_SKIP) : GetErrorText(error);
+        const std::string pathText = SalWideToMultiBytePath(entryPath.c_str(), CP_UTF8);
+        const std::string text = error == ERROR_CANCELLED && !isFile ? LoadStr(IDS_FINDLOG_SKIP) : GetErrorText(error);
         const DWORD flags = error == ERROR_CANCELLED ? FLI_INFO : FLI_ERROR;
         FIND_LOG_ITEM log{flags, text.c_str(), pathText.c_str()};
         SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
@@ -1904,7 +1905,7 @@ private:
         DWORD error = session.OpenContent(filePath, size, modified, revision);
         if (error)
         {
-            Log(filePath, error);
+            Log(filePath, error, true);
             return false;
         }
 
@@ -1913,7 +1914,7 @@ private:
         const bool match = !error && predicates.Match(data, session, filePath, pathText, listedSize, error);
         const DWORD closeError = session.CloseContent();
         if (!data->StopSearch && (error || closeError))
-            Log(filePath, error ? error : closeError);
+            Log(filePath, error ? error : closeError, true);
         return match && !error && !closeError && !data->StopSearch;
     }
 

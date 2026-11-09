@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Distinguish declined files from skipped directories in the Find log. | Cover both exact-file consent paths. | | Codex |
 # | 2026-11-09 | Guard foreground restoration after broker consent. | Keep Find attached to its own invoking window. | | Codex |
 # | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 # | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
@@ -164,6 +165,12 @@ def main() -> int:
     require("AuthorizeFindFile(data, fullPath, singleFile)" in digest and
             "remainingFileConsents" in digest,
             "a denied ordinary duplicate read must have a bounded exact-file fallback")
+    require("std::string(GetErrorText(error))" in digest and "IDS_FINDLOG_SKIP" not in digest,
+            "a declined duplicate file must log cancellation, not a skipped directory")
+    protected_log = function_body(find_cpp, "void Log(const std::wstring& entryPath, DWORD error, bool isFile = false)")
+    require("error == ERROR_CANCELLED && !isFile ? LoadStr(IDS_FINDLOG_SKIP)" in protected_log and
+            "Log(path, consent->result, singleFile);" in request_finish,
+            "a declined protected request must distinguish an exact file from a directory")
     require("offset < size" in digest and "error = ERROR_HANDLE_EOF;" in digest and
             "current.ChangeTime.QuadPart != initial.ChangeTime.QuadPart" in digest,
             "a local digest must cover the listed length and reject a changed file")
