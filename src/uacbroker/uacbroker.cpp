@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Look up the tree registration slot by its exact digit. | Keep command-line input out of integer arithmetic and preserve the accepted range. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Serialize final F5 publication with protected overwrites. | A new copy cannot fill the temporary gap in a journaled replacement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Recover a pending disk overwrite before a fresh copy. | Prevent a retry from publishing over the missing original name. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Scope broker activity after authentication. | Reset the caption even when a transfer fails or is cancelled. | | GPT-6.1 Sol (Codex) |
@@ -3689,9 +3690,11 @@ int wmain(int argc, wchar_t** argv)
         if (argc == 4)
         {
             const std::wstring_view value(argv[2]);
-            if (value.size() != 1 || value.front() < L'1' || value.front() > L'8')
+            constexpr std::wstring_view slotDigits = L"012345678";
+            const auto parsed = slotDigits.find(value);
+            if (value.size() != 1 || parsed == 0 || parsed == std::wstring_view::npos)
                 return Report(Failed, L"Invalid tree registration slot", ERROR_INVALID_PARAMETER);
-            slot = static_cast<unsigned>(value.front() - L'0');
+            slot = static_cast<unsigned>(parsed);
         }
         const DWORD error = slot ? RegisterTreeSlot(install, slot, argv[3]) : RegisterTreeTarget(install);
         return error ? Report(Failed, L"Register tree target", error) : Ok;
