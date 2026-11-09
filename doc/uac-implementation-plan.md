@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the original account can read both EFS files. | Confirm the protected copy keeps the key holder’s access and matching content. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify combined Find predicates and duplicates in the VM. | Keep accessible and approved matches after an independent denied scope. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the Recycle Bin account guard in the VM. | Preserve the source before the Shell can recycle it into another account. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Probe an explicit alternate account Recycle Bin destination. | Verify the NTFS Shell destination and stage the original-account guard. | | GPT-6.1 Sol (Codex) |
@@ -1476,6 +1477,10 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, ochrana Koše ve standardním panelu.** Po ověření nasazených binárek 7b0826d7 běžel nový panel pod SamandarinUacTest. Delete u obnoveného P7-recycle-03-other-admin.txt skončil chybou 5 bez tlačítka Administrator a bez systémové výzvy. Kontrola obou Košů z PowerShellu správce nenašla položku pro žádný ze tří testovacích souborů. Všechny zdroje měly původní cestu, NTFS ID a SHA-256. Zkouška potvrzuje, že ochrana zabrání opakování chybného přesunu do Koše správce. Bezpečný schválený přesun při jiném účtu zůstává otevřený.
 
 **P7, společná VM zkouška Findu.** Na nainstalovaném x64 kandidátu 7b0826d7 měl Find masku *.jpg, text P7FIND_MARKER_X, tag Samandarin-東 a shodu názvu, velikosti a obsahu. Uživatel odmítl systémovou výzvu pro 02-deny a schválil samostatnou výzvu pro 03-approve. Po skončení ukázal seznam přesně dvě položky 東-candidate.jpg po 2 370 bajtech v adresářích 01-ordinary a 03-approve. Odmítnutá větev a dostupný soubor se stejným tagem a velikostí, ale odlišným textem a SHA-256, chyběly. Důkaz je v P7-Find/combined-vm-evidence.json. Řízené odpojení během kombinované zkoušky zůstává otevřené.
+
+**P7, EFS pod původním účtem.** F5 z panelu SamandarinUacTest po schválení jiným správcem zkopírovalo 40bajtový soubor do chráněného cíle. V panelu i na disku měly oba soubory atribut Encrypted. Čtecí kontrola spuštěná přímo ze standardního panelu potvrdila SID držitele klíče, dešifrovatelnost obou souborů, očekávaný obsah a shodu SHA-256. Schvalující účet ve své běžné relaci dostal při čtení obou souborů Access denied. Důkazy jsou v P7-EFS/logs/OwnerFromPanel.json a P7-EFS/alternate-account-read-evidence.json. Ještě zbývá stejná negativní kontrola pod zvýšeným tokenem schvalujícího správce.
+
+**P7, připravené odpojení Findu.** Laboratorní broker byl ověřen s kandidátem 7b0826d7 jako pár x64 s protokolem 10. Přerušení je omezené na první blok čtení kandidáta ve větvi 02-deny z přesné testovací složky, po úspěšném otevření položky. Ostatní požadavky používají běžnou cestu. Skript Invoke-P7FindFault.ps1 ověří otisky pro dočasnou výměnu a návrat běžného brokeru. Laboratorní sestavení je mimo větev a ve VM zůstává běžný broker.
 
 ### 12.3 CI a přijetí vydání
 
