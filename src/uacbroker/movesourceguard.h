@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Accept the compressed move rollback metadata in the durable record. | Keep source retirement compatible with both sealed record layouts. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Recheck default-only destinations before retiring an F6 source. | Detect late alternate streams before removing the guarded source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Admit compressed named F6 streams. | Keep their exclusive locks while verifying their separate compression formats. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Admit sparse named streams under the F6 source lock. | Preserve their allocation instead of refusing the combined case. | | GPT-6.1 Sol (Codex) |
@@ -374,13 +375,14 @@ public:
         LARGE_INTEGER length{};
         if (!GetFileSizeEx(journal, &length))
             return GetLastError();
-        if (length.QuadPart != sealedRecordSize)
+        if (length.QuadPart < sealedRecordSize)
             return ERROR_INVALID_DATA;
         Record record{};
         DWORD bytes = 0;
         if (!SetFilePointerEx(journal, {}, nullptr, FILE_BEGIN) || !ReadFile(journal, &record, sizeof(record), &bytes, nullptr))
             return GetLastError();
-        if (bytes != sizeof(record) || record.version != 2 || !record.length || record.length > ARRAYSIZE(record.leaf) ||
+        if (bytes != sizeof(record) || (record.version != sealedVersion && record.version != clearArchiveVersion) ||
+            length.QuadPart != SealedRecordSize(record.version) || !record.length || record.length > ARRAYSIZE(record.leaf) ||
             !UacRenameLeaf::Detail::SameSource(record.file, identity) ||
             UacRenameLeaf::Detail::SameSource(identity, journalId) ||
             !UacRenameLeaf::Detail::SameSource(record.originalParent, original.file) ||

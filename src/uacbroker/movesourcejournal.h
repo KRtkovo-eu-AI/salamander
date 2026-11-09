@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Restore the original Archive bit after a compressed F6 rollback. | Record the source write time and repair the attributes on the pinned source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Separate the source seal from recovery link creation. | Make the durable DACL record recoverable before any hard link exists. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Retire both F6 source links after the destination receipt. | Preserve a recoverable source until the last unlink. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Persist the verified F6 destination. | A completed move requires the exact published target even after process loss. | | GPT-6.1 Sol (Codex) |
@@ -89,19 +90,48 @@ struct DaclRecord
     DaclSnapshot original, sealed;
 };
 
-inline DWORD CheckOrRestoreDacl(HANDLE originalName, DaclRecord& record, bool restore)
+constexpr ULONGLONG sealedVersion = 2;
+constexpr ULONGLONG clearArchiveVersion = 3;
+
+inline DWORD RestoreClearArchive(HANDLE source, LONGLONG recordedWrite)
+{
+    FILE_BASIC_INFO before{};
+    if (!GetFileInformationByHandleEx(source, FileBasicInfo, &before, sizeof(before)))
+        return GetLastError();
+    if (!(before.FileAttributes & FILE_ATTRIBUTE_ARCHIVE) || before.LastWriteTime.QuadPart != recordedWrite)
+        return ERROR_SUCCESS;
+    if (!(before.FileAttributes & FILE_ATTRIBUTE_COMPRESSED))
+        return ERROR_FILE_INVALID;
+    FILE_BASIC_INFO change{};
+    change.FileAttributes = before.FileAttributes & (FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM);
+    if (!change.FileAttributes)
+        change.FileAttributes = FILE_ATTRIBUTE_NORMAL;
+    FILE_BASIC_INFO after{};
+    if (!SetFileInformationByHandle(source, FileBasicInfo, &change, sizeof(change)) ||
+        !GetFileInformationByHandleEx(source, FileBasicInfo, &after, sizeof(after)))
+        return GetLastError();
+    return after.FileAttributes == (before.FileAttributes & ~FILE_ATTRIBUTE_ARCHIVE) &&
+           after.LastWriteTime.QuadPart == recordedWrite ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+}
+
+inline DWORD CheckOrRestoreDacl(HANDLE originalName, DaclRecord& record, bool restore,
+                               const LONGLONG* clearArchiveAt = nullptr)
 {
     const auto current = std::make_unique<DaclSnapshot>();
     DWORD error = current->Read(originalName);
-    if (error || current->Matches(record.original))
+    if (error)
         return error;
+    if (current->Matches(record.original))
+        return restore && clearArchiveAt ? RestoreClearArchive(originalName, *clearArchiveAt) : ERROR_SUCCESS;
     if (!current->Matches(record.sealed))
         return ERROR_FILE_INVALID;
     if (!restore)
         return ERROR_SUCCESS;
     if ((error = record.original.Apply(originalName)) || (error = current->Read(originalName)))
         return error;
-    return current->Matches(record.original) ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+    if (!current->Matches(record.original))
+        return ERROR_FILE_INVALID;
+    return clearArchiveAt ? RestoreClearArchive(originalName, *clearArchiveAt) : ERROR_SUCCESS;
 }
 
 struct DestinationRecord
@@ -113,7 +143,10 @@ struct DestinationRecord
 };
 
 constexpr LONGLONG sealedRecordSize = sizeof(Record) + sizeof(DaclRecord);
-constexpr LONGLONG completedRecordSize = sealedRecordSize + sizeof(DestinationRecord);
+inline LONGLONG SealedRecordSize(ULONGLONG version)
+{
+    return sealedRecordSize + (version == clearArchiveVersion ? sizeof(LONGLONG) : 0);
+}
 
 inline DWORD OpenedPath(HANDLE file, std::wstring& path)
 {
@@ -289,6 +322,7 @@ inline DWORD PrepareRecovery(HANDLE parent, std::wstring_view leaf, HANDLE sourc
 
     Record record{};
     std::unique_ptr<DaclRecord> dacl;
+    FILE_BASIC_INFO metadata{};
     if (seal)
     {
         if (!IsValidAcl(seal))
@@ -299,7 +333,10 @@ inline DWORD PrepareRecovery(HANDLE parent, std::wstring_view leaf, HANDLE sourc
         dacl->sealed = dacl->original;
         dacl->sealed.protectedDacl = 1;
         std::memcpy(dacl->sealed.storage, seal, seal->AclSize);
-        record.version = 2;
+        if (!GetFileInformationByHandleEx(source, FileBasicInfo, &metadata, sizeof(metadata)))
+            return GetLastError();
+        record.version = (metadata.FileAttributes & (FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_ARCHIVE)) ==
+                         FILE_ATTRIBUTE_COMPRESSED ? clearArchiveVersion : sealedVersion;
     }
     if (FAILED(CoCreateGuid(&record.nonce)))
         return ERROR_GEN_FAILURE;
@@ -323,6 +360,13 @@ inline DWORD PrepareRecovery(HANDLE parent, std::wstring_view leaf, HANDLE sourc
             return GetLastError();
         if (written != sizeof(*dacl))
             return ERROR_WRITE_FAULT;
+        if (record.version == clearArchiveVersion)
+        {
+            if (!WriteFile(journal, &metadata.LastWriteTime.QuadPart, sizeof(LONGLONG), &written, nullptr))
+                return GetLastError();
+            if (written != sizeof(LONGLONG))
+                return ERROR_WRITE_FAULT;
+        }
         if (!FlushFileBuffers(journal))
             return GetLastError();
     }
@@ -354,14 +398,12 @@ inline DWORD RememberDestination(HANDLE journal, PSECURITY_DESCRIPTOR journalSec
     LARGE_INTEGER size{};
     if (!GetFileSizeEx(journal, &size))
         return GetLastError();
-    if (size.QuadPart != sealedRecordSize)
-        return ERROR_INVALID_DATA;
     Record record{};
     DWORD bytes = 0;
     if (!SetFilePointerEx(journal, {}, nullptr, FILE_BEGIN) || !ReadFile(journal, &record, sizeof(record), &bytes, nullptr))
         return GetLastError();
-    if (bytes != sizeof(record) || record.version != 2 ||
-        !UacRenameLeaf::Detail::SameSource(record.file, sourceId))
+    if (bytes != sizeof(record) || (record.version != sealedVersion && record.version != clearArchiveVersion) ||
+        size.QuadPart != SealedRecordSize(record.version) || !UacRenameLeaf::Detail::SameSource(record.file, sourceId))
         return ERROR_FILE_INVALID;
 
     UacDirectoryLeaf::ParentIdentity parent;
@@ -401,16 +443,16 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
         return GetLastError();
     if (!size.QuadPart)
         return ERROR_SUCCESS;
-    if (size.QuadPart != sizeof(Record) && (size.QuadPart < sealedRecordSize || size.QuadPart > completedRecordSize))
-        return ERROR_INVALID_DATA;
-
     Record record{};
     DWORD bytes = 0;
     if (!SetFilePointerEx(journal, {}, nullptr, FILE_BEGIN) || !ReadFile(journal, &record, sizeof(record), &bytes, nullptr))
         return GetLastError();
-    const bool hasDacl = record.version == 2;
+    const bool clearArchive = record.version == clearArchiveVersion;
+    const bool hasDacl = record.version == sealedVersion || clearArchive;
+    const LONGLONG sealedBytes = SealedRecordSize(record.version);
+    const LONGLONG completedBytes = sealedBytes + sizeof(DestinationRecord);
     if (bytes != sizeof(record) || (!hasDacl && record.version != 1) ||
-        (hasDacl ? size.QuadPart < sealedRecordSize : size.QuadPart != sizeof(Record)) ||
+        (hasDacl ? size.QuadPart < sealedBytes || size.QuadPart > completedBytes : size.QuadPart != sizeof(Record)) ||
         !record.length || record.length > ARRAYSIZE(record.leaf) ||
         record.file.VolumeSerialNumber != original.file.VolumeSerialNumber ||
         UacRenameLeaf::Detail::SameSource(record.file, journalId))
@@ -434,8 +476,17 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
             return ERROR_INVALID_DATA;
     }
 
+    LONGLONG recordedWrite = 0;
+    if (clearArchive)
+    {
+        if (!ReadFile(journal, &recordedWrite, sizeof(recordedWrite), &bytes, nullptr))
+            return GetLastError();
+        if (bytes != sizeof(recordedWrite))
+            return ERROR_INVALID_DATA;
+    }
+
     HANDLE raw = nullptr;
-    const DWORD access = hasDacl ? READ_CONTROL | WRITE_DAC : FILE_READ_DATA;
+    const DWORD access = hasDacl ? READ_CONTROL | WRITE_DAC | (clearArchive ? FILE_WRITE_ATTRIBUTES : 0) : FILE_READ_DATA;
     error = UacRenameLeaf::Detail::OpenSource(storage, name, raw, DELETE | access, FILE_SHARE_READ);
     if (error && error != ERROR_FILE_NOT_FOUND)
         return error;
@@ -444,13 +495,14 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
         return error;
 
     Handle source(nullptr, CloseHandle);
+    Handle metadata(nullptr, CloseHandle);
     if (dacl)
     {
         raw = nullptr;
         error = UacRenameLeaf::Detail::OpenSource(parent, leaf, raw, access,
                                                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
         source.reset(raw);
-        if (error == ERROR_FILE_NOT_FOUND && !retained && size.QuadPart == completedRecordSize)
+        if (error == ERROR_FILE_NOT_FOUND && !retained && size.QuadPart == completedBytes)
         {
             const auto receipt = std::make_unique<DestinationRecord>();
             if (!ReadFile(journal, receipt.get(), sizeof(*receipt), &bytes, nullptr))
@@ -473,9 +525,12 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
             source = std::move(retained);
         }
         if (error || (error = CheckIdentity(source.get(), record.file)) ||
-            (error = CheckOrRestoreDacl(source.get(), *dacl, true)))
+            (error = CheckOrRestoreDacl(source.get(), *dacl, !clearArchive)))
             return error;
-        source.reset();
+        if (clearArchive)
+            metadata = std::move(source);
+        else
+            source.reset();
     }
 
     error = OpenOriginal(parent, leaf, record.file, source, true);
@@ -504,6 +559,10 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
         error = ERROR_SUCCESS;
     }
     if (error)
+        return error;
+    // Removing the alias and restoring the original DACL can set Archive.
+    // Finish the repair after both changes, while the original data is pinned.
+    if (metadata && (error = CheckOrRestoreDacl(metadata.get(), *dacl, true, &recordedWrite)))
         return error;
     return UacRecoveryJournal::ClearRecord(journal);
 }

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Test restoring the cleared Archive attribute on compressed F6 rollback. | Verify the attribute, source bytes and removal of the recovery alias. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify combined NTFS compression and security in F5. | Check named data, compression, and explicit permissions together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise recovery of protected overwrite targets with named streams. | Refuse unsafe backup cleanup and preserve the ordinary overwrite result. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise late destination streams during F6 retirement. | Keep both source links when the target changes after publication. | | GPT-6.1 Sol (Codex) |
@@ -2335,6 +2336,26 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
               HasContents(sourcePath, compressedBytes),
           "restore a sealed source with no recovery link and leave its content and modification time intact", error);
     if (sealCompressed() || CheckNoPriorSourceOpens(parent.get(), leaf, compressedId))
+        return false;
+    {
+        SourceGuard interrupted(compressedAttributes, [](HANDLE, bool) { return true; });
+        if (interrupted.Open(parent.get(), leaf, compressedId, 1) ||
+            interrupted.AddRecoveryLink(storage.get(), name))
+            return false;
+        FILE_BASIC_INFO linked{};
+        Check(GetFileInformationByHandleEx(interrupted.File(), FileBasicInfo, &linked, sizeof(linked)) &&
+                  (linked.FileAttributes & FILE_ATTRIBUTE_ARCHIVE),
+              "creating the recovery alias sets the source Archive bit on NTFS");
+    }
+    error = recover(parent.get());
+    Check(!error && empty() && !Exists(storageDirectory + L"\\" + name) &&
+              GetFileAttributesExW(sourcePath.c_str(), GetFileExInfoStandard, &afterSeal) &&
+              afterSeal.dwFileAttributes == beforeSeal.dwFileAttributes &&
+              !CompareFileTime(&beforeSeal.ftLastWriteTime, &afterSeal.ftLastWriteTime) &&
+              HasContents(sourcePath, compressedBytes) &&
+              HasContents(sourcePath + compressedSuffix, compressedBytes),
+          "restore the cleared Archive bit and preserve compressed source data after rollback", error);
+    if (error || sealCompressed() || CheckNoPriorSourceOpens(parent.get(), leaf, compressedId))
         return false;
     error = guard.Open(parent.get(), leaf, compressedId, 1);
     Check(error == ERROR_NOT_SUPPORTED, "reject a compressed source in the ordinary move scope", error);

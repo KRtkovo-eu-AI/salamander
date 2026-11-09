@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Request metadata write access for compressed F6 rollback. | Keep the source eligible for restoring Archive before releasing the seal. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Dispatch F5 compression and security together. | Verify both attributes and the explicit security descriptor before publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Track the final request frame before marking a result uncertain. | Keep pre-dispatch failures recoverable for one-shot and reusable broker jobs. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Admit protected overwrite targets with named streams. | Use the guarded backup digest in publication and recovery. | | GPT-6.1 Sol (Codex) |
@@ -1146,8 +1147,9 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
 
     bool published = false;
     error = [&]() -> DWORD {
-        DWORD status = UacRenameLeaf::Detail::OpenSource(sourceParent, sourceLeaf, raw,
-            DELETE | READ_CONTROL | WRITE_DAC | FILE_READ_DATA | FILE_READ_EA, 0);
+        const DWORD access = DELETE | READ_CONTROL | WRITE_DAC | FILE_READ_DATA | FILE_READ_EA |
+                             (preserveCompression ? FILE_WRITE_ATTRIBUTES : 0);
+        DWORD status = UacRenameLeaf::Detail::OpenSource(sourceParent, sourceLeaf, raw, access, 0);
         if (status)
             return status;
         auto source = Adopt(raw);
