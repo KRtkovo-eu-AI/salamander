@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Share eligibility for a protected move source. | Keep F6 preparation and the broker retry in the same metadata scope. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Use one result policy for authenticated broker replies. | Keep a partial move visible after the one-shot broker exits. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe guarded F6 with NTFS compression. | Bind the existing exact-attributes option to its own move scope. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe sparse guarded F6 sources. | Share the allowed attributes between the worker and broker. | | GPT-6.1 Sol (Codex) |
@@ -196,6 +197,11 @@ constexpr DWORD crossVolumeMoveAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBU
 inline bool IsCrossVolumeMoveFile(DWORD attributes)
 {
     return attributes && !(attributes & ~crossVolumeMoveAttributes);
+}
+
+inline bool IsEligibleMoveFile(DWORD attributes, bool copyAttributes, bool copySecurity)
+{
+    return !copySecurity && (copyAttributes ? IsCompressedCopyFile(attributes) : IsCrossVolumeMoveFile(attributes));
 }
 
 inline bool IsPlainDeleteLink(DWORD attributes, bool directory = false)

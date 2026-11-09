@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Defer inaccessible cross-volume move sources to the worker. | Allow the existing broker retry after ordinary ADS discovery cannot open the file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow eligible encrypted sources in batch discovery. | Defer blocked reads to the authorized transfer job. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Queue eligible protected EFS sources for F5. | Preserve EFS when ordinary stream discovery is denied. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Retain exact selected paths for each direct directory item. | Prevent batch script position from changing the verified target. | | GPT-6.1 Sol (Codex) |
@@ -3251,15 +3252,18 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             DWORD err = GetLastError();
                             if (invalidSrcName)
                                 err = ERROR_INVALID_NAME;
-                            if ((err == ERROR_ACCESS_DENIED ||
+                            const bool protectedCopy = type == atCopy &&
+                                (err == ERROR_ACCESS_DENIED ||
                                  (UacF7::IsEncryptedCopyFile(op.Attr) && UacF7::IsEfsCopyFailure(op.Attr, err))) &&
-                                type == atCopy && script->AllowTransferPilot &&
-                                !script->OverwriteOlder &&
-                                targetPathState == tpsNotEncryptedExisting &&
-                                UacF7::IsEligibleFileCopy(op.Attr, script->CopyAttrs, script->IgnoreTransferAds, script->CopySecurity) &&
+                                UacF7::IsEligibleFileCopy(op.Attr, script->CopyAttrs, script->IgnoreTransferAds, script->CopySecurity);
+                            const bool protectedMove = type == atMove && err == ERROR_ACCESS_DENIED &&
+                                !(op.OpFlags & OPFL_AS_ENCRYPTED) &&
+                                UacF7::IsEligibleMoveFile(op.Attr, script->CopyAttrs, script->CopySecurity);
+                            if ((protectedCopy || protectedMove) && script->AllowTransferPilot &&
+                                !script->OverwriteOlder && targetPathState == tpsNotEncryptedExisting &&
                                 op.FileSize.Value <= UacF7::maxPilotCopyBytes)
                             {
-                                op.OpFlags |= OPFL_UAC_COPY_SOURCE;
+                                op.OpFlags |= OPFL_UAC_TRANSFER_SOURCE;
                                 goto ADS_DISCOVERY_COMPLETE;
                             }
                             int res;

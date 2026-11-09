@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Check the source admission used for protected F6. | Cover sparse, exact compression and metadata combinations before broker launch. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify the host result policy for partial moves. | Keep one-shot replies and reusable jobs consistent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise the compressed move request on the broker pipe. | Prove same-volume refusal with the new request type. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise the late F6 request framing. | Read the destination revision before evaluating the volume boundary. | | GPT-6.1 Sol (Codex) |
@@ -243,6 +244,21 @@ void CheckLateCopyCancellation(const Directory& source, const Directory& target)
           "a late cancel ends the job cleanly and preserves the already published copy");
 }
 
+void CheckMoveSourceEligibility()
+{
+    constexpr DWORD plain = FILE_ATTRIBUTE_ARCHIVE;
+    constexpr DWORD sparse = plain | FILE_ATTRIBUTE_SPARSE_FILE;
+    constexpr DWORD compressed = plain | FILE_ATTRIBUTE_COMPRESSED;
+    Check(UacF7::IsEligibleMoveFile(plain, false, false) && UacF7::IsEligibleMoveFile(sparse, false, false) &&
+              UacF7::IsEligibleMoveFile(compressed, true, false) &&
+              !UacF7::IsEligibleMoveFile(compressed, false, false),
+          "admit plain and sparse move sources and require the explicit compression option");
+    Check(!UacF7::IsEligibleMoveFile(sparse, true, false) && !UacF7::IsEligibleMoveFile(plain, false, true) &&
+              !UacF7::IsEligibleMoveFile(plain | FILE_ATTRIBUTE_ENCRYPTED, false, false) &&
+              !UacF7::IsEligibleMoveFile(plain | FILE_ATTRIBUTE_REPARSE_POINT, false, false),
+          "refuse unsupported metadata and link combinations at move preparation");
+}
+
 void CheckTransferReplies()
 {
     const auto oneShotMove = UacF7::TransferReply(Operation::MoveAcrossVolume, ERROR_PARTIAL_COPY);
@@ -368,6 +384,7 @@ int wmain()
     CheckLateCopyCancellation(source, target);
     CheckCrossVolumeBoundary(source, target);
     CheckTransferReplies();
+    CheckMoveSourceEligibility();
     CheckMetadataJob(source);
     CheckDeleteJob(source);
     return failures ? 1 : 0;

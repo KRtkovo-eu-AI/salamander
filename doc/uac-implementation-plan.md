@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record F6 source access denied during preparation. | Pass eligible cross-volume moves through the verified worker retry. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record F6 cancellation and partial replies. | Preserve the broker outcome across one-shot and shared sessions. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record source sealing before recovery link creation. | Reject preexisting handles before the link can change NTFS metadata. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record compressed F6 publication. | Preserve LZNT1 and the source attributes captured before sealing. | | GPT-6.1 Sol (Codex) |
@@ -704,6 +705,10 @@ V x64 Debug a Release prošlo 101 kontrol F6 a 13 scénářů dávkové roury. N
 **Částečný výsledek F6, zrušení a ztráta spojení.** Výsledek `ERROR_PARTIAL_COPY` se v hostu vyhodnocuje stejně po odpovědi ve sdílené relaci i po ukončení jednorázového brokeru. Dříve mohl závěrečný rámec jednorázového brokeru přepsat příznak částečného výsledku u F6. Aplikace nyní u tohoto výsledku zastaví dávku a požádá o kontrolu zdroje a cíle. Potvrzené zrušení a potvrzená kolize se od částečného výsledku odlišují.
 
 V x64 Debug i Release prošlo 103 nativních kontrol F6 a 16 kontrol transportní sady. Zkoušky poslaly do skutečné roury příkaz zrušení a následně simulovaly ukončení hosta. V obou případech zdrojové odkazy zůstaly přítomné a již zveřejněný cíl si zachoval identitu. Samostatné kontroly ověřily klasifikaci odpovědí všech tří variant F6 mezi svazky, šifrovaného F5, potvrzeného zrušení a kolize. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Celý tok s jednorázovým brokerem a skutečnou výzvou zůstává ve společné akceptaci ve VM.
+
+**Odepřené čtení zdroje při přípravě F6.** Při zjišťování alternativních datových proudů může samotné otevření zdroje skončit chybou 5, ještě než se spustí worker. Příprava předá způsobilý soubor workeru stejným příznakem jako u F5. Worker nabídne elevaci pro F6 pouze po ověření rodičů na dvou různých podporovaných svazcích a pokud běžná kontrola nenajde obsazený cíl. Broker případnou kolizi odmítne. Pro běžný, řídký nebo výslovně komprimovaný soubor platí stávající limit a broker ověří jediný datový proud. Přesuny s kopírováním oprávnění, šifrováním či nepodporovaným typem se řídí běžnou chybovou cestou.
+
+V Debug i Release prošlo 18 kontrol transportní sady včetně dvou nových kontrol způsobilosti zdroje. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Zkouška s reálně odepřeným čtením během přípravy a s volným cílem na jiném svazku patří do společné akceptace ve VM.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

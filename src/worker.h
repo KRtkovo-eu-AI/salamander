@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Document deferred source access for copy and move. | Use one flag for the two existing transfer retries. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Store the approved basic attribute choices. | Reuse the same policy across metadata items. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the shared job flag for EFS. | Retire the single-file eligibility gate. | | GPT-6.1 Sol (Codex) |
@@ -273,7 +274,7 @@ enum COperationCode
 #define OPFL_ALLOW_CASE_ONLY_RENAME 0x00000100 // allow renames where source and target differ only by letter case
 #define OPFL_PARALLEL_DONE 0x00000200 // copy file already completed by rolling lookahead
 #define OPFL_PARALLEL_DIR_PREPARED 0x00000400 // directory created/resolved by rolling lookahead
-#define OPFL_UAC_COPY_SOURCE 0x00000800       // ordinary source access failed before ADS discovery
+#define OPFL_UAC_TRANSFER_SOURCE 0x00000800       // F5 or F6 source access failed during ADS discovery
 enum CCopyMoveItemState
 {
     cmisUnscanned,

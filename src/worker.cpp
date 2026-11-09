@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Keep preflight-denied F6 requests cross-volume only. | Bind the deferred source read to a verified move between distinct volumes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Retry exact compressed F6 with the scoped broker. | Honor the existing Copy attributes option before retiring the source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Offer brokered cross-volume F6 for sparse files. | Limit the new route to a guarded copy that preserves sparse ranges. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Capture the handles used by an ordinary F6 copy. | Complete denied source deletion only for that exact copy. | | GPT-6.1 Sol (Codex) |
@@ -5709,8 +5710,8 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     if (!script.AllowTransferPilot || script.OverwriteOlder ||
         ((op.OpFlags & OPFL_AS_ENCRYPTED) != 0 && !encrypted) ||
         !op.SourceNameWValid || !op.TargetNameWValid ||
-        (moving ? (script.CopySecurity || (op.OpFlags & OPFL_COPY_ADS) != 0 ||
-                   (!compressedMove && (script.CopyAttrs || !UacF7::IsCrossVolumeMoveFile(op.Attr))))
+        (moving ? ((op.OpFlags & OPFL_COPY_ADS) != 0 ||
+                   !UacF7::IsEligibleMoveFile(op.Attr, script.CopyAttrs, script.CopySecurity))
                 : (!UacF7::IsEligibleFileCopy(op.Attr, script.CopyAttrs, script.IgnoreTransferAds, script.CopySecurity) ||
                    op.FileSize.Value > UacF7::maxPilotCopyBytes)))
         return false;
@@ -5741,7 +5742,8 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
         operation = UacF7::Operation::CopyIgnoreAds;
     UacF7::PreparedTransfer request;
     if (!request.Prepare(op.SourceNameW, op.TargetNameW, op.FileSize.Value, operation) ||
-        (moving && !request.IsCrossVolumeMove() && !UacF7::IsPlainDeleteFile(op.Attr)))
+        (moving && !request.IsCrossVolumeMove() &&
+         ((op.OpFlags & OPFL_UAC_TRANSFER_SOURCE) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))))
         return false;
     if ((encrypted || request.IsCrossVolumeMove()) && input && *input != INVALID_HANDLE_VALUE)
     {
@@ -5789,7 +5791,7 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
     BOOL invalidSrcName = FileNameIsInvalid(op->SourceName, TRUE);
     BOOL invalidTgtName = FileNameIsInvalid(op->TargetName, TRUE);
 
-    if ((op->OpFlags & OPFL_UAC_COPY_SOURCE) != 0)
+    if ((op->OpFlags & OPFL_UAC_TRANSFER_SOURCE) != 0)
     {
         int answer;
         do
@@ -9868,7 +9870,7 @@ static BOOL CanUseParallelCopy(const COperations* script, const COperation* oper
            script->CopyMoveTransferMode == CMS_STORAGE_AWARE &&
            !script->CopySecurity && !script->CopyAttrs && !script->OverwriteOlder &&
            operation->Opcode == ocCopyFile &&
-           (operation->OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED | OPFL_UAC_COPY_SOURCE)) == 0 &&
+           (operation->OpFlags & (OPFL_COPY_ADS | OPFL_AS_ENCRYPTED | OPFL_UAC_TRANSFER_SOURCE)) == 0 &&
            !FileNameIsInvalid(operation->SourceName, TRUE) && !FileNameIsInvalid(operation->TargetName, TRUE);
 }
 
