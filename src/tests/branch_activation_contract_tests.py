@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Find Branch View translations by resource ID. | Section ordinals can shift when new string blocks are added. | #731 | Codex |
 # | 2026-11-06 | Verify Branch copy-dialog controls in every language archive. | Missing checkbox rows prevented native Translator import despite complete string tables. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 """Branch View activation must not create work or wait for background providers.
 
@@ -134,8 +135,10 @@ class BranchActivationContracts(unittest.TestCase):
                 self.assertEqual(raw.count(b"\n"), raw.count(b"\r\n"))
                 parsed = parser.parse(path)
                 for sid, original in english.items():
-                    section = "STRINGTABLE 182" if sid < 14512 else "STRINGTABLE 183"
-                    line, translated = parsed[f"{section}:{sid},"]
+                    entries = [value for key, value in parsed.items()
+                               if re.fullmatch(rf"STRINGTABLE \d+:{sid},", key)]
+                    self.assertEqual(len(entries), 1, f"expected one string resource {sid}")
+                    line, translated = entries[0]
                     self.assertEqual(re.findall(r"%(?:I64)?[a-zA-Z]", original),
                                      re.findall(r"%(?:I64)?[a-zA-Z]", translated))
                     self.assertEqual(original.count("&"), translated.count("&"))
