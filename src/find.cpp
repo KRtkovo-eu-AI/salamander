@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Stop Find work for disconnected protected scopes. | Keep scanning and comparing the other scopes without reporting artificial access errors. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Match protected duplicate predicates during hashing. | Evaluate text, tags and digest on one broker-opened file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind duplicate hashing to the revision used by protected filters. | Reject changed files between the two passes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Match protected text and tags through one file open. | Avoid combining results from separate file revisions. | | GPT-6.1 Sol (Codex) |
@@ -1299,6 +1300,12 @@ void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions&
             CFoundFilesData* file = At(i);
             const unsigned scope = file->ProtectedScope;
             auto* session = scope && scope <= protectedSessions.size() ? protectedSessions[scope - 1] : nullptr;
+            if (scope && (!session || !session->IsOpen()))
+            {
+                // The operation that lost the connection already logged the error.
+                Delete(i);
+                continue;
+            }
             if (!GetMD5Digest(data, file, &progress, &readSize, &totalSize, session, remainingFileConsents, predicates))
             {
                 if (data->StopSearch)
@@ -1861,7 +1868,7 @@ public:
             size_t remaining = 4096;
             Scan(path, 0, remaining, candidates);
         }
-        return !data->Refine && FindDuplicateContent(*data) ? &session : nullptr;
+        return session.IsOpen() && !data->Refine && FindDuplicateContent(*data) ? &session : nullptr;
     }
 
 private:
@@ -1902,7 +1909,7 @@ private:
 
     void Scan(const std::wstring& directory, unsigned depth, size_t& remaining, CDuplicateCandidates* candidates)
     {
-        if (data->StopSearch)
+        if (data->StopSearch || !session.IsOpen())
             return;
         if (!remaining || depth > 32)
         {
@@ -1931,7 +1938,7 @@ private:
         remaining -= entries.size();
         for (auto& file : entries)
         {
-            if (data->StopSearch)
+            if (data->StopSearch || !session.IsOpen())
                 return;
             AddCandidate(directory, file, candidates);
             const bool isDir = (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;

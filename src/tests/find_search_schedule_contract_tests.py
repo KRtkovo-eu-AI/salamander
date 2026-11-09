@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check Find scheduling after a protected scope disconnects. | Continue other scopes without reauthorizing disconnected candidates. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check a single open for combined protected duplicate reads. | Defer filters until grouped candidates can share the digest handle. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check the protected Find revision across both passes. | Verify the candidate before reading any bytes for its digest. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check one protected Find open for text and tags. | Require a confirmed close before accepting the combined result. | | GPT-6.1 Sol (Codex) |
@@ -99,6 +100,13 @@ def main() -> int:
     examine = function_body(find_cpp, "void CDuplicateCandidates::Examine(")
     require("file->ProtectedScope" in examine and "protectedSessions[scope - 1]" in examine,
             "protected duplicate reads must use the exact session that supplied the candidate")
+    require("if (scope && (!session || !session->IsOpen()))" in examine and
+            examine.index("if (scope && (!session || !session->IsOpen()))") < examine.index("GetMD5Digest("),
+            "candidates from a disconnected scope must not be read or reauthorized")
+    scan = function_body(find_cpp, "void Scan(const std::wstring& directory")
+    require(scan.count("data->StopSearch || !session.IsOpen()") == 2 and
+            "return session.IsOpen() && !data->Refine" in request_finish,
+            "a lost session must end its traversal without discarding other scopes")
     digest = function_body(find_cpp, "BOOL CDuplicateCandidates::GetMD5Digest(")
     candidate = function_body(find_cpp, "bool MatchesCandidate(")
     require(candidate.index("FindDuplicateContent(*data)") < candidate.index("return MatchFile(") and
