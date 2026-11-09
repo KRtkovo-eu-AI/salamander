@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Race two live copy jobs for the same target. | Verify no-replace publication across broker sessions. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Test the 64-bit F6 request size boundary. | Reject over-limit moves before any transfer and retain the lower F5 limit. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Check the source admission used for protected F6. | Cover sparse, exact compression and metadata combinations before broker launch. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify the host result policy for partial moves. | Keep one-shot replies and reusable jobs consistent. | | GPT-6.1 Sol (Codex) |
@@ -212,6 +213,42 @@ void CheckCopyJob(const Directory& source, const Directory& target, const Direct
           "a different destination parent is refused before mutation");
 }
 
+void CheckCompetingCopyJobs(const Directory& first, const Directory& second, const Directory& target)
+{
+    constexpr wchar_t leaf[] = L"\u6771-shared-target";
+    const auto start = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    JobPipe firstJob, secondJob;
+    if (!start || !WriteByte(first.File(leaf), 6) || !WriteByte(second.File(leaf), 7) ||
+        !firstJob.Open() || !secondJob.Open())
+    {
+        Check(false, "prepare concurrent copy jobs for one destination");
+        return;
+    }
+
+    DWORD firstError = ERROR_GEN_FAILURE, secondError = ERROR_GEN_FAILURE;
+    bool firstReply = false, secondReply = false;
+    std::thread firstRequest([&] {
+        firstReply = WaitForSingleObject(start.get(), timeoutMs) == WAIT_OBJECT_0 &&
+                     firstJob.Request(Operation::Copy, first, leaf, firstError, &target);
+    });
+    std::thread secondRequest([&] {
+        secondReply = WaitForSingleObject(start.get(), timeoutMs) == WAIT_OBJECT_0 &&
+                      secondJob.Request(Operation::Copy, second, leaf, secondError, &target);
+    });
+    const bool started = SetEvent(start.get()) != FALSE;
+    firstRequest.join();
+    secondRequest.join();
+
+    const auto isCollision = [](DWORD error) {
+        return error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS;
+    };
+    const bool firstWon = firstError == ERROR_SUCCESS && isCollision(secondError) && HasByte(target.File(leaf), 6);
+    const bool secondWon = secondError == ERROR_SUCCESS && isCollision(firstError) && HasByte(target.File(leaf), 7);
+    Check(started && firstReply && secondReply && (firstWon || secondWon) &&
+              HasByte(first.File(leaf), 6) && HasByte(second.File(leaf), 7),
+          "two scoped copy jobs publish exactly one destination and preserve both sources");
+}
+
 void CheckCancelledCopyJob(const Directory& source, const Directory& target)
 {
     const auto ready = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
@@ -396,6 +433,7 @@ int wmain()
     if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
         return 2;
     CheckCopyJob(source, target, outside);
+    CheckCompetingCopyJobs(source, outside, target);
     CheckCancelledCopyJob(source, target);
     CheckLateCopyCancellation(source, target);
     CheckCrossVolumeBoundary(source, target);

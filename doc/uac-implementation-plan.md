@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record concurrent publication through two broker jobs. | Verify one winner and no lost sources on NTFS. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Document the UAC pilot for users and record Release regressions. | Separate supported operations from open release gates. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record Czech UAC localization and round-trip verification. | Track localized prompts and release validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the P7 protocol resource and stale-image checks. | Detect mismatched broker packages before elevation. | | GPT-6.1 Sol (Codex) |
@@ -1159,6 +1160,8 @@ V x64 Debug a Release prošlo 22 kontrol transportní sady včetně čtení skut
 **Uživatelská příručka pilotu.** [Příručka UAC](uac-user-guide.md) popisuje rozsah souhlasu, kolize, částečné výsledky, podporované operace a limity. Chráněný Koš, síťové cesty a ostatní pluginy jsou oddělené od dostupných funkcí pilotu. Odkaz vede z hlavního README.
 
 Společná lokální kontrola x64 Release prošla 248 kontrolami souborového jádra a sadou transportu a brokerových úloh. Transport ověřil skutečnou rouru a odmítnutí nesprávného procesu. Úlohy pokryly mimo jiné pozdní kolizi, zrušení před a po zveřejnění, uchování částečného výsledku F6 a odpojení před předáním další položky. Tyto testy běží bez systémové výzvy. Interaktivní akceptace finálního sestavení a aktuální CI/CodeQL jsou samostatné podmínky.
+
+**Dvě souběžné úlohy nad jedním cílem.** Test spustí dva samostatné dispatchery nad pojmenovanými rourami a souběžně odešle dvě kopie z různých zdrojových rodičů pod stejný dosud volný Unicode název. Přesně jeden požadavek uspěje, druhý dostane kolizi, cíl odpovídá úspěšnému požadavku a oba zdroje zůstanou stejné. Prošlo všech 22 kontrol úloh v x64 Debug i Release a v obou konfiguracích prošla i samostatná kontrola transportu. Test vstupuje do dispatcheru po hranici autentizace a nesimuluje dvě systémové výzvy ani plánování v GUI.
 
 ## 12. Testovací strategie
 
