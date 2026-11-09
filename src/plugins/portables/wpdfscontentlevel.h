@@ -1,5 +1,12 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Use standard per-object WPD metadata reads in folder listings. | The latest dump points to the bulk callback path as the remaining crash source. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
+// | 2026-11-09 | Store the panel device on the content enumerator. | Worker-created items are selected by the enumerator and must use its separate item-device pointer. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
+// | 2026-11-09 | Let worker enumerators create items for the panel's device object. | Worker COM sessions are separate, while cached items must retain the normal device identity. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
+// | 2026-11-09 | Enable bulk metadata listing for Portable Devices. | Large MTP folders need one bulk WPD query instead of a property request per file. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
 
 /*
 	Windows Portable Devices Plugin for Open Salamander
@@ -98,13 +105,27 @@ public:
 class CWpdBaseContentEnumerator : public CWpdEnumerator
 {
 private:
+    static const ULONG OBJECT_ID_BATCH_SIZE = 128;
+
     CWpdDevice* m_device;
 
+    CWpdDevice* m_itemDevice;
+
     ATL::CComPtr<IEnumPortableDeviceObjectIDs> m_enum;
+
+    PWSTR m_objectIds[OBJECT_ID_BATCH_SIZE];
+
+    ULONG m_objectIdCount;
+
+    ULONG m_nextObjectId;
+
+    bool m_enumFinished;
 
     CWpdBaseContentItem* m_current;
 
     ATL::CComPtr<IPortableDeviceKeyCollection> m_keys;
+
+    std::wstring m_parentObjectId;
 
     void WINAPI ReleaseCurrent(void)
     {
@@ -114,6 +135,8 @@ private:
             m_current = nullptr;
         }
     }
+
+    void WINAPI ReleasePendingObjectIds(void);
 
 protected:
     CWpdBaseContentEnumerator(WPDFS_LEVEL level);
@@ -131,6 +154,21 @@ protected:
 
 public:
     virtual HRESULT WINAPI Initialize(CWpdDevice* device, PCWSTR parentObjectId);
+
+    void WINAPI SetItemDevice(CWpdDevice* device)
+    {
+        m_itemDevice = device;
+    }
+
+    CWpdDevice* WINAPI GetDeviceNoAddRef() const
+    {
+        return m_device;
+    }
+
+    PCWSTR WINAPI GetParentObjectId() const
+    {
+        return m_parentObjectId.c_str();
+    }
 
     /* CFxEnumerator Overrides */
 
