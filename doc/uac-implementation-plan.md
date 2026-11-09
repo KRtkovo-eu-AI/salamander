@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Page through sparse allocated ranges. | Preserve highly fragmented streams during guarded cross-volume moves. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve source streams in verified disk overwrites. | Verify every replacement stream before retiring the original. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Remove the cross-volume F6 pilot limits. | Verify offsets past 4 GiB and cancellation without a total deadline. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Allow verified F5 overwrite after source access denial. | Retain ordinary conflict consent and the exact target revision. | | GPT-6.1 Sol (Codex) |
@@ -1253,6 +1254,10 @@ Lokálně prošlo 128 kontrol F6 v x64 Debug i Release. Skutečná data byla zap
 **Alternativní proudy zdroje při chráněném přepisu F5.** Broker před kopírováním otevře všechny způsobilé proudy zdroje proti souběžnému zápisu a ověří jejich identitu a délku. Pokud existují pojmenované proudy, vyžaduje pracovní soubor s ověřenou ochranou proti zápisu běžným účtem. Po přenosu ověří inventář obou souborů. Doklad verze 3 obsahuje SHA-256 zahrnující seřazené názvy, délky a obsah všech proudů zveřejněné kopie. Obnova přijme i starší doklad verze 2 pro jediný hlavní proud. Odlišný proud ponechá původní zálohu. Pilot zatím odmítá nahradit původní cíl, který už má vlastní pojmenovaný proud, a odmítne i nepodporované kombinace komprese, řídké alokace nebo oprávnění.
 
 Prošlo 284 nativních kontrol v x64 Debug i Release, 12 kontrol workeru, 26 kontrol brokerových úloh, transport a sestavení aplikace a brokeru x64 Debug. Kontroly potvrdily skutečné zveřejnění hlavního, Unicode a prázdného proudu, zachování cíle s vlastním proudem, odmítnutí souběžného zapisovatele i neověřeného pracovního souboru a ponechání zálohy při změně obsahu jediného proudu bez změny revize. Ve VM ještě ověřit plný tok F5 přes běžný konflikt a systémový souhlas na chráněných oprávněních.
+
+**Řídké proudy s více dávkami alokovaných oblastí.** Kopírování při chráněném F6 zpracuje i soubor, pro který se mapa alokace nevejde do jednoho výsledku. Po kódu ERROR_MORE_DATA přečte další dávku od konce poslední ověřené oblasti. Před dalším dotazem kontroluje přerušení a odmítne neplatný nebo neposouvající se výsledek. Hlavní i pojmenovaný proud používají společné čtení rozsahů. [Dotaz na alokované oblasti NTFS](https://learn.microsoft.com/en-us/windows/win32/api/winioctl/ni-winioctl-fsctl_query_allocated_ranges).
+
+Prošlo 129 kontrol F6 v x64 Debug i Release, 284 obecných nativních kontrol v Release a sestavení brokeru x64 Release. Na testovaném NTFS první dotaz s 4 096 místy skutečně vrátil chybu 234 a plnou dávku. Po zveřejnění a odebrání zdroje test ověřil všech 4 100 značek, data za offsetem 4 GiB v obou proudech, délku, skutečně nealokovanou mezeru a úklid dokladu. Předchozí zrušený pokus nezveřejnil cíl a zachoval zdroj. Test proběhl na jednom svazku bez systémové výzvy. Ověření na dvou svazcích je součástí akceptace ve VM.
 
 ## 12. Testovací strategie
 

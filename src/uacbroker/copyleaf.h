@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Page through sparse allocated ranges. | Continue after a full range buffer without losing holes or data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Allow verified stream reads while the base has delete access. | Keep overwrite receipt verification on the pinned replacement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share stream storage verification with compressed F5. | Preserve the main stream and named streams together without relaxing the staged publication checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve LZNT1 in guarded named streams. | Verify each stream format before committing the move. | | GPT-6.1 Sol (Codex) |
@@ -241,42 +242,62 @@ inline DWORD CopySparseData(HANDLE source, HANDLE target, LONGLONG size,
     if (!size)
         return ERROR_SUCCESS;
 
-    FILE_ALLOCATED_RANGE_BUFFER request{};
-    request.Length = eof;
     std::vector<FILE_ALLOCATED_RANGE_BUFFER> ranges(4096);
     const auto capacity = static_cast<DWORD>(ranges.size() * sizeof(ranges[0]));
-    if (overlappedSource)
+    const std::unique_ptr<void, decltype(&CloseHandle)> event(
+        overlappedSource ? CreateEventW(nullptr, TRUE, FALSE, nullptr) : nullptr, CloseHandle);
+    if (overlappedSource && !event)
+        return GetLastError();
+
+    LONGLONG previousEnd = 0;
+    while (previousEnd < size)
     {
-        const std::unique_ptr<void, decltype(&CloseHandle)> event(CreateEventW(nullptr, TRUE, FALSE, nullptr), CloseHandle);
-        if (!event)
-            return GetLastError();
+        if (const DWORD error = CheckCancelled(cancel, connection, deadline))
+            return error;
+        const LONGLONG queryStart = previousEnd;
+        FILE_ALLOCATED_RANGE_BUFFER request{};
+        request.FileOffset.QuadPart = queryStart;
+        request.Length.QuadPart = size - queryStart;
+        bytes = 0;
         OVERLAPPED io{};
         io.hEvent = event.get();
         const BOOL completed = DeviceIoControl(source, FSCTL_QUERY_ALLOCATED_RANGES, &request, sizeof(request),
-                                               ranges.data(), capacity, nullptr, &io);
-        if (DWORD error = FinishOverlappedCopyIo(source, io, completed, bytes, cancel, connection, deadline))
-            return error;
-    }
-    else if (!DeviceIoControl(source, FSCTL_QUERY_ALLOCATED_RANGES, &request, sizeof(request),
-                              ranges.data(), capacity, &bytes, nullptr))
-        return GetLastError();
-    if (bytes > capacity || bytes % sizeof(ranges[0]))
-        return ERROR_INVALID_DATA;
-
-    LONGLONG previousEnd = 0;
-    for (size_t index = 0; index < bytes / sizeof(ranges[0]); ++index)
-    {
-        const auto& range = ranges[index];
-        const LONGLONG start = range.FileOffset.QuadPart;
-        if (start < previousEnd || start >= size || range.Length.QuadPart <= 0)
+                                               ranges.data(), capacity, &bytes, overlappedSource ? &io : nullptr);
+        const DWORD result = overlappedSource
+            ? FinishOverlappedCopyIo(source, io, completed, bytes, cancel, connection, deadline)
+            : completed ? ERROR_SUCCESS : GetLastError();
+        if (result != ERROR_SUCCESS && result != ERROR_MORE_DATA)
+            return result;
+        if (bytes > capacity || bytes % sizeof(ranges[0]))
             return ERROR_INVALID_DATA;
-        const LONGLONG length = (std::min)(range.Length.QuadPart, size - start);
-        if ((!overlappedSource && !SetFilePointerEx(source, range.FileOffset, nullptr, FILE_BEGIN)) ||
-            !SetFilePointerEx(target, range.FileOffset, nullptr, FILE_BEGIN))
-            return GetLastError();
-        if (const DWORD error = CopyData(source, target, length, cancel, connection, deadline, overlappedSource, start))
-            return error;
-        previousEnd = start + length;
+
+        for (size_t index = 0; index < bytes / sizeof(ranges[0]); ++index)
+        {
+            const auto& range = ranges[index];
+            const LONGLONG offset = range.FileOffset.QuadPart;
+            if (offset < 0 || offset >= size || range.Length.QuadPart <= 0)
+                return ERROR_INVALID_DATA;
+            // NTFS may round the query start down. Ignore any prefix we copied
+            // on the previous page, but reject unordered ranges within a page.
+            const LONGLONG start = (std::max)(offset, queryStart);
+            const LONGLONG end = offset + (std::min)(range.Length.QuadPart, size - offset);
+            if (end <= queryStart && index == 0)
+                continue;
+            if (start < previousEnd || end <= start)
+                return ERROR_INVALID_DATA;
+            LARGE_INTEGER position{};
+            position.QuadPart = start;
+            if ((!overlappedSource && !SetFilePointerEx(source, position, nullptr, FILE_BEGIN)) ||
+                !SetFilePointerEx(target, position, nullptr, FILE_BEGIN))
+                return GetLastError();
+            if (const DWORD error = CopyData(source, target, end - start, cancel, connection, deadline, overlappedSource, start))
+                return error;
+            previousEnd = end;
+        }
+        if (result == ERROR_SUCCESS)
+            break;
+        if (previousEnd <= queryStart)
+            return ERROR_INVALID_DATA;
     }
     return ERROR_SUCCESS;
 }

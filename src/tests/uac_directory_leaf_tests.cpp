@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise a sparse F6 with more than one range page. | Verify every allocated marker and a hole after the guarded move. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify overwrite receipts for named NTFS streams. | Reject changed stream data even with matching size, identity and timestamps. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Move sparse streams beyond 4 GiB. | Verify 64-bit offsets, cancellation, and retirement with real NTFS data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Kill the disk overwrite fixture at durable checkpoints. | Verify recovery of the real exchange after abrupt handle teardown. | | GPT-6.1 Sol (Codex) |
@@ -2393,8 +2394,10 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
 
     constexpr LONGLONG farOffset = (1LL << 32) + 65537;
     constexpr LONGLONG largeLength = farOffset + 32768;
+    constexpr size_t fragmentedExtents = 4100;
+    constexpr LONGLONG extentSpacing = 128 * 1024;
     const std::wstring farSuffix = L":large-\u6771";
-    const auto writeLargeSparse = [&](const std::wstring& path, BYTE marker) {
+    const auto writeLargeSparse = [&](const std::wstring& path, BYTE marker, bool fragmented) {
         const HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
         if (file == INVALID_HANDLE_VALUE)
             return false;
@@ -2406,11 +2409,35 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
             !SetFilePointerEx(file, position, nullptr, FILE_BEGIN) ||
             !WriteFile(file, &marker, 1, &count, nullptr) || count != 1)
             return false;
+        for (size_t index = 0; fragmented && index < fragmentedExtents; ++index)
+        {
+            position.QuadPart = static_cast<LONGLONG>(index) * extentSpacing;
+            const BYTE value = static_cast<BYTE>(index % 251 + 1);
+            if (!SetFilePointerEx(file, position, nullptr, FILE_BEGIN) ||
+                !WriteFile(file, &value, 1, &count, nullptr) || count != 1)
+                return false;
+        }
         position.QuadPart = largeLength;
         return SetFilePointerEx(file, position, nullptr, FILE_BEGIN) && SetEndOfFile(file);
     };
-    if (!writeLargeSparse(sourcePath, 51) || !writeLargeSparse(sourcePath + farSuffix, 87))
+    if (!writeLargeSparse(sourcePath, 51, true) || !writeLargeSparse(sourcePath + farSuffix, 87, false))
         return false;
+    {
+        const HANDLE rawSource = CreateFileW(sourcePath.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                                             nullptr, OPEN_EXISTING, 0, nullptr);
+        if (rawSource == INVALID_HANDLE_VALUE)
+            return false;
+        const Handle reader(rawSource);
+        FILE_ALLOCATED_RANGE_BUFFER whole{};
+        whole.Length.QuadPart = largeLength;
+        std::vector<FILE_ALLOCATED_RANGE_BUFFER> firstPage(4096);
+        DWORD pageBytes = 0;
+        const BOOL complete = DeviceIoControl(reader.get(), FSCTL_QUERY_ALLOCATED_RANGES, &whole, sizeof(whole),
+            firstPage.data(), static_cast<DWORD>(firstPage.size() * sizeof(firstPage[0])), &pageBytes, nullptr);
+        const DWORD pageError = complete ? ERROR_SUCCESS : GetLastError();
+        Check(pageError == ERROR_MORE_DATA && pageBytes == firstPage.size() * sizeof(firstPage[0]),
+              "verify that NTFS reports more than one page of allocated ranges", pageError);
+    }
     FILE_ID_INFO largeId{};
     if (!OpenIdentity(sourcePath, largeId) ||
         OpenSource(parent.get(), leaf, raw, DELETE | READ_CONTROL | WRITE_DAC, FILE_SHARE_READ))
@@ -2448,19 +2475,32 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
     error = largeGuard.RetirePublishedSource(parent.get(), storage.get(), journal.get(), security.get(),
         destinationParent, largeLeaf, largeTarget.get(), largeTargetId, nullptr, nullptr, MAXULONGLONG);
     largeTarget.reset();
-    const auto hasFarData = [&](const std::wstring& path, BYTE marker) {
+    const auto hasFarData = [&](const std::wstring& path, BYTE marker, bool fragmented) {
         const HANDLE rawStream = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
         const Handle stream(rawStream == INVALID_HANDLE_VALUE ? nullptr : rawStream);
         LARGE_INTEGER length{}, position{};
         position.QuadPart = farOffset;
         DWORD count = 0;
         BYTE actual = 0;
-        return stream && GetFileSizeEx(stream.get(), &length) && length.QuadPart == largeLength &&
-               SetFilePointerEx(stream.get(), position, nullptr, FILE_BEGIN) &&
-               ReadFile(stream.get(), &actual, 1, &count, nullptr) && count == 1 && actual == marker && hasHole(path);
+        if (!stream || !GetFileSizeEx(stream.get(), &length) || length.QuadPart != largeLength ||
+            !SetFilePointerEx(stream.get(), position, nullptr, FILE_BEGIN) ||
+            !ReadFile(stream.get(), &actual, 1, &count, nullptr) || count != 1 || actual != marker)
+            return false;
+        for (size_t index = 0; fragmented && index < fragmentedExtents; ++index)
+        {
+            position.QuadPart = static_cast<LONGLONG>(index) * extentSpacing;
+            if (!SetFilePointerEx(stream.get(), position, nullptr, FILE_BEGIN) ||
+                !ReadFile(stream.get(), &actual, 1, &count, nullptr) || count != 1 || actual != index % 251 + 1)
+                return false;
+        }
+        FILE_ALLOCATED_RANGE_BUFFER hole{}, allocated{};
+        hole.FileOffset.QuadPart = 1LL << 31;
+        hole.Length.QuadPart = 64 * 1024;
+        return DeviceIoControl(stream.get(), FSCTL_QUERY_ALLOCATED_RANGES, &hole, sizeof(hole),
+                              &allocated, sizeof(allocated), &count, nullptr) && count == 0;
     };
-    Check(!error && !Exists(sourcePath) && hasFarData(largePath, 51) && hasFarData(largePath + farSuffix, 87),
-          "retire the source after preserving holes and actual data beyond offset 4 GiB in both streams", error);
+    Check(!error && !Exists(sourcePath) && hasFarData(largePath, 51, true) && hasFarData(largePath + farSuffix, 87, false),
+          "retire the source after preserving all fragmented ranges, holes and data beyond offset 4 GiB", error);
     error = recover(parent.get());
     Check(!error && empty(), "clear the receipt for the large guarded move", error);
     return failures == 0;

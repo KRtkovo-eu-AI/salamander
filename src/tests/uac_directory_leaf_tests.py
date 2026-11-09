@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Allow time for the fragmented NTFS fixture. | Keep the optional multi-range F6 probe bounded on slower disks. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Accept a separate NTFS fixture root for F6. | Exercise move publication and recovery without touching existing files. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Accept an existing EFS fixture in the native suite. | Avoid creating a certificate during automated testing. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Link COM interface identifiers for Find stream tests. | Exercise the host stream using the native suite. | | GPT-6.1 Sol (Codex) |
@@ -74,8 +75,8 @@ def main():
                     owned = Path(target).resolve(strict=True)
                     if owned.parent != parent:
                         raise ValueError("F6 target fixture is outside its requested parent")
-                    return run([*arguments, str(owned)], cwd=folder, env=env, timeout=30).returncode
-            return run(arguments, cwd=folder, env=env, timeout=15).returncode
+                    return run([*arguments, str(owned)], cwd=folder, env=env, timeout=45).returncode
+            return run(arguments, cwd=folder, env=env, timeout=45 if args.move_source_probe else 15).returncode
         finally:
             junction.rmdir()
             shutil.rmtree("\\\\?\\" + str(fixture))
