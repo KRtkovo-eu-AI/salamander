@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the original Shell restore command for the protected receipt. | Match the account, file identity and original path before restoration. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Confirm protected recycling under the original account. | Verify the exact receipt after the corrected Shell callback sequence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Stage the protected Recycle Bin retry build. | Verify the corrected host against the existing VM broker and fixture. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Allow the actual Shell elevation retry for recycling. | Do not turn the first request for elevation into a failure of the next source check. | | GPT-6.1 Sol (Codex) |
@@ -1454,6 +1455,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, chráněný Koš po opravě se stejným účtem.** Windows 11 build 26200, opravený pilot 0e4a914a, x64 Release, protokol 10. Delete z panelu po schválení přesunul P7-recycle-02-approve.txt. Zdrojové jméno zmizelo, vznikl přesně jeden odpovídající doklad v Koši původního SID a recyklovaný soubor měl stejné NTFS ID a SHA-256. Zbývající testovací soubory zůstaly na místě. Uživatel viděl dvě výzvy se štítem. Druhy těchto výzev nebyly samostatně zaznamenány. Důkaz je v recycle-retry-fix/same-admin-panel-evidence.json. Obnova a schválení jiným správcem se ověřují samostatně.
 
 **P7, sestavení Win32 a ARM64.** Na pracovním kódu 4f1e1801 prošly x86 a ARM64 konfigurace Debug aplikace bez chyb a varování. Prošly také odpovídající konfigurace brokeru a sondy. Lokální protokoly aplikace jsou v recycle-retry-fix/architecture/Win32/build.log a architecture/ARM64/build.log. Běh na skutečném zařízení těchto architektur zatím nebyl ověřen.
+
+**P7, ověření položky před obnovou.** Windows Shell v Koši původního účtu zobrazil přesně jednu položku P7-recycle-02-approve.txt s očekávanou původní složkou a příkazem Obnovit. Laboratorní Invoke-P7RecycleRestore.ps1 před obnovou ověřuje tento záznam, původní SID, obsah a ID souboru a volnou původní cestu. Režim Verify prošel. Samotné obnovení ještě čeká na systémový souhlas. Kontrola Koše standardního účtu se provádí pod tímto účtem nebo z PowerShellu správce, protože běžný token nemá přístup k jeho oddílu Koše.
 
 ### 12.3 CI a přijetí vydání
 
