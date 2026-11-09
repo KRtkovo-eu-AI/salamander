@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Consolidate P7 status and Recycle Bin decisions. | Keep completed experiments and remaining evidence in one place. | | Codex |
 | 2026-11-09 | Record local CI coverage and the dual F5 VM result. | Separate simultaneous cancellation evidence from the approved single-item retry. | | Codex |
 | 2026-11-09 | Verify two copy jobs under cancellation. | Check that cancelling one active pipe leaves the other scoped dispatcher usable. | | Codex |
 | 2026-11-09 | Prepare a two-job F5 acceptance fixture. | Verify that UAC refusal and protected copy completion stay scoped to their respective jobs. | | Codex |
@@ -1830,6 +1831,27 @@ Opakovaný výpis GitHubu je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f
 **P7, místní sada validačního workflow na c25c6b08.** Ve Windows x64 prošlo všech 43 nativních projektů v Debug, 113 skriptů Python ze seznamu workflow, dvě skupiny Prism a kontrola Menu Builderu. Celkem 159 skupin bez selhání. Samostatný příkaz pytest z workflow prošel všemi 55 testy bez přeskočení. Místní spouštěče použily stejný seznam projektů a skriptů v oddělených skupinách. Výstupy a souhrn jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/local-c25c6b08. Výsledek nenahrazuje vzdálené CI ani analýzu CodeQL této revize.
 
 **P7, dvě současné dávky F5 ve VM.** Pilot x64 5e13ec2e spustil dvě smíšené dávky ve dvou procesech. Opakovaný pokus měl v obou oknech výslovně nastaveno Scan Ahead a čekání ve frontě vypnuté. Obě nabídky správce byly současně otevřené. Po systémovém Ne u A se její průběh zavřel bez nové nabídky, běžná kopie zůstala a chráněný cíl A nevznikl. Nabídka B zůstala otevřená. Automatické ovládání B neposkytlo spolehlivé potvrzení systémové výzvy, proto byl chráněný soubor B zopakován samostatně s ručním kliknutím na Administrator a systémovým Ano. Běžné kopie A i B a chráněná kopie B odpovídaly zdrojům podle SHA-256. Závěr potvrzuje izolaci při odmítnutí a samostatně schválené dokončení. Pro plnou akceptaci ještě chybí potvrdit Ano v původním průběhu B po odmítnutí A v témže běhu. Po testu se předchozí testovací host obnovil a jeho SHA-256 souhlasil. Doklady vm-evidence.json a restore-vm.log jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f5-dual-5e13ec2e.
+
+#### Aktuální stav P7 a zbývající ověření
+
+Tento přehled je výchozí bod pro další práci. Výše jsou chronologické záznamy jednotlivých pokusů včetně tehdejších otevřených bodů. Před novou zkouškou porovnat scénář, prostředí a očekávaný důkaz s tímto přehledem. Po zkoušce sem zapsat závěr a odkaz na důkaz.
+
+| Oblast | Doložený stav | Zbývající krok |
+|---|---|---|
+| Dávky a přepis F5 | Nativně ověřena kolize, obnova po pádu a nezávislost dvou relací při zrušení. Ve VM po Ne skončila dávka A, její běžná kopie zůstala a druhá nabídka dál čekala. Samostatné Ano pro B vytvořilo chráněnou kopii se správným SHA-256. | Potvrdit obě rozhodnutí v jednom průchodu. Použít připravený pilot a ručně aktivovat nabídku B, jejíž automatické zaměření selhalo. |
+| F6 a Koš | F6 mezi dvěma svazky nad 4 GiB, dokončení po obyčejné kopii a zrušení mají důkazy z VM. Koš pro stejný účet je ověřený. | Jiný správce u Koše je otevřený podle rozhodnutí níže. |
+| Find, EFS a metadata | Chráněný Find s obsahem, tagy a duplicitami, ztráta relace i EFS pod jiným správcem jsou ověřené ve VM. Společná kopie s ADS, kompresí a oprávněními má vlastní důkaz. | Síťové cesty se v brokeru odmítají. Práci zahájit, až bude konkrétní síťový scénář potřebný. |
+| Vydání, CI a matice | Publikovaná revize f0b9678c má 13 úspěšných kontrol. Místní revize c25c6b08 má 159 skupin a 55 testů pytest. Nativní zkoušky x64 a WOW64, křížové sestavení ARM64 a dvanáct jazykových modulů mají samostatné doklady. | Vzdálené kontroly po společném pushi, nativní Windows ARM64, vydavatelský podpis a vyšší skutečné DPI. Připravené testy ARM64 zůstávají místní. |
+
+##### Koš při schválení stejným nebo jiným správcem
+
+- **Stejný účet, ověřeno.** Schválené Delete vytvořilo záznam v Koši původního SID na stejném svazku. Obnova vrátila stejnou cestu, ID a SHA-256. Při odmítnutí zdroj zůstal a záznam Koše nevznikl. Důkazy jsou v `uac-p7-10da008c/recycle-retry-fix/same-admin-panel-evidence.json` a `restore-evidence.json`.
+- **Jiný účet, současné chování ověřeno.** Původní pokus s elevací Shellu přesunul soubor do Koše schvalujícího správce. Laboratorní položka byla obnovena se stejným ID. Současná ochrana ze standardního panelu skončí chybou 5 bez elevace a zachová soubor i oba Koše. Ověřeno na skutečném účtu `SamandarinUacTest`.
+- **Výslovný cíl ITransferSource, vyzkoušeno.** Zadání fyzického Koše jiného SID i zadání Koše na jiném svazku vedlo ke Koši volajícího na zdrojovém svazku. Důkazy jsou v `recycle-account-guard/destination-probe/alternate-bin.log` a `recycle-local-tests/explicit-bin-probe.log`.
+- **Samostatný COM server se dvěma SID, vyzkoušeno.** Aktivace pod standardním účtem u chráněného zdroje skončila odepřením přístupu. Aktivace pod správcem použila jeho Koš i při předání standardního tokenu u zařazení nebo provedení. Všechny přesunuté položky byly obnovené. Důkaz je `recycle-local-tests/com-proxy-roundtrip/alternate-account-full-matrix.log`.
+- **Dočasné právo DELETE, zamítnuto z poruchové zkoušky.** Udělené oprávnění přežilo pád pomocného procesu. Handle otevřený během povolení si ponechal právo DELETE i po obnovení DACL. Důkaz je `recycle-local-tests/com-proxy-roundtrip/temporary-delete-grant.log`.
+
+Pro jiného správce platí stávající odmítnutí operace. Vrátit se k implementaci až s konkrétním novým mechanismem, který umožní ověřit původní SID, stejný svazek a ID, obnovu na původní cestu a bezpečný stav po pádu. Varianta sondy v procesu byla pouze sestavena. Neběžela, neposkytuje další důkaz a zůstává odložená. Výše uvedené zkoušky znovu spouštět jen při změně mechanismu nebo při ověřování nové verze Windows.
 
 ### 12.3 CI a přijetí vydání
 
