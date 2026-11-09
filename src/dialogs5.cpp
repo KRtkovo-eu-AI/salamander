@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Replace Preset with category-aware Built-in target IDs. | Show the actual legacy editor application for Edit and keep viewer built-ins labeled Internal Viewer. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add saved custom handlers to association target selectors. | Let viewer/edit categories select matching custom definitions by ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Show and resolve exact-target conflicts only. | Report competing owners of one pattern without treating fallback masks or different extensions as collisions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Apply association layout after property-page anchors. | Prevent generic resize handling from moving detail controls, Help, and the final category tab back to template coordinates; place Extensions after Plugin. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -3560,12 +3561,81 @@ const char* CCfgPageFileAssociations::TargetText(
         return LoadStr(IDS_FILEASSOCIATION_CUSTOM_VIEWER);
     case Salamander::FileAssociations::TargetKind::CustomEditor:
         return LoadStr(IDS_FILEASSOCIATION_CUSTOM_EDITOR);
-    case Salamander::FileAssociations::TargetKind::Preset:
-        return LoadStr(IDS_FILEASSOCIATION_PRESET);
     case Salamander::FileAssociations::TargetKind::Unassigned:
         return LoadStr(IDS_FILEASSOCIATION_UNASSIGNED_TARGET);
     }
     return "";
+}
+
+static std::string LegacyEditorApplicationName(const std::string& pattern)
+{
+    if (MainWindow == NULL || MainWindow->EditorMasks == NULL ||
+        MainWindow->EditorMasks->Count == 0)
+        return std::string();
+
+    CEditorMasksItem* match = NULL;
+    CEditorMasksItem* first = NULL;
+    for (int i = 0; i < MainWindow->EditorMasks->Count; ++i)
+    {
+        CEditorMasksItem* item = MainWindow->EditorMasks->At(i);
+        if (item == NULL || item->Masks == NULL || item->Command == NULL)
+            continue;
+        if (first == NULL)
+            first = item;
+
+        const char* masks = item->Masks->GetMasksString();
+        const char* begin = masks;
+        for (const char* current = masks;; ++current)
+        {
+            if (*current != ';' && *current != 0)
+                continue;
+            const char* left = begin;
+            const char* right = current;
+            while (left < right && (*left == ' ' || *left == '\t'))
+                ++left;
+            while (right > left && (right[-1] == ' ' || right[-1] == '\t'))
+                --right;
+            if (static_cast<size_t>(right - left) == pattern.size() &&
+                _strnicmp(left, pattern.c_str(), pattern.size()) == 0)
+            {
+                match = item;
+                break;
+            }
+            if (*current == 0)
+                break;
+            begin = current + 1;
+        }
+        if (match != NULL)
+            break;
+    }
+    if (match == NULL)
+        match = first;
+    if (match == NULL || match->Command == NULL)
+        return std::string();
+
+    std::string command(match->Command);
+    size_t start = 0;
+    while (start < command.size() && (command[start] == ' ' || command[start] == '\t'))
+        ++start;
+    size_t end = command.size();
+    if (start < end && command[start] == '"')
+    {
+        ++start;
+        end = command.find('"', start);
+        if (end == std::string::npos)
+            end = command.size();
+    }
+    else
+    {
+        end = command.find_first_of(" \t", start);
+        if (end == std::string::npos)
+            end = command.size();
+    }
+    std::string executable = command.substr(start, end - start);
+    const size_t separator = executable.find_last_of("\\/");
+    if (separator != std::string::npos)
+        executable.erase(0, separator + 1);
+    return executable;
 }
 
 const char* CCfgPageFileAssociations::ProvenanceText(
@@ -3600,15 +3670,22 @@ std::string CCfgPageFileAssociations::MatrixCellText(int index, bool archive) co
     const Salamander::FileAssociations::Association& item = Rows[index];
     std::vector<char> displayName(1024);
     const char* target = TargetText(item.AssociationTarget.Kind);
-    if (!item.AssociationTarget.DisplayLabel.empty())
-        target = item.AssociationTarget.DisplayLabel.c_str();
-    else if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::BuiltIn &&
-             (item.AssociationCategory == Salamander::FileAssociations::Category::View ||
-              item.AssociationCategory == Salamander::FileAssociations::Category::AlternateView))
+    if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::BuiltIn &&
+        (item.AssociationCategory == Salamander::FileAssociations::Category::View ||
+         item.AssociationCategory == Salamander::FileAssociations::Category::AlternateView))
         target = LoadStr(IDS_FILEASSOCIATION_INTERNAL_VIEWER);
+    else if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::BuiltIn &&
+             item.AssociationCategory == Salamander::FileAssociations::Category::Edit)
+    {
+        const std::string application = LegacyEditorApplicationName(item.Pattern);
+        target = application.empty() ? LoadStr(IDS_FILEASSOCIATION_NO_LEGACY_EDITOR)
+                                     : application.c_str();
+    }
     else if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::BuiltIn &&
              item.AssociationCategory == Salamander::FileAssociations::Category::PanelArchive)
         target = LoadStr(IDS_FILEASSOCIATION_ARCHIVE_PANEL_TARGET);
+    else if (!item.AssociationTarget.DisplayLabel.empty())
+        target = item.AssociationTarget.DisplayLabel.c_str();
     else if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin &&
              !item.AssociationTarget.StableId.empty())
     {
@@ -3646,8 +3723,7 @@ int CCfgPageFileAssociations::MatrixTargetIconIndex(int associationIndex)
         return I_IMAGENONE;
 
     const Salamander::FileAssociations::Target& target = Rows[associationIndex].AssociationTarget;
-    if (target.Kind != Salamander::FileAssociations::TargetKind::Plugin &&
-        target.Kind != Salamander::FileAssociations::TargetKind::Preset)
+    if (target.Kind != Salamander::FileAssociations::TargetKind::Plugin)
         return I_IMAGENONE;
 
     const bool extensionTarget = IsExtensionViewerLabel(target.DisplayLabel);
@@ -3848,8 +3924,7 @@ int CCfgPageFileAssociations::MatrixSourceKind(const MatrixRow& row) const
             return 1;
         if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::BuiltIn)
             return 3;
-        if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Preset ||
-            item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Unassigned)
+        if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Unassigned)
             return 0;
     }
     return 3;
@@ -4077,7 +4152,6 @@ void CCfgPageFileAssociations::PopulateTargetKindChoices()
         static_cast<int>(Salamander::FileAssociations::TargetKind::BuiltIn),
         static_cast<int>(Salamander::FileAssociations::TargetKind::Plugin),
         FileAssociationTargetExtensionsChoice,
-        static_cast<int>(Salamander::FileAssociations::TargetKind::Preset),
         static_cast<int>(SelectedCategory == static_cast<int>(Salamander::FileAssociations::Category::Edit)
                              ? Salamander::FileAssociations::TargetKind::CustomEditor
                              : Salamander::FileAssociations::TargetKind::CustomViewer),
@@ -4086,7 +4160,9 @@ void CCfgPageFileAssociations::PopulateTargetKindChoices()
         SelectedCategory != static_cast<int>(Salamander::FileAssociations::Category::PanelArchive);
     for (size_t i = 0; i < _countof(choices); ++i)
     {
-        if (!customAllowed && i == 4)
+        if (!customAllowed &&
+            (choices[i] == static_cast<int>(Salamander::FileAssociations::TargetKind::CustomViewer) ||
+             choices[i] == static_cast<int>(Salamander::FileAssociations::TargetKind::CustomEditor)))
             continue;
         const int choice = choices[i];
         const char* label = choice == FileAssociationTargetExtensionsChoice
@@ -4114,7 +4190,19 @@ void CCfgPageFileAssociations::PopulateTargetCatalog()
         : static_cast<Salamander::FileAssociations::TargetKind>(selectedTargetItem);
     if (kind == Salamander::FileAssociations::TargetKind::BuiltIn)
     {
-        TargetCatalog.push_back({"internal", LoadStr(IDS_FILEASSOCIATION_INTERNAL_VIEWER), kind});
+        if (SelectedCategory == static_cast<int>(Salamander::FileAssociations::Category::Edit))
+        {
+            const std::string pattern = Selected >= 0 && Selected < static_cast<int>(Rows.size())
+                                            ? Rows[Selected].Pattern : std::string();
+            const std::string application = LegacyEditorApplicationName(pattern);
+            const std::string displayName = application.empty()
+                ? std::string(LoadStr(IDS_FILEASSOCIATION_NO_LEGACY_EDITOR)) : application;
+            TargetCatalog.push_back({"legacy-editor", displayName, kind});
+        }
+        else if (SelectedCategory == static_cast<int>(Salamander::FileAssociations::Category::PanelArchive))
+            TargetCatalog.push_back({"legacy", LoadStr(IDS_FILEASSOCIATION_ARCHIVE_PANEL_TARGET), kind});
+        else
+            TargetCatalog.push_back({"internal", LoadStr(IDS_FILEASSOCIATION_INTERNAL_VIEWER), kind});
     }
     else if (extensionsChoice)
     {
@@ -4174,15 +4262,6 @@ void CCfgPageFileAssociations::PopulateTargetCatalog()
             Salamander::FileAssociations::GetCustomHandlers(handlerKind);
         for (size_t i = 0; i < handlers.size(); ++i)
             TargetCatalog.push_back({handlers[i].Id, handlers[i].Name, kind, handlers[i].Name});
-    }
-    else if (kind == Salamander::FileAssociations::TargetKind::Preset)
-    {
-        // Preset command metadata is not available in the old runtime. Keep
-        // imported legacy presets selectable, but never invent a new one.
-        if (Selected >= 0 && Selected < static_cast<int>(Rows.size()) &&
-            !Rows[Selected].AssociationTarget.StableId.empty())
-            TargetCatalog.push_back({Rows[Selected].AssociationTarget.StableId,
-                                     Rows[Selected].AssociationTarget.StableId, kind});
     }
     else
         TargetCatalog.push_back({"", LoadStr(IDS_FILEASSOCIATION_UNASSIGNED_TARGET), kind});
@@ -4404,7 +4483,6 @@ BOOL CCfgPageFileAssociations::ReadControls(
     }
     else if (previousTargetKind == item.AssociationTarget.Kind &&
              (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin ||
-              item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Preset ||
               item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::CustomViewer ||
               item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::CustomEditor) &&
              !previousStableId.empty())
@@ -4430,13 +4508,6 @@ BOOL CCfgPageFileAssociations::ReadControls(
     {
         if (error != NULL)
             *error = LoadStr(IDS_FILEASSOCIATION_SELECT_EXTENSION);
-        return FALSE;
-    }
-    if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Preset &&
-        item.AssociationTarget.StableId.empty())
-    {
-        if (error != NULL)
-            *error = LoadStr(IDS_FILEASSOCIATION_NO_PRESET);
         return FALSE;
     }
     if ((item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::CustomViewer ||

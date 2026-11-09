@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Resolve Built-in legacy editor associations. | Preserve the configured editor command when an association selects legacy-editor. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Project saved custom viewers and editors into legacy runtime tables. | Make custom targets selected in the association matrix executable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Restore migrated viewer owner labels during projection. | Keep extension ownership visible in the legacy viewer table and on subsequent saves. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Preserve imported legacy rows during projection. | Existing runtime rows already contain command metadata unavailable in the canonical record, so unchanged legacy rows must remain active while user edits are resolved. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -144,6 +145,74 @@ bool StageCustomEditorAssociation(const Association& association,
     return true;
 }
 
+CEditorMasksItem* FindLegacyEditorForPattern(CEditorMasks* editors,
+                                             const std::string& pattern)
+{
+    if (editors == NULL)
+        return NULL;
+    CEditorMasksItem* first = NULL;
+    for (int i = 0; i < editors->Count; ++i)
+    {
+        CEditorMasksItem* item = editors->At(i);
+        if (item == NULL || item->Masks == NULL || item->Command == NULL)
+            continue;
+        if (first == NULL)
+            first = item;
+        const char* masks = item->Masks->GetMasksString();
+        const char* begin = masks;
+        for (const char* current = masks;; ++current)
+        {
+            if (*current != ';' && *current != 0)
+                continue;
+            const char* left = begin;
+            const char* right = current;
+            while (left < right && (*left == ' ' || *left == '\t'))
+                ++left;
+            while (right > left && (right[-1] == ' ' || right[-1] == '\t'))
+                --right;
+            if (static_cast<size_t>(right - left) == pattern.size() &&
+                _strnicmp(left, pattern.c_str(), pattern.size()) == 0)
+                return item;
+            if (*current == 0)
+                break;
+            begin = current + 1;
+        }
+    }
+    return first;
+}
+
+bool StageLegacyEditorAssociation(const Association& association,
+                                  CEditorMasks* source, CEditorMasks* destination)
+{
+    CEditorMasksItem* handler = FindLegacyEditorForPattern(source, association.Pattern);
+    if (handler == NULL || destination == NULL)
+        return false;
+    std::vector<char> pattern(association.Pattern.begin(), association.Pattern.end());
+    pattern.push_back(0);
+#ifdef new
+#undef new
+#define RESTORE_LEGACY_EDITOR_MASK_DEBUG_NEW_MACRO
+#endif
+    CEditorMasksItem* item = new (std::nothrow) CEditorMasksItem(
+        pattern.data(), handler->Command, handler->Arguments, handler->InitDir);
+#ifdef RESTORE_LEGACY_EDITOR_MASK_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_LEGACY_EDITOR_MASK_DEBUG_NEW_MACRO
+#endif
+    if (item == NULL || !item->IsGood())
+    {
+        delete item;
+        return false;
+    }
+    destination->Add(item);
+    if (!destination->IsGood())
+    {
+        delete item;
+        return false;
+    }
+    return true;
+}
+
 bool GetArchiveExtension(const std::string& pattern, std::string* extension)
 {
     if (extension == NULL || pattern.size() <= 2 || pattern.compare(0, 2, "*.") != 0)
@@ -250,8 +319,13 @@ bool ApplyRuntimeProjection(const Association& association, void* opaque)
     case Category::PanelArchive:
         return StageArchiveAssociation(association, context);
     case Category::Edit:
-        return association.AssociationTarget.Kind == TargetKind::CustomEditor &&
-               StageCustomEditorAssociation(association, &context->StagedEditors);
+        if (association.AssociationTarget.Kind == TargetKind::CustomEditor)
+            return StageCustomEditorAssociation(association, &context->StagedEditors);
+        if (association.AssociationTarget.Kind == TargetKind::BuiltIn &&
+            association.AssociationTarget.StableId == "legacy-editor")
+            return StageLegacyEditorAssociation(association, context->MainWindow->EditorMasks,
+                                                &context->StagedEditors);
+        return false;
     default: return false;
     }
 }
@@ -322,6 +396,16 @@ bool ResolvePluginRuntimeAssociation(const Association& association, void* conte
         return true;
     }
 
+    if (association.AssociationTarget.Kind == TargetKind::BuiltIn &&
+        association.AssociationCategory == Category::Edit &&
+        association.AssociationTarget.StableId == "legacy-editor")
+    {
+        resolver->LastResolution = PluginRuntimeResolution();
+        return FindLegacyEditorForPattern(
+                   resolver->MainWindow != NULL ? resolver->MainWindow->EditorMasks : NULL,
+                   association.Pattern) != NULL;
+    }
+
     if (resolver->Plugins == NULL || association.AssociationTarget.Kind != TargetKind::Plugin ||
         association.AssociationTarget.StableId.empty())
         return false;
@@ -388,6 +472,7 @@ void AttachPluginRuntimeAdapter(RuntimeProjectionOperations* operations,
     RuntimeAdapterContext& context = AdapterContext();
     context.MainWindow = mainWindow;
     context.Resolver.Plugins = plugins;
+    context.Resolver.MainWindow = mainWindow;
     context.Resolver.LastResolution = PluginRuntimeResolution();
     operations->Begin = BeginRuntimeProjection;
     operations->Resolve = ResolvePluginRuntimeAssociation;

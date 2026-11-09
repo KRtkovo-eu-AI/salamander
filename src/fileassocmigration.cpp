@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Migrate legacy editors as built-in targets. | Replace the obsolete Preset / legacy-editor target with Built-in / legacy-editor. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Carry viewer labels into migrated targets. | Preserve the owning Salamatrix extension instead of collapsing it into the framework plugin. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Report unsupported legacy mask-group entries as blocked. | Keep `|` exclusion groups out of canonical rows while still importing every representable extension. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Collect legacy viewer, editor, and archive defaults. | Populate the canonical page from the existing runtime configuration instead of asking users to retype every pattern. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -227,7 +228,7 @@ bool BuildLegacyAssociationDefaults(CFileAssociationModel* model,
                     continue;
                 AddLegacyMaskList(&staged, item->Masks->GetMasksString(), Category::Edit,
                                   PanelOperation::NotApplicable,
-                                  Target(TargetKind::Preset, "legacy-editor"), report, error);
+                                  Target(TargetKind::BuiltIn, "legacy-editor"), report, error);
             }
         }
     }

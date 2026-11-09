@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Migrate stored editor presets to Built-in targets. | Keep existing configurations compatible while retiring Preset from the editor. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Persist named custom handler catalogs. | Keep custom viewers and editors tied to the selected configuration and resolve them by stable ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Restrict association conflicts to competing exact patterns. | Keep universal and unrelated extension masks from being reported as collisions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Persist canonical extension owner labels. | Restore the localized owner display after a clean startup or a later configuration load. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -652,9 +653,23 @@ BOOL CFileAssociationModel::Load(HKEY parentKey, const char* keyName, std::strin
                 item.Pattern = normalized;
                 item.AssociationCategory = static_cast<Category>(category);
                 item.Operation = static_cast<PanelOperation>(operation);
+                // Value 2 was the retired Preset kind in previously saved configurations.
+                const bool wasPreset = targetKind == 2;
+                TargetKind loadedTargetKind = wasPreset
+                    ? TargetKind::BuiltIn : static_cast<TargetKind>(targetKind);
+                const bool legacyEditorTarget =
+                    static_cast<Category>(category) == Category::Edit &&
+                    (wasPreset || strcmp(targetId.data(), "legacy") == 0 ||
+                     strcmp(targetId.data(), "legacy-editor") == 0);
+                if (loadedTargetKind == TargetKind::BuiltIn && legacyEditorTarget)
+                {
+                    const char legacyEditorId[] = "legacy-editor";
+                    memcpy(targetId.data(), legacyEditorId, sizeof(legacyEditorId));
+                }
                 item.AssociationTarget =
-                    Target(static_cast<TargetKind>(targetKind), targetId.data(),
-                           targetLabel.data());
+                    Target(loadedTargetKind, targetId.data(), targetLabel.data());
+                if (legacyEditorTarget)
+                    item.AssociationTarget.DisplayLabel.clear();
                 item.AssociationProvenance = static_cast<Provenance>(provenance);
                 item.SourceProvenance = static_cast<Provenance>(sourceProvenance);
                 loaded.Items.push_back(item);

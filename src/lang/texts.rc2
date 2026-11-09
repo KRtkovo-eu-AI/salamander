@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Localize the missing legacy editor state. | Show a translated Target ID if no editor command is configured. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize custom viewer/editor settings. | Provide translated labels for target choices and the saved-handler forms. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Describe competing owners instead of overlapping masks. | Explain exact-pattern ownership conflicts without implying that unrelated patterns collide. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize extension targets and conflict details. | Name extension handlers separately and show which patterns overlap. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -2400,7 +2401,6 @@ STRINGTABLE
   IDS_FILEASSOCIATION_BUILT_IN, "Built-in"
   IDS_FILEASSOCIATION_PLUGIN, "Plugin"
  IDS_FILEASSOCIATION_EXTENSION, "Extension"
-  IDS_FILEASSOCIATION_PRESET, "Preset"
   IDS_FILEASSOCIATION_STATUS_READY, "Ready"
   IDS_FILEASSOCIATION_STATUS_CONFLICT, "Conflict: resolve overlapping patterns before saving"
   IDS_FILEASSOCIATION_DEFAULT, "Default"
@@ -2424,7 +2424,6 @@ STRINGTABLE
   IDS_FILEASSOCIATION_INTERNAL_VIEWER, "Internal viewer"
   IDS_FILEASSOCIATION_LEGACY_RUNTIME, "Legacy runtime"
   IDS_FILEASSOCIATION_SELECT_PLUGIN, "Select a compatible plugin target"
-  IDS_FILEASSOCIATION_NO_PRESET, "No external preset is available for this target"
  IDS_FILEASSOCIATION_PATTERN_EMPTY, "Pattern must not be empty"
  IDS_FILEASSOCIATION_SOURCE, "Source"
  IDS_FILEASSOCIATION_DETAILS, "Association details"
@@ -2449,6 +2448,7 @@ STRINGTABLE
  IDS_CUSTOM_HANDLER_COLUMN_NAME, "Name"
  IDS_CUSTOM_HANDLER_COLUMN_COMMAND, "Command"
  IDS_CUSTOM_HANDLER_INVALID, "This custom handler is invalid or exceeds the supported size limits."
+ IDS_FILEASSOCIATION_NO_LEGACY_EDITOR, "No legacy editor is configured"
  IDS_FILEASSOCIATION_CONFLICTS_COUNT, "Conflicts (%u)"
  IDS_FILEASSOCIATION_ADD_SHORT, "Add"
  IDS_FILEASSOCIATION_RESOLVE_CONFLICT, "Resolve conflict"
