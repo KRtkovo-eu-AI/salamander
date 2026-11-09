@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record Czech F7 visual acceptance. | Verify the translated consent dialog and Unicode destination in the protected pilot. | | Codex |
 | 2026-11-09 | Verify the full protocol 11 language payload. | Match packaged resources to the current sources and the accepted x64 pilot. | | Codex |
 | 2026-11-09 | Verify cancellation during F6 copy verification. | Cover the cancellation boundary after a verified block and before source retirement. | | Codex |
 | 2026-11-09 | Verify Win32 and ARM64 builds after Find cancellation and focus restoration. | Keep the architecture matrix aligned with the tested x64 candidate. | | Codex |
@@ -1700,6 +1701,8 @@ Chráněné běhy zachytily 53 a 136 vzorků s aktivním brokerem. Rozdíl v jeh
 **P7, zrušení během ověřování dokončení F6.** Místní nativní test na svazcích NTFS C: a E: odeslal signál Cancel skutečnou rourou po prvním ověřeném bloku. Ověření skončilo chybou 1223 před zpracováním zbytku. Původní jméno i zajištěný odkaz zdroje zůstaly a existující kopie si zachovala ID a obsah. Následující kontrola stejné kopie bez zrušení prošla. Debug i Release x64 prošly po 83 kontrolách. Záznamy f6-active-verify-Debug.log a f6-active-verify-Release.log jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c. Tato zkouška pokrývá nativní ověřování a signál Cancel. Vizuální kontrola průběhu v dialogu a měření paměti při chráněném dokončení zůstávají otevřené.
 
 **P7, úplná lokalizace kandidáta x64 s protokolem 11.** Laboratorní balíček obsahuje host a broker z ověřeného kandidáta dad2cf99, sondu a dvanáct jazykových modulů. Překladové zdroje se od sestavení ověřených modulů na revizi 700f8f3c nezměnily. Přímé čtení prostředků PE podle LANGID potvrdilo 65 zpráv UAC v každém modulu. Všech 780 textů se shoduje s anglickým zdrojem nebo příslušným překladovým archivem. Ověřovač v prostředí Windows PowerShell 5.1 potvrdil protokol 11, role, manifesty a architekturu i verzi všech modulů. Otisky všech 15 souborů a výsledky jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/payload-protocol11-languages. Vizuální kontrola lokalizovaných dialogů a ověření podpisů zbývají.
+
+**P7, vizuální ověření českého F7.** V chráněném pilotu x64 dad2cf99 se v tmavém režimu vešel celý český dotaz i úplná cílová cesta s názvem P7-vizuální-ověření-東. Tlačítko Správce mělo štít a fokus. Storno i Esc umožňují návrat, v této zkoušce Esc zavřel dialog před systémovou výzvou. Cílová složka nevznikla. Pilot při prvním spuštění zastavilo upozornění ZIP pluginu na chybějící český modul pluginu. Pro zkoušku interního F7 byla jeho registrace dočasně vynechána jen z testovací konfigurace. Po ukončení pilotu byla konfigurace obnovena a ověřena SHA-256. Záznam je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/payload-protocol11-languages/czech-f7-visual-evidence.json. Další jazyky, světlý režim a různé DPI zůstávají k vizuálnímu ověření.
 
 ### 12.3 CI a přijetí vydání
 
