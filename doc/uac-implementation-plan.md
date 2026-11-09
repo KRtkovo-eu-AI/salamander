@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record green CI on the published UAC head. | Tie the full builds, tests and CodeQL result to f0b9678c. | | Codex |
 | 2026-11-09 | Fix the Find stop-event wrapper after fork CI. | Restore Debug builds across all three architectures. | | Codex |
 | 2026-11-09 | Reconcile the four UAC acceptance areas with current evidence. | Separate local acceptance from release and account gaps. | | Codex |
 | 2026-11-09 | Verify the deep-path F7 dialog in the latest Win32 host. | Cover dark mode, keyboard scrolling and default cancellation under WOW64. | | Codex |
@@ -1786,6 +1787,8 @@ Stav vychází z lokální revize c84c9a82 a z otevřeného draftu PR 67 na publ
 Opakovaný výpis GitHubu je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f7-czech-light/pr67-acceptance-current.json. Důkazy po jednotlivých zkouškách jsou ve výše uvedených záznamech.
 
 **P7, první ověření společného pushu 7b60555b.** Draft PR 67 přijal 48 lokálních commitů najednou. Všechna tři sestavení Debug skončila stejnou chybou C2039 v finddlg1.cpp při volání HANDLES(CreateEventW). Debug používá C__Handles a jeho obal se jmenuje CreateEvent. Oprava používá stejný obal jako ostatní volání a zachovává nepojmenovanou ručně resetovanou událost ve výchozím nesignalizovaném stavu. Prošel test kontraktu plánování Findu a cílený překlad finddlg1.cpp s varováními jako chybami pro Debug Win32, x64 i ARM64. CodeQL se na 7b60555b kvůli neúspěšnému sestavení přeskočil. [První běh PR Build](https://github.com/majklvi/salamander/actions/runs/42698291795).
+
+**P7, úplné CI na publikované revizi f0b9678cd64ae4a0d2a012cdbedb4cd29506a30f.** Draft PR 67 má všech 13 kontrol úspěšných. Sestavení Debug s varováními kompilátoru jako chybami prošlo pro Win32, x64 a ARM64. Výstupy mají 159 nativních a kontraktových kontrol a 55 Python testů bez chyby, selhání nebo přeskočení. CodeQL skutečně sestavil x64 Release aplikaci, broker a sondu, dokončil analýzu a úspěšně nahrál SARIF. Filtr ponechal nula nálezů na změněných řádcích a vyřadil 378 nálezů mimo diff. První PR Tests na 7b60555b ukončil následný push. Úplný výsledek pro současný produkční kód dokládá f0b9678c. Doklady pr67.json, native.xml, python.xml a codeql.log jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/github-ci-f0b9678c. [PR Tests](https://github.com/majklvi/salamander/actions/runs/42699340895) · [PR Build](https://github.com/majklvi/salamander/actions/runs/42699340324) · [CodeQL](https://github.com/majklvi/salamander/runs/129447426957).
 
 ### 12.3 CI a přijetí vydání
 
