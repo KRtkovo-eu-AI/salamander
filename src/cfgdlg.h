@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Pass the selected matrix pattern as an Apply fallback. | Keep the action editor tied to its selected row when focus changes clear the pattern field. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Add the Change Drive block order setting. | Persist whether Plugin items or Hot Paths appear first in the Change Drive menu. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Render conflict explanations through a dedicated status control subclass. | Ensure theme painting cannot overwrite the conflict text color. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Track conflict status text for contrast-aware rendering. | Keep conflict explanations highlighted independently of which competing row currently owns the editor selection. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -1136,7 +1137,8 @@ protected:
     BOOL BuildCandidate(Salamander::FileAssociations::CFileAssociationModel& candidate,
                         std::string* error = NULL);
     BOOL ReadControls(Salamander::FileAssociations::Association& item,
-                      std::string* error = NULL);
+                      std::string* error = NULL,
+                      const std::string* fallbackPattern = NULL);
     const char* CategoryText(Salamander::FileAssociations::Category category) const;
     const char* OperationText(Salamander::FileAssociations::PanelOperation operation) const;
     const char* TargetText(Salamander::FileAssociations::TargetKind target) const;

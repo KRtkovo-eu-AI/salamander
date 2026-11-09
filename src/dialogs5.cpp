@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Resolve Apply patterns from the selected matrix row before validation. | Prevent stale or cleared pattern edit text from aborting a valid association update. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Preserve the focused pattern during multi-select Apply. | Avoid rejecting every Apply with an empty pattern when the pattern field displays only a multi-select summary. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Route Apply through the model's user-target operation. | Remove the UI's competing row-upsert path that diverged from canonical override semantics and caused edits to revert. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Restore Target ID selection by stable identity. | Keep saved handlers selected when their display label changes or combo indexes differ from catalog indexes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -4685,7 +4686,8 @@ void CCfgPageFileAssociations::RefreshList()
 }
 
 BOOL CCfgPageFileAssociations::ReadControls(
-    Salamander::FileAssociations::Association& item, std::string* error)
+    Salamander::FileAssociations::Association& item, std::string* error,
+    const std::string* fallbackPattern)
 {
     const Salamander::FileAssociations::TargetKind previousTargetKind = item.AssociationTarget.Kind;
     const std::string previousStableId = item.AssociationTarget.StableId;
@@ -4695,6 +4697,8 @@ BOOL CCfgPageFileAssociations::ReadControls(
     {
         // The pattern editor shows a multi-select summary. The association to
         // carry through Apply must come from the focused matrix row instead.
+        if (item.Pattern.empty() && fallbackPattern != NULL)
+            item.Pattern = *fallbackPattern;
         if (item.Pattern.empty())
         {
             int matrixRow = ListView_GetNextItem(matrix, -1, LVNI_FOCUSED);
@@ -4736,6 +4740,8 @@ BOOL CCfgPageFileAssociations::ReadControls(
         GetDlgItemText(HWindow, IDE_FILEASSOCIATION_PATTERN, pattern.data(),
                        static_cast<int>(pattern.size()));
         item.Pattern = pattern.data();
+        if (item.Pattern.empty() && fallbackPattern != NULL)
+            item.Pattern = *fallbackPattern;
     }
     item.AssociationCategory = static_cast<Salamander::FileAssociations::Category>(SelectedCategory);
     item.Operation = static_cast<Salamander::FileAssociations::PanelOperation>(SelectedOperation);
@@ -5912,31 +5918,6 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
         }
         case IDB_FILEASSOCIATION_APPLY:
         {
-            Salamander::FileAssociations::Association item;
-            if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
-                item = Rows[Selected];
-            else
-            {
-                item.AssociationCategory = Salamander::FileAssociations::Category::View;
-                item.Operation = Salamander::FileAssociations::PanelOperation::NotApplicable;
-                item.AssociationTarget = Salamander::FileAssociations::Target();
-            }
-            item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
-            item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
-            std::string error;
-            if (!ReadControls(item, &error))
-            {
-                SetStatus(error.c_str());
-                break;
-            }
-            std::string normalizedPattern;
-            if (!Salamander::FileAssociations::CFileAssociationModel::NormalizePattern(
-                    item.Pattern.c_str(), &normalizedPattern, &error))
-            {
-                SetStatus(error.c_str());
-                break;
-            }
-            item.Pattern = normalizedPattern;
             HWND matrix = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
             std::vector<std::string> selectedPatterns;
             for (int row = 0; row < ListView_GetItemCount(matrix); ++row)
@@ -5949,16 +5930,62 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 selectedItem.iItem = row;
                 if (ListView_GetItem(matrix, &selectedItem) && selectedItem.lParam >= 0 &&
                     selectedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
-                    selectedPatterns.push_back(MatrixRows[selectedItem.lParam].Pattern);
+                {
+                    const std::string& selectedPattern = MatrixRows[selectedItem.lParam].Pattern;
+                    if (!selectedPattern.empty())
+                        selectedPatterns.push_back(selectedPattern);
+                }
             }
-            const bool multiSelect =
-                ListView_GetSelectedCount(matrix) > 1 && selectedPatterns.size() > 1;
-            std::string focusedPattern = normalizedPattern;
-            if (multiSelect && SelectedMatrixRow >= 0 &&
+            std::string focusedPattern;
+            int focusedRow = ListView_GetNextItem(matrix, -1, LVNI_FOCUSED);
+            LVITEM focusedItem;
+            ZeroMemory(&focusedItem, sizeof(focusedItem));
+            focusedItem.mask = LVIF_PARAM;
+            focusedItem.iItem = focusedRow;
+            if (focusedRow >= 0 && ListView_GetItem(matrix, &focusedItem) &&
+                focusedItem.lParam >= 0 &&
+                focusedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
+                focusedPattern = MatrixRows[focusedItem.lParam].Pattern;
+            if (focusedPattern.empty() && SelectedMatrixRow >= 0 &&
                 SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
                 focusedPattern = MatrixRows[SelectedMatrixRow].Pattern;
+            if (focusedPattern.empty() && Selected >= 0 &&
+                Selected < static_cast<int>(Rows.size()))
+                focusedPattern = Rows[Selected].Pattern;
+
+            const bool multiSelect =
+                ListView_GetSelectedCount(matrix) > 1 && selectedPatterns.size() > 1;
+            if (focusedPattern.empty() && !selectedPatterns.empty())
+                focusedPattern = selectedPatterns[0];
+
+            Salamander::FileAssociations::Association item;
+            if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
+                item = Rows[Selected];
+            else
+            {
+                item.AssociationCategory = Salamander::FileAssociations::Category::View;
+                item.Operation = Salamander::FileAssociations::PanelOperation::NotApplicable;
+                item.AssociationTarget = Salamander::FileAssociations::Target();
+            }
+            item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
+            item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
+            std::string error;
+            if (!ReadControls(item, &error, &focusedPattern))
+            {
+                SetStatus(error.c_str());
+                break;
+            }
+            std::string normalizedPattern;
+            if (!Salamander::FileAssociations::CFileAssociationModel::NormalizePattern(
+                    item.Pattern.c_str(), &normalizedPattern, &error))
+            {
+                SetStatus(error.c_str());
+                break;
+            }
+            item.Pattern = normalizedPattern;
             if (!multiSelect)
             {
+                focusedPattern = normalizedPattern;
                 selectedPatterns.clear();
                 selectedPatterns.push_back(normalizedPattern);
             }
