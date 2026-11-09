@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Reconcile the four UAC acceptance areas with current evidence. | Separate local acceptance from release and account gaps. | | Codex |
 | 2026-11-09 | Verify the deep-path F7 dialog in the latest Win32 host. | Cover dark mode, keyboard scrolling and default cancellation under WOW64. | | Codex |
 | 2026-11-09 | Verify Win32 and ARM64 images after the deep F7 path fix. | Match the current host to its broker, resources and native test coverage. | | Codex |
 | 2026-11-09 | Verify bounded F7 consent with a deeply nested path. | Keep the full target and default Cancel accessible without fixed path scratch storage. | | Codex |
@@ -1769,6 +1770,19 @@ Chráněné běhy zachytily 53 a 136 vzorků s aktivním brokerem. Rozdíl v jeh
 **P7, Win32 a ARM64 po opravě hluboké cesty F7.** Host revize 7bb644cb se sestavil v Release pro Win32 i ARM64 s varováními kompilátoru jako chybami. Nepodepsané laboratorní dvojice s dříve sestavenými brokery prošly kontrolou strojového typu, manifestů, rolí, protokolu 11 a architektury a verze anglického modulu. Nativní testy Win32 pod WOW64 měly 62 úspěšných kontrol včetně rolí skutečných obrazů a odmítnutí starého brokeru. Pro ARM64 se křížově sestavily a ověřily tři testovací obrazy PE. Samostatná sada zadávání cest použila skutečný Unicode dialogový prvek a měla osm průchodů po 61 kontrolách bez selhání v Debug a Release. Doklady 7bb644cb-Win32/verification.json, 7bb644cb-ARM64/verification.json a protokoly 7bb644cb-*.log jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f7-czech-light. Nový dialog se skutečně spustil v předchozí zkoušce x64. Interaktivní průchod nejnovějším hostem Win32, běh ARM64 a ověření podpisů tímto místním ověřením pokryty nejsou.
 
 **P7, hluboká cesta F7 ve Win32.** Aktuální host PE 0x014C z Program Files (x86) se správným anglickým SLG se otevřel pod WOW64. V pilotu bylo potřeba zavřít upozornění na chybějící Bug Reporter. Pro chráněnou cestu dlouhou 8 202 jednotek UTF-16 měl tmavý anglický dialog posuvné pole, tlačítko Administrator se štítem a výchozí Cancel. Enter zavřel první pokus. Při opakování Tab a Ctrl+End zobrazily poslední komponentu P7-height-KONEC. Esc zavřel dialog, chráněný cíl nevznikl a broker se nespustil. Důkaz je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f7-czech-light/7bb644cb-Win32/vm-height-evidence.json. Samostatný dřívější pokus Win32 s krátkou cestou pokrývá také systémový souhlas.
+
+### Souhrn akceptace čtyř oblastí
+
+Stav vychází z lokální revize c84c9a82 a z otevřeného draftu PR 67 na publikované revizi 7bd944c8. Interaktivní důkazy v jednotlivých řádcích pocházejí z uvedených dílčích sestavení. Nedokládají celý vydávaný balíček na jediné revizi.
+
+| Oblast | Ověřené chování | Otevřené |
+| --- | --- | --- |
+| Dávky a přepis | Ve VM proběhlo systémové zrušení dávky F5 po první běžné kopii. Jediný potvrzený výstup měl správný SHA-256 a oba chráněné zdroje zůstaly. Nativní zkoušky potvrdily odmítnutí záměny nebo revize cíle a koordinaci dvou souběžných relací. | V dřívějším běhu se dvěma aktivními úlohami se nabídka objevila znovu. Samostatný opakovaný běh to nereprodukoval. |
+| Přesun mezi svazky a Koš | Dva svazky NTFS, přesun souboru nad 4 GiB a samostatné zvýšené dokončení po běžné kopii mají důkazy ve VM. Koš stejného účtu byl potvrzen podle SID a soubor šel obnovit na původní cestu. | Chráněný přesun do Koše původního uživatele po souhlasu jiného správce. Zkouška Shellu skutečně přesunula položku do Koše schvalujícího správce a následně ji obnovila. Současný pilot tuto cestu bezpečně odmítá. |
+| Find, EFS a metadata | VM ověřila chráněný text, tagy, duplicity, zrušení a výpadek jedné relace. U EFS správce bez klíče neotevřel originál ani kopii. Shodují se proudy, komprese a explicitní oprávnění u podporované kombinace F5. | Síťové cesty jsou mimo stávající rozsah brokeru. Nativní testy potvrzují odmítnutí UNC a zachování zdroje. |
+| Vydání, architektury a lokalizace | GitHub ověřil všech 13 kontrol na 7bd944c8, včetně všech sestavení, nativních a Python testů a skutečné analýzy CodeQL. Pozdější lokální host 7bb644cb prošel Release sestavením pro všechny tři architektury a interaktivním F7 na x64 a pod WOW64. | Celé CI a CodeQL pro aktuální lokální změny, nativní běh ARM64, platný podpis s časovým razítkem a interaktivní ověření vyššího DPI a zbývající matice Windows a účtů. |
+
+Opakovaný výpis GitHubu je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f7-czech-light/pr67-acceptance-current.json. Důkazy po jednotlivých zkouškách jsou ve výše uvedených záznamech.
 
 ### 12.3 CI a přijetí vydání
 
