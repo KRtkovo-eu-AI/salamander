@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Let Configuration OK finish after a page transfer error. | The active page is validated first; a hidden page's transfer failure must not trap the entire tree dialog open. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Reserve the full canonical association page height. | Prevent the Configuration holder buttons from covering the File Associations page during resize. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 
 #include "precomp.h"
@@ -1739,13 +1740,20 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (!ChildDialog->ValidateData())
                 return TRUE;
 
-            // obehnu vsechny stranky pro transfer
+            // The active page has already passed ValidateData(). Transfer all
+            // instantiated pages, but do not let a transfer-only error from a
+            // previously visited page prevent the Configuration dialog from
+            // accepting the current settings. Transfer() is expected to move
+            // values, not validate them; validation belongs to Validate().
             for (int i = 0; i < TPD->Count; i++)
                 if (TPD->At(i)->HWindow != NULL)
                     if (!TPD->At(i)->TransferData(ttDataFromWindow))
-                        return TRUE;
-            wParam = IDOK;
+                        TRACE_ET(_T("CTreePropHolderDlg: ignoring transfer error from page '")
+                                 << (TPD->At(i)->Title != NULL ? TPD->At(i)->Title : _T(""))
+                                 << _T("' after the active page passed validation."));
             SaveWindowPlacement();
+            ExitButton = IDOK;
+            return TRUE;
         }
         case IDCANCEL:
         {
