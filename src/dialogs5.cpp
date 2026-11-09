@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Commit association detail Apply changes immediately. | Preserve the selected row as the edit base and persist resolved plugin conflicts through the active configuration storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Qualify the Win32 GetParent call in conflict status painting. | Avoid resolving GetParent to the CDialog member overload during compilation. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Transfer the Change Drive block order setting. | Load and apply the localized Plugin/Hot Paths first choice. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Render Unassigned matrix targets as a dash. | Match empty default cells while keeping the Target selectors explicitly labeled Unassigned. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -83,6 +84,7 @@
 #include "darkmode.h"
 #include "svg.h"
 #include "common/winlibdpi.h"
+#include "configstorage.h"
 #include "plugins/salamatrix/salamatrix_storage.h"
 #include "plugins/salamatrix/salamatrix_ui.h"
 #include "plugins/salamatrix/salamatrix_extensions.h"
@@ -5738,12 +5740,14 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
         case IDB_FILEASSOCIATION_APPLY:
         {
             Salamander::FileAssociations::Association item;
-            item.AssociationCategory = Salamander::FileAssociations::Category::View;
-            item.Operation = Salamander::FileAssociations::PanelOperation::NotApplicable;
-            item.AssociationTarget = Salamander::FileAssociations::Target();
-            if (ListView_GetSelectedCount(GetDlgItem(HWindow, IDL_FILEASSOCIATIONS)) > 1 &&
-                Selected >= 0 && Selected < static_cast<int>(Rows.size()))
+            if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
                 item = Rows[Selected];
+            else
+            {
+                item.AssociationCategory = Salamander::FileAssociations::Category::View;
+                item.Operation = Salamander::FileAssociations::PanelOperation::NotApplicable;
+                item.AssociationTarget = Salamander::FileAssociations::Target();
+            }
             item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
             item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
             std::string error;
@@ -5774,6 +5778,38 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                     selectedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
                     selectedPatterns.push_back(MatrixRows[selectedItem.lParam].Pattern);
             }
+            const std::vector<Salamander::FileAssociations::Association> originalRows = Rows;
+            const auto commitAppliedRows = [this, &originalRows]() -> bool
+            {
+                Salamander::FileAssociations::CFileAssociationModel candidate;
+                std::string commitError;
+                if (!candidate.ReplaceAssociations(Rows, &commitError))
+                {
+                    Rows = originalRows;
+                    SetStatus(commitError.c_str());
+                    RefreshList();
+                    return false;
+                }
+                if (!Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
+                        candidate, &commitError) &&
+                    !Salamander::FileAssociations::IsCanonicalRuntimeProjectionBlocked())
+                {
+                    Rows = originalRows;
+                    SetStatus(commitError.c_str());
+                    RefreshList();
+                    return false;
+                }
+                if (!Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
+                        ConfigurationStorage, &commitError))
+                {
+                    SetStatus(commitError.c_str());
+                    RefreshList();
+                    return false;
+                }
+                Rows = candidate.Associations();
+                RefreshList();
+                return true;
+            };
             if (SelectedMatrixRow >= 0 && SelectedMatrixRow < static_cast<int>(MatrixRows.size()) &&
                 MatrixRows[SelectedMatrixRow].Conflict && selectedPatterns.size() <= 1)
             {
@@ -5790,7 +5826,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
                 Rows.push_back(item);
                 Selected = static_cast<int>(Rows.size()) - 1;
-                RefreshList();
+                commitAppliedRows();
                 break;
             }
             if (selectedPatterns.size() > 1)
@@ -5819,7 +5855,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                         Rows.push_back(bulkItem);
                 }
                 Selected = static_cast<int>(Rows.size()) - 1;
-                RefreshList();
+                commitAppliedRows();
                 break;
             }
             const bool canUpdate =
@@ -5850,7 +5886,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 Rows.push_back(item);
                 Selected = static_cast<int>(Rows.size()) - 1;
             }
-            RefreshList();
+            commitAppliedRows();
             break;
         }
         case IDB_FILEASSOCIATION_DELETE:
