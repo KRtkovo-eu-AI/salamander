@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Qualify the Win32 GetParent call in conflict status painting. | Avoid resolving GetParent to the CDialog member overload during compilation. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Render Unassigned matrix targets as a dash. | Match empty default cells while keeping the Target selectors explicitly labeled Unassigned. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Keep the Custom Handler Save button inside its group box. | Leave clearance from the Handler details border after right-aligning the button. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Highlight conflict explanations based on the displayed status. | Keep conflict text visibly distinct even when the selected association is a non-conflicting member of a conflicting matrix row. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -3972,7 +3973,7 @@ LRESULT CALLBACK CCfgPageFileAssociations::ConflictStatusSubclassProc(
         {
             RECT rect;
             GetClientRect(window, &rect);
-            HWND parent = GetParent(window);
+            HWND parent = ::GetParent(window);
             HBRUSH background = parent != NULL
                                     ? reinterpret_cast<HBRUSH>(SendMessage(parent, WM_CTLCOLORSTATIC,
                                                                           reinterpret_cast<WPARAM>(dc),
