@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Improve Custom Viewers and Editors page layout and columns. | Group editor fields, explain each page, and show saved arguments and initial directories. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Paint the association matrix after native list-view painting. | Ensure dark cell fills and status badges survive themed control rendering. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Paint the association matrix in the final list-view pass. | Prevent common-control theming from covering dark cell backgrounds and provenance badges. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Balance vertical spacing around the association conflict message. | Give the conflict label equal clearance from Target ID and the detail panel bottom. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -6550,6 +6551,10 @@ void CCfgPageCustomHandlers::RefreshList()
         const int index = ListView_InsertItem(list, &item);
         ListView_SetItemText(list, index, 1,
                              const_cast<char*>(Handlers[i].Command.c_str()));
+        ListView_SetItemText(list, index, 2,
+                             const_cast<char*>(Handlers[i].Arguments.c_str()));
+        ListView_SetItemText(list, index, 3,
+                             const_cast<char*>(Handlers[i].InitDir.c_str()));
     }
     if (SelectedRow >= 0 && SelectedRow < static_cast<int>(Handlers.size()))
         ListView_SetItemState(list, SelectedRow, LVIS_SELECTED | LVIS_FOCUSED,
@@ -6674,16 +6679,25 @@ INT_PTR CCfgPageCustomHandlers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         LVCOLUMN column;
         ZeroMemory(&column, sizeof(column));
         column.mask = LVCF_TEXT | LVCF_WIDTH;
-        column.cx = 110;
+        column.cx = WinLibDPIFromLogical(HWindow, 110);
         column.pszText = const_cast<char*>(LoadStr(IDS_CUSTOM_HANDLER_COLUMN_NAME));
         ListView_InsertColumn(list, 0, &column);
-        column.cx = 180;
+        column.cx = WinLibDPIFromLogical(HWindow, 150);
         column.pszText = const_cast<char*>(LoadStr(IDS_CUSTOM_HANDLER_COLUMN_COMMAND));
         ListView_InsertColumn(list, 1, &column);
+        column.cx = WinLibDPIFromLogical(HWindow, 145);
+        column.pszText = const_cast<char*>(LoadStr(IDS_CUSTOM_HANDLER_COLUMN_ARGUMENTS));
+        ListView_InsertColumn(list, 2, &column);
+        column.cx = WinLibDPIFromLogical(HWindow, 170);
+        column.pszText = const_cast<char*>(LoadStr(IDS_CUSTOM_HANDLER_COLUMN_INITIAL_DIRECTORY));
+        ListView_InsertColumn(list, 3, &column);
         SetDlgItemText(HWindow, IDC_CUSTOM_HANDLER_NAME_LABEL, LoadStr(IDS_CUSTOM_HANDLER_NAME));
         SetDlgItemText(HWindow, IDC_CUSTOM_HANDLER_COMMAND_LABEL, LoadStr(IDS_CUSTOM_HANDLER_COMMAND));
         SetDlgItemText(HWindow, IDC_CUSTOM_HANDLER_ARGUMENTS_LABEL, LoadStr(IDS_CUSTOM_HANDLER_ARGUMENTS));
         SetDlgItemText(HWindow, IDC_CUSTOM_HANDLER_INITDIR_LABEL, LoadStr(IDS_CUSTOM_HANDLER_INITIAL_DIRECTORY));
+        SetDlgItemText(HWindow, IDC_STATIC_1, LoadStr(IDS_CUSTOM_HANDLER_DETAILS));
+        SetDlgItemText(HWindow, IDC_STATIC_2, LoadStr(Viewers ? IDS_CUSTOM_HANDLER_VIEWERS_HELP
+                                                              : IDS_CUSTOM_HANDLER_EDITORS_HELP));
         SetDlgItemText(HWindow, IDB_CUSTOM_HANDLER_SAVE, LoadStr(IDS_CUSTOM_HANDLER_SAVE));
         SendMessage(GetDlgItem(HWindow, IDE_CUSTOM_HANDLER_NAME), EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
         SendMessage(GetDlgItem(HWindow, IDE_COMMAND), EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
@@ -6736,7 +6750,21 @@ INT_PTR CCfgPageCustomHandlers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         break;
     }
     }
-    return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+    const INT_PTR result = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+    if (uMsg == WM_INITDIALOG || uMsg == WM_SIZE)
+    {
+        HWND list = GetDlgItem(HWindow, IDL_CUSTOM_HANDLERS);
+        RECT client;
+        if (list != NULL && GetClientRect(list, &client) && Header_GetItemCount(ListView_GetHeader(list)) == 4)
+        {
+            const int width = max(0, client.right - client.left);
+            ListView_SetColumnWidth(list, 0, width * 20 / 100);
+            ListView_SetColumnWidth(list, 1, width * 26 / 100);
+            ListView_SetColumnWidth(list, 2, width * 24 / 100);
+            ListView_SetColumnWidth(list, 3, width - width * 20 / 100 - width * 26 / 100 - width * 24 / 100);
+        }
+    }
+    return result;
 }
 
 CCfgPageEditors::CCfgPageEditors()
