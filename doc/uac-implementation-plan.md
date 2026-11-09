@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify F6 recovery after the durable receipt and repeat protected recycle. | Confirm both file identities after interruption and the exact caller-bin receipt on the candidate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the Win32 panel under WOW64. | Check ordinary F5 and fail-closed behavior outside the protected deployment. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the mapped SMB drive boundary. | Check real remote-drive classification and ordinary copying through a temporary drive letter. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify ordinary and denied SMB copies in the panel. | Exercise the live F5 entry point without escalating a network source. | | GPT-6.1 Sol (Codex) |
@@ -1543,6 +1544,10 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, mapovaná jednotka SMB.** Zkušební proces na Windows 11 build 26200 dočasně mapoval volné R: na stejnou testovací sdílenou složku localhost. GetDriveTypeW vrátil DRIVE_REMOTE, takže kontrola DRIVE_FIXED použitá při přípravě brokeru by tuto cestu odmítla. Produkční primitiva pro identitu rodiče navíc vrátila chybu 3. Běžné CopyFileW z mapované jednotky vrátilo kopii se shodným SHA-256. Proces odpojil jen své mapování a ověřil uvolnění R:. V profilu nezůstal trvalý záznam. Důkaz je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/smb/smb-mapped-evidence.json. Odpojení skutečného vzdáleného serveru a obsluha mapovaného disku z panelu zůstávají k ověření.
 
 **P7, běh panelu Win32 pod WOW64.** Kandidát Win32 Release s odpovídajícím anglickým modulem zobrazil hlavní panel na Windows 11 x64 build 26200. Pro první spuštění byla zvolena čistá konfigurace ve vlastním souboru config.reg v laboratorní složce. Po zavření upozornění na chybějící Bug Reporter prošlo běžné F5 se shodným SHA-256. Pokus z přenosné složky do chráněného cíle skončil chybou 5 bez tlačítka Administrator a bez cílového souboru. Testovací instance byla zavřena. Důkaz je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/wow64-panel/evidence.json. Elevovaný běh ze schváleného umístění Win32 a běh na ARM64 zůstávají otevřené.
+
+**P7, tvrdé ukončení F6 po zveřejnění.** Nativní zkouška zveřejnila kopii, uložila potvrzení cíle do žurnálu a tvrdě ukončila pomocný proces, který držel původní název označený ke smazání. Po ukončení existovala kopie i zajištěný odkaz zdroje. Obnova vrátila původní název, ID, obsah a DACL, ponechala přesné ID a obsah cíle a uklidila zajištěný odkaz i záznam žurnálu. Zkouška prošla na dvou svazcích NTFS v x64 Debug a Release a na jednom svazku v x64 Debug.
+
+**P7, opakování přesunu do vlastního Koše.** Ve VM byl otiskem ověřen kandidát x64 `700f8f3c` s běžným brokerem protokolu 10. Po dvou tlačítkách se štítem a jedné systémové výzvě zmizel `P7-recycle-02-approve.txt` ze zdrojové složky. Kontrola našla právě jeden záznam pro původní cestu v Koši volajícího SID na C: a ověřila stejné ID souboru i SHA-256. Dříve zrušený `P7-recycle-01-cancel.txt` zůstal na původním místě se stejným ID i SHA-256 a bez záznamu v Koši. Tento opakovaný průchod ověřuje souhlas pod stejným účtem.
 
 ### 12.3 CI a přijetí vydání
 

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Interrupt F6 after recording the published target. | Verify recovery of the exact original after a hard exit during source retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise the tree and EFS progress sources. | Check exact manifest bytes and the encrypted import total. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Kill an EFS copy around its publication commit. | Verify that recovery preserves committed ciphertext and retires only recorded staging. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the local F6 finish rejects substituted files. | Keep the original and the copy until both captured identities match. | | GPT-6.1 Sol (Codex) |
@@ -2227,6 +2228,57 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
     error = recover(parent.get());
     Check(!error && empty() && !Exists(sourcePath) && HasContents(completed, moveContent),
           "clear a completed move only after reopening the exact durable target", error);
+
+    // Crash with the destination receipt durable and the original name delete-pending.
+    if (!WriteFixture(sourcePath, moveContent))
+        return false;
+    raw = nullptr;
+    error = OpenSource(parent.get(), leaf, raw, DELETE | READ_CONTROL | WRITE_DAC, FILE_SHARE_READ);
+    source.reset(raw);
+    FILE_ID_INFO interruptedSourceId{}, interruptedTargetId{};
+    UacEfsWorkspace::Detail::FileSecurity beforeCrashSecurity;
+    if (error || ReadSourceIdentity(source.get(), interruptedSourceId) || beforeCrashSecurity.Read(source.get()) ||
+        Arm(parent.get(), leaf, source.get(), interruptedSourceId, storage.get(), journal.get(), security.get(), name, seal))
+        return false;
+    retained = storageDirectory + L"\\" + name;
+    source.reset();
+    constexpr wchar_t interruptedLeaf[] = L"interrupted-\u6771.txt";
+    const auto interruptedTarget = targetDirectory + L"\\" + interruptedLeaf;
+    {
+        SourceGuard guard;
+        UacDirectoryLeaf::ParentIdentity targetParent;
+        Detail::Handle target(nullptr, CloseHandle);
+        if (CheckNoPriorSourceOpens(parent.get(), leaf, interruptedSourceId) ||
+            guard.Open(parent.get(), leaf, interruptedSourceId, 2) ||
+            UacDirectoryLeaf::ReadParentIdentity(destinationParent, targetParent) ||
+            guard.PublishCopy(destinationParent, targetParent, interruptedLeaf, moveContent.size(),
+                              nullptr, nullptr, MAXULONGLONG, target, interruptedTargetId) ||
+            RememberDestination(journal.get(), security.get(), interruptedSourceId, destinationParent,
+                                interruptedLeaf, target.get(), interruptedTargetId))
+            return false;
+    }
+    journal.reset();
+    const bool killedAfterReceipt = InterruptPendingMoveSource(originalDirectory) && !Exists(sourcePath) &&
+                             Exists(retained) && Exists(interruptedTarget);
+    Check(killedAfterReceipt, "hard termination leaves the recovery link and the published destination");
+    if (!killedAfterReceipt || !(journal = openJournal(OPEN_EXISTING)))
+        return false;
+    error = recover(parent.get());
+    raw = nullptr;
+    const DWORD reopenSource = OpenSource(parent.get(), leaf, raw, READ_CONTROL, FILE_SHARE_READ);
+    restored.reset(raw);
+    FILE_ID_INFO recoveredSourceId{}, recoveredTargetId{};
+    UacEfsWorkspace::Detail::FileSecurity afterCrashSecurity;
+    const auto recoveredTarget = OpenIdentity(interruptedTarget, recoveredTargetId);
+    Check(!error && !reopenSource && !ReadSourceIdentity(restored.get(), recoveredSourceId) &&
+              SameSource(interruptedSourceId, recoveredSourceId) && !afterCrashSecurity.Read(restored.get()) &&
+              beforeCrashSecurity.Matches(afterCrashSecurity) && HasContents(sourcePath, moveContent) &&
+              recoveredTarget && SameSource(interruptedTargetId, recoveredTargetId) &&
+              HasContents(interruptedTarget, moveContent) && !Exists(retained) && empty(),
+          "recover the original file and DACL after a hard exit without altering the published target", error);
+    restored.reset();
+    if (!DeleteFileW(sourcePath.c_str()))
+        return false;
 
     constexpr DWORD sparseSize = 4 * 1024 * 1024;
     constexpr DWORD secondExtent = sparseSize / 2;
