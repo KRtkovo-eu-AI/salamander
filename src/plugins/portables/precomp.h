@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Remove the unused bulk-listing map dependency. | Folder listings no longer use the crashing bulk callback. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
+// | 2026-11-09 | Include <map> in the precompiled header. | The Portable Devices bulk-property callback uses std::map in Debug builds. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
 // | 2026-11-04 | Include <string> and <vector> in the precompiled header. | MSVC ignores includes placed before precomp.h, so std::vector was an incomplete template in Debug builds. | | Grok 4.7 |
 
 /*

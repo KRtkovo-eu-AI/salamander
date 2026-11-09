@@ -1,5 +1,9 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Convert Portable Device names to UTF-8 explicitly. | Names must match the UTF-8 text used by Salamander panel search. | https://github.com/KRtkovo-eu-AI/salamander/issues/833 | GPT-6 |
 
 /*
 	Windows Portable Devices Plugin for Open Salamander
@@ -26,7 +30,16 @@ static inline HRESULT WINAPI WpdGetStringValue(
     hr = values->GetStringValue(key, &pwz);
     if (SUCCEEDED(hr))
     {
-        s = pwz;
+        ATL::CW2A utf8(pwz, CP_UTF8);
+        PCSTR converted = utf8;
+        if (converted == nullptr)
+        {
+            hr = E_OUTOFMEMORY;
+        }
+        else
+        {
+            s = converted;
+        }
         ::CoTaskMemFree(pwz);
     }
 

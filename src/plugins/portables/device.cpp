@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Return safely when a WPD child interface is unavailable. | A failed Content or Properties query must not lead to a null COM virtual call. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
 // | 2026-11-04 | Release the whole WPD session at once. | A nested Close leaves the driver session open after the device stops responding. | | Grok 4.7 |
 
 /*
@@ -84,7 +85,7 @@ void WINAPI CWpdDevice::Update(IPortableDeviceManager* devMgr)
     CComPtr<IPortableDeviceKeyCollection> keys;
     hr = keys.CoCreateInstance(CLSID_PortableDeviceKeyCollection);
     _ASSERTE(SUCCEEDED(hr));
-    if (SUCCEEDED(hr))
+    if (SUCCEEDED(hr) && keys != nullptr)
     {
         hr = keys->Add(WPD_OBJECT_NAME);
         _ASSERTE(SUCCEEDED(hr));
@@ -105,9 +106,13 @@ void WINAPI CWpdDevice::Update(IPortableDeviceManager* devMgr)
         _ASSERTE(SUCCEEDED(hr));
 
         CComPtr<IPortableDeviceValues> values;
-        hr = GetPropertiesNoAddRef()->GetValues(WPD_DEVICE_OBJECT_ID, keys, &values);
-        _ASSERTE(SUCCEEDED(hr));
-        if (SUCCEEDED(hr))
+        IPortableDeviceProperties* properties = GetPropertiesNoAddRef();
+        hr = properties != nullptr ? properties->GetValues(WPD_DEVICE_OBJECT_ID, keys, &values) : E_POINTER;
+        if (FAILED(hr) || values == nullptr)
+        {
+            TRACE_E("Failed to obtain WPD device properties (0x" << std::hex << hr << ")");
+        }
+        else
         {
             // Only use WPD_DEVICE_FRIENDLY_NAME if IPortableDeviceManager::GetDeviceFriendlyName
             // failed.
@@ -115,25 +120,29 @@ void WINAPI CWpdDevice::Update(IPortableDeviceManager* devMgr)
             {
                 WpdGetStringValue(values, WPD_DEVICE_FRIENDLY_NAME, m_strFriendlyName);
             }
-        }
 
-        WpdGetStringValue(values, WPD_DEVICE_MANUFACTURER, m_strManufacturer);
-        WpdGetStringValue(values, WPD_DEVICE_MODEL, m_strModel);
-        WpdGetStringValue(values, WPD_OBJECT_NAME, m_strName);
+            WpdGetStringValue(values, WPD_DEVICE_MANUFACTURER, m_strManufacturer);
+            WpdGetStringValue(values, WPD_DEVICE_MODEL, m_strModel);
+            WpdGetStringValue(values, WPD_OBJECT_NAME, m_strName);
 
-        ULONG ui4;
-        hr = values->GetUnsignedIntegerValue(WPD_DEVICE_TYPE, &ui4);
-        if (SUCCEEDED(hr))
-        {
-            m_uDeviceType = ui4;
-        }
+            ULONG ui4;
+            hr = values->GetUnsignedIntegerValue(WPD_DEVICE_TYPE, &ui4);
+            if (SUCCEEDED(hr))
+            {
+                m_uDeviceType = ui4;
+            }
 
-        BOOL b;
-        hr = values->GetBoolValue(WPD_OBJECT_ISHIDDEN, &b);
-        if (SUCCEEDED(hr))
-        {
-            m_bIsHidden = !!b;
+            BOOL b;
+            hr = values->GetBoolValue(WPD_OBJECT_ISHIDDEN, &b);
+            if (SUCCEEDED(hr))
+            {
+                m_bIsHidden = !!b;
+            }
         }
+    }
+    else if (SUCCEEDED(hr))
+    {
+        TRACE_E("Portable Device key collection was not created");
     }
 
     Close();
@@ -162,12 +171,16 @@ HRESULT WINAPI CWpdDevice::Open(_Out_ IPortableDevice** device_, _In_opt_ DWORD 
             return hr;
         }
     }
+    if (device == nullptr)
+    {
+        return E_UNEXPECTED;
+    }
 
     hr = clientInfo.CoCreateInstance(CLSID_PortableDeviceValues);
     _ASSERTE(SUCCEEDED(hr));
-    if (FAILED(hr))
+    if (FAILED(hr) || clientInfo == nullptr)
     {
-        return hr;
+        return FAILED(hr) ? hr : E_UNEXPECTED;
     }
 
     // If we fail to set any of the properties below it is OK. Failing to
@@ -401,12 +414,24 @@ IPortableDevice* WINAPI CWpdDevice::GetDeviceNoAddRef()
 IPortableDeviceContent* WINAPI CWpdDevice::GetContentNoAddRef()
 {
     _ASSERTE(m_cOpen > 0);
-    _ASSERTE(m_pDevice != nullptr);
+    if (m_pDevice == nullptr)
+    {
+        return nullptr;
+    }
 
     if (m_pContent == nullptr)
     {
         HRESULT hr = m_pDevice->Content(&m_pContent);
-        _ASSERTE(SUCCEEDED(hr) && m_pContent != nullptr);
+        if (FAILED(hr) || m_pContent == nullptr)
+        {
+            if (m_pContent != nullptr)
+            {
+                m_pContent->Release();
+                m_pContent = nullptr;
+            }
+            TRACE_E("Failed to obtain WPD content interface (0x" << std::hex << hr << ")");
+            return nullptr;
+        }
     }
 
     return m_pContent;
@@ -415,13 +440,29 @@ IPortableDeviceContent* WINAPI CWpdDevice::GetContentNoAddRef()
 IPortableDeviceProperties* WINAPI CWpdDevice::GetPropertiesNoAddRef()
 {
     _ASSERTE(m_cOpen > 0);
-    _ASSERTE(m_pDevice != nullptr);
+    if (m_pDevice == nullptr)
+    {
+        return nullptr;
+    }
 
     if (m_pProperties == nullptr)
     {
         auto content = GetContentNoAddRef();
+        if (content == nullptr)
+        {
+            return nullptr;
+        }
         HRESULT hr = content->Properties(&m_pProperties);
-        _ASSERTE(SUCCEEDED(hr) && m_pProperties != nullptr);
+        if (FAILED(hr) || m_pProperties == nullptr)
+        {
+            if (m_pProperties != nullptr)
+            {
+                m_pProperties->Release();
+                m_pProperties = nullptr;
+            }
+            TRACE_E("Failed to obtain WPD properties interface (0x" << std::hex << hr << ")");
+            return nullptr;
+        }
     }
 
     return m_pProperties;

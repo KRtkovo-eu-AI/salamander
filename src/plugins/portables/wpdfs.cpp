@@ -1,8 +1,12 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
-
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Preserve the completed listing during its forced panel refresh. | Discarding the worker snapshot restarted listing indefinitely. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
+// | 2026-11-09 | Stop enabling WPD bulk queries for folder listings. | The latest crash is inside the bulk-load MoveNext path. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
+// | 2026-11-09 | Open a worker-owned WPD session for background folder listings. | The crash dump shows the listing worker calling through COM state created on Salamander's UI thread. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
+// | 2026-11-09 | Load Portable Devices listings in the background. | A synchronous WPD listing blocks the panel and cannot show loading activity. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
+
 // | 2026-11-04 | Fix rename progress title and Total bar by summing sizes before upload. | english.slg lacked IDS_OPERATION_RENAME, and AddTotal during the copy made Total jump ahead of File. | | Grok 4.7 |
 // | 2026-11-04 | Open Salamander progress without Salamatrix, match folder renames on either name, and find children in one bulk property pass. | Overwrite waited on one GetValues per sibling, folder rename fell into a full download after ORIGINAL_FILE_NAME stayed old, and progress never appeared when Salamatrix.UI was missing. | | Grok 4.7 |
 // | 2026-11-04 | Skip a missing host operations method, refresh panels on device change, and keep the copy buffer off the stack. | Calling the new slot in an older salamand.exe executes an RTTI record and kills the process. The device list stayed cached until a manual refresh. | | Grok 4.7 |
@@ -38,6 +42,16 @@ extern CWpdDeviceList g_oDeviceList;
 
 static std::vector<CWpdFS*> WpdOpenPanels;
 
+struct CWpdListingTask
+{
+    CWpdFS* fileSystem;
+    CWpdDevice* itemDevice;
+    std::wstring pnpId;
+    std::wstring parentObjectId;
+    bool isStorage;
+    LONG generation;
+};
+
 void WINAPI WpdRefreshPanelsForDeviceChange()
 {
     g_oDeviceList.SetForceUpdate();
@@ -56,13 +70,48 @@ void WINAPI WpdRefreshPanelsForDeviceChange()
 PCSTR CWpdFS::SUGGESTED_NAME = SuggestedFSName;
 
 CWpdFS::CWpdFS(CFxPluginInterfaceForFS& owner)
-    : TFxPluginFSInterface(owner)
+    : TFxPluginFSInterface(owner),
+      m_listingThread(nullptr),
+      m_listingValidData(VALID_DATA_NONE),
+      m_listingGeneration(0),
+      m_listingCacheReady(FALSE),
+      m_listingPostRefreshPending(FALSE),
+      m_listingRunning(FALSE),
+      m_listingClosing(FALSE),
+      m_listingPanel(-1),
+      m_throbberId(-1)
 {
+    ::InitializeCriticalSection(&m_listingLock);
     WpdOpenPanels.push_back(this);
 }
 
 CWpdFS::~CWpdFS()
 {
+    if (m_throbberId >= 0 && SalamanderGeneral != nullptr)
+    {
+        SalamanderGeneral->StopThrobber(m_throbberId);
+        m_throbberId = -1;
+    }
+
+    ::EnterCriticalSection(&m_listingLock);
+    m_listingClosing = TRUE;
+    HANDLE listingThread = m_listingThread;
+    ::LeaveCriticalSection(&m_listingLock);
+
+    if (listingThread != nullptr)
+    {
+        ::WaitForSingleObject(listingThread, INFINITE);
+        ::CloseHandle(listingThread);
+        m_listingThread = nullptr;
+    }
+
+    for (size_t i = 0; i < m_listingItems.size(); ++i)
+    {
+        m_listingItems[i]->Release();
+    }
+    m_listingItems.clear();
+    ::DeleteCriticalSection(&m_listingLock);
+
     for (size_t i = 0; i < WpdOpenPanels.size(); ++i)
     {
         if (WpdOpenPanels[i] == this)
@@ -71,6 +120,271 @@ CWpdFS::~CWpdFS()
             break;
         }
     }
+}
+
+std::string WINAPI CWpdFS::GetCurrentUserPart()
+{
+    return std::string(GetCurrentPath().GetString());
+}
+
+void WINAPI CWpdFS::ClearListingCache(const std::string& path)
+{
+    ::EnterCriticalSection(&m_listingLock);
+    ++m_listingGeneration;
+    for (size_t i = 0; i < m_listingItems.size(); ++i)
+    {
+        m_listingItems[i]->Release();
+    }
+    m_listingItems.clear();
+    m_listingPath = path;
+    m_listingCacheReady = FALSE;
+    m_listingPostRefreshPending = FALSE;
+    m_listingValidData = VALID_DATA_NONE;
+    ::LeaveCriticalSection(&m_listingLock);
+}
+
+unsigned __stdcall CWpdFS::ListingThreadProc(void* context)
+{
+    CWpdListingTask* task = static_cast<CWpdListingTask*>(context);
+    task->fileSystem->RunListing(task);
+    return 0;
+}
+
+void WINAPI CWpdFS::RunListing(CWpdListingTask* task)
+{
+    CFxItemEnumerator* enumerator = nullptr;
+    HRESULT result = S_OK;
+    DWORD validData = VALID_DATA_NONE;
+    std::vector<CFxItem*> items;
+    HRESULT comResult = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    const bool uninitializeCom = SUCCEEDED(comResult);
+    if (FAILED(comResult))
+    {
+        result = comResult;
+    }
+
+    if (SUCCEEDED(result))
+    {
+        const size_t pnpLength = task->pnpId.length() + 1;
+        PWSTR pnpId = static_cast<PWSTR>(::CoTaskMemAlloc(pnpLength * sizeof(WCHAR)));
+        if (pnpId == nullptr)
+        {
+            result = E_OUTOFMEMORY;
+        }
+        else
+        {
+            memcpy(pnpId, task->pnpId.c_str(), pnpLength * sizeof(WCHAR));
+            CWpdDevice* queryDevice = nullptr;
+            try
+            {
+                queryDevice = new CWpdDevice(pnpId);
+                pnpId = nullptr;
+            }
+            catch (...)
+            {
+                result = E_OUTOFMEMORY;
+            }
+            ::CoTaskMemFree(pnpId);
+
+            if (SUCCEEDED(result))
+            {
+                CWpdBaseContentEnumerator* contentEnumerator = nullptr;
+                try
+                {
+                    contentEnumerator = task->isStorage
+                                            ? static_cast<CWpdBaseContentEnumerator*>(new CWpdStorageEnumerator())
+                                            : static_cast<CWpdBaseContentEnumerator*>(new CWpdContentEnumerator());
+                }
+                catch (...)
+                {
+                    result = E_OUTOFMEMORY;
+                }
+
+                if (SUCCEEDED(result) && contentEnumerator != nullptr)
+                {
+                    result = contentEnumerator->Initialize(queryDevice, task->parentObjectId.c_str());
+                    if (SUCCEEDED(result))
+                    {
+                        contentEnumerator->SetItemDevice(task->itemDevice);
+                        enumerator = contentEnumerator;
+                        validData = enumerator->GetValidData();
+                    }
+                    else
+                    {
+                        contentEnumerator->Release();
+                    }
+                }
+                else if (SUCCEEDED(result))
+                {
+                    result = E_OUTOFMEMORY;
+                }
+            }
+
+            if (queryDevice != nullptr)
+            {
+                queryDevice->Release();
+            }
+        }
+
+        if (SUCCEEDED(result) && enumerator != nullptr)
+        {
+            while ((result = enumerator->MoveNext()) == S_OK)
+            {
+                CFxItem* item = enumerator->GetCurrent();
+                if (item == nullptr)
+                {
+                    result = E_UNEXPECTED;
+                    break;
+                }
+                try
+                {
+                    items.push_back(item);
+                }
+                catch (...)
+                {
+                    item->Release();
+                    result = E_OUTOFMEMORY;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (enumerator != nullptr)
+    {
+        enumerator->Release();
+    }
+    if (uninitializeCom)
+    {
+        ::CoUninitialize();
+    }
+
+    ::EnterCriticalSection(&m_listingLock);
+    m_listingRunning = FALSE;
+    const bool isCurrent = task->generation == m_listingGeneration;
+    const bool isClosing = m_listingClosing != FALSE;
+    if (isCurrent && !isClosing)
+    {
+        for (size_t i = 0; i < m_listingItems.size(); ++i)
+        {
+            m_listingItems[i]->Release();
+        }
+        m_listingItems.swap(items);
+        m_listingValidData = validData;
+        m_listingCacheReady = TRUE;
+        // The completion refresh consumes this snapshot; the next independent refresh reloads it.
+        m_listingPostRefreshPending = TRUE;
+    }
+    ::LeaveCriticalSection(&m_listingLock);
+
+    for (size_t i = 0; i < items.size(); ++i)
+    {
+        items[i]->Release();
+    }
+
+    task->itemDevice->Release();
+    delete task;
+
+    if (!isClosing)
+    {
+        if (FAILED(result))
+        {
+            TRACE_E("Portable Devices background listing failed with HRESULT 0x" << std::hex << result);
+        }
+        if (SalamanderGeneral != nullptr)
+        {
+            SalamanderGeneral->PostRefreshPanelFS(this);
+        }
+    }
+}
+
+BOOL WINAPI CWpdFS::StartListing()
+{
+    ::EnterCriticalSection(&m_listingLock);
+    const BOOL cannotStart = m_listingClosing || m_listingRunning;
+    ::LeaveCriticalSection(&m_listingLock);
+    if (cannotStart)
+    {
+        return FALSE;
+    }
+
+    CFxItemEnumerator* enumerator = nullptr;
+    HRESULT hr = GetEnumeratorForCurrentPath(enumerator, false);
+    if (FAILED(hr) || enumerator == nullptr)
+    {
+        return FALSE;
+    }
+    auto* wpdEnumerator = static_cast<CWpdEnumerator*>(enumerator);
+    if (!wpdEnumerator->IsContent() && !wpdEnumerator->IsStorage())
+    {
+        enumerator->Release();
+        return FALSE;
+    }
+    auto* contentEnumerator = static_cast<CWpdBaseContentEnumerator*>(enumerator);
+    CWpdDevice* itemDevice = contentEnumerator->GetDeviceNoAddRef();
+    if (itemDevice == nullptr || itemDevice->GetPnpId() == nullptr ||
+        contentEnumerator->GetParentObjectId() == nullptr)
+    {
+        enumerator->Release();
+        return FALSE;
+    }
+
+    CWpdListingTask* task = nullptr;
+    try
+    {
+        task = new CWpdListingTask;
+        task->fileSystem = this;
+        task->itemDevice = itemDevice;
+        task->pnpId = itemDevice->GetPnpId();
+        task->parentObjectId = contentEnumerator->GetParentObjectId();
+        task->isStorage = wpdEnumerator->IsStorage();
+    }
+    catch (...)
+    {
+        delete task;
+        enumerator->Release();
+        return FALSE;
+    }
+    enumerator->Release();
+    itemDevice->AddRef();
+
+    ::EnterCriticalSection(&m_listingLock);
+    if (m_listingClosing || m_listingRunning)
+    {
+        ::LeaveCriticalSection(&m_listingLock);
+        itemDevice->Release();
+        delete task;
+        return FALSE;
+    }
+
+    if (m_listingThread != nullptr)
+    {
+        DWORD waitResult = ::WaitForSingleObject(m_listingThread, 100);
+        if (waitResult != WAIT_OBJECT_0)
+        {
+            ::LeaveCriticalSection(&m_listingLock);
+            itemDevice->Release();
+            delete task;
+            return FALSE;
+        }
+        ::CloseHandle(m_listingThread);
+        m_listingThread = nullptr;
+    }
+
+    task->generation = m_listingGeneration;
+    m_listingRunning = TRUE;
+    m_listingThread = reinterpret_cast<HANDLE>(::_beginthreadex(
+        nullptr, 0, ListingThreadProc, task, 0, nullptr));
+    if (m_listingThread == nullptr)
+    {
+        m_listingRunning = FALSE;
+        ::LeaveCriticalSection(&m_listingLock);
+        itemDevice->Release();
+        delete task;
+        return FALSE;
+    }
+    ::LeaveCriticalSection(&m_listingLock);
+    return TRUE;
 }
 
 HRESULT WINAPI CWpdFS::GetChildEnumerator(
@@ -147,6 +461,238 @@ CFxPluginDataInterface* WINAPI CWpdFS::CreatePluginData(CFxItemEnumerator* enume
     // data it needs.
     auto wpdEnum = static_cast<CWpdEnumerator*>(enumerator);
     return wpdEnum->CreatePluginData(*this);
+}
+
+BOOL WINAPI CWpdFS::ListCurrentPath(
+    CSalamanderDirectoryAbstract* dir,
+    CPluginDataInterfaceAbstract*& pluginData,
+    int& iconsType,
+    BOOL forceRefresh)
+{
+    pluginData = nullptr;
+    iconsType = pitSimple;
+    if (m_throbberId >= 0)
+    {
+        SalamanderGeneral->StopThrobber(m_throbberId);
+        m_throbberId = -1;
+    }
+    const std::string path = GetCurrentUserPart();
+    if (forceRefresh)
+    {
+        ::EnterCriticalSection(&m_listingLock);
+        const BOOL preserveCompletedSnapshot = m_listingCacheReady &&
+                                                m_listingPostRefreshPending &&
+                                                m_listingPath == path;
+        ::LeaveCriticalSection(&m_listingLock);
+        if (!preserveCompletedSnapshot)
+        {
+            ClearListingCache(path);
+        }
+    }
+
+    std::vector<CFxItem*> items;
+    DWORD validData = VALID_DATA_NONE;
+    BOOL cacheReady = FALSE;
+    BOOL expireCache = FALSE;
+    ::EnterCriticalSection(&m_listingLock);
+    cacheReady = m_listingCacheReady && m_listingPath == path;
+    if (cacheReady)
+    {
+        if (m_listingPostRefreshPending)
+        {
+            m_listingPostRefreshPending = FALSE;
+            validData = m_listingValidData;
+            try
+            {
+                items = m_listingItems;
+            }
+            catch (...)
+            {
+                ::LeaveCriticalSection(&m_listingLock);
+                return FALSE;
+            }
+            for (size_t i = 0; i < items.size(); ++i)
+            {
+                items[i]->AddRef();
+            }
+        }
+        else
+        {
+            cacheReady = FALSE;
+            expireCache = TRUE;
+        }
+    }
+    ::LeaveCriticalSection(&m_listingLock);
+
+    if (!cacheReady)
+    {
+        if (expireCache)
+        {
+            ClearListingCache(path);
+        }
+        ::EnterCriticalSection(&m_listingLock);
+        const BOOL wrongPath = m_listingPath != path;
+        ::LeaveCriticalSection(&m_listingLock);
+        if (wrongPath)
+        {
+            ClearListingCache(path);
+        }
+
+        const BOOL started = StartListing();
+        ::EnterCriticalSection(&m_listingLock);
+        const BOOL running = m_listingRunning;
+        ::LeaveCriticalSection(&m_listingLock);
+        if (!started && !running)
+        {
+            if (m_throbberId >= 0)
+            {
+                SalamanderGeneral->StopThrobber(m_throbberId);
+                m_throbberId = -1;
+            }
+            return CFxPluginFSInterface::ListCurrentPath(dir, pluginData, iconsType, forceRefresh);
+        }
+        dir->SetValidData(VALID_DATA_NONE);
+
+        if (!path.empty())
+        {
+            CFileData upDir = {};
+            if (GetFileDataForUpDir(upDir))
+            {
+                if (!dir->AddDir(nullptr, upDir, nullptr))
+                {
+                    SalamanderGeneral->Free(upDir.Name);
+                }
+            }
+        }
+        return TRUE;
+    }
+
+    if (m_throbberId >= 0)
+    {
+        SalamanderGeneral->StopThrobber(m_throbberId);
+        m_throbberId = -1;
+    }
+
+    CFxItemEnumerator* enumerator = nullptr;
+    HRESULT hr = GetEnumeratorForCurrentPath(enumerator, false);
+    if (FAILED(hr) || enumerator == nullptr)
+    {
+        for (size_t i = 0; i < items.size(); ++i)
+        {
+            items[i]->Release();
+        }
+        return FALSE;
+    }
+
+    CFxPluginDataInterface* fxPluginData = CreatePluginData(enumerator);
+    enumerator->Release();
+    pluginData = fxPluginData;
+    if (pluginData != nullptr)
+    {
+        iconsType = fxPluginData->GetIconsType();
+    }
+    dir->SetValidData(validData);
+
+    IFxItemConverter* converter = GetConverter();
+    bool upDirAdded = false;
+    for (size_t i = 0; i < items.size(); ++i)
+    {
+        CFxItem* item = items[i];
+        CFileData fileData = {};
+        bool isDir = false;
+        if (converter->ConvertItemToFileData(item, validData, fileData, isDir))
+        {
+            bool assignedItem = false;
+            if (pluginData != nullptr)
+            {
+                if (isDir && pluginData->CallReleaseForDirs())
+                {
+                    fileData.PluginData = reinterpret_cast<DWORD_PTR>(item);
+                    assignedItem = true;
+                }
+                else if (!isDir && pluginData->CallReleaseForFiles())
+                {
+                    fileData.PluginData = reinterpret_cast<DWORD_PTR>(item);
+                    assignedItem = true;
+                }
+            }
+            if (assignedItem)
+            {
+                item->AddRef();
+            }
+
+            bool added = false;
+            if (isDir)
+            {
+                added = !!dir->AddDir(nullptr, fileData, nullptr);
+                if (added && !upDirAdded)
+                {
+                    upDirAdded = fileData.NameLen == 2 &&
+                                 fileData.Name[0] == '.' &&
+                                 fileData.Name[1] == '.';
+                }
+            }
+            else
+            {
+                added = !!dir->AddFile(nullptr, fileData, nullptr);
+            }
+
+            if (!added)
+            {
+                if (assignedItem)
+                {
+                    item->Release();
+                }
+                converter->FreeFileData(fileData);
+            }
+        }
+        item->Release();
+    }
+
+    if (!upDirAdded && IsUpDirNeededForCurrentPath())
+    {
+        CFileData upDir = {};
+        if (GetFileDataForUpDir(upDir) && !dir->AddDir(nullptr, upDir, nullptr))
+        {
+            SalamanderGeneral->Free(upDir.Name);
+        }
+    }
+
+    return TRUE;
+}
+
+void WINAPI CWpdFS::Event(int event, DWORD param)
+{
+    if (event != FSE_PATHCHANGED)
+    {
+        if (event == FSE_DETACHED && m_throbberId >= 0)
+        {
+            if (SalamanderGeneral != nullptr)
+            {
+                SalamanderGeneral->StopThrobber(m_throbberId);
+            }
+            m_throbberId = -1;
+            m_listingPanel = -1;
+        }
+        return;
+    }
+
+    const std::string path = GetCurrentUserPart();
+    ::EnterCriticalSection(&m_listingLock);
+    const BOOL wrongPath = m_listingPath != path;
+    const BOOL cacheReady = m_listingCacheReady && !wrongPath;
+    const BOOL listingRunning = m_listingRunning;
+    ::LeaveCriticalSection(&m_listingLock);
+    if (wrongPath)
+    {
+        ClearListingCache(path);
+    }
+
+    m_listingPanel = static_cast<int>(param);
+    if (!cacheReady && listingRunning && m_throbberId < 0)
+    {
+        m_throbberId = SalamanderGeneral->StartThrobber(m_listingPanel, nullptr, 0);
+    }
 }
 
 

@@ -280,3 +280,5 @@ src/plugins/zip/vcxproj/selfextr/Release/
 _build/
 
 src/vcxproj/x64/Debug/
+
+saldump/

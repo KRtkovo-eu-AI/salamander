@@ -1,5 +1,12 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Remove WPD bulk callback folder enumeration. | The crash dump's worker stack points into the bulk-load path despite null-interface guards. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
+// | 2026-11-09 | Guard failed WPD interfaces and malformed bulk results. | A null interface returned by a device driver caused an access violation in the listing worker. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
+// | 2026-11-09 | Bind listed items to the panel device when enumerating in a worker session. | Items outlive the worker's WPD connection and need the normal panel device for later actions. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
+// | 2026-11-09 | Retrieve folder metadata with WPD bulk queries. | Per-object property requests made large MTP folders much slower than Explorer. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
 
 /*
 	Windows Portable Devices Plugin for Open Salamander
@@ -205,14 +212,33 @@ IPortableDeviceKeyCollection* WINAPI CWpdContentItem::GetRequiredKeys()
 CWpdBaseContentEnumerator::CWpdBaseContentEnumerator(WPDFS_LEVEL level)
     : CWpdEnumerator(level),
       m_device(nullptr),
+      m_itemDevice(nullptr),
+      m_objectIdCount(0),
+      m_nextObjectId(0),
+      m_enumFinished(false),
       m_current(nullptr)
 {
+    memset(m_objectIds, 0, sizeof(m_objectIds));
+}
+
+void WINAPI CWpdBaseContentEnumerator::ReleasePendingObjectIds()
+{
+    for (ULONG i = 0; i < m_objectIdCount; ++i)
+    {
+        if (i >= m_nextObjectId)
+        {
+            ::CoTaskMemFree(m_objectIds[i]);
+            m_objectIds[i] = nullptr;
+        }
+    }
+    m_objectIdCount = 0;
+    m_nextObjectId = 0;
 }
 
 void CWpdBaseContentEnumerator::FinalRelease()
 {
     ReleaseCurrent();
-
+    ReleasePendingObjectIds();
     if (m_device != nullptr)
     {
         m_device->Close();
@@ -229,20 +255,43 @@ HRESULT WINAPI CWpdBaseContentEnumerator::Initialize(CWpdDevice* device, PCWSTR 
     _ASSERTE(device != nullptr);
     _ASSERTE(parentObjectId != nullptr && parentObjectId[0] != L'\0');
 
+    if (device == nullptr || parentObjectId == nullptr || parentObjectId[0] == L'\0')
+    {
+        return E_INVALIDARG;
+    }
+
     HRESULT hr;
+
+    try
+    {
+        m_parentObjectId = parentObjectId;
+    }
+    catch (...)
+    {
+        return E_OUTOFMEMORY;
+    }
 
     hr = device->Open(GENERIC_READ);
     if (SUCCEEDED(hr))
     {
         auto* content = device->GetContentNoAddRef();
-        hr = content->EnumObjects(0U, parentObjectId, nullptr, &m_enum);
-        _ASSERTE(SUCCEEDED(hr));
+        hr = content != nullptr ? content->EnumObjects(0U, parentObjectId, nullptr, &m_enum) : E_POINTER;
+        if (SUCCEEDED(hr) && m_enum == nullptr)
+        {
+            hr = E_UNEXPECTED;
+        }
         if (SUCCEEDED(hr))
         {
             m_keys.Attach(GetRequiredKeys());
-
-            m_device = device;
-            device->AddRef();
+            if (m_keys == nullptr)
+            {
+                hr = E_OUTOFMEMORY;
+            }
+            else
+            {
+                m_device = device;
+                device->AddRef();
+            }
         }
 
         if (FAILED(hr))
@@ -256,41 +305,90 @@ HRESULT WINAPI CWpdBaseContentEnumerator::Initialize(CWpdDevice* device, PCWSTR 
 
 HRESULT WINAPI CWpdBaseContentEnumerator::MoveNext()
 {
-    HRESULT hr;
-    ULONG fetched;
-    PWSTR objectId;
-
-    do
+    if (m_device == nullptr || m_keys == nullptr)
     {
-        ReleaseCurrent();
+        return E_POINTER;
+    }
 
-        hr = m_enum->Next(1UL, &objectId, &fetched);
-        _ASSERTE(fetched == 1UL || hr != S_OK);
-        if (hr == S_OK)
+    HRESULT hr;
+
+    ReleaseCurrent();
+    while (true)
+    {
+        if (m_nextObjectId == m_objectIdCount)
         {
-            CComPtr<IPortableDeviceValues> values;
-            hr = m_device->GetPropertiesNoAddRef()->GetValues(objectId, m_keys, &values);
-            if (SUCCEEDED(hr))
+            ReleasePendingObjectIds();
+            if (m_enumFinished)
             {
-                if (!ShouldSkip(values))
-                {
-                    // Reset hr to S_OK, since IPortableDeviceProperties::GetValues
-                    // might have returned S_FALSE if one or more values could
-                    // not be retrieved (this is ok). But S_FALSE ends enumeration.
-                    hr = S_OK;
+                return S_FALSE;
+            }
 
-                    // ObjectId ownership is transferred to the CWpdContentItem,
-                    // do not free.
-                    m_current = CreateItem(m_device, objectId, values);
-                    break;
+            ULONG fetched = 0;
+            if (m_enum == nullptr)
+            {
+                return E_POINTER;
+            }
+            hr = m_enum->Next(OBJECT_ID_BATCH_SIZE, m_objectIds, &fetched);
+            _ASSERTE(fetched <= OBJECT_ID_BATCH_SIZE);
+            if (FAILED(hr))
+            {
+                m_objectIdCount = fetched;
+                ReleasePendingObjectIds();
+                return hr;
+            }
+            if (fetched == 0)
+            {
+                m_enumFinished = true;
+                return hr;
+            }
+
+            m_objectIdCount = fetched;
+            m_enumFinished = hr == S_FALSE;
+
+            for (ULONG i = 0; i < m_objectIdCount; ++i)
+            {
+                if (m_objectIds[i] == nullptr)
+                {
+                    ReleasePendingObjectIds();
+                    return E_UNEXPECTED;
                 }
             }
 
-            ::CoTaskMemFree(objectId);
         }
-    } while (hr == S_OK);
 
-    return hr;
+        const ULONG objectIndex = m_nextObjectId++;
+        PWSTR objectId = m_objectIds[objectIndex];
+        m_objectIds[objectIndex] = nullptr;
+        CComPtr<IPortableDeviceValues> values;
+        IPortableDeviceProperties* properties = m_device != nullptr ? m_device->GetPropertiesNoAddRef() : nullptr;
+        if (properties == nullptr)
+        {
+            ::CoTaskMemFree(objectId);
+            return E_POINTER;
+        }
+        hr = properties->GetValues(objectId, m_keys, &values);
+        if (FAILED(hr))
+        {
+            ::CoTaskMemFree(objectId);
+            return hr;
+        }
+
+        if (values == nullptr)
+        {
+            ::CoTaskMemFree(objectId);
+            return E_UNEXPECTED;
+        }
+
+        if (!ShouldSkip(values))
+        {
+            // GetValues may return S_FALSE when optional properties are unavailable.
+            m_current = CreateItem(
+                m_itemDevice != nullptr ? m_itemDevice : m_device, objectId, values);
+            return S_OK;
+        }
+
+        ::CoTaskMemFree(objectId);
+    }
 }
 
 CFxItem* WINAPI CWpdBaseContentEnumerator::GetCurrent() const
@@ -303,7 +401,12 @@ CFxItem* WINAPI CWpdBaseContentEnumerator::GetCurrent() const
 void WINAPI CWpdBaseContentEnumerator::Reset()
 {
     ReleaseCurrent();
-    m_enum->Reset();
+    ReleasePendingObjectIds();
+    m_enumFinished = false;
+    if (m_enum != nullptr)
+    {
+        m_enum->Reset();
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
