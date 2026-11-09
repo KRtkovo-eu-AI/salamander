@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check one protected Find open for text and tags. | Require a confirmed close before accepting the combined result. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check duplicate verification at the comparison phase. | Require exact read lengths and keep stale empty candidates out of the result. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Verify protected Find refine scheduling. | Keep ordinary results responsive and retain rows on a declined subtraction check. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Check exact-file consent routing. | Distinguish refused local content reads from elevated scope. | | GPT-6.1 Sol (Codex) |
@@ -82,6 +83,15 @@ def main() -> int:
     require("data->StopSearch || !Start()" in request_finish and
             request_finish.index("WaitForSingleObject(launchThread, INFINITE);") < request_finish.index("Scan(path, 0,"),
             "a stopped search must suppress queued prompts and traversal must wait for the approved session")
+    match_file = function_body(find_cpp, "bool MatchFile(")
+    require(match_file.index("session.OpenContent(") < match_file.index("MatchTags(") <
+            match_file.index("MatchContent(") < match_file.index("session.CloseContent()") and
+            "return match && !error && !closeError" in match_file,
+            "protected text and tags must use the same open and require a confirmed close")
+    for signature in ("bool MatchTags(", "bool MatchContent("):
+        matcher = function_body(find_cpp, signature)
+        require("session.OpenContent(" not in matcher and "session.CloseContent(" not in matcher,
+                "a predicate must not reopen the file within a combined protected match")
     examine = function_body(find_cpp, "void CDuplicateCandidates::Examine(")
     require("file->ProtectedScope" in examine and "protectedSessions[scope - 1]" in examine,
             "protected duplicate reads must use the exact session that supplied the candidate")

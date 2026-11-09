@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify protected Find text and tags on one open file. | Keep combined predicates on the same revision. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Add a two-volume test mode for guarded F6. | Exercise verified publication and recovery on distinct NTFS volumes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify stale overwrite rejection through the broker pipe. | Reject changed destinations before touching recovery state. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record installer-time verification of the UAC pair. | Fail the pilot build if payload validation fails. | | GPT-6.1 Sol (Codex) |
@@ -1178,6 +1179,8 @@ V Inno Setup 7.1.1 běžný profil prošel preprocessingem bez položky pro brok
 **Nativní zkouška F6 na dvou svazcích.** Příkaz `python -B src/tests/uac_directory_leaf_tests.py --configuration Release --move-source-probe --move-target-root E:/UacLab` použije dočasný zdroj na svazku TEMP a nový pracovní podadresář uvnitř existujícího zapisovatelného testovacího rodiče na druhém svazku. Test ověří dva různé GUID pevných svazků NTFS z otevřených handlů. Zdroj i žurnál zůstávají na prvním svazku. Zkouška použije druhý svazek pro zveřejnění cíle, pozdní kolizi, zrušení, odpojení, ověření potvrzeného cíle po znovuotevření žurnálu a kontroly komprese, řídké alokace a datových proudů.
 
 Na dostupném stroji prošlo 121 kontrol stávajícího režimu v x64 Debug i Release. Nový režim správně odmítl druhý adresář na témže svazku. Kladný běh vyžaduje druhý zapisovatelný svazek NTFS v izolované VM. Nativní zkouška nevyvolává UAC a nezastupuje interaktivní F6. [Požadavky pro připojení virtuálního disku](https://learn.microsoft.com/en-us/windows/win32/api/virtdisk/nf-virtdisk-attachvirtualdisk).
+
+**Společná kontrola tagů a textu v chráněném Findu.** Obě podmínky čtou stejný brokerový handle. Před čtením se porovná velikost a čas s výpisem. Výsledek se přijme až po potvrzeném zavření a kontrole metadat brokerem. Tím se při souběžné změně souboru nespojí výsledek tagů z jednoho otevření s textem z jiného. V x64 Debug prošlo sestavení aplikace. Prošly tři sady kontrol Findu a 248 nativních kontrol x64 Release včetně přenosu chyby přerušeného čtení ze streamu tagů. Společný scénář s chráněným souborem, změnou mezi podmínkami a systémovým souhlasem se ověří ve VM.
 
 ## 12. Testovací strategie
 

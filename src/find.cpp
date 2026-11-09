@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Match protected text and tags through one file open. | Avoid combining results from separate file revisions. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify every content duplicate at comparison time. | Keep stale or unreadable entries out of duplicate groups, including zero-length files. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow protected text and tag checks when refining Find results. | Reuse exact-file consent and preserve the original wide paths and refine mode. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Queue unreadable files discovered by the ordinary Find traversal. | Require exact-file consent for denied text or keyword reads. | | GPT-6.1 Sol (Codex) |
@@ -1768,15 +1769,8 @@ private:
         SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
     }
 
-    bool MatchContent(const std::wstring& directory, const WIN32_FIND_DATAW& file, const CQuadWord& listedSize)
+    bool MatchContent(const std::string& pathText, const CQuadWord& listedSize, DWORD& error)
     {
-        if (!listedSize.Value)
-            return false;
-        std::wstring filePath = directory;
-        SalPathAppendW(filePath, file.cFileName);
-        const std::string pathText = SalWideToMultiBytePath(filePath.c_str(), CP_UTF8);
-        data->SearchingText->Set(pathText.c_str());
-
         if (content.empty())
         {
             try
@@ -1785,27 +1779,16 @@ private:
             }
             catch (const std::bad_alloc&)
             {
-                Log(filePath, ERROR_NOT_ENOUGH_MEMORY);
+                error = ERROR_NOT_ENOUGH_MEMORY;
                 return false;
             }
         }
-
-        ULONGLONG bytes = 0;
-        FILETIME modified{};
-        DWORD error = session.OpenContent(filePath, bytes, modified);
-        if (error)
-        {
-            Log(filePath, error);
-            return false;
-        }
-        if (bytes != listedSize.Value || CompareFileTime(&modified, &file.ftLastWriteTime) != 0)
-            error = ERROR_FILE_INVALID;
 
         CQuadWord offset(0, 0);
         BOOL found = FALSE;
         while (!error && !data->StopSearch && offset < listedSize)
         {
-            const DWORD viewSize = static_cast<DWORD>(std::min<ULONGLONG>(content.size(), bytes - offset.Value));
+            const DWORD viewSize = static_cast<DWORD>(std::min<ULONGLONG>(content.size(), listedSize.Value - offset.Value));
             for (DWORD position = 0; position < viewSize && !error && !data->StopSearch;)
             {
                 const DWORD count = std::min<DWORD>(UacF7::archiveReadBlock, viewSize - position);
@@ -1820,14 +1803,7 @@ private:
             if (!data->StopSearch && offset == before)
                 error = ERROR_INVALID_DATA;
         }
-        const DWORD closeError = session.CloseContent();
-        if (error || closeError)
-        {
-            if (!data->StopSearch)
-                Log(filePath, error ? error : closeError);
-            return false;
-        }
-        return found && !data->StopSearch;
+        return found;
     }
 
     static DWORD ReadTagBlock(void* context, ULONGLONG offset, void* output, DWORD bytes)
@@ -1836,12 +1812,30 @@ private:
         return request.data->StopSearch ? ERROR_CANCELLED : request.session.ReadContent(offset, output, bytes);
     }
 
-    bool MatchTags(const std::wstring& directory, const WIN32_FIND_DATAW& file, const CQuadWord& listedSize)
+    bool MatchTags(const std::wstring& filePath, ULONGLONG size, DWORD& error)
+    {
+        auto* stream = CFindTagStream::Create(size, UacF7::archiveReadBlock, ReadTagBlock, this);
+        if (!stream)
+        {
+            error = ERROR_NOT_ENOUGH_MEMORY;
+            return false;
+        }
+        std::vector<std::wstring> tags;
+        const HRESULT hr = ReadFileTagsFromStreamW(filePath.c_str(), stream, tags);
+        error = stream->Detach();
+        stream->Release();
+        if (!error && FAILED(hr))
+            error = static_cast<DWORD>(hr);
+        return !error && FileTagValuesMatchW(tags, requestedTags, data->Criteria.GetTagsMode()) != FALSE;
+    }
+
+    bool MatchFile(const std::wstring& directory, const WIN32_FIND_DATAW& file, const CQuadWord& listedSize)
     {
         std::wstring filePath = directory;
         SalPathAppendW(filePath, file.cFileName);
-        const std::string pathText = SalWideToMultiBytePath(filePath.c_str(), CP_UTF8);
+        const auto pathText = SalWideToMultiBytePath(filePath.c_str(), CP_UTF8);
         data->SearchingText->Set(pathText.c_str());
+
         ULONGLONG size = 0;
         FILETIME modified{};
         DWORD error = session.OpenContent(filePath, size, modified);
@@ -1850,32 +1844,15 @@ private:
             Log(filePath, error);
             return false;
         }
-        std::vector<std::wstring> tags;
+
         if (size != listedSize.Value || CompareFileTime(&modified, &file.ftLastWriteTime) != 0)
             error = ERROR_FILE_INVALID;
-        else
-        {
-            auto* stream = CFindTagStream::Create(size, UacF7::archiveReadBlock, ReadTagBlock, this);
-            if (stream)
-            {
-                const HRESULT hr = ReadFileTagsFromStreamW(filePath.c_str(), stream, tags);
-                error = stream->Detach();
-                stream->Release();
-                if (!error && FAILED(hr))
-                    error = static_cast<DWORD>(hr);
-            }
-            else
-                error = ERROR_NOT_ENOUGH_MEMORY;
-        }
+        const bool match = !error && (requestedTags.empty() || MatchTags(filePath, size, error)) &&
+                           (!data->Grep || MatchContent(pathText, listedSize, error));
         const DWORD closeError = session.CloseContent();
-        if (data->StopSearch)
-            return false;
-        if (error || closeError)
-        {
+        if (!data->StopSearch && (error || closeError))
             Log(filePath, error ? error : closeError);
-            return false;
-        }
-        return FileTagValuesMatchW(tags, requestedTags, data->Criteria.GetTagsMode()) != FALSE;
+        return match && !error && !closeError && !data->StopSearch;
     }
 
     void Scan(const std::wstring& directory, unsigned depth, size_t& remaining, CDuplicateCandidates* candidates)
@@ -1926,11 +1903,14 @@ private:
     {
         CQuadWord size(file.nFileSizeLow, file.nFileSizeHigh);
         const bool isDir = (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-        return masks->AgreeMasksW(file.cFileName, nullptr) &&
-               data->Criteria.Test(file.dwFileAttributes, &size, &file.ftLastWriteTime) &&
-               (!data->Criteria.HasTags() || (!isDir && (requestedTags.empty() || MatchTags(directory, file, size)))) &&
-               (!data->Grep || (!isDir && MatchContent(directory, file, size))) &&
-               (!candidates || !isDir);
+        if (!masks->AgreeMasksW(file.cFileName, nullptr) ||
+            !data->Criteria.Test(file.dwFileAttributes, &size, &file.ftLastWriteTime))
+            return false;
+        if (isDir)
+            return !data->Criteria.HasTags() && !data->Grep && !candidates;
+        if (data->Grep && !size.Value)
+            return false;
+        return (!data->Grep && requestedTags.empty()) || MatchFile(directory, file, size);
     }
 
     void PublishCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates)
