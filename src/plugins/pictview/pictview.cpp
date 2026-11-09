@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Register detected PictView formats on install and migrate older configurations. | AddViewer force mode updates registrations but does not create defaults during installation, leaving image formats to other viewers. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 
 #include "precomp.h"
 
@@ -83,9 +86,11 @@ BOOL SalamanderRegistered = FALSE;
 //               21 - Salamander 2.5 RC3: Added Olympus *.ORF Digital Camera images
 //               22 - Salamander 2.52 B1: Added *.BLP files used by Blizzard Entertainment in World of Wordcraft
 //               23 - Viewer and thumbnail masks are discovered from WIC decoders installed in Windows
+//               24 - Repair legacy PictView viewer rows that exceeded the mask buffer
+//               25 - Register all detected WIC formats on clean installs
 
 int ConfigVersion = 0;
-#define CURRENT_CONFIG_VERSION 24
+#define CURRENT_CONFIG_VERSION 25
 std::string WicDecoderMasks;
 
 SGlobals G; // initialized in InitViewer
@@ -1440,6 +1445,14 @@ void ConfigureWicMasks(CSalamanderConnectAbstract* salamander)
     // 3DM and DWG are not left to another plug-in merely because Windows has
     // no WIC codec for them.
     AddViewerMasks(salamander, nativeMasks, TRUE);
+
+    // AddViewer(FALSE) creates defaults when PictView is first installed;
+    // AddViewer(TRUE) above only updates registrations on later plug-in loads.
+    // Register the discovered WIC and native formats through the install path
+    // as well, so common images are owned by PictView by default even when
+    // another viewer also supports them.
+    AddViewerMasks(salamander, currentMasks, FALSE);
+    AddViewerMasks(salamander, nativeMasks, FALSE);
     salamander->SetThumbnailLoader(JoinThumbnailMasks(nativeMasks, currentMasks).c_str());
 }
 } // namespace

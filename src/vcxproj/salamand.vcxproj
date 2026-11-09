@@ -2,6 +2,7 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-07 | Include the Find UI Automation provider. | Build the virtualized result view. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+| 2026-11-07 | Compile the canonical file-association backend model. | Include the first issue #733 backend slice in the main application project. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 -->
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
@@ -615,6 +616,16 @@
     </ClCompile>
     <ClCompile Include="..\pack3.cpp">
     </ClCompile>
+    <ClCompile Include="..\fileassoc.cpp">
+    </ClCompile>
+    <ClCompile Include="..\fileassocmigration.cpp">
+    </ClCompile>
+    <ClCompile Include="..\fileassocprojection.cpp">
+    </ClCompile>
+    <ClCompile Include="..\fileassoclifecycle.cpp">
+    </ClCompile>
+    <ClCompile Include="..\fileassocruntimeadapter.cpp">
+    </ClCompile>
     <ClCompile Include="..\packac.cpp">
     </ClCompile>
     <ClCompile Include="..\packers.cpp">
@@ -1073,6 +1084,16 @@
     <ClInclude Include="..\olespy.h">
     </ClInclude>
     <ClInclude Include="..\pack.h">
+    </ClInclude>
+    <ClInclude Include="..\fileassoc.h">
+    </ClInclude>
+    <ClInclude Include="..\fileassocmigration.h">
+    </ClInclude>
+    <ClInclude Include="..\fileassocprojection.h">
+    </ClInclude>
+    <ClInclude Include="..\fileassoclifecycle.h">
+    </ClInclude>
+    <ClInclude Include="..\fileassocruntimeadapter.h">
     </ClInclude>
     <ClInclude Include="..\plugins.h">
     </ClInclude>

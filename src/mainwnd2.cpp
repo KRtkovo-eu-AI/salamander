@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Load and save custom association handlers with the active configuration. | Resolve custom association IDs against the selected viewer/editor catalog after restart. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-08 | Register the complete canonical runtime adapter after archive setup. | Ensure staged canonical rows resolve against the final plugin and packer indexes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Connect guarded canonical association lifecycle hooks. | Load canonical associations without replacing legacy runtime state when projection metadata is unavailable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Preserve user-owned archive extensions during migration. | Apply #748 ownership repair only to unmarked defaults and retain provenance for future per-type configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Expand the import-anyway message without a LoadStr printf format. | CodeQL rejected the localized IDS_IMPORTCFG_NOTOURVER template as a non-constant format string. | https://github.com/KRtkovo-eu-AI/salamander/issues/742 | Composer |
 // | 2026-11-05 | Ask Yes/No before importing a config file for another version. | The "import anyway" prompt only had OK, so the action could not be confirmed or cancelled. | https://github.com/KRtkovo-eu-AI/salamander/issues/742 | Composer |
@@ -10,6 +13,7 @@
 // | 2026-11-04 | Select the first real tab when loading a clean panel config. | Missing TabCount left CurSel on the "+" button after first-run creation. | | Composer |
 // | 2026-11-04 | Load toolbar layouts using the real buffer size. | Panel toolbars now persist the same catalog as the middle toolbar. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 // | 2026-11-04 | Format legacy configuration names with a literal printf format. | CodeQL rejected the loaded product template as a non-constant format string. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-09 | Show Extension Bar directly at startup on default config. | Ensure Extension Bar is visible at startup when ExtensionBarVisible is TRUE, bypassing toggle logic that depends on HWindow state. | | nvidia/nemotron-3.5-super-vl:free |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -28,6 +32,9 @@
 #include "tabwnd.h"
 #include "mainwnd.h"
 #include "configstorage.h"
+#include "fileassoc.h"
+#include "fileassoclifecycle.h"
+#include "fileassocruntimeadapter.h"
 #include "cfgdlg.h"
 #include "storagesched.h"
 #include "usermenu.h"
@@ -4081,6 +4088,10 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
             //---  editors
 
             SaveEditors(salamander, SALAMANDER_EDITORS_REG, EditorMasks);
+            Salamander::FileAssociations::SaveCustomHandlersToConfigurationStorage(
+                ConfigurationStorage, NULL);
+            Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
+                ConfigurationStorage, NULL);
 
             if (GlobalSaveWaitWindow == NULL)
                 analysing.SetProgressPos(++savingProgress); // 7
@@ -5318,6 +5329,17 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
 
         Plugins.CheckData(); // adjust loaded data
 
+        // Project canonical associations only after all plugin, viewer and
+        // archive indexes are final. The adapter commits staged replacements
+        // only after every target and derived archive lookup has succeeded.
+        Salamander::FileAssociations::RuntimeProjectionOperations runtimeProjection;
+        Salamander::FileAssociations::LoadCustomHandlersFromConfigurationStorage(
+            ConfigurationStorage, NULL);
+        Salamander::FileAssociations::AttachPluginRuntimeAdapter(&runtimeProjection, this, &Plugins);
+        Salamander::FileAssociations::RegisterCanonicalRuntimeProjection(runtimeProjection);
+        Salamander::FileAssociations::LoadCanonicalAssociationsForLifecycle(
+            ConfigurationStorage, NULL);
+
         //---  user menu
 
         IfExistSetSplashScreenText(LoadStr(ConfigurationStorage.GetStorageType() == cstRegFile
@@ -6180,7 +6202,14 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                     }
                     if (idx == Configuration.ExtensionBarIndex && Configuration.ExtensionBarVisible)
                     {
-                        ToggleExtensionBar(FALSE);
+                        if (ExtensionBar->HWindow == NULL && ExtensionBar->CreateWnd(HTopRebar))
+                        {
+                            ExtensionBar->CreateExtensionButtons(HGrayToolBarImageList,
+                                                                 HHotToolBarImageList);
+                            InsertExtensionBarBand();
+                            ShowWindow(ExtensionBar->HWindow, SW_SHOW);
+                            Configuration.ExtensionBarVisible = TRUE;
+                        }
                     }
                     if (idx == Configuration.UserMenuToolbarIndex && Configuration.UserMenuToolBarVisible)
                     {

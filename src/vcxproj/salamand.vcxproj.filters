@@ -1,7 +1,8 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <!--
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-07 | Include the Find UI Automation provider. | Build the virtualized result view. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+| 2026-11-07 | Add the canonical file-association files to Visual Studio filters. | Keep the first issue #733 backend slice visible in the main project. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 -->
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
@@ -280,6 +281,21 @@
       <Filter>cpp</Filter>
     </ClCompile>
     <ClCompile Include="..\pack3.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\fileassoc.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\fileassocmigration.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\fileassocprojection.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\fileassoclifecycle.cpp">
+      <Filter>cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\fileassocruntimeadapter.cpp">
       <Filter>cpp</Filter>
     </ClCompile>
     <ClCompile Include="..\packac.cpp">
@@ -678,6 +694,21 @@
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\pack.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\fileassoc.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\fileassocmigration.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\fileassocprojection.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\fileassoclifecycle.h">
+      <Filter>h</Filter>
+    </ClInclude>
+    <ClInclude Include="..\fileassocruntimeadapter.h">
       <Filter>h</Filter>
     </ClInclude>
     <ClInclude Include="..\plugins.h">

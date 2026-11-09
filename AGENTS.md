@@ -134,7 +134,7 @@ Every modified file gets a new changelog row at the top. Do not delete older row
 - Summary of the change
 - Reason for the change
 - Link to the ticket, or an empty field when there is no ticket
-- Name of the AI model that worked on the change
+- Name of the AI model that worked on the change. The Model value must be the actual AI model name and version that performed the work (for example `nvidia/nemotron-3.5-super-vl:free`), not the provider name (not `OpenAI`, `Groq`, `OpenRouter`, `Microsoft`, etc.) and not any other label.
 
 Keep SPDX as the first lines so license tools still see it. Do not remove an existing `SPDX-FileCopyrightText` line. When the file already has one, add a second line for the year of the edit:
 

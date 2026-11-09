@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Copy transient first-registration viewer state. | Let startup merge newly registered extension rows without persisting the marker. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -38,6 +39,7 @@ CViewerMasksItem::CViewerMasksItem(const char* masks, const char* command, const
     Command = Arguments = InitDir = ViewerLabel = NULL;
     ViewerType = viewerType;
     HandlerID = ViewerHandlerID++;
+    RegisteredDuringStartup = FALSE;
     Set(masks, command, arguments, initDir);
     SetViewerLabel("");
 }
@@ -50,6 +52,7 @@ CViewerMasksItem::CViewerMasksItem()
     ViewerType = VIEWER_EXTERNAL;
     HandlerID = ViewerHandlerID++;
     OldType = FALSE;
+    RegisteredDuringStartup = FALSE;
     Set("", "", "\"$(Name)\"", "$(FullPath)");
     SetViewerLabel("");
 }
@@ -62,6 +65,7 @@ CViewerMasksItem::CViewerMasksItem(CViewerMasksItem& item)
     ViewerType = item.ViewerType;
     OldType = item.OldType;
     HandlerID = item.HandlerID;
+    RegisteredDuringStartup = item.RegisteredDuringStartup;
     Set(item.Masks->GetMasksString(), item.Command, item.Arguments, item.InitDir);
     SetViewerLabel(item.ViewerLabel);
 }

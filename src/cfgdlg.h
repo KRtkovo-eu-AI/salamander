@@ -2,10 +2,29 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Render conflict explanations through a dedicated status control subclass. | Ensure theme painting cannot overwrite the conflict text color. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Track conflict status text for contrast-aware rendering. | Keep conflict explanations highlighted independently of which competing row currently owns the editor selection. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add direct painting support for the association matrix. | Render cell colors and status badges after the native list-view paint. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Replace association detail selectors with action tabs. | Keep editor state tied to one of five matrix actions and avoid category/operation combo races. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Expose the default editor on the universal pattern row. | Keep `*.*` showing the Category Edit target and present it in the Edit filter. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Split archive matrix operations and filters. | Show Pack and Unpack independently and expose operation-specific filtering from the archive tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add custom viewer/editor association target choices. | Populate Target IDs from the saved custom handler catalogs. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add extension target and conflict detail state. | Let users select extension viewers directly and inspect the overlapping patterns that cause conflicts. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add all-associations matrix state and icon support. | Display every registered pattern with its category targets and plugin or extension icons. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Track sortable association matrix state. | Preserve the chosen column and direction as the list is refreshed. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Add category tabs and matrix source/status helpers. | Match the file-association page layout to the approved matrix and detail mockup. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Mark first-registration viewer rows during startup. | Preserve newly installed extension defaults without resurrecting rows removed from the saved configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Use owned display strings for association matrix cells. | Preserve complete target and archive values instead of truncating them in fixed buffers. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Keep Internal Viewer accessible beside canonical associations. | Restore the existing viewer settings page after removing only the obsolete association pages. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-04 | Enlarge the persisted panel-toolbar layouts. | The shared button catalog no longer fits in the old 200-byte buffers. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
+// | 2026-11-08 | Show provenance and support adding multiple canonical rows. | Make defaults, legacy conflicts, and user overrides visible while allowing the editor to build a complete association list. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Keep canonical association edits transactional until OK. | Prevent page validation followed by Cancel from publishing changes to the live runtime. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Add the canonical file-association configuration page. | Replace the legacy viewer/editor pages with one editable, provenance-aware association surface. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
+
+#include "fileassoc.h"
 
 class CColorArrowButton;
 
@@ -119,6 +138,9 @@ struct CViewerMasksItem
 
     // helper variable for determining the type of data - TRUE = old -> 'Type' (0 viewer, 1 IE viewer, 2 external)
     BOOL OldType;
+
+    // Transient marker used while plugin registrations are reconciled with saved viewers.
+    BOOL RegisteredDuringStartup;
 
     CViewerMasksItem(const char* masks, const char* command, const char* arguments, const char* initDir,
                      int viewerType, BOOL oldType);
@@ -1044,6 +1066,110 @@ public:
     CCfgPageViewEdit();
 };
 
+//****************************************************************************
+//
+// CCfgPageFileAssociations
+//
+
+class CCfgPageFileAssociations : public CCommonPropSheetPage
+{
+protected:
+    struct MatrixRow
+    {
+        std::string Pattern;
+        int View;
+        int AlternateView;
+        int Edit;
+        int ListUnpack;
+        int DeletePack;
+        bool Conflict;
+
+        MatrixRow()
+            : View(-1), AlternateView(-1), Edit(-1), ListUnpack(-1), DeletePack(-1), Conflict(false) {}
+    };
+
+    struct TargetCatalogItem
+    {
+        std::string StableId;
+        std::string DisplayName;
+        Salamander::FileAssociations::TargetKind Kind;
+        std::string DisplayLabel;
+
+        TargetCatalogItem(const std::string& stableId, const std::string& displayName,
+                          Salamander::FileAssociations::TargetKind kind,
+                          const std::string& displayLabel = std::string())
+            : StableId(stableId), DisplayName(displayName), Kind(kind), DisplayLabel(displayLabel) {}
+    };
+
+    struct TargetIconItem
+    {
+        std::string Key;
+        int ImageIndex;
+    };
+
+    std::vector<Salamander::FileAssociations::Association> Rows;
+    std::vector<MatrixRow> MatrixRows;
+    std::vector<TargetCatalogItem> TargetCatalog;
+    std::vector<TargetIconItem> TargetIcons;
+    HIMAGELIST MatrixImageList;
+    int Selected;
+    int SelectedCategory;
+    int SelectedOperation;
+    int SelectedMatrixRow;
+    int FilterCategory;
+    int FilterArchiveOperation;
+    int FilterProvenance;
+    int FilterSource;
+    BOOL ConflictsOnly;
+    BOOL Updating;
+    BOOL StatusConflict;
+    int SortColumn;
+    BOOL SortAscending;
+
+    void RebuildMatrix();
+    void PopulateTargetKindChoices();
+    void PopulateTargetCatalog();
+    void RefreshList();
+    void LoadSelectedControls();
+    BOOL BuildCandidate(Salamander::FileAssociations::CFileAssociationModel& candidate,
+                        std::string* error = NULL);
+    BOOL ReadControls(Salamander::FileAssociations::Association& item,
+                      std::string* error = NULL);
+    const char* CategoryText(Salamander::FileAssociations::Category category) const;
+    const char* OperationText(Salamander::FileAssociations::PanelOperation operation) const;
+    const char* TargetText(Salamander::FileAssociations::TargetKind target) const;
+    const char* ProvenanceText(Salamander::FileAssociations::Provenance provenance) const;
+    void SetStatus(const char* text, BOOL conflict = FALSE);
+    std::string MatrixCellText(int index, bool archive) const;
+    std::string MatrixEditCellText(const MatrixRow& row) const;
+    std::string MatrixStatusText(const MatrixRow& row) const;
+    void PaintMatrix(HDC hdc);
+    static LRESULT CALLBACK MatrixListSubclassProc(HWND window, UINT message, WPARAM wParam,
+                                                   LPARAM lParam, UINT_PTR subclassId,
+                                                   DWORD_PTR referenceData);
+    bool MatrixRowVisible(const MatrixRow& row) const;
+    int SelectedAssociationIndex(const MatrixRow& row) const;
+    void UpdateActionTabSelection();
+    int MatrixTargetIconIndex(int associationIndex);
+    bool IsExtensionViewerLabel(const std::string& label) const;
+    std::string MatrixConflictDetails(const Salamander::FileAssociations::Association& item) const;
+    static LRESULT CALLBACK ConflictStatusSubclassProc(HWND window, UINT message, WPARAM wParam,
+                                                        LPARAM lParam, UINT_PTR subclassId,
+                                                        DWORD_PTR referenceData);
+    int MatrixSourceKind(const MatrixRow& row) const;
+    std::string MatrixSourceText(const MatrixRow& row) const;
+    void UpdateCategoryTabs();
+
+public:
+    CCfgPageFileAssociations();
+
+    virtual void Transfer(CTransferInfo& ti);
+    virtual void Validate(CTransferInfo& ti);
+
+protected:
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+};
+
 //
 // ****************************************************************************
 
@@ -1093,6 +1219,23 @@ protected:
     CEditorMasks* SourceEditorMasks;
     CEditListBox* EditLB;
     BOOL DisableNotification;
+};
+
+class CCfgPageCustomHandlers : public CCommonPropSheetPage
+{
+public:
+    explicit CCfgPageCustomHandlers(BOOL viewers);
+    virtual void Transfer(CTransferInfo& ti);
+
+protected:
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+    void RefreshList();
+    void LoadSelected();
+    void SaveCurrent();
+
+    BOOL Viewers;
+    int SelectedRow;
+    std::vector<Salamander::FileAssociations::CustomHandler> Handlers;
 };
 
 //
@@ -1427,6 +1570,9 @@ public:
     CCfgPageConfirmations PageConfirmations;
     CCfgPageDrives PageDrives;
     CCfgPageViewEdit PageViewEdit;
+    CCfgPageFileAssociations PageFileAssociations;
+    CCfgPageCustomHandlers PageCustomViewers;
+    CCfgPageCustomHandlers PageCustomEditors;
     CCfgPageViewers Page13;
     CCfgPageViewers Page14;
     CCfgPageEditors Page15;

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Resolve plugins by stable registry identity. | Allow canonical file associations to locate the current session plugin without using an ordinal heuristic. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-06 | Retain deferred modules when a plug-in refuses shutdown. | A failed Release may leave a consumer executing provider code until a successful retry. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-05 | Flatten extension toolbar SVG icons with BGRA channel order. | Premul composite was mixing the red background into the blue channel. | | Composer |
 // | 2026-11-04 | Unmap plug-in DLLs only after every plug-in Release returns. | Salamatrix pump threads were still executing inside javascriptruntime.spl and powershellruntime.spl when those DLLs were unloaded on exit. | https://github.com/KRtkovo-eu-AI/salamander/issues/770 https://github.com/KRtkovo-eu-AI/salamander/issues/750 | Grok 4.7 |
@@ -2215,6 +2216,25 @@ CPlugins::GetPluginData(const char* dllName)
         }
     }
     return NULL;
+}
+
+int CPlugins::FindByStableId(const char* stableId) const
+{
+    if (stableId == NULL || stableId[0] == 0)
+        return -1;
+
+    CPlugins* mutableThis = const_cast<CPlugins*>(this);
+    HANDLES(EnterCriticalSection(&mutableThis->DataCS));
+    for (int i = 0; i < mutableThis->Data.Count; ++i)
+    {
+        if (_stricmp(mutableThis->Data[i]->GetStableId(), stableId) == 0)
+        {
+            HANDLES(LeaveCriticalSection(&mutableThis->DataCS));
+            return i;
+        }
+    }
+    HANDLES(LeaveCriticalSection(&mutableThis->DataCS));
+    return -1;
 }
 
 CPluginData*

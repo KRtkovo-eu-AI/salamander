@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-07 | Remove the synchronous ListBox scroll repaint workaround. | Owner-drawn ListBoxes now keep their native client paint path while only the scrollbar is themed. | | GPT-5.6 Luna Pro |
+// | 2026-11-09 | Draw colorful icons in the Customize Toolbar dialog. | Use the hot (colorful) image list instead of the gray one so toolbar button icons are colorful in the Customize Toolbar dialog, matching the listview fix. | | nvidia/nemotron-3.5-super-vl:free |
 
 #include "precomp.h"
 
@@ -539,7 +540,7 @@ CTBCustomizeDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if ((AllItems[index].Mask & TLBI_MASK_ICON) && AllItems[index].HIcon != NULL)
                 DrawIconEx(hDC, r.left + 2, r.top + 1, AllItems[index].HIcon, iconSize, iconSize, 0, NULL, DI_NORMAL);
             if ((AllItems[index].Mask & TLBI_MASK_IMAGEINDEX) && AllItems[index].ImageIndex != -1)
-                ImageList_Draw(ToolBar->HImageList, AllItems[index].ImageIndex, hDC, r.left + 2, r.top + 1, ILD_TRANSPARENT);
+                ImageList_Draw(ToolBar->HHotImageList, AllItems[index].ImageIndex, hDC, r.left + 2, r.top + 1, ILD_TRANSPARENT);
         }
 
         r.left += imageWidth;

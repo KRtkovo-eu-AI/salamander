@@ -405,6 +405,13 @@ CPackerFormatConfig::CPackerFormatConfig(/*BOOL disableDefaultValues*/)
 */
 }
 
+void CPackerFormatConfig::Swap(CPackerFormatConfig& source)
+{
+    Formats.Swap(source.Formats);
+    for (int i = 0; i < 256; ++i)
+        Extensions[i].Swap(source.Extensions[i]);
+}
+
 void CPackerFormatConfig::InitializeDefaultValues()
 {
     AddDefault(0);

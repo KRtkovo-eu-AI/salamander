@@ -1,4 +1,14 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add localized text IDs for creating association patterns. | Title and prompt the existing Salamander rename input dialog and explain invalid or duplicate patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add localized text IDs for custom handler page descriptions and columns. | Label the new page guidance, editor group, Arguments, and Initial directory fields. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add the missing legacy editor display label. | Localize the empty-state Target ID when no configured editor command can be found. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add custom handler labels for association settings. | Localize custom viewer/editor targets and their edit forms. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add extension target and conflict detail string IDs. | Support the extension target category and localized descriptions of conflicting patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add localized association state and target IDs. | Provide resources for the User defined state, Unassigned target, and built-in archive handler text. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Add localized association multiselect string ID. | Provide a translatable summary for multiple selected patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Add IDS_EXCOL_MULTISELECT string ID. | Label for the multi-select info message in the Choose Custom Properties dialog. | | opencode |
+// | 2026-11-09 | Add the localized extension-owner marker. | Distinguish Salamatrix extension associations from framework-owned plugin associations. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Add canonical association provenance identifiers. | Give the configuration editor localized labels for default, user, legacy, disabled, and conflict rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Localize the finishing phase in Find. | Distinguish a finished search worker from results still being finalized. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Localize Find activity and response warnings. | Describe Find progress in the dialog and main window. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-04 | Describe a missing extension runtime. | Activation failed silently when the interpreter or runtime provider was not installed. | | Grok 4.7 |
@@ -3053,6 +3063,7 @@
 #define IDS_EXCOL_ADD_FAVORITE                     14422
 #define IDS_EXCOL_REMOVE_FAVORITE                  14423
 #define IDS_EXCOL_PLUGINS                          14424
+#define IDS_EXCOL_MULTISELECT                      14398
 #define IDS_FONTDESCRIPTION_UI                      14425
 #define IDS_FILEISNOTARCHIVE                        14426
 #define IDS_PLUGINSEC_NETWORK                       14427
@@ -3148,6 +3159,83 @@
 #define IDS_FILELAUNCH_LONGPATH_UNSET                    14520
 #define IDS_FILELAUNCH_LONGPATH_UNKNOWN                  14521
 #define IDS_FILELAUNCH_LONGPATH_CAVEAT                   14522
+
+#define IDS_FILEASSOCIATIONS                              14530
+#define IDS_FILEASSOCIATION_PATTERN                       14531
+#define IDS_FILEASSOCIATION_CATEGORY                      14532
+#define IDS_FILEASSOCIATION_OPERATION                     14533
+#define IDS_FILEASSOCIATION_TARGET                        14534
+#define IDS_FILEASSOCIATION_TARGET_ID                     14535
+#define IDS_FILEASSOCIATION_STATUS                        14536
+#define IDS_FILEASSOCIATION_ADD                           14537
+#define IDS_FILEASSOCIATION_DELETE                        14538
+#define IDS_FILEASSOCIATION_RESET                         14539
+#define IDS_FILEASSOCIATION_UNASSIGNED                    14540
+#define IDS_FILEASSOCIATION_VIEW                          14541
+#define IDS_FILEASSOCIATION_ALTERNATE_VIEW                14542
+#define IDS_FILEASSOCIATION_EDIT                          14543
+#define IDS_FILEASSOCIATION_PANEL_ARCHIVE                 14544
+#define IDS_FILEASSOCIATION_NOT_APPLICABLE                14545
+#define IDS_FILEASSOCIATION_LIST_UNPACK                   14546
+#define IDS_FILEASSOCIATION_DELETE_PACK                   14547
+#define IDS_FILEASSOCIATION_BUILT_IN                      14548
+#define IDS_FILEASSOCIATION_PLUGIN                        14549
+#define IDS_FILEASSOCIATION_STATUS_READY                  14551
+#define IDS_FILEASSOCIATION_STATUS_CONFLICT               14552
+#define IDS_FILEASSOCIATION_DEFAULT                      14553
+#define IDS_FILEASSOCIATION_USER                         14554
+#define IDS_FILEASSOCIATION_LEGACY                       14555
+#define IDS_FILEASSOCIATION_DISABLED                     14556
+#define IDS_FILEASSOCIATION_CONFLICT                     14557
+#define IDS_FILEASSOCIATION_SEARCH                       14558
+#define IDS_FILEASSOCIATION_FILTER_CATEGORY              14559
+#define IDS_FILEASSOCIATION_FILTER_PROVENANCE            14560
+#define IDS_FILEASSOCIATION_FILTER_ALL                   14561
+#define IDS_FILEASSOCIATION_FILTER_CONFLICTS             14562
+#define IDS_FILEASSOCIATION_MATRIX_PATTERN               14563
+#define IDS_FILEASSOCIATION_MATRIX_VIEW                  14564
+#define IDS_FILEASSOCIATION_MATRIX_ALTERNATE             14565
+#define IDS_FILEASSOCIATION_MATRIX_EDIT                  14566
+#define IDS_FILEASSOCIATION_MATRIX_ARCHIVE               14567
+#define IDS_FILEASSOCIATION_LEGEND                       14568
+#define IDS_FILEASSOCIATION_GUIDANCE                     14569
+#define IDS_FILEASSOCIATION_NO_TARGETS                   14570
+#define IDS_FILEASSOCIATION_INTERNAL_VIEWER              14571
+#define IDS_FILEASSOCIATION_LEGACY_RUNTIME               14572
+#define IDS_FILEASSOCIATION_SELECT_PLUGIN                 14573
+#define IDS_FILEASSOCIATION_PATTERN_EMPTY                14575
+#define IDS_FILEASSOCIATION_EXTENSION                    14576
+#define IDS_FILEASSOCIATION_MULTISELECT                  14577
+#define IDS_FILEASSOCIATION_UNASSIGNED_TARGET            14578
+#define IDS_FILEASSOCIATION_USER_DEFINED                 14579
+#define IDS_FILEASSOCIATION_ARCHIVE_PANEL_TARGET         14580
+#define IDS_FILEASSOCIATION_EXTENSIONS                   14581
+#define IDS_FILEASSOCIATION_CONFLICT_DETAIL              14582
+#define IDS_FILEASSOCIATION_CONFLICT_MORE                14583
+#define IDS_FILEASSOCIATION_SELECT_EXTENSION             14584
+#define IDS_FILEASSOCIATION_CUSTOM_VIEWER                14585
+#define IDS_FILEASSOCIATION_CUSTOM_EDITOR                14586
+#define IDS_CUSTOM_HANDLER_NAME                          14587
+#define IDS_CUSTOM_HANDLER_COMMAND                       14588
+#define IDS_CUSTOM_HANDLER_ARGUMENTS                     14589
+#define IDS_CUSTOM_HANDLER_INITIAL_DIRECTORY             14590
+#define IDS_CUSTOM_HANDLER_SAVE                          14591
+#define IDS_CUSTOM_HANDLER_LIST                          14592
+#define IDS_CUSTOM_HANDLER_REQUIRED                      14593
+#define IDS_CUSTOM_HANDLER_DUPLICATE                     14594
+#define IDS_CUSTOM_HANDLER_COLUMN_NAME                   14595
+#define IDS_CUSTOM_HANDLER_COLUMN_COMMAND                14596
+#define IDS_CUSTOM_HANDLER_INVALID                       14597
+#define IDS_FILEASSOCIATION_NO_LEGACY_EDITOR             14598
+#define IDS_CUSTOM_HANDLER_VIEWERS_HELP                  14599
+#define IDS_CUSTOM_HANDLER_EDITORS_HELP                  14600
+#define IDS_CUSTOM_HANDLER_DETAILS                       14601
+#define IDS_CUSTOM_HANDLER_COLUMN_ARGUMENTS              14602
+#define IDS_CUSTOM_HANDLER_COLUMN_INITIAL_DIRECTORY     14603
+#define IDS_FILEASSOCIATION_NEW_PATTERN_TITLE            14604
+#define IDS_FILEASSOCIATION_NEW_PATTERN_PROMPT           14605
+#define IDS_FILEASSOCIATION_PATTERN_INVALID              14606
+#define IDS_FILEASSOCIATION_PATTERN_EXISTS               14607
 #define IDS_FILELAUNCH_LAUNCH_CLOSE                      14523
 #define IDS_FILELAUNCH_LONGPATH_GUIDE_BUTTON             14524
 #define IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE              14525
