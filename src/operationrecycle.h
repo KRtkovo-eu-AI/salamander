@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Recheck the account policy on every Shell retry. | Stop when a changed policy can switch accounts after application consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Restrict the Shell recycle retry to same-account elevation. | A credential-based Shell retry can move the file into another account’s Recycle Bin. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Let the Shell retry recycling after requesting elevation. | Keep revalidating the exact source without treating an intermediate callback as final. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Resolve protected recycle completion from its exact receipt. | Keep a verified move when the Shell reports a later aggregate error. | | GPT-6.1 Sol (Codex) |
@@ -226,8 +227,8 @@ class OperationRecycleProgress final : public IFileOperationProgressSink
 public:
     explicit OperationRecycleProgress(bool captureReceipt = false,
                                       const OperationRecycleDetail::VerifiedSource* source = nullptr,
-                                      bool allowElevationRetry = false)
-        : captureReceipt(captureReceipt), source(source), allowElevationRetry(allowElevationRetry) {}
+                                      bool (*canRetryWithElevation)() = nullptr)
+        : captureReceipt(captureReceipt), source(source), canRetryWithElevation(canRetryWithElevation) {}
     ~OperationRecycleProgress()
     {
         if (receipt)
@@ -255,8 +256,13 @@ public:
     {
         if (!(flags & TSF_DELETE_RECYCLE_IF_POSSIBLE))
             failure = HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED);
-        else if (source && SUCCEEDED(failure))
-            failure = source->Check(item);
+        else if (SUCCEEDED(failure))
+        {
+            if (canRetryWithElevation && !canRetryWithElevation())
+                failure = HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED);
+            else if (source)
+                failure = source->Check(item);
+        }
         return failure;
     }
     HRESULT STDMETHODCALLTYPE PostDeleteItem(DWORD, IShellItem*, HRESULT result, IShellItem* recycled) override
@@ -265,7 +271,7 @@ public:
             return failure;
         // The Shell can report this before retrying the same item with elevation.
         // A failing callback would abort that retry before its next identity check.
-        if (allowElevationRetry && source && !completed && !recycled && result == COPYENGINE_E_REQUIRES_ELEVATION)
+        if (canRetryWithElevation && source && !completed && !recycled && result == COPYENGINE_E_REQUIRES_ELEVATION)
         {
             awaitingElevatedRetry = true;
             return S_OK;
@@ -321,7 +327,7 @@ public:
 private:
     bool captureReceipt;
     const OperationRecycleDetail::VerifiedSource* source;
-    bool allowElevationRetry;
+    bool (*canRetryWithElevation)();
     bool awaitingElevatedRetry = false;
     IShellItem* receipt = nullptr;
     LONG references = 1;

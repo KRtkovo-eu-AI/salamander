@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Supply the account policy check to the Shell retry callback. | Recheck same-account consent before a queued delete starts or resumes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Keep protected Shell recycling in the original account. | Decline credential-based Shell retries before any file can be moved. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow the explicit Shell elevation retry callback. | Recheck the original file and preserve ordinary recycle error behavior. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Use the verified recycle receipt even after a late Shell error. | Distinguish a completed move from a cancellation without a receipt. | | GPT-6.1 Sol (Codex) |
@@ -177,7 +178,7 @@ static HRESULT RetryProtectedRecycle(HWND owner, const std::wstring& path, const
 
     if (!CanRequestSameAccountRecycle())
         return denied;
-    OperationRecycleProgress progress(true, &original, true);
+    OperationRecycleProgress progress(true, &original, CanRequestSameAccountRecycle);
     const auto result = RunSingleRecycleOperation(owner, shellPath, progress, true);
     return original.CompleteRecycle(path, progress.Receipt(), sid, result);
 }

@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Revalidate the recycle account policy inside the Shell callback. | Refuse a retry if Windows switches to a credential policy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify UAC payloads for all three build architectures. | Detect mixed-architecture application and broker pairs before distribution. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise a disconnected Find content stream on a live pipe. | Verify another scoped session can still return content. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the encrypted copy’s EFS recipients. | Confirm that copying did not add the approving administrator or a recovery key. | | GPT-6.1 Sol (Codex) |
@@ -1490,6 +1491,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, nezávislost relací Findu při výpadku.** Lokální test x64 Debug i Release otevřel dva obsahové streamy přes samostatné roury pro stejný název s odlišným obsahem ve dvou kořenech. Po odpojení první roury její brokerová relace skončila chybou 109. Druhá relace vrátila správný obsah, uzavřela stream a znovu jej otevřela a přečetla. Test volá produkční obsluhu požadavků bez elevace. Zobrazení výsledků a protokolu Findu při stejném výpadku zbývá ověřit v izolované VM.
 
 **P7, kontrola architektury distribuční dvojice.** Samostatný ověřovač přijímá parametr -Architecture Win32, x64 nebo ARM64. Výchozí volba je x64. V nepodepsaném laboratorním režimu prošly skutečné dvojice Win32 Debug, ARM64 Debug a x64 Release, všechny s protokolem 10. Ověřovač zkontroloval manifesty, role, architekturu obou obrazů, importy a systémový režim načítání brokeru. Kombinaci Win32 hostu s ARM64 brokerem odmítl při volbě Win32 i ARM64. Otisky a výsledky jsou v C:/Samandarin/builds/uac-p7-10da008c/verify-architectures-556ffd99e6f7413f8e7058898e806684/evidence.json. Podpisy vydání a nativní běh mimo x64 zůstávají k ověření.
+
+**P7, změna zásady během chráněné recyklace.** Před každým zpracováním položky Shell znovu zkontroluje, že platí podmínka pro souhlas téhož účtu. Kontrola zahrnuje i druhý PreDeleteItem po mezivýsledku COPYENGINE_E_REQUIRES_ELEVATION. Nativní test simuluje změnu zásady mezi těmito dvěma voláními a ověřuje chybu 5, žádný doklad o recyklaci a zachování stejného zdroje. V Debug i Release x64 prošlo 43 kontrol včetně skutečného přesunu do vlastního Koše a obnovy stejného souboru. Kompilace změněné části aplikace prošla pro Win32, x64 a ARM64 Debug. Ověření této změny s reálnou výzvou ve VM a podporovaný přesun do Koše původního účtu při schválení jiným správcem zůstávají otevřené.
 
 ### 12.3 CI a přijetí vydání
 

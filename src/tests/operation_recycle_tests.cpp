@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Test an account policy change during the Shell retry. | Keep the source in place when elevation can switch users. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Test the original-account Shell elevation policy. | Reject standard tokens and credential prompts before retrying protected recycling. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Cover the two Shell callbacks around elevation. | Distinguish intermediate elevation from a final result and recheck the source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise late Shell results with a real recycle receipt. | Accept completion only when the original account and exact file match. | | GPT-6.1 Sol (Codex) |
@@ -166,6 +167,7 @@ static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool reques
         VolumeRoot(original.normalizedPath).empty() || !MatchesProbeContents(source, expected))
         return false;
 
+    constexpr auto allowProbeElevation = +[] { return true; };
     constexpr HRESULT cancelled = HRESULT_FROM_WIN32(ERROR_CANCELLED);
     constexpr HRESULT invalid = HRESULT_FROM_WIN32(ERROR_FILE_INVALID);
     if (!requestElevation)
@@ -178,7 +180,7 @@ static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool reques
         Check(ordinary.PostDeleteItem(recycle, item, elevation, nullptr) == elevation &&
                   ordinary.Result(S_OK, 1) == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED),
               "ordinary recycling still rejects a result that requires elevation");
-        OperationRecycleProgress retry(true, &original, true);
+        OperationRecycleProgress retry(true, &original, allowProbeElevation);
         Check(SUCCEEDED(itemResult) && retry.PreDeleteItem(recycle, item) == S_OK &&
                   retry.PostDeleteItem(recycle, item, elevation, nullptr) == S_OK &&
                   retry.PreDeleteItem(recycle, item) == S_OK && !retry.Receipt(),
@@ -188,7 +190,7 @@ static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool reques
               "require a confirmed receipt and preserve cancellation after an elevation request");
         Check(retry.PreDeleteItem(0, item) == HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED),
               "refuse a permanent delete even after an elevation request");
-        OperationRecycleProgress replaced(true, &original, true);
+        OperationRecycleProgress replaced(true, &original, allowProbeElevation);
         Check(replaced.PostDeleteItem(recycle, item, elevation, nullptr) == S_OK &&
                   replaced.PreDeleteItem(recycle, nullptr) == invalid,
               "reject a missing or changed Shell item on the elevated retry");
@@ -196,7 +198,7 @@ static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool reques
     }
     Check(original.CompleteRecycle(source.wstring(), nullptr, sid, cancelled) == cancelled,
           "keep cancellation when the original file is still present and no receipt exists");
-    OperationRecycleProgress progress(true, &original, requestElevation);
+    OperationRecycleProgress progress(true, &original, requestElevation ? allowProbeElevation : nullptr);
     std::wstring shellPath;
     HRESULT hr = OperationRecyclePath(source.wstring(), shellPath);
     if (SUCCEEDED(hr))
@@ -245,7 +247,7 @@ static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool reques
     Check(original.CompleteRecycle(source.wstring(), nullptr, sid, cancelled) == invalid &&
               original.CompleteRecycle(source.wstring(), progress.Receipt(), sid + L"-1", S_OK) == invalid,
           "refuse a missing or wrong-account receipt when the source is gone");
-    OperationRecycleProgress retried(true, &original, true);
+    OperationRecycleProgress retried(true, &original, allowProbeElevation);
     constexpr DWORD recycle = TSF_DELETE_RECYCLE_IF_POSSIBLE;
     Check(retried.PostDeleteItem(recycle, nullptr, COPYENGINE_E_REQUIRES_ELEVATION, nullptr) == S_OK &&
               retried.PostDeleteItem(recycle, nullptr, S_OK, progress.Receipt()) == S_OK &&
@@ -425,6 +427,24 @@ int wmain(int argc, wchar_t** argv)
               !IsSameAccountRecyclePolicy(TokenElevationTypeDefault, 5) &&
               !IsSameAccountRecyclePolicy(TokenElevationTypeFull, 5),
           "reject credential policies, unknown policy values and non-split tokens");
+    const auto& policyPath = paths[0];
+    VerifiedSource policySource;
+    IShellItem* rawPolicyItem = nullptr;
+    if (!ReadFileId(policyPath.c_str(), policySource.id, &policySource.normalizedPath) ||
+        FAILED(SHCreateItemFromParsingName(policyPath.c_str(), nullptr, IID_PPV_ARGS(&rawPolicyItem))))
+        return 2;
+    const ShellPtr<IShellItem> policyItem(rawPolicyItem);
+    constexpr DWORD recycle = TSF_DELETE_RECYCLE_IF_POSSIBLE;
+    static bool eligible = true;
+    OperationRecycleProgress policyChanged(true, &policySource, [] { return eligible; });
+    Check(policyChanged.PreDeleteItem(recycle, policyItem.get()) == S_OK &&
+              policyChanged.PostDeleteItem(recycle, policyItem.get(), COPYENGINE_E_REQUIRES_ELEVATION, nullptr) == S_OK,
+          "allow the initial recycle attempt under an eligible policy");
+    eligible = false;
+    Check(policyChanged.PreDeleteItem(recycle, policyItem.get()) == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED) &&
+              policyChanged.Result(S_OK, 1) == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED) &&
+              !policyChanged.Receipt() && policySource.StillAtOriginalPath(policyPath),
+          "refuse the elevated Shell retry when the account policy changes");
     const auto stale = root / L"stale-recycle.txt";
     const auto earlier = root / L"earlier-recycle.txt";
     VerifiedSource original;
