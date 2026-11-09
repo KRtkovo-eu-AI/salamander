@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify Enter cancels protected F7 in the VM. | Check the real focus, shield and unchanged destination on the protected pilot. | | Codex |
 | 2026-11-09 | Default the protected F7 prompt to Cancel. | Keep the shield on the action that requests elevation. | | Codex |
 | 2026-11-09 | Align the pilot guide with P7 acceptance. | Document scoped recycle, protected search Stop and the F6 verification phase. | | Codex |
 | 2026-11-09 | Record Czech F7 visual acceptance. | Verify the translated consent dialog and Unicode destination in the protected pilot. | | Codex |
@@ -1706,7 +1707,7 @@ Chráněné běhy zachytily 53 a 136 vzorků s aktivním brokerem. Rozdíl v jeh
 
 **P7, vizuální ověření českého F7.** V chráněném pilotu x64 dad2cf99 se v tmavém režimu vešel celý český dotaz i úplná cílová cesta s názvem P7-vizuální-ověření-東. Tlačítko Správce mělo štít a fokus. Storno i Esc umožňují návrat, v této zkoušce Esc zavřel dialog před systémovou výzvou. Cílová složka nevznikla. Pilot při prvním spuštění zastavilo upozornění ZIP pluginu na chybějící český modul pluginu. Pro zkoušku interního F7 byla jeho registrace dočasně vynechána jen z testovací konfigurace. Po ukončení pilotu byla konfigurace obnovena a ověřena SHA-256. Záznam je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/payload-protocol11-languages/czech-f7-visual-evidence.json. Další jazyky, světlý režim a různé DPI zůstávají k vizuálnímu ověření.
 
-**P7, výchozí tlačítko v chráněném F7.** Nabídka správce nyní nastaví Storno jako výchozí tlačítko a přidá štít výslovně na Správce. Broker se spustí až po potvrzení Správce. Kontrola zdrojů ověřila pořadí tlačítek ve sdíleném dialogu, výchozí fokus, cíl štítu a podmínku spuštění brokeru. Sestavení x64 Release prošlo. Velikost hosta zůstala 5 446 144 B, broker je shodný s předchozím pilotem a má 1 342 976 B. Ověřovač přijal nepodepsaný laboratorní pár s protokolem 11 v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f7-cancel-default-payload. Vizuální zkouška této revize ve VM zbývá.
+**P7, výchozí tlačítko v chráněném F7.** Nabídka správce nyní nastaví Storno jako výchozí tlačítko a přidá štít výslovně na Správce. Broker se spustí až po potvrzení Správce. Kontrola zdrojů ověřila pořadí tlačítek ve sdíleném dialogu, výchozí fokus, cíl štítu a podmínku spuštění brokeru. Sestavení x64 Release prošlo. Velikost hosta zůstala 5 446 144 B, broker je shodný s předchozím pilotem a má 1 342 976 B. Ověřovač přijal nepodepsaný laboratorní pár s protokolem 11 v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f7-cancel-default-payload. Ve VM na přesném sestavení 3dd547a4 měl v anglickém dialogu výchozí fokus Cancel a štít byl na Administrator. Enter zavřel dialog a vrátil panel bez systémové výzvy. Testovací adresář nevznikl. Pilot byl zavřený a ověřené sestavení zůstalo nainstalované. Důkaz je ve vm-evidence.json ve stejné složce.
 
 ### 12.3 CI a přijetí vydání
 
