@@ -445,6 +445,16 @@ int wmain(int argc, wchar_t** argv)
               policyChanged.Result(S_OK, 1) == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED) &&
               !policyChanged.Receipt() && policySource.StillAtOriginalPath(policyPath),
           "refuse the elevated Shell retry when the account policy changes");
+    eligible = true;
+    OperationRecycleProgress recycleUnavailable(true, &policySource, [] { return eligible; });
+    const HRESULT unsupported = HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED);
+    Check(recycleUnavailable.PreDeleteItem(recycle, policyItem.get()) == S_OK &&
+              recycleUnavailable.PostDeleteItem(recycle, policyItem.get(), COPYENGINE_E_REQUIRES_ELEVATION, nullptr) == S_OK &&
+              recycleUnavailable.PreDeleteItem(0, policyItem.get()) == unsupported &&
+              recycleUnavailable.PreDeleteItem(recycle, policyItem.get()) == unsupported &&
+              recycleUnavailable.Result(S_OK, 1) == unsupported &&
+              !recycleUnavailable.Receipt() && policySource.StillAtOriginalPath(policyPath),
+          "refuse a permanent-delete fallback during the elevated Shell retry");
     const auto stale = root / L"stale-recycle.txt";
     const auto earlier = root / L"earlier-recycle.txt";
     VerifiedSource original;
