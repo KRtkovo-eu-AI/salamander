@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Substitute Find error details as plain text. | Preserve localization without interpreting resource text as a printf format. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Stop Find work for disconnected protected scopes. | Keep scanning and comparing the other scopes without reporting artificial access errors. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Match protected duplicate predicates during hashing. | Evaluate text, tags and digest on one broker-opened file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind duplicate hashing to the revision used by protected filters. | Reject changed files between the two passes. | | GPT-6.1 Sol (Codex) |
@@ -59,6 +60,15 @@ const char* FINDIGNOREITEM_ENABLED_REG = "Enabled";
 // following variable was used up to Altap Salamander 2.5,
 // where we switched to CFilterCriteria with its Save/Load
 const char* OLD_FINDOPTIONSITEM_EXCLUDEMASK_REG = "ExcludeMask";
+
+static std::string FormatFindError(int messageId, DWORD error)
+{
+    std::string message = LoadStr(messageId);
+    const size_t placeholder = message.find("%s");
+    if (placeholder != std::string::npos)
+        message.replace(placeholder, 2, GetErrorText(error));
+    return message;
+}
 
 //*********************************************************************************
 //
@@ -1111,10 +1121,10 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
         return FALSE;
     if (error)
     {
-        char message[MAX_PATH + 100];
-        sprintf(message, LoadStr(opened ? IDS_ERROR_READING_FILE2 : IDS_ERROR_OPENING_FILE2), GetErrorText(error));
+        const auto message = error == ERROR_CANCELLED ? std::string(LoadStr(IDS_FINDLOG_SKIP)) :
+            FormatFindError(opened ? IDS_ERROR_READING_FILE2 : IDS_ERROR_OPENING_FILE2, error);
         const DWORD flags = error == ERROR_CANCELLED ? FLI_INFO : FLI_ERROR;
-        FIND_LOG_ITEM log{flags, error == ERROR_CANCELLED ? LoadStr(IDS_FINDLOG_SKIP) : message, display.c_str()};
+        FIND_LOG_ITEM log{flags, message.c_str(), display.c_str()};
         SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
         return FALSE;
     }
@@ -1663,13 +1673,8 @@ BOOL TestFileContent(DWORD sizeLow, DWORD sizeHigh, const char* path, CGrepData*
 
         if (err != ERROR_SUCCESS || getLinkFileSizeErr)
         {
-            char buf[MAX_PATH + 100];
-            sprintf(buf, LoadStr(getLinkFileSizeErr ? IDS_GETLINKTGTFILESIZEERROR : IDS_ERROR_OPENING_FILE2),
-                    GetErrorText(err));
-            FIND_LOG_ITEM log;
-            log.Flags = FLI_ERROR;
-            log.Text = buf;
-            log.Path = path;
+            const auto errorText = FormatFindError(getLinkFileSizeErr ? IDS_GETLINKTGTFILESIZEERROR : IDS_ERROR_OPENING_FILE2, err);
+            FIND_LOG_ITEM log{FLI_ERROR, errorText.c_str(), path};
             SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
         }
     }
@@ -2333,11 +2338,8 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
             else
                 *end = 0;
 
-            sprintf(message, LoadStr(IDS_DIRERRORFORMAT), GetErrorText(err));
-            FIND_LOG_ITEM log;
-            log.Flags = FLI_ERROR;
-            log.Text = message;
-            log.Path = path;
+            const auto errorText = FormatFindError(IDS_DIRERRORFORMAT, err);
+            FIND_LOG_ITEM log{FLI_ERROR, errorText.c_str(), path};
             SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
 
             if (end - path > 3)
@@ -2379,8 +2381,8 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
             if (err != ERROR_ACCESS_DENIED ||
                 !protectedQueue.Add(data, path, masksGroup, includeSubDirs, startPathLen, ignoreList))
             {
-                sprintf(message, LoadStr(IDS_DIRERRORFORMAT), GetErrorText(err));
-                FIND_LOG_ITEM log{FLI_ERROR | FLI_IGNORE, message, path};
+                const auto errorText = FormatFindError(IDS_DIRERRORFORMAT, err);
+                FIND_LOG_ITEM log{FLI_ERROR | FLI_IGNORE, errorText.c_str(), path};
                 SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
             }
 
