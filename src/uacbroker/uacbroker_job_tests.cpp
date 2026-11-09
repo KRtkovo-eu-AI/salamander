@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Cancel one transfer while another is staged. | Verify that a second live broker session can publish and continue its own batch. | | Codex |
 // | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 // | 2026-11-09 | Pause an actual overwrite during a live copy. | Verify the staged copy cannot fill the original name while the replacement holds the journal. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Lock the journal after a live copy writes its first block. | Reproduce a replacement starting after the copy's initial journal check. | | GPT-6.1 Sol (Codex) |
@@ -616,22 +617,45 @@ void CheckStaleOverwriteJob(const Directory& source, const Directory& target)
           "the same broker rejects a revised target with the same file identity");
 }
 
-void CheckCancelledCopyJob(const Directory& source, const Directory& target)
+void CheckCancelledCopyJob(const Directory& source, const Directory& outside, const Directory& target)
 {
     const auto ready = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
-    JobPipe job;
+    const auto staged = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto resume = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const UacCopyLeaf::Detail::CopyPause pause{staged.get(), resume.get()};
+    JobPipe job, independent;
     constexpr wchar_t pending[] = L"pending-cancel";
-    if (!ready || !WriteByte(source.File(pending), 4) || !job.Open(ready.get()))
+    constexpr wchar_t other[] = L"other-active-copy";
+    constexpr wchar_t next[] = L"other-next-copy";
+    if (!ready || !staged || !resume || !WriteByte(source.File(pending), 4) ||
+        !WriteByte(outside.File(other), 71) || !WriteByte(outside.File(next), 72) ||
+        !job.Open(ready.get()) || !independent.Open(nullptr, nullptr, Operation::FindContent, &pause))
     {
-        Check(false, "prepare the cancellable copy job");
+        Check(false, "prepare cancellable and independent copy jobs");
         return;
     }
+
+    DWORD independentError = ERROR_GEN_FAILURE;
+    bool independentReply = false;
+    std::thread copy([&] { independentReply = independent.Request(Operation::Copy, outside, other, independentError, &target); });
+    const bool otherStaged = WaitForSingleObject(staged.get(), timeoutMs) == WAIT_OBJECT_0;
     DWORD error = ERROR_GEN_FAILURE;
     const bool cancelled = job.Request(Operation::Copy, source, pending, error, &target, nullptr, nullptr, false, ready.get());
     Check(cancelled && error == ERROR_CANCELLED &&
               !job.Request(Operation::Copy, source, pending, error, &target) && job.Finish() == ERROR_SUCCESS &&
               IsAbsent(target.File(pending)) && HasByte(source.File(pending), 4),
           "a cancel control keeps the source, leaves no target and ends the scoped broker job");
+
+    const bool otherUnpublished = IsAbsent(target.File(other));
+    const bool resumed = SetEvent(resume.get()) != FALSE;
+    copy.join();
+    Check(otherStaged && otherUnpublished && resumed && independentReply && independentError == ERROR_SUCCESS &&
+              HasByte(target.File(other), 71) && HasByte(outside.File(other), 71),
+          "cancelling a different live job leaves the staged copy and its source intact");
+    Check(independent.Request(Operation::Copy, outside, next, independentError, &target) &&
+              independentError == ERROR_SUCCESS && HasByte(target.File(next), 72) && HasByte(outside.File(next), 72) &&
+              IsAbsent(target.File(pending)) && independent.CancelIdle() == ERROR_SUCCESS,
+          "the independent job retains its scope for another item and ends cleanly");
 }
 
 void CheckLateCopyCancellation(const Directory& source, const Directory& target)
@@ -1033,7 +1057,7 @@ int wmain()
     CheckActiveOverwriteJournal(source, target);
     CheckLateOverwriteJournal(source, target);
     CheckStaleOverwriteJob(source, target);
-    CheckCancelledCopyJob(source, target);
+    CheckCancelledCopyJob(source, outside, target);
     CheckLateCopyCancellation(source, target);
     CheckCrossVolumeBoundary(source, target);
     CheckRejectedVolumeAliases(source, target);

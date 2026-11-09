@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify two copy jobs under cancellation. | Check that cancelling one active pipe leaves the other scoped dispatcher usable. | | Codex |
 | 2026-11-09 | Prepare a two-job F5 acceptance fixture. | Verify that UAC refusal and protected copy completion stay scoped to their respective jobs. | | Codex |
 | 2026-11-09 | Stop Scan Ahead when a protected worker exits on error. | Prevent background scanning and queued conflict prompts after a refused UAC request. | | Codex |
 | 2026-11-09 | Verify the overwrite journal while its owner is alive. | Distinguish an active concurrent overwrite from interrupted recovery. | | Codex |
@@ -1822,6 +1823,8 @@ Opakovaný výpis GitHubu je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f
 **P7, ukončení Scan Ahead po odmítnutí chráněné operace.** Při odmítnutí systémové výzvy skončí sériový worker s chybou, aniž uživatel stiskne Cancel v dialogu průběhu. Dříve se před čekáním na skener neposlal jeho signál ke zrušení. Worker nyní nastaví událost zrušení při chybovém konci. Pozdní zpráva Scan Ahead už po nastavení této události neotevře automatickou nabídku přepisu. Změna je omezená na aktuální operaci. Prošlo 15 kontraktových testů workeru, sada koordinátoru kopírování a sestavení x64 Release s varováními jako chybami. Host má stejných 5 448 704 bajtů jako f0b9678c. Výpis je scan-ahead-cancel-x64-release-final.log ve složce ověření P7. Dřívější opakovaná výzva ve dvou souběžných oknech tím nebyla reprodukována. Pro potvrzení uživatelského chování je potřeba zopakovat dvě souběžné úlohy v izolované VM.
 
 **P7, příprava zkoušky dvou dávek F5.** Laboratorní dvojice x64 pro 5e13ec2e prošla kontrolou PE, manifestů, rolí, protokolu 11 a anglického modulu. V C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f5-dual-5e13ec2e jsou oddělené zdroje A-cancel a B-approve, ověřený obraz a skript pro dočasné nasazení a obnovení předchozího pilotu podle SHA-256. Protokol vyžaduje dvě současně otevřené nabídky před první volbou a zaznamená skutečný počet systémových výzev. Místní simulace kontroly disku přijala očekávané soubory a odmítla záměnu chráněných obsahů mezi dávkami. Zvýšené nasazení a interaktivní běh ještě neproběhly.
+
+**P7, zrušení jedné ze dvou brokerových úloh F5.** Nativní zkouška spustila dva skutečné dispatchery na oddělených pojmenovaných rourách. Druhý se pozastavil po zápisu pracovní kopie. První přijal zrušení, vrátil 1223 a ukončil spojení. Jeho zdroj zůstal na místě a cíl nevznikl. Druhý po obnovení zveřejnil správný obsah a ve stejné relaci úspěšně zkopíroval další položku, aniž změnil zdroj nebo cíl první úlohy. V x64 Debug i Release prošlo všech 63 kontrol transportu a brokerových úloh. Samostatný Release dispatcher prošel dvanácti opakováními v oddělených zkušebních složkách. Výpisy copy-job-cancel-isolation-*.log jsou ve složce ověření P7. Zkouška začíná za hranicí systémové výzvy a ověřuje oddělení relací. Počet výzev a chování obou dialogů zůstává k ověření v izolované VM.
 
 ### 12.3 CI a přijetí vydání
 
