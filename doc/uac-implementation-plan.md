@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify protected F6 completion after ordinary cross-volume copy. | Cover cancellation and approved source removal without replacing the destination. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify a protected F6 move above 4 GiB between NTFS volumes. | Exercise the native worker and elevated broker with a fully allocated file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify requeued F5 target revision in Scan Ahead. | Confirm that the new revision requires a fresh overwrite decision in the upstream dialog. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify a late target revision during F5 consent in the VM. | Check that consent cannot authorize overwriting a changed target. | | GPT-6.1 Sol (Codex) |
@@ -1372,6 +1373,10 @@ Ke každé zkoušce zaznamenat revizi, verzi Windows a architekturu, typ účtu 
 **VM, změna cíle F5 ve Scan Ahead.** V pilotu 10da008c byl v možnostech F5 zvolen Scan Ahead. Původní konflikt ukazoval cíl o velikosti 20 bajtů. Skript zapsal novou revizi během systémové výzvy a ověřil, že consent.exe po zápisu ještě běžel. Po schválení se položka vrátila do seznamu konfliktů se stavem Waiting for decision a s nulovým průběhem. Solve otevřel Confirm File Overwrite s novou revizí o velikosti 50 bajtů. Zvoleno Skip. SHA-256 cíle odpovídal nové revizi, zdroj zůstal stejný a nevznikl pracovní soubor ani záloha. Důkaz je v souboru f5-scan-revision-vm-evidence.json. Kvůli připomínce ke vzhledu byl porovnán zdroj dialogů pilotu s upstreamem 16b4cd01. Soubor src/lang/lang.rc má v obou stejný Git blob d0941ea9 a obsahuje standardní Confirm File Overwrite i okno průběhu Scan Ahead. Souhlas Administrator má samostatný dialog aplikace se štítem. Přesný vizuální rozdíl, kterého si uživatel všiml, zatím nebyl identifikován.
 
 **VM, chráněný přesun F6 nad 4 GiB mezi svazky.** Pilot 10da008c na Windows 11 Pro x64 (26200) přesunul běžný, nekomprimovaný a neřídký soubor o 4 295 032 833 bajtech z C: do chráněného rodiče na E:. E: byl samostatný připojený 6GiB VHD formátovaný na NTFS, s odlišným GUID svazku. Běžný pokus narazil na odepřený zápis a zobrazil Administrator se štítem. Během elevované operace byl pozorován běžící broker i pracovní soubor na E:. Po doběhnutí zůstal v cíli jediný soubor se shodným SHA-256 a přesnou délkou. Zdroj ani pracovní soubor nezůstaly. Příprava musela pokračovat po opravě 64bitového přetížení Math.Min a ověření svazku bylo zopakováno přímým porovnáním GUID z Get-Volume. Důkaz je v P7-F6/f6-large-vm-evidence.json. Tato zkouška pokrývá odepření zápisu do cíle. Odepřené odstranění zdroje a přerušení před i po zveřejnění zbývají do VM akceptace.
+
+**VM, dokončení F6 po běžné kopii.** Pilot 10da008c kopíroval dva jednotlivé soubory z chráněné složky na C: do zapisovatelné složky na svazku E:. Před každým souhlasem byly zdroj i hotová kopie čitelné, jejich obsah odpovídal a broker ještě neběžel. Po volbě Ne zůstaly zdroj i původní kopie. Po volbě Ano zmizel pouze odpovídající zdroj. Shoda SHA-256 i NTFS ID potvrdila, že obě kopie zůstaly původní. V cíli nebyly další soubory. Důkaz je v P7-F6/f6-finish-vm-evidence.json.
+
+**Zobrazení průběhu.** Běžná kopie ve F6 aktualizuje průběh stávajícím workerem. Když data přenáší broker, nativní okno průběhu zůstává otevřené a lze operaci zrušit. Aktuální broker neposílá průběžný počet přenesených bajtů. U takové položky worker posune ukazatel až po potvrzeném dokončení, což je vidět zejména při delším přenosu mezi svazky.
 
 ### 12.3 CI a přijetí vydání
 
