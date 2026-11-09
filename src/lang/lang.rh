@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add identifiers for lock-aware file error recovery. | Show detected locking processes and offer termination from the core operation dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 // | 2026-11-09 | Add Change Drive order control and option identifiers. | Localize the selector that chooses which menu block appears first. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Add Apply control and localized label identifiers for association details. | Let users commit current association edits directly from the detail panel. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add owner-drawn association action tab identifiers. | Render five selectable action pages consistently across Windows color schemes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -348,6 +349,7 @@
 #define IDS_FILEASSOCIATION_FILTER_STATES 2426
 #define IDS_FILEASSOCIATION_FILTER_SOURCES 2427
 #define IDC_FILEASSOCIATION_FILTER_SOURCE 6323
+#define IDB_FILELOCK_TERMINATE_RETRY    6347
 #define IDD_CFGPAGE_APPEARANCE          595
 #define IDC_NOTHIDDENSYSTEM             596
 #define IDC_USESALOPEN                  597

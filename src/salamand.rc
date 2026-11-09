@@ -1,4 +1,5 @@
-﻿// | Date | Summary | Reason | Ticket | Model |
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add English fallback text for lock-aware operation recovery. | Keep the feature available when a language module lacks the new strings. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 // | 2026-11-04 | Put the splash version under the logo, then the fork line, then the copyright. | The version should lead that block, with a gap before the quieter copyright. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Move splash copyright under the logo and shorten the yellow bar. | The combined copyright overflowed the yellow bar. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Restore the splash width and place the fork line under the version. | The shorter copyright fits the original width, and the version should read as the title of that block. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -275,4 +276,8 @@ BEGIN
  IDS_FILELAUNCH_LONGPATH_GUIDE_BUTTON, "Windows settings guide"
  IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE, "Windows long-path support"
  IDS_FILELAUNCH_LONGPATH_GUIDE, "An administrator can enable the Windows policy:\nComputer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths.\n\nIts registry equivalent is REG_DWORD LongPathsEnabled = 1 under:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nRestart affected applications; restarting Windows may also be necessary. Applications must support long paths themselves. This is not a way to override a security denial, and Shell or the target program may still reject the path. Salamander does not change this setting."
+ IDS_FILELOCK_TERMINATE_RETRY, "Terminate and retry"
+ IDS_FILELOCK_USED_BY, "The file is in use by: %s"
+ IDS_FILELOCK_CONFIRM_TERMINATE, "Terminate these processes and retry?\n\nUnsaved data in these processes may be lost:\n%s"
+ IDS_FILELOCK_TERMINATE_FAILED, "Unable to terminate any of the processes using this file."
 END

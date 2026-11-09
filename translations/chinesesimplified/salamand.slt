@@ -1,4 +1,4 @@
-﻿[EXPORTINFO]
+[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\salamand\salamand.atp"
 TEXTVERSION,"5.0 (x64)"
 VERSION,"5,0,0,196"
@@ -4205,3 +4205,7 @@ SLGINCOMPLETE,""
 15004,1,"%s 可用（缓存，更新于 %s）"
 15005,1,"%s 可用（已过期，更新于 %s）"
 
+14608,1,"终止并重试"
+14609,1,"文件正由以下进程使用：%s"
+14610,1,"终止这些进程并重试？\n\n这些进程中未保存的数据可能会丢失：\n%s"
+14611,1,"无法终止任何正在使用此文件的进程。"

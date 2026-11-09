@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Localize lock-aware file error recovery. | Identify locking processes and warn before terminating them from an operation error. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize the Change Drive block ordering selector. | Name both available first-block choices in the user's language. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize adding new association patterns. | Give the existing text-input dialog clear instructions and report invalid or duplicate entries. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize the association detail Apply action. | Name the new command that writes edits into the association matrix. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -2472,6 +2473,10 @@ STRINGTABLE
  IDS_FILEASSOCIATION_FILTER_SOURCES, "All Sources"
  IDS_FILEASSOCIATION_APPLY, "Apply"
  IDS_FILELAUNCH_LAUNCH_CLOSE, "Close"
+ IDS_FILELOCK_TERMINATE_RETRY, "Terminate and retry"
+ IDS_FILELOCK_USED_BY, "The file is in use by: %s"
+ IDS_FILELOCK_CONFIRM_TERMINATE, "Terminate these processes and retry?\n\nUnsaved data in these processes may be lost:\n%s"
+ IDS_FILELOCK_TERMINATE_FAILED, "Unable to terminate any of the processes using this file."
  IDS_FILELAUNCH_LONGPATH_GUIDE_BUTTON, "Windows settings guide"
  IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE, "Windows long-path support"
  IDS_FILELAUNCH_LONGPATH_GUIDE, "An administrator can enable the Windows policy:\nComputer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths.\n\nIts registry equivalent is REG_DWORD LongPathsEnabled = 1 under:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nRestart affected applications; restarting Windows may also be necessary. Applications must support long paths themselves. This is not a way to override a security denial, and Shell or the target program may still reject the path. Salamander does not change this setting."
