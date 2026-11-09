@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Check Czech F7 path wrapping with scaled Win32 fonts. | Cover four DPI values without signing out of the VM. | | Codex |
 | 2026-11-09 | Verify complete Unicode paths in the Czech F7 consent dialog. | Prevent clipping after a full-width character. | | Codex |
 | 2026-11-09 | Record the Czech F7 light-theme check. | Track clipping of a long Unicode path in the consent dialog. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify current Win32 F7 in the protected VM pilot. | Confirm the default cancellation and an approved operation under WOW64. | | Codex |
@@ -1748,6 +1749,8 @@ Chráněné běhy zachytily 53 a 136 vzorků s aktivním brokerem. Rozdíl v jeh
 **P7, český dialog F7 ve světlém režimu.** Aktuální x64 pilot v izolované VM zobrazil českou otázku a systémový štít na tlačítku Správce. Storno mělo výchozí fokus a Enter se vrátil do panelu bez systémové výzvy. Testovací složka nevznikla a broker neběžel. U 182 znaků dlouhé cesty s diakritikou a znakem U+6771 se ořízl konec druhého řádku cesty. Čitelnost dlouhých cest tedy zůstává otevřená spolu s ověřením vyššího DPI. Zkouška dočasně přepnula barevné schéma a vynechala ZIP plugin pouze v profilu pilotu. Původní profil byl po ukončení obnoven a ověřen otiskem SHA-256. Důkaz je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f7-czech-light/evidence.json.
 
 **P7, oprava zalomení cílové cesty v českém F7.** Měření bez zalomení u plnošířkového znaku odhalí příliš dlouhou část cesty i tam, kde běžné měření její šířku podhodnotí. Pokud dialog vloží vlastní konce řádků, měření i vykreslení použijí právě tyto řádky. V izolované VM zobrazil opravený světlý pilot x64 Release úplné cesty délky 63, 182 a 298 jednotek UTF-16. Nejdelší měla 337 bajtů v UTF-8 a obsahovala diakritiku, U+6771, U+1F600 a ampersand. Správce měl štít a Enter ve všech třech pokusech zvolil Storno. Nevznikla žádná složka, broker neběžel a původní profil byl obnoven podle SHA-256. Velikost hostu zůstala 5 446 144 bajtů a otisk brokeru se nezměnil. Ověření na vyšším DPI zbývá. Důkaz je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f7-czech-light/fixed-evidence.json.
+
+**P7, místní zkouška zalomení při různém DPI.** Nativní sonda použila převod a zalamování přímo ze zdroje msgbox.cpp v revizi fb67ed20. Win32 GDI změřilo a vykreslilo český dotaz a cesty délky 63, 182 a 298 jednotek UTF-16 s fontem MS Shell Dlg zvětšeným pro 96, 120, 144 a 192 DPI. Všech 12 případů zachovalo původní text a vešlo se do měřeného obdélníku. Na nejvyšším DPI měla nejdelší cesta včetně dotazu výšku 125 pixelů. VM používá vlastní škálování a změna vyžaduje odhlášení. Nastavení displeje zůstalo na 100 %, takže zkouška ověřuje vykreslování textu při simulovaných velikostech fontu. Interaktivní kontrola skutečného dialogu nadále pokrývá pouze 96 DPI. Protokol je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f7-czech-light/dpi-layout-probe.log.
 
 ### 12.3 CI a přijetí vydání
 
