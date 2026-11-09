@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Remove the cross-volume F6 pilot limits. | Verify offsets past 4 GiB and cancellation without a total deadline. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Allow verified F5 overwrite after source access denial. | Retain ordinary conflict consent and the exact target revision. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Bind Scan Ahead F5 overwrites to the reviewed revision. | Requeue replaced targets without carrying forward the old conflict decision. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Enable serial protected transfer admission in Scan Ahead. | Separate approved conflicts from free targets and stop the batch on cancellation. | | GPT-6.1 Sol (Codex) |
@@ -1243,6 +1244,10 @@ Prošlo sestavení aplikace x64 Debug, 11 kontrol workeru, sady stavů konflikt�
 **Přepis F5 při odepřeném čtení zdroje.** Předchozí přepis vyžadoval běžně otevřený zdroj. Nyní sériový worker připraví podporovaný přepis i při odepření čtení, ať se odepření zjistí při přípravě skriptu nebo při otevření v běžícím workeru. Pro dialog o konfliktu čte pouze metadata. U zobrazeného cíle ověří revizi proti brokerovému požadavku. Přeskočení a zrušení se řídí běžnými volbami. Ve Scan Ahead se uplatní původní schválená revize, případně vrácení změněného cíle do seznamu konfliktů. Opakování s novou revizí vyžádá nové rozhodnutí. Po chybě již odeslaného přepisu se v témže pokusu nepřejde na kopii do volného názvu.
 
 Prošlo sestavení aplikace x64 Debug, 12 kontrol workeru, sady stavů konfliktů a plánování a 24 kontrol brokerových úloh včetně odmítnutí vyměněného cíle. Prošel také transport. Ve VM ještě ověřit přepis z chráněného zdroje do existujícího cíle, souhlas i zrušení a odmítnutí změněného cíle v obou režimech konfliktu.
+
+**F6 mezi svazky bez pevných limitů pilotu.** Pro chráněný přesun se odstraňuje limit 4 GiB i celková lhůta 15 minut z předchozího pilotu. Zůstává kontrola rozsahu reprezentovatelného podepsanými 64bitovými pozicemi Windows. Aktivní operace může pokračovat, dokud nedokončí kopii, uživatel ji nezruší, neodpojí se host nebo nenastane chyba. Běžná krátká lhůta pro komunikaci a nečinná relace mezi požadavky zůstávají oddělené. Po odeslání zrušení má host omezené čekání na potvrzení výsledku. Protokol je verze 7, host, broker a sonda se proto aktualizují společně.
+
+Lokálně prošlo 128 kontrol F6 v x64 Debug i Release. Skutečná data byla zapsána a po dokončení ověřena za offsetem 4 GiB v hlavním i Unicode alternativním proudu. Oba proudy byly řídké a každý měl logickou velikost přes 4 GiB. Zrušení před zveřejněním ponechalo zdroj a cílový název nevznikl. Prošlo také 27 kontrol brokerových úloh a značek sestavení, včetně odmítnutí starší binárky, potvrzeného zrušení přes skutečnou rouru při čekání bez celkové lhůty a přijetí požadavku nad 4 GiB. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Zkouška použila jeden svazek. Ve VM zbývá ověřit dva svazky, systémovou výzvu a velký běžný soubor na pomalém cíli.
 
 ## 12. Testovací strategie
 

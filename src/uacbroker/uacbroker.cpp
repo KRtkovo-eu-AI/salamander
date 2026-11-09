@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Remove the active F6 deadline and pilot byte cap. | Keep cancellation and disconnect detection while allowing slow and large moves. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share the overwrite target revision capture. | Apply the same plain-file and attribute checks during Scan Ahead and request preparation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Open disk overwrite stages for digest verification. | Verify the completed target before retiring its original backup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Include named streams in explicit compressed F5. | Preserve the selected metadata without dropping alternate data. | | GPT-6.1 Sol (Codex) |
@@ -131,11 +132,10 @@ constexpr DWORD pipeAccess = FILE_READ_DATA | FILE_WRITE_DATA | FILE_READ_ATTRIB
 constexpr DWORD processAccess = PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE;
 constexpr DWORD timeoutMs = 5000;
 [[maybe_unused]] constexpr DWORD copyTimeoutMs = 30000;
-[[maybe_unused]] constexpr DWORD TransferTimeout(UacF7::Operation operation)
+[[maybe_unused]] ULONGLONG TransferDeadline(UacF7::Operation operation)
 {
-    return UacF7::IsCrossVolumeMove(operation) ? 15 * 60 * 1000 : copyTimeoutMs;
+    return UacF7::IsCrossVolumeMove(operation) ? MAXULONGLONG : GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
 }
-// Version 5 raises the byte and time limits for cross-volume moves.
 constexpr DWORD protocolVersion = SAM_UAC_PROTOCOL_VERSION;
 static_assert(protocolVersion > 0 && protocolVersion <= MAXWORD);
 constexpr DWORD capabilities = 0;
@@ -688,12 +688,21 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
         {
             const HANDLE events[] = {io.hEvent, cancel};
             const auto now = GetTickCount64();
-            const DWORD remaining = now < deadline ? static_cast<DWORD>(deadline - now) : 0;
+            const DWORD remaining = deadline == MAXULONGLONG ? INFINITE :
+                now < deadline ? static_cast<DWORD>(deadline - now) : 0;
             if (WaitForMultipleObjects(ARRAYSIZE(events), events, FALSE, remaining) == WAIT_OBJECT_0 + 1)
             {
                 BYTE signal = UacRenameLeaf::Detail::transferCancelSignal;
                 // Keep the read pending. A reply can confirm that publication won the race.
-                TransferRequest(pipe, &signal, sizeof(signal), true, deadline);
+                const auto sendDeadline = deadline == MAXULONGLONG ? GetTickCount64() + timeoutMs : deadline;
+                if (const DWORD sendError = TransferRequest(pipe, &signal, sizeof(signal), true, sendDeadline))
+                {
+                    CancelIoEx(pipe, &io);
+                    GetOverlappedResult(pipe, &io, &count, TRUE);
+                    return sendError;
+                }
+                if (deadline == MAXULONGLONG)
+                    deadline = GetTickCount64() + copyTimeoutMs; // Bound the wait for cancellation acknowledgement.
             }
         }
         const DWORD finished = FinishIo(pipe, io, count, deadline);
@@ -1692,11 +1701,10 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             }
             else if (crossMove)
             {
-                const auto copyDeadline = GetTickCount64() + TransferTimeout(header.operation);
-                deadline = copyDeadline + timeoutMs;
                 result = MoveAcrossVolumes(install, parent.get(), expected, sourceIdentity, leaf,
-                                           targetParent.get(), expectedTarget, targetLeaf, header.copySize, pipe, copyDeadline,
+                                           targetParent.get(), expectedTarget, targetLeaf, header.copySize, pipe, MAXULONGLONG,
                                            header.operation == Operation::MoveCompressed, finishMove ? &overwriteTarget : nullptr);
+                deadline = GetTickCount64() + timeoutMs;
             }
             else if (move)
             {
@@ -2269,7 +2277,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         const bool copy = UacF7::IsFileCopy(request->operation) || overwriteTarget;
         const bool crossMove = UacF7::IsCrossVolumeMove(request->operation);
         if (copy || crossMove || tree || zipBytes)
-            deadline = GetTickCount64() + TransferTimeout(request->operation) + 2 * timeoutMs;
+            deadline = TransferDeadline(request->operation);
         error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline, cancel);
         if (!error && (transferJob || copy || UacF7::IsMoveTransfer(request->operation) || tree || zipBytes ||
                        zipUpdateFile))
@@ -2279,6 +2287,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         }
         if (error)
             return IoError(L"Read request result", error);
+        if (crossMove)
+            deadline = GetTickCount64() + timeoutMs;
         if (transferJob)
         {
             if (UacF7::CanContinueTransferJob(operationError))
@@ -2649,7 +2659,7 @@ static Result RepeatTransferJob(HANDLE& pipe, RequestHeader& header, std::wstrin
     }
     if (!error)
     {
-        deadline = GetTickCount64() + TransferTimeout(header.operation) + 2 * timeoutMs;
+        deadline = TransferDeadline(header.operation);
         error = TransferRequest(pipe, &result.error, sizeof(result.error), false, deadline, cancel);
     }
     if (error)

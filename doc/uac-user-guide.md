@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Remove fixed F6 size and time limits from the pilot. | Describe the streamed move and its remaining eligibility rules. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe the protected Recycle Bin pilot. | Distinguish a verified single-file recycle from permanent deletion. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe the protected VM staging path. | Remove the custom installer from the UAC scope. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Document the native UAC pilot and its limits. | Explain consent, partial results and the scope of acceptance testing. | | GPT-6.1 Sol (Codex) |
@@ -21,7 +22,7 @@ The UAC pilot runs the file manager with the account and permissions you normall
 | Operation | Pilot scope |
 | --- | --- |
 | Create, rename and change metadata | **F7** for a single folder, **F2** and Quick Rename, and **Ctrl+F2** for supported attributes and timestamps. Selected link types can be renamed without touching their targets. |
-| Copy and move | **F5** and **F6** for eligible local file operations, including guarded replacement where supported. Cross-volume F6 covers individual files between fixed NTFS volumes with a free destination name, up to 4 GiB including named streams. Only supported combinations of streams, sparse allocation, compression and security metadata are offered. |
+| Copy and move | **F5** and **F6** for eligible local file operations, including guarded replacement where supported. Cross-volume F6 covers individual files between fixed NTFS volumes with a free destination name. The transfer streams the file and its named streams, with no pilot byte cap or total transfer deadline. Only supported combinations of streams, sparse allocation, compression and security metadata are offered. |
 | Copy a folder tree | The elevated **F5** tree pilot requires an eligible tree and a registered protected destination. It publishes into a free name. |
 | EFS | Eligible single-file **F5** uses encrypted backup and restore on NTFS. Opening the copied file still requires the appropriate EFS key. |
 | Delete | **Shift+Delete** offers elevation for eligible permanent deletion. This includes supported single symbolic links and junctions and leaves their targets intact. **Delete** continues to use the Windows Recycle Bin under the ordinary account. The protected pilot can offer a separate administrator retry for one eligible file after access is denied. A confirmed result requires the same file in the original user's bin. The alternate-admin and cancellation cases still require VM acceptance. |

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Verify F6 without the former pilot limits. | Exercise large request sizes and the active deadline policy. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise stale overwrite consent through the broker dispatcher. | Verify an externally replaced target survives and the job can continue. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Race two live copy jobs for the same target. | Verify no-replace publication across broker sessions. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Test the 64-bit F6 request size boundary. | Reject over-limit moves before any transfer and retain the lower F5 limit. | | GPT-6.1 Sol (Codex) |
@@ -348,6 +349,49 @@ void CheckTransferReplies()
           "distinguish a confirmed cancellation or collision from a partial move");
 }
 
+void CheckUnboundedTransferCancellation()
+{
+    GUID id{};
+    if (FAILED(CoCreateGuid(&id)))
+    {
+        Check(false, "prepare the cancellable unbounded transfer");
+        return;
+    }
+    const auto name = PipeName(id);
+    const auto server = Adopt(CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED |
+        FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_REJECT_REMOTE_CLIENTS,
+        1, 4096, 4096, 0, nullptr));
+    const auto cancel = Adopt(CreateEventW(nullptr, TRUE, TRUE, nullptr));
+    if (!server || !cancel)
+    {
+        Check(false, "prepare the cancellable unbounded transfer");
+        return;
+    }
+    DWORD peerError = ERROR_GEN_FAILURE;
+    std::thread receiver([&] {
+        const auto peer = Adopt(CreateFileW(name.c_str(), pipeAccess, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr));
+        if (!peer)
+            return;
+        BYTE signal = 0;
+        const auto deadline = GetTickCount64() + timeoutMs;
+        peerError = TransferRequest(peer.get(), &signal, sizeof(signal), false, deadline);
+        if (!peerError && signal != UacRenameLeaf::Detail::transferCancelSignal)
+            peerError = ERROR_INVALID_DATA;
+        if (!peerError)
+        {
+            DWORD status = ERROR_CANCELLED;
+            peerError = TransferRequest(peer.get(), &status, sizeof(status), true, deadline);
+        }
+    });
+    DWORD status = ERROR_GEN_FAILURE;
+    DWORD error = Connect(server.get(), GetTickCount64() + timeoutMs);
+    if (!error)
+        error = TransferRequest(server.get(), &status, sizeof(status), false, MAXULONGLONG, cancel.get());
+    receiver.join();
+    Check(!error && !peerError && status == ERROR_CANCELLED,
+          "send cancellation and receive confirmation while waiting without a total deadline");
+}
+
 void CheckCrossVolumeBoundary(const Directory& source, const Directory& target)
 {
     JobPipe job;
@@ -362,10 +406,16 @@ void CheckCrossVolumeBoundary(const Directory& source, const Directory& target)
               error == ERROR_NOT_SAME_DEVICE && HasByte(source.File(leaf), 5) && IsAbsent(target.File(leaf)),
           "reject the cross-volume command on the same NTFS volume before modifying either parent");
     JobPipe boundary;
+    constexpr ULONGLONG aboveFourGiB = (1ULL << 32) + 1;
     Check(boundary.Open() && boundary.Request(Operation::MoveAcrossVolume, source, leaf, error, &target,
-              nullptr, nullptr, false, nullptr, nullptr, UacF7::maxCrossVolumeMoveBytes) &&
+              nullptr, nullptr, false, nullptr, nullptr, aboveFourGiB) &&
               error == ERROR_NOT_SAME_DEVICE && HasByte(source.File(leaf), 5) && IsAbsent(target.File(leaf)),
-          "accept the 64-bit F6 limit before validating the two volumes");
+          "accept a move request beyond the former 4 GiB limit");
+    Check(TransferDeadline(Operation::MoveAcrossVolume) == MAXULONGLONG &&
+              TransferDeadline(Operation::MoveCompressed) == MAXULONGLONG &&
+              TransferDeadline(Operation::FinishCrossVolumeMove) == MAXULONGLONG &&
+              TransferDeadline(Operation::Copy) != MAXULONGLONG,
+          "wait without a total deadline only for active cross-volume moves");
     JobPipe oversized;
     Check(oversized.Open() && !oversized.Request(Operation::MoveAcrossVolume, source, leaf, error, &target,
               nullptr, nullptr, false, nullptr, nullptr, UacF7::maxCrossVolumeMoveBytes + 1) &&
@@ -471,6 +521,7 @@ int wmain()
     CheckCancelledCopyJob(source, target);
     CheckLateCopyCancellation(source, target);
     CheckCrossVolumeBoundary(source, target);
+    CheckUnboundedTransferCancellation();
     CheckTransferReplies();
     CheckMoveSourceEligibility();
     CheckMetadataJob(source);

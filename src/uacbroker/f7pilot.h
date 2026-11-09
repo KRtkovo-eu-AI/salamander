@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Remove the F6 pilot byte cap. | Retain the representable range of signed Windows file offsets. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose capture of an eligible overwrite revision. | Bind a Scan Ahead conflict to the same NTFS revision as a broker request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Declare a guarded source for Shell recycling. | Keep the verified path pinned through the Shell request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share the verified Find file revision with its caller. | Bind repeated reads to the same file identity and metadata. | | GPT-6.1 Sol (Codex) |
@@ -152,7 +153,8 @@ inline bool ValidArchiveRange(const ArchiveReadRange& range, ULONGLONG fileSize,
 
 constexpr DWORD maxViewerSnapshotBytes = 16 * 1024 * 1024;
 constexpr ULONGLONG maxPilotCopyBytes = 16 * 1024 * 1024;
-constexpr ULONGLONG maxCrossVolumeMoveBytes = 4ULL * 1024 * 1024 * 1024;
+// Windows file sizes and seek offsets use signed LARGE_INTEGER values.
+constexpr ULONGLONG maxCrossVolumeMoveBytes = MAXLONGLONG;
 constexpr DWORD plainCopyAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE |
                                       FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
 inline bool IsPlainCopyFile(DWORD attributes)

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Move sparse streams beyond 4 GiB. | Verify 64-bit offsets, cancellation, and retirement with real NTFS data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Kill the disk overwrite fixture at durable checkpoints. | Verify recovery of the real exchange after abrupt handle teardown. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify disk overwrite recovery after later edits. | Retain both names when the journal cannot prove the published target and backup are unchanged. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise compressed F5 with mixed named streams. | Verify the copy, refusal of a writable stage or busy stream, and preservation of a colliding target. | | GPT-6.1 Sol (Codex) |
@@ -2388,6 +2389,79 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
               hasCompression(namedPath + sparseSuffix, COMPRESSION_FORMAT_NONE) &&
               hasCompression(namedPath + namedSuffix, COMPRESSION_FORMAT_LZNT1),
           "preserve independent compression in the named stream of a sparse file");
+
+    constexpr LONGLONG farOffset = (1LL << 32) + 65537;
+    constexpr LONGLONG largeLength = farOffset + 32768;
+    const std::wstring farSuffix = L":large-\u6771";
+    const auto writeLargeSparse = [&](const std::wstring& path, BYTE marker) {
+        const HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+        if (file == INVALID_HANDLE_VALUE)
+            return false;
+        const Handle writer(file);
+        DWORD count = 0;
+        LARGE_INTEGER position{};
+        position.QuadPart = farOffset;
+        if (!DeviceIoControl(file, FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &count, nullptr) ||
+            !SetFilePointerEx(file, position, nullptr, FILE_BEGIN) ||
+            !WriteFile(file, &marker, 1, &count, nullptr) || count != 1)
+            return false;
+        position.QuadPart = largeLength;
+        return SetFilePointerEx(file, position, nullptr, FILE_BEGIN) && SetEndOfFile(file);
+    };
+    if (!writeLargeSparse(sourcePath, 51) || !writeLargeSparse(sourcePath + farSuffix, 87))
+        return false;
+    FILE_ID_INFO largeId{};
+    if (!OpenIdentity(sourcePath, largeId) ||
+        OpenSource(parent.get(), leaf, raw, DELETE | READ_CONTROL | WRITE_DAC, FILE_SHARE_READ))
+        return false;
+    source.reset(raw);
+    error = Arm(parent.get(), leaf, source.get(), largeId, storage.get(), journal.get(), security.get(), name, seal);
+    source.reset();
+    if (error || CheckNoPriorSourceOpens(parent.get(), leaf, largeId))
+        return false;
+    SourceGuard largeGuard(0, [](HANDLE, bool) { return true; });
+    if ((error = largeGuard.Open(parent.get(), leaf, largeId, 2)) ||
+        (error = largeGuard.LockStreams(storage.get(), name)))
+    {
+        Check(false, "guard both streams whose logical lengths exceed 4 GiB", error);
+        return false;
+    }
+    constexpr wchar_t largeLeaf[] = L"large-sparse-move.bin";
+    const auto largePath = targetDirectory + L"\\" + largeLeaf;
+    UacMoveSourceJournal::Detail::Handle largeTarget(nullptr, CloseHandle);
+    FILE_ID_INFO largeTargetId{};
+    const Handle stop(CreateEventW(nullptr, TRUE, TRUE, nullptr));
+    if (!stop)
+        return false;
+    error = largeGuard.PublishCopy(destinationParent, targetParent, largeLeaf, largeLength, stop.get(), nullptr,
+                                   MAXULONGLONG, largeTarget, largeTargetId);
+    Check(error == ERROR_CANCELLED && !largeTarget && !Exists(largePath) && !largeGuard.Check(2),
+          "cancel a large guarded move without publishing its target or releasing its source", error);
+    error = largeGuard.PublishCopy(destinationParent, targetParent, largeLeaf, largeLength, nullptr, nullptr,
+                                   MAXULONGLONG, largeTarget, largeTargetId);
+    if (error)
+    {
+        Check(false, "publish a guarded file with two streams above 4 GiB", error);
+        return false;
+    }
+    error = largeGuard.RetirePublishedSource(parent.get(), storage.get(), journal.get(), security.get(),
+        destinationParent, largeLeaf, largeTarget.get(), largeTargetId, nullptr, nullptr, MAXULONGLONG);
+    largeTarget.reset();
+    const auto hasFarData = [&](const std::wstring& path, BYTE marker) {
+        const HANDLE rawStream = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+        const Handle stream(rawStream == INVALID_HANDLE_VALUE ? nullptr : rawStream);
+        LARGE_INTEGER length{}, position{};
+        position.QuadPart = farOffset;
+        DWORD count = 0;
+        BYTE actual = 0;
+        return stream && GetFileSizeEx(stream.get(), &length) && length.QuadPart == largeLength &&
+               SetFilePointerEx(stream.get(), position, nullptr, FILE_BEGIN) &&
+               ReadFile(stream.get(), &actual, 1, &count, nullptr) && count == 1 && actual == marker && hasHole(path);
+    };
+    Check(!error && !Exists(sourcePath) && hasFarData(largePath, 51) && hasFarData(largePath + farSuffix, 87),
+          "retire the source after preserving holes and actual data beyond offset 4 GiB in both streams", error);
+    error = recover(parent.get());
+    Check(!error && empty(), "clear the receipt for the large guarded move", error);
     return failures == 0;
 }
 
