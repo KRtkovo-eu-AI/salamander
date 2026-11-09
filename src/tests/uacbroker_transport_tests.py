@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Pass the application, broker and probe to the resource check. | Verify the actual built images. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Run the optional installed-image protocol check. | Test real PE resources without starting either image. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Run the broker job dispatcher fixture. | Verify repeated NTFS requests on a real pipe in native CI. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-07 | Run the broker transport fixture. | Exercise both live pipe peer checks in native CI. | | GPT-6.1 Sol (Codex) |
@@ -15,7 +16,7 @@ from safe_file_paths_tests import ROOT, compiler_environment, run
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--configuration", choices=("Debug", "Release"), default="Debug")
-    parser.add_argument("--protocol-images", nargs=2, type=Path, metavar=("MATCHING", "STALE"))
+    parser.add_argument("--protocol-images", nargs=4, type=Path, metavar=("HOST", "BROKER", "PROBE", "STALE_BROKER"))
     args = parser.parse_args()
     env = compiler_environment()
     compiler = shutil.which("cl", path=env.get("PATH"))

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Require the expected UAC image role. | Stop a substituted application or probe before requesting elevation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Refuse a visibly stale overwrite before opening its journal. | Avoid touching recovery state for an invalid approval. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Reject a mismatched UAC image before launch. | Verify the embedded protocol without executing the peer. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Use a longer shared timeout for streamed F6. | Keep the host connected and cancellable until the broker finishes or rolls back. | | GPT-6.1 Sol (Codex) |
@@ -360,7 +361,7 @@ bool ProtectedObject(HANDLE handle, bool directory)
     return ProtectedObject(handle, directory, false);
 }
 
-[[maybe_unused]] bool MatchesProtocolImage(const std::wstring& path)
+[[maybe_unused]] bool MatchesProtocolImage(const std::wstring& path, WORD expectedRole)
 {
     // This maps resources without executing code or resolving its imports.
     const HMODULE image = LoadLibraryExW(path.c_str(), nullptr,
@@ -368,15 +369,15 @@ bool ProtectedObject(HANDLE handle, bool directory)
     if (!image)
         return false;
     const HRSRC resource = FindResourceW(image, MAKEINTRESOURCEW(SAM_UAC_PROTOCOL_RESOURCE), MAKEINTRESOURCEW(10));
-    WORD version = 0;
-    if (resource && SizeofResource(image, resource) == sizeof(version))
+    WORD marker[2]{};
+    if (resource && SizeofResource(image, resource) == sizeof(marker))
     {
         const HGLOBAL data = LoadResource(image, resource);
         if (const void* bytes = data ? LockResource(data) : nullptr)
-            std::memcpy(&version, bytes, sizeof(version));
+            std::memcpy(marker, bytes, sizeof(marker));
     }
     FreeLibrary(image);
-    return version == protocolVersion;
+    return marker[0] == protocolVersion && marker[1] == expectedRole;
 }
 
 class InstallLocation
@@ -1972,7 +1973,7 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
     if (!host || !hostImage || !LiveInSession(host.get(), hostPid) ||
         !install.MatchesProcess(host.get(), hostName))
         return Report(Untrusted, L"Verify host image and session", ERROR_ACCESS_DENIED);
-    if (!MatchesProtocolImage(install.ImagePath(hostName)))
+    if (!MatchesProtocolImage(install.ImagePath(hostName), appHost ? SAM_UAC_IMAGE_HOST : SAM_UAC_IMAGE_PROBE))
         return Report(ProtocolError, L"Verify host protocol version", ERROR_REVISION_MISMATCH);
 
     const auto pipe = Adopt(CreateFileW(pipeName, pipeAccess, 0, nullptr, OPEN_EXISTING,
@@ -2124,7 +2125,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
     if (!brokerImageLock)
         return Report(Untrusted, L"Verify installed broker", ERROR_ACCESS_DENIED);
     const auto exe = install.ImagePath(brokerImage);
-    if (!MatchesProtocolImage(exe))
+    if (!MatchesProtocolImage(exe, SAM_UAC_IMAGE_BROKER))
     {
 #ifdef SAM_UAC_F7_HOST
         result->error = ERROR_REVISION_MISMATCH;

@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Explain the UAC image role checks. | Reject mixed packages and swapped executable roles before elevation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe the installer compilation gate. | Require the signed application and broker to pass the payload verifier. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Document the paired protocol resource. | Fail before elevation or packaging if the pilot has stale binaries. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document the signed UAC pilot installer. | Make payload inspection and packaging repeatable. | | GPT-6.1 Sol (Codex) |
@@ -42,6 +43,6 @@ Run the following from the repository root with mt.exe and dumpbin.exe on PATH. 
     powershell.exe -NoProfile -File tools/codesign/verify_uac_payload.ps1 -PayloadDir <payload>
     iscc.exe doc/runbook-setup/inno_setup_salamander_x64.iss /DUacBrokerPilot /DPayloadDir="<payload>"
 
-The verifier checks Authenticode trust, timestamp presence, the shared signer, image architecture, embedded execution levels, the broker's dependent DLL policy, and the matching UAC protocol resource. The application verifies the broker resource before requesting elevation. The broker verifies the host resource before opening the pipe. The authenticated handshake still verifies the protocol and capabilities. Record the reported SHA-256 hashes with the build revision. The optional -UnsignedLab switch is for inspecting local builds. The pilot installer requires signed images and a standard installation in Program Files/Open Samandarin UAC. The pilot has separate uninstall registration and shortcut names. The application still uses the standard profile namespace, which the pilot uninstaller preserves.
+The verifier checks Authenticode trust, timestamp presence, the shared signer, image architecture, embedded execution levels, the broker's dependent DLL policy, and the matching UAC protocol resource. The resource also identifies the application, broker or diagnostic probe role. The application requires the broker role before requesting elevation. The broker verifies the expected host or probe role before opening the pipe. Stage a new matching set together because builds with the former version-only resource are rejected. The authenticated handshake still verifies the protocol and capabilities. Record the reported SHA-256 hashes with the build revision. The optional -UnsignedLab switch is for inspecting local builds. The pilot installer requires signed images and a standard installation in Program Files/Open Samandarin UAC. The pilot has separate uninstall registration and shortcut names. The application still uses the standard profile namespace, which the pilot uninstaller preserves.
 
 Before distribution, sign the compiled installer, verify its signature and the installed binary hashes, and exercise clean install, update, uninstall, and rejection of a substituted image in the isolated VM.

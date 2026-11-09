@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Test the roles of the three UAC images. | Reject a same-version binary in the wrong position. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise the broker's image protocol check without elevation. | Compare known matching and stale PE resources directly. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Test canonical local pipe names and reject other path inputs. | Guard the elevated pipe path validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Exercise broker peer checks against a real local pipe. | Reject wrong process IDs and an unelevated identification token. | | GPT-6.1 Sol (Codex) |
@@ -30,11 +31,17 @@ int TestClient(const wchar_t* name, DWORD parentPid)
 
 int wmain(int argc, wchar_t** argv)
 {
-    if (argc == 4 && std::wstring_view(argv[1]) == L"--protocol-images")
+    if (argc == 6 && std::wstring_view(argv[1]) == L"--protocol-images")
     {
-        if (!MatchesProtocolImage(argv[2]) || MatchesProtocolImage(argv[3]))
+        if (!MatchesProtocolImage(argv[2], SAM_UAC_IMAGE_HOST) ||
+            !MatchesProtocolImage(argv[3], SAM_UAC_IMAGE_BROKER) ||
+            !MatchesProtocolImage(argv[4], SAM_UAC_IMAGE_PROBE) ||
+            MatchesProtocolImage(argv[2], SAM_UAC_IMAGE_BROKER) ||
+            MatchesProtocolImage(argv[3], SAM_UAC_IMAGE_HOST) ||
+            MatchesProtocolImage(argv[4], SAM_UAC_IMAGE_BROKER) ||
+            MatchesProtocolImage(argv[5], SAM_UAC_IMAGE_BROKER))
             return 12;
-        std::puts("PASS accept the matching PE protocol resource and reject a stale image");
+        std::puts("PASS accept the expected image roles and reject substituted or stale images");
         return 0;
     }
     if (argc == 3)

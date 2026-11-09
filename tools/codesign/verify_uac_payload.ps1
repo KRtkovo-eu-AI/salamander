@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Verify image roles in the signed payload. | Reject same-version images swapped between roles. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Load built-in modules from the current PowerShell installation. | Keep the installer verifier independent of an inherited module path. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Verify the paired UAC protocol markers. | Reject stale or missing broker images during packaging. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Verify the x64 UAC pilot payload. | Check signatures and the broker loading policy before packaging. | | GPT-6.1 Sol (Codex) |
@@ -67,7 +68,7 @@ namespace Samandarin
         [DllImport("kernel32.dll", ExactSpelling = true)]
         private static extern bool FreeLibrary(IntPtr module);
 
-        public static int ReadProtocol(string path)
+        public static int ReadProtocol(string path, ushort expectedRole)
         {
             const uint datafileExclusive = 0x40, imageResource = 0x20;
             var module = LoadLibraryExW(path, IntPtr.Zero, datafileExclusive | imageResource);
@@ -77,11 +78,13 @@ namespace Samandarin
             {
                 // RCDATA resource ID from src/uacbroker/uacprotocol.h.
                 var resource = FindResourceW(module, new IntPtr(63001), new IntPtr(10));
-                if (resource == IntPtr.Zero || SizeofResource(module, resource) != sizeof(ushort))
+                if (resource == IntPtr.Zero || SizeofResource(module, resource) != 2 * sizeof(ushort))
                     return 0;
                 var data = LoadResource(module, resource);
                 var bytes = data == IntPtr.Zero ? IntPtr.Zero : LockResource(data);
-                return bytes == IntPtr.Zero ? 0 : (ushort)Marshal.ReadInt16(bytes);
+                if (bytes == IntPtr.Zero || (ushort)Marshal.ReadInt16(bytes, sizeof(ushort)) != expectedRole)
+                    return 0;
+                return (ushort)Marshal.ReadInt16(bytes);
             }
             finally { FreeLibrary(module); }
         }
@@ -127,10 +130,11 @@ try {
     Test-Image $hostPath 'asInvoker' $hostManifest
     Test-Image $brokerPath 'requireAdministrator' $brokerManifest
 
-    $hostProtocol = [Samandarin.UacPayload]::ReadProtocol($hostPath)
-    $brokerProtocol = [Samandarin.UacPayload]::ReadProtocol($brokerPath)
+    # Host and broker roles from src/uacbroker/uacprotocol.h.
+    $hostProtocol = [Samandarin.UacPayload]::ReadProtocol($hostPath, 1)
+    $brokerProtocol = [Samandarin.UacPayload]::ReadProtocol($brokerPath, 2)
     if (!$hostProtocol -or $hostProtocol -ne $brokerProtocol) {
-        throw "Missing or mismatched UAC protocol markers. Application: $hostProtocol. Broker: $brokerProtocol."
+        throw "Missing or mismatched UAC image roles or protocol markers. Application: $hostProtocol. Broker: $brokerProtocol."
     }
 
     $loadConfig = Invoke-InspectionTool $Dumpbin @('/nologo', '/loadconfig', $brokerPath)

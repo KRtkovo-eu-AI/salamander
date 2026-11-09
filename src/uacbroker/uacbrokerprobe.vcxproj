@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Set the UAC resource role. | Distinguish this executable from the other UAC images. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Register uacbrokerprobe. | Build the one-shot UAC handshake. | | GPT-6.1 Sol (Codex) |
 -->
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
@@ -28,6 +29,9 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="uacbroker.props" />
   <ItemDefinitionGroup>
+    <ResourceCompile>
+      <PreprocessorDefinitions>SAM_UAC_IMAGE_ROLE=SAM_UAC_IMAGE_PROBE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
     <Link><UACExecutionLevel>AsInvoker</UACExecutionLevel></Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the executable roles in a UAC pair. | Reject a substitute with the correct protocol before launching it. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record guarded F6 with sparse named streams. | Verify that the move keeps data and holes in each stream. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record final verification of encrypted F5 publication. | Keep rollback armed until EFS data and timestamps are verified. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify protected Find text and tags on one open file. | Keep combined predicates on the same revision. | | GPT-6.1 Sol (Codex) |
@@ -1189,6 +1190,10 @@ Na dostupném stroji prošlo 121 kontrol stávajícího režimu v x64 Debug i Re
 **Řídká alokace a alternativní proudy při F6.** Broker čte příznak řídké alokace z handlu každého zamčeného proudu. U řídkých proudů kopíruje alokované rozsahy a ověří příznak v cíli. Ostatní proudy kopíruje běžným způsobem. Nadále vyžaduje ochranu cíle a dokončí odstranění zdroje až po potvrzeném zveřejnění. Komprimované alternativní proudy a kombinace s přesným kopírováním oprávnění zůstávají mimo tuto variantu. [Alokace a příznaky datových proudů NTFS](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams).
 
 V x64 Debug i Release prošlo 122 kontrol F6. Nativní test na jednom svazku ověřil hlavní řídký proud, pojmenovaný řídký proud, běžný proud nad limitem F5 a prázdný proud. Ověřil obsah, nezalokované oblasti, kolizi a vyčištění záznamu po odebrání zdroje. Prošlo 248 obecných kontrol x64 Release a sestavení brokeru x64 Release. F5 si ponechává dřívější rozsah. Integrovaný přesun s UAC na dvou svazcích čeká na společnou zkoušku ve VM.
+
+**Role binárek UAC.** Zdroj PE má vedle verze protokolu samostatnou hodnotu pro aplikaci, broker a diagnostickou sondu. Host před systémovou výzvou vyžaduje roli brokeru. Broker před připojením vyžaduje odpovídající roli aplikace nebo sondy. Stejné role ověřuje instalační kontrola. Starší binárky se značkou obsahující jen verzi vyžadují společnou aktualizaci. Formát výměny přes rouru zůstává verze 5.
+
+Prošlo sestavení všech tří binárek x64 Debug a 25 kontrol úloh a PE zdrojů v x64 Debug i Release včetně skutečné pojmenované roury. Zkouška přijala očekávané role a odmítla shodnou verzi s jinou rolí i starou verzi se správnou rolí. Laboratorní ověřovač odmítl kopii brokeru s nesprávnou rolí i při správném manifestu, verzi a architektuře. Odmítnutí při skutečném spuštění z chráněné instalace patří do VM akceptace.
 
 ## 12. Testovací strategie
 
