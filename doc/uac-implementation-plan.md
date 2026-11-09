@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record final verification of encrypted F5 publication. | Keep rollback armed until EFS data and timestamps are verified. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify protected Find text and tags on one open file. | Keep combined predicates on the same revision. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Add a two-volume test mode for guarded F6. | Exercise verified publication and recovery on distinct NTFS volumes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify stale overwrite rejection through the broker pipe. | Reject changed destinations before touching recovery state. | | GPT-6.1 Sol (Codex) |
@@ -1181,6 +1182,8 @@ V Inno Setup 7.1.1 běžný profil prošel preprocessingem bez položky pro brok
 Na dostupném stroji prošlo 121 kontrol stávajícího režimu v x64 Debug i Release. Nový režim správně odmítl druhý adresář na témže svazku. Kladný běh vyžaduje druhý zapisovatelný svazek NTFS v izolované VM. Nativní zkouška nevyvolává UAC a nezastupuje interaktivní F6. [Požadavky pro připojení virtuálního disku](https://learn.microsoft.com/en-us/windows/win32/api/virtdisk/nf-virtdisk-attachvirtualdisk).
 
 **Společná kontrola tagů a textu v chráněném Findu.** Obě podmínky čtou stejný brokerový handle. Před čtením se porovná velikost a čas s výpisem. Výsledek se přijme až po potvrzeném zavření a kontrole metadat brokerem. Tím se při souběžné změně souboru nespojí výsledek tagů z jednoho otevření s textem z jiného. V x64 Debug prošlo sestavení aplikace. Prošly tři sady kontrol Findu a 248 nativních kontrol x64 Release včetně přenosu chyby přerušeného čtení ze streamu tagů. Společný scénář s chráněným souborem, změnou mezi podmínkami a systémovým souhlasem se ověří ve VM.
+
+**Závěrečná kontrola EFS kopie.** Po zveřejnění ověřeného souboru a nastavení oprávnění a časů broker před potvrzením výsledku znovu čte příznak šifrování, velikost, zapisované časy, běžné atributy a inventář datových proudů z téhož handlu. Při neshodě zůstane zapnuté odstranění pracovní kopie při zavření. Prošlo 63 nativních kontrol v x64 Debug i Release se skutečným EFS souborem včetně odmítnutí odlišné velikosti, času a seznamu proudů a zachování Unicode alternativního proudu. Broker se sestavil v x64 Release. Schválení pod jiným účtem a čitelnost kopie původním držitelem klíče se ověří v izolované VM.
 
 ## 12. Testovací strategie
 

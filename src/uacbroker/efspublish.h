@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Verify EFS data and metadata after publication. | Keep guarded deletion active until the final encrypted object is confirmed. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve and verify EFS alternate data streams. | Keep the source stream inventory consistent through encrypted export and publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve audit and system access policy at EFS publication. | Compare the full destination policy before disarming deletion. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Carry ordinary attributes through EFS publication. | Keep source flags without changing its encryption. | | GPT-6.1 Sol (Codex) |
@@ -85,6 +86,25 @@ inline DWORD VerifyStreams(HANDLE file, const std::vector<UacCopyLeaf::Detail::D
     if (const DWORD error = UacCopyLeaf::Detail::ReadDataStreams(file, actual))
         return error;
     return actual == expected ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+}
+
+inline DWORD VerifyPublishedPayload(HANDLE file, ULONGLONG expectedSize, const FILE_BASIC_INFO& metadata,
+                                    const std::vector<UacCopyLeaf::Detail::DataStream>* streams)
+{
+    FILE_BASIC_INFO actual{};
+    LARGE_INTEGER size{};
+    if (!GetFileInformationByHandleEx(file, FileBasicInfo, &actual, sizeof(actual)) || !GetFileSizeEx(file, &size))
+        return GetLastError();
+
+    constexpr DWORD preservedAttributes = FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
+    if (!(actual.FileAttributes & FILE_ATTRIBUTE_ENCRYPTED) || size.QuadPart < 0 ||
+        static_cast<ULONGLONG>(size.QuadPart) != expectedSize ||
+        (metadata.FileAttributes && ((actual.FileAttributes ^ metadata.FileAttributes) & preservedAttributes)) ||
+        (metadata.CreationTime.QuadPart && metadata.CreationTime.QuadPart != actual.CreationTime.QuadPart) ||
+        (metadata.LastWriteTime.QuadPart && metadata.LastWriteTime.QuadPart != actual.LastWriteTime.QuadPart) ||
+        (metadata.LastAccessTime.QuadPart && metadata.LastAccessTime.QuadPart != actual.LastAccessTime.QuadPart))
+        return ERROR_FILE_INVALID;
+    return streams ? VerifyStreams(file, *streams) : ERROR_SUCCESS;
 }
 
 inline DWORD OpenPublicationPayload(const Workspace& workspace, Handle& payload, bool readAudit = false)
@@ -200,6 +220,8 @@ inline DWORD PublishPayload(const Workspace& workspace, HANDLE target,
         metadata.FileAttributes = UacCopyLeaf::Detail::CopiedAttributes(sourceTimes.FileAttributes & ~FILE_ATTRIBUTE_ENCRYPTED);
     if (!SetFileInformationByHandle(payload.get(), FileBasicInfo, &metadata, sizeof(metadata)))
         return GetLastError();
+    if ((error = VerifyPublishedPayload(payload.get(), expectedSize, metadata, expectedStreams)) != ERROR_SUCCESS)
+        return error;
     if ((error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline)) != ERROR_SUCCESS)
         return error;
 

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Check the final EFS metadata verifier on real encrypted files. | Confirm it rejects a different size, time or stream inventory. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Run guarded F6 publication on a separate test volume. | Verify destination receipts against a distinct NTFS volume. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise F6 beyond the F5 byte budget. | Copy a named stream across many blocks without changing the F5 limit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise F6 publication and retirement with named streams. | Verify the entire copy from the guarded source through the last unlink. | | GPT-6.1 Sol (Codex) |
@@ -2998,6 +2999,23 @@ static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const F
                           finalTimes.LastWriteTime.QuadPart == sourceTimes.LastWriteTime.QuadPart &&
                           finalTimes.LastAccessTime.QuadPart == sourceTimes.LastAccessTime.QuadPart,
                       "preserve all three EFS timestamps before the copy is opened");
+                if (!finalHandle)
+                    return false;
+                const auto verify = [&](ULONGLONG size, const FILE_BASIC_INFO& times,
+                                        const std::vector<UacCopyLeaf::Detail::DataStream>& streams) {
+                    return UacEfsWorkspace::Detail::VerifyPublishedPayload(finalHandle.get(), size, times, &streams);
+                };
+                const std::vector<UacCopyLeaf::Detail::DataStream> expectedStreams{{L"::$DATA", plaintext.size()}};
+                const DWORD verified = verify(plaintext.size(), finalTimes, expectedStreams);
+                Check(verified == ERROR_SUCCESS, "verify final EFS encryption, length, timestamps and streams", verified);
+                auto otherTimes = finalTimes;
+                ++otherTimes.LastWriteTime.QuadPart;
+                auto otherStreams = expectedStreams;
+                otherStreams.push_back({L":substituted:$DATA", 1});
+                Check(verify(plaintext.size() + 1, finalTimes, expectedStreams) == ERROR_FILE_INVALID &&
+                          verify(plaintext.size(), otherTimes, expectedStreams) == ERROR_FILE_INVALID &&
+                          verify(plaintext.size(), finalTimes, otherStreams) == ERROR_FILE_INVALID,
+                      "reject mismatched EFS length, timestamp and final stream inventory");
                 const DWORD finalAttrs = GetFileAttributesW(final.c_str());
                 FILE_ID_INFO finalId{};
                 const auto identity = OpenIdentity(final, finalId);
