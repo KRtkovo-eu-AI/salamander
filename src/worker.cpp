@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Allow cross-volume F6 to retain known named streams. | Keep the normal attribute option and same-volume retry within their existing scopes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Keep preflight-denied F6 requests cross-volume only. | Bind the deferred source read to a verified move between distinct volumes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Retry exact compressed F6 with the scoped broker. | Honor the existing Copy attributes option before retiring the source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Offer brokered cross-volume F6 for sparse files. | Limit the new route to a guarded copy that preserves sparse ranges. | | GPT-6.1 Sol (Codex) |
@@ -5710,7 +5711,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     if (!script.AllowTransferPilot || script.OverwriteOlder ||
         ((op.OpFlags & OPFL_AS_ENCRYPTED) != 0 && !encrypted) ||
         !op.SourceNameWValid || !op.TargetNameWValid ||
-        (moving ? ((op.OpFlags & OPFL_COPY_ADS) != 0 ||
+        (moving ? (((op.OpFlags & OPFL_COPY_ADS) != 0 && script.CopyAttrs) ||
                    !UacF7::IsEligibleMoveFile(op.Attr, script.CopyAttrs, script.CopySecurity))
                 : (!UacF7::IsEligibleFileCopy(op.Attr, script.CopyAttrs, script.IgnoreTransferAds, script.CopySecurity) ||
                    op.FileSize.Value > UacF7::maxPilotCopyBytes)))
@@ -5743,7 +5744,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     UacF7::PreparedTransfer request;
     if (!request.Prepare(op.SourceNameW, op.TargetNameW, op.FileSize.Value, operation) ||
         (moving && !request.IsCrossVolumeMove() &&
-         ((op.OpFlags & OPFL_UAC_TRANSFER_SOURCE) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))))
+         ((op.OpFlags & (OPFL_UAC_TRANSFER_SOURCE | OPFL_COPY_ADS)) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))))
         return false;
     if ((encrypted || request.IsCrossVolumeMove()) && input && *input != INVALID_HANDLE_VALUE)
     {

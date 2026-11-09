@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Enable named streams in ordinary cross-volume F6. | Require protected destination streams before committing the move. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve a partial broker result after the done frame. | Prevent retries that could treat a published move target as an ordinary failure. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Seal and guard the F6 source before linking it. | Keep source link creation behind the existing open exclusion. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Dispatch exact compressed cross-volume moves. | Keep compression preservation inside its authorized F6 job. | | GPT-6.1 Sol (Codex) |
@@ -119,8 +120,8 @@ constexpr DWORD pipeAccess = FILE_READ_DATA | FILE_WRITE_DATA | FILE_READ_ATTRIB
 constexpr DWORD processAccess = PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE;
 constexpr DWORD timeoutMs = 5000;
 [[maybe_unused]] constexpr DWORD copyTimeoutMs = 30000;
-// Version 3 adds the compressed cross-volume F6 request.
-constexpr DWORD protocolVersion = 3;
+// Version 4 preserves named streams in the ordinary cross-volume move request.
+constexpr DWORD protocolVersion = 4;
 constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD mkdirCapability = 1;
 [[maybe_unused]] constexpr DWORD renameCapability = 2;
@@ -611,7 +612,8 @@ Handle OpenVolumeRoot(std::wstring_view volume, ACCESS_MASK extraAccess = 0)
                              FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
 }
 
-DWORD OpenRequestParent(HANDLE root, std::wstring_view relative, Handle& parent, UacDirectoryLeaf::ParentIdentity& identity)
+DWORD OpenRequestParent(HANDLE root, std::wstring_view relative, Handle& parent, UacDirectoryLeaf::ParentIdentity& identity,
+                        ACCESS_MASK extraAccess = 0)
 {
     if (relative.empty())
     {
@@ -622,7 +624,7 @@ DWORD OpenRequestParent(HANDLE root, std::wstring_view relative, Handle& parent,
         return UacDirectoryLeaf::ReadParentIdentity(parent.get(), identity);
     }
     HANDLE raw = nullptr;
-    const DWORD error = UacDirectoryLeaf::OpenParentBelowRoot(root, relative, raw, identity);
+    const DWORD error = UacDirectoryLeaf::OpenParentBelowRoot(root, relative, raw, identity, extraAccess);
     parent = Adopt(raw);
     return error;
 }
@@ -1085,8 +1087,9 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
         DWORD allowed = copiedTarget ? UacF7::plainCopyAttributes : UacF7::crossVolumeMoveAttributes;
         if (preserveCompression)
             allowed = UacF7::compressedCopyAttributes;
-        if ((status = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), basic, false,
-                UacCopyLeaf::StreamPolicy::RequireDefault, allowed)) ||
+        const bool preserveNamed = !preserveCompression && !copiedTarget;
+        const auto streams = preserveNamed ? UacCopyLeaf::StreamPolicy::PreserveNamed : UacCopyLeaf::StreamPolicy::RequireDefault;
+        if ((status = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), basic, false, streams, allowed)) ||
             (status = UacCopyLeaf::Detail::CheckCancelled(nullptr, pipe, deadline)))
             return status;
         if (preserveCompression && !UacF7::IsCompressedCopyFile(basic.FileAttributes))
@@ -1096,10 +1099,12 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
         source.reset();
         if (status || (status = CheckNoPriorSourceOpens(sourceParent, sourceLeaf, sourceId)))
             return status;
-        SourceGuard guard(preserveCompression ? basic.FileAttributes : 0);
+        SourceGuard guard(preserveCompression ? basic.FileAttributes : 0,
+                          preserveNamed ? static_cast<UacCopyLeaf::StageVerifier>(ProtectedObject) : nullptr);
         if ((status = guard.Open(sourceParent, sourceLeaf, sourceId, 1)) ||
             (status = UacCopyLeaf::Detail::CheckCancelled(nullptr, pipe, deadline)) ||
-            (status = guard.AddRecoveryLink(storage.get(), alias)))
+            (status = guard.AddRecoveryLink(storage.get(), alias)) ||
+            (preserveNamed && (status = guard.LockStreams(storage.get(), alias))))
             return status;
         UacMoveSourceJournal::Detail::Handle target(nullptr, CloseHandle);
         FILE_ID_INFO targetId{};
@@ -1567,7 +1572,12 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 return ERROR_SUCCESS;
             }
         }
-        const auto targetRoot = OpenVolumeRoot(targetVolume);
+        const bool inspectMoveTarget = header.operation == Operation::MoveAcrossVolume;
+        Handle targetRoot;
+        if (inspectMoveTarget && targetRelative.empty())
+            targetRoot = OpenVolumeRoot(targetVolume, READ_CONTROL);
+        if (!targetRoot)
+            targetRoot = OpenVolumeRoot(targetVolume);
         if (!targetRoot)
         {
             result = ERROR_NOT_SUPPORTED;
@@ -1608,7 +1618,10 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             }
             return ERROR_SUCCESS;
         }
-        result = OpenRequestParent(targetRoot.get(), targetRelative, targetParent, targetIdentity);
+        result = OpenRequestParent(targetRoot.get(), targetRelative, targetParent, targetIdentity,
+                                   inspectMoveTarget ? READ_CONTROL : 0);
+        if (result == ERROR_ACCESS_DENIED && inspectMoveTarget && !targetRelative.empty())
+            result = OpenRequestParent(targetRoot.get(), targetRelative, targetParent, targetIdentity);
         if (!result)
         {
             if (overwrite)

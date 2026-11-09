@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record guarded cross-volume F6 with ADS. | Verify the protected destination and retire the source after all streams are published. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the verified F6 stream inventory. | Acquire and recheck per-stream locks against the same file ID. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record NTFS named-stream oplock and unlink evidence. | Define the source guard needed for moves that preserve ADS. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record F6 source access denied during preparation. | Pass eligible cross-volume moves through the verified worker retry. | | GPT-6.1 Sol (Codex) |
@@ -719,6 +720,10 @@ V Debug a Release prošlo 112 kontrol F6 a 248 obecných nativních kontrol. Pro
 **Uzamčení inventáře proudů pro F6.** Samostatná část ochrany zdroje načte seznam proudů, ověří identitu souboru, na každém pojmenovaném proudu provede rezervaci a získá výhradní oplock. Každý otevřený proud ověří podle ID, velikosti a typu. Po otevření všech proudů znovu porovná seznam a stav zámků. Stejnou kontrolu lze zopakovat před odstraněním zdroje. Pokud některý proud nelze otevřít, uvolní se i všechny dříve získané zámky. Použití předpokládá dočasnou DACL zdroje, která zamezí novým zápisům.
 
 V x64 Debug a Release prošlo 116 kontrol F6. Nové zkoušky ověřily odmítnutí jiného ID, uvolnění dřívějších zámků při konfliktu na dalším proudu, prázdný Unicode proud a zjištění pozdě přidaného proudu. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Produkční F6 zatím proudy nenabízí. Zbývá připojit ověřené handly ke kopírování, chránit proudy cíle a potvrdit odstranění posledního odkazu po zavření zdrojových proudů.
+
+**Zachování pojmenovaných proudů při F6 mezi svazky.** Běžný přesun mezi pevnými svazky NTFS nyní při elevaci zachová pojmenované proudy, pokud broker ověří oprávnění cílového rodiče i pracovní kopie. Čte z otevřených uzamčených handlů pomocného odkazu. Před odstraněním zdroje porovná inventář cíle se zdrojem a znovu ověří ochranu cíle. Po označení posledního odkazu ke smazání zavře proudy a ověří, že položka už neexistuje. Kolize zachová stávající cíl i všechny jeho proudy. Souhrnný limit je 16 MiB. Kombinace s kompresí, řídkou alokací, šifrováním nebo kopírováním oprávnění a dokončení po odepření smazání již zkopírovaného zdroje zatím nejsou součástí této varianty. Broker a host používají protokol verze 4.
+
+V Debug i Release prošlo 121 kontrol F6, 248 obecných kontrol a 18 kontrol transportní sady. Přenos na místním NTFS zachoval hlavní data, pojmenovaný Unicode proud a prázdný proud, odstranil poslední zdrojový odkaz a uzavřel záznam obnovy. Kontroly také odmítly pracovní kopii bez požadované ochrany a ověřily zachování stávajícího cíle při kolizi. V těchto zkouškách rozhodnutí o ochraně cíle řídí testovací callback. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Skutečná výzva, ověření cílové DACL produkčním brokerem a přenos mezi dvěma svazky zůstávají ve společné akceptaci ve VM.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Copy from the locked F6 stream handles. | Reuse the named-stream staging path without reopening a sealed stream. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share the NTFS stream-name validation. | Use the same component rules when checking for preexisting stream handles. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve LZNT1 from a guarded source. | Query the compression format through a handle that can be asynchronous. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Copy sparse extents from a guarded source handle. | Preserve holes without releasing the source oplock. | | GPT-6.1 Sol (Codex) |
@@ -432,6 +433,8 @@ struct CopySourceLocation
     std::wstring_view leaf;
     const FILE_ID_INFO& identity;
     StageVerifier verifyStage;
+    const std::vector<HANDLE>* lockedInputs = nullptr;
+    const std::vector<DataStream>* lockedInventory = nullptr;
 };
 
 inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_view targetName,
@@ -443,7 +446,8 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                             const CopySecuritySnapshot* copySecurity = nullptr,
                             StreamHandle* moveTarget = nullptr, DWORD moveCompressionAttributes = 0)
 {
-    if (moveTarget && (*moveTarget || policy != StreamPolicy::RequireDefault || copySecurity))
+    if (moveTarget && (*moveTarget || policy == StreamPolicy::IgnoreNamed || copySecurity ||
+        (policy == StreamPolicy::PreserveNamed && (!location || !location->lockedInputs || !location->lockedInventory))))
         return ERROR_INVALID_PARAMETER;
     if (copySecurity && !location)
         return ERROR_INVALID_PARAMETER;
@@ -484,13 +488,16 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
 
     const bool sparse = (basic.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE) != 0;
     std::vector<DataStream> streams;
-    std::vector<StreamHandle> inputs, outputs;
+    std::vector<HANDLE> inputs;
+    std::vector<StreamHandle> openedInputs, outputs;
     if (policy == StreamPolicy::PreserveNamed)
     {
         if (!location)
             return ERROR_INVALID_PARAMETER;
         if ((error = ReadDataStreams(source, streams)) != ERROR_SUCCESS)
             return error;
+        if (location->lockedInventory && streams != *location->lockedInventory)
+            return ERROR_FILE_INVALID;
         if (sparse && streams.size() != 1)
             return ERROR_NOT_SUPPORTED;
         for (const auto& stream : streams)
@@ -501,12 +508,24 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                     return ERROR_FILE_INVALID;
                 continue;
             }
-            StreamHandle input(nullptr, CloseHandle);
-            error = OpenDataStream(location->parent, location->leaf, stream, location->identity, false, input);
-            if (error)
-                return error;
-            inputs.push_back(std::move(input));
+            if (location->lockedInputs)
+            {
+                if (inputs.size() >= location->lockedInputs->size())
+                    return ERROR_FILE_INVALID;
+                inputs.push_back((*location->lockedInputs)[inputs.size()]);
+            }
+            else
+            {
+                StreamHandle input(nullptr, CloseHandle);
+                error = OpenDataStream(location->parent, location->leaf, stream, location->identity, false, input);
+                if (error)
+                    return error;
+                inputs.push_back(input.get());
+                openedInputs.push_back(std::move(input));
+            }
         }
+        if (location->lockedInputs && inputs.size() != location->lockedInputs->size())
+            return ERROR_FILE_INVALID;
     }
 
     std::wstring stageName;
@@ -556,7 +575,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             error = OpenDataStream(targetParent, stageName, stream, targetId, true, output);
             if (error)
                 return error;
-            error = CopyData(inputs[outputs.size()].get(), output.get(), stream.size, cancel, connection, deadline);
+            error = CopyData(inputs[outputs.size()], output.get(), stream.size, cancel, connection, deadline, moveTarget != nullptr);
             if (error)
                 return error;
             if (!FlushFileBuffers(output.get()))

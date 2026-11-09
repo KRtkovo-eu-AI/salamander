@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise F6 publication and retirement with named streams. | Verify the entire copy from the guarded source through the last unlink. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify one lock set against the complete named-stream inventory. | Refuse an earlier writer and notice late stream creation before retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Probe the named-stream boundary of an F6 source. | Detect earlier ADS writers and writable views independently from the main stream. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise pipe cancellation and host loss after F6 publication. | Keep both source links until the broker has authorization to retire them. | | GPT-6.1 Sol (Codex) |
@@ -2231,6 +2232,64 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
     error = recover(parent.get());
     Check(!error && empty() && GetFileAttributesW(compressedPath.c_str()) == compressedAttributes,
           "verify and clear the compressed move receipt", error);
+
+    const std::wstring namedSuffix = L":\u6771-stream";
+    if (!WriteFixture(sourcePath, {2, 3}) || !WriteFixture(sourcePath + namedSuffix, {4, 5}) ||
+        !WriteFixture(sourcePath + L":empty", {}))
+        return false;
+    FILE_ID_INFO namedId{};
+    if (!OpenIdentity(sourcePath, namedId) ||
+        OpenSource(parent.get(), leaf, raw, DELETE | READ_CONTROL | WRITE_DAC, FILE_SHARE_READ))
+        return false;
+    source.reset(raw);
+    error = PrepareRecovery(parent.get(), leaf, source.get(), namedId, storage.get(), journal.get(), security.get(), name, seal);
+    source.reset();
+    if (error || CheckNoPriorSourceOpens(parent.get(), leaf, namedId))
+        return false;
+    // The installed broker supplies its real stage DACL verifier. This fixture
+    // checks stream mechanics in an owned directory without elevated access.
+    static bool approveTestTarget = false;
+    SourceGuard namedGuard(0, [](HANDLE, bool directory) { return directory || approveTestTarget; });
+    if ((error = namedGuard.Open(parent.get(), leaf, namedId, 1)) ||
+        (error = namedGuard.AddRecoveryLink(storage.get(), name)) ||
+        (error = namedGuard.LockStreams(storage.get(), name)))
+    {
+        Check(false, "lock the named move source under the recovery link", error);
+        return false;
+    }
+    constexpr wchar_t namedLeaf[] = L"named-move.bin";
+    const auto namedPath = wrongDirectory + L"\\" + namedLeaf;
+    UacMoveSourceJournal::Detail::Handle namedTarget(nullptr, CloseHandle);
+    FILE_ID_INFO namedTargetId{};
+    const auto publishNamed = [&] {
+        return namedGuard.PublishCopy(wrongParent.get(), targetParent, namedLeaf, 2,
+            nullptr, nullptr, MAXULONGLONG, namedTarget, namedTargetId);
+    };
+    error = publishNamed();
+    Check(error == ERROR_ACCESS_DENIED && !namedTarget && !Exists(namedPath) && !namedGuard.Check(2),
+          "refuse to publish named streams if the target stage is writable", error);
+    approveTestTarget = true;
+    if (!WriteFixture(namedPath, {7}) || !WriteFixture(namedPath + namedSuffix, {9}))
+        return false;
+    error = publishNamed();
+    Check(error == ERROR_ALREADY_EXISTS && !namedTarget && HasContents(namedPath, {7}) &&
+              HasContents(namedPath + namedSuffix, {9}) && !namedGuard.Check(2),
+          "preserve the colliding destination and its streams", error);
+    if (!DeleteFileW(namedPath.c_str()))
+        return false;
+    error = publishNamed();
+    Check(!error && namedTarget && !namedGuard.Check(2), "publish the guarded named move destination", error);
+    if (error)
+        return false;
+    error = namedGuard.RetirePublishedSource(parent.get(), storage.get(), journal.get(), security.get(),
+        wrongParent.get(), namedLeaf, namedTarget.get(), namedTargetId, nullptr, nullptr, MAXULONGLONG);
+    namedTarget.reset();
+    Check(!error && !Exists(sourcePath) && !Exists(storageDirectory + L"\\" + name) &&
+              HasContents(namedPath, {2, 3}) && HasContents(namedPath + namedSuffix, {4, 5}) &&
+              Exists(namedPath + L":empty") && HasContents(namedPath + L":empty", {}),
+          "retire the exact source only after publishing all named streams", error);
+    error = recover(parent.get());
+    Check(!error && empty(), "verify and clear the named move receipt", error);
     return failures == 0;
 }
 

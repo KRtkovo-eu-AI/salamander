@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Publish guarded named streams before retiring the source. | Check the protected target inventory and finish the last unlink after closing the stream handles. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Hold and recheck the named streams of a sealed source. | Keep each stream locked and bind the inventory to the same NTFS identity. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Probe earlier opens on an individual NTFS data stream. | Separate per-stream exclusion from the file-wide source DACL. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Create the recovery link on the already guarded file. | Keep verification and link creation on a single handle. | | GPT-6.1 Sol (Codex) |
@@ -174,6 +175,26 @@ public:
         return ERROR_SUCCESS;
     }
 
+    bool HasNamed() const { return !locks.empty(); }
+    const std::vector<UacCopyLeaf::Detail::DataStream>& Inventory() const { return inventory; }
+
+    std::vector<HANDLE> Inputs() const
+    {
+        std::vector<HANDLE> result;
+        result.reserve(locks.size());
+        for (const auto& lock : locks)
+            result.push_back(lock->file.get());
+        return result;
+    }
+
+    DWORD CheckTarget(HANDLE target) const
+    {
+        std::vector<UacCopyLeaf::Detail::DataStream> current;
+        if (DWORD error = UacCopyLeaf::Detail::ReadDataStreams(target, current))
+            return error;
+        return current == inventory ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+    }
+
 private:
     FILE_ID_INFO identity{};
     std::vector<UacCopyLeaf::Detail::DataStream> inventory;
@@ -185,7 +206,8 @@ private:
 class SourceGuard
 {
 public:
-    explicit SourceGuard(DWORD compressedAttributes = 0) : originalCompressedAttributes(compressedAttributes) {}
+    explicit SourceGuard(DWORD compressedAttributes = 0, UacCopyLeaf::StageVerifier verifyNamedTarget = nullptr)
+        : originalCompressedAttributes(compressedAttributes), verifyStage(verifyNamedTarget) {}
     SourceGuard(const SourceGuard&) = delete;
     SourceGuard& operator=(const SourceGuard&) = delete;
     ~SourceGuard() { Close(); }
@@ -232,6 +254,17 @@ public:
         return error ? error : Check(2);
     }
 
+    DWORD LockStreams(HANDLE storage, std::wstring_view alias)
+    {
+        if (!verifyStage || named || !source)
+            return ERROR_INVALID_PARAMETER;
+        auto streams = std::make_unique<NamedSourceStreams>();
+        if (DWORD error = streams->Open(source.get(), storage, alias, identity))
+            return error;
+        named = std::move(streams);
+        return ERROR_SUCCESS;
+    }
+
     DWORD PublishCopy(HANDLE targetParent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
                       std::wstring_view leaf, ULONGLONG size, HANDLE cancel, HANDLE connection, ULONGLONG deadline,
                       Detail::Handle& target, FILE_ID_INFO& targetId) const
@@ -251,8 +284,15 @@ public:
             return error;
         FILE_BASIC_INFO basic{};
         FILE_ID_INFO publishedId{};
+        if (verifyStage && !named)
+            return ERROR_INVALID_HANDLE;
+        if (named && named->HasNamed() && !verifyStage(targetParent, true))
+            return ERROR_ACCESS_DENIED;
+        const auto inputs = named ? named->Inputs() : std::vector<HANDLE>{};
+        const UacCopyLeaf::Detail::CopySourceLocation location{nullptr, {}, identity, verifyStage,
+            &inputs, named ? &named->Inventory() : nullptr};
         error = UacCopyLeaf::Detail::CopyOpenedFile(source.get(), targetParent, leaf, cancel, connection, deadline,
-            size, basic, &publishedId, nullptr, UacCopyLeaf::StreamPolicy::RequireDefault, nullptr,
+            size, basic, &publishedId, nullptr, StreamPolicy(), named ? &location : nullptr,
             originalCompressedAttributes != 0, nullptr, &target, originalCompressedAttributes);
         if (error)
             return error;
@@ -370,6 +410,7 @@ public:
         }
 
         if ((error = UacCopyLeaf::Detail::CheckCancelled(cancel, connection, deadline)) ||
+            (error = CheckPublishedStreams(targetParent, target)) ||
             (error = RememberDestination(journal, journalSecurity, identity, targetParent, targetLeaf, target, targetId)) ||
             (error = RemoveLink(parent, leaf, 2, cancel, connection, deadline)))
             return error;
@@ -377,7 +418,8 @@ public:
         // Until the final unlink, the protected alias still contains the source.
         if ((error = CheckNoPriorSourceOpens(storage, alias, identity)) ||
             (error = Open(storage, alias, identity, 1)) ||
-            (error = verifySeal(source.get())))
+            (error = verifySeal(source.get())) ||
+            (error = CheckPublishedStreams(targetParent, target)))
             return error;
         return RemoveLink(storage, alias, 1, cancel, connection, deadline);
     }
@@ -396,7 +438,7 @@ public:
         FILE_BASIC_INFO metadata{};
         const DWORD allowed = originalCompressedAttributes ? UacF7::compressedCopyAttributes : UacF7::crossVolumeMoveAttributes;
         if (DWORD error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), metadata, false,
-                UacCopyLeaf::StreamPolicy::RequireDefault, allowed))
+                StreamPolicy(), allowed))
             return error;
         // The seal and recovery link can set Archive. Other attribute
         // changes invalidate the approved compressed move.
@@ -405,11 +447,25 @@ public:
             return ERROR_FILE_INVALID;
         const DWORD state = WaitForSingleObject(event.get(), 0);
         if (state == WAIT_TIMEOUT)
-            return ERROR_SUCCESS;
+            return named ? named->Check(source.get()) : ERROR_SUCCESS;
         return state == WAIT_OBJECT_0 ? ERROR_SHARING_VIOLATION : GetLastError();
     }
 
 private:
+    UacCopyLeaf::StreamPolicy StreamPolicy() const
+    {
+        return verifyStage ? UacCopyLeaf::StreamPolicy::PreserveNamed : UacCopyLeaf::StreamPolicy::RequireDefault;
+    }
+
+    DWORD CheckPublishedStreams(HANDLE parent, HANDLE target) const
+    {
+        if (!named || !named->HasNamed())
+            return ERROR_SUCCESS;
+        if (!verifyStage(parent, true) || !verifyStage(target, false))
+            return ERROR_ACCESS_DENIED;
+        return named->CheckTarget(target);
+    }
+
     DWORD RemoveLink(HANDLE parent, std::wstring_view leaf, DWORD links,
                      HANDLE cancel, HANDLE connection, ULONGLONG deadline)
     {
@@ -422,6 +478,8 @@ private:
         if (!SetFileInformationByHandle(source.get(), FileDispositionInfo, &remove, sizeof(remove)))
             return GetLastError();
         Close();
+        if (links == 1)
+            named.reset(); // NTFS completes the final unlink after the named opens close.
 
         HANDLE raw = nullptr;
         error = UacRenameLeaf::Detail::OpenSource(parent, leaf, raw, 0,
@@ -442,6 +500,8 @@ private:
     }
 
     const DWORD originalCompressedAttributes;
+    const UacCopyLeaf::StageVerifier verifyStage;
+    std::unique_ptr<NamedSourceStreams> named;
     Detail::Handle source{nullptr, CloseHandle};
     Detail::Handle event{nullptr, CloseHandle};
     FILE_ID_INFO identity{};
