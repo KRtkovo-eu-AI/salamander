@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Replace association detail tab control with explicit tab buttons. | Ensure action names remain visible under the experimental Windows dark scheme. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Replace association category and operation fields with action tabs. | Give each association action its own detail page and select it directly from the matrix cell. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add custom viewer/editor configuration forms. | Provide matching saved-handler pages under File Associations. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add the Panel Archive operation menu button. | Let users filter Pack and Unpack separately while retaining the main archive filter tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -1146,7 +1147,11 @@ BEGIN
     LTEXT           "",IDC_STATIC_3,10,202,42,8
     EDITTEXT        IDE_FILEASSOCIATION_PATTERN,55,199,170,14,ES_AUTOHSCROLL | WS_TABSTOP
     LTEXT           "",IDC_STATIC_4,10,217,42,8
-    CONTROL         "",IDC_FILEASSOCIATION_ACTION_TABS,"SysTabControl32",TCS_TABS | TCS_SINGLELINE | WS_TABSTOP,10,225,400,64
+    PUSHBUTTON      "",IDB_FILEASSOCIATION_ACTION_VIEW,10,225,80,20,WS_TABSTOP
+    PUSHBUTTON      "",IDB_FILEASSOCIATION_ACTION_ALT,92,225,80,20,WS_TABSTOP
+    PUSHBUTTON      "",IDB_FILEASSOCIATION_ACTION_EDIT,174,225,80,20,WS_TABSTOP
+    PUSHBUTTON      "",IDB_FILEASSOCIATION_ACTION_PACK,256,225,80,20,WS_TABSTOP
+    PUSHBUTTON      "",IDB_FILEASSOCIATION_ACTION_UNPACK,338,225,72,20,WS_TABSTOP
     LTEXT           "",IDC_STATIC_6,16,245,42,8
     COMBOBOX        IDC_FILEASSOCIATION_TARGETKIND,62,242,340,60,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT           "",IDC_STATIC_7,16,265,42,8
