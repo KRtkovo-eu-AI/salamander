@@ -6,6 +6,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Default the protected F7 prompt to Cancel. | Require choosing the shield button to request elevation. | | Codex |
 // | 2026-11-08 | Carry the selected attribute masks into the worker. | Keep the elevated job bound to the original choices. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Permit verified metadata for multiple selected items. | Preserve nonrecursive basic-metadata scope. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share ZIP snapshot buffering with F5. | Keep F3 on the same validated decoder. | | GPT-6.1 Sol (Codex) |
@@ -3274,7 +3275,8 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                             confirm.HParent = HWindow;
                             confirm.Text = message.c_str();
                             confirm.Caption = LoadStr(IDS_CREATEDIRECTORY_TITLE);
-                            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_SHIELDONDEFBTN;
+                            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION |
+                                            MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
                             confirm.AliasBtnNames = alias.c_str();
                             if (SalMessageBoxEx(&confirm) != IDOK)
                             {
