@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Close simultaneous Scan Ahead F5 VM acceptance. | Verify both Windows consent outcomes in the same run. | | Codex |
 | 2026-11-09 | Refresh and exercise the portable ARM64 runner. | Run native fixtures from an isolated directory with the current host and tests. | | Codex |
 | 2026-11-09 | Record CodeQL on the changed Scan Ahead translation units. | Verify the local production delta before the next full remote analysis. | | Codex |
 | 2026-11-09 | Verify the current Scan Ahead change on Win32 and ARM64. | Update architecture evidence for the latest production code. | | Codex |
@@ -1841,10 +1842,12 @@ Tento přehled je výchozí bod pro další práci. Výše jsou chronologické z
 
 | Oblast | Doložený stav | Zbývající krok |
 |---|---|---|
-| Dávky a přepis F5 | Nativně ověřena kolize, obnova po pádu a nezávislost dvou relací při zrušení. Ve VM po Ne skončila dávka A, její běžná kopie zůstala a druhá nabídka dál čekala. Samostatné Ano pro B vytvořilo chráněnou kopii se správným SHA-256. | Potvrdit obě rozhodnutí v jednom průchodu. Použít připravený pilot a ručně aktivovat nabídku B, jejíž automatické zaměření selhalo. |
+| Dávky a přepis F5 | Nativně ověřena kolize, obnova po pádu a nezávislost dvou relací při zrušení. V témže souběžném běhu ve VM zůstala po Ne běžná kopie A a po Ano se dokončila původní dávka B. | Souběžný scénář uzavřen. |
 | F6 a Koš | F6 mezi dvěma svazky nad 4 GiB, dokončení po obyčejné kopii a zrušení mají důkazy z VM. Koš pro stejný účet je ověřený. | Jiný správce u Koše je otevřený podle rozhodnutí níže. |
 | Find, EFS a metadata | Chráněný Find s obsahem, tagy a duplicitami, ztráta relace i EFS pod jiným správcem jsou ověřené ve VM. Společná kopie s ADS, kompresí a oprávněními má vlastní důkaz. | Síťové cesty se v brokeru odmítají. Práci zahájit, až bude konkrétní síťový scénář potřebný. |
 | Vydání, CI a matice | Publikovaná revize f0b9678c má 13 úspěšných kontrol. Místní revize c25c6b08 má 159 skupin a 55 testů pytest. Nativní zkoušky x64 a WOW64, křížové sestavení ARM64 a dvanáct jazykových modulů mají samostatné doklady. | Vzdálené kontroly po společném pushi, nativní Windows ARM64, vydavatelský podpis a vyšší skutečné DPI. Připravené testy ARM64 zůstávají místní. |
+
+**Souběžný F5 v jednom průchodu, ověřeno.** V izolované VM běžely dva procesy s pilotem x64 5e13ec2e. Obě smíšené dávky použily Scan Ahead a User-controlled bez čekání ve frontě. Před první volbou čekaly obě nabídky Administrator. Po Ne ve výzvě Windows se průběh A zavřel, jeho běžná kopie zůstala a chráněná nevznikla. Původní průběh B zůstal otevřený pod stejným identifikátorem okna a po Ano dokončil chráněnou kopii bez opětovného spuštění F5. Běžné kopie A a B i chráněná kopie B měly správné SHA-256. Všechny čtyři zdroje se shodovaly s výchozí sadou a nezůstal pracovní soubor ani další dialog. Předchozí host byl po zkoušce obnoven a ověřen SHA-256. Soubory before-consent.json, after-a.json, vm-evidence.json a restore-vm.log jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f5-dual-same-run-5e13ec2e.
 
 **Aktualizace architektur pro 5e13ec2e.** Host s opravou Scan Ahead se sestavil v Release pro Win32 i ARM64 s varováními jako chybami. První ARM64 příkaz vyčerpal čas po linkování, opakované sestavení dokončilo i přípravu výstupu. Laboratorní dvojice obou architektur prošly kontrolou protokolu 11, manifestů, rolí, importů a anglického modulu. Velikost hostů se proti předchozím místním sestavením nezměnila, Win32 má 4 725 760 B a ARM64 5 803 008 B. Ve Win32 pod WOW64 prošlo 372 kontrol transportu a souborových operací. Tři odpovídající testovací obrazy ARM64 byly sestaveny a jejich PE hlavičky ověřeny. Doklady scan-ahead-cancel-cross-architecture.json, scan-ahead-win32-uac-runtime.log a scan-ahead-arm64-uac-cross-test.log jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c. Nativní spuštění ARM64 zůstává v tabulce otevřené.
 
