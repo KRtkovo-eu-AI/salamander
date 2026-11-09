@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Probe an explicit alternate account Recycle Bin destination. | Verify the NTFS Shell destination and stage the original-account guard. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Prevent the Shell from recycling into the approving administrator’s bin. | Reject credential-based retries after the observed wrong-account side effect. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the portable elevation boundary for current probe images. | Record protected-installation refusal on x64 and Win32. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the original Shell restore command for the protected receipt. | Match the account, file identity and original path before restoration. | | GPT-6.1 Sol (Codex) |
@@ -1465,6 +1466,10 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, Koš a jiný správce.** Ve Windows 11 build 26200 běžel panel jako standardní SamandarinUacTest. Po potvrzení jiným správcem zdroj P7-recycle-03-other-admin.txt zmizel a Shell vrátil položku v Koši schvalujícího správce. Samandarin ji odmítl potvrdit kódem 1006, kontrola Koše ale nemohla zvrátit již provedený přesun. Oba testovací soubory, P7-recycle-03-other-admin.txt i P7-recycle-02-approve.txt, byly z Koše skutečně obnoveny na původní cestu. Ověření každého našlo stejné NTFS ID a SHA-256 a nulový počet odpovídajících položek v Koši. Důkazy jsou v recycle-retry-fix/ots-error-1006-partial.json a restore-evidence.json.
 
 **Dočasná ochrana Koše před změnou účtu.** Chráněný pokus přes Shell je povolen jen pro filtrovaný token správce a zásadu elevace téhož účtu. Standardní token, zásada vyžadující pověření a neznámá zásada se odmítnou ještě před voláním Shellu. Po souhlasu v aplikaci se podmínka ověří znovu. Běžné volání Koše probíhá s původním tokenem a stávajícím ověřením výsledku. Prošly nativní regrese Koše v x64 Debug a Release a kompilace změněné části aplikace Win32, x64 a ARM64 Debug. Negativní pokus s aktuálním sestavením a funkční recyklace s pověřením jiného správce zůstávají otevřené. [Zásady výzvy správce](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-gpsb/341747f5-6b5d-4d30-85fc-fa1cc04038d4).
+
+**P7, výslovný cíl v Koši jiného SID.** Přímý ITransferSource::RecycleItem na Windows 11 build 26200 obdržel jako cílový Shell objekt skutečný adresář Koše standardního testovacího SID na stejném svazku. Vrátil potvrzenou položku s původním ID v Koši účtu, který sondu spustil, mimo zadaný cíl. Šlo o omezený test pod původním účtem bez elevace se samostatným dočasným souborem. Sonda soubor obnovila a ověřila stejné ID. Volba explicitního cíle u tohoto NTFS backendu tak nebyla potvrzena jako řešení případu s jiným správcem. Důkaz je v recycle-account-guard/destination-probe/alternate-bin.log. [Rozhraní ITransferSource::RecycleItem](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-itransfersource-recycleitem).
+
+**P7, pilot ochrany Koše.** Kandidát 7b0826d7 byl sestaven v x64 Release a laboratorní kontrola potvrdila správné role a protokol 10 s již nasazeným brokerem. Invoke-P7RecycleGuard.ps1 ověřil otisky kandidáta i předchozího hostu. Negativní VM scénář má znovu použít obnovený P7-recycle-03-other-admin.txt a ověřit přístup odepřený bez elevace a beze změny původní položky nebo Koše. Kandidát je v recycle-account-guard.
 
 ### 12.3 CI a přijetí vydání
 
