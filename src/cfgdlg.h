@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Track sortable association matrix state. | Preserve the chosen column and direction as the list is refreshed. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Add category tabs and matrix source/status helpers. | Match the file-association page layout to the approved matrix and detail mockup. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Mark first-registration viewer rows during startup. | Preserve newly installed extension defaults without resurrecting rows removed from the saved configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Use owned display strings for association matrix cells. | Preserve complete target and archive values instead of truncating them in fixed buffers. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -1097,6 +1098,8 @@ protected:
     int FilterSource;
     BOOL ConflictsOnly;
     BOOL Updating;
+    int SortColumn;
+    BOOL SortAscending;
 
     void RebuildMatrix();
     void PopulateTargetCatalog();

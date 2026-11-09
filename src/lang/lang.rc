@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Fix association page control heights and layout spacing. | Keep filters, buttons, details and all four category tabs aligned when resizing. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Enable multiselect on the Selected Properties list in Choose Custom Properties. | Remove LVS_SINGLESEL so multiple items can be marked for bulk Remove / Move up / Move down. | | opencode |
 // | 2026-11-09 | Reshape the file-association page around category tabs and details. | Match the approved matrix layout and make room for source and status columns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Give the association matrix report headers and scrolling. | Prevent the file-association table from hiding controls and make columns user-resizable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -1131,7 +1132,7 @@ BEGIN
     COMBOBOX        IDC_FILEASSOCIATION_FILTER_SOURCE,180,29,90,60,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     CONTROL         "",IDC_FILEASSOCIATION_FILTER_CONFLICTS,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,276,30,82,14
     PUSHBUTTON      "",IDB_FILEASSOCIATION_ADD,342,28,74,16,WS_TABSTOP
-    CONTROL         "",IDL_FILEASSOCIATIONS,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP | WS_VSCROLL | WS_HSCROLL,4,49,412,112
+    CONTROL         "",IDL_FILEASSOCIATIONS,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP | WS_VSCROLL | WS_HSCROLL,4,60,412,100
     LTEXT           "",IDC_FILEASSOCIATION_LEGEND,4,164,412,12,SS_LEFT | SS_NOPREFIX
     GROUPBOX        "",IDC_STATIC_2,4,180,412,84
     LTEXT           "",IDC_STATIC_1,10,184,160,12
