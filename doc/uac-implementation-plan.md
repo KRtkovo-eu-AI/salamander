@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify Win32 and ARM64 builds after Find cancellation and focus restoration. | Keep the architecture matrix aligned with the tested x64 candidate. | | Codex |
 | 2026-11-09 | Record targeted CodeQL and x64 payload verification after the Find and focus changes. | Verify the final local candidate against the current source and distribution gates. | | Codex |
 | 2026-11-09 | Restore the invoking window after broker consent. | Return to the active Samandarin operation when Windows switches foreground windows. | | Codex |
 | 2026-11-09 | Verify protected Find Stop, restart and memory in the VM. | Exercise an actual read session and measure both processes on the same fixture. | | Codex |
@@ -1691,6 +1692,8 @@ Chráněné běhy zachytily 53 a 136 vzorků s aktivním brokerem. Rozdíl v jeh
 **P7, opakovaný místní průchod katalogem PR Tests.** Ve stavu a55f88d5 s následnou místní úpravou popředí prošlo 43 nativních projektů, 113 skupin Python z katalogu, dvě skupiny Node, test sestavování nabídky v PowerShellu a 55 pytest kontrol. Dvacet skupin prošlo po zopakování v připraveném prostředí MSVC. Souhrn je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/local-a55f88d5/summary.json.
 
 **P7, místní analýza kandidáta dad2cf99.** CodeQL 2.27.4 trasoval x64 Release překlad brokeru, sondy, Findu, dialogu Find a hostitelské části UAC. Sedm ověřovaných zdrojů a hlaviček v archivu databáze odpovídá commitu. Profil security-extended analyzoval 87 souborů C/C++ a v SARIF má 95 deskriptorů pravidel. Všech 17 nálezů leží mimo změny proti základu PR i proti publikované revizi 7bd944c8. Výstup a klasifikace jsou v C:/Samandarin/builds/uac-codeql-v2.27.4/find-foreground-dad2cf99. Distribuční ověřovač stejného kandidáta x64 v laboratorním režimu potvrdil role, manifesty, závislosti, angličtinu a protokol 11. Režim vydání odmítl nepodepsaný host s výsledkem NotSigned. Důkaz foreground-payload-verification.json je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/find-stop-protected. Úplná GitHub kontrola se vztahuje k publikované revizi 7bd944c8.
+
+**P7, Win32 a ARM64 po změnách Findu a popředí.** Na revizi a7e9c42f se v Release sestavily aplikace, broker, sonda a anglický modul pro obě architektury. Laboratorní ověřovač potvrdil architekturu, manifesty, role, protokol 11 a odpovídající jazykový modul. Strojový typ i role sondy prošly samostatně. Ve Win32 pod WOW64 prošlo 62 kontrol, včetně odmítnutí skutečného starého brokeru a zrušení čekající odpovědi Findu. Pro ARM64 se sestavily tři testovací obrazy a ověřily se jejich hlavičky PE. Záznamy foreground-cross-architecture.json, foreground-win32-tests.log a foreground-arm64-tests-cross-build.log jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c. Nativní spuštění na ARM64, interaktivní zkouška nové úpravy Win32 a ověření podpisu zůstávají otevřené.
 
 ### 12.3 CI a přijetí vydání
 
