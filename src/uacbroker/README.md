@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Document staging without a custom installer. | Keep UAC development separate from distribution changes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Explain the UAC image role checks. | Reject mixed packages and swapped executable roles before elevation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe the installer compilation gate. | Require the signed application and broker to pass the payload verifier. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Document the paired protocol resource. | Fail before elevation or packaging if the pilot has stale binaries. | | GPT-6.1 Sol (Codex) |
@@ -34,15 +35,12 @@ The isolated VM scenarios in the table require the staged pair and a person at t
 
 All five P2 VM scenarios passed for the x64 pair built from ca70fb8c. The alternate-account run started the same protected probe from a standard account and completed with an elevated broker, exit code 0 on both processes, and no remaining broker or probe process. See the [recorded results](../../doc/uac-implementation-plan.md#85-akceptační-test-p2-ve-vm).
 
-## Signed x64 pilot installer
+## Stage the matching x64 binaries
 
-Use this installer in the isolated acceptance VM. Stage the standard x64 Release payload and copy the matching x64 Release uacbroker.exe from output/uac/Release_x64 to the payload root next to salamand.exe. The diagnostic probe is a separate test executable. Sign both images with the existing Certum release process after staging. Use the same signing certificate and timestamp both images.
+In the isolated VM, an administrator stages the matching x64 application and broker under Program Files/Open Samandarin UAC. Include the normal application runtime files. The diagnostic probe is a separate test executable. Rebuild and stage the binaries together because the broker rejects builds with incompatible roles or protocol resources.
 
-Run the following from the repository root with mt.exe and dumpbin.exe on PATH. The first command provides detailed diagnostics and prints the hashes to record. The Inno Setup pilot profile runs the same verifier again during preprocessing and stops compilation on failure. Use an absolute payload path when running the commands from the repository root.
+From the repository root, run the standalone artifact check with mt.exe and dumpbin.exe on PATH.
 
     powershell.exe -NoProfile -File tools/codesign/verify_uac_payload.ps1 -PayloadDir <payload>
-    iscc.exe doc/runbook-setup/inno_setup_salamander_x64.iss /DUacBrokerPilot /DPayloadDir="<payload>"
 
-The verifier checks Authenticode trust, timestamp presence, the shared signer, image architecture, embedded execution levels, the broker's dependent DLL policy, and the matching UAC protocol resource. The resource also identifies the application, broker or diagnostic probe role. The application requires the broker role before requesting elevation. The broker verifies the expected host or probe role before opening the pipe. Stage a new matching set together because builds with the former version-only resource are rejected. The authenticated handshake still verifies the protocol and capabilities. Record the reported SHA-256 hashes with the build revision. The optional -UnsignedLab switch is for inspecting local builds. The pilot installer requires signed images and a standard installation in Program Files/Open Samandarin UAC. The pilot has separate uninstall registration and shortcut names. The application still uses the standard profile namespace, which the pilot uninstaller preserves.
-
-Before distribution, sign the compiled installer, verify its signature and the installed binary hashes, and exercise clean install, update, uninstall, and rejection of a substituted image in the isolated VM.
+The verifier checks Authenticode trust, timestamps, the shared signer, image architecture, embedded execution levels, the broker's dependent DLL policy and the protocol resource including each image's role. The optional -UnsignedLab switch is for local testing. The output includes both SHA-256 hashes. The runtime handshake still authenticates the peer process and checks the protocol and capabilities.

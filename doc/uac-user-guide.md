@@ -1,11 +1,12 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Describe the protected VM staging path. | Remove the custom installer from the UAC scope. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Document the native UAC pilot and its limits. | Explain consent, partial results and the scope of acceptance testing. | | GPT-6.1 Sol (Codex) |
 -->
 
 # Administrator access in Open Samandarin
 
-The UAC pilot runs the file manager with the account and permissions you normally use. If Windows denies an eligible operation, choose **Administrator** (the shield button) to request permission for the operation shown. Windows may ask for an administrator's credentials. Enter them in the Windows prompt. The signed pilot installer places the application and its matching broker in the protected **Open Samandarin UAC** folder under Program Files. See the [pilot packaging instructions](../src/uacbroker/README.md#signed-x64-pilot-installer).
+The UAC pilot runs the file manager with the account and permissions you normally use. If Windows denies an eligible operation, choose **Administrator** (the shield button) to request permission for the operation shown. Windows may ask for an administrator's credentials. Enter them in the Windows prompt. The VM pilot uses matching application and broker binaries staged in the protected **Open Samandarin UAC** folder under Program Files. See the [pilot staging instructions](../src/uacbroker/README.md#stage-the-matching-x64-binaries).
 
 ## What one approval covers
 
