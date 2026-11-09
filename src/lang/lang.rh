@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add Change Drive order control and option identifiers. | Localize the selector that chooses which menu block appears first. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Add Apply control and localized label identifiers for association details. | Let users commit current association edits directly from the detail panel. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add owner-drawn association action tab identifiers. | Render five selectable action pages consistently across Windows color schemes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add action-tab control identifier for the association editor. | Replace separate category and operation selectors with five detail tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -559,6 +560,10 @@
 #define IDC_CHD_MOUNTFOLDERS_DRIVEBAR   1101
 #define IDC_CHD_MOUNTFOLDERS_LABEL      1102
 #define IDC_CHD_SHOWWINDOWSSANDBOX      1103
+#define IDC_CHD_BLOCKORDER_LABEL        1104
+#define IDC_CHD_BLOCKORDER              1107
+#define IDS_CHD_PLUGINFIRST             1108
+#define IDS_CHD_HOTPATHSFIRST           1109
 #define IDD_CFGPAGE_PANELS              1105
 #define IDD_CFGPAGE_TABS                1106
 #define IDD_CFGPAGE_KEYBOARD            1110

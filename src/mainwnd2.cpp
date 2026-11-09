@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Save and load the Change Drive block order. | Keep the chosen Plugin/Hot Paths ordering across restarts. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Load and save custom association handlers with the active configuration. | Resolve custom association IDs against the selected viewer/editor catalog after restart. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-08 | Register the complete canonical runtime adapter after archive setup. | Ensure staged canonical rows resolve against the final plugin and packer indexes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Connect guarded canonical association lifecycle hooks. | Load canonical associations without replacing legacy runtime state when projection metadata is unavailable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -1356,6 +1357,7 @@ const char* CONFIG_CHD_SHOWVIDEOS = "Change Drive Show Videos";
 const char* CONFIG_CHD_SHOWANOTHER = "Change Drive Show Another";
 const char* CONFIG_CHD_SHOWCLOUDSTOR = "Change Drive Show Cloud Storages";
 const char* CONFIG_CHD_SHOWNET = "Change Drive Network";
+const char* CONFIG_CHD_HOTPATHSFIRST = "Change Drive Hot Paths First";
 const char* CONFIG_CURRRENTTIPINDEX = "Current Tip Index";
 const char* CONFIG_SEARCHFILECONTENT = "Search File Content";
 const char* CONFIG_FINDOPTIONS_REG = "Find Options";
@@ -3557,6 +3559,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
                          &Configuration.ChangeDriveShowAnother, sizeof(DWORD));
                 SetValue(actKey, CONFIG_CHD_SHOWNET, REG_DWORD,
                          &Configuration.ChangeDriveShowNet, sizeof(DWORD));
+                SetValue(actKey, CONFIG_CHD_HOTPATHSFIRST, REG_DWORD,
+                         &Configuration.ChangeDriveHotPathsFirst, sizeof(DWORD));
                 SetValue(actKey, CONFIG_SEARCHFILECONTENT, REG_DWORD,
                          &Configuration.SearchFileContent, sizeof(DWORD));
                 SetValue(actKey, CONFIG_LASTPLUGINVER, REG_DWORD,
@@ -5769,6 +5773,10 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                      &Configuration.ChangeDriveShowAnother, sizeof(DWORD));
             GetValue(actKey, CONFIG_CHD_SHOWNET, REG_DWORD,
                      &Configuration.ChangeDriveShowNet, sizeof(DWORD));
+            GetValue(actKey, CONFIG_CHD_HOTPATHSFIRST, REG_DWORD,
+                     &Configuration.ChangeDriveHotPathsFirst, sizeof(DWORD));
+            if (Configuration.ChangeDriveHotPathsFirst != FALSE && Configuration.ChangeDriveHotPathsFirst != TRUE)
+                Configuration.ChangeDriveHotPathsFirst = FALSE;
             GetValue(actKey, CONFIG_SEARCHFILECONTENT, REG_DWORD,
                      &Configuration.SearchFileContent, sizeof(DWORD));
             GetValue(actKey, CONFIG_LASTPLUGINVER, REG_DWORD,

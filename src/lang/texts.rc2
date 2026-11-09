@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Localize the Change Drive block ordering selector. | Name both available first-block choices in the user's language. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize adding new association patterns. | Give the existing text-input dialog clear instructions and report invalid or duplicate entries. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize the association detail Apply action. | Name the new command that writes edits into the association matrix. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Shorten custom viewer/editor page descriptions. | Keep page guidance on one line at the minimum window width. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -1865,6 +1866,8 @@ STRINGTABLE
 
  IDS_CHDHOTPATHS_HINT, "Visibility of Hot Path items (only in Change Drive menu) can be changed on Hot Paths page."
  IDS_CHDPLUGINS_HINT, "Visibility of Plugin FS items can be changed in Plugins Manager (see menu Plugins)."
+ IDS_CHD_PLUGINFIRST, "Plugin items"
+ IDS_CHD_HOTPATHSFIRST, "Hot Paths"
 
  IDS_NAMEMANGLE_ONTHEDISK, "As they are stored on the disk"
  IDS_NAMEMANGLE_EXPLORER, "In partially mixed case if they are in DOS format"

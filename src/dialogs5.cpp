@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-09 | Qualify the Win32 GetParent call in conflict status painting. | Avoid resolving GetParent to the CDialog member overload during compilation. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Transfer the Change Drive block order setting. | Load and apply the localized Plugin/Hot Paths first choice. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Render Unassigned matrix targets as a dash. | Match empty default cells while keeping the Target selectors explicitly labeled Unassigned. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Keep the Custom Handler Save button inside its group box. | Leave clearance from the Handler details border after right-aligning the button. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Highlight conflict explanations based on the displayed status. | Keep conflict text visibly distinct even when the selected association is a non-conflicting member of a conflicting matrix row. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -9375,6 +9376,7 @@ void CCfgPageChangeDrive::Transfer(CTransferInfo& ti)
     int oldChangeDriveMountFoldersName = Configuration.ChangeDriveMountFoldersName;
     int oldChangeDriveMountFoldersDriveBar = Configuration.ChangeDriveMountFoldersDriveBar;
     int oldChangeDriveShowWindowsSandbox = Configuration.ChangeDriveShowWindowsSandbox;
+    int oldChangeDriveHotPathsFirst = Configuration.ChangeDriveHotPathsFirst;
 
     if (Configuration.ChangeDriveMountFoldersMode == MOUNTED_VOLUME_PATH_MODE_NONE)
         Configuration.ChangeDriveMountFoldersName = TRUE;
@@ -9396,6 +9398,12 @@ void CCfgPageChangeDrive::Transfer(CTransferInfo& ti)
 
     if (ti.Type == ttDataToWindow)
     {
+        SendDlgItemMessage(HWindow, IDC_CHD_BLOCKORDER, CB_RESETCONTENT, 0, 0);
+        SendDlgItemMessage(HWindow, IDC_CHD_BLOCKORDER, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_CHD_PLUGINFIRST));
+        SendDlgItemMessage(HWindow, IDC_CHD_BLOCKORDER, CB_ADDSTRING, 0, (LPARAM)LoadStr(IDS_CHD_HOTPATHSFIRST));
+        SendDlgItemMessage(HWindow, IDC_CHD_BLOCKORDER, CB_SETCURSEL,
+                           Configuration.ChangeDriveHotPathsFirst ? 1 : 0, 0);
+
         const int MODE_ITEMS = 4;
         int modes[MODE_ITEMS] = {TITLE_BAR_MODE_DIRECTORY, TITLE_BAR_MODE_COMPOSITE, TITLE_BAR_MODE_FULLPATH,
                                  MOUNTED_VOLUME_PATH_MODE_NONE};
@@ -9423,6 +9431,8 @@ void CCfgPageChangeDrive::Transfer(CTransferInfo& ti)
     }
     else
     {
+        int blockOrder = (int)SendDlgItemMessage(HWindow, IDC_CHD_BLOCKORDER, CB_GETCURSEL, 0, 0);
+        Configuration.ChangeDriveHotPathsFirst = blockOrder == 1;
         int index = (int)SendDlgItemMessage(HWindow, IDC_CHD_MOUNTFOLDERS_MODE, CB_GETCURSEL, 0, 0);
         int modes[4] = {TITLE_BAR_MODE_DIRECTORY, TITLE_BAR_MODE_COMPOSITE, TITLE_BAR_MODE_FULLPATH,
                         MOUNTED_VOLUME_PATH_MODE_NONE};
@@ -9433,7 +9443,8 @@ void CCfgPageChangeDrive::Transfer(CTransferInfo& ti)
             oldChangeDriveMountFoldersMode != Configuration.ChangeDriveMountFoldersMode ||
             oldChangeDriveMountFoldersName != Configuration.ChangeDriveMountFoldersName ||
             oldChangeDriveMountFoldersDriveBar != Configuration.ChangeDriveMountFoldersDriveBar ||
-            oldChangeDriveShowWindowsSandbox != Configuration.ChangeDriveShowWindowsSandbox)
+            oldChangeDriveShowWindowsSandbox != Configuration.ChangeDriveShowWindowsSandbox ||
+            oldChangeDriveHotPathsFirst != Configuration.ChangeDriveHotPathsFirst)
         {
             PostMessage(MainWindow->HWindow, WM_USER_DRIVES_CHANGE, 0, 0);
         }
