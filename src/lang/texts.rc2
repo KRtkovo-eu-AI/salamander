@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add localized source, details, and conflict-count labels. | Keep the revised file-association page fully resource-backed. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Add the localized extension-owner marker. | Distinguish Salamatrix extension associations from framework-owned plugin associations. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Shorten association legend and keep the help caption compact. | Prevent explanatory text from colliding with the detail editor during page resizing. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Fix STRINGTABLE separators for the resource compiler. | The added trailing commas were invalid in this project's resource-table syntax and could crash rc.exe. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -2410,14 +2411,21 @@ STRINGTABLE
   IDS_FILEASSOCIATION_MATRIX_ALTERNATE, "Alternate View"
   IDS_FILEASSOCIATION_MATRIX_EDIT, "Edit"
   IDS_FILEASSOCIATION_MATRIX_ARCHIVE, "Panel Archive"
-  IDS_FILEASSOCIATION_LEGEND, "Colors: default | user | legacy | disabled | conflict"
+ IDS_FILEASSOCIATION_LEGEND, "%u of %u associations | %u conflicts"
   IDS_FILEASSOCIATION_GUIDANCE, "Select a pattern cell to change its owner. Existing defaults are imported automatically."
   IDS_FILEASSOCIATION_NO_TARGETS, "No compatible targets are installed"
   IDS_FILEASSOCIATION_INTERNAL_VIEWER, "Internal viewer"
   IDS_FILEASSOCIATION_LEGACY_RUNTIME, "Legacy runtime"
   IDS_FILEASSOCIATION_SELECT_PLUGIN, "Select a compatible plugin target"
   IDS_FILEASSOCIATION_NO_PRESET, "No external preset is available for this target"
-  IDS_FILEASSOCIATION_PATTERN_EMPTY, "Pattern must not be empty"
+ IDS_FILEASSOCIATION_PATTERN_EMPTY, "Pattern must not be empty"
+ IDS_FILEASSOCIATION_SOURCE, "Source"
+ IDS_FILEASSOCIATION_DETAILS, "Association details"
+ IDS_FILEASSOCIATION_CONFLICTS_COUNT, "Conflicts (%u)"
+ IDS_FILEASSOCIATION_ADD_SHORT, "Add"
+ IDS_FILEASSOCIATION_RESOLVE_CONFLICT, "Resolve conflict"
+ IDS_FILEASSOCIATION_FILTER_STATES, "All States"
+ IDS_FILEASSOCIATION_FILTER_SOURCES, "All Sources"
  IDS_FILELAUNCH_LAUNCH_CLOSE, "Close"
  IDS_FILELAUNCH_LONGPATH_GUIDE_BUTTON, "Windows settings guide"
  IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE, "Windows long-path support"
