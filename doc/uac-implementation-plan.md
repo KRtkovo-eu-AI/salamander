@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Preserve compression on guarded F6 streams. | Verify mixed compression and sparsity before source retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Connect the protected Recycle Bin pilot to Delete. | Verify a single-file Shell retry and the original account receipt. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share Shell recycle identity and receipt verification. | Reject a substituted source before the Shell processes the queued item. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Bind protected Find duplicate digests to the checked revision. | Reject changed candidates before hashing their contents. | | GPT-6.1 Sol (Codex) |
@@ -1201,6 +1202,10 @@ Prošlo sestavení všech tří binárek x64 Debug a 25 kontrol úloh a PE zdroj
 **Chráněný přesun do Koše z panelu.** Běžný příkaz Delete nejprve použije Shell bez elevace. Jestliže při zpracování jednoho souboru v běžném diskovém panelu Shell odepře přístup ke zdroji, pilot ověří zachycené ID souboru, chráněná oprávnění a rodičovskou cestu na lokálním NTFS. Důvěryhodné rodiče drží otevřené do konce operace. Po výslovné volbě Administrator předá původní proces Shellu jen stejný soubor. Úspěch vyžaduje potvrzené ID souboru v Koši původního SID na stejném svazku a uvolnění původního názvu. Při neověřeném výsledku se operace neopakuje a nepřechází na trvalé smazání. [Volba elevace Shellu](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-setoperationflags) · [Potvrzení položky v Koši](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperationprogresssink-postdeleteitem).
 
 Lokálně prošlo sestavení aplikace x64 Debug, v x64 Debug i Release 21 regresí Koše, osm kontrol potvrzení a obnovy a tři kontroly přenosu. Sada panelu prošla 410 kontrolami v každé konfiguraci včetně směrování odepření, zrušení, dávky a Branch View. Český text prošel importem a zpětným exportem Translatoru. Pro přijetí ještě ověřit souhlas téhož a jiného správce, zrušení, Koš nedostupný nebo vypnutý a obnovu pod původním účtem v izolované VM. Výsledek po souhlasu jiného správce nelze odvodit z běžného lokálního testu.
+
+**Komprese alternativních proudů při F6.** Chráněný přesun do volného názvu zamyká alternativní proudy také u komprimovaného souboru. Z jednotlivých handlů čte formát komprese, nastaví jej na pracovních proudech cíle a znovu jej ověří po zapsání dat. Řídké proudy zachovávají alokované rozsahy. Před odstraněním zdroje musí projít zveřejnění a ověření cíle pod stejnou ochranou jako dosud. Při kolizi zůstane původní cíl i jeho obsah. Tato změna pokrývá dříve nepodporované komprimované alternativní proudy uvedené výše. Kombinace s kopírováním přesných oprávnění a pozdní dokončení již vytvořené běžné kopie mají vlastní omezení. [Vlastnosti datových proudů NTFS](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams) · [Nastavení komprese](https://learn.microsoft.com/en-us/windows/win32/api/winioctl/ni-winioctl-fsctl_set_compression).
+
+Lokálně prošlo 125 kontrol F6 v x64 Debug i Release, 250 obecných nativních kontrol v x64 Release a sestavení brokeru x64 Release. Kontroly zahrnují kolizi, zachování Unicode proudu v LZNT1 vedle nekomprimovaného proudu a zachování LZNT1 proudu u souboru s řídkým hlavním proudem. Ověřují bajty i formát po odstranění zdroje. Zkouška běžela na jednom svazku. Dva skutečné svazky, volba F6 a souhlas UAC zůstávají v akceptaci VM.
 
 ## 12. Testovací strategie
 

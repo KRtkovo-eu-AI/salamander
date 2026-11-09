@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise mixed NTFS stream compression in F6. | Compare dense, compressed and sparse streams after publishing and retiring a sealed source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test Find revisions across two opens. | Detect an in-place edit even if file length and modification time match. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify sparse F6 with sparse and dense named streams. | Check data, allocation holes and source retirement together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Check the final EFS metadata verifier on real encrypted files. | Confirm it rejects a different size, time or stream inventory. | | GPT-6.1 Sol (Codex) |
@@ -2161,18 +2162,36 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
     Check(!error && empty() && HasContents(sparsePath, sparseBytes), "verify and clear the sparse move receipt", error);
 
     const std::vector<BYTE> compressedBytes(128 * 1024, 0x61);
-    if (!WriteFixture(sourcePath, compressedBytes))
-        return false;
-    {
-        const HANDLE file = CreateFileW(sourcePath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+    const std::wstring compressedSuffix = L":lznt1-\u6771";
+    const std::wstring denseSuffix = L":dense";
+    const auto setCompression = [](const std::wstring& path, USHORT format) {
+        const HANDLE file = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (file == INVALID_HANDLE_VALUE)
+            return GetLastError();
+        const Handle writer(file);
+        DWORD bytes = 0;
+        return DeviceIoControl(file, FSCTL_SET_COMPRESSION, &format, sizeof(format), nullptr, 0, &bytes, nullptr)
+            ? ERROR_SUCCESS : GetLastError();
+    };
+    const auto hasCompression = [](const std::wstring& path, USHORT expected) {
+        const HANDLE file = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
         if (file == INVALID_HANDLE_VALUE)
             return false;
-        const Handle writer(file);
-        USHORT format = COMPRESSION_FORMAT_LZNT1;
-        DWORD bytes = 0;
-        if (!DeviceIoControl(file, FSCTL_SET_COMPRESSION, &format, sizeof(format), nullptr, 0, &bytes, nullptr))
-            return false;
-    }
+        const Handle reader(file);
+        USHORT actual = COMPRESSION_FORMAT_NONE;
+        return !UacCopyLeaf::Detail::ReadCompression(file, actual) && actual == expected;
+    };
+    if (!WriteFixture(sourcePath, compressedBytes) ||
+        !WriteFixture(sourcePath + compressedSuffix, compressedBytes) ||
+        !WriteFixture(sourcePath + denseSuffix, compressedBytes) ||
+        setCompression(sourcePath, COMPRESSION_FORMAT_LZNT1) ||
+        setCompression(sourcePath + compressedSuffix, COMPRESSION_FORMAT_LZNT1) ||
+        setCompression(sourcePath + denseSuffix, COMPRESSION_FORMAT_NONE))
+        return false;
+    Check(hasCompression(sourcePath, COMPRESSION_FORMAT_LZNT1) &&
+              hasCompression(sourcePath + compressedSuffix, COMPRESSION_FORMAT_LZNT1) &&
+              hasCompression(sourcePath + denseSuffix, COMPRESSION_FORMAT_NONE),
+          "create a compressed move source with mixed named stream compression");
     if (!SetFileAttributesW(sourcePath.c_str(), FILE_ATTRIBUTE_NORMAL))
         return false;
     const DWORD compressedAttributes = GetFileAttributesW(sourcePath.c_str());
@@ -2213,7 +2232,7 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
         return false;
     error = guard.Open(parent.get(), leaf, compressedId, 1);
     Check(error == ERROR_NOT_SUPPORTED, "reject a compressed source in the ordinary move scope", error);
-    SourceGuard compressedGuard(compressedAttributes);
+    SourceGuard compressedGuard(compressedAttributes, [](HANDLE, bool) { return true; });
     if (compressedGuard.Open(parent.get(), leaf, compressedId, 1))
         return false;
     FILE_BASIC_INFO guarded{};
@@ -2222,8 +2241,11 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
           "verify the original non-Archive attributes from the guarded source before linking");
     error = compressedGuard.AddRecoveryLink(storage.get(), name);
     Check(!error && !compressedGuard.Check(2), "link the guarded source without losing its exclusive oplock", error);
-    if (error)
+    if (error || (error = compressedGuard.LockStreams(storage.get(), name)))
+    {
+        Check(false, "lock mixed-compression streams through the source recovery alias", error);
         return false;
+    }
     constexpr wchar_t compressedLeaf[] = L"compressed-\u6771.bin";
     const auto compressedPath = targetDirectory + L"\\" + compressedLeaf;
     UacMoveSourceJournal::Detail::Handle compressedTarget(nullptr, CloseHandle);
@@ -2254,6 +2276,11 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
     compressedTarget.reset();
     Check(!error && !Exists(sourcePath) && !Exists(storageDirectory + L"\\" + name) &&
               HasContents(compressedPath, compressedBytes), "retire the compressed source after complete publication", error);
+    Check(HasContents(compressedPath + compressedSuffix, compressedBytes) &&
+              HasContents(compressedPath + denseSuffix, compressedBytes) &&
+              hasCompression(compressedPath + compressedSuffix, COMPRESSION_FORMAT_LZNT1) &&
+              hasCompression(compressedPath + denseSuffix, COMPRESSION_FORMAT_NONE),
+          "preserve compressed and dense named stream contents and formats");
     error = recover(parent.get());
     Check(!error && empty() && GetFileAttributesW(compressedPath.c_str()) == compressedAttributes,
           "verify and clear the compressed move receipt", error);
@@ -2265,7 +2292,8 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
     const std::wstring sparseSuffix = L":sparse";
     if (!writeSparse(sourcePath) || !writeSparse(sourcePath + sparseSuffix) ||
         !WriteFixture(sourcePath + namedSuffix, namedPayload) ||
-        !WriteFixture(sourcePath + L":empty", {}))
+        !WriteFixture(sourcePath + L":empty", {}) ||
+        setCompression(sourcePath + namedSuffix, COMPRESSION_FORMAT_LZNT1))
         return false;
     FILE_ID_INFO namedId{};
     if (!OpenIdentity(sourcePath, namedId) ||
@@ -2333,7 +2361,11 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
                                &extent, sizeof(extent), &count, nullptr) && count == 0;
     };
     Check(hasHole(namedPath) && hasHole(namedPath + sparseSuffix) && !hasHole(namedPath + namedSuffix),
-          "preserve holes in both sparse streams while keeping the ordinary named stream dense");
+          "preserve holes in both sparse streams without making the compressed stream sparse");
+    Check(hasCompression(namedPath, COMPRESSION_FORMAT_NONE) &&
+              hasCompression(namedPath + sparseSuffix, COMPRESSION_FORMAT_NONE) &&
+              hasCompression(namedPath + namedSuffix, COMPRESSION_FORMAT_LZNT1),
+          "preserve independent compression in the named stream of a sparse file");
     return failures == 0;
 }
 

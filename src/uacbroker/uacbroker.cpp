@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Lock named streams on compressed cross-volume moves. | Use the same sealed inventory before retiring the source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the protected Shell recycle source. | Pin its trusted ancestors while the original account calls the Shell. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Return the exact Find content revision. | Let the host compare the same file across Find passes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Require the expected UAC image role. | Stop a substituted application or probe before requesting elevation. | | GPT-6.1 Sol (Codex) |
@@ -1121,7 +1122,7 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
         DWORD allowed = copiedTarget ? UacF7::plainCopyAttributes : UacF7::crossVolumeMoveAttributes;
         if (preserveCompression)
             allowed = UacF7::compressedCopyAttributes;
-        const bool preserveNamed = !preserveCompression && !copiedTarget;
+        const bool preserveNamed = !copiedTarget;
         const auto streams = preserveNamed ? UacCopyLeaf::StreamPolicy::PreserveNamed : UacCopyLeaf::StreamPolicy::RequireDefault;
         if ((status = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), basic, false, streams, allowed)) ||
             (status = UacCopyLeaf::Detail::CheckCancelled(nullptr, pipe, deadline)))
