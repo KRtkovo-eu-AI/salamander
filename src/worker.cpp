@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Allow verified overwrite when F5 cannot open the source. | Keep the ordinary conflict decision and retry tied to the prepared target. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind protected Scan Ahead overwrites to the scanned revision. | Requeue changed targets before the protected retry and leave reviewed overwrites to the serial worker. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Complete Scan Ahead transfer admission and cancellation. | Keep protected retries serial, separate from scanned conflicts, and admit compressed streams to guarded F6. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Keep F6 source retirement retries on the verified path. | Never retry a denied protected delete by name after copying. | | GPT-6.1 Sol (Codex) |
@@ -5823,6 +5824,74 @@ static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
             UacF7::SameFileRevision(op.ScannedTargetRevision, request.Approval().revision));
 }
 
+enum class SourceOverwriteResult { Unavailable, Failed, Finished, Skipped, Cancelled };
+
+static SourceOverwriteResult TryOverwriteDeniedSource(HWND progress, COperation& op, COperations& script,
+                                                      CQuadWord& totalDone, CProgressDlgData& dlgData,
+                                                      UacF7::OverwriteApproval& approval, DWORD& error)
+{
+    using Outcome = SourceOverwriteResult;
+    if (dlgData.SkipAllFileOpenOut)
+        return Outcome::Unavailable;
+    if (dlgData.ConflictDecisionInjected && op.ScannedTargetRevision.attributes &&
+        !ValidateInjectedTargetIdentity(&op, dlgData))
+    {
+        dlgData.ConflictTargetChanged = TRUE;
+        return Outcome::Finished; // The coordinator requeues this item without advancing progress.
+    }
+
+    UacF7::PreparedTransfer overwrite;
+    if (!PrepareWorkerOverwrite(op, script, dlgData, overwrite))
+        return Outcome::Unavailable;
+    if (!dlgData.ConflictDecisionInjected && dlgData.SkipAllOverwrite)
+        return Outcome::Skipped;
+
+    const bool targetChanged = approval.captured && !overwrite.MatchesApproval(approval);
+    if (targetChanged || (!approval.captured && !dlgData.OverwriteAll && dlgData.CnfrmFileOver))
+    {
+        const auto targetPath = WorkerOperationPathW(op.TargetName, op.TargetNameW.c_str());
+        HANDLE target = HANDLES_Q(CreateFileW(targetPath.c_str(), FILE_READ_ATTRIBUTES,
+                                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                              OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        if (target == INVALID_HANDLE_VALUE)
+            return Outcome::Unavailable;
+        char targetInfo[101];
+        const bool sameTarget = overwrite.MatchesOverwriteTarget(target);
+        if (sameTarget)
+            GetFileOverwriteInfo(targetInfo, _countof(targetInfo), target, op.TargetName, nullptr, nullptr);
+        HANDLES(CloseHandle(target));
+        if (!sameTarget)
+            return Outcome::Unavailable;
+
+        const auto sourcePath = WorkerOperationPathW(op.SourceName, op.SourceNameW.c_str());
+        HANDLE source = HANDLES_Q(CreateFileW(sourcePath.c_str(), FILE_READ_ATTRIBUTES,
+                                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                              OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        char sourceInfo[101];
+        GetFileOverwriteInfo(sourceInfo, _countof(sourceInfo), source, op.SourceName, nullptr, nullptr);
+        if (source != INVALID_HANDLE_VALUE)
+            HANDLES(CloseHandle(source));
+
+        int answer = IDCANCEL;
+        char* details[] = {reinterpret_cast<char*>(&answer), op.TargetName, targetInfo, op.SourceName, sourceInfo};
+        SendMessage(progress, WM_USER_DIALOG, 1, reinterpret_cast<LPARAM>(details));
+        if (answer == IDB_SKIPALL)
+            dlgData.SkipAllOverwrite = TRUE;
+        if (answer == IDB_SKIPALL || answer == IDB_SKIP)
+            return Outcome::Skipped;
+        if (answer != IDYES && answer != IDB_ALL)
+            return Outcome::Cancelled;
+        if (answer == IDB_ALL)
+            dlgData.OverwriteAll = TRUE;
+    }
+
+    approval = overwrite.Approval();
+    BOOL success = FALSE;
+    if (!ExecuteWorkerTransfer(progress, op, script, totalDone, dlgData, success, overwrite, error))
+        return Outcome::Failed;
+    return success ? Outcome::Finished : Outcome::Cancelled;
+}
+
 struct MoveCopyReceipt
 {
     UacF7::MoveFileIdentity source{}, target{};
@@ -5845,6 +5914,7 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
     BOOL invalidSrcName = FileNameIsInvalid(op->SourceName, TRUE);
     BOOL invalidTgtName = FileNameIsInvalid(op->TargetName, TRUE);
 
+    UacF7::OverwriteApproval approvedOverwrite{};
     if ((op->OpFlags & OPFL_UAC_TRANSFER_SOURCE) != 0)
     {
         int answer;
@@ -5856,13 +5926,23 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
             if (dlgData.SkipAllFileOpenIn)
                 break;
             DWORD error = ERROR_ACCESS_DENIED;
-            BOOL success = FALSE;
-            if (!invalidSrcName && !invalidTgtName &&
-                TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, error))
+            if (!invalidSrcName && !invalidTgtName)
             {
-                if (success && isMove && skip)
-                    *skip = TRUE; // The broker already removed the source.
-                return success;
+                const auto outcome = !isMove && !copyAsEncrypted
+                    ? TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone, dlgData, approvedOverwrite, error)
+                    : SourceOverwriteResult::Unavailable;
+                if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                    return outcome == SourceOverwriteResult::Finished;
+                if (outcome == SourceOverwriteResult::Skipped)
+                    break;
+                BOOL success = FALSE;
+                if (outcome == SourceOverwriteResult::Unavailable &&
+                    TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, error))
+                {
+                    if (success && isMove && skip)
+                        *skip = TRUE; // The broker already removed the source.
+                    return success;
+                }
             }
             answer = IDCANCEL;
             char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(IDS_ERRORCOPY), op->SourceName, GetErrorText(error)};
@@ -5963,7 +6043,6 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
         ~CDisableProgressBufferLimit() { Script->EnableProgressBufferLimit(FALSE); }
     } DisableProgressBufferLimit(script);
 
-    UacF7::OverwriteApproval approvedOverwrite{};
     CQuadWord operationDone;
     CQuadWord lastTransferredFileSize;
     script->GetTFSandResetTrSpeedIfNeeded(&lastTransferredFileSize);
@@ -7105,8 +7184,16 @@ COPY_AGAIN:
                 ((!copyAsEncrypted && err == ERROR_ACCESS_DENIED) ||
                  (!isMove && UacF7::IsEncryptedCopyFile(op->Attr) && UacF7::IsEfsCopyFailure(op->Attr, err))))
             {
+                const auto outcome = !isMove && !copyAsEncrypted
+                    ? TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone, dlgData, approvedOverwrite, err)
+                    : SourceOverwriteResult::Unavailable;
+                if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                    return outcome == SourceOverwriteResult::Finished;
+                if (outcome == SourceOverwriteResult::Skipped)
+                    goto SKIP_OPEN_IN;
                 BOOL success = FALSE;
-                if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, err))
+                if (outcome == SourceOverwriteResult::Unavailable &&
+                    TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, err))
                 {
                     if (success && isMove && skip)
                         *skip = TRUE; // The broker already removed the source.

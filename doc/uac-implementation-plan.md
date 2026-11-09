@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Allow verified F5 overwrite after source access denial. | Retain ordinary conflict consent and the exact target revision. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Bind Scan Ahead F5 overwrites to the reviewed revision. | Requeue replaced targets without carrying forward the old conflict decision. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Enable serial protected transfer admission in Scan Ahead. | Separate approved conflicts from free targets and stop the batch on cancellation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test abrupt process exit during disk overwrite. | Verify recovery and retained data at each exchange checkpoint. | | GPT-6.1 Sol (Codex) |
@@ -1238,6 +1239,10 @@ Prošlo sestavení aplikace x64 Debug, deset kontrol workeru, kontrola stavů ko
 **Přepis existujícího cíle F5 v režimu Scan Ahead.** U podporovaných cílů skener uloží revizi běžného souboru z handlu otevřeného bez následování odkazu a porovná jeho identitu s položkou předloženou v seznamu konfliktů. Rozhodnutí o přepisu postupuje do sériové větve. Po běžném odepření přístupu se ochranná nabídka připraví jen tehdy, když ověřená revize brokerového požadavku odpovídá skenu. Broker dále kontroluje schválený soubor při otevření a zveřejnění. Pokud se cíl vymění nebo se změní jeho revize, koordinátor znovu načte konflikt a původní rozhodnutí zanikne. Potvrzené odmítnutí zastaralé revize z brokeru vrátí položku do koordinátoru bez posunu průběhu. Neověřený výsledek po částečné výměně zůstává samostatnou chybou. Tato změna rozšiřuje předchozí podporu volného cíle. Vztahuje se na podporovaný přepis po odepření zápisu do cíle, se zdrojem otevřeným běžnou cestou.
 
 Prošlo sestavení aplikace x64 Debug, 11 kontrol workeru, sady stavů konfliktů a plánování, devět nativních kontrol přepisu na NTFS a 24 kontrol brokerových úloh včetně odmítnutí jiného ID i změněné revize se stejným ID. Prošel také transport. Ve VM ještě ověřit dávku, nový konflikt po změně cíle během čekání na souhlas a výsledné hlášení při zrušení nebo neověřené výměně.
+
+**Přepis F5 při odepřeném čtení zdroje.** Předchozí přepis vyžadoval běžně otevřený zdroj. Nyní sériový worker připraví podporovaný přepis i při odepření čtení, ať se odepření zjistí při přípravě skriptu nebo při otevření v běžícím workeru. Pro dialog o konfliktu čte pouze metadata. U zobrazeného cíle ověří revizi proti brokerovému požadavku. Přeskočení a zrušení se řídí běžnými volbami. Ve Scan Ahead se uplatní původní schválená revize, případně vrácení změněného cíle do seznamu konfliktů. Opakování s novou revizí vyžádá nové rozhodnutí. Po chybě již odeslaného přepisu se v témže pokusu nepřejde na kopii do volného názvu.
+
+Prošlo sestavení aplikace x64 Debug, 12 kontrol workeru, sady stavů konfliktů a plánování a 24 kontrol brokerových úloh včetně odmítnutí vyměněného cíle. Prošel také transport. Ve VM ještě ověřit přepis z chráněného zdroje do existujícího cíle, souhlas i zrušení a odmítnutí změněného cíle v obou režimech konfliktu.
 
 ## 12. Testovací strategie
 

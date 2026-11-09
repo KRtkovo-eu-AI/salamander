@@ -1,6 +1,7 @@
 ﻿# SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check overwrite when reading the source is denied. | Require the reviewed target and keep failure from switching to a free-target request. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check exact Scan Ahead overwrite admission. | Require one scanned revision and serial conflict requeue on a mismatch. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Cover Scan Ahead protected worker admission and cancellation. | Exercise the guarded move and the boundary between a free target and a scanned conflict. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Guard protected F6 retries at the worker boundary. | Require verified completion instead of a second pathname deletion. | | GPT-6.1 Sol (Codex) |
@@ -110,5 +111,22 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertIn("request.IsOverwrite() && dlgData.ConflictDecisionInjected", stale)
         self.assertIn("dlgData.ConflictTargetChanged = TRUE;", stale)
         self.assertNotIn("totalDone", stale)
+    def test_source_denial_can_overwrite_only_the_reviewed_target(self):
+        code = text("worker.cpp")
+        helper = section(code, "static SourceOverwriteResult TryOverwriteDeniedSource(", "struct MoveCopyReceipt")
+        self.assertLess(helper.index("PrepareWorkerOverwrite("), helper.index("MatchesOverwriteTarget(target)"))
+        self.assertLess(helper.index("MatchesOverwriteTarget(target)"), helper.index("SendMessage(progress, WM_USER_DIALOG, 1,"))
+        self.assertLess(helper.index("answer != IDYES && answer != IDB_ALL"), helper.index("ExecuteWorkerTransfer("))
+        self.assertIn("approval.captured && !overwrite.MatchesApproval(approval)", helper)
+        self.assertIn("return Outcome::Skipped;", helper)
+        self.assertIn("return Outcome::Failed;", helper)
+        worker = section(code, "BOOL DoCopyFile(COperation* op", "BOOL DoMoveFile(")
+        deferred = section(worker, "if ((op->OpFlags & OPFL_UAC_TRANSFER_SOURCE)", "BOOL tgtNameCaseCorrected")
+        denied = section(worker, "OPEN_IN_ERROR:", "SKIP_OPEN_IN:")
+        for path in (deferred, denied):
+            self.assertIn("TryOverwriteDeniedSource(", path)
+            self.assertIn("outcome == SourceOverwriteResult::Unavailable &&", path)
+            self.assertLess(path.index("TryOverwriteDeniedSource("), path.index("TryTransferWithBroker("))
+            self.assertIn("SourceOverwriteResult::Skipped", path)
 if __name__ == "__main__":
     unittest.main()
