@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Explain how to inspect a long path in the administrator dialog. | Document the scrollable path and keyboard shortcut. | | Codex |
 | 2026-11-09 | Document protected Find cancellation and move verification. | Match the native progress display and verified search behavior. | | Codex |
 | 2026-11-09 | Explain how to restore the selection after a cancelled F5 batch. | Use the existing panel command before deciding which items to retry. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe F5 recovery and the panel size command. | Explain the fresh overwrite decision and the existing shortcut for folder sizes. | | GPT-6.1 Sol (Codex) |
@@ -17,6 +18,8 @@
 # Administrator access in Open Samandarin
 
 The UAC pilot runs the file manager with the account and permissions you normally use. If Windows denies an eligible operation, choose **Administrator** (the shield button) to request permission for the operation shown. Windows may ask for an administrator's credentials. Enter them in the Windows prompt. The VM pilot uses matching application and broker binaries staged in the protected **Open Samandarin UAC** folder under Program Files. See the [pilot staging instructions](../src/uacbroker/README.md#stage-the-matching-x64-binaries).
+
+When the administrator dialog shows a long path in a scrollable field, click the field and press **Ctrl+End** to see the final component. **Cancel** is the default choice for F7.
 
 ## What one approval covers
 
