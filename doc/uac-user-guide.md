@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Explain progress during elevated transfers. | Distinguish in-flight bytes from a confirmed result. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Remove fixed F6 size and time limits from the pilot. | Describe the streamed move and its remaining eligibility rules. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe the protected Recycle Bin pilot. | Distinguish a verified single-file recycle from permanent deletion. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe the protected VM staging path. | Remove the custom installer from the UAC scope. | | GPT-6.1 Sol (Codex) |
@@ -30,6 +31,12 @@ The UAC pilot runs the file manager with the account and permissions you normall
 | ZIP and ZIP64 | Listing in the ordinary archive panel, internal viewing of eligible entries, extraction, and adding, replacing or deleting eligible entries in protected archives. Viewing and extracting are limited to 16 MiB per expanded file in this pilot. Extraction of a selection is also limited to 4,096 entries and a 64 MiB total request. |
 
 The pilot applies to supported local paths and the built-in ZIP integration. Network shares, mapped drives, general plugin elevation, and portable elevation are outside the documented pilot. The [implementation plan](uac-implementation-plan.md) lists the detailed file system and metadata combinations and their verification status.
+
+## Progress during elevated transfers
+
+The normal Copy or Move window shows progress while the broker copies eligible files or a folder tree. A cross-volume move can still be checking the copy or removing the source after the data has been transferred. The operation reaches completion when the broker confirms the result.
+
+For EFS, percentages appear during import of the encrypted data. The initial export has no known total size. For a move where ordinary copying succeeded and only source removal needs administrator access, the progress shown during copying comes from the normal worker.
 
 ## Cancellation and interrupted operations
 
