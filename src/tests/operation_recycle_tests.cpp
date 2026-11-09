@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Cover the two Shell callbacks around elevation. | Distinguish intermediate elevation from a final result and recheck the source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise late Shell results with a real recycle receipt. | Accept completion only when the original account and exact file match. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Check the shared recycle completion contract. | Exercise the original-account receipt with a real Windows recycle operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise the verified Shell recycle source gate. | Refuse a substituted file without moving either object. | | GPT-6.1 Sol (Codex) |
@@ -166,9 +167,35 @@ static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool reques
 
     constexpr HRESULT cancelled = HRESULT_FROM_WIN32(ERROR_CANCELLED);
     constexpr HRESULT invalid = HRESULT_FROM_WIN32(ERROR_FILE_INVALID);
+    if (!requestElevation)
+    {
+        IShellItem* item = nullptr;
+        const auto itemResult = SHCreateItemFromParsingName(source.c_str(), nullptr, IID_PPV_ARGS(&item));
+        constexpr DWORD recycle = TSF_DELETE_RECYCLE_IF_POSSIBLE;
+        const auto elevation = COPYENGINE_E_REQUIRES_ELEVATION;
+        OperationRecycleProgress ordinary(true, &original);
+        Check(ordinary.PostDeleteItem(recycle, item, elevation, nullptr) == elevation &&
+                  ordinary.Result(S_OK, 1) == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED),
+              "ordinary recycling still rejects a result that requires elevation");
+        OperationRecycleProgress retry(true, &original, true);
+        Check(SUCCEEDED(itemResult) && retry.PreDeleteItem(recycle, item) == S_OK &&
+                  retry.PostDeleteItem(recycle, item, elevation, nullptr) == S_OK &&
+                  retry.PreDeleteItem(recycle, item) == S_OK && !retry.Receipt(),
+              "accept the intermediate elevation result and revalidate the same source");
+        Check(retry.Result(S_OK, 1) == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED) &&
+                  retry.Result(cancelled, 1) == cancelled,
+              "require a confirmed receipt and preserve cancellation after an elevation request");
+        Check(retry.PreDeleteItem(0, item) == HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED),
+              "refuse a permanent delete even after an elevation request");
+        OperationRecycleProgress replaced(true, &original, true);
+        Check(replaced.PostDeleteItem(recycle, item, elevation, nullptr) == S_OK &&
+                  replaced.PreDeleteItem(recycle, nullptr) == invalid,
+              "reject a missing or changed Shell item on the elevated retry");
+        if (item) item->Release();
+    }
     Check(original.CompleteRecycle(source.wstring(), nullptr, sid, cancelled) == cancelled,
           "keep cancellation when the original file is still present and no receipt exists");
-    OperationRecycleProgress progress(true, &original);
+    OperationRecycleProgress progress(true, &original, requestElevation);
     std::wstring shellPath;
     HRESULT hr = OperationRecyclePath(source.wstring(), shellPath);
     if (SUCCEEDED(hr))
@@ -217,6 +244,12 @@ static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool reques
     Check(original.CompleteRecycle(source.wstring(), nullptr, sid, cancelled) == invalid &&
               original.CompleteRecycle(source.wstring(), progress.Receipt(), sid + L"-1", S_OK) == invalid,
           "refuse a missing or wrong-account receipt when the source is gone");
+    OperationRecycleProgress retried(true, &original, true);
+    constexpr DWORD recycle = TSF_DELETE_RECYCLE_IF_POSSIBLE;
+    Check(retried.PostDeleteItem(recycle, nullptr, COPYENGINE_E_REQUIRES_ELEVATION, nullptr) == S_OK &&
+              retried.PostDeleteItem(recycle, nullptr, S_OK, progress.Receipt()) == S_OK &&
+              retried.Result(S_OK, 1) == S_OK && original.ConfirmRecycled(retried.Receipt(), sid),
+          "accept the verified receipt after an intermediate elevation request");
     OperationRecycleProgress duplicate(true), failed(true);
     duplicate.PostDeleteItem(0, nullptr, S_OK, progress.Receipt());
     duplicate.PostDeleteItem(0, nullptr, S_OK, progress.Receipt());

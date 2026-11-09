@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Let the Shell retry recycling after requesting elevation. | Keep revalidating the exact source without treating an intermediate callback as final. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Resolve protected recycle completion from its exact receipt. | Keep a verified move when the Shell reports a later aggregate error. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify a complete recycle receipt. | Check the original name and the original account's bin on the same volume. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Share the single-item Shell recycle and receipt checks. | Validate exact source identity before the Shell starts processing. | | GPT-6.1 Sol (Codex) |
@@ -191,8 +192,9 @@ class OperationRecycleProgress final : public IFileOperationProgressSink
 {
 public:
     explicit OperationRecycleProgress(bool captureReceipt = false,
-                                      const OperationRecycleDetail::VerifiedSource* source = nullptr)
-        : captureReceipt(captureReceipt), source(source) {}
+                                      const OperationRecycleDetail::VerifiedSource* source = nullptr,
+                                      bool allowElevationRetry = false)
+        : captureReceipt(captureReceipt), source(source), allowElevationRetry(allowElevationRetry) {}
     ~OperationRecycleProgress()
     {
         if (receipt)
@@ -228,6 +230,13 @@ public:
     {
         if (FAILED(failure))
             return failure;
+        // The Shell can report this before retrying the same item with elevation.
+        // A failing callback would abort that retry before its next identity check.
+        if (allowElevationRetry && source && !completed && !recycled && result == COPYENGINE_E_REQUIRES_ELEVATION)
+        {
+            awaitingElevatedRetry = true;
+            return S_OK;
+        }
         if (FAILED(result))
             failure = result;
         else if (!recycled)
@@ -256,7 +265,9 @@ public:
             return NormalizeRecycleResult(failure);
         if (FAILED(operation))
             return NormalizeRecycleResult(operation);
-        return completed == expected ? S_OK : HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED);
+        if (completed == expected)
+            return S_OK;
+        return HRESULT_FROM_WIN32(awaitingElevatedRetry ? ERROR_ACCESS_DENIED : ERROR_NOT_SUPPORTED);
     }
 
     HRESULT STDMETHODCALLTYPE StartOperations() override { return S_OK; }
@@ -277,6 +288,8 @@ public:
 private:
     bool captureReceipt;
     const OperationRecycleDetail::VerifiedSource* source;
+    bool allowElevationRetry;
+    bool awaitingElevatedRetry = false;
     IShellItem* receipt = nullptr;
     LONG references = 1;
     HRESULT failure = S_OK;

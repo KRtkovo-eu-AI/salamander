@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Allow the explicit Shell elevation retry callback. | Recheck the original file and preserve ordinary recycle error behavior. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Use the verified recycle receipt even after a late Shell error. | Distinguish a completed move from a cancellation without a receipt. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow protected direct files in mixed F5 and F6 selections. | Keep eligibility on the selected file operation rather than the whole selection. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Admit protected direct transfers in Scan Ahead. | Allow the serial worker to offer consent for an eligible file after coordinator admission. | | GPT-6.1 Sol (Codex) |
@@ -171,7 +172,7 @@ static HRESULT RetryProtectedRecycle(HWND owner, const std::wstring& path, const
     if (!original.StillAtOriginalPath(path))
         return HRESULT_FROM_WIN32(ERROR_FILE_INVALID);
 
-    OperationRecycleProgress progress(true, &original);
+    OperationRecycleProgress progress(true, &original, true);
     const auto result = RunSingleRecycleOperation(owner, shellPath, progress, true);
     return original.CompleteRecycle(path, progress.Receipt(), sid, result);
 }
