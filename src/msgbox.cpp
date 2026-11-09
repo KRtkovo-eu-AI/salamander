@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Keep explicit message-box line breaks when sizing and drawing. | Display the complete UAC destination path. | | Codex |
 // | 2026-11-07 | Put the UAC shield on the explicit OK button when requested. | Allow Cancel to retain default focus. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -680,15 +681,30 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         else
             DrawTextW(hDC, MessageBoxTextToWide(Text.Get()).c_str(), -1, &tR, DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_EXPANDTABS | DT_NOPREFIX);
 
-        if (tR.right > maxTextWidth && !scrollableText)
+        bool needsHardWrap = tR.right > maxTextWidth;
+        if (!needsHardWrap && !scrollableText && (Flags & MSGBOXEX_SHIELDONOKBTN))
+        {
+            // A full-width character inside a path can hide the size of the
+            // unbroken component from the usual word-wrap measurement.
+            RECT pathRect = {0, 0, maxTextWidth, 0};
+            DrawTextW(hDC, MessageBoxTextToWide(Text.Get()).c_str(), -1, &pathRect,
+                      DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_NOFULLWIDTHCHARBREAK | DT_EXPANDTABS | DT_NOPREFIX);
+            needsHardWrap = pathRect.right > maxTextWidth;
+        }
+        if (needsHardWrap && !scrollableText)
         {
             // text width exceeds maxTextWidth limit, so we create a new one
             // text into which we will insert hard line breaks
             const char* newText = DuplicateStrAndInsertEOLs(Text.Get(), hDC, maxTextWidth);
             if (newText != NULL)
             {
+                // The inserted line breaks define the layout. In particular, do
+                // not let the static control break an already wrapped path again.
                 tR.right = maxTextWidth;
-                DrawTextW(hDC, MessageBoxTextToWide(newText).c_str(), -1, &tR, DT_CALCRECT | DT_LEFT | DT_WORDBREAK | DT_EXPANDTABS | DT_NOPREFIX);
+                DrawTextW(hDC, MessageBoxTextToWide(newText).c_str(), -1, &tR, DT_CALCRECT | DT_LEFT | DT_EXPANDTABS | DT_NOPREFIX);
+                HWND textControl = GetDlgItem(HWindow, IDS_MSGBOX_TEXT);
+                LONG style = GetWindowLong(textControl, GWL_STYLE);
+                SetWindowLong(textControl, GWL_STYLE, (style & ~SS_TYPEMASK) | SS_LEFTNOWORDWRAP);
                 SetDlgItemTextUtf8Aware(HWindow, IDS_MSGBOX_TEXT, newText);
                 free((void*)newText);
             }
