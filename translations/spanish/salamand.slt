@@ -4205,3 +4205,7 @@ SLGINCOMPLETE,""
 15004,1,"%s libres (en caché, actualizado %s)"
 15005,1,"%s libres (obsoleto, actualizado %s)"
 
+14608,1,"Finalizar y reintentar"
+14609,1,"El archivo está siendo utilizado por: %s"
+14610,1,"¿Finalizar estos procesos y volver a intentarlo?\n\nSe pueden perder los datos no guardados de estos procesos:\n%s"
+14611,1,"No se pudo finalizar ninguno de los procesos que utilizan este archivo."

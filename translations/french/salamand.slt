@@ -4205,3 +4205,7 @@ SLGINCOMPLETE,""
 15004,1,"%s libres (en cache, mis à jour %s)"
 15005,1,"%s libres (périmés, mis à jour %s)"
 
+14608,1,"Terminer et réessayer"
+14609,1,"Fichier utilisé par les processus suivants : %s"
+14610,1,"Terminer ces processus et réessayer ?\n\nLes données non enregistrées de ces processus peuvent être perdues :\n%s"
+14611,1,"Impossible de terminer les processus qui utilisent ce fichier."

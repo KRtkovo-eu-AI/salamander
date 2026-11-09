@@ -4205,3 +4205,7 @@ SLGINCOMPLETE,""
 15004,1,"%s vrij (in cache, bijgewerkt %s)"
 15005,1,"%s vrij (verouderd, bijgewerkt %s)"
 
+14608,1,"Beëindigen en opnieuw proberen"
+14609,1,"Bestand wordt gebruikt door: %s"
+14610,1,"Deze processen beëindigen en opnieuw proberen?\n\nNiet-opgeslagen gegevens in deze processen kunnen verloren gaan:\n%s"
+14611,1,"Geen van de processen die dit bestand gebruiken, kan worden beëindigd."

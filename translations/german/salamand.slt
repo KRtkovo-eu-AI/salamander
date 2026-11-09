@@ -4205,3 +4205,7 @@ SLGINCOMPLETE,""
 15004,1,"%s frei (zwischengespeichert, aktualisiert %s)"
 15005,1,"%s frei (veraltet, aktualisiert %s)"
 
+14608,1,"Beenden und erneut versuchen"
+14609,1,"Die Datei wird von folgenden Prozessen verwendet: %s"
+14610,1,"Diese Prozesse beenden und erneut versuchen?\n\nNicht gespeicherte Daten in diesen Prozessen können verloren gehen:\n%s"
+14611,1,"Keiner der Prozesse, die diese Datei verwenden, konnte beendet werden."

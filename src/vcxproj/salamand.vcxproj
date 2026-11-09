@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Compile the core file-lock recovery helper. | Add Restart Manager detection and process termination to the main executable. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 | 2026-11-07 | Include the Find UI Automation provider. | Build the virtualized result view. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 | 2026-11-07 | Compile the canonical file-association backend model. | Include the first issue #733 backend slice in the main application project. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 -->
@@ -548,6 +549,8 @@
     </ClCompile>
     <ClCompile Include="..\fileswnb.cpp">
     </ClCompile>
+    <ClCompile Include="..\filelock.cpp">
+    </ClCompile>
     <ClCompile Include="..\filter.cpp">
     </ClCompile>
     <ClCompile Include="..\find.cpp">
@@ -984,6 +987,7 @@
     <ClInclude Include="..\panel_temporary_selection.h" />
     <ClInclude Include="..\fileactiondisktarget.h" />
     <ClInclude Include="..\operationrecycle.h" />
+    <ClInclude Include="..\filelock.h" />
     <ClInclude Include="..\branchshell.h" />
     <ClInclude Include="..\branchclipboard.h" />
     <ClInclude Include="..\branchdroptarget.h" />
