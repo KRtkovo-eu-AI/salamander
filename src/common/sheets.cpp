@@ -1,5 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Let Configuration OK finish after a page transfer error. | The active page is validated first; a hidden page's transfer failure must not trap the entire tree dialog open. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Reserve the full canonical association page height. | Prevent the Configuration holder buttons from covering the File Associations page during resize. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 
 #include "precomp.h"
 
@@ -1255,7 +1259,7 @@ int CPropertyDialog::GetCurSel()
 #define _TPD_BUTTON_W 50   // button width
 #define _TPD_BUTTON_H 14   // button height
 #define _TPD_BUTTON_MARG 4 // button spacing
-#define _TPD_MIN_PAGE_H 270 // height of the General Configuration page
+#define _TPD_MIN_PAGE_H 300 // height of the tallest canonical Configuration page
 
 CTPHCaptionWindow::CTPHCaptionWindow(HWND hDlg, int ctrlID)
     : CWindow(hDlg, ctrlID, ooAllocated)
@@ -1736,13 +1740,20 @@ CTreePropHolderDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (!ChildDialog->ValidateData())
                 return TRUE;
 
-            // obehnu vsechny stranky pro transfer
+            // The active page has already passed ValidateData(). Transfer all
+            // instantiated pages, but do not let a transfer-only error from a
+            // previously visited page prevent the Configuration dialog from
+            // accepting the current settings. Transfer() is expected to move
+            // values, not validate them; validation belongs to Validate().
             for (int i = 0; i < TPD->Count; i++)
                 if (TPD->At(i)->HWindow != NULL)
                     if (!TPD->At(i)->TransferData(ttDataFromWindow))
-                        return TRUE;
-            wParam = IDOK;
+                        TRACE_ET(_T("CTreePropHolderDlg: ignoring transfer error from page '")
+                                 << (TPD->At(i)->Title != NULL ? TPD->At(i)->Title : _T(""))
+                                 << _T("' after the active page passed validation."));
             SaveWindowPlacement();
+            ExitButton = IDOK;
+            return TRUE;
         }
         case IDCANCEL:
         {

@@ -2,8 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Defer the periodic Debug heap walk for large Find result sets. | Keep both Find and its worker responsive during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell extension SEH when extracting icons. | GetFileIcon shell handlers must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-09 | Show Extension Bar at startup on clean configuration. | LoadConfig() returns FALSE on first launch (no registry), skipping the band loop; add Extension Bar creation to the startup recovery path in salamdr1.cpp. | | nvidia/nemotron-3.5-super-vl:free |
 
 #include "precomp.h"
 
@@ -5633,6 +5635,8 @@ FIND_NEW_SLG_FILE:
                         MainWindow->ToggleMiddleToolBar();
                     if (Configuration.BottomToolBarVisible)
                         MainWindow->ToggleBottomToolBar();
+                    if (Configuration.ExtensionBarVisible)
+                        MainWindow->ToggleExtensionBar(FALSE);
                     MainWindow->CreateAndInsertWorkerBand(); // na zaver vlozime workera
                     MainWindow->LeftPanel->UpdateDriveIcon(TRUE);
                     MainWindow->RightPanel->UpdateDriveIcon(TRUE);
@@ -5948,7 +5952,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             // jednou za tri vteriny osetrime konzistenci heapu
                             if (_CrtSetDbgFlag(_CRTDBG_REPORT_FLAG) & _CRTDBG_ALLOC_MEM_DF)
                             {
-                                if (GetTickCount() - LastCrtCheckMemoryTime > 3000) // kazde tri vteriny
+                                // Leave the check due so it resumes as soon as the large result set is released.
+                                if (GetTickCount() - LastCrtCheckMemoryTime > 3000 &&
+                                    !CFoundFilesData::HasLargeDebugResultSet())
                                 {
                                     if (!_CrtCheckMemory())
                                     {

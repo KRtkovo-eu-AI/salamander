@@ -2,6 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Show shared WebView2 viewer windows in the Windows taskbar. | Owned top-level windows are omitted from the taskbar unless they opt in with WS_EX_APPWINDOW. |  | openai/gpt-5.6-luna-pro |
+// | 2026-11-07 | Open PrismSharp Find bar for F3 navigation. | F3 and Shift+F3 must reveal the search dialog before moving between matches. |  | openai/gpt-5.6-luna-pro |
+// | 2026-11-07 | Preserve hidden Find prefill across shared webview viewers. | Find-triggered viewers must carry the phrase without opening the dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
+// | 2026-11-07 | Preserve the requested owner when creating and reusing native viewers. | Closing Prism/WebView2 must return activation to the window that opened the viewer. | https://github.com/KRtkovo-eu-AI/salamander/issues/757 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-06 | Esc closes document Find bar without closing the viewer. | Mirror Prism: page owns Esc; salamander-close only when Find is closed. |  | Composer |
 // | 2026-11-06 | Move document Find bar 50px lower. | Keep clear of the JSON Viewer chrome at the top edge. |  | Composer |
 // | 2026-11-06 | Scroll document panels to the current Find match. | JSON Viewer uses nested overflow:auto; window.scrollTo left matches off-screen. |  | Composer |
@@ -1517,10 +1521,15 @@ public:
         int width = (std::max)(parameters_->placement.right - parameters_->placement.left, 320L);
         int height = (std::max)(parameters_->placement.bottom - parameters_->placement.top, 240L);
         std::wstring title = WindowTitle();
-        window_ = CreateWindowExW(parameters_->alwaysOnTop ? WS_EX_TOPMOST : 0, className, title.c_str(),
+        // Keep the owner for activation and lifecycle coordination, but opt the
+        // owned top-level window into its own taskbar button.
+        const DWORD extendedStyle = WS_EX_APPWINDOW |
+            (parameters_->alwaysOnTop ? WS_EX_TOPMOST : 0);
+        window_ = CreateWindowExW(extendedStyle, className, title.c_str(),
                                   WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
                                   parameters_->placement.left, parameters_->placement.top, width, height,
-                                  nullptr, nullptr, parameters_->module, this);
+                                  IsWindow(parameters_->owner) ? parameters_->owner : nullptr,
+                                  nullptr, parameters_->module, this);
         if (window_ != nullptr)
         {
             creationComplete_ = true;
@@ -1572,6 +1581,10 @@ public:
         // Menus and labels must follow the new request, including font/locale.
         DestroyMenus();
         parameters_.swap(parameters);
+        SetWindowLongPtrW(window_, GWLP_HWNDPARENT,
+                          reinterpret_cast<LONG_PTR>(IsWindow(parameters_->owner)
+                                                         ? parameters_->owner
+                                                         : nullptr));
         ReadSettings();
         if (!CreateCustomMenuBar())
         {
@@ -2462,20 +2475,11 @@ private:
                         // Re-inject after DOMContentLoaded: JSON Viewer scripts can
                         // replace the document and drop the document-created Find bar.
                         if (self->parameters_->kind == NativeViewerKind::RenderDocument)
-                            self->InjectDocumentFindBar();
-                        if (!self->parameters_->searchPhrase.empty())
                         {
-                            if (self->parameters_->kind == NativeViewerKind::RenderDocument)
-                            {
-                                self->PostOpenFind();
-                            }
+                            if (!self->parameters_->searchPhrase.empty())
+                                self->PostPrefillFind();
                             else
-                            {
-                                std::wstring findScript = L"window.find(" + JsonString(self->parameters_->searchPhrase) +
-                                    L", " + ((self->parameters_->searchFlags & SALVIEWER_SEARCH_CASE_SENSITIVE) ? L"true" : L"false") +
-                                    L", false, true);";
-                                self->webView_->ExecuteScript(findScript.c_str(), nullptr);
-                            }
+                                self->InjectDocumentFindBar();
                         }
                         SetWindowTextW(self->status_, self->parameters_->ready.c_str());
                         if (!self->browserVisible_ && self->controller_)
@@ -3298,7 +3302,16 @@ private:
     {
         if (parameters_->kind == NativeViewerKind::PrismText)
         {
-            NavigateSearchMatch(!backward);
+            std::wstring phrase;
+            {
+                std::lock_guard<std::mutex> guard(gLastFindLock);
+                phrase = gLastFindQuery;
+            }
+            if (phrase.empty())
+                phrase = parameters_->searchPhrase;
+            PostOpenFind();
+            if (!phrase.empty())
+                NavigateSearchMatch(!backward);
         }
         else if (parameters_->kind == NativeViewerKind::RenderDocument && webView_)
         {
@@ -3503,6 +3516,21 @@ private:
                 webView_->ExecuteScript(script.c_str(), nullptr);
         }
         webView_->PostWebMessageAsJson(json.c_str());
+    }
+
+    void PostPrefillFind()
+    {
+        if (!webView_ || parameters_->searchPhrase.empty() ||
+            parameters_->kind != NativeViewerKind::RenderDocument)
+            return;
+        std::wstring script = LoadDocumentFindBarScript(parameters_->module);
+        script += L"\n;(function(){var msg={query:" + JsonString(parameters_->searchPhrase) +
+                   L",matchCase:" + ((parameters_->searchFlags & SALVIEWER_SEARCH_CASE_SENSITIVE) ? L"true" : L"false") +
+                   L",wholeWord:" + ((parameters_->searchFlags & SALVIEWER_SEARCH_WHOLE_WORDS) ? L"true" : L"false") +
+                   L"};if(typeof window.__salamanderSetFindQuery==='function')"
+                   L"window.__salamanderSetFindQuery(msg);})();";
+        if (!script.empty())
+            webView_->ExecuteScript(script.c_str(), nullptr);
     }
 
     void ExecuteSearch(const std::wstring& query, bool matchCase, bool wholeWord, size_t fromLine)

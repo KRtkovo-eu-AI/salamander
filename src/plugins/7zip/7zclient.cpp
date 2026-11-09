@@ -1,5 +1,9 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+//
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Avoid reporting a failed archive-format probe before signature fallback. | Prevent duplicate wrong-password errors when opening 7z-family archives. | https://github.com/KRtkovo-eu-AI/salamander/issues/830 | GPT-6 |
 
 #include "precomp.h"
 #include <assert.h>
@@ -258,13 +262,26 @@ BOOL C7zClient::OpenArchive(const char* fileName, IInArchive** archive, UString&
 {
     GUID classID;
     BOOL haveExtFormat = GetArchiveFormat(fileName, &classID);
-    if (haveExtFormat && OpenArchiveWithFormat(fileName, &classID, archive, password, quiet))
-        return TRUE;
-    if (Find7zFamilySignature(fileName, &classID))
-        return OpenArchiveWithFormat(fileName, &classID, archive, password, quiet);
-    if (!haveExtFormat)
-        return Error(IDS_UNSUPPORTED_ARCHIVE, quiet, fileName);
-    return FALSE;
+    GUID signatureClassID;
+    BOOL have7zFamilySignature = Find7zFamilySignature(fileName, &signatureClassID);
+
+    if (haveExtFormat)
+    {
+        // A 7z-family archive can also have an extension recognized by a different
+        // handler. Keep that fallback, but don't open the same handler twice when
+        // its first attempt fails (for example, after an incorrect password).
+        if (!have7zFamilySignature || memcmp(&classID, &signatureClassID, sizeof(GUID)) == 0)
+            return OpenArchiveWithFormat(fileName, &classID, archive, password, quiet);
+
+        if (OpenArchiveWithFormat(fileName, &classID, archive, password, TRUE))
+            return TRUE;
+
+        return OpenArchiveWithFormat(fileName, &signatureClassID, archive, password, quiet);
+    }
+
+    if (have7zFamilySignature)
+        return OpenArchiveWithFormat(fileName, &signatureClassID, archive, password, quiet);
+    return Error(IDS_UNSUPPORTED_ARCHIVE, quiet, fileName);
 }
 
 BOOL C7zClient::ListArchive(const char* fileName, CSalamanderDirectoryAbstract* dir, CPluginDataInterface*& pluginData, UString& password)

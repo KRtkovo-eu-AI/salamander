@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Verify Find phrase prefill stays hidden across Salamatrix viewers. | Issue #758 requires Find context to survive the extension and native viewer boundaries. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
 | 2026-11-06 | Expect locales for every supported extension language. | JSON Viewer must ship the same locale set as other packages. |  | Composer |
 | 2026-11-06 | Expect the Prism Sharp Find bar for document viewers. | JSON Viewer must reuse the same Find chrome as Prism Text. |  | Composer |
 | 2026-11-06 | Expect native WebView2 Find instead of a custom bar. | Users want Edge's built-in Find UI for document viewers. |  | Composer |
@@ -122,6 +123,8 @@ class JsonWebViewerExtensionTests(unittest.TestCase):
         self.assertIn("payload.title", worker)
         self.assertIn("payload.documentName", worker)
         self.assertIn('["left", "top", "width", "height", "showCmd"]', worker)
+        self.assertIn("searchPhrase", worker)
+        self.assertIn("searchFlags", worker)
 
     def test_host_applies_pending_viewfile_placement_and_default_title(self) -> None:
         source = PACKAGES_CPP.read_text(encoding="utf-8", errors="replace")
@@ -130,6 +133,10 @@ class JsonWebViewerExtensionTests(unittest.TestCase):
         self.assertIn('title = "JSON Viewer"', source)
         self.assertIn("CreateSVGIcon(preferredPath, 32)", source)
         self.assertIn("request.documentName", source)
+        self.assertIn("SearchPhrase", source)
+        self.assertIn("SearchFlags", source)
+        self.assertIn("request.searchPhrase", source)
+        self.assertIn("request.searchFlags", source)
 
     def test_native_viewer_supports_document_find_and_icons(self) -> None:
         source = NATIVE_VIEWER_CPP.read_text(encoding="utf-8", errors="replace")
@@ -137,6 +144,7 @@ class JsonWebViewerExtensionTests(unittest.TestCase):
         self.assertIn("document-find-bar.js", source)
         self.assertIn("document_find_bar_script.inc", source)
         self.assertIn("__salamanderOpenFind", source)
+        self.assertIn("__salamanderSetFindQuery", source)
         self.assertIn("InjectDocumentFindBar", source)
         self.assertIn("Re-executing document-find-bar.js", source)
         self.assertIn("salamander-close", source)
@@ -165,6 +173,7 @@ class JsonWebViewerExtensionTests(unittest.TestCase):
         find_src = find_bar.read_text(encoding="utf-8")
         self.assertIn("viewer-find-bar", find_src)
         self.assertIn("__salamanderOpenFind", find_src)
+        self.assertIn("__salamanderSetFindQuery", find_src)
         self.assertIn("find-case", find_src)
         self.assertIn("find-word", find_src)
         self.assertIn("2147483647", find_src)

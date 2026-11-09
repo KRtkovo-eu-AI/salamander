@@ -1957,6 +1957,21 @@ SLGINCOMPLETE,""
 1091,1,"Die Verfügbarkeit der Plugin-Elemente kann unter 'Plugins anpassen' geändert werden (siehe Menü 'Plugins')."
 
 [STRINGTABLE 3]
+1108,0,"Plugin items"
+1109,0,"Hot Paths"
+
+[STRINGTABLE 4]
+2421,0,"Source"
+2422,0,"Association details"
+2423,0,"Conflicts (%u)"
+2424,0,"Add new pattern"
+2426,0,"All States"
+2427,0,"All Sources"
+
+[STRINGTABLE 5]
+2468,0,"Apply"
+
+[STRINGTABLE 6]
 10000,1,"Frage"
 10001,1,"Möchten Sie diesen Vorgang abbrechen?"
 10002,1,"Eintrag Name"
@@ -1970,7 +1985,7 @@ SLGINCOMPLETE,""
 10013,1,"Kann den Pfad nicht prüfen."
 10014,1,"Der Pfad hat das falsches Format."
 
-[STRINGTABLE 4]
+[STRINGTABLE 7]
 10016,1,"Konfiguration"
 10017,1,"ja"
 10018,1,"nein"
@@ -1987,7 +2002,7 @@ SLGINCOMPLETE,""
 10030,1,"RAM-Disk"
 10031,1,"Unbekannt (Typ: %d)"
 
-[STRINGTABLE 5]
+[STRINGTABLE 8]
 10032,1,"Keinen Eintrag gefunden."
 10033,1,"Information"
 10034,1,"Die Dateizuordnungen aus der Registrierung konnten nicht gelesen werden.\nFehler: %s"
@@ -2004,7 +2019,7 @@ SLGINCOMPLETE,""
 10046,1,"ja"
 10047,1,"nein"
 
-[STRINGTABLE 6]
+[STRINGTABLE 9]
 10048,1,"Datei: "%s"\nFehler: %s"
 10051,1,"Die Dateigröße muss einen positiven Wert haben."
 10052,1,"Das Datum hat ein falsches Format."
@@ -2020,7 +2035,7 @@ SLGINCOMPLETE,""
 10062,1,"Legen Sie die Suchoptionen fest und klicken Sie auf 'Suchen'."
 10063,1,"Es muss mindestens eine Option ausgewählt sein."
 
-[STRINGTABLE 7]
+[STRINGTABLE 10]
 10064,1,"Es muss mindestens eine Konvertierungsaktion angegeben werden."
 10065,1,"Es existiert keine Datei die der Datei-Maske entspricht."
 10066,1,"Fehler beim Öffnen der Datei "%s".\n%s"
@@ -2037,7 +2052,7 @@ SLGINCOMPLETE,""
 10077,1,"Attr"
 10079,1,"Alle Dateien und Verzeichnisse müssen sich auf demselben Laufwerk befinden."
 
-[STRINGTABLE 8]
+[STRINGTABLE 11]
 10080,1,"Einige ausgewählte Dateien oder Verzeichnisse sind nicht verfügbar.\nDrücken Sie die 'Suchen'-Schaltfläche zum Aktualisieren der Einträge in der Suchliste."
 10081,1,"Möchten Sie die Suche schließen?"
 10082,1,"Diese Mel&dung nicht mehr anzeigen\tHinweis \tSie können diese Einstellung später auf der Bestätigungsseite in der Konfiguration ändern."
@@ -2055,7 +2070,7 @@ SLGINCOMPLETE,""
 10094,1,"Fehler beim Umbenennen der Datei"
 10095,1,"Fehler beim Öffnen der Datei"
 
-[STRINGTABLE 9]
+[STRINGTABLE 12]
 10096,1,"Fehler beim Schreiben der Datei"
 10097,1,"Fehler beim Überschreiben der Datei"
 10098,1,"Fehler beim Löschen der Datei"
@@ -2072,7 +2087,7 @@ SLGINCOMPLETE,""
 10109,1,"Keine Datei oder kein Verzeichnis gefunden"
 10111,1,"DIR"
 
-[STRINGTABLE 10]
+[STRINGTABLE 13]
 10112,1,"Groß-/Kleinschreibung ändern"
 10113,1,"Datum oder Zeit haben ein falsches Format."
 10114,1,"Attribute ändern"
@@ -2090,7 +2105,7 @@ SLGINCOMPLETE,""
 10126,1,"Umbenennen"
 10127,1,"%s umbenennen in"
 
-[STRINGTABLE 11]
+[STRINGTABLE 14]
 10129,1,"Kopieren"
 10130,1,"Verschieben/Umbenennen"
 10131,1,"Löschen"
@@ -2107,7 +2122,7 @@ SLGINCOMPLETE,""
 10142,1,"Alle Dateien (*.*)|*.*|"
 10143,1,"Bestätigen Sie das Löschen der Datei"
 
-[STRINGTABLE 12]
+[STRINGTABLE 15]
 10144,1,"Möchten Sie die Datei mit SYSTEM oder VERSTECKT Attribut wirklich löschen?"
 10145,1,"Dieser Name wird bereits für eine Datei verwendet."
 10147,1,"Das Verzeichnis "%s" besitzt ein SYSTEM oder VERSTECKT Attribut.\nMöchten Sie es löschen?"
@@ -2122,7 +2137,7 @@ SLGINCOMPLETE,""
 10157,1,"'*' steht für eine beliebige Anzahl von Zeichen. '?' steht für genau ein beliebiges Zeichen.\nBeispiel: *.a? (irgendwas.ai,*.a1 usw.)\nMasken werden durch Semikolon getrennt. Beispiel: *.txt;*.doc (a.txt, b.doc usw.)\nAuszuschließende Masken kommen hinter ein '|'. Beispiel: |*.txt;*.doc (alles außer *.txt;*.doc)\nFalls die Maske ein Semikolon enthält schreiben Sie es doppelt. Beispiel: eine;;Maske"
 10158,1,"Masken werden durch Semikolon getrennt.\nDas Zeichen '#' steht für eine beliebige Ziffer ('0' ... '9')"
 
-[STRINGTABLE 13]
+[STRINGTABLE 16]
 10160,1,"Sie können die Größe des Variablenwertes mittels einer Zahl angeben oder 'max' einsetzen (nimmt den größtmöglichen Wert an).\nZum Beispiel: $(FileName:20) oder $(FileName:max)."
 10164,1,"Suchen"
 10165,1,"Der reguläre Ausdruck ist eine leere Zeichenkette."
@@ -2137,7 +2152,7 @@ SLGINCOMPLETE,""
 10174,1,"Falscher [] Bereich"
 10175,1,"Ungleich []"
 
-[STRINGTABLE 14]
+[STRINGTABLE 17]
 10176,1,"Nichts angegeben vor ?+*"
 10177,1,"Anhängende \\"
 10178,1,"Schwerer Ausnahmefehler"
@@ -2155,7 +2170,7 @@ SLGINCOMPLETE,""
 10190,1,"(Leer)"
 10191,1,"Netzwerkumgebung"
 
-[STRINGTABLE 15]
+[STRINGTABLE 18]
 10192,1,"Fenster angleichen"
 10193,1,"Laufwerk wechseln"
 10194,1,"Wählen Sie den Netzwerkpfad."
@@ -2164,17 +2179,17 @@ SLGINCOMPLETE,""
 10198,1,"Wählen Sie das Zielverzeichnis."
 10199,1,"Position: %s"
 
-[STRINGTABLE 16]
+[STRINGTABLE 19]
 10220,1,"Kopieren"
 10221,1,"Packen"
 10222,1,"Verschieben"
 10223,1,"Beim Entpacken ist ein Fehler aufgetreten"
 
-[STRINGTABLE 17]
+[STRINGTABLE 20]
 10254,1,"Archiv."
 10255,1,"Archiv "%s" entpacken nach"
 
-[STRINGTABLE 18]
+[STRINGTABLE 21]
 10256,1,"Das Verzeichnis "%s" existiert nicht.\n\nMöchten Sie es erstellen?"
 10257,1,"Der Name "%s" wird bereits für eine Datei verwendet."
 10258,1,"Erstellen des Verzeichnisses "%s" nicht möglich."
@@ -2190,7 +2205,7 @@ SLGINCOMPLETE,""
 10270,1,"Name"
 10271,1,"Erweiterung"
 
-[STRINGTABLE 19]
+[STRINGTABLE 22]
 10272,1,"DOS Name (8.3)"
 10273,1,"Größe"
 10274,1,"Typ"
@@ -2205,7 +2220,7 @@ SLGINCOMPLETE,""
 10286,1,"JAR zu 1.44MB Diskette (Externes Win32/x64, getested mit v1.02)"
 10287,1,"RAR (Externes Win32/x64, getested mit v2.50)"
 
-[STRINGTABLE 20]
+[STRINGTABLE 23]
 10288,1,"RAR zu 1.44MB Diskette (Externes Win32/x64, getest mit v2.50)"
 10289,1,"ARJ (Externes DOS, getest mit v2.60)"
 10290,1,"ARJ zu 1.44MB Diskette (Externes DOS, getest mit v2.60)"
@@ -2223,7 +2238,7 @@ SLGINCOMPLETE,""
 10302,1,"RAR zu 1.44MB Diskette (Externes DOS, getest mit v2.50)"
 10303,1,"PKZIP (Externes Win32/x64, getest mit v2.50)"
 
-[STRINGTABLE 21]
+[STRINGTABLE 24]
 10304,1,"PKZIP (Externes DOS, getestet mit v2.04g)"
 10307,1,"JAR (Externes Win32/x64, getestet mit v1.02)"
 10308,1,"RAR (Externes Win32/x64, getestet mit v2.50)"
@@ -2239,7 +2254,7 @@ SLGINCOMPLETE,""
 10318,1,"PKUNZIP (Externes DOS, getestet mit v2.04g)"
 10319,1,"Win32/x64 JAR Konsolenprogramm (getestet mit v1.02)"
 
-[STRINGTABLE 22]
+[STRINGTABLE 25]
 10320,1,"Win32/x64 RAR Konsolenprogramm (getested mit v2.50)"
 10321,1,"MS-DOS ARJ Konsolenprogramm (getested mit v2.60)"
 10322,1,"MS-DOS LHA Konsolenprogramm (getested mit v2.55)"
@@ -2256,7 +2271,7 @@ SLGINCOMPLETE,""
 10334,1,"Ändern (F2)"
 10335,1,"Neu (Einfg)"
 
-[STRINGTABLE 23]
+[STRINGTABLE 26]
 10336,1,"Löschen (Entf)"
 10337,1,"Nach oben (Alt + Pfeil hoch)"
 10338,1,"Nach unten (Alt + Pfeil runter)"
@@ -2274,7 +2289,7 @@ SLGINCOMPLETE,""
 10350,1,"Umgebungsvariable"
 10351,1,"Vollständiger Name"
 
-[STRINGTABLE 24]
+[STRINGTABLE 27]
 10352,1,"DOS vollständiger Name"
 10353,1,"Vollständiger Pfad"
 10354,1,"Windows-Verzeichnis"
@@ -2291,7 +2306,7 @@ SLGINCOMPLETE,""
 10366,1,"Die Zeiteinstellung muss im Bereich von 0 bis 3600 s liegen"
 10367,1,"&Pluginleiste"
 
-[STRINGTABLE 25]
+[STRINGTABLE 28]
 10368,1,"Ben&utzermenüleiste"
 10369,1,"&Obere Symbolleiste"
 10370,1,"&Favoritenleiste"
@@ -2309,7 +2324,7 @@ SLGINCOMPLETE,""
 10382,1,"Letztes Änderungs&datum"
 10383,1,"Letzte Änderungszei&t"
 
-[STRINGTABLE 26]
+[STRINGTABLE 29]
 10384,1,"Datei&attribute"
 10385,1,"Symbolleiste &anpassen..."
 10386,1,"&Favoriten zuweisen"
@@ -2319,7 +2334,7 @@ SLGINCOMPLETE,""
 10390,1,"Intelligenter Spaltenmodus\tStrg+N"
 10391,1,"Registerkarten-&Leisten"
 
-[STRINGTABLE 27]
+[STRINGTABLE 30]
 10400,1,"Hilfe,Umbenennen,Anzeigen,Bearbeiten,Kopieren,Verschieben,Neues Verz.,Löschen,Benutzermenü,Menü,Verbinden,Trennen"
 10401,1,"LW Wechsel li,LW Wechsel re,Alt. Anzeige,Verlassen,Packen,Entpacken,Suchen,,Entpacken,Speicherplatz,Dateiliste,Verz.liste"
 10402,1,"Laufwerkinfo,Attr. ändern,Nach Name,Nach Erw,Nach Zeit,Nach Größe,Groß/Klein,,Aktualisieren,Vergleichen,Max/Min,Filter"
@@ -2328,7 +2343,7 @@ SLGINCOMPLETE,""
 10406,1,",,,,,,,,,Verz. Menü,,"
 10408,1,"Hilfe,,,,,,,,,Menü,,"
 
-[STRINGTABLE 28]
+[STRINGTABLE 31]
 10420,1,"Netzlaufwerk verbinden\tF11"
 10421,1,"Netzlaufwerk trennen\tF12"
 10424,1,"Verzeichnis erstellen\tF7"
@@ -2339,7 +2354,7 @@ SLGINCOMPLETE,""
 10430,1,"Nach Erweiterung sortieren\tStrg+F4"
 10431,1,"Nach Größe sortieren\tStrg+F6"
 
-[STRINGTABLE 29]
+[STRINGTABLE 32]
 10432,1,"Nach Datum sortieren\tStrg+F5"
 10433,1,"Übergeordnetes Verzeichnis\tRücktaste"
 10434,1,"Wurzelverzeichnis\tUmschalt+Rücktaste"
@@ -2356,7 +2371,7 @@ SLGINCOMPLETE,""
 10445,1,"Löschen\tF8"
 10447,1,"NTFS komprimieren"
 
-[STRINGTABLE 30]
+[STRINGTABLE 33]
 10448,1,"NTFS dekomprimieren"
 10449,1,"Umbenennen\tF2"
 10450,1,"Groß-/Kleinschreibung ändern\tStrg+F7"
@@ -2373,7 +2388,7 @@ SLGINCOMPLETE,""
 10462,1,"Laufwerk wechseln"
 10463,1,"Bearbeiten\tF4"
 
-[STRINGTABLE 31]
+[STRINGTABLE 34]
 10465,1,"Auswählen\tNum +"
 10466,1,"Abwählen\tNum -"
 10467,1,"Auswahl umkehren\tNum *"
@@ -2390,7 +2405,7 @@ SLGINCOMPLETE,""
 10478,1,"Schriften öffnen"
 10479,1,"Konvertieren\tStrg+K"
 
-[STRINGTABLE 32]
+[STRINGTABLE 35]
 10480,1,"Gesamte Auswahl aufheben\tStrg+D"
 10481,1,"Menü aktivieren oder verlassen"
 10482,1,"Alternativer Dateibetrachter"
@@ -2408,7 +2423,7 @@ SLGINCOMPLETE,""
 10494,1,"Favoriten\tUmschalt+F9"
 10495,1,"E-Mail"
 
-[STRINGTABLE 33]
+[STRINGTABLE 36]
 10496,1,"Dateifenster maximieren/wiederherstellen"
 10497,1,"Freigegebene Verzeichnisse\tStrg+Umschalt+F9"
 10498,1,"Vollbild umschalten"
@@ -2426,7 +2441,7 @@ SLGINCOMPLETE,""
 10510,1,"Im Explorer öffnen"
 10511,1,"Konfiguration"
 
-[STRINGTABLE 34]
+[STRINGTABLE 37]
 10512,1,"Kontextmenü des aktuellen Verzeichnisses"
 10513,1,"Fokussiere Name im anderen Fenster"
 10514,1,"Öffne Name im anderen Fenster"
@@ -2442,7 +2457,7 @@ SLGINCOMPLETE,""
 10524,1,"Vorheriger Tab"
 10525,1,"Tab duplizieren"
 
-[STRINGTABLE 35]
+[STRINGTABLE 38]
 10530,1,"Der Variablenname muss mit ')' abgeschlossen werden."
 10531,1,"Interner Fehler."
 10532,1,"Die Variable "%s" wurde nicht gefunden."
@@ -2455,7 +2470,7 @@ SLGINCOMPLETE,""
 10539,1,"Leere Zeichenkette ist hier nicht erlaubt."
 10540,1,"Falsche Variablenlänge (muss im Bereich von 1 bis 9999 liegen oder 'max' verwenden, damit der längste Wert der Variablen passt)."
 
-[STRINGTABLE 36]
+[STRINGTABLE 39]
 10550,1,"Externes Programm"
 10551,1,"-- nicht unterstützt --"
 10552,1,"&Eigene Farben..."
@@ -2467,7 +2482,7 @@ SLGINCOMPLETE,""
 10558,1,"Die Farbe des Textes nicht än&dern"
 10559,1,"Die Farbe des Hinter&grundes nicht ändern"
 
-[STRINGTABLE 37]
+[STRINGTABLE 40]
 10564,1,"Element im Dateifenster"
 10565,1,"Rahmen des aktuellen Elementes"
 10566,1,"Symbolhintergrund im Dateifenster"
@@ -2481,7 +2496,7 @@ SLGINCOMPLETE,""
 10574,1,"Normal"
 10575,1,"Ausgewählt"
 
-[STRINGTABLE 38]
+[STRINGTABLE 41]
 10576,1,"Aktuell"
 10577,1,"Aktuell und Ausgewählt"
 10578,1,"Linker Teil (fertig)"
@@ -2495,7 +2510,7 @@ SLGINCOMPLETE,""
 10586,1,"Pfad-Autovervollständigung"
 10588,1,"Ausgewähltes Element in der Liste"
 
-[STRINGTABLE 39]
+[STRINGTABLE 42]
 10595,1,"Rahmen der Vorschau"
 10600,1,"Benutzerdefiniert"
 10601,1,"Open Samandarin"
@@ -2504,13 +2519,13 @@ SLGINCOMPLETE,""
 10604,1,"DOS Navigator"
 10605,1,"Windows-Darkmode (experimentell)"
 
-[STRINGTABLE 40]
+[STRINGTABLE 43]
 10665,1,"Name"
 10666,1,"Hotkey"
 10667,1,"Name"
 10671,1,"Filter ist aktiv"
 
-[STRINGTABLE 41]
+[STRINGTABLE 44]
 10672,1,"Freier Speicher\nKlicken zum Anzeigen der Laufwerkinformation (Strg+F1)"
 10673,1,"Liste der benutzten Verzeichnisse (Alt+F12)"
 10674,1,"Maximieren/Wiederherstellen (Strg+F11)"
@@ -2519,7 +2534,7 @@ SLGINCOMPLETE,""
 10680,1,"Interner Dateibetrachter"
 10681,1,"Externer Dateibetrachter"
 
-[STRINGTABLE 42]
+[STRINGTABLE 45]
 10694,1,"Ändern des Laufwerknamens nicht möglich.\nFehler: %s"
 10696,1,"Strg"
 10697,1,"Umschalt"
@@ -2529,7 +2544,7 @@ SLGINCOMPLETE,""
 10702,1,"Der Dateiname "%s" ist falsch."
 10703,1,"Die Datei "%s" beeinhaltet keine Symbole."
 
-[STRINGTABLE 43]
+[STRINGTABLE 46]
 10704,1,"Kann die Datei "%s" nicht finden."
 10706,1,"Externer Dateibetrachter [%s]"
 10707,1,"Interner Dateibetrachter"
@@ -2542,7 +2557,7 @@ SLGINCOMPLETE,""
 10716,1,"Bearbeiten"
 10717,1,"Öffnen"
 
-[STRINGTABLE 44]
+[STRINGTABLE 47]
 10720,1,"Attribute"
 10721,1,"Größe"
 10722,1,"Datum"
@@ -2555,7 +2570,7 @@ SLGINCOMPLETE,""
 10734,1,"Suche:"
 10735,1,"Suchen"
 
-[STRINGTABLE 45]
+[STRINGTABLE 48]
 10736,1,"suche"
 10737,1,"Eine leere Zeichenkette ist hier nicht erlaubt."
 10738,1,"Die Optionen "%s" wurden geladen"
@@ -2569,7 +2584,7 @@ SLGINCOMPLETE,""
 10750,1,"Initialisiere Daten..."
 10751,1,"Lese Liste der freigegebenen Verzeichnisse..."
 
-[STRINGTABLE 46]
+[STRINGTABLE 49]
 10752,1,"Lese die Konfiguration aus der Registrierung..."
 10753,1,"Importiere die Konfiguration aus der Registrierung..."
 10754,1,"Lese Dateizuordnungen aus der Registrierung..."
@@ -2584,7 +2599,7 @@ SLGINCOMPLETE,""
 10766,1,"Information"
 10767,1,"Überspringe Verzeichnis"
 
-[STRINGTABLE 47]
+[STRINGTABLE 50]
 10768,1,"Möchten Sie das Verzeichnis "%s" zur Liste der ignorierten Verzeichnisse hinzufügen?"
 10769,1,"Überspringe %d Fehler..."
 10770,1,"&Folgende Fehlermeldungen zurückstellen"
@@ -2594,7 +2609,7 @@ SLGINCOMPLETE,""
 10782,1,"Beliebiges Zeichen aus Zeichensatz"
 10783,1,"Beliebiges Zeichen außer Zeichensatz"
 
-[STRINGTABLE 48]
+[STRINGTABLE 51]
 10784,1,"Beliebiges Zeichen aus Bereich"
 10785,1,"Anfang der Zeile"
 10786,1,"Ende der Zeile"
@@ -2612,7 +2627,7 @@ SLGINCOMPLETE,""
 10798,1,"Dezimalpunkt"
 10799,1,"Dezimalzahl"
 
-[STRINGTABLE 49]
+[STRINGTABLE 52]
 10800,1,"Hexadezimalzahl"
 10801,1,"Reele Zahl"
 10802,1,"Zeichenkette in Anführungszeichen"
@@ -2629,7 +2644,7 @@ SLGINCOMPLETE,""
 10814,1,"Lokales Laufwerk"
 10815,1,"Entfernbares Laufwerk"
 
-[STRINGTABLE 50]
+[STRINGTABLE 53]
 10818,1,"E-Mail senden:"
 10819,1,"Ihre Dateien wurden angehängt und können mit der E-Mail versandt werden."
 10820,1,"Senden der E-Mail nicht möglich. Kein Mailprogramm zum Versenden der Mail eingerichtet, MAPI32.DLL wurde nicht gefunden."
@@ -2642,7 +2657,7 @@ SLGINCOMPLETE,""
 10830,1,"(Keine Plugins installiert)"
 10831,1,"(Keine konfigurierbaren Plugins vorhanden)"
 
-[STRINGTABLE 51]
+[STRINGTABLE 54]
 10832,1,"Der Name "%s" kann nicht nach UNC konvertiert werden.\nEr ist weder der eines freigegebenen Verzeichnisses noch der eines verbundenen Laufwerkes."
 10833,1,"Möchten Sie die Freigabe "%s" wirklich aufheben?"
 10834,1,"Freigabename"
@@ -2657,7 +2672,7 @@ SLGINCOMPLETE,""
 10846,1,"Wie&derholen"
 10847,1,"&Weiter"
 
-[STRINGTABLE 52]
+[STRINGTABLE 55]
 10848,1,"&Ja"
 10849,1,"&Nein"
 10850,1,"Links"
@@ -2669,7 +2684,7 @@ SLGINCOMPLETE,""
 10862,1,"&Mittlere Symbolleiste"
 10863,1,"Vollständiger Pfad"
 
-[STRINGTABLE 53]
+[STRINGTABLE 56]
 10864,1,"Nur Verzeichnisname"
 10865,1,"Abgekürzter Pfad"
 10866,1,"Keine"
@@ -2683,7 +2698,7 @@ SLGINCOMPLETE,""
 10874,1,"Kein Linkziel gefunden."
 10875,1,"Dieser Link ist ein Volumebereitstellungspunkt. Er kann im Dateifenster nicht angezeigt werden.\nPfad: %s"
 
-[STRINGTABLE 54]
+[STRINGTABLE 57]
 10880,1,"{!}Sekunde{n|0||1|n}"
 10881,1,"{!}Minute{n|0||1|n}"
 10882,1,"{!}Stunde{n|0||1|n}"
@@ -2698,13 +2713,13 @@ SLGINCOMPLETE,""
 10893,1,"Das Vergleichen mit dem Plugin Dateisystem wird noch nicht unterstützt."
 10894,1,"Im linken und rechten Fenster ist derselbe Pfad gewählt."
 
-[STRINGTABLE 55]
+[STRINGTABLE 58]
 10900,1,"Das Verschlüsseln wird auf diesem Laufwerk oder unter diesem Betriebssystem nicht unterstützt."
 10905,1,"Fehler beim Ändern der Verschlüsselung"
 10910,1,"Verschlüsseln der Datei bestätigen"
 10911,1,"Die Datei mit SYSTEM-Attribut wirklich verschlüsseln?"
 
-[STRINGTABLE 56]
+[STRINGTABLE 59]
 10920,1,"&Pause"
 10921,1,"&Weiter"
 10922,1,"Angehalten"
@@ -2713,7 +2728,7 @@ SLGINCOMPLETE,""
 10926,1,"(Name: %s, Benutzer: %s)"
 10927,1,"Eigene Dateien"
 
-[STRINGTABLE 57]
+[STRINGTABLE 60]
 10928,1,"3D-Objekte"
 10929,1,"Desktop"
 10930,1,"Name"
@@ -2725,7 +2740,7 @@ SLGINCOMPLETE,""
 10936,1,"Videos"
 10940,1,"(keine)"
 
-[STRINGTABLE 58]
+[STRINGTABLE 61]
 10945,1,"Entpacken der Datei aus dem Archiv in das temporären Verzeichnis\n nicht möglich, der erstellte Dateiname ist zu lang."
 10946,1,"Entpacken der Datei aus dem Archiv nicht möglich, da dieser Name vom Windows Dateisystems nicht unterstützt wird und das Packer-Plugin kein Entpacken in einen anderen Dateimamen unterstützt."
 10950,1,"Pfad auswählen"
@@ -2734,7 +2749,7 @@ SLGINCOMPLETE,""
 10953,1,"(Symbolischer Link zu: %s)"
 10955,1,"&Alle ignorieren"
 
-[STRINGTABLE 59]
+[STRINGTABLE 62]
 10960,1,"Wie auf Datenträger gespeichert"
 10961,1,"In gemischter Groß-/Kleinschreibung für das DOS Format"
 10962,1,"In Kleinbuchstaben; Verzeichnisse in Großbuchstaben"
@@ -2743,7 +2758,7 @@ SLGINCOMPLETE,""
 10965,1,"In Großbuchstaben"
 10970,1,"Kein Import, starte mit Standardkonfiguration"
 
-[STRINGTABLE 60]
+[STRINGTABLE 63]
 10980,1,"&Durchsuchen...\tStrg+B"
 10981,1,"Active &Linker Fenster Pfad\tStrg+["
 10982,1,"Active &Rechter Fenster Pfad\tStrg+]"
@@ -2751,7 +2766,7 @@ SLGINCOMPLETE,""
 10986,1,"In KBytes (Windows Explorer Standard)"
 10987,1,"Im Kurzformat (zum Beispiel 15 B, 3.41 KB, oder 12.5 MB)"
 
-[STRINGTABLE 61]
+[STRINGTABLE 64]
 10994,1,"Bevor der alte Prozess nicht beendet ist, kann kein neuer Prozess  ausgeführt werden. Drücken Sie 'Weiter' und warten Sie bis der vorherige Prozess beendet ist.\n\nWenn es keinen andern Prozess gibt, drücken Sie 'Abbrechen' und senden Sie uns den Fehlerreport zur Korrektur des Fehlers. Der Open Samandarin wird beendet."
 10995,1,"Das Fenster kann nicht geschlossen werden solange ein Prozess ausgeführt wird der dieses Fenster benötigt. Drücken Sie 'Weiter' und warten Sie, bis der Prozess beendet ist.\n\nWenn es keinen anderen Prozess gibt, drücken Sie 'Abbrechen' und senden Sie uns den Fehlerreport zur Korrektur des Fehlers. Der Open Samandarin wird beendet."
 10996,1,"Open Samandarin wird auf Grund einer fehlerhaften Shellerweiterung instabil. Senden Sie uns bitte den folgenden Fehlerbericht zu, um uns zu helfen dieses Problem zu beheben.\n\nDrücken Sie 'OK', um das Dialogfeld 'Bug-Reporter' zu öffnen."
@@ -2766,7 +2781,7 @@ SLGINCOMPLETE,""
 11006,1,"Externes Programm "%1" hat folgenden Fehler zurückgegeben: %2"
 11007,1,"Externes Packprogramm "%1" kann nicht ausgeführt werden."
 
-[STRINGTABLE 62]
+[STRINGTABLE 65]
 11008,1,"Ungültige temporäre Datei."
 11009,1,"Pfad zur Datei zu lang: %1"
 11010,1,"Syntaxfehler in der Packer-Kommandozeile."
@@ -2782,7 +2797,7 @@ SLGINCOMPLETE,""
 11020,1,"Umbenennen der temporären Archivdatei (%1) zu Archivname (%2) nicht möglich."
 11021,1,"Dieser Dateiname wird vom Windows-Dateisystem nicht unterstützt. Externe Packprogramme unterstützen kein Entpacken unter einem anderen Dateinamen, somit ist es nicht möglich diese Datei zu entpacken."
 
-[STRINGTABLE 63]
+[STRINGTABLE 66]
 11025,1,"Rückgabecode %d."
 11026,1,"Warnung aufgetreten."
 11027,1,"Fehler bei Entpacken."
@@ -2799,7 +2814,7 @@ SLGINCOMPLETE,""
 11038,1,"Zu viele Abschnitte im Archiv."
 11039,1,"Temporäre Datei kann nicht in Datei konvertiert werden."
 
-[STRINGTABLE 64]
+[STRINGTABLE 67]
 11040,1,"Interner Fehler."
 11041,1,"Unbekannter Fehler."
 11042,1,"Datei übersprungen."
@@ -2817,7 +2832,7 @@ SLGINCOMPLETE,""
 11054,1,"Führe externes Programm aus, bitte warten..."
 11055,1,"Pfadname des Jar32-Programmes"
 
-[STRINGTABLE 65]
+[STRINGTABLE 68]
 11056,1,"Jar16 Pfadname des Programmes"
 11057,1,"Rar32 Pfadname des Programmes"
 11058,1,"Rar16 Pfadname des Programmes"
@@ -2833,20 +2848,20 @@ SLGINCOMPLETE,""
 11068,1,"Programm suchen"
 11070,1,"Benutzerabbruch oder unbeantwortete Frage (wiederholen Sie diesen Vorgang und klicken Sie dann auf den "salspawn.exe"-Prozess in der Taskleiste zum Anzeigen des Packer Fensters)."
 
-[STRINGTABLE 66]
+[STRINGTABLE 69]
 11102,1,"Der Packer unterstützt das Komprimieren in Unterverzeichnisse nicht.\nMöchten Sie stattdessen die Dateien in das Wurzelverzeichnis des Archivs schreiben?"
 11103,1,"Der Packer unterstützt den 'Verschieben in das Archiv' Befehl nicht.\nMöchten Sie stattdessen 'Kopieren in das Archiv' benutzen?"
 
-[STRINGTABLE 67]
+[STRINGTABLE 70]
 11104,1,"Dieser Pfad kein gültiges Verzeichnis."
 
-[STRINGTABLE 68]
+[STRINGTABLE 71]
 11209,1,"Fehlerhilfe"
 11210,1,"Ausführen von HtmlHelp nicht möglich."
 11211,1,"Hilfedatei nicht gefunden."
 11215,1,"Benutzen Sie Alt + Pfeil rechts zum Öffnen des Menüs aus einem Eingabefeld"
 
-[STRINGTABLE 69]
+[STRINGTABLE 72]
 11220,1,"Fokus"
 11221,1,"Eintrag auswählen\tLeertaste"
 11222,1,"Datei anzeigen\tF3"
@@ -2859,13 +2874,13 @@ SLGINCOMPLETE,""
 11229,1,"Fehlermeldungen: %d\nInformationsmeldungen: %d\nKlicken um das 'Suchen'-Protokoll anzuzeigen"
 11231,1,"Eigenschaften\tAlt+Enter"
 
-[STRINGTABLE 70]
+[STRINGTABLE 73]
 11240,1,"Sie haben einige Spezialoptionen angegeben (siehe Schaltfläche 'Optionen' im Kopieren/Verschieben-Dialog). Diese Optionen werden beim Kopieren/Verschieben in ein Archiv nicht unterstützt. Optionen werden ignoriert."
 11241,1,"Diese Mel&dung nicht mehr anzeigen\tHinweis \tSie können diese Einstellung später auf der Bestätigungsseite in der Konfiguration ändern."
 11245,1,"Dateinamenteil"
 11246,1,"Erweiterungsteil"
 
-[STRINGTABLE 71]
+[STRINGTABLE 74]
 11250,1,"Pfad zum Zielverzeichnis ist zu lang. Drücken Sie die Schaltfläche 'Überspringen' um das gesamte Vereichnis zu überspringen.\n\nPfad: %s\n\nName: %s"
 11255,1,"Erweitert"
 11256,1,"Voller Pfad im inaktiven Fenster"
@@ -2877,7 +2892,7 @@ SLGINCOMPLETE,""
 11262,1,"Zweites Verzeichnis zum Vergleichen (möglichst rechtes Fenster)"
 11263,1,"Erste Datei zum Vergleichen (möglichst aktives Fenster)"
 
-[STRINGTABLE 72]
+[STRINGTABLE 75]
 11264,1,"Zweite Datei zum Vergleichen (möglichst inaktives Fenster)"
 11265,1,"Erstes Verzeichnis zum Vergleichen (möglichst aktives Fenster)"
 11266,1,"Zweites Verzeichnis zum Vergleichen (möglichst inaktives Fenster)"
@@ -2888,7 +2903,7 @@ SLGINCOMPLETE,""
 11271,1,"Erste Datei oder Verzeichnis zum Vergleichen (möglichst aktives Fenster)"
 11272,1,"Zweite Datei oder Verzeichnis zum Vergleichen (möglichst inaktives Fenster)"
 
-[STRINGTABLE 73]
+[STRINGTABLE 76]
 12000,1,"Ne&u"
 12001,1,"Starten des E-Mail-Standardprogramms nicht möglich. Fehlernummer %d."
 12002,1,"Bestätigen Sie die NTFS-Komprimierung"
@@ -2902,7 +2917,7 @@ SLGINCOMPLETE,""
 12011,1,"Die exportierte Konfigurationsdatei wird mit den Konfigurationsdaten aus der Registrierung erstellt.\nSoll die Konfiguration vor dem Export in die Registrierung gespeichert werden?"
 12015,1,"Das Importieren der Konfiguration ist ganz einfach. Suchen Sie die Konfigurationsdatei und öffnen Sie diese (durch Eingabetaste oder Doppelklick). Sie sollte im Registrierungs-Editor geöffnet werden. Wenn die Frage angezeigt wird, ob Sie die Informationen zur Registrierung hinzufügen möchten, sollten Sie alle aktiven Instanzen des Open Samandarins schließen. Damit wird das Überschreiben der neu importierten Konfiguration durch das automatische Speichern beim Beenden des Open Samandarins verhindert. Wenn kein Open Samandarin aktiv ist, drücken Sie im Dialogfeld des Registrierungs-Editors auf "Ja", dann wird die Konfiguration aus der Datei in die Registrierung importiert."
 
-[STRINGTABLE 74]
+[STRINGTABLE 77]
 12020,1,"Laden des Plugins %s (%s) oder einer seiner Komponenten nicht möglich.\nFehler: %s\nPrüfen Sie die Angaben unter 'Plugins'/'Plugins anpassen')."
 12021,1,"Diese SPL Datei %s ist kein Open Samandarin Plugin."
 12022,1,"%s-Plugin (%s) wurde geändert. Bitte installieren ('Entfernen' und 'Hinzufügen') Sie das Plugin neu (im Menu 'Plugins'/'Plugins anpassen')."
@@ -2911,7 +2926,7 @@ SLGINCOMPLETE,""
 12025,1,"Das Plugin (%s) wurde nicht geladen. Das Plugin ist enweder kein gültiges Open Samandarin-Plugin oder ein plugin-interner Fehler ist aufgetreten."
 12026,1,"Das Plugin (%s) wird von dieser Version des Open Samandarins nicht unterstützt. Bitte laden Sie eine aktualisierte Version des Plugins."
 
-[STRINGTABLE 75]
+[STRINGTABLE 78]
 12033,1,"Das Hinzufügen der aktualisierten Datei(en) in das Archiv ist fehlgeschlagen. Wollen Sie es erneut versuchen? Wählen Sie 'Nein', um zum Packer-Aktualisierungsmenü zurückzukehren, dann können Sie die aktualisierte(n) Datei(en) in das gewählte Verzeichnis kopieren (um sie später dem Archiv hinzuzufügen)."
 12039,1,"Die Größe des im Dateibetrachter gewählten Blocks ist über 100 MB. Das Kopieren dieses Blocks in die Zwischenablage oder das Verschieben mit Drag & Drop kann sich verzögern. Möchten Sie diese Vorgänge für Blocks größer als 100 MB im Dateibetrachter überspringen?"
 12040,1,"Unbekannter Fehler."
@@ -2923,7 +2938,7 @@ SLGINCOMPLETE,""
 12046,1,"&OEM - ANSI"
 12047,1,"Falsche Dateigröße (nicht 256 Bytes)."
 
-[STRINGTABLE 76]
+[STRINGTABLE 79]
 12048,1,"Fehler beim Öffnen der Datei "%s".\n%s"
 12049,1,"Unbekannte interne Codierung (weder ANSI - OEM noch OEM - ANSI) der Datei "%s"."
 12050,1,"Falsche Zeile in der Datei "%s"."
@@ -2936,7 +2951,7 @@ SLGINCOMPLETE,""
 12060,1,"Ein leerer Name macht hier keinen Sinn."
 12061,1,"Der angegebene Pfad ist unvollständig, bitte geben Sie einen vollständigen Pfad an."
 
-[STRINGTABLE 77]
+[STRINGTABLE 80]
 12080,1,"Die laufende Instanz des Open Samandarin ist ausgelastet.\nMöchten Sie eine neuen Instanz starten?"
 12081,1,"Der Open Samandarin ist ausgelastet. Der Befehl kann nicht ausgeführt werden, versuchen Sie es später noch einmal."
 12085,1,"In Datei kopieren"
@@ -2951,7 +2966,7 @@ SLGINCOMPLETE,""
 12094,1,"Dateibetrachter"
 12095,1,"Menüerweiterung"
 
-[STRINGTABLE 78]
+[STRINGTABLE 81]
 12096,1,"Dateisystem (FS)"
 12097,1,"Ja"
 12098,1,"Nein"
@@ -2969,7 +2984,7 @@ SLGINCOMPLETE,""
 12110,1,"Name"
 12111,1,"Geladen"
 
-[STRINGTABLE 79]
+[STRINGTABLE 82]
 12112,1,"Version"
 12113,1,"Ort"
 12114,1,"(keine)"
@@ -2987,7 +3002,7 @@ SLGINCOMPLETE,""
 12126,1,"Fehler beim Auslesen der Datei-Eigenschaften."
 12127,1,"Erweiterungs-Hilfsprogramm"
 
-[STRINGTABLE 80]
+[STRINGTABLE 83]
 12128,1,"&Aktivieren"
 12129,1,"&Deaktivieren"
 12130,1,"Der angegebene Pfad wurde nicht gefunden."
@@ -3005,13 +3020,13 @@ SLGINCOMPLETE,""
 12142,1,"Versuche Netzlaufwerk zu verbinden, drücken Sie die ESC-Taste zum abbrechen..."
 12143,1,"Konfiguration wird in der Registrierung gespeichert, bitte warten..."
 
-[STRINGTABLE 81]
+[STRINGTABLE 84]
 12145,1,"Löschen der alten Konfiguration aus der Registrierung, bitte warten..."
 12146,1,"Entpacke Datei aus dem Archiv, bitte warten..."
 12147,1,"Lese die Liste der Dateien und Verzeichnissen des Archivs, bitte warten..."
 12148,1,"Lade alle Plugins, bitte warten..."
 
-[STRINGTABLE 82]
+[STRINGTABLE 85]
 12160,1,"Das Schließen des Pfades "%s" wurde verweigert.\nMöchten Sie das Schließen erzwingen?"
 12165,1,"Mehrere Verbindungen mit unterschiedlichen Benutzernamen zu einem Server oder einer Freigabe sind nicht erlaubt. Trennen Sie alle bisherigen Verbindungen zum Server oder der Freigabe und versuchen Sie es erneut."
 12170,1,"Alle ausgewählten Dateien ignorieren (um sie bei der Archivaktualisierung auszuschließen)?"
@@ -3019,22 +3034,22 @@ SLGINCOMPLETE,""
 12172,1,"Kopiere aktualisierte Dateien"
 12173,1,"Wählen Sie das Zielverzeichnis für die aktualisierten Dateien."
 
-[STRINGTABLE 83]
+[STRINGTABLE 86]
 12180,1,"Überprüfe den Pfad "%s", drücken Sie die ESC-Taste zum Abbrechen..."
 12181,1,"Auflisten des Pfades "%s", drücken Sie die ESC-Taste zum Abbrechen..."
 12190,1,"Durchsuche den Text, drücken Sie die ESC-Taste zum Abbrechen..."
 
-[STRINGTABLE 84]
+[STRINGTABLE 87]
 12200,1,"Pfad: "%s"\nFehler: %s"
 12201,1,"Der Pfad "%s" existiert nicht im Archiv."
 12205,1,"Ein leerer Benutzername ist hier nicht erlaubt."
 
-[STRINGTABLE 85]
+[STRINGTABLE 88]
 12210,1,"Menü 'Neu' ist nicht vorhanden."
 12215,1,"Das in den Umgebungsvariablen TMP oder TEMP angegebene Verzeichnis existiert nicht oder es kann nicht darauf zugegriffen werden. Der Open Samandarin wird das Systemverzeichnis für temporäre Dateien verwenden."
 12220,1,"Oberes Verzeichnis"
 
-[STRINGTABLE 86]
+[STRINGTABLE 89]
 12225,1,"3.5 Diskette"
 12226,1,"5.25 Diskette"
 12227,1,"8.0 Diskette"
@@ -3043,7 +3058,7 @@ SLGINCOMPLETE,""
 12233,1,"In diesem Dateifenster befinden sich keine Elemente."
 12235,1," (Plugin)"
 
-[STRINGTABLE 87]
+[STRINGTABLE 90]
 12240,1,"Sie können diesen Prozess nicht unterbrechen (macht keinen Sinn). Versuchen Sie mit einem anderen Open Samandarin diesen Prozess zu unterbrechen."
 12241,1,"Möchten Sie den laufenden Prozess wirklich beenden?\n\nAchtung: Alle nicht gesicherten Daten des laufenden Prozesses gehen verloren!"
 12242,1,"Möchten Sie den angegebenen Prozess wirklich beenden?\n\nAchtung: Alle nicht gesicherten Daten des angegebenen Prozesses gehen verloren!"
@@ -3056,16 +3071,16 @@ SLGINCOMPLETE,""
 12249,1,"Möchten Sie den angegebenen Prozess wirklich abbrechen und einen Fehlerbericht senden?\n\nAchtung: Alle nicht gesicherten Daten des laufenden Prozesses gehen verloren!"
 12255,1,"Lesen der Datei nicht möglich."
 
-[STRINGTABLE 88]
+[STRINGTABLE 91]
 12285,1,"Dieser Vorgang macht wahrscheinlich keinen Sinn. Alle ausgewählten Dateien und Verzeichnisse haben den selben Zielnamen (sie würden sich gegenseitig überschreiben).\nMöchten Sie mit diesem Vorgang fortfahren?"
 
-[STRINGTABLE 89]
+[STRINGTABLE 92]
 12290,1,"Zielpfad "%s" existiert nicht. Möchten Sie ihn erstellen?"
 12291,1,"&Erstelle den Zielpfad, ohne erneut zu fragen\tHinweis \tSie können diese Einstellung später auf der Bestätigungsseite in der Konfiguration ändern."
 12295,1,"Auswahlmasken werden in Archiven nicht unterstützt (Pfad im Archiv muss mit einem Backslash enden)."
 12300,1,"Ungültige Zahl."
 
-[STRINGTABLE 90]
+[STRINGTABLE 93]
 12305,1,"Das Entpacken in Archive oder Dateisystem-Plugins wird nicht unterstützt."
 12306,1,"Auswahlmasken werden beim Entpacken aus dem Archiv nicht unterstützt (Der Zielpfad muss existieren oder am Ende ein \\ haben)."
 12307,1,"Sprachänderungen wirken sich erst nach einem Neustart des Open Samandarins aus."
@@ -3076,7 +3091,7 @@ SLGINCOMPLETE,""
 12313,1,"Das Kopieren und Verschieben innerhalb diese Dateisystem-Plugins wird nicht unterstützt."
 12314,1,"Das Kopieren und Verschieben zum ausgewählten Dateisystem-Plugin wird nicht unterstützt."
 
-[STRINGTABLE 91]
+[STRINGTABLE 94]
 12320,1,"Größe der komprimierten Datei kann nicht ermittelt werden: "%s"\nFehler: %s\nMöchten Sie alle identischen Fehler überspringen?"
 12325,1,"Der Zielpfad für diese Operation kann keinen Pfad zu einer Datei enthalten (Archive werden hier nicht unterstützt)."
 12326,1,"Der Zielpfad für diese Operation muss existieren (das Erstellen des Zielpfades wird hier nicht unterstützt)."
@@ -3084,13 +3099,13 @@ SLGINCOMPLETE,""
 12331,1,"Öffnen oder Bearbeiten der Datei aus dem Archiv nicht möglich. Name der Datei ist im Windows Dateisystems ungültig (diese Dateien können nur im Dateibetrachter geöffnet werden)."
 12335,1,"Das Packen in diesen Archivtyp wird nicht unterstützt. Der Open Samandarin kann die Datei im Archiv nicht aktualisieren.\n\nMöchten Sie diese Datei trotzdem bearbeiten?"
 
-[STRINGTABLE 92]
+[STRINGTABLE 95]
 12340,1,"Warnung"
 12345,1,"Die Zeichenkette '%s' ist kein regulärer Ausdruck.\nFehler: %s."
 12350,1,"Anzeigen &mit\tStrg+Umschalt+F3"
 12351,1,"Bearbeiten mi&t\tStrg+Umschalt+F4"
 
-[STRINGTABLE 93]
+[STRINGTABLE 96]
 12352,1,"&Öffnen\tEnter"
 12353,1,"Suchtext '%s' wurde nicht gefunden."
 12354,1,"Keine Übereinstimmung für den regulären Ausdruck '%s' gefunden."
@@ -3103,7 +3118,7 @@ SLGINCOMPLETE,""
 12363,1,"&Fokus"
 12365,1,"Datei:"
 
-[STRINGTABLE 94]
+[STRINGTABLE 97]
 12370,1,"Entpacken der in der Zwischenablage aufgeführten Dateien und Verzeichnisse ist nicht möglich. Sie sind nicht mehr in dem Archiv."
 12371,1,"Einige Dateien oder Verzeichnisse aus der Zwischenablage wurden im Archiv nicht gefunden.\n\nMöchten Sie weiter machen?"
 12372,1,"Einfügen von Dateien oder Verzeichnisse aus der Zwischenablage hier nicht möglich. Das Open Samandarin's\nHauptfenster muss zum Einfügen verfügbar sein."
@@ -3113,7 +3128,7 @@ SLGINCOMPLETE,""
 12382,1,"unterstützt das verschlüsselte Dateisystem (EFS)"
 12383,1,"unterstützt Objektkennung"
 
-[STRINGTABLE 95]
+[STRINGTABLE 98]
 12384,1,"unterstützt Reparse Points"
 12385,1,"unterstützt kompakte Dateien"
 12386,1,"unterstützt Speicherbeschränkung"
@@ -3121,7 +3136,7 @@ SLGINCOMPLETE,""
 12391,1,"NTFS-Entschlüsselung bestätigen"
 12395,1,"Die Datei existiert bereits. Möchten Sie die existierende Datei bearbeiten?"
 
-[STRINGTABLE 96]
+[STRINGTABLE 99]
 12400,1,"Der Quellpfad kann nicht von Unicode zu Multibyte konvertiert werden, somit kann der Open Samandarin nicht damit arbeiten."
 12401,1,"Einige angegebende Dateien oder Verzeichnisse des Drag&Drop Vorgangs / des Zwischenablage-Befehls wurden nicht gefunden.\n\nMöchten Sie weitermachen?"
 12405,1,"Kein Packer für das %s-Plugin gefunden (siehe 'Packprogramme'/'Packer im Dialogfenster' in der Konfiguration)."
@@ -3132,7 +3147,7 @@ SLGINCOMPLETE,""
 12413,1,"Die Datei enthält einen alternativen Datenstom (ADS). ADS wird im Zielpfad nicht unterstüzt. Drücken Sie die Schaltfläche 'Ja' zum Kopieren der Dateien ohne ADS. Drücken Sie die Schaltfläche 'Überspringen' zum Überspringen dieser Datei."
 12414,1,"Das Verzeichnis enthält einen alternativen Datenstom (ADS). ADS wird im Zielpfad nicht unterstüzt. Drücken Sie die Schaltfläche 'Ja' zum Kopieren des Verzeichnisses ohne ADS. Drücken Sie die Schaltfläche 'Überspringen' zum Überspringen dieses Verzeichnisses."
 
-[STRINGTABLE 97]
+[STRINGTABLE 100]
 12420,1,"Fehler beim Öffnen des Alternativen Datenstromes (ADS)"
 12421,1,"Fehler beim Lesen des Alternativen Datenstromes (ADS)"
 12422,1,"Fehler beim Schreiben des Alternativen Datenstromes(ADS)"
@@ -3141,7 +3156,7 @@ SLGINCOMPLETE,""
 12430,1,"Dateiname"
 12431,1,"Dateigröße"
 
-[STRINGTABLE 98]
+[STRINGTABLE 101]
 12432,1,"Letztes Änderungsdatum"
 12433,1,"Letzte Änderungszeit"
 12434,1,"Dateiattribute"
@@ -3151,7 +3166,7 @@ SLGINCOMPLETE,""
 12442,1,"CRLF (DOS, Windows, OS/2 Zeilenende)"
 12443,1,"TAB"
 
-[STRINGTABLE 99]
+[STRINGTABLE 102]
 12450,1,"Benutzermenü Fehler"
 12451,1,"Die Liste der ausgewählten Namen ist zu lang. Bitte einige Namen abwählen. Die maximale Länge beträgt 32771 Zeichen."
 12452,1,"Die Liste der ausgewählten Namen ist leer. Bitte einige Namen auswählen."
@@ -3164,7 +3179,7 @@ SLGINCOMPLETE,""
 12459,1,"Liste der ausgewählten Namen inklusive Pfad ist zu lang. Bitte einige Namen abwählen. Die maximale Länge beträgt 32771 Zeichen."
 12460,1,"Liste der ausgewählten Namen inklusive Pfad ist leer. Bitte einige Namen auswählen."
 
-[STRINGTABLE 100]
+[STRINGTABLE 103]
 12465,1,"Verzeichnisse zum Vergleichen auswählen"
 12466,1,"&Vergleiche Verzeichnis:"
 12467,1,"&mit Verzeichnis:"
@@ -3176,13 +3191,13 @@ SLGINCOMPLETE,""
 12476,1,"Verbindung "%s""
 12477,1,"Symbolischer Link "%s""
 
-[STRINGTABLE 101]
+[STRINGTABLE 104]
 12480,1,"Die Zieldatei soll verschlüsselt werden (mit EFS) aber entweder wird im Zielpfad Verschlüsselung nicht unterstützt oder die Datei ist in einem unpassenden Zustand. Drücken Sie die Schaltfläche 'Ja' um die Datei ohne Verschlüsselung zu verschieben. Drücken Sie die Schaltfläche 'Überspringen' um die Datei zu überspringen."
 12481,1,"Das Zielerzeichnis soll verschlüsselt werden (mit EFS) aber entweder wird im Zielpfad Verschlüsselung nicht unterstützt oder das Verzeichnis ist in einem unpassenden Zustand. Drücken Sie die Schaltfläche 'Ja' um das Verzeichnis ohne Verschlüsselung zu verschieben. Drücken Sie die Schaltfläche 'Überspringen' um das Verzeichnis zu überspringen."
 12482,1,"Die Zieldatei soll verschlüsselt werden (mit EFS) aber entweder wird im Zielpfad Verschlüsselung nicht unterstützt oder die Datei ist in einem unpassenden Zustand. Drücken Sie die Schaltfläche 'Ja' um die Datei ohne Verschlüsselung zu kopieren. Drücken Sie die Schaltfläche 'Überspringen' um die Datei zu überspringen."
 12483,1,"Das Zielerzeichnis soll verschlüsselt werden (mit EFS) aber entweder wird im Zielpfad Verschlüsselung nicht unterstützt oder das Verzeichnis ist in einem unpassenden Zustand. Drücken Sie die Schaltfläche 'Ja' um das Verzeichnis ohne Verschlüsselung zu kopieren. Drücken Sie die Schaltfläche 'Überspringen' um das Verzeichnis zu überspringen."
 
-[STRINGTABLE 102]
+[STRINGTABLE 105]
 12801,1,"Datei "%s""
 12802,1,"Verzeichnis "%s""
 12803,1,"Möchten Sie %s wirklich komprimieren?\n\nAchtung: Dateien und Verzeichnisse werden entschlüsselt bevor sie komprimiert werden."
@@ -3198,7 +3213,7 @@ SLGINCOMPLETE,""
 12813,1,"Möchten Sie %s wirklich dekomprimieren?"
 12815,1,"Datei "%s""
 
-[STRINGTABLE 103]
+[STRINGTABLE 106]
 12816,1,"Verzeichnis "%s""
 12818,1,"Löschen bestätigen"
 12820,1,"{!}%s Byte{|0||1|s}"
@@ -3213,7 +3228,7 @@ SLGINCOMPLETE,""
 12830,1,"{!}%s Byte{|0||1|s} in %d ausgewählten Datei{|0||1|en} und %d ausgewählten Verzeichni{s|1|ssen}"
 12831,1,"{!}%d Datei{|0||1|en}"
 
-[STRINGTABLE 104]
+[STRINGTABLE 107]
 12832,1,"{!}%d Verzeichni{s|1|sse}"
 12833,1,"{!}%d Datei{|1|en} und %d Verzeichni{s|1|sse}"
 12834,1,"{!}<%s> Byte{|0||1|s} in %d ausgewählten Datei{|0||1|en}"
@@ -3229,7 +3244,7 @@ SLGINCOMPLETE,""
 12844,1,"{!}%d versteckt{1:es|1|e} Verzeichni{s|1|sse}"
 12845,1,"{!}%d versteckte Datei{|0||1|en} und %d versteckt{2:es|1|e} Verzeichni{s|1|sse}"
 
-[STRINGTABLE 105]
+[STRINGTABLE 108]
 13000,1,"&Links"
 13001,1,"Laufwerk &wechseln\tAlt+F1"
 13002,1,"F&ilter...\tStrg+F12"
@@ -3239,7 +3254,7 @@ SLGINCOMPLETE,""
 13006,1,"&Verzeichnisleiste"
 13007,1,"&Kopfleiste"
 
-[STRINGTABLE 106]
+[STRINGTABLE 109]
 13008,1,"&Statusleiste"
 13009,1,"&Aktualisieren\tStrg+F9"
 13010,1,"&Gehe zu"
@@ -3257,7 +3272,7 @@ SLGINCOMPLETE,""
 13022,1,"Anzei&gen\tF3"
 13023,1,"Alte&rnativer Dateibetrachter\tAlt+F3"
 
-[STRINGTABLE 107]
+[STRINGTABLE 110]
 13024,1,"B&earbeiten\tF4"
 13025,1,"Neue &Datei bearbeiten...\tUmschalt+F4"
 13026,1,"&Kopieren...\tF5"
@@ -3272,7 +3287,7 @@ SLGINCOMPLETE,""
 13038,1,"NTFS &dekomprimieren..."
 13039,1,"&Packen...\tAlt+F5"
 
-[STRINGTABLE 108]
+[STRINGTABLE 111]
 13040,1,"E&ntpacken...\tAlt+F9"
 13041,1,"Ne&u"
 13042,1,"&Beenden\tAlt+F4"
@@ -3283,7 +3298,7 @@ SLGINCOMPLETE,""
 13047,1,"NTFS ent&schlüsseln..."
 13048,1,"NT&FS-Befehl"
 
-[STRINGTABLE 109]
+[STRINGTABLE 112]
 13060,1,"&Bearbeiten"
 13061,1,"Ausschnei&den\tStrg+X"
 13062,1,"&Kopieren\tStrg+C"
@@ -3297,7 +3312,7 @@ SLGINCOMPLETE,""
 13070,1,"Aus&wahl umkehren\tNum *"
 13071,1,"A&lles auswählen\tStrg+A"
 
-[STRINGTABLE 110]
+[STRINGTABLE 113]
 13072,1,"Gesamte Auswahl aufhe&ben\tStrg+D"
 13073,1,"Auswahl s&peichern\tStrg+Umschalt+F5"
 13074,1,"Auswahl l&aden\tStrg+Umschalt+F6"
@@ -3314,7 +3329,7 @@ SLGINCOMPLETE,""
 13085,1,"Nicht ausgewählte Namen ausblen&den"
 13086,1,"Ausgeblendete Namen an&zeigen"
 
-[STRINGTABLE 111]
+[STRINGTABLE 114]
 13090,1,"Be&fehle"
 13091,1,"Verzeichnis &erstellen...\tF7"
 13092,1,"Verzeichnis &wechseln...\tUmschalt+F7"
@@ -3330,7 +3345,7 @@ SLGINCOMPLETE,""
 13102,1,"&Netzlaufwerk verbinden...\tF11"
 13103,1,"Netzlaufwerk &trennen...\tF12"
 
-[STRINGTABLE 112]
+[STRINGTABLE 115]
 13104,1,"Eingabe&aufforderung\tNum /"
 13105,1,"&Dateizuordnungen aktualisieren"
 13107,1,"Ben&utzermenü\tF9"
@@ -3346,7 +3361,7 @@ SLGINCOMPLETE,""
 13118,1,"Zul&etzt verwendete Dokumente"
 13119,1,"Ei&gene Dateien"
 
-[STRINGTABLE 113]
+[STRINGTABLE 116]
 13120,1,"Dokument&vorlagen"
 13121,1,"Ve&rzeichnis "Senden an""
 13122,1,"Verzeichnis "Des&ktop""
@@ -3359,7 +3374,7 @@ SLGINCOMPLETE,""
 13131,1,"&Plugins anpassen..."
 13132,1,"Letzter Befehl\tStrg+I"
 
-[STRINGTABLE 114]
+[STRINGTABLE 117]
 13140,1,"&Optionen"
 13141,1,"&Konfiguration..."
 13142,1,"&Autokonfig. Packprogramme..."
@@ -3373,7 +3388,7 @@ SLGINCOMPLETE,""
 13150,1,"&Benutzermenüleiste"
 13151,1,"Befehlsze&ile"
 
-[STRINGTABLE 115]
+[STRINGTABLE 118]
 13152,1,"&Untere Funktionsleiste"
 13153,1,"Konfiguration &speichern"
 13154,1,"Konfiguration &exportieren..."
@@ -3391,14 +3406,14 @@ SLGINCOMPLETE,""
 13166,1,"&Pluginleiste..."
 13167,1,"Konfiguration &importieren..."
 
-[STRINGTABLE 116]
+[STRINGTABLE 119]
 13168,1,"&Baumansicht"
 13169,1,"&Konfigurationen verwalten..."
 13170,1,"&Rechts"
 13171,1,"Laufwerk &wechseln\tAlt+F2"
 13172,1,"&Registerkarten"
 
-[STRINGTABLE 117]
+[STRINGTABLE 120]
 13190,1,"&Hilfe"
 13191,1,"&Inhalt\tF1"
 13192,1,"&Suchen..."
@@ -3408,7 +3423,7 @@ SLGINCOMPLETE,""
 13197,1,"&Prozessliste..."
 13199,1,"Über P&lugins"
 
-[STRINGTABLE 118]
+[STRINGTABLE 121]
 13200,1,"Über &Open Samandarin"
 13201,1,"Impressum &und Danksagungen"
 13202,1,"&Offizielles Supportforum"
@@ -3423,7 +3438,7 @@ SLGINCOMPLETE,""
 13213,1,"Vor&heriger Tab"
 13214,1,"D&oppelteter Tab"
 
-[STRINGTABLE 119]
+[STRINGTABLE 122]
 13220,1,"Neuer &Tab\tCtrl+Shift+T"
 13221,1,"&Tab schließen\tCtrl+Shift+W"
 13222,1,"&Nächster Tab\tCtrl+Shift+Page Down"
@@ -3437,7 +3452,7 @@ SLGINCOMPLETE,""
 13230,1,"Registerkartenfarbe &festlegen..."
 13231,1,"Registerkartenfarbe c&clearen"
 
-[STRINGTABLE 120]
+[STRINGTABLE 123]
 13232,1,"Registerkartenfarbe &festlegen..."
 13233,1,"Registerkartenfarbe c&clearen"
 13234,1,"Registerkartenpräfix &festlegen..."
@@ -3455,7 +3470,7 @@ SLGINCOMPLETE,""
 13246,1,"D&oppelteter Tab"
 13247,1,"D&oppelteter Tab"
 
-[STRINGTABLE 121]
+[STRINGTABLE 124]
 13248,1,"Geschlossenen &Tab erneut öffnen"
 13249,1,"&Tab sperren"
 13250,1,"Tab u&nsperren"
@@ -3467,7 +3482,7 @@ SLGINCOMPLETE,""
 13260,1,"&Tabs"
 13261,1,"&Tabs"
 
-[STRINGTABLE 122]
+[STRINGTABLE 125]
 13300,1,"&Dateien"
 13301,1,"&Öffnen\tEnter"
 13302,1,"&Fokus\tLeertaste"
@@ -3481,7 +3496,7 @@ SLGINCOMPLETE,""
 13310,1,"Ben&utzermenü\tF9"
 13311,1,"&Beenden\tAlt+F4"
 
-[STRINGTABLE 123]
+[STRINGTABLE 126]
 13312,1,"Gleic&he Namen ausblenden\tStrg+Umschalt+H"
 13313,1,"Befeh&le"
 13314,1,"E&igenschaften\tAlt+Enter"
@@ -3495,7 +3510,7 @@ SLGINCOMPLETE,""
 13326,1,"Name als Te&xt kopieren\tAlt+Umschalt+Einfg"
 13327,1,"P&fad als Text kopieren\tStrg+Alt+Einfg"
 
-[STRINGTABLE 124]
+[STRINGTABLE 127]
 13328,1,"U&NC Pfad + Name als Text kopieren\tStrg+Umschalt+Einfg"
 13330,1,"&Ansicht"
 13331,1,"Nach &Name sortieren\tStrg+F3"
@@ -3507,7 +3522,7 @@ SLGINCOMPLETE,""
 13342,1,"Aktuelle Suche hi&nzufügen\tStrg+N"
 13343,1,"&Verwalten...\tStrg+M"
 
-[STRINGTABLE 125]
+[STRINGTABLE 128]
 13344,1,"Nur ein S&uchfenster erlauben"
 13345,1,"Such&protokoll anzeigen...\tStrg+L"
 13346,1,"Verzeichnisliste i&gnorieren...\tStrg+G"
@@ -3520,7 +3535,7 @@ SLGINCOMPLETE,""
 13358,1,"In Suchergebnisliste &einfügen\tStrg+W"
 13359,1,"Doppelte &Dateien finden...\tStrg+D"
 
-[STRINGTABLE 126]
+[STRINGTABLE 129]
 13360,1,"Ö&ffnen\tEnter"
 13361,1,"&Anzeigen\tF3"
 13362,1,"Anzeigen &mit\tStrg+Umschalt+F3"
@@ -3532,7 +3547,7 @@ SLGINCOMPLETE,""
 13368,1,"Kop&ieren\tStrg+C"
 13369,1,"Ein&fügen\tStrg+V"
 
-[STRINGTABLE 127]
+[STRINGTABLE 130]
 13380,1,"Name"
 13381,1,"Erweiterung separat"
 13382,1,"DOS Name (8.3)"
@@ -3543,14 +3558,14 @@ SLGINCOMPLETE,""
 13387,1,"Attribute"
 13388,1,"Bezeichnung"
 
-[STRINGTABLE 128]
+[STRINGTABLE 131]
 13400,1,"&Name\tStrg+F3"
 13401,1,"&Erweiterung\tStrg+F4"
 13402,1,"&Größe\tStrg+F6"
 13403,1,"&Zeit\tStrg+F5"
 13404,1,"&Attribute"
 
-[STRINGTABLE 129]
+[STRINGTABLE 132]
 13445,1,"Bestätigung bei"
 13446,1,"Meldung anzeigen"
 13450,1,"Datei oder Verzeichnis löschen (beachte Tip1)"
@@ -3560,7 +3575,7 @@ SLGINCOMPLETE,""
 13454,1,"System oder Verstecktes Verzeichnis löschen (beachte Tip2)"
 13455,1,"System oder Versteckte Datei überschreiben (wird im Archiv ignoriert)"
 
-[STRINGTABLE 130]
+[STRINGTABLE 133]
 13456,1,"NTFS komprimieren oder dekomprimieren (wird im Archiv ignoriert)"
 13457,1,"NTFS verschlüsseln oder entschlüsseln (wird im Archiv ignoriert)"
 13458,1,"Drag-and-Drop Vorgang"
@@ -3572,7 +3587,7 @@ SLGINCOMPLETE,""
 13470,1,"Möchten Sie die Suche schließen?"
 13471,1,"Möchten Sie den Zielpfad erstellen? (Kopieren/Verschieben)"
 
-[STRINGTABLE 131]
+[STRINGTABLE 134]
 13472,1,"Möchten Sie 'Immer im Vordergrund' aktivieren?"
 13473,1,"Möchten Sie den Open Samandarin beenden?"
 13474,1,"Möchten Sie die ausgewählten Dateien per E-Mail versenden?"
@@ -3586,10 +3601,10 @@ SLGINCOMPLETE,""
 13482,1,"Datei"
 13483,1,"Ordner"
 
-[STRINGTABLE 132]
+[STRINGTABLE 135]
 13551,1,"Möchten Sie den Open Samandarin beenden?"
 
-[STRINGTABLE 133]
+[STRINGTABLE 136]
 13553,1,"(keine)"
 13554,1,"Netzwerk"
 13555,1,"Plugins"
@@ -3603,7 +3618,7 @@ SLGINCOMPLETE,""
 13563,1,"&Open Samandarin beenden, ohne erneut zu fragen\tHinweis \tSie können diese Einstellung später auf der Bestätigungsseite in der Konfiguration ändern."
 13564,1,"&Verzeichnis erstellen, ohne erneut zu fragen\tHinweis \tSie können diese Einstellung später auf der Bestätigungsseite in der Konfiguration ändern."
 
-[STRINGTABLE 134]
+[STRINGTABLE 137]
 13670,1,"Modus"
 13671,1,"Miniaturansicht"
 13672,1,"Kurz"
@@ -3612,7 +3627,7 @@ SLGINCOMPLETE,""
 13675,1,"Reserviert"
 13676,1,"Kacheln"
 
-[STRINGTABLE 135]
+[STRINGTABLE 138]
 13680,1,"&Miniaturansicht"
 13681,1,"K&urz"
 13682,1,"&Detailliert"
@@ -3622,19 +3637,19 @@ SLGINCOMPLETE,""
 13686,1,"Reserviert"
 13687,1,"&Kacheln"
 
-[STRINGTABLE 136]
+[STRINGTABLE 139]
 13700,1,"Aktuell zugewiesen zu: %s"
 13701,1,"Diese Tastenkombination ist von Open Samandarin belegt. Bitte wählen Sie eine andere."
 13710,1,"Kopiere %s"
 13711,1,"Verschiebe %s"
 
-[STRINGTABLE 137]
+[STRINGTABLE 140]
 13712,1,"Von:"
 13713,1,"Nach:"
 13720,1,"Erstelle auszugebende Dateiliste"
 13725,1,"Besitzer und Rechte können nicht übernommen werden. Es wird auf dem Zielpfad\nnicht unterstützt (das ist kein NTFS Laufwerk).\n\nWollen Sie fortfahren?"
 
-[STRINGTABLE 138]
+[STRINGTABLE 141]
 13730,1,"Fehlerbericht"
 13731,1,"Für einen Fehlerbericht oder eine Anfrage wählen Sie im Hilfemenü > Offizielles Supportforum.\n\nBenutzen Sie diesen Fehlerbericht nur um uns sensible Daten zu senden oder wenn wir Sie danach fragen."
 13735,1,"Über&springen"
@@ -3645,7 +3660,7 @@ SLGINCOMPLETE,""
 13742,1,"Es scheint dass Sie für dieses Plugin keine Sprachdatei (.SLG) haben. (siehe Unterverzeichnis LANG im Verzeichnis des Plugin's)."
 13743,1,"&Diesen Hinweis nicht für andere Plugins anzeigen"
 
-[STRINGTABLE 139]
+[STRINGTABLE 142]
 13750,1,"Die in der Registrierung gespeicherte Konfiguration ist defekt und kann deshalb nicht geladen werden. Der Open Samandarin wurde wahrscheinlich während dem Speichern der Konfiguration beendet. Dies geschieht überwiegend wenn der Open Samandarin beim Herunterfahren (oder Abmelden) noch läuft. Um dieses Problem zu verhindern, beenden Sie bitte den Open Samandarin vor dem Herunterfahren (oder Abmelden).\n\nSie können jetzt von den defekten Daten ein Backup anlegen (Rufen Sie RegEdit.exe auf und benennen Sie den Schlüssel HKEY_CURRENT_USER\\%s um). Später können Sie von diesem Backup die Einstellungen wieder einspielen (Benutzermenü, Favoriten, FTP Adressen, etc.), Besuchen Sie bitte forum.altap.cz für weitere Details.\n\nDie defekte Konfiguration muss aus der Registrierung entfernt werden bevor Sie den Open Samandarin starten."
 13751,1,"Sie benutzen vom Standard abweichende Werte für die nachfolgenden Parameter die während des Abmeldens oder Herunterfahrens benötigt werden. Das aknn zu einer defekten Konfiguration des Open Samandarin führen (er bricht während des Speicherns der Konfiguration ab).\n\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\WaitToKillAppTimeout sollte auf 20000 stehen.\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\AutoEndTasks sollte auf 0 stehen."
 13752,1,"&Entferne Konfiguration"
@@ -3653,21 +3668,21 @@ SLGINCOMPLETE,""
 13756,1,"&Dateien"
 13757,1,"&Verzeichnisse"
 
-[STRINGTABLE 140]
+[STRINGTABLE 143]
 13760,1,"Diese Datei kann nicht in den angegebenen Zielpfad kopiert werden da sie für das FAT32 Dateisystem zu groß ist.\n\nDatei: %s"
 13765,1,"Der Pfad, zu dem gewechselt werden soll wenn kein Zugriff auf den aktuellen Pfad des Dateifensters besteht, ist ungültig. Bitte korrigieren Sie diesen Pfad unter 'Konfiguration/Laufwerke')."
 13770,1,"Datei kann nicht im temporären Verzeichnis abgestellt werden."
 13771,1,"Der resultierende Dateiname ist zu lang."
 13775,1,"Drag&Drop Operation aus Archiv oder Dateisystem-Plugin ist fehlgeschlagen. Bitte entfernen Sie das unnötig angelegte Verzeichnis DROPFAKE im Zielverzeichnis (falls vorhanden).\n\nDas sollte nur unmittelbar nach der Installation passieren oder wenn weder der Windows Explorer noch der Open Samandarin das Drop-Ziel sind. Falls der Windows Explorer das Drop-Ziel war starten Sie Windows bitte neu (Erfahrende Benutzer können auch den Prozess 'explorer.exe' beenden und neu starten)."
 
-[STRINGTABLE 141]
+[STRINGTABLE 144]
 13776,1,"Standard"
 13777,1,"Rot"
 13778,1,"Grün"
 13779,1,"Blau"
 13780,1,"Samandarin"
 
-[STRINGTABLE 142]
+[STRINGTABLE 145]
 13800,1,"%d Std"
 13801,1,"%d Min"
 13802,1,"%d Sek"
@@ -3675,21 +3690,21 @@ SLGINCOMPLETE,""
 13806,1,"%s von %s verschoben"
 13807,1,"Geschwindigkeit: %s/s"
 
-[STRINGTABLE 143]
+[STRINGTABLE 146]
 13808,1,"Übertragungsrate: %s/s (Begrenzung: %s/s)"
 13809,1,"Restzeit: %s"
 13815,1,"Die Begrenzung der Übertragungsrate muss eine Zahl zwischen 1 B/s und 4 GB/s sein."
 13820,1,"&Übertragungsrate festlegen..."
 13821,1,"W&arten bis alle anderen Kopier-/Verschieben-Vorgänge abgeschlossen sind"
 
-[STRINGTABLE 144]
+[STRINGTABLE 147]
 13825,1,"&Beenden"
 
-[STRINGTABLE 145]
+[STRINGTABLE 148]
 13850,1,"Die Konfiguration des Plugins %s kann nicht gespeichert werden (Beim öffnen des Konfigurationsschlüssels von Open Samandarin ist ein Fehler aufgetreten).\n\nWollen Sie es trotzdem entladen?"
 13855,1,"Name"
 
-[STRINGTABLE 146]
+[STRINGTABLE 149]
 13856,1,"Beschreibung"
 13857,1,"Die Änderung der überlagerten Symbole wirkt sich erst nach einem Neustart des Open Samandarin aus."
 13865,1,"Open Samandarin wurde instabil. Eine unerwartete Ausnahmebedingung trat im %s-Handler für überlagerte Symbole auf. Sie können ähnlichen Abstürzen vorbeugen indem der Open Samandarin diesen Handler nicht mehr benutzt (drücken Sie die Schaltfläche 'Diesen') oder indem die Anzeige aller benutzerdefinierten überlagerten Symbole verhindert wird (drücken Sie die Schaltfläche 'Alle'). Sie können auch prüfen ob für diesen Handler eine Aktualisierung bereitgestellt wurde (Durchsuchen Sie forum.altap.cz für weitere Informationen).\n\nWelchen Handler für überlagerte Symbole wollen Sie abschalten?\n\nHinweis: Sie können überlagerte Symbole in der Konfiguration bearbeiten (siehe Seite 'Überlagerte Symbole')."
@@ -3698,7 +3713,7 @@ SLGINCOMPLETE,""
 13870,1,"Die config.reg Datei (oder die mit dem -c Parameter angegebene Datei) wurde wegen des Imports einer Konfiguration einer älteren Open Samandarin Version nicht in die Registrierung importiert. Bitte beenden Sie jetzt Open Samandarin und starten ihn neu um das Problem zu lösen."
 13871,1,"Sie haben Open Samandarin auf eine neue Version aktualisiert. Es wird jetzt die Konfiguration der alten Version geladen. Die alte Version enthält einige Plugins (unten aufgelistet) die in der neuen Version fehlen (oder die nicht funktionieren), darum kann deren Konfiguration jetzt nicht importiert werden. Sie können jetzt Open Samandarin ohne diese Plugins starten (die Konfiguration der älteren Version bleibt in der Registrierung erhalten, darum können Sie sie später importieren). Oder Sie beenden jetzt Open Samandarin, installieren die fehlenden Plugins, und starten Open Samandarin erneut.\n\nFehlende (oder nicht funktionierende) Plugins: %s%s."
 
-[STRINGTABLE 147]
+[STRINGTABLE 150]
 13872,1,", %d weitere Plugins übersprungen"
 13873,1,"&Starte ohne fehlende Plugins"
 13880,1,"Nicht genügend Speicher um %Iu Bytes zu reservieren. Versuchen Sie Speicher freizugeben (schließen Sie z.B. einige laufende Programme) und drücken Sie 'Wiederholen'. Wenn das nicht hilft können Sie 'Ignorieren' wählen um den Speicherfehler dieser Anwendung zu übergehen oder drücken Sie 'Abbrechen' um die Anwendung zu beenden."
@@ -3707,7 +3722,7 @@ SLGINCOMPLETE,""
 13885,1,"Verbinde zu %s"
 13886,1,"Falsches Passwort oder unbekannter Benutzername für: %s"
 
-[STRINGTABLE 148]
+[STRINGTABLE 151]
 13890,1,"Datei"
 13891,1,"%s Datei"
 13900,1,"Ihr Passwort ist zu einfach und bietet nicht genügend Sicherheit gegen Wörterbuch oder Brute-Force-Angriffe.\nSind Sie sicher, dass Sie es verwenden möchten?\n\nHinweis: gute Passwörter bestehen aus mindestens sechs Zeichen und enthalten sowohl Groß- und Klein- buchstaben, Zahlen und Sonderzeichen, wie z. B. Trennzeichen, Symbole, Buchstaben mit Akzent, usw."
@@ -3715,7 +3730,7 @@ SLGINCOMPLETE,""
 13902,1,"Passwort erfolgreich geändert"
 13903,1,"Sie haben Ihr Master-Passwort gelöscht. Ihre gepeicherten Passwörter (z.B. FTP und WinSCP) sind nicht mehr geschützt."
 
-[STRINGTABLE 149]
+[STRINGTABLE 152]
 13904,1,"Das Master-Passwort wurde erfolgreich geändert. Ihre gespeicherten Passwörter (z.B. FTP und WinSCP) sind jetzt von AES Cipher gesichert."
 13905,1,"Sie haben nicht das richtige aktuelle Master-Passwort eingegeben. Bitte versuchen Sie es erneut."
 13906,1,"Verzeichnis durchsuchen"
@@ -3725,7 +3740,7 @@ SLGINCOMPLETE,""
 13915,1,"PID=%d, gestartet am %s, %s%s"
 13916,1,", laufender Prozess"
 
-[STRINGTABLE 150]
+[STRINGTABLE 153]
 13920,1,"Aktuellen Dateinamen als Standard speichern"
 13921,1,"Standarddateiname wiederherstellen nach %s"
 13925,1,"{!}Die verglichenen Verzeichnisse enthalten mindestens %d Datei{enpaar|1|paare} mit dem Zeitunterschied von genau ein oder zwei Stunden. Da {dieser Unterschied|1|diese Unterschiede} mit der MESZ (Sommerzeit) zusammenhäng{1:t|1|en}, {1:wurde er|1|wurden sie} ignoriert. Sie können das unter 'Konfiguration/Allgemein' abstellen."
@@ -3737,14 +3752,14 @@ SLGINCOMPLETE,""
 13933,1,"Optionen als Standard speichern"
 13934,1,"Optionen und Standard wiederherstellen"
 
-[STRINGTABLE 151]
+[STRINGTABLE 154]
 13945,1,"Wenn Sie die Konfiguration bei jedem Start von Open Samandarin importieren wollen, exportieren Sie diese in eine Datei mit dem Namen config.reg im Installationsverzeichnis. Um eine andere Konfigurationsdatei zu importieren, benutzen Sie den Befehlszeilenparameter -C (z.B. "salamand.exe -C myconfig.reg").\n\nWir empfehlen, den Befehl zum Löschen des Registrierungsschlüssels der bisherigen Konfiguration in die exportierte Datei einzufügen. Andernfalls wird die importierte Konfiguration mit der bisherigen in der Registrierung gemischt, das könnte zu Problemen mit der Konfiguration führen."
 13946,1,"Wenn Sie die Konfiguration bei jedem Start von Open Samandarin importieren wollen, exportieren Sie diese in eine Datei mit dem Namen config.reg im Anwendungsdatenverzeichnis (oder im Installationsverzeichnis). Um eine andere Konfigurationsdatei zu importieren, benutzen Sie den Befehlszeilenparameter -C (z.B. "salamand.exe -C myconfig.reg").\n\nWir empfehlen, den Befehl zum Löschen des Registrierungsschlüssels der bisherigen Konfiguration in die exportierte Datei einzufügen. Andernfalls wird die importierte Konfiguration mit der bisherigen in der Registrierung gemischt, das könnte zu Problemen mit der Konfiguration führen."
 13947,1,"&Befehl zum Löschen des Registrierungsschlüssels der bisherigen Konfiguration in die exportierte Datei einfügen"
 13950,1,"Die Konfigurationsdatei kann weder geöffnet noch gelesen werden.\n\nDatei: %s\nFehler: %s"
 13951,1,"Die Konfigurationsdatei ist zu groß.\n\nDatei: %s"
 
-[STRINGTABLE 152]
+[STRINGTABLE 155]
 13952,1,"Die ausgewählte Datei kann nicht importiert werden. Es ist keine Konfigurationsdatei.\n\nDatei: %s"
 13953,1,"Die Konfigurationsdatei kann nicht importiert werden. Die Datei hat ein flasches Format.\n\nDatei: %s"
 13954,1,"Die Konfigurationsdatei kann nicht in die Registrierung importiert werden. Fehler beim Schreiben in die Registrierung.\n\nDatei: %s"
@@ -3752,7 +3767,7 @@ SLGINCOMPLETE,""
 13965,1,"Die Konfigurationsdatei kann nicht zu der Datei exportiert werden. Fehler beim Lesen der Konfiguration aus der Registrierung."
 13966,1,"Die Konfigurationsdatei kann nicht zu der Datei exportiert werden. Fehler beim Schreiben der Konfiguration zu der Datei.\n\nDatei: %s"
 
-[STRINGTABLE 153]
+[STRINGTABLE 156]
 13970,1,"Das Kontextmenü des Dateifensters kann nicht geöffnet werden, da der Pfad im Dateifenster nur ein Schein-Verzeichnis für die WOW64 Weiterleitung ist."
 13971,1,"Das Kontextmenü kann nicht geöffnet werden, da "%s" nur ein Schein-Verzeichnis für die WOW64 Weiterleitung ist."
 13972,1,"Das Eigenschaftsfenster kann nicht geöffnet werden, da "%s" nur ein Schein-Verzeichnis für die WOW64 Weiterleitung ist."
@@ -3765,7 +3780,7 @@ SLGINCOMPLETE,""
 13982,1,"MB"
 13983,1,"GB"
 
-[STRINGTABLE 154]
+[STRINGTABLE 157]
 13984,1,"TB"
 13985,1,"PB"
 13986,1,"EB"
@@ -3774,14 +3789,14 @@ SLGINCOMPLETE,""
 13992,1,"MB/s"
 13993,1,"GB/s"
 
-[STRINGTABLE 155]
+[STRINGTABLE 158]
 14000,1,"[falsch]"
 14005,1,"Administrator"
 14010,1,"Geben Sie bitte eine gültige E-Mail-Adresse an, damit wir Ihnen bei dem gemeldeten Problem helfen können."
 14011,1,"Warten Sie bitte bis die Komprimierung und der Upload beendet wurde."
 14012,1,"Sind Sie sicher, dass Sie uns nicht über dieses Problem informieren wollen? Ohne Ihren Bericht wird es nicht behoben werden.\n\nDrücken Sie 'OK', um den Bericht, ohne uns zu informieren, zu löschen."
 
-[STRINGTABLE 156]
+[STRINGTABLE 159]
 14020,1,"Die hochgeladene Datei übersteigt die zulässige Größe. Code: %d."
 14021,1,"Die Datei wurde nur unvollständig hochgeladen. Code: %d."
 14022,1,"Datei wurde nicht hochgeladen. Code: %d."
@@ -3792,7 +3807,7 @@ SLGINCOMPLETE,""
 14030,1,"Syntaxfehler in der Serverantwort. Open-Tag nicht gefunden."
 14031,1,"Syntaxfehler in der Serverantwort. Close-Tag nicht gefunden."
 
-[STRINGTABLE 157]
+[STRINGTABLE 160]
 14032,1,"Syntaxfehler in der Serverantwort. Wert nicht gefunden."
 14040,1,"Daten können nicht empfangen werden. Code: %d."
 14041,1,"Verbindung kann nicht getrennt werden. Code: %d."
@@ -3802,7 +3817,7 @@ SLGINCOMPLETE,""
 14045,1,"Hostname kann nicht aufgelöst werden. Code: %d."
 14046,1,"Verbindung kann nicht initialisiert werden. Code: %d."
 
-[STRINGTABLE 158]
+[STRINGTABLE 161]
 14050,1,"Fehler beim Lesen der Datei %s"
 14051,1,"Nicht genug Speicher"
 14052,1,"Fehler beim Einlesen der Dateigröße bei %s"
@@ -3811,7 +3826,7 @@ SLGINCOMPLETE,""
 14062,1,"Open Samandarin Bug-Reporter"
 14063,1,"Komprimiere, bitte warten..."
 
-[STRINGTABLE 159]
+[STRINGTABLE 162]
 14064,1,"Upload, bitte warten..."
 14065,1,"Bericht wurde erfolgreich hochgeladen.\n\nDanke für Ihre Hilfe Open Samandarin zu verbessern!"
 14066,1,"Das Öffnen des GitHub-Issues ist fehlgeschlagen. ShellExecute gab den Code %d zurück.\n\nDas Berichtarchiv bleibt auf Ihrer Festplatte. Klicken Sie auf OK, um den Berichtsordner anzuzeigen."
@@ -3824,15 +3839,15 @@ SLGINCOMPLETE,""
 14074,1,"Minidump-Datei %s kann nicht erstellt werden. Code: %d."
 14075,1,"Fehler beim Erstellen der Minidump. Code: %d."
 
-[STRINGTABLE 160]
+[STRINGTABLE 163]
 14100,1,"Der Bug-Reporter (salmon.exe) von Open Samandarin wird nicht ausgeführt. Open Samandarin kann mögliche Abstürze nicht verarbeiten. Starten Sie bitte Open Samandarin neu."
 
-[STRINGTABLE 161]
+[STRINGTABLE 164]
 14150,1,"Nicht abgeschlossene Übersetzung von Open Samandarin"
 14151,1,"Die Übersetzung von Open Samandarin, in Ihre Sprache, ist noch nicht beendet. Erwägen Sie bitte einen Besuch unseres Diskussionsforums und schließen Sie sich der Übersetzungsarbeit an:"
 14155,1,"Die Datei oder das Verzeichnis konnte nicht in den Papierkorb verschoben werden, da der Name ungültig ist.\n\nUngültiger Teil des Namens:  "%s"\n\nTip: Versuchen Sie die Datei, bevor Sie diese in den Papierkorb verschieben, umzubenennen, oder löschen Sie diese dauerhaft (Umschalt+Entf Taste benutzen)."
 
-[STRINGTABLE 162]
+[STRINGTABLE 165]
 14160,1,"Das %s-Plugin kann nicht geladen werden. Dieses Plugin is nur in der x86-Version (32-Bit) des Open Samandarins verfügbar. Starten Sie die x86-Version des Open Samandarins um dieses Plugin zu benutzen. Bitte entschuldigen Sie die Unannehmlichkeiten."
 14165,1,"Google Drive"
 14166,1,"Dropbox"
@@ -3841,7 +3856,7 @@ SLGINCOMPLETE,""
 14170,1,"Link kann nicht aufgelöst werden"
 14171,1,"Volume Mount Point"
 
-[STRINGTABLE 163]
+[STRINGTABLE 166]
 14180,1,"Fehler beim Abrufen der Dateigröße des Linkziels"
 14181,1,"Sie versuchen die ausgewählten Dateien und Verzeichnisse ins Archiv zu verschieben. Das ist nicht möglich, da die Auswahl Verknüpfungen zu Verzeichnissen enthält (Verknüpfungspunkt, Volumebereitstellungspunkt oder symbolische Verknüpfung). Fahren Sie fort ohne die Dateien nach dem Archivieren zu löschen.\n\nLink: %s"
 14185,1,"Datenträgervorgang wird ausgeführt."
@@ -3850,7 +3865,7 @@ SLGINCOMPLETE,""
 14188,1,"Windows weigert sich das Herunterfahren vorzeitig abzubrechen. Dieser Hinweis wird Windows kurzzeitig blockieren. Bitte warten Sie mit dem Schließen dieses Hinweises bevor Sie das Herunterfahren manuell abbrechen, andernfalls wird Open Samandarin beendet ohne die Konfiguration zu speichern."
 14189,1,"Windows weigert sich das Herunterfahren vorzeitig abzubrechen. Dieser Hinweis wird Windows kurzzeitig blockieren.\n\nEs werden einige Datenträgervorgänge ausgeführt. Möchten Sie diese jetzt abbrechen? Klicken Sie nur dann auf NEIN, wenn Sie das Herunterfahren manuell abgebrochen haben, ansonsten riskieren Sie unvollständige Dateien auf Ihrem Datenträger.\n\nBitte warten Sie mit der Antwort bevor Sie das Herunterfahren manuell abbrechen, andernfalls wird Open Samandarin beendet ohne die Konfiguration zu speichern."
 
-[STRINGTABLE 164]
+[STRINGTABLE 167]
 14195,1,"Schließe Suchfenster, bitte warten..."
 14196,1,"Erweiterungen und Plug-ins werden geschlossen, bitte warten..."
 14197,1,"Fensterbereiche und Dateisysteme werden geschlossen, bitte warten..."
@@ -3864,7 +3879,7 @@ SLGINCOMPLETE,""
 14206,1,"Baumansicht-Panel"
 14207,1,"Baumansicht-Panel schließen"
 
-[STRINGTABLE 165]
+[STRINGTABLE 168]
 14208,1,"Baumansicht-Panel automatisch ausblenden"
 14209,1,"Baumansicht-Panel anheften"
 14210,1,"Der Pfad zur portablen Konfigurationsdatei config.reg konnte nicht ermittelt werden."
@@ -3881,7 +3896,7 @@ SLGINCOMPLETE,""
 14221,1,"Codepage-Kompatibilitätswarnung"
 14222,1,"Die ausgewählte Sprache kann möglicherweise nicht alle Zeichen korrekt anzeigen, weil die Codepage Ihrer Windows-Systemlokalcode (%u) nicht mit der von dieser Sprache erwarteten Codepage (%u) übereinstimmt.\n\nSo beheben Sie das: Ändern Sie Ihre Systemlokalcode in Windows unter Einstellungen > Uhrzeit & Sprache > Region > Administrativ > Systemlokalcode ändern."
 
-[STRINGTABLE 166]
+[STRINGTABLE 169]
 14232,1,"Zuletzt gespeichert"
 14233,1,"Konfigurationsname"
 14234,1,"Version"
@@ -3890,7 +3905,7 @@ SLGINCOMPLETE,""
 14237,1,"Standort"
 14239,1,"Konfiguration mit Standardwerten bereinigen"
 
-[STRINGTABLE 167]
+[STRINGTABLE 170]
 14256,1,"tragbar"
 14258,1,"-"
 14259,1,"Registrierung"
@@ -3907,7 +3922,7 @@ SLGINCOMPLETE,""
 14270,1,"Servant Salamander %s"
 14271,1,"Die Konfiguration wurde erfolgreich importiert."
 
-[STRINGTABLE 168]
+[STRINGTABLE 171]
 14272,1,"Diese Konfiguration wird derzeit von dieser Anwendungssitzung verwendet."
 14273,1,"Die Konfigurationsdatei konnte nicht gelöscht werden.\n\nDatei: %s\nFehler: %s"
 14274,1,"Die Einstellung für Win32/x64-Langpfade wurde geändert. Starten Sie Windows neu, damit die Änderung wirksam wird."
@@ -3925,7 +3940,7 @@ SLGINCOMPLETE,""
 14286,1,"&Schließen des angedockten Fensters"
 14287,1,"Hauptfenster"
 
-[STRINGTABLE 169]
+[STRINGTABLE 172]
 14288,1,"Anzeige-Skalierung geändert"
 14289,1,"Die Windows-Anzeige-Skalierung oder die DPI der Remotedesktop-Sitzung hat sich möglicherweise geändert. Starten Sie Open Samandarin neu, um die gesamte Benutzeroberfläche in der aktuellen DPI scharf neu zu zeichnen."
 14290,1,"Zurücksetzen"
@@ -3943,7 +3958,7 @@ SLGINCOMPLETE,""
 14302,1,"Dieser Tab ist gesperrt, um das darin angezeigte Inhalt zu ändern. Möchten Sie den Tab entsperren und den angeforderten Speicherort öffnen?"
 14303,1,"Erweiterung (Laufzeit nicht verfügbar)"
 
-[STRINGTABLE 170]
+[STRINGTABLE 173]
 14304,1,"Erweiterung (Abhängigkeit nicht verfügbar)"
 14305,1,"Erweiterung (deaktiviert)"
 14306,1,"Diese Erweiterung gibt für diesen Konfigurationsdialog zu viele Einstellungen an."
@@ -3961,7 +3976,7 @@ SLGINCOMPLETE,""
 14318,1,"Wählen Sie mindestens einen Ordner im Zielbereich aus."
 14319,1,"Alle ausgewählten Zielordner müssen sich auf demselben Laufwerk befinden."
 
-[STRINGTABLE 171]
+[STRINGTABLE 174]
 14320,1,"Erweiterung"
 14321,1,"Erweiterungen und Plug-ins werden geladen, bitte warten..."
 14322,1,"Erweiterungspakete werden gesucht, bitte warten..."
@@ -3979,7 +3994,7 @@ SLGINCOMPLETE,""
 14334,1,"Erweiterungslaufzeit wird beendet, bitte warten..."
 14335,1,"Erweiterungsfenster werden geschlossen, bitte warten..."
 
-[STRINGTABLE 172]
+[STRINGTABLE 175]
 14336,1,"Erweiterungsdienste werden beendet, bitte warten..."
 14337,1,"&Detach Tab"
 14338,1,"Detached tab"
@@ -3997,7 +4012,7 @@ SLGINCOMPLETE,""
 14350,1,"Path"
 14351,1,"State"
 
-[STRINGTABLE 173]
+[STRINGTABLE 176]
 14352,1,"Attached"
 14353,1,"Detached"
 14354,1,"Left"
@@ -4015,7 +4030,7 @@ SLGINCOMPLETE,""
 14366,1,"Alle"
 14367,1,"Gemeinsam"
 
-[STRINGTABLE 174]
+[STRINGTABLE 177]
 14368,1,"Dateisystem"
 14369,1,"Dokument"
 14370,1,"Bild / Foto"
@@ -4033,7 +4048,7 @@ SLGINCOMPLETE,""
 14382,1,"Ausgewählte Eigenschaften"
 14383,1,"&Entfernen"
 
-[STRINGTABLE 175]
+[STRINGTABLE 178]
 14384,1,"Nach &oben"
 14385,1,"Nach &unten"
 14386,1,"Ausführbar"
@@ -4048,9 +4063,10 @@ SLGINCOMPLETE,""
 14395,1,"Hinzufügen"
 14396,1,"Entfernen"
 14397,1,"Leeren"
+14398,0,"Multiple items selected - information not available"
 14399,1,"Mehrere Tags mit Semikolons trennen. Zuletzt verwendete Tags sind in der Wertliste verfügbar."
 
-[STRINGTABLE 176]
+[STRINGTABLE 179]
 14400,1,"Der Wert wird in den von Windows benötigten Typ konvertiert."
 14402,1,"Aktualisiert: %d\nFehlgeschlagen oder schreibgeschützt: %d"
 14404,1,"Tags"
@@ -4066,7 +4082,7 @@ SLGINCOMPLETE,""
 14414,0,"First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
 14415,1,"Dieser Dateityp unterstützt diese Eigenschaft nicht."
 
-[STRINGTABLE 177]
+[STRINGTABLE 180]
 14416,1,"Die Datei oder Eigenschaft ist schreibgeschützt, oder der Zugriff wurde verweigert."
 14417,1,"Windows konnte die Eigenschaft nicht schreiben."
 14418,1,"Wert"
@@ -4084,7 +4100,7 @@ SLGINCOMPLETE,""
 14430,1,"Aktiver Webinhalt"
 14431,1,"Erhöhung"
 
-[STRINGTABLE 178]
+[STRINGTABLE 181]
 14432,1,"Paket signieren"
 14433,1,"Paket SHA-256"
 14434,1,"Quellpaket"
@@ -4102,7 +4118,7 @@ SLGINCOMPLETE,""
 14446,1,"Manuell (Option im Kopieren/Verschieben-Dialog)"
 14447,1,"Benutzergesteuert"
 
-[STRINGTABLE 179]
+[STRINGTABLE 182]
 14448,1,"Speicherabhängig"
 14449,1,"Manuell"
 14450,1,"Diesen Vorgang in die &Warteschlange stellen (auf Abschluss aller anderen Kopier-/Verschiebevorgänge warten)"
@@ -4120,8 +4136,16 @@ SLGINCOMPLETE,""
 14462,1,"Warten auf ein Speichermedium"
 14463,1,"Warten auf einen SSD/NVMe-Stream-Slot"
 
-[STRINGTABLE 180]
+[STRINGTABLE 183]
 14464,1,"Warten, da der Speicher nicht erkannt werden konnte"
+14465,1,"Bereit"
+14466,1,"Suche läuft"
+14467,1,"Sortieren"
+14468,1,"Wird angehalten"
+14469,1,"Abgeschlossen"
+14470,1,"Das Suchfenster antwortet seit {0} s nicht - {1}"
+14471,1,"Das Suchfenster antwortet seit {0} s nicht - {1} - Ergebnisse: {2}"
+14472,1,"Wird abgeschlossen"
 14473,1,"Allmähliche Beilegung von Konflikten in der Warteschlange"
 14474,1,"Voraus scannen und mit nicht kollidierenden Elementen fortfahren"
 14475,1,"Letzte Auswahl im Kopieren/Verschieben-Dialog beibehalten"
@@ -4130,7 +4154,7 @@ SLGINCOMPLETE,""
 14478,1,"Konfliktscan: %1!s!, %2!d! offen, %3!d!/%4!d! geprüft"
 14479,1,"aktiv"
 
-[STRINGTABLE 181]
+[STRINGTABLE 184]
 14480,1,"fertig"
 14481,1,"Dateiname"
 14482,1,"Status"
@@ -4146,7 +4170,7 @@ SLGINCOMPLETE,""
 14492,1,"Unterdrückt"
 14493,1,"Datei/Verzeichnis-Typ stimmt nicht überein"
 
-[STRINGTABLE 182]
+[STRINGTABLE 185]
 14500,1,"Zweigansicht"
 14501,1,"&Zweigansicht\tCtrl+B"
 14502,1,"Pfad"
@@ -4160,7 +4184,7 @@ SLGINCOMPLETE,""
 14510,1,"Unterordnerpfade relativ zum Stamm der Zweigansicht beibehalten"
 14511,1,"Pfad: "
 
-[STRINGTABLE 183]
+[STRINGTABLE 186]
 14512,1,"Der Ordnerbaum konnte nicht gelesen werden. Aktualisieren Sie die Ansicht, um es erneut zu versuchen."
 14513,1,"Zweigansicht - Aktualisierung läuft... %I64u Dateien beibehalten"
 14514,1,"Zweigansicht - Aktualisierung gestoppt; vorherige Ergebnisse beibehalten (%I64u Dateien)"
@@ -4178,85 +4202,177 @@ SLGINCOMPLETE,""
 14526,0,"An administrator can enable the Windows policy:\nComputer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths.\n\nIts registry equivalent is REG_DWORD LongPathsEnabled = 1 under:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nRestart affected applications; restarting Windows may also be necessary. Applications must support long paths themselves. This is not a way to override a security denial, and Shell or the target program may still reject the path. Salamander does not change this setting."
 14527,0,"Windows error:"
 
-[STRINGTABLE 184]
-14528,1,"Zugriff verweigert. Diesen Ordner als Administrator erstellen?"
-14529,1,"Die Verbindung zum Hilfsprozess wurde getrennt, bevor das Ergebnis bestätigt wurde. Prüfen Sie das Ziel, bevor Sie es erneut versuchen."
-14530,1,"Zugriff verweigert. Diese Datei als Administrator umbenennen? Zuerst wird der aktuelle Pfad angezeigt, danach der neue."
-14531,1,"Zugriff verweigert. Die angeforderten Attribute und Zeitstempel als Administrator auf diese Datei anwenden?"
-14532,1,"Die Verbindung zum Hilfsprozess wurde vor der Bestätigung des Ergebnisses getrennt. Prüfen Sie vor einem erneuten Versuch die Attribute und Zeitstempel der Datei."
-14533,1,"Zugriff verweigert. Diese Datei als Administrator endgültig löschen?"
-14534,1,"Die Verbindung zum Hilfsprozess wurde vor der Bestätigung der Löschung getrennt. Prüfen Sie vor einem erneuten Versuch, ob die Datei noch vorhanden ist."
-14535,1,"Zugriff verweigert. Diesen Ordner und seine Unterordner als Administrator auflisten?"
-14536,1,"Administratoransicht"
-14537,1,"Zugriff verweigert. Diese Datei einschließlich ihrer alternativen Datenströme als Administrator kopieren?"
-14538,1,"Der Abschluss des Kopiervorgangs konnte nicht bestätigt werden. Prüfen Sie das Ziel vor einem erneuten Versuch."
-14539,1,"Zugriff verweigert. Diese Datei als Administrator verschieben?"
-14540,1,"Der Abschluss des Verschiebens konnte nicht bestätigt werden. Prüfen Sie Quelle und Ziel vor einem erneuten Versuch."
-14541,1,"Bestandsaufnahme des geschützten Unterbaums"
-14543,1,"Der Unterbaum konnte nicht vollständig geprüft werden. Teilergebnisse werden nicht angezeigt."
-
-[STRINGTABLE 185]
-14544,1,"Dateien: "
-14545,1,"Unterordner: "
-14546,1,"Logische Größe (Byte): "
-14547,1,"Diesen Ordner mit seinem Inhalt als Administrator an das registrierte Ziel kopieren?"
-14548,1,"Das Kopieren oder Aufräumen konnte nicht bestätigt werden. Prüfen Sie das Ziel, bevor Sie es erneut versuchen."
-14549,1,"Zugriff verweigert. Die angeforderten Zeitstempel für diesen Ordner als Administrator festlegen?"
-14550,1,"Die Verbindung zum Hilfsprozess wurde getrennt, bevor das Ergebnis bestätigt wurde. Prüfen Sie die Zeitstempel des Ordners vor einem erneuten Versuch."
-14551,1,"Zugriff verweigert. Die angeforderten Attribute und gegebenenfalls ausgewählten Zeitstempel für diesen Ordner als Administrator festlegen?"
-14552,1,"Die Verbindung zum Hilfsprozess wurde getrennt, bevor das Ergebnis bestätigt wurde. Prüfen Sie die Attribute und Zeitstempel des Ordners vor einem erneuten Versuch."
-14553,1,"Zugriff verweigert. Diese Datei ohne ihre alternativen Datenströme als Administrator kopieren?"
-14554,1,"Zugriff verweigert. Diese Datei unter Beibehaltung der NTFS-Komprimierung als Administrator kopieren?"
-14555,1,"Zugriff verweigert. Diesen symbolischen Link als Administrator umbenennen?"
-14556,1,"Zugriff verweigert. Diese Verzeichnisverknüpfung (Junction) als Administrator umbenennen?"
-14557,1,"Zugriff verweigert. Diesen symbolischen Link als Administrator endgültig löschen? Die verknüpfte Datei bleibt erhalten."
-14558,1,"Zugriff verweigert. Diesen symbolischen Ordnerlink als Administrator endgültig löschen? Der verknüpfte Ordner bleibt erhalten."
-14559,1,"Zugriff verweigert. Diese Verzeichnisverknüpfung (Junction) als Administrator endgültig löschen? Der verknüpfte Ordner bleibt erhalten."
-
-[STRINGTABLE 186]
-14560,1,"Zugriff verweigert. Diese Datei unter Beibehaltung des NTFS-Besitzers, der Gruppe und der expliziten Berechtigungen als Administrator kopieren?"
-14561,1,"Die EFS-verschlüsselte Datei konnte nicht kopiert werden. Bei diesem Vorgang kann die EFS-Verschlüsselung auch mit Administratorrechten nicht beibehalten werden."
-14562,1,"Windows hat nicht bestätigt, dass alle Elemente in den Papierkorb verschoben wurden. Prüfen Sie den ursprünglichen Speicherort und den Papierkorb vor einem erneuten Versuch."
-14563,1,"Zugriff verweigert. Die Größe dieses Ordners und seiner Unterordner als Administrator berechnen?"
-14564,1,"Zugriff verweigert. In diesem Ordner als Administrator nach Namen und Metadaten suchen? Während Sie entscheiden, läuft die Suche in zugänglichen Ordnern weiter."
-14565,1,"Warte auf Administratorzugriff auf einen geschützten Ordner…"
-14566,1,"Der freigegebene Ordner wird mit Administratorrechten durchsucht."
-14567,1,"Nicht verfügbar"
-14568,1,"Zugriff verweigert. Eine schreibgeschützte Momentaufnahme dieser Datei als Administrator im internen Betrachter öffnen? Die Momentaufnahme ist auf 16 MB begrenzt."
-14569,1,"Momentaufnahme mit Administratorrechten"
-14570,1,"Diese Momentaufnahme ist schreibgeschützt. Kehren Sie zur Dateiansicht zurück, um eine neue Momentaufnahme anzufordern."
-14571,1,"Die geschützte Datei konnte nicht im internen Betrachter geöffnet werden."
-14572,1,"Als Administrator bearbeiten"
-14573,1,"Zugriff verweigert. Die Originaldatei im konfigurierten Editor als Administrator öffnen? Windows fordert die Berechtigung für den unten angezeigten Editor an."
-14574,1,"Der Administratormodus setzt voraus, dass die Programmdatei des Editors in einem geschützten Windows- oder Programme-Ordner liegt."
-14575,1,"Inhalt eines geschützten ZIP-Archivs"
-
 [STRINGTABLE 187]
-14576,1,"Zugriff verweigert. Den Inhalt dieses ZIP-Archivs als Administrator lesen? Das Archiv wird schreibgeschützt geöffnet."
-14577,1,"Mit F3 zeigen Sie eine Datei an, mit F5 entpacken Sie sie. Das Öffnen in einer externen Anwendung ist nicht verfügbar."
-14578,1,"Zugriff verweigert. Die ausgewählten ZIP-Dateien und -Ordner als Administrator in das angezeigte Ziel entpacken?"
-14579,1,"Wählen Sie einen vorhandenen lokalen Zielordner für die ausgewählten Elemente aus dem geschützten ZIP-Archiv aus."
-14580,1,"Das Entpacken wurde abgebrochen, nachdem ein Teil der ausgewählten ZIP-Elemente erstellt worden war. Prüfen Sie das Ziel vor einem erneuten Versuch."
-14581,1,"Geschütztes ZIP-Archiv aktualisieren"
-14582,1,"Die vorbereiteten Änderungen an diesem ZIP-Archiv als Administrator speichern?"
-14583,1,"Windows hat die vollständige Aktualisierung des ZIP-Archivs nicht bestätigt. Prüfen Sie vor einem erneuten Versuch das Archiv und eine eventuell im selben Ordner verbliebene Sicherung."
-14584,1,"Das ZIP-Archiv wurde aktualisiert. Aktualisieren Sie die Archivansicht, um den neuen Inhalt anzuzeigen."
-14585,1,"Zugriff verweigert. Diese vorhandene Datei als Administrator ersetzen und die Berechtigungen des Ziels beibehalten?"
-14586,1,"Die Zustimmung gilt für dieses Element. Beim Abbrechen werden die verbleibenden Elemente nicht mehr verarbeitet. Bereits abgeschlossene Änderungen bleiben erhalten."
-14587,1,"Zugriff verweigert. Dateiinhalte in diesem Ordner für die aktuelle Suche als Administrator lesen? Während Sie entscheiden, läuft die Suche in zugänglichen Ordnern weiter."
-14588,1,"Zugriff verweigert. Diese Datei für die aktuelle Suche als Administrator lesen?"
-14589,1,"Zugriff verweigert. Diese Datei unter Beibehaltung der EFS-Verschlüsselung als Administrator kopieren?"
-14590,1,"Die Zustimmung gilt bis zum Ende dieses Vorgangs auch für weitere geeignete Dateien in den unten aufgeführten Ordnern."
-14591,1,"Die Zustimmung gilt bis zum Ende dieses Vorgangs auch für weitere geeignete Elemente im unten aufgeführten Ordner."
+14530,0,"File Associations"
+14531,0,"&Pattern:"
+14532,0,"&Action:"
+14533,0,"&Operation:"
+14534,0,"&Target:"
+14535,0,"Target &ID:"
+14536,0,"Status:"
+14537,0,"&Add / Update"
+14538,0,"&Delete"
+14539,0,"&Reset to default"
+14540,0,"Set &unassigned"
+14541,0,"View"
+14542,0,"Alternate View"
+14543,0,"Edit"
 
 [STRINGTABLE 188]
-14592,1,"Zugriff verweigert. Diese Datei als Administrator in Ihren Papierkorb verschieben?"
-14593,1,"Zugriff verweigert. Diese Datei unter Beibehaltung der NTFS-Komprimierung, des Besitzers, der Gruppe und der expliziten Berechtigungen als Administrator kopieren?"
+14544,0,"Panel Archive"
+14545,0,"Not applicable"
+14546,0,"List / Unpack"
+14547,0,"Delete / Pack"
+14548,0,"Built-in"
+14549,0,"Plugin"
+14551,0,"Ready"
+14552,0,"Conflict: resolve overlapping patterns before saving"
+14553,0,"Default"
+14554,0,"User"
+14555,0,"Legacy"
+14556,0,"Disabled"
+14557,0,"Conflict"
+14558,0,"Search patterns"
+14559,0,"Category"
 
 [STRINGTABLE 189]
-14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
+14560,0,"Provenance"
+14561,0,"All"
+14562,0,"Show conflicts only"
+14563,0,"Pattern"
+14564,0,"View"
+14565,0,"Alternate View"
+14566,0,"Edit"
+14567,0,"Panel Archive"
+14568,0,"%u of %u associations | %u conflicts"
+14569,0,"Select a pattern cell to change its owner. Existing defaults are imported automatically."
+14570,0,"No compatible targets are installed"
+14571,0,"Internal viewer"
+14572,0,"Legacy runtime"
+14573,0,"Select a compatible plugin target"
+14575,0,"Pattern must not be empty"
 
 [STRINGTABLE 190]
+14576,0,"Extension"
+14577,0,"%u associations selected"
+14578,0,"Unassigned"
+14579,0,"User defined"
+14580,0,"Archive Panel"
+14581,0,"Extensions"
+14582,0,"Conflict: %s has competing targets in %s: %s"
+14583,0," (+%u more)"
+14584,0,"Select a compatible extension viewer"
+14585,0,"Custom Viewer"
+14586,0,"Custom Editor"
+14587,0,"&Name:"
+14588,0,"&Command:"
+14589,0,"&Arguments:"
+14590,0,"&Initial directory:"
+14591,0,"&Save"
+
+[STRINGTABLE 191]
+14592,0,"Saved custom handlers"
+14593,0,"Enter a name and command for this handler."
+14594,0,"A handler with this name already exists."
+14595,0,"Name"
+14596,0,"Command"
+14597,0,"This custom handler is invalid or exceeds the supported size limits."
+14598,0,"No legacy editor is configured"
+14599,0,"Configure named custom viewers for file associations."
+14600,0,"Configure named custom editors for file associations."
+14601,0,"Handler details"
+14602,0,"Arguments"
+14603,0,"Initial directory"
+14604,0,"Add new file association pattern"
+14605,0,"Enter a file pattern:"
+14606,0,"Enter a valid file pattern."
+14607,0,"This file pattern already exists."
+
+[STRINGTABLE 192]
+14608,1,"Beenden und erneut versuchen"
+14609,1,"Die Datei wird von folgenden Prozessen verwendet: %s"
+14610,1,"Diese Prozesse beenden und erneut versuchen?\n\nNicht gespeicherte Daten in diesen Prozessen können verloren gehen:\n%s"
+14611,1,"Keiner der Prozesse, die diese Datei verwenden, konnte beendet werden."
+
+[STRINGTABLE 193]
+14624,1,"Zugriff verweigert. Diesen Ordner als Administrator erstellen?"
+14625,1,"Die Verbindung zum Hilfsprozess wurde getrennt, bevor das Ergebnis bestätigt wurde. Prüfen Sie das Ziel, bevor Sie es erneut versuchen."
+14626,1,"Zugriff verweigert. Diese Datei als Administrator umbenennen? Zuerst wird der aktuelle Pfad angezeigt, danach der neue."
+14627,1,"Zugriff verweigert. Die angeforderten Attribute und Zeitstempel als Administrator auf diese Datei anwenden?"
+14628,1,"Die Verbindung zum Hilfsprozess wurde vor der Bestätigung des Ergebnisses getrennt. Prüfen Sie vor einem erneuten Versuch die Attribute und Zeitstempel der Datei."
+14629,1,"Zugriff verweigert. Diese Datei als Administrator endgültig löschen?"
+14630,1,"Die Verbindung zum Hilfsprozess wurde vor der Bestätigung der Löschung getrennt. Prüfen Sie vor einem erneuten Versuch, ob die Datei noch vorhanden ist."
+14631,1,"Zugriff verweigert. Diesen Ordner und seine Unterordner als Administrator auflisten?"
+14632,1,"Administratoransicht"
+14633,1,"Zugriff verweigert. Diese Datei einschließlich ihrer alternativen Datenströme als Administrator kopieren?"
+14634,1,"Der Abschluss des Kopiervorgangs konnte nicht bestätigt werden. Prüfen Sie das Ziel vor einem erneuten Versuch."
+14635,1,"Zugriff verweigert. Diese Datei als Administrator verschieben?"
+14636,1,"Der Abschluss des Verschiebens konnte nicht bestätigt werden. Prüfen Sie Quelle und Ziel vor einem erneuten Versuch."
+14637,1,"Bestandsaufnahme des geschützten Unterbaums"
+14639,1,"Der Unterbaum konnte nicht vollständig geprüft werden. Teilergebnisse werden nicht angezeigt."
+
+[STRINGTABLE 194]
+14640,1,"Dateien: "
+14641,1,"Unterordner: "
+14642,1,"Logische Größe (Byte): "
+14643,1,"Diesen Ordner mit seinem Inhalt als Administrator an das registrierte Ziel kopieren?"
+14644,1,"Das Kopieren oder Aufräumen konnte nicht bestätigt werden. Prüfen Sie das Ziel, bevor Sie es erneut versuchen."
+14645,1,"Zugriff verweigert. Die angeforderten Zeitstempel für diesen Ordner als Administrator festlegen?"
+14646,1,"Die Verbindung zum Hilfsprozess wurde getrennt, bevor das Ergebnis bestätigt wurde. Prüfen Sie die Zeitstempel des Ordners vor einem erneuten Versuch."
+14647,1,"Zugriff verweigert. Die angeforderten Attribute und gegebenenfalls ausgewählten Zeitstempel für diesen Ordner als Administrator festlegen?"
+14648,1,"Die Verbindung zum Hilfsprozess wurde getrennt, bevor das Ergebnis bestätigt wurde. Prüfen Sie die Attribute und Zeitstempel des Ordners vor einem erneuten Versuch."
+14649,1,"Zugriff verweigert. Diese Datei ohne ihre alternativen Datenströme als Administrator kopieren?"
+14650,1,"Zugriff verweigert. Diese Datei unter Beibehaltung der NTFS-Komprimierung als Administrator kopieren?"
+14651,1,"Zugriff verweigert. Diesen symbolischen Link als Administrator umbenennen?"
+14652,1,"Zugriff verweigert. Diese Verzeichnisverknüpfung (Junction) als Administrator umbenennen?"
+14653,1,"Zugriff verweigert. Diesen symbolischen Link als Administrator endgültig löschen? Die verknüpfte Datei bleibt erhalten."
+14654,1,"Zugriff verweigert. Diesen symbolischen Ordnerlink als Administrator endgültig löschen? Der verknüpfte Ordner bleibt erhalten."
+14655,1,"Zugriff verweigert. Diese Verzeichnisverknüpfung (Junction) als Administrator endgültig löschen? Der verknüpfte Ordner bleibt erhalten."
+
+[STRINGTABLE 195]
+14656,1,"Zugriff verweigert. Diese Datei unter Beibehaltung des NTFS-Besitzers, der Gruppe und der expliziten Berechtigungen als Administrator kopieren?"
+14657,1,"Die EFS-verschlüsselte Datei konnte nicht kopiert werden. Bei diesem Vorgang kann die EFS-Verschlüsselung auch mit Administratorrechten nicht beibehalten werden."
+14658,1,"Windows hat nicht bestätigt, dass alle Elemente in den Papierkorb verschoben wurden. Prüfen Sie den ursprünglichen Speicherort und den Papierkorb vor einem erneuten Versuch."
+14659,1,"Zugriff verweigert. Die Größe dieses Ordners und seiner Unterordner als Administrator berechnen?"
+14660,1,"Zugriff verweigert. In diesem Ordner als Administrator nach Namen und Metadaten suchen? Während Sie entscheiden, läuft die Suche in zugänglichen Ordnern weiter."
+14661,1,"Warte auf Administratorzugriff auf einen geschützten Ordner…"
+14662,1,"Der freigegebene Ordner wird mit Administratorrechten durchsucht."
+14663,1,"Nicht verfügbar"
+14664,1,"Zugriff verweigert. Eine schreibgeschützte Momentaufnahme dieser Datei als Administrator im internen Betrachter öffnen? Die Momentaufnahme ist auf 16 MB begrenzt."
+14665,1,"Momentaufnahme mit Administratorrechten"
+14666,1,"Diese Momentaufnahme ist schreibgeschützt. Kehren Sie zur Dateiansicht zurück, um eine neue Momentaufnahme anzufordern."
+14667,1,"Die geschützte Datei konnte nicht im internen Betrachter geöffnet werden."
+14668,1,"Als Administrator bearbeiten"
+14669,1,"Zugriff verweigert. Die Originaldatei im konfigurierten Editor als Administrator öffnen? Windows fordert die Berechtigung für den unten angezeigten Editor an."
+14670,1,"Der Administratormodus setzt voraus, dass die Programmdatei des Editors in einem geschützten Windows- oder Programme-Ordner liegt."
+14671,1,"Inhalt eines geschützten ZIP-Archivs"
+
+[STRINGTABLE 196]
+14672,1,"Zugriff verweigert. Den Inhalt dieses ZIP-Archivs als Administrator lesen? Das Archiv wird schreibgeschützt geöffnet."
+14673,1,"Mit F3 zeigen Sie eine Datei an, mit F5 entpacken Sie sie. Das Öffnen in einer externen Anwendung ist nicht verfügbar."
+14674,1,"Zugriff verweigert. Die ausgewählten ZIP-Dateien und -Ordner als Administrator in das angezeigte Ziel entpacken?"
+14675,1,"Wählen Sie einen vorhandenen lokalen Zielordner für die ausgewählten Elemente aus dem geschützten ZIP-Archiv aus."
+14676,1,"Das Entpacken wurde abgebrochen, nachdem ein Teil der ausgewählten ZIP-Elemente erstellt worden war. Prüfen Sie das Ziel vor einem erneuten Versuch."
+14677,1,"Geschütztes ZIP-Archiv aktualisieren"
+14678,1,"Die vorbereiteten Änderungen an diesem ZIP-Archiv als Administrator speichern?"
+14679,1,"Windows hat die vollständige Aktualisierung des ZIP-Archivs nicht bestätigt. Prüfen Sie vor einem erneuten Versuch das Archiv und eine eventuell im selben Ordner verbliebene Sicherung."
+14680,1,"Das ZIP-Archiv wurde aktualisiert. Aktualisieren Sie die Archivansicht, um den neuen Inhalt anzuzeigen."
+14681,1,"Zugriff verweigert. Diese vorhandene Datei als Administrator ersetzen und die Berechtigungen des Ziels beibehalten?"
+14682,1,"Die Zustimmung gilt für dieses Element. Beim Abbrechen werden die verbleibenden Elemente nicht mehr verarbeitet. Bereits abgeschlossene Änderungen bleiben erhalten."
+14683,1,"Zugriff verweigert. Dateiinhalte in diesem Ordner für die aktuelle Suche als Administrator lesen? Während Sie entscheiden, läuft die Suche in zugänglichen Ordnern weiter."
+14684,1,"Zugriff verweigert. Diese Datei für die aktuelle Suche als Administrator lesen?"
+14685,1,"Zugriff verweigert. Diese Datei unter Beibehaltung der EFS-Verschlüsselung als Administrator kopieren?"
+14686,1,"Die Zustimmung gilt bis zum Ende dieses Vorgangs auch für weitere geeignete Dateien in den unten aufgeführten Ordnern."
+14687,1,"Die Zustimmung gilt bis zum Ende dieses Vorgangs auch für weitere geeignete Elemente im unten aufgeführten Ordner."
+
+[STRINGTABLE 197]
+14688,1,"Zugriff verweigert. Diese Datei als Administrator in Ihren Papierkorb verschieben?"
+14689,1,"Zugriff verweigert. Diese Datei unter Beibehaltung der NTFS-Komprimierung, des Besitzers, der Gruppe und der expliziten Berechtigungen als Administrator kopieren?"
+
+[STRINGTABLE 198]
+14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
+
+[STRINGTABLE 199]
 14992,1,"Konfiguration wird im Dateispeicher gespeichert, bitte warten..."
 14993,1,"Alte Konfiguration wird aus dem Dateispeicher gelöscht, bitte warten..."
 14994,1,"Lese Dateizuordnungen aus dem Dateispeicher..."

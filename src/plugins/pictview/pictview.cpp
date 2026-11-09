@@ -1,5 +1,9 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add an independent mouse wheel action setting. | Persist the new PictView wheel behavior and migrate existing configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
+// | 2026-11-09 | Register detected PictView formats on install and migrate older configurations. | AddViewer force mode updates registrations but does not create defaults during installation, leaving image formats to other viewers. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 
 #include "precomp.h"
 
@@ -83,9 +87,12 @@ BOOL SalamanderRegistered = FALSE;
 //               21 - Salamander 2.5 RC3: Added Olympus *.ORF Digital Camera images
 //               22 - Salamander 2.52 B1: Added *.BLP files used by Blizzard Entertainment in World of Wordcraft
 //               23 - Viewer and thumbnail masks are discovered from WIC decoders installed in Windows
+//               24 - Repair legacy PictView viewer rows that exceeded the mask buffer
+//               25 - Register all detected WIC formats on clean installs
+//               26 - Add an independent mouse wheel action
 
 int ConfigVersion = 0;
-#define CURRENT_CONFIG_VERSION 24
+#define CURRENT_CONFIG_VERSION 26
 std::string WicDecoderMasks;
 
 SGlobals G; // initialized in InitViewer
@@ -95,6 +102,7 @@ BOOL ExifGroupHighlights = FALSE;
 LPCTSTR CONFIG_VERSION = _T("Version");
 LPCTSTR CONFIG_SHRINK = _T("ShrinkToFit");
 LPCTSTR CONFIG_PAGEDNUP = _T("PageUpDnScrolls");
+LPCTSTR CONFIG_MOUSEWHEEL = _T("MouseWheelAction");
 LPCTSTR CONFIG_THUMBNAILS = _T("IgnoreThumbnails");
 LPCTSTR CONFIG_THUMB_MAX_IMG_SIZE = _T("MaxThumbImgSize");
 LPCTSTR CONFIG_AUTOROTATE = _T("AutoRotate");
@@ -956,6 +964,13 @@ void CPluginInterface::LoadConfiguration(HWND parent, HKEY regKey, CSalamanderRe
         {
             G.PageDnUpScrolls = TRUE;
         }
+        DWORD mouseWheelAction = G.PageDnUpScrolls ? PV_MOUSEWHEEL_SCROLL : PV_MOUSEWHEEL_PREVNEXT;
+        if (!registry->GetValue(regKey, CONFIG_MOUSEWHEEL, REG_DWORD, &mouseWheelAction, sizeof(mouseWheelAction)) ||
+            mouseWheelAction > PV_MOUSEWHEEL_PREVNEXT)
+        {
+            mouseWheelAction = G.PageDnUpScrolls ? PV_MOUSEWHEEL_SCROLL : PV_MOUSEWHEEL_PREVNEXT;
+        }
+        G.MouseWheelAction = static_cast<int>(mouseWheelAction);
         if (!registry->GetValue(regKey, CONFIG_AUTOROTATE, REG_DWORD, &G.AutoRotate, sizeof(DWORD)))
         {
             G.AutoRotate = TRUE;
@@ -1123,6 +1138,8 @@ void CPluginInterface::SaveConfiguration(HWND parent, HKEY regKey, CSalamanderRe
     registry->SetValue(regKey, CONFIG_SHRINK, REG_DWORD, &v, sizeof(DWORD));
     v = G.PageDnUpScrolls;
     registry->SetValue(regKey, CONFIG_PAGEDNUP, REG_DWORD, &v, sizeof(DWORD));
+    v = G.MouseWheelAction;
+    registry->SetValue(regKey, CONFIG_MOUSEWHEEL, REG_DWORD, &v, sizeof(DWORD));
     v = G.AutoRotate;
     registry->SetValue(regKey, CONFIG_AUTOROTATE, REG_DWORD, &v, sizeof(DWORD));
     v = G.PipetteInHex;
@@ -1440,6 +1457,14 @@ void ConfigureWicMasks(CSalamanderConnectAbstract* salamander)
     // 3DM and DWG are not left to another plug-in merely because Windows has
     // no WIC codec for them.
     AddViewerMasks(salamander, nativeMasks, TRUE);
+
+    // AddViewer(FALSE) creates defaults when PictView is first installed;
+    // AddViewer(TRUE) above only updates registrations on later plug-in loads.
+    // Register the discovered WIC and native formats through the install path
+    // as well, so common images are owned by PictView by default even when
+    // another viewer also supports them.
+    AddViewerMasks(salamander, currentMasks, FALSE);
+    AddViewerMasks(salamander, nativeMasks, FALSE);
     salamander->SetThumbnailLoader(JoinThumbnailMasks(nativeMasks, currentMasks).c_str());
 }
 } // namespace
@@ -1752,6 +1777,7 @@ BOOL InitViewer(HWND hParentWnd)
     memset(&G, 0, sizeof(G));
     G.ZoomType = eShrinkToFit;
     G.PageDnUpScrolls = TRUE;
+    G.MouseWheelAction = PV_MOUSEWHEEL_SCROLL;
     //  G.IgnoreThumbnails = FALSE;
     G.AutoRotate = TRUE;
     //G.PipetteInHex = FALSE;

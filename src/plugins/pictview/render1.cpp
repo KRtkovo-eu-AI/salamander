@@ -1,5 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Prevent duplicate navigation from X buttons and browser keys. | Windows reports these inputs through WM_APPCOMMAND after their native input messages. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
+// | 2026-11-09 | Apply the independent wheel setting and handle browser navigation buttons. | Support configurable wheel actions and mouse back/forward controls in PictView. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 
 #include "precomp.h"
 #include <vector>
@@ -1921,6 +1925,17 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     CALL_STACK_MESSAGE4("CViewerWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
 
+    if (uMsg == WM_APPCOMMAND)
+    {
+        const int command = GET_APPCOMMAND_LPARAM(lParam);
+        if (command == APPCOMMAND_BROWSER_BACKWARD || command == APPCOMMAND_BROWSER_FORWARD)
+        {
+            PostMessage(Viewer->HWindow, WM_COMMAND,
+                        MAKEWPARAM(command == APPCOMMAND_BROWSER_BACKWARD ? CMD_FILE_PREV : CMD_FILE_NEXT, 0), 0);
+            return TRUE;
+        }
+    }
+
 #ifdef ENABLE_TWAIN32
     if (Viewer->Twain != NULL && Viewer->Twain->GetModalUI())
     {
@@ -1979,14 +1994,14 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
                 bUpdateSB = TRUE;
             }
-            else if (wParam & MK_CONTROL)
+            else if ((wParam & MK_CONTROL) || G.MouseWheelAction == PV_MOUSEWHEEL_ZOOM)
             {
                 ZoomOut();
                 bUpdateSB = TRUE;
             }
             else
             {
-                if (G.PageDnUpScrolls)
+                if (G.MouseWheelAction == PV_MOUSEWHEEL_SCROLL)
                 {
                     while (cnt < 0)
                     {
@@ -2012,14 +2027,14 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
                 bUpdateSB = TRUE;
             }
-            else if (wParam & MK_CONTROL)
+            else if ((wParam & MK_CONTROL) || G.MouseWheelAction == PV_MOUSEWHEEL_ZOOM)
             {
                 ZoomIn();
                 bUpdateSB = TRUE;
             }
             else
             {
-                if (G.PageDnUpScrolls)
+                if (G.MouseWheelAction == PV_MOUSEWHEEL_SCROLL)
                 {
                     while (cnt > 0)
                     {

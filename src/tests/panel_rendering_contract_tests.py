@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Track the compact Change Drive configuration layout. | Match the contract with the new ordering selector and reduced dialog height. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | openai/gpt-5.6-luna-pro |
 # | 2026-11-04 | Reject process-wide CLR Stop in the managed bridges. | Stopping the CLR prevents JSON Viewer from opening again in the same process. | | Grok 4.7 |
 # | 2026-11-07 | Keep draggable owner-drawn ListBoxes on the native drag-list path. | MakeDragList installs its own subclass and must not be combined with darkmodelib client-border handling. | | GPT-5.6 Luna Pro |
 # | 2026-11-07 | Require dark ListView repaint after native scrolling. | Keep the shared darkmode scroll-paint fix from regressing across dialogs and plugins. | | GPT-5.6 Luna Pro |
@@ -604,7 +605,7 @@ def main() -> int:
         or not re.search(r'IDC_CHD_SHOWNET.*?,103,176,44,12', additional_items.group(0))
         or not re.search(r'IDC_CHD_SHOWCLOUDSTORAGE,.*?,197,176,89,12', additional_items.group(0), re.DOTALL)
         or not re.search(r'IDC_CHD_SHOWANOTHER,.*?,9,215,161,12', additional_items.group(0), re.DOTALL)
-        or 'IDC_STATIC_6,1,238,91,8' not in additional_items.group(0)
+        or 'IDC_STATIC_6,1,252,91,8' not in additional_items.group(0)
     ):
         print("Change Drive Additional items must use the compact four-row layout")
         return 1
@@ -813,6 +814,19 @@ def main() -> int:
         or "SwitchPanelTab(replacement, false);" not in detach_tab.group(0)
     ):
         print("detach and cross-side move must synchronously populate the exposed source tab")
+        return 1
+
+    selected_tab = re.search(
+        r"void CMainWindow::OnPanelTabSelected\(CPanelSide side, int index\)"
+        r".*?\n\}",
+        mainwnd3,
+        re.DOTALL,
+    )
+    if (
+        selected_tab is None
+        or "SwitchPanelTab(panel, false);" not in selected_tab.group(0)
+    ):
+        print("direct tab selection must synchronously populate the selected panel")
         return 1
 
     tab_context_menu = re.search(

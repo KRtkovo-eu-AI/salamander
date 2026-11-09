@@ -693,6 +693,7 @@ public:
     int GetFormatsCount() { return Formats.Count; } // returns the number of items in the array
 
     //    BOOL SwapFormats(int index1, int index2);         // swaps two items in the array
+    void Swap(CPackerFormatConfig& source);
     BOOL MoveFormat(int srcIndex, int dstIndex); // moves the item
     void DeleteFormat(int index);
 

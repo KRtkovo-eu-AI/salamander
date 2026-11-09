@@ -1,6 +1,8 @@
 ﻿//{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
 // Used by lang.rc
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add controls for mouse wheel behavior. | Support independent wheel action options in the configuration dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 //
 #define DLG_ABOUT                       2000
 #define IDC_ABOUT_FRAME                 2001
@@ -28,6 +30,9 @@
 #define DLG_CFGPAGE_KEYBOARD            2060
 #define IDC_CFGKBD_PGDNUP_SCR           2061
 #define IDC_CFGKBD_PGDNUP_PREV          2062
+#define IDC_CFGKBD_WHEEL_SCR             2063
+#define IDC_CFGKBD_WHEEL_ZOOM            2064
+#define IDC_CFGKBD_WHEEL_PREV            2065
 #define DLG_CFGPAGE_TOOLS               2070
 #define IDC_CFGTOOLS_SQUARE             2071
 #define IDC_CFGTOOLS_4_3                2072

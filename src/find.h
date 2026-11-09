@@ -2,12 +2,22 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Separate protected consent from Find heartbeat | Integrate UAC with current upstream behavior. | #731 | Codex |
 // | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 // | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
 // | 2026-11-08 | Distinguish exact-file Find consent. | Report the scope explicitly in the dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Bind duplicate candidates to a specific consented scope. | Distinguish independent protected roots. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify protected duplicate candidates. | Keep later content reads on the session that authorized the candidate. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Route protected Find consent separately from traversal. | Keep cancellation visible to both search threads. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Expose the Find activity cursor to the native list. | Keep the indication local to the Find dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Give Find a lifetime-safe UI Automation model. | Keep offscreen rows discoverable without expanding the complete native list. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Distinguish Find finalization from completion. | Report when the worker is done and the dialog is still preparing results. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Share optional Find watchdog state between the owning dialog and main window. | Keep heartbeat and search progress independent of the result model. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Hold Find results alive for independent sort jobs. | Keep the visible result model and selection usable while sorting. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Track Find cancellation and deferred close. | Keep worker-owned data alive until completion. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Define Find activity labels and status state. | Give the current phase a dedicated status field. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Track live Find results in Debug builds. | Defer expensive periodic heap walks while large result sets remain allocated. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Share Find publication state and own log storage. | Coordinate result and error updates across the search and dialog threads. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Post coalesced Find result refreshes asynchronously. | Keep the search worker from blocking the GUI thread during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Add SafeHandleContextMenuMsg for shell-extension SEH. | Find dialog HandleMenuMsg must not live inside WindowProc SEH. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -15,10 +25,10 @@
 #pragma once
 
 #include <atomic>
+#include <memory>
 #include <string>
 
-// structure for adding messages to the Find Log; sent as the message parameter
-// of WM_USER_ADDLOG; parameters will be copied into the log data (can be deallocated after returning)
+// Parameters passed to the Find log are copied before Add returns.
 #define FLI_INFO 0x00000000   // INFORMATION item
 #define FLI_ERROR 0x00000001  // ERROR item
 #define FLI_IGNORE 0x00000002 // allow the Ignore button on this item
@@ -29,14 +39,13 @@ struct FIND_LOG_ITEM
     const char* Path; // path to a file or directory, may be NULL
 };
 
-#define WM_USER_ADDLOG WM_APP + 210     // add an item to the log [FIND_LOG_ITEM* item, 0]
-#define WM_USER_ADDFILE WM_APP + 211    // [search generation, 0]
 #define WM_USER_SETREADING WM_APP + 212 // [0, 0] - request to repaint the status bar ("Reading:")
 #define WM_USER_BUTTONS WM_APP + 213    // call EnableButtons() yourself [HWND hButton]
 #define WM_USER_FLASHICON WM_APP + 214  // after activating the find, flash the status icon
+#define WM_USER_FIND_HEARTBEAT (WM_APP + 215) // [request, 0] - acknowledge actual Find message handling
+#define IDT_FIND_WATCHDOG 955
 
-#define WM_USER_FIND_PROTECTED_CONSENT (WM_APP + 215) // synchronous [const std::wstring* path, FindConsentScope]
-#define WM_USER_FIND_COMPLETE (WM_APP + 216) // asynchronous [search generation, 0]
+#define WM_USER_FIND_PROTECTED_CONSENT (WM_APP + 216) // synchronous [const std::wstring* path, FindConsentScope]
 enum class FindConsentScope : LPARAM { Metadata, Content, File };
 
 extern BOOL IsNotAlpha[256];
@@ -155,6 +164,28 @@ public:
 #define FIND_DUPLICATES_SIZE 0x00000002    // same size
 #define FIND_DUPLICATES_CONTENT 0x00000004 // same content
 
+enum class CFindActivity
+{
+    Idle,
+    Searching,
+    Sorting,
+    Stopping,
+    Finishing,
+    Stopped,
+    Finished
+};
+
+int GetFindActivityStringID(CFindActivity activity);
+
+class CFindWatchdog;
+void UpdateFindWatchdogActivity(CFindWatchdog* watchdog, CFindActivity activity);
+void UpdateFindWatchdogResultCount(CFindWatchdog* watchdog, unsigned count);
+void AcknowledgeFindWatchdog(CFindWatchdog* watchdog, UINT_PTR request);
+void CloseFindWatchdog(CFindWatchdog* watchdog);
+std::wstring PollFindWatchdogs(HWND mainWindow);
+
+class CFindLog;
+
 struct CGrepData
 {
     BOOL FindDuplicates; // do we search for duplicates?
@@ -175,18 +206,16 @@ struct CGrepData
     DWORD AttributesValue; // then compare
     CFilterCriteria Criteria;
     // control and data
-    WPARAM SearchGeneration = 0; // changed before starting each search, after the previous worker has joined
+    HWND ConsentWindow = nullptr; // owner of protected access prompts
     HANDLE StopEvent = nullptr; // owned by the dialog until the search worker has joined
     std::atomic_bool StopSearch{false}; // the dialog requests cancellation of the search
     BOOL SearchStopped; // has it been terminated or not?
-    HWND HWindow;       // window the grep thread communicates with
+    CFindLog* Log;      // dialog-owned storage; worker copies messages without calling the UI
+    CFindWatchdog* Watchdog; // optional scalar telemetry; retained by the Find dialog
     TIndirectArray<CSearchForData>* Data;
     CFoundFilesListView* FoundFilesListView; // found files are loaded here
-    // two criteria for updating the list view
-    int FoundVisibleCount;  // number of items displayed in the list view
-    DWORD FoundVisibleTick; // when it was last displayed
-    BOOL NeedRefresh;       // need to refresh the display (an item was added without being shown)
-    volatile LONG RefreshPosted; // is a result-list refresh already queued?
+    int FoundVisibleCount; // number of displayed items; accessed only by the dialog thread
+    volatile LONG RefreshPending; // result or log changes waiting for the dialog timer
 
     CSearchingString* SearchingText;  // synchronized "Searching" text in the Find status bar
     CSearchingString* SearchingText2; // [optional] second text on the right; used for "Total: 35%"
@@ -454,10 +483,17 @@ struct CFindLogItem
 class CFindLog
 {
 protected:
+    CRITICAL_SECTION Section;
     TDirectArray<CFindLogItem> Items;
     int SkippedErrors; // number of errors that were not stored
     int ErrorCount;
     int InfoCount;
+
+    void CleanUnlocked();
+    BOOL AddUnlocked(DWORD flags, const char* text, const char* path);
+
+    CFindLog(const CFindLog&) = delete;
+    CFindLog& operator=(const CFindLog&) = delete;
 
 public:
     CFindLog();
@@ -466,11 +502,14 @@ public:
     void Clean(); // releases all held items
 
     BOOL Add(DWORD flags, const char* text, const char* path);
-    int GetCount() { return Items.Count; }
-    int GetSkippedCount() { return SkippedErrors; }
+    int GetCount();
+    int GetSkippedCount();
+    // The dialog reads borrowed items only from its immutable owned snapshot.
     const CFindLogItem* Get(int index);
-    int GetErrorCount() { return ErrorCount; }
-    int GetInfoCount() { return InfoCount; }
+    int GetErrorCount();
+    int GetInfoCount();
+    // Target must be a separate, caller-owned log not shared with another thread.
+    BOOL CopySnapshotTo(CFindLog& target);
 };
 
 //*********************************************************************************
@@ -530,11 +569,9 @@ struct CFoundFilesData
     //    it contains a number connecting multiple files into an equivalent group
     DWORD_PTR Group;
 
-    unsigned IsDir : 1; // 0 - item is a file, 1 - item is a directory
+    bool IsDir;          // immutable after publication and read by the sort worker
+    unsigned Selected : 1; // temporary selection state during order publication
     unsigned ProtectedScope : 6; // one-based Find session for a protected duplicate
-    // Selected and Focused are used only locally for StoreItemsState/RestoreItemsState
-    unsigned Selected : 1; // 0 - item not selected, 1 - item selected
-    unsigned Focused : 1;  // 0 - item is focused, 1 - item is not focused
     // 'Different' is used to distinguish file groups during duplicate search
     unsigned Different : 1; // 0 - item has standard white background, 1 - item uses a different one (for difference highlighting)
 
@@ -545,18 +582,44 @@ struct CFoundFilesData
         Attr = 0;
         ZeroMemory(&LastWrite, sizeof(LastWrite));
         Group = 0;
-        IsDir = 0;
+        IsDir = false;
         ProtectedScope = 0;
         Selected = 0;
         Different = 0;
+#ifdef _DEBUG
+        InterlockedIncrement(&DebugLiveCount);
+#endif
     }
+    void Retain() { InterlockedIncrement(&References); }
+    void Release()
+    {
+        if (InterlockedDecrement(&References) == 0)
+            delete this;
+    }
+
+    CFoundFilesData(const CFoundFilesData&) = delete;
+    CFoundFilesData& operator=(const CFoundFilesData&) = delete;
     ~CFoundFilesData()
     {
         if (Path != NULL)
             free(Path);
         if (Name != NULL)
             free(Name);
+#ifdef _DEBUG
+        InterlockedDecrement(&DebugLiveCount);
+#endif
     }
+#ifdef _DEBUG
+private:
+    static volatile LONG DebugLiveCount;
+
+public:
+    static bool HasLargeDebugResultSet();
+#endif
+private:
+    volatile LONG References = 1;
+
+public:
     BOOL Set(const char* path, const char* name, const CQuadWord& size, DWORD attr,
              const FILETIME* lastWrite, BOOL isDir);
     BOOL SetW(const wchar_t* path, const wchar_t* name, const CQuadWord& size, DWORD attr,
@@ -570,15 +633,61 @@ struct CFoundFilesData
     std::wstring GetTextW(int i, int fileNameFormat) const;
 };
 
+// The result list owns one reference per row. A sort job can keep a removed row alive.
+class CFindResultArray : public TIndirectArray<CFoundFilesData>
+{
+public:
+    CFindResultArray(int base, int delta) : TIndirectArray<CFoundFilesData>(base, delta) {}
+    ~CFindResultArray() override
+    {
+        if (!IsGood())
+            ResetState();
+        Destroy();
+    }
+
+protected:
+    void CallDestructor(void*& member) override
+    {
+        if (member != NULL)
+            static_cast<CFoundFilesData*>(member)->Release();
+    }
+};
+
+struct CFindSortJob;
+class CFindUiaState;
+struct IRawElementProviderSimple;
+
 class CFoundFilesListView : public CWindow
 {
 protected:
-    TIndirectArray<CFoundFilesData> Data;
+    CFindResultArray Data;
     CRITICAL_SECTION DataCriticalSection; // critical section for accessing data
     CFindDialog* FindDialog;
-    TIndirectArray<CFoundFilesData> DataForRefine;
+    CFindResultArray DataForRefine;
     int SortBy;       // active sort column; Date and Time share key 3; -1 = not sorted yet
     BOOL ReverseSort; // TRUE = descending within the selected criterion
+    ULONGLONG ResultRevision = 0;
+    CFindSortJob* SortJob = NULL;
+    HANDLE SortThread = NULL;
+    BOOL SortPending = FALSE;
+    BOOL ApplyingSort = FALSE;
+    BOOL HideDuplicatesAfterSort = FALSE;
+    CFindActivity ActivityBeforeSort = CFindActivity::Idle;
+
+    friend class CFindUiaState;
+    friend class CFindDialog;
+    std::shared_ptr<CFindUiaState> UiaState;
+    IRawElementProviderSimple* UiaProvider = NULL;
+    bool UiaClosing = false;
+    UINT_PTR UiaRevision = 0;
+    void InvalidateUiaRows(); // under DataCriticalSection once the window is initialized
+    void RefreshUiaView();
+    void ReleaseUiaView();
+    bool HandleUiaMessage(UINT message, WPARAM wParam, LPARAM lParam, LRESULT& result);
+
+    void ShowSortingActivity();
+    void PublishSort(const CFindSortJob& job);
+    void SetDifferentByGroup(int count);
 
 public:
     int EnumFileNamesSourceUID; // UID of the source for name enumeration in viewers
@@ -591,22 +700,17 @@ public:
 
     BOOL InitColumns();
 
-    void StoreItemsState();
-    void RestoreItemsState();
-
     int GetSortBy() const { return SortBy; }
     BOOL GetReverseSort() const { return ReverseSort; }
     BOOL ColumnShowsSortArrow(int column) const;
     void InvalidateSortHeader();
     void ApplyCurrentSort();
 
-    int CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2, int sortBy);
-    void QuickSort(int left, int right, int sortBy);
     void SortItems(int sortBy, BOOL reverse = TRUE, BOOL force = FALSE);
-
-    void QuickSortDuplicates(int left, int right, BOOL byName);
-    int CompareDuplicatesFunc(CFoundFilesData* f1, CFoundFilesData* f2, BOOL byName);
-    void SetDifferentByGroup(); // sets the Different bit based on Group so that the Different bit alternates at group boundaries
+    void PollSort();
+    BOOL IsSorting() const { return SortJob != NULL; }
+    BOOL IsApplyingSort() const { return ApplyingSort; }
+    void SortAndHideDuplicateNames();
 
     // interface for Data
     CFoundFilesData* At(int index);
@@ -752,14 +856,20 @@ protected:
     HWND HStatusBar;
     HFONT HStatusFont;
     HWND HProgressBar; // status bar child window shown for certain operations in a special field
-    BOOL TwoParts;     // does the status bar have two texts?
+    BOOL TwoParts;     // is the optional progress bar visible?
+    CFindActivity Activity = CFindActivity::Idle;
+    std::shared_ptr<CFindWatchdog> Watchdog;
+    int ActivityPartWidth = 0;
                        //    CFindAdvancedDialog FindAdvanced;
     CFoundFilesListView* FoundFilesListView;
     char FoundFilesDataTextBuffer[MAX_PATH]; // for obtaining text from CFoundFilesData::GetText
     std::wstring FoundFilesDataTextBufferW;  // for obtaining text from CFoundFilesData::GetTextW
     CFindTBHeader* TBHeader;
     BOOL SearchInProgress;
-    BOOL CanClose; // the window can be closed (we are not inside a method of this object)
+    bool SearchStopRequested = false;
+    bool FinishingSearch = false;
+    bool FindCloseQueryPending = false;
+    bool CloseWhenFindIdle = false;
     HANDLE GrepThread;
     CGrepData GrepData;
     CSearchingString SearchingText;
@@ -788,12 +898,15 @@ protected:
 
     char FindNowText[100];
 
+    bool SetActivityCursor(HWND target, LPARAM cursorMessage);
+
 public:
-    CStateOfFindCloseQueryEnum StateOfFindCloseQuery; // main thread asks the Find thread whether the window can close; unsynchronized, used only during shutdown, more than enough...
+    std::atomic<CStateOfFindCloseQueryEnum> StateOfFindCloseQuery; // main thread asks the Find thread whether the window can close; unsynchronized, used only during shutdown, more than enough...
 
 public:
     CFindDialog(HWND hCenterAgainst, const char* initPath);
     ~CFindDialog();
+    void SetWatchdog(const std::shared_ptr<CFindWatchdog>& watchdog) { Watchdog = watchdog; }
 
     virtual void Validate(CTransferInfo& ti);
     virtual void Transfer(CTransferInfo& ti);
@@ -808,8 +921,11 @@ public:
     BOOL UpdateInternalViewerData();
 
     BOOL IsSearchInProgress() { return SearchInProgress; }
+    BOOL IsSortingFindResults() const { return FoundFilesListView != NULL && FoundFilesListView->IsSorting(); }
 
     void OnEnterIdle();
+    CFindActivity GetFindActivity() const { return Activity; }
+    void SetFindActivity(CFindActivity activity);
 
     // If the message is translated, the return value is TRUE.
     BOOL IsMenuBarMessage(CONST MSG* lpMsg);
@@ -832,7 +948,8 @@ protected:
     void GetLayoutParams();
     void LayoutControls(); // arranges controls within the dialog
 
-    void SetTwoStatusParts(BOOL two, BOOL force = FALSE); // sets one or two status bar parts; sizes are adjusted according to the status bar length
+    void SetTwoStatusParts(BOOL two, BOOL force = FALSE); // lays out status text, activity, and optional progress
+    void UpdateFindActivityPart(BOOL initialize = FALSE);
 
     void SetContentVisible(BOOL visible);
     void UpdateAdvancedText();
@@ -841,6 +958,8 @@ protected:
 
     void StartSearch(WORD command);
     void StopSearch();
+    void FinishSearch();
+    void OnFindWorkIdle();
 
     void BuildSerchForData(); // fills the SearchForData list
 
@@ -862,11 +981,13 @@ protected:
     void OnEditFileWith();
     void OnHideSelection();
     void OnHideDuplicateNames();
+    void OnHideDuplicateNamesSorted(int sortedCount);
     void OnDelete(BOOL toRecycle);
     void OnSelectAll();
     void OnInvertSelection();
     void OnShowLog();
     void OnOpen(BOOL onlyFocused);
+    void OpenResult(const CFoundFilesData& file);
     void UpdateStatusText(); // if we are not in search mode, displays the count and total size of selected items
 
     // OLE clipboard operations

@@ -46,6 +46,28 @@
 // | 2026-11-07 | Add basic metadata consent and disconnect strings. | Explain the protected operation and unconfirmed outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Add permanent-delete elevation messages. | Name the irreversible operation and report an unconfirmed result. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Describe the protected listing consent and status. | Explain its scope and read-only access. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Localize lock-aware file error recovery. | Identify locking processes and warn before terminating them from an operation error. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
+// | 2026-11-09 | Localize the Change Drive block ordering selector. | Name both available first-block choices in the user's language. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
+// | 2026-11-09 | Localize adding new association patterns. | Give the existing text-input dialog clear instructions and report invalid or duplicate entries. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Localize the association detail Apply action. | Name the new command that writes edits into the association matrix. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Shorten custom viewer/editor page descriptions. | Keep page guidance on one line at the minimum window width. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add localized custom handler guidance and table headings. | Describe viewer/editor pages and name the new Arguments and Initial directory columns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Rename the association detail selector label to Action. | Match the new action tab group in the File Associations editor. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Localize the missing legacy editor state. | Show a translated Target ID if no editor command is configured. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Localize custom viewer/editor settings. | Provide translated labels for target choices and the saved-handler forms. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Describe competing owners instead of overlapping masks. | Explain exact-pattern ownership conflicts without implying that unrelated patterns collide. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Localize extension targets and conflict details. | Name extension handlers separately and show which patterns overlap. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Localize Unassigned and User defined association labels. | Match target wording and the requested state filter options. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Localize association multiselect details. | Show the selected count in the detail panel instead of one focused pattern. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Add IDS_EXCOL_MULTISELECT string. | Multi-select info message for the Property information panel in Choose Custom Properties. | | opencode |
+// | 2026-11-09 | Add localized source, details, and conflict-count labels. | Keep the revised file-association page fully resource-backed. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Add the localized extension-owner marker. | Distinguish Salamatrix extension associations from framework-owned plugin associations. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Shorten association legend and keep the help caption compact. | Prevent explanatory text from colliding with the detail editor during page resizing. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Fix STRINGTABLE separators for the resource compiler. | The added trailing commas were invalid in this project's resource-table syntax and could crash rc.exe. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Localize association provenance labels. | Keep the canonical editor's status and row metadata translatable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Add localized canonical association editor strings. | Keep the replacement configuration page fully resource-backed. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-07 | Localize the finishing phase in Find. | Distinguish a finished search worker from results still being finalized. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Localize Find activity and response warnings. | Describe Find progress in the dialog and main window. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Describe a missing extension runtime. | Activation failed silently when the interpreter or runtime provider was not installed. | | Grok 4.7 |
 // | 2026-11-04 | Keep the missing-runtime strings valid for the resource compiler. | A backslash before a quote was read as the end of the string. | | Grok 4.7 |
@@ -1892,6 +1914,8 @@ STRINGTABLE
 
  IDS_CHDHOTPATHS_HINT, "Visibility of Hot Path items (only in Change Drive menu) can be changed on Hot Paths page."
  IDS_CHDPLUGINS_HINT, "Visibility of Plugin FS items can be changed in Plugins Manager (see menu Plugins)."
+ IDS_CHD_PLUGINFIRST, "Plugin items"
+ IDS_CHD_HOTPATHSFIRST, "Hot Paths"
 
  IDS_NAMEMANGLE_ONTHEDISK, "As they are stored on the disk"
  IDS_NAMEMANGLE_EXPLORER, "In partially mixed case if they are in DOS format"
@@ -2292,6 +2316,7 @@ STRINGTABLE
  IDS_EXCOL_ADD_FAVORITE, "Add to favorites"
  IDS_EXCOL_REMOVE_FAVORITE, "Remove from favorites"
  IDS_EXCOL_PLUGINS, "Plugins"
+ IDS_EXCOL_MULTISELECT, "Multiple items selected - information not available"
  IDS_MENU_FILES_EDITPROPERTIES, "Edit &Tags and Windows Properties..."
  IDS_EDPROP_TITLE, "Edit Tags and Windows Properties"
  IDS_EDPROP_PROPERTY, "&Property:"
@@ -2338,6 +2363,14 @@ STRINGTABLE
  IDS_COPYMOVE_POLICY_STORAGEAWARE, "Storage-aware"
  IDS_COPYMOVE_POLICY_SEQUENTIAL, "Sequential global queue"
  IDS_COPYMOVE_POLICY_ASK, "Ask each operation"
+ IDS_FIND_ACTIVITY_IDLE, "Ready"
+ IDS_FIND_ACTIVITY_SEARCHING, "Searching"
+ IDS_FIND_ACTIVITY_SORTING, "Sorting"
+ IDS_FIND_ACTIVITY_STOPPING, "Stopping"
+ IDS_FIND_ACTIVITY_FINISHED, "Completed"
+ IDS_FIND_ACTIVITY_HUNG_FORMAT, "Find has not responded for {0} s - {1}"
+ IDS_FIND_ACTIVITY_HUNG_COUNT_FORMAT, "Find has not responded for {0} s - {1} - Results: {2}"
+ IDS_FIND_ACTIVITY_FINISHING, "Finishing"
  IDS_COPYMOVE_CONFLICT_CURRENT, "Gradual resolution of conflicts within the queue"
  IDS_COPYMOVE_CONFLICT_SCAN_AHEAD, "Scan ahead and continue with non-conflicting items"
  IDS_COPYMOVE_CONFLICT_KEEP_LAST, "Keep last selected in the Copy/Move dialog"
@@ -2468,7 +2501,94 @@ STRINGTABLE
  IDS_FILELAUNCH_LONGPATH_UNSET, "Windows long-path setting: not configured (default behavior)."
  IDS_FILELAUNCH_LONGPATH_UNKNOWN, "Windows long-path setting could not be determined."
  IDS_FILELAUNCH_LONGPATH_CAVEAT, "This setting is diagnostic information, not the established cause of this failure. Enabling it does not guarantee support by Shell, security services or the target application."
+ IDS_FILEASSOCIATIONS, "File Associations"
+ IDS_FILEASSOCIATION_PATTERN, "&Pattern:"
+ IDS_FILEASSOCIATION_CATEGORY, "&Action:"
+ IDS_FILEASSOCIATION_OPERATION, "&Operation:"
+ IDS_FILEASSOCIATION_TARGET, "&Target:"
+ IDS_FILEASSOCIATION_TARGET_ID, "Target &ID:"
+ IDS_FILEASSOCIATION_STATUS, "Status:"
+ IDS_FILEASSOCIATION_ADD, "&Add / Update"
+ IDS_FILEASSOCIATION_DELETE, "&Delete"
+ IDS_FILEASSOCIATION_RESET, "&Reset to default"
+ IDS_FILEASSOCIATION_UNASSIGNED, "Set &unassigned"
+ IDS_FILEASSOCIATION_VIEW, "View"
+ IDS_FILEASSOCIATION_ALTERNATE_VIEW, "Alternate View"
+ IDS_FILEASSOCIATION_EDIT, "Edit"
+ IDS_FILEASSOCIATION_PANEL_ARCHIVE, "Panel Archive"
+ IDS_FILEASSOCIATION_NOT_APPLICABLE, "Not applicable"
+ IDS_FILEASSOCIATION_LIST_UNPACK, "List / Unpack"
+ IDS_FILEASSOCIATION_DELETE_PACK, "Delete / Pack"
+  IDS_FILEASSOCIATION_BUILT_IN, "Built-in"
+  IDS_FILEASSOCIATION_PLUGIN, "Plugin"
+ IDS_FILEASSOCIATION_EXTENSION, "Extension"
+  IDS_FILEASSOCIATION_STATUS_READY, "Ready"
+  IDS_FILEASSOCIATION_STATUS_CONFLICT, "Conflict: resolve overlapping patterns before saving"
+  IDS_FILEASSOCIATION_DEFAULT, "Default"
+  IDS_FILEASSOCIATION_USER, "User"
+  IDS_FILEASSOCIATION_LEGACY, "Legacy"
+  IDS_FILEASSOCIATION_DISABLED, "Disabled"
+  IDS_FILEASSOCIATION_CONFLICT, "Conflict"
+  IDS_FILEASSOCIATION_SEARCH, "Search patterns"
+  IDS_FILEASSOCIATION_FILTER_CATEGORY, "Category"
+  IDS_FILEASSOCIATION_FILTER_PROVENANCE, "Provenance"
+  IDS_FILEASSOCIATION_FILTER_ALL, "All"
+  IDS_FILEASSOCIATION_FILTER_CONFLICTS, "Show conflicts only"
+  IDS_FILEASSOCIATION_MATRIX_PATTERN, "Pattern"
+  IDS_FILEASSOCIATION_MATRIX_VIEW, "View"
+  IDS_FILEASSOCIATION_MATRIX_ALTERNATE, "Alternate View"
+  IDS_FILEASSOCIATION_MATRIX_EDIT, "Edit"
+  IDS_FILEASSOCIATION_MATRIX_ARCHIVE, "Panel Archive"
+ IDS_FILEASSOCIATION_LEGEND, "%u of %u associations | %u conflicts"
+  IDS_FILEASSOCIATION_GUIDANCE, "Select a pattern cell to change its owner. Existing defaults are imported automatically."
+  IDS_FILEASSOCIATION_NO_TARGETS, "No compatible targets are installed"
+  IDS_FILEASSOCIATION_INTERNAL_VIEWER, "Internal viewer"
+  IDS_FILEASSOCIATION_LEGACY_RUNTIME, "Legacy runtime"
+  IDS_FILEASSOCIATION_SELECT_PLUGIN, "Select a compatible plugin target"
+ IDS_FILEASSOCIATION_PATTERN_EMPTY, "Pattern must not be empty"
+ IDS_FILEASSOCIATION_SOURCE, "Source"
+ IDS_FILEASSOCIATION_DETAILS, "Association details"
+ IDS_FILEASSOCIATION_MULTISELECT, "%u associations selected"
+ IDS_FILEASSOCIATION_UNASSIGNED_TARGET, "Unassigned"
+ IDS_FILEASSOCIATION_USER_DEFINED, "User defined"
+ IDS_FILEASSOCIATION_ARCHIVE_PANEL_TARGET, "Archive Panel"
+ IDS_FILEASSOCIATION_EXTENSIONS, "Extensions"
+ IDS_FILEASSOCIATION_CONFLICT_DETAIL, "Conflict: %s has competing targets in %s: %s"
+ IDS_FILEASSOCIATION_CONFLICT_MORE, " (+%u more)"
+ IDS_FILEASSOCIATION_SELECT_EXTENSION, "Select a compatible extension viewer"
+ IDS_FILEASSOCIATION_CUSTOM_VIEWER, "Custom Viewer"
+ IDS_FILEASSOCIATION_CUSTOM_EDITOR, "Custom Editor"
+ IDS_CUSTOM_HANDLER_NAME, "&Name:"
+ IDS_CUSTOM_HANDLER_COMMAND, "&Command:"
+ IDS_CUSTOM_HANDLER_ARGUMENTS, "&Arguments:"
+ IDS_CUSTOM_HANDLER_INITIAL_DIRECTORY, "&Initial directory:"
+ IDS_CUSTOM_HANDLER_SAVE, "&Save"
+ IDS_CUSTOM_HANDLER_LIST, "Saved custom handlers"
+ IDS_CUSTOM_HANDLER_REQUIRED, "Enter a name and command for this handler."
+ IDS_CUSTOM_HANDLER_DUPLICATE, "A handler with this name already exists."
+ IDS_CUSTOM_HANDLER_COLUMN_NAME, "Name"
+ IDS_CUSTOM_HANDLER_COLUMN_COMMAND, "Command"
+ IDS_CUSTOM_HANDLER_VIEWERS_HELP, "Configure named custom viewers for file associations."
+ IDS_CUSTOM_HANDLER_EDITORS_HELP, "Configure named custom editors for file associations."
+ IDS_CUSTOM_HANDLER_DETAILS, "Handler details"
+ IDS_CUSTOM_HANDLER_COLUMN_ARGUMENTS, "Arguments"
+ IDS_CUSTOM_HANDLER_COLUMN_INITIAL_DIRECTORY, "Initial directory"
+ IDS_CUSTOM_HANDLER_INVALID, "This custom handler is invalid or exceeds the supported size limits."
+ IDS_FILEASSOCIATION_NO_LEGACY_EDITOR, "No legacy editor is configured"
+ IDS_FILEASSOCIATION_CONFLICTS_COUNT, "Conflicts (%u)"
+ IDS_FILEASSOCIATION_ADD_SHORT, "Add new pattern"
+ IDS_FILEASSOCIATION_NEW_PATTERN_TITLE, "Add new file association pattern"
+ IDS_FILEASSOCIATION_NEW_PATTERN_PROMPT, "Enter a file pattern:"
+ IDS_FILEASSOCIATION_PATTERN_INVALID, "Enter a valid file pattern."
+ IDS_FILEASSOCIATION_PATTERN_EXISTS, "This file pattern already exists."
+ IDS_FILEASSOCIATION_FILTER_STATES, "All States"
+ IDS_FILEASSOCIATION_FILTER_SOURCES, "All Sources"
+ IDS_FILEASSOCIATION_APPLY, "Apply"
  IDS_FILELAUNCH_LAUNCH_CLOSE, "Close"
+ IDS_FILELOCK_TERMINATE_RETRY, "Terminate and retry"
+ IDS_FILELOCK_USED_BY, "The file is in use by: %s"
+ IDS_FILELOCK_CONFIRM_TERMINATE, "Terminate these processes and retry?\n\nUnsaved data in these processes may be lost:\n%s"
+ IDS_FILELOCK_TERMINATE_FAILED, "Unable to terminate any of the processes using this file."
  IDS_FILELAUNCH_LONGPATH_GUIDE_BUTTON, "Windows settings guide"
  IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE, "Windows long-path support"
  IDS_FILELAUNCH_LONGPATH_GUIDE, "An administrator can enable the Windows policy:\nComputer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths.\n\nIts registry equivalent is REG_DWORD LongPathsEnabled = 1 under:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nRestart affected applications; restarting Windows may also be necessary. Applications must support long paths themselves. This is not a way to override a security denial, and Shell or the target program may still reject the path. Salamander does not change this setting."

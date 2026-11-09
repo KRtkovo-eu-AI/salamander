@@ -6,6 +6,8 @@
 // | 2026-11-08 | Enable archive deletion for an open protected ZIP with a verified editor. | Preserve ordinary archive capability checks. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Enable extraction from the protected archive panel. | Keep archive mutations disabled. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Enable F3 for a protected ZIP entry. | Keep external view and transfer actions on their separate routes. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Display a temporary Find notice in the main caption. | Keep reporting Find activity when its own window is stalled. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-09 | Fix Extension Bar visibility on default configuration. | Release LockWindowUpdate when CreateWnd fails in ToggleExtensionBar; show Extension Bar directly at startup when ExtensionBarVisible is TRUE. | | nvidia/nemotron-3.5-super-vl:free |
 // | 2026-11-04 | Reflect context help on panel toolbars and bound toolbar saves. | Panel toolbars can now hold the shared help button, and their layouts use the larger buffers. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
@@ -754,7 +756,11 @@ BOOL CMainWindow::ToggleExtensionBar(BOOL storePos)
     else
     {
         if (!ExtensionBar->CreateWnd(HTopRebar))
+        {
+            if (lockWindowUpdate)
+                LockWindowUpdate(NULL);
             return FALSE;
+        }
         ExtensionBar->CreateExtensionButtons(HGrayToolBarImageList,
                                              HHotToolBarImageList);
         InsertExtensionBarBand();
@@ -5347,6 +5353,35 @@ void CMainWindow::GetFormatedPathForTitle(char* path, int textSize)
     }
     FormatPanelPathForDisplay(panel, Configuration.TitleBarMode, path, textSize);
 }
+void CMainWindow::UpdateMainWindowCaption()
+{
+    std::wstring caption;
+    if (!FindWatchdogNotice.empty())
+    {
+        caption = FindWatchdogNotice;
+        caption += L" - ";
+    }
+    caption += MainWindowBaseTitle;
+
+    int length = GetWindowTextLengthW(HWindow);
+    std::wstring currentTitle;
+    if (length > 0)
+    {
+        currentTitle.resize(length + 1);
+        currentTitle.resize(GetWindowTextW(HWindow, &currentTitle[0], length + 1));
+    }
+    if (caption != currentTitle)
+        ::SetWindowTextW(HWindow, caption.c_str());
+}
+
+void CMainWindow::SetFindWatchdogNotice(std::wstring notice)
+{
+    if (notice == FindWatchdogNotice)
+        return;
+    FindWatchdogNotice.swap(notice);
+    UpdateMainWindowCaption();
+}
+
 void CMainWindow::SetWindowTitle(const char* text)
 {
     CALL_STACK_MESSAGE2("CMainWindow::SetWindowTitle(%s)", text != NULL ? text : "");
@@ -5457,31 +5492,20 @@ void CMainWindow::SetWindowTitle(const char* text)
         detachedText += MultiByteToWindowTitleWide(LoadStr(IDS_DETACHED_WINDOW_TITLE));
     }
 
-    int curLen = GetWindowTextLengthW(HWindow);
-    std::wstring curTitle;
-    if (curLen > 0)
+    const bool baseTitleChanged = wideText != MainWindowBaseTitle;
+    MainWindowBaseTitle.swap(wideText);
+    UpdateMainWindowCaption();
+    if (baseTitleChanged && Configuration.StatusArea)
     {
-        curTitle.resize(curLen + 1);
-        int copied = GetWindowTextW(HWindow, &curTitle[0], curLen + 1);
-        if (copied >= 0)
-            curTitle.resize(copied);
-    }
-
-    if (wideText != curTitle)
-    {
-        ::SetWindowTextW(HWindow, wideText.c_str());
-        if (Configuration.StatusArea)
+        int utf8Len = WideCharToMultiByte(CP_UTF8, 0, MainWindowBaseTitle.c_str(), (int)MainWindowBaseTitle.length(), NULL, 0, NULL, NULL);
+        if (utf8Len > 0)
         {
-            int utf8Len = WideCharToMultiByte(CP_UTF8, 0, wideText.c_str(), (int)wideText.length(), NULL, 0, NULL, NULL);
-            if (utf8Len > 0)
+            char utf8Buf[4096];
+            if (utf8Len < (int)sizeof(utf8Buf))
             {
-                char utf8Buf[4096];
-                if (utf8Len < (int)sizeof(utf8Buf))
-                {
-                    WideCharToMultiByte(CP_UTF8, 0, wideText.c_str(), (int)wideText.length(), utf8Buf, utf8Len, NULL, NULL);
-                    utf8Buf[utf8Len] = 0;
-                    SetTrayIconText(utf8Buf);
-                }
+                WideCharToMultiByte(CP_UTF8, 0, MainWindowBaseTitle.c_str(), (int)MainWindowBaseTitle.length(), utf8Buf, utf8Len, NULL, NULL);
+                utf8Buf[utf8Len] = 0;
+                SetTrayIconText(utf8Buf);
             }
         }
     }

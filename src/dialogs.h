@@ -7,6 +7,7 @@
 // | 2026-11-08 | Share the protected read consent prompt with F3. | Keep the scope and shield consistent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Declare the protected read consent prompt. | Use the same shield and default Cancel for size and Find. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Allow a shield on OK independently of the default action. | Keep destructive UAC confirmations safe by default. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Add lock-process context to file error dialogs. | Display detected holders and expose core operation recovery. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Remember the splash fork-line rectangle. | The community-fork sentence sits under the bold version. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Explain when an extension runtime is missing. | Installing a Salamatrix extension whose interpreter is absent failed activation with no dialog. | | Grok 4.7 |
@@ -18,6 +19,7 @@
 #include <list>
 #include <string>
 #include <vector>
+#include "filelock.h"
 
 #include "plugins/salamatrix/salamatrix_extensions.h"
 #include "uacbroker/f7pilot.h"
@@ -490,7 +492,7 @@ class CFileErrorDlg : public CCommonDialog
 {
 public:
     CFileErrorDlg(HWND parent, const char* caption, const char* file, const char* error,
-                  BOOL noSkip = FALSE, int altRes = 0);
+                  BOOL noSkip = FALSE, int altRes = 0, const wchar_t* lockPath = NULL);
 
 protected:
     virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -498,6 +500,9 @@ protected:
     const char *Caption,
         *File,
         *Error;
+    const wchar_t* LockPath;
+    std::vector<CFileLockingProcess> LockingProcesses;
+    std::string DisplayError;
 };
 
 //

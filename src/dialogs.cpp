@@ -31,6 +31,8 @@
 // | 2026-11-07 | Show the metadata UAC consent on the progress dialog thread. | Keep secure consent and uncertain results in the existing UI. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show the exact F5 source and target before broker consent. | Default to Cancel and show failures without replay. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show exact F6 paths and the move-specific result. | Share the F5 consent UI while keeping the requested action explicit. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Pass lock paths with a typed payload and format localized text safely. | Address CodeQL findings in the file-lock recovery dialog. | https://github.com/KRtkovo-eu-AI/salamander/pull/842 | GPT-6 (Codex) |
+// | 2026-11-09 | Offer lock-process recovery in file error dialogs. | Let users resolve sharing failures without installing an extension. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -1727,6 +1729,15 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         }
 
+        case 13:
+        {
+            CFileLockRecoveryDialogData* lockData = (CFileLockRecoveryDialogData*)lParam;
+            CFileErrorDlg dlg(HWindow, lockData->Caption, lockData->FileName, lockData->Error,
+                              FALSE, 0, lockData->ExactPath);
+            *lockData->Result = (int)dlg.Execute();
+            break;
+        }
+
         case 1:
         {
             char tmpName[MAX_PATH];
@@ -2733,12 +2744,22 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
 // CFileErrorDlg
 //
 
+static std::string FormatFileLockText(const char* format, const std::string& value)
+{
+    std::string text = format != NULL ? format : "";
+    const size_t placeholder = text.find("%s");
+    if (placeholder != std::string::npos)
+        text.replace(placeholder, 2, value);
+    return text;
+}
+
 CFileErrorDlg::CFileErrorDlg(HWND parent, const char* caption, const char* file, const char* error,
-                             BOOL noSkip, int altRes) : CCommonDialog(HLanguage, altRes == 0 ? (noSkip ? IDD_CREATEDIRERR : IDD_CANNOTOPEN) : altRes, parent)
+                             BOOL noSkip, int altRes, const wchar_t* lockPath) : CCommonDialog(HLanguage, altRes == 0 ? (noSkip ? IDD_CREATEDIRERR : IDD_CANNOTOPEN) : altRes, parent)
 {
     Caption = caption;
     File = file;
     Error = error;
+    LockPath = lockPath;
 }
 
 INT_PTR
@@ -2774,6 +2795,57 @@ CFileErrorDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         SetWindowText(HWindow, Caption);
 
+        if (LockPath != NULL && GetFileLockingProcesses(LockPath, LockingProcesses))
+        {
+            BOOL canTerminate = FALSE;
+            std::string names;
+            size_t shown = 0;
+            for (size_t i = 0; i < LockingProcesses.size(); ++i)
+            {
+                const CFileLockingProcess& process = LockingProcesses[i];
+                if (shown == 6)
+                {
+                    names += ", ...";
+                    break;
+                }
+                if (!process.IsService) canTerminate = TRUE;
+                if (!names.empty()) names += ", ";
+                char name[1024];
+                if (WideCharToMultiByte(CP_ACP, 0, process.Name.c_str(), -1, name, sizeof(name), NULL, NULL) > 0)
+                {
+                    names += name;
+                    ++shown;
+                }
+            }
+            if (!names.empty())
+            {
+                DisplayError = Error != NULL ? Error : "";
+                DisplayError += "\n";
+                DisplayError += FormatFileLockText(LoadStr(IDS_FILELOCK_USED_BY), names);
+            }
+            if (canTerminate)
+            {
+                RECT rect = { 61, 57, 151, 71 };
+                MapDialogRect(HWindow, &rect);
+                HWND button = CreateWindowEx(0, "BUTTON", LoadStr(IDS_FILELOCK_TERMINATE_RETRY),
+                    WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
+                    rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top,
+                    HWindow, (HMENU)IDB_FILELOCK_TERMINATE_RETRY, HInstance, NULL);
+                if (button != NULL)
+                {
+                    const int positions[][2] = { { 5, 50 }, { 156, 50 }, { 211, 60 }, { 277, 60 } };
+                    const int ids[] = { IDRETRY, IDB_SKIP, IDB_SKIPALL, IDCANCEL };
+                    for (int i = 0; i < 4; ++i)
+                    {
+                        RECT r = { positions[i][0], 57, positions[i][0] + positions[i][1], 71 };
+                        MapDialogRect(HWindow, &r);
+                        SetWindowPos(GetDlgItem(HWindow, ids[i]), NULL, r.left, r.top,
+                                     r.right - r.left, r.bottom - r.top, SWP_NOZORDER);
+                    }
+                }
+            }
+        }
+
         CStaticText* name;
         if ((name = new CStaticText(HWindow, IDS_FILENAME, STF_PATH_ELLIPSIS)) != NULL)
             name->SetTextToDblQuotesIfNeeded(File);
@@ -2783,7 +2855,7 @@ CFileErrorDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         if (ResID == IDD_CANNOTOPENADS)
             new CButton(HWindow, IDB_IGNORE, BTF_DROPDOWN);
 
-        SetWindowText(GetDlgItem(HWindow, IDS_ERROR), Error);
+        SetWindowText(GetDlgItem(HWindow, IDS_ERROR), DisplayError.empty() ? Error : DisplayError.c_str());
         if (WinLib_DarkMode_ShouldApplyDialogTree(HWindow))
         {
             DarkModeApplyTree(HWindow);
@@ -2851,6 +2923,41 @@ MENU_TEMPLATE_ITEM FileErrorDlgMenu[] =
 
     case WM_COMMAND:
     {
+        if (LOWORD(wParam) == IDB_FILELOCK_TERMINATE_RETRY)
+        {
+            std::string names;
+            size_t shown = 0;
+            for (size_t i = 0; i < LockingProcesses.size(); ++i)
+            {
+                if (LockingProcesses[i].IsService) continue;
+                if (shown == 6)
+                {
+                    names += "\n...";
+                    break;
+                }
+                char name[1024];
+                if (WideCharToMultiByte(CP_ACP, 0, LockingProcesses[i].Name.c_str(), -1,
+                                        name, sizeof(name), NULL, NULL) > 0)
+                {
+                    if (!names.empty()) names += "\n";
+                    names += name;
+                    ++shown;
+                }
+            }
+            const std::string confirmation = FormatFileLockText(
+                LoadStr(IDS_FILELOCK_CONFIRM_TERMINATE), names);
+            if (SalMessageBox(HWindow, confirmation.c_str(), LoadStr(IDS_QUESTION), MB_YESNO | MB_ICONWARNING) == IDYES)
+            {
+                if (TerminateFileLockingProcesses(LockingProcesses))
+                {
+                    if (Modal) EndDialog(HWindow, IDRETRY);
+                    else DestroyWindow(HWindow);
+                }
+                else
+                    SalMessageBox(HWindow, LoadStr(IDS_FILELOCK_TERMINATE_FAILED), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+            }
+            return TRUE;
+        }
         if (LOWORD(wParam) == IDB_SKIP || LOWORD(wParam) == IDB_SKIPALL ||
             LOWORD(wParam) == IDRETRY || LOWORD(wParam) == IDB_IGNORE ||
             LOWORD(wParam) == IDB_IGNOREALL)

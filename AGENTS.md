@@ -1,6 +1,7 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-04 | Rename the product to Open Samandarin and record the file-header rule. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+| 2026-11-09 | Add UI and dialog guidelines. | Standardize reuse of existing dialogs and Open Samandarin UI components. | | nvidia/nemotron-3.5-super-vl:free |
 -->
 
 # Codex rules for Open Samandarin path/Unicode work
@@ -134,7 +135,7 @@ Every modified file gets a new changelog row at the top. Do not delete older row
 - Summary of the change
 - Reason for the change
 - Link to the ticket, or an empty field when there is no ticket
-- Name of the AI model that worked on the change
+- Name of the AI model that worked on the change. The Model value must be the actual AI model name and version that performed the work (for example `nvidia/nemotron-3.5-super-vl:free`), not the provider name (not `OpenAI`, `Groq`, `OpenRouter`, `Microsoft`, etc.) and not any other label.
 
 Keep SPDX as the first lines so license tools still see it. Do not remove an existing `SPDX-FileCopyrightText` line. When the file already has one, add a second line for the year of the edit:
 
@@ -154,3 +155,13 @@ When a visible copyright line is updated, keep `Open Salamander Authors` and add
 
 - Don't use SegoeUI.
 - Use: FONT 8, "MS Shell Dlg"
+
+## UI and dialogs
+
+- Always try to reuse existing Open Samandarin dialogs and components (e.g. Salamatrix UI framework) before creating custom solutions.
+- If no suitable dialog or component exists, create a new one in the same style as existing ones: keep the same spacing between elements, same element sizes, same layout, and same behavior.
+- For text input from the user via a dialog, use the same dialog used for rename (already used for add new pattern in configuration-file associations). Do not create a new dialog for text input.
+- For file operation progress, use the native Salamander file operations dialog.
+- All texts and strings in dialogs must be localized (see Localization and translate).
+- When creating a new window, dialog, messagebox, or plugin, don't forget to support darkmode (see Darkmode).
+- Font for C++ dialogs, windows etc. is FONT 8, "MS Shell Dlg" (do not use SegoeUI).

@@ -2,6 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Disable the crashing WPD bulk folder query. | The latest dump locates the access violation inside LoadBulkItems during MoveNext. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
+// | 2026-11-09 | Pass a device and folder snapshot to the listing worker. | The worker must open its own WPD COM session instead of sharing the UI-thread enumerator. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
+// | 2026-11-09 | Declare the Portable Devices filesystem event override. | The asynchronous listing spinner handler was defined without its class declaration. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
+// | 2026-11-09 | Cache asynchronous Portable Devices listings and show the panel throbber. | Synchronous device enumeration blocked the panel and hid loading activity. | https://github.com/KRtkovo-eu-AI/salamander/issues/832 | GPT-6 |
 // | 2026-11-04 | Refresh every open panel when a device arrives or leaves. | The device list was cached until a manual refresh. | | Grok 4.7 |
 // | 2026-11-04 | Overwrite, merge, and rename portable items safely. | Creating an object whose name is still present wedges Android MTP. | | Grok 4.7 |
 
@@ -22,6 +26,7 @@
 
 class CWpdDevice;
 class CWpdBaseContentItem;
+struct CWpdListingTask;
 struct WpdCopyContext;
 
 // Drop the cached device list and ask every open Portable Devices panel to list again.
@@ -29,6 +34,26 @@ void WINAPI WpdRefreshPanelsForDeviceChange();
 
 class CWpdFS final : public TFxPluginFSInterface<CWpdFS>
 {
+private:
+    CRITICAL_SECTION m_listingLock;
+    HANDLE m_listingThread;
+    std::vector<CFxItem*> m_listingItems;
+    std::string m_listingPath;
+    DWORD m_listingValidData;
+    LONG m_listingGeneration;
+    BOOL m_listingCacheReady;
+    BOOL m_listingPostRefreshPending;
+    BOOL m_listingRunning;
+    BOOL m_listingClosing;
+    int m_listingPanel;
+    int m_throbberId;
+
+    static unsigned __stdcall ListingThreadProc(void* context);
+    void WINAPI RunListing(CWpdListingTask* task);
+    void WINAPI ClearListingCache(const std::string& path);
+    BOOL WINAPI StartListing();
+    std::string WINAPI GetCurrentUserPart();
+
 protected:
     HRESULT WINAPI GetContentLocationForPath(PCSTR path, _Out_ CWpdDevice*& device, _Out_ CFxString& objectId);
     HRESULT WINAPI GetCurrentContentLocation(_Out_ CWpdDevice*& device, _Out_ CFxString& objectId);
@@ -54,6 +79,14 @@ protected:
     /* CFxPluginFSInterface Overrides */
 
     virtual CFxPluginDataInterface* WINAPI CreatePluginData(CFxItemEnumerator* enumerator) override;
+
+    virtual BOOL WINAPI ListCurrentPath(
+        CSalamanderDirectoryAbstract* dir,
+        CPluginDataInterfaceAbstract*& pluginData,
+        int& iconsType,
+        BOOL forceRefresh) override;
+
+    virtual void WINAPI Event(int event, DWORD param) override;
 
     virtual HRESULT WINAPI GetChildEnumerator(
         _Out_ CFxItemEnumerator*& enumerator,

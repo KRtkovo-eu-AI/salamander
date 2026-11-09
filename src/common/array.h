@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-08 | Add ownership-preserving array swaps. | Allow runtime configuration projections to stage replacements without copying owning elements. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 
 #pragma once
 
@@ -134,6 +137,34 @@ public:
     }
     DATA_TYPE* GetData() { return Data; }
 
+    // Exchange the complete allocation and state without moving or copying members.
+    void Swap(TDirectArray<DATA_TYPE>& source)
+    {
+        DATA_TYPE* data = Data;
+        Data = source.Data;
+        source.Data = data;
+
+        int available = Available;
+        Available = source.Available;
+        source.Available = available;
+
+        int base = Base;
+        Base = source.Base;
+        source.Base = base;
+
+        int delta = Delta;
+        Delta = source.Delta;
+        source.Delta = delta;
+
+        CErrorType state = State;
+        State = source.State;
+        source.State = state;
+
+        int count = Count;
+        Count = source.Count;
+        source.Count = count;
+    }
+
     void DestroyMembers();             // release items from memory (calling destructors), keep array
     void DetachMembers();              // detach all items (destructors are NOT called), keep array
     void Destroy();                    // complete array destruction (calling destructors)
@@ -216,6 +247,15 @@ public:
     CArray(int base, int delta, CDeleteType dt) : TDirectArray<void*>(base, delta)
     {
         DeleteType = dt;
+    }
+
+    void Swap(CArray& source)
+    {
+        TDirectArray<void*>::Swap(source);
+
+        CDeleteType deleteType = DeleteType;
+        DeleteType = source.DeleteType;
+        source.DeleteType = deleteType;
     }
 };
 

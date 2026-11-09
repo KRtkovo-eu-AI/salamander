@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Integrate the current upstream release branch. | Preserve asynchronous Find and locked-file recovery alongside UAC. | #731 | Codex |
 | 2026-11-09 | Record the deferral of the interactive DPI check. | Resume it when the test VM can use actual higher scaling. | | Codex |
 | 2026-11-09 | Distinguish completed P7 evidence from remaining acceptance gates. | Avoid repeating closed scenarios and record F6 on two volumes under WOW64. | | Codex |
 | 2026-11-09 | Verify hidden language modules in the UAC payload. | Prevent an unverified module from passing distribution checks. | | Codex |
@@ -1845,6 +1846,8 @@ Opakovaný výpis GitHubu je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f
 #### Aktuální stav P7 a zbývající ověření
 
 Tento přehled je výchozí bod pro další práci. Výše jsou chronologické záznamy jednotlivých pokusů včetně tehdejších otevřených bodů. Před novou zkouškou porovnat scénář, prostředí a očekávaný důkaz s tímto přehledem. Po zkoušce sem zapsat závěr a odkaz na důkaz.
+
+**Integrace upstreamu 0c667a9d.** Find ponechává upstreamové průběžné zveřejňování výsledků, vlastněné záznamy a asynchronní zastavení. Chráněné čtení dostává vlastní událost zrušení do ukončení workeru a výzva používá samostatný identifikátor zprávy. Dialog obnovy uzamčeného souboru a nabídka UAC mají odlišné identifikátory. Pro 65 textů UAC byl použit volný rozsah 14624–14689. Výčet skutečného anglického modulu potvrdil stejné identifikátory a pořadí ve všech 11 překladových archivech, které zachovávají stávající překlady UAC. Nové nepřeložené řetězce převzaté z upstreamu jsou označené jako nepřeložené. Lokálně prošlo sestavení hosta x64 Debug a cílené testy Findu, mazání, kopírování a roury. Celá matice patří k přesné revizi interního draftu #67.
 
 **Kdy zkoušku znovu otevřít.** Souběžný F5 a pozastavený Scan Ahead, F6 na dvou svazcích, lokalizované popisky a laboratorní kontrola balíčku mají dostatečný důkaz v níže uvedeném rozsahu. Opakovat je při změně příslušného kódu, regresi nebo při ověřování dosud nepokryté platformy. Další simulace DPI nenahradí ověření celého dialogu při skutečném vyšším DPI. Po schváleném pushi ověřit CI a CodeQL pro přesnou revizi. Pro nativní ARM64 a podpis použít připravené postupy, až bude dostupné odpovídající prostředí a podepsané artefakty. Hranice Koše při schválení jiným účtem je popsána samostatně níže.
 

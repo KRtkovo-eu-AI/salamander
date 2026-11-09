@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Supply lock-recovery dependencies to the isolated worker fixture. | Compile and exercise the updated delete-worker dialog contract. | https://github.com/KRtkovo-eu-AI/salamander/pull/842 | GPT-6 (Codex) |
 """Actual delete worker over an owned temporary tree; UI and progress are facades."""
 from pathlib import Path
 import argparse, shutil, tempfile
@@ -8,7 +10,7 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--configuration',choices=('Debug','Release','Both'),default='Both');args=p.parse_args()
     worker=read('src/worker.cpp');validation=read('src/salamdr5.cpp')
     code=read('src/tests/branch_delete_worker_tests.cpp.in')
-    pieces={'DELETE':block(worker,'BOOL DoDeleteFile('),'INVALID':block(validation,'BOOL FileNameIsInvalid('),'WORKER_HEADER':str(ROOT/'src/workerpath.h').replace(chr(92),'/'),'RECYCLE_HEADER':str(ROOT/'src/operationrecycle.h').replace(chr(92),'/')}
+    pieces={'DELETE':block(worker,'BOOL DoDeleteFile('),'INVALID':block(validation,'BOOL FileNameIsInvalid('),'LOCK_ERROR':block(worker,'static BOOL IsLockRecoveryError('),'WORKER_HEADER':str(ROOT/'src/workerpath.h').replace(chr(92),'/'),'RECYCLE_HEADER':str(ROOT/'src/operationrecycle.h').replace(chr(92),'/'),'FILELOCK_HEADER':str(ROOT/'src/filelock.h').replace(chr(92),'/')}
     for k,v in pieces.items():code=code.replace('@@'+k+'@@',v)
     assert '@@' not in code
     env=compiler_environment();compiler=shutil.which('cl',path=env.get('PATH'))

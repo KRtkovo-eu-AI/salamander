@@ -5,6 +5,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-08 | Label the protected viewer snapshot and keep refresh explicit. | Avoid re-opening a protected object from automatic viewer activity. | | GPT-6.1 Sol (Codex) |
+| 2026-11-07 | Use the effective legacy code page for double-click word boundaries. | CP1250 accented bytes were split into separate selections in the UTF-8 process. | https://github.com/KRtkovo-eu-AI/salamander/issues/739 | openai/gpt-5.6-luna-pro |
 | 2026-11-05 | Keep previous-line size cache in sync on line-up/line-down. | Scroll-up after EOF was still O(FindPreviousEOL) per step while scroll-down reused FirstLineSize (#746). | https://github.com/KRtkovo-eu-AI/salamander/issues/746 | Composer |
 */
 
@@ -3443,7 +3444,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 if (!wholeLine) // looking for the beginning of a word
                 {
-                    while (s > end && (IsCharAlphaNumeric(*s) || *s == '_'))
+                    while (s > end && IsFindWordChar((char)*s))
                         s--;
                 }
                 else // looking for the beginning of a line
@@ -3504,7 +3505,7 @@ CViewerWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
                 if (!wholeLine) // looking for the end of a word
                 {
-                    while (s < end && (IsCharAlphaNumeric(*s) || *s == '_'))
+                    while (s < end && IsFindWordChar((char)*s))
                         s++;
                 }
                 else // looking for the end of a line

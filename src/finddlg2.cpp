@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Share opening of a specific Find result. | Let accessibility invoke the verified row without relying on later focus. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Hide repeated Find entries after background path sorting. | Only compare adjacent rows once their path order has been published. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Open Find messages from a stable log snapshot. | Allow the worker to keep recording errors while the dialog is in use. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell extension SEH in Find context menus. | Find QueryContextMenu/InvokeCommand/HandleMenuMsg must not terminate. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -81,21 +84,27 @@ void CFindDialog::OnHideSelection()
 
 void CFindDialog::OnHideDuplicateNames()
 {
-    HWND hListView = FoundFilesListView->HWindow;
-    DWORD totalCount = ListView_GetItemCount(hListView);
-    if (totalCount == 0)
+    const int count = ListView_GetItemCount(FoundFilesListView->HWindow);
+    if (count < 2)
         return;
 
-    HCURSOR hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
+    if (GrepData.FindDuplicates)
+        OnHideDuplicateNamesSorted(count); // duplicate mode does not support path ordering
+    else
+        FoundFilesListView->SortAndHideDuplicateNames();
+}
 
-    // sort by path
-    FoundFilesListView->SortItems(1, FALSE, TRUE);
+void CFindDialog::OnHideDuplicateNamesSorted(int sortedCount)
+{
+    HWND hListView = FoundFilesListView->HWindow;
+    const int totalCount = ListView_GetItemCount(hListView);
+    HCURSOR hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
     // discard the item if it has the same path and name as the previous one
     int deletedCount = 0;
     CFoundFilesData* lastData = NULL;
     int i;
-    for (i = totalCount - 1; i >= 0; i--)
+    for (i = sortedCount - 1; i >= 0; i--)
     {
         if (lastData == NULL)
             lastData = FoundFilesListView->At(i);
@@ -210,10 +219,17 @@ void CFindDialog::OnInvertSelection()
 
 void CFindDialog::OnShowLog()
 {
-    if (Log.GetCount() == 0)
+    CFindLog snapshot;
+    if (!Log.CopySnapshotTo(snapshot))
+    {
+        SalMessageBox(HWindow, GetErrorText(ERROR_NOT_ENOUGH_MEMORY), LoadStr(IDS_ERRORTITLE),
+                      MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    if (snapshot.GetCount() == 0)
         return;
 
-    CFindLogDialog dlg(HWindow, &Log);
+    CFindLogDialog dlg(HWindow, &snapshot);
     dlg.Execute();
 }
 
@@ -1659,23 +1675,28 @@ void CFindDialog::OnOpen(BOOL onlyFocused)
         if (index != -1)
         {
             CFoundFilesData* file = FoundFilesListView->At(index);
-            BOOL setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // already waiting?
-            HCURSOR oldCur;
-            if (setWait)
-                oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
-
-            char fullPath[MAX_PATH];
-            std::wstring fullPathW = file->GetFullNameW();
-            std::string fullPathA = SalWideToMultiBytePath(fullPathW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
-            lstrcpyn(fullPath, fullPathA.empty() ? file->Path : fullPathA.c_str(), MAX_PATH);
-            if (fullPath[0] != 0)
-                MainWindow->FileHistory->AddFile(fhitOpen, 0, fullPath);
-
-            ExecuteAssociation(HWindow, file->Path, file->Name);
-            if (setWait)
-                SetCursor(oldCur);
+            OpenResult(*file);
         }
     } while (!onlyFocused && index != -1);
+}
+
+void CFindDialog::OpenResult(const CFoundFilesData& file)
+{
+    BOOL setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // already waiting?
+    HCURSOR oldCur;
+    if (setWait)
+        oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
+
+    char fullPath[MAX_PATH];
+    std::wstring fullPathW = file.GetFullNameW();
+    std::string fullPathA = SalWideToMultiBytePath(fullPathW.c_str(), GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
+    lstrcpyn(fullPath, fullPathA.empty() ? file.Path : fullPathA.c_str(), MAX_PATH);
+    if (fullPath[0] != 0)
+        MainWindow->FileHistory->AddFile(fhitOpen, 0, fullPath);
+
+    ExecuteAssociation(HWindow, file.Path, file.Name);
+    if (setWait)
+        SetCursor(oldCur);
 }
 
 //****************************************************************************
@@ -1749,15 +1770,24 @@ CFindDuplicatesDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 CFindLog::CFindLog()
     : Items(1, 50)
 {
-    Clean();
+    HANDLES(InitializeCriticalSection(&Section));
+    CleanUnlocked();
 }
 
 CFindLog::~CFindLog()
 {
     Clean();
+    HANDLES(DeleteCriticalSection(&Section));
 }
 
 void CFindLog::Clean()
+{
+    HANDLES(EnterCriticalSection(&Section));
+    CleanUnlocked();
+    HANDLES(LeaveCriticalSection(&Section));
+}
+
+void CFindLog::CleanUnlocked()
 {
     int i;
     for (i = 0; i < Items.Count; i++)
@@ -1773,6 +1803,14 @@ void CFindLog::Clean()
 }
 
 BOOL CFindLog::Add(DWORD flags, const char* text, const char* path)
+{
+    HANDLES(EnterCriticalSection(&Section));
+    const BOOL added = AddUnlocked(flags, text, path);
+    HANDLES(LeaveCriticalSection(&Section));
+    return added;
+}
+
+BOOL CFindLog::AddUnlocked(DWORD flags, const char* text, const char* path)
 {
     CFindLogItem item;
 
@@ -1814,6 +1852,71 @@ BOOL CFindLog::Add(DWORD flags, const char* text, const char* path)
     }
 
     return TRUE;
+}
+
+int CFindLog::GetCount()
+{
+    HANDLES(EnterCriticalSection(&Section));
+    const int count = Items.Count;
+    HANDLES(LeaveCriticalSection(&Section));
+    return count;
+}
+
+int CFindLog::GetSkippedCount()
+{
+    HANDLES(EnterCriticalSection(&Section));
+    const int count = SkippedErrors;
+    HANDLES(LeaveCriticalSection(&Section));
+    return count;
+}
+
+int CFindLog::GetErrorCount()
+{
+    HANDLES(EnterCriticalSection(&Section));
+    const int count = ErrorCount;
+    HANDLES(LeaveCriticalSection(&Section));
+    return count;
+}
+
+int CFindLog::GetInfoCount()
+{
+    HANDLES(EnterCriticalSection(&Section));
+    const int count = InfoCount;
+    HANDLES(LeaveCriticalSection(&Section));
+    return count;
+}
+
+BOOL CFindLog::CopySnapshotTo(CFindLog& target)
+{
+    if (&target == this)
+        return FALSE;
+
+    // Copy only memory while holding the source lock. The modal log dialog is
+    // opened after this returns, so an unresponsive UI cannot retain the lock.
+    HANDLES(EnterCriticalSection(&Section));
+    target.Clean();
+    BOOL copied = TRUE;
+    for (int i = 0; i < Items.Count; ++i)
+    {
+        const CFindLogItem& item = Items[i];
+        if (!target.Add(item.Flags, item.Text, item.Path))
+        {
+            copied = FALSE;
+            break;
+        }
+    }
+    if (copied)
+    {
+        // Counts include records beyond the bounded stored prefix and failed
+        // allocations; they cannot be reconstructed from copied items alone.
+        target.SkippedErrors = SkippedErrors;
+        target.ErrorCount = ErrorCount;
+        target.InfoCount = InfoCount;
+    }
+    else
+        target.Clean();
+    HANDLES(LeaveCriticalSection(&Section));
+    return copied;
 }
 
 const CFindLogItem*

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Keep UAC metadata separate from locked-file recovery | Integrate UAC with current upstream behavior. | #731 | Codex |
 // | 2026-11-09 | Declare the progress caption callback. | Dispatch broker activity to the native dialog thread. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Mark directly selected files for protected transfer. | Keep recursive script items outside the selected-file broker scope. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Store the target revision for a protected Scan Ahead overwrite. | Keep the approved revision alongside the existing conflict identity. | | GPT-6.1 Sol (Codex) |
@@ -63,7 +64,7 @@ void InitWorker();
 void ReleaseWorker();
 void NotifyNativeBrokerActivity(HWND dialog, bool active);
 
-constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 13;
+constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 18;
 constexpr WPARAM WORKER_DIALOG_UAC_DELETE = 14;
 constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 15;
 constexpr WPARAM WORKER_DIALOG_UAC_TREE_RESULT = 16;

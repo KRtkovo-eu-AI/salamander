@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Keep EFS diagnostics and upstream lock recovery in the copy worker | Integrate UAC with current upstream behavior. | #731 | Codex |
 // | 2026-11-09 | Signal Scan Ahead on terminal worker failure. | Stop the scanner when a protected transfer is cancelled. | | Codex |
 // | 2026-11-09 | Reopen the native overwrite dialog for a broker collision. | Require a fresh decision for a file that appeared during elevated F5. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Calculate native transfer progress without overflowing. | Keep the exact bar value for large F6 operations and batch totals. | | GPT-6.1 Sol (Codex) |
@@ -49,6 +50,8 @@
 // | 2026-11-07 | Run one-file basic metadata changes through the verified executor. | Offer elevation only after an ordinary access denial and retain worker accounting. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer one verified broker copy after ordinary access is denied. | Keep the existing worker lease and only count an acknowledged copy. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Offer a verified same-volume move after access denial. | Complete the existing F6 item only after an authenticated result. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Send typed file-lock recovery dialog data. | Remove the unsafe narrow-to-wide pointer cast reported by CodeQL. | https://github.com/KRtkovo-eu-AI/salamander/pull/842 | GPT-6 (Codex) |
+// | 2026-11-09 | Offer lock-process recovery after delete and overwrite failures. | Make the issue #836 workflow available in core file operations. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -56,6 +59,7 @@
 #include "cfgdlg.h"
 #include "worker.h"
 #include "workerpath.h"
+#include "filelock.h"
 #include "operationrecycle.h"
 
 #include <list>
@@ -71,6 +75,11 @@ NTQUERYINFORMATIONFILE DynNtQueryInformationFile = NULL;
 NTFSCONTROLFILE DynNtFsControlFile = NULL;
 
 COperationsQueue OperationsQueue; // queue of disk operations
+
+static BOOL IsLockRecoveryError(DWORD error)
+{
+    return error == ERROR_SHARING_VIOLATION || error == ERROR_LOCK_VIOLATION || error == ERROR_ACCESS_DENIED;
+}
 
 // if defined, various debug messages are written to TRACE
 //#define WORKER_COPY_DEBUG_MSG
@@ -5325,12 +5334,18 @@ BOOL CCopy_Context::HandleWritingErr(int blkIndex, DWORD err, BOOL* copyError, B
         }
 
         int ret = IDCANCEL;
-        char* data[4];
-        data[0] = (char*)&ret;
-        data[1] = LoadStr(IDS_ERRORWRITINGFILE);
-        data[2] = Op->TargetName;
-        data[3] = GetErrorText(err);
-        SendMessage(HProgressDlg, WM_USER_DIALOG, 0, (LPARAM)data);
+        std::wstring lockPath = WorkerOperationPathW(Op->TargetName, Op->TargetNameWValid ? Op->TargetNameW.c_str() : NULL);
+        if (IsLockRecoveryError(err))
+        {
+            CFileLockRecoveryDialogData data = { &ret, LoadStr(IDS_ERRORWRITINGFILE), Op->TargetName,
+                                                GetErrorText(err), lockPath.c_str() };
+            SendMessage(HProgressDlg, WM_USER_DIALOG, 13, (LPARAM)&data);
+        }
+        else
+        {
+            char* data[4] = { (char*)&ret, LoadStr(IDS_ERRORWRITINGFILE), Op->TargetName, GetErrorText(err) };
+            SendMessage(HProgressDlg, WM_USER_DIALOG, 0, (LPARAM)data);
+        }
         CancelOpPhase2(blkIndex);
         BOOL errAgain = FALSE;
         switch (ret)
@@ -7241,15 +7256,22 @@ COPY_AGAIN:
 
                             int ret;
                             ret = IDCANCEL;
-                            char* data[4];
-                            data[0] = (char*)&ret;
+                            std::wstring lockPath = WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL);
+                            char* caption = LoadStr(errDeletingFile ? IDS_ERRORDELETINGFILE : IDS_ERROROPENINGFILE);
                             const DWORD encryption = op->Attr | (copyAsEncrypted ? FILE_ATTRIBUTE_ENCRYPTED : 0);
-                            std::string message = !isMove && !errDeletingFile && UacF7::IsEfsCopyFailure(encryption, err)
-                                                      ? LoadStr(IDS_UAC_COPY_EFS_UNSUPPORTED) : GetErrorText(err);
-                            data[1] = LoadStr(errDeletingFile ? IDS_ERRORDELETINGFILE : IDS_ERROROPENINGFILE);
-                            data[2] = op->TargetName;
-                            data[3] = message.data();
-                            SendMessage(hProgressDlg, WM_USER_DIALOG, 0, (LPARAM)data);
+                            const bool efsUnsupported = !isMove && !errDeletingFile && UacF7::IsEfsCopyFailure(encryption, err);
+                            if (!efsUnsupported && IsLockRecoveryError(err))
+                            {
+                                CFileLockRecoveryDialogData data = { &ret, caption, op->TargetName,
+                                                                    GetErrorText(err), lockPath.c_str() };
+                                SendMessage(hProgressDlg, WM_USER_DIALOG, 13, (LPARAM)&data);
+                            }
+                            else
+                            {
+                                std::string message = efsUnsupported ? LoadStr(IDS_UAC_COPY_EFS_UNSUPPORTED) : GetErrorText(err);
+                                char* data[4] = { (char*)&ret, caption, op->TargetName, message.data() };
+                                SendMessage(hProgressDlg, WM_USER_DIALOG, 0, (LPARAM)data);
+                            }
                             switch (ret)
                             {
                             case IDRETRY:
@@ -8159,12 +8181,17 @@ BOOL DoDeleteFile(HWND hProgressDlg, char* name, const CQuadWord& size, COperati
 
             int ret;
             ret = IDCANCEL;
-            char* data[4];
-            data[0] = (char*)&ret;
-            data[1] = LoadStr(IDS_ERRORDELETINGFILE);
-            data[2] = name;
-            data[3] = GetErrorText(err);
-            SendMessage(hProgressDlg, WM_USER_DIALOG, 0, (LPARAM)data);
+            if (IsLockRecoveryError(err))
+            {
+                CFileLockRecoveryDialogData data = { &ret, LoadStr(IDS_ERRORDELETINGFILE), name,
+                                                    GetErrorText(err), nameW.c_str() };
+                SendMessage(hProgressDlg, WM_USER_DIALOG, 13, (LPARAM)&data);
+            }
+            else
+            {
+                char* data[4] = { (char*)&ret, LoadStr(IDS_ERRORDELETINGFILE), name, GetErrorText(err) };
+                SendMessage(hProgressDlg, WM_USER_DIALOG, 0, (LPARAM)data);
+            }
             switch (ret)
             {
             case IDRETRY:

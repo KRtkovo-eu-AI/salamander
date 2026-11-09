@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Mark first-registration viewer rows for configuration merge. | Preserve new plugin defaults across legacy settings load while respecting saved user removals. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Resolve plugins by stable registry identity. | Provide the canonical association adapter with a session-index lookup that does not depend on row order. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Preserve user-owned extensions during plugin association cleanup. | Keep upgrade-time ForceRemovePanelArchiver consistent with persistent Configuration provenance. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-06 | Preserve repeated deferred LoadLibrary references before any teardown. | Preserve every LoadLibrary reference across a refused close and provider reload. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-06 | Preserve native exit finalization before deferred module unload. | Combine the port callback gate with upstream runtime-provider shutdown ordering. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
@@ -683,7 +685,7 @@ void CSalamanderConnect::AddViewerWithLabel(const char* masks, BOOL force,
     // Labels are presentation metadata. Refresh an existing exact association
     // even during an ordinary plug-in load, without resurrecting an association
     // that the user deliberately removed.
-    if (viewerLabel != NULL && viewerLabel[0] != 0)
+    if ((viewerLabel != NULL && viewerLabel[0] != 0) || force)
     {
         MainWindow->EnterViewerMasksCS();
         for (int i = 0; i < MainWindow->ViewerMasks->Count; ++i)
@@ -691,7 +693,12 @@ void CSalamanderConnect::AddViewerWithLabel(const char* masks, BOOL force,
             CViewerMasksItem* item = MainWindow->ViewerMasks->At(i);
             if (item->ViewerType == -Index - 1 &&
                 StrICmp(item->Masks->GetMasksString(), masks) == 0)
-                item->SetViewerLabel(viewerLabel);
+            {
+                if (viewerLabel != NULL && viewerLabel[0] != 0)
+                    item->SetViewerLabel(viewerLabel);
+                if (force)
+                    item->RegisteredDuringStartup = TRUE;
+            }
         }
         MainWindow->LeaveViewerMasksCS();
     }
@@ -821,6 +828,8 @@ void CSalamanderConnect::AddViewerWithLabel(const char* masks, BOOL force,
 #endif
             if (item != NULL && viewerLabel != NULL)
                 item->SetViewerLabel(viewerLabel);
+            if (item != NULL && force)
+                item->RegisteredDuringStartup = TRUE;
             if (item != NULL && item->IsGood())
             {
                 MainWindow->EnterViewerMasksCS();

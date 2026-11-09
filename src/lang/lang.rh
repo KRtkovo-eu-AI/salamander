@@ -1,3 +1,14 @@
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add identifiers for lock-aware file error recovery. | Show detected locking processes and offer termination from the core operation dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
+// | 2026-11-09 | Add Change Drive order control and option identifiers. | Localize the selector that chooses which menu block appears first. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
+// | 2026-11-09 | Add Apply control and localized label identifiers for association details. | Let users commit current association edits directly from the detail panel. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add owner-drawn association action tab identifiers. | Render five selectable action pages consistently across Windows color schemes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add action-tab control identifier for the association editor. | Replace separate category and operation selectors with five detail tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add the archive operation menu button identifier. | Provide a separate arrow control beside the Panel Archive category tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add custom handler configuration page identifiers. | Define controls for the saved custom viewer/editor lists and forms. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Reserve the All category-tab control identifier. | Add a dedicated matrix view for all registered file patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Add category-tab controls for the association matrix. | Support category counts and fast filtering in the revised configuration page. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Add canonical file-association control identifiers. | Keep the new configuration dialog's controls stable across resource builds. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
 // Used by lang.rc
@@ -294,11 +305,51 @@
 #define IDT_GUIDPATH                    572
 #define IDT_BPC                         573
 #define IDD_CFGPAGE_VIEWEDIT            575
+#define IDD_CFGPAGE_FILEASSOCIATIONS    576
 #define IDD_CFGPAGE_VIEWERS             580
 #define IDL_FILEMASKS                   584
 #define IDS_MASKSHDR                    585
 #define IDC_VIEW_TYPE                   586
 #define IDD_CFGPAGE_EDITORS             590
+#define IDL_FILEASSOCIATIONS             6301
+#define IDE_FILEASSOCIATION_PATTERN      6302
+#define IDC_FILEASSOCIATION_CATEGORY     6303
+#define IDC_FILEASSOCIATION_OPERATION    6304
+#define IDC_FILEASSOCIATION_TARGETKIND   6305
+#define IDE_FILEASSOCIATION_TARGETID     6306
+#define IDC_FILEASSOCIATION_STATUS      6307
+#define IDB_FILEASSOCIATION_ADD         6308
+#define IDB_FILEASSOCIATION_DELETE      6309
+#define IDB_FILEASSOCIATION_RESET       6310
+#define IDB_FILEASSOCIATION_UNASSIGNED  6311
+#define IDE_FILEASSOCIATION_SEARCH      6312
+#define IDC_FILEASSOCIATION_FILTER_CATEGORY 6313
+#define IDC_FILEASSOCIATION_FILTER_PROVENANCE 6314
+#define IDC_FILEASSOCIATION_FILTER_CONFLICTS 6315
+#define IDC_FILEASSOCIATION_TARGETCATALOG 6316
+#define IDC_FILEASSOCIATION_LEGEND      6317
+#define IDC_FILEASSOCIATION_HELP        6318
+#define IDB_FILEASSOCIATION_TAB_VIEW    6319
+#define IDB_FILEASSOCIATION_TAB_ALT     6320
+#define IDB_FILEASSOCIATION_TAB_EDIT    6321
+#define IDB_FILEASSOCIATION_TAB_ARCHIVE 6322
+#define IDB_FILEASSOCIATION_TAB_ALL     6324
+#define IDB_FILEASSOCIATION_TAB_ARCHIVE_MENU 6325
+#define IDB_FILEASSOCIATION_ACTION_VIEW 6327
+#define IDB_FILEASSOCIATION_ACTION_ALT  6328
+#define IDB_FILEASSOCIATION_ACTION_EDIT 6329
+#define IDB_FILEASSOCIATION_ACTION_PACK 6330
+#define IDB_FILEASSOCIATION_ACTION_UNPACK 6331
+#define IDB_FILEASSOCIATION_APPLY      6332
+#define IDS_FILEASSOCIATION_SOURCE      2421
+#define IDS_FILEASSOCIATION_DETAILS     2422
+#define IDS_FILEASSOCIATION_CONFLICTS_COUNT 2423
+#define IDS_FILEASSOCIATION_ADD_SHORT    2424
+#define IDS_FILEASSOCIATION_APPLY       2468
+#define IDS_FILEASSOCIATION_FILTER_STATES 2426
+#define IDS_FILEASSOCIATION_FILTER_SOURCES 2427
+#define IDC_FILEASSOCIATION_FILTER_SOURCE 6323
+#define IDB_FILELOCK_TERMINATE_RETRY    6347
 #define IDD_CFGPAGE_APPEARANCE          595
 #define IDC_NOTHIDDENSYSTEM             596
 #define IDC_USESALOPEN                  597
@@ -309,6 +360,15 @@
 #define IDC_ONLYONEINSTANCE             604
 #define IDC_FULLROWSELECT               605
 #define IDC_INFOLINECONTENT             606
+#define IDD_CFGPAGE_CUSTOMVIEWERS       640
+#define IDD_CFGPAGE_CUSTOMEDITORS       641
+#define IDL_CUSTOM_HANDLERS             6340
+#define IDE_CUSTOM_HANDLER_NAME         6341
+#define IDC_CUSTOM_HANDLER_NAME_LABEL   6342
+#define IDC_CUSTOM_HANDLER_COMMAND_LABEL 6343
+#define IDC_CUSTOM_HANDLER_ARGUMENTS_LABEL 6344
+#define IDC_CUSTOM_HANDLER_INITDIR_LABEL 6345
+#define IDB_CUSTOM_HANDLER_SAVE         6346
 #define IDC_INFOLINEBROWSE              607
 #define IDC_SINGLECLICK                 608
 #define IDC_CHD_SHOWANOTHER             610
@@ -502,6 +562,10 @@
 #define IDC_CHD_MOUNTFOLDERS_DRIVEBAR   1101
 #define IDC_CHD_MOUNTFOLDERS_LABEL      1102
 #define IDC_CHD_SHOWWINDOWSSANDBOX      1103
+#define IDC_CHD_BLOCKORDER_LABEL        1104
+#define IDC_CHD_BLOCKORDER              1107
+#define IDS_CHD_PLUGINFIRST             1108
+#define IDS_CHD_HOTPATHSFIRST           1109
 #define IDD_CFGPAGE_PANELS              1105
 #define IDD_CFGPAGE_TABS                1106
 #define IDD_CFGPAGE_KEYBOARD            1110
@@ -900,7 +964,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        8205
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         6301
+#define _APS_NEXT_CONTROL_VALUE         6312
 #define _APS_NEXT_SYMED_VALUE           103
 #endif
 #endif

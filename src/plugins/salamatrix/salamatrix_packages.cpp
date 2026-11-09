@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Forward Find phrase and flags through Salamatrix viewer invocations. | Webview viewers must prefill Find when opened from the Find window. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
+// | 2026-11-07 | Use the active Salamatrix window as the owner for host UI. | Extension confirmation dialogs must stay in front of the extension window instead of activating the main window. | https://github.com/KRtkovo-eu-AI/salamander/issues/757 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Rasterize Salamatrix FS SVG icons at 16/32/48. | Thumbnail/Tiles views requested SALICONSIZE_48 but icons were forced to 16px. | | Composer |
 // | 2026-11-06 | Apply ViewFile placement and default JSON Viewer title on the host. | Title/size must work even when the worker drops ui.viewer options. |  | Composer |
 // | 2026-11-06 | Pass viewer title, placement, package icon, and GUI bridge. | JSON Viewer (nodeJS) needs correct chrome, size, and Find menus. |  | Composer |
@@ -28,6 +30,17 @@ namespace Packages
 namespace
 {
 const int CommandOpenAutomationApiReference = 0x61ffffff;
+
+HWND InteractiveParentWindow(CSalamanderGeneralAbstract* general)
+{
+    const HWND fallback = general != NULL ? general->GetMsgBoxParent() : NULL;
+    const HWND foreground = GetForegroundWindow();
+    if (foreground == NULL || !IsWindow(foreground))
+        return fallback;
+    DWORD processId = 0;
+    GetWindowThreadProcessId(foreground, &processId);
+    return processId == GetCurrentProcessId() ? foreground : fallback;
+}
 
 struct MainThreadDispatch
 {
@@ -1133,6 +1146,22 @@ public:
                 slash = slashFwd;
             Owner->PendingViewerDocumentName = slash != NULL ? slash + 1 : name;
         }
+        const char* viewerLabel = NULL;
+        const char* searchPhrase = NULL;
+        DWORD searchFlags = 0;
+        if (viewerData != NULL &&
+            viewerData->Size >= sizeof(CSalamanderPluginViewerSelectionData))
+        {
+            const CSalamanderPluginViewerSelectionData* selection =
+                static_cast<const CSalamanderPluginViewerSelectionData*>(viewerData);
+            if (selection->SelectionMagic ==
+                SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC)
+            {
+                viewerLabel = selection->ViewerLabel;
+                searchPhrase = selection->SearchPhrase;
+                searchFlags = selection->SearchFlags;
+            }
+        }
         std::string invocation =
             std::string("{\"role\":\"viewer\",\"path\":\"") +
             JsonEscape(name) + "\",\"window\":{" +
@@ -1145,17 +1174,13 @@ public:
             "},\"enumFilesSourceUID\":" +
             std::to_string(enumFilesSourceUID) +
             ",\"enumFilesCurrentIndex\":" +
-            std::to_string(enumFilesCurrentIndex) + "}";
-        const char* viewerLabel = NULL;
-        if (viewerData != NULL &&
-            viewerData->Size >= sizeof(CSalamanderPluginViewerSelectionData))
+            std::to_string(enumFilesCurrentIndex);
+        if (searchPhrase != NULL && searchPhrase[0] != '\0')
         {
-            const CSalamanderPluginViewerSelectionData* selection =
-                static_cast<const CSalamanderPluginViewerSelectionData*>(viewerData);
-            if (selection->SelectionMagic ==
-                SALAMANDER_PLUGIN_VIEWER_SELECTION_MAGIC)
-                viewerLabel = selection->ViewerLabel;
+            invocation += ",\"searchPhrase\":\"" + JsonEscape(searchPhrase) +
+                          "\",\"searchFlags\":" + std::to_string(searchFlags);
         }
+        invocation += "}";
         return Owner->RunViewer(name, invocation.c_str(), viewerLabel);
     }
 
@@ -3684,7 +3709,7 @@ BOOL PackageManager::Activate(Package* package)
     Runtime::RuntimeExecutionRequest request;
     request.ExtensionId = package->Id.c_str();
     request.EntryPoint = package->EntryPoint.c_str();
-    request.ParentWindow = General->GetMsgBoxParent();
+    request.ParentWindow = InteractiveParentWindow(General);
     request.Flags = Runtime::RuntimeExecutionFlagPersistentWorker |
                     Runtime::RuntimeExecutionFlagUseWorkerBootstrap;
     request.HostDispatch = HostDispatch;
@@ -3893,7 +3918,7 @@ BOOL PackageManager::ExecuteCommand(
                 compatibilityRequest.EntryPoint = package->EntryPoint.c_str();
                 compatibilityRequest.RuntimeId = package->Manifest.RuntimeId.c_str();
                 compatibilityRequest.ExtensionId = package->Id.c_str();
-                compatibilityRequest.ParentWindow = General->GetMsgBoxParent();
+                compatibilityRequest.ParentWindow = InteractiveParentWindow(General);
                 compatibilityRequest.TimeoutMs = 120000;
                 compatibilityRequest.Operation = operations;
                 Automation::GeneratedScriptResult compatibilityResult;
@@ -3913,7 +3938,7 @@ BOOL PackageManager::ExecuteCommand(
     request.CommandHandler = handler;
     request.InvocationJson = invocationJson;
     request.EntryPoint = package->EntryPoint.c_str();
-    request.ParentWindow = General->GetMsgBoxParent();
+    request.ParentWindow = InteractiveParentWindow(General);
     request.Flags = Runtime::RuntimeExecutionFlagUseWorkerBootstrap |
                     Runtime::RuntimeExecutionFlagOneShotWorker;
     request.HostDispatch = HostDispatch;
@@ -4798,7 +4823,7 @@ void PackageManager::NotifyRuntimeUnavailable(const Package* package)
 {
     if (package == NULL)
         return;
-    HWND parent = General != NULL ? General->GetMsgBoxParent() : NULL;
+    HWND parent = InteractiveParentWindow(General);
     HMODULE host = GetModuleHandle(NULL);
     typedef void(WINAPI* ShowUnavailableRuntimesProc)(HWND, const char*);
     ShowUnavailableRuntimesProc show = host == NULL
@@ -5360,7 +5385,7 @@ BOOL WINAPI PackageManager::HostDispatch(
             owner->Commands == NULL)
             return FALSE;
         Commands::ExecuteOptions options;
-        options.Parent = owner->General->GetMsgBoxParent();
+        options.Parent = InteractiveParentWindow(owner->General);
         const Runtime::OperationResult operation =
             owner->Commands->Execute(commandId.c_str(), options);
         const char* resultName =
@@ -5567,7 +5592,7 @@ BOOL WINAPI PackageManager::HostDispatch(
         if (owner->FileOperations == NULL)
             return FALSE;
         FileOperations::InteractiveOptions options;
-        options.Parent = owner->General->GetMsgBoxParent();
+        options.Parent = InteractiveParentWindow(owner->General);
         std::string targetHint;
         Runtime::Protocol::Json::FindStringMember(
             payloadJson, "target", &targetHint);
@@ -5980,7 +6005,7 @@ BOOL WINAPI PackageManager::HostDispatch(
         Runtime::Protocol::Json::FindBoolMember(
             payloadJson, "showEcho", &showEcho);
         const BOOL copied = owner->UI->CopyTextToClipboard(
-            text.c_str(), showEcho, owner->General->GetMsgBoxParent());
+            text.c_str(), showEcho, InteractiveParentWindow(owner->General));
         return CopyResult(
             std::string("{\"ok\":true,\"copied\":") +
                 (copied ? "true}" : "false}"),
@@ -5994,7 +6019,7 @@ BOOL WINAPI PackageManager::HostDispatch(
         Runtime::Protocol::Json::FindStringMember(payloadJson, "message", &message);
         Runtime::Protocol::Json::FindIntegerMember(payloadJson, "timeoutMs", &timeout);
         BOOL shown = owner->UI != NULL && owner->UI->ShowNotification(
-            owner->General->GetMsgBoxParent(), title.c_str(), message.c_str(),
+            InteractiveParentWindow(owner->General), title.c_str(), message.c_str(),
             static_cast<DWORD>(timeout > 0 ? timeout : 2500));
         return CopyResult(std::string("{\"ok\":true,\"shown\":") +
                               (shown ? "true}" : "false}"),
@@ -6013,7 +6038,7 @@ BOOL WINAPI PackageManager::HostDispatch(
         Runtime::Protocol::Json::FindStringMember(payloadJson, "initial", &initial);
         UI::DialogOptions dialogOptions;
         dialogOptions.Title = title.empty() ? "Salamatrix" : title.c_str();
-        dialogOptions.Parent = owner->General->GetMsgBoxParent();
+        dialogOptions.Parent = InteractiveParentWindow(owner->General);
         dialogOptions.Width = 360;
         dialogOptions.Height = 118;
         UI::IDialog* dialog = owner->UI->CreateSalamatrixDialog(dialogOptions);
@@ -6070,7 +6095,7 @@ BOOL WINAPI PackageManager::HostDispatch(
             Runtime::Protocol::Json::FindIntegerMember(payloadJson, "height", &height);
             UI::DialogOptions options;
             options.Title = title.empty() ? "Salamatrix" : title.c_str();
-            options.Parent = owner->General->GetMsgBoxParent();
+            options.Parent = InteractiveParentWindow(owner->General);
             options.Width = static_cast<short>(width < 160 ? 160 : (width > 1200 ? 1200 : width));
             options.Height = static_cast<short>(height < 100 ? 100 : (height > 900 ? 900 : height));
             Runtime::Protocol::Json::FindBoolMember(
@@ -6369,7 +6394,7 @@ BOOL WINAPI PackageManager::HostDispatch(
         BOOL shown = owner->UI != NULL &&
                      owner->UI->GetVersion() >= SALAMATRIX_UI_VERSION_1_4 &&
                      owner->UI->ShowControlsShowcase(
-                         owner->General->GetMsgBoxParent());
+                         InteractiveParentWindow(owner->General));
         return CopyResult(std::string("{\"ok\":true,\"shown\":") +
                               (shown ? "true}" : "false}"),
                           resultJson, resultCapacity, resultLength);
@@ -6380,11 +6405,15 @@ BOOL WINAPI PackageManager::HostDispatch(
         std::string renderer = "auto";
         std::string title;
         std::string documentName;
+        std::string searchPhrase;
+        int searchFlags = 0;
         if (!Runtime::Protocol::Json::FindStringMember(payloadJson, "path", &path) || path.empty())
             return CopyResult("{\"ok\":false,\"error\":\"viewer path is required\"}", resultJson, resultCapacity, resultLength);
         Runtime::Protocol::Json::FindStringMember(payloadJson, "renderer", &renderer);
         Runtime::Protocol::Json::FindStringMember(payloadJson, "title", &title);
         Runtime::Protocol::Json::FindStringMember(payloadJson, "documentName", &documentName);
+        Runtime::Protocol::Json::FindStringMember(payloadJson, "searchPhrase", &searchPhrase);
+        Runtime::Protocol::Json::FindIntegerMember(payloadJson, "searchFlags", &searchFlags);
         // Keep a stable window title even when an older worker drops `title`.
         if (title.empty())
         {
@@ -6552,6 +6581,11 @@ BOOL WINAPI PackageManager::HostDispatch(
         request.iconSmall = iconSmall;
         request.destroyIcons = destroyIcons;
         request.documentName = customDocumentName.empty() ? NULL : customDocumentName.c_str();
+        std::wstring customSearchPhrase;
+        if (!searchPhrase.empty() && !ToWide(searchPhrase, &customSearchPhrase))
+            return CopyResult("{\"ok\":false,\"error\":\"viewer search phrase is not valid UTF-8\"}", resultJson, resultCapacity, resultLength);
+        request.searchPhrase = customSearchPhrase.empty() ? NULL : customSearchPhrase.c_str();
+        request.searchFlags = searchFlags >= 0 ? static_cast<DWORD>(searchFlags) : 0;
         // NativeViewer_Show takes ownership of destroyIcons handles, including on failure.
         const bool opened = NativeViewer_Show(request);
         return CopyResult(std::string("{\"ok\":true,\"opened\":") + (opened ? "true}" : "false}"),
@@ -6567,7 +6601,7 @@ BOOL WINAPI PackageManager::HostDispatch(
             return FALSE;
         SetLastError(ERROR_SUCCESS);
         const BOOL shown = SHObjectProperties(
-            owner->General->GetMsgBoxParent(), SHOP_FILEPATH,
+            InteractiveParentWindow(owner->General), SHOP_FILEPATH,
             widePath.c_str(), NULL);
         DWORD error = shown ? ERROR_SUCCESS : GetLastError();
         if (!shown && error == ERROR_SUCCESS)
@@ -6598,7 +6632,7 @@ BOOL WINAPI PackageManager::HostDispatch(
             flags |= MB_ICONINFORMATION;
         int result = owner->UI != NULL
                          ? owner->UI->ShowMessageBox(
-                               owner->General->GetMsgBoxParent(),
+                               InteractiveParentWindow(owner->General),
                                message.c_str(), title.c_str(),
                                flags)
                          : 0;
@@ -6623,7 +6657,7 @@ BOOL WINAPI PackageManager::HostDispatch(
 
         std::vector<char> selectedPath(SAL_MAX_PATH * 3);
         BOOL selected = owner->UI->PickFile(
-            owner->General->GetMsgBoxParent(), save, title.c_str(),
+            InteractiveParentWindow(owner->General), save, title.c_str(),
             filter.c_str(), initialPath.c_str(), &selectedPath[0],
             static_cast<DWORD>(selectedPath.size()));
         return CopyResult(
@@ -6646,7 +6680,7 @@ BOOL WINAPI PackageManager::HostDispatch(
 
         std::vector<char> selectedPath(SAL_MAX_PATH * 3);
         BOOL selected = owner->UI->PickFolder(
-            owner->General->GetMsgBoxParent(), title.c_str(),
+            InteractiveParentWindow(owner->General), title.c_str(),
             initialPath.c_str(), &selectedPath[0],
             static_cast<DWORD>(selectedPath.size()));
         return CopyResult(
@@ -6711,7 +6745,7 @@ BOOL WINAPI PackageManager::HostDispatch(
                 payloadJson, "cancelEnabled", &cancelEnabled);
             UI::ProgressDialogOptions options;
             options.Title = title.empty() ? "Salamatrix" : title.c_str();
-            options.Parent = owner->General->GetMsgBoxParent();
+            options.Parent = InteractiveParentWindow(owner->General);
             options.TwoProgressBars = twoProgressBars;
             options.FileProgress = fileProgress;
             options.CancelEnabled = cancelEnabled;

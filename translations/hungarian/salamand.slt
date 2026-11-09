@@ -1957,6 +1957,21 @@ SLGINCOMPLETE,""
 1091,1,"A Plugin elemeinek megjelenése módosítható a Plugin Kezelőben (Pluginok menü)."
 
 [STRINGTABLE 3]
+1108,0,"Plugin items"
+1109,0,"Hot Paths"
+
+[STRINGTABLE 4]
+2421,0,"Source"
+2422,0,"Association details"
+2423,0,"Conflicts (%u)"
+2424,0,"Add new pattern"
+2426,0,"All States"
+2427,0,"All Sources"
+
+[STRINGTABLE 5]
+2468,0,"Apply"
+
+[STRINGTABLE 6]
 10000,1,"Kérdés"
 10001,1,"Biztos megszakítja a műveletet?"
 10002,1,"Elem neve"
@@ -1970,7 +1985,7 @@ SLGINCOMPLETE,""
 10013,1,"Az elérés nem ellenőrizhető."
 10014,1,"Az elérési út érvénytelen formátumú."
 
-[STRINGTABLE 4]
+[STRINGTABLE 7]
 10016,1,"Beállítás"
 10017,1,"igen"
 10018,1,"nem"
@@ -1987,7 +2002,7 @@ SLGINCOMPLETE,""
 10030,1,"RAM meghajtó"
 10031,1,"ismeretlen (típus: %d)"
 
-[STRINGTABLE 5]
+[STRINGTABLE 8]
 10032,1,"Nincs találat."
 10033,1,"Információ"
 10034,1,"Társítások nem olvashatók a regisztrációból.\nHiba: %s"
@@ -2004,7 +2019,7 @@ SLGINCOMPLETE,""
 10046,1,"igen"
 10047,1,"nem"
 
-[STRINGTABLE 6]
+[STRINGTABLE 9]
 10048,1,"Fájl: "%s"\nHiba: %s"
 10051,1,"A fájlméretnek pozitív számnak kell lennie."
 10052,1,"Érvénytelen formátumú dátum."
@@ -2020,7 +2035,7 @@ SLGINCOMPLETE,""
 10062,1,"Adjon meg keresési beállítást és kattintson a Keresés gombra."
 10063,1,"Legalább egy opciót be kell jelölnie."
 
-[STRINGTABLE 7]
+[STRINGTABLE 10]
 10064,1,"Legalább egy konvertálási feladatot meg kell adnia."
 10065,1,"Nincs a megadott fájl-maszkba illő fájl."
 10066,1,"Fájl megnyitási hiba: "%s".\n%s"
@@ -2037,7 +2052,7 @@ SLGINCOMPLETE,""
 10077,1,"Attr"
 10079,1,"Minden fájlnak és mappának azonos meghajtón kell lennie."
 
-[STRINGTABLE 8]
+[STRINGTABLE 11]
 10080,1,"Néhány kijelöl fájl vagy mappa nem érhető el.\nA Keresés gombbal frissítse a talált elemek listáját."
 10081,1,"Be akarja zárni a Keresést?"
 10082,1,"&Ne mutassa újból\tvisszaállítás\tKésőbb módosíthatja a Beállítások, Megerősítések oldalán."
@@ -2055,7 +2070,7 @@ SLGINCOMPLETE,""
 10094,1,"Átnevezési hiba"
 10095,1,"Megnyitási hiba"
 
-[STRINGTABLE 9]
+[STRINGTABLE 12]
 10096,1,"Írási hiba"
 10097,1,"Felülírási hiba"
 10098,1,"Törlési hiba"
@@ -2072,7 +2087,7 @@ SLGINCOMPLETE,""
 10109,1,"Nem talált fájlt vagy mappát"
 10111,1,"DIR"
 
-[STRINGTABLE 10]
+[STRINGTABLE 13]
 10112,1,"Betűk módosítása"
 10113,1,"A dátum vagy az idő érvénytelen formátumú."
 10114,1,"Attribútumok módosítása"
@@ -2090,7 +2105,7 @@ SLGINCOMPLETE,""
 10126,1,"Gyors átnevezés"
 10127,1,"%s átnevezése erre"
 
-[STRINGTABLE 11]
+[STRINGTABLE 14]
 10129,1,"Másolás"
 10130,1,"Áthelyezés/Átnevezés"
 10131,1,"Törlés"
@@ -2107,7 +2122,7 @@ SLGINCOMPLETE,""
 10142,1,"Minden fájl (*.*)|*.*|"
 10143,1,"Fájl törlésének megerősítése"
 
-[STRINGTABLE 12]
+[STRINGTABLE 15]
 10144,1,"Biztos törli a RENDSZER vagy REJTETT attribútumú fájlt?"
 10145,1,"Ezt a nevet már használja egy fájl."
 10147,1,"A(z) "%s" mappa RENDSZER vagy REJTETT attribútumú.\nBiztos törölni akarja?"
@@ -2122,7 +2137,7 @@ SLGINCOMPLETE,""
 10157,1,"'*' bármennyi karaktert jelölhet. '?' egy karakter helye.\nPéldául: *.a? (.a1, bármi.ai, stb.)\nA maszkok pontosvesszővel válaszhatók el. Például: *.txt;*.doc (a.txt, b.doc, stb.)\nA kizárások '|' karakter után következnek. Például: |*.txt;*.doc (minden kivéve *.txt;*.doc)\nHa pontosvessző kell a maszkban, írja le kétszer. Például: egy;;maszk"
 10158,1,"A maszkokat pontosvesszővel kell elválasztani.\nA '#' karakter bármilyen számot helyettesíthet ('0' ... '9')"
 
-[STRINGTABLE 13]
+[STRINGTABLE 16]
 10160,1,"Megadhatja egy változó érték szélességét vagy 'maximumát' (a leghosszabb értékhez igazítva).\nPéldául: $(FileName:20) vagy $(FileName:max)."
 10164,1,"Keresés"
 10165,1,"A Szabályos kifejezés üres karakternek tűnik."
@@ -2137,7 +2152,7 @@ SLGINCOMPLETE,""
 10174,1,"Érvénytelen [] tartomány"
 10175,1,"Páratlan []"
 
-[STRINGTABLE 14]
+[STRINGTABLE 17]
 10176,1,"?+* után nincs semmi"
 10177,1,"Követő \\"
 10178,1,"Belső probléma"
@@ -2155,7 +2170,7 @@ SLGINCOMPLETE,""
 10190,1,"(Üres)"
 10191,1,"Hálózat"
 
-[STRINGTABLE 15]
+[STRINGTABLE 18]
 10192,1,"Másik panel"
 10193,1,"Meghajtó váltása"
 10194,1,"Válassza ki a hálózati utat."
@@ -2164,17 +2179,17 @@ SLGINCOMPLETE,""
 10198,1,"Válasszon célmappát."
 10199,1,"eltolás: %s"
 
-[STRINGTABLE 16]
+[STRINGTABLE 19]
 10220,1,"Másolás"
 10221,1,"Tömörítés"
 10222,1,"Áthelyezés"
 10223,1,"Archívum kibontási hiba"
 
-[STRINGTABLE 17]
+[STRINGTABLE 20]
 10254,1,"archívum."
 10255,1,""%s" archívum kibontása ide"
 
-[STRINGTABLE 18]
+[STRINGTABLE 21]
 10256,1,"A(z) "%s" mappa nem létezik.\n\nLétrehozza?"
 10257,1,"A(z) "%s" nevet már használja egy fájl."
 10258,1,"A(z) "%s" mappa nem hozható létre."
@@ -2190,7 +2205,7 @@ SLGINCOMPLETE,""
 10270,1,"Név"
 10271,1,"Kiterjesztés"
 
-[STRINGTABLE 19]
+[STRINGTABLE 22]
 10272,1,"DOS név (8.3)"
 10273,1,"Méret"
 10274,1,"Típus"
@@ -2205,7 +2220,7 @@ SLGINCOMPLETE,""
 10286,1,"JAR, 1.44MB-os kötet (külső Win32/x64, tesztelve: v1.02)"
 10287,1,"RAR (külső Win32/x64, tesztelve: v2.50)"
 
-[STRINGTABLE 20]
+[STRINGTABLE 23]
 10288,1,"RAR, 1.44MB-os kötet (külső Win32/x64, tesztelve: v2.50)"
 10289,1,"ARJ (külső DOS, tesztelve: v2.60)"
 10290,1,"ARJ, 1.44MB-os kötet (külső DOS, tesztelve: v2.60)"
@@ -2223,7 +2238,7 @@ SLGINCOMPLETE,""
 10302,1,"RAR, 1.44MB-os kötet (külső DOS, tesztelve: v2.50)"
 10303,1,"PKZIP (külső Win32/x64, tesztelve: v2.50)"
 
-[STRINGTABLE 21]
+[STRINGTABLE 24]
 10304,1,"PKZIP (külső DOS, tesztelve: v2.04g)"
 10307,1,"JAR (külső Win32/x64, tesztelve: v1.02)"
 10308,1,"RAR (külső Win32/x64, tesztelve: v2.50)"
@@ -2239,7 +2254,7 @@ SLGINCOMPLETE,""
 10318,1,"PKUNZIP (külső DOS, tesztelve: v2.04g)"
 10319,1,"Win32/x64 JAR végrehajtó konzol (tesztelve: v1.02)"
 
-[STRINGTABLE 22]
+[STRINGTABLE 25]
 10320,1,"Win32/x64 RAR végrehajtó konzol (tesztelve: v2.50)"
 10321,1,"MS-DOS ARJ végrehajtó (tesztelve: v2.60)"
 10322,1,"MS-DOS LHA végrehajtó (tesztelve: v2.55)"
@@ -2256,7 +2271,7 @@ SLGINCOMPLETE,""
 10334,1,"Módosítás (F2)"
 10335,1,"Új (Insert)"
 
-[STRINGTABLE 23]
+[STRINGTABLE 26]
 10336,1,"Törlés (Delete)"
 10337,1,"Fel (Alt + Fel nyíl)"
 10338,1,"Le (Alt + Le nyíl)"
@@ -2274,7 +2289,7 @@ SLGINCOMPLETE,""
 10350,1,"Környezeti változó"
 10351,1,"Teljes név"
 
-[STRINGTABLE 24]
+[STRINGTABLE 27]
 10352,1,"Teljes DOS név"
 10353,1,"Teljes elérési út"
 10354,1,"Windows mappa"
@@ -2291,7 +2306,7 @@ SLGINCOMPLETE,""
 10366,1,"Az idő felbontásának 0 és 3600 mp között kell lennie"
 10367,1,"&Plugin sor"
 
-[STRINGTABLE 25]
+[STRINGTABLE 28]
 10368,1,"Egyé&ni menü sor"
 10369,1,"Felső eszköz&tár"
 10370,1,"&Gyors elérési út sor"
@@ -2309,7 +2324,7 @@ SLGINCOMPLETE,""
 10382,1,"Utolsó írási &dátum"
 10383,1,"U&tolsó írási idő"
 
-[STRINGTABLE 26]
+[STRINGTABLE 29]
 10384,1,"Fájl &attribútum"
 10385,1,"&Panel eszköztár testreszabása..."
 10386,1,"&Gyors elérési út társítás"
@@ -2319,7 +2334,7 @@ SLGINCOMPLETE,""
 10390,1,"Okos oszlop mód\tCtrl+N"
 10391,1,"Lapszerű lapok &Panelek"
 
-[STRINGTABLE 27]
+[STRINGTABLE 30]
 10400,1,"Súgó,Átnevezés,Nézet,Szerkesztés,Másolás,Áthelyezés,MappaLétr,Törlés,EgynMenü,Menü,Csatlakozás,Leválasztás"
 10401,1,"BMghjtó,JMghjtó,AltNézet,Kilépés,Tömörítés,Kibontás,Keresés,,Kibontás,TerSzám,NyitFájl,MunkMapp"
 10402,1,"MghInfó,Attrb,NévRend,KitRend,IdőRend,MrtRend,BetűM,,Frissítés,Öhasonlít,MaxPanel,Szűrő"
@@ -2328,7 +2343,7 @@ SLGINCOMPLETE,""
 10406,1,",,,,,,,,,MappaMenü,,"
 10408,1,"Súgó,,,,,,,,,Menü,,"
 
-[STRINGTABLE 28]
+[STRINGTABLE 31]
 10420,1,"Hálózati meghajtó csatlakoztatása\tF11"
 10421,1,"Leválasztás\tF12"
 10424,1,"Mappa létrehozása\tF7"
@@ -2339,7 +2354,7 @@ SLGINCOMPLETE,""
 10430,1,"Rendezés kiterjesztés szerint\tCtrl+F4"
 10431,1,"Rendezés méret szerint\tCtrl+F6"
 
-[STRINGTABLE 29]
+[STRINGTABLE 32]
 10432,1,"Rendezés dátum szerint\tCtrl+F5"
 10433,1,"Szülőmappa\tBackspace"
 10434,1,"Gyökérmappa\tShift+Backspace"
@@ -2356,7 +2371,7 @@ SLGINCOMPLETE,""
 10445,1,"Törlés\tF8"
 10447,1,"NTFS tömörítés"
 
-[STRINGTABLE 30]
+[STRINGTABLE 33]
 10448,1,"NTFS kitömörítés"
 10449,1,"Gyors átnevezés\tF2"
 10450,1,"Betű módosítása\tCtrl+F7"
@@ -2373,7 +2388,7 @@ SLGINCOMPLETE,""
 10462,1,"Meghajtó váltása"
 10463,1,"Szerkesztés\tF4"
 
-[STRINGTABLE 31]
+[STRINGTABLE 34]
 10465,1,"Kijelölés\tNum +"
 10466,1,"Kijelölés törlése\tNum -"
 10467,1,"Fordított kijelölés\tNum *"
@@ -2390,7 +2405,7 @@ SLGINCOMPLETE,""
 10478,1,"Betűtípusok megnyitása"
 10479,1,"Konvertálás\tCtrl+K"
 
-[STRINGTABLE 32]
+[STRINGTABLE 35]
 10480,1,"Minden kijelölés törlése\tCtrl+D"
 10481,1,"Menü megnyitása vagy elhagyása"
 10482,1,"Alternatív nézet"
@@ -2408,7 +2423,7 @@ SLGINCOMPLETE,""
 10494,1,"Gyors elérési útra ugrás\tShift+F9"
 10495,1,"Email"
 
-[STRINGTABLE 33]
+[STRINGTABLE 36]
 10496,1,"Panel maximalizálása/visszaállítása"
 10497,1,"Megosztott mappák\tCtrl+Shift+F9"
 10498,1,"Teljes képernyőre váltás"
@@ -2426,7 +2441,7 @@ SLGINCOMPLETE,""
 10510,1,"Mappa megnyitása"
 10511,1,"Beállítás"
 
-[STRINGTABLE 34]
+[STRINGTABLE 37]
 10512,1,"Aktuális mappa környezeti menüje"
 10513,1,"Névre fókuszálás a másik panelen"
 10514,1,"Név megnyitása a másik panelen"
@@ -2442,7 +2457,7 @@ SLGINCOMPLETE,""
 10524,1,"Előző lap"
 10525,1,"Lap duplikálása"
 
-[STRINGTABLE 35]
+[STRINGTABLE 38]
 10530,1,"A változó nevet ')'-el kell lezárni."
 10531,1,"Belső hiba."
 10532,1,"A(z) "%s" változó nem található."
@@ -2455,7 +2470,7 @@ SLGINCOMPLETE,""
 10539,1,"Az üres sor itt nem megengedett."
 10540,1,"Érvénytelen változó hossz (1 és 9999 között kell lennie vagy a 'max' szövegnek, ha a leghosszabb változó értékre akarja igazítani)."
 
-[STRINGTABLE 36]
+[STRINGTABLE 39]
 10550,1,"Külső program"
 10551,1,"-- nem támogatott --"
 10552,1,"&Egyéni szín..."
@@ -2467,7 +2482,7 @@ SLGINCOMPLETE,""
 10558,1,"&Ne változtassa meg a szöveg színét"
 10559,1,"Ne vált&oztassa meg a háttér színét"
 
-[STRINGTABLE 37]
+[STRINGTABLE 40]
 10564,1,"Elemek a panelen"
 10565,1,"Fókuszált elem kerete a panelen"
 10566,1,"Ikon tinktúra a panelen"
@@ -2481,7 +2496,7 @@ SLGINCOMPLETE,""
 10574,1,"Normál"
 10575,1,"Kijelölt"
 
-[STRINGTABLE 38]
+[STRINGTABLE 41]
 10576,1,"Fókuszált"
 10577,1,"Fókuszált és kijelölt"
 10578,1,"Bal rész (kész)"
@@ -2495,7 +2510,7 @@ SLGINCOMPLETE,""
 10586,1,"Útvonal automatikus kiegészítés"
 10588,1,"Kiválasztott elem a listában"
 
-[STRINGTABLE 39]
+[STRINGTABLE 42]
 10595,1,"Bélyegkép kerete a panelen"
 10600,1,"Egyéni"
 10601,1,"Open Samandarin"
@@ -2504,13 +2519,13 @@ SLGINCOMPLETE,""
 10604,1,"DOS Navigator"
 10605,1,"Windows sötét mód (kísérleti)"
 
-[STRINGTABLE 40]
+[STRINGTABLE 43]
 10665,1,"Név"
 10666,1,"Gyorsbillentyű"
 10667,1,"Név"
 10671,1,"Szűrés bekapcsolva"
 
-[STRINGTABLE 41]
+[STRINGTABLE 44]
 10672,1,"Szabad lemezterület\nKattintson a meghajtó információ megjelenítésére (Ctrl+F1)"
 10673,1,"Munka mappák listája (Alt+F12)"
 10674,1,"Panel maximalizálása/visszaállítása (Ctrl+F11)"
@@ -2519,7 +2534,7 @@ SLGINCOMPLETE,""
 10680,1,"Belső néző"
 10681,1,"Külső néző"
 
-[STRINGTABLE 42]
+[STRINGTABLE 45]
 10694,1,"A meghajtó címkéje nem módosítható.\nHiba: %s"
 10696,1,"Ctrl"
 10697,1,"Shift"
@@ -2529,7 +2544,7 @@ SLGINCOMPLETE,""
 10702,1,"A(z) "%s" fájlnév érvénytelen."
 10703,1,"A(z) "%s" fájl nem tartalmaz ikont."
 
-[STRINGTABLE 43]
+[STRINGTABLE 46]
 10704,1,"A(z) "%s" fájl nem található."
 10706,1,"Külső néző [%s]"
 10707,1,"Belső néző"
@@ -2542,7 +2557,7 @@ SLGINCOMPLETE,""
 10716,1,"szerkesztés"
 10717,1,"Megnyitás"
 
-[STRINGTABLE 44]
+[STRINGTABLE 47]
 10720,1,"Attribútum"
 10721,1,"Méret"
 10722,1,"Dátum"
@@ -2555,7 +2570,7 @@ SLGINCOMPLETE,""
 10734,1,"Keresés:"
 10735,1,"Keres"
 
-[STRINGTABLE 45]
+[STRINGTABLE 48]
 10736,1,"keresés"
 10737,1,"Az üres sor nem megengedett."
 10738,1,""%s" beállítások betöltve"
@@ -2569,7 +2584,7 @@ SLGINCOMPLETE,""
 10750,1,"Adatok inicializálása..."
 10751,1,"Megosztott mappák listájának olvasása..."
 
-[STRINGTABLE 46]
+[STRINGTABLE 49]
 10752,1,"Beállítások beolvasása..."
 10753,1,"Beállítások importálása..."
 10754,1,"Társítások beolvasása..."
@@ -2584,7 +2599,7 @@ SLGINCOMPLETE,""
 10766,1,"Információ"
 10767,1,"Mappa kihagyása"
 
-[STRINGTABLE 47]
+[STRINGTABLE 50]
 10768,1,"Biztos hozzáadja a mappát a kihagyott mappák listájához: "%s"?"
 10769,1,"%d kihagyási hiba..."
 10770,1,"&Hasonló hibaüzenetek rejtése"
@@ -2594,7 +2609,7 @@ SLGINCOMPLETE,""
 10782,1,"Bármilyen megadott karakter"
 10783,1,"Bármilyen kivéve a kijelölt karakter"
 
-[STRINGTABLE 48]
+[STRINGTABLE 51]
 10784,1,"Bármilyen a karakter-tartományból"
 10785,1,"Sor kezdete"
 10786,1,"Sor vége"
@@ -2612,7 +2627,7 @@ SLGINCOMPLETE,""
 10798,1,"Decimális számjegy"
 10799,1,"Decimális szám"
 
-[STRINGTABLE 49]
+[STRINGTABLE 52]
 10800,1,"Hexadecimális szám"
 10801,1,"Valós szám"
 10802,1,"Idézett karaktersor"
@@ -2629,7 +2644,7 @@ SLGINCOMPLETE,""
 10814,1,"Helyi meghajtó"
 10815,1,"Cserélhető meghajtó"
 
-[STRINGTABLE 50]
+[STRINGTABLE 53]
 10818,1,"Email-ezés:"
 10819,1,"A fájlja társítva, készen áll az üzenet elküldésére."
 10820,1,"Levél nem küldhető el. Nincs levelező program az elküldéshez, MAPI32.DLL fájl nem található."
@@ -2642,7 +2657,7 @@ SLGINCOMPLETE,""
 10830,1,"(Nincs telepített plugin)"
 10831,1,"(Nincs beállítható plugin)"
 
-[STRINGTABLE 51]
+[STRINGTABLE 54]
 10832,1,"A(z) "%s" név nem konvertálható UNC-be.\nSem megosztott mappa sem hozzárendelt meghajtó neve."
 10833,1,"Biztos leállítja a(z) "%s" megosztását?"
 10834,1,"Megosztási név"
@@ -2657,7 +2672,7 @@ SLGINCOMPLETE,""
 10846,1,"Ú&jra próbál"
 10847,1,"&Folytat"
 
-[STRINGTABLE 52]
+[STRINGTABLE 55]
 10848,1,"&Igen"
 10849,1,"&Nem"
 10850,1,"Balra"
@@ -2669,7 +2684,7 @@ SLGINCOMPLETE,""
 10862,1,"Kö&zépső eszköztár"
 10863,1,"Teljes elérési út"
 
-[STRINGTABLE 53]
+[STRINGTABLE 56]
 10864,1,"Csak a mappa neve"
 10865,1,"Rövidített elérési út"
 10866,1,"Nincs"
@@ -2683,7 +2698,7 @@ SLGINCOMPLETE,""
 10874,1,"A hivatkozás célja nem érhető el."
 10875,1,"A hivatkozás kötetcsatlakozási pont. Nem jeleníthető meg a panelen.\nElérési út: %s"
 
-[STRINGTABLE 54]
+[STRINGTABLE 57]
 10880,1,"{!}másodperc{|0||1|}"
 10881,1,"{!}perc{|0||1|}"
 10882,1,"{!}óra{|0||1|}"
@@ -2698,13 +2713,13 @@ SLGINCOMPLETE,""
 10893,1,"A fájlrendszer összehasonlítását még nem támogatja a plugin."
 10894,1,"Ugyanaz az elérési út a bal és jobb panelen is."
 
-[STRINGTABLE 55]
+[STRINGTABLE 58]
 10900,1,"A titkosítás nem támogatott ezen a köteten vagy ezen az operációs rendszeren."
 10905,1,"Titkosítás módosítási hiba"
 10910,1,"Fájl titkosítási megerősítés"
 10911,1,"Titkosítani akarja a fájlt a RENDSZER attribútummal?"
 
-[STRINGTABLE 56]
+[STRINGTABLE 59]
 10920,1,"&Szünet"
 10921,1,"&Folytat"
 10922,1,"szünetel"
@@ -2713,7 +2728,7 @@ SLGINCOMPLETE,""
 10926,1,"(név: %s, felhasználó: %s)"
 10927,1,"Dokumentumok"
 
-[STRINGTABLE 57]
+[STRINGTABLE 60]
 10928,1,"3D objektumok"
 10929,1,"Asztal"
 10930,1,"Név"
@@ -2725,7 +2740,7 @@ SLGINCOMPLETE,""
 10936,1,"Videók"
 10940,1,"(nincs)"
 
-[STRINGTABLE 58]
+[STRINGTABLE 61]
 10945,1,"A fájl nem tömöríthető ki az archívumból az ideiglenes mappába, mert\na fájlnév túl hosszú lesz."
 10946,1,"A fájl nem tömöríthető ki az archívumból, mert a neve érvénytelen Windows fájlrendszerben és az archiváló plugin nem támogatja egyéb fájlnevek kitömörítését."
 10950,1,"Elérési út kiválasztása"
@@ -2734,7 +2749,7 @@ SLGINCOMPLETE,""
 10953,1,"(szimbolikus link: %s)"
 10955,1,"Mi&nd átugrik"
 
-[STRINGTABLE 59]
+[STRINGTABLE 62]
 10960,1,"Ahogy a lemezen tárolva vannak"
 10961,1,"Részben vegyes betű, ha DOS formátumúak"
 10962,1,"Kisbetűvel; mappák nagybetűvel"
@@ -2743,7 +2758,7 @@ SLGINCOMPLETE,""
 10965,1,"Nagybetűvel"
 10970,1,"Ne importáljon, indulás alapbeállításokkal"
 
-[STRINGTABLE 60]
+[STRINGTABLE 63]
 10980,1,"&Tallóz...\tCtrl+B"
 10981,1,"Active ba&l panel elérési út\tCtrl+["
 10982,1,"Active jobb panel elé&rési út\tCtrl+]"
@@ -2751,7 +2766,7 @@ SLGINCOMPLETE,""
 10986,1,"Kilobájtban (Windows Explorer alapértelmezett)"
 10987,1,"Rövid formában (például: 15 B, 3.41 KB, vagy 12.5 MB)"
 
-[STRINGTABLE 61]
+[STRINGTABLE 64]
 10994,1,"Nem lehet új feladatot indítani, mert az előző művelet még nem fejeződött be. Nyomjon Folytatás gombot és várja meg az előző feladat végét.\n\nHa nincs ilyen feladat, nyomja meg a Megszakít gombot és küldjön nekünk egy hibajelentést a problémáról. Az Open Samandarin be fog záródni."
 10995,1,"Az ablak most nem zárható be, mert néhány futó feladat még használja. Nyomjon Folytatás gombot és várja meg az előző feladat végét.\n\nHa nincs ilyen feladat, nyomja meg a Megszakít gombot és küldjön nekünk egy hibajelentést a problémáról. Az Open Samandarin be fog záródni."
 10996,1,"Az Open Samandarin instabillá vált egy hibás parancs kiterjesztés miatt. Kérem küldje el nekünk a következő hibajelentést, hogy segíthessen ezen probléma megoldásában.\n\nA Hibajelentés ablak megnyitásához OK gomb."
@@ -2766,7 +2781,7 @@ SLGINCOMPLETE,""
 11006,1,""%1" külső archiváló hibával tért vissza: %2"
 11007,1,""%1" külső archiváló nem futtatható."
 
-[STRINGTABLE 62]
+[STRINGTABLE 65]
 11008,1,"Érvénytelen ideiglenes fájl."
 11009,1,"Túl hosszú elérési út: %1"
 11010,1,"Archiváló parancssori szintaktikai hiba."
@@ -2782,7 +2797,7 @@ SLGINCOMPLETE,""
 11020,1,"Az ideiglenes archív fájl (%1) nem nevezhető át az archívum nevére (%2)."
 11021,1,"Ez érvénytelen fájl Windows fájlrendszerben. A külső archiválók nem támogatnak egyéb fájlnevet, így ezt a fájlt nem lehet kitömöríteni."
 
-[STRINGTABLE 63]
+[STRINGTABLE 66]
 11025,1,"Kilépési kód %d."
 11026,1,"Ütközési figyelmeztetés."
 11027,1,"Fájl kiemelési hiba."
@@ -2799,7 +2814,7 @@ SLGINCOMPLETE,""
 11038,1,"Túl sok fejezet az archívumban."
 11039,1,"Az ideiglenes fájl nem konvertálható archívumba."
 
-[STRINGTABLE 64]
+[STRINGTABLE 67]
 11040,1,"Belső hiba."
 11041,1,"Ismeretlen hiba."
 11042,1,"Egy fájl kihagyva."
@@ -2817,7 +2832,7 @@ SLGINCOMPLETE,""
 11054,1,"Külső program futtatása, kérem várjon..."
 11055,1,"Jar32 futtatható útnév"
 
-[STRINGTABLE 65]
+[STRINGTABLE 68]
 11056,1,"Jar16 futtatható útnév"
 11057,1,"Rar32 futtatható útnév"
 11058,1,"Rar16 futtatható útnév"
@@ -2833,20 +2848,20 @@ SLGINCOMPLETE,""
 11068,1,"Futtatható tallózása"
 11070,1,"Felhasználói megszakítás vagy megválaszolatlan kérés (művelet megismétlése és kattintás a "salspawn.exe" folyamatra a tálcán, láthatja az archiválót)."
 
-[STRINGTABLE 66]
+[STRINGTABLE 69]
 11102,1,"Az archiváló nem támogatja az almappákba tömörítést.\nElhelyezi a fájlokat az archívum gyökérkönyvtárába?"
 11103,1,"Az archiváló nem támogatja az "archívumba helyezés" parancsot.\nAkarja helyette az "archívumba másolást" használni?"
 
-[STRINGTABLE 67]
+[STRINGTABLE 70]
 11104,1,"Az elérési út nem érvényes mappa."
 
-[STRINGTABLE 68]
+[STRINGTABLE 71]
 11209,1,"Súgó hiba"
 11210,1,"HtmlHelp nem indítható."
 11211,1,"Súgó fájl nem található."
 11215,1,"A szerkesztő mezőből menü nyitásához, nyomja meg az Alt+Jobbra gombot"
 
-[STRINGTABLE 69]
+[STRINGTABLE 72]
 11220,1,"Fókusz"
 11221,1,"Elemre fókuszálás\tSpace"
 11222,1,"Fájl megnézése\tF3"
@@ -2859,13 +2874,13 @@ SLGINCOMPLETE,""
 11229,1,"Hibaüzenet: %d\nInformációs üzenet: %d\nKattintson a Keresési napló megnézéséhez"
 11231,1,"Tulajdonságok\tAlt+Enter"
 
-[STRINGTABLE 70]
+[STRINGTABLE 73]
 11240,1,"Megadott néhány speciális beállítást (Beállítások gomb a Másolás/Áthelyezés ablakban). Ezek a beállítások nem támogatottak plugin fájlrendszerbe vagy archívumba másolás esetén. Beállítások figyelmen kívül lesznek hagyva."
 11241,1,"&Ne mutassa újra\tvisszaállítás\tKésőbb módosíthatja a Beállítások, Megerősítések oldalán."
 11245,1,"Fájlnév része"
 11246,1,"Fájl kiterjesztés része"
 
-[STRINGTABLE 71]
+[STRINGTABLE 74]
 11250,1,"A célmappa elérése túl hosszú, a Kihagy gombbal kihagyhatja az egész mappát.\n\nElérés: %s\n\nNév: %s"
 11255,1,"Haladó"
 11256,1,"Inaktív panel teljes elérési útja"
@@ -2877,7 +2892,7 @@ SLGINCOMPLETE,""
 11262,1,"Második összehasonlítandó mappa (jobb panel előnyben)"
 11263,1,"Első összehasonlítandó fájl (aktív panel előnyben)"
 
-[STRINGTABLE 72]
+[STRINGTABLE 75]
 11264,1,"Második összehasonlítandó fájl (inaktív panel előnyben)"
 11265,1,"Első összehasonlítandó mappa (aktív panel előnyben)"
 11266,1,"Második összehasonlítandó mappa (inaktív panel előnyben)"
@@ -2888,7 +2903,7 @@ SLGINCOMPLETE,""
 11271,1,"Első összehasonlítandó fájl vagy mappa (aktív panel előnyben)"
 11272,1,"Második összehasonlítandó fájl vagy mappa (inaktív panel előnyben)"
 
-[STRINGTABLE 73]
+[STRINGTABLE 76]
 12000,1,"Ú&j"
 12001,1,"Alapértelmezett levelező nem indítható. Hibaszám %d."
 12002,1,"NTFS tömörítés megerősítése"
@@ -2902,7 +2917,7 @@ SLGINCOMPLETE,""
 12011,1,"Az exportált konfigurációs fájl a regisztrációs adatbázisból lesz létrehozva.\nAkarja menteni a beállításokat az exportálás előtt?"
 12015,1,"A beállítások importálása igen egyszerű. Csak keresse meg a beállítások fájlját és nyissa meg (Enter gombbal vagy dupla kattintással). A Beállításszerkesztővel kell megnyílnia. Mikor feldobja a kérdést, hogy hozzá akarja-e adni az adatokat a beállításszerkesztőhöz, zárjon be minden Open Samandarin példányt. Így elkerüli, hogy az újonnan beimportált beállításokat felülírja az Open Samandarin a bezáráskor. Mikor már nem fut az Open Samandarin, válassza az Igen gombot a Beállításszerkesztő kérdésére. Ekkor be fog importálódni az információ."
 
-[STRINGTABLE 74]
+[STRINGTABLE 77]
 12020,1,"A(z) %s plugin (%s) vagy az egyik komponense nem tölthető be.\nHiba: %s\nNézze meg a plugin beállítását Pluginok / Plugin Kezelő menüben."
 12021,1,"A(z) %s SPL fájl nem egy Open Samandarin plugin."
 12022,1,"A(z) %s plugin (%s) megváltozott. Telepítse újra (törlés és hozzáadás) ezt a plugin-t (Pluginok / Plugin Kezelő menüben)."
@@ -2911,7 +2926,7 @@ SLGINCOMPLETE,""
 12025,1,"A plugin (%s) nem lett betöltve. Ez nem érvényes Open Samandarin Plugin vagy valamilyen belső plugin hiba lépett fel."
 12026,1,"A plugint (%s) nem támogatja az Open Samandarin ezen verziója. Szerezze be a plugin frissebb verzióját."
 
-[STRINGTABLE 75]
+[STRINGTABLE 78]
 12033,1,"Frissített fájl(ok) archívumba tömörítése sikertelen. Megpróbálja újra? Ha NEM, visszatér az Archívum frissítése ablakhoz, és átmásolhatja a frissített fájl(oka)t egy kiválasztott mappába (későbbi archívumba helyezéshez)."
 12039,1,"A jelen nézetben kijelölt blokk mérete meghaladja a 100 MB-ot. A blokknak a vágólapra másolása, vagy húzással (drag & drop) való áthelyezése lassú lehet. Szeretné kihagyni az ilyen műveleteket a 100 MB-nál nagyobb blokkok esetén ebben a nézetben?"
 12040,1,"Ismeretlen hiba."
@@ -2923,7 +2938,7 @@ SLGINCOMPLETE,""
 12046,1,"&OEM - ANSI"
 12047,1,"Érvénytelen fájlméret (nem 256 bájt)."
 
-[STRINGTABLE 76]
+[STRINGTABLE 79]
 12048,1,"Fájl megnyitási hiba: "%s".\n%s"
 12049,1,"Ismeretlen belső kódolási név (sem ANSI - OEM sem OEM - ANSI) a(z) "%s" fájlban."
 12050,1,"Érvénytelen sor a(z) "%s" fájlban."
@@ -2936,7 +2951,7 @@ SLGINCOMPLETE,""
 12060,1,"Az üres névnek nem lesz hatása."
 12061,1,"A megadott elérés hiányos, adja meg a teljes elérési utat."
 
-[STRINGTABLE 77]
+[STRINGTABLE 80]
 12080,1,"Az Open Samandarin futó példánya elfoglalt.\nAkar indítani egy új példányt?"
 12081,1,"Az Open Samandarin elfoglalt. A kért parancs nem hajtható végre, próbálja meg később."
 12085,1,"Másolás fájlba"
@@ -2951,7 +2966,7 @@ SLGINCOMPLETE,""
 12094,1,"Fájl néző"
 12095,1,"Menü kiterjesztés"
 
-[STRINGTABLE 78]
+[STRINGTABLE 81]
 12096,1,"Fájlrendszer (FS)"
 12097,1,"Igen"
 12098,1,"Nem"
@@ -2969,7 +2984,7 @@ SLGINCOMPLETE,""
 12110,1,"Név"
 12111,1,"Betöltve"
 
-[STRINGTABLE 79]
+[STRINGTABLE 82]
 12112,1,"Verzió"
 12113,1,"Helye"
 12114,1,"(nincs)"
@@ -2987,7 +3002,7 @@ SLGINCOMPLETE,""
 12126,1,"Tulajdonság lekérdezési hiba."
 12127,1,"Bővítmény-segítőeszköz"
 
-[STRINGTABLE 80]
+[STRINGTABLE 83]
 12128,1,"&Engedélyezés"
 12129,1,"&Letiltás"
 12130,1,"A megadott elérési út nem található."
@@ -3005,13 +3020,13 @@ SLGINCOMPLETE,""
 12142,1,"Hálózati meghajtóhoz csatlakozás, megszakítás ESC gombbal..."
 12143,1,"Beállítások mentése, kérem várjon..."
 
-[STRINGTABLE 81]
+[STRINGTABLE 84]
 12145,1,"Régi beállítások törlése, kérem várjon..."
 12146,1,"Fájl kibontása az archívumból, kérem várjon..."
 12147,1,"Fájlok és mappák listájának olvasása az archívumból, kérem várjon..."
 12148,1,"Minden plugin betöltése, kérem várjon..."
 
-[STRINGTABLE 82]
+[STRINGTABLE 85]
 12160,1,"A(z) "%s" elérési út visszautasította a bezárást.\nRákényszeríti a bezárásra?"
 12165,1,"Egy felhasználó több felhasználónévvel nem csatlakozhat ugyanarra a szerverre vagy megosztott forrásra. Szakítson meg minden korábbi kapcsolatot a szerverrel vagy a forrással és próbálja újra."
 12170,1,"Biztos átugrik minden kijelölt fájlt (kizárva őket a frissítésből)?"
@@ -3019,22 +3034,22 @@ SLGINCOMPLETE,""
 12172,1,"Frissített fájlok másolása"
 12173,1,"Válasszon célmappát a frissített fájloknak."
 
-[STRINGTABLE 83]
+[STRINGTABLE 86]
 12180,1,"A(z) "%s" elérési út vizsgálata, megszakítás ESC gombbal..."
 12181,1,"A(z) "%s" elérési út listázása, megszakítás ESC gombbal..."
 12190,1,"Szöveg keresése, megszakítás ESC gombbal..."
 
-[STRINGTABLE 84]
+[STRINGTABLE 87]
 12200,1,"Elérés: "%s"\nHiba: %s"
 12201,1,"A(z) "%s" elérési út nem létezik az archívumban."
 12205,1,"Nem megengedett az üres felhasználónév."
 
-[STRINGTABLE 85]
+[STRINGTABLE 88]
 12210,1,"Új menü nem elérhető."
 12215,1,"A TMP vagy TEMP környezeti változóval megadott mappa nem létezik vagy nem érhető el. Az Open Samandarin a rendszermappát használja az ideiglenes fájloknak."
 12220,1,"Felső mappa"
 
-[STRINGTABLE 86]
+[STRINGTABLE 89]
 12225,1,"3.5 Floppy"
 12226,1,"5.25 Floppy"
 12227,1,"8.0 Floppy"
@@ -3043,7 +3058,7 @@ SLGINCOMPLETE,""
 12233,1,"Nincs elem ebben a panelban."
 12235,1," (Plugin)"
 
-[STRINGTABLE 87]
+[STRINGTABLE 90]
 12240,1,"Nem tudja megszakítani ezt a feladatot (nincs értelme). Használjon másik Open Samandarin feladatot, hogy megszakítsa ezt."
 12241,1,"Biztos meg kívánja szakítani az aktuális folyamatot?\n\nFIGYELEM: A folyamat minden mentetlen adata elveszik!"
 12242,1,"Biztos meg kívánja szakítani a megadott folyamatot?\n\nFIGYELEM: A folyamat minden mentetlen adata elveszik!"
@@ -3056,16 +3071,16 @@ SLGINCOMPLETE,""
 12249,1,"Biztos meg akarja szakítani a megadott folyamatot és hibajelentést küld nekünk?\n\nFIGYELEM: A megadott folyamat minden mentetlen adata el fog veszni!"
 12255,1,"A fájl nem olvasható."
 
-[STRINGTABLE 88]
+[STRINGTABLE 91]
 12285,1,"A műveletnek valószínűleg nincs értelme. Minden kijelölt fájl és mappa ugyanolyan célnevű (egymással lesznek felülírva).\nFolytatni akarja a műveletet?"
 
-[STRINGTABLE 89]
+[STRINGTABLE 92]
 12290,1,"A(z) "%s" cél elérési út nem létezik. Létrehozza?"
 12291,1,"&Cél elérési út kérdés nélküli létrehozása legközelebb\tvisszaállítás\tMódosíthatja a beállítást a Beállítások, Megerősítések oldalán."
 12295,1,"Műveleti maszkok nem támogatottak az archívumokban (archívum elérésének vissza-perjellel kell végződnie)."
 12300,1,"Érvénytelen szám."
 
-[STRINGTABLE 90]
+[STRINGTABLE 93]
 12305,1,"Archívumba kibontás vagy plugin fájlrendszer még nem támogatott."
 12306,1,"Műveleti maszkok nem támogatottak, ha archívumból tömörít ki (cél elérésnek léteznie kell vagy vissza-perjellel kell végződnie)."
 12307,1,"A nyelv módosítása az Open Samandarin újraindítása után lép érvénybe."
@@ -3076,7 +3091,7 @@ SLGINCOMPLETE,""
 12313,1,"A plugin fájlrendszerbeli másolás és áthelyezés nem támogatott."
 12314,1,"Megadott plugin fájlrendszerbeli másolás és áthelyezés nem támogatott."
 
-[STRINGTABLE 91]
+[STRINGTABLE 94]
 12320,1,"Nem észlelhető a fájl tömörítési mérete: "%s"\nHiba: %s\nKihagy minden hasonló hibát?"
 12325,1,"A művelet cél elérési útja nem egy fájlt tartalmaz (archívumok nem támogatottak)."
 12326,1,"A művelet cél elérési útjának léteznie kell (cél elérési út létrehozása nem támogatott)."
@@ -3084,13 +3099,13 @@ SLGINCOMPLETE,""
 12331,1,"Az archívumból nem lehet szerkeszteni vagy megnyitni a fájlt. A fájl neve érvénytelen Windows fájlrendszerben (az ilyen fájlok csak megnézhetők)."
 12335,1,"Ilyen típusú archívum tömörítése nem támogatott. Az Open Samandarin nem képes frissíteni az archívum fájlját.\n\nMégis szerkeszteni akarja a fájlt?"
 
-[STRINGTABLE 92]
+[STRINGTABLE 95]
 12340,1,"Figyelem"
 12345,1,"A(z) '%s' karaktersor nem érvényes szabályos kifejezés.\nHiba: %s."
 12350,1,"&Megnézés ezzel\tCtrl+Shift+F3"
 12351,1,"Szerkesz&tés ezzel\tCtrl+Shift+F4"
 
-[STRINGTABLE 93]
+[STRINGTABLE 96]
 12352,1,"&Megnyitás\tEnter"
 12353,1,"A(z)'%s' karaktersor nem található."
 12354,1,"Nem található egyezés a(z) '%s' szabályos kifejezéssel."
@@ -3103,7 +3118,7 @@ SLGINCOMPLETE,""
 12363,1,"&Fókusz"
 12365,1,"Fájl:"
 
-[STRINGTABLE 94]
+[STRINGTABLE 97]
 12370,1,"Megadott fájlok és mappák nem tömöríthetők ki a vágólapon. Már nincsenek az archívumban."
 12371,1,"Néhány kijelölt vágólapi fájl vagy mappa nem található meg az archívumban.\n\nAkarja folytatni?"
 12372,1,"Fájlok és mappák nem illeszthetők be ide a vágólapról. Az Open Samandarin\nfő ablakának el kell érnie a beillesztés parancs folyamatát."
@@ -3113,7 +3128,7 @@ SLGINCOMPLETE,""
 12382,1,"titkosított Fájlrendszer (EFS) támogatása"
 12383,1,"tárgy azonosító támogatása"
 
-[STRINGTABLE 95]
+[STRINGTABLE 98]
 12384,1,"újraelemzési pontok támogatása"
 12385,1,"ritka fájlok támogatása"
 12386,1,"lemezkvóta támogatása"
@@ -3121,7 +3136,7 @@ SLGINCOMPLETE,""
 12391,1,"NTFS dekódolásának megerősítése"
 12395,1,"A fájl már létezik. Szerkeszteni akarja a létező fájlt?"
 
-[STRINGTABLE 96]
+[STRINGTABLE 99]
 12400,1,"A forrás elérési út nem fordítható Unicode-ból több-bájtosra, így az Open Samandarin nem tud vele dolgozni."
 12401,1,"A húzással (drag&drop) vagy vágólappal végzett művelet során megadott néhány fájlt vagy könyvtárat nem található.\n\nFolytatja?"
 12405,1,"Nem található tömörítő a(z) %s plugin-hoz (Beállítások, Tömörítők a Tömörítési oldalon)."
@@ -3132,7 +3147,7 @@ SLGINCOMPLETE,""
 12413,1,"A fájl alternatív adatfolyamot(ADS) tartalmaz. ADS nem támogatott a cél elérési úton. Az Igen gombbal ADS nélkül másolja át a fájlt. A Kihagy gombbal kimarad a fájl."
 12414,1,"A mappa alternatív adatfolyamot(ADS) tartalmaz. ADS nem támogatott a cél elérési úton. Az Igen gombbal ADS nélkül másolja át a mappát. A Kihagy gombbal kimarad a mappa."
 
-[STRINGTABLE 97]
+[STRINGTABLE 100]
 12420,1,"Alternatív adatfolyam megnyitási hiba"
 12421,1,"Alternatív adatfolyam olvasási hiba"
 12422,1,"Alternatív adatfolyam írási hiba"
@@ -3141,7 +3156,7 @@ SLGINCOMPLETE,""
 12430,1,"Fájl neve"
 12431,1,"Fájl mérete"
 
-[STRINGTABLE 98]
+[STRINGTABLE 101]
 12432,1,"Utolsó írási dátum"
 12433,1,"Utolsó írási idő"
 12434,1,"Fájl attribútum"
@@ -3151,7 +3166,7 @@ SLGINCOMPLETE,""
 12442,1,"CRLF (DOS, Windows, OS/2 sorvég)"
 12443,1,"TAB"
 
-[STRINGTABLE 99]
+[STRINGTABLE 102]
 12450,1,"Egyéni menü hiba"
 12451,1,"A választott nevek listája túl hosszú. Vegyen ki pár nevet a kijelölések közül. Maximálisan 32771 karakter hosszú lehet."
 12452,1,"Kijelölt nevek listája üres. Válasszon ki néhányat vagy fókuszáljon rá néhányra."
@@ -3164,7 +3179,7 @@ SLGINCOMPLETE,""
 12459,1,"A választott nevek listája túl hosszú. Vegyen ki pár nevet a kijelölések közül. Maximálisan 32771 karakter hosszú lehet."
 12460,1,"Az elérési úttal kijelölt fájlok listája üres. Válasszon ki néhányat vagy fókuszáljon rá néhányra."
 
-[STRINGTABLE 100]
+[STRINGTABLE 103]
 12465,1,"Válasszon összehasonlítandó mappákat"
 12466,1,"&Mappa összehasonlítása:"
 12467,1,"Ma&ppával:"
@@ -3176,13 +3191,13 @@ SLGINCOMPLETE,""
 12476,1,""%s" kapcsolódás"
 12477,1,""%s" szimbolikus link"
 
-[STRINGTABLE 101]
+[STRINGTABLE 104]
 12480,1,"A cél fájlnak titkosítottnak (EFS használatával) kellene lennie, de a titkosítás nem támogatott az elérési úton vagy a fájl jelenlegi állapota miatt nem lehetséges a titkosítás. Nyomjon Igen gombot a titkosítás nélküli áthelyezéshez. Kihagy gombbal kimarad a mappa áthelyezése."
 12481,1,"A cél mappának titkosítottnak (EFS használatával) kellene lennie, de a titkosítás nem támogatott az elérési úton vagy a mappa jelenlegi állapota miatt nem lehetséges a titkosítás. Nyomjon Igen gombot a titkosítás nélküli áthelyezéshez. Kihagy gombbal kimarad a mappa áthelyezése."
 12482,1,"A cél fájlnak titkosítottnak (EFS használatával) kellene lennie, de a titkosítás nem támogatott az elérési úton vagy a fájl jelenlegi állapota miatt nem lehetséges a titkosítás. Nyomjon Igen gombot a titkosítás nélküli másolásához. Kihagy gombbal kimarad a mappa másolása."
 12483,1,"A cél mappának titkosítottnak (EFS használatával) kellene lennie, de a titkosítás nem támogatott az elérési úton vagy a mappa jelenlegi állapota miatt nem lehetséges a titkosítás. Nyomjon Igen gombot a titkosítás nélküli másolásához. Kihagy gombbal kimarad a mappa másolása."
 
-[STRINGTABLE 102]
+[STRINGTABLE 105]
 12801,1,""%s" fájl"
 12802,1,""%s" mappa"
 12803,1,"Biztos be akarja tömöríteni: %s?\n\nFigyelem: dekódolt fájlok és mappák tömöríthetők be."
@@ -3198,7 +3213,7 @@ SLGINCOMPLETE,""
 12813,1,"Biztos dekódolja akarja: %s?"
 12815,1,""%s" fájl"
 
-[STRINGTABLE 103]
+[STRINGTABLE 106]
 12816,1,""%s" mappa"
 12818,1,"Törlés megerősítése"
 12820,1,"{!}%s bájt{|0||1|}"
@@ -3213,7 +3228,7 @@ SLGINCOMPLETE,""
 12830,1,"{!}%s bájt{|0||1|} %d kijelölt fájlban{|0||1|} és %d kijelölt mappában{|1|}"
 12831,1,"{!}%d fájl{|0||1|}"
 
-[STRINGTABLE 104]
+[STRINGTABLE 107]
 12832,1,"{!}%d mappa{|1|}"
 12833,1,"{!}%d fájl{|1|} és %d mappa{|1|}"
 12834,1,"{!}<%s> bájt{|0||1|} %d kijelölt fájlban{|0||1|}"
@@ -3229,7 +3244,7 @@ SLGINCOMPLETE,""
 12844,1,"{!}%d rejtett mappa{|1|}"
 12845,1,"{!}%d rejtett fájl{|0||1|} és %d rejtett mappa{|1|}"
 
-[STRINGTABLE 105]
+[STRINGTABLE 108]
 13000,1,"Ba&l"
 13001,1,"Meg&hajtó váltása\tAlt+F1"
 13002,1,"S&zűrő...\tCtrl+F12"
@@ -3239,7 +3254,7 @@ SLGINCOMPLETE,""
 13006,1,"&Mappa sor"
 13007,1,"&Fejléc sor"
 
-[STRINGTABLE 106]
+[STRINGTABLE 109]
 13008,1,"&Információs sor"
 13009,1,"F&rissítés\tCtrl+F9"
 13010,1,"U&grás"
@@ -3257,7 +3272,7 @@ SLGINCOMPLETE,""
 13022,1,"&Nézet\tF3"
 13023,1,"A&lternatív nézet\tAlt+F3"
 
-[STRINGTABLE 107]
+[STRINGTABLE 110]
 13024,1,"Sz&erkesztés\tF4"
 13025,1,"&Új fájl szerkesztése...\tShift+F4"
 13026,1,"&Másolás...\tF5"
@@ -3272,7 +3287,7 @@ SLGINCOMPLETE,""
 13038,1,"NTFS &kitömörítés..."
 13039,1,"Tömö&rítés...\tAlt+F5"
 
-[STRINGTABLE 108]
+[STRINGTABLE 111]
 13040,1,"&Kibontás...\tAlt+F9"
 13041,1,"Ú&j"
 13042,1,"Kilé&pés\tAlt+F4"
@@ -3283,7 +3298,7 @@ SLGINCOMPLETE,""
 13047,1,"NTFS &dekódolás..."
 13048,1,"NT&FS parancsok"
 
-[STRINGTABLE 109]
+[STRINGTABLE 112]
 13060,1,"Sz&erkesztés"
 13061,1,"Ki&vágás\tCtrl+X"
 13062,1,"M&ásolás\tCtrl+C"
@@ -3297,7 +3312,7 @@ SLGINCOMPLETE,""
 13070,1,"Fordított k&ijelölés\tNum *"
 13071,1,"&Mind kijelöl\tCtrl+A"
 
-[STRINGTABLE 110]
+[STRINGTABLE 113]
 13072,1,"Nincs kije&lölés\tCtrl+D"
 13073,1,"Ki&jelölés mentése\tCtrl+Shift+F5"
 13074,1,"Kijelölés &betöltése...\tCtrl+Shift+F6"
@@ -3314,7 +3329,7 @@ SLGINCOMPLETE,""
 13085,1,"Kijel&öletlen nevek rejtése"
 13086,1,"&Rejtett nevek mutatása"
 
-[STRINGTABLE 111]
+[STRINGTABLE 114]
 13090,1,"Paran&csok"
 13091,1,"Mappa létreho&zása...\tF7"
 13092,1,"Mappa &váltása...\tShift+F7"
@@ -3330,7 +3345,7 @@ SLGINCOMPLETE,""
 13102,1,"&Hálózati meghajtóra csatlakozás...\tF11"
 13103,1,"L&eválasztás...\tF12"
 
-[STRINGTABLE 112]
+[STRINGTABLE 115]
 13104,1,"&Parancssor\tNum /"
 13105,1,"Tá&rsítások újraolvasása"
 13107,1,"Eg&yéni menü\tF9"
@@ -3346,7 +3361,7 @@ SLGINCOMPLETE,""
 13118,1,"Friss&en használt dokumentumok"
 13119,1,"D&okumentumok"
 
-[STRINGTABLE 113]
+[STRINGTABLE 116]
 13120,1,"Dok&umentum sablonok"
 13121,1,"&Küldés mappa"
 13122,1,"Aszta&l mappa"
@@ -3359,7 +3374,7 @@ SLGINCOMPLETE,""
 13131,1,"&Plugin Kezelő..."
 13132,1,"Utolsó parancs\tCtrl+I"
 
-[STRINGTABLE 114]
+[STRINGTABLE 117]
 13140,1,"Beállítás&ok"
 13141,1,"&Beállítások..."
 13142,1,"&Archiválók automatikus beállítása..."
@@ -3373,7 +3388,7 @@ SLGINCOMPLETE,""
 13150,1,"&Egyéni menü sor"
 13151,1,"Parancss&or"
 
-[STRINGTABLE 115]
+[STRINGTABLE 118]
 13152,1,"&Alsó eszköztár"
 13153,1,"Beállítások menté&se"
 13154,1,"Beállítások &exportálása..."
@@ -3391,14 +3406,14 @@ SLGINCOMPLETE,""
 13166,1,"&Plugin sor..."
 13167,1,"Beállítások &importálása..."
 
-[STRINGTABLE 116]
+[STRINGTABLE 119]
 13168,1,"&Fastruktúra nézet"
 13169,1,"&Beállítások kezelése..."
 13170,1,"&Jobb"
 13171,1,"Meghajtó &váltása\tAlt+F2"
 13172,1,"Lapszerű lapok &Panelek"
 
-[STRINGTABLE 117]
+[STRINGTABLE 120]
 13190,1,"&Súgó"
 13191,1,"&Tartalomjegyzék\tF1"
 13192,1,"Kere&sés..."
@@ -3408,7 +3423,7 @@ SLGINCOMPLETE,""
 13197,1,"Feladat &lista..."
 13199,1,"&Plugin névjegy"
 
-[STRINGTABLE 118]
+[STRINGTABLE 121]
 13200,1,"&Open Samandarin névjegy"
 13201,1,"Köszönetnyilváno&sítás"
 13202,1,"Hivatalos támogatási &fórum"
@@ -3423,7 +3438,7 @@ SLGINCOMPLETE,""
 13213,1,"&Előző lap"
 13214,1,"&Duplikálás lap"
 
-[STRINGTABLE 119]
+[STRINGTABLE 122]
 13220,1,"Új &Lap\tCtrl+Shift+T"
 13221,1,"&Lap bezárása\tCtrl+Shift+W"
 13222,1,"&Következő lap\tCtrl+Shift+Page Down"
@@ -3437,7 +3452,7 @@ SLGINCOMPLETE,""
 13230,1,"Lap &színének beállítása..."
 13231,1,"Lap színének &törlése"
 
-[STRINGTABLE 120]
+[STRINGTABLE 123]
 13232,1,"Lap &színének beállítása..."
 13233,1,"Lap színének &törlése"
 13234,1,"Lap &prefixének beállítása..."
@@ -3455,7 +3470,7 @@ SLGINCOMPLETE,""
 13246,1,"F&ül megkettőzése"
 13247,1,"F&ül megkettőzése"
 
-[STRINGTABLE 121]
+[STRINGTABLE 124]
 13248,1,"Bezárt &Fül újbóli megnyitása"
 13249,1,"&Fül rögzítése"
 13250,1,"Fül &feloldása"
@@ -3467,7 +3482,7 @@ SLGINCOMPLETE,""
 13260,1,"&Fülek"
 13261,1,"&Lapok"
 
-[STRINGTABLE 122]
+[STRINGTABLE 125]
 13300,1,"&Fájlok"
 13301,1,"&Megnyitás\tEnter"
 13302,1,"&Fókusz\tSpace"
@@ -3481,7 +3496,7 @@ SLGINCOMPLETE,""
 13310,1,"E&gyéni menü\tF9"
 13311,1,"&Bezárás\tAlt+F4"
 
-[STRINGTABLE 123]
+[STRINGTABLE 126]
 13312,1,"Du&pla nevek rejtése\tCtrl+Shift+H"
 13313,1,"&Parancsok"
 13314,1,"T&ulajdonságok\tAlt+Enter"
@@ -3495,7 +3510,7 @@ SLGINCOMPLETE,""
 13326,1,"Né&v másolása szövegként\tAlt+Shift+Insert"
 13327,1,"&Elérési út másolás szövegként\tCtrl+Alt+Insert"
 
-[STRINGTABLE 124]
+[STRINGTABLE 127]
 13328,1,"U&NC elérés + Név másolása szövegként\tCtrl+Shift+Insert"
 13330,1,"&Nézet"
 13331,1,"Rendezés &név szerint\tCtrl+F3"
@@ -3507,7 +3522,7 @@ SLGINCOMPLETE,""
 13342,1,"&Aktuális hozzáadása\tCtrl+N"
 13343,1,"&Kezelés...\tCtrl+M"
 
-[STRINGTABLE 125]
+[STRINGTABLE 128]
 13344,1,"&Egy keresés ablak engedélyezése"
 13345,1,"Keresési nap&ló...\tCtrl+L"
 13346,1,"Átugrandó mappák l&istája...\tCtrl+G"
@@ -3520,7 +3535,7 @@ SLGINCOMPLETE,""
 13358,1,"T&alált elemekhez fűzés\tCtrl+W"
 13359,1,"&Dupla fájlok keresése...\tCtrl+D"
 
-[STRINGTABLE 126]
+[STRINGTABLE 129]
 13360,1,"&Megnyitás\tEnter"
 13361,1,"&Nézet\tF3"
 13362,1,"Me&gnézés ezzel\tCtrl+Shift+F3"
@@ -3532,7 +3547,7 @@ SLGINCOMPLETE,""
 13368,1,"Másolás &vágólapra\tCtrl+C"
 13369,1,"&Beillesztés\tCtrl+V"
 
-[STRINGTABLE 127]
+[STRINGTABLE 130]
 13380,1,"Név"
 13381,1,"Elválasztott kiterjesztés"
 13382,1,"DOS név (8.3)"
@@ -3543,14 +3558,14 @@ SLGINCOMPLETE,""
 13387,1,"Attribútum"
 13388,1,"Leírás"
 
-[STRINGTABLE 128]
+[STRINGTABLE 131]
 13400,1,"&Név\tCtrl+F3"
 13401,1,"Kit&erjesztés\tCtrl+F4"
 13402,1,"&Méret\tCtrl+F6"
 13403,1,"&Idő\tCtrl+F5"
 13404,1,"&Attribútum"
 
-[STRINGTABLE 129]
+[STRINGTABLE 132]
 13445,1,"Megerősítés kérés"
 13446,1,"Üzenet kiírás"
 13450,1,"Fájl vagy mappa törlése (megjegyzés 1 szerint)"
@@ -3560,7 +3575,7 @@ SLGINCOMPLETE,""
 13454,1,"Rendszer és rejtett mappa törlése (megjegyzés 2 szerint)"
 13455,1,"Rendszer és rejtett fájl felülírása (archívumban nem)"
 
-[STRINGTABLE 130]
+[STRINGTABLE 133]
 13456,1,"NTFS tömörítés vagy kitömörítés (archívumban nem)"
 13457,1,"NTFS titkosítás vagy dekódolás (archívumban nem)"
 13458,1,"Fogd és vidd műveletek"
@@ -3572,7 +3587,7 @@ SLGINCOMPLETE,""
 13470,1,"Be akarja zárni a keresést?"
 13471,1,"Létre akarja hozni a célt? (Másolás/áthelyezés műveletkor)"
 
-[STRINGTABLE 131]
+[STRINGTABLE 134]
 13472,1,"Be akarja kapcsolni a Mindig felül parancsot?"
 13473,1,"Be akarja zárni az Open Samandarin-t?"
 13474,1,"Elküldi Email-ben a kijelölt fájlt?"
@@ -3586,10 +3601,10 @@ SLGINCOMPLETE,""
 13482,1,"fájl"
 13483,1,"mappa"
 
-[STRINGTABLE 132]
+[STRINGTABLE 135]
 13551,1,"Be akarja zárni az Open Samandarin-t?"
 
-[STRINGTABLE 133]
+[STRINGTABLE 136]
 13553,1,"(nincs)"
 13554,1,"Hálózat"
 13555,1,"Pluginok"
@@ -3603,7 +3618,7 @@ SLGINCOMPLETE,""
 13563,1,"&Open Samandarin bezárása kérdés nélkül\tvisszaállítás\tKésőbb módosíthatja a Beállítások, Megerősítések oldalán."
 13564,1,"&Mappa létrehozása kérdés nélkül\tvisszaállítás\tKésőbb módosíthatja a Beállítások, Megerősítések oldalán."
 
-[STRINGTABLE 134]
+[STRINGTABLE 137]
 13670,1,"Mód"
 13671,1,"Bélyegkép"
 13672,1,"Levél"
@@ -3612,7 +3627,7 @@ SLGINCOMPLETE,""
 13675,1,"Foglalt"
 13676,1,"Mozaik"
 
-[STRINGTABLE 135]
+[STRINGTABLE 138]
 13680,1,"&Bélyegkép"
 13681,1,"&Levél"
 13682,1,"Részl&etes"
@@ -3622,19 +3637,19 @@ SLGINCOMPLETE,""
 13686,1,"Foglalt"
 13687,1,"Mozai&k"
 
-[STRINGTABLE 136]
+[STRINGTABLE 139]
 13700,1,"Jelenleg hozzárendelve: %s"
 13701,1,"A parancsikon az Open Samandarin-hez tartozik. Válasszon egy másikat."
 13710,1,"%s másolása"
 13711,1,"%s áthelyezése"
 
-[STRINGTABLE 137]
+[STRINGTABLE 140]
 13712,1,"Innen:"
 13713,1,"Ide:"
 13720,1,"Fájllista készítése"
 13725,1,"A tulajdonosok és a jogosultságok nem maradnak meg. Nem támogatottak\na cél elérési úton (nem NTFS kötet).\n\nAkarja folytatni?"
 
-[STRINGTABLE 138]
+[STRINGTABLE 141]
 13730,1,"Hiba jelentése"
 13731,1,"Hiba jelentéséhez vagy szolgáltatás kéréséhez, használja a Súgó > Hivatalos támogatási fórum menüpontot.\n\nA hibajelentést csak kényes adatok küldésére használja vagy mikor mi kérjük rá."
 13735,1,"&Kihagy"
@@ -3645,7 +3660,7 @@ SLGINCOMPLETE,""
 13742,1,"Úgy látszik nincs nyelvi modul (.SLG) ehhez a plugin-hoz (a plugin LANG almappájában)."
 13743,1,"&Ne mutassa az üzenetet a többi plugin-nál"
 
-[STRINGTABLE 139]
+[STRINGTABLE 142]
 13750,1,"A beállítást tároló regisztrációs bejegyzés sérült és nem tölthető be. Az Open Samandarin valószínűleg leállt a beállítások mentése közben. Ez történik, ha az Open Samandarin még fut, mikor leállítja a rendszert (vagy kijelentkezik). Hogy megelőzze a problémát, zárja be az Open Samandarin-t a leállítás előtt (vagy kijelentkezésnél).\n\nMost készíthet biztonsági mentést a beállításokról (RegEdit.exe futtatása, kulcs átnevezése: HKEY_CURRENT_USER\\%s). Később kinyerhet a mentésből néhány beállítást (Egyéni menü, Gyors elérések, FTP könyvjelzők, stb.), részletek a forum.altap.cz oldalon.\n\nA sérült beállítások törlődnek a regisztrációs adatbázisból."
 13751,1,"Nem elfogadott paraméterértékeket használ a Kijelentkezés és Lekapcsolás során. Valószínűleg megsérült az Open Samandarin beállítása (megszakadt a beállítások mentése közben).\n\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\WaitToKillAppTimeout értékének 20000-nek kellene lennie.\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\AutoEndTasks értékének 0-nak kellene lennie."
 13752,1,"Beállítás tö&rlése"
@@ -3653,21 +3668,21 @@ SLGINCOMPLETE,""
 13756,1,"&Fájlok"
 13757,1,"&Mappák"
 
-[STRINGTABLE 140]
+[STRINGTABLE 143]
 13760,1,"A fájl nem másolható a megadott helyre, mert túl nagy a FAT32 fájlrendszerhez.\n\nFájl: %s"
 13765,1,"Az elérési út, ahova a panelnek elérhetetlen elérési út esetén kell ugrania, érvénytelen, javítsa ki az elérési utat a Beállítások, Meghajtók oldalán."
 13770,1,"A fájl nem rakható az ideiglenes mappába."
 13771,1,"Az eredményezett fájlnév túl hosszú."
 13775,1,"A(z) archívum- vagy bővítményfájlrendszerből származó Drag&drop művelet sikertelen. Kérjük, távolítsa el az esetlegesen nem kívánatosan létrehozott DROPFAKE könyvtárat a célkönyvtárból.\n\nEnnek csak a telepítés közvetlenül utáni időszakban szabad előfordulnia, vagy ha a felvevő cél nem Windows Intéző és nem Open Samandarin. Ha a felvevő cél Windows Intéző, kérjük, indítsa újra a Windows rendszert a probléma kijavításához (haladó felhasználók csak a explorer.exe folyamatot állítsák le, majd indítsák el újra)."
 
-[STRINGTABLE 141]
+[STRINGTABLE 144]
 13776,1,"Alapértelmezett"
 13777,1,"Vörös"
 13778,1,"Zöld"
 13779,1,"Kék"
 13780,1,"Samandarin"
 
-[STRINGTABLE 142]
+[STRINGTABLE 145]
 13800,1,"%d óra"
 13801,1,"%d perc"
 13802,1,"%d mp"
@@ -3675,21 +3690,21 @@ SLGINCOMPLETE,""
 13806,1,"%s / %s áthelyezve"
 13807,1,"sebesség: %s/s"
 
-[STRINGTABLE 143]
+[STRINGTABLE 146]
 13808,1,"sebesség: %s/s (határ: %s/s)"
 13809,1,"hátralevő idő: %s"
 13815,1,"A sebességhatárnak 1 B/s és 4 GB/s érték között kell lennie."
 13820,1,"S&ebességhatár..."
 13821,1,"&Várjon, míg minden másolás/áthelyezés befejeződik"
 
-[STRINGTABLE 144]
+[STRINGTABLE 147]
 13825,1,"&Kilépés"
 
-[STRINGTABLE 145]
+[STRINGTABLE 148]
 13850,1,"A(z) %s plugin beállításai nem menthetők (hiba az Open Samandarin beállítási kulcsának betöltésekor).\n\nÍgy is le akarja állítani?"
 13855,1,"Név"
 
-[STRINGTABLE 146]
+[STRINGTABLE 149]
 13856,1,"Leírás"
 13857,1,"Ikon felülírások nem jelennek meg az Open Samandarin újraindításáig."
 13865,1,"Az Open Samandarin instabillá vált. Egy kezelhetetlen kivétel lépett fel a(z) %s ikon felülírás kezelőben. Megakadályozhatja a hasonló összeomlásokat, ha az Open Samandarin nem használja többet ezt a kezelőt (Ezt gomb) vagy leállítva az összes egyéni ikon megjelenítőt (Mind gomb). Megpróbálhatja a szoftvert frissíteni, a kezelőtől függően (részleteket a forum.altap.cz oldalon keressen).\n\nMelyik ikon felülírási kezelőt akarja kikapcsolni?\n\nMegj.: a beállítások ablakban módosíthatja az ikon felülírásokat (Ikon felülírások oldal)."
@@ -3698,7 +3713,7 @@ SLGINCOMPLETE,""
 13870,1,"A config.reg fájl (vagy egyéb -c paraméterrel megadott fájl) nem importálható a regisztrációs bejegyzésekbe, mert egy régebbi Open Samandarin verzió beállításait tartalmazza. Most lépjen ki az Open Samandarin-ből és indítsa újra a probléma megoldásához."
 13871,1,"Az Open Samandarin-t új verzióra frissítette. Most beimportálhatja a régi verzió beállításait. A régi verzió tartalmaz néhány olyan plugin-t (lenti lista) melyek hiányoznak (vagy melyek nem működnek) az új verzióban, így ezek a beállítások most nem importálhatók be. Elindíthatja az Open Samandarin-t ezen plugin-ok nélkül (a régi verzió beállításai megmaradnak a regisztrációs adatbázisban, így később is beimportálhatja őket). Vagy lépjen ki az Open Samandarin-ből, telepítse a hiányzó plugin-okat, és indítsa el újra az Open Samandarin-t.\n\nHiányzó (vagy nem működő) plugin-ek: %s%s."
 
-[STRINGTABLE 147]
+[STRINGTABLE 150]
 13872,1,", %d további plugin kihagyva"
 13873,1,"Indítá&s a hiányzó Plugin-ek nélkül"
 13880,1,"Kevés a memória a(z) %Iu bájt lefoglalásához. Próbáljon felszabadítani némi memóriát (pl. zárjon be néhány futó programot) és kattintson az Újra gombra. Ha ez sem segít, válassza a Kihagy gombot a memóriafoglalási hiba átlépéséhez vagy a Megszakítás gombbal állítsa le az alkalmazást."
@@ -3707,7 +3722,7 @@ SLGINCOMPLETE,""
 13885,1,"Csatlakozás: %s"
 13886,1,"Érvénytelen jelszó vagy ismeretlen felhasználónév: %s"
 
-[STRINGTABLE 148]
+[STRINGTABLE 151]
 13890,1,"Fájl"
 13891,1,"%s fájl"
 13900,1,"A jelszava túl egyszerű és talán nem nyújt elég nagy biztonságot a szótáras vagy brute force támadások ellen.\nBiztos ezt akarja használni?\n\nmegjegyzés: a jó jelszó legalább hat karakteres, kis- és nagybetűt, számot és speciális karaktert is tartalmaz, mint a kötőjel, szimbólum, ékezetes betűk stb."
@@ -3715,7 +3730,7 @@ SLGINCOMPLETE,""
 13902,1,"Jelszó sikeresen módosítva"
 13903,1,"Törölte a mester jelszót. A tárolt jelszavai (pl. FTP és WinSCP) védtelenek lesznek."
 
-[STRINGTABLE 149]
+[STRINGTABLE 152]
 13904,1,"A mester jelszó sikeresen módosítva. A tárolt jelszavai (pl. FTP és WinSCP) már AES titkosítással vannak védve."
 13905,1,"Helytelenül adta meg a mester jelszót. Próbálja újra."
 13906,1,"Mappa böngészése"
@@ -3725,7 +3740,7 @@ SLGINCOMPLETE,""
 13915,1,"PID=%d, kezdés: %s, %s%s"
 13916,1,", aktuális folyamat"
 
-[STRINGTABLE 150]
+[STRINGTABLE 153]
 13920,1,"Aktuális fájlnév mentése alapértelmezettként"
 13921,1,"Alapértelmezett fájlnév visszaállítása erre: %s"
 13925,1,"{!}Az összehasonlított mappák legalább %d pár{|1|} fájlt tartalmaznak pontosan 1 vagy 2 órás eltéréssel. Ez a különbség {|1|} a DST (nyári időszámítás miatt figyelmen kívül lett hagyva. A Beállítások Általános részében kikapcsolhatja."
@@ -3737,14 +3752,14 @@ SLGINCOMPLETE,""
 13933,1,"Beállítások mentése alapértelmezettként"
 13934,1,"Beállítások visszaállítása és alapértelmezése"
 
-[STRINGTABLE 151]
+[STRINGTABLE 154]
 13945,1,"Ha az Open Samandarin minden indulásakor beállításokat akar importálni, exportálja ki a telepítési mappába config.reg néven.  A  -C parancssori paraméterrel (pl. "salamand.exe -C myconfig.reg") beimportálhat egyéb konfigurációs fájlt.\n\nJavasoljuk, hogy adjon hozzá regisztrációs kulcstörlést a kiexportált fájlhoz. Egyéb esetben az importált beállítás egyesül az aktuális regisztrációs adatokkal és összeférhetetlenséget okozhat."
 13946,1,"Ha az Open Samandarin minden indulásakor beállításokat akar importálni, exportálja ki a program adatmappájába (vagy telepítési mappájába) config.reg névvel. A  -C parancssori paraméterrel (pl. "salamand.exe -C myconfig.reg") beimportálhat egyéb konfigurációs fájlt.\n\nJavasoljuk, hogy adjon hozzá regisztrációs kulcstörlést a kiexportált fájlhoz. Egyéb esetben az importált beállítás egyesül az aktuális regisztrációs adatokkal és összeférhetetlenséget okozhat."
 13947,1,"Regisztrációs kulcstörlés hozzá&adása az exportált fájlhoz"
 13950,1,"A konfigurációs fájl nem olvasható vagy nyitható meg.\n\nFájl: %s\nHiba: %s"
 13951,1,"A konfigurációs fájl túl nagy.\n\nFájl: %s"
 
-[STRINGTABLE 152]
+[STRINGTABLE 155]
 13952,1,"A megadott fájl nem importálható. Nem konfigurációs fájl.\n\nFájl: %s"
 13953,1,"A konfigurációs fájl nem importálható. Érvénytelen formátumú.\n\nFájl: %s"
 13954,1,"A konfigurációs fájl nem importálható a regisztrációs adatbázisba. Regisztrációs adatbázis írási hiba.\n\nFájl: %s"
@@ -3752,7 +3767,7 @@ SLGINCOMPLETE,""
 13965,1,"A beállítások nem exportálhatók fájlba. Regisztrációs adatbázis olvasási hiba."
 13966,1,"A beállítások nem exportálhatók fájlba. Fájlba írási hiba.\n\nFájl: %s"
 
-[STRINGTABLE 153]
+[STRINGTABLE 156]
 13970,1,"Nem nyitható meg a panel környezeti menüje, mert a panel elérési útja a WOW64 átirányító álmappája."
 13971,1,"A környezeti menü, mert az aktuális kijelölés ezt tartalmazza: "%s", mely a WOW64 átirányító álmappája."
 13972,1,"A Tulajdonság ablak nem nyitható meg, mert az aktuális kijelölés ezt tartalmazza: "%s", mely a WOW64 átirányító álmappája."
@@ -3765,7 +3780,7 @@ SLGINCOMPLETE,""
 13982,1,"MB"
 13983,1,"GB"
 
-[STRINGTABLE 154]
+[STRINGTABLE 157]
 13984,1,"TB"
 13985,1,"PB"
 13986,1,"EB"
@@ -3774,14 +3789,14 @@ SLGINCOMPLETE,""
 13992,1,"MB/s"
 13993,1,"GB/s"
 
-[STRINGTABLE 155]
+[STRINGTABLE 158]
 14000,1,"[érvénytelen]"
 14005,1,"Rendszergazda"
 14010,1,"Érvényes e-mail címet adjon meg, hogy segíthessen a jelentett problémában."
 14011,1,"Kérem várjon a tömörítés és a feltöltés befejezésére."
 14012,1,"Biztos nem akar minket tájékoztatni a problémáról? A jelentése nélkül, nem leszünk képesek javítani azt.\n\nA jelentés törléséhez OK gomb."
 
-[STRINGTABLE 156]
+[STRINGTABLE 159]
 14020,1,"A feltöltött fájl meghaladja az engedélyezett méretet. Kód: %d."
 14021,1,"A feltöltött fájl csak részben lett feltöltve. Kód: %d."
 14022,1,"nem lett fájl feltöltve. Kód: %d."
@@ -3792,7 +3807,7 @@ SLGINCOMPLETE,""
 14030,1,"Szintaktikai hiba a szerver válaszában. Nincs nyitó címke."
 14031,1,"Szintaktikai hiba a szerver válaszában. Nincs záró címke."
 
-[STRINGTABLE 157]
+[STRINGTABLE 160]
 14032,1,"Szintaktikai hiba a szerver válaszában. Nincs érték."
 14040,1,"Nem fogadható adat. Kód: %d."
 14041,1,"Nem zárható le a kapcsolat. Kód: %d."
@@ -3802,7 +3817,7 @@ SLGINCOMPLETE,""
 14045,1,"Nem oldható fel a gazda neve. Kód: %d."
 14046,1,"A kapcsolat nem inicializálható. Kód: %d."
 
-[STRINGTABLE 158]
+[STRINGTABLE 161]
 14050,1,"Sikertelen olvasás: %s"
 14051,1,"Kevés a memória"
 14052,1,"A fájl méretének lekérése sikertelen: %s"
@@ -3811,7 +3826,7 @@ SLGINCOMPLETE,""
 14062,1,"Open Samandarin Hibajelentő"
 14063,1,"Tömörítés, kérem várjon..."
 
-[STRINGTABLE 159]
+[STRINGTABLE 162]
 14064,1,"Feltöltés, kérem várjon..."
 14065,1,"Jelentés sikeresen feltöltve.\n\nKöszönjük, hogy segít nekünk az Open Samandarin tökéletesítésében!"
 14066,1,"A GitHub-probléma megnyitása sikertelen. A ShellExecute visszatérési kódja: %d.\n\nA jelentésarchívum a lemezen marad. Kattintson az OK gombra a jelentésmappa megjelenítéséhez."
@@ -3824,15 +3839,15 @@ SLGINCOMPLETE,""
 14074,1,"Minidump fájl létrehozása sikertelen: %s. Kód: %d."
 14075,1,"Hiba a minidump létrehozása közben. Kód: %d."
 
-[STRINGTABLE 160]
+[STRINGTABLE 163]
 14100,1,"Az Open Samandarin Bug Reporter (salmon.exe) nem fut. Az Open Samandarin nem lesz képes kezelni a potenciális összeomlásokat. Kérem indítsa újra az Open Samandarin-t."
 
-[STRINGTABLE 161]
+[STRINGTABLE 164]
 14150,1,"Befejezetlen Open Samandarin fordítás"
 14151,1,"Az Open Samandarin fordítása az Ön nyelvére, még nem fejeződött be. Kérem látogassa meg fórumunkat és csatlakozzon a fordítási törekvésünkhöz:"
 14155,1,"A fájl vagy mappa lomtárba küldése sikertelen, mert érvénytelen névvel rendelkezik.\n\nA név érvénytelen része: "%s"\n\nTipp: Próbálja átnevezni, mielőtt a lomtárba küldi vagy véglegesen törli (Shift+Delete kombináció)."
 
-[STRINGTABLE 162]
+[STRINGTABLE 165]
 14160,1,"A plugin nem tölthető be: %s. Ez a plugin csak az Open Samandarin x86-os (32-bit) verziójában érhető el. Az Open Samandarin x86-os verzióját indítsa el, a plugin használatához. Sajnáljuk a kellemetlenséget."
 14165,1,"Google Drive"
 14166,1,"Dropbox"
@@ -3841,7 +3856,7 @@ SLGINCOMPLETE,""
 14170,1,"a link nem oldható fel"
 14171,1,"kötet csatlakozási pont"
 
-[STRINGTABLE 163]
+[STRINGTABLE 166]
 14180,1,"Fájlméreti beolvasási hiba a link célján"
 14181,1,"A kijelölt fájlokat és mappákat archívumba próbálta mozgatni. Ez nem lehetséges, mivel a kijelölés mappára mutató linket is tartalmaz (csatlakozási pont, kötetcsatlakozási pont vagy szimbolikus hivatkozás). Kérem, úgy folytassa, hogy az archívumba csomagolás után nem törli a fájlokat.\n\nLink: %s"
 14185,1,"Lemezművelet folyamatban."
@@ -3850,7 +3865,7 @@ SLGINCOMPLETE,""
 14188,1,"A Windows elutasítja a leállítás megszakítását. Ez az üzenet ideiglenesen blokkolja. Kérem, manuálisan szakítsa meg a leállítást, mielőtt bezárja ezt az üzenetet, különben az Open Samandarin a beállítások mentése nélkül áll le."
 14189,1,"A Windows elutasítja a leállítás megszakítását. Ez az üzenet ideiglenesen blokkolja.\n\nNéhány lemezművelet még folyamtban van. Meg akarja őket szakítani? Csak akkor válassza, hogy Nem, ha manuálísan megszakította a leállítást, különben kockáztatja, hogy befejezetlen fájlok maradhatnak a lemezen.\n\nKérem, manuálisan szakítsa meg a leállítást, mielőtt bezárja ezt az üzenetet, különben az Open Samandarin a beállítások mentése nélkül áll le."
 
-[STRINGTABLE 164]
+[STRINGTABLE 167]
 14195,1,"Keres ablak bezárása, kérem várjon..."
 14196,1,"Bővítmények és beépülő modulok bezárása, kérem várjon..."
 14197,1,"Panelek és fájlrendszerek bezárása, kérem várjon..."
@@ -3864,7 +3879,7 @@ SLGINCOMPLETE,""
 14206,1,"Fastruktúra nézet panel"
 14207,1,"Fastruktúra nézet panel bezárása"
 
-[STRINGTABLE 165]
+[STRINGTABLE 168]
 14208,1,"Fastruktúra nézet panel automatikus elrejtése"
 14209,1,"Fastruktúra nézet panel rögzítése"
 14210,1,"Nem határozható meg a hordozható beállításfájl (config.reg) elérési útja."
@@ -3881,7 +3896,7 @@ SLGINCOMPLETE,""
 14221,1,"Kódlap kompatibilitási figyelmeztetés"
 14222,1,"A kiválasztott nyelv nem jeleníti meg helyesen az összes karaktert, mert a Windows rendszerterületi kódlapja (%u) nem egyezik ezzel a nyelvvel elvárt kódlappal (%u).\n\nA javításhoz módosítsa a rendszerterületet a Windowsban: Beállítások > Idő és nyelv > Régió > Kezelés > Rendszerterület módosítása."
 
-[STRINGTABLE 166]
+[STRINGTABLE 169]
 14232,1,"Utoljára mentve"
 14233,1,"Konfiguráció neve"
 14234,1,"Verzió"
@@ -3890,7 +3905,7 @@ SLGINCOMPLETE,""
 14237,1,"Hely"
 14239,1,"Tiszta beállítások alapértelmezett értékekkel"
 
-[STRINGTABLE 167]
+[STRINGTABLE 170]
 14256,1,"hordozható"
 14258,1,"-"
 14259,1,"Beállításjegyzék"
@@ -3907,7 +3922,7 @@ SLGINCOMPLETE,""
 14270,1,"Servant Salamander %s"
 14271,1,"A konfiguráció sikeresen importálva lett."
 
-[STRINGTABLE 168]
+[STRINGTABLE 171]
 14272,1,"Ezt a konfigurációt jelenleg az alkalmazás ezen példánya használja."
 14273,1,"Nem sikerült törölni a konfigurációs fájlt.\n\nFájl: %s\nHiba: %s"
 14274,1,"A Win32/x64 hosszú elérési utak beállítása megváltozott. A módosítás érvényesítéséhez indítsa újra a Windows rendszert."
@@ -3925,7 +3940,7 @@ SLGINCOMPLETE,""
 14286,1,"&A leválasztott ablak újracsatolása"
 14287,1,"Főablak"
 
-[STRINGTABLE 169]
+[STRINGTABLE 172]
 14288,1,"A kijelző méretezése megváltozott"
 14289,1,"A Windows kijelző-méretezése vagy a távoli asztali munkamenet DPI-je megváltozhatott. Indítsa újra az Open Samandarin programot az egész felhasználói felület éles megjelenítéséhez a jelenlegi DPI-n."
 14290,1,"Visszaállítás"
@@ -3943,7 +3958,7 @@ SLGINCOMPLETE,""
 14302,1,"Ez a lap le van zárva, hogy ne lehessen módosítani a rajta megjelenő tartalmat. Ki szeretné nyitni a lapot, és megnyitni a kért helyet?"
 14303,1,"Bővítmény (futókörnyezet nem elérhető)"
 
-[STRINGTABLE 170]
+[STRINGTABLE 173]
 14304,1,"Bővítmény (nem érhető el a függőség)"
 14305,1,"Bővítmény (letiltva)"
 14306,1,"A bővítmény túl sok beállítást ad meg ehhez a párbeszédpanelhez."
@@ -3961,7 +3976,7 @@ SLGINCOMPLETE,""
 14318,1,"Válasszon ki legalább egy mappát a célpanelen."
 14319,1,"Az összes kijelölt célmappának ugyanazon a köteten kell lennie."
 
-[STRINGTABLE 171]
+[STRINGTABLE 174]
 14320,1,"Bővítmény"
 14321,1,"Bővítmények és beépülő modulok betöltése, kérem várjon..."
 14322,1,"Bővítménycsomagok keresése, kérem várjon..."
@@ -3979,7 +3994,7 @@ SLGINCOMPLETE,""
 14334,1,"Bővítmény futtatókörnyezetének leállítása, kérem várjon..."
 14335,1,"Bővítményablakok bezárása, kérem várjon..."
 
-[STRINGTABLE 172]
+[STRINGTABLE 175]
 14336,1,"Bővítményszolgáltatások leállítása, kérem várjon..."
 14337,1,"&Detach Tab"
 14338,1,"Detached tab"
@@ -3997,7 +4012,7 @@ SLGINCOMPLETE,""
 14350,1,"Path"
 14351,1,"State"
 
-[STRINGTABLE 173]
+[STRINGTABLE 176]
 14352,1,"Attached"
 14353,1,"Detached"
 14354,1,"Left"
@@ -4015,7 +4030,7 @@ SLGINCOMPLETE,""
 14366,1,"Összes"
 14367,1,"Gyakori"
 
-[STRINGTABLE 174]
+[STRINGTABLE 177]
 14368,1,"Fájlrendszer"
 14369,1,"Dokumentum"
 14370,1,"Kép / Fotó"
@@ -4033,7 +4048,7 @@ SLGINCOMPLETE,""
 14382,1,"Kijelölt tulajdonságok"
 14383,1,"&Eltávolítás"
 
-[STRINGTABLE 175]
+[STRINGTABLE 178]
 14384,1,"Fel&fel"
 14385,1,"Lef&fel"
 14386,1,"Végrehajtható"
@@ -4048,9 +4063,10 @@ SLGINCOMPLETE,""
 14395,1,"Hozzáadás"
 14396,1,"Eltávolítás"
 14397,1,"Törlés"
+14398,0,"Multiple items selected - information not available"
 14399,1,"Több címkét pontosvesszővel válasszon el. A nemrég használt címkék az Érték listában érhetők el."
 
-[STRINGTABLE 176]
+[STRINGTABLE 179]
 14400,1,"Az érték a Windows által megkövetelt típusra lesz átalakítva."
 14402,1,"Frissítve: %d\nSikertelen vagy csak olvasható: %d"
 14404,1,"Címkék"
@@ -4066,7 +4082,7 @@ SLGINCOMPLETE,""
 14414,0,"First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
 14415,1,"Ez a fájltípus nem támogatja ezt a tulajdonságot."
 
-[STRINGTABLE 177]
+[STRINGTABLE 180]
 14416,1,"A fájl vagy a tulajdonság csak olvasható, vagy a hozzáférés elutasítva."
 14417,1,"A Windows nem tudta írni a tulajdonságot."
 14418,1,"Érték"
@@ -4084,7 +4100,7 @@ SLGINCOMPLETE,""
 14430,1,"Aktív webtartalom"
 14431,1,"Emelés"
 
-[STRINGTABLE 178]
+[STRINGTABLE 181]
 14432,1,"Csomag aláírója"
 14433,1,"Csomag SHA-256"
 14434,1,"Csomagforrás"
@@ -4102,7 +4118,7 @@ SLGINCOMPLETE,""
 14446,1,"Kézi (a Másolás/Áthelyezés párbeszédpanel opciója)"
 14447,1,"Felhasználó által vezérelt"
 
-[STRINGTABLE 179]
+[STRINGTABLE 182]
 14448,1,"Tárhely alapján"
 14449,1,"Kézi"
 14450,1,"Művelet &sorba állítása (várakozás az összes többi Másolás/Áthelyezés művelet befejezésére)"
@@ -4120,8 +4136,16 @@ SLGINCOMPLETE,""
 14462,1,"Várakozás egy támeszközre"
 14463,1,"Várakozás SSD/NVMe sávra"
 
-[STRINGTABLE 180]
+[STRINGTABLE 183]
 14464,1,"Várakozás, mert a tároló nem azonosítható"
+14465,1,"Kész"
+14466,1,"Keresés"
+14467,1,"Rendezés"
+14468,1,"Leállítás"
+14469,1,"Befejezve"
+14470,1,"A keresőablak {0} másodperce nem válaszol - {1}"
+14471,1,"A keresőablak {0} másodperce nem válaszol - {1} - Találatok: {2}"
+14472,1,"Befejezés"
 14473,1,"A konfliktusok fokozatos feloldása a sorban"
 14474,1,"Előre vizsgálat, és folytatás nem ütköző elemekkel"
 14475,1,"Az utoljára kijelölt megőrzése a Másolás/Áthelyezés párbeszédben"
@@ -4130,7 +4154,7 @@ SLGINCOMPLETE,""
 14478,1,"Ütközések vizsgálata: %1!s!, %2!d! függőben, %3!d!/%4!d! ellenőrzött"
 14479,1,"aktív"
 
-[STRINGTABLE 181]
+[STRINGTABLE 184]
 14480,1,"kész"
 14481,1,"Fájlnév"
 14482,1,"Állapot"
@@ -4146,7 +4170,7 @@ SLGINCOMPLETE,""
 14492,1,"Mellőzve"
 14493,1,"Fájl/mappa típus eltérés"
 
-[STRINGTABLE 182]
+[STRINGTABLE 185]
 14500,1,"Ágnézet"
 14501,1,"&Ágnézet\tCtrl+B"
 14502,1,"Útvonal"
@@ -4160,7 +4184,7 @@ SLGINCOMPLETE,""
 14510,1,"Az almappák útvonalának megtartása az ágnézet gyökeréhez képest"
 14511,1,"Útvonal: "
 
-[STRINGTABLE 183]
+[STRINGTABLE 186]
 14512,1,"A mappafa nem olvasható. Frissítse a nézetet az újrapróbáláshoz."
 14513,1,"Ágnézet - frissítés... %I64u fájl megtartva"
 14514,1,"Ágnézet - frissítés leállítva; korábbi eredmények megtartva (%I64u fájl)"
@@ -4178,85 +4202,177 @@ SLGINCOMPLETE,""
 14526,0,"An administrator can enable the Windows policy:\nComputer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths.\n\nIts registry equivalent is REG_DWORD LongPathsEnabled = 1 under:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nRestart affected applications; restarting Windows may also be necessary. Applications must support long paths themselves. This is not a way to override a security denial, and Shell or the target program may still reject the path. Salamander does not change this setting."
 14527,0,"Windows error:"
 
-[STRINGTABLE 184]
-14528,1,"A hozzáférés megtagadva. Létrehozza ezt a mappát rendszergazdaként?"
-14529,1,"A kapcsolat megszakadt a segédfolyamattal az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizze a célt."
-14530,1,"A hozzáférés megtagadva. Átnevezi a fájlt rendszergazdaként? Az első sor a jelenlegi, a második az új elérési út."
-14531,1,"A hozzáférés megtagadva. Alkalmazod a kért attribútumokat és időbélyegeket erre a fájlra rendszergazdaként?"
-14532,1,"A segédfolyamattal megszakadt a kapcsolat az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizd a fájl attribútumait és időbélyegeit."
-14533,1,"A hozzáférés megtagadva. Véglegesen törlöd ezt a fájlt rendszergazdaként?"
-14534,1,"A segédfolyamattal megszakadt a kapcsolat a törlés megerősítése előtt. Újrapróbálkozás előtt ellenőrizd, hogy a fájl még létezik-e."
-14535,1,"A hozzáférés megtagadva. Listázod ezt a mappát és almappáit rendszergazdaként?"
-14536,1,"Rendszergazdai lista"
-14537,1,"A hozzáférés megtagadva. Másolja ezt a fájlt az alternatív adatfolyamaival együtt rendszergazdaként?"
-14538,1,"A másolás befejezését nem sikerült megerősíteni. Újrapróbálkozás előtt ellenőrizze a célhelyet."
-14539,1,"A hozzáférés megtagadva. Áthelyezi ezt a fájlt rendszergazdaként?"
-14540,1,"Az áthelyezés befejezését nem sikerült megerősíteni. Újrapróbálkozás előtt ellenőrizze a forrást és a célhelyet."
-14541,1,"Védett mappafa leltára"
-14543,1,"A mappafa teljes bejárása sikertelen. A részleges eredmények nem jelennek meg."
-
-[STRINGTABLE 185]
-14544,1,"Fájlok: "
-14545,1,"Almappák: "
-14546,1,"Logikai méret (bájt): "
-14547,1,"Másolja ezt a mappát és tartalmát rendszergazdaként a regisztrált célhelyre?"
-14548,1,"A mappa másolását vagy a takarítást nem sikerült megerősíteni. Újrapróbálkozás előtt ellenőrizze a célhelyet."
-14549,1,"A hozzáférés megtagadva. Beállítja a mappa kért időbélyegeit rendszergazdaként?"
-14550,1,"A segédfolyamattal megszakadt a kapcsolat az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizze a mappa időbélyegeit."
-14551,1,"A hozzáférés megtagadva. Alkalmazza a kért attribútumokat és az esetleg kiválasztott időbélyegeket erre a mappára rendszergazdaként?"
-14552,1,"A segédfolyamattal megszakadt a kapcsolat az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizze a mappa attribútumait és időbélyegeit."
-14553,1,"A hozzáférés megtagadva. Másolja ezt a fájlt az alternatív adatfolyamai nélkül rendszergazdaként?"
-14554,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként az NTFS-tömörítés megőrzésével?"
-14555,1,"A hozzáférés megtagadva. Átnevezi ezt a szimbolikus hivatkozást rendszergazdaként?"
-14556,1,"A hozzáférés megtagadva. Átnevezi ezt a könyvtárcsatolást (junction) rendszergazdaként?"
-14557,1,"A hozzáférés megtagadva. Véglegesen törli ezt a szimbolikus hivatkozást rendszergazdaként? A hivatkozott fájl megmarad."
-14558,1,"A hozzáférés megtagadva. Véglegesen törli ezt a mappára mutató szimbolikus hivatkozást rendszergazdaként? A hivatkozott mappa megmarad."
-14559,1,"A hozzáférés megtagadva. Véglegesen törli ezt a könyvtárcsatolást (junction) rendszergazdaként? A hivatkozott mappa megmarad."
-
-[STRINGTABLE 186]
-14560,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként az NTFS-tulajdonos, a csoport és a kifejezetten megadott engedélyek megőrzésével?"
-14561,1,"Az EFS-titkosított fájl másolását nem sikerült befejezni. Ennél a műveletnél az EFS-titkosítás rendszergazdai módban sem őrizhető meg."
-14562,1,"A Windows nem erősítette meg, hogy minden elem a Lomtárba került. Újrapróbálkozás előtt ellenőrizze az eredeti helyet és a Lomtárat."
-14563,1,"A hozzáférés megtagadva. Kiszámítja ennek a mappának és almappáinak a méretét rendszergazdaként?"
-14564,1,"A hozzáférés megtagadva. Keres ebben a mappában név és metaadatok alapján rendszergazdaként? Amíg dönt, a keresés folytatódik a hozzáférhető mappákban."
-14565,1,"Várakozás a védett mappa eléréséhez szükséges rendszergazdai engedélyre…"
-14566,1,"Keresés a jóváhagyott mappában rendszergazdai jogosultsággal."
-14567,1,"Nem érhető el"
-14568,1,"A hozzáférés megtagadva. Megnyitja ennek a fájlnak az írásvédett másolatát a beépített megjelenítőben rendszergazdaként? A másolat legfeljebb 16 MB lehet."
-14569,1,"Rendszergazdai jogosultsággal megnyitott másolat"
-14570,1,"Ez a másolat írásvédett. Új másolat kéréséhez térjen vissza a panelre."
-14571,1,"A védett fájlt nem sikerült megnyitni a beépített megjelenítőben."
-14572,1,"Szerkesztés rendszergazdaként"
-14573,1,"A hozzáférés megtagadva. Megnyitja az eredeti fájlt a beállított szerkesztőben rendszergazdaként? A Windows az alább látható szerkesztőhöz kér engedélyt."
-14574,1,"Rendszergazdai módhoz a szerkesztő futtatható fájljának védett Windows- vagy Program Files-mappában kell lennie."
-14575,1,"Védett ZIP-archívum tartalma"
-
 [STRINGTABLE 187]
-14576,1,"A hozzáférés megtagadva. Beolvassa a ZIP-archívum tartalmát rendszergazdaként? Az archívum csak olvasásra nyílik meg."
-14577,1,"Az F3 megjeleníti, az F5 kibontja a fájlt. Külső alkalmazásban nem lehet megnyitni."
-14578,1,"A hozzáférés megtagadva. Kibontja a kijelölt ZIP-fájlokat és -mappákat a megjelenített célhelyre rendszergazdaként?"
-14579,1,"Válasszon egy meglévő helyi célmappát a védett ZIP-archívumban kijelölt elemekhez."
-14580,1,"A kibontás a kijelölt ZIP-elemek egy részének létrehozása után leállt. Újrapróbálkozás előtt ellenőrizze a célhelyet."
-14581,1,"Védett ZIP-archívum frissítése"
-14582,1,"Menti a ZIP-archívum előkészített módosításait rendszergazdaként?"
-14583,1,"A Windows nem erősítette meg a ZIP-frissítés befejezését. Újrapróbálkozás előtt ellenőrizze az archívumot és az esetleg a mappájában maradt biztonsági másolatot."
-14584,1,"A ZIP-archívum frissült. Az új tartalom megjelenítéséhez frissítse az archívumpanelt."
-14585,1,"A hozzáférés megtagadva. Lecseréli ezt a meglévő fájlt rendszergazdaként a cél engedélyeinek megőrzésével?"
-14586,1,"Az engedély erre az elemre vonatkozik. Megszakításkor a hátralévő elemek feldolgozása leáll. A befejezett módosítások megmaradnak."
-14587,1,"A hozzáférés megtagadva. Beolvassa e mappa fájljainak tartalmát a jelenlegi kereséshez rendszergazdaként? Amíg dönt, a keresés folytatódik a hozzáférhető mappákban."
-14588,1,"A hozzáférés megtagadva. Beolvassa ezt a fájlt a jelenlegi kereséshez rendszergazdaként?"
-14589,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként az EFS-titkosítás megőrzésével?"
-14590,1,"Az engedély a művelet végéig az alább felsorolt mappákban lévő, a feltételeknek megfelelő további fájlokra is vonatkozik."
-14591,1,"Az engedély a művelet végéig az alább megadott mappában lévő, a feltételeknek megfelelő további elemekre is vonatkozik."
+14530,0,"File Associations"
+14531,0,"&Pattern:"
+14532,0,"&Action:"
+14533,0,"&Operation:"
+14534,0,"&Target:"
+14535,0,"Target &ID:"
+14536,0,"Status:"
+14537,0,"&Add / Update"
+14538,0,"&Delete"
+14539,0,"&Reset to default"
+14540,0,"Set &unassigned"
+14541,0,"View"
+14542,0,"Alternate View"
+14543,0,"Edit"
 
 [STRINGTABLE 188]
-14592,1,"A hozzáférés megtagadva. Áthelyezi ezt a fájlt a saját Lomtárába rendszergazdaként?"
-14593,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként az NTFS-tömörítés, a tulajdonos, a csoport és a kifejezetten megadott engedélyek megőrzésével?"
+14544,0,"Panel Archive"
+14545,0,"Not applicable"
+14546,0,"List / Unpack"
+14547,0,"Delete / Pack"
+14548,0,"Built-in"
+14549,0,"Plugin"
+14551,0,"Ready"
+14552,0,"Conflict: resolve overlapping patterns before saving"
+14553,0,"Default"
+14554,0,"User"
+14555,0,"Legacy"
+14556,0,"Disabled"
+14557,0,"Conflict"
+14558,0,"Search patterns"
+14559,0,"Category"
 
 [STRINGTABLE 189]
-14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."
+14560,0,"Provenance"
+14561,0,"All"
+14562,0,"Show conflicts only"
+14563,0,"Pattern"
+14564,0,"View"
+14565,0,"Alternate View"
+14566,0,"Edit"
+14567,0,"Panel Archive"
+14568,0,"%u of %u associations | %u conflicts"
+14569,0,"Select a pattern cell to change its owner. Existing defaults are imported automatically."
+14570,0,"No compatible targets are installed"
+14571,0,"Internal viewer"
+14572,0,"Legacy runtime"
+14573,0,"Select a compatible plugin target"
+14575,0,"Pattern must not be empty"
 
 [STRINGTABLE 190]
+14576,0,"Extension"
+14577,0,"%u associations selected"
+14578,0,"Unassigned"
+14579,0,"User defined"
+14580,0,"Archive Panel"
+14581,0,"Extensions"
+14582,0,"Conflict: %s has competing targets in %s: %s"
+14583,0," (+%u more)"
+14584,0,"Select a compatible extension viewer"
+14585,0,"Custom Viewer"
+14586,0,"Custom Editor"
+14587,0,"&Name:"
+14588,0,"&Command:"
+14589,0,"&Arguments:"
+14590,0,"&Initial directory:"
+14591,0,"&Save"
+
+[STRINGTABLE 191]
+14592,0,"Saved custom handlers"
+14593,0,"Enter a name and command for this handler."
+14594,0,"A handler with this name already exists."
+14595,0,"Name"
+14596,0,"Command"
+14597,0,"This custom handler is invalid or exceeds the supported size limits."
+14598,0,"No legacy editor is configured"
+14599,0,"Configure named custom viewers for file associations."
+14600,0,"Configure named custom editors for file associations."
+14601,0,"Handler details"
+14602,0,"Arguments"
+14603,0,"Initial directory"
+14604,0,"Add new file association pattern"
+14605,0,"Enter a file pattern:"
+14606,0,"Enter a valid file pattern."
+14607,0,"This file pattern already exists."
+
+[STRINGTABLE 192]
+14608,1,"Leállítás és újrapróbálás"
+14609,1,"A fájlt ezek a folyamatok használják: %s"
+14610,1,"Leállítja ezeket a folyamatokat, és újrapróbálja?\n\nA folyamatok nem mentett adatai elveszhetnek:\n%s"
+14611,1,"A fájlt használó folyamatok egyikét sem sikerült leállítani."
+
+[STRINGTABLE 193]
+14624,1,"A hozzáférés megtagadva. Létrehozza ezt a mappát rendszergazdaként?"
+14625,1,"A kapcsolat megszakadt a segédfolyamattal az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizze a célt."
+14626,1,"A hozzáférés megtagadva. Átnevezi a fájlt rendszergazdaként? Az első sor a jelenlegi, a második az új elérési út."
+14627,1,"A hozzáférés megtagadva. Alkalmazod a kért attribútumokat és időbélyegeket erre a fájlra rendszergazdaként?"
+14628,1,"A segédfolyamattal megszakadt a kapcsolat az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizd a fájl attribútumait és időbélyegeit."
+14629,1,"A hozzáférés megtagadva. Véglegesen törlöd ezt a fájlt rendszergazdaként?"
+14630,1,"A segédfolyamattal megszakadt a kapcsolat a törlés megerősítése előtt. Újrapróbálkozás előtt ellenőrizd, hogy a fájl még létezik-e."
+14631,1,"A hozzáférés megtagadva. Listázod ezt a mappát és almappáit rendszergazdaként?"
+14632,1,"Rendszergazdai lista"
+14633,1,"A hozzáférés megtagadva. Másolja ezt a fájlt az alternatív adatfolyamaival együtt rendszergazdaként?"
+14634,1,"A másolás befejezését nem sikerült megerősíteni. Újrapróbálkozás előtt ellenőrizze a célhelyet."
+14635,1,"A hozzáférés megtagadva. Áthelyezi ezt a fájlt rendszergazdaként?"
+14636,1,"Az áthelyezés befejezését nem sikerült megerősíteni. Újrapróbálkozás előtt ellenőrizze a forrást és a célhelyet."
+14637,1,"Védett mappafa leltára"
+14639,1,"A mappafa teljes bejárása sikertelen. A részleges eredmények nem jelennek meg."
+
+[STRINGTABLE 194]
+14640,1,"Fájlok: "
+14641,1,"Almappák: "
+14642,1,"Logikai méret (bájt): "
+14643,1,"Másolja ezt a mappát és tartalmát rendszergazdaként a regisztrált célhelyre?"
+14644,1,"A mappa másolását vagy a takarítást nem sikerült megerősíteni. Újrapróbálkozás előtt ellenőrizze a célhelyet."
+14645,1,"A hozzáférés megtagadva. Beállítja a mappa kért időbélyegeit rendszergazdaként?"
+14646,1,"A segédfolyamattal megszakadt a kapcsolat az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizze a mappa időbélyegeit."
+14647,1,"A hozzáférés megtagadva. Alkalmazza a kért attribútumokat és az esetleg kiválasztott időbélyegeket erre a mappára rendszergazdaként?"
+14648,1,"A segédfolyamattal megszakadt a kapcsolat az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizze a mappa attribútumait és időbélyegeit."
+14649,1,"A hozzáférés megtagadva. Másolja ezt a fájlt az alternatív adatfolyamai nélkül rendszergazdaként?"
+14650,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként az NTFS-tömörítés megőrzésével?"
+14651,1,"A hozzáférés megtagadva. Átnevezi ezt a szimbolikus hivatkozást rendszergazdaként?"
+14652,1,"A hozzáférés megtagadva. Átnevezi ezt a könyvtárcsatolást (junction) rendszergazdaként?"
+14653,1,"A hozzáférés megtagadva. Véglegesen törli ezt a szimbolikus hivatkozást rendszergazdaként? A hivatkozott fájl megmarad."
+14654,1,"A hozzáférés megtagadva. Véglegesen törli ezt a mappára mutató szimbolikus hivatkozást rendszergazdaként? A hivatkozott mappa megmarad."
+14655,1,"A hozzáférés megtagadva. Véglegesen törli ezt a könyvtárcsatolást (junction) rendszergazdaként? A hivatkozott mappa megmarad."
+
+[STRINGTABLE 195]
+14656,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként az NTFS-tulajdonos, a csoport és a kifejezetten megadott engedélyek megőrzésével?"
+14657,1,"Az EFS-titkosított fájl másolását nem sikerült befejezni. Ennél a műveletnél az EFS-titkosítás rendszergazdai módban sem őrizhető meg."
+14658,1,"A Windows nem erősítette meg, hogy minden elem a Lomtárba került. Újrapróbálkozás előtt ellenőrizze az eredeti helyet és a Lomtárat."
+14659,1,"A hozzáférés megtagadva. Kiszámítja ennek a mappának és almappáinak a méretét rendszergazdaként?"
+14660,1,"A hozzáférés megtagadva. Keres ebben a mappában név és metaadatok alapján rendszergazdaként? Amíg dönt, a keresés folytatódik a hozzáférhető mappákban."
+14661,1,"Várakozás a védett mappa eléréséhez szükséges rendszergazdai engedélyre…"
+14662,1,"Keresés a jóváhagyott mappában rendszergazdai jogosultsággal."
+14663,1,"Nem érhető el"
+14664,1,"A hozzáférés megtagadva. Megnyitja ennek a fájlnak az írásvédett másolatát a beépített megjelenítőben rendszergazdaként? A másolat legfeljebb 16 MB lehet."
+14665,1,"Rendszergazdai jogosultsággal megnyitott másolat"
+14666,1,"Ez a másolat írásvédett. Új másolat kéréséhez térjen vissza a panelre."
+14667,1,"A védett fájlt nem sikerült megnyitni a beépített megjelenítőben."
+14668,1,"Szerkesztés rendszergazdaként"
+14669,1,"A hozzáférés megtagadva. Megnyitja az eredeti fájlt a beállított szerkesztőben rendszergazdaként? A Windows az alább látható szerkesztőhöz kér engedélyt."
+14670,1,"Rendszergazdai módhoz a szerkesztő futtatható fájljának védett Windows- vagy Program Files-mappában kell lennie."
+14671,1,"Védett ZIP-archívum tartalma"
+
+[STRINGTABLE 196]
+14672,1,"A hozzáférés megtagadva. Beolvassa a ZIP-archívum tartalmát rendszergazdaként? Az archívum csak olvasásra nyílik meg."
+14673,1,"Az F3 megjeleníti, az F5 kibontja a fájlt. Külső alkalmazásban nem lehet megnyitni."
+14674,1,"A hozzáférés megtagadva. Kibontja a kijelölt ZIP-fájlokat és -mappákat a megjelenített célhelyre rendszergazdaként?"
+14675,1,"Válasszon egy meglévő helyi célmappát a védett ZIP-archívumban kijelölt elemekhez."
+14676,1,"A kibontás a kijelölt ZIP-elemek egy részének létrehozása után leállt. Újrapróbálkozás előtt ellenőrizze a célhelyet."
+14677,1,"Védett ZIP-archívum frissítése"
+14678,1,"Menti a ZIP-archívum előkészített módosításait rendszergazdaként?"
+14679,1,"A Windows nem erősítette meg a ZIP-frissítés befejezését. Újrapróbálkozás előtt ellenőrizze az archívumot és az esetleg a mappájában maradt biztonsági másolatot."
+14680,1,"A ZIP-archívum frissült. Az új tartalom megjelenítéséhez frissítse az archívumpanelt."
+14681,1,"A hozzáférés megtagadva. Lecseréli ezt a meglévő fájlt rendszergazdaként a cél engedélyeinek megőrzésével?"
+14682,1,"Az engedély erre az elemre vonatkozik. Megszakításkor a hátralévő elemek feldolgozása leáll. A befejezett módosítások megmaradnak."
+14683,1,"A hozzáférés megtagadva. Beolvassa e mappa fájljainak tartalmát a jelenlegi kereséshez rendszergazdaként? Amíg dönt, a keresés folytatódik a hozzáférhető mappákban."
+14684,1,"A hozzáférés megtagadva. Beolvassa ezt a fájlt a jelenlegi kereséshez rendszergazdaként?"
+14685,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként az EFS-titkosítás megőrzésével?"
+14686,1,"Az engedély a művelet végéig az alább felsorolt mappákban lévő, a feltételeknek megfelelő további fájlokra is vonatkozik."
+14687,1,"Az engedély a művelet végéig az alább megadott mappában lévő, a feltételeknek megfelelő további elemekre is vonatkozik."
+
+[STRINGTABLE 197]
+14688,1,"A hozzáférés megtagadva. Áthelyezi ezt a fájlt a saját Lomtárába rendszergazdaként?"
+14689,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként az NTFS-tömörítés, a tulajdonos, a csoport és a kifejezetten megadott engedélyek megőrzésével?"
+
+[STRINGTABLE 198]
+14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."
+
+[STRINGTABLE 199]
 14992,1,"Beállítások mentése fájltárolóba, kérem várjon..."
 14993,1,"Régi beállítások törlése fájltárolóból, kérem várjon..."
 14994,1,"Társítások beolvasása fájltárolóból..."

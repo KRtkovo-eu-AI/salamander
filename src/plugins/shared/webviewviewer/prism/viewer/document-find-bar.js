@@ -3,7 +3,11 @@
  * Live match paint uses CSS Custom Highlight API (viewer-find-match), so
  * typing keeps focus in #find-input just like Prism Text Viewer. */
 (function () {
-  "use strict";
+/*
+| Date | Summary | Reason | Ticket | Model |
+| 2026-11-07 | Add hidden Find query prefill for shared webview viewers. | Opening a viewer from Find must preserve the phrase without showing the dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
+*/
+"use strict";
 
   const FIND_HIGHLIGHT_NAME = "viewer-find-match";
 
@@ -267,6 +271,20 @@
     }
     showFindBar(true);
     triggerSearch();
+  }
+
+  function setFindQuery(message) {
+    const ui = ensureBar();
+    message = message || {};
+    if (ui.findInput && typeof message.query === "string") {
+      ui.findInput.value = message.query;
+    }
+    if (ui.findCase) {
+      ui.findCase.classList.toggle("active", Boolean(message.matchCase));
+    }
+    if (ui.findWord) {
+      ui.findWord.classList.toggle("active", Boolean(message.wholeWord));
+    }
   }
 
   function remember(query, matchCase, wholeWord) {
@@ -665,6 +683,7 @@
   }
 
   window.__salamanderOpenFind = openFindBar;
+  window.__salamanderSetFindQuery = setFindQuery;
   window.__salamanderHideFind = hideFindBar;
   window.__salamanderFindNext = function () {
     triggerNextMatch(true);

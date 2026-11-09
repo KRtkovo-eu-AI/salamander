@@ -5,6 +5,7 @@
 // | 2026-11-08 | Estimate occupied space only from a complete set of logical file sizes. | Keep estimates correct for empty files and arbitrary cluster sizes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Keep the same full size results dialog for protected totals. | Preserve the layout and leave unavailable values disabled. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Show protected totals in the compact size dialog. | Use the Ctrl+Q layout for measured values and omit allocation controls. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Copy transient first-registration viewer state. | Let startup merge newly registered extension rows without persisting the marker. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -41,6 +42,7 @@ CViewerMasksItem::CViewerMasksItem(const char* masks, const char* command, const
     Command = Arguments = InitDir = ViewerLabel = NULL;
     ViewerType = viewerType;
     HandlerID = ViewerHandlerID++;
+    RegisteredDuringStartup = FALSE;
     Set(masks, command, arguments, initDir);
     SetViewerLabel("");
 }
@@ -53,6 +55,7 @@ CViewerMasksItem::CViewerMasksItem()
     ViewerType = VIEWER_EXTERNAL;
     HandlerID = ViewerHandlerID++;
     OldType = FALSE;
+    RegisteredDuringStartup = FALSE;
     Set("", "", "\"$(Name)\"", "$(FullPath)");
     SetViewerLabel("");
 }
@@ -65,6 +68,7 @@ CViewerMasksItem::CViewerMasksItem(CViewerMasksItem& item)
     ViewerType = item.ViewerType;
     OldType = item.OldType;
     HandlerID = item.HandlerID;
+    RegisteredDuringStartup = item.RegisteredDuringStartup;
     Set(item.Masks->GetMasksString(), item.Command, item.Arguments, item.InitDir);
     SetViewerLabel(item.ViewerLabel);
 }

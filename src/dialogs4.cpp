@@ -2,6 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Default Change Drive menu to show Plugin items first. | Preserve the current block order unless the user chooses Hot Paths first. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
+// | 2026-11-09 | Add custom viewer/editor pages below File Associations. | Expose saved named handlers as editable configuration targets. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Make extension bar visible by default in new default configuration. | Show the extension bar on clean install/default config so new users see it. | | opencode |
+// | 2026-11-09 | Multiselect for the Selected Properties list in Choose Custom Properties. | Allow Remove, Move up, and Move down to operate on all selected items at once; show multi-select info in the Property information panel and disable the favorite button. | | opencode |
+// | 2026-11-09 | Move Internal Viewer under Appearance in Configuration dialog. | Position the Internal Viewer item as a child of Appearance as requested. | | opencode |
+// | 2026-11-09 | Move Internal Viewer between Appearance and Colors as top-level page. | Reparent PageViewer as top-level sibling between Appearance and Colors; shift subsequent page indices and update constructor mode defaults to preserve same logical page per mode. | | opencode |
+// | 2026-11-09 | Move Archivers tree under File Associations in Configuration. | Reparent PagePP (Archivers) and its subtree (External Archivers Locations, Packers, Unpackers) as a child of PageFileAssociations. | | opencode |
+// | 2026-11-08 | Restore the Internal Viewer configuration entry. | Keep the existing viewer settings accessible while leaving obsolete association pages hidden. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Register the canonical file-association page. | Make the new association editor the visible configuration entry point instead of the legacy pages. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Paint grouped property headers in ListView postpaint. | Preserve dark group headers after removing unsafe post-WM_PAINT client overpainting. | | GPT-5.6 Luna Pro |
 // CommentsTranslationProject: TRANSLATED
 
@@ -629,7 +638,7 @@ CConfiguration::CConfiguration()
     SingleClick = FALSE;
     TopToolBarVisible = TRUE;
     PluginsBarVisible = FALSE;
-    ExtensionBarVisible = FALSE;
+    ExtensionBarVisible = TRUE;
     MiddleToolBarVisible = FALSE;
     BottomToolBarVisible = TRUE;
     UserMenuToolBarVisible = FALSE;
@@ -814,6 +823,7 @@ CConfiguration::CConfiguration()
     ChangeDriveShowAnother = TRUE;
     ChangeDriveShowNet = TRUE;
     ChangeDriveCloudStorage = TRUE;
+    ChangeDriveHotPathsFirst = FALSE;
 
     MenuIndex = 0;
     MenuBreak = TRUE;
@@ -1061,12 +1071,12 @@ const int ConfigurationViewsDefaultAvailableColumnsWidthExtra = 50;
 CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
                                      int mode, int param)
     : CTreePropDialog(parent, HLanguage, LoadStr(IDS_CONFIGURATION),
-                      mode == 0 ? Configuration.LastFocusedPage : mode == 1 ? 16
-                                                              : mode == 2   ? 15
-                                                              : mode == 3   ? 23
-                                                              : mode == 4   ? 14
-                                                              : mode == 5   ? 1
-                                                                            : 13 /* mode == 6 */,
+                      mode == 0 ? Configuration.LastFocusedPage : mode == 1 ? 17
+                                                              : mode == 2   ? 16
+                                                             : mode == 3   ? 20
+                                                             : mode == 4   ? 20
+                                                            : mode == 5   ? 1
+                                                                          : 14 /* mode == 6 */,
                       PSH_NOAPPLYNOW | PSH_HASHELP,
                       &Configuration.LastFocusedPage,
                       &Configuration.ConfigurationHeight,
@@ -1078,6 +1088,8 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
       PageUserMenu(userMenuItems),
       PageHotPath(mode == 1 ? TRUE : FALSE, param),
       PageDrives(mode == 6 ? TRUE : FALSE),
+      PageCustomViewers(TRUE),
+      PageCustomEditors(FALSE),
       Page14(TRUE)
 {
     HOldPluginMsgBoxParent = NULL;
@@ -1095,27 +1107,26 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
     /*06*/ Add(&PageRegional);      // Regional
     /*07*/ Add(&PageMainWindow);    // MainWindow
     /*08*/ Add(&PageAppear);        // Appearance
-    /*09*/ Add(&PageColors);        // Colors
-    /*10*/ Add(&PageKeyboard);      // Keyboard
-    /*11*/ Add(&PageConfirmations); // Confirmations
-    /*12*/ Add(&PageChangeDrive);   // Change Drive Menu
-    /*13*/ Add(&PageDrives);        // Drives
-    /*14*/ Add(&PageView);          // Views
-    /*15*/ Add(&PageUserMenu);      // User Menu
-    /*16*/ Add(&PageHotPath);       // Hot Paths
-    /*17*/ Add(&PageSecurity);      // Security
-    /*18*/ Add(&PageIconOvrls);     // Icon Overlays
-    /*19*/ Add(&PageViewEdit, NULL, &Configuration.ViewersAndEditorsExpanded);
-    /*20*/ Add(&Page13, &PageViewEdit);
-    /*21*/ Add(&Page14, &PageViewEdit);
-    /*22*/ Add(&Page15, &PageViewEdit);
-    /*23*/ Add(&PageViewer, &PageViewEdit);
-    /*24*/ Add(&PagePP, NULL, &Configuration.PackersAndUnpackersExpanded);
-    /*25*/ Add(&PageP4, &PagePP);
-    /*26*/ Add(&PageP3, &PagePP);
-    /*27*/ Add(&PageP1, &PagePP);
-    /*28*/ Add(&PageP2, &PagePP);
-    /*29*/ //  Add(&PageShellExtensions);
+    /*09*/ Add(&PageViewer, NULL, &Configuration.ViewersAndEditorsExpanded); // Internal Viewer
+    /*10*/ Add(&PageColors);        // Colors
+    /*11*/ Add(&PageKeyboard);      // Keyboard
+    /*12*/ Add(&PageConfirmations); // Confirmations
+    /*13*/ Add(&PageChangeDrive);   // Change Drive Menu
+    /*14*/ Add(&PageDrives);        // Drives
+    /*15*/ Add(&PageView);          // Views
+    /*16*/ Add(&PageUserMenu);      // User Menu
+    /*17*/ Add(&PageHotPath);       // Hot Paths
+    /*18*/ Add(&PageSecurity);      // Security
+    /*19*/ Add(&PageIconOvrls);     // Icon Overlays
+    /*20*/ Add(&PageFileAssociations, NULL, &Configuration.ViewersAndEditorsExpanded);
+    /*21*/ Add(&PageCustomViewers, &PageFileAssociations);
+    /*22*/ Add(&PageCustomEditors, &PageFileAssociations);
+    /*23*/ Add(&PagePP, &PageFileAssociations, &Configuration.PackersAndUnpackersExpanded);
+    /*24*/ Add(&PageP3, &PagePP);
+    /*25*/ Add(&PageP1, &PagePP);
+    /*26*/ Add(&PageP2, &PagePP);
+    /*27*/ // Legacy association pages remain compiled for migration/fallback, but are not exposed here.
+    /*26*/ //  Add(&PageShellExtensions);
            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
            // when the page order changes, update the constructor
            // mode == 0 ? Configuration.LastFocusedPage : 4
@@ -2700,23 +2711,113 @@ void CExplorerColumnsDialog::SetAvailable(int explorerIndex, BOOL available)
 void CExplorerColumnsDialog::UpdateSelectedButtons()
 {
     HWND list = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
+    int count = ListView_GetSelectedCount(list);
+    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_REMOVE), count > 0);
+
+    int firstItem = -1;
+    int lastItem = -1;
     int item = ListView_GetNextItem(list, -1, LVNI_SELECTED);
-    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_REMOVE), item >= 0);
-    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_UP), item > 0);
-    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_DOWN), item >= 0 && item + 1 < SelectedCount);
+    if (item >= 0)
+    {
+        firstItem = item;
+        lastItem = item;
+        while ((item = ListView_GetNextItem(list, item, LVNI_SELECTED)) >= 0)
+            lastItem = item;
+    }
+    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_UP), count > 0 && firstItem > 0);
+    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_DOWN), count > 0 && lastItem >= 0 && lastItem + 1 < SelectedCount);
 }
 
 void CExplorerColumnsDialog::MoveSelected(BOOL up)
 {
     HWND list = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
+
+    int selectedItems[EXPLORER_COLUMNS_COUNT + PLUGIN_COLUMNS_COUNT];
+    int selectedCount = 0;
     int item = ListView_GetNextItem(list, -1, LVNI_SELECTED);
-    int other = up ? item - 1 : item + 1;
-    if (item < 0 || other < 0 || other >= SelectedCount)
+    while (item >= 0)
+    {
+        selectedItems[selectedCount++] = item;
+        item = ListView_GetNextItem(list, item, LVNI_SELECTED);
+    }
+    if (selectedCount == 0)
         return;
-    WORD tmp = SelectedOrder[item];
-    SelectedOrder[item] = SelectedOrder[other];
-    SelectedOrder[other] = tmp;
-    FillSelected(SelectedOrder[other]);
+
+    int firstItem = selectedItems[0];
+    int lastItem = selectedItems[selectedCount - 1];
+
+    int insertPos;
+    if (up)
+    {
+        if (firstItem == 0)
+            return;
+        insertPos = firstItem - 1;
+    }
+    else
+    {
+        if (lastItem + 1 >= SelectedCount)
+            return;
+        insertPos = lastItem - selectedCount + 2;
+    }
+
+    // Collect tokens of the selected items (in list order).
+    WORD tokens[EXPLORER_COLUMNS_COUNT + PLUGIN_COLUMNS_COUNT];
+    for (int i = 0; i < selectedCount; i++)
+    {
+        LVITEM itemInfo;
+        ZeroMemory(&itemInfo, sizeof(itemInfo));
+        itemInfo.mask = LVIF_PARAM;
+        itemInfo.iItem = selectedItems[i];
+        ListView_GetItem(list, &itemInfo);
+        tokens[i] = (WORD)itemInfo.lParam;
+    }
+
+    // Remove the selected items from SelectedOrder (by token value).
+    for (int i = 0; i < selectedCount; i++)
+    {
+        for (int j = 0; j < SelectedCount; j++)
+        {
+            if (SelectedOrder[j] == tokens[i])
+            {
+                memmove(SelectedOrder + j, SelectedOrder + j + 1,
+                        (SelectedCount - j - 1) * sizeof(SelectedOrder[0]));
+                SelectedCount--;
+                break;
+            }
+        }
+    }
+
+    // Insert the block at the target position.
+    memmove(SelectedOrder + insertPos + selectedCount,
+            SelectedOrder + insertPos,
+            (SelectedCount - insertPos) * sizeof(SelectedOrder[0]));
+    for (int i = 0; i < selectedCount; i++)
+        SelectedOrder[insertPos + i] = tokens[i];
+    SelectedCount += selectedCount;
+
+    FillSelected();
+
+    // Re-select the moved items.
+    for (int i = 0; i < ListView_GetItemCount(list); i++)
+    {
+        LVITEM itemInfo;
+        ZeroMemory(&itemInfo, sizeof(itemInfo));
+        itemInfo.mask = LVIF_PARAM;
+        itemInfo.iItem = i;
+        if (!ListView_GetItem(list, &itemInfo))
+            continue;
+        for (int j = 0; j < selectedCount; j++)
+        {
+            if ((int)itemInfo.lParam == tokens[j])
+            {
+                ListView_SetItemState(list, i, LVIS_SELECTED | LVIS_FOCUSED,
+                                      LVIS_SELECTED | LVIS_FOCUSED);
+                break;
+            }
+        }
+    }
+    UpdateSelectedButtons();
+    UpdateDetails(list);
 }
 
 void CExplorerColumnsDialog::ApplySelectedOrder()
@@ -2799,6 +2900,19 @@ int CExplorerColumnsDialog::GetDetailsExplorerIndex(HWND sourceList) const
 
 void CExplorerColumnsDialog::UpdateDetails(HWND sourceList)
 {
+    HWND selectedList = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
+
+    // Multi-select on the selected properties list: show info message,
+    // details for a single property are not available.
+    if (ListView_GetSelectedCount(selectedList) > 1)
+    {
+        DetailsExplorerIndex = -1;
+        SetDlgItemText(HWindow, IDC_EXCOL_DETAILS,
+                       LoadStr(IDS_EXCOL_MULTISELECT));
+        UpdateFavoriteButton();
+        return;
+    }
+
     int index = GetDetailsExplorerIndex(sourceList);
     DetailsExplorerIndex = index;
     if (index < 0)
@@ -3235,19 +3349,22 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         if (LOWORD(wParam) == IDC_EXCOL_REMOVE && HIWORD(wParam) == BN_CLICKED)
         {
             HWND selectedList = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
-            int selectedItem = ListView_GetNextItem(selectedList, -1, LVNI_SELECTED);
-            if (selectedItem >= 0)
+            int tokens[EXPLORER_COLUMNS_COUNT + PLUGIN_COLUMNS_COUNT];
+            int tokenCount = 0;
+            int item = ListView_GetNextItem(selectedList, -1, LVNI_SELECTED);
+            while (item >= 0)
             {
-                LVITEM item;
-                ZeroMemory(&item, sizeof(item));
-                item.mask = LVIF_PARAM;
-                item.iItem = selectedItem;
-                if (ListView_GetItem(selectedList, &item))
-                {
-                    SetAvailable((int)item.lParam, FALSE);
-                    FillProperties();
-                }
+                LVITEM itemInfo;
+                ZeroMemory(&itemInfo, sizeof(itemInfo));
+                itemInfo.mask = LVIF_PARAM;
+                itemInfo.iItem = item;
+                if (ListView_GetItem(selectedList, &itemInfo))
+                    tokens[tokenCount++] = (int)itemInfo.lParam;
+                item = ListView_GetNextItem(selectedList, item, LVNI_SELECTED);
             }
+            for (int i = 0; i < tokenCount; i++)
+                SetAvailable(tokens[i], FALSE);
+            FillProperties();
             return TRUE;
         }
         if (LOWORD(wParam) == IDC_EXCOL_MOVE_UP && HIWORD(wParam) == BN_CLICKED)

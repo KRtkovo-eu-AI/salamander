@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Use upstream result publication and owned logs for protected searches | Integrate UAC with current upstream behavior. | #731 | Codex |
 // | 2026-11-09 | Report declined Find file access as cancellation. | Keep the directory-skip message for actual directories. | | Codex |
 // | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 // | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
@@ -20,10 +21,19 @@
 // | 2026-11-08 | Include approved protected files in duplicate groups. | Use the same ordering and digest progress for both sources. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Search protected file contents with the existing matcher. | Consume bounded blocks after the ordinary traversal while retaining search options. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Resume metadata Find in one verified protected subtree. | Keep ordinary search running during consent and use one bounded read-only session. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-07 | Initialize COM on the Find window thread. | Allow the UI Automation provider to marshal its thread-safe interfaces. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Report Find as finalizing when only its worker has finished. | Reserve the final state for results the dialog has published. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Track Find heartbeat and worker progress separately. | Report a stalled Find window without waiting for its UI or result locks. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Separate worker completion from user Stop. | The dialog observes actual thread exit asynchronously. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Publish Find changes in batches and store logs in the worker. | Keep large searches independent of window message handling. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Post coalesced Find result refreshes asynchronously. | Keep the search worker from blocking the GUI thread during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+
+#include <algorithm>
+#include <memory>
+#include <vector>
 
 #include "cfgdlg.h"
 #include "find.h"
@@ -34,6 +44,164 @@
 #include <array>
 #include <mutex>
 #include <optional>
+
+class CFindWatchdog
+{
+public:
+    // The main window owns scheduling. Find and its worker publish scalar data only.
+    std::atomic<UINT_PTR> Acknowledged{0};
+    std::atomic<CFindActivity> Activity{CFindActivity::Idle};
+    std::atomic<unsigned> ResultCount{0};
+    std::atomic<bool> WorkerFinished{false};
+    std::atomic<bool> Closed{false};
+};
+
+namespace
+{
+constexpr ULONGLONG FindHangThresholdMs = 5000;
+constexpr UINT FindWatchdogPeriodMs = 750;
+
+struct CFindWatchdogEntry
+{
+    HWND Window;
+    std::shared_ptr<CFindWatchdog> State;
+    UINT_PTR Request = 0;
+    ULONGLONG SentAt = 0;
+};
+
+// Both registration and polling run on the main window thread.
+std::vector<CFindWatchdogEntry> FindWatchdogs;
+UINT_PTR NextFindHeartbeat = 0;
+
+void TrackFindWatchdog(HWND mainWindow, HWND findWindow, const std::shared_ptr<CFindWatchdog>& state)
+{
+    if (!state || !findWindow || GetCurrentThreadId() != GetWindowThreadProcessId(mainWindow, NULL))
+        return;
+
+    if (FindWatchdogs.empty() && !SetTimer(mainWindow, IDT_FIND_WATCHDOG, FindWatchdogPeriodMs, NULL))
+        return;
+
+    try
+    {
+        FindWatchdogs.push_back({findWindow, state});
+    }
+    catch (const std::bad_alloc&)
+    {
+        TRACE_E(LOW_MEMORY);
+        if (FindWatchdogs.empty())
+            KillTimer(mainWindow, IDT_FIND_WATCHDOG);
+    }
+}
+
+void RecordFindWatchdogResult(CFindWatchdog* watchdog, int index)
+{
+    if (watchdog != NULL && index >= 0)
+        UpdateFindWatchdogResultCount(watchdog, static_cast<unsigned>(index) + 1);
+}
+}
+
+void UpdateFindWatchdogActivity(CFindWatchdog* watchdog, CFindActivity activity)
+{
+    if (watchdog == NULL)
+        return;
+    if (activity == CFindActivity::Searching)
+    {
+        UpdateFindWatchdogResultCount(watchdog, 0);
+        watchdog->WorkerFinished.store(false, std::memory_order_relaxed);
+    }
+    watchdog->Activity.store(activity, std::memory_order_release);
+}
+
+void UpdateFindWatchdogResultCount(CFindWatchdog* watchdog, unsigned count)
+{
+    if (watchdog != NULL)
+        watchdog->ResultCount.store(count, std::memory_order_relaxed);
+}
+
+void AcknowledgeFindWatchdog(CFindWatchdog* watchdog, UINT_PTR request)
+{
+    if (watchdog != NULL)
+        watchdog->Acknowledged.store(request, std::memory_order_release);
+}
+
+void CloseFindWatchdog(CFindWatchdog* watchdog)
+{
+    if (watchdog != NULL)
+        watchdog->Closed.store(true, std::memory_order_release);
+}
+
+std::wstring PollFindWatchdogs(HWND mainWindow)
+{
+    FindWatchdogs.erase(std::remove_if(FindWatchdogs.begin(), FindWatchdogs.end(),
+                                      [](const CFindWatchdogEntry& entry)
+                                      {
+                                          return entry.State->Closed.load(std::memory_order_acquire) || !IsWindow(entry.Window);
+                                      }),
+                        FindWatchdogs.end());
+    if (FindWatchdogs.empty())
+    {
+        KillTimer(mainWindow, IDT_FIND_WATCHDOG);
+        return {};
+    }
+
+    const ULONGLONG now = GetTickCount64();
+    const CFindWatchdogEntry* stalled = NULL;
+    for (CFindWatchdogEntry& entry : FindWatchdogs)
+    {
+        if (entry.Request == entry.State->Acknowledged.load(std::memory_order_acquire))
+            entry.Request = 0;
+        if (entry.Request == 0)
+        {
+            if (++NextFindHeartbeat == 0)
+                ++NextFindHeartbeat;
+            if (PostMessage(entry.Window, WM_USER_FIND_HEARTBEAT, NextFindHeartbeat, 0))
+            {
+                entry.Request = NextFindHeartbeat;
+                entry.SentAt = now;
+            }
+        }
+        else if (now - entry.SentAt >= FindHangThresholdMs &&
+                 (stalled == NULL || entry.SentAt < stalled->SentAt))
+        {
+            stalled = &entry;
+        }
+    }
+    if (stalled == NULL)
+        return {};
+
+    CFindActivity activity = stalled->State->Activity.load(std::memory_order_acquire);
+    const bool workerFinished = stalled->State->WorkerFinished.load(std::memory_order_acquire);
+    const unsigned resultCount = stalled->State->ResultCount.load(std::memory_order_relaxed);
+    if (workerFinished && (activity == CFindActivity::Searching || activity == CFindActivity::Stopping))
+        activity = CFindActivity::Finishing;
+
+    wchar_t phase[128] = {};
+    wchar_t format[256] = {};
+    LoadStringW(HLanguage, GetFindActivityStringID(activity), phase, _countof(phase));
+    int formatID = activity == CFindActivity::Idle ? IDS_FIND_ACTIVITY_HUNG_FORMAT : IDS_FIND_ACTIVITY_HUNG_COUNT_FORMAT;
+    if (LoadStringW(HLanguage, formatID, format, _countof(format)) == 0)
+        return {};
+
+    std::wstring notice(format);
+    const wchar_t* fields[] = {L"{0}", L"{1}", L"{2}"};
+    const std::wstring values[] = {std::to_wstring((now - stalled->SentAt) / 1000), phase,
+                                  std::to_wstring(resultCount)};
+    for (size_t i = 0; i < _countof(fields); ++i)
+    {
+        size_t pos = notice.find(fields[i]);
+        if (pos != std::wstring::npos)
+            notice.replace(pos, 3, values[i]);
+    }
+    return notice;
+}
+
+static void AddFindLog(CGrepData* data, DWORD flags, const char* text, const char* path)
+{
+    // The worker owns the input buffers only for this call. Copy into bounded
+    // dialog-owned storage without synchronously entering the Find UI thread.
+    data->Log->Add(flags, text, path);
+    InterlockedExchange(&data->RefreshPending, TRUE);
+}
 
 char* FindNamedHistory[FIND_NAMED_HISTORY_SIZE];
 char* FindLookInHistory[FIND_LOOKIN_HISTORY_SIZE];
@@ -732,10 +900,10 @@ struct FindConsent
         const std::unique_lock<std::mutex> consent(consentMutex, std::try_to_lock);
         if (!consent.owns_lock())
             request.result = ERROR_BUSY;
-        else if (SendMessage(request.data->HWindow, WM_USER_FIND_PROTECTED_CONSENT,
+        else if (SendMessage(request.data->ConsentWindow, WM_USER_FIND_PROTECTED_CONSENT,
                              reinterpret_cast<WPARAM>(&request.path), static_cast<LPARAM>(request.scope)) &&
                  !request.data->StopSearch)
-            request.result = request.session.Start(request.data->HWindow, request.data->StopEvent);
+            request.result = request.session.Start(request.data->ConsentWindow, request.data->StopEvent);
         return 0;
     }
 };
@@ -1129,7 +1297,7 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
             FormatFindError(opened ? IDS_ERROR_READING_FILE2 : IDS_ERROR_OPENING_FILE2, error);
         const DWORD flags = error == ERROR_CANCELLED ? FLI_INFO : FLI_ERROR;
         FIND_LOG_ITEM log{flags, message.c_str(), display.c_str()};
-        SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
+        AddFindLog(data, log.Flags, log.Text, log.Path);
         return FALSE;
     }
     if (!match)
@@ -1362,7 +1530,7 @@ void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions&
     int i;
     for (i = 0; i < Count; i++)
     {
-        data->FoundFilesListView->Add(At(i));
+        const int index = data->FoundFilesListView->Add(At(i));
         if (!data->FoundFilesListView->IsGood())
         {
             TRACE_E(LOW_MEMORY);
@@ -1375,6 +1543,7 @@ void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions&
             DetachMembers();
             return;
         }
+        RecordFindWatchdogResult(data->Watchdog, index);
     }
     DetachMembers();
     return;
@@ -1529,7 +1698,7 @@ BOOL TestFileContentAux(BOOL& ok, CQuadWord& fileOffset, const CQuadWord& totalS
                     log.Flags = FLI_ERROR;
                     log.Text = data->RegExp.GetLastErrorText();
                     log.Path = NULL;
-                    SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+                    AddFindLog(data, log.Flags, log.Text, log.Path);
                     return FALSE; // do not search this file further
                 }
 
@@ -1590,7 +1759,7 @@ BOOL TestFileContentAux(BOOL& ok, CQuadWord& fileOffset, const CQuadWord& totalS
         log.Flags = FLI_ERROR;
         log.Text = LoadStr(IDS_FILEREADERROR2);
         log.Path = path;
-        SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+        AddFindLog(data, log.Flags, log.Text, log.Path);
         ok = FALSE;   // not found
         return FALSE; // do not continue searching
     }
@@ -1679,7 +1848,7 @@ BOOL TestFileContent(DWORD sizeLow, DWORD sizeHigh, const char* path, CGrepData*
         {
             const auto errorText = FormatFindError(getLinkFileSizeErr ? IDS_GETLINKTGTFILESIZEERROR : IDS_ERROR_OPENING_FILE2, err);
             FIND_LOG_ITEM log{FLI_ERROR, errorText.c_str(), path};
-            SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+            AddFindLog(data, log.Flags, log.Text, log.Path);
         }
     }
 
@@ -1688,11 +1857,8 @@ BOOL TestFileContent(DWORD sizeLow, DWORD sizeHigh, const char* path, CGrepData*
 
 static void RequestFindResultsRefresh(CGrepData* data)
 {
-    if (InterlockedExchange(&data->RefreshPosted, TRUE) == FALSE &&
-        !PostMessage(data->HWindow, WM_USER_ADDFILE, data->SearchGeneration, 0))
-    {
-        InterlockedExchange(&data->RefreshPosted, FALSE);
-    }
+    // Let the dialog timer publish batches without filling its input queue.
+    InterlockedExchange(&data->RefreshPending, TRUE);
 }
 
 BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeHigh,
@@ -1715,7 +1881,7 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
             if (duplicateCandidates == NULL)
             {
                 // duplicateCandidates == NULL, adding the item to data->FoundFilesListView
-                data->FoundFilesListView->Add(foundData);
+                const int index = data->FoundFilesListView->Add(foundData);
                 if (!data->FoundFilesListView->IsGood())
                 {
                     data->FoundFilesListView->ResetState();
@@ -1724,17 +1890,8 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
                 }
                 else
                 {
-                    // request a listview redraw after every 100 added items
-                    // also after 0.5 seconds has passed since the last redraw
-                    // we also call update for each item when grepping
-                    if (data->FoundFilesListView->GetCount() >= data->FoundVisibleCount + 100 ||
-                        GetTickCount() - data->FoundVisibleTick >= 500
-                        /* || data->Grep*/) // a half-second update interval is enough even for grepping
-                    {
-                        RequestFindResultsRefresh(data);
-                    }
-                    else
-                        data->NeedRefresh = TRUE; // we will redraw at latest after 0.5 second
+                    RecordFindWatchdogResult(data->Watchdog, index);
+                    RequestFindResultsRefresh(data);
                 }
             }
             else
@@ -1762,7 +1919,7 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
         log.Flags = FLI_ERROR;
         log.Text = LoadStr(IDS_CANTSHOWRESULTS);
         log.Path = NULL;
-        SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+        AddFindLog(data, log.Flags, log.Text, log.Path);
 
         data->StopSearch = TRUE;
         return FALSE;
@@ -1889,7 +2046,7 @@ private:
         const std::string text = error == ERROR_CANCELLED && !isFile ? LoadStr(IDS_FINDLOG_SKIP) : GetErrorText(error);
         const DWORD flags = error == ERROR_CANCELLED ? FLI_INFO : FLI_ERROR;
         FIND_LOG_ITEM log{flags, text.c_str(), pathText.c_str()};
-        SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
+        AddFindLog(data, log.Flags, log.Text, log.Path);
     }
 
     bool MatchFile(const std::wstring& directory, const WIN32_FIND_DATAW& file, const CQuadWord& listedSize)
@@ -2126,7 +2283,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
         log.Flags = FLI_INFO;
         log.Text = LoadStr(IDS_FINDLOG_SKIP);
         log.Path = path;
-        SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+        AddFindLog(data, log.Flags, log.Text, log.Path);
         return;
     }
 
@@ -2138,7 +2295,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
         log.Flags = FLI_ERROR;
         log.Text = LoadStr(IDS_TOOLONGNAME);
         log.Path = path;
-        SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+        AddFindLog(data, log.Flags, log.Text, log.Path);
         return;
     }
 
@@ -2167,14 +2324,6 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
             BOOL ignoreDir = isDir && (lstrcmp(file.cFileName, ".") == 0 || lstrcmp(file.cFileName, "..") == 0);
             if (ignoreDir || (end - path) + lstrlen(file.cFileName) < _countof(path))
             {
-                // after finding an item without displaying it and once 0.5 s have passed since the last redraw,
-                // we request the listview to redraw
-                if (data->NeedRefresh && GetTickCount() - data->FoundVisibleTick >= 500)
-                {
-                    RequestFindResultsRefresh(data);
-                    data->NeedRefresh = FALSE;
-                }
-
                 if (file.cFileName[0] != 0 && !ignoreDir)
                 {
                     // add all files and directories except "." and ".."
@@ -2232,7 +2381,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
                             if (openDenied && !protectedQueue.Add(data, path, masksGroup, FALSE, startPathLen, ignoreList, &file))
                             {
                                 FIND_LOG_ITEM log{FLI_ERROR, GetErrorText(ERROR_ACCESS_DENIED), path};
-                                SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
+                                AddFindLog(data, log.Flags, log.Text, log.Path);
                             }
 
                             // if the item matches all criteria,
@@ -2313,7 +2462,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
                         log.Text = LoadStr(IDS_TOOLONGNAME);
                         strcpy_s(end, _countof(path) - (end - path), file.cFileName);
                         log.Path = path;
-                        SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+                        AddFindLog(data, log.Flags, log.Text, log.Path);
                     }
                 }
             }
@@ -2326,7 +2475,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
                 strcpy_s(message, path);
                 strcat_s(message, file.cFileName);
                 log.Path = message;
-                SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+                AddFindLog(data, log.Flags, log.Text, log.Path);
             }
             if (data->StopSearch)
             {
@@ -2346,7 +2495,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
 
             const auto errorText = FormatFindError(IDS_DIRERRORFORMAT, err);
             FIND_LOG_ITEM log{FLI_ERROR, errorText.c_str(), path};
-            SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+            AddFindLog(data, log.Flags, log.Text, log.Path);
 
             if (end - path > 3)
                 *(end - 1) = '\\';
@@ -2389,7 +2538,7 @@ void SearchDirectory(char (&path)[MAX_PATH], char* end, int startPathLen,
             {
                 const auto errorText = FormatFindError(IDS_DIRERRORFORMAT, err);
                 FIND_LOG_ITEM log{FLI_ERROR | FLI_IGNORE, errorText.c_str(), path};
-                SendMessage(data->HWindow, WM_USER_ADDLOG, (WPARAM)&log, 0);
+                AddFindLog(data, log.Flags, log.Text, log.Path);
             }
 
             if (end - path > 3)
@@ -2484,7 +2633,7 @@ void RefineData(CMaskGroup* masksGroup, CGrepData* data)
             {
                 const auto display = SalWideToMultiBytePath(fullPath.c_str(), CP_UTF8);
                 FIND_LOG_ITEM log{FLI_ERROR, GetErrorText(ERROR_ACCESS_DENIED), display.c_str()};
-                SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
+                AddFindLog(data, log.Flags, log.Text, log.Path);
             }
         }
         if (!data->StopSearch && IncludeRefinedFindResult(data->Refine, ok != FALSE))
@@ -2509,7 +2658,6 @@ unsigned GrepThreadFBody(void* ptr)
     //  Sleep(200);  // give the dialog a moment to redraw...
     CGrepData* data = (CGrepData*)ptr;
     HRESULT tagsCOM = data->Criteria.HasTags() ? CoInitializeEx(NULL, COINIT_MULTITHREADED) : S_FALSE;
-    data->NeedRefresh = FALSE;
     data->Criteria.PrepareForTest();
     char path[MAX_PATH];
     char* end;
@@ -2616,10 +2764,11 @@ unsigned GrepThreadFBody(void* ptr)
 
     data->SearchStopped = data->StopSearch;
     RequestFindResultsRefresh(data); // update the listview
-    PostMessage(data->HWindow, WM_USER_FIND_COMPLETE, data->SearchGeneration, 0);
     if (data->Criteria.HasTags() && SUCCEEDED(tagsCOM))
         CoUninitialize();
     TRACE_I("End");
+    if (data->Watchdog != NULL)
+        data->Watchdog->WorkerFinished.store(true, std::memory_order_release);
     return 0;
 }
 
@@ -2716,6 +2865,7 @@ struct CTFDData
 {
     CFindDialog* FindDialog;
     BOOL Success;
+    HWND DialogWindow;
 };
 
 unsigned ThreadFindDialogMessageLoopBody(void* parameter)
@@ -2725,6 +2875,7 @@ unsigned ThreadFindDialogMessageLoopBody(void* parameter)
 
     { // this block ensures destructors are called properly before calling _end_thread() (see below)
         SetThreadNameInVCAndTrace("FindDialog");
+        const HRESULT automationCom = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
         TRACE_I("Begin");
         CTFDData* data = (CTFDData*)parameter;
         CFindDialog* findDialog = data->FindDialog;
@@ -2738,6 +2889,7 @@ unsigned ThreadFindDialogMessageLoopBody(void* parameter)
 
         if (findDialog->Create() != NULL)
         {
+            data->DialogWindow = findDialog->HWindow;
             SetForegroundWindow(findDialog->HWindow);
             UpdateWindow(findDialog->HWindow);
         }
@@ -2792,6 +2944,8 @@ unsigned ThreadFindDialogMessageLoopBody(void* parameter)
             }
         }
 
+        if (SUCCEEDED(automationCom))
+            CoUninitialize();
         TRACE_I("End");
     }
 
@@ -2836,7 +2990,18 @@ BOOL OpenFindDialog(HWND hCenterAgainst, const char* initPath)
     CFindDialog* findDlg = new CFindDialog(hCenterAgainst, initPath);
     if (findDlg != NULL && findDlg->IsGood())
     {
-        CTFDData data;
+        std::shared_ptr<CFindWatchdog> watchdog;
+        try
+        {
+            watchdog = std::make_shared<CFindWatchdog>();
+        }
+        catch (const std::bad_alloc&)
+        {
+            TRACE_E(LOW_MEMORY);
+        }
+        findDlg->SetWatchdog(watchdog);
+
+        CTFDData data = {};
         data.FindDialog = findDlg;
 
         DWORD ThreadID;
@@ -2854,6 +3019,7 @@ BOOL OpenFindDialog(HWND hCenterAgainst, const char* initPath)
             goto ERROR_TFD_CREATE;
         }
         AddAuxThread(loop); // add the thread among existing viewers (killed on exit)
+        TrackFindWatchdog(hCenterAgainst, data.DialogWindow, watchdog);
         SetCursor(hOldCur);
         return TRUE;
     }

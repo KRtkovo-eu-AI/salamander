@@ -10,6 +10,7 @@
 // | 2026-11-07 | Reserve the elevation confirmation for rename. | Prompt with the source and destination paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve F7 elevation message IDs. | Localize consent and uncertain-result handling. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Move UAC strings to an unused resource range. | Preserve upstream association and lock-recovery messages. | #731 | Codex |
 // | 2026-11-09 | Reserve protected F5 compression and permissions consent. | Localize both options in one prompt. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Declare the protected recycle confirmation. | Keep elevation consent distinct from permanent deletion. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add the scoped leaf consent resource. | Display the approved parent directory. | | GPT-6.1 Sol (Codex) |
@@ -42,6 +43,19 @@
 // | 2026-11-08 | Reserve the Ignore ADS consent string. | Localize the scope of the explicit copy request. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve folder attribute consent and result messages. | Localize the expanded directory metadata operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve the directory timestamp consent strings. | Localize the distinct directory operation. | | GPT-6.1 Sol (Codex) |
+// | 2026-11-09 | Add lock-aware file recovery text identifiers. | Localize process names and the confirmation shown before terminating a lock holder. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
+// | 2026-11-09 | Add localized text IDs for creating association patterns. | Title and prompt the existing Salamander rename input dialog and explain invalid or duplicate patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add localized text IDs for custom handler page descriptions and columns. | Label the new page guidance, editor group, Arguments, and Initial directory fields. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add the missing legacy editor display label. | Localize the empty-state Target ID when no configured editor command can be found. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add custom handler labels for association settings. | Localize custom viewer/editor targets and their edit forms. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add extension target and conflict detail string IDs. | Support the extension target category and localized descriptions of conflicting patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add localized association state and target IDs. | Provide resources for the User defined state, Unassigned target, and built-in archive handler text. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Add localized association multiselect string ID. | Provide a translatable summary for multiple selected patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Add IDS_EXCOL_MULTISELECT string ID. | Label for the multi-select info message in the Choose Custom Properties dialog. | | opencode |
+// | 2026-11-09 | Add the localized extension-owner marker. | Distinguish Salamatrix extension associations from framework-owned plugin associations. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-08 | Add canonical association provenance identifiers. | Give the configuration editor localized labels for default, user, legacy, disabled, and conflict rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-07 | Localize the finishing phase in Find. | Distinguish a finished search worker from results still being finalized. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-07 | Localize Find activity and response warnings. | Describe Find progress in the dialog and main window. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-04 | Describe a missing extension runtime. | Activation failed silently when the interpreter or runtime provider was not installed. | | Grok 4.7 |
 // WARNING: cannot be replaced by "#pragma once" because it is included from .rc file and it seems resource compiler does not support "#pragma once"
 #ifndef __TEXTS_RH2
@@ -3094,6 +3108,7 @@
 #define IDS_EXCOL_ADD_FAVORITE                     14422
 #define IDS_EXCOL_REMOVE_FAVORITE                  14423
 #define IDS_EXCOL_PLUGINS                          14424
+#define IDS_EXCOL_MULTISELECT                      14398
 #define IDS_FONTDESCRIPTION_UI                      14425
 #define IDS_FILEISNOTARCHIVE                        14426
 #define IDS_PLUGINSEC_NETWORK                       14427
@@ -3126,6 +3141,15 @@
 #define IDS_COPYMOVE_POLICY_STORAGEAWARE             14458
 #define IDS_COPYMOVE_POLICY_SEQUENTIAL               14459
 #define IDS_COPYMOVE_POLICY_ASK                      14460
+#define IDS_FIND_ACTIVITY_IDLE                       14465
+#define IDS_FIND_ACTIVITY_SEARCHING                  14466
+#define IDS_FIND_ACTIVITY_SORTING                    14467
+#define IDS_FIND_ACTIVITY_STOPPING                   14468
+#define IDS_FIND_ACTIVITY_FINISHED                   14469
+#define IDS_FIND_ACTIVITY_HUNG_FORMAT                14470
+#define IDS_FIND_ACTIVITY_HUNG_COUNT_FORMAT          14471
+#define IDS_FIND_ACTIVITY_FINISHING                  14472
+
 #define IDS_COPYMOVE_CONFLICT_CURRENT                 14473
 #define IDS_COPYMOVE_CONFLICT_SCAN_AHEAD              14474
 #define IDS_COPYMOVE_CONFLICT_KEEP_LAST               14475
@@ -3180,77 +3204,158 @@
 #define IDS_FILELAUNCH_LONGPATH_UNSET                    14520
 #define IDS_FILELAUNCH_LONGPATH_UNKNOWN                  14521
 #define IDS_FILELAUNCH_LONGPATH_CAVEAT                   14522
+
+#define IDS_FILEASSOCIATIONS                              14530
+#define IDS_FILEASSOCIATION_PATTERN                       14531
+#define IDS_FILEASSOCIATION_CATEGORY                      14532
+#define IDS_FILEASSOCIATION_OPERATION                     14533
+#define IDS_FILEASSOCIATION_TARGET                        14534
+#define IDS_FILEASSOCIATION_TARGET_ID                     14535
+#define IDS_FILEASSOCIATION_STATUS                        14536
+#define IDS_FILEASSOCIATION_ADD                           14537
+#define IDS_FILEASSOCIATION_DELETE                        14538
+#define IDS_FILEASSOCIATION_RESET                         14539
+#define IDS_FILEASSOCIATION_UNASSIGNED                    14540
+#define IDS_FILEASSOCIATION_VIEW                          14541
+#define IDS_FILEASSOCIATION_ALTERNATE_VIEW                14542
+#define IDS_FILEASSOCIATION_EDIT                          14543
+#define IDS_FILEASSOCIATION_PANEL_ARCHIVE                 14544
+#define IDS_FILEASSOCIATION_NOT_APPLICABLE                14545
+#define IDS_FILEASSOCIATION_LIST_UNPACK                   14546
+#define IDS_FILEASSOCIATION_DELETE_PACK                   14547
+#define IDS_FILEASSOCIATION_BUILT_IN                      14548
+#define IDS_FILEASSOCIATION_PLUGIN                        14549
+#define IDS_FILEASSOCIATION_STATUS_READY                  14551
+#define IDS_FILEASSOCIATION_STATUS_CONFLICT               14552
+#define IDS_FILEASSOCIATION_DEFAULT                      14553
+#define IDS_FILEASSOCIATION_USER                         14554
+#define IDS_FILEASSOCIATION_LEGACY                       14555
+#define IDS_FILEASSOCIATION_DISABLED                     14556
+#define IDS_FILEASSOCIATION_CONFLICT                     14557
+#define IDS_FILEASSOCIATION_SEARCH                       14558
+#define IDS_FILEASSOCIATION_FILTER_CATEGORY              14559
+#define IDS_FILEASSOCIATION_FILTER_PROVENANCE            14560
+#define IDS_FILEASSOCIATION_FILTER_ALL                   14561
+#define IDS_FILEASSOCIATION_FILTER_CONFLICTS             14562
+#define IDS_FILEASSOCIATION_MATRIX_PATTERN               14563
+#define IDS_FILEASSOCIATION_MATRIX_VIEW                  14564
+#define IDS_FILEASSOCIATION_MATRIX_ALTERNATE             14565
+#define IDS_FILEASSOCIATION_MATRIX_EDIT                  14566
+#define IDS_FILEASSOCIATION_MATRIX_ARCHIVE               14567
+#define IDS_FILEASSOCIATION_LEGEND                       14568
+#define IDS_FILEASSOCIATION_GUIDANCE                     14569
+#define IDS_FILEASSOCIATION_NO_TARGETS                   14570
+#define IDS_FILEASSOCIATION_INTERNAL_VIEWER              14571
+#define IDS_FILEASSOCIATION_LEGACY_RUNTIME               14572
+#define IDS_FILEASSOCIATION_SELECT_PLUGIN                 14573
+#define IDS_FILEASSOCIATION_PATTERN_EMPTY                14575
+#define IDS_FILEASSOCIATION_EXTENSION                    14576
+#define IDS_FILEASSOCIATION_MULTISELECT                  14577
+#define IDS_FILEASSOCIATION_UNASSIGNED_TARGET            14578
+#define IDS_FILEASSOCIATION_USER_DEFINED                 14579
+#define IDS_FILEASSOCIATION_ARCHIVE_PANEL_TARGET         14580
+#define IDS_FILEASSOCIATION_EXTENSIONS                   14581
+#define IDS_FILEASSOCIATION_CONFLICT_DETAIL              14582
+#define IDS_FILEASSOCIATION_CONFLICT_MORE                14583
+#define IDS_FILEASSOCIATION_SELECT_EXTENSION             14584
+#define IDS_FILEASSOCIATION_CUSTOM_VIEWER                14585
+#define IDS_FILEASSOCIATION_CUSTOM_EDITOR                14586
+#define IDS_CUSTOM_HANDLER_NAME                          14587
+#define IDS_CUSTOM_HANDLER_COMMAND                       14588
+#define IDS_CUSTOM_HANDLER_ARGUMENTS                     14589
+#define IDS_CUSTOM_HANDLER_INITIAL_DIRECTORY             14590
+#define IDS_CUSTOM_HANDLER_SAVE                          14591
+#define IDS_CUSTOM_HANDLER_LIST                          14592
+#define IDS_CUSTOM_HANDLER_REQUIRED                      14593
+#define IDS_CUSTOM_HANDLER_DUPLICATE                     14594
+#define IDS_CUSTOM_HANDLER_COLUMN_NAME                   14595
+#define IDS_CUSTOM_HANDLER_COLUMN_COMMAND                14596
+#define IDS_CUSTOM_HANDLER_INVALID                       14597
+#define IDS_FILEASSOCIATION_NO_LEGACY_EDITOR             14598
+#define IDS_CUSTOM_HANDLER_VIEWERS_HELP                  14599
+#define IDS_CUSTOM_HANDLER_EDITORS_HELP                  14600
+#define IDS_CUSTOM_HANDLER_DETAILS                       14601
+#define IDS_CUSTOM_HANDLER_COLUMN_ARGUMENTS              14602
+#define IDS_CUSTOM_HANDLER_COLUMN_INITIAL_DIRECTORY     14603
+#define IDS_FILEASSOCIATION_NEW_PATTERN_TITLE            14604
+#define IDS_FILEASSOCIATION_NEW_PATTERN_PROMPT           14605
+#define IDS_FILEASSOCIATION_PATTERN_INVALID              14606
+#define IDS_FILEASSOCIATION_PATTERN_EXISTS               14607
 #define IDS_FILELAUNCH_LAUNCH_CLOSE                      14523
 #define IDS_FILELAUNCH_LONGPATH_GUIDE_BUTTON             14524
 #define IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE              14525
 #define IDS_FILELAUNCH_LONGPATH_GUIDE                    14526
 
 #define IDS_FILELAUNCH_ERROR_CODE                    14527
+#define IDS_FILELOCK_TERMINATE_RETRY                     14608
+#define IDS_FILELOCK_USED_BY                             14609
+#define IDS_FILELOCK_CONFIRM_TERMINATE                   14610
+#define IDS_FILELOCK_TERMINATE_FAILED                    14611
 
-#define IDS_UAC_MKDIR_CONFIRM                        14528
-#define IDS_UAC_MKDIR_UNKNOWN                        14529
-#define IDS_UAC_RENAME_CONFIRM                       14530
-#define IDS_UAC_METADATA_CONFIRM                     14531
-#define IDS_UAC_METADATA_UNKNOWN                     14532
-#define IDS_UAC_DELETE_CONFIRM                       14533
-#define IDS_UAC_DELETE_UNKNOWN                       14534
-#define IDS_UAC_LIST_CONFIRM                         14535
-#define IDS_UAC_LIST_ACTIVE                          14536
-#define IDS_UAC_COPY_CONFIRM                         14537
-#define IDS_UAC_COPY_UNKNOWN                         14538
-#define IDS_UAC_MOVE_CONFIRM                         14539
-#define IDS_UAC_MOVE_UNKNOWN                         14540
-#define IDS_UAC_INVENTORY_TITLE                     14541
-#define IDS_UAC_INVENTORY_INCOMPLETE                14543
-#define IDS_UAC_INVENTORY_FILES                     14544
-#define IDS_UAC_INVENTORY_DIRECTORIES               14545
-#define IDS_UAC_INVENTORY_BYTES                     14546
-#define IDS_UAC_TREE_COPY_CONFIRM                   14547
-#define IDS_UAC_TREE_COPY_UNKNOWN                   14548
-#define IDS_UAC_DIRECTORY_TIMES_CONFIRM              14549
-#define IDS_UAC_DIRECTORY_TIMES_UNKNOWN              14550
-#define IDS_UAC_DIRECTORY_ATTRS_CONFIRM              14551
-#define IDS_UAC_DIRECTORY_ATTRS_UNKNOWN              14552
-#define IDS_UAC_COPY_IGNORE_ADS_CONFIRM             14553
-#define IDS_UAC_COPY_COMPRESSED_CONFIRM             14554
-#define IDS_UAC_RENAME_SYMLINK_CONFIRM              14555
-#define IDS_UAC_RENAME_JUNCTION_CONFIRM             14556
-#define IDS_UAC_DELETE_SYMLINK_CONFIRM              14557
-#define IDS_UAC_DELETE_DIRECTORY_SYMLINK_CONFIRM    14558
-#define IDS_UAC_DELETE_JUNCTION_CONFIRM             14559
-#define IDS_UAC_COPY_SECURITY_CONFIRM               14560
-#define IDS_UAC_COPY_EFS_UNSUPPORTED                14561
-#define IDS_UAC_RECYCLE_NOT_CONFIRMED                14562
-#define IDS_UAC_SIZE_CONFIRM                         14563
-#define IDS_UAC_FIND_CONFIRM                         14564
-#define IDS_UAC_FIND_WAIT                            14565
-#define IDS_UAC_FIND_SCOPE                           14566
-#define IDS_UAC_SIZE_NOT_AVAILABLE                  14567
-#define IDS_UAC_VIEW_CONFIRM                         14568
-#define IDS_UAC_VIEW_SNAPSHOT                        14569
-#define IDS_UAC_VIEW_REFRESH                         14570
-#define IDS_UAC_VIEW_UNAVAILABLE                     14571
-#define IDS_UAC_EDIT_ADMIN_TITLE                     14572
-#define IDS_UAC_EDIT_ADMIN_CONFIRM                   14573
-#define IDS_UAC_EDIT_ADMIN_UNTRUSTED                 14574
-#define IDS_UAC_ZIP_TITLE                            14575
-#define IDS_UAC_ZIP_CONFIRM                          14576
-#define IDS_UAC_ZIP_LIST_ONLY                        14577
-#define IDS_UAC_ZIP_WRITE_CONFIRM                    14578
-#define IDS_UAC_ZIP_EXTRACT_TARGET                   14579
-#define IDS_UAC_ZIP_EXTRACT_PARTIAL                  14580
-#define IDS_UAC_ZIP_EDIT_TITLE                       14581
-#define IDS_UAC_ZIP_EDIT_CONFIRM                     14582
-#define IDS_UAC_ZIP_EDIT_UNKNOWN                     14583
-#define IDS_UAC_ZIP_EDIT_REFRESH                     14584
-#define IDS_UAC_COPY_OVERWRITE_CONFIRM               14585
-#define IDS_UAC_BATCH_ITEM_SCOPE                     14586
-#define IDS_UAC_FIND_CONTENT_CONFIRM                 14587
-#define IDS_UAC_FIND_FILE_CONFIRM                    14588
-#define IDS_UAC_COPY_ENCRYPTED_CONFIRM                14589
-#define IDS_UAC_TRANSFER_JOB_SCOPE                   14590
-#define IDS_UAC_LEAF_JOB_SCOPE                       14591
-#define IDS_UAC_RECYCLE_CONFIRM                      14592
-#define IDS_UAC_COPY_COMPRESSED_SECURITY_CONFIRM     14593
+#define IDS_UAC_MKDIR_CONFIRM                        14624
+#define IDS_UAC_MKDIR_UNKNOWN                        14625
+#define IDS_UAC_RENAME_CONFIRM                       14626
+#define IDS_UAC_METADATA_CONFIRM                     14627
+#define IDS_UAC_METADATA_UNKNOWN                     14628
+#define IDS_UAC_DELETE_CONFIRM                       14629
+#define IDS_UAC_DELETE_UNKNOWN                       14630
+#define IDS_UAC_LIST_CONFIRM                         14631
+#define IDS_UAC_LIST_ACTIVE                          14632
+#define IDS_UAC_COPY_CONFIRM                         14633
+#define IDS_UAC_COPY_UNKNOWN                         14634
+#define IDS_UAC_MOVE_CONFIRM                         14635
+#define IDS_UAC_MOVE_UNKNOWN                         14636
+#define IDS_UAC_INVENTORY_TITLE                     14637
+#define IDS_UAC_INVENTORY_INCOMPLETE                14639
+#define IDS_UAC_INVENTORY_FILES                     14640
+#define IDS_UAC_INVENTORY_DIRECTORIES               14641
+#define IDS_UAC_INVENTORY_BYTES                     14642
+#define IDS_UAC_TREE_COPY_CONFIRM                   14643
+#define IDS_UAC_TREE_COPY_UNKNOWN                   14644
+#define IDS_UAC_DIRECTORY_TIMES_CONFIRM              14645
+#define IDS_UAC_DIRECTORY_TIMES_UNKNOWN              14646
+#define IDS_UAC_DIRECTORY_ATTRS_CONFIRM              14647
+#define IDS_UAC_DIRECTORY_ATTRS_UNKNOWN              14648
+#define IDS_UAC_COPY_IGNORE_ADS_CONFIRM             14649
+#define IDS_UAC_COPY_COMPRESSED_CONFIRM             14650
+#define IDS_UAC_RENAME_SYMLINK_CONFIRM              14651
+#define IDS_UAC_RENAME_JUNCTION_CONFIRM             14652
+#define IDS_UAC_DELETE_SYMLINK_CONFIRM              14653
+#define IDS_UAC_DELETE_DIRECTORY_SYMLINK_CONFIRM    14654
+#define IDS_UAC_DELETE_JUNCTION_CONFIRM             14655
+#define IDS_UAC_COPY_SECURITY_CONFIRM               14656
+#define IDS_UAC_COPY_EFS_UNSUPPORTED                14657
+#define IDS_UAC_RECYCLE_NOT_CONFIRMED                14658
+#define IDS_UAC_SIZE_CONFIRM                         14659
+#define IDS_UAC_FIND_CONFIRM                         14660
+#define IDS_UAC_FIND_WAIT                            14661
+#define IDS_UAC_FIND_SCOPE                           14662
+#define IDS_UAC_SIZE_NOT_AVAILABLE                  14663
+#define IDS_UAC_VIEW_CONFIRM                         14664
+#define IDS_UAC_VIEW_SNAPSHOT                        14665
+#define IDS_UAC_VIEW_REFRESH                         14666
+#define IDS_UAC_VIEW_UNAVAILABLE                     14667
+#define IDS_UAC_EDIT_ADMIN_TITLE                     14668
+#define IDS_UAC_EDIT_ADMIN_CONFIRM                   14669
+#define IDS_UAC_EDIT_ADMIN_UNTRUSTED                 14670
+#define IDS_UAC_ZIP_TITLE                            14671
+#define IDS_UAC_ZIP_CONFIRM                          14672
+#define IDS_UAC_ZIP_LIST_ONLY                        14673
+#define IDS_UAC_ZIP_WRITE_CONFIRM                    14674
+#define IDS_UAC_ZIP_EXTRACT_TARGET                   14675
+#define IDS_UAC_ZIP_EXTRACT_PARTIAL                  14676
+#define IDS_UAC_ZIP_EDIT_TITLE                       14677
+#define IDS_UAC_ZIP_EDIT_CONFIRM                     14678
+#define IDS_UAC_ZIP_EDIT_UNKNOWN                     14679
+#define IDS_UAC_ZIP_EDIT_REFRESH                     14680
+#define IDS_UAC_COPY_OVERWRITE_CONFIRM               14681
+#define IDS_UAC_BATCH_ITEM_SCOPE                     14682
+#define IDS_UAC_FIND_CONTENT_CONFIRM                 14683
+#define IDS_UAC_FIND_FILE_CONFIRM                    14684
+#define IDS_UAC_COPY_ENCRYPTED_CONFIRM                14685
+#define IDS_UAC_TRANSFER_JOB_SCOPE                   14686
+#define IDS_UAC_LEAF_JOB_SCOPE                       14687
+#define IDS_UAC_RECYCLE_CONFIRM                      14688
+#define IDS_UAC_COPY_COMPRESSED_SECURITY_CONFIRM     14689
 
 #endif // __TEXTS_RH2

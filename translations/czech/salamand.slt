@@ -1957,6 +1957,21 @@ SLGINCOMPLETE,""
 1091,1,"Viditelnost pluginových souborových systémů lze změnit ve Správci pluginů (v nabídce Pluginy)."
 
 [STRINGTABLE 3]
+1108,0,"Plugin items"
+1109,0,"Hot Paths"
+
+[STRINGTABLE 4]
+2421,0,"Source"
+2422,0,"Association details"
+2423,0,"Conflicts (%u)"
+2424,0,"Add new pattern"
+2426,0,"All States"
+2427,0,"All Sources"
+
+[STRINGTABLE 5]
+2468,0,"Apply"
+
+[STRINGTABLE 6]
 10000,1,"Otázka"
 10001,1,"Chcete zrušit tuto operaci?"
 10002,1,"Název položky"
@@ -1970,7 +1985,7 @@ SLGINCOMPLETE,""
 10013,1,"Nelze ověřit cestu."
 10014,1,"Cesta má neplatný formát."
 
-[STRINGTABLE 4]
+[STRINGTABLE 7]
 10016,1,"Konfigurace"
 10017,1,"ano"
 10018,1,"ne"
@@ -1987,7 +2002,7 @@ SLGINCOMPLETE,""
 10030,1,"jednotka RAM"
 10031,1,"neznámý (typ: %d)"
 
-[STRINGTABLE 5]
+[STRINGTABLE 8]
 10032,1,"Nebyly nalezeny odpovídající položky."
 10033,1,"Informace"
 10034,1,"Nelze načíst přidružení souborů z registru\nChyba: %s"
@@ -2004,7 +2019,7 @@ SLGINCOMPLETE,""
 10046,1,"ano"
 10047,1,"ne"
 
-[STRINGTABLE 6]
+[STRINGTABLE 9]
 10048,1,"Soubor: "%s"\nChyba: %s"
 10051,1,"Velikost souboru musí být kladné číslo."
 10052,1,"Datum má neplatný formát."
@@ -2020,7 +2035,7 @@ SLGINCOMPLETE,""
 10062,1,"Zadejte možnosti hledání a klepněte na tlačítko Najít."
 10063,1,"Musí být vybrána nejméně jedna volba."
 
-[STRINGTABLE 7]
+[STRINGTABLE 10]
 10064,1,"Musí být vybrána nejméně jedna akce pro převod."
 10065,1,"Nenalezen žádný soubor odpovídající zadané souborové masce."
 10066,1,"Chyba při otevírání souboru "%s".\n%s"
@@ -2037,7 +2052,7 @@ SLGINCOMPLETE,""
 10077,1,"Atributy"
 10079,1,"Všechny soubory a adresáře musí být ze stejného disku."
 
-[STRINGTABLE 8]
+[STRINGTABLE 11]
 10080,1,"Některý vybraný soubor nebo adresář není dostupný.\nStiskněte tlačítko Najít pro obnovení nalezených položek."
 10081,1,"Chcete zavřít okno vyhledávání?"
 10082,1,"&Příště nezobrazovat\tjak vrátit zpět\tTuto volbu můžete později změnit v Konfiguraci na stránce Potvrzení."
@@ -2055,7 +2070,7 @@ SLGINCOMPLETE,""
 10094,1,"Chyba při přejmenování souboru"
 10095,1,"Chyba při otevírání souboru"
 
-[STRINGTABLE 9]
+[STRINGTABLE 12]
 10096,1,"Chyba při zápisu souboru"
 10097,1,"Chyba při přepisování souboru"
 10098,1,"Chyba při odstraňování souboru"
@@ -2072,7 +2087,7 @@ SLGINCOMPLETE,""
 10109,1,"Nenalezen žádný soubor nebo adresář"
 10111,1,"ADR"
 
-[STRINGTABLE 10]
+[STRINGTABLE 13]
 10112,1,"Změnit malá a velká písmena"
 10113,1,"Neplatný formát data nebo času."
 10114,1,"Změnit atributy"
@@ -2090,7 +2105,7 @@ SLGINCOMPLETE,""
 10126,1,"Rychle přejmenovat"
 10127,1,"Přejmenovat %s na"
 
-[STRINGTABLE 11]
+[STRINGTABLE 14]
 10129,1,"Kopírování"
 10130,1,"Přesouvání/Přejmenování"
 10131,1,"Odstraňování"
@@ -2107,7 +2122,7 @@ SLGINCOMPLETE,""
 10142,1,"Všechny soubory (*.*)|*.*|"
 10143,1,"Potvrdit odstranění souboru"
 
-[STRINGTABLE 12]
+[STRINGTABLE 15]
 10144,1,"Chcete odstranit soubor s atributy Systémový nebo Skrytý?"
 10145,1,"Tento název byl již použit pro soubor."
 10147,1,"Adresář "%s" má Systémový nebo Skrytý atribut.\nChcete adresář odstranit?"
@@ -2122,7 +2137,7 @@ SLGINCOMPLETE,""
 10157,1,"'*' nahrazuje jakýkoliv počet znaků. '?' nahrazuje jeden libovolný znak.\nPříklad: *.a? (.a1, cokoli.ai, atd.)\nMasky jsou odděleny středníkem. Příklad: *.txt;*.doc (a.txt, b.doc, atd.)\nVyloučené masky jsou umístněny za znakem '|'. Příklad: |*.txt;*.doc (cokoli kromě *.txt;*.doc)\nPokud potřebujete středník uvnitř masky, zapište ho dvakrát. Příklad: jedna;;maska"
 10158,1,"Masky jsou odděleny středníkem.\nZnak '#' nahrazuje jakoukoli číslici ('0' ... '9')"
 
-[STRINGTABLE 13]
+[STRINGTABLE 16]
 10160,1,"Můžete nastavit šířku proměnné hodnoty na počet znaků nebo na 'max' (aby odpovídala nejdelší hodnotě).\nNapříklad: $(FileName:20) nebo $(FileName:max)."
 10164,1,"Najít"
 10165,1,"Regulárnímu výrazu odpovídá prázdný řetězec."
@@ -2137,7 +2152,7 @@ SLGINCOMPLETE,""
 10174,1,"Chybný [] rozsah"
 10175,1,"Nepárující []"
 
-[STRINGTABLE 14]
+[STRINGTABLE 17]
 10176,1,"?+* následuje nic"
 10177,1,"Koncový \\"
 10178,1,"Vnitřní chyba"
@@ -2155,7 +2170,7 @@ SLGINCOMPLETE,""
 10190,1,"(Prázdný)"
 10191,1,"Síť"
 
-[STRINGTABLE 15]
+[STRINGTABLE 18]
 10192,1,"Jako druhý panel"
 10193,1,"Změnit jednotku"
 10194,1,"Vyberte síťovou cestu, kterou chcete navštívit."
@@ -2164,17 +2179,17 @@ SLGINCOMPLETE,""
 10198,1,"Vyberte cílový adresář."
 10199,1,"pozice: %s"
 
-[STRINGTABLE 16]
+[STRINGTABLE 19]
 10220,1,"Kopírování"
 10221,1,"Komprimování"
 10222,1,"Přesouvání"
 10223,1,"Chyba při extrahování archivu"
 
-[STRINGTABLE 17]
+[STRINGTABLE 20]
 10254,1,"Archiv."
 10255,1,"Extrahovat archiv "%s" do"
 
-[STRINGTABLE 18]
+[STRINGTABLE 21]
 10256,1,"Adresář "%s" neexistuje.\n\nChcete adresář vytvořit?"
 10257,1,"Název "%s" je již použit pro jiný soubor."
 10258,1,"Nelze vytvořit adresář "%s"."
@@ -2190,7 +2205,7 @@ SLGINCOMPLETE,""
 10270,1,"Název"
 10271,1,"Přípona"
 
-[STRINGTABLE 19]
+[STRINGTABLE 22]
 10272,1,"DOS název (8.3)"
 10273,1,"Velikost"
 10274,1,"Typ"
@@ -2205,7 +2220,7 @@ SLGINCOMPLETE,""
 10286,1,"JAR na 1.44MB svazky (Externí Win32/x64, testováno s v1.02)"
 10287,1,"RAR (Externí Win32/x64, testováno s v2.50)"
 
-[STRINGTABLE 20]
+[STRINGTABLE 23]
 10288,1,"RAR na 1.44MB svazky (Externí Win32/x64, testováno s v2.50)"
 10289,1,"ARJ (Externí DOS, testováno s v2.60)"
 10290,1,"ARJ na 1.44MB svazky (Externí DOS, testováno s v2.60)"
@@ -2223,7 +2238,7 @@ SLGINCOMPLETE,""
 10302,1,"RAR na 1.44MB svazky (Externí DOS, testováno s v2.50)"
 10303,1,"PKZIP (Externí Win32/x64, testováno s v2.50)"
 
-[STRINGTABLE 21]
+[STRINGTABLE 24]
 10304,1,"PKZIP (Externí DOS, testováno s v2.04g)"
 10307,1,"JAR (Externí Win32/x64, testováno s v1.02)"
 10308,1,"RAR (Externí Win32/x64, testováno s v2.50)"
@@ -2239,7 +2254,7 @@ SLGINCOMPLETE,""
 10318,1,"PKUNZIP (Externí DOS, testováno s v2.04g)"
 10319,1,"Win32/x64 JAR pro příkazový řádek (testováno s v1.02)"
 
-[STRINGTABLE 22]
+[STRINGTABLE 25]
 10320,1,"Win32/x64 RAR pro příkazový řádek (testováno s v2.50)"
 10321,1,"MS-DOS ARJ pro příkazový řádek (testováno s v2.60)"
 10322,1,"MS-DOS LHA pro příkazový řádek (testováno s v2.55)"
@@ -2256,7 +2271,7 @@ SLGINCOMPLETE,""
 10334,1,"Změnit (F2)"
 10335,1,"Nový (Insert)"
 
-[STRINGTABLE 23]
+[STRINGTABLE 26]
 10336,1,"Odstranit (Delete)"
 10337,1,"Přesunout položku nahoru (Alt + šipka nahoru)"
 10338,1,"Přesunout položku dolů (Alt + šipka dolů)"
@@ -2274,7 +2289,7 @@ SLGINCOMPLETE,""
 10350,1,"Proměnná prostředí"
 10351,1,"Plný název"
 
-[STRINGTABLE 24]
+[STRINGTABLE 27]
 10352,1,"DOS plný název"
 10353,1,"Plná cesta"
 10354,1,"Adresář systému Windows"
@@ -2291,7 +2306,7 @@ SLGINCOMPLETE,""
 10366,1,"Časové rozlišení musí být v rozsahu 0 až 3600 s"
 10367,1,"Panel plu&ginů"
 
-[STRINGTABLE 25]
+[STRINGTABLE 28]
 10368,1,"Panel už&ivatelské nabídky"
 10369,1,"Horní panel &nástrojů"
 10370,1,"Pan&el adresářových zkratek"
@@ -2309,7 +2324,7 @@ SLGINCOMPLETE,""
 10382,1,"&Datum posledního zápisu"
 10383,1,"Č&as posledního zápisu"
 
-[STRINGTABLE 26]
+[STRINGTABLE 29]
 10384,1,"&Atributy souboru"
 10385,1,"&Upravit panel nástrojů..."
 10386,1,"Přiřa&dit adresářovou zkratku"
@@ -2319,7 +2334,7 @@ SLGINCOMPLETE,""
 10390,1,"Chytrých režim sloupců\tCtrl+N"
 10391,1,"Karty &panelů"
 
-[STRINGTABLE 27]
+[STRINGTABLE 30]
 10400,1,"Nápověda,Přejmenovat,Zobrazit,Upravit,Kopírovat,Přesunout,VytvořitAdr,Odstranit,UživNabídka,Nabídka,Připojit,Odpojit"
 10401,1,"LZměJed,PZměJed,ZobAlter,Konec,Kompr,Extrah,Vyhledat,,Extrah,VypMíst,OteSou,PracAdr"
 10402,1,"JednInfo,ZměnAtr,DleNázvu,DlePříp,DleČasu,DleVelik,ZměnPísm,,Aktuali.,Porovnat,MaxPan,Filtr"
@@ -2328,7 +2343,7 @@ SLGINCOMPLETE,""
 10406,1,",,,,,,,,,NabAdr,,"
 10408,1,"Nápověda,,,,,,,,,Nabídka,,"
 
-[STRINGTABLE 28]
+[STRINGTABLE 31]
 10420,1,"Připojit síťovou jednotku\tF11"
 10421,1,"Odpojit\tF12"
 10424,1,"Vytvořit adresář\tF7"
@@ -2339,7 +2354,7 @@ SLGINCOMPLETE,""
 10430,1,"Seřadit podle přípony\tCtrl+F4"
 10431,1,"Seřadit podle velikosti\tCtrl+F6"
 
-[STRINGTABLE 29]
+[STRINGTABLE 32]
 10432,1,"Seřadit podle data\tCtrl+F5"
 10433,1,"Nahoru\tBackspace"
 10434,1,"Kořenový adresář\tShift+Backspace"
@@ -2356,7 +2371,7 @@ SLGINCOMPLETE,""
 10445,1,"Odstranit\tF8"
 10447,1,"NTFS Komprimovat"
 
-[STRINGTABLE 30]
+[STRINGTABLE 33]
 10448,1,"NTFS Dekomprimovat"
 10449,1,"Rychle přejmenovat\tF2"
 10450,1,"Změnit malá a velká písmena\tCtrl+F7"
@@ -2373,7 +2388,7 @@ SLGINCOMPLETE,""
 10462,1,"Změnit jednotku"
 10463,1,"Upravit\tF4"
 
-[STRINGTABLE 31]
+[STRINGTABLE 34]
 10465,1,"Vybrat\tNum +"
 10466,1,"Zrušit výběr\tNum -"
 10467,1,"Invertovat výběr\tNum *"
@@ -2390,7 +2405,7 @@ SLGINCOMPLETE,""
 10478,1,"Otevřít složku Písma"
 10479,1,"Převést\tCtrl+K"
 
-[STRINGTABLE 32]
+[STRINGTABLE 35]
 10480,1,"Zrušit celý výběr\tCtrl+D"
 10481,1,"Vstoupit nebo vystoupit z nabídky"
 10482,1,"Zobrazit alternativně"
@@ -2408,7 +2423,7 @@ SLGINCOMPLETE,""
 10494,1,"Přejít na adresářové zkratky\tShift+F9"
 10495,1,"E-mail"
 
-[STRINGTABLE 33]
+[STRINGTABLE 36]
 10496,1,"Maximalizovat/Obnovit panel"
 10497,1,"Sdílené adresáře\tCtrl+Shift+F9"
 10498,1,"Přepnout na celou obrazovku"
@@ -2426,7 +2441,7 @@ SLGINCOMPLETE,""
 10510,1,"Otevřít složku"
 10511,1,"Konfigurace"
 
-[STRINGTABLE 34]
+[STRINGTABLE 37]
 10512,1,"Místní nabídka aktuálního adresáře"
 10513,1,"Ukázat název ve druhém panelu"
 10514,1,"Otevřít název ve druhém panelu"
@@ -2442,7 +2457,7 @@ SLGINCOMPLETE,""
 10524,1,"Předchozí karta"
 10525,1,"Duplikovat kartu"
 
-[STRINGTABLE 35]
+[STRINGTABLE 38]
 10530,1,"Název proměnné musí být ukončen znakem ')'."
 10531,1,"Interní chyba."
 10532,1,"Proměnná "%s" nebyla nenalezena."
@@ -2455,7 +2470,7 @@ SLGINCOMPLETE,""
 10539,1,"Prázdný řetězec zde není povolen."
 10540,1,"Neplatná šířka proměnné (musí být v rozsahu 1 až 9999 nebo text 'max', pokud má odpovídat nejdelší hodnotě proměnné)."
 
-[STRINGTABLE 36]
+[STRINGTABLE 39]
 10550,1,"Externí program"
 10551,1,"-- nepodporovaný --"
 10552,1,"&Vlastní barva..."
@@ -2467,7 +2482,7 @@ SLGINCOMPLETE,""
 10558,1,"&Neměnit barvu textu"
 10559,1,"N&eměnit barvu pozadí"
 
-[STRINGTABLE 37]
+[STRINGTABLE 40]
 10564,1,"Položky v panelu"
 10565,1,"Rámec položky s fokusem v panelu"
 10566,1,"Odstín ikony v panelu"
@@ -2481,7 +2496,7 @@ SLGINCOMPLETE,""
 10574,1,"Normální"
 10575,1,"Vybraný"
 
-[STRINGTABLE 38]
+[STRINGTABLE 41]
 10576,1,"S fokusem"
 10577,1,"S fokusem a vybraný"
 10578,1,"Levá část (dokončeno)"
@@ -2495,7 +2510,7 @@ SLGINCOMPLETE,""
 10586,1,"Automatické doplnění cesty"
 10588,1,"Vybraná položka v seznamu"
 
-[STRINGTABLE 39]
+[STRINGTABLE 42]
 10595,1,"Rámec kolem miniatur v panelu"
 10600,1,"Vlastní"
 10601,1,"Open Samandarin"
@@ -2504,13 +2519,13 @@ SLGINCOMPLETE,""
 10604,1,"DOS Navigator"
 10605,1,"Tmavý režim systému Windows (experimentální)"
 
-[STRINGTABLE 40]
+[STRINGTABLE 43]
 10665,1,"Název"
 10666,1,"Klávesová zkratka"
 10667,1,"Název"
 10671,1,"Filtr je zapnut"
 
-[STRINGTABLE 41]
+[STRINGTABLE 44]
 10672,1,"Volné místo na disku\nKlepněte pro zobrazení informací o disku (Ctrl+F1)"
 10673,1,"Seznam pracovních adresářů (Alt+F12)"
 10674,1,"Maximalizovat/Obnovit panel (Ctrl+F11)"
@@ -2519,7 +2534,7 @@ SLGINCOMPLETE,""
 10680,1,"Interní prohlížeč"
 10681,1,"Externí prohlížeč"
 
-[STRINGTABLE 42]
+[STRINGTABLE 45]
 10694,1,"Nelze změnit jmenovku disku.\nChyba: %s"
 10696,1,"Ctrl"
 10697,1,"Shift"
@@ -2529,7 +2544,7 @@ SLGINCOMPLETE,""
 10702,1,"Název souboru "%s" je neplatný."
 10703,1,"Soubor "%s" neobsahuje žádné ikony."
 
-[STRINGTABLE 43]
+[STRINGTABLE 46]
 10704,1,"Nelze najít soubor "%s"."
 10706,1,"Externí prohlížeč [%s]"
 10707,1,"Interní prohlížeč"
@@ -2542,7 +2557,7 @@ SLGINCOMPLETE,""
 10716,1,"Upravit"
 10717,1,"Otevřít"
 
-[STRINGTABLE 44]
+[STRINGTABLE 47]
 10720,1,"Atributy"
 10721,1,"Velikost"
 10722,1,"Datum"
@@ -2555,7 +2570,7 @@ SLGINCOMPLETE,""
 10734,1,"Vyhledávání:"
 10735,1,"Vyhledat soubory a adresáře"
 
-[STRINGTABLE 45]
+[STRINGTABLE 48]
 10736,1,"vyhledávání"
 10737,1,"Prázdný řetězec zde není povolen."
 10738,1,"Možnosti "%s" byly načteny"
@@ -2569,7 +2584,7 @@ SLGINCOMPLETE,""
 10750,1,"Inicializace dat..."
 10751,1,"Probíhá čtení seznamu sdílených adresářů..."
 
-[STRINGTABLE 46]
+[STRINGTABLE 49]
 10752,1,"Probíhá čtení konfigurace z registru..."
 10753,1,"Import konfigurace do registru..."
 10754,1,"Probíhá čtení přidružení souborů z registru..."
@@ -2584,7 +2599,7 @@ SLGINCOMPLETE,""
 10766,1,"Informace"
 10767,1,"Vynechání adresáře"
 
-[STRINGTABLE 47]
+[STRINGTABLE 50]
 10768,1,"Chcete přidat adresář "%s" do seznamu ignorovaných adresářů?"
 10769,1,"Vynecháno %d chyb..."
 10770,1,"&Pozdržet následující chybové zprávy"
@@ -2594,7 +2609,7 @@ SLGINCOMPLETE,""
 10782,1,"Libovolný z množiny znaků"
 10783,1,"Libovolný mimo množinu znaků"
 
-[STRINGTABLE 48]
+[STRINGTABLE 51]
 10784,1,"Libovolný z rozsahu znaků"
 10785,1,"Začátek řádku"
 10786,1,"Konec řádku"
@@ -2612,7 +2627,7 @@ SLGINCOMPLETE,""
 10798,1,"Desítková číslice"
 10799,1,"Desítkové číslo"
 
-[STRINGTABLE 49]
+[STRINGTABLE 52]
 10800,1,"Šestnáctkové číslo"
 10801,1,"Reálné číslo"
 10802,1,"Řetězec v uvozovkách"
@@ -2629,7 +2644,7 @@ SLGINCOMPLETE,""
 10814,1,"Místní jednotka"
 10815,1,"Vyměnitelná jednotka"
 
-[STRINGTABLE 50]
+[STRINGTABLE 53]
 10818,1,"Odeslání e-mailu:"
 10819,1,"Vaše soubory jsou připojeny a připraveny k odeslání s touto zprávou."
 10820,1,"Nelze poslat e-mail. Žádný e-mailový klient není nastaven pro odeslání e-mailu, MAPI32.DLL nebyl nalezen."
@@ -2642,7 +2657,7 @@ SLGINCOMPLETE,""
 10830,1,"(Nejsou nainstalovány žádné pluginy)"
 10831,1,"(Žádný plugin není konfigurovatelný)"
 
-[STRINGTABLE 51]
+[STRINGTABLE 54]
 10832,1,"Název "%s" nemůže být převeden na UNC.\nNázev není ze sdíleného adresáře ani mapované jednotky."
 10833,1,"Opravdu chcete ukončit sdílení "%s"?"
 10834,1,"Název sdílené položky"
@@ -2657,7 +2672,7 @@ SLGINCOMPLETE,""
 10846,1,"&Opakovat akci"
 10847,1,"&Pokračovat"
 
-[STRINGTABLE 52]
+[STRINGTABLE 55]
 10848,1,"&Ano"
 10849,1,"&Ne"
 10850,1,"Vlevo"
@@ -2669,7 +2684,7 @@ SLGINCOMPLETE,""
 10862,1,"&Středový panel nástrojů"
 10863,1,"Plná cesta"
 
-[STRINGTABLE 53]
+[STRINGTABLE 56]
 10864,1,"Jen název adresáře"
 10865,1,"Zkrácená cesta"
 10866,1,"Žádné"
@@ -2683,7 +2698,7 @@ SLGINCOMPLETE,""
 10874,1,"Nelze získat cíl odkazu."
 10875,1,"Tento odkaz je připojovací bod svazku. Nelze ho zobrazit v panelu.\nCesta: %s"
 
-[STRINGTABLE 54]
+[STRINGTABLE 57]
 10880,1,"{!}sekund{|0|y|1|}"
 10881,1,"{!}minut{|0|y|1|}"
 10882,1,"{!}hodin{|0|y|1|}"
@@ -2698,13 +2713,13 @@ SLGINCOMPLETE,""
 10893,1,"Porovnání s pluginovým souborovým systémem není podporováno."
 10894,1,"V levém a pravém panelu je shodná cesta."
 
-[STRINGTABLE 55]
+[STRINGTABLE 58]
 10900,1,"Šifrování není podporováno na tomto svazku nebo pod tímto operačním systémem."
 10905,1,"Chyba změny šifrování"
 10910,1,"Potvrdit šifrování souboru"
 10911,1,"Chcete zašifrovat soubor se systémovým atributem?"
 
-[STRINGTABLE 56]
+[STRINGTABLE 59]
 10920,1,"&Pozastavit"
 10921,1,"&Pokračovat"
 10922,1,"pozastaveno"
@@ -2713,7 +2728,7 @@ SLGINCOMPLETE,""
 10926,1,"(název: %s, uživatel: %s)"
 10927,1,"Dokumenty"
 
-[STRINGTABLE 57]
+[STRINGTABLE 60]
 10928,1,"3D objekty"
 10929,1,"Plocha"
 10930,1,"Název"
@@ -2725,7 +2740,7 @@ SLGINCOMPLETE,""
 10936,1,"Videa"
 10940,1,"(není)"
 
-[STRINGTABLE 58]
+[STRINGTABLE 61]
 10945,1,"Nelze extrahovat soubor z archivu do dočasného adresáře, protože\nvýsledný název souboru je příliš dlouhý."
 10946,1,"Nelze extrahovat soubor z archivu, protože název je neplatný na souborovém systému Windows a archivační plugin nepodporuje extrahování do jiného názvu souboru."
 10950,1,"Vybrat cestu"
@@ -2734,7 +2749,7 @@ SLGINCOMPLETE,""
 10953,1,"(symlink do: %s)"
 10955,1,"Ignorovat &vše"
 
-[STRINGTABLE 59]
+[STRINGTABLE 62]
 10960,1,"Tak jak jsou uloženy na disku"
 10961,1,"Částečně smíšená písmena pokud jsou názvy v DOS formátu"
 10962,1,"Malá písmena pro soubory, velká písmena pro adresáře"
@@ -2743,7 +2758,7 @@ SLGINCOMPLETE,""
 10965,1,"Velká písmena"
 10970,1,"Neimportovat, spustit s výchozím nastavením"
 
-[STRINGTABLE 60]
+[STRINGTABLE 63]
 10980,1,"&Procházet...\tCtrl+B"
 10981,1,"&Aktivní cesta levého panelu\tCtrl+["
 10982,1,"A&ktivní cesta pravého panelu\tCtrl+]"
@@ -2751,7 +2766,7 @@ SLGINCOMPLETE,""
 10986,1,"V kilobajtech (standardní pro Průzkumníka Windows)"
 10987,1,"Ve zkráceném formátu (například 15 B, 3,41 KB nebo 12,5 MB)"
 
-[STRINGTABLE 61]
+[STRINGTABLE 64]
 10994,1,"Nelze vykonat nový úkol, protože provádění předchozího úkolu ještě nebylo dokončeno. Stiskněte tlačítko Pokračovat a počkejte na dokončení předchozího úkolu.\n\nPokud žádný takový úkol neexistuje, stiskněte tlačítko Přerušit a zašlete nám zprávu o chybě, pomůžete nám vyřešit tento problém. Open Samandarin bude ukončen."
 10995,1,"Toto okno nemůže být zavřeno, protože okno používá některý nedokončený úkol. Stiskněte tlačítko Pokračovat a počkejte na dokončení tohoto úkolu.\n\nPokud žádný takový úkol neexistuje, stiskněte Přerušit a zašlete nám zprávu o chybě, pomůžete nám vyřešit tento problém. Open Samandarin bude ukončen."
 10996,1,"Open Samandarin havaroval v důsledku chyby v rozšíření prostředí. Odešlete nám prosím chybové hlášení, abychom mohli problém odstranit.\n\nKlikněte na OK pro zobrazení okna s chybovým hlášením."
@@ -2766,7 +2781,7 @@ SLGINCOMPLETE,""
 11006,1,"Externí program "%1" vrátil chybu: %2"
 11007,1,"Externí archivační program "%1" nemůže být spuštěn."
 
-[STRINGTABLE 62]
+[STRINGTABLE 65]
 11008,1,"Chybný dočasný soubor."
 11009,1,"Cesta k souboru je příliš dlouhá: %1"
 11010,1,"Chyba při analýze příkazového řádku archivačního programu."
@@ -2782,7 +2797,7 @@ SLGINCOMPLETE,""
 11020,1,"Nelze přejmenovat dočasný soubor archivu (%1) na název archivu (%2)."
 11021,1,"Tento název souboru je neplatný na souborovém systému Windows. Externí archivační programy nepodporují extrahování do jiného názvu souboru, proto není možné extrahovat tento soubor."
 
-[STRINGTABLE 63]
+[STRINGTABLE 66]
 11025,1,"Kód dokončení %d."
 11026,1,"Zjištěno varování."
 11027,1,"Chyba při extrahování souboru."
@@ -2799,7 +2814,7 @@ SLGINCOMPLETE,""
 11038,1,"Příliš mnoho kapitol v archivu."
 11039,1,"Nelze převést dočasný soubor do archivu."
 
-[STRINGTABLE 64]
+[STRINGTABLE 67]
 11040,1,"Vnitřní chyba."
 11041,1,"Neznámá chyba."
 11042,1,"Vynechaný soubor."
@@ -2817,7 +2832,7 @@ SLGINCOMPLETE,""
 11054,1,"Spouštění externího programu, čekejte prosím..."
 11055,1,"Cesta k programu Jar32"
 
-[STRINGTABLE 65]
+[STRINGTABLE 68]
 11056,1,"Cesta k programu Jar16"
 11057,1,"Cesta k programu Rar32"
 11058,1,"Cesta k programu Rar16"
@@ -2833,20 +2848,20 @@ SLGINCOMPLETE,""
 11068,1,"Procházet programy"
 11070,1,"Přerušeno uživatelem nebo nezodpovězený dotaz (opakujte operaci a klepněte na "salspawn.exe" proces na hlavním panelu, uvidíte výzvu archivačního programu)."
 
-[STRINGTABLE 66]
+[STRINGTABLE 69]
 11102,1,"Archivační program nepodporuje komprimaci podadresářů.\nChcete umístit soubory do kořenového adresáře archivu?"
 11103,1,"Archivační program nepodporuje operaci "přesunout do archivu".\nChcete místo toho použít "kopírovat do archivu"?"
 
-[STRINGTABLE 67]
+[STRINGTABLE 70]
 11104,1,"Cesta není platný adresář."
 
-[STRINGTABLE 68]
+[STRINGTABLE 71]
 11209,1,"Chyba nápovědy"
 11210,1,"Nelze spustit Html Nápovědu."
 11211,1,"Nelze najít soubor s nápovědou."
 11215,1,"Pro otevření nabídky z editačního pole stiskněte Alt+Šipka doprava"
 
-[STRINGTABLE 69]
+[STRINGTABLE 72]
 11220,1,"Ukázat"
 11221,1,"Ukázat položku\tMezerník"
 11222,1,"Zobrazit soubor\tF3"
@@ -2859,13 +2874,13 @@ SLGINCOMPLETE,""
 11229,1,"Zprávy o chybě: %d\nInformační zprávy: %d\nKlepnout pro zobrazení Protokolu hledání"
 11231,1,"Vlastnosti\tAlt+Enter"
 
-[STRINGTABLE 70]
+[STRINGTABLE 73]
 11240,1,"Byly specifikovány některé speciální možnosti (tlačítko Možnosti v dialogu Kopírovat/Přesunout). Tyto možnosti nejsou podporovány pro kopírování/přesun do pluginového souborového systému a do archivů. Možnosti budou ignorovány."
 11241,1,"&Příště tuto zprávu nezobrazovat\tjak vrátit zpět\tTuto volbu můžete později změnit v Konfiguraci na stránce Potvrzení."
 11245,1,"Jen název souboru"
 11246,1,"Jen přípona souboru"
 
-[STRINGTABLE 71]
+[STRINGTABLE 74]
 11250,1,"Cesta k cílovému adresáři je příliš dlouhá, klepněte na tlačítko Přeskočit pro přeskočení celého adresáře.\n\nCesta: %s\n\nNázev: %s"
 11255,1,"Upřesnit"
 11256,1,"Plná cesta v neaktivním panelu"
@@ -2877,7 +2892,7 @@ SLGINCOMPLETE,""
 11262,1,"Druhý adresář pro porovnání (přednostně pravý panel)"
 11263,1,"První soubor pro porovnání (přednostně aktivní panel)"
 
-[STRINGTABLE 72]
+[STRINGTABLE 75]
 11264,1,"Druhý soubor pro porovnání (přednostně neaktivní panel)"
 11265,1,"První adresář pro porovnání (přednostně aktivní panel)"
 11266,1,"Druhý adresář pro porovnání (přednostně neaktivní panel)"
@@ -2888,7 +2903,7 @@ SLGINCOMPLETE,""
 11271,1,"První soubor nebo adresář pro porovnání (přednostně aktivní panel)"
 11272,1,"Druhý soubor nebo adresář pro porovnání (přednostně neaktivní panel)"
 
-[STRINGTABLE 73]
+[STRINGTABLE 76]
 12000,1,"&Nový"
 12001,1,"Nelze spustit aktuální e-mailový klient. Chyba číslo %d."
 12002,1,"Potvrdit NTFS komprimaci"
@@ -2902,7 +2917,7 @@ SLGINCOMPLETE,""
 12011,1,"Exportovaný soubor s konfigurací bude vytvořen pomocí konfigurace v registru.\nChcete uložit konfiguraci do registru před exportem?"
 12015,1,"Import konfigurace je celkem snadný. Stačí nalézt soubor s konfigurací a otevřít ho (klávesou Enter nebo na něm poklikejte). Měl by se otevřít v Editoru registru. Až se zobrazí dotaz, jestli chcete přidat informace ze souboru do registru, měli byste zavřít všechny běžící instance Open Samandarina. Zamezíte tak přepsání nově importované konfigurace automatickým uložením konfigurace při ukončení Open Samandarina. Jakmile ukončíte i posledního Open Samandarina, odpovězte Ano na dotaz v Editoru registru. Tím už se importuje konfigurace ze souboru do registru."
 
-[STRINGTABLE 74]
+[STRINGTABLE 77]
 12020,1,"Nelze načíst %s plugin (%s) nebo některé jeho součásti.\nChyba: %s\nPodívejte se na detaily pluginu v nabídce Pluginy / Správce pluginů."
 12021,1,"Tento SPL soubor %s není Open Samandarin plugin."
 12022,1,"%s plugin (%s) byl změněn. Prosím přeinstalujte (odstraňte a přidejte) tento plugin (v nabídce Pluginy / Správce pluginů)."
@@ -2911,7 +2926,7 @@ SLGINCOMPLETE,""
 12025,1,"Tento plugin (%s) nebyl načten. Plugin není platný pro Open Samandarin nebo došlo k vnitřní chybě pluginu."
 12026,1,"Tento plugin (%s) není podporovaný v této verzi Open Samandarinu. Prosím získejte aktualizovanou verzi tohoto pluginu."
 
-[STRINGTABLE 75]
+[STRINGTABLE 78]
 12033,1,"Chyba při komprimaci aktualizovaných souborů do archivu. Chcete operaci opakovat? Pokud zvolíte Ne, vrátíte se do dialogu Aktualizace archivu, takže můžete nakopírovat změněné soubory do vybrané složky na disku (a aktualizovat je v archivu později)."
 12039,1,"Velikost bloku vybraného v tomto zobrazení je větší než 100 MB. Kopírování tohoto bloku do schránky nebo přesunutí pomocí přetažení (drag & drop) může být pomalé. Chcete pro bloky větší než 100 MB v tomto zobrazení přeskočit tyto operace?"
 12040,1,"Neznámá chyba."
@@ -2923,7 +2938,7 @@ SLGINCOMPLETE,""
 12046,1,"&OEM - ANSI"
 12047,1,"Chybná velikost souboru (jiná než 256 bajtů)."
 
-[STRINGTABLE 76]
+[STRINGTABLE 79]
 12048,1,"Chyba při otvírání souboru "%s".\n%s"
 12049,1,"Neznámý interní kódovaný název (ani ANSI - OEM, ani OEM - ANSI) v souboru "%s"."
 12050,1,"Neplatný řádek v souboru "%s"."
@@ -2936,7 +2951,7 @@ SLGINCOMPLETE,""
 12060,1,"Prázdný název zde nemá smysl."
 12061,1,"Specifikovaná cesta je neúplná, prosím blíže určit plnou cestu."
 
-[STRINGTABLE 77]
+[STRINGTABLE 80]
 12080,1,"Běžící instance programu Open Samandarin je zaneprázdněna.\nChcete spustit novou instanci?"
 12081,1,"Open Samandarin je zaneprázdněn. Požadovaný příkaz nemůže být vykonán, prosím opakujte akci později."
 12085,1,"Kopírovat do souboru"
@@ -2951,7 +2966,7 @@ SLGINCOMPLETE,""
 12094,1,"Prohlížeč souborů"
 12095,1,"Rozšíření nabídky"
 
-[STRINGTABLE 78]
+[STRINGTABLE 81]
 12096,1,"Souborový systém"
 12097,1,"Ano"
 12098,1,"Ne"
@@ -2969,7 +2984,7 @@ SLGINCOMPLETE,""
 12110,1,"Název"
 12111,1,"Načteno"
 
-[STRINGTABLE 79]
+[STRINGTABLE 82]
 12112,1,"Verze"
 12113,1,"Umístění"
 12114,1,"(není)"
@@ -2987,7 +3002,7 @@ SLGINCOMPLETE,""
 12126,1,"Chyba při dotazu na vlastnosti souboru."
 12127,1,"Nástroj rozšíř. pomocníka"
 
-[STRINGTABLE 80]
+[STRINGTABLE 83]
 12128,1,"&Aktivovat"
 12129,1,"&Deaktivovat"
 12130,1,"Zadaná cesta nebyla nenalezena."
@@ -3005,13 +3020,13 @@ SLGINCOMPLETE,""
 12142,1,"Pokus o připojení síťové jednotky, stiskněte Esc pro zrušení..."
 12143,1,"Ukládání konfigurace do registru, čekejte prosím..."
 
-[STRINGTABLE 81]
+[STRINGTABLE 84]
 12145,1,"Odstraňování staré konfigurace z registru, čekejte prosím..."
 12146,1,"Extrahování souboru z archivu, čekejte prosím..."
 12147,1,"Probíhá čtení seznamu souborů a adresářů z archivu, čekejte prosím..."
 12148,1,"Načítání všech pluginů, čekejte prosím..."
 
-[STRINGTABLE 82]
+[STRINGTABLE 85]
 12160,1,"Cesta "%s" odmítá uzavření.\nVynutit jeho uzavření?"
 12165,1,"Více spojení se serverem nebo sdíleným prostředkem pod stejným uživatelem, používajícím více než jedno uživatelské jméno, není povoleno. Odpojte všechna předchozí spojení se serverem nebo sdíleným zdrojem a opakujte akci."
 12170,1,"Chcete ignorovat všechny vybrané soubory (vyjmout je z aktualizace archivu)?"
@@ -3019,22 +3034,22 @@ SLGINCOMPLETE,""
 12172,1,"Kopírovat změněné soubory"
 12173,1,"Vyberte cílový adresář pro změněné soubory."
 
-[STRINGTABLE 83]
+[STRINGTABLE 86]
 12180,1,"Probíhá kontrola cesty "%s", stiskněte Esc pro zrušení..."
 12181,1,"Probíhá výpis cesty "%s", stiskněte Esc pro zrušení..."
 12190,1,"Hledání textu, stiskněte Esc pro zrušení..."
 
-[STRINGTABLE 84]
+[STRINGTABLE 87]
 12200,1,"Cesta: "%s"\nChyba: %s"
 12201,1,"Cesta "%s" v archivu neexistuje."
 12205,1,"Prázdné uživatelské jméno zde není povoleno."
 
-[STRINGTABLE 85]
+[STRINGTABLE 88]
 12210,1,"Nabídka Nový není k dispozici."
 12215,1,"Adresář určený proměnnou prostředí TMP nebo TEMP neexistuje nebo není přístupný. Open Samandarin bude používat systémový adresář pro dočasné soubory."
 12220,1,"Nadřazený adresář"
 
-[STRINGTABLE 86]
+[STRINGTABLE 89]
 12225,1,"3.5 Disketa"
 12226,1,"5.25 Disketa"
 12227,1,"8.0 Disketa"
@@ -3043,7 +3058,7 @@ SLGINCOMPLETE,""
 12233,1,"V tomto panelu nejsou žádné položky."
 12235,1," (Plugin)"
 
-[STRINGTABLE 87]
+[STRINGTABLE 90]
 12240,1,"Nemůžete přerušit tuto úlohu (nedává to smysl). Použijte jinou Open Samandarin instanci pro přerušení této."
 12241,1,"Opravdu chcete ukončit aktuální proces?\n\nUPOZORNĚNÍ: Všechna neuložená data aktuálního procesu budou ztracena!"
 12242,1,"Opravdu chcete ukončit vybraný proces?\n\nUPOZORNĚNÍ: Všechna neuložená data ve vybraném procesu budou ztracena!"
@@ -3056,16 +3071,16 @@ SLGINCOMPLETE,""
 12249,1,"Opravdu si přejete přerušit zvolený proces a odeslat nám hlášení o chybě?\n\nPOZOR: Neuložená data ve zvoleném procesu budou ztracena!"
 12255,1,"Nelze číst soubor."
 
-[STRINGTABLE 88]
+[STRINGTABLE 91]
 12285,1,"Tato operace pravděpodobně nemá smysl. Všechny vybrané soubory a adresáře mají stejný cílový název (přepsaly by se navzájem).\nOpravdu chcete pokračovat v této operaci?"
 
-[STRINGTABLE 89]
+[STRINGTABLE 92]
 12290,1,"Cílová cesta "%s" neexistuje. Chcete cestu vytvořit?"
 12291,1,"&Příště vytvořit cílovou cestu bez dotazu\tjak vrátit zpět\tTuto volbu můžete později změnit v Konfiguraci na stránce Potvrzení."
 12295,1,"Operační masky nejsou podporovány v archivech (cesta do archivu musí končit zpětným lomítkem)."
 12300,1,"Neplatné číslo."
 
-[STRINGTABLE 90]
+[STRINGTABLE 93]
 12305,1,"Extrahování do archivů nebo pluginových souborových systémů není podporováno."
 12306,1,"Operační masky nejsou podporovány při extrahování z archivů (cílová cesta musí existovat nebo končit zpětným lomítkem)."
 12307,1,"Změna jazyka se projeví až po restartování programu Open Samandarin."
@@ -3076,7 +3091,7 @@ SLGINCOMPLETE,""
 12313,1,"Kopírování a přesun uvnitř tohoto pluginového souborového systému není podporováno."
 12314,1,"Kopírování a přesun na specifikovaný pluginový souborový systém není podporováno."
 
-[STRINGTABLE 91]
+[STRINGTABLE 94]
 12320,1,"Nelze získat komprimovanou velikost souboru pro soubor: "%s"\nChyba: %s\nChcete přeskočit všechny podobné chyby?"
 12325,1,"Cílová cesta pro tuto operaci nemůže obsahovat cestu k souboru (archivy zde nejsou podporovány)."
 12326,1,"Cílová cesta pro tuto operaci musí existovat (vytvoření cílové cesty zde není podporováno)."
@@ -3084,13 +3099,13 @@ SLGINCOMPLETE,""
 12331,1,"Nelze upravit nebo otevřít soubor z archivu. Název souboru je neplatný na souborovém systému Windows (takové soubory lze otevřít pouze v prohlížečích)."
 12335,1,"Komprimace do tohoto typy archivu není podporována. Open Samandarin nebude schopen aktualizovat soubor v archivu.\n\nOpravdu chcete upravit tento soubor?"
 
-[STRINGTABLE 92]
+[STRINGTABLE 95]
 12340,1,"Upozornění"
 12345,1,"Řetězec '%s' není platný regulární výraz.\nChyba: %s."
 12350,1,"&Zobrazit pomocí\tCtrl+Shift+F3"
 12351,1,"&Upravit pomocí\tCtrl+Shift+F4"
 
-[STRINGTABLE 93]
+[STRINGTABLE 96]
 12352,1,"&Otevřít\tEnter"
 12353,1,"Nelze najít řetězec '%s'."
 12354,1,"Nelze najít shodu pro regulární výraz '%s'."
@@ -3103,7 +3118,7 @@ SLGINCOMPLETE,""
 12363,1,"&Ukázat"
 12365,1,"Soubor:"
 
-[STRINGTABLE 94]
+[STRINGTABLE 97]
 12370,1,"Nelze extrahovat soubory a adresáře specifikované ve schránce. Nadále již nejsou v archivu."
 12371,1,"Některé soubory nebo adresáře specifikované ve schránce nebyly nalezeny v archivu.\n\nChcete pokračovat?"
 12372,1,"Nelze sem vložit soubory a adresáře ze schránky. Hlavní okno\nOpen Samandarinu musí být přístupné pro vykonání příkazu vložit."
@@ -3113,7 +3128,7 @@ SLGINCOMPLETE,""
 12382,1,"podporuje šifrovaný systém souborů (EFS)"
 12383,1,"podporuje identifikátory objektu"
 
-[STRINGTABLE 95]
+[STRINGTABLE 98]
 12384,1,"podporuje body změny zpracování"
 12385,1,"podporuje zhuštěné soubory"
 12386,1,"podporuje diskové kvóty"
@@ -3121,7 +3136,7 @@ SLGINCOMPLETE,""
 12391,1,"Potvrdit NTFS dešifrování"
 12395,1,"Soubor již existuje. Chcete upravit tento existující soubor?"
 
-[STRINGTABLE 96]
+[STRINGTABLE 99]
 12400,1,"Zdrojová cesta nemůže být přeložena z Unicode do multibyte, takže na ní není Open Samandarin schopen pracovat."
 12401,1,"Některé soubory nebo adresáře zadané v operaci přetahování (drag&drop) nebo ze schránky nebyly nalezeny.\n\nChcete pokračovat?"
 12405,1,"Nelze najít komprimátor pro plugin %s (podívejte se na stránku Komprimátory v dialogu Komprimovat v okně Konfigurace)."
@@ -3132,7 +3147,7 @@ SLGINCOMPLETE,""
 12413,1,"Soubor obsahuje alternativní datové proudy (ADS). ADS nejsou na cílové cestě podporovány. Stiskněte tlačítko Ano pro zkopírování souboru bez ADS. Stiskněte tlačítko Přeskočit pro přeskočení kopírování tohoto souboru."
 12414,1,"Adresář obsahuje alternativní datové proudy (ADS). ADS nejsou na cílové cestě podporovány. Stiskněte tlačítko Ano pro zkopírování adresáře bez ADS. Stiskněte tlačítko Přeskočit pro přeskočení kopírování tohoto adresáře."
 
-[STRINGTABLE 97]
+[STRINGTABLE 100]
 12420,1,"Chyba otevírání alternativního datového proudu"
 12421,1,"Chyba při čtení alternativního datového proudu"
 12422,1,"Chyba zápisu alternativního datového proudu"
@@ -3141,7 +3156,7 @@ SLGINCOMPLETE,""
 12430,1,"Název souboru"
 12431,1,"Velikost souboru"
 
-[STRINGTABLE 98]
+[STRINGTABLE 101]
 12432,1,"Datum posledního zápisu"
 12433,1,"Čas posledního zápisu"
 12434,1,"Atributy souboru"
@@ -3151,7 +3166,7 @@ SLGINCOMPLETE,""
 12442,1,"CRLF (DOS, Windows, OS/2 konec řádku)"
 12443,1,"Tab"
 
-[STRINGTABLE 99]
+[STRINGTABLE 102]
 12450,1,"Chyba Uživatelské nabídky"
 12451,1,"Seznam vybraných názvů je příliš dlouhý. Prosím odeberte některé názvy. Maximální délka je 32771 znaků."
 12452,1,"Seznam vybraných názvů je prázdný. Prosím vyberte některé názvy nebo na některý název umístěte fokus."
@@ -3164,7 +3179,7 @@ SLGINCOMPLETE,""
 12459,1,"Seznam vybraných názvů s cestou je příliš dlouhý. Prosím odeberte některé názvy. Maximální délka je 32771 znaků."
 12460,1,"Seznam vybraných názvů s cestou je prázdný. Prosím vyberte některé názvy nebo na některý název umístěte fokus."
 
-[STRINGTABLE 100]
+[STRINGTABLE 103]
 12465,1,"Vybrat adresáře pro porovnání"
 12466,1,"&Porovnat adresář:"
 12467,1,"&S adresářem:"
@@ -3176,13 +3191,13 @@ SLGINCOMPLETE,""
 12476,1,"spojení "%s""
 12477,1,"symbolický odkaz "%s""
 
-[STRINGTABLE 101]
+[STRINGTABLE 104]
 12480,1,"Cílový soubor by měl být zašifrovaný (použitím EFS), ale šifrování není na cílové cestě podporováno nebo nelze zašifrovat soubor v aktuálním stavu. Klepněte na tlačítko Ano pro přesunutí souboru bez šifrování. Klepněte na tlačítko Přeskočit pro přeskočení přesunu tohoto souboru."
 12481,1,"Cílový adresář by měl být zašifrovaný (použitím EFS), ale šifrování není na cílové cestě podporováno nebo nelze zašifrovat adresář v aktuálním stavu. Klepněte na tlačítko Ano pro přesunutí adresáře bez šifrování. Klepněte na tlačítko Přeskočit pro přeskočení přesunu tohoto adresáře."
 12482,1,"Cílový soubor by měl být zašifrovaný (použitím EFS), ale šifrování není na cílové cestě podporováno nebo nelze zašifrovat soubor v aktuálním stavu. Klepněte na tlačítko Ano pro kopírování souboru bez šifrování. Klepněte na tlačítko Přeskočit pro přeskočení kopírování tohoto souboru."
 12483,1,"Cílový adresář by měl být zašifrovaný (použitím EFS), ale šifrování není na cílové cestě podporováno nebo nelze zašifrovat adresář v aktuálním stavu. Klepněte na tlačítko Ano pro kopírování adresáře bez šifrování. Klepněte na tlačítko Přeskočit pro přeskočení kopírování tohoto adresáře."
 
-[STRINGTABLE 102]
+[STRINGTABLE 105]
 12801,1,"soubor "%s""
 12802,1,"adresář "%s""
 12803,1,"Opravdu chcete komprimovat %s?\n\nUpozornění: soubory a adresáře budou před komprimací dešifrovány."
@@ -3198,7 +3213,7 @@ SLGINCOMPLETE,""
 12813,1,"Opravdu chcete dešifrovat %s?"
 12815,1,"Soubor "%s""
 
-[STRINGTABLE 103]
+[STRINGTABLE 106]
 12816,1,"Adresář "%s""
 12818,1,"Potvrdit odstranění"
 12820,1,"{!}%s bajt{ů|0||1|y|4|ů}"
@@ -3213,7 +3228,7 @@ SLGINCOMPLETE,""
 12830,1,"{!}%s bajt{ů|0||1|y|4|ů} v %d vybran{ých souborech|0|ém souboru|1|ých souborech} a %d vybran{ém adresáři|1|ých adresářích}"
 12831,1,"{!}%d soubor{ů|0||1|y|4|ů}"
 
-[STRINGTABLE 104]
+[STRINGTABLE 107]
 12832,1,"{!}%d adresář{|1|e|4|ů}"
 12833,1,"{!}%d soubor{|1|y|4|ů} a %d adresář{|1|e|4|ů}"
 12834,1,"{!}<%s> bajt{ů|0||1|y|4|ů} v{|1|e|4|} %d vybran{2:ých souborech|0|ém souboru|1|ých souborech}"
@@ -3229,7 +3244,7 @@ SLGINCOMPLETE,""
 12844,1,"{!}%d skryt{ý adresář|1|é adresáře|4|ých adresářů}"
 12845,1,"{!}%d skryt{ých souborů|0|ý soubor|1|é soubory|4|ých souborů} a %d skryt{ý adresář|1|é adresáře|4|ých adresářů}"
 
-[STRINGTABLE 105]
+[STRINGTABLE 108]
 13000,1,"&Levý"
 13001,1,"Změnit &jednotku\tAlt+F1"
 13002,1,"&Filtr...\tCtrl+F12"
@@ -3239,7 +3254,7 @@ SLGINCOMPLETE,""
 13006,1,"Panel &adresáře"
 13007,1,"Panel &záhlaví"
 
-[STRINGTABLE 106]
+[STRINGTABLE 109]
 13008,1,"Panel &informací"
 13009,1,"&Aktualizovat\tCtrl+F9"
 13010,1,"Přejí&t"
@@ -3257,7 +3272,7 @@ SLGINCOMPLETE,""
 13022,1,"&Zobrazit\tF3"
 13023,1,"Zobrazit al&ternativně\tAlt+F3"
 
-[STRINGTABLE 107]
+[STRINGTABLE 110]
 13024,1,"&Upravit\tF4"
 13025,1,"Upravit &nový soubor...\tShift+F4"
 13026,1,"&Kopírovat...\tF5"
@@ -3272,7 +3287,7 @@ SLGINCOMPLETE,""
 13038,1,"NTFS &Dekomprimovat..."
 13039,1,"Ko&mprimovat...\tAlt+F5"
 
-[STRINGTABLE 108]
+[STRINGTABLE 111]
 13040,1,"E&xtrahovat...\tAlt+F9"
 13041,1,"Nov&ý"
 13042,1,"Kone&c\tAlt+F4"
@@ -3283,7 +3298,7 @@ SLGINCOMPLETE,""
 13047,1,"NTFS D&ešifrovat..."
 13048,1,"NT&FS Příkazy"
 
-[STRINGTABLE 109]
+[STRINGTABLE 112]
 13060,1,"&Upravit"
 13061,1,"&Vyjmout\tCtrl+X"
 13062,1,"&Kopírovat\tCtrl+C"
@@ -3297,7 +3312,7 @@ SLGINCOMPLETE,""
 13070,1,"&Invertovat výběr\tNum *"
 13071,1,"V&ybrat vše\tCtrl+A"
 
-[STRINGTABLE 110]
+[STRINGTABLE 113]
 13072,1,"Zrušit c&elý výběr\tCtrl+D"
 13073,1,"Ul&ožit výběr\tCtrl+Shift+F5"
 13074,1,"&Načíst výběr...\tCtrl+Shift+F6"
@@ -3314,7 +3329,7 @@ SLGINCOMPLETE,""
 13085,1,"S&krýt nevybrané názvy"
 13086,1,"Zobraz&it skryté názvy"
 
-[STRINGTABLE 111]
+[STRINGTABLE 114]
 13090,1,"Pří&kazy"
 13091,1,"&Vytvořit adresář...\tF7"
 13092,1,"&Změnit adresář...\tShift+F7"
@@ -3330,7 +3345,7 @@ SLGINCOMPLETE,""
 13102,1,"Připo&jit síťovou jednotku...\tF11"
 13103,1,"O&dpojit...\tF12"
 
-[STRINGTABLE 112]
+[STRINGTABLE 115]
 13104,1,"&Příkazový řádek\tNum /"
 13105,1,"&Aktualizovat přidružení typů souborů"
 13107,1,"&Uživatelská nabídka\tF9"
@@ -3346,7 +3361,7 @@ SLGINCOMPLETE,""
 13118,1,"N&edávno použité dokumenty"
 13119,1,"&Dokumenty"
 
-[STRINGTABLE 113]
+[STRINGTABLE 116]
 13120,1,"Ša&blony dokumentů"
 13121,1,"&Odeslat do adresáře"
 13122,1,"Ad&resář plochy"
@@ -3359,7 +3374,7 @@ SLGINCOMPLETE,""
 13131,1,"S&právce pluginů..."
 13132,1,"Poslední příkaz\tCtrl+I"
 
-[STRINGTABLE 114]
+[STRINGTABLE 117]
 13140,1,"&Možnosti"
 13141,1,"&Konfigurace..."
 13142,1,"&Autokonfigurace archivačních programů..."
@@ -3373,7 +3388,7 @@ SLGINCOMPLETE,""
 13150,1,"Panel &uživatelské nabídky"
 13151,1,"Pří&kazový řádek"
 
-[STRINGTABLE 115]
+[STRINGTABLE 118]
 13152,1,"Sp&odní panel nástrojů"
 13153,1,"&Uložit konfiguraci"
 13154,1,"&Exportovat konfiguraci..."
@@ -3391,14 +3406,14 @@ SLGINCOMPLETE,""
 13166,1,"Panel plu&ginů..."
 13167,1,"&Importovat konfiguraci..."
 
-[STRINGTABLE 116]
+[STRINGTABLE 119]
 13168,1,"&Stromové zobrazení"
 13169,1,"&Spravovat konfigurace..."
 13170,1,"P&ravý"
 13171,1,"Změnit &jednotku\tAlt+F2"
 13172,1,"Karty &panelů"
 
-[STRINGTABLE 117]
+[STRINGTABLE 120]
 13190,1,"&Nápověda"
 13191,1,"&Obsah\tF1"
 13192,1,"&Hledat..."
@@ -3408,7 +3423,7 @@ SLGINCOMPLETE,""
 13197,1,"Seznam ú&loh..."
 13199,1,"O plu&ginech"
 
-[STRINGTABLE 118]
+[STRINGTABLE 121]
 13200,1,"O &programu Open Samandarin"
 13201,1,"Poděkování a u&znání"
 13202,1,"Oficiální &fórum podpory"
@@ -3423,7 +3438,7 @@ SLGINCOMPLETE,""
 13213,1,"P&ředchozí karta"
 13214,1,"D&uplikovat kartu"
 
-[STRINGTABLE 119]
+[STRINGTABLE 122]
 13220,1,"Nová &karta\tCtrl+Shift+T"
 13221,1,"&Zavřít kartu\tCtrl+Shift+W"
 13222,1,"&Další karta\tCtrl+Shift+Page Down"
@@ -3437,7 +3452,7 @@ SLGINCOMPLETE,""
 13230,1,"Nastavit barvu karty &..."
 13231,1,"Vy&mazat barvu karty"
 
-[STRINGTABLE 120]
+[STRINGTABLE 123]
 13232,1,"Nastavit barvu karty &..."
 13233,1,"Vy&mazat barvu karty"
 13234,1,"Nastavit předponu karty &..."
@@ -3455,7 +3470,7 @@ SLGINCOMPLETE,""
 13246,1,"D&uplikovat kartu"
 13247,1,"D&uplikovat kartu"
 
-[STRINGTABLE 121]
+[STRINGTABLE 124]
 13248,1,"Znovu otevřít zavřenou &kartu"
 13249,1,"&Uzamknout kartu"
 13250,1,"Odem&knout kartu"
@@ -3467,7 +3482,7 @@ SLGINCOMPLETE,""
 13260,1,"&Karty"
 13261,1,"&Karty"
 
-[STRINGTABLE 122]
+[STRINGTABLE 125]
 13300,1,"&Soubory"
 13301,1,"&Otevřít\tEnter"
 13302,1,"Ukáz&at\tMezerník"
@@ -3481,7 +3496,7 @@ SLGINCOMPLETE,""
 13310,1,"&Uživatelská nabídka\tF9"
 13311,1,"Za&vřít\tAlt+F4"
 
-[STRINGTABLE 123]
+[STRINGTABLE 126]
 13312,1,"&Skrýt duplicitní názvy\tCtrl+Shift+H"
 13313,1,"Pří&kazy"
 13314,1,"V&lastnosti\tAlt+Enter"
@@ -3495,7 +3510,7 @@ SLGINCOMPLETE,""
 13326,1,"Kopírovat název jako te&xt\tAlt+Shift+Insert"
 13327,1,"Kopírovat ces&tu jako text\tCtrl+Alt+Insert"
 
-[STRINGTABLE 124]
+[STRINGTABLE 127]
 13328,1,"Kopírovat U&NC cestu + název jako text\tCtrl+Shift+Insert"
 13330,1,"&Zobrazit"
 13331,1,"Seřadit podle &názvu\tCtrl+F3"
@@ -3507,7 +3522,7 @@ SLGINCOMPLETE,""
 13342,1,"Při&dat aktuální\tCtrl+N"
 13343,1,"&Spravovat...\tCtrl+M"
 
-[STRINGTABLE 125]
+[STRINGTABLE 128]
 13344,1,"Povolit jen jedno &okno hledání"
 13345,1,"Zobrazit &protokol hledání...\tCtrl+L"
 13346,1,"Seznam &ignorovaných adresářů...\tCtrl+G"
@@ -3520,7 +3535,7 @@ SLGINCOMPLETE,""
 13358,1,"Přip&ojit k nalezeným položkám\tCtrl+W"
 13359,1,"Hledat &duplicitní soubory...\tCtrl+D"
 
-[STRINGTABLE 126]
+[STRINGTABLE 129]
 13360,1,"&Otevřít\tEnter"
 13361,1,"Zo&brazit\tF3"
 13362,1,"Zob&razit pomocí\tCtrl+Shift+F3"
@@ -3532,7 +3547,7 @@ SLGINCOMPLETE,""
 13368,1,"Kopírovat do schránk&y\tCtrl+C"
 13369,1,"V&ložit\tCtrl+V"
 
-[STRINGTABLE 127]
+[STRINGTABLE 130]
 13380,1,"Název"
 13381,1,"Oddělená přípona"
 13382,1,"DOS název (8.3)"
@@ -3543,14 +3558,14 @@ SLGINCOMPLETE,""
 13387,1,"Atributy"
 13388,1,"Vlastnosti"
 
-[STRINGTABLE 128]
+[STRINGTABLE 131]
 13400,1,"&Název\tCtrl+F3"
 13401,1,"&Přípona\tCtrl+F4"
 13402,1,"&Velikost\tCtrl+F6"
 13403,1,"&Datum\tCtrl+F5"
 13404,1,"&Atributy"
 
-[STRINGTABLE 129]
+[STRINGTABLE 132]
 13445,1,"Potvrdit"
 13446,1,"Zobrazit zprávu"
 13450,1,"Smazání souboru nebo adresáře (viz. pozn. 1 níže)"
@@ -3560,7 +3575,7 @@ SLGINCOMPLETE,""
 13454,1,"Smazání adresáře s atributy Skrytý nebo Systémový (viz. pozn. 2 níže)"
 13455,1,"Přepsání souboru s atributy Skrytý nebo Systémový (ignorováno v archivech)"
 
-[STRINGTABLE 130]
+[STRINGTABLE 133]
 13456,1,"NTFS komprimace nebo dekomprimace (ignorováno v archivech)"
 13457,1,"NTFS šifrování nebo dešifrování (ignorováno v archivech)"
 13458,1,"Operace přetažení pomocí myši"
@@ -3572,7 +3587,7 @@ SLGINCOMPLETE,""
 13470,1,"Chcete zavřít okno Vyhledat soubory a adresáře?"
 13471,1,"Chcete vytvořit cílovou cestu? (v operacích Kopírovat/Přesunout)"
 
-[STRINGTABLE 131]
+[STRINGTABLE 134]
 13472,1,"Chcete zapnout volbu Vždy navrchu?"
 13473,1,"Chcete zavřít Open Samandarin?"
 13474,1,"Chcete poslat e-mail s vybranými soubory?"
@@ -3586,10 +3601,10 @@ SLGINCOMPLETE,""
 13482,1,"soubor"
 13483,1,"složka"
 
-[STRINGTABLE 132]
+[STRINGTABLE 135]
 13551,1,"Chcete zavřít Open Samandarin?"
 
-[STRINGTABLE 133]
+[STRINGTABLE 136]
 13553,1,"(není)"
 13554,1,"Síť"
 13555,1,"Pluginy"
@@ -3603,7 +3618,7 @@ SLGINCOMPLETE,""
 13563,1,"&Příště zavřít Open Samandarin bez dotazu\tjak vrátit zpět\tTuto volbu můžete později změnit v Konfiguraci na stránce Potvrzení."
 13564,1,"&Příště vytvořit adresář bez dotazu\tjak vrátit zpět\tTuto volbu můžete později změnit v Konfiguraci na stránce Potvrzení."
 
-[STRINGTABLE 134]
+[STRINGTABLE 137]
 13670,1,"Režim"
 13671,1,"Miniatury"
 13672,1,"Stručný"
@@ -3612,7 +3627,7 @@ SLGINCOMPLETE,""
 13675,1,"Vyhrazený"
 13676,1,"Dlaždice"
 
-[STRINGTABLE 135]
+[STRINGTABLE 138]
 13680,1,"&Miniatury"
 13681,1,"&Stručný"
 13682,1,"&Podrobný"
@@ -3622,19 +3637,19 @@ SLGINCOMPLETE,""
 13686,1,"Vyhrazený"
 13687,1,"&Dlaždice"
 
-[STRINGTABLE 136]
+[STRINGTABLE 139]
 13700,1,"Aktuálně přiřazeno: %s"
 13701,1,"Tato klávesová zkratka patří Open Samandarinu. Zvolte prosím jinou."
 13710,1,"Kopírovat %s"
 13711,1,"Přesunout %s"
 
-[STRINGTABLE 137]
+[STRINGTABLE 140]
 13712,1,"Z:"
 13713,1,"Do:"
 13720,1,"Výstup příkazu Vytvořit seznam souborů"
 13725,1,"Vlastníky a práva nelze zachovat. Nejsou podporovány na cílové\ncestě (nejde o NTFS svazek).\n\nChcete pokračovat?"
 
-[STRINGTABLE 138]
+[STRINGTABLE 141]
 13730,1,"Zaslat zprávu o chybě"
 13731,1,"Pro oznámení chyb nebo žádosti o novou vlastnost programu prosím použijte nabídku Nápověda > Oficiální fórum podpory.\n\nToto hlášení chyby použijte pouze pro odeslání citlivých dat nebo pokud Vás o to požádáme."
 13735,1,"&Přeskočit"
@@ -3645,7 +3660,7 @@ SLGINCOMPLETE,""
 13742,1,"Zdá se, že nemáte žádný jazykový modul (.SLG) pro tento plugin (podívejte se do podadresáře pluginu LANG)."
 13743,1,"&Příště nezobrazovat tuto zprávu pro ostatní pluginy"
 
-[STRINGTABLE 139]
+[STRINGTABLE 142]
 13750,1,"Konfigurace uložená v registru je poškozená a nemůže být načtena. Open Samandarin byl pravděpodobně ukončen během ukládání konfigurace. K tomu dochází zejména, pokud je Open Samandarin spuštěný během vypínání operačního systému (nebo odhlašování uživatele). Chcete-li tomuto problému zabránit, ukončete Open Samandarin před vypnutím operačního systému Windows (nebo odhlášením).\n\nNyní můžete zálohovat poškozenou konfiguraci (spusťte RegEdit.exe, přejmenujte klíč HKEY_CURRENT_USER\\%s). Později této zálohy můžete získat některá nastavení (Uživatelskou nabídku, Adresářové zkratky, FTP záložky, atd.), navštivte forum.altap.cz pro detaily.\n\nPoškozená konfigurace musí být před spuštěním Open Samandarinu odstraněna z registru."
 13751,1,"Používáte nestandardní hodnoty následujících parametrů používaných během odhlášení uživatele a vypnutí operačního systému. Je to pravděpodobně příčina poškození konfigurace Open Samandarinu (je ukončen během ukládání konfigurace do registru).\n\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\WaitToKillAppTimeout by měl být 20000.\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\AutoEndTasks by měl být 0."
 13752,1,"&Odstranit konfiguraci"
@@ -3653,21 +3668,21 @@ SLGINCOMPLETE,""
 13756,1,"&Soubory"
 13757,1,"&Adresáře"
 
-[STRINGTABLE 140]
+[STRINGTABLE 143]
 13760,1,"Soubor nemůže být zkopírován do zadané cílové cesty, protože je příliš velký pro systém souborů FAT32.\n\nSoubor: %s"
 13765,1,"Cesta, na kterou by měl Open Samandarin přejít v případě, že je cesta v panelu nedostupná, je neplatná. Opravte prosím tuto cestu v Konfiguraci na stránce Jednotky."
 13770,1,"Nelze umístit soubor do dočasného adresáře."
 13771,1,"Výsledný název souboru je příliš dlouhý."
 13775,1,"Přetažení a&vytvoření operace z archivu nebo pluginového souborového systému se nezdařilo. Odstraňte prosím nechtěně vytvořenou složku DROPFAKE (pokud existuje) z cílové složky.\n\nK tomu by mělo dojít pouze bezprostředně po instalaci nebo pokud cílem přetažení není Windows Explorer ani Open Samandarin. Pokud je cílem Windows Explorer, restartujte prosím Windows pro odstranění tohoto problému (pokročilí uživatelé mohou pouze ukončit proces explorer.exe a znovu jej spustit)."
 
-[STRINGTABLE 141]
+[STRINGTABLE 144]
 13776,1,"Výchozí"
 13777,1,"Červená"
 13778,1,"Zelená"
 13779,1,"Modrá"
 13780,1,"Samandarin"
 
-[STRINGTABLE 142]
+[STRINGTABLE 145]
 13800,1,"%d hod"
 13801,1,"%d min"
 13802,1,"%d sek"
@@ -3675,21 +3690,21 @@ SLGINCOMPLETE,""
 13806,1,"Přesunuto: %s z %s"
 13807,1,"rychlost: %s/s"
 
-[STRINGTABLE 143]
+[STRINGTABLE 146]
 13808,1,"rychlost: %s/s (omezení: %s/s)"
 13809,1,"zbývající čas: %s"
 13815,1,"Omezení rychlosti musí být číslo v rozsahu 1 B/s až 4 GB/s."
 13820,1,"&Nastavit omezení rychlosti..."
 13821,1,"&Čekat na dokončení všech předchozích operací Kopírovat/Přesunout"
 
-[STRINGTABLE 144]
+[STRINGTABLE 147]
 13825,1,"&Konec"
 
-[STRINGTABLE 145]
+[STRINGTABLE 148]
 13850,1,"Nelze uložit konfiguraci pluginu %s (chyba otevírání konfiguračního klíče Open Samandarinu).\n\nOpravdu chcete plugin uvolnit z paměti?"
 13855,1,"Název"
 
-[STRINGTABLE 146]
+[STRINGTABLE 149]
 13856,1,"Popis"
 13857,1,"Změna překryvů ikon se projeví až po restartování Open Samandarinu."
 13865,1,"Open Samandarin se stal nestabilní. Vyskytla se výjimka v %s obslužné funkci překryvů ikon. Podobným haváriím Open Samandarinu můžete předejít, pokud nebudete používat tuto rutinu (klepněte na tlačítko Tento) nebo úplně zastavíte zobrazování překryvů ikon (klepněte na tlačítko Vše). Můžete také zkusit aktualizovat software poskytující překryvy ikon (prohledejte forum.altap.cz pro detaily).\n\nKterou obslužnou rutinu překryvů ikon chcete vypnout?\n\nPoznámka: zobrazení překryvů ikon můžete nastavit v konfiguračním dialogu (viz. stránka Překryvy ikon)."
@@ -3698,7 +3713,7 @@ SLGINCOMPLETE,""
 13870,1,"Soubor config.reg (nebo jiný zadaný s argumentem -c) nebyl importován do registru kvůli importu konfigurace ze starší verze Open Samandarinu. Pro vyřešení tohoto problému nyní ukončete Open Samandarin a spusťte jej znovu."
 13871,1,"Aktualizovali jste Open Samandarin na novou verzi. Během aktualizace se importuje stará verze konfigurace. Stará verze obsahovala pluginy (uvedené níže), které chybí (nebo které nefungují) v nové verzi, proto jejich konfigurace nemůže být nyní importována. Nyní můžete spustit Open Samandarin bez těchto pluginů (konfigurace staré verze zůstává v registru a tak ji můžete importovat později). Nebo nyní ukončete Open Samandarin, nainstalujte chybějící pluginy a znovu spusťte Open Samandarin.\n\nChybějící (nebo nefunkční) pluginy: %s%s."
 
-[STRINGTABLE 147]
+[STRINGTABLE 150]
 13872,1,", %d dalších pluginů přeskočeno"
 13873,1,"&Spustit bez chybějících pluginů"
 13880,1,"Nedostatek paměti pro přidělení %Iu bajtů. Zkuste uvolnit paměť (například zavřete některé spuštěné aplikace) a klepněte na tlačítko Opakovat. Pokud to nepomůže, klepněte na tlačítko Ignorovat pro předání chyby aplikaci nebo klepněte na tlačítko Přerušit pro ukončení této aplikace."
@@ -3707,7 +3722,7 @@ SLGINCOMPLETE,""
 13885,1,"Připojeno k %s"
 13886,1,"Neplatné heslo nebo neznámé jméno uživatele pro: %s"
 
-[STRINGTABLE 148]
+[STRINGTABLE 151]
 13890,1,"Soubor"
 13891,1,"%s Soubor"
 13900,1,"Vaše heslo je příliš jednoduché a nemusí poskytovat dostatečné zabezpečení proti slovníkovému útoku nebo útoku hrubou silou.\nOpravdu chcete heslo použít?\n\nPoznámka: dobrá hesla mají nejméně šest znaků a obsahují malá a velká písmena, číslice a zvláštní znaky, jako oddělovače, symboly, písmena s akcentem, atd."
@@ -3715,7 +3730,7 @@ SLGINCOMPLETE,""
 13902,1,"Heslo bylo úspěšně změněno"
 13903,1,"Hlavní heslo bylo odebráno. Vaše uložená hesla (například FTP a WinSCP) nebudou zabezpečena."
 
-[STRINGTABLE 149]
+[STRINGTABLE 152]
 13904,1,"Hlavní heslo bylo úspěšně změněno. Vaše uložené hesla (například FTP a WinSCP) jsou nyní zabezpečena AES šifrou."
 13905,1,"Zadané hlavní heslo není správné. Opakujte akci."
 13906,1,"Procházet adresář"
@@ -3725,7 +3740,7 @@ SLGINCOMPLETE,""
 13915,1,"PID=%d, spuštěno v %s, %s%s"
 13916,1,", aktuální proces"
 
-[STRINGTABLE 150]
+[STRINGTABLE 153]
 13920,1,"Uložit aktuální název souboru jako výchozí"
 13921,1,"Vrátit výchozí název souboru na %s"
 13925,1,"{!}Porovnávané adresáře obsahují nejméně %d pár{|1|y|4|ů} souborů s časovým rozdílem přesně jedné nebo dvou hodin. {Tento rozdíl byl ignorován|1|Tyto rozdíly byly ignorovány} jako související s letním časem. Lze potlačit v Konfiguraci na stránce Obecné."
@@ -3737,14 +3752,14 @@ SLGINCOMPLETE,""
 13933,1,"Uložit možnosti jako výchozí"
 13934,1,"Obnovit výchozí možnosti"
 
-[STRINGTABLE 151]
+[STRINGTABLE 154]
 13945,1,"Pokud chcete importovat konfiguraci při každém spuštění programu Open Samandarin, exportujte do instalačního adresáře soubor s názvem config.reg. Pro importování jiného souboru s konfigurací použijte v příkazovém řádku parametr -C (např. "salamand.exe -C myconfig.reg").\n\nDoporučujeme přidat vyčištění klíče registru s konfigurací přímo do exportovaného souboru. Jinak bude importovaná konfigurace sloučena s aktuální v registru, což může mít za následek nekonzistentní konfiguraci."
 13946,1,"Pokud chcete importovat konfiguraci při každém spuštění Open Samandarinu, exportujte do datového adresáře aplikace (nebo instalačního adresáře) soubor s názvem config.reg. Pro importování jiného souboru s konfigurací použijte v příkazovém řádku parametr -C (např. "salamand.exe -C myconfig.reg").\n\nDoporučujeme přidat vyčištění klíče registru s konfigurací přímo do exportovaného souboru. Jinak bude importovaná konfigurace sloučena s aktuální v registru, což může mít za následek nekonzistentní konfiguraci."
 13947,1,"&Přidat vyčištění klíče registru s konfigurací přímo do exportovaného souboru"
 13950,1,"Nelze otevřít nebo číst soubor s konfigurací.\n\nSoubor: %s\nChyba: %s"
 13951,1,"Soubor s konfigurací je příliš velký.\n\nSoubor: %s"
 
-[STRINGTABLE 152]
+[STRINGTABLE 155]
 13952,1,"Nelze importovat zadaný soubor. Nejedná se o soubor s konfigurací.\n\nSoubor: %s"
 13953,1,"Nelze importovat soubor s konfigurací. Soubor má neplatný formát.\n\nSoubor: %s"
 13954,1,"Nelze importovat soubor s konfigurací do registru. Chyba zápisu do registru.\n\nSoubor: %s"
@@ -3752,7 +3767,7 @@ SLGINCOMPLETE,""
 13965,1,"Nelze exportovat konfiguraci do souboru. Chyba při čtení konfigurace z registru."
 13966,1,"Nelze exportovat konfiguraci do souboru. Chyba zápisu konfigurace do souboru.\n\nSoubor: %s"
 
-[STRINGTABLE 153]
+[STRINGTABLE 156]
 13970,1,"Nelze otevřít místní nabídku panelu, protože cesta v panelu je pseudo-adresář pro přesměrovač WOW64."
 13971,1,"Nelze otevřít místní nabídku, protože aktuální výběr obsahuje "%s", který je pseudo-adresář pro přesměrovač WOW64."
 13972,1,"Nelze otevřít Vlastnosti, protože aktuální výběr obsahuje "%s", který je pseudo-adresář pro přesměrovač WOW64."
@@ -3765,7 +3780,7 @@ SLGINCOMPLETE,""
 13982,1,"MB"
 13983,1,"GB"
 
-[STRINGTABLE 154]
+[STRINGTABLE 157]
 13984,1,"TB"
 13985,1,"PB"
 13986,1,"EB"
@@ -3774,14 +3789,14 @@ SLGINCOMPLETE,""
 13992,1,"MB/s"
 13993,1,"GB/s"
 
-[STRINGTABLE 155]
+[STRINGTABLE 158]
 14000,1,"[neplatný]"
 14005,1,"Správce"
 14010,1,"Zadejte prosím validní emailovou adresu, abychom Vám mohli s hlášeným problémem pomoci."
 14011,1,"Počkejte prosím na dokončení komprimace a nahrání dat."
 14012,1,"Opravdu nás nechcete informovat o tomto problému? Bez hlášení o chybě nebudeme schopni problém opravit.\n\nKlikněte na tlačítko OK pro odstranění hlášení bez jeho odeslání."
 
-[STRINGTABLE 156]
+[STRINGTABLE 159]
 14020,1,"Nahrávaný soubor překračuje povolenou velikost. Kód: %d."
 14021,1,"Soubor byl nahrán pouze částečně. Kód: %d."
 14022,1,"Soubor nebyl nahrán. Kód: %d."
@@ -3792,7 +3807,7 @@ SLGINCOMPLETE,""
 14030,1,"Syntaktická chyba v odpovědi serveru. Otevírací značka nebyla nalezena."
 14031,1,"Syntaktická chyba v odpovědi serveru. Zavírací značka nebyla nalezena."
 
-[STRINGTABLE 157]
+[STRINGTABLE 160]
 14032,1,"Syntaktická chyba v odpovědi serveru. Hodnota nebyla nalezena."
 14040,1,"Nelze přijmout data. Kód: %d."
 14041,1,"Nelze zavřít připojení. Kód: %d."
@@ -3802,7 +3817,7 @@ SLGINCOMPLETE,""
 14045,1,"Nelze získat adresu serveru. Kód: %d."
 14046,1,"Nelze inicializovat spojení. Kód: %d."
 
-[STRINGTABLE 158]
+[STRINGTABLE 161]
 14050,1,"Chyba čtení souboru %s"
 14051,1,"Nedostatek paměti"
 14052,1,"Chyba při získávání velikosti souboru %s"
@@ -3811,7 +3826,7 @@ SLGINCOMPLETE,""
 14062,1,"Chybové hlášení programu Open Samandarin"
 14063,1,"Probíhá komprimace, čekejte prosím..."
 
-[STRINGTABLE 159]
+[STRINGTABLE 162]
 14064,1,"Probíhá nahrávání, čekejte prosím..."
 14065,1,"Hlášení bylo úspěšně nahráno.\n\nDěkujeme, že nám pomáháte vylepšovat Open Samandarin!"
 14066,1,"Otevření problému na GitHubu se nepodařilo. ShellExecute vrátil kód %d.\n\nArchiv s hlášením zůstává na vašem disku. Klikněte na OK pro zobrazení složky s hlášením."
@@ -3824,15 +3839,15 @@ SLGINCOMPLETE,""
 14074,1,"Nelze vytvořit minidump soubor %s. Kód: %d."
 14075,1,"Chyba během vytváření minidump souboru. Kód: %d."
 
-[STRINGTABLE 160]
+[STRINGTABLE 163]
 14100,1,"Program Chybové hlášení Open Samandarin (salmon.exe) není spuštěný. Open Samandarin nebude schopná oznámit případné pády. Ukončete a znovu spusťte Open Samandarin."
 
-[STRINGTABLE 161]
+[STRINGTABLE 164]
 14150,1,"Nedokončený překlad programu Open Samandarin"
 14151,1,"Překlad programu Open Samandarin do Vašeho jazyka není dokončený. Zvažte prosím navštívení našeho diskuzního fóra a připojení se k překladatelskému týmu:"
 14155,1,"Nelze odeslat soubor nebo adresář do Koše, protože má chybný název.\n\nChybná část názvu: "%s"\n\nNápověda: Zkuste ho přejmenovat před odesláním do Koše nebo ho úplně odstranit (pomocí Shift+Delete)."
 
-[STRINGTABLE 162]
+[STRINGTABLE 165]
 14160,1,"Nelze načíst plugin %s. Tento plugin je k dispozici jen v x86 (32bitové) verzi Open Samandarina. Jestli tento plugin potřebujete, spusťte si prosím x86 verzi Open Samandarina. Omlouváme se za tuto nepříjemnost."
 14165,1,"Disk Google"
 14166,1,"Dropbox"
@@ -3841,7 +3856,7 @@ SLGINCOMPLETE,""
 14170,1,"nelze zjistit cíl odkazu"
 14171,1,"připojovací bod svazku"
 
-[STRINGTABLE 163]
+[STRINGTABLE 166]
 14180,1,"Chyba při získávání velikosti cílového souboru odkazu"
 14181,1,"Pokoušíte se přesunout označené soubory a adresáře do archivu. Není to možné, protože označení obsahuje odkaz na adresář (spojení, připojovací bod svazku nebo symbolický odkaz). Pokračujte prosím bez odstranění souborů z disku po přidání do archivu.\n\nOdkaz: %s"
 14185,1,"Právě probíhá operace na disku."
@@ -3850,7 +3865,7 @@ SLGINCOMPLETE,""
 14188,1,"Windows odmítá přerušit vypínání. Tato zpráva ho dočasně zablokuje. Prosím počkejte a před zavřením této zprávy přerušte vypínání ručně. Jinak dojde k ukončení Open Samandarina bez uložení konfigurace."
 14189,1,"Windows odmítá přerušit vypínání. Tato zpráva ho dočasně zablokuje.\n\nPrávě probíhají nějaké diskové operace. Přejete si je nyní přerušit? Klikněte na Ne jen pokud jste přerušili vypínání ručně, jinak riskujete , že na disku zůstanou nedokončené soubory.\n\nProsím počkejte a před zodpovězením tohoto dotazu přerušte vypínání ručně. Jinak dojde k ukončení Open Samandarina bez uložení konfigurace."
 
-[STRINGTABLE 164]
+[STRINGTABLE 167]
 14195,1,"Zavírání oken Vyhledat, čekejte prosím..."
 14196,1,"Zavírání rozšíření a pluginů, čekejte prosím..."
 14197,1,"Zavírání panelů a souborových systémů, čekejte prosím..."
@@ -3864,7 +3879,7 @@ SLGINCOMPLETE,""
 14206,1,"Panel stromového zobrazení"
 14207,1,"Zavřít panel stromového zobrazení"
 
-[STRINGTABLE 165]
+[STRINGTABLE 168]
 14208,1,"Automaticky skrýt panel stromového zobrazení"
 14209,1,"Připnout panel stromového zobrazení"
 14210,1,"Nelze určit cestu k přenosnému konfiguračnímu souboru config.reg."
@@ -3881,7 +3896,7 @@ SLGINCOMPLETE,""
 14221,1,"Upozornění na kompatibilitu kódové stránky"
 14222,1,"Vybraný jazyk nemusí správně zobrazovat všechny znaky, protože kódová stránka vašeho systémového nastavení Windows (%u) neodpovídá kódové stránce požadované tímto jazykem (%u).\n\nPro opravu změňte své systémové nastavení v Windows: Nastavení > Čas a jazyk > Region > Správa > Změnit systémové nastavení."
 
-[STRINGTABLE 166]
+[STRINGTABLE 169]
 14232,1,"Naposledy uloženo"
 14233,1,"Název konfigurace"
 14234,1,"Verze"
@@ -3890,7 +3905,7 @@ SLGINCOMPLETE,""
 14237,1,"Umístění"
 14239,1,"Prázdná konfigurace s výchozími hodnotami"
 
-[STRINGTABLE 167]
+[STRINGTABLE 170]
 14256,1,"přenosné"
 14258,1,"-"
 14259,1,"Registr"
@@ -3907,7 +3922,7 @@ SLGINCOMPLETE,""
 14270,1,"Servant Salamander %s"
 14271,1,"Konfigurace byla úspěšně importována."
 
-[STRINGTABLE 168]
+[STRINGTABLE 171]
 14272,1,"Tato konfigurace se aktuálně používá v této instanci aplikace."
 14273,1,"Nelze odstranit soubor s konfigurací.\n\nSoubor: %s\nChyba: %s"
 14274,1,"Nastavení dlouhých cest Win32/x64 bylo změněno. Aby se změna projevila, restartujte systém Windows."
@@ -3925,7 +3940,7 @@ SLGINCOMPLETE,""
 14286,1,"&Znovu připojit odpojené okno"
 14287,1,"Hlavní okno"
 
-[STRINGTABLE 169]
+[STRINGTABLE 172]
 14288,1,"Změněno měřítko zobrazení"
 14289,1,"Změnilo se měřítko zobrazení systému Windows nebo se může změnit DPI vzdálené relace. Restartujte Open Samandarin, aby celé uživatelské rozhraní bylo znovu vykresleno ostře při aktuálním DPI."
 14290,1,"Obnovit"
@@ -3943,7 +3958,7 @@ SLGINCOMPLETE,""
 14302,1,"Tato karta je uzamčena, aby se zabránilo změně obsahu zobrazeného na ní. Chcete kartu odemknout a otevřít požadované umístění?"
 14303,1,"Rozšíření (runtime není k dispozici)"
 
-[STRINGTABLE 170]
+[STRINGTABLE 173]
 14304,1,"Rozšíření (závislost není k dispozici)"
 14305,1,"Rozšíření (zakázáno)"
 14306,1,"Toto rozšíření deklaruje pro tento dialog nastavení příliš mnoho možností."
@@ -3961,7 +3976,7 @@ SLGINCOMPLETE,""
 14318,1,"Vyberte v cílovém panelu alespoň jednu složku."
 14319,1,"Všechny vybrané cílové složky musí být na stejném svazku."
 
-[STRINGTABLE 171]
+[STRINGTABLE 174]
 14320,1,"Rozšíření"
 14321,1,"Načítání rozšíření a pluginů, čekejte prosím..."
 14322,1,"Vyhledávání balíčků rozšíření, čekejte prosím..."
@@ -3979,7 +3994,7 @@ SLGINCOMPLETE,""
 14334,1,"Zastavování běhového prostředí rozšíření, čekejte prosím..."
 14335,1,"Zavírání oken rozšíření, čekejte prosím..."
 
-[STRINGTABLE 172]
+[STRINGTABLE 175]
 14336,1,"Zastavování služeb rozšíření, čekejte prosím..."
 14337,1,"&Odepnout kartu"
 14338,1,"Odepnutá karta"
@@ -3997,7 +4012,7 @@ SLGINCOMPLETE,""
 14350,1,"Cesta"
 14351,1,"Stav"
 
-[STRINGTABLE 173]
+[STRINGTABLE 176]
 14352,1,"Připojená"
 14353,1,"Odepnutá"
 14354,1,"Vlevo"
@@ -4015,7 +4030,7 @@ SLGINCOMPLETE,""
 14366,1,"Vše"
 14367,1,"Běžné"
 
-[STRINGTABLE 174]
+[STRINGTABLE 177]
 14368,1,"Systém souborů"
 14369,1,"Dokument"
 14370,1,"Obrázek / Fotografie"
@@ -4033,7 +4048,7 @@ SLGINCOMPLETE,""
 14382,1,"Vybrané vlastnosti"
 14383,1,"&Odebrat"
 
-[STRINGTABLE 175]
+[STRINGTABLE 178]
 14384,1,"Přesunout &nahoru"
 14385,1,"Přesunout &dolů"
 14386,1,"Spustitelný soubor"
@@ -4048,9 +4063,10 @@ SLGINCOMPLETE,""
 14395,1,"Přidat"
 14396,1,"Odebrat"
 14397,1,"Vymazat"
+14398,0,"Multiple items selected - information not available"
 14399,1,"Oddělte více značek středníky. Naposledy použité značky jsou k dispozici v seznamu Hodnota."
 
-[STRINGTABLE 176]
+[STRINGTABLE 179]
 14400,1,"Hodnota se převede na typ vyžadovaný systémem Windows."
 14402,1,"Aktualizováno: %d\nNepodařilo se nebo jen pro čtení: %d"
 14404,1,"Značky"
@@ -4066,7 +4082,7 @@ SLGINCOMPLETE,""
 14414,0,"First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
 14415,1,"Tento typ souboru nepodporuje tuto vlastnost."
 
-[STRINGTABLE 177]
+[STRINGTABLE 180]
 14416,1,"Soubor nebo vlastnost je jen pro čtení nebo bylo odepřeno oprávnění k přístupu."
 14417,1,"Systém Windows nemohl zapsat vlastnost."
 14418,1,"Hodnota"
@@ -4084,7 +4100,7 @@ SLGINCOMPLETE,""
 14430,1,"Aktivní webový obsah"
 14431,1,"Zvýšení úrovně"
 
-[STRINGTABLE 178]
+[STRINGTABLE 181]
 14432,1,"Podepisovač balíčku"
 14433,1,"SHA-256 balíčku"
 14434,1,"Zdroj balíčku"
@@ -4102,7 +4118,7 @@ SLGINCOMPLETE,""
 14446,1,"Ručně (volba v dialogu Kopírovat/Přesunout)"
 14447,1,"Řízeno uživatelem"
 
-[STRINGTABLE 179]
+[STRINGTABLE 182]
 14448,1,"Podle úložiště"
 14449,1,"Ručně"
 14450,1,"&Zařadit tuto operaci do fronty (čekat na dokončení všech ostatních operací Kopírovat/Přesunout)"
@@ -4120,8 +4136,16 @@ SLGINCOMPLETE,""
 14462,1,"čeká na úložné zařízení"
 14463,1,"čeká na volný datový proud SSD/NVMe"
 
-[STRINGTABLE 180]
+[STRINGTABLE 183]
 14464,1,"čeká, protože úložiště nebylo možné identifikovat"
+14465,1,"Připraveno"
+14466,1,"Prohledávání"
+14467,1,"Řazení"
+14468,1,"Zastavování"
+14469,1,"Dokončeno"
+14470,1,"Okno Hledání neodpovídá už {0} s - {1}"
+14471,1,"Okno Hledání neodpovídá už {0} s - {1} - Výsledky: {2}"
+14472,1,"Dokončování"
 14473,1,"Postupné řešení konfliktů ve frontě"
 14474,1,"Prohleď dopředu a pokračuj beze sporů"
 14475,1,"Zachovat poslední výběr v dialogu Kopírovat/Přesunout"
@@ -4130,7 +4154,7 @@ SLGINCOMPLETE,""
 14478,1,"Kontrola sporů: %1!s!, %2!d! čeká, %3!d!/%4!d! zkontrolováno"
 14479,1,"aktivní"
 
-[STRINGTABLE 181]
+[STRINGTABLE 184]
 14480,1,"dokončeno"
 14481,1,"Název souboru"
 14482,1,"Stav"
@@ -4146,7 +4170,7 @@ SLGINCOMPLETE,""
 14492,1,"Potlačeno"
 14493,1,"Neshoda typu soubor/adresář"
 
-[STRINGTABLE 182]
+[STRINGTABLE 185]
 14500,1,"Pohled na větev"
 14501,1,"&Pohled na větev\tCtrl+B"
 14502,1,"Cesta"
@@ -4160,7 +4184,7 @@ SLGINCOMPLETE,""
 14510,1,"Zachovat cesty podsložek relativní ke kořeni pohledu na větev"
 14511,1,"Cesta: "
 
-[STRINGTABLE 183]
+[STRINGTABLE 186]
 14512,1,"Strom složek nebylo možné přečíst. Obnovte zobrazení a zkuste to znovu."
 14513,1,"Pohled na větev - obnovování... ponecháno %I64u souborů"
 14514,1,"Pohled na větev - obnova zastavena; předchozí výsledky ponechány (%I64u souborů)"
@@ -4178,85 +4202,177 @@ SLGINCOMPLETE,""
 14526,1,"Správce může zapnout zásadu Windows:\nKonfigurace počítače > Šablony pro správu > Systém > Systém souborů > Povolit dlouhé cesty Win32 (Enable Win32 long paths).\n\nOdpovídající hodnota registru je REG_DWORD LongPathsEnabled = 1 v:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nRestartujte dotčené aplikace; může být nutný také restart Windows. Samotné aplikace musí dlouhé cesty podporovat. Toto nastavení nepřekonává bezpečnostní zamítnutí a Shell nebo cílový program mohou cestu nadále odmítat. Salamander nastavení nemění."
 14527,1,"Chyba Windows:"
 
-[STRINGTABLE 184]
-14528,1,"Přístup byl odepřen. Vytvořit tuto složku jako správce?"
-14529,1,"Spojení s pomocným procesem skončilo před potvrzením výsledku. Před opakováním zkontrolujte cíl."
-14530,1,"Přístup byl odepřen. Přejmenovat tento soubor jako správce? První řádek uvádí současnou cestu, druhý novou."
-14531,1,"Přístup byl odepřen. Použít požadované atributy a časy tohoto souboru jako správce?"
-14532,1,"Spojení s pomocným procesem se přerušilo před potvrzením výsledku. Před opakováním zkontrolujte atributy a časy souboru."
-14533,1,"Přístup byl odepřen. Trvale smazat tento soubor jako správce?"
-14534,1,"Spojení s pomocným procesem se přerušilo před potvrzením smazání. Před opakováním zkontrolujte, zda soubor stále existuje."
-14535,1,"Přístup byl odepřen. Zobrazit výpis této složky a jejích podsložek jako správce?"
-14536,1,"Výpis správce"
-14537,1,"Přístup byl odepřen. Zkopírovat tento soubor včetně alternativních datových proudů jako správce?"
-14538,1,"Kopírování se nepodařilo potvrdit jako dokončené. Před opakováním zkontrolujte cíl."
-14539,1,"Přístup byl odepřen. Přesunout tento soubor jako správce?"
-14540,1,"Přesun se nepodařilo potvrdit jako dokončený. Před opakováním zkontrolujte zdroj i cíl."
-14541,1,"Soupis chráněného podstromu"
-14543,1,"Podstrom se nepodařilo projít celý. Částečné výsledky se nezobrazují."
-
-[STRINGTABLE 185]
-14544,1,"Soubory: "
-14545,1,"Podsložky: "
-14546,1,"Logická velikost (bajty): "
-14547,1,"Zkopírovat tuto složku a její obsah do registrovaného cíle jako správce?"
-14548,1,"Kopírování složky nebo úklid se nepodařilo potvrdit. Před opakováním zkontrolujte cíl."
-14549,1,"Přístup byl odepřen. Nastavit požadované časy této složky jako správce?"
-14550,1,"Spojení s pomocným procesem skončilo před potvrzením výsledku. Před opakováním zkontrolujte časy složky."
-14551,1,"Přístup byl odepřen. Použít na tuto složku požadované atributy a případně vybrané časy jako správce?"
-14552,1,"Spojení s pomocným procesem skončilo před potvrzením výsledku. Před opakováním zkontrolujte atributy a časy složky."
-14553,1,"Přístup byl odepřen. Zkopírovat tento soubor bez alternativních datových proudů jako správce?"
-14554,1,"Přístup byl odepřen. Zkopírovat tento soubor se zachováním komprese NTFS jako správce?"
-14555,1,"Přístup byl odepřen. Přejmenovat tento symbolický odkaz jako správce?"
-14556,1,"Přístup byl odepřen. Přejmenovat toto propojení adresáře (junction) jako správce?"
-14557,1,"Přístup byl odepřen. Trvale smazat tento symbolický odkaz jako správce? Cílový soubor zůstane zachován."
-14558,1,"Přístup byl odepřen. Trvale smazat tento symbolický odkaz na složku jako správce? Cílová složka zůstane zachována."
-14559,1,"Přístup byl odepřen. Trvale smazat toto propojení adresáře (junction) jako správce? Cílová složka zůstane zachována."
-
-[STRINGTABLE 186]
-14560,1,"Přístup byl odepřen. Zkopírovat tento soubor se zachováním vlastníka, skupiny a explicitních oprávnění NTFS jako správce?"
-14561,1,"Kopírování souboru se šifrováním EFS se nepodařilo dokončit. Režim správce v tomto případě nemůže zachovat šifrování EFS."
-14562,1,"Windows nepotvrdil přesun všech položek do Koše. Před opakováním zkontrolujte původní umístění i Koš."
-14563,1,"Přístup byl odepřen. Vypočítat velikost této složky a jejích podsložek jako správce?"
-14564,1,"Přístup byl odepřen. Hledat podle názvů a metadat v této složce jako správce? Během rozhodování pokračuje hledání v dostupných složkách."
-14565,1,"Čeká se na oprávnění správce pro chráněné hledání…"
-14566,1,"Probíhá hledání ve schváleném umístění s oprávněním správce."
-14567,1,"Není k dispozici"
-14568,1,"Přístup byl odepřen. Otevřít kopii tohoto souboru jen pro čtení v interním prohlížeči jako správce? Limit kopie je 16 MB."
-14569,1,"Kopie otevřená s oprávněním správce"
-14570,1,"Tato kopie je jen pro čtení. Novou kopii lze vyžádat po návratu do panelu."
-14571,1,"Chráněný soubor se nepodařilo otevřít v interním prohlížeči."
-14572,1,"Upravit jako správce"
-14573,1,"Přístup byl odepřen. Otevřít původní soubor v nastaveném editoru jako správce? Windows požádá o souhlas pro níže uvedený editor."
-14574,1,"Režim správce vyžaduje editor v chráněné složce Windows nebo Program Files."
-14575,1,"Výpis chráněného archivu ZIP"
-
 [STRINGTABLE 187]
-14576,1,"Přístup byl odepřen. Načíst obsah tohoto archivu ZIP jako správce? Archiv se otevře jen pro čtení."
-14577,1,"Klávesa F3 otevře položku v prohlížeči a F5 ji rozbalí. Otevření v externí aplikaci není dostupné."
-14578,1,"Přístup byl odepřen. Rozbalit vybrané soubory a složky z archivu ZIP do zobrazeného cíle jako správce?"
-14579,1,"Vyberte existující místní složku pro rozbalení vybraných položek z chráněného archivu ZIP."
-14580,1,"Rozbalování skončilo po vytvoření části vybraných položek. Před opakováním zkontrolujte cíl."
-14581,1,"Změna chráněného archivu ZIP"
-14582,1,"Uložit připravené změny tohoto archivu ZIP jako správce?"
-14583,1,"Windows nepotvrdil dokončení změn archivu ZIP. Před opakováním zkontrolujte archiv a případnou zálohu v jeho složce."
-14584,1,"Archiv ZIP byl aktualizován. Obnovte výpis v panelu, aby se zobrazil nový obsah."
-14585,1,"Přístup byl odepřen. Nahradit tento existující soubor jako správce a zachovat oprávnění cíle?"
-14586,1,"Souhlas platí pro tuto položku. Zrušením zastavíte zpracování zbývajících položek. Dokončené změny zůstanou zachovány."
-14587,1,"Přístup byl odepřen. Číst obsah souborů v této složce pro aktuální hledání jako správce? Během rozhodování pokračuje hledání v dostupných složkách."
-14588,1,"Přístup byl odepřen. Přečíst tento soubor pro aktuální hledání jako správce?"
-14589,1,"Přístup byl odepřen. Zkopírovat tento soubor se zachováním šifrování EFS jako správce?"
-14590,1,"Souhlas platí i pro další způsobilé soubory v uvedených složkách až do konce této operace."
-14591,1,"Souhlas platí i pro další způsobilé položky v uvedené složce až do konce této operace."
+14530,0,"File Associations"
+14531,0,"&Pattern:"
+14532,0,"&Action:"
+14533,0,"&Operation:"
+14534,0,"&Target:"
+14535,0,"Target &ID:"
+14536,0,"Status:"
+14537,0,"&Add / Update"
+14538,0,"&Delete"
+14539,0,"&Reset to default"
+14540,0,"Set &unassigned"
+14541,0,"View"
+14542,0,"Alternate View"
+14543,0,"Edit"
 
 [STRINGTABLE 188]
-14592,1,"Přístup byl odepřen. Přesunout tento soubor do vašeho Koše jako správce?"
-14593,1,"Přístup byl odepřen. Zkopírovat tento soubor se zachováním komprese NTFS, vlastníka, skupiny a explicitních oprávnění jako správce?"
+14544,0,"Panel Archive"
+14545,0,"Not applicable"
+14546,0,"List / Unpack"
+14547,0,"Delete / Pack"
+14548,0,"Built-in"
+14549,0,"Plugin"
+14551,0,"Ready"
+14552,0,"Conflict: resolve overlapping patterns before saving"
+14553,0,"Default"
+14554,0,"User"
+14555,0,"Legacy"
+14556,0,"Disabled"
+14557,0,"Conflict"
+14558,0,"Search patterns"
+14559,0,"Category"
 
 [STRINGTABLE 189]
-14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
+14560,0,"Provenance"
+14561,0,"All"
+14562,0,"Show conflicts only"
+14563,0,"Pattern"
+14564,0,"View"
+14565,0,"Alternate View"
+14566,0,"Edit"
+14567,0,"Panel Archive"
+14568,0,"%u of %u associations | %u conflicts"
+14569,0,"Select a pattern cell to change its owner. Existing defaults are imported automatically."
+14570,0,"No compatible targets are installed"
+14571,0,"Internal viewer"
+14572,0,"Legacy runtime"
+14573,0,"Select a compatible plugin target"
+14575,0,"Pattern must not be empty"
 
 [STRINGTABLE 190]
+14576,0,"Extension"
+14577,0,"%u associations selected"
+14578,0,"Unassigned"
+14579,0,"User defined"
+14580,0,"Archive Panel"
+14581,0,"Extensions"
+14582,0,"Conflict: %s has competing targets in %s: %s"
+14583,0," (+%u more)"
+14584,0,"Select a compatible extension viewer"
+14585,0,"Custom Viewer"
+14586,0,"Custom Editor"
+14587,0,"&Name:"
+14588,0,"&Command:"
+14589,0,"&Arguments:"
+14590,0,"&Initial directory:"
+14591,0,"&Save"
+
+[STRINGTABLE 191]
+14592,0,"Saved custom handlers"
+14593,0,"Enter a name and command for this handler."
+14594,0,"A handler with this name already exists."
+14595,0,"Name"
+14596,0,"Command"
+14597,0,"This custom handler is invalid or exceeds the supported size limits."
+14598,0,"No legacy editor is configured"
+14599,0,"Configure named custom viewers for file associations."
+14600,0,"Configure named custom editors for file associations."
+14601,0,"Handler details"
+14602,0,"Arguments"
+14603,0,"Initial directory"
+14604,0,"Add new file association pattern"
+14605,0,"Enter a file pattern:"
+14606,0,"Enter a valid file pattern."
+14607,0,"This file pattern already exists."
+
+[STRINGTABLE 192]
+14608,1,"Ukončit a opakovat"
+14609,1,"Soubor používají tyto procesy: %s"
+14610,1,"Ukončit tyto procesy a akci opakovat?\n\nNeuložená data v těchto procesech mohou být ztracena:\n%s"
+14611,1,"Nepodařilo se ukončit žádný proces používající tento soubor."
+
+[STRINGTABLE 193]
+14624,1,"Přístup byl odepřen. Vytvořit tuto složku jako správce?"
+14625,1,"Spojení s pomocným procesem skončilo před potvrzením výsledku. Před opakováním zkontrolujte cíl."
+14626,1,"Přístup byl odepřen. Přejmenovat tento soubor jako správce? První řádek uvádí současnou cestu, druhý novou."
+14627,1,"Přístup byl odepřen. Použít požadované atributy a časy tohoto souboru jako správce?"
+14628,1,"Spojení s pomocným procesem se přerušilo před potvrzením výsledku. Před opakováním zkontrolujte atributy a časy souboru."
+14629,1,"Přístup byl odepřen. Trvale smazat tento soubor jako správce?"
+14630,1,"Spojení s pomocným procesem se přerušilo před potvrzením smazání. Před opakováním zkontrolujte, zda soubor stále existuje."
+14631,1,"Přístup byl odepřen. Zobrazit výpis této složky a jejích podsložek jako správce?"
+14632,1,"Výpis správce"
+14633,1,"Přístup byl odepřen. Zkopírovat tento soubor včetně alternativních datových proudů jako správce?"
+14634,1,"Kopírování se nepodařilo potvrdit jako dokončené. Před opakováním zkontrolujte cíl."
+14635,1,"Přístup byl odepřen. Přesunout tento soubor jako správce?"
+14636,1,"Přesun se nepodařilo potvrdit jako dokončený. Před opakováním zkontrolujte zdroj i cíl."
+14637,1,"Soupis chráněného podstromu"
+14639,1,"Podstrom se nepodařilo projít celý. Částečné výsledky se nezobrazují."
+
+[STRINGTABLE 194]
+14640,1,"Soubory: "
+14641,1,"Podsložky: "
+14642,1,"Logická velikost (bajty): "
+14643,1,"Zkopírovat tuto složku a její obsah do registrovaného cíle jako správce?"
+14644,1,"Kopírování složky nebo úklid se nepodařilo potvrdit. Před opakováním zkontrolujte cíl."
+14645,1,"Přístup byl odepřen. Nastavit požadované časy této složky jako správce?"
+14646,1,"Spojení s pomocným procesem skončilo před potvrzením výsledku. Před opakováním zkontrolujte časy složky."
+14647,1,"Přístup byl odepřen. Použít na tuto složku požadované atributy a případně vybrané časy jako správce?"
+14648,1,"Spojení s pomocným procesem skončilo před potvrzením výsledku. Před opakováním zkontrolujte atributy a časy složky."
+14649,1,"Přístup byl odepřen. Zkopírovat tento soubor bez alternativních datových proudů jako správce?"
+14650,1,"Přístup byl odepřen. Zkopírovat tento soubor se zachováním komprese NTFS jako správce?"
+14651,1,"Přístup byl odepřen. Přejmenovat tento symbolický odkaz jako správce?"
+14652,1,"Přístup byl odepřen. Přejmenovat toto propojení adresáře (junction) jako správce?"
+14653,1,"Přístup byl odepřen. Trvale smazat tento symbolický odkaz jako správce? Cílový soubor zůstane zachován."
+14654,1,"Přístup byl odepřen. Trvale smazat tento symbolický odkaz na složku jako správce? Cílová složka zůstane zachována."
+14655,1,"Přístup byl odepřen. Trvale smazat toto propojení adresáře (junction) jako správce? Cílová složka zůstane zachována."
+
+[STRINGTABLE 195]
+14656,1,"Přístup byl odepřen. Zkopírovat tento soubor se zachováním vlastníka, skupiny a explicitních oprávnění NTFS jako správce?"
+14657,1,"Kopírování souboru se šifrováním EFS se nepodařilo dokončit. Režim správce v tomto případě nemůže zachovat šifrování EFS."
+14658,1,"Windows nepotvrdil přesun všech položek do Koše. Před opakováním zkontrolujte původní umístění i Koš."
+14659,1,"Přístup byl odepřen. Vypočítat velikost této složky a jejích podsložek jako správce?"
+14660,1,"Přístup byl odepřen. Hledat podle názvů a metadat v této složce jako správce? Během rozhodování pokračuje hledání v dostupných složkách."
+14661,1,"Čeká se na oprávnění správce pro chráněné hledání…"
+14662,1,"Probíhá hledání ve schváleném umístění s oprávněním správce."
+14663,1,"Není k dispozici"
+14664,1,"Přístup byl odepřen. Otevřít kopii tohoto souboru jen pro čtení v interním prohlížeči jako správce? Limit kopie je 16 MB."
+14665,1,"Kopie otevřená s oprávněním správce"
+14666,1,"Tato kopie je jen pro čtení. Novou kopii lze vyžádat po návratu do panelu."
+14667,1,"Chráněný soubor se nepodařilo otevřít v interním prohlížeči."
+14668,1,"Upravit jako správce"
+14669,1,"Přístup byl odepřen. Otevřít původní soubor v nastaveném editoru jako správce? Windows požádá o souhlas pro níže uvedený editor."
+14670,1,"Režim správce vyžaduje editor v chráněné složce Windows nebo Program Files."
+14671,1,"Výpis chráněného archivu ZIP"
+
+[STRINGTABLE 196]
+14672,1,"Přístup byl odepřen. Načíst obsah tohoto archivu ZIP jako správce? Archiv se otevře jen pro čtení."
+14673,1,"Klávesa F3 otevře položku v prohlížeči a F5 ji rozbalí. Otevření v externí aplikaci není dostupné."
+14674,1,"Přístup byl odepřen. Rozbalit vybrané soubory a složky z archivu ZIP do zobrazeného cíle jako správce?"
+14675,1,"Vyberte existující místní složku pro rozbalení vybraných položek z chráněného archivu ZIP."
+14676,1,"Rozbalování skončilo po vytvoření části vybraných položek. Před opakováním zkontrolujte cíl."
+14677,1,"Změna chráněného archivu ZIP"
+14678,1,"Uložit připravené změny tohoto archivu ZIP jako správce?"
+14679,1,"Windows nepotvrdil dokončení změn archivu ZIP. Před opakováním zkontrolujte archiv a případnou zálohu v jeho složce."
+14680,1,"Archiv ZIP byl aktualizován. Obnovte výpis v panelu, aby se zobrazil nový obsah."
+14681,1,"Přístup byl odepřen. Nahradit tento existující soubor jako správce a zachovat oprávnění cíle?"
+14682,1,"Souhlas platí pro tuto položku. Zrušením zastavíte zpracování zbývajících položek. Dokončené změny zůstanou zachovány."
+14683,1,"Přístup byl odepřen. Číst obsah souborů v této složce pro aktuální hledání jako správce? Během rozhodování pokračuje hledání v dostupných složkách."
+14684,1,"Přístup byl odepřen. Přečíst tento soubor pro aktuální hledání jako správce?"
+14685,1,"Přístup byl odepřen. Zkopírovat tento soubor se zachováním šifrování EFS jako správce?"
+14686,1,"Souhlas platí i pro další způsobilé soubory v uvedených složkách až do konce této operace."
+14687,1,"Souhlas platí i pro další způsobilé položky v uvedené složce až do konce této operace."
+
+[STRINGTABLE 197]
+14688,1,"Přístup byl odepřen. Přesunout tento soubor do vašeho Koše jako správce?"
+14689,1,"Přístup byl odepřen. Zkopírovat tento soubor se zachováním komprese NTFS, vlastníka, skupiny a explicitních oprávnění jako správce?"
+
+[STRINGTABLE 198]
+14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
+
+[STRINGTABLE 199]
 14992,1,"Ukládání konfigurace do souborového úložiště, čekejte prosím..."
 14993,1,"Odstraňování staré konfigurace ze souborového úložiště, čekejte prosím..."
 14994,1,"Probíhá čtení přidružení souborů ze souborového úložiště..."

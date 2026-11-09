@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Identify explicit panel refresh commands. | Prompt for a fresh archive read only on user refresh. | | GPT-6.1 Sol (Codex) |
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-07 | Track the temporary Find notice separately from the normal caption. | Preserve custom and detached-window titles. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -459,6 +462,9 @@ public:
     UINT TaskbarRestartMsg; // sent by Explorer when taskbar icons need to be restored
 
     CToolTip* ToolTip; // always exists and is created-all controls use this single tooltip
+    std::wstring MainWindowBaseTitle;
+    std::wstring FindWatchdogNotice;
+    void UpdateMainWindowCaption();
 
     BOOL Created;
     BOOL RestoringPanelPaths; // suppress repeated Tree View rebuilds while LoadConfig restores panels
@@ -901,6 +907,7 @@ public:
 
     // if 'text' == NULL the default content will be set
     void SetWindowTitle(const char* text = NULL);
+    void SetFindWatchdogNotice(std::wstring notice);
     void UpdateDetachedMenuLabels();
 
     // sets the main window icon according to MainWindowIconIndex
