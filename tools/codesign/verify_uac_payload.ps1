@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Pin the UAC release signer and verify the full import table. | Reject unexpected dependency names and delay-loaded imports. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Allow the system CNG runtime in the broker. | Verify payloads that use SHA-256 for overwrite recovery. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Verify image roles in the signed payload. | Reject same-version images swapped between roles. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Load built-in modules from the current PowerShell installation. | Keep the installer verifier independent of an inherited module path. | | GPT-6.1 Sol (Codex) |
@@ -12,6 +13,7 @@ param(
 
     [string]$Mt = 'mt.exe',
     [string]$Dumpbin = 'dumpbin.exe',
+    [string]$ExpectedSignerThumbprint = $env:CODESIGN_CERT_SHA1,
 
     [switch]$UnsignedLab
 )
@@ -45,6 +47,7 @@ function Test-Image([string]$Path, [string]$ExpectedLevel, [string]$ManifestPath
         $levels[0].uiAccess -cne 'false') {
         throw "Expected one requestedExecutionLevel of $ExpectedLevel with uiAccess=false in $Path."
     }
+    $headers
 }
 
 if (!('Samandarin.UacPayload' -as [type])) {
@@ -120,6 +123,12 @@ if (!$UnsignedLab) {
     if ($signer -ne $brokerSignature.SignerCertificate.Thumbprint) {
         throw 'The application and broker must be signed by the same certificate.'
     }
+    if ($ExpectedSignerThumbprint -notmatch '\A[0-9A-Fa-f]{40}\z') {
+        throw 'Set ExpectedSignerThumbprint or CODESIGN_CERT_SHA1 to the approved release certificate thumbprint.'
+    }
+    if ($signer -ne $ExpectedSignerThumbprint) {
+        throw 'The payload signer does not match the approved release certificate.'
+    }
 }
 
 $Mt = (Get-Command -Name $Mt -CommandType Application).Source
@@ -128,8 +137,11 @@ $temp = New-Item -ItemType Directory -Path (Join-Path ([IO.Path]::GetTempPath())
 $hostManifest = Join-Path $temp.FullName 'host.manifest'
 $brokerManifest = Join-Path $temp.FullName 'broker.manifest'
 try {
-    Test-Image $hostPath 'asInvoker' $hostManifest
-    Test-Image $brokerPath 'requireAdministrator' $brokerManifest
+    Test-Image $hostPath 'asInvoker' $hostManifest | Out-Null
+    $brokerHeaders = Test-Image $brokerPath 'requireAdministrator' $brokerManifest
+    if (@($brokerHeaders -match '^\s+0+\s+\[\s*0+\]\s+RVA \[size\] of Delay Import Directory\s*$').Count -ne 1) {
+        throw 'Expected an empty delay import directory in the broker.'
+    }
 
     # Host and broker roles from src/uacbroker/uacprotocol.h.
     $hostProtocol = [Samandarin.UacPayload]::ReadProtocol($hostPath, 1)
@@ -145,9 +157,15 @@ try {
 
     $allowedImports = 'ADVAPI32.dll', 'ole32.dll', 'SHELL32.dll', 'ntdll.dll', 'KERNEL32.dll', 'bcrypt.dll'
     $dependencies = Invoke-InspectionTool $Dumpbin @('/nologo', '/dependents', $brokerPath)
-    $imports = @($dependencies | ForEach-Object {
-        if ($_ -match '^\s+([A-Za-z0-9_.-]+\.dll)\s*$') { $Matches[1] }
-    })
+    # Keep every row in the dependency block, including names with characters
+    # that aren't present in the allowlist. Fail closed on an unrecognized layout.
+    $dependencyHeader = [Array]::IndexOf($dependencies, '  Image has the following dependencies:')
+    $summary = [Array]::IndexOf($dependencies, '  Summary')
+    if ($dependencyHeader -lt 0 -or $summary -le $dependencyHeader + 1) {
+        throw 'The broker dependency block could not be parsed.'
+    }
+    $imports = @($dependencies[($dependencyHeader + 1)..($summary - 1)] |
+        Where-Object { ![string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() })
     $unexpectedImports = @($imports | Where-Object { $_ -notin $allowedImports })
     if ($imports.Count -eq 0 -or $unexpectedImports.Count -gt 0) {
         throw "Unexpected broker import list: $($imports -join ', ')."

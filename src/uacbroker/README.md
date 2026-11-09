@@ -41,6 +41,6 @@ In the isolated VM, an administrator stages the matching x64 application and bro
 
 From the repository root, run the standalone artifact check with mt.exe and dumpbin.exe on PATH.
 
-    powershell.exe -NoProfile -File tools/codesign/verify_uac_payload.ps1 -PayloadDir <payload>
+    powershell.exe -NoProfile -File tools/codesign/verify_uac_payload.ps1 -PayloadDir <payload> -ExpectedSignerThumbprint <release-certificate-thumbprint>
 
-The verifier checks Authenticode trust, timestamps, the shared signer, image architecture, embedded execution levels, the broker's dependent DLL policy and the protocol resource including each image's role. The optional -UnsignedLab switch is for local testing. The output includes both SHA-256 hashes. The runtime handshake still authenticates the peer process and checks the protocol and capabilities.
+The verifier checks Authenticode trust, timestamps, the shared signer against the approved release certificate, image architecture, embedded execution levels, the broker's direct imports and empty delay import directory and the protocol resource including each image's role. The signer thumbprint can also come from CODESIGN_CERT_SHA1. Use -UnsignedLab for local testing. The output includes both SHA-256 hashes. The runtime handshake still authenticates the peer process and checks the protocol and capabilities.
