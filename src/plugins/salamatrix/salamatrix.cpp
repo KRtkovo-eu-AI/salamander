@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Publish host startup after loading extension storage. | Prevent startup handlers from writing against an uninitialized per-configuration storage snapshot. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Refresh Salamatrix packages before viewer-mask registration. | Avoid an empty first-start package catalog when deferred startup refresh has not set a pending flag. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-04 | Export late extension-install integration. | Plugin Manager has to see a package whose files landed after the startup scan. | | Grok 4.7 |
 
@@ -35,6 +36,17 @@ int SalamanderVersion = 0;
 
 static Salamatrix::Runtime::RuntimeServices* SalamatrixRuntime = NULL;
 static Salamatrix::Packages::PackageManager* SalamatrixPackages = NULL;
+static BOOL SalamatrixHostStartupPublished = FALSE;
+
+static void PublishHostStartupOnce()
+{
+    if (SalamatrixRuntime != NULL && !SalamatrixHostStartupPublished)
+    {
+        SalamatrixRuntime->Events()->PublishLifecycle(
+            Salamatrix::Events::EventKindHostStartup);
+        SalamatrixHostStartupPublished = TRUE;
+    }
+}
 
 static BOOL IsLoadOnStartBatchActive()
 {
@@ -53,6 +65,7 @@ static void DestroyRuntimeServices()
 {
     delete SalamatrixRuntime;
     SalamatrixRuntime = NULL;
+    SalamatrixHostStartupPublished = FALSE;
 }
 
 static BOOL CreateRuntimeServices()
@@ -162,9 +175,6 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
         return NULL;
     }
 
-    SalamatrixRuntime->Events()->PublishLifecycle(
-        Salamatrix::Events::EventKindHostStartup);
-
     return &PluginInterface;
 }
 
@@ -186,6 +196,7 @@ void WINAPI CPluginInterface::About(HWND parent)
 void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* salamander)
 {
     CALL_STACK_MESSAGE1("CPluginInterface::Connect(,) - Salamatrix Framework");
+    const BOOL waitForStartupBatch = IsLoadOnStartBatchActive();
 
     if (SalamatrixPackages != NULL)
     {
@@ -193,11 +204,10 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
         // interface, so materialize the configured catalog once here. Resume
         // batching afterwards; runtime providers loaded later in the same
         // startup pass are folded into the final batch refresh.
-        const BOOL resumeStartupDeferral = IsLoadOnStartBatchActive();
         SalamatrixPackages->SetRefreshDeferred(FALSE);
         SalamatrixPackages->Refresh();
         SalamatrixPackages->RegisterViewerMasks(salamander);
-        if (resumeStartupDeferral)
+        if (waitForStartupBatch)
             SalamatrixPackages->SetRefreshDeferred(TRUE);
     }
     salamander->SetChangeDriveMenuItem(
@@ -227,6 +237,12 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
                 SalamanderGUI->DestroyIconList(iconList);
         }
     }
+
+    // Salamander calls LoadConfiguration before Connect. If startup batching
+    // is inactive, the selected extension storage is ready now; otherwise the
+    // batch-complete event publishes startup after all plugins are loaded.
+    if (!waitForStartupBatch)
+        PublishHostStartupOnce();
 }
 
 void WINAPI CPluginInterface::LoadConfiguration(
@@ -265,8 +281,13 @@ void WINAPI CPluginInterface::Event(int event, DWORD param)
         if (event == PLUGINEVENT_STARTUPBATCHBEGIN)
             SalamatrixPackages->SetRefreshDeferred(TRUE);
         else if (event == PLUGINEVENT_STARTUPBATCHCOMPLETE)
+        {
             SalamatrixPackages->CompleteStartupRefreshBatch();
+            PublishHostStartupOnce();
+        }
     }
+    else if (event == PLUGINEVENT_STARTUPBATCHCOMPLETE)
+        PublishHostStartupOnce();
 }
 
 void WINAPI CPluginInterface::AcceptChangeOnPathNotification(
