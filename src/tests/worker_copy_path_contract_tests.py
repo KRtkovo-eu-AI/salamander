@@ -1,6 +1,7 @@
 ﻿# SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Cover Scan Ahead protected worker admission and cancellation. | Exercise the guarded move and the boundary between a free target and a scanned conflict. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Guard protected F6 retries at the worker boundary. | Require verified completion instead of a second pathname deletion. | | GPT-6.1 Sol (Codex) |
 from pathlib import Path
 import unittest
@@ -58,5 +59,35 @@ class WorkerCopyPathContracts(unittest.TestCase):
         stale = section(code, "if (err == ERROR_FILE_INVALID)", "int ret = IDCANCEL;")
         self.assertIn("WORKER_DIALOG_UAC_TRANSFER_UNKNOWN", stale)
         self.assertIn("return FALSE;", stale)
+    def test_scan_ahead_uses_serial_free_target_elevation(self):
+        panel = section(text("fileswn8.cpp"), "script->AllowTransferPilot =", "script->IgnoreTransferAds")
+        self.assertIn("conflictMode == CMCM_SCAN_AHEAD", panel)
+        code = text("worker.cpp")
+        worker = section(code, "unsigned ThreadWorkerBody(void* parameter)", "case ocMoveDir:")
+        self.assertLess(worker.index("GetNextConflictReadyItem("), worker.index("Error = !DoCopyFile("))
+        self.assertLess(worker.index("RunParallelCopyBatch("), worker.index("Error = !DoCopyFile("))
+        transfer = section(code, "static bool TryTransferWithBroker(", "static bool PrepareWorkerOverwrite(")
+        self.assertIn("dlgData.ConflictDecisionInjected", transfer)
+        self.assertIn("GetFileAttributesW(targetPath.c_str()) != INVALID_FILE_ATTRIBUTES", transfer)
+        revalidate = section(code, "BOOL COperations::RevalidateConflictItem(", "BOOL COperations::RevalidatePreparedConflictAncestors(")
+        vanished = section(revalidate, "else if (GetLastError() == ERROR_FILE_NOT_FOUND", "if (!valid)")
+        self.assertIn("conflictType = cmctNone;", vanished)
+        self.assertIn("executionConflictType != cmctNone", worker)
+    def test_compressed_move_with_ads_reaches_the_cross_volume_broker(self):
+        transfer = section(text("worker.cpp"), "static bool TryTransferWithBroker(", "static bool PrepareWorkerOverwrite(")
+        eligible = transfer.split("request.Prepare(", 1)[0]
+        self.assertIn("IsEligibleMoveFile(op.Attr, script.CopyAttrs, script.CopySecurity)", eligible)
+        self.assertIn("Operation::MoveCompressed", eligible)
+        self.assertNotIn("OPFL_COPY_ADS", eligible)
+        self.assertIn("moving && !request.IsCrossVolumeMove()", transfer)
+        self.assertIn("OPFL_UAC_TRANSFER_SOURCE | OPFL_COPY_ADS", transfer)
+    def test_cancelled_elevation_stops_the_batch(self):
+        transfer = section(text("worker.cpp"), "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
+        self.assertIn("success = FALSE;", transfer)
+        declined = section(transfer, "if (!prompt.approved)", "const HANDLE cancel")
+        self.assertIn("jobs.clear();", declined)
+        self.assertIn("return true;", declined)
+        self.assertIn("result.unknown || result.error == ERROR_CANCELLED", transfer)
+        self.assertIn("return error == ERROR_CANCELLED || *dlgData.CancelWorker != FALSE;", transfer)
 if __name__ == "__main__":
     unittest.main()

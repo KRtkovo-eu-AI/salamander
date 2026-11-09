@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Enable serial protected transfer admission in Scan Ahead. | Separate approved conflicts from free targets and stop the batch on cancellation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test abrupt process exit during disk overwrite. | Verify recovery and retained data at each exchange checkpoint. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Match protected duplicate filters and digest on one open. | Keep combined results independent of mutable NTFS timestamps. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify disk overwrite receipts before retiring backups. | Retain the prior target when the published copy was changed after a broker exit. | | GPT-6.1 Sol (Codex) |
@@ -1226,6 +1227,12 @@ Prošlo sestavení aplikace x64 Debug, tři sady kontroly Findu a 264 nativních
 **Tvrdé ukončení procesu při diskovém přepisu F5.** Nativní sada spouští skutečné funkce výměny a žurnálu v samostatném testovacím procesu nad dočasným NTFS adresářem. Ukončí jej až po signálu konkrétního bodu a ověří kód ukončení. Před prvním přejmenováním ponechá obnova původní cíl. Po odsunutí originálu i po přejmenování pracovní kopie bez potvrzení NTFS odstraní nedokončenou kopii při zavření handlů a obnova vrátí přesný originál. Po potvrzení výměny bez trvalého dokladu obnova vrátí částečný výsledek 299 a ponechá oba soubory i žurnál. Po zápisu dokladu uklidí ověřenou zálohu a po jejím dřívějším odstranění uklidí jen žurnál. Ve všech případech se kontroluje ID a obsah výsledku, stav pracovních souborů a zachování sousedního souboru.
 
 Lokálně prošlo všech šest bodů tvrdého ukončení a celkem 270 nativních kontrol v x64 Debug i Release. Po sjednocení spouštění testovacích procesů prošlo také 125 regresí F6 v x64 Release a sestavení brokeru x64 Release. Body přerušení se kompilují jen do nativní testovací sady. V izolované VM zbývá ověřit stejný tok z panelu po skutečné výzvě UAC a chování uživatelského hlášení.
+
+**Přímé přenosy F5 a F6 v režimu Scan Ahead.** Dávka přímo vybraných souborů může po odepření přístupu využít stávající broker pro volný název také při předběžném skenování. Výzvu může spustit až sériový worker po přidělení položky koordinátorem. Paralelní kopie dál používají svůj běžný tok a při přechodu na sériovou větev uvolní své handly. Pokud dříve nalezený cíl zmizí při opětovné kontrole, staré rozhodnutí o přepisu se nepředá workeru. Změna cíle před dokončením operace stále podléhá kontrole a broker pro volný název soubor nepřepíše. Přepis položky, pro kterou předběžný sken předal vlastní rozhodnutí, zatím čeká na předání ověřené revize cíle.
+
+**Zrušení dávky a F6 s komprimovanými proudy.** Zrušení nabídky Administrator nebo systémové výzvy uzavře otevřené relace přenosu a ukončí dávku bez nabídky opakování téže položky. Dokončené položky zůstávají. Odstraněna byla také stará podmínka, která blokovala vstup komprimovaného F6 s alternativními proudy do brokeru. Podmínky pro přesun v rámci téhož svazku zůstávají oddělené.
+
+Prošlo sestavení aplikace x64 Debug, deset kontrol workeru, kontrola stavů konfliktu a plánování a 125 nativních regresí F6 x64 Release. Ve VM se ještě ověří smíšená dávka Scan Ahead, zrušení po dokončení dřívější položky a komprimovaný F6 s alternativními proudy přes skutečnou systémovou výzvu.
 
 ## 12. Testovací strategie
 

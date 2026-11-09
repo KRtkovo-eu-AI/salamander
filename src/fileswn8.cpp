@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Admit protected direct transfers in Scan Ahead. | Allow the serial worker to offer consent for an eligible file after coordinator admission. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Offer a verified protected Delete retry. | Keep single-file recycling in the original user's Shell. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Include encrypted copies in the transfer job. | Reuse its consent for eligible EFS items. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Scope the EFS copy entry point to one file. | Wait for job-scoped consent before enabling EFS batches. | | GPT-6.1 Sol (Codex) |
@@ -1618,7 +1619,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
 
                     script->AllowTransferPilot = (type == atCopy || type == atMove) && watchDiskTarget && !copyToSelectedDirs &&
                                              !IsBranchView() && !target->IsBranchView() && dirs == 0 &&
-                                             conflictMode == CMCM_CURRENT;
+                                             (conflictMode == CMCM_CURRENT || conflictMode == CMCM_SCAN_AHEAD);
                     script->IgnoreTransferAds = type == atCopy && criteriaPtr != NULL && criteriaPtr->IgnoreADS;
 
                     char* auxTargetPath = NULL;

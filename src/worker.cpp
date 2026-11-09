@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Complete Scan Ahead transfer admission and cancellation. | Keep protected retries serial, separate from scanned conflicts, and admit compressed streams to guarded F6. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Keep F6 source retirement retries on the verified path. | Never retry a denied protected delete by name after copying. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow large F6 completions after ordinary copying. | Apply the same F6 byte limit before capturing the copy identity. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow cross-volume F6 to retain known named streams. | Keep the normal attribute option and same-volume retry within their existing scopes. | | GPT-6.1 Sol (Codex) |
@@ -1671,6 +1672,7 @@ BOOL COperations::RevalidateConflictItem(int index, CCopyMoveConflictType& confl
             {
                 op.ConflictDecision = cmcdNone;
                 op.ConflictType = cmctNone;
+                conflictType = cmctNone;
                 op.ConflictState = cmisRunning;
                 valid = TRUE;
             }
@@ -5661,8 +5663,9 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
         SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
         if (!prompt.approved)
         {
+            jobs.clear();
             error = ERROR_CANCELLED;
-            return *dlgData.CancelWorker != FALSE;
+            return true;
         }
     }
     const HANDLE cancel = dlgData.CancelWorkerEvent;
@@ -5675,7 +5678,7 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
     if (shareJob)
         job = existing != jobs.end() ? &*existing : &jobs.emplace_back();
     const auto result = request.Execute(progress, cancel, job);
-    if (WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0 || result.unknown)
+    if (WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0 || result.unknown || result.error == ERROR_CANCELLED)
         jobs.clear();
     if (result.unknown)
     {
@@ -5685,7 +5688,7 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
     if (result.error != ERROR_SUCCESS)
     {
         error = result.error;
-        return *dlgData.CancelWorker != FALSE;
+        return error == ERROR_CANCELLED || *dlgData.CancelWorker != FALSE;
     }
     if (request.IsMoveCompletion())
     {
@@ -5710,11 +5713,10 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     const bool moving = op.Opcode == ocMoveFile;
     const bool encrypted = !moving && UacF7::IsEncryptedCopyFile(op.Attr);
     const bool compressedMove = moving && script.CopyAttrs && UacF7::IsCompressedCopyFile(op.Attr);
-    if (!script.AllowTransferPilot || script.OverwriteOlder ||
+    if (!script.AllowTransferPilot || script.OverwriteOlder || dlgData.ConflictDecisionInjected ||
         ((op.OpFlags & OPFL_AS_ENCRYPTED) != 0 && !encrypted) ||
         !op.SourceNameWValid || !op.TargetNameWValid ||
-        (moving ? (((op.OpFlags & OPFL_COPY_ADS) != 0 && script.CopyAttrs) ||
-                   !UacF7::IsEligibleMoveFile(op.Attr, script.CopyAttrs, script.CopySecurity))
+        (moving ? !UacF7::IsEligibleMoveFile(op.Attr, script.CopyAttrs, script.CopySecurity)
                 : (!UacF7::IsEligibleFileCopy(op.Attr, script.CopyAttrs, script.IgnoreTransferAds, script.CopySecurity) ||
                    op.FileSize.Value > UacF7::maxPilotCopyBytes)))
         return false;
@@ -11032,7 +11034,8 @@ unsigned ThreadWorkerBody(void* parameter)
                 break;
 
             COperation* op = &script->At(i);
-            BOOL injectConflictDecision = conflictScanner != NULL && conflictDecision == cmcdOverwrite;
+            BOOL injectConflictDecision = conflictScanner != NULL && conflictDecision == cmcdOverwrite &&
+                                          executionConflictType != cmctNone;
             BOOL savedOverwriteAll = FALSE;
             BOOL savedDirOverwriteAll = FALSE;
             if (injectConflictDecision)
