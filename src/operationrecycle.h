@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Reject alternate stream and device aliases before recycling. | Pass the Shell only absolute filesystem paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow an exact Shell recycle receipt to be inspected. | Verify account and identity without changing ordinary recycling. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Guard Windows Shell recycling against permanent fallback. | Require recycle intent and a per-item Recycle Bin receipt. | | GPT-6.1 Sol (Codex) |
 #pragma once
@@ -125,7 +126,15 @@ inline HRESULT OperationRecyclePath(const std::wstring& exactPath, std::wstring&
         shellPath = L"\\\\" + shellPath.substr(8);
     else if (shellPath.compare(0, 4, L"\\\\?\\") == 0)
         shellPath.erase(0, 4);
-    if (shellPath.empty()) return E_INVALIDARG;
+    if (shellPath.empty())
+        return E_INVALIDARG;
+    const bool drive = shellPath.size() >= 3 &&
+        ((shellPath[0] >= L'A' && shellPath[0] <= L'Z') || (shellPath[0] >= L'a' && shellPath[0] <= L'z')) &&
+        shellPath[1] == L':' && shellPath[2] == L'\\';
+    const bool unc = shellPath.compare(0, 2, LR"(\\)") == 0 &&
+                     shellPath.compare(0, 4, LR"(\\.\)") != 0 && shellPath.compare(0, 4, LR"(\\?\)") != 0;
+    if ((!drive && !unc) || shellPath.find(L':', drive ? 2 : 0) != std::wstring::npos)
+        return HRESULT_FROM_WIN32(ERROR_INVALID_NAME);
     for (size_t i = 0; i < shellPath.size(); ++i)
         if ((i + 1 == shellPath.size() || shellPath[i + 1] == L'\\' || shellPath[i + 1] == L'/') &&
             (shellPath[i] == L'.' || shellPath[i] <= L' '))

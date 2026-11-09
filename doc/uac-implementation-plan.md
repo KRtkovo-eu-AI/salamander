@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record original-volume and account checks for Recycle Bin receipts. | Verify identity independently of the mounted drive path. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record duplicate validation at comparison time. | Confirm empty candidates and reject short or changed reads. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record exact-file consent in Find refinement. | Keep protected text and tags available in intersection and subtraction. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record larger streamed cross-volume F6 transfers. | Keep F6 size and time limits independent from F5. | | GPT-6.1 Sol (Codex) |
@@ -893,6 +894,10 @@ V Debug i Release prošly tři kontroly této zkoušky a patnáct běžných reg
 **Sonda elevace Shellu pro Koš původního uživatele.** Testovací program přijímá `--elevation-probe approve` nebo `--elevation-probe cancel` z původního účtu bez elevace. Používá pouze `recycle-approve.txt` nebo `recycle-cancel.txt` v chráněném adresáři `Open Samandarin UAC\UacRecycleProbe` pod Program Files. Před výzvou vyžaduje odepření DELETE a přesný obsah `Samandarin UAC Recycle probe` zakončený LF. Při potvrzení kontroluje potvrzenou položku přímo v Koši původního SID, stejné ID souboru a návrat na původní cestu přes Shell. Obnova do chráněné složky může vyžadovat další výzvu. Při zrušení vyžaduje stejný zdroj a žádnou potvrzenou položku Koše. [Příznaky IFileOperation](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-setoperationflags) · [Potvrzení položky Koše](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperationprogresssink-postdeleteitem).
 
 V x64 Debug i Release prošly čtyři kontroly nového režimu `--recycle-receipt-probe` na obyčejném souboru a patnáct stávajících regresí Koše. Sestavení aplikace x64 Debug prošlo. Chráněná výzva, zrušení a vlastnictví Koše při souhlasu jiného správce čekají na společnou akceptaci v izolované VM.
+
+**Přesná identita Koše a kontrola vstupních cest.** Sonda před recyklací uloží ID zdroje, GUID skutečného svazku a SID původního účtu. Po operaci otevře položku z potvrzení Shellu a ověří ID a přesnou složku `$Recycle.Bin` pro stejné SID a svazek. Tím odpadá předpoklad, že svazek je připojen přímo pod písmenem jednotky. Kontroly odmítly jiné SID, jiný GUID a stejnojmenný Koš uvnitř nesouvisející složky. Běžná obsluha Koše před zařazením položek do Shellu odmítá cesty k alternativním proudům, relativní cesty k jednotce a cesty zařízení. [Potvrzení Shellu](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperationprogresssink-postdeleteitem) · [Normalizovaná cesta podle handlu](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfinalpathnamebyhandlew).
+
+V x64 Debug i Release prošlo 16 běžných regresí Koše, šest kontrol potvrzení a tři kontroly přenosu Shellu. Prošlo sestavení aplikace x64 Debug. Chráněné přesouvání do Koše zůstává otevřené. Sonda je připravená pro společnou akceptaci stejného účtu i souhlasu jiným správcem.
 
 #### Rozsah dokončené P5
 
