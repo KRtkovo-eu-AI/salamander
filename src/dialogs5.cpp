@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Fix dialogs5.cpp build errors. | Add missing <algorithm> for std::stable_sort and move WM_DESTROY case inside the enclosing switch. | | opencode |
 // | 2026-11-09 | Add the all-associations view and category-aware target details. | Keep matrix values in their own columns and expose accurate source and state filters with target icons. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Repair association detail layout, selection, drawing and sorting. | Keep the responsive editor readable while exposing colored states and multiselect actions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Reshape the association matrix and category navigation. | Match the approved mockup with per-category filtering, explicit source/status columns, and theme-aware provenance colors. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -19,6 +20,7 @@
 
 #include "precomp.h"
 
+#include <algorithm>
 #include <new>
 #include <string>
 #include <vector>
@@ -5144,7 +5146,6 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
             }
         }
         break;
-    }
     case WM_DESTROY:
         if (MatrixImageList != NULL)
         {
@@ -5154,6 +5155,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
             TargetIcons.clear();
         }
         break;
+    }
     return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
 }
 
