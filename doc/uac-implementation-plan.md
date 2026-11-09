@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the local identity boundary on a real SMB path. | Contrast the native broker identity check with an ordinary read and copy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify combined F5 metadata from the panel. | Record refusal of an ordinary-writable source and exact readback from a protected source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify that a disconnected Find scope leaves other VM results intact. | Record the exact pipe error, remaining results and restoration of the regular broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify alternate-administrator EFS read denial in the VM. | Complete the two-account encrypted copy acceptance. | | GPT-6.1 Sol (Codex) |
@@ -1531,6 +1532,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, poruchová zkouška Findu ve VM.** Ve Windows 11 build 26200 běžel host 7b0826d7 jako SamandarinUacTest. Při hledání duplicit podle názvu, velikosti a obsahu s textem P7FIND_MARKER_X a tagem Samandarin-東 schválil druhý správce obě chráněné složky. Laboratorní broker přerušil první čtení vybrané položky v 02-deny. Find Log zaznamenal jedinou chybu 109 u 02-deny/東-candidate.jpg. Find dokončil vyhledávání a v seznamu zůstaly přesně dvě očekávané položky z 01-ordinary a 03-approve. Po dokončení neběžel žádný broker. Uživatel obnovil běžný broker a skript ověřil jeho otisk. Přehled je v C:/Samandarin/builds/uac-p7-10da008c/P7-Find/fault-vm-evidence.json.
 
 **P7, kombinovaná metadata F5 ve VM.** V panelu 7b0826d7 byl vybrán jediný komprimovaný soubor s alternativním proudem a zapnutým zachováním komprese a oprávnění. Po prvním souhlasu broker odmítl zdroj zapisovatelný běžnými účty chybou 5. Cíl nevznikl. Po nastavení ověřeného vlastníka Administrators a explicitní DACL pouze s právy zápisu správců byl opakovaný souhlas úspěšný. Shodují se SHA-256 hlavního obsahu, obsah a seznam proudů, komprese, SID vlastníka, SID skupiny i binární chráněná DACL. Porovnání celého textového SDDL nejprve ukázalo rozdíl v příznaku automatického dědění AI, který netvoří součást explicitní DACL. Výsledek je v C:/Samandarin/builds/uac-p7-10da008c/f5-combined-metadata-evidence.json.
+
+**P7, zkouška skutečné cesty SMB.** Windows 11 build 26200 zpřístupnil tentýž testovací adresář přes místní cestu a přes existující sdílení na localhostu. Produkční kontrola identity rodiče ze stejného kódu jako broker uspěla u místního handlu a vrátila chybu 3 u otevřeného SMB handlu bez místní identity svazku. Běžný CopyFileW přes SMB vytvořil kopii se stejným SHA-256 a zkouška ji uklidila. Záznam je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/smb/smb-parent-evidence.json. Jde o zkoušku primitivy Windows a ověření identity. Neověřuje nativní panel, mapovanou jednotku ani odpojení vzdáleného serveru.
 
 ### 12.3 CI a přijetí vydání
 
