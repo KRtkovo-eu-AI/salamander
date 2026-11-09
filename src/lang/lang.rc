@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Make custom handler descriptions single-line and balance the editor group height. | Prevent description wrapping and remove excess space below Save. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Group and describe custom handler pages. | Clarify page purpose and give saved commands a dedicated editor section. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Swap Plugin Manager checkboxes order. | Move "Show in Change Drive menu and Drive bar" above "Show in Plugin bar" to match requested order. | | nvidia/nemotron-3.5-super-vl:free |
 // | 2026-11-09 | Align File Operations value controls in Configuration. | The Conflict handling and Preferred transfer mode combo boxes started at x=125 while the SSD/NVMe edit fields started at x=175, misaligning all four value controls. | | nvidia/nemotron-3.5-super-vl:free |
@@ -1211,9 +1212,9 @@ STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
 CAPTION "Custom Viewers"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    LTEXT           "",IDC_STATIC_2,1,0,295,14,SS_LEFT | SS_NOPREFIX
+    LTEXT           "",IDC_STATIC_2,1,0,295,12,SS_LEFTNOWORDWRAP | SS_NOPREFIX
     CONTROL         "",IDL_CUSTOM_HANDLERS,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP | WS_VSCROLL,1,18,295,76
-    GROUPBOX        "",IDC_STATIC_1,1,100,295,128,WS_GROUP
+    GROUPBOX        "",IDC_STATIC_1,1,100,295,108,WS_GROUP
     LTEXT           "",IDC_CUSTOM_HANDLER_NAME_LABEL,6,116,50,8
     EDITTEXT        IDE_CUSTOM_HANDLER_NAME,59,114,220,14,ES_AUTOHSCROLL | WS_TABSTOP
     LTEXT           "",IDC_CUSTOM_HANDLER_COMMAND_LABEL,6,134,50,8
@@ -1233,9 +1234,9 @@ STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
 CAPTION "Custom Editors"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    LTEXT           "",IDC_STATIC_2,1,0,295,14,SS_LEFT | SS_NOPREFIX
+    LTEXT           "",IDC_STATIC_2,1,0,295,12,SS_LEFTNOWORDWRAP | SS_NOPREFIX
     CONTROL         "",IDL_CUSTOM_HANDLERS,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP | WS_VSCROLL,1,18,295,76
-    GROUPBOX        "",IDC_STATIC_1,1,100,295,128,WS_GROUP
+    GROUPBOX        "",IDC_STATIC_1,1,100,295,108,WS_GROUP
     LTEXT           "",IDC_CUSTOM_HANDLER_NAME_LABEL,6,116,50,8
     EDITTEXT        IDE_CUSTOM_HANDLER_NAME,59,114,220,14,ES_AUTOHSCROLL | WS_TABSTOP
     LTEXT           "",IDC_CUSTOM_HANDLER_COMMAND_LABEL,6,134,50,8

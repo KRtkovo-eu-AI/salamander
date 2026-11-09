@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Shorten custom viewer/editor page descriptions. | Keep page guidance on one line at the minimum window width. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add localized custom handler guidance and table headings. | Describe viewer/editor pages and name the new Arguments and Initial directory columns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Rename the association detail selector label to Action. | Match the new action tab group in the File Associations editor. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize the missing legacy editor state. | Show a translated Target ID if no editor command is configured. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -2449,8 +2450,8 @@ STRINGTABLE
  IDS_CUSTOM_HANDLER_DUPLICATE, "A handler with this name already exists."
  IDS_CUSTOM_HANDLER_COLUMN_NAME, "Name"
  IDS_CUSTOM_HANDLER_COLUMN_COMMAND, "Command"
- IDS_CUSTOM_HANDLER_VIEWERS_HELP, "Define named custom viewers for file associations. Select a saved viewer to edit it, or fill in the fields and save a new one."
- IDS_CUSTOM_HANDLER_EDITORS_HELP, "Define named custom editors for file associations. Select a saved editor to edit it, or fill in the fields and save a new one."
+ IDS_CUSTOM_HANDLER_VIEWERS_HELP, "Configure named custom viewers for file associations."
+ IDS_CUSTOM_HANDLER_EDITORS_HELP, "Configure named custom editors for file associations."
  IDS_CUSTOM_HANDLER_DETAILS, "Handler details"
  IDS_CUSTOM_HANDLER_COLUMN_ARGUMENTS, "Arguments"
  IDS_CUSTOM_HANDLER_COLUMN_INITIAL_DIRECTORY, "Initial directory"
