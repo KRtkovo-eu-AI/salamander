@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Correct wildcard editor targets, matrix theme, and cell selection. | Show the saved Built-in Target ID, preserve the matrix palette after shared dark theming, and apply the clicked category after list notifications settle. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Show the configured default editor for `*.*` in the matrix. | Reflect the Category Edit fallback even when it has no separate universal-pattern association row. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Apply matrix colors after shared dark theming and paint every cell. | Keep the requested dark background and ensure all columns, selection, and status badges are rendered by the association page. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Split archive operations into independent matrix columns and filters. | Make Pack and Unpack associations separately visible and filterable from the Panel Archive tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -66,6 +67,7 @@ static char LastSelectedPluginDLLName[MAX_PATH] = {0}; // after reopening Plugin
 namespace
 {
 enum { FileAssociationTargetExtensionsChoice = 100 };
+static const UINT WM_APP_FILEASSOCIATION_SELECTMATRIXCELL = WM_APP + 0x3AB;
 
 BOOL HasStablePluginKey(const char* value, const char* stableKey)
 {
@@ -3681,9 +3683,14 @@ std::string CCfgPageFileAssociations::MatrixCellText(int index, bool archive) co
     else if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::BuiltIn &&
              item.AssociationCategory == Salamander::FileAssociations::Category::Edit)
     {
-        const std::string application = LegacyEditorApplicationName(item.Pattern);
-        target = application.empty() ? LoadStr(IDS_FILEASSOCIATION_NO_LEGACY_EDITOR)
-                                     : application.c_str();
+        if (!item.AssociationTarget.StableId.empty())
+            target = item.AssociationTarget.StableId.c_str();
+        else
+        {
+            const std::string application = LegacyEditorApplicationName(item.Pattern);
+            target = application.empty() ? LoadStr(IDS_FILEASSOCIATION_NO_LEGACY_EDITOR)
+                                         : application.c_str();
+        }
     }
     else if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::BuiltIn &&
              item.AssociationCategory == Salamander::FileAssociations::Category::PanelArchive)
@@ -3726,6 +3733,11 @@ std::string CCfgPageFileAssociations::MatrixEditCellText(const MatrixRow& row) c
         return MatrixCellText(row.Edit, false);
     if (row.Pattern != "*.*")
         return MatrixCellText(row.Edit, false);
+
+    for (size_t i = 0; i < Rows.size(); ++i)
+        if (_stricmp(Rows[i].Pattern.c_str(), "*.*") == 0 &&
+            Rows[i].AssociationCategory == Salamander::FileAssociations::Category::Edit)
+            return MatrixCellText(static_cast<int>(i), false);
 
     const std::string application = LegacyEditorApplicationName(row.Pattern);
     return application.empty() ? std::string(LoadStr(IDS_FILEASSOCIATION_NO_LEGACY_EDITOR))
@@ -4621,6 +4633,49 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
 {
     switch (uMsg)
     {
+    case WM_APP_FILEASSOCIATION_SELECTMATRIXCELL:
+    {
+        const int subItem = static_cast<int>(wParam);
+        const int matrixRow = static_cast<int>(lParam);
+        if (subItem < 1 || subItem > 5 || matrixRow < 0 ||
+            matrixRow >= static_cast<int>(MatrixRows.size()))
+            return TRUE;
+
+        SelectedMatrixRow = matrixRow;
+        SelectedCategory = subItem <= 3
+                               ? subItem - 1
+                               : static_cast<int>(Salamander::FileAssociations::Category::PanelArchive);
+        SelectedOperation = subItem == 4
+                                ? static_cast<int>(Salamander::FileAssociations::PanelOperation::DeletePack)
+                                : static_cast<int>(Salamander::FileAssociations::PanelOperation::ListUnpack);
+        Selected = SelectedAssociationIndex(MatrixRows[matrixRow]);
+        if (Selected >= 0)
+            LoadSelectedControls();
+        else
+        {
+            Updating = TRUE;
+            const auto selectComboData = [this](int controlId, int value)
+            {
+                const int count = static_cast<int>(SendDlgItemMessage(HWindow, controlId, CB_GETCOUNT, 0, 0));
+                for (int i = 0; i < count; ++i)
+                    if (static_cast<int>(SendDlgItemMessage(HWindow, controlId, CB_GETITEMDATA, i, 0)) == value)
+                    {
+                        SendDlgItemMessage(HWindow, controlId, CB_SETCURSEL, i, 0);
+                        break;
+                    }
+            };
+            SetDlgItemText(HWindow, IDE_FILEASSOCIATION_PATTERN, MatrixRows[matrixRow].Pattern.c_str());
+            selectComboData(IDC_FILEASSOCIATION_CATEGORY, SelectedCategory);
+            selectComboData(IDC_FILEASSOCIATION_OPERATION, SelectedOperation);
+            PopulateTargetKindChoices();
+            selectComboData(IDC_FILEASSOCIATION_TARGETKIND,
+                            static_cast<int>(Salamander::FileAssociations::TargetKind::Unassigned));
+            PopulateTargetCatalog();
+            Updating = FALSE;
+        }
+        PostMessage(HWindow, WM_SIZE, SIZE_RESTORED, 0);
+        return TRUE;
+    }
     case WM_SHOWWINDOW:
         if (wParam != 0 && HWindow != NULL)
         {
@@ -4924,6 +4979,14 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                            WinLibDPIFromLogical(HWindow, actionHeight), TRUE);
             }
         }
+        HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
+        const bool dark = Configuration.UseWindowsDarkMode != FALSE;
+        const COLORREF background = dark ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW);
+        ListView_SetBkColor(list, background);
+        ListView_SetTextBkColor(list, background);
+        ListView_SetTextColor(list, dark ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT));
+        if (MatrixImageList != NULL)
+            ImageList_SetBkColor(MatrixImageList, background);
         return baseResult;
     }
 
@@ -5560,25 +5623,11 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                         item.lParam >= 0 && item.lParam < static_cast<LPARAM>(MatrixRows.size()) &&
                         click->iSubItem >= 1 && click->iSubItem <= 5)
                     {
-                        SelectedMatrixRow = static_cast<int>(item.lParam);
-                        SelectedCategory = click->iSubItem <= 3 ? click->iSubItem - 1 : 3;
-                        const MatrixRow& row = MatrixRows[SelectedMatrixRow];
-                        SelectedOperation = static_cast<int>(Salamander::FileAssociations::PanelOperation::ListUnpack);
-                        if (click->iSubItem == 4 || (SelectedCategory == 3 && row.ListUnpack < 0))
-                            SelectedOperation = static_cast<int>(Salamander::FileAssociations::PanelOperation::DeletePack);
-                        Selected = SelectedAssociationIndex(row);
-                        if (Selected < 0)
-                        {
-                            SetDlgItemText(HWindow, IDE_FILEASSOCIATION_PATTERN, row.Pattern.c_str());
-                            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_CATEGORY, CB_SETCURSEL,
-                                               SelectedCategory, 0);
-                            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_SETCURSEL,
-                                               SelectedOperation, 0);
-                            PopulateTargetCatalog();
-                            PostMessage(HWindow, WM_SIZE, SIZE_RESTORED, 0);
-                        }
-                        else
-                            LoadSelectedControls();
+                        // Defer until the list-view finishes its selection
+                        // notifications, which otherwise restore the row's
+                        // default (View) association over the clicked cell.
+                        PostMessage(HWindow, WM_APP_FILEASSOCIATION_SELECTMATRIXCELL,
+                                    click->iSubItem, item.lParam);
                     }
                 }
                 return 0;
@@ -5596,10 +5645,11 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
         break;
     }
     const INT_PTR baseResult = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
-    if (uMsg == WM_INITDIALOG)
+    if (uMsg == WM_INITDIALOG || uMsg == WM_THEMECHANGED ||
+        uMsg == WM_SETTINGCHANGE || uMsg == WM_SYSCOLORCHANGE)
     {
-        // The base property page applies DarkModeApplyTree after this page's
-        // initialization. Reapply this matrix's palette after that shared pass.
+        // Shared property-page theme handling resets list-view colors. Reapply
+        // the explicit matrix palette after the base handler has completed.
         HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
         const bool dark = Configuration.UseWindowsDarkMode != FALSE;
         const COLORREF background = dark ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW);
