@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add IDS_EXCOL_MULTISELECT string. | Multi-select info message for the Property information panel in Choose Custom Properties. | | opencode |
 // | 2026-11-09 | Add localized source, details, and conflict-count labels. | Keep the revised file-association page fully resource-backed. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Add the localized extension-owner marker. | Distinguish Salamatrix extension associations from framework-owned plugin associations. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Shorten association legend and keep the help caption compact. | Prevent explanatory text from colliding with the detail editor during page resizing. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -2253,6 +2254,7 @@ STRINGTABLE
  IDS_EXCOL_ADD_FAVORITE, "Add to favorites"
  IDS_EXCOL_REMOVE_FAVORITE, "Remove from favorites"
  IDS_EXCOL_PLUGINS, "Plugins"
+ IDS_EXCOL_MULTISELECT, "Multiple items selected - information not available"
  IDS_MENU_FILES_EDITPROPERTIES, "Edit &Tags and Windows Properties..."
  IDS_EDPROP_TITLE, "Edit Tags and Windows Properties"
  IDS_EDPROP_PROPERTY, "&Property:"

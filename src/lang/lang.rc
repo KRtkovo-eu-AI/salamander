@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Enable multiselect on the Selected Properties list in Choose Custom Properties. | Remove LVS_SINGLESEL so multiple items can be marked for bulk Remove / Move up / Move down. | | opencode |
 // | 2026-11-09 | Reshape the file-association page around category tabs and details. | Match the approved matrix layout and make room for source and status columns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Give the association matrix report headers and scrolling. | Prevent the file-association table from hiding controls and make columns user-resizable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Add the canonical file-association dialog resource. | Provide localized-resource-backed controls for the new configuration page. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -247,7 +248,7 @@ BEGIN
     CONTROL         "",IDC_EXCOL_CATEGORIES,"SysTreeView32",TVS_HASLINES | TVS_LINESATROOT | TVS_SHOWSELALWAYS | WS_BORDER | WS_TABSTOP,4,27,105,271
     CONTROL         "",IDC_EXCOL_PROPERTIES,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_NOCOLUMNHEADER | WS_BORDER | WS_TABSTOP,113,27,145,271
     GROUPBOX        "Selected properties",IDC_EXCOL_SELECTED_GROUP,262,23,154,180
-    CONTROL         "",IDC_EXCOL_SELECTED_LIST,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_NOCOLUMNHEADER | WS_BORDER | WS_TABSTOP,270,37,138,135
+    CONTROL         "",IDC_EXCOL_SELECTED_LIST,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | LVS_NOCOLUMNHEADER | WS_BORDER | WS_TABSTOP,270,37,138,135
     PUSHBUTTON      "Remove",IDC_EXCOL_REMOVE,270,178,48,14
     CONTROL         "Move up",IDC_EXCOL_MOVE_UP,"Button",BS_ICON | WS_TABSTOP,324,178,14,14
     CONTROL         "Move down",IDC_EXCOL_MOVE_DOWN,"Button",BS_ICON | WS_TABSTOP,344,178,14,14

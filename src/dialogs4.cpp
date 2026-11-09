@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Multiselect for the Selected Properties list in Choose Custom Properties. | Allow Remove, Move up, and Move down to operate on all selected items at once; show multi-select info in the Property information panel and disable the favorite button. | | opencode |
 // | 2026-11-09 | Move Internal Viewer under Appearance in Configuration dialog. | Position the Internal Viewer item as a child of Appearance as requested. | | opencode |
 // | 2026-11-09 | Move Internal Viewer between Appearance and Colors as top-level page. | Reparent PageViewer as top-level sibling between Appearance and Colors; shift subsequent page indices and update constructor mode defaults to preserve same logical page per mode. | | opencode |
 // | 2026-11-08 | Restore the Internal Viewer configuration entry. | Keep the existing viewer settings accessible while leaving obsolete association pages hidden. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -2701,23 +2702,113 @@ void CExplorerColumnsDialog::SetAvailable(int explorerIndex, BOOL available)
 void CExplorerColumnsDialog::UpdateSelectedButtons()
 {
     HWND list = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
+    int count = ListView_GetSelectedCount(list);
+    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_REMOVE), count > 0);
+
+    int firstItem = -1;
+    int lastItem = -1;
     int item = ListView_GetNextItem(list, -1, LVNI_SELECTED);
-    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_REMOVE), item >= 0);
-    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_UP), item > 0);
-    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_DOWN), item >= 0 && item + 1 < SelectedCount);
+    if (item >= 0)
+    {
+        firstItem = item;
+        lastItem = item;
+        while ((item = ListView_GetNextItem(list, item, LVNI_SELECTED)) >= 0)
+            lastItem = item;
+    }
+    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_UP), count > 0 && firstItem > 0);
+    EnableWindow(GetDlgItem(HWindow, IDC_EXCOL_MOVE_DOWN), count > 0 && lastItem >= 0 && lastItem + 1 < SelectedCount);
 }
 
 void CExplorerColumnsDialog::MoveSelected(BOOL up)
 {
     HWND list = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
+
+    int selectedItems[EXPLORER_COLUMNS_COUNT + PLUGIN_COLUMNS_COUNT];
+    int selectedCount = 0;
     int item = ListView_GetNextItem(list, -1, LVNI_SELECTED);
-    int other = up ? item - 1 : item + 1;
-    if (item < 0 || other < 0 || other >= SelectedCount)
+    while (item >= 0)
+    {
+        selectedItems[selectedCount++] = item;
+        item = ListView_GetNextItem(list, item, LVNI_SELECTED);
+    }
+    if (selectedCount == 0)
         return;
-    WORD tmp = SelectedOrder[item];
-    SelectedOrder[item] = SelectedOrder[other];
-    SelectedOrder[other] = tmp;
-    FillSelected(SelectedOrder[other]);
+
+    int firstItem = selectedItems[0];
+    int lastItem = selectedItems[selectedCount - 1];
+
+    int insertPos;
+    if (up)
+    {
+        if (firstItem == 0)
+            return;
+        insertPos = firstItem - 1;
+    }
+    else
+    {
+        if (lastItem + 1 >= SelectedCount)
+            return;
+        insertPos = lastItem - selectedCount + 2;
+    }
+
+    // Collect tokens of the selected items (in list order).
+    WORD tokens[EXPLORER_COLUMNS_COUNT + PLUGIN_COLUMNS_COUNT];
+    for (int i = 0; i < selectedCount; i++)
+    {
+        LVITEM itemInfo;
+        ZeroMemory(&itemInfo, sizeof(itemInfo));
+        itemInfo.mask = LVIF_PARAM;
+        itemInfo.iItem = selectedItems[i];
+        ListView_GetItem(list, &itemInfo);
+        tokens[i] = (WORD)itemInfo.lParam;
+    }
+
+    // Remove the selected items from SelectedOrder (by token value).
+    for (int i = 0; i < selectedCount; i++)
+    {
+        for (int j = 0; j < SelectedCount; j++)
+        {
+            if (SelectedOrder[j] == tokens[i])
+            {
+                memmove(SelectedOrder + j, SelectedOrder + j + 1,
+                        (SelectedCount - j - 1) * sizeof(SelectedOrder[0]));
+                SelectedCount--;
+                break;
+            }
+        }
+    }
+
+    // Insert the block at the target position.
+    memmove(SelectedOrder + insertPos + selectedCount,
+            SelectedOrder + insertPos,
+            (SelectedCount - insertPos) * sizeof(SelectedOrder[0]));
+    for (int i = 0; i < selectedCount; i++)
+        SelectedOrder[insertPos + i] = tokens[i];
+    SelectedCount += selectedCount;
+
+    FillSelected();
+
+    // Re-select the moved items.
+    for (int i = 0; i < ListView_GetItemCount(list); i++)
+    {
+        LVITEM itemInfo;
+        ZeroMemory(&itemInfo, sizeof(itemInfo));
+        itemInfo.mask = LVIF_PARAM;
+        itemInfo.iItem = i;
+        if (!ListView_GetItem(list, &itemInfo))
+            continue;
+        for (int j = 0; j < selectedCount; j++)
+        {
+            if ((int)itemInfo.lParam == tokens[j])
+            {
+                ListView_SetItemState(list, i, LVIS_SELECTED | LVIS_FOCUSED,
+                                      LVIS_SELECTED | LVIS_FOCUSED);
+                break;
+            }
+        }
+    }
+    UpdateSelectedButtons();
+    UpdateDetails(list);
 }
 
 void CExplorerColumnsDialog::ApplySelectedOrder()
@@ -2800,6 +2891,19 @@ int CExplorerColumnsDialog::GetDetailsExplorerIndex(HWND sourceList) const
 
 void CExplorerColumnsDialog::UpdateDetails(HWND sourceList)
 {
+    HWND selectedList = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
+
+    // Multi-select on the selected properties list: show info message,
+    // details for a single property are not available.
+    if (ListView_GetSelectedCount(selectedList) > 1)
+    {
+        DetailsExplorerIndex = -1;
+        SetDlgItemText(HWindow, IDC_EXCOL_DETAILS,
+                       LoadStr(IDS_EXCOL_MULTISELECT));
+        UpdateFavoriteButton();
+        return;
+    }
+
     int index = GetDetailsExplorerIndex(sourceList);
     DetailsExplorerIndex = index;
     if (index < 0)
@@ -3236,19 +3340,22 @@ INT_PTR CExplorerColumnsDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
         if (LOWORD(wParam) == IDC_EXCOL_REMOVE && HIWORD(wParam) == BN_CLICKED)
         {
             HWND selectedList = GetDlgItem(HWindow, IDC_EXCOL_SELECTED_LIST);
-            int selectedItem = ListView_GetNextItem(selectedList, -1, LVNI_SELECTED);
-            if (selectedItem >= 0)
+            int tokens[EXPLORER_COLUMNS_COUNT + PLUGIN_COLUMNS_COUNT];
+            int tokenCount = 0;
+            int item = ListView_GetNextItem(selectedList, -1, LVNI_SELECTED);
+            while (item >= 0)
             {
-                LVITEM item;
-                ZeroMemory(&item, sizeof(item));
-                item.mask = LVIF_PARAM;
-                item.iItem = selectedItem;
-                if (ListView_GetItem(selectedList, &item))
-                {
-                    SetAvailable((int)item.lParam, FALSE);
-                    FillProperties();
-                }
+                LVITEM itemInfo;
+                ZeroMemory(&itemInfo, sizeof(itemInfo));
+                itemInfo.mask = LVIF_PARAM;
+                itemInfo.iItem = item;
+                if (ListView_GetItem(selectedList, &itemInfo))
+                    tokens[tokenCount++] = (int)itemInfo.lParam;
+                item = ListView_GetNextItem(selectedList, item, LVNI_SELECTED);
             }
+            for (int i = 0; i < tokenCount; i++)
+                SetAvailable(tokens[i], FALSE);
+            FillProperties();
             return TRUE;
         }
         if (LOWORD(wParam) == IDC_EXCOL_MOVE_UP && HIWORD(wParam) == BN_CLICKED)

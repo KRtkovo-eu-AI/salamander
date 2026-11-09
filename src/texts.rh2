@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add IDS_EXCOL_MULTISELECT string ID. | Label for the multi-select info message in the Choose Custom Properties dialog. | | opencode |
 // | 2026-11-09 | Add the localized extension-owner marker. | Distinguish Salamatrix extension associations from framework-owned plugin associations. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Add canonical association provenance identifiers. | Give the configuration editor localized labels for default, user, legacy, disabled, and conflict rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Localize the finishing phase in Find. | Distinguish a finished search worker from results still being finalized. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -3055,6 +3056,7 @@
 #define IDS_EXCOL_ADD_FAVORITE                     14422
 #define IDS_EXCOL_REMOVE_FAVORITE                  14423
 #define IDS_EXCOL_PLUGINS                          14424
+#define IDS_EXCOL_MULTISELECT                      14398
 #define IDS_FONTDESCRIPTION_UI                      14425
 #define IDS_FILEISNOTARCHIVE                        14426
 #define IDS_PLUGINSEC_NETWORK                       14427
