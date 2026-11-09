@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-10 | Flush successful Apply edits to the active configuration store. | Persist association changes immediately when the selected backend is the portable config file. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
-// | 2026-11-10 | Apply to selected patterns instead of a stale focused row. | Keep single-row and multi-row edits bound to the actual ListView selection after focus moves to the detail controls. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Build Apply records from detail controls and refresh from canonical state. | Treat matrix selection only as pattern keys, save the current editor fields, then repopulate the table from the saved model. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Restore the direct user-override Apply path. | Undo the later SetUserTarget refactor that made the Apply transaction fail against the page's conflict rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Fall back from blank pattern text in every control-read path. | Treat whitespace-only edit text as empty so Apply does not fail during pattern normalization. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Resolve Apply patterns from the selected matrix row before validation. | Prevent stale or cleared pattern edit text from aborting a valid association update. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -5997,14 +5997,12 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 focusedPattern = Rows[Selected].Pattern;
 
             Salamander::FileAssociations::Association item;
-            if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
-                item = Rows[Selected];
-            else
-            {
-                item.AssociationCategory = Salamander::FileAssociations::Category::View;
-                item.Operation = Salamander::FileAssociations::PanelOperation::NotApplicable;
-                item.AssociationTarget = Salamander::FileAssociations::Target();
-            }
+            item.AssociationCategory =
+                static_cast<Salamander::FileAssociations::Category>(SelectedCategory);
+            item.Operation =
+                static_cast<Salamander::FileAssociations::PanelOperation>(SelectedOperation);
+            item.AssociationTarget = Salamander::FileAssociations::Target(
+                Salamander::FileAssociations::TargetKind::Unassigned);
             item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
             item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
             std::string error;
@@ -6013,8 +6011,6 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 SetStatus(error.c_str());
                 break;
             }
-            if (!focusedPattern.empty())
-                item.Pattern = focusedPattern;
             std::string normalizedPattern;
             if (!Salamander::FileAssociations::CFileAssociationModel::NormalizePattern(
                     item.Pattern.c_str(), &normalizedPattern, &error))
@@ -6115,7 +6111,17 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 break;
             }
 
-            Rows = candidate.Associations();
+            Salamander::FileAssociations::CFileAssociationModel savedModel;
+            if (!Salamander::FileAssociations::CopyCanonicalAssociationsForConfiguration(
+                    &savedModel, &commitError))
+            {
+                Rows = originalRows;
+                RefreshList();
+                SetStatus(commitError.c_str());
+                break;
+            }
+
+            Rows = savedModel.Associations();
             Selected = -1;
             for (size_t i = Rows.size(); i > 0; --i)
                 if (Rows[i - 1].Pattern == focusedPattern &&
