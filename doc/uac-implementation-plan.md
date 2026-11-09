@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Document the UAC pilot for users and record Release regressions. | Separate supported operations from open release gates. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record Czech UAC localization and round-trip verification. | Track localized prompts and release validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the P7 protocol resource and stale-image checks. | Detect mismatched broker packages before elevation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record original-volume and account checks for Recycle Bin receipts. | Verify identity independently of the mounted drive path. | | GPT-6.1 Sol (Codex) |
@@ -1154,6 +1155,10 @@ Hlášení o povinné standardní instalaci do chráněné cesty je dostupné ve
 V x64 Debug a Release prošlo 22 kontrol transportní sady včetně čtení skutečných PE zdrojů. Ověřovač přijal nepodepsanou dvojici v laboratorním režimu s verzí 5 a odmítl pracovní kopii brokeru s verzí 4. Prošlo sestavení aplikace, brokeru a sondy v x64 Debug a obou nástrojů i ve Win32 a ARM64 Debug. Podepsaný instalační balík a odmítnutí smíšené dvojice ve skutečné instalaci zůstávají otevřené.
 
 **České texty UAC.** Český archiv obsahuje všech 63 zpráv UAC z hlavního jazykového modulu. Členění tabulek odpovídá aktuálním zdrojům PE. Hlášení o nepotvrzené kopii nebo přesunu popisují výsledek bez odhadu příčiny. Sestavení anglického modulu x64 Debug a Translatoru Win32 Release prošla. Translator importoval český archiv do modulu s LANGID 1029 a kontrola zpětného exportu potvrdila shodu textů. Vizuální kontrola dialogů a aktualizace dalších jazykových balíků zůstávají otevřené.
+
+**Uživatelská příručka pilotu.** [Příručka UAC](uac-user-guide.md) popisuje rozsah souhlasu, kolize, částečné výsledky, podporované operace a limity. Chráněný Koš, síťové cesty a ostatní pluginy jsou oddělené od dostupných funkcí pilotu. Odkaz vede z hlavního README.
+
+Společná lokální kontrola x64 Release prošla 248 kontrolami souborového jádra a sadou transportu a brokerových úloh. Transport ověřil skutečnou rouru a odmítnutí nesprávného procesu. Úlohy pokryly mimo jiné pozdní kolizi, zrušení před a po zveřejnění, uchování částečného výsledku F6 a odpojení před předáním další položky. Tyto testy běží bez systémové výzvy. Interaktivní akceptace finálního sestavení a aktuální CI/CodeQL jsou samostatné podmínky.
 
 ## 12. Testovací strategie
 

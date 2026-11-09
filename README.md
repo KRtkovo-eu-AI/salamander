@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Link the administrator access pilot guide. | Make consent behavior and supported operations discoverable. | | GPT-6.1 Sol (Codex) |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 -->
 # Open Samandarin
@@ -38,6 +39,7 @@ It evolves the [original project](https://github.com/OpenSalamander/salamander) 
 - AI-assisted localization tooling for application and plug-in translations.
 - Official catalog installations verify the package SHA-256 and first-party Authenticode publisher, then disclose curated network, external-process, and web capabilities.
 - Distributed binaries and the installer are digitally signed.
+- See the [administrator access pilot guide](doc/uac-user-guide.md) for supported UAC operations and limits.
 
 Explore the [complete feature guide](https://samandarin.krtkovo.eu/#features), [version comparison](https://samandarin.krtkovo.eu/compare.html), and [0.15 changelist](doc/changelog-0.15.md).
 
