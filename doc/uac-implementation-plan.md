@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Align the pilot guide with P7 acceptance. | Document scoped recycle, protected search Stop and the F6 verification phase. | | Codex |
 | 2026-11-09 | Record Czech F7 visual acceptance. | Verify the translated consent dialog and Unicode destination in the protected pilot. | | Codex |
 | 2026-11-09 | Verify the full protocol 11 language payload. | Match packaged resources to the current sources and the accepted x64 pilot. | | Codex |
 | 2026-11-09 | Verify cancellation during F6 copy verification. | Cover the cancellation boundary after a verified block and before source retirement. | | Codex |
@@ -1297,7 +1298,7 @@ V x64 Debug a Release prošlo 22 kontrol transportní sady včetně čtení skut
 
 **České texty UAC.** Český archiv obsahuje všech 63 zpráv UAC z hlavního jazykového modulu. Členění tabulek odpovídá aktuálním zdrojům PE. Hlášení o nepotvrzené kopii nebo přesunu popisují výsledek bez odhadu příčiny. Sestavení anglického modulu x64 Debug a Translatoru Win32 Release prošla. Translator importoval český archiv do modulu s LANGID 1029 a kontrola zpětného exportu potvrdila shodu textů. Vizuální kontrola dialogů a aktualizace dalších jazykových balíků zůstávají otevřené.
 
-**Uživatelská příručka pilotu.** [Příručka UAC](uac-user-guide.md) popisuje rozsah souhlasu, kolize, částečné výsledky, podporované operace a limity. Chráněný Koš, síťové cesty a ostatní pluginy jsou oddělené od dostupných funkcí pilotu. Odkaz vede z hlavního README.
+**Uživatelská příručka pilotu.** [Příručka UAC](uac-user-guide.md) popisuje rozsah souhlasu, kolize, částečné výsledky, podporované operace a limity. Příručka uvádí ověřený chráněný Koš pro schválení stejným účtem, zastavení chráněného Findu a samostatný průběh ověřování již vytvořené kopie při dokončení F6. Chráněný Koš při souhlasu jiným účtem, síťové cesty a ostatní pluginy zůstávají mimo aktuálně popsanou podporu. Odkaz vede z hlavního README.
 
 Společná lokální kontrola x64 Release prošla 248 kontrolami souborového jádra a sadou transportu a brokerových úloh. Transport ověřil skutečnou rouru a odmítnutí nesprávného procesu. Úlohy pokryly mimo jiné pozdní kolizi, zrušení před a po zveřejnění, uchování částečného výsledku F6 a odpojení před předáním další položky. Tyto testy běží bez systémové výzvy. Interaktivní akceptace finálního sestavení a aktuální CI/CodeQL jsou samostatné podmínky.
 

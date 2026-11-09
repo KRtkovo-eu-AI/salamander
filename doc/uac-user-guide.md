@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Document protected Find cancellation and move verification. | Match the native progress display and verified search behavior. | | Codex |
 | 2026-11-09 | Explain how to restore the selection after a cancelled F5 batch. | Use the existing panel command before deciding which items to retry. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe F5 recovery and the panel size command. | Explain the fresh overwrite decision and the existing shortcut for folder sizes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Explain the source restriction for elevated security copies. | Document the protected source requirement verified in the VM. | | GPT-6.1 Sol (Codex) |
@@ -21,7 +22,7 @@ The UAC pilot runs the file manager with the account and permissions you normall
 
 - For an eligible file job, approval covers later eligible items within the same operation and the approved path scope. A new job or wider scope can require another approval. Overwriting an existing file still follows the usual conflict dialog. If the target changes while you are approving the operation, review the new conflict.
 - In a protected folder panel, the shield marks an approved listing session. You can navigate within the approved subtree and refresh the listing. Reading file contents or changing files can require separate permission.
-- In Find, accessible results can appear while the protected scope is awaiting approval. Approving a listing does not by itself authorize content, keyword or duplicate-content checks. If access is declined, results from accessible locations remain available. Treat results as incomplete when Find reports inaccessible locations or files.
+- In Find, accessible results can appear while the protected scope is awaiting approval. Approving a listing does not by itself authorize content, keyword or duplicate-content checks. If access is declined, results from accessible locations remain available. Treat results as incomplete when Find reports inaccessible locations or files. **Stop** ends the current search and keeps the results already shown. Starting another search can require fresh approval.
 - In the built-in ZIP panel, the approved read session covers navigation, refresh and reading eligible entries, including **F3**. **F5** extraction to a protected destination and edits to the original ZIP require separate approval. Leaving the archive ends its read session.
 
 ## Supported paths and operations
@@ -40,12 +41,12 @@ The pilot applies to supported local paths and the built-in ZIP integration. Net
 
 ## Progress during elevated transfers
 
-The normal Copy or Move window shows progress while the broker copies eligible files or a folder tree. A cross-volume move can still be checking the copy or removing the source after the data has been transferred. The operation reaches completion when the broker confirms the result.
+The normal Copy or Move window shows progress while the broker copies eligible files or a folder tree. A shield in the title bar marks the active administrator step. A cross-volume move can still be checking the copy or removing the source after the data has been transferred. The operation reaches completion when the broker confirms the result.
 
-For EFS, percentages appear during import of the encrypted data. The initial export has no known total size. For a move where ordinary copying succeeded and only source removal needs administrator access, the progress shown during copying comes from the normal worker.
+For EFS, percentages appear during import of the encrypted data. The initial export has no known total size. If the normal worker already copied the file, the broker checks that copy before removing the original. During this check, the current-file bar can move again. The overall bar and transferred-byte total keep the work already counted during copying.
 
 ## Cancellation and interrupted operations
 
-Cancelling the Windows prompt leaves the elevated step unstarted. Changes already completed earlier in the job remain in place. After cancelling **F5**, activate the original source panel and choose **Edit → Restore Selection** to bring back the original selection. Check the destination before retrying any of those files. If Samandarin cannot confirm a result, check the source and destination before retrying. A cross-volume move can leave a complete destination and the original source. If a move into the Recycle Bin cannot be confirmed, check both the original location and the Recycle Bin. A failed recycle request never switches automatically to permanent deletion.
+Cancelling the Windows prompt leaves the elevated step unstarted. Changes already completed earlier in the job remain in place. After cancelling **F5**, activate the original source panel and choose **Edit → Restore Selection** to bring back the original selection. Check the destination before retrying any of those files. If Samandarin cannot confirm a result, check the source and destination before retrying. A cross-volume move can leave a complete destination and the original source. This can also happen if you cancel during verification after copying finishes. If a move into the Recycle Bin cannot be confirmed, check both the original location and the Recycle Bin. A failed recycle request never switches automatically to permanent deletion.
 
 If a protected **F5** overwrite is interrupted while the original is held in a recovery backup, retrying the same copy can restore the original. Review the normal overwrite dialog before proceeding. Choose **Cancel** to keep the restored file. If another operation is still using the destination and Samandarin reports a sharing violation, wait for that operation to finish before retrying.
