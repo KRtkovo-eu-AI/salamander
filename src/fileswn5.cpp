@@ -6,6 +6,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Keep the full F7 parent path in heap storage. | Avoid aborting before consent for deeply nested targets. | | Codex |
 // | 2026-11-09 | Default the protected F7 prompt to Cancel. | Require choosing the shield button to request elevation. | | Codex |
 // | 2026-11-08 | Carry the selected attribute masks into the worker. | Keep the elevated job bound to the original choices. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Permit verified metadata for multiple selected items. | Preserve nonrecursive basic-metadata scope. | | GPT-6.1 Sol (Codex) |
@@ -3202,6 +3203,7 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
 
             int errTextID;
             BOOL fullNameOK = FALSE;
+            bool pathTooLong = false;
             std::wstring pathW = SalMultiByteToWidePath(path, CP_UTF8);
             if (pathW.empty() && path[0] != 0)
                 pathW = SalMultiByteToWidePath(path, CP_ACP);
@@ -3215,7 +3217,9 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                 if (fullNameOK)
                 {
                     std::string pathUtf8 = SalWideToMultiBytePath(pathW.c_str(), CP_UTF8);
-                    lstrcpyn(path, pathUtf8.c_str(), SAL_MAX_PATH);
+                    pathTooLong = pathUtf8.size() >= SAL_MAX_PATH;
+                    if (!pathTooLong)
+                        lstrcpyn(path, pathUtf8.c_str(), SAL_MAX_PATH);
                     if (!nextFocusW.empty())
                     {
                         std::string focusUtf8 = SalWideToMultiBytePath(nextFocusW.c_str(), CP_UTF8);
@@ -3223,10 +3227,11 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                     }
                 }
             }
-            if ((!fullNameOK && !SalGetFullName(path, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus, NULL, SAL_MAX_PATH)) ||
+            if (pathTooLong ||
+                (!fullNameOK && !SalGetFullName(path, &errTextID, Is(ptDisk) ? GetPath() : NULL, nextFocus, NULL, SAL_MAX_PATH)) ||
                 strlen(path) >= SAL_MAX_PATH)
             {
-                if (strlen(path) >= SAL_MAX_PATH)
+                if (pathTooLong || strlen(path) >= SAL_MAX_PATH)
                     errTextID = IDS_TOOLONGPATH;
                 /* even if the string is empty we want an error message
         if (errTextID == IDS_EMPTYNAMENOTALLOWED)
@@ -3241,20 +3246,35 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
             }
             else
             {
-                char checkPath[3 * MAX_PATH];
+                CPathBuffer parentPath(SAL_MAX_PATH);
+                char* checkPath = parentPath.Data();
                 GetRootPath(checkPath, path);
                 if (CheckPath(TRUE, checkPath) != ERROR_SUCCESS)
                     goto CREATE_AGAIN;
-                strcpy(checkPath, path);
+                lstrcpyn(checkPath, path, parentPath.Capacity());
                 CutDirectory(checkPath);
-                char newDir[3 * MAX_PATH];
-                if (!CheckAndCreateDirectory(checkPath, HWindow, FALSE, NULL, 0, newDir, TRUE, TRUE))
-                    goto CREATE_AGAIN;
-                if (newDir[0] != 0)
+                std::string newDir;
+                if (strlen(checkPath) >= MAX_PATH)
                 {
-                    // change only in the directory where the first directory was created (other directories did not exist, no reason to report changes there)
-                    CutDirectory(newDir);
-                    MainWindow->PostChangeOnPathNotification(newDir, FALSE);
+                    const std::wstring parentW = SalMultiByteToWidePath(checkPath, IsValidPathUtf8Text(checkPath) ? CP_UTF8 : CP_ACP);
+                    std::wstring createdW;
+                    if (!CheckAndCreateDirectoryW(parentW.c_str(), HWindow, FALSE, &createdW, TRUE))
+                        goto CREATE_AGAIN;
+                    newDir = SalWideToMultiBytePath(createdW.c_str(), CP_UTF8);
+                }
+                else
+                {
+                    CPathBuffer createdPath(SAL_MAX_PATH);
+                    if (!CheckAndCreateDirectory(checkPath, HWindow, FALSE, NULL, 0, createdPath.Data(), TRUE, TRUE))
+                        goto CREATE_AGAIN;
+                    newDir = createdPath.Data();
+                }
+                const bool createdParent = !newDir.empty();
+                if (createdParent)
+                {
+                    // Notify only the parent of the first newly created directory.
+                    CutDirectory(newDir.data());
+                    MainWindow->PostChangeOnPathNotification(newDir.c_str(), FALSE);
                 }
 
                 //---  path creation
@@ -3263,7 +3283,7 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                     HCURSOR oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
                     LocalDirectoryCreateResult result = CreateLocalDirectoryLeaf(path, pathW);
-                    if (!result.Created && result.Error == ERROR_ACCESS_DENIED && newDir[0] == 0)
+                    if (!result.Created && result.Error == ERROR_ACCESS_DENIED && !createdParent)
                     {
                         UacF7::PreparedLeaf request;
                         if (request.Prepare(pathW))
@@ -3304,8 +3324,8 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                     if (result.Created)
                     {
                         SetCursor(oldCur);
-                        if (nextFocus[0] != 0)
-                            strcpy(NextFocusName, nextFocus);
+                        if (nextFocus[0] != 0 && strlen(nextFocus) < sizeof(NextFocusName))
+                            lstrcpyn(NextFocusName, nextFocus, sizeof(NextFocusName));
 
                         // change only in the directory where the directory was created
                         MainWindow->PostChangeOnPathNotification(checkPath, FALSE);

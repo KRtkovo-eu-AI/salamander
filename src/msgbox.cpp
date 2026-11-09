@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Scroll oversized administrator prompts. | Keep the complete path and Cancel within reach. | | Codex |
 // | 2026-11-09 | Keep explicit message-box line breaks when sizing and drawing. | Display the complete UAC destination path. | | Codex |
 // | 2026-11-07 | Put the UAC shield on the explicit OK button when requested. | Allow Cancel to retain default focus. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -726,6 +727,26 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
 
 
+        const int workHeight = clipRect.bottom - clipRect.top;
+        const bool oversizedConsent = !scrollableText && (Flags & MSGBOXEX_SHIELDONOKBTN) &&
+                                      workHeight > 0 && tR.bottom > workHeight / 2;
+        if (oversizedConsent)
+        {
+            // Keep the original text in the read-only edit so it can be
+            // scrolled and copied without the display-only hard line breaks.
+            const std::wstring fullText = Text.IsWide() ? Text.GetW() : MessageBoxTextToWide(Text.Get());
+            scrollableBodyText.reserve(fullText.size());
+            for (size_t i = 0; i < fullText.size(); ++i)
+            {
+                if (fullText[i] == L'\n' && (i == 0 || fullText[i - 1] != L'\r'))
+                    scrollableBodyText += L'\r';
+                scrollableBodyText += fullText[i];
+            }
+            scrollableText = TRUE;
+            tR = {0, 0, maxTextWidth, 0};
+            SetDlgItemTextW(HWindow, IDS_MSGBOX_TEXT, L"");
+        }
+
         int scrollableEditTopMargin = fontCharHeight / 2;
         int scrollableEditHeight = 0;
         if (scrollableText)
@@ -734,6 +755,8 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (tR.right > maxTextWidth)
                 tR.right = maxTextWidth;
             scrollableEditHeight = fontCharHeight * 10;
+            if (oversizedConsent)
+                scrollableEditHeight = min(scrollableEditHeight, workHeight / 2);
             tR.bottom += scrollableEditTopMargin + scrollableEditHeight;
         }
 
@@ -992,7 +1015,7 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (clientR.right + deltaX < totalBtnWidth + 2 * btnBottomMargin)
             deltaX = totalBtnWidth + 2 * btnBottomMargin - clientR.right;
-        if (scrollableText)
+        if (scrollableText && !oversizedConsent)
         {
             deltaX = scrollableWindowWidth - width;
             deltaY = scrollableWindowHeight - height;
@@ -1016,17 +1039,23 @@ CMessageBox::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             SetWindowPos(hText, NULL, p.x - iconWidth, p.y,
                          tR.right - tR.left, labelHeight,
                          SWP_NOZORDER);
-            int editHeight = btnY - btnBottomMargin - (p.y + labelHeight + scrollableEditTopMargin);
-            if (editHeight < fontCharHeight * 4)
-                editHeight = fontCharHeight * 4;
-            HWND hEdit = CreateWindowExW(0, L"EDIT", L"",
-                                         WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL | WS_HSCROLL |
-                                             ES_LEFT | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_AUTOHSCROLL,
+            int editHeight = oversizedConsent ? scrollableEditHeight :
+                                                 max(fontCharHeight * 4, btnY - btnBottomMargin - (p.y + labelHeight + scrollableEditTopMargin));
+            DWORD editStyle = WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL |
+                              ES_LEFT | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL;
+            if (!oversizedConsent)
+                editStyle |= WS_HSCROLL | ES_AUTOHSCROLL;
+            HWND hEdit = CreateWindowExW(0, L"EDIT", L"", editStyle,
                                          p.x - iconWidth + 1, p.y + labelHeight + scrollableEditTopMargin + 1,
                                          tR.right - tR.left - 2, editHeight - 2,
                                          HWindow, (HMENU)(INT_PTR)IDS_MSGBOX_URL, HInstance, NULL);
             SendMessage(hEdit, WM_SETFONT, SendMessage(HWindow, WM_GETFONT, 0, 0), TRUE);
-            SetWindowTextW(hEdit, scrollableBodyText.c_str());
+            const BOOL textSet = SetWindowTextW(hEdit, scrollableBodyText.c_str());
+            if (oversizedConsent && (!textSet || GetWindowTextLengthW(hEdit) != (int)scrollableBodyText.size()))
+            {
+                EndDialog(HWindow, IDCANCEL);
+                return FALSE;
+            }
             DarkModeApplyWindow(hEdit);
             if (DarkModeShouldUseDarkColors())
             {
