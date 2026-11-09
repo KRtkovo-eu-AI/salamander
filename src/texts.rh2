@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add lock-aware file recovery text identifiers. | Localize process names and the confirmation shown before terminating a lock holder. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 // | 2026-11-09 | Add localized text IDs for creating association patterns. | Title and prompt the existing Salamander rename input dialog and explain invalid or duplicate patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add localized text IDs for custom handler page descriptions and columns. | Label the new page guidance, editor group, Arguments, and Initial directory fields. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add the missing legacy editor display label. | Localize the empty-state Target ID when no configured editor command can be found. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -3242,5 +3243,9 @@
 #define IDS_FILELAUNCH_LONGPATH_GUIDE                    14526
 
 #define IDS_FILELAUNCH_ERROR_CODE                    14527
+#define IDS_FILELOCK_TERMINATE_RETRY                     14608
+#define IDS_FILELOCK_USED_BY                             14609
+#define IDS_FILELOCK_CONFIRM_TERMINATE                   14610
+#define IDS_FILELOCK_TERMINATE_FAILED                    14611
 
 #endif // __TEXTS_RH2

@@ -1,5 +1,6 @@
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-09 | Add separate mouse wheel behavior options. | Let users configure scrolling, zooming, and image navigation independently. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 // Microsoft Visual C++ generated resource script.
 //
 #pragma code_page(65001)
@@ -133,10 +134,14 @@ STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
 CAPTION "Keyboard && Mouse"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    GROUPBOX        "PageUp && PageDown keys, mouse wheel",IDC_STATIC_1,6,5,256,43,WS_GROUP
+    GROUPBOX        "PageUp && PageDown keys",IDC_STATIC_1,6,5,256,43,WS_GROUP
     CONTROL         "Used for image &scrolling",IDC_CFGKBD_PGDNUP_SCR,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,14,17,203,12
     CONTROL         "Used to access previous/next &image",IDC_CFGKBD_PGDNUP_PREV,
                     "Button",BS_AUTORADIOBUTTON | WS_TABSTOP,14,29,218,12
+    GROUPBOX        "Mouse wheel",IDC_STATIC_2,6,52,256,65,WS_GROUP
+    CONTROL         "Used for image &scrolling",IDC_CFGKBD_WHEEL_SCR,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,14,64,203,12
+    CONTROL         "Used to &zoom image",IDC_CFGKBD_WHEEL_ZOOM,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,14,78,203,12
+    CONTROL         "Used to access previous/next &image",IDC_CFGKBD_WHEEL_PREV,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,14,92,218,12
 END
 
 DLG_CFGPAGE_TOOLS DIALOGEX 66, 53, 268, 150

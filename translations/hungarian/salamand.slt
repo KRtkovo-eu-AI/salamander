@@ -4205,3 +4205,7 @@ SLGINCOMPLETE,""
 15004,1,"%s szabad (gyorsítótárból, frissítve: %s)"
 15005,1,"%s szabad (elavult, frissítve: %s)"
 
+14608,1,"Leállítás és újrapróbálás"
+14609,1,"A fájlt ezek a folyamatok használják: %s"
+14610,1,"Leállítja ezeket a folyamatokat, és újrapróbálja?\n\nA folyamatok nem mentett adatai elveszhetnek:\n%s"
+14611,1,"A fájlt használó folyamatok egyikét sem sikerült leállítani."

@@ -4205,3 +4205,7 @@ SLGINCOMPLETE,""
 15004,1,"%s voľného miesta (v medzipamäti, aktualizované %s)"
 15005,1,"%s voľného miesta (zastarané, aktualizované %s)"
 
+14608,1,"Ukončiť a zopakovať"
+14609,1,"Súbor používajú tieto procesy: %s"
+14610,1,"Ukončiť tieto procesy a akciu zopakovať?\n\nNeuložené údaje v týchto procesoch sa môžu stratiť:\n%s"
+14611,1,"Nepodarilo sa ukončiť žiadny proces používajúci tento súbor."

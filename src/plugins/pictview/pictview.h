@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Separate mouse wheel behavior from Page Up/Down and add navigation buttons. | Implement configurable wheel actions and previous/next mouse buttons. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 
 #pragma once
 
@@ -91,6 +94,10 @@ struct CPVW32DLL
 
 #define PV_MAX_IMG_SIZE_TO_THUMBNAIL 90 // in megapixels
 
+#define PV_MOUSEWHEEL_SCROLL 0
+#define PV_MOUSEWHEEL_ZOOM 1
+#define PV_MOUSEWHEEL_PREVNEXT 2
+
 // Flags use din G.DontShowAnymore
 #define DSA_UPDATE_THUMBNAILS 1
 #define DSA_SAVE_SUCCESS 2
@@ -113,7 +120,8 @@ typedef struct tagGlobals
     BOOL PipetteInHex;
     BOOL IgnoreThumbnails;                   // TRUE iff thumbnails are always recreated from full-size images
     DWORD MaxThumbImgSize;                   // Do not thumbnailize images with more than that megapixels
-    BOOL PageDnUpScrolls;                    // FALSE: PageDown,PageUp & mouse wheel access next/prev image
+    BOOL PageDnUpScrolls;                    // FALSE: PageDown and PageUp access next/prev image
+    int MouseWheelAction;                    // PV_MOUSEWHEEL_xxx
     int WindowPos;                           // WINDOW_POS_xxx
     int TotalNCWidth;                        // total width of window borders
     int TotalNCHeight;                       // total height of window borders & title & toolbar & statusbar
