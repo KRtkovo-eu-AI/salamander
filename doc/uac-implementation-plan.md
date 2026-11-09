@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the active UAC caption shield in the VM. | Confirm it appears alongside native progress during a real transfer. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Show the UAC shield in native progress captions. | Mark active broker work after authentication and restore the ordinary icon afterwards. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify live F6 progress in the native VM dialog. | Record protected transfer integrity and separate incomplete memory measurements. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Show native progress for protected trees and encrypted import. | Use verified operation totals without treating provisional work as completion. | | GPT-6.1 Sol (Codex) |
@@ -1408,6 +1409,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **VM, živý průběh a paměť při F6.** Na stejném testovacím souboru o 4 295 032 833 bajtech z C: na chráněný svazek E: zobrazil pilot s protokolem 10 v nativním dialogu současně File i Total nejprve 31 % a poté 73 %. Uživatel potvrdil, že se procenta měnila. SHA-256 cíle souhlasil, původní cesta i pracovní soubory zmizely. Při běžném F5 bez brokeru dosáhla privátní paměť aplikace 22 122 496 B ve výchozím sestavení a 22 016 000 B v kandidátu. V zachycené části chráněného přesunu kandidáta bylo společné maximum 24 166 400 B a maximum brokeru 1 888 256 B. Vzorkování začalo až během přesunu. Výchozí chráněný přesun doběhl, ale první vzorkovač výsledek neuložil, takže přímé srovnání privátní paměti pro chráněný přesun zbývá. JSON je v C:/Samandarin/builds/uac-p7-progress-total. Vizuální test stromu a EFS zůstává otevřený.
 
 **Štít v titulku okna průběhu.** Po ověření elevovaného protějšku nebo zahájení položky v již schválené relaci zobrazí nativní okno malou systémovou ikonu štítu. Po koncovém výsledku, zrušení nebo chybě se vrátí původní ikona. Stejný stav pokrývá přenosy a brokerové změny metadat či trvalé odstranění z okna průběhu. Protokol zůstává 10. Prošlo x64 Release sestavení hostu a brokeru, 14 kontrol workeru a transportní a brokerové testy. Stejné Release sestavení vzrostlo z 5 442 048 na 5 443 584 B u hostu, broker zůstal 1 332 736 B a celkový přírůstek je 1 536 B. Vizuální kontrola ikony a odpovídající měření privátní paměti čekají na nový pilot.
+
+**VM, štít v titulku při F6.** Pilot 1fa65b69 před souhlasem zobrazil v okně průběhu původní ikonu aplikace. Po souhlasu byl při 19 % v titulku systémový štít a oba ukazatele byly aktivní. Uživatel štít potvrdil. Po úspěchu se okno průběhu zavřelo a běžný panel měl původní ikonu. Soubor o délce 4 295 032 833 bajtů měl správný SHA-256, zdroj i pracovní kopie zmizely. Důkaz je v C:/Samandarin/builds/uac-p7-progress-total/shield-vm-evidence.json. Přechod ikony při chybě nebo zrušení s otevřeným oknem zůstává bez vizuální zkoušky. Protokol 10 se sestavil také pro broker a sondu Win32 a ARM64, bez spuštění na těchto architekturách.
 
 ### 12.3 CI a přijetí vydání
 
