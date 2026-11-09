@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Complete and verify all UAC translation archives. | Ensure each shipped language contains the full UAC text set. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Complete the Spanish and Italian UAC strings. | Verify localized UAC messages in both built language modules. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Complete the French and Slovak UAC strings. | Verify translated consent, scope and error text in both built language files. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Complete the German UAC strings. | Verify localized consent and error text in the German language binary. | | GPT-6.1 Sol (Codex) |
@@ -1507,6 +1508,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, francouzské a slovenské prostředky UAC.** Každý archiv doplnil 45 chybějících překladů a upravil tři starší hlášky o kopii a přesunu. Projektový překladač importoval oba archivy bez odmítnutí a zpětný export zachoval texty. Přímá kontrola souborů french.slg (LANGID 1036) a slovak.slg (LANGID 1051) porovnala všech 65 textů každého modulu s příslušným archivem. Kontrola rozvržení obou úplných modulů hlásí neblokující kód 2. Rozložení dialogů zůstává k vizuálnímu ověření. Sedm překladových archivů ještě čeká na doplnění.
 
 **P7, španělské a italské prostředky UAC.** Každý archiv doplnil 45 chybějících překladů a aktualizoval tři zprávy o kopii a přesunu. Projektový překladač importoval oba archivy bez odmítnutí a zpětný export zachoval texty. Přímá kontrola spanish.slg (LANGID 3082) a italian.slg (LANGID 1040) ověřila všech 65 textů každého modulu. Kontrola rozvržení celých modulů hlásí neblokující kód 2. Rozložení dialogů zůstává k vizuálnímu ověření. Pět překladových archivů ještě čeká na doplnění.
+
+**P7, společná kontrola všech překladů UAC.** Doplněny nizozemský, ruský, maďarský, rumunský a zjednodušený čínský archiv. Kvůli shodě při zpětném exportu bylo v nizozemském a rumunském archivu nutné upravit šířku jednoho stávajícího popisku v dialogu kompatibility o dvě jednotky. Sestavení všech jedenácti překladových modulů najednou prošlo importem i zpětným exportem bez chyb. Přímé čtení z binárních modulů podle jejich LANGID potvrdilo 65 jedinečných textů UAC v každém jazyce, celkem 715. Výpis je v C:/Samandarin/builds/uac-p6j/p7-all-uac-languages/verified-uac-strings.txt. Kontrola rozvržení nad úplnými moduly stále hlásí jedenáct neblokujících varování. Vizuální ověření rozvržení zůstává otevřené.
 
 ### 12.3 CI a přijetí vydání
 
