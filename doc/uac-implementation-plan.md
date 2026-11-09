@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Measure localized UAC button widths. | Check translated captions and the shield at four simulated font sizes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Close simultaneous Scan Ahead F5 VM acceptance. | Verify both Windows consent outcomes in the same run. | | Codex |
 | 2026-11-09 | Refresh and exercise the portable ARM64 runner. | Run native fixtures from an isolated directory with the current host and tests. | | Codex |
 | 2026-11-09 | Record CodeQL on the changed Scan Ahead translation units. | Verify the local production delta before the next full remote analysis. | | Codex |
@@ -1854,6 +1855,8 @@ Tento přehled je výchozí bod pro další práci. Výše jsou chronologické z
 **Aktualizace místního CodeQL pro 51eceece.** CodeQL 2.27.4 zachytil skutečnou kompilaci x64 Release jednotek src/dialogs.cpp a src/worker.cpp. Oba archivované zdroje se shodují s commitem. Sada cpp-security-extended vyexportovala 95 pravidel a nula nálezů. Výstupy summary.json a security-extended.sarif jsou v C:/Samandarin/builds/uac-codeql-v2.27.4/scan-ahead-51eceece. Jde o cílenou analýzu produkčních jednotek změněných od f0b9678c. Úplné CodeQL aktuální větve zůstává v tabulce otevřené.
 
 **Aktuální přenosná sada ARM64.** Archiv Samandarin-UAC-ARM64-lab-7aeb8f33.zip nahrazuje pro příští nativní zkoušku sadu f0b9678c. Obsahuje aktuální host s opravou Scan Ahead a nativní testy souběžného přepisu a zrušení. Starší spouštěč nechával test brokerových úloh pracovat v adresáři volajícího. Nový spouštěč pro každý běh použije vlastní pracovní adresář a po testu ho uklidí. Odpovídající varianta x64 skutečně provedla všech 399 kontrol dvakrát po sobě a ověřila čistý adresář volajícího i pracovní úložiště. Rozbalená sada ARM64 ověřila všech devět SHA-256 a hlaviček AA64, odmítla spuštění na x64 a zachytila změněný testovací obraz. Archiv má SHA-256 47DAC9E7953DD66D58F76411412FAB4B0CA4E731D1C367DDCFE082DD5DECE0E1. Výstupy jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c. Nativní ARM64 a interaktivní UAC zůstávají k ověření.
+
+**Šířky lokalizovaných tlačítek UAC.** Nativní sonda Windows načetla popisky Administrator a Cancel ze všech 12 sestavených jazykových modulů revize f0b9678c. Při velikostech písma odpovídajících 96, 120, 144 a 192 DPI prošlo všech 48 kombinací. BCM_GETIDEALSIZE naměřil se štítem o 16 px více. I po přepočtu této rezervy na simulované DPI zbývalo u tlačítka Administrator nejméně 13 px. Výsledek je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/localized-uac-button-fit/button-fit.log. Měření pracuje s odhadem šířek dialogu a s kódovou stránkou 1250. Interaktivní kontrola celého dialogu při skutečném vyšším DPI zůstává otevřená. [Dokumentace BCM_GETIDEALSIZE](https://learn.microsoft.com/en-us/windows/win32/controls/bcm-getidealsize).
 
 ##### Koš při schválení stejným nebo jiným správcem
 
