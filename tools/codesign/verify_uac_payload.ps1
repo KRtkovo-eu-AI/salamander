@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Verify the paired UAC protocol markers. | Reject stale or missing broker images during packaging. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Verify the x64 UAC pilot payload. | Check signatures and the broker loading policy before packaging. | | GPT-6.1 Sol (Codex) |
 
 [CmdletBinding()]
@@ -35,6 +36,51 @@ function Test-Image([string]$Path, [string]$ExpectedLevel, [string]$ManifestPath
         $levels[0].uiAccess -cne 'false') {
         throw "Expected one requestedExecutionLevel of $ExpectedLevel with uiAccess=false in $Path."
     }
+}
+
+if (!('Samandarin.UacPayload' -as [type])) {
+    Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace Samandarin
+{
+    public static class UacPayload
+    {
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+        private static extern IntPtr LoadLibraryExW(string path, IntPtr unused, uint flags);
+        [DllImport("kernel32.dll", ExactSpelling = true)]
+        private static extern IntPtr FindResourceW(IntPtr module, IntPtr name, IntPtr type);
+        [DllImport("kernel32.dll", ExactSpelling = true)]
+        private static extern uint SizeofResource(IntPtr module, IntPtr resource);
+        [DllImport("kernel32.dll", ExactSpelling = true)]
+        private static extern IntPtr LoadResource(IntPtr module, IntPtr resource);
+        [DllImport("kernel32.dll", ExactSpelling = true)]
+        private static extern IntPtr LockResource(IntPtr resource);
+        [DllImport("kernel32.dll", ExactSpelling = true)]
+        private static extern bool FreeLibrary(IntPtr module);
+
+        public static int ReadProtocol(string path)
+        {
+            const uint datafileExclusive = 0x40, imageResource = 0x20;
+            var module = LoadLibraryExW(path, IntPtr.Zero, datafileExclusive | imageResource);
+            if (module == IntPtr.Zero)
+                return 0;
+            try
+            {
+                // RCDATA resource ID from src/uacbroker/uacprotocol.h.
+                var resource = FindResourceW(module, new IntPtr(63001), new IntPtr(10));
+                if (resource == IntPtr.Zero || SizeofResource(module, resource) != sizeof(ushort))
+                    return 0;
+                var data = LoadResource(module, resource);
+                var bytes = data == IntPtr.Zero ? IntPtr.Zero : LockResource(data);
+                return bytes == IntPtr.Zero ? 0 : (ushort)Marshal.ReadInt16(bytes);
+            }
+            finally { FreeLibrary(module); }
+        }
+    }
+}
+"@
 }
 
 function Get-VerifiedSignature([string]$Path) {
@@ -74,6 +120,12 @@ try {
     Test-Image $hostPath 'asInvoker' $hostManifest
     Test-Image $brokerPath 'requireAdministrator' $brokerManifest
 
+    $hostProtocol = [Samandarin.UacPayload]::ReadProtocol($hostPath)
+    $brokerProtocol = [Samandarin.UacPayload]::ReadProtocol($brokerPath)
+    if (!$hostProtocol -or $hostProtocol -ne $brokerProtocol) {
+        throw "Missing or mismatched UAC protocol markers. Application: $hostProtocol. Broker: $brokerProtocol."
+    }
+
     $loadConfig = Invoke-InspectionTool $Dumpbin @('/nologo', '/loadconfig', $brokerPath)
     if (!($loadConfig -match '^\s*0800 Dependent Load Flag\s*$')) {
         throw 'Expected LOAD_LIBRARY_SEARCH_SYSTEM32 (0x0800) in the broker load configuration.'
@@ -103,6 +155,7 @@ finally {
     HostSha256 = (Get-FileHash -LiteralPath $hostPath -Algorithm SHA256).Hash
     BrokerSha256 = (Get-FileHash -LiteralPath $brokerPath -Algorithm SHA256).Hash
     BrokerImports = $imports
+    ProtocolVersion = $hostProtocol
     SignaturesVerified = !$UnsignedLab
     SignerThumbprint = $signer
 }

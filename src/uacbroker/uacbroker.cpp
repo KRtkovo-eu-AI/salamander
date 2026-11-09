@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Reject a mismatched UAC image before launch. | Verify the embedded protocol without executing the peer. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Use a longer shared timeout for streamed F6. | Keep the host connected and cancellable until the broker finishes or rolls back. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Enable named streams in ordinary cross-volume F6. | Require protected destination streams before committing the move. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve a partial broker result after the done frame. | Prevent retries that could treat a published move target as an ordinary failure. | | GPT-6.1 Sol (Codex) |
@@ -80,6 +81,7 @@
 #include <string>
 #include <vector>
 #include "f7pilot.h"
+#include "uacprotocol.h"
 #ifdef SAM_UAC_F7_HOST
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "ole32.lib")
@@ -126,7 +128,8 @@ constexpr DWORD timeoutMs = 5000;
     return UacF7::IsCrossVolumeMove(operation) ? 15 * 60 * 1000 : copyTimeoutMs;
 }
 // Version 5 raises the byte and time limits for cross-volume moves.
-constexpr DWORD protocolVersion = 5;
+constexpr DWORD protocolVersion = SAM_UAC_PROTOCOL_VERSION;
+static_assert(protocolVersion > 0 && protocolVersion <= MAXWORD);
 constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD mkdirCapability = 1;
 [[maybe_unused]] constexpr DWORD renameCapability = 2;
@@ -354,6 +357,25 @@ bool ProtectedObject(HANDLE handle, bool directory, bool namespaceOnly)
 bool ProtectedObject(HANDLE handle, bool directory)
 {
     return ProtectedObject(handle, directory, false);
+}
+
+[[maybe_unused]] bool MatchesProtocolImage(const std::wstring& path)
+{
+    // This maps resources without executing code or resolving its imports.
+    const HMODULE image = LoadLibraryExW(path.c_str(), nullptr,
+        LOAD_LIBRARY_AS_DATAFILE_EXCLUSIVE | LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+    if (!image)
+        return false;
+    const HRSRC resource = FindResourceW(image, MAKEINTRESOURCEW(SAM_UAC_PROTOCOL_RESOURCE), MAKEINTRESOURCEW(10));
+    WORD version = 0;
+    if (resource && SizeofResource(image, resource) == sizeof(version))
+    {
+        const HGLOBAL data = LoadResource(image, resource);
+        if (const void* bytes = data ? LockResource(data) : nullptr)
+            std::memcpy(&version, bytes, sizeof(version));
+    }
+    FreeLibrary(image);
+    return version == protocolVersion;
 }
 
 class InstallLocation
@@ -1937,6 +1959,8 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
     if (!host || !hostImage || !LiveInSession(host.get(), hostPid) ||
         !install.MatchesProcess(host.get(), hostName))
         return Report(Untrusted, L"Verify host image and session", ERROR_ACCESS_DENIED);
+    if (!MatchesProtocolImage(install.ImagePath(hostName)))
+        return Report(ProtocolError, L"Verify host protocol version", ERROR_REVISION_MISMATCH);
 
     const auto pipe = Adopt(CreateFileW(pipeName, pipeAccess, 0, nullptr, OPEN_EXISTING,
                                         FILE_FLAG_OVERLAPPED | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION,
@@ -2087,6 +2111,13 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
     if (!brokerImageLock)
         return Report(Untrusted, L"Verify installed broker", ERROR_ACCESS_DENIED);
     const auto exe = install.ImagePath(brokerImage);
+    if (!MatchesProtocolImage(exe))
+    {
+#ifdef SAM_UAC_F7_HOST
+        result->error = ERROR_REVISION_MISMATCH;
+#endif
+        return Report(ProtocolError, L"Verify broker protocol version", ERROR_REVISION_MISMATCH);
+    }
     const auto args = pipeName + L" " + std::to_wstring(GetCurrentProcessId());
     SHELLEXECUTEINFOW launch{sizeof(launch)};
     launch.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;

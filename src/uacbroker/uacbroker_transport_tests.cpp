@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise the broker's image protocol check without elevation. | Compare known matching and stale PE resources directly. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Test canonical local pipe names and reject other path inputs. | Guard the elevated pipe path validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Exercise broker peer checks against a real local pipe. | Reject wrong process IDs and an unelevated identification token. | | GPT-6.1 Sol (Codex) |
 */
@@ -29,6 +30,13 @@ int TestClient(const wchar_t* name, DWORD parentPid)
 
 int wmain(int argc, wchar_t** argv)
 {
+    if (argc == 4 && std::wstring_view(argv[1]) == L"--protocol-images")
+    {
+        if (!MatchesProtocolImage(argv[2]) || MatchesProtocolImage(argv[3]))
+            return 12;
+        std::puts("PASS accept the matching PE protocol resource and reject a stale image");
+        return 0;
+    }
     if (argc == 3)
         return TestClient(argv[1], wcstoul(argv[2], nullptr, 10));
 

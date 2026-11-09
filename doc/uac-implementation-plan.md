@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record the P7 protocol resource and stale-image checks. | Detect mismatched broker packages before elevation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record original-volume and account checks for Recycle Bin receipts. | Verify identity independently of the mounted drive path. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record duplicate validation at comparison time. | Confirm empty candidates and reject short or changed reads. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record exact-file consent in Find refinement. | Keep protected text and tags available in intersection and subtraction. | | GPT-6.1 Sol (Codex) |
@@ -1146,6 +1147,10 @@ Volitelný profil Inno Setup pro x64 zahrnuje podepsaný host a broker ze stejn�
 Místní kontrola dvojice Debug x64 ověřila architekturu, manifesty asInvoker a requireAdministrator s uiAccess=false, příznak načítání závislostí 0x0800 a seznam importovaných knihoven brokeru. Přísný režim správně odmítl nepodepsanou dvojici. Laboratorní režim odmítl broker dosazený místo hosta. Podpis skutečných artefaktů, kompilace instalátoru a zkoušky čisté instalace, aktualizace, odinstalace a výměny binárky ve VM zůstávají otevřené.
 
 Hlášení o povinné standardní instalaci do chráněné cesty je dostupné ve všech 12 jazycích instalátoru. Statická kontrola potvrdila přesnou shodu se seznamem jazyků a jediný zástupný parametr pro cestu v každém překladu. Zobrazení hlášení v sestaveném instalátoru patří do akceptace.
+
+**Kontrola verze páru před elevací.** Aplikace, broker a diagnostická sonda mají ve zdroji PE stejnou verzi, kterou používá výměna přes rouru. Aplikace kontroluje broker v chráněné instalační cestě před výzvou UAC. Broker kontroluje zdroj hosta před připojením k rouře. Obě strany mapují pouze zdroje PE a ponechávají autentizaci i ověření schopností v handshaku. Ověřovač instalačního obsahu kontroluje stejnou verzi, vedle podpisů, architektury, manifestů a importů. [Mapování zdrojů PE bez spuštění](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibraryexw) · [RCDATA](https://learn.microsoft.com/en-us/windows/win32/menurc/rcdata-resource).
+
+V x64 Debug a Release prošlo 22 kontrol transportní sady včetně čtení skutečných PE zdrojů. Ověřovač přijal nepodepsanou dvojici v laboratorním režimu s verzí 5 a odmítl pracovní kopii brokeru s verzí 4. Prošlo sestavení aplikace, brokeru a sondy v x64 Debug a obou nástrojů i ve Win32 a ARM64 Debug. Podepsaný instalační balík a odmítnutí smíšené dvojice ve skutečné instalaci zůstávají otevřené.
 
 ## 12. Testovací strategie
 

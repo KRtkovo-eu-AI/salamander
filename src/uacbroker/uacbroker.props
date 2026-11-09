@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Compile the protocol marker into both UAC tools. | Match the application handshake version in the distributable images. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Configure the isolated UAC targets. | Build architecture-matched binaries with a system-only import lookup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Link the NTFS relative create primitive. | Enable the single-directory broker pilot. | | GPT-6.1 Sol (Codex) |
 -->
@@ -28,5 +29,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="uacbroker.cpp" />
+    <ResourceCompile Include="uacprotocol.rc" />
   </ItemGroup>
 </Project>
