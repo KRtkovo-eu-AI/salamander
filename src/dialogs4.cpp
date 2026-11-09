@@ -7,6 +7,7 @@
 // | 2026-11-09 | Multiselect for the Selected Properties list in Choose Custom Properties. | Allow Remove, Move up, and Move down to operate on all selected items at once; show multi-select info in the Property information panel and disable the favorite button. | | opencode |
 // | 2026-11-09 | Move Internal Viewer under Appearance in Configuration dialog. | Position the Internal Viewer item as a child of Appearance as requested. | | opencode |
 // | 2026-11-09 | Move Internal Viewer between Appearance and Colors as top-level page. | Reparent PageViewer as top-level sibling between Appearance and Colors; shift subsequent page indices and update constructor mode defaults to preserve same logical page per mode. | | opencode |
+// | 2026-11-09 | Move Archivers tree under File Associations in Configuration. | Reparent PagePP (Archivers) and its subtree (External Archivers Locations, Packers, Unpackers) as a child of PageFileAssociations. | | opencode |
 // | 2026-11-08 | Restore the Internal Viewer configuration entry. | Keep the existing viewer settings accessible while leaving obsolete association pages hidden. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Register the canonical file-association page. | Make the new association editor the visible configuration entry point instead of the legacy pages. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Paint grouped property headers in ListView postpaint. | Preserve dark group headers after removing unsafe post-WM_PAINT client overpainting. | | GPT-5.6 Luna Pro |
@@ -1118,7 +1119,7 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
     /*20*/ Add(&PageFileAssociations, NULL, &Configuration.ViewersAndEditorsExpanded);
     /*21*/ Add(&PageCustomViewers, &PageFileAssociations);
     /*22*/ Add(&PageCustomEditors, &PageFileAssociations);
-    /*23*/ Add(&PagePP, NULL, &Configuration.PackersAndUnpackersExpanded);
+    /*23*/ Add(&PagePP, &PageFileAssociations, &Configuration.PackersAndUnpackersExpanded);
     /*24*/ Add(&PageP3, &PagePP);
     /*25*/ Add(&PageP1, &PagePP);
     /*26*/ Add(&PageP2, &PagePP);
