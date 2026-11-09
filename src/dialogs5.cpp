@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Fix opaque backgrounds while painting association text and badges. | Save and restore the offscreen GDI context and explicitly use transparent text backgrounds. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Fit the association details caption to its text. | Keep the group-box title from covering the full top border. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Balance spacing around the compact association filter row. | Give the second filter row equal clearance from the first row and the matrix. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Buffer association matrix painting and preserve header and grid lines. | Prevent flicker and keep the native column header visible while repainting colored cells. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -4799,12 +4800,14 @@ void CCfgPageFileAssociations::PaintMatrix(HDC hdc)
                 HPEN pillPen = CreatePen(PS_SOLID, 1, badgeColor);
                 if (pillBrush != NULL && pillPen != NULL)
                 {
-                    const int badgeDc = SaveDC(hdc);
+                    const int badgeDc = SaveDC(buffer);
                     if (badgeDc != 0)
                     {
                         SelectObject(buffer, pillBrush);
                         SelectObject(buffer, pillPen);
                         RoundRect(buffer, pill.left, pill.top, pill.right, pill.bottom, pillHeight, pillHeight);
+                        SetBkMode(buffer, TRANSPARENT);
+                        SetBkColor(buffer, badgeColor);
                         SetTextColor(buffer, dark ? RGB(255, 255, 255) : RGB(25, 25, 25));
                         DrawText(buffer, text, -1, &pill,
                                  DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
@@ -4836,6 +4839,8 @@ void CCfgPageFileAssociations::PaintMatrix(HDC hdc)
             }
             char cellText[1024] = {};
             ListView_GetItemText(list, rowIndex, column, cellText, _countof(cellText));
+            SetBkMode(buffer, TRANSPARENT);
+            SetBkColor(buffer, rowColor);
             DrawText(buffer, cellText, -1, &textRect,
                      DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
         }
