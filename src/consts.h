@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Reserve a progress caption activity message. | Keep broker status separate from ordinary progress updates. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Accept a verified panel path in the internal viewer dispatcher. | Other entry points keep their current access behavior. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-04 | Stop Ctrl+arrow on both sides of spaces too. | Spaces were still skipped while punctuation already stopped before and after. | | Composer |
 // | 2026-11-04 | Describe punctuation runs as edit word boundaries. | Ctrl+arrow now stops around every punctuation and symbol run. | | Grok 4.7 |
@@ -1058,6 +1059,7 @@ struct COpenViewerData
 #define WM_USER_SETDIALOG WM_APP + 103 // [CProgressData *data, 0] \
                                        // nebo [0, 0] - setprogress
 #define WM_USER_DIALOG WM_APP + 104    // [int dlgID, void *data]
+#define WM_USER_UAC_PROGRESS_ACTIVE (WM_APP + 426) // [bool active, 0]
 
 // icon reader prave nacetl ikonu, vlozil ji do iconcache a rika to panelu
 // bezicimu v hlavnim threadu, aby se mohl prekreslit a ikonku zazalohovat do asociaci

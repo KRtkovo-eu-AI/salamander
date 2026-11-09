@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Show the Windows shield while an elevated job runs. | Restore the previous small caption icon when the broker returns. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Release closed leaf broker sessions during a batch. | Keep metadata and deletion scopes only while connected. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Show both options in protected F5 consent. | Explain that compression and permissions will both be preserved. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
@@ -521,6 +522,8 @@ CProgressDialog::CProgressDialog(HWND parent, COperations* script, const char* c
 
 CProgressDialog::~CProgressDialog()
 {
+    if (BrokerShieldIcon != NULL)
+        DestroyIcon(BrokerShieldIcon);
     if (Worker != NULL)
         TRACE_E("Unexpected situation in CProgressDialog::~CProgressDialog(): worker thread is still alive!");
 }
@@ -915,6 +918,35 @@ void CProgressDialog::SetWindowIcon()
         SendMessage(HWindow, WM_SETICON, ICON_BIG,
                     (LPARAM)HANDLES(LoadIcon(HInstance, MAKEINTRESOURCE(resID))));
     }
+}
+
+void NotifyNativeBrokerActivity(HWND dialog, bool active)
+{
+    SendMessage(dialog, WM_USER_UAC_PROGRESS_ACTIVE, active, 0);
+}
+
+void CProgressDialog::SetBrokerActive(bool active)
+{
+    if (active == BrokerShieldVisible)
+        return;
+    if (active)
+    {
+        if (BrokerShieldIcon == NULL)
+        {
+            SHSTOCKICONINFO info{};
+            info.cbSize = sizeof(info);
+            if (FAILED(SHGetStockIconInfo(SIID_SHIELD, SHGSI_ICON | SHGSI_SMALLICON, &info)))
+                return;
+            BrokerShieldIcon = info.hIcon;
+        }
+        PreviousSmallIcon = (HICON)SendMessage(HWindow, WM_SETICON, ICON_SMALL, (LPARAM)BrokerShieldIcon);
+    }
+    else
+    {
+        SendMessage(HWindow, WM_SETICON, ICON_SMALL, (LPARAM)PreviousSmallIcon);
+        PreviousSmallIcon = NULL;
+    }
+    BrokerShieldVisible = active;
 }
 
 int CProgressDialog::GetSelectedConflictIndex() const
@@ -1471,6 +1503,10 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         return TRUE;
     }
+    case WM_USER_UAC_PROGRESS_ACTIVE:
+        SetBrokerActive(wParam != 0);
+        return TRUE;
+
     case WM_USER_SETDIALOG:
     {
         WPARAM progressWParam = wParam;
@@ -1893,7 +1929,8 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             {
                 if (shareJob && existing == TransferJobs.end())
                     existing = TransferJobs.emplace(TransferJobs.end());
-                prompt.result = prompt.request.Execute(HWindow, existing != TransferJobs.end() ? &*existing : nullptr);
+                prompt.result = prompt.request.Execute(HWindow, existing != TransferJobs.end() ? &*existing : nullptr,
+                                                       NotifyNativeBrokerActivity);
                 if (existing != TransferJobs.end() && (CancelWorker || !existing->IsOpen()))
                     TransferJobs.erase(existing);
                 if (prompt.result.unknown)

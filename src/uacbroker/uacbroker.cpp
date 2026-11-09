@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Scope broker activity after authentication. | Reset the caption even when a transfer fails or is cancelled. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Validate and forward the progress total. | Extend native progress to tree and encrypted copy without accepting inconsistent frames. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Send advisory progress on authenticated transfer pipes. | Keep the terminal result and cancellation separate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Retire the captured move source through its exact handle. | Require local NTFS and pin the copied destination before deleting. | | GPT-6.1 Sol (Codex) |
@@ -2253,6 +2254,33 @@ bool InspectPipeClient(HANDLE pipe, bool& elevated)
     return true;
 }
 
+#ifdef SAM_UAC_F7_HOST
+class BrokerActivityScope
+{
+public:
+    BrokerActivityScope(HWND owner, UacF7::BrokerActivity notify) : owner(owner), notify(notify) {}
+    ~BrokerActivityScope()
+    {
+        if (started)
+            notify(owner, false);
+    }
+
+    void Start()
+    {
+        if (notify && !started)
+        {
+            started = true;
+            notify(owner, true);
+        }
+    }
+
+private:
+    HWND owner;
+    UacF7::BrokerActivity notify;
+    bool started = false;
+};
+#endif
+
 int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
              , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result,
@@ -2260,7 +2288,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
                UacF7::ArchiveRevision* archiveRevision = nullptr, std::vector<BYTE>* zipBytes = nullptr,
                HANDLE zipUpdateFile = nullptr, UacF7::ArchiveRevision* overwriteTarget = nullptr,
                HANDLE* transferJob = nullptr, UacF7::MetadataJobPolicy* metadataPolicy = nullptr,
-               UacF7::TransferProgress progress = nullptr, void* progressContext = nullptr
+               UacF7::TransferProgress progress = nullptr, void* progressContext = nullptr, BrokerActivityScope* activity = nullptr
 #endif
 )
 {
@@ -2348,6 +2376,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         if (error)
             return IoError(L"Send accept", error);
 #ifdef SAM_UAC_F7_HOST
+        if (activity)
+            activity->Start();
         if (zipUpdateFile)
         {
             // Keep the read authorization until a new, authenticated broker has accepted.
@@ -2784,7 +2814,7 @@ static Result RepeatTransferJob(HANDLE& pipe, RequestHeader& header, std::wstrin
     return result;
 }
 
-Result PreparedLeaf::Execute(HWND owner, TransferJobSession* job) const
+Result PreparedLeaf::Execute(HWND owner, TransferJobSession* job, BrokerActivity notify) const
 {
     Result result;
     const ComApartment com;
@@ -2803,15 +2833,20 @@ Result PreparedLeaf::Execute(HWND owner, TransferJobSession* job) const
     auto policy = metadataPolicy;
     if (job && (!CanShareTransferJob(operation) || (change && !policy.Allows(*change))))
         return result;
+    BrokerActivityScope activity(owner, notify);
     if (job && IsInJob(*job))
+    {
+        activity.Start();
         return RepeatTransferJob(job->pipe, header, payload, change, sizeof(requestMetadata), change ? &policy : nullptr);
+    }
     if (job)
     {
         job->Close();
         job->scope = JobScope();
     }
     RunProbe(install, false, false, owner, &header, &payload, change, &result, nullptr, nullptr,
-             nullptr, nullptr, nullptr, nullptr, nullptr, job ? &job->pipe : nullptr, job && change ? &policy : nullptr);
+             nullptr, nullptr, nullptr, nullptr, nullptr, job ? &job->pipe : nullptr, job && change ? &policy : nullptr,
+             nullptr, nullptr, &activity);
     return result;
 }
 
@@ -3106,7 +3141,7 @@ bool PreparedTransfer::IsInJob(const TransferJobSession& job) const
 }
 
 Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* job,
-                                 TransferProgress progress, void* progressContext) const
+                                 TransferProgress progress, void* progressContext, BrokerActivity notify) const
 {
     Result result;
     const ComApartment com;
@@ -3131,15 +3166,19 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* 
     ArchiveRevision* targetRevision = IsOverwrite() || IsMoveCompletion() ? &revision : nullptr;
     if (job && !CanShareJob())
         return result;
+    BrokerActivityScope activity(owner, notify);
     if (job && IsInJob(*job))
+    {
+        activity.Start();
         return RepeatTransferJob(job->pipe, header, payload, targetRevision, sizeof(revision), nullptr, cancel, progress, progressContext);
+    }
     if (job)
     {
         job->Close();
         job->scope = JobScope();
     }
     RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, cancel,
-             nullptr, nullptr, nullptr, nullptr, targetRevision, job ? &job->pipe : nullptr, nullptr, progress, progressContext);
+             nullptr, nullptr, nullptr, nullptr, targetRevision, job ? &job->pipe : nullptr, nullptr, progress, progressContext, &activity);
     return result;
 }
 

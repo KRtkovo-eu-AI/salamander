@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Declare the progress caption callback. | Dispatch broker activity to the native dialog thread. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Mark directly selected files for protected transfer. | Keep recursive script items outside the selected-file broker scope. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Store the target revision for a protected Scan Ahead overwrite. | Keep the approved revision alongside the existing conflict identity. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Document deferred source access for copy and move. | Use one flag for the two existing transfer retries. | | GPT-6.1 Sol (Codex) |
@@ -60,6 +61,7 @@
 
 void InitWorker();
 void ReleaseWorker();
+void NotifyNativeBrokerActivity(HWND dialog, bool active);
 
 constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 13;
 constexpr WPARAM WORKER_DIALOG_UAC_DELETE = 14;

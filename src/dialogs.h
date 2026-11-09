@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Own the progress caption shield. | Keep the icon and its previous value local to one dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Keep transfer authorizations with the progress dialog. | Close every scope when its job ends. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share the protected read consent prompt with F3. | Keep the scope and shield consistent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Declare the protected read consent prompt. | Use the same shield and default Cancel for size and Find. | | GPT-6.1 Sol (Codex) |
@@ -369,6 +370,7 @@ protected:
 
     void SetDlgTitle(BOOL minimized);
     void SetWindowIcon();
+    void SetBrokerActive(bool active);
     std::string GetProgressCaption() const;
     void SetParallelProgress(const CParallelProgressData* data, BOOL repaint = TRUE, BOOL layout = TRUE);
     void LayoutActiveProgressStreams(int count, BOOL repaint = TRUE);
@@ -412,6 +414,9 @@ protected:
     COperations* Script;
     std::string Caption;
     std::string SchedulingTitleSuffix;
+    HICON BrokerShieldIcon = NULL;
+    HICON PreviousSmallIcon = NULL;
+    bool BrokerShieldVisible = false;
     CChangeAttrsData* AttrsData;
     CConvertData* ConvertData;
     BOOL AcceptCommands;

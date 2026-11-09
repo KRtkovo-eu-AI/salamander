@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Mark active elevated transfers in the progress caption. | Keep ordinary transfers on the existing icon. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Show tree and EFS import progress. | Reuse the native transfer bars with an explicit broker total. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Show broker byte counts in the existing progress dialog. | Count completed work only after the terminal result. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Pin the exact copied files before local F6 source retirement. | Detect a substituted source or destination before trying either local or elevated deletion. | | GPT-6.1 Sol (Codex) |
@@ -5725,7 +5726,7 @@ static UacF7::Result ExecuteWithNativeTransferProgress(const UacF7::PreparedTran
         SetProgressWithoutSuspend(state.dialog, item, summary, state.data);
         state.shown = true;
     };
-    const auto result = request.Execute(progress, cancel, job, updateProgress, &state);
+    const auto result = request.Execute(progress, cancel, job, updateProgress, &state, NotifyNativeBrokerActivity);
     if (state.shown)
     {
         // Advisory progress must not count as completed work or be added twice.
