@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Recheck the UAC candidate before the shared push. | Verify the current file core and encrypted copy regressions before GitHub validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify a live F5 copy against an actual journaled overwrite. | Pause the exchange after the original moves aside and check that the copy cannot fill the gap. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Isolate the Windows F5 cancellation retest. | Distinguish a single completed cancellation from other queued pilot operations. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the approved directory size and the Windows F5 cancellation result. | Record panel totals, the retained partial copy and the original selection. | | GPT-6.1 Sol (Codex) |
@@ -1635,6 +1636,8 @@ Chráněné běhy zachytily 53 a 136 vzorků s aktivním brokerem. Rozdíl v jeh
 **P7, opakování systémového zrušení F5 v čistém pilotu.** Předchozí instance při zavírání hlásila dvě běžící operace. Opakování proto proběhlo v novém procesu x64 Release, s jediným oknem průběhu, prázdným cílem a bez souběžného výpočtu velikosti. Po odmítnutí výzvy pro druhou položku se jediné okno průběhu zavřelo a další nabídka se nezobrazila. V cíli zůstala jen první běžná kopie s ověřeným SHA-256, oba chráněné zdroje byly na místě a žádný broker neběžel. Doklad je v C:/Samandarin/builds/uac-p7-f5-memory/isolated-windows-cancel-evidence.json. Tento běh potvrzuje zrušení jediné úlohy. Příčina druhé nabídky při dřívějším souběhu nebyla prokázána.
 
 **P7, souběh živé kopie a skutečné výměny F5.** Rozšířená transportní zkouška pozastavila kopii po prvním zapsaném bloku, tedy po úvodní kontrole žurnálu. Druhé vlákno vytvořilo původní cíl a spustilo stejnou žurnálovanou výměnu, kterou používá broker. Zastavilo ji po odsunutí originálu, kdy cílové jméno chybělo. Živá kopie přes lokální rouru v tomto bodě vrátila chybu 32 a cílové jméno zůstalo volné. Výměna pak zveřejnila správný obsah a uklidila žurnál. Opakování ve stejné relaci kopie vrátilo běžnou kolizi a nový soubor zachovalo. Transportní sada prošla v x64 Debug i Release. Záznamy actual-overwrite-race-Debug.log a actual-overwrite-race-Release.log jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c. Zkouška používá skutečné NTFS, rouru a výměnu v oddělených vláknech. Druhou operaci spouští přímo přes rutinu výměny v laboratorním adresáři, bez druhého elevovaného procesu.
+
+**P7, místní kontrola před společným pushem.** Na revizi f4c18f8d prošlo 307 kontrol souborového jádra a 69 zkoušek EFS v každé konfiguraci x64 Debug i Release. Sada transportu má 57 kontrol v obou konfiguracích. Testy F6 na dvou svazcích mají 79 kontrol v každé konfiguraci. Protokoly souborového jádra a EFS jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/preflight-f4c18f8d-*.log. Před pushem byl interní draft PR 67 stále na e49d48b1. Na této starší revizi prošla tři sestavení, zatímco Native and Python tests a výsledná kontrola CodeQL selhaly. Nové výsledky je třeba přiřadit k přesné nové revizi.
 
 ### 12.3 CI a přijetí vydání
 
