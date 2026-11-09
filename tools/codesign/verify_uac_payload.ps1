@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Allow the system CNG runtime in the broker. | Verify payloads that use SHA-256 for overwrite recovery. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Verify image roles in the signed payload. | Reject same-version images swapped between roles. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Load built-in modules from the current PowerShell installation. | Keep the installer verifier independent of an inherited module path. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Verify the paired UAC protocol markers. | Reject stale or missing broker images during packaging. | | GPT-6.1 Sol (Codex) |
@@ -142,7 +143,7 @@ try {
         throw 'Expected LOAD_LIBRARY_SEARCH_SYSTEM32 (0x0800) in the broker load configuration.'
     }
 
-    $allowedImports = 'ADVAPI32.dll', 'ole32.dll', 'SHELL32.dll', 'ntdll.dll', 'KERNEL32.dll'
+    $allowedImports = 'ADVAPI32.dll', 'ole32.dll', 'SHELL32.dll', 'ntdll.dll', 'KERNEL32.dll', 'bcrypt.dll'
     $dependencies = Invoke-InspectionTool $Dumpbin @('/nologo', '/dependents', $brokerPath)
     $imports = @($dependencies | ForEach-Object {
         if ($_ -match '^\s+([A-Za-z0-9_.-]+\.dll)\s*$') { $Matches[1] }

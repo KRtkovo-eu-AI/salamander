@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify disk overwrite receipts before retiring backups. | Retain the prior target when the published copy was changed after a broker exit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Combine exact compression and named streams in F5. | Verify contents, storage and collision behavior together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve compression on guarded F6 streams. | Verify mixed compression and sparsity before source retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Connect the protected Recycle Bin pilot to Delete. | Verify a single-file Shell retry and the original account receipt. | | GPT-6.1 Sol (Codex) |
@@ -1211,6 +1212,10 @@ Lokálně prošlo 125 kontrol F6 v x64 Debug i Release, 250 obecných nativních
 **Komprimované F5 s alternativními proudy.** Se zapnutým zachováním atributů použije broker pro komprimovaný soubor do volného názvu stejnou kontrolu úložiště proudů jako F6. Tím rozšiřuje P5g, kde se komprimovaný zdroj s alternativními proudy odmítal. Všechny zdrojové proudy ověří podle identity souboru a drží otevřené bez sdílení zápisu. Soubor se zveřejní až po ověření přesných atributů, inventáře, formátů komprese a řídkých proudů. Pro alternativní proudy se stále vyžaduje chráněný pracovní soubor. Existující cíl zůstane při kolizi zachovaný. [Vlastnosti jednotlivých datových proudů](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams).
 
 Lokálně prošlo 254 nativních kontrol v x64 Debug i Release, 125 regresí F6 v x64 Release, 24 kontrol úloh a samostatná kontrola transportu. Broker se sestavil v x64 Release. Zkouška porovnala obsah a formát komprimovaného hlavního proudu a komprimovaného Unicode proudu, obsah nekomprimovaného proudu a skutečně nealokovaný rozsah řídkého proudu. Odmítnutí souběžného zapisovatele a nedůvěryhodné pracovní kopie nezanechalo cílový soubor. Kombinace s interaktivním F5 a souhlasem UAC patří do společné akceptace ve VM.
+
+**Ověření diskového přepisu před úklidem zálohy.** Žurnál chráněného F5 po výměně ukládá revize nového cíle a původního souboru v záloze a SHA-256 nového cíle. Před odstraněním zálohy broker při obnově znovu ověří obě revize, absenci nepodporovaných datových proudů a rozšířených atributů i obsah nového cíle. Pokud obě jména existují a potvrzení chybí nebo neodpovídá, hlásí částečný výsledek a ponechá soubory i žurnál. Pokud po přerušení cílové jméno chybí, může vrátit ověřený původní soubor bez přepisu. Změna se týká diskového žurnálu. [Časové údaje NTFS](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_file_basic_information) · [Výpočet SHA-256 v CNG](https://learn.microsoft.com/en-us/windows/win32/seccng/creating-a-hash-with-cng).
+
+V x64 Debug i Release prošlo 264 nativních kontrol. Zkoušky obnovy odmítly nedokončený záznam, přepsaný cíl se stejným ID, délkou a časy i zálohu s dodatečným Unicode proudem. Nezměněná dvojice prošla úklidem. Dále prošlo 24 kontrol úloh, samostatný transport a sestavení brokeru x64 Release. Samostatný ověřovač v režimu UnsignedLab potvrdil architekturu, manifesty, verzi protokolu 6 a seznam importů včetně systémového bcrypt.dll. Skutečné ukončení brokeru během přepisu po souhlasu UAC a ověření podepsaných souborů zůstávají v akceptaci.
 
 ## 12. Testovací strategie
 

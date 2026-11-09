@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify disk overwrite recovery after later edits. | Retain both names when the journal cannot prove the published target and backup are unchanged. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise compressed F5 with mixed named streams. | Verify the copy, refusal of a writable stage or busy stream, and preservation of a colliding target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise mixed NTFS stream compression in F6. | Compare dense, compressed and sparse streams after publishing and retiring a sealed source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test Find revisions across two opens. | Detect an in-place edit even if file length and modification time match. | | GPT-6.1 Sol (Codex) |
@@ -2834,7 +2835,7 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
     }
     HANDLE rawStage = nullptr;
     std::wstring stageName;
-    if (UacCopyLeaf::Detail::StageFile(parent.get(), rawStage, stageName, false))
+    if (UacCopyLeaf::Detail::StageFile(parent.get(), rawStage, stageName, false, nullptr, !zip))
         return false;
     Handle stage(rawStage);
     const BYTE data[] = {3, 4, 5};
@@ -2910,7 +2911,100 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
           "restore the exact original after an interrupted publication", error);
     Check(Recover(parent.get(), identity, leaf, journal.get(), kind) == ERROR_SUCCESS,
           "allow another replacement after clearing the completed publication journal");
-    return true;
+    if (zip)
+        return true;
+
+    const auto checkRetirement = [&](std::wstring_view fileName, bool changeTarget, bool changeBackup) {
+        using namespace UacZipUpdate::Detail;
+        const auto finalPath = folder + L"\\" + std::wstring(fileName);
+        const std::vector<BYTE> oldBytes{11, 12, 13};
+        const std::vector<BYTE> newBytes{21, 22, 23};
+        if (!WriteFixture(finalPath, oldBytes))
+            return false;
+        HANDLE rawOriginal = nullptr, rawReplacement = nullptr;
+        if (Open(parent.get(), fileName, rawOriginal, DELETE))
+            return false;
+        Handle oldFile(rawOriginal);
+        std::wstring stageLeaf;
+        if (UacCopyLeaf::Detail::StageFile(parent.get(), rawReplacement, stageLeaf, false, nullptr, true))
+            return false;
+        Handle replacement(rawReplacement);
+        DiskRecoveryRecord durable;
+        durable.exchange.version = 2;
+        durable.exchange.parent = identity.file;
+        std::copy(fileName.begin(), fileName.end(), durable.exchange.leaf);
+        DWORD bytes = 0;
+        if (FAILED(CoCreateGuid(&durable.exchange.nonce)) ||
+            !GetFileInformationByHandleEx(oldFile.get(), FileIdInfo, &durable.exchange.original, sizeof(FILE_ID_INFO)) ||
+            !GetFileInformationByHandleEx(replacement.get(), FileIdInfo, &durable.exchange.replacement, sizeof(FILE_ID_INFO)) ||
+            !WriteFile(replacement.get(), newBytes.data(), static_cast<DWORD>(newBytes.size()), &bytes, nullptr) ||
+            bytes != newBytes.size() || !FlushFileBuffers(replacement.get()))
+            return false;
+        const auto backupLeaf = BackupName(durable.exchange.nonce, kind);
+        const auto priorPath = folder + L"\\" + backupLeaf;
+        const auto exchange = UacRenameLeaf::Detail::ReplaceStagedFile(parent.get(), oldFile.get(), replacement.get(),
+            fileName, backupLeaf, nullptr, MAXULONGLONG);
+        if (exchange.error || exchange.rollbackError ||
+            ReadDiskReceipt(oldFile.get(), replacement.get(), durable.receipt))
+            return false;
+        // Release both handles before reopening either name as recovery would.
+        oldFile.reset();
+        replacement.reset();
+        if (WriteRecord(journal.get(), durable.exchange))
+            return false;
+        Check(Recover(parent.get(), identity, fileName, journal.get(), kind) == ERROR_INVALID_DATA &&
+                  HasContents(finalPath, newBytes) && HasContents(priorPath, oldBytes),
+              "retain both names when the disk record is incomplete");
+        auto pending = durable;
+        pending.receipt = {};
+        if (WriteRecord(journal.get(), pending))
+            return false;
+        Check(Recover(parent.get(), identity, fileName, journal.get(), kind) == ERROR_PARTIAL_COPY &&
+                  HasContents(finalPath, newBytes) && HasContents(priorPath, oldBytes),
+              "retain both names when a broker exit precedes the disk commit receipt");
+        if (WriteRecord(journal.get(), durable))
+            return false;
+        if (changeTarget)
+        {
+            const HANDLE raw = CreateFileW(finalPath.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+            if (raw == INVALID_HANDLE_VALUE)
+                return false;
+            const Handle writer(raw);
+            const BYTE other[]{31, 32, 33};
+            FILE_BASIC_INFO preserve{};
+            preserve.LastWriteTime.QuadPart = -1;
+            preserve.ChangeTime.QuadPart = -1;
+            if (!SetFileInformationByHandle(writer.get(), FileBasicInfo, &preserve, sizeof(preserve)) ||
+                !WriteFile(writer.get(), other, sizeof(other), &bytes, nullptr) || bytes != sizeof(other))
+                return false;
+        }
+        if (changeTarget)
+        {
+            HANDLE raw = nullptr;
+            if (Open(parent.get(), fileName, raw, 0))
+                return false;
+            const Handle edited(raw);
+            Check(!UacZipUpdate::CheckRevision(edited.get(), durable.receipt.replacement),
+                  "simulate a same-length target edit without changing the recorded metadata");
+        }
+        if (changeBackup && !WriteFixture(priorPath + L":late-\u6771", {41, 42}))
+            return false;
+        const DWORD recovery = Recover(parent.get(), identity, fileName, journal.get(), kind);
+        if (changeTarget)
+            Check(recovery == ERROR_PARTIAL_COPY && HasContents(finalPath, {31, 32, 33}) && HasContents(priorPath, oldBytes),
+                  "retain the backup when the target digest differs despite matching metadata", recovery);
+        else if (changeBackup)
+            Check(recovery == ERROR_PARTIAL_COPY && HasContents(finalPath, newBytes) && HasContents(priorPath, oldBytes) &&
+                      HasContents(priorPath + L":late-\u6771", {41, 42}),
+                  "retain a backup that gained a named stream before recovery", recovery);
+        else
+            Check(!recovery && HasContents(finalPath, newBytes) && !Exists(priorPath),
+                  "retire the exact backup only when both durable disk revisions still match", recovery);
+        return !ClearRecord(journal.get());
+    };
+    return checkRetirement(L"unchanged.txt", false, false) &&
+           checkRetirement(L"changed-target.txt", true, false) &&
+           checkRetirement(L"changed-backup.txt", false, true);
 }
 
 static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const FILE_ID_INFO& sourceId,

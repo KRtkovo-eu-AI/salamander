@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Open disk overwrite stages for digest verification. | Verify the completed target before retiring its original backup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Include named streams in explicit compressed F5. | Preserve the selected metadata without dropping alternate data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Lock named streams on compressed cross-volume moves. | Use the same sealed inventory before retiring the source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the protected Shell recycle source. | Pin its trusted ancestors while the original account calls the Shell. | | GPT-6.1 Sol (Codex) |
@@ -1264,8 +1265,8 @@ DWORD PrepareReplacementFiles(HANDLE parent, std::wstring_view leaf, const UacF7
         ScopedTokenPrivilege restore;
         if ((error = restore.Enable(L"SeRestorePrivilege")) != ERROR_SUCCESS)
             return error;
-        constexpr ACCESS_MASK access = DELETE | FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | READ_CONTROL |
-            ACCESS_SYSTEM_SECURITY;
+        const ACCESS_MASK access = DELETE | FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES | READ_CONTROL |
+            ACCESS_SYSTEM_SECURITY | (kind == UacZipUpdate::ReplacementKind::DiskCopy ? FILE_READ_DATA : 0);
         error = UacRenameLeaf::Detail::OpenFile(parent, name, raw, access, 0, FILE_CREATE, FILE_DELETE_ON_CLOSE,
                                                security.descriptor.get());
     }
