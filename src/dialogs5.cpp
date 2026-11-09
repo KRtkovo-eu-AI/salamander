@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Show the configured default editor for `*.*` in the matrix. | Reflect the Category Edit fallback even when it has no separate universal-pattern association row. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Apply matrix colors after shared dark theming and paint every cell. | Keep the requested dark background and ensure all columns, selection, and status badges are rendered by the association page. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Split archive operations into independent matrix columns and filters. | Make Pack and Unpack associations separately visible and filterable from the Panel Archive tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Correct association matrix theme and selection rendering. | Use the requested dark background and keep row selection consistent while making status badges readable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Replace Preset with category-aware Built-in target IDs. | Show the actual legacy editor application for Edit and keep viewer built-ins labeled Internal Viewer. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -3718,6 +3720,18 @@ std::string CCfgPageFileAssociations::MatrixCellText(int index, bool archive) co
     return std::string(target);
 }
 
+std::string CCfgPageFileAssociations::MatrixEditCellText(const MatrixRow& row) const
+{
+    if (row.Edit >= 0)
+        return MatrixCellText(row.Edit, false);
+    if (row.Pattern != "*.*")
+        return MatrixCellText(row.Edit, false);
+
+    const std::string application = LegacyEditorApplicationName(row.Pattern);
+    return application.empty() ? std::string(LoadStr(IDS_FILEASSOCIATION_NO_LEGACY_EDITOR))
+                               : application;
+}
+
 int CCfgPageFileAssociations::MatrixTargetIconIndex(int associationIndex)
 {
     if (associationIndex < 0 || associationIndex >= static_cast<int>(Rows.size()) ||
@@ -4021,7 +4035,9 @@ bool CCfgPageFileAssociations::MatrixRowVisible(const MatrixRow& row) const
         else
         {
             const int indexes[3] = {row.View, row.AlternateView, row.Edit};
-            if (FilterCategory >= 3 || indexes[FilterCategory] < 0)
+            if (FilterCategory >= 3 ||
+                (indexes[FilterCategory] < 0 &&
+                 !(FilterCategory == 2 && row.Pattern == "*.*")))
                 return false;
         }
     }
@@ -4118,7 +4134,7 @@ void CCfgPageFileAssociations::RebuildMatrix()
         case 0: leftText = left.Pattern; rightText = right.Pattern; break;
         case 1: leftText = MatrixCellText(left.View, false); rightText = MatrixCellText(right.View, false); break;
         case 2: leftText = MatrixCellText(left.AlternateView, false); rightText = MatrixCellText(right.AlternateView, false); break;
-        case 3: leftText = MatrixCellText(left.Edit, false); rightText = MatrixCellText(right.Edit, false); break;
+        case 3: leftText = MatrixEditCellText(left); rightText = MatrixEditCellText(right); break;
         case 4: leftText = MatrixCellText(left.DeletePack, true); rightText = MatrixCellText(right.DeletePack, true); break;
         case 5: leftText = MatrixCellText(left.ListUnpack, true); rightText = MatrixCellText(right.ListUnpack, true); break;
         case 6: leftText = MatrixStatusText(left); rightText = MatrixStatusText(right); break;
@@ -4376,7 +4392,7 @@ void CCfgPageFileAssociations::RefreshList()
         {
             const std::string view = MatrixCellText(row.View, false);
             const std::string alternateView = MatrixCellText(row.AlternateView, false);
-            const std::string edit = MatrixCellText(row.Edit, false);
+            const std::string edit = MatrixEditCellText(row);
             const std::string pack = MatrixCellText(row.DeletePack, true);
             const std::string unpack = MatrixCellText(row.ListUnpack, true);
             const std::string status = MatrixStatusText(row);
@@ -5352,7 +5368,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                     item.iItem = static_cast<int>(draw->nmcd.dwItemSpec);
                     if (ListView_GetItem(GetDlgItem(HWindow, IDL_FILEASSOCIATIONS), &item) &&
                         item.lParam >= 0 && item.lParam < static_cast<LPARAM>(MatrixRows.size()) &&
-                        draw->iSubItem > 0 && draw->iSubItem < 7)
+                        draw->iSubItem >= 0 && draw->iSubItem < 8)
                     {
                         const MatrixRow& row = MatrixRows[item.lParam];
                         int associationIndex = -1;
@@ -5377,7 +5393,8 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                         HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
                         if (!ListView_GetSubItemRect(list, item.iItem, draw->iSubItem, LVIR_BOUNDS, &cell))
                             return returnCustomDraw(CDRF_DODEFAULT);
-                        const bool selected = (draw->nmcd.uItemState & CDIS_SELECTED) != 0;
+                        const bool selected = (ListView_GetItemState(
+                            GetDlgItem(HWindow, IDL_FILEASSOCIATIONS), item.iItem, LVIS_SELECTED) & LVIS_SELECTED) != 0;
                         COLORREF color = dark ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW);
                         Salamander::FileAssociations::Provenance state =
                             associationIndex >= 0 ? Rows[associationIndex].AssociationProvenance
@@ -5390,10 +5407,10 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                         {
                             switch (state)
                             {
-                            case Salamander::FileAssociations::Provenance::User: color = dark ? RGB(35, 105, 55) : RGB(205, 238, 215); break;
-                            case Salamander::FileAssociations::Provenance::Disabled: color = dark ? RGB(95, 95, 95) : RGB(225, 225, 225); break;
-                            case Salamander::FileAssociations::Provenance::Conflict: color = dark ? RGB(155, 55, 50) : RGB(250, 210, 205); break;
-                            default: color = dark ? RGB(95, 70, 155) : RGB(225, 215, 250); break;
+                            case Salamander::FileAssociations::Provenance::User: color = dark ? RGB(32, 120, 55) : RGB(205, 238, 215); break;
+                            case Salamander::FileAssociations::Provenance::Disabled: color = dark ? RGB(115, 115, 115) : RGB(225, 225, 225); break;
+                            case Salamander::FileAssociations::Provenance::Conflict: color = dark ? RGB(190, 64, 58) : RGB(250, 210, 205); break;
+                            default: color = dark ? RGB(106, 80, 170) : RGB(225, 215, 250); break;
                             }
                         }
                         // Provenance belongs in the Status badge. Keep data cells neutral so
@@ -5578,7 +5595,22 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
         }
         break;
     }
-    return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+    const INT_PTR baseResult = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+    if (uMsg == WM_INITDIALOG)
+    {
+        // The base property page applies DarkModeApplyTree after this page's
+        // initialization. Reapply this matrix's palette after that shared pass.
+        HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
+        const bool dark = Configuration.UseWindowsDarkMode != FALSE;
+        const COLORREF background = dark ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW);
+        ListView_SetBkColor(list, background);
+        ListView_SetTextBkColor(list, background);
+        ListView_SetTextColor(list, dark ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT));
+        if (MatrixImageList != NULL)
+            ImageList_SetBkColor(MatrixImageList, background);
+        InvalidateRect(list, NULL, TRUE);
+    }
+    return baseResult;
 }
 
 //
