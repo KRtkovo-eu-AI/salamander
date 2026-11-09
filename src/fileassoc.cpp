@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Fix error reporting in custom-handler storage helpers. | Free functions cannot call the association model's private SetError method. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Migrate stored editor presets to Built-in targets. | Keep existing configurations compatible while retiring Preset from the editor. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Persist named custom handler catalogs. | Keep custom viewers and editors tied to the selected configuration and resolve them by stable ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Restrict association conflicts to competing exact patterns. | Keep universal and unrelated extension masks from being reported as collisions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -42,6 +43,12 @@ const char* const FileAssociationSourceProvenance = "Source Provenance";
 const char* const CustomHandlersKey = "Custom Association Handlers";
 const DWORD FileAssociationsCurrentSchemaVersion = 1;
 const DWORD CustomHandlersSchemaVersion = 1;
+
+void SetErrorMessage(std::string* error, const char* message)
+{
+    if (error != NULL)
+        *error = message != NULL ? message : "file association error";
+}
 
 std::vector<CustomHandler>& CustomViewers()
 {
@@ -153,14 +160,14 @@ BOOL ReplaceCustomHandlers(CustomHandlerKind kind,
     {
         if (!IsValidCustomHandler(handlers[i]))
         {
-            SetError(error, "custom handler record is incomplete or too large");
+            SetErrorMessage(error, "custom handler record is incomplete or too large");
             return FALSE;
         }
         for (size_t j = 0; j < i; ++j)
             if (_stricmp(handlers[i].Id.c_str(), handlers[j].Id.c_str()) == 0 ||
                 _stricmp(handlers[i].Name.c_str(), handlers[j].Name.c_str()) == 0)
             {
-                SetError(error, "custom handler IDs and names must be unique");
+                SetErrorMessage(error, "custom handler IDs and names must be unique");
                 return FALSE;
             }
         replacement.push_back(handlers[i]);
@@ -251,13 +258,13 @@ BOOL SaveCustomHandlersToConfigurationStorage(CConfigurationStorage& storage,
         error->clear();
     if (CustomViewers().size() + CustomEditors().size() > 512)
     {
-        SetError(error, "custom handler count exceeds the supported limit");
+        SetErrorMessage(error, "custom handler count exceeds the supported limit");
         return FALSE;
     }
     HKEY root = NULL;
     if (!storage.OpenConfigurationRootKey(root, TRUE))
     {
-        SetError(error, "unable to open custom handler configuration root");
+        SetErrorMessage(error, "unable to open custom handler configuration root");
         return FALSE;
     }
     HKEY key = NULL;
@@ -296,7 +303,7 @@ BOOL SaveCustomHandlersToConfigurationStorage(CConfigurationStorage& storage,
         CloseKey(key);
     CloseKey(root);
     if (!saved)
-        SetError(error, "unable to save custom handler configuration");
+        SetErrorMessage(error, "unable to save custom handler configuration");
     return saved;
 }
 
