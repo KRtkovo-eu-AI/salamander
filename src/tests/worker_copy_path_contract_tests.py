@@ -1,6 +1,7 @@
 ﻿# SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check cleanup of disconnected scoped broker entries. | Keep live consent and discard closed scopes before the next item. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check direct file admission in mixed protected transfer selections. | Keep recursively discovered items out of the direct file consent scope. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check named-stream overwrite admission. | Keep alternate data on the guarded disk-copy route. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check overwrite when reading the source is denied. | Require the reviewed target and keep failure from switching to a free-target request. | | GPT-6.1 Sol (Codex) |
@@ -103,6 +104,14 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertNotIn("OPFL_COPY_ADS", eligible)
         self.assertIn("moving && !request.IsCrossVolumeMove()", transfer)
         self.assertIn("OPFL_UAC_TRANSFER_SOURCE | OPFL_COPY_ADS", transfer)
+    def test_closed_sessions_do_not_accumulate_during_the_job(self):
+        transfer = section(text("worker.cpp"), "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
+        self.assertIn("else if (existing != jobs.end() && !existing->IsOpen())", transfer)
+        self.assertIn("jobs.erase(existing);", transfer)
+        leaf = section(text("dialogs.cpp"), "case WORKER_DIALOG_UAC_METADATA:", "StatusPaused = FALSE;")
+        self.assertIn("(CancelWorker || !existing->IsOpen())", leaf)
+        self.assertIn("TransferJobs.erase(existing);", leaf)
+
     def test_cancelled_elevation_stops_the_batch(self):
         transfer = section(text("worker.cpp"), "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
         self.assertIn("success = FALSE;", transfer)

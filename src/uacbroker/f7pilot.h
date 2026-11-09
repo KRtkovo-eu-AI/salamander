@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Expose whether a scoped broker session is still open. | Release closed session entries while their batch continues. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Define a combined protected F5 compression and permissions operation. | Keep consent and broker scope specific to both options. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Remove the F6 pilot byte cap. | Retain the representable range of signed Windows file offsets. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose capture of an eligible overwrite revision. | Bind a Scan Ahead conflict to the same NTFS revision as a broker request. | | GPT-6.1 Sol (Codex) |
@@ -393,6 +394,7 @@ public:
     TransferJobSession(const TransferJobSession&) = delete;
     TransferJobSession& operator=(const TransferJobSession&) = delete;
     ~TransferJobSession();
+    bool IsOpen() const { return pipe != nullptr; }
     void Close();
 
 private:

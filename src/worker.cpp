@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Release a closed transfer session immediately. | Avoid keeping dead scope paths during long-running batches. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Route combined compression and permissions to protected F5. | Keep both existing copy options active in the worker retry. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Use item eligibility for protected transfer in the worker. | Keep mixed selections serial on denied direct items and preserve recursive behavior. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Admit named streams to verified F5 overwrite. | Allow the broker to preserve eligible source streams before publication. | | GPT-6.1 Sol (Codex) |
@@ -5699,7 +5700,8 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
     const auto targetText = SalWideToMultiBytePath(targetDisplay.c_str(), CP_UTF8);
     const bool shareJob = script.Count > 1 && request.CanShareJob();
     auto& jobs = dlgData.TransferJobs;
-    auto existing = std::find_if(jobs.begin(), jobs.end(), [&](const auto& job) { return request.IsInJob(job); });
+    auto existing = shareJob ? std::find_if(jobs.begin(), jobs.end(), [&](const auto& job) { return request.IsInJob(job); })
+                             : jobs.end();
     if (existing == jobs.end())
     {
         UacF7::TransferPrompt prompt{request, sourceText.c_str(), targetText.c_str()};
@@ -5717,12 +5719,13 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
         jobs.clear();
         return true;
     }
-    UacF7::TransferJobSession* job = nullptr;
-    if (shareJob)
-        job = existing != jobs.end() ? &*existing : &jobs.emplace_back();
-    const auto result = request.Execute(progress, cancel, job);
+    if (shareJob && existing == jobs.end())
+        existing = jobs.emplace(jobs.end());
+    const auto result = request.Execute(progress, cancel, existing != jobs.end() ? &*existing : nullptr);
     if (WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0 || result.unknown || result.error == ERROR_CANCELLED)
         jobs.clear();
+    else if (existing != jobs.end() && !existing->IsOpen())
+        jobs.erase(existing);
     if (result.unknown)
     {
         SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, moving);

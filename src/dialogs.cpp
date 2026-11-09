@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Release closed leaf broker sessions during a batch. | Keep metadata and deletion scopes only while connected. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Show both options in protected F5 consent. | Explain that compression and permissions will both be preserved. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share one consent across matching leaf mutations. | Display the approved directory and preserve default Cancel. | | GPT-6.1 Sol (Codex) |
@@ -1865,8 +1866,9 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 unknownText = attributes ? IDS_UAC_DIRECTORY_ATTRS_UNKNOWN : IDS_UAC_DIRECTORY_TIMES_UNKNOWN;
             }
             const bool shareJob = Script->Count > 1;
-            auto existing = std::find_if(TransferJobs.begin(), TransferJobs.end(),
-                                         [&](const auto& job) { return prompt.request.IsInJob(job); });
+            auto existing = shareJob ? std::find_if(TransferJobs.begin(), TransferJobs.end(),
+                                                     [&](const auto& job) { return prompt.request.IsInJob(job); })
+                                     : TransferJobs.end();
             bool approved = existing != TransferJobs.end();
             if (!approved)
             {
@@ -1889,12 +1891,11 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             if (approved && !CancelWorker)
             {
-                UacF7::TransferJobSession* job = nullptr;
-                if (shareJob)
-                    job = existing != TransferJobs.end() ? &*existing : &TransferJobs.emplace_back();
-                prompt.result = prompt.request.Execute(HWindow, job);
-                if (CancelWorker && job)
-                    job->Close();
+                if (shareJob && existing == TransferJobs.end())
+                    existing = TransferJobs.emplace(TransferJobs.end());
+                prompt.result = prompt.request.Execute(HWindow, existing != TransferJobs.end() ? &*existing : nullptr);
+                if (existing != TransferJobs.end() && (CancelWorker || !existing->IsOpen()))
+                    TransferJobs.erase(existing);
                 if (prompt.result.unknown)
                     SalMessageBox(HWindow, LoadStr(unknownText),
                                   LoadStr(deleting ? IDS_ERRORDELETINGFILE : IDS_ERRORCHANGINGATTRS),
