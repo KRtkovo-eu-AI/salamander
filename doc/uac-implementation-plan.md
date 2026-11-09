@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Stage a shared P7 acceptance candidate. | Bind the VM and release checks to one verified build and evidence manifest. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Keep confirmed protected recycle results after a late Shell failure. | Use one exact receipt to distinguish completed work from cancellation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Kill the EFS copy fixture before and after publication commits. | Verify the committed file and workspace recovery after a real process exit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Bind ordinary F6 source retirement to both copied identities. | Stop when either file name has been substituted before the UAC retry. | | GPT-6.1 Sol (Codex) |
@@ -1341,6 +1342,21 @@ Skutečné souhlasy a credentials ověřovat v oddělených testovacích VM se s
 | Souborový systém | NTFS chráněný zdroj/cíl, FAT/exFAT pro rozdíly metadat, UNC/SMB a mapované disky, odpojení sítě, EFS, odkazy, ADS, cross-volume move. |
 | Distribuce | Instalovaná kopie, portable podle schváleného modelu, aktualizovaný host se starým helperem a naopak, chybějící/podvržený helper/DLL, podpis a firemní execution policy. |
 | UI | Česká i další lokalizace, light a projektový dark mode, různá DPI, klávesnice, správný owner UAC, fronta, oba panely, Branch View, drag-and-drop s běžným Explorerem. |
+
+#### 12.2.1 Společný pilot a záznam výsledků
+
+Lokální kandidát z commitu `10da008c` je v `C:/Samandarin/builds/uac-p7-10da008c/payload`. Jde o x64 Release s protokolem 8. Ověřovač potvrdil manifesty, role aplikace a brokeru, statické importy a prázdný adresář odložených importů. Samostatně se ověřila role diagnostické sondy. Soubor `evidence.json` vedle pilotu obsahuje otisky 394 souborů. Český modul vznikl importem archivu bez chyb a řetězec 14593 přečtený z výsledného modulu odpovídal českému zdroji. Jde o nepodepsané laboratorní sestavení.
+
+Společný lokální běh x64 Release prošel 303 kontrolami souborového jádra, 134 kontrolami F6, 67 kontrolami EFS, kontrolou transportu a 31 úlohami brokeru. Prošly kontroly workeru, konfliktů, plánování a Findu. Broker a sonda se sestavily také v Release pro Win32 a ARM64. Nativní běh F6 proběhl na jediném svazku. Pro odlišné architektury jde o ověření sestavení brokeru a sondy.
+
+| Blok ve VM | Podmínka pro přijetí |
+| --- | --- |
+| Dávky a přepis | Smíšený výběr ve stávajícím režimu i Scan Ahead. Dvě položky ve stejném rozsahu použijí jeden souhlas. Pozdní změna cíle vyžádá nové rozhodnutí. Zrušení nebo odpojení zachová dříve dokončené položky a neověřený výsledek nevede k automatickému opakování. |
+| F6 a Koš | Dva skutečné zapisovatelné svazky NTFS. F6 ověří běžný soubor nad 4 GiB, odepřené odstranění zdroje po běžné kopii a přerušení před i po zveřejnění. Delete ověří schválení i zrušení a obnovu z Koše původního SID při souhlasu stejného i jiného správce. |
+| Find a EFS | Dostupné výsledky se objeví před rozhodnutím o chráněném rozsahu. Ověřit text, tagy, duplicity a odpojení jedné relace bez ztráty výsledků jiné. U EFS ověřit zachování šifrování a čitelnost původním držitelem klíče po schválení správcem bez jeho klíče. |
+| P7 a distribuce | Porovnat skutečné otisky s manifestem, ověřit český dialog, profil účtu, vhodné DPI a obě barevná schémata. Změřit privátní bajty aplikace a brokeru při odpovídající běžné a schválené dávce. Ověřit finální podpisy a CI/CodeQL na přesné publikované revizi. |
+
+Ke každé zkoušce zaznamenat revizi, verzi Windows a architekturu, typ účtu a volbu ve výzvě, stav souborů a procesů, případně otisky a oprávnění. Výsledky této matice jsou dosud otevřené.
 
 ### 12.3 CI a přijetí vydání
 
