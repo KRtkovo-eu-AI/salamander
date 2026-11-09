@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Apply the F6 budget to streamed copies and inventories. | Keep F5 and ZIP on their current limits. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Copy from the locked F6 stream handles. | Reuse the named-stream staging path without reopening a sealed stream. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share the NTFS stream-name validation. | Use the same component rules when checking for preexisting stream handles. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve LZNT1 from a guarded source. | Query the compression format through a handle that can be asynchronous. | | GPT-6.1 Sol (Codex) |
@@ -285,7 +286,7 @@ inline bool IsNamedDataStream(std::wstring_view suffix)
            UacDirectoryLeaf::IsComponent(suffix.substr(1, suffix.size() - 1 - type.size()));
 }
 
-inline DWORD ReadDataStreams(HANDLE file, std::vector<DataStream>& streams)
+inline DWORD ReadDataStreams(HANDLE file, std::vector<DataStream>& streams, ULONGLONG maxBytes = UacF7::maxPilotCopyBytes)
 {
     constexpr size_t maxStreams = 64;
     constexpr size_t headerSize = offsetof(FILE_STREAM_INFO, StreamName);
@@ -310,7 +311,7 @@ inline DWORD ReadDataStreams(HANDLE file, std::vector<DataStream>& streams)
             return ERROR_INVALID_DATA;
 
         const auto size = static_cast<ULONGLONG>(entry.StreamSize.QuadPart);
-        if (size > UacF7::maxPilotCopyBytes - total)
+        if (size > maxBytes - total)
             return ERROR_FILE_TOO_LARGE;
         total += size;
         const std::wstring_view suffix(entry.StreamName, entry.StreamNameLength / sizeof(wchar_t));
@@ -481,7 +482,8 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     LARGE_INTEGER size{};
     if (!GetFileSizeEx(source, &size))
         return GetLastError();
-    if (size.QuadPart < 0 || static_cast<ULONGLONG>(size.QuadPart) > UacF7::maxPilotCopyBytes)
+    const ULONGLONG maxBytes = moveTarget ? UacF7::maxCrossVolumeMoveBytes : UacF7::maxPilotCopyBytes;
+    if (size.QuadPart < 0 || static_cast<ULONGLONG>(size.QuadPart) > maxBytes)
         return ERROR_FILE_TOO_LARGE;
     if (expectedSize != MAXULONGLONG && static_cast<ULONGLONG>(size.QuadPart) != expectedSize)
         return ERROR_FILE_INVALID;
@@ -494,7 +496,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     {
         if (!location)
             return ERROR_INVALID_PARAMETER;
-        if ((error = ReadDataStreams(source, streams)) != ERROR_SUCCESS)
+        if ((error = ReadDataStreams(source, streams, maxBytes)) != ERROR_SUCCESS)
             return error;
         if (location->lockedInventory && streams != *location->lockedInventory)
             return ERROR_FILE_INVALID;
@@ -622,9 +624,9 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     if (policy == StreamPolicy::PreserveNamed)
     {
         std::vector<DataStream> currentStreams;
-        if ((error = ReadDataStreams(source, currentStreams)) != ERROR_SUCCESS || currentStreams != streams)
+        if ((error = ReadDataStreams(source, currentStreams, maxBytes)) != ERROR_SUCCESS || currentStreams != streams)
             return error ? error : ERROR_FILE_INVALID;
-        if ((error = ReadDataStreams(target.get(), currentStreams)) != ERROR_SUCCESS || currentStreams != streams)
+        if ((error = ReadDataStreams(target.get(), currentStreams, maxBytes)) != ERROR_SUCCESS || currentStreams != streams)
             return error ? error : ERROR_FILE_INVALID;
     }
     if (copySecurity)

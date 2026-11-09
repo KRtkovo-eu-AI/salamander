@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record larger streamed cross-volume F6 transfers. | Keep F6 size and time limits independent from F5. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record guarded cross-volume F6 with ADS. | Verify the protected destination and retire the source after all streams are published. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the verified F6 stream inventory. | Acquire and recheck per-stream locks against the same file ID. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record NTFS named-stream oplock and unlink evidence. | Define the source guard needed for moves that preserve ADS. | | GPT-6.1 Sol (Codex) |
@@ -724,6 +725,10 @@ V x64 Debug a Release prošlo 116 kontrol F6. Nové zkoušky ověřily odmítnut
 **Zachování pojmenovaných proudů při F6 mezi svazky.** Běžný přesun mezi pevnými svazky NTFS nyní při elevaci zachová pojmenované proudy, pokud broker ověří oprávnění cílového rodiče i pracovní kopie. Čte z otevřených uzamčených handlů pomocného odkazu. Před odstraněním zdroje porovná inventář cíle se zdrojem a znovu ověří ochranu cíle. Po označení posledního odkazu ke smazání zavře proudy a ověří, že položka už neexistuje. Kolize zachová stávající cíl i všechny jeho proudy. Souhrnný limit je 16 MiB. Kombinace s kompresí, řídkou alokací, šifrováním nebo kopírováním oprávnění a dokončení po odepření smazání již zkopírovaného zdroje zatím nejsou součástí této varianty. Broker a host používají protokol verze 4.
 
 V Debug i Release prošlo 121 kontrol F6, 248 obecných kontrol a 18 kontrol transportní sady. Přenos na místním NTFS zachoval hlavní data, pojmenovaný Unicode proud a prázdný proud, odstranil poslední zdrojový odkaz a uzavřel záznam obnovy. Kontroly také odmítly pracovní kopii bez požadované ochrany a ověřily zachování stávajícího cíle při kolizi. V těchto zkouškách rozhodnutí o ochraně cíle řídí testovací callback. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Skutečná výzva, ověření cílové DACL produkčním brokerem a přenos mezi dvěma svazky zůstávají ve společné akceptaci ve VM.
+
+**Větší soubory při F6 mezi svazky.** Přesun mezi pevnými svazky NTFS má samostatný limit 4 GiB včetně pojmenovaných proudů a časový rozpočet 15 minut. Čtení a zápis dál probíhají v blocích po 64 KiB s kontrolou přerušení. Stejný časový rozpočet používá jednorázová i sdílená relace a host čeká na výsledek i po odeslání zrušení. F5 zůstává na 16 MiB a 30 sekundách. Protokol verze 5 odděluje novou hranici od dřívějších sestavení.
+
+V Debug i Release prošlo 121 kontrol F6, 248 obecných nativních kontrol a 21 kontrol transportu. Místní zkouška přesunula hlavní data, pojmenovaný proud o velikosti 16 MiB plus 17 bajtů a prázdný proud. Zkoušky roury ověřily přijetí hlavičky F6 přesně na hranici 4 GiB, odmítnutí hodnoty o jeden bajt vyšší a zachování 16 MiB hranice pro F5. Prošlo sestavení x64 Debug. Zkouška na dvou svazcích a průběžná odezva při velkém souboru zůstávají součástí VM akceptace.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

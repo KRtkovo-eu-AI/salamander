@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Allow large F6 completions after ordinary copying. | Apply the same F6 byte limit before capturing the copy identity. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow cross-volume F6 to retain known named streams. | Keep the normal attribute option and same-volume retry within their existing scopes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Keep preflight-denied F6 requests cross-volume only. | Bind the deferred source read to a verified move between distinct volumes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Retry exact compressed F6 with the scoped broker. | Honor the existing Copy attributes option before retiring the source. | | GPT-6.1 Sol (Codex) |
@@ -7705,7 +7706,7 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
         const bool capture = script->AllowTransferPilot && !script->CopyAttrs && !script->CopySecurity &&
                              !script->OverwriteOlder && !copyADS && !copyAsEncrypted &&
                              op->SourceNameWValid && op->TargetNameWValid && UacF7::IsPlainDeleteFile(op->Attr) &&
-                             op->FileSize.Value <= UacF7::maxPilotCopyBytes;
+                             op->FileSize.Value <= UacF7::maxCrossVolumeMoveBytes;
         BOOL notError = DoCopyFile(op, hProgressDlg, buffer, script, totalDone,
                                    clearReadonlyMask, &skip, lantasticCheck,
                                    mustDeleteFileBeforeOverwrite, allocWholeFileOnStart,

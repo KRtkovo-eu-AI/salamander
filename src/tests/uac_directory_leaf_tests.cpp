@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise F6 beyond the F5 byte budget. | Copy a named stream across many blocks without changing the F5 limit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise F6 publication and retirement with named streams. | Verify the entire copy from the guarded source through the last unlink. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify one lock set against the complete named-stream inventory. | Refuse an earlier writer and notice late stream creation before retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Probe the named-stream boundary of an F6 source. | Detect earlier ADS writers and writable views independently from the main stream. | | GPT-6.1 Sol (Codex) |
@@ -2234,7 +2235,10 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
           "verify and clear the compressed move receipt", error);
 
     const std::wstring namedSuffix = L":\u6771-stream";
-    if (!WriteFixture(sourcePath, {2, 3}) || !WriteFixture(sourcePath + namedSuffix, {4, 5}) ||
+    std::vector<BYTE> namedPayload(UacF7::maxPilotCopyBytes + 17);
+    for (size_t i = 0; i < namedPayload.size(); ++i)
+        namedPayload[i] = static_cast<BYTE>((i ^ (i >> 16)) & 0xff);
+    if (!WriteFixture(sourcePath, {2, 3}) || !WriteFixture(sourcePath + namedSuffix, namedPayload) ||
         !WriteFixture(sourcePath + L":empty", {}))
         return false;
     FILE_ID_INFO namedId{};
@@ -2285,9 +2289,9 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
         wrongParent.get(), namedLeaf, namedTarget.get(), namedTargetId, nullptr, nullptr, MAXULONGLONG);
     namedTarget.reset();
     Check(!error && !Exists(sourcePath) && !Exists(storageDirectory + L"\\" + name) &&
-              HasContents(namedPath, {2, 3}) && HasContents(namedPath + namedSuffix, {4, 5}) &&
+              HasContents(namedPath, {2, 3}) && HasContents(namedPath + namedSuffix, namedPayload) &&
               Exists(namedPath + L":empty") && HasContents(namedPath + L":empty", {}),
-          "retire the exact source only after publishing all named streams", error);
+          "retire the exact source after publishing all streams including a stream above the F5 byte limit", error);
     error = recover(parent.get());
     Check(!error && empty(), "verify and clear the named move receipt", error);
     return failures == 0;

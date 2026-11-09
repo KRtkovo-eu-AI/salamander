@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Give cross-volume moves an independent byte budget. | Keep the existing bounded copy and archive contracts separate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share eligibility for a protected move source. | Keep F6 preparation and the broker retry in the same metadata scope. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Use one result policy for authenticated broker replies. | Keep a partial move visible after the one-shot broker exits. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe guarded F6 with NTFS compression. | Bind the existing exact-attributes option to its own move scope. | | GPT-6.1 Sol (Codex) |
@@ -140,6 +141,7 @@ inline bool ValidArchiveRange(const ArchiveReadRange& range, ULONGLONG fileSize,
 
 constexpr DWORD maxViewerSnapshotBytes = 16 * 1024 * 1024;
 constexpr ULONGLONG maxPilotCopyBytes = 16 * 1024 * 1024;
+constexpr ULONGLONG maxCrossVolumeMoveBytes = 4ULL * 1024 * 1024 * 1024;
 constexpr DWORD plainCopyAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE |
                                       FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
 inline bool IsPlainCopyFile(DWORD attributes)
@@ -288,10 +290,15 @@ private:
     Operation operation = Operation::Mkdir;
 };
 
-inline bool IsMoveTransfer(Operation operation)
+inline constexpr bool IsMoveTransfer(Operation operation)
 {
     return operation == Operation::Move || operation == Operation::MoveAcrossVolume ||
            operation == Operation::FinishCrossVolumeMove || operation == Operation::MoveCompressed;
+}
+
+inline constexpr bool IsCrossVolumeMove(Operation operation)
+{
+    return IsMoveTransfer(operation) && operation != Operation::Move;
 }
 
 inline bool CanShareTransferJob(Operation operation)
@@ -302,7 +309,7 @@ inline bool CanShareTransferJob(Operation operation)
 
 inline Result TransferReply(Operation operation, DWORD error, bool transferJob = false)
 {
-    const bool crossVolumeMove = IsMoveTransfer(operation) && operation != Operation::Move;
+    const bool crossVolumeMove = IsCrossVolumeMove(operation);
     const bool mayBePartial = transferJob || crossVolumeMove || operation == Operation::CopyTree ||
         operation == Operation::WriteZipUpdate || operation == Operation::CopyOverwrite || operation == Operation::CopyEncrypted;
     return {error, mayBePartial && error == ERROR_PARTIAL_COPY};
@@ -386,7 +393,7 @@ public:
     bool IsInJob(const TransferJobSession& job) const;
     bool CanShareJob() const { return CanShareTransferJob(source.operation); }
     bool IsMove() const { return IsMoveTransfer(source.operation); }
-    bool IsCrossVolumeMove() const { return IsMove() && source.operation != Operation::Move; }
+    bool IsCrossVolumeMove() const { return UacF7::IsCrossVolumeMove(source.operation); }
     bool IsMoveCompletion() const { return source.operation == Operation::FinishCrossVolumeMove; }
     bool IsTree() const { return source.operation == Operation::CopyTree; }
     bool MatchesOverwriteTarget(HANDLE file) const;

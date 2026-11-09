@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Apply the cross-volume limit to each stream check. | Include named bytes before opening streams and after publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Publish guarded named streams before retiring the source. | Check the protected target inventory and finish the last unlink after closing the stream handles. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Hold and recheck the named streams of a sealed source. | Keep each stream locked and bind the inventory to the same NTFS identity. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Probe earlier opens on an individual NTFS data stream. | Separate per-stream exclusion from the file-wide source DACL. | | GPT-6.1 Sol (Codex) |
@@ -104,7 +105,7 @@ public:
         if (error)
             return error;
         std::vector<UacCopyLeaf::Detail::DataStream> snapshot;
-        error = UacCopyLeaf::Detail::ReadDataStreams(main, snapshot);
+        error = UacCopyLeaf::Detail::ReadDataStreams(main, snapshot, UacF7::maxCrossVolumeMoveBytes);
         if (error)
             return error;
 
@@ -162,7 +163,7 @@ public:
         if (DWORD error = Detail::CheckIdentity(main, identity))
             return error;
         std::vector<UacCopyLeaf::Detail::DataStream> current;
-        if (DWORD error = UacCopyLeaf::Detail::ReadDataStreams(main, current))
+        if (DWORD error = UacCopyLeaf::Detail::ReadDataStreams(main, current, UacF7::maxCrossVolumeMoveBytes))
             return error;
         if (current != inventory)
             return ERROR_FILE_INVALID;
@@ -190,7 +191,7 @@ public:
     DWORD CheckTarget(HANDLE target) const
     {
         std::vector<UacCopyLeaf::Detail::DataStream> current;
-        if (DWORD error = UacCopyLeaf::Detail::ReadDataStreams(target, current))
+        if (DWORD error = UacCopyLeaf::Detail::ReadDataStreams(target, current, UacF7::maxCrossVolumeMoveBytes))
             return error;
         return current == inventory ? ERROR_SUCCESS : ERROR_FILE_INVALID;
     }

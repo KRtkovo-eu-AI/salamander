@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Use a longer shared timeout for streamed F6. | Keep the host connected and cancellable until the broker finishes or rolls back. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Enable named streams in ordinary cross-volume F6. | Require protected destination streams before committing the move. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve a partial broker result after the done frame. | Prevent retries that could treat a published move target as an ordinary failure. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Seal and guard the F6 source before linking it. | Keep source link creation behind the existing open exclusion. | | GPT-6.1 Sol (Codex) |
@@ -120,8 +121,12 @@ constexpr DWORD pipeAccess = FILE_READ_DATA | FILE_WRITE_DATA | FILE_READ_ATTRIB
 constexpr DWORD processAccess = PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE;
 constexpr DWORD timeoutMs = 5000;
 [[maybe_unused]] constexpr DWORD copyTimeoutMs = 30000;
-// Version 4 preserves named streams in the ordinary cross-volume move request.
-constexpr DWORD protocolVersion = 4;
+[[maybe_unused]] constexpr DWORD TransferTimeout(UacF7::Operation operation)
+{
+    return UacF7::IsCrossVolumeMove(operation) ? 15 * 60 * 1000 : copyTimeoutMs;
+}
+// Version 5 raises the byte and time limits for cross-volume moves.
+constexpr DWORD protocolVersion = 5;
 constexpr DWORD capabilities = 0;
 [[maybe_unused]] constexpr DWORD mkdirCapability = 1;
 [[maybe_unused]] constexpr DWORD renameCapability = 2;
@@ -1417,7 +1422,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool copy = UacF7::IsFileCopy(header.operation) || overwrite;
     const bool finishMove = header.operation == Operation::FinishCrossVolumeMove;
     const bool move = UacF7::IsMoveTransfer(header.operation);
-    const bool crossMove = move && header.operation != Operation::Move;
+    const bool crossMove = UacF7::IsCrossVolumeMove(header.operation);
     const bool tree = header.operation == Operation::CopyTree;
     const bool transfer = copy || move || tree;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
@@ -1426,7 +1431,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         (list && !header.relativeLength) || transfer != (header.targetLeafLength != 0) ||
         header.targetRelativeLength > UacDirectoryLeaf::maxNativeName || header.targetLeafLength > UacDirectoryLeaf::maxComponent ||
         header.copySize > (zipUpdate ? UacF7::maxZipUpdateBytes :
-                           writeZipSelection ? UacF7::maxZipSelectionBytes : UacF7::maxPilotCopyBytes) ||
+                           writeZipSelection ? UacF7::maxZipSelectionBytes :
+                           crossMove ? UacF7::maxCrossVolumeMoveBytes : UacF7::maxPilotCopyBytes) ||
         (!copy && !crossMove && !writeZipSelection && !zipUpdate && header.copySize) ||
         (writeZipSelection && !header.copySize) || (zipUpdate && header.copySize < 22) ||
         (!transfer && header.targetRelativeLength))
@@ -1641,7 +1647,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             }
             else if (crossMove)
             {
-                const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
+                const auto copyDeadline = GetTickCount64() + TransferTimeout(header.operation);
                 deadline = copyDeadline + timeoutMs;
                 result = MoveAcrossVolumes(install, parent.get(), expected, sourceIdentity, leaf,
                                            targetParent.get(), expectedTarget, targetLeaf, header.copySize, pipe, copyDeadline,
@@ -2206,9 +2212,9 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 
         const bool tree = request->operation == Operation::CopyTree;
         const bool copy = UacF7::IsFileCopy(request->operation) || overwriteTarget;
-        const bool crossMove = UacF7::IsMoveTransfer(request->operation) && request->operation != Operation::Move;
+        const bool crossMove = UacF7::IsCrossVolumeMove(request->operation);
         if (copy || crossMove || tree || zipBytes)
-            deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
+            deadline = GetTickCount64() + TransferTimeout(request->operation) + 2 * timeoutMs;
         error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline, cancel);
         if (!error && (transferJob || copy || UacF7::IsMoveTransfer(request->operation) || tree || zipBytes ||
                        zipUpdateFile))
@@ -2541,7 +2547,7 @@ static Result RepeatTransferJob(HANDLE& pipe, RequestHeader& header, std::wstrin
     }
     if (!error)
     {
-        deadline = GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
+        deadline = GetTickCount64() + TransferTimeout(header.operation) + 2 * timeoutMs;
         error = TransferRequest(pipe, &result.error, sizeof(result.error), false, deadline, cancel);
     }
     if (error)
@@ -2730,7 +2736,7 @@ bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstrin
         return false;
     if (crossMove)
     {
-        if (expectedSize > maxPilotCopyBytes)
+        if (expectedSize > maxCrossVolumeMoveBytes)
             return false;
         // Keeping even an attributes-only host handle would prevent the broker
         // from proving that the sealed source has no earlier opens.

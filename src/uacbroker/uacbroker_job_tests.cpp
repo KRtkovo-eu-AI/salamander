@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Test the 64-bit F6 request size boundary. | Reject over-limit moves before any transfer and retain the lower F5 limit. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Check the source admission used for protected F6. | Cover sparse, exact compression and metadata combinations before broker launch. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify the host result policy for partial moves. | Keep one-shot replies and reusable jobs consistent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise the compressed move request on the broker pipe. | Prove same-volume refusal with the new request type. | | GPT-6.1 Sol (Codex) |
@@ -134,7 +135,7 @@ public:
     bool Request(Operation operation, const Directory& source, std::wstring_view leaf, DWORD& result,
                  const Directory* target = nullptr, UacF7::MetadataChange* change = nullptr,
                  UacF7::MetadataJobPolicy* policy = nullptr, bool stopBeforePayload = false, HANDLE cancelBeforeDispatch = nullptr,
-                 UacF7::ArchiveRevision* revision = nullptr)
+                 UacF7::ArchiveRevision* revision = nullptr, ULONGLONG copySize = 1)
     {
         const auto file = Adopt(CreateFileW(source.File(leaf).c_str(), FILE_READ_ATTRIBUTES,
             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
@@ -155,7 +156,7 @@ public:
             header.targetParentId = target->identity.file.FileId;
             header.targetRelativeLength = static_cast<DWORD>(target->relative.size());
             header.targetLeafLength = header.leafLength;
-            header.copySize = 1;
+            header.copySize = copySize;
             payload += target->identity.volume + target->relative + std::wstring(leaf);
         }
         const ULONGLONG deadline = GetTickCount64() + timeoutMs;
@@ -290,6 +291,21 @@ void CheckCrossVolumeBoundary(const Directory& source, const Directory& target)
     Check(job.Request(Operation::MoveAcrossVolume, source, leaf, error, &target) &&
               error == ERROR_NOT_SAME_DEVICE && HasByte(source.File(leaf), 5) && IsAbsent(target.File(leaf)),
           "reject the cross-volume command on the same NTFS volume before modifying either parent");
+    JobPipe boundary;
+    Check(boundary.Open() && boundary.Request(Operation::MoveAcrossVolume, source, leaf, error, &target,
+              nullptr, nullptr, false, nullptr, nullptr, UacF7::maxCrossVolumeMoveBytes) &&
+              error == ERROR_NOT_SAME_DEVICE && HasByte(source.File(leaf), 5) && IsAbsent(target.File(leaf)),
+          "accept the 64-bit F6 limit before validating the two volumes");
+    JobPipe oversized;
+    Check(oversized.Open() && !oversized.Request(Operation::MoveAcrossVolume, source, leaf, error, &target,
+              nullptr, nullptr, false, nullptr, nullptr, UacF7::maxCrossVolumeMoveBytes + 1) &&
+              oversized.Finish() == ERROR_INVALID_DATA && HasByte(source.File(leaf), 5) && IsAbsent(target.File(leaf)),
+          "reject F6 above its limit before mutation");
+    JobPipe copyLimit;
+    Check(copyLimit.Open() && !copyLimit.Request(Operation::Copy, source, leaf, error, &target,
+              nullptr, nullptr, false, nullptr, nullptr, UacF7::maxPilotCopyBytes + 1) &&
+              copyLimit.Finish() == ERROR_INVALID_DATA && HasByte(source.File(leaf), 5) && IsAbsent(target.File(leaf)),
+          "keep the existing limit for F5 requests");
     JobPipe compressed;
     Check(compressed.Open() && compressed.Request(Operation::MoveCompressed, source, leaf, error, &target) &&
               error == ERROR_NOT_SAME_DEVICE && HasByte(source.File(leaf), 5) && IsAbsent(target.File(leaf)),
