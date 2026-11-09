@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Validate explicit overrides as the effective exact-key choice. | Allow a user action to shadow retained defaults even if the legacy candidates were not normalized into a conflict pair. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Allow user overrides to replace conflicting plugin targets. | Validation must accept a chosen user target alongside retained conflict candidates so Apply can commit it. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Fix error reporting in custom-handler storage helpers. | Free functions cannot call the association model's private SetError method. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Migrate stored editor presets to Built-in targets. | Keep existing configurations compatible while retiring Preset from the editor. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -527,6 +528,25 @@ bool CFileAssociationModel::Validate(std::string* error) const
             const Association& first = Items[i];
             const Association& second = Items[j];
             if (!IsConflictingPair(first, second))
+                continue;
+
+            bool hasUserOverride = false;
+            for (size_t k = 0; k < Items.size(); ++k)
+            {
+                const Association& candidate = Items[k];
+                if (SameKey(candidate, first.Pattern, first.AssociationCategory, first.Operation) &&
+                    (candidate.AssociationProvenance == Provenance::User ||
+                     candidate.AssociationProvenance == Provenance::Disabled))
+                {
+                    hasUserOverride = true;
+                    break;
+                }
+            }
+            const bool firstIsUser = first.AssociationProvenance == Provenance::User ||
+                                     first.AssociationProvenance == Provenance::Disabled;
+            const bool secondIsUser = second.AssociationProvenance == Provenance::User ||
+                                      second.AssociationProvenance == Provenance::Disabled;
+            if (hasUserOverride && !(firstIsUser && secondIsUser))
                 continue;
             if (first.AssociationProvenance == Provenance::Conflict &&
                 second.AssociationProvenance == Provenance::Conflict)

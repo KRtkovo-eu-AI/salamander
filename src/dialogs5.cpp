@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Reject failed association commits using the current result. | Do not mistake a stale runtime-projection flag for a successful user override, and keep commit errors visible after refresh. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Remove an extra closing brace in conflict status update. | Fix C2059/C2143/C2447 syntax errors caused by a stray brace that closed the selectedCount block too early. | | nvidia/nemotron-3.5-super-vl:free |
 // | 2026-11-09 | Match the selected Target ID by its visible catalog entry. | Prevent Apply from restoring a different plugin when the combo's item mapping and displayed selection diverge. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Read association targets from the selected catalog item. | Keep Target ID identity and target kind coupled through Apply instead of relying on combo row positions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -4830,12 +4831,10 @@ void CCfgPageFileAssociations::Transfer(CTransferInfo& ti)
                 candidate, &error))
         {
             SetStatus(error.c_str());
-            // ReplaceCanonicalAssociationsForConfiguration keeps a valid
-            // canonical model even when the currently registered runtime
-            // handlers cannot accept its projection. That is a retryable
-            // runtime condition, not a reason to keep Configuration open.
-            if (!Salamander::FileAssociations::IsCanonicalRuntimeProjectionBlocked())
-                ti.ErrorOn(IDC_FILEASSOCIATION_STATUS);
+            // Runtime projection failures are represented as a successful
+            // model replacement with a blocked projection state. A FALSE
+            // result therefore means the candidate itself was rejected.
+            ti.ErrorOn(IDC_FILEASSOCIATION_STATUS);
         }
         return;
     }
@@ -5906,24 +5905,32 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 if (!candidate.ReplaceAssociations(Rows, &commitError))
                 {
                     Rows = originalRows;
-                    SetStatus(commitError.c_str());
                     RefreshList();
+                    SetStatus(commitError.c_str());
                     return false;
                 }
                 if (!Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
-                        candidate, &commitError) &&
-                    !Salamander::FileAssociations::IsCanonicalRuntimeProjectionBlocked())
+                        candidate, &commitError))
                 {
                     Rows = originalRows;
-                    SetStatus(commitError.c_str());
                     RefreshList();
+                    SetStatus(commitError.c_str());
                     return false;
                 }
                 if (!Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
                         ConfigurationStorage, &commitError))
                 {
-                    SetStatus(commitError.c_str());
+                    Salamander::FileAssociations::CFileAssociationModel previousModel;
+                    if (previousModel.ReplaceAssociations(originalRows, NULL))
+                    {
+                        Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
+                            previousModel, NULL);
+                        Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
+                            ConfigurationStorage, NULL);
+                    }
+                    Rows = originalRows;
                     RefreshList();
+                    SetStatus(commitError.c_str());
                     return false;
                 }
                 Rows = candidate.Associations();
