@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify overwrite receipts for named NTFS streams. | Reject changed stream data even with matching size, identity and timestamps. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Move sparse streams beyond 4 GiB. | Verify 64-bit offsets, cancellation, and retirement with real NTFS data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Kill the disk overwrite fixture at durable checkpoints. | Verify recovery of the real exchange after abrupt handle teardown. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify disk overwrite recovery after later edits. | Retain both names when the journal cannot prove the published target and backup are unchanged. | | GPT-6.1 Sol (Codex) |
@@ -3008,12 +3009,18 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
     if (zip)
         return true;
 
-    const auto checkRetirement = [&](std::wstring_view fileName, bool changeTarget, bool changeBackup) {
+    enum class ReceiptCase { Unchanged, ChangedTarget, ChangedBackup, Named, ChangedNamed, LiveNamed, TargetNamed, Legacy };
+    const auto checkRetirement = [&](std::wstring_view fileName, ReceiptCase scenario) {
+        const bool changeTarget = scenario == ReceiptCase::ChangedTarget;
+        const bool changeBackup = scenario == ReceiptCase::ChangedBackup;
+        const bool changeNamed = scenario == ReceiptCase::ChangedNamed;
+        const bool withNamed = changeNamed || scenario == ReceiptCase::Named || scenario == ReceiptCase::LiveNamed;
         using namespace UacZipUpdate::Detail;
         const auto finalPath = folder + L"\\" + std::wstring(fileName);
         const std::vector<BYTE> oldBytes{11, 12, 13};
         const std::vector<BYTE> newBytes{21, 22, 23};
-        if (!WriteFixture(finalPath, oldBytes))
+        if (!WriteFixture(finalPath, oldBytes) ||
+            (scenario == ReceiptCase::TargetNamed && !WriteFixture(finalPath + L":keep", {6})))
             return false;
         HANDLE rawOriginal = nullptr, rawReplacement = nullptr;
         if (Open(parent.get(), fileName, rawOriginal, DELETE))
@@ -3024,27 +3031,114 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
             return false;
         Handle replacement(rawReplacement);
         DiskRecoveryRecord durable;
-        durable.exchange.version = 2;
+        durable.exchange.version = 3;
         durable.exchange.parent = identity.file;
         std::copy(fileName.begin(), fileName.end(), durable.exchange.leaf);
         DWORD bytes = 0;
         if (FAILED(CoCreateGuid(&durable.exchange.nonce)) ||
             !GetFileInformationByHandleEx(oldFile.get(), FileIdInfo, &durable.exchange.original, sizeof(FILE_ID_INFO)) ||
-            !GetFileInformationByHandleEx(replacement.get(), FileIdInfo, &durable.exchange.replacement, sizeof(FILE_ID_INFO)) ||
-            !WriteFile(replacement.get(), newBytes.data(), static_cast<DWORD>(newBytes.size()), &bytes, nullptr) ||
-            bytes != newBytes.size() || !FlushFileBuffers(replacement.get()))
+            !GetFileInformationByHandleEx(replacement.get(), FileIdInfo, &durable.exchange.replacement, sizeof(FILE_ID_INFO)))
             return false;
+        constexpr wchar_t suffix[] = L":recovery-\u6771:$DATA";
+        constexpr wchar_t emptySuffix[] = L":empty";
+        const std::vector<BYTE> namedBytes{51, 52, 53};
+        if (withNamed)
+        {
+            using namespace UacCopyLeaf::Detail;
+            const std::wstring sourceLeaf = L"source-" + std::wstring(fileName);
+            const std::wstring sourcePath = folder + L"\\" + sourceLeaf;
+            HANDLE rawSource = nullptr;
+            if (!WriteFixture(sourcePath, newBytes) || !WriteFixture(sourcePath + suffix, namedBytes) ||
+                !WriteFixture(sourcePath + emptySuffix, {}) || Open(parent.get(), sourceLeaf, rawSource, 0))
+                return false;
+            const Handle source(rawSource);
+            FILE_ID_INFO sourceId{};
+            if (!GetFileInformationByHandleEx(source.get(), FileIdInfo, &sourceId, sizeof(sourceId)))
+                return false;
+            CopySourceLocation location{parent.get(), sourceLeaf, sourceId, nullptr};
+            const auto copy = [&] {
+                return CopyOverwriteStreams(source.get(), location, parent.get(), stageLeaf, replacement.get(),
+                                            newBytes.size(), nullptr, MAXULONGLONG);
+            };
+            if (scenario == ReceiptCase::LiveNamed)
+            {
+                DWORD copied = copy();
+                Check(copied == ERROR_ACCESS_DENIED, "refuse named overwrite data for an unverified stage", copied);
+                location.verifyStage = [](HANDLE, bool) { return true; };
+                const HANDLE rawWriter = CreateFileW((sourcePath + suffix).c_str(), GENERIC_WRITE,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+                if (rawWriter == INVALID_HANDLE_VALUE)
+                    return false;
+                const Handle writer(rawWriter);
+                copied = copy();
+                Check(copied == ERROR_SHARING_VIOLATION, "refuse a busy named overwrite source before copying data", copied);
+            }
+            location.verifyStage = [](HANDLE, bool) { return true; };
+            const DWORD copied = copy();
+            if (copied)
+            {
+                Check(false, "copy the complete protected overwrite stage", copied);
+                return false;
+            }
+        }
+        else if (!WriteFile(replacement.get(), newBytes.data(), static_cast<DWORD>(newBytes.size()), &bytes, nullptr) ||
+                 bytes != newBytes.size())
+            return false;
+        if (!FlushFileBuffers(replacement.get()))
+            return false;
+        if (scenario == ReceiptCase::TargetNamed)
+        {
+            Revision revision;
+            if (ReadRevision(oldFile.get(), revision))
+                return false;
+            UacZipUpdate::Handle original(oldFile.release(), CloseHandle);
+            const auto publication = Publish(parent.get(), identity, fileName, revision, original, replacement.get(),
+                                             journal.get(), nullptr, MAXULONGLONG, nullptr, kind);
+            original.reset();
+            replacement.reset();
+            LARGE_INTEGER journalSize{};
+            Check(publication.error == ERROR_NOT_SUPPORTED && !publication.published &&
+                      HasContents(finalPath, oldBytes) && HasContents(finalPath + L":keep", {6}) &&
+                      GetFileSizeEx(journal.get(), &journalSize) && journalSize.QuadPart == 0,
+                  "refuse to replace a target that contains a named stream", publication.error);
+            return !publication.published;
+        }
+        if (scenario == ReceiptCase::LiveNamed)
+        {
+            Revision revision;
+            if (ReadRevision(oldFile.get(), revision))
+                return false;
+            UacZipUpdate::Handle original(oldFile.release(), CloseHandle);
+            const auto publication = Publish(parent.get(), identity, fileName, revision, original, replacement.get(),
+                                             journal.get(), nullptr, MAXULONGLONG, nullptr, kind);
+            replacement.reset();
+            Check(!publication.error && !publication.recoveryError && publication.published &&
+                      HasContents(finalPath, newBytes) && HasContents(finalPath + suffix, namedBytes) &&
+                      Exists(finalPath + emptySuffix) && HasContents(finalPath + emptySuffix, {}),
+                  "publish a complete overwrite with a Unicode stream and an empty stream",
+                  publication.error ? publication.error : publication.recoveryError);
+            return publication.published && !publication.recoveryError;
+        }
         const auto backupLeaf = BackupName(durable.exchange.nonce, kind);
         const auto priorPath = folder + L"\\" + backupLeaf;
         const auto exchange = UacRenameLeaf::Detail::ReplaceStagedFile(parent.get(), oldFile.get(), replacement.get(),
             fileName, backupLeaf, nullptr, MAXULONGLONG);
         if (exchange.error || exchange.rollbackError ||
-            ReadDiskReceipt(oldFile.get(), replacement.get(), durable.receipt))
+            ReadDiskReceipt(parent.get(), fileName, oldFile.get(), replacement.get(), durable.receipt))
             return false;
+        if (scenario == ReceiptCase::Legacy)
+        {
+            durable.exchange.version = 2;
+            if (DigestReplacement(parent.get(), fileName, replacement.get(), durable.receipt.replacement,
+                                  false, durable.receipt.replacementDigest))
+                return false;
+        }
         // Release both handles before reopening either name as recovery would.
         oldFile.reset();
         replacement.reset();
-        if (WriteRecord(journal.get(), durable.exchange))
+        auto incomplete = durable.exchange;
+        incomplete.version = 3;
+        if (WriteRecord(journal.get(), incomplete))
             return false;
         Check(Recover(parent.get(), identity, fileName, journal.get(), kind) == ERROR_INVALID_DATA &&
                   HasContents(finalPath, newBytes) && HasContents(priorPath, oldBytes),
@@ -3058,9 +3152,10 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
               "retain both names when a broker exit precedes the disk commit receipt");
         if (WriteRecord(journal.get(), durable))
             return false;
-        if (changeTarget)
+        if (changeTarget || changeNamed)
         {
-            const HANDLE raw = CreateFileW(finalPath.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+            const auto changedPath = changeNamed ? finalPath + suffix : finalPath;
+            const HANDLE raw = CreateFileW(changedPath.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
             if (raw == INVALID_HANDLE_VALUE)
                 return false;
             const Handle writer(raw);
@@ -3072,7 +3167,7 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
                 !WriteFile(writer.get(), other, sizeof(other), &bytes, nullptr) || bytes != sizeof(other))
                 return false;
         }
-        if (changeTarget)
+        if (changeTarget || changeNamed)
         {
             HANDLE raw = nullptr;
             if (Open(parent.get(), fileName, raw, 0))
@@ -3087,18 +3182,29 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
         if (changeTarget)
             Check(recovery == ERROR_PARTIAL_COPY && HasContents(finalPath, {31, 32, 33}) && HasContents(priorPath, oldBytes),
                   "retain the backup when the target digest differs despite matching metadata", recovery);
+        else if (changeNamed)
+            Check(recovery == ERROR_PARTIAL_COPY && HasContents(finalPath, newBytes) && HasContents(priorPath, oldBytes) &&
+                      HasContents(finalPath + suffix, {31, 32, 33}),
+                  "retain the backup when only an alternate stream digest differs", recovery);
         else if (changeBackup)
             Check(recovery == ERROR_PARTIAL_COPY && HasContents(finalPath, newBytes) && HasContents(priorPath, oldBytes) &&
                       HasContents(priorPath + L":late-\u6771", {41, 42}),
                   "retain a backup that gained a named stream before recovery", recovery);
         else
-            Check(!recovery && HasContents(finalPath, newBytes) && !Exists(priorPath),
+            Check(!recovery && HasContents(finalPath, newBytes) && !Exists(priorPath) &&
+                      (!withNamed || HasContents(finalPath + suffix, namedBytes)),
+                  withNamed ? "retire the backup after verifying the complete named replacement" :
                   "retire the exact backup only when both durable disk revisions still match", recovery);
         return !ClearRecord(journal.get());
     };
-    return checkRetirement(L"unchanged.txt", false, false) &&
-           checkRetirement(L"changed-target.txt", true, false) &&
-           checkRetirement(L"changed-backup.txt", false, true);
+    return checkRetirement(L"unchanged.txt", ReceiptCase::Unchanged) &&
+           checkRetirement(L"changed-target.txt", ReceiptCase::ChangedTarget) &&
+           checkRetirement(L"changed-backup.txt", ReceiptCase::ChangedBackup) &&
+           checkRetirement(L"named.txt", ReceiptCase::Named) &&
+           checkRetirement(L"changed-named.txt", ReceiptCase::ChangedNamed) &&
+           checkRetirement(L"legacy-receipt.txt", ReceiptCase::Legacy) &&
+           checkRetirement(L"live-named.txt", ReceiptCase::LiveNamed) &&
+           checkRetirement(L"target-named.txt", ReceiptCase::TargetNamed);
 }
 
 constexpr std::wstring_view overwriteCrashLeaf = L"target-\u6771.txt";

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Bind overwrite recovery to every replacement stream. | Retain the backup when any verified stream changes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Expose durable overwrite checkpoints to native fault tests. | Prove the actual recovery path after process termination. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind disk overwrite cleanup to both file revisions. | Retain a recovery backup when the target or backup has changed since publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the verified replacement journal for disk files. | Keep ZIP and disk backups in separate namespaces. | | GPT-6.1 Sol (Codex) |
@@ -147,12 +148,56 @@ inline DWORD ClearRecord(HANDLE journal)
     return ERROR_SUCCESS;
 }
 
-inline DWORD DigestReplacement(HANDLE file, LONGLONG size, BYTE (&digest)[32])
+inline DWORD HashReplacementBytes(BCRYPT_HASH_HANDLE hash, HANDLE file, ULONGLONG size)
 {
-    if (size < 0 || static_cast<ULONGLONG>(size) > UacF7::maxPilotCopyBytes)
-        return ERROR_FILE_TOO_LARGE;
     if (!SetFilePointerEx(file, {}, nullptr, FILE_BEGIN))
         return GetLastError();
+    BYTE block[4096];
+    while (size)
+    {
+        const auto count = static_cast<DWORD>((std::min)(size, static_cast<ULONGLONG>(sizeof(block))));
+        DWORD read = 0;
+        if (!ReadFile(file, block, count, &read, nullptr))
+            return GetLastError();
+        if (read != count)
+            return ERROR_HANDLE_EOF;
+        const auto status = BCryptHashData(hash, block, read, 0);
+        if (status < 0)
+            return RtlNtStatusToDosError(status);
+        size -= read;
+    }
+    return ERROR_SUCCESS;
+}
+
+inline DWORD DigestReplacement(HANDLE parent, std::wstring_view leaf, HANDLE file, const Revision& revision,
+                               bool includeNamed, BYTE (&digest)[32])
+{
+    using namespace UacCopyLeaf::Detail;
+    if (revision.size < 0 || static_cast<ULONGLONG>(revision.size) > UacF7::maxPilotCopyBytes)
+        return ERROR_FILE_TOO_LARGE;
+    const auto size = static_cast<ULONGLONG>(revision.size);
+    std::vector<DataStream> inventory;
+    std::vector<StreamHandle> named;
+    if (includeNamed)
+    {
+        if (const DWORD error = ReadDataStreams(file, inventory))
+            return error;
+        const auto identity = RevisionIdentity(revision);
+        for (const auto& stream : inventory)
+        {
+            if (stream.suffix == L"::$DATA")
+            {
+                if (stream.size != size)
+                    return ERROR_FILE_INVALID;
+                continue;
+            }
+            StreamHandle opened(nullptr, CloseHandle);
+            if (const DWORD error = OpenDataStream(parent, leaf, stream, identity, false, opened, false, true))
+                return error;
+            named.push_back(std::move(opened));
+        }
+    }
+
     BCRYPT_ALG_HANDLE provider = nullptr;
     auto status = BCryptOpenAlgorithmProvider(&provider, BCRYPT_SHA256_ALGORITHM, nullptr, 0);
     if (status < 0)
@@ -165,50 +210,67 @@ inline DWORD DigestReplacement(HANDLE file, LONGLONG size, BYTE (&digest)[32])
         return RtlNtStatusToDosError(status);
     const std::unique_ptr<void, decltype(&BCryptDestroyHash)> hash(raw, BCryptDestroyHash);
 
-    BYTE block[4096];
-    while (size)
+    if (includeNamed)
     {
-        const auto count = static_cast<DWORD>((std::min)(size, static_cast<LONGLONG>(sizeof(block))));
-        DWORD read = 0;
-        if (!ReadFile(file, block, count, &read, nullptr))
-            return GetLastError();
-        if (read != count)
-            return ERROR_HANDLE_EOF;
-        status = BCryptHashData(hash.get(), block, read, 0);
-        if (status < 0)
-            return RtlNtStatusToDosError(status);
-        size -= read;
+        // Sorted, length-prefixed names and sizes bind stream boundaries as
+        // well as contents. Keep all named stream handles until revalidation.
+        size_t index = 0;
+        for (auto& stream : inventory)
+        {
+            ULONG nameBytes = static_cast<ULONG>(stream.suffix.size() * sizeof(wchar_t));
+            status = BCryptHashData(hash.get(), reinterpret_cast<BYTE*>(&nameBytes), sizeof(nameBytes), 0);
+            if (status >= 0)
+                status = BCryptHashData(hash.get(), reinterpret_cast<BYTE*>(stream.suffix.data()), nameBytes, 0);
+            if (status >= 0)
+                status = BCryptHashData(hash.get(), reinterpret_cast<BYTE*>(&stream.size), sizeof(stream.size), 0);
+            if (status < 0)
+                return RtlNtStatusToDosError(status);
+            const HANDLE input = stream.suffix == L"::$DATA" ? file : named[index++].get();
+            if (const DWORD error = HashReplacementBytes(hash.get(), input, stream.size))
+                return error;
+        }
+        std::vector<DataStream> current;
+        if (const DWORD error = ReadDataStreams(file, current))
+            return error;
+        if (current != inventory)
+            return ERROR_FILE_INVALID;
     }
+    else if (const DWORD error = HashReplacementBytes(hash.get(), file, size))
+        return error;
+
     status = BCryptFinishHash(hash.get(), digest, sizeof(digest), 0);
     return status < 0 ? RtlNtStatusToDosError(status) : ERROR_SUCCESS;
 }
 
-inline DWORD ReadDiskReceipt(HANDLE original, HANDLE replacement, DiskReplacementReceipt& receipt)
+inline DWORD ReadDiskReceipt(HANDLE parent, std::wstring_view leaf, HANDLE original, HANDLE replacement,
+                             DiskReplacementReceipt& receipt)
 {
     FILE_BASIC_INFO basic{};
     DWORD error = UacCopyLeaf::Detail::ReadPlainMetadata(original, basic);
     if (!error)
-        error = UacCopyLeaf::Detail::ReadPlainMetadata(replacement, basic);
+        error = UacCopyLeaf::Detail::ReadPlainMetadata(replacement, basic, false, UacCopyLeaf::StreamPolicy::PreserveNamed);
     if (!error)
         error = ReadRevision(original, receipt.original);
     if (!error)
         error = ReadRevision(replacement, receipt.replacement);
-    return error ? error : DigestReplacement(replacement, receipt.replacement.size, receipt.replacementDigest);
+    return error ? error : DigestReplacement(parent, leaf, replacement, receipt.replacement, true, receipt.replacementDigest);
 }
 
-inline DWORD VerifyDiskReceipt(HANDLE original, HANDLE replacement, const DiskReplacementReceipt& receipt)
+inline DWORD VerifyDiskReceipt(HANDLE parent, std::wstring_view leaf, HANDLE original, HANDLE replacement,
+                               const DiskReplacementReceipt& receipt, bool includeNamed)
 {
     FILE_BASIC_INFO basic{};
     DWORD error = CheckRevision(replacement, receipt.replacement);
     if (error)
         return error;
     BYTE actualDigest[sizeof(receipt.replacementDigest)]{};
-    error = DigestReplacement(replacement, receipt.replacement.size, actualDigest);
-    if (error)
+    const auto policy = includeNamed ? UacCopyLeaf::StreamPolicy::PreserveNamed : UacCopyLeaf::StreamPolicy::RequireDefault;
+    if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(replacement, basic, false, policy)) ||
+        (error = DigestReplacement(parent, leaf, replacement, receipt.replacement, includeNamed, actualDigest)))
         return error;
     if (std::memcmp(actualDigest, receipt.replacementDigest, sizeof(actualDigest)) != 0)
         return ERROR_FILE_INVALID;
-    if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(replacement, basic)) ||
+    if ((error = CheckRevision(replacement, receipt.replacement)) ||
         (error = UacCopyLeaf::Detail::ReadPlainMetadata(original, basic)))
         return error;
     return CheckRevision(original, receipt.original);
@@ -250,7 +312,8 @@ inline DWORD Recover(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expe
         return GetLastError();
     const auto* end = std::find(std::begin(record.leaf), std::end(record.leaf), L'\0');
     const std::wstring_view recorded(record.leaf, end - record.leaf);
-    if (read != sizeof(record) || record.version != (diskRecord ? 2u : 1u) || !IsReplacementLeaf(recorded, kind) ||
+    const bool versionMatches = diskRecord ? record.version == 2 || record.version == 3 : record.version == 1;
+    if (read != sizeof(record) || !versionMatches || !IsReplacementLeaf(recorded, kind) ||
         recorded != leaf || !SameSource(record.parent, expected.file) ||
         record.original.VolumeSerialNumber != expected.file.VolumeSerialNumber ||
         record.replacement.VolumeSerialNumber != expected.file.VolumeSerialNumber ||
@@ -293,7 +356,7 @@ inline DWORD Recover(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expe
             if (!diskRecord || !ReadFile(journal, &receipt, sizeof(receipt), &read, nullptr) ||
                 read != sizeof(receipt) || !SameSource(RevisionIdentity(receipt.original), record.original) ||
                 !SameSource(RevisionIdentity(receipt.replacement), record.replacement) ||
-                VerifyDiskReceipt(backup.get(), finalFile.get(), receipt))
+                VerifyDiskReceipt(parent, leaf, backup.get(), finalFile.get(), receipt, record.version == 3))
                 return ERROR_PARTIAL_COPY;
         }
         error = RemoveBackup(backup.get());
@@ -353,7 +416,7 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
         return {error};
     DiskRecoveryRecord diskRecord;
     auto& record = diskRecord.exchange;
-    record.version = disk ? 2u : 1u;
+    record.version = disk ? 3u : 1u;
     record.parent = expectedParent.file;
     record.original = RevisionIdentity(expectedOriginal);
     std::copy(leaf.begin(), leaf.end(), record.leaf);
@@ -386,7 +449,7 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
     if (disk)
     {
         auto& receipt = diskRecord.receipt;
-        cleanup = ReadDiskReceipt(original.get(), stage, receipt);
+        cleanup = ReadDiskReceipt(parent, leaf, original.get(), stage, receipt);
         // Renaming the original can update ChangeTime and set Archive.
         // Its data revision and other attributes must still match consent.
         if (!cleanup && (!SameSource(RevisionIdentity(receipt.original), record.original) ||
@@ -402,7 +465,7 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
             PauseReplacementAt(ReplacementFaultPoint::ReceiptFlushed);
 #endif
         if (!cleanup)
-            cleanup = VerifyDiskReceipt(original.get(), stage, receipt);
+            cleanup = VerifyDiskReceipt(parent, leaf, original.get(), stage, receipt, true);
     }
     if (!cleanup)
         cleanup = RemoveBackup(original.get());

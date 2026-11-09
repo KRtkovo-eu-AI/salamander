@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Preserve source streams in verified disk overwrites. | Verify every replacement stream before retiring the original. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Remove the cross-volume F6 pilot limits. | Verify offsets past 4 GiB and cancellation without a total deadline. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Allow verified F5 overwrite after source access denial. | Retain ordinary conflict consent and the exact target revision. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Bind Scan Ahead F5 overwrites to the reviewed revision. | Requeue replaced targets without carrying forward the old conflict decision. | | GPT-6.1 Sol (Codex) |
@@ -1248,6 +1249,10 @@ Prošlo sestavení aplikace x64 Debug, 12 kontrol workeru, sady stavů konflikt�
 **F6 mezi svazky bez pevných limitů pilotu.** Pro chráněný přesun se odstraňuje limit 4 GiB i celková lhůta 15 minut z předchozího pilotu. Zůstává kontrola rozsahu reprezentovatelného podepsanými 64bitovými pozicemi Windows. Aktivní operace může pokračovat, dokud nedokončí kopii, uživatel ji nezruší, neodpojí se host nebo nenastane chyba. Běžná krátká lhůta pro komunikaci a nečinná relace mezi požadavky zůstávají oddělené. Po odeslání zrušení má host omezené čekání na potvrzení výsledku. Protokol je verze 7, host, broker a sonda se proto aktualizují společně.
 
 Lokálně prošlo 128 kontrol F6 v x64 Debug i Release. Skutečná data byla zapsána a po dokončení ověřena za offsetem 4 GiB v hlavním i Unicode alternativním proudu. Oba proudy byly řídké a každý měl logickou velikost přes 4 GiB. Zrušení před zveřejněním ponechalo zdroj a cílový název nevznikl. Prošlo také 27 kontrol brokerových úloh a značek sestavení, včetně odmítnutí starší binárky, potvrzeného zrušení přes skutečnou rouru při čekání bez celkové lhůty a přijetí požadavku nad 4 GiB. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Zkouška použila jeden svazek. Ve VM zbývá ověřit dva svazky, systémovou výzvu a velký běžný soubor na pomalém cíli.
+
+**Alternativní proudy zdroje při chráněném přepisu F5.** Broker před kopírováním otevře všechny způsobilé proudy zdroje proti souběžnému zápisu a ověří jejich identitu a délku. Pokud existují pojmenované proudy, vyžaduje pracovní soubor s ověřenou ochranou proti zápisu běžným účtem. Po přenosu ověří inventář obou souborů. Doklad verze 3 obsahuje SHA-256 zahrnující seřazené názvy, délky a obsah všech proudů zveřejněné kopie. Obnova přijme i starší doklad verze 2 pro jediný hlavní proud. Odlišný proud ponechá původní zálohu. Pilot zatím odmítá nahradit původní cíl, který už má vlastní pojmenovaný proud, a odmítne i nepodporované kombinace komprese, řídké alokace nebo oprávnění.
+
+Prošlo 284 nativních kontrol v x64 Debug i Release, 12 kontrol workeru, 26 kontrol brokerových úloh, transport a sestavení aplikace a brokeru x64 Debug. Kontroly potvrdily skutečné zveřejnění hlavního, Unicode a prázdného proudu, zachování cíle s vlastním proudem, odmítnutí souběžného zapisovatele i neověřeného pracovního souboru a ponechání zálohy při změně obsahu jediného proudu bez změny revize. Ve VM ještě ověřit plný tok F5 přes běžný konflikt a systémový souhlas na chráněných oprávněních.
 
 ## 12. Testovací strategie
 

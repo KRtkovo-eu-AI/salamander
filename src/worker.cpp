@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Admit named streams to verified F5 overwrite. | Allow the broker to preserve eligible source streams before publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow verified overwrite when F5 cannot open the source. | Keep the ordinary conflict decision and retry tied to the prepared target. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind protected Scan Ahead overwrites to the scanned revision. | Requeue changed targets before the protected retry and leave reviewed overwrites to the serial worker. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Complete Scan Ahead transfer admission and cancellation. | Keep protected retries serial, separate from scanned conflicts, and admit compressed streams to guarded F6. | | GPT-6.1 Sol (Codex) |
@@ -5814,7 +5815,7 @@ static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
         (dlgData.ConflictDecisionInjected &&
          (dlgData.InjectedConflictType != cmctFileExists || !op.ScannedTargetRevision.attributes)) ||
         !op.SourceNameWValid || !op.TargetNameWValid ||
-        (op.OpFlags & (OPFL_AS_ENCRYPTED | OPFL_COPY_ADS)) || !UacF7::IsPlainCopyFile(op.Attr))
+        (op.OpFlags & OPFL_AS_ENCRYPTED) || !UacF7::IsPlainCopyFile(op.Attr))
         return false;
     BOOL limited = FALSE;
     DWORD limit = 0;

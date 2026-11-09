@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Allow verified stream reads while the base has delete access. | Keep overwrite receipt verification on the pinned replacement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share stream storage verification with compressed F5. | Preserve the main stream and named streams together without relaxing the staged publication checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve LZNT1 in guarded named streams. | Verify each stream format before committing the move. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve sparsity per locked F6 data stream. | Copy the allocated ranges of both default and named streams. | | GPT-6.1 Sol (Codex) |
@@ -345,15 +346,15 @@ inline DWORD ReadDataStreams(HANDLE file, std::vector<DataStream>& streams, ULON
 using StreamHandle = std::unique_ptr<void, decltype(&CloseHandle)>;
 
 inline DWORD OpenDataStream(HANDLE parent, std::wstring_view leaf, const DataStream& stream, const FILE_ID_INFO& identity,
-                            bool create, StreamHandle& opened, bool preserveStorage = false)
+                            bool create, StreamHandle& opened, bool preserveStorage = false, bool shareDelete = false)
 {
     // The suffix came from FileStreamInfo and contains one validated component.
     // The base name is pinned by the caller. Open relative to its verified parent.
     const auto name = std::wstring(leaf) + stream.suffix;
     HANDLE raw = nullptr;
     const ACCESS_MASK access = create ? FILE_WRITE_DATA | (preserveStorage ? FILE_READ_DATA : 0) : FILE_READ_DATA;
-    DWORD error = UacRenameLeaf::Detail::OpenFile(parent, name, raw, access,
-                                                 create ? FILE_SHARE_DELETE : FILE_SHARE_READ,
+    const ULONG sharing = create ? FILE_SHARE_DELETE : FILE_SHARE_READ | (shareDelete ? FILE_SHARE_DELETE : 0);
+    DWORD error = UacRenameLeaf::Detail::OpenFile(parent, name, raw, access, sharing,
                                                  create ? FILE_CREATE : FILE_OPEN, 0);
     if (error)
         return error;
@@ -451,6 +452,60 @@ struct CopySourceLocation
     const std::vector<HANDLE>* lockedInputs = nullptr;
     const std::vector<DataStream>* lockedInventory = nullptr;
 };
+
+inline DWORD CopyOverwriteStreams(HANDLE source, const CopySourceLocation& location, HANDLE parent,
+                                  std::wstring_view stageLeaf, HANDLE stage, ULONGLONG expectedSize,
+                                  HANDLE connection, ULONGLONG deadline)
+{
+    std::vector<DataStream> inventory;
+    DWORD error = ReadDataStreams(source, inventory);
+    if (error)
+        return error;
+    const bool named = inventory.size() > 1;
+    if (named && (!location.verifyStage || !location.verifyStage(stage, false)))
+        return ERROR_ACCESS_DENIED;
+
+    std::vector<StreamHandle> inputs;
+    for (const auto& stream : inventory)
+    {
+        if (stream.suffix == L"::$DATA")
+        {
+            if (stream.size != expectedSize)
+                return ERROR_FILE_INVALID;
+            continue;
+        }
+        StreamHandle input(nullptr, CloseHandle);
+        if ((error = OpenDataStream(location.parent, location.leaf, stream, location.identity, false, input)))
+            return error;
+        inputs.push_back(std::move(input));
+    }
+
+    if ((error = CopyData(source, stage, expectedSize, nullptr, connection, deadline)))
+        return error;
+    FILE_ID_INFO targetId{};
+    if (named && !GetFileInformationByHandleEx(stage, FileIdInfo, &targetId, sizeof(targetId)))
+        return GetLastError();
+    size_t index = 0;
+    std::vector<StreamHandle> outputs;
+    for (const auto& stream : inventory)
+    {
+        if (stream.suffix == L"::$DATA")
+            continue;
+        StreamHandle output(nullptr, CloseHandle);
+        if ((error = OpenDataStream(parent, stageLeaf, stream, targetId, true, output)) ||
+            (error = CopyData(inputs[index++].get(), output.get(), stream.size, nullptr, connection, deadline)))
+            return error;
+        if (!FlushFileBuffers(output.get()))
+            return GetLastError();
+        outputs.push_back(std::move(output));
+    }
+
+    std::vector<DataStream> current;
+    if ((error = ReadDataStreams(source, current)) || current != inventory ||
+        (error = ReadDataStreams(stage, current)) || current != inventory)
+        return error ? error : ERROR_FILE_INVALID;
+    return ERROR_SUCCESS;
+}
 
 inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_view targetName,
                             HANDLE cancel, HANDLE connection, ULONGLONG deadline, ULONGLONG expectedSize,

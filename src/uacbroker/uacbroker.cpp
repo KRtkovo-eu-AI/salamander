@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Copy verified named streams in protected F5 overwrites. | Use a protected stage and preserve the original until the complete stream receipt is verified. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Remove the active F6 deadline and pilot byte cap. | Keep cancellation and disconnect detection while allowing slow and large moves. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share the overwrite target revision capture. | Apply the same plain-file and attribute checks during Scan Ahead and request preparation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Open disk overwrite stages for digest verification. | Verify the completed target before retiring its original backup. | | GPT-6.1 Sol (Codex) |
@@ -1245,7 +1246,7 @@ struct ReplacementSecurity
 
 DWORD PrepareReplacementFiles(HANDLE parent, std::wstring_view leaf, const UacF7::ArchiveRevision& revision,
                               UacZipUpdate::Handle& original, Handle& stage, ReplacementSecurity& security,
-                              UacZipUpdate::ReplacementKind kind)
+                              UacZipUpdate::ReplacementKind kind, std::wstring* preparedName = nullptr)
 {
     ScopedTokenPrivilege audit;
     DWORD error = audit.Enable(L"SeSecurityPrivilege");
@@ -1289,8 +1290,11 @@ DWORD PrepareReplacementFiles(HANDLE parent, std::wstring_view leaf, const UacF7
     FILE_BASIC_INFO metadata{};
     metadata.CreationTime.QuadPart = revision.created;
     metadata.FileAttributes = (revision.attributes & ~FILE_ATTRIBUTE_NORMAL) | FILE_ATTRIBUTE_ARCHIVE;
-    return SetFileInformationByHandle(stage.get(), FileBasicInfo, &metadata, sizeof(metadata))
-        ? ERROR_SUCCESS : GetLastError();
+    if (!SetFileInformationByHandle(stage.get(), FileBasicInfo, &metadata, sizeof(metadata)))
+        return GetLastError();
+    if (preparedName)
+        *preparedName = name;
+    return ERROR_SUCCESS;
 }
 
 DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
@@ -1317,8 +1321,9 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
     const auto source = Adopt(raw);
     if ((error = UacZipUpdate::Detail::CheckIdentity(source.get(), expectedSource)) != ERROR_SUCCESS)
         return error;
+    constexpr auto streams = UacCopyLeaf::StreamPolicy::PreserveNamed;
     FILE_BASIC_INFO sourceBasic{};
-    if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), sourceBasic)) != ERROR_SUCCESS)
+    if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), sourceBasic, false, streams)) != ERROR_SUCCESS)
         return error;
     LARGE_INTEGER length{};
     if (!GetFileSizeEx(source.get(), &length))
@@ -1348,12 +1353,16 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
     UacZipUpdate::Handle original(nullptr, CloseHandle);
     Handle stage;
     ReplacementSecurity security;
-    if ((error = PrepareReplacementFiles(targetParent, targetLeaf, expectedTarget, original, stage, security, kind)) != ERROR_SUCCESS ||
-        (error = UacCopyLeaf::Detail::CopyData(source.get(), stage.get(), bytes, nullptr, pipe, deadline)) != ERROR_SUCCESS)
+    std::wstring stageName;
+    const UacCopyLeaf::Detail::CopySourceLocation location{sourceParent, sourceLeaf, expectedSource, ProtectedObject};
+    if ((error = PrepareReplacementFiles(targetParent, targetLeaf, expectedTarget, original, stage, security, kind,
+                                         &stageName)) != ERROR_SUCCESS ||
+        (error = UacCopyLeaf::Detail::CopyOverwriteStreams(source.get(), location, targetParent, stageName,
+                                                           stage.get(), bytes, pipe, deadline)) != ERROR_SUCCESS)
         return error;
 
     FILE_BASIC_INFO currentSource{};
-    if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), currentSource)) != ERROR_SUCCESS)
+    if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), currentSource, false, streams)) != ERROR_SUCCESS)
         return error;
     if (!UacCopyLeaf::Detail::SameBasicMetadata(sourceBasic, currentSource))
         return ERROR_FILE_INVALID;

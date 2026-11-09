@@ -1,6 +1,7 @@
 ﻿# SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check named-stream overwrite admission. | Keep alternate data on the guarded disk-copy route. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check overwrite when reading the source is denied. | Require the reviewed target and keep failure from switching to a free-target request. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check exact Scan Ahead overwrite admission. | Require one scanned revision and serial conflict requeue on a mismatch. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Cover Scan Ahead protected worker admission and cancellation. | Exercise the guarded move and the boundary between a free target and a scanned conflict. | | GPT-6.1 Sol (Codex) |
@@ -104,6 +105,10 @@ class WorkerCopyPathContracts(unittest.TestCase):
         overwrite = section(code, "static bool PrepareWorkerOverwrite(", "struct MoveCopyReceipt")
         self.assertIn("SameFileRevision(op.ScannedTargetRevision, request.Approval().revision)", overwrite)
         self.assertIn("dlgData.InjectedConflictType != cmctFileExists", overwrite)
+        self.assertNotIn("OPFL_COPY_ADS", overwrite)
+        broker = section(text("uacbroker/uacbroker.cpp"), "DWORD CopyOverExistingFile(", "DWORD WriteZipUpdate(")
+        self.assertIn("StreamPolicy::PreserveNamed", broker)
+        self.assertLess(broker.index("CopyOverwriteStreams("), broker.index("UacZipUpdate::Publish("))
         lease = section(code, "COperation& op = At(*item);", "CConflictLeaseOutcome COperations::FinishParallelCopyLeaseLocked")
         self.assertIn("op.ScannedTargetRevision.attributes", lease)
         transfer = section(code, "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
