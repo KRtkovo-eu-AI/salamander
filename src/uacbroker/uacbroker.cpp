@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Retire the captured move source through its exact handle. | Require local NTFS and pin the copied destination before deleting. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Request metadata write access for compressed F6 rollback. | Keep the source eligible for restoring Archive before releasing the seal. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Dispatch F5 compression and security together. | Verify both attributes and the explicit security descriptor before publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Track the final request frame before marking a result uncertain. | Keep pre-dispatch failures recoverable for one-shot and reusable broker jobs. | | GPT-6.1 Sol (Codex) |
@@ -2887,14 +2888,31 @@ bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstrin
     return true;
 }
 
-bool CaptureMoveFileIdentity(HANDLE file, MoveFileIdentity& identity)
+bool CaptureMoveFileIdentity(HANDLE file, MoveFileIdentity& identity, bool requireNtfs)
 {
+    if (requireNtfs)
+    {
+        wchar_t fs[16]{};
+        if (!GetVolumeInformationByHandleW(file, nullptr, 0, nullptr, nullptr, nullptr, fs, ARRAYSIZE(fs)) ||
+            !UacDirectoryLeaf::Equal(fs, L"NTFS"))
+            return false;
+    }
     FILE_ID_INFO native{};
-    if (!GetFileInformationByHandleEx(file, FileIdInfo, &native, sizeof(native)))
+    if (requireNtfs ? UacRenameLeaf::Detail::ReadSourceIdentity(file, native) != ERROR_SUCCESS
+                    : !GetFileInformationByHandleEx(file, FileIdInfo, &native, sizeof(native)))
         return false;
     identity.serial = native.VolumeSerialNumber;
     std::memcpy(identity.id, native.FileId.Identifier, sizeof(identity.id));
     return true;
+}
+
+DWORD DeleteCopiedMoveSource(const std::wstring& sourcePath, const std::wstring& targetPath,
+                             const MoveFileIdentity& source, const MoveFileIdentity& target)
+{
+    FILE_ID_INFO nativeSource{source.serial, {}}, nativeTarget{target.serial, {}};
+    std::memcpy(nativeSource.FileId.Identifier, source.id, sizeof(source.id));
+    std::memcpy(nativeTarget.FileId.Identifier, target.id, sizeof(target.id));
+    return UacDeleteLeaf::DeleteCopiedSource(sourcePath, targetPath, nativeSource, nativeTarget);
 }
 
 bool PreparedTransfer::PrepareMoveCompletion(const std::wstring& sourcePath, const std::wstring& targetPath,

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Expose a verified local finish for an ordinary cross-volume copy. | Keep the protected fallback tied to the same captured objects. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose whether a scoped broker session is still open. | Release closed session entries while their batch continues. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Define a combined protected F5 compression and permissions operation. | Keep consent and broker scope specific to both options. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Remove the F6 pilot byte cap. | Retain the representable range of signed Windows file offsets. | | GPT-6.1 Sol (Codex) |
@@ -118,7 +119,9 @@ struct MoveFileIdentity
     BYTE id[16]{};
 };
 
-bool CaptureMoveFileIdentity(HANDLE file, MoveFileIdentity& identity);
+bool CaptureMoveFileIdentity(HANDLE file, MoveFileIdentity& identity, bool requireNtfs = false);
+DWORD DeleteCopiedMoveSource(const std::wstring& sourcePath, const std::wstring& targetPath,
+                             const MoveFileIdentity& source, const MoveFileIdentity& target);
 
 struct ArchiveRevision
 {

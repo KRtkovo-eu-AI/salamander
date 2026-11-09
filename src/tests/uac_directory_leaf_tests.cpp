@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the local F6 finish rejects substituted files. | Keep the original and the copy until both captured identities match. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test restoring the cleared Archive attribute on compressed F6 rollback. | Verify the attribute, source bytes and removal of the recovery alias. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify combined NTFS compression and security in F5. | Check named data, compression, and explicit permissions together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise recovery of protected overwrite targets with named streams. | Refuse unsafe backup cleanup and preserve the ordinary overwrite result. | | GPT-6.1 Sol (Codex) |
@@ -5134,6 +5135,41 @@ int wmain(int argc, wchar_t** argv)
     error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, deleteId, L"delete-original");
     Check(error == ERROR_SUCCESS && !Exists(relocatedDelete) && Exists(deletePath),
           "delete detaches only the verified name while its identity handle is still open", error);
+
+    const auto localMoveSource = moved + L"\\local-source-\u6771";
+    const auto moveTarget = moved + L"\\local-copy-\u6771";
+    const auto movedAside = moved + L"\\local-copy-original-\u6771";
+    const std::vector<BYTE> moveBytes{4, 6, 9};
+    if (!WriteFixture(localMoveSource, moveBytes))
+        return 2;
+    FILE_ID_INFO localMoveSourceId{}, moveTargetId{};
+    {
+        const HANDLE raw = CreateFileW(moveTarget.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+        const Handle output(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+        DWORD bytes = 0;
+        wchar_t fs[16]{};
+        const bool captured = output && WriteFile(output.get(), moveBytes.data(), static_cast<DWORD>(moveBytes.size()), &bytes, nullptr) &&
+            bytes == moveBytes.size() && GetVolumeInformationByHandleW(output.get(), nullptr, 0, nullptr, nullptr, nullptr, fs, ARRAYSIZE(fs)) &&
+            UacDirectoryLeaf::Equal(fs, L"NTFS") && !UacRenameLeaf::Detail::ReadSourceIdentity(output.get(), moveTargetId);
+        Check(captured, "capture a plain NTFS target identity from the ordinary write-only handle");
+        if (!captured)
+            return 2;
+    }
+    const auto localMoveSourcePin = OpenIdentity(localMoveSource, localMoveSourceId);
+    FILE_ID_INFO pinnedTargetId{};
+    const auto moveTargetPin = OpenIdentity(moveTarget, pinnedTargetId);
+    if (!localMoveSourcePin || !moveTargetPin ||
+        !MoveFileExW(moveTarget.c_str(), movedAside.c_str(), 0) || !WriteFixture(moveTarget, {7}))
+        return 2;
+    error = UacDeleteLeaf::DeleteCopiedSource(localMoveSource, moveTarget, localMoveSourceId, moveTargetId);
+    Check(error == ERROR_FILE_INVALID && HasContents(localMoveSource, moveBytes) && HasContents(moveTarget, {7}),
+          "local move completion leaves the source if the destination identity changed", error);
+    error = UacDeleteLeaf::DeleteCopiedSource(moveTarget, movedAside, localMoveSourceId, moveTargetId);
+    Check(error == ERROR_FILE_INVALID && HasContents(moveTarget, {7}) && HasContents(movedAside, moveBytes),
+          "local move completion never deletes a substituted source", error);
+    error = UacDeleteLeaf::DeleteCopiedSource(localMoveSource, movedAside, localMoveSourceId, moveTargetId);
+    Check(!error && !Exists(localMoveSource) && HasContents(movedAside, moveBytes) && HasContents(moveTarget, {7}),
+          "local move completion deletes only the captured source while the copied destination is pinned", error);
 
     for (const auto invalid : {L"..", L"parent\\escaped", L"parent/escaped", L"x:ads", L"NUL.txt", L"x.", L"x "})
     {

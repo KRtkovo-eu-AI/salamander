@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Pin the exact copied files before local F6 source retirement. | Detect a substituted source or destination before trying either local or elevated deletion. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Release a closed transfer session immediately. | Avoid keeping dead scope paths during long-running batches. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Route combined compression and permissions to protected F5. | Keep both existing copy options active in the worker retry. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Use item eligibility for protected transfer in the worker. | Keep mixed selections serial on denied direct items and preserve recursive behavior. | | GPT-6.1 Sol (Codex) |
@@ -6432,7 +6433,7 @@ COPY_AGAIN:
                     }
 
                     if (moveReceipt)
-                        moveReceipt->sourceCaptured = UacF7::CaptureMoveFileIdentity(in, moveReceipt->source);
+                        moveReceipt->sourceCaptured = UacF7::CaptureMoveFileIdentity(in, moveReceipt->source, true);
                     HANDLES(CloseHandle(in));
                     in = NULL;
 
@@ -6520,7 +6521,7 @@ COPY_AGAIN:
                             }
                         }
                         if (moveReceipt && moveReceipt->sourceCaptured)
-                            moveReceipt->captured = UacF7::CaptureMoveFileIdentity(out, moveReceipt->target);
+                            moveReceipt->captured = UacF7::CaptureMoveFileIdentity(out, moveReceipt->target, true);
                         if (!HANDLES(CloseHandle(out)))
                         {
                             out = NULL;
@@ -7857,6 +7858,7 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
         MoveCopyReceipt receipt;
         const bool capture = (op->OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && !script->CopyAttrs && !script->CopySecurity &&
                              !script->OverwriteOlder && !copyADS && !copyAsEncrypted &&
+                             !(op->OpFlags & (OPFL_SRCPATH_IS_NET | OPFL_TGTPATH_IS_NET)) &&
                              op->SourceNameWValid && op->TargetNameWValid && UacF7::IsPlainDeleteFile(op->Attr) &&
                              op->FileSize.Value <= UacF7::maxCrossVolumeMoveBytes;
         BOOL notError = DoCopyFile(op, hProgressDlg, buffer, script, totalDone,
@@ -7865,16 +7867,23 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                                    dlgData, copyADS, copyAsEncrypted, TRUE, asyncPar, capture ? &receipt : nullptr);
         if (notError && !skip) // still need to clean up the file from the source
         {
-            WorkerClearReadOnlyW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL)); // ensure it can be deleted
+            const auto sourcePath = WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL);
+            const bool verified = receipt.captured && receipt.source.serial != receipt.target.serial;
+            if (!verified)
+                WorkerClearReadOnlyW(sourcePath);
             bool protectedCompletion = false;
             while (1)
             {
                 DWORD err = ERROR_ACCESS_DENIED;
                 if (!protectedCompletion)
                 {
-                    if (DeleteFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str()))
+                    if (verified)
+                        err = UacF7::DeleteCopiedMoveSource(sourcePath, WorkerOperationPathW(op->TargetName, op->TargetNameW.c_str()),
+                                                            receipt.source, receipt.target);
+                    else
+                        err = DeleteFileW(sourcePath.c_str()) ? ERROR_SUCCESS : GetLastError();
+                    if (!err)
                         break;
-                    err = GetLastError();
                 }
                 {
                     WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
@@ -7899,11 +7908,11 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                         }
                         else if (protectedCompletion || receipt.source.serial != receipt.target.serial)
                             err = ERROR_FILE_INVALID;
-                        if (err == ERROR_FILE_INVALID)
-                        {
-                            SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, TRUE);
-                            return FALSE;
-                        }
+                    }
+                    if (err == ERROR_FILE_INVALID && verified)
+                    {
+                        SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, TRUE);
+                        return FALSE;
                     }
                     int ret = IDCANCEL;
                     char* data[4];

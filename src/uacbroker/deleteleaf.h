@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Share the verified deletion of an opened leaf. | Retire a copied source only while its exact destination remains pinned. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Detach a verified junction by handle. | Reuse the junction format check and reject other reparse types. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Detach a verified directory symbolic link by handle. | Use an anchored no-follow open and reject other directory reparse tags. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Delete a verified file symbolic link by handle. | Check the reparse tag and retain the ordinary-file rules. | | GPT-6.1 Sol (Codex) |
@@ -9,6 +10,8 @@
 
 #include "f7pilot.h"
 #include "renameleaf.h"
+
+#include <memory>
 
 namespace UacDeleteLeaf
 {
@@ -39,6 +42,52 @@ inline DWORD CheckAttributes(HANDLE file, UacF7::Operation operation)
     return supported ? ERROR_SUCCESS : ERROR_NOT_SUPPORTED;
 }
 
+inline DWORD DeleteOpenedLeaf(HANDLE file, const FILE_ID_INFO& expectedSource, UacF7::Operation operation)
+{
+    FILE_ID_INFO actualSource{};
+    DWORD error = UacRenameLeaf::Detail::ReadSourceIdentity(file, actualSource, SourceKind(operation));
+    if (!error && !UacRenameLeaf::Detail::SameSource(actualSource, expectedSource))
+        error = ERROR_FILE_INVALID;
+    if (!error)
+        error = CheckAttributes(file, operation);
+    if (error)
+        return error;
+    // Detach the verified name on close even while the host retains its identity handle.
+    FILE_DISPOSITION_INFO_EX disposition{FILE_DISPOSITION_FLAG_DELETE | FILE_DISPOSITION_FLAG_POSIX_SEMANTICS |
+                                         FILE_DISPOSITION_FLAG_FORCE_IMAGE_SECTION_CHECK};
+    return SetFileInformationByHandle(file, FileDispositionInfoEx, &disposition, sizeof(disposition))
+        ? ERROR_SUCCESS : GetLastError();
+}
+
+inline DWORD DeleteCopiedSource(const std::wstring& source, const std::wstring& target,
+                                const FILE_ID_INFO& expectedSource, const FILE_ID_INFO& expectedTarget)
+{
+    const HANDLE pinned = CreateFileW(target.c_str(), FILE_READ_DATA | FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+                                      nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (pinned == INVALID_HANDLE_VALUE)
+    {
+        const DWORD error = GetLastError();
+        return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND ? ERROR_FILE_INVALID : error;
+    }
+    const std::unique_ptr<void, decltype(&CloseHandle)> targetHandle(pinned, CloseHandle);
+    FILE_ID_INFO actualTarget{};
+    DWORD error = UacRenameLeaf::Detail::ReadSourceIdentity(pinned, actualTarget);
+    if (error)
+        return error;
+    if (!UacRenameLeaf::Detail::SameSource(actualTarget, expectedTarget))
+        return ERROR_FILE_INVALID;
+
+    const HANDLE input = CreateFileW(source.c_str(), DELETE | FILE_READ_ATTRIBUTES, 0, nullptr,
+                                      OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (input == INVALID_HANDLE_VALUE)
+    {
+        error = GetLastError();
+        return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND ? ERROR_FILE_INVALID : error;
+    }
+    const std::unique_ptr<void, decltype(&CloseHandle)> sourceHandle(input, CloseHandle);
+    return DeleteOpenedLeaf(input, expectedSource, UacF7::Operation::Delete);
+}
+
 inline DWORD DeleteVerifiedLeaf(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
                                 const FILE_ID_INFO& expectedSource, std::wstring_view leaf,
                                 UacF7::Operation operation = UacF7::Operation::Delete)
@@ -61,20 +110,7 @@ inline DWORD DeleteVerifiedLeaf(HANDLE parent, const UacDirectoryLeaf::ParentIde
     error = UacRenameLeaf::Detail::OpenSource(parent, leaf, file, DELETE, 0, kind);
     if (error != ERROR_SUCCESS)
         return error;
-    FILE_ID_INFO actualSource{};
-    error = UacRenameLeaf::Detail::ReadSourceIdentity(file, actualSource, kind);
-    if (error == ERROR_SUCCESS && !UacRenameLeaf::Detail::SameSource(actualSource, expectedSource))
-        error = ERROR_FILE_INVALID;
-    if (error == ERROR_SUCCESS)
-        error = CheckAttributes(file, operation);
-    if (error == ERROR_SUCCESS)
-    {
-        // Detach the verified name on close even while the host retains its identity handle.
-        FILE_DISPOSITION_INFO_EX disposition{FILE_DISPOSITION_FLAG_DELETE | FILE_DISPOSITION_FLAG_POSIX_SEMANTICS |
-                                             FILE_DISPOSITION_FLAG_FORCE_IMAGE_SECTION_CHECK};
-        if (!SetFileInformationByHandle(file, FileDispositionInfoEx, &disposition, sizeof(disposition)))
-            error = GetLastError();
-    }
+    error = DeleteOpenedLeaf(file, expectedSource, operation);
     CloseHandle(file);
     return error;
 }

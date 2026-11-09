@@ -1,6 +1,7 @@
 ﻿# SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check identity-bound retirement after an ordinary F6 copy. | Require the verified path before any broker retry. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check cleanup of disconnected scoped broker entries. | Keep live consent and discard closed scopes before the next item. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check direct file admission in mixed protected transfer selections. | Keep recursively discovered items out of the direct file consent scope. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check named-stream overwrite admission. | Keep alternate data on the guarded disk-copy route. | | GPT-6.1 Sol (Codex) |
@@ -57,11 +58,12 @@ class WorkerCopyPathContracts(unittest.TestCase):
     def test_denied_move_completion_does_not_retry_path_deletion(self):
         code = section(text("worker.cpp"), "MoveCopyReceipt receipt;", "BOOL DoDeleteFile(")
         ordinary_delete = section(code, "if (!protectedCompletion)", "WaitForSingleObject")
-        self.assertIn("DeleteFileW(", ordinary_delete)
+        self.assertIn("UacF7::DeleteCopiedMoveSource(", ordinary_delete)
+        self.assertIn("else\n                        err = DeleteFileW(", ordinary_delete)
         self.assertEqual(code.count("DeleteFileW("), 1)
         prepared = section(code, "if (request.PrepareMoveCompletion(", "else if (protectedCompletion")
         self.assertLess(prepared.index("protectedCompletion = true;"), prepared.index("ExecuteWorkerTransfer("))
-        stale = section(code, "if (err == ERROR_FILE_INVALID)", "int ret = IDCANCEL;")
+        stale = section(code, "if (err == ERROR_FILE_INVALID && verified)", "int ret = IDCANCEL;")
         self.assertIn("WORKER_DIALOG_UAC_TRANSFER_UNKNOWN", stale)
         self.assertIn("return FALSE;", stale)
     def test_scan_ahead_uses_serial_free_target_elevation(self):
