@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record duplicate validation at comparison time. | Confirm empty candidates and reject short or changed reads. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record exact-file consent in Find refinement. | Keep protected text and tags available in intersection and subtraction. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record larger streamed cross-volume F6 transfers. | Keep F6 size and time limits independent from F5. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record guarded cross-volume F6 with ADS. | Verify the protected destination and retire the source after all streams are published. | | GPT-6.1 Sol (Codex) |
@@ -945,6 +946,10 @@ Lokálně prošlo sestavení x64 Debug, 226 nativních kontrol v Debug i Release
 **Zúžení zobrazených výsledků Find.** Při zúžení podle obsahu nebo tagů lze po odepření čtení požádat o přístup k jednomu ověřenému souboru. Cesta z původního řádku zůstává v Unicode. Běžné výsledky se zveřejní před čekáním na dokončení fronty souhlasů. Stejné řádky s totožnou cestou a metadaty sdílejí jeden souhlas. Při průniku se přidají potvrzené shody. Při odečtení zůstane neověřený řádek ve výsledcích a odmítnutí se zaznamená. Zastavení hledání potlačí další nabídky.
 
 Lokálně prošly kontroly plánování, řazení a volby kořenů Findu. V x64 Debug a Release prošlo 248 obecných nativních kontrol, včetně ověřeného blokového čtení obsahu a tagů. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Souhlas, odmítnutí a zachování Unicode položek při průniku i odečtení se ověří ve společné zkoušce ve VM.
+
+**Ověření duplicit při výpočtu otisku.** Porovnání podle obsahu teď prověří i soubory, které měly při výpisu nulovou velikost. Kontrola proběhne až po předběžném seskupení podle metadat, a to stejným čtecím tokem pro všechny kandidáty. Chráněná položka použije schválenou relaci nebo nabídne souhlas pro konkrétní soubor. Odmítnutý nebo neověřitelný kandidát se nezařadí mezi potvrzené duplicity a chyba se zaznamená. Běžné čtení kontroluje očekávanou délku a čas poslední změny při otevření, předčasný konec a změnu délky nebo časů před uzavřením handlu.
+
+Prošly kontroly plánování, řazení a volby kořenů Findu, 248 obecných nativních kontrol v Debug i Release a sestavení x64 Debug. Změny souboru mezi výpisem a porovnáním i souhlas nebo odmítnutí u prázdného chráněného souboru patří do společné akceptace ve VM.
 
 ### 8.43 P6c — chráněný soubor v interním prohlížeči přes F3
 

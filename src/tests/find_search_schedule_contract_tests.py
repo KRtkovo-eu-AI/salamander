@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check duplicate verification at the comparison phase. | Require exact read lengths and keep stale empty candidates out of the result. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Verify protected Find refine scheduling. | Keep ordinary results responsive and retain rows on a declined subtraction check. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Check exact-file consent routing. | Distinguish refused local content reads from elevated scope. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Check multiple protected Find scopes. | Keep prompts serial and bind duplicate reads to the granting scope. | | GPT-6.1 Sol (Codex) |
@@ -92,6 +93,13 @@ def main() -> int:
     require("AuthorizeFindFile(data, fullPath, singleFile)" in digest and
             "remainingFileConsents" in digest,
             "a denied ordinary duplicate read must have a bounded exact-file fallback")
+    require("offset < size" in digest and "error = ERROR_HANDLE_EOF;" in digest and
+            "current.ChangeTime.QuadPart != initial.ChangeTime.QuadPart" in digest,
+            "a local digest must cover the listed length and reject a changed file")
+    compare = examine[examine.index("for (i = Count - 1; i >= 0; i--)"):]
+    before_digest = compare[:compare.index("GetMD5Digest(")]
+    require("file->Size" not in before_digest and "if (file->Group)" in digest,
+            "empty candidates must be verified without dereferencing a nonexistent digest")
     traversal = function_body(find_cpp, "void SearchDirectory(")
     require("openDenied && !protectedQueue.Add(" in traversal and
             "ignoreList, &file)" in traversal,

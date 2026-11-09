@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Verify every content duplicate at comparison time. | Keep stale or unreadable entries out of duplicate groups, including zero-length files. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow protected text and tag checks when refining Find results. | Reuse exact-file consent and preserve the original wide paths and refine mode. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Queue unreadable files discovered by the ordinary Find traversal. | Require exact-file consent for denied text or keyword reads. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Request exact-file access for protected Find candidates. | Share the verified content reader across text, keywords and duplicate comparison. | | GPT-6.1 Sol (Codex) |
@@ -904,6 +905,7 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
     HANDLE local = INVALID_HANDLE_VALUE;
     DWORD error = ERROR_SUCCESS;
     ULONGLONG size = 0;
+    FILE_BASIC_INFO initial{};
     bool opened = false;
     UacF7::ListingSession singleFile;
     if (!scoped)
@@ -912,7 +914,21 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
         local = HANDLES_Q(CreateFileW(apiPath.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
                                       NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL));
         opened = local != INVALID_HANDLE_VALUE;
-        if (!opened)
+        if (opened)
+        {
+            LARGE_INTEGER length{};
+            ULARGE_INTEGER listedWrite{};
+            listedWrite.LowPart = file->LastWrite.dwLowDateTime;
+            listedWrite.HighPart = file->LastWrite.dwHighDateTime;
+            if (!GetFileSizeEx(local, &length) || !GetFileInformationByHandleEx(local, FileBasicInfo, &initial, sizeof(initial)))
+                error = GetLastError();
+            else if (length.QuadPart < 0 || static_cast<ULONGLONG>(length.QuadPart) != file->Size.Value ||
+                     static_cast<ULONGLONG>(initial.LastWriteTime.QuadPart) != listedWrite.QuadPart)
+                error = ERROR_FILE_INVALID;
+            else
+                size = static_cast<ULONGLONG>(length.QuadPart);
+        }
+        else
         {
             error = GetLastError();
             if (error == ERROR_ACCESS_DENIED && remainingFileConsents &&
@@ -939,22 +955,20 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
     BYTE buffer[DUPLICATES_BUFFER_SIZE];
     MD5 context;
     ULONGLONG offset = 0;
-    while (!error && !data->StopSearch)
+    while (!error && !data->StopSearch && offset < size)
     {
-        DWORD read = 0;
+        const DWORD requested = static_cast<DWORD>(std::min<ULONGLONG>(sizeof(buffer), size - offset));
+        DWORD read = requested;
         if (scoped)
-        {
-            if (offset == size)
-                break;
-            read = static_cast<DWORD>(std::min<ULONGLONG>(sizeof(buffer), size - offset));
             error = protectedSession->ReadContent(offset, buffer, read);
-            offset += read;
-        }
-        else if (!ReadFile(local, buffer, sizeof(buffer), &read, NULL))
+        else if (!ReadFile(local, buffer, requested, &read, nullptr))
             error = GetLastError();
+        else if (!read)
+            error = ERROR_HANDLE_EOF;
 
-        if (error || !read || data->StopSearch)
+        if (error || data->StopSearch)
             break;
+        offset += read;
         context.update(buffer, read);
         *readSize += CQuadWord(read, 0);
         const int newProgress = *readSize >= *totalSize ? (totalSize->Value == 0 ? 0 : 100)
@@ -965,17 +979,28 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
             char value[] = {static_cast<char>(newProgress), 0};
             data->SearchingText2->Set(value);
         }
-        if (!scoped && read != sizeof(buffer))
-            break;
     }
-    if (scoped && protectedSession)
+    if (scoped && opened)
     {
         const DWORD closeError = protectedSession->CloseContent();
         if (!error)
             error = closeError;
     }
     if (local != INVALID_HANDLE_VALUE)
+    {
+        if (!error && !data->StopSearch)
+        {
+            FILE_BASIC_INFO current{};
+            LARGE_INTEGER length{};
+            if (!GetFileInformationByHandleEx(local, FileBasicInfo, &current, sizeof(current)) || !GetFileSizeEx(local, &length))
+                error = GetLastError();
+            else if (static_cast<ULONGLONG>(length.QuadPart) != size ||
+                     current.LastWriteTime.QuadPart != initial.LastWriteTime.QuadPart ||
+                     current.ChangeTime.QuadPart != initial.ChangeTime.QuadPart)
+                error = ERROR_FILE_INVALID;
+        }
         HANDLES(CloseHandle(local));
+    }
     if (data->StopSearch)
         return FALSE;
     if (error)
@@ -987,8 +1012,11 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
         SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
         return FALSE;
     }
-    context.finalize();
-    memcpy(reinterpret_cast<BYTE*>(file->Group), context.digest, MD5_DIGEST_SIZE);
+    if (file->Group)
+    {
+        context.finalize();
+        memcpy(reinterpret_cast<BYTE*>(file->Group), context.digest, MD5_DIGEST_SIZE);
+    }
     return TRUE;
 }
 
@@ -1147,50 +1175,47 @@ void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions&
                 else
                     file->Group = 0;
             }
-
-            // determine total file size for progress
-            CQuadWord totalSize(0, 0);
-            for (i = 0; i < Count; i++)
-                totalSize += At(i)->Size;
-
-            // retrieve the MD5 digest of files
-            CQuadWord readSize(0, 0);
-            int progress = -1;
-            for (i = Count - 1; i >= 0; i--)
-            {
-                CFoundFilesData* file = At(i);
-                if (file->Size > CQuadWord(0, 0))
-                {
-                    const unsigned scope = file->ProtectedScope;
-                    auto* session = scope && scope <= protectedSessions.size() ? protectedSessions[scope - 1] : nullptr;
-                    if (!GetMD5Digest(data, file, &progress, &readSize, &totalSize, session, remainingFileConsents))
-                    {
-                        if (data->StopSearch)
-                        {
-                            // the user wants to stop searching
-                            // trim the unprocessed items
-                            int j;
-                            for (j = 0; j <= i; j++)
-                                Delete(0);
-                            break; // show at least the duplicates that have been already found
-                        }
-                        // an error occurred during reading the file but the user wants to continue
-                        // exclude the file from candidates
-                        Delete(i);
-                    }
-                }
-            }
-
-            // search finished, preparing results
-            data->SearchingText->Set(LoadStr(IDS_FIND_DUPS_RESULTS));
-
-            // sort the files again
-            if (Count > 0)
-                QuickSort(0, Count - 1, byName, bySize, TRUE);
-
-            // remove items that occur only once
-            RemoveSingleFiles(byName, bySize, TRUE);
         }
+
+        // Zero-length candidates also need their size and revision verified.
+        CQuadWord totalSize(0, 0);
+        for (i = 0; i < Count; i++)
+            totalSize += At(i)->Size;
+
+        // retrieve the MD5 digest of files
+        CQuadWord readSize(0, 0);
+        int progress = -1;
+        for (i = Count - 1; i >= 0; i--)
+        {
+            CFoundFilesData* file = At(i);
+            const unsigned scope = file->ProtectedScope;
+            auto* session = scope && scope <= protectedSessions.size() ? protectedSessions[scope - 1] : nullptr;
+            if (!GetMD5Digest(data, file, &progress, &readSize, &totalSize, session, remainingFileConsents))
+            {
+                if (data->StopSearch)
+                {
+                    // the user wants to stop searching
+                    // trim the unprocessed items
+                    int j;
+                    for (j = 0; j <= i; j++)
+                        Delete(0);
+                    break; // show at least the duplicates that have been already found
+                }
+                // an error occurred during reading the file but the user wants to continue
+                // exclude the file from candidates
+                Delete(i);
+            }
+        }
+
+        // search finished, preparing results
+        data->SearchingText->Set(LoadStr(IDS_FIND_DUPS_RESULTS));
+
+        // sort the files again
+        if (Count > 0)
+            QuickSort(0, Count - 1, byName, bySize, TRUE);
+
+        // remove items that occur only once
+        RemoveSingleFiles(byName, bySize, TRUE);
     }
 
     // set the Different bit
@@ -1853,24 +1878,6 @@ private:
         return FileTagValuesMatchW(tags, requestedTags, data->Criteria.GetTagsMode()) != FALSE;
     }
 
-    bool VerifyEmptyCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file)
-    {
-        std::wstring filePath = directory;
-        SalPathAppendW(filePath, file.cFileName);
-        ULONGLONG size = 0;
-        FILETIME modified{};
-        DWORD error = session.OpenContent(filePath, size, modified);
-        if (!error)
-        {
-            error = session.CloseContent();
-            if (!error && (size || CompareFileTime(&modified, &file.ftLastWriteTime) != 0))
-                error = ERROR_FILE_INVALID;
-        }
-        if (error)
-            Log(filePath, error);
-        return !error;
-    }
-
     void Scan(const std::wstring& directory, unsigned depth, size_t& remaining, CDuplicateCandidates* candidates)
     {
         if (data->StopSearch)
@@ -1923,7 +1930,7 @@ private:
                data->Criteria.Test(file.dwFileAttributes, &size, &file.ftLastWriteTime) &&
                (!data->Criteria.HasTags() || (!isDir && (requestedTags.empty() || MatchTags(directory, file, size)))) &&
                (!data->Grep || (!isDir && MatchContent(directory, file, size))) &&
-               (!candidates || (!isDir && (!FindDuplicateContent(*data) || size.Value || VerifyEmptyCandidate(directory, file))));
+               (!candidates || !isDir);
     }
 
     void PublishCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates)
