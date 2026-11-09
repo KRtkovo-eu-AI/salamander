@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Compare localization dialog templates with the fork base. | Separate unchanged dialog geometry from runtime sizing of the UAC prompts. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the candidate refuses cross-account recycling. | Confirm denial leaves the original file and both bins untouched. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify F6 recovery after the durable receipt and repeat protected recycle. | Confirm both file identities after interruption and the exact caller-bin receipt on the candidate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the Win32 panel under WOW64. | Check ordinary F5 and fail-closed behavior outside the protected deployment. | | GPT-6.1 Sol (Codex) |
@@ -1551,6 +1552,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, opakování přesunu do vlastního Koše.** Ve VM byl otiskem ověřen kandidát x64 `700f8f3c` s běžným brokerem protokolu 10. Po dvou tlačítkách se štítem a jedné systémové výzvě zmizel `P7-recycle-02-approve.txt` ze zdrojové složky. Kontrola našla právě jeden záznam pro původní cestu v Koši volajícího SID na C: a ověřila stejné ID souboru i SHA-256. Dříve zrušený `P7-recycle-01-cancel.txt` zůstal na původním místě se stejným ID i SHA-256 a bez záznamu v Koši. Tento opakovaný průchod ověřuje souhlas pod stejným účtem.
 
 **P7, standardní účet a chráněný přesun do Koše.** Na kandidátu x64 700f8f3c spustil laboratorní skript hosta pod ověřeným SID účtu SamandarinUacTest. Delete u P7-recycle-03-other-admin.txt skončilo chybou 5 a položka zůstala v panelu. Následná kontrola z PowerShellu správce ověřila na původní cestě stejné ID i SHA-256 a žádný záznam pro položku v Koši žádného z obou účtů. Kontrola současně našla předchozí kladnou položku v Koši volajícího správce. Tato zkouška ověřuje ochranu před přesunem do cizího Koše. Chráněný přesun s pověřením jiného účtu do Koše původního uživatele zůstává otevřený.
+
+**P7, porovnání rozvržení překladů s výchozí revizí.** Anglické soubory šablon lang.rc a lang.rh jsou proti společné revizi 16b4cd01 bajtově shodné. Porovnání celých sekcí DIALOG zahrnulo 115 dialogů v každém z jedenácti archivů. Shoduje se 1263 z 1265 sekcí. Rozdíl v nizozemštině a rumunštině je v obou případech omezený na šířku jednoho popisku stávajícího dialogu kompatibility 1050, zvětšenou o dvě jednotky. Statická kontrola tak vymezuje změny šablon, zatímco zobrazení delších zpráv v dynamických dialozích UAC vyžaduje vizuální ověření. Výpis je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/localization-dialog-comparison.json.
 
 ### 12.3 CI a přijetí vydání
 
