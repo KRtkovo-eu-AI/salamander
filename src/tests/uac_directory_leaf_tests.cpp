@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Retry a crashed F5 overwrite as a new copy. | Restore the exact original and report a conflict while ignoring unrelated recovery records. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Interrupt F6 after recording the published target. | Verify recovery of the exact original after a hard exit during source retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise the tree and EFS progress sources. | Check exact manifest bytes and the encrypted import total. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Kill an EFS copy around its publication commit. | Verify that recovery preserves committed ciphertext and retires only recorded staging. | | GPT-6.1 Sol (Codex) |
@@ -3571,12 +3572,21 @@ bool CheckOverwriteProcessExit(const std::wstring& fixture)
         const bool before = noStage && Exists(final) == scenario.finalExists && Exists(backup) == scenario.backupExists &&
             (!scenario.finalExists || HasContents(final, expected)) &&
             (!scenario.backupExists || HasContents(backup, overwriteOriginal));
-        const DWORD recovery = Recover(parent.get(), identity, overwriteCrashLeaf, journal.get(), ReplacementKind::DiskCopy);
+        const bool retryNewName = scenario.point == ReplacementFaultPoint::StageRenamed;
+        if (retryNewName)
+        {
+            Check(Recover(parent.get(), identity, L"unrelated.txt", journal.get(), ReplacementKind::DiskCopy,
+                          nullptr, RecoveryIntent::CopyToNewName) == ERROR_SUCCESS && !Exists(final) && Exists(backup),
+                  "leave another leaf's interrupted overwrite alone");
+        }
+        const auto retryLeaf = retryNewName ? std::wstring_view(L"TARGET-\u6771.TXT") : overwriteCrashLeaf;
+        const DWORD recovery = Recover(parent.get(), identity, retryLeaf, journal.get(), ReplacementKind::DiskCopy,
+            nullptr, retryNewName ? RecoveryIntent::CopyToNewName : RecoveryIntent::Replace);
         LARGE_INTEGER journalSize{};
         FILE_ID_INFO finalId{};
         const auto& expectedId = committed ? record.exchange.replacement : originalId;
         const bool retained = scenario.recovery == ERROR_PARTIAL_COPY;
-        Check(before && recovery == scenario.recovery &&
+        Check(before && recovery == (retryNewName ? ERROR_ALREADY_EXISTS : scenario.recovery) &&
                   OpenIdentity(final, finalId) && UacRenameLeaf::Detail::SameSource(finalId, expectedId) &&
                   HasContents(final, expected) && HasContents(sentinel, {9}) &&
                   Exists(backup) == retained && (!retained || HasContents(backup, overwriteOriginal)) &&

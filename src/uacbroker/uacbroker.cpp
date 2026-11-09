@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Recover a pending disk overwrite before a fresh copy. | Prevent a retry from publishing over the missing original name. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Scope broker activity after authentication. | Reset the caption even when a transfer fails or is cancelled. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Validate and forward the progress total. | Extend native progress to tree and encrypted copy without accepting inconsistent frames. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Send advisory progress on authenticated transfer pipes. | Keep the terminal result and cancellation separate. | | GPT-6.1 Sol (Codex) |
@@ -398,6 +399,10 @@ bool ProtectedObject(HANDLE handle, bool directory)
 class InstallLocation
 {
 public:
+    InstallLocation() = default;
+#ifdef SAM_UAC_BROKER_JOB_TEST
+    explicit InstallLocation(Handle testDirectory) : directory(std::move(testDirectory)) {}
+#endif
     bool Open()
     {
         PWSTR folder = nullptr;
@@ -947,6 +952,11 @@ DWORD OpenTreeJournal(const InstallLocation& install, const UacDirectoryLeaf::Pa
     return OpenProtectedJournal(install, name, FILE_OPEN_IF, false, journal);
 }
 
+std::wstring DiskOverwriteJournalName(const UacDirectoryLeaf::ParentIdentity& target)
+{
+    return JournalName(L"uac-overwrite-recovery-", target);
+}
+
 DWORD OpenZipJournal(const InstallLocation& install, const UacDirectoryLeaf::ParentIdentity& target,
                      ULONG disposition, Handle& journal)
 {
@@ -963,6 +973,18 @@ struct RemoveEmptyZipJournal
             UacCopyTree::Detail::Remove(journal.get());
     }
 };
+
+DWORD RecoverDiskOverwriteBeforeCopy(const InstallLocation& install, HANDLE parent,
+                                     const UacDirectoryLeaf::ParentIdentity& target, std::wstring_view leaf)
+{
+    Handle journal;
+    const RemoveEmptyZipJournal retire{journal};
+    const DWORD error = OpenProtectedJournal(install, DiskOverwriteJournalName(target), FILE_OPEN, true, journal);
+    if (error)
+        return error == ERROR_FILE_NOT_FOUND ? ERROR_SUCCESS : error;
+    return UacZipUpdate::Recover(parent, target, leaf, journal.get(), UacZipUpdate::ReplacementKind::DiskCopy,
+                                 ProtectedObject, UacZipUpdate::RecoveryIntent::CopyToNewName);
+}
 
 DWORD WriteTreeRegistration(const InstallLocation& install, std::wstring_view name, FILE_ID_INFO& file,
                             std::wstring_view text = {})
@@ -1440,7 +1462,7 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
 
     Handle journal;
     const RemoveEmptyZipJournal retire{journal};
-    const auto journalName = JournalName(L"uac-overwrite-recovery-", expectedTargetParent);
+    const auto journalName = DiskOverwriteJournalName(expectedTargetParent);
     if ((error = OpenProtectedJournal(install, journalName, FILE_OPEN_IF, true, journal)) != ERROR_SUCCESS ||
         (error = UacZipUpdate::Recover(targetParent, expectedTargetParent, targetLeaf, journal.get(), kind, ProtectedObject)) != ERROR_SUCCESS)
         return error;
@@ -1813,6 +1835,15 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             result = OpenRequestParent(targetRoot.get(), targetRelative, targetParent, targetIdentity);
         if (!result)
         {
+            if (!move && !overwrite)
+            {
+                result = UacDirectoryLeaf::SameParent(expectedTarget, targetIdentity)
+                    ? UacRenameLeaf::Detail::CheckTransferConnection(pipe, deadline) : ERROR_FILE_INVALID;
+                if (!result)
+                    result = RecoverDiskOverwriteBeforeCopy(install, targetParent.get(), expectedTarget, targetLeaf);
+                if (result)
+                    return ERROR_SUCCESS;
+            }
             if (overwrite)
             {
                 const auto copyDeadline = GetTickCount64() + copyTimeoutMs;

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Use an isolated install directory for dispatcher tests. | Exercise the absent disk-overwrite journal on a real pipe. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Test changing copy metadata options after consent. | Reject a changed operation even when both parent identities match. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify the exact-file Find wire scope. | Refuse enumeration, names and out-of-range requests on a live pipe. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Disconnect one of two protected Find content sessions. | Verify the other broker session continues reading. | | GPT-6.1 Sol (Codex) |
@@ -22,6 +23,7 @@
 // | 2026-11-08 | Exercise scoped mutations through the real broker dispatcher. | Validate repeated requests and scope rejection on NTFS without interactive elevation. | | GPT-6.1 Sol (Codex) |
 
 #define SAM_UAC_BROKER
+#define SAM_UAC_BROKER_JOB_TEST
 #define wmain InstalledBrokerMain
 #include "uacbroker.cpp"
 #undef wmain
@@ -125,7 +127,11 @@ public:
                     dispatchError = ServeListings(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), findRoot, findScope);
                     return;
                 }
-                const InstallLocation install;
+                const InstallLocation install(Adopt(CreateFileW(L".", FILE_TRAVERSE | FILE_READ_ATTRIBUTES,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+                    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr)));
+                if (!install.DirectoryHandle())
+                    return;
                 dispatchError = ServeTransferJob(install, peer.get(), GetCurrentProcess(), GetCurrentProcessId(),
                                                  GetTickCount64() + timeoutMs);
             }

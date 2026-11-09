@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Return a conflict after recovering the original name. | Require a new decision before replacing a restored file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind named overwrite backups to their original contents. | Retire protected targets with named streams only after verifying a durable digest. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind overwrite recovery to every replacement stream. | Retain the backup when any verified stream changes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Expose durable overwrite checkpoints to native fault tests. | Prove the actual recovery path after process termination. | | GPT-6.1 Sol (Codex) |
@@ -306,11 +307,13 @@ inline DWORD RemoveBackup(HANDLE file)
 }
 }
 
+enum class RecoveryIntent { Replace, CopyToNewName };
+
 // Only use a broker-owned, exclusively held journal. Recovery is scoped to
 // the same verified parent and exact archive name. It never replaces a name.
 inline DWORD Recover(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expected,
                      std::wstring_view leaf, HANDLE journal, ReplacementKind kind = ReplacementKind::Zip,
-                     UacCopyLeaf::StageVerifier verify = nullptr)
+                     UacCopyLeaf::StageVerifier verify = nullptr, RecoveryIntent intent = RecoveryIntent::Replace)
 {
     using namespace Detail;
     using UacRenameLeaf::Detail::SameSource;
@@ -339,10 +342,20 @@ inline DWORD Recover(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expe
     const bool versionMatches = namedBackup ? record.version == 4
         : diskRecord ? record.version == 2 || record.version == 3 : record.version == 1;
     if (read != sizeof(record) || !versionMatches || !IsReplacementLeaf(recorded, kind) ||
-        recorded != leaf || !SameSource(record.parent, expected.file) ||
+        !SameSource(record.parent, expected.file) ||
         record.original.VolumeSerialNumber != expected.file.VolumeSerialNumber ||
         record.replacement.VolumeSerialNumber != expected.file.VolumeSerialNumber ||
         SameSource(record.original, record.replacement))
+        return ERROR_INVALID_DATA;
+    if (intent == RecoveryIntent::CopyToNewName)
+    {
+        if (kind != ReplacementKind::DiskCopy)
+            return ERROR_INVALID_PARAMETER;
+        if (!UacDirectoryLeaf::Equal(recorded, leaf))
+            return ERROR_SUCCESS;
+        leaf = recorded;
+    }
+    else if (recorded != leaf)
         return ERROR_INVALID_DATA;
     const auto backupName = BackupName(record.nonce, kind);
     if (backupName.empty())
@@ -395,7 +408,9 @@ inline DWORD Recover(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expe
     if (error)
         return error;
     backup.reset();
-    return ClearRecord(journal);
+    error = ClearRecord(journal);
+    // A copy to a free name has no approval to overwrite the recovered file.
+    return !error && !finalFile && intent == RecoveryIntent::CopyToNewName ? ERROR_ALREADY_EXISTS : error;
 }
 
 struct PublishResult

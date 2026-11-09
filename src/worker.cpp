@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Reopen the native overwrite dialog for a broker collision. | Require a fresh decision for a file that appeared during elevated F5. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Calculate native transfer progress without overflowing. | Keep the exact bar value for large F6 operations and batch totals. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Mark active elevated transfers in the progress caption. | Keep ordinary transfers on the existing icon. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Show tree and EFS import progress. | Reuse the native transfer bars with an explicit broker total. | | GPT-6.1 Sol (Codex) |
@@ -6787,6 +6788,10 @@ COPY_AGAIN:
                         BOOL errDeletingFile = FALSE;
                         UacF7::PreparedTransfer overwrite;
                         const bool targetExists = err == ERROR_FILE_EXISTS || err == ERROR_ALREADY_EXISTS;
+                        // A broker copy to a free name never authorizes a newly found target.
+                        const bool brokerTargetAppeared = transferError && targetExists && !isMove && in != INVALID_HANDLE_VALUE;
+                        if (brokerTargetAppeared)
+                            transferError = ERROR_SUCCESS;
                         bool canElevateOverwrite = !transferError && !isMove && !copyAsEncrypted && !dlgData.SkipAllFileOpenOut &&
                                                    mustDeleteFileBeforeOverwrite != 1 &&
                                                    (targetExists || err == ERROR_ACCESS_DENIED) &&
@@ -6802,8 +6807,9 @@ COPY_AGAIN:
                         }
                         if (targetExists || canElevateOverwrite)
                         {
-                            if (!dlgData.OverwriteAll && (dlgData.CnfrmFileOver || script->OverwriteOlder) &&
-                                (!canElevateOverwrite || !overwrite.MatchesApproval(approvedOverwrite)))
+                            if (brokerTargetAppeared ||
+                                (!dlgData.OverwriteAll && (dlgData.CnfrmFileOver || script->OverwriteOlder) &&
+                                 (!canElevateOverwrite || !overwrite.MatchesApproval(approvedOverwrite))))
                             {
                                 char sAttr[101], tAttr[101];
                                 BOOL getTimeFailed;
