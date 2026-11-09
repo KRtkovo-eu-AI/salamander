@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Reject malformed transfer progress on a live pipe. | Keep invalid progress out of the worker and require a terminal result. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Check the expanded progress wire frame. | Preserve the 64-bit cancellation and terminal reply regression. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise progress and cancellation on a local pipe. | Cover 64-bit counts and a late progress message. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify the final mutation frame on a real local pipe. | Distinguish undelivered requests from requests without a reply. | | GPT-6.1 Sol (Codex) |
@@ -21,6 +22,7 @@
 #include "uacbroker.cpp"
 #undef wmain
 
+#include <initializer_list>
 #include <thread>
 
 namespace
@@ -420,6 +422,64 @@ void CheckUnboundedTransferCancellation()
           "read 64-bit progress, send one cancellation, and wait for the terminal reply");
 }
 
+void CheckMalformedTransferProgress()
+{
+    const auto check = [](Operation operation, std::initializer_list<TransferProgressUpdate> updates,
+                          size_t expectedCallbacks, bool truncateLast, bool subscribe, const char* message) {
+        GUID id{};
+        if (FAILED(CoCreateGuid(&id)))
+        {
+            Check(false, message);
+            return;
+        }
+        const auto name = PipeName(id);
+        const auto host = Adopt(CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_REJECT_REMOTE_CLIENTS, 1, 4096, 4096, 0, nullptr));
+        const auto peer = host ? Adopt(CreateFileW(name.c_str(), pipeAccess, 0, nullptr, OPEN_EXISTING,
+                                                    FILE_FLAG_OVERLAPPED, nullptr)) : Handle{};
+        const auto deadline = GetTickCount64() + timeoutMs;
+        if (!peer || Connect(host.get(), deadline))
+        {
+            Check(false, message);
+            return;
+        }
+
+        size_t frames = 0;
+        for (auto update : updates)
+        {
+            DWORD marker = transferProgressFrame;
+            const DWORD length = truncateLast && frames + 1 == updates.size() ? sizeof(update.bytes) : sizeof(update);
+            if (TransferRequest(peer.get(), &marker, sizeof(marker), true, deadline) ||
+                TransferRequest(peer.get(), &update, length, true, deadline))
+            {
+                Check(false, message);
+                return;
+            }
+            ++frames;
+        }
+
+        size_t callbacks = 0;
+        DWORD result = ERROR_GEN_FAILURE;
+        const UacF7::TransferProgress countUpdate = [](void* context, ULONGLONG, ULONGLONG) {
+            ++*static_cast<size_t*>(context);
+        };
+        const DWORD error = ReadTransferResult(host.get(), result, deadline, nullptr,
+                                               subscribe ? countUpdate : nullptr, &callbacks, operation);
+        Check(error == ERROR_INVALID_DATA && callbacks == expectedCallbacks && result == transferProgressFrame, message);
+    };
+
+    check(Operation::CopyTree, {{1, 10}, {1, 10}}, 1, false, true, "reject repeated transfer progress");
+    check(Operation::CopyTree, {{2, 10}, {1, 10}}, 1, false, true, "reject decreasing transfer progress");
+    check(Operation::CopyTree, {{1, 10}, {2, 11}}, 1, false, true, "reject a changed total within one transfer");
+    check(Operation::CopyTree, {{1, 0}}, 0, false, true, "require an explicit total for tree progress");
+    check(Operation::CopyEncrypted, {{2, 1}}, 0, false, true, "reject encrypted progress beyond its total");
+    check(Operation::CopyOverwrite, {{1, 2}}, 0, false, true, "reject an unexpected explicit total for overwrite progress");
+    check(Operation::MoveAcrossVolume, {{UacF7::maxCrossVolumeMoveBytes + 1, 0}}, 0, false, true,
+          "reject progress beyond the representable F6 range");
+    check(Operation::CopyTree, {{1, 10}}, 0, true, true, "reject a truncated progress frame");
+    check(Operation::CopyTree, {{1, 10}}, 0, false, false, "reject unsolicited progress frames");
+}
+
 void CheckRequestDelivery()
 {
     GUID id{};
@@ -610,6 +670,7 @@ int wmain()
     CheckLateCopyCancellation(source, target);
     CheckCrossVolumeBoundary(source, target);
     CheckUnboundedTransferCancellation();
+    CheckMalformedTransferProgress();
     CheckRequestDelivery();
     CheckTransferReplies();
     CheckMoveSourceEligibility();
