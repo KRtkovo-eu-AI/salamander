@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Explain how to restore the selection after a cancelled F5 batch. | Use the existing panel command before deciding which items to retry. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe F5 recovery and the panel size command. | Explain the fresh overwrite decision and the existing shortcut for folder sizes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Explain the source restriction for elevated security copies. | Document the protected source requirement verified in the VM. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Document the same-account Shell recycle boundary. | The Windows credential path can use a different account’s bin. | | GPT-6.1 Sol (Codex) |
@@ -45,6 +46,6 @@ For EFS, percentages appear during import of the encrypted data. The initial exp
 
 ## Cancellation and interrupted operations
 
-Cancelling the Windows prompt leaves the elevated step unstarted. Changes already completed earlier in the job remain in place. If Samandarin cannot confirm a result, check the source and destination before retrying. A cross-volume move can leave a complete destination and the original source. If a move into the Recycle Bin cannot be confirmed, check both the original location and the Recycle Bin. A failed recycle request never switches automatically to permanent deletion.
+Cancelling the Windows prompt leaves the elevated step unstarted. Changes already completed earlier in the job remain in place. After cancelling **F5**, activate the original source panel and choose **Edit → Restore Selection** to bring back the original selection. Check the destination before retrying any of those files. If Samandarin cannot confirm a result, check the source and destination before retrying. A cross-volume move can leave a complete destination and the original source. If a move into the Recycle Bin cannot be confirmed, check both the original location and the Recycle Bin. A failed recycle request never switches automatically to permanent deletion.
 
 If a protected **F5** overwrite is interrupted while the original is held in a recovery backup, retrying the same copy can restore the original. Review the normal overwrite dialog before proceeding. Choose **Cancel** to keep the restored file. If another operation is still using the destination and Samandarin reports a sharing violation, wait for that operation to finish before retrying.
