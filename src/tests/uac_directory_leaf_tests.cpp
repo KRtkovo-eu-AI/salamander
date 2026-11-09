@@ -2179,8 +2179,14 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
                     error = guard.VerifyExistingCopy(existingCopy.get(), moveContent.size(), connection.get(), MAXULONGLONG);
                     Check(error == ERROR_BROKEN_PIPE && !guard.Check(2) && Exists(sourcePath) && Exists(retained),
                           "keep both source links when the host disconnects before verifying the existing F6 copy", error);
-                    error = guard.VerifyExistingCopy(existingCopy.get(), moveContent.size(), nullptr, MAXULONGLONG);
-                    Check(!error && !Detail::CheckIdentity(existingCopy.get(), writtenId),
+                    ULONGLONG verifiedBytes = 0;
+                    const UacCopyLeaf::Detail::CopyProgress progress{
+                        [](void* context, ULONGLONG count, ULONGLONG) -> DWORD {
+                            *static_cast<ULONGLONG*>(context) += count;
+                            return ERROR_SUCCESS;
+                        }, &verifiedBytes};
+                    error = guard.VerifyExistingCopy(existingCopy.get(), moveContent.size(), nullptr, MAXULONGLONG, &progress);
+                    Check(!error && verifiedBytes == moveContent.size() && !Detail::CheckIdentity(existingCopy.get(), writtenId),
                           "verify the same existing destination after cancellation and disconnect", error);
                     if (error)
                         return false;

@@ -518,8 +518,7 @@ static_assert(sizeof(TransferProgressUpdate) == 16);
 bool CanReportTransferProgress(Operation operation)
 {
     return UacF7::IsFileCopy(operation) || operation == Operation::CopyTree ||
-           operation == Operation::CopyOverwrite || operation == Operation::MoveAcrossVolume ||
-           operation == Operation::MoveCompressed;
+           operation == Operation::CopyOverwrite || UacF7::IsCrossVolumeMove(operation);
 }
 
 ULONGLONG TransferProgressLimit(Operation operation)
@@ -1308,7 +1307,7 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
                 return status;
             target.reset(raw);
             if ((status = UacZipUpdate::CheckRevision(target.get(), *copiedTarget)) ||
-                (status = guard.VerifyExistingCopy(target.get(), size, pipe, deadline)) ||
+                (status = guard.VerifyExistingCopy(target.get(), size, pipe, deadline, progress)) ||
                 (status = UacZipUpdate::CheckRevision(target.get(), *copiedTarget)))
                 return status;
             targetId = UacZipUpdate::RevisionIdentity(*copiedTarget);

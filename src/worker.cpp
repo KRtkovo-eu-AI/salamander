@@ -5727,12 +5727,23 @@ static UacF7::Result ExecuteWithNativeTransferProgress(const UacF7::PreparedTran
         COperations& script;
         CProgressDlgData& data;
         CQuadWord completed;
+        bool verifyingMove;
         CQuadWord transferred{0, 0};
         bool shown = false;
-    } state{progress, op, script, dlgData, totalDone};
+    } state{progress, op, script, dlgData, totalDone, request.IsMoveCompletion()};
     script.GetTFS(&state.transferred);
     const auto updateProgress = [](void* context, ULONGLONG bytes, ULONGLONG total) {
         auto& state = *static_cast<NativeTransferProgress*>(context);
+        if (state.verifyingMove)
+        {
+            // The normal copy already contributed these bytes to the job.
+            const auto& size = state.operation.FileSize;
+            const auto checked = CQuadWord().SetUI64((std::min)(bytes, size.Value));
+            SetProgressWithoutSuspend(state.dialog, (std::min)(999, CaclProg(checked, size)),
+                                      CaclProg(state.completed, state.script.TotalSize), state.data);
+            state.shown = true;
+            return;
+        }
         const ULONGLONG operationSize = state.operation.Size.Value;
         CQuadWord current = CQuadWord().SetUI64((std::min)(bytes, operationSize));
         int item = CaclProg(current, state.operation.Size);
@@ -5756,8 +5767,9 @@ static UacF7::Result ExecuteWithNativeTransferProgress(const UacF7::PreparedTran
     if (state.shown)
     {
         // Advisory progress must not count as completed work or be added twice.
-        script.SetTFSandProgressSize(state.transferred, totalDone);
-        if (result.error != ERROR_SUCCESS || result.unknown)
+        if (!state.verifyingMove)
+            script.SetTFSandProgressSize(state.transferred, totalDone);
+        if (state.verifyingMove || result.error != ERROR_SUCCESS || result.unknown)
             SetProgressWithoutSuspend(progress, 0, CaclProg(totalDone, script.TotalSize), dlgData);
     }
     return result;

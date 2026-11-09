@@ -673,7 +673,7 @@ void CheckTransferReplies()
           "distinguish a confirmed cancellation or collision from a partial move");
 }
 
-void CheckUnboundedTransferCancellation()
+void CheckUnboundedTransferCancellation(Operation operation)
 {
     GUID id{};
     if (FAILED(CoCreateGuid(&id)))
@@ -734,7 +734,7 @@ void CheckUnboundedTransferCancellation()
                 progress.bytes = bytes;
                 ++progress.updates;
                 SetEvent(progress.cancel);
-            }, &progress, Operation::MoveAcrossVolume);
+            }, &progress, operation);
     receiver.join();
     Check(!error && !peerError && status == ERROR_CANCELLED &&
               progress.updates == 1 && progress.bytes == 4ULL * 1024 * 1024 * 1024 + 1,
@@ -994,7 +994,9 @@ int wmain()
     CheckLateCopyCancellation(source, target);
     CheckCrossVolumeBoundary(source, target);
     CheckRejectedVolumeAliases(source, target);
-    CheckUnboundedTransferCancellation();
+    Check(CanReportTransferProgress(Operation::FinishCrossVolumeMove), "enable progress for F6 completion");
+    CheckUnboundedTransferCancellation(Operation::MoveAcrossVolume);
+    CheckUnboundedTransferCancellation(Operation::FinishCrossVolumeMove);
     CheckMalformedTransferProgress();
     CheckRequestDelivery();
     CheckTransferReplies();

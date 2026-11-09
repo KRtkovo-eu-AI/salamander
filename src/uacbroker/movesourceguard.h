@@ -308,7 +308,8 @@ public:
 
     // The destination is already present and exclusively held. This check
     // does not modify either file or publish a new destination.
-    DWORD VerifyExistingCopy(HANDLE target, ULONGLONG size, HANDLE connection, ULONGLONG deadline) const
+    DWORD VerifyExistingCopy(HANDLE target, ULONGLONG size, HANDLE connection, ULONGLONG deadline,
+                             const UacCopyLeaf::Detail::CopyProgress* progress = nullptr) const
     {
         DWORD error = Check(2);
         if (error)
@@ -349,6 +350,8 @@ public:
             if (read != length || readCopy != length || std::memcmp(original.data(), copy.data(), length))
                 return ERROR_FILE_INVALID;
             offset += length;
+            if (progress && (error = progress->Advance(length)))
+                return error;
         }
         if ((error = Check(2)) != ERROR_SUCCESS)
             return error;
