@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Move Internal Viewer under Appearance in Configuration dialog. | Position the Internal Viewer item as a child of Appearance as requested. | | opencode |
+// | 2026-11-09 | Move Internal Viewer between Appearance and Colors as top-level page. | Reparent PageViewer as top-level sibling between Appearance and Colors; shift subsequent page indices and update constructor mode defaults to preserve same logical page per mode. | | opencode |
 // | 2026-11-08 | Restore the Internal Viewer configuration entry. | Keep the existing viewer settings accessible while leaving obsolete association pages hidden. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Register the canonical file-association page. | Make the new association editor the visible configuration entry point instead of the legacy pages. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Paint grouped property headers in ListView postpaint. | Preserve dark group headers after removing unsafe post-WM_PAINT client overpainting. | | GPT-5.6 Luna Pro |
@@ -1063,12 +1065,12 @@ const int ConfigurationViewsDefaultAvailableColumnsWidthExtra = 50;
 CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
                                      int mode, int param)
     : CTreePropDialog(parent, HLanguage, LoadStr(IDS_CONFIGURATION),
-                      mode == 0 ? Configuration.LastFocusedPage : mode == 1 ? 16
-                                                              : mode == 2   ? 15
-                                                               : mode == 3   ? 19
-                                                               : mode == 4   ? 19
-                                                              : mode == 5   ? 1
-                                                                            : 13 /* mode == 6 */,
+                      mode == 0 ? Configuration.LastFocusedPage : mode == 1 ? 17
+                                                              : mode == 2   ? 16
+                                                             : mode == 3   ? 20
+                                                             : mode == 4   ? 20
+                                                            : mode == 5   ? 1
+                                                                          : 14 /* mode == 6 */,
                       PSH_NOAPPLYNOW | PSH_HASHELP,
                       &Configuration.LastFocusedPage,
                       &Configuration.ConfigurationHeight,
@@ -1097,22 +1099,22 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
     /*06*/ Add(&PageRegional);      // Regional
     /*07*/ Add(&PageMainWindow);    // MainWindow
     /*08*/ Add(&PageAppear);        // Appearance
-    /*09*/ Add(&PageColors);        // Colors
-    /*10*/ Add(&PageKeyboard);      // Keyboard
-    /*11*/ Add(&PageConfirmations); // Confirmations
-    /*12*/ Add(&PageChangeDrive);   // Change Drive Menu
-    /*13*/ Add(&PageDrives);        // Drives
-    /*14*/ Add(&PageView);          // Views
-    /*15*/ Add(&PageUserMenu);      // User Menu
-    /*16*/ Add(&PageHotPath);       // Hot Paths
-    /*17*/ Add(&PageSecurity);      // Security
-    /*18*/ Add(&PageIconOvrls);     // Icon Overlays
-    /*19*/ Add(&PageFileAssociations, NULL, &Configuration.ViewersAndEditorsExpanded);
-    /*20*/ Add(&PagePP, NULL, &Configuration.PackersAndUnpackersExpanded);
-    /*21*/ Add(&PageP3, &PagePP);
-    /*22*/ Add(&PageP1, &PagePP);
-    /*23*/ Add(&PageP2, &PagePP);
-    /*24*/ Add(&PageViewer, NULL, &Configuration.ViewersAndEditorsExpanded); // Internal Viewer
+    /*09*/ Add(&PageViewer, NULL, &Configuration.ViewersAndEditorsExpanded); // Internal Viewer
+    /*10*/ Add(&PageColors);        // Colors
+    /*11*/ Add(&PageKeyboard);      // Keyboard
+    /*12*/ Add(&PageConfirmations); // Confirmations
+    /*13*/ Add(&PageChangeDrive);   // Change Drive Menu
+    /*14*/ Add(&PageDrives);        // Drives
+    /*15*/ Add(&PageView);          // Views
+    /*16*/ Add(&PageUserMenu);      // User Menu
+    /*17*/ Add(&PageHotPath);       // Hot Paths
+    /*18*/ Add(&PageSecurity);      // Security
+    /*19*/ Add(&PageIconOvrls);     // Icon Overlays
+    /*20*/ Add(&PageFileAssociations, NULL, &Configuration.ViewersAndEditorsExpanded);
+    /*21*/ Add(&PagePP, NULL, &Configuration.PackersAndUnpackersExpanded);
+    /*22*/ Add(&PageP3, &PagePP);
+    /*23*/ Add(&PageP1, &PagePP);
+    /*24*/ Add(&PageP2, &PagePP);
     /*25*/ // Legacy association pages remain compiled for migration/fallback, but are not exposed here.
     /*26*/ //  Add(&PageShellExtensions);
            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

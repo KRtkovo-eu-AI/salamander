@@ -30,6 +30,11 @@ BOOL LoadCanonicalAssociationsForLifecycle(CConfigurationStorage& storage,
 BOOL SaveCanonicalAssociationsForLifecycle(CConfigurationStorage& storage,
                                            std::string* error = NULL);
 
+// Materialize legacy/default rows into an already loaded empty lifecycle model.
+// This is idempotent and lets configuration pages refresh without restarting
+// after a clean configuration or an in-process migration.
+BOOL EnsureCanonicalAssociationsMaterializedForConfiguration(std::string* error = NULL);
+
 BOOL CopyCanonicalAssociationsForConfiguration(CFileAssociationModel* model,
                                                 std::string* error = NULL);
 BOOL ReplaceCanonicalAssociationsForConfiguration(const CFileAssociationModel& model,

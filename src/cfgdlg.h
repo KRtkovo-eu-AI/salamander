@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Mark first-registration viewer rows during startup. | Preserve newly installed extension defaults without resurrecting rows removed from the saved configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Use owned display strings for association matrix cells. | Preserve complete target and archive values instead of truncating them in fixed buffers. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Keep Internal Viewer accessible beside canonical associations. | Restore the existing viewer settings page after removing only the obsolete association pages. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-04 | Enlarge the persisted panel-toolbar layouts. | The shared button catalog no longer fits in the old 200-byte buffers. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 // | 2026-11-08 | Show provenance and support adding multiple canonical rows. | Make defaults, legacy conflicts, and user overrides visible while allowing the editor to build a complete association list. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -125,6 +127,9 @@ struct CViewerMasksItem
 
     // helper variable for determining the type of data - TRUE = old -> 'Type' (0 viewer, 1 IE viewer, 2 external)
     BOOL OldType;
+
+    // Transient marker used while plugin registrations are reconciled with saved viewers.
+    BOOL RegisteredDuringStartup;
 
     CViewerMasksItem(const char* masks, const char* command, const char* arguments, const char* initDir,
                      int viewerType, BOOL oldType);
@@ -1104,9 +1109,9 @@ protected:
     const char* TargetText(Salamander::FileAssociations::TargetKind target) const;
     const char* ProvenanceText(Salamander::FileAssociations::Provenance provenance) const;
     void SetStatus(const char* text);
-    const char* MatrixCellText(int index, bool archive) const;
-    const char* MatrixArchiveCellText(const MatrixRow& row) const;
-    const char* MatrixStatusText(const MatrixRow& row) const;
+    std::string MatrixCellText(int index, bool archive) const;
+    std::string MatrixArchiveCellText(const MatrixRow& row) const;
+    std::string MatrixStatusText(const MatrixRow& row) const;
     bool MatrixRowVisible(const MatrixRow& row) const;
     int SelectedAssociationIndex(const MatrixRow& row) const;
 

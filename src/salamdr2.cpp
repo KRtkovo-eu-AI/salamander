@@ -1,10 +1,14 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Preserve plugin viewer registrations while loading legacy settings. | Plugin Connect runs before persisted viewer rows are loaded, so replacing the table could hide first-start associations. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
 
 #include <vector>
+#include <new>
 
 #include "cfgdlg.h"
 #include "mainwnd.h"
@@ -2468,6 +2472,70 @@ BOOL SaveHistory(HKEY hKey, const char* name, char* history[], int maxCount, BOO
 
 // ****************************************************************************
 
+static CViewerMasksItem* FindViewerMask(CViewerMasks* viewerMasks,
+                                        int viewerType, const char* masks)
+{
+    if (viewerMasks == NULL || masks == NULL)
+        return NULL;
+    for (int i = 0; i < viewerMasks->Count; ++i)
+    {
+        CViewerMasksItem* item = viewerMasks->At(i);
+        if (item != NULL && item->Masks != NULL && item->ViewerType == viewerType &&
+            _stricmp(item->Masks->GetMasksString(), masks) == 0)
+            return item;
+    }
+    return NULL;
+}
+
+static void MergePreloadedPluginViewerRows(CViewerMasks* viewerMasks,
+                                           CViewerMasks* preloadedViewers)
+{
+    if (viewerMasks == NULL || preloadedViewers == NULL)
+        return;
+
+    for (int i = 0; i < preloadedViewers->Count; ++i)
+    {
+        CViewerMasksItem* preloaded = preloadedViewers->At(i);
+        if (preloaded == NULL || preloaded->ViewerType >= 0 || preloaded->Masks == NULL ||
+            !preloaded->RegisteredDuringStartup)
+            continue;
+
+        const char* masks = preloaded->Masks->GetMasksString();
+        CViewerMasksItem* loaded = FindViewerMask(viewerMasks, preloaded->ViewerType, masks);
+        if (loaded != NULL)
+        {
+            if (loaded->ViewerLabel[0] == 0 && preloaded->ViewerLabel[0] != 0)
+                loaded->SetViewerLabel(preloaded->ViewerLabel);
+            continue;
+        }
+
+#ifdef new
+#undef new
+#define RESTORE_LOAD_VIEWER_MERGE_DEBUG_NEW_MACRO
+#endif
+        CViewerMasksItem* copy = new (std::nothrow) CViewerMasksItem(*preloaded);
+#ifdef RESTORE_LOAD_VIEWER_MERGE_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_LOAD_VIEWER_MERGE_DEBUG_NEW_MACRO
+#endif
+        if (copy == NULL || !copy->IsGood())
+        {
+            delete copy;
+            TRACE_E(LOW_MEMORY);
+            break;
+        }
+        viewerMasks->Add(copy);
+        if (!viewerMasks->IsGood())
+        {
+            delete copy;
+            viewerMasks->ResetState();
+            break;
+        }
+    }
+}
+
+// ****************************************************************************
+
 BOOL LoadViewers(HKEY hKey, const char* name, CViewerMasks* viewerMasks)
 {
     HKEY viewersKey;
@@ -2482,6 +2550,12 @@ BOOL LoadViewers(HKEY hKey, const char* name, CViewerMasks* viewerMasks)
         std::vector<char> initDir(SAL_MAX_PATH);
         int type;
         int i = 1;
+        CViewerMasks preloadedViewers(10, 5);
+        if (viewerMasks->Count > 0 && !preloadedViewers.Load(*viewerMasks))
+        {
+            CloseKey(viewersKey);
+            return TRUE;
+        }
         viewerMasks->DestroyMembers();
 
         while (OpenKey(viewersKey, buf, subKey))
@@ -2553,6 +2627,7 @@ BOOL LoadViewers(HKEY hKey, const char* name, CViewerMasks* viewerMasks)
             CloseKey(subKey);
         }
         CloseKey(viewersKey);
+        MergePreloadedPluginViewerRows(viewerMasks, &preloadedViewers);
     }
     return TRUE;
 }

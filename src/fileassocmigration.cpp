@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Carry viewer labels into migrated targets. | Preserve the owning Salamatrix extension instead of collapsing it into the framework plugin. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Report unsupported legacy mask-group entries as blocked. | Keep `|` exclusion groups out of canonical rows while still importing every representable extension. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Collect legacy viewer, editor, and archive defaults. | Populate the canonical page from the existing runtime configuration instead of asking users to retype every pattern. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Report the runtime projection gate. | Prevent target-only migrated rows from being mistaken for a complete legacy runtime projection. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Add loss-aware legacy association migration. | Prevent grouped masks, exclusions, malformed masks, and unstable targets from entering the canonical model. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -64,6 +66,17 @@ void AddLegacyMaskList(CFileAssociationModel* model, const char* masks,
 
         if (!one.empty())
         {
+            if (one.find('|') != std::string::npos)
+            {
+                if (report != NULL)
+                    ++report->BlockedCount;
+                if (error != NULL && error->empty())
+                    *error = "legacy mask-group exclusions cannot be represented by one association row";
+                if (*p == 0)
+                    break;
+                begin = p + 1;
+                continue;
+            }
             std::string localError;
             if (model->AddLegacy(one.c_str(), category, operation, target, &localError))
             {
@@ -84,7 +97,8 @@ void AddLegacyMaskList(CFileAssociationModel* model, const char* masks,
     }
 }
 
-Target LegacyRuntimeTarget(int runtimeIndex, bool builtInNegative = false)
+Target LegacyRuntimeTarget(int runtimeIndex, bool builtInNegative = false,
+                           const char* displayLabel = NULL)
 {
     if (runtimeIndex >= 0 || builtInNegative)
         return Target(TargetKind::BuiltIn, "legacy");
@@ -94,7 +108,7 @@ Target LegacyRuntimeTarget(int runtimeIndex, bool builtInNegative = false)
                               ? Plugins.Get(pluginIndex)
                               : NULL;
     if (plugin != NULL && plugin->GetStableId()[0] != 0)
-        return Target(TargetKind::Plugin, plugin->GetStableId());
+        return Target(TargetKind::Plugin, plugin->GetStableId(), displayLabel);
     return Target(TargetKind::Unassigned);
 }
 
@@ -199,7 +213,8 @@ bool BuildLegacyAssociationDefaults(CFileAssociationModel* model,
                     continue;
                 AddLegacyMaskList(&staged, item->Masks->GetMasksString(), categories[table],
                                   PanelOperation::NotApplicable,
-                                  LegacyRuntimeTarget(item->ViewerType), report, error);
+                                   LegacyRuntimeTarget(item->ViewerType, false,
+                                                       item->ViewerLabel), report, error);
             }
         }
 
@@ -231,7 +246,7 @@ bool BuildLegacyAssociationDefaults(CFileAssociationModel* model,
     }
 
     if (report != NULL)
-        report->RuntimeProjectionBlocked = report->InvalidCount != 0;
+        report->RuntimeProjectionBlocked = report->BlockedCount != 0 || report->InvalidCount != 0;
     *model = staged;
     return report == NULL || report->InvalidCount == 0;
 }

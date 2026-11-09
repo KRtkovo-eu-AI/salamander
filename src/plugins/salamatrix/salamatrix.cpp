@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Refresh Salamatrix packages before viewer-mask registration. | Avoid an empty first-start package catalog when deferred startup refresh has not set a pending flag. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-04 | Export late extension-install integration. | Plugin Manager has to see a package whose files landed after the startup scan. | | Grok 4.7 |
 
 /*
@@ -194,6 +195,7 @@ void WINAPI CPluginInterface::Connect(HWND parent, CSalamanderConnectAbstract* s
         // startup pass are folded into the final batch refresh.
         const BOOL resumeStartupDeferral = IsLoadOnStartBatchActive();
         SalamatrixPackages->SetRefreshDeferred(FALSE);
+        SalamatrixPackages->Refresh();
         SalamatrixPackages->RegisterViewerMasks(salamander);
         if (resumeStartupDeferral)
             SalamatrixPackages->SetRefreshDeferred(TRUE);

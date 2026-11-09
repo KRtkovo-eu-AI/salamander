@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check first-start plugin rows and extension owner labels. | Prevent startup ordering, migration, projection, and localized owner-display regressions for issue #733. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+# | 2026-11-09 | Check immediate clean/default materialization. | Keep migrated association rows visible without requiring a restart after lifecycle load or page refresh. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+# | 2026-11-09 | Check the property-holder minimum and list-view color contract. | Keep the canonical page below the parent buttons and make provenance colors effective in dark mode. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+# | 2026-11-09 | Check narrow association layouts and loss-aware mask groups. | Prevent localized action buttons from escaping the page and prevent legacy `|` exclusions from becoming fake extensions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-08 | Check responsive matrix and Internal Viewer registration. | Prevent regressions in headers, scrolling, page navigation and access to the existing viewer settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-08 | Check matrix filters and localized target states. | Keep the redesigned association page usable for archive-only rows, disabled overrides, and missing targets. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-08 | Check resource-table separators. | Prevent rc.exe crashes caused by trailing commas after STRINGTABLE values. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -36,6 +40,9 @@ LANG_HEADER = ROOT / "src" / "lang" / "lang.rh"
 LANG_RESOURCE = ROOT / "src" / "lang" / "lang.rc"
 TEXTS_HEADER = ROOT / "src" / "texts.rh2"
 TEXTS_RESOURCE = ROOT / "src" / "lang" / "texts.rc2"
+SHEETS = ROOT / "src" / "common" / "sheets.cpp"
+SALAMDR2 = ROOT / "src" / "salamdr2.cpp"
+SALAMATRIX = ROOT / "src" / "plugins" / "salamatrix" / "salamatrix.cpp"
 
 
 def require(condition: bool, message: str) -> None:
@@ -71,6 +78,9 @@ def main() -> None:
     lang_resource = LANG_RESOURCE.read_text(encoding="utf-8")
     texts_header = TEXTS_HEADER.read_text(encoding="utf-8")
     texts_resource = TEXTS_RESOURCE.read_text(encoding="utf-8")
+    sheets = SHEETS.read_text(encoding="utf-8")
+    salamdr2 = SALAMDR2.read_text(encoding="utf-8")
+    salamatrix = SALAMATRIX.read_text(encoding="utf-8")
 
     for enum_name in ("Category", "PanelOperation", "Provenance", "TargetKind"):
         require(f"enum class {enum_name}" in header, f"missing canonical {enum_name} enum")
@@ -90,7 +100,8 @@ def main() -> None:
 
     require('value = "*.*"' in implementation, "universal pattern normalization is missing")
     require('value = "*." + value' in implementation, "bare extensions must normalize to patterns")
-    require('value.find(\';\')' in implementation, "grouped masks must be rejected by the model")
+    require("value.find(';')" in implementation and "value.find('|')" in implementation,
+            "grouped masks must be rejected by the model")
     require("IsExactOverridePair" in implementation, "default/user layering must be explicit")
     require("const std::vector<Association> previous = Items" in implementation and
             "Items = previous" in implementation,
@@ -105,6 +116,11 @@ def main() -> None:
             "canonical persistence must reject missing numeric records")
     require('const char* const FileAssociationPattern = "Pattern"' in implementation,
             "association records must persist the normalized pattern")
+    require("DisplayLabel" in header and
+            'FileAssociationTargetLabel = "Target Label"' in implementation and
+            "targetLabel.data()" in implementation and
+            "AssociationTarget.DisplayLabel.c_str()" in implementation,
+            "canonical targets must persist optional extension owner labels")
     require("CFileAssociationModel loaded" in implementation and
             "Items.swap(loaded.Items)" in implementation,
             "loading must replace the model only after all records are parsed")
@@ -220,7 +236,10 @@ def main() -> None:
             "the model must expose atomic replacement for the configuration editor")
     require("CopyCanonicalAssociationsForConfiguration" in lifecycle_header and
             "ReplaceCanonicalAssociationsForConfiguration" in lifecycle_header and
+            "EnsureCanonicalAssociationsMaterializedForConfiguration" in lifecycle_header and
             "candidate.ReplaceAssociations(model.Associations(), error)" in lifecycle_implementation and
+            "MaterializeLegacyDefaults" in lifecycle_implementation and
+            "SaveToConfigurationStorage(storage, CanonicalAssociationKey, NULL)" in lifecycle_implementation and
             "ProjectRuntimeAssociations(candidate" in lifecycle_implementation,
             "lifecycle must validate and project UI edits before publishing them")
     require("class CCfgPageFileAssociations" in cfg_header and
@@ -232,10 +251,36 @@ def main() -> None:
             "Rows.push_back(item)" in dialogs5 and
             "IDL_FILEASSOCIATIONS" in dialogs5,
             "the canonical association editor must load, edit, and commit model rows")
+    require("EnsureCanonicalAssociationsMaterializedForConfiguration(&error)" in dialogs5 and
+            dialogs5.index("EnsureCanonicalAssociationsMaterializedForConfiguration(&error)") <
+                dialogs5.index("CopyCanonicalAssociationsForConfiguration(&model, &error)"),
+            "the association page must materialize clean/default rows before reading lifecycle state")
+    require("LegacyRuntimeTarget(item->ViewerType, false," in migration and
+            "item->ViewerLabel" in migration and
+            "SetViewerLabel(association.AssociationTarget.DisplayLabel.c_str())" in runtime_adapter,
+            "viewer labels must survive migration and runtime projection")
+    require("RegisteredDuringStartup" in cfg_header and
+            "RegisteredDuringStartup = FALSE" in (ROOT / "src" / "dialogs2.cpp").read_text(encoding="utf-8") and
+            "RegisteredDuringStartup = item.RegisteredDuringStartup" in (ROOT / "src" / "dialogs2.cpp").read_text(encoding="utf-8") and
+            "if (force)\n                    item->RegisteredDuringStartup = TRUE;" in (ROOT / "src" / "plugins1.cpp").read_text(encoding="utf-8") and
+            "!preloaded->RegisteredDuringStartup" in salamdr2,
+            "viewer startup merging must preserve only first-registration rows")
+    require("FindViewerMask" in salamdr2 and
+            "MergePreloadedPluginViewerRows" in salamdr2 and
+            "preloadedViewers.Load(*viewerMasks)" in salamdr2 and
+            "viewerMasks->DestroyMembers()" in salamdr2 and
+            "MergePreloadedPluginViewerRows(viewerMasks, &preloadedViewers)" in salamdr2,
+            "persisted viewer loading must preserve plugin rows registered before configuration load")
+    require("SalamatrixPackages->SetRefreshDeferred(FALSE);" in salamatrix and
+            salamatrix.index("SalamatrixPackages->Refresh();") <
+                salamatrix.index("SalamatrixPackages->RegisterViewerMasks(salamander);"),
+            "Salamatrix package discovery must complete before viewer-mask registration")
     require("BuildLegacyAssociationDefaults" in migration_header and
-            "viewerTables[2]" in migration and
-            "PackerFormatConfig.GetFormatsCount" in migration,
-            "the canonical editor must collect existing viewer, editor, and archive defaults")
+             "viewerTables[2]" in migration and
+             "PackerFormatConfig.GetFormatsCount" in migration and
+             "one.find('|')" in migration and
+             "report->BlockedCount" in migration,
+             "the canonical editor must collect existing viewer, editor, and archive defaults")
     require("MatrixRow" in cfg_header and
             "FilterCategory" in cfg_header and
             "FilterProvenance" in cfg_header and
@@ -255,8 +300,19 @@ def main() -> None:
             "LVN_ITEMCHANGED" in dialogs5 and
             "NM_CUSTOMDRAW" in dialogs5 and
             "WinLibDPIToLogical(HWindow" in dialogs5 and
-            "WinLibDPIFromLogical(HWindow" in dialogs5,
-            "the association matrix must support selectable rows, colored cells, and DPI-aware layout")
+             "WinLibDPIFromLogical(HWindow" in dialogs5,
+             "the association matrix must support selectable rows, colored cells, and DPI-aware layout")
+    require("SetDlgItemText(HWindow, IDC_FILEASSOCIATION_HELP, LoadStr(IDS_BUTTON_HELP))" in dialogs5 and
+            "std::string MatrixCellText" in cfg_header and
+            "int buttonX[5]" in dialogs5 and
+            "int buttonRow[5]" in dialogs5 and
+            "GetClientRect(HWindow" in dialogs5 and
+            "CDRF_NEWFONT" in dialogs5 and
+            "draw->clrTextBk = RGB(23, 23, 23)" in dialogs5,
+            "the association page must keep compact help, complete display strings, and every action row inside the client area")
+    require("#define _TPD_MIN_PAGE_H 300" in sheets and
+            "Reserve the full canonical association page height" in sheets,
+            "the property holder must keep the canonical page above its parent action buttons")
     association_validate = dialogs5[dialogs5.index("void CCfgPageFileAssociations::Validate"):dialogs5.index("INT_PTR CCfgPageFileAssociations::DialogProc")]
     require("BuildCandidate" not in association_validate and
             "NormalizePattern" in association_validate and
@@ -265,6 +321,11 @@ def main() -> None:
     require("previousStableId" in dialogs5 and
             "previousTargetKind" in dialogs5,
             "unavailable plugin targets must not make page navigation impossible")
+    require("DisplayLabel" in dialogs5 and
+            "extensionTarget += \" \"" in dialogs5 and
+            "IDS_FILEASSOCIATION_EXTENSION" in dialogs5 and
+            "item.AssociationTarget.DisplayLabel.clear()" in dialogs5,
+            "extension owner labels must be localized and cleared when the target changes")
     require("IDD_CFGPAGE_FILEASSOCIATIONS" in lang_header and
             "IDL_FILEASSOCIATIONS" in lang_resource and
             "IDC_FILEASSOCIATION_CATEGORY" in lang_resource and
@@ -273,6 +334,8 @@ def main() -> None:
             "the canonical association editor must have resource-backed controls and text")
     require("IDS_FILEASSOCIATION_INTERNAL_VIEWER" in texts_header and
             "IDS_FILEASSOCIATION_LEGACY_RUNTIME" in texts_header and
+            "IDS_FILEASSOCIATION_EXTENSION" in texts_header and
+            'IDS_FILEASSOCIATION_EXTENSION, "(Extension)"' in texts_resource and
             "IDS_FILEASSOCIATION_NO_TARGETS" in texts_resource and
             "IDS_FILEASSOCIATION_PATTERN_EMPTY" in texts_resource,
             "new association UI states must use localized resource strings")
@@ -287,7 +350,7 @@ def main() -> None:
     ]
     require(all(not line.endswith('",') for line in association_string_lines),
             "association STRINGTABLE entries must not have trailing commas")
-    page_tree = dialogs4[dialogs4.index("Add(&PageFileAssociations"):dialogs4.index("void CConfigurationDlg::EnsureTabsPageVisibility")]
+    page_tree = dialogs4[dialogs4.index("Add(&PageAppear"):dialogs4.index("void CConfigurationDlg::EnsureTabsPageVisibility")]
     require("Add(&PageFileAssociations" in page_tree and
             "Add(&PageViewer" in page_tree and
             "Add(&PagePP" in page_tree and

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Persist canonical extension owner labels. | Restore the localized owner display after a clean startup or a later configuration load. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
+// | 2026-11-09 | Reject mask-group exclusion syntax in canonical patterns. | A single association row cannot preserve the legacy `|` exclusion semantics without losing matching behavior. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Add transactional replacement for the configuration editor. | Normalize and validate edited rows before replacing the live model. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Add configuration-storage persistence entry points. | Route canonical associations through registry and portable configuration storage without duplicating serialization. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Persist and validate the association record count. | Detect gaps in numeric registry records rather than silently loading a truncated model. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -31,6 +33,7 @@ const char* const FileAssociationCategory = "Category";
 const char* const FileAssociationOperation = "Operation";
 const char* const FileAssociationTargetKind = "Target Kind";
 const char* const FileAssociationTargetId = "Target ID";
+const char* const FileAssociationTargetLabel = "Target Label";
 const char* const FileAssociationProvenance = "Provenance";
 const char* const FileAssociationSourceProvenance = "Source Provenance";
 const DWORD FileAssociationsCurrentSchemaVersion = 1;
@@ -107,9 +110,9 @@ bool CFileAssociationModel::NormalizePattern(const char* pattern, std::string* n
         SetError(error, "pattern must not be empty");
         return false;
     }
-    if (value.find(';') != std::string::npos)
+    if (value.find(';') != std::string::npos || value.find('|') != std::string::npos)
     {
-        SetError(error, "one association must contain exactly one pattern");
+        SetError(error, "one association must contain exactly one pattern without mask-group separators");
         return false;
     }
     if (value.find('\\') != std::string::npos || value.find('/') != std::string::npos)
@@ -384,6 +387,7 @@ BOOL CFileAssociationModel::Load(HKEY parentKey, const char* keyName, std::strin
     char itemName[30];
     std::vector<char> pattern(MAX_GROUPMASK);
     std::vector<char> targetId(4096);
+    std::vector<char> targetLabel(4096);
     DWORD category = 0, operation = 0, targetKind = 0;
     DWORD provenance = 0, sourceProvenance = 0;
     bool itemError = false;
@@ -398,6 +402,7 @@ BOOL CFileAssociationModel::Load(HKEY parentKey, const char* keyName, std::strin
         }
         pattern[0] = 0;
         targetId[0] = 0;
+        targetLabel[0] = 0;
         if (!GetValue(itemKey, FileAssociationPattern, REG_SZ, pattern.data(),
                       static_cast<DWORD>(pattern.size())) ||
             !GetValue(itemKey, FileAssociationCategory, REG_DWORD, &category, sizeof(category)) ||
@@ -416,6 +421,9 @@ BOOL CFileAssociationModel::Load(HKEY parentKey, const char* keyName, std::strin
         }
         else
         {
+            if (!GetValue(itemKey, FileAssociationTargetLabel, REG_SZ,
+                          targetLabel.data(), static_cast<DWORD>(targetLabel.size())))
+                targetLabel[0] = 0;
             std::string normalized;
             if (!NormalizePattern(pattern.data(), &normalized, error))
                 itemError = true;
@@ -426,7 +434,8 @@ BOOL CFileAssociationModel::Load(HKEY parentKey, const char* keyName, std::strin
                 item.AssociationCategory = static_cast<Category>(category);
                 item.Operation = static_cast<PanelOperation>(operation);
                 item.AssociationTarget =
-                    Target(static_cast<TargetKind>(targetKind), targetId.data());
+                    Target(static_cast<TargetKind>(targetKind), targetId.data(),
+                           targetLabel.data());
                 item.AssociationProvenance = static_cast<Provenance>(provenance);
                 item.SourceProvenance = static_cast<Provenance>(sourceProvenance);
                 loaded.Items.push_back(item);
@@ -542,6 +551,9 @@ BOOL CFileAssociationModel::Save(HKEY parentKey, const char* keyName, std::strin
             if (saved)
                 saved = SetValue(itemKey, FileAssociationTargetId, REG_SZ,
                                  item.AssociationTarget.StableId.c_str(), -1);
+            if (saved)
+                saved = SetValue(itemKey, FileAssociationTargetLabel, REG_SZ,
+                                 item.AssociationTarget.DisplayLabel.c_str(), -1);
             if (saved)
                 saved = SetValue(itemKey, FileAssociationProvenance, REG_DWORD,
                                  &provenance, sizeof(provenance));

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Restore migrated viewer owner labels during projection. | Keep extension ownership visible in the legacy viewer table and on subsequent saves. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Preserve imported legacy rows during projection. | Existing runtime rows already contain command metadata unavailable in the canonical record, so unchanged legacy rows must remain active while user edits are resolved. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Add the stable plugin runtime resolver. | Map canonical plugin targets to current runtime indexes only when plugin capabilities support the requested association. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 
@@ -50,6 +51,12 @@ bool StageViewerAssociation(const Association& association, CViewerMasks* destin
     CViewerMasksItem* item = new CViewerMasksItem(association.Pattern.c_str(), "", "", "",
                                                    viewerType, FALSE);
     if (item == NULL || !item->IsGood())
+    {
+        delete item;
+        return false;
+    }
+    if (!association.AssociationTarget.DisplayLabel.empty() &&
+        !item->SetViewerLabel(association.AssociationTarget.DisplayLabel.c_str()))
     {
         delete item;
         return false;
