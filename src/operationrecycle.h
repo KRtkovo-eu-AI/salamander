@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Reject Shell path normalization aliases before recycling. | Keep exact disk paths separate from Shell and DOS namespaces. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Reject alternate stream and device aliases before recycling. | Pass the Shell only absolute filesystem paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow an exact Shell recycle receipt to be inspected. | Verify account and identity without changing ordinary recycling. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Guard Windows Shell recycling against permanent fallback. | Require recycle intent and a per-item Recycle Bin receipt. | | GPT-6.1 Sol (Codex) |
@@ -10,6 +11,7 @@
 #include <shlobj.h>
 #include <shellapi.h>
 #include <string>
+#include <string_view>
 
 // Keep recycling in the calling user's Shell context. Access failures stop the
 // operation without requesting a different user's token.
@@ -116,30 +118,68 @@ private:
     size_t completed = 0;
 };
 
-// The shell does not accept the Win32 extended prefix and may normalize final
-// dots/spaces to another file. Remove only that transport prefix, then reject
-// ambiguous components before any shell operation can be queued.
+inline bool IsRecycleDosDevice(std::wstring_view component)
+{
+    auto stem = component.substr(0, component.find(L'.'));
+    while (!stem.empty() && stem.back() == L' ')
+        stem.remove_suffix(1);
+    const auto equals = [](std::wstring_view name, std::wstring_view reserved) {
+        return name.size() == reserved.size() &&
+               CompareStringOrdinal(name.data(), static_cast<int>(name.size()),
+                                    reserved.data(), static_cast<int>(reserved.size()), TRUE) == CSTR_EQUAL;
+    };
+    if (equals(stem, L"CON") || equals(stem, L"PRN") || equals(stem, L"AUX") ||
+        equals(stem, L"NUL") || equals(stem, L"CONIN$") || equals(stem, L"CONOUT$"))
+        return true;
+    if (stem.size() != 4 || (!equals(stem.substr(0, 3), L"COM") && !equals(stem.substr(0, 3), L"LPT")))
+        return false;
+    const wchar_t digit = stem.back();
+    return (digit >= L'1' && digit <= L'9') || digit == L'\u00B9' || digit == L'\u00B2' || digit == L'\u00B3';
+}
+
+// Remove only the Win32 transport prefix. Reject paths the Shell could
+// reinterpret as another object or namespace after that prefix is removed.
 inline HRESULT OperationRecyclePath(const std::wstring& exactPath, std::wstring& shellPath)
 {
     shellPath = exactPath;
-    if (shellPath.compare(0, 8, L"\\\\?\\UNC\\") == 0)
-        shellPath = L"\\\\" + shellPath.substr(8);
-    else if (shellPath.compare(0, 4, L"\\\\?\\") == 0)
+    bool extendedDrive = false;
+    if (shellPath.compare(0, 8, LR"(\\?\UNC\)") == 0)
+        shellPath = LR"(\\)" + shellPath.substr(8);
+    else if (shellPath.compare(0, 4, LR"(\\?\)") == 0)
+    {
+        extendedDrive = true;
         shellPath.erase(0, 4);
+    }
     if (shellPath.empty())
         return E_INVALIDARG;
     const bool drive = shellPath.size() >= 3 &&
         ((shellPath[0] >= L'A' && shellPath[0] <= L'Z') || (shellPath[0] >= L'a' && shellPath[0] <= L'z')) &&
         shellPath[1] == L':' && shellPath[2] == L'\\';
-    const bool unc = shellPath.compare(0, 2, LR"(\\)") == 0 &&
-                     shellPath.compare(0, 4, LR"(\\.\)") != 0 && shellPath.compare(0, 4, LR"(\\?\)") != 0;
-    if ((!drive && !unc) || shellPath.find(L':', drive ? 2 : 0) != std::wstring::npos)
-        return HRESULT_FROM_WIN32(ERROR_INVALID_NAME);
-    for (size_t i = 0; i < shellPath.size(); ++i)
-        if ((i + 1 == shellPath.size() || shellPath[i + 1] == L'\\' || shellPath[i + 1] == L'/') &&
-            (shellPath[i] == L'.' || shellPath[i] <= L' '))
-            return HRESULT_FROM_WIN32(ERROR_INVALID_NAME);
-    return S_OK;
+    const bool unc = shellPath.compare(0, 2, LR"(\\)") == 0;
+    constexpr HRESULT invalidName = HRESULT_FROM_WIN32(ERROR_INVALID_NAME);
+    if (!drive && (!unc || extendedDrive))
+        return invalidName;
+
+    const std::wstring_view path(shellPath);
+    size_t start = drive ? 3 : 2;
+    size_t count = 0;
+    for (;;)
+    {
+        const size_t end = path.find(L'\\', start);
+        const auto part = path.substr(start, end == path.npos ? path.npos : end - start);
+        if (part.empty() || part.back() == L'.' || part.back() == L' ' ||
+            part.find_first_of(L"<>:\"/|?*") != part.npos ||
+            ((drive || count >= 2) && IsRecycleDosDevice(part)))
+            return invalidName;
+        for (wchar_t ch : part)
+            if (ch < L' ')
+                return invalidName;
+        ++count;
+        if (end == path.npos)
+            break;
+        start = end + 1;
+    }
+    return unc && count < 3 ? invalidName : S_OK;
 }
 
 // Resolve the volume through the same exact wide identity used by the operation.

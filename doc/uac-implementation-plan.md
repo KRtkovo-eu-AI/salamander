@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record stricter Shell recycle path admission. | Avoid normalization aliases before queuing deletion. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record concurrent publication through two broker jobs. | Verify one winner and no lost sources on NTFS. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Document the UAC pilot for users and record Release regressions. | Separate supported operations from open release gates. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record Czech UAC localization and round-trip verification. | Track localized prompts and release validation. | | GPT-6.1 Sol (Codex) |
@@ -1162,6 +1163,8 @@ V x64 Debug a Release prošlo 22 kontrol transportní sady včetně čtení skut
 Společná lokální kontrola x64 Release prošla 248 kontrolami souborového jádra a sadou transportu a brokerových úloh. Transport ověřil skutečnou rouru a odmítnutí nesprávného procesu. Úlohy pokryly mimo jiné pozdní kolizi, zrušení před a po zveřejnění, uchování částečného výsledku F6 a odpojení před předáním další položky. Tyto testy běží bez systémové výzvy. Interaktivní akceptace finálního sestavení a aktuální CI/CodeQL jsou samostatné podmínky.
 
 **Dvě souběžné úlohy nad jedním cílem.** Test spustí dva samostatné dispatchery nad pojmenovanými rourami a souběžně odešle dvě kopie z různých zdrojových rodičů pod stejný dosud volný Unicode název. Přesně jeden požadavek uspěje, druhý dostane kolizi, cíl odpovídá úspěšnému požadavku a oba zdroje zůstanou stejné. Prošlo všech 22 kontrol úloh v x64 Debug i Release a v obou konfiguracích prošla i samostatná kontrola transportu. Test vstupuje do dispatcheru po hranici autentizace a nesimuluje dvě systémové výzvy ani plánování v GUI.
+
+**Předání přesné cesty do Koše.** Běžné přesunutí do Koše i sonda ověřují cestu před předáním Shellu. Odmítají vložené NUL a řídicí znaky, neplatné oddělovače, prázdné komponenty, samotné kořeny a rezervovaná jména zařízení, která by po odstranění rozšířeného prefixu mohla změnit význam cesty. V x64 Debug i Release prošlo 20 regresí včetně skutečné recyklace zkušebních Unicode souborů a šest kontrol potvrzení Koše původního účtu a obnovy. Sonda schválení jiným správcem čeká na VM. [Pravidla pro názvy a jmenné prostory Windows](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file).
 
 ## 12. Testovací strategie
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Test exact Shell recycle path admission. | Reject paths that would be reinterpreted after removing the Win32 prefix. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind recycle receipts to a volume GUID and the original account. | Reject wrong-account and wrong-volume evidence even through mounted folders. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add an original-account Shell elevation probe. | Require an exact receipt and verify the restored file identity. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Probe the native Shell recycle destination and source guard. | Establish whether explicit destination or exclusive handles can enforce the required contract. | | GPT-6.1 Sol (Codex) |
@@ -239,9 +240,12 @@ static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool reques
     const DWORD elevation = requestElevation ? FOFX_SHOWELEVATIONPROMPT : 0;
     if (SUCCEEDED(hr))
         hr = operation->SetOperationFlags(OperationRecycleFlags | FOF_SILENT | elevation);
+    std::wstring shellPath;
+    if (SUCCEEDED(hr))
+        hr = OperationRecyclePath(source.wstring(), shellPath);
     IShellItem* rawSource = nullptr;
     if (SUCCEEDED(hr))
-        hr = SHCreateItemFromParsingName(source.c_str(), nullptr, IID_PPV_ARGS(&rawSource));
+        hr = SHCreateItemFromParsingName(shellPath.c_str(), nullptr, IID_PPV_ARGS(&rawSource));
     const ShellPtr<IShellItem> item(rawSource);
     if (SUCCEEDED(hr))
         hr = operation->DeleteItem(item.get(), &progress);
@@ -422,6 +426,24 @@ int wmain(int argc, wchar_t** argv)
               FAILED(OperationRecyclePath(LR"(\\.\C:\short.txt)", shellPath)) &&
               FAILED(OperationRecyclePath(LR"(\\?\GLOBALROOT\Device\HarddiskVolume1\short.txt)", shellPath)),
           "reject alternate stream, drive-relative and device aliases before queueing a Shell recycle");
+    auto truncated = paths[0];
+    truncated.append({L'\0', L'x'});
+    Check(FAILED(OperationRecyclePath(truncated, shellPath)) &&
+              FAILED(OperationRecyclePath(L"C:\\file\t.txt", shellPath)),
+          "reject embedded NUL and control characters before Shell parsing");
+    Check(FAILED(OperationRecyclePath(LR"(\\?\C:\folder/file.txt)", shellPath)) &&
+              FAILED(OperationRecyclePath(LR"(C:\folder\\file.txt)", shellPath)) &&
+              FAILED(OperationRecyclePath(LR"(C:\)", shellPath)) &&
+              FAILED(OperationRecyclePath(LR"(\\?\\\server\share\file.txt)", shellPath)) &&
+              FAILED(OperationRecyclePath(LR"(\\server\share)", shellPath)),
+          "reject alternate separators, empty components and roots before Shell parsing");
+    Check(FAILED(OperationRecyclePath(LR"(\\?\C:\folder\nUl .txt)", shellPath)) &&
+              FAILED(OperationRecyclePath(L"C:\\folder\\CoM\u00B9.bin", shellPath)) &&
+              FAILED(OperationRecyclePath(LR"(C:\Lpt9\file.txt)", shellPath)),
+          "reject DOS device aliases before Shell parsing");
+    Check(SUCCEEDED(OperationRecyclePath(LR"(C:\auxiliary\nul-backup.txt)", shellPath)) &&
+              SUCCEEDED(OperationRecyclePath(LR"(\\server\share\directory\file.txt)", shellPath)),
+          "keep ordinary drive and UNC file paths");
     const std::wstring byteLongPath = (root / (std::wstring(100, L'\u6f22') + L".txt")).wstring();
     Check(byteLongPath.size() < MAX_PATH && MakeFile(byteLongPath), "create UTF8-over-260 fixture with short UTF16 path");
     const std::vector<std::wstring> recyclePaths = {
