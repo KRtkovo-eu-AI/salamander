@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Verify the final mutation frame on a real local pipe. | Distinguish undelivered requests from requests without a reply. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify F6 without the former pilot limits. | Exercise large request sizes and the active deadline policy. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise stale overwrite consent through the broker dispatcher. | Verify an externally replaced target survives and the job can continue. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Race two live copy jobs for the same target. | Verify no-replace publication across broker sessions. | | GPT-6.1 Sol (Codex) |
@@ -392,6 +393,66 @@ void CheckUnboundedTransferCancellation()
           "send cancellation and receive confirmation while waiting without a total deadline");
 }
 
+void CheckRequestDelivery()
+{
+    GUID id{};
+    if (FAILED(CoCreateGuid(&id)))
+    {
+        Check(false, "create a request-delivery pipe name");
+        return;
+    }
+    const auto name = PipeName(id);
+    const auto sender = Adopt(CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+        PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_REJECT_REMOTE_CLIENTS, 1, 4096, 4096, 0, nullptr));
+    auto receiver = sender ? Adopt(CreateFileW(name.c_str(), pipeAccess, 0, nullptr, OPEN_EXISTING,
+                                                     FILE_FLAG_OVERLAPPED, nullptr)) : Handle{};
+    const auto deadline = GetTickCount64() + timeoutMs;
+    if (!receiver || Connect(sender.get(), deadline))
+    {
+        Check(false, "open the request-delivery pipe");
+        return;
+    }
+
+    RequestHeader header{};
+    header.operation = Operation::WriteZipUpdate;
+    std::wstring payload = L"fixture.zip";
+    UacF7::Result delivery;
+    const auto roundTrip = [&](void* extra, DWORD extraBytes, UacF7::MetadataJobPolicy* policy, bool more) {
+        RequestHeader received{};
+        std::wstring path(payload.size(), L'\0');
+        return !SendOperationRequest(sender.get(), header, payload, extra, extraBytes, policy, more, deadline, delivery) &&
+               !TransferRequest(receiver.get(), &received, sizeof(received), false, deadline) &&
+               received.operation == header.operation &&
+               !TransferRequest(receiver.get(), path.data(), static_cast<DWORD>(path.size() * sizeof(wchar_t)), false, deadline) &&
+               path == payload;
+    };
+    Check(roundTrip(nullptr, 0, nullptr, true) && !delivery.unknown,
+          "a ZIP update request prefix cannot publish before the commit frame");
+    header.operation = Operation::Metadata;
+    UacF7::MetadataChange change{};
+    UacF7::MetadataJobPolicy policy{FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_HIDDEN};
+    UacF7::MetadataJobPolicy receivedPolicy{};
+    UacF7::MetadataChange receivedChange{};
+    Check(roundTrip(&change, sizeof(change), &policy, false) && delivery.unknown &&
+              !TransferRequest(receiver.get(), &receivedChange, sizeof(receivedChange), false, deadline) &&
+              !TransferRequest(receiver.get(), &receivedPolicy, sizeof(receivedPolicy), false, deadline) &&
+              receivedPolicy.set == policy.set && receivedPolicy.clear == policy.clear,
+          "the metadata policy is the last frame before a scoped mutation can run");
+
+    UacF7::Result rejected;
+    Check(SendOperationRequest(sender.get(), header, payload, &change, sizeof(change), &policy,
+                               false, GetTickCount64(), rejected) == ERROR_TIMEOUT && !rejected.unknown,
+          "an expired deadline before the header leaves the mutation unsubmitted");
+
+    receiver.reset();
+    DWORD reply = ERROR_SUCCESS;
+    Check(TransferRequest(sender.get(), &reply, sizeof(reply), false, deadline) == ERROR_BROKEN_PIPE && delivery.unknown,
+          "a disconnect after the complete mutation request leaves the result unconfirmed");
+    Check(SendOperationRequest(sender.get(), header, payload, &change, sizeof(change), &policy,
+                               false, deadline, rejected) != ERROR_SUCCESS && !rejected.unknown,
+          "a disconnect before the next request header leaves that item unsubmitted");
+}
+
 void CheckCrossVolumeBoundary(const Directory& source, const Directory& target)
 {
     JobPipe job;
@@ -522,6 +583,7 @@ int wmain()
     CheckLateCopyCancellation(source, target);
     CheckCrossVolumeBoundary(source, target);
     CheckUnboundedTransferCancellation();
+    CheckRequestDelivery();
     CheckTransferReplies();
     CheckMoveSourceEligibility();
     CheckMetadataJob(source);

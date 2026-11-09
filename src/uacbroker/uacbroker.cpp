@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Track the final request frame before marking a result uncertain. | Keep pre-dispatch failures recoverable for one-shot and reusable broker jobs. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Admit protected overwrite targets with named streams. | Use the guarded backup digest in publication and recovery. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Copy verified named streams in protected F5 overwrites. | Use a protected stage and preserve the original until the complete stream receipt is verified. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Remove the active F6 deadline and pilot byte cap. | Keep cancellation and disconnect detection while allowing slow and large moves. | | GPT-6.1 Sol (Codex) |
@@ -714,6 +715,31 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
     if (transferred)
         *transferred = count;
     return count == length ? ERROR_SUCCESS : ERROR_INVALID_DATA;
+}
+
+// The broker waits for the complete path and any required extra frame
+// before it can mutate a file. ZIP writes have a separate commit boundary.
+inline DWORD SendOperationRequest(HANDLE pipe, RequestHeader& header, std::wstring& payload,
+                                  void* extra, DWORD extraBytes, UacF7::MetadataJobPolicy* policy,
+                                  bool hasMoreData, ULONGLONG deadline, UacF7::Result& result)
+{
+    DWORD error = TransferRequest(pipe, &header, sizeof(header), true, deadline);
+    if (!error)
+    {
+        result.unknown = !extra && !policy && !hasMoreData;
+        error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline);
+    }
+    if (!error && extra)
+    {
+        result.unknown = !policy && !hasMoreData;
+        error = TransferRequest(pipe, extra, extraBytes, true, deadline);
+    }
+    if (!error && policy)
+    {
+        result.unknown = !hasMoreData;
+        error = TransferRequest(pipe, policy, sizeof(*policy), true, deadline);
+    }
+    return error;
 }
 
 // Fixed-sized messages keep a multi-gigabyte archive out of both heaps.
@@ -2244,19 +2270,13 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
             }
             deadline = GetTickCount64() + timeoutMs;
         }
-        else
-            result->unknown = true;
-        error = TransferRequest(pipe.get(), request, sizeof(*request), true, deadline);
-        if (!error)
-            error = TransferRequest(pipe.get(), payload->data(), static_cast<DWORD>(payload->size() * sizeof(wchar_t)), true, deadline);
-        if (!error && metadata)
-            error = TransferRequest(pipe.get(), metadata, sizeof(*metadata), true, deadline);
-        if (!error && metadataPolicy)
-            error = TransferRequest(pipe.get(), metadataPolicy, sizeof(*metadataPolicy), true, deadline);
-        if (!error && overwriteTarget)
-            error = TransferRequest(pipe.get(), overwriteTarget, sizeof(*overwriteTarget), true, deadline);
+        void* extra = metadata ? static_cast<void*>(metadata) : overwriteTarget;
+        const DWORD extraBytes = metadata ? sizeof(*metadata) : sizeof(*overwriteTarget);
+        error = SendOperationRequest(pipe.get(), *request, *payload, extra, extraBytes, metadataPolicy,
+                                     zipBytes || zipUpdateFile, deadline, *result);
         if (!error && zipBytes)
         {
+            result->unknown = true;
             deadline = GetTickCount64() + copyTimeoutMs + timeoutMs;
             error = TransferZipSelection(pipe.get(), *zipBytes, true, deadline);
         }
@@ -2280,8 +2300,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         }
         if (error)
         {
-            if (zipUpdateFile && !result->unknown)
-                result->error = error;
+            result->error = error;
             return IoError(L"Send request", error);
         }
 
@@ -2653,22 +2672,7 @@ static Result RepeatTransferJob(HANDLE& pipe, RequestHeader& header, std::wstrin
 {
     Result result;
     auto deadline = GetTickCount64() + timeoutMs;
-    DWORD error = TransferRequest(pipe, &header, sizeof(header), true, deadline);
-    if (!error)
-    {
-        result.unknown = !extra;
-        error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline);
-    }
-    if (!error && extra)
-    {
-        result.unknown = !policy;
-        error = TransferRequest(pipe, extra, extraBytes, true, deadline);
-    }
-    if (!error && policy)
-    {
-        result.unknown = true;
-        error = TransferRequest(pipe, policy, sizeof(*policy), true, deadline);
-    }
+    DWORD error = SendOperationRequest(pipe, header, payload, extra, extraBytes, policy, false, deadline, result);
     if (!error)
     {
         deadline = TransferDeadline(header.operation);
