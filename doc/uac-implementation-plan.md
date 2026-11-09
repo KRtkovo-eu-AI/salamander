@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify a late target revision during F5 consent in the VM. | Check that consent cannot authorize overwriting a changed target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify protected F5 overwrite with NTFS streams in the VM. | Cover both source and existing destination streams with Windows consent. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify shared F5 consent in the P7 virtual machine. | Confirm two files with one prompt and require fresh consent for a new job. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Stage a shared P7 acceptance candidate. | Bind the VM and release checks to one verified build and evidence manifest. | | GPT-6.1 Sol (Codex) |
@@ -1363,6 +1364,8 @@ Ke každé zkoušce zaznamenat revizi, verzi Windows a architekturu, typ účtu 
 **VM, F5 v jednom rozsahu a zrušení nové úlohy.** Na Windows 11 Pro x64 (26200) s ověřeným pilotem `10da008c` byly přes Computer Use vybrány dva soubory ze stejného rodiče a zkopírovány do jedné chráněné složky. Uživatel potvrdil jedinou systémovou výzvu. Obě kopie odpovídaly zdrojům podle SHA-256. Další F5 pro třetí soubor vyvolalo novou výzvu a uživatel zvolil Ne. Třetí cíl nevznikl, zdroje i první dvě kopie zůstaly a po skončení nezůstal pracovní soubor ani broker. Při prvním nasazení byla stará aplikace ještě zamčená. Po doběhnutí ukončení a úpravě laboratorního skriptu o opakování při sdílecím konfliktu prošla kontrola otisků instalovaných binárek. Záznam je v `C:/Samandarin/builds/uac-p7-10da008c/f5-vm-evidence.json`. Tento běh ověřil kopii do volného názvu a nový souhlas. Smíšený výběr, Scan Ahead a závody při přepisu zůstávají v matici.
 
 **VM, přepis chráněného cíle F5 s datovými proudy.** V pilotu 10da008c na Windows 11 Pro x64 (26200) proběhly dva samostatné přepisy v běžném dialogu konfliktu. Uživatel u každého potvrdil systémovou výzvu. U prvního odpovídal SHA-256 hlavního obsahu i obsah pojmenovaného proudu zdroji. U druhého odpovídal SHA-256 a úplný seznam proudů zdroji a původní pojmenovaný proud cíle zmizel podle pravidel přepisu popsaných v P7. Po obou pokusech byl počet pracovních souborů a záloh přepisu nula. Záznam je v souboru f5-overwrite-vm-evidence.json vedle předchozího záznamu F5. Změna revize během výzvy a režim Scan Ahead zůstávají v matici.
+
+**VM, změna cíle F5 během souhlasu.** V běžném režimu konfliktu pilotu 10da008c zobrazil Samandarin původní revizi. Skript změnil obsah téhož cíle a ověřil, že nový proces consent.exe po zápisu ještě běžel. Uživatel potom schválil UAC a zaznamenal chybu 1006. Kontrola SHA-256 potvrdila zachování nové revize cíle. Zdroj zůstal celý a nevznikl pracovní soubor ani záloha. První pokus bez spuštěného watcheru pouze potvrdil průchod běžného přepisu a před měřeným pokusem byl testovací obsah obnoven. Důkaz je v souboru f5-revision-vm-evidence.json. Opakování ve Scan Ahead ještě zbývá.
 
 ### 12.3 CI a přijetí vydání
 
