@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Prepare a two-job F5 acceptance fixture. | Verify that UAC refusal and protected copy completion stay scoped to their respective jobs. | | Codex |
 | 2026-11-09 | Stop Scan Ahead when a protected worker exits on error. | Prevent background scanning and queued conflict prompts after a refused UAC request. | | Codex |
 | 2026-11-09 | Verify the overwrite journal while its owner is alive. | Distinguish an active concurrent overwrite from interrupted recovery. | | Codex |
 | 2026-11-09 | Verify that UAC release signatures are embedded. | Require the distributed binaries to carry the verified signatures. | | Codex |
@@ -1819,6 +1820,8 @@ Opakovaný výpis GitHubu je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f
 **P7, souběžný přístup k žurnálu přepisu.** První proces se zastavil po odsunutí původního souboru a před zveřejněním náhrady. Druhý proces otevřel žurnál stejnou NT cestou, s právy pro čtení, zápis a smazání a bez sdílení jako broker. Za běhu prvního procesu dostal ERROR_SHARING_VIOLATION (32). Po jeho tvrdém ukončení získal žurnál. Obnova při mezitím obsazeném cíli vrátila ERROR_FILE_INVALID (1006) a zachovala konkurující soubor, původní zálohu se stejným ID i žurnál. Po uvolnění cíle obnovila původní soubor. V x64 Debug i Release prošlo všech 309 nativních kontrol. Výpisy overwrite-live-journal-Debug.log a overwrite-live-journal-Release.log jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c. Zkouška pokrývá souběh a obnovu na NTFS. Dřívější opakovaný dialog ve dvou aktivních úlohách v panelu tím není reprodukován.
 
 **P7, ukončení Scan Ahead po odmítnutí chráněné operace.** Při odmítnutí systémové výzvy skončí sériový worker s chybou, aniž uživatel stiskne Cancel v dialogu průběhu. Dříve se před čekáním na skener neposlal jeho signál ke zrušení. Worker nyní nastaví událost zrušení při chybovém konci. Pozdní zpráva Scan Ahead už po nastavení této události neotevře automatickou nabídku přepisu. Změna je omezená na aktuální operaci. Prošlo 15 kontraktových testů workeru, sada koordinátoru kopírování a sestavení x64 Release s varováními jako chybami. Host má stejných 5 448 704 bajtů jako f0b9678c. Výpis je scan-ahead-cancel-x64-release-final.log ve složce ověření P7. Dřívější opakovaná výzva ve dvou souběžných oknech tím nebyla reprodukována. Pro potvrzení uživatelského chování je potřeba zopakovat dvě souběžné úlohy v izolované VM.
+
+**P7, příprava zkoušky dvou dávek F5.** Laboratorní dvojice x64 pro 5e13ec2e prošla kontrolou PE, manifestů, rolí, protokolu 11 a anglického modulu. V C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f5-dual-5e13ec2e jsou oddělené zdroje A-cancel a B-approve, ověřený obraz a skript pro dočasné nasazení a obnovení předchozího pilotu podle SHA-256. Protokol vyžaduje dvě současně otevřené nabídky před první volbou a zaznamená skutečný počet systémových výzev. Místní simulace kontroly disku přijala očekávané soubory a odmítla záměnu chráněných obsahů mezi dávkami. Zvýšené nasazení a interaktivní běh ještě neproběhly.
 
 ### 12.3 CI a přijetí vydání
 
