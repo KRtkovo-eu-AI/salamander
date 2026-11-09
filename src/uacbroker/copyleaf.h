@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Preserve named streams on sparse file copies. | Reuse stream storage checks for sparse F5 with or without exact security. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose an active copy checkpoint to the native fixture. | Test cancellation and host loss after staged bytes exist. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Page through sparse allocated ranges. | Continue after a full range buffer without losing holes or data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Allow verified stream reads while the base has delete access. | Keep overwrite receipt verification on the pinned replacement. | | GPT-6.1 Sol (Codex) |
@@ -586,7 +587,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return ERROR_FILE_INVALID;
 
     const bool sparse = (basic.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE) != 0;
-    const bool preserveStreamStorage = preserveCompression || moveTarget != nullptr;
+    const bool preserveStreamStorage = sparse || preserveCompression || moveTarget != nullptr;
     std::vector<DataStream> streams;
     std::vector<HANDLE> inputs;
     std::vector<StreamHandle> openedInputs, outputs;
@@ -598,8 +599,6 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             return error;
         if (location->lockedInventory && streams != *location->lockedInventory)
             return ERROR_FILE_INVALID;
-        if (sparse && streams.size() != 1 && !moveTarget)
-            return ERROR_NOT_SUPPORTED;
         for (const auto& stream : streams)
         {
             if (stream.suffix == L"::$DATA")

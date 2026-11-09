@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Test sparse F5 with named streams and security. | Verify NTFS allocation, stream contents and staging protection together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Interrupt guarded F6 after writing a stage block. | Check staged cleanup, the intact source, and successful retry on real NTFS. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise a sparse F6 with more than one range page. | Verify every allocated marker and a hole after the guarded move. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify overwrite receipts for named NTFS streams. | Reject changed stream data even with matching size, identity and timestamps. | | GPT-6.1 Sol (Codex) |
@@ -4279,10 +4280,10 @@ int wmain(int argc, wchar_t** argv)
     FILE_ID_INFO sparseId{};
     if (!OpenIdentity(sparseSource, sparseId))
         return 2;
-    const auto copySparse = [&](std::wstring_view leaf) {
+    const auto copySparse = [&](std::wstring_view leaf, UacCopyLeaf::StageVerifier verify = nullptr) {
         return UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, sparseId, L"sparse-\u6771.bin",
             original.get(), expected, leaf, nullptr, nullptr, MAXULONGLONG, sparseLength,
-            UacCopyLeaf::StreamPolicy::PreserveNamed);
+            UacCopyLeaf::StreamPolicy::PreserveNamed, verify);
     };
     copyError = copySparse(L"sparse-\u6771.bin");
     Check(copyError == ERROR_SUCCESS && HasContents(sparseTarget, sparseBytes) && HasContents(sparseSource, sparseBytes),
@@ -4303,12 +4304,36 @@ int wmain(int argc, wchar_t** argv)
     Check(sparseAttributes != INVALID_FILE_ATTRIBUTES && (sparseAttributes & FILE_ATTRIBUTE_SPARSE_FILE) &&
               hasHole(sparseSource) && hasHole(sparseTarget),
           "preserve a genuinely unallocated NTFS range and the sparse attribute", copyError);
+    constexpr wchar_t sparseNamedSuffix[] = L":sparse-\u6771";
+    std::vector<BYTE> sparseNamedBytes(sparseLength);
+    sparseNamedBytes.front() = 37;
     if (!WriteFixture(sparseSource + L":named", existing))
         return 2;
+    {
+        const auto raw = CreateFileW((sparseSource + sparseNamedSuffix).c_str(), GENERIC_WRITE, 0, nullptr,
+                                     CREATE_NEW, 0, nullptr);
+        const Handle stream(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+        LARGE_INTEGER length{};
+        length.QuadPart = sparseLength;
+        DWORD bytes = 0;
+        if (!stream || !DeviceIoControl(stream.get(), FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &bytes, nullptr) ||
+            !WriteFile(stream.get(), sparseNamedBytes.data(), 1, &bytes, nullptr) || bytes != 1 ||
+            !SetFilePointerEx(stream.get(), length, nullptr, FILE_BEGIN) || !SetEndOfFile(stream.get()))
+            return 2;
+    }
+    const auto sparseAdsTarget = moved + L"\\sparse-with-ads.bin";
     copyError = copySparse(L"sparse-with-ads.bin");
-    Check(copyError == ERROR_NOT_SUPPORTED && !Exists(moved + L"\\sparse-with-ads.bin") &&
+    Check(copyError == ERROR_ACCESS_DENIED && !Exists(sparseAdsTarget) &&
               HasContents(sparseSource + L":named", existing),
-          "reject sparse files with named streams without publishing a partial copy", copyError);
+          "refuse a sparse file with named streams if staging protection cannot be verified", copyError);
+    const auto hasSparseStreams = [&](const std::wstring& path) {
+        return HasContents(path, sparseBytes) && hasHole(path) &&
+               HasContents(path + L":named", existing) &&
+               HasContents(path + sparseNamedSuffix, sparseNamedBytes) && hasHole(path + sparseNamedSuffix);
+    };
+    copyError = copySparse(L"sparse-with-ads.bin", trustedFixture);
+    Check(copyError == ERROR_SUCCESS && hasSparseStreams(sparseAdsTarget),
+          "preserve allocation holes and named streams in a sparse F5 copy", copyError);
 
     const auto compressedSource = fixture + L"\\destination\\compressed-\u6771.bin";
     const auto compressedTarget = moved + L"\\compressed-\u6771.bin";
@@ -4591,8 +4616,7 @@ int wmain(int argc, wchar_t** argv)
     if (!DeleteFileW(securityAds.c_str()))
         return 2;
 
-    if (!DeleteFileW((sparseSource + L":named").c_str()) ||
-        SetNamedSecurityInfoW(const_cast<wchar_t*>(sparseSource.c_str()), SE_FILE_OBJECT,
+    if (SetNamedSecurityInfoW(const_cast<wchar_t*>(sparseSource.c_str()), SE_FILE_OBJECT,
                               DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
                               nullptr, nullptr, explicitDacl, nullptr) != ERROR_SUCCESS)
         return 2;
@@ -4607,8 +4631,8 @@ int wmain(int argc, wchar_t** argv)
               copyError == ERROR_SUCCESS && sparseOriginalSecurity && sparseCopiedSecurity &&
               sparseSecurity.Read(sparseOriginalSecurity.get()) == ERROR_SUCCESS &&
               sparseSecurity.Verify(sparseCopiedSecurity.get()) == ERROR_SUCCESS &&
-              HasContents(securitySparseTarget, sparseBytes) && hasHole(securitySparseTarget),
-          "preserve sparse allocation and exact protected security in one copy", copyError);
+              hasSparseStreams(securitySparseTarget),
+          "preserve sparse allocation, named streams and exact protected security in one copy", copyError);
 
     PSECURITY_DESCRIPTOR labelDescriptor = nullptr;
     if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(

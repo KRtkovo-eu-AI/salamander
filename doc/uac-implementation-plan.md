@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Preserve sparse F5 files with named streams and exact security. | Verify each stream and the destination security before publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test F6 interruption during the staged write. | Verify that cancellation and a broken pipe remove partially written data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Page through sparse allocated ranges. | Preserve highly fragmented streams during guarded cross-volume moves. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve source streams in verified disk overwrites. | Verify every replacement stream before retiring the original. | | GPT-6.1 Sol (Codex) |
@@ -1261,6 +1262,8 @@ Prošlo 284 nativních kontrol v x64 Debug i Release, 12 kontrol workeru, 26 kon
 Prošlo 129 kontrol F6 v x64 Debug i Release, 284 obecných nativních kontrol v Release a sestavení brokeru x64 Release. Na testovaném NTFS první dotaz s 4 096 místy skutečně vrátil chybu 234 a plnou dávku. Po zveřejnění a odebrání zdroje test ověřil všech 4 100 značek, data za offsetem 4 GiB v obou proudech, délku, skutečně nealokovanou mezeru a úklid dokladu. Předchozí zrušený pokus nezveřejnil cíl a zachoval zdroj. Test proběhl na jednom svazku bez systémové výzvy. Ověření na dvou svazcích je součástí akceptace ve VM.
 
 **Přerušení F6 během zápisu.** Nativní zkouška po zápisu prvních 64 KiB do pracovního souboru pošle zrušení přes rouru nebo zavře její protistranu. Obě větve odstraní pracovní soubor, nezveřejní cíl a zachovají zdroj. Následný pokus bez přerušení uspěje. Prošlo 131 kontrol F6 v x64 Debug i Release. Zkouška běží lokálně na jednom svazku. Testovací bod se do produkčního brokeru nesestavuje.
+
+**Řídké F5 s alternativními proudy.** Kopie řídkého souboru do volného názvu teď zachová i pojmenované proudy. Na jednotlivých proudech ověřuje kompresi a u řídkých proudů kopíruje alokované oblasti. Pro pojmenované proudy vyžaduje ověření ochrany pracovního souboru. Stejný postup lze kombinovat s podporovaným přesným kopírováním zabezpečení. Na místním NTFS prošlo 285 nativních kontrol v x64 Debug i Release. Test ověřil bajty i skutečné mezery v hlavním a Unicode pojmenovaném proudu, obsah dalšího běžného proudu, shodu vlastníka, primární skupiny a chráněné DACL i odmítnutí neověřené pracovní kopie. Prošlo sestavení brokeru x64 Release. Integrovaný tok F5 se systémovým souhlasem zbývá ověřit ve VM.
 
 ## 12. Testovací strategie
 
