@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Distinguish completed P7 evidence from remaining acceptance gates. | Avoid repeating closed scenarios and record F6 on two volumes under WOW64. | | Codex |
 | 2026-11-09 | Verify hidden language modules in the UAC payload. | Prevent an unverified module from passing distribution checks. | | Codex |
 | 2026-11-09 | Verify Scan Ahead with a paused scanner. | Reproduce the stale wait and check isolation using real Windows events. | | Codex |
 | 2026-11-09 | Verify the exact x64 Scan Ahead pilot payload. | Tie distribution and transport evidence to the binaries used for VM acceptance. | | Codex |
@@ -1843,6 +1844,10 @@ Opakovaný výpis GitHubu je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f
 #### Aktuální stav P7 a zbývající ověření
 
 Tento přehled je výchozí bod pro další práci. Výše jsou chronologické záznamy jednotlivých pokusů včetně tehdejších otevřených bodů. Před novou zkouškou porovnat scénář, prostředí a očekávaný důkaz s tímto přehledem. Po zkoušce sem zapsat závěr a odkaz na důkaz.
+
+**Kdy zkoušku znovu otevřít.** Souběžný F5 a pozastavený Scan Ahead, F6 na dvou svazcích, lokalizované popisky a laboratorní kontrola balíčku mají dostatečný důkaz v níže uvedeném rozsahu. Opakovat je při změně příslušného kódu, regresi nebo při ověřování dosud nepokryté platformy. Další simulace DPI nenahradí ověření celého dialogu při skutečném vyšším DPI. Po schváleném pushi ověřit CI a CodeQL pro přesnou revizi. Pro nativní ARM64 a podpis použít připravené postupy, až bude dostupné odpovídající prostředí a podepsané artefakty. Hranice Koše při schválení jiným účtem je popsána samostatně níže.
+
+**F6 na dvou svazcích pod WOW64.** Nativní sada sestavená pro x86 v Release prošla všech 83 kontrol na různých pevných svazcích NTFS C: a E:. Ověřila zrušení a odpojení během ověřování kopie, zachování zdrojových odkazů, obnovu žurnálu i řídká data za offsetem 4 GiB. Zkouška využívá nízkoúrovňové souborové funkce bez systémové výzvy. Příkaz a výsledek jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f6-wow64-two-volumes jako run.cmd a Release.log.
 
 | Oblast | Doložený stav | Zbývající krok |
 |---|---|---|
