@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Publish archive copy with valid marker and drop effect. | OLE clipboard publication failed when private formats had invalid media and effect was added afterward. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-05 | Survive faulty shell extension SEH in context menus. | QueryContextMenu/InvokeCommand/HandleMenuMsg must not terminate the process. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -1851,8 +1852,6 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                         {
                             if (CreateDirectory(fakeRootDir, NULL))
                             {
-                                DWORD prefferedDropEffect = DROPEFFECT_COPY; // DROPEFFECT_MOVE (we used it for debugging purposes)
-
                                 // create objects for copy&paste
                                 *fakeName = 0;
                                 IDataObject* dataObject = CreateIDataObject(MainWindow->HWindow, fakeRootDir,
@@ -1860,99 +1859,80 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                 if (dataObject != NULL)
                                 {
                                     *fakeName = '\\';
-                                    CFakeCopyPasteDataObject* fakeDataObject = new CFakeCopyPasteDataObject(dataObject, fakeRootDir);
-                                    if (fakeDataObject != NULL)
+                                    // Attach PreferredDropEffect before publishing the
+                                    // OLE object. Opening the Win32 clipboard after
+                                    // OleSetClipboard can replace or invalidate the
+                                    // delayed-rendered archive object.
+                                    if (SUCCEEDED(SetShellDataDropEffect(dataObject, DROPEFFECT_COPY)))
                                     {
-                                        UINT cfPrefDrop = RegisterClipboardFormat(CFSTR_PREFERREDDROPEFFECT);
-                                        HANDLE effect = NOHANDLES(GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, sizeof(DWORD)));
-                                        if (effect != NULL)
+                                        CFakeCopyPasteDataObject* fakeDataObject = new CFakeCopyPasteDataObject(dataObject, fakeRootDir);
+                                        if (fakeDataObject != NULL)
                                         {
-                                            DWORD* ef = (DWORD*)HANDLES(GlobalLock(effect));
-                                            if (ef != NULL)
+                                            if (SalShExtPastedData.SetData(panel->GetZIPArchive(), panel->GetZIPPath(),
+                                                                           panel->Files, panel->Dirs,
+                                                                           panel->IsCaseSensitive(),
+                                                                           (count == 0) ? &index : indexes,
+                                                                           (count == 0) ? 1 : count))
                                             {
-                                                *ef = prefferedDropEffect;
-                                                HANDLES(GlobalUnlock(effect));
-
-                                                if (SalShExtPastedData.SetData(panel->GetZIPArchive(), panel->GetZIPPath(),
-                                                                               panel->Files, panel->Dirs,
-                                                                               panel->IsCaseSensitive(),
-                                                                               (count == 0) ? &index : indexes,
-                                                                               (count == 0) ? 1 : count))
+                                                BOOL clearSalShExtPastedData = TRUE;
+                                                if (OleSetClipboard(fakeDataObject) == S_OK)
                                                 {
-                                                    BOOL clearSalShExtPastedData = TRUE;
-                                                    if (OleSetClipboard(fakeDataObject) == S_OK)
-                                                    { // on a successful save - the system calls fakeDataObject->AddRef() +
-                                                        // store the default drop effect
-                                                        if (OpenClipboard(MainWindow->HWindow))
-                                                        {
-                                                            if (SetClipboardData(cfPrefDrop, effect) != NULL)
-                                                                effect = NULL;
-                                                            CloseClipboard();
-                                                        }
-                                                        else
-                                                            TRACE_E("OpenClipboard() has failed!");
+                                                    // on a successful save - OLE adds its reference
+                                                    // and keeps the object on the clipboard.
+                                                    OurDataOnClipboard = TRUE;
 
-                                                        // our data are already on the clipboard (we must clean them up when Salamander exits)
-                                                        OurDataOnClipboard = TRUE;
+                                                    // initialize shared memory
+                                                    WaitForSingleObject(SalShExtSharedMemMutex, INFINITE);
+                                                    BOOL sharedMemOK = SalShExtSharedMemView->Size >= sizeof(CSalShExtSharedMem);
+                                                    if (sharedMemOK)
+                                                    {
+                                                        SalShExtSharedMemView->DoPasteFromSalamander = TRUE;
+                                                        SalShExtSharedMemView->ClipDataObjLastGetDataTime = GetTickCount() - 60000;
+                                                        *fakeName = '\\';
+                                                        lstrcpyn(SalShExtSharedMemView->PasteFakeDirName, fakeRootDir, MAX_PATH);
+                                                        SalShExtSharedMemView->SalamanderMainWndPID = GetCurrentProcessId();
+                                                        SalShExtSharedMemView->SalamanderMainWndTID = GetCurrentThreadId();
+                                                        SalShExtSharedMemView->SalamanderMainWnd = (UINT64)(DWORD_PTR)MainWindow->HWindow;
+                                                        SalShExtSharedMemView->PastedDataID++;
+                                                        SalShExtPastedData.SetDataID(SalShExtSharedMemView->PastedDataID);
+                                                        clearSalShExtPastedData = FALSE;
+                                                        SalShExtSharedMemView->PasteDone = FALSE;
+                                                        lstrcpyn(SalShExtSharedMemView->ArcUnableToPaste1, LoadStr(IDS_ARCUNABLETOPASTE1), 300);
+                                                        lstrcpyn(SalShExtSharedMemView->ArcUnableToPaste2, LoadStr(IDS_ARCUNABLETOPASTE2), 300);
 
-                                                        // initialize shared memory
-                                                        WaitForSingleObject(SalShExtSharedMemMutex, INFINITE);
-                                                        BOOL sharedMemOK = SalShExtSharedMemView->Size >= sizeof(CSalShExtSharedMem);
-                                                        if (sharedMemOK)
-                                                        {
-                                                            SalShExtSharedMemView->DoPasteFromSalamander = TRUE;
-                                                            SalShExtSharedMemView->ClipDataObjLastGetDataTime = GetTickCount() - 60000; // initialize to 1 minute before creating the data object
-                                                            *fakeName = '\\';
-                                                            lstrcpyn(SalShExtSharedMemView->PasteFakeDirName, fakeRootDir, MAX_PATH);
-                                                            SalShExtSharedMemView->SalamanderMainWndPID = GetCurrentProcessId();
-                                                            SalShExtSharedMemView->SalamanderMainWndTID = GetCurrentThreadId();
-                                                            SalShExtSharedMemView->SalamanderMainWnd = (UINT64)(DWORD_PTR)MainWindow->HWindow;
-                                                            SalShExtSharedMemView->PastedDataID++;
-                                                            SalShExtPastedData.SetDataID(SalShExtSharedMemView->PastedDataID);
-                                                            clearSalShExtPastedData = FALSE;
-                                                            SalShExtSharedMemView->PasteDone = FALSE;
-                                                            lstrcpyn(SalShExtSharedMemView->ArcUnableToPaste1, LoadStr(IDS_ARCUNABLETOPASTE1), 300);
-                                                            lstrcpyn(SalShExtSharedMemView->ArcUnableToPaste2, LoadStr(IDS_ARCUNABLETOPASTE2), 300);
-
-                                                            delFakeDir = FALSE; // everything is OK, the fake directory is used
-                                                            fakeDataObject->SetCutOrCopyDone();
-                                                        }
-                                                        else
-                                                            TRACE_E("Shared memory is too small!");
-                                                        ReleaseMutex(SalShExtSharedMemMutex);
-
-                                                        if (!sharedMemOK) // if communication with salextx86.dll or salextx64.dll cannot be established, there is no point in leaving the data object on the clipboard
-                                                        {
-                                                            OleSetClipboard(NULL);
-                                                            OurDataOnClipboard = FALSE; // theoretically redundant (should be set in fakeDataObject::Release() a few lines below)
-                                                        }
-                                                        // clipboard change, verify it...
-                                                        IdleRefreshStates = TRUE;  // force a check of the state variables on the next Idle
-                                                        IdleCheckClipboard = TRUE; // also let it check the clipboard
-
-                                                        // for COPY clear the CutToClip flag
-                                                        if (panel->CutToClipChanged)
-                                                            panel->ClearCutToClipFlag(TRUE);
-                                                        CFilesWindow* anotherPanel = MainWindow->LeftPanel == panel ? MainWindow->RightPanel : MainWindow->LeftPanel;
-                                                        // for COPY clear the CutToClip flag on the other panel as well
-                                                        if (anotherPanel->CutToClipChanged)
-                                                            anotherPanel->ClearCutToClipFlag(TRUE);
+                                                        delFakeDir = FALSE;
+                                                        fakeDataObject->SetCutOrCopyDone();
                                                     }
                                                     else
-                                                        TRACE_E("Unable to set data object to clipboard (copy&paste from archive)!");
-                                                    if (clearSalShExtPastedData)
-                                                        SalShExtPastedData.Clear();
+                                                        TRACE_E("Shared memory is too small!");
+                                                    ReleaseMutex(SalShExtSharedMemMutex);
+
+                                                    if (!sharedMemOK)
+                                                    {
+                                                        OleSetClipboard(NULL);
+                                                        OurDataOnClipboard = FALSE;
+                                                    }
+                                                    IdleRefreshStates = TRUE;
+                                                    IdleCheckClipboard = TRUE;
+
+                                                    if (panel->CutToClipChanged)
+                                                        panel->ClearCutToClipFlag(TRUE);
+                                                    CFilesWindow* anotherPanel = MainWindow->LeftPanel == panel ? MainWindow->RightPanel : MainWindow->LeftPanel;
+                                                    if (anotherPanel->CutToClipChanged)
+                                                        anotherPanel->ClearCutToClipFlag(TRUE);
                                                 }
+                                                else
+                                                    TRACE_E("Unable to set data object to clipboard (copy&paste from archive)!");
+                                                if (clearSalShExtPastedData)
+                                                    SalShExtPastedData.Clear();
                                             }
-                                            if (effect != NULL)
-                                                NOHANDLES(GlobalFree(effect));
+                                            fakeDataObject->Release();
                                         }
                                         else
                                             TRACE_E(LOW_MEMORY);
-                                        fakeDataObject->Release(); // if fakeDataObject is on the clipboard, it is released when the application exits or when removed from the clipboard
                                     }
                                     else
-                                        TRACE_E(LOW_MEMORY);
+                                        TRACE_E("Unable to attach archive copy effect to clipboard data object!");
                                 }
                                 ShellActionAux7(dataObject, NULL);
                             }

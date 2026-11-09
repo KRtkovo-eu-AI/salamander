@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Return a valid HGLOBAL for the archive clipboard marker. | OLE proxies reject data objects whose advertised private format returns an empty medium. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -457,8 +460,31 @@ STDMETHODIMP CFakeCopyPasteDataObject::GetData(FORMATETC* formatEtc, STGMEDIUM* 
     //  TRACE_I("CFakeCopyPasteDataObject::GetData():" << formatEtc->cfFormat << " (" << buf << ")");
     if (formatEtc == NULL || medium == NULL)
         return E_INVALIDARG;
-    if (formatEtc->cfFormat == CFSalFakeRealPath && (formatEtc->tymed & TYMED_HGLOBAL))
-        return DV_E_FORMATETC; // presence is reported by QueryGetData(); S_OK requires a valid STGMEDIUM
+    HRESULT fakeFormat = QueryPrivateHGlobalClipboardFormat(formatEtc, CFSalFakeRealPath);
+    if (fakeFormat == S_OK)
+    {
+        // QueryGetData advertises this private format as the archive-copy marker.
+        // OLE clipboard proxies require a real, marshalable medium for every format
+        // that returns S_OK; an empty STGMEDIUM makes OleSetClipboard fail or drop
+        // the data object and leaves the previous clipboard contents in place.
+        HGLOBAL data = NOHANDLES(GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, sizeof(char)));
+        if (data == NULL)
+            return E_OUTOFMEMORY;
+        char* value = (char*)HANDLES(GlobalLock(data));
+        if (value == NULL)
+        {
+            NOHANDLES(GlobalFree(data));
+            return E_OUTOFMEMORY;
+        }
+        *value = 0;
+        HANDLES(GlobalUnlock(data));
+        medium->tymed = TYMED_HGLOBAL;
+        medium->hGlobal = data;
+        medium->pUnkForRelease = NULL;
+        return S_OK;
+    }
+    if (fakeFormat != DV_E_FORMATETC)
+        return fakeFormat;
     else
     {
         if (formatEtc->cfFormat == CFIdList)
