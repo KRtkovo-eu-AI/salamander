@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Verify the exact-file Find wire scope. | Refuse enumeration, names and out-of-range requests on a live pipe. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Disconnect one of two protected Find content sessions. | Verify the other broker session continues reading. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise nonlocal volume names on the broker pipe. | Reject UNC and device aliases before copying or moving any file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Reject malformed transfer progress on a live pipe. | Keep invalid progress out of the worker and require a terminal result. | | GPT-6.1 Sol (Codex) |
@@ -98,7 +99,8 @@ class JobPipe
 public:
     ~JobPipe() { Finish(); }
 
-    bool Open(HANDLE readyToDispatch = nullptr, HANDLE findRoot = nullptr)
+    bool Open(HANDLE readyToDispatch = nullptr, HANDLE findRoot = nullptr,
+              Operation findScope = Operation::FindContent)
     {
         GUID id{};
         if (FAILED(CoCreateGuid(&id)))
@@ -109,7 +111,7 @@ public:
             1, 4096, 4096, 0, nullptr));
         if (!server)
             return false;
-        dispatcher = std::thread([this, name, readyToDispatch, findRoot] {
+        dispatcher = std::thread([this, name, readyToDispatch, findRoot, findScope] {
             const ComApartment com;
             if (FAILED(com.result))
                 return;
@@ -119,7 +121,7 @@ public:
             {
                 if (findRoot)
                 {
-                    dispatchError = ServeListings(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), findRoot, Operation::FindContent);
+                    dispatchError = ServeListings(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), findRoot, findScope);
                     return;
                 }
                 const InstallLocation install;
@@ -195,13 +197,10 @@ public:
 
     bool OpenFindContent(std::wstring_view leaf)
     {
-        DWORD length = static_cast<DWORD>(leaf.size()) | UacListing::contentRequest;
-        std::wstring relative(leaf);
         DWORD status = ERROR_GEN_FAILURE;
         UacF7::ArchiveRevision revision{};
         const auto deadline = GetTickCount64() + timeoutMs;
-        return !TransferRequest(server.get(), &length, sizeof(length), true, deadline) &&
-               !TransferRequest(server.get(), relative.data(), static_cast<DWORD>(relative.size() * sizeof(wchar_t)), true, deadline) &&
+        return SendFindRequest(UacListing::contentRequest, leaf, deadline) &&
                !TransferRequest(server.get(), &status, sizeof(status), false, deadline) && !status &&
                !TransferRequest(server.get(), &revision, sizeof(revision), false, deadline) && revision.size == 1;
     }
@@ -221,7 +220,34 @@ public:
                !TransferRequest(server.get(), &status, sizeof(status), false, deadline) && !status;
     }
 
+    bool RejectFindRequest(DWORD header)
+    {
+        return SendFindRequest(header, {}, GetTickCount64() + timeoutMs) && EndedWithoutFindReply();
+    }
+
+    bool RejectFindRange(UacF7::ArchiveReadRange range)
+    {
+        return !TransferRequest(server.get(), &range, sizeof(range), true, GetTickCount64() + timeoutMs) &&
+               EndedWithoutFindReply();
+    }
+
 private:
+    bool SendFindRequest(DWORD flags, std::wstring_view path, ULONGLONG deadline)
+    {
+        DWORD length = static_cast<DWORD>(path.size()) | flags;
+        std::wstring relative(path);
+        return !TransferRequest(server.get(), &length, sizeof(length), true, deadline) &&
+               (relative.empty() || !TransferRequest(server.get(), relative.data(),
+                   static_cast<DWORD>(relative.size() * sizeof(wchar_t)), true, deadline));
+    }
+
+    bool EndedWithoutFindReply()
+    {
+        DWORD reply = 0;
+        return TransferRequest(server.get(), &reply, sizeof(reply), false, GetTickCount64() + timeoutMs) == ERROR_BROKEN_PIPE &&
+               Finish() == ERROR_INVALID_DATA;
+    }
+
     Handle server;
     std::thread dispatcher;
     DWORD dispatchError = ERROR_GEN_FAILURE;
@@ -247,6 +273,43 @@ void CheckFindContentDisconnect(const Directory& first, const Directory& second)
     Check(remaining.ReadAndCloseFindContent(23) && remaining.OpenFindContent(leaf) &&
               remaining.ReadAndCloseFindContent(23),
           "another Find session reads the correct file and remains usable after the disconnect");
+}
+
+void CheckExactFindScope(const Directory& source)
+{
+    const auto path = source.File(L"exact-find-file");
+    if (!WriteByte(path, 37))
+    {
+        Check(false, "prepare an exact-file Find source");
+        return;
+    }
+    const auto file = Adopt(CreateFileW(path.c_str(), FILE_READ_DATA | FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+                                        nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    if (!file)
+    {
+        Check(false, "pin the exact-file Find source");
+        return;
+    }
+    {
+        JobPipe exact;
+        Check(exact.Open(nullptr, file.get(), Operation::FindFile) && exact.OpenFindContent({}) &&
+                  exact.ReadAndCloseFindContent(37),
+              "an exact-file Find grant returns bytes from its pinned file");
+    }
+    const std::pair<DWORD, const char*> rejected[] = {
+        {0, "an exact-file Find grant rejects directory listing without a reply"},
+        {UacListing::inventoryRequest, "an exact-file Find grant rejects inventory without a reply"},
+        {UacListing::contentRequest | 1, "an exact-file Find grant rejects named content without a reply"},
+    };
+    for (const auto& [header, reason] : rejected)
+    {
+        JobPipe exact;
+        Check(exact.Open(nullptr, file.get(), Operation::FindFile) && exact.RejectFindRequest(header), reason);
+    }
+    JobPipe exact;
+    Check(exact.Open(nullptr, file.get(), Operation::FindFile) && exact.OpenFindContent({}) &&
+              exact.RejectFindRange({1, 1, 0}),
+          "an exact-file Find grant closes the pipe without returning bytes beyond EOF");
 }
 
 void CheckCopyJob(const Directory& source, const Directory& target, const Directory& outside)
@@ -749,6 +812,7 @@ int wmain()
     if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
         return 2;
     CheckFindContentDisconnect(source, outside);
+    CheckExactFindScope(source);
     CheckCopyJob(source, target, outside);
     CheckCompetingCopyJobs(source, outside, target);
     CheckStaleOverwriteJob(source, target);
