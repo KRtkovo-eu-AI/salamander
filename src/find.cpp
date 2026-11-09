@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 // | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 // | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
 // | 2026-11-09 | Substitute Find error details as plain text. | Preserve localization without interpreting resource text as a printf format. | | GPT-6.1 Sol (Codex) |
@@ -1881,6 +1882,8 @@ public:
 private:
     void Log(const std::wstring& directory, DWORD error)
     {
+        if (error == ERROR_CANCELLED && data->StopSearch)
+            return;
         const std::string pathText = SalWideToMultiBytePath(directory.c_str(), CP_UTF8);
         const std::string text = error == ERROR_CANCELLED ? LoadStr(IDS_FINDLOG_SKIP) : GetErrorText(error);
         const DWORD flags = error == ERROR_CANCELLED ? FLI_INFO : FLI_ERROR;

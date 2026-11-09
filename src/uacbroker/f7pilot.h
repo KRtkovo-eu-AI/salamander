@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 | 2026-11-09 | Expose optional broker activity notifications. | Allow native progress to mark authenticated work. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose the explicit transfer total to the host. | Distinguish actual tree and raw stream totals from the ordinary estimate. | | GPT-6.1 Sol (Codex) |
@@ -541,11 +542,13 @@ public:
     bool IsOpen() const { return pipe != nullptr; }
 
 private:
+    DWORD Transfer(void* buffer, DWORD length, bool send, ULONGLONG deadline);
     DWORD SendPath(const std::wstring& path, DWORD flags, ULONGLONG deadline);
     void Close();
     PreparedLeaf prepared;
     std::wstring root;
     HANDLE pipe = nullptr;
+    HANDLE stopEvent = nullptr; // borrowed until the Find worker joins
     bool contentOpen = false;
 };
 

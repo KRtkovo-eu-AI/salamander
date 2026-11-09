@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 | 2026-11-09 | Look up the tree registration slot by its exact digit. | Keep command-line input out of integer arithmetic and preserve the accepted range. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Serialize final F5 publication with protected overwrites. | A new copy cannot fill the temporary gap in a journaled replacement. | | GPT-6.1 Sol (Codex) |
@@ -3467,6 +3468,7 @@ ListingSession::~ListingSession()
 void ListingSession::Close()
 {
     contentOpen = false;
+    stopEvent = nullptr;
     if (pipe)
     {
         CloseHandle(pipe);
@@ -3507,6 +3509,8 @@ DWORD ListingSession::Start(HWND owner, HANDLE stop)
     std::wstring payload = prepared.volume + prepared.relative + prepared.leaf;
     Result result;
     RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &pipe, stop);
+    if (pipe)
+        stopEvent = stop;
     return result.error;
 }
 
@@ -3518,6 +3522,11 @@ bool ListingSession::Contains(const std::wstring& path) const
            (path.size() == root.size() || (path.size() > root.size() && path[root.size()] == L'\\'));
 }
 
+DWORD ListingSession::Transfer(void* buffer, DWORD length, bool send, ULONGLONG deadline)
+{
+    return TransferRequest(pipe, buffer, length, send, deadline, nullptr, nullptr, nullptr, stopEvent);
+}
+
 DWORD ListingSession::SendPath(const std::wstring& path, DWORD flags, ULONGLONG deadline)
 {
     if (contentOpen || !Contains(path) || (prepared.operation == Operation::FindFile && flags != UacListing::contentRequest))
@@ -3526,9 +3535,9 @@ DWORD ListingSession::SendPath(const std::wstring& path, DWORD flags, ULONGLONG 
     if (relative.size() > UacDirectoryLeaf::maxNativeName)
         return ERROR_FILENAME_EXCED_RANGE;
     DWORD request = static_cast<DWORD>(relative.size()) | flags;
-    DWORD error = TransferRequest(pipe, &request, sizeof(request), true, deadline);
+    DWORD error = Transfer(&request, sizeof(request), true, deadline);
     if (!error && !relative.empty())
-        error = TransferRequest(pipe, relative.data(), static_cast<DWORD>(relative.size() * sizeof(wchar_t)), true, deadline);
+        error = Transfer(relative.data(), static_cast<DWORD>(relative.size() * sizeof(wchar_t)), true, deadline);
     if (error)
         Close();
     return error;
@@ -3547,10 +3556,10 @@ DWORD ListingSession::OpenContent(const std::wstring& path, ULONGLONG& size, FIL
     if (error)
         return error;
     DWORD status = ERROR_SUCCESS;
-    error = TransferRequest(pipe, &status, sizeof(status), false, deadline);
+    error = Transfer(&status, sizeof(status), false, deadline);
     if (!error && !status)
     {
-        error = TransferRequest(pipe, &revision, sizeof(revision), false, deadline);
+        error = Transfer(&revision, sizeof(revision), false, deadline);
         if (!error && (revision.size < 0 || revision.reserved))
             error = ERROR_INVALID_DATA;
     }
@@ -3576,11 +3585,11 @@ DWORD ListingSession::ReadContent(ULONGLONG offset, void* buffer, DWORD bytes)
     const auto deadline = GetTickCount64() + timeoutMs;
     ArchiveReadRange range{offset, bytes, 0};
     DWORD status = ERROR_SUCCESS;
-    DWORD error = TransferRequest(pipe, &range, sizeof(range), true, deadline);
+    DWORD error = Transfer(&range, sizeof(range), true, deadline);
     if (!error)
-        error = TransferRequest(pipe, &status, sizeof(status), false, deadline);
+        error = Transfer(&status, sizeof(status), false, deadline);
     if (!error && !status)
-        error = TransferRequest(pipe, buffer, bytes, false, deadline);
+        error = Transfer(buffer, bytes, false, deadline);
     if (error)
         Close();
     return error ? error : status;
@@ -3594,9 +3603,9 @@ DWORD ListingSession::CloseContent()
     ArchiveReadRange end{};
     DWORD status = ERROR_SUCCESS;
     const auto deadline = GetTickCount64() + timeoutMs;
-    DWORD error = TransferRequest(pipe, &end, sizeof(end), true, deadline);
+    DWORD error = Transfer(&end, sizeof(end), true, deadline);
     if (!error)
-        error = TransferRequest(pipe, &status, sizeof(status), false, deadline);
+        error = Transfer(&status, sizeof(status), false, deadline);
     if (error)
         Close();
     return error ? error : status;
@@ -3613,24 +3622,24 @@ DWORD ListingSession::Inventory(const std::wstring& path, DirectoryInventory& in
     if (error)
         return error;
     ListingReply reply{};
-    error = TransferRequest(pipe, &reply, sizeof(reply), false, deadline);
+    error = Transfer(&reply, sizeof(reply), false, deadline);
     if (!error && reply.count)
         error = ERROR_INVALID_DATA;
     if (!error && !reply.error)
     {
         DirectoryInventory complete;
-        error = TransferRequest(pipe, &complete, sizeof(complete), false, deadline);
+        error = Transfer(&complete, sizeof(complete), false, deadline);
         if (!error && (complete.directories > UacListing::maxEntries ||
                        complete.files > UacListing::maxEntries - complete.directories))
             error = ERROR_INVALID_DATA;
         if (!error && details)
         {
             DirectorySizeDetails measured;
-            error = TransferRequest(pipe, &measured.disk, sizeof(measured.disk), false, deadline);
+            error = Transfer(&measured.disk, sizeof(measured.disk), false, deadline);
             if (!error && complete.files)
             {
                 measured.fileSizes.resize(complete.files);
-                error = TransferRequest(pipe, measured.fileSizes.data(), complete.files * sizeof(ULONGLONG), false, deadline);
+                error = Transfer(measured.fileSizes.data(), complete.files * sizeof(ULONGLONG), false, deadline);
             }
             ULONGLONG sum = 0;
             for (const auto size : measured.fileSizes)
@@ -3664,13 +3673,13 @@ DWORD ListingSession::List(const std::wstring& path, std::vector<WIN32_FIND_DATA
         return error;
     ListingReply reply{};
     if (!error)
-        error = TransferRequest(pipe, &reply, sizeof(reply), false, deadline);
+        error = Transfer(&reply, sizeof(reply), false, deadline);
     if (!error && (reply.count > UacListing::maxEntries || (reply.error && reply.count)))
         error = ERROR_INVALID_DATA;
     if (!error && reply.count)
     {
         entries.resize(reply.count);
-        error = TransferRequest(pipe, entries.data(), reply.count * static_cast<DWORD>(sizeof(WIN32_FIND_DATAW)), false, deadline);
+        error = Transfer(entries.data(), reply.count * static_cast<DWORD>(sizeof(WIN32_FIND_DATAW)), false, deadline);
         if (!error)
         {
             for (const auto& entry : entries)

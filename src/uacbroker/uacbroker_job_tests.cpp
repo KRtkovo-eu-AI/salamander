@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 // | 2026-11-09 | Pause an actual overwrite during a live copy. | Verify the staged copy cannot fill the original name while the replacement holds the journal. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Lock the journal after a live copy writes its first block. | Reproduce a replacement starting after the copy's initial journal check. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise a competing protected overwrite journal. | Verify a live copy job does not publish while the target journal is locked. | | GPT-6.1 Sol (Codex) |
@@ -319,6 +320,47 @@ void CheckFindContentDisconnect(const Directory& first, const Directory& second)
     Check(remaining.ReadAndCloseFindContent(23) && remaining.OpenFindContent(leaf) &&
               remaining.ReadAndCloseFindContent(23),
           "another Find session reads the correct file and remains usable after the disconnect");
+}
+
+void CheckStoppedFindReply()
+{
+    GUID id{};
+    if (FAILED(CoCreateGuid(&id)))
+    {
+        Check(false, "prepare an unresponsive Find reply");
+        return;
+    }
+    const auto name = PipeName(id);
+    auto server = Adopt(CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+        PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_REJECT_REMOTE_CLIENTS, 1, 4096, 4096, 0, nullptr));
+    const auto stop = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto peer = server ? Adopt(CreateFileW(name.c_str(), pipeAccess, 0, nullptr, OPEN_EXISTING,
+                                                FILE_FLAG_OVERLAPPED, nullptr)) : Handle{};
+    const auto deadline = GetTickCount64() + timeoutMs;
+    if (!stop || !peer || Connect(server.get(), deadline))
+    {
+        Check(false, "prepare an unresponsive Find reply");
+        return;
+    }
+
+    DWORD peerError = ERROR_GEN_FAILURE;
+    std::thread broker([&] {
+        DWORD pathSize = MAXDWORD;
+        peerError = TransferRequest(peer.get(), &pathSize, sizeof(pathSize), false, deadline);
+        if (peerError || pathSize != 0 || !SetEvent(stop.get()))
+            return;
+        BYTE extra = 0;
+        peerError = TransferRequest(peer.get(), &extra, sizeof(extra), false, deadline);
+    });
+    DWORD root = 0;
+    DWORD error = TransferRequest(server.get(), &root, sizeof(root), true, deadline);
+    ListingReply reply{};
+    if (!error)
+        error = TransferRequest(server.get(), &reply, sizeof(reply), false, deadline, nullptr, nullptr, nullptr, stop.get());
+    server.reset();
+    broker.join();
+    Check(error == ERROR_CANCELLED && peerError == ERROR_BROKEN_PIPE,
+          "stop an active Find listing wait and close its pipe without a transfer cancellation byte");
 }
 
 void CheckExactFindScope(const Directory& source)
@@ -983,6 +1025,7 @@ int wmain()
     if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
         return 2;
     CheckFindContentDisconnect(source, outside);
+    CheckStoppedFindReply();
     CheckExactFindScope(source);
     CheckCopyJob(source, target, outside);
     CheckCopyOptionScope(source, target);

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 # | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 # | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
 # | 2026-11-09 | Check Find scheduling after a protected scope disconnects. | Continue other scopes without reauthorizing disconnected candidates. | | GPT-6.1 Sol (Codex) |
@@ -59,6 +60,17 @@ def main() -> int:
             "Find must signal the broker before joining the worker and retain the event until the join")
     require("request.session.Start(request.data->HWindow, request.data->StopEvent)" in find_cpp,
             "the protected Find launcher must pass the search cancellation event to the broker handshake")
+
+    broker = (ROOT / "src" / "uacbroker" / "uacbroker.cpp").read_text(encoding="utf-8-sig")
+    listing_transfer = function_body(broker, "DWORD ListingSession::Transfer(")
+    require("TransferRequest(pipe, buffer, length, send, deadline, nullptr, nullptr, nullptr, stopEvent)" in listing_transfer,
+            "active listing requests must use local cancellation without a transfer cancellation byte")
+    for name in ("SendPath", "OpenContent", "ReadContent", "CloseContent", "List"):
+        method = function_body(broker, f"DWORD ListingSession::{name}(")
+        require("Transfer(" in method and "TransferRequest(" not in method and "Close();" in method,
+                f"cancelled {name} requests must release the read session")
+    require("if (error == ERROR_CANCELLED && data->StopSearch)" in find_cpp,
+            "Stop must not report a protected scope as skipped by an elevation decision")
 
     request_refresh = function_body(find_cpp, "static void RequestFindResultsRefresh(CGrepData* data)")
     require("InterlockedExchange(&data->RefreshPosted, TRUE) == FALSE" in request_refresh,
