@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Preserve selected patterns across all control-read paths. | Keep Apply, validation, and candidate building from discarding the selected association when the edit field is empty. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Resolve Apply patterns from the selected matrix row before validation. | Prevent stale or cleared pattern edit text from aborting a valid association update. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Preserve the focused pattern during multi-select Apply. | Avoid rejecting every Apply with an empty pattern when the pattern field displays only a multi-select summary. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Route Apply through the model's user-target operation. | Remove the UI's competing row-upsert path that diverged from canonical override semantics and caused edits to revert. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -4689,6 +4690,7 @@ BOOL CCfgPageFileAssociations::ReadControls(
     Salamander::FileAssociations::Association& item, std::string* error,
     const std::string* fallbackPattern)
 {
+    const std::string originalPattern = item.Pattern;
     const Salamander::FileAssociations::TargetKind previousTargetKind = item.AssociationTarget.Kind;
     const std::string previousStableId = item.AssociationTarget.StableId;
     std::vector<char> pattern(1024);
@@ -4742,6 +4744,23 @@ BOOL CCfgPageFileAssociations::ReadControls(
         item.Pattern = pattern.data();
         if (item.Pattern.empty() && fallbackPattern != NULL)
             item.Pattern = *fallbackPattern;
+        if (item.Pattern.empty())
+            item.Pattern = originalPattern;
+        if (item.Pattern.empty() && SelectedMatrixRow >= 0 &&
+            SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
+            item.Pattern = MatrixRows[SelectedMatrixRow].Pattern;
+        if (item.Pattern.empty())
+        {
+            int selectedRow = ListView_GetNextItem(matrix, -1, LVNI_SELECTED);
+            LVITEM selectedItem;
+            ZeroMemory(&selectedItem, sizeof(selectedItem));
+            selectedItem.mask = LVIF_PARAM;
+            selectedItem.iItem = selectedRow;
+            if (selectedRow >= 0 && ListView_GetItem(matrix, &selectedItem) &&
+                selectedItem.lParam >= 0 &&
+                selectedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
+                item.Pattern = MatrixRows[selectedItem.lParam].Pattern;
+        }
     }
     item.AssociationCategory = static_cast<Salamander::FileAssociations::Category>(SelectedCategory);
     item.Operation = static_cast<Salamander::FileAssociations::PanelOperation>(SelectedOperation);
@@ -4859,7 +4878,8 @@ BOOL CCfgPageFileAssociations::BuildCandidate(
         Selected >= 0 && Selected < static_cast<int>(Rows.size()))
     {
         Salamander::FileAssociations::Association item = editedRows[Selected];
-        if (!ReadControls(item, error))
+        const std::string fallbackPattern = item.Pattern;
+        if (!ReadControls(item, error, &fallbackPattern))
             return FALSE;
         editedRows[Selected] = item;
     }
@@ -4959,7 +4979,8 @@ void CCfgPageFileAssociations::Validate(CTransferInfo& ti)
         Selected >= 0 && Selected < static_cast<int>(Rows.size()))
     {
         Salamander::FileAssociations::Association item = Rows[Selected];
-        if (!ReadControls(item, &error))
+        const std::string fallbackPattern = item.Pattern;
+        if (!ReadControls(item, &error, &fallbackPattern))
         {
             SetStatus(error.c_str());
             ti.ErrorOn(IDE_FILEASSOCIATION_PATTERN);
