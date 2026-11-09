@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Give stateless plugins stable file-association identities. | Make installed viewers without private registry configuration visible as targets and preserve their ownership during migration. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-08 | Expose stable plugin registry identities. | Allow canonical file associations to resolve plugins without relying on session array ordinals. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-06 | Retain all deferred provider references across reload and shutdown retry. | Preserve every LoadLibrary reference across a refused close and provider reload. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // | 2026-11-06 | Combine native exit readiness with deferred module unload. | Preserve managed callback gates and runtime-provider mapping during upstream integration. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
@@ -2595,8 +2596,14 @@ public:
 
     BOOL IsGood() { return Name != NULL; } // was the constructor successful?
 
-    // RegKeyName is the persisted plugin identity; it is not a session array index.
-    const char* GetStableId() const { return RegKeyName != NULL ? RegKeyName : ""; }
+    // Prefer the persisted plugin identity, falling back to its installed DLL
+    // path for stateless plugins that intentionally have no configuration key.
+    const char* GetStableId() const
+    {
+        return RegKeyName != NULL && RegKeyName[0] != 0
+                   ? RegKeyName
+                   : (DLLName != NULL ? DLLName : "");
+    }
 
     // returns the plugin interface
     CPluginInterfaceEncapsulation* GetPluginInterface() { return &PluginIface; }
