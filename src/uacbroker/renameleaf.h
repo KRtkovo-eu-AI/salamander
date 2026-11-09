@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Expose exchange checkpoints to the native fault fixture. | Exercise real handle teardown after each rename and commit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Allow an overlapped relative file open for F6. | Request an exclusive oplock on the exact source name. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Share anchored hard link creation. | Preserve the file identity without opening its original path again. | | GPT-6.1 Sol (Codex) |
@@ -204,6 +205,11 @@ inline DWORD CheckTransferConnection(HANDLE connection, ULONGLONG deadline)
                ? ERROR_CANCELLED : ERROR_INVALID_DATA;
 }
 
+#ifdef SAM_UAC_REPLACEMENT_FAULT_TEST
+enum class ReplacementFaultPoint { JournalFlushed, BackupRenamed, StageRenamed, StageKept, ReceiptFlushed, BackupRetired };
+void PauseReplacementAt(ReplacementFaultPoint point);
+#endif
+
 struct StagedReplacement
 {
     DWORD error;
@@ -226,12 +232,18 @@ inline StagedReplacement ReplaceStagedFile(HANDLE parent, HANDLE original, HANDL
         error = NativeRename(original, parent, backup);
     if (error)
         return {error};
+#ifdef SAM_UAC_REPLACEMENT_FAULT_TEST
+    PauseReplacementAt(ReplacementFaultPoint::BackupRenamed);
+#endif
 
     error = CheckTransferConnection(connection, deadline);
     if (!error)
         error = NativeRename(stage, parent, leaf);
     if (error)
         return {error, NativeRename(original, parent, leaf)};
+#ifdef SAM_UAC_REPLACEMENT_FAULT_TEST
+    PauseReplacementAt(ReplacementFaultPoint::StageRenamed);
+#endif
 
     FILE_DISPOSITION_INFO_EX keep{FILE_DISPOSITION_FLAG_ON_CLOSE};
     if (!SetFileInformationByHandle(stage, FileDispositionInfoEx, &keep, sizeof(keep)))
@@ -240,6 +252,9 @@ inline StagedReplacement ReplaceStagedFile(HANDLE parent, HANDLE original, HANDL
         // and its journal so the caller can handle the interrupted exchange.
         return {GetLastError(), ERROR_PARTIAL_COPY};
     }
+#ifdef SAM_UAC_REPLACEMENT_FAULT_TEST
+    PauseReplacementAt(ReplacementFaultPoint::StageKept);
+#endif
     return {ERROR_SUCCESS};
 }
 

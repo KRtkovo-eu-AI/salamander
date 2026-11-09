@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Test abrupt process exit during disk overwrite. | Verify recovery and retained data at each exchange checkpoint. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Match protected duplicate filters and digest on one open. | Keep combined results independent of mutable NTFS timestamps. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify disk overwrite receipts before retiring backups. | Retain the prior target when the published copy was changed after a broker exit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Combine exact compression and named streams in F5. | Verify contents, storage and collision behavior together. | | GPT-6.1 Sol (Codex) |
@@ -1221,6 +1222,10 @@ V x64 Debug i Release prošlo 264 nativních kontrol. Zkoušky obnovy odmítly n
 **Jedno otevření pro chráněné filtry a otisk duplicit.** Find nejprve zařadí chráněného kandidáta podle masky a metadat a vyřadí samostatné položky v předběžných skupinách. V obsahové fázi otevře každý zbývající chráněný soubor v původní schválené relaci. Nad stejným brokerovým handlem vyhodnotí tagy a text a u shody spočítá MD5 pro stávající porovnání duplicit. Kandidáta zařadí až po ověřeném ukončení čtení. To platí i pro dodatečný souhlas k jednotlivému souboru, jehož běžné otevření pro otisk selhalo. Neshoda filtrů nevyvolá chybu. Tento postup nahrazuje spoléhání na časové údaje při opětovném otevření souboru mezi filtrováním a otiskem.
 
 Prošlo sestavení aplikace x64 Debug, tři sady kontroly Findu a 264 nativních kontrol x64 Release včetně ověřeného čtení dlouhé Unicode cesty, revize, tagového streamu a omezení souhlasu k jedinému souboru. Kontrola toku ověřila seskupení před filtrováním, jedno otevření pro obě podmínky a otisk, uzavření i při neshodě a odmítnutí výsledku při chybě zavření. Skutečná kombinace textu, tagů a duplicit v chráněném Findu se systémovým souhlasem je scénář společné akceptace ve VM.
+
+**Tvrdé ukončení procesu při diskovém přepisu F5.** Nativní sada spouští skutečné funkce výměny a žurnálu v samostatném testovacím procesu nad dočasným NTFS adresářem. Ukončí jej až po signálu konkrétního bodu a ověří kód ukončení. Před prvním přejmenováním ponechá obnova původní cíl. Po odsunutí originálu i po přejmenování pracovní kopie bez potvrzení NTFS odstraní nedokončenou kopii při zavření handlů a obnova vrátí přesný originál. Po potvrzení výměny bez trvalého dokladu obnova vrátí částečný výsledek 299 a ponechá oba soubory i žurnál. Po zápisu dokladu uklidí ověřenou zálohu a po jejím dřívějším odstranění uklidí jen žurnál. Ve všech případech se kontroluje ID a obsah výsledku, stav pracovních souborů a zachování sousedního souboru.
+
+Lokálně prošlo všech šest bodů tvrdého ukončení a celkem 270 nativních kontrol v x64 Debug i Release. Po sjednocení spouštění testovacích procesů prošlo také 125 regresí F6 v x64 Release a sestavení brokeru x64 Release. Body přerušení se kompilují jen do nativní testovací sady. V izolované VM zbývá ověřit stejný tok z panelu po skutečné výzvě UAC a chování uživatelského hlášení.
 
 ## 12. Testovací strategie
 

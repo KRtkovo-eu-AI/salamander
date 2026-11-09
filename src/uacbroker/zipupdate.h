@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Expose durable overwrite checkpoints to native fault tests. | Prove the actual recovery path after process termination. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind disk overwrite cleanup to both file revisions. | Retain a recovery backup when the target or backup has changed since publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the verified replacement journal for disk files. | Keep ZIP and disk backups in separate namespaces. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the shared staged-file exchange for ZIP writes. | Keep revision checks and journal lifecycle in the archive publisher. | | GPT-6.1 Sol (Codex) |
@@ -372,6 +373,9 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
     error = disk ? WriteRecord(journal, diskRecord) : WriteRecord(journal, record);
     if (error)
         return {error, ClearRecord(journal)};
+#ifdef SAM_UAC_REPLACEMENT_FAULT_TEST
+    PauseReplacementAt(ReplacementFaultPoint::JournalFlushed);
+#endif
     const auto exchange = ReplaceStagedFile(parent, original.get(), stage, leaf, backupName, connection, deadline);
     if (exchange.error)
         return {exchange.error, exchange.rollbackError ? exchange.rollbackError : ClearRecord(journal)};
@@ -393,12 +397,20 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
             cleanup = ERROR_FILE_INVALID;
         if (!cleanup)
             cleanup = WriteRecord(journal, diskRecord);
+#ifdef SAM_UAC_REPLACEMENT_FAULT_TEST
+        if (!cleanup)
+            PauseReplacementAt(ReplacementFaultPoint::ReceiptFlushed);
+#endif
         if (!cleanup)
             cleanup = VerifyDiskReceipt(original.get(), stage, receipt);
     }
     if (!cleanup)
         cleanup = RemoveBackup(original.get());
     original.reset();
+#ifdef SAM_UAC_REPLACEMENT_FAULT_TEST
+    if (disk && !cleanup)
+        PauseReplacementAt(ReplacementFaultPoint::BackupRetired);
+#endif
     if (!cleanup)
         cleanup = ClearRecord(journal);
     return {ERROR_SUCCESS, cleanup, true};

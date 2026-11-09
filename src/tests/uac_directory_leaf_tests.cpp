@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Kill the disk overwrite fixture at durable checkpoints. | Verify recovery of the real exchange after abrupt handle teardown. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify disk overwrite recovery after later edits. | Retain both names when the journal cannot prove the published target and backup are unchanged. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise compressed F5 with mixed named streams. | Verify the copy, refusal of a writable stage or busy stream, and preservation of a colliding target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise mixed NTFS stream compression in F6. | Compare dense, compressed and sparse streams after publishing and retiring a sealed source. | | GPT-6.1 Sol (Codex) |
@@ -83,6 +84,7 @@
 | 2026-11-07 | Probe NTFS native rename with a directory handle. | Verify the target cannot be redirected before adding broker rename. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Test anchored mkdir against real NTFS substitutions. | Verify that a replacement path and reparse points cannot redirect a creation. | | GPT-6.1 Sol (Codex) |
 */
+#define SAM_UAC_REPLACEMENT_FAULT_TEST
 #include "../uacbroker/metadataleaf.h"
 #include "../uacbroker/deleteleaf.h"
 #include "../uacbroker/listing.h"
@@ -101,6 +103,18 @@
 #include <thread>
 
 extern "C" NTSYSAPI NTSTATUS NTAPI NtSetEaFile(HANDLE, PIO_STATUS_BLOCK, PVOID, ULONG);
+
+namespace UacRenameLeaf::Detail
+{
+static HANDLE replacementFaultSignal = nullptr;
+static ReplacementFaultPoint replacementFaultPoint{};
+
+void PauseReplacementAt(ReplacementFaultPoint point)
+{
+    if (replacementFaultSignal && point == replacementFaultPoint && SetEvent(replacementFaultSignal))
+        Sleep(7000);
+}
+}
 
 namespace
 {
@@ -1479,31 +1493,37 @@ int HoldMoveSourcePending(const std::wstring& fixture, const wchar_t* signal)
     return 3;
 }
 
-bool InterruptPendingMoveSource(const std::wstring& fixture)
+bool InterruptFixtureChild(const std::wstring& fixture, const std::wstring& mode)
 {
     GUID id{};
     wchar_t guid[39]{};
     if (FAILED(CoCreateGuid(&id)) || !StringFromGUID2(id, guid, ARRAYSIZE(guid)))
         return false;
-    const std::wstring name = std::wstring(L"Local\\Samandarin-MoveProbe-") + guid;
+    const std::wstring name = std::wstring(L"Local\\Samandarin-UacProbe-") + guid;
     const Handle ready(CreateEventW(nullptr, TRUE, FALSE, name.c_str()));
     std::wstring exe(32768, L'\0');
     const DWORD length = GetModuleFileNameW(nullptr, exe.data(), static_cast<DWORD>(exe.size()));
     if (!ready || !length || length >= exe.size())
         return false;
     exe.resize(length);
-    std::wstring command = L"\"" + exe + L"\" \"" + fixture.substr(4) + L"\" --hold-move-source \"" + name + L"\"";
+    std::wstring command = L"\"" + exe + L"\" \"" + fixture.substr(4) + L"\" " + mode + L" \"" + name + L"\"";
     STARTUPINFOW startup{sizeof(startup)};
     PROCESS_INFORMATION process{};
     if (!CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
                         nullptr, nullptr, &startup, &process))
         return false;
     const Handle child(process.hProcess), thread(process.hThread);
-    const bool reached = WaitForSingleObject(ready.get(), 3000) == WAIT_OBJECT_0;
+    const HANDLE waitFor[] = {ready.get(), child.get()};
+    const bool reached = WaitForMultipleObjects(ARRAYSIZE(waitFor), waitFor, FALSE, 3000) == WAIT_OBJECT_0;
     const BOOL killed = TerminateProcess(child.get(), 17);
     DWORD code = 0;
     return WaitForSingleObject(child.get(), 4000) == WAIT_OBJECT_0 && reached && killed &&
            GetExitCodeProcess(child.get(), &code) && code == 17;
+}
+
+bool InterruptPendingMoveSource(const std::wstring& fixture)
+{
+    return InterruptFixtureChild(fixture, L"--hold-move-source");
 }
 
 PSECURITY_DESCRIPTOR PrivateTestSecurity()
@@ -3007,6 +3027,124 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
            checkRetirement(L"changed-backup.txt", false, true);
 }
 
+constexpr std::wstring_view overwriteCrashLeaf = L"target-\u6771.txt";
+const std::vector<BYTE> overwriteOriginal{1, 2, 3};
+const std::vector<BYTE> overwriteReplacement{4, 5, 6, 7};
+
+int HoldOverwrite(const std::wstring& folder, const wchar_t* signal, unsigned phase)
+{
+    using namespace UacRenameLeaf::Detail;
+    using namespace UacZipUpdate;
+    if (phase > static_cast<unsigned>(ReplacementFaultPoint::BackupRetired))
+        return 1;
+    const ::Handle ready(OpenEventW(EVENT_MODIFY_STATE, FALSE, signal));
+    const HANDLE rawParent = CreateFileW(folder.c_str(), FILE_TRAVERSE | FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    const ::Handle parent(rawParent == INVALID_HANDLE_VALUE ? nullptr : rawParent);
+    const HANDLE rawJournal = CreateFileW((folder + L"\\journal").c_str(), GENERIC_READ | GENERIC_WRITE,
+        0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    const ::Handle journal(rawJournal == INVALID_HANDLE_VALUE ? nullptr : rawJournal);
+    UacDirectoryLeaf::ParentIdentity identity;
+    HANDLE rawOriginal = nullptr;
+    if (!ready || !parent || !journal || UacDirectoryLeaf::ReadParentIdentity(parent.get(), identity) ||
+        UacZipUpdate::Detail::Open(parent.get(), overwriteCrashLeaf, rawOriginal, DELETE))
+        return 2;
+    UacZipUpdate::Handle original(rawOriginal, CloseHandle);
+    Revision revision;
+    HANDLE rawStage = nullptr;
+    std::wstring stageName;
+    if (ReadRevision(original.get(), revision) ||
+        UacCopyLeaf::Detail::StageFile(parent.get(), rawStage, stageName, false, nullptr, true))
+        return 2;
+    const ::Handle stage(rawStage);
+    DWORD written = 0;
+    if (!WriteFile(stage.get(), overwriteReplacement.data(), static_cast<DWORD>(overwriteReplacement.size()),
+                   &written, nullptr) || written != overwriteReplacement.size())
+        return 2;
+    replacementFaultSignal = ready.get();
+    replacementFaultPoint = static_cast<ReplacementFaultPoint>(phase);
+    const auto result = Publish(parent.get(), identity, overwriteCrashLeaf, revision, original, stage.get(), journal.get(),
+                                nullptr, MAXULONGLONG, nullptr, ReplacementKind::DiskCopy);
+    replacementFaultSignal = nullptr;
+    return result.error || result.recoveryError ? 3 : 4; // The child must be terminated at its checkpoint.
+}
+
+bool CheckOverwriteProcessExit(const std::wstring& fixture)
+{
+    using namespace UacZipUpdate;
+    using UacRenameLeaf::Detail::ReplacementFaultPoint;
+    struct Scenario
+    {
+        ReplacementFaultPoint point;
+        const char* label;
+        bool finalExists;
+        bool backupExists;
+        DWORD recovery;
+    };
+    constexpr Scenario scenarios[] = {
+        {ReplacementFaultPoint::JournalFlushed, "recover before the first rename", true, false, ERROR_SUCCESS},
+        {ReplacementFaultPoint::BackupRenamed, "restore after moving the original aside", false, true, ERROR_SUCCESS},
+        {ReplacementFaultPoint::StageRenamed, "restore after the uncommitted stage occupied the final name", false, true, ERROR_SUCCESS},
+        {ReplacementFaultPoint::StageKept, "retain both files after commit without a durable receipt", true, true, ERROR_PARTIAL_COPY},
+        {ReplacementFaultPoint::ReceiptFlushed, "retire the original only after the durable receipt", true, true, ERROR_SUCCESS},
+        {ReplacementFaultPoint::BackupRetired, "clear the receipt after the original backup is already retired", true, false, ERROR_SUCCESS},
+    };
+    for (const auto& scenario : scenarios)
+    {
+        const auto id = std::to_wstring(static_cast<unsigned>(scenario.point));
+        const auto folder = fixture + L"\\overwrite-crash-" + id;
+        const auto final = folder + L"\\" + std::wstring(overwriteCrashLeaf);
+        const auto sentinel = folder + L"\\unrelated.txt";
+        FILE_ID_INFO originalId{};
+        if (!CreateDirectoryW(folder.c_str(), nullptr) || !WriteFixture(final, overwriteOriginal) ||
+            !WriteFixture(sentinel, {9}) || !OpenIdentity(final, originalId))
+            return false;
+        if (!InterruptFixtureChild(folder, L"--hold-overwrite " + id))
+        {
+            Check(false, scenario.label);
+            return false;
+        }
+
+        const HANDLE rawParent = CreateFileW(folder.c_str(), FILE_TRAVERSE | FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        const ::Handle parent(rawParent == INVALID_HANDLE_VALUE ? nullptr : rawParent);
+        const HANDLE rawJournal = CreateFileW((folder + L"\\journal").c_str(), GENERIC_READ | GENERIC_WRITE,
+            0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        const ::Handle journal(rawJournal == INVALID_HANDLE_VALUE ? nullptr : rawJournal);
+        UacDirectoryLeaf::ParentIdentity identity;
+        UacZipUpdate::Detail::DiskRecoveryRecord record;
+        DWORD read = 0;
+        if (!parent || !journal || UacDirectoryLeaf::ReadParentIdentity(parent.get(), identity) ||
+            !ReadFile(journal.get(), &record, sizeof(record), &read, nullptr) || read != sizeof(record))
+            return false;
+        const auto backup = folder + L"\\" + UacZipUpdate::Detail::BackupName(record.exchange.nonce, ReplacementKind::DiskCopy);
+        WIN32_FIND_DATAW stage{};
+        const HANDLE stageSearch = FindFirstFileW((folder + L"\\.samandarin-copy-*.tmp").c_str(), &stage);
+        const bool noStage = stageSearch == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_NOT_FOUND;
+        if (stageSearch != INVALID_HANDLE_VALUE)
+            FindClose(stageSearch);
+        const bool committed = scenario.point >= ReplacementFaultPoint::StageKept;
+        const auto& expected = committed ? overwriteReplacement : overwriteOriginal;
+        const bool before = noStage && Exists(final) == scenario.finalExists && Exists(backup) == scenario.backupExists &&
+            (!scenario.finalExists || HasContents(final, expected)) &&
+            (!scenario.backupExists || HasContents(backup, overwriteOriginal));
+        const DWORD recovery = Recover(parent.get(), identity, overwriteCrashLeaf, journal.get(), ReplacementKind::DiskCopy);
+        LARGE_INTEGER journalSize{};
+        FILE_ID_INFO finalId{};
+        const auto& expectedId = committed ? record.exchange.replacement : originalId;
+        const bool retained = scenario.recovery == ERROR_PARTIAL_COPY;
+        Check(before && recovery == scenario.recovery &&
+                  OpenIdentity(final, finalId) && UacRenameLeaf::Detail::SameSource(finalId, expectedId) &&
+                  HasContents(final, expected) && HasContents(sentinel, {9}) &&
+                  Exists(backup) == retained && (!retained || HasContents(backup, overwriteOriginal)) &&
+                  GetFileSizeEx(journal.get(), &journalSize) && (journalSize.QuadPart != 0) == retained,
+              scenario.label, recovery);
+    }
+    return failures == 0;
+}
+
 static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const FILE_ID_INFO& sourceId,
                               const std::vector<BYTE>& plaintext)
 {
@@ -3503,6 +3641,9 @@ int wmain(int argc, wchar_t** argv)
     using namespace UacDirectoryLeaf;
     if (argc == 4 && std::wstring_view(argv[2]) == L"--hold-move-source")
         return HoldMoveSourcePending(L"\\\\?\\" + std::wstring(argv[1]), argv[3]);
+    if (argc == 5 && std::wstring_view(argv[2]) == L"--hold-overwrite" && argv[3][0] >= L'0' &&
+        argv[3][0] <= L'5' && argv[3][1] == 0)
+        return HoldOverwrite(L"\\\\?\\" + std::wstring(argv[1]), argv[4], static_cast<unsigned>(argv[3][0] - L'0'));
     const bool high = argc == 3 && std::wstring_view(argv[2]) == L"--high-integrity";
     const bool overwrite = argc == 3 && std::wstring_view(argv[2]) == L"--overwrite-probe";
     const bool moveSource = argc == 3 && std::wstring_view(argv[2]) == L"--move-source-probe";
@@ -3531,7 +3672,7 @@ int wmain(int argc, wchar_t** argv)
                        CheckMoveSourceRecoveryLink(fixture, root.get()) && CheckMoveSourceJournal(fixture) ? 0 : 1;
     if (!CheckFindTagStream() || !CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
         !CheckZipSelection(fixture, root.get()) || !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::Zip) ||
-        !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::DiskCopy))
+        !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::DiskCopy) || !CheckOverwriteProcessExit(fixture))
         return 2;
     HANDLE rawListing = nullptr;
     ParentIdentity listingIdentity;
