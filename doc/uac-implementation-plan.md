@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record the protected F5 Release memory comparison. | Verify the journal publication guard in the isolated VM. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Measure the ordinary F5 reference before comparing brokers. | Verify identical source batches and capture the normal host memory in both trials. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Document the recovered F5 decision and panel size shortcut. | Align the user guide with the verified conflict dialog and the disk size command. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the native F5 recovery conflict and installed Czech UAC strings. | Confirm the open overwrite decision and preserve the recovered original after cancellation. | | GPT-6.1 Sol (Codex) |
@@ -1592,6 +1593,17 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, uživatelský postup a český start.** Uživatelský průvodce popisuje běžný dialog po obnovení původního souboru F5, zachování originálu po Cancel a opakování po ukončení souběžné operace. Ctrl+Shift+F10 v diskovém panelu jde přes CM_CALCDIRSIZES a CalculateDirSizes do FilesAction(atCountSize, ..., 2). Odepření čtení se v této cestě zpracuje stejnou brokerovou inventurou jako ostatní diskové výpočty velikosti. Jde o ověření zdrojové cesty, samostatný interaktivní průchod této klávesy zatím chybí. Přepnutí češtiny přes konfiguraci chráněného pilotu bylo uloženo v testovacím souboru a při restartu se zobrazilo české úvodní hlášení. Po zavření hlášení se hlavní okno neobjevilo ani při spuštění přes Windows Shell. Wait Chain Traversal označil hlavní vlákno jako blokované bez identifikovaného vlastníka a bez cyklu. Testovací proces byl ukončen a v laboratorním profilu byla vrácena angličtina. Vizuální akceptace české výzvy zůstává otevřená.
 
 **P7, paměť běžného F5 pro srovnání brokerů.** Laboratorní dávka má 24 různých souborů po 16 MiB, celkem 402 653 184 B. Computer Use provedl dva běhy na stejném hostu x64 Release se stejným SHA-256 a v témže tmavém profilu. Výchozí maximum privátní paměti hosta bylo 21 176 320 B a druhý běh měl maximum 21 127 168 B. V obou bězích seděly otisky všech 24 kopií a nebyl pozorován žádný broker. První pokus ve světlém režimu byl ponechán jen jako diagnostický záznam a do srovnání nebyl zahrnut. Protože je host bajtově shodný, rozdíl těchto dvou běhů neurčuje dopad změny v brokeru. Skript Invoke-P7F5Memory.ps1 v C:/Samandarin/builds/uac-p7-f5-memory má ověřené oba obrazy brokeru, kontrolu výstupních otisků a vzorkování společné privátní paměti. Připraven je také odpovídající Bug Reporter, se kterým přenosný laboratorní host úspěšně zobrazil panel. Chráněné běhy obou brokerů a srovnání jejich paměti čekají na nasazení v testovacím chráněném adresáři a souhlas Windows.
+
+**P7, srovnání paměti F5 v izolované VM.** V x64 Release zkopírovaly obě varianty 24 souborů po 16 MiB, dohromady 384 MiB, do běžného i chráněného cíle. Všechny čtyři běhy ověřily SHA-256 všech výstupů. Běžná F5 spustila nula brokerů. V každém měřeném chráněném běhu stačil jeden souhlas UAC pro celou dávku. Oba chráněné běhy použily stejný proces hostu. Výchozí broker měl 1 334 272 B, kandidát se zámkem žurnálu a opravou CodeQL měl 1 336 320 B. Host měl v obou případech 5 444 096 B a stejný SHA-256.
+
+| Špička privátní paměti v bajtech | Výchozí | Kandidát |
+|---|---:|---:|
+| Běžná F5, host | 21 176 320 | 21 127 168 |
+| Chráněná F5, host | 23 257 088 | 23 666 688 |
+| Chráněná F5, broker | 1 740 800 | 1 744 896 |
+| Chráněná F5, součet hostu a brokeru ve stejném vzorku | 24 997 888 | 25 411 584 |
+
+Chráněné běhy zachytily 53 a 136 vzorků s aktivním brokerem. Rozdíl v jeho špičce činil 4 KiB. Společná špička vzrostla o 404 KiB a host už před kopírováním vykazoval o 268 KiB více. Pro každou kombinaci je k dispozici jeden platný běh. První pokusy o chráněné měření vyřadila kontrola identity okna a pozdní start vzorkování. Úspěšné opakování ověřilo identitu přes cestu procesu, otisk binárky a argument pilotu a počkalo na spuštění sběru. Protokol je v C:/Samandarin/builds/uac-p7-f5-memory/comparison.json. Paměť při potvrzené chybě uprostřed dávky se v této zkoušce neměřila.
 
 ### 12.3 CI a přijetí vydání
 
