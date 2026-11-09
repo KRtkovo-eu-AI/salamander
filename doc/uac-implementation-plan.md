@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify UAC payloads for all three build architectures. | Detect mixed-architecture application and broker pairs before distribution. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise a disconnected Find content stream on a live pipe. | Verify another scoped session can still return content. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the encrypted copy’s EFS recipients. | Confirm that copying did not add the approving administrator or a recovery key. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the original account can read both EFS files. | Confirm the protected copy keeps the key holder’s access and matching content. | | GPT-6.1 Sol (Codex) |
@@ -1487,6 +1488,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, ověření příjemců EFS.** QueryUsersOnEncryptedFile a QueryRecoveryAgentsOnEncryptedFile uspěly na obou zkušebních souborech. Zdroj a chráněná kopie měly shodný otisk certifikátu a jediným příjemcem byl původní standardní účet. Ani jeden soubor neměl obnovovacího agenta. Vedle čtení pod původním účtem a odmítnutí běžného čtení schvalujícím účtem tak existuje nezávislé potvrzení, že kopie nepřidala příjemce nebo obnovovací klíč. Důkaz je v P7-EFS/efs-recipients.json. Přímá zkouška čtení pod zvýšeným tokenem zůstává samostatným krokem. [Příjemci EFS](https://learn.microsoft.com/en-us/windows/win32/api/winefs/nf-winefs-queryusersonencryptedfile) · [Obnovovací agenti](https://learn.microsoft.com/en-us/windows/win32/api/winefs/nf-winefs-queryrecoveryagentsonencryptedfile).
 
 **P7, nezávislost relací Findu při výpadku.** Lokální test x64 Debug i Release otevřel dva obsahové streamy přes samostatné roury pro stejný název s odlišným obsahem ve dvou kořenech. Po odpojení první roury její brokerová relace skončila chybou 109. Druhá relace vrátila správný obsah, uzavřela stream a znovu jej otevřela a přečetla. Test volá produkční obsluhu požadavků bez elevace. Zobrazení výsledků a protokolu Findu při stejném výpadku zbývá ověřit v izolované VM.
+
+**P7, kontrola architektury distribuční dvojice.** Samostatný ověřovač přijímá parametr -Architecture Win32, x64 nebo ARM64. Výchozí volba je x64. V nepodepsaném laboratorním režimu prošly skutečné dvojice Win32 Debug, ARM64 Debug a x64 Release, všechny s protokolem 10. Ověřovač zkontroloval manifesty, role, architekturu obou obrazů, importy a systémový režim načítání brokeru. Kombinaci Win32 hostu s ARM64 brokerem odmítl při volbě Win32 i ARM64. Otisky a výsledky jsou v C:/Samandarin/builds/uac-p7-10da008c/verify-architectures-556ffd99e6f7413f8e7058898e806684/evidence.json. Podpisy vydání a nativní běh mimo x64 zůstávají k ověření.
 
 ### 12.3 CI a přijetí vydání
 

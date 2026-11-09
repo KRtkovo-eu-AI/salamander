@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Verify Win32 and ARM64 UAC payloads. | Require both images to match the selected release architecture. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Pin the UAC release signer and verify the full import table. | Reject unexpected dependency names and delay-loaded imports. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Allow the system CNG runtime in the broker. | Verify payloads that use SHA-256 for overwrite recovery. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Verify image roles in the signed payload. | Reject same-version images swapped between roles. | | GPT-6.1 Sol (Codex) |
@@ -15,7 +16,10 @@ param(
     [string]$Dumpbin = 'dumpbin.exe',
     [string]$ExpectedSignerThumbprint = $env:CODESIGN_CERT_SHA1,
 
-    [switch]$UnsignedLab
+    [switch]$UnsignedLab,
+
+    [ValidateSet('Win32', 'x64', 'ARM64')]
+    [string]$Architecture = 'x64'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -34,10 +38,13 @@ function Invoke-InspectionTool([string]$Tool, [string[]]$Arguments) {
     $output
 }
 
+$machineCodes = @{ Win32 = '14C'; x64 = '8664'; ARM64 = 'AA64' }
+
 function Test-Image([string]$Path, [string]$ExpectedLevel, [string]$ManifestPath) {
     $headers = Invoke-InspectionTool $Dumpbin @('/nologo', '/headers', $Path)
-    if (!($headers -match '^\s*8664 machine \(x64\)\s*$')) {
-        throw "Expected an x64 image in $Path."
+    $machineCode = $machineCodes[$Architecture]
+    if (!($headers -match "^\s*$machineCode machine \([^)]+\)\s*$")) {
+        throw "Expected a $Architecture image in $Path."
     }
 
     Invoke-InspectionTool $Mt @('-nologo', "-inputresource:$Path;#1", "-out:$ManifestPath") | Out-Null
@@ -182,6 +189,7 @@ finally {
 
 [pscustomobject]@{
     PayloadDir = $payload
+    Architecture = $Architecture
     HostSha256 = (Get-FileHash -LiteralPath $hostPath -Algorithm SHA256).Hash
     BrokerSha256 = (Get-FileHash -LiteralPath $brokerPath -Algorithm SHA256).Hash
     BrokerImports = $imports
