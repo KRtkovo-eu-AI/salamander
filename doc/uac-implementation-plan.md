@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify Czech F7 and directory size elevation prompts in the VM. | Exercise localized text, Unicode paths, the shield and cancellation in the dark scheme. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the directory sizes shortcut in the VM. | Confirm that the shortcut offers elevation for the blocked subtree. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the protected F5 Release memory comparison. | Verify the journal publication guard in the isolated VM. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Measure the ordinary F5 reference before comparing brokers. | Verify identical source batches and capture the normal host memory in both trials. | | GPT-6.1 Sol (Codex) |
@@ -1609,6 +1610,8 @@ Chráněné běhy zachytily 53 a 136 vzorků s aktivním brokerem. Rozdíl v jeh
 **P7, Ctrl+Shift+F10 v diskovém panelu.** V chráněném pilotu x64 Release otevřela klávesa Ctrl+Shift+F10 výpočet pro panel P6c-fixture. Po odepření přístupu k 04-size-parent\\01-protected zobrazil Samandarin přesnou cestu a tlačítko Administrator se systémovým štítem. Výchozí volbou bylo Cancel. Po jeho stisku se panel vrátil bez vypočtené velikosti u 04-size-parent a broker neběžel. Schválený výsledek byl dříve ověřen pro Ctrl+Q. Samostatná klávesa Ctrl+Shift+F10 byla v této zkoušce ověřena po nabídku a zrušení.
 
 **P7, start českého pilotu.** Po doplnění Bug Reporteru se český start dostal k novému hlášení. Přepínač -language vyvolal opětovnou kontrolu jazyků pluginů a pilot hlásil chybějící nebo neplatný plugins\\zip\\lang\\czech.slg. Ani s odděleným souborem konfigurace se hlavní okno neotevřelo. Vzhled českého dialogu UAC zbývá ověřit s kompletní jazykovou výbavou pilotu.
+
+**P7, vizuální ověření češtiny.** Chráněný x64 Release pilot ve Windows 11 se spustil s češtinou nastavenou v laboratorní konfiguraci a s angličtinou jako alternativním jazykem pluginů. V tmavém schématu zobrazil F7 po odepření přístupu český titulek, českou nabídku a úplnou cestu končící na 01-český-test-東. Ctrl+Shift+F10 zobrazil český titulek a otázku pro skutečnou chráněnou podsložku 04-size-parent/01-protected. V obou dialozích byl viditelný systémový štít na tlačítku Správce. Storno vrátilo panel, testovací složka nevznikla a žádný broker nezůstal spuštěný. Po zavření pilotu byl původní profil obnoven a ověřen otiskem. Tato zkouška pokrývá český vzhled a zrušení v aplikaci. Samostatné schválení Ctrl+Shift+F10, světlé schéma a vyšší DPI zůstávají k vizuálnímu ověření.
 
 ### 12.3 CI a přijetí vydání
 
