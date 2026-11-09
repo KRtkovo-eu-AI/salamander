@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check the fixed file version of packaged language modules. | Reject a same-architecture module that the application cannot load. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Verify the architecture of packaged language modules. | Catch a mixed-architecture payload before the application tries to load it. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Verify Win32 and ARM64 UAC payloads. | Require both images to match the selected release architecture. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Pin the UAC release signer and verify the full import table. | Reject unexpected dependency names and delay-loaded imports. | | GPT-6.1 Sol (Codex) |
@@ -48,6 +49,15 @@ function Get-ImageHeaders([string]$Path) {
         throw "Expected a $Architecture image in $Path."
     }
     $headers
+}
+
+function Get-FixedFileVersion([string]$Path) {
+    $info = [Diagnostics.FileVersionInfo]::GetVersionInfo($Path)
+    $version = [version]::new($info.FileMajorPart, $info.FileMinorPart, $info.FileBuildPart, $info.FilePrivatePart)
+    if ($version -eq [version]'0.0.0.0') {
+        throw "Missing fixed file version in $Path."
+    }
+    $version
 }
 
 function Test-Image([string]$Path, [string]$ExpectedLevel, [string]$ManifestPath) {
@@ -153,9 +163,14 @@ if ((!$UnsignedLab -or (Test-Path -LiteralPath $languageDir)) -and
 }
 $languageModules = @()
 if (Test-Path -LiteralPath $english -PathType Leaf) {
+    $hostVersion = Get-FixedFileVersion $hostPath
     $languageModules = @(Get-ChildItem -LiteralPath $languageDir -Filter '*.slg' -File)
     foreach ($module in $languageModules) {
         Get-ImageHeaders $module.FullName | Out-Null
+        $languageVersion = Get-FixedFileVersion $module.FullName
+        if ($languageVersion -ne $hostVersion) {
+            throw "Expected language module version $hostVersion in $($module.FullName). Found $languageVersion."
+        }
     }
 }
 $temp = New-Item -ItemType Directory -Path (Join-Path ([IO.Path]::GetTempPath()) "samandarin-uac-$([guid]::NewGuid())")
