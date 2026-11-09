@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record targeted CodeQL and x64 payload verification after the Find and focus changes. | Verify the final local candidate against the current source and distribution gates. | | Codex |
 | 2026-11-09 | Restore the invoking window after broker consent. | Return to the active Samandarin operation when Windows switches foreground windows. | | Codex |
 | 2026-11-09 | Verify protected Find Stop, restart and memory in the VM. | Exercise an actual read session and measure both processes on the same fixture. | | Codex |
 | 2026-11-09 | Measure ordinary Find memory for the cancellation candidate. | Compare the same workload without accessibility enumeration or elevation. | | Codex |
@@ -1688,6 +1689,8 @@ Chráněné běhy zachytily 53 a 136 vzorků s aktivním brokerem. Rozdíl v jeh
 **P7, návrat do popředí po výzvě UAC.** Při spuštění brokeru si host zapamatuje, zda měl Samandarin popředí. Po zavření výzvy jednou požádá Windows o aktivaci původního okna, pokud je stále viditelné, povolené a není minimalizované. Jestliže je aktivní jeho vlastní dialog, popředí se nemění. Vlastní okno souhlasu může před systémovou výzvou dočasně aktivovat hlavní panel, proto se před spuštěním posuzuje proces a po souhlasu konkrétní okno. Ve VM první pokus vrátil hlavní panel a Find byl v popředí v 0 z 30 vzorků po ukončení brokeru. Po úpravě byl Find v popředí ve všech 30 vzorcích a chráněné hledání dokončilo stejný výpis bez ruční aktivace. Prošlo sestavení x64 Release, 61 kontrol transportu a kontrola plánování Findu. Host vzrostl z 5 445 120 na 5 446 144 B a broker zůstal na 1 342 976 B. Protokol 11 se nemění. Výsledky foreground-find-first-trial.json a foreground-find-evidence.json jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/find-stop-protected. Vizuální akceptace byla provedena ve Findu.
 
 **P7, opakovaný místní průchod katalogem PR Tests.** Ve stavu a55f88d5 s následnou místní úpravou popředí prošlo 43 nativních projektů, 113 skupin Python z katalogu, dvě skupiny Node, test sestavování nabídky v PowerShellu a 55 pytest kontrol. Dvacet skupin prošlo po zopakování v připraveném prostředí MSVC. Souhrn je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/local-a55f88d5/summary.json.
+
+**P7, místní analýza kandidáta dad2cf99.** CodeQL 2.27.4 trasoval x64 Release překlad brokeru, sondy, Findu, dialogu Find a hostitelské části UAC. Sedm ověřovaných zdrojů a hlaviček v archivu databáze odpovídá commitu. Profil security-extended analyzoval 87 souborů C/C++ a v SARIF má 95 deskriptorů pravidel. Všech 17 nálezů leží mimo změny proti základu PR i proti publikované revizi 7bd944c8. Výstup a klasifikace jsou v C:/Samandarin/builds/uac-codeql-v2.27.4/find-foreground-dad2cf99. Distribuční ověřovač stejného kandidáta x64 v laboratorním režimu potvrdil role, manifesty, závislosti, angličtinu a protokol 11. Režim vydání odmítl nepodepsaný host s výsledkem NotSigned. Důkaz foreground-payload-verification.json je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/find-stop-protected. Úplná GitHub kontrola se vztahuje k publikované revizi 7bd944c8.
 
 ### 12.3 CI a přijetí vydání
 
