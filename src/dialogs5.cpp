@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
-// | 2026-11-10 | Validate Apply pattern keys independently from action fields. | Normalize selected matrix patterns once and keep the pattern editor out of action-field validation. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
-// | 2026-11-10 | Prevent blank legacy rows from blocking association Apply. | Remove unusable empty-pattern records from the candidate before validating and persisting the selected user overrides. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Seed Apply from the selected association before reading editor fields. | Preserve the established Configuration save path's pattern fallback while letting the detail controls override the action. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Keep canonical rows intact during association Apply. | Do not discard stored rows as a workaround for the pattern source bug. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Flush successful Apply edits to the active configuration store. | Persist association changes immediately when the selected backend is the portable config file. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Build Apply records from detail controls and refresh from canonical state. | Treat matrix selection only as pattern keys, save the current editor fields, then repopulate the table from the saved model. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Restore the direct user-override Apply path. | Undo the later SetUserTarget refactor that made the Apply transaction fail against the page's conflict rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -4693,7 +4693,7 @@ void CCfgPageFileAssociations::RefreshList()
 
 BOOL CCfgPageFileAssociations::ReadControls(
     Salamander::FileAssociations::Association& item, std::string* error,
-    const std::string* fallbackPattern, BOOL readPatternControl)
+    const std::string* fallbackPattern)
 {
     const std::string originalPattern = item.Pattern;
     const auto isBlankPattern = [](const std::string& value) -> bool
@@ -4704,12 +4704,7 @@ BOOL CCfgPageFileAssociations::ReadControls(
     const std::string previousStableId = item.AssociationTarget.StableId;
     std::vector<char> pattern(1024);
     HWND matrix = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
-    if (!readPatternControl)
-    {
-        if (fallbackPattern != NULL)
-            item.Pattern = *fallbackPattern;
-    }
-    else if (ListView_GetSelectedCount(matrix) > 1)
+    if (ListView_GetSelectedCount(matrix) > 1)
     {
         // The pattern editor shows a multi-select summary. The association to
         // carry through Apply must come from the focused matrix row instead.
@@ -4876,7 +4871,7 @@ BOOL CCfgPageFileAssociations::ReadControls(
             *error = LoadStr(IDS_FILEASSOCIATION_NO_TARGETS);
         return FALSE;
     }
-    if (readPatternControl && isBlankPattern(item.Pattern))
+    if (isBlankPattern(item.Pattern))
     {
         if (error != NULL)
             *error = LoadStr(IDS_FILEASSOCIATION_PATTERN_EMPTY);
@@ -6005,10 +6000,27 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
             }
             else if (!selectedPatterns.empty())
                 focusedPattern = selectedPatterns[0];
-            else if (SelectedMatrixRow >= 0 &&
-                     SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
+
+            if (selectedPatterns.empty())
+            {
+                int focusedRow = ListView_GetNextItem(matrix, -1, LVNI_FOCUSED);
+                if (focusedRow < 0)
+                    focusedRow = ListView_GetNextItem(matrix, -1, LVNI_SELECTED);
+                LVITEM focusedItem;
+                ZeroMemory(&focusedItem, sizeof(focusedItem));
+                focusedItem.mask = LVIF_PARAM;
+                focusedItem.iItem = focusedRow;
+                if (focusedRow >= 0 && ListView_GetItem(matrix, &focusedItem) &&
+                    focusedItem.lParam >= 0 &&
+                    focusedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
+                    appendPattern(MatrixRows[focusedItem.lParam].Pattern);
+            }
+
+            if (selectedPatterns.empty() && SelectedMatrixRow >= 0 &&
+                SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
                 appendPattern(MatrixRows[SelectedMatrixRow].Pattern);
-            else if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
+            if (selectedPatterns.empty() && Selected >= 0 &&
+                Selected < static_cast<int>(Rows.size()))
                 appendPattern(Rows[Selected].Pattern);
 
             if (focusedPattern.empty() && !selectedPatterns.empty())
@@ -6019,6 +6031,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 static_cast<Salamander::FileAssociations::Category>(SelectedCategory);
             item.Operation =
                 static_cast<Salamander::FileAssociations::PanelOperation>(SelectedOperation);
+            item.Pattern = focusedPattern;
             item.AssociationTarget = Salamander::FileAssociations::Target(
                 Salamander::FileAssociations::TargetKind::Unassigned);
             item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
@@ -6038,7 +6051,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 SetStatus(LoadStr(IDS_FILEASSOCIATION_PATTERN_EMPTY));
                 break;
             }
-            if (!ReadControls(item, &error, &focusedPattern, FALSE))
+            if (!ReadControls(item, &error, &focusedPattern))
             {
                 SetStatus(error.c_str());
                 break;
@@ -6063,13 +6076,6 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 selectedPatterns.push_back(normalizedPattern);
 
             const std::vector<Salamander::FileAssociations::Association> originalRows = Rows;
-            Rows.erase(std::remove_if(Rows.begin(), Rows.end(),
-                                      [](const Salamander::FileAssociations::Association& row)
-                                      {
-                                          return row.Pattern.find_first_not_of(" \t\r\n\v\f") ==
-                                                 std::string::npos;
-                                      }),
-                       Rows.end());
             for (size_t p = 0; p < selectedPatterns.size(); ++p)
             {
                 Salamander::FileAssociations::Association overrideItem = item;

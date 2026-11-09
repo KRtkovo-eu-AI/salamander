@@ -1139,8 +1139,7 @@ protected:
                         std::string* error = NULL);
     BOOL ReadControls(Salamander::FileAssociations::Association& item,
                       std::string* error = NULL,
-                      const std::string* fallbackPattern = NULL,
-                      BOOL readPatternControl = TRUE);
+                      const std::string* fallbackPattern = NULL);
     const char* CategoryText(Salamander::FileAssociations::Category category) const;
     const char* OperationText(Salamander::FileAssociations::PanelOperation operation) const;
     const char* TargetText(Salamander::FileAssociations::TargetKind target) const;
