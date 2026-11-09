@@ -1,8 +1,8 @@
-﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
-// | 2026-11-09 | Correct wildcard editor targets, matrix theme, and cell selection. | Show the saved Built-in Target ID, preserve the matrix palette after shared dark theming, and apply the clicked category after list notifications settle. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Correct wildcard editor targets and paint the matrix after native theming. | Resolve the legacy editor ID to its configured executable and keep cell backgrounds and state badges visible in dark mode. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Show the configured default editor for `*.*` in the matrix. | Reflect the Category Edit fallback even when it has no separate universal-pattern association row. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Apply matrix colors after shared dark theming and paint every cell. | Keep the requested dark background and ensure all columns, selection, and status badges are rendered by the association page. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Split archive operations into independent matrix columns and filters. | Make Pack and Unpack associations separately visible and filterable from the Panel Archive tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -3683,7 +3683,8 @@ std::string CCfgPageFileAssociations::MatrixCellText(int index, bool archive) co
     else if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::BuiltIn &&
              item.AssociationCategory == Salamander::FileAssociations::Category::Edit)
     {
-        if (!item.AssociationTarget.StableId.empty())
+        if (!item.AssociationTarget.StableId.empty() &&
+            _stricmp(item.AssociationTarget.StableId.c_str(), "legacy-editor") != 0)
             target = item.AssociationTarget.StableId.c_str();
         else
         {
@@ -4726,13 +4727,13 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
         if (MatrixImageList != NULL)
         {
             ImageList_SetBkColor(MatrixImageList, Configuration.UseWindowsDarkMode
-                                                       ? RGB(92, 92, 92)
+                                                       ? RGB(56, 56, 56)
                                                        : GetSysColor(COLOR_WINDOW));
             ListView_SetImageList(list, MatrixImageList, LVSIL_SMALL);
         }
         DarkModeUpdateListViewColors(list);
-        ListView_SetBkColor(list, Configuration.UseWindowsDarkMode ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW));
-        ListView_SetTextBkColor(list, Configuration.UseWindowsDarkMode ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW));
+        ListView_SetBkColor(list, Configuration.UseWindowsDarkMode ? RGB(56, 56, 56) : GetSysColor(COLOR_WINDOW));
+        ListView_SetTextBkColor(list, Configuration.UseWindowsDarkMode ? RGB(56, 56, 56) : GetSysColor(COLOR_WINDOW));
         ListView_SetTextColor(list, Configuration.UseWindowsDarkMode ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT));
     const int columnTextIds[8] = {
             IDS_FILEASSOCIATION_PATTERN,
@@ -4981,7 +4982,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
         }
         HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
         const bool dark = Configuration.UseWindowsDarkMode != FALSE;
-        const COLORREF background = dark ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW);
+        const COLORREF background = dark ? RGB(56, 56, 56) : GetSysColor(COLOR_WINDOW);
         ListView_SetBkColor(list, background);
         ListView_SetTextBkColor(list, background);
         ListView_SetTextColor(list, dark ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT));
@@ -5415,140 +5416,188 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                     return TRUE;
                 };
                 if (draw->nmcd.dwDrawStage == CDDS_PREPAINT)
-                    return returnCustomDraw(CDRF_NOTIFYITEMDRAW);
+                    return returnCustomDraw(CDRF_NOTIFYITEMDRAW | CDRF_NOTIFYPOSTPAINT);
                 if (draw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
                 {
                     const bool dark = Configuration.UseWindowsDarkMode != FALSE;
                     draw->clrText = dark ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT);
-                    draw->clrTextBk = dark ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW);
-                    return returnCustomDraw(CDRF_NOTIFYSUBITEMDRAW | CDRF_NEWFONT);
+                    draw->clrTextBk = dark ? RGB(56, 56, 56) : GetSysColor(COLOR_WINDOW);
+                    return returnCustomDraw(CDRF_NOTIFYPOSTPAINT | CDRF_NEWFONT);
                 }
-                if (draw->nmcd.dwDrawStage == (CDDS_ITEMPREPAINT | CDDS_SUBITEM))
+                if (draw->nmcd.dwDrawStage == CDDS_ITEMPOSTPAINT)
                 {
                     LVITEM item;
                     ZeroMemory(&item, sizeof(item));
                     item.mask = LVIF_PARAM;
                     item.iItem = static_cast<int>(draw->nmcd.dwItemSpec);
-                    if (ListView_GetItem(GetDlgItem(HWindow, IDL_FILEASSOCIATIONS), &item) &&
+                    HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
+                    if (ListView_GetItem(list, &item) &&
                         item.lParam >= 0 && item.lParam < static_cast<LPARAM>(MatrixRows.size()) &&
-                        draw->iSubItem >= 0 && draw->iSubItem < 8)
+                        draw->nmcd.hdc != NULL)
                     {
                         const MatrixRow& row = MatrixRows[item.lParam];
-                        int associationIndex = -1;
-                        if (draw->iSubItem == 1) associationIndex = row.View;
-                        else if (draw->iSubItem == 2) associationIndex = row.AlternateView;
-                        else if (draw->iSubItem == 3) associationIndex = row.Edit;
-                        else if (draw->iSubItem == 4) associationIndex = row.DeletePack;
-                        else if (draw->iSubItem == 5) associationIndex = row.ListUnpack;
                         const bool dark = Configuration.UseWindowsDarkMode != FALSE;
-                        if (draw->iSubItem == 6)
-                        {
-                            const int statusIndexes[5] = {row.View, row.AlternateView, row.Edit,
-                                                           row.ListUnpack, row.DeletePack};
-                            for (int i = 0; i < 5; ++i)
-                                if (statusIndexes[i] >= 0)
-                                {
-                                    associationIndex = statusIndexes[i];
-                                    break;
-                                }
-                        }
-                        RECT cell;
-                        HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
-                        if (!ListView_GetSubItemRect(list, item.iItem, draw->iSubItem, LVIR_BOUNDS, &cell))
-                            return returnCustomDraw(CDRF_DODEFAULT);
-                        const bool selected = (ListView_GetItemState(
-                            GetDlgItem(HWindow, IDL_FILEASSOCIATIONS), item.iItem, LVIS_SELECTED) & LVIS_SELECTED) != 0;
-                        COLORREF color = dark ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW);
+                        const bool selected = (ListView_GetItemState(list, item.iItem, LVIS_SELECTED) & LVIS_SELECTED) != 0;
+                        const int statusIndexes[5] = {row.View, row.AlternateView, row.Edit,
+                                                       row.DeletePack, row.ListUnpack};
+                        int statusAssociation = -1;
+                        for (int i = 0; i < 5; ++i)
+                            if (statusIndexes[i] >= 0)
+                            {
+                                statusAssociation = statusIndexes[i];
+                                break;
+                            }
                         Salamander::FileAssociations::Provenance state =
-                            associationIndex >= 0 ? Rows[associationIndex].AssociationProvenance
-                                                  : Salamander::FileAssociations::Provenance::Default;
-                        if (draw->iSubItem == 6 && row.Conflict)
+                            statusAssociation >= 0 ? Rows[statusAssociation].AssociationProvenance
+                                                   : Salamander::FileAssociations::Provenance::Default;
+                        if (row.Conflict)
                             state = Salamander::FileAssociations::Provenance::Conflict;
                         if (state == Salamander::FileAssociations::Provenance::Legacy)
                             state = Salamander::FileAssociations::Provenance::Default;
-                        if (associationIndex >= 0)
+                        COLORREF badgeColor = dark ? RGB(106, 80, 170) : RGB(225, 215, 250);
+                        switch (state)
                         {
-                            switch (state)
-                            {
-                            case Salamander::FileAssociations::Provenance::User: color = dark ? RGB(32, 120, 55) : RGB(205, 238, 215); break;
-                            case Salamander::FileAssociations::Provenance::Disabled: color = dark ? RGB(115, 115, 115) : RGB(225, 225, 225); break;
-                            case Salamander::FileAssociations::Provenance::Conflict: color = dark ? RGB(190, 64, 58) : RGB(250, 210, 205); break;
-                            default: color = dark ? RGB(106, 80, 170) : RGB(225, 215, 250); break;
-                            }
-                        }
-                        // Provenance belongs in the Status badge. Keep data cells neutral so
-                        // they do not resemble selected cells; selection spans every column.
-                        const COLORREF cellColor = selected
-                                                       ? GetSysColor(COLOR_HIGHLIGHT)
-                                                       : (dark ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW));
-                        HBRUSH background = CreateSolidBrush(cellColor);
-                        FillRect(draw->nmcd.hdc, &cell, background);
-                        DeleteObject(background);
-
-                        if (draw->iSubItem == 6)
-                        {
-                            char text[128];
-                            ListView_GetItemText(list, item.iItem, draw->iSubItem, text, _countof(text));
-                            SIZE textSize = {0, 0};
-                            GetTextExtentPoint32(draw->nmcd.hdc, text, static_cast<int>(strlen(text)), &textSize);
-                            const int pillWidth = max(0, min(cell.right - cell.left - 8, textSize.cx + 18));
-                            const int pillHeight = max(0, min(cell.bottom - cell.top - 4, 18));
-                            if (pillWidth > 0 && pillHeight > 0)
-                            {
-                                RECT pill = {cell.left + 4, cell.top + max(2, (cell.bottom - cell.top - pillHeight) / 2),
-                                             cell.left + 4 + pillWidth,
-                                             cell.top + max(2, (cell.bottom - cell.top - pillHeight) / 2) + pillHeight};
-                                const int savedDc = SaveDC(draw->nmcd.hdc);
-                                HBRUSH brush = CreateSolidBrush(color);
-                                HPEN pen = CreatePen(PS_SOLID, 1, color);
-                                HGDIOBJ oldBrush = SelectObject(draw->nmcd.hdc, brush);
-                                HGDIOBJ oldPen = SelectObject(draw->nmcd.hdc, pen);
-                                RoundRect(draw->nmcd.hdc, pill.left, pill.top, pill.right, pill.bottom,
-                                          pillHeight, pillHeight);
-                                SelectObject(draw->nmcd.hdc, oldBrush);
-                                SelectObject(draw->nmcd.hdc, oldPen);
-                                DeleteObject(brush);
-                                DeleteObject(pen);
-                                SetBkMode(draw->nmcd.hdc, TRANSPARENT);
-                                SetTextColor(draw->nmcd.hdc, dark ? RGB(255, 255, 255) : RGB(25, 25, 25));
-                                DrawText(draw->nmcd.hdc, text, -1, &pill,
-                                         DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-                                if (savedDc != 0)
-                                    RestoreDC(draw->nmcd.hdc, savedDc);
-                            }
-                            return returnCustomDraw(CDRF_SKIPDEFAULT);
+                        case Salamander::FileAssociations::Provenance::User:
+                            badgeColor = dark ? RGB(32, 120, 55) : RGB(205, 238, 215); break;
+                        case Salamander::FileAssociations::Provenance::Disabled:
+                            badgeColor = dark ? RGB(115, 115, 115) : RGB(225, 225, 225); break;
+                        case Salamander::FileAssociations::Provenance::Conflict:
+                            badgeColor = dark ? RGB(190, 64, 58) : RGB(250, 210, 205); break;
+                        default: break;
                         }
 
-                        if (associationIndex >= 0 && MatrixImageList != NULL)
+                        for (int subItem = 0; subItem < 8; ++subItem)
                         {
-                            LVITEM imageItem;
-                            ZeroMemory(&imageItem, sizeof(imageItem));
-                            imageItem.mask = LVIF_IMAGE;
-                            imageItem.iItem = item.iItem;
-                            imageItem.iSubItem = draw->iSubItem;
-                            if (ListView_GetItem(list, &imageItem) && imageItem.iImage >= 0)
+                            RECT cell;
+                            if (!ListView_GetSubItemRect(list, item.iItem, subItem, LVIR_BOUNDS, &cell))
+                                continue;
+                            RECT content = cell;
+                            InflateRect(&content, -1, -1); // preserve the list-view grid lines
+                            HBRUSH background = CreateSolidBrush(
+                                selected ? GetSysColor(COLOR_HIGHLIGHT)
+                                         : dark ? RGB(56, 56, 56) : GetSysColor(COLOR_WINDOW));
+                            if (background != NULL)
                             {
-                                int iconWidth = 0;
-                                int iconHeight = 0;
-                                ImageList_GetIconSize(MatrixImageList, &iconWidth, &iconHeight);
-                                ImageList_Draw(MatrixImageList, imageItem.iImage, draw->nmcd.hdc,
-                                               cell.left + 4, cell.top + max(0, (cell.bottom - cell.top - iconHeight) / 2),
-                                               ILD_TRANSPARENT);
-                                cell.left += iconWidth + 8;
+                                FillRect(draw->nmcd.hdc, &content, background);
+                                DeleteObject(background);
                             }
+
+                            int associationIndex = -1;
+                            if (subItem == 1) associationIndex = row.View;
+                            else if (subItem == 2) associationIndex = row.AlternateView;
+                            else if (subItem == 3) associationIndex = row.Edit;
+                            else if (subItem == 4) associationIndex = row.DeletePack;
+                            else if (subItem == 5) associationIndex = row.ListUnpack;
+
+                            if (subItem == 6)
+                            {
+                                char text[128];
+                                ListView_GetItemText(list, item.iItem, subItem, text, _countof(text));
+                                SIZE textSize = {0, 0};
+                                GetTextExtentPoint32(draw->nmcd.hdc, text, static_cast<int>(strlen(text)), &textSize);
+                                const int pillHeight = max(0, min(content.bottom - content.top - 2, 18));
+                                const int pillWidth = max(0, min(content.right - content.left - 6, textSize.cx + 18));
+                                if (pillWidth > 0 && pillHeight > 0)
+                                {
+                                    RECT pill = {content.left + 3,
+                                                 content.top + (content.bottom - content.top - pillHeight) / 2,
+                                                 content.left + 3 + pillWidth,
+                                                 content.top + (content.bottom - content.top - pillHeight) / 2 + pillHeight};
+                                    HBRUSH brush = CreateSolidBrush(badgeColor);
+                                    HPEN pen = CreatePen(PS_SOLID, 1, badgeColor);
+                                    if (brush != NULL && pen != NULL)
+                                    {
+                                        const int savedDc = SaveDC(draw->nmcd.hdc);
+                                        HGDIOBJ oldBrush = SelectObject(draw->nmcd.hdc, brush);
+                                        HGDIOBJ oldPen = SelectObject(draw->nmcd.hdc, pen);
+                                        RoundRect(draw->nmcd.hdc, pill.left, pill.top, pill.right, pill.bottom,
+                                                  pillHeight, pillHeight);
+                                        SelectObject(draw->nmcd.hdc, oldBrush);
+                                        SelectObject(draw->nmcd.hdc, oldPen);
+                                        SetBkMode(draw->nmcd.hdc, TRANSPARENT);
+                                        SetTextColor(draw->nmcd.hdc, dark ? RGB(255, 255, 255) : RGB(25, 25, 25));
+                                        DrawText(draw->nmcd.hdc, text, -1, &pill,
+                                                 DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+                                        if (savedDc != 0)
+                                            RestoreDC(draw->nmcd.hdc, savedDc);
+                                    }
+                                    if (brush != NULL) DeleteObject(brush);
+                                    if (pen != NULL) DeleteObject(pen);
+                                }
+                                continue;
+                            }
+
+                            RECT textRect = content;
+                            textRect.left += 4;
+                            if (associationIndex >= 0 && MatrixImageList != NULL)
+                            {
+                                LVITEM imageItem;
+                                ZeroMemory(&imageItem, sizeof(imageItem));
+                                imageItem.mask = LVIF_IMAGE;
+                                imageItem.iItem = item.iItem;
+                                imageItem.iSubItem = subItem;
+                                if (ListView_GetItem(list, &imageItem) && imageItem.iImage >= 0)
+                                {
+                                    int iconWidth = 0;
+                                    int iconHeight = 0;
+                                    ImageList_GetIconSize(MatrixImageList, &iconWidth, &iconHeight);
+                                    ImageList_Draw(MatrixImageList, imageItem.iImage, draw->nmcd.hdc,
+                                                   content.left + 4,
+                                                   content.top + max(0, (content.bottom - content.top - iconHeight) / 2),
+                                                   ILD_TRANSPARENT);
+                                    textRect.left += iconWidth + 8;
+                                }
+                            }
+                            char text[1024];
+                            ListView_GetItemText(list, item.iItem, subItem, text, _countof(text));
+                            SetBkMode(draw->nmcd.hdc, TRANSPARENT);
+                            SetTextColor(draw->nmcd.hdc, selected ? GetSysColor(COLOR_HIGHLIGHTTEXT)
+                                                                  : dark ? RGB(255, 255, 255) : RGB(25, 25, 25));
+                            DrawText(draw->nmcd.hdc, text, -1, &textRect,
+                                     DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
                         }
-                        char text[1024];
-                        ListView_GetItemText(list, item.iItem, draw->iSubItem, text, _countof(text));
-                        RECT textRect = cell;
-                        textRect.left += 4;
-                        SetBkMode(draw->nmcd.hdc, TRANSPARENT);
-                        SetTextColor(draw->nmcd.hdc, selected && draw->iSubItem != 6
-                                                         ? GetSysColor(COLOR_HIGHLIGHTTEXT)
-                                                         : dark ? RGB(255, 255, 255) : RGB(25, 25, 25));
-                        DrawText(draw->nmcd.hdc, text, -1, &textRect,
-                                 DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
-                        return returnCustomDraw(CDRF_SKIPDEFAULT);
                     }
+                    return returnCustomDraw(CDRF_DODEFAULT);
+                }
+                if (draw->nmcd.dwDrawStage == CDDS_POSTPAINT)
+                {
+                    HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
+                    RECT client;
+                    GetClientRect(list, &client);
+                    const bool dark = Configuration.UseWindowsDarkMode != FALSE;
+                    HBRUSH background = CreateSolidBrush(dark ? RGB(56, 56, 56) : GetSysColor(COLOR_WINDOW));
+                    if (background != NULL)
+                    {
+                        HWND headerWindow = ListView_GetHeader(list);
+                        RECT lastColumn;
+                        const int columnCount = Header_GetItemCount(headerWindow);
+                        if (columnCount > 0 && Header_GetItemRect(headerWindow, columnCount - 1, &lastColumn))
+                        {
+                            RECT unused = {lastColumn.right, client.top, client.right, client.bottom};
+                            if (unused.left < unused.right)
+                                FillRect(draw->nmcd.hdc, &unused, background);
+                        }
+                        const int topIndex = ListView_GetTopIndex(list);
+                        const int count = ListView_GetItemCount(list);
+                        const int pageCount = ListView_GetCountPerPage(list);
+                        int lastVisible = min(count - 1, topIndex + max(0, pageCount - 1));
+                        RECT lastRow;
+                        while (lastVisible >= topIndex &&
+                               (!ListView_GetItemRect(list, lastVisible, &lastRow, LVIR_BOUNDS) ||
+                                lastRow.top >= client.bottom))
+                            --lastVisible;
+                        if (lastVisible < 0 || lastVisible < topIndex)
+                        {
+                            FillRect(draw->nmcd.hdc, &client, background);
+                        }
+                        else if (lastRow.bottom < client.bottom)
+                        {
+                            RECT unused = {client.left, lastRow.bottom, client.right, client.bottom};
+                            FillRect(draw->nmcd.hdc, &unused, background);
+                        }
+                        DeleteObject(background);
+                    }
+                    return returnCustomDraw(CDRF_DODEFAULT);
                 }
                 return returnCustomDraw(CDRF_DODEFAULT);
             }
@@ -5652,7 +5701,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
         // the explicit matrix palette after the base handler has completed.
         HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
         const bool dark = Configuration.UseWindowsDarkMode != FALSE;
-        const COLORREF background = dark ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW);
+        const COLORREF background = dark ? RGB(56, 56, 56) : GetSysColor(COLOR_WINDOW);
         ListView_SetBkColor(list, background);
         ListView_SetTextBkColor(list, background);
         ListView_SetTextColor(list, dark ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT));
