@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Test F6 interruption during the staged write. | Verify that cancellation and a broken pipe remove partially written data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Page through sparse allocated ranges. | Preserve highly fragmented streams during guarded cross-volume moves. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve source streams in verified disk overwrites. | Verify every replacement stream before retiring the original. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Remove the cross-volume F6 pilot limits. | Verify offsets past 4 GiB and cancellation without a total deadline. | | GPT-6.1 Sol (Codex) |
@@ -1258,6 +1259,8 @@ Prošlo 284 nativních kontrol v x64 Debug i Release, 12 kontrol workeru, 26 kon
 **Řídké proudy s více dávkami alokovaných oblastí.** Kopírování při chráněném F6 zpracuje i soubor, pro který se mapa alokace nevejde do jednoho výsledku. Po kódu ERROR_MORE_DATA přečte další dávku od konce poslední ověřené oblasti. Před dalším dotazem kontroluje přerušení a odmítne neplatný nebo neposouvající se výsledek. Hlavní i pojmenovaný proud používají společné čtení rozsahů. [Dotaz na alokované oblasti NTFS](https://learn.microsoft.com/en-us/windows/win32/api/winioctl/ni-winioctl-fsctl_query_allocated_ranges).
 
 Prošlo 129 kontrol F6 v x64 Debug i Release, 284 obecných nativních kontrol v Release a sestavení brokeru x64 Release. Na testovaném NTFS první dotaz s 4 096 místy skutečně vrátil chybu 234 a plnou dávku. Po zveřejnění a odebrání zdroje test ověřil všech 4 100 značek, data za offsetem 4 GiB v obou proudech, délku, skutečně nealokovanou mezeru a úklid dokladu. Předchozí zrušený pokus nezveřejnil cíl a zachoval zdroj. Test proběhl na jednom svazku bez systémové výzvy. Ověření na dvou svazcích je součástí akceptace ve VM.
+
+**Přerušení F6 během zápisu.** Nativní zkouška po zápisu prvních 64 KiB do pracovního souboru pošle zrušení přes rouru nebo zavře její protistranu. Obě větve odstraní pracovní soubor, nezveřejní cíl a zachovají zdroj. Následný pokus bez přerušení uspěje. Prošlo 131 kontrol F6 v x64 Debug i Release. Zkouška běží lokálně na jednom svazku. Testovací bod se do produkčního brokeru nesestavuje.
 
 ## 12. Testovací strategie
 

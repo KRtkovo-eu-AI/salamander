@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Interrupt guarded F6 after writing a stage block. | Check staged cleanup, the intact source, and successful retry on real NTFS. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise a sparse F6 with more than one range page. | Verify every allocated marker and a hole after the guarded move. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify overwrite receipts for named NTFS streams. | Reject changed stream data even with matching size, identity and timestamps. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Move sparse streams beyond 4 GiB. | Verify 64-bit offsets, cancellation, and retirement with real NTFS data. | | GPT-6.1 Sol (Codex) |
@@ -88,6 +89,7 @@
 | 2026-11-07 | Test anchored mkdir against real NTFS substitutions. | Verify that a replacement path and reparse points cannot redirect a creation. | | GPT-6.1 Sol (Codex) |
 */
 #define SAM_UAC_REPLACEMENT_FAULT_TEST
+#define SAM_UAC_COPY_FAULT_TEST
 #include "../uacbroker/metadataleaf.h"
 #include "../uacbroker/deleteleaf.h"
 #include "../uacbroker/listing.h"
@@ -116,6 +118,42 @@ void PauseReplacementAt(ReplacementFaultPoint point)
 {
     if (replacementFaultSignal && point == replacementFaultPoint && SetEvent(replacementFaultSignal))
         Sleep(7000);
+}
+}
+
+namespace UacCopyLeaf::Detail
+{
+struct CopyFault
+{
+    HANDLE connection;
+    HANDLE peer;
+    bool disconnect;
+    LONGLONG stagedBytes = 0;
+    DWORD signalError = ERROR_GEN_FAILURE;
+};
+static CopyFault* activeCopyFault = nullptr;
+
+void AfterCopyBlockForTest(HANDLE target, HANDLE connection)
+{
+    if (!activeCopyFault || activeCopyFault->connection != connection)
+        return;
+    auto& fault = *activeCopyFault;
+    activeCopyFault = nullptr;
+    LARGE_INTEGER size{};
+    if (GetFileSizeEx(target, &size))
+        fault.stagedBytes = size.QuadPart;
+    if (fault.disconnect)
+    {
+        fault.signalError = CloseHandle(fault.peer) ? ERROR_SUCCESS : GetLastError();
+        fault.peer = nullptr;
+    }
+    else
+    {
+        const BYTE signal = UacRenameLeaf::Detail::transferCancelSignal;
+        DWORD sent = 0;
+        fault.signalError = !WriteFile(fault.peer, &signal, sizeof(signal), &sent, nullptr) ? GetLastError() :
+                            sent == sizeof(signal) ? ERROR_SUCCESS : ERROR_WRITE_FAULT;
+    }
 }
 }
 
@@ -1939,9 +1977,9 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
         const auto rivalPath = targetDirectory + L"\\move-rival";
         UacMoveSourceJournal::Detail::Handle target(nullptr, CloseHandle);
         FILE_ID_INFO targetId{};
-        const auto publish = [&](HANDLE cancel = nullptr) {
+        const auto publish = [&](HANDLE cancel = nullptr, HANDLE connection = nullptr) {
             return guard.PublishCopy(destinationParent, targetParent, targetLeaf, moveContent.size(),
-                                     cancel, nullptr, MAXULONGLONG, target, targetId);
+                                     cancel, connection, MAXULONGLONG, target, targetId);
         };
         const Handle cancelled(CreateEventW(nullptr, TRUE, TRUE, nullptr));
         if (!cancelled)
@@ -1949,6 +1987,28 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
         error = publish(cancelled.get());
         Check(error == ERROR_CANCELLED && !target && !Exists(targetPath) && !guard.Check(2),
               "cancel a guarded copy without publishing a target or changing the source", error);
+        for (const bool disconnect : {false, true})
+        {
+            HANDLE reader = nullptr, writer = nullptr;
+            if (!CreatePipe(&reader, &writer, nullptr, 0))
+                return false;
+            const Handle connection(reader);
+            UacCopyLeaf::Detail::CopyFault fault{connection.get(), writer, disconnect};
+            UacCopyLeaf::Detail::activeCopyFault = &fault;
+            error = publish(nullptr, connection.get());
+            UacCopyLeaf::Detail::activeCopyFault = nullptr;
+            const Handle peer(fault.peer);
+            WIN32_FIND_DATAW data{};
+            const HANDLE found = FindFirstFileW((targetDirectory + L"\\.samandarin-copy-*.tmp").c_str(), &data);
+            const bool stageGone = found == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_NOT_FOUND;
+            if (found != INVALID_HANDLE_VALUE)
+                FindClose(found);
+            const DWORD expectedError = disconnect ? ERROR_BROKEN_PIPE : ERROR_CANCELLED;
+            Check(!fault.signalError && fault.stagedBytes == 64 * 1024 && error == expectedError &&
+                      !target && !Exists(targetPath) && stageGone && !guard.Check(2),
+                  disconnect ? "remove the written stage after the host disconnects during F6" :
+                               "remove the written stage after the host cancels during F6", error);
+        }
         if (!WriteFixture(targetPath, {7}) || !WriteFixture(rivalPath, {8}))
             return false;
         error = publish();

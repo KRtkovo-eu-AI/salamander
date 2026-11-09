@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Expose an active copy checkpoint to the native fixture. | Test cancellation and host loss after staged bytes exist. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Page through sparse allocated ranges. | Continue after a full range buffer without losing holes or data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Allow verified stream reads while the base has delete access. | Keep overwrite receipt verification on the pinned replacement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share stream storage verification with compressed F5. | Preserve the main stream and named streams together without relaxing the staged publication checks. | | GPT-6.1 Sol (Codex) |
@@ -171,6 +172,10 @@ inline DWORD ReadOverlappedBlock(HANDLE source, BYTE* buffer, DWORD length, ULON
     return FinishOverlappedCopyIo(source, io, completed, bytes, cancel, connection, deadline);
 }
 
+#ifdef SAM_UAC_COPY_FAULT_TEST
+void AfterCopyBlockForTest(HANDLE target, HANDLE connection);
+#endif
+
 inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
                        HANDLE cancel, HANDLE connection, ULONGLONG deadline, bool overlappedSource = false,
                        ULONGLONG position = 0)
@@ -209,6 +214,9 @@ inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
                 return ERROR_WRITE_FAULT;
             offset += written;
         }
+#ifdef SAM_UAC_COPY_FAULT_TEST
+        AfterCopyBlockForTest(target, connection);
+#endif
     }
     return ERROR_SUCCESS;
 }
