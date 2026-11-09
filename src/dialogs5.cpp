@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Balance vertical spacing around the association conflict message. | Give the conflict label equal clearance from Target ID and the detail panel bottom. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Align the Action label beside its action buttons. | Keep the form label from overlapping the five action selectors. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Render association action pages with owner-drawn buttons. | Keep tabs and dark-mode matrix colors visible when native tab painting is unavailable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Fix dark-mode tab border drawing arguments. | Use the Win32 FrameRect signature and system color identifier accepted by the compiler. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Paint association matrix cells and status badges per subitem. | Apply the dark palette and provenance badges after native list-view painting. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -4618,6 +4620,11 @@ void CCfgPageFileAssociations::Transfer(CTransferInfo& ti)
     }
     Rows = model.Associations();
     Selected = Rows.empty() ? -1 : 0;
+    if (Selected >= 0)
+    {
+        SelectedCategory = static_cast<int>(Rows[Selected].AssociationCategory);
+        SelectedOperation = static_cast<int>(Rows[Selected].Operation);
+    }
     SelectedMatrixRow = -1;
     RefreshList();
 }
@@ -4924,7 +4931,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
             const int sourceLeft = provenanceLeft + 88 + gap;
             const int conflictLeft = compact ? left : sourceLeft + 88 + gap;
             const int addLeft = right - addWidth;
-            const int actionTabLeft = 10;
+            const int actionTabLeft = 78;
             const int actionTabGap = 3;
             const int actionTabWidth = max(1, (right - 8 - actionTabLeft - 4 * actionTabGap) / 5);
 
@@ -4951,7 +4958,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 {IDC_STATIC_1, 12, detailTop + 2, right - 8, detailTop + 17},
                 {IDC_STATIC_3, 10, detailTop + 23, 58, detailTop + 38},
                 {IDE_FILEASSOCIATION_PATTERN, 62, detailTop + 20, right - 8, detailTop + 38},
-                {IDC_STATIC_4, 10, detailTop + 40, 58, detailTop + 49},
+                {IDC_STATIC_4, 10, detailTop + 51, 70, detailTop + 69},
                 {IDB_FILEASSOCIATION_ACTION_VIEW, actionTabLeft, detailTop + 50,
                  actionTabLeft + actionTabWidth, detailTop + 70},
                 {IDB_FILEASSOCIATION_ACTION_ALT, actionTabLeft + actionTabWidth + actionTabGap,
@@ -4966,7 +4973,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 {IDC_FILEASSOCIATION_TARGETKIND, 88, detailTop + 75, right - 16, detailTop + 93},
                 {IDC_STATIC_7, 18, detailTop + 103, 82, detailTop + 118},
                 {IDC_FILEASSOCIATION_TARGETCATALOG, 88, detailTop + 100, right - 16, detailTop + 118},
-                {IDC_FILEASSOCIATION_STATUS, 18, detailTop + 123, right - 16, detailBottom - 12},
+                {IDC_FILEASSOCIATION_STATUS, 18, detailTop + 126, right - 16, detailBottom - 8},
                 {0, 0, 0, 0, 0}};
             for (size_t i = 0; i < sizeof(controls) / sizeof(controls[0]); ++i)
             {
@@ -5396,7 +5403,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
         }
         break;
     case WM_NOTIFY:
-    if (!Updating && reinterpret_cast<LPNMHDR>(lParam)->idFrom == IDL_FILEASSOCIATIONS)
+    if (reinterpret_cast<LPNMHDR>(lParam)->idFrom == IDL_FILEASSOCIATIONS)
         {
             LPNMHDR header = reinterpret_cast<LPNMHDR>(lParam);
             if (header->code == NM_CUSTOMDRAW)
@@ -5575,12 +5582,30 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                             if (unused.left < unused.right)
                                 FillRect(draw->nmcd.hdc, &unused, background);
                         }
+                        const int count = ListView_GetItemCount(list);
+                        const int topIndex = count > 0 ? ListView_GetTopIndex(list) : 0;
+                        int lastVisible = count > 0
+                            ? min(count - 1, topIndex + max(0, ListView_GetCountPerPage(list) - 1))
+                            : -1;
+                        RECT lastRow;
+                        while (lastVisible >= topIndex &&
+                               (!ListView_GetItemRect(list, lastVisible, &lastRow, LVIR_BOUNDS) ||
+                                lastRow.top >= client.bottom))
+                            --lastVisible;
+                        if (lastVisible < topIndex)
+                            FillRect(draw->nmcd.hdc, &client, background);
+                        else if (lastRow.bottom < client.bottom)
+                        {
+                            RECT unused = {client.left, lastRow.bottom, client.right, client.bottom};
+                            FillRect(draw->nmcd.hdc, &unused, background);
+                        }
                         DeleteObject(background);
                     }
                     return returnCustomDraw(CDRF_DODEFAULT);
                 }
                 return returnCustomDraw(CDRF_DODEFAULT);
-            }            if (header->code == LVN_ITEMCHANGED)
+            }
+            if (!Updating && header->code == LVN_ITEMCHANGED)
             {
                 const NMLISTVIEW* notification = reinterpret_cast<const NMLISTVIEW*>(lParam);
                 if ((notification->uChanged & LVIF_STATE) != 0 &&
@@ -5613,7 +5638,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 }
                 return 0;
             }
-            if (header->code == LVN_COLUMNCLICK)
+            if (!Updating && header->code == LVN_COLUMNCLICK)
             {
                 const NMLISTVIEW* click = reinterpret_cast<const NMLISTVIEW*>(lParam);
                 if (click->iSubItem == SortColumn)
@@ -5641,7 +5666,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 RefreshList();
                 return 0;
             }
-            if (header->code == NM_CLICK)
+            if (!Updating && header->code == NM_CLICK)
             {
                 const NMITEMACTIVATE* click = reinterpret_cast<const NMITEMACTIVATE*>(lParam);
                 if (click->iItem >= 0 && click->iItem < ListView_GetItemCount(GetDlgItem(HWindow, IDL_FILEASSOCIATIONS)))
