@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Seal and guard the F6 source before linking it. | Keep source link creation behind the existing open exclusion. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Dispatch exact compressed cross-volume moves. | Keep compression preservation inside its authorized F6 job. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Accept sparse sources in the cross-volume F6 broker. | Keep copy completion after ordinary copying subject to its existing metadata checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Finish F6 when only source deletion needs elevation. | Verify the original copy identities and content before retiring the source. | | GPT-6.1 Sol (Codex) |
@@ -1052,10 +1053,11 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
         return ERROR_PARTIAL_COPY;
 
     PSECURITY_DESCRIPTOR rawSeal = nullptr;
-    // Recovery administrators may read, inspect and restore the DACL or delete
-    // this exact file. The ordinary owner retains no implicit WRITE_DAC.
+    // The seal permits the broker to inspect, link and retire this file and
+    // restore the original DACL. NTFS checks WRITE_ATTRIBUTES when linking.
+    // The ordinary owner retains no implicit WRITE_DAC.
     if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(
-            L"D:P(A;;RC;;;OW)(A;;0x00170089;;;BA)(A;;0x00170089;;;SY)", SDDL_REVISION_1, &rawSeal, nullptr))
+            L"D:P(A;;RC;;;OW)(A;;0x00170189;;;BA)(A;;0x00170189;;;SY)", SDDL_REVISION_1, &rawSeal, nullptr))
         return GetLastError();
     const std::unique_ptr<void, LocalFreeDeleter> sealDescriptor(rawSeal);
     PACL seal = nullptr;
@@ -1089,12 +1091,14 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
         if (preserveCompression && !UacF7::IsCompressedCopyFile(basic.FileAttributes))
             return ERROR_NOT_SUPPORTED;
         std::wstring alias;
-        status = Arm(sourceParent, sourceLeaf, source.get(), sourceId, storage.get(), journal.get(), security.get(), alias, seal);
+        status = PrepareRecovery(sourceParent, sourceLeaf, source.get(), sourceId, storage.get(), journal.get(), security.get(), alias, seal);
         source.reset();
         if (status || (status = CheckNoPriorSourceOpens(sourceParent, sourceLeaf, sourceId)))
             return status;
         SourceGuard guard(preserveCompression ? basic.FileAttributes : 0);
-        if ((status = guard.Open(sourceParent, sourceLeaf, sourceId, 2)) != ERROR_SUCCESS)
+        if ((status = guard.Open(sourceParent, sourceLeaf, sourceId, 1)) ||
+            (status = UacCopyLeaf::Detail::CheckCancelled(nullptr, pipe, deadline)) ||
+            (status = guard.AddRecoveryLink(storage.get(), alias)))
             return status;
         UacMoveSourceJournal::Detail::Handle target(nullptr, CloseHandle);
         FILE_ID_INFO targetId{};

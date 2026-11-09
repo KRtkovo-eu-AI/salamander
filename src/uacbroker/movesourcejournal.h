@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Separate the source seal from recovery link creation. | Make the durable DACL record recoverable before any hard link exists. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Retire both F6 source links after the destination receipt. | Preserve a recoverable source until the last unlink. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Persist the verified F6 destination. | A completed move requires the exact published target even after process loss. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Journal the original DACL before sealing a move source. | Recover the exact inherited or protected ACL after an interrupted move. | | GPT-6.1 Sol (Codex) |
@@ -256,7 +257,8 @@ inline DWORD OpenOriginal(HANDLE parent, std::wstring_view leaf, const FILE_ID_I
 // handle, and supplies the exact security descriptor of the private storage.
 // A supplied seal must allow the recovery identity to reopen the file for
 // READ_CONTROL, WRITE_DAC and DELETE. The caller controls concurrent writers.
-inline DWORD Arm(HANDLE parent, std::wstring_view leaf, HANDLE source, const FILE_ID_INFO& expected,
+// No recovery name is created until the caller can exclude earlier opens.
+inline DWORD PrepareRecovery(HANDLE parent, std::wstring_view leaf, HANDLE source, const FILE_ID_INFO& expected,
                  HANDLE storage, HANDLE journal, PSECURITY_DESCRIPTOR security, std::wstring& recoveryName, PACL seal = nullptr)
 {
     using namespace Detail;
@@ -324,11 +326,17 @@ inline DWORD Arm(HANDLE parent, std::wstring_view leaf, HANDLE source, const FIL
         if (!FlushFileBuffers(journal))
             return GetLastError();
     }
-    error = UacRenameLeaf::Detail::NativeHardLink(source, storage, alias);
-    if (error)
+    if (dacl && (error = dacl->sealed.Apply(source)) != ERROR_SUCCESS)
         return error;
     recoveryName = std::move(alias);
-    return dacl ? dacl->sealed.Apply(source) : ERROR_SUCCESS;
+    return ERROR_SUCCESS;
+}
+
+inline DWORD Arm(HANDLE parent, std::wstring_view leaf, HANDLE source, const FILE_ID_INFO& expected,
+                 HANDLE storage, HANDLE journal, PSECURITY_DESCRIPTOR security, std::wstring& recoveryName, PACL seal = nullptr)
+{
+    const DWORD error = PrepareRecovery(parent, leaf, source, expected, storage, journal, security, recoveryName, seal);
+    return error ? error : UacRenameLeaf::Detail::NativeHardLink(source, storage, recoveryName);
 }
 
 // The caller still holds the published destination without write or delete

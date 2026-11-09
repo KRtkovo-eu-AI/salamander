@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Create the recovery link on the already guarded file. | Keep verification and link creation on a single handle. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Guard compressed move sources throughout retirement. | Apply the same metadata contract when reopening the recovery link. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow guarded sparse F6 publication. | Recheck the sparse source under the same seal until unlink. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Compare an existing F6 copy with its guarded source. | Prove the destination bytes before permitting a late source removal. | | GPT-6.1 Sol (Codex) |
@@ -94,6 +95,14 @@ public:
     }
 
     HANDLE File() const { return source.get(); }
+
+    DWORD AddRecoveryLink(HANDLE storage, std::wstring_view leaf) const
+    {
+        DWORD error = Check(1);
+        if (!error)
+            error = UacRenameLeaf::Detail::NativeHardLink(source.get(), storage, leaf);
+        return error ? error : Check(2);
+    }
 
     DWORD PublishCopy(HANDLE targetParent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
                       std::wstring_view leaf, ULONGLONG size, HANDLE cancel, HANDLE connection, ULONGLONG deadline,
@@ -261,7 +270,7 @@ public:
         if (DWORD error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), metadata, false,
                 UacCopyLeaf::StreamPolicy::RequireDefault, allowed))
             return error;
-        // The recovery link can set Archive on the source. Other attribute
+        // The seal and recovery link can set Archive. Other attribute
         // changes invalidate the approved compressed move.
         if (originalCompressedAttributes &&
             ((metadata.FileAttributes ^ originalCompressedAttributes) & ~FILE_ATTRIBUTE_ARCHIVE))

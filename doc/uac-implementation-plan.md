@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record source sealing before recovery link creation. | Reject preexisting handles before the link can change NTFS metadata. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record compressed F6 publication. | Preserve LZNT1 and the source attributes captured before sealing. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record sparse F6 publication. | Track allocated ranges and guarded source retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record F6 completion after an ordinary cross-volume copy. | Verify both identities and the copied data before deleting the source. | | GPT-6.1 Sol (Codex) |
@@ -692,6 +693,12 @@ V x64 Debug i Release prošlo 91 kontrol F6 včetně zkoušky dvou přidělenýc
 **Komprimovaný soubor při F6 mezi svazky.** Se zapnutým zachováním atributů má komprimovaný soubor vlastní operaci brokeru a rozsah dávky. Pokud běžné čtení zdroje nebo vytvoření cíle vyžaduje elevaci, broker přečte formát komprese z uzamčeného zdroje a nastaví LZNT1 na pracovní kopii. Před zveřejněním a odebráním zdroje kontroluje formát a ověřuje výsledné atributy proti stavu před vytvořením pomocného odkazu. NTFS při vytvoření odkazu v pokusu přidal Archív i zdroji, který ho původně neměl. Zkouška návratu zdroje potvrdila, že se tento bit zatím neobnoví. Obnova bitu po přerušení proto zůstává otevřená. Operace používá verzi protokolu 3 a zachovává limit 16 MiB, jediný datový proud a volný cílový název. [Čtení formátu komprese podle handlu](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_compression_info) · [Nastavení komprese](https://learn.microsoft.com/en-us/windows/desktop/api/winioctl/ni-winioctl-fsctl_set_compression).
 
 V x64 Debug a Release prošlo 96 kontrol F6, 248 obecných nativních kontrol a 13 scénářů dávkové roury v každé konfiguraci. Zkoušky ověřily LZNT1 a shodu obsahu i atributů, odmítnutí stejného svazku, zachování obsazeného cíle a uzavření záznamu obnovy. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Akceptace na dvou svazcích zůstává ve společné zkoušce ve VM.
+
+**Příprava obnovy F6 před pomocným odkazem.** Broker nejdříve uloží původní DACL a nasadí dočasnou DACL. Potom ověří nepřítomnost starších handlů a na jediném ověřeném zdrojovém handlu získá výhradní oplock. Teprve na tomto handlu vytvoří pomocný odkaz a ověří dva odkazy na stejný soubor. Když starší handle překáží nebo už byla operace zrušena, odkaz se nevytvoří. Stávající formát žurnálu umožňuje vrátit původní DACL i v této fázi bez odkazu.
+
+Místní měření ukázalo, že na testovaném NTFS může Archív přidat už samotná změna DACL. Nastavení hodnot `-1` pro časy na handlu nepomohlo po jeho zavření. Při obnově zatím zůstává Archív otevřený, protože před jeho vynulováním je potřeba odlišit změnu provedenou brokerem od oprávněné souběžné změny. Úspěšně zveřejněný komprimovaný cíl stále přebírá atributy zachycené před zásahem brokeru. [Význam časových polí v FILE_BASIC_INFORMATION](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_file_basic_information).
+
+V x64 Debug a Release prošlo 101 kontrol F6 a 13 scénářů dávkové roury. Nové zkoušky ověřily, že otevřený metadata handle zastaví postup ještě před odkazem, že obnovu bez odkazu lze provést se stejným obsahem a časem poslední změny a že vytvoření odkazu neporuší výhradní oplock. Prošlo sestavení aplikace, brokeru a sondy x64 Debug.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

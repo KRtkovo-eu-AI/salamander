@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise F6 recovery before and after guarded link creation. | Verify the seal is reversible before NTFS changes the source link count. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise retirement of a verified compressed F6 source. | Check exact attributes, LZNT1, payload and collision behavior. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise sparse publication and retirement through the F6 source guard. | Verify bytes, a physical hole and the recovery receipt. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test existing-copy verification for late F6 completion. | Refuse even a last-byte difference in a same-sized destination. | | GPT-6.1 Sol (Codex) |
@@ -1627,7 +1628,7 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
     if (!GetSecurityDescriptorOwner(security.get(), &owner, &defaulted) || !ConvertSidToStringSidW(owner, &ownerName))
         return false;
     const std::unique_ptr<void, decltype(&LocalFree)> sid(ownerName, LocalFree);
-    const std::wstring sealSddl = std::wstring(L"D:P(A;;RC;;;OW)(A;;0x00170089;;;") + ownerName + L")";
+    const std::wstring sealSddl = std::wstring(L"D:P(A;;RC;;;OW)(A;;0x00170189;;;") + ownerName + L")";
     PSECURITY_DESCRIPTOR sealRaw = nullptr, foreignRaw = nullptr;
     if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(sealSddl.c_str(), SDDL_REVISION_1, &sealRaw, nullptr))
         return false;
@@ -1979,18 +1980,51 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
         return false;
     const DWORD compressedAttributes = GetFileAttributesW(sourcePath.c_str());
     FILE_ID_INFO compressedId{};
-    if (compressedAttributes != FILE_ATTRIBUTE_COMPRESSED || !OpenIdentity(sourcePath, compressedId) ||
-        OpenSource(parent.get(), leaf, raw, DELETE | READ_CONTROL | WRITE_DAC, FILE_SHARE_READ))
+    if (compressedAttributes != FILE_ATTRIBUTE_COMPRESSED || !OpenIdentity(sourcePath, compressedId))
         return false;
-    source.reset(raw);
-    error = Arm(parent.get(), leaf, source.get(), compressedId, storage.get(), journal.get(), security.get(), name, seal);
-    source.reset();
-    if (error || CheckNoPriorSourceOpens(parent.get(), leaf, compressedId))
+    WIN32_FILE_ATTRIBUTE_DATA beforeSeal{}, afterSeal{};
+    if (!GetFileAttributesExW(sourcePath.c_str(), GetFileExInfoStandard, &beforeSeal))
         return false;
-    error = guard.Open(parent.get(), leaf, compressedId, 2);
+    const auto sealCompressed = [&]() -> DWORD {
+        const DWORD status = OpenSource(parent.get(), leaf, raw, DELETE | READ_CONTROL | WRITE_DAC, FILE_SHARE_READ);
+        if (status)
+            return status;
+        const Handle originalFile(raw);
+        return PrepareRecovery(parent.get(), leaf, originalFile.get(), compressedId,
+                               storage.get(), journal.get(), security.get(), name, seal);
+    };
+    if (OpenSource(parent.get(), leaf, raw, FILE_WRITE_ATTRIBUTES,
+                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE))
+        return false;
+    priorWriter.reset(raw);
+    if (sealCompressed())
+        return false;
+    Check(!Exists(storageDirectory + L"\\" + name) && !empty(),
+          "persist the source DACL without creating a recovery link");
+    error = CheckNoPriorSourceOpens(parent.get(), leaf, compressedId);
+    Check((error == ERROR_OPLOCK_NOT_GRANTED || error == ERROR_SHARING_VIOLATION) &&
+              !Exists(storageDirectory + L"\\" + name),
+          "stop before creating the recovery link while an older metadata writer exists", error);
+    priorWriter.reset();
+    error = recover(parent.get());
+    Check(!error && empty() && !Exists(storageDirectory + L"\\" + name) &&
+              GetFileAttributesExW(sourcePath.c_str(), GetFileExInfoStandard, &afterSeal) &&
+              !CompareFileTime(&beforeSeal.ftLastWriteTime, &afterSeal.ftLastWriteTime) &&
+              HasContents(sourcePath, compressedBytes),
+          "restore a sealed source with no recovery link and leave its content and modification time intact", error);
+    if (sealCompressed() || CheckNoPriorSourceOpens(parent.get(), leaf, compressedId))
+        return false;
+    error = guard.Open(parent.get(), leaf, compressedId, 1);
     Check(error == ERROR_NOT_SUPPORTED, "reject a compressed source in the ordinary move scope", error);
     SourceGuard compressedGuard(compressedAttributes);
-    error = compressedGuard.Open(parent.get(), leaf, compressedId, 2);
+    if (compressedGuard.Open(parent.get(), leaf, compressedId, 1))
+        return false;
+    FILE_BASIC_INFO guarded{};
+    Check(GetFileInformationByHandleEx(compressedGuard.File(), FileBasicInfo, &guarded, sizeof(guarded)) &&
+              ((guarded.FileAttributes ^ compressedAttributes) & ~FILE_ATTRIBUTE_ARCHIVE) == 0,
+          "verify the original non-Archive attributes from the guarded source before linking");
+    error = compressedGuard.AddRecoveryLink(storage.get(), name);
+    Check(!error && !compressedGuard.Check(2), "link the guarded source without losing its exclusive oplock", error);
     if (error)
         return false;
     constexpr wchar_t compressedLeaf[] = L"compressed-\u6771.bin";
