@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record the disabled Recycle Bin check on the isolated NTFS volume. | Verify the real Shell response separately from the callback simulation. | | Codex |
 | 2026-11-09 | Test a permanent-delete fallback during the elevated recycle retry. | Verify that the Shell retry stops if it drops the recycle flag. | | Codex |
 | 2026-11-09 | Prepare architecture-checked ARM64 runtime tests. | Verify the ARM64 binaries locally and keep the native execution gate explicit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record successful fork CI and CodeQL on 7bd944c8. | Link the exact published candidate to the native results and the full C++ scan. | | GPT-6.1 Sol (Codex) |
@@ -1647,6 +1648,8 @@ Chráněné běhy zachytily 53 a 136 vzorků s aktivním brokerem. Rozdíl v jeh
 **P7, místní příprava nativních testů ARM64.** Dva stávající testovací příkazy kontrolují s parametrem --expect-arm64 strojový typ PE každého sestaveného testu před spuštěním. Režim --build-only ověří křížové sestavení bez spuštění testů. Na Windows x64 sestavil MSVC Hostx64/arm64 tři testovací obrazy Release, které kontrola identifikovala jako ARM64. Stejná kontrola odmítla skutečný testovací obraz x64. Běžný běh obou sad v x64 Release dále prošel. Protokoly arm64-native-tests-cross-build.log, arm64-option-reject-x64.log a arm64-option-x64-*.log jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c. Příkazy pro skutečný běh jsou v návodu brokeru. Nativní běh a interaktivní výzva na ARM64 zůstávají otevřené. Aktuálně není dostupné zařízení Windows ARM64 ani schválené podepisování. Příprava zůstává lokálně podle pokynu uživatele.
 
 **P7, místní kontrola nedostupné recyklace.** Nativní test simuluje opakování po požadavku na elevaci, při kterém Shell vynechá příznak recyklace. Kontrola vrátí chybu 50, nevydá potvrzení o přesunu do Koše a zachová původní soubor se stejným ID. Odmítnutí platí i při dalším volání s příznakem recyklace v téže operaci. V Debug i Release x64 prošlo 25 kontrol. Test Koše se sestavil i pro ARM64 Release a hlavička PE potvrdila typ AA64. Skutečně vypnutý Koš ve VM a nativní běh ARM64 zůstávají k ověření.
+
+**P7, vypnutý Koš na testovacím NTFS.** Na vyhrazeném svazku E: nejprve nativní sonda přes IFileOperation přesunula nový zkušební soubor do Koše původního účtu a obnovila ho se stejným ID. Po dočasném nastavení NukeOnDelete na 1 pouze pro tento svazek a účet skončil nový proces sondy s HRESULT 0x80070032, bez potvrzení o recyklaci. Zkušební soubor zůstal na původní cestě. Nastavení bylo vráceno na 0 a jeho návrat ověřen. Výstup je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/recycle-local-tests/recycle-policy-evidence.json. Sonda používá skutečný Shell bez elevace. Případ odmítnutí při opakování po elevaci pokrývá samostatná místní simulace.
 
 ### 12.3 CI a přijetí vydání
 
