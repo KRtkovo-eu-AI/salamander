@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the portable elevation boundary for current probe images. | Record protected-installation refusal on x64 and Win32. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the original Shell restore command for the protected receipt. | Match the account, file identity and original path before restoration. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Confirm protected recycling under the original account. | Verify the exact receipt after the corrected Shell callback sequence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Stage the protected Recycle Bin retry build. | Verify the corrected host against the existing VM broker and fixture. | | GPT-6.1 Sol (Codex) |
@@ -1457,6 +1458,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, sestavení Win32 a ARM64.** Na pracovním kódu 4f1e1801 prošly x86 a ARM64 konfigurace Debug aplikace bez chyb a varování. Prošly také odpovídající konfigurace brokeru a sondy. Lokální protokoly aplikace jsou v recycle-retry-fix/architecture/Win32/build.log a architecture/ARM64/build.log. Běh na skutečném zařízení těchto architektur zatím nebyl ověřen.
 
 **P7, ověření položky před obnovou.** Windows Shell v Koši původního účtu zobrazil přesně jednu položku P7-recycle-02-approve.txt s očekávanou původní složkou a příkazem Obnovit. Laboratorní Invoke-P7RecycleRestore.ps1 před obnovou ověřuje tento záznam, původní SID, obsah a ID souboru a volnou původní cestu. Režim Verify prošel. Samotné obnovení ještě čeká na systémový souhlas. Kontrola Koše standardního účtu se provádí pod tímto účtem nebo z PowerShellu správce, protože běžný token nemá přístup k jeho oddílu Koše.
+
+**P7, spuštění sondy mimo chráněnou instalaci.** Aktuální sondy x64 a Win32 byly spuštěny na Windows 11 x64 ze zapisovatelné laboratorní složky. Obě vrátily kód 3 před žádostí o elevaci. x64 odmítla identitu spuštěného obrazu a Win32 odmítla chybějící chráněné umístění pro svou architekturu. Výsledky jsou v recycle-retry-fix/portable-probe-evidence.json. Běh sondy Win32 na x64 neověřuje chráněnou instalaci Win32 ani běžné operace celého portable programu.
 
 ### 12.3 CI a přijetí vydání
 
