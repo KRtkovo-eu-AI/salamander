@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Refresh the complete local P7 test preflight. | Verify the current candidate before the next shared publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify copy option changes cannot reuse broker consent. | Exercise both denials on live pipes and prepare the combined metadata panel test. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Validate the Win32 and ARM64 P7 Release payloads. | Check the actual release binaries and exercise the Win32 broker transport under WOW64. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Build a combined x64 P7 acceptance payload. | Bind the current host, broker, probe and all language modules to one tested candidate. | | GPT-6.1 Sol (Codex) |
@@ -1519,6 +1520,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, Win32 a ARM64 Release.** Na zdrojích společného kandidáta prošlo sestavení aplikace, brokeru a sondy pro obě architektury. Laboratorní ověřovač zkontroloval příslušné architektury, protokol 10, manifesty a závislosti obou dvojic. Nativní sada sestavená překladačem x86 prošla pod WOW64 na Windows 11 x64 build 26200. Zahrnula skutečnou lokální rouru a všech 50 kontrol úloh brokeru. Podpis, chráněné nasazení, interaktivní běh Win32 a nativní běh ARM64 zůstávají k ověření. Záznamy jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/cross-architecture-payloads.json a transport-Win32-on-x64.log.
 
 **P7, změna voleb v otevřené kopírovací úloze.** Po obyčejném kopírování broker při shodné identitě zdrojového a cílového rodiče odmítl nový požadavek na vynechání ADS i nový požadavek na zachování komprese a zabezpečení. Obě relace skončily chybou 5 a bez vytvoření nového cíle. Dokončená kopie i zdroj další položky zůstaly beze změny. Sada skutečné roury má 52 úspěšných kontrol v x64 Debug i Release. Pro kladnou zkoušku F5 v panelu je ve VM připraven komprimovaný 08-combined-metadata.bin s pojmenovaným proudem a chráněnou DACL. Skript Invoke-P7F5CombinedMetadata.ps1 v režimu Evidence porovná hlavní SHA-256, proudy, kompresi, vlastníka, skupinu a explicitní DACL. Interaktivní kopie ještě neproběhla.
+
+**P7, společný místní běh revize 0a31d066.** Prošlo všech 113 skupin z katalogu Python, 43 nativních projektů x64 Debug a tři samostatné skupiny Node a PowerShell. Deset skupin Python bylo po vyčerpání limitu první dávky úspěšně zopakováno v menších skupinách. Zvlášť v Debug i Release prošlo 304 kontrol souborového jádra, 68 kontrol EFS s existující šifrovanou předlohou a 75 kontrol F6 mezi různými svazky NTFS. Souhrn je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/local-0a31d066/summary.json. Výsledky GitHub CI a CodeQL patří stále revizi e49d48b1 a neověřují tento místní stav.
 
 ### 12.3 CI a přijetí vydání
 
