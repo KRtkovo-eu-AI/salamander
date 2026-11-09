@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check association matrix selection and dark badge colors. | Keep neutral data cells, full-row selection, and readable status badges across themes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 # | 2026-11-09 | Check first-start plugin rows and extension owner labels. | Prevent startup ordering, migration, projection, and localized owner-display regressions for issue #733. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-09 | Check immediate clean/default materialization. | Keep migrated association rows visible without requiring a restart after lifecycle load or page refresh. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-09 | Check the property-holder minimum and list-view color contract. | Keep the canonical page below the parent buttons and make provenance colors effective in dark mode. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -308,7 +309,8 @@ def main() -> None:
             "int buttonRow[5]" in dialogs5 and
             "GetClientRect(HWindow" in dialogs5 and
             "CDRF_NEWFONT" in dialogs5 and
-            "draw->clrTextBk = RGB(23, 23, 23)" in dialogs5,
+            "draw->clrTextBk = dark ? RGB(92, 92, 92)" in dialogs5 and
+            "const COLORREF cellColor = selected" in dialogs5,
             "the association page must keep compact help, complete display strings, and every action row inside the client area")
     require("#define _TPD_MIN_PAGE_H 300" in sheets and
             "Reserve the full canonical association page height" in sheets,

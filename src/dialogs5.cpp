@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Correct association matrix theme and selection rendering. | Use the requested dark background and keep row selection consistent while making status badges readable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Replace Preset with category-aware Built-in target IDs. | Show the actual legacy editor application for Edit and keep viewer built-ins labeled Internal Viewer. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add saved custom handlers to association target selectors. | Let viewer/edit categories select matching custom definitions by ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Show and resolve exact-target conflicts only. | Report competing owners of one pattern without treating fallback masks or different extensions as collisions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -4663,10 +4664,15 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
         const int iconSize = GetIconSizeForSystemDPI(ICONSIZE_16);
         MatrixImageList = ImageList_Create(iconSize, iconSize, ILC_COLOR32 | ILC_MASK, 8, 8);
         if (MatrixImageList != NULL)
+        {
+            ImageList_SetBkColor(MatrixImageList, Configuration.UseWindowsDarkMode
+                                                       ? RGB(92, 92, 92)
+                                                       : GetSysColor(COLOR_WINDOW));
             ListView_SetImageList(list, MatrixImageList, LVSIL_SMALL);
+        }
         DarkModeUpdateListViewColors(list);
-        ListView_SetBkColor(list, Configuration.UseWindowsDarkMode ? RGB(23, 23, 23) : GetSysColor(COLOR_WINDOW));
-        ListView_SetTextBkColor(list, Configuration.UseWindowsDarkMode ? RGB(23, 23, 23) : GetSysColor(COLOR_WINDOW));
+        ListView_SetBkColor(list, Configuration.UseWindowsDarkMode ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW));
+        ListView_SetTextBkColor(list, Configuration.UseWindowsDarkMode ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW));
         ListView_SetTextColor(list, Configuration.UseWindowsDarkMode ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT));
     const int columnTextIds[7] = {
             IDS_FILEASSOCIATION_PATTERN,
@@ -5270,7 +5276,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 {
                     const bool dark = Configuration.UseWindowsDarkMode != FALSE;
                     draw->clrText = dark ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT);
-                    draw->clrTextBk = dark ? RGB(23, 23, 23) : GetSysColor(COLOR_WINDOW);
+                    draw->clrTextBk = dark ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW);
                     return returnCustomDraw(CDRF_NOTIFYSUBITEMDRAW | CDRF_NEWFONT);
                 }
                 if (draw->nmcd.dwDrawStage == (CDDS_ITEMPREPAINT | CDDS_SUBITEM))
@@ -5306,7 +5312,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                         if (!ListView_GetSubItemRect(list, item.iItem, draw->iSubItem, LVIR_BOUNDS, &cell))
                             return returnCustomDraw(CDRF_DODEFAULT);
                         const bool selected = (draw->nmcd.uItemState & CDIS_SELECTED) != 0;
-                        COLORREF color = dark ? RGB(23, 23, 23) : GetSysColor(COLOR_WINDOW);
+                        COLORREF color = dark ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW);
                         Salamander::FileAssociations::Provenance state =
                             associationIndex >= 0 ? Rows[associationIndex].AssociationProvenance
                                                   : Salamander::FileAssociations::Provenance::Default;
@@ -5319,16 +5325,16 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                             switch (state)
                             {
                             case Salamander::FileAssociations::Provenance::User: color = dark ? RGB(35, 105, 55) : RGB(205, 238, 215); break;
-                            case Salamander::FileAssociations::Provenance::Disabled: color = dark ? RGB(75, 75, 75) : RGB(225, 225, 225); break;
-                            case Salamander::FileAssociations::Provenance::Conflict: color = dark ? RGB(135, 40, 35) : RGB(250, 210, 205); break;
-                            default: color = dark ? RGB(75, 55, 130) : RGB(225, 215, 250); break;
+                            case Salamander::FileAssociations::Provenance::Disabled: color = dark ? RGB(95, 95, 95) : RGB(225, 225, 225); break;
+                            case Salamander::FileAssociations::Provenance::Conflict: color = dark ? RGB(155, 55, 50) : RGB(250, 210, 205); break;
+                            default: color = dark ? RGB(95, 70, 155) : RGB(225, 215, 250); break;
                             }
                         }
-                        if (selected && draw->iSubItem != 5)
-                            color = GetSysColor(COLOR_HIGHLIGHT);
-                        const COLORREF cellColor = draw->iSubItem == 5
-                                                       ? (dark ? RGB(23, 23, 23) : GetSysColor(COLOR_WINDOW))
-                                                       : color;
+                        // Provenance belongs in the Status badge. Keep data cells neutral so
+                        // they do not resemble selected cells; selection spans every column.
+                        const COLORREF cellColor = selected
+                                                       ? GetSysColor(COLOR_HIGHLIGHT)
+                                                       : (dark ? RGB(92, 92, 92) : GetSysColor(COLOR_WINDOW));
                         HBRUSH background = CreateSolidBrush(cellColor);
                         FillRect(draw->nmcd.hdc, &cell, background);
                         DeleteObject(background);
