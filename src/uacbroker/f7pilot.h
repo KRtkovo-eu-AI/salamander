@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Use one result policy for authenticated broker replies. | Keep a partial move visible after the one-shot broker exits. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe guarded F6 with NTFS compression. | Bind the existing exact-attributes option to its own move scope. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe sparse guarded F6 sources. | Share the allowed attributes between the worker and broker. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Finish F6 when only source deletion needs elevation. | Verify the original copy identities and content before retiring the source. | | GPT-6.1 Sol (Codex) |
@@ -291,6 +292,14 @@ inline bool CanShareTransferJob(Operation operation)
 {
     return IsFileCopy(operation) || IsMoveTransfer(operation) || operation == Operation::CopyOverwrite ||
            IsLeafDelete(operation) || operation == Operation::Metadata;
+}
+
+inline Result TransferReply(Operation operation, DWORD error, bool transferJob = false)
+{
+    const bool crossVolumeMove = IsMoveTransfer(operation) && operation != Operation::Move;
+    const bool mayBePartial = transferJob || crossVolumeMove || operation == Operation::CopyTree ||
+        operation == Operation::WriteZipUpdate || operation == Operation::CopyOverwrite || operation == Operation::CopyEncrypted;
+    return {error, mayBePartial && error == ERROR_PARTIAL_COPY};
 }
 
 inline bool CanContinueTransferJob(DWORD error)

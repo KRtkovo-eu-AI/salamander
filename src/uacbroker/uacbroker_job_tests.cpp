@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Verify the host result policy for partial moves. | Keep one-shot replies and reusable jobs consistent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise the compressed move request on the broker pipe. | Prove same-volume refusal with the new request type. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise the late F6 request framing. | Read the destination revision before evaluating the volume boundary. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Reject a cross-volume command on one volume. | Verify the broker dispatches the distinct F6 request safely. | | GPT-6.1 Sol (Codex) |
@@ -242,6 +243,24 @@ void CheckLateCopyCancellation(const Directory& source, const Directory& target)
           "a late cancel ends the job cleanly and preserves the already published copy");
 }
 
+void CheckTransferReplies()
+{
+    const auto oneShotMove = UacF7::TransferReply(Operation::MoveAcrossVolume, ERROR_PARTIAL_COPY);
+    const auto oneShotCompressed = UacF7::TransferReply(Operation::MoveCompressed, ERROR_PARTIAL_COPY);
+    const auto lateMove = UacF7::TransferReply(Operation::FinishCrossVolumeMove, ERROR_PARTIAL_COPY);
+    Check(oneShotMove.unknown && oneShotMove.error == ERROR_PARTIAL_COPY &&
+              oneShotCompressed.unknown && lateMove.unknown,
+          "retain a partial result for every cross-volume move after the one-shot done frame");
+    const auto encrypted = UacF7::TransferReply(Operation::CopyEncrypted, ERROR_PARTIAL_COPY);
+    Check(encrypted.unknown && !UacF7::CanContinueTransferJob(encrypted.error),
+          "retain encrypted copy uncertainty and stop the job on a partial reply");
+    const auto cancelled = UacF7::TransferReply(Operation::MoveAcrossVolume, ERROR_CANCELLED, true);
+    const auto collision = UacF7::TransferReply(Operation::MoveAcrossVolume, ERROR_ALREADY_EXISTS);
+    Check(!cancelled.unknown && cancelled.error == ERROR_CANCELLED && !UacF7::CanContinueTransferJob(cancelled.error) &&
+              !collision.unknown && collision.error == ERROR_ALREADY_EXISTS && UacF7::CanContinueTransferJob(collision.error),
+          "distinguish a confirmed cancellation or collision from a partial move");
+}
+
 void CheckCrossVolumeBoundary(const Directory& source, const Directory& target)
 {
     JobPipe job;
@@ -348,6 +367,7 @@ int wmain()
     CheckCancelledCopyJob(source, target);
     CheckLateCopyCancellation(source, target);
     CheckCrossVolumeBoundary(source, target);
+    CheckTransferReplies();
     CheckMetadataJob(source);
     CheckDeleteJob(source);
     return failures ? 1 : 0;

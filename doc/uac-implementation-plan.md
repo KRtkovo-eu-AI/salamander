@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record F6 cancellation and partial replies. | Preserve the broker outcome across one-shot and shared sessions. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record source sealing before recovery link creation. | Reject preexisting handles before the link can change NTFS metadata. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record compressed F6 publication. | Preserve LZNT1 and the source attributes captured before sealing. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record sparse F6 publication. | Track allocated ranges and guarded source retirement. | | GPT-6.1 Sol (Codex) |
@@ -699,6 +700,10 @@ V x64 Debug a Release prošlo 96 kontrol F6, 248 obecných nativních kontrol a 
 Místní měření ukázalo, že na testovaném NTFS může Archív přidat už samotná změna DACL. Nastavení hodnot `-1` pro časy na handlu nepomohlo po jeho zavření. Při obnově zatím zůstává Archív otevřený, protože před jeho vynulováním je potřeba odlišit změnu provedenou brokerem od oprávněné souběžné změny. Úspěšně zveřejněný komprimovaný cíl stále přebírá atributy zachycené před zásahem brokeru. [Význam časových polí v FILE_BASIC_INFORMATION](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_file_basic_information).
 
 V x64 Debug a Release prošlo 101 kontrol F6 a 13 scénářů dávkové roury. Nové zkoušky ověřily, že otevřený metadata handle zastaví postup ještě před odkazem, že obnovu bez odkazu lze provést se stejným obsahem a časem poslední změny a že vytvoření odkazu neporuší výhradní oplock. Prošlo sestavení aplikace, brokeru a sondy x64 Debug.
+
+**Částečný výsledek F6, zrušení a ztráta spojení.** Výsledek `ERROR_PARTIAL_COPY` se v hostu vyhodnocuje stejně po odpovědi ve sdílené relaci i po ukončení jednorázového brokeru. Dříve mohl závěrečný rámec jednorázového brokeru přepsat příznak částečného výsledku u F6. Aplikace nyní u tohoto výsledku zastaví dávku a požádá o kontrolu zdroje a cíle. Potvrzené zrušení a potvrzená kolize se od částečného výsledku odlišují.
+
+V x64 Debug i Release prošlo 103 nativních kontrol F6 a 16 kontrol transportní sady. Zkoušky poslaly do skutečné roury příkaz zrušení a následně simulovaly ukončení hosta. V obou případech zdrojové odkazy zůstaly přítomné a již zveřejněný cíl si zachoval identitu. Samostatné kontroly ověřily klasifikaci odpovědí všech tří variant F6 mezi svazky, šifrovaného F5, potvrzeného zrušení a kolize. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Celý tok s jednorázovým brokerem a skutečnou výzvou zůstává ve společné akceptaci ve VM.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise pipe cancellation and host loss after F6 publication. | Keep both source links until the broker has authorization to retire them. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise F6 recovery before and after guarded link creation. | Verify the seal is reversible before NTFS changes the source link count. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise retirement of a verified compressed F6 source. | Check exact attributes, LZNT1, payload and collision behavior. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise sparse publication and retirement through the F6 source guard. | Verify bytes, a physical hole and the recovery receipt. | | GPT-6.1 Sol (Codex) |
@@ -1854,13 +1855,37 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
         const Handle cancelled(CreateEventW(nullptr, TRUE, TRUE, nullptr));
         if (!cancelled)
             return false;
-        auto retire = [&](HANDLE cancel = nullptr) {
+        auto retire = [&](HANDLE cancel = nullptr, HANDLE connection = nullptr) {
             return guard.RetirePublishedSource(parent.get(), storage.get(), journal.get(), security.get(),
-                wrongParent.get(), completedLeaf, target.get(), targetId, cancel, nullptr, MAXULONGLONG);
+                wrongParent.get(), completedLeaf, target.get(), targetId, cancel, connection, MAXULONGLONG);
         };
         error = retire(cancelled.get());
         Check(error == ERROR_CANCELLED && !guard.Check(2) && Exists(sourcePath) && Exists(retained),
               "leave both source links when cancellation arrives after publication but before retirement", error);
+
+        HANDLE rawRead = nullptr, rawWrite = nullptr;
+        if (!CreatePipe(&rawRead, &rawWrite, nullptr, 0))
+            return false;
+        const Handle brokerConnection(rawRead);
+        Handle hostConnection(rawWrite);
+        const BYTE signal = UacRenameLeaf::Detail::transferCancelSignal;
+        DWORD transferred = 0;
+        if (!WriteFile(hostConnection.get(), &signal, sizeof(signal), &transferred, nullptr) ||
+            transferred != sizeof(signal))
+            return false;
+        error = retire(nullptr, brokerConnection.get());
+        Check(error == ERROR_CANCELLED && !guard.Check(2) && Exists(sourcePath) && Exists(retained) &&
+                  !Detail::CheckIdentity(target.get(), targetId),
+              "honor the host cancel byte after publication without retiring either source link", error);
+        hostConnection.reset();
+        BYTE pending = 0;
+        if (!ReadFile(brokerConnection.get(), &pending, sizeof(pending), &transferred, nullptr) ||
+            transferred != sizeof(pending) || pending != signal)
+            return false;
+        error = retire(nullptr, brokerConnection.get());
+        Check(error == ERROR_BROKEN_PIPE && !guard.Check(2) && Exists(sourcePath) && Exists(retained) &&
+                  !Detail::CheckIdentity(target.get(), targetId),
+              "keep the published file and both source links when the host disconnects before retirement", error);
         error = retire();
         Check(!error && !guard.File() && !Exists(sourcePath) && !Exists(retained) && !empty(),
               "retire the original and recovery links only after flushing the exact destination receipt", error);

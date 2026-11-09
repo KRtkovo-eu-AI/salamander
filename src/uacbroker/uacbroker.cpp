@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Preserve a partial broker result after the done frame. | Prevent retries that could treat a published move target as an ordinary failure. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Seal and guard the F6 source before linking it. | Keep source link creation behind the existing open exclusion. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Dispatch exact compressed cross-volume moves. | Keep compression preservation inside its authorized F6 job. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Accept sparse sources in the cross-volume F6 broker. | Keep copy completion after ordinary copying subject to its existing metadata checks. | | GPT-6.1 Sol (Codex) |
@@ -2200,9 +2201,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
                        zipUpdateFile))
         {
             // The authenticated reply is sent only after the operation handles close.
-            result->error = operationError;
-            result->unknown = (transferJob || crossMove || tree || zipUpdateFile || overwriteTarget || request->operation == Operation::CopyEncrypted) &&
-                              operationError == ERROR_PARTIAL_COPY;
+            *result = UacF7::TransferReply(request->operation, operationError, transferJob != nullptr);
         }
         if (error)
             return IoError(L"Read request result", error);
@@ -2280,8 +2279,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
     if (snapshot && operationError == ERROR_SUCCESS)
         snapshot->swap(receivedSnapshot);
-    result->error = operationError;
-    result->unknown = (request->operation == Operation::CopyTree || zipUpdateFile || overwriteTarget) && operationError == ERROR_PARTIAL_COPY;
+    *result = UacF7::TransferReply(request->operation, operationError);
 #else
     std::wprintf(L"Authenticated elevated broker exited (%lu), expected (%lu).\n", code, expected);
 #endif
@@ -2536,7 +2534,7 @@ static Result RepeatTransferJob(HANDLE& pipe, RequestHeader& header, std::wstrin
     if (error)
         result.error = error;
     else
-        result.unknown = result.error == ERROR_PARTIAL_COPY;
+        result = TransferReply(header.operation, result.error, true);
     if (error || !CanContinueTransferJob(result.error))
     {
         CloseHandle(pipe);
