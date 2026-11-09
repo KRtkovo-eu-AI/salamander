@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Exercise late Shell results with a real recycle receipt. | Accept completion only when the original account and exact file match. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Check the shared recycle completion contract. | Exercise the original-account receipt with a real Windows recycle operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise the verified Shell recycle source gate. | Refuse a substituted file without moving either object. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Test exact Shell recycle path admission. | Reject paths that would be reinterpreted after removing the Win32 prefix. | | GPT-6.1 Sol (Codex) |
@@ -163,6 +164,10 @@ static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool reques
         VolumeRoot(original.normalizedPath).empty() || !MatchesProbeContents(source, expected))
         return false;
 
+    constexpr HRESULT cancelled = HRESULT_FROM_WIN32(ERROR_CANCELLED);
+    constexpr HRESULT invalid = HRESULT_FROM_WIN32(ERROR_FILE_INVALID);
+    Check(original.CompleteRecycle(source.wstring(), nullptr, sid, cancelled) == cancelled,
+          "keep cancellation when the original file is still present and no receipt exists");
     OperationRecycleProgress progress(true, &original);
     std::wstring shellPath;
     HRESULT hr = OperationRecyclePath(source.wstring(), shellPath);
@@ -206,6 +211,19 @@ static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool reques
     Check(!original.ConfirmRecycled(progress.Receipt(), sid + L"-1") &&
               !original.ConfirmRecycled(nullptr, sid),
           "the complete receipt check rejects a different account or a missing receipt");
+    Check(original.CompleteRecycle(source.wstring(), progress.Receipt(), sid, E_FAIL) == S_OK &&
+              original.CompleteRecycle(source.wstring(), progress.Receipt(), sid, cancelled) == S_OK,
+          "keep confirmed recycle completion after a late aggregate error or cancellation");
+    Check(original.CompleteRecycle(source.wstring(), nullptr, sid, cancelled) == invalid &&
+              original.CompleteRecycle(source.wstring(), progress.Receipt(), sid + L"-1", S_OK) == invalid,
+          "refuse a missing or wrong-account receipt when the source is gone");
+    OperationRecycleProgress duplicate(true), failed(true);
+    duplicate.PostDeleteItem(0, nullptr, S_OK, progress.Receipt());
+    duplicate.PostDeleteItem(0, nullptr, S_OK, progress.Receipt());
+    failed.PostDeleteItem(0, nullptr, S_OK, progress.Receipt());
+    failed.PostDeleteItem(0, nullptr, E_FAIL, nullptr);
+    Check(!duplicate.Receipt() && !failed.Receipt(),
+          "refuse the receipt if the single-item callback count or outcome is inconsistent");
     if (!sourceAbsent || !inCallerBin || !same)
         return false;
 

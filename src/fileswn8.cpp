@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Use the verified recycle receipt even after a late Shell error. | Distinguish a completed move from a cancellation without a receipt. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow protected direct files in mixed F5 and F6 selections. | Keep eligibility on the selected file operation rather than the whole selection. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Admit protected direct transfers in Scan Ahead. | Allow the serial worker to offer consent for an eligible file after coordinator admission. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Offer a verified protected Delete retry. | Keep single-file recycling in the original user's Shell. | | GPT-6.1 Sol (Codex) |
@@ -172,11 +173,7 @@ static HRESULT RetryProtectedRecycle(HWND owner, const std::wstring& path, const
 
     OperationRecycleProgress progress(true, &original);
     const auto result = RunSingleRecycleOperation(owner, shellPath, progress, true);
-    if (result == HRESULT_FROM_WIN32(ERROR_CANCELLED))
-        return !progress.Receipt() && original.StillAtOriginalPath(path) ? result : HRESULT_FROM_WIN32(ERROR_FILE_INVALID);
-    if (FAILED(result))
-        return result;
-    return original.ConfirmRecycled(progress.Receipt(), sid) ? S_OK : HRESULT_FROM_WIN32(ERROR_FILE_INVALID);
+    return original.CompleteRecycle(path, progress.Receipt(), sid, result);
 }
 
 BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileData* oneFile)

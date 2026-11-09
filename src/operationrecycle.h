@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Resolve protected recycle completion from its exact receipt. | Keep a verified move when the Shell reports a later aggregate error. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify a complete recycle receipt. | Check the original name and the original account's bin on the same volume. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Share the single-item Shell recycle and receipt checks. | Validate exact source identity before the Shell starts processing. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Reject Shell path normalization aliases before recycling. | Keep exact disk paths separate from Shell and DOS namespaces. | | GPT-6.1 Sol (Codex) |
@@ -157,6 +158,17 @@ struct VerifiedSource
                GetLastError() == ERROR_FILE_NOT_FOUND;
     }
 
+    HRESULT CompleteRecycle(const std::wstring& sourcePath, IShellItem* receipt, const std::wstring& sid,
+                            HRESULT shellResult) const
+    {
+        constexpr HRESULT invalid = HRESULT_FROM_WIN32(ERROR_FILE_INVALID);
+        if (receipt || SUCCEEDED(shellResult))
+            return ConfirmRecycled(receipt, sid) ? S_OK : invalid;
+        if (shellResult == HRESULT_FROM_WIN32(ERROR_CANCELLED) && !StillAtOriginalPath(sourcePath))
+            return invalid;
+        return shellResult;
+    }
+
     HRESULT Check(IShellItem* item) const
     {
         try
@@ -189,7 +201,7 @@ public:
     OperationRecycleProgress(const OperationRecycleProgress&) = delete;
     OperationRecycleProgress& operator=(const OperationRecycleProgress&) = delete;
 
-    IShellItem* Receipt() const { return receipt; }
+    IShellItem* Receipt() const { return completed == 1 && SUCCEEDED(failure) ? receipt : nullptr; }
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** object) override
     {
         if (!object)
