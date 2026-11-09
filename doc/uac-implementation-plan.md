@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Test cancellation and disconnect when checking an existing F6 copy. | Cover the stage before the elevated broker can retire the source. | | Codex |
 | 2026-11-09 | Verify the Shell recycle destination with a physical bin. | Check whether a real bin passed as the destination controls placement. | | Codex |
 | 2026-11-09 | Record SMB drive disconnect and remap evidence. | Verify that an unavailable mapped path fails without touching prior copies. | | Codex |
 | 2026-11-09 | Record the disabled Recycle Bin check on the isolated NTFS volume. | Verify the real Shell response separately from the callback simulation. | | Codex |
@@ -1656,6 +1657,8 @@ Chráněné běhy zachytily 53 a 136 vzorků s aktivním brokerem. Rozdíl v jeh
 **P7, odpojení a opětovné připojení mapované jednotky.** Dočasné mapování volného R: na laboratorní adresář přes SMB na localhostu vrátilo DRIVE_REMOTE a CopyFileW vytvořilo kopii se shodným SHA-256. Po odpojení pouze tohoto mapování vrátil pokus o kopii ze stejné cesty chybu 3. Nový cíl nevznikl a dřívější kopie i původní soubor si zachovaly otisk. Tentýž zdroj zůstal čitelný přes UNC. Po opětovném mapování prošla kopie se shodným otiskem a R: bylo na konci volné. Důkaz je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/smb/smb-mapping-disconnect.json. Zkouška ověřuje výpadek mapování mezi operacemi. Přerušení běžícího přenosu při výpadku vzdáleného serveru a chování panelu v tomto stavu zůstávají otevřené.
 
 **P7, výslovný fyzický Koš jako cíl Shellu.** Místní x64 sonda předala ITransferSource::RecycleItem skutečný adresář Koše aktuálního SID na vyhrazeném svazku E: pro zkušební soubor na C:. Ověřila SIGDN_FILESYSPATH cílového objektu. Shell vrátil stav 0x00270008 a potvrzení se stejným ID souboru pro Koš na zdrojovém svazku C:. Soubor byl přes IFileOperation obnoven se stejným ID a pracovní fixture byla odstraněna. Výstup je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/recycle-local-tests/explicit-bin-probe.log. Test pod jedním účtem ukázal, že ani skutečný fyzický Koš předaný jako cíl neurčil umístění. Podporovaný přesun do Koše původního účtu po souhlasu jiného správce zůstává otevřený. [ITransferSource::RecycleItem](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-itransfersource-recycleitem).
+
+**P7, přerušení ověření již vytvořené kopie při F6.** Nativní zkouška předala funkci VerifyExistingCopy skutečnou rouru nejprve se signálem Cancel a poté s uzavřeným koncem hosta. Ověření vrátilo chyby 1223 a 109 a v obou případech zůstalo původní jméno i zajištěný odkaz zdroje. Opakované ověření uspělo u stejného ID cíle a nezměněného obsahu. Sada na dvou různých svazcích NTFS C: a E: prošla v x64 Debug i Release po 82 kontrolách. Záznamy f6-verify-copy-pipe-Debug.log a f6-verify-copy-pipe-Release.log jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c. Test používá nativní funkci ověření a rouru bez elevace a bez panelu.
 
 ### 12.3 CI a přijetí vydání
 

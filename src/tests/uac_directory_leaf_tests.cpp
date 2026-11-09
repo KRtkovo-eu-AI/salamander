@@ -34,6 +34,7 @@
 | 2026-11-09 | Exercise F6 recovery before and after guarded link creation. | Verify the seal is reversible before NTFS changes the source link count. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise retirement of a verified compressed F6 source. | Check exact attributes, LZNT1, payload and collision behavior. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise sparse publication and retirement through the F6 source guard. | Verify bytes, a physical hole and the recovery receipt. | | GPT-6.1 Sol (Codex) |
+| 2026-11-09 | Exercise cancel and disconnect during F6 copy verification. | Keep both files when completion stops before retiring the source. | | Codex |
 | 2026-11-09 | Test existing-copy verification for late F6 completion. | Refuse even a last-byte difference in a same-sized destination. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise actual F6 source retirement. | Keep both source links on cancellation and remove them only for a receipted target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the durable destination receipt after source removal. | Refuse missing or substituted targets before clearing move recovery. | | GPT-6.1 Sol (Codex) |
@@ -2157,6 +2158,33 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
                 Check(error == expectedError, "compare every block of the already copied F6 destination", error);
                 if (content == &moveContent)
                 {
+                    HANDLE readPipe = nullptr, writePipe = nullptr;
+                    if (!CreatePipe(&readPipe, &writePipe, nullptr, 0))
+                        return false;
+                    const Handle connection(readPipe);
+                    Handle host(writePipe);
+                    const BYTE cancelSignal = UacRenameLeaf::Detail::transferCancelSignal;
+                    DWORD bytes = 0;
+                    if (!WriteFile(host.get(), &cancelSignal, sizeof(cancelSignal), &bytes, nullptr) ||
+                        bytes != sizeof(cancelSignal))
+                        return false;
+                    error = guard.VerifyExistingCopy(existingCopy.get(), moveContent.size(), connection.get(), MAXULONGLONG);
+                    Check(error == ERROR_CANCELLED && !guard.Check(2) && Exists(sourcePath) && Exists(retained),
+                          "keep both source links when the host cancels verification of the existing F6 copy", error);
+                    BYTE pending = 0;
+                    if (!ReadFile(connection.get(), &pending, sizeof(pending), &bytes, nullptr) ||
+                        bytes != sizeof(pending) || pending != cancelSignal)
+                        return false;
+                    host.reset();
+                    error = guard.VerifyExistingCopy(existingCopy.get(), moveContent.size(), connection.get(), MAXULONGLONG);
+                    Check(error == ERROR_BROKEN_PIPE && !guard.Check(2) && Exists(sourcePath) && Exists(retained),
+                          "keep both source links when the host disconnects before verifying the existing F6 copy", error);
+                    error = guard.VerifyExistingCopy(existingCopy.get(), moveContent.size(), nullptr, MAXULONGLONG);
+                    Check(!error && !Detail::CheckIdentity(existingCopy.get(), writtenId),
+                          "verify the same existing destination after cancellation and disconnect", error);
+                    if (error)
+                        return false;
+
                     const auto lateStream = existingPath + L":late-\u6771";
                     if (!WriteFixture(lateStream, {6, 7}))
                     {
