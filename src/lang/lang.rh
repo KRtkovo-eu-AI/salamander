@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Reserve the All category-tab control identifier. | Add a dedicated matrix view for all registered file patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Add category-tab controls for the association matrix. | Support category counts and fast filtering in the revised configuration page. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Add canonical file-association control identifiers. | Keep the new configuration dialog's controls stable across resource builds. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 //{{NO_DEPENDENCIES}}
@@ -325,6 +326,7 @@
 #define IDB_FILEASSOCIATION_TAB_ALT     6320
 #define IDB_FILEASSOCIATION_TAB_EDIT    6321
 #define IDB_FILEASSOCIATION_TAB_ARCHIVE 6322
+#define IDB_FILEASSOCIATION_TAB_ALL     6324
 #define IDS_FILEASSOCIATION_SOURCE      2421
 #define IDS_FILEASSOCIATION_DETAILS     2422
 #define IDS_FILEASSOCIATION_CONFLICTS_COUNT 2423

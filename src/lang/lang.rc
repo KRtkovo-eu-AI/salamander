@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add the All category tab to file associations. | Give the complete pattern matrix a dedicated four-category view. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Fix association page control heights and layout spacing. | Keep filters, buttons, details and all four category tabs aligned when resizing. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Enable multiselect on the Selected Properties list in Choose Custom Properties. | Remove LVS_SINGLESEL so multiple items can be marked for bulk Remove / Move up / Move down. | | opencode |
 // | 2026-11-09 | Reshape the file-association page around category tabs and details. | Match the approved matrix layout and make room for source and status columns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -1123,6 +1124,7 @@ STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
 CAPTION "File Associations"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
+    PUSHBUTTON      "",IDB_FILEASSOCIATION_TAB_ALL,4,3,80,20,WS_TABSTOP
     PUSHBUTTON      "",IDB_FILEASSOCIATION_TAB_VIEW,4,3,90,20,WS_TABSTOP
     PUSHBUTTON      "",IDB_FILEASSOCIATION_TAB_ALT,98,3,90,20,WS_TABSTOP
     PUSHBUTTON      "",IDB_FILEASSOCIATION_TAB_EDIT,192,3,78,20,WS_TABSTOP
