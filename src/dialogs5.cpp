@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Give user overrides precedence over retained association conflicts. | Show the selected target after Apply and clear conflict state when a user choice overrides its exact pattern and action. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Commit association detail Apply changes immediately. | Preserve the selected row as the edit base and persist resolved plugin conflicts through the active configuration storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Qualify the Win32 GetParent call in conflict status painting. | Avoid resolving GetParent to the CDialog member overload during compilation. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Transfer the Change Drive block order setting. | Load and apply the localized Plugin/Hot Paths first choice. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
@@ -4250,19 +4251,46 @@ void CCfgPageFileAssociations::RebuildMatrix()
             slot = &row.ListUnpack;
 
         const Salamander::FileAssociations::Provenance provenance = item.AssociationProvenance;
-        const int priority = provenance == Salamander::FileAssociations::Provenance::Conflict ? 4 :
-                             (provenance == Salamander::FileAssociations::Provenance::User ||
-                              provenance == Salamander::FileAssociations::Provenance::Disabled) ? 3 :
+        const int priority = (provenance == Salamander::FileAssociations::Provenance::User ||
+                              provenance == Salamander::FileAssociations::Provenance::Disabled) ? 5 :
+                             provenance == Salamander::FileAssociations::Provenance::Conflict ? 4 :
                              provenance == Salamander::FileAssociations::Provenance::Legacy ? 2 : 1;
         const int currentPriority = *slot < 0 ? 0 :
-                                     Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict ? 4 :
                                      (Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::User ||
-                                      Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled) ? 3 :
+                                      Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled) ? 5 :
+                                     Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict ? 4 :
                                      Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::Legacy ? 2 : 1;
         if (priority > currentPriority)
             *slot = static_cast<int>(i);
-        if (item.AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict)
-            row.Conflict = true;
+    }
+
+    for (size_t rowIndex = 0; rowIndex < MatrixRows.size(); ++rowIndex)
+    {
+        MatrixRow& row = MatrixRows[rowIndex];
+        for (size_t i = 0; i < Rows.size() && !row.Conflict; ++i)
+        {
+            const Salamander::FileAssociations::Association& conflict = Rows[i];
+            if (conflict.Pattern != row.Pattern ||
+                conflict.AssociationProvenance != Salamander::FileAssociations::Provenance::Conflict)
+                continue;
+
+            bool overridden = false;
+            for (size_t j = 0; j < Rows.size(); ++j)
+            {
+                const Salamander::FileAssociations::Association& overrideItem = Rows[j];
+                if (overrideItem.Pattern == conflict.Pattern &&
+                    overrideItem.AssociationCategory == conflict.AssociationCategory &&
+                    overrideItem.Operation == conflict.Operation &&
+                    (overrideItem.AssociationProvenance == Salamander::FileAssociations::Provenance::User ||
+                     overrideItem.AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled))
+                {
+                    overridden = true;
+                    break;
+                }
+            }
+            if (!overridden)
+                row.Conflict = true;
+        }
     }
 
     std::stable_sort(MatrixRows.begin(), MatrixRows.end(), [this](const MatrixRow& left, const MatrixRow& right) {
@@ -4492,11 +4520,29 @@ void CCfgPageFileAssociations::LoadSelectedControls()
     if (selectedCount <= 1)
     {
         for (size_t i = 0; i < Rows.size(); ++i)
-            if (Rows[i].Pattern == item.Pattern &&
-                Rows[i].AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict)
+        {
+            if (Rows[i].Pattern != item.Pattern ||
+                Rows[i].AssociationCategory != item.AssociationCategory ||
+                Rows[i].Operation != item.Operation ||
+                Rows[i].AssociationProvenance != Salamander::FileAssociations::Provenance::Conflict)
+                continue;
+            bool overridden = false;
+            for (size_t j = 0; j < Rows.size(); ++j)
+                if (Rows[j].Pattern == Rows[i].Pattern &&
+                    Rows[j].AssociationCategory == Rows[i].AssociationCategory &&
+                    Rows[j].Operation == Rows[i].Operation &&
+                    (Rows[j].AssociationProvenance == Salamander::FileAssociations::Provenance::User ||
+                     Rows[j].AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled))
+                {
+                    overridden = true;
+                    break;
+                }
+            if (!overridden)
             {
                 conflictItem = &Rows[i];
                 break;
+            }
+        }
             }
     }
     if (conflictItem != NULL)
@@ -5813,15 +5859,9 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
             if (SelectedMatrixRow >= 0 && SelectedMatrixRow < static_cast<int>(MatrixRows.size()) &&
                 MatrixRows[SelectedMatrixRow].Conflict && selectedPatterns.size() <= 1)
             {
-                for (size_t i = Rows.size(); i > 0; --i)
-                {
-                    const Salamander::FileAssociations::Association& candidate = Rows[i - 1];
-                    if (candidate.AssociationCategory == item.AssociationCategory &&
-                        candidate.Operation == item.Operation &&
-                        candidate.AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict &&
-                        candidate.Pattern == normalizedPattern)
-                        Rows.erase(Rows.begin() + i - 1);
-                }
+                // Keep the competing defaults so Reset can restore them. The
+                // user row takes precedence in the matrix and suppresses this
+                // conflict for the exact action it overrides.
                 item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
                 item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
                 Rows.push_back(item);
