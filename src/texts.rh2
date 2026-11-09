@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add custom handler labels for association settings. | Localize custom viewer/editor targets and their edit forms. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add extension target and conflict detail string IDs. | Support the extension target category and localized descriptions of conflicting patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add localized association state and target IDs. | Provide resources for the User defined state, Unassigned target, and built-in archive handler text. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Add localized association multiselect string ID. | Provide a translatable summary for multiple selected patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -3211,6 +3212,19 @@
 #define IDS_FILEASSOCIATION_CONFLICT_DETAIL              14582
 #define IDS_FILEASSOCIATION_CONFLICT_MORE                14583
 #define IDS_FILEASSOCIATION_SELECT_EXTENSION             14584
+#define IDS_FILEASSOCIATION_CUSTOM_VIEWER                14585
+#define IDS_FILEASSOCIATION_CUSTOM_EDITOR                14586
+#define IDS_CUSTOM_HANDLER_NAME                          14587
+#define IDS_CUSTOM_HANDLER_COMMAND                       14588
+#define IDS_CUSTOM_HANDLER_ARGUMENTS                     14589
+#define IDS_CUSTOM_HANDLER_INITIAL_DIRECTORY             14590
+#define IDS_CUSTOM_HANDLER_SAVE                          14591
+#define IDS_CUSTOM_HANDLER_LIST                          14592
+#define IDS_CUSTOM_HANDLER_REQUIRED                      14593
+#define IDS_CUSTOM_HANDLER_DUPLICATE                     14594
+#define IDS_CUSTOM_HANDLER_COLUMN_NAME                   14595
+#define IDS_CUSTOM_HANDLER_COLUMN_COMMAND                14596
+#define IDS_CUSTOM_HANDLER_INVALID                       14597
 #define IDS_FILELAUNCH_LAUNCH_CLOSE                      14523
 #define IDS_FILELAUNCH_LONGPATH_GUIDE_BUTTON             14524
 #define IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE              14525

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add named custom viewer and editor targets. | Let associations resolve saved user-defined handlers by stable ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Restrict association conflicts to competing exact patterns. | Keep universal and unrelated extension masks from being reported as collisions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Preserve extension owner labels in canonical targets. | Keep Salamatrix associations distinguishable from the framework after migration and restart. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Add transactional replacement for the configuration editor. | Let the canonical association page edit a complete model without exposing private storage or partially applying invalid rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -52,8 +53,35 @@ enum class TargetKind
     BuiltIn,
     Plugin,
     Preset,
-    Unassigned
+    Unassigned,
+    CustomViewer,
+    CustomEditor
 };
+
+enum class CustomHandlerKind
+{
+    Viewer,
+    Editor
+};
+
+struct CustomHandler
+{
+    std::string Id;
+    std::string Name;
+    std::string Command;
+    std::string Arguments;
+    std::string InitDir;
+};
+
+const std::vector<CustomHandler>& GetCustomHandlers(CustomHandlerKind kind);
+const CustomHandler* FindCustomHandler(CustomHandlerKind kind, const char* id);
+BOOL ReplaceCustomHandlers(CustomHandlerKind kind,
+                           const std::vector<CustomHandler>& handlers,
+                           std::string* error = NULL);
+BOOL LoadCustomHandlersFromConfigurationStorage(CConfigurationStorage& storage,
+                                               std::string* error = NULL);
+BOOL SaveCustomHandlersToConfigurationStorage(CConfigurationStorage& storage,
+                                               std::string* error = NULL);
 
 struct Target
 {

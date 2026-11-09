@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add custom viewer/editor association target choices. | Populate Target IDs from the saved custom handler catalogs. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add extension target and conflict detail state. | Let users select extension viewers directly and inspect the overlapping patterns that cause conflicts. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add all-associations matrix state and icon support. | Display every registered pattern with its category targets and plugin or extension icons. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Track sortable association matrix state. | Preserve the chosen column and direction as the list is refreshed. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -1118,6 +1119,7 @@ protected:
     BOOL SortAscending;
 
     void RebuildMatrix();
+    void PopulateTargetKindChoices();
     void PopulateTargetCatalog();
     void RefreshList();
     void LoadSelectedControls();
@@ -1201,6 +1203,23 @@ protected:
     CEditorMasks* SourceEditorMasks;
     CEditListBox* EditLB;
     BOOL DisableNotification;
+};
+
+class CCfgPageCustomHandlers : public CCommonPropSheetPage
+{
+public:
+    explicit CCfgPageCustomHandlers(BOOL viewers);
+    virtual void Transfer(CTransferInfo& ti);
+
+protected:
+    virtual INT_PTR DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+    void RefreshList();
+    void LoadSelected();
+    void SaveCurrent();
+
+    BOOL Viewers;
+    int SelectedRow;
+    std::vector<Salamander::FileAssociations::CustomHandler> Handlers;
 };
 
 //
@@ -1536,6 +1555,8 @@ public:
     CCfgPageDrives PageDrives;
     CCfgPageViewEdit PageViewEdit;
     CCfgPageFileAssociations PageFileAssociations;
+    CCfgPageCustomHandlers PageCustomViewers;
+    CCfgPageCustomHandlers PageCustomEditors;
     CCfgPageViewers Page13;
     CCfgPageViewers Page14;
     CCfgPageEditors Page15;

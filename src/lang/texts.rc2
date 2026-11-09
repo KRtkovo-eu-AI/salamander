@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Localize custom viewer/editor settings. | Provide translated labels for target choices and the saved-handler forms. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Describe competing owners instead of overlapping masks. | Explain exact-pattern ownership conflicts without implying that unrelated patterns collide. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize extension targets and conflict details. | Name extension handlers separately and show which patterns overlap. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize Unassigned and User defined association labels. | Match target wording and the requested state filter options. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -2435,6 +2436,19 @@ STRINGTABLE
  IDS_FILEASSOCIATION_CONFLICT_DETAIL, "Conflict: %s has competing targets in %s: %s"
  IDS_FILEASSOCIATION_CONFLICT_MORE, " (+%u more)"
  IDS_FILEASSOCIATION_SELECT_EXTENSION, "Select a compatible extension viewer"
+ IDS_FILEASSOCIATION_CUSTOM_VIEWER, "Custom Viewer"
+ IDS_FILEASSOCIATION_CUSTOM_EDITOR, "Custom Editor"
+ IDS_CUSTOM_HANDLER_NAME, "&Name:"
+ IDS_CUSTOM_HANDLER_COMMAND, "&Command:"
+ IDS_CUSTOM_HANDLER_ARGUMENTS, "&Arguments:"
+ IDS_CUSTOM_HANDLER_INITIAL_DIRECTORY, "&Initial directory:"
+ IDS_CUSTOM_HANDLER_SAVE, "&Save"
+ IDS_CUSTOM_HANDLER_LIST, "Saved custom handlers"
+ IDS_CUSTOM_HANDLER_REQUIRED, "Enter a name and command for this handler."
+ IDS_CUSTOM_HANDLER_DUPLICATE, "A handler with this name already exists."
+ IDS_CUSTOM_HANDLER_COLUMN_NAME, "Name"
+ IDS_CUSTOM_HANDLER_COLUMN_COMMAND, "Command"
+ IDS_CUSTOM_HANDLER_INVALID, "This custom handler is invalid or exceeds the supported size limits."
  IDS_FILEASSOCIATION_CONFLICTS_COUNT, "Conflicts (%u)"
  IDS_FILEASSOCIATION_ADD_SHORT, "Add"
  IDS_FILEASSOCIATION_RESOLVE_CONFLICT, "Resolve conflict"

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add saved custom handlers to association target selectors. | Let viewer/edit categories select matching custom definitions by ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Show and resolve exact-target conflicts only. | Report competing owners of one pattern without treating fallback masks or different extensions as collisions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Apply association layout after property-page anchors. | Prevent generic resize handling from moving detail controls, Help, and the final category tab back to template coordinates; place Extensions after Plugin. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Stabilize association resizing, color badges, extension targets, and conflict details. | Keep the entire editor inside its panel, display colored target icons and expose exact conflict partners. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -3555,6 +3556,10 @@ const char* CCfgPageFileAssociations::TargetText(
         return LoadStr(IDS_FILEASSOCIATION_BUILT_IN);
     case Salamander::FileAssociations::TargetKind::Plugin:
         return LoadStr(IDS_FILEASSOCIATION_PLUGIN);
+    case Salamander::FileAssociations::TargetKind::CustomViewer:
+        return LoadStr(IDS_FILEASSOCIATION_CUSTOM_VIEWER);
+    case Salamander::FileAssociations::TargetKind::CustomEditor:
+        return LoadStr(IDS_FILEASSOCIATION_CUSTOM_EDITOR);
     case Salamander::FileAssociations::TargetKind::Preset:
         return LoadStr(IDS_FILEASSOCIATION_PRESET);
     case Salamander::FileAssociations::TargetKind::Unassigned:
@@ -3616,6 +3621,19 @@ std::string CCfgPageFileAssociations::MatrixCellText(int index, bool archive) co
         }
         else
             target = item.AssociationTarget.StableId.c_str();
+    }
+    else if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::CustomViewer ||
+             item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::CustomEditor)
+    {
+        const Salamander::FileAssociations::CustomHandlerKind kind =
+            item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::CustomViewer
+                ? Salamander::FileAssociations::CustomHandlerKind::Viewer
+                : Salamander::FileAssociations::CustomHandlerKind::Editor;
+        const Salamander::FileAssociations::CustomHandler* handler =
+            Salamander::FileAssociations::FindCustomHandler(
+                kind, item.AssociationTarget.StableId.c_str());
+        if (handler != NULL)
+            target = handler->Name.c_str();
     }
     (void)archive;
     return std::string(target);
@@ -4050,6 +4068,36 @@ void CCfgPageFileAssociations::RebuildMatrix()
     });
 }
 
+void CCfgPageFileAssociations::PopulateTargetKindChoices()
+{
+    Updating = TRUE;
+    HWND combo = GetDlgItem(HWindow, IDC_FILEASSOCIATION_TARGETKIND);
+    SendMessage(combo, CB_RESETCONTENT, 0, 0);
+    const int choices[] = {
+        static_cast<int>(Salamander::FileAssociations::TargetKind::BuiltIn),
+        static_cast<int>(Salamander::FileAssociations::TargetKind::Plugin),
+        FileAssociationTargetExtensionsChoice,
+        static_cast<int>(Salamander::FileAssociations::TargetKind::Preset),
+        static_cast<int>(SelectedCategory == static_cast<int>(Salamander::FileAssociations::Category::Edit)
+                             ? Salamander::FileAssociations::TargetKind::CustomEditor
+                             : Salamander::FileAssociations::TargetKind::CustomViewer),
+        static_cast<int>(Salamander::FileAssociations::TargetKind::Unassigned)};
+    const bool customAllowed =
+        SelectedCategory != static_cast<int>(Salamander::FileAssociations::Category::PanelArchive);
+    for (size_t i = 0; i < _countof(choices); ++i)
+    {
+        if (!customAllowed && i == 4)
+            continue;
+        const int choice = choices[i];
+        const char* label = choice == FileAssociationTargetExtensionsChoice
+                                ? LoadStr(IDS_FILEASSOCIATION_EXTENSIONS)
+                                : TargetText(static_cast<Salamander::FileAssociations::TargetKind>(choice));
+        const int index = static_cast<int>(SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)label));
+        SendMessage(combo, CB_SETITEMDATA, index, choice);
+    }
+    Updating = FALSE;
+}
+
 void CCfgPageFileAssociations::PopulateTargetCatalog()
 {
     Updating = TRUE;
@@ -4115,6 +4163,18 @@ void CCfgPageFileAssociations::PopulateTargetCatalog()
                 TargetCatalog.push_back({plugin->GetStableId(), displayName.data(), kind});
         }
     }
+    else if (kind == Salamander::FileAssociations::TargetKind::CustomViewer ||
+             kind == Salamander::FileAssociations::TargetKind::CustomEditor)
+    {
+        const Salamander::FileAssociations::CustomHandlerKind handlerKind =
+            kind == Salamander::FileAssociations::TargetKind::CustomViewer
+                ? Salamander::FileAssociations::CustomHandlerKind::Viewer
+                : Salamander::FileAssociations::CustomHandlerKind::Editor;
+        const std::vector<Salamander::FileAssociations::CustomHandler>& handlers =
+            Salamander::FileAssociations::GetCustomHandlers(handlerKind);
+        for (size_t i = 0; i < handlers.size(); ++i)
+            TargetCatalog.push_back({handlers[i].Id, handlers[i].Name, kind, handlers[i].Name});
+    }
     else if (kind == Salamander::FileAssociations::TargetKind::Preset)
     {
         // Preset command metadata is not available in the old runtime. Keep
@@ -4155,6 +4215,7 @@ void CCfgPageFileAssociations::LoadSelectedControls()
         EnableWindow(GetDlgItem(HWindow, IDE_FILEASSOCIATION_PATTERN), TRUE);
         SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_CATEGORY, CB_SETCURSEL, 0, 0);
         SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_SETCURSEL, 0, 0);
+        PopulateTargetKindChoices();
         SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_SETCURSEL, 0, 0);
         PopulateTargetCatalog();
         SetStatus(LoadStr(IDS_FILEASSOCIATION_GUIDANCE));
@@ -4188,6 +4249,7 @@ void CCfgPageFileAssociations::LoadSelectedControls()
     for (int i = 0; i < 3; ++i)
         if ((int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_GETITEMDATA, i, 0) == SelectedOperation)
             SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_SETCURSEL, i, 0);
+    PopulateTargetKindChoices();
     const int targetChoice = item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin &&
                              IsExtensionViewerLabel(item.AssociationTarget.DisplayLabel)
                                  ? FileAssociationTargetExtensionsChoice
@@ -4342,7 +4404,9 @@ BOOL CCfgPageFileAssociations::ReadControls(
     }
     else if (previousTargetKind == item.AssociationTarget.Kind &&
              (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin ||
-              item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Preset) &&
+              item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Preset ||
+              item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::CustomViewer ||
+              item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::CustomEditor) &&
              !previousStableId.empty())
         item.AssociationTarget.StableId = previousStableId;
     else
@@ -4373,6 +4437,14 @@ BOOL CCfgPageFileAssociations::ReadControls(
     {
         if (error != NULL)
             *error = LoadStr(IDS_FILEASSOCIATION_NO_PRESET);
+        return FALSE;
+    }
+    if ((item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::CustomViewer ||
+         item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::CustomEditor) &&
+        item.AssociationTarget.StableId.empty())
+    {
+        if (error != NULL)
+            *error = LoadStr(IDS_FILEASSOCIATION_NO_TARGETS);
         return FALSE;
     }
     if (item.Pattern.empty())
@@ -4474,6 +4546,38 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
 {
     switch (uMsg)
     {
+    case WM_SHOWWINDOW:
+        if (wParam != 0 && HWindow != NULL)
+        {
+            RefreshList();
+            const int selectedKindIndex = static_cast<int>(SendDlgItemMessage(
+                HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETCURSEL, 0, 0));
+            if (selectedKindIndex >= 0)
+            {
+                const int selectedKind = static_cast<int>(SendDlgItemMessage(
+                    HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA,
+                    selectedKindIndex, 0));
+                if (selectedKind == static_cast<int>(Salamander::FileAssociations::TargetKind::CustomViewer) ||
+                    selectedKind == static_cast<int>(Salamander::FileAssociations::TargetKind::CustomEditor))
+                {
+                    std::string selectedId;
+                    const int selectedCatalogIndex = static_cast<int>(SendDlgItemMessage(
+                        HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETCURSEL, 0, 0));
+                    if (selectedCatalogIndex >= 0 &&
+                        selectedCatalogIndex < static_cast<int>(TargetCatalog.size()))
+                        selectedId = TargetCatalog[selectedCatalogIndex].StableId;
+                    PopulateTargetCatalog();
+                    for (size_t i = 0; i < TargetCatalog.size(); ++i)
+                        if (TargetCatalog[i].StableId == selectedId)
+                        {
+                            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
+                                               CB_SETCURSEL, i, 0);
+                            break;
+                        }
+                }
+            }
+        }
+        break;
     case WM_INITDIALOG:
     {
         HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
@@ -4581,22 +4685,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                                                 CB_ADDSTRING, 0, (LPARAM)OperationText(operation));
             SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_SETITEMDATA, index, i);
         }
-        const int targetChoices[] = {
-            static_cast<int>(Salamander::FileAssociations::TargetKind::BuiltIn),
-            static_cast<int>(Salamander::FileAssociations::TargetKind::Plugin),
-            FileAssociationTargetExtensionsChoice,
-            static_cast<int>(Salamander::FileAssociations::TargetKind::Preset),
-            static_cast<int>(Salamander::FileAssociations::TargetKind::Unassigned)};
-        for (size_t i = 0; i < _countof(targetChoices); ++i)
-        {
-            const int choice = targetChoices[i];
-            const char* label = choice == FileAssociationTargetExtensionsChoice
-                                    ? LoadStr(IDS_FILEASSOCIATION_EXTENSIONS)
-                                    : TargetText(static_cast<Salamander::FileAssociations::TargetKind>(choice));
-            int index = static_cast<int>(SendDlgItemMessage(
-                HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_ADDSTRING, 0, (LPARAM)label));
-            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_SETITEMDATA, index, choice);
-        }
+        PopulateTargetKindChoices();
         PopulateTargetCatalog();
         RECT clientRect;
         GetClientRect(HWindow, &clientRect);
@@ -4779,6 +4868,15 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
         case IDC_FILEASSOCIATION_CATEGORY:
             if (HIWORD(wParam) == CBN_SELCHANGE)
             {
+                const int previousTargetSelection = static_cast<int>(SendDlgItemMessage(
+                    HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETCURSEL, 0, 0));
+                const int previousTargetKind = previousTargetSelection < 0 ? -1 :
+                    static_cast<int>(SendDlgItemMessage(
+                        HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA,
+                        previousTargetSelection, 0));
+                std::string previousTargetId;
+                if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
+                    previousTargetId = Rows[Selected].AssociationTarget.StableId;
                 SelectedCategory = static_cast<int>(SendDlgItemMessage(
                     HWindow, IDC_FILEASSOCIATION_CATEGORY, CB_GETITEMDATA,
                     SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_CATEGORY, CB_GETCURSEL, 0, 0), 0));
@@ -4792,7 +4890,45 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                     if (index >= 0)
                         Selected = index;
                 }
+                PopulateTargetKindChoices();
+                int desiredTargetKind = previousTargetKind;
+                if (previousTargetKind == static_cast<int>(Salamander::FileAssociations::TargetKind::CustomViewer) &&
+                    SelectedCategory == static_cast<int>(Salamander::FileAssociations::Category::Edit))
+                    desiredTargetKind = static_cast<int>(Salamander::FileAssociations::TargetKind::CustomEditor);
+                else if (previousTargetKind == static_cast<int>(Salamander::FileAssociations::TargetKind::CustomEditor) &&
+                         SelectedCategory != static_cast<int>(Salamander::FileAssociations::Category::Edit))
+                    desiredTargetKind = static_cast<int>(Salamander::FileAssociations::TargetKind::CustomViewer);
+                else if (SelectedCategory == static_cast<int>(Salamander::FileAssociations::Category::PanelArchive) &&
+                         (previousTargetKind == static_cast<int>(Salamander::FileAssociations::TargetKind::CustomViewer) ||
+                          previousTargetKind == static_cast<int>(Salamander::FileAssociations::TargetKind::CustomEditor)))
+                    desiredTargetKind = static_cast<int>(Salamander::FileAssociations::TargetKind::Unassigned);
+                int desiredTargetIndex = -1;
+                const int targetKindCount = static_cast<int>(SendDlgItemMessage(
+                    HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETCOUNT, 0, 0));
+                for (int i = 0; i < targetKindCount; ++i)
+                    if (static_cast<int>(SendDlgItemMessage(
+                            HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA, i, 0)) == desiredTargetKind)
+                        desiredTargetIndex = i;
+                if (desiredTargetIndex < 0)
+                    for (int i = 0; i < targetKindCount; ++i)
+                        if (static_cast<int>(SendDlgItemMessage(
+                                HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA, i, 0)) ==
+                            static_cast<int>(Salamander::FileAssociations::TargetKind::Unassigned))
+                        {
+                            desiredTargetIndex = i;
+                            break;
+                        }
+                SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_SETCURSEL,
+                                   desiredTargetIndex, 0);
                 PopulateTargetCatalog();
+                if (previousTargetKind == desiredTargetKind && !previousTargetId.empty())
+                    for (size_t i = 0; i < TargetCatalog.size(); ++i)
+                        if (TargetCatalog[i].StableId == previousTargetId)
+                        {
+                            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
+                                               CB_SETCURSEL, i, 0);
+                            break;
+                        }
                 PostMessage(HWindow, WM_SIZE, SIZE_RESTORED, 0);
             }
             break;
@@ -5785,6 +5921,245 @@ CCfgPageViewers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 // ****************************************************************************
 // CCfgPageEditors
 //
+
+CCfgPageCustomHandlers::CCfgPageCustomHandlers(BOOL viewers)
+    : CCommonPropSheetPage(NULL, HLanguage,
+                           viewers ? IDD_CFGPAGE_CUSTOMVIEWERS : IDD_CFGPAGE_CUSTOMEDITORS,
+                           viewers ? IDD_CFGPAGE_CUSTOMVIEWERS : IDD_CFGPAGE_CUSTOMEDITORS,
+                           PSP_USETITLE, NULL),
+      Viewers(viewers), SelectedRow(-1)
+{
+}
+
+void CCfgPageCustomHandlers::Transfer(CTransferInfo& ti)
+{
+    if (ti.Type == ttDataToWindow)
+    {
+        const Salamander::FileAssociations::CustomHandlerKind kind = Viewers
+            ? Salamander::FileAssociations::CustomHandlerKind::Viewer
+            : Salamander::FileAssociations::CustomHandlerKind::Editor;
+        Handlers = Salamander::FileAssociations::GetCustomHandlers(kind);
+        RefreshList();
+        SelectedRow = Handlers.empty() ? -1 : 0;
+        LoadSelected();
+    }
+    else
+    {
+        const Salamander::FileAssociations::CustomHandlerKind kind = Viewers
+            ? Salamander::FileAssociations::CustomHandlerKind::Viewer
+            : Salamander::FileAssociations::CustomHandlerKind::Editor;
+        std::string error;
+        if (!Salamander::FileAssociations::ReplaceCustomHandlers(kind, Handlers, &error))
+            SalMessageBox(HWindow, LoadStr(IDS_CUSTOM_HANDLER_INVALID), LoadStr(IDS_ERRORTITLE),
+                          MB_OK | MB_ICONEXCLAMATION);
+    }
+}
+
+void CCfgPageCustomHandlers::RefreshList()
+{
+    HWND list = GetDlgItem(HWindow, IDL_CUSTOM_HANDLERS);
+    if (list == NULL)
+        return;
+    ListView_DeleteAllItems(list);
+    for (size_t i = 0; i < Handlers.size(); ++i)
+    {
+        LVITEM item;
+        ZeroMemory(&item, sizeof(item));
+        item.mask = LVIF_TEXT | LVIF_PARAM;
+        item.iItem = static_cast<int>(i);
+        item.pszText = const_cast<char*>(Handlers[i].Name.c_str());
+        item.lParam = static_cast<LPARAM>(i);
+        const int index = ListView_InsertItem(list, &item);
+        ListView_SetItemText(list, index, 1,
+                             const_cast<char*>(Handlers[i].Command.c_str()));
+    }
+    if (SelectedRow >= 0 && SelectedRow < static_cast<int>(Handlers.size()))
+        ListView_SetItemState(list, SelectedRow, LVIS_SELECTED | LVIS_FOCUSED,
+                              LVIS_SELECTED | LVIS_FOCUSED);
+}
+
+void CCfgPageCustomHandlers::LoadSelected()
+{
+    const bool valid = SelectedRow >= 0 && SelectedRow < static_cast<int>(Handlers.size());
+    const Salamander::FileAssociations::CustomHandler empty;
+    const Salamander::FileAssociations::CustomHandler& item =
+        valid ? Handlers[SelectedRow] : empty;
+    SetDlgItemText(HWindow, IDE_CUSTOM_HANDLER_NAME, item.Name.c_str());
+    SetDlgItemText(HWindow, IDE_COMMAND, item.Command.c_str());
+    SetDlgItemText(HWindow, IDE_ARGUMENTS, item.Arguments.c_str());
+    SetDlgItemText(HWindow, IDE_INITDIR, item.InitDir.c_str());
+}
+
+void CCfgPageCustomHandlers::SaveCurrent()
+{
+    std::vector<char> name(SAL_MAX_PATH), command(SAL_MAX_PATH), arguments(SAL_MAX_PATH), initDir(SAL_MAX_PATH);
+    GetDlgItemText(HWindow, IDE_CUSTOM_HANDLER_NAME, name.data(), static_cast<int>(name.size()));
+    GetDlgItemText(HWindow, IDE_COMMAND, command.data(), static_cast<int>(command.size()));
+    GetDlgItemText(HWindow, IDE_ARGUMENTS, arguments.data(), static_cast<int>(arguments.size()));
+    GetDlgItemText(HWindow, IDE_INITDIR, initDir.data(), static_cast<int>(initDir.size()));
+    if (name[0] == 0 || command[0] == 0)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_CUSTOM_HANDLER_REQUIRED),
+                      LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+
+    int error1 = 0, error2 = 0;
+    if (!ValidateCommandFile(HWindow, command.data(), error1, error2) ||
+        !ValidateArguments(HWindow, arguments.data(), error1, error2) ||
+        !ValidateInitDir(HWindow, initDir.data(), error1, error2))
+        return;
+
+    int existingRow = -1;
+    if (SelectedRow >= 0 && SelectedRow < static_cast<int>(Handlers.size()) &&
+        _stricmp(Handlers[SelectedRow].Name.c_str(), name.data()) == 0)
+        existingRow = SelectedRow;
+    else
+        for (size_t i = 0; i < Handlers.size(); ++i)
+            if (_stricmp(Handlers[i].Name.c_str(), name.data()) == 0)
+            {
+                existingRow = static_cast<int>(i);
+                break;
+            }
+
+    Salamander::FileAssociations::CustomHandler handler;
+    if (existingRow >= 0)
+        handler.Id = Handlers[existingRow].Id;
+    else
+    {
+        const char* prefix = Viewers ? "custom-viewer-" : "custom-editor-";
+        unsigned long nextId = 1;
+        for (;; ++nextId)
+        {
+            char id[64];
+            _snprintf_s(id, _countof(id), _TRUNCATE, "%s%lu", prefix, nextId);
+            bool used = false;
+            for (size_t i = 0; i < Handlers.size(); ++i)
+                if (_stricmp(Handlers[i].Id.c_str(), id) == 0)
+                    used = true;
+            if (!used)
+            {
+                handler.Id = id;
+                break;
+            }
+        }
+    }
+    handler.Name = name.data();
+    handler.Command = command.data();
+    handler.Arguments = arguments.data();
+    handler.InitDir = initDir.data();
+
+    std::vector<Salamander::FileAssociations::CustomHandler> replacement = Handlers;
+    int savedRow = existingRow;
+    if (existingRow >= 0)
+        replacement[existingRow] = handler;
+    else
+    {
+        replacement.push_back(handler);
+        savedRow = static_cast<int>(replacement.size()) - 1;
+    }
+
+    const Salamander::FileAssociations::CustomHandlerKind kind = Viewers
+        ? Salamander::FileAssociations::CustomHandlerKind::Viewer
+        : Salamander::FileAssociations::CustomHandlerKind::Editor;
+    std::string error;
+    if (!Salamander::FileAssociations::ReplaceCustomHandlers(kind, replacement, &error))
+    {
+        SalMessageBox(HWindow,
+                      error.find("unique") != std::string::npos
+                          ? LoadStr(IDS_CUSTOM_HANDLER_DUPLICATE)
+                          : LoadStr(IDS_CUSTOM_HANDLER_INVALID),
+                      LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    Handlers.swap(replacement);
+    SelectedRow = savedRow;
+    RefreshList();
+    LoadSelected();
+}
+
+INT_PTR CCfgPageCustomHandlers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+    case WM_INITDIALOG:
+    {
+        HWND list = GetDlgItem(HWindow, IDL_CUSTOM_HANDLERS);
+        ListView_SetExtendedListViewStyle(list, LVS_EX_FULLROWSELECT | LVS_EX_DOUBLEBUFFER);
+        DarkModeUpdateListViewColors(list);
+        const COLORREF listBackground = Configuration.UseWindowsDarkMode
+                                            ? RGB(23, 23, 23) : GetSysColor(COLOR_WINDOW);
+        ListView_SetBkColor(list, listBackground);
+        ListView_SetTextBkColor(list, listBackground);
+        ListView_SetTextColor(list, Configuration.UseWindowsDarkMode
+                                        ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT));
+        LVCOLUMN column;
+        ZeroMemory(&column, sizeof(column));
+        column.mask = LVCF_TEXT | LVCF_WIDTH;
+        column.cx = 110;
+        column.pszText = const_cast<char*>(LoadStr(IDS_CUSTOM_HANDLER_COLUMN_NAME));
+        ListView_InsertColumn(list, 0, &column);
+        column.cx = 180;
+        column.pszText = const_cast<char*>(LoadStr(IDS_CUSTOM_HANDLER_COLUMN_COMMAND));
+        ListView_InsertColumn(list, 1, &column);
+        SetDlgItemText(HWindow, IDC_CUSTOM_HANDLER_NAME_LABEL, LoadStr(IDS_CUSTOM_HANDLER_NAME));
+        SetDlgItemText(HWindow, IDC_CUSTOM_HANDLER_COMMAND_LABEL, LoadStr(IDS_CUSTOM_HANDLER_COMMAND));
+        SetDlgItemText(HWindow, IDC_CUSTOM_HANDLER_ARGUMENTS_LABEL, LoadStr(IDS_CUSTOM_HANDLER_ARGUMENTS));
+        SetDlgItemText(HWindow, IDC_CUSTOM_HANDLER_INITDIR_LABEL, LoadStr(IDS_CUSTOM_HANDLER_INITIAL_DIRECTORY));
+        SetDlgItemText(HWindow, IDB_CUSTOM_HANDLER_SAVE, LoadStr(IDS_CUSTOM_HANDLER_SAVE));
+        SendMessage(GetDlgItem(HWindow, IDE_CUSTOM_HANDLER_NAME), EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        SendMessage(GetDlgItem(HWindow, IDE_COMMAND), EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        SendMessage(GetDlgItem(HWindow, IDE_ARGUMENTS), EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        SendMessage(GetDlgItem(HWindow, IDE_INITDIR), EM_LIMITTEXT, SAL_MAX_PATH - 1, 0);
+        ChangeToArrowButton(HWindow, IDB_BROWSECOMMAND);
+        ChangeToArrowButton(HWindow, IDB_BROWSEARGUMENTS);
+        ChangeToArrowButton(HWindow, IDB_BROWSEINITDIR);
+        ElasticVerticalLayout(1, IDL_CUSTOM_HANDLERS);
+        break;
+    }
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDB_CUSTOM_HANDLER_SAVE && HIWORD(wParam) == BN_CLICKED)
+        {
+            SaveCurrent();
+            return 0;
+        }
+        if (LOWORD(wParam) == IDB_BROWSECOMMAND)
+        {
+            TrackExecuteMenu(HWindow, IDB_BROWSECOMMAND, IDE_COMMAND, FALSE,
+                             CommandExecutes, IDS_EXEFILTER);
+            return 0;
+        }
+        if (LOWORD(wParam) == IDB_BROWSEARGUMENTS)
+        {
+            TrackExecuteMenu(HWindow, IDB_BROWSEARGUMENTS, IDE_ARGUMENTS, FALSE,
+                             ArgumentsExecutes);
+            return 0;
+        }
+        if (LOWORD(wParam) == IDB_BROWSEINITDIR)
+        {
+            TrackExecuteMenu(HWindow, IDB_BROWSEINITDIR, IDE_INITDIR, FALSE,
+                             InitDirExecutes);
+            return 0;
+        }
+        break;
+    case WM_NOTIFY:
+    {
+        NMHDR* header = reinterpret_cast<NMHDR*>(lParam);
+        if (header != NULL && header->idFrom == IDL_CUSTOM_HANDLERS &&
+            header->code == LVN_ITEMCHANGED)
+        {
+            NMLISTVIEW* changed = reinterpret_cast<NMLISTVIEW*>(lParam);
+            if ((changed->uNewState & LVIS_SELECTED) != 0)
+            {
+                SelectedRow = changed->iItem;
+                LoadSelected();
+            }
+        }
+        break;
+    }
+    }
+    return CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
+}
 
 CCfgPageEditors::CCfgPageEditors()
     : CCommonPropSheetPage(NULL, HLanguage, IDD_CFGPAGE_EDITORS, IDD_CFGPAGE_EDITORS, PSP_USETITLE, NULL),

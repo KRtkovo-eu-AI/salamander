@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Persist named custom handler catalogs. | Keep custom viewers and editors tied to the selected configuration and resolve them by stable ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Restrict association conflicts to competing exact patterns. | Keep universal and unrelated extension masks from being reported as collisions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Persist canonical extension owner labels. | Restore the localized owner display after a clean startup or a later configuration load. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Reject mask-group exclusion syntax in canonical patterns. | A single association row cannot preserve the legacy `|` exclusion semantics without losing matching behavior. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -37,7 +38,35 @@ const char* const FileAssociationTargetId = "Target ID";
 const char* const FileAssociationTargetLabel = "Target Label";
 const char* const FileAssociationProvenance = "Provenance";
 const char* const FileAssociationSourceProvenance = "Source Provenance";
+const char* const CustomHandlersKey = "Custom Association Handlers";
 const DWORD FileAssociationsCurrentSchemaVersion = 1;
+const DWORD CustomHandlersSchemaVersion = 1;
+
+std::vector<CustomHandler>& CustomViewers()
+{
+    static std::vector<CustomHandler> handlers;
+    return handlers;
+}
+
+std::vector<CustomHandler>& CustomEditors()
+{
+    static std::vector<CustomHandler> handlers;
+    return handlers;
+}
+
+std::vector<CustomHandler>& HandlersFor(CustomHandlerKind kind)
+{
+    return kind == CustomHandlerKind::Viewer ? CustomViewers() : CustomEditors();
+}
+
+bool IsValidCustomHandler(const CustomHandler& handler)
+{
+    return !handler.Id.empty() && handler.Id.size() <= 127 &&
+           !handler.Name.empty() && handler.Name.size() <= 255 &&
+           !handler.Command.empty() && handler.Command.size() <= SAL_MAX_PATH &&
+           handler.Arguments.size() <= SAL_MAX_PATH &&
+           handler.InitDir.size() <= SAL_MAX_PATH;
+}
 
 bool IsWildcardPattern(const std::string& pattern)
 {
@@ -74,7 +103,7 @@ bool IsValidProvenance(DWORD value)
 
 bool IsValidTargetKind(DWORD value)
 {
-    return value <= static_cast<DWORD>(TargetKind::Unassigned);
+    return value <= static_cast<DWORD>(TargetKind::CustomEditor);
 }
 
 std::string TrimPattern(const char* pattern)
@@ -94,6 +123,181 @@ std::string TrimPattern(const char* pattern)
 }
 
 } // namespace
+
+const std::vector<CustomHandler>& GetCustomHandlers(CustomHandlerKind kind)
+{
+    return HandlersFor(kind);
+}
+
+const CustomHandler* FindCustomHandler(CustomHandlerKind kind, const char* id)
+{
+    if (id == NULL || id[0] == 0)
+        return NULL;
+    const std::vector<CustomHandler>& handlers = GetCustomHandlers(kind);
+    for (size_t i = 0; i < handlers.size(); ++i)
+        if (_stricmp(handlers[i].Id.c_str(), id) == 0)
+            return &handlers[i];
+    return NULL;
+}
+
+BOOL ReplaceCustomHandlers(CustomHandlerKind kind,
+                           const std::vector<CustomHandler>& handlers,
+                           std::string* error)
+{
+    if (error != NULL)
+        error->clear();
+    std::vector<CustomHandler> replacement;
+    replacement.reserve(handlers.size());
+    for (size_t i = 0; i < handlers.size(); ++i)
+    {
+        if (!IsValidCustomHandler(handlers[i]))
+        {
+            SetError(error, "custom handler record is incomplete or too large");
+            return FALSE;
+        }
+        for (size_t j = 0; j < i; ++j)
+            if (_stricmp(handlers[i].Id.c_str(), handlers[j].Id.c_str()) == 0 ||
+                _stricmp(handlers[i].Name.c_str(), handlers[j].Name.c_str()) == 0)
+            {
+                SetError(error, "custom handler IDs and names must be unique");
+                return FALSE;
+            }
+        replacement.push_back(handlers[i]);
+    }
+    HandlersFor(kind).swap(replacement);
+    return TRUE;
+}
+
+BOOL LoadCustomHandlersFromConfigurationStorage(CConfigurationStorage& storage,
+                                               std::string* error)
+{
+    if (error != NULL)
+        error->clear();
+    HKEY root = NULL;
+    if (!storage.OpenConfigurationRootKey(root, FALSE))
+    {
+        CustomViewers().clear();
+        CustomEditors().clear();
+        return TRUE;
+    }
+
+    HKEY key = NULL;
+    if (!OpenKey(root, CustomHandlersKey, key))
+    {
+        CustomViewers().clear();
+        CustomEditors().clear();
+        CloseKey(root);
+        return TRUE;
+    }
+
+    DWORD version = 0;
+    DWORD count = 0;
+    BOOL valid = GetValue(key, "Schema Version", REG_DWORD, &version, sizeof(version)) &&
+                 version == CustomHandlersSchemaVersion &&
+                 GetValue(key, "Record Count", REG_DWORD, &count, sizeof(count)) &&
+                 count <= 512;
+    std::vector<CustomHandler> viewers;
+    std::vector<CustomHandler> editors;
+    char name[16];
+    char text[SAL_MAX_PATH + 1];
+    for (DWORD i = 0; valid && i < count; ++i)
+    {
+        _snprintf_s(name, _countof(name), _TRUNCATE, "%lu", i + 1);
+        HKEY item = NULL;
+        if (!OpenKey(key, name, item))
+        {
+            valid = FALSE;
+            break;
+        }
+        DWORD kindValue = 0;
+        CustomHandler handler;
+        valid = GetValue(item, "Kind", REG_DWORD, &kindValue, sizeof(kindValue)) &&
+                kindValue <= static_cast<DWORD>(CustomHandlerKind::Editor) &&
+                GetValue(item, "ID", REG_SZ, text, sizeof(text));
+        if (valid) handler.Id = text;
+        if (valid && GetValue(item, "Name", REG_SZ, text, sizeof(text))) handler.Name = text;
+        else valid = FALSE;
+        if (valid && GetValue(item, "Command", REG_SZ, text, sizeof(text))) handler.Command = text;
+        else valid = FALSE;
+        if (valid && GetValue(item, "Arguments", REG_SZ, text, sizeof(text))) handler.Arguments = text;
+        else valid = FALSE;
+        if (valid && GetValue(item, "Initial Directory", REG_SZ, text, sizeof(text))) handler.InitDir = text;
+        else valid = FALSE;
+        if (valid && IsValidCustomHandler(handler))
+            (kindValue == static_cast<DWORD>(CustomHandlerKind::Viewer) ? viewers : editors).push_back(handler);
+        else
+            valid = FALSE;
+        CloseKey(item);
+    }
+    CloseKey(key);
+    CloseKey(root);
+    if (!valid || !ReplaceCustomHandlers(CustomHandlerKind::Viewer, viewers, error) ||
+        !ReplaceCustomHandlers(CustomHandlerKind::Editor, editors, error))
+    {
+        CustomViewers().clear();
+        CustomEditors().clear();
+        if (error != NULL && error->empty())
+            *error = "custom handler configuration is invalid";
+        return FALSE;
+    }
+    return TRUE;
+}
+
+BOOL SaveCustomHandlersToConfigurationStorage(CConfigurationStorage& storage,
+                                               std::string* error)
+{
+    if (error != NULL)
+        error->clear();
+    if (CustomViewers().size() + CustomEditors().size() > 512)
+    {
+        SetError(error, "custom handler count exceeds the supported limit");
+        return FALSE;
+    }
+    HKEY root = NULL;
+    if (!storage.OpenConfigurationRootKey(root, TRUE))
+    {
+        SetError(error, "unable to open custom handler configuration root");
+        return FALSE;
+    }
+    HKEY key = NULL;
+    BOOL saved = CreateKey(root, CustomHandlersKey, key);
+    if (saved)
+        saved = ClearKey(key);
+    DWORD version = CustomHandlersSchemaVersion;
+    DWORD count = static_cast<DWORD>(CustomViewers().size() + CustomEditors().size());
+    if (saved)
+        saved = SetValue(key, "Schema Version", REG_DWORD, &version, sizeof(version));
+    if (saved)
+        saved = SetValue(key, "Record Count", REG_DWORD, &count, sizeof(count));
+    char name[16];
+    DWORD index = 0;
+    for (int kind = 0; saved && kind < 2; ++kind)
+    {
+        const CustomHandlerKind handlerKind = static_cast<CustomHandlerKind>(kind);
+        const std::vector<CustomHandler>& handlers = GetCustomHandlers(handlerKind);
+        for (size_t i = 0; saved && i < handlers.size(); ++i)
+        {
+            _snprintf_s(name, _countof(name), _TRUNCATE, "%lu", ++index);
+            HKEY item = NULL;
+            saved = CreateKey(key, name, item);
+            DWORD kindValue = static_cast<DWORD>(handlerKind);
+            if (saved) saved = SetValue(item, "Kind", REG_DWORD, &kindValue, sizeof(kindValue));
+            if (saved) saved = SetValue(item, "ID", REG_SZ, handlers[i].Id.c_str(), -1);
+            if (saved) saved = SetValue(item, "Name", REG_SZ, handlers[i].Name.c_str(), -1);
+            if (saved) saved = SetValue(item, "Command", REG_SZ, handlers[i].Command.c_str(), -1);
+            if (saved) saved = SetValue(item, "Arguments", REG_SZ, handlers[i].Arguments.c_str(), -1);
+            if (saved) saved = SetValue(item, "Initial Directory", REG_SZ, handlers[i].InitDir.c_str(), -1);
+            if (item != NULL)
+                CloseKey(item);
+        }
+    }
+    if (key != NULL)
+        CloseKey(key);
+    CloseKey(root);
+    if (!saved)
+        SetError(error, "unable to save custom handler configuration");
+    return saved;
+}
 
 bool CFileAssociationModel::NormalizePattern(const char* pattern, std::string* normalized,
                                               std::string* error)
@@ -296,6 +500,19 @@ bool CFileAssociationModel::Validate(std::string* error) const
 {
     for (size_t i = 0; i < Items.size(); ++i)
     {
+        const Association& item = Items[i];
+        if ((item.AssociationTarget.Kind == TargetKind::CustomViewer &&
+             (item.AssociationCategory != Category::View &&
+              item.AssociationCategory != Category::AlternateView)) ||
+            (item.AssociationTarget.Kind == TargetKind::CustomEditor &&
+             item.AssociationCategory != Category::Edit) ||
+            ((item.AssociationTarget.Kind == TargetKind::CustomViewer ||
+              item.AssociationTarget.Kind == TargetKind::CustomEditor) &&
+             item.AssociationTarget.StableId.empty()))
+        {
+            SetError(error, "custom association target does not match its category or has no ID");
+            return false;
+        }
         for (size_t j = i + 1; j < Items.size(); ++j)
         {
             const Association& first = Items[i];

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Project saved custom viewers and editors into legacy runtime tables. | Make custom targets selected in the association matrix executable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Restore migrated viewer owner labels during projection. | Keep extension ownership visible in the legacy viewer table and on subsequent saves. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Preserve imported legacy rows during projection. | Existing runtime rows already contain command metadata unavailable in the canonical record, so unchanged legacy rows must remain active while user edits are resolved. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Add the stable plugin runtime resolver. | Map canonical plugin targets to current runtime indexes only when plugin capabilities support the requested association. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -62,6 +63,78 @@ bool StageViewerAssociation(const Association& association, CViewerMasks* destin
         return false;
     }
 
+    destination->Add(item);
+    if (!destination->IsGood())
+    {
+        delete item;
+        return false;
+    }
+    return true;
+}
+
+bool StageCustomViewerAssociation(const Association& association,
+                                  CViewerMasks* destination)
+{
+    const CustomHandler* handler = FindCustomHandler(
+        CustomHandlerKind::Viewer, association.AssociationTarget.StableId.c_str());
+    if (handler == NULL || destination == NULL)
+        return false;
+#ifdef new
+#undef new
+#define RESTORE_CUSTOM_VIEWER_MASK_DEBUG_NEW_MACRO
+#endif
+    CViewerMasksItem* item = new (std::nothrow) CViewerMasksItem(
+        association.Pattern.c_str(), handler->Command.c_str(),
+        handler->Arguments.c_str(), handler->InitDir.c_str(), VIEWER_EXTERNAL, FALSE);
+#ifdef RESTORE_CUSTOM_VIEWER_MASK_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_CUSTOM_VIEWER_MASK_DEBUG_NEW_MACRO
+#endif
+    if (item == NULL || !item->IsGood() ||
+        !item->SetViewerLabel(handler->Name.c_str()))
+    {
+        delete item;
+        return false;
+    }
+    destination->Add(item);
+    if (!destination->IsGood())
+    {
+        delete item;
+        return false;
+    }
+    return true;
+}
+
+bool StageCustomEditorAssociation(const Association& association,
+                                 CEditorMasks* destination)
+{
+    const CustomHandler* handler = FindCustomHandler(
+        CustomHandlerKind::Editor, association.AssociationTarget.StableId.c_str());
+    if (handler == NULL || destination == NULL)
+        return false;
+    std::vector<char> pattern(association.Pattern.begin(), association.Pattern.end());
+    std::vector<char> command(handler->Command.begin(), handler->Command.end());
+    std::vector<char> arguments(handler->Arguments.begin(), handler->Arguments.end());
+    std::vector<char> initDir(handler->InitDir.begin(), handler->InitDir.end());
+    pattern.push_back(0);
+    command.push_back(0);
+    arguments.push_back(0);
+    initDir.push_back(0);
+#ifdef new
+#undef new
+#define RESTORE_CUSTOM_EDITOR_MASK_DEBUG_NEW_MACRO
+#endif
+    CEditorMasksItem* item = new (std::nothrow) CEditorMasksItem(
+        &pattern[0], &command[0], &arguments[0], &initDir[0]);
+#ifdef RESTORE_CUSTOM_EDITOR_MASK_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_CUSTOM_EDITOR_MASK_DEBUG_NEW_MACRO
+#endif
+    if (item == NULL || !item->IsGood())
+    {
+        delete item;
+        return false;
+    }
     destination->Add(item);
     if (!destination->IsGood())
     {
@@ -165,16 +238,21 @@ bool ApplyRuntimeProjection(const Association& association, void* opaque)
     switch (association.AssociationCategory)
     {
     case Category::View:
+        if (association.AssociationTarget.Kind == TargetKind::CustomViewer)
+            return StageCustomViewerAssociation(association, &context->StagedViewers);
         return StageViewerAssociation(association, &context->StagedViewers,
                                        context->Resolver.LastResolution.RuntimeViewerType);
     case Category::AlternateView:
+        if (association.AssociationTarget.Kind == TargetKind::CustomViewer)
+            return StageCustomViewerAssociation(association, &context->StagedAlternateViewers);
         return StageViewerAssociation(association, &context->StagedAlternateViewers,
                                        context->Resolver.LastResolution.RuntimeViewerType);
     case Category::PanelArchive:
         return StageArchiveAssociation(association, context);
     case Category::Edit:
-    default:
-        return false;
+        return association.AssociationTarget.Kind == TargetKind::CustomEditor &&
+               StageCustomEditorAssociation(association, &context->StagedEditors);
+    default: return false;
     }
 }
 
@@ -217,6 +295,22 @@ bool ResolvePluginRuntimeAssociation(const Association& association, void* conte
         static_cast<PluginRuntimeResolverContext*>(context);
     if (resolver == NULL)
         return false;
+
+    if (association.AssociationTarget.Kind == TargetKind::CustomViewer)
+    {
+        resolver->LastResolution = PluginRuntimeResolution();
+        return (association.AssociationCategory == Category::View ||
+                association.AssociationCategory == Category::AlternateView) &&
+               FindCustomHandler(CustomHandlerKind::Viewer,
+                                 association.AssociationTarget.StableId.c_str()) != NULL;
+    }
+    if (association.AssociationTarget.Kind == TargetKind::CustomEditor)
+    {
+        resolver->LastResolution = PluginRuntimeResolution();
+        return association.AssociationCategory == Category::Edit &&
+               FindCustomHandler(CustomHandlerKind::Editor,
+                                 association.AssociationTarget.StableId.c_str()) != NULL;
+    }
 
     if (association.AssociationTarget.Kind == TargetKind::BuiltIn &&
         (association.AssociationCategory == Category::View ||

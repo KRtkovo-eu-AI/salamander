@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add custom viewer/editor pages below File Associations. | Expose saved named handlers as editable configuration targets. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Make extension bar visible by default in new default configuration. | Show the extension bar on clean install/default config so new users see it. | | opencode |
 // | 2026-11-09 | Multiselect for the Selected Properties list in Choose Custom Properties. | Allow Remove, Move up, and Move down to operate on all selected items at once; show multi-select info in the Property information panel and disable the favorite button. | | opencode |
 // | 2026-11-09 | Move Internal Viewer under Appearance in Configuration dialog. | Position the Internal Viewer item as a child of Appearance as requested. | | opencode |
@@ -1084,6 +1085,8 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
       PageUserMenu(userMenuItems),
       PageHotPath(mode == 1 ? TRUE : FALSE, param),
       PageDrives(mode == 6 ? TRUE : FALSE),
+      PageCustomViewers(TRUE),
+      PageCustomEditors(FALSE),
       Page14(TRUE)
 {
     HOldPluginMsgBoxParent = NULL;
@@ -1113,11 +1116,13 @@ CConfigurationDlg::CConfigurationDlg(HWND parent, CUserMenuItems* userMenuItems,
     /*18*/ Add(&PageSecurity);      // Security
     /*19*/ Add(&PageIconOvrls);     // Icon Overlays
     /*20*/ Add(&PageFileAssociations, NULL, &Configuration.ViewersAndEditorsExpanded);
-    /*21*/ Add(&PagePP, NULL, &Configuration.PackersAndUnpackersExpanded);
-    /*22*/ Add(&PageP3, &PagePP);
-    /*23*/ Add(&PageP1, &PagePP);
-    /*24*/ Add(&PageP2, &PagePP);
-    /*25*/ // Legacy association pages remain compiled for migration/fallback, but are not exposed here.
+    /*21*/ Add(&PageCustomViewers, &PageFileAssociations);
+    /*22*/ Add(&PageCustomEditors, &PageFileAssociations);
+    /*23*/ Add(&PagePP, NULL, &Configuration.PackersAndUnpackersExpanded);
+    /*24*/ Add(&PageP3, &PagePP);
+    /*25*/ Add(&PageP1, &PagePP);
+    /*26*/ Add(&PageP2, &PagePP);
+    /*27*/ // Legacy association pages remain compiled for migration/fallback, but are not exposed here.
     /*26*/ //  Add(&PageShellExtensions);
            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
            // when the page order changes, update the constructor

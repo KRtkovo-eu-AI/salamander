@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Load and save custom association handlers with the active configuration. | Resolve custom association IDs against the selected viewer/editor catalog after restart. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-08 | Register the complete canonical runtime adapter after archive setup. | Ensure staged canonical rows resolve against the final plugin and packer indexes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Connect guarded canonical association lifecycle hooks. | Load canonical associations without replacing legacy runtime state when projection metadata is unavailable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Preserve user-owned archive extensions during migration. | Apply #748 ownership repair only to unmarked defaults and retain provenance for future per-type configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
@@ -30,6 +31,7 @@
 #include "tabwnd.h"
 #include "mainwnd.h"
 #include "configstorage.h"
+#include "fileassoc.h"
 #include "fileassoclifecycle.h"
 #include "fileassocruntimeadapter.h"
 #include "cfgdlg.h"
@@ -4085,6 +4087,8 @@ void CMainWindow::SaveConfig(HWND parent, BOOL showConfigFileSaveError)
             //---  editors
 
             SaveEditors(salamander, SALAMANDER_EDITORS_REG, EditorMasks);
+            Salamander::FileAssociations::SaveCustomHandlersToConfigurationStorage(
+                ConfigurationStorage, NULL);
             Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
                 ConfigurationStorage, NULL);
 
@@ -5328,6 +5332,8 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
         // archive indexes are final. The adapter commits staged replacements
         // only after every target and derived archive lookup has succeeded.
         Salamander::FileAssociations::RuntimeProjectionOperations runtimeProjection;
+        Salamander::FileAssociations::LoadCustomHandlersFromConfigurationStorage(
+            ConfigurationStorage, NULL);
         Salamander::FileAssociations::AttachPluginRuntimeAdapter(&runtimeProjection, this, &Plugins);
         Salamander::FileAssociations::RegisterCanonicalRuntimeProjection(runtimeProjection);
         Salamander::FileAssociations::LoadCanonicalAssociationsForLifecycle(
