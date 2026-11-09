@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Report bytes during guarded move copy. | Reuse the staged file transfer progress source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Accept the compressed move rollback metadata in the durable record. | Keep source retirement compatible with both sealed record layouts. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Recheck default-only destinations before retiring an F6 source. | Detect late alternate streams before removing the guarded source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Admit compressed named F6 streams. | Keep their exclusive locks while verifying their separate compression formats. | | GPT-6.1 Sol (Codex) |
@@ -272,7 +273,7 @@ public:
 
     DWORD PublishCopy(HANDLE targetParent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
                       std::wstring_view leaf, ULONGLONG size, HANDLE cancel, HANDLE connection, ULONGLONG deadline,
-                      Detail::Handle& target, FILE_ID_INFO& targetId) const
+                      Detail::Handle& target, FILE_ID_INFO& targetId, const UacCopyLeaf::Detail::CopyProgress* progress = nullptr) const
     {
         if (target)
             return ERROR_INVALID_PARAMETER;
@@ -298,7 +299,7 @@ public:
             &inputs, named ? &named->Inventory() : nullptr};
         error = UacCopyLeaf::Detail::CopyOpenedFile(source.get(), targetParent, leaf, cancel, connection, deadline,
             size, basic, &publishedId, nullptr, StreamPolicy(), named ? &location : nullptr,
-            originalCompressedAttributes != 0, nullptr, &target, originalCompressedAttributes);
+            originalCompressedAttributes != 0, nullptr, &target, originalCompressedAttributes, progress);
         if (error)
             return error;
         targetId = publishedId;

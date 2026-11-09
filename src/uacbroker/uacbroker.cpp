@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Send advisory progress on authenticated transfer pipes. | Keep the terminal result and cancellation separate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Retire the captured move source through its exact handle. | Require local NTFS and pin the copied destination before deleting. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Request metadata write access for compressed F6 rollback. | Keep the source eligible for restoring Archive before releasing the seal. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Dispatch F5 compression and security together. | Verify both attributes and the explicit security descriptor before publication. | | GPT-6.1 Sol (Codex) |
@@ -490,8 +491,17 @@ struct RequestHeader
     DWORD targetRelativeLength;
     DWORD targetLeafLength;
     ULONGLONG copySize;
+    ULONGLONG reportProgress = 0;
 };
-static_assert(sizeof(RequestHeader) == 96);
+static_assert(sizeof(RequestHeader) == 104);
+constexpr DWORD transferProgressFrame = MAXDWORD;
+
+bool CanReportTransferProgress(Operation operation)
+{
+    return (UacF7::IsFileCopy(operation) && operation != Operation::CopyEncrypted) ||
+           operation == Operation::CopyOverwrite || operation == Operation::MoveAcrossVolume ||
+           operation == Operation::MoveCompressed;
+}
 struct ListingReply { DWORD error; DWORD count; };
 
 constexpr std::wstring_view volumePrefix = LR"(\\?\Volume)";
@@ -673,7 +683,7 @@ DWORD OpenRequestParent(HANDLE root, std::wstring_view relative, Handle& parent,
 // The client reads an exact number of bytes in byte mode. The message-mode
 // server rejects larger replies with ERROR_MORE_DATA.
 DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGLONG deadline, HANDLE cancel = nullptr,
-                      DWORD* transferred = nullptr)
+                      DWORD* transferred = nullptr, ULONGLONG* cancelDeadline = nullptr)
 {
     if (GetTickCount64() >= deadline)
         return ERROR_TIMEOUT;
@@ -709,6 +719,8 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
                 }
                 if (deadline == MAXULONGLONG)
                     deadline = GetTickCount64() + copyTimeoutMs; // Bound the wait for cancellation acknowledgement.
+                if (cancelDeadline)
+                    *cancelDeadline = deadline;
             }
         }
         const DWORD finished = FinishIo(pipe, io, count, deadline);
@@ -718,6 +730,33 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
     if (transferred)
         *transferred = count;
     return count == length ? ERROR_SUCCESS : ERROR_INVALID_DATA;
+}
+
+// A progress frame is advisory. Only the terminal result confirms publication.
+[[maybe_unused]] DWORD ReadTransferResult(HANDLE pipe, DWORD& result, ULONGLONG deadline, HANDLE cancel,
+                                          UacF7::TransferProgress progress, void* context, ULONGLONG maximum)
+{
+    ULONGLONG previous = 0, cancelDeadline = 0;
+    for (;;)
+    {
+        const DWORD error = TransferRequest(pipe, &result, sizeof(result), false, deadline, cancel, nullptr, &cancelDeadline);
+        if (error || result != transferProgressFrame)
+            return error;
+        if (!progress)
+            return ERROR_INVALID_DATA;
+        if (cancelDeadline)
+        {
+            cancel = nullptr;
+            deadline = cancelDeadline;
+        }
+        ULONGLONG bytes = 0;
+        const DWORD read = TransferRequest(pipe, &bytes, sizeof(bytes), false, deadline);
+        if (read || bytes <= previous || bytes > maximum)
+            return read ? read : ERROR_INVALID_DATA;
+        previous = bytes;
+        if (!cancelDeadline)
+            progress(context, bytes);
+    }
 }
 
 // The broker waits for the complete path and any required extra frame
@@ -1089,7 +1128,8 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
                         std::wstring_view sourceLeaf, HANDLE targetParent,
                         const UacDirectoryLeaf::ParentIdentity& targetParentId, std::wstring_view targetLeaf,
                         ULONGLONG size, HANDLE pipe, ULONGLONG deadline,
-                        bool preserveCompression, const UacF7::ArchiveRevision* copiedTarget)
+                        bool preserveCompression, const UacF7::ArchiveRevision* copiedTarget,
+                        const UacCopyLeaf::Detail::CopyProgress* progress)
 {
     using namespace UacMoveSourceJournal;
     if (UacDirectoryLeaf::Equal(sourceParentId.volume, targetParentId.volume))
@@ -1203,7 +1243,7 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
         }
         else
         {
-            status = guard.PublishCopy(targetParent, targetParentId, targetLeaf, size, nullptr, pipe, deadline, target, targetId);
+            status = guard.PublishCopy(targetParent, targetParentId, targetLeaf, size, nullptr, pipe, deadline, target, targetId, progress);
             published = target != nullptr;
             if (status)
                 return status;
@@ -1335,7 +1375,8 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
                            const FILE_ID_INFO& expectedSource, std::wstring_view sourceLeaf,
                            HANDLE targetParent, const UacDirectoryLeaf::ParentIdentity& expectedTargetParent,
                            std::wstring_view targetLeaf, const UacF7::ArchiveRevision& expectedTarget,
-                           ULONGLONG bytes, HANDLE pipe, ULONGLONG deadline)
+                           ULONGLONG bytes, HANDLE pipe, ULONGLONG deadline,
+                           const UacCopyLeaf::Detail::CopyProgress* progress)
 {
     constexpr auto kind = UacZipUpdate::ReplacementKind::DiskCopy;
     using UacZipUpdate::Detail::CheckParent;
@@ -1391,7 +1432,7 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
     if ((error = PrepareReplacementFiles(targetParent, targetLeaf, expectedTarget, original, stage, security, kind,
                                          &stageName)) != ERROR_SUCCESS ||
         (error = UacCopyLeaf::Detail::CopyOverwriteStreams(source.get(), location, targetParent, stageName,
-                                                           stage.get(), bytes, pipe, deadline)) != ERROR_SUCCESS)
+                                                           stage.get(), bytes, pipe, deadline, progress)) != ERROR_SUCCESS)
         return error;
 
     FILE_BASIC_INFO currentSource{};
@@ -1521,6 +1562,30 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool crossMove = UacF7::IsCrossVolumeMove(header.operation);
     const bool tree = header.operation == Operation::CopyTree;
     const bool transfer = copy || move || tree;
+    if (header.reportProgress > 1 || (header.reportProgress && !CanReportTransferProgress(header.operation)))
+        return ERROR_INVALID_DATA;
+    struct ProgressSender
+    {
+        HANDLE pipe;
+        ULONGLONG bytes = 0;
+        ULONGLONG next = GetTickCount64() + 200;
+    } sender{pipe};
+    const UacCopyLeaf::Detail::CopyProgress progressSink{
+        [](void* context, ULONGLONG bytes) -> DWORD {
+            auto& state = *static_cast<ProgressSender*>(context);
+            if (bytes > MAXULONGLONG - state.bytes)
+                return ERROR_ARITHMETIC_OVERFLOW;
+            state.bytes += bytes;
+            const auto now = GetTickCount64();
+            if (now < state.next)
+                return ERROR_SUCCESS;
+            state.next = now + 200;
+            DWORD marker = transferProgressFrame;
+            const auto deadline = now + timeoutMs;
+            DWORD error = TransferRequest(state.pipe, &marker, sizeof(marker), true, deadline);
+            return error ? error : TransferRequest(state.pipe, &state.bytes, sizeof(state.bytes), true, deadline);
+        }, &sender};
+    const auto* progress = header.reportProgress ? &progressSink : nullptr;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
         header.leafLength > UacDirectoryLeaf::maxComponent || header.sourceLength > UacDirectoryLeaf::maxComponent ||
         (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer && !view && !readArchive && !writeZipSelection && !zipUpdate) || rename != (header.sourceLength != 0) ||
@@ -1732,7 +1797,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 deadline = copyDeadline + timeoutMs;
                 result = CopyOverExistingFile(install, parent.get(), expected, sourceIdentity, leaf,
                                               targetParent.get(), expectedTarget, targetLeaf, overwriteTarget,
-                                              header.copySize, pipe, copyDeadline);
+                                              header.copySize, pipe, copyDeadline, progress);
             }
             else if (header.operation == Operation::CopyEncrypted)
             {
@@ -1745,7 +1810,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             {
                 result = MoveAcrossVolumes(install, parent.get(), expected, sourceIdentity, leaf,
                                            targetParent.get(), expectedTarget, targetLeaf, header.copySize, pipe, MAXULONGLONG,
-                                           header.operation == Operation::MoveCompressed, finishMove ? &overwriteTarget : nullptr);
+                                           header.operation == Operation::MoveCompressed, finishMove ? &overwriteTarget : nullptr, progress);
                 deadline = GetTickCount64() + timeoutMs;
             }
             else if (move)
@@ -1765,7 +1830,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 result = UacCopyLeaf::CopyVerifiedFile(parent.get(), expected, sourceIdentity, leaf,
                                                        targetParent.get(), expectedTarget, targetLeaf,
                                                        nullptr, pipe, copyDeadline, header.copySize,
-                                                       policy, ProtectedObject, preserveCompression, preserveSecurity);
+                                                       policy, ProtectedObject, preserveCompression, preserveSecurity, progress);
             }
         }
     }
@@ -2173,7 +2238,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
                HANDLE* sessionPipe = nullptr, HANDLE cancel = nullptr, std::vector<BYTE>* snapshot = nullptr,
                UacF7::ArchiveRevision* archiveRevision = nullptr, std::vector<BYTE>* zipBytes = nullptr,
                HANDLE zipUpdateFile = nullptr, UacF7::ArchiveRevision* overwriteTarget = nullptr,
-               HANDLE* transferJob = nullptr, UacF7::MetadataJobPolicy* metadataPolicy = nullptr
+               HANDLE* transferJob = nullptr, UacF7::MetadataJobPolicy* metadataPolicy = nullptr,
+               UacF7::TransferProgress progress = nullptr, void* progressContext = nullptr
 #endif
 )
 {
@@ -2313,7 +2379,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         const bool crossMove = UacF7::IsCrossVolumeMove(request->operation);
         if (copy || crossMove || tree || zipBytes)
             deadline = TransferDeadline(request->operation);
-        error = TransferRequest(pipe.get(), &operationError, sizeof(operationError), false, deadline, cancel);
+        error = ReadTransferResult(pipe.get(), operationError, deadline, cancel, progress, progressContext,
+                                   crossMove ? UacF7::maxCrossVolumeMoveBytes : UacF7::maxPilotCopyBytes);
         if (!error && (transferJob || copy || UacF7::IsMoveTransfer(request->operation) || tree || zipBytes ||
                        zipUpdateFile))
         {
@@ -2672,7 +2739,8 @@ bool PreparedLeaf::IsInJob(const TransferJobSession& job) const
 }
 
 static Result RepeatTransferJob(HANDLE& pipe, RequestHeader& header, std::wstring& payload,
-                                void* extra, DWORD extraBytes, MetadataJobPolicy* policy = nullptr, HANDLE cancel = nullptr)
+                                void* extra, DWORD extraBytes, MetadataJobPolicy* policy = nullptr, HANDLE cancel = nullptr,
+                                TransferProgress progress = nullptr, void* progressContext = nullptr)
 {
     Result result;
     auto deadline = GetTickCount64() + timeoutMs;
@@ -2680,7 +2748,8 @@ static Result RepeatTransferJob(HANDLE& pipe, RequestHeader& header, std::wstrin
     if (!error)
     {
         deadline = TransferDeadline(header.operation);
-        error = TransferRequest(pipe, &result.error, sizeof(result.error), false, deadline, cancel);
+        error = ReadTransferResult(pipe, result.error, deadline, cancel, progress, progressContext,
+                                   IsCrossVolumeMove(header.operation) ? maxCrossVolumeMoveBytes : maxPilotCopyBytes);
     }
     if (error)
         result.error = error;
@@ -3015,7 +3084,8 @@ bool PreparedTransfer::IsInJob(const TransferJobSession& job) const
     return job.pipe && CanShareJob() && job.scope.Matches(JobScope());
 }
 
-Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* job) const
+Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* job,
+                                 TransferProgress progress, void* progressContext) const
 {
     Result result;
     const ComApartment com;
@@ -3029,6 +3099,9 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* 
     RequestHeader header{source.serial, {}, {}, source.operation,
                          static_cast<DWORD>(source.relative.size()), static_cast<DWORD>(source.leaf.size()), 0,
                          target.serial, {}, static_cast<DWORD>(target.relative.size()), static_cast<DWORD>(target.leaf.size()), size};
+    if (!CanReportTransferProgress(source.operation))
+        progress = nullptr;
+    header.reportProgress = progress != nullptr;
     std::memcpy(header.parentId.Identifier, source.fileId, sizeof(source.fileId));
     std::memcpy(header.sourceId.Identifier, source.sourceId, sizeof(source.sourceId));
     std::memcpy(header.targetParentId.Identifier, target.fileId, sizeof(target.fileId));
@@ -3038,14 +3111,14 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* 
     if (job && !CanShareJob())
         return result;
     if (job && IsInJob(*job))
-        return RepeatTransferJob(job->pipe, header, payload, targetRevision, sizeof(revision), nullptr, cancel);
+        return RepeatTransferJob(job->pipe, header, payload, targetRevision, sizeof(revision), nullptr, cancel, progress, progressContext);
     if (job)
     {
         job->Close();
         job->scope = JobScope();
     }
     RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, cancel,
-             nullptr, nullptr, nullptr, nullptr, targetRevision, job ? &job->pipe : nullptr);
+             nullptr, nullptr, nullptr, nullptr, targetRevision, job ? &job->pipe : nullptr, nullptr, progress, progressContext);
     return result;
 }
 

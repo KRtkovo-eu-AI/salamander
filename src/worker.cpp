@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Show broker byte counts in the existing progress dialog. | Count completed work only after the terminal result. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Pin the exact copied files before local F6 source retirement. | Detect a substituted source or destination before trying either local or elevated deletion. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Release a closed transfer session immediately. | Avoid keeping dead scope paths during long-running batches. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Route combined compression and permissions to protected F5. | Keep both existing copy options active in the worker retry. | | GPT-6.1 Sol (Codex) |
@@ -5722,7 +5723,35 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
     }
     if (shareJob && existing == jobs.end())
         existing = jobs.emplace(jobs.end());
-    const auto result = request.Execute(progress, cancel, existing != jobs.end() ? &*existing : nullptr);
+    struct NativeTransferProgress
+    {
+        HWND dialog;
+        const COperation& operation;
+        COperations& script;
+        CProgressDlgData& data;
+        CQuadWord completed;
+        CQuadWord transferred{0, 0};
+        bool shown = false;
+    } state{progress, op, script, dlgData, totalDone};
+    script.GetTFS(&state.transferred);
+    const auto updateProgress = [](void* context, ULONGLONG bytes) {
+        auto& state = *static_cast<NativeTransferProgress*>(context);
+        const CQuadWord current = CQuadWord().SetUI64((std::min)(bytes, state.operation.Size.Value));
+        // Keep a running item below completion until the broker confirms it.
+        const int item = (std::min)(999, CaclProg(current, state.operation.Size));
+        const int summary = (std::min)(999, CaclProg(state.completed + current, state.script.TotalSize));
+        state.script.SetTFSandProgressSize(state.transferred + current, state.completed + current);
+        SetProgressWithoutSuspend(state.dialog, item, summary, state.data);
+        state.shown = true;
+    };
+    const auto result = request.Execute(progress, cancel, existing != jobs.end() ? &*existing : nullptr, updateProgress, &state);
+    if (state.shown)
+    {
+        // Advisory progress must not count as completed work or be added twice.
+        script.SetTFSandProgressSize(state.transferred, totalDone);
+        if (result.error != ERROR_SUCCESS || result.unknown)
+            SetProgressWithoutSuspend(progress, 0, CaclProg(totalDone, script.TotalSize), dlgData);
+    }
     if (WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0 || result.unknown || result.error == ERROR_CANCELLED)
         jobs.clear();
     else if (existing != jobs.end() && !existing->IsOpen())

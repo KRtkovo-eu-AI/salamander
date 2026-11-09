@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Accept a host transfer progress callback. | Keep progress optional for non-panel callers. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose a verified local finish for an ordinary cross-volume copy. | Keep the protected fallback tied to the same captured objects. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose whether a scoped broker session is still open. | Release closed session entries while their batch continues. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Define a combined protected F5 compression and permissions operation. | Keep consent and broker scope specific to both options. | | GPT-6.1 Sol (Codex) |
@@ -425,6 +426,8 @@ struct OverwriteApproval
     }
 };
 
+using TransferProgress = void (*)(void* context, ULONGLONG bytes);
+
 class PreparedTransfer
 {
 public:
@@ -433,7 +436,8 @@ public:
                                const MoveFileIdentity& copiedSource, const MoveFileIdentity& copiedTarget);
     bool PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize);
     bool PrepareTree(const std::wstring& sourcePath, std::wstring_view targetDirectory, std::wstring& destination);
-    Result Execute(HWND owner, HANDLE cancel = nullptr, TransferJobSession* job = nullptr) const;
+    Result Execute(HWND owner, HANDLE cancel = nullptr, TransferJobSession* job = nullptr,
+                   TransferProgress progress = nullptr, void* progressContext = nullptr) const;
     bool IsInJob(const TransferJobSession& job) const;
     bool CanShareJob() const { return CanShareTransferJob(source.operation); }
     bool IsMove() const { return IsMoveTransfer(source.operation); }

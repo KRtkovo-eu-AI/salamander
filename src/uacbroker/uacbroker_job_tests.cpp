@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Exercise progress and cancellation on a local pipe. | Cover 64-bit counts and a late progress message. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify the final mutation frame on a real local pipe. | Distinguish undelivered requests from requests without a reply. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify F6 without the former pilot limits. | Exercise large request sizes and the active deadline policy. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise stale overwrite consent through the broker dispatcher. | Verify an externally replaced target survives and the job can continue. | | GPT-6.1 Sol (Codex) |
@@ -362,7 +363,7 @@ void CheckUnboundedTransferCancellation()
     const auto server = Adopt(CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED |
         FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_REJECT_REMOTE_CLIENTS,
         1, 4096, 4096, 0, nullptr));
-    const auto cancel = Adopt(CreateEventW(nullptr, TRUE, TRUE, nullptr));
+    const auto cancel = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
     if (!server || !cancel)
     {
         Check(false, "prepare the cancellable unbounded transfer");
@@ -375,9 +376,20 @@ void CheckUnboundedTransferCancellation()
             return;
         BYTE signal = 0;
         const auto deadline = GetTickCount64() + timeoutMs;
-        peerError = TransferRequest(peer.get(), &signal, sizeof(signal), false, deadline);
+        const auto sendProgress = [&](ULONGLONG bytes) {
+            DWORD marker = transferProgressFrame;
+            const DWORD error = TransferRequest(peer.get(), &marker, sizeof(marker), true, deadline);
+            return error ? error : TransferRequest(peer.get(), &bytes, sizeof(bytes), true, deadline);
+        };
+        peerError = sendProgress(4ULL * 1024 * 1024 * 1024 + 1);
+        if (!peerError)
+            peerError = TransferRequest(peer.get(), &signal, sizeof(signal), false, deadline);
         if (!peerError && signal != UacRenameLeaf::Detail::transferCancelSignal)
             peerError = ERROR_INVALID_DATA;
+        if (!peerError)
+        {
+            peerError = sendProgress(4ULL * 1024 * 1024 * 1024 + 2);
+        }
         if (!peerError)
         {
             DWORD status = ERROR_CANCELLED;
@@ -386,11 +398,24 @@ void CheckUnboundedTransferCancellation()
     });
     DWORD status = ERROR_GEN_FAILURE;
     DWORD error = Connect(server.get(), GetTickCount64() + timeoutMs);
+    struct Progress
+    {
+        HANDLE cancel;
+        ULONGLONG bytes = 0;
+        unsigned updates = 0;
+    } progress{cancel.get()};
     if (!error)
-        error = TransferRequest(server.get(), &status, sizeof(status), false, MAXULONGLONG, cancel.get());
+        error = ReadTransferResult(server.get(), status, MAXULONGLONG, cancel.get(),
+            [](void* context, ULONGLONG bytes) {
+                auto& progress = *static_cast<Progress*>(context);
+                progress.bytes = bytes;
+                ++progress.updates;
+                SetEvent(progress.cancel);
+            }, &progress, UacF7::maxCrossVolumeMoveBytes);
     receiver.join();
-    Check(!error && !peerError && status == ERROR_CANCELLED,
-          "send cancellation and receive confirmation while waiting without a total deadline");
+    Check(!error && !peerError && status == ERROR_CANCELLED &&
+              progress.updates == 1 && progress.bytes == 4ULL * 1024 * 1024 * 1024 + 1,
+          "read 64-bit progress, send one cancellation, and wait for the terminal reply");
 }
 
 void CheckRequestDelivery()

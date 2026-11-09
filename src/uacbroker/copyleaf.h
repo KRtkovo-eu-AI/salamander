@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Count staged copy bytes. | Report progress for regular, named and sparse streams. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Combine compressed stream transfer with exact security. | Keep both staging checks active through publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve sparse named streams on dense file copies. | Decide the named stream storage from its own handle. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve named streams on sparse file copies. | Reuse stream storage checks for sparse F5 with or without exact security. | | GPT-6.1 Sol (Codex) |
@@ -179,9 +180,17 @@ inline DWORD ReadOverlappedBlock(HANDLE source, BYTE* buffer, DWORD length, ULON
 void AfterCopyBlockForTest(HANDLE target, HANDLE connection);
 #endif
 
+struct CopyProgress
+{
+    DWORD (*advance)(void* context, ULONGLONG bytes);
+    void* context;
+
+    DWORD Advance(ULONGLONG bytes) const { return bytes ? advance(context, bytes) : ERROR_SUCCESS; }
+};
+
 inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
                        HANDLE cancel, HANDLE connection, ULONGLONG deadline, bool overlappedSource = false,
-                       ULONGLONG position = 0)
+                       ULONGLONG position = 0, const CopyProgress* progress = nullptr)
 {
     std::vector<BYTE> buffer(64 * 1024);
     const DWORD bufferSize = static_cast<DWORD>(buffer.size());
@@ -217,6 +226,9 @@ inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
                 return ERROR_WRITE_FAULT;
             offset += written;
         }
+        if (progress)
+            if (const DWORD error = progress->Advance(read))
+                return error;
 #ifdef SAM_UAC_COPY_FAULT_TEST
         AfterCopyBlockForTest(target, connection);
 #endif
@@ -241,7 +253,8 @@ inline DWORD SetCompression(HANDLE file, USHORT format)
 }
 
 inline DWORD CopySparseData(HANDLE source, HANDLE target, LONGLONG size,
-                            HANDLE cancel, HANDLE connection, ULONGLONG deadline, bool overlappedSource)
+                            HANDLE cancel, HANDLE connection, ULONGLONG deadline, bool overlappedSource,
+                            const CopyProgress* progress = nullptr)
 {
     DWORD bytes = 0;
     if (!DeviceIoControl(target, FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &bytes, nullptr))
@@ -301,7 +314,10 @@ inline DWORD CopySparseData(HANDLE source, HANDLE target, LONGLONG size,
             if ((!overlappedSource && !SetFilePointerEx(source, position, nullptr, FILE_BEGIN)) ||
                 !SetFilePointerEx(target, position, nullptr, FILE_BEGIN))
                 return GetLastError();
-            if (const DWORD error = CopyData(source, target, end - start, cancel, connection, deadline, overlappedSource, start))
+            if (progress)
+                if (const DWORD error = progress->Advance(start - previousEnd))
+                    return error;
+            if (const DWORD error = CopyData(source, target, end - start, cancel, connection, deadline, overlappedSource, start, progress))
                 return error;
             previousEnd = end;
         }
@@ -310,7 +326,7 @@ inline DWORD CopySparseData(HANDLE source, HANDLE target, LONGLONG size,
         if (previousEnd <= queryStart)
             return ERROR_INVALID_DATA;
     }
-    return ERROR_SUCCESS;
+    return progress ? progress->Advance(size - previousEnd) : ERROR_SUCCESS;
 }
 
 struct DataStream
@@ -487,7 +503,7 @@ struct CopySourceLocation
 
 inline DWORD CopyOverwriteStreams(HANDLE source, const CopySourceLocation& location, HANDLE parent,
                                   std::wstring_view stageLeaf, HANDLE stage, ULONGLONG expectedSize,
-                                  HANDLE connection, ULONGLONG deadline)
+                                  HANDLE connection, ULONGLONG deadline, const CopyProgress* progress = nullptr)
 {
     std::vector<DataStream> inventory;
     DWORD error = ReadDataStreams(source, inventory);
@@ -512,7 +528,7 @@ inline DWORD CopyOverwriteStreams(HANDLE source, const CopySourceLocation& locat
         inputs.push_back(std::move(input));
     }
 
-    if ((error = CopyData(source, stage, expectedSize, nullptr, connection, deadline)))
+    if ((error = CopyData(source, stage, expectedSize, nullptr, connection, deadline, false, 0, progress)))
         return error;
     FILE_ID_INFO targetId{};
     if (named && !GetFileInformationByHandleEx(stage, FileIdInfo, &targetId, sizeof(targetId)))
@@ -525,7 +541,7 @@ inline DWORD CopyOverwriteStreams(HANDLE source, const CopySourceLocation& locat
             continue;
         StreamHandle output(nullptr, CloseHandle);
         if ((error = OpenDataStream(parent, stageLeaf, stream, targetId, true, output)) ||
-            (error = CopyData(inputs[index++].get(), output.get(), stream.size, nullptr, connection, deadline)))
+            (error = CopyData(inputs[index++].get(), output.get(), stream.size, nullptr, connection, deadline, false, 0, progress)))
             return error;
         if (!FlushFileBuffers(output.get()))
             return GetLastError();
@@ -546,7 +562,8 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                             StreamPolicy policy = StreamPolicy::RequireDefault,
                             const CopySourceLocation* location = nullptr, bool preserveCompression = false,
                             const CopySecuritySnapshot* copySecurity = nullptr,
-                            StreamHandle* moveTarget = nullptr, DWORD moveCompressionAttributes = 0)
+                            StreamHandle* moveTarget = nullptr, DWORD moveCompressionAttributes = 0,
+                            const CopyProgress* progress = nullptr)
 {
     if (moveTarget && (*moveTarget || policy == StreamPolicy::IgnoreNamed || copySecurity ||
         (policy == StreamPolicy::PreserveNamed && (!location || !location->lockedInputs || !location->lockedInventory))))
@@ -654,8 +671,8 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return ERROR_NOT_SUPPORTED;
     if (preserveCompression && (error = SetCompression(target.get(), format)) != ERROR_SUCCESS)
         return error;
-    error = sparse ? CopySparseData(source, target.get(), size.QuadPart, cancel, connection, deadline, moveTarget != nullptr)
-                   : CopyData(source, target.get(), size.QuadPart, cancel, connection, deadline, moveTarget != nullptr);
+    error = sparse ? CopySparseData(source, target.get(), size.QuadPart, cancel, connection, deadline, moveTarget != nullptr, progress)
+                   : CopyData(source, target.get(), size.QuadPart, cancel, connection, deadline, moveTarget != nullptr, 0, progress);
     if (error)
         return error;
 
@@ -693,8 +710,8 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                     return error;
             }
             error = sparseStream ? CopySparseData(input, output.get(), static_cast<LONGLONG>(stream.size),
-                                                   cancel, connection, deadline, moveTarget != nullptr)
-                                 : CopyData(input, output.get(), stream.size, cancel, connection, deadline, moveTarget != nullptr);
+                                                   cancel, connection, deadline, moveTarget != nullptr, progress)
+                                 : CopyData(input, output.get(), stream.size, cancel, connection, deadline, moveTarget != nullptr, 0, progress);
             if (!error && !GetFileInformationByHandleEx(output.get(), FileBasicInfo, &streamBasic, sizeof(streamBasic)))
                 return GetLastError();
             if (!error && ((streamBasic.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE) != 0) != sparseStream)
@@ -853,7 +870,8 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
                               HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG,
                               ULONGLONG expectedSize = MAXULONGLONG,
                               StreamPolicy policy = StreamPolicy::RequireDefault,
-                              StageVerifier verifyStage = nullptr, bool preserveCompression = false, bool preserveSecurity = false)
+                              StageVerifier verifyStage = nullptr, bool preserveCompression = false, bool preserveSecurity = false,
+                              const Detail::CopyProgress* progress = nullptr)
 {
     using namespace UacDirectoryLeaf;
     if (!IsComponent(sourceName) || !IsComponent(targetName))
@@ -899,6 +917,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
     FILE_BASIC_INFO basic{};
     const Detail::CopySourceLocation location{sourceParent, sourceName, actualSource, verifyStage};
     return Detail::CopyOpenedFile(source.get(), targetParent, targetName, cancel, connection, deadline,
-                                  expectedSize, basic, nullptr, nullptr, policy, &location, preserveCompression, preserveSecurity ? &security : nullptr);
+                                  expectedSize, basic, nullptr, nullptr, policy, &location, preserveCompression, preserveSecurity ? &security : nullptr,
+                                  nullptr, 0, progress);
 }
 }

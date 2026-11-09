@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Report brokered F5 and F6 byte progress in the existing dialogs. | Give long protected transfers live feedback while preserving the terminal result. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Prepare the combined protected Find acceptance fixture. | Compare tagged duplicates and a same-size text nonmatch across ordinary and protected roots. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Revalidate the original-account Recycle Bin receipt in the acceptance VM. | Establish the Shell baseline before the protected panel tests. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify pre-publication F6 cancellation through the native dialog. | Confirm cleanup and restore the regular pilot after controlled tests. | | GPT-6.1 Sol (Codex) |
@@ -1392,6 +1393,10 @@ Ke každé zkoušce zaznamenat revizi, verzi Windows a architekturu, typ účtu 
 **Koš, základní kontrola v akceptační VM.** Na Windows 11 Pro x64 (26200) prošlo v x64 Release 21 běžných kontrol, 12 kontrol dokladu a obnovy a tři kontroly přenosu. IFileOperation potvrdilo přesun i návrat na původní cestu. Sonda ověřila SID a svazek Koše, stejné ID položky a odmítnutí cizího nebo chybějícího dokladu. Výstupy jsou v recycle-native/ordinary.log, receipt.log a transfer.log u pilotu 10da008c. Jde o základní zkoušku běžného Shellu. Pro chráněný příkaz Delete z panelu je připravený laboratorní skript Invoke-P7Recycle.ps1 s ověřením SHA-256 a ID v Koši volajícího. Souhlas, zrušení a obnova pro oba účty zůstávají v akceptační matici.
 
 **Find, příprava kombinované zkoušky ve VM.** Prošly místní kontroly plánování, výběru kořenů a řazení Findu. Pro společný test textu, tagu a duplicit je připravený skript Invoke-P7Find.ps1. Payload obsahuje dva platné JPEG o stejné délce 2 370 bajtů a se stejným Unicode tagem Samandarin-東. Windows Shell tag přečetl u obou. JPEG komentář obsahuje P7FIND_MARKER_X u shody a P7FIND_MARKER_Y u negativní kontroly. Skript rozmístí tři shodné kopie do běžného a dvou chráněných podstromů a negativní JPEG do dostupné složky. Očekávaný výsledek při odmítnutí prvního chráněného rozsahu a schválení druhého je dvojice z 01-ordinary a 03-approve. Místní důkaz je v P7-Find/payload-evidence.json. Zkouška s výzvami a odpojením stále zbývá.
+
+**Průběh kopie a přesunu prováděného brokerem.** Protokol 9 umožní workeru požádat o průběžný počet zpracovaných logických bajtů na ověřeném spojení. Broker hlásí průběh nejvýše pětkrát za sekundu. Aplikace použije stávající ukazatel položky i celkový ukazatel. Počet u řídkých souborů zahrnuje zpracované nealokované oblasti. Ukazatel položky zůstane před dokončením a účetnictví úlohy se změní až po ověřeném výsledku. Při zrušení se signál odešle jednou a průběžná zpráva nemůže nahradit koncovou odpověď. Podporované jsou běžné souborové kopie F5 včetně proudů a přepisu a datová část chráněného F6 mezi svazky. Rekurzivní kopie a EFS Raw potřebují doplnit vlastní zdroj údajů.
+
+Prošlo sestavení aplikace, brokeru a sondy x64 Release, 14 kontrol workeru, sada transportu a úloh brokeru a nativní zkouška F6 na dvou svazcích. Sonda skutečné roury přijala 64bitový údaj přes 4 GiB, po zrušení potlačila pozdní průběžnou zprávu a dočetla koncovou odpověď. Velikost aplikace x64 Release proti pilotu 10da008c vzrostla z 5 438 464 na 5 441 536 B. Při stejném sestavení brokeru před a po změně vzrostla z 1 331 200 na 1 332 736 B. Součet vzrostl o 4 608 B. Vizuální ověření ve VM a porovnání privátní paměti ve stejných úlohách zbývají před přijetím.
 
 ### 12.3 CI a přijetí vydání
 
