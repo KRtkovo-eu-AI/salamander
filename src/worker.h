@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Mark directly selected files for protected transfer. | Keep recursive script items outside the selected-file broker scope. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Store the target revision for a protected Scan Ahead overwrite. | Keep the approved revision alongside the existing conflict identity. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Document deferred source access for copy and move. | Use one flag for the two existing transfer retries. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
@@ -277,6 +278,7 @@ enum COperationCode
 #define OPFL_PARALLEL_DONE 0x00000200 // copy file already completed by rolling lookahead
 #define OPFL_PARALLEL_DIR_PREPARED 0x00000400 // directory created/resolved by rolling lookahead
 #define OPFL_UAC_TRANSFER_SOURCE 0x00000800       // F5 or F6 source access failed during ADS discovery
+#define OPFL_UAC_TRANSFER_ELIGIBLE 0x00001000     // directly selected F5 or F6 item can offer a broker retry
 enum CCopyMoveItemState
 {
     cmisUnscanned,

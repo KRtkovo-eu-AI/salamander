@@ -1,6 +1,7 @@
 ﻿# SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check direct file admission in mixed protected transfer selections. | Keep recursively discovered items out of the direct file consent scope. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check named-stream overwrite admission. | Keep alternate data on the guarded disk-copy route. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check overwrite when reading the source is denied. | Require the reviewed target and keep failure from switching to a free-target request. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check exact Scan Ahead overwrite admission. | Require one scanned revision and serial conflict requeue on a mismatch. | | GPT-6.1 Sol (Codex) |
@@ -76,6 +77,24 @@ class WorkerCopyPathContracts(unittest.TestCase):
         vanished = section(revalidate, "else if (GetLastError() == ERROR_FILE_NOT_FOUND", "if (!valid)")
         self.assertIn("conflictType = cmctNone;", vanished)
         self.assertIn("executionConflictType != cmctNone", worker)
+    def test_mixed_selection_limits_protected_retries_to_direct_files(self):
+        panel = section(text("fileswn8.cpp"), "script->AllowTransferPilot =", "script->IgnoreTransferAds")
+        self.assertNotIn("dirs == 0", panel)
+        self.assertIn("!IsBranchView() && !target->IsBranchView()", panel)
+        builder = text("fileswn6.cpp")
+        direct = section(builder, "BOOL CFilesWindow::BuildScriptMain(", "BOOL CFilesWindow::BuildScriptDir(")
+        recursive = section(builder, "BOOL CFilesWindow::BuildScriptDir(", "BOOL CFilesWindow::BuildScriptFile(")
+        self.assertIn("script->AllowTransferPilot ? OPFL_UAC_TRANSFER_ELIGIBLE : 0", direct)
+        self.assertIn("itemFlags, oneFile->UseWideName()", direct)
+        self.assertNotIn("OPFL_UAC_TRANSFER_ELIGIBLE", recursive)
+        self.assertIn("(protectedCopy || protectedMove) && (op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE)", builder)
+
+        worker = text("worker.cpp")
+        self.assertEqual(worker.count("OPFL_UAC_TRANSFER_ELIGIBLE"), 5)
+        for start, end in (("static bool TryTransferWithBroker(", "static bool PrepareWorkerOverwrite("),
+                           ("static bool PrepareWorkerOverwrite(", "struct MoveCopyReceipt")):
+            self.assertIn("!(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE)", section(worker, start, end))
+
     def test_compressed_move_with_ads_reaches_the_cross_volume_broker(self):
         transfer = section(text("worker.cpp"), "static bool TryTransferWithBroker(", "static bool PrepareWorkerOverwrite(")
         eligible = transfer.split("request.Prepare(", 1)[0]

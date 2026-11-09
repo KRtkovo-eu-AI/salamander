@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Use item eligibility for protected transfer in the worker. | Keep mixed selections serial on denied direct items and preserve recursive behavior. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Admit named streams to verified F5 overwrite. | Allow the broker to preserve eligible source streams before publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow verified overwrite when F5 cannot open the source. | Keep the ordinary conflict decision and retry tied to the prepared target. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind protected Scan Ahead overwrites to the scanned revision. | Requeue changed targets before the protected retry and leave reviewed overwrites to the serial worker. | | GPT-6.1 Sol (Codex) |
@@ -1808,7 +1809,7 @@ void COperations::RequeueChangedConflictItem(int index)
             volumeSerial = info.dwVolumeSerialNumber;
             fileIndex = ((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow;
             identityValid = TRUE;
-            if (AllowTransferPilot && operation.Opcode == ocCopyFile)
+            if ((operation.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && operation.Opcode == ocCopyFile)
                 CaptureScannedOverwriteRevision(target, info, revision);
         }
         HANDLES(CloseHandle(targetHandle));
@@ -5760,7 +5761,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     const bool moving = op.Opcode == ocMoveFile;
     const bool encrypted = !moving && UacF7::IsEncryptedCopyFile(op.Attr);
     const bool compressedMove = moving && script.CopyAttrs && UacF7::IsCompressedCopyFile(op.Attr);
-    if (!script.AllowTransferPilot || script.OverwriteOlder || dlgData.ConflictDecisionInjected ||
+    if (!(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) || script.OverwriteOlder || dlgData.ConflictDecisionInjected ||
         ((op.OpFlags & OPFL_AS_ENCRYPTED) != 0 && !encrypted) ||
         !op.SourceNameWValid || !op.TargetNameWValid ||
         (moving ? !UacF7::IsEligibleMoveFile(op.Attr, script.CopyAttrs, script.CopySecurity)
@@ -5810,7 +5811,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
 static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
                                    const CProgressDlgData& dlgData, UacF7::PreparedTransfer& request)
 {
-    if (op.Opcode != ocCopyFile || !script.AllowTransferPilot ||
+    if (op.Opcode != ocCopyFile || !(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) ||
         script.OverwriteOlder || script.CopySecurity || script.CopyAttrs || script.IgnoreTransferAds ||
         (dlgData.ConflictDecisionInjected &&
          (dlgData.InjectedConflictType != cmctFileExists || !op.ScannedTargetRevision.attributes)) ||
@@ -7850,7 +7851,7 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
 
         BOOL skip;
         MoveCopyReceipt receipt;
-        const bool capture = script->AllowTransferPilot && !script->CopyAttrs && !script->CopySecurity &&
+        const bool capture = (op->OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && !script->CopyAttrs && !script->CopySecurity &&
                              !script->OverwriteOlder && !copyADS && !copyAsEncrypted &&
                              op->SourceNameWValid && op->TargetNameWValid && UacF7::IsPlainDeleteFile(op->Attr) &&
                              op->FileSize.Value <= UacF7::maxCrossVolumeMoveBytes;
@@ -10982,7 +10983,7 @@ static DWORD WINAPI ConflictScannerBody(void* parameter)
                             type = targetIsDirectory ? cmctTypeMismatch : cmctFileExists;
                         else if (op->Opcode == ocCreateDir)
                             type = targetIsDirectory ? cmctDirectoryExists : cmctTypeMismatch;
-                        if (data->Script->AllowTransferPilot && op->Opcode == ocCopyFile && type == cmctFileExists)
+                        if ((op->OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && op->Opcode == ocCopyFile && type == cmctFileExists)
                             CaptureScannedOverwriteRevision(target, info, revision);
                     }
                     HANDLES(CloseHandle(handle));

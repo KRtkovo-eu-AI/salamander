@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Mark selected files independently of recursive transfers. | Defer denied source access only for files selected in the panel. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow the larger F6 budget during source preparation. | Use the cross-volume limit before handing denied reads to the worker. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Defer inaccessible cross-volume move sources to the worker. | Allow the existing broker retry after ordinary ADS discovery cannot open the file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Allow eligible encrypted sources in batch discovery. | Defer blocked reads to the authorized transfer job. | | GPT-6.1 Sol (Codex) |
@@ -1711,12 +1712,14 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                         branchTarget = SalWideToMultiBytePath(targetDirectory.c_str(), CP_UTF8);
                         itemTargetPath = (char*)branchTarget.c_str();
                     }
+                    const DWORD itemFlags = srcAndTgtPathsFlags |
+                                            (script->AllowTransferPilot ? OPFL_UAC_TRANSFER_ELIGIBLE : 0);
                     if (!BuildScriptFile(script, type, sourcePath, sourceSupADS, itemTargetPath,
                                          keepBranchPaths ? GetTargetPathState(tpsUnknown, itemTargetPath) : targetPathState,
                                          targetSupADS, targetIsFAT32, mask,
                                          useName, useDOSName, oneFile->Size, attrsData, NULL,
                                          oneFile->Attr, chCaseData, onlySize, NULL,
-                                         srcAndTgtPathsFlags, oneFile->UseWideName() ? oneFile->NameW : NULL))
+                                         itemFlags, oneFile->UseWideName() ? oneFile->NameW : NULL))
                     {
                         SetCurrentDirectoryToSystem();
                         return FALSE;
@@ -3260,7 +3263,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             const bool protectedMove = type == atMove && err == ERROR_ACCESS_DENIED &&
                                 !(op.OpFlags & OPFL_AS_ENCRYPTED) &&
                                 UacF7::IsEligibleMoveFile(op.Attr, script->CopyAttrs, script->CopySecurity);
-                            if ((protectedCopy || protectedMove) && script->AllowTransferPilot &&
+                            if ((protectedCopy || protectedMove) && (op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) &&
                                 !script->OverwriteOlder && targetPathState == tpsNotEncryptedExisting &&
                                 op.FileSize.Value <= (protectedMove ? UacF7::maxCrossVolumeMoveBytes : UacF7::maxPilotCopyBytes))
                             {
