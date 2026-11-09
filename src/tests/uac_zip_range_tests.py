@@ -1,15 +1,21 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Initialize SDK tracing for the standalone ZIP range test. | Match the range parser prerequisites without changing the plugin. | | Codex |
 # | 2026-11-08 | Test ZIP64 listing through the real ZIP plugin export. | Detect truncated offsets and whole-archive reads. | | GPT-6.1 Sol (Codex) |
 import argparse
 import ctypes
+from _ctypes import FreeLibrary
+from contextlib import contextmanager
 import io
 import msvcrt
 from pathlib import Path
+import shutil
 import tempfile
 import zipfile
 from ctypes import wintypes
+
+from safe_file_paths_tests import compiler_environment, run
 
 
 READ = ctypes.WINFUNCTYPE(
@@ -80,12 +86,34 @@ def invoke(list_zip, stream, read_error=0, entry_error=0):
     return error, names, total, highest
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("plugin", type=Path)
-    args = parser.parse_args()
-    library = ctypes.WinDLL(str(args.plugin.resolve()))
-    list_zip = library.SalamanderListZipSourceV1
+@contextmanager
+def load_range_parser(plugin):
+    env = compiler_environment()
+    compiler = shutil.which("cl", path=env.get("PATH"))
+    source = Path(__file__).with_name("uac_zip_range_host.cpp").resolve()
+    with tempfile.TemporaryDirectory(prefix="uac-zip-range-") as directory:
+        bridge_path = Path(directory) / "uac_zip_range_host.dll"
+        run([compiler, "/nologo", "/std:c++17", "/EHsc", "/MT", "/W4", "/WX",
+             "/LD", str(source), "/Fe:" + str(bridge_path)],
+            cwd=directory, env=env, timeout=35, check=True)
+        bridge = ctypes.CDLL(str(bridge_path))
+        try:
+            library = ctypes.WinDLL(str(plugin.resolve(strict=True)))
+            try:
+                initialize = bridge.InitializeZipRangeProbe
+                initialize.argtypes = (ctypes.c_void_p,)
+                initialize.restype = wintypes.BOOL
+                entry = ctypes.cast(library.SalamanderPluginEntry, ctypes.c_void_p)
+                if not initialize(entry):
+                    raise RuntimeError("ZIP plugin did not initialize the range test context")
+                yield library.SalamanderListZipSourceV1
+            finally:
+                FreeLibrary(library._handle)
+        finally:
+            FreeLibrary(bridge._handle)
+
+
+def test_range_parser(list_zip):
     list_zip.argtypes = (ctypes.POINTER(ReadSource),)
     list_zip.restype = wintypes.DWORD
     assert list_zip(None) == 87
@@ -120,6 +148,14 @@ def main():
                 archive.writestr(str(i), "")
         assert invoke(list_zip, stream)[0] == 223
     print("PASS: ordinary ZIP, malformed and split rejection, 4096-entry limit, callback failures")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("plugin", type=Path)
+    args = parser.parse_args()
+    with load_range_parser(args.plugin) as list_zip:
+        test_range_parser(list_zip)
 
 
 if __name__ == "__main__":
