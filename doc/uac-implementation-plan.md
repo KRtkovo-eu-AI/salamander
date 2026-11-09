@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Recheck default-only F6 destinations before source retirement. | Preserve the source if the published destination gains an alternate stream. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve a sparse named stream on a dense F5 file. | Verify storage per opened stream rather than inferring it from the main stream. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve sparse F5 files with named streams and exact security. | Verify each stream and the destination security before publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test F6 interruption during the staged write. | Verify that cancellation and a broken pipe remove partially written data. | | GPT-6.1 Sol (Codex) |
@@ -1267,6 +1268,8 @@ Prošlo 129 kontrol F6 v x64 Debug i Release, 284 obecných nativních kontrol v
 **Řídké F5 s alternativními proudy.** Kopie řídkého souboru do volného názvu teď zachová i pojmenované proudy. Na jednotlivých proudech ověřuje kompresi a u řídkých proudů kopíruje alokované oblasti. Pro pojmenované proudy vyžaduje ověření ochrany pracovního souboru. Stejný postup lze kombinovat s podporovaným přesným kopírováním zabezpečení. Na místním NTFS prošlo 285 nativních kontrol v x64 Debug i Release. Test ověřil bajty i skutečné mezery v hlavním a Unicode pojmenovaném proudu, obsah dalšího běžného proudu, shodu vlastníka, primární skupiny a chráněné DACL i odmítnutí neověřené pracovní kopie. Prošlo sestavení brokeru x64 Release. Integrovaný tok F5 se systémovým souhlasem zbývá ověřit ve VM.
 
 **Řídký alternativní proud běžného souboru při F5.** Broker vyhodnotí řídkou alokaci podle handlu konkrétního proudu. U řídkého alternativního proudu tak zachová jeho délku, data a mezery i tehdy, když hlavní proud není řídký. Stále ověřuje ochranu pracovního souboru a konečný inventář proudů. Na místním NTFS prošlo 286 nativních kontrol v x64 Debug i Release. Nová kontrola ověřila data a nealokovanou oblast pojmenovaného Unicode proudu a běžný hlavní proud. Prošlo sestavení brokeru x64 Release. Zkouška z panelu se systémovou výzvou patří do společné akceptace.
+
+**Pozdní změna proudů cíle F6.** U přesunu s jediným hlavním proudem broker ověří inventář cíle a absenci rozšířených atributů před odebráním původního jména i před odebráním posledního ochranného odkazu. Test po úspěšném porovnání běžné kopie přidal Unicode alternativní proud, zatímco broker držel hlavní proud výhradně otevřený. Dokončení odmítlo změněný cíl, zachovalo obě zdrojová jména a ponechalo přidaný proud beze změny. Prošlo 132 kontrol F6 v x64 Debug i Release a sestavení brokeru x64 Release. Test běžel lokálně na jednom svazku bez systémové výzvy.
 
 ## 12. Testovací strategie
 

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise late destination streams during F6 retirement. | Keep both source links when the target changes after publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise F5 with a dense main stream and sparse ADS. | Verify independent stream allocation on NTFS. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test sparse F5 with named streams and security. | Verify NTFS allocation, stream contents and staging protection together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Interrupt guarded F6 after writing a stage block. | Check staged cleanup, the intact source, and successful retry on real NTFS. | | GPT-6.1 Sol (Codex) |
@@ -2101,6 +2102,22 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
                 error = guard.VerifyExistingCopy(existingCopy.get(), moveContent.size(), nullptr, MAXULONGLONG);
                 const DWORD expectedError = content == &moveContent ? ERROR_SUCCESS : ERROR_FILE_INVALID;
                 Check(error == expectedError, "compare every block of the already copied F6 destination", error);
+                if (content == &moveContent)
+                {
+                    const auto lateStream = existingPath + L":late-\u6771";
+                    if (!WriteFixture(lateStream, {6, 7}))
+                    {
+                        Check(false, "create a late stream while the F6 destination main stream is held", GetLastError());
+                        return false;
+                    }
+                    error = guard.RetirePublishedSource(parent.get(), storage.get(), journal.get(), security.get(),
+                        destinationParent, existingLeaf, existingCopy.get(), writtenId, nullptr, nullptr, MAXULONGLONG);
+                    Check(error == ERROR_NOT_SUPPORTED && !guard.Check(2) && Exists(sourcePath) && Exists(retained) &&
+                              HasContents(lateStream, {6, 7}),
+                          "retain both source links and the late destination stream", error);
+                    if (error != ERROR_NOT_SUPPORTED)
+                        return false;
+                }
             }
             if (!HasContents(existingPath, *content) || !DeleteFileW(existingPath.c_str()))
                 return false;

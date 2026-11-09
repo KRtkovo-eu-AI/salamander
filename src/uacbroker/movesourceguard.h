@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Recheck default-only destinations before retiring an F6 source. | Detect late alternate streams before removing the guarded source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Admit compressed named F6 streams. | Keep their exclusive locks while verifying their separate compression formats. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Admit sparse named streams under the F6 source lock. | Preserve their allocation instead of refusing the combined case. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Apply the cross-volume limit to each stream check. | Include named bytes before opening streams and after publication. | | GPT-6.1 Sol (Codex) |
@@ -463,7 +464,7 @@ private:
     DWORD CheckPublishedStreams(HANDLE parent, HANDLE target) const
     {
         if (!named || !named->HasNamed())
-            return ERROR_SUCCESS;
+            return UacCopyLeaf::Detail::CheckPlainStreamsAndEa(target, false, UacCopyLeaf::StreamPolicy::RequireDefault);
         if (!verifyStage(parent, true) || !verifyStage(target, false))
             return ERROR_ACCESS_DENIED;
         return named->CheckTarget(target);
