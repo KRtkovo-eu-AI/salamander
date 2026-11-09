@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Complete the German UAC strings. | Verify localized consent and error text in the German language binary. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify exact-file Find scope and investigate the Recycle Bin namespace. | Record live-pipe authorization checks and the known-folder API limits. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Revalidate the recycle account policy inside the Shell callback. | Refuse a retry if Windows switches to a credential policy. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify UAC payloads for all three build architectures. | Detect mixed-architecture application and broker pairs before distribution. | | GPT-6.1 Sol (Codex) |
@@ -1498,6 +1499,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, protokol Findu se souhlasem pro jeden soubor.** Pět kontrol ve skutečné rource volalo obsluhu brokeru pro již otevřený soubor. Platný požadavek vrátil bajt z tohoto souboru. Pokus o výpis adresáře, inventuru, čtení podle názvu nebo čtení za koncem ukončil relaci chybou ERROR_INVALID_DATA bez odpovědi s daty. V celé transportní sadě prošlo 50 kontrol v Debug i Release x64. Zkouška nevyžaduje elevaci a ověřuje protokol po výběru rozsahu souhlasu.
 
 **P7, virtuální složka Koše.** Microsoft uvádí Koš jako virtuální složku. Dokumentace SHGetKnownFolderItem virtuální složky vylučuje. Na testovaném Windows 11 build 26200 přesto obě rozhraní pro získání položky i PIDL vrátila S_OK. SHGetKnownFolderIDList vrátil stejný PIDL pro implicitní účet, výslovný token běžícího účtu i hodnotu Default User. Převod na souborovou cestu ve všech případech vrátil E_INVALIDARG. Tato zkouška čte jen identifikátory složek. Nedokládá vazbu na jiný přihlášený účet ani přesun do jeho Koše. Výstup je v C:/Samandarin/builds/uac-p7-10da008c/P7-Recycle/known-folder-api-evidence.json. [Identifikátor Koše](https://learn.microsoft.com/en-us/windows/win32/shell/knownfolderid) · [SHGetKnownFolderItem](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shgetknownfolderitem) · [SHGetKnownFolderIDList](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shgetknownfolderidlist).
+
+**P7, německé prostředky UAC a šablony chyb Findu.** Německý archiv doplňuje 45 chybějících textů a aktualizuje tři stávající zprávy o kopírování a přesunu podle anglického modulu. Překladač archiv importoval a zpětný export zachoval texty. Přímé čtení z german.slg pod LANGID 1031 ověřilo všech 65 jedinečných textů UAC proti archivu. Kontrola rozvržení celého německého modulu hlásí neblokující kód 2. Výstup rozložení dialogů tedy není ověřený. U 44 šablon chyb Findu v jedenácti archivech byla přesně jedna značka %s a žádná další formátovací značka. Vedle angličtiny, češtiny a němčiny zbývá doplnit texty v devíti archivech.
 
 ### 12.3 CI a přijetí vydání
 
