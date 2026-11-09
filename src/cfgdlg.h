@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Replace association detail selectors with action tabs. | Keep editor state tied to one of five matrix actions and avoid category/operation combo races. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Expose the default editor on the universal pattern row. | Keep `*.*` showing the Category Edit target and present it in the Edit filter. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Split archive matrix operations and filters. | Show Pack and Unpack independently and expose operation-specific filtering from the archive tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add custom viewer/editor association target choices. | Populate Target IDs from the saved custom handler catalogs. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -1140,6 +1141,7 @@ protected:
     std::string MatrixStatusText(const MatrixRow& row) const;
     bool MatrixRowVisible(const MatrixRow& row) const;
     int SelectedAssociationIndex(const MatrixRow& row) const;
+    void UpdateActionTabSelection();
     int MatrixTargetIconIndex(int associationIndex);
     bool IsExtensionViewerLabel(const std::string& label) const;
     std::string MatrixConflictDetails(const Salamander::FileAssociations::Association& item) const;

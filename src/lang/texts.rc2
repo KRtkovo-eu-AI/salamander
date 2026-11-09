@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Rename the association detail selector label to Action. | Match the new action tab group in the File Associations editor. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize the missing legacy editor state. | Show a translated Target ID if no editor command is configured. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize custom viewer/editor settings. | Provide translated labels for target choices and the saved-handler forms. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Describe competing owners instead of overlapping masks. | Explain exact-pattern ownership conflicts without implying that unrelated patterns collide. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -2382,7 +2383,7 @@ STRINGTABLE
  IDS_FILELAUNCH_LONGPATH_CAVEAT, "This setting is diagnostic information, not the established cause of this failure. Enabling it does not guarantee support by Shell, security services or the target application."
  IDS_FILEASSOCIATIONS, "File Associations"
  IDS_FILEASSOCIATION_PATTERN, "&Pattern:"
- IDS_FILEASSOCIATION_CATEGORY, "&Category:"
+ IDS_FILEASSOCIATION_CATEGORY, "&Action:"
  IDS_FILEASSOCIATION_OPERATION, "&Operation:"
  IDS_FILEASSOCIATION_TARGET, "&Target:"
  IDS_FILEASSOCIATION_TARGET_ID, "Target &ID:"

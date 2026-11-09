@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add action-tab control identifier for the association editor. | Replace separate category and operation selectors with five detail tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add the archive operation menu button identifier. | Provide a separate arrow control beside the Panel Archive category tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add custom handler configuration page identifiers. | Define controls for the saved custom viewer/editor lists and forms. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Reserve the All category-tab control identifier. | Add a dedicated matrix view for all registered file patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -330,6 +331,7 @@
 #define IDB_FILEASSOCIATION_TAB_ARCHIVE 6322
 #define IDB_FILEASSOCIATION_TAB_ALL     6324
 #define IDB_FILEASSOCIATION_TAB_ARCHIVE_MENU 6325
+#define IDC_FILEASSOCIATION_ACTION_TABS 6326
 #define IDS_FILEASSOCIATION_SOURCE      2421
 #define IDS_FILEASSOCIATION_DETAILS     2422
 #define IDS_FILEASSOCIATION_CONFLICTS_COUNT 2423
