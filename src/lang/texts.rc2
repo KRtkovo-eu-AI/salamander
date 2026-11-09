@@ -1,5 +1,6 @@
 ﻿// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Clarify unconfirmed copy and move results. | Cover both disconnects and partial operations. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the approved leaf job scope. | Identify the folder and authorization lifetime. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the transfer consent lifetime and paths. | Make the shared scope explicit. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add an explicit EFS consent prompt. | Describe preservation of encryption. | | GPT-6.1 Sol (Codex) |
@@ -2446,9 +2447,9 @@ STRINGTABLE
  IDS_UAC_COPY_SECURITY_CONFIRM, "Access was denied. Copy this file and preserve its NTFS owner, group, and explicit permissions as an administrator?"
  IDS_UAC_COPY_ENCRYPTED_CONFIRM, "Access was denied. Copy this file as an administrator and preserve its EFS encryption?"
  IDS_UAC_COPY_EFS_UNSUPPORTED, "This EFS copy could not be completed. Administrator mode cannot preserve the EFS encryption for this operation."
- IDS_UAC_COPY_UNKNOWN, "The broker disconnected before the copy was confirmed. Check the destination before retrying."
+ IDS_UAC_COPY_UNKNOWN, "The copy could not be confirmed as complete. Check the destination before retrying."
  IDS_UAC_MOVE_CONFIRM, "Access was denied. Move this file as an administrator?"
- IDS_UAC_MOVE_UNKNOWN, "The broker disconnected before the move was confirmed. Check the source and destination before retrying."
+ IDS_UAC_MOVE_UNKNOWN, "The move could not be confirmed as complete. Check the source and destination before retrying."
  IDS_UAC_INVENTORY_TITLE, "Protected subtree inventory"
  IDS_UAC_INVENTORY_INCOMPLETE, "The subtree could not be scanned completely. Partial results are hidden."
  IDS_UAC_INVENTORY_FILES, "Files: "

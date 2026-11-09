@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record Czech UAC localization and round-trip verification. | Track localized prompts and release validation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the P7 protocol resource and stale-image checks. | Detect mismatched broker packages before elevation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record original-volume and account checks for Recycle Bin receipts. | Verify identity independently of the mounted drive path. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record duplicate validation at comparison time. | Confirm empty candidates and reject short or changed reads. | | GPT-6.1 Sol (Codex) |
@@ -1151,6 +1152,8 @@ Hlášení o povinné standardní instalaci do chráněné cesty je dostupné ve
 **Kontrola verze páru před elevací.** Aplikace, broker a diagnostická sonda mají ve zdroji PE stejnou verzi, kterou používá výměna přes rouru. Aplikace kontroluje broker v chráněné instalační cestě před výzvou UAC. Broker kontroluje zdroj hosta před připojením k rouře. Obě strany mapují pouze zdroje PE a ponechávají autentizaci i ověření schopností v handshaku. Ověřovač instalačního obsahu kontroluje stejnou verzi, vedle podpisů, architektury, manifestů a importů. [Mapování zdrojů PE bez spuštění](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibraryexw) · [RCDATA](https://learn.microsoft.com/en-us/windows/win32/menurc/rcdata-resource).
 
 V x64 Debug a Release prošlo 22 kontrol transportní sady včetně čtení skutečných PE zdrojů. Ověřovač přijal nepodepsanou dvojici v laboratorním režimu s verzí 5 a odmítl pracovní kopii brokeru s verzí 4. Prošlo sestavení aplikace, brokeru a sondy v x64 Debug a obou nástrojů i ve Win32 a ARM64 Debug. Podepsaný instalační balík a odmítnutí smíšené dvojice ve skutečné instalaci zůstávají otevřené.
+
+**České texty UAC.** Český archiv obsahuje všech 63 zpráv UAC z hlavního jazykového modulu. Členění tabulek odpovídá aktuálním zdrojům PE. Hlášení o nepotvrzené kopii nebo přesunu popisují výsledek bez odhadu příčiny. Sestavení anglického modulu x64 Debug a Translatoru Win32 Release prošla. Translator importoval český archiv do modulu s LANGID 1029 a kontrola zpětného exportu potvrdila shodu textů. Vizuální kontrola dialogů a aktualizace dalších jazykových balíků zůstávají otevřené.
 
 ## 12. Testovací strategie
 
