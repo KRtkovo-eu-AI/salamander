@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the current Scan Ahead change on Win32 and ARM64. | Update architecture evidence for the latest production code. | | Codex |
 | 2026-11-09 | Consolidate P7 status and Recycle Bin decisions. | Keep completed experiments and remaining evidence in one place. | | Codex |
 | 2026-11-09 | Record local CI coverage and the dual F5 VM result. | Separate simultaneous cancellation evidence from the approved single-item retry. | | Codex |
 | 2026-11-09 | Verify two copy jobs under cancellation. | Check that cancelling one active pipe leaves the other scoped dispatcher usable. | | Codex |
@@ -1842,6 +1843,8 @@ Tento přehled je výchozí bod pro další práci. Výše jsou chronologické z
 | F6 a Koš | F6 mezi dvěma svazky nad 4 GiB, dokončení po obyčejné kopii a zrušení mají důkazy z VM. Koš pro stejný účet je ověřený. | Jiný správce u Koše je otevřený podle rozhodnutí níže. |
 | Find, EFS a metadata | Chráněný Find s obsahem, tagy a duplicitami, ztráta relace i EFS pod jiným správcem jsou ověřené ve VM. Společná kopie s ADS, kompresí a oprávněními má vlastní důkaz. | Síťové cesty se v brokeru odmítají. Práci zahájit, až bude konkrétní síťový scénář potřebný. |
 | Vydání, CI a matice | Publikovaná revize f0b9678c má 13 úspěšných kontrol. Místní revize c25c6b08 má 159 skupin a 55 testů pytest. Nativní zkoušky x64 a WOW64, křížové sestavení ARM64 a dvanáct jazykových modulů mají samostatné doklady. | Vzdálené kontroly po společném pushi, nativní Windows ARM64, vydavatelský podpis a vyšší skutečné DPI. Připravené testy ARM64 zůstávají místní. |
+
+**Aktualizace architektur pro 5e13ec2e.** Host s opravou Scan Ahead se sestavil v Release pro Win32 i ARM64 s varováními jako chybami. První ARM64 příkaz vyčerpal čas po linkování, opakované sestavení dokončilo i přípravu výstupu. Laboratorní dvojice obou architektur prošly kontrolou protokolu 11, manifestů, rolí, importů a anglického modulu. Velikost hostů se proti předchozím místním sestavením nezměnila, Win32 má 4 725 760 B a ARM64 5 803 008 B. Ve Win32 pod WOW64 prošlo 372 kontrol transportu a souborových operací. Tři odpovídající testovací obrazy ARM64 byly sestaveny a jejich PE hlavičky ověřeny. Doklady scan-ahead-cancel-cross-architecture.json, scan-ahead-win32-uac-runtime.log a scan-ahead-arm64-uac-cross-test.log jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c. Nativní spuštění ARM64 zůstává v tabulce otevřené.
 
 ##### Koš při schválení stejným nebo jiným správcem
 
