@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 # | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
 # | 2026-11-09 | Check Find scheduling after a protected scope disconnects. | Continue other scopes without reauthorizing disconnected candidates. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check a single open for combined protected duplicate reads. | Defer filters until grouped candidates can share the digest handle. | | GPT-6.1 Sol (Codex) |
@@ -49,6 +50,15 @@ def main() -> int:
     start_search = function_body(finddlg1, "void CFindDialog::StartSearch(WORD command)")
     require("GrepData.RefreshPosted = FALSE;" in start_search,
             "StartSearch must clear the queued-refresh flag before creating the worker")
+
+    require(start_search.index("GrepData.StopEvent = HANDLES(CreateEventW(") < start_search.index("CreateThread("),
+            "Find must prepare the broker cancellation event before starting the worker")
+    stop_search = function_body(finddlg1, "void CFindDialog::StopSearch()")
+    require(stop_search.index("SetEvent(GrepData.StopEvent);") < stop_search.index("WaitForSingleObject(GrepThread,") <
+            stop_search.index("CloseHandle(GrepData.StopEvent)"),
+            "Find must signal the broker before joining the worker and retain the event until the join")
+    require("request.session.Start(request.data->HWindow, request.data->StopEvent)" in find_cpp,
+            "the protected Find launcher must pass the search cancellation event to the broker handshake")
 
     request_refresh = function_body(find_cpp, "static void RequestFindResultsRefresh(CGrepData* data)")
     require("InterlockedExchange(&data->RefreshPosted, TRUE) == FALSE" in request_refresh,

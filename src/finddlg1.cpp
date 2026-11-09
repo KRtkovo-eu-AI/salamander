@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 // | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
 // | 2026-11-08 | Show a single-file Find consent prompt. | Distinguish the named file from a folder-wide grant. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Distinguish content-search consent from metadata consent. | Show the access required by the active Find options. | | GPT-6.1 Sol (Codex) |
@@ -2489,10 +2490,14 @@ void CFindDialog::StartSearch(WORD command)
     GrepData.SearchingText = &SearchingText;
     GrepData.SearchingText2 = &SearchingText2;
 
+    GrepData.StopEvent = HANDLES(CreateEventW(nullptr, TRUE, FALSE, nullptr));
     DWORD threadId;
     GrepThread = HANDLES(CreateThread(NULL, 0, GrepThreadF, &GrepData, 0, &threadId));
     if (GrepThread == NULL)
     {
+        if (GrepData.StopEvent)
+            HANDLES(CloseHandle(GrepData.StopEvent));
+        GrepData.StopEvent = nullptr;
         TRACE_E("Unable to start GrepThread thread.");
         if (GrepData.Refine != 0)
             FoundFilesListView->DestroyDataForRefine();
@@ -2527,6 +2532,8 @@ void CFindDialog::StopSearch()
 {
     CALL_STACK_MESSAGE1("CFindDialog::StopSearch()");
     GrepData.StopSearch = TRUE;
+    if (GrepData.StopEvent)
+        SetEvent(GrepData.StopEvent);
     MSG msg;
     while (1)
     {
@@ -2548,6 +2555,9 @@ void CFindDialog::StopSearch()
     if (GrepThread != NULL)
         HANDLES(CloseHandle(GrepThread));
     GrepThread = NULL;
+    if (GrepData.StopEvent)
+        HANDLES(CloseHandle(GrepData.StopEvent));
+    GrepData.StopEvent = nullptr;
 
     SearchInProgress = FALSE;
     if (OKButton != NULL) // trigger the drop-down arrow

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 | 2026-11-09 | Expose optional broker activity notifications. | Allow native progress to mark authenticated work. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose the explicit transfer total to the host. | Distinguish actual tree and raw stream totals from the ordinary estimate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Accept a host transfer progress callback. | Keep progress optional for non-panel callers. | | GPT-6.1 Sol (Codex) |
@@ -529,7 +530,7 @@ public:
 
     bool Prepare(const std::wstring& path, bool findContent = false);
     bool PrepareFile(const std::wstring& path);
-    DWORD Start(HWND owner);
+    DWORD Start(HWND owner, HANDLE stop = nullptr);
     DWORD OpenContent(const std::wstring& path, ULONGLONG& size, FILETIME& modified, ArchiveRevision& revision);
     DWORD ReadContent(ULONGLONG offset, void* buffer, DWORD bytes);
     DWORD CloseContent();

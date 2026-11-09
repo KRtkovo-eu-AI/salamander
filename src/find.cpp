@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 // | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
 // | 2026-11-09 | Substitute Find error details as plain text. | Preserve localization without interpreting resource text as a printf format. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Stop Find work for disconnected protected scopes. | Keep scanning and comparing the other scopes without reporting artificial access errors. | | GPT-6.1 Sol (Codex) |
@@ -732,7 +733,7 @@ struct FindConsent
         else if (SendMessage(request.data->HWindow, WM_USER_FIND_PROTECTED_CONSENT,
                              reinterpret_cast<WPARAM>(&request.path), static_cast<LPARAM>(request.scope)) &&
                  !request.data->StopSearch)
-            request.result = request.session.Start(request.data->HWindow);
+            request.result = request.session.Start(request.data->HWindow, request.data->StopEvent);
         return 0;
     }
 };

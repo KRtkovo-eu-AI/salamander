@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 | 2026-11-09 | Look up the tree registration slot by its exact digit. | Keep command-line input out of integer arithmetic and preserve the accepted range. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Serialize final F5 publication with protected overwrites. | A new copy cannot fill the temporary gap in a journaled replacement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Recover a pending disk overwrite before a fresh copy. | Prevent a retry from publishing over the missing original name. | | GPT-6.1 Sol (Codex) |
@@ -236,26 +237,35 @@ int IoError(const wchar_t* stage, DWORD error)
 {
     if (error == ERROR_BROKEN_PIPE || error == ERROR_NO_DATA || error == ERROR_PIPE_NOT_CONNECTED)
         return Report(Disconnected, stage, error);
-    return Report(error == ERROR_TIMEOUT ? TimedOut : Failed, stage, error);
+    return Report(error == ERROR_CANCELLED ? Cancelled : error == ERROR_TIMEOUT ? TimedOut : Failed, stage, error);
 }
 
-DWORD FinishIo(HANDLE pipe, OVERLAPPED& io, DWORD& count, ULONGLONG deadline)
+bool IsStopSignaled(HANDLE stop)
+{
+    return stop && WaitForSingleObject(stop, 0) == WAIT_OBJECT_0;
+}
+
+DWORD FinishIo(HANDLE pipe, OVERLAPPED& io, DWORD& count, ULONGLONG deadline, HANDLE stop = nullptr)
 {
     const auto now = GetTickCount64();
     const DWORD remaining = deadline == MAXULONGLONG ? INFINITE :
         now < deadline ? static_cast<DWORD>(deadline - now) : 0;
-    const DWORD wait = WaitForSingleObject(io.hEvent, remaining);
+    const HANDLE events[] = {io.hEvent, stop};
+    const DWORD wait = stop ? WaitForMultipleObjects(ARRAYSIZE(events), events, FALSE, remaining)
+                            : WaitForSingleObject(io.hEvent, remaining);
     if (wait == WAIT_OBJECT_0)
         return GetOverlappedResult(pipe, &io, &count, FALSE) ? ERROR_SUCCESS : GetLastError();
-    const DWORD error = wait == WAIT_TIMEOUT ? ERROR_TIMEOUT : GetLastError();
+    const DWORD error = wait == WAIT_OBJECT_0 + 1 ? ERROR_CANCELLED : wait == WAIT_TIMEOUT ? ERROR_TIMEOUT : GetLastError();
     CancelIoEx(pipe, &io);
     // Drain the overlapped operation before its stack storage is released.
     GetOverlappedResult(pipe, &io, &count, TRUE);
     return error;
 }
 
-[[maybe_unused]] DWORD Connect(HANDLE pipe, ULONGLONG deadline)
+[[maybe_unused]] DWORD Connect(HANDLE pipe, ULONGLONG deadline, HANDLE stop = nullptr)
 {
+    if (IsStopSignaled(stop))
+        return ERROR_CANCELLED;
     const auto event = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
     if (!event)
         return GetLastError();
@@ -267,11 +277,13 @@ DWORD FinishIo(HANDLE pipe, OVERLAPPED& io, DWORD& count, ULONGLONG deadline)
     if (error == ERROR_PIPE_CONNECTED)
         return ERROR_SUCCESS;
     DWORD unused = 0;
-    return error == ERROR_IO_PENDING ? FinishIo(pipe, io, unused, deadline) : error;
+    return error == ERROR_IO_PENDING ? FinishIo(pipe, io, unused, deadline, stop) : error;
 }
 
-DWORD Exchange(HANDLE pipe, Frame& frame, bool send, ULONGLONG deadline, bool byteStream = false)
+DWORD Exchange(HANDLE pipe, Frame& frame, bool send, ULONGLONG deadline, bool byteStream = false, HANDLE stop = nullptr)
 {
+    if (IsStopSignaled(stop))
+        return ERROR_CANCELLED;
     if (GetTickCount64() >= deadline)
         return ERROR_TIMEOUT;
     const auto event = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
@@ -286,7 +298,7 @@ DWORD Exchange(HANDLE pipe, Frame& frame, bool send, ULONGLONG deadline, bool by
     if (!complete)
     {
         const DWORD error = GetLastError();
-        const DWORD finished = error == ERROR_IO_PENDING ? FinishIo(pipe, io, count, deadline) : error;
+        const DWORD finished = error == ERROR_IO_PENDING ? FinishIo(pipe, io, count, deadline, stop) : error;
         if (finished != ERROR_SUCCESS)
             return finished;
     }
@@ -708,8 +720,10 @@ DWORD OpenRequestParent(HANDLE root, std::wstring_view relative, Handle& parent,
 // The client reads an exact number of bytes in byte mode. The message-mode
 // server rejects larger replies with ERROR_MORE_DATA.
 DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGLONG deadline, HANDLE cancel = nullptr,
-                      DWORD* transferred = nullptr, ULONGLONG* cancelDeadline = nullptr)
+                      DWORD* transferred = nullptr, ULONGLONG* cancelDeadline = nullptr, HANDLE stop = nullptr)
 {
+    if (IsStopSignaled(stop))
+        return ERROR_CANCELLED;
     if (GetTickCount64() >= deadline)
         return ERROR_TIMEOUT;
     const auto event = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
@@ -748,7 +762,7 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
                     *cancelDeadline = deadline;
             }
         }
-        const DWORD finished = FinishIo(pipe, io, count, deadline);
+        const DWORD finished = FinishIo(pipe, io, count, deadline, stop);
         if (finished)
             return finished;
     }
@@ -759,7 +773,8 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
 
 // A progress frame is advisory. Only the terminal result confirms publication.
 [[maybe_unused]] DWORD ReadTransferResult(HANDLE pipe, DWORD& result, ULONGLONG deadline, HANDLE cancel,
-                                          UacF7::TransferProgress progress, void* context, Operation operation)
+                                          UacF7::TransferProgress progress, void* context, Operation operation,
+                                          HANDLE stop = nullptr)
 {
     TransferProgressUpdate previous;
     ULONGLONG cancelDeadline = 0;
@@ -767,7 +782,7 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
     const bool explicitTotal = operation == Operation::CopyTree || operation == Operation::CopyEncrypted;
     for (;;)
     {
-        const DWORD error = TransferRequest(pipe, &result, sizeof(result), false, deadline, cancel, nullptr, &cancelDeadline);
+        const DWORD error = TransferRequest(pipe, &result, sizeof(result), false, deadline, cancel, nullptr, &cancelDeadline, stop);
         if (error || result != transferProgressFrame)
             return error;
         if (!progress)
@@ -793,13 +808,14 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
 // before it can mutate a file. ZIP writes have a separate commit boundary.
 inline DWORD SendOperationRequest(HANDLE pipe, RequestHeader& header, std::wstring& payload,
                                   void* extra, DWORD extraBytes, UacF7::MetadataJobPolicy* policy,
-                                  bool hasMoreData, ULONGLONG deadline, UacF7::Result& result)
+                                  bool hasMoreData, ULONGLONG deadline, UacF7::Result& result, HANDLE stop = nullptr)
 {
-    DWORD error = TransferRequest(pipe, &header, sizeof(header), true, deadline);
+    DWORD error = TransferRequest(pipe, &header, sizeof(header), true, deadline, nullptr, nullptr, nullptr, stop);
     if (!error)
     {
         result.unknown = !extra && !policy && !hasMoreData;
-        error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline);
+        error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline,
+                                nullptr, nullptr, nullptr, stop);
     }
     if (!error && extra)
     {
@@ -2356,6 +2372,26 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #endif
 )
 {
+    HANDLE stop = nullptr;
+#ifdef SAM_UAC_F7_HOST
+    // Read-only Find requests may abandon the pipe. Mutating transfers must
+    // still use their cancellation acknowledgement and preserve the result.
+    if (request && (request->operation == Operation::List || request->operation == Operation::FindContent ||
+                    request->operation == Operation::FindFile))
+        stop = cancel;
+    if (IsStopSignaled(stop))
+    {
+        result->error = ERROR_CANCELLED;
+        return Cancelled;
+    }
+#endif
+    const auto probeIoError = [&](const wchar_t* stage, DWORD error) {
+#ifdef SAM_UAC_F7_HOST
+        if (stop)
+            result->error = error;
+#endif
+        return IoError(stage, error);
+    };
     auto pipeName = std::wstring();
     auto pipe = CreateEndpoint(pipeName);
     if (!pipe)
@@ -2397,20 +2433,20 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
     if (!pid)
         return Report(Untrusted, L"Identify launched broker", ERROR_ACCESS_DENIED);
     auto deadline = GetTickCount64() + timeoutMs;
-    DWORD error = Connect(pipe.get(), deadline);
+    DWORD error = Connect(pipe.get(), deadline, stop);
     if (error)
     {
         DWORD code = 0;
         if (WaitForSingleObject(child.get(), 0) == WAIT_OBJECT_0 && GetExitCodeProcess(child.get(), &code))
             std::fwprintf(stderr, L"Broker exited before connection (%lu)\n", code);
-        return IoError(L"Connect broker", error);
+        return probeIoError(L"Connect broker", error);
     }
     if (!ExpectedPipePeer(pipe.get(), child.get(), pid, false))
         return Report(Untrusted, L"Verify pipe client process", ERROR_ACCESS_DENIED);
     Frame frame{};
-    error = Exchange(pipe.get(), frame, false, deadline);
+    error = Exchange(pipe.get(), frame, false, deadline, false, stop);
     if (error)
-        return IoError(L"Read hello", error);
+        return probeIoError(L"Read hello", error);
 #ifdef SAM_UAC_F7_HOST
     const DWORD capability = appCapabilities;
 #else
@@ -2436,9 +2472,9 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
             accept = Phase::AcceptTransferJob;
 #endif
         frame = {badVersion ? protocolVersion + 1 : protocolVersion, capability, accept};
-        error = Exchange(pipe.get(), frame, true, deadline);
+        error = Exchange(pipe.get(), frame, true, deadline, false, stop);
         if (error)
-            return IoError(L"Send accept", error);
+            return probeIoError(L"Send accept", error);
 #ifdef SAM_UAC_F7_HOST
         if (activity)
             activity->Start();
@@ -2458,7 +2494,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         void* extra = metadata ? static_cast<void*>(metadata) : overwriteTarget;
         const DWORD extraBytes = metadata ? sizeof(*metadata) : sizeof(*overwriteTarget);
         error = SendOperationRequest(pipe.get(), *request, *payload, extra, extraBytes, metadataPolicy,
-                                     zipBytes || zipUpdateFile, deadline, *result);
+                                     zipBytes || zipUpdateFile, deadline, *result, stop);
         if (!error && zipBytes)
         {
             result->unknown = true;
@@ -2494,8 +2530,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         const bool crossMove = UacF7::IsCrossVolumeMove(request->operation);
         if (copy || crossMove || tree || zipBytes)
             deadline = TransferDeadline(request->operation);
-        error = ReadTransferResult(pipe.get(), operationError, deadline, cancel, progress, progressContext,
-                                   request->operation);
+        error = ReadTransferResult(pipe.get(), operationError, deadline, stop ? nullptr : cancel,
+                                   progress, progressContext, request->operation, stop);
         if (!error && (transferJob || copy || UacF7::IsMoveTransfer(request->operation) || tree || zipBytes ||
                        zipUpdateFile))
         {
@@ -2503,7 +2539,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
             *result = UacF7::TransferReply(request->operation, operationError, transferJob != nullptr);
         }
         if (error)
-            return IoError(L"Read request result", error);
+            return probeIoError(L"Read request result", error);
         if (crossMove)
             deadline = GetTickCount64() + timeoutMs;
         if (transferJob)
@@ -2545,6 +2581,11 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         }
         if (hasSession)
         {
+            if (IsStopSignaled(stop))
+            {
+                result->error = ERROR_CANCELLED;
+                return Cancelled;
+            }
             if (archiveRevision)
             {
                 UacF7::ArchiveRevision received;
@@ -2565,9 +2606,9 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #endif
         if (!badVersion)
         {
-            error = Exchange(pipe.get(), frame, false, deadline);
+            error = Exchange(pipe.get(), frame, false, deadline, false, stop);
             if (error)
-                return IoError(L"Read done", error);
+                return probeIoError(L"Read done", error);
             if (!Matches(frame, Phase::Done, capability))
                 return Report(ProtocolError, L"Validate done", ERROR_INVALID_DATA);
         }
@@ -3451,7 +3492,7 @@ bool ListingSession::PrepareFile(const std::wstring& path)
     return true;
 }
 
-DWORD ListingSession::Start(HWND owner)
+DWORD ListingSession::Start(HWND owner, HANDLE stop)
 {
     const ComApartment com;
     InstallLocation install;
@@ -3465,7 +3506,7 @@ DWORD ListingSession::Start(HWND owner)
     std::memcpy(header.sourceId.Identifier, prepared.sourceId, sizeof(prepared.sourceId));
     std::wstring payload = prepared.volume + prepared.relative + prepared.leaf;
     Result result;
-    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &pipe);
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &pipe, stop);
     return result.error;
 }
 

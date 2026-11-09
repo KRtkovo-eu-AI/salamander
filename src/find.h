@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 // | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
 // | 2026-11-08 | Distinguish exact-file Find consent. | Report the scope explicitly in the dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Bind duplicate candidates to a specific consented scope. | Distinguish independent protected roots. | | GPT-6.1 Sol (Codex) |
@@ -175,6 +176,7 @@ struct CGrepData
     CFilterCriteria Criteria;
     // control and data
     WPARAM SearchGeneration = 0; // changed before starting each search, after the previous worker has joined
+    HANDLE StopEvent = nullptr; // owned by the dialog until the search worker has joined
     std::atomic_bool StopSearch{false}; // the dialog requests cancellation of the search
     BOOL SearchStopped; // has it been terminated or not?
     HWND HWindow;       // window the grep thread communicates with
