@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Restore Target ID selection by stable identity. | Keep saved handlers selected when their display label changes or combo indexes differ from catalog indexes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Reject failed association commits using the current result. | Do not mistake a stale runtime-projection flag for a successful user override, and keep commit errors visible after refresh. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Remove an extra closing brace in conflict status update. | Fix C2059/C2143/C2447 syntax errors caused by a stray brace that closed the selectedCount block too early. | | nvidia/nemotron-3.5-super-vl:free |
 // | 2026-11-09 | Match the selected Target ID by its visible catalog entry. | Prevent Apply from restoring a different plugin when the combo's item mapping and displayed selection diverge. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -4517,22 +4518,37 @@ void CCfgPageFileAssociations::LoadSelectedControls()
         if ((int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA, i, 0) == targetChoice)
             SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_SETCURSEL, i, 0);
     PopulateTargetCatalog();
+    int fallbackCatalogIndex = -1;
+    int matchingCatalogIndex = -1;
     for (size_t i = 0; i < TargetCatalog.size(); ++i)
         if (TargetCatalog[i].StableId == item.AssociationTarget.StableId &&
-            TargetCatalog[i].DisplayLabel == item.AssociationTarget.DisplayLabel)
+            TargetCatalog[i].Kind == item.AssociationTarget.Kind)
         {
-            const int catalogCount = static_cast<int>(SendDlgItemMessage(
-                HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETCOUNT, 0, 0));
-            for (int comboIndex = 0; comboIndex < catalogCount; ++comboIndex)
-                if (static_cast<int>(SendDlgItemMessage(
-                        HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETITEMDATA,
-                        comboIndex, 0)) == static_cast<int>(i))
-                {
-                    SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
-                                       CB_SETCURSEL, comboIndex, 0);
-                    break;
-                }
+            if (fallbackCatalogIndex < 0)
+                fallbackCatalogIndex = static_cast<int>(i);
+            if (TargetCatalog[i].DisplayLabel == item.AssociationTarget.DisplayLabel)
+            {
+                matchingCatalogIndex = static_cast<int>(i);
+                break;
+            }
         }
+    const int selectedCatalogIndex = matchingCatalogIndex >= 0
+                                         ? matchingCatalogIndex : fallbackCatalogIndex;
+    SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_SETCURSEL, -1, 0);
+    if (selectedCatalogIndex >= 0)
+    {
+        const int catalogCount = static_cast<int>(SendDlgItemMessage(
+            HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETCOUNT, 0, 0));
+        for (int comboIndex = 0; comboIndex < catalogCount; ++comboIndex)
+            if (static_cast<int>(SendDlgItemMessage(
+                    HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETITEMDATA,
+                    comboIndex, 0)) == selectedCatalogIndex)
+            {
+                SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
+                                   CB_SETCURSEL, comboIndex, 0);
+                break;
+            }
+    }
     const Salamander::FileAssociations::Association* conflictItem = NULL;
     if (selectedCount <= 1)
     {
@@ -5242,15 +5258,29 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                     std::string selectedId;
                     const int selectedCatalogIndex = static_cast<int>(SendDlgItemMessage(
                         HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETCURSEL, 0, 0));
-                    if (selectedCatalogIndex >= 0 &&
-                        selectedCatalogIndex < static_cast<int>(TargetCatalog.size()))
-                        selectedId = TargetCatalog[selectedCatalogIndex].StableId;
+                    const int selectedCatalogItem = selectedCatalogIndex >= 0
+                        ? static_cast<int>(SendDlgItemMessage(
+                              HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETITEMDATA,
+                              selectedCatalogIndex, 0))
+                        : -1;
+                    if (selectedCatalogItem >= 0 &&
+                        selectedCatalogItem < static_cast<int>(TargetCatalog.size()))
+                        selectedId = TargetCatalog[selectedCatalogItem].StableId;
                     PopulateTargetCatalog();
                     for (size_t i = 0; i < TargetCatalog.size(); ++i)
                         if (TargetCatalog[i].StableId == selectedId)
                         {
-                            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
-                                               CB_SETCURSEL, i, 0);
+                            const int catalogCount = static_cast<int>(SendDlgItemMessage(
+                                HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETCOUNT, 0, 0));
+                            for (int comboIndex = 0; comboIndex < catalogCount; ++comboIndex)
+                                if (static_cast<int>(SendDlgItemMessage(
+                                        HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETITEMDATA,
+                                        comboIndex, 0)) == static_cast<int>(i))
+                                {
+                                    SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
+                                                       CB_SETCURSEL, comboIndex, 0);
+                                    break;
+                                }
                             break;
                         }
                 }
