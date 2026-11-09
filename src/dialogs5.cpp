@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Apply association layout after property-page anchors. | Prevent generic resize handling from moving detail controls, Help, and the final category tab back to template coordinates; place Extensions after Plugin. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Stabilize association resizing, color badges, extension targets, and conflict details. | Keep the entire editor inside its panel, display colored target icons and expose exact conflict partners. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Fix dialogs5.cpp build errors. | Add missing <algorithm> for std::stable_sort and move WM_DESTROY case inside the enclosing switch. | | opencode |
 // | 2026-11-09 | Add the all-associations view and category-aware target details. | Keep matrix values in their own columns and expose accurate source and state filters with target icons. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -4573,19 +4574,22 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                                                 CB_ADDSTRING, 0, (LPARAM)OperationText(operation));
             SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_SETITEMDATA, index, i);
         }
-        for (int i = 0; i < 4; ++i)
+        const int targetChoices[] = {
+            static_cast<int>(Salamander::FileAssociations::TargetKind::BuiltIn),
+            static_cast<int>(Salamander::FileAssociations::TargetKind::Plugin),
+            FileAssociationTargetExtensionsChoice,
+            static_cast<int>(Salamander::FileAssociations::TargetKind::Preset),
+            static_cast<int>(Salamander::FileAssociations::TargetKind::Unassigned)};
+        for (size_t i = 0; i < _countof(targetChoices); ++i)
         {
-            const Salamander::FileAssociations::TargetKind target =
-                static_cast<Salamander::FileAssociations::TargetKind>(i);
-            int index = (int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND,
-                                                CB_ADDSTRING, 0, (LPARAM)TargetText(target));
-            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_SETITEMDATA, index, i);
+            const int choice = targetChoices[i];
+            const char* label = choice == FileAssociationTargetExtensionsChoice
+                                    ? LoadStr(IDS_FILEASSOCIATION_EXTENSIONS)
+                                    : TargetText(static_cast<Salamander::FileAssociations::TargetKind>(choice));
+            int index = static_cast<int>(SendDlgItemMessage(
+                HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_ADDSTRING, 0, (LPARAM)label));
+            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_SETITEMDATA, index, choice);
         }
-        const int extensionsTarget = static_cast<int>(SendDlgItemMessage(
-            HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_ADDSTRING, 0,
-            (LPARAM)LoadStr(IDS_FILEASSOCIATION_EXTENSIONS)));
-        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_SETITEMDATA,
-                           extensionsTarget, FileAssociationTargetExtensionsChoice);
         PopulateTargetCatalog();
         RECT clientRect;
         GetClientRect(HWindow, &clientRect);
@@ -4597,6 +4601,12 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
     }
 
     case WM_SIZE:
+    {
+        // CPropSheetPage applies its generic elastic anchors from the dialog
+        // template. Run the association-specific layout after those anchors,
+        // otherwise they move the detail controls and the last tab/button back
+        // to their template positions on every resize.
+        const INT_PTR baseResult = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
         if (HWindow != NULL && wParam != SIZE_MINIMIZED)
         {
             RECT clientRect;
@@ -4710,7 +4720,8 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                            WinLibDPIFromLogical(HWindow, actionHeight), TRUE);
             }
         }
-        break;
+        return baseResult;
+    }
 
     case WM_DRAWITEM:
         if (wParam == IDB_FILEASSOCIATION_TAB_ALL || wParam == IDB_FILEASSOCIATION_TAB_VIEW ||
