@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-07 | Display a temporary Find notice in the main caption. | Keep reporting Find activity when its own window is stalled. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
+// | 2026-11-09 | Fix Extension Bar visibility on default configuration. | Release LockWindowUpdate when CreateWnd fails in ToggleExtensionBar; show Extension Bar directly at startup when ExtensionBarVisible is TRUE. | | nvidia/nemotron-3.5-super-vl:free |
 // | 2026-11-04 | Reflect context help on panel toolbars and bound toolbar saves. | Panel toolbars can now hold the shared help button, and their layouts use the larger buffers. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
@@ -751,7 +752,11 @@ BOOL CMainWindow::ToggleExtensionBar(BOOL storePos)
     else
     {
         if (!ExtensionBar->CreateWnd(HTopRebar))
+        {
+            if (lockWindowUpdate)
+                LockWindowUpdate(NULL);
             return FALSE;
+        }
         ExtensionBar->CreateExtensionButtons(HGrayToolBarImageList,
                                              HHotToolBarImageList);
         InsertExtensionBarBand();

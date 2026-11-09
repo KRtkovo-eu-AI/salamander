@@ -13,6 +13,7 @@
 // | 2026-11-04 | Select the first real tab when loading a clean panel config. | Missing TabCount left CurSel on the "+" button after first-run creation. | | Composer |
 // | 2026-11-04 | Load toolbar layouts using the real buffer size. | Panel toolbars now persist the same catalog as the middle toolbar. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
 // | 2026-11-04 | Format legacy configuration names with a literal printf format. | CodeQL rejected the loaded product template as a non-constant format string. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
+// | 2026-11-09 | Show Extension Bar directly at startup on default config. | Ensure Extension Bar is visible at startup when ExtensionBarVisible is TRUE, bypassing toggle logic that depends on HWindow state. | | nvidia/nemotron-3.5-super-vl:free |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -6201,7 +6202,14 @@ BOOL CMainWindow::LoadConfig(BOOL importingOldConfig, const CCommandLineParams* 
                     }
                     if (idx == Configuration.ExtensionBarIndex && Configuration.ExtensionBarVisible)
                     {
-                        ToggleExtensionBar(FALSE);
+                        if (ExtensionBar->HWindow == NULL && ExtensionBar->CreateWnd(HTopRebar))
+                        {
+                            ExtensionBar->CreateExtensionButtons(HGrayToolBarImageList,
+                                                                 HHotToolBarImageList);
+                            InsertExtensionBarBand();
+                            ShowWindow(ExtensionBar->HWindow, SW_SHOW);
+                            Configuration.ExtensionBarVisible = TRUE;
+                        }
                     }
                     if (idx == Configuration.UserMenuToolbarIndex && Configuration.UserMenuToolBarVisible)
                     {
