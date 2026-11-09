@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Split archive matrix operations and filters. | Show Pack and Unpack independently and expose operation-specific filtering from the archive tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add custom viewer/editor association target choices. | Populate Target IDs from the saved custom handler catalogs. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add extension target and conflict detail state. | Let users select extension viewers directly and inspect the overlapping patterns that cause conflicts. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add all-associations matrix state and icon support. | Display every registered pattern with its category targets and plugin or extension icons. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -1111,6 +1112,7 @@ protected:
     int SelectedOperation;
     int SelectedMatrixRow;
     int FilterCategory;
+    int FilterArchiveOperation;
     int FilterProvenance;
     int FilterSource;
     BOOL ConflictsOnly;
@@ -1133,7 +1135,6 @@ protected:
     const char* ProvenanceText(Salamander::FileAssociations::Provenance provenance) const;
     void SetStatus(const char* text);
     std::string MatrixCellText(int index, bool archive) const;
-    std::string MatrixArchiveCellText(const MatrixRow& row) const;
     std::string MatrixStatusText(const MatrixRow& row) const;
     bool MatrixRowVisible(const MatrixRow& row) const;
     int SelectedAssociationIndex(const MatrixRow& row) const;

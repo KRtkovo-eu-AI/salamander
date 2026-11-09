@@ -1,5 +1,6 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-09 | Add custom viewer/editor configuration forms. | Provide matching saved-handler pages under File Associations. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Add the Panel Archive operation menu button. | Let users filter Pack and Unpack separately while retaining the main archive filter tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add the All category tab to file associations. | Give the complete pattern matrix a dedicated four-category view. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Fix association page control heights and layout spacing. | Keep filters, buttons, details and all four category tabs aligned when resizing. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Enable multiselect on the Selected Properties list in Choose Custom Properties. | Remove LVS_SINGLESEL so multiple items can be marked for bulk Remove / Move up / Move down. | | opencode |
@@ -1130,6 +1131,7 @@ BEGIN
     PUSHBUTTON      "",IDB_FILEASSOCIATION_TAB_ALT,98,3,90,20,WS_TABSTOP
     PUSHBUTTON      "",IDB_FILEASSOCIATION_TAB_EDIT,192,3,78,20,WS_TABSTOP
     PUSHBUTTON      "",IDB_FILEASSOCIATION_TAB_ARCHIVE,274,3,142,20,WS_TABSTOP
+    PUSHBUTTON      "",IDB_FILEASSOCIATION_TAB_ARCHIVE_MENU,400,3,16,20,WS_TABSTOP
     EDITTEXT        IDE_FILEASSOCIATION_SEARCH,4,29,170,14,ES_AUTOHSCROLL | WS_TABSTOP
     COMBOBOX        IDC_FILEASSOCIATION_FILTER_PROVENANCE,180,29,90,60,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     COMBOBOX        IDC_FILEASSOCIATION_FILTER_SOURCE,180,29,90,60,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
