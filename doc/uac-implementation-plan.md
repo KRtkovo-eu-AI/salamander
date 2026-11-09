@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record NTFS named-stream oplock and unlink evidence. | Define the source guard needed for moves that preserve ADS. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record F6 source access denied during preparation. | Pass eligible cross-volume moves through the verified worker retry. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record F6 cancellation and partial replies. | Preserve the broker outcome across one-shot and shared sessions. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record source sealing before recovery link creation. | Reject preexisting handles before the link can change NTFS metadata. | | GPT-6.1 Sol (Codex) |
@@ -709,6 +710,10 @@ V x64 Debug i Release prošlo 103 nativních kontrol F6 a 16 kontrol transportn�
 **Odepřené čtení zdroje při přípravě F6.** Při zjišťování alternativních datových proudů může samotné otevření zdroje skončit chybou 5, ještě než se spustí worker. Příprava předá způsobilý soubor workeru stejným příznakem jako u F5. Worker nabídne elevaci pro F6 pouze po ověření rodičů na dvou různých podporovaných svazcích a pokud běžná kontrola nenajde obsazený cíl. Broker případnou kolizi odmítne. Pro běžný, řídký nebo výslovně komprimovaný soubor platí stávající limit a broker ověří jediný datový proud. Přesuny s kopírováním oprávnění, šifrováním či nepodporovaným typem se řídí běžnou chybovou cestou.
 
 V Debug i Release prošlo 18 kontrol transportní sady včetně dvou nových kontrol způsobilosti zdroje. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Zkouška s reálně odepřeným čtením během přípravy a s volným cílem na jiném svazku patří do společné akceptace ve VM.
+
+**Pojmenované proudy při F6 mezi svazky.** Lokální NTFS zkouška prokázala, že rezervace oplocku hlavního proudu při otevřeném zapisovateli pojmenovaného proudu uspěje. Rezervace přímo na pojmenovaném proudu otevřeného zapisovatele odmítne. Po zavření původního handlu ale propustí existující zapisovatelnou mapu. Tu odmítne až výhradní oplock RWH na témže pojmenovaném proudu. Obě kontroly proto musí proběhnout pro každý ověřený proud. Zkouška také ověřila odstranění jednoho ze dvou pevných odkazů při aktivním oplocku pojmenovaného proudu. Oplock zůstal platný a proud pod druhým odkazem zachoval obsah. Při odstranění posledního odkazu přešla položka do stavu čekajícího na smazání. Teprve po zavření handlu pojmenovaného proudu otevření potvrdilo chybu 2, že soubor už neexistuje. [Sdílení a oplocky proudů NTFS](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams).
+
+V Debug a Release prošlo 112 kontrol F6 a 248 obecných nativních kontrol. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Do produkčního F6 se ADS ještě nezapínají. K dokončení je potřeba připojit zámky všech proudů k přenosu, ověřit cíl po zveřejnění a v produkčním toku ověřit zánik posledního odkazu po zavření proudů.
 
 ### 8.26 P5a — změna časů jedné složky přes Ctrl+F2
 

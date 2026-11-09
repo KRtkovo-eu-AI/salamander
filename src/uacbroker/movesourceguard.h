@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Probe earlier opens on an individual NTFS data stream. | Separate per-stream exclusion from the file-wide source DACL. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Create the recovery link on the already guarded file. | Keep verification and link creation on a single handle. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Guard compressed move sources throughout retirement. | Apply the same metadata contract when reopening the recovery link. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow guarded sparse F6 publication. | Recheck the sparse source under the same seal until unlink. | | GPT-6.1 Sol (Codex) |
@@ -18,10 +19,19 @@ namespace UacMoveSourceJournal
 // Call only after sealing the source and closing the broker's original handle.
 // The reservation can then reject preexisting opens without admitting new writers
 // when the filter handle is released and the broker reopens its guarded handle.
-inline DWORD CheckNoPriorSourceOpens(HANDLE parent, std::wstring_view leaf, const FILE_ID_INFO& expected)
+inline DWORD CheckNoPriorSourceOpens(HANDLE parent, std::wstring_view leaf, const FILE_ID_INFO& expected,
+                                    std::wstring_view namedStream = {})
 {
-    if (!UacDirectoryLeaf::IsComponent(leaf))
+    if (!UacDirectoryLeaf::IsComponent(leaf) ||
+        (!namedStream.empty() && !UacCopyLeaf::Detail::IsNamedDataStream(namedStream)))
         return ERROR_INVALID_NAME;
+    std::wstring streamPath;
+    if (!namedStream.empty())
+    {
+        streamPath.assign(leaf);
+        streamPath.append(namedStream);
+        leaf = streamPath;
+    }
     const Detail::Handle event(CreateEventW(nullptr, TRUE, FALSE, nullptr), CloseHandle);
     if (!event)
         return GetLastError();
@@ -45,6 +55,17 @@ inline DWORD CheckNoPriorSourceOpens(HANDLE parent, std::wstring_view leaf, cons
     CancelIoEx(filter.get(), &io);
     GetOverlappedResult(filter.get(), &io, &bytes, TRUE);
     return result ? result : state == WAIT_TIMEOUT ? ERROR_SUCCESS : error;
+}
+
+inline DWORD RequestExclusiveStreamOplock(HANDLE file, OVERLAPPED& io, REQUEST_OPLOCK_OUTPUT_BUFFER& reply)
+{
+    REQUEST_OPLOCK_INPUT_BUFFER request{REQUEST_OPLOCK_CURRENT_VERSION, sizeof(request),
+        OPLOCK_LEVEL_CACHE_READ | OPLOCK_LEVEL_CACHE_WRITE | OPLOCK_LEVEL_CACHE_HANDLE, REQUEST_OPLOCK_INPUT_FLAG_REQUEST};
+    DWORD bytes = 0;
+    const BOOL complete = DeviceIoControl(file, FSCTL_REQUEST_OPLOCK, &request, sizeof(request),
+                                          &reply, sizeof(reply), &bytes, &io);
+    const DWORD status = complete ? ERROR_OPLOCK_NOT_GRANTED : GetLastError();
+    return status == ERROR_IO_PENDING ? ERROR_SUCCESS : status;
 }
 
 // The oplock covers the default stream. A file-wide DACL seal is still
@@ -76,13 +97,8 @@ public:
             return error;
         source.reset(raw);
 
-        REQUEST_OPLOCK_INPUT_BUFFER request{REQUEST_OPLOCK_CURRENT_VERSION, sizeof(request),
-            OPLOCK_LEVEL_CACHE_READ | OPLOCK_LEVEL_CACHE_WRITE | OPLOCK_LEVEL_CACHE_HANDLE, REQUEST_OPLOCK_INPUT_FLAG_REQUEST};
-        DWORD bytes = 0;
-        const BOOL complete = DeviceIoControl(source.get(), FSCTL_REQUEST_OPLOCK, &request, sizeof(request),
-                                              &reply, sizeof(reply), &bytes, &io);
-        error = complete ? ERROR_OPLOCK_NOT_GRANTED : GetLastError();
-        if (error != ERROR_IO_PENDING)
+        error = RequestExclusiveStreamOplock(source.get(), io, reply);
+        if (error)
         {
             source.reset();
             return error;

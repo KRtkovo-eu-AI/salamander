@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Probe the named-stream boundary of an F6 source. | Detect earlier ADS writers and writable views independently from the main stream. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise pipe cancellation and host loss after F6 publication. | Keep both source links until the broker has authorization to retire them. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise F6 recovery before and after guarded link creation. | Verify the seal is reversible before NTFS changes the source link count. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise retirement of a verified compressed F6 source. | Check exact attributes, LZNT1, payload and collision behavior. | | GPT-6.1 Sol (Codex) |
@@ -1289,13 +1290,125 @@ bool CheckVerifiedMoveSourceGuard(const std::wstring& fixture, HANDLE root)
         const auto writer = open(ads, FILE_WRITE_DATA);
         if (!writer)
             return false;
+        const DWORD mainReservation = UacMoveSourceJournal::CheckNoPriorSourceOpens(root, leaf, identity);
+        const DWORD streamReservation = UacMoveSourceJournal::CheckNoPriorSourceOpens(root, leaf, identity, L":named:$DATA");
+        std::printf("PROBE: named stream writer default filter=%lu named filter=%lu\n", mainReservation, streamReservation);
+        Check(streamReservation == ERROR_OPLOCK_NOT_GRANTED || streamReservation == ERROR_SHARING_VIOLATION,
+              "reserve the named stream separately and reject its earlier writer", streamReservation);
         error = guard.Open(root, leaf, identity, 1);
         Check(error == ERROR_NOT_SUPPORTED && !guard.File(),
               "refuse a live named-stream writer without treating the main stream as the whole file", error);
         if (guard.File())
             return false;
     }
-    if (!DeleteFileW(ads.c_str()))
+    error = UacMoveSourceJournal::CheckNoPriorSourceOpens(root, leaf, identity, L":named:$DATA");
+    Check(!error, "reserve a named data stream after its writer closes", error);
+    Check(UacMoveSourceJournal::CheckNoPriorSourceOpens(root, leaf, identity, L":..\\other:$DATA") == ERROR_INVALID_NAME,
+          "reject path components embedded in a named-stream request");
+    const auto probeNamedOplock = [&](DWORD& result) {
+        HANDLE rawNamed = nullptr;
+        const auto relative = std::wstring(leaf) + L":named:$DATA";
+        result = UacRenameLeaf::Detail::OpenFile(root, relative, rawNamed, FILE_READ_DATA | SYNCHRONIZE,
+            FILE_SHARE_READ | FILE_SHARE_DELETE, FILE_OPEN, FILE_OPEN_REQUIRING_OPLOCK, nullptr, false, true);
+        const Handle named(rawNamed);
+        if (result)
+            return true;
+        const Handle signal(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        if (!signal)
+            return false;
+        OVERLAPPED io{};
+        io.hEvent = signal.get();
+        REQUEST_OPLOCK_OUTPUT_BUFFER reply{};
+        result = UacMoveSourceJournal::RequestExclusiveStreamOplock(named.get(), io, reply);
+        if (!result)
+        {
+            DWORD bytes = 0;
+            CancelIoEx(named.get(), &io);
+            GetOverlappedResult(named.get(), &io, &bytes, TRUE);
+        }
+        return true;
+    };
+    {
+        auto writer = open(ads, GENERIC_READ | GENERIC_WRITE);
+        if (!writer)
+            return false;
+        const Handle mapping(CreateFileMappingW(writer.get(), nullptr, PAGE_READWRITE, 0, 0, nullptr));
+        void* view = mapping ? MapViewOfFile(mapping.get(), FILE_MAP_WRITE, 0, 0, 0) : nullptr;
+        if (!view)
+            return false;
+        writer.reset();
+        const DWORD reserved = UacMoveSourceJournal::CheckNoPriorSourceOpens(root, leaf, identity, L":named:$DATA");
+        DWORD mappedOplock = ERROR_GEN_FAILURE;
+        const bool checked = probeNamedOplock(mappedOplock);
+        const bool unmapped = UnmapViewOfFile(view) != FALSE;
+        std::printf("PROBE: named stream mapped writer filter=%lu exclusive=%lu\n", reserved, mappedOplock);
+        Check(checked && unmapped && (mappedOplock == ERROR_OPLOCK_NOT_GRANTED || mappedOplock == ERROR_SHARING_VIOLATION),
+              "require an exclusive named-stream oplock to reject a writable view", mappedOplock);
+    }
+    DWORD uncontested = ERROR_GEN_FAILURE;
+    {
+        const auto mainFile = open(path, DELETE);
+        const bool checked = mainFile && probeNamedOplock(uncontested);
+        Check(checked && !uncontested, "acquire a named-stream oplock while holding the main file for deletion", uncontested);
+    }
+    constexpr wchar_t aliasLeaf[] = L"named-unlink-alias";
+    const auto namedAlias = fixture + L"\\" + aliasLeaf;
+    if (!CreateHardLinkW(namedAlias.c_str(), path.c_str(), nullptr))
+        return false;
+    {
+        auto mainFile = open(namedAlias, DELETE);
+        HANDLE rawNamed = nullptr;
+        const auto relative = std::wstring(leaf) + L":named:$DATA";
+        error = UacRenameLeaf::Detail::OpenFile(root, relative, rawNamed, FILE_READ_DATA | SYNCHRONIZE,
+            FILE_SHARE_READ | FILE_SHARE_DELETE, FILE_OPEN, FILE_OPEN_REQUIRING_OPLOCK, nullptr, false, true);
+        const Handle named(rawNamed), signal(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        if (error || !mainFile || !signal)
+            return false;
+        OVERLAPPED io{};
+        io.hEvent = signal.get();
+        REQUEST_OPLOCK_OUTPUT_BUFFER reply{};
+        error = UacMoveSourceJournal::RequestExclusiveStreamOplock(named.get(), io, reply);
+        if (error)
+            return false;
+        FILE_DISPOSITION_INFO remove{TRUE};
+        const bool marked = SetFileInformationByHandle(mainFile.get(), FileDispositionInfo, &remove, sizeof(remove)) != FALSE;
+        const DWORD markError = marked ? ERROR_SUCCESS : GetLastError();
+        mainFile.reset();
+        HANDLE rawAlias = nullptr;
+        const DWORD aliasStatus = UacRenameLeaf::Detail::OpenSource(root, aliasLeaf, rawAlias, 0, share);
+        const Handle remaining(rawAlias);
+        const bool goneWhileHeld = aliasStatus == ERROR_FILE_NOT_FOUND;
+        const DWORD lockState = WaitForSingleObject(signal.get(), 0);
+        Check(marked && goneWhileHeld && lockState == WAIT_TIMEOUT,
+              "unlink one hard link while keeping the named-stream oplock through commit", markError);
+        const Handle readEvent(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        BYTE value = 0;
+        DWORD bytes = 0;
+        const DWORD readError = readEvent ? UacCopyLeaf::Detail::ReadOverlappedBlock(named.get(), &value, 1, 0,
+            readEvent.get(), bytes, nullptr, nullptr, MAXULONGLONG) : GetLastError();
+        Check(!readError && bytes == 1 && value == 9,
+              "retain the named-stream payload after retiring the first link", readError);
+
+        mainFile = open(path, DELETE);
+        const bool finalMarked = mainFile && SetFileInformationByHandle(mainFile.get(), FileDispositionInfo, &remove, sizeof(remove));
+        const DWORD finalMarkError = finalMarked ? ERROR_SUCCESS : GetLastError();
+        mainFile.reset();
+        HANDLE rawFinal = nullptr;
+        const DWORD whileHeld = UacRenameLeaf::Detail::OpenSource(root, leaf, rawFinal, 0, share);
+        const Handle unexpectedFinal(rawFinal);
+        const DWORD finalLockState = WaitForSingleObject(signal.get(), 0);
+        CancelIoEx(named.get(), &io);
+        GetOverlappedResult(named.get(), &io, &bytes, TRUE);
+        std::printf("PROBE: final unlink with named oplock mark=%lu open=%lu lock-state=%lu\n",
+                    finalMarkError, whileHeld, finalLockState);
+        Check(finalMarked && finalLockState == WAIT_TIMEOUT && (whileHeld == ERROR_FILE_NOT_FOUND || whileHeld == ERROR_ACCESS_DENIED),
+              "mark the final link for removal while holding the named-stream oplock", finalMarkError);
+    }
+    HANDLE rawMissing = nullptr;
+    const DWORD missing = UacRenameLeaf::Detail::OpenSource(root, leaf, rawMissing, 0, share);
+    const Handle unexpectedFile(rawMissing);
+    Check(missing == ERROR_FILE_NOT_FOUND, "finish the last unlink once the named handle closes", missing);
+    if (missing != ERROR_FILE_NOT_FOUND || !WriteFixture(path, {1, 2, 3}) || !OpenIdentity(path, identity))
         return false;
     const auto alias = path + L"-alias";
     if (!CreateHardLinkW(alias.c_str(), path.c_str(), nullptr))

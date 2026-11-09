@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Share the NTFS stream-name validation. | Use the same component rules when checking for preexisting stream handles. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve LZNT1 from a guarded source. | Query the compression format through a handle that can be asynchronous. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Copy sparse extents from a guarded source handle. | Preserve holes without releasing the source oplock. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Publish a copy of a guarded move source. | Read the overlapped source without releasing its lock and retain the exact destination handle. | | GPT-6.1 Sol (Codex) |
@@ -275,11 +276,18 @@ struct DataStream
     bool operator==(const DataStream& other) const { return suffix == other.suffix && size == other.size; }
 };
 
+inline bool IsNamedDataStream(std::wstring_view suffix)
+{
+    constexpr std::wstring_view type = L":$DATA";
+    return suffix.size() > type.size() + 1 && suffix.front() == L':' &&
+           suffix.substr(suffix.size() - type.size()) == type &&
+           UacDirectoryLeaf::IsComponent(suffix.substr(1, suffix.size() - 1 - type.size()));
+}
+
 inline DWORD ReadDataStreams(HANDLE file, std::vector<DataStream>& streams)
 {
     constexpr size_t maxStreams = 64;
     constexpr size_t headerSize = offsetof(FILE_STREAM_INFO, StreamName);
-    constexpr std::wstring_view type = L":$DATA";
     std::vector<ULONGLONG> buffer(64 * 1024 / sizeof(ULONGLONG));
     const auto bytes = buffer.size() * sizeof(ULONGLONG);
     if (!GetFileInformationByHandleEx(file, FileStreamInfo, buffer.data(), static_cast<DWORD>(bytes)))
@@ -311,9 +319,7 @@ inline DWORD ReadDataStreams(HANDLE file, std::vector<DataStream>& streams)
                 return ERROR_INVALID_DATA;
             mainFound = true;
         }
-        else if (suffix.size() <= type.size() + 1 || suffix.front() != L':' ||
-                 suffix.substr(suffix.size() - type.size()) != type ||
-                 !UacDirectoryLeaf::IsComponent(suffix.substr(1, suffix.size() - 1 - type.size())))
+        else if (!IsNamedDataStream(suffix))
             return ERROR_NOT_SUPPORTED;
         streams.push_back({std::wstring(suffix), size});
         if (!next)
