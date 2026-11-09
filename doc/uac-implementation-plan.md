@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify live F6 progress in the native VM dialog. | Record protected transfer integrity and separate incomplete memory measurements. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Show native progress for protected trees and encrypted import. | Use verified operation totals without treating provisional work as completion. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Report brokered F5 and F6 byte progress in the existing dialogs. | Give long protected transfers live feedback while preserving the terminal result. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Prepare the combined protected Find acceptance fixture. | Compare tagged duplicates and a same-size text nonmatch across ordinary and protected roots. | | GPT-6.1 Sol (Codex) |
@@ -1402,6 +1403,8 @@ Prošlo sestavení aplikace, brokeru a sondy x64 Release, 14 kontrol workeru, sa
 **Průběh rekurzivní a šifrované kopie.** Protokol 10 přidává do průběžné zprávy ověřený celkový objem tam, kde ho host předem nezná. Rekurzivní F5 sečte bajty ověřeného soupisu a aktualizuje oba stávající ukazatele přes společnou funkci workeru. EFS Raw během importu hlásí poměr již předaných a celkových šifrovaných bajtů po dokončeném exportu. Při exportu zůstává procento na počátku, protože API celkovou délku raw proudu předem neposkytne. Ukazatel nedosáhne dokončení, dokud broker nepotvrdí koncový výsledek. Host odmítne klesající průběh, proměnlivý celkový objem a hodnoty mimo rozpočet operace.
 
 Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 kontrol EFS, 14 kontrol workeru a sada transportu a úloh brokeru včetně ověření rolí a odmítnutí binárky s protokolem 9. Nativní zkoušky ověřily součet bajtů z více položek jednoho stromu a skutečnou délku raw importu. Ve stejné konfiguraci proti předchozí variantě průběhu vzrostla aplikace z 5 441 536 na 5 442 048 B, broker zůstal na 1 332 736 B a součet vzrostl z 6 774 272 na 6 774 784 B. Tři binárky a jejich otisky jsou v C:/Samandarin/builds/uac-p7-progress-total. Vizuální akceptace a porovnání privátní paměti při běžném a chráněném přenosu zbývají.
+
+**VM, živý průběh a paměť při F6.** Na stejném testovacím souboru o 4 295 032 833 bajtech z C: na chráněný svazek E: zobrazil pilot s protokolem 10 v nativním dialogu současně File i Total nejprve 31 % a poté 73 %. Uživatel potvrdil, že se procenta měnila. SHA-256 cíle souhlasil, původní cesta i pracovní soubory zmizely. Při běžném F5 bez brokeru dosáhla privátní paměť aplikace 22 122 496 B ve výchozím sestavení a 22 016 000 B v kandidátu. V zachycené části chráněného přesunu kandidáta bylo společné maximum 24 166 400 B a maximum brokeru 1 888 256 B. Vzorkování začalo až během přesunu. Výchozí chráněný přesun doběhl, ale první vzorkovač výsledek neuložil, takže přímé srovnání privátní paměti pro chráněný přesun zbývá. JSON je v C:/Samandarin/builds/uac-p7-progress-total. Vizuální test stromu a EFS zůstává otevřený.
 
 ### 12.3 CI a přijetí vydání
 
