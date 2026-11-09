@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Remove an extra closing brace in conflict status update. | Fix C2059/C2143/C2447 syntax errors caused by a stray brace that closed the selectedCount block too early. | | nvidia/nemotron-3.5-super-vl:free |
 // | 2026-11-09 | Give user overrides precedence over retained association conflicts. | Show the selected target after Apply and clear conflict state when a user choice overrides its exact pattern and action. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Commit association detail Apply changes immediately. | Preserve the selected row as the edit base and persist resolved plugin conflicts through the active configuration storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Qualify the Win32 GetParent call in conflict status painting. | Avoid resolving GetParent to the CDialog member overload during compilation. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -4543,7 +4544,6 @@ void CCfgPageFileAssociations::LoadSelectedControls()
                 break;
             }
         }
-            }
     }
     if (conflictItem != NULL)
     {
