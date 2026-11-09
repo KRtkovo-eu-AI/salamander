@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Verify hidden language modules in the UAC payload. | Check every module eligible for loading. | | Codex |
 # | 2026-11-09 | Require embedded UAC release signatures. | Verify that the standalone distribution carries its own signatures. | | Codex |
 # | 2026-11-09 | Check the fixed file version of packaged language modules. | Reject a same-architecture module that the application cannot load. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Verify the architecture of packaged language modules. | Catch a mixed-architecture payload before the application tries to load it. | | GPT-6.1 Sol (Codex) |
@@ -168,7 +169,7 @@ if ((!$UnsignedLab -or (Test-Path -LiteralPath $languageDir)) -and
 $languageModules = @()
 if (Test-Path -LiteralPath $english -PathType Leaf) {
     $hostVersion = Get-FixedFileVersion $hostPath
-    $languageModules = @(Get-ChildItem -LiteralPath $languageDir -Filter '*.slg' -File)
+    $languageModules = @(Get-ChildItem -LiteralPath $languageDir -Filter '*.slg' -File -Force)
     foreach ($module in $languageModules) {
         Get-ImageHeaders $module.FullName | Out-Null
         $languageVersion = Get-FixedFileVersion $module.FullName

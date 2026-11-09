@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify hidden language modules in the UAC payload. | Prevent an unverified module from passing distribution checks. | | Codex |
 | 2026-11-09 | Verify Scan Ahead with a paused scanner. | Reproduce the stale wait and check isolation using real Windows events. | | Codex |
 | 2026-11-09 | Verify the exact x64 Scan Ahead pilot payload. | Tie distribution and transport evidence to the binaries used for VM acceptance. | | Codex |
 | 2026-11-09 | Measure localized UAC button widths. | Check translated captions and the shield at four simulated font sizes. | | GPT-6.1 Sol (Codex) |
@@ -1863,6 +1864,8 @@ Tento přehled je výchozí bod pro další práci. Výše jsou chronologické z
 **Distribuční kontrola přesného pilotu x64 5e13ec2e.** Laboratorní balíček obsahuje hosta a broker se stejnými SHA-256, jaké před souběžnou zkouškou F5 vyžadoval skript pro nasazení ve VM. Host má SHA-256 FD9E9411917565B8F7CFE00A421CAB86BF03244DCE60A6525054C64F3EE813C7, broker AC4A66E2C85F868934733ABB990CA57B7FA95D0E7352CA5A7B6925FA99B75CEC. Ověřovač v PowerShellu 7 i Windows PowerShellu 5.1 vrátil shodný výsledek pro architekturu, manifesty, importy, protokol 11 a všech 12 modulů SLG. Režim vydání odmítl nepodepsaného hosta stavem NotSigned a laboratorní režim odmítl balíček bez brokeru. V x64 Release prošlo 64 nativních kontrol transportu a úloh, včetně ověření PE rolí na tomto páru a odmítnutí staršího brokeru. Výpisy, transport-release.log a seznam SHA-256 jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/distribution-5e13ec2e. Platný podpis finálního vydání zůstává k ověření.
 
 **Pozastavený Scan Ahead při ukončení dávky.** Nativní sonda převzala tělo skeneru a ukončovací blok z worker.cpp a podmínku zobrazení nabídky z dialogs.cpp revize fa3ba126. Ve 40 opakováních ukončila chyba první úlohy její čekající skener, i když příznak Storno z dialogu nebyl nastaven. Podmínka zablokovala nabídku jen u první úlohy. Druhý skener zůstal pozastavený a po vlastním obnovení našel skutečnou kolizi na NTFS. Kontrolní varianta se starším ukončovacím blokem z publikované větve reprodukovala čekání déle než jednu sekundu. Prošlo také 15 kontrol smlouvy workeru. Sonda používá skutečné události a vlákna Windows s náhradami okolního kódu aplikace. Soubory source-provenance.json, positive.log, negative.log a repeat.json jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/scan-ahead-paused.
+
+**Skryté jazykové moduly a závislosti distribučního kandidáta.** Ověřovač původně přijal x64 balíček se skrytým Win32 english.slg a vykázal nula zkontrolovaných modulů. Výčet nyní zahrnuje skryté i systémové soubory. PowerShell 7 i Windows PowerShell 5.1 odmítly skrytý Win32 modul, započetly kompatibilní skrytý modul a ověřily všech 12 modulů běžného balíčku 5e13ec2e. Obě prostředí také odmítla kopie aktuálního brokeru s přímým importem bad++.dll a neprázdnou tabulkou odložených importů. Upravené kopie se pouze zkoumaly jako soubory. Výpisy jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/distribution-5e13ec2e/hidden-language.
 
 ##### Koš při schválení stejným nebo jiným správcem
 
