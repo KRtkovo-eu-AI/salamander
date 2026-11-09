@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the protected Shell recycle source. | Pin its trusted ancestors while the original account calls the Shell. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Return the exact Find content revision. | Let the host compare the same file across Find passes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Require the expected UAC image role. | Stop a substituted application or probe before requesting elevation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Refuse a visibly stale overwrite before opening its journal. | Avoid touching recovery state for an invalid approval. | | GPT-6.1 Sol (Codex) |
@@ -758,7 +759,7 @@ DWORD TransferZipSelection(HANDLE pipe, std::vector<BYTE>& bytes, bool send, ULO
 }
 #endif
 
-#ifdef SAM_UAC_BROKER
+#if defined(SAM_UAC_BROKER) || defined(SAM_UAC_F7_HOST)
 DWORD OpenProtectedTree(HANDLE volume, std::wstring_view relative, std::vector<Handle>& pinned,
                         UacDirectoryLeaf::ParentIdentity& identity)
 {
@@ -785,6 +786,9 @@ DWORD OpenProtectedTree(HANDLE volume, std::wstring_view relative, std::vector<H
     }
 }
 
+#endif
+
+#ifdef SAM_UAC_BROKER
 std::wstring JournalName(std::wstring name, const UacDirectoryLeaf::ParentIdentity& target)
 {
     constexpr wchar_t hex[] = L"0123456789abcdef";
@@ -2392,6 +2396,53 @@ bool PreparedLeaf::PrepareMetadata(const std::wstring& path, const MetadataChang
 bool PreparedLeaf::PrepareDelete(const std::wstring& path, Operation requested)
 {
     return IsLeafDelete(requested) && PrepareTarget(path, requested, {}, nullptr);
+}
+
+ProtectedRecycleSource::~ProtectedRecycleSource()
+{
+    for (const HANDLE directory : parents)
+        CloseHandle(directory);
+}
+
+bool ProtectedRecycleSource::Prepare(const std::wstring& path, const MoveFileIdentity& expected)
+{
+    HANDLE rawToken = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &rawToken))
+        return false;
+    const auto token = Adopt(rawToken);
+    TOKEN_ELEVATION elevation{};
+    DWORD bytes = 0;
+    if (!GetTokenInformation(token.get(), TokenElevation, &elevation, sizeof(elevation), &bytes) ||
+        elevation.TokenIsElevated || !prepared.PrepareDelete(path, Operation::Delete) || prepared.relative.empty() ||
+        prepared.serial != expected.serial || std::memcmp(prepared.sourceId, expected.id, sizeof(expected.id)) != 0)
+        return false;
+
+    const auto root = OpenVolumeRoot(prepared.volume, READ_CONTROL);
+    if (!root || !ProtectedObject(root.get(), true, true))
+        return false;
+    std::vector<Handle> pinned;
+    UacDirectoryLeaf::ParentIdentity identity;
+    if (OpenProtectedTree(root.get(), prepared.relative, pinned, identity) ||
+        identity.file.VolumeSerialNumber != prepared.serial ||
+        std::memcmp(identity.file.FileId.Identifier, prepared.fileId, sizeof(prepared.fileId)) != 0)
+        return false;
+
+    HANDLE rawSource = nullptr;
+    if (UacRenameLeaf::Detail::OpenSource(pinned.back().get(), prepared.leaf, rawSource, READ_CONTROL,
+                                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE))
+        return false;
+    const auto source = Adopt(rawSource);
+    FILE_ID_INFO actual{};
+    if (!ProtectedObject(source.get(), false) ||
+        UacRenameLeaf::Detail::ReadSourceIdentity(source.get(), actual, UacRenameLeaf::MoveKind::RenameFile) ||
+        actual.VolumeSerialNumber != expected.serial ||
+        std::memcmp(actual.FileId.Identifier, expected.id, sizeof(expected.id)) != 0)
+        return false;
+
+    parents.reserve(pinned.size());
+    for (auto& directory : pinned)
+        parents.push_back(directory.release());
+    return true;
 }
 
 bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, const std::wstring& renameTo,

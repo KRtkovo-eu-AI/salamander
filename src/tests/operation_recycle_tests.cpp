@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Check the shared recycle completion contract. | Exercise the original-account receipt with a real Windows recycle operation. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise the verified Shell recycle source gate. | Refuse a substituted file without moving either object. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Test exact Shell recycle path admission. | Reject paths that would be reinterpreted after removing the Win32 prefix. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind recycle receipts to a volume GUID and the original account. | Reject wrong-account and wrong-volume evidence even through mounted folders. | | GPT-6.1 Sol (Codex) |
@@ -200,6 +201,11 @@ static bool ProbeRecycleReceipt(const std::filesystem::path& source, bool reques
         Check(!InOriginalRecycleBin(original.normalizedPath, bin + L"\\item", sid),
               "reject a lookalike bin nested under an unrelated folder");
     }
+    Check(original.ConfirmRecycled(progress.Receipt(), sid),
+          "the complete receipt check confirms the original account, identity and removal of the old name");
+    Check(!original.ConfirmRecycled(progress.Receipt(), sid + L"-1") &&
+              !original.ConfirmRecycled(nullptr, sid),
+          "the complete receipt check rejects a different account or a missing receipt");
     if (!sourceAbsent || !inCallerBin || !same)
         return false;
 

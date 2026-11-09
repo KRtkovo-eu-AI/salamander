@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Describe the protected Recycle Bin pilot. | Distinguish a verified single-file recycle from permanent deletion. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe the protected VM staging path. | Remove the custom installer from the UAC scope. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Document the native UAC pilot and its limits. | Explain consent, partial results and the scope of acceptance testing. | | GPT-6.1 Sol (Codex) |
 -->
@@ -23,7 +24,7 @@ The UAC pilot runs the file manager with the account and permissions you normall
 | Copy and move | **F5** and **F6** for eligible local file operations, including guarded replacement where supported. Cross-volume F6 covers individual files between fixed NTFS volumes with a free destination name, up to 4 GiB including named streams. Only supported combinations of streams, sparse allocation, compression and security metadata are offered. |
 | Copy a folder tree | The elevated **F5** tree pilot requires an eligible tree and a registered protected destination. It publishes into a free name. |
 | EFS | Eligible single-file **F5** uses encrypted backup and restore on NTFS. Opening the copied file still requires the appropriate EFS key. |
-| Delete | **Shift+Delete** offers elevation for eligible permanent deletion. This includes supported single symbolic links and junctions and leaves their targets intact. **Delete** continues to use the Windows Recycle Bin under the ordinary account. Protected recycling to the original user's bin is still under test. |
+| Delete | **Shift+Delete** offers elevation for eligible permanent deletion. This includes supported single symbolic links and junctions and leaves their targets intact. **Delete** continues to use the Windows Recycle Bin under the ordinary account. The protected pilot can offer a separate administrator retry for one eligible file after access is denied. A confirmed result requires the same file in the original user's bin. The alternate-admin and cancellation cases still require VM acceptance. |
 | Read and inspect | Protected panel listings, **Space** and **Ctrl+Q**, supported **Alt+F7** Find queries, and **F3** in the internal viewer. **F4** can explicitly launch an eligible editor as administrator for the original file. |
 | ZIP and ZIP64 | Listing in the ordinary archive panel, internal viewing of eligible entries, extraction, and adding, replacing or deleting eligible entries in protected archives. Viewing and extracting are limited to 16 MiB per expanded file in this pilot. Extraction of a selection is also limited to 4,096 entries and a 64 MiB total request. |
 

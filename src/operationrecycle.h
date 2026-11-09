@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Verify a complete recycle receipt. | Check the original name and the original account's bin on the same volume. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Share the single-item Shell recycle and receipt checks. | Validate exact source identity before the Shell starts processing. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Reject Shell path normalization aliases before recycling. | Keep exact disk paths separate from Shell and DOS namespaces. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Reject alternate stream and device aliases before recycling. | Pass the Shell only absolute filesystem paths. | | GPT-6.1 Sol (Codex) |
@@ -139,6 +140,23 @@ struct VerifiedSource
     RecycleFileId id{};
     std::wstring normalizedPath;
 
+    bool StillAtOriginalPath(const std::wstring& path) const
+    {
+        RecycleFileId actual{};
+        std::wstring actualPath;
+        return ReadFileId(path.c_str(), actual, &actualPath) && SameFileId(id, actual) && actualPath == normalizedPath;
+    }
+
+    bool ConfirmRecycled(IShellItem* receipt, const std::wstring& sid) const
+    {
+        RecycleFileId actual{};
+        std::wstring receiptPath;
+        return ReadShellItemIdentity(receipt, actual, receiptPath) && SameFileId(id, actual) &&
+               InOriginalRecycleBin(normalizedPath, receiptPath, sid) &&
+               GetFileAttributesW(normalizedPath.c_str()) == INVALID_FILE_ATTRIBUTES &&
+               GetLastError() == ERROR_FILE_NOT_FOUND;
+    }
+
     HRESULT Check(IShellItem* item) const
     {
         try
@@ -213,6 +231,13 @@ public:
         }
         return failure;
     }
+    bool SourceAccessDenied(HRESULT operation) const
+    {
+        const HRESULT error = FAILED(failure) ? failure : operation;
+        return !completed && (error == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED) ||
+                              error == COPYENGINE_E_REQUIRES_ELEVATION || error == COPYENGINE_E_ACCESS_DENIED_SRC);
+    }
+
     HRESULT Result(HRESULT operation, size_t expected) const
     {
         if (FAILED(failure))
@@ -330,7 +355,7 @@ inline HRESULT RunSingleRecycleOperation(HWND owner, const std::wstring& shellPa
     if (SUCCEEDED(result)) result = operation->SetOwnerWindow(owner);
     if (SUCCEEDED(result))
         result = operation->SetOperationFlags(OperationRecycleFlags | FOF_SILENT |
-                                              (showElevation ? FOFX_SHOWELEVATIONPROMPT : 0));
+                                              (showElevation ? FOFX_SHOWELEVATIONPROMPT | FOF_NO_CONNECTED_ELEMENTS | FOFX_NOCOPYHOOKS : 0));
     if (SUCCEEDED(result)) result = SHCreateItemFromParsingName(shellPath.c_str(), NULL, IID_PPV_ARGS(&item));
     if (SUCCEEDED(result)) result = operation->DeleteItem(item, &progress);
     if (SUCCEEDED(result)) result = operation->PerformOperations();

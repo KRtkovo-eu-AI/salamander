@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Link the extracted recycle code to COM. | Resolve the exact Shell item identity helper. | | GPT-6.1 Sol (Codex) |
 """Compile actual panel path getters with isolated panel storage; no UI or disk mutation."""
 import argparse
 import os
@@ -136,7 +138,7 @@ def main():
             flags = ["/MDd", "/D_DEBUG", "/Od"] if configuration == "Debug" else ["/MD", "/DNDEBUG", "/O2"]
             print("Actual Branch panel getters:", configuration, flush=True)
             for command in ([compiler, "/nologo", "/std:c++17", "/EHsc", "/utf-8", "/W4", "/WX",
-                             *flags, str(source), "/Fe:" + str(executable), "user32.lib"], [str(executable), str(directory)]):
+                             *flags, str(source), "/Fe:" + str(executable), "user32.lib", "ole32.lib"], [str(executable), str(directory)]):
                 result = run(command, cwd=directory, env=environment, timeout=45)
                 if result.returncode:
                     return result.returncode

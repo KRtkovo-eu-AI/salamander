@@ -4250,9 +4250,12 @@ SLGINCOMPLETE,""
 14591,1,"Souhlas platí i pro další způsobilé položky v uvedené složce až do konce této operace."
 
 [STRINGTABLE 188]
-14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
+14592,1,"Přístup byl odepřen. Přesunout tento soubor do vašeho Koše jako správce?"
 
 [STRINGTABLE 189]
+14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
+
+[STRINGTABLE 190]
 14992,1,"Ukládání konfigurace do souborového úložiště, čekejte prosím..."
 14993,1,"Odstraňování staré konfigurace ze souborového úložiště, čekejte prosím..."
 14994,1,"Probíhá čtení přidružení souborů ze souborového úložiště..."

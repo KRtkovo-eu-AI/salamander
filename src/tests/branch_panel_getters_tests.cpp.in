@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Keep Branch View on ordinary recycling. | Reject any protected recycle retry from the Branch panel fixture. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Model Shell recycle intent and item receipts. | Verify rejection of permanent mode and unconfirmed results. | | GPT-6.1 Sol (Codex) |
 // The three production getters, Entry, Entry::FullPath, Join and conversion
 // function are extracted verbatim. Only unrelated panel state is replaced.
@@ -282,6 +283,18 @@ static const char* RecycleLoadStr(int){return "fixture";}
 static const char* RecycleErrorText(DWORD){return "fixture";}
 static int RecycleMessage(HWND,const char* message,const char*,UINT){++RecycleErrors;RecycleLastMessage=message;return IDOK;}
 static const int IDS_ERRORTITLE=1,IDS_UAC_RECYCLE_NOT_CONFIRMED=2;
+static int RecycleRetries=0;
+static HRESULT RecycleRetryResult=S_OK;
+namespace OperationRecycleDetail
+{
+static bool CaptureRecycleFixture(const wchar_t*,RecycleFileId&,std::wstring*) { return true; }
+}
+static HRESULT RetryProtectedRecycle(HWND,const std::wstring&,const std::wstring&,const OperationRecycleDetail::VerifiedSource&)
+{
+    ++RecycleRetries;
+    return RecycleRetryResult;
+}
+#define ReadFileId CaptureRecycleFixture
 #define IFileOperation TestFileOperation
 #define IShellItem TestShellItem
 #pragma push_macro("IID_PPV_ARGS")
@@ -306,6 +319,7 @@ BOOL CFilesWindow::Recycle(int* selection,int selCount,CFileData* oneFile){
 #undef LoadStr
 #undef GetErrorText
 #undef SalMessageBox
+#undef ReadFileId
 static CRITICAL_SECTION TimeCounterSection;
 static int MyTimeCounter=1,PostedRefresh=0;
 static const UINT WM_USER_REFRESH_DIR=WM_APP+2;
@@ -787,7 +801,7 @@ static void RecycleQueueTests()
     Add(state,panel.Files->At(2),L"C:\\"+std::wstring(110,L'a')+L"\\"+std::wstring(110,L'b')+L"\\東京",longName,L"deep\\"+longName);
     for(auto& row:panel.FileRows.Values)state.CacheFiles[state.Items.at(row.Name).CacheKey]=&row;
     int selected[]={0,1,2};
-    auto reset=[](){RecycleMock=TestFileOperation();ParseCalls=0;ParseFail=-1;RecycleErrors=0;};
+    auto reset=[](){RecycleMock=TestFileOperation();ParseCalls=0;ParseFail=-1;RecycleErrors=0;RecycleRetries=0;RecycleRetryResult=S_OK;};
     Check(NormalizeRecycleResult(COPYENGINE_E_REQUIRES_ELEVATION)==HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED),"recycle reports required elevation as access denied");
     Check(NormalizeRecycleResult(COPYENGINE_E_USER_CANCELLED)==HRESULT_FROM_WIN32(ERROR_CANCELLED),"recycle recognizes Shell cancellation");
     Check(NormalizeRecycleResult(COPYENGINE_E_RECYCLE_UNKNOWN_ERROR)==COPYENGINE_E_RECYCLE_UNKNOWN_ERROR,"recycle preserves the original unknown Shell error");
@@ -809,6 +823,19 @@ static void RecycleQueueTests()
     reset();RecycleMock.PermanentIntent=true;Check(!panel.Recycle(selected,3,nullptr)&&RecycleErrors==1,"reject permanent delete intent before it runs");
     reset();RecycleMock.MissingReceipt=true;Check(!panel.Recycle(selected,3,nullptr)&&RecycleErrors==1,"missing Recycle Bin receipt cannot be reported as success");
     reset();Check(panel.Recycle(nullptr,0,&panel.Files->At(1))&&RecycleMock.Paths.size()==1&&RecycleMock.Paths[0]==panel.GetItemFullPathW(panel.Files->At(1)),"focused one-file recycle resolves exact parent");
+    reset();RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;
+    Check(!panel.Recycle(nullptr,0,&panel.Files->At(1))&&RecycleRetries==0,"Branch access denial stays on the ordinary Shell route");
+    panel.BranchView=nullptr;
+    panel.WideRoot=L"C:\\protected";
+    reset();RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;
+    Check(panel.Recycle(nullptr,0,&panel.Files->At(1))&&RecycleRetries==1&&RecycleErrors==0,"single disk file retries only after source access denial");
+    reset();RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;RecycleRetryResult=HRESULT_FROM_WIN32(ERROR_CANCELLED);
+    Check(!panel.Recycle(nullptr,0,&panel.Files->At(1))&&RecycleRetries==1&&RecycleErrors==0,"cancelled protected retry stays cancelled");
+    reset();RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_DEST;
+    Check(!panel.Recycle(nullptr,0,&panel.Files->At(1))&&RecycleRetries==0&&RecycleErrors==1,"destination access denial cannot trigger a protected retry");
+    reset();RecycleMock.ItemResult=COPYENGINE_E_ACCESS_DENIED_SRC;
+    Check(!panel.Recycle(selected,3,nullptr)&&RecycleRetries==0,"multiple disk items cannot trigger a protected retry");
+    panel.BranchView=&state;
     reset();Check(!panel.Recycle(nullptr,0,nullptr)&&RecycleMock.PerformCalls==0,"null focused source cannot recycle");
     reset();int bad[]={-1};Check(!panel.Recycle(bad,1,nullptr)&&RecycleMock.PerformCalls==0,"out-of-range selection cannot recycle");
     reset();Check(!panel.Recycle(nullptr,1,nullptr)&&RecycleMock.PerformCalls==0,"missing selection array cannot recycle");

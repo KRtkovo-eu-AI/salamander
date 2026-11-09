@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Declare a guarded source for Shell recycling. | Keep the verified path pinned through the Shell request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share the verified Find file revision with its caller. | Bind repeated reads to the same file identity and metadata. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Give cross-volume moves an independent byte budget. | Keep the existing bounded copy and archive contracts separate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share eligibility for a protected move source. | Keep F6 preparation and the broker retry in the same metadata scope. | | GPT-6.1 Sol (Codex) |
@@ -281,6 +282,7 @@ public:
     bool ChangesAttributes() const { return (metadata.attributes | metadataPolicy.set | metadataPolicy.clear) != 0; }
 
 private:
+    friend class ProtectedRecycleSource;
     friend class ListingSession;
     friend class ArchiveReadSession;
     friend class PreparedTransfer;
@@ -296,6 +298,21 @@ private:
     MetadataChange metadata{};
     MetadataJobPolicy metadataPolicy{};
     Operation operation = Operation::Mkdir;
+};
+
+class ProtectedRecycleSource
+{
+public:
+    ProtectedRecycleSource() = default;
+    ~ProtectedRecycleSource();
+    ProtectedRecycleSource(const ProtectedRecycleSource&) = delete;
+    ProtectedRecycleSource& operator=(const ProtectedRecycleSource&) = delete;
+
+    bool Prepare(const std::wstring& path, const MoveFileIdentity& expected);
+
+private:
+    PreparedLeaf prepared;
+    std::vector<HANDLE> parents;
 };
 
 inline constexpr bool IsMoveTransfer(Operation operation)

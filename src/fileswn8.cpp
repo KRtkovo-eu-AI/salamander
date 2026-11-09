@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Offer a verified protected Delete retry. | Keep single-file recycling in the original user's Shell. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Include encrypted copies in the transfer job. | Reuse its consent for eligible EFS items. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Scope the EFS copy entry point to one file. | Wait for job-scoped consent before enabling EFS batches. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Permit per-item elevation in file batches. | Retain the direct disk and conflict-mode boundaries. | | GPT-6.1 Sol (Codex) |
@@ -151,6 +152,31 @@ BOOL PathContainsValidComponents(char* path, BOOL cutPath)
     return TRUE;
 }
 
+static HRESULT RetryProtectedRecycle(HWND owner, const std::wstring& path, const std::wstring& shellPath,
+                                     const OperationRecycleDetail::VerifiedSource& original)
+{
+    using namespace OperationRecycleDetail;
+    const HRESULT denied = HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED);
+    const auto sid = CurrentSid();
+    UacF7::MoveFileIdentity expected{original.id.VolumeSerialNumber};
+    std::copy_n(original.id.FileId, sizeof(expected.id), expected.id);
+    UacF7::ProtectedRecycleSource source;
+    if (sid.empty() || !source.Prepare(path, expected) || !original.StillAtOriginalPath(path))
+        return denied;
+    if (!ConfirmProtectedRead(owner, IDS_ERRORTITLE, IDS_UAC_RECYCLE_CONFIRM, shellPath))
+        return HRESULT_FROM_WIN32(ERROR_CANCELLED);
+    if (!original.StillAtOriginalPath(path))
+        return HRESULT_FROM_WIN32(ERROR_FILE_INVALID);
+
+    OperationRecycleProgress progress(true, &original);
+    const auto result = RunSingleRecycleOperation(owner, shellPath, progress, true);
+    if (result == HRESULT_FROM_WIN32(ERROR_CANCELLED))
+        return !progress.Receipt() && original.StillAtOriginalPath(path) ? result : HRESULT_FROM_WIN32(ERROR_FILE_INVALID);
+    if (FAILED(result))
+        return result;
+    return original.ConfirmRecycled(progress.Receipt(), sid) ? S_OK : HRESULT_FROM_WIN32(ERROR_FILE_INVALID);
+}
+
 BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileData* oneFile)
 {
     CALL_STACK_MESSAGE2("CFilesWindow::DeleteThroughRecycleBin(, %d,)", selCount);
@@ -169,6 +195,8 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
         if (SUCCEEDED(result))
             result = operation->SetOperationFlags(OperationRecycleFlags);
         const int total = selCount > 0 ? selCount : 1;
+        OperationRecycleDetail::VerifiedSource original;
+        std::wstring retryPath, retryShellPath;
         for (int item = 0; item < total && SUCCEEDED(result); ++item)
         {
             const CFileData* file = oneFile;
@@ -193,6 +221,13 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
                 result = HRESULT_FROM_WIN32(ERROR_INVALID_NAME);
                 break; // the recycle bin may trim trailing dots/spaces and delete a different item
             }
+            if (total == 1 && !IsBranchView() && shellPath.size() >= 3 && shellPath[1] == L':' &&
+                OperationRecycleDetail::ReadFileId(path.c_str(), original.id, &original.normalizedPath))
+            {
+                retryPath = path;
+                retryShellPath = shellPath;
+            }
+
             IShellItem* shellItem = NULL;
             result = SHCreateItemFromParsingName(shellPath.c_str(), NULL, IID_PPV_ARGS(&shellItem));
             if (SUCCEEDED(result))
@@ -203,8 +238,10 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
         }
         // Queueing is all-or-nothing: a missing/unparsable item must not silently
         // delete only the remaining part of the user's selection.
-        if (SUCCEEDED(result))
+        const bool queued = SUCCEEDED(result);
+        if (queued)
             result = operation->PerformOperations();
+        const bool deniedByShell = queued && progress.SourceAccessDenied(result);
         BOOL aborted = TRUE;
         if (SUCCEEDED(result))
             result = operation->GetAnyOperationsAborted(&aborted);
@@ -212,6 +249,11 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
             result = HRESULT_FROM_WIN32(ERROR_CANCELLED);
         result = progress.Result(result, total);
         operation->Release();
+        if (deniedByShell && !retryPath.empty() && result == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED))
+        {
+            result = RetryProtectedRecycle(MainWindow->HWindow, retryPath, retryShellPath, original);
+            aborted = FAILED(result);
+        }
         if (FAILED(result) && result != HRESULT_FROM_WIN32(ERROR_CANCELLED))
         {
             std::string message = std::string(LoadStr(IDS_UAC_RECYCLE_NOT_CONFIRMED)) + "\n\n";
