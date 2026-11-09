@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Load built-in modules from the current PowerShell installation. | Keep the installer verifier independent of an inherited module path. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Verify the paired UAC protocol markers. | Reject stale or missing broker images during packaging. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Verify the x64 UAC pilot payload. | Check signatures and the broker loading policy before packaging. | | GPT-6.1 Sol (Codex) |
 
@@ -14,6 +15,12 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# A compiler launched from PowerShell 7 can pass its module search path to
+# Windows PowerShell. Load these built-ins from this engine's installation.
+foreach ($module in 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Security') {
+    Import-Module -Name ([IO.Path]::Combine($PSHOME, 'Modules', $module, "$module.psd1"))
+}
 
 function Invoke-InspectionTool([string]$Tool, [string[]]$Arguments) {
     $output = & $Tool @Arguments

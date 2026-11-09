@@ -1,4 +1,5 @@
 ; | Date | Summary | Reason | Ticket | Model |
+; | 2026-11-09 | Verify both UAC images during pilot compilation. | Stop packaging when the signed pair fails payload validation. | | GPT-6.1 Sol (Codex) |
 ; | 2026-11-08 | Localize the UAC pilot destination message. | Show the required directory in all installer languages. | | GPT-6.1 Sol (Codex) |
 ; | 2026-11-08 | Package a separately identified signed UAC pilot. | Stage only the protected installer pair and keep portable packaging separate. | | GPT-6.1 Sol (Codex) |
 ; | 2026-11-06 | Rename JSON Web Viewer to JSON Viewer (nodeJS). | Match the requested product name in the installer plugin list. |  | Composer |
@@ -52,6 +53,15 @@
     #define PayloadDir AddBackslash(GetEnv("OPENSAL_BUILD_DIR")) + "salamander\Release_x64"
   #else
     #define PayloadDir "..\..\output\salamander\Release_x64"
+  #endif
+#endif
+
+#ifdef UacBrokerPilot
+  ; Work relative to the script, as the [Files] source paths do.
+  #define UacVerifier AddBackslash(SourcePath) + "..\..\tools\codesign\verify_uac_payload.ps1"
+  #define UacVerifyArguments '-NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File "' + UacVerifier + '" -PayloadDir "' + AddBackslash(PayloadDir) + '."'
+  #if Exec(GetEnv("SystemRoot") + "\System32\WindowsPowerShell\v1.0\powershell.exe", UacVerifyArguments, SourcePath) != 0
+    #error UAC pilot payload verification failed. Run tools/codesign/verify_uac_payload.ps1 with mt.exe and dumpbin.exe on PATH for details.
   #endif
 #endif
 

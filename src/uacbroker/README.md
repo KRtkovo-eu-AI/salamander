@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Describe the installer compilation gate. | Require the signed application and broker to pass the payload verifier. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Document the paired protocol resource. | Fail before elevation or packaging if the pilot has stale binaries. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Document the signed UAC pilot installer. | Make payload inspection and packaging repeatable. | | GPT-6.1 Sol (Codex) |
 | 2026-11-07 | Document the protected P2 diagnostic pair. | Make startup and shutdown checks repeatable in the VM. | | GPT-6.1 Sol (Codex) |
@@ -36,7 +37,7 @@ All five P2 VM scenarios passed for the x64 pair built from ca70fb8c. The altern
 
 Use this installer in the isolated acceptance VM. Stage the standard x64 Release payload and copy the matching x64 Release uacbroker.exe from output/uac/Release_x64 to the payload root next to salamand.exe. The diagnostic probe is a separate test executable. Sign both images with the existing Certum release process after staging. Use the same signing certificate and timestamp both images.
 
-Run the following from the repository root with mt.exe and dumpbin.exe on PATH. The verifier also accepts their absolute paths via -Mt and -Dumpbin.
+Run the following from the repository root with mt.exe and dumpbin.exe on PATH. The first command provides detailed diagnostics and prints the hashes to record. The Inno Setup pilot profile runs the same verifier again during preprocessing and stops compilation on failure. Use an absolute payload path when running the commands from the repository root.
 
     powershell.exe -NoProfile -File tools/codesign/verify_uac_payload.ps1 -PayloadDir <payload>
     iscc.exe doc/runbook-setup/inno_setup_salamander_x64.iss /DUacBrokerPilot /DPayloadDir="<payload>"

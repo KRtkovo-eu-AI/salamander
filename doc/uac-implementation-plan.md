@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record installer-time verification of the UAC pair. | Fail the pilot build if payload validation fails. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record stricter Shell recycle path admission. | Avoid normalization aliases before queuing deletion. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record concurrent publication through two broker jobs. | Verify one winner and no lost sources on NTFS. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Document the UAC pilot for users and record Release regressions. | Separate supported operations from open release gates. | | GPT-6.1 Sol (Codex) |
@@ -1165,6 +1166,10 @@ Společná lokální kontrola x64 Release prošla 248 kontrolami souborového j�
 **Dvě souběžné úlohy nad jedním cílem.** Test spustí dva samostatné dispatchery nad pojmenovanými rourami a souběžně odešle dvě kopie z různých zdrojových rodičů pod stejný dosud volný Unicode název. Přesně jeden požadavek uspěje, druhý dostane kolizi, cíl odpovídá úspěšnému požadavku a oba zdroje zůstanou stejné. Prošlo všech 22 kontrol úloh v x64 Debug i Release a v obou konfiguracích prošla i samostatná kontrola transportu. Test vstupuje do dispatcheru po hranici autentizace a nesimuluje dvě systémové výzvy ani plánování v GUI.
 
 **Předání přesné cesty do Koše.** Běžné přesunutí do Koše i sonda ověřují cestu před předáním Shellu. Odmítají vložené NUL a řídicí znaky, neplatné oddělovače, prázdné komponenty, samotné kořeny a rezervovaná jména zařízení, která by po odstranění rozšířeného prefixu mohla změnit význam cesty. V x64 Debug i Release prošlo 20 regresí včetně skutečné recyklace zkušebních Unicode souborů a šest kontrol potvrzení Koše původního účtu a obnovy. Sonda schválení jiným správcem čeká na VM. [Pravidla pro názvy a jmenné prostory Windows](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file).
+
+**Ověření přímo při kompilaci instalátoru.** Profil UAC spouští při preprocessingu stejný přísný ověřovač, který kontroluje časově označené podpisy, shodu certifikátu, architekturu, manifesty, verzi protokolu a závislosti brokeru. Nenulový návratový kód ukončí sestavení. Ověřovač používá vestavěné moduly spuštěné verze PowerShellu i při zděděném vyhledávacím prostředí z PowerShellu 7.
+
+V Inno Setup 7.1.1 běžný profil prošel preprocessingem bez položky pro broker. Profil UAC ukončil kompilaci kódem 2 kvůli nepodepsané dvojici v cestě s mezerami. Samostatná laboratorní kontrola přijala dvojici s protokolem 5 a odmítla kombinaci 5 a 4. Kladná kompilace s podepsanou dvojicí, podpis výsledného instalátoru a jeho akceptace ve VM zůstávají otevřené. [Návratový kód preprocesoru při spuštění ověřovače](https://jrsoftware.org/is6help/topic_exec.htm).
 
 ## 12. Testovací strategie
 
