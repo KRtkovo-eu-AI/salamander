@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify F6 interruption on two NTFS volumes and in the post-publication UI. | Prove partial-move reporting while both files remain intact. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the timing limit of interactive F6 cancellation tests. | Separate a completed move from verified cancellation before publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify protected F6 completion after ordinary cross-volume copy. | Cover cancellation and approved source removal without replacing the destination. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify a protected F6 move above 4 GiB between NTFS volumes. | Exercise the native worker and elevated broker with a fully allocated file. | | GPT-6.1 Sol (Codex) |
@@ -1380,6 +1381,8 @@ Ke každé zkoušce zaznamenat revizi, verzi Windows a architekturu, typ účtu 
 **Zobrazení průběhu.** Běžná kopie ve F6 aktualizuje průběh stávajícím workerem. Když data přenáší broker, nativní okno průběhu zůstává otevřené a lze operaci zrušit. Aktuální broker neposílá průběžný počet přenesených bajtů. U takové položky worker posune ukazatel až po potvrzeném dokončení, což je vidět zejména při delším přenosu mezi svazky.
 
 **VM, pokusy o zrušení běžícího F6.** Na pilotu 10da008c byl ve dvou pokusech pozorován broker i pracovní soubor pro přesun 1,50 GiB z C: na E: v okamžiku, kdy cílové jméno ještě neexistovalo. První zrušení obsloužil uživatel. Ve druhém následovalo Cancel a Yes přes Computer Use. V obou případech zdroj zmizel a cílové jméno vzniklo. Druhý pokus ověřil správnou délku a SHA-256 výsledku a žádný zbylý pracovní soubor. Nativní okno během interakce stále zobrazovalo nulu. Zkouška neurčila pořadí potvrzeného zrušení a zveřejnění. Předčasné zrušení tak není prokázáno a výsledek nelze použít ani jako potvrzení závodu po zveřejnění. Pro obě fáze je potřeba řízený bod zastavení v laboratorním brokeru nebo jiný měřitelný okamžik doručení zrušení. Důkaz druhého běhu je v P7-F6/f6-cancel-retry-vm-evidence.json.
+
+**F6, řízené přerušení na dvou svazcích.** Nativní sonda použila rozdílné pevné svazky NTFS C: a E:. Prošlo 75 kontrol v každé konfiguraci x64 Debug a Release. Před zveřejněním potvrdila zrušení 1223 i odpojení 109, zachování zdroje a úklid pracovní kopie. Po zveřejnění potvrdila stejné dva stavy, zachování cíle a ponechání zdrojových odkazů před úklidem. Ve VM byl dále nasazen dočasný laboratorní broker odvozený z 10da008c s čekáním pouze pro dva určené názvy. U 06-p7-f6-after.txt byl cíl viditelný při živém brokeru. Cancel a Yes přes Computer Use vyvolaly hlášení, že dokončení přesunu nelze potvrdit. Zdroj i cíl měly stejný SHA-256, broker skončil a pracovní kopie nezůstala. První VM běh před zveřejněním vyčerpal 40sekundovou čekací dobu bez potvrzeného Cancel a korektně dokončil přesun. Opakování této fáze z panelu ještě zbývá. Důkazy jsou v P7-F6/f6-native-two-volume-*.log a P7-F6/f6-fault-after-evidence.json.
 
 ### 12.3 CI a přijetí vydání
 
