@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the full protocol 11 language payload. | Match packaged resources to the current sources and the accepted x64 pilot. | | Codex |
 | 2026-11-09 | Verify cancellation during F6 copy verification. | Cover the cancellation boundary after a verified block and before source retirement. | | Codex |
 | 2026-11-09 | Verify Win32 and ARM64 builds after Find cancellation and focus restoration. | Keep the architecture matrix aligned with the tested x64 candidate. | | Codex |
 | 2026-11-09 | Record targeted CodeQL and x64 payload verification after the Find and focus changes. | Verify the final local candidate against the current source and distribution gates. | | Codex |
@@ -1697,6 +1698,8 @@ Chráněné běhy zachytily 53 a 136 vzorků s aktivním brokerem. Rozdíl v jeh
 **P7, Win32 a ARM64 po změnách Findu a popředí.** Na revizi a7e9c42f se v Release sestavily aplikace, broker, sonda a anglický modul pro obě architektury. Laboratorní ověřovač potvrdil architekturu, manifesty, role, protokol 11 a odpovídající jazykový modul. Strojový typ i role sondy prošly samostatně. Ve Win32 pod WOW64 prošlo 62 kontrol, včetně odmítnutí skutečného starého brokeru a zrušení čekající odpovědi Findu. Pro ARM64 se sestavily tři testovací obrazy a ověřily se jejich hlavičky PE. Záznamy foreground-cross-architecture.json, foreground-win32-tests.log a foreground-arm64-tests-cross-build.log jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c. Nativní spuštění na ARM64, interaktivní zkouška nové úpravy Win32 a ověření podpisu zůstávají otevřené.
 
 **P7, zrušení během ověřování dokončení F6.** Místní nativní test na svazcích NTFS C: a E: odeslal signál Cancel skutečnou rourou po prvním ověřeném bloku. Ověření skončilo chybou 1223 před zpracováním zbytku. Původní jméno i zajištěný odkaz zdroje zůstaly a existující kopie si zachovala ID a obsah. Následující kontrola stejné kopie bez zrušení prošla. Debug i Release x64 prošly po 83 kontrolách. Záznamy f6-active-verify-Debug.log a f6-active-verify-Release.log jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c. Tato zkouška pokrývá nativní ověřování a signál Cancel. Vizuální kontrola průběhu v dialogu a měření paměti při chráněném dokončení zůstávají otevřené.
+
+**P7, úplná lokalizace kandidáta x64 s protokolem 11.** Laboratorní balíček obsahuje host a broker z ověřeného kandidáta dad2cf99, sondu a dvanáct jazykových modulů. Překladové zdroje se od sestavení ověřených modulů na revizi 700f8f3c nezměnily. Přímé čtení prostředků PE podle LANGID potvrdilo 65 zpráv UAC v každém modulu. Všech 780 textů se shoduje s anglickým zdrojem nebo příslušným překladovým archivem. Ověřovač v prostředí Windows PowerShell 5.1 potvrdil protokol 11, role, manifesty a architekturu i verzi všech modulů. Otisky všech 15 souborů a výsledky jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/payload-protocol11-languages. Vizuální kontrola lokalizovaných dialogů a ověření podpisů zbývají.
 
 ### 12.3 CI a přijetí vydání
 
