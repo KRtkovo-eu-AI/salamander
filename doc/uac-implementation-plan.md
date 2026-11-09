@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Add a two-volume test mode for guarded F6. | Exercise verified publication and recovery on distinct NTFS volumes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify stale overwrite rejection through the broker pipe. | Reject changed destinations before touching recovery state. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record installer-time verification of the UAC pair. | Fail the pilot build if payload validation fails. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record stricter Shell recycle path admission. | Avoid normalization aliases before queuing deletion. | | GPT-6.1 Sol (Codex) |
@@ -1173,6 +1174,10 @@ Společná lokální kontrola x64 Release prošla 248 kontrolami souborového j�
 V Inno Setup 7.1.1 běžný profil prošel preprocessingem bez položky pro broker. Profil UAC ukončil kompilaci kódem 2 kvůli nepodepsané dvojici v cestě s mezerami. Samostatná laboratorní kontrola přijala dvojici s protokolem 5 a odmítla kombinaci 5 a 4. Kladná kompilace s podepsanou dvojicí, podpis výsledného instalátoru a jeho akceptace ve VM zůstávají otevřené. [Návratový kód preprocesoru při spuštění ověřovače](https://jrsoftware.org/is6help/topic_exec.htm).
 
 **Změněný cíl po schválení přepisu.** Je-li aktuální revize cíle dostupná a liší se od schválené, broker odmítne přepis ještě před otevřením žurnálu. U chybějícího nebo nedostupného cíle zůstává postup obnovy dostupný. Před zveřejněním se dál ověřuje revize při otevření proti zápisu a smazání. Test přes pojmenovanou rouru odmítl dosazený soubor s novým ID i změnu atributů souboru se stejným ID a ověřil, že relace může po odmítnutí přijmout další požadavek. Prošlo 24 kontrol úloh, samostatná kontrola transportu a sestavení brokeru v x64 Debug i Release. Systémový souhlas a návrat do dialogu kolize se ověří společně ve VM.
+
+**Nativní zkouška F6 na dvou svazcích.** Příkaz `python -B src/tests/uac_directory_leaf_tests.py --configuration Release --move-source-probe --move-target-root E:/UacLab` použije dočasný zdroj na svazku TEMP a nový pracovní podadresář uvnitř existujícího zapisovatelného testovacího rodiče na druhém svazku. Test ověří dva různé GUID pevných svazků NTFS z otevřených handlů. Zdroj i žurnál zůstávají na prvním svazku. Zkouška použije druhý svazek pro zveřejnění cíle, pozdní kolizi, zrušení, odpojení, ověření potvrzeného cíle po znovuotevření žurnálu a kontroly komprese, řídké alokace a datových proudů.
+
+Na dostupném stroji prošlo 121 kontrol stávajícího režimu v x64 Debug i Release. Nový režim správně odmítl druhý adresář na témže svazku. Kladný běh vyžaduje druhý zapisovatelný svazek NTFS v izolované VM. Nativní zkouška nevyvolává UAC a nezastupuje interaktivní F6. [Požadavky pro připojení virtuálního disku](https://learn.microsoft.com/en-us/windows/win32/api/virtdisk/nf-virtdisk-attachvirtualdisk).
 
 ## 12. Testovací strategie
 

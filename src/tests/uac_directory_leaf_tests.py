@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Accept a separate NTFS fixture root for F6. | Exercise move publication and recovery without touching existing files. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Accept an existing EFS fixture in the native suite. | Avoid creating a certificate during automated testing. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Link COM interface identifiers for Find stream tests. | Exercise the host stream using the native suite. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Add an optional NTFS source-retirement probe. | Verify the boundary of a held source handle. | | GPT-6.1 Sol (Codex) |
@@ -25,7 +26,10 @@ def main():
     mode.add_argument("--overwrite-probe", action="store_true")
     mode.add_argument("--move-source-probe", action="store_true")
     mode.add_argument("--efs-source", type=Path, help="existing encrypted lab file readable by the current account")
+    parser.add_argument("--move-target-root", type=Path, help="writable fixture parent on a different fixed NTFS volume")
     args = parser.parse_args()
+    if args.move_target_root and not args.move_source_probe:
+        parser.error("--move-target-root requires --move-source-probe")
     env = compiler_environment()
     compiler = shutil.which("cl", path=env.get("PATH"))
     flags = ("/MTd", "/Od", "/D_DEBUG") if args.configuration == "Debug" else ("/MT", "/O2", "/DNDEBUG")
@@ -64,6 +68,13 @@ def main():
                 arguments.append("--move-source-probe")
             if args.efs_source:
                 arguments.extend(("--efs-source", str(args.efs_source.resolve(strict=True))))
+            if args.move_target_root:
+                parent = args.move_target_root.resolve(strict=True)
+                with tempfile.TemporaryDirectory(prefix="uac-move-target-", dir=parent) as target:
+                    owned = Path(target).resolve(strict=True)
+                    if owned.parent != parent:
+                        raise ValueError("F6 target fixture is outside its requested parent")
+                    return run([*arguments, str(owned)], cwd=folder, env=env, timeout=30).returncode
             return run(arguments, cwd=folder, env=env, timeout=15).returncode
         finally:
             junction.rmdir()

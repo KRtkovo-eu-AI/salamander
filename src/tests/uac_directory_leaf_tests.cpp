@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Run guarded F6 publication on a separate test volume. | Verify destination receipts against a distinct NTFS volume. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise F6 beyond the F5 byte budget. | Copy a named stream across many blocks without changing the F5 limit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise F6 publication and retirement with named streams. | Verify the entire copy from the guarded source through the last unlink. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify one lock set against the complete named-stream inventory. | Refuse an earlier writer and notice late stream creation before retirement. | | GPT-6.1 Sol (Codex) |
@@ -1628,7 +1629,7 @@ bool CheckMoveSourceRecoveryLink(const std::wstring& fixture, HANDLE root)
     return failures == 0;
 }
 
-bool CheckMoveSourceJournal(const std::wstring& fixture)
+bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& targetFixture = {})
 {
     using namespace UacMoveSourceJournal;
     using namespace UacRenameLeaf::Detail;
@@ -1651,6 +1652,25 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
     const auto parent = openDirectory(originalDirectory);
     const auto storage = openDirectory(storageDirectory);
     const auto wrongParent = openDirectory(wrongDirectory);
+    const auto targetDirectory = targetFixture.empty() ? wrongDirectory : targetFixture + L"\\move-target";
+    Handle alternateTarget;
+    if (!targetFixture.empty())
+    {
+        if (!CreateDirectoryW(targetDirectory.c_str(), &attributes))
+            return false;
+        alternateTarget = openDirectory(targetDirectory);
+        UacDirectoryLeaf::ParentIdentity from, to;
+        const bool distinct = parent && alternateTarget &&
+            !UacDirectoryLeaf::ReadParentIdentity(parent.get(), from) &&
+            !UacDirectoryLeaf::ReadParentIdentity(alternateTarget.get(), to) &&
+            !UacDirectoryLeaf::Equal(from.volume, to.volume) &&
+            GetDriveTypeW((from.volume + L"\\").c_str()) == DRIVE_FIXED &&
+            GetDriveTypeW((to.volume + L"\\").c_str()) == DRIVE_FIXED;
+        Check(distinct, "use two different fixed NTFS volumes for the F6 test");
+        if (!distinct)
+            return false;
+    }
+    const HANDLE destinationParent = alternateTarget ? alternateTarget.get() : wrongParent.get();
     const auto journalPath = storageDirectory + L"\\journal";
     auto openJournal = [&](DWORD disposition) {
         const HANDLE raw = CreateFileW(journalPath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, &attributes,
@@ -1883,15 +1903,15 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
         if (error)
             return false;
         UacDirectoryLeaf::ParentIdentity targetParent;
-        if (UacDirectoryLeaf::ReadParentIdentity(wrongParent.get(), targetParent))
+        if (UacDirectoryLeaf::ReadParentIdentity(destinationParent, targetParent))
             return false;
         constexpr wchar_t targetLeaf[] = L"pinned-\u6771-copy";
-        const auto targetPath = wrongDirectory + L"\\" + targetLeaf;
-        const auto rivalPath = wrongDirectory + L"\\move-rival";
+        const auto targetPath = targetDirectory + L"\\" + targetLeaf;
+        const auto rivalPath = targetDirectory + L"\\move-rival";
         UacMoveSourceJournal::Detail::Handle target(nullptr, CloseHandle);
         FILE_ID_INFO targetId{};
         const auto publish = [&](HANDLE cancel = nullptr) {
-            return guard.PublishCopy(wrongParent.get(), targetParent, targetLeaf, moveContent.size(),
+            return guard.PublishCopy(destinationParent, targetParent, targetLeaf, moveContent.size(),
                                      cancel, nullptr, MAXULONGLONG, target, targetId);
         };
         const Handle cancelled(CreateEventW(nullptr, TRUE, TRUE, nullptr));
@@ -1920,10 +1940,10 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
         error = ReplaceForProbe(rival.get(), targetPath, true);
         Check(error == ERROR_SHARING_VIOLATION && !guard.Check(2),
               "the pinned destination refuses replacement while the source is still protected", error);
-        error = RememberDestination(journal.get(), security.get(), expected, wrongParent.get(), L"wrong-name",
+        error = RememberDestination(journal.get(), security.get(), expected, destinationParent, L"wrong-name",
                                     target.get(), targetId);
         Check(error == ERROR_FILE_INVALID, "refuse to record a published file under a different name", error);
-        error = RememberDestination(journal.get(), security.get(), expected, wrongParent.get(), targetLeaf,
+        error = RememberDestination(journal.get(), security.get(), expected, destinationParent, targetLeaf,
                                     target.get(), targetId);
         Check(!error, "flush the receipt for the still-pinned destination", error);
         if (error)
@@ -1949,16 +1969,16 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
     retained = storageDirectory + L"\\" + name;
     source.reset();
     constexpr wchar_t completedLeaf[] = L"committed-\u6771";
-    const auto completed = wrongDirectory + L"\\" + completedLeaf;
-    const auto movedTarget = wrongDirectory + L"\\original-published-target";
+    const auto completed = targetDirectory + L"\\" + completedLeaf;
+    const auto movedTarget = targetDirectory + L"\\original-published-target";
     {
         SourceGuard guard;
         UacDirectoryLeaf::ParentIdentity targetParent;
         if (guard.Open(parent.get(), leaf, expected, 2) ||
-            UacDirectoryLeaf::ReadParentIdentity(wrongParent.get(), targetParent))
+            UacDirectoryLeaf::ReadParentIdentity(destinationParent, targetParent))
             return false;
         constexpr wchar_t existingLeaf[] = L"already-copied-\u6771";
-        const auto existingPath = wrongDirectory + L"\\" + existingLeaf;
+        const auto existingPath = targetDirectory + L"\\" + existingLeaf;
         auto different = moveContent;
         different.back() ^= 1;
         FILETIME lastWrite{};
@@ -1981,7 +2001,7 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
                     return false;
             }
             HANDLE rawCopy = nullptr;
-            error = OpenSource(wrongParent.get(), existingLeaf, rawCopy, FILE_READ_DATA | FILE_READ_EA | FILE_WRITE_DATA, 0);
+            error = OpenSource(destinationParent, existingLeaf, rawCopy, FILE_READ_DATA | FILE_READ_EA | FILE_WRITE_DATA, 0);
             {
                 const Handle existingCopy(rawCopy);
                 FILE_ID_INFO reopened{};
@@ -1996,7 +2016,7 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
         }
         UacMoveSourceJournal::Detail::Handle target(nullptr, CloseHandle);
         FILE_ID_INFO targetId{};
-        error = guard.PublishCopy(wrongParent.get(), targetParent, completedLeaf, moveContent.size(), nullptr,
+        error = guard.PublishCopy(destinationParent, targetParent, completedLeaf, moveContent.size(), nullptr,
                                   nullptr, MAXULONGLONG, target, targetId);
         if (error)
             return false;
@@ -2005,7 +2025,7 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
             return false;
         auto retire = [&](HANDLE cancel = nullptr, HANDLE connection = nullptr) {
             return guard.RetirePublishedSource(parent.get(), storage.get(), journal.get(), security.get(),
-                wrongParent.get(), completedLeaf, target.get(), targetId, cancel, connection, MAXULONGLONG);
+                destinationParent, completedLeaf, target.get(), targetId, cancel, connection, MAXULONGLONG);
         };
         error = retire(cancelled.get());
         Check(error == ERROR_CANCELLED && !guard.Check(2) && Exists(sourcePath) && Exists(retained),
@@ -2095,12 +2115,12 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
     if (error)
         return false;
     UacDirectoryLeaf::ParentIdentity targetParent;
-    if (UacDirectoryLeaf::ReadParentIdentity(wrongParent.get(), targetParent))
+    if (UacDirectoryLeaf::ReadParentIdentity(destinationParent, targetParent))
         return false;
     constexpr wchar_t denseLeaf[] = L"dense-candidate.bin";
-    const auto densePath = wrongDirectory + L"\\" + denseLeaf;
+    const auto densePath = targetDirectory + L"\\" + denseLeaf;
     if (!WriteFixture(densePath, sparseBytes) ||
-        OpenSource(wrongParent.get(), denseLeaf, raw, FILE_READ_DATA | FILE_READ_EA | FILE_WRITE_DATA, 0))
+        OpenSource(destinationParent, denseLeaf, raw, FILE_READ_DATA | FILE_READ_EA | FILE_WRITE_DATA, 0))
         return false;
     {
         const Handle dense(raw);
@@ -2110,10 +2130,10 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
     }
 
     constexpr wchar_t sparseLeaf[] = L"sparse-move.bin";
-    const auto sparsePath = wrongDirectory + L"\\" + sparseLeaf;
+    const auto sparsePath = targetDirectory + L"\\" + sparseLeaf;
     UacMoveSourceJournal::Detail::Handle sparseTarget(nullptr, CloseHandle);
     FILE_ID_INFO sparseTargetId{};
-    error = guard.PublishCopy(wrongParent.get(), targetParent, sparseLeaf, sparseSize,
+    error = guard.PublishCopy(destinationParent, targetParent, sparseLeaf, sparseSize,
                              nullptr, nullptr, MAXULONGLONG, sparseTarget, sparseTargetId);
     Check(!error && sparseTarget && !guard.Check(2), "publish sparse extents while the source is sealed", error);
     if (error)
@@ -2129,7 +2149,7 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
                               &extent, sizeof(extent), &extentBytes, nullptr) && extentBytes == 0,
           "keep the sparse flag and an unallocated range in the pinned destination");
     error = guard.RetirePublishedSource(parent.get(), storage.get(), journal.get(), security.get(),
-        wrongParent.get(), sparseLeaf, sparseTarget.get(), sparseTargetId, nullptr, nullptr, MAXULONGLONG);
+        destinationParent, sparseLeaf, sparseTarget.get(), sparseTargetId, nullptr, nullptr, MAXULONGLONG);
     sparseTarget.reset();
     Check(!error && !Exists(sourcePath) && !Exists(storageDirectory + L"\\" + name) && HasContents(sparsePath, sparseBytes),
           "retire the sparse source only after preserving its logical contents", error);
@@ -2201,11 +2221,11 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
     if (error)
         return false;
     constexpr wchar_t compressedLeaf[] = L"compressed-\u6771.bin";
-    const auto compressedPath = wrongDirectory + L"\\" + compressedLeaf;
+    const auto compressedPath = targetDirectory + L"\\" + compressedLeaf;
     UacMoveSourceJournal::Detail::Handle compressedTarget(nullptr, CloseHandle);
     FILE_ID_INFO compressedTargetId{};
     const auto publishCompressed = [&] {
-        return compressedGuard.PublishCopy(wrongParent.get(), targetParent, compressedLeaf, compressedBytes.size(),
+        return compressedGuard.PublishCopy(destinationParent, targetParent, compressedLeaf, compressedBytes.size(),
             nullptr, nullptr, MAXULONGLONG, compressedTarget, compressedTargetId);
     };
     if (!WriteFixture(compressedPath, {9}))
@@ -2226,7 +2246,7 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
               compressedMetadata.FileAttributes == compressedAttributes,
           "publish a pinned LZNT1 destination with the source attributes");
     error = compressedGuard.RetirePublishedSource(parent.get(), storage.get(), journal.get(), security.get(),
-        wrongParent.get(), compressedLeaf, compressedTarget.get(), compressedTargetId, nullptr, nullptr, MAXULONGLONG);
+        destinationParent, compressedLeaf, compressedTarget.get(), compressedTargetId, nullptr, nullptr, MAXULONGLONG);
     compressedTarget.reset();
     Check(!error && !Exists(sourcePath) && !Exists(storageDirectory + L"\\" + name) &&
               HasContents(compressedPath, compressedBytes), "retire the compressed source after complete publication", error);
@@ -2262,11 +2282,11 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
         return false;
     }
     constexpr wchar_t namedLeaf[] = L"named-move.bin";
-    const auto namedPath = wrongDirectory + L"\\" + namedLeaf;
+    const auto namedPath = targetDirectory + L"\\" + namedLeaf;
     UacMoveSourceJournal::Detail::Handle namedTarget(nullptr, CloseHandle);
     FILE_ID_INFO namedTargetId{};
     const auto publishNamed = [&] {
-        return namedGuard.PublishCopy(wrongParent.get(), targetParent, namedLeaf, 2,
+        return namedGuard.PublishCopy(destinationParent, targetParent, namedLeaf, 2,
             nullptr, nullptr, MAXULONGLONG, namedTarget, namedTargetId);
     };
     error = publishNamed();
@@ -2286,7 +2306,7 @@ bool CheckMoveSourceJournal(const std::wstring& fixture)
     if (error)
         return false;
     error = namedGuard.RetirePublishedSource(parent.get(), storage.get(), journal.get(), security.get(),
-        wrongParent.get(), namedLeaf, namedTarget.get(), namedTargetId, nullptr, nullptr, MAXULONGLONG);
+        destinationParent, namedLeaf, namedTarget.get(), namedTargetId, nullptr, nullptr, MAXULONGLONG);
     namedTarget.reset();
     Check(!error && !Exists(sourcePath) && !Exists(storageDirectory + L"\\" + name) &&
               HasContents(namedPath, {2, 3}) && HasContents(namedPath + namedSuffix, namedPayload) &&
@@ -3293,8 +3313,9 @@ int wmain(int argc, wchar_t** argv)
     const bool high = argc == 3 && std::wstring_view(argv[2]) == L"--high-integrity";
     const bool overwrite = argc == 3 && std::wstring_view(argv[2]) == L"--overwrite-probe";
     const bool moveSource = argc == 3 && std::wstring_view(argv[2]) == L"--move-source-probe";
+    const bool twoVolumes = argc == 4 && std::wstring_view(argv[2]) == L"--move-source-probe";
     const bool efsRaw = argc == 4 && std::wstring_view(argv[2]) == L"--efs-source";
-    if (argc != 2 && !high && !overwrite && !moveSource && !efsRaw)
+    if (argc != 2 && !high && !overwrite && !moveSource && !twoVolumes && !efsRaw)
         return 2;
     const std::wstring fixture = L"\\\\?\\" + std::wstring(argv[1]);
     if (overwrite)
@@ -3308,6 +3329,8 @@ int wmain(int argc, wchar_t** argv)
     if (rawRoot == INVALID_HANDLE_VALUE)
         return 2;
     const Handle root(rawRoot);
+    if (twoVolumes)
+        return CheckMoveSourceJournal(fixture, LR"(\\?\)" + std::wstring(argv[3])) ? 0 : 1;
     if (moveSource)
         return CheckMoveSource(fixture, root.get()) && CheckMoveSourceGuards(fixture, root.get()) &&
                        CheckMoveSourceExtendedAttributeGuard(fixture, root.get()) && CheckMoveSourceOplock(fixture) &&
