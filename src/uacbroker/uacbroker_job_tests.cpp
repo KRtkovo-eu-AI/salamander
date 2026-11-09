@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Disconnect one of two protected Find content sessions. | Verify the other broker session continues reading. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise nonlocal volume names on the broker pipe. | Reject UNC and device aliases before copying or moving any file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Reject malformed transfer progress on a live pipe. | Keep invalid progress out of the worker and require a terminal result. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Check the expanded progress wire frame. | Preserve the 64-bit cancellation and terminal reply regression. | | GPT-6.1 Sol (Codex) |
@@ -97,7 +98,7 @@ class JobPipe
 public:
     ~JobPipe() { Finish(); }
 
-    bool Open(HANDLE readyToDispatch = nullptr)
+    bool Open(HANDLE readyToDispatch = nullptr, HANDLE findRoot = nullptr)
     {
         GUID id{};
         if (FAILED(CoCreateGuid(&id)))
@@ -108,7 +109,7 @@ public:
             1, 4096, 4096, 0, nullptr));
         if (!server)
             return false;
-        dispatcher = std::thread([this, name, readyToDispatch] {
+        dispatcher = std::thread([this, name, readyToDispatch, findRoot] {
             const ComApartment com;
             if (FAILED(com.result))
                 return;
@@ -116,6 +117,11 @@ public:
             if (peer && ExpectedPipePeer(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), true) &&
                 (!readyToDispatch || WaitForSingleObject(readyToDispatch, timeoutMs) == WAIT_OBJECT_0))
             {
+                if (findRoot)
+                {
+                    dispatchError = ServeListings(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), findRoot, Operation::FindContent);
+                    return;
+                }
                 const InstallLocation install;
                 dispatchError = ServeTransferJob(install, peer.get(), GetCurrentProcess(), GetCurrentProcessId(),
                                                  GetTickCount64() + timeoutMs);
@@ -187,6 +193,34 @@ public:
         return !TransferRequest(server.get(), &result, sizeof(result), false, deadline);
     }
 
+    bool OpenFindContent(std::wstring_view leaf)
+    {
+        DWORD length = static_cast<DWORD>(leaf.size()) | UacListing::contentRequest;
+        std::wstring relative(leaf);
+        DWORD status = ERROR_GEN_FAILURE;
+        UacF7::ArchiveRevision revision{};
+        const auto deadline = GetTickCount64() + timeoutMs;
+        return !TransferRequest(server.get(), &length, sizeof(length), true, deadline) &&
+               !TransferRequest(server.get(), relative.data(), static_cast<DWORD>(relative.size() * sizeof(wchar_t)), true, deadline) &&
+               !TransferRequest(server.get(), &status, sizeof(status), false, deadline) && !status &&
+               !TransferRequest(server.get(), &revision, sizeof(revision), false, deadline) && revision.size == 1;
+    }
+
+    bool ReadAndCloseFindContent(BYTE expected)
+    {
+        UacF7::ArchiveReadRange range{0, 1, 0};
+        DWORD status = ERROR_GEN_FAILURE;
+        BYTE actual = 0;
+        const auto deadline = GetTickCount64() + timeoutMs;
+        if (TransferRequest(server.get(), &range, sizeof(range), true, deadline) ||
+            TransferRequest(server.get(), &status, sizeof(status), false, deadline) || status ||
+            TransferRequest(server.get(), &actual, sizeof(actual), false, deadline) || actual != expected)
+            return false;
+        range = {};
+        return !TransferRequest(server.get(), &range, sizeof(range), true, deadline) &&
+               !TransferRequest(server.get(), &status, sizeof(status), false, deadline) && !status;
+    }
+
 private:
     Handle server;
     std::thread dispatcher;
@@ -196,6 +230,23 @@ private:
 bool IsAbsent(const std::wstring& path)
 {
     return GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND;
+}
+
+void CheckFindContentDisconnect(const Directory& first, const Directory& second)
+{
+    constexpr wchar_t leaf[] = L"\u6771-find-content";
+    JobPipe interrupted, remaining;
+    if (!WriteByte(first.File(leaf), 17) || !WriteByte(second.File(leaf), 23) ||
+        !interrupted.Open(nullptr, first.handle.get()) || !remaining.Open(nullptr, second.handle.get()) ||
+        !interrupted.OpenFindContent(leaf) || !remaining.OpenFindContent(leaf))
+    {
+        Check(false, "prepare two live scoped Find content streams");
+        return;
+    }
+    Check(interrupted.Finish() == ERROR_BROKEN_PIPE, "a disconnected Find content stream ends its scoped session");
+    Check(remaining.ReadAndCloseFindContent(23) && remaining.OpenFindContent(leaf) &&
+              remaining.ReadAndCloseFindContent(23),
+          "another Find session reads the correct file and remains usable after the disconnect");
 }
 
 void CheckCopyJob(const Directory& source, const Directory& target, const Directory& outside)
@@ -697,6 +748,7 @@ int wmain()
     Directory source, target, outside;
     if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
         return 2;
+    CheckFindContentDisconnect(source, outside);
     CheckCopyJob(source, target, outside);
     CheckCompetingCopyJobs(source, outside, target);
     CheckStaleOverwriteJob(source, target);

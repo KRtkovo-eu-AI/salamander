@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise a disconnected Find content stream on a live pipe. | Verify another scoped session can still return content. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the encrypted copy’s EFS recipients. | Confirm that copying did not add the approving administrator or a recovery key. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the original account can read both EFS files. | Confirm the protected copy keeps the key holder’s access and matching content. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify combined Find predicates and duplicates in the VM. | Keep accessible and approved matches after an independent denied scope. | | GPT-6.1 Sol (Codex) |
@@ -1484,6 +1485,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, připravené odpojení Findu.** Laboratorní broker byl ověřen s kandidátem 7b0826d7 jako pár x64 s protokolem 10. Přerušení je omezené na první blok čtení kandidáta ve větvi 02-deny z přesné testovací složky, po úspěšném otevření položky. Ostatní požadavky používají běžnou cestu. Skript Invoke-P7FindFault.ps1 ověří otisky pro dočasnou výměnu a návrat běžného brokeru. Laboratorní sestavení je mimo větev a ve VM zůstává běžný broker.
 
 **P7, ověření příjemců EFS.** QueryUsersOnEncryptedFile a QueryRecoveryAgentsOnEncryptedFile uspěly na obou zkušebních souborech. Zdroj a chráněná kopie měly shodný otisk certifikátu a jediným příjemcem byl původní standardní účet. Ani jeden soubor neměl obnovovacího agenta. Vedle čtení pod původním účtem a odmítnutí běžného čtení schvalujícím účtem tak existuje nezávislé potvrzení, že kopie nepřidala příjemce nebo obnovovací klíč. Důkaz je v P7-EFS/efs-recipients.json. Přímá zkouška čtení pod zvýšeným tokenem zůstává samostatným krokem. [Příjemci EFS](https://learn.microsoft.com/en-us/windows/win32/api/winefs/nf-winefs-queryusersonencryptedfile) · [Obnovovací agenti](https://learn.microsoft.com/en-us/windows/win32/api/winefs/nf-winefs-queryrecoveryagentsonencryptedfile).
+
+**P7, nezávislost relací Findu při výpadku.** Lokální test x64 Debug i Release otevřel dva obsahové streamy přes samostatné roury pro stejný název s odlišným obsahem ve dvou kořenech. Po odpojení první roury její brokerová relace skončila chybou 109. Druhá relace vrátila správný obsah, uzavřela stream a znovu jej otevřela a přečetla. Test volá produkční obsluhu požadavků bez elevace. Zobrazení výsledků a protokolu Findu při stejném výpadku zbývá ověřit v izolované VM.
 
 ### 12.3 CI a přijetí vydání
 
