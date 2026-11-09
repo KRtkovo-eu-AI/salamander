@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-09 | Remove an extra closing brace in conflict status update. | Fix C2059/C2143/C2447 syntax errors caused by a stray brace that closed the selectedCount block too early. | | nvidia/nemotron-3.5-super-vl:free |
+// | 2026-11-09 | Read association targets from the selected catalog item. | Keep Target ID identity and target kind coupled through Apply instead of relying on combo row positions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Apply association overrides to the selected pattern set. | Avoid focusing an unrelated association after bulk Apply and retain the intended user target over every default candidate. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Give user overrides precedence over retained association conflicts. | Show the selected target after Apply and clear conflict state when a user choice overrides its exact pattern and action. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Commit association detail Apply changes immediately. | Preserve the selected row as the edit base and persist resolved plugin conflicts through the active configuration storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -4517,7 +4518,19 @@ void CCfgPageFileAssociations::LoadSelectedControls()
     for (size_t i = 0; i < TargetCatalog.size(); ++i)
         if (TargetCatalog[i].StableId == item.AssociationTarget.StableId &&
             TargetCatalog[i].DisplayLabel == item.AssociationTarget.DisplayLabel)
-            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_SETCURSEL, i, 0);
+        {
+            const int catalogCount = static_cast<int>(SendDlgItemMessage(
+                HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETCOUNT, 0, 0));
+            for (int comboIndex = 0; comboIndex < catalogCount; ++comboIndex)
+                if (static_cast<int>(SendDlgItemMessage(
+                        HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETITEMDATA,
+                        comboIndex, 0)) == static_cast<int>(i))
+                {
+                    SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
+                                       CB_SETCURSEL, comboIndex, 0);
+                    break;
+                }
+        }
     const Salamander::FileAssociations::Association* conflictItem = NULL;
     if (selectedCount <= 1)
     {
@@ -4673,32 +4686,39 @@ BOOL CCfgPageFileAssociations::ReadControls(
     const int selectedTargetItem = static_cast<int>(SendDlgItemMessage(
         HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA,
         SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETCURSEL, 0, 0), 0));
-    item.AssociationTarget.Kind = selectedTargetItem == FileAssociationTargetExtensionsChoice
-        ? Salamander::FileAssociations::TargetKind::Plugin
-        : static_cast<Salamander::FileAssociations::TargetKind>(selectedTargetItem);
-    int targetIndex = static_cast<int>(SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
-                                                          CB_GETCURSEL, 0, 0));
-    if (targetIndex >= 0 && targetIndex < static_cast<int>(TargetCatalog.size()) &&
-        !TargetCatalog[targetIndex].StableId.empty())
+    const int catalogSelection = static_cast<int>(SendDlgItemMessage(
+        HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETCURSEL, 0, 0));
+    const int catalogItem = catalogSelection >= 0
+        ? static_cast<int>(SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
+                                              CB_GETITEMDATA, catalogSelection, 0))
+        : -1;
+    const bool catalogItemValid = catalogItem >= 0 &&
+                                  catalogItem < static_cast<int>(TargetCatalog.size());
+    const Salamander::FileAssociations::TargetKind requestedKind =
+        selectedTargetItem == FileAssociationTargetExtensionsChoice
+            ? Salamander::FileAssociations::TargetKind::Plugin
+            : static_cast<Salamander::FileAssociations::TargetKind>(selectedTargetItem);
+    item.AssociationTarget.Kind = catalogItemValid
+        ? TargetCatalog[catalogItem].Kind : requestedKind;
+    if (catalogItemValid)
     {
-        item.AssociationTarget.StableId = TargetCatalog[targetIndex].StableId;
-        item.AssociationTarget.DisplayLabel = TargetCatalog[targetIndex].DisplayLabel;
+        item.AssociationTarget.StableId = TargetCatalog[catalogItem].StableId;
+        item.AssociationTarget.DisplayLabel = TargetCatalog[catalogItem].DisplayLabel;
     }
     else if (previousTargetKind == item.AssociationTarget.Kind &&
              (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin ||
               item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::CustomViewer ||
               item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::CustomEditor) &&
              !previousStableId.empty())
+    {
         item.AssociationTarget.StableId = previousStableId;
-    else
-        item.AssociationTarget.StableId.clear();
-    if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Unassigned)
-        item.AssociationTarget.StableId.clear();
-    if (previousTargetKind != item.AssociationTarget.Kind ||
-        previousStableId != item.AssociationTarget.StableId)
         item.AssociationTarget.DisplayLabel.clear();
-    if (targetIndex >= 0 && targetIndex < static_cast<int>(TargetCatalog.size()))
-        item.AssociationTarget.DisplayLabel = TargetCatalog[targetIndex].DisplayLabel;
+    }
+    else
+    {
+        item.AssociationTarget.StableId.clear();
+        item.AssociationTarget.DisplayLabel.clear();
+    }
     if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin &&
         item.AssociationTarget.StableId.empty())
     {
