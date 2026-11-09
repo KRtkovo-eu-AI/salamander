@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-09 | Remove an extra closing brace in conflict status update. | Fix C2059/C2143/C2447 syntax errors caused by a stray brace that closed the selectedCount block too early. | | nvidia/nemotron-3.5-super-vl:free |
+// | 2026-11-09 | Apply association overrides to the selected pattern set. | Avoid focusing an unrelated association after bulk Apply and retain the intended user target over every default candidate. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Give user overrides precedence over retained association conflicts. | Show the selected target after Apply and clear conflict state when a user choice overrides its exact pattern and action. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Commit association detail Apply changes immediately. | Preserve the selected row as the edit base and persist resolved plugin conflicts through the active configuration storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Qualify the Win32 GetParent call in conflict status painting. | Avoid resolving GetParent to the CDialog member overload during compilation. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -5824,8 +5825,22 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                     selectedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
                     selectedPatterns.push_back(MatrixRows[selectedItem.lParam].Pattern);
             }
+            const bool multiSelect =
+                ListView_GetSelectedCount(matrix) > 1 && selectedPatterns.size() > 1;
+            std::string focusedPattern = normalizedPattern;
+            if (multiSelect && SelectedMatrixRow >= 0 &&
+                SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
+                focusedPattern = MatrixRows[SelectedMatrixRow].Pattern;
+            if (!multiSelect)
+            {
+                selectedPatterns.clear();
+                selectedPatterns.push_back(normalizedPattern);
+            }
+            if (selectedPatterns.empty())
+                selectedPatterns.push_back(normalizedPattern);
+
             const std::vector<Salamander::FileAssociations::Association> originalRows = Rows;
-            const auto commitAppliedRows = [this, &originalRows]() -> bool
+            const auto commitAppliedRows = [this, &originalRows, &focusedPattern, &item]() -> bool
             {
                 Salamander::FileAssociations::CFileAssociationModel candidate;
                 std::string commitError;
@@ -5853,78 +5868,45 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                     return false;
                 }
                 Rows = candidate.Associations();
+                Selected = -1;
+                for (size_t i = Rows.size(); i > 0; --i)
+                    if (Rows[i - 1].Pattern == focusedPattern &&
+                        Rows[i - 1].AssociationCategory == item.AssociationCategory &&
+                        Rows[i - 1].Operation == item.Operation &&
+                        Rows[i - 1].AssociationProvenance ==
+                            Salamander::FileAssociations::Provenance::User)
+                    {
+                        Selected = static_cast<int>(i - 1);
+                        break;
+                    }
+                if (Selected < 0)
+                    Selected = static_cast<int>(Rows.size()) - 1;
                 RefreshList();
                 return true;
             };
-            if (SelectedMatrixRow >= 0 && SelectedMatrixRow < static_cast<int>(MatrixRows.size()) &&
-                MatrixRows[SelectedMatrixRow].Conflict && selectedPatterns.size() <= 1)
+            for (size_t p = 0; p < selectedPatterns.size(); ++p)
             {
-                // Keep the competing defaults so Reset can restore them. The
-                // user row takes precedence in the matrix and suppresses this
-                // conflict for the exact action it overrides.
-                item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
-                item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
-                Rows.push_back(item);
-                Selected = static_cast<int>(Rows.size()) - 1;
-                commitAppliedRows();
-                break;
-            }
-            if (selectedPatterns.size() > 1)
-            {
-                for (size_t p = 0; p < selectedPatterns.size(); ++p)
+                Salamander::FileAssociations::Association overrideItem = item;
+                overrideItem.Pattern = selectedPatterns[p];
+                overrideItem.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
+                overrideItem.SourceProvenance = Salamander::FileAssociations::Provenance::User;
+
+                bool replacedUserOverride = false;
+                for (size_t i = Rows.size(); i > 0; --i)
                 {
-                    Salamander::FileAssociations::Association bulkItem = item;
-                    bulkItem.Pattern = selectedPatterns[p];
-                    bool replaced = false;
-                    for (size_t i = 0; i < Rows.size(); ++i)
+                    Salamander::FileAssociations::Association& existing = Rows[i - 1];
+                    if (existing.Pattern == overrideItem.Pattern &&
+                        existing.AssociationCategory == overrideItem.AssociationCategory &&
+                        existing.Operation == overrideItem.Operation &&
+                        (existing.AssociationProvenance == Salamander::FileAssociations::Provenance::User ||
+                         existing.AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled))
                     {
-                        if (Rows[i].Pattern == bulkItem.Pattern &&
-                            Rows[i].AssociationCategory == bulkItem.AssociationCategory &&
-                            Rows[i].Operation == bulkItem.Operation)
-                        {
-                            if (Rows[i].AssociationProvenance == Salamander::FileAssociations::Provenance::Default ||
-                                Rows[i].AssociationProvenance == Salamander::FileAssociations::Provenance::Legacy)
-                                Rows.push_back(bulkItem);
-                            else
-                                Rows[i] = bulkItem;
-                            replaced = true;
-                            break;
-                        }
+                        existing = overrideItem;
+                        replacedUserOverride = true;
                     }
-                    if (!replaced)
-                        Rows.push_back(bulkItem);
                 }
-                Selected = static_cast<int>(Rows.size()) - 1;
-                commitAppliedRows();
-                break;
-            }
-            const bool canUpdate =
-                Selected >= 0 && Selected < static_cast<int>(Rows.size()) &&
-                normalizedPattern == Rows[Selected].Pattern &&
-                item.AssociationCategory == Rows[Selected].AssociationCategory &&
-                item.Operation == Rows[Selected].Operation;
-            if (canUpdate)
-            {
-                const Salamander::FileAssociations::Provenance previousProvenance =
-                    Rows[Selected].AssociationProvenance;
-                item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
-                item.SourceProvenance = Rows[Selected].SourceProvenance;
-                if (previousProvenance == Salamander::FileAssociations::Provenance::Default ||
-                    previousProvenance == Salamander::FileAssociations::Provenance::Legacy)
-                {
-                    // Keep the shipped/imported row so Reset can reveal it again.
-                    Rows.push_back(item);
-                    Selected = static_cast<int>(Rows.size()) - 1;
-                }
-                else
-                    Rows[Selected] = item;
-            }
-            else
-            {
-                item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
-                item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
-                Rows.push_back(item);
-                Selected = static_cast<int>(Rows.size()) - 1;
+                if (!replacedUserOverride)
+                    Rows.push_back(overrideItem);
             }
             commitAppliedRows();
             break;
