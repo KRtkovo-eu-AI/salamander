@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Calculate native transfer progress without overflowing. | Keep the exact bar value for large F6 operations and batch totals. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Mark active elevated transfers in the progress caption. | Keep ordinary transfers on the existing icon. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Show tree and EFS import progress. | Reuse the native transfer bars with an explicit broker total. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Show broker byte counts in the existing progress dialog. | Count completed work only after the terminal result. | | GPT-6.1 Sol (Codex) |
@@ -2328,7 +2329,31 @@ void SetProgressDialog(HWND hProgressDlg, CProgressData* data, CProgressDlgData&
 
 int CaclProg(const CQuadWord& progressCurrent, const CQuadWord& progressTotal)
 {
-    return progressCurrent >= progressTotal ? (progressTotal.Value == 0 ? 0 : 1000) : (int)((progressCurrent * CQuadWord(1000, 0)) / progressTotal).Value;
+    constexpr ULONGLONG scale = 1000;
+    const ULONGLONG current = progressCurrent.Value;
+    const ULONGLONG total = progressTotal.Value;
+    if (!total)
+        return 0;
+    if (current >= total)
+        return static_cast<int>(scale);
+    if (current <= MAXULONGLONG / scale)
+        return static_cast<int>(current * scale / total);
+
+    // Find the greatest bar value whose rounded-up byte threshold has been reached.
+    const ULONGLONG quotient = total / scale;
+    const ULONGLONG remainder = total % scale;
+    ULONGLONG low = 0;
+    ULONGLONG high = scale;
+    while (high - low > 1)
+    {
+        const ULONGLONG middle = (low + high) / 2;
+        const ULONGLONG threshold = quotient * middle + (remainder * middle + scale - 1) / scale;
+        if (current >= threshold)
+            low = middle;
+        else
+            high = middle;
+    }
+    return static_cast<int>(low);
 }
 
 void SetProgress(HWND hProgressDlg, int operation, int summary, CProgressDlgData& dlgData)
