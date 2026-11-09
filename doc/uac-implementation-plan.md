@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Build a combined x64 P7 acceptance payload. | Bind the current host, broker, probe and all language modules to one tested candidate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Complete and verify all UAC translation archives. | Ensure each shipped language contains the full UAC text set. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Complete the Spanish and Italian UAC strings. | Verify localized UAC messages in both built language modules. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Complete the French and Slovak UAC strings. | Verify translated consent, scope and error text in both built language files. | | GPT-6.1 Sol (Codex) |
@@ -1510,6 +1511,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, španělské a italské prostředky UAC.** Každý archiv doplnil 45 chybějících překladů a aktualizoval tři zprávy o kopii a přesunu. Projektový překladač importoval oba archivy bez odmítnutí a zpětný export zachoval texty. Přímá kontrola spanish.slg (LANGID 3082) a italian.slg (LANGID 1040) ověřila všech 65 textů každého modulu. Kontrola rozvržení celých modulů hlásí neblokující kód 2. Rozložení dialogů zůstává k vizuálnímu ověření. Pět překladových archivů ještě čeká na doplnění.
 
 **P7, společná kontrola všech překladů UAC.** Doplněny nizozemský, ruský, maďarský, rumunský a zjednodušený čínský archiv. Kvůli shodě při zpětném exportu bylo v nizozemském a rumunském archivu nutné upravit šířku jednoho stávajícího popisku v dialogu kompatibility o dvě jednotky. Sestavení všech jedenácti překladových modulů najednou prošlo importem i zpětným exportem bez chyb. Přímé čtení z binárních modulů podle jejich LANGID potvrdilo 65 jedinečných textů UAC v každém jazyce, celkem 715. Výpis je v C:/Samandarin/builds/uac-p6j/p7-all-uac-languages/verified-uac-strings.txt. Kontrola rozvržení nad úplnými moduly stále hlásí jedenáct neblokujících varování. Vizuální ověření rozvržení zůstává otevřené.
+
+**P7, společný kandidát 700f8f3c.** Z aktuálních zdrojů sestaveny aplikace, broker a sonda v x64 Release. Balíček v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/payload obsahuje i anglický modul a jedenáct ověřených překladů. Manifest eviduje velikost a SHA-256 všech 15 souborů. Laboratorní ověřovač potvrdil dvojici protokolu 10, manifesty a omezení načítání brokeru na System32. Nativní transportní zkouška s těmito obrazy ověřila role a odmítla starý broker protokolu 8. Prošly také kontroly Findu, workeru, plánování, konfliktů a nativního průběhu. Proti stejnému x64 Release pilotu 7b0826d7 narostl host o 1024 B na 5444096 B, broker má stále 1332736 B. Podpis, měření běhu a nasazení tohoto kandidáta do chráněného umístění zbývají. Rozpracované zkoušky EFS a Findu mají nadále původní ověřený pilot.
 
 ### 12.3 CI a přijetí vydání
 
