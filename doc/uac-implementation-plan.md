@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the local volume boundary on the live broker pipe. | Refuse remote and device namespaces even with valid local file IDs. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Recheck two-volume moves and EFS on the current implementation. | Verify cancellation, stream preservation and encrypted raw I/O after the progress changes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify malformed broker progress and update the Recycle Bin guide. | Exercise the protocol rejection paths and publish the current VM result. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the current UAC release candidate and language resources. | Bind the payload checks to protocol 10 and both compiled translations. | | GPT-6.1 Sol (Codex) |
@@ -1428,6 +1429,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, poruchy průběhu na skutečné lokální pipe.** Devět nových kontrol ověřilo odmítnutí opakovaného a klesajícího počtu bajtů, změněného nebo chybějícího součtu, překročení součtu nebo rozsahu F6, neočekávaného součtu při přepisu, zkrácené zprávy a nevyžádaného průběhu. Chybná zpráva se nepředá do UI a neprojde jako konečný výsledek. Celá sada transportu a úloh prošla v x64 Debug i Release včetně ověření tří skutečných binárek protokolu 10 a odmítnutí staršího brokeru. Výstupy jsou v C:/Samandarin/builds/uac-p7-afe152a1/transport-Debug.log a transport-Release.log.
 
 **P7, opakované kontroly F6 a EFS po doplnění průběhu.** Aktuální nativní sada ověřila oddělené pevné svazky NTFS C: a E:. V každé konfiguraci x64 Debug i Release prošlo 75 kontrol F6 včetně kolize, zrušení a odpojení, kontroly žurnálu, komprese, pojmenovaných proudů a více stránek rozsahů řídkého souboru s daty za hranicí 4 GiB. EFS na dříve připraveném šifrovaném souboru prošlo 68 kontrolami v každé konfiguraci včetně publikování, přerušení, změny identity a kontroly pojmenovaných proudů. Výstupy jsou v C:/Samandarin/builds/uac-p7-afe152a1 pod názvy f6-two-volume-*.log a efs-*.log. EFS zkouška používala klíč aktuálního účtu. Přístup původního uživatele po schválení správcem bez jeho klíče ještě vyžaduje VM akceptaci.
+
+**P7, hranice místního svazku.** Nativní testy v x64 Debug i Release poslaly skutečným brokerovým kanálem tři požadavky s platnými NTFS ID zdroje a rodičů. Nahradily identifikátor svazku zdroje běžnou UNC cestou, identifikátor svazku cíle rozšířenou UNC cestou a cíl F6 názvem zařízení GLOBALROOT. Každý požadavek dostal ERROR_NOT_SUPPORTED. Zdroj měl původní obsah a cíl nevznikl. Zkouška ověřuje hranici protokolu pro lokální operace. Chování běžné operace přes skutečné SMB připojení a mapovaný disk zůstává v matici. Výstupy jsou v C:/Samandarin/builds/uac-p7-afe152a1/volume-admission-Debug.log a volume-admission-Release.log.
 
 ### 12.3 CI a přijetí vydání
 

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Exercise nonlocal volume names on the broker pipe. | Reject UNC and device aliases before copying or moving any file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Reject malformed transfer progress on a live pipe. | Keep invalid progress out of the worker and require a terminal result. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Check the expanded progress wire frame. | Preserve the 64-bit cancellation and terminal reply regression. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise progress and cancellation on a local pipe. | Cover 64-bit counts and a late progress message. | | GPT-6.1 Sol (Codex) |
@@ -336,6 +337,39 @@ void CheckMoveSourceEligibility()
           "refuse unsupported metadata and link combinations at move preparation");
 }
 
+void CheckRejectedVolumeAliases(const Directory& source, const Directory& target)
+{
+    constexpr wchar_t leaf[] = L"nonlocal-volume";
+    if (!WriteByte(source.File(leaf), 4))
+    {
+        Check(false, "prepare the volume-alias fixture");
+        return;
+    }
+
+    const auto check = [&](Operation operation, const Directory& original, const wchar_t* volume,
+                           bool aliasSource, const char* message) {
+        Directory alias;
+        alias.identity = original.identity;
+        alias.identity.volume = volume;
+        alias.identity.volume.resize(volumeLength, L'x');
+        alias.relative = original.relative;
+        alias.path = original.path; // Query the real file ID before substituting the wire volume.
+        JobPipe job;
+        DWORD error = ERROR_GEN_FAILURE;
+        Check(job.Open() && job.Request(operation, aliasSource ? alias : source, leaf, error,
+                                        aliasSource ? &target : &alias) &&
+                  error == ERROR_NOT_SUPPORTED && HasByte(source.File(leaf), 4) && IsAbsent(target.File(leaf)),
+              message);
+    };
+
+    check(Operation::Copy, source, LR"(\\localhost\sample\)", true,
+          "refuse a UNC source volume even with valid local file and parent IDs");
+    check(Operation::Copy, target, LR"(\\?\UNC\localhost\sample\)", false,
+          "refuse an extended UNC destination before publication");
+    check(Operation::MoveAcrossVolume, target, LR"(\\?\GLOBALROOT\Device\HarddiskVolume1)", false,
+          "refuse a device namespace destination without retiring the source");
+}
+
 void CheckTransferReplies()
 {
     const auto oneShotMove = UacF7::TransferReply(Operation::MoveAcrossVolume, ERROR_PARTIAL_COPY);
@@ -669,6 +703,7 @@ int wmain()
     CheckCancelledCopyJob(source, target);
     CheckLateCopyCancellation(source, target);
     CheckCrossVolumeBoundary(source, target);
+    CheckRejectedVolumeAliases(source, target);
     CheckUnboundedTransferCancellation();
     CheckMalformedTransferProgress();
     CheckRequestDelivery();
