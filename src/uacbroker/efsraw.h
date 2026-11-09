@@ -1,11 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Count bytes supplied to the EFS import. | Reuse the bounded transfer progress callback. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Check the host connection during EFS transfer. | Stop raw callbacks after a disconnect. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Wrap bounded EFS Raw transfers. | Keep encrypted bytes intact and isolate the path-dependent open from transfer. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
-#include "renameleaf.h"
+#include "copyleaf.h"
 #include <windows.h>
 #include <winefs.h>
 #include <algorithm>
@@ -59,7 +60,8 @@ public:
         return error;
     }
 
-    DWORD Write(const std::vector<BYTE>& bytes, ULONGLONG deadline, HANDLE connection = nullptr)
+    DWORD Write(const std::vector<BYTE>& bytes, ULONGLONG deadline, HANDLE connection = nullptr,
+                const UacCopyLeaf::Detail::CopyProgress* progress = nullptr)
     {
         if (!value)
             return ERROR_INVALID_HANDLE;
@@ -67,7 +69,7 @@ public:
             return ERROR_INVALID_DATA;
         if (GetTickCount64() >= deadline)
             return ERROR_TIMEOUT;
-        ImportState state{bytes, deadline, connection};
+        ImportState state{bytes, deadline, connection, progress};
         const DWORD error = WriteEncryptedFileRaw(Import, &state, value);
         if (state.error)
             return state.error;
@@ -93,6 +95,7 @@ private:
         const std::vector<BYTE>& bytes;
         ULONGLONG deadline;
         HANDLE connection;
+        const UacCopyLeaf::Detail::CopyProgress* progress;
         size_t offset = 0;
         DWORD error = ERROR_SUCCESS;
     };
@@ -131,6 +134,9 @@ private:
         {
             std::memcpy(block, state.bytes.data() + state.offset, *length);
             state.offset += *length;
+            if (state.progress)
+                if (const DWORD error = state.progress->Advance(*length))
+                    return state.error = error;
         }
         return ERROR_SUCCESS;
     }

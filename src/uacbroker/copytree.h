@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Report verified tree bytes. | Aggregate file progress against the captured manifest. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Honor tree cancel at every existing publication checkpoint. | Roll back owned staging before returning cancellation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Recover only a durably recorded tree stage. | Preserve published copies and serialize recovery with active copies. | | GPT-6.1 Sol (Codex) |
@@ -335,7 +336,7 @@ inline DWORD RestoreDirectoryTimes(HANDLE target, FILE_BASIC_INFO basic)
 inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIdentity& expectedSource,
                                HANDLE target, const UacDirectoryLeaf::ParentIdentity& expectedTarget,
                                std::wstring_view leaf, StageProtection& protection, HANDLE cancel,
-                               HANDLE connection, ULONGLONG deadline, HANDLE journal = nullptr)
+                               HANDLE connection, ULONGLONG deadline, HANDLE journal = nullptr, const UacCopyLeaf::Detail::CopyProgress* progress = nullptr)
 {
     using namespace UacCopyLeaf::Detail;
     using namespace UacDirectoryLeaf;
@@ -366,6 +367,12 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
         return {ERROR_FILE_INVALID};
     if (manifest.entries.size() > maxTreeEntries || manifest.inventory.bytes > UacF7::maxPilotCopyBytes)
         return {ERROR_FILE_TOO_LARGE};
+    CopyProgress treeProgress{};
+    if (progress)
+    {
+        treeProgress = *progress;
+        treeProgress.total = manifest.inventory.bytes;
+    }
     if (Equal(manifest.root.volume, targetIdentity.volume))
         for (const auto& record : manifest.entries)
             if ((record.attributes & FILE_ATTRIBUTE_DIRECTORY) &&
@@ -434,7 +441,8 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
                 if (!UacRenameLeaf::Detail::SameSource(actual, expected))
                     return ERROR_FILE_INVALID;
                 error = CopyOpenedFile(raw, targetParent, record.name, cancel, connection, deadline,
-                                       record.bytes, state.basic, &state.stagedId, &protection);
+                                       record.bytes, state.basic, &state.stagedId, &protection, UacCopyLeaf::StreamPolicy::RequireDefault,
+                                       nullptr, false, nullptr, nullptr, 0, progress ? &treeProgress : nullptr);
                 if (error)
                     return error;
                 state.created = true;
@@ -489,10 +497,11 @@ inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIden
 inline Result CopyVerifiedTree(HANDLE source, const UacDirectoryLeaf::ParentIdentity& expectedSource,
                                HANDLE target, const UacDirectoryLeaf::ParentIdentity& expectedTarget,
                                std::wstring_view leaf, HANDLE cancel = nullptr, HANDLE connection = nullptr,
-                               ULONGLONG deadline = MAXULONGLONG, HANDLE journal = nullptr)
+                               ULONGLONG deadline = MAXULONGLONG, HANDLE journal = nullptr,
+                               const UacCopyLeaf::Detail::CopyProgress* progress = nullptr)
 {
     Detail::StageProtection protection(true);
     return Detail::CopyVerifiedTree(source, expectedSource, target, expectedTarget, leaf, protection,
-                                    cancel, connection, deadline, journal);
+                                    cancel, connection, deadline, journal, progress);
 }
 }

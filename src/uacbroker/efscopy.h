@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Publish encrypted import progress. | Use the exported raw buffer size without estimating plaintext work. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Preserve and verify EFS alternate data streams. | Keep the source stream inventory consistent through encrypted export and publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Pass the audit verification mode to publication. | Enforce full destination checks for elevated copies. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Connect EFS Raw, staging and publication. | Copy the verified encrypted object with no plaintext fallback. | | GPT-6.1 Sol (Codex) |
@@ -16,7 +17,8 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
                               HANDLE target, const UacDirectoryLeaf::ParentIdentity& expectedTarget,
                               std::wstring_view targetLeaf, ULONGLONG size,
                               HANDLE privateParent, const FILE_ID_INFO& privateId, HANDLE journal,
-                              PSECURITY_DESCRIPTOR security, HANDLE connection, ULONGLONG deadline, bool readAudit = false)
+                              PSECURITY_DESCRIPTOR security, HANDLE connection, ULONGLONG deadline, bool readAudit = false,
+                              const UacCopyLeaf::Detail::CopyProgress* progress = nullptr)
 {
     using namespace Detail;
     if (!UacDirectoryLeaf::IsComponent(sourceLeaf) || !UacDirectoryLeaf::IsComponent(targetLeaf))
@@ -114,7 +116,15 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
             UacEfsRaw::Context output;
             error = output.Open((path + payloadName).c_str(), CREATE_FOR_IMPORT);
             if (!error)
-                error = output.Write(encrypted, deadline, connection);
+            {
+                UacCopyLeaf::Detail::CopyProgress importProgress{};
+                if (progress)
+                {
+                    importProgress = *progress;
+                    importProgress.total = encrypted.size();
+                }
+                error = output.Write(encrypted, deadline, connection, progress ? &importProgress : nullptr);
+            }
             if (error)
                 return error;
         }

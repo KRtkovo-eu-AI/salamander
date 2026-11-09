@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Show tree and EFS import progress. | Reuse the native transfer bars with an explicit broker total. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Show broker byte counts in the existing progress dialog. | Count completed work only after the terminal result. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Pin the exact copied files before local F6 source retirement. | Detect a substituted source or destination before trying either local or elevated deletion. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Release a closed transfer session immediately. | Avoid keeping dead scope paths during long-running batches. | | GPT-6.1 Sol (Codex) |
@@ -5687,6 +5688,54 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
     }
 }
 
+static UacF7::Result ExecuteWithNativeTransferProgress(const UacF7::PreparedTransfer& request, HWND progress,
+                                                       HANDLE cancel, UacF7::TransferJobSession* job,
+                                                       const COperation& op, COperations& script,
+                                                       CProgressDlgData& dlgData, const CQuadWord& totalDone)
+{
+    struct NativeTransferProgress
+    {
+        HWND dialog;
+        const COperation& operation;
+        COperations& script;
+        CProgressDlgData& data;
+        CQuadWord completed;
+        CQuadWord transferred{0, 0};
+        bool shown = false;
+    } state{progress, op, script, dlgData, totalDone};
+    script.GetTFS(&state.transferred);
+    const auto updateProgress = [](void* context, ULONGLONG bytes, ULONGLONG total) {
+        auto& state = *static_cast<NativeTransferProgress*>(context);
+        const ULONGLONG operationSize = state.operation.Size.Value;
+        CQuadWord current = CQuadWord().SetUI64((std::min)(bytes, operationSize));
+        int item = CaclProg(current, state.operation.Size);
+        if (total)
+        {
+            // A tree's work unit and the raw encrypted stream's byte count
+            // differ from the ordinary logical byte counter.
+            const double fraction = static_cast<double>(bytes) / static_cast<double>(total);
+            item = static_cast<int>(1000 * fraction);
+            current.SetUI64(static_cast<ULONGLONG>(operationSize * fraction));
+        }
+        else
+            state.script.SetTFSandProgressSize(state.transferred + current, state.completed + current);
+        item = (std::min)(999, item);
+        const int summary = state.operation.Opcode == ocCopyProtectedTree ? item
+            : (std::min)(999, CaclProg(state.completed + current, state.script.TotalSize));
+        SetProgressWithoutSuspend(state.dialog, item, summary, state.data);
+        state.shown = true;
+    };
+    const auto result = request.Execute(progress, cancel, job, updateProgress, &state);
+    if (state.shown)
+    {
+        // Advisory progress must not count as completed work or be added twice.
+        script.SetTFSandProgressSize(state.transferred, totalDone);
+        if (result.error != ERROR_SUCCESS || result.unknown)
+            SetProgressWithoutSuspend(progress, 0, CaclProg(totalDone, script.TotalSize), dlgData);
+    }
+    return result;
+}
+
 static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperations& script,
                                   CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success,
                                   UacF7::PreparedTransfer& request, DWORD& error)
@@ -5723,35 +5772,8 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
     }
     if (shareJob && existing == jobs.end())
         existing = jobs.emplace(jobs.end());
-    struct NativeTransferProgress
-    {
-        HWND dialog;
-        const COperation& operation;
-        COperations& script;
-        CProgressDlgData& data;
-        CQuadWord completed;
-        CQuadWord transferred{0, 0};
-        bool shown = false;
-    } state{progress, op, script, dlgData, totalDone};
-    script.GetTFS(&state.transferred);
-    const auto updateProgress = [](void* context, ULONGLONG bytes) {
-        auto& state = *static_cast<NativeTransferProgress*>(context);
-        const CQuadWord current = CQuadWord().SetUI64((std::min)(bytes, state.operation.Size.Value));
-        // Keep a running item below completion until the broker confirms it.
-        const int item = (std::min)(999, CaclProg(current, state.operation.Size));
-        const int summary = (std::min)(999, CaclProg(state.completed + current, state.script.TotalSize));
-        state.script.SetTFSandProgressSize(state.transferred + current, state.completed + current);
-        SetProgressWithoutSuspend(state.dialog, item, summary, state.data);
-        state.shown = true;
-    };
-    const auto result = request.Execute(progress, cancel, existing != jobs.end() ? &*existing : nullptr, updateProgress, &state);
-    if (state.shown)
-    {
-        // Advisory progress must not count as completed work or be added twice.
-        script.SetTFSandProgressSize(state.transferred, totalDone);
-        if (result.error != ERROR_SUCCESS || result.unknown)
-            SetProgressWithoutSuspend(progress, 0, CaclProg(totalDone, script.TotalSize), dlgData);
-    }
+    const auto result = ExecuteWithNativeTransferProgress(request, progress, cancel,
+        existing != jobs.end() ? &*existing : nullptr, op, script, dlgData, totalDone);
     if (WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0 || result.unknown || result.error == ERROR_CANCELLED)
         jobs.clear();
     else if (existing != jobs.end() && !existing->IsOpen())
@@ -11274,7 +11296,8 @@ unsigned ThreadWorkerBody(void* parameter)
                 SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
                 if (prompt.approved && WaitForSingleObject(cancelWorkerEvent, 0) == WAIT_TIMEOUT)
                 {
-                    prompt.result = prompt.request.Execute(hProgressDlg, cancelWorkerEvent);
+                    prompt.result = ExecuteWithNativeTransferProgress(prompt.request, hProgressDlg,
+                        cancelWorkerEvent, nullptr, *op, *script, dlgData, totalDone);
                     SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TREE_RESULT, reinterpret_cast<LPARAM>(&prompt.result));
                 }
                 Error = prompt.result.unknown || prompt.result.error != ERROR_SUCCESS;

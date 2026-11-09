@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Expose the explicit transfer total to the host. | Distinguish actual tree and raw stream totals from the ordinary estimate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Accept a host transfer progress callback. | Keep progress optional for non-panel callers. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose a verified local finish for an ordinary cross-volume copy. | Keep the protected fallback tied to the same captured objects. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose whether a scoped broker session is still open. | Release closed session entries while their batch continues. | | GPT-6.1 Sol (Codex) |
@@ -426,7 +427,7 @@ struct OverwriteApproval
     }
 };
 
-using TransferProgress = void (*)(void* context, ULONGLONG bytes);
+using TransferProgress = void (*)(void* context, ULONGLONG bytes, ULONGLONG total);
 
 class PreparedTransfer
 {

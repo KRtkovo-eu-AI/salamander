@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Validate and forward the progress total. | Extend native progress to tree and encrypted copy without accepting inconsistent frames. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Send advisory progress on authenticated transfer pipes. | Keep the terminal result and cancellation separate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Retire the captured move source through its exact handle. | Require local NTFS and pin the copied destination before deleting. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Request metadata write access for compressed F6 rollback. | Keep the source eligible for restoring Archive before releasing the seal. | | GPT-6.1 Sol (Codex) |
@@ -495,12 +496,25 @@ struct RequestHeader
 };
 static_assert(sizeof(RequestHeader) == 104);
 constexpr DWORD transferProgressFrame = MAXDWORD;
+struct TransferProgressUpdate
+{
+    ULONGLONG bytes = 0;
+    ULONGLONG total = 0; // Zero uses the ordinary host operation estimate.
+};
+static_assert(sizeof(TransferProgressUpdate) == 16);
 
 bool CanReportTransferProgress(Operation operation)
 {
-    return (UacF7::IsFileCopy(operation) && operation != Operation::CopyEncrypted) ||
+    return UacF7::IsFileCopy(operation) || operation == Operation::CopyTree ||
            operation == Operation::CopyOverwrite || operation == Operation::MoveAcrossVolume ||
            operation == Operation::MoveCompressed;
+}
+
+ULONGLONG TransferProgressLimit(Operation operation)
+{
+    if (UacF7::IsCrossVolumeMove(operation))
+        return UacF7::maxCrossVolumeMoveBytes;
+    return operation == Operation::CopyEncrypted ? 2 * UacF7::maxPilotCopyBytes : UacF7::maxPilotCopyBytes;
 }
 struct ListingReply { DWORD error; DWORD count; };
 
@@ -734,9 +748,12 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
 
 // A progress frame is advisory. Only the terminal result confirms publication.
 [[maybe_unused]] DWORD ReadTransferResult(HANDLE pipe, DWORD& result, ULONGLONG deadline, HANDLE cancel,
-                                          UacF7::TransferProgress progress, void* context, ULONGLONG maximum)
+                                          UacF7::TransferProgress progress, void* context, Operation operation)
 {
-    ULONGLONG previous = 0, cancelDeadline = 0;
+    TransferProgressUpdate previous;
+    ULONGLONG cancelDeadline = 0;
+    const auto maximum = TransferProgressLimit(operation);
+    const bool explicitTotal = operation == Operation::CopyTree || operation == Operation::CopyEncrypted;
     for (;;)
     {
         const DWORD error = TransferRequest(pipe, &result, sizeof(result), false, deadline, cancel, nullptr, &cancelDeadline);
@@ -749,13 +766,15 @@ DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGL
             cancel = nullptr;
             deadline = cancelDeadline;
         }
-        ULONGLONG bytes = 0;
-        const DWORD read = TransferRequest(pipe, &bytes, sizeof(bytes), false, deadline);
-        if (read || bytes <= previous || bytes > maximum)
+        TransferProgressUpdate update;
+        const DWORD read = TransferRequest(pipe, &update, sizeof(update), false, deadline);
+        if (read || update.bytes <= previous.bytes || update.bytes > maximum || update.total > maximum ||
+            explicitTotal != (update.total != 0) || (update.total && update.bytes > update.total) ||
+            (previous.bytes && update.total != previous.total))
             return read ? read : ERROR_INVALID_DATA;
-        previous = bytes;
+        previous = update;
         if (!cancelDeadline)
-            progress(context, bytes);
+            progress(context, update.bytes, update.total);
     }
 }
 
@@ -1080,7 +1099,8 @@ DWORD CopyEncryptedFile(const InstallLocation& install, HANDLE sourceParent,
                         const UacDirectoryLeaf::ParentIdentity& sourceParentId,
                         const FILE_ID_INFO& sourceId, std::wstring_view sourceLeaf,
                         HANDLE target, const UacDirectoryLeaf::ParentIdentity& targetId,
-                        std::wstring_view targetLeaf, ULONGLONG size, HANDLE pipe, ULONGLONG deadline)
+                        std::wstring_view targetLeaf, ULONGLONG size, HANDLE pipe, ULONGLONG deadline,
+                        const UacCopyLeaf::Detail::CopyProgress* progress)
 {
     UacDirectoryLeaf::ParentIdentity installId;
     DWORD error = UacDirectoryLeaf::ReadParentIdentity(install.DirectoryHandle(), installId);
@@ -1120,7 +1140,7 @@ DWORD CopyEncryptedFile(const InstallLocation& install, HANDLE sourceParent,
         return error;
     return UacEfsWorkspace::CopyVerifiedFile(sourceParent, sourceParentId, sourceId, sourceLeaf, target, targetId,
                                              targetLeaf, size, storage.get(), storageId, journal.get(), security.get(),
-                                             pipe, deadline, true);
+                                             pipe, deadline, true, progress);
 }
 
 DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
@@ -1571,7 +1591,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         ULONGLONG next = GetTickCount64() + 200;
     } sender{pipe};
     const UacCopyLeaf::Detail::CopyProgress progressSink{
-        [](void* context, ULONGLONG bytes) -> DWORD {
+        [](void* context, ULONGLONG bytes, ULONGLONG total) -> DWORD {
             auto& state = *static_cast<ProgressSender*>(context);
             if (bytes > MAXULONGLONG - state.bytes)
                 return ERROR_ARITHMETIC_OVERFLOW;
@@ -1583,7 +1603,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             DWORD marker = transferProgressFrame;
             const auto deadline = now + timeoutMs;
             DWORD error = TransferRequest(state.pipe, &marker, sizeof(marker), true, deadline);
-            return error ? error : TransferRequest(state.pipe, &state.bytes, sizeof(state.bytes), true, deadline);
+            TransferProgressUpdate update{state.bytes, total};
+            return error ? error : TransferRequest(state.pipe, &update, sizeof(update), true, deadline);
         }, &sender};
     const auto* progress = header.reportProgress ? &progressSink : nullptr;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
@@ -1778,7 +1799,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                         deadline = copyDeadline + timeoutMs;
                         const auto copied = UacCopyTree::CopyVerifiedTree(sourceHandle.get(), sourceDirectory, pinned.back().get(),
                                                                         expectedTarget, targetLeaf, nullptr, pipe, copyDeadline,
-                                                                        journal.get());
+                                                                        journal.get(), progress);
                         result = copied.cleanupError ? ERROR_PARTIAL_COPY : copied.error;
                     }
                 }
@@ -1804,7 +1825,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
                 deadline = copyDeadline + timeoutMs;
                 result = CopyEncryptedFile(install, parent.get(), expected, sourceIdentity, leaf, targetParent.get(),
-                                           expectedTarget, targetLeaf, header.copySize, pipe, copyDeadline);
+                                           expectedTarget, targetLeaf, header.copySize, pipe, copyDeadline, progress);
             }
             else if (crossMove)
             {
@@ -2380,7 +2401,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         if (copy || crossMove || tree || zipBytes)
             deadline = TransferDeadline(request->operation);
         error = ReadTransferResult(pipe.get(), operationError, deadline, cancel, progress, progressContext,
-                                   crossMove ? UacF7::maxCrossVolumeMoveBytes : UacF7::maxPilotCopyBytes);
+                                   request->operation);
         if (!error && (transferJob || copy || UacF7::IsMoveTransfer(request->operation) || tree || zipBytes ||
                        zipUpdateFile))
         {
@@ -2749,7 +2770,7 @@ static Result RepeatTransferJob(HANDLE& pipe, RequestHeader& header, std::wstrin
     {
         deadline = TransferDeadline(header.operation);
         error = ReadTransferResult(pipe, result.error, deadline, cancel, progress, progressContext,
-                                   IsCrossVolumeMove(header.operation) ? maxCrossVolumeMoveBytes : maxPilotCopyBytes);
+                                   header.operation);
     }
     if (error)
         result.error = error;

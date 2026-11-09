@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise the tree and EFS progress sources. | Check exact manifest bytes and the encrypted import total. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Kill an EFS copy around its publication commit. | Verify that recovery preserves committed ciphertext and retires only recorded staging. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the local F6 finish rejects substituted files. | Keep the original and the copy until both captured identities match. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test restoring the cleared Archive attribute on compressed F6 rollback. | Verify the attribute, source bytes and removal of the recovery alias. | | GPT-6.1 Sol (Codex) |
@@ -440,6 +441,25 @@ bool CheckStagingProtection(HANDLE target, const std::wstring& sourcePath,
     return stage.Rollback() == ERROR_SUCCESS;
 }
 
+struct TransferProgressSample
+{
+    ULONGLONG bytes = 0;
+    ULONGLONG total = 0;
+
+    UacCopyLeaf::Detail::CopyProgress Sink()
+    {
+        return {[](void* context, ULONGLONG bytes, ULONGLONG total) -> DWORD {
+            auto& sample = *static_cast<TransferProgressSample*>(context);
+            if (!total || (sample.total && sample.total != total) ||
+                sample.bytes > total || bytes > total - sample.bytes)
+                return ERROR_INVALID_DATA;
+            sample.total = total;
+            sample.bytes += bytes;
+            return ERROR_SUCCESS;
+        }, this};
+    }
+};
+
 bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent, bool high)
 {
     using namespace UacDirectoryLeaf;
@@ -506,13 +526,17 @@ bool CheckTreeCopy(const std::wstring& fixture, HANDLE parent, bool high)
           "the active copy holds its recovery journal exclusively");
     const auto copyTree = [high, &journal](HANDLE from, const ParentIdentity& fromId, HANDLE to, const ParentIdentity& toId,
                              std::wstring_view name, HANDLE cancel = nullptr, HANDLE pipe = nullptr,
-                             ULONGLONG deadline = MAXULONGLONG) {
+                             ULONGLONG deadline = MAXULONGLONG, const UacCopyLeaf::Detail::CopyProgress* progress = nullptr) {
         if (high)
-            return UacCopyTree::CopyVerifiedTree(from, fromId, to, toId, name, cancel, pipe, deadline, journal.get());
+            return UacCopyTree::CopyVerifiedTree(from, fromId, to, toId, name, cancel, pipe, deadline, journal.get(), progress);
         UacCopyTree::Detail::StageProtection protection(false);
-        return UacCopyTree::Detail::CopyVerifiedTree(from, fromId, to, toId, name, protection, cancel, pipe, deadline, journal.get());
+        return UacCopyTree::Detail::CopyVerifiedTree(from, fromId, to, toId, name, protection, cancel, pipe, deadline, journal.get(), progress);
     };
-    auto result = copyTree(from.get(), sourceId, to.get(), targetId, L"published");
+    TransferProgressSample sample;
+    const auto progress = sample.Sink();
+    auto result = copyTree(from.get(), sourceId, to.get(), targetId, L"published", nullptr, nullptr, MAXULONGLONG, &progress);
+    Check(!result.error && sample.total == 7 && sample.bytes == 7,
+          "count both files against the verified tree byte total", result.error);
     Check(!result.error && !result.cleanupError && noStaging() &&
               HasContents(published + file, {4, 8, 15, 16, 23, 42}) && DirectoryExists(published + L"\\empty") &&
               HasContents(source + file, {4, 8, 15, 16, 23, 42}) && HasContents(published + longLeaf, {9}),
@@ -3793,10 +3817,10 @@ static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const F
     UacDirectoryLeaf::ParentIdentity sourceParentId;
     if (UacDirectoryLeaf::ReadParentIdentity(sourceParent.get(), sourceParentId))
         return false;
-    auto copy = [&](ULONGLONG expectedSize) {
+    auto copy = [&](ULONGLONG expectedSize, const UacCopyLeaf::Detail::CopyProgress* progress = nullptr) {
         return UacEfsWorkspace::CopyVerifiedFile(sourceParent.get(), sourceParentId, sourceId, encryptedLeaf,
                                                  target.get(), targetId, copiedLeaf, expectedSize, parent.get(), parentId,
-                                                 journal.get(), rawSecurity, nullptr, MAXULONGLONG);
+                                                 journal.get(), rawSecurity, nullptr, MAXULONGLONG, false, progress);
     };
     DWORD result = copy(plaintext.size() + 1);
     Check(result == ERROR_FILE_INVALID && !Exists(copied), "reject a stale EFS size before starting the raw transfer", result);
@@ -3805,7 +3829,11 @@ static bool CheckEfsWorkspace(const std::wstring& folder, HANDLE source, const F
     if (originalAttrs == INVALID_FILE_ATTRIBUTES ||
         !SetFileAttributesW(originalPath.c_str(), originalAttrs | FILE_ATTRIBUTE_HIDDEN))
         return false;
-    result = copy(plaintext.size());
+    TransferProgressSample sample;
+    const auto progress = sample.Sink();
+    result = copy(plaintext.size(), &progress);
+    Check(!result && sample.total > plaintext.size() && sample.bytes == sample.total,
+          "count the complete encrypted import without reporting plaintext bytes", result);
     const DWORD copiedAttrs = GetFileAttributesW(copied.c_str());
     Check(!result && copiedAttrs != INVALID_FILE_ATTRIBUTES &&
               (copiedAttrs & (FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_HIDDEN)) ==

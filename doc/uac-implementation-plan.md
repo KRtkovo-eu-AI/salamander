@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Show native progress for protected trees and encrypted import. | Use verified operation totals without treating provisional work as completion. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Report brokered F5 and F6 byte progress in the existing dialogs. | Give long protected transfers live feedback while preserving the terminal result. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Prepare the combined protected Find acceptance fixture. | Compare tagged duplicates and a same-size text nonmatch across ordinary and protected roots. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Revalidate the original-account Recycle Bin receipt in the acceptance VM. | Establish the Shell baseline before the protected panel tests. | | GPT-6.1 Sol (Codex) |
@@ -1397,6 +1398,10 @@ Ke každé zkoušce zaznamenat revizi, verzi Windows a architekturu, typ účtu 
 **Průběh kopie a přesunu prováděného brokerem.** Protokol 9 umožní workeru požádat o průběžný počet zpracovaných logických bajtů na ověřeném spojení. Broker hlásí průběh nejvýše pětkrát za sekundu. Aplikace použije stávající ukazatel položky i celkový ukazatel. Počet u řídkých souborů zahrnuje zpracované nealokované oblasti. Ukazatel položky zůstane před dokončením a účetnictví úlohy se změní až po ověřeném výsledku. Při zrušení se signál odešle jednou a průběžná zpráva nemůže nahradit koncovou odpověď. Podporované jsou běžné souborové kopie F5 včetně proudů a přepisu a datová část chráněného F6 mezi svazky. Rekurzivní kopie a EFS Raw potřebují doplnit vlastní zdroj údajů.
 
 Prošlo sestavení aplikace, brokeru a sondy x64 Release, 14 kontrol workeru, sada transportu a úloh brokeru a nativní zkouška F6 na dvou svazcích. Sonda skutečné roury přijala 64bitový údaj přes 4 GiB, po zrušení potlačila pozdní průběžnou zprávu a dočetla koncovou odpověď. Velikost aplikace x64 Release proti pilotu 10da008c vzrostla z 5 438 464 na 5 441 536 B. Při stejném sestavení brokeru před a po změně vzrostla z 1 331 200 na 1 332 736 B. Součet vzrostl o 4 608 B. Vizuální ověření ve VM a porovnání privátní paměti ve stejných úlohách zbývají před přijetím.
+
+**Průběh rekurzivní a šifrované kopie.** Protokol 10 přidává do průběžné zprávy ověřený celkový objem tam, kde ho host předem nezná. Rekurzivní F5 sečte bajty ověřeného soupisu a aktualizuje oba stávající ukazatele přes společnou funkci workeru. EFS Raw během importu hlásí poměr již předaných a celkových šifrovaných bajtů po dokončeném exportu. Při exportu zůstává procento na počátku, protože API celkovou délku raw proudu předem neposkytne. Ukazatel nedosáhne dokončení, dokud broker nepotvrdí koncový výsledek. Host odmítne klesající průběh, proměnlivý celkový objem a hodnoty mimo rozpočet operace.
+
+Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 kontrol EFS, 14 kontrol workeru a sada transportu a úloh brokeru včetně ověření rolí a odmítnutí binárky s protokolem 9. Nativní zkoušky ověřily součet bajtů z více položek jednoho stromu a skutečnou délku raw importu. Ve stejné konfiguraci proti předchozí variantě průběhu vzrostla aplikace z 5 441 536 na 5 442 048 B, broker zůstal na 1 332 736 B a součet vzrostl z 6 774 272 na 6 774 784 B. Tři binárky a jejich otisky jsou v C:/Samandarin/builds/uac-p7-progress-total. Vizuální akceptace a porovnání privátní paměti při běžném a chráněném přenosu zbývají.
 
 ### 12.3 CI a přijetí vydání
 

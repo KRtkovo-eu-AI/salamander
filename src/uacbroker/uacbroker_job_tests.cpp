@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Check the expanded progress wire frame. | Preserve the 64-bit cancellation and terminal reply regression. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Exercise progress and cancellation on a local pipe. | Cover 64-bit counts and a late progress message. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify the final mutation frame on a real local pipe. | Distinguish undelivered requests from requests without a reply. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify F6 without the former pilot limits. | Exercise large request sizes and the active deadline policy. | | GPT-6.1 Sol (Codex) |
@@ -379,7 +380,8 @@ void CheckUnboundedTransferCancellation()
         const auto sendProgress = [&](ULONGLONG bytes) {
             DWORD marker = transferProgressFrame;
             const DWORD error = TransferRequest(peer.get(), &marker, sizeof(marker), true, deadline);
-            return error ? error : TransferRequest(peer.get(), &bytes, sizeof(bytes), true, deadline);
+            TransferProgressUpdate update{bytes, 0};
+            return error ? error : TransferRequest(peer.get(), &update, sizeof(update), true, deadline);
         };
         peerError = sendProgress(4ULL * 1024 * 1024 * 1024 + 1);
         if (!peerError)
@@ -406,12 +408,12 @@ void CheckUnboundedTransferCancellation()
     } progress{cancel.get()};
     if (!error)
         error = ReadTransferResult(server.get(), status, MAXULONGLONG, cancel.get(),
-            [](void* context, ULONGLONG bytes) {
+            [](void* context, ULONGLONG bytes, ULONGLONG) {
                 auto& progress = *static_cast<Progress*>(context);
                 progress.bytes = bytes;
                 ++progress.updates;
                 SetEvent(progress.cancel);
-            }, &progress, UacF7::maxCrossVolumeMoveBytes);
+            }, &progress, Operation::MoveAcrossVolume);
     receiver.join();
     Check(!error && !peerError && status == ERROR_CANCELLED &&
               progress.updates == 1 && progress.bytes == 4ULL * 1024 * 1024 * 1024 + 1,

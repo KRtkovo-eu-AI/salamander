@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Carry the known total alongside copy progress. | Use the verified manifest or raw stream size when available. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Count staged copy bytes. | Report progress for regular, named and sparse streams. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Combine compressed stream transfer with exact security. | Keep both staging checks active through publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve sparse named streams on dense file copies. | Decide the named stream storage from its own handle. | | GPT-6.1 Sol (Codex) |
@@ -182,10 +183,11 @@ void AfterCopyBlockForTest(HANDLE target, HANDLE connection);
 
 struct CopyProgress
 {
-    DWORD (*advance)(void* context, ULONGLONG bytes);
+    DWORD (*advance)(void* context, ULONGLONG bytes, ULONGLONG total);
     void* context;
+    ULONGLONG total = 0;
 
-    DWORD Advance(ULONGLONG bytes) const { return bytes ? advance(context, bytes) : ERROR_SUCCESS; }
+    DWORD Advance(ULONGLONG bytes) const { return bytes ? advance(context, bytes, total) : ERROR_SUCCESS; }
 };
 
 inline DWORD CopyData(HANDLE source, HANDLE target, ULONGLONG remaining,
