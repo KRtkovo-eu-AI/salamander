@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Interrupt F6 while the last source link is delete-pending. | Verify recovery recognizes a completed retirement after a hard exit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise EFS publication refusal. | Preserve the original and clear staging if the overwrite journal cannot be acquired. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Race a new destination against a paused overwrite. | Verify interrupted recovery preserves the competing file and the exact backup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Retry a crashed F5 overwrite as a new copy. | Restore the exact original and report a conflict while ignoring unrelated recovery records. | | GPT-6.1 Sol (Codex) |
@@ -1568,11 +1569,10 @@ bool CheckVerifiedMoveSourceGuard(const std::wstring& fixture, HANDLE root)
     return failures == 0;
 }
 
-int HoldMoveSourcePending(const std::wstring& fixture, const wchar_t* signal)
+int HoldMoveSourcePending(const std::wstring& path, const wchar_t* signal)
 {
     const Handle ready(OpenEventW(EVENT_MODIFY_STATE, FALSE, signal));
-    const auto original = fixture + L"\\recover-\u6771.txt";
-    const HANDLE raw = CreateFileW(original.c_str(), DELETE, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+    const HANDLE raw = CreateFileW(path.c_str(), DELETE, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
     if (!ready || raw == INVALID_HANDLE_VALUE)
         return 1;
     const Handle source(raw);
@@ -2289,6 +2289,46 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
     restored.reset();
     if (!DeleteFileW(sourcePath.c_str()))
         return false;
+
+    // The durable receipt must also survive a hard exit after both source names disappear.
+    if (!WriteFixture(sourcePath, moveContent))
+        return false;
+    error = OpenSource(parent.get(), leaf, raw, DELETE | READ_CONTROL | WRITE_DAC, FILE_SHARE_READ);
+    source.reset(raw);
+    FILE_ID_INFO finalSourceId{}, finalTargetId{};
+    if (error || ReadSourceIdentity(source.get(), finalSourceId) ||
+        Arm(parent.get(), leaf, source.get(), finalSourceId, storage.get(), journal.get(), security.get(), name, seal))
+        return false;
+    retained = storageDirectory + L"\\" + name;
+    source.reset();
+    constexpr wchar_t finalLeaf[] = L"final-link-\u6771.txt";
+    const auto finalTarget = targetDirectory + L"\\" + finalLeaf;
+    {
+        SourceGuard guard;
+        UacDirectoryLeaf::ParentIdentity targetParent;
+        Detail::Handle target(nullptr, CloseHandle);
+        if (CheckNoPriorSourceOpens(parent.get(), leaf, finalSourceId) ||
+            guard.Open(parent.get(), leaf, finalSourceId, 2) ||
+            UacDirectoryLeaf::ReadParentIdentity(destinationParent, targetParent) ||
+            guard.PublishCopy(destinationParent, targetParent, finalLeaf, moveContent.size(),
+                              nullptr, nullptr, MAXULONGLONG, target, finalTargetId) ||
+            RememberDestination(journal.get(), security.get(), finalSourceId, destinationParent,
+                                finalLeaf, target.get(), finalTargetId))
+            return false;
+    }
+    journal.reset();
+    const bool killedAtFinalLink = InterruptPendingMoveSource(originalDirectory) && !Exists(sourcePath) &&
+        Exists(retained) && InterruptFixtureChild(retained, L"--hold-move-final-link") &&
+        !Exists(retained) && Exists(finalTarget);
+    Check(killedAtFinalLink, "hard termination releases the final delete-pending source link");
+    if (!killedAtFinalLink || !(journal = openJournal(OPEN_EXISTING)) || empty())
+        return false;
+    error = recover(parent.get());
+    FILE_ID_INFO reopenedFinalId{};
+    Check(!error && empty() && !Exists(sourcePath) && !Exists(retained) &&
+              OpenIdentity(finalTarget, reopenedFinalId) && SameSource(finalTargetId, reopenedFinalId) &&
+              HasContents(finalTarget, moveContent),
+          "recognize completed retirement after the hard exit and preserve the exact destination", error);
 
     constexpr DWORD sparseSize = 4 * 1024 * 1024;
     constexpr DWORD secondExtent = sparseSize / 2;
@@ -4207,6 +4247,8 @@ int wmain(int argc, wchar_t** argv)
 {
     using namespace UacDirectoryLeaf;
     if (argc == 4 && std::wstring_view(argv[2]) == L"--hold-move-source")
+        return HoldMoveSourcePending(L"\\\\?\\" + std::wstring(argv[1]) + L"\\recover-\u6771.txt", argv[3]);
+    if (argc == 4 && std::wstring_view(argv[2]) == L"--hold-move-final-link")
         return HoldMoveSourcePending(L"\\\\?\\" + std::wstring(argv[1]), argv[3]);
     if (argc == 5 && std::wstring_view(argv[2]) == L"--hold-overwrite" && argv[3][0] >= L'0' &&
         argv[3][0] <= L'5' && argv[3][1] == 0)
