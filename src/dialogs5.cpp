@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-09 | Render Unassigned matrix targets as a dash. | Match empty default cells while keeping the Target selectors explicitly labeled Unassigned. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Allow Configuration OK to close when association projection is blocked. | A valid canonical model is already retained; a temporarily unavailable runtime adapter must not veto closing the dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add association patterns through Salamander's existing rename input dialog. | Prompt for a pattern, add an unassigned row, and select it for immediate configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Count Pack and Unpack archive filters independently and stabilize matrix painting. | Keep the archive tab count matched to its selected submenu and prevent native hover repaints from flashing over the custom matrix. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Highlight selected association conflict details. | Make the conflict explanation easy to identify in both color schemes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -4633,12 +4634,23 @@ void CCfgPageFileAssociations::Transfer(CTransferInfo& ti)
         // transfers the pages. Keep transfer based on the validated row model;
         // rereading the controls here can reject a valid OK after an action-tab
         // change and leave the Configuration window open after other pages saved.
-        if (!candidate.ReplaceAssociations(Rows, &error) ||
-            !Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
-                candidate, &error))
+        if (!candidate.ReplaceAssociations(Rows, &error))
         {
             SetStatus(error.c_str());
             ti.ErrorOn(IDC_FILEASSOCIATION_STATUS);
+            return;
+        }
+
+        if (!Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
+                candidate, &error))
+        {
+            SetStatus(error.c_str());
+            // ReplaceCanonicalAssociationsForConfiguration keeps a valid
+            // canonical model even when the currently registered runtime
+            // handlers cannot accept its projection. That is a retryable
+            // runtime condition, not a reason to keep Configuration open.
+            if (!Salamander::FileAssociations::IsCanonicalRuntimeProjectionBlocked())
+                ti.ErrorOn(IDC_FILEASSOCIATION_STATUS);
         }
         return;
     }
