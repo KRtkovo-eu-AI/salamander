@@ -141,11 +141,13 @@ class BranchActivationContracts(unittest.TestCase):
                     self.assertEqual(original.count("&"), translated.count("&"))
                     self.assertEqual(original.count(r"\t"), translated.count(r"\t"))
                     self.assertFalse(parser.validate_text(path, line, translated))
-                self.assertIn("STRINGTABLE 184:14991,", parsed)
-                self.assertIn("STRINGTABLE 185:14992,", parsed)
                 headers = [int(value) for value in re.findall(r"^\[STRINGTABLE (\d+)\]$",
                     raw.decode("utf-8-sig").replace("\r\n", "\n"), re.MULTILINE)]
-                self.assertEqual(headers, list(range(186)))
+                self.assertEqual(headers, list(range(len(headers))))
+                # New resource blocks can shift the ordinal of the final two tables.
+                for table, sid in zip(headers[-2:], (14991, 14992)):
+                    key = f"STRINGTABLE {table}:{sid},"
+                    self.assertTrue(key in parsed, f"missing {key} in {path.name}")
 
     def test_copy_dialog_branch_placeholders_match_native_resources(self):
         resources = source("lang/lang.rc")

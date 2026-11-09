@@ -72,6 +72,11 @@ def main():
     last = builder.index("            i++;", first)
     relative = builder.index("                    std::string branchTarget;", first)
     relative_end = builder.index("                    if (!BuildScriptFile(", relative)
+    # The following item-flag expression belongs to the transfer planner.
+    # This fixture compiles only the preceding relative-target construction.
+    transfer_flags = builder.find("                    const DWORD itemFlags =", relative, relative_end)
+    if transfer_flags != -1:
+        relative_end = transfer_flags
     shell = read("src/shellsup.cpp", args.source_ref)
     properties = shell[shell.index("    case saProperties:"):]
     properties_begin = properties.index("                IContextMenu2* menu = CreatePanelShellMenu")

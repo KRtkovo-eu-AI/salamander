@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Pass the local CI Python preflight. | Repair three stale Branch View and translation fixtures affected by the UAC changes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Trace the ordinary Shell refusal on the exact P7 fixture. | Separate the original ACL failure from the approved elevated retry. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Keep native progress exact over the 64-bit byte range. | Prevent wrapped percentages for large F6 batches. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the local volume boundary on the live broker pipe. | Refuse remote and device namespaces even with valid local file IDs. | | GPT-6.1 Sol (Codex) |
@@ -1437,6 +1438,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, výpočet průběhu pro velké F6 a dávky.** Společný výpočet nativních ukazatelů zachovává běžnou celočíselnou cestu a u hodnot, jejichž násobení tisícem by přeteklo, vyhledá přesnou dosaženou hranici. V x64 Debug i Release prošlo 20 992 srovnání skutečné funkce s referenční aritmetikou, včetně všech hranic ukazatele při maximální 64bitové hodnotě, prázdného celku a dokončené operace. Prošla kompilace workeru x64 Release a kontrola rozvržení průběhových dialogů. Jde o aritmetické ověření, bez takto velkých testovacích souborů. Důkazy jsou v C:/Samandarin/builds/uac-p7-afe152a1/progress-arithmetic.
 
 **P7, výchozí stav diagnostiky Koše.** Laboratorní sonda přijímá přímo existující zkušební soubor P7-recycle-02-approve.txt. V režimu baseline bez žádosti o elevaci prošla příprava Shellu, zařazení i PreDeleteItem včetně kontroly identity. PostDeleteItem i PerformOperations vrátily COPYENGINE_E_ACCESS_DENIED_SRC (0x80270021). Potvrzení položky Koše nevzniklo. Nezávislá kontrola zachytila stejnou cestu, NTFS ID a SHA-256 zdroje. Režim approve použije stejný soubor, povolí systémovou výzvu a při potvrzeném přesunu ověří Koš původního SID i obnovu. Výchozí protokol je v C:/Samandarin/builds/uac-p7-10da008c/recycle-trace/p7-shell-baseline.log. Výsledek režimu approve dosud chybí.
+
+**P7, místní pythonová část CI.** Stejný seznam 113 skupin a argumentů Debug jako v tools/run_native_tests.ps1 byl spuštěn ve čtyřech dávkách. První běh měl 110 úspěšných skupin. Po doplnění skutečné sdílené funkce pro tagy do generátoru, přesném oddělení relativního cíle od příznaků plánovače a opravě kontroly pořadí jazykových tabulek prošly i zbývající tři skupiny. Český archiv má v místním stromu CRLF se stejným normalizovaným obsahem. Samostatně prošlo 107 kontrol vlastností a 410 kontrol panelu v každé konfiguraci Debug a Release. Katalog a výsledky jsou v C:/Samandarin/builds/uac-p7-afe152a1/ci-python-catalog.json a python-preflight/combined.json. Jde o pythonovou část CI, nativní projekty, samostatné běhy Node a PowerShell a CodeQL mají vlastní ověření.
 
 ### 12.3 CI a přijetí vydání
 
