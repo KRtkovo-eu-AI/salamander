@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Flush successful Apply edits to the active configuration store. | Persist association changes immediately when the selected backend is the portable config file. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Apply to selected patterns instead of a stale focused row. | Keep single-row and multi-row edits bound to the actual ListView selection after focus moves to the detail controls. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Restore the direct user-override Apply path. | Undo the later SetUserTarget refactor that made the Apply transaction fail against the page's conflict rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Fall back from blank pattern text in every control-read path. | Treat whitespace-only edit text as empty so Apply does not fail during pattern normalization. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Resolve Apply patterns from the selected matrix row before validation. | Prevent stale or cleared pattern edit text from aborting a valid association update. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -5964,27 +5966,35 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                         selectedPatterns.push_back(selectedPattern);
                 }
             }
-            std::string focusedPattern;
-            int focusedRow = ListView_GetNextItem(matrix, -1, LVNI_FOCUSED);
-            LVITEM focusedItem;
-            ZeroMemory(&focusedItem, sizeof(focusedItem));
-            focusedItem.mask = LVIF_PARAM;
-            focusedItem.iItem = focusedRow;
-            if (focusedRow >= 0 && ListView_GetItem(matrix, &focusedItem) &&
-                focusedItem.lParam >= 0 &&
-                focusedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
-                focusedPattern = MatrixRows[focusedItem.lParam].Pattern;
-            if (focusedPattern.empty() && SelectedMatrixRow >= 0 &&
-                SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
-                focusedPattern = MatrixRows[SelectedMatrixRow].Pattern;
-            if (focusedPattern.empty() && Selected >= 0 &&
-                Selected < static_cast<int>(Rows.size()))
-                focusedPattern = Rows[Selected].Pattern;
-
             const bool multiSelect =
                 ListView_GetSelectedCount(matrix) > 1 && selectedPatterns.size() > 1;
-            if (focusedPattern.empty() && !selectedPatterns.empty())
+            std::string focusedPattern;
+            if (multiSelect)
+            {
+                int focusedRow = ListView_GetNextItem(matrix, -1, LVNI_FOCUSED);
+                LVITEM focusedItem;
+                ZeroMemory(&focusedItem, sizeof(focusedItem));
+                focusedItem.mask = LVIF_PARAM;
+                focusedItem.iItem = focusedRow;
+                if (focusedRow >= 0 && ListView_GetItem(matrix, &focusedItem) &&
+                    focusedItem.lParam >= 0 &&
+                    focusedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
+                    focusedPattern = MatrixRows[focusedItem.lParam].Pattern;
+
+                // A ListView can retain focus on an unselected row after the
+                // selection is changed with the mouse. Only use the focus row
+                // as the editor anchor when it is actually in the selection.
+                if (std::find(selectedPatterns.begin(), selectedPatterns.end(), focusedPattern) ==
+                    selectedPatterns.end())
+                    focusedPattern = selectedPatterns[0];
+            }
+            else if (!selectedPatterns.empty())
                 focusedPattern = selectedPatterns[0];
+            else if (SelectedMatrixRow >= 0 &&
+                     SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
+                focusedPattern = MatrixRows[SelectedMatrixRow].Pattern;
+            else if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
+                focusedPattern = Rows[Selected].Pattern;
 
             Salamander::FileAssociations::Association item;
             if (Selected >= 0 && Selected < static_cast<int>(Rows.size()))
@@ -6003,6 +6013,8 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 SetStatus(error.c_str());
                 break;
             }
+            if (!focusedPattern.empty())
+                item.Pattern = focusedPattern;
             std::string normalizedPattern;
             if (!Salamander::FileAssociations::CFileAssociationModel::NormalizePattern(
                     item.Pattern.c_str(), &normalizedPattern, &error))
@@ -6014,8 +6026,10 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
             if (!multiSelect)
             {
                 focusedPattern = normalizedPattern;
-                selectedPatterns.clear();
-                selectedPatterns.push_back(normalizedPattern);
+                if (selectedPatterns.empty())
+                    selectedPatterns.push_back(normalizedPattern);
+                else
+                    selectedPatterns[0] = normalizedPattern;
             }
             if (selectedPatterns.empty())
                 selectedPatterns.push_back(normalizedPattern);
@@ -6082,6 +6096,22 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 Rows = originalRows;
                 RefreshList();
                 SetStatus(commitError.c_str());
+                break;
+            }
+            if (!ConfigurationStorage.Flush(FALSE))
+            {
+                Salamander::FileAssociations::CFileAssociationModel previousModel;
+                if (previousModel.ReplaceAssociations(originalRows, NULL))
+                {
+                    Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
+                        previousModel, NULL);
+                    Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
+                        ConfigurationStorage, NULL);
+                    ConfigurationStorage.Flush(FALSE);
+                }
+                Rows = originalRows;
+                RefreshList();
+                SetStatus(LoadStr(IDS_ERRORSAVECONFIG));
                 break;
             }
 
