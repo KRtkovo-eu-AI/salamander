@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify language module architectures in the release payload. | Detect the Win32 pilot packaging mismatch before startup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Accept protected Win32 F7 under WOW64. | Verify cancellation and elevation through the matched Win32 broker in Program Files (x86). | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Compare localization dialog templates with the fork base. | Separate unchanged dialog geometry from runtime sizing of the UAC prompts. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the candidate refuses cross-account recycling. | Confirm denial leaves the original file and both bins untouched. | | GPT-6.1 Sol (Codex) |
@@ -1557,6 +1558,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, porovnání rozvržení překladů s výchozí revizí.** Anglické soubory šablon lang.rc a lang.rh jsou proti společné revizi 16b4cd01 bajtově shodné. Porovnání celých sekcí DIALOG zahrnulo 115 dialogů v každém z jedenácti archivů. Shoduje se 1263 z 1265 sekcí. Rozdíl v nizozemštině a rumunštině je v obou případech omezený na šířku jednoho popisku stávajícího dialogu kompatibility 1050, zvětšenou o dvě jednotky. Statická kontrola tak vymezuje změny šablon, zatímco zobrazení delších zpráv v dynamických dialozích UAC vyžaduje vizuální ověření. Výpis je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/localization-dialog-comparison.json.
 
 **P7, chráněný Win32 F7 pod WOW64.** Ve Windows 11 x64 build 26200 byly otiskem ověřeny host a broker protokolu 10 v Program Files (x86). První spuštění selhalo při načítání angličtiny, protože laboratorní skript přibalil modul x64. Kontrola hlaviček PE potvrdila x64 8664 u nesprávného souboru a x86 014C u jeho náhrady a hosta. Po výměně jediného souboru se panel spustil a obě zkoušky F7 zobrazily systémovou výzvu. Po zrušení složka 01-win32-cancel nevznikla, po schválení vznikla pouze 02-win32-approve a žádný broker po dokončení nezůstal. Důkaz je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/wow64-panel/protected-f7-evidence.json. Nativní běh ARM64 zůstává k ověření.
+
+**P7, architektura jazykových modulů při kontrole distribuce.** Samostatný ověřovač vyžaduje u vydání anglický modul a kontroluje architekturu zabalených modulů SLG. V režimu nepodepsané laboratoře přijme i samostatný pár aplikace a brokeru bez složky lang. Prošel kandidát x64 se dvanácti moduly, ověřená instalace Win32 s jedním modulem a kandidát ARM64 s nově sestaveným anglickým modulem. Negativní zkouška odmítla chybějící angličtinu, modul x64 na místě angličtiny Win32 i další modul x64 vedle správné angličtiny Win32. Režim vydání odmítl skutečný nepodepsaný obraz. Kontrola x64 prošla i v PowerShellu 5.1. Výpisy jsou v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/language-architecture-verifier.json a arm64-language-verifier.json. Podpis a nativní běh ARM64 zůstávají k ověření.
 
 ### 12.3 CI a přijetí vydání
 

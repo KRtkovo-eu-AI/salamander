@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Verify the architecture of packaged language modules. | Catch a mixed-architecture payload before the application tries to load it. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Verify Win32 and ARM64 UAC payloads. | Require both images to match the selected release architecture. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Pin the UAC release signer and verify the full import table. | Reject unexpected dependency names and delay-loaded imports. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Allow the system CNG runtime in the broker. | Verify payloads that use SHA-256 for overwrite recovery. | | GPT-6.1 Sol (Codex) |
@@ -40,13 +41,17 @@ function Invoke-InspectionTool([string]$Tool, [string[]]$Arguments) {
 
 $machineCodes = @{ Win32 = '14C'; x64 = '8664'; ARM64 = 'AA64' }
 
-function Test-Image([string]$Path, [string]$ExpectedLevel, [string]$ManifestPath) {
+function Get-ImageHeaders([string]$Path) {
     $headers = Invoke-InspectionTool $Dumpbin @('/nologo', '/headers', $Path)
     $machineCode = $machineCodes[$Architecture]
     if (!($headers -match "^\s*$machineCode machine \([^)]+\)\s*$")) {
         throw "Expected a $Architecture image in $Path."
     }
+    $headers
+}
 
+function Test-Image([string]$Path, [string]$ExpectedLevel, [string]$ManifestPath) {
+    $headers = Get-ImageHeaders $Path
     Invoke-InspectionTool $Mt @('-nologo', "-inputresource:$Path;#1", "-out:$ManifestPath") | Out-Null
     [xml]$manifest = Get-Content -LiteralPath $ManifestPath -Raw
     $levels = $manifest.SelectNodes("//*[local-name()='requestedExecutionLevel']")
@@ -140,6 +145,19 @@ if (!$UnsignedLab) {
 
 $Mt = (Get-Command -Name $Mt -CommandType Application).Source
 $Dumpbin = (Get-Command -Name $Dumpbin -CommandType Application).Source
+$languageDir = Join-Path $payload 'lang'
+$english = Join-Path $languageDir 'english.slg'
+if ((!$UnsignedLab -or (Test-Path -LiteralPath $languageDir)) -and
+    !(Test-Path -LiteralPath $english -PathType Leaf)) {
+    throw "Missing payload file $english."
+}
+$languageModules = @()
+if (Test-Path -LiteralPath $english -PathType Leaf) {
+    $languageModules = @(Get-ChildItem -LiteralPath $languageDir -Filter '*.slg' -File)
+    foreach ($module in $languageModules) {
+        Get-ImageHeaders $module.FullName | Out-Null
+    }
+}
 $temp = New-Item -ItemType Directory -Path (Join-Path ([IO.Path]::GetTempPath()) "samandarin-uac-$([guid]::NewGuid())")
 $hostManifest = Join-Path $temp.FullName 'host.manifest'
 $brokerManifest = Join-Path $temp.FullName 'broker.manifest'
@@ -192,6 +210,7 @@ finally {
     Architecture = $Architecture
     HostSha256 = (Get-FileHash -LiteralPath $hostPath -Algorithm SHA256).Hash
     BrokerSha256 = (Get-FileHash -LiteralPath $brokerPath -Algorithm SHA256).Hash
+    LanguageModulesVerified = $languageModules.Count
     BrokerImports = $imports
     ProtocolVersion = $hostProtocol
     SignaturesVerified = !$UnsignedLab
