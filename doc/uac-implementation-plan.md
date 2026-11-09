@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Complete the Spanish and Italian UAC strings. | Verify localized UAC messages in both built language modules. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Complete the French and Slovak UAC strings. | Verify translated consent, scope and error text in both built language files. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Complete the German UAC strings. | Verify localized consent and error text in the German language binary. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify exact-file Find scope and investigate the Recycle Bin namespace. | Record live-pipe authorization checks and the known-folder API limits. | | GPT-6.1 Sol (Codex) |
@@ -1504,6 +1505,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, německé prostředky UAC a šablony chyb Findu.** Německý archiv doplňuje 45 chybějících textů a aktualizuje tři stávající zprávy o kopírování a přesunu podle anglického modulu. Překladač archiv importoval a zpětný export zachoval texty. Přímé čtení z german.slg pod LANGID 1031 ověřilo všech 65 jedinečných textů UAC proti archivu. Kontrola rozvržení celého německého modulu hlásí neblokující kód 2. Výstup rozložení dialogů tedy není ověřený. U 44 šablon chyb Findu v jedenácti archivech byla přesně jedna značka %s a žádná další formátovací značka. Vedle angličtiny, češtiny a němčiny zbývá doplnit texty v devíti archivech.
 
 **P7, francouzské a slovenské prostředky UAC.** Každý archiv doplnil 45 chybějících překladů a upravil tři starší hlášky o kopii a přesunu. Projektový překladač importoval oba archivy bez odmítnutí a zpětný export zachoval texty. Přímá kontrola souborů french.slg (LANGID 1036) a slovak.slg (LANGID 1051) porovnala všech 65 textů každého modulu s příslušným archivem. Kontrola rozvržení obou úplných modulů hlásí neblokující kód 2. Rozložení dialogů zůstává k vizuálnímu ověření. Sedm překladových archivů ještě čeká na doplnění.
+
+**P7, španělské a italské prostředky UAC.** Každý archiv doplnil 45 chybějících překladů a aktualizoval tři zprávy o kopii a přesunu. Projektový překladač importoval oba archivy bez odmítnutí a zpětný export zachoval texty. Přímá kontrola spanish.slg (LANGID 3082) a italian.slg (LANGID 1040) ověřila všech 65 textů každého modulu. Kontrola rozvržení celých modulů hlásí neblokující kód 2. Rozložení dialogů zůstává k vizuálnímu ověření. Pět překladových archivů ještě čeká na doplnění.
 
 ### 12.3 CI a přijetí vydání
 
