@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify requeued F5 target revision in Scan Ahead. | Confirm that the new revision requires a fresh overwrite decision in the upstream dialog. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify a late target revision during F5 consent in the VM. | Check that consent cannot authorize overwriting a changed target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify protected F5 overwrite with NTFS streams in the VM. | Cover both source and existing destination streams with Windows consent. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify shared F5 consent in the P7 virtual machine. | Confirm two files with one prompt and require fresh consent for a new job. | | GPT-6.1 Sol (Codex) |
@@ -1366,6 +1367,8 @@ Ke každé zkoušce zaznamenat revizi, verzi Windows a architekturu, typ účtu 
 **VM, přepis chráněného cíle F5 s datovými proudy.** V pilotu 10da008c na Windows 11 Pro x64 (26200) proběhly dva samostatné přepisy v běžném dialogu konfliktu. Uživatel u každého potvrdil systémovou výzvu. U prvního odpovídal SHA-256 hlavního obsahu i obsah pojmenovaného proudu zdroji. U druhého odpovídal SHA-256 a úplný seznam proudů zdroji a původní pojmenovaný proud cíle zmizel podle pravidel přepisu popsaných v P7. Po obou pokusech byl počet pracovních souborů a záloh přepisu nula. Záznam je v souboru f5-overwrite-vm-evidence.json vedle předchozího záznamu F5. Změna revize během výzvy a režim Scan Ahead zůstávají v matici.
 
 **VM, změna cíle F5 během souhlasu.** V běžném režimu konfliktu pilotu 10da008c zobrazil Samandarin původní revizi. Skript změnil obsah téhož cíle a ověřil, že nový proces consent.exe po zápisu ještě běžel. Uživatel potom schválil UAC a zaznamenal chybu 1006. Kontrola SHA-256 potvrdila zachování nové revize cíle. Zdroj zůstal celý a nevznikl pracovní soubor ani záloha. První pokus bez spuštěného watcheru pouze potvrdil průchod běžného přepisu a před měřeným pokusem byl testovací obsah obnoven. Důkaz je v souboru f5-revision-vm-evidence.json. Opakování ve Scan Ahead ještě zbývá.
+
+**VM, změna cíle F5 ve Scan Ahead.** V pilotu 10da008c byl v možnostech F5 zvolen Scan Ahead. Původní konflikt ukazoval cíl o velikosti 20 bajtů. Skript zapsal novou revizi během systémové výzvy a ověřil, že consent.exe po zápisu ještě běžel. Po schválení se položka vrátila do seznamu konfliktů se stavem Waiting for decision a s nulovým průběhem. Solve otevřel Confirm File Overwrite s novou revizí o velikosti 50 bajtů. Zvoleno Skip. SHA-256 cíle odpovídal nové revizi, zdroj zůstal stejný a nevznikl pracovní soubor ani záloha. Důkaz je v souboru f5-scan-revision-vm-evidence.json. Kvůli připomínce ke vzhledu byl porovnán zdroj dialogů pilotu s upstreamem 16b4cd01. Soubor src/lang/lang.rc má v obou stejný Git blob d0941ea9 a obsahuje standardní Confirm File Overwrite i okno průběhu Scan Ahead. Souhlas Administrator má samostatný dialog aplikace se štítem. Přesný vizuální rozdíl, kterého si uživatel všiml, zatím nebyl identifikován.
 
 ### 12.3 CI a přijetí vydání
 
