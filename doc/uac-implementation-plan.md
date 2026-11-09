@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Document the recovered F5 decision and panel size shortcut. | Align the user guide with the verified conflict dialog and the disk size command. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the native F5 recovery conflict and installed Czech UAC strings. | Confirm the open overwrite decision and preserve the recovered original after cancellation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Extend the targeted CodeQL scan and verify the slot parser fix. | Remove the only finding on a branch-changed line and rebuild the matching release payloads. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Run the previous CodeQL rules against the local UAC revision. | Verify both Find fixes without pushing the unfinished VM acceptance branch. | | GPT-6.1 Sol (Codex) |
@@ -1586,6 +1587,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, vizuální ověření konfliktu po obnově F5.** Původní průchod zůstal otevřený v samostatném okně průběhu. Computer Use jej zobrazil v popředí a potvrdil běžný Confirm File Overwrite s původním cílem, novým zdrojem a tlačítky Yes, All, Skip, Skip All a Cancel. Po Cancel zmizelo okno průběhu, zdroj i obnovený cíl zůstaly a SHA-256 i ID cíle odpovídaly původnímu souboru. Záloha ani žurnál nezůstaly. Důkaz je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/f5-overwrite-crash/recovery-native-dialog-evidence.json.
 
 **P7, český modul v chráněném pilotu.** Přímé načtení prostředků Win32 potvrdilo, že nainstalovaný czech.slg má všech 65 stejných textů UAC jako kandidát včetně výzvy k vytvoření složky. Ověření použilo skutečné soubory, které se jako celek liší otiskem. Start chráněného pilotu s volbou -language czech zobrazil české hlášení o Bug Reporteru, po jeho zavření se však hlavní okno neobjevilo. Zkouška proto ověřuje dostupnost a shodu prostředků, nikoli vzhled české výzvy UAC. Důkaz je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/czech-installed-uac-strings.json.
+
+**P7, uživatelský postup a český start.** Uživatelský průvodce popisuje běžný dialog po obnovení původního souboru F5, zachování originálu po Cancel a opakování po ukončení souběžné operace. Ctrl+Shift+F10 v diskovém panelu jde přes CM_CALCDIRSIZES a CalculateDirSizes do FilesAction(atCountSize, ..., 2). Odepření čtení se v této cestě zpracuje stejnou brokerovou inventurou jako ostatní diskové výpočty velikosti. Jde o ověření zdrojové cesty, samostatný interaktivní průchod této klávesy zatím chybí. Přepnutí češtiny přes konfiguraci chráněného pilotu bylo uloženo v testovacím souboru a při restartu se zobrazilo české úvodní hlášení. Po zavření hlášení se hlavní okno neobjevilo ani při spuštění přes Windows Shell. Wait Chain Traversal označil hlavní vlákno jako blokované bez identifikovaného vlastníka a bez cyklu. Testovací proces byl ukončen a v laboratorním profilu byla vrácena angličtina. Vizuální akceptace české výzvy zůstává otevřená.
 
 ### 12.3 CI a přijetí vydání
 

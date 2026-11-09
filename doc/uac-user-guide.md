@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Describe F5 recovery and the panel size command. | Explain the fresh overwrite decision and the existing shortcut for folder sizes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Explain the source restriction for elevated security copies. | Document the protected source requirement verified in the VM. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Document the same-account Shell recycle boundary. | The Windows credential path can use a different account’s bin. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Update protected Recycle Bin acceptance after the Shell retry fix. | Record the verified original-account result and remaining restore checks. | | GPT-6.1 Sol (Codex) |
@@ -31,7 +32,7 @@ The UAC pilot runs the file manager with the account and permissions you normall
 | Copy a folder tree | The elevated **F5** tree pilot requires an eligible tree and a registered protected destination. It publishes into a free name. |
 | EFS | Eligible single-file **F5** uses encrypted backup and restore on NTFS. Opening the copied file still requires the appropriate EFS key. |
 | Delete | **Shift+Delete** offers elevation for eligible permanent deletion. This includes supported single symbolic links and junctions and leaves their targets intact. **Delete** continues to use the Windows Recycle Bin under the ordinary account. The protected pilot can offer a separate administrator retry for one eligible file after access is denied. A confirmed result requires the same file in the original user's bin. The protected retry is available for split-token administrators when Windows uses same-account elevation. Windows may show more than one shield prompt. Confirm only a move to the Recycle Bin. The VM verified cancellation, a same-account move and restoration to the protected location. A retry that would require a different administrator stays at the access-denied result. |
-| Read and inspect | Protected panel listings, **Space** and **Ctrl+Q**, supported **Alt+F7** Find queries, and **F3** in the internal viewer. **F4** can explicitly launch an eligible editor as administrator for the original file. |
+| Read and inspect | Protected panel listings, size calculation with **Space**, **Ctrl+Q** or **Ctrl+Shift+F10** in a disk panel, supported **Alt+F7** Find queries, and **F3** in the internal viewer. **F4** can explicitly launch an eligible editor as administrator for the original file. |
 | ZIP and ZIP64 | Listing in the ordinary archive panel, internal viewing of eligible entries, extraction, and adding, replacing or deleting eligible entries in protected archives. Viewing and extracting are limited to 16 MiB per expanded file in this pilot. Extraction of a selection is also limited to 4,096 entries and a 64 MiB total request. |
 
 The pilot applies to supported local paths and the built-in ZIP integration. Network shares, mapped drives, general plugin elevation, and portable elevation are outside the documented pilot. The [implementation plan](uac-implementation-plan.md) lists the detailed file system and metadata combinations and their verification status.
@@ -45,3 +46,5 @@ For EFS, percentages appear during import of the encrypted data. The initial exp
 ## Cancellation and interrupted operations
 
 Cancelling the Windows prompt leaves the elevated step unstarted. Changes already completed earlier in the job remain in place. If Samandarin cannot confirm a result, check the source and destination before retrying. A cross-volume move can leave a complete destination and the original source. If a move into the Recycle Bin cannot be confirmed, check both the original location and the Recycle Bin. A failed recycle request never switches automatically to permanent deletion.
+
+If a protected **F5** overwrite is interrupted while the original is held in a recovery backup, retrying the same copy can restore the original. Review the normal overwrite dialog before proceeding. Choose **Cancel** to keep the restored file. If another operation is still using the destination and Samandarin reports a sharing violation, wait for that operation to finish before retrying.
