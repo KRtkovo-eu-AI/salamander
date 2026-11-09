@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record exact-file consent in Find refinement. | Keep protected text and tags available in intersection and subtraction. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record larger streamed cross-volume F6 transfers. | Keep F6 size and time limits independent from F5. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record guarded cross-volume F6 with ADS. | Verify the protected destination and retire the source after all streams are published. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the verified F6 stream inventory. | Acquire and recheck per-stream locks against the same file ID. | | GPT-6.1 Sol (Codex) |
@@ -940,6 +941,10 @@ Lokálně prošlo sestavení x64 Debug a kontroly plánování, řazení a výb�
 **Chráněný soubor v čitelné složce.** Pokud běžný průchod může vypsat složku, ale otevření kandidáta pro text nebo tagy skončí odepřením přístupu, Find zařadí jednotlivý soubor do fronty. Při duplicitách podle obsahu nabídne stejnou cestu až u kandidáta z užší skupiny, který běžným tokenem nelze otevřít. Obojí sdílí limit 32 žádostí na jedno hledání. Nabídka ukazuje úplnou cestu k souboru a uděluje pouze přístup k jeho obsahu. Broker ověří rodiče a identitu souboru zachycenou před souhlasem a ponechá otevřený stejný handle. Relace odmítá výpis, inventář i jakýkoli požadavek s cestou. Schválené čtení jde přes stejný blokový protokol pro text, tagy a otisk duplicit. Zrušení ponechá jiné výsledky. Záznam doplní nepodporované a nadlimitní položky. Tento krok pokrývá běžný průchod Findu, nikoli zužování už zobrazeného seznamu.
 
 Lokálně prošlo sestavení x64 Debug, 226 nativních kontrol v Debug i Release, test transportu a kontroly plánování, řazení a výběru kořenů Findu. Kontroly rozlišují platný požadavek na jediný soubor od požadavku s cizím názvem, výpisem nebo inventářem. Schválení a zrušení v čitelné složce s jedním chráněným souborem a pokus o změnu jeho identity během souhlasu patří do společné akceptace ve VM.
+
+**Zúžení zobrazených výsledků Find.** Při zúžení podle obsahu nebo tagů lze po odepření čtení požádat o přístup k jednomu ověřenému souboru. Cesta z původního řádku zůstává v Unicode. Běžné výsledky se zveřejní před čekáním na dokončení fronty souhlasů. Stejné řádky s totožnou cestou a metadaty sdílejí jeden souhlas. Při průniku se přidají potvrzené shody. Při odečtení zůstane neověřený řádek ve výsledcích a odmítnutí se zaznamená. Zastavení hledání potlačí další nabídky.
+
+Lokálně prošly kontroly plánování, řazení a volby kořenů Findu. V x64 Debug a Release prošlo 248 obecných nativních kontrol, včetně ověřeného blokového čtení obsahu a tagů. Prošlo sestavení aplikace, brokeru a sondy x64 Debug. Souhlas, odmítnutí a zachování Unicode položek při průniku i odečtení se ověří ve společné zkoušce ve VM.
 
 ### 8.43 P6c — chráněný soubor v interním prohlížeči přes F3
 
