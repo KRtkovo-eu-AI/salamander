@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Localize adding new association patterns. | Give the existing text-input dialog clear instructions and report invalid or duplicate entries. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Localize the association detail Apply action. | Name the new command that writes edits into the association matrix. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Shorten custom viewer/editor page descriptions. | Keep page guidance on one line at the minimum window width. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add localized custom handler guidance and table headings. | Describe viewer/editor pages and name the new Arguments and Initial directory columns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -2459,7 +2460,11 @@ STRINGTABLE
  IDS_CUSTOM_HANDLER_INVALID, "This custom handler is invalid or exceeds the supported size limits."
  IDS_FILEASSOCIATION_NO_LEGACY_EDITOR, "No legacy editor is configured"
  IDS_FILEASSOCIATION_CONFLICTS_COUNT, "Conflicts (%u)"
- IDS_FILEASSOCIATION_ADD_SHORT, "Add"
+ IDS_FILEASSOCIATION_ADD_SHORT, "Add new pattern"
+ IDS_FILEASSOCIATION_NEW_PATTERN_TITLE, "Add new file association pattern"
+ IDS_FILEASSOCIATION_NEW_PATTERN_PROMPT, "Enter a file pattern:"
+ IDS_FILEASSOCIATION_PATTERN_INVALID, "Enter a valid file pattern."
+ IDS_FILEASSOCIATION_PATTERN_EXISTS, "This file pattern already exists."
  IDS_FILEASSOCIATION_FILTER_STATES, "All States"
  IDS_FILEASSOCIATION_FILTER_SOURCES, "All Sources"
  IDS_FILEASSOCIATION_APPLY, "Apply"

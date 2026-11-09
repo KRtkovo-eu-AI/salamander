@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add localized text IDs for creating association patterns. | Title and prompt the existing Salamander rename input dialog and explain invalid or duplicate patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add localized text IDs for custom handler page descriptions and columns. | Label the new page guidance, editor group, Arguments, and Initial directory fields. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add the missing legacy editor display label. | Localize the empty-state Target ID when no configured editor command can be found. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add custom handler labels for association settings. | Localize custom viewer/editor targets and their edit forms. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -3231,6 +3232,10 @@
 #define IDS_CUSTOM_HANDLER_DETAILS                       14601
 #define IDS_CUSTOM_HANDLER_COLUMN_ARGUMENTS              14602
 #define IDS_CUSTOM_HANDLER_COLUMN_INITIAL_DIRECTORY     14603
+#define IDS_FILEASSOCIATION_NEW_PATTERN_TITLE            14604
+#define IDS_FILEASSOCIATION_NEW_PATTERN_PROMPT           14605
+#define IDS_FILEASSOCIATION_PATTERN_INVALID              14606
+#define IDS_FILEASSOCIATION_PATTERN_EXISTS               14607
 #define IDS_FILELAUNCH_LAUNCH_CLOSE                      14523
 #define IDS_FILELAUNCH_LONGPATH_GUIDE_BUTTON             14524
 #define IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE              14525

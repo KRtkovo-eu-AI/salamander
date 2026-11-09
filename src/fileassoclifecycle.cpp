@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Save valid association edits when runtime projection is blocked. | Configuration changes must be retained while plug-in handlers are temporarily unavailable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Defer default association import until Configuration opens. | Prevent early startup from persisting an incomplete clean-configuration snapshot before plugin defaults finish loading. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Materialize migrated associations without restarting. | Let the configuration page display clean/default and migrated rows immediately after lifecycle load. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Import legacy associations on first canonical load. | Show existing viewer, editor, and archive defaults in the new matrix without forcing manual pattern entry. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -169,9 +170,7 @@ BOOL SaveCanonicalAssociationsForLifecycle(CConfigurationStorage& storage,
         error->clear();
 
     LifecycleState& state = State();
-    if (!state.Loaded || !state.Materialized ||
-        !HasRegisteredOperations() || !state.ProjectionSucceeded ||
-        state.ProjectionBlocked)
+    if (!state.Loaded || !state.Materialized)
         return TRUE;
 
     return state.Model.SaveToConfigurationStorage(storage, CanonicalAssociationKey, error);
@@ -230,24 +229,12 @@ BOOL ReplaceCanonicalAssociationsForConfiguration(const CFileAssociationModel& m
     if (!candidate.ReplaceAssociations(model.Associations(), error))
         return FALSE;
 
-    RuntimeProjectionReport report;
-    if (!candidate.Associations().empty())
-    {
-        if (!HasRegisteredOperations())
-        {
-            SetError(error, "runtime association projection adapter is not registered");
-            return FALSE;
-        }
-        if (!ProjectRuntimeAssociations(candidate, RegisteredOperations(), &report, error))
-            return FALSE;
-    }
-
     state.Model = candidate;
     state.Materialized = true;
-    state.ProjectionReport = report;
-    state.ProjectionSucceeded = true;
-    state.ProjectionBlocked = false;
-    return TRUE;
+    // Keep the canonical user configuration even when a runtime handler cannot
+    // currently accept its projection. ProjectLoadedState records that condition
+    // and the lifecycle can retry once its runtime adapter is available.
+    return ProjectLoadedState(state, error);
 }
 
 bool IsCanonicalRuntimeLoaded()

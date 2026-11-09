@@ -2,6 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add association patterns through Salamander's existing rename input dialog. | Prompt for a pattern, add an unassigned row, and select it for immediate configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Count Pack and Unpack archive filters independently and stabilize matrix painting. | Keep the archive tab count matched to its selected submenu and prevent native hover repaints from flashing over the custom matrix. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Highlight selected association conflict details. | Make the conflict explanation easy to identify in both color schemes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Let Configuration OK accept valid associations while runtime projection is blocked. | Keep the canonical choices and allow the lifecycle to retry projection when plug-in handlers are ready. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Right-align the Custom Handler Save button on resize. | Keep Save aligned with the right edge of Handler details at every dialog width. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Show the configured legacy editor for the universal pattern and add detail Apply. | Expose the actual editor command in the matrix and commit edits to the page model on demand. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Fix opaque backgrounds while painting association text and badges. | Save and restore the offscreen GDI context and explicitly use transparent text backgrounds. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Fit the association details caption to its text. | Keep the group-box title from covering the full top border. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -4015,10 +4020,22 @@ void CCfgPageFileAssociations::UpdateCategoryTabs()
         for (size_t row = 0; row < MatrixRows.size(); ++row)
         {
             const MatrixRow& item = MatrixRows[row];
-            if ((category == 0 && item.View >= 0) ||
-                (category == 1 && item.AlternateView >= 0) ||
-                (category == 2 && item.Edit >= 0) ||
-                (category == 3 && (item.ListUnpack >= 0 || item.DeletePack >= 0)))
+            bool included = false;
+            if (category == 0)
+                included = item.View >= 0;
+            else if (category == 1)
+                included = item.AlternateView >= 0;
+            else if (category == 2)
+                included = item.Edit >= 0;
+            else if (FilterCategory == 3 &&
+                     FilterArchiveOperation == static_cast<int>(Salamander::FileAssociations::PanelOperation::DeletePack))
+                included = item.DeletePack >= 0;
+            else if (FilterCategory == 3 &&
+                     FilterArchiveOperation == static_cast<int>(Salamander::FileAssociations::PanelOperation::ListUnpack))
+                included = item.ListUnpack >= 0;
+            else
+                included = item.ListUnpack >= 0 || item.DeletePack >= 0;
+            if (included)
                 ++count;
         }
         char label[128];
@@ -4916,20 +4933,24 @@ LRESULT CALLBACK CCfgPageFileAssociations::MatrixListSubclassProc(
     HWND window, UINT message, WPARAM wParam, LPARAM lParam, UINT_PTR subclassId,
     DWORD_PTR referenceData)
 {
-    const LRESULT result = DefSubclassProc(window, message, wParam, lParam);
+    if (message == WM_ERASEBKGND)
+        return 1;
     if (message == WM_PAINT && referenceData != 0)
     {
         CCfgPageFileAssociations* page = reinterpret_cast<CCfgPageFileAssociations*>(referenceData);
-        HDC hdc = GetDC(window);
+        PAINTSTRUCT paint;
+        HDC hdc = BeginPaint(window, &paint);
         if (hdc != NULL)
-        {
             page->PaintMatrix(hdc);
-            ReleaseDC(window, hdc);
-        }
+        EndPaint(window, &paint);
+        return 0;
     }
     else if (message == WM_NCDESTROY)
+    {
         RemoveWindowSubclass(window, MatrixListSubclassProc, subclassId);
-    return result;
+        return DefSubclassProc(window, message, wParam, lParam);
+    }
+    return DefSubclassProc(window, message, wParam, lParam);
 }
 
 INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -5522,6 +5543,75 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 PopulateTargetCatalog();
             break;
         case IDB_FILEASSOCIATION_ADD:
+        {
+            std::vector<char> patternInput(SAL_MAX_PATH, 0);
+            CTruncatedString subject;
+            subject.Set(LoadStr(IDS_FILEASSOCIATION_NEW_PATTERN_PROMPT), NULL);
+            CCopyMoveDialog dialog(HWindow, patternInput.data(), static_cast<int>(patternInput.size()),
+                                   LoadStr(IDS_FILEASSOCIATION_NEW_PATTERN_TITLE), &subject,
+                                   IDD_RENAMEDIALOG, NULL, 0, FALSE);
+            if (dialog.Execute() != IDOK)
+                break;
+
+            std::string normalizedPattern;
+            std::string error;
+            if (!Salamander::FileAssociations::CFileAssociationModel::NormalizePattern(
+                    patternInput.data(), &normalizedPattern, &error))
+            {
+                SalMessageBox(HWindow, LoadStr(IDS_FILEASSOCIATION_PATTERN_INVALID),
+                              LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                break;
+            }
+
+            bool alreadyExists = false;
+            for (size_t i = 0; i < MatrixRows.size(); ++i)
+                if (MatrixRows[i].Pattern == normalizedPattern)
+                {
+                    alreadyExists = true;
+                    break;
+                }
+            if (alreadyExists)
+            {
+                SalMessageBox(HWindow, LoadStr(IDS_FILEASSOCIATION_PATTERN_EXISTS),
+                              LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                break;
+            }
+
+            Salamander::FileAssociations::Association item;
+            item.Pattern = normalizedPattern;
+            item.AssociationCategory = static_cast<Salamander::FileAssociations::Category>(SelectedCategory);
+            if (item.AssociationCategory == Salamander::FileAssociations::Category::PanelArchive)
+            {
+                if (SelectedOperation != static_cast<int>(Salamander::FileAssociations::PanelOperation::DeletePack) &&
+                    SelectedOperation != static_cast<int>(Salamander::FileAssociations::PanelOperation::ListUnpack))
+                    SelectedOperation = static_cast<int>(Salamander::FileAssociations::PanelOperation::DeletePack);
+                item.Operation = static_cast<Salamander::FileAssociations::PanelOperation>(SelectedOperation);
+            }
+            else
+                item.Operation = Salamander::FileAssociations::PanelOperation::NotApplicable;
+            item.AssociationTarget = Salamander::FileAssociations::Target(
+                Salamander::FileAssociations::TargetKind::Unassigned);
+            item.AssociationProvenance = Salamander::FileAssociations::Provenance::Disabled;
+            item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
+            Rows.push_back(item);
+            Selected = static_cast<int>(Rows.size()) - 1;
+            SelectedMatrixRow = -1;
+
+            // Make the newly created pattern visible even when the user started
+            // from a category, source, state, conflict, or search filter.
+            FilterCategory = -1;
+            FilterArchiveOperation = -1;
+            FilterProvenance = -1;
+            FilterSource = -1;
+            ConflictsOnly = FALSE;
+            SetDlgItemText(HWindow, IDE_FILEASSOCIATION_SEARCH, "");
+            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_FILTER_PROVENANCE, CB_SETCURSEL, 0, 0);
+            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_FILTER_SOURCE, CB_SETCURSEL, 0, 0);
+            CheckDlgButton(HWindow, IDC_FILEASSOCIATION_FILTER_CONFLICTS, BST_UNCHECKED);
+            ListView_SetItemState(GetDlgItem(HWindow, IDL_FILEASSOCIATIONS), -1, 0, LVIS_SELECTED);
+            RefreshList();
+            break;
+        }
         case IDB_FILEASSOCIATION_APPLY:
         {
             Salamander::FileAssociations::Association item;
@@ -5714,6 +5804,29 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
             break;
         }
         break;
+    case WM_CTLCOLORSTATIC:
+    {
+        HWND status = GetDlgItem(HWindow, IDC_FILEASSOCIATION_STATUS);
+        if (reinterpret_cast<HWND>(lParam) == status &&
+            ListView_GetSelectedCount(GetDlgItem(HWindow, IDL_FILEASSOCIATIONS)) <= 1 &&
+            Selected >= 0 && Selected < static_cast<int>(Rows.size()) &&
+            Rows[Selected].AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict)
+        {
+            LRESULT brush = 0;
+            const bool themed = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            if (dc != NULL)
+            {
+                SetBkMode(dc, TRANSPARENT);
+                SetTextColor(dc, Configuration.UseWindowsDarkMode
+                                     ? RGB(255, 128, 105) : RGB(176, 24, 24));
+            }
+            if (themed)
+                return brush;
+            return reinterpret_cast<INT_PTR>(GetSysColorBrush(COLOR_BTNFACE));
+        }
+        break;
+    }
     case WM_NOTIFY:
     if (reinterpret_cast<LPNMHDR>(lParam)->idFrom == IDL_FILEASSOCIATIONS)
         {
@@ -6568,11 +6681,22 @@ INT_PTR CCfgPageCustomHandlers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
     const INT_PTR result = CCommonPropSheetPage::DialogProc(uMsg, wParam, lParam);
     if (uMsg == WM_INITDIALOG || uMsg == WM_SIZE)
     {
-        HWND list = GetDlgItem(HWindow, IDL_CUSTOM_HANDLERS);
+        HWND save = GetDlgItem(HWindow, IDB_CUSTOM_HANDLER_SAVE);
         RECT client;
-        if (list != NULL && GetClientRect(list, &client) && Header_GetItemCount(ListView_GetHeader(list)) == 4)
+        RECT saveRect;
+        if (save != NULL && GetClientRect(HWindow, &client) &&
+            GetWindowRect(save, &saveRect))
         {
-            const int width = max(0, client.right - client.left);
+            MapWindowPoints(NULL, HWindow, reinterpret_cast<POINT*>(&saveRect), 2);
+            const int rightMargin = WinLibDPIFromLogical(HWindow, 3);
+            SetWindowPos(save, NULL, client.right - rightMargin - (saveRect.right - saveRect.left),
+                         saveRect.top, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+        HWND list = GetDlgItem(HWindow, IDL_CUSTOM_HANDLERS);
+        RECT listClient;
+        if (list != NULL && GetClientRect(list, &listClient) && Header_GetItemCount(ListView_GetHeader(list)) == 4)
+        {
+            const int width = max(0, listClient.right - listClient.left);
             ListView_SetColumnWidth(list, 0, width * 20 / 100);
             ListView_SetColumnWidth(list, 1, width * 26 / 100);
             ListView_SetColumnWidth(list, 2, width * 24 / 100);
