@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Remove the size-only Find content reply. | Use the shared file revision for each verified open. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Separate single-file and rooted Find frames. | Deny listing, inventory and other names on an exact-file grant. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define a bounded Find content request. | Scope the byte budget to an authorized listing session. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Collect allocation and per-file sizes for protected Ctrl+Q. | Match ordinary cluster rounding and query sparse and compressed files by verified handle. | | GPT-6.1 Sol (Codex) |
@@ -26,12 +27,6 @@ constexpr DWORD inventoryRequest = 0x80000000;
 constexpr DWORD sizeDetailsRequest = 0x40000000;
 constexpr DWORD contentRequest = 0x20000000;
 constexpr ULONGLONG contentBudget = 64ULL * 1024 * 1024 * 1024;
-struct ContentInfo
-{
-    ULONGLONG size;
-    FILETIME modified;
-};
-static_assert(sizeof(ContentInfo) == 16);
 
 inline bool ValidRequestScope(UacF7::Operation scope, DWORD pathLength, bool inventory, bool content)
 {

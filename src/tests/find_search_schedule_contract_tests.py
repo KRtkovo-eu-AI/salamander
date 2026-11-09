@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check the protected Find revision across both passes. | Verify the candidate before reading any bytes for its digest. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check one protected Find open for text and tags. | Require a confirmed close before accepting the combined result. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check duplicate verification at the comparison phase. | Require exact read lengths and keep stale empty candidates out of the result. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Verify protected Find refine scheduling. | Keep ordinary results responsive and retain rows on a declined subtraction check. | | GPT-6.1 Sol (Codex) |
@@ -96,6 +97,10 @@ def main() -> int:
     require("file->ProtectedScope" in examine and "protectedSessions[scope - 1]" in examine,
             "protected duplicate reads must use the exact session that supplied the candidate")
     digest = function_body(find_cpp, "BOOL CDuplicateCandidates::GetMD5Digest(")
+    require("RecordRevision(foundData, *revision)" in find_cpp and
+            digest.index("SameFileRevision(checked->second, revision)") <
+            digest.index("protectedSession->ReadContent(offset, buffer, read)"),
+            "a protected candidate must keep its checked revision through duplicate hashing")
     require("protectedSession->ReadContent(offset, buffer, read)" in digest and
             "protectedSession->CloseContent()" in digest and
             digest.index("protectedSession->CloseContent()") < digest.index("context.finalize()"),

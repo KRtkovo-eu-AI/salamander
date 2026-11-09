@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Test Find revisions across two opens. | Detect an in-place edit even if file length and modification time match. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify sparse F6 with sparse and dense named streams. | Check data, allocation holes and source retirement together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Check the final EFS metadata verifier on real encrypted files. | Confirm it rejects a different size, time or stream inventory. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Run guarded F6 publication on a separate test volume. | Verify destination receipts against a distinct NTFS volume. | | GPT-6.1 Sol (Codex) |
@@ -2574,6 +2575,7 @@ static bool CheckViewerSnapshot(const std::wstring& fixture, HANDLE root)
     error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, identity, L"..\\empty.txt", MAXULONGLONG, snapshot);
     Check(error == ERROR_INVALID_NAME && snapshot.empty(), "reject a path in a single viewer leaf request", error);
 
+    UacF7::ArchiveRevision firstFindRevision{}, currentFindRevision{};
     HANDLE scopedRaw = nullptr;
     FILE_BASIC_INFO scopedInfo{};
     LARGE_INTEGER scopedSize{};
@@ -2587,6 +2589,34 @@ static bool CheckViewerSnapshot(const std::wstring& fixture, HANDLE root)
                   ReadFile(scoped.get(), bytes, sizeof(bytes), &read, nullptr) &&
                   read == sizeof(bytes) && std::equal(expected.begin(), expected.end(), bytes),
               "read a nested Unicode Find candidate beyond MAX_PATH through its root", error);
+        if (error || UacZipUpdate::ReadRevision(scoped.get(), firstFindRevision) ||
+            UacZipUpdate::ReadRevision(scoped.get(), currentFindRevision))
+            return false;
+        Check(UacF7::SameFileRevision(firstFindRevision, currentFindRevision),
+              "accept the same verified Find revision");
+    }
+    {
+        const Handle edit(CreateFileW(name.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
+                                      OPEN_EXISTING, 0, nullptr));
+        FILE_BASIC_INFO preserve{};
+        preserve.LastWriteTime.QuadPart = firstFindRevision.modified;
+        preserve.ChangeTime.QuadPart = firstFindRevision.changed + 10000000;
+        DWORD written = 0;
+        const BYTE other = 0x73;
+        if (edit.get() == INVALID_HANDLE_VALUE || !WriteFile(edit.get(), &other, sizeof(other), &written, nullptr) ||
+            written != sizeof(other) || !SetFileInformationByHandle(edit.get(), FileBasicInfo, &preserve, sizeof(preserve)))
+            return false;
+    }
+    error = UacViewLeaf::OpenScopedRead(root, component + L"\\" + leaf, MAXULONGLONG, scopedRaw, scopedSize, scopedInfo);
+    {
+        const Handle scoped(scopedRaw);
+        if (error || UacZipUpdate::ReadRevision(scoped.get(), currentFindRevision))
+            return false;
+        Check(currentFindRevision.size == firstFindRevision.size &&
+                  currentFindRevision.modified == firstFindRevision.modified &&
+                  UacRenameLeaf::Detail::SameSource(UacZipUpdate::RevisionIdentity(currentFindRevision), identity) &&
+                  !UacF7::SameFileRevision(firstFindRevision, currentFindRevision),
+              "reject an edited Find candidate with the same identity, size and last-write time");
     }
     error = UacViewLeaf::OpenScopedRead(root, component + L"\\large.txt", MAXULONGLONG,
                                         scopedRaw, scopedSize, scopedInfo);

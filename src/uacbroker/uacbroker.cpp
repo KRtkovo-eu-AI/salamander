@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Return the exact Find content revision. | Let the host compare the same file across Find passes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Require the expected UAC image role. | Stop a substituted application or probe before requesting elevation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Refuse a visibly stale overwrite before opening its journal. | Avoid touching recovery state for an invalid approval. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Reject a mismatched UAC image before launch. | Verify the embedded protocol without executing the peer. | | GPT-6.1 Sol (Codex) |
@@ -1811,12 +1812,16 @@ DWORD ServeFindContent(HANDLE pipe, HANDLE root, std::wstring_view relative, ULO
         openError = ERROR_FILE_INVALID;
     const auto owned = Adopt(opened);
     const HANDLE file = singleFile ? root : owned.get();
+    UacF7::ArchiveRevision info{};
+    FILE_ID_INFO identity{};
+    if (!openError && !GetFileInformationByHandleEx(file, FileIdInfo, &identity, sizeof(identity)))
+        openError = GetLastError();
+    if (!openError)
+        UacZipUpdate::SetRevision(info, identity, initial, size);
     DWORD status = openError;
     DWORD error = TransferRequest(pipe, &status, sizeof(status), true, deadline);
     if (error || openError)
         return error;
-
-    UacListing::ContentInfo info{static_cast<ULONGLONG>(size.QuadPart), UacListing::Time(initial.LastWriteTime)};
     error = TransferRequest(pipe, &info, sizeof(info), true, deadline);
     if (error)
         return error;
@@ -1840,7 +1845,7 @@ DWORD ServeFindContent(HANDLE pipe, HANDLE root, std::wstring_view relative, ULO
                 status = ERROR_FILE_INVALID;
             return TransferRequest(pipe, &status, sizeof(status), true, limit);
         }
-        if (!UacF7::ValidArchiveRange(range, info.size, UacF7::archiveReadBlock))
+        if (!UacF7::ValidArchiveRange(range, static_cast<ULONGLONG>(info.size), UacF7::archiveReadBlock))
             return ERROR_INVALID_DATA;
         status = ERROR_SUCCESS;
         if (range.size > budget)
@@ -3184,10 +3189,11 @@ DWORD ListingSession::SendPath(const std::wstring& path, DWORD flags, ULONGLONG 
     return error;
 }
 
-DWORD ListingSession::OpenContent(const std::wstring& path, ULONGLONG& size, FILETIME& modified)
+DWORD ListingSession::OpenContent(const std::wstring& path, ULONGLONG& size, FILETIME& modified, ArchiveRevision& revision)
 {
     size = 0;
     modified = {};
+    revision = {};
     if (prepared.operation != Operation::FindFile &&
         (prepared.operation != Operation::FindContent || path.size() <= root.size()))
         return ERROR_ACCESS_DENIED;
@@ -3197,9 +3203,12 @@ DWORD ListingSession::OpenContent(const std::wstring& path, ULONGLONG& size, FIL
         return error;
     DWORD status = ERROR_SUCCESS;
     error = TransferRequest(pipe, &status, sizeof(status), false, deadline);
-    UacListing::ContentInfo info{};
     if (!error && !status)
-        error = TransferRequest(pipe, &info, sizeof(info), false, deadline);
+    {
+        error = TransferRequest(pipe, &revision, sizeof(revision), false, deadline);
+        if (!error && (revision.size < 0 || revision.reserved))
+            error = ERROR_INVALID_DATA;
+    }
     if (error)
     {
         Close();
@@ -3208,8 +3217,10 @@ DWORD ListingSession::OpenContent(const std::wstring& path, ULONGLONG& size, FIL
     if (status)
         return status;
     contentOpen = true;
-    size = info.size;
-    modified = info.modified;
+    size = static_cast<ULONGLONG>(revision.size);
+    LARGE_INTEGER writeTime{};
+    writeTime.QuadPart = revision.modified;
+    modified = UacListing::Time(writeTime);
     return ERROR_SUCCESS;
 }
 

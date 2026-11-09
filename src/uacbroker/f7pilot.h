@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Share the verified Find file revision with its caller. | Bind repeated reads to the same file identity and metadata. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Give cross-volume moves an independent byte budget. | Keep the existing bounded copy and archive contracts separate. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share eligibility for a protected move source. | Keep F6 preparation and the broker retry in the same metadata scope. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Use one result policy for authenticated broker replies. | Keep a partial move visible after the one-shot broker exits. | | GPT-6.1 Sol (Codex) |
@@ -117,6 +118,13 @@ struct ArchiveRevision
     DWORD reserved = 0;
 };
 static_assert(sizeof(ArchiveRevision) == 64);
+
+inline bool SameFileRevision(const ArchiveRevision& a, const ArchiveRevision& b)
+{
+    return a.serial == b.serial && std::memcmp(a.fileId, b.fileId, sizeof(a.fileId)) == 0 &&
+           a.size == b.size && a.created == b.created && a.modified == b.modified &&
+           a.changed == b.changed && a.attributes == b.attributes;
+}
 
 constexpr DWORD archiveReadBlock = 64 * 1024;
 constexpr DWORD archiveReadBudget = 64 * 1024 * 1024;
@@ -477,7 +485,7 @@ public:
     bool Prepare(const std::wstring& path, bool findContent = false);
     bool PrepareFile(const std::wstring& path);
     DWORD Start(HWND owner);
-    DWORD OpenContent(const std::wstring& path, ULONGLONG& size, FILETIME& modified);
+    DWORD OpenContent(const std::wstring& path, ULONGLONG& size, FILETIME& modified, ArchiveRevision& revision);
     DWORD ReadContent(ULONGLONG offset, void* buffer, DWORD bytes);
     DWORD CloseContent();
     bool Contains(const std::wstring& path) const;

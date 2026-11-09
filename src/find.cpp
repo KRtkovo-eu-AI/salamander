@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Bind duplicate hashing to the revision used by protected filters. | Reject changed files between the two passes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Match protected text and tags through one file open. | Avoid combining results from separate file revisions. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify every content duplicate at comparison time. | Keep stale or unreadable entries out of duplicate groups, including zero-length files. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow protected text and tag checks when refining Find results. | Reuse exact-file consent and preserve the original wide paths and refine mode. | | GPT-6.1 Sol (Codex) |
@@ -26,6 +27,7 @@
 #include <array>
 #include <mutex>
 #include <optional>
+#include <unordered_map>
 
 char* FindNamedHistory[FIND_NAMED_HISTORY_SIZE];
 char* FindLookInHistory[FIND_LOOKIN_HISTORY_SIZE];
@@ -755,6 +757,21 @@ public:
     // - setting the Group variable
     // - setting the Different flag
     void Examine(CGrepData* data, const FindProtectedSessions& protectedSessions, size_t remainingFileConsents);
+    bool RecordRevision(const CFoundFilesData* file, const UacF7::ArchiveRevision& revision)
+    {
+        try
+        {
+            revisions.emplace(file, revision);
+            return true;
+        }
+        catch (const std::bad_alloc&)
+        {
+            return false;
+        }
+    }
+
+private:
+    std::unordered_map<const CFoundFilesData*, UacF7::ArchiveRevision> revisions;
 
 protected:
     // compares two records using criteria byName, bySize and byMD5
@@ -948,10 +965,16 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
     if (scoped)
     {
         FILETIME modified{};
-        error = protectedSession ? protectedSession->OpenContent(fullPath, size, modified) : ERROR_ACCESS_DENIED;
+        UacF7::ArchiveRevision revision{};
+        error = protectedSession ? protectedSession->OpenContent(fullPath, size, modified, revision) : ERROR_ACCESS_DENIED;
         opened = error == ERROR_SUCCESS;
-        if (opened && (size != file->Size.Value || CompareFileTime(&modified, &file->LastWrite) != 0))
-            error = ERROR_FILE_INVALID;
+        if (opened)
+        {
+            const auto checked = revisions.find(file);
+            if (size != file->Size.Value || CompareFileTime(&modified, &file->LastWrite) != 0 ||
+                (checked != revisions.end() && !UacF7::SameFileRevision(checked->second, revision)))
+                error = ERROR_FILE_INVALID;
+        }
     }
     BYTE buffer[DUPLICATES_BUFFER_SIZE];
     MD5 context;
@@ -1575,7 +1598,7 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
                   DWORD attr, const FILETIME* lastWrite, BOOL isDir, CGrepData* data,
                   CDuplicateCandidates* duplicateCandidates,
                   const wchar_t* pathW = nullptr, const wchar_t* nameW = nullptr,
-                  unsigned protectedScope = 0)
+                  unsigned protectedScope = 0, const UacF7::ArchiveRevision* revision = nullptr)
 {
     if (duplicateCandidates != NULL && isDir) // directories are irrelevant to us when searching for duplicates
         return TRUE;
@@ -1617,8 +1640,11 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
             {
                 // duplicateCandidates != NULL, adding the item to duplicateCandidates
                 foundData->ProtectedScope = protectedScope;
-                duplicateCandidates->Add(foundData);
-                if (!duplicateCandidates->IsGood())
+                const bool recorded = !revision || !FindDuplicateContent(*data) ||
+                                      duplicateCandidates->RecordRevision(foundData, *revision);
+                if (recorded)
+                    duplicateCandidates->Add(foundData);
+                if (!recorded || !duplicateCandidates->IsGood())
                 {
                     duplicateCandidates->ResetState();
                     delete foundData;
@@ -1829,7 +1855,8 @@ private:
         return !error && FileTagValuesMatchW(tags, requestedTags, data->Criteria.GetTagsMode()) != FALSE;
     }
 
-    bool MatchFile(const std::wstring& directory, const WIN32_FIND_DATAW& file, const CQuadWord& listedSize)
+    bool MatchFile(const std::wstring& directory, const WIN32_FIND_DATAW& file, const CQuadWord& listedSize,
+                   UacF7::ArchiveRevision& revision)
     {
         std::wstring filePath = directory;
         SalPathAppendW(filePath, file.cFileName);
@@ -1838,7 +1865,7 @@ private:
 
         ULONGLONG size = 0;
         FILETIME modified{};
-        DWORD error = session.OpenContent(filePath, size, modified);
+        DWORD error = session.OpenContent(filePath, size, modified, revision);
         if (error)
         {
             Log(filePath, error);
@@ -1899,7 +1926,8 @@ private:
         }
     }
 
-    bool MatchesCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates)
+    bool MatchesCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates,
+                          std::optional<UacF7::ArchiveRevision>& revision)
     {
         CQuadWord size(file.nFileSizeLow, file.nFileSizeHigh);
         const bool isDir = (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
@@ -1910,30 +1938,35 @@ private:
             return !data->Criteria.HasTags() && !data->Grep && !candidates;
         if (data->Grep && !size.Value)
             return false;
-        return (!data->Grep && requestedTags.empty()) || MatchFile(directory, file, size);
+        if (!data->Grep && requestedTags.empty())
+            return true;
+        return MatchFile(directory, file, size, revision.emplace());
     }
 
-    void PublishCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates)
+    void PublishCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates,
+                          const std::optional<UacF7::ArchiveRevision>& revision)
     {
         AddFoundItem(nullptr, nullptr, file.nFileSizeLow, file.nFileSizeHigh, file.dwFileAttributes,
                      &file.ftLastWriteTime, (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0,
-                     data, candidates, directory.c_str(), file.cFileName, scopeId);
+                     data, candidates, directory.c_str(), file.cFileName, scopeId, revision ? &*revision : nullptr);
     }
 
     void AddCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates)
     {
-        if (MatchesCandidate(directory, file, candidates))
-            PublishCandidate(directory, file, candidates);
+        std::optional<UacF7::ArchiveRevision> revision;
+        if (MatchesCandidate(directory, file, candidates, revision))
+            PublishCandidate(directory, file, candidates, revision);
     }
 
     void PublishSingleFile(CDuplicateCandidates* candidates, bool authorized)
     {
         const auto slash = path.find_last_of(L'\\');
         const auto directory = path.substr(0, slash == 2 ? 3 : slash);
-        const bool match = authorized && MatchesCandidate(directory, fileEntry, candidates);
+        std::optional<UacF7::ArchiveRevision> revision;
+        const bool match = authorized && MatchesCandidate(directory, fileEntry, candidates, revision);
         if (data->Refine ? IncludeRefinedFindResult(data->Refine, match) : match)
             for (size_t i = 0; i < rows && !data->StopSearch; ++i)
-                PublishCandidate(directory, fileEntry, candidates);
+                PublishCandidate(directory, fileEntry, candidates, revision);
     }
 
     UacF7::ListingSession session;
