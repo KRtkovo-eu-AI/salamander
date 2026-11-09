@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
-// | 2026-11-10 | Preserve selected patterns across all control-read paths. | Keep Apply, validation, and candidate building from discarding the selected association when the edit field is empty. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Restore the direct user-override Apply path. | Undo the later SetUserTarget refactor that made the Apply transaction fail against the page's conflict rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Fall back from blank pattern text in every control-read path. | Treat whitespace-only edit text as empty so Apply does not fail during pattern normalization. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Resolve Apply patterns from the selected matrix row before validation. | Prevent stale or cleared pattern edit text from aborting a valid association update. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Preserve the focused pattern during multi-select Apply. | Avoid rejecting every Apply with an empty pattern when the pattern field displays only a multi-select summary. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Route Apply through the model's user-target operation. | Remove the UI's competing row-upsert path that diverged from canonical override semantics and caused edits to revert. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -4691,6 +4692,10 @@ BOOL CCfgPageFileAssociations::ReadControls(
     const std::string* fallbackPattern)
 {
     const std::string originalPattern = item.Pattern;
+    const auto isBlankPattern = [](const std::string& value) -> bool
+    {
+        return value.find_first_not_of(" \t\r\n") == std::string::npos;
+    };
     const Salamander::FileAssociations::TargetKind previousTargetKind = item.AssociationTarget.Kind;
     const std::string previousStableId = item.AssociationTarget.StableId;
     std::vector<char> pattern(1024);
@@ -4699,9 +4704,10 @@ BOOL CCfgPageFileAssociations::ReadControls(
     {
         // The pattern editor shows a multi-select summary. The association to
         // carry through Apply must come from the focused matrix row instead.
-        if (item.Pattern.empty() && fallbackPattern != NULL)
+        if (isBlankPattern(item.Pattern) && fallbackPattern != NULL &&
+            !isBlankPattern(*fallbackPattern))
             item.Pattern = *fallbackPattern;
-        if (item.Pattern.empty())
+        if (isBlankPattern(item.Pattern))
         {
             int matrixRow = ListView_GetNextItem(matrix, -1, LVNI_FOCUSED);
             LVITEM focusedItem;
@@ -4713,11 +4719,11 @@ BOOL CCfgPageFileAssociations::ReadControls(
                 focusedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
                 item.Pattern = MatrixRows[focusedItem.lParam].Pattern;
 
-            if (item.Pattern.empty() && SelectedMatrixRow >= 0 &&
+            if (isBlankPattern(item.Pattern) && SelectedMatrixRow >= 0 &&
                 SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
                 item.Pattern = MatrixRows[SelectedMatrixRow].Pattern;
 
-            if (item.Pattern.empty())
+            if (isBlankPattern(item.Pattern))
             {
                 for (int row = 0; row < ListView_GetItemCount(matrix); ++row)
                 {
@@ -4742,14 +4748,15 @@ BOOL CCfgPageFileAssociations::ReadControls(
         GetDlgItemText(HWindow, IDE_FILEASSOCIATION_PATTERN, pattern.data(),
                        static_cast<int>(pattern.size()));
         item.Pattern = pattern.data();
-        if (item.Pattern.empty() && fallbackPattern != NULL)
+        if (isBlankPattern(item.Pattern) && fallbackPattern != NULL &&
+            !isBlankPattern(*fallbackPattern))
             item.Pattern = *fallbackPattern;
-        if (item.Pattern.empty())
+        if (isBlankPattern(item.Pattern))
             item.Pattern = originalPattern;
-        if (item.Pattern.empty() && SelectedMatrixRow >= 0 &&
+        if (isBlankPattern(item.Pattern) && SelectedMatrixRow >= 0 &&
             SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
             item.Pattern = MatrixRows[SelectedMatrixRow].Pattern;
-        if (item.Pattern.empty())
+        if (isBlankPattern(item.Pattern))
         {
             int selectedRow = ListView_GetNextItem(matrix, -1, LVNI_SELECTED);
             LVITEM selectedItem;
@@ -4860,7 +4867,7 @@ BOOL CCfgPageFileAssociations::ReadControls(
             *error = LoadStr(IDS_FILEASSOCIATION_NO_TARGETS);
         return FALSE;
     }
-    if (item.Pattern.empty())
+    if (isBlankPattern(item.Pattern))
     {
         if (error != NULL)
             *error = LoadStr(IDS_FILEASSOCIATION_PATTERN_EMPTY);
@@ -6014,63 +6021,85 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 selectedPatterns.push_back(normalizedPattern);
 
             const std::vector<Salamander::FileAssociations::Association> originalRows = Rows;
-            Salamander::FileAssociations::CFileAssociationModel candidate;
-            if (!candidate.ReplaceAssociations(originalRows, &error))
+            for (size_t p = 0; p < selectedPatterns.size(); ++p)
             {
+                Salamander::FileAssociations::Association overrideItem = item;
+                overrideItem.Pattern = selectedPatterns[p];
+                overrideItem.AssociationProvenance =
+                    Salamander::FileAssociations::Provenance::User;
+                overrideItem.SourceProvenance =
+                    Salamander::FileAssociations::Provenance::User;
+
+                bool replacedUserOverride = false;
+                for (size_t i = Rows.size(); i > 0; --i)
+                {
+                    Salamander::FileAssociations::Association& existing = Rows[i - 1];
+                    if (existing.Pattern == overrideItem.Pattern &&
+                        existing.AssociationCategory == overrideItem.AssociationCategory &&
+                        existing.Operation == overrideItem.Operation &&
+                        (existing.AssociationProvenance ==
+                             Salamander::FileAssociations::Provenance::User ||
+                         existing.AssociationProvenance ==
+                             Salamander::FileAssociations::Provenance::Disabled))
+                    {
+                        existing = overrideItem;
+                        replacedUserOverride = true;
+                    }
+                }
+                if (!replacedUserOverride)
+                    Rows.push_back(overrideItem);
+            }
+
+            Salamander::FileAssociations::CFileAssociationModel candidate;
+            if (!candidate.ReplaceAssociations(Rows, &error))
+            {
+                Rows = originalRows;
+                RefreshList();
                 SetStatus(error.c_str());
                 break;
             }
-            for (size_t p = 0; p < selectedPatterns.size(); ++p)
+
+            std::string commitError;
+            if (!Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
+                    candidate, &commitError))
             {
-                if (!candidate.SetUserTarget(selectedPatterns[p].c_str(), item.AssociationCategory,
-                                             item.Operation, item.AssociationTarget, &error))
-                {
-                    SetStatus(error.c_str());
-                    break;
-                }
+                Rows = originalRows;
+                RefreshList();
+                SetStatus(commitError.c_str());
+                break;
             }
-            if (error.empty())
+            if (!Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
+                    ConfigurationStorage, &commitError))
             {
-                std::string commitError;
-                if (!Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
-                        candidate, &commitError))
+                Salamander::FileAssociations::CFileAssociationModel previousModel;
+                if (previousModel.ReplaceAssociations(originalRows, NULL))
                 {
-                    Rows = originalRows;
-                    RefreshList();
-                    SetStatus(commitError.c_str());
-                    break;
+                    Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
+                        previousModel, NULL);
+                    Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
+                        ConfigurationStorage, NULL);
                 }
-                if (!Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
-                        ConfigurationStorage, &commitError))
-                {
-                    Salamander::FileAssociations::CFileAssociationModel previousModel;
-                    if (previousModel.ReplaceAssociations(originalRows, NULL))
-                    {
-                        Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
-                            previousModel, NULL);
-                        Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
-                            ConfigurationStorage, NULL);
-                    }
-                    Rows = originalRows;
-                    RefreshList();
-                    SetStatus(commitError.c_str());
-                    break;
-                }
-                Rows = candidate.Associations();
-                Selected = -1;
-                for (size_t i = Rows.size(); i > 0; --i)
-                    if (Rows[i - 1].Pattern == focusedPattern &&
-                        Rows[i - 1].AssociationCategory == item.AssociationCategory &&
-                        Rows[i - 1].Operation == item.Operation &&
-                        Rows[i - 1].AssociationProvenance ==
-                            Salamander::FileAssociations::Provenance::User)
-                    {
-                        Selected = static_cast<int>(i - 1);
-                        break;
-                    }
-                if (Selected >= 0)
-                    RefreshList();
+                Rows = originalRows;
+                RefreshList();
+                SetStatus(commitError.c_str());
+                break;
             }
+
+            Rows = candidate.Associations();
+            Selected = -1;
+            for (size_t i = Rows.size(); i > 0; --i)
+                if (Rows[i - 1].Pattern == focusedPattern &&
+                    Rows[i - 1].AssociationCategory == item.AssociationCategory &&
+                    Rows[i - 1].Operation == item.Operation &&
+                    Rows[i - 1].AssociationProvenance ==
+                        Salamander::FileAssociations::Provenance::User)
+                {
+                    Selected = static_cast<int>(i - 1);
+                    break;
+                }
+            if (Selected < 0 && !Rows.empty())
+                Selected = static_cast<int>(Rows.size()) - 1;
+            RefreshList();
             break;
         }
         case IDB_FILEASSOCIATION_DELETE:
