@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Fix dark-mode tab border drawing arguments. | Use the Win32 FrameRect signature and system color identifier accepted by the compiler. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Paint association matrix cells and status badges per subitem. | Apply the dark palette and provenance badges after native list-view painting. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Replace association detail selectors with five action tabs. | Keep the chosen matrix action stable and bind Pack/Unpack to dedicated pages. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Correct wildcard editor targets and paint the matrix after native theming. | Resolve the legacy editor ID to its configured executable and keep cell backgrounds and state badges visible in dark mode. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -5372,7 +5373,12 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                         FillRect(draw->hdc, &tabRect, brush);
                         DeleteObject(brush);
                     }
-                    FrameRect(draw->hdc, &tabRect, GetSysColorBrush(dark ? COLOR_GRAYTEXT : COLOR_BTNShadow));
+                    HBRUSH borderBrush = CreateSolidBrush(dark ? RGB(100, 100, 100) : GetSysColor(COLOR_BTNSHADOW));
+                    if (borderBrush != NULL)
+                    {
+                        FrameRect(draw->hdc, &tabRect, borderBrush);
+                        DeleteObject(borderBrush);
+                    }
                     char text[128] = {0};
                     TCITEMA item;
                     ZeroMemory(&item, sizeof(item));
