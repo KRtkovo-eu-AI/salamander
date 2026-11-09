@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Combine compressed stream transfer with exact security. | Keep both staging checks active through publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve sparse named streams on dense file copies. | Decide the named stream storage from its own handle. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve named streams on sparse file copies. | Reuse stream storage checks for sparse F5 with or without exact security. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose an active copy checkpoint to the native fixture. | Test cancellation and host loss after staged bytes exist. | | GPT-6.1 Sol (Codex) |
@@ -874,7 +875,7 @@ inline DWORD CopyVerifiedFile(HANDLE sourceParent, const UacDirectoryLeaf::Paren
     if ((error = Detail::CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
         return error;
 
-    if (preserveSecurity && (preserveCompression || policy == StreamPolicy::IgnoreNamed || !verifyStage))
+    if (preserveSecurity && (policy == StreamPolicy::IgnoreNamed || !verifyStage))
         return ERROR_INVALID_PARAMETER;
     HANDLE rawSource = nullptr;
     const ACCESS_MASK sourceAccess = FILE_READ_DATA | FILE_READ_EA | (preserveSecurity ? READ_CONTROL : 0);

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Dispatch F5 compression and security together. | Verify both attributes and the explicit security descriptor before publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Track the final request frame before marking a result uncertain. | Keep pre-dispatch failures recoverable for one-shot and reusable broker jobs. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Admit protected overwrite targets with named streams. | Use the guarded backup digest in publication and recovery. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Copy verified named streams in protected F5 overwrites. | Use a protected stage and preserve the original until the complete stream receipt is verified. | | GPT-6.1 Sol (Codex) |
@@ -1754,8 +1755,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             {
                 const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
                 deadline = copyDeadline + timeoutMs;
-                const bool preserveCompression = header.operation == Operation::CopyCompressed;
-                const bool preserveSecurity = header.operation == Operation::CopySecurity;
+                const bool preserveCompression = UacF7::CopiesCompression(header.operation);
+                const bool preserveSecurity = UacF7::CopiesSecurity(header.operation);
                 const auto policy = header.operation == Operation::CopyIgnoreAds
                     ? UacCopyLeaf::StreamPolicy::IgnoreNamed : UacCopyLeaf::StreamPolicy::PreserveNamed;
                 result = UacCopyLeaf::CopyVerifiedFile(parent.get(), expected, sourceIdentity, leaf,

@@ -4251,6 +4251,7 @@ SLGINCOMPLETE,""
 
 [STRINGTABLE 188]
 14592,1,"Přístup byl odepřen. Přesunout tento soubor do vašeho Koše jako správce?"
+14593,1,"Přístup byl odepřen. Zkopírovat tento soubor se zachováním komprese NTFS, vlastníka, skupiny a explicitních oprávnění jako správce?"
 
 [STRINGTABLE 189]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."

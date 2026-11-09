@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Define a combined protected F5 compression and permissions operation. | Keep consent and broker scope specific to both options. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Remove the F6 pilot byte cap. | Retain the representable range of signed Windows file offsets. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose capture of an eligible overwrite revision. | Bind a Scan Ahead conflict to the same NTFS revision as a broker request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Declare a guarded source for Shell recycling. | Keep the verified path pinned through the Shell request. | | GPT-6.1 Sol (Codex) |
@@ -66,7 +67,7 @@
 
 namespace UacF7
 {
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30 };
 
 inline bool IsRename(Operation operation)
 {
@@ -80,11 +81,20 @@ inline bool IsLeafDelete(Operation operation)
            operation == Operation::DeleteDirectorySymlink || operation == Operation::DeleteJunction;
 }
 
+inline bool CopiesSecurity(Operation operation)
+{
+    return operation == Operation::CopySecurity || operation == Operation::CopyCompressedSecurity;
+}
+
+inline bool CopiesCompression(Operation operation)
+{
+    return operation == Operation::CopyCompressed || operation == Operation::CopyCompressedSecurity;
+}
+
 inline bool IsFileCopy(Operation operation)
 {
     return operation == Operation::Copy || operation == Operation::CopyIgnoreAds ||
-           operation == Operation::CopyCompressed || operation == Operation::CopySecurity ||
-           operation == Operation::CopyEncrypted;
+           CopiesCompression(operation) || CopiesSecurity(operation) || operation == Operation::CopyEncrypted;
 }
 
 constexpr DWORD maxZipSelectionBytes = 64 * 1024 * 1024;
@@ -184,7 +194,7 @@ inline bool IsEligibleFileCopy(DWORD attributes, bool copyAttributes, bool ignor
     if (IsEncryptedCopyFile(attributes))
         return !copySecurity && !ignoreAds;
     if (copySecurity)
-        return !copyAttributes && !ignoreAds && IsDefaultCopyFile(attributes);
+        return !ignoreAds && (copyAttributes ? IsCompressedCopyFile(attributes) : IsDefaultCopyFile(attributes));
     if (copyAttributes)
         return !ignoreAds && IsCompressedCopyFile(attributes);
     return ignoreAds ? IsPlainCopyFile(attributes) : IsDefaultCopyFile(attributes);
@@ -432,9 +442,9 @@ public:
         return IsOverwrite() && Approval().Matches(approval);
     }
     bool IsOverwrite() const { return source.operation == Operation::CopyOverwrite; }
-    bool PreservesSecurity() const { return source.operation == Operation::CopySecurity; }
+    bool PreservesSecurity() const { return CopiesSecurity(source.operation); }
     bool PreservesEncryption() const { return source.operation == Operation::CopyEncrypted; }
-    bool PreservesCompression() const { return source.operation == Operation::CopyCompressed; }
+    bool PreservesCompression() const { return CopiesCompression(source.operation); }
     bool IgnoresAds() const { return source.operation == Operation::CopyIgnoreAds; }
 
 private:

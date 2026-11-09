@@ -1,5 +1,6 @@
 ﻿// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Describe combined protected F5 options. | Show both compression and security in the consent prompt. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Describe protected recycle consent. | Identify the original user's Recycle Bin in the administrator prompt. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Clarify unconfirmed copy and move results. | Cover both disconnects and partial operations. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Describe the approved leaf job scope. | Identify the folder and authorization lifetime. | | GPT-6.1 Sol (Codex) |
@@ -2447,6 +2448,7 @@ STRINGTABLE
  IDS_UAC_COPY_IGNORE_ADS_CONFIRM, "Access was denied. Copy this file without its alternate data streams as an administrator?"
  IDS_UAC_COPY_COMPRESSED_CONFIRM, "Access was denied. Copy this file and preserve its NTFS compression as an administrator?"
  IDS_UAC_COPY_SECURITY_CONFIRM, "Access was denied. Copy this file and preserve its NTFS owner, group, and explicit permissions as an administrator?"
+ IDS_UAC_COPY_COMPRESSED_SECURITY_CONFIRM, "Access was denied. Copy this file and preserve its NTFS compression, owner, group, and explicit permissions as an administrator?"
  IDS_UAC_COPY_ENCRYPTED_CONFIRM, "Access was denied. Copy this file as an administrator and preserve its EFS encryption?"
  IDS_UAC_COPY_EFS_UNSUPPORTED, "This EFS copy could not be completed. Administrator mode cannot preserve the EFS encryption for this operation."
  IDS_UAC_COPY_UNKNOWN, "The copy could not be confirmed as complete. Check the destination before retrying."

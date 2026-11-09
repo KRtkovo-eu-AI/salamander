@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Show both options in protected F5 consent. | Explain that compression and permissions will both be preserved. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Share one consent across matching leaf mutations. | Display the approved directory and preserve default Cancel. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Report only uncertain broker outcomes in the consent dialog. | Let the ordinary worker dialog handle confirmed failures. | | GPT-6.1 Sol (Codex) |
@@ -1795,7 +1796,8 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             else if (tree)
                 confirmText = IDS_UAC_TREE_COPY_CONFIRM;
             else if (prompt.request.PreservesSecurity())
-                confirmText = IDS_UAC_COPY_SECURITY_CONFIRM;
+                confirmText = prompt.request.PreservesCompression() ? IDS_UAC_COPY_COMPRESSED_SECURITY_CONFIRM
+                                                                     : IDS_UAC_COPY_SECURITY_CONFIRM;
             else if (prompt.request.PreservesEncryption())
                 confirmText = IDS_UAC_COPY_ENCRYPTED_CONFIRM;
             else if (prompt.request.PreservesCompression())

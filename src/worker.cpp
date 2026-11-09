@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Route combined compression and permissions to protected F5. | Keep both existing copy options active in the worker retry. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Use item eligibility for protected transfer in the worker. | Keep mixed selections serial on denied direct items and preserve recursive behavior. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Admit named streams to verified F5 overwrite. | Allow the broker to preserve eligible source streams before publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow verified overwrite when F5 cannot open the source. | Keep the ordinary conflict decision and retry tied to the prepared target. | | GPT-6.1 Sol (Codex) |
@@ -5788,7 +5789,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     else if (encrypted)
         operation = UacF7::Operation::CopyEncrypted;
     else if (script.CopySecurity)
-        operation = UacF7::Operation::CopySecurity;
+        operation = script.CopyAttrs ? UacF7::Operation::CopyCompressedSecurity : UacF7::Operation::CopySecurity;
     else if (script.CopyAttrs)
         operation = UacF7::Operation::CopyCompressed;
     else if (script.IgnoreTransferAds)

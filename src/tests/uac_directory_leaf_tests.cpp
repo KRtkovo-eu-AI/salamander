@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify combined NTFS compression and security in F5. | Check named data, compression, and explicit permissions together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise recovery of protected overwrite targets with named streams. | Refuse unsafe backup cleanup and preserve the ordinary overwrite result. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise late destination streams during F6 retirement. | Keep both source links when the target changes after publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise F5 with a dense main stream and sparse ADS. | Verify independent stream allocation on NTFS. | | GPT-6.1 Sol (Codex) |
@@ -4692,6 +4693,43 @@ int wmain(int argc, wchar_t** argv)
               sparseSecurity.Verify(sparseCopiedSecurity.get()) == ERROR_SUCCESS &&
               hasSparseStreams(securitySparseTarget),
           "preserve sparse allocation, named streams and exact protected security in one copy", copyError);
+
+    if (SetNamedSecurityInfoW(const_cast<wchar_t*>(compressedSource.c_str()), SE_FILE_OBJECT,
+                              DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                              nullptr, nullptr, explicitDacl, nullptr) != ERROR_SUCCESS)
+        return 2;
+    constexpr wchar_t combinedLeaf[] = L"secure-compressed-\u4eac.bin";
+    const auto combinedPath = moved + L"\\" + combinedLeaf;
+    const auto combinedCopy = [&] {
+        return UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, compressedId, L"compressed-\u6771.bin",
+            original.get(), expected, combinedLeaf, nullptr, nullptr, MAXULONGLONG,
+            compressedBytes.size(), UacCopyLeaf::StreamPolicy::PreserveNamed, trustedFixture, true, true);
+    };
+    copyError = combinedCopy();
+    const auto compressedOriginalSecurity = openSecurity(compressedSource);
+    const auto combinedSecurity = openSecurity(combinedPath);
+    UacCopyLeaf::Detail::CopySecuritySnapshot compressedSecurity;
+    Check(!copyError && compressedOriginalSecurity && combinedSecurity &&
+              !compressedSecurity.Read(compressedOriginalSecurity.get()) && !compressedSecurity.Verify(combinedSecurity.get()) &&
+              HasContents(combinedPath, compressedBytes) && HasContents(combinedPath + packedSuffix, compressedBytes) &&
+              HasContents(combinedPath + denseSuffix, existing) && HasContents(combinedPath + holeSuffix, holeBytes) &&
+              hasStreamFormat(combinedPath, COMPRESSION_FORMAT_LZNT1) &&
+              hasStreamFormat(combinedPath + packedSuffix, COMPRESSION_FORMAT_LZNT1) &&
+              hasStreamFormat(combinedPath + denseSuffix, COMPRESSION_FORMAT_NONE),
+          "preserve compression and exact security across the main and named streams", copyError);
+    copyError = combinedCopy();
+    Check(copyError == ERROR_ALREADY_EXISTS && HasContents(combinedPath + packedSuffix, compressedBytes),
+          "keep the compressed and secured copy unchanged on a collision", copyError);
+    const auto combinedOperation = UacF7::Operation::CopyCompressedSecurity;
+    auto compressedScope = scope;
+    compressedScope.operation = UacF7::Operation::CopyCompressed;
+    auto combinedScope = compressedScope;
+    combinedScope.operation = combinedOperation;
+    Check(UacF7::IsEligibleFileCopy(FILE_ATTRIBUTE_COMPRESSED, true, false, true) &&
+              !UacF7::IsEligibleFileCopy(FILE_ATTRIBUTE_COMPRESSED, true, true, true) &&
+              UacF7::IsFileCopy(combinedOperation) && UacF7::CopiesCompression(combinedOperation) &&
+              UacF7::CopiesSecurity(combinedOperation) && !compressedScope.Matches(combinedScope),
+          "require separate consent for the combined compression and security scope");
 
     PSECURITY_DESCRIPTOR labelDescriptor = nullptr;
     if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(

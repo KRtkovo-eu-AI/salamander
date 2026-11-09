@@ -10,6 +10,7 @@
 // | 2026-11-07 | Reserve the elevation confirmation for rename. | Prompt with the source and destination paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve F7 elevation message IDs. | Localize consent and uncertain-result handling. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Reserve protected F5 compression and permissions consent. | Localize both options in one prompt. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Declare the protected recycle confirmation. | Keep elevation consent distinct from permanent deletion. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add the scoped leaf consent resource. | Display the approved parent directory. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Add the transfer job consent resource. | Show the approved parent paths. | | GPT-6.1 Sol (Codex) |
@@ -3250,5 +3251,6 @@
 #define IDS_UAC_TRANSFER_JOB_SCOPE                   14590
 #define IDS_UAC_LEAF_JOB_SCOPE                       14591
 #define IDS_UAC_RECYCLE_CONFIRM                      14592
+#define IDS_UAC_COPY_COMPRESSED_SECURITY_CONFIRM     14593
 
 #endif // __TEXTS_RH2
