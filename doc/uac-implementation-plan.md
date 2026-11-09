@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the Recycle Bin account guard in the VM. | Preserve the source before the Shell can recycle it into another account. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Probe an explicit alternate account Recycle Bin destination. | Verify the NTFS Shell destination and stage the original-account guard. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Prevent the Shell from recycling into the approving administrator’s bin. | Reject credential-based retries after the observed wrong-account side effect. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the portable elevation boundary for current probe images. | Record protected-installation refusal on x64 and Win32. | | GPT-6.1 Sol (Codex) |
@@ -1470,6 +1471,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, výslovný cíl v Koši jiného SID.** Přímý ITransferSource::RecycleItem na Windows 11 build 26200 obdržel jako cílový Shell objekt skutečný adresář Koše standardního testovacího SID na stejném svazku. Vrátil potvrzenou položku s původním ID v Koši účtu, který sondu spustil, mimo zadaný cíl. Šlo o omezený test pod původním účtem bez elevace se samostatným dočasným souborem. Sonda soubor obnovila a ověřila stejné ID. Volba explicitního cíle u tohoto NTFS backendu tak nebyla potvrzena jako řešení případu s jiným správcem. Důkaz je v recycle-account-guard/destination-probe/alternate-bin.log. [Rozhraní ITransferSource::RecycleItem](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-itransfersource-recycleitem).
 
 **P7, pilot ochrany Koše.** Kandidát 7b0826d7 byl sestaven v x64 Release a laboratorní kontrola potvrdila správné role a protokol 10 s již nasazeným brokerem. Invoke-P7RecycleGuard.ps1 ověřil otisky kandidáta i předchozího hostu. Negativní VM scénář má znovu použít obnovený P7-recycle-03-other-admin.txt a ověřit přístup odepřený bez elevace a beze změny původní položky nebo Koše. Kandidát je v recycle-account-guard.
+
+**P7, ochrana Koše ve standardním panelu.** Po ověření nasazených binárek 7b0826d7 běžel nový panel pod SamandarinUacTest. Delete u obnoveného P7-recycle-03-other-admin.txt skončil chybou 5 bez tlačítka Administrator a bez systémové výzvy. Kontrola obou Košů z PowerShellu správce nenašla položku pro žádný ze tří testovacích souborů. Všechny zdroje měly původní cestu, NTFS ID a SHA-256. Zkouška potvrzuje, že ochrana zabrání opakování chybného přesunu do Koše správce. Bezpečný schválený přesun při jiném účtu zůstává otevřený.
 
 ### 12.3 CI a přijetí vydání
 
