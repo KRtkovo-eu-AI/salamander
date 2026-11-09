@@ -1,6 +1,7 @@
 ﻿# SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check Scan Ahead shutdown after a cancelled protected transfer. | Prevent queued conflict work from presenting another dialog. | | Codex |
 # | 2026-11-09 | Check identity-bound retirement after an ordinary F6 copy. | Require the verified path before any broker retry. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check cleanup of disconnected scoped broker entries. | Keep live consent and discard closed scopes before the next item. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check direct file admission in mixed protected transfer selections. | Keep recursively discovered items out of the direct file consent scope. | | GPT-6.1 Sol (Codex) |
@@ -122,6 +123,15 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertIn("return true;", declined)
         self.assertIn("result.unknown || result.error == ERROR_CANCELLED", transfer)
         self.assertIn("return error == ERROR_CANCELLED || *dlgData.CancelWorker != FALSE;", transfer)
+    def test_terminal_worker_error_stops_scan_ahead_and_suppresses_queued_prompts(self):
+        worker = section(text("worker.cpp"), "unsigned ThreadWorkerBody(void* parameter)", "FreeScript(script);")
+        shutdown = worker.rsplit("if (conflictScanner != NULL)", 1)[1]
+        self.assertLess(shutdown.index("if (Error)"), shutdown.index("SetEvent(cancelWorkerEvent);"))
+        self.assertLess(shutdown.index("SetEvent(cancelWorkerEvent);"), shutdown.index("WaitForSingleObject(conflictScanner"))
+        prompt = section(text("dialogs.cpp"), "void CProgressDialog::PromptNextConflict()", "int index = -1;")
+        self.assertIn("CancelWorker ||", prompt)
+        self.assertIn("WaitForSingleObject(CancelWorkerEvent, 0) == WAIT_OBJECT_0", prompt)
+
     def test_scan_ahead_overwrite_requires_the_reviewed_revision(self):
         code = text("worker.cpp")
         capture = section(code, "static void CaptureScannedOverwriteRevision(", "BOOL COperations::RevalidateConflictItem(")

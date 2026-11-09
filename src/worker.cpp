@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Signal Scan Ahead on terminal worker failure. | Stop the scanner when a protected transfer is cancelled. | | Codex |
 // | 2026-11-09 | Reopen the native overwrite dialog for a broker collision. | Require a fresh decision for a file that appeared during elevated F5. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Calculate native transfer progress without overflowing. | Keep the exact bar value for large F6 operations and batch totals. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Mark active elevated transfers in the progress caption. | Keep ordinary transfers on the existing icon. | | GPT-6.1 Sol (Codex) |
@@ -11724,6 +11725,9 @@ unsigned ThreadWorkerBody(void* parameter)
     }
     if (conflictScanner != NULL)
     {
+        // A worker can stop on a refused UAC request without a Cancel command from the dialog.
+        if (Error)
+            SetEvent(cancelWorkerEvent);
         if (*dlgData.CancelWorker)
             SetEvent(dlgData.WorkerNotSuspended);
         WaitForSingleObject(conflictScanner, INFINITE);

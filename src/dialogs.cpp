@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Suppress queued conflict prompts during cancellation. | Keep Scan Ahead from reopening a prompt during job shutdown. | | Codex |
 // | 2026-11-09 | Show the Windows shield while an elevated job runs. | Restore the previous small caption icon when the broker returns. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Release closed leaf broker sessions during a batch. | Keep metadata and deletion scopes only while connected. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Show both options in protected F5 consent. | Explain that compression and permissions will both be preserved. | | GPT-6.1 Sol (Codex) |
@@ -1046,7 +1047,8 @@ void CProgressDialog::EndConflictPromptPresentation()
 void CProgressDialog::PromptNextConflict()
 {
     if (ConflictPromptActive || ConflictAutomaticPromptConsumed || Script == NULL ||
-        Script->CopyMoveConflictMode != CMCM_SCAN_AHEAD)
+        Script->CopyMoveConflictMode != CMCM_SCAN_AHEAD ||
+        CancelWorker || (CancelWorkerEvent != NULL && WaitForSingleObject(CancelWorkerEvent, 0) == WAIT_OBJECT_0))
         return;
 
     int index = -1;
