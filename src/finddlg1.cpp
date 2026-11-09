@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
 // | 2026-11-08 | Show a single-file Find consent prompt. | Distinguish the named file from a folder-wide grant. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Distinguish content-search consent from metadata consent. | Show the access required by the active Find options. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Use the common protected read confirmation. | Share the same prompt with the internal viewer. | | GPT-6.1 Sol (Codex) |
@@ -2483,6 +2484,7 @@ void CFindDialog::StartSearch(WORD command)
     GrepData.FoundVisibleCount = 0;
     GrepData.FoundVisibleTick = GetTickCount();
     GrepData.RefreshPosted = FALSE;
+    ++GrepData.SearchGeneration;
 
     GrepData.SearchingText = &SearchingText;
     GrepData.SearchingText2 = &SearchingText2;
@@ -4842,9 +4844,18 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
 
     case WM_USER_ADDFILE:
     {
+        if (wParam != GrepData.SearchGeneration)
+            return 0;
         InterlockedExchange(&GrepData.RefreshPosted, FALSE);
         UpdateListViewItems();
         return 0;
+    }
+
+    case WM_USER_FIND_COMPLETE:
+    {
+        if (SearchInProgress && wParam == GrepData.SearchGeneration)
+            SendMessage(HWindow, WM_COMMAND, IDC_FIND_STOP, 0);
+        return TRUE;
     }
 
     case WM_USER_FIND_PROTECTED_CONSENT:

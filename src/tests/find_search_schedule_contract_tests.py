@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
 # | 2026-11-09 | Check Find scheduling after a protected scope disconnects. | Continue other scopes without reauthorizing disconnected candidates. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check a single open for combined protected duplicate reads. | Defer filters until grouped candidates can share the digest handle. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check the protected Find revision across both passes. | Verify the candidate before reading any bytes for its digest. | | GPT-6.1 Sol (Codex) |
@@ -52,7 +53,7 @@ def main() -> int:
     request_refresh = function_body(find_cpp, "static void RequestFindResultsRefresh(CGrepData* data)")
     require("InterlockedExchange(&data->RefreshPosted, TRUE) == FALSE" in request_refresh,
             "Find refresh requests must be coalesced")
-    require("PostMessage(data->HWindow, WM_USER_ADDFILE, 0, 0)" in request_refresh,
+    require("PostMessage(data->HWindow, WM_USER_ADDFILE, data->SearchGeneration, 0)" in request_refresh,
             "Find refresh requests must not synchronously call the dialog")
     require("InterlockedExchange(&data->RefreshPosted, FALSE);" in request_refresh,
             "a failed refresh post must release the coalescing flag")
@@ -61,15 +62,23 @@ def main() -> int:
     require("SendMessage(data->HWindow, WM_USER_ADDFILE" not in find_cpp,
             "the Find worker must not synchronously send result refresh messages")
 
+    require(start_search.index("++GrepData.SearchGeneration;") < start_search.index("CreateThread("),
+            "a new worker must start with its own notification generation")
+    completion = function_body(finddlg1, "case WM_USER_FIND_COMPLETE:")
+    require(completion.index("SearchInProgress && wParam == GrepData.SearchGeneration") <
+            completion.index("SendMessage(HWindow, WM_COMMAND, IDC_FIND_STOP, 0);"),
+            "a queued completion from an earlier search must never stop the new worker")
     add_file = function_body(finddlg1, "case WM_USER_ADDFILE:")
+    require(add_file.index("wParam != GrepData.SearchGeneration") < add_file.index("InterlockedExchange("),
+            "a stale refresh must not clear the current search's queued-refresh flag")
     require("InterlockedExchange(&GrepData.RefreshPosted, FALSE);" in add_file,
             "the dialog must release the queued-refresh flag before updating the list")
     require("UpdateListViewItems();" in add_file,
             "the dialog must update the virtual result list when the post is handled")
 
     grep_body = function_body(find_cpp, "unsigned GrepThreadFBody(void* ptr)")
-    require(grep_body.find("RequestFindResultsRefresh(data);") < grep_body.find(
-        "PostMessage(data->HWindow, WM_COMMAND, IDC_FIND_STOP, 0);"),
+    require(grep_body.rindex("RequestFindResultsRefresh(data);") < grep_body.index(
+        "PostMessage(data->HWindow, WM_USER_FIND_COMPLETE, data->SearchGeneration, 0);"),
             "the final result refresh must be queued before search completion")
     require("SendMessage(data->HWindow, WM_USER_ADDLOG" in find_cpp,
             "synchronous log delivery must remain for stack-owned log payloads")

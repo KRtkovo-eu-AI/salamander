@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
 // | 2026-11-09 | Substitute Find error details as plain text. | Preserve localization without interpreting resource text as a printf format. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Stop Find work for disconnected protected scopes. | Keep scanning and comparing the other scopes without reporting artificial access errors. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Match protected duplicate predicates during hashing. | Evaluate text, tags and digest on one broker-opened file. | | GPT-6.1 Sol (Codex) |
@@ -1685,7 +1686,7 @@ BOOL TestFileContent(DWORD sizeLow, DWORD sizeHigh, const char* path, CGrepData*
 static void RequestFindResultsRefresh(CGrepData* data)
 {
     if (InterlockedExchange(&data->RefreshPosted, TRUE) == FALSE &&
-        !PostMessage(data->HWindow, WM_USER_ADDFILE, 0, 0))
+        !PostMessage(data->HWindow, WM_USER_ADDFILE, data->SearchGeneration, 0))
     {
         InterlockedExchange(&data->RefreshPosted, FALSE);
     }
@@ -2610,7 +2611,7 @@ unsigned GrepThreadFBody(void* ptr)
 
     data->SearchStopped = data->StopSearch;
     RequestFindResultsRefresh(data); // update the listview
-    PostMessage(data->HWindow, WM_COMMAND, IDC_FIND_STOP, 0);
+    PostMessage(data->HWindow, WM_USER_FIND_COMPLETE, data->SearchGeneration, 0);
     if (data->Criteria.HasTags() && SUCCEEDED(tagsCOM))
         CoUninitialize();
     TRACE_I("End");

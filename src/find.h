@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
 // | 2026-11-08 | Distinguish exact-file Find consent. | Report the scope explicitly in the dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Bind duplicate candidates to a specific consented scope. | Distinguish independent protected roots. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Identify protected duplicate candidates. | Keep later content reads on the session that authorized the candidate. | | GPT-6.1 Sol (Codex) |
@@ -28,12 +29,13 @@ struct FIND_LOG_ITEM
 };
 
 #define WM_USER_ADDLOG WM_APP + 210     // add an item to the log [FIND_LOG_ITEM* item, 0]
-#define WM_USER_ADDFILE WM_APP + 211    // [0, 0]
+#define WM_USER_ADDFILE WM_APP + 211    // [search generation, 0]
 #define WM_USER_SETREADING WM_APP + 212 // [0, 0] - request to repaint the status bar ("Reading:")
 #define WM_USER_BUTTONS WM_APP + 213    // call EnableButtons() yourself [HWND hButton]
 #define WM_USER_FLASHICON WM_APP + 214  // after activating the find, flash the status icon
 
 #define WM_USER_FIND_PROTECTED_CONSENT (WM_APP + 215) // synchronous [const std::wstring* path, FindConsentScope]
+#define WM_USER_FIND_COMPLETE (WM_APP + 216) // asynchronous [search generation, 0]
 enum class FindConsentScope : LPARAM { Metadata, Content, File };
 
 extern BOOL IsNotAlpha[256];
@@ -172,6 +174,7 @@ struct CGrepData
     DWORD AttributesValue; // then compare
     CFilterCriteria Criteria;
     // control and data
+    WPARAM SearchGeneration = 0; // changed before starting each search, after the previous worker has joined
     std::atomic_bool StopSearch{false}; // the dialog requests cancellation of the search
     BOOL SearchStopped; // has it been terminated or not?
     HWND HWindow;       // window the grep thread communicates with
