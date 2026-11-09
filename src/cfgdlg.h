@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Track conflict status text for contrast-aware rendering. | Keep conflict explanations highlighted independently of which competing row currently owns the editor selection. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add direct painting support for the association matrix. | Render cell colors and status badges after the native list-view paint. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Replace association detail selectors with action tabs. | Keep editor state tied to one of five matrix actions and avoid category/operation combo races. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Expose the default editor on the universal pattern row. | Keep `*.*` showing the Category Edit target and present it in the Edit filter. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -1120,6 +1121,7 @@ protected:
     int FilterSource;
     BOOL ConflictsOnly;
     BOOL Updating;
+    BOOL StatusConflict;
     int SortColumn;
     BOOL SortAscending;
 
@@ -1136,7 +1138,7 @@ protected:
     const char* OperationText(Salamander::FileAssociations::PanelOperation operation) const;
     const char* TargetText(Salamander::FileAssociations::TargetKind target) const;
     const char* ProvenanceText(Salamander::FileAssociations::Provenance provenance) const;
-    void SetStatus(const char* text);
+    void SetStatus(const char* text, BOOL conflict = FALSE);
     std::string MatrixCellText(int index, bool archive) const;
     std::string MatrixEditCellText(const MatrixRow& row) const;
     std::string MatrixStatusText(const MatrixRow& row) const;

@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-09 | Render Unassigned matrix targets as a dash. | Match empty default cells while keeping the Target selectors explicitly labeled Unassigned. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Keep the Custom Handler Save button inside its group box. | Leave clearance from the Handler details border after right-aligning the button. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
+// | 2026-11-09 | Highlight conflict explanations based on the displayed status. | Keep conflict text visibly distinct even when the selected association is a non-conflicting member of a conflicting matrix row. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Allow Configuration OK to close when association projection is blocked. | A valid canonical model is already retained; a temporarily unavailable runtime adapter must not veto closing the dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add association patterns through Salamander's existing rename input dialog. | Prompt for a pattern, add an unassigned row, and select it for immediate configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Count Pack and Unpack archive filters independently and stabilize matrix painting. | Keep the archive tab count matched to its selected submenu and prevent native hover repaints from flashing over the custom matrix. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -3538,7 +3540,7 @@ CCfgPageFileAssociations::CCfgPageFileAssociations()
                            IDD_CFGPAGE_FILEASSOCIATIONS, IDD_CFGPAGE_FILEASSOCIATIONS,
                            PSP_USETITLE, NULL),
        MatrixImageList(NULL), Selected(-1), SelectedCategory(0), SelectedOperation(0), SelectedMatrixRow(-1),
-       FilterCategory(-1), FilterArchiveOperation(-1), FilterProvenance(-1), FilterSource(-1), ConflictsOnly(FALSE), Updating(FALSE),
+       FilterCategory(-1), FilterArchiveOperation(-1), FilterProvenance(-1), FilterSource(-1), ConflictsOnly(FALSE), Updating(FALSE), StatusConflict(FALSE),
        SortColumn(0), SortAscending(TRUE)
 {
 }
@@ -3684,9 +3686,13 @@ const char* CCfgPageFileAssociations::ProvenanceText(
     return "";
 }
 
-void CCfgPageFileAssociations::SetStatus(const char* text)
+void CCfgPageFileAssociations::SetStatus(const char* text, BOOL conflict)
 {
+    StatusConflict = conflict;
     SetDlgItemText(HWindow, IDC_FILEASSOCIATION_STATUS, text != NULL ? text : "");
+    HWND status = GetDlgItem(HWindow, IDC_FILEASSOCIATION_STATUS);
+    if (status != NULL)
+        InvalidateRect(status, NULL, TRUE);
 }
 
 std::string CCfgPageFileAssociations::MatrixCellText(int index, bool archive) const
@@ -4424,10 +4430,24 @@ void CCfgPageFileAssociations::LoadSelectedControls()
         if (TargetCatalog[i].StableId == item.AssociationTarget.StableId &&
             TargetCatalog[i].DisplayLabel == item.AssociationTarget.DisplayLabel)
             SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_SETCURSEL, i, 0);
-    SetStatus(selectedCount > 1 ? LoadStr(IDS_FILEASSOCIATION_GUIDANCE)
-              : item.AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict
-                    ? MatrixConflictDetails(item).c_str()
-                    : LoadStr(IDS_FILEASSOCIATION_GUIDANCE));
+    const Salamander::FileAssociations::Association* conflictItem = NULL;
+    if (selectedCount <= 1)
+    {
+        for (size_t i = 0; i < Rows.size(); ++i)
+            if (Rows[i].Pattern == item.Pattern &&
+                Rows[i].AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict)
+            {
+                conflictItem = &Rows[i];
+                break;
+            }
+    }
+    if (conflictItem != NULL)
+    {
+        const std::string details = MatrixConflictDetails(*conflictItem);
+        SetStatus(details.c_str(), TRUE);
+    }
+    else
+        SetStatus(LoadStr(IDS_FILEASSOCIATION_GUIDANCE));
     Updating = FALSE;
 }
 
@@ -5823,10 +5843,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
     case WM_CTLCOLORSTATIC:
     {
         HWND status = GetDlgItem(HWindow, IDC_FILEASSOCIATION_STATUS);
-        if (reinterpret_cast<HWND>(lParam) == status &&
-            ListView_GetSelectedCount(GetDlgItem(HWindow, IDL_FILEASSOCIATIONS)) <= 1 &&
-            Selected >= 0 && Selected < static_cast<int>(Rows.size()) &&
-            Rows[Selected].AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict)
+        if (reinterpret_cast<HWND>(lParam) == status && StatusConflict)
         {
             LRESULT brush = 0;
             const bool themed = DarkModeHandleCtlColor(uMsg, wParam, lParam, brush);
@@ -6704,7 +6721,7 @@ INT_PTR CCfgPageCustomHandlers::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lPar
             GetWindowRect(save, &saveRect))
         {
             MapWindowPoints(NULL, HWindow, reinterpret_cast<POINT*>(&saveRect), 2);
-            const int rightMargin = WinLibDPIFromLogical(HWindow, 3);
+            const int rightMargin = WinLibDPIFromLogical(HWindow, 8);
             SetWindowPos(save, NULL, client.right - rightMargin - (saveRect.right - saveRect.left),
                          saveRect.top, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE);
         }
