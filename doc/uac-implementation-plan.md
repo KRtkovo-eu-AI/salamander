@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Support protected F5 overwrite targets with named streams. | Verify backup contents before automatic retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Stop Find work for a disconnected protected scope. | Keep valid results and continue scanning the other scopes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Recheck default-only F6 destinations before source retirement. | Preserve the source if the published destination gains an alternate stream. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve a sparse named stream on a dense F5 file. | Verify storage per opened stream rather than inferring it from the main stream. | | GPT-6.1 Sol (Codex) |
@@ -1273,6 +1274,8 @@ Prošlo 129 kontrol F6 v x64 Debug i Release, 284 obecných nativních kontrol v
 **Pozdní změna proudů cíle F6.** U přesunu s jediným hlavním proudem broker ověří inventář cíle a absenci rozšířených atributů před odebráním původního jména i před odebráním posledního ochranného odkazu. Test po úspěšném porovnání běžné kopie přidal Unicode alternativní proud, zatímco broker držel hlavní proud výhradně otevřený. Dokončení odmítlo změněný cíl, zachovalo obě zdrojová jména a ponechalo přidaný proud beze změny. Prošlo 132 kontrol F6 v x64 Debug i Release a sestavení brokeru x64 Release. Test běžel lokálně na jednom svazku bez systémové výzvy.
 
 **Odpojení chráněného rozsahu ve Findu.** Po chybě transportu Find ukončí průchod dotčeným podstromem. Při porovnávání obsahu přeskočí dosud neověřené kandidáty odpojené relace. Původní chyba se zaznamená u operace, při které spojení zaniklo. Již ověřené výsledky a kandidáti ostatních rozsahů zůstávají k dispozici. Prošlo sestavení aplikace x64 Debug, kontrola plánování, řazení a volby kořenů Findu, kontrola skutečné roury a sada brokerových úloh i nativní test konverzních tabulek. Odpojení během integrovaného hledání a kontrola zobrazených výsledků patří do VM akceptace.
+
+**Přepis cíle s alternativními proudy.** Chráněný F5 může nahradit podporovaný cíl, který už má vlastní pojmenované proudy, pokud broker ověří ochranu původního souboru. Podle běžného chování F5 patří do výsledku proudy zdroje. Doklad verze 4 obsahuje vedle otisku nové kopie SHA-256 všech proudů původního souboru, zachycený před výměnou. Před automatickým odstraněním zálohy broker ověří její ochranu, revizi i otisk. Pokud ověření selže, ponechá obě jména. Pro původní soubor s pojmenovanými proudy platí limit 16 MiB v součtu proudů. Starší doklady zůstávají čitelné. Lokálně prošlo 296 nativních kontrol v x64 Debug i Release, 12 kontrol workeru, transport a 26 kontrol brokerových úloh v x64 Release. Prošlo i sestavení brokeru x64 Release. Testy ověřily zveřejnění kopie, zachování zálohy při změně jediného proudu bez změny revize a odmítnutí úklidu při neověřené ochraně. Systémový souhlas a konflikt z panelu zůstávají součástí společné VM akceptace.
 
 ## 12. Testovací strategie
 

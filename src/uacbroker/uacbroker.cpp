@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Admit protected overwrite targets with named streams. | Use the guarded backup digest in publication and recovery. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Copy verified named streams in protected F5 overwrites. | Use a protected stage and preserve the original until the complete stream receipt is verified. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Remove the active F6 deadline and pilot byte cap. | Keep cancellation and disconnect detection while allowing slow and large moves. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share the overwrite target revision capture. | Apply the same plain-file and attribute checks during Scan Ahead and request preparation. | | GPT-6.1 Sol (Codex) |
@@ -1260,7 +1261,9 @@ DWORD PrepareReplacementFiles(HANDLE parent, std::wstring_view leaf, const UacF7
     if ((error = UacZipUpdate::CheckRevision(original.get(), revision)) != ERROR_SUCCESS)
         return error;
     FILE_BASIC_INFO basic{};
-    if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(original.get(), basic)) != ERROR_SUCCESS ||
+    const auto originalPolicy = kind == UacZipUpdate::ReplacementKind::DiskCopy
+        ? UacCopyLeaf::StreamPolicy::PreserveNamed : UacCopyLeaf::StreamPolicy::RequireDefault;
+    if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(original.get(), basic, false, originalPolicy)) != ERROR_SUCCESS ||
         (error = security.Read(original.get())) != ERROR_SUCCESS)
         return error;
 
@@ -1347,7 +1350,7 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
     const RemoveEmptyZipJournal retire{journal};
     const auto journalName = JournalName(L"uac-overwrite-recovery-", expectedTargetParent);
     if ((error = OpenProtectedJournal(install, journalName, FILE_OPEN_IF, true, journal)) != ERROR_SUCCESS ||
-        (error = UacZipUpdate::Recover(targetParent, expectedTargetParent, targetLeaf, journal.get(), kind)) != ERROR_SUCCESS)
+        (error = UacZipUpdate::Recover(targetParent, expectedTargetParent, targetLeaf, journal.get(), kind, ProtectedObject)) != ERROR_SUCCESS)
         return error;
 
     UacZipUpdate::Handle original(nullptr, CloseHandle);
@@ -1376,7 +1379,7 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
         (error = security.Verify(stage.get())) != ERROR_SUCCESS)
         return error;
     const auto publication = UacZipUpdate::Publish(targetParent, expectedTargetParent, targetLeaf, expectedTarget,
-                                                   original, stage.get(), journal.get(), pipe, deadline, nullptr, kind);
+                                                   original, stage.get(), journal.get(), pipe, deadline, nullptr, kind, ProtectedObject);
     return publication.recoveryError ? ERROR_PARTIAL_COPY : publication.error;
 }
 
