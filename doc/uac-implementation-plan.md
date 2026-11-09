@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Revalidate the original-account Recycle Bin receipt in the acceptance VM. | Establish the Shell baseline before the protected panel tests. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify pre-publication F6 cancellation through the native dialog. | Confirm cleanup and restore the regular pilot after controlled tests. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify F6 interruption on two NTFS volumes and in the post-publication UI. | Prove partial-move reporting while both files remain intact. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the timing limit of interactive F6 cancellation tests. | Separate a completed move from verified cancellation before publication. | | GPT-6.1 Sol (Codex) |
@@ -1386,6 +1387,8 @@ Ke každé zkoušce zaznamenat revizi, verzi Windows a architekturu, typ účtu 
 **F6, řízené přerušení na dvou svazcích.** Nativní sonda použila rozdílné pevné svazky NTFS C: a E:. Prošlo 75 kontrol v každé konfiguraci x64 Debug a Release. Před zveřejněním potvrdila zrušení 1223 i odpojení 109, zachování zdroje a úklid pracovní kopie. Po zveřejnění potvrdila stejné dva stavy, zachování cíle a ponechání zdrojových odkazů před úklidem. Ve VM byl dále nasazen dočasný laboratorní broker odvozený z 10da008c s čekáním pouze pro dva určené názvy. U 06-p7-f6-after.txt byl cíl viditelný při živém brokeru. Cancel a Yes přes Computer Use vyvolaly hlášení, že dokončení přesunu nelze potvrdit. Zdroj i cíl měly stejný SHA-256, broker skončil a pracovní kopie nezůstala. První VM běh před zveřejněním vyčerpal 40sekundovou čekací dobu bez potvrzeného Cancel a korektně dokončil přesun. Opakování této fáze z panelu ještě zbývá. Důkazy jsou v P7-F6/f6-native-two-volume-*.log a P7-F6/f6-fault-after-evidence.json.
 
 **VM, zrušení F6 před zveřejněním a obnova pilotu.** U opakovaného přesunu 05-p7-f6-before.txt byl za běhu laboratorního brokeru pozorován pracovní soubor a nepřítomný cíl. Cancel a Yes v nativním dialogu přes Computer Use ukončily přenos a vrátily panel bez hlášení o částečném výsledku. Zdroj měl původní obsah, cílové jméno nevzniklo, pracovní soubor zmizel a broker skončil. Důkaz je v P7-F6/f6-fault-before-evidence.json. Po obou řízených zkouškách byl obnoven běžný broker a jeho SHA-256 odpovídal manifestu pilotu 10da008c. Zdrojové změny laboratorního brokeru zůstaly mimo větev.
+
+**Koš, základní kontrola v akceptační VM.** Na Windows 11 Pro x64 (26200) prošlo v x64 Release 21 běžných kontrol, 12 kontrol dokladu a obnovy a tři kontroly přenosu. IFileOperation potvrdilo přesun i návrat na původní cestu. Sonda ověřila SID a svazek Koše, stejné ID položky a odmítnutí cizího nebo chybějícího dokladu. Výstupy jsou v recycle-native/ordinary.log, receipt.log a transfer.log u pilotu 10da008c. Jde o základní zkoušku běžného Shellu. Pro chráněný příkaz Delete z panelu je připravený laboratorní skript Invoke-P7Recycle.ps1 s ověřením SHA-256 a ID v Koši volajícího. Souhlas, zrušení a obnova pro oba účty zůstávají v akceptační matici.
 
 ### 12.3 CI a přijetí vydání
 
