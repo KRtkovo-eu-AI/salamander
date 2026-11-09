@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record protected Recycle Bin acceptance failure. | The approved VM attempt returned access denied and preserved the original. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the active UAC caption shield in the VM. | Confirm it appears alongside native progress during a real transfer. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Show the UAC shield in native progress captions. | Mark active broker work after authentication and restore the ordinary icon afterwards. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify live F6 progress in the native VM dialog. | Record protected transfer integrity and separate incomplete memory measurements. | | GPT-6.1 Sol (Codex) |
@@ -1411,6 +1412,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **Štít v titulku okna průběhu.** Po ověření elevovaného protějšku nebo zahájení položky v již schválené relaci zobrazí nativní okno malou systémovou ikonu štítu. Po koncovém výsledku, zrušení nebo chybě se vrátí původní ikona. Stejný stav pokrývá přenosy a brokerové změny metadat či trvalé odstranění z okna průběhu. Protokol zůstává 10. Prošlo x64 Release sestavení hostu a brokeru, 14 kontrol workeru a transportní a brokerové testy. Stejné Release sestavení vzrostlo z 5 442 048 na 5 443 584 B u hostu, broker zůstal 1 332 736 B a celkový přírůstek je 1 536 B. Vizuální kontrola ikony a odpovídající měření privátní paměti čekají na nový pilot.
 
 **VM, štít v titulku při F6.** Pilot 1fa65b69 před souhlasem zobrazil v okně průběhu původní ikonu aplikace. Po souhlasu byl při 19 % v titulku systémový štít a oba ukazatele byly aktivní. Uživatel štít potvrdil. Po úspěchu se okno průběhu zavřelo a běžný panel měl původní ikonu. Soubor o délce 4 295 032 833 bajtů měl správný SHA-256, zdroj i pracovní kopie zmizely. Důkaz je v C:/Samandarin/builds/uac-p7-progress-total/shield-vm-evidence.json. Přechod ikony při chybě nebo zrušení s otevřeným oknem zůstává bez vizuální zkoušky. Protokol 10 se sestavil také pro broker a sondu Win32 a ARM64, bez spuštění na těchto architekturách.
+
+**Akceptace chráněného Koše v izolované VM.** Po volbě Ne u `P7-recycle-01-cancel.txt` zůstal zdroj se stejným ID a SHA-256. Po volbě Ano u `P7-recycle-02-approve.txt` zobrazil Samandarin chybu 5 (Access is denied). Také druhý soubor zůstal na původní cestě se stejným ID a SHA-256. Kontrola metadat Koše nenašla položku ani pro jeden pokus. Schválená recyklace zůstává otevřená. Samostatná sonda má ověřit výsledek IFileOperation a potvrzení o položce bez aplikační přípravy zdroje. Akceptace s jiným správcem dosud neproběhla.
 
 ### 12.3 CI a přijetí vydání
 
