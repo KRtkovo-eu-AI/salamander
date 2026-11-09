@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Render Unassigned matrix targets as a dash. | Match empty default cells while keeping the Target selectors explicitly labeled Unassigned. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add association patterns through Salamander's existing rename input dialog. | Prompt for a pattern, add an unassigned row, and select it for immediate configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Count Pack and Unpack archive filters independently and stabilize matrix painting. | Keep the archive tab count matched to its selected submenu and prevent native hover repaints from flashing over the custom matrix. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Highlight selected association conflict details. | Make the conflict explanation easy to identify in both color schemes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -3693,6 +3694,9 @@ std::string CCfgPageFileAssociations::MatrixCellText(int index, bool archive) co
         return std::string("-");
 
     const Salamander::FileAssociations::Association& item = Rows[index];
+    if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Unassigned)
+        return std::string("-");
+
     std::vector<char> displayName(1024);
     const char* target = TargetText(item.AssociationTarget.Kind);
     if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::BuiltIn &&
