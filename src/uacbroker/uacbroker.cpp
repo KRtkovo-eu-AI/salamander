@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Include named streams in explicit compressed F5. | Preserve the selected metadata without dropping alternate data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Lock named streams on compressed cross-volume moves. | Use the same sealed inventory before retiring the source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the protected Shell recycle source. | Pin its trusted ancestors while the original account calls the Shell. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Return the exact Find content revision. | Let the host compare the same file across Find passes. | | GPT-6.1 Sol (Codex) |
@@ -1707,11 +1708,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 deadline = copyDeadline + timeoutMs;
                 const bool preserveCompression = header.operation == Operation::CopyCompressed;
                 const bool preserveSecurity = header.operation == Operation::CopySecurity;
-                auto policy = UacCopyLeaf::StreamPolicy::PreserveNamed;
-                if (preserveCompression)
-                    policy = UacCopyLeaf::StreamPolicy::RequireDefault;
-                else if (header.operation == Operation::CopyIgnoreAds)
-                    policy = UacCopyLeaf::StreamPolicy::IgnoreNamed;
+                const auto policy = header.operation == Operation::CopyIgnoreAds
+                    ? UacCopyLeaf::StreamPolicy::IgnoreNamed : UacCopyLeaf::StreamPolicy::PreserveNamed;
                 result = UacCopyLeaf::CopyVerifiedFile(parent.get(), expected, sourceIdentity, leaf,
                                                        targetParent.get(), expectedTarget, targetLeaf,
                                                        nullptr, pipe, copyDeadline, header.copySize,

@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Combine exact compression and named streams in F5. | Verify contents, storage and collision behavior together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve compression on guarded F6 streams. | Verify mixed compression and sparsity before source retirement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Connect the protected Recycle Bin pilot to Delete. | Verify a single-file Shell retry and the original account receipt. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share Shell recycle identity and receipt verification. | Reject a substituted source before the Shell processes the queued item. | | GPT-6.1 Sol (Codex) |
@@ -1206,6 +1207,10 @@ Lokálně prošlo sestavení aplikace x64 Debug, v x64 Debug i Release 21 regres
 **Komprese alternativních proudů při F6.** Chráněný přesun do volného názvu zamyká alternativní proudy také u komprimovaného souboru. Z jednotlivých handlů čte formát komprese, nastaví jej na pracovních proudech cíle a znovu jej ověří po zapsání dat. Řídké proudy zachovávají alokované rozsahy. Před odstraněním zdroje musí projít zveřejnění a ověření cíle pod stejnou ochranou jako dosud. Při kolizi zůstane původní cíl i jeho obsah. Tato změna pokrývá dříve nepodporované komprimované alternativní proudy uvedené výše. Kombinace s kopírováním přesných oprávnění a pozdní dokončení již vytvořené běžné kopie mají vlastní omezení. [Vlastnosti datových proudů NTFS](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams) · [Nastavení komprese](https://learn.microsoft.com/en-us/windows/win32/api/winioctl/ni-winioctl-fsctl_set_compression).
 
 Lokálně prošlo 125 kontrol F6 v x64 Debug i Release, 250 obecných nativních kontrol v x64 Release a sestavení brokeru x64 Release. Kontroly zahrnují kolizi, zachování Unicode proudu v LZNT1 vedle nekomprimovaného proudu a zachování LZNT1 proudu u souboru s řídkým hlavním proudem. Ověřují bajty i formát po odstranění zdroje. Zkouška běžela na jednom svazku. Dva skutečné svazky, volba F6 a souhlas UAC zůstávají v akceptaci VM.
+
+**Komprimované F5 s alternativními proudy.** Se zapnutým zachováním atributů použije broker pro komprimovaný soubor do volného názvu stejnou kontrolu úložiště proudů jako F6. Tím rozšiřuje P5g, kde se komprimovaný zdroj s alternativními proudy odmítal. Všechny zdrojové proudy ověří podle identity souboru a drží otevřené bez sdílení zápisu. Soubor se zveřejní až po ověření přesných atributů, inventáře, formátů komprese a řídkých proudů. Pro alternativní proudy se stále vyžaduje chráněný pracovní soubor. Existující cíl zůstane při kolizi zachovaný. [Vlastnosti jednotlivých datových proudů](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams).
+
+Lokálně prošlo 254 nativních kontrol v x64 Debug i Release, 125 regresí F6 v x64 Release, 24 kontrol úloh a samostatná kontrola transportu. Broker se sestavil v x64 Release. Zkouška porovnala obsah a formát komprimovaného hlavního proudu a komprimovaného Unicode proudu, obsah nekomprimovaného proudu a skutečně nealokovaný rozsah řídkého proudu. Odmítnutí souběžného zapisovatele a nedůvěryhodné pracovní kopie nezanechalo cílový soubor. Kombinace s interaktivním F5 a souhlasem UAC patří do společné akceptace ve VM.
 
 ## 12. Testovací strategie
 

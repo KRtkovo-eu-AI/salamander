@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise compressed F5 with mixed named streams. | Verify the copy, refusal of a writable stage or busy stream, and preservation of a colliding target. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise mixed NTFS stream compression in F6. | Compare dense, compressed and sparse streams after publishing and retiring a sealed source. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test Find revisions across two opens. | Detect an in-place edit even if file length and modification time match. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify sparse F6 with sparse and dense named streams. | Check data, allocation holes and source retirement together. | | GPT-6.1 Sol (Codex) |
@@ -3815,11 +3816,11 @@ int wmain(int argc, wchar_t** argv)
     FILE_ID_INFO compressedId{};
     if (!OpenIdentity(compressedSource, compressedId))
         return 2;
-    const auto copyCompressed = [&](std::wstring_view leaf, bool preserveCompression) {
+    const auto copyCompressed = [&](std::wstring_view leaf, bool preserveCompression,
+                                    UacCopyLeaf::StageVerifier verify = nullptr) {
         return UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, compressedId, L"compressed-\u6771.bin",
             original.get(), expected, leaf, nullptr, nullptr, MAXULONGLONG, compressedBytes.size(),
-            preserveCompression ? UacCopyLeaf::StreamPolicy::RequireDefault : UacCopyLeaf::StreamPolicy::PreserveNamed,
-            nullptr, preserveCompression);
+            UacCopyLeaf::StreamPolicy::PreserveNamed, verify, preserveCompression);
     };
     copyError = copyCompressed(L"compressed-\u6771.bin", false);
     Check(copyError == ERROR_NOT_SUPPORTED && !Exists(compressedTarget),
@@ -3843,12 +3844,88 @@ int wmain(int argc, wchar_t** argv)
     copyError = copyCompressed(L"compressed-\u6771.bin", true);
     Check(copyError == ERROR_ALREADY_EXISTS && HasContents(compressedTarget, compressedBytes),
           "preserve an existing compressed destination on collision", copyError);
-    if (!WriteFixture(compressedSource + L":named", existing))
+    constexpr wchar_t mixedLeaf[] = L"compressed-with-ads.bin";
+    const std::wstring mixedTarget = moved + L"\\" + mixedLeaf;
+    const std::wstring packedSuffix = L":packed-\u6771";
+    const std::wstring denseSuffix = L":dense";
+    const std::wstring holeSuffix = L":hole";
+    const std::vector<BYTE> holeBytes(512 * 1024, 0);
+    if (!WriteFixture(compressedSource + packedSuffix, compressedBytes) ||
+        !WriteFixture(compressedSource + denseSuffix, existing))
         return 2;
-    copyError = copyCompressed(L"compressed-with-ads.bin", true);
-    Check(copyError == ERROR_NOT_SUPPORTED && !Exists(moved + L"\\compressed-with-ads.bin") &&
-              HasContents(compressedSource + L":named", existing),
-          "refuse compressed files with named streams without publishing a partial copy", copyError);
+    const auto setStreamCompression = [&](const std::wstring& suffix, USHORT format) {
+        const auto raw = CreateFileW((compressedSource + suffix).c_str(), GENERIC_READ | GENERIC_WRITE,
+                                     0, nullptr, OPEN_EXISTING, 0, nullptr);
+        const Handle stream(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+        return stream && !UacCopyLeaf::Detail::SetCompression(stream.get(), format);
+    };
+    {
+        const auto raw = CreateFileW((compressedSource + holeSuffix).c_str(), GENERIC_READ | GENERIC_WRITE,
+                                     0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        const Handle stream(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+        DWORD bytes = 0;
+        LARGE_INTEGER length{};
+        length.QuadPart = holeBytes.size();
+        if (!stream || UacCopyLeaf::Detail::SetCompression(stream.get(), COMPRESSION_FORMAT_NONE) ||
+            !DeviceIoControl(stream.get(), FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &bytes, nullptr) ||
+            !SetFilePointerEx(stream.get(), length, nullptr, FILE_BEGIN) || !SetEndOfFile(stream.get()))
+            return 2;
+    }
+    if (!setStreamCompression(packedSuffix, COMPRESSION_FORMAT_LZNT1) ||
+        !setStreamCompression(denseSuffix, COMPRESSION_FORMAT_NONE) ||
+        !SetFileAttributesW(compressedSource.c_str(), FILE_ATTRIBUTE_HIDDEN))
+        return 2;
+
+    copyError = copyCompressed(mixedLeaf, true, [](HANDLE, bool) { return false; });
+    Check(copyError == ERROR_ACCESS_DENIED && !Exists(mixedTarget),
+          "reject a compressed copy with named streams if the stage is writable", copyError);
+    {
+        const auto raw = CreateFileW((compressedSource + packedSuffix).c_str(), GENERIC_WRITE,
+                                     FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
+        const Handle writer(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+        if (!writer)
+            return 2;
+        copyError = copyCompressed(mixedLeaf, true, trustedFixture);
+        Check(copyError == ERROR_SHARING_VIOLATION && !Exists(mixedTarget),
+              "refuse a compressed named stream with a concurrent writer", copyError);
+    }
+    copyError = copyCompressed(mixedLeaf, true, trustedFixture);
+    const auto hasStreamFormat = [](const std::wstring& path, USHORT expected) {
+        const auto raw = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+        const Handle stream(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+        USHORT format = COMPRESSION_FORMAT_NONE;
+        return stream && !UacCopyLeaf::Detail::ReadCompression(stream.get(), format) && format == expected;
+    };
+    Check(copyError == ERROR_SUCCESS && HasContents(mixedTarget, compressedBytes) &&
+              HasContents(mixedTarget + packedSuffix, compressedBytes) && HasContents(mixedTarget + denseSuffix, existing) &&
+              hasStreamFormat(mixedTarget, COMPRESSION_FORMAT_LZNT1) &&
+              hasStreamFormat(mixedTarget + packedSuffix, COMPRESSION_FORMAT_LZNT1) &&
+              hasStreamFormat(mixedTarget + denseSuffix, COMPRESSION_FORMAT_NONE) &&
+              GetFileAttributesW(mixedTarget.c_str()) == GetFileAttributesW(compressedSource.c_str()),
+          "preserve bytes, exact attributes and independent compression of all streams in a compressed F5 copy", copyError);
+    {
+        const auto raw = CreateFileW((mixedTarget + holeSuffix).c_str(), GENERIC_READ,
+                                     FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+        const Handle stream(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
+        FILE_BASIC_INFO metadata{};
+        FILE_ALLOCATED_RANGE_BUFFER query{}, allocated{};
+        query.Length.QuadPart = holeBytes.size();
+        DWORD bytes = 0;
+        Check(stream && GetFileInformationByHandleEx(stream.get(), FileBasicInfo, &metadata, sizeof(metadata)) &&
+                  (metadata.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE) &&
+                  DeviceIoControl(stream.get(), FSCTL_QUERY_ALLOCATED_RANGES, &query, sizeof(query),
+                                  &allocated, sizeof(allocated), &bytes, nullptr) && bytes == 0 &&
+                  HasContents(mixedTarget + holeSuffix, holeBytes),
+              "preserve a sparse named stream alongside compressed streams in the F5 copy");
+    }
+    const std::wstring marker = mixedTarget + L":collision-marker";
+    if (!WriteFixture(marker, {7, 8, 9}))
+        return 2;
+    copyError = copyCompressed(mixedLeaf, true, trustedFixture);
+    Check(copyError == ERROR_ALREADY_EXISTS && HasContents(marker, {7, 8, 9}) &&
+              HasContents(compressedSource + denseSuffix, existing) &&
+              hasStreamFormat(mixedTarget + packedSuffix, COMPRESSION_FORMAT_LZNT1),
+          "keep the existing compressed destination and its streams on collision", copyError);
 
     Check(UacF7::IsEfsCopyFailure(FILE_ATTRIBUTE_ENCRYPTED, ERROR_ACCESS_DENIED) &&
               UacF7::IsEfsCopyFailure(0, ERROR_NO_USER_KEYS) &&

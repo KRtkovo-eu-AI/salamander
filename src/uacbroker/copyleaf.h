@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Share stream storage verification with compressed F5. | Preserve the main stream and named streams together without relaxing the staged publication checks. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve LZNT1 in guarded named streams. | Verify each stream format before committing the move. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve sparsity per locked F6 data stream. | Copy the allocated ranges of both default and named streams. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Apply the F6 budget to streamed copies and inventories. | Keep F5 and ZIP on their current limits. | | GPT-6.1 Sol (Codex) |
@@ -344,13 +345,13 @@ inline DWORD ReadDataStreams(HANDLE file, std::vector<DataStream>& streams, ULON
 using StreamHandle = std::unique_ptr<void, decltype(&CloseHandle)>;
 
 inline DWORD OpenDataStream(HANDLE parent, std::wstring_view leaf, const DataStream& stream, const FILE_ID_INFO& identity,
-                            bool create, StreamHandle& opened, bool guardedMove = false)
+                            bool create, StreamHandle& opened, bool preserveStorage = false)
 {
     // The suffix came from FileStreamInfo and contains one validated component.
     // The base name is pinned by the caller. Open relative to its verified parent.
     const auto name = std::wstring(leaf) + stream.suffix;
     HANDLE raw = nullptr;
-    const ACCESS_MASK access = create ? FILE_WRITE_DATA | (guardedMove ? FILE_READ_DATA : 0) : FILE_READ_DATA;
+    const ACCESS_MASK access = create ? FILE_WRITE_DATA | (preserveStorage ? FILE_READ_DATA : 0) : FILE_READ_DATA;
     DWORD error = UacRenameLeaf::Detail::OpenFile(parent, name, raw, access,
                                                  create ? FILE_SHARE_DELETE : FILE_SHARE_READ,
                                                  create ? FILE_CREATE : FILE_OPEN, 0);
@@ -367,7 +368,8 @@ inline DWORD OpenDataStream(HANDLE parent, std::wstring_view leaf, const DataStr
         size.QuadPart < 0 || static_cast<ULONGLONG>(size.QuadPart) != (create ? 0 : stream.size))
         return ERROR_FILE_INVALID;
     const bool supported = UacF7::IsPlainCopyFile(basic.FileAttributes) ||
-                           (guardedMove && UacF7::IsCompressedCopyFile(basic.FileAttributes));
+                           (preserveStorage && (UacF7::IsDefaultCopyFile(basic.FileAttributes) ||
+                                                UacF7::IsCompressedCopyFile(basic.FileAttributes)));
     return supported ? ERROR_SUCCESS : ERROR_NOT_SUPPORTED;
 }
 
@@ -464,8 +466,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return ERROR_INVALID_PARAMETER;
     if (copySecurity && !location)
         return ERROR_INVALID_PARAMETER;
-    if ((preserveCompression && policy != StreamPolicy::RequireDefault && !moveTarget) ||
-        (copySecurity && policy == StreamPolicy::IgnoreNamed))
+    if ((preserveCompression || copySecurity) && policy == StreamPolicy::IgnoreNamed)
         return ERROR_INVALID_PARAMETER;
     DWORD allowedAttributes = UacF7::plainCopyAttributes;
     if (preserveCompression)
@@ -501,6 +502,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return ERROR_FILE_INVALID;
 
     const bool sparse = (basic.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE) != 0;
+    const bool preserveStreamStorage = preserveCompression || moveTarget != nullptr;
     std::vector<DataStream> streams;
     std::vector<HANDLE> inputs;
     std::vector<StreamHandle> openedInputs, outputs;
@@ -531,7 +533,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             else
             {
                 StreamHandle input(nullptr, CloseHandle);
-                error = OpenDataStream(location->parent, location->leaf, stream, location->identity, false, input);
+                error = OpenDataStream(location->parent, location->leaf, stream, location->identity, false, input, preserveStreamStorage);
                 if (error)
                     return error;
                 inputs.push_back(input.get());
@@ -582,7 +584,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             if (stream.suffix == L"::$DATA")
                 continue;
             StreamHandle output(nullptr, CloseHandle);
-            error = OpenDataStream(targetParent, stageName, stream, targetId, true, output, moveTarget != nullptr);
+            error = OpenDataStream(targetParent, stageName, stream, targetId, true, output, preserveStreamStorage);
             if (error)
                 return error;
             const HANDLE input = inputs[outputs.size()];
@@ -590,10 +592,10 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             if (!GetFileInformationByHandleEx(input, FileBasicInfo, &streamBasic, sizeof(streamBasic)))
                 return GetLastError();
             const bool sparseStream = (streamBasic.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE) != 0;
-            if (sparseStream && !moveTarget)
+            if (sparseStream && !preserveStreamStorage)
                 return ERROR_NOT_SUPPORTED;
             USHORT sourceFormat = COMPRESSION_FORMAT_NONE;
-            if (moveTarget)
+            if (preserveStreamStorage)
             {
                 USHORT targetFormat = COMPRESSION_FORMAT_NONE;
                 if ((error = ReadCompression(input, sourceFormat)) != ERROR_SUCCESS ||
@@ -605,7 +607,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                     return error;
             }
             error = sparseStream ? CopySparseData(input, output.get(), static_cast<LONGLONG>(stream.size),
-                                                   cancel, connection, deadline, true)
+                                                   cancel, connection, deadline, moveTarget != nullptr)
                                  : CopyData(input, output.get(), stream.size, cancel, connection, deadline, moveTarget != nullptr);
             if (!error && !GetFileInformationByHandleEx(output.get(), FileBasicInfo, &streamBasic, sizeof(streamBasic)))
                 return GetLastError();
@@ -615,7 +617,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                 return error;
             if (!FlushFileBuffers(output.get()))
                 return GetLastError();
-            if (moveTarget)
+            if (preserveStreamStorage)
             {
                 USHORT actualFormat = COMPRESSION_FORMAT_NONE;
                 if ((error = ReadCompression(output.get(), actualFormat)) != ERROR_SUCCESS)
