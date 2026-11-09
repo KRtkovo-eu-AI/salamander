@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Preserve the focused pattern during multi-select Apply. | Avoid rejecting every Apply with an empty pattern when the pattern field displays only a multi-select summary. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Route Apply through the model's user-target operation. | Remove the UI's competing row-upsert path that diverged from canonical override semantics and caused edits to revert. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Restore Target ID selection by stable identity. | Keep saved handlers selected when their display label changes or combo indexes differ from catalog indexes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Reject failed association commits using the current result. | Do not mistake a stale runtime-projection flag for a successful user override, and keep commit errors visible after refresh. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -4689,10 +4690,46 @@ BOOL CCfgPageFileAssociations::ReadControls(
     const Salamander::FileAssociations::TargetKind previousTargetKind = item.AssociationTarget.Kind;
     const std::string previousStableId = item.AssociationTarget.StableId;
     std::vector<char> pattern(1024);
-    if (ListView_GetSelectedCount(GetDlgItem(HWindow, IDL_FILEASSOCIATIONS)) > 1)
+    HWND matrix = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
+    if (ListView_GetSelectedCount(matrix) > 1)
     {
-        // The pattern editor shows a multi-select summary; preserve the focused
-        // row's pattern while the target/category controls apply to all rows.
+        // The pattern editor shows a multi-select summary. The association to
+        // carry through Apply must come from the focused matrix row instead.
+        if (item.Pattern.empty())
+        {
+            int matrixRow = ListView_GetNextItem(matrix, -1, LVNI_FOCUSED);
+            LVITEM focusedItem;
+            ZeroMemory(&focusedItem, sizeof(focusedItem));
+            focusedItem.mask = LVIF_PARAM;
+            focusedItem.iItem = matrixRow;
+            if (matrixRow >= 0 && ListView_GetItem(matrix, &focusedItem) &&
+                focusedItem.lParam >= 0 &&
+                focusedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
+                item.Pattern = MatrixRows[focusedItem.lParam].Pattern;
+
+            if (item.Pattern.empty() && SelectedMatrixRow >= 0 &&
+                SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
+                item.Pattern = MatrixRows[SelectedMatrixRow].Pattern;
+
+            if (item.Pattern.empty())
+            {
+                for (int row = 0; row < ListView_GetItemCount(matrix); ++row)
+                {
+                    if ((ListView_GetItemState(matrix, row, LVIS_SELECTED) & LVIS_SELECTED) == 0)
+                        continue;
+                    LVITEM selectedItem;
+                    ZeroMemory(&selectedItem, sizeof(selectedItem));
+                    selectedItem.mask = LVIF_PARAM;
+                    selectedItem.iItem = row;
+                    if (ListView_GetItem(matrix, &selectedItem) && selectedItem.lParam >= 0 &&
+                        selectedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
+                    {
+                        item.Pattern = MatrixRows[selectedItem.lParam].Pattern;
+                        break;
+                    }
+                }
+            }
+        }
     }
     else
     {
