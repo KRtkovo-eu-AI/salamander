@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record guarded F6 with sparse named streams. | Verify that the move keeps data and holes in each stream. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record final verification of encrypted F5 publication. | Keep rollback armed until EFS data and timestamps are verified. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify protected Find text and tags on one open file. | Keep combined predicates on the same revision. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Add a two-volume test mode for guarded F6. | Exercise verified publication and recovery on distinct NTFS volumes. | | GPT-6.1 Sol (Codex) |
@@ -1184,6 +1185,10 @@ Na dostupném stroji prošlo 121 kontrol stávajícího režimu v x64 Debug i Re
 **Společná kontrola tagů a textu v chráněném Findu.** Obě podmínky čtou stejný brokerový handle. Před čtením se porovná velikost a čas s výpisem. Výsledek se přijme až po potvrzeném zavření a kontrole metadat brokerem. Tím se při souběžné změně souboru nespojí výsledek tagů z jednoho otevření s textem z jiného. V x64 Debug prošlo sestavení aplikace. Prošly tři sady kontrol Findu a 248 nativních kontrol x64 Release včetně přenosu chyby přerušeného čtení ze streamu tagů. Společný scénář s chráněným souborem, změnou mezi podmínkami a systémovým souhlasem se ověří ve VM.
 
 **Závěrečná kontrola EFS kopie.** Po zveřejnění ověřeného souboru a nastavení oprávnění a časů broker před potvrzením výsledku znovu čte příznak šifrování, velikost, zapisované časy, běžné atributy a inventář datových proudů z téhož handlu. Při neshodě zůstane zapnuté odstranění pracovní kopie při zavření. Prošlo 63 nativních kontrol v x64 Debug i Release se skutečným EFS souborem včetně odmítnutí odlišné velikosti, času a seznamu proudů a zachování Unicode alternativního proudu. Broker se sestavil v x64 Release. Schválení pod jiným účtem a čitelnost kopie původním držitelem klíče se ověří v izolované VM.
+
+**Řídká alokace a alternativní proudy při F6.** Broker čte příznak řídké alokace z handlu každého zamčeného proudu. U řídkých proudů kopíruje alokované rozsahy a ověří příznak v cíli. Ostatní proudy kopíruje běžným způsobem. Nadále vyžaduje ochranu cíle a dokončí odstranění zdroje až po potvrzeném zveřejnění. Komprimované alternativní proudy a kombinace s přesným kopírováním oprávnění zůstávají mimo tuto variantu. [Alokace a příznaky datových proudů NTFS](https://learn.microsoft.com/en-us/windows/win32/fileio/file-streams).
+
+V x64 Debug i Release prošlo 122 kontrol F6. Nativní test na jednom svazku ověřil hlavní řídký proud, pojmenovaný řídký proud, běžný proud nad limitem F5 a prázdný proud. Ověřil obsah, nezalokované oblasti, kolizi a vyčištění záznamu po odebrání zdroje. Prošlo 248 obecných kontrol x64 Release a sestavení brokeru x64 Release. F5 si ponechává dřívější rozsah. Integrovaný přesun s UAC na dvou svazcích čeká na společnou zkoušku ve VM.
 
 ## 12. Testovací strategie
 

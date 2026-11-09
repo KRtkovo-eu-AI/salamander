@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Preserve sparsity per locked F6 data stream. | Copy the allocated ranges of both default and named streams. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Apply the F6 budget to streamed copies and inventories. | Keep F5 and ZIP on their current limits. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Copy from the locked F6 stream handles. | Reuse the named-stream staging path without reopening a sealed stream. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share the NTFS stream-name validation. | Use the same component rules when checking for preexisting stream handles. | | GPT-6.1 Sol (Codex) |
@@ -500,7 +501,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             return error;
         if (location->lockedInventory && streams != *location->lockedInventory)
             return ERROR_FILE_INVALID;
-        if (sparse && streams.size() != 1)
+        if (sparse && streams.size() != 1 && !moveTarget)
             return ERROR_NOT_SUPPORTED;
         for (const auto& stream : streams)
         {
@@ -577,7 +578,20 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             error = OpenDataStream(targetParent, stageName, stream, targetId, true, output);
             if (error)
                 return error;
-            error = CopyData(inputs[outputs.size()], output.get(), stream.size, cancel, connection, deadline, moveTarget != nullptr);
+            const HANDLE input = inputs[outputs.size()];
+            FILE_BASIC_INFO streamBasic{};
+            if (!GetFileInformationByHandleEx(input, FileBasicInfo, &streamBasic, sizeof(streamBasic)))
+                return GetLastError();
+            const bool sparseStream = (streamBasic.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE) != 0;
+            if (sparseStream && !moveTarget)
+                return ERROR_NOT_SUPPORTED;
+            error = sparseStream ? CopySparseData(input, output.get(), static_cast<LONGLONG>(stream.size),
+                                                   cancel, connection, deadline, true)
+                                 : CopyData(input, output.get(), stream.size, cancel, connection, deadline, moveTarget != nullptr);
+            if (!error && !GetFileInformationByHandleEx(output.get(), FileBasicInfo, &streamBasic, sizeof(streamBasic)))
+                return GetLastError();
+            if (!error && ((streamBasic.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE) != 0) != sparseStream)
+                return ERROR_FILE_INVALID;
             if (error)
                 return error;
             if (!FlushFileBuffers(output.get()))

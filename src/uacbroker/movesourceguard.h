@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Admit sparse named streams under the F6 source lock. | Preserve their allocation instead of refusing the combined case. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Apply the cross-volume limit to each stream check. | Include named bytes before opening streams and after publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Publish guarded named streams before retiring the source. | Check the protected target inventory and finish the last unlink after closing the stream handles. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Hold and recheck the named streams of a sealed source. | Keep each stream locked and bind the inventory to the same NTFS identity. | | GPT-6.1 Sol (Codex) |
@@ -138,7 +139,7 @@ public:
             LARGE_INTEGER size{};
             if (!GetFileInformationByHandleEx(raw, FileBasicInfo, &basic, sizeof(basic)) || !GetFileSizeEx(raw, &size))
                 return GetLastError();
-            if (!UacF7::IsPlainCopyFile(basic.FileAttributes))
+            if (!UacF7::IsDefaultCopyFile(basic.FileAttributes))
                 return ERROR_NOT_SUPPORTED;
             if (size.QuadPart < 0 || static_cast<ULONGLONG>(size.QuadPart) != stream.size)
                 return ERROR_FILE_INVALID;

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify sparse F6 with sparse and dense named streams. | Check data, allocation holes and source retirement together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Check the final EFS metadata verifier on real encrypted files. | Confirm it rejects a different size, time or stream inventory. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Run guarded F6 publication on a separate test volume. | Verify destination receipts against a distinct NTFS volume. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise F6 beyond the F5 byte budget. | Copy a named stream across many blocks without changing the F5 limit. | | GPT-6.1 Sol (Codex) |
@@ -2084,8 +2085,8 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
     std::vector<BYTE> sparseBytes(sparseSize);
     sparseBytes[0] = 17;
     sparseBytes[secondExtent] = 29;
-    {
-        const HANDLE file = CreateFileW(sourcePath.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+    const auto writeSparse = [&](const std::wstring& path) {
+        const HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
         if (file == INVALID_HANDLE_VALUE)
             return false;
         const Handle writer(file);
@@ -2098,9 +2099,10 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
             !WriteFile(file, sparseBytes.data() + secondExtent, 1, &bytes, nullptr) || bytes != 1)
             return false;
         position.QuadPart = sparseSize;
-        if (!SetFilePointerEx(file, position, nullptr, FILE_BEGIN) || !SetEndOfFile(file))
-            return false;
-    }
+        return SetFilePointerEx(file, position, nullptr, FILE_BEGIN) && SetEndOfFile(file);
+    };
+    if (!writeSparse(sourcePath))
+        return false;
     FILE_ID_INFO sparseId{};
     if (!OpenIdentity(sourcePath, sparseId) ||
         OpenSource(parent.get(), leaf, raw, DELETE | READ_CONTROL | WRITE_DAC, FILE_SHARE_READ))
@@ -2259,7 +2261,9 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
     std::vector<BYTE> namedPayload(UacF7::maxPilotCopyBytes + 17);
     for (size_t i = 0; i < namedPayload.size(); ++i)
         namedPayload[i] = static_cast<BYTE>((i ^ (i >> 16)) & 0xff);
-    if (!WriteFixture(sourcePath, {2, 3}) || !WriteFixture(sourcePath + namedSuffix, namedPayload) ||
+    const std::wstring sparseSuffix = L":sparse";
+    if (!writeSparse(sourcePath) || !writeSparse(sourcePath + sparseSuffix) ||
+        !WriteFixture(sourcePath + namedSuffix, namedPayload) ||
         !WriteFixture(sourcePath + L":empty", {}))
         return false;
     FILE_ID_INFO namedId{};
@@ -2287,7 +2291,7 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
     UacMoveSourceJournal::Detail::Handle namedTarget(nullptr, CloseHandle);
     FILE_ID_INFO namedTargetId{};
     const auto publishNamed = [&] {
-        return namedGuard.PublishCopy(destinationParent, targetParent, namedLeaf, 2,
+        return namedGuard.PublishCopy(destinationParent, targetParent, namedLeaf, sparseSize,
             nullptr, nullptr, MAXULONGLONG, namedTarget, namedTargetId);
     };
     error = publishNamed();
@@ -2310,11 +2314,25 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
         destinationParent, namedLeaf, namedTarget.get(), namedTargetId, nullptr, nullptr, MAXULONGLONG);
     namedTarget.reset();
     Check(!error && !Exists(sourcePath) && !Exists(storageDirectory + L"\\" + name) &&
-              HasContents(namedPath, {2, 3}) && HasContents(namedPath + namedSuffix, namedPayload) &&
+              HasContents(namedPath, sparseBytes) && HasContents(namedPath + namedSuffix, namedPayload) &&
+              HasContents(namedPath + sparseSuffix, sparseBytes) &&
               Exists(namedPath + L":empty") && HasContents(namedPath + L":empty", {}),
           "retire the exact source after publishing all streams including a stream above the F5 byte limit", error);
     error = recover(parent.get());
     Check(!error && empty(), "verify and clear the named move receipt", error);
+    const auto hasHole = [&](const std::wstring& path) {
+        const HANDLE rawStream = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+                                             OPEN_EXISTING, 0, nullptr);
+        const Handle stream(rawStream == INVALID_HANDLE_VALUE ? nullptr : rawStream);
+        FILE_BASIC_INFO basic{};
+        DWORD count = 0;
+        return stream && GetFileInformationByHandleEx(stream.get(), FileBasicInfo, &basic, sizeof(basic)) &&
+               (basic.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE) &&
+               DeviceIoControl(stream.get(), FSCTL_QUERY_ALLOCATED_RANGES, &query, sizeof(query),
+                               &extent, sizeof(extent), &count, nullptr) && count == 0;
+    };
+    Check(hasHole(namedPath) && hasHole(namedPath + sparseSuffix) && !hasHole(namedPath + namedSuffix),
+          "preserve holes in both sparse streams while keeping the ordinary named stream dense");
     return failures == 0;
 }
 
