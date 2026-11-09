@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Stage the protected Recycle Bin retry build. | Verify the corrected host against the existing VM broker and fixture. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Allow the actual Shell elevation retry for recycling. | Do not turn the first request for elevation into a failure of the next source check. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Complete the local native CI preflight. | Build and run the same test projects and standalone scripts as the CI runner. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Pass the local CI Python preflight. | Repair three stale Branch View and translation fixtures affected by the UAC changes. | | GPT-6.1 Sol (Codex) |
@@ -1446,6 +1447,8 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 **P7, místní nativní část CI.** Na revizi 8ce03666 prošlo sestavení a spuštění všech 43 nativních testovacích projektů x64 Debug nalezených stejným pravidlem jako v tools/run_native_tests.ps1. Prošly také obě zkoušky Prism v Node a zkouška sestavení nabídek rozšíření v Windows PowerShellu. Spolu s předchozími 113 pythonovými skupinami tak místní kontrola pokrývá všechny skupiny uvedené v tomto runneru. Výsledky a logy jsou v C:/Samandarin/builds/uac-p7-afe152a1/native-preflight. GitHub Actions a CodeQL na této lokální revizi zatím ověřené nejsou.
 
 **P7, mezivýsledek elevace při recyklaci.** Sonda s povolenou výzvou zaznamenala úspěšný PreDeleteItem, PostDeleteItem s COPYENGINE_E_REQUIRES_ELEVATION (0x80270002) a druhý PreDeleteItem. Původní callback uložil požadavek na elevaci jako definitivní chybu a druhý PreDeleteItem jej vrátil bez ověření. Sonda po 70 sekundách skončila bez potvrzení operace. Nezávislá kontrola potvrdila původní cestu, ID a obsah souboru a žádný doklad Koše. Oprava v explicitním jednopoložkovém režimu připustí mezivýsledek bez dokladu a při opakování znovu vyžaduje recyklaci, přesnou cestu a ID. Konečný výsledek stále vyžaduje ověřený doklad nebo nese chybu či zrušení. Prošly regrese Koše x64 Debug a Release i úplné sestavení aplikace x64 Release. Opakování se systémovým souhlasem a potvrzení Koše původního SID zbývají. Důkazy jsou v C:/Samandarin/builds/uac-p7-10da008c/recycle-trace/p7-shell-approve.log a recycle-retry-fix. [Výsledek callbacku Shellu](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperationprogresssink-postdeleteitem).
+
+**P7, připravený pilot opravy Koše.** Sestavení 0e4a914a prošlo ověřením rolí a protokolu 10 s brokerem a sondou již nasazenými ve VM. Invoke-P7RecycleRetry.ps1 v režimu Verify ověřil kandidáta i současné binárky. V režimu Install mění pouze aplikaci s kontrolou otisku před výměnou i po ní. Primitivum výměny bylo ověřeno na dočasných souborech. Tři původní testovací položky zůstaly se stejným ID a SHA-256 a bez odpovídajících položek v Koši. Opakovaná regrese panelu prošla 410 kontrolami v x64 Debug i Release. Kandidát a manifest jsou v C:/Samandarin/builds/uac-p7-10da008c/recycle-retry-fix. Chráněná instalace a nové schválení z panelu ještě neproběhly.
 
 ### 12.3 CI a přijetí vydání
 
