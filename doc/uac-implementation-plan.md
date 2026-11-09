@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the Shell recycle destination with a physical bin. | Check whether a real bin passed as the destination controls placement. | | Codex |
 | 2026-11-09 | Record SMB drive disconnect and remap evidence. | Verify that an unavailable mapped path fails without touching prior copies. | | Codex |
 | 2026-11-09 | Record the disabled Recycle Bin check on the isolated NTFS volume. | Verify the real Shell response separately from the callback simulation. | | Codex |
 | 2026-11-09 | Test a permanent-delete fallback during the elevated recycle retry. | Verify that the Shell retry stops if it drops the recycle flag. | | Codex |
@@ -1653,6 +1654,8 @@ Chráněné běhy zachytily 53 a 136 vzorků s aktivním brokerem. Rozdíl v jeh
 **P7, vypnutý Koš na testovacím NTFS.** Na vyhrazeném svazku E: nejprve nativní sonda přes IFileOperation přesunula nový zkušební soubor do Koše původního účtu a obnovila ho se stejným ID. Po dočasném nastavení NukeOnDelete na 1 pouze pro tento svazek a účet skončil nový proces sondy s HRESULT 0x80070032, bez potvrzení o recyklaci. Zkušební soubor zůstal na původní cestě. Nastavení bylo vráceno na 0 a jeho návrat ověřen. Výstup je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/recycle-local-tests/recycle-policy-evidence.json. Sonda používá skutečný Shell bez elevace. Případ odmítnutí při opakování po elevaci pokrývá samostatná místní simulace.
 
 **P7, odpojení a opětovné připojení mapované jednotky.** Dočasné mapování volného R: na laboratorní adresář přes SMB na localhostu vrátilo DRIVE_REMOTE a CopyFileW vytvořilo kopii se shodným SHA-256. Po odpojení pouze tohoto mapování vrátil pokus o kopii ze stejné cesty chybu 3. Nový cíl nevznikl a dřívější kopie i původní soubor si zachovaly otisk. Tentýž zdroj zůstal čitelný přes UNC. Po opětovném mapování prošla kopie se shodným otiskem a R: bylo na konci volné. Důkaz je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/smb/smb-mapping-disconnect.json. Zkouška ověřuje výpadek mapování mezi operacemi. Přerušení běžícího přenosu při výpadku vzdáleného serveru a chování panelu v tomto stavu zůstávají otevřené.
+
+**P7, výslovný fyzický Koš jako cíl Shellu.** Místní x64 sonda předala ITransferSource::RecycleItem skutečný adresář Koše aktuálního SID na vyhrazeném svazku E: pro zkušební soubor na C:. Ověřila SIGDN_FILESYSPATH cílového objektu. Shell vrátil stav 0x00270008 a potvrzení se stejným ID souboru pro Koš na zdrojovém svazku C:. Soubor byl přes IFileOperation obnoven se stejným ID a pracovní fixture byla odstraněna. Výstup je v C:/Samandarin/builds/uac-p7-acceptance-700f8f3c/recycle-local-tests/explicit-bin-probe.log. Test pod jedním účtem ukázal, že ani skutečný fyzický Koš předaný jako cíl neurčil umístění. Podporovaný přesun do Koše původního účtu po souhlasu jiného správce zůstává otevřený. [ITransferSource::RecycleItem](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-itransfersource-recycleitem).
 
 ### 12.3 CI a přijetí vydání
 
