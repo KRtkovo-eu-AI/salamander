@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Route Apply through the model's user-target operation. | Remove the UI's competing row-upsert path that diverged from canonical override semantics and caused edits to revert. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Restore Target ID selection by stable identity. | Keep saved handlers selected when their display label changes or combo indexes differ from catalog indexes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Reject failed association commits using the current result. | Do not mistake a stale runtime-projection flag for a successful user override, and keep commit errors visible after refresh. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Remove an extra closing brace in conflict status update. | Fix C2059/C2143/C2447 syntax errors caused by a stray brace that closed the selectedCount block too early. | | nvidia/nemotron-3.5-super-vl:free |
@@ -5928,24 +5929,31 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 selectedPatterns.push_back(normalizedPattern);
 
             const std::vector<Salamander::FileAssociations::Association> originalRows = Rows;
-            const auto commitAppliedRows = [this, &originalRows, &focusedPattern, &item]() -> bool
+            Salamander::FileAssociations::CFileAssociationModel candidate;
+            if (!candidate.ReplaceAssociations(originalRows, &error))
             {
-                Salamander::FileAssociations::CFileAssociationModel candidate;
-                std::string commitError;
-                if (!candidate.ReplaceAssociations(Rows, &commitError))
+                SetStatus(error.c_str());
+                break;
+            }
+            for (size_t p = 0; p < selectedPatterns.size(); ++p)
+            {
+                if (!candidate.SetUserTarget(selectedPatterns[p].c_str(), item.AssociationCategory,
+                                             item.Operation, item.AssociationTarget, &error))
                 {
-                    Rows = originalRows;
-                    RefreshList();
-                    SetStatus(commitError.c_str());
-                    return false;
+                    SetStatus(error.c_str());
+                    break;
                 }
+            }
+            if (error.empty())
+            {
+                std::string commitError;
                 if (!Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
                         candidate, &commitError))
                 {
                     Rows = originalRows;
                     RefreshList();
                     SetStatus(commitError.c_str());
-                    return false;
+                    break;
                 }
                 if (!Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
                         ConfigurationStorage, &commitError))
@@ -5961,7 +5969,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                     Rows = originalRows;
                     RefreshList();
                     SetStatus(commitError.c_str());
-                    return false;
+                    break;
                 }
                 Rows = candidate.Associations();
                 Selected = -1;
@@ -5975,36 +5983,9 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                         Selected = static_cast<int>(i - 1);
                         break;
                     }
-                if (Selected < 0)
-                    Selected = static_cast<int>(Rows.size()) - 1;
-                RefreshList();
-                return true;
-            };
-            for (size_t p = 0; p < selectedPatterns.size(); ++p)
-            {
-                Salamander::FileAssociations::Association overrideItem = item;
-                overrideItem.Pattern = selectedPatterns[p];
-                overrideItem.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
-                overrideItem.SourceProvenance = Salamander::FileAssociations::Provenance::User;
-
-                bool replacedUserOverride = false;
-                for (size_t i = Rows.size(); i > 0; --i)
-                {
-                    Salamander::FileAssociations::Association& existing = Rows[i - 1];
-                    if (existing.Pattern == overrideItem.Pattern &&
-                        existing.AssociationCategory == overrideItem.AssociationCategory &&
-                        existing.Operation == overrideItem.Operation &&
-                        (existing.AssociationProvenance == Salamander::FileAssociations::Provenance::User ||
-                         existing.AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled))
-                    {
-                        existing = overrideItem;
-                        replacedUserOverride = true;
-                    }
-                }
-                if (!replacedUserOverride)
-                    Rows.push_back(overrideItem);
+                if (Selected >= 0)
+                    RefreshList();
             }
-            commitAppliedRows();
             break;
         }
         case IDB_FILEASSOCIATION_DELETE:
