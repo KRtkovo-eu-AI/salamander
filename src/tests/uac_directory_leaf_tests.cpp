@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Exercise F5 with a dense main stream and sparse ADS. | Verify independent stream allocation on NTFS. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test sparse F5 with named streams and security. | Verify NTFS allocation, stream contents and staging protection together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Interrupt guarded F6 after writing a stage block. | Check staged cleanup, the intact source, and successful retry on real NTFS. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise a sparse F6 with more than one range page. | Verify every allocated marker and a hole after the guarded move. | | GPT-6.1 Sol (Codex) |
@@ -4307,20 +4308,19 @@ int wmain(int argc, wchar_t** argv)
     constexpr wchar_t sparseNamedSuffix[] = L":sparse-\u6771";
     std::vector<BYTE> sparseNamedBytes(sparseLength);
     sparseNamedBytes.front() = 37;
-    if (!WriteFixture(sparseSource + L":named", existing))
-        return 2;
-    {
-        const auto raw = CreateFileW((sparseSource + sparseNamedSuffix).c_str(), GENERIC_WRITE, 0, nullptr,
+    const auto createSparseNamed = [&](const std::wstring& path) {
+        const auto raw = CreateFileW((path + sparseNamedSuffix).c_str(), GENERIC_WRITE, 0, nullptr,
                                      CREATE_NEW, 0, nullptr);
         const Handle stream(raw == INVALID_HANDLE_VALUE ? nullptr : raw);
         LARGE_INTEGER length{};
         length.QuadPart = sparseLength;
         DWORD bytes = 0;
-        if (!stream || !DeviceIoControl(stream.get(), FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &bytes, nullptr) ||
-            !WriteFile(stream.get(), sparseNamedBytes.data(), 1, &bytes, nullptr) || bytes != 1 ||
-            !SetFilePointerEx(stream.get(), length, nullptr, FILE_BEGIN) || !SetEndOfFile(stream.get()))
-            return 2;
-    }
+        return stream && DeviceIoControl(stream.get(), FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &bytes, nullptr) &&
+               WriteFile(stream.get(), sparseNamedBytes.data(), 1, &bytes, nullptr) && bytes == 1 &&
+               SetFilePointerEx(stream.get(), length, nullptr, FILE_BEGIN) && SetEndOfFile(stream.get());
+    };
+    if (!WriteFixture(sparseSource + L":named", existing) || !createSparseNamed(sparseSource))
+        return 2;
     const auto sparseAdsTarget = moved + L"\\sparse-with-ads.bin";
     copyError = copySparse(L"sparse-with-ads.bin");
     Check(copyError == ERROR_ACCESS_DENIED && !Exists(sparseAdsTarget) &&
@@ -4334,6 +4334,19 @@ int wmain(int argc, wchar_t** argv)
     copyError = copySparse(L"sparse-with-ads.bin", trustedFixture);
     Check(copyError == ERROR_SUCCESS && hasSparseStreams(sparseAdsTarget),
           "preserve allocation holes and named streams in a sparse F5 copy", copyError);
+
+    if (!createSparseNamed(copySource))
+        return 2;
+    constexpr wchar_t denseLeaf[] = L"dense-with-sparse-ads.bin";
+    const auto denseTarget = moved + L"\\" + denseLeaf;
+    copyError = UacCopyLeaf::CopyVerifiedFile(listing.get(), listingIdentity, copyId, L"copy-\u65e5.bin",
+        original.get(), expected, denseLeaf, nullptr, nullptr, MAXULONGLONG,
+        content.size(), UacCopyLeaf::StreamPolicy::PreserveNamed, trustedFixture);
+    Check(copyError == ERROR_SUCCESS && HasContents(denseTarget, content) &&
+              UacF7::IsPlainCopyFile(GetFileAttributesW(denseTarget.c_str())) &&
+              HasContents(denseTarget + sparseNamedSuffix, sparseNamedBytes) &&
+              hasHole(denseTarget + sparseNamedSuffix),
+          "preserve a sparse named stream while leaving the F5 main stream dense", copyError);
 
     const auto compressedSource = fixture + L"\\destination\\compressed-\u6771.bin";
     const auto compressedTarget = moved + L"\\compressed-\u6771.bin";

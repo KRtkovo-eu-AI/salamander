@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Preserve sparse named streams on dense file copies. | Decide the named stream storage from its own handle. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve named streams on sparse file copies. | Reuse stream storage checks for sparse F5 with or without exact security. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose an active copy checkpoint to the native fixture. | Test cancellation and host loss after staged bytes exist. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Page through sparse allocated ranges. | Continue after a full range buffer without losing holes or data. | | GPT-6.1 Sol (Codex) |
@@ -616,7 +617,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             else
             {
                 StreamHandle input(nullptr, CloseHandle);
-                error = OpenDataStream(location->parent, location->leaf, stream, location->identity, false, input, preserveStreamStorage);
+                error = OpenDataStream(location->parent, location->leaf, stream, location->identity, false, input, true);
                 if (error)
                     return error;
                 inputs.push_back(input.get());
@@ -666,19 +667,20 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         {
             if (stream.suffix == L"::$DATA")
                 continue;
-            StreamHandle output(nullptr, CloseHandle);
-            error = OpenDataStream(targetParent, stageName, stream, targetId, true, output, preserveStreamStorage);
-            if (error)
-                return error;
             const HANDLE input = inputs[outputs.size()];
             FILE_BASIC_INFO streamBasic{};
             if (!GetFileInformationByHandleEx(input, FileBasicInfo, &streamBasic, sizeof(streamBasic)))
                 return GetLastError();
             const bool sparseStream = (streamBasic.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE) != 0;
-            if (sparseStream && !preserveStreamStorage)
+            if (!preserveStreamStorage && !UacF7::IsDefaultCopyFile(streamBasic.FileAttributes))
                 return ERROR_NOT_SUPPORTED;
+            const bool verifyStorage = preserveStreamStorage || sparseStream;
+            StreamHandle output(nullptr, CloseHandle);
+            error = OpenDataStream(targetParent, stageName, stream, targetId, true, output, verifyStorage);
+            if (error)
+                return error;
             USHORT sourceFormat = COMPRESSION_FORMAT_NONE;
-            if (preserveStreamStorage)
+            if (verifyStorage)
             {
                 USHORT targetFormat = COMPRESSION_FORMAT_NONE;
                 if ((error = ReadCompression(input, sourceFormat)) != ERROR_SUCCESS ||
@@ -700,7 +702,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                 return error;
             if (!FlushFileBuffers(output.get()))
                 return GetLastError();
-            if (preserveStreamStorage)
+            if (verifyStorage)
             {
                 USHORT actualFormat = COMPRESSION_FORMAT_NONE;
                 if ((error = ReadCompression(output.get(), actualFormat)) != ERROR_SUCCESS)
