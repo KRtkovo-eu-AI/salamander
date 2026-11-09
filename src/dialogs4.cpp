@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Make extension bar visible by default in new default configuration. | Show the extension bar on clean install/default config so new users see it. | | opencode |
 // | 2026-11-09 | Multiselect for the Selected Properties list in Choose Custom Properties. | Allow Remove, Move up, and Move down to operate on all selected items at once; show multi-select info in the Property information panel and disable the favorite button. | | opencode |
 // | 2026-11-09 | Move Internal Viewer under Appearance in Configuration dialog. | Position the Internal Viewer item as a child of Appearance as requested. | | opencode |
 // | 2026-11-09 | Move Internal Viewer between Appearance and Colors as top-level page. | Reparent PageViewer as top-level sibling between Appearance and Colors; shift subsequent page indices and update constructor mode defaults to preserve same logical page per mode. | | opencode |
@@ -634,7 +635,7 @@ CConfiguration::CConfiguration()
     SingleClick = FALSE;
     TopToolBarVisible = TRUE;
     PluginsBarVisible = FALSE;
-    ExtensionBarVisible = FALSE;
+    ExtensionBarVisible = TRUE;
     MiddleToolBarVisible = FALSE;
     BottomToolBarVisible = TRUE;
     UserMenuToolBarVisible = FALSE;
