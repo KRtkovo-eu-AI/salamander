@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Guard foreground restoration after broker consent. | Keep Find attached to its own invoking window. | | Codex |
 # | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 # | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 # | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
@@ -62,6 +63,13 @@ def main() -> int:
             "the protected Find launcher must pass the search cancellation event to the broker handshake")
 
     broker = (ROOT / "src" / "uacbroker" / "uacbroker.cpp").read_text(encoding="utf-8-sig")
+    broker_launch = function_body(broker, "BOOL LaunchBrokerWithOwner(")
+    require(broker_launch.index("GetForegroundWindow()") < broker_launch.index("ShellExecuteExW(&launch)") <
+            broker_launch.index("SetForegroundWindow(owner)"),
+            "foreground restoration must be scoped to the caller that was active before consent")
+    require("foregroundProcess == GetCurrentProcessId()" in broker_launch and "IsWindowEnabled(owner)" in broker_launch and
+            "!IsIconic(owner)" in broker_launch and "SetLastError(error)" in broker_launch,
+            "restoration must target a usable owner and preserve the Windows launch error")
     listing_transfer = function_body(broker, "DWORD ListingSession::Transfer(")
     require("TransferRequest(pipe, buffer, length, send, deadline, nullptr, nullptr, nullptr, stopEvent)" in listing_transfer,
             "active listing requests must use local cancellation without a transfer cancellation byte")

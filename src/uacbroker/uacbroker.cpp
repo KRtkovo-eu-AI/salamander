@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Return to the foreground broker prompt owner. | Restore the invoking window after Windows closes the consent prompt. | | Codex |
 | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 | 2026-11-09 | Look up the tree registration slot by its exact digit. | Keep command-line input out of integer arithmetic and preserve the accepted range. | | GPT-6.1 Sol (Codex) |
@@ -2336,6 +2337,39 @@ bool InspectPipeClient(HANDLE pipe, bool& elevated)
 }
 
 #ifdef SAM_UAC_F7_HOST
+bool IsOwnedWindow(HWND window, HWND owner)
+{
+    for (; window; window = GetWindow(window, GW_OWNER))
+        if (window == owner)
+            return true;
+    return false;
+}
+
+BOOL LaunchBrokerWithOwner(SHELLEXECUTEINFOW& launch)
+{
+    const HWND owner = GetAncestor(launch.hwnd, GA_ROOT);
+    const HWND before = GetForegroundWindow();
+    DWORD foregroundProcess = 0;
+    GetWindowThreadProcessId(before, &foregroundProcess);
+    // Closing the in-app confirmation can activate the main panel before the
+    // launcher thread runs. The explicit Shell owner is still the target.
+    const bool returnToOwner = owner && foregroundProcess == GetCurrentProcessId();
+    const BOOL launched = ShellExecuteExW(&launch);
+    const DWORD error = launched ? ERROR_SUCCESS : GetLastError();
+    // Only the active caller gets a single foreground request on return from
+    // consent. Windows still arbitrates activation if another app has input.
+    if (returnToOwner && (launched || error == ERROR_CANCELLED) &&
+        IsWindowVisible(owner) && IsWindowEnabled(owner) && !IsIconic(owner))
+    {
+        const HWND foreground = GetForegroundWindow();
+        if (!IsOwnedWindow(foreground, owner))
+            SetForegroundWindow(owner);
+    }
+    if (!launched)
+        SetLastError(error);
+    return launched;
+}
+
 class BrokerActivityScope
 {
 public:
@@ -2421,7 +2455,12 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
     launch.lpParameters = args.c_str();
     launch.lpDirectory = install.Directory().c_str();
     launch.nShow = SW_HIDE;
-    if (!ShellExecuteExW(&launch))
+#ifdef SAM_UAC_F7_HOST
+    const BOOL launched = LaunchBrokerWithOwner(launch);
+#else
+    const BOOL launched = ShellExecuteExW(&launch);
+#endif
+    if (!launched)
     {
         const DWORD error = GetLastError();
 #ifdef SAM_UAC_F7_HOST
