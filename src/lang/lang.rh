@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add Apply control and localized label identifiers for association details. | Let users commit current association edits directly from the detail panel. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add owner-drawn association action tab identifiers. | Render five selectable action pages consistently across Windows color schemes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add action-tab control identifier for the association editor. | Replace separate category and operation selectors with five detail tabs. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add the archive operation menu button identifier. | Provide a separate arrow control beside the Panel Archive category tab. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -337,11 +338,12 @@
 #define IDB_FILEASSOCIATION_ACTION_EDIT 6329
 #define IDB_FILEASSOCIATION_ACTION_PACK 6330
 #define IDB_FILEASSOCIATION_ACTION_UNPACK 6331
+#define IDB_FILEASSOCIATION_APPLY      6332
 #define IDS_FILEASSOCIATION_SOURCE      2421
 #define IDS_FILEASSOCIATION_DETAILS     2422
 #define IDS_FILEASSOCIATION_CONFLICTS_COUNT 2423
 #define IDS_FILEASSOCIATION_ADD_SHORT    2424
-#define IDS_FILEASSOCIATION_RESOLVE_CONFLICT 2425
+#define IDS_FILEASSOCIATION_APPLY       2468
 #define IDS_FILEASSOCIATION_FILTER_STATES 2426
 #define IDS_FILEASSOCIATION_FILTER_SOURCES 2427
 #define IDC_FILEASSOCIATION_FILTER_SOURCE 6323

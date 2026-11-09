@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Show the configured legacy editor for the universal pattern and add detail Apply. | Expose the actual editor command in the matrix and commit edits to the page model on demand. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Fix opaque backgrounds while painting association text and badges. | Save and restore the offscreen GDI context and explicitly use transparent text backgrounds. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Fit the association details caption to its text. | Keep the group-box title from covering the full top border. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Balance spacing around the compact association filter row. | Give the second filter row equal clearance from the first row and the matrix. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -3744,14 +3745,25 @@ std::string CCfgPageFileAssociations::MatrixCellText(int index, bool archive) co
 std::string CCfgPageFileAssociations::MatrixEditCellText(const MatrixRow& row) const
 {
     if (row.Edit >= 0)
-        return MatrixCellText(row.Edit, false);
-    if (row.Pattern != "*.*")
+    {
+        const std::string cellText = MatrixCellText(row.Edit, false);
+        if (row.Pattern != "*.*" || (!cellText.empty() && cellText != "-" &&
+                                     _stricmp(cellText.c_str(), "legacy-editor") != 0))
+            return cellText;
+    }
+    else if (row.Pattern != "*.*")
         return MatrixCellText(row.Edit, false);
 
     for (size_t i = 0; i < Rows.size(); ++i)
         if (_stricmp(Rows[i].Pattern.c_str(), "*.*") == 0 &&
             Rows[i].AssociationCategory == Salamander::FileAssociations::Category::Edit)
-            return MatrixCellText(static_cast<int>(i), false);
+        {
+            const std::string editText = MatrixCellText(static_cast<int>(i), false);
+            if (!editText.empty() && editText != "-" &&
+                _stricmp(editText.c_str(), "legacy-editor") != 0)
+                return editText;
+            break;
+        }
 
     const std::string application = LegacyEditorApplicationName(row.Pattern);
     return application.empty() ? std::string(LoadStr(IDS_FILEASSOCIATION_NO_LEGACY_EDITOR))
@@ -4357,10 +4369,7 @@ void CCfgPageFileAssociations::LoadSelectedControls()
     }
 
     const Salamander::FileAssociations::Association& item = Rows[Selected];
-    SetDlgItemText(HWindow, IDB_FILEASSOCIATION_ADD,
-                   item.AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict
-                       ? LoadStr(IDS_FILEASSOCIATION_RESOLVE_CONFLICT)
-                       : LoadStr(IDS_FILEASSOCIATION_ADD_SHORT));
+    SetDlgItemText(HWindow, IDB_FILEASSOCIATION_ADD, LoadStr(IDS_FILEASSOCIATION_ADD_SHORT));
     PostMessage(HWindow, WM_SIZE, SIZE_RESTORED, 0);
     char detailTitle[256];
     if (selectedCount > 1)
@@ -4599,7 +4608,11 @@ void CCfgPageFileAssociations::Transfer(CTransferInfo& ti)
     {
         Salamander::FileAssociations::CFileAssociationModel candidate;
         std::string error;
-        if (!BuildCandidate(candidate, &error) ||
+        // The active page was already validated by CTreePropHolderDlg before it
+        // transfers the pages. Keep transfer based on the validated row model;
+        // rereading the controls here can reject a valid OK after an action-tab
+        // change and leave the Configuration window open after other pages saved.
+        if (!candidate.ReplaceAssociations(Rows, &error) ||
             !Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
                 candidate, &error))
         {
@@ -5105,6 +5118,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
         SetDlgItemText(HWindow, IDB_FILEASSOCIATION_UNASSIGNED,
                        LoadStr(IDS_FILEASSOCIATION_UNASSIGNED));
         SetDlgItemText(HWindow, IDB_FILEASSOCIATION_ADD, LoadStr(IDS_FILEASSOCIATION_ADD_SHORT));
+        SetDlgItemText(HWindow, IDB_FILEASSOCIATION_APPLY, LoadStr(IDS_FILEASSOCIATION_APPLY));
         SetDlgItemText(HWindow, IDC_FILEASSOCIATION_HELP, LoadStr(IDS_BUTTON_HELP));
         FilterCategory = -1;
         wchar_t searchCue[256];
@@ -5236,7 +5250,8 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 {IDC_FILEASSOCIATION_TARGETKIND, 88, detailTop + 75, right - 16, detailTop + 93},
                 {IDC_STATIC_7, 18, detailTop + 103, 82, detailTop + 118},
                 {IDC_FILEASSOCIATION_TARGETCATALOG, 88, detailTop + 100, right - 16, detailTop + 118},
-                {IDC_FILEASSOCIATION_STATUS, 18, detailTop + 126, right - 16, detailBottom - 8},
+                {IDC_FILEASSOCIATION_STATUS, 18, detailTop + 126, right - 92, detailBottom - 8},
+                {IDB_FILEASSOCIATION_APPLY, right - 86, detailTop + 124, right - 16, detailBottom - 8},
                 {0, 0, 0, 0, 0}};
             for (size_t i = 0; i < sizeof(controls) / sizeof(controls[0]); ++i)
             {
@@ -5507,6 +5522,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 PopulateTargetCatalog();
             break;
         case IDB_FILEASSOCIATION_ADD:
+        case IDB_FILEASSOCIATION_APPLY:
         {
             Salamander::FileAssociations::Association item;
             item.AssociationCategory = Salamander::FileAssociations::Category::View;

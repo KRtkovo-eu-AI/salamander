@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add Apply action to File Associations details. | Provide an in-panel command to apply the selected association to the matrix. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Make custom handler descriptions single-line and balance the editor group height. | Prevent description wrapping and remove excess space below Save. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Group and describe custom handler pages. | Clarify page purpose and give saved commands a dedicated editor section. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Swap Plugin Manager checkboxes order. | Move "Show in Change Drive menu and Drive bar" above "Show in Plugin bar" to match requested order. | | nvidia/nemotron-3.5-super-vl:free |
@@ -1162,6 +1163,7 @@ BEGIN
     LTEXT           "",IDC_STATIC_7,16,265,42,8
     COMBOBOX        IDC_FILEASSOCIATION_TARGETCATALOG,62,262,340,60,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     LTEXT           "",IDC_FILEASSOCIATION_STATUS,16,282,386,10,SS_LEFT | SS_NOPREFIX
+    PUSHBUTTON      "",IDB_FILEASSOCIATION_APPLY,330,280,72,18,WS_TABSTOP
     PUSHBUTTON      "",IDB_FILEASSOCIATION_DELETE,4,284,58,14,WS_TABSTOP
     PUSHBUTTON      "",IDB_FILEASSOCIATION_RESET,66,284,92,14,WS_TABSTOP
     PUSHBUTTON      "",IDB_FILEASSOCIATION_UNASSIGNED,162,284,92,14,WS_TABSTOP

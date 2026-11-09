@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Localize the association detail Apply action. | Name the new command that writes edits into the association matrix. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Shorten custom viewer/editor page descriptions. | Keep page guidance on one line at the minimum window width. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add localized custom handler guidance and table headings. | Describe viewer/editor pages and name the new Arguments and Initial directory columns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Rename the association detail selector label to Action. | Match the new action tab group in the File Associations editor. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -2459,9 +2460,9 @@ STRINGTABLE
  IDS_FILEASSOCIATION_NO_LEGACY_EDITOR, "No legacy editor is configured"
  IDS_FILEASSOCIATION_CONFLICTS_COUNT, "Conflicts (%u)"
  IDS_FILEASSOCIATION_ADD_SHORT, "Add"
- IDS_FILEASSOCIATION_RESOLVE_CONFLICT, "Resolve conflict"
  IDS_FILEASSOCIATION_FILTER_STATES, "All States"
  IDS_FILEASSOCIATION_FILTER_SOURCES, "All Sources"
+ IDS_FILEASSOCIATION_APPLY, "Apply"
  IDS_FILELAUNCH_LAUNCH_CLOSE, "Close"
  IDS_FILELAUNCH_LONGPATH_GUIDE_BUTTON, "Windows settings guide"
  IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE, "Windows long-path support"
