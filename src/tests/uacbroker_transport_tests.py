@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Support checked ARM64 UAC test builds. | Distinguish cross-compilation from native Windows runtime evidence. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Pass the application, broker and probe to the resource check. | Verify the actual built images. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Run the optional installed-image protocol check. | Test real PE resources without starting either image. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-08 | Run the broker job dispatcher fixture. | Verify repeated NTFS requests on a real pipe in native CI. | | GPT-6.1 Sol (Codex) |
@@ -10,14 +11,19 @@ from pathlib import Path
 import shutil
 import tempfile
 
-from safe_file_paths_tests import ROOT, compiler_environment, run
+from safe_file_paths_tests import ROOT, compiler_environment, require_arm64_image, run
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--configuration", choices=("Debug", "Release"), default="Debug")
     parser.add_argument("--protocol-images", nargs=4, type=Path, metavar=("HOST", "BROKER", "PROBE", "STALE_BROKER"))
+    parser.add_argument("--expect-arm64", action="store_true",
+                        help="require the prepared MSVC environment to produce native ARM64 images")
+    parser.add_argument("--build-only", action="store_true", help="compile and check the images without running them")
     args = parser.parse_args()
+    if args.build_only and args.protocol_images:
+        parser.error("--protocol-images requires executing the tests")
     env = compiler_environment()
     compiler = shutil.which("cl", path=env.get("PATH"))
     flags = ("/MTd", "/Od", "/D_DEBUG") if args.configuration == "Debug" else ("/MT", "/O2", "/DNDEBUG")
@@ -33,6 +39,10 @@ def main():
             ], cwd=temp, env=env, timeout=35)
             if build.returncode:
                 return build.returncode
+            if args.expect_arm64:
+                require_arm64_image(exe)
+            if args.build_only:
+                continue
             result = run([str(exe)], cwd=temp, env=env, timeout=15)
             if result.returncode:
                 return result.returncode

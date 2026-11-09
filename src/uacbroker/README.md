@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Document the checked ARM64 test entry points. | Keep cross-build evidence separate from native runtime evidence. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Document staging without a custom installer. | Keep UAC development separate from distribution changes. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Explain the UAC image role checks. | Reject mixed packages and swapped executable roles before elevation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Describe the installer compilation gate. | Require the signed application and broker to pass the payload verifier. | | GPT-6.1 Sol (Codex) |
@@ -34,6 +35,15 @@ Run python -B src/tests/uacbroker_transport_tests.py --configuration Debug or Re
 The isolated VM scenarios in the table require the staged pair and a person at the secure desktop. The P0 results used different laboratory executables and are not results for this pair.
 
 All five P2 VM scenarios passed for the x64 pair built from ca70fb8c. The alternate-account run started the same protected probe from a standard account and completed with an elevated broker, exit code 0 on both processes, and no remaining broker or probe process. See the [recorded results](../../doc/uac-implementation-plan.md#85-akceptační-test-p2-ve-vm).
+
+### Native Windows ARM64 tests
+
+Open a Visual Studio developer shell targeting ARM64 and run from the repository root.
+
+    python -B src/tests/uacbroker_transport_tests.py --configuration Release --expect-arm64
+    python -B src/tests/uac_directory_leaf_tests.py --configuration Release --expect-arm64
+
+Each command verifies that the test executable has the ARM64 PE machine type before starting it. On an x64 build machine with the ARM64 cross-toolset selected, append --build-only to both commands to check the build without executing it. These automated tests cover the transport and file primitives. Use the diagnostic and application scenarios above for interactive elevation.
 
 ## Stage the matching x64 binaries
 
