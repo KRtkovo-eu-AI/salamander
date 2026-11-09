@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add extension target and conflict detail string IDs. | Support the extension target category and localized descriptions of conflicting patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add localized association state and target IDs. | Provide resources for the User defined state, Unassigned target, and built-in archive handler text. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Add localized association multiselect string ID. | Provide a translatable summary for multiple selected patterns. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Add IDS_EXCOL_MULTISELECT string ID. | Label for the multi-select info message in the Choose Custom Properties dialog. | | opencode |
@@ -3206,6 +3207,10 @@
 #define IDS_FILEASSOCIATION_UNASSIGNED_TARGET            14578
 #define IDS_FILEASSOCIATION_USER_DEFINED                 14579
 #define IDS_FILEASSOCIATION_ARCHIVE_PANEL_TARGET         14580
+#define IDS_FILEASSOCIATION_EXTENSIONS                   14581
+#define IDS_FILEASSOCIATION_CONFLICT_DETAIL              14582
+#define IDS_FILEASSOCIATION_CONFLICT_MORE                14583
+#define IDS_FILEASSOCIATION_SELECT_EXTENSION             14584
 #define IDS_FILELAUNCH_LAUNCH_CLOSE                      14523
 #define IDS_FILELAUNCH_LONGPATH_GUIDE_BUTTON             14524
 #define IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE              14525

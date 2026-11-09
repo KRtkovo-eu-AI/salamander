@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Stabilize association resizing, color badges, extension targets, and conflict details. | Keep the entire editor inside its panel, display colored target icons and expose exact conflict partners. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Fix dialogs5.cpp build errors. | Add missing <algorithm> for std::stable_sort and move WM_DESTROY case inside the enclosing switch. | | opencode |
 // | 2026-11-09 | Add the all-associations view and category-aware target details. | Keep matrix values in their own columns and expose accurate source and state filters with target icons. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Repair association detail layout, selection, drawing and sorting. | Keep the responsive editor readable while exposing colored states and multiselect actions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -56,6 +57,8 @@ static char LastSelectedPluginDLLName[MAX_PATH] = {0}; // after reopening Plugin
 
 namespace
 {
+enum { FileAssociationTargetExtensionsChoice = 100 };
+
 BOOL HasStablePluginKey(const char* value, const char* stableKey)
 {
     if (value == NULL || stableKey == NULL)
@@ -3627,7 +3630,7 @@ int CCfgPageFileAssociations::MatrixTargetIconIndex(int associationIndex)
         target.Kind != Salamander::FileAssociations::TargetKind::Preset)
         return I_IMAGENONE;
 
-    const bool extensionTarget = !target.DisplayLabel.empty();
+    const bool extensionTarget = IsExtensionViewerLabel(target.DisplayLabel);
     const std::string key = extensionTarget ? "extension:" + target.DisplayLabel
                                             : "plugin:" + target.StableId;
     for (size_t i = 0; i < TargetIcons.size(); ++i)
@@ -3688,8 +3691,6 @@ int CCfgPageFileAssociations::MatrixTargetIconIndex(int associationIndex)
         if (plugin != NULL && plugin->PluginIcons != NULL && plugin->PluginIconIndex >= 0)
         {
             CIconList* icons = plugin->PluginIcons;
-            if (DarkModeIsWindowsDarkSchemeSelected() && plugin->PluginIconsGray != NULL)
-                icons = plugin->PluginIconsGray;
             HICON icon = icons->GetIcon(plugin->PluginIconIndex, TRUE);
             if (icon != NULL)
             {
@@ -3710,6 +3711,76 @@ int CCfgPageFileAssociations::MatrixTargetIconIndex(int associationIndex)
     }
     TargetIcons.push_back({key, imageIndex});
     return imageIndex >= 0 ? imageIndex : I_IMAGENONE;
+}
+
+bool CCfgPageFileAssociations::IsExtensionViewerLabel(const std::string& label) const
+{
+    if (label.empty())
+        return false;
+
+    Salamatrix::Extensions::IExtensionsService* service = QueryExtensionService();
+    if (service == NULL)
+        return false;
+
+    for (int i = 0; i < service->GetExtensionCount(); ++i)
+    {
+        Salamatrix::Extensions::ExtensionInfo extension;
+        if (!service->GetExtensionInfo(i, &extension))
+            continue;
+        const size_t nameLength = strlen(extension.Descriptor.Name);
+        if (nameLength != 0 && _strnicmp(extension.Descriptor.Name, label.c_str(), nameLength) == 0 &&
+            (label.size() == nameLength || strncmp(label.c_str() + nameLength, " - ", 3) == 0))
+            return true;
+    }
+    return false;
+}
+
+std::string CCfgPageFileAssociations::MatrixConflictDetails(
+    const Salamander::FileAssociations::Association& item) const
+{
+    std::vector<std::string> overlappingPatterns;
+    for (size_t i = 0; i < Rows.size(); ++i)
+    {
+        const Salamander::FileAssociations::Association& candidate = Rows[i];
+        if (&candidate == &item || candidate.AssociationCategory != item.AssociationCategory ||
+            candidate.Operation != item.Operation || candidate.Pattern == item.Pattern ||
+            candidate.AssociationProvenance != Salamander::FileAssociations::Provenance::Conflict ||
+            !Salamander::FileAssociations::CFileAssociationModel::PatternsOverlap(item.Pattern,
+                                                                                   candidate.Pattern))
+            continue;
+        if (std::find(overlappingPatterns.begin(), overlappingPatterns.end(), candidate.Pattern) ==
+            overlappingPatterns.end())
+            overlappingPatterns.push_back(candidate.Pattern);
+    }
+
+    if (overlappingPatterns.empty())
+        return std::string(LoadStr(IDS_FILEASSOCIATION_STATUS_CONFLICT));
+
+    std::string category = CategoryText(item.AssociationCategory);
+    if (item.AssociationCategory == Salamander::FileAssociations::Category::PanelArchive)
+    {
+        category += " - ";
+        category += OperationText(item.Operation);
+    }
+    char detail[1024];
+    _snprintf(detail, sizeof(detail), LoadStr(IDS_FILEASSOCIATION_CONFLICT_DETAIL),
+              item.Pattern.c_str(), overlappingPatterns[0].c_str(), category.c_str());
+    detail[sizeof(detail) - 1] = 0;
+    std::string result(detail);
+    for (size_t i = 1; i < overlappingPatterns.size() && i < 4; ++i)
+    {
+        result += ", ";
+        result += overlappingPatterns[i];
+    }
+    if (overlappingPatterns.size() > 4)
+    {
+        char more[64];
+        _snprintf(more, sizeof(more), LoadStr(IDS_FILEASSOCIATION_CONFLICT_MORE),
+                  static_cast<unsigned>(overlappingPatterns.size() - 4));
+        more[sizeof(more) - 1] = 0;
+        result += more;
+    }
+    return result;
 }
 
 std::string CCfgPageFileAssociations::MatrixStatusText(const MatrixRow& row) const
@@ -3745,25 +3816,8 @@ int CCfgPageFileAssociations::MatrixSourceKind(const MatrixRow& row) const
         if (item.SourceProvenance == Salamander::FileAssociations::Provenance::User ||
             item.AssociationProvenance == Salamander::FileAssociations::Provenance::User)
             return 0;
-        if (!item.AssociationTarget.DisplayLabel.empty())
-        {
-            Salamatrix::Extensions::IExtensionsService* service = QueryExtensionService();
-            if (service != NULL)
-            {
-                for (int extensionIndex = 0; extensionIndex < service->GetExtensionCount(); ++extensionIndex)
-                {
-                    Salamatrix::Extensions::ExtensionInfo extension;
-                    if (!service->GetExtensionInfo(extensionIndex, &extension))
-                        continue;
-                    const size_t nameLength = strlen(extension.Descriptor.Name);
-                    if (nameLength != 0 &&
-                        _strnicmp(extension.Descriptor.Name, item.AssociationTarget.DisplayLabel.c_str(), nameLength) == 0 &&
-                        (item.AssociationTarget.DisplayLabel.size() == nameLength ||
-                         strncmp(item.AssociationTarget.DisplayLabel.c_str() + nameLength, " - ", 3) == 0))
-                        return 2;
-                }
-            }
-        }
+        if (IsExtensionViewerLabel(item.AssociationTarget.DisplayLabel))
+            return 2;
         if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin)
             return 1;
         if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::BuiltIn)
@@ -3995,12 +4049,35 @@ void CCfgPageFileAssociations::PopulateTargetCatalog()
     SendMessage(catalog, CB_RESETCONTENT, 0, 0);
     TargetCatalog.clear();
 
-    Salamander::FileAssociations::TargetKind kind = static_cast<Salamander::FileAssociations::TargetKind>(
-        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA,
-                           SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETCURSEL, 0, 0), 0));
+    const int selectedTargetItem = static_cast<int>(SendDlgItemMessage(
+        HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA,
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETCURSEL, 0, 0), 0));
+    const bool extensionsChoice = selectedTargetItem == FileAssociationTargetExtensionsChoice;
+    const Salamander::FileAssociations::TargetKind kind = extensionsChoice
+        ? Salamander::FileAssociations::TargetKind::Plugin
+        : static_cast<Salamander::FileAssociations::TargetKind>(selectedTargetItem);
     if (kind == Salamander::FileAssociations::TargetKind::BuiltIn)
     {
         TargetCatalog.push_back({"internal", LoadStr(IDS_FILEASSOCIATION_INTERNAL_VIEWER), kind});
+    }
+    else if (extensionsChoice)
+    {
+        if (SelectedCategory == static_cast<int>(Salamander::FileAssociations::Category::View) ||
+            SelectedCategory == static_cast<int>(Salamander::FileAssociations::Category::AlternateView))
+        {
+            for (int pluginIndex = 0; pluginIndex < Plugins.GetCount(); ++pluginIndex)
+            {
+                CPluginData* plugin = Plugins.Get(pluginIndex);
+                if (plugin == NULL || !plugin->SupportViewer || plugin->GetStableId()[0] == 0)
+                    continue;
+                for (size_t labelIndex = 0; labelIndex < plugin->ViewerLabels.size(); ++labelIndex)
+                {
+                    const std::string& label = plugin->ViewerLabels[labelIndex];
+                    if (IsExtensionViewerLabel(label))
+                        TargetCatalog.push_back({plugin->GetStableId(), label, kind, label});
+                }
+            }
+        }
     }
     else if (kind == Salamander::FileAssociations::TargetKind::Plugin)
     {
@@ -4022,7 +4099,12 @@ void CCfgPageFileAssociations::PopulateTargetCatalog()
                 continue;
             std::vector<char> displayName(1024);
             plugin->GetDisplayName(displayName.data(), static_cast<int>(displayName.size()));
-            TargetCatalog.push_back({plugin->GetStableId(), displayName.data(), kind});
+            bool extensionHost = false;
+            for (size_t labelIndex = 0; labelIndex < plugin->ViewerLabels.size(); ++labelIndex)
+                if (IsExtensionViewerLabel(plugin->ViewerLabels[labelIndex]))
+                    extensionHost = true;
+            if (!extensionHost)
+                TargetCatalog.push_back({plugin->GetStableId(), displayName.data(), kind});
         }
     }
     else if (kind == Salamander::FileAssociations::TargetKind::Preset)
@@ -4098,17 +4180,23 @@ void CCfgPageFileAssociations::LoadSelectedControls()
     for (int i = 0; i < 3; ++i)
         if ((int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_GETITEMDATA, i, 0) == SelectedOperation)
             SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_SETCURSEL, i, 0);
-    for (int i = 0; i < 4; ++i)
-        if ((int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA, i, 0) ==
-            static_cast<int>(item.AssociationTarget.Kind))
+    const int targetChoice = item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin &&
+                             IsExtensionViewerLabel(item.AssociationTarget.DisplayLabel)
+                                 ? FileAssociationTargetExtensionsChoice
+                                 : static_cast<int>(item.AssociationTarget.Kind);
+    const int targetChoiceCount = static_cast<int>(SendDlgItemMessage(
+        HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETCOUNT, 0, 0));
+    for (int i = 0; i < targetChoiceCount; ++i)
+        if ((int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA, i, 0) == targetChoice)
             SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_SETCURSEL, i, 0);
     PopulateTargetCatalog();
     for (size_t i = 0; i < TargetCatalog.size(); ++i)
-        if (TargetCatalog[i].StableId == item.AssociationTarget.StableId)
+        if (TargetCatalog[i].StableId == item.AssociationTarget.StableId &&
+            TargetCatalog[i].DisplayLabel == item.AssociationTarget.DisplayLabel)
             SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_SETCURSEL, i, 0);
     SetStatus(selectedCount > 1 ? LoadStr(IDS_FILEASSOCIATION_GUIDANCE)
               : item.AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict
-                    ? LoadStr(IDS_FILEASSOCIATION_STATUS_CONFLICT)
+                    ? MatrixConflictDetails(item).c_str()
                     : LoadStr(IDS_FILEASSOCIATION_GUIDANCE));
     Updating = FALSE;
 }
@@ -4143,7 +4231,8 @@ void CCfgPageFileAssociations::RefreshList()
         const MatrixRow& row = MatrixRows[i];
         LVITEM item;
         ZeroMemory(&item, sizeof(item));
-        item.mask = LVIF_TEXT | LVIF_PARAM;
+        item.mask = LVIF_TEXT | LVIF_PARAM | LVIF_IMAGE;
+        item.iImage = I_IMAGENONE;
         item.iItem = ListView_GetItemCount(list);
         item.pszText = const_cast<char*>(row.Pattern.c_str());
         item.lParam = static_cast<LPARAM>(i);
@@ -4229,15 +4318,20 @@ BOOL CCfgPageFileAssociations::ReadControls(
         SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION, CB_GETITEMDATA,
                            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_OPERATION,
                                               CB_GETCURSEL, 0, 0), 0));
-    item.AssociationTarget.Kind = static_cast<Salamander::FileAssociations::TargetKind>(
-        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA,
-                           SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND,
-                                              CB_GETCURSEL, 0, 0), 0));
+    const int selectedTargetItem = static_cast<int>(SendDlgItemMessage(
+        HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA,
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETCURSEL, 0, 0), 0));
+    item.AssociationTarget.Kind = selectedTargetItem == FileAssociationTargetExtensionsChoice
+        ? Salamander::FileAssociations::TargetKind::Plugin
+        : static_cast<Salamander::FileAssociations::TargetKind>(selectedTargetItem);
     int targetIndex = static_cast<int>(SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
                                                           CB_GETCURSEL, 0, 0));
     if (targetIndex >= 0 && targetIndex < static_cast<int>(TargetCatalog.size()) &&
         !TargetCatalog[targetIndex].StableId.empty())
+    {
         item.AssociationTarget.StableId = TargetCatalog[targetIndex].StableId;
+        item.AssociationTarget.DisplayLabel = TargetCatalog[targetIndex].DisplayLabel;
+    }
     else if (previousTargetKind == item.AssociationTarget.Kind &&
              (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin ||
               item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Preset) &&
@@ -4250,11 +4344,20 @@ BOOL CCfgPageFileAssociations::ReadControls(
     if (previousTargetKind != item.AssociationTarget.Kind ||
         previousStableId != item.AssociationTarget.StableId)
         item.AssociationTarget.DisplayLabel.clear();
+    if (targetIndex >= 0 && targetIndex < static_cast<int>(TargetCatalog.size()))
+        item.AssociationTarget.DisplayLabel = TargetCatalog[targetIndex].DisplayLabel;
     if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin &&
         item.AssociationTarget.StableId.empty())
     {
         if (error != NULL)
             *error = LoadStr(IDS_FILEASSOCIATION_SELECT_PLUGIN);
+        return FALSE;
+    }
+    if (selectedTargetItem == FileAssociationTargetExtensionsChoice &&
+        item.AssociationTarget.DisplayLabel.empty())
+    {
+        if (error != NULL)
+            *error = LoadStr(IDS_FILEASSOCIATION_SELECT_EXTENSION);
         return FALSE;
     }
     if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Preset &&
@@ -4478,6 +4581,11 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                                                 CB_ADDSTRING, 0, (LPARAM)TargetText(target));
             SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_SETITEMDATA, index, i);
         }
+        const int extensionsTarget = static_cast<int>(SendDlgItemMessage(
+            HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_ADDSTRING, 0,
+            (LPARAM)LoadStr(IDS_FILEASSOCIATION_EXTENSIONS)));
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_SETITEMDATA,
+                           extensionsTarget, FileAssociationTargetExtensionsChoice);
         PopulateTargetCatalog();
         RECT clientRect;
         GetClientRect(HWindow, &clientRect);
@@ -4502,7 +4610,8 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
             const int actionHeight = 20;
             const int buttonTop = max(listTop + 80, height - actionHeight - 6);
             const int detailBottom = buttonTop - 10;
-            const int detailTop = max(listTop + 36, detailBottom - 108);
+            const int detailHeight = 152;
+            const int detailTop = max(listTop + 44, detailBottom - detailHeight);
             const int listBottom = max(listTop + 44, detailTop - 22);
             const bool showOperation = SelectedCategory ==
                 static_cast<int>(Salamander::FileAssociations::Category::PanelArchive);
@@ -4550,15 +4659,15 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 {IDE_FILEASSOCIATION_PATTERN, 62, detailTop + 20, width / 2 - 8, detailTop + 38},
                 {IDC_STATIC_4, width / 2 + 2, detailTop + 23, width / 2 + 64, detailTop + 38},
                 {IDC_FILEASSOCIATION_CATEGORY, width / 2 + 68, detailTop + 20, right - 8, detailTop + 38},
-                {IDC_STATIC_5, 10, detailTop + 45, 58, detailTop + 60},
-                {IDC_FILEASSOCIATION_OPERATION, 62, detailTop + 42, width / 2 - 8, detailTop + 60},
-                {IDC_STATIC_6, showOperation ? width / 2 + 2 : 10, detailTop + 45,
-                 showOperation ? width / 2 + 64 : 58, detailTop + 60},
+                {IDC_STATIC_5, 10, detailTop + 50, 58, detailTop + 65},
+                {IDC_FILEASSOCIATION_OPERATION, 62, detailTop + 47, width / 2 - 8, detailTop + 65},
+                {IDC_STATIC_6, showOperation ? width / 2 + 2 : 10, detailTop + 50,
+                 showOperation ? width / 2 + 64 : 58, detailTop + 65},
                 {IDC_FILEASSOCIATION_TARGETKIND, showOperation ? width / 2 + 68 : 62,
-                 detailTop + 42, right - 8, detailTop + 60},
-                {IDC_STATIC_7, 10, detailTop + 67, 58, detailTop + 82},
-                {IDC_FILEASSOCIATION_TARGETCATALOG, 62, detailTop + 64, right - 8, detailTop + 82},
-                {IDC_FILEASSOCIATION_STATUS, 10, detailTop + 84, right - 8, detailBottom - 8},
+                 detailTop + 47, right - 8, detailTop + 65},
+                {IDC_STATIC_7, 10, detailTop + 77, 58, detailTop + 92},
+                {IDC_FILEASSOCIATION_TARGETCATALOG, 62, detailTop + 74, right - 8, detailTop + 92},
+                {IDC_FILEASSOCIATION_STATUS, 10, detailTop + 101, right - 8, detailBottom - 8},
                 {0, 0, 0, 0, 0}};
             for (size_t i = 0; i < sizeof(controls) / sizeof(controls[0]); ++i)
             {
@@ -4579,17 +4688,25 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
             const int tabGap = 4;
             const int tabWidth = max(1, (usableWidth - 4 * tabGap) / 5);
             for (int i = 0; i < 5; ++i)
+            {
+                const int tabLeft = 4 + i * (tabWidth + tabGap);
+                const int tabRight = i == 4 ? right : tabLeft + tabWidth;
                 MoveWindow(GetDlgItem(HWindow, tabIds[i]),
-                           WinLibDPIFromLogical(HWindow, 4 + i * (tabWidth + tabGap)),
+                           WinLibDPIFromLogical(HWindow, tabLeft),
                            WinLibDPIFromLogical(HWindow, 3),
-                           WinLibDPIFromLogical(HWindow, tabWidth),
+                           WinLibDPIFromLogical(HWindow, tabRight - tabLeft),
                            WinLibDPIFromLogical(HWindow, 24), TRUE);
+            }
+            const int buttonGap = 5;
+            const int buttonWidth = max(1, (usableWidth - 3 * buttonGap) / 4);
             for (int i = 0; i < 4; ++i)
             {
+                const int buttonLeft = left + i * (buttonWidth + buttonGap);
+                const int buttonRight = i == 3 ? right : buttonLeft + buttonWidth;
                 MoveWindow(GetDlgItem(HWindow, buttonIds[i]),
-                           WinLibDPIFromLogical(HWindow, left + i * (usableWidth / 4)),
+                           WinLibDPIFromLogical(HWindow, buttonLeft),
                            WinLibDPIFromLogical(HWindow, buttonTop),
-                           WinLibDPIFromLogical(HWindow, i == 3 ? right - (left + i * (usableWidth / 4)) : usableWidth / 4 - 4),
+                           WinLibDPIFromLogical(HWindow, buttonRight - buttonLeft),
                            WinLibDPIFromLogical(HWindow, actionHeight), TRUE);
             }
         }
@@ -4942,14 +5059,19 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
             if (header->code == NM_CUSTOMDRAW)
             {
                 NMLVCUSTOMDRAW* draw = reinterpret_cast<NMLVCUSTOMDRAW*>(lParam);
+                const auto returnCustomDraw = [this](LRESULT result) -> INT_PTR
+                {
+                    SetWindowLongPtr(HWindow, DWLP_MSGRESULT, result);
+                    return TRUE;
+                };
                 if (draw->nmcd.dwDrawStage == CDDS_PREPAINT)
-                    return CDRF_NOTIFYITEMDRAW;
+                    return returnCustomDraw(CDRF_NOTIFYITEMDRAW);
                 if (draw->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
                 {
                     const bool dark = Configuration.UseWindowsDarkMode != FALSE;
                     draw->clrText = dark ? RGB(255, 255, 255) : GetSysColor(COLOR_WINDOWTEXT);
                     draw->clrTextBk = dark ? RGB(23, 23, 23) : GetSysColor(COLOR_WINDOW);
-                    return CDRF_NOTIFYSUBITEMDRAW | CDRF_NEWFONT;
+                    return returnCustomDraw(CDRF_NOTIFYSUBITEMDRAW | CDRF_NEWFONT);
                 }
                 if (draw->nmcd.dwDrawStage == (CDDS_ITEMPREPAINT | CDDS_SUBITEM))
                 {
@@ -4959,7 +5081,7 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                     item.iItem = static_cast<int>(draw->nmcd.dwItemSpec);
                     if (ListView_GetItem(GetDlgItem(HWindow, IDL_FILEASSOCIATIONS), &item) &&
                         item.lParam >= 0 && item.lParam < static_cast<LPARAM>(MatrixRows.size()) &&
-                        draw->iSubItem > 0 && draw->iSubItem < 7)
+                        draw->iSubItem > 0 && draw->iSubItem < 6)
                     {
                         const MatrixRow& row = MatrixRows[item.lParam];
                         int associationIndex = -1;
@@ -4967,10 +5089,8 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                         else if (draw->iSubItem == 2) associationIndex = row.AlternateView;
                         else if (draw->iSubItem == 3) associationIndex = row.Edit;
                         else if (draw->iSubItem == 4) associationIndex = row.ListUnpack >= 0 ? row.ListUnpack : row.DeletePack;
-
-                        COLORREF color = RGB(80, 120, 180);
                         const bool dark = Configuration.UseWindowsDarkMode != FALSE;
-                        if (draw->iSubItem == 5 || draw->iSubItem == 6)
+                        if (draw->iSubItem == 5)
                         {
                             const int statusIndexes[5] = {row.View, row.AlternateView, row.Edit,
                                                            row.ListUnpack, row.DeletePack};
@@ -4981,24 +5101,22 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                                     break;
                                 }
                         }
-                        if ((draw->nmcd.uItemState & CDIS_SELECTED) && draw->iSubItem != 5)
-                        {
-                            draw->clrText = GetSysColor(COLOR_HIGHLIGHTTEXT);
-                            draw->clrTextBk = GetSysColor(COLOR_HIGHLIGHT);
-                            return CDRF_NEWFONT;
-                        }
-                        if (associationIndex < 0)
-                        {
-                            const bool dark = Configuration.UseWindowsDarkMode != FALSE;
-                            draw->clrText = dark ? RGB(220, 220, 220) : GetSysColor(COLOR_WINDOWTEXT);
-                            draw->clrTextBk = dark ? RGB(23, 23, 23) : GetSysColor(COLOR_WINDOW);
-                            return CDRF_NEWFONT;
-                        }
+                        RECT cell;
+                        HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
+                        if (!ListView_GetSubItemRect(list, item.iItem, draw->iSubItem, LVIR_BOUNDS, &cell))
+                            return returnCustomDraw(CDRF_DODEFAULT);
+                        const bool selected = (draw->nmcd.uItemState & CDIS_SELECTED) != 0;
+                        COLORREF color = dark ? RGB(23, 23, 23) : GetSysColor(COLOR_WINDOW);
+                        Salamander::FileAssociations::Provenance state =
+                            associationIndex >= 0 ? Rows[associationIndex].AssociationProvenance
+                                                  : Salamander::FileAssociations::Provenance::Default;
+                        if (draw->iSubItem == 5 && row.Conflict)
+                            state = Salamander::FileAssociations::Provenance::Conflict;
+                        if (state == Salamander::FileAssociations::Provenance::Legacy)
+                            state = Salamander::FileAssociations::Provenance::Default;
                         if (associationIndex >= 0)
                         {
-                            if (draw->iSubItem == 5 && row.Conflict)
-                                color = dark ? RGB(135, 40, 35) : RGB(250, 210, 205);
-                            else switch (Rows[associationIndex].AssociationProvenance)
+                            switch (state)
                             {
                             case Salamander::FileAssociations::Provenance::User: color = dark ? RGB(35, 105, 55) : RGB(205, 238, 215); break;
                             case Salamander::FileAssociations::Provenance::Disabled: color = dark ? RGB(75, 75, 75) : RGB(225, 225, 225); break;
@@ -5006,20 +5124,25 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                             default: color = dark ? RGB(75, 55, 130) : RGB(225, 215, 250); break;
                             }
                         }
+                        if (selected && draw->iSubItem != 5)
+                            color = GetSysColor(COLOR_HIGHLIGHT);
+                        const COLORREF cellColor = draw->iSubItem == 5
+                                                       ? (dark ? RGB(23, 23, 23) : GetSysColor(COLOR_WINDOW))
+                                                       : color;
+                        HBRUSH background = CreateSolidBrush(cellColor);
+                        FillRect(draw->nmcd.hdc, &cell, background);
+                        DeleteObject(background);
+
                         if (draw->iSubItem == 5)
                         {
-                            HWND list = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
-                            RECT cell;
-                            if (ListView_GetSubItemRect(list, item.iItem, draw->iSubItem, LVIR_BOUNDS, &cell))
+                            char text[128];
+                            ListView_GetItemText(list, item.iItem, draw->iSubItem, text, _countof(text));
+                            SIZE textSize = {0, 0};
+                            GetTextExtentPoint32(draw->nmcd.hdc, text, static_cast<int>(strlen(text)), &textSize);
+                            const int pillWidth = max(0, min(cell.right - cell.left - 8, textSize.cx + 18));
+                            const int pillHeight = max(0, min(cell.bottom - cell.top - 4, 18));
+                            if (pillWidth > 0 && pillHeight > 0)
                             {
-                                char text[128];
-                                ListView_GetItemText(list, item.iItem, draw->iSubItem, text, _countof(text));
-                                SIZE textSize = {0, 0};
-                                GetTextExtentPoint32(draw->nmcd.hdc, text, static_cast<int>(strlen(text)), &textSize);
-                                const int pillWidth = max(0, min(cell.right - cell.left - 8, textSize.cx + 18));
-                                const int pillHeight = max(0, min(cell.bottom - cell.top - 4, 18));
-                                if (pillWidth == 0 || pillHeight == 0)
-                                    return CDRF_DODEFAULT;
                                 RECT pill = {cell.left + 4, cell.top + max(2, (cell.bottom - cell.top - pillHeight) / 2),
                                              cell.left + 4 + pillWidth,
                                              cell.top + max(2, (cell.bottom - cell.top - pillHeight) / 2) + pillHeight};
@@ -5040,15 +5163,42 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                                          DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
                                 if (savedDc != 0)
                                     RestoreDC(draw->nmcd.hdc, savedDc);
-                                return CDRF_SKIPDEFAULT;
+                            }
+                            return returnCustomDraw(CDRF_SKIPDEFAULT);
+                        }
+
+                        if (associationIndex >= 0 && MatrixImageList != NULL)
+                        {
+                            LVITEM imageItem;
+                            ZeroMemory(&imageItem, sizeof(imageItem));
+                            imageItem.mask = LVIF_IMAGE;
+                            imageItem.iItem = item.iItem;
+                            imageItem.iSubItem = draw->iSubItem;
+                            if (ListView_GetItem(list, &imageItem) && imageItem.iImage >= 0)
+                            {
+                                int iconWidth = 0;
+                                int iconHeight = 0;
+                                ImageList_GetIconSize(MatrixImageList, &iconWidth, &iconHeight);
+                                ImageList_Draw(MatrixImageList, imageItem.iImage, draw->nmcd.hdc,
+                                               cell.left + 4, cell.top + max(0, (cell.bottom - cell.top - iconHeight) / 2),
+                                               ILD_TRANSPARENT);
+                                cell.left += iconWidth + 8;
                             }
                         }
-                        draw->clrText = dark ? RGB(255, 255, 255) : RGB(25, 25, 25);
-                        draw->clrTextBk = color;
-                        return CDRF_NEWFONT;
+                        char text[1024];
+                        ListView_GetItemText(list, item.iItem, draw->iSubItem, text, _countof(text));
+                        RECT textRect = cell;
+                        textRect.left += 4;
+                        SetBkMode(draw->nmcd.hdc, TRANSPARENT);
+                        SetTextColor(draw->nmcd.hdc, selected && draw->iSubItem != 5
+                                                         ? GetSysColor(COLOR_HIGHLIGHTTEXT)
+                                                         : dark ? RGB(255, 255, 255) : RGB(25, 25, 25));
+                        DrawText(draw->nmcd.hdc, text, -1, &textRect,
+                                 DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+                        return returnCustomDraw(CDRF_SKIPDEFAULT);
                     }
                 }
-                return CDRF_DODEFAULT;
+                return returnCustomDraw(CDRF_DODEFAULT);
             }
             if (header->code == LVN_ITEMCHANGED)
             {

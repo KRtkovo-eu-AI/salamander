@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Add extension target and conflict detail state. | Let users select extension viewers directly and inspect the overlapping patterns that cause conflicts. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Add all-associations matrix state and icon support. | Display every registered pattern with its category targets and plugin or extension icons. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Track sortable association matrix state. | Preserve the chosen column and direction as the list is refreshed. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Add category tabs and matrix source/status helpers. | Match the file-association page layout to the approved matrix and detail mockup. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -1085,6 +1086,12 @@ protected:
         std::string StableId;
         std::string DisplayName;
         Salamander::FileAssociations::TargetKind Kind;
+        std::string DisplayLabel;
+
+        TargetCatalogItem(const std::string& stableId, const std::string& displayName,
+                          Salamander::FileAssociations::TargetKind kind,
+                          const std::string& displayLabel = std::string())
+            : StableId(stableId), DisplayName(displayName), Kind(kind), DisplayLabel(displayLabel) {}
     };
 
     struct TargetIconItem
@@ -1129,6 +1136,8 @@ protected:
     bool MatrixRowVisible(const MatrixRow& row) const;
     int SelectedAssociationIndex(const MatrixRow& row) const;
     int MatrixTargetIconIndex(int associationIndex);
+    bool IsExtensionViewerLabel(const std::string& label) const;
+    std::string MatrixConflictDetails(const Salamander::FileAssociations::Association& item) const;
     int MatrixSourceKind(const MatrixRow& row) const;
     std::string MatrixSourceText(const MatrixRow& row) const;
     void UpdateCategoryTabs();
