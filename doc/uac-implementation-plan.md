@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Record the timing limit of interactive F6 cancellation tests. | Separate a completed move from verified cancellation before publication. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify protected F6 completion after ordinary cross-volume copy. | Cover cancellation and approved source removal without replacing the destination. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify a protected F6 move above 4 GiB between NTFS volumes. | Exercise the native worker and elevated broker with a fully allocated file. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify requeued F5 target revision in Scan Ahead. | Confirm that the new revision requires a fresh overwrite decision in the upstream dialog. | | GPT-6.1 Sol (Codex) |
@@ -1377,6 +1378,8 @@ Ke každé zkoušce zaznamenat revizi, verzi Windows a architekturu, typ účtu 
 **VM, dokončení F6 po běžné kopii.** Pilot 10da008c kopíroval dva jednotlivé soubory z chráněné složky na C: do zapisovatelné složky na svazku E:. Před každým souhlasem byly zdroj i hotová kopie čitelné, jejich obsah odpovídal a broker ještě neběžel. Po volbě Ne zůstaly zdroj i původní kopie. Po volbě Ano zmizel pouze odpovídající zdroj. Shoda SHA-256 i NTFS ID potvrdila, že obě kopie zůstaly původní. V cíli nebyly další soubory. Důkaz je v P7-F6/f6-finish-vm-evidence.json.
 
 **Zobrazení průběhu.** Běžná kopie ve F6 aktualizuje průběh stávajícím workerem. Když data přenáší broker, nativní okno průběhu zůstává otevřené a lze operaci zrušit. Aktuální broker neposílá průběžný počet přenesených bajtů. U takové položky worker posune ukazatel až po potvrzeném dokončení, což je vidět zejména při delším přenosu mezi svazky.
+
+**VM, pokusy o zrušení běžícího F6.** Na pilotu 10da008c byl ve dvou pokusech pozorován broker i pracovní soubor pro přesun 1,50 GiB z C: na E: v okamžiku, kdy cílové jméno ještě neexistovalo. První zrušení obsloužil uživatel. Ve druhém následovalo Cancel a Yes přes Computer Use. V obou případech zdroj zmizel a cílové jméno vzniklo. Druhý pokus ověřil správnou délku a SHA-256 výsledku a žádný zbylý pracovní soubor. Nativní okno během interakce stále zobrazovalo nulu. Zkouška neurčila pořadí potvrzeného zrušení a zveřejnění. Předčasné zrušení tak není prokázáno a výsledek nelze použít ani jako potvrzení závodu po zveřejnění. Pro obě fáze je potřeba řízený bod zastavení v laboratorním brokeru nebo jiný měřitelný okamžik doručení zrušení. Důkaz druhého běhu je v P7-F6/f6-cancel-retry-vm-evidence.json.
 
 ### 12.3 CI a přijetí vydání
 
