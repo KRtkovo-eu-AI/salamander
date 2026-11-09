@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Prevent duplicate navigation from X buttons and browser keys. | Windows reports these inputs through WM_APPCOMMAND after their native input messages. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 // | 2026-11-09 | Apply the independent wheel setting and handle browser navigation buttons. | Support configurable wheel actions and mouse back/forward controls in PictView. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 
 #include "precomp.h"
@@ -1924,16 +1925,6 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     CALL_STACK_MESSAGE4("CViewerWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
 
-    if (uMsg == WM_XBUTTONDOWN)
-    {
-        const WORD button = HIWORD(wParam);
-        if (button == XBUTTON1 || button == XBUTTON2)
-        {
-            PostMessage(Viewer->HWindow, WM_COMMAND,
-                        MAKEWPARAM(button == XBUTTON1 ? CMD_FILE_PREV : CMD_FILE_NEXT, 0), 0);
-            return TRUE;
-        }
-    }
     if (uMsg == WM_APPCOMMAND)
     {
         const int command = GET_APPCOMMAND_LPARAM(lParam);
@@ -2457,12 +2448,6 @@ LRESULT CRendererWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             ClientToScreen(HWindow, &p);
             OnContextMenu(&p);
             return 0;
-        }
-
-        if (firstDown && (wParam == VK_BROWSER_BACK || wParam == VK_BROWSER_FORWARD))
-        {
-            PostMessage(Viewer->HWindow, WM_COMMAND,
-                        MAKEWPARAM(wParam == VK_BROWSER_BACK ? CMD_FILE_PREV : CMD_FILE_NEXT, 0), 0);
         }
 
         if (wParam == VK_SPACE)
