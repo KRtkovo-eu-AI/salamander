@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Show and resolve exact-target conflicts only. | Report competing owners of one pattern without treating fallback masks or different extensions as collisions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Apply association layout after property-page anchors. | Prevent generic resize handling from moving detail controls, Help, and the final category tab back to template coordinates; place Extensions after Plugin. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Stabilize association resizing, color badges, extension targets, and conflict details. | Keep the entire editor inside its panel, display colored target icons and expose exact conflict partners. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Fix dialogs5.cpp build errors. | Add missing <algorithm> for std::stable_sort and move WM_DESTROY case inside the enclosing switch. | | opencode |
@@ -3739,22 +3740,25 @@ bool CCfgPageFileAssociations::IsExtensionViewerLabel(const std::string& label) 
 std::string CCfgPageFileAssociations::MatrixConflictDetails(
     const Salamander::FileAssociations::Association& item) const
 {
-    std::vector<std::string> overlappingPatterns;
+    std::vector<std::string> competingTargets;
     for (size_t i = 0; i < Rows.size(); ++i)
     {
         const Salamander::FileAssociations::Association& candidate = Rows[i];
-        if (&candidate == &item || candidate.AssociationCategory != item.AssociationCategory ||
-            candidate.Operation != item.Operation || candidate.Pattern == item.Pattern ||
-            candidate.AssociationProvenance != Salamander::FileAssociations::Provenance::Conflict ||
-            !Salamander::FileAssociations::CFileAssociationModel::PatternsOverlap(item.Pattern,
-                                                                                   candidate.Pattern))
+        if (candidate.Pattern != item.Pattern ||
+            candidate.AssociationCategory != item.AssociationCategory ||
+            candidate.Operation != item.Operation ||
+            candidate.AssociationProvenance != Salamander::FileAssociations::Provenance::Conflict)
             continue;
-        if (std::find(overlappingPatterns.begin(), overlappingPatterns.end(), candidate.Pattern) ==
-            overlappingPatterns.end())
-            overlappingPatterns.push_back(candidate.Pattern);
+        std::string target = MatrixCellText(static_cast<int>(i), false);
+        if (std::find(competingTargets.begin(), competingTargets.end(), target) !=
+            competingTargets.end() && !candidate.AssociationTarget.StableId.empty())
+            target += " (" + candidate.AssociationTarget.StableId + ")";
+        if (std::find(competingTargets.begin(), competingTargets.end(), target) ==
+            competingTargets.end())
+            competingTargets.push_back(target);
     }
 
-    if (overlappingPatterns.empty())
+    if (competingTargets.size() < 2)
         return std::string(LoadStr(IDS_FILEASSOCIATION_STATUS_CONFLICT));
 
     std::string category = CategoryText(item.AssociationCategory);
@@ -3763,21 +3767,24 @@ std::string CCfgPageFileAssociations::MatrixConflictDetails(
         category += " - ";
         category += OperationText(item.Operation);
     }
+    std::string targetList;
+    const size_t shownTargets = std::min<size_t>(3, competingTargets.size());
+    for (size_t i = 0; i < shownTargets; ++i)
+    {
+        if (!targetList.empty())
+            targetList += ", ";
+        targetList += competingTargets[i];
+    }
     char detail[1024];
     _snprintf(detail, sizeof(detail), LoadStr(IDS_FILEASSOCIATION_CONFLICT_DETAIL),
-              item.Pattern.c_str(), overlappingPatterns[0].c_str(), category.c_str());
+              item.Pattern.c_str(), category.c_str(), targetList.c_str());
     detail[sizeof(detail) - 1] = 0;
     std::string result(detail);
-    for (size_t i = 1; i < overlappingPatterns.size() && i < 4; ++i)
-    {
-        result += ", ";
-        result += overlappingPatterns[i];
-    }
-    if (overlappingPatterns.size() > 4)
+    if (competingTargets.size() > shownTargets)
     {
         char more[64];
         _snprintf(more, sizeof(more), LoadStr(IDS_FILEASSOCIATION_CONFLICT_MORE),
-                  static_cast<unsigned>(overlappingPatterns.size() - 4));
+                  static_cast<unsigned>(competingTargets.size() - shownTargets));
         more[sizeof(more) - 1] = 0;
         result += more;
     }
@@ -4888,38 +4895,13 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
             if (SelectedMatrixRow >= 0 && SelectedMatrixRow < static_cast<int>(MatrixRows.size()) &&
                 MatrixRows[SelectedMatrixRow].Conflict && selectedPatterns.size() <= 1)
             {
-                std::vector<std::string> conflictPatterns(1, normalizedPattern);
-                bool expanded = true;
-                while (expanded)
-                {
-                    expanded = false;
-                    for (size_t i = 0; i < Rows.size(); ++i)
-                    {
-                        const Salamander::FileAssociations::Association& candidate = Rows[i];
-                        if (candidate.AssociationCategory != item.AssociationCategory ||
-                            candidate.Operation != item.Operation ||
-                            candidate.AssociationProvenance != Salamander::FileAssociations::Provenance::Conflict)
-                            continue;
-                        bool connected = false;
-                        for (size_t p = 0; p < conflictPatterns.size(); ++p)
-                            if (Salamander::FileAssociations::CFileAssociationModel::PatternsOverlap(
-                                    candidate.Pattern, conflictPatterns[p]))
-                                connected = true;
-                        if (connected && std::find(conflictPatterns.begin(), conflictPatterns.end(),
-                                                   candidate.Pattern) == conflictPatterns.end())
-                        {
-                            conflictPatterns.push_back(candidate.Pattern);
-                            expanded = true;
-                        }
-                    }
-                }
                 for (size_t i = Rows.size(); i > 0; --i)
                 {
                     const Salamander::FileAssociations::Association& candidate = Rows[i - 1];
                     if (candidate.AssociationCategory == item.AssociationCategory &&
                         candidate.Operation == item.Operation &&
                         candidate.AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict &&
-                        std::find(conflictPatterns.begin(), conflictPatterns.end(), candidate.Pattern) != conflictPatterns.end())
+                        candidate.Pattern == normalizedPattern)
                         Rows.erase(Rows.begin() + i - 1);
                 }
                 item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;

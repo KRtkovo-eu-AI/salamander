@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Restrict association conflicts to competing exact patterns. | Keep universal and unrelated extension masks from being reported as collisions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Persist canonical extension owner labels. | Restore the localized owner display after a clean startup or a later configuration load. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-09 | Reject mask-group exclusion syntax in canonical patterns. | A single association row cannot preserve the legacy `|` exclusion semantics without losing matching behavior. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Add transactional replacement for the configuration editor. | Normalize and validate edited rows before replacing the live model. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -299,13 +300,14 @@ bool CFileAssociationModel::Validate(std::string* error) const
         {
             const Association& first = Items[i];
             const Association& second = Items[j];
-            if (first.AssociationCategory != second.AssociationCategory ||
-                first.Operation != second.Operation ||
-                !PatternsOverlap(first.Pattern, second.Pattern))
+            if (!IsConflictingPair(first, second))
                 continue;
-            if (IsExactOverridePair(first, second))
+            if (first.AssociationProvenance == Provenance::Conflict &&
+                second.AssociationProvenance == Provenance::Conflict)
                 continue;
-            SetError(error, "overlapping patterns in one association category are not allowed");
+            // The old "overlapping patterns in one association category are not allowed"
+            // rule was too broad: wildcard fallback and distinct extensions are valid.
+            SetError(error, "one exact association pattern has multiple active targets");
             return false;
         }
     }
@@ -456,23 +458,34 @@ BOOL CFileAssociationModel::Load(HKEY parentKey, const char* keyName, std::strin
         return FALSE;
     }
 
-    // Persisted conflicts are diagnostic rows and must survive a round trip.
-    // Other overlapping rows are malformed unless they form an explicit
-    // default/user override pair.
+    // Conflict used to be persisted after broad-mask overlap checks. Restore
+    // each row's saved origin and recompute conflicts with the exact-target
+    // rule so configurations written by older builds drop false conflicts.
+    for (size_t i = 0; i < loaded.Items.size(); ++i)
+    {
+        Association& item = loaded.Items[i];
+        if (item.AssociationProvenance == Provenance::Conflict)
+            item.AssociationProvenance = item.SourceProvenance == Provenance::Conflict
+                                             ? Provenance::Legacy
+                                             : item.SourceProvenance;
+    }
+    loaded.MarkLegacyConflicts();
+
+    // Persisted conflicts are diagnostic rows for competing targets of the
+    // same exact pattern and survive a round trip; all other competing active
+    // targets are rejected.
     for (size_t i = 0; i < loaded.Items.size() && !itemError; ++i)
     {
         for (size_t j = i + 1; j < loaded.Items.size(); ++j)
         {
             const Association& first = loaded.Items[i];
             const Association& second = loaded.Items[j];
-            if (first.AssociationCategory != second.AssociationCategory ||
-                first.Operation != second.Operation ||
-                !PatternsOverlap(first.Pattern, second.Pattern) ||
-                IsExactOverridePair(first, second) ||
-                first.AssociationProvenance == Provenance::Conflict ||
+            if (!IsConflictingPair(first, second))
+                continue;
+            if (first.AssociationProvenance == Provenance::Conflict &&
                 second.AssociationProvenance == Provenance::Conflict)
                 continue;
-            SetError(error, "overlapping persisted associations are not allowed");
+            SetError(error, "persisted association pattern has multiple active targets");
             itemError = true;
             break;
         }
@@ -620,15 +633,37 @@ bool CFileAssociationModel::IsExactOverridePair(const Association& first,
 {
     if (first.Pattern != second.Pattern)
         return false;
-    const bool firstDefault = first.AssociationProvenance == Provenance::Default ||
-                              first.AssociationProvenance == Provenance::Legacy;
-    const bool secondDefault = second.AssociationProvenance == Provenance::Default ||
-                               second.AssociationProvenance == Provenance::Legacy;
+    const Provenance firstLayer = first.AssociationProvenance == Provenance::Conflict
+                                      ? first.SourceProvenance
+                                      : first.AssociationProvenance;
+    const Provenance secondLayer = second.AssociationProvenance == Provenance::Conflict
+                                       ? second.SourceProvenance
+                                       : second.AssociationProvenance;
+    const bool firstDefault = firstLayer == Provenance::Default || firstLayer == Provenance::Legacy;
+    const bool secondDefault = secondLayer == Provenance::Default || secondLayer == Provenance::Legacy;
     const bool firstUser = first.AssociationProvenance == Provenance::User ||
                            first.AssociationProvenance == Provenance::Disabled;
     const bool secondUser = second.AssociationProvenance == Provenance::User ||
                             second.AssociationProvenance == Provenance::Disabled;
     return (firstDefault && secondUser) || (secondDefault && firstUser);
+}
+
+bool CFileAssociationModel::IsConflictingPair(const Association& first,
+                                               const Association& second)
+{
+    if (first.Pattern != second.Pattern ||
+        first.AssociationCategory != second.AssociationCategory ||
+        first.Operation != second.Operation ||
+        first.AssociationTarget.Kind == TargetKind::Unassigned ||
+        second.AssociationTarget.Kind == TargetKind::Unassigned ||
+        first.AssociationProvenance == Provenance::Disabled ||
+        second.AssociationProvenance == Provenance::Disabled ||
+        IsExactOverridePair(first, second))
+        return false;
+
+    return first.AssociationTarget.Kind != second.AssociationTarget.Kind ||
+           first.AssociationTarget.StableId != second.AssociationTarget.StableId ||
+           first.AssociationTarget.DisplayLabel != second.AssociationTarget.DisplayLabel;
 }
 
 int CFileAssociationModel::EffectivePriority(Provenance provenance)
@@ -668,10 +703,7 @@ void CFileAssociationModel::MarkLegacyConflicts()
         {
             Association& first = Items[i];
             Association& second = Items[j];
-            if (first.AssociationCategory != second.AssociationCategory ||
-                first.Operation != second.Operation ||
-                !PatternsOverlap(first.Pattern, second.Pattern) ||
-                IsExactOverridePair(first, second))
+            if (!IsConflictingPair(first, second))
                 continue;
             first.AssociationProvenance = Provenance::Conflict;
             second.AssociationProvenance = Provenance::Conflict;
