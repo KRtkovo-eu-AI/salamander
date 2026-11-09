@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Match protected duplicate predicates during hashing. | Evaluate text, tags and digest on one broker-opened file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind duplicate hashing to the revision used by protected filters. | Reject changed files between the two passes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Match protected text and tags through one file open. | Avoid combining results from separate file revisions. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Verify every content duplicate at comparison time. | Keep stale or unreadable entries out of duplicate groups, including zero-length files. | | GPT-6.1 Sol (Codex) |
@@ -27,7 +28,6 @@
 #include <array>
 #include <mutex>
 #include <optional>
-#include <unordered_map>
 
 char* FindNamedHistory[FIND_NAMED_HISTORY_SIZE];
 char* FindLookInHistory[FIND_LOOKIN_HISTORY_SIZE];
@@ -747,6 +747,100 @@ static bool FindDuplicateContent(const CGrepData& data)
     return data.FindDuplicates && (data.FindDupFlags & flags) == flags;
 }
 
+BOOL TestFileContentAux(BOOL& ok, CQuadWord& fileOffset, const CQuadWord& totalSize,
+                        DWORD viewSize, const char* path, char* txt, CGrepData* data);
+
+class ProtectedFindPredicates
+{
+public:
+    void Prepare(const CGrepData* data)
+    {
+        if (data->Criteria.HasTags())
+        {
+            const auto text = SalMultiByteToWidePath(data->Criteria.GetTagsText(), CP_UTF8);
+            ParseFileTagsW(text.c_str(), requestedTags);
+        }
+    }
+
+    bool Match(CGrepData* data, UacF7::ListingSession& session, const std::wstring& path,
+               const std::string& display, const CQuadWord& size, DWORD& error)
+    {
+        return (requestedTags.empty() || MatchTags(data, session, path, size.Value, error)) &&
+               (!data->Grep || MatchContent(data, session, display, size, error));
+    }
+
+private:
+    struct TagRead
+    {
+        CGrepData* data;
+        UacF7::ListingSession& session;
+    };
+
+    bool MatchContent(CGrepData* data, UacF7::ListingSession& session, const std::string& pathText, const CQuadWord& listedSize, DWORD& error)
+    {
+        if (content.empty())
+        {
+            try
+            {
+                content.resize(4 * UacF7::archiveReadBlock);
+            }
+            catch (const std::bad_alloc&)
+            {
+                error = ERROR_NOT_ENOUGH_MEMORY;
+                return false;
+            }
+        }
+
+        CQuadWord offset(0, 0);
+        BOOL found = FALSE;
+        while (!error && !data->StopSearch && offset < listedSize)
+        {
+            const DWORD viewSize = static_cast<DWORD>(std::min<ULONGLONG>(content.size(), listedSize.Value - offset.Value));
+            for (DWORD position = 0; position < viewSize && !error && !data->StopSearch;)
+            {
+                const DWORD count = std::min<DWORD>(UacF7::archiveReadBlock, viewSize - position);
+                error = session.ReadContent(offset.Value + position, content.data() + position, count);
+                position += count;
+            }
+            if (error || data->StopSearch)
+                break;
+            const CQuadWord before(offset);
+            if (!TestFileContentAux(found, offset, listedSize, viewSize, pathText.c_str(), content.data(), data) || found)
+                break;
+            if (!data->StopSearch && offset == before)
+                error = ERROR_INVALID_DATA;
+        }
+        return found;
+    }
+
+    static DWORD ReadTagBlock(void* context, ULONGLONG offset, void* output, DWORD bytes)
+    {
+        auto& request = *static_cast<TagRead*>(context);
+        return request.data->StopSearch ? ERROR_CANCELLED : request.session.ReadContent(offset, output, bytes);
+    }
+
+    bool MatchTags(CGrepData* data, UacF7::ListingSession& session, const std::wstring& filePath, ULONGLONG size, DWORD& error)
+    {
+        TagRead request{data, session};
+        auto* stream = CFindTagStream::Create(size, UacF7::archiveReadBlock, ReadTagBlock, &request);
+        if (!stream)
+        {
+            error = ERROR_NOT_ENOUGH_MEMORY;
+            return false;
+        }
+        std::vector<std::wstring> tags;
+        const HRESULT hr = ReadFileTagsFromStreamW(filePath.c_str(), stream, tags);
+        error = stream->Detach();
+        stream->Release();
+        if (!error && FAILED(hr))
+            error = static_cast<DWORD>(hr);
+        return !error && FileTagValuesMatchW(tags, requestedTags, data->Criteria.GetTagsMode()) != FALSE;
+    }
+
+    std::vector<char> content;
+    std::vector<std::wstring> requestedTags;
+};
+
 class CDuplicateCandidates : public TIndirectArray<CFoundFilesData>
 {
 public:
@@ -757,22 +851,6 @@ public:
     // - setting the Group variable
     // - setting the Different flag
     void Examine(CGrepData* data, const FindProtectedSessions& protectedSessions, size_t remainingFileConsents);
-    bool RecordRevision(const CFoundFilesData* file, const UacF7::ArchiveRevision& revision)
-    {
-        try
-        {
-            revisions.emplace(file, revision);
-            return true;
-        }
-        catch (const std::bad_alloc&)
-        {
-            return false;
-        }
-    }
-
-private:
-    std::unordered_map<const CFoundFilesData*, UacF7::ArchiveRevision> revisions;
-
 protected:
     // compares two records using criteria byName, bySize and byMD5
     // byPath is a criterium with the lowest priority and is used only for clearer output
@@ -807,7 +885,8 @@ protected:
     // (then, the variable data->StopSearch is set to TRUE)
     BOOL GetMD5Digest(CGrepData* data, CFoundFilesData* file,
                       int* progress, CQuadWord* readSize, const CQuadWord* totalSize,
-                      UacF7::ListingSession* protectedSession, size_t& remainingFileConsents);
+                      UacF7::ListingSession* protectedSession, size_t& remainingFileConsents,
+                      ProtectedFindPredicates& predicates);
 };
 
 int CDuplicateCandidates::CompareFunc(CFoundFilesData* f1, CFoundFilesData* f2,
@@ -914,7 +993,8 @@ LABEL_QuickSort:
 
 BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
                                         int* progress, CQuadWord* readSize, const CQuadWord* totalSize,
-                                        UacF7::ListingSession* protectedSession, size_t& remainingFileConsents)
+                                        UacF7::ListingSession* protectedSession, size_t& remainingFileConsents,
+                                        ProtectedFindPredicates& predicates)
 {
     bool scoped = file->ProtectedScope != 0;
     const std::wstring fullPath = file->GetFullNameW();
@@ -962,6 +1042,7 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
             }
         }
     }
+    bool match = true;
     if (scoped)
     {
         FILETIME modified{};
@@ -970,16 +1051,16 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
         opened = error == ERROR_SUCCESS;
         if (opened)
         {
-            const auto checked = revisions.find(file);
-            if (size != file->Size.Value || CompareFileTime(&modified, &file->LastWrite) != 0 ||
-                (checked != revisions.end() && !UacF7::SameFileRevision(checked->second, revision)))
+            if (size != file->Size.Value || CompareFileTime(&modified, &file->LastWrite) != 0)
                 error = ERROR_FILE_INVALID;
+            else
+                match = predicates.Match(data, *protectedSession, fullPath, display, file->Size, error);
         }
     }
     BYTE buffer[DUPLICATES_BUFFER_SIZE];
     MD5 context;
     ULONGLONG offset = 0;
-    while (!error && !data->StopSearch && offset < size)
+    while (match && !error && !data->StopSearch && offset < size)
     {
         const DWORD requested = static_cast<DWORD>(std::min<ULONGLONG>(sizeof(buffer), size - offset));
         DWORD read = requested;
@@ -1036,6 +1117,8 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
         SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
         return FALSE;
     }
+    if (!match)
+        return FALSE;
     if (file->Group)
     {
         context.finalize();
@@ -1209,12 +1292,14 @@ void CDuplicateCandidates::Examine(CGrepData* data, const FindProtectedSessions&
         // retrieve the MD5 digest of files
         CQuadWord readSize(0, 0);
         int progress = -1;
+        ProtectedFindPredicates predicates;
+        predicates.Prepare(data);
         for (i = Count - 1; i >= 0; i--)
         {
             CFoundFilesData* file = At(i);
             const unsigned scope = file->ProtectedScope;
             auto* session = scope && scope <= protectedSessions.size() ? protectedSessions[scope - 1] : nullptr;
-            if (!GetMD5Digest(data, file, &progress, &readSize, &totalSize, session, remainingFileConsents))
+            if (!GetMD5Digest(data, file, &progress, &readSize, &totalSize, session, remainingFileConsents, predicates))
             {
                 if (data->StopSearch)
                 {
@@ -1598,7 +1683,7 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
                   DWORD attr, const FILETIME* lastWrite, BOOL isDir, CGrepData* data,
                   CDuplicateCandidates* duplicateCandidates,
                   const wchar_t* pathW = nullptr, const wchar_t* nameW = nullptr,
-                  unsigned protectedScope = 0, const UacF7::ArchiveRevision* revision = nullptr)
+                  unsigned protectedScope = 0)
 {
     if (duplicateCandidates != NULL && isDir) // directories are irrelevant to us when searching for duplicates
         return TRUE;
@@ -1640,11 +1725,8 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
             {
                 // duplicateCandidates != NULL, adding the item to duplicateCandidates
                 foundData->ProtectedScope = protectedScope;
-                const bool recorded = !revision || !FindDuplicateContent(*data) ||
-                                      duplicateCandidates->RecordRevision(foundData, *revision);
-                if (recorded)
-                    duplicateCandidates->Add(foundData);
-                if (!recorded || !duplicateCandidates->IsGood())
+                duplicateCandidates->Add(foundData);
+                if (!duplicateCandidates->IsGood())
                 {
                     duplicateCandidates->ResetState();
                     delete foundData;
@@ -1770,11 +1852,8 @@ public:
         }
 
         data->SearchingText->Set(LoadStr(IDS_UAC_FIND_SCOPE));
-        if (data->Criteria.HasTags())
-        {
-            const auto text = SalMultiByteToWidePath(data->Criteria.GetTagsText(), CP_UTF8);
-            ParseFileTagsW(text.c_str(), requestedTags);
-        }
+        if (!candidates || !FindDuplicateContent(*data))
+            predicates.Prepare(data);
         if (singleFile)
             PublishSingleFile(candidates, true);
         else
@@ -1795,68 +1874,7 @@ private:
         SendMessage(data->HWindow, WM_USER_ADDLOG, reinterpret_cast<WPARAM>(&log), 0);
     }
 
-    bool MatchContent(const std::string& pathText, const CQuadWord& listedSize, DWORD& error)
-    {
-        if (content.empty())
-        {
-            try
-            {
-                content.resize(4 * UacF7::archiveReadBlock);
-            }
-            catch (const std::bad_alloc&)
-            {
-                error = ERROR_NOT_ENOUGH_MEMORY;
-                return false;
-            }
-        }
-
-        CQuadWord offset(0, 0);
-        BOOL found = FALSE;
-        while (!error && !data->StopSearch && offset < listedSize)
-        {
-            const DWORD viewSize = static_cast<DWORD>(std::min<ULONGLONG>(content.size(), listedSize.Value - offset.Value));
-            for (DWORD position = 0; position < viewSize && !error && !data->StopSearch;)
-            {
-                const DWORD count = std::min<DWORD>(UacF7::archiveReadBlock, viewSize - position);
-                error = session.ReadContent(offset.Value + position, content.data() + position, count);
-                position += count;
-            }
-            if (error || data->StopSearch)
-                break;
-            const CQuadWord before(offset);
-            if (!TestFileContentAux(found, offset, listedSize, viewSize, pathText.c_str(), content.data(), data) || found)
-                break;
-            if (!data->StopSearch && offset == before)
-                error = ERROR_INVALID_DATA;
-        }
-        return found;
-    }
-
-    static DWORD ReadTagBlock(void* context, ULONGLONG offset, void* output, DWORD bytes)
-    {
-        auto& request = *static_cast<FindProtectedRequest*>(context);
-        return request.data->StopSearch ? ERROR_CANCELLED : request.session.ReadContent(offset, output, bytes);
-    }
-
-    bool MatchTags(const std::wstring& filePath, ULONGLONG size, DWORD& error)
-    {
-        auto* stream = CFindTagStream::Create(size, UacF7::archiveReadBlock, ReadTagBlock, this);
-        if (!stream)
-        {
-            error = ERROR_NOT_ENOUGH_MEMORY;
-            return false;
-        }
-        std::vector<std::wstring> tags;
-        const HRESULT hr = ReadFileTagsFromStreamW(filePath.c_str(), stream, tags);
-        error = stream->Detach();
-        stream->Release();
-        if (!error && FAILED(hr))
-            error = static_cast<DWORD>(hr);
-        return !error && FileTagValuesMatchW(tags, requestedTags, data->Criteria.GetTagsMode()) != FALSE;
-    }
-
-    bool MatchFile(const std::wstring& directory, const WIN32_FIND_DATAW& file, const CQuadWord& listedSize,
-                   UacF7::ArchiveRevision& revision)
+    bool MatchFile(const std::wstring& directory, const WIN32_FIND_DATAW& file, const CQuadWord& listedSize)
     {
         std::wstring filePath = directory;
         SalPathAppendW(filePath, file.cFileName);
@@ -1865,6 +1883,7 @@ private:
 
         ULONGLONG size = 0;
         FILETIME modified{};
+        UacF7::ArchiveRevision revision{};
         DWORD error = session.OpenContent(filePath, size, modified, revision);
         if (error)
         {
@@ -1874,8 +1893,7 @@ private:
 
         if (size != listedSize.Value || CompareFileTime(&modified, &file.ftLastWriteTime) != 0)
             error = ERROR_FILE_INVALID;
-        const bool match = !error && (requestedTags.empty() || MatchTags(filePath, size, error)) &&
-                           (!data->Grep || MatchContent(pathText, listedSize, error));
+        const bool match = !error && predicates.Match(data, session, filePath, pathText, listedSize, error);
         const DWORD closeError = session.CloseContent();
         if (!data->StopSearch && (error || closeError))
             Log(filePath, error ? error : closeError);
@@ -1926,8 +1944,7 @@ private:
         }
     }
 
-    bool MatchesCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates,
-                          std::optional<UacF7::ArchiveRevision>& revision)
+    bool MatchesCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates)
     {
         CQuadWord size(file.nFileSizeLow, file.nFileSizeHigh);
         const bool isDir = (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
@@ -1938,40 +1955,38 @@ private:
             return !data->Criteria.HasTags() && !data->Grep && !candidates;
         if (data->Grep && !size.Value)
             return false;
-        if (!data->Grep && requestedTags.empty())
+        // Content-duplicate candidates are grouped by metadata first. Match
+        // their predicates later while the same file remains open for hashing.
+        if ((candidates && FindDuplicateContent(*data)) || (!data->Grep && !data->Criteria.HasTags()))
             return true;
-        return MatchFile(directory, file, size, revision.emplace());
+        return MatchFile(directory, file, size);
     }
 
-    void PublishCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates,
-                          const std::optional<UacF7::ArchiveRevision>& revision)
+    void PublishCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates)
     {
         AddFoundItem(nullptr, nullptr, file.nFileSizeLow, file.nFileSizeHigh, file.dwFileAttributes,
                      &file.ftLastWriteTime, (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0,
-                     data, candidates, directory.c_str(), file.cFileName, scopeId, revision ? &*revision : nullptr);
+                     data, candidates, directory.c_str(), file.cFileName, scopeId);
     }
 
     void AddCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates)
     {
-        std::optional<UacF7::ArchiveRevision> revision;
-        if (MatchesCandidate(directory, file, candidates, revision))
-            PublishCandidate(directory, file, candidates, revision);
+        if (MatchesCandidate(directory, file, candidates))
+            PublishCandidate(directory, file, candidates);
     }
 
     void PublishSingleFile(CDuplicateCandidates* candidates, bool authorized)
     {
         const auto slash = path.find_last_of(L'\\');
         const auto directory = path.substr(0, slash == 2 ? 3 : slash);
-        std::optional<UacF7::ArchiveRevision> revision;
-        const bool match = authorized && MatchesCandidate(directory, fileEntry, candidates, revision);
+        const bool match = authorized && MatchesCandidate(directory, fileEntry, candidates);
         if (data->Refine ? IncludeRefinedFindResult(data->Refine, match) : match)
             for (size_t i = 0; i < rows && !data->StopSearch; ++i)
-                PublishCandidate(directory, fileEntry, candidates, revision);
+                PublishCandidate(directory, fileEntry, candidates);
     }
 
     UacF7::ListingSession session;
-    std::vector<char> content;
-    std::vector<std::wstring> requestedTags;
+    ProtectedFindPredicates predicates;
     std::wstring path;
     std::shared_ptr<CFindIgnore> ignoreSnapshot;
     CGrepData* data = nullptr;

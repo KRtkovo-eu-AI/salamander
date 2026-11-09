@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Match protected duplicate filters and digest on one open. | Keep combined results independent of mutable NTFS timestamps. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify disk overwrite receipts before retiring backups. | Retain the prior target when the published copy was changed after a broker exit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Combine exact compression and named streams in F5. | Verify contents, storage and collision behavior together. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Preserve compression on guarded F6 streams. | Verify mixed compression and sparsity before source retirement. | | GPT-6.1 Sol (Codex) |
@@ -1216,6 +1217,10 @@ Lokálně prošlo 254 nativních kontrol v x64 Debug i Release, 125 regresí F6 
 **Ověření diskového přepisu před úklidem zálohy.** Žurnál chráněného F5 po výměně ukládá revize nového cíle a původního souboru v záloze a SHA-256 nového cíle. Před odstraněním zálohy broker při obnově znovu ověří obě revize, absenci nepodporovaných datových proudů a rozšířených atributů i obsah nového cíle. Pokud obě jména existují a potvrzení chybí nebo neodpovídá, hlásí částečný výsledek a ponechá soubory i žurnál. Pokud po přerušení cílové jméno chybí, může vrátit ověřený původní soubor bez přepisu. Změna se týká diskového žurnálu. [Časové údaje NTFS](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_file_basic_information) · [Výpočet SHA-256 v CNG](https://learn.microsoft.com/en-us/windows/win32/seccng/creating-a-hash-with-cng).
 
 V x64 Debug i Release prošlo 264 nativních kontrol. Zkoušky obnovy odmítly nedokončený záznam, přepsaný cíl se stejným ID, délkou a časy i zálohu s dodatečným Unicode proudem. Nezměněná dvojice prošla úklidem. Dále prošlo 24 kontrol úloh, samostatný transport a sestavení brokeru x64 Release. Samostatný ověřovač v režimu UnsignedLab potvrdil architekturu, manifesty, verzi protokolu 6 a seznam importů včetně systémového bcrypt.dll. Skutečné ukončení brokeru během přepisu po souhlasu UAC a ověření podepsaných souborů zůstávají v akceptaci.
+
+**Jedno otevření pro chráněné filtry a otisk duplicit.** Find nejprve zařadí chráněného kandidáta podle masky a metadat a vyřadí samostatné položky v předběžných skupinách. V obsahové fázi otevře každý zbývající chráněný soubor v původní schválené relaci. Nad stejným brokerovým handlem vyhodnotí tagy a text a u shody spočítá MD5 pro stávající porovnání duplicit. Kandidáta zařadí až po ověřeném ukončení čtení. To platí i pro dodatečný souhlas k jednotlivému souboru, jehož běžné otevření pro otisk selhalo. Neshoda filtrů nevyvolá chybu. Tento postup nahrazuje spoléhání na časové údaje při opětovném otevření souboru mezi filtrováním a otiskem.
+
+Prošlo sestavení aplikace x64 Debug, tři sady kontroly Findu a 264 nativních kontrol x64 Release včetně ověřeného čtení dlouhé Unicode cesty, revize, tagového streamu a omezení souhlasu k jedinému souboru. Kontrola toku ověřila seskupení před filtrováním, jedno otevření pro obě podmínky a otisk, uzavření i při neshodě a odmítnutí výsledku při chybě zavření. Skutečná kombinace textu, tagů a duplicit v chráněném Findu se systémovým souhlasem je scénář společné akceptace ve VM.
 
 ## 12. Testovací strategie
 

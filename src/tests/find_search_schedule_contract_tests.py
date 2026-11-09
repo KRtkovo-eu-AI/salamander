@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check a single open for combined protected duplicate reads. | Defer filters until grouped candidates can share the digest handle. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check the protected Find revision across both passes. | Verify the candidate before reading any bytes for its digest. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check one protected Find open for text and tags. | Require a confirmed close before accepting the combined result. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check duplicate verification at the comparison phase. | Require exact read lengths and keep stale empty candidates out of the result. | | GPT-6.1 Sol (Codex) |
@@ -85,10 +86,12 @@ def main() -> int:
             request_finish.index("WaitForSingleObject(launchThread, INFINITE);") < request_finish.index("Scan(path, 0,"),
             "a stopped search must suppress queued prompts and traversal must wait for the approved session")
     match_file = function_body(find_cpp, "bool MatchFile(")
-    require(match_file.index("session.OpenContent(") < match_file.index("MatchTags(") <
-            match_file.index("MatchContent(") < match_file.index("session.CloseContent()") and
-            "return match && !error && !closeError" in match_file,
+    require(match_file.index("session.OpenContent(") < match_file.index("predicates.Match(") <
+            match_file.index("session.CloseContent()") and "return match && !error && !closeError" in match_file,
             "protected text and tags must use the same open and require a confirmed close")
+    predicate = function_body(find_cpp, "bool Match(CGrepData* data, UacF7::ListingSession& session")
+    require(predicate.index("MatchTags(") < predicate.index("MatchContent("),
+            "combined protected predicates must evaluate both filters on the supplied session")
     for signature in ("bool MatchTags(", "bool MatchContent("):
         matcher = function_body(find_cpp, signature)
         require("session.OpenContent(" not in matcher and "session.CloseContent(" not in matcher,
@@ -97,10 +100,16 @@ def main() -> int:
     require("file->ProtectedScope" in examine and "protectedSessions[scope - 1]" in examine,
             "protected duplicate reads must use the exact session that supplied the candidate")
     digest = function_body(find_cpp, "BOOL CDuplicateCandidates::GetMD5Digest(")
-    require("RecordRevision(foundData, *revision)" in find_cpp and
-            digest.index("SameFileRevision(checked->second, revision)") <
-            digest.index("protectedSession->ReadContent(offset, buffer, read)"),
-            "a protected candidate must keep its checked revision through duplicate hashing")
+    candidate = function_body(find_cpp, "bool MatchesCandidate(")
+    require(candidate.index("FindDuplicateContent(*data)") < candidate.index("return MatchFile(") and
+            "if ((candidates && FindDuplicateContent(*data))" in candidate,
+            "protected content duplicate candidates must defer filters until after metadata grouping")
+    require(digest.count("protectedSession->OpenContent(") == 1 and
+            digest.index("protectedSession->OpenContent(") < digest.index("predicates.Match(") <
+            digest.index("protectedSession->ReadContent(offset, buffer, read)") <
+            digest.index("protectedSession->CloseContent()") and "while (match &&" in digest and
+            digest.index("protectedSession->CloseContent()") < digest.index("if (!match)"),
+            "protected duplicate filtering and hashing must use one open and close even on a nonmatch")
     require("protectedSession->ReadContent(offset, buffer, read)" in digest and
             "protectedSession->CloseContent()" in digest and
             digest.index("protectedSession->CloseContent()") < digest.index("context.finalize()"),
