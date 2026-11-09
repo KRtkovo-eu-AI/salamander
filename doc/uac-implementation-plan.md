@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Measure equivalent x64 Release images for closed-scope cleanup. | Record the individual and combined size delta before VM memory measurement. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Release closed broker scopes during batches. | Keep only connected scopes available for the next item. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Restore Archive after an interrupted compressed F6. | Correct the bit after the recovery alias and original ACL have been restored. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Combine compression and security in protected F5 copies. | Preserve both selected options and give the combined operation its own consent scope. | | GPT-6.1 Sol (Codex) |
@@ -1294,6 +1295,16 @@ Prošlo 129 kontrol F6 v x64 Debug i Release, 284 obecných nativních kontrol v
 **Obnova příznaku Archív při komprimovaném F6.** Pro komprimovaný zdroj s vypnutým příznakem Archív ukládá záznam verze 3 osm bajtů s původním časem posledního zápisu. Po odstranění ochranného odkazu a obnově DACL broker opraví příznak na stále otevřeném ověřeném zdroji. Pokud se čas posledního zápisu mezitím změnil, příznak ponechá. Původní formáty záznamu zůstávají podporované. Nativní test potvrdil nastavení příznaku při vytvoření odkazu, jeho obnovení, zachování času a obsahu hlavního i komprimovaného alternativního proudu a úklid záznamu. V x64 Debug i Release prošlo 134 kontrol F6. Srovnatelné sestavení brokeru x64 Release vzrostlo z 1 329 664 na 1 331 200 bajtů. Změna je v kódu kompilovaném jen pro broker. Měření privátní paměti celého páru a skutečný přesun mezi svazky patří do společné akceptace. [Zápis základních atributů pomocí FILE_BASIC_INFO](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_basic_info).
 
 **Životnost relací během dávky.** Po chybě spuštění nebo uzavření roury host odstraní z dávky odpovídající položku relace včetně uložených cest. Ostatní připojené relace lze dál použít. Po potvrzené kolizi zůstane fungující relace dostupná. Kód brokeru drží mezi položkami jen rozsah souhlasu a komunikační prostředky, protože handly souborů patří jednotlivým požadavkům. Prošlo 14 kontrol workeru, kontrola plánování, kontrola transportu a 31 kontrol brokerových úloh v x64 Release, sestavení aplikace x64 Debug a kontrola konverzních tabulek. Srovnání velikosti páru x64 Release a privátní paměti v odpovídající běžné a zvýšené úloze zůstává součástí společné akceptace.
+
+**Velikost binárek po úklidu relací.** Srovnání commitů `b3049da8` a `eb9d0dbf` použilo stejné prostředí MSVC, x64 Release, 64bitové nástroje, vypnuté inkrementální linkování a nepodepsané binárky. Oba páry prošly samostatným ověřovačem v laboratorním režimu s protokolem 8. Nárůst o 512 bajtů připadá na aplikaci, která za běhu odstraňuje uzavřené relace ze seznamu. Otisky sestavení jsou v místním záznamu `C:/Samandarin/builds/uac-release-size-068af5d301f0415581a6e439d2553ef4/evidence.json`.
+
+| Binárka | Před změnou | Po změně | Rozdíl |
+| --- | ---: | ---: | ---: |
+| `salamand.exe` | 5 436 928 B | 5 437 440 B | +512 B |
+| `uacbroker.exe` | 1 019 904 B | 1 019 904 B | 0 B |
+| Součet | 6 456 832 B | 6 457 344 B | +512 B |
+
+Ve VM se stejným vstupem porovnat běžnou dávku a dávku po souhlasu. V každém běhu zaznamenat privátní bajty aplikace a ověřeného brokeru ve stejném okamžiku před operací, během přenosu a po skončení. U zvýšené dávky zaznamenat také okamžik po potvrzené chybě a před další položkou. Podpisy a měření privátní paměti zůstávají otevřené.
 
 ## 12. Testovací strategie
 
