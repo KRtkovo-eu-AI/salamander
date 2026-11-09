@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Verify the directory sizes shortcut in the VM. | Confirm that the shortcut offers elevation for the blocked subtree. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record the protected F5 Release memory comparison. | Verify the journal publication guard in the isolated VM. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Measure the ordinary F5 reference before comparing brokers. | Verify identical source batches and capture the normal host memory in both trials. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Document the recovered F5 decision and panel size shortcut. | Align the user guide with the verified conflict dialog and the disk size command. | | GPT-6.1 Sol (Codex) |
@@ -1604,6 +1605,10 @@ Prošlo sestavení x64 Release, 304 nativních kontrol souborového jádra, 68 k
 | Chráněná F5, součet hostu a brokeru ve stejném vzorku | 24 997 888 | 25 411 584 |
 
 Chráněné běhy zachytily 53 a 136 vzorků s aktivním brokerem. Rozdíl v jeho špičce činil 4 KiB. Společná špička vzrostla o 404 KiB a host už před kopírováním vykazoval o 268 KiB více. Pro každou kombinaci je k dispozici jeden platný běh. První pokusy o chráněné měření vyřadila kontrola identity okna a pozdní start vzorkování. Úspěšné opakování ověřilo identitu přes cestu procesu, otisk binárky a argument pilotu a počkalo na spuštění sběru. Protokol je v C:/Samandarin/builds/uac-p7-f5-memory/comparison.json. Paměť při potvrzené chybě uprostřed dávky se v této zkoušce neměřila.
+
+**P7, Ctrl+Shift+F10 v diskovém panelu.** V chráněném pilotu x64 Release otevřela klávesa Ctrl+Shift+F10 výpočet pro panel P6c-fixture. Po odepření přístupu k 04-size-parent\\01-protected zobrazil Samandarin přesnou cestu a tlačítko Administrator se systémovým štítem. Výchozí volbou bylo Cancel. Po jeho stisku se panel vrátil bez vypočtené velikosti u 04-size-parent a broker neběžel. Schválený výsledek byl dříve ověřen pro Ctrl+Q. Samostatná klávesa Ctrl+Shift+F10 byla v této zkoušce ověřena po nabídku a zrušení.
+
+**P7, start českého pilotu.** Po doplnění Bug Reporteru se český start dostal k novému hlášení. Přepínač -language vyvolal opětovnou kontrolu jazyků pluginů a pilot hlásil chybějící nebo neplatný plugins\\zip\\lang\\czech.slg. Ani s odděleným souborem konfigurace se hlavní okno neotevřelo. Vzhled českého dialogu UAC zbývá ověřit s kompletní jazykovou výbavou pilotu.
 
 ### 12.3 CI a přijetí vydání
 
