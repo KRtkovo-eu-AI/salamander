@@ -1,4 +1,5 @@
 ﻿// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Keep the Change Drive configuration page at its original height. | Fit the new order selector into the existing page without adding excess vertical space. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Add a selector for Change Drive block ordering. | Let users choose whether plug-in items or Hot Paths appear first. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Move Save button left in Custom Viewers and Custom Editors. | The Save button at x=232 width=64 ended at x=296, overlapping the right border of the dialog panel. | | nvidia/nemotron-3.5-super-vl:free |
 // | 2026-11-09 | Add Apply action to File Associations details. | Provide an in-panel command to apply the selected association to the matrix. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -2275,7 +2276,7 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,106,46,50,14
 END
 
-IDD_CFGPAGE_CHANGEDRIVE DIALOGEX 64, 22, 299, 290
+IDD_CFGPAGE_CHANGEDRIVE DIALOGEX 64, 22, 299, 266
 STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_CAPTION
 CAPTION "Change Drive Menu and Drive Bar"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -2312,11 +2313,11 @@ BEGIN
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,9,215,161,12
     LTEXT           "Show first in Change Drive menu:",IDC_CHD_BLOCKORDER_LABEL,1,235,150,8
     COMBOBOX        IDC_CHD_BLOCKORDER,155,232,131,40,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "How to change visibility of ",IDC_STATIC_6,1,278,91,8
-    LTEXT           "Hot Path",IDS_CHD_HOTPATHS,92,278,30,8,WS_TABSTOP
-    LTEXT           "and",IDC_STATIC_7,125,278,15,8
-    LTEXT           "Plugin FS",IDS_CHD_PLUGINS,142,278,33,8,WS_TABSTOP
-    LTEXT           "items.",IDC_STATIC_8,175,278,22,8
+    LTEXT           "How to change visibility of ",IDC_STATIC_6,1,252,91,8
+    LTEXT           "Hot Path",IDS_CHD_HOTPATHS,92,252,30,8,WS_TABSTOP
+    LTEXT           "and",IDC_STATIC_7,125,252,15,8
+    LTEXT           "Plugin FS",IDS_CHD_PLUGINS,142,252,33,8,WS_TABSTOP
+    LTEXT           "items.",IDC_STATIC_8,175,252,22,8
 END
 
 IDD_CFGPAGE_PANELS DIALOGEX 64, 22, 299, 263
