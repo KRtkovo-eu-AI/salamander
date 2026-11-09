@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Pass lock paths with a typed payload and format localized text safely. | Address CodeQL findings in the file-lock recovery dialog. | https://github.com/KRtkovo-eu-AI/salamander/pull/842 | GPT-6 (Codex) |
 // | 2026-11-09 | Offer lock-process recovery in file error dialogs. | Let users resolve sharing failures without installing an extension. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -1647,8 +1648,10 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         case 13:
         {
-            CFileErrorDlg dlg(HWindow, data[1], data[2], data[3], FALSE, 0, (const wchar_t*)data[4]);
-            *(int*)data[0] = (int)dlg.Execute();
+            CFileLockRecoveryDialogData* lockData = (CFileLockRecoveryDialogData*)lParam;
+            CFileErrorDlg dlg(HWindow, lockData->Caption, lockData->FileName, lockData->Error,
+                              FALSE, 0, lockData->ExactPath);
+            *lockData->Result = (int)dlg.Execute();
             break;
         }
 
@@ -2531,6 +2534,15 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
 // CFileErrorDlg
 //
 
+static std::string FormatFileLockText(const char* format, const std::string& value)
+{
+    std::string text = format != NULL ? format : "";
+    const size_t placeholder = text.find("%s");
+    if (placeholder != std::string::npos)
+        text.replace(placeholder, 2, value);
+    return text;
+}
+
 CFileErrorDlg::CFileErrorDlg(HWND parent, const char* caption, const char* file, const char* error,
                              BOOL noSkip, int altRes, const wchar_t* lockPath) : CCommonDialog(HLanguage, altRes == 0 ? (noSkip ? IDD_CREATEDIRERR : IDD_CANNOTOPEN) : altRes, parent)
 {
@@ -2597,11 +2609,9 @@ CFileErrorDlg::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             if (!names.empty())
             {
-                char usedBy[4096] = {};
-                sprintf_s(usedBy, sizeof(usedBy), LoadStr(IDS_FILELOCK_USED_BY), names.c_str());
                 DisplayError = Error != NULL ? Error : "";
                 DisplayError += "\n";
-                DisplayError += usedBy;
+                DisplayError += FormatFileLockText(LoadStr(IDS_FILELOCK_USED_BY), names);
             }
             if (canTerminate)
             {
@@ -2724,9 +2734,9 @@ MENU_TEMPLATE_ITEM FileErrorDlgMenu[] =
                     ++shown;
                 }
             }
-            char confirmation[8192] = {};
-            sprintf_s(confirmation, sizeof(confirmation), LoadStr(IDS_FILELOCK_CONFIRM_TERMINATE), names.c_str());
-            if (SalMessageBox(HWindow, confirmation, LoadStr(IDS_QUESTION), MB_YESNO | MB_ICONWARNING) == IDYES)
+            const std::string confirmation = FormatFileLockText(
+                LoadStr(IDS_FILELOCK_CONFIRM_TERMINATE), names);
+            if (SalMessageBox(HWindow, confirmation.c_str(), LoadStr(IDS_QUESTION), MB_YESNO | MB_ICONWARNING) == IDYES)
             {
                 if (TerminateFileLockingProcesses(LockingProcesses))
                 {
