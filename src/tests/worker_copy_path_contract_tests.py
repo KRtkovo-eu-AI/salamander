@@ -1,5 +1,7 @@
 ﻿# SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Guard protected F6 retries at the worker boundary. | Require verified completion instead of a second pathname deletion. | | GPT-6.1 Sol (Codex) |
 from pathlib import Path
 import unittest
 SRC = Path(__file__).resolve().parents[1]
@@ -46,5 +48,15 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertIn("EncryptFileW(nameW.c_str())", code)
         self.assertIn("DecryptFileW(nameW.c_str(), 0)", code)
         self.assertNotIn("CreateFile(", code)
+    def test_denied_move_completion_does_not_retry_path_deletion(self):
+        code = section(text("worker.cpp"), "MoveCopyReceipt receipt;", "BOOL DoDeleteFile(")
+        ordinary_delete = section(code, "if (!protectedCompletion)", "WaitForSingleObject")
+        self.assertIn("DeleteFileW(", ordinary_delete)
+        self.assertEqual(code.count("DeleteFileW("), 1)
+        prepared = section(code, "if (request.PrepareMoveCompletion(", "else if (protectedCompletion")
+        self.assertLess(prepared.index("protectedCompletion = true;"), prepared.index("ExecuteWorkerTransfer("))
+        stale = section(code, "if (err == ERROR_FILE_INVALID)", "int ret = IDCANCEL;")
+        self.assertIn("WORKER_DIALOG_UAC_TRANSFER_UNKNOWN", stale)
+        self.assertIn("return FALSE;", stale)
 if __name__ == "__main__":
     unittest.main()

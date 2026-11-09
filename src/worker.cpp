@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Keep F6 source retirement retries on the verified path. | Never retry a denied protected delete by name after copying. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow large F6 completions after ordinary copying. | Apply the same F6 byte limit before capturing the copy identity. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow cross-volume F6 to retain known named streams. | Keep the normal attribute option and same-volume retry within their existing scopes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Keep preflight-denied F6 requests cross-volume only. | Bind the deferred source read to a verified move between distinct volumes. | | GPT-6.1 Sol (Codex) |
@@ -7714,13 +7715,17 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
         if (notError && !skip) // still need to clean up the file from the source
         {
             WorkerClearReadOnlyW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL)); // ensure it can be deleted
+            bool protectedCompletion = false;
             while (1)
             {
-                if (DeleteFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str()))
-                    break;
+                DWORD err = ERROR_ACCESS_DENIED;
+                if (!protectedCompletion)
                 {
-                    DWORD err = GetLastError();
-
+                    if (DeleteFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str()))
+                        break;
+                    err = GetLastError();
+                }
+                {
                     WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
                     if (*dlgData.CancelWorker)
                         return FALSE;
@@ -7728,14 +7733,26 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                     if (dlgData.SkipAllDeleteErr)
                         return TRUE;
 
-                    UacF7::PreparedTransfer request;
-                    if (err == ERROR_ACCESS_DENIED && receipt.captured &&
-                        request.PrepareMoveCompletion(op->SourceNameW, op->TargetNameW, op->FileSize.Value,
-                                                      receipt.source, receipt.target))
+                    if (err == ERROR_ACCESS_DENIED && receipt.captured)
                     {
-                        BOOL success = FALSE;
-                        if (ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, request, err))
-                            return success;
+                        UacF7::PreparedTransfer request;
+                        if (request.PrepareMoveCompletion(op->SourceNameW, op->TargetNameW, op->FileSize.Value,
+                                                          receipt.source, receipt.target))
+                        {
+                            // A retry must recheck both files. Do not delete a name
+                            // that might now refer to a different source.
+                            protectedCompletion = true;
+                            BOOL success = FALSE;
+                            if (ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, request, err))
+                                return success;
+                        }
+                        else if (protectedCompletion || receipt.source.serial != receipt.target.serial)
+                            err = ERROR_FILE_INVALID;
+                        if (err == ERROR_FILE_INVALID)
+                        {
+                            SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, TRUE);
+                            return FALSE;
+                        }
                     }
                     int ret = IDCANCEL;
                     char* data[4];

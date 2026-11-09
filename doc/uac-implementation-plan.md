@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Keep denied F6 completion retries verified. | Preserve both files when the copied pair can no longer be verified. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Remove custom installer work from UAC scope. | Keep the runtime and independent artifact checks on the feature branch. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Verify the executable roles in a UAC pair. | Reject a substitute with the correct protocol before launching it. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Record guarded F6 with sparse named streams. | Verify that the move keeps data and holes in each stream. | | GPT-6.1 Sol (Codex) |
@@ -1187,6 +1188,8 @@ V x64 Debug i Release prošlo 122 kontrol F6. Nativní test na jednom svazku ov�
 **Role binárek UAC.** Zdroj PE má vedle verze protokolu samostatnou hodnotu pro aplikaci, broker a diagnostickou sondu. Host před systémovou výzvou vyžaduje roli brokeru. Broker před připojením vyžaduje odpovídající roli aplikace nebo sondy. Stejné role ověřuje instalační kontrola. Starší binárky se značkou obsahující jen verzi vyžadují společnou aktualizaci. Formát výměny přes rouru zůstává verze 5.
 
 Prošlo sestavení všech tří binárek x64 Debug a 25 kontrol úloh a PE zdrojů v x64 Debug i Release včetně skutečné pojmenované roury. Zkouška přijala očekávané role a odmítla shodnou verzi s jinou rolí i starou verzi se správnou rolí. Laboratorní ověřovač odmítl kopii brokeru s nesprávnou rolí i při správném manifestu, verzi a architektuře. Odmítnutí při skutečném spuštění z chráněné instalace patří do VM akceptace.
+
+**Opakování dokončení F6 po odepření smazání zdroje.** Jakmile se po běžném zkopírování připraví ověřené dokončení brokerem, Opakovat znovu připraví požadavek z identit obou souborů. Worker se v téže operaci nevrátí k mazání zdroje podle cesty. Pokud ověření dvojice selže nebo broker odmítne změněný soubor, zobrazí se hlášení o nepotvrzeném dokončení přesunu. Prošlo sedm kontrol workeru, 122 nativních kontrol F6 v x64 Release a sestavení aplikace x64 Debug. Opakování po zamítnutí souhlasu a výměna zdroje nebo cíle mezi pokusy patří do společné zkoušky ve VM.
 
 ## 12. Testovací strategie
 
