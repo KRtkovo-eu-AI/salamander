@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Check exclusive overwrite journal access across processes. | A competing operation must wait for the journal owner to exit before recovery. | | Codex |
 | 2026-11-09 | Cancel F6 after verification reports progress. | Keep both source names and the existing destination during an active cancellation. | | Codex |
 | 2026-11-09 | Interrupt F6 while the last source link is delete-pending. | Verify recovery recognizes a completed retirement after a hard exit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Exercise EFS publication refusal. | Preserve the original and clear staging if the overwrite journal cannot be acquired. | | GPT-6.1 Sol (Codex) |
@@ -3651,27 +3652,42 @@ bool CheckOverwriteProcessExit(const std::wstring& fixture)
         if (!CreateDirectoryW(folder.c_str(), nullptr) || !WriteFixture(final, overwriteOriginal) ||
             !WriteFixture(sentinel, {9}) || !OpenIdentity(final, originalId))
             return false;
+        const HANDLE rawParent = CreateFileW(folder.c_str(), FILE_TRAVERSE | FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        const ::Handle parent(rawParent == INVALID_HANDLE_VALUE ? nullptr : rawParent);
+        if (!parent)
+            return false;
+        const auto openJournal = [&](HANDLE& journal) {
+            return UacRenameLeaf::Detail::OpenFile(parent.get(), L"journal", journal,
+                FILE_GENERIC_READ | FILE_GENERIC_WRITE | DELETE, 0, FILE_OPEN, 0, nullptr);
+        };
         const bool concurrentCreate = scenario.point == ReplacementFaultPoint::BackupRenamed;
         const std::vector<BYTE> rival{91, 92};
         if (!InterruptFixtureChild(folder, L"--hold-overwrite " + id, [&] {
-                return !concurrentCreate || WriteFixture(final, rival);
+                if (!concurrentCreate)
+                    return true;
+                HANDLE rawRivalJournal = nullptr;
+                const DWORD locked = openJournal(rawRivalJournal);
+                const ::Handle rivalJournal(rawRivalJournal);
+                Check(locked == ERROR_SHARING_VIOLATION && !rivalJournal && !Exists(final),
+                      "a second process cannot acquire the live overwrite journal during the rename gap", locked);
+                return WriteFixture(final, rival);
             }))
         {
             Check(false, scenario.label);
             return false;
         }
 
-        const HANDLE rawParent = CreateFileW(folder.c_str(), FILE_TRAVERSE | FILE_READ_ATTRIBUTES,
-            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
-            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
-        const ::Handle parent(rawParent == INVALID_HANDLE_VALUE ? nullptr : rawParent);
-        const HANDLE rawJournal = CreateFileW((folder + L"\\journal").c_str(), GENERIC_READ | GENERIC_WRITE,
-            0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-        const ::Handle journal(rawJournal == INVALID_HANDLE_VALUE ? nullptr : rawJournal);
+        HANDLE rawJournal = nullptr;
+        const DWORD journalOpen = openJournal(rawJournal);
+        const ::Handle journal(rawJournal);
+        if (concurrentCreate)
+            Check(journalOpen == ERROR_SUCCESS && journal, "acquire the overwrite journal after the owner exits", journalOpen);
         UacDirectoryLeaf::ParentIdentity identity;
         UacZipUpdate::Detail::DiskRecoveryRecord record;
         DWORD read = 0;
-        if (!parent || !journal || UacDirectoryLeaf::ReadParentIdentity(parent.get(), identity) ||
+        if (journalOpen || !journal || UacDirectoryLeaf::ReadParentIdentity(parent.get(), identity) ||
             !ReadFile(journal.get(), &record, sizeof(record), &read, nullptr) || read != sizeof(record))
             return false;
         const auto backup = folder + L"\\" + UacZipUpdate::Detail::BackupName(record.exchange.nonce, ReplacementKind::DiskCopy);
