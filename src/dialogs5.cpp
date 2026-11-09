@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-09 | Remove an extra closing brace in conflict status update. | Fix C2059/C2143/C2447 syntax errors caused by a stray brace that closed the selectedCount block too early. | | nvidia/nemotron-3.5-super-vl:free |
+// | 2026-11-09 | Match the selected Target ID by its visible catalog entry. | Prevent Apply from restoring a different plugin when the combo's item mapping and displayed selection diverge. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Read association targets from the selected catalog item. | Keep Target ID identity and target kind coupled through Apply instead of relying on combo row positions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Apply association overrides to the selected pattern set. | Avoid focusing an unrelated association after bulk Apply and retain the intended user target over every default candidate. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Give user overrides precedence over retained association conflicts. | Show the selected target after Apply and clear conflict state when a user choice overrides its exact pattern and action. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -4688,12 +4689,50 @@ BOOL CCfgPageFileAssociations::ReadControls(
         SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETCURSEL, 0, 0), 0));
     const int catalogSelection = static_cast<int>(SendDlgItemMessage(
         HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETCURSEL, 0, 0));
-    const int catalogItem = catalogSelection >= 0
+    int catalogItem = catalogSelection >= 0
         ? static_cast<int>(SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
                                               CB_GETITEMDATA, catalogSelection, 0))
         : -1;
-    const bool catalogItemValid = catalogItem >= 0 &&
-                                  catalogItem < static_cast<int>(TargetCatalog.size());
+    bool catalogItemValid = catalogItem >= 0 &&
+                            catalogItem < static_cast<int>(TargetCatalog.size());
+    std::vector<char> selectedTargetName(1024, 0);
+    if (catalogSelection >= 0)
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETLBTEXT,
+                           catalogSelection, reinterpret_cast<LPARAM>(selectedTargetName.data()));
+    if (catalogItemValid && TargetCatalog[catalogItem].DisplayName != selectedTargetName.data())
+    {
+        catalogItem = -1;
+        catalogItemValid = false;
+    }
+    if (!catalogItemValid && selectedTargetName[0] != 0)
+    {
+        int matchingCatalogItem = -1;
+        bool ambiguousDisplayName = false;
+        for (size_t i = 0; i < TargetCatalog.size(); ++i)
+            if (TargetCatalog[i].DisplayName == selectedTargetName.data())
+            {
+                if (matchingCatalogItem >= 0)
+                {
+                    ambiguousDisplayName = true;
+                    break;
+                }
+                matchingCatalogItem = static_cast<int>(i);
+            }
+        if (!ambiguousDisplayName)
+            catalogItem = matchingCatalogItem;
+        catalogItemValid = catalogItem >= 0 &&
+                           catalogItem < static_cast<int>(TargetCatalog.size());
+    }
+    if (catalogSelection >= 0 && !catalogItemValid)
+    {
+        if (error != NULL)
+            *error = selectedTargetItem == FileAssociationTargetExtensionsChoice
+                ? LoadStr(IDS_FILEASSOCIATION_SELECT_EXTENSION)
+                : selectedTargetItem == static_cast<int>(Salamander::FileAssociations::TargetKind::Plugin)
+                    ? LoadStr(IDS_FILEASSOCIATION_SELECT_PLUGIN)
+                    : LoadStr(IDS_FILEASSOCIATION_NO_TARGETS);
+        return FALSE;
+    }
     const Salamander::FileAssociations::TargetKind requestedKind =
         selectedTargetItem == FileAssociationTargetExtensionsChoice
             ? Salamander::FileAssociations::TargetKind::Plugin

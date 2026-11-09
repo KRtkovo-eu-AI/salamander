@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Project only effective user-overridden association targets. | Prevent shadowed plugin/default rows from defeating an explicit user choice in runtime lookup order. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-08 | Require explicit target resolution before projection. | Prevent runtime application of associations whose stable target or legacy metadata cannot be resolved. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Add a transactional runtime projection boundary. | Prevent incomplete target resolution from partially replacing legacy runtime associations. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 
@@ -29,6 +30,27 @@ void SetBlockedReport(RuntimeProjectionReport* report, size_t blockedCount)
         report->BlockedCount = blockedCount;
         report->RuntimeProjectionBlocked = true;
     }
+}
+
+bool IsShadowedByUserOverride(const std::vector<Association>& associations, size_t index)
+{
+    const Association& item = associations[index];
+    if (item.AssociationProvenance == Provenance::Disabled)
+        return true;
+    if (item.AssociationProvenance == Provenance::User)
+        return false;
+
+    for (size_t i = 0; i < associations.size(); ++i)
+    {
+        const Association& candidate = associations[i];
+        if (candidate.Pattern == item.Pattern &&
+            candidate.AssociationCategory == item.AssociationCategory &&
+            candidate.Operation == item.Operation &&
+            (candidate.AssociationProvenance == Provenance::User ||
+             candidate.AssociationProvenance == Provenance::Disabled))
+            return true;
+    }
+    return false;
 }
 
 } // namespace
@@ -70,6 +92,8 @@ bool ProjectRuntimeAssociations(const CFileAssociationModel& model,
 
     for (size_t i = 0; i < associations.size(); ++i)
     {
+        if (IsShadowedByUserOverride(associations, i))
+            continue;
         if (!operations.Resolve(associations[i], operations.ResolveContext))
         {
             operations.Rollback(operations.Context);
