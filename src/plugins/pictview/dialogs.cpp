@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Expose independent Page Up/Down and mouse wheel settings. | Let users choose scrolling, zooming, or image navigation for the wheel. | https://github.com/KRtkovo-eu-AI/salamander/issues/747 | GPT-6 (Codex) |
 
 #include "precomp.h"
 
@@ -642,6 +645,9 @@ void CConfigPageKeyboard::Transfer(CTransferInfo& ti)
 {
     ti.RadioButton(IDC_CFGKBD_PGDNUP_SCR, TRUE, G.PageDnUpScrolls);
     ti.RadioButton(IDC_CFGKBD_PGDNUP_PREV, FALSE, G.PageDnUpScrolls);
+    ti.RadioButton(IDC_CFGKBD_WHEEL_SCR, PV_MOUSEWHEEL_SCROLL, G.MouseWheelAction);
+    ti.RadioButton(IDC_CFGKBD_WHEEL_ZOOM, PV_MOUSEWHEEL_ZOOM, G.MouseWheelAction);
+    ti.RadioButton(IDC_CFGKBD_WHEEL_PREV, PV_MOUSEWHEEL_PREVNEXT, G.MouseWheelAction);
 }
 
 //****************************************************************************
