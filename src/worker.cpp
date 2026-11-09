@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Bind protected Scan Ahead overwrites to the scanned revision. | Requeue changed targets before the protected retry and leave reviewed overwrites to the serial worker. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Complete Scan Ahead transfer admission and cancellation. | Keep protected retries serial, separate from scanned conflicts, and admit compressed streams to guarded F6. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Keep F6 source retirement retries on the verified path. | Never retry a denied protected delete by name after copying. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow large F6 completions after ordinary copying. | Apply the same F6 byte limit before capturing the copy identity. | | GPT-6.1 Sol (Codex) |
@@ -1287,7 +1288,7 @@ BOOL COperations::TransitionConflictItem(int index, CCopyMoveItemState from, CCo
 
 void COperations::PublishConflictScanResult(int index, CCopyMoveConflictType type, DWORD attributes,
                                             ULONGLONG size, const FILETIME& writeTime, DWORD volumeSerial,
-                                            ULONGLONG fileIndex, BOOL identityValid, BOOL existed)
+                                            ULONGLONG fileIndex, BOOL identityValid, BOOL existed, const UacF7::ArchiveRevision& revision)
 {
     HANDLES(EnterCriticalSection(&ConflictCS));
     if (index >= 0 && index < Count)
@@ -1307,6 +1308,7 @@ void COperations::PublishConflictScanResult(int index, CCopyMoveConflictType typ
         op.ScannedTargetFileIndex = fileIndex;
         op.ScannedTargetIdentityValid = identityValid;
         op.ScannedTargetExisted = existed;
+        op.ScannedTargetRevision = revision;
         op.ConflictProbe.Type = type;
         op.ConflictProbe.Attributes = attributes;
         op.ConflictProbe.Size = size;
@@ -1490,7 +1492,7 @@ BOOL COperations::LeaseNextParallelCopy(int& index, ULONGLONG& leaseToken, int s
         // startIndex is only a fairness hint; it must never exclude an older ready item.
         if (*item < 0 || *item >= Count) continue;
         COperation& op = At(*item);
-        if (op.Opcode != ocCopyFile || op.ConflictIsFinalizer ||
+        if (op.Opcode != ocCopyFile || op.ConflictIsFinalizer || op.ScannedTargetRevision.attributes ||
             (op.ConflictState != cmisReady && op.ConflictState != cmisOverwrite)) continue;
         op.ConflictState = cmisRunning;
         op.ConflictItemState = ccipLeased;
@@ -1639,11 +1641,33 @@ void COperations::CompleteConflictItem(int index, BOOL skipped, int throughIndex
     HANDLES(LeaveCriticalSection(&ConflictCS));
 }
 
+// The ordinary scan may follow a link. Only capture a broker revision from
+// the exact, no-follow object, and bind it to the item the scan displayed.
+static void CaptureScannedOverwriteRevision(const std::wstring& path, const BY_HANDLE_FILE_INFORMATION& observed,
+                                            UacF7::ArchiveRevision& revision)
+{
+    HANDLE file = HANDLES_Q(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                        OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    if (file == INVALID_HANDLE_VALUE)
+        return;
+    BY_HANDLE_FILE_INFORMATION current;
+    if (GetFileInformationByHandle(file, &current) &&
+        current.dwVolumeSerialNumber == observed.dwVolumeSerialNumber &&
+        current.nFileIndexHigh == observed.nFileIndexHigh && current.nFileIndexLow == observed.nFileIndexLow &&
+        current.dwFileAttributes == observed.dwFileAttributes &&
+        current.nFileSizeHigh == observed.nFileSizeHigh && current.nFileSizeLow == observed.nFileSizeLow &&
+        CompareFileTime(&current.ftLastWriteTime, &observed.ftLastWriteTime) == 0)
+        UacF7::CaptureOverwriteRevision(file, revision);
+    HANDLES(CloseHandle(file));
+}
+
 BOOL COperations::RevalidateConflictItem(int index, CCopyMoveConflictType& conflictType)
 {
     conflictType = cmctNone;
     HANDLES(EnterCriticalSection(&ConflictCS));
     BOOL valid = FALSE;
+    bool refreshRevision = false;
     if (index >= 0 && index < Count)
     {
         COperation& op = At(index);
@@ -1655,6 +1679,7 @@ BOOL COperations::RevalidateConflictItem(int index, CCopyMoveConflictType& confl
             HANDLE file = HANDLES_Q(CreateFileW(target.c_str(), FILE_READ_ATTRIBUTES,
                                                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                                                 NULL, OPEN_EXISTING,
+                                                op.ScannedTargetRevision.attributes ? FILE_FLAG_OPEN_REPARSE_POINT :
                                                 op.ConflictType == cmctDirectoryExists ? FILE_FLAG_BACKUP_SEMANTICS : 0, NULL));
             if (file != INVALID_HANDLE_VALUE)
             {
@@ -1666,6 +1691,12 @@ BOOL COperations::RevalidateConflictItem(int index, CCopyMoveConflictType& confl
                         info.dwFileAttributes == op.ScannedTargetAttributes &&
                         (((ULONGLONG)info.nFileSizeHigh << 32) | info.nFileSizeLow) == op.ScannedTargetSize &&
                         CompareFileTime(&info.ftLastWriteTime, &op.ScannedTargetWriteTime) == 0;
+                if (valid && op.ScannedTargetRevision.attributes)
+                {
+                    UacF7::ArchiveRevision current;
+                    valid = UacF7::CaptureOverwriteRevision(file, current) &&
+                            UacF7::SameFileRevision(op.ScannedTargetRevision, current);
+                }
                 HANDLES(CloseHandle(file));
             }
             else if (GetLastError() == ERROR_FILE_NOT_FOUND || GetLastError() == ERROR_PATH_NOT_FOUND)
@@ -1673,11 +1704,13 @@ BOOL COperations::RevalidateConflictItem(int index, CCopyMoveConflictType& confl
                 op.ConflictDecision = cmcdNone;
                 op.ConflictType = cmctNone;
                 conflictType = cmctNone;
+                op.ScannedTargetRevision = {};
                 op.ConflictState = cmisRunning;
                 valid = TRUE;
             }
         }
-        if (!valid)
+        refreshRevision = !valid && op.ScannedTargetRevision.attributes;
+        if (!valid && !refreshRevision)
         {
             op.ConflictDecision = cmcdNone;
             op.ConflictState = cmisConflict;
@@ -1688,6 +1721,8 @@ BOOL COperations::RevalidateConflictItem(int index, CCopyMoveConflictType& confl
         ConflictListVersion++;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
+    if (refreshRevision)
+        RequeueChangedConflictItem(index);
     return valid;
 }
 
@@ -1755,6 +1790,7 @@ void COperations::RequeueChangedConflictItem(int index)
     DWORD volumeSerial = 0;
     ULONGLONG fileIndex = 0;
     BOOL identityValid = FALSE;
+    UacF7::ArchiveRevision revision;
     HANDLE targetHandle = target.empty() ? INVALID_HANDLE_VALUE :
         HANDLES_Q(CreateFileW(target.c_str(), FILE_READ_ATTRIBUTES,
                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -1770,6 +1806,8 @@ void COperations::RequeueChangedConflictItem(int index)
             volumeSerial = info.dwVolumeSerialNumber;
             fileIndex = ((ULONGLONG)info.nFileIndexHigh << 32) | info.nFileIndexLow;
             identityValid = TRUE;
+            if (AllowTransferPilot && operation.Opcode == ocCopyFile)
+                CaptureScannedOverwriteRevision(target, info, revision);
         }
         HANDLES(CloseHandle(targetHandle));
     }
@@ -1786,6 +1824,7 @@ void COperations::RequeueChangedConflictItem(int index)
     op.ScannedTargetFileIndex = fileIndex;
     op.ScannedTargetIdentityValid = identityValid;
     op.ScannedTargetExisted = identityValid;
+    op.ScannedTargetRevision = revision;
     if (!identityValid)
     {
         op.ConflictType = cmctNone;
@@ -1906,7 +1945,7 @@ BOOL COperations::HasReadySerialConflictWork()
     for (int index = 0; index < Count && !found; ++index)
         if (IsConflictItemReadyLocked(index) &&
             (At(index).Opcode != ocCopyFile || At(index).ConflictState == cmisSkip ||
-             At(index).ConflictIsFinalizer || !CanUseParallelCopy(this, &At(index))))
+             At(index).ConflictIsFinalizer || At(index).ScannedTargetRevision.attributes || !CanUseParallelCopy(this, &At(index))))
             found = TRUE;
     HANDLES(LeaveCriticalSection(&ConflictCS));
     return found;
@@ -5688,6 +5727,12 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
     if (result.error != ERROR_SUCCESS)
     {
         error = result.error;
+        if (error == ERROR_FILE_INVALID && request.IsOverwrite() && dlgData.ConflictDecisionInjected)
+        {
+            dlgData.ConflictTargetChanged = TRUE;
+            success = TRUE; // Dispatch requeues the conflict without accounting for a completed file.
+            return true;
+        }
         return error == ERROR_CANCELLED || *dlgData.CancelWorker != FALSE;
     }
     if (request.IsMoveCompletion())
@@ -5765,13 +5810,17 @@ static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
 {
     if (op.Opcode != ocCopyFile || !script.AllowTransferPilot ||
         script.OverwriteOlder || script.CopySecurity || script.CopyAttrs || script.IgnoreTransferAds ||
-        dlgData.ConflictDecisionInjected || !op.SourceNameWValid || !op.TargetNameWValid ||
+        (dlgData.ConflictDecisionInjected &&
+         (dlgData.InjectedConflictType != cmctFileExists || !op.ScannedTargetRevision.attributes)) ||
+        !op.SourceNameWValid || !op.TargetNameWValid ||
         (op.OpFlags & (OPFL_AS_ENCRYPTED | OPFL_COPY_ADS)) || !UacF7::IsPlainCopyFile(op.Attr))
         return false;
     BOOL limited = FALSE;
     DWORD limit = 0;
     script.GetSpeedLimit(&limited, &limit);
-    return !limited && request.PrepareOverwrite(op.SourceNameW, op.TargetNameW, op.FileSize.Value);
+    return !limited && request.PrepareOverwrite(op.SourceNameW, op.TargetNameW, op.FileSize.Value) &&
+           (!dlgData.ConflictDecisionInjected ||
+            UacF7::SameFileRevision(op.ScannedTargetRevision, request.Approval().revision));
 }
 
 struct MoveCopyReceipt
@@ -6581,6 +6630,13 @@ COPY_AGAIN:
                                                    PrepareWorkerOverwrite(*op, *script, dlgData, overwrite);
                         if (transferError)
                             goto NORMAL_ERROR;
+                        if (dlgData.ConflictDecisionInjected && op->ScannedTargetRevision.attributes &&
+                            !ValidateInjectedTargetIdentity(op, dlgData))
+                        {
+                            HANDLES(CloseHandle(in));
+                            dlgData.ConflictTargetChanged = TRUE;
+                            return TRUE;
+                        }
                         if (targetExists || canElevateOverwrite)
                         {
                             if (!dlgData.OverwriteAll && (dlgData.CnfrmFileOver || script->OverwriteOlder) &&
@@ -9901,6 +9957,19 @@ static BOOL ValidateInjectedTargetIdentity(COperation* operation, CProgressDlgDa
     std::wstring target = GetParallelCopyPathW(operation, FALSE);
     if (target.empty()) return FALSE;
     target = SalPathAddExtendedPrefixW(target.c_str());
+    if (operation->ScannedTargetRevision.attributes)
+    {
+        HANDLE file = HANDLES_Q(CreateFileW(target.c_str(), FILE_READ_ATTRIBUTES,
+                                            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                            OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        if (file == INVALID_HANDLE_VALUE)
+            return FALSE;
+        UacF7::ArchiveRevision current;
+        const bool matches = UacF7::CaptureOverwriteRevision(file, current) &&
+                             UacF7::SameFileRevision(operation->ScannedTargetRevision, current);
+        HANDLES(CloseHandle(file));
+        return matches;
+    }
     DWORD volumeSerial;
     ULONGLONG fileIndex;
     return GetParallelFileIdentity(target, volumeSerial, fileIndex) &&
@@ -10751,7 +10820,7 @@ static int RunParallelCopyBatch(COperations* script, int first, HWND progressDia
     if (initialLeaseGeneration != 0 && script->CopyMoveConflictMode != CMCM_SCAN_AHEAD)
         return 0;
     if (limit < 2 || script->IsParallelCopyDisabled() ||
-        !CanUseParallelCopy(script, &script->At(first)))
+        script->At(first).ScannedTargetRevision.attributes || !CanUseParallelCopy(script, &script->At(first)))
     {
         if (initialLeaseGeneration != 0)
             script->ReleaseParallelCopyLease(first, initialLeaseGeneration);
@@ -10797,6 +10866,7 @@ static DWORD WINAPI ConflictScannerBody(void* parameter)
         DWORD attributes = INVALID_FILE_ATTRIBUTES, volumeSerial = 0;
         ULONGLONG size = 0, fileIndex = 0;
         FILETIME writeTime = {};
+        UacF7::ArchiveRevision revision;
         BOOL inspect = op->Opcode == ocCopyFile || op->Opcode == ocMoveFile ||
                        op->Opcode == ocCreateDir;
         if (inspect)
@@ -10824,13 +10894,15 @@ static DWORD WINAPI ConflictScannerBody(void* parameter)
                             type = targetIsDirectory ? cmctTypeMismatch : cmctFileExists;
                         else if (op->Opcode == ocCreateDir)
                             type = targetIsDirectory ? cmctDirectoryExists : cmctTypeMismatch;
+                        if (data->Script->AllowTransferPilot && op->Opcode == ocCopyFile && type == cmctFileExists)
+                            CaptureScannedOverwriteRevision(target, info, revision);
                     }
                     HANDLES(CloseHandle(handle));
                 }
             }
         }
         data->Script->PublishConflictScanResult(index, type, attributes, size, writeTime,
-                                                volumeSerial, fileIndex, identityValid, existed);
+                                                volumeSerial, fileIndex, identityValid, existed, revision);
         data->Script->SignalConflictChanged();
     }
     data->Script->SetConflictScanState(FALSE,

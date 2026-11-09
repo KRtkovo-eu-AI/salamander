@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Expose capture of an eligible overwrite revision. | Bind a Scan Ahead conflict to the same NTFS revision as a broker request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Declare a guarded source for Shell recycling. | Keep the verified path pinned through the Shell request. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Share the verified Find file revision with its caller. | Bind repeated reads to the same file identity and metadata. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Give cross-volume moves an independent byte budget. | Keep the existing bounded copy and archive contracts separate. | | GPT-6.1 Sol (Codex) |
@@ -119,6 +120,7 @@ struct ArchiveRevision
     DWORD reserved = 0;
 };
 static_assert(sizeof(ArchiveRevision) == 64);
+bool CaptureOverwriteRevision(HANDLE file, ArchiveRevision& revision);
 
 inline bool SameFileRevision(const ArchiveRevision& a, const ArchiveRevision& b)
 {

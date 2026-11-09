@@ -1,6 +1,7 @@
 ﻿# SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-09 | Check exact Scan Ahead overwrite admission. | Require one scanned revision and serial conflict requeue on a mismatch. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Cover Scan Ahead protected worker admission and cancellation. | Exercise the guarded move and the boundary between a free target and a scanned conflict. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Guard protected F6 retries at the worker boundary. | Require verified completion instead of a second pathname deletion. | | GPT-6.1 Sol (Codex) |
 from pathlib import Path
@@ -89,5 +90,25 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertIn("return true;", declined)
         self.assertIn("result.unknown || result.error == ERROR_CANCELLED", transfer)
         self.assertIn("return error == ERROR_CANCELLED || *dlgData.CancelWorker != FALSE;", transfer)
+    def test_scan_ahead_overwrite_requires_the_reviewed_revision(self):
+        code = text("worker.cpp")
+        capture = section(code, "static void CaptureScannedOverwriteRevision(", "BOOL COperations::RevalidateConflictItem(")
+        self.assertIn("FILE_FLAG_OPEN_REPARSE_POINT", capture)
+        self.assertIn("current.nFileIndexLow == observed.nFileIndexLow", capture)
+        scanner = section(code, "static DWORD WINAPI ConflictScannerBody(", "unsigned ThreadWorkerBody")
+        self.assertIn("CaptureScannedOverwriteRevision(target, info, revision)", scanner)
+        requeue = section(code, "void COperations::RequeueChangedConflictItem(", "void COperations::MarkConflictDirectoryPrepared(")
+        self.assertIn("CaptureScannedOverwriteRevision(target, info, revision)", requeue)
+        self.assertIn("op.ScannedTargetRevision = revision;", requeue)
+        overwrite = section(code, "static bool PrepareWorkerOverwrite(", "struct MoveCopyReceipt")
+        self.assertIn("SameFileRevision(op.ScannedTargetRevision, request.Approval().revision)", overwrite)
+        self.assertIn("dlgData.InjectedConflictType != cmctFileExists", overwrite)
+        lease = section(code, "COperation& op = At(*item);", "CConflictLeaseOutcome COperations::FinishParallelCopyLeaseLocked")
+        self.assertIn("op.ScannedTargetRevision.attributes", lease)
+        transfer = section(code, "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
+        stale = section(transfer, "if (error == ERROR_FILE_INVALID", "return error == ERROR_CANCELLED")
+        self.assertIn("request.IsOverwrite() && dlgData.ConflictDecisionInjected", stale)
+        self.assertIn("dlgData.ConflictTargetChanged = TRUE;", stale)
+        self.assertNotIn("totalDone", stale)
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Share the overwrite target revision capture. | Apply the same plain-file and attribute checks during Scan Ahead and request preparation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Open disk overwrite stages for digest verification. | Verify the completed target before retiring its original backup. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Include named streams in explicit compressed F5. | Preserve the selected metadata without dropping alternate data. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Lock named streams on compressed cross-volume moves. | Use the same sealed inventory before retiring the source. | | GPT-6.1 Sol (Codex) |
@@ -2888,15 +2889,23 @@ bool PreparedTransfer::PrepareMoveCompletion(const std::wstring& sourcePath, con
     return true;
 }
 
+bool CaptureOverwriteRevision(HANDLE file, ArchiveRevision& revision)
+{
+    ArchiveRevision current;
+    if (UacZipUpdate::ReadRevision(file, current) || !IsPlainCopyFile(current.attributes) ||
+        (current.attributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)))
+        return false;
+    revision = current;
+    return true;
+}
+
 bool PreparedTransfer::PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath,
                                         ULONGLONG expectedSize)
 {
     if (expectedSize > maxPilotCopyBytes ||
         !source.PrepareTarget(sourcePath, Operation::CopyOverwrite, {}, nullptr) ||
         !target.PrepareView(targetPath) ||
-        UacZipUpdate::ReadRevision(target.source, overwriteTarget) ||
-        !IsPlainCopyFile(overwriteTarget.attributes) ||
-        (overwriteTarget.attributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)))
+        !CaptureOverwriteRevision(target.source, overwriteTarget))
         return false;
     size = expectedSize;
     return true;

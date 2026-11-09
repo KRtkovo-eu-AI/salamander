@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-09 | Bind Scan Ahead F5 overwrites to the reviewed revision. | Requeue replaced targets without carrying forward the old conflict decision. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Enable serial protected transfer admission in Scan Ahead. | Separate approved conflicts from free targets and stop the batch on cancellation. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Test abrupt process exit during disk overwrite. | Verify recovery and retained data at each exchange checkpoint. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Match protected duplicate filters and digest on one open. | Keep combined results independent of mutable NTFS timestamps. | | GPT-6.1 Sol (Codex) |
@@ -1233,6 +1234,10 @@ Lokálně prošlo všech šest bodů tvrdého ukončení a celkem 270 nativních
 **Zrušení dávky a F6 s komprimovanými proudy.** Zrušení nabídky Administrator nebo systémové výzvy uzavře otevřené relace přenosu a ukončí dávku bez nabídky opakování téže položky. Dokončené položky zůstávají. Odstraněna byla také stará podmínka, která blokovala vstup komprimovaného F6 s alternativními proudy do brokeru. Podmínky pro přesun v rámci téhož svazku zůstávají oddělené.
 
 Prošlo sestavení aplikace x64 Debug, deset kontrol workeru, kontrola stavů konfliktu a plánování a 125 nativních regresí F6 x64 Release. Ve VM se ještě ověří smíšená dávka Scan Ahead, zrušení po dokončení dřívější položky a komprimovaný F6 s alternativními proudy přes skutečnou systémovou výzvu.
+
+**Přepis existujícího cíle F5 v režimu Scan Ahead.** U podporovaných cílů skener uloží revizi běžného souboru z handlu otevřeného bez následování odkazu a porovná jeho identitu s položkou předloženou v seznamu konfliktů. Rozhodnutí o přepisu postupuje do sériové větve. Po běžném odepření přístupu se ochranná nabídka připraví jen tehdy, když ověřená revize brokerového požadavku odpovídá skenu. Broker dále kontroluje schválený soubor při otevření a zveřejnění. Pokud se cíl vymění nebo se změní jeho revize, koordinátor znovu načte konflikt a původní rozhodnutí zanikne. Potvrzené odmítnutí zastaralé revize z brokeru vrátí položku do koordinátoru bez posunu průběhu. Neověřený výsledek po částečné výměně zůstává samostatnou chybou. Tato změna rozšiřuje předchozí podporu volného cíle. Vztahuje se na podporovaný přepis po odepření zápisu do cíle, se zdrojem otevřeným běžnou cestou.
+
+Prošlo sestavení aplikace x64 Debug, 11 kontrol workeru, sady stavů konfliktů a plánování, devět nativních kontrol přepisu na NTFS a 24 kontrol brokerových úloh včetně odmítnutí jiného ID i změněné revize se stejným ID. Prošel také transport. Ve VM ještě ověřit dávku, nový konflikt po změně cíle během čekání na souhlas a výsledné hlášení při zrušení nebo neověřené výměně.
 
 ## 12. Testovací strategie
 

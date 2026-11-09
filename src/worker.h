@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Store the target revision for a protected Scan Ahead overwrite. | Keep the approved revision alongside the existing conflict identity. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Document deferred source access for copy and move. | Use one flag for the two existing transfer retries. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Store the approved basic attribute choices. | Reuse the same policy across metadata items. | | GPT-6.1 Sol (Codex) |
@@ -25,6 +26,7 @@
 #include <deque>
 #include <memory>
 #include "storagesched.h"
+#include "uacbroker/f7pilot.h"
 
 #define CREATE_DIR_SIZE CQuadWord(4096, 0) // operation cost estimates (uncached measurements based on worker thread runtimes)
 #define MOVE_DIR_SIZE CQuadWord(5050, 0)
@@ -391,6 +393,7 @@ struct COperation
     ULONGLONG ScannedTargetFileIndex;
     BOOL ScannedTargetIdentityValid;
     BOOL ScannedTargetExisted;
+    UacF7::ArchiveRevision ScannedTargetRevision;
     ULONGLONG ConflictOperationId;
     DWORD ConflictGeneration;
     CConflictScannerPhase ConflictScannerState;
@@ -502,7 +505,7 @@ public:
     CConflictLeaseOutcome FinishParallelCopyLeaseLocked(int index, ULONGLONG leaseToken, CConflictLeaseOutcome outcome);
     void PublishConflictScanResult(int index, CCopyMoveConflictType type, DWORD attributes,
                                    ULONGLONG size, const FILETIME& writeTime, DWORD volumeSerial,
-                                   ULONGLONG fileIndex, BOOL identityValid, BOOL existed);
+                                   ULONGLONG fileIndex, BOOL identityValid, BOOL existed, const UacF7::ArchiveRevision& revision);
 
     // for the status line in the progress dialog (Copy and Move only)
     BOOL ShowStatus;       // should the operation status (copy speed, etc.) appear below the second progress bar?
