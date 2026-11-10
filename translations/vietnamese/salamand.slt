@@ -3809,7 +3809,7 @@ SLGINCOMPLETE,""
 14063,1,"Đang chuẩn bị tệp lưu trữ báo cáo sự cố, vui lòng chờ..."
 
 [STRINGTABLE 159]
-14064,0,"Opening GitHub issue, wait please..."
+14064,1,"Đang mở trang vấn đề GitHub, vui lòng chờ..."
 14065,0,"The crash report archive has been prepared locally. A GitHub issue page and the report folder will be opened now.\n\nPrivacy warning: the archive may contain sensitive data such as file paths, loaded modules, and process memory. Review it before attaching it to a public GitHub issue."
 14066,0,"Opening the GitHub issue failed. ShellExecute returned code %d.\n\nThe report archive remains on your disk. Click OK to show the report folder."
 14067,0,"Report compression has failed, reason: %s\n\nPlease pack your bug report manually into a ZIP archive and attach it to a GitHub issue only after reviewing it for sensitive data. Click OK to show the report folder."
