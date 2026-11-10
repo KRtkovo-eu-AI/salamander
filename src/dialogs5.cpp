@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Keep selected pattern keys independent from Apply editor values. | Do not let the Pattern edit field overwrite the matrix selection while reading Action, Target, and Target ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Seed Apply from the selected association before reading editor fields. | Preserve the established Configuration save path's pattern fallback while letting the detail controls override the action. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Keep canonical rows intact during association Apply. | Do not discard stored rows as a workaround for the pattern source bug. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Flush successful Apply edits to the active configuration store. | Persist association changes immediately when the selected backend is the portable config file. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -4693,7 +4694,7 @@ void CCfgPageFileAssociations::RefreshList()
 
 BOOL CCfgPageFileAssociations::ReadControls(
     Salamander::FileAssociations::Association& item, std::string* error,
-    const std::string* fallbackPattern)
+    const std::string* fallbackPattern, BOOL readPatternControl)
 {
     const std::string originalPattern = item.Pattern;
     const auto isBlankPattern = [](const std::string& value) -> bool
@@ -4704,7 +4705,12 @@ BOOL CCfgPageFileAssociations::ReadControls(
     const std::string previousStableId = item.AssociationTarget.StableId;
     std::vector<char> pattern(1024);
     HWND matrix = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
-    if (ListView_GetSelectedCount(matrix) > 1)
+    if (!readPatternControl)
+    {
+        if (fallbackPattern != NULL && !isBlankPattern(*fallbackPattern))
+            item.Pattern = *fallbackPattern;
+    }
+    else if (ListView_GetSelectedCount(matrix) > 1)
     {
         // The pattern editor shows a multi-select summary. The association to
         // carry through Apply must come from the focused matrix row instead.
@@ -6051,11 +6057,22 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 SetStatus(LoadStr(IDS_FILEASSOCIATION_PATTERN_EMPTY));
                 break;
             }
-            if (!ReadControls(item, &error, &focusedPattern))
+            if (!ReadControls(item, &error, &focusedPattern, FALSE))
             {
                 SetStatus(error.c_str());
                 break;
             }
+            // ReadControls owns only the action and target selectors here. Keep
+            // the selected matrix pattern authoritative even if the disabled
+            // Pattern edit still contains a multi-select summary or stale text.
+            if (focusedPattern.empty())
+                focusedPattern = item.Pattern;
+            if (focusedPattern.empty())
+            {
+                SetStatus(LoadStr(IDS_FILEASSOCIATION_PATTERN_EMPTY));
+                break;
+            }
+            item.Pattern = focusedPattern;
             std::string normalizedPattern;
             if (!Salamander::FileAssociations::CFileAssociationModel::NormalizePattern(
                     item.Pattern.c_str(), &normalizedPattern, &error))
