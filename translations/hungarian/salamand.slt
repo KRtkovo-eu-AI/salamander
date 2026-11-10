@@ -4063,7 +4063,7 @@ SLGINCOMPLETE,""
 14411,1,"&Címkék módosítása"
 14412,1,"Windows tulajdonságok"
 14413,1,"Több fájl esetén: a köztes beállítás változatlanul hagy egy tulajdonságot; a bejelölés beállítja; a jelölés törlése eltávolítja."
-14414,0,"First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
+14414,1,"Első hiba:\nFájl: %s\nTulajdonság: %s\nOk: %s (0x%08X)"
 14415,1,"Ez a fájltípus nem támogatja ezt a tulajdonságot."
 
 [STRINGTABLE 177]

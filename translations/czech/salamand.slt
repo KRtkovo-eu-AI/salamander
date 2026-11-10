@@ -4063,7 +4063,7 @@ SLGINCOMPLETE,""
 14411,1,"&Změnit značky"
 14412,1,"Vlastnosti systému Windows"
 14413,1,"Pro více souborů: nejasné ponechá vlastnost beze změny; zaškrtnuté ji nastaví; nezaškrtnuté ji odebere."
-14414,0,"First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
+14414,1,"První chyba:\nSoubor: %s\nVlastnost: %s\nDůvod: %s (0x%08X)"
 14415,1,"Tento typ souboru nepodporuje tuto vlastnost."
 
 [STRINGTABLE 177]

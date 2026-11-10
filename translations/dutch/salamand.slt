@@ -4063,7 +4063,7 @@ SLGINCOMPLETE,""
 14411,1,"&Wijzig tags"
 14412,1,"Windows-eigenschappen"
 14413,1,"Voor meerdere bestanden: vaag laat een eigenschap ongewijzigd; aangevinkt zet het; niet aangevinkt verwijdert het."
-14414,0,"First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
+14414,1,"Eerste fout:\nBestand: %s\nEigenschap: %s\nReden: %s (0x%08X)"
 14415,1,"Dit bestandstype ondersteunt deze eigenschap niet."
 
 [STRINGTABLE 177]

@@ -4063,7 +4063,7 @@ SLGINCOMPLETE,""
 14411,1,"&Zmeniť tagy"
 14412,1,"Vlastnosti systému Windows"
 14413,1,"Pri viacerých súboroch: neurčitý stav ponechá vlastnosť nezmenenú; zaškrtnutý ju nastaví; nezaškrtnutý ju odstráni."
-14414,0,"First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
+14414,1,"Prvé zlyhanie:\nSúbor: %s\nVlastnosť: %s\nDôvod: %s (0x%08X)"
 14415,1,"Tento typ súboru nepodporuje túto vlastnosť."
 
 [STRINGTABLE 177]

@@ -521,7 +521,7 @@ COMMENT,"Magyar változat"
 1215,1,"\r\n;benyelt célmappa-meghatározás, ez lehet akár abszolút elérési út\r\n;vagy relatív elérési út; a relatív elérési út a jelenlegi mappához viszonyított\r\n;amikor az sfx futtatható fájl elindul\r\n"
 
 [STRINGTABLE 15]
-1216,0,";you could also use predefined variables at the beginning (!)\r\n;of the 'target_dir' string:\r\n;\r\n"
+1216,1,";a 'target_dir' karakterlánc elején (!) előre definiált változókat is használhat:\r\n;\r\n"
 1217,1,";  $(Temp)      ideiglenes könyvtár, csak önmagában kell állnia\r\n;               a target_dir mezőben, nem követi semmilyen elérési út\r\n;               része\r\n"
 1218,1,";  $(ProgFiles) a felhasználó „Program Files” mappája\r\n;  $(WinDir)    a Windows mappa\r\n;  $(SysDir)    a rendszer mappája\r\n"
 1219,1,";  $[variable] egy környezeti változó értéke, amelyet a\r\n;               „variable”\r\n;  $<regkey>    a beállításjegyzék-bejegyzés értéke, amelyet a „regkey” ír le\r\n;  e.g SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ProgramFilesDir\r\n\r\n"

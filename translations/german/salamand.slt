@@ -4063,7 +4063,7 @@ SLGINCOMPLETE,""
 14411,1,"&Tags ändern"
 14412,1,"Windows-Eigenschaften"
 14413,1,"Für mehrere Dateien: Unbestimmt lässt eine Eigenschaft unverändert; aktiviert setzt sie; deaktiviert entfernt sie."
-14414,0,"First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
+14414,1,"Erster Fehler:\nDatei: %s\nEigenschaft: %s\nUrsache: %s (0x%08X)"
 14415,1,"Dieser Dateityp unterstützt diese Eigenschaft nicht."
 
 [STRINGTABLE 177]

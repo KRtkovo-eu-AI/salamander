@@ -4063,7 +4063,7 @@ SLGINCOMPLETE,""
 14411,1,"&Schimba etichetele"
 14412,1,"Proprietati Windows"
 14413,1,"Pentru mai multe fisiere: valoarea nedeterminata lasa proprietatea neschimbata; bifat o seteaza; nebifat o elimina."
-14414,0,"First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
+14414,1,"Prima eroare:\nFișier: %s\nProprietate: %s\nMotiv: %s (0x%08X)"
 14415,1,"Acest tip de fisier nu suporta aceasta proprietate."
 
 [STRINGTABLE 177]

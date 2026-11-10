@@ -4063,7 +4063,7 @@ SLGINCOMPLETE,""
 14411,1,"&Modifier les tags"
 14412,1,"Propriétés Windows"
 14413,1,"Pour plusieurs fichiers : l’état indéterminé laisse la propriété inchangée ; l’état activé la définit ; l’état désactivé la supprime."
-14414,0,"First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
+14414,1,"Premier échec :\nFichier : %s\nPropriété : %s\nMotif : %s (0x%08X)"
 14415,1,"Ce type de fichier ne prend pas en charge cette propriété."
 
 [STRINGTABLE 177]

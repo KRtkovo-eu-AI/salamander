@@ -384,11 +384,11 @@ COMMENT,"Русская версия"
 1031,1,"Введите сочетание клавиш."
 1032,1,"Захват экрана отменен."
 1033,1,"Захват экрана"
-1034,0,"<Clipboard>"
-1035,0,"<Screen Capture>"
+1034,1,"<Буфер обмена>"
+1035,1,"<Снимок экрана>"
 1036,1,"Пусто"
 1037,1,"Файлы изображений (*.bmp;*.cur;*.gif;*.icn;*.ico;*.jpg;*.jpeg;*.lbm;*.pcx;*.png;*.psd;*.tga;*.tif;*.tiff)|*.bmp;*.cur;*.gif;*.icn;*.ico;*.jpg;*.jpeg;*.lbm;*.pcx;*.png;*.psd;*.tga;*.tif;*.tiff|All Files (*.*)|*.*|"
-1038,0,"<Scan>"
+1038,1,"<Сканирование>"
 1039,1,"Autodesk CEL (*.cel)|*.cel|Amiga Interchange Format (*.iff,*.lbm)|*.iff;*.lbm|CompuServe GIF (*.gif)|*.gif|Intergraph (*.cit,*.dat,*.rle)|*.dat;*.cit;*.rle|JPEG (*.jpg,*.jpeg)|*.jpg;*.jpeg|Portable Bitmap (*.pbm,*.ppm)|*.pbm;*.ppm|Portable Network Graphics (*.png)|*.png|Silicon Graphics (*.bw)|*.bw|SunRaster (*.ras)|*.ras|Targa (*.tga)|*.tga|TIFF (*.tif)|*.tif;*.tiff|Utah RLE (*.rle)|*.rle|Video-renting box SKA (*.ska)|*.ska|Точечный рисунок (*.bmp)|*.bmp|Wireless Bitmap (*.wbmp)|*.wbmp|ZSoft PCX (*.pcx)|*.pcx|"
 
 [STRINGTABLE 11]
@@ -500,9 +500,9 @@ COMMENT,"Русская версия"
 [STRINGTABLE 18]
 1160,1,"Не удалось получить изображение с устройства. Проверьте правильность подключения устройства и попробуйте снова. Ошибка: (0x%08X) %s"
 1161,1,"Подождите..."
-1162,0,"Reading data from the device (%d%% complete)"
-1163,0,"Processing data (%d%% complete)"
-1164,0,"Transferring data (%d%% complete)"
+1162,1,"Чтение данных с устройства (готово %d%%)"
+1163,1,"Обработка данных (готово %d%%)"
+1164,1,"Передача данных (готово %d%%)"
 
 [STRINGTABLE 19]
 1170,1,"От сканера получено несколько изображений. Первое изображение открыто в этом окне. Открыть остальные изображения в отдельных окнах? Если нет, изображения будут потеряны.\n\nКоличество новых окон: %d"
