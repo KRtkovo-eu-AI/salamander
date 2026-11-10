@@ -1,6 +1,7 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-10 | Credit FlaUI and the Taskscape UI-test reference. | Document the UI automation library and the fork used to shape the test harness. |  | GPT-6 (Codex) |
+| 2026-11-10 | Add the Taskscape reference to this file header. | Make the UI-test design source explicit; https://github.com/taskscape/FileManager. |  | GPT-6 (Codex) |
 | 2026-11-07 | Keep third-party notices limited to external components and synchronize localized notices. | Remove implementation and porting history from the attribution document. |  | GPT-5.6 |
 | 2026-11-06 | Retain the pinned Lua port with a verified source mirror. | Keep clean CI builds available during Lua.org timeouts. | https://github.com/majklvi/salamander/pull/64 | GPT-6 (Codex) |
 | 2026-11-05 | Credit pd4d10/json-viewer for JSON Web Viewer. | Salamatrix WebView2 JSON extension vendors that renderer. |  | Composer |

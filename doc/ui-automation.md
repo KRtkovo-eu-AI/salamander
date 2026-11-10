@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Record the Taskscape sources in the document header. | Identify the sources behind this test guidance; https://github.com/taskscape/FileManager/blob/main/testing.md; https://github.com/taskscape/FileManager/blob/main/run-ui-tests.ps1; https://github.com/taskscape/FileManager/tree/main/tests/FileManager.UiTests. |  | GPT-6 (Codex) |
 | 2026-11-10 | Document the FlaUI/UIA3 test scaffold and its limits. | Make native UI automation reproducible while keeping test-profile changes contained. |  | GPT-6 (Codex) |
 -->
 

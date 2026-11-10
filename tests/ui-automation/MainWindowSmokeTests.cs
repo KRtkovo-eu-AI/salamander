@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Add Taskscape source references to the test header. | Identify the UI test structure sources; https://github.com/taskscape/FileManager/blob/main/tests/FileManager.UiTests/BasicUiTests.cs and https://github.com/taskscape/FileManager/blob/main/tests/FileManager.UiTests/Infrastructure/FileManagerUiTestBase.cs. |  | GPT-6 (Codex) |
 // | 2026-11-10 | Add a FlaUI/UIA3 main-window smoke test. | Confirm the native Salamander window is discoverable through UI Automation. |  | GPT-6 (Codex) |
 
 using System.Diagnostics;

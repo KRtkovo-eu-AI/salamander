@@ -1,6 +1,7 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-10 | 标注 FlaUI 和 Taskscape UI 测试参考项目。 | 记录 UI 自动化库以及作为测试框架结构参考的 fork。 |  | GPT-6 (Codex) |
+| 2026-11-10 | 在文件头部添加 Taskscape 参考来源。 | 在头部直接注明 UI 测试设计来源；https://github.com/taskscape/FileManager。 |  | GPT-6 (Codex) |
 | 2026-11-07 | 保持第三方通知仅包含外部组件并同步本地化通知。 | 删除归属文档中的实现和移植历史。 |  | GPT-5.6 |
 | 2026-11-06 | Credit pd4d10/json-viewer for JSON Web Viewer. | Salamatrix WebView2 JSON 扩展提供该渲染器。 |  | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |

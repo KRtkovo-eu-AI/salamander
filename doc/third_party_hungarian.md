@@ -1,6 +1,7 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-10 | A FlaUI és a Taskscape UI-teszt referencia feltüntetése. | Az UI-automatizálási könyvtár és a tesztváz alapjául szolgáló fork dokumentálása. |  | GPT-6 (Codex) |
+| 2026-11-10 | A Taskscape-hivatkozás hozzáadása a fájl fejlécéhez. | Az UI-tesztek tervezési forrásának megadása közvetlenül a fejlécben; https://github.com/taskscape/FileManager. |  | GPT-6 (Codex) |
 | 2026-11-07 | A harmadik felekre vonatkozó tájékoztatókat külső összetevőkre korlátozzuk és szinkronizáljuk a lokalizációkat. | Az implementációs és portolási előzmények eltávolítása a dokumentumból. |  | GPT-5.6 |
 | 2026-11-06 | Credit pd4d10/json-viewer for JSON Web Viewer. | A Salamatrix WebView2 JSON bővítmény ezt a renderert szállítja. |  | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
   | Date | Summary | Reason | Ticket | Model |
+  | 2026-11-10 | Add the Taskscape project reference to the header. | Identify the test-project pattern source; https://github.com/taskscape/FileManager/tree/main/tests/FileManager.UiTests/FileManager.UiTests.csproj. |  | GPT-6 (Codex) |
   | 2026-11-10 | Add a FlaUI/UIA3 NUnit test project. | Provide a small Windows UI automation starting point for Salamander. |  | GPT-6 (Codex) |
   -->
   <PropertyGroup>

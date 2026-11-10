@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Add the Taskscape runner reference to the header. | Identify the runner design source; https://github.com/taskscape/FileManager/blob/main/run-ui-tests.ps1. |  | GPT-6 (Codex) |
 # | 2026-11-10 | Add an explicitly gated FlaUI test runner. | Keep native UI tests bound to a caller-selected executable and disposable Windows profile. |  | GPT-6 (Codex) |
 
 [CmdletBinding()]
