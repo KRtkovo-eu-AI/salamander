@@ -173,22 +173,22 @@ COMMENT,"swedish translation stub (English seed)"
 
 [DIALOG 152]
 350,79,0,"Confirm File Overwrite"
-3000,3,14,53,8,0,"Overwrite file:"
+3000,3,14,53,8,1,"Skriv över fil:"
 121,61,14,269,8,1,""
 140,61,24,269,8,1,""
-3001,61,39,174,8,0,"File already exists on the disk. Overwrite?"
-138,89,56,50,14,0,"&Yes"
-153,150,56,50,14,0,"&No"
-2,211,56,50,14,0,"Cancel"
+3001,61,39,174,8,1,"Filen finns redan på disken. Vill du skriva över den?"
+138,89,56,50,14,1,"&Ja"
+153,150,56,50,14,1,"&Nej"
+2,211,56,50,14,1,"Avbryt"
 
 [DIALOG 166]
 194,99,0,"New Favorite Settings"
-3000,14,8,60,8,0,"&Name:"
+3000,14,8,60,8,1,"&Namn:"
 167,14,18,164,12,1,""
-3001,14,41,161,24,0,"Note: To define menu hot-key for this favorite settings type ampersand (&&) just before the character you want to be the hot-key."
+3001,14,41,161,24,1,"Obs! Ange ett et-tecken (&&) före tecknet som ska vara snabbtangent i menyn för de här favoritinställningarna."
 3002,7,74,181,1,1,""
-1,39,80,50,14,0,"OK"
-2,99,80,50,14,0,"Cancel"
+1,39,80,50,14,1,"OK"
+2,99,80,50,14,1,"Avbryt"
 
 [DIALOG 170]
 204,113,0,"Create Self-Extracting Archive"
