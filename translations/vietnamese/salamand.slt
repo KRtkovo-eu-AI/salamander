@@ -3822,30 +3822,30 @@ SLGINCOMPLETE,""
 14075,1,"Lỗi khi tạo minidump. Mã lỗi: %d."
 
 [STRINGTABLE 160]
-14100,0,"Open Salamander Bug Reporter (salmon.exe) is not running. Open Salamander will not be able to handle potential crashes. Please restart Open Salamander."
+14100,1,"Open Salamander Bug Reporter (salmon.exe) không chạy. Open Samandarin sẽ không thể xử lý các sự cố có thể xảy ra. Vui lòng khởi động lại Open Samandarin."
 
 [STRINGTABLE 161]
-14150,0,"Unfinished Translation of Open Salamander"
-14151,0,"Translation of Open Salamander into your language is not finished. Please consider visiting our discussion forum and joining the translation effort:"
-14155,0,"Unable to send file or directory to the Recycle Bin because it has invalid name.\n\nInvalid part of name: "%s"\n\nHint: Try to rename it before sending to the Recycle Bin or delete it permanently (try Shift+Delete key)."
+14150,1,"Bản dịch Open Samandarin chưa hoàn tất"
+14151,1,"Bản dịch Open Samandarin sang ngôn ngữ của bạn chưa hoàn tất. Bạn có thể truy cập diễn đàn thảo luận và tham gia dịch thuật tại:"
+14155,1,"Không thể chuyển tệp hoặc thư mục vào Thùng rác vì tên không hợp lệ.\n\nPhần tên không hợp lệ: "%s"\n\nGợi ý: Hãy đổi tên trước khi chuyển vào Thùng rác hoặc xóa vĩnh viễn (nhấn Shift+Delete)."
 
 [STRINGTABLE 162]
-14160,0,"Unable to load %s plugin. This plugin is available only in x86 (32-bit) version of Open Salamander. Please start x86 version of Open Salamander to use this plugin. Sorry for the inconvenience."
-14165,0,"Google Drive"
-14166,0,"Dropbox"
-14167,0,"OneDrive"
-14168,0,"Personal"
-14170,0,"unable to resolve link"
-14171,0,"volume mount point"
+14160,1,"Không thể tải phần bổ trợ %s. Phần bổ trợ này chỉ có trong phiên bản x86 (32 bit) của Open Samandarin. Vui lòng chạy phiên bản x86 của Open Samandarin để sử dụng phần bổ trợ này. Xin lỗi vì sự bất tiện này."
+14165,1,"Google Drive"
+14166,1,"Dropbox"
+14167,1,"OneDrive"
+14168,1,"Cá nhân"
+14170,1,"không thể phân giải liên kết"
+14171,1,"điểm gắn kết ổ đĩa"
 
 [STRINGTABLE 163]
-14180,0,"Error Getting Link Target File Size"
-14181,0,"You are trying to move selected files and directories to archive. This is not possible because selection contains link to directory (junction point, volume mount point, or symbolic link). Please continue without deleting files from disk after packing to archive.\n\nLink: %s"
-14185,0,"Disk operation is in progress."
-14186,0,"Searching is in progress."
-14187,0,"Saving configuration, please wait few seconds."
-14188,0,"Windows is rejecting to abort shutdown. This message will block it temporarily. Please wait to abort shutdown manually before you close this message, otherwise Open Salamander will be terminated without saving configuration."
-14189,0,"Windows is rejecting to abort shutdown. This message will block it temporarily.\n\nYou have some disk operations in progress. Do you want to cancel them now? Click No only if you have aborted shutdown manually, otherwise you risk having unfinished files on your disk.\n\nPlease wait to abort shutdown manually before you answer this question, otherwise Open Salamander will be terminated without saving configuration."
+14180,1,"Lỗi khi lấy kích thước tệp đích của liên kết"
+14181,1,"Bạn đang cố chuyển các tệp và thư mục đã chọn vào kho lưu trữ. Không thể thực hiện vì vùng chọn có liên kết đến thư mục (junction, điểm gắn kết ổ đĩa hoặc liên kết tượng trưng). Sau khi đóng gói vào kho lưu trữ, hãy tiếp tục mà không xóa tệp khỏi đĩa.\n\nLiên kết: %s"
+14185,1,"Đang thực hiện thao tác trên đĩa."
+14186,1,"Đang tìm kiếm."
+14187,1,"Đang lưu cấu hình, vui lòng chờ một lát."
+14188,1,"Windows không cho phép hủy quá trình tắt máy. Thông báo này sẽ tạm thời chặn việc tắt máy. Vui lòng chờ và tự hủy tắt máy trước khi đóng thông báo; nếu không, Open Samandarin sẽ bị kết thúc mà không lưu cấu hình."
+14189,1,"Windows không cho phép hủy quá trình tắt máy. Thông báo này sẽ tạm thời chặn việc tắt máy.\n\nMột số thao tác trên đĩa đang diễn ra. Bạn có muốn hủy chúng ngay bây giờ không? Chỉ nhấn Không nếu bạn đã tự hủy tắt máy; nếu không, các tệp có thể chưa hoàn tất trên đĩa.\n\nVui lòng chờ và tự hủy tắt máy trước khi trả lời; nếu không, Open Samandarin sẽ bị kết thúc mà không lưu cấu hình."
 
 [STRINGTABLE 164]
 14195,0,"Closing Find windows, please wait..."
