@@ -6,6 +6,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Prepare verified basic metadata from the protected panel. | Offer UAC and show the OK shield for a supported denied change. | #731 | Codex |
 // | 2026-11-10 | Preview the UAC shield for directory creation and file rename. | Probe only the rights required by the pending operation. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Offer F7 and F2 elevation in the protected panel. | Use verified identities when local path preparation is denied. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Offer separate F3 consent from a protected panel. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
@@ -1314,6 +1315,42 @@ static BOOL PrepareNtfsConfirmation(CFilesWindow* panel, int textID, int count, 
     return text.SetW(format.c_str(), identity.c_str());
 }
 
+static DWORD ProbeLocalElevationAccess(const std::wstring& path, DWORD access, bool directory);
+
+struct MetadataElevationPreview
+{
+    std::wstring path;
+    DWORD attributes = INVALID_FILE_ATTRIBUTES;
+    bool protectedScope = false;
+
+    static bool Check(DWORD set, DWORD clear, const UacF7::MetadataChange& times, void* context)
+    {
+        const auto& preview = *static_cast<MetadataElevationPreview*>(context);
+        constexpr DWORD allowed = UacF7::basicAttributes | FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_DIRECTORY;
+        const DWORD desired = (preview.attributes & ~clear) | set;
+        if (preview.path.empty() || ((preview.attributes | desired) & ~allowed) != 0)
+            return false;
+        UacF7::MetadataChange change = times;
+        change.expectedAttributes = preview.attributes;
+        const DWORD basic = desired & UacF7::basicAttributes;
+        if (basic != (preview.attributes & UacF7::basicAttributes))
+            change.attributes = basic ? basic : FILE_ATTRIBUTE_NORMAL;
+        if (!(change.attributes || change.created || change.accessed || change.modified))
+            return false;
+        if (ProbeLocalElevationAccess(preview.path, FILE_WRITE_ATTRIBUTES,
+                                       (preview.attributes & FILE_ATTRIBUTE_DIRECTORY) != 0) != ERROR_ACCESS_DENIED ||
+            !UacF7::CanOfferElevation())
+            return false;
+        // A normal item must also pass the same identity preparation as the worker.
+        // A protected item is prepared through its existing listing only after OK.
+        UacF7::PreparedLeaf request;
+        if (!preview.protectedScope &&
+            !request.PrepareMetadata(preview.path, change, {set & UacF7::basicAttributes, clear & UacF7::basicAttributes}))
+            return false;
+        return true;
+    }
+};
+
 void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncryption, BOOL encrypted)
 {
     const bool branchAttributes = IsBranchView() != FALSE;
@@ -1362,6 +1399,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                 subDir = FALSE;
 
             DWORD attr = 0, attrDiff = 0;
+            MetadataElevationPreview metadataPreview;
             SYSTEMTIME timeModified;
             SYSTEMTIME timeCreated;
             SYSTEMTIME timeAccessed;
@@ -1384,16 +1422,38 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                         {
                             BOOL isDir = index < Dirs->Count;
 
+                            if (!branchAttributes)
+                            {
+                                metadataPreview.path = SalPathRemoveExtendedPrefixW(GetItemFullPathW(*f).c_str());
+                                metadataPreview.attributes = f->Attr;
+                                metadataPreview.protectedScope = ProtectedListing && ProtectedListing->IsOpen() &&
+                                                                 ProtectedListing->Contains(metadataPreview.path);
+                            }
+
                             BOOL timeObtained = FALSE;
 
                             // retrieve the file times
                             std::wstring fileName = SalPathAddExtendedPrefixW(GetItemFullPathW(*f).c_str());
                             WIN32_FIND_DATAW find;
                             HANDLE hFind = HANDLES_Q(FindFirstFileW(fileName.c_str(), &find));
+                            BOOL findObtained = hFind != INVALID_HANDLE_VALUE;
                             if (hFind != INVALID_HANDLE_VALUE)
-                            {
                                 HANDLES(FindClose(hFind));
-
+                            else if (metadataPreview.protectedScope)
+                            {
+                                const wchar_t* leaf = SalPathFindFileNameW(fileName.c_str());
+                                for (const auto& entry : ProtectedListingEntries)
+                                {
+                                    if (wcscmp(entry.cFileName, leaf) == 0)
+                                    {
+                                        find = entry;
+                                        findObtained = TRUE;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (findObtained)
+                            {
                                 FILETIME ft;
                                 if (FileTimeToLocalFileTime(&find.ftCreationTime, &ft) &&
                                     FileTimeToSystemTime(&ft, &timeCreated) &&
@@ -1463,6 +1523,8 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                                     SelectionContainsDirectory(), FileBasedCompression,
                                     FileBasedEncryption,
                                     &timeModified, &timeCreated, &timeAccessed);
+            if (!branchAttributes && !metadataPreview.path.empty())
+                chDlg.SetElevationShieldProbe(&MetadataElevationPreview::Check, &metadataPreview);
             if (setCompress || setEncryption)
             {
                 chDlg.Archive = 2;
@@ -1526,7 +1588,30 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
             {
                 UpdateWindow(MainWindow->HWindow);
 
-                if (CheckPath(TRUE) != ERROR_SUCCESS || (branchAttributes && !branchSelection.IsCurrent(this)))
+                constexpr DWORD metadataAttributes = UacF7::basicAttributes | FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_DIRECTORY;
+                const bool basicChanged =
+                    (chDlg.Archive != 2 && chDlg.Archive != !!(attr & FILE_ATTRIBUTE_ARCHIVE)) ||
+                    (chDlg.ReadOnly != 2 && chDlg.ReadOnly != !!(attr & FILE_ATTRIBUTE_READONLY)) ||
+                    (chDlg.Hidden != 2 && chDlg.Hidden != !!(attr & FILE_ATTRIBUTE_HIDDEN)) ||
+                    (chDlg.System != 2 && chDlg.System != !!(attr & FILE_ATTRIBUTE_SYSTEM));
+                bool protectedMetadata = metadataPreview.protectedScope && !branchAttributes &&
+                    !setCompress && !setEncryption && !chDlg.RecurseSubDirs &&
+                    chDlg.Compressed != 1 && chDlg.Encrypted != 1 &&
+                    (metadataPreview.attributes & ~metadataAttributes) == 0 &&
+                    (basicChanged || chDlg.ChangeTimeCreated || chDlg.ChangeTimeAccessed || chDlg.ChangeTimeModified);
+                if (protectedMetadata)
+                {
+                    int index = GetCaretIndex();
+                    const int selected = GetSelCount();
+                    if (selected == 1) GetSelItems(1, &index);
+                    const CFileData* item = selected <= 1 && index >= 0 && index < Dirs->Count + Files->Count
+                        ? (index < Dirs->Count ? &Dirs->At(index) : &Files->At(index - Dirs->Count)) : nullptr;
+                    protectedMetadata = item && item->Attr == metadataPreview.attributes &&
+                        SalPathRemoveExtendedPrefixW(GetItemFullPathW(*item).c_str()) == metadataPreview.path &&
+                        ProtectedListing && ProtectedListing->IsOpen() && ProtectedListing->Contains(metadataPreview.path);
+                }
+                if ((!protectedMetadata && CheckPath(TRUE) != ERROR_SUCCESS) ||
+                    (branchAttributes && !branchSelection.IsCurrent(this)))
                 {
                     // if we selected an item, we deselect it again
                     clearTemporarySelection(temporarySelected);
@@ -1681,12 +1766,50 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                     dlgData.BasicMetadataSet = attrsData.AttrOr & UacF7::basicAttributes;
                     dlgData.BasicMetadataClear = ~attrsData.AttrAnd & ~attrsData.AttrOr & UacF7::basicAttributes;
 
+                    DWORD metadataPreparationError = ERROR_SUCCESS;
+                    if (protectedMetadata)
+                    {
+                        UacF7::MetadataChange change{};
+                        const DWORD desired = (metadataPreview.attributes & attrsData.AttrAnd) | attrsData.AttrOr;
+                        if (!BuildBasicMetadataChange(metadataPreview.attributes, desired, dlgData, change))
+                            metadataPreparationError = ERROR_INVALID_DATA;
+                        else
+                        {
+#ifdef new
+#undef new
+#define RESTORE_NEW_PROTECTED_METADATA_REQUEST
+#endif
+                            script->ProtectedMetadataRequest.reset(new (std::nothrow) UacF7::PreparedLeaf);
+#ifdef RESTORE_NEW_PROTECTED_METADATA_REQUEST
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_NEW_PROTECTED_METADATA_REQUEST
+#endif
+                            if (!script->ProtectedMetadataRequest)
+                                metadataPreparationError = ERROR_NOT_ENOUGH_MEMORY;
+                            else if (!ProtectedListing || !ProtectedListing->IsOpen() ||
+                                     !ProtectedListing->Contains(metadataPreview.path))
+                                metadataPreparationError = ERROR_INVALID_HANDLE;
+                            else
+                                metadataPreparationError = ProtectedListing->PrepareMetadata(metadataPreview.path, change,
+                                    {dlgData.BasicMetadataSet, dlgData.BasicMetadataClear}, *script->ProtectedMetadataRequest);
+                        }
+                    }
+
                     script->ClearReadonlyMask = 0xFFFFFFFF;
-                    BOOL res = (!branchAttributes || branchSelection.IsCurrent(this)) &&
+                    BOOL res = metadataPreparationError == ERROR_SUCCESS &&
+                               (!branchAttributes || branchSelection.IsCurrent(this)) &&
                                BuildScriptMain(script, atChangeAttrs, NULL, NULL, count,
                                                indexes, f, &attrsData, NULL, FALSE, NULL);
                     if (script->Count == 0 || (branchAttributes && !branchSelection.IsCurrent(this)))
                         res = FALSE;
+                    if (protectedMetadata && res &&
+                        (script->Count != 1 || script->At(0).Opcode != ocChangeAttrs ||
+                         !script->At(0).SourceNameWValid || script->At(0).Attr != metadataPreview.attributes ||
+                         SalPathRemoveExtendedPrefixW(script->At(0).SourceNameW.c_str()) != metadataPreview.path))
+                    {
+                        metadataPreparationError = ERROR_INVALID_DATA;
+                        res = FALSE;
+                    }
                     // reordered to allow the main window to activate (must not be disabled), otherwise it switches to another app
                     EnableWindow(MainWindow->HWindow, TRUE);
                     DestroySafeWaitWindow();
@@ -1701,6 +1824,10 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                         SetFocus(hFocusedWnd);
 
                     SetCursor(oldCur);
+
+                    if (metadataPreparationError != ERROR_SUCCESS)
+                        SalMessageBox(HWindow, GetErrorText(metadataPreparationError), LoadStr(IDS_ERRORCHANGINGATTRS),
+                                      MB_OK | MB_ICONEXCLAMATION);
 
                     // prepare refresh of manually refreshed directories
                     // change in the directory displayed in the panel and also in subdirectories if work was done there as well

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Own one verified protected metadata request in the worker script. | Keep the listing connection on its UI thread. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Track skipped directories in per-folder size batches. | Prevent a partial size from being shown as complete. | #731 | Codex |
 // | 2026-11-10 | Keep UAC metadata separate from locked-file recovery | Integrate UAC with current upstream behavior. | #731 | Codex |
 // | 2026-11-09 | Declare the progress caption callback. | Dispatch broker activity to the native dialog thread. | | GPT-6.1 Sol (Codex) |
@@ -94,7 +95,9 @@ struct CConvertData // data used by ocConvert
 };
 
 class COperations;
-namespace UacF7 { class PreparedTransfer; }
+namespace UacF7 { class PreparedTransfer; class PreparedLeaf; struct MetadataChange; }
+bool BuildBasicMetadataChange(DWORD expected, DWORD desired, const CChangeAttrsData& input,
+                              UacF7::MetadataChange& change);
 struct CProgressDlgArrItem;
 
 struct CStartProgressDialogData
@@ -427,6 +430,8 @@ public:
     BOOL AllowTransferPilot;
     BOOL IgnoreTransferAds;
     std::unique_ptr<UacF7::PreparedTransfer> ProtectedTreeTransfer;
+    // The UI owns the listing connection; only this verified single-item request crosses to the worker.
+    std::unique_ptr<UacF7::PreparedLeaf> ProtectedMetadataRequest;
 
     int FilesCount;
     int DirsCount;

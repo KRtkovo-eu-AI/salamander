@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Execute protected panel metadata through the existing verified worker flow. | Preserve exact choices, confirmation, cancellation and error handling. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Keep EFS diagnostics and upstream lock recovery in the copy worker | Integrate UAC with current upstream behavior. | #731 | Codex |
 // | 2026-11-09 | Signal Scan Ahead on terminal worker failure. | Stop the scanner when a protected transfer is cancelled. | | Codex |
 // | 2026-11-09 | Reopen the native overwrite dialog for a broker collision. | Require a fresh decision for a file that appeared during elevated F5. | | GPT-6.1 Sol (Codex) |
@@ -9550,19 +9551,18 @@ static bool TryDeleteVerifiedLeaf(HWND progress, const COperation& op, const COp
     return true;
 }
 
-static bool TryChangeBasicMetadata(HWND progress, COperation& op, const CChangeAttrsData& input,
-                                   CProgressDlgData& dlgData, BOOL& success)
+bool BuildBasicMetadataChange(DWORD expected, DWORD desired, const CChangeAttrsData& input,
+                              UacF7::MetadataChange& change)
 {
-    const DWORD desired = static_cast<DWORD>(reinterpret_cast<DWORD_PTR>(op.TargetName));
     constexpr DWORD allowed = UacF7::basicAttributes | FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_DIRECTORY;
-    if (!input.AllowBasicMetadataPilot || !op.SourceNameWValid ||
-        ((op.Attr | desired) & ~allowed) != 0 || ((op.Attr ^ desired) & FILE_ATTRIBUTE_DIRECTORY) != 0)
+    if (!input.AllowBasicMetadataPilot || ((expected | desired) & ~allowed) != 0 ||
+        ((expected ^ desired) & FILE_ATTRIBUTE_DIRECTORY) != 0)
         return false;
 
-    UacF7::MetadataChange change{};
-    change.expectedAttributes = op.Attr;
+    change = {};
+    change.expectedAttributes = expected;
     const DWORD desiredBasic = desired & UacF7::basicAttributes;
-    if (desiredBasic != (op.Attr & UacF7::basicAttributes))
+    if (desiredBasic != (expected & UacF7::basicAttributes))
         change.attributes = desiredBasic ? desiredBasic : FILE_ATTRIBUTE_NORMAL;
     if (input.ChangeTimeCreated)
         change.created = MetadataFileTime(input.TimeCreated);
@@ -9573,6 +9573,27 @@ static bool TryChangeBasicMetadata(HWND progress, COperation& op, const CChangeA
     if ((input.ChangeTimeCreated && !change.created) || (input.ChangeTimeAccessed && !change.accessed) ||
         (input.ChangeTimeModified && !change.modified))
         return false;
+    return true;
+}
+
+static bool TryChangeBasicMetadata(HWND progress, COperation& op, const CChangeAttrsData& input,
+                                   CProgressDlgData& dlgData, BOOL& success, UacF7::PreparedLeaf* protectedRequest)
+{
+    UacF7::MetadataChange change{};
+    const DWORD desired = static_cast<DWORD>(reinterpret_cast<DWORD_PTR>(op.TargetName));
+    if (!op.SourceNameWValid || !BuildBasicMetadataChange(op.Attr, desired, input, change))
+    {
+        // A prepared protected request must never fall through to the legacy path-based mutation.
+        success = FALSE;
+        return protectedRequest != nullptr;
+    }
+
+    if (protectedRequest != nullptr)
+    {
+        success = ExecuteVerifiedWorkerLeaf(progress, op, *protectedRequest, dlgData,
+                                             WORKER_DIALOG_UAC_METADATA, IDS_ERRORCHANGINGATTRS);
+        return true;
+    }
 
     UacF7::PreparedLeaf request;
     if (!request.PrepareMetadata(op.SourceNameW, change, {input.BasicMetadataSet, input.BasicMetadataClear}))
@@ -11666,7 +11687,8 @@ unsigned ThreadWorkerBody(void* parameter)
                 SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
 
                 BOOL metadataSuccess = FALSE;
-                if (TryChangeBasicMetadata(hProgressDlg, *op, *attrsData, dlgData, metadataSuccess))
+                if (TryChangeBasicMetadata(hProgressDlg, *op, *attrsData, dlgData, metadataSuccess,
+                                            script->ProtectedMetadataRequest.get()))
                 {
                     Error = !metadataSuccess;
                     if (metadataSuccess)

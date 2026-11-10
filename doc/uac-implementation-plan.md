@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Record protected panel metadata and the Ctrl+F2 shield. | Verify a single nonrecursive change and the elevation boundary. | #731 | Codex |
 | 2026-11-10 | Record native OK shields for F7 and F2. | Verify the indicator against real permissions and review other dialogs. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Verify protected-panel F7 and F2 preparation. | Offer separate elevation when local path checks cannot identify the objects. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Record UAC foreground return and scoped panel evidence. | Separate the observed window fix from open panel authorization work. | #731 | GPT-6 (Codex) |
@@ -1551,7 +1552,17 @@ Ve VM x64 Release v tmavém režimu ukázaly oba první dialogy štít v čiteln
 
 Prošlo 11 přímých kontrol oprávnění a vyhodnocení cíle nad skutečnými testovacími složkami, 96 kontrol F7 a 57 kontrol přejmenování v Debug i Release, 20 kontraktů operací, 30 kontraktů přechodu panelu a kontrakt Findu. Nasazený host SHA-256 je `58E87D634A1C6A2F6607B305CFFDE2B46CEABB54BD94DB7879E4ABDA13FE584F`. Host narostl o 3 072 bajtů na 5 656 576, broker je bitově shodný a má 1 345 536 bajtů. Soukromá paměť se neměřila.
 
-**Další kandidáti, pouze analýza.** U nerekurzivní změny atributů a časů lze po výběru konkrétní změny ověřit `FILE_WRITE_ATTRIBUTES`. U Shift+F7 lze pro zadaný místní adresář ověřit `FILE_LIST_DIRECTORY`; nejprve je třeba zajistit, aby dialog neukončil navigaci chybou už při kontrole jednotlivých komponent. U jednotlivého trvalého smazání patří štít na Ano v potvrzení. Koš má vlastní postup Shellu a podmínku stejného účtu. U F5/F6 musí kontrola zohlednit přesné cesty, vybrané volby, konflikty a podporované položky. Find odhaluje chráněné podsložky až při práci. F3, F4 a výpočet velikosti mají štít u skutečné nabídky správce.
+**Kde štít zobrazovat podle upřesnění uživatele.** Shift+F7 ponechá běžné OK. Nabídka správce patří až k odepřenému vstupu do složky. U Shift+Delete má smysl předem ověřit pouze přímo vybranou položku a případný štít dát na potvrzovací Ano. Chránění vnořených položek se zjišťuje až během mazání. U F5/F6 je důvodem pro předběžný štít odepřený zápis do zvoleného cílového adresáře. Potíže se zdrojem a konflikty se řeší během operace. Tyto tři změny zůstávají v plánu. Find odhaluje chráněné podsložky při práci. F3, F4 a výpočet velikosti už ukazují štít u nabídky správce.
+
+### P7 — nerekurzivní atributy a časy z chráněného panelu
+
+Ctrl+F2 podporuje jednu běžnou místní položku včetně adresáře. Dialog použije údaje z ověřeného výpisu, pokud je běžné čtení nedostupné. OK zobrazí systémový štít pro vybranou podporovanou změnu při odepřeném `FILE_WRITE_ATTRIBUTES`. Náhled nevyvolává UAC. Po potvrzení ověří relace výpisu typ, identitu a atributy položky. Worker nejprve zkusí změnu běžnými právy a při odepření nabídne Administrator. Po schválení samostatný zapisující broker ověří identitu rodiče, identitu položky a očekávané atributy znovu a použije přesně vybrané atributy a časy. Relace výpisu má pouze čtecí roli. Protokol hosta a brokeru má verzi 14. Rozšíření pokrývá běžné atributy a čas vytvoření, posledního přístupu nebo změny. Rekurze, vícenásobný výběr, reparse body, komprese a EFS jsou mimo toto rozšíření.
+
+V izolované VM x64 Release se po schválení výpisu otevřela vnořená složka bez další výzvy. Ctrl+F2 načetl původní data `01-metadata.txt`. OK bylo před volbou změny bez štítu a po zapnutí Read-only se štít objevil. Jeden pokus skončil systémovým zrušením 1223 a soubor si ponechal atribut A a čas 06.05.2020 12:12:13. Schválený pokus přidal R a ponechal původní čas. U `02-directory` měl štít i samotný výběr Modified. Po zapnutí Include subdirectories zmizel a po vypnutí se vrátil. Schválený zápis změnil čas složky na 10.11.2026 10:09:48, jak ukazovalo Set Current. Potomek `untouched.txt` měl dál 29 bajtů, atribut A a původní čas 06.05.2020 12:12:13. Běžný zapisovatelný soubor v pravém panelu zůstal bez štítu i po vybrání změny.
+
+Lokálně v x64 Debug i Release prošlo po 202 kontrolách brokeru, 313 kontrolách souborových a adresářových operací, 43 kontrolách kontroleru atributů, 73 kontrolách workeru atributů a 160 kontrolách NTFS workeru. Dále prošlo 22 kontrol výběru atributů v Release, 20 kontraktů operací, 30 kontraktů přechodů a kontrakt plánování Findu. Sestavený a nasazený pár x64 Release ověřil manifest a SHA-256. Host má 5 661 696 bajtů, o 5 120 více než předchozí pilot. Broker má 1 345 536 bajtů. Soukromá paměť se neměřila. Sestavení a místní výpisy jsou v `C:/Samandarin/builds/uac-panel-metadata`.
+
+**Pozorování při startu pilotu.** Debugger při předchozím spuštění zachytil čekání v Error Changing Directory při obnově uložené chráněné cesty ještě před zobrazením hlavního okna. Pro zkoušku byly v pilotním profilu použity čitelné výchozí cesty. Chování samotné obnovy uložené chráněné cesty zůstává samostatným případem.
 
 ## 12. Testovací strategie
 

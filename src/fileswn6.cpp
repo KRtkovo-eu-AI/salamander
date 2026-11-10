@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Build verified protected metadata from its checked attributes. | Avoid masking a denied attribute lookup as filesystem flags. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Keep measuring accessible folders after a protected subtree is skipped. | Preserve accurate per-folder sizes and explicit elevation scope. | #731 | Codex |
 // | 2026-11-09 | Mark selected files independently of recursive transfers. | Defer denied source access only for files selected in the panel. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow the larger F6 budget during source preparation. | Use the cross-volume limit before handing denied reads to the worker. | | GPT-6.1 Sol (Codex) |
@@ -3537,7 +3538,10 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             sourceW = SalMultiByteToWidePathUtf8OrAcp(op.SourceName);
         sourceW = SalPathAddExtendedPrefixW(sourceW.c_str());
         op.SetSourceNameW(sourceW.c_str());
-        op.TargetName = (char*)(DWORD_PTR)((GetFileAttributesW(sourceW.c_str()) & attrsData->AttrAnd) | attrsData->AttrOr);
+        // A protected singleton has already been checked against its listing identity by the UI.
+        // Do not turn a denied normal-token lookup (INVALID_FILE_ATTRIBUTES) into an attribute mask.
+        const DWORD currentAttributes = script->ProtectedMetadataRequest ? sourceFileAttr : GetFileAttributesW(sourceW.c_str());
+        op.TargetName = (char*)(DWORD_PTR)((currentAttributes & attrsData->AttrAnd) | attrsData->AttrOr);
         script->Add(op);
         if (!script->IsGood())
         {

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Prepare protected metadata through the panel listing. | Bind the one-shot or batch update to the visible attributes and verified identity. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Expose broker availability to permission previews. | Show a shield only in a compatible unelevated installation. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Prepare leaf operations from a protected listing. | Bind separate consent to the verified folder and file identities. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Expose a common UAC foreground return. | Restore the invoking window from its UI thread. | #731 | GPT-6 (Codex) |
@@ -556,6 +557,8 @@ public:
     DWORD PrepareViewer(const std::wstring& path, PreparedLeaf& viewer);
     DWORD PrepareMkdir(const std::wstring& path, PreparedLeaf& mkdir);
     DWORD PrepareRename(const std::wstring& path, const std::wstring& renameTo, PreparedLeaf& rename);
+    DWORD PrepareMetadata(const std::wstring& path, const MetadataChange& change, MetadataJobPolicy policy,
+                          PreparedLeaf& request);
     DWORD Start(HWND owner, HANDLE stop = nullptr);
     DWORD OpenContent(const std::wstring& path, ULONGLONG& size, FILETIME& modified, ArchiveRevision& revision);
     DWORD ReadContent(ULONGLONG offset, void* buffer, DWORD bytes);
@@ -567,7 +570,8 @@ public:
     bool IsOpen() const { return pipe != nullptr; }
 
 private:
-    DWORD PrepareLeaf(const std::wstring& path, Operation operation, const std::wstring& renameTo, PreparedLeaf& request);
+    DWORD PrepareLeaf(const std::wstring& path, Operation operation, const std::wstring& renameTo,
+                      PreparedLeaf& request, const MetadataChange* change = nullptr);
     DWORD Transfer(void* buffer, DWORD length, bool send, ULONGLONG deadline);
     DWORD SendPath(const std::wstring& path, DWORD flags, ULONGLONG deadline);
     void Close();

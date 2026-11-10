@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Test protected metadata identities and mutation guards. | Keep file and directory reads separate from authorization and reject stale attributes or objects. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Test typed panel preparation for mkdir and rename. | Keep identity reads scoped and verify later mutations reject collisions and stale objects. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Test the panel metadata request against the real listing dispatcher. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
 // | 2026-11-09 | Cancel one transfer while another is staged. | Verify that a second live broker session can publish and continue its own batch. | | Codex |
@@ -131,9 +132,18 @@ bool HasByte(const std::wstring& path, BYTE expected)
 
 bool ReadBasic(const std::wstring& path, FILE_BASIC_INFO& basic)
 {
-    const auto file = Adopt(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ, nullptr,
-                                       OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    const auto file = Adopt(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                       OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, nullptr));
     return file && GetFileInformationByHandleEx(file.get(), FileBasicInfo, &basic, sizeof(basic));
+}
+
+bool SameBasic(const FILE_BASIC_INFO& first, const FILE_BASIC_INFO& second)
+{
+    return first.CreationTime.QuadPart == second.CreationTime.QuadPart &&
+           first.LastAccessTime.QuadPart == second.LastAccessTime.QuadPart &&
+           first.LastWriteTime.QuadPart == second.LastWriteTime.QuadPart &&
+           first.ChangeTime.QuadPart == second.ChangeTime.QuadPart && first.FileAttributes == second.FileAttributes;
 }
 
 // Test only: enter the dispatcher after the elevation handshake boundary.
@@ -246,21 +256,22 @@ public:
     }
 
     bool ReadLeafIdentity(std::wstring_view path, DWORD& status, UacListing::LeafIdentity& identity,
-                          bool parentOnly = false)
+                          bool parentOnly = false, bool directory = false)
     {
         status = ERROR_GEN_FAILURE;
         const auto deadline = GetTickCount64() + timeoutMs;
-        const DWORD flags = UacListing::leafIdentityRequest | (parentOnly ? UacListing::parentIdentityRequest : 0);
+        const DWORD flags = UacListing::leafIdentityRequest | (parentOnly ? UacListing::parentIdentityRequest : 0) |
+                            (directory ? UacListing::directoryIdentityRequest : 0);
         return SendFindRequest(flags, path, deadline) &&
                !TransferRequest(server.get(), &status, sizeof(status), false, deadline) &&
                (status || !TransferRequest(server.get(), &identity, sizeof(identity), false, deadline));
     }
 
     bool QueryLeafIdentity(std::wstring_view path, DWORD expected, UacListing::LeafIdentity& identity,
-                           bool parentOnly = false)
+                           bool parentOnly = false, bool directory = false)
     {
         DWORD status = ERROR_GEN_FAILURE;
-        return ReadLeafIdentity(path, status, identity, parentOnly) && status == expected;
+        return ReadLeafIdentity(path, status, identity, parentOnly, directory) && status == expected;
     }
 
     bool OpenFindContent(std::wstring_view leaf)
@@ -388,7 +399,7 @@ void CheckPanelPreparationPaths(const Directory& source, const Directory& outsid
             std::memset(&identity, 0xA5, sizeof(identity));
             Check(IsAbsent(path) && job.QueryLeafIdentity(relative + leaf, ERROR_SUCCESS, identity, true) &&
                       !std::memcmp(&identity.parent, &directory->identity.file.FileId, sizeof(identity.parent)) &&
-                      !std::memcmp(&identity.file, &zeroId, sizeof(identity.file)) && IsAbsent(path),
+                      !std::memcmp(&identity.file, &zeroId, sizeof(identity.file)) && !identity.attributes && IsAbsent(path),
                   "mkdir preparation returns only the exact parent ID and creates no leaf");
             Check(job.QueryLeafIdentity(relative + leaf, ERROR_FILE_NOT_FOUND, identity),
                   "rename preparation requires an existing source and cannot create the missing leaf");
@@ -401,18 +412,48 @@ void CheckPanelPreparationPaths(const Directory& source, const Directory& outsid
                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
                 FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
             FILE_ID_INFO actual{};
+            FILE_BASIC_INFO before{}, after{};
             Check(file && !UacRenameLeaf::Detail::ReadSourceIdentity(file.get(), actual) &&
+                      ReadBasic(path, before) &&
                       job.QueryLeafIdentity(relative + leaf, ERROR_SUCCESS, identity) &&
                       !std::memcmp(&identity.parent, &directory->identity.file.FileId, sizeof(identity.parent)) &&
-                      !std::memcmp(&identity.file, &actual.FileId, sizeof(identity.file)) && HasByte(path, 41) &&
+                      !std::memcmp(&identity.file, &actual.FileId, sizeof(identity.file)) &&
+                      identity.attributes == before.FileAttributes && ReadBasic(path, after) && SameBasic(before, after) &&
+                      HasByte(path, 41) &&
                       IsAbsent(directory->File(std::wstring(leaf) + L"-renamed")),
-                  "rename preparation returns the existing plain-file identity without renaming or modifying it");
+                  "file preparation returns verified identity and attributes without changing data, names or metadata");
             std::memset(&identity, 0xA5, sizeof(identity));
             Check(job.QueryLeafIdentity(relative + leaf, ERROR_SUCCESS, identity, true) &&
                       !std::memcmp(&identity.parent, &directory->identity.file.FileId, sizeof(identity.parent)) &&
-                      !std::memcmp(&identity.file, &zeroId, sizeof(identity.file)) && HasByte(path, 41),
+                      !std::memcmp(&identity.file, &zeroId, sizeof(identity.file)) && !identity.attributes && HasByte(path, 41),
                   "parent-only preparation accepts an occupied name without granting its identity or replacing it");
+            DWORD status = ERROR_SUCCESS;
+            Check(job.ReadLeafIdentity(relative + leaf, status, identity, false, true) && status != ERROR_SUCCESS &&
+                      HasByte(path, 41), "directory preparation rejects a regular file without changing it");
         }
+        constexpr wchar_t childName[] = L"metadata-directory-\u4eac-\U0001f642";
+        Directory child;
+        if (!child.Open(directory->File(childName).c_str()) || !WriteByte(child.File(L"untouched"), 43))
+        {
+            Check(false, "prepare a directory identity fixture with an untouched child");
+            continue;
+        }
+        UacListing::LeafIdentity identity{};
+        FILE_BASIC_INFO before{}, after{};
+        Check(ReadBasic(child.path, before) &&
+                  job.QueryLeafIdentity(relative + childName, ERROR_SUCCESS, identity, false, true) &&
+                  !std::memcmp(&identity.parent, &directory->identity.file.FileId, sizeof(identity.parent)) &&
+                  !std::memcmp(&identity.file, &child.identity.file.FileId, sizeof(identity.file)) &&
+                  identity.attributes == before.FileAttributes && (identity.attributes & FILE_ATTRIBUTE_DIRECTORY) &&
+                  ReadBasic(child.path, after) && SameBasic(before, after) && HasByte(child.File(L"untouched"), 43),
+              "directory preparation returns verified IDs and attributes without changing its metadata or child");
+        DWORD status = ERROR_SUCCESS;
+        Check(job.ReadLeafIdentity(relative + childName, status, identity) && status != ERROR_SUCCESS,
+              "file preparation cannot reinterpret an ordinary directory as a regular file");
+        const auto childPath = child.path;
+        Check(DeleteFileW(child.File(L"untouched").c_str()) != FALSE, "retire the owned directory preparation child");
+        child.handle.reset();
+        Check(RemoveDirectoryW(childPath.c_str()) != FALSE, "retire the owned directory preparation fixture");
     }
 
     constexpr wchar_t outsideLeaf[] = L"panel-preparation-sentinel";
@@ -434,6 +475,9 @@ void CheckPanelPreparationPaths(const Directory& source, const Directory& outsid
             Check(job.QueryLeafIdentity(relative, ERROR_INVALID_NAME, identity, parentOnly) &&
                       HasByte(outside.File(outsideLeaf), 47),
                   "typed preparation rejects traversal, absolute paths and ambiguous names inside one live session");
+        Check(job.QueryLeafIdentity(relative, ERROR_INVALID_NAME, identity, false, true) &&
+                  HasByte(outside.File(outsideLeaf), 47),
+              "directory preparation rejects traversal, absolute paths and ambiguous names inside one live session");
     }
     UacListing::LeafIdentity identity{};
     Check(job.QueryLeafIdentity(L"prepared-ascii", ERROR_SUCCESS, identity) &&
@@ -456,14 +500,19 @@ void CheckPanelPreparationFlags(const Directory& source)
 {
     const DWORD leaf = UacListing::leafIdentityRequest;
     const DWORD parent = UacListing::parentIdentityRequest;
+    const DWORD directory = UacListing::directoryIdentityRequest;
     const DWORD invalid[] = {
-        parent | 1, leaf, leaf | parent, leaf | 0x04000000 | 1,
+        parent | 1, leaf, leaf | parent, leaf | 0x02000000 | 1,
+        directory | 1, leaf | directory, leaf | parent | directory | 1,
         leaf | UacListing::contentRequest | 1,
         leaf | UacListing::inventoryRequest | 1,
         leaf | UacListing::sizeDetailsRequest | 1,
         leaf | parent | UacListing::contentRequest | 1,
         leaf | parent | UacListing::inventoryRequest | 1,
         leaf | parent | UacListing::sizeDetailsRequest | 1,
+        leaf | directory | UacListing::contentRequest | 1,
+        leaf | directory | UacListing::inventoryRequest | 1,
+        leaf | directory | UacListing::sizeDetailsRequest | 1,
     };
     for (const auto header : invalid)
     {
@@ -473,11 +522,11 @@ void CheckPanelPreparationFlags(const Directory& source)
     }
     for (const auto scope : {Operation::FindContent, Operation::FindFile})
     {
-        for (const auto flags : {leaf, leaf | parent})
+        for (const auto flags : {leaf, leaf | parent, leaf | directory})
         {
             JobPipe job;
             Check(job.Open(nullptr, source.handle.get(), scope) && job.RejectFindRequest(flags | 1),
-                  "Find grants cannot use either typed panel preparation request");
+                  "Find grants cannot use a typed panel preparation request");
         }
     }
     JobPipe job;
@@ -536,6 +585,100 @@ void CheckPanelPreparationMutationGuards(const Directory& source)
           "a later preparation observes the replacement identity rather than caching the old source");
 }
 
+void CheckPanelMetadataGuards(const Directory& source)
+{
+    for (const bool directory : {false, true})
+    {
+        const std::wstring leaf = directory ? L"metadata-guard-dir-\u6771" : L"metadata-guard-file-\u6771";
+        const std::wstring saved = leaf + L"-original";
+        const auto path = source.File(leaf);
+        const auto create = [&]() {
+            return directory ? CreateDirectoryW(path.c_str(), nullptr) != FALSE : WriteByte(path, 79);
+        };
+        JobPipe listing;
+        UacListing::LeafIdentity identity{};
+        if (!create() || !listing.Open(nullptr, source.handle.get(), Operation::List) ||
+            !listing.QueryLeafIdentity(leaf, ERROR_SUCCESS, identity, false, directory))
+        {
+            Check(false, "prepare a file or directory for metadata identity guard tests");
+            continue;
+        }
+        auto parent = source.identity;
+        parent.file.FileId = identity.parent;
+        FILE_ID_INFO expected{parent.file.VolumeSerialNumber, identity.file};
+        UacF7::MetadataChange change{132000000000000000LL, 0, 0, identity.attributes, FILE_ATTRIBUTE_ARCHIVE};
+        FILE_BASIC_INFO before{}, after{};
+        auto staleParent = parent;
+        staleParent.file.FileId.Identifier[0] ^= 1;
+        // These mutation helpers model the separately authorized write. The
+        // listing request itself must never apply any part of MetadataChange.
+        Check(ReadBasic(path, before) &&
+                  UacMetadataLeaf::SetVerifiedMetadata(source.handle.get(), staleParent, expected, leaf, change) ==
+                      ERROR_FILE_INVALID && ReadBasic(path, after) && SameBasic(before, after),
+              "metadata execution rejects a stale parent identity before changing a file or directory");
+        if (!SetFileAttributesW(path.c_str(), identity.attributes | FILE_ATTRIBUTE_HIDDEN))
+        {
+            Check(false, "change attributes after their verified preparation snapshot");
+            continue;
+        }
+        Check(ReadBasic(path, before) &&
+                  UacMetadataLeaf::SetVerifiedMetadata(source.handle.get(), parent, expected, leaf, change) ==
+                      ERROR_FILE_INVALID && ReadBasic(path, after) && SameBasic(before, after),
+              "metadata execution rejects changed expected attributes without partially writing timestamps");
+        if (!listing.QueryLeafIdentity(leaf, ERROR_SUCCESS, identity, false, directory) ||
+            !MoveFileExW(path.c_str(), source.File(saved).c_str(), 0) || !create() ||
+            !SetFileAttributesW(path.c_str(), identity.attributes))
+        {
+            Check(false, "replace a prepared metadata target while keeping its original object");
+            continue;
+        }
+        expected.FileId = identity.file;
+        change.expectedAttributes = identity.attributes;
+        FILE_BASIC_INFO savedBefore{}, savedAfter{};
+        Check(ReadBasic(path, before) && ReadBasic(source.File(saved), savedBefore) &&
+                  UacMetadataLeaf::SetVerifiedMetadata(source.handle.get(), parent, expected, leaf, change) ==
+                      ERROR_FILE_INVALID && ReadBasic(path, after) && ReadBasic(source.File(saved), savedAfter) &&
+                  SameBasic(before, after) && SameBasic(savedBefore, savedAfter),
+              "metadata execution rejects a substituted target with matching attributes and preserves both objects");
+        if (!listing.QueryLeafIdentity(leaf, ERROR_SUCCESS, identity, false, directory))
+        {
+            Check(false, "prepare the replacement metadata target explicitly");
+            continue;
+        }
+        Check(std::memcmp(&identity.file, &expected.FileId, sizeof(identity.file)) != 0 &&
+                  identity.attributes == before.FileAttributes,
+              "new metadata preparation returns the replacement identity and its current attributes");
+        expected.FileId = identity.file;
+        change.expectedAttributes = identity.attributes;
+        const DWORD desiredAttributes = FILE_ATTRIBUTE_ARCHIVE | (directory ? FILE_ATTRIBUTE_DIRECTORY : 0);
+        Check(!UacMetadataLeaf::SetVerifiedMetadata(source.handle.get(), parent, expected, leaf, change) &&
+                  ReadBasic(path, after) && after.CreationTime.QuadPart == change.created &&
+                  after.FileAttributes == desiredAttributes &&
+                  ReadBasic(source.File(saved), savedAfter) && SameBasic(savedBefore, savedAfter) &&
+                  (directory || (HasByte(path, 79) && HasByte(source.File(saved), 79))),
+              "a separately authorized metadata write applies to the newly prepared object and leaves the original intact");
+    }
+
+    constexpr wchar_t leaf[] = L"metadata-list-authority";
+    JobPipe listing;
+    UacListing::LeafIdentity identity{};
+    if (!WriteByte(source.File(leaf), 83) || !listing.Open(nullptr, source.handle.get(), Operation::List) ||
+        !listing.QueryLeafIdentity(leaf, ERROR_SUCCESS, identity))
+    {
+        Check(false, "prepare a live List connection for the mutation authorization boundary");
+        return;
+    }
+    UacF7::MetadataChange change{132000000000000000LL, 0, 0, identity.attributes, FILE_ATTRIBUTE_HIDDEN};
+    UacF7::MetadataJobPolicy policy{FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_ARCHIVE};
+    DWORD error = ERROR_SUCCESS;
+    FILE_BASIC_INFO before{}, after{};
+    Check(ReadBasic(source.File(leaf), before) &&
+              !listing.Request(Operation::Metadata, source, leaf, error, nullptr, &change, &policy) &&
+              listing.Finish() != ERROR_SUCCESS && ReadBasic(source.File(leaf), after) && SameBasic(before, after) &&
+              HasByte(source.File(leaf), 83),
+          "a successful List identity query never authorizes a mutation frame on that read-only connection");
+}
+
 void CheckPanelPreparationReparse(const Directory& source, const Directory& outside)
 {
     constexpr wchar_t fileLink[] = L"prepared-file-link-\u6771";
@@ -574,8 +717,23 @@ void CheckPanelPreparationReparse(const Directory& source, const Directory& outs
         const FILE_ID_128 zeroId{};
         Check(job.QueryLeafIdentity(fileLink, ERROR_SUCCESS, identity, true) &&
                   !std::memcmp(&identity.parent, &source.identity.file.FileId, sizeof(identity.parent)) &&
-                  !std::memcmp(&identity.file, &zeroId, sizeof(identity.file)) && HasByte(outside.File(referent), 71),
+                  !std::memcmp(&identity.file, &zeroId, sizeof(identity.file)) && !identity.attributes &&
+                  HasByte(outside.File(referent), 71),
               "parent-only preparation returns the local parent without opening an occupied symbolic-link leaf");
+        FILE_BASIC_INFO before{}, after{};
+        Check(ReadBasic(outside.path, before) &&
+                  job.ReadLeafIdentity(directoryLink, status, identity, false, true) && status != ERROR_SUCCESS &&
+                  ReadBasic(outside.path, after) && SameBasic(before, after),
+              "directory metadata preparation rejects a directory link without changing the outside referent");
+        Check(job.ReadLeafIdentity(fileLink, status, identity, false, true) && status != ERROR_SUCCESS &&
+                  HasByte(outside.File(referent), 71),
+              "directory metadata preparation also rejects a file symbolic link");
+        constexpr wchar_t child[] = L"metadata-reparse-child";
+        const auto outsideChild = outside.File(child);
+        Check(CreateDirectoryW(outsideChild.c_str(), nullptr) &&
+                  job.ReadLeafIdentity(std::wstring(directoryLink) + L"\\" + child, status, identity, false, true) &&
+                  status != ERROR_SUCCESS && RemoveDirectoryW(outsideChild.c_str()),
+              "directory metadata preparation cannot traverse an intermediate link to an existing outside directory");
         for (const bool parentOnly : {false, true})
             Check(job.ReadLeafIdentity(std::wstring(directoryLink) + L"\\" + referent,
                                        status, identity, parentOnly) && status != ERROR_SUCCESS &&
@@ -1336,6 +1494,7 @@ int wmain()
     CheckPanelPreparationPaths(source, outside);
     CheckPanelPreparationFlags(source);
     CheckPanelPreparationMutationGuards(source);
+    CheckPanelMetadataGuards(source);
     CheckPanelPreparationReparse(source, outside);
     CheckFindContentDisconnect(source, outside);
     CheckStoppedFindReply();

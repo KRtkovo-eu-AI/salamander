@@ -1,0 +1,141 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Verify metadata ownership, preview and worker outcomes. | Prevent false shields and legacy fallthrough for protected identities. | #731 | GPT-6.1 Sol (Codex) |
+#include <windows.h>
+#include <string>
+#include <cstdio>
+#include "@@HEADER@@"
+
+static int Checks = 0, Failures = 0;
+static void Check(bool value, const char* name)
+{
+    ++Checks;
+    if (!value) { ++Failures; printf("FAIL: %s\n", name); }
+}
+static DWORD ProbeResult = ERROR_ACCESS_DENIED;
+static int ProbeCalls = 0, OfferCalls = 0, PrepareCalls = 0, Executions = 0;
+static bool Offer = true, PrepareAllowed = true, ProbeDirectory = false;
+static BOOL Execute = TRUE;
+static std::wstring LastPath;
+static UacF7::MetadataChange LastChange{};
+static const UacF7::PreparedLeaf* ExecutedRequest = nullptr;
+namespace UacF7
+{
+PreparedLeaf::~PreparedLeaf() {}
+bool CanOfferElevation() { ++OfferCalls; return Offer; }
+bool PreparedLeaf::PrepareMetadata(const std::wstring& path, const MetadataChange& change, MetadataJobPolicy policy)
+{
+    ++PrepareCalls; LastPath = path; LastChange = change;
+    return PrepareAllowed && policy.Allows(change);
+}
+}
+static DWORD ProbeLocalElevationAccess(const std::wstring& path, DWORD access, bool directory)
+{
+    ++ProbeCalls; LastPath = path; ProbeDirectory = directory;
+    Check(access == FILE_WRITE_ATTRIBUTES, "preview requests exactly metadata write access");
+    return ProbeResult;
+}
+@@DATA@@
+struct COperation
+{
+    DWORD Attr = FILE_ATTRIBUTE_ARCHIVE;
+    char* TargetName = reinterpret_cast<char*>(DWORD_PTR(FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_HIDDEN));
+    std::wstring SourceNameW = L"C:\\ordinary\\file.txt";
+    BOOL SourceNameWValid = TRUE;
+};
+struct CProgressDlgData {};
+constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 7;
+constexpr int IDS_ERRORCHANGINGATTRS = 8;
+static BOOL ExecuteVerifiedWorkerLeaf(HWND, const COperation&, const UacF7::PreparedLeaf& request,
+                                      CProgressDlgData&, WPARAM prompt, int title)
+{
+    ++Executions; ExecutedRequest = &request;
+    Check(prompt == WORKER_DIALOG_UAC_METADATA && title == IDS_ERRORCHANGINGATTRS, "existing metadata error flow retained");
+    return Execute;
+}
+@@TIME@@
+@@CHANGE@@
+@@WORKER@@
+@@PREVIEW@@
+
+static void Reset()
+{
+    ProbeCalls = OfferCalls = PrepareCalls = Executions = 0;
+    ProbeResult = ERROR_ACCESS_DENIED; Offer = PrepareAllowed = true; Execute = TRUE;
+    LastPath.clear(); LastChange = {}; ExecutedRequest = nullptr;
+}
+int main()
+{
+    CChangeAttrsData input{}; input.AllowBasicMetadataPilot = TRUE;
+    input.BasicMetadataSet = FILE_ATTRIBUTE_HIDDEN;
+    UacF7::MetadataChange change{};
+    Check(BuildBasicMetadataChange(FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_HIDDEN, input, change) &&
+          change.expectedAttributes == FILE_ATTRIBUTE_ARCHIVE && change.attributes == (FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_HIDDEN), "exact basic attribute delta");
+    Check(BuildBasicMetadataChange(FILE_ATTRIBUTE_READONLY, 0, input, change) && change.attributes == FILE_ATTRIBUTE_NORMAL, "clearing last basic bit writes NORMAL");
+    Check(BuildBasicMetadataChange(FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_DIRECTORY, input, change) && !change.attributes, "unchanged directory attributes omitted");
+    Check(!BuildBasicMetadataChange(FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_NORMAL, input, change), "cannot change object type");
+    for (DWORD flag : {FILE_ATTRIBUTE_REPARSE_POINT, FILE_ATTRIBUTE_COMPRESSED, FILE_ATTRIBUTE_ENCRYPTED, FILE_ATTRIBUTE_SPARSE_FILE})
+        Check(!BuildBasicMetadataChange(flag, flag | FILE_ATTRIBUTE_HIDDEN, input, change), "unsupported source flags refused");
+    input.ChangeTimeCreated = TRUE; input.TimeCreated = FILETIME{123, 456};
+    input.ChangeTimeAccessed = TRUE; input.TimeAccessed = FILETIME{789, 101};
+    input.TimeModified = FILETIME{111, 222};
+    Check(BuildBasicMetadataChange(FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_ARCHIVE, input, change) &&
+          change.created == MetadataFileTime(input.TimeCreated) && change.accessed == MetadataFileTime(input.TimeAccessed) && !change.modified,
+          "only selected exact UTC times included");
+    input.ChangeTimeModified = TRUE;
+    Check(BuildBasicMetadataChange(FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_ARCHIVE, input, change) && change.modified == MetadataFileTime(input.TimeModified), "modified time selected independently");
+    input.TimeCreated = {};
+    Check(!BuildBasicMetadataChange(FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_ARCHIVE, input, change), "invalid selected timestamp refused");
+    input = {}; input.AllowBasicMetadataPilot = TRUE; input.BasicMetadataSet = FILE_ATTRIBUTE_HIDDEN;
+    COperation operation; CProgressDlgData dialog; BOOL success = FALSE; UacF7::PreparedLeaf protectedRequest;
+    Reset();
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && success &&
+          !PrepareCalls && ExecutedRequest == &protectedRequest, "owned protected request goes through existing verified executor");
+    operation.SourceNameWValid = FALSE; Reset(); success = TRUE;
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && !success && !Executions, "invalid protected path cannot fall into legacy mutation");
+    operation.SourceNameWValid = TRUE; operation.Attr = FILE_ATTRIBUTE_COMPRESSED; Reset(); success = TRUE;
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && !success && !Executions, "invalid protected metadata cannot fall into legacy mutation");
+    operation.Attr = FILE_ATTRIBUTE_ARCHIVE; Reset(); Execute = FALSE;
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && !success, "cancel or failure is propagated without replay");
+    Reset(); PrepareAllowed = false;
+    Check(!TryChangeBasicMetadata(nullptr, operation, input, dialog, success, nullptr) && PrepareCalls == 1 && !Executions, "ordinary unsupported preparation retains legacy fallback");
+    Reset();
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, nullptr) && success && PrepareCalls == 1, "ordinary metadata keeps local preparation");
+
+    MetadataElevationPreview preview; preview.path = L"C:\\ordinary\\file.txt";
+    preview.attributes = FILE_ATTRIBUTE_ARCHIVE; preview.protectedScope = true;
+    const auto shield = [&](DWORD set, DWORD clear = 0, UacF7::MetadataChange times = {}) {
+        return MetadataElevationPreview::Check(set, clear, times, &preview);
+    };
+    Reset();
+    Check(!shield(FILE_ATTRIBUTE_ARCHIVE) && !ProbeCalls && !OfferCalls && !PrepareCalls, "no-op has no shield and no access/trust work");
+    Reset(); ProbeResult = ERROR_SUCCESS;
+    Check(!shield(FILE_ATTRIBUTE_HIDDEN) && !OfferCalls && !PrepareCalls, "protected read scope does not imply denied writes");
+    for (DWORD error : {ERROR_SHARING_VIOLATION, ERROR_NOT_SUPPORTED, ERROR_FILE_NOT_FOUND})
+    {
+        Reset(); ProbeResult = error;
+        Check(!shield(FILE_ATTRIBUTE_HIDDEN) && !OfferCalls && !PrepareCalls, "only access denied can add shield");
+    }
+    Reset();
+    Check(shield(FILE_ATTRIBUTE_HIDDEN) && !PrepareCalls, "protected preview performs no broker preparation or query");
+    Reset(); Offer = false;
+    Check(!shield(FILE_ATTRIBUTE_HIDDEN), "unavailable trusted elevation has no shield");
+    preview.protectedScope = false; Reset(); PrepareAllowed = false;
+    Check(!shield(FILE_ATTRIBUTE_HIDDEN) && PrepareCalls == 1, "ordinary path must be preparable by existing worker");
+    Reset();
+    Check(shield(FILE_ATTRIBUTE_HIDDEN) && PrepareCalls == 1, "ordinary eligible denied write has shield");
+    Reset();
+    Check(!shield(FILE_ATTRIBUTE_COMPRESSED) && !ProbeCalls, "compression excluded from basic metadata preview");
+    Reset();
+    Check(shield(FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_COMPRESSED), "clearing already absent compression keeps basic operation eligible");
+    preview.protectedScope = true; preview.attributes = FILE_ATTRIBUTE_DIRECTORY;
+    preview.path = L"C:\\東京\\" + std::wstring(280, L'語');
+    Reset();
+    UacF7::MetadataChange times{}; times.modified = 123456;
+    Check(shield(0, 0, times) && ProbeDirectory && LastPath == preview.path, "directory time preview preserves exact long Unicode path");
+    preview.attributes |= FILE_ATTRIBUTE_REPARSE_POINT; Reset();
+    Check(!shield(FILE_ATTRIBUTE_HIDDEN) && !ProbeCalls, "reparse directory excluded before probing");
+    printf("Actual protected metadata controller: %d checks, %d failures\n", Checks, Failures);
+    return Failures ? 1 : 0;
+}

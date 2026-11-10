@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Allow an opt-in UAC shield on Change Attributes. | Preview the requested basic metadata changes on OK. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Allow an opt-in UAC shield on file name dialog OK. | Keep all other uses of the shared dialog unchanged. | #731 | GPT-6 (Codex) |
 // | 2026-11-09 | Own the progress caption shield. | Keep the icon and its previous value local to one dialog. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Keep transfer authorizations with the progress dialog. | Close every scope when its job ends. | | GPT-6.1 Sol (Codex) |
@@ -246,6 +247,11 @@ private:
     BOOL CompressedDirty;
     BOOL EncryptedDirty;
 
+    bool (*ElevationShieldProbe)(DWORD, DWORD, const UacF7::MetadataChange&, void*) = nullptr;
+    void* ElevationShieldContext = nullptr;
+
+    void UpdateElevationShield();
+
 public:
     int Archive,
         ReadOnly,
@@ -269,6 +275,13 @@ public:
                       const SYSTEMTIME* timeCreated,
                       const SYSTEMTIME* timeAccessed);
 
+    // Indeterminate attributes are absent from both masks. The change carries only selected timestamps.
+    void SetElevationShieldProbe(bool (*probe)(DWORD set, DWORD clear, const UacF7::MetadataChange& times, void*),
+                                 void* context)
+    {
+        ElevationShieldProbe = probe;
+        ElevationShieldContext = context;
+    }
     virtual void Transfer(CTransferInfo& ti);
 
     void EnableWindows();

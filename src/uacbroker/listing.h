@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Report attributes with the verified leaf identity. | Prepare basic metadata for ordinary files and directories. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Share the listing identity query with leaf operations. | Identify a verified parent for a single directory creation. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Add a metadata-only listing request for F3. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
 | 2026-11-10 | Capture a child directory ID from its parent listing. | Identify directories that deny even metadata opens. | #731 | Codex |
@@ -31,13 +32,15 @@ constexpr DWORD sizeDetailsRequest = 0x40000000;
 constexpr DWORD contentRequest = 0x20000000;
 constexpr DWORD leafIdentityRequest = 0x10000000;
 constexpr DWORD parentIdentityRequest = 0x08000000;
+constexpr DWORD directoryIdentityRequest = 0x04000000;
 
 struct LeafIdentity
 {
     FILE_ID_128 parent;
     FILE_ID_128 file;
+    DWORD attributes;
 };
-static_assert(sizeof(LeafIdentity) == 32);
+static_assert(sizeof(LeafIdentity) == 36);
 constexpr ULONGLONG contentBudget = 64ULL * 1024 * 1024 * 1024;
 
 inline bool ValidRequestScope(UacF7::Operation scope, DWORD pathLength, bool inventory, bool content)

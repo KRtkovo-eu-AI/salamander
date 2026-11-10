@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Update the Change Attributes OK shield from the selected options. | Leave elevation and write handling in the existing worker. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Handle UAC foreground return on the owner thread. | Avoid activating a dialog directly from the broker worker. | #731 | GPT-6 (Codex) |
 // | 2026-11-09 | Suppress queued conflict prompts during cancellation. | Keep Scan Ahead from reopening a prompt during job shutdown. | | Codex |
 // | 2026-11-09 | Show the Windows shield while an elevated job runs. | Restore the previous small caption icon when the broker returns. | | GPT-6.1 Sol (Codex) |
@@ -125,31 +126,87 @@ CChangeAttrDialog::CChangeAttrDialog(HWND parent, DWORD attr, DWORD attrDiff,
     HAccessedTime = NULL;
 }
 
+static bool ReadAttributeDialogTime(const SYSTEMTIME& date, HWND clock, SYSTEMTIME& value, FILETIME& local)
+{
+    if (DateTime_GetSystemtime(clock, &value) != GDT_VALID)
+        return false;
+    value.wYear = date.wYear;
+    value.wMonth = date.wMonth;
+    value.wDayOfWeek = date.wDayOfWeek;
+    value.wDay = date.wDay;
+    value.wMilliseconds = 0;
+    return SystemTimeToFileTime(&value, &local) != FALSE;
+}
+
 BOOL CChangeAttrDialog::GetAndValidateTime(CTransferInfo* ti, int resIDDate, int resIDTime, SYSTEMTIME* time)
 {
-    HWND hDate = GetDlgItem(HWindow, resIDDate);
-    HWND hTime = GetDlgItem(HWindow, resIDTime);
-
-    SYSTEMTIME st;
-    SYSTEMTIME st2;
-    DateTime_GetSystemtime(hDate, &st);
-    DateTime_GetSystemtime(hTime, &st2);
-    st2.wYear = st.wYear;
-    st2.wMonth = st.wMonth;
-    st2.wDayOfWeek = st.wDayOfWeek;
-    st2.wDay = st.wDay;
-    st2.wMilliseconds = 0;
-
-    FILETIME dummyFT;
-    if (!SystemTimeToFileTime(&st2, &dummyFT))
+    SYSTEMTIME date{}, value{};
+    FILETIME local{};
+    if (DateTime_GetSystemtime(GetDlgItem(HWindow, resIDDate), &date) != GDT_VALID ||
+        !ReadAttributeDialogTime(date, GetDlgItem(HWindow, resIDTime), value, local))
     {
         SalMessageBox(HWindow, LoadStr(IDS_INVALIDDATE), LoadStr(IDS_ERRORTITLE),
                       MB_OK | MB_ICONEXCLAMATION);
         ti->ErrorOn(resIDDate);
         return FALSE;
     }
-    *time = st2;
+    *time = value;
     return TRUE;
+}
+
+void CChangeAttrDialog::UpdateElevationShield()
+{
+    if (!ElevationShieldProbe)
+        return;
+    bool required = false;
+    if (IsDlgButtonChecked(HWindow, IDC_RECURSESUBDIRS) != BST_CHECKED)
+    {
+        const auto readTime = [](HWND dateControl, HWND clock, LONGLONG& time) {
+            SYSTEMTIME date{}, value{};
+            const DWORD selected = DateTime_GetSystemtime(dateControl, &date);
+            if (selected == GDT_NONE)
+                return true;
+            FILETIME local{}, utc{};
+            if (selected != GDT_VALID || !ReadAttributeDialogTime(date, clock, value, local) ||
+                !LocalFileTimeToFileTime(&local, &utc))
+                return false;
+            ULARGE_INTEGER ticks{};
+            ticks.LowPart = utc.dwLowDateTime;
+            ticks.HighPart = utc.dwHighDateTime;
+            time = static_cast<LONGLONG>(ticks.QuadPart);
+            return time > 0;
+        };
+
+        UacF7::MetadataChange times{};
+        if (readTime(HCreatedDate, HCreatedTime, times.created) &&
+            readTime(HAccessedDate, HAccessedTime, times.accessed) &&
+            readTime(HModifiedDate, HModifiedTime, times.modified))
+        {
+            constexpr struct
+            {
+                int control;
+                DWORD attribute;
+            } attributes[] = {
+                {IDC_ARCHIVE, FILE_ATTRIBUTE_ARCHIVE},
+                {IDC_READONLY, FILE_ATTRIBUTE_READONLY},
+                {IDC_HIDDEN, FILE_ATTRIBUTE_HIDDEN},
+                {IDC_SYSTEM, FILE_ATTRIBUTE_SYSTEM},
+                {IDC_COMPRESSED, FILE_ATTRIBUTE_COMPRESSED},
+                {IDC_ENCRYPTED, FILE_ATTRIBUTE_ENCRYPTED},
+            };
+            DWORD set = 0, clear = 0;
+            for (const auto& item : attributes)
+            {
+                const auto state = IsDlgButtonChecked(HWindow, item.control);
+                if (state == BST_CHECKED)
+                    set |= item.attribute;
+                else if (state == BST_UNCHECKED)
+                    clear |= item.attribute;
+            }
+            required = ElevationShieldProbe(set, clear, times, ElevationShieldContext);
+        }
+    }
+    Button_SetElevationRequiredState(GetDlgItem(HWindow, IDOK), required);
 }
 
 void CChangeAttrDialog::Transfer(CTransferInfo& ti)
@@ -230,7 +287,9 @@ CChangeAttrDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         HCreatedTime = GetDlgItem(HWindow, IDC_ATTR_CREATED_TIME);
         HAccessedDate = GetDlgItem(HWindow, IDC_ATTR_ACCESSED_DATE);
         HAccessedTime = GetDlgItem(HWindow, IDC_ATTR_ACCESSED_TIME);
-        break;
+        const auto result = CCommonDialog::DialogProc(uMsg, wParam, lParam);
+        UpdateElevationShield();
+        return result;
     }
     case WM_COMMAND:
     {
@@ -316,7 +375,10 @@ CChangeAttrDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 }
                 break;
             }
+            default:
+                return CCommonDialog::DialogProc(uMsg, wParam, lParam);
             }
+            UpdateElevationShield();
         }
         break;
     }
@@ -325,7 +387,10 @@ CChangeAttrDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         LPNMHDR nmh = (LPNMHDR)lParam;
         if (nmh->code == DTN_DATETIMECHANGE)
+        {
             EnableWindows();
+            UpdateElevationShield();
+        }
         break;
     }
     }

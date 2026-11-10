@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Prepare nonrecursive metadata below an approved panel root. | Verify attributes and reopen the exact object at execution. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Check whether the host can offer elevation. | Avoid promising a broker in portable or already elevated hosts. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Prepare F7 and F2 with the approved listing root. | Revalidate the exact identities in the existing one-shot executor. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Restore the UAC owner on its UI thread. | Handle worker launches and retain an active modal popup. | #731 | GPT-6 (Codex) |
@@ -2102,7 +2103,7 @@ DWORD ServeFindContent(HANDLE pipe, HANDLE root, std::wstring_view relative, ULO
     }
 }
 
-DWORD ReadListedLeafIdentity(HANDLE root, std::wstring_view relative, bool parentOnly,
+DWORD ReadListedLeafIdentity(HANDLE root, std::wstring_view relative, bool parentOnly, bool directoryLeaf,
                              UacListing::LeafIdentity& reply)
 {
     const auto split = relative.find_last_of(L'\\');
@@ -2118,22 +2119,34 @@ DWORD ReadListedLeafIdentity(HANDLE root, std::wstring_view relative, bool paren
         return error;
     if (parentOnly)
     {
-        reply = {identity.file.FileId, {}};
+        reply = {identity.file.FileId, {}, 0};
         return ERROR_SUCCESS;
     }
+
     HANDLE raw = nullptr;
-    error = UacRenameLeaf::Detail::OpenSource(parent.get(), leaf, raw, 0,
-                                            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
-    if (error)
-        return error;
-    const auto file = Adopt(raw);
     FILE_ID_INFO fileIdentity{};
-    error = UacRenameLeaf::Detail::ReadSourceIdentity(file.get(), fileIdentity);
+    if (directoryLeaf)
+    {
+        UacDirectoryLeaf::ParentIdentity directoryIdentity;
+        error = UacDirectoryLeaf::OpenParentBelowRoot(parent.get(), leaf, raw, directoryIdentity);
+        fileIdentity = directoryIdentity.file;
+    }
+    else
+    {
+        error = UacRenameLeaf::Detail::OpenSource(parent.get(), leaf, raw, 0,
+                                                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
+        if (!error)
+            error = UacRenameLeaf::Detail::ReadSourceIdentity(raw, fileIdentity);
+    }
+    const auto object = Adopt(raw);
     if (error)
         return error;
     if (fileIdentity.VolumeSerialNumber != identity.file.VolumeSerialNumber)
         return ERROR_FILE_INVALID;
-    reply = {identity.file.FileId, fileIdentity.FileId};
+    FILE_BASIC_INFO basic{};
+    if (!GetFileInformationByHandleEx(object.get(), FileBasicInfo, &basic, sizeof(basic)))
+        return GetLastError();
+    reply = {identity.file.FileId, fileIdentity.FileId, basic.FileAttributes};
     return ERROR_SUCCESS;
 }
 
@@ -2153,9 +2166,10 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
         const bool contentRequest = (length & UacListing::contentRequest) != 0;
         const bool leafIdentity = (length & UacListing::leafIdentityRequest) != 0;
         const bool parentOnly = (length & UacListing::parentIdentityRequest) != 0;
+        const bool directoryLeaf = (length & UacListing::directoryIdentityRequest) != 0;
         length &= ~(UacListing::inventoryRequest | UacListing::sizeDetailsRequest | UacListing::contentRequest |
-                    UacListing::leafIdentityRequest | UacListing::parentIdentityRequest);
-        if ((parentOnly && !leafIdentity) ||
+                    UacListing::leafIdentityRequest | UacListing::parentIdentityRequest | UacListing::directoryIdentityRequest);
+        if (((parentOnly || directoryLeaf) && !leafIdentity) || (parentOnly && directoryLeaf) ||
             (leafIdentity && (scope != Operation::List || !length || inventoryRequest || sizeDetails || contentRequest)) ||
             (sizeDetails && !inventoryRequest) || !UacListing::ValidRequestScope(scope, length, inventoryRequest, contentRequest) ||
             length > UacDirectoryLeaf::maxNativeName || !LiveInSession(host, hostPid))
@@ -2171,7 +2185,7 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
         if (leafIdentity)
         {
             UacListing::LeafIdentity identity{};
-            DWORD status = ReadListedLeafIdentity(root, relative, parentOnly, identity);
+            DWORD status = ReadListedLeafIdentity(root, relative, parentOnly, directoryLeaf, identity);
             error = TransferRequest(pipe, &status, sizeof(status), true, deadline);
             if (!error && !status)
                 error = TransferRequest(pipe, &identity, sizeof(identity), true, deadline);
@@ -3045,8 +3059,22 @@ Result PreparedLeaf::WriteZipSelection(HWND owner, std::vector<BYTE>& bytes) con
 
 DWORD PreparedLeaf::ExecuteLocal() const
 {
-    if (!parent || (operation != Operation::Metadata && !IsLeafDelete(operation)))
+    if (operation != Operation::Metadata && !IsLeafDelete(operation))
         return ERROR_INVALID_PARAMETER;
+    Handle reopenedParent;
+    if (!parent)
+    {
+        if (operation != Operation::Metadata || !identityFromListing)
+            return ERROR_INVALID_PARAMETER;
+        const auto root = OpenVolumeRoot(volume);
+        if (!root)
+            return ERROR_NOT_SUPPORTED;
+        UacDirectoryLeaf::ParentIdentity actual;
+        const DWORD error = OpenRequestParent(root.get(), relative, reopenedParent, actual);
+        if (error)
+            return error;
+    }
+    const HANDLE localParent = parent ? parent : reopenedParent.get();
     UacDirectoryLeaf::ParentIdentity expectedParent{};
     expectedParent.file.VolumeSerialNumber = serial;
     std::memcpy(expectedParent.file.FileId.Identifier, fileId, sizeof(fileId));
@@ -3054,8 +3082,8 @@ DWORD PreparedLeaf::ExecuteLocal() const
     FILE_ID_INFO expectedSource{serial, {}};
     std::memcpy(expectedSource.FileId.Identifier, sourceId, sizeof(sourceId));
     if (IsLeafDelete(operation))
-        return UacDeleteLeaf::DeleteVerifiedLeaf(parent, expectedParent, expectedSource, leaf, operation);
-    return UacMetadataLeaf::SetVerifiedMetadata(parent, expectedParent, expectedSource, leaf, metadata);
+        return UacDeleteLeaf::DeleteVerifiedLeaf(localParent, expectedParent, expectedSource, leaf, operation);
+    return UacMetadataLeaf::SetVerifiedMetadata(localParent, expectedParent, expectedSource, leaf, metadata);
 }
 
 TransferJobScope PreparedLeaf::JobScope() const
@@ -3741,8 +3769,22 @@ DWORD ListingSession::PrepareRename(const std::wstring& path, const std::wstring
     return PrepareLeaf(path, Operation::Rename, renameTo, rename);
 }
 
+DWORD ListingSession::PrepareMetadata(const std::wstring& path, const MetadataChange& change,
+                                      MetadataJobPolicy policy, PreparedLeaf& request)
+{
+    if (!UacMetadataLeaf::IsValid(change) || !policy.Allows(change))
+        return ERROR_INVALID_DATA;
+    const DWORD error = PrepareLeaf(path, Operation::Metadata, {}, request, &change);
+    if (!error)
+    {
+        request.metadata = change;
+        request.metadataPolicy = policy;
+    }
+    return error;
+}
+
 DWORD ListingSession::PrepareLeaf(const std::wstring& path, Operation operation, const std::wstring& renameTo,
-                                  PreparedLeaf& request)
+                                  PreparedLeaf& request, const MetadataChange* change)
 {
     if (prepared.operation != Operation::List || !Contains(path) || path.size() <= root.size() ||
         request.parent || request.identityFromListing)
@@ -3755,8 +3797,11 @@ DWORD ListingSession::PrepareLeaf(const std::wstring& path, Operation operation,
         return ERROR_INVALID_NAME;
 
     const auto deadline = GetTickCount64() + timeoutMs;
-    const DWORD flags = UacListing::leafIdentityRequest |
-                        (operation == Operation::Mkdir ? UacListing::parentIdentityRequest : 0);
+    DWORD flags = UacListing::leafIdentityRequest;
+    if (operation == Operation::Mkdir)
+        flags |= UacListing::parentIdentityRequest;
+    else if (change && UacMetadataLeaf::IsDirectory(*change))
+        flags |= UacListing::directoryIdentityRequest;
     DWORD error = SendPath(path, flags, deadline);
     if (error)
         return error;
@@ -3772,6 +3817,8 @@ DWORD ListingSession::PrepareLeaf(const std::wstring& path, Operation operation,
     }
     if (status)
         return status;
+    if (change && identity.attributes != change->expectedAttributes)
+        return ERROR_FILE_INVALID;
 
     request.volume = prepared.volume;
     request.relative = prepared.relative;
