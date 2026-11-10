@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"swedish translation stub (English seed)"
 
 [DIALOG 100]
-308,201,0,"Extended Pack Options"
+308,201,1,"Avancerade packningsalternativ"
 3000,17,9,30,8,1,"Arkiv:"
 101,50,9,250,8,1,""
 3001,8,24,292,1,1,""
@@ -40,7 +40,7 @@ COMMENT,"swedish translation stub (English seed)"
 9,221,180,55,14,1,"Hjälp"
 
 [DIALOG 112]
-312,277,0,"ZIP Configuration"
+312,277,1,"ZIP-konfiguration"
 3000,7,6,57,8,1,"Uppackning"
 3001,46,10,261,1,1,""
 145,14,17,257,12,1,"Packa automatiskt upp arkiv med flera volymer på hårddisk"
@@ -72,7 +72,7 @@ COMMENT,"swedish translation stub (English seed)"
 9,219,256,50,14,1,"Hjälp"
 
 [DIALOG 123]
-271,74,0,"Enter ZIP Password"
+271,74,1,"Ange ZIP-lösenord"
 124,21,10,18,20,1,""
 3000,57,10,232,8,1,"Den här filen är krypterad. Ange lösenord för att dekryptera den."
 3001,57,23,17,8,1,"Fil:"
@@ -85,7 +85,7 @@ COMMENT,"swedish translation stub (English seed)"
 2,200,55,50,14,1,"Avbryt"
 
 [DIALOG 126]
-355,94,0,"Low Disk Free Space"
+355,94,1,"Lite ledigt diskutrymme"
 134,58,9,283,8,1,"Varning: Det lediga diskutrymmet är mindre än den angivna volymstorleken."
 3000,6,26,47,8,1,"Sökväg:"
 130,58,26,284,8,1,""
@@ -99,14 +99,14 @@ COMMENT,"swedish translation stub (English seed)"
 2,247,73,50,14,1,"Avbryt"
 
 [DIALOG 135]
-199,77,0,"Change Disk"
+199,77,1,"Byt disk"
 136,13,8,173,24,1,""
 3000,13,39,173,8,1,"Tryck på OK när du är klar."
 1,44,57,50,14,1,"OK"
 2,104,57,50,14,1,"Avbryt"
 
 [DIALOG 137]
-350,79,0,"Confirm File Overwrite"
+350,79,1,"Bekräfta överskrivning av fil"
 3000,3,14,53,8,1,"Skriv över fil:"
 121,61,14,269,8,1,""
 140,61,24,269,8,1,""
@@ -117,7 +117,7 @@ COMMENT,"swedish translation stub (English seed)"
 2,237,56,50,14,1,"Avbryt"
 
 [DIALOG 141]
-210,108,0,"ZIP"
+210,108,1,"ZIP"
 3000,13,8,184,16,1,"Den här filen är antingen en del av ett arkiv med flera volymer eller skadad."
 3001,13,31,184,24,1,"Om du tror att det är ett arkiv med flera volymer sätter du in disken med arkivets sista del eller letar reda på filen på hårddisken. Tryck på OK när du är klar."
 3002,13,61,89,8,1,"Arkivets &sista del:"
@@ -127,7 +127,7 @@ COMMENT,"swedish translation stub (English seed)"
 2,110,89,50,14,1,"Avbryt"
 
 [DIALOG 142]
-210,132,0,"Change Disk"
+210,132,1,"Byt disk"
 136,13,8,184,16,1,""
 3000,13,31,184,8,1,"Tryck på OK när du är klar."
 125,13,43,156,12,1,"Filerna numreras i &följd"
@@ -140,7 +140,7 @@ COMMENT,"swedish translation stub (English seed)"
 2,111,112,50,14,1,"Avbryt"
 
 [DIALOG 146]
-305,303,0,"Self-Extractor Settings"
+305,303,1,"Inställningar för självuppackare"
 3000,0,0,305,1,1,""
 3001,7,7,292,89,1,"Katalog att packa upp filer till"
 3002,20,19,38,8,1,"&Packa upp till:"
@@ -172,7 +172,7 @@ COMMENT,"swedish translation stub (English seed)"
 3009,7,101,292,57,1,"När uppackningen är klar"
 
 [DIALOG 152]
-350,79,0,"Confirm File Overwrite"
+350,79,1,"Bekräfta överskrivning av fil"
 3000,3,14,53,8,1,"Skriv över fil:"
 121,61,14,269,8,1,""
 140,61,24,269,8,1,""
@@ -182,7 +182,7 @@ COMMENT,"swedish translation stub (English seed)"
 2,211,56,50,14,1,"Avbryt"
 
 [DIALOG 166]
-194,99,0,"New Favorite Settings"
+194,99,1,"Nya favoritinställningar"
 3000,14,8,60,8,1,"&Namn:"
 167,14,18,164,12,1,""
 3001,14,41,161,24,1,"Obs! Ange ett et-tecken (&&) före tecknet som ska vara snabbtangent i menyn för de här favoritinställningarna."
@@ -191,7 +191,7 @@ COMMENT,"swedish translation stub (English seed)"
 2,99,80,50,14,1,"Avbryt"
 
 [DIALOG 170]
-204,113,0,"Create Self-Extracting Archive"
+204,113,1,"Skapa självuppackande arkiv"
 172,16,11,167,8,1,"&Skapa ett självuppackande arkiv från arkivet:"
 101,16,21,172,12,1,""
 173,16,39,152,8,1,"&Filnamn för det nya självuppackande arkivet:"
@@ -203,11 +203,11 @@ COMMENT,"swedish translation stub (English seed)"
 9,136,94,50,14,1,"Hjälp"
 
 [DIALOG 180]
-340,180,0,"ZIP Archive Comment"
+340,180,1,"Kommentar för ZIP-arkiv"
 181,0,0,340,180,1,""
 
 [DIALOG 190]
-260,352,0,"Self-Extractor Texts"
+260,352,1,"Texter för självuppackare"
 3000,8,5,245,158,1,"Meddanderuta "
 3001,20,18,221,16,1,"Den här meddelanderutan visas före huvuddialogrutan och innan uppackningen börjar."
 3002,20,38,221,16,1,"Lämna fälten 'Titel' och 'Meddelande' tomma om du inte vill visa något meddelande."
@@ -236,7 +236,7 @@ COMMENT,"swedish translation stub (English seed)"
 9,186,333,50,14,1,"Hjälp"
 
 [DIALOG 210]
-220,123,0,"Manage Favorites"
+220,123,1,"Hantera favoriter"
 3000,9,4,60,8,1,"&Favoriter:"
 211,9,14,142,100,1,""
 212,161,13,50,14,1,"Byt &namn"
@@ -245,7 +245,7 @@ COMMENT,"swedish translation stub (English seed)"
 1,161,100,50,14,1,"Stäng"
 
 [DIALOG 220]
-227,147,0,"Wait For"
+227,147,1,"Vänta på"
 3000,12,9,200,32,1,"Med det här alternativet väntar du på en annan process än den som angetts i fältet 'Kommando'. När processen har avslutats tar självuppackaren bort tillfälliga filer och avslutar sig."
 3001,12,49,200,32,1,"Det behövs bara om installationsprogrammet startar en annan körbar fil som fortsätter installationen efter att det ursprungliga installationsprogrammet har avslutats.\nVissa versioner av InstallShield fungerar till exempel så."
 3002,12,89,103,8,1,"&Filnamn på den körbara filen:"
@@ -256,7 +256,7 @@ COMMENT,"swedish translation stub (English seed)"
 9,148,128,50,14,1,"Hjälp"
 
 [DIALOG 250]
-248,114,0,"Change Self-Extractor Texts"
+248,114,1,"Ändra texter för självuppackare"
 3000,11,8,214,32,1,"Du har ändrat självuppackarens språk. Vill du återställa de egna texterna i dialogrutan 'Självuppackartexter' till standardtexterna för det valda språket?"
 1,40,48,50,14,1,"Ja"
 2,99,48,50,14,1,"Nej"
