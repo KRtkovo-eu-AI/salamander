@@ -389,10 +389,10 @@ COMMENT,"greek translation stub (English seed)"
 1036,1,"Κενό"
 1037,1,"Συνήθη αρχεία εικόνων (*.bmp;*.cur;*.gif;*.icn;*.ico;*.jpg;*.jpeg;*.lbm;*.pcx;*.png;*.psd;*.tga;*.tif;*.tiff)|*.bmp;*.cur;*.gif;*.icn;*.ico;*.jpg;*.jpeg;*.lbm;*.pcx;*.png;*.psd;*.tga;*.tif;*.tiff|Όλα τα αρχεία (*.*)|*.*|"
 1038,1,"<Σάρωση>"
-1039,1,"Autodesk CEL (*.cel)|*.cel|Μορφή ανταλλαγής Amiga (*.iff,*.lbm)|*.iff;*.lbm|CompuServe GIF (*.gif)|*.gif|Intergraph (*.cit,*.dat,*.rle)|*.dat;*.cit;*.rle|JPEG (*.jpg,*.jpeg)|*.jpg;*.jpeg|Portable Bitmap (*.pbm,*.ppm)|*.pbm;*.ppm|Portable Network Graphics (*.png)|*.png|Silicon Graphics (*.bw)|*.bw|SunRaster (*.ras)|*.ras|Targa (*.tga)|*.tga|TIFF (*.tif,*.tiff)|*.tif;*.tiff|Utah RLE (*.rle)|*.rle|Βιντεοκασέτα SKA (*.ska)|*.ska|Bitmap Windows (*.bmp)|*.bmp|Ασύρματη bitmap (*.wbmp)|*.wbmp|ZSoft PCX (*.pcx)|*.pcx|"
+1039,1,"Autodesk CEL (*.cel)|*.cel|Μορφή ανταλλαγής Amiga (*.iff,*.lbm)|*.iff;*.lbm|CompuServe GIF (*.gif)|*.gif|Intergraph (*.cit,*.dat,*.rle)|*.dat;*.cit;*.rle|JPEG (*.jpg,*.jpeg)|*.jpg;*.jpeg|Portable Bitmap (*.pbm,*.ppm)|*.pbm;*.ppm|Portable Network Graphics (*.png)|*.png|Silicon Graphics (*.bw)|*.bw|SunRaster (*.ras)|*.ras|Targa (*.tga)|*.tga|TIFF (*.tif)|*.tif;*.tiff|Utah RLE (*.rle)|*.rle|Βιντεοκασέτα SKA (*.ska)|*.ska|Bitmap Windows (*.bmp)|*.bmp|Ασύρματη bitmap (*.wbmp)|*.wbmp|ZSoft PCX (*.pcx)|*.pcx|"
 
 [STRINGTABLE 11]
-1040,1,"Autodesk CEL (*.cel)|*.cel|Μορφή ανταλλαγής Amiga (*.iff,*.lbm)|*.iff;*.lbm|CompuServe GIF (*.gif)|*.gif|JPEG (*.jpg,*.jpeg)|*.jpg;*.jpeg|Portable Bitmap (*.pnm,*.ppm)|*.pnm;*.ppm|Portable Network Graphics (*.png)|*.png|Silicon Graphics (*.rgb)|*.rgb;*.rgba|SunRaster (*.ras)|*.ras|Targa (*.tga)|*.tga|TIFF (*.tif,*.tiff)|*.tif;*.tiff|Utah RLE (*.rle)|*.rle|Βιντεοκασέτα SKA (*.ska)|*.ska|Bitmap Windows (*.bmp)|*.bmp|ZSoft PCX (*.pcx)|*.pcx|"
+1040,1,"Autodesk CEL (*.cel)|*.cel|Μορφή ανταλλαγής Amiga (*.iff,*.lbm)|*.iff;*.lbm|CompuServe GIF (*.gif)|*.gif|JPEG (*.jpg,*.jpeg)|*.jpg;*.jpeg|Portable Bitmap (*.pnm,*.ppm)|*.pnm;*.ppm|Portable Network Graphics (*.png)|*.png|Silicon Graphics (*.rgb)|*.rgb;*.rgba|SunRaster (*.ras)|*.ras|Targa (*.tga)|*.tga|TIFF (*.tif)|*.tif;*.tiff|Utah RLE (*.rle)|*.rle|Βιντεοκασέτα SKA (*.ska)|*.ska|Bitmap Windows (*.bmp)|*.bmp|ZSoft PCX (*.pcx)|*.pcx|"
 1041,1,"Δεν ήταν δυνατή η αποθήκευση της εικόνας.\nΣφάλμα: %hs"
 1042,1,"Η εικόνα αποθηκεύτηκε με επιτυχία."
 1043,1,"&Προσαρμοσμένο χρώμα..."
