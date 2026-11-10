@@ -257,14 +257,14 @@ COMMENT,"swedish translation stub (English seed)"
 
 [DIALOG 250]
 248,114,0,"Change Self-Extractor Texts"
-3000,11,8,214,32,0,"You have changed the self-extractor language, do you wish the custom texts you entered in the 'Self-Extractor Texts' dialog box to be changed to their default values corresponding with the language you selected?"
-1,40,48,50,14,0,"Yes"
-2,99,48,50,14,0,"No"
-9,158,48,50,14,0,"Help"
+3000,11,8,214,32,1,"Du har ändrat självuppackarens språk. Vill du återställa de egna texterna i dialogrutan 'Självuppackartexter' till standardtexterna för det valda språket?"
+1,40,48,50,14,1,"Ja"
+2,99,48,50,14,1,"Nej"
+9,158,48,50,14,1,"Hjälp"
 3001,3,70,242,1,1,""
-251,11,74,142,12,0,"Always &ask before changing texts"
-252,11,86,231,12,0,"Automatically &replace texts with their default values in the future"
-253,11,98,205,12,0,"Don't ask in the future and leave always texts &unchanged"
+251,11,74,142,12,1,"Fråga &alltid innan texter ändras"
+252,11,86,231,12,1,"&Ersätt automatiskt texter med standardvärden i fortsättningen"
+253,11,98,205,12,1,"Fråga inte i fortsättningen och lämna alltid texter &oförändrade"
 
 [MENU 400]
 0,1,"&Arkiv"
