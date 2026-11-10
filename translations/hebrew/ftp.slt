@@ -340,7 +340,7 @@ COMMENT,"hebrew translation stub (English seed)"
 769,7,205,383,35,1,""
 770,7,247,72,12,0,"Sho&w only errors"
 771,227,247,50,14,0,"&Solve Error"
-772,284,247,50,14,0,"&Retry"
+772,284,247,50,14,1,"נסה שוב"
 773,341,247,50,14,0,"S&kip"
 778,7,81,178,12,1,"סגור את תיבת הדו-שיח הזו כאשר הפעולה מסתיימת"
 
@@ -445,7 +445,7 @@ COMMENT,"hebrew translation stub (English seed)"
 1,10,88,50,14,1,"נסה שוב"
 1306,65,88,50,14,1,"&חזור"
 1308,120,88,50,14,1,"&כתוב מעל"
-832,175,88,50,14,0,"&Skip"
+832,175,88,50,14,1,"דלג"
 2,230,88,50,14,1,"ביטול"
 9,285,88,50,14,1,"עזרה"
 3000,7,111,330,1,1,""
@@ -885,7 +885,7 @@ COMMENT,"hebrew translation stub (English seed)"
 1234,0,"S&tart of Rule"
 1235,0,"&End of Rule"
 0,0,"&Line Comment"
-1236,0,"&Skip"
+1236,1,"דלג"
 1237,0,"White Spaces (If Any)"
 1238,0,"White Spaces (At Least One)"
 1239,0,"Exact Number of White Spaces"
@@ -941,9 +941,9 @@ COMMENT,"hebrew translation stub (English seed)"
 1227,0,"Cut End of String in Column"
 1228,0,"&Undo"
 1229,0,"Cu&t"
-1230,0,"&Copy"
+1230,1,"העתק"
 1231,0,"&Paste"
-1232,0,"&Delete"
+1232,1,"מחק"
 
 [MENU 1110]
 714,0,""
@@ -954,7 +954,7 @@ COMMENT,"hebrew translation stub (English seed)"
 
 [MENU 1111]
 1,0,""
-1305,0,"&Retry"
+1305,1,"נסה שוב"
 1304,0,"U&se Existing Directory"
 
 [MENU 1112]
@@ -965,16 +965,16 @@ COMMENT,"hebrew translation stub (English seed)"
 
 [MENU 1113]
 1,0,""
-1310,0,"&Ignore"
-1311,0,"&Retry"
+1310,1,"התעלם"
+1311,1,"נסה שוב"
 
 [MENU 1114]
 1,0,""
-1312,0,"&Delete"
+1312,1,"מחק"
 
 [MENU 1115]
 1,0,""
-1313,0,"&Retry"
+1313,1,"נסה שוב"
 
 [MENU 1116]
 1,0,""
@@ -1006,16 +1006,16 @@ COMMENT,"hebrew translation stub (English seed)"
 1343,0,"P&roxy Port"
 1344,0,"Pr&oxy User name"
 1345,0,"Pro&xy Password"
-1346,0,"&Address"
+1346,1,"כתובת"
 1347,0,"Por&t"
 1348,0,"&User name"
 1349,0,"Pa&ssword"
 1350,0,"Accou&nt"
 1351,0,"&Undo"
 1352,0,"Cu&t"
-1353,0,"&Copy"
+1353,1,"העתק"
 1354,0,"&Paste"
-1355,0,"&Delete"
+1355,1,"מחק"
 
 [MENU 1121]
 1,0,""
@@ -1043,7 +1043,7 @@ COMMENT,"hebrew translation stub (English seed)"
 10011,0,"Transfer files and directories over FTP."
 
 [STRINGTABLE 1]
-10020,0,"About Plugin"
+10020,1,"אודות התוסף"
 10030,0,"/\tFTP Client"
 
 [STRINGTABLE 2]
@@ -1171,7 +1171,7 @@ COMMENT,"hebrew translation stub (English seed)"
 10207,0,"&Abort"
 
 [STRINGTABLE 13]
-10208,0,"&Retry"
+10208,1,"נסה שוב"
 10209,0,"&Wait"
 10210,0,"Opening of connection to proxy server has timed out."
 10211,0,"Do you want to cancel preparing of active data connection? Connection to FTP server will be terminated."
@@ -1380,7 +1380,7 @@ COMMENT,"hebrew translation stub (English seed)"
 
 [STRINGTABLE 30]
 10496,1,"זכויות"
-10497,0,"User"
+10497,1,"משתמש"
 10498,1,"קבוצה"
 10499,0,"Device"
 10500,1,"בלוקים"
@@ -1423,7 +1423,7 @@ COMMENT,"hebrew translation stub (English seed)"
 10544,0,"Last Write Time"
 10545,1,"סוג קובץ"
 10546,0,"Access Rights"
-10547,0,"User"
+10547,1,"משתמש"
 10548,1,"קבוצה"
 10549,0,"Major and Minor Device Numbers"
 10550,0,"Size in Blocks"
@@ -1573,7 +1573,7 @@ COMMENT,"hebrew translation stub (English seed)"
 10740,0,"&Transfer Mode"
 10741,0,"&Automatic"
 10742,0,"A&SCII"
-10743,0,"&Binary"
+10743,1,"בינאри"
 10750,0,"Ask User"
 10751,0,"Use Alternate Name"
 
@@ -1605,7 +1605,7 @@ COMMENT,"hebrew translation stub (English seed)"
 
 [STRINGTABLE 48]
 10785,0,"ID"
-10786,0,"Action"
+10786,1,"פעולה"
 10787,1,"מצב"
 10795,1,"תיאור"
 10796,1,"מצב"
