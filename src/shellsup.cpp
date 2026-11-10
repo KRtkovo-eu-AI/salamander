@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Fix signedness in the archive clipboard buffer bounds check. | Keep the Win32 warning-as-error build passing. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
 // | 2026-11-10 | Stage archive and plugin FS selections as real clipboard files. | Enable ordinary Ctrl+C/Ctrl+V independent of the shell extension fake-directory handoff. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Close the archive clipboard data-object scope before releasing it. | A missing brace left ShellAction unterminated and stopped the build. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Publish archive clipboard data without mutating the Shell data object. | PreferredDropEffect is optional for this copy-only path and can make OLE publication fail. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
@@ -1785,7 +1786,7 @@ static BOOL StagePanelSelectionForClipboard(CFilesWindow* panel, int count, int*
                 memcpy(target.Data() + offset, mask, sizeof(mask));
                 offset += sizeof(mask);
                 const char waitMarker[] = "SAL_WAIT_TEMP_BRIDGE";
-                if (offset + sizeof(waitMarker) <= target.Capacity())
+                if (static_cast<size_t>(offset) + sizeof(waitMarker) <= static_cast<size_t>(target.Capacity()))
                 {
                     memcpy(target.Data() + offset, waitMarker, sizeof(waitMarker));
                     BOOL operationMask = FALSE;
