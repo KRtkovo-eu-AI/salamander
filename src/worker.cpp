@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Integrate clipboard lease cleanup with UAC worker teardown. | Release staged sources in the existing out-of-line destructor. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep staged clipboard sources alive for async disk copies. | Worker operations need their temp source after clipboard replacement. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Distinguish transfer retries caused by the destination. | Preserve separate consent for a protected source and F6 completion. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Reuse shielded Yes only for the exact selected delete. | Ask for protected descendants during the operation and stop before child changes on cancellation. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Forward the metadata shield on the first verified access denial. | Preserve local execution and ordinary retry behavior. | #731 | GPT-6.1 Sol (Codex) |
@@ -539,6 +541,7 @@ void CProgressSpeedMeter::BytesReceived(DWORD count, DWORD time, DWORD maxPacket
 COperations::COperations(int base, int delta, char* waitInQueueSubject, char* waitInQueueFrom,
                          char* waitInQueueTo) : TDirectArray<COperation>(base, delta), Sizes(1, 400)
 {
+    ClipboardLease = NULL;
     TotalSize = CQuadWord(0, 0);
     CompressedSize = CQuadWord(0, 0);
     OccupiedSpace = CQuadWord(0, 0);
@@ -623,6 +626,8 @@ COperations::COperations(int base, int delta, char* waitInQueueSubject, char* wa
 
 COperations::~COperations()
 {
+    if (ClipboardLease != NULL)
+        ClipboardLease->Release();
     HANDLES(DeleteCriticalSection(&ConflictCS));
     HANDLES(DeleteCriticalSection(&StatusCS));
 }

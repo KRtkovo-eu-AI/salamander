@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Copy the destination ID through the project memory helper. | Preserve the Debug build memory instrumentation. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Preview the destination permission in F5 and F6. | Carry consent only for the directory displayed on shielded OK. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Put the UAC shield on the permanent-delete confirmation for the selected item. | Reuse explicit Yes only for the verified direct item. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Return to the invoking panel after elevated recycling. | Give Shell dialogs the actual panel owner. | #731 | GPT-6 (Codex) |
@@ -415,7 +416,7 @@ struct TransferElevationPreview
         }
         preview.identity.emplace();
         preview.identity->serial = file.VolumeSerialNumber;
-        std::memcpy(preview.identity->id, file.FileId, sizeof(preview.identity->id));
+        memcpy(preview.identity->id, file.FileId, sizeof(preview.identity->id));
         return true;
     }
 };

@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Integrate clipboard lease cleanup with UAC worker teardown. | Release staged sources in the existing out-of-line destructor. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Retain staged clipboard sources through disk operation completion. | Async disk copies may continue after the clipboard drop callback returns. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Keep accepted destination identity with the transfer job. | Consume the dialog consent only for the verified target. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Carry the exact confirmed permanent deletion into the worker. | Prevent a selected shield from authorizing a descendant or replacement. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Carry the accepted metadata shield with the operation. | Bind the initial confirmation to the worker operation. | #731 | GPT-6.1 Sol (Codex) |
@@ -30,6 +32,7 @@
 #pragma once
 
 #include <string>
+#include <objidl.h>
 #include <vector>
 #include <deque>
 #include <memory>
@@ -423,6 +426,7 @@ struct COperation
 class COperations : public TDirectArray<COperation>
 {
 public:
+    IDataObject* ClipboardLease; // keeps staged clipboard source files alive during async copy work
     CQuadWord TotalSize;      // WARNING: not the byte size of the files (usable only for progress calculations)
     CQuadWord CompressedSize; // sum of file sizes after compression
     CQuadWord OccupiedSpace;  // space occupied on disk
@@ -596,6 +600,13 @@ private:
 public:
     COperations(int base, int delta, char* waitInQueueSubject, char* waitInQueueFrom, char* waitInQueueTo);
     ~COperations();
+    void HoldClipboardLease(IDataObject* dataObject)
+    {
+        if (ClipboardLease == dataObject) return;
+        if (ClipboardLease != NULL) ClipboardLease->Release();
+        ClipboardLease = dataObject;
+        if (ClipboardLease != NULL) ClipboardLease->AddRef();
+    }
 
     void SetWorkPath1(const char* path, BOOL inclSubDirs)
     {

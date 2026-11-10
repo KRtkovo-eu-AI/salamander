@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Reuse clipboard copy enabler for plugin FS selections. | Expose the new Ctrl+C feature in panel menus. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-08 | Remove Recover Interrupted ZIP Update from Files. | Keep the same commands for ordinary and protected ZIPs. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Expose interrupted ZIP recovery in the Files menu. | Work from the archive parent without an existing file. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -228,7 +231,7 @@ MENU_TEMPLATE_ITEM MainMenuTemplate[] =
         // Edit
         {MNTT_PB, IDS_MENU_EDIT, MNTS_B | MNTS_I | MNTS_A, CML_EDIT, -1, 0, NULL},
         {MNTT_IT, IDS_MENU_EDIT_CUT, MNTS_B | MNTS_I | MNTS_A, CM_CLIPCUT, IDX_TB_CLIPBOARDCUT, 0, &EnablerFilesOnDisk},
-        {MNTT_IT, IDS_MENU_EDIT_COPY, MNTS_B | MNTS_I | MNTS_A, CM_CLIPCOPY, IDX_TB_CLIPBOARDCOPY, 0, &EnablerFilesOnDiskOrArchive},
+        {MNTT_IT, IDS_MENU_EDIT_COPY, MNTS_B | MNTS_I | MNTS_A, CM_CLIPCOPY, IDX_TB_CLIPBOARDCOPY, 0, &EnablerFilesCopy},
         {MNTT_IT, IDS_MENU_EDIT_PASTE, MNTS_B | MNTS_I | MNTS_A, CM_CLIPPASTE, IDX_TB_CLIPBOARDPASTE, 0, &EnablerPaste}, // !ATTENTION! !WARNING!, the item is modified in CMainWindow/WM_USER_INITMENUPOPUP (when there is text on the clipboard, "Change Directory" is added)
         {MNTT_IT, IDS_MENU_EDIT_PASTELINKS, MNTS_I | MNTS_A, CM_CLIPPASTELINKS, -1, 0, &EnablerPasteLinksOnDisk},
         {MNTT_SP, -1, MNTS_I | MNTS_A, 0, -1, 0, NULL},
@@ -522,7 +525,7 @@ MENU_TEMPLATE_ITEM ArchiveMenuTemplate[] =
         {MNTT_IT, IDS_ARCHIVEMENU_COPY, MNTS_B | MNTS_I | MNTS_A, CM_COPYFILES, IDX_TB_COPY, 0, &EnablerFilesCopy},
         {MNTT_IT, IDS_ARCHIVEMENU_DELETE, MNTS_B | MNTS_I | MNTS_A, CM_DELETEFILES, IDX_TB_DELETE, 0, &EnablerFilesDelete},
         {MNTT_SP, -1, MNTS_B | MNTS_I | MNTS_A, 0, -1, 0, NULL},
-        {MNTT_IT, IDS_ARCHIVEMENU_CLIPCOPY, MNTS_B | MNTS_I | MNTS_A, CM_CLIPCOPY, IDX_TB_CLIPBOARDCOPY, 0, &EnablerFilesOnDiskOrArchive},
+        {MNTT_IT, IDS_ARCHIVEMENU_CLIPCOPY, MNTS_B | MNTS_I | MNTS_A, CM_CLIPCOPY, IDX_TB_CLIPBOARDCOPY, 0, &EnablerFilesCopy},
         {MNTT_PE}, // terminator
 };
 

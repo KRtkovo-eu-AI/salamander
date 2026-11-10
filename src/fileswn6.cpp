@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Transfer clipboard source lease to disk copy script. | Preserve staged files until asynchronous copy work completes. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Preserve exact paths for permanent directory removal. | Discover denied descendants during tree traversal and never sweep unreadable content. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Build verified protected metadata from its checked attributes. | Avoid masking a denied attribute lookup as filesystem flags. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Keep measuring accessible folders after a protected subtree is skipped. | Preserve accurate per-folder sizes and explicit elevation scope. | #731 | Codex |
@@ -1205,6 +1206,7 @@ void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data
         }
         else
         {
+            script->HoldClipboardLease(data->ClipboardLease);
             if (!copy && data->Count > 0)
             {
                 BOOL sameRootPath = HasTheSameRootPath(sourceDir.c_str(), targetPath);

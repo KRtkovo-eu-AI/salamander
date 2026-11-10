@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Enable clipboard copy from plugin file systems. | The staged-file clipboard path supports plugin FS sources with copy-from-FS service. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-08 | Remove the standalone ZIP recovery command route. | Limit UAC to existing ZIP commands. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Dispatch explicit ZIP recovery from a disk panel. | Use the normal guarded command route for attached and detached panels. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Pump main-window messages while Find closes. | Let Find defer destruction until its workers release their data. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -9080,7 +9081,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_CLIPCOPY:
         {
-            if (activePanel->Is(ptDisk) || activePanel->Is(ptZIPArchive))
+            if (activePanel->Is(ptDisk) || activePanel->Is(ptZIPArchive) ||
+                activePanel->Is(ptPluginFS) && activePanel->GetPluginFS()->NotEmpty() &&
+                    activePanel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS))
             {
                 activePanel->UserWorkedOnThisPath = TRUE;
                 activePanel->StoreSelection(); // save selection for Restore Selection command

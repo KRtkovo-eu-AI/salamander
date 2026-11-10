@@ -2,6 +2,26 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Unify association status, badge color, and conflict filtering. | Apply the same User-first status calculation to the badge, counts, and Conflicts checkbox. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Prioritize effective user provenance in matrix badges. | Show User after an override replaces a default/plugin association while retaining Conflict for any unresolved action on the same pattern. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Keep selected pattern keys independent from Apply editor values. | Do not let the Pattern edit field overwrite the matrix selection while reading Action, Target, and Target ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Seed Apply from the selected association before reading editor fields. | Preserve the established Configuration save path's pattern fallback while letting the detail controls override the action. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Keep canonical rows intact during association Apply. | Do not discard stored rows as a workaround for the pattern source bug. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Flush successful Apply edits to the active configuration store. | Persist association changes immediately when the selected backend is the portable config file. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Build Apply records from detail controls and refresh from canonical state. | Treat matrix selection only as pattern keys, save the current editor fields, then repopulate the table from the saved model. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Restore the direct user-override Apply path. | Undo the later SetUserTarget refactor that made the Apply transaction fail against the page's conflict rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Fall back from blank pattern text in every control-read path. | Treat whitespace-only edit text as empty so Apply does not fail during pattern normalization. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-09 | Resolve Apply patterns from the selected matrix row before validation. | Prevent stale or cleared pattern edit text from aborting a valid association update. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-09 | Preserve the focused pattern during multi-select Apply. | Avoid rejecting every Apply with an empty pattern when the pattern field displays only a multi-select summary. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-09 | Route Apply through the model's user-target operation. | Remove the UI's competing row-upsert path that diverged from canonical override semantics and caused edits to revert. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-09 | Restore Target ID selection by stable identity. | Keep saved handlers selected when their display label changes or combo indexes differ from catalog indexes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-09 | Reject failed association commits using the current result. | Do not mistake a stale runtime-projection flag for a successful user override, and keep commit errors visible after refresh. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-09 | Remove an extra closing brace in conflict status update. | Fix C2059/C2143/C2447 syntax errors caused by a stray brace that closed the selectedCount block too early. | | nvidia/nemotron-3.5-super-vl:free |
+// | 2026-11-09 | Match the selected Target ID by its visible catalog entry. | Prevent Apply from restoring a different plugin when the combo's item mapping and displayed selection diverge. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-09 | Read association targets from the selected catalog item. | Keep Target ID identity and target kind coupled through Apply instead of relying on combo row positions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-09 | Apply association overrides to the selected pattern set. | Avoid focusing an unrelated association after bulk Apply and retain the intended user target over every default candidate. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-09 | Give user overrides precedence over retained association conflicts. | Show the selected target after Apply and clear conflict state when a user choice overrides its exact pattern and action. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-09 | Commit association detail Apply changes immediately. | Preserve the selected row as the edit base and persist resolved plugin conflicts through the active configuration storage. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Qualify the Win32 GetParent call in conflict status painting. | Avoid resolving GetParent to the CDialog member overload during compilation. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Transfer the Change Drive block order setting. | Load and apply the localized Plugin/Hot Paths first choice. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | GPT-6 (Codex) |
 // | 2026-11-09 | Render Unassigned matrix targets as a dash. | Match empty default cells while keeping the Target selectors explicitly labeled Unassigned. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -83,6 +103,7 @@
 #include "darkmode.h"
 #include "svg.h"
 #include "common/winlibdpi.h"
+#include "configstorage.h"
 #include "plugins/salamatrix/salamatrix_storage.h"
 #include "plugins/salamatrix/salamatrix_ui.h"
 #include "plugins/salamatrix/salamatrix_extensions.h"
@@ -4011,39 +4032,59 @@ LRESULT CALLBACK CCfgPageFileAssociations::ConflictStatusSubclassProc(
     return DefSubclassProc(window, message, wParam, lParam);
 }
 
-std::string CCfgPageFileAssociations::MatrixStatusText(const MatrixRow& row) const
+Salamander::FileAssociations::Provenance
+CCfgPageFileAssociations::MatrixStatusProvenance(const MatrixRow& row) const
 {
+    // The row badge summarizes the whole pattern. User choices and explicit
+    // disable overrides take precedence over retained plugin conflict rows.
+    Salamander::FileAssociations::Provenance overrideProvenance =
+        Salamander::FileAssociations::Provenance::Default;
+    for (size_t i = 0; i < Rows.size(); ++i)
+    {
+        if (Rows[i].Pattern != row.Pattern)
+            continue;
+        if (Rows[i].AssociationProvenance == Salamander::FileAssociations::Provenance::User)
+            return Salamander::FileAssociations::Provenance::User;
+        if (Rows[i].AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled)
+            overrideProvenance = Salamander::FileAssociations::Provenance::Disabled;
+    }
+    if (overrideProvenance == Salamander::FileAssociations::Provenance::Disabled)
+        return overrideProvenance;
+    if (row.Conflict)
+        return Salamander::FileAssociations::Provenance::Conflict;
+
     const int indexes[5] = {row.View, row.AlternateView, row.Edit, row.ListUnpack, row.DeletePack};
-    int statusIndex = -1;
     for (int i = 0; i < 5; ++i)
     {
-        if (indexes[i] >= 0)
-        {
-            statusIndex = indexes[i];
-            break;
-        }
+        if (indexes[i] < 0)
+            continue;
+        const Salamander::FileAssociations::Provenance provenance =
+            Rows[indexes[i]].AssociationProvenance;
+        return provenance == Salamander::FileAssociations::Provenance::Legacy
+            ? Salamander::FileAssociations::Provenance::Default : provenance;
     }
+    return Salamander::FileAssociations::Provenance::Default;
+}
 
-    Salamander::FileAssociations::Provenance status =
-        row.Conflict ? Salamander::FileAssociations::Provenance::Conflict :
-        (statusIndex >= 0 ? Rows[statusIndex].AssociationProvenance :
-                            Salamander::FileAssociations::Provenance::Default);
-    if (status == Salamander::FileAssociations::Provenance::Legacy)
-        status = Salamander::FileAssociations::Provenance::Default;
-    return std::string(ProvenanceText(status));
+std::string CCfgPageFileAssociations::MatrixStatusText(const MatrixRow& row) const
+{
+    return std::string(ProvenanceText(MatrixStatusProvenance(row)));
 }
 
 int CCfgPageFileAssociations::MatrixSourceKind(const MatrixRow& row) const
 {
     const int indexes[5] = {row.View, row.AlternateView, row.Edit, row.ListUnpack, row.DeletePack};
     for (int i = 0; i < 5; ++i)
+        if (indexes[i] >= 0 &&
+            (Rows[indexes[i]].SourceProvenance == Salamander::FileAssociations::Provenance::User ||
+             Rows[indexes[i]].AssociationProvenance == Salamander::FileAssociations::Provenance::User))
+            return 0;
+
+    for (int i = 0; i < 5; ++i)
     {
         if (indexes[i] < 0)
             continue;
         const Salamander::FileAssociations::Association& item = Rows[indexes[i]];
-        if (item.SourceProvenance == Salamander::FileAssociations::Provenance::User ||
-            item.AssociationProvenance == Salamander::FileAssociations::Provenance::User)
-            return 0;
         if (IsExtensionViewerLabel(item.AssociationTarget.DisplayLabel))
             return 2;
         if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin)
@@ -4114,7 +4155,8 @@ void CCfgPageFileAssociations::UpdateCategoryTabs()
     }
     size_t conflictCount = 0;
     for (size_t i = 0; i < MatrixRows.size(); ++i)
-        if (MatrixRows[i].Conflict)
+        if (MatrixStatusProvenance(MatrixRows[i]) ==
+            Salamander::FileAssociations::Provenance::Conflict)
             ++conflictCount;
     char conflictLabel[80];
     _snprintf(conflictLabel, sizeof(conflictLabel), LoadStr(IDS_FILEASSOCIATION_CONFLICTS_COUNT),
@@ -4141,7 +4183,8 @@ bool CCfgPageFileAssociations::MatrixRowVisible(const MatrixRow& row) const
         if (!found)
             return false;
     }
-    if (ConflictsOnly && !row.Conflict)
+    if (ConflictsOnly && MatrixStatusProvenance(row) !=
+                             Salamander::FileAssociations::Provenance::Conflict)
         return false;
     if (FilterCategory >= 0)
     {
@@ -4248,19 +4291,46 @@ void CCfgPageFileAssociations::RebuildMatrix()
             slot = &row.ListUnpack;
 
         const Salamander::FileAssociations::Provenance provenance = item.AssociationProvenance;
-        const int priority = provenance == Salamander::FileAssociations::Provenance::Conflict ? 4 :
-                             (provenance == Salamander::FileAssociations::Provenance::User ||
-                              provenance == Salamander::FileAssociations::Provenance::Disabled) ? 3 :
+        const int priority = (provenance == Salamander::FileAssociations::Provenance::User ||
+                              provenance == Salamander::FileAssociations::Provenance::Disabled) ? 5 :
+                             provenance == Salamander::FileAssociations::Provenance::Conflict ? 4 :
                              provenance == Salamander::FileAssociations::Provenance::Legacy ? 2 : 1;
         const int currentPriority = *slot < 0 ? 0 :
-                                     Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict ? 4 :
                                      (Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::User ||
-                                      Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled) ? 3 :
+                                      Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled) ? 5 :
+                                     Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict ? 4 :
                                      Rows[*slot].AssociationProvenance == Salamander::FileAssociations::Provenance::Legacy ? 2 : 1;
         if (priority > currentPriority)
             *slot = static_cast<int>(i);
-        if (item.AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict)
-            row.Conflict = true;
+    }
+
+    for (size_t rowIndex = 0; rowIndex < MatrixRows.size(); ++rowIndex)
+    {
+        MatrixRow& row = MatrixRows[rowIndex];
+        for (size_t i = 0; i < Rows.size() && !row.Conflict; ++i)
+        {
+            const Salamander::FileAssociations::Association& conflict = Rows[i];
+            if (conflict.Pattern != row.Pattern ||
+                conflict.AssociationProvenance != Salamander::FileAssociations::Provenance::Conflict)
+                continue;
+
+            bool overridden = false;
+            for (size_t j = 0; j < Rows.size(); ++j)
+            {
+                const Salamander::FileAssociations::Association& overrideItem = Rows[j];
+                if (overrideItem.Pattern == conflict.Pattern &&
+                    overrideItem.AssociationCategory == conflict.AssociationCategory &&
+                    overrideItem.Operation == conflict.Operation &&
+                    (overrideItem.AssociationProvenance == Salamander::FileAssociations::Provenance::User ||
+                     overrideItem.AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled))
+                {
+                    overridden = true;
+                    break;
+                }
+            }
+            if (!overridden)
+                row.Conflict = true;
+        }
     }
 
     std::stable_sort(MatrixRows.begin(), MatrixRows.end(), [this](const MatrixRow& left, const MatrixRow& right) {
@@ -4482,20 +4552,64 @@ void CCfgPageFileAssociations::LoadSelectedControls()
         if ((int)SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA, i, 0) == targetChoice)
             SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_SETCURSEL, i, 0);
     PopulateTargetCatalog();
+    int fallbackCatalogIndex = -1;
+    int matchingCatalogIndex = -1;
     for (size_t i = 0; i < TargetCatalog.size(); ++i)
         if (TargetCatalog[i].StableId == item.AssociationTarget.StableId &&
-            TargetCatalog[i].DisplayLabel == item.AssociationTarget.DisplayLabel)
-            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_SETCURSEL, i, 0);
+            TargetCatalog[i].Kind == item.AssociationTarget.Kind)
+        {
+            if (fallbackCatalogIndex < 0)
+                fallbackCatalogIndex = static_cast<int>(i);
+            if (TargetCatalog[i].DisplayLabel == item.AssociationTarget.DisplayLabel)
+            {
+                matchingCatalogIndex = static_cast<int>(i);
+                break;
+            }
+        }
+    const int selectedCatalogIndex = matchingCatalogIndex >= 0
+                                         ? matchingCatalogIndex : fallbackCatalogIndex;
+    SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_SETCURSEL, -1, 0);
+    if (selectedCatalogIndex >= 0)
+    {
+        const int catalogCount = static_cast<int>(SendDlgItemMessage(
+            HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETCOUNT, 0, 0));
+        for (int comboIndex = 0; comboIndex < catalogCount; ++comboIndex)
+            if (static_cast<int>(SendDlgItemMessage(
+                    HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETITEMDATA,
+                    comboIndex, 0)) == selectedCatalogIndex)
+            {
+                SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
+                                   CB_SETCURSEL, comboIndex, 0);
+                break;
+            }
+    }
     const Salamander::FileAssociations::Association* conflictItem = NULL;
     if (selectedCount <= 1)
     {
         for (size_t i = 0; i < Rows.size(); ++i)
-            if (Rows[i].Pattern == item.Pattern &&
-                Rows[i].AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict)
+        {
+            if (Rows[i].Pattern != item.Pattern ||
+                Rows[i].AssociationCategory != item.AssociationCategory ||
+                Rows[i].Operation != item.Operation ||
+                Rows[i].AssociationProvenance != Salamander::FileAssociations::Provenance::Conflict)
+                continue;
+            bool overridden = false;
+            for (size_t j = 0; j < Rows.size(); ++j)
+                if (Rows[j].Pattern == Rows[i].Pattern &&
+                    Rows[j].AssociationCategory == Rows[i].AssociationCategory &&
+                    Rows[j].Operation == Rows[i].Operation &&
+                    (Rows[j].AssociationProvenance == Salamander::FileAssociations::Provenance::User ||
+                     Rows[j].AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled))
+                {
+                    overridden = true;
+                    break;
+                }
+            if (!overridden)
             {
                 conflictItem = &Rows[i];
                 break;
             }
+        }
     }
     if (conflictItem != NULL)
     {
@@ -4533,7 +4647,8 @@ void CCfgPageFileAssociations::RefreshList()
         if (!MatrixRowVisible(MatrixRows[i]))
             continue;
         ++visibleCount;
-        if (MatrixRows[i].Conflict)
+        if (MatrixStatusProvenance(MatrixRows[i]) ==
+            Salamander::FileAssociations::Provenance::Conflict)
             ++visibleConflicts;
         const MatrixRow& row = MatrixRows[i];
         LVITEM item;
@@ -4603,53 +4718,168 @@ void CCfgPageFileAssociations::RefreshList()
 }
 
 BOOL CCfgPageFileAssociations::ReadControls(
-    Salamander::FileAssociations::Association& item, std::string* error)
+    Salamander::FileAssociations::Association& item, std::string* error,
+    const std::string* fallbackPattern, BOOL readPatternControl)
 {
+    const std::string originalPattern = item.Pattern;
+    const auto isBlankPattern = [](const std::string& value) -> bool
+    {
+        return value.find_first_not_of(" \t\r\n") == std::string::npos;
+    };
     const Salamander::FileAssociations::TargetKind previousTargetKind = item.AssociationTarget.Kind;
     const std::string previousStableId = item.AssociationTarget.StableId;
     std::vector<char> pattern(1024);
-    if (ListView_GetSelectedCount(GetDlgItem(HWindow, IDL_FILEASSOCIATIONS)) > 1)
+    HWND matrix = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
+    if (!readPatternControl)
     {
-        // The pattern editor shows a multi-select summary; preserve the focused
-        // row's pattern while the target/category controls apply to all rows.
+        if (fallbackPattern != NULL && !isBlankPattern(*fallbackPattern))
+            item.Pattern = *fallbackPattern;
+    }
+    else if (ListView_GetSelectedCount(matrix) > 1)
+    {
+        // The pattern editor shows a multi-select summary. The association to
+        // carry through Apply must come from the focused matrix row instead.
+        if (isBlankPattern(item.Pattern) && fallbackPattern != NULL &&
+            !isBlankPattern(*fallbackPattern))
+            item.Pattern = *fallbackPattern;
+        if (isBlankPattern(item.Pattern))
+        {
+            int matrixRow = ListView_GetNextItem(matrix, -1, LVNI_FOCUSED);
+            LVITEM focusedItem;
+            ZeroMemory(&focusedItem, sizeof(focusedItem));
+            focusedItem.mask = LVIF_PARAM;
+            focusedItem.iItem = matrixRow;
+            if (matrixRow >= 0 && ListView_GetItem(matrix, &focusedItem) &&
+                focusedItem.lParam >= 0 &&
+                focusedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
+                item.Pattern = MatrixRows[focusedItem.lParam].Pattern;
+
+            if (isBlankPattern(item.Pattern) && SelectedMatrixRow >= 0 &&
+                SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
+                item.Pattern = MatrixRows[SelectedMatrixRow].Pattern;
+
+            if (isBlankPattern(item.Pattern))
+            {
+                for (int row = 0; row < ListView_GetItemCount(matrix); ++row)
+                {
+                    if ((ListView_GetItemState(matrix, row, LVIS_SELECTED) & LVIS_SELECTED) == 0)
+                        continue;
+                    LVITEM selectedItem;
+                    ZeroMemory(&selectedItem, sizeof(selectedItem));
+                    selectedItem.mask = LVIF_PARAM;
+                    selectedItem.iItem = row;
+                    if (ListView_GetItem(matrix, &selectedItem) && selectedItem.lParam >= 0 &&
+                        selectedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
+                    {
+                        item.Pattern = MatrixRows[selectedItem.lParam].Pattern;
+                        break;
+                    }
+                }
+            }
+        }
     }
     else
     {
         GetDlgItemText(HWindow, IDE_FILEASSOCIATION_PATTERN, pattern.data(),
                        static_cast<int>(pattern.size()));
         item.Pattern = pattern.data();
+        if (isBlankPattern(item.Pattern) && fallbackPattern != NULL &&
+            !isBlankPattern(*fallbackPattern))
+            item.Pattern = *fallbackPattern;
+        if (isBlankPattern(item.Pattern))
+            item.Pattern = originalPattern;
+        if (isBlankPattern(item.Pattern) && SelectedMatrixRow >= 0 &&
+            SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
+            item.Pattern = MatrixRows[SelectedMatrixRow].Pattern;
+        if (isBlankPattern(item.Pattern))
+        {
+            int selectedRow = ListView_GetNextItem(matrix, -1, LVNI_SELECTED);
+            LVITEM selectedItem;
+            ZeroMemory(&selectedItem, sizeof(selectedItem));
+            selectedItem.mask = LVIF_PARAM;
+            selectedItem.iItem = selectedRow;
+            if (selectedRow >= 0 && ListView_GetItem(matrix, &selectedItem) &&
+                selectedItem.lParam >= 0 &&
+                selectedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
+                item.Pattern = MatrixRows[selectedItem.lParam].Pattern;
+        }
     }
     item.AssociationCategory = static_cast<Salamander::FileAssociations::Category>(SelectedCategory);
     item.Operation = static_cast<Salamander::FileAssociations::PanelOperation>(SelectedOperation);
     const int selectedTargetItem = static_cast<int>(SendDlgItemMessage(
         HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETITEMDATA,
         SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETKIND, CB_GETCURSEL, 0, 0), 0));
-    item.AssociationTarget.Kind = selectedTargetItem == FileAssociationTargetExtensionsChoice
-        ? Salamander::FileAssociations::TargetKind::Plugin
-        : static_cast<Salamander::FileAssociations::TargetKind>(selectedTargetItem);
-    int targetIndex = static_cast<int>(SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
-                                                          CB_GETCURSEL, 0, 0));
-    if (targetIndex >= 0 && targetIndex < static_cast<int>(TargetCatalog.size()) &&
-        !TargetCatalog[targetIndex].StableId.empty())
+    const int catalogSelection = static_cast<int>(SendDlgItemMessage(
+        HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETCURSEL, 0, 0));
+    int catalogItem = catalogSelection >= 0
+        ? static_cast<int>(SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
+                                              CB_GETITEMDATA, catalogSelection, 0))
+        : -1;
+    bool catalogItemValid = catalogItem >= 0 &&
+                            catalogItem < static_cast<int>(TargetCatalog.size());
+    std::vector<char> selectedTargetName(1024, 0);
+    if (catalogSelection >= 0)
+        SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETLBTEXT,
+                           catalogSelection, reinterpret_cast<LPARAM>(selectedTargetName.data()));
+    if (catalogItemValid && TargetCatalog[catalogItem].DisplayName != selectedTargetName.data())
     {
-        item.AssociationTarget.StableId = TargetCatalog[targetIndex].StableId;
-        item.AssociationTarget.DisplayLabel = TargetCatalog[targetIndex].DisplayLabel;
+        catalogItem = -1;
+        catalogItemValid = false;
+    }
+    if (!catalogItemValid && selectedTargetName[0] != 0)
+    {
+        int matchingCatalogItem = -1;
+        bool ambiguousDisplayName = false;
+        for (size_t i = 0; i < TargetCatalog.size(); ++i)
+            if (TargetCatalog[i].DisplayName == selectedTargetName.data())
+            {
+                if (matchingCatalogItem >= 0)
+                {
+                    ambiguousDisplayName = true;
+                    break;
+                }
+                matchingCatalogItem = static_cast<int>(i);
+            }
+        if (!ambiguousDisplayName)
+            catalogItem = matchingCatalogItem;
+        catalogItemValid = catalogItem >= 0 &&
+                           catalogItem < static_cast<int>(TargetCatalog.size());
+    }
+    if (catalogSelection >= 0 && !catalogItemValid)
+    {
+        if (error != NULL)
+            *error = selectedTargetItem == FileAssociationTargetExtensionsChoice
+                ? LoadStr(IDS_FILEASSOCIATION_SELECT_EXTENSION)
+                : selectedTargetItem == static_cast<int>(Salamander::FileAssociations::TargetKind::Plugin)
+                    ? LoadStr(IDS_FILEASSOCIATION_SELECT_PLUGIN)
+                    : LoadStr(IDS_FILEASSOCIATION_NO_TARGETS);
+        return FALSE;
+    }
+    const Salamander::FileAssociations::TargetKind requestedKind =
+        selectedTargetItem == FileAssociationTargetExtensionsChoice
+            ? Salamander::FileAssociations::TargetKind::Plugin
+            : static_cast<Salamander::FileAssociations::TargetKind>(selectedTargetItem);
+    item.AssociationTarget.Kind = catalogItemValid
+        ? TargetCatalog[catalogItem].Kind : requestedKind;
+    if (catalogItemValid)
+    {
+        item.AssociationTarget.StableId = TargetCatalog[catalogItem].StableId;
+        item.AssociationTarget.DisplayLabel = TargetCatalog[catalogItem].DisplayLabel;
     }
     else if (previousTargetKind == item.AssociationTarget.Kind &&
              (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin ||
               item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::CustomViewer ||
               item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::CustomEditor) &&
              !previousStableId.empty())
+    {
         item.AssociationTarget.StableId = previousStableId;
-    else
-        item.AssociationTarget.StableId.clear();
-    if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Unassigned)
-        item.AssociationTarget.StableId.clear();
-    if (previousTargetKind != item.AssociationTarget.Kind ||
-        previousStableId != item.AssociationTarget.StableId)
         item.AssociationTarget.DisplayLabel.clear();
-    if (targetIndex >= 0 && targetIndex < static_cast<int>(TargetCatalog.size()))
-        item.AssociationTarget.DisplayLabel = TargetCatalog[targetIndex].DisplayLabel;
+    }
+    else
+    {
+        item.AssociationTarget.StableId.clear();
+        item.AssociationTarget.DisplayLabel.clear();
+    }
     if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin &&
         item.AssociationTarget.StableId.empty())
     {
@@ -4672,7 +4902,7 @@ BOOL CCfgPageFileAssociations::ReadControls(
             *error = LoadStr(IDS_FILEASSOCIATION_NO_TARGETS);
         return FALSE;
     }
-    if (item.Pattern.empty())
+    if (isBlankPattern(item.Pattern))
     {
         if (error != NULL)
             *error = LoadStr(IDS_FILEASSOCIATION_PATTERN_EMPTY);
@@ -4690,7 +4920,8 @@ BOOL CCfgPageFileAssociations::BuildCandidate(
         Selected >= 0 && Selected < static_cast<int>(Rows.size()))
     {
         Salamander::FileAssociations::Association item = editedRows[Selected];
-        if (!ReadControls(item, error))
+        const std::string fallbackPattern = item.Pattern;
+        if (!ReadControls(item, error, &fallbackPattern))
             return FALSE;
         editedRows[Selected] = item;
     }
@@ -4722,12 +4953,10 @@ void CCfgPageFileAssociations::Transfer(CTransferInfo& ti)
                 candidate, &error))
         {
             SetStatus(error.c_str());
-            // ReplaceCanonicalAssociationsForConfiguration keeps a valid
-            // canonical model even when the currently registered runtime
-            // handlers cannot accept its projection. That is a retryable
-            // runtime condition, not a reason to keep Configuration open.
-            if (!Salamander::FileAssociations::IsCanonicalRuntimeProjectionBlocked())
-                ti.ErrorOn(IDC_FILEASSOCIATION_STATUS);
+            // Runtime projection failures are represented as a successful
+            // model replacement with a blocked projection state. A FALSE
+            // result therefore means the candidate itself was rejected.
+            ti.ErrorOn(IDC_FILEASSOCIATION_STATUS);
         }
         return;
     }
@@ -4792,7 +5021,8 @@ void CCfgPageFileAssociations::Validate(CTransferInfo& ti)
         Selected >= 0 && Selected < static_cast<int>(Rows.size()))
     {
         Salamander::FileAssociations::Association item = Rows[Selected];
-        if (!ReadControls(item, &error))
+        const std::string fallbackPattern = item.Pattern;
+        if (!ReadControls(item, &error, &fallbackPattern))
         {
             SetStatus(error.c_str());
             ti.ErrorOn(IDE_FILEASSOCIATION_PATTERN);
@@ -4911,19 +5141,7 @@ void CCfgPageFileAssociations::PaintMatrix(HDC hdc)
 
             if (column == 6)
             {
-                const int indexes[5] = {row.View, row.AlternateView, row.Edit,
-                                        row.DeletePack, row.ListUnpack};
-                int statusIndex = -1;
-                for (int i = 0; i < 5; ++i)
-                    if (indexes[i] >= 0 && indexes[i] < static_cast<int>(Rows.size()))
-                    {
-                        statusIndex = indexes[i];
-                        break;
-                    }
-                const Salamander::FileAssociations::Provenance state = row.Conflict
-                    ? Salamander::FileAssociations::Provenance::Conflict
-                    : statusIndex >= 0 ? Rows[statusIndex].AssociationProvenance
-                                       : Salamander::FileAssociations::Provenance::Default;
+                const Salamander::FileAssociations::Provenance state = MatrixStatusProvenance(row);
                 char text[128] = {};
                 ListView_GetItemText(list, rowIndex, column, text, _countof(text));
                 COLORREF badgeColor = dark ? RGB(106, 80, 170) : RGB(225, 215, 250);
@@ -5135,15 +5353,29 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                     std::string selectedId;
                     const int selectedCatalogIndex = static_cast<int>(SendDlgItemMessage(
                         HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETCURSEL, 0, 0));
-                    if (selectedCatalogIndex >= 0 &&
-                        selectedCatalogIndex < static_cast<int>(TargetCatalog.size()))
-                        selectedId = TargetCatalog[selectedCatalogIndex].StableId;
+                    const int selectedCatalogItem = selectedCatalogIndex >= 0
+                        ? static_cast<int>(SendDlgItemMessage(
+                              HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETITEMDATA,
+                              selectedCatalogIndex, 0))
+                        : -1;
+                    if (selectedCatalogItem >= 0 &&
+                        selectedCatalogItem < static_cast<int>(TargetCatalog.size()))
+                        selectedId = TargetCatalog[selectedCatalogItem].StableId;
                     PopulateTargetCatalog();
                     for (size_t i = 0; i < TargetCatalog.size(); ++i)
                         if (TargetCatalog[i].StableId == selectedId)
                         {
-                            SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
-                                               CB_SETCURSEL, i, 0);
+                            const int catalogCount = static_cast<int>(SendDlgItemMessage(
+                                HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETCOUNT, 0, 0));
+                            for (int comboIndex = 0; comboIndex < catalogCount; ++comboIndex)
+                                if (static_cast<int>(SendDlgItemMessage(
+                                        HWindow, IDC_FILEASSOCIATION_TARGETCATALOG, CB_GETITEMDATA,
+                                        comboIndex, 0)) == static_cast<int>(i))
+                                {
+                                    SendDlgItemMessage(HWindow, IDC_FILEASSOCIATION_TARGETCATALOG,
+                                                       CB_SETCURSEL, comboIndex, 0);
+                                    break;
+                                }
                             break;
                         }
                 }
@@ -5737,31 +5969,18 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
         }
         case IDB_FILEASSOCIATION_APPLY:
         {
-            Salamander::FileAssociations::Association item;
-            item.AssociationCategory = Salamander::FileAssociations::Category::View;
-            item.Operation = Salamander::FileAssociations::PanelOperation::NotApplicable;
-            item.AssociationTarget = Salamander::FileAssociations::Target();
-            if (ListView_GetSelectedCount(GetDlgItem(HWindow, IDL_FILEASSOCIATIONS)) > 1 &&
-                Selected >= 0 && Selected < static_cast<int>(Rows.size()))
-                item = Rows[Selected];
-            item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
-            item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
-            std::string error;
-            if (!ReadControls(item, &error))
-            {
-                SetStatus(error.c_str());
-                break;
-            }
-            std::string normalizedPattern;
-            if (!Salamander::FileAssociations::CFileAssociationModel::NormalizePattern(
-                    item.Pattern.c_str(), &normalizedPattern, &error))
-            {
-                SetStatus(error.c_str());
-                break;
-            }
-            item.Pattern = normalizedPattern;
             HWND matrix = GetDlgItem(HWindow, IDL_FILEASSOCIATIONS);
             std::vector<std::string> selectedPatterns;
+            const auto appendPattern = [&selectedPatterns](const std::string& pattern)
+            {
+                std::string normalized;
+                if (!Salamander::FileAssociations::CFileAssociationModel::NormalizePattern(
+                        pattern.c_str(), &normalized, NULL))
+                    return;
+                if (std::find(selectedPatterns.begin(), selectedPatterns.end(), normalized) ==
+                    selectedPatterns.end())
+                    selectedPatterns.push_back(normalized);
+            };
             for (int row = 0; row < ListView_GetItemCount(matrix); ++row)
             {
                 if ((ListView_GetItemState(matrix, row, LVIS_SELECTED) & LVIS_SELECTED) == 0)
@@ -5772,84 +5991,225 @@ INT_PTR CCfgPageFileAssociations::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lP
                 selectedItem.iItem = row;
                 if (ListView_GetItem(matrix, &selectedItem) && selectedItem.lParam >= 0 &&
                     selectedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
-                    selectedPatterns.push_back(MatrixRows[selectedItem.lParam].Pattern);
+                {
+                    appendPattern(MatrixRows[selectedItem.lParam].Pattern);
+                }
             }
-            if (SelectedMatrixRow >= 0 && SelectedMatrixRow < static_cast<int>(MatrixRows.size()) &&
-                MatrixRows[SelectedMatrixRow].Conflict && selectedPatterns.size() <= 1)
+            const bool multiSelect =
+                ListView_GetSelectedCount(matrix) > 1 && selectedPatterns.size() > 1;
+            std::string focusedPattern;
+            if (multiSelect)
             {
+                int focusedRow = ListView_GetNextItem(matrix, -1, LVNI_FOCUSED);
+                LVITEM focusedItem;
+                ZeroMemory(&focusedItem, sizeof(focusedItem));
+                focusedItem.mask = LVIF_PARAM;
+                focusedItem.iItem = focusedRow;
+                if (focusedRow >= 0 && ListView_GetItem(matrix, &focusedItem) &&
+                    focusedItem.lParam >= 0 &&
+                    focusedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
+                    focusedPattern = MatrixRows[focusedItem.lParam].Pattern;
+
+                // A ListView can retain focus on an unselected row after the
+                // selection is changed with the mouse. Only use the focus row
+                // as the editor anchor when it is actually in the selection.
+                if (std::find(selectedPatterns.begin(), selectedPatterns.end(), focusedPattern) ==
+                    selectedPatterns.end())
+                    focusedPattern = selectedPatterns[0];
+            }
+            else if (!selectedPatterns.empty())
+                focusedPattern = selectedPatterns[0];
+
+            if (selectedPatterns.empty())
+            {
+                int focusedRow = ListView_GetNextItem(matrix, -1, LVNI_FOCUSED);
+                if (focusedRow < 0)
+                    focusedRow = ListView_GetNextItem(matrix, -1, LVNI_SELECTED);
+                LVITEM focusedItem;
+                ZeroMemory(&focusedItem, sizeof(focusedItem));
+                focusedItem.mask = LVIF_PARAM;
+                focusedItem.iItem = focusedRow;
+                if (focusedRow >= 0 && ListView_GetItem(matrix, &focusedItem) &&
+                    focusedItem.lParam >= 0 &&
+                    focusedItem.lParam < static_cast<LPARAM>(MatrixRows.size()))
+                    appendPattern(MatrixRows[focusedItem.lParam].Pattern);
+            }
+
+            if (selectedPatterns.empty() && SelectedMatrixRow >= 0 &&
+                SelectedMatrixRow < static_cast<int>(MatrixRows.size()))
+                appendPattern(MatrixRows[SelectedMatrixRow].Pattern);
+            if (selectedPatterns.empty() && Selected >= 0 &&
+                Selected < static_cast<int>(Rows.size()))
+                appendPattern(Rows[Selected].Pattern);
+
+            if (focusedPattern.empty() && !selectedPatterns.empty())
+                focusedPattern = selectedPatterns[0];
+
+            Salamander::FileAssociations::Association item;
+            item.AssociationCategory =
+                static_cast<Salamander::FileAssociations::Category>(SelectedCategory);
+            item.Operation =
+                static_cast<Salamander::FileAssociations::PanelOperation>(SelectedOperation);
+            item.Pattern = focusedPattern;
+            item.AssociationTarget = Salamander::FileAssociations::Target(
+                Salamander::FileAssociations::TargetKind::Unassigned);
+            item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
+            item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
+            std::string error;
+            if (focusedPattern.empty())
+            {
+                std::vector<char> patternText(1024, 0);
+                GetDlgItemText(HWindow, IDE_FILEASSOCIATION_PATTERN, patternText.data(),
+                               static_cast<int>(patternText.size()));
+                appendPattern(patternText.data());
+                if (!selectedPatterns.empty())
+                    focusedPattern = selectedPatterns[0];
+            }
+            if (focusedPattern.empty())
+            {
+                SetStatus(LoadStr(IDS_FILEASSOCIATION_PATTERN_EMPTY));
+                break;
+            }
+            if (!ReadControls(item, &error, &focusedPattern, FALSE))
+            {
+                SetStatus(error.c_str());
+                break;
+            }
+            // ReadControls owns only the action and target selectors here. Keep
+            // the selected matrix pattern authoritative even if the disabled
+            // Pattern edit still contains a multi-select summary or stale text.
+            if (focusedPattern.empty())
+                focusedPattern = item.Pattern;
+            if (focusedPattern.empty())
+            {
+                SetStatus(LoadStr(IDS_FILEASSOCIATION_PATTERN_EMPTY));
+                break;
+            }
+            item.Pattern = focusedPattern;
+            std::string normalizedPattern;
+            if (!Salamander::FileAssociations::CFileAssociationModel::NormalizePattern(
+                    item.Pattern.c_str(), &normalizedPattern, &error))
+            {
+                SetStatus(error.c_str());
+                break;
+            }
+            item.Pattern = normalizedPattern;
+            if (!multiSelect)
+            {
+                focusedPattern = normalizedPattern;
+                if (selectedPatterns.empty())
+                    selectedPatterns.push_back(normalizedPattern);
+                else
+                    selectedPatterns[0] = normalizedPattern;
+            }
+            if (selectedPatterns.empty())
+                selectedPatterns.push_back(normalizedPattern);
+
+            const std::vector<Salamander::FileAssociations::Association> originalRows = Rows;
+            for (size_t p = 0; p < selectedPatterns.size(); ++p)
+            {
+                Salamander::FileAssociations::Association overrideItem = item;
+                overrideItem.Pattern = selectedPatterns[p];
+                overrideItem.AssociationProvenance =
+                    Salamander::FileAssociations::Provenance::User;
+                overrideItem.SourceProvenance =
+                    Salamander::FileAssociations::Provenance::User;
+
+                bool replacedUserOverride = false;
                 for (size_t i = Rows.size(); i > 0; --i)
                 {
-                    const Salamander::FileAssociations::Association& candidate = Rows[i - 1];
-                    if (candidate.AssociationCategory == item.AssociationCategory &&
-                        candidate.Operation == item.Operation &&
-                        candidate.AssociationProvenance == Salamander::FileAssociations::Provenance::Conflict &&
-                        candidate.Pattern == normalizedPattern)
-                        Rows.erase(Rows.begin() + i - 1);
-                }
-                item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
-                item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
-                Rows.push_back(item);
-                Selected = static_cast<int>(Rows.size()) - 1;
-                RefreshList();
-                break;
-            }
-            if (selectedPatterns.size() > 1)
-            {
-                for (size_t p = 0; p < selectedPatterns.size(); ++p)
-                {
-                    Salamander::FileAssociations::Association bulkItem = item;
-                    bulkItem.Pattern = selectedPatterns[p];
-                    bool replaced = false;
-                    for (size_t i = 0; i < Rows.size(); ++i)
+                    Salamander::FileAssociations::Association& existing = Rows[i - 1];
+                    if (existing.Pattern == overrideItem.Pattern &&
+                        existing.AssociationCategory == overrideItem.AssociationCategory &&
+                        existing.Operation == overrideItem.Operation &&
+                        (existing.AssociationProvenance ==
+                             Salamander::FileAssociations::Provenance::User ||
+                         existing.AssociationProvenance ==
+                             Salamander::FileAssociations::Provenance::Disabled))
                     {
-                        if (Rows[i].Pattern == bulkItem.Pattern &&
-                            Rows[i].AssociationCategory == bulkItem.AssociationCategory &&
-                            Rows[i].Operation == bulkItem.Operation)
-                        {
-                            if (Rows[i].AssociationProvenance == Salamander::FileAssociations::Provenance::Default ||
-                                Rows[i].AssociationProvenance == Salamander::FileAssociations::Provenance::Legacy)
-                                Rows.push_back(bulkItem);
-                            else
-                                Rows[i] = bulkItem;
-                            replaced = true;
-                            break;
-                        }
+                        existing = overrideItem;
+                        replacedUserOverride = true;
                     }
-                    if (!replaced)
-                        Rows.push_back(bulkItem);
                 }
-                Selected = static_cast<int>(Rows.size()) - 1;
+                if (!replacedUserOverride)
+                    Rows.push_back(overrideItem);
+            }
+
+            Salamander::FileAssociations::CFileAssociationModel candidate;
+            if (!candidate.ReplaceAssociations(Rows, &error))
+            {
+                Rows = originalRows;
                 RefreshList();
+                SetStatus(error.c_str());
                 break;
             }
-            const bool canUpdate =
-                Selected >= 0 && Selected < static_cast<int>(Rows.size()) &&
-                normalizedPattern == Rows[Selected].Pattern &&
-                item.AssociationCategory == Rows[Selected].AssociationCategory &&
-                item.Operation == Rows[Selected].Operation;
-            if (canUpdate)
+
+            std::string commitError;
+            if (!Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
+                    candidate, &commitError))
             {
-                const Salamander::FileAssociations::Provenance previousProvenance =
-                    Rows[Selected].AssociationProvenance;
-                item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
-                item.SourceProvenance = Rows[Selected].SourceProvenance;
-                if (previousProvenance == Salamander::FileAssociations::Provenance::Default ||
-                    previousProvenance == Salamander::FileAssociations::Provenance::Legacy)
+                Rows = originalRows;
+                RefreshList();
+                SetStatus(commitError.c_str());
+                break;
+            }
+            if (!Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
+                    ConfigurationStorage, &commitError))
+            {
+                Salamander::FileAssociations::CFileAssociationModel previousModel;
+                if (previousModel.ReplaceAssociations(originalRows, NULL))
                 {
-                    // Keep the shipped/imported row so Reset can reveal it again.
-                    Rows.push_back(item);
-                    Selected = static_cast<int>(Rows.size()) - 1;
+                    Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
+                        previousModel, NULL);
+                    Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
+                        ConfigurationStorage, NULL);
                 }
-                else
-                    Rows[Selected] = item;
+                Rows = originalRows;
+                RefreshList();
+                SetStatus(commitError.c_str());
+                break;
             }
-            else
+            if (!ConfigurationStorage.Flush(FALSE))
             {
-                item.AssociationProvenance = Salamander::FileAssociations::Provenance::User;
-                item.SourceProvenance = Salamander::FileAssociations::Provenance::User;
-                Rows.push_back(item);
-                Selected = static_cast<int>(Rows.size()) - 1;
+                Salamander::FileAssociations::CFileAssociationModel previousModel;
+                if (previousModel.ReplaceAssociations(originalRows, NULL))
+                {
+                    Salamander::FileAssociations::ReplaceCanonicalAssociationsForConfiguration(
+                        previousModel, NULL);
+                    Salamander::FileAssociations::SaveCanonicalAssociationsForLifecycle(
+                        ConfigurationStorage, NULL);
+                    ConfigurationStorage.Flush(FALSE);
+                }
+                Rows = originalRows;
+                RefreshList();
+                SetStatus(LoadStr(IDS_ERRORSAVECONFIG));
+                break;
             }
+
+            Salamander::FileAssociations::CFileAssociationModel savedModel;
+            if (!Salamander::FileAssociations::CopyCanonicalAssociationsForConfiguration(
+                    &savedModel, &commitError))
+            {
+                Rows = originalRows;
+                RefreshList();
+                SetStatus(commitError.c_str());
+                break;
+            }
+
+            Rows = savedModel.Associations();
+            Selected = -1;
+            for (size_t i = Rows.size(); i > 0; --i)
+                if (Rows[i - 1].Pattern == focusedPattern &&
+                    Rows[i - 1].AssociationCategory == item.AssociationCategory &&
+                    Rows[i - 1].Operation == item.Operation &&
+                    Rows[i - 1].AssociationProvenance ==
+                        Salamander::FileAssociations::Provenance::User)
+                {
+                    Selected = static_cast<int>(i - 1);
+                    break;
+                }
+            if (Selected < 0 && !Rows.empty())
+                Selected = static_cast<int>(Rows.size()) - 1;
             RefreshList();
             break;
         }

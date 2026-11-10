@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
-// | 2026-11-04 | Offer the middle-toolbar button catalog in panel toolbars. | Panel customize listed only a subset, so Hot Paths and the other shared commands could not be placed next to Change Drive. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7 |
+// | 2026-11-10 | Enable clipboard copy from plugin FS selections. | Reuse the capability-aware file copy enabler for the toolbar command. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
+// | 2026-11-04 | Offer the middle-toolbar button catalog in panel toolbars. | Panel customize listed only a subset, so Hot Paths and the other shared commands could not be placed next to Change Drive. | https://github.com/KRtkovo-eu-AI/salamander/issues/777 | Grok 4.7
 
 #include "precomp.h"
 
@@ -189,7 +190,7 @@ CButtonData ToolBarButtons[TBBE_TERMINATOR] =
         /*TBBE_VIEW*/ {IDX_TB_VIEW, 0, IDS_TBTT_VIEW, CM_VIEW, 0, 0, 1, 0, 0, &EnablerViewFile, NULL, NULL, "View"},
         /*TBBE_EDIT*/ {IDX_TB_EDIT, 0, IDS_TBTT_EDIT, CM_EDIT, 0, 0, 1, 0, 0, &EnablerFileOnDiskOrArchive, NULL, NULL, "Edit"},
         /*TBBE_CLIPBOARD_CUT*/ {IDX_TB_CLIPBOARDCUT, 0, IDS_TBTT_CLIPBOARDCUT, CM_CLIPCUT, 0, 0, 0, 0, 0, &EnablerFilesOnDisk, NULL, NULL, "ClipboardCut"},
-        /*TBBE_CLIPBOARD_COPY*/ {IDX_TB_CLIPBOARDCOPY, 0, IDS_TBTT_CLIPBOARDCOPY, CM_CLIPCOPY, 0, 0, 0, 0, 0, &EnablerFilesOnDiskOrArchive, NULL, NULL, "ClipboardCopy"},
+        /*TBBE_CLIPBOARD_COPY*/ {IDX_TB_CLIPBOARDCOPY, 0, IDS_TBTT_CLIPBOARDCOPY, CM_CLIPCOPY, 0, 0, 0, 0, 0, &EnablerFilesCopy, NULL, NULL, "ClipboardCopy"},
         /*TBBE_CLIPBOARD_PASTE*/ {IDX_TB_CLIPBOARDPASTE, 0, IDS_TBTT_CLIPBOARDPASTE, CM_CLIPPASTE, 0, 0, 0, 0, 0, &EnablerPaste, NULL, NULL, "ClipboardPaste"},
         /*TBBE_CHANGE_ATTR*/ {IDX_TB_CHANGEATTR, 0, IDS_TBTT_CHANGEATTR, CM_CHANGEATTR, 0, 0, 0, 0, 0, &EnablerChangeAttrs, NULL, NULL, "ChangeAttributes"},
         /*TBBE_COMPARE_DIR*/ {IDX_TB_COMPAREDIR, 0, IDS_TBTT_COMPAREDIR, CM_COMPAREDIRS, 0, 0, 0, 0, 0, NULL, NULL, NULL, "CompareDirectories"},

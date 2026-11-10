@@ -2,6 +2,7 @@
 | Date | Summary | Reason | Ticket | Model |
 | 2026-11-04 | Rename the product to Open Samandarin and record the file-header rule. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 | 2026-11-09 | Add UI and dialog guidelines. | Standardize reuse of existing dialogs and Open Samandarin UI components. | | nvidia/nemotron-3.5-super-vl:free |
+| 2026-11-10 | Add rule to keep all third_party_*.md files synced. | Ensure translated third-party attribution files do not diverge. | | nvidia/nemotron-3.5-super-vl:free |
 -->
 
 # Codex rules for Open Samandarin path/Unicode work
@@ -81,6 +82,7 @@ When a Windows build/test environment is unavailable, document that limitation c
 - Add visible attribution to authors of the third party component, to the repository used as a reference point for implementation or fixing issues in our code or for taking an inspiration, in the doc/third_party.md file (keep the existing structure).
 - Preserve all authors copyright/SPDX/provenance notices in files directly derived from other sources.
 - Add comments or documentation where substantial code or tooling was copied or adapted from other sources.
+- When adding a third party dependency or attribution to `doc/third_party.md`, update every other `third_party_*.md` file in all languages in the same change. All `third_party.md` files must always be synced and must not diverge; components and authorship must be written to all files, not just some of them.
 
 ## Darkmode
 

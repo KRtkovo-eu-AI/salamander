@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Retain staged clipboard files through async paste work. | Clipboard replacement must not delete temp sources before file operations finish. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -68,12 +71,24 @@ void GetNewOrBackgroundMenu(HWND hOwnerWindow, const char* dir, CMenuNew* menu,
 
 struct CDragDropOperData
 {
+    IDataObject* ClipboardLease; // optional source object that owns staged clipboard files
     char SrcPath[MAX_PATH];        // Source path shared by all files/directories from Names ("" == path conversion from Unicode failed)
     std::wstring SrcPathW;         // Unicode source path shared by all files/directories from NamesW; may exceed MAX_PATH
     TIndirectArray<char> Names;    // Sorted, allocated names of files/directories (CF_HDROP does not distinguish whether it is a file or a directory) ("" == path conversion from Unicode failed)
     TIndirectArray<wchar_t> NamesW; // Unicode names for CF_HDROP wide payloads
 
-    CDragDropOperData() : Names(200, 200), NamesW(200, 200) { SrcPath[0] = 0; }
+    CDragDropOperData() : ClipboardLease(NULL), Names(200, 200), NamesW(200, 200) { SrcPath[0] = 0; }
+    ~CDragDropOperData()
+    {
+        if (ClipboardLease != NULL) ClipboardLease->Release();
+    }
+    void HoldClipboardLease(IDataObject* dataObject)
+    {
+        if (ClipboardLease == dataObject) return;
+        if (ClipboardLease != NULL) ClipboardLease->Release();
+        ClipboardLease = dataObject;
+        if (ClipboardLease != NULL) ClipboardLease->AddRef();
+    }
 };
 
 // Determines whether 'pDataObject' contains files and directories from disk and whether all of them share a single path.
@@ -89,6 +104,7 @@ BOOL GetSHObjectName(ITEMIDLIST* pidl, DWORD flags, char* name, int nameSize, IM
 // TRUE = the drag & drop effect was calculated in the plugin FS, so it is not necessary to force Copy
 // in CImpIDropSource::GiveFeedback
 extern BOOL DragFromPluginFSEffectIsFromPlugin;
+extern IDataObject* ClipboardPasteDataObject; // source object during synchronous drop dispatch
 
 //*****************************************************************************
 //
@@ -214,12 +230,25 @@ struct CCopyMoveRecord
 class CCopyMoveData : public TIndirectArray<CCopyMoveRecord>
 {
 public:
+    IDataObject* ClipboardLease; // protects temporary clipboard sources through queued copy work
     BOOL MakeCopyOfName; // TRUE if it should attempt "Copy of..." when the target already exists
 
 public:
     CCopyMoveData(int base, int delta) : TIndirectArray<CCopyMoveRecord>(base, delta)
     {
+        ClipboardLease = NULL;
         MakeCopyOfName = FALSE;
+    }
+    ~CCopyMoveData()
+    {
+        if (ClipboardLease != NULL) ClipboardLease->Release();
+    }
+    void HoldClipboardLease(IDataObject* dataObject)
+    {
+        if (ClipboardLease == dataObject) return;
+        if (ClipboardLease != NULL) ClipboardLease->Release();
+        ClipboardLease = dataObject;
+        if (ClipboardLease != NULL) ClipboardLease->AddRef();
     }
 };
 

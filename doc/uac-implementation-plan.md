@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Record the upstream clipboard integration. | Preserve the lifetime of staged clipboard files in the UAC worker. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Record the protected panel restore fix. | Verify that saved paths cannot block startup on an access prompt. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Record the F5 and F6 target shield and VM evidence. | Keep one in-app confirmation for an identified protected target. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Record one shield for protected recycling. | Verify direct Windows consent and the original account receipt. | #731 | GPT-6 (Codex) |
@@ -1610,6 +1611,10 @@ Uložená cesta na místním pevném disku může poskytovat metadata a zárove�
 V izolované VM x64 se stejným testovacím profilem předchozí Release před zobrazením hlavního okna čekal. Opravený Release obnovil oba panely v čitelném rodiči složek `03-approve` a `02-decline` bez dialogu a bez výzvy UAC. Ve starším profilu se levý chráněný panel vrátil do rodiče a pravý čitelný panel zůstal na uložené cestě. Prošel i návrat z chráněné Unicode cesty o 307 znacích UTF‑16 a přednost explicitní čitelné cesty zadané parametrem `-l`. Pro každé spuštění se používala kopie profilu pilotu. Důkazy a sestavení jsou v `C:/Samandarin/builds/uac-startup-panel`.
 
 Místně prošly kontrakty obnovy záložek, 30 kontraktů přechodu panelu a x64 Release sestavení s varováními jako chybami. Host narostl z 5 672 960 na 5 674 496 bajtů, broker má 1 347 584 bajtů a dvojice celkem 7 022 080 bajtů. Soukromá paměť se neměřila.
+
+### P7 — sladění s upstreamem
+
+Sloučení s upstream revizí `18af145d` zachovává potvrzení UAC i novou podporu kopírování z archivů a pluginových souborových systémů přes schránku. Worker drží odkaz na dočasné zdrojové soubory schránky do ukončení skriptu a uvolňuje jej ve stávajícím destruktoru. Debug sestavení odhalilo, že při kopii ID cíle F5/F6 je potřeba použít projektovou variantu `memcpy`. Po opravě prošla sestavení Debug pro x64, Win32 a ARM64 s varováními jako chybami, nativní testy panelu, identity cíle a brokeru i kontrakty schránky, přenosů a obnovy panelu.
 
 ## 12. Testovací strategie
 

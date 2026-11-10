@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-09 | Put user association targets ahead of copied runtime defaults. | Make first-match viewer/editor lookup honor explicit overrides instead of stale plugin rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Resolve Built-in legacy editor associations. | Preserve the configured editor command when an association selects legacy-editor. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Project saved custom viewers and editors into legacy runtime tables. | Make custom targets selected in the association matrix executable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Restore migrated viewer owner labels during projection. | Keep extension ownership visible in the legacy viewer table and on subsequent saves. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -44,6 +45,75 @@ RuntimeAdapterContext& AdapterContext()
     return context;
 }
 
+void RemoveExactViewerRows(CViewerMasks* destination, const std::string& pattern)
+{
+    if (destination == NULL)
+        return;
+    for (int i = destination->Count - 1; i >= 0; --i)
+    {
+        CViewerMasksItem* existing = destination->At(i);
+        if (existing != NULL && existing->Masks != NULL &&
+            _stricmp(existing->Masks->GetMasksString(), pattern.c_str()) == 0)
+            destination->Delete(i);
+    }
+}
+
+bool AddViewerRow(const Association& association, CViewerMasks* destination,
+                  CViewerMasksItem* item)
+{
+    if (destination == NULL || item == NULL)
+        return false;
+    if (association.AssociationProvenance == Provenance::User)
+    {
+        // Existing runtime rows are copied to retain their launch metadata.
+        // Remove exact matches and put the user row first so first-match
+        // viewer lookup also beats broader plugin fallback masks.
+        RemoveExactViewerRows(destination, association.Pattern);
+        destination->Insert(0, item);
+    }
+    else
+        destination->Add(item);
+    if (!destination->IsGood())
+    {
+        delete item;
+        return false;
+    }
+    return true;
+}
+
+void RemoveExactEditorRows(CEditorMasks* destination, const std::string& pattern)
+{
+    if (destination == NULL)
+        return;
+    for (int i = destination->Count - 1; i >= 0; --i)
+    {
+        CEditorMasksItem* existing = destination->At(i);
+        if (existing != NULL && existing->Masks != NULL &&
+            _stricmp(existing->Masks->GetMasksString(), pattern.c_str()) == 0)
+            destination->Delete(i);
+    }
+}
+
+bool AddEditorRow(const Association& association, CEditorMasks* destination,
+                  CEditorMasksItem* item)
+{
+    if (destination == NULL || item == NULL)
+        return false;
+    if (association.AssociationProvenance == Provenance::User)
+    {
+        RemoveExactEditorRows(destination, association.Pattern);
+        destination->Insert(0, item);
+    }
+    else
+        destination->Add(item);
+    if (!destination->IsGood())
+    {
+        delete item;
+        return false;
+    }
+    return true;
+}
+
 bool StageViewerAssociation(const Association& association, CViewerMasks* destination,
                             int viewerType)
 {
@@ -64,13 +134,7 @@ bool StageViewerAssociation(const Association& association, CViewerMasks* destin
         return false;
     }
 
-    destination->Add(item);
-    if (!destination->IsGood())
-    {
-        delete item;
-        return false;
-    }
-    return true;
+    return AddViewerRow(association, destination, item);
 }
 
 bool StageCustomViewerAssociation(const Association& association,
@@ -97,13 +161,7 @@ bool StageCustomViewerAssociation(const Association& association,
         delete item;
         return false;
     }
-    destination->Add(item);
-    if (!destination->IsGood())
-    {
-        delete item;
-        return false;
-    }
-    return true;
+    return AddViewerRow(association, destination, item);
 }
 
 bool StageCustomEditorAssociation(const Association& association,
@@ -136,13 +194,7 @@ bool StageCustomEditorAssociation(const Association& association,
         delete item;
         return false;
     }
-    destination->Add(item);
-    if (!destination->IsGood())
-    {
-        delete item;
-        return false;
-    }
-    return true;
+    return AddEditorRow(association, destination, item);
 }
 
 CEditorMasksItem* FindLegacyEditorForPattern(CEditorMasks* editors,
@@ -204,13 +256,7 @@ bool StageLegacyEditorAssociation(const Association& association,
         delete item;
         return false;
     }
-    destination->Add(item);
-    if (!destination->IsGood())
-    {
-        delete item;
-        return false;
-    }
-    return true;
+    return AddEditorRow(association, destination, item);
 }
 
 bool GetArchiveExtension(const std::string& pattern, std::string* extension)
