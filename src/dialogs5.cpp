@@ -4033,9 +4033,6 @@ LRESULT CALLBACK CCfgPageFileAssociations::ConflictStatusSubclassProc(
 
 std::string CCfgPageFileAssociations::MatrixStatusText(const MatrixRow& row) const
 {
-    if (row.Conflict)
-        return std::string(ProvenanceText(Salamander::FileAssociations::Provenance::Conflict));
-
     const int indexes[5] = {row.View, row.AlternateView, row.Edit, row.ListUnpack, row.DeletePack};
     int statusIndex = -1;
     for (int i = 0; i < 5; ++i)
@@ -4050,6 +4047,9 @@ std::string CCfgPageFileAssociations::MatrixStatusText(const MatrixRow& row) con
         if (statusIndex < 0)
             statusIndex = indexes[i];
     }
+
+    if (row.Conflict)
+        return std::string(ProvenanceText(Salamander::FileAssociations::Provenance::Conflict));
 
     Salamander::FileAssociations::Provenance status = statusIndex >= 0
         ? Rows[statusIndex].AssociationProvenance

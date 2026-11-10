@@ -123,10 +123,10 @@ def main() -> None:
     source_start = status_end
     source_end = dialogs5.index("std::string CCfgPageFileAssociations::MatrixSourceText(", source_start)
     matrix_source = dialogs5[source_start:source_end]
-    require(matrix_status.index("if (row.Conflict)") <
-            matrix_status.index("Provenance::User") <
-            matrix_status.index("if (statusIndex < 0)"),
-            "matrix status must keep unresolved conflicts first and prefer effective user overrides otherwise")
+    require(matrix_status.index("provenance == Salamander::FileAssociations::Provenance::User") <
+            matrix_status.index("if (row.Conflict)") <
+            matrix_status.index("Provenance::Conflict"),
+            "matrix status must show an effective user override before a row-level residual conflict")
     require(matrix_source.index("SourceProvenance == Salamander::FileAssociations::Provenance::User") <
             matrix_source.index("for (int i = 0; i < 5; ++i)",
                                 matrix_source.index("return 0;")),
