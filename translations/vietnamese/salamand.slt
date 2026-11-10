@@ -2831,36 +2831,36 @@ SLGINCOMPLETE,""
 11070,1,"Người dùng đã dừng thao tác hoặc không trả lời truy vấn (hãy chạy lại thao tác và nhấp vào tiến trình ""salspawn.exe"" trên thanh tác vụ để xem lời nhắc của bộ đóng gói)."
 
 [STRINGTABLE 66]
-11102,0,"Archiver doesn't support compression to subdirectories.\nDo you want to place files to the root directory of the archive?"
-11103,0,"Archiver doesn't support "move to archive" command.\nDo you want to use "copy to archive" instead?"
+11102,1,"Bộ đóng gói không hỗ trợ nén vào thư mục con.\nBạn có muốn đặt tệp vào thư mục gốc của kho lưu trữ không?"
+11103,1,"Bộ đóng gói không hỗ trợ lệnh ""di chuyển vào kho lưu trữ"".\nBạn có muốn dùng lệnh ""sao chép vào kho lưu trữ"" thay thế không?"
 
 [STRINGTABLE 67]
-11104,0,"The path is not a valid directory."
+11104,1,"Đường dẫn không phải là thư mục hợp lệ."
 
 [STRINGTABLE 68]
-11209,0,"Help Error"
-11210,0,"Unable to launch HtmlHelp."
-11211,0,"Unable to find help file."
-11215,0,"To open menu from edit field press Alt+Right"
+11209,1,"Lỗi trợ giúp"
+11210,1,"Không thể mở HtmlHelp."
+11211,1,"Không tìm thấy tệp trợ giúp."
+11215,1,"Để mở menu từ trường nhập, nhấn Alt+Mũi tên phải"
 
 [STRINGTABLE 69]
-11220,0,"Focus"
-11221,0,"Focus Item\tSpace"
-11222,0,"View File\tF3"
-11223,0,"Edit File\tF4"
-11224,0,"Delete File\tF8"
-11225,0,"User Menu\tF9"
-11226,0,"Cut\tCtrl+X"
-11227,0,"Copy\tCtrl+C"
-11228,0,"Stop\tAlt+P"
-11229,0,"Error Messages: %d\nInformation Messages: %d\nClick to show the Find Log"
-11231,0,"Properties\tAlt+Enter"
+11220,1,"Tiêu điểm"
+11221,1,"Đặt tiêu điểm vào mục\tSpace"
+11222,1,"Xem tệp\tF3"
+11223,1,"Sửa tệp\tF4"
+11224,1,"Xóa tệp\tF8"
+11225,1,"Menu người dùng\tF9"
+11226,1,"Cắt\tCtrl+X"
+11227,1,"Sao chép\tCtrl+C"
+11228,1,"Dừng\tAlt+P"
+11229,1,"Thông báo lỗi: %d\nThông báo thông tin: %d\nNhấp để hiện nhật ký tìm kiếm"
+11231,1,"Thuộc tính\tAlt+Enter"
 
 [STRINGTABLE 70]
-11240,0,"You have specified some special options (see Options button in Copy/Move dialog). These options are not supported when copying/moving to plugin file systems and archives. Options will be ignored."
-11241,0,"&Don't show this message again\thow to revert\tYou can change this option later on the Confirmations page in the Configuration."
-11245,0,"File Name Part"
-11246,0,"File Extension Part"
+11240,1,"Bạn đã chọn một số tùy chọn đặc biệt (xem nút Tùy chọn trong hộp thoại Sao chép/Di chuyển). Các tùy chọn này không được hỗ trợ khi sao chép hoặc di chuyển vào hệ thống tệp của plugin và kho lưu trữ. Các tùy chọn sẽ bị bỏ qua."
+11241,1,"&Không hiển thị lại thông báo này\tCách khôi phục\tBạn có thể thay đổi tùy chọn này sau trên trang Xác nhận trong mục Cấu hình."
+11245,1,"Phần tên tệp"
+11246,1,"Phần mở rộng tệp"
 
 [STRINGTABLE 71]
 11250,0,"Path to target directory is too long, press Skip button to skip whole directory.\n\nPath: %s\n\nName: %s"
