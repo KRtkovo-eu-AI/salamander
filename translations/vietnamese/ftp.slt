@@ -797,21 +797,21 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [MENU 1100]
 1,1,""
-572,1,"&Kết nối	Enter"
-1202,1,"&Mới...	Insert"
+572,1,"&Kết nối\tEnter"
+1202,1,"&Mới...\tInsert"
 573,1,"Sao chép &đến..."
-574,1,"Đổi &tên...	F2"
-1200,1,"&Xóa	Delete"
-1201,1,"Di chuyển &lên	Alt+Mũi tên lên"
+574,1,"Đổi &tên...\tF2"
+1200,1,"&Xóa\tDelete"
+1201,1,"Di chuyển &lên\tAlt+Mũi tên lên"
 1112,
 
 [MENU 1101]
 572,1,""
-1202,1,"&Mới...	Insert"
+1202,1,"&Mới...\tInsert"
 573,1,"Sao chép &đến..."
-574,1,"Đổi &tên...	F2"
-1200,1,"&Xóa	Delete"
-1201,1,"Di chuyển &lên	Alt+Mũi tên lên"
+574,1,"Đổi &tên...\tF2"
+1200,1,"&Xóa\tDelete"
+1201,1,"Di chuyển &lên\tAlt+Mũi tên lên"
 1119,
 
 [MENU 1102]
@@ -849,11 +849,11 @@ COMMENT,"vietnamese translation stub (English seed)"
 1211,1,"&Xóa nội dung..."
 1212,1,"&Xóa..."
 1213,1,"Xóa &tất cả..."
-2,1,"&Đóng	Alt+F4"
+2,1,"&Đóng\tAlt+F4"
 0,1,"&Tùy chọn"
 1216,1,"&Luôn hiện nhật ký cho bảng đang hoạt động"
 0,1,"&Trợ giúp"
-1357,1,"&Nhật ký FTP	F1"
+1357,1,"&Nhật ký FTP\tF1"
 1358,
 
 [MENU 1106]
