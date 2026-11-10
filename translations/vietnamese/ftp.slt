@@ -857,26 +857,26 @@ COMMENT,"vietnamese translation stub (English seed)"
 1358,
 
 [MENU 1106]
-1220,0,""
-1221,0,"Sao chép &đến..."
-1222,0,"Đổi &tên...\tF2"
-1223,0,"Xoá &bỏ...\tDelete"
-1224,0,"&Nhập từ Tệp..."
+1220,1,""
+1221,1,"Sao chép &đến..."
+1222,1,"Đổi &tên...\tF2"
+1223,1,"&Xóa\tDelete"
+1224,1,"&Nhập từ tệp..."
 
 [MENU 1107]
-697,0,""
-698,0,"&Mới...\tInsert"
-1220,0,"&Sửa..."
-1221,0,"Sao chép &đến..."
-1222,0,"Đổi &tên...\tF2"
-699,0,"Xoá &bỏ...\tDelete"
-700,0,"Di chuyển &Lên\tAlt+Mũi tên Lên"
-1223,0,"Di chuyển &Xuống\tAlt+Mũi tên Xuống"
-1224,0,"&Nhập từ Tệp..."
+697,1,""
+698,1,"&Mới...\tInsert"
+1220,1,"&Sửa..."
+1221,1,"Sao chép &đến..."
+1222,1,"Đổi &tên...\tF2"
+699,1,"&Xóa\tDelete"
+700,1,"Di chuyển &lên\tAlt+Mũi tên lên"
+1223,1,"Di chuyển &xuống\tAlt+Mũi tên xuống"
+1224,1,"&Nhập từ tệp..."
 
 [MENU 1108]
-1225,0,""
-1226,0,"&Lên\tAlt+Mũi tên Lên"
+1225,1,""
+1226,1,"&Lên\tAlt+Mũi tên lên"
 
 [MENU 1109]
 0,0,""
@@ -945,31 +945,31 @@ COMMENT,"vietnamese translation stub (English seed)"
 1232,0,"&Xoá bỏ"
 
 [MENU 1110]
-714,0,""
-715,0,"&Mới...\tInsert"
-716,0,"&Sửa..."
-1225,0,"Xoá &bỏ...\tDelete"
-1226,0,"Di chuyển &Lên\tAlt+Mũi tên Lên"
+714,1,""
+715,1,"&Mới...\tInsert"
+716,1,"&Sửa..."
+1225,1,"&Xóa\tDelete"
+1226,1,"Di chuyển &lên\tAlt+Mũi tên lên"
 
 [MENU 1111]
-1,0,""
-1305,0,"&Thử lại"
-1304,0,"Sử dụng Thư mục Đã Tồn tại"
+1,1,""
+1305,1,"&Thử lại"
+1304,1,"Dùng thư mục hiện có"
 
 [MENU 1112]
-1,0,""
-1306,0,"Thử lại"
-1307,0,"Tiếp tục"
-1304,0,"Tiếp tục hoặc Ghi đè"
+1,1,""
+1306,1,"Thử lại"
+1307,1,"Tiếp tục"
+1304,1,"Tiếp tục hoặc ghi đè"
 
 [MENU 1113]
-1,0,""
-1310,0,"&Bỏ qua"
-1311,0,"&Thử lại"
+1,1,""
+1310,1,"&Bỏ qua"
+1311,1,"&Thử lại"
 
 [MENU 1114]
-1,0,""
-1312,0,"&Xoá bỏ"
+1,1,""
+1312,1,"&Xóa"
 
 [MENU 1115]
 1,0,""
