@@ -868,12 +868,12 @@ COMMENT,"arabic translation stub (English seed)"
 697,0,""
 698,1,"&جديد...\tInsert"
 1220,1,"&تحرير..."
-1221,0,"&Copy to..."
-1222,0,"&Rename...\tF2"
+1221,1,"&نسخ إلى..."
+1222,1,"إ&عادة تسمية...\tF2"
 699,1,"إ&زالة...\tDelete"
 700,1,"نقل إلى &أعلى\tAlt+Up Arrow"
 1223,1,"نقل إلى أ&سفل\tAlt+Down Arrow"
-1224,0,"&Import from File..."
+1224,1,"&استيراد من ملف..."
 
 [MENU 1108]
 1225,0,""
@@ -1019,8 +1019,8 @@ COMMENT,"arabic translation stub (English seed)"
 
 [MENU 1121]
 1,0,""
-1314,0,"R&etry"
-1316,0,"Use &Alternate Name"
+1314,1,"إ&عادة المحاولة"
+1316,1,"استخدام اسم &بديل"
 1319,1,"ا&ستئناف أو استبدال"
 
 [MENU 1122]
