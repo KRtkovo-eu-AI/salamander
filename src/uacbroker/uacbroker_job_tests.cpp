@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Test typed panel preparation for mkdir and rename. | Keep identity reads scoped and verify later mutations reject collisions and stale objects. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Test the panel metadata request against the real listing dispatcher. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
 // | 2026-11-09 | Cancel one transfer while another is staged. | Verify that a second live broker session can publish and continue its own batch. | | Codex |
 // | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
@@ -244,13 +245,22 @@ public:
         return !TransferRequest(server.get(), &result, sizeof(result), false, deadline);
     }
 
-    bool QueryViewerIdentity(std::wstring_view path, DWORD expected, UacListing::ViewerIdentity& identity)
+    bool ReadLeafIdentity(std::wstring_view path, DWORD& status, UacListing::LeafIdentity& identity,
+                          bool parentOnly = false)
+    {
+        status = ERROR_GEN_FAILURE;
+        const auto deadline = GetTickCount64() + timeoutMs;
+        const DWORD flags = UacListing::leafIdentityRequest | (parentOnly ? UacListing::parentIdentityRequest : 0);
+        return SendFindRequest(flags, path, deadline) &&
+               !TransferRequest(server.get(), &status, sizeof(status), false, deadline) &&
+               (status || !TransferRequest(server.get(), &identity, sizeof(identity), false, deadline));
+    }
+
+    bool QueryLeafIdentity(std::wstring_view path, DWORD expected, UacListing::LeafIdentity& identity,
+                           bool parentOnly = false)
     {
         DWORD status = ERROR_GEN_FAILURE;
-        const auto deadline = GetTickCount64() + timeoutMs;
-        return SendFindRequest(UacListing::viewerIdentityRequest, path, deadline) &&
-               !TransferRequest(server.get(), &status, sizeof(status), false, deadline) && status == expected &&
-               (status || !TransferRequest(server.get(), &identity, sizeof(identity), false, deadline));
+        return ReadLeafIdentity(path, status, identity, parentOnly) && status == expected;
     }
 
     bool OpenFindContent(std::wstring_view leaf)
@@ -316,7 +326,7 @@ bool IsAbsent(const std::wstring& path)
     return GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND;
 }
 
-void CheckListedViewerIdentity(const Directory& source)
+void CheckListedLeafIdentity(const Directory& source)
 {
     constexpr wchar_t leaf[] = L"viewer-\u6771.txt";
     JobPipe job;
@@ -325,22 +335,259 @@ void CheckListedViewerIdentity(const Directory& source)
         Check(false, "prepare the viewer identity fixture");
         return;
     }
-    UacListing::ViewerIdentity identity{};
+    UacListing::LeafIdentity identity{};
     const auto file = Adopt(CreateFileW(source.File(leaf).c_str(), FILE_READ_ATTRIBUTES,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
     FILE_ID_INFO fileId{};
     Check(file && !UacRenameLeaf::Detail::ReadSourceIdentity(file.get(), fileId) &&
-              job.QueryViewerIdentity(leaf, ERROR_SUCCESS, identity) &&
+              job.QueryLeafIdentity(leaf, ERROR_SUCCESS, identity) &&
               !std::memcmp(&identity.parent, &source.identity.file.FileId, sizeof(identity.parent)) &&
               !std::memcmp(&identity.file, &fileId.FileId, sizeof(identity.file)),
           "the protected listing returns the exact parent and file IDs without granting content");
-    Check(job.QueryViewerIdentity(L"..\\viewer-\u6771.txt", ERROR_INVALID_NAME, identity),
+    Check(job.QueryLeafIdentity(L"..\\viewer-\u6771.txt", ERROR_INVALID_NAME, identity),
           "a viewer identity request cannot escape the approved listing root");
-    Check(job.RejectFindRequest(UacListing::contentRequest | UacListing::viewerIdentityRequest),
+    Check(job.RejectFindRequest(UacListing::contentRequest | UacListing::leafIdentityRequest),
           "the listing rejects combined identity and content requests");
     JobPipe find;
-    Check(find.Open(nullptr, source.handle.get()) && find.RejectFindRequest(UacListing::viewerIdentityRequest),
+    Check(find.Open(nullptr, source.handle.get()) && find.RejectFindRequest(UacListing::leafIdentityRequest),
           "the Find scope rejects the panel-only identity request");
+}
+
+void CheckPanelPreparationPaths(const Directory& source, const Directory& outside)
+{
+    Directory unicode, longFirst, longLast;
+    const std::wstring unicodeName = L"preparation-\u6771-\U0001f642";
+    const std::wstring longFirstName(110, L'\u6771');
+    const std::wstring longLastName(110, L'\u4eac');
+    if (!unicode.Open(source.File(unicodeName).c_str()) ||
+        !longFirst.Open(unicode.File(longFirstName).c_str()) ||
+        !longLast.Open(longFirst.File(longLastName).c_str()))
+    {
+        Check(false, "prepare Unicode and extended-length panel parent paths");
+        return;
+    }
+    JobPipe job;
+    if (!job.Open(nullptr, source.handle.get(), Operation::List))
+    {
+        Check(false, "open the read-only panel preparation session");
+        return;
+    }
+    const std::pair<const Directory*, std::wstring> parents[] = {
+        {&source, {}},
+        {&unicode, unicodeName + L"\\"},
+        {&longFirst, unicodeName + L"\\" + longFirstName + L"\\"},
+        {&longLast, unicodeName + L"\\" + longFirstName + L"\\" + longLastName + L"\\"},
+    };
+    const FILE_ID_128 zeroId{};
+    for (const auto& [directory, relative] : parents)
+    {
+        for (const auto leaf : {L"prepared-ascii", L"prepared-\u6771-\U0001f642"})
+        {
+            const auto path = directory->File(leaf);
+            UacListing::LeafIdentity identity;
+            std::memset(&identity, 0xA5, sizeof(identity));
+            Check(IsAbsent(path) && job.QueryLeafIdentity(relative + leaf, ERROR_SUCCESS, identity, true) &&
+                      !std::memcmp(&identity.parent, &directory->identity.file.FileId, sizeof(identity.parent)) &&
+                      !std::memcmp(&identity.file, &zeroId, sizeof(identity.file)) && IsAbsent(path),
+                  "mkdir preparation returns only the exact parent ID and creates no leaf");
+            Check(job.QueryLeafIdentity(relative + leaf, ERROR_FILE_NOT_FOUND, identity),
+                  "rename preparation requires an existing source and cannot create the missing leaf");
+            if (!WriteByte(path, 41))
+            {
+                Check(false, "create the existing plain-file preparation fixture");
+                continue;
+            }
+            const auto file = Adopt(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+            FILE_ID_INFO actual{};
+            Check(file && !UacRenameLeaf::Detail::ReadSourceIdentity(file.get(), actual) &&
+                      job.QueryLeafIdentity(relative + leaf, ERROR_SUCCESS, identity) &&
+                      !std::memcmp(&identity.parent, &directory->identity.file.FileId, sizeof(identity.parent)) &&
+                      !std::memcmp(&identity.file, &actual.FileId, sizeof(identity.file)) && HasByte(path, 41) &&
+                      IsAbsent(directory->File(std::wstring(leaf) + L"-renamed")),
+                  "rename preparation returns the existing plain-file identity without renaming or modifying it");
+            std::memset(&identity, 0xA5, sizeof(identity));
+            Check(job.QueryLeafIdentity(relative + leaf, ERROR_SUCCESS, identity, true) &&
+                      !std::memcmp(&identity.parent, &directory->identity.file.FileId, sizeof(identity.parent)) &&
+                      !std::memcmp(&identity.file, &zeroId, sizeof(identity.file)) && HasByte(path, 41),
+                  "parent-only preparation accepts an occupied name without granting its identity or replacing it");
+        }
+    }
+
+    constexpr wchar_t outsideLeaf[] = L"panel-preparation-sentinel";
+    if (!WriteByte(outside.File(outsideLeaf), 47))
+    {
+        Check(false, "create the outside-scope preparation sentinel");
+        return;
+    }
+    const std::wstring invalid[] = {
+        L"..\\outside\\panel-preparation-sentinel", unicodeName + L"\\..\\prepared-ascii",
+        L"\\prepared-ascii", outside.File(outsideLeaf), L"prepared-ascii:stream",
+        unicodeName + L"\\", unicodeName + L"\\\\prepared-ascii", L"prepared-ascii.",
+        L"NUL.txt", std::wstring(L"prepared\0hidden", 15),
+    };
+    for (const auto& relative : invalid)
+    {
+        UacListing::LeafIdentity identity{};
+        for (const bool parentOnly : {false, true})
+            Check(job.QueryLeafIdentity(relative, ERROR_INVALID_NAME, identity, parentOnly) &&
+                      HasByte(outside.File(outsideLeaf), 47),
+                  "typed preparation rejects traversal, absolute paths and ambiguous names inside one live session");
+    }
+    UacListing::LeafIdentity identity{};
+    Check(job.QueryLeafIdentity(L"prepared-ascii", ERROR_SUCCESS, identity) &&
+              HasByte(source.File(L"prepared-ascii"), 41),
+          "rejected preparation paths do not consume or widen the valid panel scope");
+    // The Python runner's ordinary temporary-path cleanup need not support these
+    // extended paths. Retire exactly our nested fixtures through their wide names.
+    bool cleaned = true;
+    for (auto* directory : {&longLast, &longFirst, &unicode})
+    {
+        for (const auto leaf : {L"prepared-ascii", L"prepared-\u6771-\U0001f642"})
+            cleaned = (DeleteFileW(directory->File(leaf).c_str()) != FALSE) && cleaned;
+        directory->handle.reset();
+        cleaned = (RemoveDirectoryW(directory->path.c_str()) != FALSE) && cleaned;
+    }
+    Check(cleaned, "remove only the owned Unicode and extended-length preparation fixtures");
+}
+
+void CheckPanelPreparationFlags(const Directory& source)
+{
+    const DWORD leaf = UacListing::leafIdentityRequest;
+    const DWORD parent = UacListing::parentIdentityRequest;
+    const DWORD invalid[] = {
+        parent | 1, leaf, leaf | parent, leaf | 0x04000000 | 1,
+        leaf | UacListing::contentRequest | 1,
+        leaf | UacListing::inventoryRequest | 1,
+        leaf | UacListing::sizeDetailsRequest | 1,
+        leaf | parent | UacListing::contentRequest | 1,
+        leaf | parent | UacListing::inventoryRequest | 1,
+        leaf | parent | UacListing::sizeDetailsRequest | 1,
+    };
+    for (const auto header : invalid)
+    {
+        JobPipe job;
+        Check(job.Open(nullptr, source.handle.get(), Operation::List) && job.RejectFindRequest(header),
+              "the panel closes malformed or incompatible preparation flags without replying or reading a payload");
+    }
+    for (const auto scope : {Operation::FindContent, Operation::FindFile})
+    {
+        for (const auto flags : {leaf, leaf | parent})
+        {
+            JobPipe job;
+            Check(job.Open(nullptr, source.handle.get(), scope) && job.RejectFindRequest(flags | 1),
+                  "Find grants cannot use either typed panel preparation request");
+        }
+    }
+    JobPipe job;
+    Check(job.Open(nullptr, source.handle.get(), Operation::List) &&
+              job.RejectFindRequest(UacListing::contentRequest | 1),
+          "metadata preparation does not add content access to a List grant");
+}
+
+void CheckPanelPreparationMutationGuards(const Directory& source)
+{
+    JobPipe job;
+    UacListing::LeafIdentity identity{};
+    constexpr wchar_t mkdirLeaf[] = L"prepared-mkdir-race-\u6771";
+    if (!job.Open(nullptr, source.handle.get(), Operation::List) ||
+        !job.QueryLeafIdentity(mkdirLeaf, ERROR_SUCCESS, identity, true) ||
+        !WriteByte(source.File(mkdirLeaf), 53))
+    {
+        Check(false, "prepare a mkdir name claimed after its parent identity was returned");
+        return;
+    }
+    // These explicit mutation calls model the later separately authorized operation.
+    // No mutation request is sent on the read-only panel connection.
+    auto parent = source.identity;
+    parent.file.FileId = identity.parent;
+    DWORD error = UacDirectoryLeaf::CreateVerifiedLeaf(source.handle.get(), parent, mkdirLeaf);
+    Check((error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS) && HasByte(source.File(mkdirLeaf), 53),
+          "mkdir execution rechecks absence atomically and preserves a collision after parent preparation");
+    constexpr wchar_t from[] = L"prepared-rename-\u6771";
+    constexpr wchar_t to[] = L"prepared-rename-target-\u4eac";
+    constexpr wchar_t saved[] = L"prepared-rename-original";
+    if (!WriteByte(source.File(from), 59) || !job.QueryLeafIdentity(from, ERROR_SUCCESS, identity) ||
+        !WriteByte(source.File(to), 61))
+    {
+        Check(false, "prepare a rename target claimed after source identity preparation");
+        return;
+    }
+    parent.file.FileId = identity.parent;
+    FILE_ID_INFO expected{parent.file.VolumeSerialNumber, identity.file};
+    error = UacRenameLeaf::RenameVerifiedFile(source.handle.get(), parent, expected, from, to);
+    Check((error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS) &&
+              HasByte(source.File(from), 59) && HasByte(source.File(to), 61),
+          "rename execution never overwrites a target that appeared after identity preparation");
+    if (!MoveFileExW(source.File(from).c_str(), source.File(saved).c_str(), 0) ||
+        !WriteByte(source.File(from), 67))
+    {
+        Check(false, "replace the prepared rename source while retaining the original file");
+        return;
+    }
+    constexpr wchar_t freshTarget[] = L"prepared-rename-fresh-target";
+    error = UacRenameLeaf::RenameVerifiedFile(source.handle.get(), parent, expected, from, freshTarget);
+    Check(error == ERROR_FILE_INVALID && HasByte(source.File(from), 67) && HasByte(source.File(saved), 59) &&
+              IsAbsent(source.File(freshTarget)),
+          "rename execution rejects a replaced source ID without moving either object");
+    Check(job.QueryLeafIdentity(from, ERROR_SUCCESS, identity) &&
+              std::memcmp(&identity.file, &expected.FileId, sizeof(identity.file)) != 0,
+          "a later preparation observes the replacement identity rather than caching the old source");
+}
+
+void CheckPanelPreparationReparse(const Directory& source, const Directory& outside)
+{
+    constexpr wchar_t fileLink[] = L"prepared-file-link-\u6771";
+    constexpr wchar_t directoryLink[] = L"prepared-directory-link-\u6771";
+    constexpr wchar_t referent[] = L"prepared-link-sentinel";
+    if (!WriteByte(outside.File(referent), 71))
+    {
+        Check(false, "create the reparse preparation sentinel");
+        return;
+    }
+    if (!CreateSymbolicLinkW(source.File(fileLink).c_str(), outside.File(referent).c_str(),
+                            SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE))
+    {
+        const DWORD error = GetLastError();
+        if (error == ERROR_PRIVILEGE_NOT_HELD)
+            std::puts("SKIP: panel preparation link fixtures require Developer Mode or SeCreateSymbolicLinkPrivilege");
+        else
+            Check(false, "create the panel preparation file link");
+        return;
+    }
+    if (!CreateSymbolicLinkW(source.File(directoryLink).c_str(), outside.path.c_str(),
+                            SYMBOLIC_LINK_FLAG_DIRECTORY | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE))
+    {
+        Check(false, "create the panel preparation directory link");
+        DeleteFileW(source.File(fileLink).c_str());
+        return;
+    }
+    JobPipe job;
+    if (job.Open(nullptr, source.handle.get(), Operation::List))
+    {
+        UacListing::LeafIdentity identity{};
+        DWORD status = ERROR_SUCCESS;
+        Check(job.ReadLeafIdentity(fileLink, status, identity) && status != ERROR_SUCCESS &&
+                  HasByte(outside.File(referent), 71),
+              "plain-file rename preparation rejects a symbolic link without following its referent");
+        const FILE_ID_128 zeroId{};
+        Check(job.QueryLeafIdentity(fileLink, ERROR_SUCCESS, identity, true) &&
+                  !std::memcmp(&identity.parent, &source.identity.file.FileId, sizeof(identity.parent)) &&
+                  !std::memcmp(&identity.file, &zeroId, sizeof(identity.file)) && HasByte(outside.File(referent), 71),
+              "parent-only preparation returns the local parent without opening an occupied symbolic-link leaf");
+        for (const bool parentOnly : {false, true})
+            Check(job.ReadLeafIdentity(std::wstring(directoryLink) + L"\\" + referent,
+                                       status, identity, parentOnly) && status != ERROR_SUCCESS &&
+                      HasByte(outside.File(referent), 71),
+                  "neither preparation type traverses a directory link beyond the approved root");
+        Check(job.QueryLeafIdentity(L"prepared-ascii", ERROR_SUCCESS, identity),
+              "reparse rejection leaves the read-only panel preparation session usable");
+    }
+    else
+        Check(false, "open the reparse preparation session");
+    Check(DeleteFileW(source.File(fileLink).c_str()) && RemoveDirectoryW(source.File(directoryLink).c_str()),
+          "remove the test links without touching their outside-scope referents");
 }
 
 void CheckFindContentDisconnect(const Directory& first, const Directory& second)
@@ -1085,7 +1332,11 @@ int wmain()
     Directory source, target, outside;
     if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
         return 2;
-    CheckListedViewerIdentity(source);
+    CheckListedLeafIdentity(source);
+    CheckPanelPreparationPaths(source, outside);
+    CheckPanelPreparationFlags(source);
+    CheckPanelPreparationMutationGuards(source);
+    CheckPanelPreparationReparse(source, outside);
     CheckFindContentDisconnect(source, outside);
     CheckStoppedFindReply();
     CheckExactFindScope(source);

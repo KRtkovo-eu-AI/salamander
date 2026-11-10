@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Version the parent identity request. | Require matching host and broker support for protected mkdir preparation. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Version the listing identity request. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
 // | 2026-11-09 | Version F6 completion progress. | Pair the host with a broker that reports existing-copy verification. | | Codex |
 // | 2026-11-09 | Version the progress total field. | Keep the host and broker on the same wire format. | | GPT-6.1 Sol (Codex) |
@@ -11,7 +12,7 @@
 // | 2026-11-09 | Share the UAC protocol marker. | Keep the handshake and executable resource on one version. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
-#define SAM_UAC_PROTOCOL_VERSION 12
+#define SAM_UAC_PROTOCOL_VERSION 13
 #define SAM_UAC_PROTOCOL_RESOURCE 63001
 #define SAM_UAC_IMAGE_HOST 1
 #define SAM_UAC_IMAGE_BROKER 2

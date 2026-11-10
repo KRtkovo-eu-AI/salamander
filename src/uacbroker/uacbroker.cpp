@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Prepare F7 and F2 with the approved listing root. | Revalidate the exact identities in the existing one-shot executor. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Restore the UAC owner on its UI thread. | Handle worker launches and retain an active modal popup. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Obtain exact file identity without granting content access. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
 | 2026-11-10 | Bind protected listing consent to a child ID from the parent. | Support directories with inaccessible metadata and recheck the exact object after elevation. | #731 | Codex |
@@ -2100,7 +2101,8 @@ DWORD ServeFindContent(HANDLE pipe, HANDLE root, std::wstring_view relative, ULO
     }
 }
 
-DWORD ReadListedViewerIdentity(HANDLE root, std::wstring_view relative, UacListing::ViewerIdentity& reply)
+DWORD ReadListedLeafIdentity(HANDLE root, std::wstring_view relative, bool parentOnly,
+                             UacListing::LeafIdentity& reply)
 {
     const auto split = relative.find_last_of(L'\\');
     const auto directory = split == std::wstring_view::npos ? std::wstring_view{} : relative.substr(0, split);
@@ -2113,6 +2115,11 @@ DWORD ReadListedViewerIdentity(HANDLE root, std::wstring_view relative, UacListi
     DWORD error = OpenRequestParent(root, directory, parent, identity);
     if (error)
         return error;
+    if (parentOnly)
+    {
+        reply = {identity.file.FileId, {}};
+        return ERROR_SUCCESS;
+    }
     HANDLE raw = nullptr;
     error = UacRenameLeaf::Detail::OpenSource(parent.get(), leaf, raw, 0,
                                             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
@@ -2143,10 +2150,12 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
         const bool inventoryRequest = (length & UacListing::inventoryRequest) != 0;
         const bool sizeDetails = (length & UacListing::sizeDetailsRequest) != 0;
         const bool contentRequest = (length & UacListing::contentRequest) != 0;
-        const bool viewerIdentity = (length & UacListing::viewerIdentityRequest) != 0;
+        const bool leafIdentity = (length & UacListing::leafIdentityRequest) != 0;
+        const bool parentOnly = (length & UacListing::parentIdentityRequest) != 0;
         length &= ~(UacListing::inventoryRequest | UacListing::sizeDetailsRequest | UacListing::contentRequest |
-                    UacListing::viewerIdentityRequest);
-        if ((viewerIdentity && (scope != Operation::List || !length || inventoryRequest || sizeDetails || contentRequest)) ||
+                    UacListing::leafIdentityRequest | UacListing::parentIdentityRequest);
+        if ((parentOnly && !leafIdentity) ||
+            (leafIdentity && (scope != Operation::List || !length || inventoryRequest || sizeDetails || contentRequest)) ||
             (sizeDetails && !inventoryRequest) || !UacListing::ValidRequestScope(scope, length, inventoryRequest, contentRequest) ||
             length > UacDirectoryLeaf::maxNativeName || !LiveInSession(host, hostPid))
             return ERROR_INVALID_DATA;
@@ -2158,10 +2167,10 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
             if (error)
                 return error;
         }
-        if (viewerIdentity)
+        if (leafIdentity)
         {
-            UacListing::ViewerIdentity identity{};
-            DWORD status = ReadListedViewerIdentity(root, relative, identity);
+            UacListing::LeafIdentity identity{};
+            DWORD status = ReadListedLeafIdentity(root, relative, parentOnly, identity);
             error = TransferRequest(pipe, &status, sizeof(status), true, deadline);
             if (!error && !status)
                 error = TransferRequest(pipe, &identity, sizeof(identity), true, deadline);
@@ -2841,7 +2850,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
 {
     // An ordinary or portable copy must never offer the pilot.
     InstallLocation install;
-    if (parent || !install.Open() || !install.MatchesProcess(GetCurrentProcess(), appImage) ||
+    if (parent || identityFromListing || !install.Open() || !install.MatchesProcess(GetCurrentProcess(), appImage) ||
         !install.OpenImage(appImage) || !install.OpenImage(brokerImage))
         return false;
 
@@ -3073,7 +3082,7 @@ Result PreparedLeaf::Execute(HWND owner, TransferJobSession* job, BrokerActivity
     Result result;
     const ComApartment com;
     InstallLocation install;
-    if (!parent || FAILED(com.result) || !install.Open() ||
+    if ((!parent && !identityFromListing) || FAILED(com.result) || !install.Open() ||
         !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))
         return result;
     RequestHeader header{serial, {}, {}, operation,
@@ -3110,7 +3119,7 @@ Result PreparedLeaf::ReadViewerSnapshot(HWND owner, std::vector<BYTE>& snapshot)
     Result result;
     const ComApartment com;
     InstallLocation install;
-    if (operation != Operation::View || FAILED(com.result) || !install.Open() ||
+    if (operation != Operation::View || (!parent && !identityFromListing) || FAILED(com.result) || !install.Open() ||
         !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))
         return result;
     RequestHeader header{serial, {}, {}, operation,
@@ -3699,20 +3708,40 @@ DWORD ListingSession::SendPath(const std::wstring& path, DWORD flags, ULONGLONG 
 
 DWORD ListingSession::PrepareViewer(const std::wstring& path, PreparedLeaf& viewer)
 {
+    return PrepareLeaf(path, Operation::View, {}, viewer);
+}
+
+DWORD ListingSession::PrepareMkdir(const std::wstring& path, PreparedLeaf& mkdir)
+{
+    return PrepareLeaf(path, Operation::Mkdir, {}, mkdir);
+}
+
+DWORD ListingSession::PrepareRename(const std::wstring& path, const std::wstring& renameTo, PreparedLeaf& rename)
+{
+    return PrepareLeaf(path, Operation::Rename, renameTo, rename);
+}
+
+DWORD ListingSession::PrepareLeaf(const std::wstring& path, Operation operation, const std::wstring& renameTo,
+                                  PreparedLeaf& request)
+{
     if (prepared.operation != Operation::List || !Contains(path) || path.size() <= root.size() ||
-        viewer.parent || viewer.operation != Operation::Mkdir)
+        request.parent || request.identityFromListing)
         return ERROR_ACCESS_DENIED;
     const auto split = path.find_last_of(L'\\');
     const std::wstring_view leaf(path.data() + split + 1, path.size() - split - 1);
-    if (!UacDirectoryLeaf::IsComponent(leaf))
+    const bool rename = operation == Operation::Rename;
+    if (!UacDirectoryLeaf::IsComponent(leaf) ||
+        (rename && (!UacDirectoryLeaf::IsComponent(renameTo) || UacDirectoryLeaf::Equal(leaf, renameTo))))
         return ERROR_INVALID_NAME;
 
     const auto deadline = GetTickCount64() + timeoutMs;
-    DWORD error = SendPath(path, UacListing::viewerIdentityRequest, deadline);
+    const DWORD flags = UacListing::leafIdentityRequest |
+                        (operation == Operation::Mkdir ? UacListing::parentIdentityRequest : 0);
+    DWORD error = SendPath(path, flags, deadline);
     if (error)
         return error;
     DWORD status = ERROR_SUCCESS;
-    UacListing::ViewerIdentity identity{};
+    UacListing::LeafIdentity identity{};
     error = Transfer(&status, sizeof(status), false, deadline);
     if (!error && !status)
         error = Transfer(&identity, sizeof(identity), false, deadline);
@@ -3724,14 +3753,21 @@ DWORD ListingSession::PrepareViewer(const std::wstring& path, PreparedLeaf& view
     if (status)
         return status;
 
-    viewer.volume = prepared.volume;
-    viewer.relative = prepared.relative;
-    viewer.relative.append(path, root.size(), split - root.size());
-    viewer.leaf.assign(leaf);
-    viewer.serial = prepared.serial;
-    std::memcpy(viewer.fileId, identity.parent.Identifier, sizeof(viewer.fileId));
-    std::memcpy(viewer.sourceId, identity.file.Identifier, sizeof(viewer.sourceId));
-    viewer.operation = Operation::View;
+    request.volume = prepared.volume;
+    request.relative = prepared.relative;
+    request.relative.append(path, root.size(), split - root.size());
+    if (rename)
+    {
+        request.leaf = renameTo;
+        request.sourceLeaf.assign(leaf);
+    }
+    else
+        request.leaf.assign(leaf);
+    request.serial = prepared.serial;
+    std::memcpy(request.fileId, identity.parent.Identifier, sizeof(request.fileId));
+    std::memcpy(request.sourceId, identity.file.Identifier, sizeof(request.sourceId));
+    request.operation = operation;
+    request.identityFromListing = true;
     return ERROR_SUCCESS;
 }
 

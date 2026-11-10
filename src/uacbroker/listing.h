@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Share the listing identity query with leaf operations. | Identify a verified parent for a single directory creation. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Add a metadata-only listing request for F3. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
 | 2026-11-10 | Capture a child directory ID from its parent listing. | Identify directories that deny even metadata opens. | #731 | Codex |
 | 2026-11-09 | Remove the size-only Find content reply. | Use the shared file revision for each verified open. | | GPT-6.1 Sol (Codex) |
@@ -28,14 +29,15 @@ constexpr unsigned maxInventoryDepth = 32;
 constexpr DWORD inventoryRequest = 0x80000000;
 constexpr DWORD sizeDetailsRequest = 0x40000000;
 constexpr DWORD contentRequest = 0x20000000;
-constexpr DWORD viewerIdentityRequest = 0x10000000;
+constexpr DWORD leafIdentityRequest = 0x10000000;
+constexpr DWORD parentIdentityRequest = 0x08000000;
 
-struct ViewerIdentity
+struct LeafIdentity
 {
     FILE_ID_128 parent;
     FILE_ID_128 file;
 };
-static_assert(sizeof(ViewerIdentity) == 32);
+static_assert(sizeof(LeafIdentity) == 32);
 constexpr ULONGLONG contentBudget = 64ULL * 1024 * 1024 * 1024;
 
 inline bool ValidRequestScope(UacF7::Operation scope, DWORD pathLength, bool inventory, bool content)

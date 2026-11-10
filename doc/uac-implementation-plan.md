@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Verify protected-panel F7 and F2 preparation. | Offer separate elevation when local path checks cannot identify the objects. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Record UAC foreground return and scoped panel evidence. | Separate the observed window fix from open panel authorization work. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Audit shared authorization for native operations inside a panel subtree. | Separate repeated consent and pre-broker failures from verified runtime evidence. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Restore F3 in protected panels and keep directory size batches running. | Verify the selected file through its listing session and isolate denied subtrees. | #731 | Codex |
@@ -1532,6 +1533,14 @@ Pilot x64 Release s hostem SHA-256 `49CC088C6D693AC858F093CDB6D6EB34076BA2054151
 Lokálně prošel x64 Release build hosta, 67 kontrol transportu, 244 kontrol chyb a storna velikosti, 448 kontrol identity cíle, 20 kontraktů operací Branch View, 26 nativních zkoušek běžného Koše a kontrakt časování Findu. Host narostl z 5 651 456 na 5 652 480 bajtů, broker zůstal na 1 342 976 bajtech, celkem 6 994 432 → 6 995 456 bajtů. Soukromá paměť se při tomto ověření neměřila. V nativních testech se ověřil i odmítnutý únik požadavku mimo schválený kořen, změněná identita cíle po potvrzení přepisu, odpojení jednoho Findu při funkční druhé relaci a storno jedné z nezávislých úloh. Tyto transportní zkoušky nenahrazují akceptaci z panelu.
 
 Konečné lokální sestavení po revizi vlastníka dialogu Koše má host SHA-256 `55346DD0D447D6FEE7F49B7770ECB11FA73BFC46E0F6DEE79E8478610D6D5CD8`, velikost hosta 5 651 968 bajtů a součet dvojice 6 994 944 bajtů. Broker je stejný. Ve VM zůstalo sestavení z interaktivní zkoušky a finální úprava Koše prošla lokální kontrolou.
+
+### P7 — F7 a F2 ve schváleném diskovém panelu
+
+Při odepření běžného F7 nebo F2 umí relace výpisu dodat identitu rodiče a u přejmenování také aktuálního souboru. F7 nepovažuje existujícího rodiče s odepřeným čtením atributů za složku, kterou je nutné nejdřív vytvořit. Dotaz přes protokol 13 vrací pouze identity. Po samostatném souhlasu stávající broker znovu ověří identitu rodiče a případného zdroje a provede jedinou operaci. Příprava i vykonání se drží podporovaných objektů na místním NTFS. F7 pokrývá jeden nový adresář s existujícím rodičem, F2 jeden běžný soubor ve stejné složce bez přepisu. Identita F2 odpovídá objektu v okamžiku přípravy, protože zobrazený řádek panelu sám ID neobsahuje.
+
+V izolované Windows 11 VM po schválení výpisu `03-approve` šlo bez další výzvy vstoupit do chráněné `01-nested`. F7 tam nabídlo Administrator a po Ano vznikla `02-nová-東`. F2 po Ne ponechalo `rename-source.txt` a po Ano se zobrazil `přejmenovaný-東.txt` se stejnou velikostí 17 bajtů. Sousední `taken.txt` zůstal viditelný se stejnou velikostí 19 bajtů. Ctrl+R znovu načetlo stejný stav bez výzvy k výpisu. Nasazený x64 Release host má SHA-256 `DDAB81CE5D00E3F27870A4FC592EEBE9CCDBAAEBB7387FE00C6F3C4B306E7B65`, broker `ADB7659C3E65FB40DE7F05178D411CEF0E622DBDF275AFEA8E42A6946A7AC02F`. Verifikátor potvrdil protokol 13 a kompatibilitu instalovaného anglického modulu.
+
+V Debug i Release prošlo 146 kontrol transportu, 96 kontrol vytvoření adresáře a 57 kontrol přejmenování. Nativní testy ověřily dlouhé Unicode cesty, nepřípustné kombinace příznaků, odkazy mimo schválený podstrom a zachování dat při kolizi a záměně zdroje po přípravě. V porovnání s předchozím finálním x64 Release se host změnil z 5 651 968 na 5 653 504 bajtů a broker z 1 342 976 na 1 345 536 bajtů. Dvojice celkem narostla o 4 096 bajtů na 6 999 040. Srovnávací měření soukromé paměti neproběhlo.
 
 ## 12. Testovací strategie
 

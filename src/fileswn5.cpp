@@ -6,6 +6,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Offer F7 and F2 elevation in the protected panel. | Use verified identities when local path preparation is denied. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Offer separate F3 consent from a protected panel. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
 // | 2026-11-09 | Keep the full F7 parent path in heap storage. | Avoid aborting before consent for deeply nested targets. | | Codex |
 // | 2026-11-09 | Default the protected F7 prompt to Cancel. | Require choosing the shield button to request elevation. | | Codex |
@@ -3265,8 +3266,20 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                     goto CREATE_AGAIN;
                 lstrcpyn(checkPath, path, parentPath.Capacity());
                 CutDirectory(checkPath);
+                const std::wstring listedPath = ProtectedListing ? SalPathRemoveExtendedPrefixW(pathW.c_str()) : std::wstring{};
+                const bool inProtectedListing = ProtectedListing && ProtectedListing->Contains(listedPath) &&
+                                                listedPath != ProtectedListing->GetRoot();
+                bool parentAccessDenied = false;
+                if (inProtectedListing)
+                {
+                    const std::wstring parent = listedPath.substr(0, listedPath.rfind(L'\\'));
+                    parentAccessDenied = GetFileAttributesW(SalPathAddExtendedPrefixW(parent.c_str()).c_str()) == INVALID_FILE_ATTRIBUTES &&
+                                         GetLastError() == ERROR_ACCESS_DENIED;
+                }
+                // An inaccessible existing parent is verified by the broker after
+                // the final local mkdir fails. Do not try to create it as a missing parent.
                 std::string newDir;
-                if (strlen(checkPath) >= MAX_PATH)
+                if (!parentAccessDenied && strlen(checkPath) >= MAX_PATH)
                 {
                     const std::wstring parentW = SalMultiByteToWidePath(checkPath, IsValidPathUtf8Text(checkPath) ? CP_UTF8 : CP_ACP);
                     std::wstring createdW;
@@ -3274,7 +3287,7 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                         goto CREATE_AGAIN;
                     newDir = SalWideToMultiBytePath(createdW.c_str(), CP_UTF8);
                 }
-                else
+                else if (!parentAccessDenied)
                 {
                     CPathBuffer createdPath(SAL_MAX_PATH);
                     if (!CheckAndCreateDirectory(checkPath, HWindow, FALSE, NULL, 0, createdPath.Data(), TRUE, TRUE))
@@ -3298,19 +3311,13 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                     if (!result.Created && result.Error == ERROR_ACCESS_DENIED && !createdParent)
                     {
                         UacF7::PreparedLeaf request;
-                        if (request.Prepare(pathW))
+                        const bool prepared = inProtectedListing ?
+                            (ProtectedListing && ProtectedListing->PrepareMkdir(listedPath, request) == ERROR_SUCCESS) :
+                            request.Prepare(pathW);
+                        if (prepared)
                         {
                             SetCursor(oldCur);
-                            const std::string message = std::string(LoadStr(IDS_UAC_MKDIR_CONFIRM)) + "\n\n" + path;
-                            const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
-                            MSGBOXEX_PARAMS confirm{};
-                            confirm.HParent = HWindow;
-                            confirm.Text = message.c_str();
-                            confirm.Caption = LoadStr(IDS_CREATEDIRECTORY_TITLE);
-                            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION |
-                                            MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
-                            confirm.AliasBtnNames = alias.c_str();
-                            if (SalMessageBoxEx(&confirm) != IDOK)
+                            if (!ConfirmProtectedRead(HWindow, IDS_CREATEDIRECTORY_TITLE, IDS_UAC_MKDIR_CONFIRM, pathW))
                             {
                                 EndStopRefresh();
                                 return;
@@ -3724,17 +3731,29 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     *mayChange = TRUE;
     bool renamed = MoveFileExW(srcPath.c_str(), tgtPath.c_str(), 0) != FALSE;
     DWORD err = renamed ? ERROR_SUCCESS : GetLastError();
-    bool offeredElevation = false;
+    bool guardedRename = false;
     const bool link = (f->Attr & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
-    if (err == ERROR_ACCESS_DENIED && (!isDir || link) && !IsBranchView() &&
-        GetFileAttributesW(tgtPath.c_str()) == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND)
+    if (err == ERROR_ACCESS_DENIED && (!isDir || link) && !IsBranchView())
     {
         UacF7::PreparedLeaf request;
-        const bool prepared = link ? request.PrepareRenameLink(srcPath, newNameW, isDir != FALSE)
-                                   : request.Prepare(srcPath, newNameW);
+        bool prepared = false;
+        const std::wstring listedSource = SalPathRemoveExtendedPrefixW(srcPath.c_str());
+        if (!isDir && !link && ProtectedListing && ProtectedListing->Contains(listedSource))
+        {
+            // The approved listing can identify a source whose parent cannot be
+            // opened by this process. The broker still performs a no-replace rename.
+            guardedRename = true;
+            err = ProtectedListing->PrepareRename(listedSource, newNameW, request);
+            prepared = err == ERROR_SUCCESS;
+        }
+        else if (GetFileAttributesW(tgtPath.c_str()) == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND)
+        {
+            prepared = link ? request.PrepareRenameLink(srcPath, newNameW, isDir != FALSE)
+                            : request.Prepare(srcPath, newNameW);
+        }
         if (prepared)
         {
-            offeredElevation = true;
+            guardedRename = true;
             int text = IDS_UAC_RENAME_CONFIRM;
             if (request.IsJunctionRename())
                 text = IDS_UAC_RENAME_JUNCTION_CONFIRM;
@@ -3785,7 +3804,7 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     }
     else
     {
-        if (!offeredElevation && (err == ERROR_ALREADY_EXISTS || err == ERROR_FILE_EXISTS) &&
+        if (!guardedRename && (err == ERROR_ALREADY_EXISTS || err == ERROR_FILE_EXISTS) &&
             CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, srcPathDisplay.c_str(), -1, tgtPathDisplay.c_str(), -1) != CSTR_EQUAL)
         {
             BOOL dosNameConflict = TryBypassDosNameOverwriteW(srcPath, tgtPath, tgtPathDisplay, &err);
