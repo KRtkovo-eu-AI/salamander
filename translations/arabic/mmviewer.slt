@@ -1,4 +1,4 @@
-﻿[EXPORTINFO]
+[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\mmviewer\mmviewer.atp"
 TEXTVERSION,"1.18 (x64)"
 VERSION,"1,18,0,196"
@@ -14,7 +14,7 @@ COMMENT,"arabic translation stub (English seed)"
 2,306,113,50,14,1,"إغلاق"
 10506,11,9,20,20,1,""
 10501,46,9,313,8,1,"MMViewer %s - عارض الوسائط المتعددة لـ Open Samandarin"
-10505,46,19,177,8,0,"dummy"
+10505,46,19,177,8,1,"dummy"
 10507,11,42,20,20,1,""
 13000,46,41,238,8,1,"محللات MPEG ووسوم ID3 بالإصدارين 1 و2 وOGG وWMA وVQF وTracker"
 13001,46,51,92,8,1,"مرخصة من"

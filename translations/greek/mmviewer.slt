@@ -1,4 +1,4 @@
-﻿[EXPORTINFO]
+[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\mmviewer\mmviewer.atp"
 TEXTVERSION,"1.18 (x64)"
 VERSION,"1,18,0,196"
@@ -14,7 +14,7 @@ COMMENT,"greek translation stub (English seed)"
 2,306,113,50,14,1,"Κλείσιμο"
 10506,11,9,20,20,1,""
 10501,46,9,313,8,1,"MMViewer %s - Πρόγραμμα προβολής πολυμέσων για Open Salamander"
-10505,46,19,177,8,0,"dummy"
+10505,46,19,177,8,1,"dummy"
 10507,11,42,20,20,1,""
 13000,46,41,238,8,1,"Αποκωδικοποιητές MPEG, ID3 Tag εκδόσεων 1 και 2, OGG, WMA, VQF και Tracker"
 13001,46,51,92,8,1,"παραχωρούνται με άδεια από"
