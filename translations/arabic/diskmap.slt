@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"arabic translation stub (English seed)"
 
 [MENU 109]
-0,0,"&ملف"
+0,1,"&ملف"
 111,1,"&فتح ملف"
 112,1,"&تركيز في اللوحة(&F)	F"
 113,1,"&إيقاف	Esc"

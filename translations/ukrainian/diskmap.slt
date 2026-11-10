@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"ukrainian translation stub (English seed)"
 
 [MENU 109]
-0,0,"&Файл"
+0,1,"&Файл"
 111,1,"&Відкрити файл"
 112,1,"&Фокус на панелі	F"
 113,1,"&Перервати	Esc"

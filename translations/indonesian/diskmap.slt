@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"indonesian translation stub (English seed)"
 
 [MENU 109]
-0,0,"&File"
+0,1,"&File"
 111,1,"&Buka Berkas"
 112,1,"&Fokus di Panel	F"
 113,1,"&Batalkan	Esc"

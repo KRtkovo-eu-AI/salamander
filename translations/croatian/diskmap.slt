@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"croatian translation stub (English seed)"
 
 [MENU 109]
-0,0,"&Datoteka"
+0,1,"&Datoteka"
 111,1,"&Otvori datoteku"
 112,1,"&Fokusiraj u panelu	F"
 113,1,"&Prekini	Esc"

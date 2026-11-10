@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"bulgarian translation stub (English seed)"
 
 [MENU 109]
-0,0,"&Файл"
+0,1,"&Файл"
 111,1,"&Отвори файл"
 112,1,"&Фокус в панела	F"
 113,1,"&Прекрати	Esc"

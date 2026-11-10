@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"swedish translation stub (English seed)"
 
 [MENU 109]
-0,0,"&Arkiv"
+0,1,"&Arkiv"
 111,1,"&Öppna fil"
 112,1,"&Fokusera i panelen	F"
 113,1,"&Avbryt	Esc"

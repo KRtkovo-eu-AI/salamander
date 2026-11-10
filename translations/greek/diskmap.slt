@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"greek translation stub (English seed)"
 
 [MENU 109]
-0,0,"&Αρχείο"
+0,1,"&Αρχείο"
 111,1,"&Άνοιγμα αρχείου"
 112,1,"&Εστίαση στο πλαίσιο	F"
 113,1,"&Ματαίωση	Esc"

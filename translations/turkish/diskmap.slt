@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"turkish translation stub (English seed)"
 
 [MENU 109]
-0,0,"&Dosya"
+0,1,"&Dosya"
 111,1,"Dosya &Aç"
 112,1,"Panelde &Odaklan	F"
 113,1,"&Durdur	Esc"
