@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Expose broker availability to permission previews. | Show a shield only in a compatible unelevated installation. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Prepare leaf operations from a protected listing. | Bind separate consent to the verified folder and file identities. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Expose a common UAC foreground return. | Restore the invoking window from its UI thread. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Prepare a separate viewer request from the approved panel. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
@@ -92,6 +93,7 @@ private:
 };
 
 void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput);
+bool CanOfferElevation();
 
 enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30 };
 

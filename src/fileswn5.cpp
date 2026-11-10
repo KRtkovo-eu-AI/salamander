@@ -6,6 +6,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Preview the UAC shield for directory creation and file rename. | Probe only the rights required by the pending operation. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Offer F7 and F2 elevation in the protected panel. | Use verified identities when local path preparation is denied. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Offer separate F3 consent from a protected panel. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
 // | 2026-11-09 | Keep the full F7 parent path in heap storage. | Avoid aborting before consent for deeply nested targets. | | Codex |
@@ -24,6 +25,8 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+
+#include <algorithm>
 #include "fileactionpath.h"
 #include "uacbroker/f7pilot.h"
 
@@ -3177,6 +3180,59 @@ static LocalDirectoryCreateResult CreateLocalDirectoryLeaf(const char* path, con
     return {created, error};
 }
 
+static DWORD ProbeLocalElevationAccess(const std::wstring& path, DWORD access, bool directory)
+{
+    const std::wstring absolute = SalPathRemoveExtendedPrefixW(path.c_str());
+    if (absolute.size() < 3 || absolute[1] != L':' || absolute[2] != L'\\')
+        return ERROR_NOT_SUPPORTED;
+    const wchar_t drive[] = {absolute[0], L':', L'\\', L'\0'};
+    wchar_t fileSystem[16]{};
+    if (GetDriveTypeW(drive) != DRIVE_FIXED ||
+        !GetVolumeInformationW(drive, nullptr, 0, nullptr, nullptr, nullptr, fileSystem, ARRAYSIZE(fileSystem)) ||
+        _wcsicmp(fileSystem, L"NTFS") != 0)
+        return ERROR_NOT_SUPPORTED;
+
+    const std::wstring extended = SalPathAddExtendedPrefixW(absolute.c_str());
+    const DWORD flags = FILE_FLAG_OPEN_REPARSE_POINT | (directory ? FILE_FLAG_BACKUP_SEMANTICS : 0);
+    const HANDLE object = CreateFileW(extended.c_str(), access, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                      nullptr, OPEN_EXISTING, flags, nullptr);
+    if (object == INVALID_HANDLE_VALUE)
+        return GetLastError();
+    CloseHandle(object);
+    return ERROR_SUCCESS;
+}
+
+struct MkdirElevationPreview
+{
+    std::wstring directory;
+    std::wstring checkedParent;
+    bool shield = false;
+
+    static bool Check(const wchar_t* input, void* context)
+    {
+        auto& preview = *static_cast<MkdirElevationPreview*>(context);
+        std::wstring target(input);
+        std::wstring parent = preview.directory;
+        if (!target.empty())
+        {
+            std::replace(target.begin(), target.end(), L'/', L'\\');
+            if (!SalGetFullNameW(target, nullptr, preview.directory.c_str(), nullptr, nullptr, FALSE))
+                return false;
+            target = SalPathRemoveExtendedPrefixW(target.c_str());
+            const auto separator = target.rfind(L'\\');
+            if (separator == std::wstring::npos)
+                return false;
+            parent = target.substr(0, separator == 2 ? 3 : separator);
+        }
+        if (parent != preview.checkedParent)
+        {
+            preview.checkedParent = std::move(parent);
+            preview.shield = ProbeLocalElevationAccess(preview.checkedParent, FILE_ADD_SUBDIRECTORY, true) == ERROR_ACCESS_DENIED;
+        }
+        return preview.shield;
+    }
+};
+
 void CFilesWindow::CreateDir(CFilesWindow* target)
 {
     CALL_STACK_MESSAGE1("CFilesWindow::CreateDir()");
@@ -3197,6 +3253,9 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                             &subject, IDD_CREATEDIRDIALOG,
                             Configuration.CreateDirHistory, CREATEDIR_HISTORY_SIZE,
                             FALSE);
+        MkdirElevationPreview preview{GetPathW(), {}, false};
+        if (UacF7::CanOfferElevation())
+            dlg.SetElevationShieldProbe(MkdirElevationPreview::Check, &preview);
 
     CREATE_AGAIN:
 
@@ -4221,6 +4280,17 @@ void CFilesWindow::RenameFile(int specialIndex)
                 dlg.SetSelectionEnd(selectionEnd);
             }
 
+            bool elevationShield = false;
+            if (!isDir && !branchRename && (f->Attr & FILE_ATTRIBUTE_REPARSE_POINT) == 0 && UacF7::CanOfferElevation())
+            {
+                const DWORD sourceAccess = ProbeLocalElevationAccess(GetItemFullPathW(*f), DELETE, false);
+                const DWORD parentAccess = ProbeLocalElevationAccess(GetItemDirectoryW(*f), FILE_ADD_FILE, true);
+                const bool sourceKnown = sourceAccess == ERROR_SUCCESS || sourceAccess == ERROR_ACCESS_DENIED;
+                const bool parentKnown = parentAccess == ERROR_SUCCESS || parentAccess == ERROR_ACCESS_DENIED;
+                elevationShield = sourceKnown && parentKnown &&
+                                  (sourceAccess == ERROR_ACCESS_DENIED || parentAccess == ERROR_ACCESS_DENIED);
+            }
+            dlg.SetElevationShield(elevationShield);
             int dlgRes = (int)dlg.Execute();
 
             // if we selected an item, we deselect it again

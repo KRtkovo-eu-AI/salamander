@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Record native OK shields for F7 and F2. | Verify the indicator against real permissions and review other dialogs. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Verify protected-panel F7 and F2 preparation. | Offer separate elevation when local path checks cannot identify the objects. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Record UAC foreground return and scoped panel evidence. | Separate the observed window fix from open panel authorization work. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Audit shared authorization for native operations inside a panel subtree. | Separate repeated consent and pre-broker failures from verified runtime evidence. | #731 | GPT-6 (Codex) |
@@ -1541,6 +1542,16 @@ Při odepření běžného F7 nebo F2 umí relace výpisu dodat identitu rodiče
 V izolované Windows 11 VM po schválení výpisu `03-approve` šlo bez další výzvy vstoupit do chráněné `01-nested`. F7 tam nabídlo Administrator a po Ano vznikla `02-nová-東`. F2 po Ne ponechalo `rename-source.txt` a po Ano se zobrazil `přejmenovaný-東.txt` se stejnou velikostí 17 bajtů. Sousední `taken.txt` zůstal viditelný se stejnou velikostí 19 bajtů. Ctrl+R znovu načetlo stejný stav bez výzvy k výpisu. Nasazený x64 Release host má SHA-256 `DDAB81CE5D00E3F27870A4FC592EEBE9CCDBAAEBB7387FE00C6F3C4B306E7B65`, broker `ADB7659C3E65FB40DE7F05178D411CEF0E622DBDF275AFEA8E42A6946A7AC02F`. Verifikátor potvrdil protokol 13 a kompatibilitu instalovaného anglického modulu.
 
 V Debug i Release prošlo 146 kontrol transportu, 96 kontrol vytvoření adresáře a 57 kontrol přejmenování. Nativní testy ověřily dlouhé Unicode cesty, nepřípustné kombinace příznaků, odkazy mimo schválený podstrom a zachování dat při kolizi a záměně zdroje po přípravě. V porovnání s předchozím finálním x64 Release se host změnil z 5 651 968 na 5 653 504 bajtů a broker z 1 342 976 na 1 345 536 bajtů. Dvojice celkem narostla o 4 096 bajtů na 6 999 040. Srovnávací měření soukromé paměti neproběhlo.
+
+### P7 — štít na OK v dialozích F7 a F2
+
+F7 a F2 v ověřené instalaci s kompatibilním brokerem používají systémový štít na stávajícím OK. Kontrola otevírá existující objekty s příslušným právem a bez změny dat. U F7 se zkouší `FILE_ADD_SUBDIRECTORY` u aktuálního cílového rodiče. Změna rodiče v textovém poli obnoví stav štítu. U F2 pro jeden běžný soubor se zkouší `DELETE` u zdroje a `FILE_ADD_FILE` u rodiče. Štít se zobrazí při odepření, pokud druhá kontrola má známý výsledek. U zamčené nebo neznámé cesty štít nic nepředjímá. Klientská kontrola je jen indikace. Potvrzení operace a UAC zpracovávají dosavadní postupy. [Systémový štít Windows](https://learn.microsoft.com/en-us/windows/win32/Controls/bcm-setshield) · [Práva při přejmenování](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information).
+
+Ve VM x64 Release v tmavém režimu ukázaly oba první dialogy štít v čitelné složce pod Program Files, kam běžný token nemohl zapisovat. F7 při vložení absolutního zapisovatelného cíle štít odstranilo a při zadání relativního `zkouška-東` ho obnovilo. F2 nad zapisovatelným souborem ukázalo OK bez štítu. Zkoušky skončily stornem před operací a bez systémové výzvy. Při startu byl v laboratorním konfiguračním souboru uložen chráněný panel z předchozí zkoušky. Spuštění čekalo v dialogu obnovy cesty před zobrazením hlavního okna. Pro vizuální zkoušku se změnily pouze dva uložené záznamy téže laboratorní cesty na čitelnou testovací složku.
+
+Prošlo 11 přímých kontrol oprávnění a vyhodnocení cíle nad skutečnými testovacími složkami, 96 kontrol F7 a 57 kontrol přejmenování v Debug i Release, 20 kontraktů operací, 30 kontraktů přechodu panelu a kontrakt Findu. Nasazený host SHA-256 je `58E87D634A1C6A2F6607B305CFFDE2B46CEABB54BD94DB7879E4ABDA13FE584F`. Host narostl o 3 072 bajtů na 5 656 576, broker je bitově shodný a má 1 345 536 bajtů. Soukromá paměť se neměřila.
+
+**Další kandidáti, pouze analýza.** U nerekurzivní změny atributů a časů lze po výběru konkrétní změny ověřit `FILE_WRITE_ATTRIBUTES`. U Shift+F7 lze pro zadaný místní adresář ověřit `FILE_LIST_DIRECTORY`; nejprve je třeba zajistit, aby dialog neukončil navigaci chybou už při kontrole jednotlivých komponent. U jednotlivého trvalého smazání patří štít na Ano v potvrzení. Koš má vlastní postup Shellu a podmínku stejného účtu. U F5/F6 musí kontrola zohlednit přesné cesty, vybrané volby, konflikty a podporované položky. Find odhaluje chráněné podsložky až při práci. F3, F4 a výpočet velikosti mají štít u skutečné nabídky správce.
 
 ## 12. Testovací strategie
 

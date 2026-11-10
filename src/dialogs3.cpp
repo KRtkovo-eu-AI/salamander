@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Set the native OK shield in F7 and F2. | Follow the current target without changing the consent or dialog layout. | #731 | GPT-6 (Codex) |
 // | 2026-11-07 | Reset Copy/Move options before hiding the expanded controls. | Reset and hide options only hid the dialog without restoring configured defaults. |  | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Restore Copy/Move wait preference when resetting dialog defaults. | Reset options and defaults discarded the Configuration transfer preference's wait behavior. |  | openai/gpt-5.6-luna-pro |
 // | 2026-11-05 | Save and reset Copy/Move transfer, conflict, and wait dialog defaults. | Save options as defaults ignored the newer dialog settings. | https://github.com/KRtkovo-eu-AI/salamander/issues/734 | Composer |
@@ -233,6 +234,7 @@ bool Utf8ToWideString(const char* text, int count, std::wstring& wide)
 
 
 const UINT WM_USER_ENABLEPATHAUTOCOMPLETE = WM_APP + 341;
+const UINT WM_USER_UPDATEELEVATIONSHIELD = WM_APP + 428;
 
 
 void AddAutoCompleteItem(std::vector<std::wstring>& items, const std::wstring& item)
@@ -990,6 +992,24 @@ void CCopyMoveDialog::SetSelectionEnd(int selectionEnd)
     }
 }
 
+void CCopyMoveDialog::UpdateElevationShield()
+{
+    bool required = ElevationShield;
+    if (ElevationShieldProbe)
+    {
+        const HWND edit = ResolveComboEditControl(GetDlgItem(HWindow, IDE_PATH));
+        const int length = GetWindowTextLengthW(edit);
+        required = false;
+        if (length < PathBufSize)
+        {
+            std::wstring text(static_cast<size_t>(length) + 1, L'\0');
+            GetWindowTextW(edit, text.data(), length + 1);
+            required = ElevationShieldProbe(text.c_str(), ElevationShieldContext);
+        }
+    }
+    Button_SetElevationRequiredState(GetDlgItem(HWindow, IDOK), required);
+}
+
 void CCopyMoveDialog::Transfer(CTransferInfo& ti)
 {
     CALL_STACK_MESSAGE1("CCopyMoveDialog::Transfer()");
@@ -1046,6 +1066,8 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
 
         INT_PTR ret = CCommonDialog::DialogProc(uMsg, wParam, lParam);
+        if (ElevationShield || ElevationShieldProbe)
+            UpdateElevationShield();
         // umime vybirat pouze nazev bez tecky a pripony
         int selectionEnd = SelectionEnd;
         if (SelectionEndChars >= 0)
@@ -1072,6 +1094,17 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     MAKELPARAM(0, selectionEnd));
         return FALSE;
     }
+
+    case WM_COMMAND:
+        if (ElevationShieldProbe && LOWORD(wParam) == IDE_PATH &&
+            (HIWORD(wParam) == CBN_EDITCHANGE || HIWORD(wParam) == CBN_SELCHANGE || HIWORD(wParam) == EN_CHANGE))
+            PostMessage(HWindow, WM_USER_UPDATEELEVATIONSHIELD, 0, 0);
+        break;
+
+    case WM_USER_UPDATEELEVATIONSHIELD:
+        if (ElevationShieldProbe)
+            UpdateElevationShield();
+        return TRUE;
 
     case WM_USER_ENABLEPATHAUTOCOMPLETE:
     {

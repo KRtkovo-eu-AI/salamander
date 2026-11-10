@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Check whether the host can offer elevation. | Avoid promising a broker in portable or already elevated hosts. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Prepare F7 and F2 with the approved listing root. | Revalidate the exact identities in the existing one-shot executor. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Restore the UAC owner on its UI thread. | Handle worker launches and retain an active modal popup. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Obtain exact file identity without granting content access. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
@@ -2762,6 +2763,25 @@ void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput)
                             ? popup : owner;
     if (IsWindowEnabled(target) && !IsIconic(target))
         SetForegroundWindow(target);
+}
+
+bool CanOfferElevation()
+{
+    HANDLE raw = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &raw))
+        return false;
+    const auto token = Adopt(raw);
+    TOKEN_ELEVATION elevation{};
+    DWORD bytes = 0;
+    if (!GetTokenInformation(token.get(), TokenElevation, &elevation, sizeof(elevation), &bytes) ||
+        elevation.TokenIsElevated)
+        return false;
+
+    InstallLocation install;
+    if (!install.Open() || !install.MatchesProcess(GetCurrentProcess(), appImage))
+        return false;
+    const auto broker = install.OpenImage(brokerImage);
+    return broker && MatchesProtocolImage(install.ImagePath(brokerImage), SAM_UAC_IMAGE_BROKER);
 }
 
 PreparedLeaf::~PreparedLeaf()
