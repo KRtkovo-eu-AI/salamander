@@ -3658,33 +3658,33 @@ SLGINCOMPLETE,""
 13775,1,"Thao tác kéo thả từ kho lưu trữ hoặc hệ thống tệp của plugin thất bại. Vui lòng xóa thư mục DROPFAKE được tạo nhầm (nếu có) khỏi thư mục đích.\n\nĐiều này chỉ nên xảy ra ngay sau khi cài đặt hoặc khi đích thả không phải Windows Explorer hay Open Samandarin. Nếu đích thả là Windows Explorer, hãy khởi động lại Windows để khắc phục (người dùng nâng cao có thể kết thúc tiến trình explorer.exe rồi chạy lại)."
 
 [STRINGTABLE 141]
-13776,0,"Default"
-13777,0,"Red"
-13778,0,"Green"
-13779,0,"Blue"
-13780,0,"Samandarin"
+13776,1,"Mặc định"
+13777,1,"Đỏ"
+13778,1,"Xanh lá"
+13779,1,"Xanh dương"
+13780,1,"Samandarin"
 
 [STRINGTABLE 142]
-13800,0,"%d hr"
-13801,0,"%d min"
-13802,0,"%d sec"
-13805,0,"%s of %s copied"
-13806,0,"%s of %s moved"
-13807,0,"speed: %s/s"
+13800,1,"%d giờ"
+13801,1,"%d phút"
+13802,1,"%d giây"
+13805,1,"Đã sao chép %s trên tổng số %s"
+13806,1,"Đã di chuyển %s trên tổng số %s"
+13807,1,"tốc độ: %s/s"
 
 [STRINGTABLE 143]
-13808,0,"speed: %s/s (limit: %s/s)"
-13809,0,"time left: %s"
-13815,0,"Speed limit must be a number in range 1 B/s to 4 GB/s."
-13820,0,"&Set Speed Limit..."
-13821,0,"&Wait Until All Other Copy/Move Operations are Finished"
+13808,1,"tốc độ: %s/s (giới hạn: %s/s)"
+13809,1,"thời gian còn lại: %s"
+13815,1,"Giới hạn tốc độ phải là số trong khoảng từ 1 B/s đến 4 GB/s."
+13820,1,"&Đặt giới hạn tốc độ..."
+13821,1,"&Chờ tất cả thao tác Sao chép/Di chuyển khác hoàn tất"
 
 [STRINGTABLE 144]
 13825,1,"&Thoát"
 
 [STRINGTABLE 145]
-13850,0,"Unable to save configuration of %s plugin (error opening configuration key of Open Salamander).\n\nDo you still want to unload it?"
-13855,0,"Name"
+13850,1,"Không thể lưu cấu hình của plugin %s (lỗi khi mở khóa cấu hình của Open Samandarin).\n\nBạn vẫn muốn dỡ plugin này không?"
+13855,1,"Tên"
 
 [STRINGTABLE 146]
 13856,0,"Description"
