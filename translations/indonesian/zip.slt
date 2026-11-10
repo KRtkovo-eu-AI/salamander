@@ -141,7 +141,7 @@ COMMENT,"indonesian translation stub (English seed)"
 
 [DIALOG 146]
 305,303,0,"Self-Extractor Settings"
-3000,0,0,305,1,1,""
+3000,1,0,305,1,1,""
 3001,7,7,292,89,0,"Directory to extract files to"
 3002,20,19,38,8,0,"E&xtract to:"
 193,20,29,249,12,1,""
@@ -204,7 +204,7 @@ COMMENT,"indonesian translation stub (English seed)"
 
 [DIALOG 180]
 340,180,0,"ZIP Archive Comment"
-181,0,0,340,180,1,""
+181,1,0,340,180,1,""
 
 [DIALOG 190]
 260,352,0,"Self-Extractor Texts"

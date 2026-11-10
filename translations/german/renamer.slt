@@ -11,7 +11,7 @@ COMMENT,"Deutsche Version"
 
 [DIALOG 100]
 368,260,1,"Stapel-Umbenennen"
-124,0,0,368,1,1,""
+124,1,0,368,1,1,""
 300,16,11,51,8,1,"&Maske:"
 101,70,9,95,132,1,""
 102,174,10,126,12,1,"Einschließlich &Unterverzeichnissen"
@@ -44,7 +44,7 @@ COMMENT,"Deutsche Version"
 118,70,170,97,12,1,"Einschließlich &Pfadnamen"
 103,6,182,51,8,1,"&Vorschau:"
 122,100,182,261,8,1,""
-104,0,192,368,68,1,""
+104,1,192,368,68,1,""
 
 [DIALOG 140]
 225,88,1,"Teil einer Zeichenkette hinzufügen"
