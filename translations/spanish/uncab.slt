@@ -25,7 +25,7 @@ COMMENT,"Versión en español"
 
 [DIALOG 103]
 352,85,1,"Error"
-300,0,10,32,8,1,"Nombre:"
+300,1,10,32,8,1,"Nombre:"
 104,36,10,309,8,1,""
 301,6,23,26,8,1,"Error:"
 302,36,23,309,16,1,"El fichero no puede ser extraído porque continúa a partir de un voiumen previo. Para extraer este fichero debe empezar con un volumen donde empiece el fichero."
