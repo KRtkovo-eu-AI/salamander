@@ -192,15 +192,15 @@ COMMENT,"swedish translation stub (English seed)"
 
 [DIALOG 170]
 204,113,0,"Create Self-Extracting Archive"
-172,16,11,167,8,0,"&Create a self-extracting archive from the archive:"
+172,16,11,167,8,1,"&Skapa ett självuppackande arkiv från arkivet:"
 101,16,21,172,12,1,""
-173,16,39,152,8,0,"&File name of the new self-extracting archive:"
+173,16,39,152,8,1,"&Filnamn för det nya självuppackande arkivet:"
 171,16,49,172,12,1,""
-105,128,68,60,14,0,"&Advanced..."
+105,128,68,60,14,1,"A&vancerat..."
 3000,7,87,191,1,1,""
-1,18,94,50,14,0,"OK"
-2,77,94,50,14,0,"Cancel"
-9,136,94,50,14,0,"Help"
+1,18,94,50,14,1,"OK"
+2,77,94,50,14,1,"Avbryt"
+9,136,94,50,14,1,"Hjälp"
 
 [DIALOG 180]
 340,180,0,"ZIP Archive Comment"
