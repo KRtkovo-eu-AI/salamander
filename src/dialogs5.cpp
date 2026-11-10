@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Prioritize effective user provenance in matrix badges. | Show User after an override replaces a default/plugin association while retaining Conflict for any unresolved action on the same pattern. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Keep selected pattern keys independent from Apply editor values. | Do not let the Pattern edit field overwrite the matrix selection while reading Action, Target, and Target ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Seed Apply from the selected association before reading editor fields. | Preserve the established Configuration save path's pattern fallback while letting the detail controls override the action. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Keep canonical rows intact during association Apply. | Do not discard stored rows as a workaround for the pattern source bug. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -4032,21 +4033,27 @@ LRESULT CALLBACK CCfgPageFileAssociations::ConflictStatusSubclassProc(
 
 std::string CCfgPageFileAssociations::MatrixStatusText(const MatrixRow& row) const
 {
+    if (row.Conflict)
+        return std::string(ProvenanceText(Salamander::FileAssociations::Provenance::Conflict));
+
     const int indexes[5] = {row.View, row.AlternateView, row.Edit, row.ListUnpack, row.DeletePack};
     int statusIndex = -1;
     for (int i = 0; i < 5; ++i)
     {
-        if (indexes[i] >= 0)
-        {
+        if (indexes[i] < 0)
+            continue;
+        const Salamander::FileAssociations::Provenance provenance =
+            Rows[indexes[i]].AssociationProvenance;
+        if (provenance == Salamander::FileAssociations::Provenance::User ||
+            provenance == Salamander::FileAssociations::Provenance::Disabled)
+            return std::string(ProvenanceText(provenance));
+        if (statusIndex < 0)
             statusIndex = indexes[i];
-            break;
-        }
     }
 
-    Salamander::FileAssociations::Provenance status =
-        row.Conflict ? Salamander::FileAssociations::Provenance::Conflict :
-        (statusIndex >= 0 ? Rows[statusIndex].AssociationProvenance :
-                            Salamander::FileAssociations::Provenance::Default);
+    Salamander::FileAssociations::Provenance status = statusIndex >= 0
+        ? Rows[statusIndex].AssociationProvenance
+        : Salamander::FileAssociations::Provenance::Default;
     if (status == Salamander::FileAssociations::Provenance::Legacy)
         status = Salamander::FileAssociations::Provenance::Default;
     return std::string(ProvenanceText(status));
@@ -4056,13 +4063,16 @@ int CCfgPageFileAssociations::MatrixSourceKind(const MatrixRow& row) const
 {
     const int indexes[5] = {row.View, row.AlternateView, row.Edit, row.ListUnpack, row.DeletePack};
     for (int i = 0; i < 5; ++i)
+        if (indexes[i] >= 0 &&
+            (Rows[indexes[i]].SourceProvenance == Salamander::FileAssociations::Provenance::User ||
+             Rows[indexes[i]].AssociationProvenance == Salamander::FileAssociations::Provenance::User))
+            return 0;
+
+    for (int i = 0; i < 5; ++i)
     {
         if (indexes[i] < 0)
             continue;
         const Salamander::FileAssociations::Association& item = Rows[indexes[i]];
-        if (item.SourceProvenance == Salamander::FileAssociations::Provenance::User ||
-            item.AssociationProvenance == Salamander::FileAssociations::Provenance::User)
-            return 0;
         if (IsExtensionViewerLabel(item.AssociationTarget.DisplayLabel))
             return 2;
         if (item.AssociationTarget.Kind == Salamander::FileAssociations::TargetKind::Plugin)
