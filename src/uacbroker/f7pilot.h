@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Carry the metadata dialog choice in the host prompt. | Reuse that choice without changing the broker protocol. | #731 | GPT-6.1 Sol (Codex) |
 | 2026-11-10 | Prepare protected metadata through the panel listing. | Bind the one-shot or batch update to the visible attributes and verified identity. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Expose broker availability to permission previews. | Show a shield only in a compatible unelevated installation. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Prepare leaf operations from a protected listing. | Bind separate consent to the verified folder and file identities. | #731 | GPT-6 (Codex) |
@@ -614,6 +615,7 @@ struct LeafPrompt
 {
     const PreparedLeaf& request;
     const char* path;
+    bool shieldedOk;
     Result result{ERROR_CANCELLED, false};
 };
 }

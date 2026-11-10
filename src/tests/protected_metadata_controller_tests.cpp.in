@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Exercise first-denial metadata confirmation and retry. | Ensure a shield never triggers elevation after local success or identity failure. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Verify metadata ownership, preview and worker outcomes. | Prevent false shields and legacy fallthrough for protected identities. | #731 | GPT-6.1 Sol (Codex) |
 #include <windows.h>
 #include <string>
+#include <vector>
 #include <cstdio>
 #include "@@HEADER@@"
 
@@ -16,13 +18,22 @@ static void Check(bool value, const char* name)
 static DWORD ProbeResult = ERROR_ACCESS_DENIED;
 static int ProbeCalls = 0, OfferCalls = 0, PrepareCalls = 0, Executions = 0;
 static bool Offer = true, PrepareAllowed = true, ProbeDirectory = false;
-static BOOL Execute = TRUE;
+static DWORD LocalError = ERROR_SUCCESS, ElevatedError = ERROR_SUCCESS;
+static BOOL WorkerCancelled = FALSE;
+static int Retries = 0;
+static std::vector<bool> PromptShieldedOk;
+static char FileName[] = "file.txt";
 static std::wstring LastPath;
 static UacF7::MetadataChange LastChange{};
 static const UacF7::PreparedLeaf* ExecutedRequest = nullptr;
 namespace UacF7
 {
 PreparedLeaf::~PreparedLeaf() {}
+DWORD PreparedLeaf::ExecuteLocal() const
+{
+    ++Executions; ExecutedRequest = this;
+    return LocalError;
+}
 bool CanOfferElevation() { ++OfferCalls; return Offer; }
 bool PreparedLeaf::PrepareMetadata(const std::wstring& path, const MetadataChange& change, MetadataJobPolicy policy)
 {
@@ -43,17 +54,49 @@ struct COperation
     char* TargetName = reinterpret_cast<char*>(DWORD_PTR(FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_HIDDEN));
     std::wstring SourceNameW = L"C:\\ordinary\\file.txt";
     BOOL SourceNameWValid = TRUE;
+    char* SourceName = FileName;
 };
-struct CProgressDlgData {};
-constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 7;
-constexpr int IDS_ERRORCHANGINGATTRS = 8;
-static BOOL ExecuteVerifiedWorkerLeaf(HWND, const COperation&, const UacF7::PreparedLeaf& request,
-                                      CProgressDlgData&, WPARAM prompt, int title)
+struct CProgressDlgData
 {
-    ++Executions; ExecutedRequest = &request;
-    Check(prompt == WORKER_DIALOG_UAC_METADATA && title == IDS_ERRORCHANGINGATTRS, "existing metadata error flow retained");
-    return Execute;
+    HANDLE WorkerNotSuspended = nullptr;
+    BOOL* CancelWorker = &WorkerCancelled;
+    BOOL SkipAllDeleteErr = FALSE;
+    BOOL SkipAllChangeAttrs = FALSE;
+};
+constexpr WPARAM WORKER_DIALOG_UAC_METADATA = 7;
+constexpr WPARAM WORKER_DIALOG_UAC_DELETE = 8;
+constexpr UINT WM_USER_DIALOG = WM_USER + 42;
+constexpr int IDS_ERRORCHANGINGATTRS = 8;
+constexpr int IDB_SKIP = 40, IDB_SKIPALL = 41;
+
+static std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* path) { return path; }
+static std::string SalWideToMultiBytePath(const wchar_t*, UINT) { return FileName; }
+static char* LoadStr(int) { return FileName; }
+static char* GetErrorText(DWORD) { return FileName; }
+
+static LRESULT SendTestMessage(HWND, UINT message, WPARAM kind, LPARAM data)
+{
+    Check(message == WM_USER_DIALOG, "existing metadata error flow retained");
+    if (kind == WORKER_DIALOG_UAC_METADATA)
+    {
+        auto& prompt = *reinterpret_cast<UacF7::LeafPrompt*>(data);
+        PromptShieldedOk.push_back(prompt.shieldedOk);
+        prompt.result.error = ElevatedError;
+    }
+    else
+    {
+        Check(kind == 0, "verified metadata uses the ordinary file error dialog");
+        auto args = reinterpret_cast<char**>(data);
+        *reinterpret_cast<int*>(args[0]) = Retries > 0 ? IDRETRY : IDCANCEL;
+        if (Retries > 0)
+            --Retries;
+    }
+    return 0;
 }
+#undef SendMessage
+#define SendMessage SendTestMessage
+@@EXECUTOR@@
+#undef SendMessage
 @@TIME@@
 @@CHANGE@@
 @@WORKER@@
@@ -62,8 +105,9 @@ static BOOL ExecuteVerifiedWorkerLeaf(HWND, const COperation&, const UacF7::Prep
 static void Reset()
 {
     ProbeCalls = OfferCalls = PrepareCalls = Executions = 0;
-    ProbeResult = ERROR_ACCESS_DENIED; Offer = PrepareAllowed = true; Execute = TRUE;
-    LastPath.clear(); LastChange = {}; ExecutedRequest = nullptr;
+    ProbeResult = ERROR_ACCESS_DENIED; Offer = PrepareAllowed = true;
+    LocalError = ElevatedError = ERROR_SUCCESS; WorkerCancelled = FALSE; Retries = 0;
+    PromptShieldedOk.clear(); LastPath.clear(); LastChange = {}; ExecutedRequest = nullptr;
 }
 int main()
 {
@@ -96,8 +140,23 @@ int main()
     Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && !success && !Executions, "invalid protected path cannot fall into legacy mutation");
     operation.SourceNameWValid = TRUE; operation.Attr = FILE_ATTRIBUTE_COMPRESSED; Reset(); success = TRUE;
     Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && !success && !Executions, "invalid protected metadata cannot fall into legacy mutation");
-    operation.Attr = FILE_ATTRIBUTE_ARCHIVE; Reset(); Execute = FALSE;
-    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && !success, "cancel or failure is propagated without replay");
+    operation.Attr = FILE_ATTRIBUTE_ARCHIVE; Reset(); LocalError = ERROR_ACCESS_DENIED; ElevatedError = ERROR_CANCELLED;
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && !success &&
+          PromptShieldedOk == std::vector<bool>{false}, "unshielded cancellation is propagated without replay");
+    input.MetadataShieldedOk = true;
+    Reset();
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && success &&
+          PromptShieldedOk.empty(), "shielded metadata is completed locally when allowed");
+    Reset(); LocalError = ERROR_FILE_INVALID;
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && !success &&
+          PromptShieldedOk.empty(), "shielded metadata never elevates after a stale identity error");
+    Reset(); LocalError = ERROR_ACCESS_DENIED;
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && success &&
+          PromptShieldedOk == std::vector<bool>{true}, "shielded metadata skips the second application prompt on access denial");
+    Reset(); LocalError = ERROR_ACCESS_DENIED; ElevatedError = ERROR_CANCELLED; Retries = 1;
+    Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, &protectedRequest) && !success &&
+          PromptShieldedOk == std::vector<bool>({true, false}), "retry after Windows cancellation needs a new application choice");
+    input.MetadataShieldedOk = false;
     Reset(); PrepareAllowed = false;
     Check(!TryChangeBasicMetadata(nullptr, operation, input, dialog, success, nullptr) && PrepareCalls == 1 && !Executions, "ordinary unsupported preparation retains legacy fallback");
     Reset();

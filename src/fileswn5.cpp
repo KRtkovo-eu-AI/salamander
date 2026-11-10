@@ -6,6 +6,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Reuse shielded OK for a verified F7, F2 or Ctrl+F2 retry. | Show Windows consent directly for the operation already confirmed in Samandarin. | #731 | Codex |
 // | 2026-11-10 | Prepare verified basic metadata from the protected panel. | Offer UAC and show the OK shield for a supported denied change. | #731 | Codex |
 // | 2026-11-10 | Preview the UAC shield for directory creation and file rename. | Probe only the rights required by the pending operation. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Offer F7 and F2 elevation in the protected panel. | Use verified identities when local path preparation is denied. | #731 | GPT-6 (Codex) |
@@ -1802,13 +1803,18 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                                                indexes, f, &attrsData, NULL, FALSE, NULL);
                     if (script->Count == 0 || (branchAttributes && !branchSelection.IsCurrent(this)))
                         res = FALSE;
-                    if (protectedMetadata && res &&
-                        (script->Count != 1 || script->At(0).Opcode != ocChangeAttrs ||
-                         !script->At(0).SourceNameWValid || script->At(0).Attr != metadataPreview.attributes ||
-                         SalPathRemoveExtendedPrefixW(script->At(0).SourceNameW.c_str()) != metadataPreview.path))
+                    const bool shieldedOk = dlgData.AllowBasicMetadataPilot && chDlg.AcceptedShieldedOk();
+                    if (res && (protectedMetadata || shieldedOk))
                     {
-                        metadataPreparationError = ERROR_INVALID_DATA;
-                        res = FALSE;
+                        const bool sameItem = script->Count == 1 && script->At(0).Opcode == ocChangeAttrs &&
+                            script->At(0).SourceNameWValid && script->At(0).Attr == metadataPreview.attributes &&
+                            SalPathRemoveExtendedPrefixW(script->At(0).SourceNameW.c_str()) == metadataPreview.path;
+                        if (protectedMetadata && !sameItem)
+                        {
+                            metadataPreparationError = ERROR_INVALID_DATA;
+                            res = FALSE;
+                        }
+                        dlgData.MetadataShieldedOk = shieldedOk && sameItem;
                     }
                     // reordered to allow the main window to activate (must not be disabled), otherwise it switches to another app
                     EnableWindow(MainWindow->HWindow, TRUE);
@@ -3335,6 +3341,12 @@ struct MkdirElevationPreview
     std::wstring checkedParent;
     bool shield = false;
 
+    static std::wstring ParentPath(const std::wstring& target)
+    {
+        const auto separator = target.rfind(L'\\');
+        return separator == std::wstring::npos ? std::wstring{} : target.substr(0, separator == 2 ? 3 : separator);
+    }
+
     static bool Check(const wchar_t* input, void* context)
     {
         auto& preview = *static_cast<MkdirElevationPreview*>(context);
@@ -3346,10 +3358,9 @@ struct MkdirElevationPreview
             if (!SalGetFullNameW(target, nullptr, preview.directory.c_str(), nullptr, nullptr, FALSE))
                 return false;
             target = SalPathRemoveExtendedPrefixW(target.c_str());
-            const auto separator = target.rfind(L'\\');
-            if (separator == std::wstring::npos)
+            parent = ParentPath(target);
+            if (parent.empty())
                 return false;
-            parent = target.substr(0, separator == 2 ? 3 : separator);
         }
         if (parent != preview.checkedParent)
         {
@@ -3503,7 +3514,12 @@ void CFilesWindow::CreateDir(CFilesWindow* target)
                         if (prepared)
                         {
                             SetCursor(oldCur);
-                            if (!ConfirmProtectedRead(HWindow, IDS_CREATEDIRECTORY_TITLE, IDS_UAC_MKDIR_CONFIRM, pathW))
+                            // A queued shield refresh can lag a change of target. Only reuse the
+                            // shielded OK when the prepared request uses the checked parent.
+                            const bool acceptedShield = dlg.WasElevationShieldShown() && preview.shield &&
+                                MkdirElevationPreview::ParentPath(SalPathRemoveExtendedPrefixW(pathW.c_str())) == preview.checkedParent;
+                            if (!acceptedShield &&
+                                !ConfirmProtectedRead(HWindow, IDS_CREATEDIRECTORY_TITLE, IDS_UAC_MKDIR_CONFIRM, pathW))
                             {
                                 EndStopRefresh();
                                 return;
@@ -3874,7 +3890,8 @@ namespace
 }
 
 
-void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newNameW, BOOL isDir, BOOL* mayChange, BOOL* tryAgain)
+void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newNameW, BOOL isDir, BOOL* mayChange, BOOL* tryAgain,
+                                      bool elevationShieldAccepted)
 {
     *tryAgain = TRUE;
     if (f == NULL || newNameW.empty() || newNameW.find_first_of(L"\\/:<>|\"") != std::wstring::npos)
@@ -3940,23 +3957,28 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
         if (prepared)
         {
             guardedRename = true;
-            int text = IDS_UAC_RENAME_CONFIRM;
-            if (request.IsJunctionRename())
-                text = IDS_UAC_RENAME_JUNCTION_CONFIRM;
-            else if (link)
-                text = IDS_UAC_RENAME_SYMLINK_CONFIRM;
-            const std::string message = std::string(LoadStr(text)) + "\n\n" +
-                                        WidePathToDialogText(srcPathDisplay) + "\n" + WidePathToDialogText(tgtPathDisplay);
-            const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
-            MSGBOXEX_PARAMS confirm{};
-            confirm.HParent = HWindow;
-            confirm.Text = message.c_str();
-            confirm.Caption = LoadStr(IDS_RENAME_TITLE);
-            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION |
-                            (link ? (MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN) : MSGBOXEX_SHIELDONDEFBTN);
-            confirm.AliasBtnNames = alias.c_str();
+            bool confirmed = elevationShieldAccepted && !isDir && !link;
+            if (!confirmed)
+            {
+                int text = IDS_UAC_RENAME_CONFIRM;
+                if (request.IsJunctionRename())
+                    text = IDS_UAC_RENAME_JUNCTION_CONFIRM;
+                else if (link)
+                    text = IDS_UAC_RENAME_SYMLINK_CONFIRM;
+                const std::string message = std::string(LoadStr(text)) + "\n\n" +
+                                            WidePathToDialogText(srcPathDisplay) + "\n" + WidePathToDialogText(tgtPathDisplay);
+                const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+                MSGBOXEX_PARAMS confirm{};
+                confirm.HParent = HWindow;
+                confirm.Text = message.c_str();
+                confirm.Caption = LoadStr(IDS_RENAME_TITLE);
+                confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION |
+                                (link ? (MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN) : MSGBOXEX_SHIELDONDEFBTN);
+                confirm.AliasBtnNames = alias.c_str();
+                confirmed = SalMessageBoxEx(&confirm) == IDOK;
+            }
             err = ERROR_CANCELLED;
-            if (SalMessageBoxEx(&confirm) == IDOK)
+            if (confirmed)
             {
                 const auto result = request.Execute(HWindow);
                 err = result.error;
@@ -4407,17 +4429,19 @@ void CFilesWindow::RenameFile(int specialIndex)
                 dlg.SetSelectionEnd(selectionEnd);
             }
 
-            bool elevationShield = false;
+            std::wstring shieldedSource;
             if (!isDir && !branchRename && (f->Attr & FILE_ATTRIBUTE_REPARSE_POINT) == 0 && UacF7::CanOfferElevation())
             {
-                const DWORD sourceAccess = ProbeLocalElevationAccess(GetItemFullPathW(*f), DELETE, false);
+                std::wstring source = GetItemFullPathW(*f);
+                const DWORD sourceAccess = ProbeLocalElevationAccess(source, DELETE, false);
                 const DWORD parentAccess = ProbeLocalElevationAccess(GetItemDirectoryW(*f), FILE_ADD_FILE, true);
                 const bool sourceKnown = sourceAccess == ERROR_SUCCESS || sourceAccess == ERROR_ACCESS_DENIED;
                 const bool parentKnown = parentAccess == ERROR_SUCCESS || parentAccess == ERROR_ACCESS_DENIED;
-                elevationShield = sourceKnown && parentKnown &&
-                                  (sourceAccess == ERROR_ACCESS_DENIED || parentAccess == ERROR_ACCESS_DENIED);
+                if (sourceKnown && parentKnown &&
+                    (sourceAccess == ERROR_ACCESS_DENIED || parentAccess == ERROR_ACCESS_DENIED))
+                    shieldedSource = std::move(source);
             }
-            dlg.SetElevationShield(elevationShield);
+            dlg.SetElevationShield(!shieldedSource.empty());
             int dlgRes = (int)dlg.Execute();
 
             // if we selected an item, we deselect it again
@@ -4431,7 +4455,8 @@ void CFilesWindow::RenameFile(int specialIndex)
 
                 BOOL tryAgain;
                 std::wstring newNameW = SalMultiByteToWidePath(formatedFileName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
-                RenameFileInternalW(f, newNameW, isDir, &mayChange, &tryAgain);
+                const bool elevationShieldAccepted = dlg.WasElevationShieldShown() && GetItemFullPathW(*f) == shieldedSource;
+                RenameFileInternalW(f, newNameW, isDir, &mayChange, &tryAgain, elevationShieldAccepted);
                 if (!tryAgain)
                     break;
             }

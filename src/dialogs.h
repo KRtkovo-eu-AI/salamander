@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Remember whether metadata was submitted with a shield. | Carry the existing confirmation to the verified metadata request. | #731 | GPT-6.1 Sol (Codex) |
+// | 2026-11-10 | Expose the shield state of the accepted operation dialog. | Let the same confirmed operation proceed to system UAC on access denial. | #731 | Codex |
 // | 2026-11-10 | Allow an opt-in UAC shield on Change Attributes. | Preview the requested basic metadata changes on OK. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Allow an opt-in UAC shield on file name dialog OK. | Keep all other uses of the shared dialog unchanged. | #731 | GPT-6 (Codex) |
 // | 2026-11-09 | Own the progress caption shield. | Keep the icon and its previous value local to one dialog. | | GPT-6.1 Sol (Codex) |
@@ -71,6 +73,7 @@ protected:
     int SelectionEnd;
     int SelectionEndChars;
     bool ElevationShield = false;
+    bool ElevationShieldShown = false;
     bool (*ElevationShieldProbe)(const wchar_t*, void*) = nullptr;
     void* ElevationShieldContext = nullptr;
 
@@ -87,6 +90,7 @@ public:
 
     void SetSelectionEnd(int selectionEnd);
     void SetElevationShield(bool required) { ElevationShield = required; }
+    bool WasElevationShieldShown() const { return ElevationShieldShown; }
     void SetElevationShieldProbe(bool (*probe)(const wchar_t*, void*), void* context)
     {
         ElevationShieldProbe = probe;
@@ -249,6 +253,8 @@ private:
 
     bool (*ElevationShieldProbe)(DWORD, DWORD, const UacF7::MetadataChange&, void*) = nullptr;
     void* ElevationShieldContext = nullptr;
+    bool ElevationShieldShown = false;
+    bool ElevationShieldAccepted = false;
 
     void UpdateElevationShield();
 
@@ -274,6 +280,8 @@ public:
                       const SYSTEMTIME* timeModified,
                       const SYSTEMTIME* timeCreated,
                       const SYSTEMTIME* timeAccessed);
+
+    bool AcceptedShieldedOk() const { return ElevationShieldAccepted; }
 
     // Indeterminate attributes are absent from both masks. The change carries only selected timestamps.
     void SetElevationShieldProbe(bool (*probe)(DWORD set, DWORD clear, const UacF7::MetadataChange& times, void*),

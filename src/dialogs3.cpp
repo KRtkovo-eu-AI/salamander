@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Track the shield shown on the native operation dialog. | Preserve consent intent across the local attempt and deny fallback. | #731 | Codex |
 // | 2026-11-10 | Set the native OK shield in F7 and F2. | Follow the current target without changing the consent or dialog layout. | #731 | GPT-6 (Codex) |
 // | 2026-11-07 | Reset Copy/Move options before hiding the expanded controls. | Reset and hide options only hid the dialog without restoring configured defaults. |  | openai/gpt-5.6-luna-pro |
 // | 2026-11-07 | Restore Copy/Move wait preference when resetting dialog defaults. | Reset options and defaults discarded the Configuration transfer preference's wait behavior. |  | openai/gpt-5.6-luna-pro |
@@ -1008,6 +1009,7 @@ void CCopyMoveDialog::UpdateElevationShield()
         }
     }
     Button_SetElevationRequiredState(GetDlgItem(HWindow, IDOK), required);
+    ElevationShieldShown = required;
 }
 
 void CCopyMoveDialog::Transfer(CTransferInfo& ti)
@@ -1044,6 +1046,7 @@ CCopyMoveDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_INITDIALOG:
     {
+        ElevationShieldShown = false;
         HWND hPath = GetDlgItem(HWindow, IDE_PATH);
         InstallWordBreakProc(hPath); // install WordBreakProc into the combobox
         PostMessage(HWindow, WM_USER_ENABLEPATHAUTOCOMPLETE, 0, 0);

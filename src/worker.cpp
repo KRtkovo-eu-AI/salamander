@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Forward the metadata shield on the first verified access denial. | Preserve local execution and ordinary retry behavior. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Execute protected panel metadata through the existing verified worker flow. | Preserve exact choices, confirmation, cancellation and error handling. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Keep EFS diagnostics and upstream lock recovery in the copy worker | Integrate UAC with current upstream behavior. | #731 | Codex |
 // | 2026-11-09 | Signal Scan Ahead on terminal worker failure. | Stop the scanner when a protected transfer is cancelled. | | Codex |
@@ -9486,7 +9487,8 @@ static LONGLONG MetadataFileTime(const FILETIME& time)
 }
 
 static BOOL ExecuteVerifiedWorkerLeaf(HWND progress, const COperation& op, const UacF7::PreparedLeaf& request,
-                                      CProgressDlgData& dlgData, WPARAM promptKind, int errorTitle)
+                                      CProgressDlgData& dlgData, WPARAM promptKind, int errorTitle,
+                                      bool shieldedOk = false)
 {
     for (;;)
     {
@@ -9501,7 +9503,8 @@ static BOOL ExecuteVerifiedWorkerLeaf(HWND progress, const COperation& op, const
         {
             const std::wstring display = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
             const std::string path = SalWideToMultiBytePath(display.c_str(), CP_UTF8);
-            UacF7::LeafPrompt prompt{request, path.c_str()};
+            UacF7::LeafPrompt prompt{request, path.c_str(), shieldedOk};
+            shieldedOk = false;
             SendMessage(progress, WM_USER_DIALOG, promptKind, reinterpret_cast<LPARAM>(&prompt));
             if (prompt.result.unknown)
                 return FALSE;
@@ -9591,14 +9594,15 @@ static bool TryChangeBasicMetadata(HWND progress, COperation& op, const CChangeA
     if (protectedRequest != nullptr)
     {
         success = ExecuteVerifiedWorkerLeaf(progress, op, *protectedRequest, dlgData,
-                                             WORKER_DIALOG_UAC_METADATA, IDS_ERRORCHANGINGATTRS);
+                                             WORKER_DIALOG_UAC_METADATA, IDS_ERRORCHANGINGATTRS, input.MetadataShieldedOk);
         return true;
     }
 
     UacF7::PreparedLeaf request;
     if (!request.PrepareMetadata(op.SourceNameW, change, {input.BasicMetadataSet, input.BasicMetadataClear}))
         return false;
-    success = ExecuteVerifiedWorkerLeaf(progress, op, request, dlgData, WORKER_DIALOG_UAC_METADATA, IDS_ERRORCHANGINGATTRS);
+    success = ExecuteVerifiedWorkerLeaf(progress, op, request, dlgData,
+                                         WORKER_DIALOG_UAC_METADATA, IDS_ERRORCHANGINGATTRS, input.MetadataShieldedOk);
     return true;
 }
 

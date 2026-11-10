@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Test the actual verified metadata executor. | Verify that accepted shields apply only to the matching first denied operation. | #731 | GPT-6.1 Sol (Codex) |
 # | 2026-11-10 | Exercise actual metadata preview and worker dispatch. | Verify denied-write detection and fail-closed protected requests without UI or elevation. | #731 | GPT-6.1 Sol (Codex) |
 """Compile production metadata preview/worker functions with isolated OS and UI seams."""
 import argparse
@@ -18,9 +19,12 @@ def main():
     worker = read('src/worker.cpp')
     change = block(controller, 'void CFilesWindow::ChangeAttr(')
     assert change.index('ProtectedListing->PrepareMetadata(') < change.index('BuildScriptMain(script, atChangeAttrs')
-    assert '!script->At(0).SourceNameWValid' in change
-    assert 'SalPathRemoveExtendedPrefixW(script->At(0).SourceNameW.c_str()) != metadataPreview.path' in change
-    assert 'script->Count != 1' in change
+    assert 'script->At(0).SourceNameWValid' in change
+    assert 'SalPathRemoveExtendedPrefixW(script->At(0).SourceNameW.c_str()) == metadataPreview.path' in change
+    assert 'script->Count == 1 && script->At(0).Opcode == ocChangeAttrs' in change
+    assert 'dlgData.MetadataShieldedOk = shieldedOk && sameItem;' in change
+    assert 'dlgData.AllowBasicMetadataPilot && chDlg.AcceptedShieldedOk()' in change
+    assert '!deleting && !shareJob && prompt.shieldedOk' in read('src/dialogs.cpp')
     assert 'ProtectedListing->IsOpen()' in change
     assert 'find = entry;' in change
     pieces = {
@@ -28,6 +32,7 @@ def main():
         'DATA': block(read('src/worker.h'), 'struct CChangeAttrsData', ';'),
         'TIME': block(worker, 'static LONGLONG MetadataFileTime('),
         'CHANGE': block(worker, 'bool BuildBasicMetadataChange('),
+        'EXECUTOR': block(worker, 'static BOOL ExecuteVerifiedWorkerLeaf('),
         'WORKER': block(worker, 'static bool TryChangeBasicMetadata('),
         'PREVIEW': block(controller, 'struct MetadataElevationPreview', ';'),
     }

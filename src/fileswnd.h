@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Carry the F2 dialog consent into the verified rename retry. | Skip the redundant administrator dialog only for shielded OK. | #731 | GPT-6 (Codex) |
 // | 2026-11-08 | Remove the standalone ZIP recovery declaration. | Keep the archive command surface unchanged. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Declare the panel recovery command. | Allow recovery even without an open ZIP panel. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Accept an explicit internal ZIP destination. | Keep the normal F5 path field for protected archive additions. | | GPT-6.1 Sol (Codex) |
@@ -1560,7 +1561,8 @@ public:
     void CreateDir(CFilesWindow* target);
     void RenameFile(int specialIndex = -1);
     void RenameFileInternal(CFileData* f, const char* formatedFileName, BOOL isDir, BOOL* mayChange, BOOL* tryAgain);
-    void RenameFileInternalW(CFileData* f, const std::wstring& newNameW, BOOL isDir, BOOL* mayChange, BOOL* tryAgain);
+    void RenameFileInternalW(CFileData* f, const std::wstring& newNameW, BOOL isDir, BOOL* mayChange, BOOL* tryAgain,
+                             bool elevationShieldAccepted = false);
     void DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data);
 
     // performs deletion using the SHFileOperation API function (only when deleting to the Recycle Bin)
