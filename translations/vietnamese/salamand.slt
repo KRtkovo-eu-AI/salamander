@@ -3772,11 +3772,11 @@ SLGINCOMPLETE,""
 13993,1,"GB/s"
 
 [STRINGTABLE 155]
-14000,0,"[invalid]"
-14005,0,"Administrator"
-14010,0,"Please enter a valid email address so we can assist you with reported problem."
-14011,0,"Please wait while the crash report archive is being prepared."
-14012,0,"Are you sure you don't want to let us know about this problem? Without your report we will not be able to fix it.\n\nClick OK to delete report without letting us know."
+14000,1,"[không hợp lệ]"
+14005,1,"Quản trị viên"
+14010,1,"Vui lòng nhập địa chỉ email hợp lệ để chúng tôi có thể hỗ trợ bạn về sự cố đã báo cáo."
+14011,1,"Vui lòng chờ trong khi chuẩn bị tệp lưu trữ báo cáo sự cố."
+14012,1,"Bạn có chắc không muốn báo cho chúng tôi về sự cố này không? Nếu không có báo cáo, chúng tôi sẽ không thể khắc phục sự cố.\n\nNhấn OK để xóa báo cáo mà không gửi."
 
 [STRINGTABLE 156]
 14020,0,"The uploaded file exceeds the allowed size. Code: %d."
