@@ -117,7 +117,7 @@ COMMENT,"indonesian translation stub (English seed)"
 2,237,56,50,14,1,"Batal"
 
 [DIALOG 141]
-210,108,0,"ZIP"
+210,108,1,"ZIP"
 3000,13,8,184,16,1,"File ini merupakan bagian dari arsip multi-volume atau rusak."
 3001,13,31,184,24,1,"Jika ini seharusnya arsip multi-volume, masukkan disk yang berisi bagian terakhir arsip atau cari file di hard disk. Tekan OK jika sudah siap."
 3002,13,61,89,8,1,"Bagian &terakhir arsip:"
@@ -281,7 +281,7 @@ COMMENT,"indonesian translation stub (English seed)"
 409,1,"&Terakhir Digunakan\tCtrl+L"
 
 [MENU 800]
-801,0,""
+801,1,""
 802,1,"Ubah &Nama"
 803,1,"&Hapus"
 
@@ -291,7 +291,7 @@ COMMENT,"indonesian translation stub (English seed)"
 852,1,"&Tutup\tAlt+F4"
 
 [MENU 860]
-861,0,""
+861,1,""
 862,1,"Direktori &Sementara"
 863,1,"&Program Files"
 864,1,"Direktori &Windows"
