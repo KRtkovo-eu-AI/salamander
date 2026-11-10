@@ -56,22 +56,22 @@ COMMENT,"turkish translation stub (English seed)"
 
 [STRINGTABLE 3]
 11200,1,"&Dosya"
-11201,1,"&Aç...	Ctr+O"
-11202,1,"Özellik&ler...	Ctrl+F1"
-11204,1,"Çı&kış	Alt+F4"
+11201,1,"&Aç...\tCtr+O"
+11202,1,"Özellik&ler...\tCtrl+F1"
+11204,1,"Çı&kış\tAlt+F4"
 11205,1,"Diğe&r dosyalar"
-11206,1,"&İlk	Shift+Backspace"
-11207,1,"&Son	Shift+Space"
-11208,1,"&Önceki	Backspace"
-11209,1,"&Sonraki	Space"
+11206,1,"&İlk\tShift+Backspace"
+11207,1,"&Son\tShift+Space"
+11208,1,"&Önceki\tBackspace"
+11209,1,"&Sonraki\tSpace"
 11210,1,"Dü&zenle"
-11211,1,"Tümünü &kopyala	Ctrl+A"
+11211,1,"Tümünü &kopyala\tCtrl+A"
 
 [STRINGTABLE 4]
 11230,1,"&Görünüm"
 
 [STRINGTABLE 5]
-11232,1,"&Tam ekran	F11"
+11232,1,"&Tam ekran\tF11"
 
 [STRINGTABLE 6]
 11270,1,"&Seçenekler"
@@ -80,19 +80,19 @@ COMMENT,"turkish translation stub (English seed)"
 [STRINGTABLE 7]
 11280,1,"Y&ardım"
 11281,1,"&Hakkında..."
-11290,1,"HTML olarak dışa a&ktar...	Ctr+H"
+11290,1,"HTML olarak dışa a&ktar...\tCtr+H"
 
 [STRINGTABLE 8]
-11500,1,"Tümünü kopyala	Ctrl+A"
-11501,1,"Aç	Ctrl+O"
-11502,1,"Bul	Ctrl+F"
-11503,1,"Özellikler	Ctrl+F1"
+11500,1,"Tümünü kopyala\tCtrl+A"
+11501,1,"Aç\tCtrl+O"
+11502,1,"Bul\tCtrl+F"
+11503,1,"Özellikler\tCtrl+F1"
 
 [STRINGTABLE 9]
-11504,1,"Tam ekran	F11"
-11505,1,"Öncekini aç	Backspace"
-11506,1,"Sonrakini aç	Space"
-11507,1,"HTML olarak dışa aktar	Ctrl+H"
+11504,1,"Tam ekran\tF11"
+11505,1,"Öncekini aç\tBackspace"
+11506,1,"Sonrakini aç\tSpace"
+11507,1,"HTML olarak dışa aktar\tCtrl+H"
 
 [STRINGTABLE 10]
 12001,1,"Evet"

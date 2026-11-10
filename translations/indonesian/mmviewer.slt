@@ -56,22 +56,22 @@ COMMENT,"indonesian translation stub (English seed)"
 
 [STRINGTABLE 3]
 11200,1,"&File"
-11201,1,"&Buka...	Ctrl+O"
-11202,1,"&Properti...	Ctrl+F1"
-11204,1,"Ke&luar	Alt+F4"
+11201,1,"&Buka...\tCtrl+O"
+11202,1,"&Properti...\tCtrl+F1"
+11204,1,"Ke&luar\tAlt+F4"
 11205,1,"File &Lainnya"
-11206,1,"&Pertama	Shift+Backspace"
-11207,1,"&Terakhir	Shift+Space"
-11208,1,"&Sebelumnya	Backspace"
-11209,1,"&Berikutnya	Space"
+11206,1,"&Pertama\tShift+Backspace"
+11207,1,"&Terakhir\tShift+Space"
+11208,1,"&Sebelumnya\tBackspace"
+11209,1,"&Berikutnya\tSpace"
 11210,1,"&Edit"
-11211,1,"&Salin Semua	Ctrl+A"
+11211,1,"&Salin Semua\tCtrl+A"
 
 [STRINGTABLE 4]
 11230,1,"&Tampilan"
 
 [STRINGTABLE 5]
-11232,1,"Layar &Penuh	F11"
+11232,1,"Layar &Penuh\tF11"
 
 [STRINGTABLE 6]
 11270,1,"&Opsi"
@@ -80,19 +80,19 @@ COMMENT,"indonesian translation stub (English seed)"
 [STRINGTABLE 7]
 11280,1,"&Bantuan"
 11281,1,"&Tentang..."
-11290,1,"Ekspor ke &HTML...	Ctrl+H"
+11290,1,"Ekspor ke &HTML...\tCtrl+H"
 
 [STRINGTABLE 8]
-11500,1,"Salin Semua	Ctrl+A"
-11501,1,"Buka	Ctrl+O"
-11502,1,"Cari	Ctrl+F"
-11503,1,"Properti	Ctrl+F1"
+11500,1,"Salin Semua\tCtrl+A"
+11501,1,"Buka\tCtrl+O"
+11502,1,"Cari\tCtrl+F"
+11503,1,"Properti\tCtrl+F1"
 
 [STRINGTABLE 9]
-11504,1,"Layar Penuh	F11"
-11505,1,"Buka Sebelumnya	Backspace"
-11506,1,"Buka Berikutnya	Space"
-11507,1,"Ekspor ke HTML	Ctrl+H"
+11504,1,"Layar Penuh\tF11"
+11505,1,"Buka Sebelumnya\tBackspace"
+11506,1,"Buka Berikutnya\tSpace"
+11507,1,"Ekspor ke HTML\tCtrl+H"
 
 [STRINGTABLE 10]
 12001,1,"Ya"
