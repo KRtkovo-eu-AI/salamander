@@ -10,16 +10,16 @@ WEB,"www.altap.cz"
 COMMENT,"vietnamese translation stub (English seed)"
 
 [DIALOG 100]
-194,73,0,"Tối ưu hóa lưu trữ PAK"
-300,8,9,80,8,0,"Kích thước dữ liệu hợp lệ:"
+194,73,1,"Tối ưu hóa lưu trữ PAK"
+300,8,9,80,8,1,"Kích thước dữ liệu hợp lệ:"
 101,64,9,118,8,1,""
-301,8,20,77,8,0,"Tổng kích thước tệp:"
+301,8,20,77,8,1,"Tổng kích thước tệp:"
 102,64,20,118,8,1,""
-302,8,31,58,8,0,"Dung lượng lãng phí:"
+302,8,31,58,8,1,"Dung lượng lãng phí:"
 103,64,31,118,8,1,""
 303,8,44,178,1,1,""
-1,41,53,50,14,0,"Tối ưu hóa"
-2,101,53,50,14,0,"Hủy"
+1,41,53,50,14,1,"Tối ưu hóa"
+2,101,53,50,14,1,"Hủy"
 
 [STRINGTABLE 0]
 500,1,"Không thể mở tệp: %s"

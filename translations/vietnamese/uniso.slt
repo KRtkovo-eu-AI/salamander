@@ -10,13 +10,13 @@ WEB,"www.altap.cz"
 COMMENT,"vietnamese translation stub (English seed)"
 
 [DIALOG 1200]
-220,83,0,"Cấu hình UnISO"
-1201,8,11,200,10,0,"&Xóa thuộc tính chỉ đọc khi sao chép từ lưu trữ"
-1202,8,23,243,10,0,"&Hiện phiên dưới dạng thư mục (cho phép truy cập tất cả các phiên)"
-1203,8,35,154,10,0,"Hiện &đĩa hình ảnh khởi động dưới dạng tệp"
+220,83,1,"Cấu hình UnISO"
+1201,8,11,200,10,1,"&Xóa thuộc tính chỉ đọc khi sao chép từ lưu trữ"
+1202,8,23,243,10,1,"&Hiện phiên dưới dạng thư mục (cho phép truy cập tất cả các phiên)"
+1203,8,35,154,10,1,"Hiện &đĩa hình ảnh khởi động dưới dạng tệp"
 3000,2,58,216,1,1,""
 1,108,64,50,14,0,"OK"
-2,163,64,50,14,0,"Hủy"
+2,163,64,50,14,1,"Hủy"
 
 [STRINGTABLE 0]
 1000,1,"UnISO"

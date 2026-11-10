@@ -10,12 +10,12 @@ WEB,"www.altap.cz"
 COMMENT,"vietnamese translation stub (English seed)"
 
 [DIALOG 8500]
-310,129,0,"Cấu hình Trình xem Văn bản Prism"
-8701,7,7,296,86,0,"Hiệu suất"
-8700,17,21,276,18,0,"&Giữ Prism sẵn sàng để mở lại nhanh hơn"
-8702,17,44,276,40,0,"Giữ một trình xem sẵn sàng lên đến 60 giây sau khi đóng một tệp. Yêu cầu bộ nhớ bổ sung (khoảng 100 MB hoặc hơn). Tệp đầu tiên vẫn được mở bình thường."
+310,129,1,"Cấu hình Trình xem Văn bản Prism"
+8701,7,7,296,86,1,"Hiệu suất"
+8700,17,21,276,18,1,"&Giữ Prism sẵn sàng để mở lại nhanh hơn"
+8702,17,44,276,40,1,"Giữ một trình xem sẵn sàng lên đến 60 giây sau khi đóng một tệp. Yêu cầu bộ nhớ bổ sung (khoảng 100 MB hoặc hơn). Tệp đầu tiên vẫn được mở bình thường."
 1,197,108,50,14,0,"OK"
-2,253,108,50,14,0,"Hủy"
+2,253,108,50,14,1,"Hủy"
 
 [STRINGTABLE 0]
 46,1,"Trình xem Văn bản Prism"
