@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"indonesian translation stub (English seed)"
 
 [DIALOG 100]
-308,201,0,"Extended Pack Options"
+308,201,1,"Opsi Pengemasan Lanjutan"
 3000,17,9,30,8,1,"Arsip:"
 101,50,9,250,8,1,""
 3001,8,24,292,1,1,""
@@ -40,7 +40,7 @@ COMMENT,"indonesian translation stub (English seed)"
 9,221,180,55,14,1,"Bantuan"
 
 [DIALOG 112]
-312,277,0,"ZIP Configuration"
+312,277,1,"Konfigurasi ZIP"
 3000,7,6,57,8,1,"Ekstraksi"
 3001,46,10,261,1,1,""
 145,14,17,257,12,1,"&Ekstrak otomatis arsip multi-volume yang tersimpan di disk tetap"
@@ -72,7 +72,7 @@ COMMENT,"indonesian translation stub (English seed)"
 9,219,256,50,14,1,"Bantuan"
 
 [DIALOG 123]
-271,74,0,"Enter ZIP Password"
+271,74,1,"Masukkan Kata Sandi ZIP"
 124,21,10,18,20,1,""
 3000,57,10,232,8,1,"File ini dienkripsi. Masukkan kata sandi untuk mendekripsi."
 3001,57,23,17,8,1,"File:"
@@ -85,7 +85,7 @@ COMMENT,"indonesian translation stub (English seed)"
 2,200,55,50,14,1,"Batal"
 
 [DIALOG 126]
-355,94,0,"Low Disk Free Space"
+355,94,1,"Ruang Kosong Disk Rendah"
 134,58,9,283,8,1,"Peringatan: Ruang kosong pada disk lebih kecil dari ukuran volume yang ditentukan."
 3000,6,26,47,8,1,"Jalur:"
 130,58,26,284,8,1,""
@@ -99,14 +99,14 @@ COMMENT,"indonesian translation stub (English seed)"
 2,247,73,50,14,1,"Batal"
 
 [DIALOG 135]
-199,77,0,"Change Disk"
+199,77,1,"Ganti Disk"
 136,13,8,173,24,1,""
 3000,13,39,173,8,1,"Tekan OK jika sudah siap."
 1,44,57,50,14,1,"OK"
 2,104,57,50,14,1,"Batal"
 
 [DIALOG 137]
-350,79,0,"Confirm File Overwrite"
+350,79,1,"Konfirmasi Penimpaan File"
 3000,3,14,53,8,1,"Timpa file:"
 121,61,14,269,8,1,""
 140,61,24,269,8,1,""
@@ -127,7 +127,7 @@ COMMENT,"indonesian translation stub (English seed)"
 2,110,89,50,14,1,"Batal"
 
 [DIALOG 142]
-210,132,0,"Change Disk"
+210,132,1,"Ganti Disk"
 136,13,8,184,16,1,""
 3000,13,31,184,8,1,"Tekan OK jika sudah siap."
 125,13,43,156,12,1,"Nama file dibuat &berurutan"
@@ -140,7 +140,7 @@ COMMENT,"indonesian translation stub (English seed)"
 2,111,112,50,14,1,"Batal"
 
 [DIALOG 146]
-305,303,0,"Self-Extractor Settings"
+305,303,1,"Pengaturan Self-Extractor"
 3000,0,0,305,1,1,""
 3001,7,7,292,89,1,"Direktori untuk mengekstrak file"
 3002,20,19,38,8,1,"E&kstrak ke:"
@@ -203,11 +203,11 @@ COMMENT,"indonesian translation stub (English seed)"
 9,136,94,50,14,1,"Bantuan"
 
 [DIALOG 180]
-340,180,0,"ZIP Archive Comment"
+340,180,1,"Komentar Arsip ZIP"
 181,0,0,340,180,1,""
 
 [DIALOG 190]
-260,352,0,"Self-Extractor Texts"
+260,352,1,"Teks Self-Extractor"
 3000,8,5,245,158,1,"Kotak Pesan "
 3001,20,18,221,16,1,"Kotak pesan ini ditampilkan sebelum dialog utama dan sebelum ekstraksi dimulai."
 3002,20,38,221,16,1,"Kosongkan kolom 'Judul' dan 'Pesan' jika Anda tidak ingin menampilkan pesan."
@@ -236,7 +236,7 @@ COMMENT,"indonesian translation stub (English seed)"
 9,186,333,50,14,1,"Bantuan"
 
 [DIALOG 210]
-220,123,0,"Manage Favorites"
+220,123,1,"Kelola Favorit"
 3000,9,4,60,8,1,"&Favorit:"
 211,9,14,142,100,1,""
 212,161,13,50,14,1,"Ubah &Nama"
@@ -553,9 +553,9 @@ COMMENT,"indonesian translation stub (English seed)"
 1243,0,"\r\n;requires administrative privileges to run on Windows Vista or later\r\n\r\n"
 
 [STRINGTABLE 17]
-1250,0,"Packed"
-1251,0,"Packed size of file"
-1252,0,"KB"
-1253,0,"MB"
-1254,0,"The ZIP file uses data format which is not supported for modification by the current version of the ZIP plugin"
+1250,1,"Dikemas"
+1251,1,"Ukuran file terkompresi"
+1252,1,"KB"
+1253,1,"MB"
+1254,1,"File ZIP menggunakan format data yang tidak didukung untuk perubahan oleh versi plugin ZIP saat ini"
 
