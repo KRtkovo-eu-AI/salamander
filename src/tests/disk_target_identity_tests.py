@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Track the named native transfer dialog. | Preserve the target guards around shielded OK. | #731 | GPT-6 (Codex) |
 # | 2026-11-10 | Check the protected source bypass only in permanent deletion. | Keep transfer target and source revalidation independent. | #731 | GPT-6 (Codex) |
 """Actual disk target snapshot with explicit tab-registry doubles; guard placement contracts."""
 import argparse
@@ -29,7 +30,7 @@ def controller_contract():
     assert 'BOOL res2 = validateDiskTarget();' in controller
     assert 'if (!validateDiskTarget() ||\n                                !BuildScriptMain(' in controller
     assert 'else if (res2)\n                    {\n                        res2 = BuildScriptMain(' in controller
-    dialog = controller.index('res = (int)CCopyMoveMoreDialog(')
+    dialog = controller.index('CCopyMoveMoreDialog dialog(')
     parser = controller.index('if (ParsePath(')
     assert controller[dialog:parser].count('if (!validateDiskTarget())') >= 2
     parsed = controller.index('if (IsBranchView() && pathType != PATH_TYPE_WINDOWS)')

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Refresh Copy/Move OK after destination edits. | Leave the existing path parser and options intact. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Track the shield shown on the native operation dialog. | Preserve consent intent across the local attempt and deny fallback. | #731 | Codex |
 // | 2026-11-10 | Set the native OK shield in F7 and F2. | Follow the current target without changing the consent or dialog layout. | #731 | GPT-6 (Codex) |
 // | 2026-11-07 | Reset Copy/Move options before hiding the expanded controls. | Reset and hide options only hid the dialog without restoring configured defaults. |  | openai/gpt-5.6-luna-pro |
@@ -1823,6 +1824,22 @@ CCopyMoveMoreDialog::ManageHiddenShortcuts(const MSG *msg)
 }
 */
 
+void CCopyMoveMoreDialog::UpdateElevationShield()
+{
+    if (!ElevationShieldProbe)
+        return;
+    const HWND edit = ResolveComboEditControl(GetDlgItem(HWindow, IDE_PATH));
+    const int length = GetWindowTextLengthW(edit);
+    ElevationShieldShown = false;
+    if (length > 0 && length < PathBufSize)
+    {
+        std::wstring text(static_cast<size_t>(length) + 1, L'\0');
+        if (GetWindowTextW(edit, text.data(), length + 1) == length)
+            ElevationShieldShown = ElevationShieldProbe(text.c_str(), ElevationShieldContext);
+    }
+    Button_SetElevationRequiredState(GetDlgItem(HWindow, IDOK), ElevationShieldShown);
+}
+
 INT_PTR
 CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -1881,8 +1898,14 @@ CCopyMoveMoreDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
 
         if (!Criteria->IsDirty() && KeepBranchPathsInOut == NULL)
             DisplayMore(FALSE, TRUE);
-        break;
+        const INT_PTR result = CCommonDialog::DialogProc(uMsg, wParam, lParam);
+        UpdateElevationShield();
+        return result;
     }
+
+    case WM_USER_UPDATEELEVATIONSHIELD:
+        UpdateElevationShield();
+        return TRUE;
 
     case WM_USER_ENABLEPATHAUTOCOMPLETE:
     {
@@ -2120,6 +2143,9 @@ MENU_TEMPLATE_ITEM CopyMoveMoreDialogMenu[] =
 
     case WM_COMMAND:
     {
+        if (ElevationShieldProbe && LOWORD(wParam) == IDE_PATH &&
+            (HIWORD(wParam) == CBN_EDITCHANGE || HIWORD(wParam) == CBN_SELCHANGE || HIWORD(wParam) == EN_CHANGE))
+            PostMessage(HWindow, WM_USER_UPDATEELEVATIONSHIELD, 0, 0);
         if (LOWORD(wParam) == IDC_CM_TRANSFERMODE && HIWORD(wParam) == CBN_SELCHANGE)
         {
             UpdateTransferModeControls();

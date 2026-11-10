@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Distinguish transfer retries caused by the destination. | Preserve separate consent for a protected source and F6 completion. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Reuse shielded Yes only for the exact selected delete. | Ask for protected descendants during the operation and stop before child changes on cancellation. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Forward the metadata shield on the first verified access denial. | Preserve local execution and ordinary retry behavior. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Execute protected panel metadata through the existing verified worker flow. | Preserve exact choices, confirmation, cancellation and error handling. | #731 | GPT-6.1 Sol (Codex) |
@@ -5796,7 +5797,7 @@ static UacF7::Result ExecuteWithNativeTransferProgress(const UacF7::PreparedTran
 
 static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperations& script,
                                   CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success,
-                                  UacF7::PreparedTransfer& request, DWORD& error)
+                                  UacF7::PreparedTransfer& request, DWORD& error, bool targetDenied = false)
 {
     const bool moving = request.IsMove();
     success = FALSE;
@@ -5813,7 +5814,7 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
                              : jobs.end();
     if (existing == jobs.end())
     {
-        UacF7::TransferPrompt prompt{request, sourceText.c_str(), targetText.c_str()};
+        UacF7::TransferPrompt prompt{request, sourceText.c_str(), targetText.c_str(), targetDenied};
         SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
         if (!prompt.approved)
         {
@@ -5870,7 +5871,8 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
 }
 
 static bool TryTransferWithBroker(HWND progress, const COperation& op, COperations& script,
-                              CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success, DWORD& error, HANDLE* input = nullptr)
+                              CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success, DWORD& error,
+                              HANDLE* input = nullptr, bool targetDenied = false)
 {
     const bool moving = op.Opcode == ocMoveFile;
     const bool encrypted = !moving && UacF7::IsEncryptedCopyFile(op.Attr);
@@ -5919,7 +5921,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
         HANDLES(CloseHandle(*input));
         *input = INVALID_HANDLE_VALUE;
     }
-    return ExecuteWorkerTransfer(progress, op, script, totalDone, dlgData, success, request, error);
+    return ExecuteWorkerTransfer(progress, op, script, totalDone, dlgData, success, request, error, targetDenied);
 }
 
 static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
@@ -6243,7 +6245,7 @@ COPY_AGAIN:
                         !dlgData.SkipAllFileOpenOut && GetLastError() == ERROR_ACCESS_DENIED)
                     {
                         BOOL success = FALSE;
-                        if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, transferError, &in))
+                        if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, transferError, &in, true))
                         {
                             if (in != INVALID_HANDLE_VALUE)
                                 HANDLES(CloseHandle(in));
@@ -6942,7 +6944,7 @@ COPY_AGAIN:
                                 if (!canElevateOverwrite)
                                     goto NORMAL_ERROR;
                                 BOOL success = FALSE;
-                                if (ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, overwrite, err))
+                                if (ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, overwrite, err, true))
                                 {
                                     HANDLES(CloseHandle(in));
                                     return success;
@@ -7044,7 +7046,7 @@ COPY_AGAIN:
                                         if (canElevateOverwrite && !chAttr && err == ERROR_ACCESS_DENIED)
                                         {
                                             BOOL success = FALSE;
-                                            if (ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, overwrite, err))
+                                            if (ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, overwrite, err, true))
                                             {
                                                 HANDLES(CloseHandle(in));
                                                 return success;
@@ -7602,7 +7604,10 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                 {
                     DWORD transferError = ERROR_SUCCESS;
                     BOOL success = FALSE;
-                    if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, transferError))
+                    const bool sourceCanMove = (op->OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && op->SourceNameWValid &&
+                        ProbeLocalElevationAccess(op->SourceNameW, DELETE, false) == ERROR_SUCCESS;
+                    if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, transferError,
+                                              nullptr, sourceCanMove))
                         return success;
                     if (transferError)
                     {
@@ -11452,7 +11457,7 @@ unsigned ThreadWorkerBody(void* parameter)
                 pd.Target = op->TargetName;
                 SetProgressDialog(hProgressDlg, &pd, dlgData);
 
-                UacF7::TransferPrompt prompt{*script->ProtectedTreeTransfer, op->SourceName, op->TargetName};
+                UacF7::TransferPrompt prompt{*script->ProtectedTreeTransfer, op->SourceName, op->TargetName, true};
                 SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
                 if (prompt.approved && WaitForSingleObject(cancelWorkerEvent, 0) == WAIT_TIMEOUT)
                 {

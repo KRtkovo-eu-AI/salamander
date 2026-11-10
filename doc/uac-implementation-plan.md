@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Record the F5 and F6 target shield and VM evidence. | Keep one in-app confirmation for an identified protected target. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Record one shield for protected recycling. | Verify direct Windows consent and the original account receipt. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Verify protected directory rename and direct permanent delete. | Record VM coverage, consent scope and runtime limits. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Record direct Windows consent after shielded OK. | Verify removal of the redundant administrator dialog. | #731 | Codex |
@@ -1555,7 +1556,7 @@ Ve VM x64 Release v tmavém režimu ukázaly oba první dialogy štít v čiteln
 
 Prošlo 11 přímých kontrol oprávnění a vyhodnocení cíle nad skutečnými testovacími složkami, 96 kontrol F7 a 57 kontrol přejmenování v Debug i Release, 20 kontraktů operací, 30 kontraktů přechodu panelu a kontrakt Findu. Nasazený host SHA-256 je `58E87D634A1C6A2F6607B305CFFDE2B46CEABB54BD94DB7879E4ABDA13FE584F`. Host narostl o 3 072 bajtů na 5 656 576, broker je bitově shodný a má 1 345 536 bajtů. Soukromá paměť se neměřila.
 
-**Kde štít zobrazovat podle upřesnění uživatele.** Shift+F7 ponechá běžné OK. Nabídka správce patří až k odepřenému vstupu do složky. U Shift+Delete má smysl předem ověřit pouze přímo vybranou položku a případný štít dát na potvrzovací Ano. Chránění vnořených položek se zjišťuje až během mazání. U F5/F6 je důvodem pro předběžný štít odepřený zápis do zvoleného cílového adresáře. Potíže se zdrojem a konflikty se řeší během operace. Pravidla pro Shift+Delete jsou ověřena níže. Úpravy Shift+F7 a F5/F6 zůstávají v plánu. Find odhaluje chráněné podsložky při práci. F3, F4 a výpočet velikosti už ukazují štít u nabídky správce.
+**Kde štít zobrazovat podle upřesnění uživatele.** Shift+F7 ponechá běžné OK. Nabídka správce patří až k odepřenému vstupu do složky. U Shift+Delete má smysl předem ověřit pouze přímo vybranou položku a případný štít dát na potvrzovací Ano. Chránění vnořených položek se zjišťuje až během mazání. U F5/F6 je důvodem pro předběžný štít odepřený zápis do zvoleného cílového adresáře. Potíže se zdrojem a konflikty se řeší během operace. Pravidla pro Shift+Delete jsou ověřena níže. Shift+F7 ponechává běžné OK. Ověření štítu F5/F6 je níže. Find odhaluje chráněné podsložky při práci. F3, F4 a výpočet velikosti už ukazují štít u nabídky správce.
 
 ### P7 — nerekurzivní atributy a časy z chráněného panelu
 
@@ -1592,6 +1593,14 @@ Běžný Delete má vlastní cestu přes Windows Shell. Po tichém odepření p�
 Ve VM s ověřeným x64 Release pilotem obě zkoušky přešly po jediném kliknutí na Administrator přímo na systémovou výzvu Windows. Schválený `01-recycle-approve.txt` vytvořil právě jeden doklad v Koši původního účtu se stejným NTFS ID a SHA-256. Zrušený `02-recycle-cancel.txt` má na původní cestě stejné ID i obsah a žádný doklad v Koši. Původní soubor z hlášení má shodný SHA-256. Důkazy jsou v `C:/Samandarin/builds/uac-recycle-single-consent/vm-evidence.json`. Standardní účet a přepnutí zásady pokrývají stávající nativní regrese.
 
 V Debug i Release prošlo po 30 nativních kontrolách Koše a 410 kontrolách panelu. Samostatná místní sonda ověřila 18 kontrol včetně dokladu běžného přesunu a obnovy stejného ID. Prošly i kontrakty operací, přechodu panelu a Findu. Velikosti x64 Release hosta a brokeru jsou 5 668 352 a 1 347 584 bajtů, celkem 7 015 936, stejně jako u předchozího pilotu. Broker je bitově shodný, protokol 15. Soukromá paměť se neměřila.
+
+### P7 — jediný souhlas se štítem pro cíl F5 a F6
+
+Dialog Copy/Move zobrazí štít na OK, když u podporovaného přenosu ověří existující cílovou složku a zjistí odepřené právo vytvářet v ní položky. Štít se aktualizuje při editaci cíle. Potvrzení je vázané na identitu cílové složky. Při odepření na straně odpovídajícího cíle worker otevře přímo systémovou výzvu UAC. Při odepření u zdroje, změně identity cíle nebo pozdním odepření bez štítu zůstává samostatná nabídka Administrator. Běžné potvrzení přepisu se vyhodnocuje samostatně. Podpora zahrnuje přímé souborové přenosy a stávající pilot F5 pro registrovaný cíl kopie jednoho stromu.
+
+V izolované VM prošly F5 pro `01-copy.txt` a F6 na stejném svazku pro `02-move.txt`. Každé OK se štítem otevřelo přímo jednu systémovou výzvu pro `uacbroker.exe`. SHA-256 obou cílových souborů se shodoval s původním. Zdroj kopie zůstal a zdroj přesunu zmizel. Při přepsání cíle F5 na zapisovatelnou složku štít zmizel a po návratu k chráněnému cíli se obnovil. Dialog F6 pro chráněný zdroj a zapisovatelný cíl měl OK bez štítu a byl zavřen bez přesunu. Podklady a ověřené otisky sestavení jsou v `C:/Samandarin/builds/uac-transfer-shield`.
+
+Místně prošlo x64 Release sestavení s varováními jako chybami, 448 nativních kontrol identity diskového cíle, 61 kontrol nativního dialogu Copy/Move v každém ze tří režimů kódování, 16 kontraktů workeru, 30 kontraktů přechodu panelu a kontrola rozvržení průběhu. Host má 5 672 960 bajtů, broker 1 347 584 a dohromady 7 020 544 bajtů. Host narostl proti předchozímu pilotu o 4 608 bajtů. Protokol zůstal 15. Soukromá paměť se neměřila.
 
 ## 12. Testovací strategie
 

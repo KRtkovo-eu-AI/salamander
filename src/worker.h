@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Keep accepted destination identity with the transfer job. | Consume the dialog consent only for the verified target. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Carry the exact confirmed permanent deletion into the worker. | Prevent a selected shield from authorizing a descendant or replacement. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Carry the accepted metadata shield with the operation. | Bind the initial confirmation to the worker operation. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Own one verified protected metadata request in the worker script. | Keep the listing connection on its UI thread. | #731 | GPT-6.1 Sol (Codex) |
@@ -32,8 +33,13 @@
 #include <vector>
 #include <deque>
 #include <memory>
+#include <optional>
 #include "storagesched.h"
 #include "uacbroker/f7pilot.h"
+
+// Open the existing local object for the requested right without changing it.
+DWORD ProbeLocalElevationAccess(const std::wstring& path, DWORD access, bool directory);
+
 
 #define CREATE_DIR_SIZE CQuadWord(4096, 0) // operation cost estimates (uncached measurements based on worker thread runtimes)
 #define MOVE_DIR_SIZE CQuadWord(5050, 0)
@@ -435,6 +441,7 @@ public:
     DWORD PreparedDeleteAttrs = INVALID_FILE_ATTRIBUTES;
     bool DeleteShieldAccepted = false;
     BOOL AllowTransferPilot;
+    std::optional<UacF7::MoveFileIdentity> ShieldedTransferTarget;
     BOOL IgnoreTransferAds;
     std::unique_ptr<UacF7::PreparedTransfer> ProtectedTreeTransfer;
     // The UI owns the listing connection; only this verified single-item request crosses to the worker.

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Match destination consent to the prepared transfer parent. | Keep source and destination access failures distinct. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Verify exact files and empty ordinary directories for permanent deletion. | Bind consent to the chosen object and preserve nested permission checks. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Add one-shot verified directory rename. | Keep ordinary directories distinct from files and links in the broker. | #731 | GPT-6.1 Sol (Codex) |
 | 2026-11-10 | Carry the metadata dialog choice in the host prompt. | Reuse that choice without changing the broker protocol. | #731 | GPT-6.1 Sol (Codex) |
@@ -486,6 +487,11 @@ public:
     bool IsMove() const { return IsMoveTransfer(source.operation); }
     bool IsCrossVolumeMove() const { return UacF7::IsCrossVolumeMove(source.operation); }
     bool IsMoveCompletion() const { return source.operation == Operation::FinishCrossVolumeMove; }
+    bool MatchesTargetDirectory(const MoveFileIdentity& identity) const
+    {
+        return identity.serial == target.serial &&
+               std::memcmp(identity.id, target.fileId, sizeof(identity.id)) == 0;
+    }
     bool IsTree() const { return source.operation == Operation::CopyTree; }
     bool MatchesOverwriteTarget(HANDLE file) const;
     OverwriteApproval Approval() const;
@@ -530,6 +536,7 @@ struct TransferPrompt
     const PreparedTransfer& request;
     const char* sourcePath;
     const char* targetPath;
+    bool targetDenied = false;
     Result result{ERROR_CANCELLED, false};
     bool approved = false;
 };

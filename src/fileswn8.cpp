@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Preview the destination permission in F5 and F6. | Carry consent only for the directory displayed on shielded OK. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Put the UAC shield on the permanent-delete confirmation for the selected item. | Reuse explicit Yes only for the verified direct item. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Return to the invoking panel after elevated recycling. | Give Shell dialogs the actual panel owner. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Use the approved listing for a batch of directory sizes. | Keep the existing scope when the current panel needs elevation. | #731 | Codex |
@@ -50,6 +51,8 @@
 #include "fileactiondisktarget.h"
 #include "fileactionarchivesource.h"
 #include "operationrecycle.h"
+
+#include <algorithm>
 
 
 static std::wstring ConfirmDeleteTextToWideWithCodePage(const char* text, UINT codePage, DWORD flags)
@@ -354,9 +357,73 @@ void PluginFSConvertPathToExternal(char* path)
     }
 }
 
+struct TransferElevationPreview
+{
+    const wchar_t* basePath;
+    std::wstring treeSource;
+    std::wstring checkedText;
+    std::optional<UacF7::MoveFileIdentity> identity;
+
+    static bool Check(const wchar_t* input, void* context)
+    {
+        auto& preview = *static_cast<TransferElevationPreview*>(context);
+        if (preview.checkedText == input)
+            return preview.identity.has_value();
+        preview.checkedText = input;
+        preview.identity.reset();
+        std::wstring directory = SalPathRemoveExtendedPrefixW(input);
+        std::replace(directory.begin(), directory.end(), L'/', L'\\');
+        // Only a definite directory or its explicitly typed wildcard mask.
+        const auto wildcard = directory.find_first_of(L"*?");
+        if (wildcard != std::wstring::npos)
+        {
+            const auto slash = directory.rfind(L'\\');
+            if (!preview.treeSource.empty() || slash == std::wstring::npos || wildcard < slash)
+                return false;
+            directory.resize(slash + 1);
+        }
+        if (!SalGetFullNameW(directory, nullptr, preview.basePath, nullptr, nullptr, FALSE))
+            return false;
+        directory = SalPathRemoveExtendedPrefixW(directory.c_str());
+        while (directory.size() > 3 && directory.back() == L'\\')
+            directory.pop_back();
+        const DWORD right = preview.treeSource.empty() ? FILE_ADD_FILE : FILE_ADD_SUBDIRECTORY;
+        if (ProbeLocalElevationAccess(directory, right, true) != ERROR_ACCESS_DENIED)
+            return false;
+
+        const auto extended = SalPathAddExtendedPrefixW(directory.c_str());
+        const HANDLE parent = CreateFileW(extended.c_str(), FILE_READ_ATTRIBUTES,
+                                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                          nullptr, OPEN_EXISTING,
+                                          FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        if (parent == INVALID_HANDLE_VALUE)
+            return false;
+        FILE_ATTRIBUTE_TAG_INFO attributes{};
+        OperationRecycleDetail::RecycleFileId file{};
+        const bool verified = GetFileInformationByHandleEx(parent, FileAttributeTagInfo, &attributes, sizeof(attributes)) &&
+            (attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) == FILE_ATTRIBUTE_DIRECTORY &&
+            GetFileInformationByHandleEx(parent, OperationRecycleDetail::recycleFileIdInfo, &file, sizeof(file));
+        CloseHandle(parent);
+        if (!verified)
+            return false;
+        if (!preview.treeSource.empty())
+        {
+            UacF7::PreparedTransfer tree;
+            std::wstring destination;
+            if (!tree.PrepareTree(preview.treeSource, directory, destination))
+                return false;
+        }
+        preview.identity.emplace();
+        preview.identity->serial = file.VolumeSerialNumber;
+        std::memcpy(preview.identity->id, file.FileId, sizeof(preview.identity->id));
+        return true;
+    }
+};
+
 static bool StartProtectedTreeCopy(std::unique_ptr<UacF7::PreparedTransfer> request,
                                    const std::wstring& source, const std::wstring& destination,
-                                   const std::wstring& targetDirectory)
+                                   const std::wstring& targetDirectory,
+                                   const std::optional<UacF7::MoveFileIdentity>& shieldedTarget)
 {
     const auto sourceText = SalWideToMultiBytePath(SalPathRemoveExtendedPrefixW(source.c_str()).c_str(), CP_UTF8);
     const auto targetText = SalWideToMultiBytePath(destination.c_str(), CP_UTF8);
@@ -390,6 +457,7 @@ static bool StartProtectedTreeCopy(std::unique_ptr<UacF7::PreparedTransfer> requ
 
     script->TotalSize = op.Size;
     script->ProtectedTreeTransfer = std::move(request);
+    script->ShieldedTransferTarget = shieldedTarget;
     script->IsCopyOrMoveOperation = TRUE;
     script->IsCopyOperation = TRUE;
     // The broker publishes the entire tree as one unit.
@@ -957,6 +1025,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
         char nextFocus[MAX_PATH + 200]; // + 200 is a reserve (Windows can create paths longer than MAX_PATH)
         nextFocus[0] = 0;
         char* mask = NULL;
+        std::optional<UacF7::MoveFileIdentity> shieldedTransferTarget;
         switch (type)
         {
         case atCopy:
@@ -977,15 +1046,29 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                 }
                 if (strlen(path) >= SAL_MAX_PATH)
                     path[0] = 0; // the path is too long; not an ideal solution but I'm not up for a better one now :(
-                res = (int)CCopyMoveMoreDialog(HWindow, path, SAL_MAX_PATH,
+                shieldedTransferTarget.reset();
+                TransferElevationPreview preview{GetPathW(), {}, {}, {}};
+                const bool localTransfer = watchDiskTarget && !copyToSelectedDirs &&
+                    !IsBranchView() && !target->IsBranchView() && !ProtectedListing;
+                const bool filesOnly = count > 0 ? files == count : f && !(f->Attr & FILE_ATTRIBUTE_DIRECTORY);
+                if (localTransfer && !filesOnly && count <= 1 && type == atCopy &&
+                    !criteria.HasOptionsOtherThanDirectoryTimes() && conflictMode == CMCM_CURRENT &&
+                    operationSchedulingOverride == COSO_DEFAULT && f)
+                    preview.treeSource = GetItemFullPathW(*f);
+                CCopyMoveMoreDialog dialog(HWindow, path, SAL_MAX_PATH,
                                                (type == atCopy) ? LoadStr(IDS_COPY) : LoadStr(IDS_MOVE), &str,
                                                (type == atCopy) ? IDD_COPYDIALOG : IDD_MOVEDIALOG,
                                                Configuration.CopyHistory, COPY_HISTORY_SIZE,
                                                &criteria, havePermissions, supportsADS, &transferMode,
                                                &conflictMode, &operationSchedulingOverride, copyToSelectedDirs ? &selectedTargetPaths : NULL,
                                                changeTargetRequested != NULL && !copyToSelectedDirs,
-                                               IsBranchView() ? &keepBranchPaths : NULL)
-                          .Execute();
+                                               IsBranchView() ? &keepBranchPaths : NULL);
+                if (localTransfer && (filesOnly || !preview.treeSource.empty()) && UacF7::CanOfferElevation())
+                    dialog.SetElevationShieldProbe(TransferElevationPreview::Check, &preview);
+                res = static_cast<int>(dialog.Execute());
+                if (res == IDOK && dialog.WasElevationShieldShown() &&
+                    SalMultiByteToWidePath(path, CP_UTF8) == preview.checkedText)
+                    shieldedTransferTarget = preview.identity;
                 if (res == ID_CHANGE_SELECTED_TARGET_TAB)
                 {
                     *changeTargetRequested = TRUE;
@@ -1038,7 +1121,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                         std::wstring destination;
                         if (request && request->PrepareTree(source, entered, destination))
                         {
-                            if (validateDiskTarget() && !StartProtectedTreeCopy(std::move(request), source, destination, entered))
+                            if (validateDiskTarget() && !StartProtectedTreeCopy(std::move(request), source, destination, entered, shieldedTransferTarget))
                                 SalMessageBox(HWindow, GetErrorText(ERROR_NOT_ENOUGH_MEMORY),
                                               LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
                             res = IDCANCEL; // This tree copy has its own worker script.
@@ -1699,6 +1782,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     script->AllowTransferPilot = (type == atCopy || type == atMove) && watchDiskTarget && !copyToSelectedDirs &&
                                              !IsBranchView() && !target->IsBranchView() &&
                                              (conflictMode == CMCM_CURRENT || conflictMode == CMCM_SCAN_AHEAD);
+                    script->ShieldedTransferTarget = shieldedTransferTarget;
                     script->IgnoreTransferAds = type == atCopy && criteriaPtr != NULL && criteriaPtr->IgnoreADS;
 
                     char* auxTargetPath = NULL;

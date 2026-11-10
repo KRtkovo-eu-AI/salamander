@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Add the destination shield to the native Copy/Move dialog. | Use the live destination text for the preview. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Remember whether metadata was submitted with a shield. | Carry the existing confirmation to the verified metadata request. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Expose the shield state of the accepted operation dialog. | Let the same confirmed operation proceed to system UAC on access denial. | #731 | Codex |
 // | 2026-11-10 | Allow an opt-in UAC shield on Change Attributes. | Preview the requested basic metadata changes on OK. | #731 | GPT-6 (Codex) |
@@ -146,6 +147,10 @@ protected:
     BOOL Expanded;        // is the dialog currently expanded?
 
     CButton* MoreButton;
+    bool (*ElevationShieldProbe)(const wchar_t*, void*) = nullptr;
+    void* ElevationShieldContext = nullptr;
+    bool ElevationShieldShown = false;
+    void UpdateElevationShield();
 
 public:
     // 'history' determines whether the dialog will contain a combobox (TRUE) or an editline (FALSE)
@@ -158,6 +163,12 @@ public:
                         const std::vector<std::string>* targetPaths = NULL,
                         BOOL allowChangeTarget = FALSE, BOOL* keepBranchPathsInOut = NULL);
     ~CCopyMoveMoreDialog();
+    void SetElevationShieldProbe(bool (*probe)(const wchar_t*, void*), void* context)
+    {
+        ElevationShieldProbe = probe;
+        ElevationShieldContext = context;
+    }
+    bool WasElevationShieldShown() const { return ElevationShieldShown; }
 
     virtual void Validate(CTransferInfo& ti);
     virtual void Transfer(CTransferInfo& ti);

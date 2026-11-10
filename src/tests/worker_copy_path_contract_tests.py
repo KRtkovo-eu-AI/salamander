@@ -1,6 +1,7 @@
 ﻿# SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Check that shielded OK is scoped to a matching target denial. | Preserve separate source elevation and consume the target choice once. | #731 | GPT-6 (Codex) |
 # | 2026-11-09 | Check Scan Ahead shutdown after a cancelled protected transfer. | Prevent queued conflict work from presenting another dialog. | | Codex |
 # | 2026-11-09 | Check identity-bound retirement after an ordinary F6 copy. | Require the verified path before any broker retry. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-09 | Check cleanup of disconnected scoped broker entries. | Keep live consent and discard closed scopes before the next item. | | GPT-6.1 Sol (Codex) |
@@ -94,7 +95,7 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertIn("(protectedCopy || protectedMove) && (op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE)", builder)
 
         worker = text("worker.cpp")
-        self.assertEqual(worker.count("OPFL_UAC_TRANSFER_ELIGIBLE"), 5)
+        self.assertEqual(worker.count("OPFL_UAC_TRANSFER_ELIGIBLE"), 6)
         for start, end in (("static bool TryTransferWithBroker(", "static bool PrepareWorkerOverwrite("),
                            ("static bool PrepareWorkerOverwrite(", "struct MoveCopyReceipt")):
             self.assertIn("!(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE)", section(worker, start, end))
@@ -114,6 +115,15 @@ class WorkerCopyPathContracts(unittest.TestCase):
         leaf = section(text("dialogs.cpp"), "case WORKER_DIALOG_UAC_METADATA:", "StatusPaused = FALSE;")
         self.assertIn("(CancelWorker || !existing->IsOpen())", leaf)
         self.assertIn("TransferJobs.erase(existing);", leaf)
+
+    def test_shielded_ok_is_consumed_only_for_the_matching_target_denial(self):
+        dialog = section(text("dialogs.cpp"), "case WORKER_DIALOG_UAC_TRANSFER:", "case WORKER_DIALOG_UAC_TRANSFER_UNKNOWN:")
+        self.assertIn("prompt.targetDenied && Script->ShieldedTransferTarget", dialog)
+        self.assertIn("MatchesTargetDirectory(*Script->ShieldedTransferTarget)", dialog)
+        self.assertLess(dialog.index("ShieldedTransferTarget.reset()"), dialog.index("SalMessageBoxEx(&confirm)"))
+        worker = text("worker.cpp")
+        self.assertIn("HANDLE* input = nullptr, bool targetDenied = false)", worker)
+        self.assertIn("success, transferError, &in, true)", worker)
 
     def test_cancelled_elevation_stops_the_batch(self):
         transfer = section(text("worker.cpp"), "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
