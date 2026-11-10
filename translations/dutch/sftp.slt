@@ -80,7 +80,7 @@ COMMENT,"English version"
 532,9,31,146,12,1,"Pad naar bestand (uit = pad naar map)"
 1,18,55,50,14,1,"OK"
 2,77,55,50,14,1,"Annuleren"
-9,136,55,50,14,1,"Help"
+9,136,55,50,14,1,"Hulp"
 
 [DIALOG 533]
 200,70,1,"Machtigingen wijzigen (chmod)"
