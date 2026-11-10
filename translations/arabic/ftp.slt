@@ -2008,10 +2008,10 @@ COMMENT,"arabic translation stub (English seed)"
 11390,1,"محمي بكلمة المرور الرئيسية"
 
 [STRINGTABLE 86]
-11395,0,"Some FTP passwords are not secured. Please enter the Master Password into the following dialog box.\n\nNote: if you click the Cancel button, these passwords will be stored unsecured."
-11396,0,"Some FTP passwords cannot be decrypted.\n\nThey were probably encrypted using another Master Password.\nTry to change the Master Password to decrypt such passwords."
-11398,0,"The password cannot be decrypted.\n\nThe password was probably encrypted using another Master Password.\nTry to change the Master Password to decrypt this password.\nAlternatively you can clear it.\n\nDo you want to clear this password?"
-11399,0,"Are you sure you wish to clear this password?"
-11400,0,"Are you sure you wish to show this password?"
-11401,0,"The password is: %s\n\nDo you want to copy the password to clipboard?"
+11395,1,"بعض كلمات مرور FTP غير محمية. يرجى إدخال كلمة المرور الرئيسية في مربع الحوار التالي.\n\nملاحظة: إذا نقرت إلغاء، فسيتم تخزين كلمات المرور هذه دون حماية."
+11396,1,"تعذر فك تشفير بعض كلمات مرور FTP.\n\nربما تم تشفيرها باستخدام كلمة مرور رئيسية أخرى.\nحاول تغيير كلمة المرور الرئيسية لفك تشفيرها."
+11398,1,"تعذر فك تشفير كلمة المرور.\n\nربما تم تشفيرها باستخدام كلمة مرور رئيسية أخرى.\nحاول تغيير كلمة المرور الرئيسية لفك تشفيرها.\nيمكنك بدلًا من ذلك مسحها.\n\nهل تريد مسح كلمة المرور هذه؟"
+11399,1,"هل تريد بالتأكيد مسح كلمة المرور هذه؟"
+11400,1,"هل تريد بالتأكيد إظهار كلمة المرور هذه؟"
+11401,1,"كلمة المرور هي: %s\n\nهل تريد نسخها إلى الحافظة؟"
 
