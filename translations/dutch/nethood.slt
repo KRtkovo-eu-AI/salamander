@@ -20,7 +20,7 @@ COMMENT,"Nederlandse versie"
 3000,7,99,206,1,1,""
 1,30,106,50,14,1,"OK"
 2,85,106,50,14,1,"Annuleren"
-9,140,106,50,14,1,"Help"
+9,140,106,50,14,1,"Hulp"
 
 [STRINGTABLE 0]
 128,1,"Netwerk"
