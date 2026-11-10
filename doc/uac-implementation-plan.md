@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Record the protected panel restore fix. | Verify that saved paths cannot block startup on an access prompt. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Record the F5 and F6 target shield and VM evidence. | Keep one in-app confirmation for an identified protected target. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Record one shield for protected recycling. | Verify direct Windows consent and the original account receipt. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Verify protected directory rename and direct permanent delete. | Record VM coverage, consent scope and runtime limits. | #731 | GPT-6 (Codex) |
@@ -1601,6 +1602,14 @@ Dialog Copy/Move zobrazí štít na OK, když u podporovaného přenosu ověří
 V izolované VM prošly F5 pro `01-copy.txt` a F6 na stejném svazku pro `02-move.txt`. Každé OK se štítem otevřelo přímo jednu systémovou výzvu pro `uacbroker.exe`. SHA-256 obou cílových souborů se shodoval s původním. Zdroj kopie zůstal a zdroj přesunu zmizel. Při přepsání cíle F5 na zapisovatelnou složku štít zmizel a po návratu k chráněnému cíli se obnovil. Dialog F6 pro chráněný zdroj a zapisovatelný cíl měl OK bez štítu a byl zavřen bez přesunu. Podklady a ověřené otisky sestavení jsou v `C:/Samandarin/builds/uac-transfer-shield`.
 
 Místně prošlo x64 Release sestavení s varováními jako chybami, 448 nativních kontrol identity diskového cíle, 61 kontrol nativního dialogu Copy/Move v každém ze tří režimů kódování, 16 kontraktů workeru, 30 kontraktů přechodu panelu a kontrola rozvržení průběhu. Host má 5 672 960 bajtů, broker 1 347 584 a dohromady 7 020 544 bajtů. Host narostl proti předchozímu pilotu o 4 608 bajtů. Protokol zůstal 15. Soukromá paměť se neměřila.
+
+### P7 — obnova chráněné cesty při startu
+
+Uložená cesta na místním pevném disku může poskytovat metadata a zároveň odmítnout výpis. Při obnově z konfigurace Samandarin ověří možnost výpisu. Po chybě 5 vybere nejbližší čitelný nadřazený adresář, případně použije pevný disk jako záchrannou cestu. Obnova běží s běžným tokenem. Nabídka správce je nadále součástí ruční navigace. Stejný postup obnovy používají aktivní a odpojené panely i starší konfigurace bez seznamu záložek.
+
+V izolované VM x64 se stejným testovacím profilem předchozí Release před zobrazením hlavního okna čekal. Opravený Release obnovil oba panely v čitelném rodiči složek `03-approve` a `02-decline` bez dialogu a bez výzvy UAC. Ve starším profilu se levý chráněný panel vrátil do rodiče a pravý čitelný panel zůstal na uložené cestě. Prošel i návrat z chráněné Unicode cesty o 307 znacích UTF‑16 a přednost explicitní čitelné cesty zadané parametrem `-l`. Pro každé spuštění se používala kopie profilu pilotu. Důkazy a sestavení jsou v `C:/Samandarin/builds/uac-startup-panel`.
+
+Místně prošly kontrakty obnovy záložek, 30 kontraktů přechodu panelu a x64 Release sestavení s varováními jako chybami. Host narostl z 5 672 960 na 5 674 496 bajtů, broker má 1 347 584 bajtů a dvojice celkem 7 022 080 bajtů. Soukromá paměť se neměřila.
 
 ## 12. Testovací strategie
 
