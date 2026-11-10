@@ -553,9 +553,9 @@ COMMENT,"croatian translation stub (English seed)"
 1243,1,"\r\n;za pokretanje su potrebne administratorske ovlasti u sustavu\r\n;Windows Vista ili novijem\r\n\r\n"
 
 [STRINGTABLE 17]
-1250,0,"Packed"
-1251,0,"Packed size of file"
-1252,0,"KB"
-1253,0,"MB"
-1254,0,"The ZIP file uses data format which is not supported for modification by the current version of the ZIP plugin"
+1250,1,"Pakirano"
+1251,1,"Pakirana veličina datoteke"
+1252,1,"KB"
+1253,1,"MB"
+1254,1,"ZIP datoteka koristi format podataka koji trenutačna verzija ZIP dodatka ne podržava za izmjene"
 
