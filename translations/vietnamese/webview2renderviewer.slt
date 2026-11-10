@@ -15,7 +15,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [STRINGTABLE 1]
 48,1,"Trình xem hiển thị tài liệu HTML, Markdown và web đã được renders bằng WebView2."
-49,0,"https://samandarin.net/"
+49,1,"https://samandarin.net/"
 50,1,"Không thể chuẩn bị sự kiện đồng bộ hóa yêu cầu bởi trình xem."
 51,1,"Tệp được chọn quá lớn để mở. Các tệp lớn hơn 32 MB không được hỗ trợ."
 52,1,"&Tệp"

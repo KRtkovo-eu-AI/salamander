@@ -14,7 +14,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 8701,7,7,296,86,1,"Hiệu suất"
 8700,17,21,276,18,1,"&Giữ Prism sẵn sàng để mở lại nhanh hơn"
 8702,17,44,276,40,1,"Giữ một trình xem sẵn sàng lên đến 60 giây sau khi đóng một tệp. Yêu cầu bộ nhớ bổ sung (khoảng 100 MB hoặc hơn). Tệp đầu tiên vẫn được mở bình thường."
-1,197,108,50,14,0,"OK"
+1,197,108,50,14,1,"Đồng ý"
 2,253,108,50,14,1,"Hủy"
 
 [STRINGTABLE 0]
@@ -23,7 +23,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [STRINGTABLE 1]
 48,1,"Trình xem gốc hiển thị tệp văn bản với việc làm nổi Hayes cú pháp Prism.js."
-49,0,"https://samandarin.net/"
+49,1,"https://samandarin.net/"
 50,1,"Không thể chuẩn bị sự kiện đồng bộ hóa yêu cầu bởi trình xem."
 52,1,"&Tệp"
 53,1,"&Xem"

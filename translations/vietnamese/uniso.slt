@@ -15,7 +15,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 1202,8,23,243,10,1,"&Hiện phiên dưới dạng thư mục (cho phép truy cập tất cả các phiên)"
 1203,8,35,154,10,1,"Hiện &đĩa hình ảnh khởi động dưới dạng tệp"
 3000,2,58,216,1,1,""
-1,108,64,50,14,0,"OK"
+1,108,64,50,14,1,"Đồng ý"
 2,163,64,50,14,1,"Hủy"
 
 [STRINGTABLE 0]

@@ -15,7 +15,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [STRINGTABLE 1]
 48,1,"Kiểm tra các bản phát hành GitHub và đề xuất mở bản dựng Samandarin mới nhất."
-49,0,"https://samandarin.net/"
+49,1,"https://samandarin.net/"
 50,1,"Kiểm tra cập nhật ngay"
 51,1,"Ngoại lệ quản lý không mong muốn:"
 52,1,"Không thể khởi tạo trợ giúp quản lý Samandarin.\nXác minh rằng Samandarin.Managed.dll nằm bên cạnh plugin."

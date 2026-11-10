@@ -13,7 +13,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 205,64,1,"Hộp Nhập"
 1150,8,8,189,8,1,"Nhắc:"
 101,8,18,189,12,1,""
-1,48,42,50,14,0,"OK"
+1,48,42,50,14,1,"Đồng ý"
 2,107,42,50,14,1,"Hủy"
 
 [DIALOG 101]
@@ -21,12 +21,12 @@ COMMENT,"vietnamese translation stub (English seed)"
 375,8,9,74,8,1,"&Thư mục Tập lệnh:"
 371,8,19,316,73,1,""
 1001,8,102,105,10,1,"Cho phép gỡ lỗi &tập lệnh"
-1,75,121,50,14,0,"OK"
+1,75,121,50,14,1,"Đồng ý"
 2,141,121,50,14,1,"Hủy"
 9,207,121,50,14,1,"&Trợ giúp"
 
 [MENU 106]
-0,0,"[POPUP]"
+0,1,"[POPUP]"
 40013,1,"Duyệt…"
 40014,1,"Thư mục Salamander"
 40015,1,"Biến Môi trường"

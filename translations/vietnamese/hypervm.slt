@@ -15,7 +15,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [STRINGTABLE 1]
 48,1,"Hiển thị máy ảo Hyper-V cục bộ trong bảng."
-49,0,"https://samandarin.net/"
+49,1,"https://samandarin.net/"
 50,1,"Hiện &cửa sổ Máy ảo Hyper-V"
 51,1,"Tạo &VHD"
 52,1,"&Đính kèm VHD"

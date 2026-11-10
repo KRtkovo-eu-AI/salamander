@@ -14,7 +14,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 1031,6,8,193,16,1,"Service Explorer không có tùy chọn trình xem."
 
 [DIALOG 500]
-268,212,0,"Chung"
+268,212,1,"Chung"
 1015,60,8,198,14,1,""
 501,60,30,198,14,1,""
 1004,60,54,198,42,1,""
@@ -58,7 +58,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 1028,7,130,60,8,1,"Mật khẩu:"
 1029,70,128,229,12,1,""
 1030,7,146,140,10,1,"Khởi động dịch vụ sau khi tạo"
-1,200,159,44,14,0,"OK"
+1,200,159,44,14,1,"Đồng ý"
 2,252,159,44,14,1,"Hủy"
 
 [STRINGTABLE 0]

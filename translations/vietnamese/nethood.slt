@@ -18,7 +18,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 1206,7,67,173,10,1,"Hiện &ổ đĩa kết nối qua Máy tính từ xa"
 1205,7,82,148,10,1,"&Quét mạng khi khởi động Salamander"
 3000,7,99,206,1,1,""
-1,30,106,50,14,0,"OK"
+1,30,106,50,14,1,"Đồng ý"
 2,85,106,50,14,1,"Hủy"
 9,140,106,50,14,1,"Trợ giúp"
 

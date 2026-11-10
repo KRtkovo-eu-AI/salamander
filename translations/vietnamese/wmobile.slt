@@ -53,12 +53,12 @@ COMMENT,"vietnamese translation stub (English seed)"
 908,9,137,28,8,1,"Tùy chọn"
 533,16,147,87,12,1,"Bao gồm &thư mục con"
 909,9,172,172,1,1,""
-1,13,181,50,14,0,"OK"
+1,13,181,50,14,1,"Đồng ý"
 2,69,181,50,14,1,"Hủy"
 9,125,181,50,14,1,"Trợ giúp"
 
 [STRINGTABLE 0]
-2000,0,"Windows Mobile"
+2000,1,"Windows Mobile"
 2001,1,"Truy cập các tệp trên thiết bị Windows Mobile của bạn."
 2002,1,"Về Plugin"
 
