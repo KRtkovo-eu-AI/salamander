@@ -31,7 +31,7 @@ COMMENT,"Nederlandse versie"
 1109,7,268,184,10,1,"S&chat beschadigde bestanden"
 1,278,264,50,14,1,"OK"
 2,332,264,50,14,1,"Annuleren"
-9,386,264,50,14,1,"Help"
+9,386,264,50,14,1,"Hulp"
 
 [DIALOG 1200]
 353,102,1,"Herstellen"
@@ -63,7 +63,7 @@ COMMENT,"Nederlandse versie"
 1405,7,61,364,10,1,"&Geef geen waarschuwing voordat het herstel plaatsvindt van de versleutelde bestanden op FAT of exFAT"
 1,91,80,50,14,1,"OK"
 2,146,80,50,14,1,"Annuleren"
-9,201,80,50,14,1,"Help"
+9,201,80,50,14,1,"Hulp"
 
 [DIALOG 1500]
 276,95,1,"Herstel versleutelde bestande van een back-up"
@@ -73,7 +73,7 @@ COMMENT,"Nederlandse versie"
 1402,255,51,14,14,1,"..."
 1,57,74,50,14,1,"OK"
 2,113,74,50,14,1,"Annuleren"
-9,169,74,50,14,1,"Help"
+9,169,74,50,14,1,"Hulp"
 
 [STRINGTABLE 0]
 1,1,"Herstellen"
