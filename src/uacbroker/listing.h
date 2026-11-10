@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Capture a child directory ID from its parent listing. | Identify directories that deny even metadata opens. | #731 | Codex |
 | 2026-11-09 | Remove the size-only Find content reply. | Use the shared file revision for each verified open. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Separate single-file and rooted Find frames. | Deny listing, inventory and other names on an exact-file grant. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Define a bounded Find content request. | Scope the byte budget to an authorized listing session. | | GPT-6.1 Sol (Codex) |
@@ -87,6 +88,38 @@ DWORD EnumerateRows(HANDLE directory, bool strict, Accept accept)
     const DWORD error = GetLastError();
     return error == ERROR_NO_MORE_FILES ? ERROR_SUCCESS : error;
 }
+}
+
+inline DWORD CaptureChildDirectoryId(HANDLE parent, std::wstring_view child, FILE_ID_128& id)
+{
+    if (!UacDirectoryLeaf::IsComponent(child))
+        return ERROR_INVALID_NAME;
+
+    bool found = false;
+    DWORD count = 0;
+    FILE_ID_128 candidate{};
+    const DWORD error = Detail::EnumerateRows(parent, false,
+        [&](const FILE_ID_EXTD_DIR_INFO& row, std::wstring_view name) -> DWORD {
+            if (++count > maxEntries)
+                return ERROR_BUFFER_OVERFLOW;
+            if (!UacDirectoryLeaf::Equal(name, child))
+                return ERROR_SUCCESS;
+            if (found)
+                return ERROR_DUP_NAME;
+            if (row.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
+                return ERROR_REPARSE_TAG_INVALID;
+            if (!(row.FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+                return ERROR_DIRECTORY;
+            candidate = row.FileId;
+            found = true;
+            return ERROR_SUCCESS;
+        });
+    if (error)
+        return error;
+    if (!found)
+        return ERROR_FILE_NOT_FOUND;
+    id = candidate;
+    return ERROR_SUCCESS;
 }
 
 inline DWORD Enumerate(HANDLE directory, std::vector<WIN32_FIND_DATAW>& entries)

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Verify the ID captured from a directory listing. | Detect replacement and reject missing or redirected entries before listing. | #731 | Codex |
 | 2026-11-09 | Check exclusive overwrite journal access across processes. | A competing operation must wait for the journal owner to exit before recovery. | | Codex |
 | 2026-11-09 | Cancel F6 after verification reports progress. | Keep both source names and the existing destination during an active cancellation. | | Codex |
 | 2026-11-09 | Interrupt F6 while the last source link is delete-pending. | Verify recovery recognizes a completed retirement after a hard exit. | | GPT-6.1 Sol (Codex) |
@@ -4368,6 +4369,31 @@ int wmain(int argc, wchar_t** argv)
     if (listingError != ERROR_SUCCESS)
         return 2;
     const Handle listing(rawListing);
+    {
+        ParentIdentity observedChild = listingIdentity;
+        listingError = UacListing::CaptureChildDirectoryId(root.get(), L"Destination", observedChild.file.FileId);
+        Check(!listingError && SameParent(listingIdentity, observedChild),
+              "bind the parent listing row to the directory identity opened by the broker", listingError);
+        FILE_ID_128 unused{};
+        listingError = UacListing::CaptureChildDirectoryId(root.get(), L"junction", unused);
+        Check(listingError == ERROR_REPARSE_TAG_INVALID,
+              "reject a junction from the parent listing", listingError);
+        listingError = UacListing::CaptureChildDirectoryId(root.get(), L"missing", unused);
+        Check(listingError == ERROR_FILE_NOT_FOUND, "reject a missing row in the parent listing", listingError);
+        const auto oldChild = fixture + L"\\listed-original";
+        const auto newChild = fixture + L"\\listed-replacement";
+        if (!CreateDirectoryW(oldChild.c_str(), nullptr))
+            return 2;
+        ParentIdentity captured = listingIdentity;
+        listingError = UacListing::CaptureChildDirectoryId(root.get(), L"listed-original", captured.file.FileId);
+        if (listingError || !MoveFileExW(oldChild.c_str(), newChild.c_str(), 0) || !CreateDirectoryW(oldChild.c_str(), nullptr))
+            return 2;
+        ParentIdentity replacement;
+        listingError = OpenParentBelowRoot(root.get(), L"listed-original", rawListing, replacement, FILE_LIST_DIRECTORY);
+        const Handle replacementDirectory(rawListing);
+        Check(!listingError && replacementDirectory && !SameParent(captured, replacement),
+              "reject a different directory taking the listed name after consent", listingError);
+    }
     std::vector<WIN32_FIND_DATAW> entries;
     listingError = UacListing::Enumerate(listing.get(), entries);
     Check(listingError == ERROR_SUCCESS && entries.size() == 1 &&

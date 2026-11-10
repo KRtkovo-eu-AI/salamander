@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Bind protected listing consent to a child ID from the parent. | Support directories with inaccessible metadata and recheck the exact object after elevation. | #731 | Codex |
 | 2026-11-09 | Return to the foreground broker prompt owner. | Restore the invoking window after Windows closes the consent prompt. | | Codex |
 | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
@@ -1963,6 +1964,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         result = UacDeleteLeaf::DeleteVerifiedLeaf(parent.get(), expected, sourceIdentity, leaf, header.operation);
     else if (list)
     {
+        // The host may have obtained the target ID from the parent listing.
+        // Authorize only the exact directory opened above and retain its handle.
         if (UacDirectoryLeaf::SameParent(expected, actual))
             listingRoot = std::move(parent);
         else
@@ -2790,12 +2793,36 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
     const auto parentPath = split == 2 ? std::wstring_view{} : input.substr(3, split - 3);
     Handle opened;
     UacDirectoryLeaf::ParentIdentity snapshot;
-    if (OpenRequestParent(root.get(), parentPath, opened, snapshot) ||
-        !UacDirectoryLeaf::Equal(snapshot.volume, volumeName))
+    const DWORD openError = OpenRequestParent(root.get(), parentPath, opened, snapshot);
+    const bool useParentListing = requested == Operation::List && openError == ERROR_ACCESS_DENIED && !parentPath.empty();
+    size_t visibleEnd = split == 2 ? 3 : split;
+    std::wstring_view listedChild;
+    if (useParentListing)
+    {
+        const size_t separator = parentPath.rfind(L'\\');
+        listedChild = separator == std::wstring_view::npos ? parentPath : parentPath.substr(separator + 1);
+        if (separator == std::wstring_view::npos)
+        {
+            opened = OpenVolumeRoot(volumeName, FILE_LIST_DIRECTORY);
+            if (!opened || UacDirectoryLeaf::ReadParentIdentity(opened.get(), snapshot))
+                return false;
+            visibleEnd = 3;
+        }
+        else
+        {
+            if (OpenRequestParent(root.get(), parentPath.substr(0, separator), opened, snapshot, FILE_LIST_DIRECTORY))
+                return false;
+            visibleEnd = 3 + separator;
+        }
+    }
+    else if (openError)
         return false;
-    // Verify that the DOS path presented in the panel names the same object as
-    // the volume-relative walk. Reject any redirected or substituted drive.
-    const std::wstring originalPath = LR"(\\?\)" + std::wstring(input.substr(0, split == 2 ? 3 : split));
+    if (!UacDirectoryLeaf::Equal(snapshot.volume, volumeName))
+        return false;
+
+    // Match the visible DOS path to the anchored object before reading its ID
+    // or using its listing. The broker will check the target ID on its own handle.
+    const std::wstring originalPath = LR"(\\?\)" + std::wstring(input.substr(0, visibleEnd));
     const auto original = Adopt(CreateFileW(originalPath.c_str(), FILE_READ_ATTRIBUTES,
                                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
                                              FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
@@ -2803,6 +2830,9 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
     if (!original || UacDirectoryLeaf::ReadParentIdentity(original.get(), visible) ||
         !UacDirectoryLeaf::SameParent(snapshot, visible))
         return false;
+    if (useParentListing && UacListing::CaptureChildDirectoryId(opened.get(), listedChild, snapshot.file.FileId))
+        return false;
+
     Handle openedSource;
     FILE_ID_INFO sourceIdentity{};
     if (requested == Operation::CopyTree || (change && UacMetadataLeaf::IsDirectory(*change)))

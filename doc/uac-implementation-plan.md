@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Verify protected directory identity through its parent. | Cover directories that deny the ordinary process even a metadata handle. | #731 | Codex |
 | 2026-11-10 | Integrate the current upstream release branch. | Preserve asynchronous Find and locked-file recovery alongside UAC. | #731 | Codex |
 | 2026-11-09 | Record the deferral of the interactive DPI check. | Resume it when the test VM can use actual higher scaling. | | Codex |
 | 2026-11-09 | Distinguish completed P7 evidence from remaining acceptance gates. | Avoid repeating closed scenarios and record F6 on two volumes under WOW64. | | Codex |
@@ -637,6 +638,10 @@ Na Windows 11 Pro x64 build 26200 běžný výpis kořene a jeho první podslož
 V opakované zkoušce běžel host jako standardní účet `SamandarinUacTest`, ověřený podle SID. Uživatel potvrdil skutečnou systémovou výzvu přihlašovacími údaji jiného správce. Výpis kořene, vstup do podsložky, Ctrl+R a návrat do kořene použily stejný broker (PID `21640`) bez další výzvy. Po odchodu z podstromu proces skončil a panel opět zobrazil běžný výpis.
 
 Nativní test ověřil obnovení výpisu nad stejným handlem, novou položku s názvem Unicode a odmítnutí cesty opouštějící kořen. Pro P4 zůstává samostatným krokem discovery pro kopírování a přesun s kontrolou úplnosti a navazující autorizací operace.
+
+**Výpis složky bez přístupu k atributům.** Jestliže běžný token nemůže otevřít cílový adresář ani pro zjištění identity, operace List zkusí dohledat přesné 128bitové ID v ověřeném výpisu přímého rodiče na místním NTFS. Výpis je omezen na 4 096 platných jmen a odmítá nejednoznačný název a reparse bod. Broker po souhlasu otevře cílovou cestu bez následování reparse bodů a povolí výpis pouze při shodě ID a svazku. Relace pak drží ověřený handle. Protokol zůstává ve verzi 11.
+
+V izolované Windows VM běžný token nemohl otevřít C:/ProgramData/Whesvc ani s nulovým požadovaným přístupem. Nový pilot x64 Release nabídl Administrator, po schválení otevřel složku a Ctrl+R ji obnovilo bez další výzvy se stejným PID brokeru. Prošlo 313 nativních kontrol a 63 kontrol transportu a brokerových úloh v Release. Testy ověřily shodu identity z výpisu s identitou otevřeného adresáře, odmítnutí junction a chybějícího záznamu i rozpoznání náhrady pod původním jménem. Host vzrostl z 5 645 312 na 5 646 336 B, broker zůstal na 1 342 976 B. Náhradní čtení používá existující 64KiB pracovní buffer výpisu. Privátní paměť se v této zkoušce neměřila. Otisky a doklady jsou v C:/Samandarin/builds/uac-whesvc.
 
 ### 8.12 P4a — kopie jednoho souboru mezi ověřenými adresáři
 
