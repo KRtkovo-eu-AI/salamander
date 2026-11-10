@@ -10,29 +10,29 @@ WEB,"www.altap.cz"
 COMMENT,"bulgarian translation stub (English seed)"
 
 [DIALOG 8501]
-346,154,0,"Portable Executable Viewer Configuration"
-1300,7,7,64,8,0,"Availa&ble sections:"
+346,154,1,"Настройка на прегледа на Portable Executable"
+1300,7,7,64,8,1,"Налични &секции:"
 8700,7,17,105,130,1,""
-8702,119,17,50,14,0,"&Add ->"
-8703,119,35,50,14,0,"<- &Remove"
-1301,176,7,58,8,0,"&Visible sections:"
+8702,119,17,50,14,1,"&Добавяне ->"
+8703,119,35,50,14,1,"<- &Премахване"
+1301,176,7,58,8,1,"&Видими секции:"
 8701,176,17,105,130,1,""
-8704,289,17,50,14,0,"Move &Up"
-8705,289,35,50,14,0,"Move &Down"
-1,289,97,50,14,0,"OK"
-2,289,115,50,14,0,"Cancel"
-8706,289,133,50,14,0,"Re&set"
+8704,289,17,50,14,1,"Преместване &нагоре"
+8705,289,35,50,14,1,"Преместване &надолу"
+1,289,97,50,14,1,"OK"
+2,289,115,50,14,1,"Отказ"
+8706,289,133,50,14,1,"&Нулиране"
 
 [STRINGTABLE 0]
-1016,0,"About Plugin"
+1016,1,"За приставката"
 
 [STRINGTABLE 1]
-10100,0,"Portable Executable Viewer"
-10101,0,"Unable to open file %s."
-10102,0,"Creation of temporary file has failed."
-10103,0,"Exception has occured.\n\nViewed file: %s\n\nIf you think that viewed file is not corrupted, please send this file to support@altap.cz.\nWe will reproduce and fix the viewer bug. Thanks for cooperation!"
-10104,0,"Display information about Portable Executable files such as EXE, DLL, etc."
+10100,1,"Преглед на Portable Executable"
+10101,1,"Файлът %s не може да бъде отворен."
+10102,1,"Неуспешно създаване на временен файл."
+10103,1,"Възникна изключение.\n\nПреглеждан файл: %s\n\nАко смятате, че файлът не е повреден, изпратете го на support@altap.cz.\nЩе възпроизведем проблема и ще поправим грешката в прегледа. Благодарим за съдействието!"
+10104,1,"Показва информация за Portable Executable файлове като EXE, DLL и др."
 
 [STRINGTABLE 2]
-10118,0,"No Portable Executable section selected in plugin configuration was found.\nUse menu Options > Plugin Configuration > Portable Executable Viewer\nin Open Salamander main window to setup visible sections."
+10118,1,"В настройките на приставката не е избрана секция Portable Executable.\nИзползвайте меню Опции > Настройка на приставката > Преглед на Portable Executable\nв главния прозорец на Open Salamander, за да зададете видимите секции."
 
