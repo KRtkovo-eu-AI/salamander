@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Credit FlaUI and the Taskscape UI-test reference. | Document the UI automation library and the fork used to shape the test harness. |  | GPT-6 (Codex) |
 | 2026-11-07 | Keep third-party notices limited to external components and synchronize localized notices. | Remove implementation and porting history from the attribution document. |  | GPT-5.6 |
 | 2026-11-06 | Retain the pinned Lua port with a verified source mirror. | Keep clean CI builds available during Lua.org timeouts. | https://github.com/majklvi/salamander/pull/64 | GPT-6 (Codex) |
 | 2026-11-05 | Credit pd4d10/json-viewer for JSON Web Viewer. | Salamatrix WebView2 JSON extension vendors that renderer. |  | Composer |
@@ -16,6 +17,7 @@ making their work available.
 
 | Component | Used for | Attribution and license notes |
 | --- | --- | --- |
+| FlaUI / UIA3 | Windows UI automation test scaffold | [FlaUI](https://github.com/FlaUI/FlaUI) .NET UI automation library; MIT License. The test harness structure was informed by [taskscape/FileManager](https://github.com/taskscape/FileManager), an Open Salamander fork. |
 | REGEXP | Regular expression matching | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | AES code | Cryptographic routines | Written by Dr Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
 | PNGLite | PNG image support | Based on PNGLite by Daniel Karling. Copyright (C) 2007 Daniel Karling. |
