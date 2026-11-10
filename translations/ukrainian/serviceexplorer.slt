@@ -75,7 +75,7 @@ COMMENT,"ukrainian translation stub (English seed)"
 111,1,"Вимкнено"
 
 [STRINGTABLE 1]
-112,0," "
+112,1," "
 113,1,"Запуск"
 114,1,"Зупинка"
 115,1,"Запущено"

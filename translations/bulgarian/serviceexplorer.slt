@@ -75,7 +75,7 @@ COMMENT,"bulgarian translation stub (English seed)"
 111,1,"Забранено"
 
 [STRINGTABLE 1]
-112,0," "
+112,1," "
 113,1,"Стартиране"
 114,1,"Спиране"
 115,1,"Стартирана"

@@ -75,7 +75,7 @@ COMMENT,"chinesetraditional translation stub (English seed)"
 111,1,"已停用"
 
 [STRINGTABLE 1]
-112,0," "
+112,1," "
 113,1,"正在啟動"
 114,1,"正在停止"
 115,1,"已啟動"

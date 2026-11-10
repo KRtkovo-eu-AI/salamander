@@ -75,7 +75,7 @@ COMMENT,"turkish translation stub (English seed)"
 111,1,"Devre Dışı"
 
 [STRINGTABLE 1]
-112,0," "
+112,1," "
 113,1,"Başlatılıyor"
 114,1,"Durduruluyor"
 115,1,"Başlatıldı"

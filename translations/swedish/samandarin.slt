@@ -15,7 +15,7 @@ COMMENT,"swedish translation stub (English seed)"
 
 [STRINGTABLE 1]
 48,1,"Kontrollerar GitHub-utgåvor och erbjuder att öppna den senaste Samandarin-versionen."
-49,0,"https://samandarin.net/"
+49,1,"https://samandarin.net/"
 50,1,"Sök efter uppdateringar nu"
 51,1,"Oväntat undantag i hanterad kod:"
 52,1,"Det gick inte att initiera Samandarins hanterade hjälpfunktion.\nKontrollera att Samandarin.Managed.dll finns bredvid insticksprogrammet."

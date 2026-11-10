@@ -75,7 +75,7 @@ COMMENT,"hebrew translation stub (English seed)"
 111,1,"מושבת"
 
 [STRINGTABLE 1]
-112,0," "
+112,1," "
 113,1,"מפעיל"
 114,1,"עוצר"
 115,1,"הופעל"

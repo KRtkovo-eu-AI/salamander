@@ -75,7 +75,7 @@ COMMENT,"greek translation stub (English seed)"
 111,1,"Απενεργοποιημένη"
 
 [STRINGTABLE 1]
-112,0," "
+112,1," "
 113,1,"Εκκίνηση"
 114,1,"Διακοπή"
 115,1,"Εκκινήθηκε"

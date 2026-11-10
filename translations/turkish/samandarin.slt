@@ -15,7 +15,7 @@ COMMENT,"turkish translation stub (English seed)"
 
 [STRINGTABLE 1]
 48,1,"GitHub sürümlerini denetler ve en son Samandarin derlemesini açmayı önerir."
-49,0,"https://samandarin.net/"
+49,1,"https://samandarin.net/"
 50,1,"Güncellemeleri şimdi denetle"
 51,1,"Beklenmeyen yönetilen özel durum:"
 52,1,"Samandarin yönetilen yardımcısı başlatılamadı.\nSamandarin.Managed.dll dosyasının eklentinin yanında bulunduğunu doğrulayın."

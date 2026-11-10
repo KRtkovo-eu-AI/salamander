@@ -75,7 +75,7 @@ COMMENT,"swedish translation stub (English seed)"
 111,1,"Inaktiverad"
 
 [STRINGTABLE 1]
-112,0," "
+112,1," "
 113,1,"Startar"
 114,1,"Stoppar"
 115,1,"Startad"

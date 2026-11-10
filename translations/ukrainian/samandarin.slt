@@ -15,7 +15,7 @@ COMMENT,"ukrainian translation stub (English seed)"
 
 [STRINGTABLE 1]
 48,1,"Перевіряє випуски на GitHub і пропонує відкрити найновішу збірку Samandarin."
-49,0,"https://samandarin.net/"
+49,1,"https://samandarin.net/"
 50,1,"Перевірити оновлення зараз"
 51,1,"Неочікуваний виняток керованого компонента:"
 52,1,"Не вдалося ініціалізувати керований допоміжний компонент Samandarin.\nПереконайтеся, що Samandarin.Managed.dll розташовано поруч із плагіном."

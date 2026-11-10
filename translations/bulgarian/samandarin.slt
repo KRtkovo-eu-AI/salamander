@@ -15,7 +15,7 @@ COMMENT,"bulgarian translation stub (English seed)"
 
 [STRINGTABLE 1]
 48,1,"Проверява изданията в GitHub и предлага да отвори най-новата версия на Samandarin."
-49,0,"https://samandarin.net/"
+49,1,"https://samandarin.net/"
 50,1,"Провери за актуализации сега"
 51,1,"Неочаквано изключение в управлявания компонент:"
 52,1,"Не може да се инициализира управляваният помощен компонент на Samandarin.\nПроверете дали Samandarin.Managed.dll се намира до приставката."

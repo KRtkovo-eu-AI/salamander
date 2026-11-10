@@ -15,7 +15,7 @@ COMMENT,"hebrew translation stub (English seed)"
 
 [STRINGTABLE 1]
 48,1,"בודק מהדורות ב-GitHub ומציע לפתוח את הגרסה העדכנית ביותר של Samandarin."
-49,0,"https://samandarin.net/"
+49,1,"https://samandarin.net/"
 50,1,"בדוק אם יש עדכונים עכשיו"
 51,1,"חריגה בלתי צפויה ברכיב מנוהל:"
 52,1,"לא ניתן לאתחל את הרכיב המנוהל של Samandarin.\nודא שהקובץ Samandarin.Managed.dll נמצא לצד התוסף."
