@@ -10,27 +10,27 @@ WEB,"www.altap.cz"
 COMMENT,"greek translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"UnOLE2"
-1001,0,"Insufficient memory."
-1002,0,"Cannot open Compound File %s.\n"
-1003,0,"Unable to obtain memory allocator.\n"
-1004,0,"Cannot write to file.\n"
-1005,0,"Cannot create file %s.\n"
-1006,0,"Cannot open stream %s.\n"
-1007,0,"Cannot write to file.\n"
+1000,1,"UnOLE2"
+1001,1,"Ανεπαρκής μνήμη."
+1002,1,"Δεν είναι δυνατό το άνοιγμα του σύνθετου αρχείου %s.\n"
+1003,1,"Δεν είναι δυνατή η λήψη του διαχειριστή μνήμης.\n"
+1004,1,"Δεν είναι δυνατή η εγγραφή στο αρχείο.\n"
+1005,1,"Δεν είναι δυνατή η δημιουργία του αρχείου %s.\n"
+1006,1,"Δεν είναι δυνατό το άνοιγμα της ροής %s.\n"
+1007,1,"Δεν είναι δυνατή η εγγραφή στο αρχείο.\n"
 
 [STRINGTABLE 1]
-1008,0,"Unknown error occurred."
-1014,0,"Unable to add archive entry to the files list."
-1015,0,"Unpacking Compound File"
-1017,0,"unpacking..."
-1018,0,"unpacking: "
+1008,1,"Παρουσιάστηκε άγνωστο σφάλμα."
+1014,1,"Δεν είναι δυνατή η προσθήκη καταχώρισης αρχειοθήκης στη λίστα αρχείων."
+1015,1,"Εξαγωγή σύνθετου αρχείου"
+1017,1,"εξαγωγή..."
+1018,1,"εξαγωγή: "
 
 [STRINGTABLE 2]
-1025,0,"Sorry, the plugin has expired. Please check our web site for newer version."
+1025,1,"Λυπούμαστε, η προσθήκη έχει λήξει. Ελέγξτε τον ιστότοπό μας για νεότερη έκδοση."
 
 [STRINGTABLE 3]
-1041,0,"Error"
-1042,0,"Browse and extract OLE Compound files."
-1043,0,"About Plugin"
+1041,1,"Σφάλμα"
+1042,1,"Περιήγηση και εξαγωγή σύνθετων αρχείων OLE."
+1043,1,"Σχετικά με την προσθήκη"
 

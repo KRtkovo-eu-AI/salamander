@@ -10,21 +10,21 @@ WEB,"www.altap.cz"
 COMMENT,"hebrew translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"UnFAT"
-1001,0,"About Plugin"
-1003,0,"Browse and extract FAT 12, 16, and 32 disk images."
+1000,1,"UnFAT"
+1001,1,"על אודות התוסף"
+1003,1,"עיון בתמונות דיסק FAT 12, 16 ו־32 וחילוץ מהן."
 
 [STRINGTABLE 1]
-1100,0,"Error opening file "%s"."
-1101,0,"Error reading file "%s"."
-1102,0,"Error parsing file "%s".\n\n%s"
-1103,0,"The boot sector is corrupted or this file is not FAT 12, 16, or 32 image."
+1100,1,"לא ניתן לפתוח את הקובץ "%s"."
+1101,1,"שגיאה בקריאת הקובץ "%s"."
+1102,1,"שגיאה בניתוח הקובץ "%s".\n\n%s"
+1103,1,"מגזר האתחול פגום או שהקובץ אינו תמונת FAT 12, 16 או 32."
 
 [STRINGTABLE 2]
-1104,0,"Error reading directory from file "%s".\n%s\nSector: %d, Offset: 0x%s\n\nFile is not valid FAT 12, 16, or 32 image."
-1106,0,"Error reading file from file "%s".\n%s\nCluster: %d\n\nFile is not valid FAT 12, 16, or 32 image."
-1107,0,"Error writing file"
-1108,0,"The file "%s" appears to be an image of entire harddisk.\nSuch images are not supported by the UnFAT plugin."
-1109,0,"Extracting FAT image - %s"
-1110,0,"extracting: %s"
+1104,1,"שגיאה בקריאת תיקייה מהקובץ "%s".\n%s\nמגזר: %d, היסט: 0x%s\n\nהקובץ אינו תמונת FAT 12, 16 או 32 תקינה."
+1106,1,"שגיאה בקריאת קובץ מתוך "%s".\n%s\nאשכול: %d\n\nהקובץ אינו תמונת FAT 12, 16 או 32 תקינה."
+1107,1,"שגיאה בכתיבת הקובץ"
+1108,1,"נראה שהקובץ "%s" הוא תמונה של כונן קשיח שלם.\nהתוסף UnFAT אינו תומך בתמונות כאלה."
+1109,1,"חילוץ תמונת FAT - %s"
+1110,1,"מחלץ: %s"
 

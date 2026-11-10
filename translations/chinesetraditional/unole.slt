@@ -10,27 +10,27 @@ WEB,"www.altap.cz"
 COMMENT,"chinesetraditional translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"UnOLE2"
-1001,0,"Insufficient memory."
-1002,0,"Cannot open Compound File %s.\n"
-1003,0,"Unable to obtain memory allocator.\n"
-1004,0,"Cannot write to file.\n"
-1005,0,"Cannot create file %s.\n"
-1006,0,"Cannot open stream %s.\n"
-1007,0,"Cannot write to file.\n"
+1000,1,"UnOLE2"
+1001,1,"記憶體不足。"
+1002,1,"無法開啟複合檔案 %s。\n"
+1003,1,"無法取得記憶體配置器。\n"
+1004,1,"無法寫入檔案。\n"
+1005,1,"無法建立檔案 %s。\n"
+1006,1,"無法開啟資料流 %s。\n"
+1007,1,"無法寫入檔案。\n"
 
 [STRINGTABLE 1]
-1008,0,"Unknown error occurred."
-1014,0,"Unable to add archive entry to the files list."
-1015,0,"Unpacking Compound File"
-1017,0,"unpacking..."
-1018,0,"unpacking: "
+1008,1,"發生未知錯誤。"
+1014,1,"無法將壓縮檔項目加入檔案清單。"
+1015,1,"正在解壓縮複合檔案"
+1017,1,"正在解壓縮..."
+1018,1,"正在解壓縮: "
 
 [STRINGTABLE 2]
-1025,0,"Sorry, the plugin has expired. Please check our web site for newer version."
+1025,1,"很抱歉，此外掛程式已逾期。請至我們的網站查看較新版本。"
 
 [STRINGTABLE 3]
-1041,0,"Error"
-1042,0,"Browse and extract OLE Compound files."
-1043,0,"About Plugin"
+1041,1,"錯誤"
+1042,1,"瀏覽並解壓縮 OLE 複合檔案。"
+1043,1,"關於外掛程式"
 

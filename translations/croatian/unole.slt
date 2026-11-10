@@ -10,27 +10,27 @@ WEB,"www.altap.cz"
 COMMENT,"croatian translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"UnOLE2"
-1001,0,"Insufficient memory."
-1002,0,"Cannot open Compound File %s.\n"
-1003,0,"Unable to obtain memory allocator.\n"
-1004,0,"Cannot write to file.\n"
-1005,0,"Cannot create file %s.\n"
-1006,0,"Cannot open stream %s.\n"
-1007,0,"Cannot write to file.\n"
+1000,1,"UnOLE2"
+1001,1,"Nema dovoljno memorije."
+1002,1,"Nije moguće otvoriti složenu datoteku %s.\n"
+1003,1,"Nije moguće dohvatiti alokator memorije.\n"
+1004,1,"Nije moguće zapisati u datoteku.\n"
+1005,1,"Nije moguće stvoriti datoteku %s.\n"
+1006,1,"Nije moguće otvoriti tok %s.\n"
+1007,1,"Nije moguće zapisati u datoteku.\n"
 
 [STRINGTABLE 1]
-1008,0,"Unknown error occurred."
-1014,0,"Unable to add archive entry to the files list."
-1015,0,"Unpacking Compound File"
-1017,0,"unpacking..."
-1018,0,"unpacking: "
+1008,1,"Došlo je do nepoznate pogreške."
+1014,1,"Nije moguće dodati stavku arhive na popis datoteka."
+1015,1,"Raspakiravanje složene datoteke"
+1017,1,"raspakiravanje..."
+1018,1,"raspakiravanje: "
 
 [STRINGTABLE 2]
-1025,0,"Sorry, the plugin has expired. Please check our web site for newer version."
+1025,1,"Nažalost, dodatak je istekao. Provjeri naše web-mjesto za noviju verziju."
 
 [STRINGTABLE 3]
-1041,0,"Error"
-1042,0,"Browse and extract OLE Compound files."
-1043,0,"About Plugin"
+1041,1,"Pogreška"
+1042,1,"Pregledavanje i izdvajanje OLE složenih datoteka."
+1043,1,"O dodatku"
 

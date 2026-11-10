@@ -10,21 +10,21 @@ WEB,"www.altap.cz"
 COMMENT,"bulgarian translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"UnFAT"
-1001,0,"About Plugin"
-1003,0,"Browse and extract FAT 12, 16, and 32 disk images."
+1000,1,"UnFAT"
+1001,1,"За приставката"
+1003,1,"Разглеждане и извличане на дискови образи FAT 12, 16 и 32."
 
 [STRINGTABLE 1]
-1100,0,"Error opening file "%s"."
-1101,0,"Error reading file "%s"."
-1102,0,"Error parsing file "%s".\n\n%s"
-1103,0,"The boot sector is corrupted or this file is not FAT 12, 16, or 32 image."
+1100,1,"Файлът "%s" не може да бъде отворен."
+1101,1,"Грешка при четене на файла "%s"."
+1102,1,"Грешка при анализиране на файла "%s".\n\n%s"
+1103,1,"Зареждащият сектор е повреден или файлът не е образ FAT 12, 16 или 32."
 
 [STRINGTABLE 2]
-1104,0,"Error reading directory from file "%s".\n%s\nSector: %d, Offset: 0x%s\n\nFile is not valid FAT 12, 16, or 32 image."
-1106,0,"Error reading file from file "%s".\n%s\nCluster: %d\n\nFile is not valid FAT 12, 16, or 32 image."
-1107,0,"Error writing file"
-1108,0,"The file "%s" appears to be an image of entire harddisk.\nSuch images are not supported by the UnFAT plugin."
-1109,0,"Extracting FAT image - %s"
-1110,0,"extracting: %s"
+1104,1,"Грешка при четене на директория от файла "%s".\n%s\nСектор: %d, отместване: 0x%s\n\nФайлът не е образ FAT 12, 16 или 32."
+1106,1,"Грешка при четене на файл от файла "%s".\n%s\nКлъстер: %d\n\nФайлът не е образ FAT 12, 16 или 32."
+1107,1,"Грешка при запис на файл"
+1108,1,"Файлът "%s" изглежда като образ на цял твърд диск.\nПриставката UnFAT не поддържа такива образи."
+1109,1,"Извличане на FAT образ - %s"
+1110,1,"извличане: %s"
 

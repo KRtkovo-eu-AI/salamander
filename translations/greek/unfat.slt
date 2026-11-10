@@ -10,21 +10,21 @@ WEB,"www.altap.cz"
 COMMENT,"greek translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"UnFAT"
-1001,0,"About Plugin"
-1003,0,"Browse and extract FAT 12, 16, and 32 disk images."
+1000,1,"UnFAT"
+1001,1,"Σχετικά με την προσθήκη"
+1003,1,"Περιήγηση και εξαγωγή ειδώλων δίσκων FAT 12, 16 και 32."
 
 [STRINGTABLE 1]
-1100,0,"Error opening file "%s"."
-1101,0,"Error reading file "%s"."
-1102,0,"Error parsing file "%s".\n\n%s"
-1103,0,"The boot sector is corrupted or this file is not FAT 12, 16, or 32 image."
+1100,1,"Δεν είναι δυνατό το άνοιγμα του αρχείου "%s"."
+1101,1,"Σφάλμα ανάγνωσης του αρχείου "%s"."
+1102,1,"Σφάλμα ανάλυσης του αρχείου "%s".\n\n%s"
+1103,1,"Ο τομέας εκκίνησης είναι κατεστραμμένος ή το αρχείο δεν είναι είδωλο FAT 12, 16 ή 32."
 
 [STRINGTABLE 2]
-1104,0,"Error reading directory from file "%s".\n%s\nSector: %d, Offset: 0x%s\n\nFile is not valid FAT 12, 16, or 32 image."
-1106,0,"Error reading file from file "%s".\n%s\nCluster: %d\n\nFile is not valid FAT 12, 16, or 32 image."
-1107,0,"Error writing file"
-1108,0,"The file "%s" appears to be an image of entire harddisk.\nSuch images are not supported by the UnFAT plugin."
-1109,0,"Extracting FAT image - %s"
-1110,0,"extracting: %s"
+1104,1,"Σφάλμα ανάγνωσης καταλόγου από το αρχείο "%s".\n%s\nΤομέας: %d, μετατόπιση: 0x%s\n\nΤο αρχείο δεν είναι έγκυρο είδωλο FAT 12, 16 ή 32."
+1106,1,"Σφάλμα ανάγνωσης αρχείου από το αρχείο "%s".\n%s\nΣυστάδα: %d\n\nΤο αρχείο δεν είναι έγκυρο είδωλο FAT 12, 16 ή 32."
+1107,1,"Σφάλμα εγγραφής αρχείου"
+1108,1,"Το αρχείο "%s" φαίνεται να είναι είδωλο ολόκληρου σκληρού δίσκου.\nΗ προσθήκη UnFAT δεν υποστηρίζει τέτοια είδωλα."
+1109,1,"Εξαγωγή ειδώλου FAT - %s"
+1110,1,"εξαγωγή: %s"
 

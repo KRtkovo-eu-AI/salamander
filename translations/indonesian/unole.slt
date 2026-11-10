@@ -10,27 +10,27 @@ WEB,"www.altap.cz"
 COMMENT,"indonesian translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"UnOLE2"
-1001,0,"Insufficient memory."
-1002,0,"Cannot open Compound File %s.\n"
-1003,0,"Unable to obtain memory allocator.\n"
-1004,0,"Cannot write to file.\n"
-1005,0,"Cannot create file %s.\n"
-1006,0,"Cannot open stream %s.\n"
-1007,0,"Cannot write to file.\n"
+1000,1,"UnOLE2"
+1001,1,"Memori tidak cukup."
+1002,1,"File Compound %s tidak dapat dibuka.\n"
+1003,1,"Alokator memori tidak dapat diperoleh.\n"
+1004,1,"File tidak dapat ditulis.\n"
+1005,1,"File %s tidak dapat dibuat.\n"
+1006,1,"Stream %s tidak dapat dibuka.\n"
+1007,1,"File tidak dapat ditulis.\n"
 
 [STRINGTABLE 1]
-1008,0,"Unknown error occurred."
-1014,0,"Unable to add archive entry to the files list."
-1015,0,"Unpacking Compound File"
-1017,0,"unpacking..."
-1018,0,"unpacking: "
+1008,1,"Terjadi kesalahan yang tidak diketahui."
+1014,1,"Entri arsip tidak dapat ditambahkan ke daftar file."
+1015,1,"Mengekstrak File Compound"
+1017,1,"mengekstrak..."
+1018,1,"mengekstrak: "
 
 [STRINGTABLE 2]
-1025,0,"Sorry, the plugin has expired. Please check our web site for newer version."
+1025,1,"Maaf, masa berlaku plugin telah berakhir. Periksa situs web kami untuk versi yang lebih baru."
 
 [STRINGTABLE 3]
-1041,0,"Error"
-1042,0,"Browse and extract OLE Compound files."
-1043,0,"About Plugin"
+1041,1,"Kesalahan"
+1042,1,"Telusuri dan ekstrak file OLE Compound."
+1043,1,"Tentang Plugin"
 

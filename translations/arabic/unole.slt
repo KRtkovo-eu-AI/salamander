@@ -10,27 +10,27 @@ WEB,"www.altap.cz"
 COMMENT,"arabic translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"UnOLE2"
-1001,0,"Insufficient memory."
-1002,0,"Cannot open Compound File %s.\n"
-1003,0,"Unable to obtain memory allocator.\n"
-1004,0,"Cannot write to file.\n"
-1005,0,"Cannot create file %s.\n"
-1006,0,"Cannot open stream %s.\n"
-1007,0,"Cannot write to file.\n"
+1000,1,"UnOLE2"
+1001,1,"الذاكرة غير كافية."
+1002,1,"تعذّر فتح الملف المركّب %s.\n"
+1003,1,"تعذّر الحصول على مخصّص الذاكرة.\n"
+1004,1,"تعذّرت الكتابة إلى الملف.\n"
+1005,1,"تعذّر إنشاء الملف %s.\n"
+1006,1,"تعذّر فتح التدفق %s.\n"
+1007,1,"تعذّرت الكتابة إلى الملف.\n"
 
 [STRINGTABLE 1]
-1008,0,"Unknown error occurred."
-1014,0,"Unable to add archive entry to the files list."
-1015,0,"Unpacking Compound File"
-1017,0,"unpacking..."
-1018,0,"unpacking: "
+1008,1,"حدث خطأ غير معروف."
+1014,1,"تعذّرت إضافة عنصر الأرشيف إلى قائمة الملفات."
+1015,1,"استخراج ملف مركّب"
+1017,1,"جارٍ الاستخراج..."
+1018,1,"جارٍ الاستخراج: "
 
 [STRINGTABLE 2]
-1025,0,"Sorry, the plugin has expired. Please check our web site for newer version."
+1025,1,"عذرًا، انتهت صلاحية الملحق. يُرجى مراجعة موقعنا للحصول على إصدار أحدث."
 
 [STRINGTABLE 3]
-1041,0,"Error"
-1042,0,"Browse and extract OLE Compound files."
-1043,0,"About Plugin"
+1041,1,"خطأ"
+1042,1,"استعراض ملفات OLE المركّبة واستخراجها."
+1043,1,"حول الملحق"
 

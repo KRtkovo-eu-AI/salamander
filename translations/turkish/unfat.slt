@@ -10,21 +10,21 @@ WEB,"www.altap.cz"
 COMMENT,"turkish translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"UnFAT"
-1001,0,"About Plugin"
-1003,0,"Browse and extract FAT 12, 16, and 32 disk images."
+1000,1,"UnFAT"
+1001,1,"Eklenti Hakkında"
+1003,1,"FAT 12, 16 ve 32 disk görüntülerine göz atın ve bunları ayıklayın."
 
 [STRINGTABLE 1]
-1100,0,"Error opening file "%s"."
-1101,0,"Error reading file "%s"."
-1102,0,"Error parsing file "%s".\n\n%s"
-1103,0,"The boot sector is corrupted or this file is not FAT 12, 16, or 32 image."
+1100,1,""%s" dosyası açılamıyor."
+1101,1,""%s" dosyası okunurken hata oluştu."
+1102,1,""%s" dosyası ayrıştırılırken hata oluştu.\n\n%s"
+1103,1,"Önyükleme sektörü bozuk veya bu dosya FAT 12, 16 ya da 32 görüntüsü değil."
 
 [STRINGTABLE 2]
-1104,0,"Error reading directory from file "%s".\n%s\nSector: %d, Offset: 0x%s\n\nFile is not valid FAT 12, 16, or 32 image."
-1106,0,"Error reading file from file "%s".\n%s\nCluster: %d\n\nFile is not valid FAT 12, 16, or 32 image."
-1107,0,"Error writing file"
-1108,0,"The file "%s" appears to be an image of entire harddisk.\nSuch images are not supported by the UnFAT plugin."
-1109,0,"Extracting FAT image - %s"
-1110,0,"extracting: %s"
+1104,1,""%s" dosyasından dizin okunurken hata oluştu.\n%s\nSektör: %d, Ofset: 0x%s\n\nDosya geçerli bir FAT 12, 16 ya da 32 görüntüsü değil."
+1106,1,""%s" dosyasından dosya okunurken hata oluştu.\n%s\nKüme: %d\n\nDosya geçerli bir FAT 12, 16 ya da 32 görüntüsü değil."
+1107,1,"Dosya yazılırken hata oluştu"
+1108,1,""%s" dosyası tüm sabit diskin görüntüsü gibi görünüyor.\nUnFAT eklentisi bu tür görüntüleri desteklemiyor."
+1109,1,"FAT görüntüsü ayıklanıyor - %s"
+1110,1,"ayıklanıyor: %s"
 

@@ -10,21 +10,21 @@ WEB,"www.altap.cz"
 COMMENT,"ukrainian translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"UnFAT"
-1001,0,"About Plugin"
-1003,0,"Browse and extract FAT 12, 16, and 32 disk images."
+1000,1,"UnFAT"
+1001,1,"Про плагін"
+1003,1,"Перегляд і розпакування образів дисків FAT 12, 16 і 32."
 
 [STRINGTABLE 1]
-1100,0,"Error opening file "%s"."
-1101,0,"Error reading file "%s"."
-1102,0,"Error parsing file "%s".\n\n%s"
-1103,0,"The boot sector is corrupted or this file is not FAT 12, 16, or 32 image."
+1100,1,"Не вдалося відкрити файл "%s"."
+1101,1,"Помилка читання файлу "%s"."
+1102,1,"Помилка розбору файлу "%s".\n\n%s"
+1103,1,"Завантажувальний сектор пошкоджений або цей файл не є образом FAT 12, 16 чи 32."
 
 [STRINGTABLE 2]
-1104,0,"Error reading directory from file "%s".\n%s\nSector: %d, Offset: 0x%s\n\nFile is not valid FAT 12, 16, or 32 image."
-1106,0,"Error reading file from file "%s".\n%s\nCluster: %d\n\nFile is not valid FAT 12, 16, or 32 image."
-1107,0,"Error writing file"
-1108,0,"The file "%s" appears to be an image of entire harddisk.\nSuch images are not supported by the UnFAT plugin."
-1109,0,"Extracting FAT image - %s"
-1110,0,"extracting: %s"
+1104,1,"Помилка читання каталогу з файлу "%s".\n%s\nСектор: %d, зсув: 0x%s\n\nФайл не є коректним образом FAT 12, 16 чи 32."
+1106,1,"Помилка читання файлу з файлу "%s".\n%s\nКластер: %d\n\nФайл не є коректним образом FAT 12, 16 чи 32."
+1107,1,"Помилка запису файлу"
+1108,1,"Файл "%s" схожий на образ усього жорсткого диска.\nПлагін UnFAT не підтримує такі образи."
+1109,1,"Розпакування образу FAT - %s"
+1110,1,"розпакування: %s"
 
