@@ -86,7 +86,7 @@ COMMENT,"Nederlandse versie"
 [DIALOG 2100]
 173,200,1,"Afbeeldingseigenschappen"
 1,62,182,50,14,1,"Sluiten"
-9,118,182,50,14,1,"Help"
+9,118,182,50,14,1,"Hulp"
 2102,7,10,49,8,1,"&Pagina:"
 2103,65,8,100,12,1,""
 3000,7,24,49,8,1,"&Breedte:"
@@ -118,7 +118,7 @@ COMMENT,"Nederlandse versie"
 2122,166,132,50,14,1,"&Kopiëren"
 1,222,132,50,14,1,"OK"
 2,278,132,50,14,1,"Annuleren"
-9,334,132,50,14,1,"Help"
+9,334,132,50,14,1,"Hulp"
 
 [DIALOG 2130]
 121,58,1,"Zoomen naar"
@@ -153,7 +153,7 @@ COMMENT,"Nederlandse versie"
 3003,2,167,176,1,1,""
 1,8,172,50,14,1,"Vast&leggen"
 2,64,172,50,14,1,"Annuleren"
-9,120,172,50,14,1,"Help"
+9,120,172,50,14,1,"Hulp"
 
 [DIALOG 2170]
 227,65,1,"Bestand heroemen"
@@ -222,7 +222,7 @@ COMMENT,"Nederlandse versie"
 2415,256,77,50,14,1,"Blade&ren..."
 1,142,100,50,14,1,"OK"
 2,199,100,50,14,1,"Annuleren"
-9,256,100,50,14,1,"Help"
+9,256,100,50,14,1,"Hulp"
 
 [DIALOG 2500]
 419,227,1,"Afdrukken"
@@ -254,7 +254,7 @@ COMMENT,"Nederlandse versie"
 2513,262,185,117,12,1,"Geselecteerd gebied &afdrukken"
 1,252,208,50,14,1,"OK"
 2,307,208,50,14,1,"Annuleren"
-9,362,208,50,14,1,"Help"
+9,362,208,50,14,1,"Hulp"
 
 [DIALOG 2530]
 214,63,1,"Scan Image"
