@@ -173,21 +173,21 @@ COMMENT,"turkish translation stub (English seed)"
 630,1,"&Hakkında"
 
 [MENU 601]
-609,0,""
+609,1,""
 604,1,"Tümünü &Seç"
 
 [MENU 602]
-616,0,""
+616,1,""
 617,1,"Özel Renk..."
 
 [MENU 603]
-614,0,""
+614,1,""
 615,1,"Özel Metin Rengi..."
 616,1,"Otomatik Metin Rengi"
 617,1,"Özel Arka Plan Rengi..."
 
 [MENU 604]
-624,0,""
+624,1,""
 625,1,"Özel Yazı Tipi..."
 
 [STRINGTABLE 0]
