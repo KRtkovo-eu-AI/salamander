@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Publish archive clipboard data without mutating the Shell data object. | PreferredDropEffect is optional for this copy-only path and can make OLE publication fail. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Use nothrow allocation for the archive clipboard wrapper. | Keep the existing low-memory branch while satisfying CodeQL allocation semantics. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Publish archive copy with valid marker and drop effect. | OLE clipboard publication failed when private formats had invalid media and effect was added afterward. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-05 | Survive faulty shell extension SEH in context menus. | QueryContextMenu/InvokeCommand/HandleMenuMsg must not terminate the process. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
@@ -1860,11 +1861,8 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                 if (dataObject != NULL)
                                 {
                                     *fakeName = '\\';
-                                    // Attach PreferredDropEffect before publishing the
-                                    // OLE object. Opening the Win32 clipboard after
-                                    // OleSetClipboard can replace or invalidate the
-                                    // delayed-rendered archive object.
-                                    if (SUCCEEDED(SetShellDataDropEffect(dataObject, DROPEFFECT_COPY)))
+                                    // Keep the clipboard wrapper's lifetime local; the
+                                    // underlying Shell object is released just below.
                                     {
 #ifdef new
 #undef new
@@ -1939,9 +1937,6 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                         }
                                         else
                                             TRACE_E(LOW_MEMORY);
-                                    }
-                                    else
-                                        TRACE_E("Unable to attach archive copy effect to clipboard data object!");
                                 }
                                 ShellActionAux7(dataObject, NULL);
                             }
