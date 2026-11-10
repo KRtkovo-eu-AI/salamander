@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"indonesian translation stub (English seed)"
 
 [DIALOG 102]
-220,127,0,"Network Configuration"
+220,127,1,"Konfigurasi Jaringan"
 1201,7,7,135,10,1,"Tampilkan berbagi &administratif"
 1203,13,22,215,10,1,"Tampilkan berbagi administratif sebagai item &tersembunyi"
 1202,7,37,214,10,1,"Tampilkan item dari &Tempat Jaringan di direktori tingkat atas"

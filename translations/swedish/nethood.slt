@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"swedish translation stub (English seed)"
 
 [DIALOG 102]
-220,127,0,"Network Configuration"
+220,127,1,"Nätverkskonfiguration"
 1201,7,7,135,10,1,"Visa &administrativa utdelningar"
 1203,13,22,215,10,1,"Visa administrativa utdelningar som &dolda objekt"
 1202,7,37,214,10,1,"Visa objekt från &Mina nätverksplatser i rotkatalogen"

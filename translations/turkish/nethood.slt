@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"turkish translation stub (English seed)"
 
 [DIALOG 102]
-220,127,0,"Network Configuration"
+220,127,1,"Ağ Yapılandırması"
 1201,7,7,135,10,1,"&Yönetim paylaşımlarını göster"
 1203,13,22,215,10,1,"Yönetim paylaşımlarını &gizli öğeler olarak göster"
 1202,7,37,214,10,1,"&Ağ Bağlantılarım öğelerini en üst düzey dizinde göster"
