@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Run the file-association model and Apply contract test. | Catch regressions in selected pattern fallback, user-override persistence, and canonical table refresh. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-07 | Run the native Find log ownership fixture. | Verify real worker log storage and snapshots without a dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 # | 2026-11-07 | Run the Find search scheduling contract test. | Keep large Find searches from synchronously blocking on GUI result refreshes. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-06 | Preserve upstream regressions and register integration tests. | Integrate the port while retaining JSON Viewer and directory-cancellation coverage. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
@@ -371,6 +372,14 @@ try {
                 '-B',
                 (Join-Path $repositoryRoot `
                     'src\tests\viewer_mask_persistence_contract_tests.py')
+            )
+        },
+        @{
+            Name = 'file_association_model_contract_tests'
+            Arguments = @(
+                '-B',
+                (Join-Path $repositoryRoot `
+                    'src\tests\file_association_model_contract_tests.py')
             )
         },
         @{

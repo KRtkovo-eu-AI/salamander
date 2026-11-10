@@ -1,6 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Preserve resolved conflicts when loading user overrides. | Do not re-mark retained plugin/extension candidates as Conflict after the same key has a saved User or Disabled override. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-10 | Make pattern normalization safe for aliased input and output. | Fix ReplaceAssociations clearing the same string it passes as its input, which made Apply reject every row as empty. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-09 | Validate explicit overrides as the effective exact-key choice. | Allow a user action to shadow retained defaults even if the legacy candidates were not normalized into a conflict pair. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+// | 2026-11-09 | Allow user overrides to replace conflicting plugin targets. | Validation must accept a chosen user target alongside retained conflict candidates so Apply can commit it. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Fix error reporting in custom-handler storage helpers. | Free functions cannot call the association model's private SetError method. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Migrate stored editor presets to Built-in targets. | Keep existing configurations compatible while retiring Preset from the editor. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Persist named custom handler catalogs. | Keep custom viewers and editors tied to the selected configuration and resolve them by stable ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -316,8 +320,12 @@ bool CFileAssociationModel::NormalizePattern(const char* pattern, std::string* n
         return false;
     }
 
+    // Callers may normalize a string in place (ReplaceAssociations does this
+    // for each copied row). Copy the source before clearing the output so the
+    // input pointer cannot be invalidated by that clear.
+    const std::string sourcePattern = pattern != NULL ? pattern : "";
     normalized->clear();
-    std::string value = TrimPattern(pattern);
+    std::string value = TrimPattern(sourcePattern.c_str());
     if (value.empty())
     {
         SetError(error, "pattern must not be empty");
@@ -527,6 +535,25 @@ bool CFileAssociationModel::Validate(std::string* error) const
             const Association& second = Items[j];
             if (!IsConflictingPair(first, second))
                 continue;
+
+            bool hasUserOverride = false;
+            for (size_t k = 0; k < Items.size(); ++k)
+            {
+                const Association& candidate = Items[k];
+                if (SameKey(candidate, first.Pattern, first.AssociationCategory, first.Operation) &&
+                    (candidate.AssociationProvenance == Provenance::User ||
+                     candidate.AssociationProvenance == Provenance::Disabled))
+                {
+                    hasUserOverride = true;
+                    break;
+                }
+            }
+            const bool firstIsUser = first.AssociationProvenance == Provenance::User ||
+                                     first.AssociationProvenance == Provenance::Disabled;
+            const bool secondIsUser = second.AssociationProvenance == Provenance::User ||
+                                      second.AssociationProvenance == Provenance::Disabled;
+            if (hasUserOverride && !(firstIsUser && secondIsUser))
+                continue;
             if (first.AssociationProvenance == Provenance::Conflict &&
                 second.AssociationProvenance == Provenance::Conflict)
                 continue;
@@ -710,9 +737,10 @@ BOOL CFileAssociationModel::Load(HKEY parentKey, const char* keyName, std::strin
     }
     loaded.MarkLegacyConflicts();
 
-    // Persisted conflicts are diagnostic rows for competing targets of the
-    // same exact pattern and survive a round trip; all other competing active
-    // targets are rejected.
+    // Remaining conflicts are diagnostic rows for competing targets of the
+    // same exact pattern. MarkLegacyConflicts() omits keys already resolved by
+    // a persisted User/Disabled override; all other competing active targets
+    // are rejected.
     for (size_t i = 0; i < loaded.Items.size() && !itemError; ++i)
     {
         for (size_t j = i + 1; j < loaded.Items.size(); ++j)
@@ -878,8 +906,15 @@ bool CFileAssociationModel::IsExactOverridePair(const Association& first,
     const Provenance secondLayer = second.AssociationProvenance == Provenance::Conflict
                                        ? second.SourceProvenance
                                        : second.AssociationProvenance;
-    const bool firstDefault = firstLayer == Provenance::Default || firstLayer == Provenance::Legacy;
-    const bool secondDefault = secondLayer == Provenance::Default || secondLayer == Provenance::Legacy;
+    // A migrated conflict represents multiple plugin/extension candidates at
+    // the same exact key. A user choice must be allowed to shadow every one
+    // of those candidates just like it shadows an ordinary default row.
+    const bool firstDefault = firstLayer == Provenance::Default ||
+                              firstLayer == Provenance::Legacy ||
+                              first.AssociationProvenance == Provenance::Conflict;
+    const bool secondDefault = secondLayer == Provenance::Default ||
+                               secondLayer == Provenance::Legacy ||
+                               second.AssociationProvenance == Provenance::Conflict;
     const bool firstUser = first.AssociationProvenance == Provenance::User ||
                            first.AssociationProvenance == Provenance::Disabled;
     const bool secondUser = second.AssociationProvenance == Provenance::User ||
@@ -944,6 +979,23 @@ void CFileAssociationModel::MarkLegacyConflicts()
             Association& second = Items[j];
             if (!IsConflictingPair(first, second))
                 continue;
+
+            bool hasUserOverride = false;
+            for (size_t k = 0; k < Items.size(); ++k)
+            {
+                const Association& candidate = Items[k];
+                if (SameKey(candidate, first.Pattern, first.AssociationCategory,
+                            first.Operation) &&
+                    (candidate.AssociationProvenance == Provenance::User ||
+                     candidate.AssociationProvenance == Provenance::Disabled))
+                {
+                    hasUserOverride = true;
+                    break;
+                }
+            }
+            if (hasUserOverride)
+                continue;
+
             first.AssociationProvenance = Provenance::Conflict;
             second.AssociationProvenance = Provenance::Conflict;
         }

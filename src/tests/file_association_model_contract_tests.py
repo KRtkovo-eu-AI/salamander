@@ -1,6 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Regress User badge and Conflicts filter consistency. | Ensure one user-first row status drives its text, color, conflict count, and checkbox filtering. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+# | 2026-11-10 | Regress conflict state after persisted user override reload. | Ensure conflict recomputation preserves User status for an overridden exact action key. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+# | 2026-11-10 | Guard association row badge provenance precedence. | Keep resolved user overrides visible in Status and Source without hiding remaining conflicts. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+# | 2026-11-10 | Regress in-place association pattern normalization. | Catch the input/output alias that made Apply's full-model replacement clear each row's pattern before validating it. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+# | 2026-11-10 | Guard pattern-key separation during Apply. | Catch regressions where reading action fields overwrites the selected matrix pattern with stale edit text. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+# | 2026-11-10 | Check association Apply input and persistence flow. | Guard the selected pattern fallback, user override commit, storage flush, and table reload against regressions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
+# | 2026-11-10 | Align lifecycle contract with materialized-state persistence. | Check the current storage guard instead of the removed projection-success flag. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-09 | Check association matrix selection and dark badge colors. | Keep neutral data cells, full-row selection, and readable status badges across themes. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 # | 2026-11-09 | Check first-start plugin rows and extension owner labels. | Prevent startup ordering, migration, projection, and localized owner-display regressions for issue #733. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-09 | Check immediate clean/default materialization. | Keep migrated association rows visible without requiring a restart after lifecycle load or page refresh. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -100,6 +107,31 @@ def main() -> None:
         require(method in header and method in implementation, f"missing model method: {method}")
 
     require('value = "*.*"' in implementation, "universal pattern normalization is missing")
+    normalize_start = implementation.index("bool CFileAssociationModel::NormalizePattern(")
+    normalize_end = implementation.index("bool CFileAssociationModel::PatternsOverlap(", normalize_start)
+    normalize_pattern = implementation[normalize_start:normalize_end]
+    replace_start = implementation.index("bool CFileAssociationModel::ReplaceAssociations(")
+    replace_end = implementation.index("bool CFileAssociationModel::Validate(", replace_start)
+    replace_associations = implementation[replace_start:replace_end]
+    require("NormalizePattern(item.Pattern.c_str(), &item.Pattern, error)" in replace_associations and
+            "const std::string sourcePattern = pattern != NULL ? pattern : \"\";" in normalize_pattern and
+            normalize_pattern.index("sourcePattern") < normalize_pattern.index("normalized->clear()") and
+            "TrimPattern(sourcePattern.c_str())" in normalize_pattern,
+            "in-place ReplaceAssociations normalization must preserve the source pattern before clearing output")
+    status_start = dialogs5.index("CCfgPageFileAssociations::MatrixStatusProvenance(")
+    status_end = dialogs5.index("int CCfgPageFileAssociations::MatrixSourceKind(", status_start)
+    matrix_status = dialogs5[status_start:status_end]
+    require(matrix_status.index("Rows[i].Pattern != row.Pattern") <
+            matrix_status.index("AssociationProvenance == Salamander::FileAssociations::Provenance::User") <
+            matrix_status.index("if (row.Conflict)"),
+            "matrix status must prefer user overrides over retained conflicts for the same pattern")
+    require("MatrixStatusProvenance(row) !=" in dialogs5 and
+            "MatrixStatusProvenance(MatrixRows[i]) ==" in dialogs5 and
+            "const Salamander::FileAssociations::Provenance state = MatrixStatusProvenance(row);" in dialogs5,
+            "the badge, conflict filter, and conflict counts must share one effective status calculation")
+    require("case Salamander::FileAssociations::Provenance::User:\n                    badgeColor = dark ? RGB(32, 120, 55) : RGB(205, 238, 215);" in dialogs5 and
+            "case Salamander::FileAssociations::Provenance::Conflict:\n                    badgeColor = dark ? RGB(190, 64, 58) : RGB(250, 210, 205);" in dialogs5,
+            "User and Conflict badges must use distinct colors in dark and light schemes")
     require('value = "*." + value' in implementation, "bare extensions must normalize to patterns")
     require("value.find(';')" in implementation and "value.find('|')" in implementation,
             "grouped masks must be rejected by the model")
@@ -108,6 +140,14 @@ def main() -> None:
             "Items = previous" in implementation,
             "failed user edits must leave the previous model unchanged")
     require("MarkLegacyConflicts" in implementation, "legacy conflicts must remain visible")
+    mark_conflicts_start = implementation.index("void CFileAssociationModel::MarkLegacyConflicts()")
+    mark_conflicts_end = implementation.index("} // namespace FileAssociations", mark_conflicts_start)
+    mark_conflicts = implementation[mark_conflicts_start:mark_conflicts_end]
+    require("SameKey(candidate, first.Pattern, first.AssociationCategory," in mark_conflicts and
+            "candidate.AssociationProvenance == Provenance::User" in mark_conflicts and
+            "candidate.AssociationProvenance == Provenance::Disabled" in mark_conflicts and
+            "if (hasUserOverride)\n                continue;" in mark_conflicts,
+            "loading must not regenerate a conflict when the exact pattern/action has a user override")
     require("FileAssociationsCurrentSchemaVersion = 1" in implementation,
             "canonical persistence must have an explicit schema version")
     require('const char* const FileAssociationsCount = "Association Count"' in implementation and
@@ -125,10 +165,17 @@ def main() -> None:
     require("CFileAssociationModel loaded" in implementation and
             "Items.swap(loaded.Items)" in implementation,
             "loading must replace the model only after all records are parsed")
+    load_start = implementation.index("BOOL CFileAssociationModel::Load(")
+    load_end = implementation.index("BOOL CFileAssociationModel::Save(", load_start)
+    load_model = implementation[load_start:load_end]
+    require(load_model.index("item.AssociationProvenance = item.SourceProvenance") <
+            load_model.index("loaded.MarkLegacyConflicts();") and
+            "loaded.MarkLegacyConflicts();" in load_model,
+            "loading must restore candidate provenance and recompute only unresolved conflicts")
     require("loaded.Items.push_back(item)" in implementation and
             "item.SourceProvenance = static_cast<Provenance>(sourceProvenance)" in implementation,
             "loading must preserve serialized association fields")
-    require("Persisted conflicts are diagnostic rows" in implementation and
+    require("Remaining conflicts are diagnostic rows" in implementation and
             "first.AssociationProvenance == Provenance::Conflict" in implementation,
             "persisted legacy conflicts must remain visible during load")
     require("if (error != NULL)\n        error->clear();" in implementation,
@@ -227,10 +274,9 @@ def main() -> None:
             "ProjectRuntimeAssociations" in lifecycle and
             "runtime association projection adapter is not registered" in lifecycle,
             "canonical lifecycle must load temporary state and guard unavailable projection")
-    require("if (!state.Loaded ||" in lifecycle and
-            "!state.ProjectionSucceeded" in lifecycle and
+    require("if (!state.Loaded || !state.Materialized)" in lifecycle and
             "return TRUE;" in lifecycle,
-            "blocked canonical state must not create or overwrite persisted state")
+            "unmaterialized canonical state must not create or overwrite persisted state")
     require("ReplaceAssociations" in header and
             "replacement.reserve(associations.size())" in implementation and
             "Items.swap(candidate.Items)" in implementation,
@@ -240,8 +286,9 @@ def main() -> None:
             "EnsureCanonicalAssociationsMaterializedForConfiguration" in lifecycle_header and
             "candidate.ReplaceAssociations(model.Associations(), error)" in lifecycle_implementation and
             "MaterializeLegacyDefaults" in lifecycle_implementation and
-            "SaveToConfigurationStorage(storage, CanonicalAssociationKey, NULL)" in lifecycle_implementation and
-            "ProjectRuntimeAssociations(candidate" in lifecycle_implementation,
+            "state.Model.SaveToConfigurationStorage(storage, CanonicalAssociationKey, error)" in lifecycle_implementation and
+            "ProjectRuntimeAssociations(state.Model, RegisteredOperations()" in lifecycle_implementation and
+            "return ProjectLoadedState(state, error);" in lifecycle_implementation,
             "lifecycle must validate and project UI edits before publishing them")
     require("class CCfgPageFileAssociations" in cfg_header and
             "std::vector<Salamander::FileAssociations::Association> Rows" in cfg_header and
@@ -252,6 +299,47 @@ def main() -> None:
             "Rows.push_back(item)" in dialogs5 and
             "IDL_FILEASSOCIATIONS" in dialogs5,
             "the canonical association editor must load, edit, and commit model rows")
+    apply_start = dialogs5.index("case IDB_FILEASSOCIATION_APPLY:")
+    apply_end = dialogs5.index("case IDB_FILEASSOCIATION_DELETE:", apply_start)
+    apply_handler = dialogs5[apply_start:apply_end]
+    require("item.Pattern = focusedPattern;" in apply_handler and
+            apply_handler.index("item.Pattern = focusedPattern;") <
+                apply_handler.index("ReadControls(item, &error, &focusedPattern, FALSE)"),
+            "Apply must seed the association pattern before reading action controls")
+    require("if (!readPatternControl)" in dialogs5 and
+            "item.Pattern = *fallbackPattern;" in dialogs5 and
+            "ReadControls(item, &error, &focusedPattern, FALSE)" in apply_handler,
+            "Apply must not reread the pattern edit field after resolving the selected matrix key")
+    read_controls = apply_handler.index("ReadControls(item, &error, &focusedPattern, FALSE)")
+    reassert_pattern = apply_handler.index("item.Pattern = focusedPattern;", read_controls)
+    normalize_pattern = apply_handler.index("NormalizePattern(\n                    item.Pattern.c_str()", read_controls)
+    require(read_controls < reassert_pattern < normalize_pattern,
+            "Apply must restore its resolved selected pattern after reading action controls")
+    require("appendPattern(MatrixRows[selectedItem.lParam].Pattern)" in apply_handler and
+            "ListView_GetNextItem(matrix, -1, LVNI_FOCUSED)" in apply_handler and
+            "GetDlgItemText(HWindow, IDE_FILEASSOCIATION_PATTERN" in apply_handler,
+            "Apply must recover its pattern key from selection, focus, or the Pattern field")
+    require("Provenance::User" in apply_handler and
+            "candidate.ReplaceAssociations(Rows, &error)" in apply_handler and
+            "ReplaceCanonicalAssociationsForConfiguration" in apply_handler and
+            "SaveCanonicalAssociationsForLifecycle" in apply_handler and
+            "ConfigurationStorage.Flush(FALSE)" in apply_handler and
+            "CopyCanonicalAssociationsForConfiguration" in apply_handler and
+            "Rows = savedModel.Associations();" in apply_handler,
+            "Apply must persist a user override and reload the table from canonical state")
+    apply_stages = (
+        "candidate.ReplaceAssociations(Rows, &error)",
+        "ReplaceCanonicalAssociationsForConfiguration(\n                    candidate",
+        "SaveCanonicalAssociationsForLifecycle(\n                    ConfigurationStorage",
+        "ConfigurationStorage.Flush(FALSE)",
+        "CopyCanonicalAssociationsForConfiguration(\n                    &savedModel",
+        "Rows = savedModel.Associations();",
+    )
+    apply_stage_positions = [apply_handler.index(stage) for stage in apply_stages]
+    apply_stage_positions.append(apply_handler.index(
+        "RefreshList();", apply_handler.index("Rows = savedModel.Associations();")))
+    require(apply_stage_positions == sorted(apply_stage_positions),
+            "Apply must validate, commit, persist, flush, reload, and refresh in order")
     require("EnsureCanonicalAssociationsMaterializedForConfiguration(&error)" in dialogs5 and
             dialogs5.index("EnsureCanonicalAssociationsMaterializedForConfiguration(&error)") <
                 dialogs5.index("CopyCanonicalAssociationsForConfiguration(&model, &error)"),
@@ -287,7 +375,8 @@ def main() -> None:
             "FilterProvenance" in cfg_header and
             "ConflictsOnly" in cfg_header and
             "IDC_FILEASSOCIATION_TARGETCATALOG" in dialogs5 and
-            "NM_CUSTOMDRAW" in dialogs5 and
+            "void CCfgPageFileAssociations::PaintMatrix(HDC hdc)" in dialogs5 and
+            "RoundRect(buffer, pill.left" in dialogs5 and
             "SupportPanelView" in dialogs5 and
             "SupportPanelEdit" in dialogs5,
             "the redesigned editor must expose matrix filtering, badges, and compatible target selection")
@@ -299,18 +388,18 @@ def main() -> None:
     require("ListView_InsertColumn" in dialogs5 and
             "ListView_SetItemText" in dialogs5 and
             "LVN_ITEMCHANGED" in dialogs5 and
-            "NM_CUSTOMDRAW" in dialogs5 and
+            "PaintMatrix(hdc)" in dialogs5 and
             "WinLibDPIToLogical(HWindow" in dialogs5 and
              "WinLibDPIFromLogical(HWindow" in dialogs5,
              "the association matrix must support selectable rows, colored cells, and DPI-aware layout")
     require("SetDlgItemText(HWindow, IDC_FILEASSOCIATION_HELP, LoadStr(IDS_BUTTON_HELP))" in dialogs5 and
             "std::string MatrixCellText" in cfg_header and
-            "int buttonX[5]" in dialogs5 and
-            "int buttonRow[5]" in dialogs5 and
+            "const int buttonIds[4]" in dialogs5 and
+            "const ControlLayout controls[]" in dialogs5 and
             "GetClientRect(HWindow" in dialogs5 and
-            "CDRF_NEWFONT" in dialogs5 and
-            "draw->clrTextBk = dark ? RGB(92, 92, 92)" in dialogs5 and
-            "const COLORREF cellColor = selected" in dialogs5,
+            "RoundRect(buffer, pill.left" in dialogs5 and
+            "const COLORREF rowColor = selected" in dialogs5 and
+            "SetTextColor(buffer, selected ? GetSysColor(COLOR_HIGHLIGHTTEXT)" in dialogs5,
             "the association page must keep compact help, complete display strings, and every action row inside the client area")
     require("#define _TPD_MIN_PAGE_H 300" in sheets and
             "Reserve the full canonical association page height" in sheets,
@@ -324,20 +413,22 @@ def main() -> None:
             "previousTargetKind" in dialogs5,
             "unavailable plugin targets must not make page navigation impossible")
     require("DisplayLabel" in dialogs5 and
-            "extensionTarget += \" \"" in dialogs5 and
+            "IsExtensionViewerLabel(item.AssociationTarget.DisplayLabel)" in dialogs5 and
+            "LoadStr(IDS_FILEASSOCIATION_EXTENSION)" in dialogs5 and
             "IDS_FILEASSOCIATION_EXTENSION" in dialogs5 and
             "item.AssociationTarget.DisplayLabel.clear()" in dialogs5,
             "extension owner labels must be localized and cleared when the target changes")
     require("IDD_CFGPAGE_FILEASSOCIATIONS" in lang_header and
             "IDL_FILEASSOCIATIONS" in lang_resource and
-            "IDC_FILEASSOCIATION_CATEGORY" in lang_resource and
+            "IDE_FILEASSOCIATION_PATTERN" in lang_resource and
+            "IDC_FILEASSOCIATION_TARGETCATALOG" in lang_resource and
             "IDS_FILEASSOCIATIONS" in texts_header and
             "IDS_FILEASSOCIATION_STATUS_CONFLICT" in texts_resource,
             "the canonical association editor must have resource-backed controls and text")
     require("IDS_FILEASSOCIATION_INTERNAL_VIEWER" in texts_header and
             "IDS_FILEASSOCIATION_LEGACY_RUNTIME" in texts_header and
             "IDS_FILEASSOCIATION_EXTENSION" in texts_header and
-            'IDS_FILEASSOCIATION_EXTENSION, "(Extension)"' in texts_resource and
+            'IDS_FILEASSOCIATION_EXTENSION, "Extension"' in texts_resource and
             "IDS_FILEASSOCIATION_NO_TARGETS" in texts_resource and
             "IDS_FILEASSOCIATION_PATTERN_EMPTY" in texts_resource,
             "new association UI states must use localized resource strings")
