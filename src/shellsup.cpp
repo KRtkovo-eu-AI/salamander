@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Use nothrow allocation for the archive clipboard wrapper. | Keep the existing low-memory branch while satisfying CodeQL allocation semantics. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Publish archive copy with valid marker and drop effect. | OLE clipboard publication failed when private formats had invalid media and effect was added afterward. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-05 | Survive faulty shell extension SEH in context menus. | QueryContextMenu/InvokeCommand/HandleMenuMsg must not terminate the process. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -1865,7 +1866,15 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                     // delayed-rendered archive object.
                                     if (SUCCEEDED(SetShellDataDropEffect(dataObject, DROPEFFECT_COPY)))
                                     {
-                                        CFakeCopyPasteDataObject* fakeDataObject = new CFakeCopyPasteDataObject(dataObject, fakeRootDir);
+#ifdef new
+#undef new
+#define RESTORE_ARCHIVE_CLIPBOARD_DEBUG_NEW_MACRO
+#endif
+                                        CFakeCopyPasteDataObject* fakeDataObject = new (std::nothrow) CFakeCopyPasteDataObject(dataObject, fakeRootDir);
+#ifdef RESTORE_ARCHIVE_CLIPBOARD_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_ARCHIVE_CLIPBOARD_DEBUG_NEW_MACRO
+#endif
                                         if (fakeDataObject != NULL)
                                         {
                                             if (SalShExtPastedData.SetData(panel->GetZIPArchive(), panel->GetZIPPath(),
