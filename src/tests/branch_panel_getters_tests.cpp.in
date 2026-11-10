@@ -350,6 +350,7 @@ static HRESULT TestPublish(TestPropertiesObject*){++ClipboardCalls;return Clipbo
 class CShellExecuteWnd { public: HWND Create(HWND,const char*,const char*) { return nullptr; } };
 static void TestAuxInvokeAndRelease(TestPropertiesMenu*,CMINVOKECOMMANDINFO*) { ++AuxCalls; }
 #define IDataObject TestPropertiesObject
+#define IContextMenu2 TestPropertiesMenu
 #define CreatePanelShellData PropertiesCreateData
 #define CreatePanelShellMenu PropertiesCreateMenu
 #define SetShellDataDropEffect TestSetEffect
@@ -366,6 +367,7 @@ BOOL CFilesWindow::ClipboardRoute(int count,int index,int* indexes,int action){
     return clipboardReady;
 }
 #undef IDataObject
+#undef IContextMenu2
 #undef CreatePanelShellData
 #undef CreatePanelShellMenu
 #undef SetShellDataDropEffect
