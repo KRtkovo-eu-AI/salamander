@@ -347,10 +347,12 @@ static DWORD ExportEffect=0;
 static int AuxCalls=0;
 static HRESULT TestSetEffect(TestPropertiesObject*,DWORD effect){++DropEffectCalls;ExportEffect=effect;return DropEffectResult;}
 static HRESULT TestPublish(TestPropertiesObject*){++ClipboardCalls;return ClipboardResult;}
+struct TestCMINVOKECOMMANDINFO {DWORD cbSize=0,fMask=0;HWND hwnd=nullptr;LPCSTR lpVerb=nullptr,lpParameters=nullptr,lpDirectory=nullptr;int nShow=0;DWORD dwHotKey=0;HICON hIcon=nullptr;};
 class CShellExecuteWnd { public: HWND Create(HWND,const char*,const char*) { return nullptr; } };
-static void TestAuxInvokeAndRelease(TestPropertiesMenu*,CMINVOKECOMMANDINFO*) { ++AuxCalls; }
+static void TestAuxInvokeAndRelease(TestPropertiesMenu*,TestCMINVOKECOMMANDINFO*) { ++AuxCalls; }
 #define IDataObject TestPropertiesObject
 #define IContextMenu2 TestPropertiesMenu
+#define CMINVOKECOMMANDINFO TestCMINVOKECOMMANDINFO
 #define CreatePanelShellData PropertiesCreateData
 #define CreatePanelShellMenu PropertiesCreateMenu
 #define SetShellDataDropEffect TestSetEffect
@@ -368,6 +370,7 @@ BOOL CFilesWindow::ClipboardRoute(int count,int index,int* indexes,int action){
 }
 #undef IDataObject
 #undef IContextMenu2
+#undef CMINVOKECOMMANDINFO
 #undef CreatePanelShellData
 #undef CreatePanelShellMenu
 #undef SetShellDataDropEffect
