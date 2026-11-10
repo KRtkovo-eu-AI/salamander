@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Uvést FlaUI a referenční projekt Taskscape pro UI testy. | Zaznamenat knihovnu pro automatizaci UI a fork, který posloužil jako předloha testovací kostry. |  | GPT-6 (Codex) |
 | 2026-11-07 | Omezení oznámení třetích stran na externí komponenty a synchronizace lokalizací. | Odstranění historie implementace a portování z dokumentu s atribucemi. |  | GPT-5.6 |
 | 2026-11-05 | Uvedení pd4d10/json-viewer u JSON Web Vieweru. | Salamatrix WebView2 JSON rozšíření dodává tento renderer. |  | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -15,6 +16,7 @@ jejich práce.
 
 | Komponenta | Použití | Informace o autorství a licenci |
 | --- | --- | --- |
+| FlaUI / UIA3 | Automatizace testů uživatelského rozhraní Windows | Knihovna pro .NET [FlaUI](https://github.com/FlaUI/FlaUI); licence MIT. Struktura testovacího harnessu vychází z forku Open Salamander [taskscape/FileManager](https://github.com/taskscape/FileManager). |
 | REGEXP | Regulární výrazy | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | AES kód | Kryptografické rutiny | Napsal Dr Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
 | PNGLite | Podpora obrázků PNG | Založeno na PNGLite od Daniel Karling. Copyright (C) 2007 Daniel Karling. |

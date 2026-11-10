@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | A FlaUI és a Taskscape UI-teszt referencia feltüntetése. | Az UI-automatizálási könyvtár és a tesztváz alapjául szolgáló fork dokumentálása. |  | GPT-6 (Codex) |
 | 2026-11-07 | A harmadik felekre vonatkozó tájékoztatókat külső összetevőkre korlátozzuk és szinkronizáljuk a lokalizációkat. | Az implementációs és portolási előzmények eltávolítása a dokumentumból. |  | GPT-5.6 |
 | 2026-11-06 | Credit pd4d10/json-viewer for JSON Web Viewer. | A Salamatrix WebView2 JSON bővítmény ezt a renderert szállítja. |  | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -15,6 +16,7 @@ szerepel, hogy hozzáférhetővé tették munkájukat.
 
 | Összetevő | Felhasználás | Szerzői jog és licenc megjegyzések |
 | --- | --- | --- |
+| FlaUI / UIA3 | Windows UI-tesztek automatizálása | A [.NET FlaUI](https://github.com/FlaUI/FlaUI) könyvtár MIT licencű. A tesztváz szerkezete az Open Salamander [taskscape/FileManager](https://github.com/taskscape/FileManager) forkjára támaszkodik. |
 | REGEXP | Reguláris kifejezések illesztése | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | AES kód | Kriptográfiai rutinok | Írta Dr Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
 | PNGLite | PNG kép támogatás | A PNGLite alapján, szerző: Daniel Karling. Copyright (C) 2007 Daniel Karling. |

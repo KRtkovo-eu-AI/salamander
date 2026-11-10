@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | 标注 FlaUI 和 Taskscape UI 测试参考项目。 | 记录 UI 自动化库以及作为测试框架结构参考的 fork。 |  | GPT-6 (Codex) |
 | 2026-11-07 | 保持第三方通知仅包含外部组件并同步本地化通知。 | 删除归属文档中的实现和移植历史。 |  | GPT-5.6 |
 | 2026-11-06 | Credit pd4d10/json-viewer for JSON Web Viewer. | Salamatrix WebView2 JSON 扩展提供该渲染器。 |  | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -12,6 +13,7 @@
 
 | 组件 | 用途 | 归属和许可证说明 |
 | --- | --- | --- |
+| FlaUI / UIA3 | Windows UI 自动化测试 | .NET UI 自动化库 [FlaUI](https://github.com/FlaUI/FlaUI)，采用 MIT 许可证。测试框架结构参考了 Open Salamander fork [taskscape/FileManager](https://github.com/taskscape/FileManager)。 |
 | REGEXP | 正则表达式匹配 | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | AES 代码 | 加密例程 | 由 Dr Brian Gladman 编写。Copyright (C) 2001 Dr Brian Gladman. |
 | PNGLite | PNG 图像支持 | 基于 Daniel Karling 的 PNGLite。Copyright (C) 2007 Daniel Karling. |

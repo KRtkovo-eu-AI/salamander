@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Atribuirea FlaUI și a referinței Taskscape pentru testele UI. | Documentarea bibliotecii de automatizare UI și a forkului folosit ca model pentru structura testelor. |  | GPT-6 (Codex) |
 | 2026-11-07 | Limitarea notelor terților la componente externe și sincronizarea notelor localizate. | Eliminarea istoricului de implementare și portare din documentul de atribuire. |  | GPT-5.6 |
 | 2026-11-06 | Credit pd4d10/json-viewer for JSON Web Viewer. | Extensia JSON Salamatrix WebView2 furnizează acest renderer. |  | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -15,6 +16,7 @@ pentru punerea la dispoziție a muncii lor.
 
 | Component | Utilizare | Note despre atribuire și licență |
 | --- | --- | --- |
+| FlaUI / UIA3 | Automatizarea testelor UI pentru Windows | Biblioteca .NET [FlaUI](https://github.com/FlaUI/FlaUI), licență MIT. Structura harnessului de testare a fost inspirată de forkul Open Salamander [taskscape/FileManager](https://github.com/taskscape/FileManager). |
 | REGEXP | Potrivirea expresiilor regulate | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | Cod AES | Rutine criptografice | Scris de Dr Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
 | PNGLite | Suport pentru imagini PNG | Bazat pe PNGLite de Daniel Karling. Copyright (C) 2007 Daniel Karling. |

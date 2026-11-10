@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Créditer FlaUI et la référence Taskscape pour les tests UI. | Documenter la bibliothèque d'automatisation UI et le fork utilisé comme modèle pour la structure des tests. |  | GPT-6 (Codex) |
 | 2026-11-07 | Limiter les mentions tierces aux composants externes et synchroniser les notices localisees. | Supprimer l'historique d'implementation et de portage du document d'attribution. |  | GPT-5.6 |
 | 2026-11-06 | Credit pd4d10/json-viewer for JSON Web Viewer. | L’extension JSON Salamatrix WebView2 fournit ce moteur de rendu. |  | Composer |
 | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -15,6 +16,7 @@ sont listés ici d'avoir rendu leur travail disponible.
 
 | Composant | Utilisation | Notes sur l'attribution et la licence |
 | --- | --- | --- |
+| FlaUI / UIA3 | Automatisation des tests UI Windows | Bibliothèque .NET [FlaUI](https://github.com/FlaUI/FlaUI), sous licence MIT. La structure du banc de test s'inspire du fork d'Open Salamander [taskscape/FileManager](https://github.com/taskscape/FileManager). |
 | REGEXP | Correspondance d'expressions régulières | Copyright (C) 1986 Henry Spencer, University of Toronto. |
 | Code AES | Routines cryptographiques | Écrit par Dr Brian Gladman. Copyright (C) 2001 Dr Brian Gladman. |
 | PNGLite | Support d'images PNG | Basé sur PNGLite par Daniel Karling. Copyright (C) 2007 Daniel Karling. |
