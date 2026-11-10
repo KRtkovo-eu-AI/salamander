@@ -10,9 +10,9 @@ WEB,"www.altap.cz"
 COMMENT,"chinesetraditional translation stub (English seed)"
 
 [STRINGTABLE 0]
-10100,0,"Internet Explorer Viewer"
-10101,0,"Unable to open Internet Explorer Viewer.\nPlease report this problem to support@altap.cz."
-10102,0,"Error"
-10103,0,"Lightweight HTML and XML viewer based on Internet Explorer."
-10105,0,"About Plugin"
+10100,1,"Internet Explorer 檢視器"
+10101,1,"無法開啟 Internet Explorer 檢視器。\n請將此問題回報至 support@altap.cz。"
+10102,1,"錯誤"
+10103,1,"以 Internet Explorer 為基礎的輕量 HTML 與 XML 檢視器。"
+10105,1,"關於外掛程式"
 

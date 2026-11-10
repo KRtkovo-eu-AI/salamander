@@ -10,12 +10,12 @@ WEB,"www.altap.cz"
 COMMENT,"bulgarian translation stub (English seed)"
 
 [STRINGTABLE 0]
-46,0,"JSON Viewer .NET"
-47,0,"About Plugin"
+46,1,"Преглед на JSON .NET"
+47,1,"За приставката"
 
 [STRINGTABLE 1]
-48,0,"Internal viewer that displays JSON documents using a managed WinForms UI."
-49,0,"https://samandarin.net/"
-50,0,"Unable to prepare synchronization event required by the viewer."
-51,0,"The selected JSON file is too large to open. Files larger than 8 MB are not supported."
+48,1,"Вътрешен преглед на JSON документи чрез управляван интерфейс WinForms."
+49,1,"https://samandarin.net/"
+50,1,"Събитието за синхронизация, необходимо на визуализатора, не може да бъде подготвено."
+51,1,"Избраният JSON файл е твърде голям и не може да бъде отворен. Не се поддържат файлове, по-големи от 8 MB."
 

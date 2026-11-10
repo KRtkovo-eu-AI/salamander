@@ -10,9 +10,9 @@ WEB,"www.altap.cz"
 COMMENT,"bulgarian translation stub (English seed)"
 
 [STRINGTABLE 0]
-10100,0,"Internet Explorer Viewer"
-10101,0,"Unable to open Internet Explorer Viewer.\nPlease report this problem to support@altap.cz."
-10102,0,"Error"
-10103,0,"Lightweight HTML and XML viewer based on Internet Explorer."
-10105,0,"About Plugin"
+10100,1,"Преглед на Internet Explorer"
+10101,1,"Прегледът на Internet Explorer не може да бъде отворен.\nМоля, съобщете за проблема на support@altap.cz."
+10102,1,"Грешка"
+10103,1,"Лек преглед на HTML и XML документи, базиран на Internet Explorer."
+10105,1,"За приставката"
 

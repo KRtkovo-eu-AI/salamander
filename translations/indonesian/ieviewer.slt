@@ -10,9 +10,9 @@ WEB,"www.altap.cz"
 COMMENT,"indonesian translation stub (English seed)"
 
 [STRINGTABLE 0]
-10100,0,"Internet Explorer Viewer"
-10101,0,"Unable to open Internet Explorer Viewer.\nPlease report this problem to support@altap.cz."
-10102,0,"Error"
-10103,0,"Lightweight HTML and XML viewer based on Internet Explorer."
-10105,0,"About Plugin"
+10100,1,"Penampil Internet Explorer"
+10101,1,"Penampil Internet Explorer tidak dapat dibuka.\nLaporkan masalah ini ke support@altap.cz."
+10102,1,"Kesalahan"
+10103,1,"Penampil HTML dan XML ringan berbasis Internet Explorer."
+10105,1,"Tentang Plugin"
 
