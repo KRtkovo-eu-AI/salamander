@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Remove unused shell fallback mocks from the clipboard fixture. | Its source extractor includes only the disk clipboard branch. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
 // | 2026-11-10 | Stub shell menu fallback in the clipboard route fixture. | Keep the Branch panel getter test compiling against the disk and non-disk clipboard routes. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
 // The three production getters, Entry, Entry::FullPath, Join and conversion
 // function are extracted verbatim. Only unrelated panel state is replaced.
@@ -315,7 +316,7 @@ static bool MenuAvailable=true,DataAvailable=true,MenuWasQuiet=false;
 static int PropertiesCalls=0,DataCalls=0;
 static HRESULT PropertiesResult=S_OK;
 static std::vector<std::wstring> PropertiesPaths;
-static TestPropertiesMenu* PropertiesCreateMenu(HWND,const char*,int count,const char*(*)(int,void*),void* raw,BOOL quiet=FALSE){MenuWasQuiet=quiet;PropertiesPaths=GetPanelShellPaths(count,(CTmpEnumData*)raw);return MenuAvailable&&!PropertiesPaths.empty()?&PropertiesMenu:nullptr;}
+static TestPropertiesMenu* PropertiesCreateMenu(HWND,const char*,int count,const char*(*)(int,void*),void* raw,BOOL quiet){MenuWasQuiet=quiet;PropertiesPaths=GetPanelShellPaths(count,(CTmpEnumData*)raw);return MenuAvailable&&!PropertiesPaths.empty()?&PropertiesMenu:nullptr;}
 static TestPropertiesObject* PropertiesCreateData(HWND,const char*,int count,const char*(*)(int,void*),void* raw){++DataCalls;PropertiesPaths=GetPanelShellPaths(count,(CTmpEnumData*)raw);return DataAvailable&&!PropertiesPaths.empty()?&PropertiesObject:nullptr;}
 static HRESULT PropertiesShow(TestPropertiesObject*,DWORD){++PropertiesCalls;return PropertiesResult;}
 #define IContextMenu2 TestPropertiesMenu
@@ -344,20 +345,12 @@ static const int saProperties=1,saPermissions=2,saCopyToClipboard=3,saCutToClipb
 static HRESULT DropEffectResult=S_OK,ClipboardResult=S_OK;
 static int DropEffectCalls=0,ClipboardCalls=0;
 static DWORD ExportEffect=0;
-static int AuxCalls=0;
 static HRESULT TestSetEffect(TestPropertiesObject*,DWORD effect){++DropEffectCalls;ExportEffect=effect;return DropEffectResult;}
 static HRESULT TestPublish(TestPropertiesObject*){++ClipboardCalls;return ClipboardResult;}
-struct TestCMINVOKECOMMANDINFO {DWORD cbSize=0,fMask=0;HWND hwnd=nullptr;LPCSTR lpVerb=nullptr,lpParameters=nullptr,lpDirectory=nullptr;int nShow=0;DWORD dwHotKey=0;HICON hIcon=nullptr;};
-class CShellExecuteWnd { public: HWND Create(HWND,const char*,const char*) { return nullptr; } };
-static void TestAuxInvokeAndRelease(TestPropertiesMenu*,TestCMINVOKECOMMANDINFO*) { ++AuxCalls; }
 #define IDataObject TestPropertiesObject
-#define IContextMenu2 TestPropertiesMenu
-#define CMINVOKECOMMANDINFO TestCMINVOKECOMMANDINFO
 #define CreatePanelShellData PropertiesCreateData
-#define CreatePanelShellMenu PropertiesCreateMenu
 #define SetShellDataDropEffect TestSetEffect
 #define OleSetClipboard TestPublish
-#define AuxInvokeAndRelease TestAuxInvokeAndRelease
 #define MainWindow (&RecycleWindow)
 #define SalMessageBox RecycleMessage
 #define GetErrorText RecycleErrorText
@@ -369,13 +362,9 @@ BOOL CFilesWindow::ClipboardRoute(int count,int index,int* indexes,int action){
     return clipboardReady;
 }
 #undef IDataObject
-#undef IContextMenu2
-#undef CMINVOKECOMMANDINFO
 #undef CreatePanelShellData
-#undef CreatePanelShellMenu
 #undef SetShellDataDropEffect
 #undef OleSetClipboard
-#undef AuxInvokeAndRelease
 #undef MainWindow
 #undef SalMessageBox
 #undef GetErrorText
@@ -726,7 +715,7 @@ static void PropertiesTests()
     TestShellGate(&panel,saCopyToClipboard,TRUE,FALSE);Check(ShellGatePassed,"selected Branch copy passes direct gate");
     TestShellGate(&panel,saCopyToClipboard,FALSE,FALSE);Check(!ShellGatePassed,"panel-root copy remains blocked");
     TestShellGate(&panel,saCopyToClipboard,TRUE,TRUE);Check(!ShellGatePassed,"panel-menu copy remains blocked");
-    auto resetCopy=[&](){reset();DropEffectResult=S_OK;ClipboardResult=S_OK;DropEffectCalls=0;ClipboardCalls=0;ExportEffect=0;AuxCalls=0;};
+    auto resetCopy=[&](){reset();DropEffectResult=S_OK;ClipboardResult=S_OK;DropEffectCalls=0;ClipboardCalls=0;ExportEffect=0;};
     resetCopy();Check(panel.ClipboardRoute(2,0,selected)&&PropertiesPaths==paths,"copy exports all exact mixed-parent identities");
     Check(DropEffectCalls==1&&ClipboardCalls==1&&ExportEffect==(DROPEFFECT_COPY|DROPEFFECT_LINK),"copy sets copy/link effect before one publication");
     Check(PropertiesObject.Releases==1&&RecycleErrors==0,"copy releases its object after successful publication");
