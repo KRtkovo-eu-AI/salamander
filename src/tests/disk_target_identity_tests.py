@@ -17,7 +17,10 @@ def controller_contract():
     assert controller.index('!CFilesActionDiskTarget::AllowsBranchTransfer(') < controller.index('diskTarget.Capture(')
     assert controller.index('diskTarget.Capture(MainWindow, target)') < controller.index('CheckPath(TRUE)')
     assert 'memcpy(path, diskTarget.DefaultPath.c_str(), diskTarget.DefaultPath.size() + 1);' in controller
-    assert 'CheckPath(TRUE) == ERROR_SUCCESS && validateDiskTarget()' in controller
+    source = block(controller, 'const auto sourceAvailable =')
+    assert 'CheckPath(TRUE) == ERROR_SUCCESS' in source
+    assert 'if (!sourceAvailable() || !validateDiskTarget())' in controller
+    assert 'sourceAvailable() && validateDiskTarget()' in controller
     assert 'BOOL res2 = validateDiskTarget();' in controller
     assert 'if (!validateDiskTarget() ||\n                                !BuildScriptMain(' in controller
     assert 'else if (res2)\n                    {\n                        res2 = BuildScriptMain(' in controller

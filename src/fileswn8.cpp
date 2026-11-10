@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Use the approved listing for a batch of directory sizes. | Keep the existing scope when the current panel needs elevation. | #731 | Codex |
 // | 2026-11-09 | Supply the account policy check to the Shell retry callback. | Recheck same-account consent before a queued delete starts or resumes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Keep protected Shell recycling in the original account. | Decline credential-based Shell retries before any file can be moved. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow the explicit Shell elevation retry callback. | Recheck the original file and preserve ordinary recycle error behavior. | | GPT-6.1 Sol (Codex) |
@@ -547,9 +548,15 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
 
     BOOL invertRecycleBin = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
 
+    const bool countSizeBatch = type == atCountSize && countSizeMode == 2;
+    const auto sourceAvailable = [&] {
+        return (countSizeBatch && Is(ptDisk) && ProtectedListing &&
+                ProtectedListing->Contains(SalPathRemoveExtendedPrefixW(GetPathW()))) ||
+               CheckPath(TRUE) == ERROR_SUCCESS;
+    };
     if (!FilesActionInProgress)
     {
-        if (CheckPath(TRUE) != ERROR_SUCCESS || !validateDiskTarget())
+        if (!sourceAvailable() || !validateDiskTarget())
             return; // the source is always the current directory
 
         if (type != atCountSize && countSizeMode != 0)
@@ -1517,7 +1524,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
         }
         }
         if (res == IDOK && // begin disk operation
-            CheckPath(TRUE) == ERROR_SUCCESS && validateDiskTarget())
+            sourceAvailable() && validateDiskTarget())
         {
             if (type == atDelete && recycle == 1)
             {
@@ -1617,6 +1624,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
 
                     HCURSOR oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
+                    script->CountSizeBatch = countSizeBatch;
                     script->InvertRecycleBin = invertRecycleBin;
                     script->CanUseRecycleBin = canUseRecycleBin;
                     script->AllowPermanentDeletePilot = type == atDelete && recycle == 0 &&

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Test the panel metadata request against the real listing dispatcher. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
 // | 2026-11-09 | Cancel one transfer while another is staged. | Verify that a second live broker session can publish and continue its own batch. | | Codex |
 // | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 // | 2026-11-09 | Pause an actual overwrite during a live copy. | Verify the staged copy cannot fill the original name while the replacement holds the journal. | | GPT-6.1 Sol (Codex) |
@@ -243,6 +244,15 @@ public:
         return !TransferRequest(server.get(), &result, sizeof(result), false, deadline);
     }
 
+    bool QueryViewerIdentity(std::wstring_view path, DWORD expected, UacListing::ViewerIdentity& identity)
+    {
+        DWORD status = ERROR_GEN_FAILURE;
+        const auto deadline = GetTickCount64() + timeoutMs;
+        return SendFindRequest(UacListing::viewerIdentityRequest, path, deadline) &&
+               !TransferRequest(server.get(), &status, sizeof(status), false, deadline) && status == expected &&
+               (status || !TransferRequest(server.get(), &identity, sizeof(identity), false, deadline));
+    }
+
     bool OpenFindContent(std::wstring_view leaf)
     {
         DWORD status = ERROR_GEN_FAILURE;
@@ -304,6 +314,33 @@ private:
 bool IsAbsent(const std::wstring& path)
 {
     return GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND;
+}
+
+void CheckListedViewerIdentity(const Directory& source)
+{
+    constexpr wchar_t leaf[] = L"viewer-\u6771.txt";
+    JobPipe job;
+    if (!WriteByte(source.File(leaf), 13) || !job.Open(nullptr, source.handle.get(), Operation::List))
+    {
+        Check(false, "prepare the viewer identity fixture");
+        return;
+    }
+    UacListing::ViewerIdentity identity{};
+    const auto file = Adopt(CreateFileW(source.File(leaf).c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    FILE_ID_INFO fileId{};
+    Check(file && !UacRenameLeaf::Detail::ReadSourceIdentity(file.get(), fileId) &&
+              job.QueryViewerIdentity(leaf, ERROR_SUCCESS, identity) &&
+              !std::memcmp(&identity.parent, &source.identity.file.FileId, sizeof(identity.parent)) &&
+              !std::memcmp(&identity.file, &fileId.FileId, sizeof(identity.file)),
+          "the protected listing returns the exact parent and file IDs without granting content");
+    Check(job.QueryViewerIdentity(L"..\\viewer-\u6771.txt", ERROR_INVALID_NAME, identity),
+          "a viewer identity request cannot escape the approved listing root");
+    Check(job.RejectFindRequest(UacListing::contentRequest | UacListing::viewerIdentityRequest),
+          "the listing rejects combined identity and content requests");
+    JobPipe find;
+    Check(find.Open(nullptr, source.handle.get()) && find.RejectFindRequest(UacListing::viewerIdentityRequest),
+          "the Find scope rejects the panel-only identity request");
 }
 
 void CheckFindContentDisconnect(const Directory& first, const Directory& second)
@@ -1048,6 +1085,7 @@ int wmain()
     Directory source, target, outside;
     if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
         return 2;
+    CheckListedViewerIdentity(source);
     CheckFindContentDisconnect(source, outside);
     CheckStoppedFindReply();
     CheckExactFindScope(source);

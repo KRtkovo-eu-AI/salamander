@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Keep measuring accessible folders after a protected subtree is skipped. | Preserve accurate per-folder sizes and explicit elevation scope. | #731 | Codex |
 // | 2026-11-09 | Mark selected files independently of recursive transfers. | Defer denied source access only for files selected in the panel. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Allow the larger F6 budget during source preparation. | Use the cross-volume limit before handing denied reads to the worker. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Defer inaccessible cross-volume move sources to the worker. | Allow the existing broker retry after ordinary ADS discovery cannot open the file. | | GPT-6.1 Sol (Codex) |
@@ -1572,6 +1573,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     if (countSize)
                     {
                         oldTotalSize = script->TotalSize;
+                        script->CountSizeIncomplete = false;
                         oneFile->SizeValid = 0;
                     }
                     const int firstItemOperation = script->Count;
@@ -1599,7 +1601,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                                 operation.SetSourceNameW(path.c_str());
                         }
                     }
-                    if (countSize)
+                    if (countSize && !script->CountSizeIncomplete)
                     {
                         oneFile->SizeValid = 1;
                         oneFile->Size = script->TotalSize - oldTotalSize;
@@ -1819,6 +1821,22 @@ void GetADSStreamsNames(char* listBuf, int bufSize, char* fileName, BOOL isDir)
     {
         listBuf[0] = 0;
     }
+}
+
+static int ConfirmProtectedSizeBatch(HWND owner, const std::wstring& path)
+{
+    const std::string message = std::string(LoadStr(IDS_UAC_SIZE_CONFIRM)) + "\n\n" +
+                                SalWideToMultiBytePath(path.c_str(), CP_UTF8);
+    std::string aliases = std::to_string(IDYES) + "\t" + LoadStr(IDS_MSGBOXBTN_SKIP);
+    aliases += "\t" + std::to_string(IDNO) + "\t" + LoadStr(IDS_MSGBOXBTN_SKIPALL);
+    aliases += "\t" + std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+    MSGBOXEX_PARAMS consent{};
+    consent.HParent = owner;
+    consent.Text = message.c_str();
+    consent.Caption = LoadStr(IDS_UAC_INVENTORY_TITLE);
+    consent.Flags = MSGBOXEX_YESNOOKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON4 | MSGBOXEX_SHIELDONOKBTN;
+    consent.AliasBtnNames = aliases.c_str();
+    return SalMessageBoxEx(&consent);
 }
 
 BOOL CFilesWindow::BuildScriptDir(COperations* script, CActionType type, char* sourcePath,
@@ -2474,13 +2492,21 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     DWORD inventoryError = ERROR_CANCELLED;
                     UacF7::DirectoryInventory inventory;
                     UacF7::DirectorySizeDetails details;
-                    if (reuse || ConfirmProtectedRead(HWindow, IDS_UAC_INVENTORY_TITLE, IDS_UAC_SIZE_CONFIRM, path))
+                    int choice = IDOK;
+                    if (!reuse)
+                    {
+                        if (script->CountSizeBatch)
+                            choice = ConfirmProtectedSizeBatch(HWindow, path);
+                        else if (!ConfirmProtectedRead(HWindow, IDS_UAC_INVENTORY_TITLE, IDS_UAC_SIZE_CONFIRM, path))
+                            choice = IDCANCEL;
+                    }
+                    if (choice == IDOK)
                     {
                         inventoryError = reuse ? ERROR_SUCCESS : temporary.Start(HWindow);
                         if (!inventoryError)
                             inventoryError = (reuse ? *ProtectedListing : temporary).Inventory(path, inventory, onlySize ? nullptr : &details);
                     }
-                    if (inventoryError && inventoryError != ERROR_CANCELLED)
+                    if (!script->CountSizeBatch && inventoryError && inventoryError != ERROR_CANCELLED)
                     {
                         const std::string message = std::string(LoadStr(IDS_UAC_INVENTORY_INCOMPLETE)) + "\n\n" +
                                                     SalWideToMultiBytePath(path.c_str(), CP_UTF8) + "\n" +
@@ -2489,38 +2515,57 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                                       MB_OK | MB_ICONEXCLAMATION);
                     }
                     ShowSafeWaitWindow(TRUE);
-                    *sourceEnd = 0;
-                    if (targetEnd != NULL)
-                        *targetEnd = 0;
-                    if (inventoryError)
-                        return FALSE;
-                    CQuadWord size;
-                    size.Value = inventory.bytes;
-                    script->CountSizeUsedBroker = true;
-                    script->TotalSize += size;
-                    script->FilesCount += inventory.files;
-                    script->DirsCount += inventory.directories;
-                    if (!onlySize)
+                    if (inventoryError && script->CountSizeBatch && inventoryError != ERROR_CANCELLED)
                     {
-                        const auto merge = [](CQuadWord& total, ULONGLONG value, bool& unavailable) {
-                            if (value >= UacF7::unavailableSize - total.Value)
-                                unavailable = true;
-                            else
-                                total.Value += value;
-                        };
-                        merge(script->CompressedSize, details.disk.compressed, script->CountSizeCompressionUnavailable);
-                        merge(script->OccupiedSpace, details.disk.occupied, script->CountSizeOccupiedUnavailable);
-                        for (const auto bytes : details.fileSizes)
-                        {
-                            if (!script->Sizes.IsGood())
-                                break;
-                            size.Value = bytes;
-                            script->Sizes.Add(size);
-                        }
+                        // Offer the same Skip, Skip All and Cancel choices as a regular read error.
+                        script->CountSizeIncomplete = true;
+                        err = inventoryError;
                     }
-                    return TRUE;
+                    else
+                    {
+                        *sourceEnd = 0;
+                        if (targetEnd != NULL)
+                            *targetEnd = 0;
+                        if (inventoryError)
+                        {
+                            if (!script->CountSizeBatch || choice == IDCANCEL)
+                                return FALSE;
+                            if (choice == IDNO)
+                                ErrListDirSkipAll = TRUE;
+                            // Declining the Windows prompt also skips just this subtree.
+                            script->CountSizeIncomplete = true;
+                            return TRUE;
+                        }
+                        CQuadWord size;
+                        size.Value = inventory.bytes;
+                        script->CountSizeUsedBroker = true;
+                        script->TotalSize += size;
+                        script->FilesCount += inventory.files;
+                        script->DirsCount += inventory.directories;
+                        if (!onlySize)
+                        {
+                            const auto merge = [](CQuadWord& total, ULONGLONG value, bool& unavailable) {
+                                if (value >= UacF7::unavailableSize - total.Value)
+                                    unavailable = true;
+                                else
+                                    total.Value += value;
+                            };
+                            merge(script->CompressedSize, details.disk.compressed, script->CountSizeCompressionUnavailable);
+                            merge(script->OccupiedSpace, details.disk.occupied, script->CountSizeOccupiedUnavailable);
+                            for (const auto bytes : details.fileSizes)
+                            {
+                                if (!script->Sizes.IsGood())
+                                    break;
+                                size.Value = bytes;
+                                script->Sizes.Add(size);
+                            }
+                        }
+                        return TRUE;
+                    }
                 }
             }
+            if (script->CountSizeBatch && err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES)
+                script->CountSizeIncomplete = true;
             if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES)
             {
                 if (!Salamander::LocalizedText::Write(text, static_cast<size_t>(textBuffer.Capacity()),
@@ -2677,6 +2722,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
 
             if (testFindNextErr && err != ERROR_NO_MORE_FILES)
             {
+                if (script->CountSizeBatch)
+                    script->CountSizeIncomplete = true;
                 if (!Salamander::LocalizedText::Write(text, static_cast<size_t>(textBuffer.Capacity()),
                                                      LoadStr(IDS_CANNOTREADDIR), sourcePath, GetErrorText(err)))
                 {

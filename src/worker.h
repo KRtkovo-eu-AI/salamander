@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Track skipped directories in per-folder size batches. | Prevent a partial size from being shown as complete. | #731 | Codex |
 // | 2026-11-10 | Keep UAC metadata separate from locked-file recovery | Integrate UAC with current upstream behavior. | #731 | Codex |
 // | 2026-11-09 | Declare the progress caption callback. | Dispatch broker activity to the native dialog thread. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Mark directly selected files for protected transfer. | Keep recursive script items outside the selected-file broker scope. | | GPT-6.1 Sol (Codex) |
@@ -518,6 +519,8 @@ public:
     BOOL FastMoveUsed;     // is at least one file or directory being "renamed"? (then the total moved data size would be misleading)
     BOOL ChangeSpeedLimit; // TRUE = the speed limit might change (the worker should reach a state where changing it is easy)
 
+    bool CountSizeBatch = false;
+    bool CountSizeIncomplete = false; // current top-level directory in a size batch
     bool CountSizeUsedBroker = false;
     bool CountSizeCompressionUnavailable = false;
     bool CountSizeOccupiedUnavailable = false;

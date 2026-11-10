@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Verify scoped continuation of protected size batches. | Keep refused or incomplete rows out of published sizes. | #731 | Codex |
 """Compile the actual BuildScriptDir error/cancel branch, including its message storage."""
 import argparse
 import json
@@ -16,6 +18,26 @@ def main():
     parser.add_argument('--source-ref', help='demonstrate the original overrun with the same native harness')
     args = parser.parse_args()
     production = read('src/fileswn6.cpp', args.source_ref)
+    if not args.source_ref:
+        consent = production[production.index('static int ConfirmProtectedSizeBatch('):
+                             production.index('BOOL CFilesWindow::BuildScriptDir(')]
+        for field in ('IDS_MSGBOXBTN_SKIP', 'IDS_MSGBOXBTN_SKIPALL', 'IDS_AS_ADMIN_TITLE',
+                      'MSGBOXEX_DEFBUTTON4', 'MSGBOXEX_SHIELDONOKBTN'):
+            assert field in consent
+        start = production.index('if (type == atCountSize && err == ERROR_ACCESS_DENIED')
+        protected = production[start:production.index('if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES)', start)]
+        assert 'if (reuse || temporary.Prepare(path))' in protected
+        assert protected.index('if (choice == IDOK)') < protected.index('temporary.Start(HWindow)')
+        assert 'err = inventoryError;' in protected
+        assert protected.index('if (!script->CountSizeBatch || choice == IDCANCEL)') < protected.index('return FALSE;')
+        assert protected.index('if (choice == IDNO)') < protected.index('ErrListDirSkipAll = TRUE;')
+        skip = protected[protected.index('// Declining the Windows prompt'):]
+        assert skip.index('script->CountSizeIncomplete = true;') < skip.index('return TRUE;')
+        scan = production[production.index('BOOL CFilesWindow::BuildScriptMain('):
+                          production.index('static int ConfirmProtectedSizeBatch(')]
+        assert scan.index('script->CountSizeIncomplete = false;') < scan.index('if (!BuildScriptDir(')
+        assert scan.index('oneFile->SizeValid = 0;') < scan.index('if (!BuildScriptDir(')
+        assert scan.index('if (countSize && !script->CountSizeIncomplete)') < scan.index('oneFile->SizeValid = 1;')
     production = production[production.index('BOOL CFilesWindow::BuildScriptDir('):production.index('\nBOOL GetLinkTgtFileSize(')]
     start = production.index('    CPathBuffer textBuffer(') if '    CPathBuffer textBuffer(' in production else production.index('    char text[')
     storage = production[start:production.index('    char finalName[', start)]

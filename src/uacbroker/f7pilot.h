@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Prepare a separate viewer request from the approved panel. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
 | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 | 2026-11-09 | Expose optional broker activity notifications. | Allow native progress to mark authenticated work. | | GPT-6.1 Sol (Codex) |
@@ -531,6 +532,7 @@ public:
 
     bool Prepare(const std::wstring& path, bool findContent = false);
     bool PrepareFile(const std::wstring& path);
+    DWORD PrepareViewer(const std::wstring& path, PreparedLeaf& viewer);
     DWORD Start(HWND owner, HANDLE stop = nullptr);
     DWORD OpenContent(const std::wstring& path, ULONGLONG& size, FILETIME& modified, ArchiveRevision& revision);
     DWORD ReadContent(ULONGLONG offset, void* buffer, DWORD bytes);

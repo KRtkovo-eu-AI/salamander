@@ -6,6 +6,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Offer separate F3 consent from a protected panel. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
 // | 2026-11-09 | Keep the full F7 parent path in heap storage. | Avoid aborting before consent for deeply nested targets. | | Codex |
 // | 2026-11-09 | Default the protected F7 prompt to Cancel. | Require choosing the shield button to request elevation. | | Codex |
 // | 2026-11-08 | Carry the selected attribute masks into the worker. | Keep the elevated job bound to the original choices. | | GPT-6.1 Sol (Codex) |
@@ -2084,7 +2085,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
     BOOL lockOwner = FALSE;
     ViewFileInt(HWindow, name, altView, handlerID, useDiskCache, lock, lockOwner, addToHistory,
                 enumFileNamesSourceUID, enumFileNamesLastFileIndex,
-                protectedCandidate.empty() ? nullptr : &protectedCandidate, deferredPathCheck);
+                protectedCandidate.empty() ? nullptr : &protectedCandidate, deferredPathCheck ? ProtectedListing.get() : nullptr);
 
     if (useDiskCache)
     {
@@ -2101,7 +2102,7 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
 
 BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, BOOL returnLock,
                  HANDLE& lock, BOOL& lockOwner, BOOL addToHistory, int enumFileNamesSourceUID,
-                 int enumFileNamesLastFileIndex, const std::wstring* protectedCandidate, bool deferredPathCheck)
+                 int enumFileNamesLastFileIndex, const std::wstring* protectedCandidate, UacF7::ListingSession* protectedListing)
 {
     BOOL success = FALSE;
     lock = NULL;
@@ -2202,7 +2203,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
     {
         //    if (MakeFileAvailOfflineIfOneDriveOnWin81(parent, name))
         //    {
-        if (deferredPathCheck && viewer->ViewerType != VIEWER_INTERNAL)
+        if (protectedListing && viewer->ViewerType != VIEWER_INTERNAL)
         {
             const std::string directory(name, namePart - name - 1);
             if (SalCheckPath(TRUE, directory.c_str(), ERROR_SUCCESS, TRUE, parent) != ERROR_SUCCESS)
@@ -2310,7 +2311,18 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                 else if (GetLastError() == ERROR_ACCESS_DENIED)
                 {
                     UacF7::PreparedLeaf request;
-                    if (request.PrepareView(*protectedCandidate))
+                    bool prepared = request.PrepareView(*protectedCandidate);
+                    if (!prepared && protectedListing)
+                    {
+                        const DWORD error = protectedListing->PrepareViewer(*protectedCandidate, request);
+                        if (error)
+                        {
+                            SalMessageBox(parent, GetErrorText(error), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+                            return FALSE;
+                        }
+                        prepared = true;
+                    }
+                    if (prepared)
                     {
                         if (!ConfirmProtectedRead(parent, IDS_VIEWERTITLE, IDS_UAC_VIEW_CONFIRM, *protectedCandidate))
                             return FALSE;

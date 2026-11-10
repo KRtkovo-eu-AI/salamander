@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Restore F3 in protected panels and keep directory size batches running. | Verify the selected file through its listing session and isolate denied subtrees. | #731 | Codex |
 | 2026-11-10 | Verify protected directory identity through its parent. | Cover directories that deny the ordinary process even a metadata handle. | #731 | Codex |
 | 2026-11-10 | Integrate the current upstream release branch. | Preserve asynchronous Find and locked-file recovery alongside UAC. | #731 | Codex |
 | 2026-11-09 | Record the deferral of the interactive DPI check. | Resume it when the test VM can use actual higher scaling. | | Codex |
@@ -1175,6 +1176,12 @@ Lokálně prošlo sestavení x64 Debug aplikace, prostředků, brokeru a sondy. 
 
 V izolované Windows 11 VM běžný token nedokázal přečíst obsah obou chráněných souborů. F3 přes broker otevřelo soubor 01-view-approve-東.txt (129 825 bajtů) a označilo jej jako snímek správce. V textu byl vidět začátek P6C-BEGIN i konec P6C-END po Ctrl+End. Hexadecimální režim ukázal původní bajty UTF-8 BOM a Ctrl+R odkázalo na nové F3 z panelu. Zrušený F3 u 02-view-cancel.txt prohlížeč neotevřel. Běžný soubor otevřel F3 přímo. Po skončení neběžel žádný broker. Otisky všech instalovaných binárek odpovídaly sestavení. První varianta součtu Ctrl+Q zobrazila dva soubory, dva adresáře a 18 bajtů ve zmenšeném dialogu. Po sjednocení měly běžný a chráněný výsledek ve VM stejný titulek Calculate Occupied Space, rozměry 383 × 359 px a shodné rozložení. Běžný výpočet ukázal 15 logických bajtů a 4 096 bajtů obsazeného místa. Chráněný výpočet po schválení ukázal 18 logických bajtů, dva soubory a dva adresáře. Neměřené hodnoty byly označené Not available. Sestavení x64 Debug a regrese diskových operací, přechodů panelu, Findu a konverzních tabulek prošly.
 
+
+**F3 z chráněného diskového panelu.** Pokud běžný token nedokáže otevřít ani metadata, schválená relace výpisu předá pouze ID souboru a rodiče v rámci svého podstromu. Po samostatném souhlasu UAC pro konkrétní soubor nový broker obě identity ověří a vestavěný prohlížeč otevře snímek do 16 MiB. Protokol 12 odmítá průchod mimo podstrom, kombinaci požadavku na identitu s obsahem a použití požadavku v relaci Find. V izolované VM x64 Release se chráněná složka otevřela se štítem a po schválení F3 zobrazil `viewer-test.txt` s textem `protected viewer sample` a označením Administrator snapshot. Nativní sada transportu v Release prošla 67 kontrolami.
+
+**Dávka Calculate Directory Sizes (Ctrl+Shift+F10).** U chráněného podstromu lze zvolit přeskočení, přeskočení všech, správce nebo ukončení dávky. Odmítnutí systémové výzvy přeskočí jen daný podstrom. Řádek s neúplným součtem nezobrazí číslo. Je-li zdrojový panel již schválený, výpočet může použít relaci výpisu v jejím rozsahu. Ve VM po volbě Ne pro `02-decline` následovala nabídka pro `03-approve`. Po volbě Ano ukázal panel 8 bajtů u běžné složky, žádnou velikost u odmítnuté a 23 bajtů u schválené. Prošly regrese výpočtu velikosti (244 kontrol) a identity cíle (448 kontrol) v Debug i Release. Chráněný výpočet stále respektuje limity inventáře a neprochází přes reparse body. Ověření proběhlo na vyhrazené testovací struktuře.
+
+Porovnání pilotu x64 Release: `salamand.exe` 5 646 336 → 5 651 456 bajtů, `uacbroker.exe` 1 342 976 bajtů v obou sestaveních. Dvojice celkem 6 989 312 → 6 994 432 bajtů. Soukromá paměť se v této zkoušce neměřila.
 
 ### 8.44 P6d — obsazené místo a odhad při chráněném Ctrl+Q
 

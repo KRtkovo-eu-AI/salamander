@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Declare the protected panel context for the internal viewer. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
 // | 2026-11-09 | Reserve a progress caption activity message. | Keep broker status separate from ordinary progress updates. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Accept a verified panel path in the internal viewer dispatcher. | Other entry points keep their current access behavior. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-04 | Stop Ctrl+arrow on both sides of spaces too. | Spaces were still skipped while punctuation already stopped before and after. | | Composer |
@@ -658,10 +659,12 @@ void RemoveEmptyDirs(const char* dir);
 // vykona rutina pro otevirani vieweru - pouziva se v CFilesWindow::ViewFile a
 // CSalamanderForViewFileOnFS::OpenViewer; dalsi vyuziti se neocekava, proto nejsou
 // popsany parametry a navratove hodnoty
+namespace UacF7 { class ListingSession; }
+
 BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, BOOL returnLock,
                  HANDLE& lock, BOOL& lockOwner, BOOL addToHistory, int enumFileNamesSourceUID,
                  int enumFileNamesLastFileIndex, const std::wstring* protectedCandidate = nullptr,
-                 bool deferredPathCheck = false);
+                 UacF7::ListingSession* protectedListing = nullptr);
 
 // prevede string ('str' o delce 'len') na unsigned __int64 (muze predchazet
 // znamenko '+'; ignoruje white-spaces na zacatku a konci retezce);
