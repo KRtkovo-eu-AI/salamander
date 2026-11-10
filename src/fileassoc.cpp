@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Make pattern normalization safe for aliased input and output. | Fix ReplaceAssociations clearing the same string it passes as its input, which made Apply reject every row as empty. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Validate explicit overrides as the effective exact-key choice. | Allow a user action to shadow retained defaults even if the legacy candidates were not normalized into a conflict pair. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Allow user overrides to replace conflicting plugin targets. | Validation must accept a chosen user target alongside retained conflict candidates so Apply can commit it. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Fix error reporting in custom-handler storage helpers. | Free functions cannot call the association model's private SetError method. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -318,8 +319,12 @@ bool CFileAssociationModel::NormalizePattern(const char* pattern, std::string* n
         return false;
     }
 
+    // Callers may normalize a string in place (ReplaceAssociations does this
+    // for each copied row). Copy the source before clearing the output so the
+    // input pointer cannot be invalidated by that clear.
+    const std::string sourcePattern = pattern != NULL ? pattern : "";
     normalized->clear();
-    std::string value = TrimPattern(pattern);
+    std::string value = TrimPattern(sourcePattern.c_str());
     if (value.empty())
     {
         SetError(error, "pattern must not be empty");

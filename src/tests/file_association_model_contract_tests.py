@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Regress in-place association pattern normalization. | Catch the input/output alias that made Apply's full-model replacement clear each row's pattern before validating it. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-10 | Guard pattern-key separation during Apply. | Catch regressions where reading action fields overwrites the selected matrix pattern with stale edit text. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-10 | Check association Apply input and persistence flow. | Guard the selected pattern fallback, user override commit, storage flush, and table reload against regressions. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-10 | Align lifecycle contract with materialized-state persistence. | Check the current storage guard instead of the removed projection-success flag. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -103,6 +104,17 @@ def main() -> None:
         require(method in header and method in implementation, f"missing model method: {method}")
 
     require('value = "*.*"' in implementation, "universal pattern normalization is missing")
+    normalize_start = implementation.index("bool CFileAssociationModel::NormalizePattern(")
+    normalize_end = implementation.index("bool CFileAssociationModel::PatternsOverlap(", normalize_start)
+    normalize_pattern = implementation[normalize_start:normalize_end]
+    replace_start = implementation.index("bool CFileAssociationModel::ReplaceAssociations(")
+    replace_end = implementation.index("bool CFileAssociationModel::Validate(", replace_start)
+    replace_associations = implementation[replace_start:replace_end]
+    require("NormalizePattern(item.Pattern.c_str(), &item.Pattern, error)" in replace_associations and
+            "const std::string sourcePattern = pattern != NULL ? pattern : \"\";" in normalize_pattern and
+            normalize_pattern.index("sourcePattern") < normalize_pattern.index("normalized->clear()") and
+            "TrimPattern(sourcePattern.c_str())" in normalize_pattern,
+            "in-place ReplaceAssociations normalization must preserve the source pattern before clearing output")
     require('value = "*." + value' in implementation, "bare extensions must normalize to patterns")
     require("value.find(';')" in implementation and "value.find('|')" in implementation,
             "grouped masks must be rejected by the model")
@@ -283,6 +295,19 @@ def main() -> None:
             "CopyCanonicalAssociationsForConfiguration" in apply_handler and
             "Rows = savedModel.Associations();" in apply_handler,
             "Apply must persist a user override and reload the table from canonical state")
+    apply_stages = (
+        "candidate.ReplaceAssociations(Rows, &error)",
+        "ReplaceCanonicalAssociationsForConfiguration(\n                    candidate",
+        "SaveCanonicalAssociationsForLifecycle(\n                    ConfigurationStorage",
+        "ConfigurationStorage.Flush(FALSE)",
+        "CopyCanonicalAssociationsForConfiguration(\n                    &savedModel",
+        "Rows = savedModel.Associations();",
+    )
+    apply_stage_positions = [apply_handler.index(stage) for stage in apply_stages]
+    apply_stage_positions.append(apply_handler.index(
+        "RefreshList();", apply_handler.index("Rows = savedModel.Associations();")))
+    require(apply_stage_positions == sorted(apply_stage_positions),
+            "Apply must validate, commit, persist, flush, reload, and refresh in order")
     require("EnsureCanonicalAssociationsMaterializedForConfiguration(&error)" in dialogs5 and
             dialogs5.index("EnsureCanonicalAssociationsMaterializedForConfiguration(&error)") <
                 dialogs5.index("CopyCanonicalAssociationsForConfiguration(&model, &error)"),
