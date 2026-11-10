@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Preserve resolved conflicts when loading user overrides. | Do not re-mark retained plugin/extension candidates as Conflict after the same key has a saved User or Disabled override. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Make pattern normalization safe for aliased input and output. | Fix ReplaceAssociations clearing the same string it passes as its input, which made Apply reject every row as empty. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Validate explicit overrides as the effective exact-key choice. | Allow a user action to shadow retained defaults even if the legacy candidates were not normalized into a conflict pair. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Allow user overrides to replace conflicting plugin targets. | Validation must accept a chosen user target alongside retained conflict candidates so Apply can commit it. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -736,9 +737,10 @@ BOOL CFileAssociationModel::Load(HKEY parentKey, const char* keyName, std::strin
     }
     loaded.MarkLegacyConflicts();
 
-    // Persisted conflicts are diagnostic rows for competing targets of the
-    // same exact pattern and survive a round trip; all other competing active
-    // targets are rejected.
+    // Remaining conflicts are diagnostic rows for competing targets of the
+    // same exact pattern. MarkLegacyConflicts() omits keys already resolved by
+    // a persisted User/Disabled override; all other competing active targets
+    // are rejected.
     for (size_t i = 0; i < loaded.Items.size() && !itemError; ++i)
     {
         for (size_t j = i + 1; j < loaded.Items.size(); ++j)
@@ -977,6 +979,23 @@ void CFileAssociationModel::MarkLegacyConflicts()
             Association& second = Items[j];
             if (!IsConflictingPair(first, second))
                 continue;
+
+            bool hasUserOverride = false;
+            for (size_t k = 0; k < Items.size(); ++k)
+            {
+                const Association& candidate = Items[k];
+                if (SameKey(candidate, first.Pattern, first.AssociationCategory,
+                            first.Operation) &&
+                    (candidate.AssociationProvenance == Provenance::User ||
+                     candidate.AssociationProvenance == Provenance::Disabled))
+                {
+                    hasUserOverride = true;
+                    break;
+                }
+            }
+            if (hasUserOverride)
+                continue;
+
             first.AssociationProvenance = Provenance::Conflict;
             second.AssociationProvenance = Provenance::Conflict;
         }

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Regress conflict state after persisted user override reload. | Ensure conflict recomputation preserves User status for an overridden exact action key. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-10 | Guard association row badge provenance precedence. | Keep resolved user overrides visible in Status and Source without hiding remaining conflicts. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-10 | Regress in-place association pattern normalization. | Catch the input/output alias that made Apply's full-model replacement clear each row's pattern before validating it. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-10 | Guard pattern-key separation during Apply. | Catch regressions where reading action fields overwrites the selected matrix pattern with stale edit text. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -138,6 +139,14 @@ def main() -> None:
             "Items = previous" in implementation,
             "failed user edits must leave the previous model unchanged")
     require("MarkLegacyConflicts" in implementation, "legacy conflicts must remain visible")
+    mark_conflicts_start = implementation.index("void CFileAssociationModel::MarkLegacyConflicts()")
+    mark_conflicts_end = implementation.index("} // namespace FileAssociations", mark_conflicts_start)
+    mark_conflicts = implementation[mark_conflicts_start:mark_conflicts_end]
+    require("SameKey(candidate, first.Pattern, first.AssociationCategory," in mark_conflicts and
+            "candidate.AssociationProvenance == Provenance::User" in mark_conflicts and
+            "candidate.AssociationProvenance == Provenance::Disabled" in mark_conflicts and
+            "if (hasUserOverride)\n                continue;" in mark_conflicts,
+            "loading must not regenerate a conflict when the exact pattern/action has a user override")
     require("FileAssociationsCurrentSchemaVersion = 1" in implementation,
             "canonical persistence must have an explicit schema version")
     require('const char* const FileAssociationsCount = "Association Count"' in implementation and
@@ -155,10 +164,17 @@ def main() -> None:
     require("CFileAssociationModel loaded" in implementation and
             "Items.swap(loaded.Items)" in implementation,
             "loading must replace the model only after all records are parsed")
+    load_start = implementation.index("BOOL CFileAssociationModel::Load(")
+    load_end = implementation.index("BOOL CFileAssociationModel::Save(", load_start)
+    load_model = implementation[load_start:load_end]
+    require(load_model.index("item.AssociationProvenance = item.SourceProvenance") <
+            load_model.index("loaded.MarkLegacyConflicts();") and
+            "loaded.MarkLegacyConflicts();" in load_model,
+            "loading must restore candidate provenance and recompute only unresolved conflicts")
     require("loaded.Items.push_back(item)" in implementation and
             "item.SourceProvenance = static_cast<Provenance>(sourceProvenance)" in implementation,
             "loading must preserve serialized association fields")
-    require("Persisted conflicts are diagnostic rows" in implementation and
+    require("Remaining conflicts are diagnostic rows" in implementation and
             "first.AssociationProvenance == Provenance::Conflict" in implementation,
             "persisted legacy conflicts must remain visible during load")
     require("if (error != NULL)\n        error->clear();" in implementation,
