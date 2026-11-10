@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Regress User badge and Conflicts filter consistency. | Ensure one user-first row status drives its text, color, conflict count, and checkbox filtering. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-10 | Regress conflict state after persisted user override reload. | Ensure conflict recomputation preserves User status for an overridden exact action key. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-10 | Guard association row badge provenance precedence. | Keep resolved user overrides visible in Status and Source without hiding remaining conflicts. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-10 | Regress in-place association pattern normalization. | Catch the input/output alias that made Apply's full-model replacement clear each row's pattern before validating it. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -117,20 +118,20 @@ def main() -> None:
             normalize_pattern.index("sourcePattern") < normalize_pattern.index("normalized->clear()") and
             "TrimPattern(sourcePattern.c_str())" in normalize_pattern,
             "in-place ReplaceAssociations normalization must preserve the source pattern before clearing output")
-    status_start = dialogs5.index("std::string CCfgPageFileAssociations::MatrixStatusText(")
+    status_start = dialogs5.index("CCfgPageFileAssociations::MatrixStatusProvenance(")
     status_end = dialogs5.index("int CCfgPageFileAssociations::MatrixSourceKind(", status_start)
     matrix_status = dialogs5[status_start:status_end]
-    source_start = status_end
-    source_end = dialogs5.index("std::string CCfgPageFileAssociations::MatrixSourceText(", source_start)
-    matrix_source = dialogs5[source_start:source_end]
-    require(matrix_status.index("provenance == Salamander::FileAssociations::Provenance::User") <
-            matrix_status.index("if (row.Conflict)") <
-            matrix_status.index("Provenance::Conflict"),
-            "matrix status must show an effective user override before a row-level residual conflict")
-    require(matrix_source.index("SourceProvenance == Salamander::FileAssociations::Provenance::User") <
-            matrix_source.index("for (int i = 0; i < 5; ++i)",
-                                matrix_source.index("return 0;")),
-            "matrix source must prefer a user override over earlier plugin/default columns")
+    require(matrix_status.index("Rows[i].Pattern != row.Pattern") <
+            matrix_status.index("AssociationProvenance == Salamander::FileAssociations::Provenance::User") <
+            matrix_status.index("if (row.Conflict)"),
+            "matrix status must prefer user overrides over retained conflicts for the same pattern")
+    require("MatrixStatusProvenance(row) !=" in dialogs5 and
+            "MatrixStatusProvenance(MatrixRows[i]) ==" in dialogs5 and
+            "const Salamander::FileAssociations::Provenance state = MatrixStatusProvenance(row);" in dialogs5,
+            "the badge, conflict filter, and conflict counts must share one effective status calculation")
+    require("case Salamander::FileAssociations::Provenance::User:\n                    badgeColor = dark ? RGB(32, 120, 55) : RGB(205, 238, 215);" in dialogs5 and
+            "case Salamander::FileAssociations::Provenance::Conflict:\n                    badgeColor = dark ? RGB(190, 64, 58) : RGB(250, 210, 205);" in dialogs5,
+            "User and Conflict badges must use distinct colors in dark and light schemes")
     require('value = "*." + value' in implementation, "bare extensions must normalize to patterns")
     require("value.find(';')" in implementation and "value.find('|')" in implementation,
             "grouped masks must be rejected by the model")

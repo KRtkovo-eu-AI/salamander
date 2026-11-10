@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Unify association status, badge color, and conflict filtering. | Apply the same User-first status calculation to the badge, counts, and Conflicts checkbox. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Prioritize effective user provenance in matrix badges. | Show User after an override replaces a default/plugin association while retaining Conflict for any unresolved action on the same pattern. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Keep selected pattern keys independent from Apply editor values. | Do not let the Pattern edit field overwrite the matrix selection while reading Action, Target, and Target ID. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Seed Apply from the selected association before reading editor fields. | Preserve the established Configuration save path's pattern fallback while letting the detail controls override the action. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -4031,32 +4032,43 @@ LRESULT CALLBACK CCfgPageFileAssociations::ConflictStatusSubclassProc(
     return DefSubclassProc(window, message, wParam, lParam);
 }
 
-std::string CCfgPageFileAssociations::MatrixStatusText(const MatrixRow& row) const
+Salamander::FileAssociations::Provenance
+CCfgPageFileAssociations::MatrixStatusProvenance(const MatrixRow& row) const
 {
+    // The row badge summarizes the whole pattern. User choices and explicit
+    // disable overrides take precedence over retained plugin conflict rows.
+    Salamander::FileAssociations::Provenance overrideProvenance =
+        Salamander::FileAssociations::Provenance::Default;
+    for (size_t i = 0; i < Rows.size(); ++i)
+    {
+        if (Rows[i].Pattern != row.Pattern)
+            continue;
+        if (Rows[i].AssociationProvenance == Salamander::FileAssociations::Provenance::User)
+            return Salamander::FileAssociations::Provenance::User;
+        if (Rows[i].AssociationProvenance == Salamander::FileAssociations::Provenance::Disabled)
+            overrideProvenance = Salamander::FileAssociations::Provenance::Disabled;
+    }
+    if (overrideProvenance == Salamander::FileAssociations::Provenance::Disabled)
+        return overrideProvenance;
+    if (row.Conflict)
+        return Salamander::FileAssociations::Provenance::Conflict;
+
     const int indexes[5] = {row.View, row.AlternateView, row.Edit, row.ListUnpack, row.DeletePack};
-    int statusIndex = -1;
     for (int i = 0; i < 5; ++i)
     {
         if (indexes[i] < 0)
             continue;
         const Salamander::FileAssociations::Provenance provenance =
             Rows[indexes[i]].AssociationProvenance;
-        if (provenance == Salamander::FileAssociations::Provenance::User ||
-            provenance == Salamander::FileAssociations::Provenance::Disabled)
-            return std::string(ProvenanceText(provenance));
-        if (statusIndex < 0)
-            statusIndex = indexes[i];
+        return provenance == Salamander::FileAssociations::Provenance::Legacy
+            ? Salamander::FileAssociations::Provenance::Default : provenance;
     }
+    return Salamander::FileAssociations::Provenance::Default;
+}
 
-    if (row.Conflict)
-        return std::string(ProvenanceText(Salamander::FileAssociations::Provenance::Conflict));
-
-    Salamander::FileAssociations::Provenance status = statusIndex >= 0
-        ? Rows[statusIndex].AssociationProvenance
-        : Salamander::FileAssociations::Provenance::Default;
-    if (status == Salamander::FileAssociations::Provenance::Legacy)
-        status = Salamander::FileAssociations::Provenance::Default;
-    return std::string(ProvenanceText(status));
+std::string CCfgPageFileAssociations::MatrixStatusText(const MatrixRow& row) const
+{
+    return std::string(ProvenanceText(MatrixStatusProvenance(row)));
 }
 
 int CCfgPageFileAssociations::MatrixSourceKind(const MatrixRow& row) const
@@ -4143,7 +4155,8 @@ void CCfgPageFileAssociations::UpdateCategoryTabs()
     }
     size_t conflictCount = 0;
     for (size_t i = 0; i < MatrixRows.size(); ++i)
-        if (MatrixRows[i].Conflict)
+        if (MatrixStatusProvenance(MatrixRows[i]) ==
+            Salamander::FileAssociations::Provenance::Conflict)
             ++conflictCount;
     char conflictLabel[80];
     _snprintf(conflictLabel, sizeof(conflictLabel), LoadStr(IDS_FILEASSOCIATION_CONFLICTS_COUNT),
@@ -4170,7 +4183,8 @@ bool CCfgPageFileAssociations::MatrixRowVisible(const MatrixRow& row) const
         if (!found)
             return false;
     }
-    if (ConflictsOnly && !row.Conflict)
+    if (ConflictsOnly && MatrixStatusProvenance(row) !=
+                             Salamander::FileAssociations::Provenance::Conflict)
         return false;
     if (FilterCategory >= 0)
     {
@@ -4633,7 +4647,8 @@ void CCfgPageFileAssociations::RefreshList()
         if (!MatrixRowVisible(MatrixRows[i]))
             continue;
         ++visibleCount;
-        if (MatrixRows[i].Conflict)
+        if (MatrixStatusProvenance(MatrixRows[i]) ==
+            Salamander::FileAssociations::Provenance::Conflict)
             ++visibleConflicts;
         const MatrixRow& row = MatrixRows[i];
         LVITEM item;
@@ -5126,19 +5141,7 @@ void CCfgPageFileAssociations::PaintMatrix(HDC hdc)
 
             if (column == 6)
             {
-                const int indexes[5] = {row.View, row.AlternateView, row.Edit,
-                                        row.DeletePack, row.ListUnpack};
-                int statusIndex = -1;
-                for (int i = 0; i < 5; ++i)
-                    if (indexes[i] >= 0 && indexes[i] < static_cast<int>(Rows.size()))
-                    {
-                        statusIndex = indexes[i];
-                        break;
-                    }
-                const Salamander::FileAssociations::Provenance state = row.Conflict
-                    ? Salamander::FileAssociations::Provenance::Conflict
-                    : statusIndex >= 0 ? Rows[statusIndex].AssociationProvenance
-                                       : Salamander::FileAssociations::Provenance::Default;
+                const Salamander::FileAssociations::Provenance state = MatrixStatusProvenance(row);
                 char text[128] = {};
                 ListView_GetItemText(list, rowIndex, column, text, _countof(text));
                 COLORREF badgeColor = dark ? RGB(106, 80, 170) : RGB(225, 215, 250);

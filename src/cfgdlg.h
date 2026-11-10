@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Declare the shared association status resolver. | Keep matrix status text, badge color, and conflict filtering on one provenance calculation. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Separate Apply's selected pattern key from editor field reads. | Prevent a stale or summary Pattern control from overwriting the matrix selection during Apply. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Allow Apply to read action fields without rereading the pattern editor. | Keep pattern keys from matrix selection separate from Action/Target/Target ID values. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Pass the selected matrix pattern as an Apply fallback. | Keep the action editor tied to its selected row when focus changes clear the pattern field. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -1149,6 +1150,7 @@ protected:
     void SetStatus(const char* text, BOOL conflict = FALSE);
     std::string MatrixCellText(int index, bool archive) const;
     std::string MatrixEditCellText(const MatrixRow& row) const;
+    Salamander::FileAssociations::Provenance MatrixStatusProvenance(const MatrixRow& row) const;
     std::string MatrixStatusText(const MatrixRow& row) const;
     void PaintMatrix(HDC hdc);
     static LRESULT CALLBACK MatrixListSubclassProc(HWND window, UINT message, WPARAM wParam,
