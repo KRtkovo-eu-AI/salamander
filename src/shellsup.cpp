@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Close the archive clipboard data-object scope before releasing it. | A missing brace left ShellAction unterminated and stopped the build. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Publish archive clipboard data without mutating the Shell data object. | PreferredDropEffect is optional for this copy-only path and can make OLE publication fail. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Use nothrow allocation for the archive clipboard wrapper. | Keep the existing low-memory branch while satisfying CodeQL allocation semantics. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Publish archive copy with valid marker and drop effect. | OLE clipboard publication failed when private formats had invalid media and effect was added afterward. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
@@ -1937,6 +1938,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                         }
                                         else
                                             TRACE_E(LOW_MEMORY);
+                                    }
                                 }
                                 ShellActionAux7(dataObject, NULL);
                             }
