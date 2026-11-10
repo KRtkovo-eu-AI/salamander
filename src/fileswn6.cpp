@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Remember foreground after the size broker launches. | Defer focus restoration while the panel is disabled. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Transfer clipboard source lease to disk copy script. | Preserve staged files until asynchronous copy work completes. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Preserve exact paths for permanent directory removal. | Discover denied descendants during tree traversal and never sweep unreadable content. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Build verified protected metadata from its checked attributes. | Avoid masking a denied attribute lookup as filesystem flags. | #731 | GPT-6.1 Sol (Codex) |
@@ -2513,7 +2514,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     }
                     if (choice == IDOK)
                     {
-                        inventoryError = reuse ? ERROR_SUCCESS : temporary.Start(HWindow);
+                        inventoryError = reuse ? ERROR_SUCCESS : temporary.Start(HWindow, nullptr, &script->CountSizeForeground);
                         if (!inventoryError)
                             inventoryError = (reuse ? *ProtectedListing : temporary).Inventory(path, inventory, onlySize ? nullptr : &details);
                     }

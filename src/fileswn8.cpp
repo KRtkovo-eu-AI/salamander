@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Return to the invoking panel after re-enabling it. | Restore focus for Ctrl+Q, Space and directory-size batches. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Copy the destination ID through the project memory helper. | Preserve the Debug build memory instrumentation. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Preview the destination permission in F5 and F6. | Carry consent only for the directory displayed on shielded OK. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Put the UAC shield on the permanent-delete confirmation for the selected item. | Reuse explicit Yes only for the verified direct item. | #731 | GPT-6 (Codex) |
@@ -186,7 +187,9 @@ static HRESULT RetryProtectedRecycle(HWND owner, const std::wstring& path, const
     if (!CanRequestSameAccountRecycle())
         return denied;
     OperationRecycleProgress progress(true, &original, CanRequestSameAccountRecycle);
+    const UacF7::ConsentForeground foreground(owner);
     const auto result = RunSingleRecycleOperation(owner, shellPath, progress, true);
+    foreground.Restore();
     return original.CompleteRecycle(path, progress.Receipt(), sid, result);
 }
 
@@ -524,7 +527,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                         fileSize.Value = bytes;
                         sizes.Add(fileSize);
                     }
-                    CSizeResultsDlg result(MainWindow->HWindow, size, compressed, occupied,
+                    CSizeResultsDlg result(GetAncestor(HWindow, GA_ROOT), size, compressed, occupied,
                                            inventory.files, inventory.directories + 1, &sizes);
                     result.Execute();
                 }
@@ -1765,7 +1768,10 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     lstrcpyn(captionBuf, caption, 50); // otherwise the LoadStr buffer gets overwritten before being copied to the dialog's local buffer
                     caption = captionBuf;
                     HWND hFocusedWnd = GetFocus();
-                    CreateSafeWaitWindow(LoadStr(IDS_ANALYSINGDIRTREEESC), NULL, 1000, TRUE, MainWindow->HWindow);
+                    const HWND operationOwner = type == atCountSize ? GetAncestor(HWindow, GA_ROOT) : MainWindow->HWindow;
+                    if (type == atCountSize)
+                        script->CountSizeForeground = UacF7::ConsentForeground(operationOwner);
+                    CreateSafeWaitWindow(LoadStr(IDS_ANALYSINGDIRTREEESC), NULL, 1000, TRUE, operationOwner);
                     MainWindow->StartAnimate(); // example of  its usage
                     EnableWindow(MainWindow->HWindow, FALSE);
 
@@ -1830,6 +1836,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     DestroySafeWaitWindow();
                     if (type == atCountSize) // additional directory sizes have been calculated
                     {
+                        script->CountSizeForeground.RestoreRemembered();
                         // perform sorting if counting was done across multiple selected directories or all directories
                         if (((countSizeMode == 0 && dirs > 1) || countSizeMode == 2) && SortType == stSize)
                         {
@@ -1845,9 +1852,9 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     // when the main window is disabled - after deactivating/activating the disabled main window the active panel
                     // does not have focus)
                     HWND hwnd = GetForegroundWindow();
-                    while (hwnd != NULL && hwnd != MainWindow->HWindow)
+                    while (hwnd != NULL && hwnd != operationOwner)
                         hwnd = GetParent(hwnd);
-                    if (hwnd == MainWindow->HWindow)
+                    if (hwnd == operationOwner)
                         SetFocus(hFocusedWnd);
 
                     SetCursor(oldCur);
@@ -1906,7 +1913,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                             if (res2 && type == atCountSize && countSizeMode == 0)
                             {
                                 const CQuadWord unknown(-1, -1);
-                                CSizeResultsDlg result(MainWindow->HWindow, script->TotalSize,
+                                CSizeResultsDlg result(operationOwner, script->TotalSize,
                                                        script->CountSizeUsedBroker && script->CountSizeCompressionUnavailable ? unknown : script->CompressedSize,
                                                        script->CountSizeUsedBroker && script->CountSizeOccupiedUnavailable ? unknown : script->OccupiedSpace,
                                                        script->FilesCount, script->DirsCount, &script->Sizes);

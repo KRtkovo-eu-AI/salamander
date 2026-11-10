@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Remember the foreground at broker return for size scans. | Restore only after the invoking panel is enabled. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Match destination consent to the prepared transfer parent. | Keep source and destination access failures distinct. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Verify exact files and empty ordinary directories for permanent deletion. | Bind consent to the chosen object and preserve nested permission checks. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Add one-shot verified directory rename. | Keep ordinary directories distinct from files and links in the broker. | #731 | GPT-6.1 Sol (Codex) |
@@ -88,13 +89,19 @@ constexpr UINT restoreConsentForegroundMessage = WM_APP + 427;
 class ConsentForeground
 {
 public:
+    ConsentForeground() = default;
     explicit ConsentForeground(HWND owner);
     HWND Owner() const { return owner; }
     void Restore() const;
+    void Remember();
+    void RestoreRemembered() const;
 
 private:
-    HWND owner;
-    bool wasForeground;
+    HWND owner = nullptr;
+    bool wasForeground = false;
+    HWND returnForeground = nullptr;
+    DWORD returnInput = 0;
+    bool hasReturnPoint = false;
 };
 
 void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput);
@@ -580,7 +587,7 @@ public:
     DWORD PrepareRename(const std::wstring& path, const std::wstring& renameTo, PreparedLeaf& rename, bool directory);
     DWORD PrepareMetadata(const std::wstring& path, const MetadataChange& change, MetadataJobPolicy policy,
                           PreparedLeaf& request);
-    DWORD Start(HWND owner, HANDLE stop = nullptr);
+    DWORD Start(HWND owner, HANDLE stop = nullptr, ConsentForeground* deferredForeground = nullptr);
     DWORD OpenContent(const std::wstring& path, ULONGLONG& size, FILETIME& modified, ArchiveRevision& revision);
     DWORD ReadContent(ULONGLONG offset, void* buffer, DWORD bytes);
     DWORD CloseContent();

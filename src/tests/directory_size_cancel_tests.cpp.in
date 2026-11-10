@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Model incomplete directory deletion in the scan fixture. | Compile the shared error branch after the protected delete change. | #731 | GPT-6.1 Sol |
 // The error branch and storage are extracted verbatim from production. UI is a
 // recording facade; paths include actual UTF-8 bytes, not a shortened surrogate.
 #define _CRT_SECURE_NO_WARNINGS // Match production headers; retain /GS and /WX.
@@ -42,6 +44,7 @@ static void Check(bool ok,const char* label){++Checks;if(!ok){++Failures;std::pr
 // return, just like Esc/Cancel unwinding the recursive application call.
 __declspec(noinline) static BOOL ReadError(char* sourcePath,char* sourceEnd,char* targetEnd,DWORD err) {
 @@STORAGE@@
+    [[maybe_unused]] bool directoryDeleteIncomplete = false;
 @@ERROR@@
     return TRUE;
 }

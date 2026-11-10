@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Keep the foreground return point with the size scan. | Share consent across the size entry points without changing worker operations. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Integrate clipboard lease cleanup with UAC worker teardown. | Release staged sources in the existing out-of-line destructor. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Retain staged clipboard sources through disk operation completion. | Async disk copies may continue after the clipboard drop callback returns. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Keep accepted destination identity with the transfer job. | Consume the dialog consent only for the verified target. | #731 | GPT-6 (Codex) |
@@ -542,6 +543,7 @@ public:
     BOOL FastMoveUsed;     // is at least one file or directory being "renamed"? (then the total moved data size would be misleading)
     BOOL ChangeSpeedLimit; // TRUE = the speed limit might change (the worker should reach a state where changing it is easy)
 
+    UacF7::ConsentForeground CountSizeForeground;
     bool CountSizeBatch = false;
     bool CountSizeIncomplete = false; // current top-level directory in a size batch
     bool CountSizeUsedBroker = false;

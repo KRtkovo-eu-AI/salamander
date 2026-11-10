@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Record foreground restoration for size scans and Shell consent. | Document the call-site audit and the isolated VM results. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Record the upstream clipboard integration. | Preserve the lifetime of staged clipboard files in the UAC worker. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Record the protected panel restore fix. | Verify that saved paths cannot block startup on an access prompt. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Record the F5 and F6 target shield and VM evidence. | Keep one in-app confirmation for an identified protected target. | #731 | GPT-6 (Codex) |
@@ -1615,6 +1616,16 @@ Místně prošly kontrakty obnovy záložek, 30 kontraktů přechodu panelu a x6
 ### P7 — sladění s upstreamem
 
 Sloučení s upstream revizí `18af145d` zachovává potvrzení UAC i novou podporu kopírování z archivů a pluginových souborových systémů přes schránku. Worker drží odkaz na dočasné zdrojové soubory schránky do ukončení skriptu a uvolňuje jej ve stávajícím destruktoru. Debug sestavení odhalilo, že při kopii ID cíle F5/F6 je potřeba použít projektovou variantu `memcpy`. Po opravě prošla sestavení Debug pro x64, Win32 a ARM64 s varováními jako chybami, nativní testy panelu, identity cíle a brokeru i kontrakty schránky, přenosů a obnovy panelu.
+
+### P7 — návrat do popředí po výpočtu velikosti a výzvách Shellu
+
+Ctrl+Q, mezerník a Ctrl+Shift+F10 používají stejný výpočet. Během průchodu je hlavní okno zakázané, takže pokus o návrat hned po UAC nemůže aktivovat panel. Výpočet si před zakázáním zaznamená vyvolávající okno a bezprostředně po zavření systémové výzvy zachytí popředí a čas posledního vstupu. Původní okno aktivuje až po opětovném povolení a před případným zobrazením výsledku. Návrat se přeskočí při novém vstupu, změně popředí nebo aktivním vlastním dialogu. Výsledek se váže k oknu panelu včetně odpojeného panelu.
+
+Kontrola volajících míst pokryla běžný panel, F2/F7, F3/F4, Find, ZIP, dialog průběhu F5/F6 a změny atributů i trvalé smazání. Broker používá stejný vstup pro systémový souhlas. Find a dialog průběhu mají obsluhu návratu na vlákně vlastníka. Koš vede přes Windows Shell a nyní používá stejnou kontrolu návratu. Příkazový řádek správce se při odmítnutí vrátí do Samandarinu stejně jako externí editor. Při schválení externího programu získává popředí jeho nové okno. Systémové výzvy vyvolané pluginy nebo externí asociací jsou mimo řízené toky hosta.
+
+Ve VM x64 Release se po schválení Ctrl+Q zobrazil v popředí výsledek s 18 logickými bajty a 8 192 obsazenými bajty. Po schválení mezerníku zůstal v popředí panel a ukázal 18 bajtů. Po odmítnutí Ctrl+Shift+F10 zůstal v popředí panel bez neúplné hodnoty. Návrat do Samandarinu prošel i po odmítnutí Koše a příkazového řádku správce. Zkušební soubor Koše zůstal na místě. Samostatný odpojený panel a další již existující brokerové toky byly v této sérii prověřeny ve zdroji. Doklad je v `C:/Samandarin/builds/uac-size-foreground/vm-evidence.json`.
+
+Prošel x64 Release build, 244 kontrol zpracování chyby výpočtu v každé konfiguraci, nativní transport a brokerové relace v Release i kontrakty Findu a workeru. Přípravek pro výpočet nyní obsahuje lokální stav neúplného mazání, který čte sdílená produkční větev. Tím se opravuje jediná chyba nativních testů hlášená na revizi `7d964bf1` ve forku. Protokol zůstává 15.
 
 ## 12. Testovací strategie
 

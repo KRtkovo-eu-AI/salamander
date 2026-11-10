@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Return to the invoking window when admin shell consent is cancelled. | Keep a successful visible shell in the foreground. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Enable clipboard copy from plugin file systems. | The staged-file clipboard path supports plugin FS sources with copy-from-FS service. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-08 | Remove the standalone ZIP recovery command route. | Limit UAC to existing ZIP commands. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Dispatch explicit ZIP recovery from a disk panel. | Use the normal guarded command route for attached and detached panels. | | GPT-6.1 Sol (Codex) |
@@ -8746,8 +8747,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 SHELLEXECUTEINFO sei;
                 memset(&sei, 0, sizeof(sei));
                 sei.cbSize = sizeof(sei);
-                sei.fMask = SEE_MASK_NOCLOSEPROCESS;
-                sei.hwnd = HWindow;
+                sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC;
+                const UacF7::ConsentForeground foreground(HWindow);
+                sei.hwnd = foreground.Owner();
                 sei.lpVerb = "runas";
                 sei.lpFile = elevatedApplication;
                 sei.lpParameters = elevatedArguments;
@@ -8757,7 +8759,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
                 if (!ShellExecuteEx(&sei))
                 {
                     DWORD err = GetLastError();
-                    if (err != ERROR_CANCELLED)
+                    if (err == ERROR_CANCELLED)
+                        foreground.Restore();
+                    else
                     {
                         SalMessageBox(HWindow, GetErrorText(err), LoadStr(IDS_ERROREXECPROMPT),
                                       MB_OK | MB_ICONEXCLAMATION);

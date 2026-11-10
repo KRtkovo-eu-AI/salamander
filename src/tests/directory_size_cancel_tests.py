@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Verify the size scan foreground handoff. | Record consent before disabling the owner and restore before showing results. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Verify scoped continuation of protected size batches. | Keep refused or incomplete rows out of published sizes. | #731 | Codex |
 """Compile the actual BuildScriptDir error/cancel branch, including its message storage."""
 import argparse
@@ -27,7 +28,14 @@ def main():
         start = production.index('if (type == atCountSize && err == ERROR_ACCESS_DENIED')
         protected = production[start:production.index('if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES)', start)]
         assert 'if (reuse || temporary.Prepare(path))' in protected
-        assert protected.index('if (choice == IDOK)') < protected.index('temporary.Start(HWindow)')
+        assert protected.index('if (choice == IDOK)') < protected.index(
+            'temporary.Start(HWindow, nullptr, &script->CountSizeForeground)')
+        action = read('src/fileswn8.cpp')
+        captured = action.index('script->CountSizeForeground = UacF7::ConsentForeground(operationOwner)')
+        disabled = action.index('EnableWindow(MainWindow->HWindow, FALSE)', captured)
+        enabled = action.index('EnableWindow(MainWindow->HWindow, TRUE)', disabled)
+        restored = action.index('script->CountSizeForeground.RestoreRemembered()', enabled)
+        assert captured < disabled < enabled < restored < action.index('CSizeResultsDlg result(operationOwner', restored)
         assert 'err = inventoryError;' in protected
         assert protected.index('if (!script->CountSizeBatch || choice == IDCANCEL)') < protected.index('return FALSE;')
         assert protected.index('if (choice == IDNO)') < protected.index('ErrListDirSkipAll = TRUE;')

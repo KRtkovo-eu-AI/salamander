@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Capture the return point as soon as Windows consent ends. | Avoid activating a disabled caller or overriding intervening user input. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Prepare and verify one ordinary directory rename. | Bind a denied child to its ID in a verified parent listing. | #731 | GPT-6.1 Sol (Codex) |
 | 2026-11-10 | Prepare verified permanent deletion from the existing listing. | Preserve one-item identity when local metadata is inaccessible. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Prepare nonrecursive metadata below an approved panel root. | Verify attributes and reopen the exact object at execution. | #731 | GPT-6 (Codex) |
@@ -2429,14 +2430,19 @@ bool IsOwnedWindow(HWND window, HWND owner)
     return false;
 }
 
-BOOL LaunchBrokerWithOwner(SHELLEXECUTEINFOW& launch)
+BOOL LaunchBrokerWithOwner(SHELLEXECUTEINFOW& launch, UacF7::ConsentForeground* deferredForeground)
 {
     const UacF7::ConsentForeground foreground(launch.hwnd);
     launch.hwnd = foreground.Owner();
     const BOOL launched = ShellExecuteExW(&launch);
     const DWORD error = launched ? ERROR_SUCCESS : GetLastError();
     if (launched || error == ERROR_CANCELLED)
-        foreground.Restore();
+    {
+        if (deferredForeground)
+            deferredForeground->Remember();
+        else
+            foreground.Restore();
+    }
     if (!launched)
         SetLastError(error);
     return launched;
@@ -2470,7 +2476,7 @@ private:
 
 int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
-             , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result,
+             , HWND owner, UacF7::ConsentForeground* deferredForeground, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result,
                HANDLE* sessionPipe = nullptr, HANDLE cancel = nullptr, std::vector<BYTE>* snapshot = nullptr,
                UacF7::ArchiveRevision* archiveRevision = nullptr, std::vector<BYTE>* zipBytes = nullptr,
                HANDLE zipUpdateFile = nullptr, UacF7::ArchiveRevision* overwriteTarget = nullptr,
@@ -2528,7 +2534,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
     launch.lpDirectory = install.Directory().c_str();
     launch.nShow = SW_HIDE;
 #ifdef SAM_UAC_F7_HOST
-    const BOOL launched = LaunchBrokerWithOwner(launch);
+    const BOOL launched = LaunchBrokerWithOwner(launch, deferredForeground);
 #else
     const BOOL launched = ShellExecuteExW(&launch);
 #endif
@@ -2774,6 +2780,24 @@ void ConsentForeground::Restore() const
         RestoreConsentForeground(owner, foreground, input.dwTime);
     else
         PostMessageW(owner, restoreConsentForegroundMessage, reinterpret_cast<WPARAM>(foreground), input.dwTime);
+}
+
+void ConsentForeground::Remember()
+{
+    const HWND foreground = GetForegroundWindow();
+    LASTINPUTINFO input{sizeof(input)};
+    hasReturnPoint = wasForeground && !IsOwnedWindow(foreground, owner) && GetLastInputInfo(&input);
+    if (hasReturnPoint)
+    {
+        returnForeground = foreground;
+        returnInput = input.dwTime;
+    }
+}
+
+void ConsentForeground::RestoreRemembered() const
+{
+    if (hasReturnPoint)
+        RestoreConsentForeground(owner, returnForeground, returnInput);
 }
 
 void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput)
@@ -3101,7 +3125,7 @@ Result PreparedLeaf::WriteZipSelection(HWND owner, std::vector<BYTE>& bytes) con
                          0, 0, {}, 0, 0, bytes.size()};
     std::memcpy(header.parentId.Identifier, fileId, sizeof(fileId));
     std::wstring payload = volume + relative + leaf;
-    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result,
+    RunProbe(install, false, false, owner, nullptr, &header, &payload, nullptr, &result,
              nullptr, nullptr, nullptr, nullptr, &bytes);
     return result;
 }
@@ -3210,7 +3234,7 @@ Result PreparedLeaf::Execute(HWND owner, TransferJobSession* job, BrokerActivity
         job->Close();
         job->scope = JobScope();
     }
-    RunProbe(install, false, false, owner, &header, &payload, change, &result, nullptr, nullptr,
+    RunProbe(install, false, false, owner, nullptr, &header, &payload, change, &result, nullptr, nullptr,
              nullptr, nullptr, nullptr, nullptr, nullptr, job ? &job->pipe : nullptr, job && change ? &policy : nullptr,
              nullptr, nullptr, &activity);
     return result;
@@ -3231,7 +3255,7 @@ Result PreparedLeaf::ReadViewerSnapshot(HWND owner, std::vector<BYTE>& snapshot)
     std::memcpy(header.parentId.Identifier, fileId, sizeof(fileId));
     std::memcpy(header.sourceId.Identifier, sourceId, sizeof(sourceId));
     std::wstring payload = volume + relative + leaf;
-    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, nullptr, &snapshot);
+    RunProbe(install, false, false, owner, nullptr, &header, &payload, nullptr, &result, nullptr, nullptr, &snapshot);
     return result;
 }
 
@@ -3549,7 +3573,7 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* 
         job->Close();
         job->scope = JobScope();
     }
-    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, cancel,
+    RunProbe(install, false, false, owner, nullptr, &header, &payload, nullptr, &result, nullptr, cancel,
              nullptr, nullptr, nullptr, nullptr, targetRevision, job ? &job->pipe : nullptr, nullptr, progress, progressContext, &activity);
     return result;
 }
@@ -3589,7 +3613,7 @@ DWORD ArchiveReadSession::Start(HWND owner)
     std::memcpy(header.sourceId.Identifier, prepared.sourceId, sizeof(prepared.sourceId));
     std::wstring payload = prepared.volume + prepared.relative + prepared.leaf;
     Result result;
-    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &pipe, nullptr, nullptr, &revision);
+    RunProbe(install, false, false, owner, nullptr, &header, &payload, nullptr, &result, &pipe, nullptr, nullptr, &revision);
     return result.error;
 }
 
@@ -3662,7 +3686,7 @@ Result ArchiveReadSession::Replace(HWND owner, HANDLE preparedFile)
     std::memcpy(header.parentId.Identifier, prepared.fileId, sizeof(prepared.fileId));
     std::memcpy(header.sourceId.Identifier, prepared.sourceId, sizeof(prepared.sourceId));
     std::wstring payload = prepared.volume + prepared.relative + prepared.leaf;
-    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &pipe, nullptr, nullptr,
+    RunProbe(install, false, false, owner, nullptr, &header, &payload, nullptr, &result, &pipe, nullptr, nullptr,
              &revision, nullptr, preparedFile);
     if (pipe && std::memcmp(prepared.sourceId, revision.fileId, sizeof(prepared.sourceId)))
     {
@@ -3760,7 +3784,7 @@ bool ListingSession::PrepareFile(const std::wstring& path)
     return true;
 }
 
-DWORD ListingSession::Start(HWND owner, HANDLE stop)
+DWORD ListingSession::Start(HWND owner, HANDLE stop, ConsentForeground* deferredForeground)
 {
     const ComApartment com;
     InstallLocation install;
@@ -3774,7 +3798,7 @@ DWORD ListingSession::Start(HWND owner, HANDLE stop)
     std::memcpy(header.sourceId.Identifier, prepared.sourceId, sizeof(prepared.sourceId));
     std::wstring payload = prepared.volume + prepared.relative + prepared.leaf;
     Result result;
-    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &pipe, stop);
+    RunProbe(install, false, false, owner, deferredForeground, &header, &payload, nullptr, &result, &pipe, stop);
     if (pipe)
         stopEvent = stop;
     return result.error;

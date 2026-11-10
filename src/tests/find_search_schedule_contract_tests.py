@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Cover the shared consent return and Shell recycle route. | Keep the disabled-owner snapshot and preserve the existing worker behavior. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Check activation routing for direct and worker UAC requests. | Keep focus with the invoking window unless the user switched away. | #731 | GPT-6 (Codex) |
 # | 2026-11-10 | Exercise protected consent with asynchronous Find publication and cancellation | Integrate UAC with current upstream behavior. | #731 | Codex |
 # | 2026-11-07 | Check asynchronous Stop and deferred Find close. | Keep cancellation and worker completion distinct. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -130,7 +131,13 @@ def main() -> int:
     broker = (ROOT / "src" / "uacbroker" / "uacbroker.cpp").read_text(encoding="utf-8-sig")
     broker_launch = function_body(broker, "BOOL LaunchBrokerWithOwner(")
     ordered(broker_launch, "ConsentForeground foreground(launch.hwnd)", "ShellExecuteExW(&launch)",
-            "foreground.Restore()", "SetLastError(error)")
+            "deferredForeground->Remember()", "foreground.Restore()", "SetLastError(error)")
+    remember = function_body(broker, "void ConsentForeground::Remember()")
+    require("GetLastInputInfo(&input)" in remember and "returnForeground = foreground" in remember,
+            "disabled owners must remember the foreground and input at consent return")
+    deferred = function_body(broker, "void ConsentForeground::RestoreRemembered()")
+    require("RestoreConsentForeground(owner, returnForeground, returnInput)" in deferred,
+            "deferred restoration must use the captured foreground and input")
     restore = function_body(broker, "void ConsentForeground::Restore()")
     handler = function_body(broker, "void RestoreConsentForeground(")
     require("PostMessageW(owner, restoreConsentForegroundMessage" in restore and
@@ -149,6 +156,12 @@ def main() -> int:
     ordered(function_body(recycle, "BOOL CFilesWindow::DeleteThroughRecycleBin("),
             "const HWND owner = GetAncestor(HWindow, GA_ROOT)", "operation->SetOwnerWindow(owner)",
             "RetryProtectedRecycle(owner,")
+    ordered(function_body(recycle, "static HRESULT RetryProtectedRecycle("),
+            "ConsentForeground foreground(owner)", "RunSingleRecycleOperation(owner,", "foreground.Restore()")
+    main_window = (ROOT / "src" / "mainwnd3.cpp").read_text(encoding="utf-8-sig")
+    admin_shell = main_window.split('sei.lpVerb = "runas";', 1)[1].split("STARTUPINFO si;", 1)[0]
+    ordered(admin_shell, "ShellExecuteEx(&sei)", "ERROR_CANCELLED", "foreground.Restore()",
+            "else if (sei.hProcess != NULL)")
     listing_transfer = function_body(broker, "DWORD ListingSession::Transfer(")
     require("TransferRequest(pipe, buffer, length, send, deadline, nullptr, nullptr, nullptr, stopEvent)" in listing_transfer,
             "active listing requests must use local cancellation without a transfer cancellation byte")
