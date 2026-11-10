@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Carry the exact confirmed permanent deletion into the worker. | Prevent a selected shield from authorizing a descendant or replacement. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Carry the accepted metadata shield with the operation. | Bind the initial confirmation to the worker operation. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Own one verified protected metadata request in the worker script. | Keep the listing connection on its UI thread. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Track skipped directories in per-folder size batches. | Prevent a partial size from being shown as complete. | #731 | Codex |
@@ -429,6 +430,10 @@ public:
     DWORD ClearReadonlyMask; // for automatically clearing the read-only flag from CD-ROMs
     BOOL InvertRecycleBin;   // invert Recycle Bin usage
     BOOL AllowPermanentDeletePilot;
+    std::unique_ptr<UacF7::PreparedLeaf> PreparedDeleteRequest;
+    std::wstring PreparedDeletePath;
+    DWORD PreparedDeleteAttrs = INVALID_FILE_ATTRIBUTES;
+    bool DeleteShieldAccepted = false;
     BOOL AllowTransferPilot;
     BOOL IgnoreTransferAds;
     std::unique_ptr<UacF7::PreparedTransfer> ProtectedTreeTransfer;

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Honor the initial shield for one verified permanent deletion. | Go straight to Windows for the explicitly approved item. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Use the shielded metadata confirmation for the same denied item. | Go straight to Windows consent for one verified change. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Update the Change Attributes OK shield from the selected options. | Leave elevation and write handling in the existing worker. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Handle UAC foreground return on the owner thread. | Avoid activating a dialog directly from the broker worker. | #731 | GPT-6 (Codex) |
@@ -1975,7 +1976,9 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             auto& prompt = *reinterpret_cast<UacF7::LeafPrompt*>(lParam);
             int confirmText = deleting ? IDS_UAC_DELETE_CONFIRM : IDS_UAC_METADATA_CONFIRM;
             int unknownText = deleting ? IDS_UAC_DELETE_UNKNOWN : IDS_UAC_METADATA_UNKNOWN;
-            if (prompt.request.IsJunctionDelete())
+            if (prompt.request.IsDirectoryDelete())
+                confirmText = IDS_UAC_DELETE_EMPTY_DIRECTORY_CONFIRM;
+            else if (prompt.request.IsJunctionDelete())
                 confirmText = IDS_UAC_DELETE_JUNCTION_CONFIRM;
             else if (prompt.request.IsDirectorySymlinkDelete())
                 confirmText = IDS_UAC_DELETE_DIRECTORY_SYMLINK_CONFIRM;
@@ -1991,11 +1994,11 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             auto existing = shareJob ? std::find_if(TransferJobs.begin(), TransferJobs.end(),
                                                      [&](const auto& job) { return prompt.request.IsInJob(job); })
                                      : TransferJobs.end();
-            bool approved = existing != TransferJobs.end() || (!deleting && !shareJob && prompt.shieldedOk);
+            bool approved = existing != TransferJobs.end() || ((deleting || !shareJob) && prompt.shieldedOk);
             if (!approved)
             {
                 std::string message = std::string(LoadStr(confirmText)) + "\n\n" + prompt.path;
-                if (shareJob)
+                if (shareJob && !prompt.request.IsDirectoryDelete())
                 {
                     const std::string_view path(prompt.path);
                     message += std::string("\n\n") + LoadStr(IDS_UAC_LEAF_JOB_SCOPE) + "\n" +

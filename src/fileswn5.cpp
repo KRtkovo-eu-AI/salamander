@@ -6,6 +6,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Offer F2 elevation for a verified ordinary directory. | Use shielded OK and same-directory no-replace rename. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Reuse shielded OK for a verified F7, F2 or Ctrl+F2 retry. | Show Windows consent directly for the operation already confirmed in Samandarin. | #731 | Codex |
 // | 2026-11-10 | Prepare verified basic metadata from the protected panel. | Offer UAC and show the OK shield for a supported denied change. | #731 | Codex |
 // | 2026-11-10 | Preview the UAC shield for directory creation and file rename. | Probe only the rights required by the pending operation. | #731 | GPT-6 (Codex) |
@@ -1315,8 +1316,6 @@ static BOOL PrepareNtfsConfirmation(CFilesWindow* panel, int textID, int count, 
     format = insertSubject(wideText(LoadStr(isDir ? IDS_QUESTION_DIRECTORY : IDS_QUESTION_FILE)));
     return text.SetW(format.c_str(), identity.c_str());
 }
-
-static DWORD ProbeLocalElevationAccess(const std::wstring& path, DWORD access, bool directory);
 
 struct MetadataElevationPreview
 {
@@ -3313,7 +3312,7 @@ static LocalDirectoryCreateResult CreateLocalDirectoryLeaf(const char* path, con
     return {created, error};
 }
 
-static DWORD ProbeLocalElevationAccess(const std::wstring& path, DWORD access, bool directory)
+DWORD ProbeLocalElevationAccess(const std::wstring& path, DWORD access, bool directory)
 {
     const std::wstring absolute = SalPathRemoveExtendedPrefixW(path.c_str());
     if (absolute.size() < 3 || absolute[1] != L':' || absolute[2] != L'\\')
@@ -3891,7 +3890,7 @@ namespace
 
 
 void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newNameW, BOOL isDir, BOOL* mayChange, BOOL* tryAgain,
-                                      bool elevationShieldAccepted)
+                                      RenameDialogConsent consent)
 {
     *tryAgain = TRUE;
     if (f == NULL || newNameW.empty() || newNameW.find_first_of(L"\\/:<>|\"") != std::wstring::npos)
@@ -3936,31 +3935,36 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     DWORD err = renamed ? ERROR_SUCCESS : GetLastError();
     bool guardedRename = false;
     const bool link = (f->Attr & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
-    if (err == ERROR_ACCESS_DENIED && (!isDir || link) && !IsBranchView())
+    const bool directoryRename = isDir && !link && consent != RenameDialogConsent::None;
+    if (err == ERROR_ACCESS_DENIED && (!isDir || link || directoryRename) && !IsBranchView())
     {
         UacF7::PreparedLeaf request;
         bool prepared = false;
         const std::wstring listedSource = SalPathRemoveExtendedPrefixW(srcPath.c_str());
-        if (!isDir && !link && ProtectedListing && ProtectedListing->Contains(listedSource))
+        if (!link && ProtectedListing && ProtectedListing->Contains(listedSource))
         {
             // The approved listing can identify a source whose parent cannot be
             // opened by this process. The broker still performs a no-replace rename.
             guardedRename = true;
-            err = ProtectedListing->PrepareRename(listedSource, newNameW, request);
+            err = ProtectedListing->PrepareRename(listedSource, newNameW, request, directoryRename);
             prepared = err == ERROR_SUCCESS;
         }
         else if (GetFileAttributesW(tgtPath.c_str()) == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND)
         {
-            prepared = link ? request.PrepareRenameLink(srcPath, newNameW, isDir != FALSE)
-                            : request.Prepare(srcPath, newNameW);
+            if (link)
+                prepared = request.PrepareRenameLink(srcPath, newNameW, isDir != FALSE);
+            else if (directoryRename)
+                prepared = request.PrepareRenameDirectory(srcPath, newNameW);
+            else
+                prepared = request.Prepare(srcPath, newNameW);
         }
         if (prepared)
         {
             guardedRename = true;
-            bool confirmed = elevationShieldAccepted && !isDir && !link;
+            bool confirmed = consent == RenameDialogConsent::Shielded && !link;
             if (!confirmed)
             {
-                int text = IDS_UAC_RENAME_CONFIRM;
+                int text = directoryRename ? IDS_UAC_RENAME_DIRECTORY_CONFIRM : IDS_UAC_RENAME_CONFIRM;
                 if (request.IsJunctionRename())
                     text = IDS_UAC_RENAME_JUNCTION_CONFIRM;
                 else if (link)
@@ -4430,11 +4434,12 @@ void CFilesWindow::RenameFile(int specialIndex)
             }
 
             std::wstring shieldedSource;
-            if (!isDir && !branchRename && (f->Attr & FILE_ATTRIBUTE_REPARSE_POINT) == 0 && UacF7::CanOfferElevation())
+            if (!branchRename && (f->Attr & FILE_ATTRIBUTE_REPARSE_POINT) == 0 && UacF7::CanOfferElevation())
             {
                 std::wstring source = GetItemFullPathW(*f);
-                const DWORD sourceAccess = ProbeLocalElevationAccess(source, DELETE, false);
-                const DWORD parentAccess = ProbeLocalElevationAccess(GetItemDirectoryW(*f), FILE_ADD_FILE, true);
+                const DWORD sourceAccess = ProbeLocalElevationAccess(source, DELETE, isDir != FALSE);
+                const DWORD parentAccess = ProbeLocalElevationAccess(GetItemDirectoryW(*f),
+                    isDir ? FILE_ADD_SUBDIRECTORY : FILE_ADD_FILE, true);
                 const bool sourceKnown = sourceAccess == ERROR_SUCCESS || sourceAccess == ERROR_ACCESS_DENIED;
                 const bool parentKnown = parentAccess == ERROR_SUCCESS || parentAccess == ERROR_ACCESS_DENIED;
                 if (sourceKnown && parentKnown &&
@@ -4455,8 +4460,9 @@ void CFilesWindow::RenameFile(int specialIndex)
 
                 BOOL tryAgain;
                 std::wstring newNameW = SalMultiByteToWidePath(formatedFileName, GetACP() == CP_UTF8 ? CP_UTF8 : CP_ACP);
-                const bool elevationShieldAccepted = dlg.WasElevationShieldShown() && GetItemFullPathW(*f) == shieldedSource;
-                RenameFileInternalW(f, newNameW, isDir, &mayChange, &tryAgain, elevationShieldAccepted);
+                const auto consent = dlg.WasElevationShieldShown() && GetItemFullPathW(*f) == shieldedSource
+                    ? RenameDialogConsent::Shielded : RenameDialogConsent::Plain;
+                RenameFileInternalW(f, newNameW, isDir, &mayChange, &tryAgain, consent);
                 if (!tryAgain)
                     break;
             }

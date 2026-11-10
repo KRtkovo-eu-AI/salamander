@@ -1,5 +1,7 @@
 ﻿// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Describe elevated ordinary-directory rename. | Identify the exact same-parent rename and both paths. | #731 | GPT-6.1 Sol (Codex) |
+// | 2026-11-10 | Describe the protected empty-directory removal prompt. | Clarify that elevation cannot remove unknown descendants. | #731 | GPT-6.1 Sol |
 // | 2026-11-09 | Describe combined protected F5 options. | Show both compression and security in the consent prompt. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Describe protected recycle consent. | Identify the original user's Recycle Bin in the administrator prompt. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Clarify unconfirmed copy and move results. | Cover both disconnects and partial operations. | | GPT-6.1 Sol (Codex) |
@@ -2441,6 +2443,8 @@ STRINGTABLE
  IDS_UAC_DIRECTORY_ATTRS_CONFIRM, "Access was denied. Apply the requested attributes and any selected times to this folder as an administrator?"
  IDS_UAC_DIRECTORY_ATTRS_UNKNOWN, "The broker disconnected before the result was confirmed. Check the folder's attributes and times before retrying."
  IDS_UAC_DELETE_CONFIRM, "Access was denied. Permanently delete this file as an administrator?"
+ IDS_UAC_DELETE_EMPTY_DIRECTORY_CONFIRM, "Access was denied. Permanently delete this empty directory as an administrator?"
+ IDS_UAC_RENAME_DIRECTORY_CONFIRM, "Access was denied. Rename this directory as an administrator? The current path is shown first, followed by the new path."
  IDS_UAC_DELETE_SYMLINK_CONFIRM, "Access was denied. Permanently delete this symbolic link as an administrator? The linked file will be kept."
  IDS_UAC_DELETE_DIRECTORY_SYMLINK_CONFIRM, "Access was denied. Permanently delete this directory symbolic link as an administrator? The linked folder will be kept."
  IDS_UAC_DELETE_JUNCTION_CONFIRM, "Access was denied. Permanently delete this directory junction as an administrator? The linked folder will be kept."

@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Share the local access preview with permanent deletion. | Apply the same fixed-volume and non-following checks as F2 and F7. | #731 | GPT-6 (Codex) |
+// | 2026-11-10 | Distinguish F2 consent from Quick Rename. | Enable elevated plain-directory rename only from the F2 dialog. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Carry the F2 dialog consent into the verified rename retry. | Skip the redundant administrator dialog only for shielded OK. | #731 | GPT-6 (Codex) |
 // | 2026-11-08 | Remove the standalone ZIP recovery declaration. | Keep the archive command surface unchanged. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Declare the panel recovery command. | Allow recovery even without an open ZIP panel. | | GPT-6.1 Sol (Codex) |
@@ -790,6 +792,9 @@ struct CTreeViewAsyncLoadData
     volatile BOOL Cancelled;                   // TRUE = abort reading
 };
 
+// Open the existing local object for the requested right without changing it.
+DWORD ProbeLocalElevationAccess(const std::wstring& path, DWORD access, bool directory);
+
 class CFilesWindow : public CFilesWindowAncestor
 {
 public:
@@ -1561,8 +1566,9 @@ public:
     void CreateDir(CFilesWindow* target);
     void RenameFile(int specialIndex = -1);
     void RenameFileInternal(CFileData* f, const char* formatedFileName, BOOL isDir, BOOL* mayChange, BOOL* tryAgain);
+    enum class RenameDialogConsent { None, Plain, Shielded };
     void RenameFileInternalW(CFileData* f, const std::wstring& newNameW, BOOL isDir, BOOL* mayChange, BOOL* tryAgain,
-                             bool elevationShieldAccepted = false);
+                             RenameDialogConsent consent = RenameDialogConsent::None);
     void DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data);
 
     // performs deletion using the SHFileOperation API function (only when deleting to the Recycle Bin)

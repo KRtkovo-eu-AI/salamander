@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Reuse shielded Yes only for the exact selected delete. | Ask for protected descendants during the operation and stop before child changes on cancellation. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Forward the metadata shield on the first verified access denial. | Preserve local execution and ordinary retry behavior. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Execute protected panel metadata through the existing verified worker flow. | Preserve exact choices, confirmation, cancellation and error handling. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Keep EFS diagnostics and upstream lock recovery in the copy worker | Integrate UAC with current upstream behavior. | #731 | Codex |
@@ -8646,8 +8647,13 @@ BOOL DoCreateDir(HWND hProgressDlg, char* name, DWORD attr,
     }
 }
 
+static bool TryDeleteVerifiedLeaf(HWND progress, const COperation& op, COperations& script,
+                                  CProgressDlgData& dlgData, BOOL& success, bool* nonEmptyDirectory = nullptr,
+                                  bool directoryAccessDenied = false);
+
 BOOL DoDeleteDir(HWND hProgressDlg, char* name, const CQuadWord& size, COperations* script,
-                 CQuadWord& totalDone, DWORD attr, BOOL dontUseRecycleBin, CProgressDlgData& dlgData)
+                 CQuadWord& totalDone, DWORD attr, BOOL dontUseRecycleBin, CProgressDlgData& dlgData,
+                 const COperation& operation)
 {
     DWORD err;
     int AutoRetryCounter = 0;
@@ -8696,6 +8702,15 @@ BOOL DoDeleteDir(HWND hProgressDlg, char* name, const CQuadWord& size, COperatio
         {
             if (RemoveDirectory(nameRmDir) == 0)
                 err = GetLastError();
+        }
+
+        BOOL elevated = FALSE;
+        if (err == ERROR_ACCESS_DENIED &&
+            TryDeleteVerifiedLeaf(hProgressDlg, operation, *script, dlgData, elevated, nullptr, true))
+        {
+            if (!elevated)
+                return FALSE;
+            err = ERROR_SUCCESS;
         }
 
         if (err == ERROR_SUCCESS)
@@ -9488,7 +9503,7 @@ static LONGLONG MetadataFileTime(const FILETIME& time)
 
 static BOOL ExecuteVerifiedWorkerLeaf(HWND progress, const COperation& op, const UacF7::PreparedLeaf& request,
                                       CProgressDlgData& dlgData, WPARAM promptKind, int errorTitle,
-                                      bool shieldedOk = false)
+                                      bool shieldedOk = false, bool* nonEmptyDirectory = nullptr)
 {
     for (;;)
     {
@@ -9503,12 +9518,20 @@ static BOOL ExecuteVerifiedWorkerLeaf(HWND progress, const COperation& op, const
         {
             const std::wstring display = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
             const std::string path = SalWideToMultiBytePath(display.c_str(), CP_UTF8);
+            const bool acceptedShield = shieldedOk;
             UacF7::LeafPrompt prompt{request, path.c_str(), shieldedOk};
             shieldedOk = false;
             SendMessage(progress, WM_USER_DIALOG, promptKind, reinterpret_cast<LPARAM>(&prompt));
             if (prompt.result.unknown)
                 return FALSE;
             error = prompt.result.error;
+            if (promptKind == WORKER_DIALOG_UAC_DELETE && acceptedShield && error == ERROR_CANCELLED)
+                return FALSE;
+        }
+        if (nonEmptyDirectory && error == ERROR_DIR_NOT_EMPTY)
+        {
+            *nonEmptyDirectory = true;
+            return TRUE;
         }
         if (error == ERROR_SUCCESS)
             return TRUE;
@@ -9524,8 +9547,9 @@ static BOOL ExecuteVerifiedWorkerLeaf(HWND progress, const COperation& op, const
     }
 }
 
-static bool TryDeleteVerifiedLeaf(HWND progress, const COperation& op, const COperations& script,
-                                  CProgressDlgData& dlgData, BOOL& success)
+static bool TryDeleteVerifiedLeaf(HWND progress, const COperation& op, COperations& script,
+                                  CProgressDlgData& dlgData, BOOL& success, bool* nonEmptyDirectory,
+                                  bool directoryAccessDenied)
 {
     // Recheck the worker's actual policy in case it changed after building the script.
     const bool permanent = (dlgData.UseRecycleBin == 0 && !script.InvertRecycleBin) ||
@@ -9534,23 +9558,36 @@ static bool TryDeleteVerifiedLeaf(HWND progress, const COperation& op, const COp
         FileNameIsInvalid(op.SourceName, TRUE))
         return false;
 
-    UacF7::Operation operation;
-    if (op.Opcode == ocDeleteDirLink && UacF7::IsPlainDeleteLink(op.Attr, true))
-        operation = UacF7::Operation::DeleteDirectorySymlink;
-    else if (op.Opcode == ocDeleteFile && UacF7::IsPlainDeleteLink(op.Attr))
-        operation = UacF7::Operation::DeleteSymlink;
-    else if (op.Opcode == ocDeleteFile && UacF7::IsPlainDeleteFile(op.Attr))
-        operation = UacF7::Operation::Delete;
-    else
-        return false;
+    if (op.Opcode == ocDeleteDir && static_cast<DWORD>(reinterpret_cast<DWORD_PTR>(op.TargetName)) == MAXDWORD)
+        return false; // never retry a finalizer marked incomplete
 
-    UacF7::PreparedLeaf request;
-    if (!request.PrepareDelete(op.SourceNameW, operation) &&
-        (operation != UacF7::Operation::DeleteDirectorySymlink ||
-         !request.PrepareDelete(op.SourceNameW, UacF7::Operation::DeleteJunction)))
-        return false;
-    const int errorTitle = op.Opcode == ocDeleteDirLink ? IDS_ERRORDELETINGDIRLINK : IDS_ERRORDELETINGFILE;
-    success = ExecuteVerifiedWorkerLeaf(progress, op, request, dlgData, WORKER_DIALOG_UAC_DELETE, errorTitle);
+    const bool selected = script.PreparedDeleteRequest &&
+        SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str()) == script.PreparedDeletePath;
+    if (op.Opcode == ocDeleteDir && !selected && !directoryAccessDenied)
+        return false; // keep the ordinary RemoveDirectory path and its retry behavior
+    UacF7::PreparedLeaf localRequest;
+    const UacF7::PreparedLeaf* request = script.PreparedDeleteRequest.get();
+    bool shielded = false;
+    if (selected)
+    {
+        if (op.Attr != script.PreparedDeleteAttrs)
+        {
+            success = FALSE;
+            return true;
+        }
+        shielded = script.DeleteShieldAccepted;
+        script.DeleteShieldAccepted = false;
+    }
+    else
+    {
+        if (!localRequest.PrepareDeleteLeaf(op.SourceNameW, op.Attr))
+            return false;
+        request = &localRequest;
+    }
+    const int errorTitle = op.Opcode == ocDeleteDirLink ? IDS_ERRORDELETINGDIRLINK :
+                           op.Opcode == ocDeleteDir ? IDS_ERRORDELETINGDIR : IDS_ERRORDELETINGFILE;
+    success = ExecuteVerifiedWorkerLeaf(progress, op, *request, dlgData, WORKER_DIALOG_UAC_DELETE,
+                                        errorTitle, shielded, nonEmptyDirectory);
     return true;
 }
 
@@ -11300,6 +11337,32 @@ unsigned ThreadWorkerBody(void* parameter)
         lstrcpyn(opChangAttrs, LoadStr(IDS_CHANGINGATTRS), 50);
 
         int i = 0;
+        if (script->DeleteShieldAccepted && script->PreparedDeleteRequest &&
+            script->PreparedDeleteRequest->IsDirectoryDelete() && script->Count > 1)
+        {
+            // A selected protected directory is the final postorder operation.
+            // Its empty-only preattempt obtains consent before any child changes.
+            const COperation& directory = script->At(script->Count - 1);
+            if (directory.Opcode == ocDeleteDir && directory.SourceNameWValid &&
+                SalPathRemoveExtendedPrefixW(directory.SourceNameW.c_str()) == script->PreparedDeletePath)
+            {
+                pd.Operation = opStrDeleting;
+                pd.Source = directory.SourceName;
+                pd.Preposition = "";
+                pd.Target = "";
+                SetProgressDialog(hProgressDlg, &pd, dlgData);
+                bool nonEmpty = false;
+                BOOL removedOrSkipped = FALSE;
+                if (!TryDeleteVerifiedLeaf(hProgressDlg, directory, *script, dlgData, removedOrSkipped, &nonEmpty) ||
+                    !nonEmpty)
+                {
+                    Error = !removedOrSkipped;
+                    i = script->Count; // the selected directory was removed, skipped, or cancelled
+                }
+            }
+            else
+                Error = TRUE; // do not change descendants without the verified selected directory
+        }
         while (!Error && !*dlgData.CancelWorker)
         {
             CCopyMoveConflictDecision conflictDecision = cmcdNone;
@@ -11640,7 +11703,7 @@ unsigned ThreadWorkerBody(void* parameter)
                     {
                         Error = !DoDeleteDir(hProgressDlg, op->SourceName, op->Size,
                                              script, totalDone, op->Attr, (DWORD)(DWORD_PTR)op->TargetName != -1,
-                                             dlgData);
+                                             dlgData, *op);
                     }
                     else
                     {

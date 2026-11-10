@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Preserve exact paths for permanent directory removal. | Discover denied descendants during tree traversal and never sweep unreadable content. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Build verified protected metadata from its checked attributes. | Avoid masking a denied attribute lookup as filesystem flags. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Keep measuring accessible folders after a protected subtree is skipped. | Preserve accurate per-folder sizes and explicit elevation scope. | #731 | Codex |
 // | 2026-11-09 | Mark selected files independently of recursive transfers. | Defer denied source access only for files selected in the panel. | | GPT-6.1 Sol (Codex) |
@@ -1591,11 +1592,11 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     if (script->Count == firstItemOperation + 1)
                     {
                         auto& operation = script->At(firstItemOperation);
-                        const bool directoryLinkDelete = type == atDelete && script->AllowPermanentDeletePilot &&
-                                                         operation.Opcode == ocDeleteDirLink;
+                        const bool directoryDelete = type == atDelete && script->AllowPermanentDeletePilot &&
+                                                     (operation.Opcode == ocDeleteDirLink || operation.Opcode == ocDeleteDir);
                         const bool directoryMetadata = type == atChangeAttrs && !attrsData->SubDirs && !IsBranchView() &&
                                                        operation.Opcode == ocChangeAttrs;
-                        if (directoryLinkDelete || directoryMetadata)
+                        if (directoryDelete || directoryMetadata)
                         {
                             const auto path = GetItemFullPathW(*oneFile);
                             if (!path.empty())
@@ -2003,6 +2004,10 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         targetPathState = GetTargetPathState(targetPathState, targetPath);
     }
     //---
+    const bool verifyDelete = type == atDelete && script->AllowPermanentDeletePilot;
+    const std::wstring deletePath = !verifyDelete ? std::wstring{} :
+        firstLevelDir && script->PreparedDeleteRequest ? script->PreparedDeletePath :
+        SalMultiByteToWidePathUtf8OrAcp(sourcePath);
     if (type == atDelete && (sourceDirAttr & FILE_ATTRIBUTE_REPARSE_POINT))
     { // deleting links (volume mount points + junction points + symlinks)
         op.Opcode = ocDeleteDirLink;
@@ -2014,6 +2019,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             *sourceEnd = 0; // restoring sourcePath
             return FALSE;
         }
+        if (!deletePath.empty())
+            op.SetSourceNameW(SalPathAddExtendedPrefixIfNeededW(deletePath).c_str());
         op.TargetName = NULL;
         *sourceEnd = 0; // restoring sourcePath
         script->Add(op);
@@ -2455,6 +2462,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
     //---  build the path to sourceDirName and start searching for contained files
     BOOL delDirectory = TRUE;       // delete a non-empty directory?
     BOOL delDirectoryReturn = TRUE; // return value when a non-empty directory isn't removed
+    bool directoryDeleteIncomplete = false;
     BOOL canDelDirAfterMove = TRUE; // Move only: FALSE if not everything is moved (filter skipped something), source directory can't be removed (won't be empty)
     if (!copyMoveDirIsLink || !copyMoveSkipLinkContent)
     {
@@ -2565,10 +2573,21 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     }
                 }
             }
+            if (verifyDelete && err == ERROR_ACCESS_DENIED && !ErrListDirSkipAll &&
+                UacF7::IsPlainDeleteDirectory(sourceDirAttr))
+            {
+                // No children were observed. The verified operation below can remove only
+                // an empty directory and must leave a nonempty, unreadable directory intact.
+                UacF7::PreparedLeaf candidate;
+                if ((script->PreparedDeleteRequest && deletePath == script->PreparedDeletePath) ||
+                    candidate.PrepareDeleteLeaf(deletePath, sourceDirAttr))
+                    err = ERROR_FILE_NOT_FOUND;
+            }
             if (script->CountSizeBatch && err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES)
                 script->CountSizeIncomplete = true;
             if (err != ERROR_FILE_NOT_FOUND && err != ERROR_NO_MORE_FILES)
             {
+                directoryDeleteIncomplete = true;
                 if (!Salamander::LocalizedText::Write(text, static_cast<size_t>(textBuffer.Capacity()),
                                                      LoadStr(IDS_CANNOTREADDIR), sourcePath, GetErrorText(err)))
                 {
@@ -2723,6 +2742,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
 
             if (testFindNextErr && err != ERROR_NO_MORE_FILES)
             {
+                directoryDeleteIncomplete = true;
                 if (script->CountSizeBatch)
                     script->CountSizeIncomplete = true;
                 if (!Salamander::LocalizedText::Write(text, static_cast<size_t>(textBuffer.Capacity()),
@@ -2862,6 +2882,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         {
             if (type == atDelete && !delDirectory)
                 return delDirectoryReturn; // CANCEL / NO
+            if (type == atDelete && script->AllowPermanentDeletePilot && directoryDeleteIncomplete)
+                return TRUE; // a skipped enumeration cannot authorize removal of this directory
 
             op.Opcode = copyMoveDirIsLink && type == atMove ? ocDeleteDirLink : ocDeleteDir;
             op.OpFlags = 0;
@@ -2879,7 +2901,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             }
             if (!skipTooLongSrcNameErr)
             {
-                op.TargetName = NULL;
+                op.TargetName = nullptr;
+                if (!deletePath.empty())
+                    op.SetSourceNameW(SalPathAddExtendedPrefixIfNeededW(deletePath).c_str());
                 script->Add(op);
                 if (!script->IsGood())
                 {

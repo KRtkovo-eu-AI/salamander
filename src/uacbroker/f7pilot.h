@@ -1,5 +1,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Verify exact files and empty ordinary directories for permanent deletion. | Bind consent to the chosen object and preserve nested permission checks. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Add one-shot verified directory rename. | Keep ordinary directories distinct from files and links in the broker. | #731 | GPT-6.1 Sol (Codex) |
 | 2026-11-10 | Carry the metadata dialog choice in the host prompt. | Reuse that choice without changing the broker protocol. | #731 | GPT-6.1 Sol (Codex) |
 | 2026-11-10 | Prepare protected metadata through the panel listing. | Bind the one-shot or batch update to the visible attributes and verified identity. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Expose broker availability to permission previews. | Show a shield only in a compatible unelevated installation. | #731 | GPT-6 (Codex) |
@@ -97,18 +99,20 @@ private:
 void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput);
 bool CanOfferElevation();
 
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32 };
 
 inline bool IsRename(Operation operation)
 {
     return operation == Operation::Rename || operation == Operation::RenameSymlink ||
-           operation == Operation::RenameDirectorySymlink || operation == Operation::RenameJunction;
+           operation == Operation::RenameDirectorySymlink || operation == Operation::RenameJunction ||
+           operation == Operation::RenameDirectory;
 }
 
 inline bool IsLeafDelete(Operation operation)
 {
     return operation == Operation::Delete || operation == Operation::DeleteSymlink ||
-           operation == Operation::DeleteDirectorySymlink || operation == Operation::DeleteJunction;
+           operation == Operation::DeleteDirectorySymlink || operation == Operation::DeleteJunction ||
+           operation == Operation::DeleteDirectory;
 }
 
 inline bool CopiesSecurity(Operation operation)
@@ -250,6 +254,11 @@ inline bool IsPlainDeleteFile(DWORD attributes)
 {
     return attributes == FILE_ATTRIBUTE_NORMAL || attributes == FILE_ATTRIBUTE_ARCHIVE;
 }
+inline bool IsPlainDeleteDirectory(DWORD attributes)
+{
+    return (attributes & FILE_ATTRIBUTE_DIRECTORY) && !(attributes & ~(FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_ARCHIVE));
+}
+
 constexpr DWORD crossVolumeMoveAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_SPARSE_FILE;
 inline bool IsCrossVolumeMoveFile(DWORD attributes)
 {
@@ -308,10 +317,13 @@ public:
     PreparedLeaf& operator=(const PreparedLeaf&) = delete;
 
     bool Prepare(const std::wstring& path, const std::wstring& renameTo = {});
+    bool PrepareRenameDirectory(const std::wstring& path, const std::wstring& renameTo);
     bool PrepareRenameLink(const std::wstring& path, const std::wstring& renameTo, bool directory);
     bool IsJunctionRename() const { return operation == Operation::RenameJunction; }
     bool PrepareMetadata(const std::wstring& path, const MetadataChange& change, MetadataJobPolicy policy = {});
     bool PrepareDelete(const std::wstring& path, Operation requested);
+    bool PrepareDeleteLeaf(const std::wstring& path, DWORD attributes);
+    bool IsDirectoryDelete() const { return operation == Operation::DeleteDirectory; }
     bool IsDirectorySymlinkDelete() const { return operation == Operation::DeleteDirectorySymlink; }
     bool IsJunctionDelete() const { return operation == Operation::DeleteJunction; }
     bool IsSymlinkDelete() const { return operation == Operation::DeleteSymlink; }
@@ -556,8 +568,9 @@ public:
     bool Prepare(const std::wstring& path, bool findContent = false);
     bool PrepareFile(const std::wstring& path);
     DWORD PrepareViewer(const std::wstring& path, PreparedLeaf& viewer);
+    DWORD PrepareDeleteLeaf(const std::wstring& path, DWORD attributes, PreparedLeaf& request);
     DWORD PrepareMkdir(const std::wstring& path, PreparedLeaf& mkdir);
-    DWORD PrepareRename(const std::wstring& path, const std::wstring& renameTo, PreparedLeaf& rename);
+    DWORD PrepareRename(const std::wstring& path, const std::wstring& renameTo, PreparedLeaf& rename, bool directory);
     DWORD PrepareMetadata(const std::wstring& path, const MetadataChange& change, MetadataJobPolicy policy,
                           PreparedLeaf& request);
     DWORD Start(HWND owner, HANDLE stop = nullptr);
@@ -572,7 +585,8 @@ public:
 
 private:
     DWORD PrepareLeaf(const std::wstring& path, Operation operation, const std::wstring& renameTo,
-                      PreparedLeaf& request, const MetadataChange* change = nullptr);
+                      PreparedLeaf& request, const MetadataChange* change = nullptr,
+                      DWORD expectedAttributes = INVALID_FILE_ATTRIBUTES);
     DWORD Transfer(void* buffer, DWORD length, bool send, ULONGLONG deadline);
     DWORD SendPath(const std::wstring& path, DWORD flags, ULONGLONG deadline);
     void Close();

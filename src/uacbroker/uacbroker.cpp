@@ -1,5 +1,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Prepare and verify one ordinary directory rename. | Bind a denied child to its ID in a verified parent listing. | #731 | GPT-6.1 Sol (Codex) |
+| 2026-11-10 | Prepare verified permanent deletion from the existing listing. | Preserve one-item identity when local metadata is inaccessible. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Prepare nonrecursive metadata below an approved panel root. | Verify attributes and reopen the exact object at execution. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Check whether the host can offer elevation. | Avoid promising a broker in portable or already elevated hosts. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Prepare F7 and F2 with the approved listing root. | Revalidate the exact identities in the existing one-shot executor. | #731 | GPT-6 (Codex) |
@@ -501,6 +503,8 @@ using UacF7::Operation;
 
 UacRenameLeaf::MoveKind RenameKind(Operation operation)
 {
+    if (operation == Operation::RenameDirectory)
+        return UacRenameLeaf::MoveKind::RenameDirectory;
     if (operation == Operation::RenameJunction)
         return UacRenameLeaf::MoveKind::RenameJunction;
     if (operation == Operation::RenameDirectorySymlink)
@@ -1728,6 +1732,14 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         }
         std::memcpy(requested.source.id, header.parentId.Identifier, sizeof(requested.source.id));
         std::memcpy(requested.target.id, header.targetParentId.Identifier, sizeof(requested.target.id));
+        if (header.operation == Operation::DeleteDirectory)
+        {
+            // The first empty-only attempt may precede the worker deleting descendants.
+            // Reuse that consent for the exact same directory, never for its siblings.
+            requested.target.serial = header.serial;
+            std::memcpy(requested.target.id, header.sourceId.Identifier, sizeof(requested.target.id));
+            requested.targetPath.assign(payload, volumeLength + header.relativeLength, header.leafLength);
+        }
         if (jobScope->operation == Operation::Mkdir)
             *jobScope = std::move(requested);
         else if (!jobScope->Matches(requested))
@@ -2811,6 +2823,11 @@ bool PreparedLeaf::Prepare(const std::wstring& path, const std::wstring& renameT
     return PrepareTarget(path, renameTo.empty() ? Operation::Mkdir : Operation::Rename, renameTo, nullptr);
 }
 
+bool PreparedLeaf::PrepareRenameDirectory(const std::wstring& path, const std::wstring& renameTo)
+{
+    return PrepareTarget(path, Operation::RenameDirectory, renameTo, nullptr);
+}
+
 bool PreparedLeaf::PrepareRenameLink(const std::wstring& path, const std::wstring& renameTo, bool directory)
 {
     if (!directory)
@@ -2830,6 +2847,17 @@ bool PreparedLeaf::PrepareMetadata(const std::wstring& path, const MetadataChang
 bool PreparedLeaf::PrepareDelete(const std::wstring& path, Operation requested)
 {
     return IsLeafDelete(requested) && PrepareTarget(path, requested, {}, nullptr);
+}
+
+bool PreparedLeaf::PrepareDeleteLeaf(const std::wstring& path, DWORD attributes)
+{
+    if (IsPlainDeleteDirectory(attributes))
+        return PrepareDelete(path, Operation::DeleteDirectory);
+    if (IsPlainDeleteLink(attributes, true))
+        return PrepareDelete(path, Operation::DeleteDirectorySymlink) || PrepareDelete(path, Operation::DeleteJunction);
+    if (IsPlainDeleteLink(attributes))
+        return PrepareDelete(path, Operation::DeleteSymlink);
+    return IsPlainDeleteFile(attributes) && PrepareDelete(path, Operation::Delete);
 }
 
 ProtectedRecycleSource::~ProtectedRecycleSource()
@@ -2982,26 +3010,47 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
         const bool deleting = IsLeafDelete(requested);
         const auto kind = deleting ? UacDeleteLeaf::SourceKind(requested) : RenameKind(requested);
         HANDLE raw = nullptr;
-        if (UacRenameLeaf::Detail::OpenSource(opened.get(), finalName, raw, 0,
-                                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, kind))
-            return false;
-        openedSource = Adopt(raw);
-        const std::wstring sourcePath = LR"(\\?\)" + std::wstring(input);
-        const DWORD flags = FILE_FLAG_OPEN_REPARSE_POINT |
-                            (UacRenameLeaf::IsDirectoryLink(kind) ? FILE_FLAG_BACKUP_SEMANTICS : 0);
-        const auto visibleSource = Adopt(CreateFileW(sourcePath.c_str(), FILE_READ_ATTRIBUTES,
-                                                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                                      nullptr, OPEN_EXISTING, flags, nullptr));
-        FILE_ID_INFO visibleIdentity{};
-        if (!visibleSource || UacRenameLeaf::Detail::ReadSourceIdentity(visibleSource.get(), visibleIdentity, kind) ||
-            UacRenameLeaf::Detail::ReadSourceIdentity(openedSource.get(), sourceIdentity, kind) ||
-            !UacRenameLeaf::Detail::SameSource(visibleIdentity, sourceIdentity) ||
-            sourceIdentity.VolumeSerialNumber != snapshot.file.VolumeSerialNumber)
-            return false;
-        if (change && UacMetadataLeaf::CheckAttributes(openedSource.get(), *change))
-            return false;
-        if (deleting && UacDeleteLeaf::CheckAttributes(openedSource.get(), requested))
-            return false;
+        const DWORD sourceError = UacRenameLeaf::Detail::OpenSource(opened.get(), finalName, raw, 0,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, kind);
+        if (sourceError == ERROR_ACCESS_DENIED &&
+            (kind == UacRenameLeaf::MoveKind::RenameDirectory || requested == Operation::Delete))
+        {
+            // Identify an inaccessible ordinary child in its readable parent.
+            // The broker still checks the captured ID and type before mutating it.
+            const auto volumeListing = parentPath.empty() ? OpenVolumeRoot(volumeName, FILE_LIST_DIRECTORY) : Handle{};
+            const HANDLE listRoot = parentPath.empty() ? volumeListing.get() : root.get();
+            Handle listing;
+            UacDirectoryLeaf::ParentIdentity listingIdentity;
+            DWORD attributes = 0;
+            const bool directory = UacRenameLeaf::IsDirectory(kind);
+            if (!listRoot || OpenRequestParent(listRoot, parentPath, listing, listingIdentity, FILE_LIST_DIRECTORY) ||
+                !UacDirectoryLeaf::SameParent(snapshot, listingIdentity) ||
+                UacListing::CaptureChildId(listing.get(), finalName, directory, sourceIdentity.FileId, attributes) ||
+                (deleting && !(directory ? IsPlainDeleteDirectory(attributes) : IsPlainDeleteFile(attributes))))
+                return false;
+        }
+        else
+        {
+            if (sourceError)
+                return false;
+            openedSource = Adopt(raw);
+            const std::wstring sourcePath = LR"(\\?\)" + std::wstring(input);
+            const DWORD flags = FILE_FLAG_OPEN_REPARSE_POINT |
+                                (UacRenameLeaf::IsDirectory(kind) ? FILE_FLAG_BACKUP_SEMANTICS : 0);
+            const auto visibleSource = Adopt(CreateFileW(sourcePath.c_str(), FILE_READ_ATTRIBUTES,
+                                                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                                          nullptr, OPEN_EXISTING, flags, nullptr));
+            FILE_ID_INFO visibleIdentity{};
+            if (!visibleSource || UacRenameLeaf::Detail::ReadSourceIdentity(visibleSource.get(), visibleIdentity, kind) ||
+                UacRenameLeaf::Detail::ReadSourceIdentity(openedSource.get(), sourceIdentity, kind) ||
+                !UacRenameLeaf::Detail::SameSource(visibleIdentity, sourceIdentity) ||
+                sourceIdentity.VolumeSerialNumber != snapshot.file.VolumeSerialNumber)
+                return false;
+            if (change && UacMetadataLeaf::CheckAttributes(openedSource.get(), *change))
+                return false;
+            if (deleting && UacDeleteLeaf::CheckAttributes(openedSource.get(), requested))
+                return false;
+        }
         if (rename)
             sourceLeaf.assign(finalName);
         std::memcpy(sourceId, sourceIdentity.FileId.Identifier, sizeof(sourceId));
@@ -3064,7 +3113,7 @@ DWORD PreparedLeaf::ExecuteLocal() const
     Handle reopenedParent;
     if (!parent)
     {
-        if (operation != Operation::Metadata || !identityFromListing)
+        if (!identityFromListing)
             return ERROR_INVALID_PARAMETER;
         const auto root = OpenVolumeRoot(volume);
         if (!root)
@@ -3090,6 +3139,12 @@ TransferJobScope PreparedLeaf::JobScope() const
 {
     TransferJobScope scope{operation, {serial, {}}, {}, volume + relative, {}};
     std::memcpy(scope.source.id, fileId, sizeof(fileId));
+    if (operation == Operation::DeleteDirectory)
+    {
+        scope.target.serial = serial;
+        std::memcpy(scope.target.id, sourceId, sizeof(sourceId));
+        scope.targetPath = leaf;
+    }
     scope.policy = metadataPolicy;
     scope.change = metadata;
     return scope;
@@ -3764,9 +3819,9 @@ DWORD ListingSession::PrepareMkdir(const std::wstring& path, PreparedLeaf& mkdir
     return PrepareLeaf(path, Operation::Mkdir, {}, mkdir);
 }
 
-DWORD ListingSession::PrepareRename(const std::wstring& path, const std::wstring& renameTo, PreparedLeaf& rename)
+DWORD ListingSession::PrepareRename(const std::wstring& path, const std::wstring& renameTo, PreparedLeaf& rename, bool directory)
 {
-    return PrepareLeaf(path, Operation::Rename, renameTo, rename);
+    return PrepareLeaf(path, directory ? Operation::RenameDirectory : Operation::Rename, renameTo, rename);
 }
 
 DWORD ListingSession::PrepareMetadata(const std::wstring& path, const MetadataChange& change,
@@ -3783,15 +3838,23 @@ DWORD ListingSession::PrepareMetadata(const std::wstring& path, const MetadataCh
     return error;
 }
 
+DWORD ListingSession::PrepareDeleteLeaf(const std::wstring& path, DWORD attributes, PreparedLeaf& request)
+{
+    if (!IsPlainDeleteFile(attributes) && !IsPlainDeleteDirectory(attributes))
+        return ERROR_NOT_SUPPORTED;
+    const auto operation = IsPlainDeleteDirectory(attributes) ? Operation::DeleteDirectory : Operation::Delete;
+    return PrepareLeaf(path, operation, {}, request, nullptr, attributes);
+}
+
 DWORD ListingSession::PrepareLeaf(const std::wstring& path, Operation operation, const std::wstring& renameTo,
-                                  PreparedLeaf& request, const MetadataChange* change)
+                                  PreparedLeaf& request, const MetadataChange* change, DWORD expectedAttributes)
 {
     if (prepared.operation != Operation::List || !Contains(path) || path.size() <= root.size() ||
         request.parent || request.identityFromListing)
         return ERROR_ACCESS_DENIED;
     const auto split = path.find_last_of(L'\\');
     const std::wstring_view leaf(path.data() + split + 1, path.size() - split - 1);
-    const bool rename = operation == Operation::Rename;
+    const bool rename = IsRename(operation);
     if (!UacDirectoryLeaf::IsComponent(leaf) ||
         (rename && (!UacDirectoryLeaf::IsComponent(renameTo) || UacDirectoryLeaf::Equal(leaf, renameTo))))
         return ERROR_INVALID_NAME;
@@ -3800,7 +3863,8 @@ DWORD ListingSession::PrepareLeaf(const std::wstring& path, Operation operation,
     DWORD flags = UacListing::leafIdentityRequest;
     if (operation == Operation::Mkdir)
         flags |= UacListing::parentIdentityRequest;
-    else if (change && UacMetadataLeaf::IsDirectory(*change))
+    else if (operation == Operation::RenameDirectory || operation == Operation::DeleteDirectory ||
+             (change && UacMetadataLeaf::IsDirectory(*change)))
         flags |= UacListing::directoryIdentityRequest;
     DWORD error = SendPath(path, flags, deadline);
     if (error)
@@ -3817,7 +3881,8 @@ DWORD ListingSession::PrepareLeaf(const std::wstring& path, Operation operation,
     }
     if (status)
         return status;
-    if (change && identity.attributes != change->expectedAttributes)
+    if ((change && identity.attributes != change->expectedAttributes) ||
+        (expectedAttributes != INVALID_FILE_ATTRIBUTES && identity.attributes != expectedAttributes))
         return ERROR_FILE_INVALID;
 
     request.volume = prepared.volume;

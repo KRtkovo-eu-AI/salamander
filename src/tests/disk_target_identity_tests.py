@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Check the protected source bypass only in permanent deletion. | Keep transfer target and source revalidation independent. | #731 | GPT-6 (Codex) |
 """Actual disk target snapshot with explicit tab-registry doubles; guard placement contracts."""
 import argparse
 from pathlib import Path
@@ -19,8 +21,11 @@ def controller_contract():
     assert 'memcpy(path, diskTarget.DefaultPath.c_str(), diskTarget.DefaultPath.size() + 1);' in controller
     source = block(controller, 'const auto sourceAvailable =')
     assert 'CheckPath(TRUE) == ERROR_SUCCESS' in source
-    assert 'if (!sourceAvailable() || !validateDiskTarget())' in controller
-    assert 'sourceAvailable() && validateDiskTarget()' in controller
+    delete_source = block(controller, 'const auto protectedDeleteSource =')
+    assert 'type == atDelete && permanent && Is(ptDisk) && !IsBranchView()' in delete_source
+    assert 'allowProtectedDelete && protectedDeleteSource()' in source
+    assert 'if (!sourceAvailable(true) || !validateDiskTarget())' in controller
+    assert 'sourceAvailable(preparedDelete != nullptr) && validateDiskTarget()' in controller
     assert 'BOOL res2 = validateDiskTarget();' in controller
     assert 'if (!validateDiskTarget() ||\n                                !BuildScriptMain(' in controller
     assert 'else if (res2)\n                    {\n                        res2 = BuildScriptMain(' in controller

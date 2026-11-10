@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Delete only the verified empty directory by its exact handle. | Leave tree traversal and confirmations in the native worker. | #731 | GPT-6.1 Sol |
 | 2026-11-09 | Share the verified deletion of an opened leaf. | Retire a copied source only while its exact destination remains pinned. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Detach a verified junction by handle. | Reuse the junction format check and reject other reparse types. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Detach a verified directory symbolic link by handle. | Use an anchored no-follow open and reject other directory reparse tags. | | GPT-6.1 Sol (Codex) |
@@ -17,6 +18,8 @@ namespace UacDeleteLeaf
 {
 inline UacRenameLeaf::MoveKind SourceKind(UacF7::Operation operation)
 {
+    if (operation == UacF7::Operation::DeleteDirectory)
+        return UacRenameLeaf::MoveKind::RenameDirectory;
     if (operation == UacF7::Operation::DeleteJunction)
         return UacRenameLeaf::MoveKind::RenameJunction;
     if (operation == UacF7::Operation::DeleteDirectorySymlink)
@@ -31,12 +34,14 @@ inline DWORD CheckAttributes(HANDLE file, UacF7::Operation operation)
     FILE_ATTRIBUTE_TAG_INFO attributes{};
     if (!GetFileInformationByHandleEx(file, FileAttributeTagInfo, &attributes, sizeof(attributes)))
         return GetLastError();
+    if (operation == UacF7::Operation::DeleteDirectory)
+        return UacF7::IsPlainDeleteDirectory(attributes.FileAttributes) ? ERROR_SUCCESS : ERROR_NOT_SUPPORTED;
     const bool link = operation != UacF7::Operation::Delete;
     const bool junction = operation == UacF7::Operation::DeleteJunction;
     const DWORD expectedTag = junction ? IO_REPARSE_TAG_MOUNT_POINT : IO_REPARSE_TAG_SYMLINK;
     if (link && attributes.ReparseTag != expectedTag)
         return ERROR_REPARSE_TAG_INVALID;
-    const bool directory = UacRenameLeaf::IsDirectoryLink(SourceKind(operation));
+    const bool directory = UacRenameLeaf::IsDirectory(SourceKind(operation));
     const bool supported = link ? UacF7::IsPlainDeleteLink(attributes.FileAttributes, directory)
                                 : UacF7::IsPlainDeleteFile(attributes.FileAttributes);
     return supported ? ERROR_SUCCESS : ERROR_NOT_SUPPORTED;

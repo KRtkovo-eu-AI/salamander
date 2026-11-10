@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Validate plain directories in the verified rename path. | Preserve no-replace and reparse safety for the selected directory. | #731 | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose exchange checkpoints to the native fault fixture. | Exercise real handle teardown after each rename and commit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Allow an overlapped relative file open for F6. | Request an exclusive oplock on the exact source name. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Cancel active protected transfers. | Keep the progress dialog responsive and wait for the actual broker outcome. | | GPT-6.1 Sol (Codex) |
@@ -28,11 +29,12 @@ extern "C" NTSYSAPI NTSTATUS NTAPI NtSetInformationFile(
 
 namespace UacRenameLeaf
 {
-enum class MoveKind { OrdinaryFile, RenameFile, RenameSymlink, RenameDirectorySymlink, RenameJunction };
+enum class MoveKind { OrdinaryFile, RenameFile, RenameSymlink, RenameDirectorySymlink, RenameJunction, RenameDirectory };
 
-inline bool IsDirectoryLink(MoveKind kind)
+inline bool IsDirectory(MoveKind kind)
 {
-    return kind == MoveKind::RenameDirectorySymlink || kind == MoveKind::RenameJunction;
+    return kind == MoveKind::RenameDirectory || kind == MoveKind::RenameDirectorySymlink ||
+           kind == MoveKind::RenameJunction;
 }
 
 namespace Detail
@@ -96,7 +98,7 @@ inline DWORD OpenFile(HANDLE parent, std::wstring_view leaf, HANDLE& source, ACC
     InitializeObjectAttributes(&attributes, &objectName, OBJ_CASE_INSENSITIVE | OBJ_DONT_REPARSE, parent, security);
     IO_STATUS_BLOCK io{};
     const ACCESS_MASK access = FILE_READ_ATTRIBUTES | (overlapped ? 0 : SYNCHRONIZE) | extraAccess;
-    // Leave the type unrestricted for directory links. The opened object's
+    // Leave the type unrestricted for directory operations. The opened object's
     // attributes are verified before any mutation.
     const ULONG typeOption = allowDirectory ? 0 : FILE_NON_DIRECTORY_FILE;
     const ULONG ioOption = overlapped ? 0 : FILE_SYNCHRONOUS_IO_NONALERT;
@@ -110,7 +112,7 @@ inline DWORD OpenSource(HANDLE parent, std::wstring_view leaf, HANDLE& source, A
                         MoveKind kind = MoveKind::RenameFile)
 {
     return OpenFile(parent, leaf, source, extraAccess, sharing, FILE_OPEN, 0, nullptr,
-                    IsDirectoryLink(kind));
+                    IsDirectory(kind));
 }
 
 // Fixed fields of MS-FSCC Mount Point Reparse Data Buffer.
@@ -172,12 +174,12 @@ inline DWORD ReadSourceIdentity(HANDLE source, FILE_ID_INFO& identity, MoveKind 
         !GetFileInformationByHandleEx(source, FileStandardInfo, &standard, sizeof(standard)) ||
         !GetFileInformationByHandleEx(source, FileIdInfo, &identity, sizeof(identity)))
         return GetLastError();
-    const bool directory = IsDirectoryLink(kind);
+    const bool directory = IsDirectory(kind);
     const bool junction = kind == MoveKind::RenameJunction;
     DWORD expectedTag = 0;
     if (junction)
         expectedTag = IO_REPARSE_TAG_MOUNT_POINT;
-    else if (directory || kind == MoveKind::RenameSymlink)
+    else if (kind == MoveKind::RenameDirectorySymlink || kind == MoveKind::RenameSymlink)
         expectedTag = IO_REPARSE_TAG_SYMLINK;
     const DWORD tag = (attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ? attributes.ReparseTag : 0;
     if (tag != expectedTag || (tag == 0 && (attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)))

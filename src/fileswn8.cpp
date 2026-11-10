@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Put the UAC shield on the permanent-delete confirmation for the selected item. | Reuse explicit Yes only for the verified direct item. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Return to the invoking panel after elevated recycling. | Give Shell dialogs the actual panel owner. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Use the approved listing for a batch of directory sizes. | Keep the existing scope when the current panel needs elevation. | #731 | Codex |
 // | 2026-11-09 | Supply the account policy check to the Shell retry callback. | Recheck same-account consent before a queued delete starts or resumes. | | GPT-6.1 Sol (Codex) |
@@ -551,14 +552,19 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
     BOOL invertRecycleBin = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
 
     const bool countSizeBatch = type == atCountSize && countSizeMode == 2;
-    const auto sourceAvailable = [&] {
+    const auto protectedDeleteSource = [&] {
+        const bool permanent = Configuration.UseRecycleBin == 0 ? !invertRecycleBin : invertRecycleBin;
+        return type == atDelete && permanent && Is(ptDisk) && !IsBranchView() && ProtectedListing &&
+               ProtectedListing->IsOpen() && ProtectedListing->Contains(SalPathRemoveExtendedPrefixW(GetPathW()));
+    };
+    const auto sourceAvailable = [&](bool allowProtectedDelete) {
         return (countSizeBatch && Is(ptDisk) && ProtectedListing &&
                 ProtectedListing->Contains(SalPathRemoveExtendedPrefixW(GetPathW()))) ||
-               CheckPath(TRUE) == ERROR_SUCCESS;
+               (allowProtectedDelete && protectedDeleteSource()) || CheckPath(TRUE) == ERROR_SUCCESS;
     };
     if (!FilesActionInProgress)
     {
-        if (!sourceAvailable() || !validateDiskTarget())
+        if (!sourceAvailable(true) || !validateDiskTarget())
             return; // the source is always the current directory
 
         if (type != atCountSize && countSizeMode != 0)
@@ -816,6 +822,48 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
             ExpandPluralFilesDirs(expanded, 200, files, count - files, epfdmNormal, FALSE);
         }
 
+        const bool permanentDelete = type == atDelete && recycle == 0 && canUseRecycleBin && !IsBranchView();
+        std::unique_ptr<UacF7::PreparedLeaf> preparedDelete;
+        std::wstring preparedDeletePath;
+        DWORD preparedDeleteAttrs = INVALID_FILE_ATTRIBUTES;
+        bool shieldDeleteYes = false;
+        bool deleteShieldAccepted = false;
+        if (permanentDelete && count <= 1 && f != nullptr &&
+            (Configuration.CnfrmFileDirDel || protectedDeleteSource()) && UacF7::CanOfferElevation())
+        {
+            const DWORD attributes = f->Attr;
+            const bool directory = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+            if (UacF7::IsPlainDeleteFile(attributes) || UacF7::IsPlainDeleteDirectory(attributes) ||
+                UacF7::IsPlainDeleteLink(attributes, directory))
+            {
+                const std::wstring selectedPath = SalPathRemoveExtendedPrefixW(GetItemFullPathW(*f).c_str());
+                const bool inListing = protectedDeleteSource() && ProtectedListing->Contains(selectedPath);
+                const DWORD access = ProbeLocalElevationAccess(selectedPath, DELETE, directory);
+                if (inListing || access == ERROR_ACCESS_DENIED)
+                {
+#ifdef new
+#undef new
+#define RESTORE_NEW_DIRECT_DELETE_REQUEST
+#endif
+                    preparedDelete.reset(new (std::nothrow) UacF7::PreparedLeaf);
+#ifdef RESTORE_NEW_DIRECT_DELETE_REQUEST
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_NEW_DIRECT_DELETE_REQUEST
+#endif
+                    if (preparedDelete && (inListing ?
+                            ProtectedListing->PrepareDeleteLeaf(selectedPath, attributes, *preparedDelete) == ERROR_SUCCESS :
+                            preparedDelete->PrepareDeleteLeaf(selectedPath, attributes)))
+                    {
+                        preparedDeletePath = selectedPath;
+                        preparedDeleteAttrs = attributes;
+                        shieldDeleteYes = access == ERROR_ACCESS_DENIED;
+                    }
+                    else
+                        preparedDelete.reset();
+                }
+            }
+        }
+
         int resID = 0;
         switch (type)
         {
@@ -851,6 +899,11 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                 std::wstring messageText = ConfirmDeleteTextToWide(subject);
                 AppendConfirmDeleteExtInfo(messageText, GetPathW(), count, Dirs, Files, this);
                 str.SetW(messageText.c_str(), NULL);
+            }
+            else if (shieldDeleteYes)
+            {
+                const std::wstring messageText = ConfirmDeleteTextToWide(subject);
+                str.SetW(messageText.c_str(), SalPathFindFileNameW(preparedDeletePath.c_str()));
             }
             else if (type == atDelete && IsBranchView() && f != NULL)
             {
@@ -1492,17 +1545,25 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
 
         case atDelete:
         {
+            if (protectedDeleteSource() && !preparedDelete && CheckPath(TRUE) != ERROR_SUCCESS)
+            {
+                res = IDCANCEL;
+                break;
+            }
             if (Configuration.CnfrmFileDirDel && recycle != 1)
             {                                                                                                           // ask only if requested and if we don't use the SHFileOperation API for deletion
                 HICON hIcon = (HICON)HANDLES(LoadImage(Shell32DLL, MAKEINTRESOURCE(WindowsVistaAndLater ? 16777 : 161), // delete icon
                                                        IMAGE_ICON, 32, 32, IconLRFlags));
+                // In this Yes/No dialog the existing default is Yes.
                 int myRes = CMessageBox(HWindow, MSGBOXEX_YESNO | MSGBOXEX_ESCAPEENABLED | MSGBOXEX_SILENT |
+                                            (shieldDeleteYes ? MSGBOXEX_SHIELDONDEFBTN : 0) |
                                             (Configuration.CnfrmConfirmDeleteExtInfo && count > 1 ? MSGBOXEX_SCROLLABLETEXT : 0),
                                         LoadStr(IDS_CONFIRM_DELETE_TITLE), &str, NULL,
                                         NULL, hIcon, 0, NULL, NULL, NULL, NULL)
                                 .Execute();
                 HANDLES(DestroyIcon(hIcon));
                 res = (myRes == IDYES ? IDOK : IDCANCEL);
+                deleteShieldAccepted = myRes == IDYES && shieldDeleteYes;
                 UpdateWindow(MainWindow->HWindow);
             }
             else
@@ -1526,7 +1587,7 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
         }
         }
         if (res == IDOK && // begin disk operation
-            sourceAvailable() && validateDiskTarget())
+            sourceAvailable(preparedDelete != nullptr) && validateDiskTarget())
         {
             if (type == atDelete && recycle == 1)
             {
@@ -1629,8 +1690,11 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
                     script->CountSizeBatch = countSizeBatch;
                     script->InvertRecycleBin = invertRecycleBin;
                     script->CanUseRecycleBin = canUseRecycleBin;
-                    script->AllowPermanentDeletePilot = type == atDelete && recycle == 0 &&
-                                                         canUseRecycleBin && !IsBranchView();
+                    script->AllowPermanentDeletePilot = permanentDelete;
+                    script->PreparedDeleteRequest = std::move(preparedDelete);
+                    script->PreparedDeletePath = std::move(preparedDeletePath);
+                    script->PreparedDeleteAttrs = preparedDeleteAttrs;
+                    script->DeleteShieldAccepted = deleteShieldAccepted;
 
                     script->AllowTransferPilot = (type == atCopy || type == atMove) && watchDiskTarget && !copyToSelectedDirs &&
                                              !IsBranchView() && !target->IsBranchView() &&

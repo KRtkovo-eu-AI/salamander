@@ -1,5 +1,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Cover exact and nonempty ordinary directory deletion. | Prove a verified leaf can never remove its descendants. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Exercise verified plain-directory rename on a long path. | Check the listed identity, no-replace rule, and untouched subtree. | #731 | GPT-6.1 Sol (Codex) |
 | 2026-11-10 | Verify the ID captured from a directory listing. | Detect replacement and reject missing or redirected entries before listing. | #731 | Codex |
 | 2026-11-09 | Check exclusive overwrite journal access across processes. | A competing operation must wait for the journal owner to exit before recovery. | | Codex |
 | 2026-11-09 | Cancel F6 after verification reports progress. | Keep both source names and the existing destination during an active cancellation. | | Codex |
@@ -4399,8 +4401,19 @@ int wmain(int argc, wchar_t** argv)
     Check(listingError == ERROR_SUCCESS && entries.size() == 1 &&
               std::wstring_view(entries.front().cFileName) == L"nested",
           "enumerate the approved directory by handle", listingError);
-    if (!CreateRenameSource(fixture + L"\\destination\\\u6771\u4eac.txt"))
+    const auto listedFilePath = fixture + L"\\destination\\\u6771\u4eac.txt";
+    FILE_ID_INFO listedFileId{};
+    if (!CreateRenameSource(listedFilePath) || !OpenIdentity(listedFilePath, listedFileId))
         return 2;
+    FILE_ID_128 observedFile{};
+    DWORD observedAttributes = 0;
+    listingError = UacListing::CaptureChildId(listing.get(), L"\u6771\u4eac.txt", false, observedFile,
+                                            observedAttributes);
+    Check(!listingError && !std::memcmp(observedFile.Identifier, listedFileId.FileId.Identifier, sizeof(observedFile)) &&
+              observedAttributes == GetFileAttributesW(listedFilePath.c_str()),
+          "capture the exact ordinary Unicode file ID and attributes from its readable parent", listingError);
+    listingError = UacListing::CaptureChildId(listing.get(), L"nested", false, observedFile, observedAttributes);
+    Check(listingError == ERROR_DIRECTORY, "file identity fallback rejects a directory", listingError);
     listingError = UacListing::Enumerate(listing.get(), entries);
     bool foundUnicode = false;
     for (const auto& entry : entries)
@@ -5499,6 +5512,26 @@ int wmain(int argc, wchar_t** argv)
     Check(error == ERROR_SUCCESS && !Exists(relocatedDelete) && Exists(deletePath),
           "delete detaches only the verified name while its identity handle is still open", error);
 
+    const auto deleteDirectory = moved + L"\\delete-dir-\u6771";
+    const auto deleteChild = deleteDirectory + L"\\kept.txt";
+    FILE_ID_INFO deleteDirectoryId{};
+    if (!CreateDirectoryW(deleteDirectory.c_str(), nullptr) ||
+        !WriteFixture(deleteChild, {1, 2, 3}) || !OpenIdentity(deleteDirectory, deleteDirectoryId, true))
+        return 2;
+    constexpr auto removeDirectory = UacF7::Operation::DeleteDirectory;
+    error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, deleteDirectoryId, L"delete-dir-\u6771",
+                                              removeDirectory);
+    Check(error == ERROR_DIR_NOT_EMPTY && HasContents(deleteChild, {1, 2, 3}),
+          "directory delete cannot remove a directory with contents", error);
+    error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, deleteId, L"delete-dir-\u6771", removeDirectory);
+    Check(error == ERROR_FILE_INVALID && HasContents(deleteChild, {1, 2, 3}),
+          "directory delete rejects a replaced identity", error);
+    if (!DeleteFileW(deleteChild.c_str()))
+        return 2;
+    error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, deleteDirectoryId, L"delete-dir-\u6771",
+                                              removeDirectory);
+    Check(error == ERROR_SUCCESS && !Exists(deleteDirectory), "delete a verified empty Unicode directory", error);
+
     const auto localMoveSource = moved + L"\\local-source-\u6771";
     const auto moveTarget = moved + L"\\local-copy-\u6771";
     const auto movedAside = moved + L"\\local-copy-original-\u6771";
@@ -5616,7 +5649,7 @@ int wmain(int argc, wchar_t** argv)
     const auto longPath = fixture + L"\\" + first + L"\\" + second;
     if (!CreateDirectoryW((fixture + L"\\" + first).c_str(), nullptr) || !CreateDirectoryW(longPath.c_str(), nullptr))
         return 2;
-    error = OpenParentBelowRoot(root.get(), first + L"\\" + second, rawParent, expected);
+    error = OpenParentBelowRoot(root.get(), first + L"\\" + second, rawParent, expected, FILE_LIST_DIRECTORY);
     Check(error == ERROR_SUCCESS && longPath.size() > MAX_PATH, "open long Unicode parent", error);
     if (error)
         return 1;
@@ -5704,6 +5737,41 @@ int wmain(int argc, wchar_t** argv)
     }
     const auto remainingJunction = junctionRename == ERROR_SUCCESS ? renamedJunction : longJunction;
     if (Exists(remainingJunction) && !RemoveDirectoryW(remainingJunction.c_str()))
+        return 2;
+
+    constexpr wchar_t directoryFrom[] = L"source-folder-\u65e5";
+    constexpr wchar_t directoryTo[] = L"target-folder-\u672c";
+    constexpr wchar_t directoryChild[] = L"\\child-\u6771.txt";
+    const auto directorySource = longPath + L"\\" + directoryFrom;
+    const auto directoryTarget = longPath + L"\\" + directoryTo;
+    FILE_ID_INFO directoryId{expected.file.VolumeSerialNumber, {}};
+    if (!CreateDirectoryW(directorySource.c_str(), nullptr) ||
+        !WriteFixture(directorySource + directoryChild, content) ||
+        !CreateDirectoryW(directoryTarget.c_str(), nullptr) ||
+        UacListing::CaptureChildDirectoryId(longParent.get(), directoryFrom, directoryId.FileId))
+        return 2;
+    constexpr auto directoryKind = UacRenameLeaf::MoveKind::RenameDirectory;
+    DWORD directoryRename = UacRenameLeaf::RenameVerifiedFile(longParent.get(), expected, directoryId,
+                                                              directoryFrom, directoryTo, directoryKind);
+    Check((directoryRename == ERROR_ALREADY_EXISTS || directoryRename == ERROR_FILE_EXISTS) &&
+              HasContents(directorySource + directoryChild, content) && DirectoryExists(directoryTarget),
+          "directory rename preserves both paths on collision", directoryRename);
+    if (!RemoveDirectoryW(directoryTarget.c_str()))
+        return 2;
+    directoryRename = UacRenameLeaf::RenameVerifiedFile(longParent.get(), expected, expected.file,
+                                                        directoryFrom, directoryTo, directoryKind);
+    Check(directoryRename == ERROR_FILE_INVALID && !Exists(directoryTarget) && DirectoryExists(directorySource),
+          "directory rename rejects a different captured identity", directoryRename);
+    directoryRename = UacRenameLeaf::RenameVerifiedFile(longParent.get(), expected, directoryId,
+                                                        directoryFrom, directoryTo, directoryKind);
+    FILE_ID_INFO renamedDirectoryId{};
+    Check(directoryRename == ERROR_SUCCESS && !Exists(directorySource) &&
+              OpenIdentity(directoryTarget, renamedDirectoryId, true) &&
+              UacRenameLeaf::Detail::SameSource(renamedDirectoryId, directoryId) &&
+              HasContents(directoryTarget + directoryChild, content),
+          "rename a Unicode ordinary directory below a long path while preserving its subtree and ID", directoryRename);
+    const auto& remainingDirectory = directoryRename == ERROR_SUCCESS ? directoryTarget : directorySource;
+    if (!DeleteFileW((remainingDirectory + directoryChild).c_str()) || !RemoveDirectoryW(remainingDirectory.c_str()))
         return 2;
 
     const auto longSource = longPath + L"\\source-\u65e5";

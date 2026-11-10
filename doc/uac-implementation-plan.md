@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Verify protected directory rename and direct permanent delete. | Record VM coverage, consent scope and runtime limits. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Record direct Windows consent after shielded OK. | Verify removal of the redundant administrator dialog. | #731 | Codex |
 | 2026-11-10 | Record protected panel metadata and the Ctrl+F2 shield. | Verify a single nonrecursive change and the elevation boundary. | #731 | Codex |
 | 2026-11-10 | Record native OK shields for F7 and F2. | Verify the indicator against real permissions and review other dialogs. | #731 | GPT-6 (Codex) |
@@ -1553,7 +1554,7 @@ Ve VM x64 Release v tmavém režimu ukázaly oba první dialogy štít v čiteln
 
 Prošlo 11 přímých kontrol oprávnění a vyhodnocení cíle nad skutečnými testovacími složkami, 96 kontrol F7 a 57 kontrol přejmenování v Debug i Release, 20 kontraktů operací, 30 kontraktů přechodu panelu a kontrakt Findu. Nasazený host SHA-256 je `58E87D634A1C6A2F6607B305CFFDE2B46CEABB54BD94DB7879E4ABDA13FE584F`. Host narostl o 3 072 bajtů na 5 656 576, broker je bitově shodný a má 1 345 536 bajtů. Soukromá paměť se neměřila.
 
-**Kde štít zobrazovat podle upřesnění uživatele.** Shift+F7 ponechá běžné OK. Nabídka správce patří až k odepřenému vstupu do složky. U Shift+Delete má smysl předem ověřit pouze přímo vybranou položku a případný štít dát na potvrzovací Ano. Chránění vnořených položek se zjišťuje až během mazání. U F5/F6 je důvodem pro předběžný štít odepřený zápis do zvoleného cílového adresáře. Potíže se zdrojem a konflikty se řeší během operace. Tyto tři změny zůstávají v plánu. Find odhaluje chráněné podsložky při práci. F3, F4 a výpočet velikosti už ukazují štít u nabídky správce.
+**Kde štít zobrazovat podle upřesnění uživatele.** Shift+F7 ponechá běžné OK. Nabídka správce patří až k odepřenému vstupu do složky. U Shift+Delete má smysl předem ověřit pouze přímo vybranou položku a případný štít dát na potvrzovací Ano. Chránění vnořených položek se zjišťuje až během mazání. U F5/F6 je důvodem pro předběžný štít odepřený zápis do zvoleného cílového adresáře. Potíže se zdrojem a konflikty se řeší během operace. Pravidla pro Shift+Delete jsou ověřena níže. Úpravy Shift+F7 a F5/F6 zůstávají v plánu. Find odhaluje chráněné podsložky při práci. F3, F4 a výpočet velikosti už ukazují štít u nabídky správce.
 
 ### P7 — nerekurzivní atributy a časy z chráněného panelu
 
@@ -1572,6 +1573,16 @@ F7, dialogové F2 a nerekurzivní Ctrl+F2 považují potvrzené OK se štítem z
 V izolované VM po jediném OK se štítem ve F7 následovala přímo výzva `uacbroker.exe` a po schválení vznikla `01-jediný-souhlas-東`. Při změně cíle ve stejném dialogu na zapisovatelnou absolutní cestu štít zmizel a složka `02-local-only-東` vznikla bez elevace. Obě složky byly prázdné. F2 a Ctrl+F2 byly ověřeny místními nativními testy, které rozlišují potvrzení se štítem, běžnou nabídku i návrat po chybě. V Debug i Release prošlo 96 kontrol F7, 61 kontrol přejmenování a 56 kontrol atributového workeru a jeho kontroleru. Prošly i kontrola nativního dialogu Copy/Move a kontrakty výběru atributů a workeru. Podklady a ověřený x64 Release pilot jsou v `C:/Samandarin/builds/uac-single-consent`.
 
 Host má 5 662 208 bajtů, broker 1 345 536 a dohromady 7 007 744 bajtů. Host je o 512 bajtů větší než předchozí pilot. Broker je bitově shodný. Soukromá paměť se neměřila.
+
+### P7 — F2 pro chráněný adresář a Shift+Delete
+
+F2 zkouší `DELETE` na vybraném běžném adresáři a `FILE_ADD_SUBDIRECTORY` na cílovém rodiči. U odepřené známé operace zobrazí OK se štítem. Když se zdroj nepodaří otevřít pro zjištění identity, použije přesný záznam z ověřeného čitelného rodiče nebo ze schválené relace výpisu. Po skutečném odepření přejde potvrzené OK se štítem přímo do Windows UAC. Broker ověří identitu rodiče, adresáře a typ objektu a přejmenuje adresář ve stejném rodiči bez přepsání cíle.
+
+U Shift+Delete se před potvrzením kontroluje výhradně jedna přímo vybraná podporovaná položka. Je-li operace trvalým odstraněním a místní pokus o získání práva `DELETE` je odepřen, Ano se štítem se váže na přesnou cestu, typ a zachycené ID. Po skutečném odepření vyvolá systémovou výzvu přímo. U neprázdného vybraného adresáře s čitelným obsahem se před první změnou potomka pokusí broker odstranit jen tento adresář. Pokud je neprázdný, běžný worker pokračuje a broker lze znovu použít pouze pro jeho stejné ID a jméno. Potomci se zjišťují až při sestavení a provádění úlohy po potvrzení. Vlastní odepření u potomka má samostatnou nabídku Administrator. Broker odstraňuje pouze ověřené jednotlivé položky a prázdné adresáře. Pokus odstranit nečitelný neprázdný adresář vrátí 145 a zachová podstrom. Protokol hosta, brokeru a sondy má verzi 15.
+
+Izolovaná VM x64 Release reprodukovala ACL původního případu na samostatném `03-approve`. F2 se štítem otevřelo přímo Windows UAC a po Ano byl v panelu `03-přejmenováno-東`. U `01-delete-approve.txt` vedlo Ano se štítem přímo k Windows a soubor se odstranil. Odstranitelná složka `04-nested-delete` měla Ano bez štítu. Teprve při mazání `protected-child.txt` přišla nabídka Administrator a po schválení zmizel soubor i rodič. Ve finálním sestavení měl dialog pro `05-delete-empty` celý název a Ano se štítem, po jedné výzvě složka zmizela. Kontrola na disku ověřila nepřítomnost všech schválených cílů a shodný SHA-256 kontrolního chráněného souboru.
+
+Místně prošlo 64 kontrol F2 a 63 kontrol workeru v Debug i Release, 321 nativních kontrol v Release, 448 kontrol identity diskového cíle a kontrakty přechodu panelu, výběru atributů a průběhu. Nativní kontroly zahrnují dlouhé Unicode cesty, odmítnutí kolize či změněného ID, zachování obsahu při přejmenování, prázdné a neprázdné adresáře a stornování před změnou potomků. Podklady jsou v `C:/Samandarin/builds/uac-rename-delete`. Host má 5 668 352 bajtů, broker 1 347 584 a dohromady 7 015 936. Oproti předchozímu x64 Release pilotu je to celkem o 8 192 bajtů více. Soukromá paměť se neměřila.
 
 ## 12. Testovací strategie
 

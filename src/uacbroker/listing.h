@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Capture the exact ordinary file identity from a readable parent. | Support a verified delete when even the child metadata open is denied. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Report attributes with the verified leaf identity. | Prepare basic metadata for ordinary files and directories. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Share the listing identity query with leaf operations. | Identify a verified parent for a single directory creation. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Add a metadata-only listing request for F3. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
@@ -104,7 +105,8 @@ DWORD EnumerateRows(HANDLE directory, bool strict, Accept accept)
 }
 }
 
-inline DWORD CaptureChildDirectoryId(HANDLE parent, std::wstring_view child, FILE_ID_128& id)
+inline DWORD CaptureChildId(HANDLE parent, std::wstring_view child, bool directory, FILE_ID_128& id,
+                            DWORD& attributes)
 {
     if (!UacDirectoryLeaf::IsComponent(child))
         return ERROR_INVALID_NAME;
@@ -112,6 +114,7 @@ inline DWORD CaptureChildDirectoryId(HANDLE parent, std::wstring_view child, FIL
     bool found = false;
     DWORD count = 0;
     FILE_ID_128 candidate{};
+    DWORD candidateAttributes = 0;
     const DWORD error = Detail::EnumerateRows(parent, false,
         [&](const FILE_ID_EXTD_DIR_INFO& row, std::wstring_view name) -> DWORD {
             if (++count > maxEntries)
@@ -122,9 +125,10 @@ inline DWORD CaptureChildDirectoryId(HANDLE parent, std::wstring_view child, FIL
                 return ERROR_DUP_NAME;
             if (row.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
                 return ERROR_REPARSE_TAG_INVALID;
-            if (!(row.FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+            if (((row.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) != directory)
                 return ERROR_DIRECTORY;
             candidate = row.FileId;
+            candidateAttributes = row.FileAttributes;
             found = true;
             return ERROR_SUCCESS;
         });
@@ -133,7 +137,14 @@ inline DWORD CaptureChildDirectoryId(HANDLE parent, std::wstring_view child, FIL
     if (!found)
         return ERROR_FILE_NOT_FOUND;
     id = candidate;
+    attributes = candidateAttributes;
     return ERROR_SUCCESS;
+}
+
+inline DWORD CaptureChildDirectoryId(HANDLE parent, std::wstring_view child, FILE_ID_128& id)
+{
+    DWORD attributes = 0;
+    return CaptureChildId(parent, child, true, id, attributes);
 }
 
 inline DWORD Enumerate(HANDLE directory, std::vector<WIN32_FIND_DATAW>& entries)

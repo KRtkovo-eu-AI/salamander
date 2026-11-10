@@ -4368,6 +4368,7 @@ SLGINCOMPLETE,""
 [STRINGTABLE 197]
 14688,1,"Zugriff verweigert. Diese Datei als Administrator in Ihren Papierkorb verschieben?"
 14689,1,"Zugriff verweigert. Diese Datei unter Beibehaltung der NTFS-Komprimierung, des Besitzers, der Gruppe und der expliziten Berechtigungen als Administrator kopieren?"
+14690,1,"Zugriff verweigert. Diesen leeren Ordner als Administrator endgültig löschen?"
 
 [STRINGTABLE 198]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."

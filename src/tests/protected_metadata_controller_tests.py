@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Verify direct and late verified delete requests. | Keep shielded Yes exact and cancel before children. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Test the actual verified metadata executor. | Verify that accepted shields apply only to the matching first denied operation. | #731 | GPT-6.1 Sol (Codex) |
 # | 2026-11-10 | Exercise actual metadata preview and worker dispatch. | Verify denied-write detection and fail-closed protected requests without UI or elevation. | #731 | GPT-6.1 Sol (Codex) |
 """Compile production metadata preview/worker functions with isolated OS and UI seams."""
@@ -24,7 +25,11 @@ def main():
     assert 'script->Count == 1 && script->At(0).Opcode == ocChangeAttrs' in change
     assert 'dlgData.MetadataShieldedOk = shieldedOk && sameItem;' in change
     assert 'dlgData.AllowBasicMetadataPilot && chDlg.AcceptedShieldedOk()' in change
-    assert '!deleting && !shareJob && prompt.shieldedOk' in read('src/dialogs.cpp')
+    assert '(deleting || !shareJob) && prompt.shieldedOk' in read('src/dialogs.cpp')
+    assert 'if (shareJob && !prompt.request.IsDirectoryDelete())' in read('src/dialogs.cpp')
+    delete = block(worker[worker.index('static BOOL ExecuteVerifiedWorkerLeaf('):], 'static bool TryDeleteVerifiedLeaf(HWND progress')
+    assert 'SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str()) == script.PreparedDeletePath' in delete
+    assert 'shielded = script.DeleteShieldAccepted;' in delete
     assert 'ProtectedListing->IsOpen()' in change
     assert 'find = entry;' in change
     pieces = {
