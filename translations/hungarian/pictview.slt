@@ -164,7 +164,7 @@ COMMENT,"Magyar változat"
 
 [DIALOG 2180]
 350,89,1,"Fájl felülírásának megerősítése"
-3000,1,14,54,8,1,"Felülírandó fájl:"
+3000,0,14,54,8,1,"Felülírandó fájl:"
 2181,58,14,286,8,1,""
 2182,58,24,286,8,1,""
 3001,4,37,50,8,1,"Ezzel:"
