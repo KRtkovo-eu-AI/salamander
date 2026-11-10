@@ -218,7 +218,7 @@ COMMENT,"swedish translation stub (English seed)"
 
 [DIALOG 660]
 396,165,0,"FTP Logs"
-663,1,0,396,1,1,""
+663,0,0,396,1,1,""
 661,5,5,386,104,1,""
 662,5,19,386,141,1,""
 

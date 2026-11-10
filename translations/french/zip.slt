@@ -141,7 +141,7 @@ COMMENT,"Version française"
 
 [DIALOG 146]
 305,303,1,"Réglages de l'auto-extracteur"
-3000,1,0,305,1,1,""
+3000,0,0,305,1,1,""
 3001,7,7,292,89,1,"Répertoire dans lequel extraire les fichiers"
 3002,20,19,49,8,1,"E&xtraire dans:"
 193,20,29,249,12,1,""
@@ -204,7 +204,7 @@ COMMENT,"Version française"
 
 [DIALOG 180]
 340,180,1,"Commentaire d'archive ZIP"
-181,1,0,340,180,1,""
+181,0,0,340,180,1,""
 
 [DIALOG 190]
 260,352,1,"Textes d'auto-extracteur"

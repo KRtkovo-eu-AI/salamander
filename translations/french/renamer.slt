@@ -11,7 +11,7 @@ COMMENT,"Version française"
 
 [DIALOG 100]
 368,260,1,"Renommer par lots"
-124,1,0,368,1,1,""
+124,0,0,368,1,1,""
 300,16,11,51,8,1,"Mas&que:"
 101,70,9,95,132,1,""
 102,174,10,95,12,1,"Inclure les sous-&dossiers"
@@ -44,7 +44,7 @@ COMMENT,"Version française"
 118,70,170,92,12,1,"I&nclure le chemin"
 103,6,182,51,8,1,"&Prévisualiser:"
 122,100,182,261,8,1,""
-104,1,192,368,68,1,""
+104,0,192,368,68,1,""
 
 [DIALOG 140]
 225,88,1,"Ajouter une sous-chaîne"

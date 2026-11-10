@@ -141,7 +141,7 @@ COMMENT,"Deutsche Version"
 
 [DIALOG 146]
 305,303,1,"Self-Extractor Einstellungen"
-3000,1,0,305,1,1,""
+3000,0,0,305,1,1,""
 3001,7,7,292,89,1,"Verzeichnis für das Entpacken der Dateien"
 3002,20,19,59,8,1,"&Entpacken nach:"
 193,20,29,249,12,1,""
@@ -204,7 +204,7 @@ COMMENT,"Deutsche Version"
 
 [DIALOG 180]
 340,180,1,"ZIP-Archivkommentar"
-181,1,0,340,180,1,""
+181,0,0,340,180,1,""
 
 [DIALOG 190]
 260,352,1,"Texte des Self-Extractors"

@@ -141,7 +141,7 @@ COMMENT,"Magyar változat"
 
 [DIALOG 146]
 305,303,1,"Önkitömörítő beállítások"
-3000,1,0,305,1,1,""
+3000,0,0,305,1,1,""
 3001,7,7,292,89,1,"Fájlok mappába kitömörítése"
 3002,20,19,55,8,1,"&Kitömörítés ide:"
 193,20,29,249,12,1,""
@@ -204,7 +204,7 @@ COMMENT,"Magyar változat"
 
 [DIALOG 180]
 340,180,1,"ZIP archívum jegyzet"
-181,1,0,340,180,1,""
+181,0,0,340,180,1,""
 
 [DIALOG 190]
 260,352,1,"Önkitömörítő szövegek"
