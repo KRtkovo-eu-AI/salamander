@@ -10,7 +10,7 @@ WEB,"www.altap.cz"
 COMMENT,"hebrew translation stub (English seed)"
 
 [MENU 109]
-0,0,"&File"
+0,0,"&קובץ"
 111,1,"&פתח קובץ"
 112,0,"&Focus in Panel\tF"
 113,0,"&Abort\tEsc"
