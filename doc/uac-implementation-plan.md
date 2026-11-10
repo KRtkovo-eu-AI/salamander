@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Record one shield for protected recycling. | Verify direct Windows consent and the original account receipt. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Verify protected directory rename and direct permanent delete. | Record VM coverage, consent scope and runtime limits. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Record direct Windows consent after shielded OK. | Verify removal of the redundant administrator dialog. | #731 | Codex |
 | 2026-11-10 | Record protected panel metadata and the Ctrl+F2 shield. | Verify a single nonrecursive change and the elevation boundary. | #731 | Codex |
@@ -1583,6 +1584,14 @@ U Shift+Delete se před potvrzením kontroluje výhradně jedna přímo vybraná
 Izolovaná VM x64 Release reprodukovala ACL původního případu na samostatném `03-approve`. F2 se štítem otevřelo přímo Windows UAC a po Ano byl v panelu `03-přejmenováno-東`. U `01-delete-approve.txt` vedlo Ano se štítem přímo k Windows a soubor se odstranil. Odstranitelná složka `04-nested-delete` měla Ano bez štítu. Teprve při mazání `protected-child.txt` přišla nabídka Administrator a po schválení zmizel soubor i rodič. Ve finálním sestavení měl dialog pro `05-delete-empty` celý název a Ano se štítem, po jedné výzvě složka zmizela. Kontrola na disku ověřila nepřítomnost všech schválených cílů a shodný SHA-256 kontrolního chráněného souboru.
 
 Místně prošlo 64 kontrol F2 a 63 kontrol workeru v Debug i Release, 321 nativních kontrol v Release, 448 kontrol identity diskového cíle a kontrakty přechodu panelu, výběru atributů a průběhu. Nativní kontroly zahrnují dlouhé Unicode cesty, odmítnutí kolize či změněného ID, zachování obsahu při přejmenování, prázdné a neprázdné adresáře a stornování před změnou potomků. Podklady jsou v `C:/Samandarin/builds/uac-rename-delete`. Host má 5 668 352 bajtů, broker 1 347 584 a dohromady 7 015 936. Oproti předchozímu x64 Release pilotu je to celkem o 8 192 bajtů více. Soukromá paměť se neměřila.
+
+### P7 — jediné potvrzení se štítem pro Delete do Koše
+
+Běžný Delete má vlastní cestu přes Windows Shell. Po tichém odepření přístupu u jednoho ověřeného místního souboru nejprve požádá Samandarin o souhlas tlačítkem Administrator. Druhý štít v původním pilotu pocházel z následného potvrzení očekávané elevace v Shellu. Schválený opakovaný pokus teď předává `FOFX_REQUIREELEVATION` spolu s dosavadním `FOFX_SHOWELEVATIONPROMPT`. Windows přeskočí potvrzení očekávané elevace a může dál zobrazit systémovou výzvu UAC. První pokus používá dosavadní příznaky. Ochrana téhož účtu se ověřuje před spuštěním a při každém PreDeleteItem. Doklad musí patřit přesnému souboru v Koši původního SID na původním svazku. [Příznaky IFileOperation](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-setoperationflags).
+
+Ve VM s ověřeným x64 Release pilotem obě zkoušky přešly po jediném kliknutí na Administrator přímo na systémovou výzvu Windows. Schválený `01-recycle-approve.txt` vytvořil právě jeden doklad v Koši původního účtu se stejným NTFS ID a SHA-256. Zrušený `02-recycle-cancel.txt` má na původní cestě stejné ID i obsah a žádný doklad v Koši. Původní soubor z hlášení má shodný SHA-256. Důkazy jsou v `C:/Samandarin/builds/uac-recycle-single-consent/vm-evidence.json`. Standardní účet a přepnutí zásady pokrývají stávající nativní regrese.
+
+V Debug i Release prošlo po 30 nativních kontrolách Koše a 410 kontrolách panelu. Samostatná místní sonda ověřila 18 kontrol včetně dokladu běžného přesunu a obnovy stejného ID. Prošly i kontrakty operací, přechodu panelu a Findu. Velikosti x64 Release hosta a brokeru jsou 5 668 352 a 1 347 584 bajtů, celkem 7 015 936, stejně jako u předchozího pilotu. Broker je bitově shodný, protokol 15. Soukromá paměť se neměřila.
 
 ## 12. Testovací strategie
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Keep the initial Shell recycle attempt silent. | Reserve elevation flags for the guarded single-item retry. | #731 | GPT-6 (Codex) |
 // | 2026-11-09 | Keep Branch View on ordinary recycling. | Reject any protected recycle retry from the Branch panel fixture. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Model Shell recycle intent and item receipts. | Verify rejection of permanent mode and unconfirmed results. | | GPT-6.1 Sol (Codex) |
 // The three production getters, Entry, Entry::FullPath, Join and conversion
@@ -810,7 +811,7 @@ static void RecycleQueueTests()
     Check(RecycleMock.Paths[2]==panel.GetItemFullPathW(panel.Files->At(2))&&RecycleMock.Paths[2].size()>260,"recycle preserves long Unicode name and parent");
     Check((RecycleMock.Flags & (FOFX_RECYCLEONDELETE | FOF_NOERRORUI | FOFX_EARLYFAILURE | FOF_WANTNUKEWARNING)) ==
         (FOFX_RECYCLEONDELETE | FOF_NOERRORUI | FOFX_EARLYFAILURE | FOF_WANTNUKEWARNING) &&
-        !(RecycleMock.Flags & (FOFX_SHOWELEVATIONPROMPT | FOF_NOCONFIRMATION)),"recycle does not prompt for elevation or silently accept permanent deletion");
+        !(RecycleMock.Flags & (FOFX_REQUIREELEVATION | FOFX_SHOWELEVATIONPROMPT | FOF_NOCONFIRMATION)),"recycle does not prompt for elevation or silently accept permanent deletion");
     Check(RecycleMock.PerformCalls==1&&RecycleMock.AbortCalls==1&&RecycleMock.Released==1,"one perform after complete queue and checked abort status");
     reset();RecycleMock.ItemResult=COPYENGINE_E_RECYCLE_UNKNOWN_ERROR;
     Check(!panel.Recycle(selected,3,nullptr)&&RecycleErrors==1&&RecycleLastMessage.find("0x80270035")!=std::string::npos,

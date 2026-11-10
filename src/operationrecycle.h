@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Tell the Shell that recycle elevation is already requested. | Keep Windows UAC without asking twice for the same elevation. | #731 | GPT-6 (Codex) |
 // | 2026-11-09 | Recheck the account policy on every Shell retry. | Stop when a changed policy can switch accounts after application consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Restrict the Shell recycle retry to same-account elevation. | A credential-based Shell retry can move the file into another account’s Recycle Bin. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Let the Shell retry recycling after requesting elevation. | Keep revalidating the exact source without treating an intermediate callback as final. | | GPT-6.1 Sol (Codex) |
@@ -28,6 +29,11 @@
 // operation without requesting a different user's token.
 inline constexpr DWORD OperationRecycleFlags = FOF_ALLOWUNDO | FOF_NOERRORUI | FOFX_RECYCLEONDELETE | FOFX_ADDUNDORECORD |
                                               FOFX_EARLYFAILURE | FOF_WANTNUKEWARNING | FOF_RENAMEONCOLLISION;
+
+// The application has already confirmed this verified same-account retry.
+// Keep the Windows UAC prompt and suppress the Shell confirmation of expected elevation.
+inline constexpr DWORD OperationRecycleRetryFlags = FOFX_SHOWELEVATIONPROMPT | FOFX_REQUIREELEVATION |
+                                                     FOF_NO_CONNECTED_ELEMENTS | FOFX_NOCOPYHOOKS;
 
 inline HRESULT NormalizeRecycleResult(HRESULT result)
 {
@@ -419,7 +425,7 @@ inline HRESULT RunSingleRecycleOperation(HWND owner, const std::wstring& shellPa
     if (SUCCEEDED(result)) result = operation->SetOwnerWindow(owner);
     if (SUCCEEDED(result))
         result = operation->SetOperationFlags(OperationRecycleFlags | FOF_SILENT |
-                                              (showElevation ? FOFX_SHOWELEVATIONPROMPT | FOF_NO_CONNECTED_ELEMENTS | FOFX_NOCOPYHOOKS : 0));
+                                              (showElevation ? OperationRecycleRetryFlags : 0));
     if (SUCCEEDED(result)) result = SHCreateItemFromParsingName(shellPath.c_str(), NULL, IID_PPV_ARGS(&item));
     if (SUCCEEDED(result)) result = operation->DeleteItem(item, &progress);
     if (SUCCEEDED(result)) result = operation->PerformOperations();

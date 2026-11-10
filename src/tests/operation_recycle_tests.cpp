@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Check flags for an approved Shell retry. | Avoid a second shield while preserving recycle safety. | #731 | GPT-6 (Codex) |
 // | 2026-11-09 | Test an account policy change during the Shell retry. | Keep the source in place when elevation can switch users. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Test the original-account Shell elevation policy. | Reject standard tokens and credential prompts before retrying protected recycling. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Cover the two Shell callbacks around elevation. | Distinguish intermediate elevation from a final result and recheck the source. | | GPT-6.1 Sol (Codex) |
@@ -416,6 +417,19 @@ int wmain(int argc, wchar_t** argv)
     Check(SUCCEEDED(OperationRecyclePath(LR"(C:\auxiliary\nul-backup.txt)", shellPath)) &&
               SUCCEEDED(OperationRecyclePath(LR"(\\server\share\directory\file.txt)", shellPath)),
           "keep ordinary drive and UNC file paths");
+    constexpr DWORD elevationFlags = FOFX_REQUIREELEVATION | FOFX_SHOWELEVATIONPROMPT;
+    constexpr DWORD safetyFlags = FOFX_RECYCLEONDELETE | FOFX_EARLYFAILURE | FOF_WANTNUKEWARNING;
+    const DWORD ordinaryFlags = OperationRecycleFlags;
+    const DWORD approvedRetryFlags = ordinaryFlags | OperationRecycleRetryFlags;
+    Check(!(ordinaryFlags & elevationFlags),
+          "ordinary recycling leaves the Shell elevation UI disabled");
+    Check((OperationRecycleRetryFlags & elevationFlags) == elevationFlags,
+          "approved retry skips only the redundant Shell elevation confirmation");
+    Check((OperationRecycleRetryFlags & (FOF_NO_CONNECTED_ELEMENTS | FOFX_NOCOPYHOOKS)) ==
+              (FOF_NO_CONNECTED_ELEMENTS | FOFX_NOCOPYHOOKS),
+          "approved retry keeps connected objects and copy hooks outside its scope");
+    Check((approvedRetryFlags & safetyFlags) == safetyFlags && !(approvedRetryFlags & FOF_NOCONFIRMATION),
+          "approved retry retains recycle intent and permanent-delete protection");
     Check(IsSameAccountRecyclePolicy(TokenElevationTypeLimited, 0) &&
               IsSameAccountRecyclePolicy(TokenElevationTypeLimited, 2) &&
               IsSameAccountRecyclePolicy(TokenElevationTypeLimited, 4) &&
