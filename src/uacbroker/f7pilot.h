@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Expose a common UAC foreground return. | Restore the invoking window from its UI thread. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Prepare a separate viewer request from the approved panel. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
 | 2026-11-09 | Make active Find broker reads cancellable. | Stop waiting on the scoped read pipe and discard incomplete replies. | | Codex |
 | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
@@ -75,6 +76,22 @@
 
 namespace UacF7
 {
+constexpr UINT restoreConsentForegroundMessage = WM_APP + 427;
+
+class ConsentForeground
+{
+public:
+    explicit ConsentForeground(HWND owner);
+    HWND Owner() const { return owner; }
+    void Restore() const;
+
+private:
+    HWND owner;
+    bool wasForeground;
+};
+
+void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput);
+
 enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30 };
 
 inline bool IsRename(Operation operation)

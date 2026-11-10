@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Restore the UAC owner on its UI thread. | Handle worker launches and retain an active modal popup. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Obtain exact file identity without granting content access. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
 | 2026-11-10 | Bind protected listing consent to a child ID from the parent. | Support directories with inaccessible metadata and recheck the exact object after elevation. | #731 | Codex |
 | 2026-11-09 | Return to the foreground broker prompt owner. | Restore the invoking window after Windows closes the consent prompt. | | Codex |
@@ -2394,24 +2395,12 @@ bool IsOwnedWindow(HWND window, HWND owner)
 
 BOOL LaunchBrokerWithOwner(SHELLEXECUTEINFOW& launch)
 {
-    const HWND owner = GetAncestor(launch.hwnd, GA_ROOT);
-    const HWND before = GetForegroundWindow();
-    DWORD foregroundProcess = 0;
-    GetWindowThreadProcessId(before, &foregroundProcess);
-    // Closing the in-app confirmation can activate the main panel before the
-    // launcher thread runs. The explicit Shell owner is still the target.
-    const bool returnToOwner = owner && foregroundProcess == GetCurrentProcessId();
+    const UacF7::ConsentForeground foreground(launch.hwnd);
+    launch.hwnd = foreground.Owner();
     const BOOL launched = ShellExecuteExW(&launch);
     const DWORD error = launched ? ERROR_SUCCESS : GetLastError();
-    // Only the active caller gets a single foreground request on return from
-    // consent. Windows still arbitrates activation if another app has input.
-    if (returnToOwner && (launched || error == ERROR_CANCELLED) &&
-        IsWindowVisible(owner) && IsWindowEnabled(owner) && !IsIconic(owner))
-    {
-        const HWND foreground = GetForegroundWindow();
-        if (!IsOwnedWindow(foreground, owner))
-            SetForegroundWindow(owner);
-    }
+    if (launched || error == ERROR_CANCELLED)
+        foreground.Restore();
     if (!launched)
         SetLastError(error);
     return launched;
@@ -2720,6 +2709,52 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
 namespace UacF7
 {
+ConsentForeground::ConsentForeground(HWND window) :
+    owner(window ? GetAncestor(window, GA_ROOT) : nullptr), wasForeground(false)
+{
+    DWORD ownerProcess = 0;
+    DWORD foregroundProcess = 0;
+    GetWindowThreadProcessId(owner, &ownerProcess);
+    GetWindowThreadProcessId(GetForegroundWindow(), &foregroundProcess);
+    if (ownerProcess != GetCurrentProcessId())
+        owner = nullptr;
+    // The in-app consent dialog can return activation to the main panel
+    // before the worker launches. Keep the explicit owner as the target.
+    wasForeground = owner && foregroundProcess == ownerProcess;
+}
+
+void ConsentForeground::Restore() const
+{
+    if (!wasForeground)
+        return;
+    const DWORD thread = GetWindowThreadProcessId(owner, nullptr);
+    const HWND foreground = GetForegroundWindow();
+    if (!thread || IsOwnedWindow(foreground, owner))
+        return;
+    LASTINPUTINFO input{sizeof(input)};
+    if (!GetLastInputInfo(&input))
+        return;
+    if (thread == GetCurrentThreadId())
+        RestoreConsentForeground(owner, foreground, input.dwTime);
+    else
+        PostMessageW(owner, restoreConsentForegroundMessage, reinterpret_cast<WPARAM>(foreground), input.dwTime);
+}
+
+void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput)
+{
+    LASTINPUTINFO input{sizeof(input)};
+    if (GetWindowThreadProcessId(owner, nullptr) != GetCurrentThreadId() ||
+        GetForegroundWindow() != foreground || !GetLastInputInfo(&input) || input.dwTime != lastInput ||
+        !IsWindowVisible(owner) || IsIconic(owner) || IsOwnedWindow(foreground, owner))
+        return;
+    // A different modal dialog may still own input when consent closes.
+    const HWND popup = GetLastActivePopup(owner);
+    const HWND target = popup && IsOwnedWindow(popup, owner) && IsWindowVisible(popup) && IsWindowEnabled(popup)
+                            ? popup : owner;
+    if (IsWindowEnabled(target) && !IsIconic(target))
+        SetForegroundWindow(target);
+}
+
 PreparedLeaf::~PreparedLeaf()
 {
     if (source)
@@ -3189,13 +3224,19 @@ DWORD ElevatedEditor::Launch(HWND owner, const std::wstring& document) const
         return ERROR_GEN_FAILURE;
     SHELLEXECUTEINFOW launch{sizeof(launch)};
     launch.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
-    launch.hwnd = owner;
+    const ConsentForeground foreground(owner);
+    launch.hwnd = foreground.Owner();
     launch.lpVerb = L"runas";
     launch.lpFile = executable.c_str();
     launch.lpParameters = arguments.c_str();
     launch.lpDirectory = directory.c_str();
     launch.nShow = SW_SHOWNORMAL;
-    return ShellExecuteExW(&launch) ? ERROR_SUCCESS : GetLastError();
+    if (ShellExecuteExW(&launch))
+        return ERROR_SUCCESS; // The editor is a visible application and takes focus on success.
+    const DWORD error = GetLastError();
+    if (error == ERROR_CANCELLED)
+        foreground.Restore();
+    return error;
 }
 
 bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstring& targetPath,

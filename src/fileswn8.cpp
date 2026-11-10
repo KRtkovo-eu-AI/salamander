@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Return to the invoking panel after elevated recycling. | Give Shell dialogs the actual panel owner. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Use the approved listing for a batch of directory sizes. | Keep the existing scope when the current panel needs elevation. | #731 | Codex |
 // | 2026-11-09 | Supply the account policy check to the Shell retry callback. | Recheck same-account consent before a queued delete starts or resumes. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Keep protected Shell recycling in the original account. | Decline credential-based Shell retries before any file can be moved. | | GPT-6.1 Sol (Codex) |
@@ -198,7 +199,8 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
                                            IID_PPV_ARGS(&operation));
         if (FAILED(result))
             return FALSE;
-        result = operation->SetOwnerWindow(MainWindow->HWindow);
+        const HWND owner = GetAncestor(HWindow, GA_ROOT);
+        result = operation->SetOwnerWindow(owner);
         if (SUCCEEDED(result))
             result = operation->SetOperationFlags(OperationRecycleFlags);
         const int total = selCount > 0 ? selCount : 1;
@@ -258,7 +260,7 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
         operation->Release();
         if (deniedByShell && !retryPath.empty() && result == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED))
         {
-            result = RetryProtectedRecycle(MainWindow->HWindow, retryPath, retryShellPath, original);
+            result = RetryProtectedRecycle(owner, retryPath, retryShellPath, original);
             aborted = FAILED(result);
         }
         if (FAILED(result) && result != HRESULT_FROM_WIN32(ERROR_CANCELLED))

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Handle UAC foreground return on the owner thread. | Avoid activating a dialog directly from the broker worker. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Cancel protected reads through the upstream asynchronous Stop flow | Integrate UAC with current upstream behavior. | #731 | Codex |
 // | 2026-11-09 | Create the Find stop event through the tracked wrapper. | Build Debug and Release with the same unnamed event. | | Codex |
 // | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
@@ -5128,6 +5129,10 @@ MENU_TEMPLATE_ITEM FindLookInBrowseMenu[] =
         }
         break;
     }
+
+    case UacF7::restoreConsentForegroundMessage:
+        UacF7::RestoreConsentForeground(HWindow, reinterpret_cast<HWND>(wParam), static_cast<DWORD>(lParam));
+        return TRUE;
 
     case WM_USER_FIND_PROTECTED_CONSENT:
     {

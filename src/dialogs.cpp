@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Handle UAC foreground return on the owner thread. | Avoid activating a dialog directly from the broker worker. | #731 | GPT-6 (Codex) |
 // | 2026-11-09 | Suppress queued conflict prompts during cancellation. | Keep Scan Ahead from reopening a prompt during job shutdown. | | Codex |
 // | 2026-11-09 | Show the Windows shield while an elevated job runs. | Restore the previous small caption icon when the broker returns. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Release closed leaf broker sessions during a batch. | Keep metadata and deletion scopes only while connected. | | GPT-6.1 Sol (Codex) |
@@ -1507,6 +1508,10 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         }
         return TRUE;
     }
+    case UacF7::restoreConsentForegroundMessage:
+        UacF7::RestoreConsentForeground(HWindow, reinterpret_cast<HWND>(wParam), static_cast<DWORD>(lParam));
+        return TRUE;
+
     case WM_USER_UAC_PROGRESS_ACTIVE:
         SetBrokerActive(wParam != 0);
         return TRUE;

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Check activation routing for direct and worker UAC requests. | Keep focus with the invoking window unless the user switched away. | #731 | GPT-6 (Codex) |
 # | 2026-11-10 | Exercise protected consent with asynchronous Find publication and cancellation | Integrate UAC with current upstream behavior. | #731 | Codex |
 # | 2026-11-07 | Check asynchronous Stop and deferred Find close. | Keep cancellation and worker completion distinct. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 # | 2026-11-07 | Check timed Find batches and owned worker logs. | Protect final publication, count updates and dialog lifetime without requiring a GUI. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -128,12 +129,26 @@ def main() -> int:
 
     broker = (ROOT / "src" / "uacbroker" / "uacbroker.cpp").read_text(encoding="utf-8-sig")
     broker_launch = function_body(broker, "BOOL LaunchBrokerWithOwner(")
-    require(broker_launch.index("GetForegroundWindow()") < broker_launch.index("ShellExecuteExW(&launch)") <
-            broker_launch.index("SetForegroundWindow(owner)"),
-            "foreground restoration must be scoped to the caller that was active before consent")
-    require("foregroundProcess == GetCurrentProcessId()" in broker_launch and "IsWindowEnabled(owner)" in broker_launch and
-            "!IsIconic(owner)" in broker_launch and "SetLastError(error)" in broker_launch,
-            "restoration must target a usable owner and preserve the Windows launch error")
+    ordered(broker_launch, "ConsentForeground foreground(launch.hwnd)", "ShellExecuteExW(&launch)",
+            "foreground.Restore()", "SetLastError(error)")
+    restore = function_body(broker, "void ConsentForeground::Restore()")
+    handler = function_body(broker, "void RestoreConsentForeground(")
+    require("PostMessageW(owner, restoreConsentForegroundMessage" in restore and
+            "thread == GetCurrentThreadId()" in restore and "IsOwnedWindow(foreground, owner)" in restore,
+            "worker restoration must reach the owner UI thread and preserve an active owned dialog")
+    ordered(handler, "GetForegroundWindow() != foreground", "input.dwTime != lastInput", "IsIconic(owner)",
+            "GetLastActivePopup(owner)", "IsWindowEnabled(target)", "SetForegroundWindow(target)")
+    for name in ("finddlg1.cpp", "dialogs.cpp"):
+        ui = (ROOT / "src" / name).read_text(encoding="utf-8-sig")
+        require("case UacF7::restoreConsentForegroundMessage:" in ui and
+                "UacF7::RestoreConsentForeground(HWindow," in ui,
+                f"{name} must handle the worker request on its UI thread")
+    editor = function_body(broker, "DWORD ElevatedEditor::Launch(")
+    ordered(editor, "ShellExecuteExW(&launch)", "return ERROR_SUCCESS", "ERROR_CANCELLED", "foreground.Restore()")
+    recycle = (ROOT / "src" / "fileswn8.cpp").read_text(encoding="utf-8-sig")
+    ordered(function_body(recycle, "BOOL CFilesWindow::DeleteThroughRecycleBin("),
+            "const HWND owner = GetAncestor(HWindow, GA_ROOT)", "operation->SetOwnerWindow(owner)",
+            "RetryProtectedRecycle(owner,")
     listing_transfer = function_body(broker, "DWORD ListingSession::Transfer(")
     require("TransferRequest(pipe, buffer, length, send, deadline, nullptr, nullptr, nullptr, stopEvent)" in listing_transfer,
             "active listing requests must use local cancellation without a transfer cancellation byte")
