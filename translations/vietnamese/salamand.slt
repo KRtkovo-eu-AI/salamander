@@ -3800,13 +3800,13 @@ SLGINCOMPLETE,""
 14046,1,"Không thể khởi tạo kết nối. Mã lỗi: %d."
 
 [STRINGTABLE 158]
-14050,0,"Error reading file %s"
-14051,0,"Out of memory"
-14052,0,"Getting size of file failed for %s"
-14053,0,"Failed to open %s"
-14061,0,"Some older bug reports were found. Would you like to report also these bugs and help us improve Open Salamander?\n\nPress Yes to process old bug reports. Press No to delete old bug reports."
+14050,1,"Lỗi khi đọc tệp %s"
+14051,1,"Hết bộ nhớ"
+14052,1,"Không thể lấy kích thước tệp %s"
+14053,1,"Không thể mở %s"
+14061,1,"Tìm thấy một số báo cáo lỗi cũ. Bạn có muốn gửi cả các báo cáo này để giúp chúng tôi cải thiện Open Samandarin không?\n\nNhấn Có để xử lý các báo cáo lỗi cũ. Nhấn Không để xóa chúng."
 14062,1,"Trình báo cáo lỗi Open Salamander"
-14063,0,"Preparing crash report archive, wait please..."
+14063,1,"Đang chuẩn bị tệp lưu trữ báo cáo sự cố, vui lòng chờ..."
 
 [STRINGTABLE 159]
 14064,0,"Opening GitHub issue, wait please..."
