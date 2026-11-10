@@ -299,7 +299,7 @@ COMMENT,"greek translation stub (English seed)"
 866,1,"&Μεταβλητή περιβάλλοντος"
 
 [STRINGTABLE 0]
-139,0,"About Plugin"
+139,1,"Πληροφορίες για το πρόσθετο"
 
 [STRINGTABLE 1]
 1001,1,"Δεν είναι δυνατό το άνοιγμα του αρχείου."
