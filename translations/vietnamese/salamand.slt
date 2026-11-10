@@ -3003,33 +3003,33 @@ SLGINCOMPLETE,""
 12143,1,"Đang lưu cấu hình vào registry, vui lòng chờ..."
 
 [STRINGTABLE 81]
-12145,0,"Deleting old configuration from registry, please wait..."
-12146,0,"Unpacking file from archive, please wait..."
-12147,0,"Reading list of files and directories from archive, please wait..."
-12148,0,"Loading all plugins, please wait..."
+12145,1,"Đang xóa cấu hình cũ khỏi registry, vui lòng chờ..."
+12146,1,"Đang giải nén tệp từ kho lưu trữ, vui lòng chờ..."
+12147,1,"Đang đọc danh sách tệp và thư mục trong kho lưu trữ, vui lòng chờ..."
+12148,1,"Đang tải tất cả plugin, vui lòng chờ..."
 
 [STRINGTABLE 82]
-12160,0,"The path "%s" has rejected to close.\nDo you want to force it to close?"
-12165,0,"Multiple connections to a server or shared resource by the same user, using more than one user name, are not allowed. Disconnect all previous connections to the server or shared resource and try again."
-12170,0,"Do you want to ignore all selected files (to exclude them from archive update)?"
-12171,0,"Do you want to ignore all updated files (to abort archive update)?"
-12172,0,"Copy Updated Files"
-12173,0,"Select the target folder for updated files."
+12160,1,"Đường dẫn ""%s"" từ chối đóng.\nBạn có muốn buộc đóng không?"
+12165,1,"Không cho phép cùng một người dùng kết nối tới máy chủ hoặc tài nguyên chia sẻ nhiều lần bằng các tên người dùng khác nhau. Hãy ngắt kết nối tất cả kết nối trước đó tới máy chủ hoặc tài nguyên chia sẻ rồi thử lại."
+12170,1,"Bạn có muốn bỏ qua tất cả tệp đã chọn (loại chúng khỏi quá trình cập nhật kho lưu trữ) không?"
+12171,1,"Bạn có muốn bỏ qua tất cả tệp đã cập nhật (hủy cập nhật kho lưu trữ) không?"
+12172,1,"Sao chép tệp đã cập nhật"
+12173,1,"Chọn thư mục đích cho các tệp đã cập nhật."
 
 [STRINGTABLE 83]
-12180,0,"Checking path "%s", press the ESC key to cancel..."
-12181,0,"Listing path "%s", press the ESC key to cancel..."
-12190,0,"Searching text, press the ESC key to cancel..."
+12180,1,"Đang kiểm tra đường dẫn ""%s""; nhấn ESC để hủy..."
+12181,1,"Đang liệt kê đường dẫn ""%s""; nhấn ESC để hủy..."
+12190,1,"Đang tìm văn bản; nhấn ESC để hủy..."
 
 [STRINGTABLE 84]
-12200,0,"Path: "%s"\nError: %s"
-12201,0,"Path "%s" doesn't exist in archive."
-12205,0,"Empty username is not allowed here."
+12200,1,"Đường dẫn: ""%s""\nLỗi: %s"
+12201,1,"Không tìm thấy đường dẫn ""%s"" trong kho lưu trữ."
+12205,1,"Không được để trống tên người dùng."
 
 [STRINGTABLE 85]
-12210,0,"Menu New is not available."
-12215,0,"The directory specified by the TMP or TEMP environment variables doesn't exist or isn't accessible. Open Salamander will use the system directory for temporary files."
-12220,0,"Upper Directory"
+12210,1,"Menu Mới không khả dụng."
+12215,1,"Thư mục được chỉ định trong biến môi trường TMP hoặc TEMP không tồn tại hoặc không thể truy cập. Open Samandarin sẽ dùng thư mục hệ thống để lưu tệp tạm."
+12220,1,"Thư mục cấp trên"
 
 [STRINGTABLE 86]
 12225,0,"3.5 Floppy"
