@@ -10,8 +10,8 @@ WEB,"www.altap.cz"
 COMMENT,"indonesian translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"Folders"
-1001,0,"About Plugin"
-1003,0,"Browse folders such as Desktop, Control Panel, Recycle Bin, etc."
-1004,0,"'\tDesktop"
+1000,1,"Folder"
+1001,1,"Tentang Plugin"
+1003,1,"Jelajahi folder seperti Desktop, Panel Kontrol, Keranjang Sampah, dan sebagainya."
+1004,1,"'\tDesktop"
 

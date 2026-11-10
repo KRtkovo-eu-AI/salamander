@@ -10,8 +10,8 @@ WEB,"www.altap.cz"
 COMMENT,"greek translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"Folders"
-1001,0,"About Plugin"
-1003,0,"Browse folders such as Desktop, Control Panel, Recycle Bin, etc."
-1004,0,"'\tDesktop"
+1000,1,"Φάκελοι"
+1001,1,"Σχετικά με την πρόσθετη λειτουργία"
+1003,1,"Περιήγηση σε φακέλους όπως Επιφάνεια εργασίας, Πίνακας Ελέγχου, Κάδος Ανακύκλωσης κ.λπ."
+1004,1,"'\tΕπιφάνεια εργασίας"
 

@@ -10,8 +10,8 @@ WEB,"www.altap.cz"
 COMMENT,"chinesetraditional translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"Folders"
-1001,0,"About Plugin"
-1003,0,"Browse folders such as Desktop, Control Panel, Recycle Bin, etc."
-1004,0,"'\tDesktop"
+1000,1,"資料夾"
+1001,1,"關於外掛程式"
+1003,1,"瀏覽桌面、控制台、資源回收筒等資料夾。"
+1004,1,"'\t桌面"
 

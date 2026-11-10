@@ -10,8 +10,8 @@ WEB,"www.altap.cz"
 COMMENT,"bulgarian translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"Folders"
-1001,0,"About Plugin"
-1003,0,"Browse folders such as Desktop, Control Panel, Recycle Bin, etc."
-1004,0,"'\tDesktop"
+1000,1,"Папки"
+1001,1,"За приставката"
+1003,1,"Разглеждане на папки като Работен плот, Контролен панел, Кошче и др."
+1004,1,"'\tРаботен плот"
 

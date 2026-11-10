@@ -10,8 +10,8 @@ WEB,"www.altap.cz"
 COMMENT,"arabic translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"Folders"
-1001,0,"About Plugin"
-1003,0,"Browse folders such as Desktop, Control Panel, Recycle Bin, etc."
-1004,0,"'\tDesktop"
+1000,1,"المجلدات"
+1001,1,"حول الملحق"
+1003,1,"استعراض مجلدات مثل سطح المكتب ولوحة التحكم وسلة المحذوفات وغيرها."
+1004,1,"'\tسطح المكتب"
 

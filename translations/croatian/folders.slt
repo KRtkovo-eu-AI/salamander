@@ -10,8 +10,8 @@ WEB,"www.altap.cz"
 COMMENT,"croatian translation stub (English seed)"
 
 [STRINGTABLE 0]
-1000,0,"Folders"
-1001,0,"About Plugin"
-1003,0,"Browse folders such as Desktop, Control Panel, Recycle Bin, etc."
-1004,0,"'\tDesktop"
+1000,1,"Mape"
+1001,1,"O dodatku"
+1003,1,"Pregledavanje mapa kao što su Radna površina, Upravljačka ploča, Koš za smeće itd."
+1004,1,"'\tRadna površina"
 
