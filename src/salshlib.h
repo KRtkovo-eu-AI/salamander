@@ -1,5 +1,8 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Support staged-file clipboard objects. | Archive and plugin FS copy must work without the shell extension fake-directory protocol. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
@@ -254,9 +257,10 @@ private:
 
     DWORD LastGetDataCallTime; // time of the last GetData() call
     BOOL CutOrCopyDone;        // FALSE = the object is still being placed on the clipboard; Release does nothing until CutOrCopyDone is TRUE
+    BOOL RealFiles;            // staged archive/plugin-FS files are exposed as ordinary CF_HDROP data
 
 public:
-    CFakeCopyPasteDataObject(IDataObject* winDataObject, const char* fakeDir)
+    CFakeCopyPasteDataObject(IDataObject* winDataObject, const char* fakeDir, BOOL realFiles = FALSE)
     {
         RefCount = 1;
         WinDataObject = winDataObject;
@@ -266,6 +270,7 @@ public:
         CFIdList = RegisterClipboardFormat(CFSTR_SHELLIDLIST);
         LastGetDataCallTime = GetTickCount() - 60000; // initialize to 1 minute before the object is created
         CutOrCopyDone = FALSE;
+        RealFiles = realFiles;
     }
 
     virtual ~CFakeCopyPasteDataObject()
@@ -304,9 +309,9 @@ public:
         //      TRACE_I("QueryGetData");
         if (formatEtc == NULL)
             return E_INVALIDARG;
-        if (formatEtc->cfFormat == CF_HDROP)
+        if (!RealFiles && formatEtc->cfFormat == CF_HDROP)
             return DV_E_FORMATETC; // this enforces a "NO" drop in simpler softwares (BOSS, WinCmd, SpeedCommander, MSIE, Word, etc.)
-        HRESULT fakeFormat = QueryPrivateHGlobalClipboardFormat(formatEtc, CFSalFakeRealPath);
+        HRESULT fakeFormat = RealFiles ? DV_E_FORMATETC : QueryPrivateHGlobalClipboardFormat(formatEtc, CFSalFakeRealPath);
         if (fakeFormat != DV_E_FORMATETC)
             return fakeFormat;
         return WinDataObject->QueryGetData(formatEtc);

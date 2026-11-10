@@ -1,10 +1,14 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Retain staged clipboard sources through disk operation completion. | Async disk copies may continue after the clipboard drop callback returns. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // CommentsTranslationProject: TRANSLATED
 
 #pragma once
 
 #include <string>
+#include <objidl.h>
 #include <vector>
 #include <deque>
 #include "storagesched.h"
@@ -374,6 +378,7 @@ struct COperation
 class COperations : public TDirectArray<COperation>
 {
 public:
+    IDataObject* ClipboardLease; // keeps staged clipboard source files alive during async copy work
     CQuadWord TotalSize;      // WARNING: not the byte size of the files (usable only for progress calculations)
     CQuadWord CompressedSize; // sum of file sizes after compression
     CQuadWord OccupiedSpace;  // space occupied on disk
@@ -530,7 +535,18 @@ private:
 
 public:
     COperations(int base, int delta, char* waitInQueueSubject, char* waitInQueueFrom, char* waitInQueueTo);
-    ~COperations() { HANDLES(DeleteCriticalSection(&ConflictCS)); HANDLES(DeleteCriticalSection(&StatusCS)); }
+    ~COperations()
+    {
+        if (ClipboardLease != NULL) ClipboardLease->Release();
+        HANDLES(DeleteCriticalSection(&ConflictCS)); HANDLES(DeleteCriticalSection(&StatusCS));
+    }
+    void HoldClipboardLease(IDataObject* dataObject)
+    {
+        if (ClipboardLease == dataObject) return;
+        if (ClipboardLease != NULL) ClipboardLease->Release();
+        ClipboardLease = dataObject;
+        if (ClipboardLease != NULL) ClipboardLease->AddRef();
+    }
 
     void SetWorkPath1(const char* path, BOOL inclSubDirs)
     {

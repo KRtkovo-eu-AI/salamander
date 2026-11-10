@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Retain staged clipboard files until archive/FS paste completes. | Clipboard lifetime can end before queued archive or plugin FS uploads read their sources. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
+// | 2026-11-10 | Recognize this instance's archive clipboard data through OLE proxies. | Private marker formats can be hidden, which sent Ctrl+V through the fake directory path. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-05 | Survive faulty shell extension SEH in SafeInvokeCommand. | Shell InvokeCommand failures must degrade instead of terminating. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -204,65 +206,43 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
             dataObj->Release();
             return FALSE;
         }
-        if (!onlyLinks && !onlyTest && IsFakeDataObject(dataObj, NULL, NULL, 0) && SalShExtSharedMemView != NULL)
+        const BOOL ourArchiveClipboard = !onlyLinks && !onlyTest && OurDataOnClipboard;
+        if (!onlyLinks && !onlyTest && (IsFakeDataObject(dataObj, NULL, NULL, 0) || ourArchiveClipboard))
         { // Salamander "fake" data object on the clipboard -> paste files/directories from the archive
             BOOL pasteFromOurData = FALSE;
-            WaitForSingleObject(SalShExtSharedMemMutex, INFINITE);
-            if (SalShExtSharedMemView->DoPasteFromSalamander &&
-                SalShExtSharedMemView->SalamanderMainWndPID == GetCurrentProcessId() &&
-                SalShExtSharedMemView->SalamanderMainWndTID == GetCurrentThreadId() &&
-                SalShExtSharedMemView->PastedDataID == SalShExtPastedData.GetDataID())
+            if (SalShExtSharedMemView != NULL)
             {
-                pasteFromOurData = TRUE;
-                SalShExtSharedMemView->ClipDataObjLastGetDataTime = GetTickCount() - 60000; // probably no longer needed on W2K+: set last GetData() time one minute back to ensure smooth Release of the data object
+                WaitForSingleObject(SalShExtSharedMemMutex, INFINITE);
+                if (SalShExtSharedMemView->DoPasteFromSalamander &&
+                    SalShExtSharedMemView->SalamanderMainWndPID == GetCurrentProcessId() &&
+                    SalShExtSharedMemView->SalamanderMainWndTID == GetCurrentThreadId() &&
+                    SalShExtSharedMemView->PastedDataID == SalShExtPastedData.GetDataID())
+                {
+                    pasteFromOurData = TRUE;
+                    SalShExtSharedMemView->ClipDataObjLastGetDataTime = GetTickCount() - 60000; // probably no longer needed on W2K+: set last GetData() call one minute back to ensure smooth Release of the data object
+                }
+                ReleaseMutex(SalShExtSharedMemMutex);
             }
-            ReleaseMutex(SalShExtSharedMemMutex);
 
             if (pasteFromOurData)
             {
-                DWORD pasteEffect = 0;
-                if (OpenClipboard(HWindow))
-                {
-                    HANDLE handle = GetClipboardData(RegisterClipboardFormat(CFSTR_PREFERREDDROPEFFECT));
-                    if (handle != NULL)
-                    {
-                        DWORD* effect = (DWORD*)HANDLES(GlobalLock(handle));
-                        if (effect != NULL)
-                        {
-                            pasteEffect = *effect;
-                            HANDLES(GlobalUnlock(handle));
-                        }
-                    }
-                    CloseClipboard();
-                }
-                else
-                    TRACE_E("OpenClipboard() has failed!");
+                // Archive clipboard actions are copy-only. Do not depend on Win32
+                // clipboard rendering of PreferredDropEffect; OLE proxies may keep
+                // the data object while OpenClipboard cannot expose that format.
                 SalShExtPastedData.SetLock(TRUE);
                 dataObj->Release(); // one instance still remains on the clipboard
-                pasteEffect &= DROPEFFECT_COPY | DROPEFFECT_MOVE;
-                if (pasteEffect == DROPEFFECT_COPY || pasteEffect == DROPEFFECT_MOVE)
-                {
-                    // move clears the clipboard after itself (cut&paste), release the clipboard before launching
-                    // the operation itself so other applications can use it for further data transfers
-                    if (pasteEffect == DROPEFFECT_MOVE)
-                        OleSetClipboard(NULL);
-
-                    // perform the actual Paste operation
-                    SalShExtPastedData.DoPasteOperation(pasteEffect == DROPEFFECT_COPY,
-                                                        pastePath != NULL ? pastePath : GetPath());
-
-                    FocusFirstNewItem = TRUE; // if it will be a single new file, let the focus find it
-                    if (pasteEffect != DROPEFFECT_COPY)
-                    {
-                        IdleRefreshStates = TRUE;  // force state variable check on next Idle
-                        IdleCheckClipboard = TRUE; // also enable clipboard checking
-                    }
-                }
-                else
-                    TRACE_E("Paste: unexpected paste-effect: " << pasteEffect);
+                SalShExtPastedData.DoPasteOperation(TRUE, pastePath != NULL ? pastePath : GetPath());
+                FocusFirstNewItem = TRUE; // if it will be a single new file, let the focus find it
 
                 SalShExtPastedData.SetLock(FALSE);
                 PostMessage(MainWindow->HWindow, WM_USER_SALSHEXT_TRYRELDATA, 0, 0); // after unlocking, perform data release if needed
+                return TRUE;
+            }
+            if (ourArchiveClipboard)
+            {
+                // The clipboard still belongs to this archive copy, but the shared
+                // hand-off state is unavailable. Never fall through and copy CLIPFAKE.
+                dataObj->Release();
                 return TRUE;
             }
         }
@@ -357,7 +337,10 @@ BOOL CFilesWindow::ClipboardPaste(BOOL onlyLinks, BOOL onlyTest, const char* pas
                 effect = eff;
                 dropTarget->DragOver(0, pt, &effect);
                 effect = eff;
+                IDataObject* previousClipboardPasteDataObject = ClipboardPasteDataObject;
+                ClipboardPasteDataObject = dataObj;
                 dropTarget->Drop(dataObj, 0, pt, &eff);
+                ClipboardPasteDataObject = previousClipboardPasteDataObject;
 
                 FocusFirstNewItem = TRUE; // if it will be a single new file, let the focus find it
 
@@ -546,6 +529,7 @@ BOOL CFilesWindow::ClipboardPasteToArcOrFS(BOOL onlyTest, DWORD* pasteDefEffect)
                             dropEffect = DROPEFFECT_COPY; // Copy has priority (it is safer to use)
                         if (dropEffect != 0)
                         {
+                            namesList->HoldClipboardLease(dataObj);
                             DoDragDropOper(dropEffect == DROPEFFECT_COPY, TRUE, GetZIPArchive(),
                                            GetZIPPath(), namesList, this);
                             namesList = NULL;         // DoDragDropOper will deallocate it, so no need to do it here
@@ -580,6 +564,7 @@ BOOL CFilesWindow::ClipboardPasteToArcOrFS(BOOL onlyTest, DWORD* pasteDefEffect)
                             char userPart[MAX_PATH];
                             if (GetPluginFS()->GetCurrentPath(userPart))
                             {
+                                namesList->HoldClipboardLease(dataObj);
                                 DoDragDropOper(dropEffect == DROPEFFECT_COPY, FALSE, GetPluginFS()->GetPluginFSName(),
                                                userPart, namesList, this);
                                 namesList = NULL;         // DoDragDropOper will deallocate it, so no need to do it here

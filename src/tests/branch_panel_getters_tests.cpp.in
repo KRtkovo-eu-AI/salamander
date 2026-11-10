@@ -1,5 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Model the clipboard lease in the Shell data fixture. | Compile the extracted delayed copy handoff against CCopyMoveData's current contract. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
+// | 2026-11-10 | Remove unused shell fallback mocks from the clipboard fixture. | Its source extractor includes only the disk clipboard branch. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
+// | 2026-11-10 | Stub shell menu fallback in the clipboard route fixture. | Keep the Branch panel getter test compiling against the disk and non-disk clipboard routes. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
 // The three production getters, Entry, Entry::FullPath, Join and conversion
 // function are extracted verbatim. Only unrelated panel state is replaced.
 #define NOMINMAX
@@ -29,7 +34,12 @@ namespace Salamander { namespace BranchView {
 @@ENTRY_FULL_PATH@@
 } }
 struct CCopyMoveRecord {const char* FileName=nullptr;const wchar_t* FileNameW=nullptr;};
-struct CCopyMoveData {int Count=0;const CCopyMoveRecord* Row=nullptr;const CCopyMoveRecord* At(int) const{return Row;}};
+static void* ClipboardPasteDataObject=nullptr;
+struct CCopyMoveData {
+    int Count=0;const CCopyMoveRecord* Row=nullptr;void* ClipboardLease=nullptr;
+    const CCopyMoveRecord* At(int) const{return Row;}
+    void HoldClipboardLease(void* lease){ClipboardLease=lease;}
+};
 #define CALL_STACK_MESSAGE2(...)
 @@CUT_DIRECTORY@@
 #undef CALL_STACK_MESSAGE2

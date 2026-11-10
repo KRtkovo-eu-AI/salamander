@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Print captured output for failed native and contract test groups. | Surface compiler diagnostics in Actions logs as well as the JUnit artifact. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
 # | 2026-11-10 | Run the file-association model and Apply contract test. | Catch regressions in selected pattern fallback, user-override persistence, and canonical table refresh. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 # | 2026-11-07 | Run the native Find log ownership fixture. | Verify real worker log storage and snapshots without a dialog. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 # | 2026-11-07 | Run the Find search scheduling contract test. | Keep large Find searches from synchronously blocking on GUI result refreshes. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | OpenAI GPT-5.6 Luna Pro |
@@ -96,6 +97,16 @@ function Add-TestResult {
         [Parameter(Mandatory = $true)]
         [object]$ProcessResult
     )
+
+    if ($ProcessResult.ExitCode -ne 0 -or $ProcessResult.TimedOut) {
+        Write-Host "Failed test output ($ClassName/$Name):"
+        if ([string]::IsNullOrWhiteSpace($ProcessResult.Output)) {
+            Write-Host '(no output captured)'
+        }
+        else {
+            Write-Host $ProcessResult.Output
+        }
+    }
 
     $message = if ($ProcessResult.TimedOut) {
         "Command exceeded the $CommandTimeoutSeconds second timeout."
