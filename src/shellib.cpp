@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Keep staged clipboard sources alive for async pastes. | A queued copy must retain its source temp directory if clipboard contents change. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-05 | Survive faulty shell extension SEH in background/New menus. | Right-click empty panel space must not terminate on a bad extension. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
 
@@ -26,6 +27,7 @@ void* LastSafeDataObject = NULL;
 DWORD ExecuteAssociationTlsIndex = TLS_OUT_OF_INDEXES; // allows only one call at a time (prevents recursion) in each thread
 
 BOOL DragFromPluginFSEffectIsFromPlugin = FALSE;
+IDataObject* ClipboardPasteDataObject = NULL;
 
 //*****************************************************************************
 //

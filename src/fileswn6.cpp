@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Transfer clipboard source lease to disk copy script. | Preserve staged files until asynchronous copy work completes. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-06 | Combine drop scheduling with owned Unicode source paths. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -1182,6 +1183,7 @@ void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data
         }
         else
         {
+            script->HoldClipboardLease(data->ClipboardLease);
             if (!copy && data->Count > 0)
             {
                 BOOL sameRootPath = HasTheSameRootPath(sourceDir.c_str(), targetPath);

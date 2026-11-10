@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Enable clipboard copy from plugin file systems. | The staged-file clipboard path supports plugin FS sources with copy-from-FS service. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-07 | Pump main-window messages while Find closes. | Let Find defer destruction until its workers release their data. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Check Find responsiveness on the main window timer. | Use the independent main message loop during a Find stall. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Allow Ctrl+H in Branch View. | Send the hidden and system file toggle through its existing panel refresh. | | GPT-6 (Codex) |
@@ -9075,7 +9076,9 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_CLIPCOPY:
         {
-            if (activePanel->Is(ptDisk) || activePanel->Is(ptZIPArchive))
+            if (activePanel->Is(ptDisk) || activePanel->Is(ptZIPArchive) ||
+                activePanel->Is(ptPluginFS) && activePanel->GetPluginFS()->NotEmpty() &&
+                    activePanel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS))
             {
                 activePanel->UserWorkedOnThisPath = TRUE;
                 activePanel->StoreSelection(); // save selection for Restore Selection command

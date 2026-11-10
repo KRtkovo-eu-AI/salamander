@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Keep staged clipboard sources alive for async disk copies. | Worker operations need their temp source after clipboard replacement. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-09 | Send typed file-lock recovery dialog data. | Remove the unsafe narrow-to-wide pointer cast reported by CodeQL. | https://github.com/KRtkovo-eu-AI/salamander/pull/842 | GPT-6 (Codex) |
 // | 2026-11-09 | Offer lock-process recovery after delete and overwrite failures. | Make the issue #836 workflow available in core file operations. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -484,6 +485,7 @@ void CProgressSpeedMeter::BytesReceived(DWORD count, DWORD time, DWORD maxPacket
 COperations::COperations(int base, int delta, char* waitInQueueSubject, char* waitInQueueFrom,
                          char* waitInQueueTo) : TDirectArray<COperation>(base, delta), Sizes(1, 400)
 {
+    ClipboardLease = NULL;
     TotalSize = CQuadWord(0, 0);
     CompressedSize = CQuadWord(0, 0);
     OccupiedSpace = CQuadWord(0, 0);

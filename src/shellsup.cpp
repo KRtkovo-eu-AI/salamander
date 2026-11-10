@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Stage archive and plugin FS selections as real clipboard files. | Enable ordinary Ctrl+C/Ctrl+V independent of the shell extension fake-directory handoff. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Close the archive clipboard data-object scope before releasing it. | A missing brace left ShellAction unterminated and stopped the build. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Publish archive clipboard data without mutating the Shell data object. | PreferredDropEffect is optional for this copy-only path and can make OLE publication fail. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-10 | Use nothrow allocation for the archive clipboard wrapper. | Keep the existing low-memory branch while satisfying CodeQL allocation semantics. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
@@ -20,6 +21,9 @@
 #include "snooper.h"
 #include "shellib.h"
 #include "pack.h"
+#include "fileactiondisktarget.h"
+#include "fileactionarchivesource.h"
+#include "common/widepath.h"
 extern "C"
 {
 #include "shexreg.h"
@@ -149,6 +153,8 @@ MENU_TEMPLATE_ITEM MouseDropMenu2[] =
 BOOL DoCopyMove(BOOL copy, char* targetDir, CCopyMoveData* data, void* param)
 {
     CFilesWindow* panel = (CFilesWindow*)param;
+    if (data != NULL)
+        data->HoldClipboardLease(ClipboardPasteDataObject);
     if (targetDir == NULL || strlen(targetDir) >= SAL_MAX_PATH || data == NULL || data->Count <= 0 ||
         (panel->IsBranchView() && !Salamander::BranchView::IsRootDropTarget(panel->GetPathW(), targetDir)))
     {
@@ -1707,6 +1713,189 @@ static DWORD TrackBranchHostContextMenu(CFilesWindow* panel, const POINT& pt)
                        pt.x, pt.y, panel->GetListBoxHWND(), NULL);
 }
 
+static BOOL IsArchiveClipboardSourceCurrent(void* context)
+{
+    return context != NULL && ((CFilesActionArchiveSource*)context)->IsCurrent(MainWindow);
+}
+
+static BOOL StagePanelSelectionForClipboard(CFilesWindow* panel, int count, int* indexes,
+                                            int index, char* tempPath, int tempPathCapacity,
+                                            IDataObject** dataObject)
+{
+    if (panel == NULL || tempPath == NULL || tempPathCapacity <= 0 || dataObject == NULL || count <= 0)
+        return FALSE;
+    *dataObject = NULL;
+    tempPath[0] = 0;
+
+    CPathBuffer tempRoot(tempPathCapacity);
+    if (!SalGetTempFileName(NULL, "CLP", tempRoot.Data(), FALSE))
+        return FALSE;
+
+    BOOL staged = FALSE;
+    if (panel->Is(ptZIPArchive))
+    {
+        CFilesActionArchiveSource source;
+        if (source.Capture(MainWindow, panel))
+        {
+            CPanelTmpEnumData unpackData;
+            unpackData.Indexes = indexes != NULL ? indexes : &index;
+            unpackData.IndexesCount = count;
+            unpackData.Dirs = source.Dirs;
+            unpackData.Files = source.Files;
+            unpackData.ArchiveDir = source.ArchiveDirectory;
+            unpackData.ZIPPath = source.ArchiveRoot.c_str();
+            unpackData.ContextIsCurrent = IsArchiveClipboardSourceCurrent;
+            unpackData.Context = &source;
+            SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+            staged = PackUncompress(MainWindow->HWindow, panel, source.ArchiveFile.c_str(), source.PluginData,
+                                    tempRoot.Data(), source.ArchiveRoot.c_str(), PanelSalEnumSelection,
+                                    &unpackData, NULL, unpackData.ContextIsCurrent, unpackData.Context) &&
+                     unpackData.HasCurrentContext();
+            SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+        }
+    }
+    else if (panel->Is(ptPluginFS) && panel->GetPluginFS()->NotEmpty() &&
+             panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS))
+    {
+        int selectedDirs = 0;
+        int selectedFiles = 0;
+        if (indexes != NULL)
+        {
+            for (int i = 0; i < count; ++i)
+            {
+                if (indexes[i] < panel->Dirs->Count) ++selectedDirs;
+                else ++selectedFiles;
+            }
+        }
+        else if (index >= 0 && index < panel->Dirs->Count + panel->Files->Count)
+        {
+            if (index < panel->Dirs->Count) selectedDirs = 1;
+            else selectedFiles = 1;
+        }
+        if (selectedDirs + selectedFiles == count)
+        {
+            CPathBuffer target(3 * SAL_MAX_PATH);
+            lstrcpyn(target.Data(), tempRoot.Data(), target.Capacity());
+            int offset = (int)strlen(target.Data());
+            if (offset + 2 < target.Capacity())
+            {
+                if (offset > 0 && target.Data()[offset - 1] != '\\') target.Data()[offset++] = '\\';
+                target.Data()[offset++] = 0;
+                const char mask[] = "*.*";
+                memcpy(target.Data() + offset, mask, sizeof(mask));
+                offset += sizeof(mask);
+                const char waitMarker[] = "SAL_WAIT_TEMP_BRIDGE";
+                if (offset + sizeof(waitMarker) <= target.Capacity())
+                {
+                    memcpy(target.Data() + offset, waitMarker, sizeof(waitMarker));
+                    BOOL operationMask = FALSE;
+                    BOOL cancelOrError = FALSE;
+                    const CPanelSide side = MainWindow->IsDetachedTabPanel(panel)
+                                                ? MainWindow->GetDetachedTabOriginalSide(panel)
+                                                : panel->GetPanelSide();
+                    const int panelID = side == cpsLeft ? PANEL_LEFT : PANEL_RIGHT;
+                    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
+                    staged = panel->GetPluginFS()->CopyOrMoveFromFS(TRUE, 3,
+                                panel->GetPluginFS()->GetPluginFSName(), panel->HWindow, panelID,
+                                selectedFiles, selectedDirs, target.Data(), operationMask, cancelOrError, NULL) &&
+                             !cancelOrError;
+                    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
+                }
+            }
+        }
+    }
+
+    if (staged)
+    {
+        try
+        {
+            std::vector<std::wstring> paths;
+            paths.reserve(count);
+            const std::wstring root = SalMultiByteToWidePath(tempRoot.Data(), CP_ACP);
+            if (!root.empty())
+            {
+                std::wstring search = root;
+                if (search.back() != L'\\') search += L'\\';
+                search += L'*';
+                WIN32_FIND_DATAW findData;
+                HANDLE find = HANDLES_Q(FindFirstFileW(search.c_str(), &findData));
+                if (find != INVALID_HANDLE_VALUE)
+                {
+                    do
+                    {
+                        if (wcscmp(findData.cFileName, L".") != 0 && wcscmp(findData.cFileName, L"..") != 0)
+                        {
+                            std::wstring path = root;
+                            if (path.back() != L'\\') path += L'\\';
+                            path += findData.cFileName;
+                            paths.push_back(path);
+                        }
+                    } while (FindNextFileW(find, &findData));
+                    HANDLES(FindClose(find));
+                }
+            }
+            if ((int)paths.size() == count)
+                *dataObject = CreateIDataObjectForPaths(MainWindow->HWindow, paths);
+            staged = *dataObject != NULL;
+        }
+        catch (const std::bad_alloc&)
+        {
+            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+            staged = FALSE;
+        }
+    }
+
+    if (!staged)
+    {
+        RemoveTemporaryDir(tempRoot.Data());
+        return FALSE;
+    }
+    lstrcpyn(tempPath, tempRoot.Data(), tempPathCapacity);
+    return TRUE;
+}
+
+static void PublishPanelSelectionToClipboard(CFilesWindow* panel, int count, int* indexes, int index)
+{
+    CPathBuffer tempPath(SAL_MAX_PATH);
+    IDataObject* dataObject = NULL;
+    if (!StagePanelSelectionForClipboard(panel, count, indexes, index,
+                                         tempPath.Data(), tempPath.Capacity(), &dataObject))
+        return;
+#ifdef new
+#undef new
+#define RESTORE_STAGED_CLIPBOARD_PUBLISH_DEBUG_NEW_MACRO
+#endif
+    CFakeCopyPasteDataObject* stagedDataObject = new (std::nothrow)
+        CFakeCopyPasteDataObject(dataObject, tempPath.Data(), TRUE);
+#ifdef RESTORE_STAGED_CLIPBOARD_PUBLISH_DEBUG_NEW_MACRO
+#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
+#undef RESTORE_STAGED_CLIPBOARD_PUBLISH_DEBUG_NEW_MACRO
+#endif
+    if (stagedDataObject != NULL)
+    {
+        if (OleSetClipboard(stagedDataObject) == S_OK)
+        {
+            IdleRefreshStates = TRUE;
+            IdleCheckClipboard = TRUE;
+            if (panel->CutToClipChanged)
+                panel->ClearCutToClipFlag(TRUE);
+            CFilesWindow* anotherPanel = MainWindow->LeftPanel == panel ? MainWindow->RightPanel : MainWindow->LeftPanel;
+            if (anotherPanel->CutToClipChanged)
+                anotherPanel->ClearCutToClipFlag(TRUE);
+        }
+        else
+            TRACE_E("Unable to set staged files to clipboard!");
+        stagedDataObject->SetCutOrCopyDone();
+        stagedDataObject->Release();
+    }
+    else
+    {
+        TRACE_E(LOW_MEMORY);
+        RemoveTemporaryDir(tempPath.Data());
+    }
+    ShellActionAux7(dataObject, NULL);
+}
+
 void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                  BOOL posByMouse, BOOL onlyPanelMenu)
 {
@@ -1725,15 +1914,12 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
     BOOL canCreateFakeDragData = SalShExtSharedMemView != NULL;
     if (panel->Is(ptZIPArchive) && action != saContextMenu &&
         ((!dragFiles && action != saCopyToClipboard) ||
-         (dragFiles && !canCreateFakeDragData) ||
-         (action == saCopyToClipboard && !SalShExtRegistered)))
+         (dragFiles && !canCreateFakeDragData)))
     {
         if (dragFiles && !canCreateFakeDragData)
         {
             TRACE_E("Drag&drop from archives is not possible, shell extension shared memory is not available!");
         }
-        if (action == saCopyToClipboard && !SalShExtRegistered)
-            TRACE_E("Copy&paste from archives is not possible, shell extension utils\\salextx86.dll or utils\\salextx64.dll is missing!");
         // we cannot do any more actions in the archive yet
         return;
     }
@@ -1789,7 +1975,7 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
     targetPath[0] = 0;
     char realDraggedPath[2 * MAX_PATH];
     realDraggedPath[0] = 0;
-    if (panel->Is(ptZIPArchive) && (dragFiles ? canCreateFakeDragData : SalShExtRegistered))
+    if (panel->Is(ptZIPArchive) && (dragFiles ? canCreateFakeDragData : action == saCopyToClipboard))
     {
         if (dragFiles)
         {
@@ -1840,122 +2026,10 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
         {
             if (action == saCopyToClipboard)
             {
-                if (SalShExtSharedMemView != NULL) // shared memory is available (when copy&paste fails we cannot handle it)
-                {
-                    CALL_STACK_MESSAGE1("ShellAction::archive::clipcopy_files");
-
-                    // create a "fake" directory
-                    char fakeRootDir[MAX_PATH];
-                    char* fakeName;
-                    if (SalGetTempFileName(NULL, "SAL", fakeRootDir, FALSE))
-                    {
-                        BOOL delFakeDir = TRUE;
-                        fakeName = fakeRootDir + strlen(fakeRootDir);
-                        if (SalPathAppend(fakeRootDir, "CLIPFAKE", MAX_PATH))
-                        {
-                            if (CreateDirectory(fakeRootDir, NULL))
-                            {
-                                // create objects for copy&paste
-                                *fakeName = 0;
-                                IDataObject* dataObject = CreateIDataObject(MainWindow->HWindow, fakeRootDir,
-                                                                            1, EnumOneFileName, fakeName + 1);
-                                if (dataObject != NULL)
-                                {
-                                    *fakeName = '\\';
-                                    // Keep the clipboard wrapper's lifetime local; the
-                                    // underlying Shell object is released just below.
-                                    {
-#ifdef new
-#undef new
-#define RESTORE_ARCHIVE_CLIPBOARD_DEBUG_NEW_MACRO
-#endif
-                                        CFakeCopyPasteDataObject* fakeDataObject = new (std::nothrow) CFakeCopyPasteDataObject(dataObject, fakeRootDir);
-#ifdef RESTORE_ARCHIVE_CLIPBOARD_DEBUG_NEW_MACRO
-#define new new (_NORMAL_BLOCK, __FILE__, __LINE__)
-#undef RESTORE_ARCHIVE_CLIPBOARD_DEBUG_NEW_MACRO
-#endif
-                                        if (fakeDataObject != NULL)
-                                        {
-                                            if (SalShExtPastedData.SetData(panel->GetZIPArchive(), panel->GetZIPPath(),
-                                                                           panel->Files, panel->Dirs,
-                                                                           panel->IsCaseSensitive(),
-                                                                           (count == 0) ? &index : indexes,
-                                                                           (count == 0) ? 1 : count))
-                                            {
-                                                BOOL clearSalShExtPastedData = TRUE;
-                                                if (OleSetClipboard(fakeDataObject) == S_OK)
-                                                {
-                                                    // on a successful save - OLE adds its reference
-                                                    // and keeps the object on the clipboard.
-                                                    OurDataOnClipboard = TRUE;
-
-                                                    // initialize shared memory
-                                                    WaitForSingleObject(SalShExtSharedMemMutex, INFINITE);
-                                                    BOOL sharedMemOK = SalShExtSharedMemView->Size >= sizeof(CSalShExtSharedMem);
-                                                    if (sharedMemOK)
-                                                    {
-                                                        SalShExtSharedMemView->DoPasteFromSalamander = TRUE;
-                                                        SalShExtSharedMemView->ClipDataObjLastGetDataTime = GetTickCount() - 60000;
-                                                        *fakeName = '\\';
-                                                        lstrcpyn(SalShExtSharedMemView->PasteFakeDirName, fakeRootDir, MAX_PATH);
-                                                        SalShExtSharedMemView->SalamanderMainWndPID = GetCurrentProcessId();
-                                                        SalShExtSharedMemView->SalamanderMainWndTID = GetCurrentThreadId();
-                                                        SalShExtSharedMemView->SalamanderMainWnd = (UINT64)(DWORD_PTR)MainWindow->HWindow;
-                                                        SalShExtSharedMemView->PastedDataID++;
-                                                        SalShExtPastedData.SetDataID(SalShExtSharedMemView->PastedDataID);
-                                                        clearSalShExtPastedData = FALSE;
-                                                        SalShExtSharedMemView->PasteDone = FALSE;
-                                                        lstrcpyn(SalShExtSharedMemView->ArcUnableToPaste1, LoadStr(IDS_ARCUNABLETOPASTE1), 300);
-                                                        lstrcpyn(SalShExtSharedMemView->ArcUnableToPaste2, LoadStr(IDS_ARCUNABLETOPASTE2), 300);
-
-                                                        delFakeDir = FALSE;
-                                                        fakeDataObject->SetCutOrCopyDone();
-                                                    }
-                                                    else
-                                                        TRACE_E("Shared memory is too small!");
-                                                    ReleaseMutex(SalShExtSharedMemMutex);
-
-                                                    if (!sharedMemOK)
-                                                    {
-                                                        OleSetClipboard(NULL);
-                                                        OurDataOnClipboard = FALSE;
-                                                    }
-                                                    IdleRefreshStates = TRUE;
-                                                    IdleCheckClipboard = TRUE;
-
-                                                    if (panel->CutToClipChanged)
-                                                        panel->ClearCutToClipFlag(TRUE);
-                                                    CFilesWindow* anotherPanel = MainWindow->LeftPanel == panel ? MainWindow->RightPanel : MainWindow->LeftPanel;
-                                                    if (anotherPanel->CutToClipChanged)
-                                                        anotherPanel->ClearCutToClipFlag(TRUE);
-                                                }
-                                                else
-                                                    TRACE_E("Unable to set data object to clipboard (copy&paste from archive)!");
-                                                if (clearSalShExtPastedData)
-                                                    SalShExtPastedData.Clear();
-                                            }
-                                            fakeDataObject->Release();
-                                        }
-                                        else
-                                            TRACE_E(LOW_MEMORY);
-                                    }
-                                }
-                                ShellActionAux7(dataObject, NULL);
-                            }
-                            else
-                                TRACE_E("Unable to create fake directory in TEMP for copy&paste from archive: unable to create subdir!");
-                        }
-                        else
-                            TRACE_E("Unable to create fake directory in TEMP for copy&paste from archive: too long name!");
-                        *fakeName = 0;
-                        if (delFakeDir)
-                            RemoveTemporaryDir(fakeRootDir);
-                    }
-                    else
-                        TRACE_E("Unable to create fake directory in TEMP for copy&paste from archive!");
-                }
+                CALL_STACK_MESSAGE1("ShellAction::archive::stage_clipboard_files");
+                PublishPanelSelectionToClipboard(panel, count == 0 ? 1 : count, indexes, index);
                 if (indexes != NULL)
-                    delete[] (indexes);
+                    delete[] indexes;
                 EndStopRefresh();
                 return;
             }
@@ -1975,6 +2049,20 @@ void ShellAction(CFilesWindow* panel, CShellAction action, BOOL useSelection,
                                    ? MainWindow->GetDetachedTabOriginalSide(panel)
                                    : panel->GetPanelSide();
         int panelID = panelSide == cpsLeft ? PANEL_LEFT : PANEL_RIGHT;
+
+        if (action == saCopyToClipboard)
+        {
+            if (panel->GetPluginFS()->NotEmpty() &&
+                panel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS))
+            {
+                CALL_STACK_MESSAGE1("ShellAction::plugin_fs::stage_clipboard_files");
+                PublishPanelSelectionToClipboard(panel, count == 0 ? 1 : count, indexes, index);
+            }
+            if (indexes != NULL)
+                delete[] indexes;
+            EndStopRefresh();
+            return;
+        }
 
         int selectedDirs = 0;
         if (count > 0)
