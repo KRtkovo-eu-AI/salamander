@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Record the NTFS overwrite reachability probe. | Keep the untested common file-exists path visible in the remaining work. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record the clean F5 probe build and caller test. | Distinguish build and simulated caller evidence from pending privileged acceptance. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record the narrow two-phase F5 overwrite work. | Separate local seams and unfinished privileged acceptance from the remaining audit. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Clarify protected refresh transaction and tab lifetime. | Record shutdown and path ABA boundaries before enabling consent. | #731 | GPT-6.1 Terra |
@@ -617,6 +618,8 @@ Místní nativní harness vytažených skutečných metod koordinátoru prošel 
 Místní důkazy: skutečný dispatcher a NTFS v Debug/Release 44 PASS + 2 SKIP kvůli chybějícímu privilegiu 1300; recovery-origin 1006 byla navíc prověřena injekcí návratu recovery, nikoli jeho skutečným vznikem. Test workeru prošel 25/25 v obou konfiguracích a zahrnuje i výřez volající větve F5; selhání předchozí přípravy, účtování přeskočení, peer, nativní dialog, install/image a UAC launch jsou seamy a simulovaný úspěch soubor nepřepisuje. Nejde o celý `DoCopyFile`. Test prvního `RunProbe` prošel 13/13 v obou konfiguracích se skutečnou pipe a handshake, ale bez produkční instalace, elevovaného tokenu a skutečného UAC. Vyříznuté produkční větve dialogu prošly Win32 reentrancí/remapem včetně dlouhých UTF-8 cest a OOM; COverwriteDlg a zbytek UI byly nahrazené seamy. Podrobné logy jsou v `C:\Samandarin\builds\uac-probe41-typed-stale`.
 
 Na čistém commitu `3f8ae833` prošel x64 build hosta a brokeru v Debug i Release; u brokeru Release byl po původním logu s vytvořeným obrazem dodatečně zachycen úspěšný návratový kód inkrementálního buildu. Anglický jazykový modul se sestavil v obou konfiguracích. Také host a broker pro Win32 prošly v Debug i Release se samostatně zachycenými úspěšnými návratovými kódy; jde o důkaz překladu, nikoli běhu. Integrovaný commit `47d912c9` má shodný kód; logy jsou v `C:\Samandarin\builds\uac-probe41-3f8ae833`. Privilegovaná úspěšná publikace a společná VM akceptace dosud nejsou doloženy. T5 zůstává otevřená.
+
+Následná NTFS sonda pod běžným tokenem ukázala u devíti zkoušených ACL existujícího cíle návrat `CREATE_NEW` s chybou 80, i když při zákazu zápisu `OPEN_EXISTING` pro zápis vracelo chybu 5. Při této posloupnosti se dosavadní vstup probe před prvním dialogem nespustí; jeho test volající větve přitom chybu 5 simuloval. Sonda `C:\Samandarin\builds\uac-ntfs-createnew-probe.ps1` není testem celého F5 ani všech ACL. Navazující oprava musí řešit i větev existujícího cíle před prvním potvrzením a musí rozlišit skutečné odepření od jiných příčin selhání přípravy.
 
 Srovnatelný Release host proti předchozímu buildu má 5 794 816 místo 5 789 184 B (+5 632 B); broker se tímto blokem nemění. Celoprocesové měření soukromé paměti při běžné a elevované úloze zůstává pro společnou akceptaci otevřené.
 
