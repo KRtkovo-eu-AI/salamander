@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise independently bounded protected Find listings. | Preserve wide tree coverage and depth, session and cancellation limits. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Test actual protected scan and consent-result handling. | Preserve explicit Stop and report omitted branches. | #731 | GPT-6.1 Terra |
 #define _CRT_SECURE_NO_WARNINGS
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <psapi.h>
 #include <atomic>
 #include <cstdio>
 #include <cstring>
@@ -58,6 +60,23 @@ static std::shared_ptr<CFindIgnore> SnapshotIgnore(const char* path) {
     user.Items.DestroyMembers(); // the live settings can change after this snapshot
     return snapshot;
 }
+static size_t liveListingRows = 0, maxLiveListingRows = 0;
+static SIZE_T maxPrivateBytes = 0;
+static SIZE_T PrivateBytes() {
+    PROCESS_MEMORY_COUNTERS_EX counters{};
+    return GetProcessMemoryInfo(GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&counters), sizeof(counters))
+        ? counters.PrivateUsage : 0;
+}
+struct TrackRows {
+    size_t rows;
+    explicit TrackRows(size_t count) : rows(count) {
+        liveListingRows += rows;
+        if (liveListingRows > maxLiveListingRows) maxLiveListingRows = liveListingRows;
+        const SIZE_T bytes = PrivateBytes();
+        if (bytes > maxPrivateBytes) maxPrivateBytes = bytes;
+    }
+    ~TrackRows() { liveListingRows -= rows; }
+};
 struct FakeSession {
     CGrepData* data = nullptr; bool open = true, stopOnList = false; int lists = 0;
     std::map<std::wstring, std::vector<WIN32_FIND_DATAW>> entries;
@@ -98,15 +117,16 @@ struct Predicates {
 };
 struct FindProtectedRequest {
     CGrepData* data; FakeSession session; std::shared_ptr<CFindIgnore> ignoreSnapshot;
-    int rootLength = 0; bool includeSubDirs = true, singleFile = false, startOk = true;
+    int rootLength = 0; bool includeSubDirs = true, singleFile = false, startOk = true; int starts = 0;
     HANDLE launchThread = nullptr; std::optional<Consent> consent; Predicates predicates;
     std::wstring path = L"C:\\root"; std::vector<std::pair<std::wstring, DWORD>> logs;
-    std::vector<std::wstring> published; bool stopOnCandidate = false, closeOnCandidate = false;
+    std::vector<std::wstring> published; bool stopOnCandidate = false, closeOnCandidate = false, discardCandidates = false; size_t candidateCount = 0;
     explicit FindProtectedRequest(CGrepData& search) : data(&search) { session.data = data; }
-    bool Start() { return startOk; }
+    bool Start() { ++starts; if (startOk) launchThread = reinterpret_cast<HANDLE>(1); return startOk; }
     void Log(const std::wstring& name, DWORD error, bool = false) { logs.emplace_back(name, error); }
     void AddCandidate(const std::wstring& name, const WIN32_FIND_DATAW& entry, CDuplicateCandidates*) {
-        published.push_back(name + L"\\" + entry.cFileName);
+        ++candidateCount;
+        if (!discardCandidates) published.push_back(name + L"\\" + entry.cFileName);
         if (stopOnCandidate) data->StopSearch = true;
         if (closeOnCandidate) session.open = false;
     }
@@ -124,89 +144,106 @@ static WIN32_FIND_DATAW File(const wchar_t* name, DWORD attributes = 0) {
 }
 int main() {
     for (unsigned i = 0; i < 256; ++i) LowerCase[i] = static_cast<unsigned char>(std::tolower(static_cast<int>(i)));
-    for (size_t count : {size_t(4095), size_t(4096), size_t(4097)}) {
+    {
         CGrepData data; FindProtectedRequest scan(data);
-        const bool limit = count > 4096;
-        if (limit) {
-            scan.session.entries[scan.path] = {File(L"child", FILE_ATTRIBUTE_DIRECTORY)};
-            auto& child = scan.session.entries[scan.path + L"\\child"];
-            for (int i = 0; i < 4096; ++i) child.push_back(File((L"file" + std::to_wstring(i)).c_str()));
-        } else scan.session.entries[scan.path] = std::vector<WIN32_FIND_DATAW>(count, File(L"file"));
-        size_t remaining = 4096; scan.Scan(scan.path, 0, remaining, nullptr);
-        Check(data.IncompleteReasons == (limit ? FindIncompleteScanBudget : FindIncompleteNone) &&
-              scan.published.size() == (limit ? 4096 : count) && scan.logs.size() == (limit ? 1 : 0) &&
-              (!limit || scan.published.back().find(L"file4094") != std::wstring::npos),
-              "actual scan preserves the validated prefix and marks the rest incomplete at the tree limit");
+        scan.session.entries[scan.path] = {File(L"first", FILE_ATTRIBUTE_DIRECTORY), File(L"second", FILE_ATTRIBUTE_DIRECTORY)};
+        for (const wchar_t* name : {L"first", L"second"}) {
+            auto& child = scan.session.entries[scan.path + L"\\" + name];
+            for (int i = 0; i < 3000; ++i) child.push_back(File((L"file" + std::to_wstring(i)).c_str()));
+        }
+        scan.consent.emplace();
+        scan.Finish(nullptr);
+        Check(!data.IncompleteReasons && scan.published.size() == 6002 && scan.logs.empty() &&
+              scan.session.lists == 3 && scan.starts == 1,
+              "two 3000-item branches complete under one approved session without an aggregate limit");
     }
-    { CGrepData data; FindProtectedRequest scan(data); size_t remaining = 10;
-      scan.Scan(scan.path, 33, remaining, nullptr);
+    {
+        CGrepData data; FindProtectedRequest scan(data); scan.discardCandidates = true;
+        std::wstring directory = scan.path;
+        for (int depth = 0; depth <= 32; ++depth) {
+            auto& items = scan.session.entries[directory];
+            items.resize(4096, File(L"file"));
+            if (depth != 32) { items[0] = File(L"child", FILE_ATTRIBUTE_DIRECTORY); directory += L"\\child"; }
+        }
+        const SIZE_T before = PrivateBytes();
+        liveListingRows = maxLiveListingRows = 0; maxPrivateBytes = 0;
+        scan.Scan(scan.path, 0, nullptr);
+        Check(!data.IncompleteReasons && scan.session.lists == 33 && scan.candidateCount == size_t(33) * 4096 &&
+              maxLiveListingRows == size_t(33) * 4096 && liveListingRows == 0,
+              "maximum depth retains no more than 33 independently capped listings");
+        std::printf("Synthetic maximum: row_size=%zu max_live_rows=%zu listing_bytes=%zu peak_private_delta=%llu\n",
+                    sizeof(WIN32_FIND_DATAW), maxLiveListingRows, maxLiveListingRows * sizeof(WIN32_FIND_DATAW),
+                    static_cast<unsigned long long>(maxPrivateBytes >= before ? maxPrivateBytes - before : 0));
+    }
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.Scan(scan.path, 33, nullptr);
       Check(data.IncompleteReasons == FindIncompleteScanDepth && scan.session.lists == 0 && scan.logs.size() == 1,
             "depth beyond 32 is marked incomplete without enumerating the branch"); }
-    { CGrepData data; FindProtectedRequest scan(data); size_t remaining = 10;
+    { CGrepData data; FindProtectedRequest scan(data);
       scan.session.entries[scan.path] = {File(L"link", FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT),
           File(L"deny", FILE_ATTRIBUTE_DIRECTORY), File(L"good", FILE_ATTRIBUTE_DIRECTORY)};
       scan.session.errors[scan.path + L"\\deny"] = ERROR_ACCESS_DENIED;
       scan.session.entries[scan.path + L"\\good"] = {File(L"readable")};
-      scan.Scan(scan.path, 0, remaining, nullptr);
+      scan.Scan(scan.path, 0, nullptr);
       Check(data.IncompleteReasons == (FindIncompleteReparse | FindIncompleteProtectedFailure) &&
             scan.logs.size() == 2 && scan.published.size() == 4 && scan.session.lists == 3,
             "link and denied branch are reported while a readable sibling is searched"); }
-    { CGrepData data; FindProtectedRequest scan(data); size_t remaining = 10;
+    { CGrepData data; FindProtectedRequest scan(data);
       scan.ignoreSnapshot = SnapshotIgnore("C:\\root");
-      scan.Scan(scan.path, 0, remaining, nullptr);
+      scan.Scan(scan.path, 0, nullptr);
       Check(!data.IncompleteReasons && scan.logs.size() == 1 && scan.session.lists == 0,
             "an explicitly ignored directory is not treated as a failed protected access"); }
-    { CGrepData data; FindProtectedRequest scan(data); size_t remaining = 0;
+    { CGrepData data; FindProtectedRequest scan(data);
       scan.ignoreSnapshot = SnapshotIgnore("C:\\root");
-      scan.Scan(scan.path, 33, remaining, nullptr);
+      scan.Scan(scan.path, 33, nullptr);
       Check(!data.IncompleteReasons && scan.logs.size() == 1 && scan.logs[0].second == ERROR_CANCELLED &&
-            scan.session.lists == 0, "Ignore takes precedence over exhausted budget and depth"); }
-    { CGrepData data; FindProtectedRequest scan(data); size_t remaining = 10;
+            scan.session.lists == 0, "Ignore takes precedence over the depth limit"); }
+    { CGrepData data; FindProtectedRequest scan(data);
       scan.ignoreSnapshot = SnapshotIgnore("C:\\root\\link");
       scan.session.entries[scan.path] = {File(L"link", FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT),
                                          File(L"good", FILE_ATTRIBUTE_DIRECTORY)};
       scan.session.entries[scan.path + L"\\good"] = {File(L"readable")};
-      scan.Scan(scan.path, 0, remaining, nullptr);
+      scan.Scan(scan.path, 0, nullptr);
       Check(!data.IncompleteReasons && scan.logs.size() == 1 && scan.logs[0].second == ERROR_CANCELLED &&
             scan.published.size() == 3 && scan.session.lists == 2,
             "an explicitly ignored link has no false incompleteness and its sibling is still searched"); }
-    { CGrepData data; FindProtectedRequest scan(data); size_t remaining = 10; scan.session.open = false;
-      scan.Scan(scan.path, 0, remaining, nullptr);
+    { CGrepData data; FindProtectedRequest scan(data); scan.session.open = false;
+      scan.Scan(scan.path, 0, nullptr);
       Check(data.IncompleteReasons == FindIncompleteProtectedFailure && scan.logs.size() == 1 &&
             scan.logs[0].second == ERROR_NOT_READY, "closed session at scan entry is incomplete"); }
-    { CGrepData data; FindProtectedRequest scan(data); size_t remaining = 10;
+    { CGrepData data; FindProtectedRequest scan(data);
       scan.session.entries[scan.path] = {File(L"one"), File(L"two")}; scan.closeOnCandidate = true;
-      scan.Scan(scan.path, 0, remaining, nullptr);
+      scan.Scan(scan.path, 0, nullptr);
       Check(data.IncompleteReasons == FindIncompleteProtectedFailure && scan.logs.size() == 1 &&
             scan.published.size() == 1, "session loss after a candidate reports incomplete and retains the first result"); }
-    { CGrepData data; FindProtectedRequest scan(data); size_t remaining = 10;
+    { CGrepData data; FindProtectedRequest scan(data);
       scan.session.entries[scan.path] = {File(L"last")}; scan.closeOnCandidate = true;
-      scan.Scan(scan.path, 0, remaining, nullptr);
+      scan.Scan(scan.path, 0, nullptr);
       Check(!data.IncompleteReasons && scan.logs.empty() && scan.published.size() == 1,
             "session loss after the last published leaf does not invent incomplete work"); }
-    { CGrepData data; FindProtectedRequest scan(data); size_t remaining = 10;
+    { CGrepData data; FindProtectedRequest scan(data);
       scan.session.entries[scan.path] = {File(L"child", FILE_ATTRIBUTE_DIRECTORY)}; scan.closeOnCandidate = true;
-      scan.Scan(scan.path, 0, remaining, nullptr);
+      scan.Scan(scan.path, 0, nullptr);
       Check(data.IncompleteReasons == FindIncompleteProtectedFailure && scan.logs.size() == 1 &&
             scan.published.size() == 1, "session loss before descending into a directory marks incomplete"); }
-    { CGrepData data; FindProtectedRequest scan(data); size_t remaining = 10;
+    { CGrepData data; FindProtectedRequest scan(data);
       scan.session.entries[scan.path] = {File(L"child", FILE_ATTRIBUTE_DIRECTORY)}; scan.closeOnCandidate = true;
       scan.ignoreSnapshot = SnapshotIgnore("C:\\root\\child");
-      scan.Scan(scan.path, 0, remaining, nullptr);
+      scan.Scan(scan.path, 0, nullptr);
       Check(!data.IncompleteReasons && scan.published.size() == 1 && scan.logs.size() == 1 &&
             scan.logs[0].second == ERROR_CANCELLED, "session loss before an ignored child does not invent incomplete work"); }
-    { CGrepData data; FindProtectedRequest scan(data); size_t remaining = 1;
+    { CGrepData data; FindProtectedRequest scan(data);
       scan.session.entries[scan.path] = {File(L"one"), File(L"two")}; scan.session.stopOnList = true;
-      scan.Scan(scan.path, 0, remaining, nullptr);
+      scan.Scan(scan.path, 0, nullptr);
       Check(data.StopSearch && !data.IncompleteReasons && scan.logs.empty() && scan.published.empty(),
-            "Stop racing the listing wins over an otherwise exceeded budget"); }
-    { CGrepData data; FindProtectedRequest scan(data); size_t remaining = 10;
+            "Stop racing the listing prevents a false omission"); }
+    { CGrepData data; FindProtectedRequest scan(data);
       scan.session.entries[scan.path] = {File(L"link", FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)};
-      scan.stopOnCandidate = true; scan.Scan(scan.path, 0, remaining, nullptr);
+      scan.stopOnCandidate = true; scan.Scan(scan.path, 0, nullptr);
       Check(data.StopSearch && !data.IncompleteReasons && scan.logs.empty(),
             "Stop while publishing a link does not report a false omission"); }
-    { CGrepData data; FindProtectedRequest scan(data); size_t remaining = 4096;
-      scan.session.errors[scan.path] = ERROR_BUFFER_OVERFLOW; scan.Scan(scan.path, 0, remaining, nullptr);
+    { CGrepData data; FindProtectedRequest scan(data);
+      scan.session.errors[scan.path] = ERROR_BUFFER_OVERFLOW; scan.Scan(scan.path, 0, nullptr);
       Check(data.IncompleteReasons == FindIncompleteProtectedFailure && scan.logs.size() == 1 &&
             scan.logs[0].second == ERROR_BUFFER_OVERFLOW,
             "untyped broker overflow remains a generic protected failure with its original error"); }

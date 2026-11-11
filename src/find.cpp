@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Remove the aggregate protected Find tree entry cap. | Search independently bounded directories under one approved session. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Mark protected Find scans incomplete when branches are skipped. | Preserve existing limits and distinguish failed access from complete results. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Carry exact FindFile identity into a separate verified viewer request. | Prevent pathname-only identity recapture after Find. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Retain protected Find provenance through viewing and refinement. | Refuse pathname-only reads when identity cannot be preserved. | #731 | GPT-6.1 Terra |
@@ -2121,8 +2122,7 @@ public:
             PublishSingleFile(candidates, true);
         else
         {
-            size_t remaining = 4096;
-            Scan(path, 0, remaining, candidates);
+            Scan(path, 0, candidates);
         }
         return session.IsOpen() && !data->Refine && FindDuplicateContent(*data) ? &session : nullptr;
     }
@@ -2194,7 +2194,7 @@ private:
         return false;
     }
 
-    void Scan(const std::wstring& directory, unsigned depth, size_t& remaining, CDuplicateCandidates* candidates)
+    void Scan(const std::wstring& directory, unsigned depth, CDuplicateCandidates* candidates)
     {
         if (data->StopSearch)
             return;
@@ -2206,9 +2206,9 @@ private:
         }
         if (!CanContinue(directory))
             return;
-        if (!remaining || depth > 32)
+        if (depth > 32)
         {
-            data->IncompleteReasons |= depth > 32 ? FindIncompleteScanDepth : FindIncompleteScanBudget;
+            data->IncompleteReasons |= FindIncompleteScanDepth;
             Log(directory, ERROR_BUFFER_OVERFLOW);
             return;
         }
@@ -2217,21 +2217,12 @@ private:
         DWORD error = session.List(directory, entries);
         if (data->StopSearch)
             return;
-        if (!error && entries.size() > remaining)
-        {
-            // The listing is already authenticated and valid. Publish its bounded prefix
-            // rather than discard all readable entries, while reporting the omitted rest.
-            data->IncompleteReasons |= FindIncompleteScanBudget;
-            Log(directory, ERROR_BUFFER_OVERFLOW);
-            entries.resize(remaining);
-        }
-        else if (error)
+        if (error)
         {
             data->IncompleteReasons |= FindIncompleteProtectedFailure;
             Log(directory, error);
             return;
         }
-        remaining -= entries.size();
         for (auto& file : entries)
         {
             if (!CanContinue(directory))
@@ -2255,7 +2246,7 @@ private:
                     }
                 }
                 else
-                    Scan(child, depth + 1, remaining, candidates);
+                    Scan(child, depth + 1, candidates);
             }
         }
     }
