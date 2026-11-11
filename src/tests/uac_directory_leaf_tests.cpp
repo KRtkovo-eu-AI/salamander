@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Verify conservative disk overwrite recovery separately from ZIP. | Preserve exact legacy journals and backups without claiming unproved restoration. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Verify time-only metadata on special NTFS files. | Preserve content, streams, permissions and special attributes across the exact-handle update. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Verify anchored case-only renames. | Exercise actual NTFS names, identity checks, collisions, and directory handling. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Keep native overwrite within the same exact-parent transfer family. | Reuse consent while preserving independent conflict approval. | #731 | GPT-6.1 Sol |
@@ -256,6 +257,21 @@ bool HasContents(const std::wstring& path, const std::vector<BYTE>& expected)
         return false;
     data.resize(read);
     return data == expected;
+}
+
+// Inspect the exclusively held test journal without reopening or truncating it.
+bool ReadJournalBytes(HANDLE journal, std::vector<BYTE>& bytes)
+{
+    LARGE_INTEGER size{}, saved{};
+    if (!GetFileSizeEx(journal, &size) || size.QuadPart < 0 || size.QuadPart > 65536 ||
+        !SetFilePointerEx(journal, {}, &saved, FILE_CURRENT) ||
+        !SetFilePointerEx(journal, {}, nullptr, FILE_BEGIN))
+        return false;
+    bytes.resize(static_cast<size_t>(size.QuadPart));
+    DWORD read = 0;
+    const bool ok = bytes.empty() ||
+        (ReadFile(journal, bytes.data(), static_cast<DWORD>(bytes.size()), &read, nullptr) && read == bytes.size());
+    return SetFilePointerEx(journal, saved, nullptr, FILE_BEGIN) && ok;
 }
 
 bool Exists(const std::wstring& path)
@@ -3553,21 +3569,54 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
     const auto backupPath = folder + L"\\" + backup;
     if (!WriteFixture(path, {6}))
         return false;
+    FILE_ID_INFO rivalOriginal{};
+    if (!OpenIdentity(path, rivalOriginal))
+        return false;
+    std::vector<BYTE> savedJournal;
+    if (!ReadJournalBytes(journal.get(), savedJournal) || savedJournal.empty())
+        return false;
     DWORD error = Recover(parent.get(), identity, leaf, journal.get(), kind);
-    Check(error == ERROR_FILE_INVALID && HasContents(path, {6}) && HasContents(backupPath, {3, 4, 5}),
-          "keep both files when an unrelated item occupies the destination name", error);
+    std::vector<BYTE> afterJournal;
+    FILE_ID_INFO backupId{}, rivalAfter{};
+    const bool retainedRival = error == static_cast<DWORD>(zip ? ERROR_FILE_INVALID : ERROR_PARTIAL_COPY) &&
+        HasContents(path, {6}) && OpenIdentity(path, rivalAfter) &&
+        UacRenameLeaf::Detail::SameSource(rivalAfter, rivalOriginal) && HasContents(backupPath, {3, 4, 5}) &&
+        OpenIdentity(backupPath, backupId) && UacRenameLeaf::Detail::SameSource(backupId, record.original) &&
+        ReadJournalBytes(journal.get(), afterJournal) && afterJournal == savedJournal;
+    Check(retainedRival, "keep the competing file, exact backup and journal during interrupted publication", error);
+    if (!retainedRival)
+        return false;
     if (!DeleteFileW(path.c_str()))
         return false;
     error = Recover(parent.get(), identity, leaf, journal.get(), kind);
-    Check(!error && HasContents(path, {3, 4, 5}) && !Exists(backupPath),
-          "restore the exact original after an interrupted publication", error);
-    Check(Recover(parent.get(), identity, leaf, journal.get(), kind) == ERROR_SUCCESS,
-          "allow another replacement after clearing the completed publication journal");
     if (zip)
+    {
+        Check(!error && HasContents(path, {3, 4, 5}) && !Exists(backupPath),
+              "restore the exact ZIP original after an interrupted publication", error);
+        Check(Recover(parent.get(), identity, leaf, journal.get(), kind) == ERROR_SUCCESS,
+              "allow another ZIP replacement after clearing the completed publication journal");
         return true;
+    }
+    FILE_ID_INFO retainedId{};
+    const bool retainedInterrupted = error == ERROR_PARTIAL_COPY && !Exists(path) &&
+        HasContents(backupPath, {3, 4, 5}) && OpenIdentity(backupPath, retainedId) &&
+        UacRenameLeaf::Detail::SameSource(retainedId, record.original) &&
+        ReadJournalBytes(journal.get(), afterJournal) && afterJournal == savedJournal;
+    Check(retainedInterrupted, "keep the exact disk backup and journal when its final name is absent", error);
+    if (!retainedInterrupted)
+        return false;
+    const DWORD retry = Recover(parent.get(), identity, leaf, journal.get(), kind);
+    const bool retainedRetry = retry == ERROR_PARTIAL_COPY && !Exists(path) &&
+        HasContents(backupPath, {3, 4, 5}) && OpenIdentity(backupPath, retainedId) &&
+        UacRenameLeaf::Detail::SameSource(retainedId, record.original) &&
+        ReadJournalBytes(journal.get(), afterJournal) && afterJournal == savedJournal;
+    Check(retainedRetry, "a repeated disk recovery retains the same backup and journal", retry);
+    if (!retainedRetry || UacZipUpdate::Detail::ClearRecord(journal.get()))
+        return false; // Clear only the exclusively held test fixture, after asserting preservation.
 
     enum class ReceiptCase { Unchanged, ChangedTarget, ChangedBackup, Named, ChangedNamed, LiveNamed, TargetNamed, LiveTargetNamed, RecoverTargetNamed, ChangedTargetNamed, Legacy };
     const auto checkRetirement = [&](std::wstring_view fileName, ReceiptCase scenario) {
+        const int failuresBefore = failures;
         const bool changeTarget = scenario == ReceiptCase::ChangedTarget;
         const bool changeBackup = scenario == ReceiptCase::ChangedBackup;
         const bool changeNamed = scenario == ReceiptCase::ChangedNamed;
@@ -3713,15 +3762,23 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
         incomplete.version = 3;
         if (WriteRecord(journal.get(), incomplete))
             return false;
+        std::vector<BYTE> incompleteJournal, observedJournal;
+        if (!ReadJournalBytes(journal.get(), incompleteJournal) || incompleteJournal.empty())
+            return false;
         Check(Recover(parent.get(), identity, fileName, journal.get(), kind) == ERROR_INVALID_DATA &&
-                  HasContents(finalPath, newBytes) && HasContents(priorPath, oldBytes),
+                  HasContents(finalPath, newBytes) && HasContents(priorPath, oldBytes) &&
+                  ReadJournalBytes(journal.get(), observedJournal) && observedJournal == incompleteJournal,
               "retain both names when the disk record is incomplete");
         auto pending = namedRecord;
         pending.disk.receipt = {};
         if (durableNamedBackup ? WriteRecord(journal.get(), pending) : WriteRecord(journal.get(), pending.disk))
             return false;
+        std::vector<BYTE> pendingJournal;
+        if (!ReadJournalBytes(journal.get(), pendingJournal) || pendingJournal.empty())
+            return false;
         Check(Recover(parent.get(), identity, fileName, journal.get(), kind) == ERROR_PARTIAL_COPY &&
-                  HasContents(finalPath, newBytes) && HasContents(priorPath, oldBytes),
+                  HasContents(finalPath, newBytes) && HasContents(priorPath, oldBytes) &&
+                  ReadJournalBytes(journal.get(), observedJournal) && observedJournal == pendingJournal,
               "retain both names when a broker exit precedes the disk commit receipt");
         if (durableNamedBackup ? WriteRecord(journal.get(), namedRecord) : WriteRecord(journal.get(), durable))
             return false;
@@ -3752,11 +3809,23 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
         }
         if (changeBackup && !WriteFixture(priorPath + L":late-\u6771", {41, 42}))
             return false;
+        std::vector<BYTE> expectedJournal, actualJournal;
+        FILE_ID_INFO expectedFinal{}, expectedBackup{};
+        if (!ReadJournalBytes(journal.get(), expectedJournal) || expectedJournal.empty() ||
+            !OpenIdentity(finalPath, expectedFinal) || !OpenIdentity(priorPath, expectedBackup))
+            return false;
         if (durableNamedBackup)
             Check(Recover(parent.get(), identity, fileName, journal.get(), kind) == ERROR_PARTIAL_COPY &&
-                      HasContents(priorPath, oldBytes),
+                      HasContents(priorPath, oldBytes) && ReadJournalBytes(journal.get(), actualJournal) &&
+                      actualJournal == expectedJournal,
                   "keep a named backup when its protection cannot be verified during recovery");
         const DWORD recovery = Recover(parent.get(), identity, fileName, journal.get(), kind, trustedFixture);
+        FILE_ID_INFO actualFinal{}, actualBackup{};
+        Check(recovery == ERROR_PARTIAL_COPY && OpenIdentity(finalPath, actualFinal) &&
+                  UacRenameLeaf::Detail::SameSource(actualFinal, expectedFinal) &&
+                  OpenIdentity(priorPath, actualBackup) && UacRenameLeaf::Detail::SameSource(actualBackup, expectedBackup) &&
+                  ReadJournalBytes(journal.get(), actualJournal) && actualJournal == expectedJournal,
+              "preserve both exact identities and every journal byte for legacy disk recovery", recovery);
         if (changeOriginalStream)
             Check(recovery == ERROR_PARTIAL_COPY && HasContents(finalPath, newBytes) && HasContents(priorPath, oldBytes) &&
                       HasContents(priorPath + L":keep", {31}),
@@ -3773,10 +3842,15 @@ bool CheckReplacement(const std::wstring& fixture, HANDLE root, UacZipUpdate::Re
                       HasContents(priorPath + L":late-\u6771", {41, 42}),
                   "retain a backup that gained a named stream before recovery", recovery);
         else
-            Check(!recovery && HasContents(finalPath, newBytes) && !Exists(priorPath) &&
-                      (!withNamed || HasContents(finalPath + suffix, namedBytes)),
-                  withNamed ? "retire the backup after verifying the complete named replacement" :
-                  "retire the exact backup only when both durable disk revisions still match", recovery);
+            Check(recovery == ERROR_PARTIAL_COPY && HasContents(finalPath, newBytes) && HasContents(priorPath, oldBytes) &&
+                      (!withNamed || (HasContents(finalPath + suffix, namedBytes) && HasContents(finalPath + emptySuffix, {}))) &&
+                      (!namedBackup || HasContents(priorPath + L":keep", {6})),
+                  withNamed ? "retain the complete named replacement and backup for legacy disk recovery" :
+                  "retain the replacement and backup even when the legacy receipt matches", recovery);
+        if (failures != failuresBefore)
+            return false;
+        // The next case has a separate leaf and backup but shares this test-only journal.
+        // Clear it only after all preservation assertions passed; never invoke this as recovery.
         return !ClearRecord(journal.get());
     };
     return checkRetirement(L"unchanged.txt", ReceiptCase::Unchanged) &&
@@ -3849,11 +3923,11 @@ bool CheckOverwriteProcessExit(const std::wstring& fixture)
     };
     constexpr Scenario scenarios[] = {
         {ReplacementFaultPoint::JournalFlushed, "recover before the first rename", true, false, ERROR_SUCCESS},
-        {ReplacementFaultPoint::BackupRenamed, "restore after moving the original aside", false, true, ERROR_SUCCESS},
-        {ReplacementFaultPoint::StageRenamed, "restore after the uncommitted stage occupied the final name", false, true, ERROR_SUCCESS},
+        {ReplacementFaultPoint::BackupRenamed, "retain the backup after moving the original aside", false, true, ERROR_PARTIAL_COPY},
+        {ReplacementFaultPoint::StageRenamed, "retain the backup after an uncommitted stage disappears", false, true, ERROR_PARTIAL_COPY},
         {ReplacementFaultPoint::StageKept, "retain both files after commit without a durable receipt", true, true, ERROR_PARTIAL_COPY},
-        {ReplacementFaultPoint::ReceiptFlushed, "retire the original only after the durable receipt", true, true, ERROR_SUCCESS},
-        {ReplacementFaultPoint::BackupRetired, "clear the receipt after the original backup is already retired", true, false, ERROR_SUCCESS},
+        {ReplacementFaultPoint::ReceiptFlushed, "retain both files despite a durable legacy receipt", true, true, ERROR_PARTIAL_COPY},
+        {ReplacementFaultPoint::BackupRetired, "retain a receipt when the backup is already retired", true, false, ERROR_PARTIAL_COPY},
     };
     for (const auto& scenario : scenarios)
     {
@@ -3877,6 +3951,7 @@ bool CheckOverwriteProcessExit(const std::wstring& fixture)
         };
         const bool concurrentCreate = scenario.point == ReplacementFaultPoint::BackupRenamed;
         const std::vector<BYTE> rival{91, 92};
+        FILE_ID_INFO rivalOriginal{};
         if (!InterruptFixtureChild(folder, L"--hold-overwrite " + id, [&] {
                 if (!concurrentCreate)
                     return true;
@@ -3885,7 +3960,7 @@ bool CheckOverwriteProcessExit(const std::wstring& fixture)
                 const ::Handle rivalJournal(rawRivalJournal);
                 Check(locked == ERROR_SHARING_VIOLATION && !rivalJournal && !Exists(final),
                       "a second process cannot acquire the live overwrite journal during the rename gap", locked);
-                return WriteFixture(final, rival);
+                return WriteFixture(final, rival) && OpenIdentity(final, rivalOriginal) != nullptr;
             }))
         {
             Check(false, scenario.label);
@@ -3904,6 +3979,9 @@ bool CheckOverwriteProcessExit(const std::wstring& fixture)
             !ReadFile(journal.get(), &record, sizeof(record), &read, nullptr) || read != sizeof(record))
             return false;
         const auto backup = folder + L"\\" + UacZipUpdate::Detail::BackupName(record.exchange.nonce, ReplacementKind::DiskCopy);
+        std::vector<BYTE> beforeJournal, afterJournal;
+        if (!ReadJournalBytes(journal.get(), beforeJournal) || beforeJournal.empty())
+            return false;
         WIN32_FIND_DATAW stage{};
         const HANDLE stageSearch = FindFirstFileW((folder + L"\\.samandarin-copy-*.tmp").c_str(), &stage);
         const bool noStage = stageSearch == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_NOT_FOUND;
@@ -3913,17 +3991,22 @@ bool CheckOverwriteProcessExit(const std::wstring& fixture)
         {
             const DWORD blocked = Recover(parent.get(), identity, overwriteCrashLeaf, journal.get(),
                 ReplacementKind::DiskCopy, nullptr, RecoveryIntent::CopyToNewName);
-            LARGE_INTEGER size{};
-            FILE_ID_INFO backupId{};
-            Check(blocked == ERROR_FILE_INVALID && HasContents(final, rival) &&
+            FILE_ID_INFO backupId{}, rivalAfter{};
+            const bool preserved = blocked == ERROR_PARTIAL_COPY && HasContents(final, rival) &&
+                      OpenIdentity(final, rivalAfter) && UacRenameLeaf::Detail::SameSource(rivalAfter, rivalOriginal) &&
                       HasContents(backup, overwriteOriginal) && OpenIdentity(backup, backupId) &&
                       UacRenameLeaf::Detail::SameSource(backupId, originalId) &&
-                      GetFileSizeEx(journal.get(), &size) && size.QuadPart != 0,
-                  "a competing file published during the rename gap leaves the original and its journal intact", blocked);
+                      ReadJournalBytes(journal.get(), afterJournal) && afterJournal == beforeJournal;
+            Check(preserved, "a competing file during the rename gap leaves the exact backup and journal intact", blocked);
+            if (!preserved)
+                return false;
             const auto rivalPath = folder + L"\\retained-rival.txt";
             if (!MoveFileExW(final.c_str(), rivalPath.c_str(), 0))
                 return false;
-            Check(HasContents(rivalPath, rival), "retain the rival under its independent name before resuming recovery");
+            FILE_ID_INFO movedRival{};
+            Check(HasContents(rivalPath, rival) && OpenIdentity(rivalPath, movedRival) &&
+                      UacRenameLeaf::Detail::SameSource(movedRival, rivalOriginal),
+                  "retain the exact rival under its independent name before resuming recovery");
         }
         const bool committed = scenario.point >= ReplacementFaultPoint::StageKept;
         const auto& expected = committed ? overwriteReplacement : overwriteOriginal;
@@ -3933,22 +4016,30 @@ bool CheckOverwriteProcessExit(const std::wstring& fixture)
         const bool retryNewName = scenario.point == ReplacementFaultPoint::StageRenamed;
         if (retryNewName)
         {
+            FILE_ID_INFO untouchedId{};
             Check(Recover(parent.get(), identity, L"unrelated.txt", journal.get(), ReplacementKind::DiskCopy,
-                          nullptr, RecoveryIntent::CopyToNewName) == ERROR_SUCCESS && !Exists(final) && Exists(backup),
+                          nullptr, RecoveryIntent::CopyToNewName) == ERROR_SUCCESS && !Exists(final) &&
+                      HasContents(backup, overwriteOriginal) && OpenIdentity(backup, untouchedId) &&
+                      UacRenameLeaf::Detail::SameSource(untouchedId, originalId) &&
+                      ReadJournalBytes(journal.get(), afterJournal) && afterJournal == beforeJournal,
                   "leave another leaf's interrupted overwrite alone");
         }
         const auto retryLeaf = retryNewName ? std::wstring_view(L"TARGET-\u6771.TXT") : overwriteCrashLeaf;
         const DWORD recovery = Recover(parent.get(), identity, retryLeaf, journal.get(), ReplacementKind::DiskCopy,
             nullptr, retryNewName ? RecoveryIntent::CopyToNewName : RecoveryIntent::Replace);
         LARGE_INTEGER journalSize{};
-        FILE_ID_INFO finalId{};
+        FILE_ID_INFO finalId{}, backupId{};
         const auto& expectedId = committed ? record.exchange.replacement : originalId;
         const bool retained = scenario.recovery == ERROR_PARTIAL_COPY;
-        Check(before && recovery == (retryNewName ? ERROR_ALREADY_EXISTS : scenario.recovery) &&
-                  OpenIdentity(final, finalId) && UacRenameLeaf::Detail::SameSource(finalId, expectedId) &&
-                  HasContents(final, expected) && HasContents(sentinel, {9}) &&
-                  Exists(backup) == retained && (!retained || HasContents(backup, overwriteOriginal)) &&
-                  GetFileSizeEx(journal.get(), &journalSize) && (journalSize.QuadPart != 0) == retained,
+        Check(before && recovery == scenario.recovery && Exists(final) == scenario.finalExists &&
+                  (!scenario.finalExists || (OpenIdentity(final, finalId) &&
+                      UacRenameLeaf::Detail::SameSource(finalId, expectedId) && HasContents(final, expected))) &&
+                  HasContents(sentinel, {9}) && Exists(backup) == scenario.backupExists &&
+                  (!scenario.backupExists || (HasContents(backup, overwriteOriginal) && OpenIdentity(backup, backupId) &&
+                      UacRenameLeaf::Detail::SameSource(backupId, originalId))) &&
+                  GetFileSizeEx(journal.get(), &journalSize) &&
+                  (retained ? (ReadJournalBytes(journal.get(), afterJournal) && afterJournal == beforeJournal) :
+                              journalSize.QuadPart == 0),
               scenario.label, recovery);
     }
     return failures == 0;
