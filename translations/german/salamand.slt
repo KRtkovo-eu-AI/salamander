@@ -4382,6 +4382,8 @@ SLGINCOMPLETE,""
 
 14702,1,"Eine frühere Suche in diesen Ergebnissen hat das Limit für Administratorzugriff erreicht (%s geschützte Elemente). Einige Elemente wurden nicht durchsucht."
 
+14703,1,"Das Verschieben eines geschützten Ordners mit Administratorrechten in den Papierkorb wird noch nicht unterstützt."
+
 [STRINGTABLE 198]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
 

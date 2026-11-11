@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Identify an unchanged directory only for recycle diagnostics. | Explain a verified source denial without widening the Shell operation. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Tell the Shell that recycle elevation is already requested. | Keep Windows UAC without asking twice for the same elevation. | #731 | GPT-6 (Codex) |
 // | 2026-11-09 | Recheck the account policy on every Shell retry. | Stop when a changed policy can switch accounts after application consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Restrict the Shell recycle retry to same-account elevation. | A credential-based Shell retry can move the file into another account’s Recycle Bin. | | GPT-6.1 Sol (Codex) |
@@ -23,6 +24,7 @@
 #include <new>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 // Keep recycling in the calling user's Shell context. Access failures stop the
@@ -157,6 +159,69 @@ inline std::wstring_view VolumeRoot(std::wstring_view path)
         return {};
     return path.substr(0, end + 2);
 }
+
+// This identity authorizes no operation or retry. It only selects a more
+// specific message after the Shell has already rejected a single directory.
+struct DirectoryDiagnosticIdentity
+{
+    RecycleFileId id{};
+    std::wstring normalizedPath;
+    std::wstring selectedPath;
+
+    bool Capture(const std::wstring& path)
+    {
+        id = {};
+        normalizedPath.clear();
+        selectedPath.clear();
+        try
+        {
+            const HANDLE raw = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+            if (raw == INVALID_HANDLE_VALUE)
+                return false;
+            const std::unique_ptr<void, decltype(&CloseHandle)> directory(raw, CloseHandle);
+            FILE_ATTRIBUTE_TAG_INFO attributes{};
+            FILE_STANDARD_INFO standard{};
+            wchar_t filesystem[16]{};
+            if (!GetFileInformationByHandleEx(raw, recycleFileIdInfo, &id, sizeof(id)) ||
+                !GetFileInformationByHandleEx(raw, FileAttributeTagInfo, &attributes, sizeof(attributes)) ||
+                !GetFileInformationByHandleEx(raw, FileStandardInfo, &standard, sizeof(standard)) ||
+                !(attributes.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) ||
+                (attributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) || !standard.Directory || standard.DeletePending ||
+                !GetVolumeInformationByHandleW(raw, nullptr, 0, nullptr, nullptr, nullptr, filesystem, ARRAYSIZE(filesystem)) ||
+                CompareStringOrdinal(filesystem, -1, L"NTFS", -1, TRUE) != CSTR_EQUAL)
+                return false;
+            constexpr DWORD flags = FILE_NAME_NORMALIZED | VOLUME_NAME_GUID;
+            const DWORD capacity = GetFinalPathNameByHandleW(raw, nullptr, 0, flags);
+            if (!capacity || capacity > 32768)
+                return false;
+            std::wstring normalized(capacity, L'\0');
+            const DWORD length = GetFinalPathNameByHandleW(raw, normalized.data(), capacity, flags);
+            if (!length || length >= capacity)
+                return false;
+            normalized.resize(length);
+            const auto volume = VolumeRoot(normalized);
+            if (volume.empty() || GetDriveTypeW(std::wstring(volume).c_str()) != DRIVE_FIXED)
+                return false;
+            std::wstring selected(path);
+            selectedPath = std::move(selected);
+            normalizedPath = std::move(normalized);
+            return true;
+        }
+        catch (const std::bad_alloc&)
+        {
+            return false; // Optional explanation must not change the Shell operation.
+        }
+    }
+
+    bool StillAtOriginalPath() const
+    {
+        DirectoryDiagnosticIdentity current;
+        return !normalizedPath.empty() && current.Capture(selectedPath) && SameFileId(id, current.id) &&
+               normalizedPath == current.normalizedPath;
+    }
+};
 
 inline bool InOriginalRecycleBin(std::wstring_view normalizedSource, std::wstring_view normalizedReceipt, const std::wstring& sid)
 {
@@ -302,6 +367,12 @@ public:
         const HRESULT error = FAILED(failure) ? failure : operation;
         return !completed && (error == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED) ||
                               error == COPYENGINE_E_REQUIRES_ELEVATION || error == COPYENGINE_E_ACCESS_DENIED_SRC);
+    }
+
+    bool ExplicitSourceAccessDenied(HRESULT operation) const
+    {
+        const HRESULT error = FAILED(failure) ? failure : operation;
+        return !completed && error == COPYENGINE_E_ACCESS_DENIED_SRC;
     }
 
     HRESULT Result(HRESULT operation, size_t expected) const

@@ -4383,6 +4383,8 @@ SLGINCOMPLETE,""
 
 14702,1,"Dřívější hledání v těchto výsledcích dosáhlo limitu přístupu správce (%s chráněných položek). Některé položky nebyly prohledány."
 
+14703,1,"Přesun chráněné složky do Koše s oprávněními správce zatím není podporován."
+
 [STRINGTABLE 198]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
 

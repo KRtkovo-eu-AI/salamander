@@ -4381,6 +4381,8 @@ SLGINCOMPLETE,""
 
 14702,1,"O căutare anterioară în aceste rezultate a atins limita de acces de administrator (%s elemente protejate). Unele elemente nu au fost căutate."
 
+14703,1,"Mutarea unui folder protejat în Coșul de reciclare cu drepturi de administrator nu este încă acceptată."
+
 [STRINGTABLE 198]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."
 

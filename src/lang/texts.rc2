@@ -1,4 +1,5 @@
-﻿// | 2026-11-11 | Localize the protected Find limit and incomplete status. | Explain omitted results without implying success. | #731 | GPT-6.1 Terra |
+﻿// | 2026-11-11 | Explain the protected folder Recycle Bin limitation. | Report unsupported elevation without assuming the item state. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Localize the protected Find limit and incomplete status. | Explain omitted results without implying success. | #731 | GPT-6.1 Terra |
 // | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-11 | Explain retained disk overwrite recovery files. | Make an uncertain result actionable without implying data was removed. | #731 | GPT-6.1 Terra |
@@ -2459,6 +2460,7 @@ STRINGTABLE
  IDS_UAC_DELETE_DIRECTORY_SYMLINK_CONFIRM, "Access was denied. Permanently delete this directory symbolic link as an administrator? The linked folder will be kept."
  IDS_UAC_DELETE_JUNCTION_CONFIRM, "Access was denied. Permanently delete this directory junction as an administrator? The linked folder will be kept."
  IDS_UAC_RECYCLE_NOT_CONFIRMED, "Windows did not confirm that all items were moved to the Recycle Bin. Check the original location and the Recycle Bin before retrying."
+ IDS_UAC_RECYCLE_DIRECTORY_UNSUPPORTED, "Moving a protected folder to the Recycle Bin with administrator privileges is not supported yet."
  IDS_UAC_DELETE_UNKNOWN, "The broker disconnected before deletion was confirmed. Check whether the file still exists before retrying."
  IDS_UAC_LIST_CONFIRM, "Access was denied. List this folder and its subfolders as an administrator?"
  IDS_UAC_LIST_ACTIVE, "Administrator listing"

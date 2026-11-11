@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Explain an explicitly denied protected-folder recycle. | Keep the existing Shell result while identifying the unsupported elevated retry. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Preview permanent-delete elevation for supported native attributes. | Match the confirmation shield to the verified delete executor. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Preview verified protected F5 destinations for a plain tree. | Show the shield when the selected root is absent and creation is denied. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Enable the rooted transfer worker for a plain single-directory F5. | Keep registered atomic copies and unsupported options on their existing paths. | #731 | GPT-6.1 Sol |
@@ -229,6 +230,7 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
             result = operation->SetOperationFlags(OperationRecycleFlags);
         const int total = selCount > 0 ? selCount : 1;
         OperationRecycleDetail::VerifiedSource original;
+        OperationRecycleDetail::DirectoryDiagnosticIdentity directoryDiagnostic;
         std::wstring retryPath, retryShellPath;
         for (int item = 0; item < total && SUCCEEDED(result); ++item)
         {
@@ -254,11 +256,15 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
                 result = HRESULT_FROM_WIN32(ERROR_INVALID_NAME);
                 break; // the recycle bin may trim trailing dots/spaces and delete a different item
             }
-            if (total == 1 && !IsBranchView() && shellPath.size() >= 3 && shellPath[1] == L':' &&
-                OperationRecycleDetail::ReadFileId(path.c_str(), original.id, &original.normalizedPath))
+            if (total == 1 && !IsBranchView() && shellPath.size() >= 3 && shellPath[1] == L':')
             {
-                retryPath = path;
-                retryShellPath = shellPath;
+                if (OperationRecycleDetail::ReadFileId(path.c_str(), original.id, &original.normalizedPath))
+                {
+                    retryPath = path;
+                    retryShellPath = shellPath;
+                }
+                else
+                    directoryDiagnostic.Capture(path);
             }
 
             IShellItem* shellItem = NULL;
@@ -275,11 +281,16 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
         if (queued)
             result = operation->PerformOperations();
         const bool deniedByShell = queued && progress.SourceAccessDenied(result);
+        const bool explicitDirectoryDenial = queued && progress.ExplicitSourceAccessDenied(result);
         BOOL aborted = TRUE;
         if (SUCCEEDED(result))
             result = operation->GetAnyOperationsAborted(&aborted);
         if (SUCCEEDED(result) && aborted)
             result = HRESULT_FROM_WIN32(ERROR_CANCELLED);
+        // The callback's earlier error takes precedence in progress.Result.
+        // A later, different Shell error or cancel must not gain this explanation.
+        const bool shellResultMatchesDenial = result == S_OK || result == COPYENGINE_E_ACCESS_DENIED_SRC ||
+            result == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED);
         result = progress.Result(result, total);
         operation->Release();
         if (deniedByShell && !retryPath.empty() && result == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED))
@@ -290,6 +301,9 @@ BOOL CFilesWindow::DeleteThroughRecycleBin(int* selection, int selCount, CFileDa
         if (FAILED(result) && result != HRESULT_FROM_WIN32(ERROR_CANCELLED))
         {
             std::string message = std::string(LoadStr(IDS_UAC_RECYCLE_NOT_CONFIRMED)) + "\n\n";
+            if (explicitDirectoryDenial && shellResultMatchesDenial && result == HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED) &&
+                directoryDiagnostic.StillAtOriginalPath())
+                message += std::string(LoadStr(IDS_UAC_RECYCLE_DIRECTORY_UNSUPPORTED)) + "\n\n";
             if (HRESULT_FACILITY(result) == FACILITY_WIN32)
                 message += GetErrorText(HRESULT_CODE(result));
             else

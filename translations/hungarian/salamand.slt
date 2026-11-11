@@ -4381,6 +4381,8 @@ SLGINCOMPLETE,""
 
 14702,1,"Az ezekben az eredményekben végzett korábbi keresés elérte a rendszergazdai hozzáférés korlátját (%s védett elem). Egyes elemek nem lettek átvizsgálva."
 
+14703,1,"A védett mappa rendszergazdai jogosultsággal történő Lomtárba helyezése még nem támogatott."
+
 [STRINGTABLE 198]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."
 

@@ -4381,6 +4381,8 @@ SLGINCOMPLETE,""
 
 14702,1,"Predchádzajúce vyhľadávanie v týchto výsledkoch dosiahlo limit prístupu správcu (%s chránených položiek). Niektoré položky neboli prehľadané."
 
+14703,1,"Presun chránenej zložky do Koša s oprávneniami správcu zatiaľ nie je podporovaný."
+
 [STRINGTABLE 198]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."
 

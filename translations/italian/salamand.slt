@@ -4381,6 +4381,8 @@ SLGINCOMPLETE,""
 
 14702,1,"Una ricerca precedente in questi risultati ha raggiunto il limite di accesso amministratore (%s elementi protetti). Alcuni elementi non sono stati esaminati."
 
+14703,1,"Lo spostamento di una cartella protetta nel Cestino con privilegi di amministratore non è ancora supportato."
+
 [STRINGTABLE 198]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."
 

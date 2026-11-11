@@ -4381,6 +4381,8 @@ SLGINCOMPLETE,""
 
 14702,1,"Een eerdere zoekopdracht in deze resultaten bereikte de limiet voor beheerderstoegang (%s beveiligde items). Sommige items zijn niet doorzocht."
 
+14703,1,"Een beveiligde map met beheerdersrechten naar de Prullenbak verplaatsen wordt nog niet ondersteund."
+
 [STRINGTABLE 198]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."
 

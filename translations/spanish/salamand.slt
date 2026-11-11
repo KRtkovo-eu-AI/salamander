@@ -4381,6 +4381,8 @@ SLGINCOMPLETE,""
 
 14702,1,"Una búsqueda anterior en estos resultados alcanzó el límite de acceso de administrador (%s elementos protegidos). Algunos elementos no se buscaron."
 
+14703,1,"Todavía no se admite mover una carpeta protegida a la Papelera de reciclaje con privilegios de administrador."
+
 [STRINGTABLE 198]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
 
