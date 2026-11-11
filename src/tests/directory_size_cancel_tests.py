@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Guard batch-wide refusal and per-root size scopes. | Keep denied consent isolated to one user operation. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Check the private partial size marker. | Keep incomplete directory size coverage without changing the SDK. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Check the shared modal UAC consent owner. | Retain coverage of size calculation after sharing the dialog. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Check continuation after a live broker denies access. | Avoid a separate dialog for each omitted subtree. | #731 | GPT-6.1 Sol |
@@ -61,6 +62,13 @@ def main():
         assert skip.index('script->CountSizeIncomplete = true;') < skip.index('return TRUE;')
         scan = production[production.index('BOOL CFilesWindow::BuildScriptMain('):
                           production.index('class CProtectedOperationConsentDialog')]
+        assert scan.count('CSizeBatchConsent sizeBatchConsent;') == 1
+        assert scan.index('CSizeBatchConsent sizeBatchConsent;') < scan.index('sizeScope->Batch = &sizeBatchConsent;')
+        assert scan.index('sizeScope->Batch = &sizeBatchConsent;') < scan.index('if (!BuildScriptDir(')
+        assert 'selectedSizeScope->Batch = &sizeBatchConsent;' in scan
+        assert 'std::optional<CSizeScanScope> sizeScope;' in scan
+        assert 'if (consentDeclined && sizeScope)' in protected
+        assert 'sizeScope->DeclineElevation();' in protected
         assert scan.index('script->CountSizeIncomplete = false;') < scan.index('if (!BuildScriptDir(')
         assert scan.index('oneFile->SizeValid = 0;') < scan.index('if (!BuildScriptDir(')
         assert 'oneFile->SizeValid = !script->CountSizeIncomplete;' in scan

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise size consent refusal across selected roots. | Preserve individual scopes and reuse existing approvals. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Test the actual size controller with controlled consent results. | Verify one contribution per item and preserve partial results. | #731 | GPT-6.1 Terra |
 #include <windows.h>
 #include <cstdio>
@@ -22,8 +23,8 @@ static CQuadWord operator+(CQuadWord a, CQuadWord b) { a.Value += b.Value; retur
 static CQuadWord operator-(CQuadWord a, CQuadWord b) { a.Value -= b.Value; return a; }
 static CQuadWord operator%(CQuadWord a, CQuadWord b) { a.Value %= b.Value; return a; }
 
-static int prompts, warnings, measurements, g_prepared, waitDepth;
-static DWORD localError, g_startError, g_allocationError, prepareError, reportedError;
+static int prompts, warnings, measurements, g_prepared, waitDepth, inventories;
+static DWORD localError, g_startError, g_allocationError, g_inventoryError, prepareError, reportedError;
 static ULONGLONG localValue, brokerValue;
 static int nextChoice;
 static bool exactPrompt;
@@ -39,6 +40,10 @@ namespace UacF7
 {
 @@QUERY@@
 struct FileAllocationRequest { ULONGLONG size = 0; DWORD attrs = 0; };
+struct DirectoryInventory { ULONGLONG bytes = 0, files = 0, directories = 0; DWORD firstOmission = 0, flags = 0; };
+struct DirectorySizeDetails { struct { ULONGLONG compressed = 0, occupied = 0; } disk; std::vector<ULONGLONG> fileSizes; };
+constexpr DWORD inventoryCompatibilityAlias = 1;
+constexpr ULONGLONG unavailableSize = ~0ULL;
 struct PreparedLeaf
 {
     bool PrepareView(const std::wstring&) { ++g_prepared; return true; }
@@ -50,7 +55,7 @@ struct ListingSession
     std::wstring Root;
     bool Open = false;
     bool Exact = false;
-    bool Contains(const std::wstring& path) const { return Open && (Exact ? path == Root : path.size() > Root.size() && path.compare(0, Root.size(), Root) == 0 && path[Root.size()] == L'\\'); }
+    bool Contains(const std::wstring& path) const { return Open && (path == Root || (!Exact && path.size() > Root.size() && path.compare(0, Root.size(), Root) == 0 && path[Root.size()] == L'\\')); }
     bool IsOpen() const { return Open; }
     const std::wstring& GetRoot() const { return Root; }
     bool PrepareInventory(const std::wstring& root) { Root = root; return true; }
@@ -58,17 +63,12 @@ struct ListingSession
     DWORD PrepareViewer(const std::wstring&, PreparedLeaf&, DWORD) { ++g_prepared; return prepareError; }
     DWORD MeasureFileAllocation(const std::wstring&, const FileAllocationRequest&, ULONGLONG& size)
     { ++measurements; if (!g_allocationError) size = brokerValue; return g_allocationError; }
+    DWORD Inventory(const std::wstring&, DirectoryInventory& inventory, DirectorySizeDetails*, std::wstring*)
+    { ++inventories; inventory.bytes = brokerValue; inventory.files = 1; return g_inventoryError; }
 };
 static bool CanOfferElevation() { return offer; }
 }
-struct CSizeScanScope
-{
-    std::wstring Root = L"C:\\scope";
-    UacF7::ListingSession Session;
-    std::optional<DWORD> StartResult;
-    bool ElevationDeclined = false;
-    bool ExactFile = false;
-};
+@@BATCH_SCOPE@@
 static int ConfirmProtectedSize(HWND, const std::wstring&, UacF7::ListingSession& session, DWORD& error, bool exact = false)
 {
     ++prompts;
@@ -95,11 +95,15 @@ static constexpr BOOL FileBasedCompression = TRUE;
 struct WindowFacade { HWND HWindow = nullptr; };
 static WindowFacade mainWindow;
 static WindowFacade* MainWindow = &mainWindow;
-struct SizesArray { std::vector<ULONGLONG> rows; void Add(CQuadWord n) { rows.push_back(n.Value); } };
+struct SizesArray { std::vector<ULONGLONG> rows; void Add(CQuadWord n) { rows.push_back(n.Value); } bool IsGood() const { return true; } };
 struct COperations
 {
     DWORD BytesPerCluster = 4096;
     bool SkipAllCountSizeErrors = false, CountSizeCompressionUnavailable = false, CountSizeOccupiedUnavailable = false;
+    bool CountSizeIncomplete = false, CountSizeAliasSkipped = false, CountSizeUsedBroker = false;
+    DWORD CountSizeFirstOmission = 0;
+    std::wstring CountSizeFirstOmissionPath;
+    ULONGLONG FilesCount = 0, DirsCount = 0;
     CQuadWord TotalSize, OccupiedSpace, TotalFileSize, CompressedSize;
     SizesArray Sizes;
 };
@@ -107,7 +111,18 @@ class CFilesWindow
 {
 public:
     HWND HWindow = nullptr;
+    BOOL ErrListDirSkipAll = FALSE;
     std::unique_ptr<UacF7::ListingSession> ProtectedListing;
+    int MeasureDirectory(COperations* script, CSizeScanScope* sizeScope, const std::wstring& requested)
+    {
+        const bool wideSizeScan = true, verifyListedAlias = false, firstLevelDir = true, onlySize = true;
+        const DWORD sourceDirAttr = FILE_ATTRIBUTE_DIRECTORY;
+        DWORD err = ERROR_ACCESS_DENIED;
+        char source = 's', target = 't'; char* sourceEnd = &source; char* targetEnd = &target;
+        const auto sizePath = [&] { return requested; };
+@@DIRECTORY_SIZE@@
+        return -1;
+    }
     BOOL Measure(COperations* script, CSizeScanScope* sizeScope, const wchar_t* fileNameW, ULONGLONG logical, DWORD sourceFileAttr)
     {
         const int type = atCountSize;
@@ -132,13 +147,89 @@ static void Check(bool condition, const char* message)
 }
 static void Reset()
 {
-    prompts = warnings = measurements = g_prepared = waitDepth = 0;
-    localError = ERROR_ACCESS_DENIED; g_startError = g_allocationError = prepareError = reportedError = ERROR_SUCCESS;
+    prompts = warnings = measurements = g_prepared = waitDepth = inventories = 0;
+    localError = ERROR_ACCESS_DENIED; g_startError = g_allocationError = g_inventoryError = prepareError = reportedError = ERROR_SUCCESS;
     localValue = brokerValue = 0; nextChoice = IDOK; offer = true; exactPrompt = false;
 }
 int main()
 {
     constexpr DWORD sparse = FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ARCHIVE;
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        CSizeScanScope first, second; first.Batch = second.Batch = &batch;
+        first.Root = L"C:\\scope\\first"; second.Root = L"C:\\scope\\second";
+        g_startError = ERROR_CANCELLED;
+        Check(panel.MeasureDirectory(&sum, &first, first.Root + L"\\denied") == TRUE && batch.ElevationDeclined &&
+              sum.CountSizeIncomplete && prompts == 1, "directory UAC refusal marks the first selected root incomplete");
+        sum.CountSizeIncomplete = false; g_startError = ERROR_SUCCESS;
+        Check(panel.MeasureDirectory(&sum, &second, second.Root + L"\\denied") == TRUE &&
+              sum.CountSizeIncomplete && prompts == 1 && inventories == 0,
+              "directory UAC refusal carries to another root without a second prompt");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        CSizeScanScope first, second; first.Batch = second.Batch = &batch;
+        first.Root = L"C:\\scope\\first"; second.Root = L"C:\\scope\\second";
+        nextChoice = IDYES;
+        Check(panel.MeasureDirectory(&sum, &first, first.Root + L"\\skip") == TRUE && !batch.ElevationDeclined,
+              "directory Skip leaves later root consent available");
+        nextChoice = IDOK; brokerValue = 13;
+        Check(panel.MeasureDirectory(&sum, &second, second.Root + L"\\approve") == TRUE && prompts == 2 &&
+              inventories == 1 && sum.TotalSize.Value == 13 && !first.Session.IsOpen() && second.Session.IsOpen(),
+              "later directory uses its own scope and contributes its own total after Skip");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        CSizeScanScope first, second; first.Batch = second.Batch = &batch;
+        first.Root = L"C:\\scope\\first"; second.Root = L"C:\\scope\\second";
+        nextChoice = IDNO;
+        Check(panel.MeasureDirectory(&sum, &first, first.Root + L"\\skip-all") == TRUE && panel.ErrListDirSkipAll &&
+              !batch.ElevationDeclined, "directory Skip All retains the existing error policy");
+        Check(panel.MeasureDirectory(&sum, &second, second.Root + L"\\later") == -1 && prompts == 1,
+              "directory Skip All does not create another broker prompt");
+        panel.ErrListDirSkipAll = FALSE; nextChoice = IDCANCEL;
+        Check(panel.MeasureDirectory(&sum, &second, second.Root + L"\\cancel") == FALSE && !batch.ElevationDeclined,
+              "ordinary directory Cancel terminates without marking system refusal");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        CSizeScanScope first, second; first.Batch = second.Batch = &batch;
+        first.Root = L"C:\\scope\\first"; second.Root = L"C:\\scope\\second";
+        g_startError = ERROR_BROKEN_PIPE;
+        Check(panel.MeasureDirectory(&sum, &first, first.Root + L"\\broken") == -1 && !batch.ElevationDeclined,
+              "broker startup failure remains an ordinary error rather than batch refusal");
+        g_startError = ERROR_SUCCESS; brokerValue = 7;
+        Check(panel.MeasureDirectory(&sum, &second, second.Root + L"\\next") == TRUE && prompts == 2 && inventories == 1,
+              "a later directory can still request consent after broker failure");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        CSizeScanScope first, second; first.Batch = second.Batch = &batch;
+        first.Root = L"C:\\scope\\first"; second.Root = L"C:\\scope\\second";
+        g_inventoryError = ERROR_CANCELLED;
+        Check(panel.MeasureDirectory(&sum, &first, first.Root + L"\\cancelled-io") == TRUE &&
+              !batch.ElevationDeclined && sum.CountSizeIncomplete,
+              "an inventory cancellation is not mistaken for Windows consent refusal");
+        g_inventoryError = ERROR_SUCCESS; brokerValue = 9;
+        Check(panel.MeasureDirectory(&sum, &second, second.Root + L"\\next") == TRUE && prompts == 2 && inventories == 2,
+              "a different root can ask after an item-level inventory cancellation");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        CSizeScanScope first, second; first.Batch = second.Batch = &batch;
+        first.Root = L"C:\\scope\\first"; second.Root = L"C:\\scope\\second";
+        g_startError = ERROR_CANCELLED;
+        Check(panel.MeasureDirectory(&sum, &first, first.Root + L"\\denied") == TRUE && batch.ElevationDeclined,
+              "directory refusal marks the shared operation");
+        second.Session.Root = second.Root; second.Session.Open = true; brokerValue = 8;
+        Check(panel.MeasureDirectory(&sum, &second, second.Root + L"\\approved") == TRUE && prompts == 1 &&
+              inventories == 1 && sum.TotalSize.Value == 8,
+              "a previously approved scope remains usable after refusal elsewhere");
+        panel.ProtectedListing = std::make_unique<UacF7::ListingSession>();
+        panel.ProtectedListing->Root = second.Root; panel.ProtectedListing->Open = true;
+        Check(panel.MeasureDirectory(&sum, &second, second.Root + L"\\panel") == TRUE && prompts == 1 && inventories == 2,
+              "the existing approved panel listing remains usable after refusal elsewhere");
+    }
     {
         Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; brokerValue = 100;
         Check(panel.Measure(&sum, &scope, L"one", 9000, sparse) && panel.Measure(&sum, &scope, L"two", 8000, sparse), "approved files finish");
@@ -156,6 +247,65 @@ int main()
               sum.CompressedSize.Value == 17012 && sum.Sizes.rows.size() == 3 && sum.CountSizeCompressionUnavailable &&
               sum.CountSizeOccupiedUnavailable && scope.ElevationDeclined && !waitDepth,
               "system refusal preserves all logical bytes and marks only disk totals unavailable");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        CSizeScanScope first, second; first.Batch = second.Batch = &batch;
+        first.Root = L"C:\\scope\\first"; second.Root = L"C:\\scope\\second";
+        g_startError = ERROR_CANCELLED;
+        Check(panel.Measure(&sum, &first, L"first\\one", 100, sparse) && batch.ElevationDeclined,
+              "Windows refusal is recorded for the selected batch");
+        g_startError = ERROR_SUCCESS;
+        Check(panel.Measure(&sum, &second, L"second\\two", 200, sparse) && prompts == 1 && measurements == 0 &&
+              warnings == 0 && sum.TotalSize.Value == 300 && sum.CountSizeCompressionUnavailable,
+              "a different selected root keeps logical totals without another Windows prompt");
+        localError = ERROR_SUCCESS; localValue = 15;
+        Check(panel.Measure(&sum, &second, L"second\\ordinary", 30, sparse) && sum.TotalSize.Value == 330 &&
+              sum.CompressedSize.Value == 315 && prompts == 1,
+              "accessible items still contribute after a different root declined elevation");
+        CSizeBatchConsent nextBatch; CSizeScanScope fresh; fresh.Batch = &nextBatch;
+        localError = ERROR_ACCESS_DENIED; brokerValue = 1;
+        Check(panel.Measure(&sum, &fresh, L"fresh", 10, sparse) && prompts == 2 && measurements == 1,
+              "a separate later operation can request elevation again");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        CSizeScanScope first, second; first.Batch = second.Batch = &batch;
+        first.Root = L"C:\\scope\\first"; second.Root = L"C:\\scope\\second";
+        nextChoice = IDYES;
+        Check(panel.Measure(&sum, &first, L"first\\one", 10, sparse) && !batch.ElevationDeclined,
+              "ordinary Skip does not decline elevation for other selected roots");
+        nextChoice = IDOK; brokerValue = 2;
+        Check(panel.Measure(&sum, &second, L"second\\two", 20, sparse) && prompts == 2 && measurements == 1 &&
+              !first.Session.IsOpen() && second.Session.IsOpen(),
+              "a later selected root obtains only its own approved scope after Skip");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        CSizeScanScope first, second; first.Batch = second.Batch = &batch;
+        first.Root = L"C:\\scope\\first"; second.Root = L"C:\\scope\\second";
+        g_startError = ERROR_ACCESS_DENIED;
+        Check(panel.Measure(&sum, &first, L"first\\one", 10, sparse) && !batch.ElevationDeclined &&
+              reportedError == ERROR_ACCESS_DENIED, "broker start failure is not a Windows refusal");
+        g_startError = ERROR_SUCCESS; brokerValue = 3;
+        Check(panel.Measure(&sum, &second, L"second\\two", 20, sparse) && prompts == 2 && measurements == 1,
+              "a broker error in one root does not suppress a later root's consent");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
+        CSizeScanScope first, second; first.Batch = second.Batch = &batch;
+        first.Root = L"C:\\scope\\first"; second.Root = L"C:\\scope\\second";
+        panel.ProtectedListing = std::make_unique<UacF7::ListingSession>();
+        panel.ProtectedListing->Root = second.Root; panel.ProtectedListing->Open = true;
+        g_startError = ERROR_CANCELLED;
+        Check(panel.Measure(&sum, &first, L"first\\one", 10, sparse) && batch.ElevationDeclined,
+              "one selected root can decline a new session");
+        brokerValue = 4;
+        Check(panel.Measure(&sum, &second, L"second\\two", 20, sparse) && prompts == 1 && measurements == 1 &&
+              sum.CompressedSize.Value == 14, "an already approved panel session remains usable after refusal");
+        panel.ProtectedListing->Open = false;
+        Check(panel.Measure(&sum, &second, L"second\\broken", 30, sparse) && reportedError == ERROR_BROKEN_PIPE &&
+              warnings == 1, "a broken pre-existing panel session still reports its real error after refusal");
     }
     {
         Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; nextChoice = IDYES;

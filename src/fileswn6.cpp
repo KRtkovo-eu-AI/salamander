@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Retain a declined size elevation across the selected batch. | Continue accessible work without widening approved listing scopes. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Measure one directly selected file in its own UAC scope. | Keep the approval narrower than the containing directory. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Retry denied allocation metadata in the active size scope. | Preserve ordinary totals while requesting a single verified measurement. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Align transfer and permanent-delete planning with native leaf support. | Keep UAC eligibility for ordinary attributes and streamed large copies. | #731 | GPT-6.1 Sol |
@@ -1347,6 +1348,11 @@ void CFilesWindow::DropCopyMove(BOOL copy, char* targetPath, CCopyMoveData* data
     }
 }
 
+struct CSizeBatchConsent
+{
+    bool ElevationDeclined = false;
+};
+
 struct CSizeScanScope
 {
     std::wstring Root;
@@ -1355,6 +1361,14 @@ struct CSizeScanScope
     bool Scanned = false;
     bool ElevationDeclined = false;
     bool ExactFile = false;
+    CSizeBatchConsent* Batch = nullptr;
+
+    bool WasElevationDeclined() const { return ElevationDeclined || (Batch && Batch->ElevationDeclined); }
+    void DeclineElevation()
+    {
+        ElevationDeclined = true;
+        if (Batch) Batch->ElevationDeclined = true;
+    }
 };
 
 static bool PrepareListedDeleteSource(COperations& script, UacF7::ListingSession& listing,
@@ -1403,6 +1417,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
     // otherwise selection contains indexes of the count selected items in the filebox
     if (!script->IsGood())
         return FALSE;
+    CSizeBatchConsent sizeBatchConsent;
     script->TotalSize = CQuadWord(0, 0);
     script->CompressedSize = CQuadWord(0, 0);
     script->OccupiedSpace = CQuadWord(0, 0);
@@ -1710,7 +1725,10 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     std::optional<CSizeScanScope> sizeScope;
                     std::string unicodeName;
                     if (countSize)
+                    {
                         sizeScope.emplace();
+                        sizeScope->Batch = &sizeBatchConsent;
+                    }
                     const bool useWideName = countSize || script->AllowTreeTransfer || permanentDelete;
                     if (useWideName)
                     {
@@ -1875,6 +1893,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     if (countSize && selCount <= 1)
                     {
                         selectedSizeScope.emplace();
+                        selectedSizeScope->Batch = &sizeBatchConsent;
                         selectedSizeScope->Root = SalPathRemoveExtendedPrefixW(GetItemFullPathW(*oneFile).c_str());
                         selectedSizeScope->ExactFile = true;
                     }
@@ -2941,15 +2960,19 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 const auto path = sizePath();
                 UacF7::ListingSession temporary;
                 auto* session = ProtectedListing && ProtectedListing->Contains(path) ? ProtectedListing.get() : nullptr;
-                const bool canElevate = !verifyListedAlias && !session && sizeScope && !sizeScope->ElevationDeclined &&
+                const bool ownSession = !session && sizeScope && sizeScope->Session.IsOpen() &&
+                                        sizeScope->Session.Contains(path);
+                if (ownSession)
+                    session = &sizeScope->Session;
+                const bool canElevate = !verifyListedAlias && !session && sizeScope && !sizeScope->WasElevationDeclined() &&
                     (sizeScope->Session.IsOpen() || UacF7::CanOfferElevation());
-                const bool scoped = canElevate &&
-                    (!sizeScope->Session.GetRoot().empty() || sizeScope->Session.PrepareInventory(sizeScope->Root));
+                const bool scoped = ownSession || (canElevate &&
+                    (!sizeScope->Session.GetRoot().empty() || sizeScope->Session.PrepareInventory(sizeScope->Root)));
                 if (scoped)
                     session = &sizeScope->Session;
                 if (!session && canElevate && temporary.PrepareInventory(path))
                     session = &temporary;
-                if (!session && sizeScope && sizeScope->ElevationDeclined)
+                if (!session && sizeScope && sizeScope->WasElevationDeclined())
                 {
                     *sourceEnd = 0;
                     script->CountSizeIncomplete = true;
@@ -2960,11 +2983,13 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     ShowSafeWaitWindow(FALSE);
                     DWORD inventoryError = ERROR_SUCCESS;
                     int choice = IDOK;
+                    bool consentDeclined = false;
                     if (scoped && sizeScope->StartResult)
                         inventoryError = *sizeScope->StartResult;
                     else if (!session->IsOpen())
                     {
                         choice = ConfirmProtectedSize(HWindow, path, *session, inventoryError);
+                        consentDeclined = choice == IDOK && inventoryError == ERROR_CANCELLED;
                         if (scoped && choice == IDOK)
                             sizeScope->StartResult = inventoryError;
                     }
@@ -2993,8 +3018,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             return FALSE;
                         if (choice == IDNO)
                             ErrListDirSkipAll = TRUE;
-                        if (inventoryError == ERROR_CANCELLED && sizeScope)
-                            sizeScope->ElevationDeclined = true;
+                        if (consentDeclined && sizeScope)
+                            sizeScope->DeclineElevation();
                         script->CountSizeIncomplete = true;
                         return TRUE;
                     }
@@ -4047,8 +4072,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
             else
                 s.LoDWord = INVALID_FILE_SIZE;
             if (s.LoDWord == 0xffffffff && err == ERROR_ACCESS_DENIED && sizeScope &&
-                !(sourceFileAttr & FILE_ATTRIBUTE_REPARSE_POINT) && !script->SkipAllCountSizeErrors &&
-                !sizeScope->ElevationDeclined)
+                !(sourceFileAttr & FILE_ATTRIBUTE_REPARSE_POINT) && !script->SkipAllCountSizeErrors)
             {
                 const auto path = SalPathRemoveExtendedPrefixW(nameW.c_str());
                 UacF7::PreparedLeaf file;
@@ -4058,63 +4082,69 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 const bool listed = panelRoot && !panelRoot->empty() && path.size() > panelRoot->size() &&
                     path.compare(0, panelRoot->size(), *panelRoot) == 0 &&
                     (panelRoot->back() == L'\\' || path[panelRoot->size()] == L'\\');
-                // The standalone confirmation names the original selected row.
-                // Never authorize a differently reconstructed path under it.
-                const bool exactPathMatches = !sizeScope->ExactFile || path == sizeScope->Root;
-                DWORD preparationError = exactPathMatches ? ERROR_SUCCESS : ERROR_FILE_INVALID;
-                const bool prepared = exactPathMatches && (listed ?
-                    ((preparationError = ProtectedListing->IsOpen() ?
-                        ProtectedListing->PrepareViewer(path, file, sourceFileAttr) : ERROR_BROKEN_PIPE) == ERROR_SUCCESS) :
-                    file.PrepareView(nameW));
-                if (preparationError)
-                    err = preparationError;
-                UacF7::FileAllocationRequest identity{};
-                if (prepared && file.CopyAllocationIdentity(fileSizeLoc.Value, sourceFileAttr, identity))
+                const bool ownSession = sizeScope->Session.IsOpen() && sizeScope->Session.Contains(path);
+                if (sizeScope->WasElevationDeclined() && !listed && !ownSession)
+                    allocationDeclined = true;
+                else
                 {
-                    UacF7::ListingSession* session = listed ? ProtectedListing.get() : nullptr;
-                    if (!session && sizeScope->Session.IsOpen() && sizeScope->Session.Contains(path))
-                        session = &sizeScope->Session;
-                    if (!session && UacF7::CanOfferElevation() &&
-                        (!sizeScope->Session.GetRoot().empty() ||
-                         (sizeScope->ExactFile ? sizeScope->Session.PrepareAllocationFile(sizeScope->Root, file) :
-                                                 sizeScope->Session.PrepareInventory(sizeScope->Root))))
-                        session = &sizeScope->Session;
-                    if (session)
+                    // The standalone confirmation names the original selected row.
+                    // Never authorize a differently reconstructed path under it.
+                    const bool exactPathMatches = !sizeScope->ExactFile || path == sizeScope->Root;
+                    DWORD preparationError = exactPathMatches ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+                    const bool prepared = exactPathMatches && (listed ?
+                        ((preparationError = ProtectedListing->IsOpen() ?
+                            ProtectedListing->PrepareViewer(path, file, sourceFileAttr) : ERROR_BROKEN_PIPE) == ERROR_SUCCESS) :
+                        file.PrepareView(nameW));
+                    if (preparationError)
+                        err = preparationError;
+                    UacF7::FileAllocationRequest identity{};
+                    if (prepared && file.CopyAllocationIdentity(fileSizeLoc.Value, sourceFileAttr, identity))
                     {
-                        DWORD allocationError = ERROR_SUCCESS;
-                        int choice = IDOK;
-                        bool consentDeclined = false;
-                        ShowSafeWaitWindow(FALSE);
-                        if (!session->IsOpen() && session == &sizeScope->Session && sizeScope->StartResult.has_value())
-                            allocationError = *sizeScope->StartResult ? *sizeScope->StartResult : ERROR_BROKEN_PIPE;
-                        else if (!session->IsOpen())
+                        UacF7::ListingSession* session = listed ? ProtectedListing.get() : nullptr;
+                        if (!session && ownSession)
+                            session = &sizeScope->Session;
+                        if (!session && !sizeScope->WasElevationDeclined() && UacF7::CanOfferElevation() &&
+                            (!sizeScope->Session.GetRoot().empty() ||
+                             (sizeScope->ExactFile ? sizeScope->Session.PrepareAllocationFile(sizeScope->Root, file) :
+                                                     sizeScope->Session.PrepareInventory(sizeScope->Root))))
+                            session = &sizeScope->Session;
+                        if (session)
                         {
-                            choice = ConfirmProtectedSize(HWindow, sizeScope->Root, *session, allocationError, sizeScope->ExactFile);
-                            consentDeclined = choice == IDOK && allocationError == ERROR_CANCELLED;
-                            if (session == &sizeScope->Session && choice == IDOK)
-                                sizeScope->StartResult = allocationError;
+                            DWORD allocationError = ERROR_SUCCESS;
+                            int choice = IDOK;
+                            bool consentDeclined = false;
+                            ShowSafeWaitWindow(FALSE);
+                            if (!session->IsOpen() && session == &sizeScope->Session && sizeScope->StartResult.has_value())
+                                allocationError = *sizeScope->StartResult ? *sizeScope->StartResult : ERROR_BROKEN_PIPE;
+                            else if (!session->IsOpen())
+                            {
+                                choice = ConfirmProtectedSize(HWindow, sizeScope->Root, *session, allocationError, sizeScope->ExactFile);
+                                consentDeclined = choice == IDOK && allocationError == ERROR_CANCELLED;
+                                if (session == &sizeScope->Session && choice == IDOK)
+                                    sizeScope->StartResult = allocationError;
+                            }
+                            ULONGLONG allocated = 0;
+                            if (choice == IDOK && !allocationError)
+                                allocationError = session->IsOpen() ? session->MeasureFileAllocation(path, identity, allocated) : ERROR_BROKEN_PIPE;
+                            ShowSafeWaitWindow(TRUE);
+                            if (choice == IDCANCEL)
+                                return FALSE;
+                            if (choice == IDNO)
+                                script->SkipAllCountSizeErrors = true;
+                            if (choice != IDOK || consentDeclined)
+                            {
+                                if (consentDeclined)
+                                    sizeScope->DeclineElevation();
+                                allocationDeclined = true;
+                            }
+                            else if (!allocationError)
+                            {
+                                s.SetUI64(allocated);
+                                err = NO_ERROR;
+                            }
+                            else
+                                err = allocationError;
                         }
-                        ULONGLONG allocated = 0;
-                        if (choice == IDOK && !allocationError)
-                            allocationError = session->IsOpen() ? session->MeasureFileAllocation(path, identity, allocated) : ERROR_BROKEN_PIPE;
-                        ShowSafeWaitWindow(TRUE);
-                        if (choice == IDCANCEL)
-                            return FALSE;
-                        if (choice == IDNO)
-                            script->SkipAllCountSizeErrors = true;
-                        if (choice != IDOK || consentDeclined)
-                        {
-                            if (consentDeclined)
-                                sizeScope->ElevationDeclined = true;
-                            allocationDeclined = true;
-                        }
-                        else if (!allocationError)
-                        {
-                            s.SetUI64(allocated);
-                            err = NO_ERROR;
-                        }
-                        else
-                            err = allocationError;
                     }
                 }
             }
@@ -4127,7 +4157,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         {
             script->CountSizeCompressionUnavailable = true;
             script->CountSizeOccupiedUnavailable = true;
-            if (!allocationDeclined && !(sizeScope && sizeScope->ElevationDeclined) && !script->SkipAllCountSizeErrors)
+            if (!allocationDeclined && !script->SkipAllCountSizeErrors)
             {
                 const std::string errorMessage = Salamander::BranchViewText::FormatCompressedSizeError(
                     LoadStr(IDS_GETCOMPRFILESIZEERROR), name.c_str(), GetErrorText(err));

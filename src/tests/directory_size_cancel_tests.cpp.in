@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Distinguish consent refusal from an item cancellation. | Share only a declined Windows prompt. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Model copy planning in the shared scan fixture. | Compile the production error branch without changing size assertions. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Exercise Skip, Skip All, Cancel and Windows refusal. | Verify readable totals after declined elevation. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Model incomplete directory deletion in the scan fixture. | Compile the shared error branch after the protected delete change. | #731 | GPT-6.1 Sol |
@@ -64,10 +65,10 @@ __declspec(noinline) static BOOL ReadError(char* sourcePath,char* sourceEnd,char
 }
 #if @@HAS_PROTECTED_SKIP@@
 static BOOL ProtectedReadResult(int choice, DWORD inventoryError, char* sourceEnd, char* targetEnd,
-                                bool& incomplete, bool& declined)
+                                bool& incomplete, bool& declined, bool consentDeclined)
 {
     struct { bool CountSizeIncomplete = false; } scriptState;
-    struct { bool ElevationDeclined = false; } scope;
+    struct Scope { bool ElevationDeclined = false; void DeclineElevation() { ElevationDeclined = true; } } scope;
     auto* script = &scriptState;
     auto* sizeScope = &scope;
     const BOOL proceed = [&]() -> BOOL {
@@ -124,7 +125,7 @@ int main(){
         ErrListDirSkipAll = FALSE;
         char source = 's', target = 't';
         int bytes = 17; // one readable sibling already counted
-        const BOOL proceed = ProtectedReadResult(choice, error, &source, &target, incomplete, declined);
+        const BOOL proceed = ProtectedReadResult(choice, error, &source, &target, incomplete, declined, choice == IDOK);
         if (proceed)
             bytes += 27; // the sibling following the inaccessible subtree
         Check(proceed == (choice != IDCANCEL) && bytes == (choice == IDCANCEL ? 17 : 44),
@@ -133,6 +134,13 @@ int main(){
               "skips mark partial results and Windows cancellation suppresses another attempt in this tree");
         Check(ErrListDirSkipAll == (choice == IDNO) && !source && !target,
               "skip all applies only when selected and restores both paths");
+    }
+    {
+        bool incomplete = false, declined = false;
+        char source = 's', target = 't';
+        Check(ProtectedReadResult(IDOK, ERROR_CANCELLED, &source, &target, incomplete, declined, false) &&
+              incomplete && !declined,
+              "an item-level inventory cancellation does not decline the batch consent");
     }
 #endif
     std::printf("Directory size error/cancel: %d checks, %d failures.\n",Checks,Failures);
