@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Clarify ZIP update and extraction limits. | Avoid presenting copy-based archive updates as general large-ZIP support. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record stale overwrite and Scan Ahead regression coverage. | Keep safe refusal distinct from renewed consent and path-lifetime work. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record Branch View polling lifetime test foundation. | Separate existing controller evidence from the unimplemented elevated scan. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record verified Find preparation from readable parents. | Keep captured-identity guarantees distinct from VM and earlier enumeration limits. | #731 | GPT-6.1 Terra |
@@ -567,6 +568,8 @@ Pro D2 je připraven návrh samostatné typované úlohy nad přesně vybranými
 Pro D3 audit potvrdil, že současný společný callback Shellu neumí po částečném selhání určit stav každé položky. Další řešení musí vést pro každý ověřený objekt vlastní stav a receipt; dokončenou položku nikdy neopakovat, nejednoznačný výsledek nenazvat odmítnutím a nerozšířit elevovaný retry na dosud nezahájené položky. Ověřit původní SID Koše a zákaz trvalého fallbacku. Windows negarantuje jedinou výzvu pro dávku jen zvolením těchto příznaků; skutečný počet je třeba změřit ve VM.
 
 Z1 (ZIP z chráněného panelu) zůstává otevřená. Rozpracovaná hostitelská změna byla stažena: při zavření tabu, vnořené změně cesty či odpojení pluginu během souhlasu a předání výpisu nebyla doložena životnost nepřevzatých `pluginData`. Nový návrh musí vyvážit globální pozastavení refresh i při zániku tabu, chránit commit panelu a držet ZIP plugin až do předání nebo uvolnění jeho dat. Metadata archivu je třeba brát z ověřené brokerové revize, pokud běžné získání atributů selže. Panelový `WIN32_FIND_DATAW` sám neprokazuje ID souboru od okamžiku zobrazení. Ponechané nativní testy ověřují existující kontrolu identity čtecího handle a současný souhlas ZIP, nikoli opravu Z1. Neověřený patch je pouze podkladem v `C:\Samandarin\builds\uac-z1-20261111\unverified-host-z1.patch`.
+
+U Z2 současná úprava chráněného ZIPu vytváří úplnou pracovní kopii a omezuje ji na 64 GiB. Nelze ji tedy považovat za obecné řešení uživatelova požadavku na velké archivy bez neefektivního kopírování. Z3 nelze bezpečně vyřešit prostým přesměrováním běžného ZIPu na existující chráněnou extrakci: ta má samostatné velikostní limity a odmítá existující cílové kořeny, takže nezachová běžný dialog přepisu ani Skip/Cancel. Další návrh musí zachovat omezenou paměť, nativní konflikty, ověření identity a integrity položek i bezpečný částečný výsledek. Jde o statickou analýzu; implementace a společný VM test zůstávají otevřené.
 
 Samotné `FilesActionInProgress` nestačí jako ochrana ZIP přechodu: nezamezí vnořené změně cesty a smyčka vypínání tabů při odmítnutém zavření nesmí zůstat čekat na nezměněný počet tabů. Případná zápůjčka pluginu proto potřebuje i pravidla pro odložené zavření a změnu konfigurace, vnoření a shutdown. Tyto zásahy vyžadují vlastní regresní testy životnosti, nikoli jen kontrolu načtené DLL.
 
