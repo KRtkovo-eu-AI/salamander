@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-11 | Route extracted bytes through one output method. | Keep all existing ZIP methods on the same write behavior before adding streaming. | #731 | GPT-6.1 Terra |
 // | 2026-11-08 | Seek to the listed ZIP record and revalidate it before decoding. | Keep extraction work proportional to the selected entries. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Decode one ZIP entry from the approved source. | Reuse the ZIP parser and host Deflate engine with exact size and CRC checks. | | GPT-6.1 Sol (Codex) |
 
@@ -774,6 +776,11 @@ void Refill(CDecompressionObject* decompress)
     decompress->Input->BytesLeft = s;
 }
 
+int CZipUnpack::WriteExtractBytes(const void* buffer, unsigned bytesToWrite)
+{
+    return Write(OutputFile, buffer, bytesToWrite, &SkipAllIOErrors);
+}
+
 int ExtractFlush(unsigned bytes, CDecompressionObject* decompress)
 {
     CALL_STACK_MESSAGE2("ExtractFlush(0x%X, )", bytes);
@@ -785,7 +792,7 @@ int ExtractFlush(unsigned bytes, CDecompressionObject* decompress)
     if (!CZIPUNPACK(decompress)->Test)
     {
         CZIPUNPACK(decompress)->OutputError =
-            CZIPUNPACK(decompress)->Write(CZIPUNPACK(decompress)->OutputFile, buf, bytes, &CZIPUNPACK(decompress)->SkipAllIOErrors);
+            CZIPUNPACK(decompress)->WriteExtractBytes(buf, bytes);
     }
     else
     {
@@ -1031,7 +1038,7 @@ int CZipUnpack::UnStoreFile(CFileInfo* fileInfo, int* errorID)
             Crc = SalamanderGeneral->UpdateCrc32(InputBuffer, readBytes, Crc);
             if (!Test)
             {
-                result = Write(OutputFile, InputBuffer, readBytes, &SkipAllIOErrors);
+                result = WriteExtractBytes(InputBuffer, readBytes);
                 if (result)
                 {
                     switch (result)

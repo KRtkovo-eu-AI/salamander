@@ -1,0 +1,203 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise real ZIP write control flow with test facades. | Preserve error and progress behavior while unifying output. | #731 | GPT-6.1 Terra |
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
+#include <vector>
+
+#define CALL_STACK_MESSAGE1(...)
+#define CALL_STACK_MESSAGE2(...)
+#define CZIPUNPACK(decompress) (static_cast<CZipUnpack*>((decompress)->UserData))
+#define SAL_AES_SALT_LENGTH(mode) (1U + static_cast<unsigned>((mode) * 0))
+#define SAL_AES_PWD_VER_LENGTH 1U
+#define SAL_AES_MAC_LENGTH(mode) (2U + static_cast<unsigned>((mode) * 0))
+#define AES_MAXHMAC 2U
+#define ENCRYPT_HEADER_SIZE 2U
+#define INIT_CRC 0U
+#define PE_NORETRY 8
+#define ERR_SKIP 1
+#define ERR_CANCEL 2
+#define DEC_NOERROR 0
+#define DEC_SKIP 1
+#define DEC_CANCEL 2
+@@IDS@@
+using QWORD = unsigned long long;
+using uch = unsigned char;
+
+struct State
+{
+    std::vector<BYTE> input, written;
+    size_t position = 0;
+    int writeCalls = 0, writeResult = 0, progressCalls = 0, progressCancelAt = 0;
+    int errors = 0, errorChoice = ERR_SKIP, decryptCalls = 0, aesEndCalls = 0;
+    bool macMatches = true;
+    void* expectedFile = nullptr;
+    bool* expectedSkip = nullptr;
+} G;
+static int checks = 0, failures = 0;
+static void Check(bool ok, const char* label)
+{
+    ++checks;
+    if (!ok) { ++failures; std::printf("FAIL: %s\n", label); }
+}
+struct CFile { QWORD FilePointer = 0; };
+struct CFileInfo { QWORD DataOffset = 0, CompSize = 0; };
+struct Aes { int mode = 0; };
+struct General
+{
+    unsigned UpdateCrc32(const void* input, unsigned bytes, unsigned previous)
+    {
+        const auto* p = static_cast<const BYTE*>(input);
+        for (unsigned i = 0; i < bytes; ++i) previous = previous * 33U + p[i];
+        return previous;
+    }
+} GeneralObject;
+static General* SalamanderGeneral = &GeneralObject;
+struct Crypt
+{
+    void AESDecrypt(Aes*, void*, unsigned) { ++G.decryptCalls; }
+    void AESEnd(Aes*, unsigned char* mac, DWORD* count)
+    {
+        ++G.aesEndCalls;
+        mac[0] = 0xaa; mac[1] = G.macMatches ? 0xbb : 0xcc;
+        if (count) *count = 2;
+    }
+} CryptObject;
+static Crypt* SalamanderCrypt = &CryptObject;
+struct Ops
+{
+    bool ProgressAddSize(unsigned, BOOL)
+    {
+        ++G.progressCalls;
+        return !G.progressCancelAt || G.progressCalls < G.progressCancelAt;
+    }
+};
+static void Decrypt(void*, unsigned, unsigned*) {}
+struct Output { uch* OutBuf = nullptr; uch* SlideWin = nullptr; };
+struct CDecompressionObject { void* UserData = nullptr; Output* Output = nullptr; };
+struct CZipUnpack
+{
+    CFile* OutputFile = nullptr;
+    CFile* ZipFile = nullptr;
+    bool SkipAllIOErrors = false, SkipAllDataErr = false, Test = false, Unshrinking = false;
+    bool UserBreak = false, Encrypted = false, AESContextValid = false;
+    unsigned Crc = 0, Keys[3]{};
+    QWORD ExtractedBytes = 0;
+    int OutputError = 0, DialogFlags = 0;
+    unsigned InBufSize = 2;
+    char* InputBuffer = nullptr;
+    char* FileNameDisp = nullptr;
+    Aes AESContext;
+    Ops* Salamander = nullptr;
+    int Write(CFile* file, const void* bytes, unsigned count, bool* skip)
+    {
+        Check(file == G.expectedFile && skip == G.expectedSkip, "write preserves file and skip-state addresses");
+        ++G.writeCalls;
+        if (G.writeResult) return G.writeResult;
+        const auto* p = static_cast<const BYTE*>(bytes);
+        G.written.insert(G.written.end(), p, p + count);
+        return 0;
+    }
+    int SafeRead(void* out, unsigned bytes, bool*)
+    {
+        if (bytes > G.input.size() - G.position) return IDS_EOF;
+        std::memcpy(out, G.input.data() + G.position, bytes);
+        G.position += bytes;
+        return 0;
+    }
+    int ProcessError(int, DWORD, const char*, int, bool*) { ++G.errors; return G.errorChoice; }
+    int WriteExtractBytes(const void*, unsigned);
+    int UnStoreFile(CFileInfo*, int*);
+};
+@@WRITE@@
+@@FLUSH@@
+@@STORE@@
+
+static unsigned Checksum(const std::vector<BYTE>& data)
+{
+    return GeneralObject.UpdateCrc32(data.data(), static_cast<unsigned>(data.size()), 0);
+}
+int main()
+{
+    CFile output, archive;
+    Ops operations;
+    char input[4]{};
+    BYTE data[]{1, 2, 3, 4};
+    Output buffers{data, data};
+    CDecompressionObject state{};
+    state.Output = &buffers;
+    auto Make = [&]() {
+        G = State{};
+        CZipUnpack zip;
+        zip.OutputFile = &output; zip.ZipFile = &archive; zip.InputBuffer = input; zip.Salamander = &operations;
+        return zip;
+    };
+    for (int result : {0, ERR_SKIP, ERR_CANCEL})
+    {
+        auto zip = Make(); G.expectedFile = zip.OutputFile; G.expectedSkip = &zip.SkipAllIOErrors;
+        G.writeResult = result; state.UserData = &zip;
+        const int ret = ExtractFlush(4, &state);
+        Check(ret == (result ? 1 : 0) && zip.OutputError == result, "flush preserves write success/skip/cancel");
+        Check(zip.Crc == Checksum({1, 2, 3, 4}), "flush advances CRC before write as before");
+        Check(G.progressCalls == (result ? 0 : 1), "failed flush does not advance progress");
+        Check(G.written == (result ? std::vector<BYTE>{} : std::vector<BYTE>{1, 2, 3, 4}), "flush forwards exact bytes");
+    }
+    {
+        auto zip = Make(); G.expectedFile = zip.OutputFile; G.expectedSkip = &zip.SkipAllIOErrors;
+        BYTE unshrunk[]{5, 6, 7}; buffers.OutBuf = unshrunk; zip.Unshrinking = true; state.UserData = &zip;
+        Check(ExtractFlush(3, &state) == 0 && G.written == std::vector<BYTE>({5, 6, 7}),
+              "unshrink forwards the output buffer instead of the sliding window");
+        Check(zip.Crc == Checksum({5, 6, 7}) && G.progressCalls == 1, "unshrink retains CRC and progress");
+        buffers.OutBuf = data;
+    }
+    {
+        auto zip = Make(); zip.Test = true; state.UserData = &zip; G.progressCancelAt = 1;
+        Check(ExtractFlush(4, &state) == 1 && zip.UserBreak && zip.ExtractedBytes == 4,
+              "test-only flush preserves byte count and progress cancellation");
+        Check(G.writeCalls == 0 && zip.Crc == Checksum({1, 2, 3, 4}), "test-only flush updates CRC without output");
+    }
+    for (int result : {0, ERR_SKIP, ERR_CANCEL})
+    {
+        auto zip = Make(); G.expectedFile = zip.OutputFile; G.expectedSkip = &zip.SkipAllIOErrors;
+        G.input = {1, 2, 3, 4}; G.writeResult = result;
+        CFileInfo item; item.CompSize = 4; int error = 0;
+        const int ret = zip.UnStoreFile(&item, &error);
+        Check(ret == (result ? result : DEC_NOERROR), "STORE retains write success/skip/cancel result");
+        Check(error == (result == ERR_CANCEL ? IDS_NODISPLAY : 0), "STORE retains cancel error text behavior");
+        Check(G.progressCalls == (result ? 0 : 2), "STORE progress happens after successful output");
+        Check(G.written == (result ? std::vector<BYTE>{} : std::vector<BYTE>{1, 2, 3, 4}), "STORE forwards exact bytes");
+        Check(zip.Crc == Checksum(result ? std::vector<BYTE>{1, 2} : std::vector<BYTE>{1, 2, 3, 4}), "STORE preserves CRC update ordering");
+    }
+    {
+        auto zip = Make(); G.expectedFile = zip.OutputFile; G.expectedSkip = &zip.SkipAllIOErrors;
+        G.input = {1, 2, 3, 4}; G.progressCancelAt = 1;
+        CFileInfo item; item.CompSize = 4; int error = 0;
+        Check(zip.UnStoreFile(&item, &error) == DEC_NOERROR && zip.UserBreak, "STORE keeps progress cancellation flag");
+        Check(G.written == std::vector<BYTE>({1, 2}) && G.writeCalls == 1, "STORE stops after cancelled progress");
+    }
+    for (bool valid : {false, true})
+    {
+        auto zip = Make(); G.expectedFile = zip.OutputFile; G.expectedSkip = &zip.SkipAllIOErrors;
+        zip.Encrypted = zip.AESContextValid = true; G.macMatches = valid; G.input = {1, 2, 3, 4, 0xaa, 0xbb};
+        CFileInfo item; item.CompSize = 8; int error = 0;
+        const int ret = zip.UnStoreFile(&item, &error);
+        Check(ret == (valid ? DEC_NOERROR : DEC_SKIP), "STORE retains AES authentication success or skip");
+        Check(!zip.AESContextValid && G.aesEndCalls == 1, "STORE finalizes AES exactly once");
+        Check(G.written == (valid ? std::vector<BYTE>{1, 2, 3, 4} : std::vector<BYTE>{1, 2}), "STORE rejects final block after wrong MAC");
+        Check(G.progressCalls == (valid ? 2 : 1), "wrong MAC does not advance final progress");
+    }
+    {
+        auto zip = Make(); G.expectedFile = zip.OutputFile; G.expectedSkip = &zip.SkipAllIOErrors;
+        zip.Encrypted = zip.AESContextValid = true; G.macMatches = false; G.errorChoice = ERR_CANCEL;
+        G.input = {1, 2, 3, 4, 0xaa, 0xbb}; CFileInfo item; item.CompSize = 8; int error = 0;
+        Check(zip.UnStoreFile(&item, &error) == DEC_CANCEL && error == IDS_NODISPLAY,
+              "STORE retains cancellation after authentication failure");
+        Check(G.written == std::vector<BYTE>({1, 2}) && G.progressCalls == 1,
+              "authentication failure does not write or count the final block");
+    }
+    std::printf("ZIP output control flow: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}
