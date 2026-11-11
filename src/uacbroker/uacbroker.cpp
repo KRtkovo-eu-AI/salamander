@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Prepare denied Find scopes from a readable parent. | Bind content consent to a captured directory or file identity. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Bind ignored-stream overwrite to its own request. | Stage only approved default data and preserve protected recovery state. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Pin special-file timestamp consent to the exact source. | Prevent reuse for sibling items or ordinary metadata jobs. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Pin an exact file for metadata-only allocation queries. | Keep singleton size consent out of broader parent and content scopes. | #731 | GPT-6.1 Terra |
@@ -3495,6 +3496,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
     // A visible directory can deny even an attribute open. Capture only its ID
     // from the verified grandparent and let the broker reopen the exact parent.
     const bool useParentListing = (requested == Operation::List || requested == Operation::Inventory ||
+                                   requested == Operation::FindContent ||
                                    requested == Operation::Mkdir) &&
                                   openError == ERROR_ACCESS_DENIED && !parentPath.empty();
     size_t visibleEnd = split == 2 ? 3 : split;
@@ -3571,6 +3573,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, kind);
         if (sourceError == ERROR_ACCESS_DENIED &&
             (kind == UacRenameLeaf::MoveKind::RenameDirectory || requested == Operation::Rename ||
+             requested == Operation::FindFile ||
              requested == Operation::Delete || deleteLink || requested == Operation::View || change || transferring))
         {
             // Identify an inaccessible ordinary child in its readable parent.

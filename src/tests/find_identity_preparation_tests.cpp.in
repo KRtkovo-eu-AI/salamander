@@ -1,0 +1,209 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Test Find identity preparation against real NTFS ACLs. | Reject same-name substitutions after parent enumeration. | #731 | GPT-6.1 Terra |
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <aclapi.h>
+#include <sddl.h>
+#include <memory>
+#include <new>
+#include <string>
+#include <string_view>
+#include <vector>
+#include <cstdio>
+#define private public
+#include "@@INCLUDES@@/f7pilot.h"
+#undef private
+#include "@@INCLUDES@@/metadataleaf.h"
+#include "@@INCLUDES@@/deleteleaf.h"
+#include "@@INCLUDES@@/listing.h"
+#include "@@INCLUDES@@/copyleaf.h"
+#include "@@INCLUDES@@/viewleaf.h"
+
+struct CloseHandleDeleter { void operator()(void* handle) const { CloseHandle(handle); } };
+using Handle = std::unique_ptr<void, CloseHandleDeleter>;
+static Handle Adopt(HANDLE h) { return Handle(h != INVALID_HANDLE_VALUE ? h : nullptr); }
+constexpr std::wstring_view volumePrefix = LR"(\\?\Volume)";
+constexpr size_t volumeLength = volumePrefix.size() + 38;
+constexpr wchar_t appImage[] = L"salamand.exe", brokerImage[] = L"uacbroker.exe";
+// This seam deliberately replaces installation verification only. All path,
+// ACL, enumeration and identity code below is the actual production code.
+struct InstallLocation {
+    bool Open() { return true; }
+    bool MatchesProcess(HANDLE, const wchar_t*) { return true; }
+    bool OpenImage(const wchar_t*) { return true; }
+};
+using UacF7::Operation;
+@@RENAME_KIND@@
+@@OPEN_ROOT@@
+@@OPEN_PARENT@@
+namespace UacF7 {
+@@DESTRUCTOR@@
+@@PREPARE@@
+}
+
+static int checks = 0, failures = 0;
+static void Check(bool value, const char* message) {
+    ++checks; if (!value) { ++failures; std::printf("FAIL: %s (%lu)\n", message, GetLastError()); }
+    else std::printf("PASS: %s\n", message);
+}
+struct DeniedAttributes {
+    Handle file;
+    PSECURITY_DESCRIPTOR original = nullptr;
+    PACL oldDacl = nullptr;
+    SECURITY_DESCRIPTOR_CONTROL control{};
+    DWORD revision = 0;
+    ~DeniedAttributes() { Restore(); if (original) LocalFree(original); }
+    bool Prepare(const std::wstring& path, bool directory, FILE_ID_INFO& identity) {
+        file = Adopt(CreateFileW(path.c_str(), READ_CONTROL | WRITE_DAC | FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_OPEN_REPARSE_POINT | (directory ? FILE_FLAG_BACKUP_SEMANTICS : 0), nullptr));
+        if (!file || !GetFileInformationByHandleEx(file.get(), FileIdInfo, &identity, sizeof(identity)) ||
+            GetSecurityInfo(file.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr, &oldDacl, nullptr, &original) ||
+            !GetSecurityDescriptorControl(original, &control, &revision)) return false;
+        PSECURITY_DESCRIPTOR raw = nullptr;
+        if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(D;;0x00100080;;;WD)(A;;FA;;;WD)",
+                                                                   SDDL_REVISION_1, &raw, nullptr)) return false;
+        const std::unique_ptr<void, decltype(&LocalFree)> daclOwner(raw, LocalFree);
+        BOOL present = FALSE, defaulted = FALSE;
+        PACL denied = nullptr;
+        return GetSecurityDescriptorDacl(raw, &present, &denied, &defaulted) && present &&
+            !SetSecurityInfo(file.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                             nullptr, nullptr, denied, nullptr);
+    }
+    bool Restore() {
+        if (!file || !original) return true;
+        const DWORD result = SetSecurityInfo(file.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION |
+            ((control & SE_DACL_PROTECTED) ? PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION),
+            nullptr, nullptr, oldDacl, nullptr);
+        if (!result) file.reset();
+        return result == ERROR_SUCCESS;
+    }
+};
+
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc != 2) return 2;
+    const std::wstring root(argv[1]);
+    const auto deniedFile = root + L"\\denied-\u6771.txt";
+    auto file = Adopt(CreateFileW(deniedFile.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr));
+    if (!file) return 2;
+    file.reset();
+    FILE_ID_INFO fileId{};
+    DeniedAttributes fileAcl;
+    if (!fileAcl.Prepare(deniedFile, false, fileId)) return 2;
+    const auto deniedOpen = Adopt(CreateFileW(deniedFile.c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    Check(!deniedOpen && GetLastError() == ERROR_ACCESS_DENIED, "file really denies ordinary metadata access");
+    UacF7::PreparedLeaf exact;
+    Check(exact.PrepareTarget(deniedFile, Operation::FindFile, {}, nullptr) &&
+          exact.operation == Operation::FindFile && exact.serial == fileId.VolumeSerialNumber &&
+          !std::memcmp(exact.sourceId, &fileId.FileId, sizeof(exact.sourceId)),
+          "actual FindFile preparation captures the exact denied child from its readable parent");
+    Check(fileAcl.Restore(), "restore only the fixture file DACL");
+    const auto oldFile = root + L"\\old-file";
+    Check(MoveFileW(deniedFile.c_str(), oldFile.c_str()) != FALSE, "move the previously captured file");
+    file = Adopt(CreateFileW(deniedFile.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr));
+    Check(file != nullptr, "create a different object at the same file name");
+    file.reset();
+    file = Adopt(CreateFileW(deniedFile.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                             nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    FILE_ID_INFO replacement{};
+    Check(file && !UacRenameLeaf::Detail::ReadSourceIdentity(file.get(), replacement) &&
+          std::memcmp(exact.sourceId, &replacement.FileId, sizeof(exact.sourceId)) != 0,
+          "same-name file replacement differs from the prepared FindFile identity");
+    file.reset();
+    UacDirectoryLeaf::ParentIdentity expectedParent{};
+    expectedParent.volume = exact.volume;
+    expectedParent.file.VolumeSerialNumber = exact.serial;
+    CopyMemory(&expectedParent.file.FileId, exact.fileId, sizeof(exact.fileId));
+    FILE_ID_INFO expectedFile{};
+    expectedFile.VolumeSerialNumber = exact.serial;
+    CopyMemory(&expectedFile.FileId, exact.sourceId, sizeof(exact.sourceId));
+    HANDLE refused = nullptr;
+    LARGE_INTEGER refusedSize{};
+    FILE_BASIC_INFO refusedMetadata{};
+    const DWORD refusal = UacViewLeaf::OpenVerifiedRead(exact.parent, expectedParent, expectedFile, exact.leaf,
+                                                         MAXULONGLONG, refused, refusedSize, refusedMetadata);
+    Check(refusal == ERROR_FILE_INVALID && !refused,
+          "broker read primitive refuses a same-name replacement without opening content");
+    if (refused) CloseHandle(refused);
+    UacF7::PreparedLeaf absent;
+    Check(!absent.PrepareTarget(root + L"\\absent-file", Operation::FindFile, {}, nullptr),
+          "a missing file is not treated as a denied identity");
+    const auto guardedParent = root + L"\\guard-parent";
+    const auto guardedFile = guardedParent + L"\\victim.txt";
+    if (!CreateDirectoryW(guardedParent.c_str(), nullptr)) return 2;
+    auto guardFile = Adopt(CreateFileW(guardedFile.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr));
+    if (!guardFile) return 2;
+    guardFile.reset();
+    FILE_ID_INFO guardedOriginal{};
+    DeniedAttributes guardedAcl;
+    if (!guardedAcl.Prepare(guardedFile, false, guardedOriginal)) return 2;
+    UacF7::PreparedLeaf guarded;
+    if (!guarded.PrepareTarget(guardedFile, Operation::FindFile, {}, nullptr) || !guardedAcl.Restore()) return 2;
+    const auto movedParent = root + L"\\guard-parent-original";
+    Check(MoveFileW(guardedParent.c_str(), movedParent.c_str()) != FALSE &&
+          CreateDirectoryW(guardedParent.c_str(), nullptr) != FALSE,
+          "substitute the parent of a prepared exact-file Find request");
+    auto replacementParent = Adopt(CreateFileW(guardedParent.c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    UacDirectoryLeaf::ParentIdentity guardedIdentity{};
+    guardedIdentity.volume = guarded.volume;
+    guardedIdentity.file.VolumeSerialNumber = guarded.serial;
+    CopyMemory(&guardedIdentity.file.FileId, guarded.fileId, sizeof(guarded.fileId));
+    FILE_ID_INFO guardedSource{};
+    guardedSource.VolumeSerialNumber = guarded.serial;
+    CopyMemory(&guardedSource.FileId, guarded.sourceId, sizeof(guarded.sourceId));
+    refused = nullptr;
+    Check(replacementParent && UacViewLeaf::OpenVerifiedRead(replacementParent.get(), guardedIdentity,
+          guardedSource, guarded.leaf, MAXULONGLONG, refused, refusedSize, refusedMetadata) == ERROR_FILE_INVALID && !refused,
+          "broker read primitive rejects a substituted parent before reading a child");
+
+    const auto deniedDirectory = root + L"\\denied-dir-\u65e5";
+    if (!CreateDirectoryW(deniedDirectory.c_str(), nullptr)) return 2;
+    FILE_ID_INFO directoryId{};
+    DeniedAttributes directoryAcl;
+    if (!directoryAcl.Prepare(deniedDirectory, true, directoryId)) return 2;
+    const auto deniedDirectoryOpen = Adopt(CreateFileW(deniedDirectory.c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    Check(!deniedDirectoryOpen && GetLastError() == ERROR_ACCESS_DENIED,
+          "directory really denies ordinary metadata access");
+    UacF7::PreparedLeaf subtree;
+    const auto listingMarker = deniedDirectory + L"\\" + std::wstring(UacListing::marker);
+    Check(subtree.PrepareTarget(listingMarker, Operation::FindContent, {}, nullptr) &&
+          subtree.operation == Operation::FindContent && subtree.serial == directoryId.VolumeSerialNumber &&
+          !std::memcmp(subtree.fileId, &directoryId.FileId, sizeof(subtree.fileId)),
+          "actual FindContent preparation captures the denied directory from its parent listing");
+    Check(directoryAcl.Restore(), "restore only the fixture directory DACL");
+    const auto oldDirectory = root + L"\\old-directory";
+    Check(MoveFileW(deniedDirectory.c_str(), oldDirectory.c_str()) != FALSE &&
+          CreateDirectoryW(deniedDirectory.c_str(), nullptr) != FALSE,
+          "substitute another directory under the prepared name");
+    const auto replacementDir = Adopt(CreateFileW(deniedDirectory.c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    UacDirectoryLeaf::ParentIdentity current{};
+    Check(replacementDir && !UacDirectoryLeaf::ReadParentIdentity(replacementDir.get(), current) &&
+          std::memcmp(subtree.fileId, &current.file.FileId, sizeof(subtree.fileId)) != 0,
+          "same-name directory replacement differs from the prepared FindContent identity");
+    UacDirectoryLeaf::ParentIdentity expectedDirectory{};
+    expectedDirectory.volume = subtree.volume;
+    expectedDirectory.file.VolumeSerialNumber = subtree.serial;
+    CopyMemory(&expectedDirectory.file.FileId, subtree.fileId, sizeof(subtree.fileId));
+    Check(replacementDir && UacDirectoryLeaf::VerifyParent(replacementDir.get(), expectedDirectory) == ERROR_FILE_INVALID,
+          "broker parent verification rejects the replaced FindContent root");
+    UacF7::PreparedLeaf absentDirectory;
+    Check(!absentDirectory.PrepareTarget(root + L"\\absent-dir\\" + std::wstring(UacListing::marker),
+                                        Operation::FindContent, {}, nullptr),
+          "a missing directory is not treated as an access-denied root");
+    UacF7::PreparedLeaf junction;
+    Check(!junction.PrepareTarget(root + L"\\junction\\" + std::wstring(UacListing::marker),
+                                  Operation::FindContent, {}, nullptr),
+          "FindContent preparation never follows an existing junction");
+    std::printf("Actual Find preparation: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}

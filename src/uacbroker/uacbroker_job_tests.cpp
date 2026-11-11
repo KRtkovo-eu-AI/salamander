@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Verify a listed Find identity through the broker dispatcher. | Reject replacement and keep the exact-file scope bounded. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Check ignored-stream overwrite consent reuse. | Prevent cross-policy jobs and preserve changed targets. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise special timestamp singleton scope on the broker pipe. | Reject sibling and ordinary metadata scope substitutions. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify singleton allocation handshake and exact-file scope. | Reject unselected files, parent changes and every content or listing request. | #731 | GPT-6.1 Terra |
@@ -245,6 +246,40 @@ public:
     }
 
     bool Disconnect() { return DisconnectNamedPipe(server.get()) != FALSE; }
+
+    bool StartExactFind(const Directory& parent, std::wstring_view leaf,
+                        const FILE_ID_INFO& expected, DWORD& result)
+    {
+        RequestHeader header{};
+        header.serial = parent.identity.file.VolumeSerialNumber;
+        header.parentId = parent.identity.file.FileId;
+        header.sourceId = expected.FileId;
+        header.operation = Operation::FindFile;
+        header.relativeLength = static_cast<DWORD>(parent.relative.size());
+        header.leafLength = static_cast<DWORD>(leaf.size());
+        std::wstring payload = parent.identity.volume + parent.relative + std::wstring(leaf);
+        const auto deadline = GetTickCount64() + timeoutMs;
+        return !TransferRequest(server.get(), &header, sizeof(header), true, deadline) &&
+               !TransferRequest(server.get(), payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline) &&
+               !TransferRequest(server.get(), &result, sizeof(result), false, deadline);
+    }
+
+    bool StartFindRoot(const Directory& parent, std::wstring_view directory,
+                       const FILE_ID_INFO& expected, DWORD& result)
+    {
+        const auto relative = parent.relative + L"\\" + std::wstring(directory);
+        RequestHeader header{};
+        header.serial = expected.VolumeSerialNumber;
+        header.parentId = expected.FileId;
+        header.operation = Operation::FindContent;
+        header.relativeLength = static_cast<DWORD>(relative.size());
+        header.leafLength = ARRAYSIZE(UacListing::marker) - 1;
+        std::wstring payload = parent.identity.volume + relative + UacListing::marker;
+        const auto deadline = GetTickCount64() + timeoutMs;
+        return !TransferRequest(server.get(), &header, sizeof(header), true, deadline) &&
+               !TransferRequest(server.get(), payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline) &&
+               !TransferRequest(server.get(), &result, sizeof(result), false, deadline);
+    }
 
     bool StartExactAllocation(const Directory& parent, std::wstring_view leaf,
                               const UacF7::FileAllocationRequest& expected, DWORD& result)
@@ -1646,6 +1681,61 @@ void CheckExactFindScope(const Directory& source)
     Check(exact.Open(nullptr, file.get(), Operation::FindFile) && exact.OpenFindContent({}) &&
               exact.RejectFindRange({1, 1, 0}),
           "an exact-file Find grant closes the pipe without returning bytes beyond EOF");
+
+    constexpr wchar_t listedName[] = L"listed-find-\u6771";
+    constexpr wchar_t oldName[] = L"listed-find-old";
+    if (!WriteByte(source.File(listedName), 61))
+    {
+        Check(false, "prepare a listed exact-file Find request");
+        return;
+    }
+    FILE_ID_INFO expected{source.identity.file.VolumeSerialNumber, {}};
+    DWORD attributes = 0;
+    const auto listing = Adopt(CreateFileW(source.path.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    const DWORD captured = listing ? UacListing::CaptureChildId(listing.get(), listedName, false, expected.FileId, attributes)
+                                  : GetLastError();
+    JobPipe initially;
+    DWORD status = ERROR_GEN_FAILURE;
+    Check(!captured && initially.Open(nullptr, nullptr, Operation::FindFile, nullptr, true) &&
+          initially.StartExactFind(source, listedName, expected, status) && !status &&
+          initially.OpenFindContent({}) && initially.ReadAndCloseFindContent(61),
+          "the dispatcher opens exactly the file identified by the readable parent listing");
+    initially.Finish();
+    Check(MoveFileW(source.File(listedName).c_str(), source.File(oldName).c_str()) &&
+          WriteByte(source.File(listedName), 61), "substitute a same-size exact Find file");
+    JobPipe replaced;
+    status = ERROR_GEN_FAILURE;
+    Check(replaced.Open(nullptr, nullptr, Operation::FindFile, nullptr, true) &&
+          replaced.StartExactFind(source, listedName, expected, status) && status == ERROR_FILE_INVALID,
+          "the dispatcher rejects the substituted Find file before creating a content session");
+
+    constexpr wchar_t directoryName[] = L"listed-find-root-\u65e5";
+    constexpr wchar_t directoryOld[] = L"listed-find-root-old";
+    const auto directory = source.File(directoryName);
+    if (!CreateDirectoryW(directory.c_str(), nullptr) || !WriteByte(directory + L"\\inside", 73))
+    {
+        Check(false, "prepare a listed FindContent root");
+        return;
+    }
+    FILE_ID_INFO expectedRoot{source.identity.file.VolumeSerialNumber, {}};
+    const DWORD rootCaptured = listing ? UacListing::CaptureChildId(listing.get(), directoryName, true,
+                                                                     expectedRoot.FileId, attributes) : ERROR_OPEN_FAILED;
+    JobPipe rootSession;
+    status = ERROR_GEN_FAILURE;
+    Check(!rootCaptured && rootSession.Open(nullptr, nullptr, Operation::FindContent, nullptr, true) &&
+          rootSession.StartFindRoot(source, directoryName, expectedRoot, status) && !status &&
+          rootSession.OpenFindContent(L"inside") && rootSession.ReadAndCloseFindContent(73),
+          "the dispatcher opens a FindContent root identified by its parent listing");
+    rootSession.Finish();
+    Check(MoveFileW(directory.c_str(), source.File(directoryOld).c_str()) &&
+          CreateDirectoryW(directory.c_str(), nullptr), "replace the prepared FindContent root");
+    JobPipe replacedRoot;
+    status = ERROR_GEN_FAILURE;
+    Check(replacedRoot.Open(nullptr, nullptr, Operation::FindContent, nullptr, true) &&
+          replacedRoot.StartFindRoot(source, directoryName, expectedRoot, status) && status == ERROR_FILE_INVALID,
+          "the dispatcher rejects the replaced FindContent root before creating a session");
 }
 
 void CheckTransferSourceFromParentListing(const Directory& source, const Directory& target)
