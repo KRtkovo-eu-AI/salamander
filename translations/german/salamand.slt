@@ -4395,6 +4395,11 @@ SLGINCOMPLETE,""
 14710,1,"Der ausgewählte Viewer kann dieses überprüfte Ergebnis noch nicht sicher öffnen. Verwenden Sie den internen Viewer."
 14711,1,"Dieses Ergebnis ist an eine zuvor überprüfte Identität gebunden. Eine schreibgeschützte Momentaufnahme als Administrator im internen Viewer öffnen? Die Momentaufnahme ist auf 16 MB begrenzt."
 
+14712,1,"Die überprüfte Identität dieses geschützten Ergebnisses ist nicht verfügbar. Die Datei kann nicht sicher geöffnet werden; versuchen Sie, die Suche erneut zu starten."
+14713,1,"View With kann die überprüfte Identität dieses geschützten Ergebnisses noch nicht sicher erhalten. Verwenden Sie stattdessen F3."
+
+14714,1,"Inhalt und Tags dieses geschützten Ergebnisses können beim Verfeinern derzeit nicht sicher mit der zuvor überprüften Identität gelesen werden. Dieses Element wurde nicht überprüft."
+
 [STRINGTABLE 199]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
 

@@ -4394,6 +4394,11 @@ SLGINCOMPLETE,""
 14710,1,"Il visualizzatore selezionato non può ancora aprire in sicurezza questo risultato verificato. Usare il visualizzatore interno."
 14711,1,"Questo risultato è associato a un’identità verificata in precedenza. Aprire un’istantanea di sola lettura nel visualizzatore interno come amministratore? L’istantanea è limitata a 16 MB."
 
+14712,1,"L’identità verificata di questo risultato protetto non è disponibile. Il file non può essere aperto in sicurezza; provare a ripetere la ricerca."
+14713,1,"View With non può ancora preservare in sicurezza l’identità verificata di questo risultato protetto. Usare invece F3."
+
+14714,1,"Il contenuto e le etichette di questo risultato protetto non possono essere letti in sicurezza durante il perfezionamento usando l’identità verificata in precedenza. Questo elemento non è stato verificato."
+
 [STRINGTABLE 199]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."
 

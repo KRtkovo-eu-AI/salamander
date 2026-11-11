@@ -4394,6 +4394,11 @@ SLGINCOMPLETE,""
 14710,1,"De gekozen viewer kan dit geverifieerde resultaat nog niet veilig openen. Gebruik de interne viewer."
 14711,1,"Dit resultaat is gekoppeld aan een eerder geverifieerde identiteit. Een alleen-lezenmomentopname als beheerder in de interne viewer openen? De momentopname is beperkt tot 16 MB."
 
+14712,1,"De geverifieerde identiteit van dit beveiligde resultaat is niet beschikbaar. Het bestand kan niet veilig worden geopend; probeer de zoekopdracht opnieuw uit te voeren."
+14713,1,"View With kan de geverifieerde identiteit van dit beveiligde resultaat nog niet veilig behouden. Gebruik in plaats daarvan F3."
+
+14714,1,"De inhoud en tags van dit beveiligde resultaat kunnen bij het verfijnen momenteel niet veilig met de eerder geverifieerde identiteit worden gelezen. Dit item is niet geverifieerd."
+
 [STRINGTABLE 199]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."
 

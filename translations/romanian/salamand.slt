@@ -4394,6 +4394,11 @@ SLGINCOMPLETE,""
 14710,1,"Vizualizatorul selectat nu poate deschide încă în siguranță acest rezultat verificat. Folosiți vizualizatorul intern."
 14711,1,"Acest rezultat este asociat unei identități verificate anterior. Deschideți ca administrator un instantaneu doar pentru citire în vizualizatorul intern? Instantaneul este limitat la 16 MB."
 
+14712,1,"Identitatea verificată a acestui rezultat protejat nu este disponibilă. Fișierul nu poate fi deschis în siguranță; încercați să reluați căutarea."
+14713,1,"View With nu poate păstra încă în siguranță identitatea verificată a acestui rezultat protejat. Folosiți F3 în schimb."
+
+14714,1,"Conținutul și etichetele acestui rezultat protejat nu pot fi citite în siguranță la rafinare folosind identitatea verificată anterior. Acest element nu a fost verificat."
+
 [STRINGTABLE 199]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."
 

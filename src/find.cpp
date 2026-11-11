@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Retain protected Find provenance through viewing and refinement. | Refuse pathname-only reads when identity cannot be preserved. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Report exhausted protected Find scope capacity. | Distinguish the current limit from an access failure. | #731 | GPT-6.1 Terra |
@@ -1943,7 +1944,8 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
                   DWORD attr, const FILETIME* lastWrite, BOOL isDir, CGrepData* data,
                   CDuplicateCandidates* duplicateCandidates,
                   const wchar_t* pathW = nullptr, const wchar_t* nameW = nullptr,
-                  unsigned protectedScope = 0, std::shared_ptr<const UacF7::PreparedLeaf> foundView = nullptr)
+                  unsigned protectedScope = 0, std::shared_ptr<const UacF7::PreparedLeaf> foundView = nullptr,
+                  bool protectedOrigin = false)
 {
     if (duplicateCandidates != NULL && isDir) // directories are irrelevant to us when searching for duplicates
         return TRUE;
@@ -1957,6 +1959,7 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
         if (good)
         {
             foundData->FoundView = std::move(foundView);
+            foundData->ProtectedOrigin = protectedOrigin;
             if (duplicateCandidates == NULL)
             {
                 // duplicateCandidates == NULL, adding the item to data->FoundFilesListView
@@ -2243,7 +2246,7 @@ private:
         }
         AddFoundItem(nullptr, nullptr, file.nFileSizeLow, file.nFileSizeHigh, file.dwFileAttributes,
                      &file.ftLastWriteTime, (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0,
-                     data, candidates, directory.c_str(), file.cFileName, scopeId, std::move(foundView));
+                     data, candidates, directory.c_str(), file.cFileName, scopeId, std::move(foundView), true);
     }
 
     void AddCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates)
@@ -2557,6 +2560,19 @@ void RefineData(CMaskGroup* masksGroup, CGrepData* data)
         if (ok && !( !refineData->NameW.empty() ? masksGroup->AgreeMasksW(refineData->NameW.c_str(), NULL) : masksGroup->AgreeMasks(refineData->Name, NULL)))
             ok = FALSE;
 
+        // Refinement must not read a replacement by pathname after a protected search.
+        // The existing FindContent scope cannot yet reuse this result's captured identity.
+        if (ok && refineData->ProtectedOrigin && !refineData->IsDir && (data->Criteria.HasTags() || data->Grep))
+        {
+            ok = FALSE;
+            if (!data->StopSearch)
+            {
+                data->IncompleteReasons |= FindIncompleteProtectedFailure;
+                if (!data->StopSearch)
+                    AddFindLog(data, FLI_ERROR, LoadStr(IDS_UAC_FIND_REFINE_IDENTITY_UNAVAILABLE), nullptr);
+            }
+        }
+
         const bool canRequest = !refineData->IsDir && !(refineData->Attr & FILE_ATTRIBUTE_REPARSE_POINT);
         bool openDenied = false;
         std::wstring fullPath;
@@ -2621,7 +2637,7 @@ void RefineData(CMaskGroup* masksGroup, CGrepData* data)
                          refineData->Size.LoDWord, refineData->Size.HiDWord,
                          refineData->Attr, &refineData->LastWrite, refineData->IsDir, data, nullptr,
                          wide ? refineData->PathW.c_str() : nullptr, wide ? refineData->NameW.c_str() : nullptr,
-                         0, refineData->FoundView);
+                         0, refineData->FoundView, refineData->ProtectedOrigin);
         }
     }
     RequestFindResultsRefresh(data);

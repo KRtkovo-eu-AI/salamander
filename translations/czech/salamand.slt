@@ -4396,6 +4396,11 @@ SLGINCOMPLETE,""
 14710,1,"Zvolený prohlížeč zatím neumí bezpečně otevřít tento ověřený výsledek. Použijte interní prohlížeč."
 14711,1,"Tento výsledek je svázán s dříve ověřenou identitou. Otevřít jeho snímek pro čtení v interním prohlížeči jako správce? Snímek je omezen na 16 MB."
 
+14712,1,"Ověřená identita tohoto chráněného výsledku není k dispozici. Soubor nelze bezpečně otevřít; zkuste hledání zopakovat."
+14713,1,"Volba View With zatím neumí bezpečně zachovat ověřenou identitu tohoto chráněného výsledku. Použijte běžné F3."
+
+14714,1,"Obsah ani štítky chráněného výsledku nyní nelze při zpřesnění bezpečně přečíst s původní ověřenou identitou. Tato položka nebyla ověřena."
+
 [STRINGTABLE 199]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Retain protected Find provenance through viewing and refinement. | Refuse pathname-only reads when identity cannot be preserved. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Track searches limited by protected scope capacity. | Report incomplete results separately from an explicit Stop. | #731 | GPT-6.1 Terra |
@@ -604,6 +605,7 @@ struct CFoundFilesData
     DWORD_PTR Group;
 
     bool IsDir;          // immutable after publication and read by the sort worker
+    bool ProtectedOrigin; // immutable; remains true even if viewer identity preparation fails
     unsigned Selected : 1; // temporary selection state during order publication
     unsigned ProtectedScope : 6; // one-based Find session for a protected duplicate
     // 'Different' is used to distinguish file groups during duplicate search
@@ -617,6 +619,7 @@ struct CFoundFilesData
         ZeroMemory(&LastWrite, sizeof(LastWrite));
         Group = 0;
         IsDir = false;
+        ProtectedOrigin = false;
         ProtectedScope = 0;
         Selected = 0;
         Different = 0;

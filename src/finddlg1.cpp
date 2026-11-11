@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Retain protected Find provenance through viewing and refinement. | Refuse pathname-only reads when identity cannot be preserved. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Report an incomplete protected Find separately from Stop. | Do not present a capacity-limited search as complete. | #731 | GPT-6.1 Terra |
@@ -3161,6 +3162,11 @@ void CFindDialog::OnViewFile(BOOL alternate)
     const CFoundFilesData* result = FoundFilesListView->At(viewedIndex);
     if (result->IsDir)
         return;
+    if (result->ProtectedOrigin && !result->FoundView)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_UAC_FIND_VIEW_IDENTITY_UNAVAILABLE), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
     const std::wstring path = result->GetFullNameW();
     std::string longName = SalWideToMultiBytePath(path.c_str(), CP_UTF8);
     if (longName.empty())
@@ -3237,6 +3243,11 @@ void CFindDialog::OnViewFileWith()
     char* longName = fullName.data();
     if (fullName.empty())
         return;
+    if (FoundFilesListView->At(viewedIndex)->ProtectedOrigin)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_UAC_FIND_VIEW_WITH_UNAVAILABLE), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
 
     if (SalamanderBusy)
     {

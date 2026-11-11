@@ -4394,6 +4394,11 @@ SLGINCOMPLETE,""
 14710,1,"A kiválasztott megjelenítő még nem tudja biztonságosan megnyitni ezt az ellenőrzött eredményt. Használja a belső megjelenítőt."
 14711,1,"Ez az eredmény egy korábban ellenőrzött azonossághoz van kötve. Megnyitja az írásvédett pillanatképet a belső megjelenítőben rendszergazdaként? A pillanatkép mérete legfeljebb 16 MB."
 
+14712,1,"A védett eredmény ellenőrzött azonossága nem érhető el. A fájl nem nyitható meg biztonságosan; próbálja meg újraindítani a keresést."
+14713,1,"A View With még nem tudja biztonságosan megőrizni a védett eredmény ellenőrzött azonosságát. Használja helyette az F3 billentyűt."
+
+14714,1,"A védett eredmény tartalma és címkéi a pontosítás során jelenleg nem olvashatók biztonságosan a korábban ellenőrzött azonossággal. Ez az elem nem lett ellenőrizve."
+
 [STRINGTABLE 199]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."
 

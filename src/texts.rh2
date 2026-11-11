@@ -1,3 +1,4 @@
+// | 2026-11-11 | Explain unavailable Find result identity. | Prevent unsafe viewer fallback and suggest a new search. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Localize verified Find viewer limitations and consent. | Keep file identity and the snapshot choice clear. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Localize distinct incomplete Find reasons. | Report the actual omission without inventing a path or limit. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Explain the protected folder Recycle Bin limitation. | Report unsupported elevation without assuming the item state. | #731 | GPT-6.1 Terra |
@@ -3388,5 +3389,8 @@
 #define IDS_FIND_INCOMPLETE_PROTECTED_FAILURE        14709
 #define IDS_UAC_VIEW_IDENTITY_HANDLER_UNSUPPORTED    14710
 #define IDS_UAC_VIEW_VERIFIED_CONFIRM                14711
+#define IDS_UAC_FIND_VIEW_IDENTITY_UNAVAILABLE       14712
+#define IDS_UAC_FIND_VIEW_WITH_UNAVAILABLE           14713
+#define IDS_UAC_FIND_REFINE_IDENTITY_UNAVAILABLE     14714
 
 #endif // __TEXTS_RH2

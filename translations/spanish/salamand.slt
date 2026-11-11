@@ -4394,6 +4394,11 @@ SLGINCOMPLETE,""
 14710,1,"El visor seleccionado aún no puede abrir de forma segura este resultado verificado. Use el visor interno."
 14711,1,"Este resultado está asociado a una identidad verificada anteriormente. ¿Abrir una instantánea de solo lectura en el visor interno como administrador? La instantánea está limitada a 16 MB."
 
+14712,1,"La identidad verificada de este resultado protegido no está disponible. El archivo no se puede abrir de forma segura; intente repetir la búsqueda."
+14713,1,"View With aún no puede conservar de forma segura la identidad verificada de este resultado protegido. Use F3 en su lugar."
+
+14714,1,"El contenido y las etiquetas de este resultado protegido no se pueden leer de forma segura durante el refinamiento con la identidad verificada anteriormente. Este elemento no se verificó."
+
 [STRINGTABLE 199]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
 

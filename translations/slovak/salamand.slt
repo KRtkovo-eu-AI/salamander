@@ -4394,6 +4394,11 @@ SLGINCOMPLETE,""
 14710,1,"Zvolený prehliadač zatiaľ nevie bezpečne otvoriť tento overený výsledok. Použite interný prehliadač."
 14711,1,"Tento výsledok je viazaný na skôr overenú identitu. Otvoriť jeho snímku na čítanie v internom prehliadači ako správca? Snímka je obmedzená na 16 MB."
 
+14712,1,"Overená identita tohto chráneného výsledku nie je k dispozícii. Súbor nemožno bezpečne otvoriť; skúste vyhľadávanie zopakovať."
+14713,1,"Voľba View With zatiaľ nevie bezpečne zachovať overenú identitu tohto chráneného výsledku. Použite bežné F3."
+
+14714,1,"Obsah ani štítky chráneného výsledku teraz nemožno pri spresnení bezpečne prečítať s pôvodnou overenou identitou. Táto položka nebola overená."
+
 [STRINGTABLE 199]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."
 
