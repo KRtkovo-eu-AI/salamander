@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Exercise protected multi-file selection. | Reuse only the approved panel without new prompts. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Compile the shared batch refusal state. | Test actual controller behavior across distinct scopes. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Exercise the actual size-allocation controller. | Verify consent choices and exact totals without interactive elevation. | #731 | GPT-6.1 Terra |
 """Compile the production atCountSize branch with controlled Win32 and broker results."""
@@ -27,6 +28,9 @@ def main():
     scope = scope.replace('std::wstring Root;', 'std::wstring Root = L"C:\\\\scope";')
     generated = generated.replace('@@BATCH_SCOPE@@', batch + '\n' + scope)
     generated = generated.replace('@@DIRECTORY_SIZE@@', block(source, 'if (wideSizeScan && err == ERROR_ACCESS_DENIED'))
+    selection = source.index('                    std::optional<CSizeScanScope> selectedSizeScope;')
+    selection_end = source.index('                    if (!BuildScriptFile(', selection)
+    generated = generated.replace('@@SELECTED_SCOPE@@', source[selection:selection_end])
     if '@@' in generated:
         raise AssertionError('unexpanded fixture')
     env = compiler_environment()

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Reuse approved panel allocation metadata for multi-selection. | Measure eligible selected files without broadening consent or starting new sessions. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Retain a declined size elevation across the selected batch. | Continue accessible work without widening approved listing scopes. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Measure one directly selected file in its own UAC scope. | Keep the approval narrower than the containing directory. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Retry denied allocation metadata in the active size scope. | Preserve ordinary totals while requesting a single verified measurement. | #731 | GPT-6.1 Terra |
@@ -1361,6 +1362,7 @@ struct CSizeScanScope
     bool Scanned = false;
     bool ElevationDeclined = false;
     bool ExactFile = false;
+    bool ReuseOnly = false;
     CSizeBatchConsent* Batch = nullptr;
 
     bool WasElevationDeclined() const { return ElevationDeclined || (Batch && Batch->ElevationDeclined); }
@@ -1890,9 +1892,10 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     const DWORD itemFlags = srcAndTgtPathsFlags |
                                             (script->AllowTransferPilot ? OPFL_UAC_TRANSFER_ELIGIBLE : 0);
                     std::optional<CSizeScanScope> selectedSizeScope;
-                    if (countSize && selCount <= 1)
+                    if (countSize && (selCount <= 1 || ProtectedListing))
                     {
                         selectedSizeScope.emplace();
+                        selectedSizeScope->ReuseOnly = selCount > 1;
                         selectedSizeScope->Batch = &sizeBatchConsent;
                         selectedSizeScope->Root = SalPathRemoveExtendedPrefixW(GetItemFullPathW(*oneFile).c_str());
                         selectedSizeScope->ExactFile = true;
@@ -4091,7 +4094,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     // Never authorize a differently reconstructed path under it.
                     const bool exactPathMatches = !sizeScope->ExactFile || path == sizeScope->Root;
                     DWORD preparationError = exactPathMatches ? ERROR_SUCCESS : ERROR_FILE_INVALID;
-                    const bool prepared = exactPathMatches && (listed ?
+                    const bool prepared = exactPathMatches && (!sizeScope->ReuseOnly || listed) && (listed ?
                         ((preparationError = ProtectedListing->IsOpen() ?
                             ProtectedListing->PrepareViewer(path, file, sourceFileAttr) : ERROR_BROKEN_PIPE) == ERROR_SUCCESS) :
                         file.PrepareView(nameW));
@@ -4103,7 +4106,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                         UacF7::ListingSession* session = listed ? ProtectedListing.get() : nullptr;
                         if (!session && ownSession)
                             session = &sizeScope->Session;
-                        if (!session && !sizeScope->WasElevationDeclined() && UacF7::CanOfferElevation() &&
+                        if (!session && !sizeScope->ReuseOnly && !sizeScope->WasElevationDeclined() && UacF7::CanOfferElevation() &&
                             (!sizeScope->Session.GetRoot().empty() ||
                              (sizeScope->ExactFile ? sizeScope->Session.PrepareAllocationFile(sizeScope->Root, file) :
                                                      sizeScope->Session.PrepareInventory(sizeScope->Root))))
@@ -4114,7 +4117,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             int choice = IDOK;
                             bool consentDeclined = false;
                             ShowSafeWaitWindow(FALSE);
-                            if (!session->IsOpen() && session == &sizeScope->Session && sizeScope->StartResult.has_value())
+                            if (!session->IsOpen() && sizeScope->ReuseOnly)
+                                allocationError = ERROR_BROKEN_PIPE;
+                            else if (!session->IsOpen() && session == &sizeScope->Session && sizeScope->StartResult.has_value())
                                 allocationError = *sizeScope->StartResult ? *sizeScope->StartResult : ERROR_BROKEN_PIPE;
                             else if (!session->IsOpen())
                             {

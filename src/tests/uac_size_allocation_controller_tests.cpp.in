@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Test approved multi-file allocation reuse. | Check selection, identity, disconnect and no extra prompt. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise size consent refusal across selected roots. | Preserve individual scopes and reuse existing approvals. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Test the actual size controller with controlled consent results. | Verify one contribution per item and preserve partial results. | #731 | GPT-6.1 Terra |
 #include <windows.h>
@@ -55,12 +56,13 @@ struct ListingSession
     std::wstring Root;
     bool Open = false;
     bool Exact = false;
+    bool CloseDuringPrepare = false;
     bool Contains(const std::wstring& path) const { return Open && (path == Root || (!Exact && path.size() > Root.size() && path.compare(0, Root.size(), Root) == 0 && path[Root.size()] == L'\\')); }
     bool IsOpen() const { return Open; }
     const std::wstring& GetRoot() const { return Root; }
     bool PrepareInventory(const std::wstring& root) { Root = root; return true; }
     bool PrepareAllocationFile(const std::wstring& root, const PreparedLeaf&) { Root = root; Exact = true; return true; }
-    DWORD PrepareViewer(const std::wstring&, PreparedLeaf&, DWORD) { ++g_prepared; return prepareError; }
+    DWORD PrepareViewer(const std::wstring&, PreparedLeaf&, DWORD) { ++g_prepared; if (CloseDuringPrepare) Open = false; return prepareError; }
     DWORD MeasureFileAllocation(const std::wstring&, const FileAllocationRequest&, ULONGLONG& size)
     { ++measurements; if (!g_allocationError) size = brokerValue; return g_allocationError; }
     DWORD Inventory(const std::wstring&, DirectoryInventory& inventory, DirectorySizeDetails*, std::wstring*)
@@ -123,6 +125,17 @@ public:
 @@DIRECTORY_SIZE@@
         return -1;
     }
+    struct SelectedFile { std::wstring path; };
+    std::wstring GetItemFullPathW(const SelectedFile& item) const { return item.path; }
+    BOOL MeasureSelected(COperations* script, int selCount, const wchar_t* fileNameW,
+                         const std::wstring& selectedPath, ULONGLONG logical, DWORD sourceFileAttr)
+    {
+        const bool countSize = true;
+        CSizeBatchConsent sizeBatchConsent;
+        SelectedFile item{selectedPath}; const auto* oneFile = &item;
+@@SELECTED_SCOPE@@
+        return Measure(script, selectedSizeScope ? &*selectedSizeScope : nullptr, fileNameW, logical, sourceFileAttr);
+    }
     BOOL Measure(COperations* script, CSizeScanScope* sizeScope, const wchar_t* fileNameW, ULONGLONG logical, DWORD sourceFileAttr)
     {
         const int type = atCountSize;
@@ -154,6 +167,45 @@ static void Reset()
 int main()
 {
     constexpr DWORD sparse = FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ARCHIVE;
+    {
+        Reset(); CFilesWindow panel; COperations sum;
+        panel.ProtectedListing = std::make_unique<UacF7::ListingSession>();
+        panel.ProtectedListing->Root = L"C:\\scope"; panel.ProtectedListing->Open = true; brokerValue = 13;
+        Check(panel.MeasureSelected(&sum, 2, L"one", L"C:\\scope\\one", 100, sparse) &&
+              panel.MeasureSelected(&sum, 2, L"two", L"C:\\scope\\two", 200, sparse) &&
+              prompts == 0 && measurements == 2 && g_prepared == 2 && sum.TotalSize.Value == 300 &&
+              sum.CompressedSize.Value == 26 && !sum.CountSizeCompressionUnavailable,
+              "actual selected-file scope reuses one approved panel for two sparse files without prompting");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum;
+        panel.ProtectedListing = std::make_unique<UacF7::ListingSession>();
+        panel.ProtectedListing->Root = L"C:\\scope"; panel.ProtectedListing->Open = true;
+        panel.ProtectedListing->CloseDuringPrepare = true;
+        Check(panel.MeasureSelected(&sum, 2, L"race", L"C:\\scope\\race", 100, sparse) &&
+              prompts == 0 && measurements == 0 && g_prepared == 1 && warnings == 1 &&
+              reportedError == ERROR_BROKEN_PIPE && sum.TotalSize.Value == 100 && sum.CountSizeCompressionUnavailable,
+              "closed panel pipe after identity preparation never triggers a new consent");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum;
+        panel.ProtectedListing = std::make_unique<UacF7::ListingSession>();
+        panel.ProtectedListing->Root = L"C:\\other"; panel.ProtectedListing->Open = true;
+        Check(panel.MeasureSelected(&sum, 2, L"outside", L"C:\\scope\\outside", 100, sparse) &&
+              prompts == 0 && measurements == 0 && g_prepared == 0 && warnings == 1 &&
+              reportedError == ERROR_ACCESS_DENIED && sum.CountSizeCompressionUnavailable,
+              "selection outside the approved panel scope never prepares or requests a new grant");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; brokerValue = 11;
+        Check(panel.MeasureSelected(&sum, 1, L"single", L"C:\\scope\\single", 100, sparse) &&
+              prompts == 1 && measurements == 1 && sum.CompressedSize.Value == 11,
+              "single selected file retains its existing exact-file UAC flow");
+        Reset(); COperations multiple;
+        Check(panel.MeasureSelected(&multiple, 2, L"ordinary", L"C:\\scope\\ordinary", 100, sparse) &&
+              prompts == 0 && measurements == 0 && g_prepared == 0 && multiple.CountSizeCompressionUnavailable,
+              "multiple files in an ordinary panel do not create a wider authorization");
+    }
     {
         Reset(); CFilesWindow panel; COperations sum; CSizeBatchConsent batch;
         CSizeScanScope first, second; first.Batch = second.Batch = &batch;
