@@ -1,3 +1,4 @@
+// | 2026-11-11 | Localize the protected Find limit and incomplete status. | Explain omitted results without implying success. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Reserve the uncertain disk recovery message. | Distinguish preserved backup and journal state. | #731 | GPT-6.1 Terra |
 // | 2026-11-08 | Assign the listing-only archive message. | Reuse the protected ZIP dialog title. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve consent and status text for protected listings. | Show the active authorization in the panel. | | GPT-6.1 Sol (Codex) |
@@ -3372,5 +3373,8 @@
 #define IDS_UAC_SIZE_FILE_CONFIRM                    14697
 #define IDS_UAC_DISK_RECOVERY_UNKNOWN                14698
 #define IDS_UAC_COPY_OVERWRITE_IGNORE_ADS_CONFIRM    14699
+#define IDS_UAC_FIND_SCOPE_LIMIT                     14700
+#define IDS_FIND_ACTIVITY_INCOMPLETE                 14701
+#define IDS_UAC_FIND_SCOPE_LIMIT_CARRIED             14702
 
 #endif // __TEXTS_RH2

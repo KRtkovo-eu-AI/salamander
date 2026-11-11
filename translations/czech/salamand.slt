@@ -4378,6 +4378,11 @@ SLGINCOMPLETE,""
 
 14699,1,"Přístup byl odepřen. Nahradit tento soubor jako správce se zachováním oprávnění cíle? Náhradní soubor nebude obsahovat alternativní datové proudy."
 
+14700,1,"Byl dosažen limit správcovského přístupu (%s chráněných položek). Tato položka nebyla prohledána; výsledky mohou být neúplné."
+14701,1,"Neúplné (limit správce)"
+
+14702,1,"Dřívější hledání v těchto výsledcích dosáhlo limitu přístupu správce (%s chráněných položek). Některé položky nebyly prohledány."
+
 [STRINGTABLE 198]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Track searches limited by protected scope capacity. | Report incomplete results separately from an explicit Stop. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Expose bounded legacy path checks and full focused paths. | Avoid passing long results to legacy fixed buffers. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Retain the identity of a protected Find result. | Permit a later exact-file viewer request after the search ends. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Pass the protected Find root by value. | Keep search lifetime independent of panel and broker teardown. | #731 | GPT-6.1 Sol |
@@ -175,10 +176,17 @@ enum class CFindActivity
     Stopping,
     Finishing,
     Stopped,
-    Finished
+    Finished,
+    Incomplete
 };
 
+inline CFindActivity FindFinalActivity(bool stopped, bool incomplete)
+{
+    return stopped ? CFindActivity::Stopped : incomplete ? CFindActivity::Incomplete : CFindActivity::Finished;
+}
+
 int GetFindActivityStringID(CFindActivity activity);
+void FindProtectedScopeLimitText(bool carried, char* output, size_t capacity) noexcept;
 
 class CFindWatchdog;
 void UpdateFindWatchdogActivity(CFindWatchdog* watchdog, CFindActivity activity);
@@ -215,6 +223,7 @@ struct CGrepData
     HANDLE StopEvent = nullptr; // owned by the dialog until the search worker has joined
     std::atomic_bool StopSearch{false}; // the dialog requests cancellation of the search
     BOOL SearchStopped; // has it been terminated or not?
+    BOOL SearchIncomplete = FALSE; // worker writes; UI reads after the worker handle is signaled
     CFindLog* Log;      // dialog-owned storage; worker copies messages without calling the UI
     CFindWatchdog* Watchdog; // optional scalar telemetry; retained by the Find dialog
     TIndirectArray<CSearchForData>* Data;

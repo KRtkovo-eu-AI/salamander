@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+# SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Test actual protected Find queue capacity. | Distinguish Stop and failure from incomplete results. | #731 | GPT-6.1 Terra |
+"""Compile the actual protected queue and final activity with controlled seams."""
+import argparse
+from pathlib import Path
+import shutil
+import tempfile
+
+from safe_file_paths_tests import ROOT, block, compiler_environment, read, run
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--configuration', choices=('Debug', 'Release', 'Both'), default='Both')
+    args = parser.parse_args()
+    source, header = read('src/find.cpp'), read('src/find.h')
+    dialog = read('src/finddlg1.cpp')
+    start = block(dialog, 'void CFindDialog::StartSearch(')
+    state_start = start.index('    const bool previousIncomplete =')
+    state_end = start.index('    GrepData.FindDuplicates = FALSE;', state_start)
+    before_thread = start.index('    if (!retainIncomplete)', state_end)
+    before_thread_end = start.index('    DWORD threadId;', before_thread)
+    failed_start = start.index('        GrepData.SearchIncomplete = previousIncomplete;', before_thread_end)
+    failed_end = start.index('        if (GrepData.StopEvent)', failed_start)
+    refine = block(source, 'void RefineData(')
+    digest = block(source, 'BOOL CDuplicateCandidates::GetMD5Digest(')
+    fixture = read('src/tests/find_scope_capacity_tests.cpp.in')
+    pieces = {
+        'LOCALIZED_HEADER': (ROOT / 'src/common/localizedtext.h').as_posix(),
+        'ACTIVITY': block(header, 'enum class CFindActivity', ';'),
+        'FINAL_ACTIVITY': block(header, 'inline CFindActivity FindFinalActivity('),
+        'LIMIT_TEST': block(source, 'static bool FindFileConsentLimit('),
+        'LIMIT_TEXT': block(source, 'void FindProtectedScopeLimitText('),
+        'REPORT': block(source, 'static void ReportFindScopeLimit('),
+        'RETAIN_INCOMPLETE': block(dialog, 'static bool RetainFindIncomplete('),
+        'FINISH_ITEMS': dialog[dialog.index('DWORD items = FoundFilesListView->GetCount();', dialog.index('void CFindDialog::FinishSearch(')):dialog.index('UpdateStatusBar = TRUE;', dialog.index('DWORD items = FoundFilesListView->GetCount();', dialog.index('void CFindDialog::FinishSearch('))) + len('UpdateStatusBar = TRUE;')],
+        'START_STATE': start[state_start:state_end],
+        'BEFORE_THREAD': start[before_thread:before_thread_end],
+        'THREAD_FAILURE': start[failed_start:failed_end],
+        'QUEUE': block(source, 'class FindProtectedQueue', ';'),
+        'DIGEST_DENIED': block(digest, 'if (error == ERROR_ACCESS_DENIED &&'),
+        'REFINE_HELPER': block(source, 'bool IncludeRefinedFindResult('),
+        'REFINE_DENIED': block(refine, 'if (openDenied)'),
+    }
+    for key, value in pieces.items():
+        fixture = fixture.replace('@@' + key + '@@', value)
+    assert '@@' not in fixture
+    env = compiler_environment()
+    compiler = shutil.which('cl', path=env.get('PATH'))
+    with tempfile.TemporaryDirectory(prefix='find-capacity-') as temp:
+        folder = Path(temp)
+        source_file, exe = folder / 'test.cpp', folder / 'test.exe'
+        source_file.write_text(fixture, encoding='utf-8')
+        for config, flags in [('Debug', ['/MDd', '/D_DEBUG', '/Od']), ('Release', ['/MD', '/DNDEBUG', '/O2'])]:
+            if args.configuration not in ('Both', config):
+                continue
+            print('Actual Find scope capacity:', config, flush=True)
+            for command in ([compiler, '/nologo', '/std:c++17', '/EHsc', '/utf-8', '/W4', '/WX', *flags,
+                             str(source_file), '/Fe:' + str(exe), 'user32.lib'], [str(exe)]):
+                result = run(command, cwd=folder, env=env, timeout=30)
+                if result.returncode:
+                    return result.returncode
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

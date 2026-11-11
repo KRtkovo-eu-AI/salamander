@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Report an incomplete protected Find separately from Stop. | Do not present a capacity-limited search as complete. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Keep long Find results exact across file actions. | Avoid truncated targets and retain inaccessible results. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Show editor consent and launch from the Find window thread. | Keep Find responsive while the user decides. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Use the exact wide Find result for F4. | Preserve long paths and the Find window when asking for elevation. | #731 | GPT-6.1 Sol |
@@ -2022,6 +2023,8 @@ int GetFindActivityStringID(CFindActivity activity)
         return IDS_STOPPED;
     case CFindActivity::Finished:
         return IDS_FIND_ACTIVITY_FINISHED;
+    case CFindActivity::Incomplete:
+        return IDS_FIND_ACTIVITY_INCOMPLETE;
     default:
         return IDS_FIND_ACTIVITY_IDLE;
     }
@@ -2542,6 +2545,11 @@ void CFindDialog::BuildSerchForData()
     } while (*end != 0);
 }
 
+static bool RetainFindIncomplete(WORD command, bool incomplete)
+{
+    return incomplete && (command == CM_FIND_APPEND || command == CM_FIND_INTERSECT || command == CM_FIND_SUBTRACT);
+}
+
 void CFindDialog::StartSearch(WORD command)
 {
     CALL_STACK_MESSAGE1("CFindDialog::StartSearch()");
@@ -2573,8 +2581,18 @@ void CFindDialog::StartSearch(WORD command)
     ListView_SetItemCount(FoundFilesListView->HWindow, 0);
     UpdateWindow(FoundFilesListView->HWindow);
 
-    // release any errors held from the previous search
+    const bool previousIncomplete = GrepData.SearchIncomplete != FALSE;
+    const bool retainIncomplete = RetainFindIncomplete(command, previousIncomplete);
+    const auto restoreIncompleteLog = [&] {
+        char reason[1024];
+        FindProtectedScopeLimitText(true, reason, sizeof(reason));
+        Log.Add(FLI_ERROR, reason, nullptr);
+        TBHeader->SetErrorsInfosCount(Log.GetErrorCount(), Log.GetInfoCount());
+    };
+    // Keep the reason available even if preparing this search fails.
     Log.Clean();
+    if (previousIncomplete)
+        restoreIncompleteLog();
 
     GrepData.FindDuplicates = FALSE;
     GrepData.FindDupFlags = 0;
@@ -2714,10 +2732,19 @@ void CFindDialog::StartSearch(WORD command)
     UpdateFindWatchdogResultCount(Watchdog.get(), static_cast<unsigned>(GrepData.FoundVisibleCount));
     GrepData.ConsentWindow = HWindow;
     GrepData.StopEvent = HANDLES(CreateEvent(nullptr, TRUE, FALSE, nullptr));
+    if (!retainIncomplete)
+    {
+        Log.Clean();
+        TBHeader->SetErrorsInfosCount(0, 0);
+    }
+    GrepData.SearchIncomplete = retainIncomplete;
     DWORD threadId;
     GrepThread = HANDLES(CreateThread(NULL, 0, GrepThreadF, &GrepData, 0, &threadId));
     if (GrepThread == NULL)
     {
+        GrepData.SearchIncomplete = previousIncomplete;
+        if (previousIncomplete && !retainIncomplete)
+            restoreIncompleteLog();
         if (GrepData.StopEvent)
             HANDLES(CloseHandle(GrepData.StopEvent));
         GrepData.StopEvent = nullptr;
@@ -2802,10 +2829,12 @@ void CFindDialog::FinishSearch()
     UpdateStatusBar = FALSE;
     // Publish everything after the worker exits, before an automatic log dialog can open.
     UpdateListViewItems();
-    if (!GrepData.SearchStopped)
+    if (!GrepData.SearchStopped && !SearchStopRequested)
     {
         DWORD items = FoundFilesListView->GetCount();
-        if (items == 0)
+        if (items == 0 && GrepData.SearchIncomplete)
+            SendMessage(HStatusBar, SB_SETTEXT, 1 | SBT_NOBORDERS, (LPARAM)LoadStr(IDS_FIND_ACTIVITY_INCOMPLETE));
+        else if (items == 0)
         {
             int msgID = GrepData.FindDuplicates ? IDS_FIND_NO_DUPS_FOUND : IDS_FIND_NO_FILES_FOUND;
             SendMessage(HStatusBar, SB_SETTEXT, 1 | SBT_NOBORDERS, (LPARAM)LoadStr(msgID));
@@ -2838,7 +2867,7 @@ void CFindDialog::OnFindWorkIdle()
         return;
 
     if (Activity == CFindActivity::Finishing)
-        SetFindActivity(GrepData.SearchStopped ? CFindActivity::Stopped : CFindActivity::Finished);
+        SetFindActivity(FindFinalActivity(GrepData.SearchStopped || SearchStopRequested, GrepData.SearchIncomplete));
 
     if (FindCloseQueryPending)
     {

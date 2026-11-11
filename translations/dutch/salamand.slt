@@ -4376,6 +4376,11 @@ SLGINCOMPLETE,""
 
 14699,1,"Toegang geweigerd. Dit bestand als administrator vervangen met behoud van de doelmachtigingen? Het vervangende bestand bevat geen alternatieve gegevensstromen."
 
+14700,1,"De limiet voor beheerderstoegang is bereikt (%s beveiligde items). Dit item is niet doorzocht; de resultaten zijn mogelijk onvolledig."
+14701,1,"Onvolledig (beheerlimiet)"
+
+14702,1,"Een eerdere zoekopdracht in deze resultaten bereikte de limiet voor beheerderstoegang (%s beveiligde items). Sommige items zijn niet doorzocht."
+
 [STRINGTABLE 198]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."
 

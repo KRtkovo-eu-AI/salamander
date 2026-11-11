@@ -4376,6 +4376,11 @@ SLGINCOMPLETE,""
 
 14699,1,"Acces refuzat. Înlocuiți acest fișier ca administrator, păstrând permisiunile destinației? Fișierul de înlocuire nu va conține fluxuri de date alternative."
 
+14700,1,"A fost atinsă limita de acces de administrator (%s elemente protejate). Acest element nu a fost căutat; rezultatele pot fi incomplete."
+14701,1,"Incomplet (limită administrator)"
+
+14702,1,"O căutare anterioară în aceste rezultate a atins limita de acces de administrator (%s elemente protejate). Unele elemente nu au fost căutate."
+
 [STRINGTABLE 198]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."
 

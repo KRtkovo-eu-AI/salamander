@@ -4376,6 +4376,11 @@ SLGINCOMPLETE,""
 
 14699,1,"Hozzáférés megtagadva. Lecseréli ezt a fájlt rendszergazdaként a cél jogosultságainak megtartásával? A helyettesítő fájl nem fog alternatív adatfolyamokat tartalmazni."
 
+14700,1,"Elérte a rendszergazdai hozzáférés korlátját (%s védett elem). Ez az elem nem lett átvizsgálva; az eredmények hiányosak lehetnek."
+14701,1,"Hiányos (rendszergazdai korlát)"
+
+14702,1,"Az ezekben az eredményekben végzett korábbi keresés elérte a rendszergazdai hozzáférés korlátját (%s védett elem). Egyes elemek nem lettek átvizsgálva."
+
 [STRINGTABLE 198]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."
 

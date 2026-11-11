@@ -4376,6 +4376,11 @@ SLGINCOMPLETE,""
 
 14699,1,"Acceso denegado. ¿Reemplazar este archivo como administrador conservando los permisos del destino? El archivo de reemplazo no contendrá flujos de datos alternativos."
 
+14700,1,"Se alcanzó el límite de acceso de administrador (%s elementos protegidos). No se buscó en este elemento; los resultados pueden estar incompletos."
+14701,1,"Incompleto (límite admin.)"
+
+14702,1,"Una búsqueda anterior en estos resultados alcanzó el límite de acceso de administrador (%s elementos protegidos). Algunos elementos no se buscaron."
+
 [STRINGTABLE 198]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
 

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Exercise typed protected Find outcomes. | Preserve wide traversal after reporting scope capacity. | #731 | GPT-6.1 Terra |
 # | 2026-11-10 | Run the actual ordinary Find traversal against a long NTFS fixture. | Verify exact protected retries and preservation of readable results. | #731 | GPT-6.1 Sol |
 """Compile the actual ordinary Find traversal with controlled denial seams."""
 import shutil

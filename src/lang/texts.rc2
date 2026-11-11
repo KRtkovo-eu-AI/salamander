@@ -1,4 +1,5 @@
-﻿// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
+﻿// | 2026-11-11 | Localize the protected Find limit and incomplete status. | Explain omitted results without implying success. | #731 | GPT-6.1 Terra |
+// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-11 | Explain retained disk overwrite recovery files. | Make an uncertain result actionable without implying data was removed. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Describe exact-file allocation consent. | Identify the selected file and metadata-only access. | #731 | GPT-6.1 Terra |
@@ -2468,6 +2469,9 @@ STRINGTABLE
  IDS_UAC_FIND_CONFIRM, "Access was denied. Search names and metadata in this folder as an administrator? The search continues in accessible folders while you decide."
  IDS_UAC_FIND_WAIT, "Waiting for administrator access to a protected folder..."
  IDS_UAC_FIND_SCOPE, "Searching the approved folder with administrator access."
+ IDS_UAC_FIND_SCOPE_LIMIT, "Administrator access limit reached (%s protected items). This item was not searched; results may be incomplete."
+ IDS_FIND_ACTIVITY_INCOMPLETE, "Incomplete (admin limit)"
+ IDS_UAC_FIND_SCOPE_LIMIT_CARRIED, "An earlier search in these results reached the administrator access limit (%s protected items). Some items were not searched."
  IDS_UAC_VIEW_CONFIRM, "Access was denied. Open a read-only snapshot of this file in the internal viewer as an administrator? The snapshot is limited to 16 MB."
  IDS_UAC_VIEW_SNAPSHOT, "Administrator snapshot"
  IDS_UAC_VIEW_REFRESH, "This is a read-only snapshot. Return to the panel to request a new snapshot."

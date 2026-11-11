@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Report exhausted protected Find scope capacity. | Distinguish the current limit from an access failure. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Use the established UTF-8 or ACP decoding for Find roots. | Keep legacy configuration roots compatible. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Traverse ordinary Find with wide paths and a pending directory stack. | Keep long Unicode results and protected requests tied to the actual path. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Default the optional Find identity to null. | Keep the default explicit in the result publication entry point. | #731 | GPT-6.1 Sol |
@@ -45,6 +46,7 @@
 #include "findtagstream.h"
 #include "md5.h"
 #include "common/widepath.h"
+#include "common/localizedtext.h"
 #include "uacbroker/f7pilot.h"
 #include <array>
 #include <mutex>
@@ -883,6 +885,36 @@ constexpr size_t maxFindProtectedScopes = 32;
 static_assert(maxFindProtectedScopes < (1u << 6)); // CFoundFilesData::ProtectedScope
 using FindProtectedSessions = std::array<UacF7::ListingSession*, maxFindProtectedScopes>;
 
+enum class FindQueueResult { Added, Stopped, Limit, Failed };
+
+static bool FindFileConsentLimit(DWORD error, DWORD attributes, size_t remaining)
+{
+    return error == ERROR_ACCESS_DENIED && !remaining &&
+           !(attributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_ENCRYPTED));
+}
+
+void FindProtectedScopeLimitText(bool carried, char* output, size_t capacity) noexcept
+{
+    if (!output || !capacity)
+        return;
+    char limit[32]{};
+    const int id = carried ? IDS_UAC_FIND_SCOPE_LIMIT_CARRIED : IDS_UAC_FIND_SCOPE_LIMIT;
+    if (_ultoa_s(static_cast<unsigned long>(maxFindProtectedScopes), limit, sizeof(limit), 10) != 0 ||
+        !Salamander::LocalizedText::Write(output, capacity, LoadStr(id), limit))
+        strncpy_s(output, capacity, GetErrorText(ERROR_BUFFER_OVERFLOW), _TRUNCATE);
+}
+
+static void ReportFindScopeLimit(CGrepData* data, const char* path)
+{
+    if (data->StopSearch)
+        return;
+    data->SearchIncomplete = TRUE;
+    char message[1024];
+    FindProtectedScopeLimitText(false, message, sizeof(message));
+    if (!data->StopSearch)
+        AddFindLog(data, FLI_ERROR, message, path);
+}
+
 namespace
 {
 struct FindConsent
@@ -1193,6 +1225,7 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
     ULONGLONG size = 0;
     FILE_BASIC_INFO initial{};
     bool opened = false;
+    bool scopeLimit = false;
     UacF7::ListingSession singleFile;
     if (!scoped)
     {
@@ -1217,15 +1250,20 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
         else
         {
             error = GetLastError();
-            if (error == ERROR_ACCESS_DENIED && remainingFileConsents &&
+            if (error == ERROR_ACCESS_DENIED &&
                 !(file->Attr & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_ENCRYPTED)))
             {
-                --remainingFileConsents;
-                error = AuthorizeFindFile(data, fullPath, singleFile);
-                if (!error)
+                if (FindFileConsentLimit(error, file->Attr, remainingFileConsents))
+                    scopeLimit = true;
+                else
                 {
-                    protectedSession = &singleFile;
-                    scoped = true;
+                    --remainingFileConsents;
+                    error = AuthorizeFindFile(data, fullPath, singleFile);
+                    if (!error)
+                    {
+                        protectedSession = &singleFile;
+                        scoped = true;
+                    }
                 }
             }
         }
@@ -1296,6 +1334,11 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
     }
     if (data->StopSearch)
         return FALSE;
+    if (scopeLimit)
+    {
+        ReportFindScopeLimit(data, display.c_str());
+        return FALSE;
+    }
     if (error)
     {
         const auto message = error == ERROR_CANCELLED ? std::string(GetErrorText(error)) :
@@ -2209,12 +2252,12 @@ private:
 class FindProtectedQueue
 {
 public:
-    bool Add(CGrepData* search, const std::wstring& deniedPath, CMaskGroup* masks,
+    FindQueueResult Add(CGrepData* search, const std::wstring& deniedPath, CMaskGroup* masks,
              BOOL recursive, int rootLength, const std::shared_ptr<CFindIgnore>& ignore,
              const WIN32_FIND_DATAW* file = nullptr)
     {
         if (search->StopSearch)
-            return false;
+            return FindQueueResult::Stopped;
         try
         {
             auto path = SalPathRemoveExtendedPrefixW(deniedPath.c_str());
@@ -2222,11 +2265,11 @@ public:
         }
         catch (const std::bad_alloc&)
         {
-            return false;
+            return FindQueueResult::Failed;
         }
     }
 
-    bool AddPanelRoot(CGrepData* search, CMaskGroup* masks, BOOL recursive, int rootLength,
+    FindQueueResult AddPanelRoot(CGrepData* search, CMaskGroup* masks, BOOL recursive, int rootLength,
                       const std::shared_ptr<CFindIgnore>& ignore)
     {
         try
@@ -2235,11 +2278,11 @@ public:
         }
         catch (const std::bad_alloc&)
         {
-            return false;
+            return FindQueueResult::Failed;
         }
     }
 
-    bool AddRefined(CGrepData* search, const std::wstring& path, CMaskGroup* masks, const CFoundFilesData& item)
+    FindQueueResult AddRefined(CGrepData* search, const std::wstring& path, CMaskGroup* masks, const CFoundFilesData& item)
     {
         WIN32_FIND_DATAW file{};
         file.dwFileAttributes = item.Attr;
@@ -2252,7 +2295,7 @@ public:
         }
         catch (const std::bad_alloc&)
         {
-            return false;
+            return FindQueueResult::Failed;
         }
     }
 
@@ -2271,26 +2314,28 @@ public:
     }
 
 private:
-    bool AddPath(CGrepData* search, std::wstring path, CMaskGroup* masks, BOOL recursive, int rootLength,
+    FindQueueResult AddPath(CGrepData* search, std::wstring path, CMaskGroup* masks, BOOL recursive, int rootLength,
                  const std::shared_ptr<CFindIgnore>& ignore, const WIN32_FIND_DATAW* file)
     {
         if (search->StopSearch)
-            return false;
+            return FindQueueResult::Stopped;
         for (size_t i = 0; i < count; ++i)
             if (requests[i]->Matches(path, masks, file != nullptr) &&
                 (!search->Refine || (file && requests[i]->MergeRefinedRow(*file))))
-                return true;
+                return FindQueueResult::Added;
         if (count == requests.size())
-            return false;
+            return FindQueueResult::Limit;
         auto request = std::make_unique<FindProtectedRequest>();
         if (!request->Prepare(search, std::move(path), masks, recursive, rootLength, ignore,
                               static_cast<unsigned>(count + 1), file))
-            return false;
+            return search->StopSearch ? FindQueueResult::Stopped : FindQueueResult::Failed;
+        if (search->StopSearch)
+            return FindQueueResult::Stopped;
         // Let ordinary traversal continue during the first consent.
         if (count == 0 && !request->Start())
-            return false;
+            return search->StopSearch ? FindQueueResult::Stopped : FindQueueResult::Failed;
         requests[count++] = std::move(request);
-        return true;
+        return FindQueueResult::Added;
     }
 
     std::array<std::unique_ptr<FindProtectedRequest>, maxFindProtectedScopes> requests;
@@ -2340,9 +2385,18 @@ void SearchDirectory(std::wstring directory, int startPathLen, CMaskGroup* masks
                 if (raw == INVALID_HANDLE_VALUE)
                 {
                     const DWORD error = GetLastError();
-                    if (error != ERROR_FILE_NOT_FOUND && error != ERROR_NO_MORE_FILES &&
-                        (error != ERROR_ACCESS_DENIED ||
-                         !protectedQueue.Add(data, directory, masksGroup, includeSubDirs, startPathLen, ignoreList)))
+                    if (error == ERROR_ACCESS_DENIED)
+                    {
+                        const auto queued = protectedQueue.Add(data, directory, masksGroup, includeSubDirs, startPathLen, ignoreList);
+                        if (queued == FindQueueResult::Added || queued == FindQueueResult::Stopped)
+                            return;
+                        if (queued == FindQueueResult::Limit)
+                        {
+                            ReportFindScopeLimit(data, display.c_str());
+                            return;
+                        }
+                    }
+                    if (!data->StopSearch && error != ERROR_FILE_NOT_FOUND && error != ERROR_NO_MORE_FILES)
                     {
                         const auto message = FormatFindError(IDS_DIRERRORFORMAT, error);
                         AddFindLog(data, FLI_ERROR | FLI_IGNORE, message.c_str(), display.c_str());
@@ -2400,8 +2454,14 @@ void SearchDirectory(std::wstring directory, int startPathLen, CMaskGroup* masks
                             match = TestFileContent(file.nFileSizeLow, file.nFileSizeHigh, fileText.c_str(), data,
                                 (file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0,
                                 canQueueFile ? &openDenied : nullptr, ioPath.c_str());
-                        if (openDenied && !protectedQueue.Add(data, fullPath, masksGroup, FALSE, startPathLen, ignoreList, &file))
-                            AddFindLog(data, FLI_ERROR, GetErrorText(ERROR_ACCESS_DENIED), fileText.c_str());
+                        if (openDenied)
+                        {
+                            const auto queued = protectedQueue.Add(data, fullPath, masksGroup, FALSE, startPathLen, ignoreList, &file);
+                            if (queued == FindQueueResult::Limit)
+                                ReportFindScopeLimit(data, fileText.c_str());
+                            else if (queued == FindQueueResult::Failed && !data->StopSearch)
+                                AddFindLog(data, FLI_ERROR, GetErrorText(ERROR_ACCESS_DENIED), fileText.c_str());
+                        }
                     }
                     if (match)
                         AddFoundItem(nullptr, nullptr, file.nFileSizeLow, file.nFileSizeHigh, file.dwFileAttributes,
@@ -2509,9 +2569,15 @@ void RefineData(CMaskGroup* masksGroup, CGrepData* data)
 
         if (openDenied)
         {
-            if (protectedQueue.AddRefined(data, fullPath, masksGroup, *refineData))
+            const auto queued = protectedQueue.AddRefined(data, fullPath, masksGroup, *refineData);
+            if (queued == FindQueueResult::Added || queued == FindQueueResult::Stopped)
                 continue;
-            if (!data->StopSearch)
+            if (queued == FindQueueResult::Limit)
+            {
+                const auto display = SalWideToMultiBytePath(fullPath.c_str(), CP_UTF8);
+                ReportFindScopeLimit(data, display.c_str());
+            }
+            else if (!data->StopSearch)
             {
                 const auto display = SalWideToMultiBytePath(fullPath.c_str(), CP_UTF8);
                 FIND_LOG_ITEM log{FLI_ERROR, GetErrorText(ERROR_ACCESS_DENIED), display.c_str()};
@@ -2620,7 +2686,10 @@ unsigned GrepThreadFBody(void* ptr)
 
                 if (findInPanelRoot)
                 {
-                    if (!protectedQueue.AddPanelRoot(data, mg, includeSubDirs, len, ignoreList) && !data->StopSearch)
+                    const auto queued = protectedQueue.AddPanelRoot(data, mg, includeSubDirs, len, ignoreList);
+                    if (queued == FindQueueResult::Limit)
+                        ReportFindScopeLimit(data, directory.c_str());
+                    else if (queued == FindQueueResult::Failed && !data->StopSearch)
                     {
                         const auto errorText = FormatFindError(IDS_DIRERRORFORMAT, ERROR_NOT_READY);
                         AddFindLog(data, FLI_ERROR, errorText.c_str(), directory.c_str());

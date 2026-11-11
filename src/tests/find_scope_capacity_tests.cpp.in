@@ -1,0 +1,269 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise the real protected Find queue and limit report. | Preserve Stop and deduplication at capacity. | #731 | GPT-6.1 Terra |
+#include <windows.h>
+#include <array>
+#include <atomic>
+#include <cstdio>
+#include <memory>
+#include <string>
+#include <vector>
+#include "@@LOCALIZED_HEADER@@"
+
+@@ACTIVITY@@
+@@FINAL_ACTIVITY@@
+enum class FindQueueResult { Added, Stopped, Limit, Failed };
+constexpr size_t maxFindProtectedScopes = 32;
+constexpr DWORD FLI_ERROR = 1;
+constexpr int IDS_UAC_FIND_SCOPE_LIMIT = 1;
+constexpr int IDS_UAC_FIND_SCOPE_LIMIT_CARRIED = 2;
+constexpr int IDS_FIND_ACTIVITY_INCOMPLETE = 3, IDS_FIND_NO_DUPS_FOUND = 4, IDS_FIND_NO_FILES_FOUND = 5;
+constexpr int SB_SETTEXT = 1, SBT_NOBORDERS = 2;
+constexpr WORD CM_FIND_APPEND = 100, CM_FIND_INTERSECT = 101, CM_FIND_SUBTRACT = 102;
+struct CMaskGroup {};
+struct CFindIgnore {};
+struct CDuplicateCandidates {};
+struct Root { std::wstring path; };
+struct CGrepData {
+    std::atomic_bool StopSearch{false};
+    bool SearchIncomplete = false;
+    bool FindDuplicates = false;
+    bool failLog = false;
+    int Refine = 0;
+    std::shared_ptr<Root> ProtectedRoot;
+    std::vector<std::string> logs;
+};
+const char* LoadStr(int id) {
+    if (id == IDS_FIND_ACTIVITY_INCOMPLETE) return "Incomplete (admin limit)";
+    if (id == IDS_FIND_NO_DUPS_FOUND) return "No duplicates";
+    if (id == IDS_FIND_NO_FILES_FOUND) return "No files";
+    return id == IDS_UAC_FIND_SCOPE_LIMIT_CARRIED ? "Earlier limit %s; items were not searched." :
+                                                   "Limit %s; this search is incomplete.";
+}
+const char* GetErrorText(DWORD) { return "error"; }
+void AddFindLog(CGrepData* data, DWORD, const char* text, const char* path) {
+    if (!data->failLog) data->logs.emplace_back(std::string(text) + "|" + path);
+}
+@@LIMIT_TEST@@
+@@LIMIT_TEXT@@
+@@REPORT@@
+@@RETAIN_INCOMPLETE@@
+struct FakeLog {
+    std::vector<std::string> rows, paths;
+    void Clean() { rows.clear(); paths.clear(); }
+    void Add(DWORD, const char* text, const char* path) { rows.emplace_back(text); paths.emplace_back(path ? path : ""); }
+    int GetErrorCount() const { return static_cast<int>(rows.size()); }
+    int GetInfoCount() const { return 0; }
+};
+struct FakeHeader { void SetErrorsInfosCount(int, int) {} };
+struct FakeList { DWORD count = 0; DWORD GetCount() const { return count; } };
+static std::string statusText;
+#undef SendMessage
+#define SendMessage(hwnd, msg, wparam, lparam) (statusText = reinterpret_cast<const char*>(lparam), 0)
+struct FakeDialog {
+    CGrepData GrepData;
+    FakeLog Log;
+    FakeHeader header;
+    FakeList list;
+    FakeList* FoundFilesListView = &list;
+    HWND HStatusBar = nullptr;
+    BOOL UpdateStatusBar = FALSE;
+    void SetResultStatus() {
+@@FINISH_ITEMS@@
+    }
+    FakeHeader* TBHeader = &header;
+    bool StartState(WORD command, bool timerStarted, bool threadStarted) {
+@@START_STATE@@
+        if (!timerStarted) return false;
+@@BEFORE_THREAD@@
+        if (!threadStarted) {
+@@THREAD_FAILURE@@
+            return false;
+        }
+        return true;
+    }
+};
+namespace UacF7 { struct ListingSession {}; }
+using FindProtectedSessions = std::array<UacF7::ListingSession*, maxFindProtectedScopes>;
+struct FixtureSize { DWORD LoDWord = 0, HiDWord = 0; };
+struct CFoundFilesData { DWORD Attr = 0; FixtureSize Size; FILETIME LastWrite{}; };
+static bool failPrepare, stopAfterPrepare, failStart;
+static int starts, preparations;
+struct FindProtectedRequest {
+    std::wstring path;
+    CMaskGroup* masks = nullptr;
+    bool singleFile = false;
+    DWORD attributes = 0;
+    bool Prepare(CGrepData* data, std::wstring name, CMaskGroup* mask, BOOL, int,
+                 const std::shared_ptr<CFindIgnore>&, unsigned, const WIN32_FIND_DATAW* file) {
+        ++preparations; path = std::move(name); masks = mask; singleFile = file != nullptr;
+        attributes = file ? file->dwFileAttributes : 0;
+        if (stopAfterPrepare) data->StopSearch = true;
+        return !failPrepare;
+    }
+    bool Matches(const std::wstring& name, const CMaskGroup* mask, bool file) const {
+        return path == name && masks == mask && singleFile == file;
+    }
+    bool MergeRefinedRow(const WIN32_FIND_DATAW& file) const { return attributes == file.dwFileAttributes; }
+    bool Start() { ++starts; return !failStart; }
+    UacF7::ListingSession* Finish(CDuplicateCandidates*) { return nullptr; }
+};
+std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* path) { return path; }
+@@QUEUE@@
+static int digestAuthorizations;
+static DWORD digestAuthorizationResult;
+DWORD AuthorizeFindFile(CGrepData*, const std::wstring&, UacF7::ListingSession&) {
+    ++digestAuthorizations; return digestAuthorizationResult;
+}
+static DWORD DigestDenied(CGrepData* data, CFoundFilesData* file, size_t& remainingFileConsents)
+{
+    DWORD error = ERROR_ACCESS_DENIED;
+    bool scopeLimit = false, scoped = false;
+    const std::wstring fullPath = L"C:\\file";
+    UacF7::ListingSession singleFile;
+    UacF7::ListingSession* protectedSession = nullptr;
+@@DIGEST_DENIED@@
+    if (scopeLimit) ReportFindScopeLimit(data, "C:\\file");
+    if (scoped && !protectedSession) return ERROR_INVALID_DATA;
+    return error;
+}
+struct FIND_LOG_ITEM { DWORD Flags; const char* Text; const char* Path; };
+std::string SalWideToMultiBytePath(const wchar_t* path, UINT) {
+    std::string result; while (*path) result.push_back(static_cast<char>(*path++)); return result;
+}
+@@REFINE_HELPER@@
+static int RefineDenied(CGrepData* data, FindProtectedQueue& protectedQueue, CFoundFilesData* refineData,
+                        CMaskGroup* masksGroup, const std::wstring& fullPath)
+{
+    int published = 0;
+    const bool openDenied = true, ok = false;
+    for (int i = 0; i < 1; ++i)
+    {
+@@REFINE_DENIED@@
+        if (!data->StopSearch && IncludeRefinedFindResult(data->Refine, ok))
+            ++published;
+    }
+    return published;
+}
+
+static int checks, failures;
+void Check(bool value, const char* text) {
+    ++checks; if (!value) { ++failures; std::printf("FAIL: %s\n", text); }
+}
+int main() {
+    CGrepData data;
+    CMaskGroup mask;
+    FindProtectedQueue queue;
+    for (int i = 0; i < 32; ++i)
+        Check(queue.Add(&data, L"C:\\scope\\" + std::to_wstring(i), &mask, TRUE, 0, {}) == FindQueueResult::Added,
+              "the first 32 distinct protected scopes fit");
+    Check(starts == 1 && queue.Remaining() == 0, "only the first prompt starts while ordinary traversal continues");
+    Check(queue.Add(&data, L"C:\\scope\\0", &mask, TRUE, 0, {}) == FindQueueResult::Added,
+          "deduplication still succeeds when the queue is full");
+    Check(queue.Add(&data, L"C:\\scope\\32", &mask, TRUE, 0, {}) == FindQueueResult::Limit,
+          "the next distinct scope reports capacity rather than access denied");
+    ReportFindScopeLimit(&data, "C:\\scope\\32");
+    Check(data.SearchIncomplete && data.logs.size() == 1 && data.logs[0].find("32") != std::string::npos,
+          "capacity marks incomplete and reports the actual limit");
+    data.StopSearch = true;
+    Check(queue.Add(&data, L"C:\\scope\\33", &mask, TRUE, 0, {}) == FindQueueResult::Stopped,
+          "Stop takes precedence over a full queue");
+    ReportFindScopeLimit(&data, "C:\\scope\\33");
+    Check(data.logs.size() == 1, "a stopped search emits no later limit log");
+    Check(FindFinalActivity(true, true) == CFindActivity::Stopped &&
+          FindFinalActivity(false, true) == CFindActivity::Incomplete &&
+          FindFinalActivity(false, false) == CFindActivity::Finished,
+          "explicit Stop wins over incomplete and a later normal search completes");
+    Check(RetainFindIncomplete(CM_FIND_APPEND, true) && RetainFindIncomplete(CM_FIND_INTERSECT, true) &&
+          RetainFindIncomplete(CM_FIND_SUBTRACT, true) && !RetainFindIncomplete(IDOK, true) &&
+          !RetainFindIncomplete(CM_FIND_APPEND, false),
+          "append and both refine modes retain incompleteness only when prior results need it");
+    { CGrepData noLog; noLog.failLog = true;
+      ReportFindScopeLimit(&noLog, "C:\\scope\\33");
+      Check(noLog.SearchIncomplete && noLog.logs.empty() &&
+            FindFinalActivity(false, noLog.SearchIncomplete) == CFindActivity::Incomplete,
+            "a full or unavailable log still leaves the precise incomplete status visible"); }
+    { FakeDialog dialog; dialog.GrepData.SearchIncomplete = true; dialog.SetResultStatus();
+      Check(statusText == "Incomplete (admin limit)", "zero unverified results do not claim no files found");
+      dialog.GrepData.SearchIncomplete = false; dialog.SetResultStatus();
+      Check(statusText == "No files", "a complete empty search keeps the normal no files status");
+      dialog.GrepData.FindDuplicates = true; dialog.SetResultStatus();
+      Check(statusText == "No duplicates", "a complete empty duplicate search keeps its own status");
+      dialog.list.count = 1; dialog.SetResultStatus();
+      Check(dialog.UpdateStatusBar == TRUE, "nonempty results retain the usual count status"); }
+    char carriedText[1024]; FindProtectedScopeLimitText(true, carriedText, sizeof(carriedText));
+    Check(std::string(carriedText).find("Earlier limit 32") != std::string::npos,
+          "carried limit reason identifies an earlier search without attributing a current path");
+    for (const WORD command : {CM_FIND_APPEND, CM_FIND_INTERSECT, CM_FIND_SUBTRACT}) {
+        FakeDialog dialog; dialog.GrepData.SearchIncomplete = true;
+        Check(dialog.StartState(command, true, true) && dialog.GrepData.SearchIncomplete &&
+              dialog.Log.rows.size() == 1 && dialog.Log.rows[0].find("Earlier limit 32") != std::string::npos &&
+              dialog.Log.paths[0].empty(), "actual startup carries the prior reason without a misleading current path");
+    }
+    {
+        FakeDialog dialog; dialog.GrepData.SearchIncomplete = true;
+        Check(dialog.StartState(IDOK, true, true) && !dialog.GrepData.SearchIncomplete && dialog.Log.rows.empty(),
+              "a successfully started replacing search clears the prior limit reason");
+    }
+    for (const bool timerStarted : {false, true}) {
+        FakeDialog dialog; dialog.GrepData.SearchIncomplete = true;
+        Check(!dialog.StartState(IDOK, timerStarted, false) && dialog.GrepData.SearchIncomplete &&
+              dialog.Log.rows.size() == 1 && dialog.Log.rows[0].find("Earlier limit 32") != std::string::npos &&
+              dialog.Log.paths[0].empty(), "a timer or worker startup failure preserves prior incomplete reason");
+    }
+    Check(FindFileConsentLimit(ERROR_ACCESS_DENIED, 0, 0) &&
+          !FindFileConsentLimit(ERROR_ACCESS_DENIED, 0, 1) &&
+          !FindFileConsentLimit(ERROR_ACCESS_DENIED, FILE_ATTRIBUTE_ENCRYPTED, 0) &&
+          !FindFileConsentLimit(ERROR_ACCESS_DENIED, FILE_ATTRIBUTE_REPARSE_POINT, 0) &&
+          !FindFileConsentLimit(ERROR_BROKEN_PIPE, 0, 0),
+          "duplicate-content limit is used only for otherwise eligible denied files");
+    {
+        CGrepData digest; CFoundFilesData row; size_t remaining = 0;
+        digestAuthorizations = 0; digestAuthorizationResult = ERROR_SUCCESS;
+        Check(DigestDenied(&digest, &row, remaining) == ERROR_ACCESS_DENIED && digest.SearchIncomplete &&
+              digest.logs.size() == 1 && digestAuthorizations == 0,
+              "the actual denied digest branch reports exhausted consent without starting a broker");
+        digest.SearchIncomplete = false; digest.logs.clear(); row.Attr = FILE_ATTRIBUTE_ENCRYPTED;
+        Check(DigestDenied(&digest, &row, remaining) == ERROR_ACCESS_DENIED && !digest.SearchIncomplete &&
+              digest.logs.empty() && digestAuthorizations == 0,
+              "an unsupported encrypted digest is not misreported as the scope limit");
+        row.Attr = 0; remaining = 1;
+        Check(DigestDenied(&digest, &row, remaining) == ERROR_SUCCESS && remaining == 0 &&
+              digestAuthorizations == 1 && !digest.SearchIncomplete,
+              "an available file consent is consumed and authorized normally");
+    }
+    {
+        CGrepData refine; refine.Refine = 1; FindProtectedQueue items; CFoundFilesData row;
+        for (int i = 0; i < 32; ++i)
+            Check(items.AddRefined(&refine, L"C:\\file" + std::to_wstring(i), &mask, row) == FindQueueResult::Added,
+                  "refined protected candidates are admitted until capacity");
+        Check(items.AddRefined(&refine, L"C:\\file0", &mask, row) == FindQueueResult::Added,
+              "the same refined row merges at capacity");
+        row.Attr = FILE_ATTRIBUTE_HIDDEN;
+        Check(items.AddRefined(&refine, L"C:\\file0", &mask, row) == FindQueueResult::Limit,
+              "a changed refined row cannot merge into the old consent at capacity");
+        row.Attr = 0;
+        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 0 && refine.SearchIncomplete &&
+              refine.logs.size() == 1, "limited intersection omits an unverified row and reports incomplete");
+        refine.SearchIncomplete = false; refine.logs.clear(); refine.Refine = 2;
+        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 1 && refine.SearchIncomplete &&
+              refine.logs.size() == 1, "limited subtraction retains the original row and reports incomplete");
+        refine.SearchIncomplete = false; refine.logs.clear(); refine.StopSearch = true;
+        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 0 && !refine.SearchIncomplete &&
+              refine.logs.empty(), "Stop prevents a new refine result or false capacity report");
+    }
+    {
+        CGrepData request; FindProtectedQueue pending; failPrepare = true;
+        Check(pending.Add(&request, L"C:\\denied", &mask, TRUE, 0, {}) == FindQueueResult::Failed,
+              "unavailable preparation is not misreported as capacity");
+        failPrepare = false; stopAfterPrepare = true;
+        Check(pending.Add(&request, L"C:\\stopped", &mask, TRUE, 0, {}) == FindQueueResult::Stopped,
+              "Stop during preparation prevents starting consent");
+        stopAfterPrepare = false; request.StopSearch = false; failStart = true;
+        Check(pending.Add(&request, L"C:\\failed-start", &mask, TRUE, 0, {}) == FindQueueResult::Failed,
+              "a consent launch failure remains a distinct ordinary failure");
+    }
+    std::printf("Actual protected Find queue: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}

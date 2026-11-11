@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Check typed Find scope capacity outcomes. | Keep stopped and failed requests distinguishable. | #731 | GPT-6.1 Terra |
 # | 2026-11-10 | Cover exact wide paths and iterative ordinary Find. | Verify wide directory reads, broker routing and UI actions. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Keep Find consent after the synchronous editor dispatch. | Detect modal consent on the wrong UI thread. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Cover protected editor dispatch and the original modal owner. | Guard exact wide paths, application policy and stale Branch View rows. | #731 | GPT-6.1 Sol |
@@ -213,7 +214,7 @@ def main() -> int:
     require(grep.index("protectedQueue.Finish(duplicateCandidates);") <
             grep.index("duplicateCandidates->Examine(data, protectedSessions, protectedQueue.Remaining());"),
             "protected candidates must join ordinary candidates before grouping and hashing")
-    queue_add = function_body(find_cpp, "bool AddPath(CGrepData* search, std::wstring path")
+    queue_add = function_body(find_cpp, "FindQueueResult AddPath(CGrepData* search, std::wstring path")
     require("count == 0 && !request->Start()" in queue_add and "count == requests.size()" in queue_add,
             "only the first consent may begin during traversal and the queue must be bounded")
     request_finish = function_body(find_cpp, "UacF7::ListingSession* Finish(CDuplicateCandidates* candidates)")
@@ -273,12 +274,12 @@ def main() -> int:
     require("file->Size" not in before_digest and "if (file->Group)" in digest,
             "empty candidates must be verified without dereferencing a nonexistent digest")
     traversal = function_body(find_cpp, "void SearchDirectory(")
-    require("openDenied && !protectedQueue.Add(data, fullPath" in traversal and
+    require("if (openDenied)" in traversal and "protectedQueue.Add(data, fullPath" in traversal and
             "ignoreList, &file)" in traversal,
             "a denied ordinary text or tag read must queue the exact wide file")
     require("FindFirstFileW(pattern.c_str(), &file)" in traversal and
             "FindNextFileW(find.get(), &file)" in traversal and
-            "!protectedQueue.Add(data, directory" in traversal and
+            "protectedQueue.Add(data, directory" in traversal and
             "directory.c_str(), leaf" in traversal and "MAX_PATH" not in traversal.replace("SAL_MAX_PATH", ""),
             "ordinary Find must retain wide directory paths in listing, broker queue and results")
     require("std::reverse(pending.begin() + firstChild, pending.end());" in traversal and

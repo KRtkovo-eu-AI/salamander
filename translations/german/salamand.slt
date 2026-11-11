@@ -4377,6 +4377,11 @@ SLGINCOMPLETE,""
 
 14699,1,"Zugriff verweigert. Diese Datei als Administrator unter Beibehaltung der Zielberechtigungen ersetzen? Die Ersatzdatei enthält keine alternativen Datenströme."
 
+14700,1,"Das Limit für Administratorzugriff ist erreicht (%s geschützte Elemente). Dieses Element wurde nicht durchsucht; die Ergebnisse sind möglicherweise unvollständig."
+14701,1,"Unvollständig (Admin-Limit)"
+
+14702,1,"Eine frühere Suche in diesen Ergebnissen hat das Limit für Administratorzugriff erreicht (%s geschützte Elemente). Einige Elemente wurden nicht durchsucht."
+
 [STRINGTABLE 198]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
 

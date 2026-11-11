@@ -4376,6 +4376,11 @@ SLGINCOMPLETE,""
 
 14699,1,"Accesso negato. Sostituire questo file come amministratore mantenendo le autorizzazioni di destinazione? Il file sostitutivo non conterrà flussi di dati alternativi."
 
+14700,1,"Limite di accesso amministratore raggiunto (%s elementi protetti). Questo elemento non è stato esaminato; i risultati potrebbero essere incompleti."
+14701,1,"Incompleto (limite admin)"
+
+14702,1,"Una ricerca precedente in questi risultati ha raggiunto il limite di accesso amministratore (%s elementi protetti). Alcuni elementi non sono stati esaminati."
+
 [STRINGTABLE 198]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."
 

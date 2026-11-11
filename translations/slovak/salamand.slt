@@ -4376,6 +4376,11 @@ SLGINCOMPLETE,""
 
 14699,1,"Prístup bol odmietnutý. Nahradiť tento súbor ako správca so zachovaním oprávnení cieľa? Náhradný súbor nebude obsahovať alternatívne dátové prúdy."
 
+14700,1,"Bol dosiahnutý limit správcovského prístupu (%s chránených položiek). Táto položka nebola prehľadaná; výsledky môžu byť neúplné."
+14701,1,"Neúplné (limit správcu)"
+
+14702,1,"Predchádzajúce vyhľadávanie v týchto výsledkoch dosiahlo limit prístupu správcu (%s chránených položiek). Niektoré položky neboli prehľadané."
+
 [STRINGTABLE 198]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."
 

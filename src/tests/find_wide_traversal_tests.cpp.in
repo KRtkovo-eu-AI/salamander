@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Model protected Find queue outcomes during wide traversal. | Keep capacity and Stop distinct from denied access. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Exercise wide DFS and exact denied paths. | Preserve ordinary siblings and bound a denied retry to its original path. | #731 | GPT-6.1 Sol |
 #include <windows.h>
 #include <algorithm>
@@ -44,10 +45,13 @@ struct CGrepData
     TestCriteria Criteria;
     TestSearchingText* SearchingText;
     bool StopSearch = false;
+    bool SearchIncomplete = false;
     bool Grep = false;
     bool StopOnFirst = false;
     std::vector<std::wstring> found;
     std::vector<std::string> log;
+    std::vector<DWORD> logFlags;
+    std::vector<std::string> logTexts;
 };
 
 void SalPathAppendW(std::wstring& path, const wchar_t* leaf)
@@ -68,9 +72,11 @@ std::string SalWideToMultiBytePath(const wchar_t* path, UINT encoding)
     output.pop_back();
     return output;
 }
-void AddFindLog(CGrepData* data, DWORD, const char*, const char* path)
+void AddFindLog(CGrepData* data, DWORD flags, const char* text, const char* path)
 {
     data->log.emplace_back(path);
+    data->logFlags.push_back(flags);
+    data->logTexts.emplace_back(text);
 }
 void AddFoundItem(const char*, const char*, DWORD, DWORD, DWORD, const FILETIME*, bool, CGrepData* data,
                   CDuplicateCandidates*, const wchar_t* directory, const wchar_t* leaf)
@@ -93,14 +99,21 @@ BOOL TestFileContent(DWORD, DWORD, const char*, CGrepData*, bool, bool* denied, 
     CloseHandle(file);
     return TRUE;
 }
+enum class FindQueueResult { Added, Stopped, Limit, Failed };
+void ReportFindScopeLimit(CGrepData* data, const char* path) {
+    if (!data->StopSearch) { data->SearchIncomplete = true; AddFindLog(data, FLI_ERROR, "limit 32", path); }
+}
 struct FindProtectedQueue
 {
     std::vector<std::wstring> files, directories;
-    bool Add(CGrepData*, const std::wstring& path, CMaskGroup*, BOOL, int,
+    bool capacity = false, stopOnAdd = false;
+    FindQueueResult Add(CGrepData* data, const std::wstring& path, CMaskGroup*, BOOL, int,
              const std::shared_ptr<CFindIgnore>&, const WIN32_FIND_DATAW* file = nullptr)
     {
         (file ? files : directories).push_back(path);
-        return path.find(L"\\unavailable-directory") == std::wstring::npos;
+        if (stopOnAdd) data->StopSearch = true;
+        if (capacity) return FindQueueResult::Limit;
+        return path.find(L"\\unavailable-directory") == std::wstring::npos ? FindQueueResult::Added : FindQueueResult::Failed;
     }
 };
 HANDLE EnumerateFixture(const wchar_t* path, WIN32_FIND_DATAW* file)
@@ -152,7 +165,26 @@ int wmain(int argc, wchar_t** argv)
         return 1;
     std::puts("PASS nonrecursive search never enters children");
 
+    data.found.clear(); data.log.clear(); data.logFlags.clear(); data.logTexts.clear();
+    queue = {}; queue.capacity = true;
+    execute(TRUE);
+    std::sort(data.found.begin(), data.found.end());
+    if (!data.SearchIncomplete || data.found != expected || data.log.size() != 3 ||
+        std::any_of(data.logFlags.begin(), data.logFlags.end(), [](DWORD value) { return value != FLI_ERROR; }) ||
+        std::any_of(data.logTexts.begin(), data.logTexts.end(), [](const std::string& value) { return value != "limit 32"; }))
+        return 1;
+    std::puts("PASS scope capacity reports incomplete, not denied, and preserves ordinary results");
+
+    data.found.clear(); data.log.clear(); data.logFlags.clear(); data.logTexts.clear(); data.SearchIncomplete = false;
+    queue = {}; queue.capacity = true; queue.stopOnAdd = true;
+    execute(TRUE);
+    if (!data.StopSearch || data.SearchIncomplete || !data.log.empty())
+        return 1;
+    std::puts("PASS Stop racing a full queue does not create a false limit report");
+
     data.found.clear();
+    data.StopSearch = false;
+    queue = {};
     data.StopOnFirst = true;
     execute(TRUE);
     if (data.found.size() != 1 || !queue.files.empty() || !queue.directories.empty())
