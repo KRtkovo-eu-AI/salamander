@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record protected Find provenance build. | Keep compilation evidence distinct from pending identity coverage. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Preserve protected Find provenance on unavailable identities. | Refuse pathname reads and distinguish unverified refinement results. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record verified Find viewer build evidence. | Separate local x64 builds from pending VM and other viewer entry points. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Bind Find F3 to its captured identity. | Reject readable replacements without a pathname fallback. | #731 | GPT-6.1 Terra |
@@ -519,6 +520,8 @@ Společné příčiny určují pořadí oprav.
 Host a anglický jazykový modul `e5d68e40` se sestavily pro x64 Debug i Release; logy jsou v `C:\Samandarin\builds\uac-e5d68e40-host`. Release host má 5 787 648 B, stejně jako `27984595`. Broker se neměnil; měření paměti a společná VM akceptace zůstávají otevřené.
 
 Chráněný výsledek Findu nyní uchovává původ i tehdy, když se jeho viewer identitu nepodaří připravit. F3 bez identity a View With takovou položku zatím odmítnou s vysvětlením; Refine podle obsahu nebo štítků ji nečte podle cesty a označí výsledek za neúplný. Subtract ponechá neověřený řádek, nikoli potvrzenou neshodu. Deduplikace nesloučí běžný a chráněný původ ani různé zachycené identity jen kvůli stejné cestě. Místní test skutečných vybraných větví s dvojníky prošel 22 kontrolami v Debug i Release. Exact-file F3, chráněný View With a obsahové Refine tím nejsou plně podporované; ostatní pathname akce Findu ani záměna před zachycením identity nejsou tímto řezem vyřešené. VM akceptace čeká.
+
+Host a anglický jazykový modul `b1e18b79` se sestavily pro x64 Debug i Release; logy jsou v `C:\Samandarin\builds\uac-b1e18b79-host`. Release host má 5 788 672 B, o 1 024 B více než `e5d68e40`. Broker se neměnil; měření paměti a společná VM zkouška zůstávají otevřené.
 
 **D3 — adresáře v Koši.** Přijetí výsledného potvrzení se stejným ID a SID Koše samo neprokazuje, že Shell při selhání či stornu neprovedl částečné nebo trvalé smazání obsahu. Před rozšířením existující souborové cesty na adresáře je nutné doložit chování neprázdného podstromu, odmítnutí trvalého fallbacku a ochranu před souběžnou změnou; post-factum hlášení chyby nenahrazuje prevenci ztráty dat. Jde o otevřenou návrhovou a testovací hranici, nikoli implementovanou podporu.
 
