@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Check the current protected-delete access probes. | Cover read-only deletion and denied directory enumeration. | #731 | GPT-6.1 Terra |
 # | 2026-11-10 | Check prepared deletes across protected disk and Branch View selections. | Keep exact identities and preparation errors ahead of local fallback. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Verify the exact Branch View delete row across dispatch. | Guard relative labels, prepared identities and failed-row handling. | #731 | GPT-6.1 Sol |
 # | 2026-11-08 | Check the shared Shell recycle flags. | Keep recycling and permanent deletion separate. | | GPT-6.1 Sol (Codex) |
@@ -83,7 +84,9 @@ class BranchOperationsContracts(unittest.TestCase):
         self.assertIn('fileWideName = SalPathFindFileNameW(branchPath.c_str())', builder)
         self.assertIn('PrepareListedDeleteSource(*script, *ProtectedListing, deleteItemPath, oneFile->Attr)', builder)
         self.assertIn('(branchPath.empty() ? GetItemFullPathW(*oneFile) : branchPath).c_str()', builder)
-        self.assertIn('ProbeLocalElevationAccess(path, DELETE, directory) != ERROR_ACCESS_DENIED', builder)
+        self.assertIn('DELETE | ((attributes & FILE_ATTRIBUTE_READONLY) ? FILE_WRITE_ATTRIBUTES : 0)', builder)
+        self.assertIn('ProbeLocalElevationAccess(path, deleteAccess, directory) != ERROR_ACCESS_DENIED', builder)
+        self.assertIn('ProbeLocalElevationAccess(path, FILE_LIST_DIRECTORY, true) != ERROR_ACCESS_DENIED', builder)
         self.assertIn('listing.PrepareDeleteLeaf(path, attributes, *request) : ERROR_BROKEN_PIPE', builder)
         self.assertIn('ProtectedFileSources->emplace(path, COperations::ProtectedFileSource', builder)
         self.assertIn('(listed ? listed->Request != nullptr : candidate.PrepareDeleteLeaf(deletePath, sourceDirAttr))', builder)

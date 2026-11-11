@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Cover case-only F2 and inline rename fallback. | Verify the controller delegates alias validation to the no-replace broker. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Cover directory Quick Rename elevation and cancellation. | Verify inline rename uses the same guarded path as F2. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Model the Branch View rename identity and generation. | Compile the production rename guard in the native fixture. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Verify F2 consent for an ordinary directory. | Cover direct elevation, cancellation, and Quick Rename boundaries. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Verify shielded F2 retry and its fallback boundaries. | Retain native consent and link-specific confirmation. | #731 | GPT-6 (Codex) |
@@ -190,6 +192,22 @@ static void CheckProtectedRenameController(HWND owner,const std::wstring& parent
  Check(ScopedPreparations==0&&TargetQueries==1&&ConsentCalls==0&&ExecutedRenames==1&&!retry&&file.Wide==target,
        "shielded F2 also uses direct Windows consent when the normal retry can verify the source");
 
+ reset();listing.Open=false;PrepareOrdinary=true;ConsentAnswer=IDOK;
+ const std::wstring caseTarget=L"SOURCE-\u6771.TXT";
+ panel.RenameFileInternalW(&file,caseTarget,FALSE,&change,&retry);
+ Check(TargetQueries==0&&ConsentCalls==1&&ExecutedRenames==1&&!retry&&file.Wide==caseTarget,
+       "case-only rename reaches the verified no-replace request without a misleading existing-target probe");
+
+ reset();listing.Open=false;PrepareOrdinary=true;ConsentAnswer=IDOK;ExecutionError=ERROR_FILE_INVALID;int caseFallback=OverwriteFallbacks;
+ panel.RenameFileInternalW(&file,caseTarget,FALSE,&change,&retry);
+ Check(TargetQueries==0&&ExecutedRenames==1&&retry&&file.Wide==source&&ReportedError==ERROR_FILE_INVALID&&OverwriteFallbacks==caseFallback,
+       "a substituted case-only alias is rejected without entering the legacy overwrite path");
+
+ reset();ConsentAnswer=IDOK;file.Attr=FILE_ATTRIBUTE_DIRECTORY;
+ panel.RenameFileInternalW(&file,caseTarget,TRUE,&change,&retry,Consent::Shielded);
+ Check(ScopedPreparations==1&&PreparedDirectory&&ConsentCalls==0&&ExecutedRenames==1&&!retry&&file.Wide==caseTarget,
+       "shielded directory case-only rename reuses the selected listing identity");
+
  reset();file.Attr=FILE_ATTRIBUTE_REPARSE_POINT;ForcedAttributesError=ERROR_FILE_NOT_FOUND;PrepareLink=true;
  panel.RenameFileInternalW(&file,target,FALSE,&change,&retry,Consent::Shielded);
  Check(ScopedPreparations==0&&ConsentCalls==1&&ExecutedRenames==0&&!retry&&file.Wide==source,
@@ -227,7 +245,23 @@ static void CheckProtectedRenameController(HWND owner,const std::wstring& parent
 
  reset();file.Attr=FILE_ATTRIBUTE_DIRECTORY;
  panel.RenameFileInternalW(&file,target,TRUE,&change,&retry);
- Check(ScopedPreparations==0&&ConsentCalls==0,"Quick Rename leaves ordinary directory elevation to the modal F2 dialog");
+ Check(PreparedDirectory&&ScopedPreparations==1&&ConsentCalls==1&&ExecutedRenames==0&&!retry&&file.Wide==source,
+       "Quick Rename offers explicit consent for the exact directory and preserves it when declined");
+
+ reset();file.Attr=FILE_ATTRIBUTE_DIRECTORY;ConsentAnswer=IDOK;
+ panel.RenameFileInternalW(&file,target,TRUE,&change,&retry);
+ Check(PreparedDirectory&&ScopedPreparations==1&&ConsentCalls==1&&ExecutedRenames==1&&!retry&&file.Wide==target,
+       "approved Quick Rename uses the verified directory and updates the selected row");
+
+ reset();file.Attr=FILE_ATTRIBUTE_DIRECTORY;ConsentAnswer=IDOK;ExecutionError=ERROR_CANCELLED;
+ panel.RenameFileInternalW(&file,target,TRUE,&change,&retry);
+ Check(PreparedDirectory&&ScopedPreparations==1&&ConsentCalls==1&&ExecutedRenames==1&&!retry&&file.Wide==source,
+       "cancelled Windows consent preserves the Quick Rename directory");
+
+ reset();file.Attr=FILE_ATTRIBUTE_DIRECTORY;listing.Open=false;PrepareOrdinary=true;ForcedAttributesError=ERROR_FILE_NOT_FOUND;
+ panel.RenameFileInternalW(&file,target,TRUE,&change,&retry);
+ Check(PreparedDirectory&&ScopedPreparations==0&&TargetQueries==1&&ConsentCalls==1&&ExecutedRenames==0&&!retry,
+       "Quick Rename outside a listing still requires an explicit Administrator choice");
 
  reset();file.Attr=FILE_ATTRIBUTE_DIRECTORY;listing.Open=false;PrepareOrdinary=true;ForcedAttributesError=ERROR_FILE_NOT_FOUND;
  panel.RenameFileInternalW(&file,target,TRUE,&change,&retry,Consent::Shielded);

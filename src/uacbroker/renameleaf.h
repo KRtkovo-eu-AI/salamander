@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Verify case-only renames against the same anchored object. | Preserve identity and no-replace semantics for native rename operations. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Move a verified read-only file without changing its attributes. | Extend same-volume F6 while retaining exact identity and no-replace publication. | | GPT-6.1 Sol |
 | 2026-11-11 | Accept hidden and system attributes for an ordinary same-volume move. | Match native F6 eligibility without widening rename or reparse operations. | | GPT-6.1 Sol |
 | 2026-11-10 | Allow a verified plain directory to move between same-volume parents. | Keep directory rename and link-only operations on their existing scope. | #731 | GPT-6.1 Sol |
@@ -38,6 +39,11 @@ inline bool IsDirectory(MoveKind kind)
 {
     return kind == MoveKind::OrdinaryDirectory || kind == MoveKind::RenameDirectory || kind == MoveKind::RenameDirectorySymlink ||
            kind == MoveKind::RenameJunction;
+}
+
+inline bool ValidRenameNames(std::wstring_view from, std::wstring_view to)
+{
+    return UacDirectoryLeaf::IsComponent(from) && UacDirectoryLeaf::IsComponent(to) && from != to;
 }
 
 namespace Detail
@@ -286,7 +292,9 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
         return ERROR_NOT_SAME_DEVICE;
     const bool sameParent = SameParent(expectedParent, expectedTarget);
     const bool renameOnly = kind != MoveKind::OrdinaryFile && kind != MoveKind::OrdinaryDirectory;
-    if ((sameParent && Equal(from, to)) || (renameOnly && !sameParent))
+    const bool caseOnly = sameParent && from != to && Equal(from, to);
+    if ((sameParent && from == to) || (sameParent && Equal(from, to) && (!caseOnly || !renameOnly)) ||
+        (renameOnly && !sameParent))
         return ERROR_NOT_SUPPORTED;
 
     ParentIdentity actual;
@@ -316,6 +324,22 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
     error = Detail::ReadSourceIdentity(source, actualSource, kind);
     if (error == ERROR_SUCCESS && !Detail::SameSource(actualSource, expectedSource))
         error = ERROR_FILE_INVALID;
+    if (error == ERROR_SUCCESS && caseOnly)
+    {
+        // A case-insensitive match alone does not establish that both names
+        // designate the approved object, especially in case-sensitive folders.
+        // Keep the source pinned while verifying the exact destination alias.
+        HANDLE alias = nullptr;
+        error = Detail::OpenSource(targetParent, to, alias, 0, FILE_SHARE_READ | FILE_SHARE_DELETE, kind);
+        if (!error)
+        {
+            FILE_ID_INFO aliasIdentity{};
+            error = Detail::ReadSourceIdentity(alias, aliasIdentity, kind);
+            if (!error && !Detail::SameSource(aliasIdentity, actualSource))
+                error = ERROR_FILE_INVALID;
+            CloseHandle(alias);
+        }
+    }
     if (error == ERROR_SUCCESS && kind == MoveKind::OrdinaryFile)
     {
         FILE_ATTRIBUTE_TAG_INFO attributes{};

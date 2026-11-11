@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Capture a complete replacement revision from a verified parent listing. | Support inaccessible targets without relaxing no-follow or revision checks. | #731 | GPT-6.1 Terra |
 | 2026-11-10 | Carry an exact link type in listing identity replies. | Allow the verified delete path to identify a link without following it. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Enumerate copy entries with their NTFS IDs. | Share row decoding and keep the existing listing bounds. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Define verified comparison listing requests. | Reject unrelated actions on a comparison grant. | #731 | GPT-6.1 Sol |
@@ -178,6 +179,46 @@ inline DWORD CaptureChildDirectoryId(HANDLE parent, std::wstring_view child, FIL
 {
     DWORD attributes = 0;
     return CaptureChildId(parent, child, true, id, attributes);
+}
+
+// Capture the complete revision shown by a readable, pinned parent. The broker
+// still opens the child without following links and compares every field before
+// replacing it; a directory entry alone never authorizes a name-only overwrite.
+inline DWORD CaptureChildRevision(HANDLE parent, std::wstring_view child, ULONGLONG serial,
+                                  UacF7::ArchiveRevision& revision)
+{
+    if (!UacDirectoryLeaf::IsComponent(child))
+        return ERROR_INVALID_NAME;
+    bool found = false;
+    DWORD count = 0;
+    UacF7::ArchiveRevision candidate{};
+    const DWORD error = Detail::EnumerateRows(parent, true,
+        [&](const FILE_ID_EXTD_DIR_INFO& row, std::wstring_view name) -> DWORD {
+            if (++count > maxEntries)
+                return ERROR_BUFFER_OVERFLOW;
+            if (!UacDirectoryLeaf::Equal(name, child))
+                return ERROR_SUCCESS;
+            if (found)
+                return ERROR_DUP_NAME;
+            if ((row.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) ||
+                !UacF7::IsNativePlainCopyFile(row.FileAttributes))
+                return ERROR_NOT_SUPPORTED;
+            candidate.serial = serial;
+            std::memcpy(candidate.fileId, row.FileId.Identifier, sizeof(candidate.fileId));
+            candidate.size = row.EndOfFile.QuadPart;
+            candidate.created = row.CreationTime.QuadPart;
+            candidate.modified = row.LastWriteTime.QuadPart;
+            candidate.changed = row.ChangeTime.QuadPart;
+            candidate.attributes = row.FileAttributes;
+            found = true;
+            return ERROR_SUCCESS;
+        });
+    if (error)
+        return error;
+    if (!found)
+        return ERROR_FILE_NOT_FOUND;
+    revision = candidate;
+    return ERROR_SUCCESS;
 }
 
 inline WIN32_FIND_DATAW FindData(const FILE_ID_EXTD_DIR_INFO& row, std::wstring_view name)

@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record verified overwrite identity, panel transitions and rename work. | Separate local evidence from remaining safety limits and VM acceptance. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record native overwrite and read-only move remediation. | Separate the completed local block from remaining combinations and VM acceptance. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Record the static UAC audit and grouped remediation plan. | Track shared causes, remaining access-denied paths and separate local and VM acceptance. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Record the CI compatibility and fixture fixes. | Keep the frozen SDK contract and local verification visible. | #731 | GPT-6.1 Sol |
@@ -518,6 +519,21 @@ Srovnatelné x64 Release před/po: `salamand.exe` **5 768 192 → 5 770 240 B**,
 Logy jsou v `C:/Samandarin/builds/uac-overwrite-readonly-20261111/`, `uac-disk-overwrite-20261111/` a `uac-f6-overwrite-20261111/`; read-only/source-guard regrese v `uac-common-causes-20261111/`.
 
 Společná VM akceptace tohoto bloku: smíšená dávka nových a přepisovaných cílů po jediném souhlasu; F5 a F6 přes RO/Hidden/System + ADS; odmítnutí a změna cíle během souhlasu; Scan Ahead; přesun mezi dvěma svazky s kontrolou obsahu a bezpečnostního deskriptoru před odstraněním zdroje; přerušení před/po publikaci. Kontrolovat nativní dialog, popředí, průběh a paměť hosta i brokeru při stejné běžné a elevované úloze. Nyní se Computer Use ani systémové výzvy nespouštějí.
+
+## Navazující blok — identita přepisu, panel a přejmenování
+
+Stav: **částečně implementováno a ověřeno lokálně; společná VM akceptace čeká**. Základem je `e2922259`; protokol zůstává **28**. Starší auditová tabulka popisuje původní zjištění, následující řádky uvádějí aktuální hranice.
+
+| Oblast | Implementace a místní důkaz | Otevřené hranice |
+| --- | --- | --- |
+| T5 — přepis F5/F6 | Když nelze otevřít atributy cíle, čitelný ověřený rodič poskytne celé ID, velikost, časy a atributy pro původní dialog přepisu. Broker znovu ověří rodiče, typ i úplnou revizi; změnu nebo záměnu odmítne. | Výpis NTFS může obsahovat opožděné časy. Odlišnou skutečnou revizi broker bezpečně odmítne, ale nové potvrzení se skutečnými údaji zatím chybí; T5 proto zůstává otevřená. |
+| R1 — přechod panelu | Jiný chráněný kořen se připraví v samostatné relaci a získá vlastní souhlas. Při odmítnutí nebo selhání přípravy či prvního výpisu zůstane původní chráněný panel, Branch View nebo archiv; cache se předá až při přechodu. | Ruční a automatické obnovení zatím nelze bezpečně rozlišit, takže refresh novou výzvu nenabízí. Při pozdějším selhání `CommonRefresh` po předání panelu platí stávající záchranná cesta. Jiný zápis velikosti písmen schváleného kořene může vyvolat novou výzvu; opětovné použití vyžaduje ověření identity i v case-sensitive NTFS. |
+| N2 — F2 a rychlé přejmenování | Inline přejmenování adresáře při odepření nabízí stejný ověřený UAC postup jako F2. U změny velikosti písmen broker zvlášť ověří zdroj a cílový alias, jejich rodiče a totožné ID; operace nepřepisuje jiný objekt. | Hromadný Change Case zůstává otevřený. V case-sensitive adresáři, kde cílový alias ještě neexistuje, ověřený postup tuto variantu zatím odmítne. Interaktivní souhlas nebyl v tomto bloku testován. |
+| D2/D3 — analýza | Nepřístupný rekurzivní strom potřebuje relaci vázanou na vybrané kořeny a jednotlivé ověřené odstranění; samotný souhlas s výpisem neopravňuje k mazání. Dávka Koše vyžaduje evidenci dílčího výsledku Shellu pro každou položku. | Implementace zůstává otevřená. Zachovat Skip/Cancel, neumazané předky a referenty odkazů; nepřenést soubor do Koše jiného účtu. |
+
+Host i broker se sestavily pro x64 v Debug a Release. V obou konfiguracích prošlo **35** kontrol řídicí cesty přechodu panelu, **70** kontrol skutečného controlleru přejmenování, **132** kontrol workeru přepisu, **353** nativních leaf kontrol a **314** transportních kontrol. Prošly také Branch kontrakty (**21**, **30** a **22**) a **28** copy-path kontrol. Testy zahrnují odmítnutí, záměnu revize či objektu, zachování staré cache, Unicode cesty a skutečný case-sensitive adresář. Jde o místní testy; systémovou výzvu, návrat do popředí a složené scénáře ověří až společná VM akceptace. Logy jsou v `C:\Samandarin\builds\uac-next-block-20261111` a `C:\Samandarin\builds\uac-change-case-20261111`.
+
+Stejně sestavené x64 Release binárky před/po: `salamand.exe` 5 770 240 → 5 772 800 B, `uacbroker.exe` 1 397 760 → 1 397 760 B, dohromady 7 168 000 → 7 170 560 B (+2 560 B). Měření soukromé paměti běžné a elevované úlohy zůstává součástí odložené společné VM akceptace.
 
 ## Další postup
 

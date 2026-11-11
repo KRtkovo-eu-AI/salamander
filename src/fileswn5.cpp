@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-11 | Offer verified elevation for case-only rename. | Let the broker verify an existing target alias without treating it as an overwrite. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Offer verified directory elevation from Quick Rename. | Keep inline rename on the same consent and identity path as F2. | #731 | GPT-6.1 Terra |
 // | 2026-11-08 | Keep F3 from reopening a listing-only protected archive. | Use the existing command enabler and guard direct calls. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Enable the metadata pilot for one selected file. | Keep recursive, batch and special-attribute operations on the established worker route. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
@@ -4090,7 +4092,7 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     DWORD err = renamed ? ERROR_SUCCESS : GetLastError();
     bool guardedRename = false;
     const bool link = (f->Attr & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
-    const bool directoryRename = isDir && !link && consent != RenameDialogConsent::None;
+    const bool directoryRename = isDir && !link;
     if (err == ERROR_ACCESS_DENIED && (!isDir || link || directoryRename))
     {
         UacF7::PreparedLeaf request;
@@ -4104,7 +4106,8 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
             err = ProtectedListing->PrepareRename(listedSource, newNameW, request, directoryRename);
             prepared = err == ERROR_SUCCESS;
         }
-        else if (GetFileAttributesW(tgtPath.c_str()) == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND)
+        else if ((oldNameW != newNameW && CompareStringOrdinal(oldNameW.c_str(), -1, newNameW.c_str(), -1, TRUE) == CSTR_EQUAL) ||
+                 (GetFileAttributesW(tgtPath.c_str()) == INVALID_FILE_ATTRIBUTES && GetLastError() == ERROR_FILE_NOT_FOUND))
         {
             if (link)
                 prepared = request.PrepareRenameLink(srcPath, newNameW, isDir != FALSE);

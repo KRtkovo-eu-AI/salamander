@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise listed target confirmation and unrelated open failures. | Preserve native conflict choices when metadata access is denied. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise actual overwrite confirmation and retry ordering with UI seams. | Preserve Hidden/System decisions and exact-revision retries before broker dispatch. | #731 | GPT-6.1 Sol |
 #include <windows.h>
 #include <cstdio>
@@ -22,6 +23,7 @@ static char Title[] = "existing hidden/system confirmation", Text[] = "existing 
 static int Prompts = 0, Waits = 0, Answer = IDYES, ConflictAnswer = IDYES, Executions = 0;
 static BOOL WorkerCancelled = FALSE;
 static bool IdentityValid = true, PreparationAvailable = true;
+static DWORD TargetOpenError = ERROR_SUCCESS;
 static DWORD CurrentRevision = 1, CurrentAttributes = FILE_ATTRIBUTE_HIDDEN;
 static std::vector<std::string> Events;
 struct CProgressDlgData
@@ -89,9 +91,22 @@ static bool PrepareWorkerOverwrite(const COperation&, COperations&, const CProgr
     Events.emplace_back("prepare"); return PreparationAvailable;
 }
 static std::wstring WorkerOperationPathW(const char*, const wchar_t* path) { return path; }
-static HANDLE TestCreateFile(const wchar_t*, DWORD, DWORD, void*, DWORD, DWORD, HANDLE) { return reinterpret_cast<HANDLE>(1); }
+static HANDLE TestCreateFile(const wchar_t* path, DWORD, DWORD, void*, DWORD, DWORD, HANDLE)
+{
+    if (std::wstring(path) == L"target" && TargetOpenError)
+    {
+        SetLastError(TargetOpenError);
+        return INVALID_HANDLE_VALUE;
+    }
+    return reinterpret_cast<HANDLE>(1);
+}
 static BOOL TestClose(HANDLE) { return TRUE; }
 static void GetFileOverwriteInfo(char* text, size_t count, HANDLE, const char*, void*, void*) { strcpy_s(text, count, "metadata"); }
+static void GetOverwriteRevisionInfo(char* text, size_t count, const UacF7::TestRevision& revision)
+{
+    Check(revision.version == CurrentRevision, "display the captured target revision");
+    strcpy_s(text, count, "listed metadata");
+}
 static bool ExecuteWorkerTransfer(HWND, const COperation&, COperations&, CQuadWord&, CProgressDlgData&,
                                   BOOL& success, UacF7::PreparedTransfer&, DWORD&, bool)
 {
@@ -137,6 +152,7 @@ static void Reset()
     Answer = ConflictAnswer = IDYES;
     WorkerCancelled = FALSE;
     IdentityValid = PreparationAvailable = true;
+    TargetOpenError = ERROR_SUCCESS;
     CurrentRevision = 1; CurrentAttributes = FILE_ATTRIBUTE_HIDDEN;
     Events.clear();
     Probes = 0; ExistingAttrs = FILE_ATTRIBUTE_ARCHIVE; WriteStatus = DeleteStatus = WriteAttrsStatus = SourceStatus = ERROR_SUCCESS;
@@ -213,6 +229,16 @@ int main()
     Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error) == Outcome::Finished &&
         Events == std::vector<std::string>{"prepare", "conflict", "hidden", "execute"} && approval.captured,
         "first replacement requires ordinary conflict then Hidden/System approval before elevation");
+    Reset(); approval = {}; TargetOpenError = ERROR_ACCESS_DENIED;
+    Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error) == Outcome::Finished &&
+        Events == std::vector<std::string>{"prepare", "conflict", "hidden", "execute"} && approval.captured,
+        "a denied target attribute open uses its captured listing revision in the native confirmation");
+    Reset(); approval = {}; TargetOpenError = ERROR_SHARING_VIOLATION;
+    Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error) == Outcome::Unavailable &&
+        !approval.captured && !Executions, "unrelated open failures do not use the listing fallback");
+    Reset(); approval = {};
+    Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error) == Outcome::Finished,
+        "capture a successful approval before exact-revision retry");
     Reset();
     Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error) == Outcome::Finished &&
         Events == std::vector<std::string>{"prepare", "execute"}, "exact-revision retry reuses both existing confirmations");

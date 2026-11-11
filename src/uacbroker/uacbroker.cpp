@@ -1,5 +1,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Prepare typed case-only rename requests. | Defer alias identity and no-replace checks to the verified rename primitive. | #731 | GPT-6.1 Terra |
+| 2026-11-11 | Prepare a replacement from a pinned parent listing when target attributes are denied. | Bind overwrite consent to the exact original file and revision. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Prepare native replacement and read-only move requests. | Preserve exact target revision, cancellation and typed job scope. | | GPT-6.1 Sol |
 | 2026-11-11 | Share native file-copy budgets and permanent-delete eligibility with the host. | Preserve object validation while admitting ordinary attributes and streamed large copies. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Retain the opened identity of a protected copy directory. | Allow a reviewed source directory whose listing requires elevation. | #731 | GPT-6.1 Sol |
@@ -3343,7 +3345,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
     const auto finalName = input.substr(split + 1);
     const bool rename = IsRename(requested);
     if (!UacDirectoryLeaf::IsComponent(finalName) ||
-        (rename && (!UacDirectoryLeaf::IsComponent(renameTo) || UacDirectoryLeaf::Equal(finalName, renameTo))))
+        (rename && !UacRenameLeaf::ValidRenameNames(finalName, renameTo)))
         return false;
     const std::wstring drive(input.substr(0, 3));
     wchar_t guid[volumeLength + 2]{};
@@ -3950,9 +3952,28 @@ bool PreparedTransfer::PrepareOverwrite(const std::wstring& sourcePath, const st
 {
     if (expectedSize > maxNativeCopyBytes ||
         !PrepareSource(sourcePath, moving ? Operation::MoveOverwrite : Operation::CopyOverwrite, listedSource) ||
-        !target.PrepareView(targetPath) ||
-        !CaptureOverwriteRevision(target.source, overwriteTarget))
+        !target.PrepareView(targetPath))
         return false;
+    if (target.source)
+    {
+        if (!CaptureOverwriteRevision(target.source, overwriteTarget))
+            return false;
+    }
+    else
+    {
+        // PrepareView has already anchored the visible parent and captured the
+        // inaccessible child's ID. Reopen only that exact parent for listing,
+        // and bind the user-visible revision to the same child ID.
+        const auto root = OpenVolumeRoot(target.volume, target.relative.empty() ? FILE_LIST_DIRECTORY : 0);
+        Handle listing;
+        UacDirectoryLeaf::ParentIdentity identity{};
+        if (!root || OpenRequestParent(root.get(), target.relative, listing, identity, FILE_LIST_DIRECTORY) ||
+            identity.file.VolumeSerialNumber != target.serial ||
+            std::memcmp(identity.file.FileId.Identifier, target.fileId, sizeof(target.fileId)) ||
+            UacListing::CaptureChildRevision(listing.get(), target.leaf, target.serial, overwriteTarget) ||
+            std::memcmp(overwriteTarget.fileId, target.sourceId, sizeof(target.sourceId)))
+            return false;
+    }
     const bool crossMove = moving && !UacDirectoryLeaf::Equal(source.volume, target.volume);
     if (moving && !crossMove && source.serial != target.serial)
         return false;
@@ -4567,7 +4588,7 @@ DWORD ListingSession::PrepareLeaf(const std::wstring& path, Operation operation,
     const std::wstring_view leaf(path.data() + split + 1, path.size() - split - 1);
     const bool rename = IsRename(operation);
     if (!UacDirectoryLeaf::IsComponent(leaf) ||
-        (rename && (!UacDirectoryLeaf::IsComponent(renameTo) || UacDirectoryLeaf::Equal(leaf, renameTo))))
+        (rename && !UacRenameLeaf::ValidRenameNames(leaf, renameTo)))
         return ERROR_INVALID_NAME;
 
     const auto deadline = GetTickCount64() + timeoutMs;

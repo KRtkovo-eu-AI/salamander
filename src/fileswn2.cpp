@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-11 | Prepare a new protected listing before leaving the current panel. | Preserve the previous session when access to a different root is cancelled or fails. | #731 | GPT-6.1 Terra |
 // | 2026-11-08 | Collect one decoded entry for the caller. | Keep partial or invalid output out of viewer and file publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Read ZIP entries through the existing authorization. | Use the same bounded broker batch as the panel listing. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reuse one protected ZIP authorization for explicit refresh. | Release the broker session when the archive panel closes. | | GPT-6.1 Sol (Codex) |
@@ -3062,14 +3063,14 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
         DWORD err, lastErr;
         BOOL pathInvalid, cut;
         bool protectedPath = false;
+        std::unique_ptr<UacF7::ListingSession> newProtectedListing;
+        std::vector<WIN32_FIND_DATAW> newProtectedEntries;
         const std::wstring requestedWide = SalMultiByteToWidePath(changedPath, IsValidPathUtf8Text(changedPath) ? CP_UTF8 : CP_ACP);
         if (ProtectedListing && ProtectedListing->Contains(requestedWide))
         {
-            std::vector<WIN32_FIND_DATAW> listing;
-            const DWORD listError = ProtectedListing->List(requestedWide, listing);
+            const DWORD listError = ProtectedListing->List(requestedWide, newProtectedEntries);
             if (listError == ERROR_SUCCESS)
             {
-                ProtectedListingEntries = std::move(listing);
                 protectedPath = true;
             }
             else if (!isRefresh && ProtectedListing->IsOpen())
@@ -3078,18 +3079,17 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                 EndStopRefresh();
                 if (setWait)
                     SetCursor(oldCur);
+                if (failReason != NULL)
+                    *failReason = CHPPFR_INVALIDPATH;
                 SalMessageBox(parent, GetErrorText(listError), LoadStr(IDS_ERRORCHANGINGDIR), MB_OK | MB_ICONEXCLAMATION);
                 return FALSE;
             }
         }
-        const bool leavingProtected = ProtectedListing && !protectedPath;
-        if (leavingProtected && !ProtectedListing->IsOpen())
-        {
-            ProtectedListing.reset();
-            ProtectedListingEntries.clear();
-        }
-        if (!protectedPath && !leavingProtected && !isRefresh && !closeCalled && Is(ptDisk) &&
-            !IsBranchView() && requestedWide.size() > 3 && requestedWide[1] == L':' &&
+        // A different root needs a new consent. Keep the old session and its
+        // entries until the new session has listed successfully and the path
+        // change is committed; a cancelled request must leave the panel intact.
+        if (!protectedPath && !isRefresh && !closeCalled && (Is(ptDisk) || Is(ptZIPArchive)) &&
+            requestedWide.size() > 3 && requestedWide[1] == L':' &&
             GetDriveTypeW(requestedWide.substr(0, 3).c_str()) == DRIVE_FIXED)
         {
             const std::wstring exact = SalPathAddExtendedPrefixW(requestedWide.c_str());
@@ -3117,7 +3117,7 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                     {
                         listingError = session->Start(parent);
                         if (!listingError)
-                            listingError = session->List(requestedWide, ProtectedListingEntries);
+                            listingError = session->List(requestedWide, newProtectedEntries);
                     }
                     if (listingError)
                     {
@@ -3125,13 +3125,29 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                         EndStopRefresh();
                         if (setWait)
                             SetCursor(oldCur);
+                        if (failReason != NULL)
+                            *failReason = CHPPFR_INVALIDPATH;
                         if (listingError != ERROR_CANCELLED)
                             SalMessageBox(parent, GetErrorText(listingError), LoadStr(IDS_ERRORCHANGINGDIR),
                                           MB_OK | MB_ICONEXCLAMATION);
                         return FALSE;
                     }
-                    ProtectedListing = std::move(session);
+                    newProtectedListing = std::move(session);
                     protectedPath = true;
+                }
+                else if (ProtectedListing || IsBranchView() || Is(ptZIPArchive))
+                {
+                    // Do not shorten an unverifiable destination into a different
+                    // path and discard the existing protected or archive view.
+                    CloseCurrentPath(parent, TRUE, detachFS, FALSE, isRefresh, FALSE);
+                    EndStopRefresh();
+                    if (setWait)
+                        SetCursor(oldCur);
+                    if (failReason != NULL)
+                        *failReason = CHPPFR_INVALIDPATH;
+                    SalMessageBox(parent, GetErrorText(ERROR_ACCESS_DENIED), LoadStr(IDS_ERRORCHANGINGDIR),
+                                  MB_OK | MB_ICONEXCLAMATION);
+                    return FALSE;
                 }
             }
         }
@@ -3189,9 +3205,13 @@ BOOL CFilesWindow::ChangePathToDisk(HWND parent, const char* path, int suggested
                     MainWindow->CanAddToDirHistory = FALSE;
                 }
 
-                KeepProtectedListing = protectedPath;
+                KeepProtectedListing = protectedPath && !newProtectedListing;
                 CloseCurrentPath(parent, FALSE, detachFS, samePath, isRefresh, !samePath); // success, we switch to the new path
                 KeepProtectedListing = false;
+                if (newProtectedListing)
+                    ProtectedListing = std::move(newProtectedListing);
+                if (protectedPath)
+                    ProtectedListingEntries = std::move(newProtectedEntries);
 
                 if (samePath)
                 {

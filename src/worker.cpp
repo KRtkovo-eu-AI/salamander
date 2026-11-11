@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Show a listed target revision in native overwrite confirmation. | Offer a verified retry when opening the target for metadata is denied. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Route native overwrites and protected read-only moves through one transaction. | Keep conflict decisions and prevent separate elevated target deletion. | | GPT-6.1 Sol |
 // | 2026-11-11 | Route native large-file transfers through shared eligibility. | Offer UAC without applying snapshot limits to streamed file copies. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Pass explicit retry to the leaf consent dialog. | Allow the user to reconsider a previous refusal from the usual error dialog. | #731 | GPT-6.1 Sol |
@@ -2476,6 +2477,33 @@ void GetFileOverwriteInfo(char* buff, int buffLen, HANDLE file, const char* file
     else
         number[0] = 0; // error - size unknown
 
+    _snprintf_s(buff, buffLen, _TRUNCATE, "%s, %s, %s%s", number, date, time, attr);
+}
+
+// A parent listing can provide a complete approved revision even when opening
+// the child for attributes is denied. Show those same facts in the native
+// overwrite dialog; the broker independently rechecks the revision.
+static void GetOverwriteRevisionInfo(char* buff, int buffLen, const UacF7::ArchiveRevision& revision)
+{
+    ULARGE_INTEGER value{};
+    value.QuadPart = static_cast<ULONGLONG>(revision.modified);
+    const FILETIME lastWrite{value.LowPart, value.HighPart};
+    FILETIME local{};
+    SYSTEMTIME system{};
+    char date[50]{}, time[50]{}, number[50]{}, attr[30] = ", ";
+    if (FileTimeToLocalFileTime(&lastWrite, &local) && FileTimeToSystemTime(&local, &system))
+    {
+        if (!GetTimeFormat(LOCALE_USER_DEFAULT, 0, &system, nullptr, time, 50))
+            sprintf(time, "%u:%02u:%02u", system.wHour, system.wMinute, system.wSecond);
+        if (!GetDateFormat(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &system, nullptr, date, 50))
+            sprintf(date, "%u.%u.%u", system.wDay, system.wMonth, system.wYear);
+    }
+    GetAttrsString(attr + 2, revision.attributes);
+    if (strlen(attr) == 2)
+        attr[0] = 0;
+    CQuadWord size;
+    size.Value = static_cast<unsigned __int64>(revision.size);
+    NumberToStr(number, size);
     _snprintf_s(buff, buffLen, _TRUNCATE, "%s, %s, %s%s", number, date, time, attr);
 }
 
@@ -6098,15 +6126,24 @@ static SourceOverwriteResult TryOverwriteDeniedSource(HWND progress, COperation&
         HANDLE target = HANDLES_Q(CreateFileW(targetPath.c_str(), FILE_READ_ATTRIBUTES,
                                               FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
                                               OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
-        if (target == INVALID_HANDLE_VALUE)
-            return Outcome::Unavailable;
         char targetInfo[101];
-        const bool sameTarget = overwrite.MatchesOverwriteTarget(target);
-        if (sameTarget)
+        if (target == INVALID_HANDLE_VALUE)
+        {
+            if (GetLastError() != ERROR_ACCESS_DENIED)
+                return Outcome::Unavailable;
+            GetOverwriteRevisionInfo(targetInfo, _countof(targetInfo), overwrite.Approval().revision);
+        }
+        else
+        {
+            const bool sameTarget = overwrite.MatchesOverwriteTarget(target);
+            if (!sameTarget)
+            {
+                HANDLES(CloseHandle(target));
+                return Outcome::Unavailable;
+            }
             GetFileOverwriteInfo(targetInfo, _countof(targetInfo), target, op.TargetName, nullptr, nullptr);
-        HANDLES(CloseHandle(target));
-        if (!sameTarget)
-            return Outcome::Unavailable;
+            HANDLES(CloseHandle(target));
+        }
 
         const auto sourcePath = WorkerOperationPathW(op.SourceName, op.SourceNameW.c_str());
         HANDLE source = HANDLES_Q(CreateFileW(sourcePath.c_str(), FILE_READ_ATTRIBUTES,

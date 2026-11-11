@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Verify a denied target's full listed revision and stale-revision rejection. | Ensure parent metadata cannot authorize a changed object. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Reject changed parent identities before cross-volume transfer setup. | Preserve the approved parent scope even when the original source file ID still matches. | | GPT-6.1 Sol |
 // | 2026-11-11 | Verify typed native replacement framing and job reuse. | Keep overwrite revision approval separate from data budgets. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Exercise streamed native copy limits and ordinary attributes through the dispatcher. | Verify large scoped copies and cancellation while retaining bounded snapshot and overwrite contracts. | #731 | GPT-6.1 Sol |
@@ -877,6 +878,11 @@ void CheckPanelPreparationReparse(const Directory& source, const Directory& outs
                                               IO_REPARSE_TAG_SYMLINK) == ERROR_SUCCESS &&
                   UacListing::Detail::SameId(captured, reviewedDirectory.file),
               "a readable parent can supply the link ID only for the exact requested type");
+        UacF7::ArchiveRevision rejectedRevision{};
+        Check(parent && UacListing::CaptureChildRevision(parent.get(), fileLink,
+                  source.identity.file.VolumeSerialNumber, rejectedRevision) == ERROR_NOT_SUPPORTED &&
+                  HasByte(outside.File(referent), 71),
+              "overwrite listing refuses a file link without touching its referent");
         Check(UacDeleteLeaf::DeleteVerifiedLeaf(source.handle.get(), source.identity,
                   {source.identity.file.VolumeSerialNumber, reviewedDirectory.file}, directoryLink,
                   Operation::DeleteDirectorySymlink) == ERROR_SUCCESS &&
@@ -1211,6 +1217,11 @@ void CheckTransferSourceFromParentListing(const Directory& source, const Directo
     FILE_ID_128 captured{};
     DWORD attributes = 0;
     const DWORD listed = parent ? UacListing::CaptureChildId(parent.get(), leaf, false, captured, attributes) : ERROR_OPEN_FAILED;
+    UacF7::ArchiveRevision directRevision{}, listedRevision{};
+    const DWORD directStatus = UacZipUpdate::ReadRevision(controlHandle.get(), directRevision);
+    const DWORD revisionStatus = parent ? UacListing::CaptureChildRevision(parent.get(), leaf, expected.VolumeSerialNumber,
+                                                                           listedRevision) : ERROR_OPEN_FAILED;
+    const DWORD listedValidation = revisionStatus ? revisionStatus : UacZipUpdate::CheckRevision(controlHandle.get(), listedRevision);
     const DWORD restore = SetSecurityInfo(controlHandle.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION |
         ((flags & SE_DACL_PROTECTED) ? PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION),
         nullptr, nullptr, originalDacl, nullptr);
@@ -1220,6 +1231,26 @@ void CheckTransferSourceFromParentListing(const Directory& source, const Directo
               std::memcmp(captured.Identifier, expected.FileId.Identifier, sizeof(captured.Identifier)) == 0 &&
               UacF7::IsPlainCopyFile(attributes),
           "the readable parent listing preserves an exact transfer identity when source metadata is denied");
+    Check(!directStatus && !revisionStatus &&
+              std::memcmp(listedRevision.fileId, expected.FileId.Identifier, sizeof(listedRevision.fileId)) == 0 &&
+              (UacF7::SameFileRevision(directRevision, listedRevision) ? listedValidation == ERROR_SUCCESS
+                                                                       : listedValidation == ERROR_FILE_INVALID),
+          "the denied child's listed revision is verified and stale NTFS directory metadata is rejected");
+    auto mutate = Adopt(CreateFileW(file.c_str(), FILE_WRITE_DATA,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    LARGE_INTEGER changedSize{};
+    changedSize.QuadPart = 2;
+    Check(!revisionStatus && mutate && SetFilePointerEx(mutate.get(), changedSize, nullptr, FILE_BEGIN) &&
+              SetEndOfFile(mutate.get()) && UacZipUpdate::CheckRevision(controlHandle.get(), listedRevision) == ERROR_FILE_INVALID,
+          "a changed target after listing invalidates the previously captured overwrite revision");
+    changedSize.QuadPart = 1;
+    Check(mutate && SetFilePointerEx(mutate.get(), changedSize, nullptr, FILE_BEGIN) && SetEndOfFile(mutate.get()),
+          "restore the fixture after changing the target revision");
+    mutate.reset();
+    UacF7::ArchiveRevision rejected{};
+    Check(parent && UacListing::CaptureChildRevision(parent.get(), L"..", expected.VolumeSerialNumber, rejected) == ERROR_INVALID_NAME &&
+              UacListing::CaptureChildRevision(parent.get(), L"definitely-not-present-uac", expected.VolumeSerialNumber, rejected) == ERROR_FILE_NOT_FOUND,
+          "listing fallback refuses traversal and missing names without inventing an identity");
     Check(HasByte(source.File(leaf), 65) && HasByte(target.File(replacement), 77),
           "preparing a denied transfer source changes neither source nor existing destination");
 }
@@ -1248,6 +1279,10 @@ void CheckTransferTargetFromParentListing(const Directory& source, const Directo
         Check(false, "capture the destination DACL before applying the test denial");
         return;
     }
+    UacF7::ArchiveRevision directoryRevision{};
+    Check(UacListing::CaptureChildRevision(listing.get(), selectedName, parent.identity.file.VolumeSerialNumber,
+                                           directoryRevision) == ERROR_NOT_SUPPORTED,
+          "overwrite listing refuses a directory as a file target");
     const std::unique_ptr<void, decltype(&LocalFree)> previous(original, LocalFree);
     SECURITY_DESCRIPTOR_CONTROL flags{};
     DWORD revision = 0;
