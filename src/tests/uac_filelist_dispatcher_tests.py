@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Link the file-list workspace separately. | Exercise portable identities through the real dispatcher. | #731 | GPT-6.1 Sol |
 # | 2026-11-11 | Test the generated source on a real broker job pipe. | Verify scoped parent opens, publication and collision. | #731 | GPT-6.1 Sol |
 """Unelevated broker dispatcher test; does not test installed-image handshake or UAC."""
 import argparse
@@ -52,7 +53,9 @@ int wmain()
         if (find != INVALID_HANDLE_VALUE) { FindClose(find); return false; }
         return GetLastError() == ERROR_FILE_NOT_FOUND;
     };
-    FILE_ID_128 wrong = workspace.Identity().FileId;
+    FILE_ID_128 wrong{};
+    const auto portableSource = workspace.Identity();
+    CopyMemory(wrong.Identifier, portableSource.id, sizeof(wrong.Identifier));
     wrong.Identifier[15] ^= 1;
     Check(job.Request(Operation::CopyIgnoreAds, source, L"list.tmp", result, &target,
           nullptr, nullptr, false, nullptr, nullptr, 1, {}, &wrong) && result == ERROR_FILE_INVALID && noPublication(),
@@ -102,7 +105,7 @@ def main():
         exe = directory / 'test.exe'
         cpp.write_text(source, encoding='utf-8')
         command = [compiler, '/nologo', '/std:c++17', '/EHsc', '/utf-8', '/W4', '/WX', *flags,
-                   '/I' + str(ROOT / 'src/uacbroker'), str(cpp), '/Fe:' + str(exe), '/link',
+                   '/I' + str(ROOT / 'src/uacbroker'), str(cpp), str(ROOT / 'src/uacfilelist.cpp'), '/Fe:' + str(exe), '/link',
                    'ntdll.lib', 'ole32.lib', 'advapi32.lib', 'shell32.lib', 'uuid.lib', 'bcrypt.lib']
         result = run(command, cwd=directory, env=env, timeout=45)
         if result.returncode:

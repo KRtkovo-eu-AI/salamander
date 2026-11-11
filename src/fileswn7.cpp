@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Prevent copying and deleting from the protected archive pilot. | Keep the archive listing read-only. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Compare the portable file-list exclusion identity. | Keep both the volume serial and all 128 identity bits. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Exclude a pinned workspace by its exact directory identity. | Prevent recursive file lists from including their own private staging tree. | #731 | GPT-6.1 Sol |
 // | 2026-11-08 | Remove the standalone ZIP recovery action. | Keep recovery mechanics internal to archive publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Recover the recorded ZIP update in the selected disk folder. | Revalidate the panel after consent and refresh on success. | | GPT-6.1 Sol (Codex) |
@@ -25,6 +26,7 @@
 #include "zip.h"
 #include "pack.h"
 #include "common/widepath.h"
+#include <algorithm>
 #include "common/localizedtext.h"
 #include "fileactiondisktarget.h"
 #include "fileactionarchivesource.h"
@@ -520,16 +522,16 @@ static bool DiskDirExcludeWorkspace(HWND parent, const std::wstring& path,
         FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
     if (directory == INVALID_HANDLE_VALUE)
         return DiskDirReportEnumerationError(parent, path, GetLastError());
-    FILE_ID_INFO identity{};
+    UacF7::MoveFileIdentity identity{};
     FILE_ATTRIBUTE_TAG_INFO attributes{};
-    const bool read = GetFileInformationByHandleEx(directory, FileIdInfo, &identity, sizeof(identity)) &&
+    const bool read = UacF7::CaptureMoveFileIdentity(directory, identity) &&
         GetFileInformationByHandleEx(directory, FileAttributeTagInfo, &attributes, sizeof(attributes));
     const DWORD error = read ? ERROR_SUCCESS : GetLastError();
     HANDLES(CloseHandle(directory));
     if (!read) return DiskDirReportEnumerationError(parent, path, error);
     excluded = (attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) == FILE_ATTRIBUTE_DIRECTORY &&
-        identity.VolumeSerialNumber == data->Exclusion->Identity.VolumeSerialNumber &&
-        !memcmp(identity.FileId.Identifier, data->Exclusion->Identity.FileId.Identifier, sizeof(identity.FileId.Identifier));
+        identity.serial == data->Exclusion->Identity.serial &&
+        std::equal(identity.id, identity.id + sizeof(identity.id), data->Exclusion->Identity.id);
     return true;
 }
 

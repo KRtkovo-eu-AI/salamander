@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Model the portable file-list exclusion identity. | Keep the controller seam aligned with the real panel header. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Exercise the actual file-list UAC controller with isolated seams. | Preserve selections and refuse stale or unconfirmed work. | #731 | GPT-6.1 Sol |
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -14,7 +15,8 @@
 
 constexpr int ptDisk = 1, IDS_ERRORTITLE = 1, IDS_ERRORDELETINGDIR = 2,
     IDS_MAKEFILELIST_OUTPUT = 3, IDS_UAC_FILELIST_CREATE_CONFIRM = 4, IDS_UAC_DISK_RECOVERY_UNKNOWN = 5;
-struct CFileListExclusion { std::wstring Name; FILE_ID_INFO Identity{}; };
+namespace UacF7 { struct MoveFileIdentity { ULONGLONG serial = 0; BYTE id[16]{}; }; }
+struct CFileListExclusion { std::wstring Name; UacF7::MoveFileIdentity Identity{}; };
 static DWORD AttributeError = ERROR_FILE_NOT_FOUND, ExecuteError = ERROR_SUCCESS;
 static bool Exists = false, Approval = true, Current = true, Match = true, Unknown = false;
 static int Creates = 0, Generates = 0, Confirms = 0, Executes = 0, Notices = 0, Messages = 0;
@@ -74,21 +76,20 @@ struct Workspace
 {
     using Reporter = void (*)(void*, const std::wstring&, DWORD);
     using Fallback = void (*)(void*, const std::wstring&, DWORD) noexcept;
-    FILE_ID_INFO id{};
+    UacF7::MoveFileIdentity id{};
     Workspace(Reporter, void*, Fallback) {}
     DWORD Create() { ++Creates; return ERROR_SUCCESS; }
     HANDLE Writer() const { return reinterpret_cast<HANDLE>(1); }
     const std::wstring& DirectoryName() const { static const std::wstring s = L"private"; return s; }
     const std::wstring& Path() const { static const std::wstring s = L"temp\\list.tmp"; return s; }
-    const FILE_ID_INFO& Identity() const { return id; }
-    const FILE_ID_INFO& ParentIdentity() const { return id; }
+    const UacF7::MoveFileIdentity& Identity() const { return id; }
+    const UacF7::MoveFileIdentity& ParentIdentity() const { return id; }
     DWORD Seal() { return ERROR_SUCCESS; }
     ULONGLONG Size() const { return 3; }
 };
 }
 namespace UacF7
 {
-struct MoveFileIdentity { ULONGLONG serial = 0; BYTE id[16]{}; };
 enum class Operation { CopyIgnoreAds };
 struct Result { DWORD error = ERROR_SUCCESS; bool unknown = false; };
 struct PreparedTransfer

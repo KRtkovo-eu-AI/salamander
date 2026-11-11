@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Convert portable workspace identities for native tests. | Check the same 128-bit IDs through the isolated implementation. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Test a private generated file-list source. | Verify broker-compatible sharing and identity-safe publication. | #731 | GPT-6.1 Sol |
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -9,7 +10,6 @@
 #include <cstdio>
 #include <string>
 #include <thread>
-#define SAM_UAC_FILELIST_TEST
 #include "../uacfilelist.h"
 #include "../uacbroker/copyleaf.h"
 
@@ -34,6 +34,13 @@ void Check(bool value, const char* message)
 {
     std::printf("%s: %s\n", value ? "PASS" : "FAIL", message);
     if (!value) ++failures;
+}
+FILE_ID_INFO NativeIdentity(const UacF7::MoveFileIdentity& identity)
+{
+    FILE_ID_INFO native{};
+    native.VolumeSerialNumber = identity.serial;
+    memcpy(native.FileId.Identifier, identity.id, sizeof(identity.id));
+    return native;
 }
 struct CleanupReport
 {
@@ -157,15 +164,15 @@ int wmain(int argc, wchar_t** argv)
                 UacDirectoryLeaf::ParentIdentity sourceId{};
                 const DWORD parentStatus = UacDirectoryLeaf::ReadParentIdentity(sourceDir, sourceId);
                 Check(!parentStatus && UacDirectoryLeaf::SameParent(sourceId,
-                    UacDirectoryLeaf::ParentIdentity{workspace.ParentIdentity(), sourceId.volume}),
+                    UacDirectoryLeaf::ParentIdentity{NativeIdentity(workspace.ParentIdentity()), sourceId.volume}),
                     "source parent matches pinned identity");
                 const DWORD copied = parentStatus ? parentStatus : UacCopyLeaf::CopyVerifiedFile(
-                    sourceDir, sourceId, workspace.Identity(), L"list.tmp", targetDir, targetId,
+                    sourceDir, sourceId, NativeIdentity(workspace.Identity()), L"list.tmp", targetDir, targetId,
                     L"result.txt", nullptr, nullptr, MAXULONGLONG, workspace.Size(),
                     UacCopyLeaf::StreamPolicy::IgnoreNamed);
                 Check(!copied, "real broker copy primitive publishes the sealed source");
                 const DWORD collision = UacCopyLeaf::CopyVerifiedFile(sourceDir, sourceId,
-                    workspace.Identity(), L"list.tmp", targetDir, targetId, L"result.txt",
+                    NativeIdentity(workspace.Identity()), L"list.tmp", targetDir, targetId, L"result.txt",
                     nullptr, nullptr, MAXULONGLONG, workspace.Size(), UacCopyLeaf::StreamPolicy::IgnoreNamed);
                 Check(collision == ERROR_FILE_EXISTS || collision == ERROR_ALREADY_EXISTS,
                       "existing destination is not replaced");
@@ -208,7 +215,7 @@ int wmain(int argc, wchar_t** argv)
             UacFileList::Workspace workspace(Report, &report);
             if (workspace.Create() || workspace.Seal()) return 9;
             path = workspace.Path(); directory = path.substr(0, path.find_last_of(L'\\'));
-            fileId = workspace.Identity(); directoryId = workspace.ParentIdentity();
+            fileId = NativeIdentity(workspace.Identity()); directoryId = NativeIdentity(workspace.ParentIdentity());
             held = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
                                FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
             if (held == INVALID_HANDLE_VALUE) return 10;
@@ -228,7 +235,7 @@ int wmain(int argc, wchar_t** argv)
             UacFileList::Workspace workspace(Report, &report);
             if (workspace.Create() || workspace.Seal()) return 11;
             directory = workspace.Path().substr(0, workspace.Path().find_last_of(L'\\'));
-            directoryId = workspace.ParentIdentity();
+            directoryId = NativeIdentity(workspace.ParentIdentity());
             UacFileList::failCleanupPoint = 3;
         }
         UacFileList::failCleanupPoint = 0;
@@ -271,7 +278,7 @@ int wmain(int argc, wchar_t** argv)
             Check(workspace.Create() == ERROR_ACCESS_DENIED, "inject failure while reading created source identity");
             UacFileList::failIdentityPoint = 0;
             path = workspace.Path(); directory = path.substr(0, path.find_last_of(L'\\'));
-            directoryId = workspace.ParentIdentity();
+            directoryId = NativeIdentity(workspace.ParentIdentity());
             if (!GetFileInformationByHandleEx(workspace.Writer(), FileIdInfo, &fileId, sizeof(fileId))) return 15;
             UacFileList::failCleanupPoint = 1;
         }
@@ -289,7 +296,7 @@ int wmain(int argc, wchar_t** argv)
             UacFileList::Workspace workspace(ThrowReport, &report, FallbackReport);
             if (workspace.Create() || workspace.Seal()) return 17;
             report.path = workspace.Path().substr(0, workspace.Path().find_last_of(L'\\'));
-            directoryId = workspace.ParentIdentity();
+            directoryId = NativeIdentity(workspace.ParentIdentity());
             UacFileList::failCleanupPoint = 3;
         }
         UacFileList::failCleanupPoint = 0;
@@ -307,7 +314,7 @@ int wmain(int argc, wchar_t** argv)
             if (workspace.Create() || workspace.Seal()) return 12;
             path = workspace.Path(); directory = path.substr(0, path.find_last_of(L'\\'));
             original = directory + L"\\original.tmp";
-            fileId = workspace.Identity(); directoryId = workspace.ParentIdentity();
+            fileId = NativeIdentity(workspace.Identity()); directoryId = NativeIdentity(workspace.ParentIdentity());
             workspace.ReleaseReaderForTest(); // Force the race; production keeps this pin.
             if (!MoveFileW(path.c_str(), original.c_str())) return 13;
             HANDLE replacement = CreateFileW(path.c_str(), GENERIC_WRITE | FILE_READ_ATTRIBUTES, 0,

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Store file-list exclusion identity in the portable host type. | Avoid a Windows SDK type dependency in every panel consumer. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Pass an identity-bound file-list exclusion. | Avoid listing a private staging directory inside the selected tree. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Distinguish an explicit Branch Stop from internal cancellation. | Preserve initial partial results without publishing abandoned generations. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Pass the active size scope to file measurements. | Reuse one verified metadata consent across a selected tree. | #731 | GPT-6.1 Terra |
@@ -814,7 +815,7 @@ struct CTreeViewAsyncLoadData
 struct CFileListExclusion
 {
     std::wstring Name;
-    FILE_ID_INFO Identity{};
+    UacF7::MoveFileIdentity Identity{};
 };
 
 class CFilesWindow : public CFilesWindowAncestor

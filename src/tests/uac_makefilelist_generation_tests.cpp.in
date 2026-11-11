@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise the portable file-list exclusion identity. | Preserve the full NTFS identifier without a public SDK type. | #731 | GPT-6.1 Sol |
 // Actual host generators and Win32 enumeration; formatter and panel/UI are test seams.
 // This is not a test of the real formatter, controller, broker or UAC consent.
 #define WIN32_LEAN_AND_MEAN
@@ -30,7 +33,8 @@
 #define VALID_DATA_DOSNAME 32
 #define VALID_DATA_ISLINK 64
 struct CQuadWord { DWORD LoDWord, HiDWord; CQuadWord(DWORD low=0, DWORD high=0):LoDWord(low),HiDWord(high){} };
-struct CFileListExclusion { std::wstring Name; FILE_ID_INFO Identity{}; };
+namespace UacF7 { struct MoveFileIdentity { ULONGLONG serial = 0; BYTE id[16]{}; }; }
+struct CFileListExclusion { std::wstring Name; UacF7::MoveFileIdentity Identity{}; };
 struct CFileData {
     char* Name=nullptr; char* DosName=nullptr; char* Ext=nullptr; const wchar_t* NameW=nullptr;
     int NameLen=0; DWORD Attr=0; FILETIME LastWrite{}; CQuadWord Size; BOOL IsLink=FALSE; int IconOverlayIndex=0;
@@ -68,6 +72,15 @@ static int failIdentityAt=0, identityCalls=0;
 static BOOL TestFileInfo(HANDLE file, FILE_INFO_BY_HANDLE_CLASS type, void* result, DWORD length) {
     if(type==FileIdInfo && ++identityCalls==failIdentityAt) { SetLastError(ERROR_ACCESS_DENIED); return FALSE; }
     return GetFileInformationByHandleEx(file,type,result,length);
+}
+namespace UacF7 {
+bool CaptureMoveFileIdentity(HANDLE file, MoveFileIdentity& identity) {
+    FILE_ID_INFO native{};
+    if(!TestFileInfo(file,FileIdInfo,&native,sizeof(native)))return false;
+    identity.serial=native.VolumeSerialNumber;
+    memcpy(identity.id,native.FileId.Identifier,sizeof(identity.id));
+    return true;
+}
 }
 static BOOL TestWriteFile(HANDLE file,const void* data,DWORD length,DWORD* written,LPOVERLAPPED overlapped) {
     if(failWrite) { if(written)*written=0; SetLastError(ERROR_WRITE_FAULT); return FALSE; }
@@ -151,8 +164,11 @@ int main(int argc,char** argv) {
                               OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS|FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
     if(pinned==INVALID_HANDLE_VALUE)throw std::runtime_error("cannot open workspace fixture");
     CFileListExclusion exclusion;exclusion.Name=workspaceName;
-    if(!GetFileInformationByHandleEx(pinned,FileIdInfo,&exclusion.Identity,sizeof(exclusion.Identity)))
+    FILE_ID_INFO workspaceIdentity{};
+    if(!GetFileInformationByHandleEx(pinned,FileIdInfo,&workspaceIdentity,sizeof(workspaceIdentity)))
         throw std::runtime_error("cannot get workspace identity");
+    exclusion.Identity.serial=workspaceIdentity.VolumeSerialNumber;
+    memcpy(exclusion.Identity.id,workspaceIdentity.FileId.Identifier,sizeof(exclusion.Identity.id));
     const auto workspaceText=SalWideToMultiBytePath(workspace.c_str(),CP_UTF8);
     const auto unrelatedFile=SalWideToMultiBytePath((unrelated+L"\\keep.txt").c_str(),CP_UTF8);
     pass1.clear();pass2.clear();

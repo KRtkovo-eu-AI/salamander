@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Link the workspace implementation in a separate TU. | Exercise the same header isolation as the host build. | #731 | GPT-6.1 Sol |
 # | 2026-11-11 | Exercise a private file-list workspace. | Use the actual native copy primitive without elevation. | #731 | GPT-6.1 Sol |
 """Test workspace and broker copy primitive; does not exercise UAC or the UI."""
 import argparse
@@ -20,8 +21,8 @@ def main():
     with tempfile.TemporaryDirectory(prefix='uac-filelist-workspace-') as folder:
         directory = Path(folder)
         exe = directory / 'test.exe'
-        command = [compiler, '/nologo', '/std:c++17', '/EHsc', '/utf-8', '/W4', '/WX', *flags,
-                   str(ROOT / 'src/tests/uac_filelist_workspace_tests.cpp'), '/Fe:' + str(exe),
+        command = [compiler, '/nologo', '/std:c++17', '/EHsc', '/utf-8', '/W4', '/WX', '/DSAM_UAC_FILELIST_TEST', *flags,
+                   str(ROOT / 'src/tests/uac_filelist_workspace_tests.cpp'), str(ROOT / 'src/uacfilelist.cpp'), '/Fe:' + str(exe),
                    '/link', 'ntdll.lib', 'ole32.lib', 'advapi32.lib', 'bcrypt.lib']
         result = run(command, cwd=directory, env=env, timeout=40)
         if result.returncode:

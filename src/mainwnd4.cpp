@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Bind file-list exclusions with the portable identity type. | Keep panel headers independent of Windows FILE_ID_INFO availability. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Create a new protected file list through scoped UAC copy. | Keep the generated source and target identity bound across consent. | #731 | GPT-6.1 Sol |
 // CommentsTranslationProject: TRANSLATED
 
@@ -601,11 +602,7 @@ try
         return true;
     }
     UacF7::PreparedTransfer request;
-    UacF7::MoveFileIdentity fileId{}, parentId{};
-    fileId.serial = workspace.Identity().VolumeSerialNumber;
-    parentId.serial = workspace.ParentIdentity().VolumeSerialNumber;
-    std::memcpy(fileId.id, workspace.Identity().FileId.Identifier, sizeof(fileId.id));
-    std::memcpy(parentId.id, workspace.ParentIdentity().FileId.Identifier, sizeof(parentId.id));
+    const UacF7::MoveFileIdentity fileId = workspace.Identity(), parentId = workspace.ParentIdentity();
     // The list consists solely of the generated unnamed stream. Never carry a
     // stream that another same-user process attached to the temporary file.
     if (!request.Prepare(workspace.Path(), target, workspace.Size(), UacF7::Operation::CopyIgnoreAds) ||
