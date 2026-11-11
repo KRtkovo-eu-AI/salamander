@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Summarize the active UAC work and acceptance gates. | Distinguish finished local changes from prototypes and outstanding VM evidence. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Remove the aggregate protected Find entry budget. | Search multiple bounded directories under the existing session. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record partial protected Find scan build. | Distinguish the compiled partial-result fix from pagination and VM work. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Retain partial protected Find results at scan limits. | Report skipped branches, preserve Ignore and distinguish lost sessions. | #731 | GPT-6.1 Terra |
@@ -436,6 +437,12 @@
 Stav k 11. listopadu 2026. Základní podpora UAC pro běžné interní operace a vestavěný ZIP je ověřená v konkrétních scénářích na místním NTFS. Statický audit níže zachycuje další mezery v podmínkách způsobilosti, přípravě identity, návazných krocích a rozsahu souhlasu. Dokončení se posuzuje po jednotlivých operacích a jejich kombinacích.
 
 Vývoj probíhá na `feature/uac-support`. Důkazy v tabulce pocházejí z různých sestavení. Výchozí revizí tohoto auditu je `4e678fbfa73836bdc0186cbc61d4f2969d0f541a` s protokolem 26. Následující implementační dávky a jejich ověření se evidují samostatně. [Fork PR #67](https://github.com/majklvi/salamander/pull/67) slouží k CI a CodeQL publikovaných revizí. Podrobné výsledky P0–P7, konfigurace, otisky a odkazy na důkazy jsou v [historii implementace a testů](uac-implementation-history.md).
+
+### Stav rozpracované práce — 11. listopadu 2026
+
+- **Místní commity:** dokončené navazující změny jsou sjednocené ve větvi `local/uac-find-total-budget`, včetně úprav F5/F6, metadat, Branch View a Findu. Jednotlivé odstavce níže uvádějí přesný podporovaný rozsah a místní testy; jejich úspěch neznamená dokončení celé položky auditu.
+- **Prototypy:** stránkovaný výpis velkých chráněných složek ve Findu a hromadný Change Case dosud nejsou hotové ani schválené pro nasazení. U stránkování je nutné zajistit identitu při následných operacích; u Change Case přesný rozsah souhlasu, původní konfliktní dialogy a životnost panelu. Původní rozpracovaná změna F7 zůstává zachovaná mimo tuto větev a vyžaduje dořešení životnosti panelu.
+- **Akceptace:** aktuální souhrn změn zatím nemá společný důkaz z izolované VM. VM scénáře a další otevřené bezpečnostní hranice níže zůstávají otevřené; výsledky dřívějších buildů nejsou důkazem pro nové změny. Lokální commity se neposílají na GitHub bez výslovného pokynu.
 
 ## Cíl a pravidla
 
