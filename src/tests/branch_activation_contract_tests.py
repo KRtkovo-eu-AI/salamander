@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Distinguish explicit Stop from internal cancellation. | Preserve first-scan partial results without restarting cancelled work. | #731 | GPT-6.1 Terra |
 # | 2026-11-10 | Keep active approved Branch scans on the short poll interval. | Accept the shared preparation timer without blocking activation. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Find Branch View translations by resource ID. | Section ordinals can shift when new string blocks are added. | #731 | Codex |
 # | 2026-11-06 | Verify Branch copy-dialog controls in every language archive. | Missing checkbox rows prevented native Translator import despite complete string tables. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
@@ -85,9 +86,11 @@ class BranchActivationContracts(unittest.TestCase):
         menu = source("mainwnd3.cpp")
         self.assertIn("popup->EnableItem(CM_BRANCH_STOP, FALSE, branchPanel != NULL && branchPanel->IsBranchViewScanning())", menu)
         stop = menu[menu.index("case CM_BRANCH_STOP:"):menu.index("case CM_CHANGEFILTER:", menu.index("case CM_BRANCH_STOP:"))]
-        self.assertIn("activePanel->CancelBranchViewScan()", stop)
+        self.assertIn("activePanel->StopBranchViewScan()", stop)
         keys = source("fileswn0.cpp")
-        self.assertIn("wParam == VK_ESCAPE && IsBranchViewScanning()", keys)
+        escape = keys[keys.index("if (wParam == VK_ESCAPE && IsBranchViewScanning()"):]
+        self.assertIn("!QuickSearchMode", escape[:150])
+        self.assertIn("StopBranchViewScan()", escape[:200])
 
     def test_preparing_status_precedes_ready_and_cancel_drops_pending_work(self):
         status = block(source("branch_view.cpp"), "std::wstring CFilesWindow::GetBranchViewStatusW() const")
@@ -99,13 +102,13 @@ class BranchActivationContracts(unittest.TestCase):
             self.assertIn(required, cancel)
         self.assertNotIn("BranchView->Entries.clear()", cancel)
         poll = block(source("branch_view.cpp"), "void CFilesWindow::PollBranchView()")
-        self.assertLess(poll.index("if (BranchView->Status.Cancelled)"), poll.index("BranchView->Worker.Drain"))
+        self.assertLess(poll.index("if (BranchView->Status.Cancelled && !BranchView->StoppingInitial)"), poll.index("BranchView->Worker.Drain"))
 
     def test_scan_completion_waits_for_preparation_and_final_publication(self):
         poll = block(source("branch_view.cpp"), "void CFilesWindow::PollBranchView()")
         self.assertIn("if (scanFinished) BranchView->CompletionPending = true", poll)
-        self.assertIn("const bool preparing = BranchView->CompletionPending && preparation->Queue.HasPending()", poll)
-        self.assertIn("const bool finished = BranchView->CompletionPending && !preparation->Queue.HasPending()", poll)
+        self.assertIn("const bool preparing = BranchView->CompletionPending && (preparation->Queue.HasPending() || stoppedBatchPending)", poll)
+        self.assertIn("finished = BranchView->CompletionPending && !preparation->Queue.HasPending() && !stoppedBatchPending", poll)
         self.assertIn("BranchView->Dirty && !preparation->Queue.HasPending()", poll)
         self.assertLess(poll.index("RefreshDirectory();"), poll.index("BranchView->Refresh.Finished("))
         self.assertLess(poll.index("BranchView->CompletionPending = false"), poll.index("BranchView->Refresh.Finished("))

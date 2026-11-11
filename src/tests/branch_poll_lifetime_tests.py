@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Include the real explicit Stop controller. | Exercise reentrant partial publication. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Exercise actual Branch poll and cancellation methods. | Check reentrant lifetime and snapshot handling before changing UAC. | #731 | GPT-6.1 Terra |
 """Compile the actual Branch polling controller with isolated worker and UI seams."""
 import argparse
@@ -25,6 +26,7 @@ def main():
         'SESSION': block(header, 'struct PreparationSession', ';'),
         'PREVIEW': block(source, 'size_t InitialPreviewCount('),
         'CANCEL': block(source, 'void CFilesWindow::CancelBranchViewScan('),
+        'STOP': block(source, 'void CFilesWindow::StopBranchViewScan('),
         'SHUTDOWN': block(source, 'void CFilesWindow::ShutdownBranchView('),
         'START': block(source, 'static void StartBranchViewScan('),
         'REFRESH_VIEW': block(source, 'void CFilesWindow::RefreshBranchView('),
@@ -33,6 +35,12 @@ def main():
     template = (ROOT / 'src/tests/branch_poll_lifetime_tests.cpp.in').read_text(encoding='utf-8')
     for name, value in pieces.items():
         template = template.replace('@@' + name + '@@', value)
+    template = template.replace('auto preparation = hadPreparation ?',
+                                'if (testOomBeforeDrain) throw std::bad_alloc(); auto preparation = hadPreparation ?')
+    template = template.replace('BranchView->Worker.Drain(BranchView->StoppedBatch, progress);',
+                                'BranchView->Worker.Drain(BranchView->StoppedBatch, progress); if (testOomAfterDrain) throw std::bad_alloc();')
+    template = template.replace('preparation->Queue.Add(extension);',
+                                'if (testOomQueue) throw std::bad_alloc(); preparation->Queue.Add(extension);')
     if '@@' in template:
         raise RuntimeError('unexpanded test placeholder')
     env = compiler_environment()
@@ -47,8 +55,10 @@ def main():
             if args.configuration not in ('Both', mode):
                 continue
             print('Actual Branch poll and cancellation:', mode, flush=True)
-            for command in ([compiler, '/nologo', '/std:c++17', '/EHsc', '/utf-8', '/W4', '/WX', *flags,
-                             str(generated), '/Fe:' + str(exe), '/link', 'user32.lib'], [str(exe)]):
+            for command in ([compiler, '/nologo', '/std:c++17', '/EHsc', '/utf-8', '/W4', '/WX', '/DBRANCH_VIEW_TEST', *flags,
+                             str(generated), str(ROOT / 'src/branch_view.cpp'),
+                             str(ROOT / 'src/tests/branch_poll_worker_adapter.cpp'),
+                             '/Fe:' + str(exe), '/link', 'user32.lib'], [str(exe)]):
                 result = run(command, cwd=folder, env=env, timeout=30)
                 if result.returncode:
                     return result.returncode

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Track an explicitly stopped initial scan until its partial snapshot is published. | Preserve discovered results without affecting replacement and refresh cancellation. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Keep approved Branch scans on the listing owner thread. | Share traversal and publication while preserving the ordinary background scanner. | #731 | GPT-6.1 Sol |
 // | 2026-11-07 | Skip hidden and system files in Branch scans, except cloud placeholders. | Match the ordinary panel hide option. | https://github.com/KRtkovo-eu-AI/salamander/pull/818 | Grok 4.7 |
 #pragma once
@@ -165,6 +166,9 @@ public:
     void Advance(ListDirectory list, void* context);
     void Cancel();
     void Drain(std::vector<Entry>& entries, Progress& progress);
+#ifdef BRANCH_VIEW_TEST
+    bool WaitForTest(DWORD timeout) const { return Thread && WaitForSingleObject(Thread, timeout) == WAIT_OBJECT_0; }
+#endif
     Scan(const Scan&) = delete;
     Scan& operator=(const Scan&) = delete;
 };
@@ -199,9 +203,11 @@ public:
     bool Applying = false;
     bool Dirty = false;
     bool PreserveListing = false;
+    bool HasCompletedSnapshot = false;
     bool ForcePublish = false;
     bool Preparing = false;
     bool CompletionPending = false;
+    bool StoppingInitial = false;
     bool UseProtectedListing = false;
     std::shared_ptr<Salamander::BranchView::PreparationSession> Preparation;
     std::shared_ptr<Salamander::BranchView::PreparationLifetime> PreparationLifetime;
@@ -224,6 +230,8 @@ public:
     Salamander::BranchView::Progress Status;
     std::vector<Salamander::BranchView::Entry> Entries;
     std::vector<Salamander::BranchView::Entry> IncomingEntries;
+    std::vector<Salamander::BranchView::Entry> StoppedBatch;
+    size_t StoppedBatchNext = 0;
     // Name allocations stay stable across shallow CFilesArray sorts. Entries
     // for the old listing remain until refresh has released that listing.
     std::unordered_map<std::string, const CFileData*> CacheFiles;

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Route Branch Stop through its explicit user action. | Keep initial results while preserving refresh cancellation semantics. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Return to the invoking window when admin shell consent is cancelled. | Keep a successful visible shell in the foreground. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Enable clipboard copy from plugin file systems. | The staged-file clipboard path supports plugin FS sources with copy-from-FS service. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-08 | Remove the standalone ZIP recovery command route. | Limit UAC to existing ZIP commands. | | GPT-6.1 Sol (Codex) |
@@ -7350,7 +7351,7 @@ MENU_TEMPLATE_ITEM AddToSystemMenu[] =
 
         case CM_BRANCH_STOP:
             if (activePanel != NULL)
-                activePanel->CancelBranchViewScan();
+                activePanel->StopBranchViewScan();
             return 0;
 
         case CM_BRANCH_OPENPARENT:

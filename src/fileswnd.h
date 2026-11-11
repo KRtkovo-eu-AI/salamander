@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Distinguish an explicit Branch Stop from internal cancellation. | Preserve initial partial results without publishing abandoned generations. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Pass the active size scope to file measurements. | Reuse one verified metadata consent across a selected tree. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Keep the directory size marker in disk-only row data. | Preserve the released SDK layout. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Return prepared editor state to Find. | Let the owner thread handle the system prompt. | #731 | GPT-6.1 Sol |
@@ -939,6 +940,7 @@ public:
     void ToggleBranchView();
     void RefreshBranchView(BOOL automatic = FALSE);
     void PollBranchView();
+    void StopBranchViewScan();
     void CancelBranchViewScan();
     void ShutdownBranchView();
     void LeaveBranchView();

@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record partial Branch results on explicit Stop. | Distinguish completed local tests from still-open elevated scanning and VM checks. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record late F6 completion with Overwrite Older. | Separate locally checked scope and unchanged native deletion from pending VM evidence. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Clarify ZIP update and extraction limits. | Avoid presenting copy-based archive updates as general large-ZIP support. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record stale overwrite and Scan Ahead regression coverage. | Keep safe refusal distinct from renewed consent and path-lifetime work. | #731 | GPT-6.1 Terra |
@@ -501,6 +502,10 @@ Společné příčiny určují pořadí oprav.
 Ověření v Debug i Release: `uacbroker_transport_tests.py` po 376 PASS a jednom starším SKIP v dispatcheru, `uac_overwrite_worker_tests.py` po 133 kontrolách bez chyby; `worker_copy_path_contract_tests.py` 28 kontrol bez chyby. Logy jsou v `C:\Samandarin\builds\uac-t5-regression-{debug,release,worker,scan-contract}.log`. Test Scan Ahead simuluje odepření identity, nikoli skutečné ACL ani opětovné potvrzení.
 
 Další řez musí bezpečně zachytit identitu schváleného kořene i každé čekající odepřené větve, umožnit jeden srozumitelně vymezený souhlas a po návratu z modality ověřit životnost tabu a generaci scanu. Přístupový rozsah `CompareList` připouští výpis a ověřený výpis v podstromu, nikoli čtení obsahu, inventář, identity položek ani změny. Zbývá doplnit vlastněnou frontu a obnovu/publikaci dostupných výsledků pro Skip, Skip All, Cancel, ztrátu spojení a automatický refresh bez nové UAC výzvy; jejich skutečné chování potom ověřit lokálně i ve VM. R2 tímto testem není dokončena.
+
+**Branch View — částečný výsledek při Stop.** Výslovný Stop nebo Escape při prvním výpisu zachová již převzaté položky a dávku z fronty pracovníka; při zastavení obnovy ponechá předchozí dokončený výpis včetně prázdného. Opakovaný Stop nepřipojí pozdní dávku. Nová dávka se připravuje po částech; chyba alokace při této přípravě ponechá zobrazený výpis a ohlásí problém. Pracovník se nečeká, pokud je zablokovaný v I/O: položky z jeho dosud nepředané lokální dávky nemusí být zachované. Kopie unikátních přípon a závěrečná publikace nejsou konstantní operace; synchronní chráněný výpis může oddálit reakci a původní cesta publikace má své vlastní hranice chyb alokace.
+
+Místně prošlo 30 behaviorálních kontrol v Debug i Release, včetně skutečného skeneru nad dvěma čitelnými sourozenci a simulovaných reentrantních a alokačních chyb; 32 dalších kontraktových kontrol prošlo. Skutečné odepřené ACL, novou frontu chráněných větví, UAC ani VM tento test nedokládá. Implementace R2 a společná VM akceptace zůstávají otevřené.
 
 Pro pozdější cílené ověření zůstávají také chyby během `FindNextFile` po úspěšném začátku výpisu (`fileswn6.cpp:3256–3302`, `find.cpp:2409–2414`). Běžné chybové větve bez elevace jsou v kódu doložené, konkrétní lokální NTFS reprodukce pozdního odepření zatím není. Find navíc omezuje schválený průchod na 4 096 záznamů a 32 úrovní (`find.cpp:2044,2092–2115`). Jde o omezení úplnosti výsledku, nikoli důkaz vyřešeného přístupu.
 

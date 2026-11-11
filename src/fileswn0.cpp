@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Carry manual protected ZIP refresh into archive navigation. | Keep the existing refresh rollback behavior. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Route Escape through the explicit Branch Stop action. | Preserve first-scan results while keeping Quick Search priority. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Carry the disk directory size marker across refresh. | Restrict private row metadata to disk listings. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Retain the partial size marker on a refresh. | Preserve a visibly partial directory total. | #731 | GPT-6.1 Sol |
 // | 2026-11-05 | Survive faulty shell extension SEH in panel menu messages. | New submenu and ContextMenu HandleMenuMsg must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
@@ -1503,7 +1504,7 @@ BOOL CFilesWindow::OnSysKeyDown(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT
 
     if (wParam == VK_ESCAPE && IsBranchViewScanning() && !QuickSearchMode)
     {
-        CancelBranchViewScan();
+        StopBranchViewScan();
         SkipCharacter = TRUE;
         return TRUE;
     }

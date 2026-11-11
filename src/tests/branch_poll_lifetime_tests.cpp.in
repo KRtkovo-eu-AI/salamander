@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
-// | 2026-11-11 | Test real Branch polling across reentrant callbacks. | Preserve live snapshot and lifetime before UAC integration. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Test real Branch Stop and polling across reentrant callbacks. | Preserve partial initial results and snapshot lifetime. | #731 | GPT-6.1 Terra |
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <algorithm>
@@ -21,18 +21,21 @@ namespace Salamander { namespace BranchView {
 @@ASSOCIATION@@
 @@LIFETIME@@
 @@SESSION@@
-@@PREVIEW@@
-bool SameSnapshot(const std::vector<Entry>& a, const std::vector<Entry>& b)
-{
-    return a.size() == b.size() && (a.empty() || a[0].CacheKey == b[0].CacheKey);
-}
+size_t InitialPreviewCount(size_t discovered, size_t published);
+bool SameSnapshot(const std::vector<Entry>& a, const std::vector<Entry>& b);
 } }
 using namespace Salamander::BranchView;
 
 static int checks = 0, failures = 0, refreshCalls = 0, sortCalls = 0, timerCalls = 0;
 static int directoryStatusCalls = 0, workerCancels = 0, workerStarts = 0, panelDestructors = 0;
 static int modalDestroyed = 0;
+static int errorDialogs = 0;
+static bool testOomBeforeDrain = false, testOomAfterDrain = false, testOomQueue = false;
 static BOOL StopRefresh = FALSE, SnooperSuspended = FALSE, IdleRefreshStates = FALSE;
+static const int IDS_ERRORTITLE = 1;
+static const char* GetErrorText(DWORD) { return "out of memory"; }
+static const char* LoadStr(int) { return "Error"; }
+static int SalMessageBox(HWND, const char*, const char*, UINT) { ++errorDialogs; return IDOK; }
 static const UINT_PTR IDT_BRANCHVIEW_POLL = 7;
 static unsigned char LowerCase[256];
 static std::function<void()> onAssociation, onRefresh;
@@ -65,17 +68,28 @@ struct ListingSession {
     bool IsOpen() const { return true; }
 };
 }
+extern "C" void* BranchTestCreate();
+extern "C" void BranchTestDestroy(void*);
+extern "C" bool BranchTestStart(void*, const wchar_t*);
+extern "C" bool BranchTestWait(void*);
+extern "C" void BranchTestCancel(void*);
+extern "C" void BranchTestDrain(void*, std::vector<Entry>*, Progress*);
 struct FakeWorker {
     Progress next{};
     std::vector<Entry> batch;
-    void Cancel() { ++workerCancels; }
+    void* real = nullptr;
+    ~FakeWorker() { if (real) BranchTestDestroy(real); }
+    void Cancel() { ++workerCancels; if (real) BranchTestCancel(real); }
     bool Start(const std::wstring&, bool, bool) { ++workerStarts; return true; }
-    void Drain(std::vector<Entry>& out, Progress& status) { out.swap(batch); status = next; }
+    void Drain(std::vector<Entry>& out, Progress& status) {
+        if (real) BranchTestDrain(real, &out, &status);
+        else { out.swap(batch); status = next; }
+    }
     template<class Callback> void Advance(Callback, void*) {}
 };
 struct CBranchViewState {
-    bool Enabled = true, Applying = false, Dirty = false, PreserveListing = false;
-    bool ForcePublish = false, Preparing = false, CompletionPending = false, UseProtectedListing = false;
+    bool Enabled = true, Applying = false, Dirty = false, PreserveListing = false, HasCompletedSnapshot = false;
+    bool ForcePublish = false, Preparing = false, CompletionPending = false, StoppingInitial = false, UseProtectedListing = false;
     std::shared_ptr<PreparationSession> Preparation;
     std::shared_ptr<PreparationLifetime> PreparationLifetime;
     ULONGLONG Generation = 0;
@@ -85,6 +99,8 @@ struct CBranchViewState {
     FakeWorker Worker;
     Progress Status;
     std::vector<Entry> Entries, IncomingEntries;
+    std::vector<Entry> StoppedBatch;
+    size_t StoppedBatchNext = 0;
 };
 struct CFilesWindow {
     HWND HWindow = nullptr;
@@ -101,11 +117,13 @@ struct CFilesWindow {
     void DirectoryLineSetText() { ++directoryStatusCalls; }
     void RefreshDirectory() { ++refreshCalls; if (onRefresh) onRefresh(); }
     void CancelBranchViewScan();
+    void StopBranchViewScan();
     void ShutdownBranchView();
     void RefreshBranchView(BOOL automatic = FALSE);
     void PollBranchView();
 };
 @@CANCEL@@
+@@STOP@@
 @@SHUTDOWN@@
 @@START@@
 @@REFRESH_VIEW@@
@@ -118,6 +136,8 @@ static void Check(bool value, const char* message) {
 static void Reset() {
     refreshCalls = sortCalls = timerCalls = directoryStatusCalls = workerCancels = workerStarts = panelDestructors = 0;
     modalDestroyed = 0;
+    errorDialogs = 0;
+    testOomBeforeDrain = testOomAfterDrain = testOomQueue = false;
     StopRefresh = SnooperSuspended = IdleRefreshStates = FALSE;
     onAssociation = {}; onRefresh = {}; Associations.epoch = 1;
     for (int i = 0; i != 256; ++i) LowerCase[i] = static_cast<unsigned char>(i);
@@ -214,6 +234,191 @@ int main() {
         Check(!panel && panelDestructors == 1 && !lifetime->Alive && !lifetime->Busy &&
               refreshCalls == 1 && modalDestroyed == 1 && !sortCalls,
               "destroying the tab during publication prevents all later panel work");
+    }
+    Reset();
+    {
+        auto* panel = Fixture();
+        panel->BranchView->Worker.batch.clear();
+        for (int index = 0; index < 600; ++index) {
+            Entry row; row.CacheKey = "C:\\fixture\\" + std::to_string(index) + ".txt";
+            panel->BranchView->Worker.batch.push_back(row);
+        }
+        panel->StopBranchViewScan();
+        panel->PollBranchView();
+        Check(panel->BranchView->StoppingInitial && panel->BranchView->StoppedBatchNext == 256 && !refreshCalls,
+              "large stopped batch handles at most 256 rows on the first poll");
+        panel->PollBranchView();
+        Check(panel->BranchView->StoppingInitial && panel->BranchView->StoppedBatchNext == 512 && !refreshCalls,
+              "large stopped batch yields again before completing");
+        panel->PollBranchView();
+        Check(!panel->BranchView->StoppingInitial && panel->BranchView->Entries.size() == 600 && refreshCalls == 1,
+              "large stopped batch publishes all rows once after bounded slices");
+        delete panel;
+    }
+    Reset();
+    {
+        auto* panel = Fixture();
+        testOomBeforeDrain = true;
+        panel->StopBranchViewScan();
+        Check(errorDialogs == 1 && panel->BranchView->Status.Cancelled &&
+              panel->BranchView->Status.LastError == ERROR_NOT_ENOUGH_MEMORY &&
+              !panel->BranchView->StoppingInitial && panel->BranchView->Entries.empty(),
+              "OOM before draining is reported without starting partial publication");
+        delete panel;
+    }
+    Reset();
+    {
+        auto* panel = Fixture();
+        testOomAfterDrain = true;
+        panel->StopBranchViewScan();
+        Check(errorDialogs == 1 && panel->BranchView->Status.Cancelled &&
+              panel->BranchView->Status.LastError == ERROR_NOT_ENOUGH_MEMORY &&
+              !panel->BranchView->StoppingInitial && panel->BranchView->Entries.empty(),
+              "OOM after draining reports failure and keeps the previously published snapshot");
+        delete panel;
+    }
+    Reset();
+    {
+        auto* panel = Fixture();
+        panel->StopBranchViewScan();
+        testOomQueue = true;
+        panel->PollBranchView();
+        Check(errorDialogs == 1 && panel->BranchView->Status.Cancelled &&
+              panel->BranchView->Status.LastError == ERROR_NOT_ENOUGH_MEMORY &&
+              !panel->BranchView->StoppingInitial && panel->BranchView->Entries.empty(),
+              "OOM while preparing an extension does not publish a partial snapshot as complete");
+        delete panel;
+    }
+    Reset();
+    {
+        wchar_t tempPath[MAX_PATH]{}, name[MAX_PATH]{};
+        Check(GetTempPathW(MAX_PATH, tempPath) && GetTempFileNameW(tempPath, L"brn", 0, name),
+              "create a real worker fixture name");
+        DeleteFileW(name);
+        const std::wstring root = name, first = root + L"\\one", second = root + L"\\two";
+        CreateDirectoryW(root.c_str(), nullptr);
+        CreateDirectoryW(first.c_str(), nullptr);
+        CreateDirectoryW(second.c_str(), nullptr);
+        const std::wstring firstFile = first + L"\\first.txt", secondFile = second + L"\\second.txt";
+        HANDLE file1 = CreateFileW(firstFile.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+        HANDLE file2 = CreateFileW(secondFile.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+        Check(file1 != INVALID_HANDLE_VALUE && file2 != INVALID_HANDLE_VALUE, "create readable sibling files");
+        if (file1 != INVALID_HANDLE_VALUE) CloseHandle(file1);
+        if (file2 != INVALID_HANDLE_VALUE) CloseHandle(file2);
+        auto* panel = Fixture();
+        panel->BranchView->Worker.real = BranchTestCreate();
+        Check(BranchTestStart(panel->BranchView->Worker.real, root.c_str()), "start the real scanner");
+        Check(BranchTestWait(panel->BranchView->Worker.real), "real scanner finished with an undrained batch");
+        panel->StopBranchViewScan();
+        panel->PollBranchView();
+        Check(panel->BranchView->Entries.size() == 2 && panel->BranchView->Status.Cancelled &&
+              ((panel->BranchView->Entries[0].FullPath() == firstFile && panel->BranchView->Entries[1].FullPath() == secondFile) ||
+               (panel->BranchView->Entries[1].FullPath() == firstFile && panel->BranchView->Entries[0].FullPath() == secondFile)),
+              "real scanner sibling batches reach the initial stopped snapshot");
+        delete panel;
+        DeleteFileW(firstFile.c_str()); DeleteFileW(secondFile.c_str());
+        RemoveDirectoryW(first.c_str()); RemoveDirectoryW(second.c_str()); RemoveDirectoryW(root.c_str());
+    }
+    Reset();
+    {
+        auto* panel = Fixture();
+        Entry earlier; earlier.CacheKey = "C:\\fixture\\earlier.txt";
+        panel->BranchView->IncomingEntries.push_back(earlier);
+        panel->StopBranchViewScan();
+        Entry late; late.CacheKey = "C:\\fixture\\late.txt";
+        panel->BranchView->Worker.batch.push_back(late);
+        panel->StopBranchViewScan();
+        panel->PollBranchView();
+        Check(panel->BranchView->Entries.size() == 2 && panel->BranchView->Status.Cancelled &&
+              !panel->BranchView->StoppingInitial && refreshCalls == 1 && workerCancels == 1,
+              "repeated initial Stop publishes drained and incoming rows once without late rows");
+        panel->PollBranchView();
+        Check(panel->BranchView->Entries.size() == 2 && refreshCalls == 1,
+              "late worker output cannot enter the stopped snapshot");
+        delete panel;
+    }
+    Reset();
+    {
+        auto* panel = Fixture();
+        panel->StopBranchViewScan();
+        Entry late; late.CacheKey = "C:\\fixture\\late.txt";
+        panel->BranchView->Worker.batch.push_back(late);
+        bool repeated = false;
+        onAssociation = [&] { if (!repeated) { repeated = true; Modal(panel->HWindow, [&] { panel->StopBranchViewScan(); }); } };
+        panel->PollBranchView();
+        Check(repeated && panel->BranchView->Entries.size() == 1 && workerCancels == 1 &&
+              !panel->BranchView->StoppingInitial && refreshCalls == 1,
+              "reentrant repeated Stop ignores a late worker batch and retains the first snapshot");
+        delete panel;
+    }
+    Reset();
+    {
+        auto* panel = Fixture();
+        onRefresh = [&] { Modal(panel->HWindow, [&] { panel->StopBranchViewScan(); }); };
+        panel->PollBranchView();
+        Check(panel->BranchView->Status.Cancelled && !panel->BranchView->StoppingInitial &&
+              panel->BranchView->Entries.size() == 1 && refreshCalls == 1 && !sortCalls,
+              "Stop inside publication keeps the published snapshot and abandons old callbacks");
+        delete panel;
+    }
+    Reset();
+    {
+        auto* panel = Fixture();
+        panel->StopBranchViewScan();
+        panel->RefreshBranchView(FALSE);
+        Check(!panel->BranchView->StoppingInitial && workerStarts == 1 &&
+              panel->BranchView->IncomingEntries.empty(),
+              "manual refresh replaces stopped preparation without publishing its rows");
+        delete panel;
+    }
+    Reset();
+    {
+        auto* panel = Fixture();
+        const auto lifetime = panel->BranchView->PreparationLifetime;
+        panel->StopBranchViewScan();
+        onAssociation = [&] { Modal(panel->HWindow, [&] { auto* retired = panel; panel = nullptr; delete retired; }); };
+        panel->PollBranchView();
+        Check(!panel && panelDestructors == 1 && !lifetime->Alive && !lifetime->Busy && !refreshCalls,
+              "destroying the panel during stopped-result preparation prevents later publication");
+    }
+    Reset();
+    {
+        auto* panel = Fixture();
+        panel->BranchView->HasCompletedSnapshot = true;
+        StartBranchViewScan(panel);
+        Entry discovered; discovered.CacheKey = "C:\\fixture\\new.txt";
+        panel->BranchView->IncomingEntries.push_back(discovered);
+        panel->StopBranchViewScan();
+        Check(panel->BranchView->PreserveListing && panel->BranchView->Entries.empty() &&
+              panel->BranchView->IncomingEntries.empty() && panel->BranchView->Status.Cancelled,
+              "stopped refresh preserves a previously completed empty snapshot");
+        delete panel;
+    }
+    Reset();
+    {
+        auto* panel = Fixture();
+        Entry previous; previous.CacheKey = "previous.txt";
+        panel->BranchView->Entries.push_back(previous);
+        panel->BranchView->PreserveListing = true;
+        panel->StopBranchViewScan();
+        Check(panel->BranchView->Entries.size() == 1 && panel->BranchView->Entries[0].CacheKey == "previous.txt" &&
+              panel->BranchView->Status.Cancelled && !panel->BranchView->StoppingInitial,
+              "explicit Stop during refresh retains the preceding snapshot");
+        delete panel;
+    }
+    Reset();
+    {
+        auto* panel = Fixture();
+        bool stopped = false;
+        onAssociation = [&] { if (!stopped) { stopped = true; Modal(panel->HWindow, [&] { panel->StopBranchViewScan(); }); } };
+        panel->PollBranchView();
+        onAssociation = {};
+        Check(stopped && !refreshCalls && panel->BranchView->StoppingInitial,
+              "reentrant Stop invalidates the previous preparation before publication");
+        panel->PollBranchView();
+        Check(panel->BranchView->Entries.size() == 1 && refreshCalls == 1 && !panel->BranchView->StoppingInitial,
+              "new preparation publishes the partial snapshot after the callback returns");
+        delete panel;
     }
     Reset();
     {

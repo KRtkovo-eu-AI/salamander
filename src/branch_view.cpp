@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Publish completed initial Branch batches on explicit Stop. | Keep accessible results without replacing an older refresh snapshot. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Enumerate a protected Branch tree through its approved panel session. | Keep anchored listing requests on the panel thread and share row traversal. | #731 | GPT-6.1 Sol |
 // | 2026-11-07 | Skip hidden and system files in Branch scans, except cloud placeholders. | Match the ordinary panel hide option. | https://github.com/KRtkovo-eu-AI/salamander/pull/818 | Grok 4.7 |
 #ifndef BRANCH_VIEW_TEST
@@ -455,14 +456,64 @@ void CFilesWindow::CancelBranchViewScan()
     }
     BranchView->Preparing = false;
     BranchView->CompletionPending = false;
+    BranchView->StoppingInitial = false;
     BranchView->Status.Running = false;
     BranchView->Status.Cancelled = true;
     BranchView->Refresh.Cancel();
     BranchView->IncomingEntries.clear();
+    BranchView->StoppedBatch.clear();
+    BranchView->StoppedBatchNext = 0;
     BranchView->Dirty = false;
     if (HWindow != NULL) KillTimer(HWindow, IDT_BRANCHVIEW_POLL);
     DirectoryLineSetText();
     IdleRefreshStates = TRUE;
+}
+void CFilesWindow::StopBranchViewScan()
+{
+    // A stopped worker can still publish after a blocked I/O returns. Never
+    // drain it a second time while the first stopped snapshot is preparing.
+    if (IsBranchView() && BranchView->StoppingInitial) return;
+    if (!IsBranchView() || BranchView->Applying || BranchView->PreserveListing ||
+        (!BranchView->Status.Running && !BranchView->CompletionPending))
+    {
+        CancelBranchViewScan();
+        return;
+    }
+    // Detach the worker before consuming its last published batch. A worker
+    // still returning from I/O owns its old state and cannot publish into a
+    // subsequent generation. Reentrant Poll holds the old preparation session.
+    try
+    {
+        const bool hadPreparation = BranchView->Preparation != NULL;
+        auto preparation = hadPreparation ?
+            std::make_shared<Salamander::BranchView::PreparationSession>(*BranchView->Preparation) :
+            std::make_shared<Salamander::BranchView::PreparationSession>();
+        BranchView->Worker.Cancel();
+        Salamander::BranchView::Progress progress;
+        BranchView->Worker.Drain(BranchView->StoppedBatch, progress);
+        BranchView->StoppedBatchNext = 0;
+        if (BranchView->Preparation != NULL) BranchView->Preparation->Alive = false;
+        if (!hadPreparation) preparation->AssociationEpoch = Associations.GetShellAssociationEpoch();
+        BranchView->Preparation = std::move(preparation);
+        BranchView->Status = progress;
+        BranchView->Status.Running = false;
+        BranchView->Status.Cancelled = true;
+        BranchView->Refresh.Cancel();
+        BranchView->Preparing = true;
+        BranchView->CompletionPending = true;
+        BranchView->StoppingInitial = true;
+        BranchView->Dirty = true;
+        SetTimer(HWindow, IDT_BRANCHVIEW_POLL, 15, NULL);
+        DirectoryLineSetText();
+        IdleRefreshStates = TRUE;
+    }
+    catch (const std::bad_alloc&)
+    {
+        BranchView->Status.LastError = ERROR_NOT_ENOUGH_MEMORY;
+        ++BranchView->Status.Errors;
+        CancelBranchViewScan();
+        SalMessageBox(HWindow, GetErrorText(ERROR_NOT_ENOUGH_MEMORY), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+    }
 }
 void CFilesWindow::ShutdownBranchView()
 {
@@ -497,11 +548,14 @@ static void StartBranchViewScan(CFilesWindow* panel)
     // columns even when the filesystem snapshot itself has not changed.
     state.ForcePublish = state.Refresh.IsManual();
     state.Refresh.Started(GetTickCount64());
-    state.PreserveListing = !state.Entries.empty();
+    state.PreserveListing = state.HasCompletedSnapshot || !state.Entries.empty();
     state.IncomingEntries.clear();
+    state.StoppedBatch.clear();
+    state.StoppedBatchNext = 0;
     if (state.Preparation != NULL) state.Preparation->Alive = false;
     state.Preparing = false;
     state.CompletionPending = false;
+    state.StoppingInitial = false;
     try
     {
         if (state.PreparationLifetime == NULL)
@@ -634,6 +688,7 @@ void CFilesWindow::ToggleBranchView()
     // Keep Icons, Thumbnails and custom Detailed templates intact.
     BuildColumnsTemplate();
     BranchView->Entries.clear();
+    BranchView->HasCompletedSnapshot = false;
     // Clear the ordinary directory rows immediately; a Branch collection only
     // contains files and the navigation row, even before its first batch.
     BranchView->Applying = true;
@@ -677,7 +732,7 @@ void CFilesWindow::PollBranchView()
     if (!IsBranchView() || BranchView->Applying || StopRefresh || SnooperSuspended) return;
     // Stop Scan is persistent until an explicit refresh. A cancelled worker may
     // still finish a network request, but must never publish its late batch.
-    if (BranchView->Status.Cancelled)
+    if (BranchView->Status.Cancelled && !BranchView->StoppingInitial)
     {
         KillTimer(HWindow, IDT_BRANCHVIEW_POLL);
         return;
@@ -693,9 +748,12 @@ void CFilesWindow::PollBranchView()
         PollScope(Salamander::BranchView::PreparationLifetime& lifetime) : Lifetime(lifetime) { Lifetime.Busy = true; }
         ~PollScope() { Lifetime.Busy = false; }
     } scope(*lifetime);
+    bool statusChanged = false, stoppedBatchPending = false, finished = false;
+    try
+    {
     std::vector<Salamander::BranchView::Entry> batch;
     Salamander::BranchView::Progress progress;
-    if (BranchView->UseProtectedListing)
+    if (BranchView->UseProtectedListing && !BranchView->StoppingInitial)
     {
         // Keep every exchange on the panel thread. The ordinary worker never
         // borrows the broker pipe, and leaving this view can drop pending work.
@@ -709,9 +767,19 @@ void CFilesWindow::PollBranchView()
             return session->IsOpen() ? error : ERROR_BROKEN_PIPE;
         }, ProtectedListing.get());
     }
-    BranchView->Worker.Drain(batch, progress);
+    if (BranchView->StoppingInitial)
+    {
+        progress = BranchView->Status;
+        const size_t end = (std::min)(BranchView->StoppedBatchNext + 256, BranchView->StoppedBatch.size());
+        batch.insert(batch.end(),
+                     std::make_move_iterator(BranchView->StoppedBatch.begin() + BranchView->StoppedBatchNext),
+                     std::make_move_iterator(BranchView->StoppedBatch.begin() + end));
+        BranchView->StoppedBatchNext = end;
+    }
+    else
+        BranchView->Worker.Drain(batch, progress);
     const bool scanFinished = BranchView->Status.Running && !progress.Running;
-    bool statusChanged = scanFinished || progress.Files != BranchView->Status.Files ||
+    statusChanged = scanFinished || progress.Files != BranchView->Status.Files ||
         progress.Errors != BranchView->Status.Errors || progress.Cancelled != BranchView->Status.Cancelled;
     BranchView->Status = progress;
     if (!batch.empty() || scanFinished)
@@ -755,13 +823,26 @@ void CFilesWindow::PollBranchView()
         preparation->AssociationEpoch = Associations.GetShellAssociationEpoch();
         preparation->Queue.Restart();
     }
-    const bool preparing = BranchView->CompletionPending && preparation->Queue.HasPending();
+    stoppedBatchPending = BranchView->StoppingInitial &&
+        BranchView->StoppedBatchNext < BranchView->StoppedBatch.size();
+    const bool preparing = BranchView->CompletionPending && (preparation->Queue.HasPending() || stoppedBatchPending);
     statusChanged = statusChanged || preparing != BranchView->Preparing;
     BranchView->Preparing = preparing;
-    const bool finished = BranchView->CompletionPending && !preparation->Queue.HasPending();
+    finished = BranchView->CompletionPending && !preparation->Queue.HasPending() && !stoppedBatchPending;
+    }
+    catch (const std::bad_alloc&)
+    {
+        if (!lifetime->Alive || !preparation->Alive) return;
+        if (!BranchView->StoppingInitial) throw;
+        BranchView->Status.LastError = ERROR_NOT_ENOUGH_MEMORY;
+        ++BranchView->Status.Errors;
+        CancelBranchViewScan();
+        SalMessageBox(HWindow, GetErrorText(ERROR_NOT_ENOUGH_MEMORY), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
     const size_t previewCount = Salamander::BranchView::InitialPreviewCount(
         BranchView->IncomingEntries.size(), BranchView->Entries.size());
-    const bool publish = BranchView->Dirty && !preparation->Queue.HasPending() &&
+    const bool publish = BranchView->Dirty && !preparation->Queue.HasPending() && !stoppedBatchPending &&
         (finished || (!BranchView->PreserveListing && previewCount > BranchView->Entries.size() &&
                       GetTickCount() - BranchView->LastPublish >= 1000));
     if (publish)
@@ -787,8 +868,12 @@ void CFilesWindow::PollBranchView()
         BranchView->Dirty = false;
         if (finished)
         {
+            BranchView->HasCompletedSnapshot = true;
             BranchView->IncomingEntries.clear();
             BranchView->CompletionPending = false;
+            BranchView->StoppingInitial = false;
+            BranchView->StoppedBatch.clear();
+            BranchView->StoppedBatchNext = 0;
             // Pending notifications may start a new scan only after this
             // snapshot has been published (or confirmed unchanged).
             BranchView->Refresh.Finished(GetTickCount64());
@@ -802,7 +887,8 @@ void CFilesWindow::PollBranchView()
         KillTimer(HWindow, IDT_BRANCHVIEW_POLL);
     else
         SetTimer(HWindow, IDT_BRANCHVIEW_POLL,
-            preparation->Queue.HasPending() || (BranchView->UseProtectedListing && BranchView->Status.Running) ? 15 : 200,
+            preparation->Queue.HasPending() || BranchView->StoppingInitial ||
+                (BranchView->UseProtectedListing && BranchView->Status.Running) ? 15 : 200,
             NULL);
 }
 void CFilesWindow::BranchItemRenamed(const char* oldNameKey, const CFileData& file, const std::wstring& oldFullPath)
