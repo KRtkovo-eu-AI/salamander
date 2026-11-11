@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise a denied Scan Ahead revalidation with Overwrite All. | Never dispatch an unverified target from an injected choice. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise listed target confirmation and unrelated open failures. | Preserve native conflict choices when metadata access is denied. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise actual overwrite confirmation and retry ordering with UI seams. | Preserve Hidden/System decisions and exact-revision retries before broker dispatch. | #731 | GPT-6.1 Sol |
 #include <windows.h>
@@ -260,6 +261,11 @@ int main()
     Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, injected, approval, error) == Outcome::Finished &&
         injected.ConflictTargetChanged && Events.empty() && !Executions,
         "changed Scan Ahead identity requeues without mutation or progress accounting");
+    Reset(); CProgressDlgData deniedScan; deniedScan.ConflictDecisionInjected = TRUE;
+    deniedScan.OverwriteAll = TRUE; IdentityValid = false;
+    Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, deniedScan, approval, error) == Outcome::Finished &&
+        deniedScan.ConflictTargetChanged && Events.empty() && !Executions,
+        "an unreadable Scan Ahead target cannot use an injected Overwrite All decision");
     Reset(); PreparationAvailable = false;
     Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error) == Outcome::Unavailable &&
         !Prompts && !Executions, "ineligible overwrite retains the ordinary error flow");

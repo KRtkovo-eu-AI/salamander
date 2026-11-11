@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Reject an overwrite receipt with a stale timestamp on the same file ID. | Preserve both names when listing metadata lags. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify a listed Find identity through the broker dispatcher. | Reject replacement and keep the exact-file scope bounded. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Check ignored-stream overwrite consent reuse. | Prevent cross-policy jobs and preserve changed targets. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise special timestamp singleton scope on the broker pipe. | Reject sibling and ordinary metadata scope substitutions. | #731 | GPT-6.1 Terra |
@@ -2692,6 +2693,27 @@ void CheckStaleOverwriteJob(const Directory& source, const Directory& target)
     }
 
     DWORD error = ERROR_GEN_FAILURE;
+    // A directory listing can lag even when the selected NTFS object has not
+    // changed. Model that deterministically without waiting for cache timing:
+    // the supplied receipt keeps the real file ID but has an older timestamp.
+    const UacF7::ArchiveRevision originalApproval = approved;
+    UacF7::ArchiveRevision staleTimestamp{};
+    UacF7::ArchiveRevision beforeTimestamp{}, afterTimestamp{};
+    // The original has already moved to formerPath; inspect the replacement
+    // instead, then perturb just its listed timestamp for the request.
+    const bool replacementCaptured = readRevision();
+    staleTimestamp = approved;
+    staleTimestamp.modified ^= 1;
+    beforeTimestamp = approved;
+    const bool refusedTimestamp = replacementCaptured && job.Request(Operation::CopyOverwrite, source, leaf, error, &target,
+        nullptr, nullptr, false, nullptr, &staleTimestamp) && error == ERROR_FILE_INVALID;
+    const bool capturedAfter = readRevision();
+    afterTimestamp = approved;
+    Check(refusedTimestamp && capturedAfter && UacF7::SameFileRevision(beforeTimestamp, afterTimestamp) &&
+              HasByte(targetPath, 10) && HasByte(formerPath, 9) && HasByte(source.File(leaf), 8),
+          "stale listed timestamp on the same target identity refuses overwrite and preserves both files");
+    // Continue with the initially approved identity to test replacement.
+    approved = originalApproval;
     Check(job.Request(Operation::CopyOverwrite, source, leaf, error, &target,
                       nullptr, nullptr, false, nullptr, &approved) &&
               error == ERROR_FILE_INVALID && HasByte(targetPath, 10) && HasByte(formerPath, 9) && HasByte(source.File(leaf), 8),

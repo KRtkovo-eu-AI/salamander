@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record stale overwrite and Scan Ahead regression coverage. | Keep safe refusal distinct from renewed consent and path-lifetime work. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record Branch View polling lifetime test foundation. | Separate existing controller evidence from the unimplemented elevated scan. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record verified Find preparation from readable parents. | Keep captured-identity guarantees distinct from VM and earlier enumeration limits. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Clarify the historical recovery summary. | Point to the newer conservative treatment of legacy disk journals. | #731 | GPT-6.1 Terra |
@@ -492,6 +493,10 @@ Společné příčiny určují pořadí oprav.
 | **E1** | C5 | Společné přípravy vracející pouze bool ztrácejí důvod nezpůsobilosti. Rozlišit běžné odepření, nepodporovanou kombinaci, změnu identity, neověřitelného předka a nedostupný broker. Tato diagnostika provází všechny předchozí opravy. |
 
 **R2 — testovací základ, implementace dále otevřená.** `branch_poll_lifetime_tests.py` vykonává aktuální metody `PollBranchView`, `CancelBranchViewScan`, `ShutdownBranchView`, `StartBranchViewScan` a `RefreshBranchView` s reálným skrytým modálním oknem Windows. V Debug i Release prošlo 9 kontrol: publikace, zánik tabu při modalitě či publikaci, storno, nahrazení scanu a automatický refresh během běhu a po stornu. Worker, asociace, seznam položek a broker jsou nahrazené testovacími rozhraními; nejde o ověření skutečného UAC ani nové fronty odepřených větví. Současné storno zachová již zveřejněný snapshot, ale zahodí dosud nezveřejněné `IncomingEntries`.
+
+**T5 — zastaralá revize a Scan Ahead.** Místní test skutečného dispatcheru kontroluje, že stejný soubor s odlišným časem v předané revizi skončí `ERROR_FILE_INVALID` a zachová zdroj i cíl. Test skutečného těla workeru se simulovaným selháním ověření identity navíc ověřuje, že ani rozhodnutí Overwrite All nespustí broker pro neověřený cíl. To není oprava opakovaného potvrzení ani test skutečného odepřeného ACL. Zůstává nutné předat aktuální revizi z ověřené relace do nové generace konfliktu Scan Ahead, znovu získat nativní rozhodnutí a po něm bezpečně ověřit cílovou cestu až do provedení. Dosavadní přepočet konfliktu při lokálním `ACCESS_DENIED` neumí zachovat ověřenou identitu; otevřené zůstává také připnutí předků proti přesunu během modality. VM důkaz zatím neexistuje.
+
+Ověření v Debug i Release: `uacbroker_transport_tests.py` po 376 PASS a jednom starším SKIP v dispatcheru, `uac_overwrite_worker_tests.py` po 133 kontrolách bez chyby; `worker_copy_path_contract_tests.py` 28 kontrol bez chyby. Logy jsou v `C:\Samandarin\builds\uac-t5-regression-{debug,release,worker,scan-contract}.log`. Test Scan Ahead simuluje odepření identity, nikoli skutečné ACL ani opětovné potvrzení.
 
 Další řez musí bezpečně zachytit identitu schváleného kořene i každé čekající odepřené větve, umožnit jeden srozumitelně vymezený souhlas a po návratu z modality ověřit životnost tabu a generaci scanu. Přístupový rozsah `CompareList` připouští výpis a ověřený výpis v podstromu, nikoli čtení obsahu, inventář, identity položek ani změny. Zbývá doplnit vlastněnou frontu a obnovu/publikaci dostupných výsledků pro Skip, Skip All, Cancel, ztrátu spojení a automatický refresh bez nové UAC výzvy; jejich skutečné chování potom ověřit lokálně i ve VM. R2 tímto testem není dokončena.
 
