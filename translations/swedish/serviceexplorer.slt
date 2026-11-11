@@ -7,7 +7,7 @@ VERSION,"0,15,0,197"
 LANGID,1053
 AUTHOR,"Open Samandarin"
 WEB,"http://www.jamik.de"
-COMMENT,"swedish translation stub (English seed)"
+COMMENT,"swedish (automatic AI translation)"
 
 [DIALOG 490]
 205,61,1,"Visare"

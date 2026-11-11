@@ -6,8 +6,8 @@ VERSION,"1,10,0,197"
 [TRANSLATION]
 LANGID,1066
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"vietnamese translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"vietnamese (automatic AI translation)"
 
 [STRINGTABLE 0]
 46,1,"Máy ảo Hyper-V"

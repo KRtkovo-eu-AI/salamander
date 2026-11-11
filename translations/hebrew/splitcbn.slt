@@ -6,8 +6,8 @@ VERSION,"1,12,0,197"
 [TRANSLATION]
 LANGID,1037
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"hebrew translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"hebrew (automatic AI translation)"
 
 [DIALOG 101]
 210,102,1,"הגדרות פיצול ומיזוג"

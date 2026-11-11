@@ -7,7 +7,7 @@ VERSION,"0,15,0,197"
 LANGID,1032
 AUTHOR,"Open Samandarin"
 WEB,"http://www.jamik.de"
-COMMENT,"greek translation stub (English seed)"
+COMMENT,"greek (automatic AI translation)"
 
 [DIALOG 490]
 205,61,1,"Προβολέας"

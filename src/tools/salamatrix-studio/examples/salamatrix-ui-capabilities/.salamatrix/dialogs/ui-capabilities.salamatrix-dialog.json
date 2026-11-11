@@ -38,7 +38,7 @@
     { "kind": "colorarrowbutton", "id": "color-text", "text": "ABC", "bounds": { "x": 215, "y": 204, "width": 33, "height": 14 }, "options": { "textColor": 0, "backgroundColor": 65535 } },
     { "kind": "groupbox", "id": "hyperlink-group", "text": "CGUIHyperLinkAbstract", "bounds": { "x": 269, "y": 4, "width": 185, "height": 48 }, "options": {} },
     { "kind": "label", "id": "open-label", "text": "SetActionOpen", "bounds": { "x": 277, "y": 17, "width": 75, "height": 8 }, "options": {} },
-    { "kind": "hyperlink", "id": "open-link", "text": "www.altap.cz", "bounds": { "x": 365, "y": 17, "width": 47, "height": 8 }, "options": { "styleFlags": 20, "actionOpen": "https://www.altap.cz" } },
+    { "kind": "hyperlink", "id": "open-link", "text": "samandarin.net", "bounds": { "x": 365, "y": 17, "width": 47, "height": 8 }, "options": { "styleFlags": 20, "actionOpen": "https://samandarin.net" } },
     { "kind": "label", "id": "command-label", "text": "SetActionPostCommand", "bounds": { "x": 277, "y": 27, "width": 81, "height": 8 }, "options": {} },
     { "kind": "hyperlink", "id": "command-link", "text": "Say something!", "bounds": { "x": 365, "y": 27, "width": 55, "height": 8 }, "options": { "styleFlags": 20, "actionCommand": 32513 } },
     { "kind": "label", "id": "hint-label", "text": "SetActionShowHint", "bounds": { "x": 277, "y": 37, "width": 81, "height": 8 }, "options": {} },

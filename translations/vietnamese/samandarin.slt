@@ -7,7 +7,7 @@ VERSION,"0,10,0,197"
 LANGID,1066
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net"
-COMMENT,"vietnamese translation stub (English seed)"
+COMMENT,"vietnamese (automatic AI translation)"
 
 [STRINGTABLE 0]
 46,1,"Bộ thông báo cập nhật Samandarin"

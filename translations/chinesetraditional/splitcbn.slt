@@ -6,8 +6,8 @@ VERSION,"1,12,0,197"
 [TRANSLATION]
 LANGID,1028
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"chinesetraditional translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"chinesetraditional (automatic AI translation)"
 
 [DIALOG 101]
 210,102,1,"分割與合併設定"

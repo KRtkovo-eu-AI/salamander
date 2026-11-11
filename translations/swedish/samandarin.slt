@@ -7,7 +7,7 @@ VERSION,"0,10,0,197"
 LANGID,1053
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net"
-COMMENT,"swedish translation stub (English seed)"
+COMMENT,"swedish (automatic AI translation)"
 
 [STRINGTABLE 0]
 46,1,"Samandarin uppdateringsmeddelare"

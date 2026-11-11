@@ -1771,7 +1771,7 @@ void CPlugins::Load(HWND parent, HKEY regKey)
                        TRUE, FALSE, TRUE, TRUE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, "1.0",
                        "Copyright © 2026 Open Salamander Authors, Open Samandarin Authors",
                        "Creates and browses Total Commander DiskDir-compatible file catalogs.",
-                       "DISKDIR", "lst", NULL, FALSE, NULL, "www.altap.cz") ||
+                       "DISKDIR", "lst", NULL, FALSE, NULL, "samandarin.net") ||
             !AddPlugin("PAK", "pak\\pak.spl",
                        TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, "1.68",
                        "Copyright © 1999-2026 Open Salamander Authors, Open Samandarin Authors",

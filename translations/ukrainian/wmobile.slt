@@ -6,8 +6,8 @@ VERSION,"1,11,0,197"
 [TRANSLATION]
 LANGID,1058
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"ukrainian translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"ukrainian (automatic AI translation)"
 
 [DIALOG 500]
 353,77,1,""

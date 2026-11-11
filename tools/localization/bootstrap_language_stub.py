@@ -279,7 +279,7 @@ def rewrite_header(lines: list[str], language: str, langid: int, ending: str) ->
                 out.append(f'AUTHOR,"Open Samandarin"{ending}')
                 continue
             if stripped.startswith("COMMENT,"):
-                out.append(f'COMMENT,"{language} translation stub (English seed)"{ending}')
+                out.append(f'COMMENT,"{language} (automatic AI translation)"{ending}')
                 continue
             if stripped.startswith("HELPDIR,"):
                 out.append(f'HELPDIR,"ENGLISH"{ending}')

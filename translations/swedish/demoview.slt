@@ -6,7 +6,7 @@ VERSION,"1,0,3,197"
 [TRANSLATION]
 LANGID,1053
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
+WEB,"https://samandarin.net/"
 COMMENT,"English version"
 
 [DIALOG 490]
@@ -21,9 +21,9 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,0,"This plugin should help you to make your own viewer plugin."
-49,0,"open.samandarin.net"
+49,0,"https://samandarin.net/"
 50,0,"An exception in DemoView has occured, please inform authors!\nIf you have worked with some .DMV file when exception has occured,\nplease try to reproduce the bug with this .DMV file and if exception\noccurs again, send us this .DMV file (we will reproduce and fix the bug).\nThanks!"
-51,0,"petr.solin@altap.cz"
+51,0,"https://samandarin.net/"
 52,0,"The configuration is already opened."
 53,0,"Some DemoView viewer windows are opened. Do you want to close them?"
 54,0,"DemoView Configuration"

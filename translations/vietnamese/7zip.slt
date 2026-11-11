@@ -6,8 +6,8 @@ VERSION,"1,36,0,197"
 [TRANSLATION]
 LANGID,1066
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"vietnamese translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"vietnamese (automatic AI translation)"
 
 [DIALOG 1200]
 220,200,1,"Cấu hình 7-Zip"

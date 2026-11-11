@@ -6,7 +6,7 @@ VERSION,"1,2,7,197"
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
+WEB,"https://samandarin.net/"
 COMMENT,"English version"
 
 [DIALOG 100]
@@ -78,7 +78,7 @@ COMMENT,"English version"
 218,1,"Il plugin sta funzionando con Internet.\nVuoi interrompere questa sessione Internet?"
 220,1,"Inizializzazione connessione Internet..."
 221,1,"Inizializzazione non riuscita: %s"
-222,1,"Connessione a \tuopen.samandarin.net\tlhttps://open.samandarin.net\tn..."
+222,1,"Connessione a https://samandarin.net/"
 223,1,"Connessione non riuscita: %s"
 
 [STRINGTABLE 2]

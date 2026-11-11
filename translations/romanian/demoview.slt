@@ -6,7 +6,7 @@ VERSION,"1,0,3,197"
 [TRANSLATION]
 LANGID,1048
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
+WEB,"https://samandarin.net/"
 COMMENT,"English version"
 
 [DIALOG 490]
@@ -21,9 +21,9 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Acest plugin ar trebui să vă ajute să creați propriul plugin de vizualizare."
-49,1,"open.samandarin.net"
+49,1,"https://samandarin.net/"
 50,1,"A apărut o excepție în DemoView, vă rugăm să informați autorii!\nDacă ați lucrat cu un fișier .DMV în momentul apariției excepției,\nîncercați să reproduceți eroarea cu acest fișier .DMV și dacă excepția\nse produce din nou, trimiteți-ne acest fișier .DMV (îl vom reproduce și vom repara eroarea).\nMulțumim!"
-51,1,"petr.solin@altap.cz"
+51,1,"https://samandarin.net/"
 52,1,"Configurația este deja deschisă."
 53,1,"Sunt deschise unele ferestre de vizualizare DemoView. Doriți să le închideți?"
 54,1,"Configurare DemoView"

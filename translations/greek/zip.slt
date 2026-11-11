@@ -6,8 +6,8 @@ VERSION,"1,8,0,197"
 [TRANSLATION]
 LANGID,1032
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"greek translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"greek (automatic AI translation)"
 
 [DIALOG 100]
 308,201,1,"Προηγμένες επιλογές συμπίεσης"
@@ -522,7 +522,7 @@ COMMENT,"greek translation stub (English seed)"
 
 [STRINGTABLE 15]
 1216,1,";μπορείτε επίσης να χρησιμοποιήσετε προκαθορισμένες μεταβλητές στην αρχή (!)\r\n;της συμβολοσειράς 'target_dir':\r\n;\r\n"
-1217,0,";  $(Temp)      temporary directory, should stand only alone\r\n;               in the target_dir field not followed by any path\r\n;               portion\r\n"
+1217,1,";  $(Temp)      temporary directory, should stand only alone\r\n;               in the target_dir field not followed by any path\r\n;               portion\r\n"
 1218,1,";  $(ProgFiles) φάκελος 'Program Files' του χρήστη\r\n;  $(WinDir)    κατάλογος Windows\r\n;  $(SysDir)    κατάλογος συστήματος\r\n"
 1219,1,";  $[variable]  τιμή μεταβλητής περιβάλλοντος που περιγράφεται από\r\n;               το 'variable'\r\n;  $<regkey>    τιμή κλειδιού μητρώου που περιγράφεται από το 'regkey'\r\n;  π.χ. SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ProgramFilesDir\r\n\r\n"
 1220,1,"\r\n;καθορίζει αν ο χρήστης μπορεί να αλλάξει τον κατάλογο προορισμού\r\n;κατά την αποσυμπίεση\r\n;ορίστε την τιμή σε 1 για ενεργοποίηση\r\n\r\n"
@@ -531,16 +531,16 @@ COMMENT,"greek translation stub (English seed)"
 1223,1,"\r\n;καθορίζει αν η αποσυμπίεση θα ξεκινά αυτόματα κατά την εκτέλεση\r\n;αυτοαποσυμπιεζόμενης αρχειοθήκης\r\n;ορίστε την τιμή σε 1 για αυτόματη έναρξη της αποσυμπίεσης\r\n\r\n"
 1224,1,"\r\n;καθορίζει αν θα εμφανιστεί μήνυμα επιτυχίας μετά την ολοκλήρωση\r\n;της εξαγωγής των αρχείων\r\n;ορίστε την τιμή σε 1 για εμφάνιση σύνοψης λειτουργίας\r\n\r\n"
 1225,1,"\r\n;καθορίζει αν θα εμφανίζεται το κύριο παράθυρο του αυτοαποσυμπιεστή\r\n;ορίστε την τιμή σε 1 για απόκρυψη του κύριου παραθύρου SFX\r\n;ισχύει μόνο αν το 'autostart' έχει οριστεί σε 1,\r\n;διαφορετικά η τιμή αγνοείται\r\n\r\n"
-1226,0,"\r\n;specify whether to overwrite automatically all files in target\r\n;directory\r\n;set its value to 1 if you want the files to be overwritten\r\n;automatically\r\n\r\n"
-1227,0,"\r\n;specify whether to create target directory automatically without asking\r\n;user\r\n;set its value to 1 if you want the target directory to be created\r\n;automatically\r\n\r\n"
+1226,1,"\r\n;καθορίστε αν θα αντικαθίστανται αυτόματα όλα τα αρχεία στον\r\n;κατάλογο-στόχο\r\n;ορίστε την τιμή του σε 1 αν θέλετε να αντικαθίστανται τα αρχεία\r\n;αυτόματα\r\n\r\n"
+1227,1,"\r\n;καθορίστε αν δημιουργείται αυτόματα ο κατάλογος προορισμού χωρίς ερώτηση\r\n;χρήστη\r\n;ορίστε 1 για αυτόματη δημιουργία του καταλόγου προορισμού\r\n;αυτόματα\r\n\r\n"
 1228,1,"\r\n;πρόγραμμα, σύνδεσμος HTTP ή έγγραφο που θα εκτελεστεί/ανοιχτεί\r\n;μετά την επιτυχή εξαγωγή των αρχείων· η διαδρομή είναι σχετική με\r\n;τον κατάλογο προορισμού εξαγωγής· για πρόγραμμα μπορείτε επίσης να\r\n;ορίσετε ορίσματα\r\n\r\n"
-1229,0,"\r\n;sfx package to be used when creating self-extracting archive\r\n;relative path is relative to the directory with zip2sfx.exe\r\n\r\n"
+1229,1,"\r\n;πακέτο sfx για τη δημιουργία αυτοαποσυμπιεζόμενης αρχειοθήκης\r\n;η σχετική διαδρομή ως προς τον κατάλογο του zip2sfx.exe\r\n\r\n"
 1230,1,"\r\n;κουμπιά στο προαιρετικό πλαίσιο μηνύματος\r\n;επιτρέπεται μία από τις τιμές: "ok", "ok_cancel", "yes_no",\r\n;"agree_disagree"\r\n\r\n"
 1231,1,"\r\n;τύπος προαιρετικού πλαισίου μηνύματος\r\n;επιτρέπεται μία από τις τιμές: "simple", "exclamation", "information",\r\n;"question", "long_message"\r\n\r\n"
 
 [STRINGTABLE 16]
 1232,1,"\r\n;κείμενο και τίτλος του προαιρετικού πλαισίου μηνύματος, που\r\n;εμφανίζεται πριν αρχίσει η εξαγωγή\r\n;αν δεν θέλετε να εμφανίζεται πλαίσιο μηνύματος, αφήστε και τα δύο\r\n;πεδία κενά ("")\r\n\r\n"
-1233,0,"\r\n;text which will be displayed in the main self-extractor's dialog\r\n\r\n"
+1233,1,"\r\n;κείμενο προς εμφάνιση στο κύριο διάλογο του αυτοαποσυμπιεστή\r\n\r\n"
 1234,1,"\r\n;τίτλος του κύριου παραθύρου του αυτοαποσυμπιεστή\r\n\r\n"
 1235,1,"\r\n;κείμενο στο κουμπί εξαγωγής του κύριου παραθύρου SFX\r\n\r\n"
 1236,1,"\r\n;όνομα προμηθευτή στην κάτω αριστερή γωνία του κύριου παραθύρου SFX\r\n\r\n"
@@ -558,5 +558,5 @@ COMMENT,"greek translation stub (English seed)"
 1252,1,"KB"
 1253,1,"MB"
 1254,1,"Το αρχείο ZIP χρησιμοποιεί μορφή δεδομένων που δεν υποστηρίζεται για τροποποίηση από την τρέχουσα έκδοση του πρόσθετου ZIP"
-1255,0,"Not all archive entries were unpacked. The source archive has been kept."
+1255,1,"Δεν αποσυμπιέστηκαν όλες οι εγγραφές. Το αρχείο προέλευσης διατηρήθηκε."
 

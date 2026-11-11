@@ -7,7 +7,7 @@ VERSION,"0,15,0,197"
 LANGID,1026
 AUTHOR,"Open Samandarin"
 WEB,"http://www.jamik.de"
-COMMENT,"bulgarian translation stub (English seed)"
+COMMENT,"bulgarian (automatic AI translation)"
 
 [DIALOG 490]
 205,61,1,"Преглед"

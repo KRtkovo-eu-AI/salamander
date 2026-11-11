@@ -6,8 +6,8 @@ VERSION,"1,15,0,197"
 [TRANSLATION]
 LANGID,1045
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"polish translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"polish (automatic AI translation)"
 
 [STRINGTABLE 0]
 1,1,"Nieprawidłowy plik LZH lub nieznany format pliku."

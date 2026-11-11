@@ -7,7 +7,7 @@ VERSION,"0,10,0,197"
 LANGID,1032
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net"
-COMMENT,"greek translation stub (English seed)"
+COMMENT,"greek (automatic AI translation)"
 
 [STRINGTABLE 0]
 46,1,"Ειδοποιητής ενημερώσεων Samandarin"

@@ -7,7 +7,7 @@ VERSION,"0,6,0,197"
 LANGID,1046
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"portuguese translation stub (English seed)"
+COMMENT,"portuguese (automatic AI translation)"
 
 [STRINGTABLE 0]
 128,1,"{!}%d dispositivo{2:s|0||1|s} selecionado{2:s|0||1|s}"

@@ -7,7 +7,7 @@ VERSION,"0,15,0,197"
 LANGID,1058
 AUTHOR,"Open Samandarin"
 WEB,"http://www.jamik.de"
-COMMENT,"ukrainian translation stub (English seed)"
+COMMENT,"ukrainian (automatic AI translation)"
 
 [DIALOG 490]
 205,61,1,"Переглядач"

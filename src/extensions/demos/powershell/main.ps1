@@ -105,7 +105,7 @@ if ($Salamander.command_handler -eq 'run') {
     Add-CapabilityControl colorarrowbutton color-text ABC 215 204 33 14 @{textColor=0;backgroundColor=0xffff}
     Add-CapabilityControl groupbox hyperlink-group CGUIHyperLinkAbstract 269 4 185 48
     Add-CapabilityControl label open-label SetActionOpen 277 17 75 8
-    Add-CapabilityControl hyperlink open-link www.altap.cz 365 17 47 8 @{styleFlags=0x14;actionOpen='https://www.altap.cz'}
+    Add-CapabilityControl hyperlink open-link samandarin.net 365 17 47 8 @{styleFlags=0x14;actionOpen='https://samandarin.net'}
     Add-CapabilityControl label command-label SetActionPostCommand 277 27 81 8
     Add-CapabilityControl hyperlink command-link 'Say something!' 365 27 55 8 @{styleFlags=0x14;actionCommand=0x7f01}
     Add-CapabilityControl label hint-label SetActionShowHint 277 37 81 8

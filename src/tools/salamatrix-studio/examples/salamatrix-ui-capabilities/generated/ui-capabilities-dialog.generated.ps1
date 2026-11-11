@@ -39,7 +39,7 @@ function ShowUiCapabilitiesDialog {
     Add-Control colorarrowbutton color-text ABC 215 204 33 14 @{textColor=0;backgroundColor=65535}
     Add-Control groupbox hyperlink-group CGUIHyperLinkAbstract 269 4 185 48
     Add-Control label open-label SetActionOpen 277 17 75 8
-    Add-Control hyperlink open-link www.altap.cz 365 17 47 8 @{styleFlags=20;actionOpen='https://www.altap.cz'}
+    Add-Control hyperlink open-link samandarin.net 365 17 47 8 @{styleFlags=20;actionOpen='https://samandarin.net'}
     Add-Control label command-label SetActionPostCommand 277 27 81 8
     Add-Control hyperlink command-link 'Say something!' 365 27 55 8 @{styleFlags=20;actionCommand=32513}
     Add-Control label hint-label SetActionShowHint 277 37 81 8

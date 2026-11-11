@@ -6,7 +6,7 @@ VERSION,"1,0,3,197"
 [TRANSLATION]
 LANGID,1029
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
+WEB,"https://samandarin.net/"
 COMMENT,"English version"
 
 [DIALOG 490]
@@ -21,9 +21,9 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Tento zásuvný modul by vám měl pomoci vytvořit vlastní zásuvný modul pro prohlížeč."
-49,1,"open.samandarin.net"
+49,1,"https://samandarin.net/"
 50,1,"V aplikaci DemoView došlo k výjimce, prosím informujte autory!\nPokud jste pracovali se souborem .DMV, když došlo k výjimce,\nzkuste prosím chybu s tímto .DMV souborem znovu vytvořit a pokud\nvýjimka nastane znovu, pošlete nám tento .DMV soubor (zreprodukujeme a opravíme chybu).\nDěkujeme!"
-51,1,"petr.solin@altap.cz"
+51,1,"https://samandarin.net/"
 52,1,"Konfigurace je již otevřená."
 53,1,"Je otevřeno několik oken prohlížeče DemoView. Chcete je zavřít?"
 54,1,"Konfigurace DemoView"

@@ -7,7 +7,7 @@ VERSION,"0,10,0,197"
 LANGID,1058
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net"
-COMMENT,"ukrainian translation stub (English seed)"
+COMMENT,"ukrainian (automatic AI translation)"
 
 [STRINGTABLE 0]
 46,1,"Сповіщувач оновлень Samandarin"

@@ -6,8 +6,8 @@ VERSION,"0,3,0,197"
 [TRANSLATION]
 LANGID,1025
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"arabic translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"arabic (automatic AI translation)"
 
 [STRINGTABLE 0]
 1000,1,"المجلدات"

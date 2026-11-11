@@ -6,8 +6,8 @@ VERSION,"1,27,0,197"
 [TRANSLATION]
 LANGID,1042
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"korean translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"korean (automatic AI translation)"
 
 [DIALOG 12200]
 235,181,1,"속성"

@@ -6,8 +6,8 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1025
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"arabic translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"arabic (automatic AI translation)"
 
 [DIALOG 8500]
 310,129,1,"تكوين عارض النص Prism"

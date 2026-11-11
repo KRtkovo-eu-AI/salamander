@@ -7,7 +7,7 @@ VERSION,"1,1,0,197"
 LANGID,1037
 AUTHOR,"Open Samandarin"
 WEB,"samandarin.net"
-COMMENT,"hebrew translation stub (English seed)"
+COMMENT,"hebrew (automatic AI translation)"
 
 [DIALOG 200]
 278,94,1,"יצירת קטלוג DiskDir"

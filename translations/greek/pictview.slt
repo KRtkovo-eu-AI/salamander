@@ -6,8 +6,8 @@ VERSION,"2,27,0,197"
 [TRANSLATION]
 LANGID,1032
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"greek translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"greek (automatic AI translation)"
 
 [DIALOG 2000]
 341,134,1,"Σχετικά με το πρόσθετο"
@@ -58,7 +58,7 @@ COMMENT,"greek translation stub (English seed)"
 3001,6,52,256,65,1,"Τροχός"
 2063,14,64,203,12,1,"Χρήση για &κύλιση εικόνας"
 2064,14,78,203,12,1,"&Μεγέθυνση εικόνας"
-2065,14,92,254,12,1,"Μετάβαση στην προηγ./επόμενη &εικόνα"
+2065,14,92,218,12,1,"Μετάβαση στην προηγ./επόμενη &εικόνα"
 
 [DIALOG 2070]
 268,150,1,"Εργαλεία"

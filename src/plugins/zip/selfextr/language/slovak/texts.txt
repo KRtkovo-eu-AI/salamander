@@ -1,13 +1,13 @@
 1B
 
-"SamorozbalovacÌ ZIP archiv"
+"Samorozbalovaci ZIP archiv"
 
-"Tento program rozbalÌ ZIP archiv."
+"Tento program rozbali ZIP archiv."
 
 "Verzia 1.40"
 
-"&Rozbaliù"
+"&Rozbalit"
 
-"Self-Extractor © 2000-2023 Open Salamander Authors"
+"Self-Extractor ¬© 2000-2023 Open Salamander Authors"
 
-"https://www.altap.cz"
+"https://samandarin.net"

@@ -6,7 +6,7 @@ VERSION,"1,0,3,197"
 [TRANSLATION]
 LANGID,1050
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
+WEB,"https://samandarin.net/"
 COMMENT,"English version"
 
 [DIALOG 490]
@@ -21,9 +21,9 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Ovaj dodatak pomaže u izradi vlastitog preglednika."
-49,1,"www.altap.cz"
+49,1,"https://samandarin.net/"
 50,1,"U DemoViewu došlo je do iznimke, obavijestite autore!\nAko ste radili s nekom .DMV datotekom kada je došlo do iznimke,\npokušajte ponoviti pogrešku s tom .DMV datotekom i ako se iznimka\nopet pojavi, pošaljite nam tu .DMV datoteku (ponovit ćemo je i ispraviti pogrešku).\nHvala!"
-51,1,"petr.solin@altap.cz"
+51,1,"https://samandarin.net/"
 52,1,"Konfiguracija je već otvorena."
 53,1,"Otvoreni su neki prozori preglednika DemoView. Želite ih zatvoriti?"
 54,1,"Konfiguracija DemoView"

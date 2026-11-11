@@ -6,8 +6,8 @@ VERSION,"1,18,0,197"
 [TRANSLATION]
 LANGID,1050
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"croatian translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"croatian (automatic AI translation)"
 
 [DIALOG 10500]
 364,132,1,"O dodatku"

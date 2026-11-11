@@ -6,8 +6,8 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1057
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"indonesian translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"indonesian (automatic AI translation)"
 
 [STRINGTABLE 0]
 46,1,"Penampil Render WebView2"

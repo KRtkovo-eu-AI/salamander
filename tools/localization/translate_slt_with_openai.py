@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Preserve dialog control rows during width expansion. | Prevent translated controls from being mistaken for captions and rejected by the native SLT importer. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Mark terminal content-validation failures as source-text fallbacks. | Avoid charging future runs for deterministic failures while keeping valid build input. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Retry only invalid rows from structurally complete batches. | Avoid resending valid translations when technical-token validation rejects one row. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Parallelize independent translation batches. | Reduce wall-clock time without changing validation or retry behavior. | | openai/gpt-5.6-luna-pro |
@@ -721,12 +722,14 @@ def expand_widths(changed: list[str], items: list[Item]) -> int:
             continue
         if not in_dialog:
             continue
-        if i not in item_map:
+        m = LINE_RE.match(line)
+        if not m:
+            continue
+        parts = m.group("prefix").rstrip(",").split(",")
+        if len(parts) == 2:
             if dialog_title_idx < 0:
                 dialog_title_idx = i
             continue
-        item = item_map[i]
-        parts = item.prefix.rstrip(",").split(",")
         if len(parts) < 5:
             continue
         try:
@@ -734,15 +737,14 @@ def expand_widths(changed: list[str], items: list[Item]) -> int:
             old_w = int(parts[3])
         except (ValueError, IndexError):
             continue
-        m = LINE_RE.match(changed[i])
-        if not m or m.group("state") != "1":
-            max_right = max(max_right, x + old_w)
+        max_right = max(max_right, x + old_w)
+        item = item_map.get(i)
+        if item is None or m.group("state") != "1":
             continue
         trans_text = m.group("text")
         orig_len = len(item.text)
         trans_len = len(trans_text)
         if orig_len == 0 or trans_len <= orig_len:
-            max_right = max(max_right, x + old_w)
             continue
         ratio = trans_len / orig_len
         new_w = int(old_w * ratio * 1.15)

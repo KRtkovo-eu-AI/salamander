@@ -79,7 +79,7 @@ var archivesMask = "*";                        // only archives with name matchi
 //   with opearation summary.
 //
 // Installation and Requirements:
-//   Open Salamander: https://www.altap.cz/
+//   Open Salamander: https://samandarin.net/
 //   7-Zip: http://www.7-zip.org/ (download any Windows x86 or x64 version)
 //   Install both applications
 //   OPTIONAL: Set 'pathTo7Zip' variable to the 7z.exe.
@@ -395,7 +395,7 @@ function CheckVersions()
     if (typeof(WScript) != "undefined")
     {
       var infText = "This script requires Open Salamander with Automation plugin installed.\n";
-      infText += "Please download latest version of Open Salamander from www.altap.cz.\n";
+      infText += "Please download latest version of Open Salamander from samandarin.net.\n";
       infText += "Install it and use menu Plugins > Automation > Run Focused Script to start this script.";
       try
       {

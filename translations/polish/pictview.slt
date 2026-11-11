@@ -6,8 +6,8 @@ VERSION,"2,27,0,197"
 [TRANSLATION]
 LANGID,1045
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"polish translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"polish (automatic AI translation)"
 
 [DIALOG 2000]
 341,134,1,"O wtyczce"

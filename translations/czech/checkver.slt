@@ -78,7 +78,7 @@ COMMENT,"Česká verze"
 218,1,"Plugin pracuje s internetem.\nChcete přerušit tuto internetovou relaci?"
 220,1,"Inicializuji internetové spojení..."
 221,1,"Inicializace selhala: %s"
-222,1,"Připojuji na \tuopen.samandarin.net\tlhttps://open.samandarin.net\tn..."
+222,1,"Connecting to \tuwww.altap.cz\tlhttps://www.altap.cz\tn..."
 223,1,"Připojení selhalo: %s"
 
 [STRINGTABLE 2]

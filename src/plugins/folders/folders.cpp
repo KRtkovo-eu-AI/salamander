@@ -104,7 +104,7 @@ CPluginInterfaceAbstract* WINAPI SalamanderPluginEntry(CSalamanderPluginEntryAbs
                                    LoadStr(IDS_PLUGIN_DESCRIPTION),
                                    "FOLDERS" /* neprekladat! */, NULL, "fld");
 
-    salamander->SetPluginHomePageURL("www.altap.cz");
+    salamander->SetPluginHomePageURL("samandarin.net");
 
     // obtain our FS name (it may not be "fld", Salamander can adjust it)
     SalamanderGeneral->GetPluginFSName(AssignedFSName, 0);

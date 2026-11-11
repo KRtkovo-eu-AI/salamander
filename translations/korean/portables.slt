@@ -7,7 +7,7 @@ VERSION,"0,6,0,197"
 LANGID,1042
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"korean translation stub (English seed)"
+COMMENT,"korean (automatic AI translation)"
 
 [STRINGTABLE 0]
 128,1,"{!} %d 선택한 장치 {2:s|0||1|s}"

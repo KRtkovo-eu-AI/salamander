@@ -6,8 +6,8 @@ VERSION,"2,27,0,197"
 [TRANSLATION]
 LANGID,1050
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"croatian translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"croatian (automatic AI translation)"
 
 [DIALOG 2000]
 341,134,1,"O dodatku"
@@ -55,7 +55,7 @@ COMMENT,"croatian translation stub (English seed)"
 3000,6,5,256,43,1,"Tipke PageUp i PageDown, kotačić miša"
 2061,14,17,203,12,1,"Koristi se za &pomicanje slike"
 2062,14,29,218,12,1,"Koristi se za pristup prethodnoj/sljedećoj &slici"
-3001,6,52,262,65,1,"Kotačić miša"
+3001,6,52,256,65,1,"Kotačić miša"
 2063,14,64,203,12,1,"Za &pomicanje slike"
 2064,14,78,203,12,1,"Za &uvećanje slike"
 2065,14,92,218,12,1,"Pristup prethodnoj/sljedećoj &slici"

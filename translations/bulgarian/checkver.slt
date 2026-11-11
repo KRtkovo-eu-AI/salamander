@@ -6,7 +6,7 @@ VERSION,"1,2,7,197"
 [TRANSLATION]
 LANGID,1026
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
+WEB,"https://samandarin.net/"
 COMMENT,"English version"
 
 [DIALOG 100]
@@ -78,7 +78,7 @@ COMMENT,"English version"
 218,1,"Добавката използва интернет.\nДа прекратите ли тази интернет сесия?"
 220,1,"Инициализиране на интернет връзката..."
 221,1,"Неуспешна инициализация: %s"
-222,1,"Свързване с \tuopen.samandarin.net\tlhttps://open.samandarin.net\tn..."
+222,1,"Свързване с https://samandarin.net/"
 223,1,"Неуспешно свързване: %s"
 
 [STRINGTABLE 2]

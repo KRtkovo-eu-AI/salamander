@@ -85,7 +85,7 @@ add("textarrowbutton","choose","&Choose",60,204,50,14,8); add("textarrowbutton",
 add("colorarrowbutton","color","",174,204,33,14); dialog.set("color","color",0xff8000,0xff8000);
 add("colorarrowbutton","color-text","ABC",215,204,33,14); dialog.set("color-text","color",0,0xffff);
 add("groupbox","hyperlink-group","CGUIHyperLinkAbstract",269,4,185,48);
-add("label","open-label","SetActionOpen",277,17,75,8); add("hyperlink","open-link","www.altap.cz",365,17,47,8,0x14); dialog.set("open-link","actionOpen","https://www.altap.cz");
+add("label","open-label","SetActionOpen",277,17,75,8); add("hyperlink","open-link","samandarin.net",365,17,47,8,0x14); dialog.set("open-link","actionOpen","https://samandarin.net");
 add("label","command-label","SetActionPostCommand",277,27,81,8); add("hyperlink","command-link","Say something!",365,27,55,8,0x14); dialog.set("command-link","actionCommand",0x7f01);
 add("label","hint-label","SetActionShowHint",277,37,81,8); add("hyperlink","hint-link","mask hints",365,37,40,8,8); dialog.set("hint-link","actionHint","text 1 text 1 text 1 text 1\ntext 2 text 2 text 2");
 add("groupbox","tooltip-group","SetCurrentToolTip",269,59,185,31);

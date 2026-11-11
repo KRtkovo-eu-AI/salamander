@@ -7,7 +7,7 @@ VERSION,"1,1,0,197"
 LANGID,1045
 AUTHOR,"Open Samandarin"
 WEB,"samandarin.net"
-COMMENT,"polish translation stub (English seed)"
+COMMENT,"polish (automatic AI translation)"
 
 [DIALOG 200]
 278,94,1,"Utwórz katalog DiskDir"

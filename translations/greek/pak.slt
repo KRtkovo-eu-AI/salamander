@@ -6,8 +6,8 @@ VERSION,"1,73,0,197"
 [TRANSLATION]
 LANGID,1032
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"greek translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"greek (automatic AI translation)"
 
 [DIALOG 100]
 194,73,1,"Βελτιστοποίηση αρχείου PAK"

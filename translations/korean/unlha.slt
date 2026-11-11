@@ -6,8 +6,8 @@ VERSION,"1,15,0,197"
 [TRANSLATION]
 LANGID,1042
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"korean translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"korean (automatic AI translation)"
 
 [STRINGTABLE 0]
 1,1,"잘못된 LZH 파일이거나 알 수 없는 파일 형식입니다."

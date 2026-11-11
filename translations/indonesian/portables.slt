@@ -7,7 +7,7 @@ VERSION,"0,6,0,197"
 LANGID,1057
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"indonesian translation stub (English seed)"
+COMMENT,"indonesian (automatic AI translation)"
 
 [STRINGTABLE 0]
 128,1,"{!}%d perangkat dipilih{2:s|0||1|s}"

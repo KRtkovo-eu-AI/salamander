@@ -6,8 +6,8 @@ VERSION,"2,4,0,197"
 [TRANSLATION]
 LANGID,1037
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"hebrew translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"hebrew (automatic AI translation)"
 
 [DIALOG 1000]
 344,84,1,"חישוב סכומי ביקורת"
@@ -54,15 +54,15 @@ COMMENT,"hebrew translation stub (English seed)"
 41,1,"מחשב..."
 42,1,"בוטל"
 43,1,"לחץ לחיצה ימנית על פריט כדי להעתיק את סכום הביקורת ללוח."
-44,0,"Copy &CRC Value to Clipboard\tCtrl+C"
-45,0,"Copy &MD5 Checksum to Clipboard\tCtrl+M"
-46,0,"Copy SHA-&1 Checksum to Clipboard\tCtrl+1"
-47,0,"Copy SHA-&256 Checksum to Clipboard\tCtrl+2"
+44,1,"Copy &CRC Value to Clipboard\tCtrl+C"
+45,1,"העתק את סכום הביקורת &MD5 ללוח\tCtrl+M"
+46,1,"העתק את סכום הביקורת SHA-&1 ללוח\tCtrl+1"
+47,1,"העתק את סכום ה-SHA-&256 ללוח\tCtrl+2"
 
 [STRINGTABLE 2]
-48,0,"Copy SHA-&512 Checksum to Clipboard\tCtrl+5"
+48,1,"Copy SHA-&512 Checksum to Clipboard\tCtrl+5"
 52,1,"העתק את &כל הערכים ללוח"
-53,0,"&Remove Item\tDelete"
+53,1,"&הסר פריט\tמחק"
 54,1,"הקובץ '%s' כבר קיים.\nלהחליף אותו?"
 55,1,"שגיאה ביצירת קובץ."
 56,1,"קבצים שדולגו או בוטלו במהלך החישוב לא נשמרו."

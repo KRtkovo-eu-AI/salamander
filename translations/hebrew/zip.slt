@@ -6,8 +6,8 @@ VERSION,"1,8,0,197"
 [TRANSLATION]
 LANGID,1037
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"hebrew translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"hebrew (automatic AI translation)"
 
 [DIALOG 100]
 308,201,1,"אפשרויות אריזה מורחבות"

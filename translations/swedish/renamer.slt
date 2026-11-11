@@ -6,8 +6,8 @@ VERSION,"1,16,0,197"
 [TRANSLATION]
 LANGID,1053
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"swedish translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"swedish (automatic AI translation)"
 
 [DIALOG 100]
 368,260,1,"Massomdöpning"

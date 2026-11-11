@@ -6,8 +6,8 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1026
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"bulgarian translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"bulgarian (automatic AI translation)"
 
 [DIALOG 8500]
 310,129,1,"Конфигурация на текстовия преглед Prism"

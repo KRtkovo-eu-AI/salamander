@@ -6,8 +6,8 @@ VERSION,"1,36,0,197"
 [TRANSLATION]
 LANGID,1037
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"hebrew translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"hebrew (automatic AI translation)"
 
 [DIALOG 1200]
 220,200,1,"הגדרות 7-Zip"
@@ -168,5 +168,5 @@ COMMENT,"hebrew translation stub (English seed)"
 1096,1,"לא ניתן להוסיף קובץ אחד או יותר לרשימה. הנתיב הכולל ארוך מדי.\nייתכן שחלק מהתיקיות או הקבצים לא יופיעו ברשימת הארכיון."
 1097,1,"לא ניתן להוסיף תיקייה אחת או יותר לרשימה. הנתיב הכולל ארוך מדי.\nייתכן שחלק מהתיקיות או הקבצים לא יופיעו ברשימת הארכיון."
 1098,1,"השם "%s" עם הנתיב המלא ארוך מדי.\n\nנתיב: %s"
-1099,0,"Not all archive entries were unpacked. The source archive has been kept."
+1099,1,"לא כל פריטי הארכיון חולצו. ארכיון המקור נשמר."
 

@@ -12,7 +12,7 @@
 
 static const TCHAR SuggestedFSName[] = TEXT("net");
 
-static const TCHAR HomePageUrl[] = TEXT("www.altap.cz");
+static const TCHAR HomePageUrl[] = TEXT("samandarin.net");
 
 static const TCHAR PluginNameEN[] = TEXT("Network"); // do not translate - it's used before language module is loaded and for debugging purposes
 

@@ -6,7 +6,7 @@ VERSION,"2,27,0,197"
 [TRANSLATION]
 LANGID,1041
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
+WEB,"https://samandarin.net/"
 COMMENT,"Japanese (ja-JP) UI translation"
 
 [DIALOG 2000]

@@ -6,8 +6,8 @@ VERSION,"1,13,0,197"
 [TRANSLATION]
 LANGID,1032
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"greek translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"greek (automatic AI translation)"
 
 [DIALOG 1000]
 341,77,1,"Αναίρεση διαγραφής"

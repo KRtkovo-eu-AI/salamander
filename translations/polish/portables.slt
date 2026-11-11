@@ -7,7 +7,7 @@ VERSION,"0,6,0,197"
 LANGID,1045
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"polish translation stub (English seed)"
+COMMENT,"polish (automatic AI translation)"
 
 [STRINGTABLE 0]
 128,1,"{!}%d wybrane urządzeni{2:s|0|e|1|a}"

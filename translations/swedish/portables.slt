@@ -7,7 +7,7 @@ VERSION,"0,6,0,197"
 LANGID,1053
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"swedish translation stub (English seed)"
+COMMENT,"swedish (automatic AI translation)"
 
 [STRINGTABLE 0]
 128,1,"{!}%d markerade enheter{2:s|0||1|s}"

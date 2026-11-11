@@ -6,8 +6,8 @@ VERSION,"2,4,0,197"
 [TRANSLATION]
 LANGID,1026
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"bulgarian translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"bulgarian (automatic AI translation)"
 
 [DIALOG 1000]
 344,84,1,"Изчисляване на контролни суми"

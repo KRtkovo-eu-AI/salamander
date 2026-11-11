@@ -6,8 +6,8 @@ VERSION,"1,39,0,197"
 [TRANSLATION]
 LANGID,1032
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"greek translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"greek (automatic AI translation)"
 
 [DIALOG 1200]
 220,83,1,"Ρυθμίσεις UnISO"

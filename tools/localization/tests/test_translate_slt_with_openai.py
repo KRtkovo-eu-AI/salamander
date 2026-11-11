@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Preserve dialog control rows during width expansion. | Prevent invalid SLT structure when a state-1 control precedes translatable controls. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Test fallback persistence and row-level request counts. | Ensure permanent validation failures are skipped by future runs while remaining buildable. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Verify row-level retry request counts. | Prevent valid translations from being resent after one technical-token failure. | | openai/gpt-5.6-luna-pro |
 import importlib.util, io, json, os, shutil, sys, tempfile, unittest, urllib.error
@@ -6,6 +7,21 @@ from pathlib import Path
 P=Path(__file__).parents[1]/"translate_slt_with_openai.py"; spec=importlib.util.spec_from_file_location("slt",P); slt=importlib.util.module_from_spec(spec); sys.modules["slt"]=slt; spec.loader.exec_module(slt)
 FIX=Path(__file__).parent/"fixtures/sample.slt"
 class Tests(unittest.TestCase):
+ def test_expand_widths_preserves_pretranslated_dialog_controls(self):
+  changed=[
+   "[DIALOG 1]\n",
+   '100,50,1,"Dialog title"\n',
+   '101,10,20,30,10,1,""\n',
+   '102,90,35,30,10,1,"Label translated to a much longer phrase"\n',
+  ]
+  item=slt.Item(3,"dialog-item","[DIALOG 1]","Label","102,90,35,30,10,","\n")
+  expanded=slt.expand_widths(changed,[item])
+  self.assertEqual(changed[2],'101,10,20,30,10,1,""\n')
+  self.assertTrue(changed[3].startswith("102,90,35,"))
+  self.assertGreater(int(changed[3].split(",")[3]),30)
+  self.assertGreater(int(changed[1].split(",")[0]),100)
+  self.assertEqual(expanded,2)
+
  def test_parser_uses_state_and_preserves_translated(self):
   lines=FIX.read_text(encoding="utf-8-sig").splitlines(keepends=True); self.assertEqual([i.key.split(':')[1] for i in slt.parse_items(lines)],["101","102"])
  def test_validate_rejects_changed_tokens_and_incomplete(self):

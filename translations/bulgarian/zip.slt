@@ -6,8 +6,8 @@ VERSION,"1,8,0,197"
 [TRANSLATION]
 LANGID,1026
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"bulgarian translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"bulgarian (automatic AI translation)"
 
 [DIALOG 100]
 308,201,1,"Настройки на допълнителните параметри"

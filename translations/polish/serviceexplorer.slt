@@ -7,7 +7,7 @@ VERSION,"0,15,0,197"
 LANGID,1045
 AUTHOR,"Open Samandarin"
 WEB,"http://www.jamik.de"
-COMMENT,"polish translation stub (English seed)"
+COMMENT,"polish (automatic AI translation)"
 
 [DIALOG 490]
 205,61,1,"Przeglądarka"

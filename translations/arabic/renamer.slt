@@ -6,8 +6,8 @@ VERSION,"1,16,0,197"
 [TRANSLATION]
 LANGID,1025
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"arabic translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"arabic (automatic AI translation)"
 
 [DIALOG 100]
 368,260,1,"إعادة تسمية جماعية"
@@ -280,7 +280,7 @@ COMMENT,"arabic translation stub (English seed)"
 1127,1,"تجاوز سعة المكدس"
 1128,1,"يلزم تعبير مُترجم."
 1129,1,"تعذر بدء مؤشر ترابط جديد."
-1130,1,"<خطأ في نمط الاستبدال: %s>"
+1130,1,"<خطأ نمط الاستبدال: %s>"
 1131,1,"يُتوقع قوس إغلاق أو تحديد حالة الأحرف ('lower' أو 'upper' أو 'mixed' أو 'stripdia')."
 1132,1,"يُتوقع قوس إغلاق."
 1133,1,"يُتوقع قوس إغلاق أو الرمز ':' متبوعًا بتحديد حالة الأحرف ('lower' أو 'upper' أو 'mixed' أو 'stripdia')."

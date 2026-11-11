@@ -6,8 +6,8 @@ VERSION,"1,10,0,197"
 [TRANSLATION]
 LANGID,1037
 AUTHOR,"Open Samandarin"
-WEB,"open.samandarin.net"
-COMMENT,"hebrew translation stub (English seed)"
+WEB,"https://samandarin.net/"
+COMMENT,"hebrew (automatic AI translation)"
 
 [STRINGTABLE 0]
 46,1,"מכונות וירטואליות Hyper-V"
@@ -16,7 +16,7 @@ COMMENT,"hebrew translation stub (English seed)"
 [STRINGTABLE 1]
 48,1,"הצגת מכונות Hyper-V מקומיות בחלונית."
 49,1,"https://samandarin.net/"
-50,0,"Show &Hyper-V Machines Window"
+50,1,"הצג חלון מכונות &Hyper-V"
 51,1,"צור &VHD"
 52,1,"&חבר VHD"
 60,1,"יצירה וחיבור של דיסק קשיח וירטואלי"
