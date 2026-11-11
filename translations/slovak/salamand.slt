@@ -4372,6 +4372,10 @@ SLGINCOMPLETE,""
 14695,1,"Prístup bol odmietnutý. Čítať pre toto porovnanie obsah súborov pod touto cestou ako správca?"
 14696,1,"Odkaz Windows na zabezpečenie kompatibility bol preskočený. Do súčtu sa započítava 0 bajtov."
 
+14698,1,"Operáciu sa nepodarilo potvrdiť ako dokončenú. Pracovná záloha alebo žurnál mohli zostať zachované. Pred opakovaním skontrolujte zdroj, cieľ a prípadnú zálohu."
+
+14699,1,"Prístup bol odmietnutý. Nahradiť tento súbor ako správca so zachovaním oprávnení cieľa? Náhradný súbor nebude obsahovať alternatívne dátové prúdy."
+
 [STRINGTABLE 198]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."
 

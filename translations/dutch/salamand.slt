@@ -4372,6 +4372,10 @@ SLGINCOMPLETE,""
 14695,1,"Toegang geweigerd. Bestandsinhoud onder dit pad als administrator lezen voor deze vergelijking?"
 14696,1,"Deze Windows-compatibiliteitskoppeling is overgeslagen. Ze telt voor 0 bytes mee in het totaal."
 
+14698,1,"De bewerking kon niet als voltooid worden bevestigd. Er kan een werkback-up of journaal zijn achtergebleven. Controleer de bron, de bestemming en eventuele back-up voordat u opnieuw probeert."
+
+14699,1,"Toegang geweigerd. Dit bestand als administrator vervangen met behoud van de doelmachtigingen? Het vervangende bestand bevat geen alternatieve gegevensstromen."
+
 [STRINGTABLE 198]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."
 

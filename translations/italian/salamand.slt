@@ -4372,6 +4372,10 @@ SLGINCOMPLETE,""
 14695,1,"Accesso negato. Leggere come amministratore il contenuto dei file in questo percorso per questo confronto?"
 14696,1,"Questo collegamento di compatibilità di Windows è stato ignorato. Contribuisce al totale con 0 byte."
 
+14698,1,"Non è stato possibile confermare il completamento dell’operazione. Potrebbero rimanere un backup di lavoro o un registro. Controllare la sorgente, la destinazione e gli eventuali backup prima di riprovare."
+
+14699,1,"Accesso negato. Sostituire questo file come amministratore mantenendo le autorizzazioni di destinazione? Il file sostitutivo non conterrà flussi di dati alternativi."
+
 [STRINGTABLE 198]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."
 

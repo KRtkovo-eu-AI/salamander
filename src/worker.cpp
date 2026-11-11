@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Route ignored-stream F5 overwrites through typed UAC. | Keep the approved conflict and copy only the default stream. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify the singleton special-file timestamp request. | Reject attribute edits and preserve existing compression, sparsity and encryption. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Show a listed target revision in native overwrite confirmation. | Offer a verified retry when opening the target for metadata is denied. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Route native overwrites and protected read-only moves through one transaction. | Keep conflict decisions and prevent separate elevated target deletion. | | GPT-6.1 Sol |
@@ -5928,7 +5929,9 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
         jobs.erase(existing);
     if (result.unknown)
     {
-        SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, moving);
+        const WPARAM message = request.NeedsDiskRecoveryWarning(result) ?
+            WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN : WORKER_DIALOG_UAC_TRANSFER_UNKNOWN;
+        SendMessage(progress, WM_USER_DIALOG, message, moving);
         return true;
     }
     if (result.error != ERROR_SUCCESS)
@@ -6053,7 +6056,8 @@ static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
                                    const CProgressDlgData& dlgData, UacF7::PreparedTransfer& request)
 {
     if ((op.Opcode != ocCopyFile && op.Opcode != ocMoveFile) || !(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) ||
-        script.OverwriteOlder || script.CopySecurity || script.CopyAttrs || script.IgnoreTransferAds ||
+        script.OverwriteOlder || script.CopySecurity || script.CopyAttrs ||
+        (script.IgnoreTransferAds && op.Opcode != ocCopyFile) ||
         (dlgData.ConflictDecisionInjected &&
          (dlgData.InjectedConflictType != cmctFileExists || !op.ScannedTargetRevision.attributes)) ||
         !op.SourceNameWValid || !op.TargetNameWValid ||
@@ -6066,7 +6070,8 @@ static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
     if ((op.OpFlags & OPFL_UAC_TRANSFER_LISTED) && (!listed || !listed->Request))
         return false;
     return !limited && request.PrepareOverwrite(op.SourceNameW, op.TargetNameW, op.FileSize.Value,
-                                                 listed ? listed->Request.get() : nullptr, op.Opcode == ocMoveFile) &&
+                                                 listed ? listed->Request.get() : nullptr, op.Opcode == ocMoveFile,
+                                                 script.IgnoreTransferAds != FALSE) &&
            (!dlgData.ConflictDecisionInjected ||
             UacF7::SameFileRevision(op.ScannedTargetRevision, request.Approval().revision));
 }

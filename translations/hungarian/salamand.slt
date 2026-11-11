@@ -4372,6 +4372,10 @@ SLGINCOMPLETE,""
 14695,1,"A hozzáférés megtagadva. Rendszergazdaként olvassa be az ezen az útvonalon található fájlok tartalmát ehhez az összehasonlításhoz?"
 14696,1,"A Windows kompatibilitási hivatkozás kimaradt. A teljes mérethez 0 bájttal járul hozzá."
 
+14698,1,"A művelet befejezése nem erősíthető meg. Egy munkamásolat vagy napló megmaradhatott. Újrapróbálkozás előtt ellenőrizze a forrást, a célhelyet és az esetleges biztonsági másolatot."
+
+14699,1,"Hozzáférés megtagadva. Lecseréli ezt a fájlt rendszergazdaként a cél jogosultságainak megtartásával? A helyettesítő fájl nem fog alternatív adatfolyamokat tartalmazni."
+
 [STRINGTABLE 198]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."
 

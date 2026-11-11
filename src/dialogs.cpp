@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Explain uncertain disk overwrite recovery. | Point users to preserved backup and journal files. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Respect refused UAC consent in the same delete scope. | Suppress repeated system prompts while allowing an explicit retry. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Display the approved roots for an existing F5 tree. | Keep the consent scope independent of the first denied entry. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Show the scope of the rooted F5 consent. | Describe the selected trees instead of their parent directories. | #731 | GPT-6.1 Sol |
@@ -1930,7 +1931,7 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             if (prompt.request.IsDirectoryMove())
                 confirmText = IDS_UAC_RENAME_DIRECTORY_CONFIRM;
             else if (prompt.request.IsOverwrite())
-                confirmText = IDS_UAC_COPY_OVERWRITE_CONFIRM;
+                confirmText = prompt.request.IgnoresAds() ? IDS_UAC_COPY_OVERWRITE_IGNORE_ADS_CONFIRM : IDS_UAC_COPY_OVERWRITE_CONFIRM;
             else if (tree)
                 confirmText = IDS_UAC_TREE_COPY_CONFIRM;
             else if (prompt.request.PreservesSecurity())
@@ -1969,6 +1970,13 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             const bool moving = lParam != 0;
             SalMessageBox(HWindow, LoadStr(moving ? IDS_UAC_MOVE_UNKNOWN : IDS_UAC_COPY_UNKNOWN),
                           LoadStr(moving ? IDS_ERRORMOVE : IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+            break;
+        }
+
+        case WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN:
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_UAC_DISK_RECOVERY_UNKNOWN),
+                          LoadStr(lParam ? IDS_ERRORMOVE : IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
             break;
         }
 

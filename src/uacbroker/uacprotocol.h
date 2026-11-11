@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Version overwrite with ignored named streams. | Reject peers that do not enforce the same typed copy policy. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Version timestamp-only metadata for special files. | Reject peers that do not validate the same file attributes. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Version exact-file allocation scope. | Keep older rooted-inventory peers from accepting an incompatible request. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Version scoped file-allocation queries. | Reject older peers including the superseded protocol 29 builds. | #731 | GPT-6.1 Terra |
@@ -30,7 +31,7 @@
 // | 2026-11-09 | Share the UAC protocol marker. | Keep the handshake and executable resource on one version. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
-#define SAM_UAC_PROTOCOL_VERSION 33
+#define SAM_UAC_PROTOCOL_VERSION 34
 #define SAM_UAC_PROTOCOL_RESOURCE 63001
 #define SAM_UAC_IMAGE_HOST 1
 #define SAM_UAC_IMAGE_BROKER 2

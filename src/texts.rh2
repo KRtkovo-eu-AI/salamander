@@ -1,3 +1,4 @@
+// | 2026-11-11 | Reserve the uncertain disk recovery message. | Distinguish preserved backup and journal state. | #731 | GPT-6.1 Terra |
 // | 2026-11-08 | Assign the listing-only archive message. | Reuse the protected ZIP dialog title. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve consent and status text for protected listings. | Show the active authorization in the panel. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Reserve plain inventory labels. | Keep translations out of format-string arguments. | https://github.com/majklvi/salamander/security/code-scanning/13 | GPT-6.1 Sol (Codex) |
@@ -3369,5 +3370,7 @@
 #define IDS_UAC_COMPARE_CONTENT_CONFIRM              14695
 #define IDS_UAC_SIZE_COMPAT_ALIAS                    14696
 #define IDS_UAC_SIZE_FILE_CONFIRM                    14697
+#define IDS_UAC_DISK_RECOVERY_UNKNOWN                14698
+#define IDS_UAC_COPY_OVERWRITE_IGNORE_ADS_CONFIRM    14699
 
 #endif // __TEXTS_RH2

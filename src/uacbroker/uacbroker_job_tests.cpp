@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Check ignored-stream overwrite consent reuse. | Prevent cross-policy jobs and preserve changed targets. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise special timestamp singleton scope on the broker pipe. | Reject sibling and ordinary metadata scope substitutions. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify singleton allocation handshake and exact-file scope. | Reject unselected files, parent changes and every content or listing request. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise scoped file-allocation queries and sentinel handling. | Reject changed identities and unsupported request scopes over the real pipe. | #731 | GPT-6.1 Terra |
@@ -2613,6 +2614,44 @@ void CheckStaleOverwriteJob(const Directory& source, const Directory& target)
           "the same broker rejects a revised target with the same file identity");
 }
 
+void CheckIgnoreAdsOverwriteJob(const Directory& source, const Directory& target)
+{
+    constexpr wchar_t first[] = L"ignore-job-first";
+    constexpr wchar_t leaf[] = L"ignore-job-overwrite-東";
+    if (!WriteByte(source.File(first), 1) || !WriteByte(source.File(leaf), 2) || !WriteByte(target.File(leaf), 3))
+    { Check(false, "prepare an ignored-stream overwrite job"); return; }
+    UacF7::ArchiveRevision approved{};
+    const auto original = Adopt(CreateFileW(target.File(leaf).c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    if (!original || UacZipUpdate::ReadRevision(original.get(), approved))
+    { Check(false, "capture an ignored-stream overwrite revision"); return; }
+    JobPipe job;
+    DWORD error = ERROR_GEN_FAILURE;
+    if (!job.Open() || !job.Request(Operation::CopyIgnoreAds, source, first, error, &target) || error)
+    { Check(false, "start an ignored-stream copy job"); return; }
+    const bool changed = SetFileAttributesW(target.File(leaf).c_str(), FILE_ATTRIBUTE_HIDDEN) != FALSE;
+    error = ERROR_GEN_FAILURE;
+    Check(changed && job.Request(Operation::CopyOverwriteIgnoreAds, source, leaf, error, &target,
+                                 nullptr, nullptr, false, nullptr, &approved) && error == ERROR_FILE_INVALID &&
+          HasByte(source.File(leaf), 2) && HasByte(target.File(leaf), 3),
+          "reuse ignored-stream consent but reject a changed overwrite target");
+    UacF7::TransferJobScope normal{}, ignored{};
+    normal.operation = Operation::Copy;
+    ignored.operation = Operation::CopyIgnoreAds;
+    auto ignoredOverwrite = ignored;
+    ignoredOverwrite.operation = Operation::CopyOverwriteIgnoreAds;
+    Check(ignored.Matches(ignoredOverwrite) && !normal.Matches(ignoredOverwrite) &&
+          !ignored.Matches(normal), "ignored-stream and ordinary copy consents do not cross");
+    Check(UacF7::NeedsDiskRecoveryWarning(Operation::CopyOverwriteIgnoreAds, {ERROR_BROKEN_PIPE, true}) &&
+          UacF7::NeedsDiskRecoveryWarning(Operation::Copy, {ERROR_PARTIAL_COPY, true}) &&
+          UacF7::NeedsDiskRecoveryWarning(Operation::MoveOverwrite, {ERROR_BROKEN_PIPE, true}) &&
+          !UacF7::NeedsDiskRecoveryWarning(Operation::CopyOverwriteIgnoreAds, {ERROR_BROKEN_PIPE, false}) &&
+          !UacF7::NeedsDiskRecoveryWarning(Operation::CopyEncrypted, {ERROR_BROKEN_PIPE, true}) &&
+          !UacF7::NeedsDiskRecoveryWarning(Operation::Move, {ERROR_BROKEN_PIPE, true}),
+          "warn about disk recovery on uncertain replies only for matching operation types");
+}
+
 void CheckMoveOverwriteJob(const Directory& source, const Directory& target, const Directory& outside)
 {
     constexpr wchar_t fresh[] = L"move-job-fresh";
@@ -2964,6 +3003,7 @@ void CheckMalformedTransferProgress()
     check(Operation::CopyTree, {{1, 0}}, 0, false, true, "require an explicit total for tree progress");
     check(Operation::CopyEncrypted, {{2, 1}}, 0, false, true, "reject encrypted progress beyond its total");
     check(Operation::CopyOverwrite, {{1, 2}}, 0, false, true, "reject an unexpected explicit total for overwrite progress");
+    check(Operation::CopyOverwriteIgnoreAds, {{1, 2}}, 0, false, true, "reject an unexpected explicit total for ignored-stream overwrite progress");
     check(Operation::MoveAcrossVolume, {{UacF7::maxCrossVolumeMoveBytes + 1, 0}}, 0, false, true,
           "reject progress beyond the representable F6 range");
     check(Operation::CopyTree, {{1, 10}}, 0, true, true, "reject a truncated progress frame");
@@ -3295,6 +3335,7 @@ int wmain()
     CheckActiveOverwriteJournal(source, target);
     CheckLateOverwriteJournal(source, target);
     CheckStaleOverwriteJob(source, target);
+    CheckIgnoreAdsOverwriteJob(source, target);
     CheckMoveOverwriteJob(source, target, outside);
     CheckCancelledCopyJob(source, outside, target);
     CheckLateCopyCancellation(source, target);

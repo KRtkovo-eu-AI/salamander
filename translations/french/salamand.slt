@@ -4372,6 +4372,10 @@ SLGINCOMPLETE,""
 14695,1,"Accès refusé. Lire le contenu des fichiers sous ce chemin en tant qu’administrateur pour cette comparaison ?"
 14696,1,"Ce lien de compatibilité Windows a été ignoré. Il compte pour 0 octet dans le total."
 
+14698,1,"La fin de l’opération n’a pas pu être confirmée. Une sauvegarde de travail ou un journal peut subsister. Vérifiez la source, la destination et toute sauvegarde avant de réessayer."
+
+14699,1,"Accès refusé. Remplacer ce fichier en tant qu’administrateur en conservant les autorisations de destination ? Le fichier de remplacement ne contiendra aucun flux de données alternatif."
+
 [STRINGTABLE 198]
 14991,1,"Lecture des associations depuis le stockage de fichiers, veuillez patienter..."
 

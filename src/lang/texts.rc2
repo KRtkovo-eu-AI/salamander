@@ -1,5 +1,6 @@
 ﻿// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Explain retained disk overwrite recovery files. | Make an uncertain result actionable without implying data was removed. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Describe exact-file allocation consent. | Identify the selected file and metadata-only access. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Describe administrator approval for any verified tree copy. | Use the same localized consent wording for registered and ordinary targets. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Explain exclusion of a verified Windows compatibility link. | Show why the target was not counted. | #731 | GPT-6.1 Sol |
@@ -2490,6 +2491,7 @@ STRINGTABLE
  IDS_UAC_RECYCLE_CONFIRM, "Access was denied. Move this file to your Recycle Bin as an administrator?"
  IDS_UAC_BATCH_ITEM_SCOPE, "Approval applies to this item. Cancel stops the remaining items and keeps completed changes."
  IDS_UAC_COPY_OVERWRITE_CONFIRM, "Access was denied. Replace this existing file as an administrator while keeping the destination permissions?"
+ IDS_UAC_COPY_OVERWRITE_IGNORE_ADS_CONFIRM, "Access was denied. Replace this file as an administrator while keeping the destination permissions? The replacement will not contain alternate data streams."
  IDS_UAC_COPY_CONFIRM, "Access was denied. Copy this file and its alternate data streams as an administrator?"
  IDS_UAC_COPY_IGNORE_ADS_CONFIRM, "Access was denied. Copy this file without its alternate data streams as an administrator?"
  IDS_UAC_COPY_COMPRESSED_CONFIRM, "Access was denied. Copy this file and preserve its NTFS compression as an administrator?"
@@ -2498,6 +2500,7 @@ STRINGTABLE
  IDS_UAC_COPY_ENCRYPTED_CONFIRM, "Access was denied. Copy this file as an administrator and preserve its EFS encryption?"
  IDS_UAC_COPY_EFS_UNSUPPORTED, "This EFS copy could not be completed. Administrator mode cannot preserve the EFS encryption for this operation."
  IDS_UAC_COPY_UNKNOWN, "The copy could not be confirmed as complete. Check the destination before retrying."
+ IDS_UAC_DISK_RECOVERY_UNKNOWN, "The operation could not be confirmed as complete. A working backup or journal may remain. Check the source, destination, and any backup before retrying."
  IDS_UAC_MOVE_CONFIRM, "Access was denied. Move this file as an administrator?"
  IDS_UAC_MOVE_UNKNOWN, "The move could not be confirmed as complete. Check the source and destination before retrying."
  IDS_UAC_INVENTORY_TITLE, "Protected subtree inventory"

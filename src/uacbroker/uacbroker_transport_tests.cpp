@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Reject the previous overwrite protocol. | Require peers to understand the ignored-stream request. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Reject protocol versions 31 and 32. | Keep timestamp-only metadata policy isolated from older peers. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Reject the prior rooted-inventory protocol for exact-file grants. | Ensure the new singleton scope cannot pair with older peers. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Reject the superseded protocol 29 handshake. | Prevent accidental pairing with the reverted late-move build. | #731 | GPT-6.1 Terra |
@@ -95,10 +96,11 @@ int wmain(int argc, wchar_t** argv)
     const Frame rootedOnly{30, capabilities, Phase::Hello};
     const Frame previous{31, capabilities, Phase::Hello};
     const Frame abandoned{32, capabilities, Phase::Hello};
+    const Frame previousMetadata{33, capabilities, Phase::Hello};
     if (!Matches(current, Phase::Hello) || Matches(superseded, Phase::Hello) || Matches(rootedOnly, Phase::Hello) ||
-        Matches(previous, Phase::Hello) || Matches(abandoned, Phase::Hello))
+        Matches(previous, Phase::Hello) || Matches(abandoned, Phase::Hello) || Matches(previousMetadata, Phase::Hello))
         return 14;
-    std::puts("PASS reject the superseded protocol 29 through 32 handshakes");
+    std::puts("PASS reject the superseded protocol 29 through 33 handshakes");
 
     const ComApartment com;
     if (FAILED(com.result))

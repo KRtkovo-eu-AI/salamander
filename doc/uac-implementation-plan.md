@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record ignored-stream overwrite and conservative disk recovery. | Separate local evidence, older journal limits, and pending privileged VM checks. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record clean metadata host and broker build evidence. | Separate the committed build from unrelated in-progress ADS work. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record time-only metadata support for special files. | Track verified local behavior and deferred integration and VM evidence. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record exact-file allocation scope and remaining ACL boundaries. | Distinguish verified metadata access from an atomic snapshot and VM evidence. | #731 | GPT-6.1 Terra |
@@ -586,6 +587,22 @@ Změna podporuje pouze vybrané časy jediného souboru se sparse, kompresí neb
 V každé konfiguraci Debug/Release prošlo **371** nativních kontrol, **367** transportních kontrol s jedním SKIP, **106** kontrol controlleru a **27** kontrol obsluhy dialogu. NTFS testy skutečně ověřily sparse, compressed a EFS včetně zachování obsahu, ADS a DACL pod místním účtem. Transport odmítl jiné ID i přechod mezi běžným a speciálním rozsahem; test záměny rodiče u starší exact-file relace Windows odmítlo provést, a je proto označen SKIP. Dialogový test vykonává skutečné obslužné metody se simulovanými ovládacími prvky. Host a broker se z čistého commitu `dbefc233` sestavily v Debug i Release, sonda v Release; skutečná dvojice protokolu 33 odmítla broker 31. Logy jsou v `C:\Samandarin\builds\uac-metadata-audit-20261111` a `C:\Samandarin\builds\uac-m1-clean-20261111`. Skutečná UAC výzva, chování jiného účtu bez EFS klíče a měření paměti čekají na následné ověření.
 
 Stejně sestavené Release binárky proti protokolu 31: `salamand.exe` 5 775 360 → 5 775 872 B, `uacbroker.exe` 1 404 928 → 1 404 928 B, dohromady 7 180 288 → 7 180 800 B (+512 B).
+
+Navazující audit M1 pro dávky: souhlas musí být omezen na přesný manifest vybraných identit a neměnnou politiku časů; nestačí povolit všechny sourozence stejného rodiče. Rekurzivní varianta vyžaduje ověřený kořen, inventář a opětovnou kontrolu každé položky bez následování neověřených odkazů. Současná běžná rekurze může adresářové odkazy následovat, takže nelze tiché vynechání vydávat za úplný ekvivalent. Obě varianty zůstávají otevřené.
+
+Navazující audit R4: Find může při přípravě konkrétního souboru či kořene pro čtení potřebovat identitu z výpisu čitelného rodiče. Ta musí být před obsahem opět ověřena a nesmí překročit schválený rozsah. Současná počáteční enumerace Findu neobsahuje file ID; případný fallback by tedy zajišťoval identitu až od okamžiku přípravy, nikoli již od prvního zobrazení. Implementace zůstává otevřená.
+
+## F5 přepis s Ignore ADS a starší diskové žurnály
+
+Stav: **implementováno a ověřeno lokálně; skutečný privilegovaný broker a společná VM akceptace čekají**. Základ `7339911c` na `local/uac-goal-followup`, protokol **34**. Přepis F5 při Ignore ADS používá vlastní typovanou operaci a sdílí souhlas jen s odpovídající kopií Ignore ADS. Zachovává běžné rozhodnutí o konfliktu a náhrada obsahuje pouze hlavní proud; žurnál a záloha zachovávají původní obsah i proudy cíle pro živý rollback. CopyAttrs, CopySecurity, Overwrite Older a F6 s Ignore ADS nejsou tímto krokem dokončeny.
+
+Starší diskové žurnály v1–v4 nemají trvalý důkaz původního bezpečnostního deskriptoru včetně SACL. Po přerušení se před prvním přejmenováním vyčistí pouze tehdy, pokud původní soubor zůstal pod ověřenou identitou a záloha nevznikla. Ostatní neprokázané stavy zachovají zbývající zálohu i žurnál a vrátí částečný nebo nejistý výsledek; automatická obnova těchto starých stavů tím zůstává otevřená. Řízené storno v živé transakci po odložení cíle stále vrací původní název i ADS. Nové lokalizované hlášení upozorňuje na možnou zálohu a žurnál a u F6 také na kontrolu zdroje i cíle; ZIP žurnály nemění.
+
+Host a broker x64 se sestavily v Debug i Release, sonda v Release a anglický jazykový modul v obou konfiguracích. První sestavení jazykového modulu selhalo interní chybou 32bitového linkeru Visual Studia `LNK1000`; opakování s `PreferredToolArchitecture=x64` prošlo. V každé konfiguraci prošlo **24** kontrol stage a živého storna a **42** kontrol obnovy včetně matice verzí a skutečných ukončení procesu. Kontrolní sada cest má **28** testů; transport Release proti skutečným binárkám má **372 PASS a 1 SKIP** a odmítl starší broker 33. Texty jsou přítomné ve všech 11 existujících překladech. Logy jsou v `C:\Samandarin\builds\uac-ignore-ads-final-20261111`.
+
+Pozitivní lokální stage/Publish test používá testovací kontrolu zabezpečení: místní token nemá `SeSecurityPrivilege`, takže skutečný produkční `ProtectedObject` a čtení SACL nejsou tímto testem doloženy. Tyto scénáře, skutečné UAC, popředí, výkon a soukromá paměť hosta i brokeru vyžadují společnou VM akceptaci.
+
+Stejně sestavené Release binárky proti `dbefc233`: `salamand.exe` 5 775 872 → 5 776 896 B, `uacbroker.exe` 1 404 928 → 1 405 952 B, dohromady 7 180 800 → 7 182 848 B (+2 048 B).
 
 ## Další postup
 

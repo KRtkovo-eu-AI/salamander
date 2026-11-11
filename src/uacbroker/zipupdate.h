@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Preserve legacy disk journals after interruption. | Avoid claiming security-descriptor recovery without durable proof. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Prepare a default-stream-only replacement stage. | Keep ignored source streams out of a protected overwrite stage. | | GPT-6.1 Terra |
 // | 2026-11-11 | Stream cancellable disk overwrite receipts and retire read-only backups atomically. | Support ordinary large attributed replacements while preserving journal and ZIP boundaries. | | GPT-6.1 Sol |
 // | 2026-11-09 | Return a conflict after recovering the original name. | Require a new decision before replacing a restored file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind named overwrite backups to their original contents. | Retire protected targets with named streams only after verifying a durable digest. | | GPT-6.1 Sol (Codex) |
@@ -399,6 +401,33 @@ inline DWORD Recover(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expe
     }
     else if (recorded != leaf)
         return ERROR_INVALID_DATA;
+    // Disk journal versions 1-4 do not bind the original security descriptor.
+    // Clear only a journal that still names the original object and has no
+    // backup: this changes no data and leaves any later overwrite to obtain a
+    // fresh approval. Every other state must remain available for review.
+    if (kind == ReplacementKind::DiskCopy)
+    {
+        if ((error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline)) != ERROR_SUCCESS)
+            return error;
+        const auto unopenedBackup = BackupName(record.nonce, kind);
+        if (unopenedBackup.empty())
+            return ERROR_INVALID_DATA;
+        HANDLE rawBackupCheck = nullptr;
+        error = Open(parent, unopenedBackup, rawBackupCheck, 0);
+        Handle backupCheck(rawBackupCheck, CloseHandle);
+        if (error == ERROR_FILE_NOT_FOUND)
+        {
+            HANDLE rawOriginal = nullptr;
+            error = Open(parent, leaf, rawOriginal, 0);
+            Handle originalCheck(rawOriginal, CloseHandle);
+            if (!error && !CheckIdentity(originalCheck.get(), record.original) && !CheckParent(parent, expected))
+            {
+                error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline);
+                return error ? error : ClearRecord(journal);
+            }
+        }
+        return ERROR_PARTIAL_COPY;
+    }
     const auto backupName = BackupName(record.nonce, kind);
     if (backupName.empty())
         return ERROR_INVALID_DATA;
@@ -444,7 +473,9 @@ inline DWORD Recover(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expe
     if ((error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline)) != ERROR_SUCCESS)
         return error;
     if (!finalFile)
+    {
         error = UacRenameLeaf::Detail::NativeRename(backup.get(), parent, leaf);
+    }
     else if ((error = CheckIdentity(finalFile.get(), record.replacement)) == ERROR_SUCCESS)
     {
         if (kind == ReplacementKind::DiskCopy)
@@ -492,6 +523,47 @@ inline DWORD CheckRevision(HANDLE original, const Revision& expected)
            actual.created == expected.created && actual.modified == expected.modified &&
            actual.changed == expected.changed && actual.attributes == expected.attributes &&
            actual.size == expected.size ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+}
+
+// Prepares only a fresh, exclusively held stage. The caller must keep both
+// handles open until publication and use the journalled target replacement.
+// This helper does not authorize either the source or an overwrite.
+inline DWORD CopyIgnoredNamedStreamsToStage(HANDLE source, const Revision& expectedSource,
+                                            HANDLE stage, UacCopyLeaf::StageVerifier verify,
+                                            HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG,
+                                            const UacCopyLeaf::Detail::CopyProgress* progress = nullptr)
+{
+    using namespace UacCopyLeaf;
+    using namespace UacCopyLeaf::Detail;
+    if (!source || !stage || !verify || expectedSource.size < 0)
+        return ERROR_INVALID_PARAMETER;
+    if (!verify(stage, false))
+        return ERROR_ACCESS_DENIED;
+    DWORD error = CheckRevision(source, expectedSource);
+    if (error)
+        return error;
+    FILE_BASIC_INFO sourceBasic{}, stageBasic{};
+    if ((error = ReadPlainMetadata(source, sourceBasic, false, StreamPolicy::IgnoreNamed,
+                                   UacF7::nativeCopyAttributes)) ||
+        (error = ReadPlainMetadata(stage, stageBasic, false, StreamPolicy::RequireDefault,
+                                   UacF7::nativeCopyAttributes)))
+        return error;
+    LARGE_INTEGER stageLength{};
+    if (!GetFileSizeEx(stage, &stageLength))
+        return GetLastError();
+    if (stageLength.QuadPart != 0)
+        return ERROR_FILE_INVALID;
+    const LARGE_INTEGER beginning{};
+    if (!SetFilePointerEx(source, beginning, nullptr, FILE_BEGIN) ||
+        !SetFilePointerEx(stage, beginning, nullptr, FILE_BEGIN))
+        return GetLastError();
+    if ((error = CopyData(source, stage, static_cast<ULONGLONG>(expectedSource.size), nullptr,
+                          connection, deadline, false, 0, progress)) ||
+        (error = CheckRevision(source, expectedSource)) ||
+        (error = ReadPlainMetadata(stage, stageBasic, false, StreamPolicy::RequireDefault,
+                                   UacF7::nativeCopyAttributes)))
+        return error;
+    return verify(stage, false) ? ERROR_SUCCESS : ERROR_ACCESS_DENIED;
 }
 
 // The caller supplies the original opened for delete without sharing write

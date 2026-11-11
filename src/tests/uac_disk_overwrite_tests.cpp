@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Keep legacy ADS backups after interrupted publication. | Do not discard security state that the old journal cannot prove. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Exercise large attributed disk replacements and cancellable durable receipts. | Verify stream preservation, atomic read-only cleanup and recovery on real NTFS. | #731 | GPT-6.1 Sol |
 */
 #define SAM_UAC_REPLACEMENT_FAULT_TEST
@@ -269,9 +270,9 @@ int wmain(int argc, wchar_t** argv)
             cancelDuringReceiptHash = true;
             error = Recover(parent.get(), parentId, leaf, journal.get(), ReplacementKind::DiskCopy, TrustedFixture,
                 RecoveryIntent::Replace, connection.get());
-            Check(!cancelDuringReceiptHash && error == ERROR_CANCELLED && Exists(backupPath) && !Empty(journal.get()),
-                "active recovery hash cancellation preserves the durable receipt for retry", error);
-            if (!ReadFile(connection.get(), &cancel, 1, &count, nullptr)) return 2;
+            Check(cancelDuringReceiptHash && error == ERROR_PARTIAL_COPY && Exists(backupPath) && !Empty(journal.get()),
+                "legacy named recovery blocks before losing unverified security state", error);
+            cancelDuringReceiptHash = false;
         }
         if (scenario == 3)
         {
@@ -280,11 +281,8 @@ int wmain(int argc, wchar_t** argv)
         }
         error = Recover(parent.get(), parentId, leaf, journal.get(), ReplacementKind::DiskCopy, TrustedFixture,
             RecoveryIntent::Replace, connection.get());
-        if (scenario == 2 || scenario == 4)
-            Check(!error && !Exists(backupPath) && Empty(journal.get()), "recover a complete large receipt and atomically retire its original ADS backup", error);
-        else
-            Check(error == ERROR_PARTIAL_COPY && Exists(backupPath) && !Empty(journal.get()),
-                "changed named-stream revision preserves the original backup and recovery record", error);
+        Check(error == ERROR_PARTIAL_COPY && Exists(backupPath) && !Empty(journal.get()),
+            "legacy receipt retains its original ADS backup and recovery record", error);
     }
     for (int phase = 0; phase < 4; ++phase)
     {
@@ -313,14 +311,8 @@ int wmain(int argc, wchar_t** argv)
             "hard process termination retains the attributed original backup");
         const auto leaf = L"crash-\u6771.bin";
         error = Recover(childParent.get(), identity, leaf, journal.get(), ReplacementKind::DiskCopy, TrustedFixture);
-        auto final = Open(childFolder + L"\\" + leaf, FILE_READ_DATA | FILE_READ_ATTRIBUTES);
-        FILE_ID_INFO finalId{};
-        const bool identityRead = final && GetFileInformationByHandleEx(final.get(), FileIdInfo, &finalId, sizeof(finalId));
-        const auto& expectedId = phase < 2 ? record.disk.exchange.original : record.disk.exchange.replacement;
-        const bool expectedStatus = phase == 2 ? error == ERROR_PARTIAL_COPY && Exists(backupPath) && !Empty(journal.get())
-            : !error && !Exists(backupPath) && Empty(journal.get());
-        Check(expectedStatus && identityRead && UacRenameLeaf::Detail::SameSource(finalId, expectedId) && Attrs(final.get(), attributes),
-            "recover the exact original or committed replacement without deleting an unreceipted copy", error);
+        Check(error == ERROR_PARTIAL_COPY && Exists(backupPath) && !Empty(journal.get()),
+            "retain legacy backup and journal after interrupted replacement", error);
     }
     std::printf("Checks=%d Failures=%d\n", checks, failures);
     return failures ? 1 : 0;

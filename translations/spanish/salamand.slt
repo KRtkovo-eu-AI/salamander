@@ -4372,6 +4372,10 @@ SLGINCOMPLETE,""
 14695,1,"Acceso denegado. ¿Leer como administrador el contenido de los archivos de esta ruta para esta comparación?"
 14696,1,"Se omitió este vínculo de compatibilidad de Windows. Aporta 0 bytes al total."
 
+14698,1,"No se pudo confirmar que la operación terminara. Puede quedar una copia de trabajo o un registro. Compruebe el origen, el destino y cualquier copia de seguridad antes de volver a intentarlo."
+
+14699,1,"Acceso denegado. ¿Reemplazar este archivo como administrador conservando los permisos del destino? El archivo de reemplazo no contendrá flujos de datos alternativos."
+
 [STRINGTABLE 198]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
 

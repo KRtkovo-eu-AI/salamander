@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Identify an uncertain disk replacement. | Explain retained recovery files without changing other operation messages. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Carry the exact singleton special-file timestamp policy. | Keep attribute and compression edits outside the verified time-only retry. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Track declined Windows consent on the copy plan. | Distinguish system refusal from skipping the source in the app. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Keep the protected source plan with its approved connection. | Transfer one scoped session from analysis to the copy worker. | #731 | GPT-6.1 Sol |
@@ -97,6 +98,7 @@ constexpr WPARAM WORKER_DIALOG_UAC_DELETE = 14;
 constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 15;
 constexpr WPARAM WORKER_DIALOG_UAC_TREE_RESULT = 16;
 constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER_UNKNOWN = 17;
+constexpr WPARAM WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN = 19;
 
 struct CChangeAttrsData
 {

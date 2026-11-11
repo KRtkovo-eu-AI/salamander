@@ -4372,6 +4372,10 @@ SLGINCOMPLETE,""
 14695,1,"Acces refuzat. Citiți ca administrator conținutul fișierelor de sub această cale pentru această comparație?"
 14696,1,"Această legătură de compatibilitate Windows a fost omisă. Contribuie cu 0 octeți la total."
 
+14698,1,"Finalizarea operației nu a putut fi confirmată. Este posibil să fi rămas o copie de lucru sau un jurnal. Verificați sursa, destinația și orice copie de rezervă înainte de a reîncerca."
+
+14699,1,"Acces refuzat. Înlocuiți acest fișier ca administrator, păstrând permisiunile destinației? Fișierul de înlocuire nu va conține fluxuri de date alternative."
+
 [STRINGTABLE 198]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."
 

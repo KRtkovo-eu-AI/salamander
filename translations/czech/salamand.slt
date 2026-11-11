@@ -4374,6 +4374,10 @@ SLGINCOMPLETE,""
 14695,1,"Přístup byl odepřen. Číst pro toto porovnání obsah souborů pod touto cestou jako správce?"
 14696,1,"Odkaz Windows pro kompatibilitu byl přeskočen. Do součtu se započítává 0 bajtů."
 
+14698,1,"Operaci se nepodařilo potvrdit jako dokončenou. Pracovní záloha nebo žurnál mohly zůstat zachovány. Před opakováním zkontrolujte zdroj, cíl a případnou zálohu."
+
+14699,1,"Přístup byl odepřen. Nahradit tento soubor jako správce se zachováním oprávnění cíle? Náhradní soubor nebude obsahovat alternativní datové proudy."
+
 [STRINGTABLE 198]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
 

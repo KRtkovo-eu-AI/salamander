@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Bind ignored-stream overwrite to its own request. | Stage only approved default data and preserve protected recovery state. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Pin special-file timestamp consent to the exact source. | Prevent reuse for sibling items or ordinary metadata jobs. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Pin an exact file for metadata-only allocation queries. | Keep singleton size consent out of broader parent and content scopes. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Serve scoped allocation for one identity-checked file. | Complete size details without rescanning or exposing data. | #731 | GPT-6.1 Terra |
@@ -584,7 +585,8 @@ static_assert(sizeof(TransferProgressUpdate) == 16);
 bool CanReportTransferProgress(Operation operation)
 {
     return UacF7::IsFileCopy(operation) || operation == Operation::CopyTree ||
-           operation == Operation::CopyOverwrite || UacF7::IsCrossVolumeMove(operation);
+           operation == Operation::CopyOverwrite || operation == Operation::CopyOverwriteIgnoreAds ||
+           UacF7::IsCrossVolumeMove(operation);
 }
 
 ULONGLONG TransferProgressLimit(Operation operation)
@@ -1384,7 +1386,7 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
                            HANDLE targetParent, const UacDirectoryLeaf::ParentIdentity& expectedTargetParent,
                            std::wstring_view targetLeaf, const UacF7::ArchiveRevision& expectedTarget,
                            ULONGLONG bytes, HANDLE pipe, ULONGLONG deadline,
-                           const UacCopyLeaf::Detail::CopyProgress* progress)
+                           const UacCopyLeaf::Detail::CopyProgress* progress, bool ignoreAds)
 {
     constexpr auto kind = UacZipUpdate::ReplacementKind::DiskCopy;
     using UacZipUpdate::Detail::CheckParent;
@@ -1403,7 +1405,7 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
     const auto source = Adopt(raw);
     if ((error = UacZipUpdate::Detail::CheckIdentity(source.get(), expectedSource)) != ERROR_SUCCESS)
         return error;
-    constexpr auto streams = UacCopyLeaf::StreamPolicy::PreserveNamed;
+    const auto streams = ignoreAds ? UacCopyLeaf::StreamPolicy::IgnoreNamed : UacCopyLeaf::StreamPolicy::PreserveNamed;
     FILE_BASIC_INFO sourceBasic{};
     if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), sourceBasic, false, streams, UacF7::nativeCopyAttributes)) != ERROR_SUCCESS)
         return error;
@@ -1439,9 +1441,21 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
     std::wstring stageName;
     const UacCopyLeaf::Detail::CopySourceLocation location{sourceParent, sourceLeaf, expectedSource, ProtectedObject};
     if ((error = PrepareReplacementFiles(targetParent, targetLeaf, expectedTarget, original, stage, security, kind,
-                                         &stageName)) != ERROR_SUCCESS ||
-        (error = UacCopyLeaf::Detail::CopyOverwriteStreams(source.get(), location, targetParent, stageName,
-                                                           stage.get(), bytes, pipe, deadline, progress)) != ERROR_SUCCESS)
+                                         &stageName)) != ERROR_SUCCESS)
+        return error;
+    if (ignoreAds)
+    {
+        UacZipUpdate::Revision revision{};
+        if ((error = UacZipUpdate::ReadRevision(source.get(), revision)) ||
+            revision.size < 0 || static_cast<ULONGLONG>(revision.size) != bytes)
+            return error ? error : ERROR_FILE_INVALID;
+        error = UacZipUpdate::CopyIgnoredNamedStreamsToStage(source.get(), revision, stage.get(),
+                                                             ProtectedObject, pipe, deadline, progress);
+    }
+    else
+        error = UacCopyLeaf::Detail::CopyOverwriteStreams(source.get(), location, targetParent, stageName,
+                                                          stage.get(), bytes, pipe, deadline, progress);
+    if (error)
         return error;
 
     FILE_BASIC_INFO currentSource{};
@@ -1851,7 +1865,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     zipUpdate = header.operation == Operation::WriteZipUpdate;
     const bool overwrite = UacF7::IsOverwriteTransfer(header.operation);
     const bool moveOverwrite = header.operation == Operation::MoveOverwrite || header.operation == Operation::MoveAcrossVolumeOverwrite;
-    const bool copy = UacF7::IsFileCopy(header.operation) || header.operation == Operation::CopyOverwrite;
+    const bool copy = UacF7::IsFileCopy(header.operation) || header.operation == Operation::CopyOverwrite ||
+                      header.operation == Operation::CopyOverwriteIgnoreAds;
     const bool finishMove = header.operation == Operation::FinishCrossVolumeMove;
     const bool move = UacF7::IsMoveTransfer(header.operation);
     const bool moveDirectory = header.operation == Operation::MoveDirectory;
@@ -2266,7 +2281,8 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 const auto copyDeadline = MAXULONGLONG;
                 result = CopyOverExistingFile(install, parent.get(), expected, sourceIdentity, leaf,
                                               destination, expectedTarget, targetLeaf, overwriteTarget,
-                                              header.copySize, pipe, copyDeadline, progress);
+                                              header.copySize, pipe, copyDeadline, progress,
+                                              header.operation == Operation::CopyOverwriteIgnoreAds);
                 deadline = GetTickCount64() + timeoutMs;
             }
             else if (crossMove)
@@ -4079,10 +4095,11 @@ bool CaptureOverwriteRevision(HANDLE file, ArchiveRevision& revision)
 }
 
 bool PreparedTransfer::PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath,
-                                        ULONGLONG expectedSize, const PreparedLeaf* listedSource, bool moving)
+                                        ULONGLONG expectedSize, const PreparedLeaf* listedSource, bool moving, bool ignoreAds)
 {
-    if (expectedSize > maxNativeCopyBytes ||
-        !PrepareSource(sourcePath, moving ? Operation::MoveOverwrite : Operation::CopyOverwrite, listedSource) ||
+    if ((moving && ignoreAds) || expectedSize > maxNativeCopyBytes ||
+        !PrepareSource(sourcePath, moving ? Operation::MoveOverwrite :
+                                   ignoreAds ? Operation::CopyOverwriteIgnoreAds : Operation::CopyOverwrite, listedSource) ||
         !target.PrepareView(targetPath))
         return false;
     if (target.source)

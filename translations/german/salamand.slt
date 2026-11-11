@@ -4373,6 +4373,10 @@ SLGINCOMPLETE,""
 14695,1,"Zugriff verweigert. Für diesen Vergleich Dateiinhalte unter diesem Pfad als Administrator lesen?"
 14696,1,"Diese Windows-Kompatibilitätsverknüpfung wurde übersprungen. Sie trägt 0 Bytes zur Gesamtsumme bei."
 
+14698,1,"Der Abschluss des Vorgangs konnte nicht bestätigt werden. Eine Arbeitssicherung oder ein Journal kann erhalten geblieben sein. Prüfen Sie vor einem erneuten Versuch die Quelle, das Ziel und eine mögliche Sicherung."
+
+14699,1,"Zugriff verweigert. Diese Datei als Administrator unter Beibehaltung der Zielberechtigungen ersetzen? Die Ersatzdatei enthält keine alternativen Datenströme."
+
 [STRINGTABLE 198]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
 

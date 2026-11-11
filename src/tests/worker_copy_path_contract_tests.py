@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Check typed ignored-stream overwrite routing. | Keep F5 policy distinct from ordinary copy and F6. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Cover shared copy and move overwrite routing. | Preserve listed source identity and move completion in the common retry. | #731 | GPT-6.1 Sol |
 # | 2026-11-11 | Follow the shared operation selector for compressed moves. | Preserve the exact MoveCompressed route after removing duplicate host selection. | #731 | GPT-6.1 Sol |
 # | 2026-11-11 | Check opened source identities and exact tree-copy consent. | Cover the protected tree regression and avoid a second application prompt. | #731 | GPT-6.1 Sol |
@@ -171,7 +172,15 @@ class WorkerCopyPathContracts(unittest.TestCase):
         prepared = section(broker, "bool PreparedTransfer::PrepareSource(", "bool CaptureMoveFileIdentity(")
         self.assertIn("const Operation listedOperation = TransferJobFamily(operation)", prepared)
         replacement = section(broker, "bool PreparedTransfer::PrepareOverwrite(", "OverwriteApproval PreparedTransfer::Approval()")
-        self.assertIn("moving ? Operation::MoveOverwrite : Operation::CopyOverwrite", replacement)
+        self.assertIn("moving ? Operation::MoveOverwrite :", replacement)
+        self.assertIn("ignoreAds ? Operation::CopyOverwriteIgnoreAds : Operation::CopyOverwrite", replacement)
+        self.assertIn("(moving && ignoreAds)", replacement)
+        self.assertIn("(script.IgnoreTransferAds && op.Opcode != ocCopyFile)", overwrite)
+        self.assertIn("request.NeedsDiskRecoveryWarning(result)", worker)
+        self.assertIn("WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN", worker)
+        self.assertIn("LoadStr(IDS_UAC_DISK_RECOVERY_UNKNOWN)", text("dialogs.cpp"))
+        self.assertIn("Check the source, destination, and any backup before retrying.", text("lang/texts.rc2"))
+        self.assertIn("prompt.request.IgnoresAds() ? IDS_UAC_COPY_OVERWRITE_IGNORE_ADS_CONFIRM", text("dialogs.cpp"))
         self.assertIn("listedSource", replacement)
         self.assertIn("CaptureOverwriteRevision(target.source, overwriteTarget)", replacement)
         move = section(worker, "BOOL DoMoveFile(", "if (!copyAsEncrypted")
