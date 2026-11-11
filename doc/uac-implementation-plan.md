@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record local recycle diagnostic builds. | Document the disk-space interruption and successful retry. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record clean Find reason-state build. | Distinguish compiled groundwork from future protected traversal. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Explain a verified protected-folder recycle denial. | Preserve the Shell result without claiming elevated directory recycle support. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Prepare typed incomplete Find reasons. | Preserve reason lineage before extending protected traversal. | #731 | GPT-6.1 Terra |
@@ -510,6 +511,8 @@ Společné příčiny určují pořadí oprav.
 **D3 — adresáře v Koši.** Přijetí výsledného potvrzení se stejným ID a SID Koše samo neprokazuje, že Shell při selhání či stornu neprovedl částečné nebo trvalé smazání obsahu. Před rozšířením existující souborové cesty na adresáře je nutné doložit chování neprázdného podstromu, odmítnutí trvalého fallbacku a ochranu před souběžnou změnou; post-factum hlášení chyby nenahrazuje prevenci ztráty dat. Jde o otevřenou návrhovou a testovací hranici, nikoli implementovanou podporu.
 
 U jednoho přímo vybraného adresáře nyní aplikace při výslovném odepření zdroje Shellem a shodné ověřené identitě zobrazí vedle původní chyby také informaci, že elevovaný přesun chráněné složky do Koše není zatím podporován. Storno, částečný výsledek, jiné chyby i změna identity tuto doplňující hlášku nedostanou. Neprovádí se další Shell operace ani UAC retry. Místní panelový harness se simulovaným Shellem a skutečnou dočasnou složkou prošel 430 kontrolami v Debug i Release; překlady prošly kontrolou. Skutečný Shell a VM zůstávají neověřené.
+
+Čistý commit `781456f1` sestavil host x64 a anglický jazykový modul v Debug i Release. První Debug link selhal kvůli nedostatku místa; po odstranění ověřených obnovitelných mezisouborů našeho předchozího sestavení opakovaný link prošel. Logy jsou v `C:\Samandarin\builds\uac-781456f1-host`. Release host má 5 786 624 B, o 2 048 B více než `0da02033`; broker se neměnil. Měření paměti a VM zůstávají otevřené.
 
 **R2 — testovací základ, implementace dále otevřená.** `branch_poll_lifetime_tests.py` vykonává aktuální metody `PollBranchView`, `CancelBranchViewScan`, `ShutdownBranchView`, `StartBranchViewScan` a `RefreshBranchView` s reálným skrytým modálním oknem Windows. V Debug i Release prošlo 9 kontrol: publikace, zánik tabu při modalitě či publikaci, storno, nahrazení scanu a automatický refresh během běhu a po stornu. Worker, asociace, seznam položek a broker jsou nahrazené testovacími rozhraními; nejde o ověření skutečného UAC ani nové fronty odepřených větví. Současné storno zachová již zveřejněný snapshot, ale zahodí dosud nezveřejněné `IncomingEntries`.
 
