@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Retain partial protected Find results at scan limits. | Report skipped branches, preserve Ignore and distinguish lost sessions. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record a CopyAttrs metadata-race probe. | Keep the incomplete F6 option out of production without an atomic guarantee. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Clarify protected View With lifetime boundary. | Avoid crossing UI threads with stale panel or result pointers. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record exact-file viewer build evidence. | Keep compiled host and broker separate from pending end-to-end UAC validation. | #731 | GPT-6.1 Terra |
@@ -548,6 +549,8 @@ U jednoho přímo vybraného adresáře nyní aplikace při výslovném odepřen
 Host commitu `f9e6fde3` se sestavil pro x64 Debug i Release; logy jsou v `C:\Samandarin\builds\uac-f9e6fde3-host`. Release má 5 781 504 B, o 512 B více než host `f82c6d0e`. Broker se neměnil. Měření paměti a společná VM akceptace zůstávají otevřené.
 
 **R5 — diagnostika kapacity Findu.** Naplnění stávající fronty 32 chráněných požadavků a vyčerpání samostatného rozpočtu chráněných souborů při hledání duplicit se hlásí jako limit a neúplný výsledek, nikoli jako samotná chyba přístupu. Deduplikace již zařazeného požadavku se provede před kontrolou kapacity; Stop má přednost. Navazující Append/Intersect/Subtract převezmou neúplnost i její souhrnný důvod. Při Subtract se podle dosavadní sémantiky neověřený řádek ponechá, což neprokazuje neshodu obsahu. Stav upozorní na limit i při nedostupném detailním logu. Kapacita ani počet výzev tím nejsou odstraněny.
+
+Chráněný průchod dále označí skutečně vynechanou větev kvůli rozpočtu, hloubce, odkazu, odmítnutí či ztrátě relace. Z již úspěšně načtené stránky zachová prefix, který se ještě do rozpočtu vejde, a zbytek označí jako neúplný. Výslovné Ignore má přednost před limity a Stop nepřidává falešný důvod. Místní test skutečných vybraných větví se simulovanou relací a skutečným snapshotem Ignore prošel 24 kontrolami v Debug i Release. Protokolový limit 4 096 položek na jediný výpis nadále může způsobit odmítnutí celého nadlimitního adresáře; broker ani VM se tímto testem neověřují.
 
 Místně prošlo v Debug i Release 96 kontrol skutečné fronty a vybraných řídicích větví s testovacími dvojníky; skutečná extrahovaná traversal smyčka zachovala běžné výsledky a rozlišila limit od Stop. Prošly také kontroly všech 11 překladů a placeholderů. Celé okno Find, skutečné UAC a složené scénáře čekají na společnou VM akceptaci. Vymezená jedna relace pro celý vybraný kořen, více kořenů a stránkovaný průchod nad stávajícími limity zůstávají otevřené.
 

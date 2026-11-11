@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Mark protected Find scans incomplete when branches are skipped. | Preserve existing limits and distinguish failed access from complete results. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Carry exact FindFile identity into a separate verified viewer request. | Prevent pathname-only identity recapture after Find. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Retain protected Find provenance through viewing and refinement. | Refuse pathname-only reads when identity cannot be preserved. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
@@ -2090,6 +2091,7 @@ public:
         {
             if (!data->StopSearch)
             {
+                data->IncompleteReasons |= FindIncompleteProtectedFailure;
                 Log(path, ERROR_NOT_ENOUGH_MEMORY);
                 if (singleFile && data->Refine == 2)
                     PublishSingleFile(nullptr, false);
@@ -2105,6 +2107,7 @@ public:
             return nullptr;
         if (consent->result != ERROR_SUCCESS)
         {
+            data->IncompleteReasons |= FindIncompleteProtectedFailure;
             Log(path, consent->result, singleFile);
             if (singleFile && data->Refine == 2)
                 PublishSingleFile(nullptr, false);
@@ -2149,7 +2152,11 @@ private:
         DWORD error = session.OpenContent(filePath, size, modified, revision);
         if (error)
         {
-            Log(filePath, error, true);
+            if (!data->StopSearch)
+            {
+                data->IncompleteReasons |= FindIncompleteProtectedFailure;
+                Log(filePath, error, true);
+            }
             return false;
         }
 
@@ -2158,50 +2165,97 @@ private:
         const bool match = !error && predicates.Match(data, session, filePath, pathText, listedSize, error);
         const DWORD closeError = session.CloseContent();
         if (!data->StopSearch && (error || closeError))
+        {
+            data->IncompleteReasons |= FindIncompleteProtectedFailure;
             Log(filePath, error ? error : closeError, true);
+        }
         return match && !error && !closeError && !data->StopSearch;
+    }
+
+    bool IsIgnored(const std::wstring& directory)
+    {
+        if (!ignoreSnapshot)
+            return false;
+        const std::string legacyPath = SalWideToMultiBytePath(directory.c_str(), GetACP()) + "\\";
+        return ignoreSnapshot->Contains(legacyPath.c_str(), rootLength) != FALSE;
+    }
+
+    bool CanContinue(const std::wstring& directory)
+    {
+        if (data->StopSearch)
+            return false;
+        if (session.IsOpen())
+            return true;
+        if (!data->StopSearch)
+        {
+            data->IncompleteReasons |= FindIncompleteProtectedFailure;
+            Log(directory, ERROR_NOT_READY);
+        }
+        return false;
     }
 
     void Scan(const std::wstring& directory, unsigned depth, size_t& remaining, CDuplicateCandidates* candidates)
     {
-        if (data->StopSearch || !session.IsOpen())
+        if (data->StopSearch)
+            return;
+        // An explicitly ignored branch is not incomplete, even at a scan limit.
+        if (IsIgnored(directory))
+        {
+            Log(directory, ERROR_CANCELLED);
+            return;
+        }
+        if (!CanContinue(directory))
             return;
         if (!remaining || depth > 32)
         {
+            data->IncompleteReasons |= depth > 32 ? FindIncompleteScanDepth : FindIncompleteScanBudget;
             Log(directory, ERROR_BUFFER_OVERFLOW);
             return;
-        }
-        if (ignoreSnapshot)
-        {
-            const std::string legacyPath = SalWideToMultiBytePath(directory.c_str(), GetACP()) + "\\";
-            if (ignoreSnapshot->Contains(legacyPath.c_str(), rootLength))
-            {
-                Log(directory, ERROR_CANCELLED);
-                return;
-            }
         }
 
         std::vector<WIN32_FIND_DATAW> entries;
         DWORD error = session.List(directory, entries);
+        if (data->StopSearch)
+            return;
         if (!error && entries.size() > remaining)
-            error = ERROR_BUFFER_OVERFLOW;
-        if (error)
         {
+            // The listing is already authenticated and valid. Publish its bounded prefix
+            // rather than discard all readable entries, while reporting the omitted rest.
+            data->IncompleteReasons |= FindIncompleteScanBudget;
+            Log(directory, ERROR_BUFFER_OVERFLOW);
+            entries.resize(remaining);
+        }
+        else if (error)
+        {
+            data->IncompleteReasons |= FindIncompleteProtectedFailure;
             Log(directory, error);
             return;
         }
         remaining -= entries.size();
         for (auto& file : entries)
         {
-            if (data->StopSearch || !session.IsOpen())
+            if (!CanContinue(directory))
                 return;
             AddCandidate(directory, file, candidates);
+            if (data->StopSearch)
+                return;
             const bool isDir = (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-            if (includeSubDirs && isDir && !(file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT))
+            if (includeSubDirs && isDir)
             {
                 std::wstring child = directory;
                 SalPathAppendW(child, file.cFileName);
-                Scan(child, depth + 1, remaining, candidates);
+                if (file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
+                {
+                    if (IsIgnored(child))
+                        Log(child, ERROR_CANCELLED);
+                    else if (!data->StopSearch)
+                    {
+                        data->IncompleteReasons |= FindIncompleteReparse;
+                        Log(child, ERROR_NOT_SUPPORTED);
+                    }
+                }
+                else
+                    Scan(child, depth + 1, remaining, candidates);
             }
         }
     }
