@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record Branch View polling lifetime test foundation. | Separate existing controller evidence from the unimplemented elevated scan. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record verified Find preparation from readable parents. | Keep captured-identity guarantees distinct from VM and earlier enumeration limits. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Clarify the historical recovery summary. | Point to the newer conservative treatment of legacy disk journals. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record ignored-stream overwrite and conservative disk recovery. | Separate local evidence, older journal limits, and pending privileged VM checks. | #731 | GPT-6.1 Terra |
@@ -489,6 +490,10 @@ Společné příčiny určují pořadí oprav.
 | **Z3** | C3 | F5 z obyčejného čitelného ZIPu do chráněného cíle nejde cestou chráněné extrakce. SafeFileCreate nabídne jen běžný retry/skip/cancel. `fileswn7.cpp:1719–1723`, `safefile.cpp:705–732`. Zachovat běžný ZIP panel i konfliktové dialogy. |
 | **O1** | C3 | Další nativní vstupy bez UAC retry zahrnují Edit New File, Convert, vlastnosti/tagy, Save File List a změnu jmenovky svazku. `fileswn5.cpp:3039,511,573`, `worker.cpp:9207,9235,9604`, `salamdr4.cpp:2859`, `mainwnd4.cpp:657`, `dialogs3.cpp:2349`. Každý nejprve vymezit jako konkrétní existující operaci. |
 | **E1** | C5 | Společné přípravy vracející pouze bool ztrácejí důvod nezpůsobilosti. Rozlišit běžné odepření, nepodporovanou kombinaci, změnu identity, neověřitelného předka a nedostupný broker. Tato diagnostika provází všechny předchozí opravy. |
+
+**R2 — testovací základ, implementace dále otevřená.** `branch_poll_lifetime_tests.py` vykonává aktuální metody `PollBranchView`, `CancelBranchViewScan`, `ShutdownBranchView`, `StartBranchViewScan` a `RefreshBranchView` s reálným skrytým modálním oknem Windows. V Debug i Release prošlo 9 kontrol: publikace, zánik tabu při modalitě či publikaci, storno, nahrazení scanu a automatický refresh během běhu a po stornu. Worker, asociace, seznam položek a broker jsou nahrazené testovacími rozhraními; nejde o ověření skutečného UAC ani nové fronty odepřených větví. Současné storno zachová již zveřejněný snapshot, ale zahodí dosud nezveřejněné `IncomingEntries`.
+
+Další řez musí bezpečně zachytit identitu schváleného kořene i každé čekající odepřené větve, umožnit jeden srozumitelně vymezený souhlas a po návratu z modality ověřit životnost tabu a generaci scanu. Přístupový rozsah `CompareList` připouští výpis a ověřený výpis v podstromu, nikoli čtení obsahu, inventář, identity položek ani změny. Zbývá doplnit vlastněnou frontu a obnovu/publikaci dostupných výsledků pro Skip, Skip All, Cancel, ztrátu spojení a automatický refresh bez nové UAC výzvy; jejich skutečné chování potom ověřit lokálně i ve VM. R2 tímto testem není dokončena.
 
 Pro pozdější cílené ověření zůstávají také chyby během `FindNextFile` po úspěšném začátku výpisu (`fileswn6.cpp:3256–3302`, `find.cpp:2409–2414`). Běžné chybové větve bez elevace jsou v kódu doložené, konkrétní lokální NTFS reprodukce pozdního odepření zatím není. Find navíc omezuje schválený průchod na 4 096 záznamů a 32 úrovní (`find.cpp:2044,2092–2115`). Jde o omezení úplnosti výsledku, nikoli důkaz vyřešeného přístupu.
 
