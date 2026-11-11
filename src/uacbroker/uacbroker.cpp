@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Serve scoped allocation for one identity-checked file. | Complete size details without rescanning or exposing data. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Prepare typed case-only rename requests. | Defer alias identity and no-replace checks to the verified rename primitive. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Prepare a replacement from a pinned parent listing when target attributes are denied. | Bind overwrite consent to the exact original file and revision. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Prepare native replacement and read-only move requests. | Preserve exact target revision, cancellation and typed job scope. | | GPT-6.1 Sol |
@@ -2562,17 +2563,21 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
         const bool directoryLeaf = (length & UacListing::directoryIdentityRequest) != 0;
         const bool verifyListing = (length & UacListing::verifiedListingRequest) != 0;
         const bool linkLeaf = (length & UacListing::linkIdentityRequest) != 0;
+        const bool fileAllocation = (length & UacListing::fileAllocationRequest) != 0;
         length &= ~(UacListing::inventoryRequest | UacListing::sizeDetailsRequest | UacListing::contentRequest |
                     UacListing::leafIdentityRequest | UacListing::parentIdentityRequest |
-                    UacListing::directoryIdentityRequest | UacListing::verifiedListingRequest | UacListing::linkIdentityRequest);
+                    UacListing::directoryIdentityRequest | UacListing::verifiedListingRequest | UacListing::linkIdentityRequest |
+                    UacListing::fileAllocationRequest);
         const bool canReadIdentity = scope == Operation::List ||
                                      ((scope == Operation::CompareContent || scope == Operation::FindContent) &&
                                       !parentOnly && !directoryLeaf);
-        if (((parentOnly || directoryLeaf || linkLeaf) && !leafIdentity) ||
+        if ((fileAllocation && (!UacListing::ValidAllocationScope(scope, length) || inventoryRequest || sizeDetails ||
+                                contentRequest || leafIdentity || parentOnly || directoryLeaf || verifyListing || linkLeaf)) ||
+            ((parentOnly || directoryLeaf || linkLeaf) && !leafIdentity) ||
             (parentOnly && (directoryLeaf || linkLeaf)) || (linkLeaf && scope != Operation::List) ||
             (leafIdentity && (!canReadIdentity || !length || inventoryRequest || sizeDetails || contentRequest)) ||
             (verifyListing && (!IsComparisonScope(scope) || !length || inventoryRequest || contentRequest || leafIdentity)) ||
-            (sizeDetails && !inventoryRequest) || !UacListing::ValidRequestScope(scope, length, inventoryRequest, contentRequest) ||
+            (sizeDetails && !inventoryRequest) || (!fileAllocation && !UacListing::ValidRequestScope(scope, length, inventoryRequest, contentRequest)) ||
             length > UacDirectoryLeaf::maxNativeName || !LiveInSession(host, hostPid))
             return ERROR_INVALID_DATA;
         const auto deadline = GetTickCount64() + timeoutMs;
@@ -2590,6 +2595,21 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
             error = TransferRequest(pipe, &status, sizeof(status), true, deadline);
             if (!error && !status)
                 error = TransferRequest(pipe, &identity, sizeof(identity), true, deadline);
+            if (error)
+                return error;
+            continue;
+        }
+        if (fileAllocation)
+        {
+            UacF7::FileAllocationRequest expected{};
+            error = TransferRequest(pipe, &expected, sizeof(expected), false, deadline);
+            if (error)
+                return error;
+            ULONGLONG allocation = 0;
+            DWORD status = UacListing::MeasureFileAllocation(root, relative, expected, allocation);
+            error = TransferRequest(pipe, &status, sizeof(status), true, deadline);
+            if (!error && !status)
+                error = TransferRequest(pipe, &allocation, sizeof(allocation), true, deadline);
             if (error)
                 return error;
             continue;
@@ -3499,6 +3519,21 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
     operation = requested;
     if (change)
         metadata = *change;
+    return true;
+}
+
+bool PreparedLeaf::CopyAllocationIdentity(ULONGLONG size, DWORD attributes, FileAllocationRequest& identity) const
+{
+    constexpr DWORD special = FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE;
+    if (operation != Operation::View || (!parent && !identityFromListing) || !(attributes & special) ||
+        (attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)))
+        return false;
+    identity = {};
+    identity.serial = serial;
+    CopyMemory(identity.parentId, fileId, sizeof(identity.parentId));
+    CopyMemory(identity.fileId, sourceId, sizeof(identity.fileId));
+    identity.logicalSize = size;
+    identity.attributes = attributes;
     return true;
 }
 
@@ -4513,7 +4548,7 @@ DWORD ListingSession::SendPath(const std::wstring& path, DWORD flags, ULONGLONG 
 {
     if (contentOpen || !Contains(path) ||
         (prepared.operation == Operation::FindFile && flags != UacListing::contentRequest) ||
-        (prepared.operation == Operation::Inventory && !(flags & UacListing::inventoryRequest)))
+        (prepared.operation == Operation::Inventory && !(flags & (UacListing::inventoryRequest | UacListing::fileAllocationRequest))))
         return ERROR_ACCESS_DENIED;
     const size_t start = root.size() + (root.back() == L'\\' ? 0 : 1);
     std::wstring relative = path.size() == root.size() ? std::wstring{} : path.substr(start);
@@ -4835,6 +4870,30 @@ DWORD ListingSession::List(const std::wstring& path, std::vector<WIN32_FIND_DATA
         return error;
     }
     return reply.error;
+}
+
+DWORD ListingSession::MeasureFileAllocation(const std::wstring& path, const FileAllocationRequest& identity,
+                                            ULONGLONG& bytes)
+{
+    if (prepared.operation != Operation::List && prepared.operation != Operation::Inventory)
+        return ERROR_ACCESS_DENIED;
+    const auto deadline = GetTickCount64() + timeoutMs;
+    DWORD error = SendPath(path, UacListing::fileAllocationRequest, deadline);
+    if (error)
+        return error;
+    FileAllocationRequest request = identity;
+    error = Transfer(&request, sizeof(request), true, deadline);
+    DWORD status = ERROR_SUCCESS;
+    if (!error)
+        error = Transfer(&status, sizeof(status), false, deadline);
+    ULONGLONG allocation = 0;
+    if (!error && !status)
+        error = Transfer(&allocation, sizeof(allocation), false, deadline);
+    if (error)
+        Close();
+    else if (!status)
+        bytes = allocation;
+    return error ? error : status;
 }
 }
 #else

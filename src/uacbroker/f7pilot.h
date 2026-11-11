@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Add typed allocation measurement for one reviewed file. | Reuse a scoped inventory without returning contents or recounting a subtree. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Bind native overwrite and read-only moves to typed transfer jobs. | Preserve target conflict approval and one consent for matching parents. | | GPT-6.1 Sol |
 | 2026-11-11 | Separate native transfer budgets and permanent-delete attributes from buffered operations. | Share safe eligibility without widening ZIP or source-retirement contracts. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Use the Windows copy helper for the directory identity. | Avoid expanding the Debug memcpy macro inside the std namespace. | #731 | GPT-6.1 Sol |
@@ -266,6 +267,18 @@ inline bool IsDefaultCopyFile(DWORD attributes)
     return attributes && !(attributes & ~(plainCopyAttributes | FILE_ATTRIBUTE_SPARSE_FILE));
 }
 
+template<class Query>
+DWORD QueryCompressedSize(Query query, ULONGLONG& size)
+{
+    DWORD high = 0;
+    SetLastError(NO_ERROR);
+    const DWORD low = query(&high);
+    const DWORD error = low == INVALID_FILE_SIZE ? GetLastError() : ERROR_SUCCESS;
+    if (!error)
+        size = (static_cast<ULONGLONG>(high) << 32) | low;
+    return error;
+}
+
 constexpr DWORD compressedCopyAttributes = plainCopyAttributes | FILE_ATTRIBUTE_COMPRESSED;
 
 inline bool IsCompressedCopyFile(DWORD attributes)
@@ -435,6 +448,7 @@ static_assert(sizeof(MetadataJobPolicy) == 8);
 
 class TransferJobSession;
 struct TransferJobScope;
+struct FileAllocationRequest;
 
 using BrokerActivity = void (*)(HWND owner, bool active);
 
@@ -471,6 +485,7 @@ public:
     bool IsJunctionDelete() const { return operation == Operation::DeleteJunction; }
     bool IsSymlinkDelete() const { return operation == Operation::DeleteSymlink; }
     bool PrepareView(const std::wstring& path) { return PrepareTarget(path, Operation::View, {}, nullptr); }
+    bool CopyAllocationIdentity(ULONGLONG size, DWORD attributes, FileAllocationRequest& identity) const;
     bool MatchesReadSource(const ArchiveRevision& revision) const
     {
         return operation == Operation::View && revision.serial == serial &&
@@ -813,6 +828,17 @@ struct DirectoryDiskSizes
 };
 static_assert(sizeof(DirectoryDiskSizes) == 16);
 
+struct FileAllocationRequest
+{
+    ULONGLONG serial = 0;
+    BYTE parentId[16]{};
+    BYTE fileId[16]{};
+    ULONGLONG logicalSize = 0;
+    DWORD attributes = 0;
+    DWORD reserved = 0;
+};
+static_assert(sizeof(FileAllocationRequest) == 56);
+
 struct DirectorySizeDetails
 {
     DirectoryDiskSizes disk;
@@ -861,6 +887,7 @@ public:
                const MoveFileIdentity* expected = nullptr);
     DWORD Inventory(const std::wstring& path, DirectoryInventory& inventory, DirectorySizeDetails* details = nullptr,
                     std::wstring* firstSkipped = nullptr);
+    DWORD MeasureFileAllocation(const std::wstring& path, const FileAllocationRequest& identity, ULONGLONG& bytes);
     bool IsOpen() const { return pipe != nullptr; }
 
 private:

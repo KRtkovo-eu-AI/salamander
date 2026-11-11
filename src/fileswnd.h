@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Pass the active size scope to file measurements. | Reuse one verified metadata consent across a selected tree. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Keep the directory size marker in disk-only row data. | Preserve the released SDK layout. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Return prepared editor state to Find. | Let the owner thread handle the system prompt. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Accept the original Find editor context. | Keep ordinary editor callers on their existing route. | #731 | GPT-6.1 Sol |
@@ -1606,7 +1607,7 @@ public:
                          char* fileDOSName, const CQuadWord& fileSize, CAttrsData* attrsData,
                          char* mapName, DWORD sourceFileAttr, CChangeCaseData* chCaseData,
                          BOOL onlySize, FILETIME* fileLastWriteTime, DWORD srcAndTgtPathsFlags,
-                         const wchar_t* fileNameW = NULL);
+                         const wchar_t* fileNameW = NULL, CSizeScanScope* sizeScope = nullptr);
     BOOL BuildScriptMain2(COperations* script, BOOL copy, char* targetDir,
                           CCopyMoveData* data);
 

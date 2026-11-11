@@ -1,0 +1,221 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Test the actual size controller with controlled consent results. | Verify one contribution per item and preserve partial results. | #731 | GPT-6.1 Terra |
+#include <windows.h>
+#include <cstdio>
+#include <cstring>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+#pragma warning(disable: 4201)
+
+struct CQuadWord
+{
+    union { struct { DWORD LoDWord, HiDWord; }; ULONGLONG Value; };
+    CQuadWord(DWORD low = 0, DWORD high = 0) : LoDWord(low), HiDWord(high) {}
+    void SetUI64(ULONGLONG value) { Value = value; }
+    CQuadWord& operator+=(const CQuadWord& value) { Value += value.Value; return *this; }
+};
+static CQuadWord operator+(CQuadWord a, CQuadWord b) { a.Value += b.Value; return a; }
+static CQuadWord operator-(CQuadWord a, CQuadWord b) { a.Value -= b.Value; return a; }
+static CQuadWord operator%(CQuadWord a, CQuadWord b) { a.Value %= b.Value; return a; }
+
+static int prompts, warnings, measurements, g_prepared, waitDepth;
+static DWORD localError, g_startError, g_allocationError, prepareError, reportedError;
+static ULONGLONG localValue, brokerValue;
+static int nextChoice;
+static bool offer = true;
+static DWORD QueryLocal(const wchar_t*, DWORD* high)
+{
+    if (localError) { SetLastError(localError); return INVALID_FILE_SIZE; }
+    *high = static_cast<DWORD>(localValue >> 32);
+    return static_cast<DWORD>(localValue);
+}
+#define GetCompressedFileSizeW QueryLocal
+namespace UacF7
+{
+@@QUERY@@
+struct FileAllocationRequest { ULONGLONG size = 0; DWORD attrs = 0; };
+struct PreparedLeaf
+{
+    bool PrepareView(const std::wstring&) { ++g_prepared; return true; }
+    bool CopyAllocationIdentity(ULONGLONG size, DWORD attrs, FileAllocationRequest& request) const
+    { request = {size, attrs}; return true; }
+};
+struct ListingSession
+{
+    std::wstring Root;
+    bool Open = false;
+    bool Contains(const std::wstring& path) const { return Open && path.size() > Root.size() && path.compare(0, Root.size(), Root) == 0 && path[Root.size()] == L'\\'; }
+    bool IsOpen() const { return Open; }
+    const std::wstring& GetRoot() const { return Root; }
+    bool PrepareInventory(const std::wstring& root) { Root = root; return true; }
+    DWORD PrepareViewer(const std::wstring&, PreparedLeaf&, DWORD) { ++g_prepared; return prepareError; }
+    DWORD MeasureFileAllocation(const std::wstring&, const FileAllocationRequest&, ULONGLONG& size)
+    { ++measurements; if (!g_allocationError) size = brokerValue; return g_allocationError; }
+};
+static bool CanOfferElevation() { return offer; }
+}
+struct CSizeScanScope
+{
+    std::wstring Root = L"C:\\scope";
+    UacF7::ListingSession Session;
+    std::optional<DWORD> StartResult;
+    bool ElevationDeclined = false;
+};
+static int ConfirmProtectedSize(HWND, const std::wstring&, UacF7::ListingSession& session, DWORD& error)
+{
+    ++prompts;
+    error = nextChoice == IDOK ? g_startError : ERROR_CANCELLED;
+    if (nextChoice == IDOK && !error) session.Open = true;
+    return nextChoice;
+}
+static void ShowSafeWaitWindow(BOOL show) { waitDepth += show ? -1 : 1; }
+static DWORD MyGetDiskFreeSpace(const char*, DWORD*, DWORD*, DWORD*, DWORD*) { return FALSE; }
+static std::wstring SalMultiByteToWidePathUtf8OrAcp(const char* value) { std::wstring s; while (*value) s.push_back(static_cast<unsigned char>(*value++)); return s; }
+static std::string SalWideToMultiBytePath(const wchar_t* value, UINT) { std::string s; while (*value) s.push_back(static_cast<char>(*value++)); return s; }
+static void SalPathAppendW(std::wstring& path, const wchar_t* name) { path += L'\\'; path += name; }
+static std::wstring SalPathAddExtendedPrefixW(const wchar_t* path) { return path; }
+static std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* path) { return path; }
+static const char* LoadStr(int) { return "size error"; }
+static const char* GetErrorText(DWORD error) { reportedError = error; return "error"; }
+static int SalMessageBox(HWND, const char*, const char*, UINT) { ++warnings; return IDNO; }
+namespace Salamander { namespace BranchViewText {
+static std::string FormatCompressedSizeError(const char*, const char*, const char*) { return "error"; }
+} }
+static constexpr int IDS_GETCOMPRFILESIZEERROR = 1, IDS_ERRORTITLE = 2, atCountSize = 3;
+static constexpr BOOL FileBasedCompression = TRUE;
+struct WindowFacade { HWND HWindow = nullptr; };
+static WindowFacade mainWindow;
+static WindowFacade* MainWindow = &mainWindow;
+struct SizesArray { std::vector<ULONGLONG> rows; void Add(CQuadWord n) { rows.push_back(n.Value); } };
+struct COperations
+{
+    DWORD BytesPerCluster = 4096;
+    bool SkipAllCountSizeErrors = false, CountSizeCompressionUnavailable = false, CountSizeOccupiedUnavailable = false;
+    CQuadWord TotalSize, OccupiedSpace, TotalFileSize, CompressedSize;
+    SizesArray Sizes;
+};
+class CFilesWindow
+{
+public:
+    HWND HWindow = nullptr;
+    std::unique_ptr<UacF7::ListingSession> ProtectedListing;
+    BOOL Measure(COperations* script, CSizeScanScope* sizeScope, const wchar_t* fileNameW, ULONGLONG logical, DWORD sourceFileAttr)
+    {
+        const int type = atCountSize;
+        char sourcePath[] = "C:\\scope";
+        char fileName[] = "unused";
+        const BOOL onlySize = FALSE;
+        CQuadWord fileSizeLoc;
+        fileSizeLoc.SetUI64(logical);
+        switch (type)
+        {
+@@COUNT_SIZE@@
+        }
+        return FALSE;
+    }
+};
+
+static int checks, failures;
+static void Check(bool condition, const char* message)
+{
+    ++checks;
+    if (!condition) { ++failures; std::printf("FAIL: %s\n", message); }
+}
+static void Reset()
+{
+    prompts = warnings = measurements = g_prepared = waitDepth = 0;
+    localError = ERROR_ACCESS_DENIED; g_startError = g_allocationError = prepareError = reportedError = ERROR_SUCCESS;
+    localValue = brokerValue = 0; nextChoice = IDOK; offer = true;
+}
+int main()
+{
+    constexpr DWORD sparse = FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ARCHIVE;
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; brokerValue = 100;
+        Check(panel.Measure(&sum, &scope, L"one", 9000, sparse) && panel.Measure(&sum, &scope, L"two", 8000, sparse), "approved files finish");
+        Check(prompts == 1 && measurements == 2 && sum.TotalSize.Value == 17000 && sum.CompressedSize.Value == 200 &&
+              sum.OccupiedSpace.Value == 8192 && sum.Sizes.rows.size() == 2 && !sum.CountSizeCompressionUnavailable && !waitDepth,
+              "one consent measures both files and contributes once with per-file cluster rounding");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; g_startError = ERROR_CANCELLED;
+        Check(panel.Measure(&sum, &scope, L"one", 9000, sparse), "system refusal leaves the calculation running");
+        Check(panel.Measure(&sum, &scope, L"two", 8000, sparse), "another denied file continues without another consent");
+        localError = 0; localValue = 12;
+        Check(panel.Measure(&sum, &scope, L"readable", 40, sparse), "readable sibling still contributes");
+        Check(prompts == 1 && measurements == 0 && warnings == 0 && sum.TotalSize.Value == 17040 &&
+              sum.CompressedSize.Value == 17012 && sum.Sizes.rows.size() == 3 && sum.CountSizeCompressionUnavailable &&
+              sum.CountSizeOccupiedUnavailable && scope.ElevationDeclined && !waitDepth,
+              "system refusal preserves all logical bytes and marks only disk totals unavailable");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; nextChoice = IDYES;
+        Check(panel.Measure(&sum, &scope, L"skip", 1, sparse) && !scope.ElevationDeclined, "Skip omits only one elevation");
+        nextChoice = IDOK; brokerValue = 0;
+        Check(panel.Measure(&sum, &scope, L"approve", 1, sparse) && prompts == 2 && measurements == 1,
+              "after Skip the next file can still request consent");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; nextChoice = IDNO;
+        Check(panel.Measure(&sum, &scope, L"skip-all", 1, sparse) && panel.Measure(&sum, &scope, L"later", 2, sparse) &&
+              prompts == 1 && sum.SkipAllCountSizeErrors && measurements == 0 && sum.TotalSize.Value == 3,
+              "Skip All retains totals and suppresses later prompts");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; nextChoice = IDCANCEL;
+        Check(!panel.Measure(&sum, &scope, L"cancel", 1, sparse) && sum.Sizes.rows.empty() && !waitDepth,
+              "Cancel aborts without contributing the unfinished item");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; panel.ProtectedListing = std::make_unique<UacF7::ListingSession>();
+        panel.ProtectedListing->Root = scope.Root; panel.ProtectedListing->Open = true; brokerValue = 17;
+        Check(panel.Measure(&sum, &scope, L"listed", 100, sparse) && prompts == 0 && measurements == 1 && sum.CompressedSize.Value == 17,
+              "an approved panel session is reused without another consent");
+        panel.ProtectedListing->Open = false;
+        Check(panel.Measure(&sum, &scope, L"broken", 100, sparse) && prompts == 0 && measurements == 1 && warnings == 1 &&
+              reportedError == ERROR_BROKEN_PIPE,
+              "a disconnected panel session does not trigger a replacement consent");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; panel.ProtectedListing = std::make_unique<UacF7::ListingSession>();
+        panel.ProtectedListing->Root = scope.Root; panel.ProtectedListing->Open = true; prepareError = ERROR_FILE_INVALID;
+        Check(panel.Measure(&sum, &scope, L"changed", 100, sparse) && prompts == 0 && measurements == 0 &&
+              reportedError == ERROR_FILE_INVALID && sum.CountSizeCompressionUnavailable,
+              "a changed listed identity reports its real failure and never asks for another consent");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; offer = false;
+        Check(panel.Measure(&sum, &scope, L"denied", 100, sparse) && prompts == 0 && sum.TotalSize.Value == 100 &&
+              sum.CountSizeCompressionUnavailable && sum.CountSizeOccupiedUnavailable,
+              "when elevation is unavailable the ordinary logical contribution remains");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; brokerValue = 20;
+        Check(panel.Measure(&sum, &scope, L"first", 100, sparse), "the first metadata request is approved");
+        g_allocationError = ERROR_ACCESS_DENIED;
+        Check(panel.Measure(&sum, &scope, L"still-denied", 200, sparse) && prompts == 1 && measurements == 2 &&
+              reportedError == ERROR_ACCESS_DENIED && sum.TotalSize.Value == 300 && sum.CountSizeCompressionUnavailable,
+              "a broker denial preserves the ordinary contribution without another prompt");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; g_allocationError = ERROR_CANCELLED;
+        Check(panel.Measure(&sum, &scope, L"cancelled-measurement", 100, sparse) && prompts == 1 && measurements == 1 &&
+              !scope.ElevationDeclined && reportedError == ERROR_CANCELLED && sum.TotalSize.Value == 100,
+              "a cancelled metadata request is not misreported as a Windows consent refusal");
+        g_allocationError = ERROR_SUCCESS; brokerValue = 2;
+        Check(panel.Measure(&sum, &scope, L"next", 200, sparse) && prompts == 1 && measurements == 2,
+              "the still-open approved session can serve a later file after an item-level cancellation");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; localError = 0; localValue = 0x1ffffffffULL;
+        Check(panel.Measure(&sum, &scope, L"sentinel", localValue, sparse) && prompts == 0 && warnings == 0 &&
+              sum.TotalSize.Value == localValue && sum.CompressedSize.Value == localValue,
+              "a valid low-word sentinel preserves the entire 64-bit result");
+    }
+    std::printf("Actual size allocation controller: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}

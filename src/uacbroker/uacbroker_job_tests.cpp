@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise scoped file-allocation queries and sentinel handling. | Reject changed identities and unsupported request scopes over the real pipe. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify ZIP read identities obtained from protected listings. | Reject substituted archives and parents before opening content. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify a denied target's full listed revision and stale-revision rejection. | Ensure parent metadata cannot authorize a changed object. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Reject changed parent identities before cross-volume transfer setup. | Preserve the approved parent scope even when the original source file ID still matches. | | GPT-6.1 Sol |
@@ -336,6 +337,21 @@ public:
     {
         DWORD status = ERROR_GEN_FAILURE;
         return ReadLeafIdentity(path, status, identity, parentOnly, directory, link) && status == expected;
+    }
+
+    bool Allocation(std::wstring_view path, UacF7::FileAllocationRequest request, DWORD expected, ULONGLONG* bytes = nullptr)
+    {
+        const auto deadline = GetTickCount64() + timeoutMs;
+        DWORD status = ERROR_GEN_FAILURE;
+        ULONGLONG allocation = 0;
+        if (!SendFindRequest(UacListing::fileAllocationRequest, path, deadline) ||
+            TransferRequest(server.get(), &request, sizeof(request), true, deadline) ||
+            TransferRequest(server.get(), &status, sizeof(status), false, deadline) || status != expected ||
+            (!status && TransferRequest(server.get(), &allocation, sizeof(allocation), false, deadline)))
+            return false;
+        if (bytes && !status)
+            *bytes = allocation;
+        return true;
     }
 
     bool OpenFindContent(std::wstring_view leaf, UacF7::ArchiveRevision* openedRevision = nullptr)
@@ -1099,6 +1115,170 @@ void CheckStoppedFindReply()
     broker.join();
     Check(error == ERROR_CANCELLED && peerError == ERROR_BROKEN_PIPE,
           "stop an active Find listing wait and close its pipe without a transfer cancellation byte");
+}
+
+void CheckFileAllocation(const Directory& source)
+{
+    ULONGLONG queried = 0;
+    SetLastError(ERROR_ACCESS_DENIED);
+    const DWORD sentinel = UacF7::QueryCompressedSize([](DWORD* high) { *high = 1; return INVALID_FILE_SIZE; }, queried);
+    Check(!sentinel && queried == 0x1ffffffffULL, "a valid low-word sentinel clears stale last error and keeps all 64 bits");
+    const DWORD denied = UacF7::QueryCompressedSize([](DWORD*) { SetLastError(ERROR_ACCESS_DENIED); return INVALID_FILE_SIZE; }, queried);
+    Check(denied == ERROR_ACCESS_DENIED && queried == 0x1ffffffffULL, "a failed compressed-size query never replaces the last valid result");
+    const DWORD ordinary = UacF7::QueryCompressedSize([](DWORD* high) { *high = 2; SetLastError(ERROR_ACCESS_DENIED); return 7UL; }, queried);
+    Check(!ordinary && queried == 0x200000007ULL, "a non-sentinel low word ignores irrelevant last error");
+
+    constexpr wchar_t leaf[] = L"allocation-\u6771.bin";
+    const auto path = source.File(leaf);
+    const auto file = Adopt(CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, CREATE_NEW, 0, nullptr));
+    DWORD returned = 0;
+    LARGE_INTEGER length{};
+    length.QuadPart = 0x100000001LL;
+    FILE_ID_INFO id{};
+    FILE_ATTRIBUTE_TAG_INFO attrs{};
+    FILE_COMPRESSION_INFO compression{};
+    std::vector<BYTE> block(4096, 0x5a);
+    DWORD written = 0;
+    LARGE_INTEGER offset{};
+    if (!file || !DeviceIoControl(file.get(), FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &returned, nullptr) ||
+        !SetFilePointerEx(file.get(), length, nullptr, FILE_BEGIN) || !SetEndOfFile(file.get()) ||
+        !SetFilePointerEx(file.get(), offset, nullptr, FILE_BEGIN) ||
+        !WriteFile(file.get(), block.data(), static_cast<DWORD>(block.size()), &written, nullptr) || written != block.size() ||
+        ((offset.QuadPart = 0xffff0000LL), !SetFilePointerEx(file.get(), offset, nullptr, FILE_BEGIN)) ||
+        !WriteFile(file.get(), block.data(), static_cast<DWORD>(block.size()), &written, nullptr) || written != block.size() ||
+        !GetFileInformationByHandleEx(file.get(), FileIdInfo, &id, sizeof(id)) ||
+        !GetFileInformationByHandleEx(file.get(), FileAttributeTagInfo, &attrs, sizeof(attrs)) ||
+        !GetFileInformationByHandleEx(file.get(), FileCompressionInfo, &compression, sizeof(compression)))
+    {
+        Check(false, "prepare a sparse allocation fixture over 4 GiB");
+        return;
+    }
+    UacF7::FileAllocationRequest request{};
+    request.serial = id.VolumeSerialNumber;
+    CopyMemory(request.parentId, source.identity.file.FileId.Identifier, sizeof(request.parentId));
+    CopyMemory(request.fileId, id.FileId.Identifier, sizeof(request.fileId));
+    request.logicalSize = static_cast<ULONGLONG>(length.QuadPart);
+    request.attributes = attrs.FileAttributes;
+    ULONGLONG ordinaryAllocation = 0;
+    const DWORD ordinaryError = UacF7::QueryCompressedSize([&](DWORD* high) { return GetCompressedFileSizeW(path.c_str(), high); }, ordinaryAllocation);
+    Check(!ordinaryError && ordinaryAllocation == static_cast<ULONGLONG>(compression.CompressedFileSize.QuadPart),
+          "the sparse allocation equals GetCompressedFileSizeW for two allocated ranges");
+    for (const auto scope : {Operation::List, Operation::Inventory})
+    {
+        JobPipe job;
+        ULONGLONG actual = MAXULONGLONG;
+        Check(job.Open(nullptr, source.handle.get(), scope) && job.Allocation(leaf, request, ERROR_SUCCESS, &actual) &&
+                  actual == static_cast<ULONGLONG>(compression.CompressedFileSize.QuadPart),
+              "a scoped request measures only the verified sparse file on a live pipe");
+        auto changed = request;
+        changed.fileId[0] ^= 1;
+        Check(job.Allocation(leaf, changed, ERROR_FILE_INVALID), "reject a substituted file identity");
+        changed = request;
+        changed.parentId[0] ^= 1;
+        Check(job.Allocation(leaf, changed, ERROR_FILE_INVALID), "reject a substituted parent identity");
+        changed = request;
+        ++changed.logicalSize;
+        Check(job.Allocation(leaf, changed, ERROR_FILE_INVALID), "reject a stale logical size");
+        changed = request;
+        changed.attributes ^= FILE_ATTRIBUTE_COMPRESSED;
+        Check(job.Allocation(leaf, changed, ERROR_FILE_INVALID), "reject changed compression attributes");
+        changed = request;
+        changed.attributes |= FILE_ATTRIBUTE_REPARSE_POINT;
+        Check(job.Allocation(leaf, changed, ERROR_INVALID_PARAMETER), "reject reparse points as ordinary allocation sources");
+        Check(job.Allocation(L"..\\outside", request, ERROR_INVALID_NAME), "reject an allocation path escaping the scope");
+        Check(job.Allocation(leaf, request, ERROR_SUCCESS, &actual), "invalid requests do not widen or consume the live size scope");
+    }
+    {
+        const auto control = Adopt(CreateFileW(path.c_str(), READ_CONTROL | WRITE_DAC,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        PSECURITY_DESCRIPTOR original = nullptr, deniedDescriptor = nullptr;
+        PACL originalDacl = nullptr, denyDacl = nullptr;
+        BOOL present = FALSE, defaulted = FALSE;
+        SECURITY_DESCRIPTOR_CONTROL originalControl{};
+        DWORD revision = 0;
+        if (!control || GetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr,
+                                        &originalDacl, nullptr, &original) ||
+            !GetSecurityDescriptorControl(original, &originalControl, &revision) ||
+            !ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(D;;0x00100080;;;WD)(A;;FA;;;WD)", SDDL_REVISION_1,
+                                                                   &deniedDescriptor, nullptr) ||
+            !GetSecurityDescriptorDacl(deniedDescriptor, &present, &denyDacl, &defaulted) || !present)
+        {
+            if (original) LocalFree(original);
+            if (deniedDescriptor) LocalFree(deniedDescriptor);
+            Check(false, "prepare an allocation metadata denial fixture");
+            return;
+        }
+        const std::unique_ptr<void, decltype(&LocalFree)> saved(original, LocalFree), deniedSecurity(deniedDescriptor, LocalFree);
+        const DWORD apply = SetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                                            nullptr, nullptr, denyDacl, nullptr);
+        ULONGLONG deniedBytes = 0;
+        const DWORD actualDenied = apply ? apply : UacListing::MeasureFileAllocation(source.handle.get(), leaf, request, deniedBytes);
+        JobPipe job;
+        const bool refused = !apply && job.Open(nullptr, source.handle.get(), Operation::Inventory) &&
+                             job.Allocation(leaf, request, ERROR_ACCESS_DENIED);
+        const DWORD restored = SetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION |
+            ((originalControl & SE_DACL_PROTECTED) ? PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION),
+            nullptr, nullptr, originalDacl, nullptr);
+        if (!refused || restored)
+            std::printf("Allocation ACL fixture: apply=%lu direct=%lu restore=%lu\n", apply, actualDenied, restored);
+        Check(refused && !restored, "a token denied metadata receives access denied without changing the file");
+    }
+    {
+        const auto compressedPath = source.File(L"allocation-compressed.bin");
+        const auto compressed = Adopt(CreateFileW(compressedPath.c_str(), GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, CREATE_NEW, 0, nullptr));
+        USHORT format = COMPRESSION_FORMAT_DEFAULT;
+        FILE_ID_INFO compressedId{};
+        FILE_ATTRIBUTE_TAG_INFO compressedAttrs{};
+        FILE_COMPRESSION_INFO compressedInfo{};
+        std::vector<BYTE> zeros(65536, 0);
+        if (!compressed || !DeviceIoControl(compressed.get(), FSCTL_SET_COMPRESSION, &format, sizeof(format),
+                                            nullptr, 0, &returned, nullptr) ||
+            !WriteFile(compressed.get(), zeros.data(), static_cast<DWORD>(zeros.size()), &written, nullptr) || written != zeros.size() ||
+            !GetFileInformationByHandleEx(compressed.get(), FileIdInfo, &compressedId, sizeof(compressedId)) ||
+            !GetFileInformationByHandleEx(compressed.get(), FileAttributeTagInfo, &compressedAttrs, sizeof(compressedAttrs)) ||
+            !GetFileInformationByHandleEx(compressed.get(), FileCompressionInfo, &compressedInfo, sizeof(compressedInfo)))
+        {
+            Check(false, "prepare a compressed allocation fixture");
+            return;
+        }
+        auto compressedRequest = request;
+        CopyMemory(compressedRequest.fileId, compressedId.FileId.Identifier, sizeof(compressedRequest.fileId));
+        compressedRequest.logicalSize = zeros.size();
+        compressedRequest.attributes = compressedAttrs.FileAttributes;
+        ULONGLONG ordinarySize = 0, measured = 0;
+        const DWORD query = UacF7::QueryCompressedSize([&](DWORD* high) { return GetCompressedFileSizeW(compressedPath.c_str(), high); }, ordinarySize);
+        JobPipe job;
+        Check(!query && ordinarySize == static_cast<ULONGLONG>(compressedInfo.CompressedFileSize.QuadPart) &&
+                  job.Open(nullptr, source.handle.get(), Operation::Inventory) &&
+                  job.Allocation(L"allocation-compressed.bin", compressedRequest, ERROR_SUCCESS, &measured) && measured == ordinarySize,
+              "the compressed allocation equals GetCompressedFileSizeW through a scoped request");
+    }
+    for (const auto scope : {Operation::FindContent, Operation::CompareList, Operation::CompareContent})
+    {
+        JobPipe job;
+        Check(job.Open(nullptr, source.handle.get(), scope) && job.RejectFindRequest(UacListing::fileAllocationRequest | 1),
+              "Find and Compare grants do not admit allocation requests");
+    }
+    {
+        const auto link = source.File(L"allocation-link");
+        if (CreateSymbolicLinkW(link.c_str(), path.c_str(), 2 /* ALLOW_UNPRIVILEGED_CREATE */))
+        {
+            JobPipe job;
+            Check(job.Open(nullptr, source.handle.get(), Operation::Inventory) &&
+                      job.Allocation(L"allocation-link", request, ERROR_FILE_INVALID) &&
+                      GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES,
+                  "allocation never follows a substituted symbolic link to the original file");
+            Check(DeleteFileW(link.c_str()) != FALSE, "remove only the owned allocation symlink");
+        }
+        else
+            std::printf("SKIP allocation symlink fixture unavailable (%lu)\n", GetLastError());
+    }
+    JobPipe malformed;
+    Check(malformed.Open(nullptr, source.handle.get(), Operation::List) &&
+              malformed.RejectFindRequest(UacListing::fileAllocationRequest | UacListing::inventoryRequest | 1),
+          "allocation cannot be combined with an inventory request");
 }
 
 void CheckInventoryScope(const Directory& source)
@@ -2783,6 +2963,7 @@ int wmain()
     CheckStoppedFindReply();
     CheckExactFindScope(source);
     CheckInventoryScope(source);
+    CheckFileAllocation(source);
     CheckTransferSourceFromParentListing(source, target);
     CheckTransferTargetFromParentListing(source, target);
     CheckNestedTransferJob(source, target);

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Retry denied allocation metadata in the active size scope. | Preserve ordinary totals while requesting a single verified measurement. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Align transfer and permanent-delete planning with native leaf support. | Keep UAC eligibility for ordinary attributes and streamed large copies. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Record partial directory sizes on disk rows. | Preserve full-size checks without adding a shared SDK field. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Use accepted copy shield for matching protected tree planning. | Open Windows consent directly after confirming the verified destination. | #731 | GPT-6.1 Sol |
@@ -3244,7 +3245,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                                              f.cAlternateFileName[0] != 0 ? f.cAlternateFileName : NULL,
                                              CQuadWord(f.nFileSizeLow, f.nFileSizeHigh), attrsData, NULL,
                                              f.dwFileAttributes, chCaseData, onlySize, &f.ftLastWriteTime,
-                                             srcAndTgtPathsFlags, wideTraversal ? sizeRow.cFileName : nullptr))
+                                             srcAndTgtPathsFlags, wideTraversal ? sizeRow.cFileName : nullptr, sizeScope))
                             goto BUILD_ERROR;
                         if (verifyDelete && script->Count == firstFileOperation)
                             directoryDeleteIncomplete = true;
@@ -3519,7 +3520,7 @@ BOOL CFilesWindow::BuildScriptFile(COperations* script, CActionType type, char* 
                                    CAttrsData* attrsData, char* mapName, DWORD sourceFileAttr,
                                    CChangeCaseData* chCaseData, BOOL onlySize,
                                    FILETIME* fileLastWriteTime, DWORD srcAndTgtPathsFlags,
-                                   const wchar_t* fileNameW)
+                                   const wchar_t* fileNameW, CSizeScanScope* sizeScope)
 {
     SLOW_CALL_STACK_MESSAGE14("CFilesWindow::BuildScriptFile(, %d, %s, %d, %s, %d, %d, %d, %s, %s, , , , %s, 0x%X, , %d, , 0x%X)",
                               type, sourcePath, sourcePathSupADS, targetPath, targetPathState, targetPathSupADS,
@@ -4026,11 +4027,83 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         nameW = SalPathAddExtendedPrefixW(nameW.c_str());
         CQuadWord s;
         DWORD err = NO_ERROR;
+        bool allocationDeclined = false;
         if (FileBasedCompression && !onlySize &&                                         // if compression is even possible
             (sourceFileAttr & (FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE))) // if the file is compressed or sparse (sparse file)
         {
-            s.LoDWord = GetCompressedFileSizeW(nameW.c_str(), &s.HiDWord);
-            err = GetLastError();
+            ULONGLONG ordinarySize = 0;
+            err = UacF7::QueryCompressedSize([&](DWORD* high) { return GetCompressedFileSizeW(nameW.c_str(), high); }, ordinarySize);
+            if (!err)
+                s.SetUI64(ordinarySize);
+            else
+                s.LoDWord = INVALID_FILE_SIZE;
+            if (s.LoDWord == 0xffffffff && err == ERROR_ACCESS_DENIED && sizeScope &&
+                !(sourceFileAttr & FILE_ATTRIBUTE_REPARSE_POINT) && !script->SkipAllCountSizeErrors &&
+                !sizeScope->ElevationDeclined)
+            {
+                const auto path = SalPathRemoveExtendedPrefixW(nameW.c_str());
+                UacF7::PreparedLeaf file;
+                const auto* panelRoot = ProtectedListing ? &ProtectedListing->GetRoot() : nullptr;
+                // This lexical check only detects a lost session; authorization
+                // still requires the live pipe and the broker's identity checks.
+                const bool listed = panelRoot && !panelRoot->empty() && path.size() > panelRoot->size() &&
+                    path.compare(0, panelRoot->size(), *panelRoot) == 0 &&
+                    (panelRoot->back() == L'\\' || path[panelRoot->size()] == L'\\');
+                DWORD preparationError = ERROR_SUCCESS;
+                const bool prepared = listed ?
+                    ((preparationError = ProtectedListing->IsOpen() ?
+                        ProtectedListing->PrepareViewer(path, file, sourceFileAttr) : ERROR_BROKEN_PIPE) == ERROR_SUCCESS) :
+                    file.PrepareView(nameW);
+                if (preparationError)
+                    err = preparationError;
+                UacF7::FileAllocationRequest identity{};
+                if (prepared && file.CopyAllocationIdentity(fileSizeLoc.Value, sourceFileAttr, identity))
+                {
+                    UacF7::ListingSession* session = listed ? ProtectedListing.get() : nullptr;
+                    if (!session && sizeScope->Session.IsOpen() && sizeScope->Session.Contains(path))
+                        session = &sizeScope->Session;
+                    if (!session && UacF7::CanOfferElevation() &&
+                        (!sizeScope->Session.GetRoot().empty() || sizeScope->Session.PrepareInventory(sizeScope->Root)))
+                        session = &sizeScope->Session;
+                    if (session)
+                    {
+                        DWORD allocationError = ERROR_SUCCESS;
+                        int choice = IDOK;
+                        bool consentDeclined = false;
+                        ShowSafeWaitWindow(FALSE);
+                        if (!session->IsOpen() && session == &sizeScope->Session && sizeScope->StartResult.has_value())
+                            allocationError = *sizeScope->StartResult ? *sizeScope->StartResult : ERROR_BROKEN_PIPE;
+                        else if (!session->IsOpen())
+                        {
+                            choice = ConfirmProtectedSize(HWindow, sizeScope->Root, *session, allocationError);
+                            consentDeclined = choice == IDOK && allocationError == ERROR_CANCELLED;
+                            if (session == &sizeScope->Session && choice == IDOK)
+                                sizeScope->StartResult = allocationError;
+                        }
+                        ULONGLONG allocated = 0;
+                        if (choice == IDOK && !allocationError)
+                            allocationError = session->IsOpen() ? session->MeasureFileAllocation(path, identity, allocated) : ERROR_BROKEN_PIPE;
+                        ShowSafeWaitWindow(TRUE);
+                        if (choice == IDCANCEL)
+                            return FALSE;
+                        if (choice == IDNO)
+                            script->SkipAllCountSizeErrors = true;
+                        if (choice != IDOK || consentDeclined)
+                        {
+                            if (consentDeclined)
+                                sizeScope->ElevationDeclined = true;
+                            allocationDeclined = true;
+                        }
+                        else if (!allocationError)
+                        {
+                            s.SetUI64(allocated);
+                            err = NO_ERROR;
+                        }
+                        else
+                            err = allocationError;
+                    }
+                }
+            }
         }
         else
         {
@@ -4040,7 +4113,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
         {
             script->CountSizeCompressionUnavailable = true;
             script->CountSizeOccupiedUnavailable = true;
-            if (!script->SkipAllCountSizeErrors)
+            if (!allocationDeclined && !(sizeScope && sizeScope->ElevationDeclined) && !script->SkipAllCountSizeErrors)
             {
                 const std::string errorMessage = Salamander::BranchViewText::FormatCompressedSizeError(
                     LoadStr(IDS_GETCOMPRFILESIZEERROR), name.c_str(), GetErrorText(err));

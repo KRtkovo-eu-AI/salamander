@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record scoped allocation measurement for size scans. | Preserve partial totals and distinguish local evidence from VM acceptance. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Flag the unverified local move-completion branch. | Track the review finding separately from broker-only verification. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record typed late move completion and recursive-delete design. | Keep proven metadata checks separate from remaining recovery and consent work. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record verified overwrite identity, panel transitions and rename work. | Separate local evidence from remaining safety limits and VM acceptance. | #731 | GPT-6.1 Terra |
@@ -550,6 +551,18 @@ Pro D2 je připraven návrh samostatné typované úlohy nad přesně vybranými
 Pro D3 audit potvrdil, že současný společný callback Shellu neumí po částečném selhání určit stav každé položky. Další řešení musí vést pro každý ověřený objekt vlastní stav a receipt; dokončenou položku nikdy neopakovat, nejednoznačný výsledek nenazvat odmítnutím a nerozšířit elevovaný retry na dosud nezahájené položky. Ověřit původní SID Koše a zákaz trvalého fallbacku. Windows negarantuje jedinou výzvu pro dávku jen zvolením těchto příznaků; skutečný počet je třeba změřit ve VM.
 
 Z1 (ZIP z chráněného panelu) zůstává otevřená. Rozpracovaná hostitelská změna byla stažena: při zavření tabu, vnořené změně cesty či odpojení pluginu během souhlasu a předání výpisu nebyla doložena životnost nepřevzatých `pluginData`. Nový návrh musí vyvážit globální pozastavení refresh i při zániku tabu, chránit commit panelu a držet ZIP plugin až do předání nebo uvolnění jeho dat. Metadata archivu je třeba brát z ověřené brokerové revize, pokud běžné získání atributů selže. Panelový `WIN32_FIND_DATAW` sám neprokazuje ID souboru od okamžiku zobrazení. Ponechané nativní testy ověřují existující kontrolu identity čtecího handle a současný souhlas ZIP, nikoli opravu Z1. Neověřený patch je pouze podkladem v `C:\Samandarin\builds\uac-z1-20261111\unverified-host-z1.patch`.
+
+Samotné `FilesActionInProgress` nestačí jako ochrana ZIP přechodu: nezamezí vnořené změně cesty a smyčka vypínání tabů při odmítnutém zavření nesmí zůstat čekat na nezměněný počet tabů. Případná zápůjčka pluginu proto potřebuje i pravidla pro odložené zavření a změnu konfigurace, vnoření a shutdown. Tyto zásahy vyžadují vlastní regresní testy životnosti, nikoli jen kontrolu načtené DLL.
+
+## Obsazená velikost jednotlivého souboru ve výpočtu složky
+
+Stav R3: **část implementována a ověřena lokálně; VM akceptace čeká**. Základ `d8de6b0f`, protokol **30**. Při odepření `GetCompressedFileSizeW` u komprimovaného či sparse souboru uvnitř počítané složky může schválená read-only relace změřit pouze tento soubor. Broker znovu ověří svazek, ID rodiče a souboru, typ a délku; nesleduje reparse body a nevrací obsah. Výsledek nahradí jednotlivý údaj před jeho jediným započítáním. Systémové Ne ponechá dostupný logický součet, Skip, Skip All a Cancel zachovávají své rozdílné významy. Odpojení původní panelové relace samo neotevře novou UAC výzvu. Korektně se rozlišuje i platná hodnota s nízkým DWORD `0xffffffff`.
+
+Přímý výběr samostatného souboru zatím nemá vlastní přesný metadatový rozsah; odkazy vyžadují oddělený návrh, protože systémová funkce sleduje jejich cíl. Pokud odepře přístup i správce, dostupný součet zůstane zachovaný, ale stávající hlášení dosud nevysvětluje příčinu lépe než kódem chyby. Tyto případy zůstávají otevřené, stejně jako ostatní části auditu.
+
+Host a broker x64 se sestavily v Debug i Release, sonda v Release. Controller skutečné výpočetní větve prošel **19 kontrolami** v každé konfiguraci; transport/broker **347** v každé. Zahrnují skutečný ACL denial, sparse nad 4 GiB, komprimovaný soubor a srovnání `FileCompressionInfo` se systémovým `GetCompressedFileSizeW`, odmítnutí záměny a nepovoleného rozsahu, volby uživatele i výpadek relace. Skutečné Release binárky prošly kontrolou rolí/protokolu a odmítly již dříve sestavený, následně vrácený protokol 29. Logy jsou v `C:\Samandarin\builds\uac-r3-final-20261111` a `C:\Samandarin\builds\uac-r3-protocol30-Debug.log` / `uac-r3-protocol30-Release.log`. Interaktivní UAC a společná VM akceptace se v tomto bloku neprováděly.
+
+Stejně sestavené Release binárky proti základu `344021e5`: `salamand.exe` 5 772 800 → 5 775 360 B, `uacbroker.exe` 1 397 760 → 1 398 272 B, dohromady 7 170 560 → 7 173 632 B (+3 072 B). Soukromá paměť hosta a brokeru se změří při odložené společné VM akceptaci.
 
 ## Další postup
 

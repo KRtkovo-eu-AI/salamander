@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Measure allocation for one verified file within a read-only scope. | Resolve a denied compressed size without rescanning or exposing file contents. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Capture a complete replacement revision from a verified parent listing. | Support inaccessible targets without relaxing no-follow or revision checks. | #731 | GPT-6.1 Terra |
 | 2026-11-10 | Carry an exact link type in listing identity replies. | Allow the verified delete path to identify a link without following it. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Enumerate copy entries with their NTFS IDs. | Share row decoding and keep the existing listing bounds. | #731 | GPT-6.1 Sol |
@@ -46,6 +47,7 @@ constexpr DWORD parentIdentityRequest = 0x08000000;
 constexpr DWORD directoryIdentityRequest = 0x04000000;
 constexpr DWORD verifiedListingRequest = 0x02000000;
 constexpr DWORD linkIdentityRequest = 0x01000000;
+constexpr DWORD fileAllocationRequest = 0x00800000;
 
 struct LeafIdentity
 {
@@ -66,6 +68,63 @@ inline bool ValidRequestScope(UacF7::Operation scope, DWORD pathLength, bool inv
     if (UacF7::IsComparisonScope(scope))
         return !inventory && (!content || (scope == UacF7::Operation::CompareContent && pathLength != 0));
     return !content || (scope == UacF7::Operation::FindContent && !inventory && pathLength != 0);
+}
+
+inline bool ValidAllocationScope(UacF7::Operation scope, DWORD pathLength)
+{
+    return pathLength != 0 && (scope == UacF7::Operation::List || scope == UacF7::Operation::Inventory);
+}
+
+inline DWORD MeasureFileAllocation(HANDLE root, std::wstring_view relative,
+                                   const UacF7::FileAllocationRequest& expected, ULONGLONG& bytes)
+{
+    constexpr DWORD special = FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE;
+    if (expected.reserved || !(expected.attributes & special) ||
+        (expected.attributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)))
+        return ERROR_INVALID_PARAMETER;
+    const auto split = relative.find_last_of(L'\\');
+    const auto parentPath = split == std::wstring_view::npos ? std::wstring_view{} : relative.substr(0, split);
+    const auto leaf = split == std::wstring_view::npos ? relative : relative.substr(split + 1);
+    if ((split != std::wstring_view::npos && parentPath.empty()) || !UacDirectoryLeaf::IsComponent(leaf) ||
+        (!parentPath.empty() && !UacDirectoryLeaf::IsRelativeDirectoryPath(parentPath)))
+        return ERROR_INVALID_NAME;
+    HANDLE rawParent = nullptr;
+    UacDirectoryLeaf::ParentIdentity parentIdentity;
+    DWORD error = parentPath.empty() ? UacDirectoryLeaf::ReadParentIdentity(root, parentIdentity) :
+        UacDirectoryLeaf::OpenParentBelowRoot(root, parentPath, rawParent, parentIdentity, 0, false);
+    const std::unique_ptr<void, decltype(&CloseHandle)> ownedParent(rawParent, CloseHandle);
+    if (error)
+        return error;
+    if (parentIdentity.file.VolumeSerialNumber != expected.serial ||
+        std::memcmp(parentIdentity.file.FileId.Identifier, expected.parentId, sizeof(expected.parentId)))
+        return ERROR_FILE_INVALID;
+    HANDLE rawFile = nullptr;
+    error = UacRenameLeaf::Detail::OpenSource(rawParent ? rawParent : root, leaf, rawFile, 0,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
+    const std::unique_ptr<void, decltype(&CloseHandle)> file(rawFile, CloseHandle);
+    if (error)
+        return error;
+    FILE_ID_INFO identity{};
+    FILE_ATTRIBUTE_TAG_INFO attributes{};
+    FILE_STANDARD_INFO standard{};
+    FILE_COMPRESSION_INFO compression{};
+    if (!GetFileInformationByHandleEx(rawFile, FileIdInfo, &identity, sizeof(identity)) ||
+        !GetFileInformationByHandleEx(rawFile, FileAttributeTagInfo, &attributes, sizeof(attributes)) ||
+        !GetFileInformationByHandleEx(rawFile, FileStandardInfo, &standard, sizeof(standard)))
+        return GetLastError();
+    if (identity.VolumeSerialNumber != expected.serial ||
+        std::memcmp(identity.FileId.Identifier, expected.fileId, sizeof(expected.fileId)) ||
+        (attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) ||
+        (attributes.FileAttributes & special) != (expected.attributes & special) || standard.Directory ||
+        standard.DeletePending || standard.EndOfFile.QuadPart < 0 ||
+        static_cast<ULONGLONG>(standard.EndOfFile.QuadPart) != expected.logicalSize)
+        return ERROR_FILE_INVALID;
+    if (!GetFileInformationByHandleEx(rawFile, FileCompressionInfo, &compression, sizeof(compression)))
+        return GetLastError();
+    if (compression.CompressedFileSize.QuadPart < 0)
+        return ERROR_INVALID_DATA;
+    bytes = static_cast<ULONGLONG>(compression.CompressedFileSize.QuadPart);
+    return ERROR_SUCCESS;
 }
 static_assert(sizeof(WIN32_FIND_DATAW) == 592);
 inline constexpr wchar_t marker[] = L"listing";
