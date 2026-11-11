@@ -6,7 +6,7 @@ VERSION,"2,0,0,197"
 [TRANSLATION]
 LANGID,3082
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
+WEB,"open.samandarin.net"
 COMMENT,"English version"
 
 [DIALOG 490]
@@ -92,7 +92,7 @@ COMMENT,"English version"
 563,215,204,33,14,1,"Texto"
 3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
 3015,277,17,75,8,1,"SetActionOpen"
-557,365,17,47,8,1,"www.altap.cz"
+557,365,17,47,8,1,"open.samandarin.net"
 3016,277,27,81,8,1,"SetActionPostCommand"
 558,365,27,55,8,1,"¡Diga algo!"
 3017,277,37,81,8,1,"SetActionPostCommand"
@@ -109,7 +109,7 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Este complemento debería ayudarle a crear sus propios complementos."
-49,1,"www.altap.cz"
+49,1,"open.samandarin.net"
 50,1,"Se ha producido una excepción en DemoPlug, ¡informe a los autores!\nSi ha trabajado con algún archivo .dop cuando ocurrió la excepción,\nintente reproducir el fallo con este archivo .dop y, si la excepción\nse vuelve a producir, envíenos este archivo .dop (lo reproduciremos y corregiremos el fallo).\n¡Gracias!"
 51,1,"petr.solin@altap.cz"
 52,1,"La configuración ya está abierta."

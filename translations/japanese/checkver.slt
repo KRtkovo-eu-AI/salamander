@@ -6,7 +6,7 @@ VERSION,"1,2,7,197"
 [TRANSLATION]
 LANGID,1041
 AUTHOR,"Open Salamander"
-WEB,"www.altap.cz"
+WEB,"open.samandarin.net"
 COMMENT,"English version"
 
 [DIALOG 100]
@@ -78,7 +78,7 @@ COMMENT,"English version"
 218,0,"Plugin is working with Internet.\nDo you want to abort this Internet session?"
 220,0,"Initializing Internet connection..."
 221,0,"Initializing failed: %s"
-222,0,"Connecting to \tuwww.altap.cz\tlhttps://www.altap.cz\tn..."
+222,0,"Connecting to \tuopen.samandarin.net\tlhttps://open.samandarin.net\tn..."
 223,0,"Connecting failed: %s"
 
 [STRINGTABLE 2]

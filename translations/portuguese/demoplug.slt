@@ -6,7 +6,7 @@ VERSION,"2,0,0,197"
 [TRANSLATION]
 LANGID,1046
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
+WEB,"open.samandarin.net"
 COMMENT,"portuguese translation stub (English seed)"
 
 [DIALOG 490]
@@ -92,7 +92,7 @@ COMMENT,"portuguese translation stub (English seed)"
 563,215,204,33,14,1,"Texto"
 3014,269,4,185,48,1,"CGUIHyper Link Abstract"
 3015,277,17,75,8,1,"Set Action Open"
-557,365,17,47,8,1,"www.altap.cz"
+557,365,17,47,8,1,"open.samandarin.net"
 3016,277,27,88,8,1,"Set Action Post Command"
 558,365,27,55,8,1,"Diga algo!"
 3017,277,37,88,8,1,"Set Action Post Command"
@@ -109,7 +109,7 @@ COMMENT,"portuguese translation stub (English seed)"
 
 [STRINGTABLE 1]
 48,1,"Este plug-in deve ajudá-lo a criar seus próprios plug-ins."
-49,1,"www.altap.cz"
+49,1,"open.samandarin.net"
 50,1,"Ocorreu uma exceção no Demo Plug; informe os autores!\n Se você trabalhava com algum arquivo .dop quando a exceção ocorreu,\ntente reproduzir o erro com este arquivo .dop e, se a exceção\nocorrer novamente, envie-nos este arquivo .dop (vamos reproduzir e corrigir o erro).\n Obrigado!"
 51,1,"petr.solin@altap.cz"
 52,1,"A configuração já está aberta."

@@ -6,7 +6,7 @@ VERSION,"1,2,7,197"
 [TRANSLATION]
 LANGID,1025
 AUTHOR,"Open Salamander"
-WEB,"www.altap.cz"
+WEB,"open.samandarin.net"
 COMMENT,"English version"
 
 [DIALOG 100]
@@ -78,7 +78,7 @@ COMMENT,"English version"
 218,1,"الإضافة متصلة بالإنترنت.\nهل تريد إنهاء جلسة الإنترنت هذه؟"
 220,1,"جارٍ تهيئة اتصال الإنترنت..."
 221,1,"فشلت التهيئة: %s"
-222,1,"جارٍ الاتصال بـ \tuwww.altap.cz\tlhttps://www.altap.cz\tn..."
+222,1,"جارٍ الاتصال بـ \tuopen.samandarin.net\tlhttps://open.samandarin.net\tn..."
 223,1,"فشل الاتصال: %s"
 
 [STRINGTABLE 2]

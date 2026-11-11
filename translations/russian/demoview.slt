@@ -6,7 +6,7 @@ VERSION,"1,0,3,197"
 [TRANSLATION]
 LANGID,1049
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
+WEB,"open.samandarin.net"
 COMMENT,"English version"
 
 [DIALOG 490]
@@ -21,7 +21,7 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Этот плагин должен помочь вам создать собственный плагин просмотра."
-49,1,"www.altap.cz"
+49,1,"open.samandarin.net"
 50,1,"В DemoView произошла ошибка, пожалуйста, сообщите авторам!\nЕсли вы работали с каким-либо .DMV-файлом в момент ошибки,\nпопробуйте воспроизвести сбой с этим .DMV-файлом, и если ошибка\nпоявится снова, пришлите нам этот .DMV-файл (мы воспроизведём и исправим ошибку).\nСпасибо!"
 51,1,"petr.solin@altap.cz"
 52,1,"Конфигурация уже открыта."
