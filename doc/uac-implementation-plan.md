@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record a CopyAttrs metadata-race probe. | Keep the incomplete F6 option out of production without an atomic guarantee. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Clarify protected View With lifetime boundary. | Avoid crossing UI threads with stale panel or result pointers. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record exact-file viewer build evidence. | Keep compiled host and broker separate from pending end-to-end UAC validation. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Carry exact-file Find identity into F3. | Avoid recapturing a replacement by pathname after an approved Find. | #731 | GPT-6.1 Terra |
@@ -635,6 +636,8 @@ Tehdejší testy pokusu pokrývaly běžné soubory Normal/Archive bez ADS a EFS
 **Navazující řez T3 — Overwrite Older.** Po dokončené běžné kopii obyčejného souboru bez ADS, EFS, CopyAttrs a CopySecurity lze při odepřeném smazání zdroje požádat o existující ověřené dokončení F6. Při Ignore chyby čtení nebo nastavení času se pro tuto nově podporovanou volbu potvrzení kopie nepoužije; Retry a Skip zachovávají původní rozhodnutí. Běžné lokální mazání zůstává beze změny a samo není chráněné proti souběžné záměně identity. Elevovaný krok znovu ověřuje identity a revizi, porovnává obsah a při neznámém výsledku se automaticky neopakuje.
 
 Místní důkaz: řídicí test vytažených skutečných větví workeru prošel pěti kontrolami v Debug i Release včetně resetu při novém pokusu, Ignore a simulovaného odpojení; brokerový retry v tomto harnessu je nahrazen stubem. Existující nativní SourceGuard test na skutečných dočasných souborech prošel v obou konfiguracích včetně odlišného obsahu, ID, storna a odpojení. Skutečné Overwrite Older UI, přesun mezi dvěma svazky a systémový UAC souhlas čekají na společnou VM akceptaci. CopyAttrs, CopySecurity, ADS a EFS zůstávají samostatně otevřené.
+
+Pro CopyAttrs lokální observační sonda na jednom NTFS svazku zjistila, že jiný metadata handle mohl změnit Hidden i při exkluzivním otevření cíle a testovaném RWH oplocku; samotné opakované porovnání proto nedokládá atomickou ochranu. Sonda `C:\Samandarin\builds\uac-copyattrs-oplock-probe.py` a její C++ zdroj neověřují produkční relaci ani jiné systémy souborů. Nová produkční větev CopyAttrs není zapnutá a dosavadní lokální DeleteFileW i Ignore se nemění.
 
 Čistý checkout commitu `73d37c59` sestavil host a broker x64 v Debug i Release a probe v Release; transport ověřil role těchto PE a odmítnutí starého nebo zaměněného obrazu. Logy jsou v `C:\Samandarin\builds\uac-f6-verify-73d37c59`. Release host má 5 776 896 B a broker 1 405 952 B, oba stejně jako poslední zaznamenané sestavení protokolu 34. Měření paměti a interaktivní VM zůstávají otevřené; binárky nejsou podepsané.
 
