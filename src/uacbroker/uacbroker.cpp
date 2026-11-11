@@ -1,6 +1,5 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
-| 2026-11-11 | Dispatch typed attribute-preserving move completion. | Validate the copied attributes while both objects remain pinned. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Prepare typed case-only rename requests. | Defer alias identity and no-replace checks to the verified rename primitive. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Prepare a replacement from a pinned parent listing when target attributes are denied. | Bind overwrite consent to the exact original file and revision. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Prepare native replacement and read-only move requests. | Preserve exact target revision, cancellation and typed job scope. | | GPT-6.1 Sol |
@@ -1474,11 +1473,10 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
                         ULONGLONG size, HANDLE pipe, ULONGLONG deadline,
                         bool preserveCompression, const UacF7::ArchiveRevision* copiedTarget,
                         const UacCopyLeaf::Detail::CopyProgress* progress,
-                        const UacF7::ArchiveRevision* replacementTarget = nullptr,
-                        bool verifyCopiedAttributes = false)
+                        const UacF7::ArchiveRevision* replacementTarget = nullptr)
 {
     using namespace UacMoveSourceJournal;
-    if ((copiedTarget && replacementTarget) || (verifyCopiedAttributes && !copiedTarget))
+    if (copiedTarget && replacementTarget)
         return ERROR_INVALID_PARAMETER;
     DWORD error = UacZipUpdate::Detail::CheckParent(sourceParent, sourceParentId);
     if (!error)
@@ -1594,7 +1592,7 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
                 return status;
             target.reset(raw);
             if ((status = UacZipUpdate::CheckRevision(target.get(), *copiedTarget)) ||
-                (status = guard.VerifyExistingCopy(target.get(), size, pipe, deadline, progress, verifyCopiedAttributes)) ||
+                (status = guard.VerifyExistingCopy(target.get(), size, pipe, deadline, progress)) ||
                 (status = UacZipUpdate::CheckRevision(target.get(), *copiedTarget)))
                 return status;
             targetId = UacZipUpdate::RevisionIdentity(*copiedTarget);
@@ -1839,7 +1837,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool overwrite = UacF7::IsOverwriteTransfer(header.operation);
     const bool moveOverwrite = header.operation == Operation::MoveOverwrite || header.operation == Operation::MoveAcrossVolumeOverwrite;
     const bool copy = UacF7::IsFileCopy(header.operation) || header.operation == Operation::CopyOverwrite;
-    const bool finishMove = UacF7::IsMoveCompletion(header.operation);
+    const bool finishMove = header.operation == Operation::FinishCrossVolumeMove;
     const bool move = UacF7::IsMoveTransfer(header.operation);
     const bool moveDirectory = header.operation == Operation::MoveDirectory;
     const bool crossMove = UacF7::IsCrossVolumeMove(header.operation);
@@ -2259,8 +2257,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                 result = MoveAcrossVolumes(install, parent.get(), expected, sourceIdentity, leaf,
                                            destination, expectedTarget, targetLeaf, header.copySize, pipe, MAXULONGLONG,
                                            header.operation == Operation::MoveCompressed, finishMove ? &overwriteTarget : nullptr, progress,
-                                           moveOverwrite ? &overwriteTarget : nullptr,
-                                           header.operation == Operation::FinishCrossVolumeMoveAttrs);
+                                           moveOverwrite ? &overwriteTarget : nullptr);
                 deadline = GetTickCount64() + timeoutMs;
             }
             else if (move)
@@ -3922,7 +3919,7 @@ DWORD DeleteCopiedMoveSource(const std::wstring& sourcePath, const std::wstring&
 
 bool PreparedTransfer::PrepareMoveCompletion(const std::wstring& sourcePath, const std::wstring& targetPath,
                                               ULONGLONG expectedSize, const MoveFileIdentity& copiedSource,
-                                              const MoveFileIdentity& copiedTarget, bool preserveAttributes)
+                                              const MoveFileIdentity& copiedTarget)
 {
     if (!Prepare(sourcePath, targetPath, expectedSize, Operation::Move) || !IsCrossVolumeMove() ||
         source.serial != copiedSource.serial ||
@@ -3937,7 +3934,7 @@ bool PreparedTransfer::PrepareMoveCompletion(const std::wstring& sourcePath, con
         std::memcmp(overwriteTarget.fileId, copiedTarget.id, sizeof(copiedTarget.id)) ||
         static_cast<ULONGLONG>(overwriteTarget.size) != expectedSize || !IsPlainCopyFile(overwriteTarget.attributes))
         return false;
-    source.operation = preserveAttributes ? Operation::FinishCrossVolumeMoveAttrs : Operation::FinishCrossVolumeMove;
+    source.operation = Operation::FinishCrossVolumeMove;
     return true;
 }
 

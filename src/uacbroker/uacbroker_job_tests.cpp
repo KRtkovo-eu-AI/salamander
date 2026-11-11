@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
-// | 2026-11-11 | Verify attribute-preserving completion dispatch boundaries. | Keep target revision and cross-volume checks intact. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Verify ZIP read identities obtained from protected listings. | Reject substituted archives and parents before opening content. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify a denied target's full listed revision and stale-revision rejection. | Ensure parent metadata cannot authorize a changed object. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Reject changed parent identities before cross-volume transfer setup. | Preserve the approved parent scope even when the original source file ID still matches. | | GPT-6.1 Sol |
 // | 2026-11-11 | Verify typed native replacement framing and job reuse. | Keep overwrite revision approval separate from data budgets. | #731 | GPT-6.1 Sol |
@@ -462,6 +462,42 @@ void CheckListedLeafIdentity(const Directory& source)
     JobPipe find;
     Check(find.Open(nullptr, source.handle.get()) && find.RejectFindRequest(UacListing::leafIdentityRequest),
           "the Find scope rejects the panel-only identity request");
+}
+
+void CheckListedArchiveIdentity(const Directory& source, const Directory& outside)
+{
+    constexpr wchar_t leaf[] = L"listed-archive-\u6771.zip";
+    constexpr wchar_t old[] = L"listed-archive-original.zip";
+    JobPipe job;
+    if (!WriteByte(source.File(leaf), 42) || !WriteByte(outside.File(leaf), 43) ||
+        !job.Open(nullptr, source.handle.get(), Operation::List))
+    {
+        Check(false, "prepare the listed archive fixture");
+        return;
+    }
+    UacListing::LeafIdentity listed{};
+    const bool captured = job.QueryLeafIdentity(leaf, ERROR_SUCCESS, listed);
+    const FILE_ID_INFO expected{source.identity.file.VolumeSerialNumber, listed.file};
+    HANDLE raw = nullptr;
+    LARGE_INTEGER size{};
+    FILE_BASIC_INFO basic{};
+    const auto deadline = GetTickCount64() + timeoutMs;
+    DWORD result = captured ? UacViewLeaf::OpenVerifiedRead(source.handle.get(), source.identity, expected,
+                                                           leaf, deadline, raw, size, basic) : ERROR_INVALID_DATA;
+    Check(result == ERROR_SUCCESS && raw && size.QuadPart == 1 &&
+          !std::memcmp(&listed.parent, &source.identity.file.FileId, sizeof(listed.parent)),
+          "open the exact archive selected from an approved listing");
+    if (raw) CloseHandle(raw);
+    raw = nullptr;
+    result = UacViewLeaf::OpenVerifiedRead(outside.handle.get(), source.identity, expected, leaf, deadline, raw, size, basic);
+    Check(result == ERROR_FILE_INVALID && !raw && HasByte(outside.File(leaf), 43),
+          "the same archive name in another parent cannot replace the selected file");
+    Check(MoveFileW(source.File(leaf).c_str(), source.File(old).c_str()) && WriteByte(source.File(leaf), 44),
+          "replace the listed archive after capturing its identity");
+    raw = nullptr;
+    result = UacViewLeaf::OpenVerifiedRead(source.handle.get(), source.identity, expected, leaf, deadline, raw, size, basic);
+    Check(result == ERROR_FILE_INVALID && !raw && HasByte(source.File(leaf), 44) && HasByte(source.File(old), 42),
+          "reject a same-name replacement after capturing the listed archive ID");
 }
 
 void CheckPanelPreparationPaths(const Directory& source, const Directory& outside)
@@ -2238,8 +2274,7 @@ void CheckMoveOverwriteJob(const Directory& source, const Directory& target, con
                   UacDirectoryLeaf::SameParent(actual, target.identity) && !readSecurity(inspect.get()),
               "cross-volume destination policy opens a handle that can verify its actual DACL before named-stream publication");
     }
-    Check(!UacF7::InspectsMoveTarget(Operation::Copy) && !UacF7::InspectsMoveTarget(Operation::FinishCrossVolumeMove) &&
-              !UacF7::InspectsMoveTarget(Operation::FinishCrossVolumeMoveAttrs),
+    Check(!UacF7::InspectsMoveTarget(Operation::Copy) && !UacF7::InspectsMoveTarget(Operation::FinishCrossVolumeMove),
           "target DACL inspection remains confined to cross-volume copy publication");
 }
 
@@ -2626,12 +2661,6 @@ void CheckCrossVolumeBoundary(const Directory& source, const Directory& target)
                                  nullptr, nullptr, false, nullptr, &revision) &&
               error == ERROR_NOT_SAME_DEVICE && HasByte(source.File(leaf), 5) && HasByte(target.File(leaf), 5),
           "consume the late move target revision and reject a same-volume completion without changing either file");
-    JobPipe completionAttrs;
-    Check(completionAttrs.Open() &&
-              completionAttrs.Request(Operation::FinishCrossVolumeMoveAttrs, source, leaf, error, &target,
-                                      nullptr, nullptr, false, nullptr, &revision) &&
-              error == ERROR_NOT_SAME_DEVICE && HasByte(source.File(leaf), 5) && HasByte(target.File(leaf), 5),
-          "the attribute-preserving completion carries the exact target revision and rejects the same volume");
 }
 
 void CheckMetadataJob(const Directory& source)
@@ -2741,6 +2770,7 @@ int wmain()
     if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
         return 2;
     CheckListedLeafIdentity(source);
+    CheckListedArchiveIdentity(source, outside);
     CheckPanelPreparationPaths(source, outside);
     CheckPanelPreparationFlags(source);
     CheckPanelPreparationMutationGuards(source);

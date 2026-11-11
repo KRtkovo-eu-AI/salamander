@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
-// | 2026-11-11 | Retain a late move receipt for ordinary CopyAttrs and Overwrite Older. | Verify the completed copy without repeating the conflict decision. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Show a listed target revision in native overwrite confirmation. | Offer a verified retry when opening the target for metadata is denied. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Route native overwrites and protected read-only moves through one transaction. | Keep conflict decisions and prevent separate elevated target deletion. | | GPT-6.1 Sol |
 // | 2026-11-11 | Route native large-file transfers through shared eligibility. | Offer UAC without applying snapshot limits to streamed file copies. | #731 | GPT-6.1 Sol |
@@ -8302,8 +8301,8 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
         }
         BOOL skip;
         MoveCopyReceipt receipt;
-        const bool capture = (op->OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && !script->CopySecurity &&
-                             !copyADS && !copyAsEncrypted &&
+        const bool capture = (op->OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && !script->CopyAttrs && !script->CopySecurity &&
+                             !script->OverwriteOlder && !copyADS && !copyAsEncrypted &&
                              !(op->OpFlags & (OPFL_SRCPATH_IS_NET | OPFL_TGTPATH_IS_NET)) &&
                              op->SourceNameWValid && op->TargetNameWValid && UacF7::IsPlainDeleteFile(op->Attr) &&
                              op->FileSize.Value <= UacF7::maxCrossVolumeMoveBytes;
@@ -8343,7 +8342,7 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                     {
                         UacF7::PreparedTransfer request;
                         if (request.PrepareMoveCompletion(op->SourceNameW, op->TargetNameW, op->FileSize.Value,
-                                                          receipt.source, receipt.target, script->CopyAttrs != FALSE))
+                                                          receipt.source, receipt.target))
                         {
                             // A retry must recheck both files. Do not delete a name
                             // that might now refer to a different source.

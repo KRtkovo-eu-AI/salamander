@@ -1,6 +1,5 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
-| 2026-11-11 | Check preserved attributes before retiring a copied move source. | Keep mismatched destinations and both source links intact. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Verify anchored case-only renames. | Exercise actual NTFS names, identity checks, collisions, and directory handling. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Keep native overwrite within the same exact-parent transfer family. | Reuse consent while preserving independent conflict approval. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Keep a ReadOnly object intact when its approved identity is stale. | Common attribute deletion now has dedicated native coverage. | #731 | GPT-6.1 Sol |
@@ -2134,10 +2133,7 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
     const auto completed = targetDirectory + L"\\" + completedLeaf;
     const auto movedTarget = targetDirectory + L"\\original-published-target";
     {
-        const DWORD sourceAttributes = GetFileAttributesW(sourcePath.c_str());
-        if (sourceAttributes == INVALID_FILE_ATTRIBUTES)
-            return false;
-        SourceGuard guard(sourceAttributes);
+        SourceGuard guard;
         UacDirectoryLeaf::ParentIdentity targetParent;
         if (guard.Open(parent.get(), leaf, expected, 2) ||
             UacDirectoryLeaf::ReadParentIdentity(destinationParent, targetParent))
@@ -2165,11 +2161,8 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
                 if (!captured)
                     return false;
             }
-            if (!SetFileAttributesW(existingPath.c_str(), sourceAttributes))
-                return false;
             HANDLE rawCopy = nullptr;
-            error = OpenSource(destinationParent, existingLeaf, rawCopy,
-                               FILE_READ_DATA | FILE_READ_EA | FILE_WRITE_DATA | FILE_WRITE_ATTRIBUTES, 0);
+            error = OpenSource(destinationParent, existingLeaf, rawCopy, FILE_READ_DATA | FILE_READ_EA | FILE_WRITE_DATA, 0);
             {
                 const Handle existingCopy(rawCopy);
                 FILE_ID_INFO reopened{};
@@ -2180,31 +2173,6 @@ bool CheckMoveSourceJournal(const std::wstring& fixture, const std::wstring& tar
                 Check(error == expectedError, "compare every block of the already copied F6 destination", error);
                 if (content == &moveContent)
                 {
-                    error = guard.VerifyExistingCopy(existingCopy.get(), moveContent.size(), nullptr, MAXULONGLONG, nullptr, true);
-                    Check(!error, "confirm preserved ordinary attributes before completing an existing F6 copy", error);
-                    FILE_BASIC_INFO targetBasic{};
-                    if (!GetFileInformationByHandleEx(existingCopy.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
-                        return false;
-                    const DWORD original = targetBasic.FileAttributes;
-                    targetBasic.FileAttributes = (original & ~FILE_ATTRIBUTE_NORMAL) | FILE_ATTRIBUTE_HIDDEN;
-                    if (!SetFileInformationByHandle(existingCopy.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
-                        return false;
-                    error = guard.VerifyExistingCopy(existingCopy.get(), moveContent.size(), nullptr, MAXULONGLONG, nullptr, true);
-                    Check(error == ERROR_FILE_INVALID && Exists(sourcePath) && Exists(retained),
-                          "refuse mismatched preserved attributes while retaining both source links", error);
-                    targetBasic.FileAttributes = original;
-                    if (!SetFileInformationByHandle(existingCopy.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
-                        return false;
-                    const LARGE_INTEGER originalWrite = targetBasic.LastWriteTime;
-                    targetBasic.LastWriteTime.QuadPart += 10000000;
-                    if (!SetFileInformationByHandle(existingCopy.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
-                        return false;
-                    error = guard.VerifyExistingCopy(existingCopy.get(), moveContent.size(), nullptr, MAXULONGLONG, nullptr, true);
-                    Check(error == ERROR_FILE_INVALID && Exists(sourcePath) && Exists(retained),
-                          "refuse changed last-write time while retaining the source and destination", error);
-                    targetBasic.LastWriteTime = originalWrite;
-                    if (!SetFileInformationByHandle(existingCopy.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)))
-                        return false;
                     HANDLE readPipe = nullptr, writePipe = nullptr;
                     if (!CreatePipe(&readPipe, &writePipe, nullptr, 0))
                         return false;

@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
-// | 2026-11-11 | Verify preserved attributes on a pinned existing F6 copy. | Refuse source retirement if the ordinary copy did not preserve the requested attributes. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Retire read-only move sources through their guarded handles. | Keep attributes intact during publication, cancellation and unlink of the recovery alias. | | GPT-6.1 Sol |
 // | 2026-11-09 | Report bytes during guarded move copy. | Reuse the staged file transfer progress source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Accept the compressed move rollback metadata in the durable record. | Keep source retirement compatible with both sealed record layouts. | | GPT-6.1 Sol (Codex) |
@@ -318,8 +317,7 @@ public:
     // The destination is already present and exclusively held. This check
     // does not modify either file or publish a new destination.
     DWORD VerifyExistingCopy(HANDLE target, ULONGLONG size, HANDLE connection, ULONGLONG deadline,
-                             const UacCopyLeaf::Detail::CopyProgress* progress = nullptr,
-                             bool preserveAttributes = false) const
+                             const UacCopyLeaf::Detail::CopyProgress* progress = nullptr) const
     {
         DWORD error = Check(2);
         if (error)
@@ -328,11 +326,6 @@ public:
         if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(target, basic, false,
                 UacCopyLeaf::StreamPolicy::RequireDefault, UacF7::nativeCopyAttributes)) != ERROR_SUCCESS)
             return error;
-        // A prior ordinary CopyAttrs can have succeeded, failed or been
-        // ignored. Check the actual result while the target is held exclusively.
-        // The source value predates sealing/linking, which may add Archive.
-        if (preserveAttributes && basic.FileAttributes != originalAttributes)
-            return ERROR_FILE_INVALID;
         FILE_BASIC_INFO sourceBasic{};
         if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), sourceBasic, false,
                 UacCopyLeaf::StreamPolicy::RequireDefault, UacF7::nativeCopyAttributes)) != ERROR_SUCCESS)

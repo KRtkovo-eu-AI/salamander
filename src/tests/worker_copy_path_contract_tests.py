@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # | Date | Summary | Reason | Ticket | Model |
-# | 2026-11-11 | Check the scoped attribute-preserving move completion path. | Retain the original conflict choice and keep unsupported metadata out. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Cover shared copy and move overwrite routing. | Preserve listed source identity and move completion in the common retry. | #731 | GPT-6.1 Sol |
 # | 2026-11-11 | Follow the shared operation selector for compressed moves. | Preserve the exact MoveCompressed route after removing duplicate host selection. | #731 | GPT-6.1 Sol |
 # | 2026-11-11 | Check opened source identities and exact tree-copy consent. | Cover the protected tree regression and avoid a second application prompt. | #731 | GPT-6.1 Sol |
@@ -88,18 +87,6 @@ class WorkerCopyPathContracts(unittest.TestCase):
         stale = section(code, "if (err == ERROR_FILE_INVALID && verified)", "int ret = IDCANCEL;")
         self.assertIn("WORKER_DIALOG_UAC_TRANSFER_UNKNOWN", stale)
         self.assertIn("return FALSE;", stale)
-    def test_attribute_move_completion_is_typed_and_preserves_conflict_choices(self):
-        code = section(text("worker.cpp"), "MoveCopyReceipt receipt;", "BOOL DoDeleteFile(")
-        capture = section(code, "const bool capture =", "BOOL notError = DoCopyFile(")
-        self.assertNotIn("!script->CopyAttrs", capture)
-        self.assertNotIn("!script->OverwriteOlder", capture)
-        self.assertIn("!script->CopySecurity", capture)
-        self.assertIn("!copyADS && !copyAsEncrypted", capture)
-        self.assertIn("UacF7::IsPlainDeleteFile(op->Attr)", capture)
-        self.assertIn("receipt.source, receipt.target, script->CopyAttrs != FALSE", code)
-        planner = section(text("fileswn8.cpp"), "script->AllowTransferPilot =", "script->AllowTreeTransfer =")
-        self.assertNotIn("OverwriteOlder", planner)
-        self.assertNotIn("CopyAttrs", planner)
     def test_scan_ahead_uses_serial_free_target_elevation(self):
         panel = section(text("fileswn8.cpp"), "script->AllowTransferPilot =", "script->IgnoreTransferAds")
         self.assertIn("conflictMode == CMCM_SCAN_AHEAD", panel)

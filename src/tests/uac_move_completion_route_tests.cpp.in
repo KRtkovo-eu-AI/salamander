@@ -1,0 +1,104 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise the actual late move policy and local unlink branch. | Preserve ordinary Ignore behavior while unsupported UAC receipts remain disabled. | #731 | GPT-6.1 Terra |
+#include <windows.h>
+#include <cstdio>
+#include <string>
+
+namespace UacF7
+{
+struct MoveFileIdentity { unsigned long long serial = 0; };
+constexpr unsigned long long maxCrossVolumeMoveBytes = 0x7fffffffffffffffULL;
+static bool IsPlainDeleteFile(DWORD value) { return value == FILE_ATTRIBUTE_NORMAL || value == FILE_ATTRIBUTE_ARCHIVE; }
+static int LocalIdentityCalls = 0;
+static DWORD DeleteCopiedMoveSource(const std::wstring&, const std::wstring&, const MoveFileIdentity&, const MoveFileIdentity&)
+{
+    ++LocalIdentityCalls;
+    return ERROR_SHARING_VIOLATION;
+}
+}
+enum { OPFL_UAC_TRANSFER_ELIGIBLE = 1, OPFL_SRCPATH_IS_NET = 2, OPFL_TGTPATH_IS_NET = 4 };
+struct COperation
+{
+    unsigned OpFlags = OPFL_UAC_TRANSFER_ELIGIBLE;
+    bool SourceNameWValid = true, TargetNameWValid = true;
+    DWORD Attr = FILE_ATTRIBUTE_ARCHIVE;
+    struct { unsigned long long Value = 1; } FileSize;
+    const char* SourceName = "source";
+    const char* TargetName = "target";
+    std::wstring SourceNameW, TargetNameW;
+};
+struct COperations { bool CopyAttrs = false, CopySecurity = false, OverwriteOlder = false; };
+struct MoveCopyReceipt
+{
+    UacF7::MoveFileIdentity source{}, target{};
+    bool captured = false;
+};
+static std::wstring WorkerOperationPathW(const char*, const wchar_t* path) { return path; }
+static int ClearCalls = 0;
+static void WorkerClearReadOnlyW(const std::wstring&) { ++ClearCalls; }
+
+static bool ReceiptPolicy(const COperation* op, const COperations* script, bool copyADS, bool copyAsEncrypted)
+{
+@@CAPTURE_POLICY@@
+    return capture;
+}
+
+static DWORD LocalRemoval(const COperation* op, const MoveCopyReceipt& receipt)
+{
+@@LOCAL_REMOVAL@@
+        return err;
+    }
+    return ERROR_SUCCESS;
+}
+
+int main()
+{
+    COperation op;
+    COperations script;
+    if (!ReceiptPolicy(&op, &script, false, false)) return 1;
+    script.CopyAttrs = true;
+    if (ReceiptPolicy(&op, &script, false, false)) return 2;
+    script.CopyAttrs = false;
+    script.OverwriteOlder = true;
+    if (ReceiptPolicy(&op, &script, false, false)) return 3;
+    script.OverwriteOlder = false;
+    script.CopySecurity = true;
+    if (ReceiptPolicy(&op, &script, false, false)) return 4;
+    script.CopySecurity = false;
+    if (ReceiptPolicy(&op, &script, true, false) || ReceiptPolicy(&op, &script, false, true)) return 5;
+
+    wchar_t temp[MAX_PATH]{}, fixture[MAX_PATH]{};
+    if (!GetTempPathW(MAX_PATH, temp)) return 6;
+    for (int test = 0; test != 2; ++test)
+    {
+        if (!GetTempFileNameW(temp, L"mvt", 0, fixture)) return 6;
+        op.SourceNameW = fixture;
+        op.TargetNameW = fixture;
+        script.CopyAttrs = test == 0;
+        script.OverwriteOlder = test == 1;
+        MoveCopyReceipt receipt;
+        receipt.captured = ReceiptPolicy(&op, &script, false, false);
+        const DWORD result = LocalRemoval(&op, receipt);
+        if (result || GetFileAttributesW(fixture) != INVALID_FILE_ATTRIBUTES || ClearCalls != test + 1 || UacF7::LocalIdentityCalls)
+        {
+            DeleteFileW(fixture);
+            return 7;
+        }
+    }
+    if (!GetTempFileNameW(temp, L"mvt", 0, fixture)) return 8;
+    op.SourceNameW = fixture;
+    MoveCopyReceipt receipt;
+    receipt.captured = true;
+    receipt.source.serial = 1;
+    receipt.target.serial = 2;
+    const DWORD pinnedResult = LocalRemoval(&op, receipt);
+    const bool retained = GetFileAttributesW(fixture) != INVALID_FILE_ATTRIBUTES;
+    DeleteFileW(fixture);
+    if (pinnedResult != ERROR_SHARING_VIOLATION || !retained || UacF7::LocalIdentityCalls != 1 || ClearCalls != 2)
+        return 9;
+    std::printf("PASS: incompatible options use the actual ordinary local deletion branch without broker\n");
+    std::printf("PASS: existing receipt uses the identity-checked branch and retains an unconfirmed source\n");
+    return 0;
+}

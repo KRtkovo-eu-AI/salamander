@@ -1,6 +1,5 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
-| 2026-11-11 | Type the attribute-preserving late move completion. | Require the broker to verify the actual CopyAttrs outcome before source retirement. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Bind native overwrite and read-only moves to typed transfer jobs. | Preserve target conflict approval and one consent for matching parents. | | GPT-6.1 Sol |
 | 2026-11-11 | Separate native transfer budgets and permanent-delete attributes from buffered operations. | Share safe eligibility without widening ZIP or source-retirement contracts. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Use the Windows copy helper for the directory identity. | Avoid expanding the Debug memcpy macro inside the std namespace. | #731 | GPT-6.1 Sol |
@@ -125,7 +124,7 @@ private:
 void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput);
 bool CanOfferElevation();
 
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42, FinishCrossVolumeMoveAttrs = 43 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42 };
 
 inline constexpr bool IsComparisonScope(Operation operation)
 {
@@ -529,24 +528,19 @@ private:
 inline constexpr bool IsMoveTransfer(Operation operation)
 {
     return operation == Operation::Move || operation == Operation::MoveDirectory || operation == Operation::MoveAcrossVolume ||
-           operation == Operation::FinishCrossVolumeMove || operation == Operation::FinishCrossVolumeMoveAttrs || operation == Operation::MoveCompressed ||
+           operation == Operation::FinishCrossVolumeMove || operation == Operation::MoveCompressed ||
            operation == Operation::MoveOverwrite || operation == Operation::MoveAcrossVolumeOverwrite;
 }
 
 inline constexpr bool IsCrossVolumeMove(Operation operation)
 {
-    return operation == Operation::MoveAcrossVolume || operation == Operation::FinishCrossVolumeMove || operation == Operation::FinishCrossVolumeMoveAttrs ||
+    return operation == Operation::MoveAcrossVolume || operation == Operation::FinishCrossVolumeMove ||
            operation == Operation::MoveCompressed || operation == Operation::MoveAcrossVolumeOverwrite;
-}
-
-inline constexpr bool IsMoveCompletion(Operation operation)
-{
-    return operation == Operation::FinishCrossVolumeMove || operation == Operation::FinishCrossVolumeMoveAttrs;
 }
 
 inline constexpr bool InspectsMoveTarget(Operation operation)
 {
-    return IsCrossVolumeMove(operation) && !IsMoveCompletion(operation);
+    return IsCrossVolumeMove(operation) && operation != Operation::FinishCrossVolumeMove;
 }
 
 inline constexpr bool IsOverwriteTransfer(Operation operation)
@@ -723,8 +717,7 @@ public:
     bool Prepare(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize, Operation operation,
                  const PreparedLeaf* listedSource = nullptr, const DeferredTransferTarget* deferred = nullptr);
     bool PrepareMoveCompletion(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize,
-                               const MoveFileIdentity& copiedSource, const MoveFileIdentity& copiedTarget,
-                               bool preserveAttributes = false);
+                               const MoveFileIdentity& copiedSource, const MoveFileIdentity& copiedTarget);
     bool PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize,
                           const PreparedLeaf* listedSource = nullptr, bool moving = false);
     bool PrepareTree(const std::wstring& sourcePath, std::wstring_view targetDirectory, std::wstring& destination);
@@ -739,7 +732,7 @@ public:
     bool IsMove() const { return IsMoveTransfer(source.operation); }
     bool IsDirectoryMove() const { return source.operation == Operation::MoveDirectory; }
     bool IsCrossVolumeMove() const { return UacF7::IsCrossVolumeMove(source.operation); }
-    bool IsMoveCompletion() const { return UacF7::IsMoveCompletion(source.operation); }
+    bool IsMoveCompletion() const { return source.operation == Operation::FinishCrossVolumeMove; }
     bool MatchesTargetDirectory(const MoveFileIdentity& identity) const
     {
         return identity.serial == target.serial &&
