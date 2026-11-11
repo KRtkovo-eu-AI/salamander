@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Stream cancellable disk overwrite receipts and retire read-only backups atomically. | Support ordinary large attributed replacements while preserving journal and ZIP boundaries. | | GPT-6.1 Sol |
 // | 2026-11-09 | Return a conflict after recovering the original name. | Require a new decision before replacing a restored file. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind named overwrite backups to their original contents. | Retire protected targets with named streams only after verifying a durable digest. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Bind overwrite recovery to every replacement stream. | Retain the backup when any verified stream changes. | | GPT-6.1 Sol (Codex) |
@@ -157,19 +158,29 @@ inline DWORD ClearRecord(HANDLE journal)
     return ERROR_SUCCESS;
 }
 
-inline DWORD HashReplacementBytes(BCRYPT_HASH_HANDLE hash, HANDLE file, ULONGLONG size)
+#ifdef SAM_UAC_DISK_RECEIPT_TEST
+void DiskReceiptReadBlock();
+#endif
+
+inline DWORD HashReplacementBytes(BCRYPT_HASH_HANDLE hash, HANDLE file, ULONGLONG size,
+                                  HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG)
 {
     if (!SetFilePointerEx(file, {}, nullptr, FILE_BEGIN))
         return GetLastError();
     BYTE block[4096];
     while (size)
     {
+        if (const DWORD error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline))
+            return error;
         const auto count = static_cast<DWORD>((std::min)(size, static_cast<ULONGLONG>(sizeof(block))));
         DWORD read = 0;
         if (!ReadFile(file, block, count, &read, nullptr))
             return GetLastError();
         if (read != count)
             return ERROR_HANDLE_EOF;
+#ifdef SAM_UAC_DISK_RECEIPT_TEST
+        DiskReceiptReadBlock();
+#endif
         const auto status = BCryptHashData(hash, block, read, 0);
         if (status < 0)
             return RtlNtStatusToDosError(status);
@@ -179,17 +190,20 @@ inline DWORD HashReplacementBytes(BCRYPT_HASH_HANDLE hash, HANDLE file, ULONGLON
 }
 
 inline DWORD DigestReplacement(HANDLE parent, std::wstring_view leaf, HANDLE file, const Revision& revision,
-                               bool includeNamed, BYTE (&digest)[32])
+                               bool includeNamed, BYTE (&digest)[32],
+                               HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG)
 {
     using namespace UacCopyLeaf::Detail;
-    if (revision.size < 0 || static_cast<ULONGLONG>(revision.size) > UacF7::maxPilotCopyBytes)
+    if (revision.size < 0)
         return ERROR_FILE_TOO_LARGE;
+    if (const DWORD error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline))
+        return error;
     const auto size = static_cast<ULONGLONG>(revision.size);
     std::vector<DataStream> inventory;
     std::vector<StreamHandle> named;
     if (includeNamed)
     {
-        if (const DWORD error = ReadDataStreams(file, inventory))
+        if (const DWORD error = ReadDataStreams(file, inventory, UacF7::maxNativeCopyBytes))
             return error;
         const auto identity = RevisionIdentity(revision);
         for (const auto& stream : inventory)
@@ -201,7 +215,7 @@ inline DWORD DigestReplacement(HANDLE parent, std::wstring_view leaf, HANDLE fil
                 continue;
             }
             StreamHandle opened(nullptr, CloseHandle);
-            if (const DWORD error = OpenDataStream(parent, leaf, stream, identity, false, opened, false, true))
+            if (const DWORD error = OpenDataStream(parent, leaf, stream, identity, false, opened, false, true, true))
                 return error;
             named.push_back(std::move(opened));
         }
@@ -235,16 +249,16 @@ inline DWORD DigestReplacement(HANDLE parent, std::wstring_view leaf, HANDLE fil
             if (status < 0)
                 return RtlNtStatusToDosError(status);
             const HANDLE input = stream.suffix == L"::$DATA" ? file : named[index++].get();
-            if (const DWORD error = HashReplacementBytes(hash.get(), input, stream.size))
+            if (const DWORD error = HashReplacementBytes(hash.get(), input, stream.size, connection, deadline))
                 return error;
         }
         std::vector<DataStream> current;
-        if (const DWORD error = ReadDataStreams(file, current))
+        if (const DWORD error = ReadDataStreams(file, current, UacF7::maxNativeCopyBytes))
             return error;
         if (current != inventory)
             return ERROR_FILE_INVALID;
     }
-    else if (const DWORD error = HashReplacementBytes(hash.get(), file, size))
+    else if (const DWORD error = HashReplacementBytes(hash.get(), file, size, connection, deadline))
         return error;
 
     status = BCryptFinishHash(hash.get(), digest, sizeof(digest), 0);
@@ -252,24 +266,32 @@ inline DWORD DigestReplacement(HANDLE parent, std::wstring_view leaf, HANDLE fil
 }
 
 inline DWORD ReadDiskReceipt(HANDLE parent, std::wstring_view leaf, HANDLE original, HANDLE replacement,
-                             DiskReplacementReceipt& receipt, bool namedBackup = false)
+                             DiskReplacementReceipt& receipt, bool namedBackup = false,
+                             HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG)
 {
     FILE_BASIC_INFO basic{};
     const auto policy = namedBackup ? UacCopyLeaf::StreamPolicy::PreserveNamed : UacCopyLeaf::StreamPolicy::RequireDefault;
-    DWORD error = UacCopyLeaf::Detail::ReadPlainMetadata(original, basic, false, policy);
+    DWORD error = UacCopyLeaf::Detail::ReadPlainMetadata(original, basic, false, policy, UacF7::nativeCopyAttributes);
     if (!error)
-        error = UacCopyLeaf::Detail::ReadPlainMetadata(replacement, basic, false, UacCopyLeaf::StreamPolicy::PreserveNamed);
+        error = UacCopyLeaf::Detail::ReadPlainMetadata(replacement, basic, false, UacCopyLeaf::StreamPolicy::PreserveNamed, UacF7::nativeCopyAttributes);
     if (!error)
         error = ReadRevision(original, receipt.original);
     if (!error)
         error = ReadRevision(replacement, receipt.replacement);
-    return error ? error : DigestReplacement(parent, leaf, replacement, receipt.replacement, true, receipt.replacementDigest);
+    return error ? error : DigestReplacement(parent, leaf, replacement, receipt.replacement, true, receipt.replacementDigest, connection, deadline);
+}
+
+inline DWORD AttributesAfterBackupRename(DWORD expected, DWORD actual)
+{
+    return !(expected & FILE_ATTRIBUTE_ARCHIVE) && (actual & FILE_ATTRIBUTE_ARCHIVE)
+        ? (expected & ~FILE_ATTRIBUTE_NORMAL) | FILE_ATTRIBUTE_ARCHIVE : expected;
 }
 
 inline DWORD VerifyDiskReceipt(HANDLE parent, std::wstring_view leaf, HANDLE original, HANDLE replacement,
                                const DiskReplacementReceipt& receipt, bool includeNamed,
                                std::wstring_view backupName = {}, const BYTE (*originalDigest)[32] = nullptr,
-                               UacCopyLeaf::StageVerifier verify = nullptr)
+                               UacCopyLeaf::StageVerifier verify = nullptr,
+                               HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG)
 {
     FILE_BASIC_INFO basic{};
     DWORD error = CheckRevision(replacement, receipt.replacement);
@@ -277,30 +299,49 @@ inline DWORD VerifyDiskReceipt(HANDLE parent, std::wstring_view leaf, HANDLE ori
         return error;
     BYTE actualDigest[sizeof(receipt.replacementDigest)]{};
     const auto policy = includeNamed ? UacCopyLeaf::StreamPolicy::PreserveNamed : UacCopyLeaf::StreamPolicy::RequireDefault;
-    if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(replacement, basic, false, policy)) ||
-        (error = DigestReplacement(parent, leaf, replacement, receipt.replacement, includeNamed, actualDigest)))
+    if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(replacement, basic, false, policy, UacF7::nativeCopyAttributes)) ||
+        (error = DigestReplacement(parent, leaf, replacement, receipt.replacement, includeNamed, actualDigest, connection, deadline)))
         return error;
     if (std::memcmp(actualDigest, receipt.replacementDigest, sizeof(actualDigest)) != 0)
         return ERROR_FILE_INVALID;
     const auto originalPolicy = originalDigest ? UacCopyLeaf::StreamPolicy::PreserveNamed
                                                : UacCopyLeaf::StreamPolicy::RequireDefault;
     if ((error = CheckRevision(replacement, receipt.replacement)) ||
-        (error = UacCopyLeaf::Detail::ReadPlainMetadata(original, basic, false, originalPolicy)))
+        (error = UacCopyLeaf::Detail::ReadPlainMetadata(original, basic, false, originalPolicy, UacF7::nativeCopyAttributes)))
         return error;
     if (originalDigest)
     {
         if (!verify || !verify(original, false))
             return ERROR_ACCESS_DENIED;
-        if ((error = DigestReplacement(parent, backupName, original, receipt.original, true, actualDigest)))
+        if ((error = DigestReplacement(parent, backupName, original, receipt.original, true, actualDigest, connection, deadline)))
             return error;
         if (std::memcmp(actualDigest, *originalDigest, sizeof(actualDigest)) != 0)
             return ERROR_FILE_INVALID;
     }
-    return CheckRevision(original, receipt.original);
+    // NTFS may defer setting Archive for the backup rename until its last
+    // write-capable handle closes. Permit only that one-way metadata change;
+    // content, identity and every timestamp remain bound to the receipt.
+    Revision expectedBackup = receipt.original;
+    expectedBackup.attributes = AttributesAfterBackupRename(expectedBackup.attributes, basic.FileAttributes);
+    return CheckRevision(original, expectedBackup);
 }
 
-inline DWORD RemoveBackup(HANDLE file)
+inline DWORD RemoveBackup(HANDLE file, ReplacementKind kind = ReplacementKind::Zip)
 {
+    if (kind == ReplacementKind::DiskCopy)
+    {
+        FILE_BASIC_INFO basic{};
+        if (!GetFileInformationByHandleEx(file, FileBasicInfo, &basic, sizeof(basic)))
+            return GetLastError();
+        if (basic.FileAttributes & FILE_ATTRIBUTE_READONLY)
+        {
+            // Do not clear the backup attribute: failure and cancellation must
+            // preserve its complete original state until the verified unlink.
+            FILE_DISPOSITION_INFO_EX remove{FILE_DISPOSITION_FLAG_DELETE | FILE_DISPOSITION_FLAG_IGNORE_READONLY_ATTRIBUTE};
+            return SetFileInformationByHandle(file, FileDispositionInfoEx, &remove, sizeof(remove))
+                ? ERROR_SUCCESS : GetLastError();
+        }
+    }
     FILE_DISPOSITION_INFO remove{TRUE};
     return SetFileInformationByHandle(file, FileDispositionInfo, &remove, sizeof(remove))
                ? ERROR_SUCCESS : GetLastError();
@@ -313,7 +354,8 @@ enum class RecoveryIntent { Replace, CopyToNewName };
 // the same verified parent and exact archive name. It never replaces a name.
 inline DWORD Recover(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expected,
                      std::wstring_view leaf, HANDLE journal, ReplacementKind kind = ReplacementKind::Zip,
-                     UacCopyLeaf::StageVerifier verify = nullptr, RecoveryIntent intent = RecoveryIntent::Replace)
+                     UacCopyLeaf::StageVerifier verify = nullptr, RecoveryIntent intent = RecoveryIntent::Replace,
+                     HANDLE connection = nullptr, ULONGLONG deadline = MAXULONGLONG)
 {
     using namespace Detail;
     using UacRenameLeaf::Detail::SameSource;
@@ -382,6 +424,25 @@ inline DWORD Recover(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expe
     Handle backup(rawBackup, CloseHandle);
     if ((error = CheckIdentity(backup.get(), record.original)) != ERROR_SUCCESS)
         return error;
+    if (kind == ReplacementKind::DiskCopy)
+    {
+        FILE_BASIC_INFO basic{};
+        if (!GetFileInformationByHandleEx(backup.get(), FileBasicInfo, &basic, sizeof(basic)))
+            return GetLastError();
+        if (basic.FileAttributes & FILE_ATTRIBUTE_READONLY)
+        {
+            backup.reset();
+            rawBackup = nullptr;
+            error = Open(parent, backupName, rawBackup, DELETE | FILE_WRITE_ATTRIBUTES | (namedBackup ? READ_CONTROL : 0));
+            if (error)
+                return error;
+            backup.reset(rawBackup);
+            if ((error = CheckIdentity(backup.get(), record.original)) != ERROR_SUCCESS)
+                return error;
+        }
+    }
+    if ((error = UacRenameLeaf::Detail::CheckTransferConnection(connection, deadline)) != ERROR_SUCCESS)
+        return error;
     if (!finalFile)
         error = UacRenameLeaf::Detail::NativeRename(backup.get(), parent, leaf);
     else if ((error = CheckIdentity(finalFile.get(), record.replacement)) == ERROR_SUCCESS)
@@ -399,11 +460,12 @@ inline DWORD Recover(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expe
             if (namedBackup && (!ReadFile(journal, originalDigest, sizeof(originalDigest), &read, nullptr) ||
                                 read != sizeof(originalDigest)))
                 return ERROR_PARTIAL_COPY;
-            if (VerifyDiskReceipt(parent, leaf, backup.get(), finalFile.get(), receipt, record.version >= 3,
-                                  backupName, namedBackup ? &originalDigest : nullptr, verify))
-                return ERROR_PARTIAL_COPY;
+            const DWORD verified = VerifyDiskReceipt(parent, leaf, backup.get(), finalFile.get(), receipt, record.version >= 3,
+                                                      backupName, namedBackup ? &originalDigest : nullptr, verify, connection, deadline);
+            if (verified)
+                return verified == ERROR_CANCELLED || verified == ERROR_TIMEOUT ? verified : ERROR_PARTIAL_COPY;
         }
-        error = RemoveBackup(backup.get());
+        error = RemoveBackup(backup.get(), kind);
     }
     if (error)
         return error;
@@ -466,14 +528,14 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
         using namespace UacCopyLeaf::Detail;
         std::vector<DataStream> streams;
         if ((error = CheckPlainStreamsAndEa(original.get(), false, UacCopyLeaf::StreamPolicy::PreserveNamed)) ||
-            (error = ReadDataStreams(original.get(), streams, UacF7::maxCrossVolumeMoveBytes)))
+            (error = ReadDataStreams(original.get(), streams, UacF7::maxNativeCopyBytes)))
             return {error};
         namedBackup = streams.size() > 1;
         if (namedBackup)
         {
             if (!verify || !verify(original.get(), false))
                 return {ERROR_ACCESS_DENIED};
-            if ((error = DigestReplacement(parent, leaf, original.get(), expectedOriginal, true, backupRecord.originalDigest)) ||
+            if ((error = DigestReplacement(parent, leaf, original.get(), expectedOriginal, true, backupRecord.originalDigest, connection, deadline)) ||
                 (error = CheckRevision(original.get(), expectedOriginal)))
                 return {error};
         }
@@ -517,14 +579,14 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
     if (disk)
     {
         auto& receipt = diskRecord.receipt;
-        cleanup = ReadDiskReceipt(parent, leaf, original.get(), stage, receipt, namedBackup);
+        cleanup = ReadDiskReceipt(parent, leaf, original.get(), stage, receipt, namedBackup, connection, deadline);
         // Renaming the original can update ChangeTime and set Archive.
         // Its data revision and other attributes must still match consent.
         if (!cleanup && (!SameSource(RevisionIdentity(receipt.original), record.original) ||
             !SameSource(RevisionIdentity(receipt.replacement), record.replacement) ||
             receipt.original.created != expectedOriginal.created || receipt.original.modified != expectedOriginal.modified ||
             receipt.original.size != expectedOriginal.size ||
-            ((receipt.original.attributes ^ expectedOriginal.attributes) & ~FILE_ATTRIBUTE_ARCHIVE)))
+            receipt.original.attributes != AttributesAfterBackupRename(expectedOriginal.attributes, receipt.original.attributes)))
             cleanup = ERROR_FILE_INVALID;
         if (!cleanup)
             cleanup = writeRecord();
@@ -534,10 +596,10 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
 #endif
         if (!cleanup)
             cleanup = VerifyDiskReceipt(parent, leaf, original.get(), stage, receipt, true, backupName,
-                                        namedBackup ? &backupRecord.originalDigest : nullptr, verify);
+                                        namedBackup ? &backupRecord.originalDigest : nullptr, verify, connection, deadline);
     }
     if (!cleanup)
-        cleanup = RemoveBackup(original.get());
+        cleanup = RemoveBackup(original.get(), kind);
     original.reset();
 #ifdef SAM_UAC_REPLACEMENT_FAULT_TEST
     if (disk && !cleanup)

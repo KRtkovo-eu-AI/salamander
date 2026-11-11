@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Retire read-only move sources through their guarded handles. | Keep attributes intact during publication, cancellation and unlink of the recovery alias. | | GPT-6.1 Sol |
 // | 2026-11-09 | Report bytes during guarded move copy. | Reuse the staged file transfer progress source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Accept the compressed move rollback metadata in the durable record. | Keep source retirement compatible with both sealed record layouts. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Recheck default-only destinations before retiring an F6 source. | Detect late alternate streams before removing the guarded source. | | GPT-6.1 Sol (Codex) |
@@ -143,7 +144,7 @@ public:
             LARGE_INTEGER size{};
             if (!GetFileInformationByHandleEx(raw, FileBasicInfo, &basic, sizeof(basic)) || !GetFileSizeEx(raw, &size))
                 return GetLastError();
-            if (!UacF7::IsDefaultCopyFile(basic.FileAttributes) && !UacF7::IsCompressedCopyFile(basic.FileAttributes))
+            if (!UacF7::IsNativeDefaultCopyFile(basic.FileAttributes) && !UacF7::IsNativeCompressedCopyFile(basic.FileAttributes))
                 return ERROR_NOT_SUPPORTED;
             if (size.QuadPart < 0 || static_cast<ULONGLONG>(size.QuadPart) != stream.size)
                 return ERROR_FILE_INVALID;
@@ -209,11 +210,14 @@ private:
 
 // The oplock covers the default stream. A file-wide DACL seal is still
 // required before committing a move so another name cannot gain a new stream.
+#ifdef SAM_UAC_MOVE_SOURCE_FAULT_TEST
+void AfterMoveLinkClosedForTest(DWORD remainingLinks);
+#endif
 class SourceGuard
 {
 public:
-    explicit SourceGuard(DWORD compressedAttributes = 0, UacCopyLeaf::StageVerifier verifyNamedTarget = nullptr)
-        : originalCompressedAttributes(compressedAttributes), verifyStage(verifyNamedTarget) {}
+    explicit SourceGuard(DWORD sourceAttributes = 0, UacCopyLeaf::StageVerifier verifyNamedTarget = nullptr)
+        : originalAttributes(sourceAttributes), verifyStage(verifyNamedTarget) {}
     SourceGuard(const SourceGuard&) = delete;
     SourceGuard& operator=(const SourceGuard&) = delete;
     ~SourceGuard() { Close(); }
@@ -229,7 +233,8 @@ public:
             return GetLastError();
         io = {};
         io.hEvent = event.get();
-        constexpr ACCESS_MASK access = FILE_READ_DATA | FILE_READ_EA | DELETE | READ_CONTROL | WRITE_DAC | SYNCHRONIZE;
+        constexpr ACCESS_MASK access = FILE_READ_DATA | FILE_READ_EA | DELETE | FILE_WRITE_ATTRIBUTES |
+                                       READ_CONTROL | WRITE_DAC | SYNCHRONIZE;
         HANDLE raw = nullptr;
         DWORD error = UacRenameLeaf::Detail::OpenFile(parent, leaf, raw, access, 0, FILE_OPEN,
                                                       FILE_OPEN_REQUIRING_OPLOCK, nullptr, false, true);
@@ -273,7 +278,9 @@ public:
 
     DWORD PublishCopy(HANDLE targetParent, const UacDirectoryLeaf::ParentIdentity& expectedParent,
                       std::wstring_view leaf, ULONGLONG size, HANDLE cancel, HANDLE connection, ULONGLONG deadline,
-                      Detail::Handle& target, FILE_ID_INFO& targetId, const UacCopyLeaf::Detail::CopyProgress* progress = nullptr) const
+                      Detail::Handle& target, FILE_ID_INFO& targetId, const UacCopyLeaf::Detail::CopyProgress* progress = nullptr,
+                      bool pendingPublication = false, PSECURITY_DESCRIPTOR destinationSecurity = nullptr,
+                      bool destinationAudit = true) const
     {
         if (target)
             return ERROR_INVALID_PARAMETER;
@@ -299,7 +306,8 @@ public:
             &inputs, named ? &named->Inventory() : nullptr};
         error = UacCopyLeaf::Detail::CopyOpenedFile(source.get(), targetParent, leaf, cancel, connection, deadline,
             size, basic, &publishedId, nullptr, StreamPolicy(), named ? &location : nullptr,
-            originalCompressedAttributes != 0, nullptr, &target, originalCompressedAttributes, progress);
+            (originalAttributes & FILE_ATTRIBUTE_COMPRESSED) != 0, nullptr, &target, originalAttributes,
+            progress, nullptr, pendingPublication, destinationSecurity, destinationAudit);
         if (error)
             return error;
         targetId = publishedId;
@@ -315,10 +323,12 @@ public:
         if (error)
             return error;
         FILE_BASIC_INFO basic{};
-        if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(target, basic)) != ERROR_SUCCESS)
+        if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(target, basic, false,
+                UacCopyLeaf::StreamPolicy::RequireDefault, UacF7::nativeCopyAttributes)) != ERROR_SUCCESS)
             return error;
         FILE_BASIC_INFO sourceBasic{};
-        if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), sourceBasic)) != ERROR_SUCCESS)
+        if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), sourceBasic, false,
+                UacCopyLeaf::StreamPolicy::RequireDefault, UacF7::nativeCopyAttributes)) != ERROR_SUCCESS)
             return error;
         if (sourceBasic.LastWriteTime.QuadPart != basic.LastWriteTime.QuadPart)
             return ERROR_FILE_INVALID;
@@ -446,14 +456,15 @@ public:
         if (standard.NumberOfLinks != links)
             return ERROR_FILE_INVALID;
         FILE_BASIC_INFO metadata{};
-        const DWORD allowed = originalCompressedAttributes ? UacF7::compressedCopyAttributes : UacF7::crossVolumeMoveAttributes;
+        const DWORD allowed = (originalAttributes & FILE_ATTRIBUTE_COMPRESSED)
+                                  ? UacF7::nativeCompressedCopyAttributes : UacF7::crossVolumeMoveAttributes;
         if (DWORD error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), metadata, false,
                 StreamPolicy(), allowed))
             return error;
         // The seal and recovery link can set Archive. Other attribute
-        // changes invalidate the approved compressed move.
-        if (originalCompressedAttributes &&
-            ((metadata.FileAttributes ^ originalCompressedAttributes) & ~FILE_ATTRIBUTE_ARCHIVE))
+        // changes invalidate the approved move.
+        if (originalAttributes &&
+            ((metadata.FileAttributes ^ originalAttributes) & ~(FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_NORMAL)))
             return ERROR_FILE_INVALID;
         const DWORD state = WaitForSingleObject(event.get(), 0);
         if (state == WAIT_TIMEOUT)
@@ -484,9 +495,8 @@ private:
             return error;
         if ((error = UacCopyLeaf::Detail::CheckCancelled(cancel, connection, deadline)) != ERROR_SUCCESS)
             return error;
-        FILE_DISPOSITION_INFO remove{TRUE};
-        if (!SetFileInformationByHandle(source.get(), FileDispositionInfo, &remove, sizeof(remove)))
-            return GetLastError();
+        if ((error = Detail::DeleteMoveLinkOnClose(source.get())) != ERROR_SUCCESS)
+            return error;
         Close();
         if (links == 1)
             named.reset(); // NTFS completes the final unlink after the named opens close.
@@ -495,6 +505,10 @@ private:
         error = UacRenameLeaf::Detail::OpenSource(parent, leaf, raw, 0,
             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
         const Detail::Handle remaining(raw, CloseHandle);
+#ifdef SAM_UAC_MOVE_SOURCE_FAULT_TEST
+        if (error == ERROR_FILE_NOT_FOUND)
+            AfterMoveLinkClosedForTest(links - 1);
+#endif
         return error == ERROR_FILE_NOT_FOUND ? ERROR_SUCCESS : error ? error : ERROR_FILE_INVALID;
     }
 
@@ -509,7 +523,7 @@ private:
         }
     }
 
-    const DWORD originalCompressedAttributes;
+    const DWORD originalAttributes;
     const UacCopyLeaf::StageVerifier verifyStage;
     std::unique_ptr<NamedSourceStreams> named;
     Detail::Handle source{nullptr, CloseHandle};

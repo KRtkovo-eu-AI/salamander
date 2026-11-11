@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Exercise interrupted read-only F6 stages and source retirement. | Verify recovery after real process exits at each publication boundary. | | GPT-6.1 Sol |
 # | 2026-11-11 | Run native copy and source-retirement tests in owned NTFS fixtures. | Verify large copies and read-only cleanup including hard process exit. | | GPT-6.1 Sol |
 """Exercise native F5/F6 data transfer without elevation or a VM."""
 import argparse
@@ -34,7 +35,17 @@ def main():
             result = run([str(exe), str(fixture), "--crash"], cwd=folder, env=env, timeout=10)
             if result.returncode != 86:
                 raise AssertionError(f"copy did not reach its hard-exit checkpoint: {result.returncode}")
-            return run([str(exe), str(fixture), "--verify-crash"], cwd=folder, env=env, timeout=10).returncode
+            result = run([str(exe), str(fixture), "--verify-crash"], cwd=folder, env=env, timeout=10)
+            if result.returncode:
+                return result.returncode
+            for phase in ("before", "retiring", "finished"):
+                result = run([str(exe), str(fixture), "--move-crash-" + phase], cwd=folder, env=env, timeout=10)
+                if result.returncode != 87:
+                    raise AssertionError(f"read-only move did not reach {phase} checkpoint: {result.returncode}")
+                result = run([str(exe), str(fixture), "--verify-move-crash-" + phase], cwd=folder, env=env, timeout=10)
+                if result.returncode:
+                    return result.returncode
+            return 0
         finally:
             def clear_readonly(function, path, _error):
                 Path(path).chmod(stat.S_IWRITE)

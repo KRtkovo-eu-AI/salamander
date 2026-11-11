@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Keep native overwrite within the same exact-parent transfer family. | Reuse consent while preserving independent conflict approval. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Keep a ReadOnly object intact when its approved identity is stale. | Common attribute deletion now has dedicated native coverage. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Exercise exclusive creation and rollback of nested destinations. | Check Unicode paths, path replacement, junctions and commit boundaries on NTFS. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Test direct alias inventory and partial inventory around reparse points. | Check that no alias target is opened and the strict copy manifest still fails. | #731 | GPT-6.1 Sol |
@@ -5188,7 +5189,7 @@ int wmain(int argc, wchar_t** argv)
           "limit shared consent to supported disk operations");
     auto another = scope;
     another.operation = UacF7::Operation::CopyOverwrite;
-    Check(!scope.Matches(another), "reject overwrite outside a no-replace copy job");
+    Check(scope.Matches(another), "reuse a copy job for an independently revision-approved overwrite");
     another = scope;
     ++another.source.id[0];
     Check(!scope.Matches(another), "reject a replaced source parent in a transfer job");

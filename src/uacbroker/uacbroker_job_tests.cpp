@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Reject changed parent identities before cross-volume transfer setup. | Preserve the approved parent scope even when the original source file ID still matches. | | GPT-6.1 Sol |
+// | 2026-11-11 | Verify typed native replacement framing and job reuse. | Keep overwrite revision approval separate from data budgets. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Exercise streamed native copy limits and ordinary attributes through the dispatcher. | Verify large scoped copies and cancellation while retaining bounded snapshot and overwrite contracts. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Exercise exact link identity in read-only panel sessions. | Verify type checking, scope isolation and referent preservation after deletion. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Test planned creation of an absent copy root. | Verify read-only planning, cancellation, exact scope, collision, and child copying. | #731 | GPT-6.1 Sol |
@@ -2095,6 +2097,115 @@ void CheckStaleOverwriteJob(const Directory& source, const Directory& target)
           "the same broker rejects a revised target with the same file identity");
 }
 
+void CheckMoveOverwriteJob(const Directory& source, const Directory& target, const Directory& outside)
+{
+    constexpr wchar_t fresh[] = L"move-job-fresh";
+    constexpr wchar_t replace[] = L"move-job-replace-東";
+    constexpr wchar_t denied[] = L"move-job-outside";
+    constexpr wchar_t stale[] = L"move-job-stale";
+    const auto revisionOf = [&](const wchar_t* name, UacF7::ArchiveRevision& revision) {
+        const auto file = Adopt(CreateFileW(target.File(name).c_str(), FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        return file && !UacZipUpdate::ReadRevision(file.get(), revision);
+    };
+    UacF7::ArchiveRevision revision{};
+    FILE_ID_INFO originalSource{};
+    JobPipe job;
+    if (!WriteByte(source.File(fresh), 1) || !WriteByte(source.File(replace), 2) ||
+        !WriteByte(source.File(stale), 3) || !WriteByte(source.File(denied), 4) ||
+        !WriteByte(target.File(replace), 9) || !WriteByte(target.File(stale), 8) ||
+        !SetFileAttributesW(target.File(replace).c_str(), FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN) ||
+        !revisionOf(replace, revision) || !job.Open())
+    { Check(false, "prepare mixed native move-overwrite job"); return; }
+    {
+        const auto file = Adopt(CreateFileW(source.File(replace).c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+                                            nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        if (!file || !GetFileInformationByHandleEx(file.get(), FileIdInfo, &originalSource, sizeof(originalSource)))
+        { Check(false, "capture source ID before overwrite move"); return; }
+    }
+    DWORD error = ERROR_GEN_FAILURE;
+    Check(job.Request(Operation::Move, source, fresh, error, &target, nullptr, nullptr, false, nullptr, nullptr, 0) &&
+              !error && IsAbsent(source.File(fresh)) && HasByte(target.File(fresh), 1),
+          "begin one move job with a new destination");
+    Check(job.Request(Operation::MoveOverwrite, source, replace, error, &target, nullptr, nullptr, false, nullptr, &revision, 0) &&
+              !error && IsAbsent(source.File(replace)) && HasByte(target.File(replace), 2),
+          "reuse the same move consent for an independently approved readonly target replacement");
+    {
+        const auto file = Adopt(CreateFileW(target.File(replace).c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+                                            nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        FILE_ID_INFO after{};
+        Check(file && GetFileInformationByHandleEx(file.get(), FileIdInfo, &after, sizeof(after)) &&
+                  UacRenameLeaf::Detail::SameSource(after, originalSource),
+              "move-overwrite dispatcher publishes the original NTFS object");
+    }
+    Check(revisionOf(stale, revision) && SetFileAttributesW(target.File(stale).c_str(), FILE_ATTRIBUTE_HIDDEN) &&
+              job.Request(Operation::MoveOverwrite, source, stale, error, &target, nullptr, nullptr, false, nullptr, &revision, 0) &&
+              error == ERROR_FILE_INVALID && HasByte(source.File(stale), 3) && HasByte(target.File(stale), 8),
+          "stale move overwrite approval preserves source and existing target");
+    Check(!job.Request(Operation::MoveOverwrite, source, denied, error, &outside, nullptr, nullptr, false, nullptr, &revision, 0) &&
+              job.Finish() == ERROR_ACCESS_DENIED && HasByte(source.File(denied), 4) && IsAbsent(outside.File(denied)),
+          "overwrite operation cannot widen the consent to another parent");
+    JobPipe cross;
+    Check(revisionOf(stale, revision) && cross.Open() &&
+              cross.Request(Operation::MoveAcrossVolumeOverwrite, source, stale, error, &target,
+                            nullptr, nullptr, false, nullptr, &revision) && error == ERROR_NOT_SAME_DEVICE &&
+              HasByte(source.File(stale), 3) && HasByte(target.File(stale), 8),
+          "cross-volume overwrite frame carries revision and rejects same-volume misuse");
+    Directory wrongSourceParent, wrongTargetParent;
+    wrongSourceParent.identity = source.identity;
+    wrongSourceParent.path = source.path;
+    wrongSourceParent.relative = source.relative;
+    wrongSourceParent.identity.file.FileId.Identifier[0] ^= 1;
+    wrongTargetParent.identity = target.identity;
+    wrongTargetParent.path = target.path;
+    wrongTargetParent.relative = target.relative;
+    wrongTargetParent.identity.file.FileId.Identifier[0] ^= 1;
+    for (const auto operation : {Operation::MoveAcrossVolume, Operation::MoveAcrossVolumeOverwrite})
+    {
+        const auto expectedRevision = operation == Operation::MoveAcrossVolumeOverwrite ? &revision : nullptr;
+        JobPipe badSource, badTarget;
+        Check(badSource.Open() && badSource.Request(operation, wrongSourceParent, stale, error, &target,
+                  nullptr, nullptr, false, nullptr, expectedRevision) && error == ERROR_FILE_INVALID &&
+                  HasByte(source.File(stale), 3) && HasByte(target.File(stale), 8),
+              "cross-volume transfer rejects a stale source parent before volume checks despite the matching source ID");
+        Check(badTarget.Open() && badTarget.Request(operation, source, stale, error, &wrongTargetParent,
+                  nullptr, nullptr, false, nullptr, expectedRevision) && error == ERROR_FILE_INVALID &&
+                  HasByte(source.File(stale), 3) && HasByte(target.File(stale), 8),
+              "cross-volume transfer rejects a stale target parent before volume checks and preserves both files");
+    }
+    UacF7::TransferJobScope copyScope{}, moveScope{};
+    copyScope.operation = Operation::Copy;
+    auto copyOverwrite = copyScope; copyOverwrite.operation = Operation::CopyOverwrite;
+    moveScope.operation = Operation::Move;
+    auto moveOverwrite = moveScope; moveOverwrite.operation = Operation::MoveOverwrite;
+    Check(copyScope.Matches(copyOverwrite) && moveScope.Matches(moveOverwrite) && !copyScope.Matches(moveOverwrite),
+          "job families reuse copy or move consent but never convert copy authorization to a move");
+
+    const auto root = OpenVolumeRoot(target.identity.volume);
+    const auto readSecurity = [](HANDLE file) {
+        PSECURITY_DESCRIPTOR raw = nullptr;
+        const DWORD status = GetSecurityInfo(file, SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+            nullptr, nullptr, nullptr, nullptr, &raw);
+        const std::unique_ptr<void, LocalFreeDeleter> descriptor(raw);
+        return status;
+    };
+    Handle metadataOnly;
+    UacDirectoryLeaf::ParentIdentity actual;
+    Check(root && !OpenRequestParent(root.get(), target.relative, metadataOnly, actual) &&
+              readSecurity(metadataOnly.get()) == ERROR_ACCESS_DENIED,
+          "a metadata-only destination handle cannot inspect the DACL required for guarded named streams");
+    for (const auto operation : {Operation::MoveAcrossVolume, Operation::MoveCompressed, Operation::MoveAcrossVolumeOverwrite})
+    {
+        Handle inspect;
+        const DWORD access = UacF7::InspectsMoveTarget(operation) ? READ_CONTROL : 0;
+        Check(root && !OpenRequestParent(root.get(), target.relative, inspect, actual, access) &&
+                  UacDirectoryLeaf::SameParent(actual, target.identity) && !readSecurity(inspect.get()),
+              "cross-volume destination policy opens a handle that can verify its actual DACL before named-stream publication");
+    }
+    Check(!UacF7::InspectsMoveTarget(Operation::Copy) && !UacF7::InspectsMoveTarget(Operation::FinishCrossVolumeMove),
+          "target DACL inspection remains confined to cross-volume copy publication");
+}
+
 void CheckCancelledCopyJob(const Directory& source, const Directory& outside, const Directory& target)
 {
     const auto ready = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
@@ -2434,13 +2545,13 @@ void CheckCrossVolumeBoundary(const Directory& source, const Directory& target)
               TransferProgressLimit(Operation::Copy) == UacF7::maxNativeCopyBytes,
           "stream native copies without a total deadline using signed 64-bit progress");
     Check(TransferDeadline(Operation::CopyEncrypted) != MAXULONGLONG &&
-              TransferDeadline(Operation::CopyOverwrite) != MAXULONGLONG &&
+              TransferDeadline(Operation::CopyOverwrite) == MAXULONGLONG &&
               TransferDeadline(Operation::CopyTree) != MAXULONGLONG &&
               UacF7::NativeCopyByteLimit(Operation::CopyTree) == UacF7::maxPilotCopyBytes &&
               TransferProgressLimit(Operation::CopyEncrypted) == 2 * UacF7::maxPilotCopyBytes &&
-              TransferProgressLimit(Operation::CopyOverwrite) == UacF7::maxPilotCopyBytes &&
+              TransferProgressLimit(Operation::CopyOverwrite) == UacF7::maxNativeCopyBytes &&
               TransferProgressLimit(Operation::CopyTree) == UacF7::maxPilotCopyBytes,
-          "keep bounded lifetime and progress for encrypted buffered copies, overwrite receipts and tree manifests");
+          "bound buffered encrypted/tree requests separately from streamed overwrite receipts");
     JobPipe oversized;
     Check(oversized.Open() && !oversized.Request(Operation::MoveAcrossVolume, source, leaf, error, &target,
               nullptr, nullptr, false, nullptr, nullptr, UacF7::maxCrossVolumeMoveBytes + 1) &&
@@ -2451,7 +2562,7 @@ void CheckCrossVolumeBoundary(const Directory& source, const Directory& target)
               nullptr, nullptr, false, nullptr, nullptr, UacF7::maxNativeCopyBytes + 1) &&
               copyLimit.Finish() == ERROR_INVALID_DATA && HasByte(source.File(leaf), 5) && IsAbsent(target.File(leaf)),
           "reject native copy sizes beyond the signed 64-bit file range before mutation");
-    for (const auto operation : {Operation::CopyEncrypted, Operation::CopyOverwrite})
+    for (const auto operation : {Operation::CopyEncrypted})
     {
         JobPipe bounded;
         Check(bounded.Open() && !bounded.Request(operation, source, leaf, error, &target,
@@ -2613,6 +2724,7 @@ int wmain()
     CheckActiveOverwriteJournal(source, target);
     CheckLateOverwriteJournal(source, target);
     CheckStaleOverwriteJob(source, target);
+    CheckMoveOverwriteJob(source, target, outside);
     CheckCancelledCopyJob(source, outside, target);
     CheckLateCopyCancellation(source, target);
     CheckCrossVolumeBoundary(source, target);

@@ -1,10 +1,12 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Exercise read-only F6 publication, rollback and interrupted source retirement. | Preserve exact source identities and attributes across ordinary and guarded moves. | | GPT-6.1 Sol |
 | 2026-11-11 | Verify read-only copies with exact protected security and publication cancellation. | Cover combined DACL preservation and cleanup through the real NTFS primitive. | | GPT-6.1 Sol |
 | 2026-11-11 | Exercise streamed native copies and ordinary attributes on NTFS. | Verify large data, read-only rollback and guarded source retirement with real files. | | GPT-6.1 Sol |
 */
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
+#define SAM_UAC_MOVE_SOURCE_FAULT_TEST
 #include <windows.h>
 #include <sddl.h>
 #include <cstdio>
@@ -15,6 +17,17 @@
 #include <vector>
 #include "../uacbroker/copyleaf.h"
 #include "../uacbroker/movesourceguard.h"
+#include "../uacbroker/deleteleaf.h"
+
+namespace UacMoveSourceJournal
+{
+DWORD crashAfterRemainingLinks = MAXDWORD;
+void AfterMoveLinkClosedForTest(DWORD remainingLinks)
+{
+    if (remainingLinks == crashAfterRemainingLinks)
+        TerminateProcess(GetCurrentProcess(), 87);
+}
+}
 
 namespace
 {
@@ -110,14 +123,13 @@ bool SelectionCases()
           "prepare explicit named-stream omission without dropping ordinary attributes");
     Check(!IsEligibleFileCopy(compressed, true, true, false) &&
           !IsEligibleFileCopy(ordinaryAttributes | FILE_ATTRIBUTE_ENCRYPTED, false, false, false) &&
-          !IsEligibleMoveFile(ordinaryAttributes, false, false) &&
-          !IsEligibleTransferSource(ordinaryAttributes, Operation::Move) &&
+          IsEligibleMoveFile(ordinaryAttributes, false, false) &&
+          IsEligibleTransferSource(ordinaryAttributes, Operation::Move) &&
           !IsEligibleTransferSource(FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_ARCHIVE, Operation::Copy) &&
           NativeCopyByteLimit(Operation::Copy) > (1ULL << 32) &&
-          NativeCopyByteLimit(Operation::CopyOverwrite) == maxPilotCopyBytes &&
           NativeCopyByteLimit(Operation::CopyEncrypted) == maxPilotCopyBytes &&
           NativeCopyByteLimit(Operation::WriteZipSelection) == maxPilotCopyBytes,
-          "retain unsupported storage combinations, read-only move and snapshot/overwrite budgets");
+          "admit ordinary read-only moves while retaining unsupported storage combinations and snapshot budgets");
     return failures == 0;
 }
 struct Progress
@@ -314,6 +326,27 @@ std::wstring ProtectedSecurity(const std::wstring& path)
     return text;
 }
 
+bool SameProtectedSecurity(const std::wstring& first, const std::wstring& second)
+{
+    // SetSecurityInfo may add the AUTO_INHERITED bookkeeping bit while
+    // restoring a protected DACL. Compare its actual policy and principals.
+    const auto left = Open(first, READ_CONTROL), right = Open(second, READ_CONTROL);
+    PSECURITY_DESCRIPTOR a = nullptr, b = nullptr;
+    PSID ownerA = nullptr, ownerB = nullptr, groupA = nullptr, groupB = nullptr;
+    PACL daclA = nullptr, daclB = nullptr;
+    constexpr SECURITY_INFORMATION requested = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION;
+    const DWORD errorA = left ? GetSecurityInfo(left.get(), SE_FILE_OBJECT, requested, &ownerA, &groupA, &daclA, nullptr, &a) : ERROR_INVALID_HANDLE;
+    const Local memoryA(a, LocalFree);
+    const DWORD errorB = right ? GetSecurityInfo(right.get(), SE_FILE_OBJECT, requested, &ownerB, &groupB, &daclB, nullptr, &b) : ERROR_INVALID_HANDLE;
+    const Local memoryB(b, LocalFree);
+    SECURITY_DESCRIPTOR_CONTROL controlA{}, controlB{}; DWORD revision = 0;
+    return !errorA && !errorB && ownerA && ownerB && groupA && groupB && daclA && daclB &&
+        GetSecurityDescriptorControl(a, &controlA, &revision) && GetSecurityDescriptorControl(b, &controlB, &revision) &&
+        (controlA & SE_DACL_PROTECTED) && (controlB & SE_DACL_PROTECTED) &&
+        EqualSid(ownerA, ownerB) && EqualSid(groupA, groupB) && daclA->AclSize == daclB->AclSize &&
+        std::memcmp(daclA, daclB, daclA->AclSize) == 0;
+}
+
 bool ReadOnlySecurityCase(CopyFixture& fixture)
 {
     const auto sid = CurrentUserSid();
@@ -397,6 +430,282 @@ bool MoveCase(CopyFixture& fixture)
         "recover the completed move receipt without changing hidden/system destination data", error);
     return !error;
 }
+
+struct ReadOnlyMoveFixture
+{
+    static constexpr wchar_t leaf[] = L"read-only-東.bin";
+    static constexpr ULONGLONG size = 131079;
+    std::wstring base, source, target, storagePath, alias;
+    Local security{nullptr, LocalFree}, sealSecurity{nullptr, LocalFree};
+    Handle from{nullptr, CloseHandle}, to{nullptr, CloseHandle}, storage{nullptr, CloseHandle}, journal{nullptr, CloseHandle};
+    UacDirectoryLeaf::ParentIdentity fromId, toId;
+    FILE_ID_INFO id{};
+    PACL seal = nullptr;
+    DWORD attributes = ordinaryAttributes;
+
+    explicit ReadOnlyMoveFixture(const std::wstring& root, const std::wstring& name) : base(root + L"\\readonly-" + name) {}
+    std::wstring Source() const { return source + L"\\" + leaf; }
+    std::wstring Target() const { return target + L"\\" + leaf; }
+    bool Init(bool create, bool compressed = false)
+    {
+        const auto sid = CurrentUserSid();
+        security = Security(std::wstring(L"O:") + sid + L"D:P(A;;FA;;;" + sid + L")");
+        sealSecurity = Security(std::wstring(L"D:P(A;;RC;;;OW)(A;;0x00170189;;;") + sid + L")");
+        BOOL present = FALSE, defaulted = FALSE;
+        if (sid.empty() || !security || !sealSecurity ||
+            !GetSecurityDescriptorDacl(sealSecurity.get(), &present, &seal, &defaulted) || !present) return false;
+        SECURITY_ATTRIBUTES descriptor{sizeof(descriptor), security.get(), FALSE};
+        if (create && !CreateDirectoryW(base.c_str(), &descriptor)) return false;
+        auto common = base;
+        for (int i = 0; i < 2; ++i)
+        {
+            common += L"\\階層-" + std::wstring(96, L'日');
+            if (create && !CreateDirectoryW(common.c_str(), nullptr)) return false;
+        }
+        source = common + L"\\source-東";
+        target = common + L"\\target-日";
+        storagePath = base + L"\\private";
+        if (create && (!CreateDirectoryW(source.c_str(), nullptr) || !CreateDirectoryW(target.c_str(), nullptr) ||
+                       !CreateDirectoryW(storagePath.c_str(), &descriptor))) return false;
+        from = Directory(source); to = Directory(target); storage = Directory(storagePath);
+        journal = Open(storagePath + L"\\journal", GENERIC_READ | GENERIC_WRITE, create ? CREATE_NEW : OPEN_EXISTING, 0, &descriptor);
+        if (!from || !to || !storage || !journal || UacDirectoryLeaf::ReadParentIdentity(from.get(), fromId) ||
+            UacDirectoryLeaf::ReadParentIdentity(to.get(), toId)) return false;
+        if (create)
+        {
+            if (!WritePattern(Source(), size, 0x63, &descriptor) || !WritePattern(Source() + L":named-日", 131, 0xa8) ||
+                !WritePattern(base + L"\\reference", 1, 0x17, &descriptor)) return false;
+            if (compressed)
+            {
+                const auto file = Open(Source(), GENERIC_READ | GENERIC_WRITE);
+                if (!file || UacCopyLeaf::Detail::SetCompression(file.get(), COMPRESSION_FORMAT_LZNT1)) return false;
+                attributes |= FILE_ATTRIBUTE_COMPRESSED;
+            }
+            if (attributes & FILE_ATTRIBUTE_SPARSE_FILE)
+            {
+                const auto file = Open(Source(), GENERIC_READ | GENERIC_WRITE);
+                DWORD returned = 0;
+                if (!file || !DeviceIoControl(file.get(), FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &returned, nullptr)) return false;
+            }
+            if (!SetFileAttributesW(Source().c_str(), attributes & ~(FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE)) ||
+                !Identity(Source(), id)) return false;
+            const auto expected = Open(base + L"\\identity", GENERIC_WRITE, CREATE_NEW);
+            DWORD written = 0;
+            if (!expected || !WriteFile(expected.get(), &id, sizeof(id), &written, nullptr) || written != sizeof(id)) return false;
+        }
+        else
+        {
+            const auto expected = Open(base + L"\\identity", GENERIC_READ);
+            DWORD read = 0;
+            if (!expected || !ReadFile(expected.get(), &id, sizeof(id), &read, nullptr) || read != sizeof(id)) return false;
+        }
+        return true;
+    }
+    DWORD Arm()
+    {
+        HANDLE raw = nullptr;
+        DWORD error = UacRenameLeaf::Detail::OpenSource(from.get(), leaf, raw,
+            DELETE | READ_CONTROL | WRITE_DAC | FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ);
+        const Handle file(raw, CloseHandle);
+        return error ? error : UacMoveSourceJournal::Arm(from.get(), leaf, file.get(), id,
+            storage.get(), journal.get(), security.get(), alias, seal);
+    }
+    DWORD Recover() { return UacMoveSourceJournal::Recover(from.get(), storage.get(), journal.get(), security.get()); }
+    bool SourceIntact()
+    {
+        FILE_ID_INFO current{};
+        return Identity(Source(), current) && UacRenameLeaf::Detail::SameSource(id, current) &&
+            AttributesMatch(Source(), attributes) && PatternMatches(Source(), size, 0x63) &&
+            PatternMatches(Source() + L":named-日", 131, 0xa8) && SameProtectedSecurity(Source(), base + L"\\reference");
+    }
+    bool TargetMatches()
+    {
+        return AttributesMatch(Target(), attributes) && PatternMatches(Target(), size, 0x63) &&
+            PatternMatches(Target() + L":named-日", 131, 0xa8);
+    }
+};
+
+bool ReadOnlySameVolume(const std::wstring& root)
+{
+    ReadOnlyMoveFixture fixture(root, L"same-volume");
+    if (!fixture.Init(true) || !WritePattern(fixture.Target(), 1, 0x11)) return false;
+    const auto move = [&](const FILE_ID_INFO& expected, ULONGLONG deadline = MAXULONGLONG) {
+        return UacRenameLeaf::MoveVerifiedFile(fixture.from.get(), fixture.fromId, expected, fixture.leaf,
+            fixture.to.get(), fixture.toId, fixture.leaf, UacRenameLeaf::MoveKind::OrdinaryFile, nullptr, deadline);
+    };
+    DWORD error = move(fixture.id);
+    Check((error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS) && fixture.SourceIntact() &&
+        PatternMatches(fixture.Target(), 1, 0x11), "read-only same-volume collision preserves both files and all source attributes", error);
+    if (!DeleteFileW(fixture.Target().c_str())) return false;
+    error = move(fixture.id, 0);
+    Check(error == ERROR_TIMEOUT && fixture.SourceIntact() && !Present(fixture.Target()),
+          "cancel same-volume read-only move before mutation on a long Unicode path", error);
+    auto wrong = fixture.id; wrong.FileId.Identifier[0] ^= 1;
+    error = move(wrong);
+    Check(error == ERROR_FILE_INVALID && fixture.SourceIntact(), "refuse a stale read-only same-volume source identity", error);
+    error = move(fixture.id);
+    FILE_ID_INFO current{};
+    Check(!error && !Present(fixture.Source()) && Identity(fixture.Target(), current) &&
+          UacRenameLeaf::Detail::SameSource(fixture.id, current) &&
+          AttributesMatch(fixture.Target(), fixture.attributes | FILE_ATTRIBUTE_ARCHIVE) &&
+          PatternMatches(fixture.Target(), fixture.size, 0x63) && PatternMatches(fixture.Target() + L":named-日", 131, 0xa8),
+          "move a read-only file and ADS on a long Unicode path while preserving NTFS identity", error);
+    return !error;
+}
+
+bool GuardedAttributeMove(const std::wstring& root, const std::wstring& name, bool compressed = false,
+                         DWORD attributes = ordinaryAttributes)
+{
+    ReadOnlyMoveFixture fixture(root, name);
+    fixture.attributes = attributes;
+    if (!fixture.Init(true, compressed)) return false;
+    DWORD error = fixture.Arm();
+    if (error) return Check(false, "arm read-only source recovery", error);
+    {
+        UacMoveSourceJournal::SourceGuard guard(fixture.attributes, AllowFixture);
+        error = guard.Open(fixture.from.get(), fixture.leaf, fixture.id, 2);
+        if (!error) error = guard.LockStreams(fixture.storage.get(), fixture.alias);
+        if (error) return Check(false, "lock read-only source streams", error);
+        Handle target(nullptr, CloseHandle); FILE_ID_INFO targetId{};
+        Progress cancelled; cancelled.cancel = true;
+        const UacCopyLeaf::Detail::CopyProgress stop{Progress::Update, &cancelled};
+        error = guard.PublishCopy(fixture.to.get(), fixture.toId, fixture.leaf, fixture.size,
+            nullptr, nullptr, MAXULONGLONG, target, targetId, &stop);
+        Check(error == ERROR_CANCELLED && cancelled.bytes && !target && !Present(fixture.Target()) && NoStage(fixture.target),
+              "cancel a guarded move after writing bytes without publishing a destination", error);
+    }
+    error = fixture.Recover();
+    Check(!error && fixture.SourceIntact(), "rollback restores exact attributes, streams, identity and original DACL", error);
+    if (error || (error = fixture.Arm())) return Check(false, "re-arm recovered read-only move", error);
+    {
+        UacMoveSourceJournal::SourceGuard guard(fixture.attributes, AllowFixture);
+        error = guard.Open(fixture.from.get(), fixture.leaf, fixture.id, 2);
+        if (!error) error = guard.LockStreams(fixture.storage.get(), fixture.alias);
+        Handle target(nullptr, CloseHandle); FILE_ID_INFO targetId{};
+        if (!error) error = guard.PublishCopy(fixture.to.get(), fixture.toId, fixture.leaf, fixture.size,
+            nullptr, nullptr, MAXULONGLONG, target, targetId);
+        if (error) return Check(false, "publish read-only guarded destination", error);
+        const Handle cancel(CreateEventW(nullptr, TRUE, TRUE, nullptr), CloseHandle);
+        error = guard.RetirePublishedSource(fixture.from.get(), fixture.storage.get(), fixture.journal.get(), fixture.security.get(),
+            fixture.to.get(), fixture.leaf, target.get(), targetId, cancel.get(), nullptr, MAXULONGLONG);
+        Check(error == ERROR_CANCELLED, "late cancellation refuses source retirement after destination publication", error);
+        error = guard.RetirePublishedSource(fixture.from.get(), fixture.storage.get(), fixture.journal.get(), fixture.security.get(),
+            fixture.to.get(), fixture.leaf, target.get(), targetId, nullptr, nullptr, MAXULONGLONG);
+    }
+    if (error) return Check(false, "retire both read-only source links after verified publication", error);
+    error = fixture.Recover();
+    const DWORD expected = fixture.attributes;
+    Check(!error && !Present(fixture.Source()) && !Present(fixture.storagePath + L"\\" + fixture.alias) &&
+          AttributesMatch(fixture.Target(), expected) && PatternMatches(fixture.Target(), fixture.size, 0x63) &&
+          PatternMatches(fixture.Target() + L":named-日", 131, 0xa8),
+          compressed ? "complete read-only compressed F6 while preserving exact attributes and ADS" :
+                       "complete F6 with exact attributes and ADS only after durable target publication", error);
+    return !error;
+}
+
+bool ReadOnlyReceiptRetirement(const std::wstring& root)
+{
+    ReadOnlyMoveFixture fixture(root, L"receipt");
+    FILE_ID_INFO targetId{};
+    if (!fixture.Init(true) || !WritePattern(fixture.Target(), fixture.size, 0x63) ||
+        !WritePattern(fixture.Target() + L":named-日", 131, 0xa8) ||
+        !SetFileAttributesW(fixture.Target().c_str(), fixture.attributes) || !Identity(fixture.Target(), targetId)) return false;
+    auto wrong = targetId; wrong.FileId.Identifier[0] ^= 1;
+    DWORD error = UacDeleteLeaf::DeleteCopiedSource(fixture.Source(), fixture.Target(), fixture.id, wrong);
+    Check(error == ERROR_FILE_INVALID && fixture.SourceIntact() && fixture.TargetMatches(),
+          "refuse read-only source retirement for a stale target receipt", error);
+    wrong = fixture.id; wrong.FileId.Identifier[0] ^= 1;
+    error = UacDeleteLeaf::DeleteCopiedSource(fixture.Source(), fixture.Target(), wrong, targetId);
+    Check(error == ERROR_FILE_INVALID && fixture.SourceIntact() && fixture.TargetMatches(),
+          "refuse read-only source retirement for a replaced source without clearing its attributes", error);
+    error = UacDeleteLeaf::DeleteCopiedSource(fixture.Source(), fixture.Target(), fixture.id, targetId);
+    Check(!error && !Present(fixture.Source()) && fixture.TargetMatches(),
+          "retire the exact read-only source while its receipt destination and ADS remain intact", error);
+    return !error;
+}
+
+bool MinimalMovePreparation(const std::wstring& root)
+{
+    ReadOnlyMoveFixture fixture(root, L"minimal-rights");
+    if (!fixture.Init(true)) return false;
+    const auto sid = CurrentUserSid();
+    const auto deniedMetadata = Security(std::wstring(L"D:P(D;;0x100;;;") + sid + L")(A;;FA;;;" + sid + L")");
+    PACL dacl = nullptr; BOOL present = FALSE, defaulted = FALSE;
+    if (!deniedMetadata || !GetSecurityDescriptorDacl(deniedMetadata.get(), &present, &dacl, &defaulted) || !present) return false;
+    PACL cleanupDacl = nullptr;
+    if (!GetSecurityDescriptorDacl(fixture.security.get(), &present, &cleanupDacl, &defaulted) || !present) return false;
+    struct RestoreFixture
+    {
+        std::wstring path;
+        PACL dacl;
+        ~RestoreFixture()
+        {
+            const auto file = Open(path, WRITE_DAC | READ_CONTROL);
+            if (file) SetSecurityInfo(file.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                nullptr, nullptr, dacl, nullptr);
+        }
+    } restore{fixture.Source(), cleanupDacl};
+    for (const auto& path : {fixture.Source(), fixture.base + L"\\reference"})
+    {
+        const auto file = Open(path, WRITE_DAC | READ_CONTROL);
+        const DWORD status = file ? SetSecurityInfo(file.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+            nullptr, nullptr, dacl, nullptr) : GetLastError();
+        if (status) return Check(false, "prepare deny-write-attributes DACL", status);
+    }
+    fixture.attributes = GetFileAttributesW(fixture.Source().c_str());
+    const auto refused = Open(fixture.Source(), FILE_WRITE_ATTRIBUTES);
+    if (!Check(!refused && GetLastError() == ERROR_ACCESS_DENIED,
+        "fixture denies initial WRITE_ATTRIBUTES while allowing approved read and retirement rights")) return false;
+    HANDLE raw = nullptr;
+    DWORD error = UacRenameLeaf::Detail::OpenSource(fixture.from.get(), fixture.leaf, raw,
+        DELETE | READ_CONTROL | WRITE_DAC | FILE_READ_DATA | FILE_READ_EA, 0);
+    Handle source(raw, CloseHandle);
+    if (!error) error = UacMoveSourceJournal::PrepareRecovery(fixture.from.get(), fixture.leaf, source.get(), fixture.id,
+        fixture.storage.get(), fixture.journal.get(), fixture.security.get(), fixture.alias, fixture.seal);
+    source.reset();
+    {
+        UacMoveSourceJournal::SourceGuard guard(fixture.attributes, AllowFixture);
+        if (!error) error = guard.Open(fixture.from.get(), fixture.leaf, fixture.id, 1);
+        if (!error) error = guard.AddRecoveryLink(fixture.storage.get(), fixture.alias);
+        if (!error) error = guard.LockStreams(fixture.storage.get(), fixture.alias);
+        Check(!error, "prepare and guard a read-only source without demanding initial WRITE_ATTRIBUTES", error);
+    }
+    if (error) return false;
+    error = fixture.Recover();
+    return Check(!error && fixture.SourceIntact(), "restore the original deny-attributes DACL and read-only state after guarded preparation", error);
+}
+
+int ReadOnlyMoveCrash(const std::wstring& root, const std::wstring& name, bool verify)
+{
+    ReadOnlyMoveFixture fixture(root, name);
+    if (!fixture.Init(!verify)) return 2;
+    if (verify)
+    {
+        const DWORD error = fixture.Recover();
+        const bool before = name == L"crash-before";
+        const bool finished = name == L"crash-finished";
+        Check(!error && (finished ? !Present(fixture.Source()) : fixture.SourceIntact()) &&
+              (before ? !Present(fixture.Target()) : fixture.TargetMatches()) && NoStage(fixture.target),
+              before ? "recover read-only source attributes and DACL after hard exit during data copy" : finished ?
+                       "recognize completed read-only retirement after hard exit without resurrecting the source" :
+                       "restore the exact read-only source from its recovery alias after hard exit during retirement", error);
+        return failures ? 2 : 0;
+    }
+    DWORD error = fixture.Arm();
+    UacMoveSourceJournal::SourceGuard guard(fixture.attributes, AllowFixture);
+    if (!error) error = guard.Open(fixture.from.get(), fixture.leaf, fixture.id, 2);
+    if (!error) error = guard.LockStreams(fixture.storage.get(), fixture.alias);
+    Handle target(nullptr, CloseHandle); FILE_ID_INFO targetId{};
+    const UacCopyLeaf::Detail::CopyProgress crash{
+        [](void*, ULONGLONG, ULONGLONG) -> DWORD { TerminateProcess(GetCurrentProcess(), 87); return ERROR_GEN_FAILURE; }, nullptr};
+    if (!error) error = guard.PublishCopy(fixture.to.get(), fixture.toId, fixture.leaf, fixture.size,
+        nullptr, nullptr, MAXULONGLONG, target, targetId, name == L"crash-before" ? &crash : nullptr);
+    UacMoveSourceJournal::crashAfterRemainingLinks = name == L"crash-finished" ? 0 : 1;
+    if (!error) error = guard.RetirePublishedSource(fixture.from.get(), fixture.storage.get(), fixture.journal.get(), fixture.security.get(),
+        fixture.to.get(), fixture.leaf, target.get(), targetId, nullptr, nullptr, MAXULONGLONG);
+    Check(false, "reach read-only move hard-exit checkpoint", error);
+    return 2;
+}
 }
 
 int wmain(int argc, wchar_t** argv)
@@ -405,6 +714,10 @@ int wmain(int argc, wchar_t** argv)
     const std::wstring root = std::wstring(argv[1]).rfind(L"\\\\?\\", 0) == 0 ? argv[1] : std::wstring(L"\\\\?\\") + argv[1];
     CopyFixture fixture(root);
     const std::wstring mode(argv[2]);
+    if (mode.rfind(L"--move-crash-", 0) == 0)
+        return ReadOnlyMoveCrash(root, L"crash-" + mode.substr(13), false);
+    if (mode.rfind(L"--verify-move-crash-", 0) == 0)
+        return ReadOnlyMoveCrash(root, L"crash-" + mode.substr(20), true);
     if (mode == L"--crash")
     {
         if (!fixture.OpenParents()) return 2;
@@ -425,7 +738,11 @@ int wmain(int argc, wchar_t** argv)
     }
     if (mode != L"--run") return 2;
     if (!SelectionCases() || !CopyCases(fixture) || !SparseCase(fixture) || !CompressedCase(fixture) ||
-        !SameVolumeMoveCase(fixture) || !ReadOnlySecurityCase(fixture) || !MoveCase(fixture))
+        !SameVolumeMoveCase(fixture) || !ReadOnlySecurityCase(fixture) || !MoveCase(fixture) ||
+        !ReadOnlySameVolume(root) || !GuardedAttributeMove(root, L"guarded") || !GuardedAttributeMove(root, L"compressed", true) ||
+        !GuardedAttributeMove(root, L"normal-no-archive", false, FILE_ATTRIBUTE_NORMAL) ||
+        !GuardedAttributeMove(root, L"readonly-sparse", false, ordinaryAttributes | FILE_ATTRIBUTE_SPARSE_FILE) ||
+        !ReadOnlyReceiptRetirement(root) || !MinimalMovePreparation(root))
     {
         if (!failures) Check(false, "prepare native fixture", GetLastError());
         return 2;

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Recover read-only move links and the original Archive bit. | Preserve source attributes and identity after cancellation or hard process exit. | | GPT-6.1 Sol |
 // | 2026-11-09 | Restore the original Archive bit after a compressed F6 rollback. | Record the source write time and repair the attributes on the pinned source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Separate the source seal from recovery link creation. | Make the durable DACL record recoverable before any hard link exists. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Retire both F6 source links after the destination receipt. | Preserve a recoverable source until the last unlink. | | GPT-6.1 Sol (Codex) |
@@ -100,7 +101,9 @@ inline DWORD RestoreClearArchive(HANDLE source, LONGLONG recordedWrite)
         return GetLastError();
     if (!(before.FileAttributes & FILE_ATTRIBUTE_ARCHIVE) || before.LastWriteTime.QuadPart != recordedWrite)
         return ERROR_SUCCESS;
-    if (!(before.FileAttributes & FILE_ATTRIBUTE_COMPRESSED))
+    constexpr DWORD allowed = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_READONLY |
+                              FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE;
+    if (before.FileAttributes & ~allowed)
         return ERROR_FILE_INVALID;
     FILE_BASIC_INFO change{};
     change.FileAttributes = before.FileAttributes & (FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM);
@@ -110,7 +113,8 @@ inline DWORD RestoreClearArchive(HANDLE source, LONGLONG recordedWrite)
     if (!SetFileInformationByHandle(source, FileBasicInfo, &change, sizeof(change)) ||
         !GetFileInformationByHandleEx(source, FileBasicInfo, &after, sizeof(after)))
         return GetLastError();
-    return after.FileAttributes == (before.FileAttributes & ~FILE_ATTRIBUTE_ARCHIVE) &&
+    const DWORD expected = before.FileAttributes & ~FILE_ATTRIBUTE_ARCHIVE;
+    return after.FileAttributes == (expected ? expected : FILE_ATTRIBUTE_NORMAL) &&
            after.LastWriteTime.QuadPart == recordedWrite ? ERROR_SUCCESS : ERROR_FILE_INVALID;
 }
 
@@ -221,6 +225,18 @@ inline DWORD CheckIdentity(HANDLE file, const FILE_ID_INFO& expected)
     return !(attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) &&
                    !standard.DeletePending && UacRenameLeaf::Detail::SameSource(actual, expected) ?
                ERROR_SUCCESS : ERROR_FILE_INVALID;
+}
+
+inline DWORD DeleteMoveLinkOnClose(HANDLE file)
+{
+    FILE_BASIC_INFO attributes{};
+    if (!GetFileInformationByHandleEx(file, FileBasicInfo, &attributes, sizeof(attributes)))
+        return GetLastError();
+    FILE_DISPOSITION_INFO_EX remove{FILE_DISPOSITION_FLAG_DELETE | FILE_DISPOSITION_FLAG_FORCE_IMAGE_SECTION_CHECK};
+    if (attributes.FileAttributes & FILE_ATTRIBUTE_READONLY)
+        remove.Flags |= FILE_DISPOSITION_FLAG_IGNORE_READONLY_ATTRIBUTE;
+    return SetFileInformationByHandle(file, FileDispositionInfoEx, &remove, sizeof(remove))
+        ? ERROR_SUCCESS : GetLastError();
 }
 
 inline DWORD VerifyDestination(const DestinationRecord& record, const GUID& nonce, Handle& target)
@@ -335,8 +351,7 @@ inline DWORD PrepareRecovery(HANDLE parent, std::wstring_view leaf, HANDLE sourc
         std::memcpy(dacl->sealed.storage, seal, seal->AclSize);
         if (!GetFileInformationByHandleEx(source, FileBasicInfo, &metadata, sizeof(metadata)))
             return GetLastError();
-        record.version = (metadata.FileAttributes & (FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_ARCHIVE)) ==
-                         FILE_ATTRIBUTE_COMPRESSED ? clearArchiveVersion : sealedVersion;
+        record.version = !(metadata.FileAttributes & FILE_ATTRIBUTE_ARCHIVE) ? clearArchiveVersion : sealedVersion;
     }
     if (FAILED(CoCreateGuid(&record.nonce)))
         return ERROR_GEN_FAILURE;
@@ -493,6 +508,24 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
     Handle retained(raw, CloseHandle);
     if (retained && (error = CheckIdentity(retained.get(), record.file)) != ERROR_SUCCESS)
         return error;
+    if (retained && !(access & FILE_WRITE_ATTRIBUTES))
+    {
+        FILE_BASIC_INFO attributes{};
+        if (!GetFileInformationByHandleEx(retained.get(), FileBasicInfo, &attributes, sizeof(attributes)))
+            return GetLastError();
+        if (attributes.FileAttributes & FILE_ATTRIBUTE_READONLY)
+        {
+            // Retain the ordinary recovery access mask unless atomic read-only
+            // unlink needs the extra right. Recheck the journaled identity.
+            retained.reset();
+            raw = nullptr;
+            error = UacRenameLeaf::Detail::OpenSource(storage, name, raw,
+                DELETE | access | FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ);
+            retained.reset(raw);
+            if (error || (error = CheckIdentity(retained.get(), record.file)))
+                return error;
+        }
+    }
 
     Handle source(nullptr, CloseHandle);
     Handle metadata(nullptr, CloseHandle);
@@ -523,6 +556,19 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
             if (error)
                 return error;
             source = std::move(retained);
+            if (clearArchive)
+            {
+                // The rename handle includes DELETE; the later read pin must
+                // exclude deletion. Reopen only the metadata rights while this
+                // exact restored name is still pinned by the rename handle.
+                raw = nullptr;
+                error = UacRenameLeaf::Detail::OpenSource(parent, leaf, raw, access,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
+                Handle restored(raw, CloseHandle);
+                if (error || (error = CheckIdentity(restored.get(), record.file)))
+                    return error;
+                source = std::move(restored);
+            }
         }
         if (error || (error = CheckIdentity(source.get(), record.file)) ||
             (error = CheckOrRestoreDacl(source.get(), *dacl, !clearArchive)))
@@ -544,9 +590,8 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
     {
         // A read pin on the original name blocks POSIX replacement while
         // we delete the retained link to the same file.
-        FILE_DISPOSITION_INFO remove{TRUE};
-        if (!SetFileInformationByHandle(retained.get(), FileDispositionInfo, &remove, sizeof(remove)))
-            return GetLastError();
+        if ((error = DeleteMoveLinkOnClose(retained.get())) != ERROR_SUCCESS)
+            return error;
         retained.reset();
         // Keep the original pin until the alias is actually absent. If an
         // older alias handle delays the unlink, leave the record for retry.

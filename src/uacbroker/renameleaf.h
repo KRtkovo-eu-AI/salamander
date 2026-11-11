@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Move a verified read-only file without changing its attributes. | Extend same-volume F6 while retaining exact identity and no-replace publication. | | GPT-6.1 Sol |
 | 2026-11-11 | Accept hidden and system attributes for an ordinary same-volume move. | Match native F6 eligibility without widening rename or reparse operations. | | GPT-6.1 Sol |
 | 2026-11-10 | Allow a verified plain directory to move between same-volume parents. | Keep directory rename and link-only operations on their existing scope. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Validate plain directories in the verified rename path. | Preserve no-replace and reparse safety for the selected directory. | #731 | GPT-6.1 Sol (Codex) |
@@ -318,7 +319,8 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
     if (error == ERROR_SUCCESS && kind == MoveKind::OrdinaryFile)
     {
         FILE_ATTRIBUTE_TAG_INFO attributes{};
-        constexpr DWORD allowed = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
+        constexpr DWORD allowed = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_READONLY |
+                                  FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
         if (!GetFileInformationByHandleEx(source, FileAttributeTagInfo, &attributes, sizeof(attributes)))
             error = GetLastError();
         else if (!attributes.FileAttributes || (attributes.FileAttributes & ~allowed))

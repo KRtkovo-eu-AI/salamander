@@ -1,0 +1,242 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise actual overwrite confirmation and retry ordering with UI seams. | Preserve Hidden/System decisions and exact-revision retries before broker dispatch. | #731 | GPT-6.1 Sol |
+#include <windows.h>
+#include <cstdio>
+#include <initializer_list>
+#include <string>
+#include <vector>
+
+static int Checks = 0, Failures = 0;
+static void Check(bool value, const char* name)
+{
+    ++Checks;
+    if (!value) { ++Failures; std::printf("FAIL: %s\n", name); }
+}
+constexpr int IDS_CONFIRMFILEOVERWRITING = 101, IDS_WANTOVERWRITESHFILE = 102;
+constexpr int IDB_ALL = 200, IDB_SKIPALL = 201, IDB_SKIP = 202;
+constexpr UINT WM_USER_DIALOG = WM_USER + 42;
+static char Name[] = "C:\\fixture-東\\protected-日.txt", SourceDisplay[] = "C:\\fixture\\source.txt";
+static char Title[] = "existing hidden/system confirmation", Text[] = "existing overwrite text";
+static int Prompts = 0, Waits = 0, Answer = IDYES, ConflictAnswer = IDYES, Executions = 0;
+static BOOL WorkerCancelled = FALSE;
+static bool IdentityValid = true, PreparationAvailable = true;
+static DWORD CurrentRevision = 1, CurrentAttributes = FILE_ATTRIBUTE_HIDDEN;
+static std::vector<std::string> Events;
+struct CProgressDlgData
+{
+    BOOL OverwriteHiddenAll = FALSE, CnfrmSHFileOver = TRUE, SkipAllSystemOrHidden = FALSE;
+    BOOL SkipAllFileOpenOut = FALSE, ConflictDecisionInjected = FALSE, ConflictTargetChanged = FALSE;
+    BOOL SkipAllOverwrite = FALSE, OverwriteAll = FALSE, CnfrmFileOver = TRUE;
+    HANDLE WorkerNotSuspended = nullptr;
+    BOOL* CancelWorker = &WorkerCancelled;
+};
+struct COperation
+{
+    char* TargetName = Name;
+    char* SourceName = SourceDisplay;
+    std::wstring TargetNameW = L"target", SourceNameW = L"source";
+    bool TargetNameWValid = true, SourceNameWValid = true;
+    DWORD Attr = FILE_ATTRIBUTE_ARCHIVE;
+    struct { DWORD attributes = 0; } ScannedTargetRevision;
+};
+struct COperations {};
+struct CQuadWord {};
+namespace UacF7
+{
+struct TestRevision { DWORD attributes = 0; DWORD version = 0; };
+struct OverwriteApproval { TestRevision revision; bool captured = false; };
+struct PreparedTransfer
+{
+    OverwriteApproval Approval() const { return {{CurrentAttributes, CurrentRevision}, true}; }
+    bool MatchesApproval(const OverwriteApproval& approval) const { return approval.captured && approval.revision.version == CurrentRevision; }
+    bool MatchesOverwriteTarget(HANDLE) const { return IdentityValid; }
+};
+}
+static char* LoadStr(int id)
+{
+    Check(id == IDS_CONFIRMFILEOVERWRITING || id == IDS_WANTOVERWRITESHFILE, "reuse localized overwrite strings");
+    return id == IDS_CONFIRMFILEOVERWRITING ? Title : Text;
+}
+static DWORD WaitForTestWorker(HANDLE, DWORD timeout)
+{
+    ++Waits;
+    Check(timeout == INFINITE, "honor worker suspension before confirmation");
+    return WAIT_OBJECT_0;
+}
+static LRESULT SendTestMessage(HWND owner, UINT message, WPARAM kind, LPARAM value)
+{
+    Check(owner == nullptr && message == WM_USER_DIALOG, "use native worker dialog ownership");
+    auto data = reinterpret_cast<char**>(value);
+    if (kind == 2)
+    {
+        ++Prompts; Events.emplace_back("hidden");
+        Check(data[1] == Title && data[2] == Name && data[3] == Text, "reuse Hidden/System dialog and exact selected target");
+        *reinterpret_cast<int*>(data[0]) = Answer;
+    }
+    else
+    {
+        Check(kind == 1 && data[1] == Name && data[3] == SourceDisplay, "reuse ordinary overwrite conflict dialog");
+        Events.emplace_back("conflict");
+        *reinterpret_cast<int*>(data[0]) = ConflictAnswer;
+    }
+    return 0;
+}
+static bool ValidateInjectedTargetIdentity(COperation*, CProgressDlgData&) { return IdentityValid; }
+static bool PrepareWorkerOverwrite(const COperation&, COperations&, const CProgressDlgData&, UacF7::PreparedTransfer&)
+{
+    Events.emplace_back("prepare"); return PreparationAvailable;
+}
+static std::wstring WorkerOperationPathW(const char*, const wchar_t* path) { return path; }
+static HANDLE TestCreateFile(const wchar_t*, DWORD, DWORD, void*, DWORD, DWORD, HANDLE) { return reinterpret_cast<HANDLE>(1); }
+static BOOL TestClose(HANDLE) { return TRUE; }
+static void GetFileOverwriteInfo(char* text, size_t count, HANDLE, const char*, void*, void*) { strcpy_s(text, count, "metadata"); }
+static bool ExecuteWorkerTransfer(HWND, const COperation&, COperations&, CQuadWord&, CProgressDlgData&,
+                                  BOOL& success, UacF7::PreparedTransfer&, DWORD&, bool)
+{
+    ++Executions; Events.emplace_back("execute"); success = TRUE; return true;
+}
+static DWORD ExistingAttrs = FILE_ATTRIBUTE_ARCHIVE, WriteStatus = ERROR_SUCCESS, DeleteStatus = ERROR_SUCCESS;
+static DWORD WriteAttrsStatus = ERROR_SUCCESS, SourceStatus = ERROR_SUCCESS;
+static int Probes = 0;
+static DWORD TestGetAttributes(const wchar_t*) { return ExistingAttrs; }
+static DWORD ProbeLocalElevationAccess(const std::wstring& path, DWORD access, bool directory)
+{
+    ++Probes;
+    Check(!directory, "existing file overwrite probes only the selected file");
+    if (path == L"source") return SourceStatus;
+    return access == FILE_WRITE_ATTRIBUTES ? WriteAttrsStatus : access == FILE_WRITE_DATA ? WriteStatus : DeleteStatus;
+}
+static bool ExistingMoveNeedsBroker(bool isMove, bool targetExists, const COperation* op, bool& targetDenied)
+{
+#define GetFileAttributesW TestGetAttributes
+@@EXISTING_MOVE_POLICY@@
+#undef GetFileAttributesW
+    targetDenied = protectedExistingMoveTarget;
+    return protectedExistingMove;
+}
+@@DECISION@@
+#undef SendMessage
+#define SendMessage SendTestMessage
+#define WaitForSingleObject WaitForTestWorker
+#define CreateFileW TestCreateFile
+#define CloseHandle TestClose
+#define HANDLES_Q(value) (value)
+#define HANDLES(value) (value)
+@@CONFIRM@@
+@@OVERWRITE@@
+#undef SendMessage
+#undef WaitForSingleObject
+#undef CreateFileW
+#undef CloseHandle
+
+static void Reset()
+{
+    Prompts = Waits = Executions = 0;
+    Answer = ConflictAnswer = IDYES;
+    WorkerCancelled = FALSE;
+    IdentityValid = PreparationAvailable = true;
+    CurrentRevision = 1; CurrentAttributes = FILE_ATTRIBUTE_HIDDEN;
+    Events.clear();
+    Probes = 0; ExistingAttrs = FILE_ATTRIBUTE_ARCHIVE; WriteStatus = DeleteStatus = WriteAttrsStatus = SourceStatus = ERROR_SUCCESS;
+}
+int main()
+{
+    using Outcome = SourceOverwriteResult;
+    COperation operation;
+    for (DWORD attrs : {DWORD(FILE_ATTRIBUTE_NORMAL), DWORD(FILE_ATTRIBUTE_ARCHIVE), DWORD(FILE_ATTRIBUTE_READONLY)})
+    {
+        Reset(); CProgressDlgData state;
+        Check(ConfirmBrokerOverwriteAttributes(nullptr, operation, state, attrs) == Outcome::Finished && !Prompts && !Waits,
+            "ordinary and ReadOnly-only targets need no Hidden/System confirmation");
+    }
+    for (DWORD attrs : {DWORD(FILE_ATTRIBUTE_HIDDEN), DWORD(FILE_ATTRIBUTE_SYSTEM), DWORD(FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_READONLY)})
+    {
+        Reset(); CProgressDlgData state;
+        Check(ConfirmBrokerOverwriteAttributes(nullptr, operation, state, attrs) == Outcome::Finished && Prompts == 1 && Waits == 1 && !state.OverwriteHiddenAll,
+            "Yes approves one Hidden/System target");
+    }
+    Reset(); CProgressDlgData all; Answer = IDB_ALL;
+    Check(ConfirmBrokerOverwriteAttributes(nullptr, operation, all, FILE_ATTRIBUTE_HIDDEN) == Outcome::Finished && all.OverwriteHiddenAll,
+        "All preserves the worker-wide Hidden/System approval");
+    Answer = IDCANCEL;
+    Check(ConfirmBrokerOverwriteAttributes(nullptr, operation, all, FILE_ATTRIBUTE_SYSTEM) == Outcome::Finished && Prompts == 1,
+        "later targets reuse All without another question");
+    Reset(); CProgressDlgData skip; Answer = IDB_SKIP;
+    Check(ConfirmBrokerOverwriteAttributes(nullptr, operation, skip, FILE_ATTRIBUTE_HIDDEN) == Outcome::Skipped && !skip.SkipAllSystemOrHidden,
+        "Skip excludes only one target");
+    Answer = IDYES;
+    Check(ConfirmBrokerOverwriteAttributes(nullptr, operation, skip, FILE_ATTRIBUTE_SYSTEM) == Outcome::Finished && Prompts == 2,
+        "the next target still asks after Skip");
+    Reset(); CProgressDlgData skipAll; Answer = IDB_SKIPALL;
+    Check(ConfirmBrokerOverwriteAttributes(nullptr, operation, skipAll, FILE_ATTRIBUTE_SYSTEM) == Outcome::Skipped && skipAll.SkipAllSystemOrHidden,
+        "Skip All retains the Hidden/System exclusion");
+    Answer = IDYES;
+    Check(ConfirmBrokerOverwriteAttributes(nullptr, operation, skipAll, FILE_ATTRIBUTE_HIDDEN) == Outcome::Skipped && Prompts == 1,
+        "Skip All suppresses further Hidden/System dispatches");
+    Check(ConfirmBrokerOverwriteAttributes(nullptr, operation, skipAll, FILE_ATTRIBUTE_ARCHIVE) == Outcome::Finished,
+        "Skip All does not exclude ordinary targets");
+    Reset(); CProgressDlgData cancel; Answer = IDCANCEL;
+    Check(ConfirmBrokerOverwriteAttributes(nullptr, operation, cancel, FILE_ATTRIBUTE_HIDDEN) == Outcome::Cancelled && !cancel.OverwriteHiddenAll,
+        "Cancel does not authorize the target");
+    Reset(); WorkerCancelled = TRUE;
+    Check(ConfirmBrokerOverwriteAttributes(nullptr, operation, cancel, FILE_ATTRIBUTE_SYSTEM) == Outcome::Cancelled && !Prompts,
+        "worker cancellation stops before confirmation");
+    Reset(); CProgressDlgData disabled; disabled.CnfrmSHFileOver = FALSE;
+    Check(ConfirmBrokerOverwriteAttributes(nullptr, operation, disabled, FILE_ATTRIBUTE_SYSTEM) == Outcome::Finished && !Prompts && !Waits,
+        "disabled confirmation keeps ordinary behavior");
+
+    bool targetDenied = false;
+    Reset();
+    Check(!ExistingMoveNeedsBroker(false, true, &operation, targetDenied) && !Probes, "ordinary F5 does not enter the early F6 overwrite probe");
+    Check(!ExistingMoveNeedsBroker(true, false, &operation, targetDenied) && !Probes, "a new target keeps its existing move path");
+    Reset(); WriteStatus = DeleteStatus = ERROR_ACCESS_DENIED;
+    Check(ExistingMoveNeedsBroker(true, true, &operation, targetDenied) && targetDenied,
+        "existing protected target invokes the transaction before any clear or deletion");
+    Reset(); WriteStatus = ERROR_ACCESS_DENIED;
+    Check(!ExistingMoveNeedsBroker(true, true, &operation, targetDenied), "ordinary delete-and-recreate remains available when only write is denied");
+    Reset(); DeleteStatus = ERROR_ACCESS_DENIED;
+    Check(!ExistingMoveNeedsBroker(true, true, &operation, targetDenied), "ordinary in-place overwrite remains available when only delete is denied");
+    Reset(); ExistingAttrs = FILE_ATTRIBUTE_READONLY; WriteStatus = DeleteStatus = ERROR_ACCESS_DENIED;
+    Check(!ExistingMoveNeedsBroker(true, true, &operation, targetDenied),
+        "read-only data-open denial alone does not elevate when ordinary attribute clearing remains available");
+    WriteAttrsStatus = ERROR_ACCESS_DENIED;
+    Check(ExistingMoveNeedsBroker(true, true, &operation, targetDenied) && targetDenied,
+        "read-only target with denied attribute access requests the complete transaction");
+    Reset(); SourceStatus = ERROR_ACCESS_DENIED;
+    Check(ExistingMoveNeedsBroker(true, true, &operation, targetDenied) && !targetDenied,
+        "protected source retirement invokes the transaction without claiming the target is protected");
+
+    COperations script; CQuadWord progress; DWORD error = 0;
+    Reset(); CProgressDlgData fresh; UacF7::OverwriteApproval approval;
+    Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error) == Outcome::Finished &&
+        Events == std::vector<std::string>{"prepare", "conflict", "hidden", "execute"} && approval.captured,
+        "first replacement requires ordinary conflict then Hidden/System approval before elevation");
+    Reset();
+    Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error) == Outcome::Finished &&
+        Events == std::vector<std::string>{"prepare", "execute"}, "exact-revision retry reuses both existing confirmations");
+    Reset(); CurrentRevision = 2;
+    Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error) == Outcome::Finished &&
+        Events == std::vector<std::string>{"prepare", "conflict", "hidden", "execute"},
+        "changed target revision asks both questions before dispatch");
+    Reset(); approval = {}; ConflictAnswer = IDCANCEL;
+    Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error) == Outcome::Cancelled &&
+        !Prompts && !Executions && !approval.captured, "conflict Cancel stops before Hidden/System or UAC");
+    Reset(); Answer = IDB_SKIP;
+    Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error) == Outcome::Skipped &&
+        !Executions && !approval.captured, "Hidden/System Skip stops before UAC or mutation");
+    Reset(); fresh.OverwriteAll = TRUE;
+    Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error) == Outcome::Finished &&
+        Events == std::vector<std::string>{"prepare", "hidden", "execute"}, "ordinary Overwrite All does not bypass Hidden/System approval");
+    Reset(); CProgressDlgData injected; injected.ConflictDecisionInjected = TRUE;
+    operation.ScannedTargetRevision.attributes = FILE_ATTRIBUTE_ARCHIVE; IdentityValid = false;
+    Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, injected, approval, error) == Outcome::Finished &&
+        injected.ConflictTargetChanged && Events.empty() && !Executions,
+        "changed Scan Ahead identity requeues without mutation or progress accounting");
+    Reset(); PreparationAvailable = false;
+    Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error) == Outcome::Unavailable &&
+        !Prompts && !Executions, "ineligible overwrite retains the ordinary error flow");
+    std::printf("%d checks, %d failures\n", Checks, Failures);
+    return Failures ? 1 : 0;
+}

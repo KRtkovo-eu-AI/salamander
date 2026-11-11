@@ -1,5 +1,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Keep verified move copies pending with their exact attributes and destination security. | Share read-only rollback and staged publication with F6 overwrite. | | GPT-6.1 Sol |
+| 2026-11-11 | Stream large attributed overwrite inputs and their named streams. | Remove native overwrite snapshot limits without changing ZIP extraction. | | GPT-6.1 Sol |
 | 2026-11-11 | Stream native copies beyond the snapshot budget and preserve ordinary attributes. | Keep read-only staging rollback armed without widening ZIP or EFS contracts. | | GPT-6.1 Sol |
 | 2026-11-09 | Hold the overwrite journal at copy publication. | Coordinate the final rename without locking during data transfer. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Carry the known total alongside copy progress. | Use the verified manifest or raw stream size when available. | | GPT-6.1 Sol (Codex) |
@@ -520,7 +522,7 @@ inline DWORD CopyOverwriteStreams(HANDLE source, const CopySourceLocation& locat
                                   HANDLE connection, ULONGLONG deadline, const CopyProgress* progress = nullptr)
 {
     std::vector<DataStream> inventory;
-    DWORD error = ReadDataStreams(source, inventory);
+    DWORD error = ReadDataStreams(source, inventory, UacF7::maxNativeCopyBytes);
     if (error)
         return error;
     const bool named = inventory.size() > 1;
@@ -537,7 +539,7 @@ inline DWORD CopyOverwriteStreams(HANDLE source, const CopySourceLocation& locat
             continue;
         }
         StreamHandle input(nullptr, CloseHandle);
-        if ((error = OpenDataStream(location.parent, location.leaf, stream, location.identity, false, input)))
+        if ((error = OpenDataStream(location.parent, location.leaf, stream, location.identity, false, input, false, false, true)))
             return error;
         inputs.push_back(std::move(input));
     }
@@ -563,8 +565,8 @@ inline DWORD CopyOverwriteStreams(HANDLE source, const CopySourceLocation& locat
     }
 
     std::vector<DataStream> current;
-    if ((error = ReadDataStreams(source, current)) || current != inventory ||
-        (error = ReadDataStreams(stage, current)) || current != inventory)
+    if ((error = ReadDataStreams(source, current, UacF7::maxNativeCopyBytes)) || current != inventory ||
+        (error = ReadDataStreams(stage, current, UacF7::maxNativeCopyBytes)) || current != inventory)
         return error ? error : ERROR_FILE_INVALID;
     return ERROR_SUCCESS;
 }
@@ -576,9 +578,15 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                             StreamPolicy policy = StreamPolicy::RequireDefault,
                             const CopySourceLocation* location = nullptr, bool preserveCompression = false,
                             const CopySecuritySnapshot* copySecurity = nullptr,
-                            StreamHandle* moveTarget = nullptr, DWORD moveCompressionAttributes = 0,
-                            const CopyProgress* progress = nullptr, const PublicationGate* gate = nullptr)
+                            StreamHandle* moveTarget = nullptr, DWORD moveAttributes = 0,
+                            const CopyProgress* progress = nullptr, const PublicationGate* gate = nullptr,
+                            bool pendingPublication = false, PSECURITY_DESCRIPTOR destinationSecurity = nullptr,
+                            bool destinationAudit = true)
 {
+    if ((pendingPublication && !moveTarget) ||
+        (!destinationAudit && (!pendingPublication || !destinationSecurity)) ||
+        (destinationSecurity && (!pendingPublication || !moveTarget || copySecurity || protection)))
+        return ERROR_INVALID_PARAMETER;
     if (moveTarget && (*moveTarget || policy == StreamPolicy::IgnoreNamed || copySecurity ||
         (policy == StreamPolicy::PreserveNamed && (!location || !location->lockedInputs || !location->lockedInventory))))
         return ERROR_INVALID_PARAMETER;
@@ -588,7 +596,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return ERROR_INVALID_PARAMETER;
     DWORD allowedAttributes = UacF7::nativeCopyAttributes;
     if (preserveCompression)
-        allowedAttributes = moveTarget ? UacF7::compressedCopyAttributes : UacF7::nativeCompressedCopyAttributes;
+        allowedAttributes = UacF7::nativeCompressedCopyAttributes;
     else if (moveTarget)
         allowedAttributes = UacF7::crossVolumeMoveAttributes;
     else if (location && policy == StreamPolicy::PreserveNamed)
@@ -596,9 +604,9 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     DWORD error = ReadPlainMetadata(source, basic, false, policy, allowedAttributes);
     if (error)
         return error;
-    const DWORD expectedAttributes = moveCompressionAttributes ? moveCompressionAttributes : basic.FileAttributes;
-    if (moveCompressionAttributes && (!moveTarget || !preserveCompression ||
-        ((expectedAttributes ^ basic.FileAttributes) & ~FILE_ATTRIBUTE_ARCHIVE)))
+    const DWORD expectedAttributes = moveAttributes ? moveAttributes : basic.FileAttributes;
+    if (moveAttributes && (!moveTarget ||
+        ((expectedAttributes ^ basic.FileAttributes) & ~(FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_NORMAL))))
         return ERROR_FILE_INVALID;
     USHORT format = COMPRESSION_FORMAT_NONE;
     if (preserveCompression)
@@ -665,8 +673,10 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     PSECURITY_DESCRIPTOR stageDescriptor = protection ? protection->File() : nullptr;
     if (copySecurity)
         stageDescriptor = copySecurity->Descriptor();
+    if (destinationSecurity)
+        stageDescriptor = destinationSecurity;
     if ((error = StageFile(targetParent, rawTarget, stageName, !inputs.empty(),
-                           stageDescriptor, preserveCompression || moveTarget)) != ERROR_SUCCESS)
+                           stageDescriptor, preserveCompression || moveTarget, destinationSecurity && destinationAudit)) != ERROR_SUCCESS)
         return error;
     StreamHandle target(rawTarget, CloseHandle);
     if (protection && (error = protection->Check(target.get(), false)) != ERROR_SUCCESS)
@@ -755,8 +765,9 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     // Follow the ordinary copy behavior when the exact-attribute option is off.
     targetBasic = basic;
     targetBasic.ChangeTime.QuadPart = 0;
-    targetBasic.FileAttributes = preserveCompression ? expectedAttributes & ~FILE_ATTRIBUTE_COMPRESSED
-                                                     : CopiedAttributes(basic.FileAttributes);
+    targetBasic.FileAttributes = (preserveCompression || moveAttributes)
+                                    ? expectedAttributes & ~FILE_ATTRIBUTE_COMPRESSED
+                                    : CopiedAttributes(basic.FileAttributes);
     if (!targetBasic.FileAttributes)
         targetBasic.FileAttributes = FILE_ATTRIBUTE_NORMAL;
     if (targetBasic.FileAttributes & FILE_ATTRIBUTE_READONLY)
@@ -812,7 +823,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     if ((error = UacRenameLeaf::Detail::NativeRename(target.get(), targetParent, targetName)) != ERROR_SUCCESS)
         return error;
 
-    if (preserveCompression)
+    if (preserveCompression || moveAttributes)
     {
         // NTFS can set Archive during rename. The exclusive handle still owns the
         // delete-on-close file, so a failure here discards the incomplete result.
@@ -831,9 +842,12 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     // A failure or process exit before the commit discards the staged file.
     if (moveTarget && !FlushFileBuffers(target.get()))
         return GetLastError();
-    FILE_DISPOSITION_INFO_EX commit{FILE_DISPOSITION_FLAG_ON_CLOSE};
-    if (!SetFileInformationByHandle(target.get(), FileDispositionInfoEx, &commit, sizeof(commit)))
-        return GetLastError();
+    if (!pendingPublication)
+    {
+        FILE_DISPOSITION_INFO_EX commit{FILE_DISPOSITION_FLAG_ON_CLOSE};
+        if (!SetFileInformationByHandle(target.get(), FileDispositionInfoEx, &commit, sizeof(commit)))
+            return GetLastError();
+    }
     if (moveTarget)
         *moveTarget = std::move(target);
     return ERROR_SUCCESS;

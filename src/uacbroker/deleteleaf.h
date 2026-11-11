@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Retire a read-only copied source only while its exact destination is pinned. | Keep F6 receipt identity checks and avoid clearing source attributes. | | GPT-6.1 Sol |
 | 2026-11-11 | Delete verified objects with common attributes without clearing ReadOnly. | Use atomic disposition and retain strict copied-source retirement. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Classify supported links from their attributes and reparse tag. | Share link type validation between listing and deletion. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Delete only the verified empty directory by its exact handle. | Leave tree traversal and confirmations in the native worker. | #731 | GPT-6.1 Sol |
@@ -82,7 +83,7 @@ inline DWORD DeleteOpenedLeaf(HANDLE file, const FILE_ID_INFO& expectedSource, U
     if (error)
         return error;
     // F6 source retirement keeps its existing receipt and representation contract.
-    if (copiedSource && !UacF7::IsPlainDeleteFile(attributes))
+    if (copiedSource && !UacF7::IsNativePlainCopyFile(attributes))
         return ERROR_NOT_SUPPORTED;
     // Detach the verified name on close even while the host retains its identity handle.
     // The atomic flag avoids clearing ReadOnly on cancellation or a failed unlink.
@@ -112,15 +113,28 @@ inline DWORD DeleteCopiedSource(const std::wstring& source, const std::wstring& 
     if (!UacRenameLeaf::Detail::SameSource(actualTarget, expectedTarget))
         return ERROR_FILE_INVALID;
 
-    const HANDLE input = CreateFileW(source.c_str(), DELETE | FILE_READ_ATTRIBUTES, 0, nullptr,
+    HANDLE input = CreateFileW(source.c_str(), DELETE | FILE_READ_ATTRIBUTES, 0, nullptr,
                                       OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
     if (input == INVALID_HANDLE_VALUE)
     {
         error = GetLastError();
         return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND ? ERROR_FILE_INVALID : error;
     }
-    const std::unique_ptr<void, decltype(&CloseHandle)> sourceHandle(input, CloseHandle);
-    return DeleteOpenedLeaf(input, expectedSource, UacF7::Operation::Delete, true);
+    std::unique_ptr<void, decltype(&CloseHandle)> sourceHandle(input, CloseHandle);
+    DWORD attributes = 0;
+    error = ValidateOpenedLeaf(input, expectedSource, UacF7::Operation::Delete, attributes);
+    if (error)
+        return error;
+    if (attributes & FILE_ATTRIBUTE_READONLY)
+    {
+        sourceHandle.reset();
+        input = CreateFileW(source.c_str(), DELETE | FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES, 0, nullptr,
+                            OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        if (input == INVALID_HANDLE_VALUE)
+            return GetLastError();
+        sourceHandle.reset(input);
+    }
+    return DeleteOpenedLeaf(sourceHandle.get(), expectedSource, UacF7::Operation::Delete, true);
 }
 
 inline DWORD DeleteVerifiedLeaf(HANDLE parent, const UacDirectoryLeaf::ParentIdentity& expectedParent,

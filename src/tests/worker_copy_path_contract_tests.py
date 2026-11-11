@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Cover shared copy and move overwrite routing. | Preserve listed source identity and move completion in the common retry. | #731 | GPT-6.1 Sol |
 # | 2026-11-11 | Follow the shared operation selector for compressed moves. | Preserve the exact MoveCompressed route after removing duplicate host selection. | #731 | GPT-6.1 Sol |
 # | 2026-11-11 | Check opened source identities and exact tree-copy consent. | Cover the protected tree regression and avoid a second application prompt. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Guard the error reported when the copy broker is unavailable. | Retain the original file-system error in the ordinary fallback. | #731 | GPT-6.1 Sol |
@@ -168,9 +169,10 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertLess(target.index("install.MatchesProcess"), target.index("CaptureChildId("))
         self.assertIn("identityFromListing = transferring", target)
         prepared = section(broker, "bool PreparedTransfer::PrepareSource(", "bool CaptureMoveFileIdentity(")
-        self.assertIn("operation == Operation::CopyOverwrite ? Operation::Copy : operation", prepared)
+        self.assertIn("const Operation listedOperation = TransferJobFamily(operation)", prepared)
         replacement = section(broker, "bool PreparedTransfer::PrepareOverwrite(", "OverwriteApproval PreparedTransfer::Approval()")
-        self.assertIn("PrepareSource(sourcePath, Operation::CopyOverwrite, listedSource)", replacement)
+        self.assertIn("moving ? Operation::MoveOverwrite : Operation::CopyOverwrite", replacement)
+        self.assertIn("listedSource", replacement)
         self.assertIn("CaptureOverwriteRevision(target.source, overwriteTarget)", replacement)
         move = section(worker, "BOOL DoMoveFile(", "if (!copyAsEncrypted")
         self.assertIn("(!dir && (op->OpFlags & OPFL_UAC_TRANSFER_LISTED))", move)
@@ -209,7 +211,8 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertIn("return copyAttributes ? Operation::MoveCompressed : Operation::Move;", selector)
         self.assertNotIn("OPFL_COPY_ADS", eligible.replace("(op.OpFlags & OPFL_COPY_ADS)", "", 1))
         self.assertIn("moving && !directory && !request.IsCrossVolumeMove()", transfer)
-        self.assertIn("OPFL_UAC_TRANSFER_SOURCE | OPFL_COPY_ADS", transfer)
+        self.assertIn("!UacF7::IsNativePlainCopyFile(op.Attr)", transfer)
+        self.assertNotIn("OPFL_UAC_TRANSFER_SOURCE | OPFL_COPY_ADS", transfer)
     def test_atomic_directory_move_is_a_separate_same_volume_retry(self):
         worker = text("worker.cpp")
         transfer = section(worker, "static bool TryTransferWithBroker(", "static bool PrepareWorkerOverwrite(")
@@ -351,7 +354,8 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertIn("operation, listedSource, deferred)", transfer)
         worker = section(code, "BOOL DoCopyFile(COperation* op", "BOOL DoMoveFile(")
         pending = section(worker, "if (deferred ||", "BOOL tgtNameCaseCorrected")
-        self.assertIn("!deferred && !isMove", pending)
+        self.assertIn("!deferred && !copyAsEncrypted", pending)
+        self.assertIn("outcome == SourceOverwriteResult::Finished && isMove && skip", pending)
         self.assertIn("TryTransferWithBroker(", pending)
         self.assertIn("return TRUE;", pending)
         execute = section(code, "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Verify read-only retirement keeps its exact destination receipt guard. | Reject stale destination identities and preserve the copied object. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Exercise permanent deletion of attributed NTFS objects. | Verify atomic ReadOnly handling, no-follow links and preserved failure state. | #731 | GPT-6.1 Sol |
 */
 #include "../uacbroker/deleteleaf.h"
@@ -260,9 +261,26 @@ int wmain(int argc, wchar_t** argv)
     const auto sourcePin = Open(copied), targetPin = Open(destination);
     if (!sourcePin || !targetPin || UacRenameLeaf::Detail::ReadSourceIdentity(sourcePin.get(), sourceId) ||
         UacRenameLeaf::Detail::ReadSourceIdentity(targetPin.get(), targetId)) return 2;
+    DWORD sourceAttributes = 0, receiptTargetAttributes = 0;
+    if (!Attributes(sourcePin.get(), sourceAttributes) || !Attributes(targetPin.get(), receiptTargetAttributes)) return 2;
+    FILE_ID_INFO staleTarget = targetId;
+    staleTarget.FileId.Identifier[0] ^= 1;
+    error = UacDeleteLeaf::DeleteCopiedSource(copied, destination, sourceId, staleTarget);
+    Check(error == ERROR_FILE_INVALID && Exists(copied) && Exists(destination) &&
+              SameAttributes(sourcePin.get(), sourceAttributes) && SameAttributes(targetPin.get(), receiptTargetAttributes),
+          "stale destination receipt preserves the ReadOnly source and target", error);
     error = UacDeleteLeaf::DeleteCopiedSource(copied, destination, sourceId, targetId);
-    Check(error == ERROR_NOT_SUPPORTED && Exists(copied) && Exists(destination),
-          "copied-source retirement retains its strict original contract", error);
+    FILE_ID_INFO remainingTarget{};
+    const auto targetData = Open(destination, GENERIC_READ);
+    char actual[sizeof("preserve-the-target")]{};
+    DWORD received = 0;
+    Check(error == ERROR_SUCCESS && !Exists(copied) && Exists(destination) &&
+              SameAttributes(sourcePin.get(), sourceAttributes) && SameAttributes(targetPin.get(), receiptTargetAttributes) &&
+              !UacRenameLeaf::Detail::ReadSourceIdentity(targetPin.get(), remainingTarget) &&
+              UacRenameLeaf::Detail::SameSource(targetId, remainingTarget) && targetData &&
+              ReadFile(targetData.get(), actual, sizeof(actual), &received, nullptr) && received == sizeof(actual) &&
+              std::memcmp(actual, "preserve-the-target", sizeof(actual)) == 0,
+          "verified ReadOnly retirement preserves the exact destination and content", error);
 
     Check(!UacF7::IsEligibleDeleteFile(FILE_ATTRIBUTE_REPARSE_POINT) &&
               !UacF7::IsEligibleDeleteFile(FILE_ATTRIBUTE_OFFLINE) && !UacF7::IsEligibleDeleteFile(FILE_ATTRIBUTE_DEVICE) &&

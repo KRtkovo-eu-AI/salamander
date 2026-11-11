@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Route native overwrites and protected read-only moves through one transaction. | Keep conflict decisions and prevent separate elevated target deletion. | | GPT-6.1 Sol |
 // | 2026-11-11 | Route native large-file transfers through shared eligibility. | Offer UAC without applying snapshot limits to streamed file copies. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Pass explicit retry to the leaf consent dialog. | Allow the user to reconsider a previous refusal from the usual error dialog. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Use prepared delete identities for all direct selection types. | Keep a failed identity preparation in the error flow and allow only exact verified retry. | #731 | GPT-6.1 Sol |
@@ -6003,7 +6004,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
     const ULONGLONG expectedSize = directoryCopy ? 0 : op.FileSize.Value;
     if (!request.Prepare(op.SourceNameW, op.TargetNameW, expectedSize, operation, listedSource, deferred) ||
         (moving && !directory && !request.IsCrossVolumeMove() && !listedSource &&
-         ((op.OpFlags & (OPFL_UAC_TRANSFER_SOURCE | OPFL_COPY_ADS)) != 0 || !UacF7::IsPlainCopyFile(op.Attr))))
+         !UacF7::IsNativePlainCopyFile(op.Attr)))
     {
         if (listedSource || deferred)
             error = ERROR_NOT_SUPPORTED;
@@ -6022,12 +6023,12 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
 static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
                                    const CProgressDlgData& dlgData, UacF7::PreparedTransfer& request)
 {
-    if (op.Opcode != ocCopyFile || !(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) ||
+    if ((op.Opcode != ocCopyFile && op.Opcode != ocMoveFile) || !(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) ||
         script.OverwriteOlder || script.CopySecurity || script.CopyAttrs || script.IgnoreTransferAds ||
         (dlgData.ConflictDecisionInjected &&
          (dlgData.InjectedConflictType != cmctFileExists || !op.ScannedTargetRevision.attributes)) ||
         !op.SourceNameWValid || !op.TargetNameWValid ||
-        (op.OpFlags & OPFL_AS_ENCRYPTED) || !UacF7::IsPlainCopyFile(op.Attr))
+        (op.OpFlags & OPFL_AS_ENCRYPTED) || !UacF7::IsNativePlainCopyFile(op.Attr))
         return false;
     BOOL limited = FALSE;
     DWORD limit = 0;
@@ -6036,16 +6037,43 @@ static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
     if ((op.OpFlags & OPFL_UAC_TRANSFER_LISTED) && (!listed || !listed->Request))
         return false;
     return !limited && request.PrepareOverwrite(op.SourceNameW, op.TargetNameW, op.FileSize.Value,
-                                                 listed ? listed->Request.get() : nullptr) &&
+                                                 listed ? listed->Request.get() : nullptr, op.Opcode == ocMoveFile) &&
            (!dlgData.ConflictDecisionInjected ||
             UacF7::SameFileRevision(op.ScannedTargetRevision, request.Approval().revision));
 }
 
 enum class SourceOverwriteResult { Unavailable, Failed, Finished, Skipped, Cancelled };
 
+// Use the existing Hidden/System conflict dialog for both ordinary targets and
+// identity-bound broker replacements. No elevated operation skips this choice.
+static SourceOverwriteResult ConfirmBrokerOverwriteAttributes(HWND progress, const COperation& op,
+                                                              CProgressDlgData& data, DWORD attributes)
+{
+    using Outcome = SourceOverwriteResult;
+    if (!(attributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) ||
+        data.OverwriteHiddenAll || !data.CnfrmSHFileOver)
+        return Outcome::Finished;
+    WaitForSingleObject(data.WorkerNotSuspended, INFINITE);
+    if (*data.CancelWorker)
+        return Outcome::Cancelled;
+    if (data.SkipAllSystemOrHidden)
+        return Outcome::Skipped;
+    int answer = IDCANCEL;
+    char* details[] = {reinterpret_cast<char*>(&answer), LoadStr(IDS_CONFIRMFILEOVERWRITING),
+                      op.TargetName, LoadStr(IDS_WANTOVERWRITESHFILE)};
+    SendMessage(progress, WM_USER_DIALOG, 2, reinterpret_cast<LPARAM>(details));
+    if (answer == IDB_ALL)
+        data.OverwriteHiddenAll = TRUE;
+    if (answer == IDYES || answer == IDB_ALL)
+        return Outcome::Finished;
+    if (answer == IDB_SKIPALL)
+        data.SkipAllSystemOrHidden = TRUE;
+    return answer == IDB_SKIP || answer == IDB_SKIPALL ? Outcome::Skipped : Outcome::Cancelled;
+}
+
 static SourceOverwriteResult TryOverwriteDeniedSource(HWND progress, COperation& op, COperations& script,
                                                       CQuadWord& totalDone, CProgressDlgData& dlgData,
-                                                      UacF7::OverwriteApproval& approval, DWORD& error)
+                                                      UacF7::OverwriteApproval& approval, DWORD& error, bool targetDenied = false)
 {
     using Outcome = SourceOverwriteResult;
     if (dlgData.SkipAllFileOpenOut)
@@ -6102,9 +6130,15 @@ static SourceOverwriteResult TryOverwriteDeniedSource(HWND progress, COperation&
             dlgData.OverwriteAll = TRUE;
     }
 
+    if (!approval.captured || targetChanged)
+    {
+        const auto attributes = ConfirmBrokerOverwriteAttributes(progress, op, dlgData, overwrite.Approval().revision.attributes);
+        if (attributes != Outcome::Finished)
+            return attributes;
+    }
     approval = overwrite.Approval();
     BOOL success = FALSE;
-    if (!ExecuteWorkerTransfer(progress, op, script, totalDone, dlgData, success, overwrite, error))
+    if (!ExecuteWorkerTransfer(progress, op, script, totalDone, dlgData, success, overwrite, error, targetDenied))
         return Outcome::Failed;
     return success ? Outcome::Finished : Outcome::Cancelled;
 }
@@ -6150,11 +6184,15 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
                           (listedSource || deferred ? ERROR_NOT_SUPPORTED : ERROR_ACCESS_DENIED);
             if (!invalidSrcName && !invalidTgtName)
             {
-                const auto outcome = !deferred && !isMove && !copyAsEncrypted
+                const auto outcome = !deferred && !copyAsEncrypted
                     ? TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone, dlgData, approvedOverwrite, error)
                     : SourceOverwriteResult::Unavailable;
                 if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                {
+                    if (outcome == SourceOverwriteResult::Finished && isMove && skip)
+                        *skip = TRUE; // Includes a requeued conflict; never retire the source here.
                     return outcome == SourceOverwriteResult::Finished;
+                }
                 if (outcome == SourceOverwriteResult::Skipped)
                     break;
                 BOOL success = FALSE;
@@ -6934,6 +6972,48 @@ COPY_AGAIN:
                                                    mustDeleteFileBeforeOverwrite != 1 &&
                                                    (targetExists || err == ERROR_ACCESS_DENIED) &&
                                                    PrepareWorkerOverwrite(*op, *script, dlgData, overwrite);
+                        const DWORD existingAttributes = isMove && targetExists && op->TargetNameWValid
+                            ? GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameW.c_str()).c_str())
+                            : INVALID_FILE_ATTRIBUTES;
+                        const bool protectedExistingMoveTarget = isMove && targetExists && op->TargetNameWValid &&
+                            ((existingAttributes != INVALID_FILE_ATTRIBUTES && (existingAttributes & FILE_ATTRIBUTE_READONLY) &&
+                              ProbeLocalElevationAccess(op->TargetNameW, FILE_WRITE_ATTRIBUTES, false) == ERROR_ACCESS_DENIED) ||
+                             (existingAttributes != INVALID_FILE_ATTRIBUTES && !(existingAttributes & FILE_ATTRIBUTE_READONLY) &&
+                              ProbeLocalElevationAccess(op->TargetNameW, FILE_WRITE_DATA, false) == ERROR_ACCESS_DENIED &&
+                              ProbeLocalElevationAccess(op->TargetNameW, DELETE, false) == ERROR_ACCESS_DENIED));
+                        const bool protectedExistingMove = isMove && targetExists &&
+                            (protectedExistingMoveTarget || (op->SourceNameWValid &&
+                             ProbeLocalElevationAccess(op->SourceNameW,
+                                 DELETE | ((op->Attr & FILE_ATTRIBUTE_READONLY) ? FILE_WRITE_ATTRIBUTES : 0), false) == ERROR_ACCESS_DENIED));
+                        if (!transferError && !copyAsEncrypted && (err == ERROR_ACCESS_DENIED || protectedExistingMove) && !dlgData.SkipAllFileOpenOut)
+                        {
+                            // F6 needs an exclusive source seal, so release the ordinary read
+                            // handle before the one transaction that replaces and retires it.
+                            if (isMove && in != INVALID_HANDLE_VALUE)
+                            {
+                                HANDLES(CloseHandle(in));
+                                in = INVALID_HANDLE_VALUE;
+                            }
+                            const auto outcome = TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone,
+                                                                          dlgData, approvedOverwrite, err,
+                                                                          err == ERROR_ACCESS_DENIED || protectedExistingMoveTarget);
+                            if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                            {
+                                if (in != INVALID_HANDLE_VALUE)
+                                    HANDLES(CloseHandle(in));
+                                if (outcome == SourceOverwriteResult::Finished && isMove && skip)
+                                    *skip = TRUE;
+                                return outcome == SourceOverwriteResult::Finished;
+                            }
+                            if (outcome == SourceOverwriteResult::Skipped)
+                            {
+                                if (in != INVALID_HANDLE_VALUE)
+                                    HANDLES(CloseHandle(in));
+                                goto SKIP_OPEN;
+                            }
+                            if (outcome == SourceOverwriteResult::Failed || isMove)
+                                goto NORMAL_ERROR;
+                        }
                         if (transferError)
                             goto NORMAL_ERROR;
                         if (dlgData.ConflictDecisionInjected && op->ScannedTargetRevision.attributes &&
@@ -7048,6 +7128,15 @@ COPY_AGAIN:
                                 // CREATE_NEW denied access before the ordinary conflict path.
                                 if (!canElevateOverwrite)
                                     goto NORMAL_ERROR;
+                                const auto decision = ConfirmBrokerOverwriteAttributes(hProgressDlg, *op, dlgData,
+                                                                                       overwrite.Approval().revision.attributes);
+                                if (decision != SourceOverwriteResult::Finished)
+                                {
+                                    HANDLES(CloseHandle(in));
+                                    if (decision == SourceOverwriteResult::Skipped)
+                                        goto SKIP_OPEN;
+                                    goto CANCEL_OPEN;
+                                }
                                 BOOL success = FALSE;
                                 if (ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, overwrite, err, true))
                                 {
@@ -7148,15 +7237,32 @@ COPY_AGAIN:
                                         err = GetLastError();
                                         if (chAttr)
                                             SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), attr);
-                                        if (canElevateOverwrite && !chAttr && err == ERROR_ACCESS_DENIED)
+                                        if (err == ERROR_ACCESS_DENIED && !copyAsEncrypted && !dlgData.SkipAllFileOpenOut)
                                         {
-                                            BOOL success = FALSE;
-                                            if (ExecuteWorkerTransfer(hProgressDlg, *op, *script, totalDone, dlgData, success, overwrite, err, true))
+                                            // A successful attribute clear invalidates the earlier
+                                            // revision. Prepare it again after restoring attributes;
+                                            // a changed target still requires the native confirmation.
+                                            if (isMove && in != INVALID_HANDLE_VALUE)
                                             {
                                                 HANDLES(CloseHandle(in));
-                                                return success;
+                                                in = INVALID_HANDLE_VALUE;
                                             }
-                                            approvedOverwrite = overwrite.Approval();
+                                            const auto outcome = TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone,
+                                                                                          dlgData, approvedOverwrite, err, true);
+                                            if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                                            {
+                                                if (in != INVALID_HANDLE_VALUE)
+                                                    HANDLES(CloseHandle(in));
+                                                if (outcome == SourceOverwriteResult::Finished && isMove && skip)
+                                                    *skip = TRUE;
+                                                return outcome == SourceOverwriteResult::Finished;
+                                            }
+                                            if (outcome == SourceOverwriteResult::Skipped)
+                                            {
+                                                if (in != INVALID_HANDLE_VALUE)
+                                                    HANDLES(CloseHandle(in));
+                                                goto SKIP_OPEN;
+                                            }
                                         }
                                         errDeletingFile = TRUE;
                                         goto NORMAL_ERROR;
@@ -7189,9 +7295,9 @@ COPY_AGAIN:
                                             dlgData.ConflictTargetChanged = TRUE;
                                             return TRUE;
                                         }
-                                        chAttr = TRUE;
-                                        canElevateOverwrite = false;
-                                        SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), 0);
+                                        chAttr = SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), 0);
+                                        if (chAttr)
+                                            canElevateOverwrite = false; // A successful metadata change invalidates the captured revision.
                                     }
                                     // GENERIC_READ for 'out' slows asynchronous copying from disk to network (measured 95 MB/s instead of 111 MB/s on Win7 x64 GLAN)
                                     DWORD access = GENERIC_WRITE | (script->CopyAttrs ? GENERIC_READ : 0);
@@ -7419,11 +7525,15 @@ COPY_AGAIN:
                 ((!copyAsEncrypted && err == ERROR_ACCESS_DENIED) ||
                  (!isMove && UacF7::IsEncryptedCopyFile(op->Attr) && UacF7::IsEfsCopyFailure(op->Attr, err))))
             {
-                const auto outcome = !isMove && !copyAsEncrypted
+                const auto outcome = !copyAsEncrypted
                     ? TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone, dlgData, approvedOverwrite, err)
                     : SourceOverwriteResult::Unavailable;
                 if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                {
+                    if (outcome == SourceOverwriteResult::Finished && isMove && skip)
+                        *skip = TRUE; // Includes a requeued conflict; never retire the source here.
                     return outcome == SourceOverwriteResult::Finished;
+                }
                 if (outcome == SourceOverwriteResult::Skipped)
                     goto SKIP_OPEN_IN;
                 BOOL success = FALSE;
@@ -7515,6 +7625,7 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
         MakeCopyWithBackslashIfNeeded(targetNameMvDir, targetNameMvDirCopy);
 
         int autoRetryAttempts = 0;
+        UacF7::OverwriteApproval approvedMoveOverwrite{};
         CSrcSecurity srcSecurity;
         BOOL srcSecurityErr = FALSE;
         if (!invalidName && script->CopySecurity) // should we copy NTFS security permissions?
@@ -7711,6 +7822,24 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                 if (invalidName)
                     err = ERROR_INVALID_NAME;
                 bool elevatedAttemptFailed = false;
+                if (!dir && !invalidName && !*novellRenamePatch && !dlgData.SkipAllMoveErrors &&
+                    (err == ERROR_ACCESS_DENIED ||
+                     ((err == ERROR_FILE_EXISTS || err == ERROR_ALREADY_EXISTS) && op->TargetNameWValid && op->SourceNameWValid &&
+                      (ProbeLocalElevationAccess(op->TargetNameW, DELETE, false) == ERROR_ACCESS_DENIED ||
+                       ProbeLocalElevationAccess(op->SourceNameW, DELETE, false) == ERROR_ACCESS_DENIED))))
+                {
+                    const auto outcome = TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone, dlgData,
+                                                                   approvedMoveOverwrite, err, true);
+                    if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                        return outcome == SourceOverwriteResult::Finished;
+                    if (outcome == SourceOverwriteResult::Skipped)
+                        goto SKIP_OPEN;
+                    if (outcome == SourceOverwriteResult::Failed)
+                    {
+                        elevatedAttemptFailed = true;
+                        goto NORMAL_ERROR;
+                    }
+                }
                 if (err == ERROR_ACCESS_DENIED && !invalidName && !*novellRenamePatch && !dlgData.SkipAllMoveErrors)
                 {
                     DWORD transferError = ERROR_SUCCESS;
@@ -7976,6 +8105,9 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                         dlgData.ConflictTargetChanged = TRUE;
                         return TRUE;
                     }
+                    UacF7::PreparedTransfer moveOverwrite;
+                    if (PrepareWorkerOverwrite(*op, *script, dlgData, moveOverwrite))
+                        approvedMoveOverwrite = moveOverwrite.Approval();
                     WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL), attr); // make sure it can be deleted ...
                     while (1)
                     {
@@ -7989,6 +8121,17 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                         else
                         {
                             DWORD err2 = GetLastError();
+                            if (err2 == ERROR_ACCESS_DENIED && !dlgData.SkipAllOverwriteErr)
+                            {
+                                const auto outcome = TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone, dlgData,
+                                                                               approvedMoveOverwrite, err2, true);
+                                if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                                    return outcome == SourceOverwriteResult::Finished;
+                                if (outcome == SourceOverwriteResult::Skipped)
+                                    goto SKIP_OVERWRITE_ERROR;
+                                if (outcome == SourceOverwriteResult::Failed)
+                                    elevatedAttemptFailed = true;
+                            }
                             if (err2 == ERROR_FILE_NOT_FOUND)
                                 break; // if the user already deleted the file manually, everything is fine
 
@@ -8091,6 +8234,34 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
             return FALSE;
         }
 
+        if (!copyAsEncrypted && (op->Attr & FILE_ATTRIBUTE_READONLY) && op->SourceNameWValid &&
+            ProbeLocalElevationAccess(op->SourceNameW, DELETE | FILE_WRITE_ATTRIBUTES, false) == ERROR_ACCESS_DENIED &&
+            !dlgData.SkipAllMoveErrors)
+        {
+            DWORD error = ERROR_ACCESS_DENIED;
+            UacF7::OverwriteApproval approval{};
+            const auto outcome = TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone, dlgData, approval, error);
+            if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
+                return outcome == SourceOverwriteResult::Finished;
+            BOOL success = FALSE;
+            if (outcome == SourceOverwriteResult::Unavailable &&
+                TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, error))
+                return success;
+            if (outcome != SourceOverwriteResult::Unavailable)
+            {
+                if (outcome == SourceOverwriteResult::Skipped)
+                {
+                    totalDone += op->Size;
+                    script->SetProgressSize(totalDone);
+                    SetProgress(hProgressDlg, 0, CaclProg(totalDone, script->TotalSize), dlgData);
+                    return TRUE;
+                }
+                // An attempted transaction must never fall through to an ordinary
+                // copy followed by deletion of an unverified source.
+                SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, TRUE);
+                return FALSE;
+            }
+        }
         BOOL skip;
         MoveCopyReceipt receipt;
         const bool capture = (op->OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && !script->CopyAttrs && !script->CopySecurity &&
