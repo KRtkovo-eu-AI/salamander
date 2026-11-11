@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record the Branch build and ZIP design boundary. | Separate local build evidence and unresolved archive recovery tradeoffs. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record partial Branch results on explicit Stop. | Distinguish completed local tests from still-open elevated scanning and VM checks. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record late F6 completion with Overwrite Older. | Separate locally checked scope and unchanged native deletion from pending VM evidence. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Clarify ZIP update and extraction limits. | Avoid presenting copy-based archive updates as general large-ZIP support. | #731 | GPT-6.1 Terra |
@@ -507,6 +508,8 @@ Další řez musí bezpečně zachytit identitu schváleného kořene i každé 
 
 Místně prošlo 30 behaviorálních kontrol v Debug i Release, včetně skutečného skeneru nad dvěma čitelnými sourozenci a simulovaných reentrantních a alokačních chyb; 32 dalších kontraktových kontrol prošlo. Skutečné odepřené ACL, novou frontu chráněných větví, UAC ani VM tento test nedokládá. Implementace R2 a společná VM akceptace zůstávají otevřené.
 
+Host commitu `f82c6d0e` se sestavil pro x64 Debug i Release; logy jsou v `C:\Samandarin\builds\uac-f82c6d0e-host`. Release má 5 780 992 B, o 4 096 B více než čistý host `73d37c59`. Broker se v tomto řezu neměnil; paměť a interaktivní VM zkouška zůstávají otevřené.
+
 Pro pozdější cílené ověření zůstávají také chyby během `FindNextFile` po úspěšném začátku výpisu (`fileswn6.cpp:3256–3302`, `find.cpp:2409–2414`). Běžné chybové větve bez elevace jsou v kódu doložené, konkrétní lokální NTFS reprodukce pozdního odepření zatím není. Find navíc omezuje schválený průchod na 4 096 záznamů a 32 úrovní (`find.cpp:2044,2092–2115`). Jde o omezení úplnosti výsledku, nikoli důkaz vyřešeného přístupu.
 
 Bezpečnostní hranice nejsou automaticky novými eskalačními úkoly. Jiný SID Koše, chybějící EFS klíč, odepření i správci, síťové oprávnění, neověřený reparse či mount předek a nedůvěryhodná instalace potřebují konkrétní vysvětlení a zachování dat. Nesmí se obcházet změnou ACL, vlastníka, potlačením identity ani opakovanou stejnou výzvou. Přesný bezpečný rozsah případného rozšíření se stanoví před implementací.
@@ -582,6 +585,8 @@ Pro D3 audit potvrdil, že současný společný callback Shellu neumí po čás
 Z1 (ZIP z chráněného panelu) zůstává otevřená. Rozpracovaná hostitelská změna byla stažena: při zavření tabu, vnořené změně cesty či odpojení pluginu během souhlasu a předání výpisu nebyla doložena životnost nepřevzatých `pluginData`. Nový návrh musí vyvážit globální pozastavení refresh i při zániku tabu, chránit commit panelu a držet ZIP plugin až do předání nebo uvolnění jeho dat. Metadata archivu je třeba brát z ověřené brokerové revize, pokud běžné získání atributů selže. Panelový `WIN32_FIND_DATAW` sám neprokazuje ID souboru od okamžiku zobrazení. Ponechané nativní testy ověřují existující kontrolu identity čtecího handle a současný souhlas ZIP, nikoli opravu Z1. Neověřený patch je pouze podkladem v `C:\Samandarin\builds\uac-z1-20261111\unverified-host-z1.patch`.
 
 U Z2 současná úprava chráněného ZIPu vytváří úplnou pracovní kopii a omezuje ji na 64 GiB. Nelze ji tedy považovat za obecné řešení uživatelova požadavku na velké archivy bez neefektivního kopírování. Z3 nelze bezpečně vyřešit prostým přesměrováním běžného ZIPu na existující chráněnou extrakci: ta má samostatné velikostní limity a odmítá existující cílové kořeny, takže nezachová běžný dialog přepisu ani Skip/Cancel. Další návrh musí zachovat omezenou paměť, nativní konflikty, ověření identity a integrity položek i bezpečný částečný výsledek. Jde o statickou analýzu; implementace a společný VM test zůstávají otevřené.
+
+Možný postup Z3 je po jediné cílené autorizaci streamovat jednotlivé položky do ověřené pracovní položky v cílovém podstromu a teprve po kontrole CRC, velikosti, rodiče a výsledku nativního dialogu ji zveřejnit; zvlášť je třeba dořešit kolize, přerušení a částečný výsledek. Pro Z2 je třeba výslovně vyřešit rozpor mezi obecnou změnou velkého ZIPu bez úplné kopie a zárukou obnovy po přerušení: bezpečná transakce může v nejhorším případě potřebovat prostor srovnatelný s velikostí změněných původních dat či celé nové verze. Přímý zápis do původního archivu bez takové ochrany zatím není schválen jako bezpečné obecné řešení. Existující blokové čtení položek podporuje jen některé ZIP metody; ostatní nesmí být mylně označeny za chybu přístupu.
 
 Samotné `FilesActionInProgress` nestačí jako ochrana ZIP přechodu: nezamezí vnořené změně cesty a smyčka vypínání tabů při odmítnutém zavření nesmí zůstat čekat na nezměněný počet tabů. Případná zápůjčka pluginu proto potřebuje i pravidla pro odložené zavření a změnu konfigurace, vnoření a shutdown. Tyto zásahy vyžadují vlastní regresní testy životnosti, nikoli jen kontrolu načtené DLL.
 
