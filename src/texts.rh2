@@ -1,3 +1,4 @@
+// | 2026-11-11 | Localize distinct incomplete Find reasons. | Report the actual omission without inventing a path or limit. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Explain the protected folder Recycle Bin limitation. | Report unsupported elevation without assuming the item state. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Localize the protected Find limit and incomplete status. | Explain omitted results without implying success. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Reserve the uncertain disk recovery message. | Distinguish preserved backup and journal state. | #731 | GPT-6.1 Terra |
@@ -3378,5 +3379,11 @@
 #define IDS_FIND_ACTIVITY_INCOMPLETE                 14701
 #define IDS_UAC_FIND_SCOPE_LIMIT_CARRIED             14702
 #define IDS_UAC_RECYCLE_DIRECTORY_UNSUPPORTED       14703
+#define IDS_FIND_ACTIVITY_INCOMPLETE_OTHER           14704
+#define IDS_FIND_INCOMPLETE_DIRECTORY_CAPACITY       14705
+#define IDS_FIND_INCOMPLETE_SCAN_BUDGET              14706
+#define IDS_FIND_INCOMPLETE_DEPTH                    14707
+#define IDS_FIND_INCOMPLETE_REPARSE                  14708
+#define IDS_FIND_INCOMPLETE_PROTECTED_FAILURE        14709
 
 #endif // __TEXTS_RH2

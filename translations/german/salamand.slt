@@ -4385,9 +4385,17 @@ SLGINCOMPLETE,""
 14703,1,"Das Verschieben eines geschützten Ordners mit Administratorrechten in den Papierkorb wird noch nicht unterstützt."
 
 [STRINGTABLE 198]
-14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
+14704,1,"Unvollständig (siehe Protokoll)"
+14705,1,"Eine Verzeichnisauflistung hat ihre Kapazität überschritten. Einige Elemente wurden nicht durchsucht."
+14706,1,"Ein geschützter Teilbaum hat sein Elementlimit überschritten. Einige Elemente wurden nicht durchsucht."
+14707,1,"Ein geschützter Teilbaum hat sein Tiefenlimit überschritten. Einige Elemente wurden nicht durchsucht."
+14708,1,"Einige Verknüpfungsziele wurden nicht durchsucht."
+14709,1,"Der Zugriff auf einen Teil eines geschützten Verzeichnisbaums wurde nicht genehmigt oder ist fehlgeschlagen. Einige Elemente wurden nicht durchsucht."
 
 [STRINGTABLE 199]
+14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
+
+[STRINGTABLE 200]
 14992,1,"Konfiguration wird im Dateispeicher gespeichert, bitte warten..."
 14993,1,"Alte Konfiguration wird aus dem Dateispeicher gelöscht, bitte warten..."
 14994,1,"Lese Dateizuordnungen aus dem Dateispeicher..."

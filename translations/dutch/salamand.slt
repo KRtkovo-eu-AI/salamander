@@ -4384,9 +4384,17 @@ SLGINCOMPLETE,""
 14703,1,"Een beveiligde map met beheerdersrechten naar de Prullenbak verplaatsen wordt nog niet ondersteund."
 
 [STRINGTABLE 198]
-14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."
+14704,1,"Onvolledig (zie logboek)"
+14705,1,"Een maplijst overschreed de capaciteit. Sommige items zijn niet doorzocht."
+14706,1,"Een beveiligde substructuur overschreed de itemlimiet. Sommige items zijn niet doorzocht."
+14707,1,"Een beveiligde substructuur overschreed de dieptelimiet. Sommige items zijn niet doorzocht."
+14708,1,"Sommige doelen van koppelingen zijn niet doorzocht."
+14709,1,"Toegang tot een deel van een beveiligde structuur is niet goedgekeurd of mislukt. Sommige items zijn niet doorzocht."
 
 [STRINGTABLE 199]
+14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."
+
+[STRINGTABLE 200]
 14992,1,"Configuratie wordt in de bestandopslag opgeslagen, even geduld..."
 14993,1,"Oude configuratie wordt uit de bestandopslag verwijderd, even geduld..."
 14994,1,"Associaties worden uit de bestandopslag gelezen..."

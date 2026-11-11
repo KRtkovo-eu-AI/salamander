@@ -4384,9 +4384,17 @@ SLGINCOMPLETE,""
 14703,1,"A védett mappa rendszergazdai jogosultsággal történő Lomtárba helyezése még nem támogatott."
 
 [STRINGTABLE 198]
-14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."
+14704,1,"Hiányos (lásd a naplót)"
+14705,1,"Egy könyvtárlistázás túllépte a kapacitását. Egyes elemek nem lettek átvizsgálva."
+14706,1,"Egy védett részfa túllépte az elemek számára vonatkozó korlátot. Egyes elemek nem lettek átvizsgálva."
+14707,1,"Egy védett részfa túllépte a mélységkorlátot. Egyes elemek nem lettek átvizsgálva."
+14708,1,"Egyes hivatkozások céljai nem lettek átvizsgálva."
+14709,1,"Egy védett fa egy részéhez való hozzáférést nem hagyták jóvá, vagy az sikertelen volt. Egyes elemek nem lettek átvizsgálva."
 
 [STRINGTABLE 199]
+14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."
+
+[STRINGTABLE 200]
 14992,1,"Beállítások mentése fájltárolóba, kérem várjon..."
 14993,1,"Régi beállítások törlése fájltárolóból, kérem várjon..."
 14994,1,"Társítások beolvasása fájltárolóból..."

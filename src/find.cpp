@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Report exhausted protected Find scope capacity. | Distinguish the current limit from an access failure. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Use the established UTF-8 or ACP decoding for Find roots. | Keep legacy configuration roots compatible. | #731 | GPT-6.1 Sol |
@@ -903,6 +904,34 @@ void FindProtectedScopeLimitText(bool carried, char* output, size_t capacity) no
     if (_ultoa_s(static_cast<unsigned long>(maxFindProtectedScopes), limit, sizeof(limit), 10) != 0 ||
         !Salamander::LocalizedText::Write(output, capacity, LoadStr(id), limit))
         strncpy_s(output, capacity, GetErrorText(ERROR_BUFFER_OVERFLOW), _TRUNCATE);
+}
+
+int FindIncompleteStatusStringID(unsigned reasons)
+{
+    return reasons == FindIncompleteScopeCapacity ? IDS_FIND_ACTIVITY_INCOMPLETE : IDS_FIND_ACTIVITY_INCOMPLETE_OTHER;
+}
+
+int FindIncompleteReasonStringID(unsigned reason)
+{
+    switch (reason)
+    {
+    case FindIncompleteDirectoryCapacity: return IDS_FIND_INCOMPLETE_DIRECTORY_CAPACITY;
+    case FindIncompleteScanBudget: return IDS_FIND_INCOMPLETE_SCAN_BUDGET;
+    case FindIncompleteScanDepth: return IDS_FIND_INCOMPLETE_DEPTH;
+    case FindIncompleteReparse: return IDS_FIND_INCOMPLETE_REPARSE;
+    case FindIncompleteProtectedFailure: return IDS_FIND_INCOMPLETE_PROTECTED_FAILURE;
+    default: return IDS_FIND_ACTIVITY_INCOMPLETE_OTHER;
+    }
+}
+
+void FindIncompleteReasonText(unsigned reason, char* output, size_t capacity) noexcept
+{
+    if (!output || !capacity)
+        return;
+    if (reason == FindIncompleteScopeCapacity)
+        FindProtectedScopeLimitText(true, output, capacity);
+    else
+        strncpy_s(output, capacity, LoadStr(FindIncompleteReasonStringID(reason)), _TRUNCATE);
 }
 
 static void ReportFindScopeLimit(CGrepData* data, const char* path)

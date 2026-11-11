@@ -18,6 +18,7 @@ def main():
     args = parser.parse_args()
     source, header = read('src/find.cpp'), read('src/find.h')
     dialog = read('src/finddlg1.cpp')
+    log_dialog = read('src/finddlg2.cpp')
     start = block(dialog, 'void CFindDialog::StartSearch(')
     state_start = start.index('    const unsigned previousIncomplete =')
     state_end = start.index('    GrepData.FindDuplicates = FALSE;', state_start)
@@ -35,6 +36,12 @@ def main():
         'FINAL_ACTIVITY': block(header, 'inline CFindActivity FindFinalActivity('),
         'LIMIT_TEST': block(source, 'static bool FindFileConsentLimit('),
         'LIMIT_TEXT': block(source, 'void FindProtectedScopeLimitText('),
+        'STATUS_ID': block(source, 'int FindIncompleteStatusStringID('),
+        'REASON_ID': block(source, 'int FindIncompleteReasonStringID('),
+        'REASON_TEXT': block(source, 'void FindIncompleteReasonText('),
+        'SELECT_LOG_ITEM': block(log_dialog, 'CFindLogDialog::GetSelectedItem()'),
+        'SHOW_LOG': block(log_dialog, 'void CFindDialog::OnShowLog()'),
+        'SUMMARY_ROWS': log_dialog[log_dialog.index('        const unsigned reasons[] = {FindIncompleteScopeCapacity'):log_dialog.index('        if (Log->GetSkippedCount() > 0)', log_dialog.index('        const unsigned reasons[] = {FindIncompleteScopeCapacity'))],
         'REPORT': block(source, 'static void ReportFindScopeLimit('),
         'RETAIN_INCOMPLETE': block(dialog, 'static unsigned RetainFindIncomplete('),
         'FINISH_ITEMS': dialog[dialog.index('DWORD items = FoundFilesListView->GetCount();', dialog.index('void CFindDialog::FinishSearch(')):dialog.index('UpdateStatusBar = TRUE;', dialog.index('DWORD items = FoundFilesListView->GetCount();', dialog.index('void CFindDialog::FinishSearch('))) + len('UpdateStatusBar = TRUE;')],

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Report an incomplete protected Find separately from Stop. | Do not present a capacity-limited search as complete. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Keep long Find results exact across file actions. | Avoid truncated targets and retain inaccessible results. | #731 | GPT-6.1 Sol |
@@ -2079,7 +2080,8 @@ void CFindDialog::SetFindActivity(CFindActivity activity)
 void CFindDialog::UpdateFindActivityPart(BOOL initialize)
 {
     WCHAR text[64] = {};
-    const int length = LoadStringW(HLanguage, GetFindActivityStringID(Activity), text, _countof(text));
+    const int stringID = Activity == CFindActivity::Incomplete ? FindIncompleteStatusStringID(GrepData.IncompleteReasons) : GetFindActivityStringID(Activity);
+    const int length = LoadStringW(HLanguage, stringID, text, _countof(text));
     SIZE size = {};
     HDC dc = HANDLES(GetDC(HStatusBar));
     if (dc != NULL)
@@ -2585,10 +2587,14 @@ void CFindDialog::StartSearch(WORD command)
     const unsigned previousIncomplete = GrepData.IncompleteReasons;
     const unsigned retainIncomplete = RetainFindIncomplete(command, previousIncomplete);
     const auto restoreIncompleteLog = [&] {
-        char reason[1024];
-        FindProtectedScopeLimitText(true, reason, sizeof(reason));
-        Log.Add(FLI_ERROR, reason, nullptr);
-        TBHeader->SetErrorsInfosCount(Log.GetErrorCount(), Log.GetInfoCount());
+        if (previousIncomplete & FindIncompleteScopeCapacity)
+        {
+            char reason[1024];
+            FindProtectedScopeLimitText(true, reason, sizeof(reason));
+            Log.Add(FLI_ERROR, reason, nullptr);
+        }
+        const int errors = Log.GetErrorCount();
+        TBHeader->SetErrorsInfosCount(errors ? errors : 1, Log.GetInfoCount());
     };
     // Keep the reason available even if preparing this search fails.
     Log.Clean();
@@ -2834,7 +2840,7 @@ void CFindDialog::FinishSearch()
     {
         DWORD items = FoundFilesListView->GetCount();
         if (items == 0 && GrepData.IncompleteReasons)
-            SendMessage(HStatusBar, SB_SETTEXT, 1 | SBT_NOBORDERS, (LPARAM)LoadStr(IDS_FIND_ACTIVITY_INCOMPLETE));
+            SendMessage(HStatusBar, SB_SETTEXT, 1 | SBT_NOBORDERS, (LPARAM)LoadStr(FindIncompleteStatusStringID(GrepData.IncompleteReasons)));
         else if (items == 0)
         {
             int msgID = GrepData.FindDuplicates ? IDS_FIND_NO_DUPS_FOUND : IDS_FIND_NO_FILES_FOUND;
@@ -3051,7 +3057,10 @@ void CFindDialog::UpdateListViewItems()
             TBHeader->SetFoundCount(count);
             GrepData.FoundVisibleCount = count;
         }
-        TBHeader->SetErrorsInfosCount(Log.GetErrorCount(), Log.GetInfoCount());
+        const int errors = Log.GetErrorCount();
+        // The worker owns this mask until it exits; summaries must remain reachable even if the bounded log is full.
+        const bool hasSummary = GrepThread == NULL && GrepData.IncompleteReasons != FindIncompleteNone;
+        TBHeader->SetErrorsInfosCount(errors ? errors : hasSummary ? 1 : 0, Log.GetInfoCount());
 
         // when minimized, display the item count in the title
         if (countChanged && IsIconic(HWindow))

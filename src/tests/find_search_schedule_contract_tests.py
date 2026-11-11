@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Keep incomplete summaries reachable after the worker joins. | Preserve the log-only refresh contract without racing the worker. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Check typed Find scope capacity outcomes. | Keep stopped and failed requests distinguishable. | #731 | GPT-6.1 Terra |
 # | 2026-11-10 | Cover exact wide paths and iterative ordinary Find. | Verify wide directory reads, broker routing and UI actions. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Keep Find consent after the synchronous editor dispatch. | Detect modal consent on the wrong UI thread. | #731 | GPT-6.1 Sol |
@@ -123,9 +124,11 @@ def main() -> int:
             "GrepData.FoundVisibleCount = count;")
     require(update.count("ListView_SetItemCountEx(") == 1,
             "an unchanged count must not be republished to the list view")
-    log_header = "TBHeader->SetErrorsInfosCount(Log.GetErrorCount(), Log.GetInfoCount());"
-    require(log_header in update and log_header not in count_update,
-            "a log-only batch must still update the error and information counts")
+    log_header = "TBHeader->SetErrorsInfosCount(errors ? errors : hasSummary ? 1 : 0, Log.GetInfoCount());"
+    require(log_header in update and log_header not in count_update and
+            "const int errors = Log.GetErrorCount();" in update and
+            "GrepThread == NULL && GrepData.IncompleteReasons != FindIncompleteNone" in update,
+            "log-only batches and post-worker incomplete summaries must keep the log accessible")
 
     add_log = function_body(find_cpp, "static void AddFindLog(")
     ordered(add_log, "data->Log->Add(flags, text, path);", "InterlockedExchange(&data->RefreshPending, TRUE);")
@@ -135,7 +138,7 @@ def main() -> int:
             "Find worker log routes must retain owned log delivery")
     show_log = function_body(finddlg2, "void CFindDialog::OnShowLog()")
     ordered(show_log, "CFindLog snapshot;", "Log.CopySnapshotTo(snapshot)",
-            "CFindLogDialog dlg(HWindow, &snapshot);", "dlg.Execute();")
+            "CFindLogDialog dlg(HWindow, &snapshot, reasons);", "dlg.Execute();")
 
     require(start.index("GrepData.StopEvent = HANDLES(CreateEvent(") < start.index("CreateThread("),
             "Find must prepare the broker cancellation event before starting the worker")

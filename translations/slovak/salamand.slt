@@ -4384,9 +4384,17 @@ SLGINCOMPLETE,""
 14703,1,"Presun chránenej zložky do Koša s oprávneniami správcu zatiaľ nie je podporovaný."
 
 [STRINGTABLE 198]
-14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."
+14704,1,"Neúplné (pozri protokol)"
+14705,1,"Výpis adresára prekročil svoju kapacitu. Niektoré položky neboli prehľadané."
+14706,1,"Chránený podstrom prekročil limit počtu položiek. Niektoré položky neboli prehľadané."
+14707,1,"Chránený podstrom prekročil limit hĺbky. Niektoré položky neboli prehľadané."
+14708,1,"Niektoré ciele odkazov neboli prehľadané."
+14709,1,"Prístup k časti chráneného stromu nebol schválený alebo zlyhal. Niektoré položky neboli prehľadané."
 
 [STRINGTABLE 199]
+14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."
+
+[STRINGTABLE 200]
 14992,1,"Ukladanie konfigurácie do súborového úložiska, čakajte prosím..."
 14993,1,"Odstraňovanie starej konfigurácie zo súborového úložiska, čakajte prosím..."
 14994,1,"Prebieha čítanie priradení súborov zo súborového úložiska..."

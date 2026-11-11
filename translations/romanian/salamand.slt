@@ -4384,9 +4384,17 @@ SLGINCOMPLETE,""
 14703,1,"Mutarea unui folder protejat în Coșul de reciclare cu drepturi de administrator nu este încă acceptată."
 
 [STRINGTABLE 198]
-14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."
+14704,1,"Incomplet (vezi jurnalul)"
+14705,1,"O listare de director și-a depășit capacitatea. Unele elemente nu au fost căutate."
+14706,1,"Un subarbore protejat a depășit limita de elemente. Unele elemente nu au fost căutate."
+14707,1,"Un subarbore protejat a depășit limita de adâncime. Unele elemente nu au fost căutate."
+14708,1,"Unele ținte ale legăturilor nu au fost căutate."
+14709,1,"Accesul la o parte a unui arbore protejat nu a fost aprobat sau a eșuat. Unele elemente nu au fost căutate."
 
 [STRINGTABLE 199]
+14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."
+
+[STRINGTABLE 200]
 14992,1,"Salvez configurația în stocarea fișierelor, vă rugăm așteptați..."
 14993,1,"Șterg configurația veche din stocarea fișierelor, vă rugăm așteptați..."
 14994,1,"Citesc asocierile din stocarea fișierelor..."

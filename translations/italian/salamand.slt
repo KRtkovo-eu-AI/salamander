@@ -4384,9 +4384,17 @@ SLGINCOMPLETE,""
 14703,1,"Lo spostamento di una cartella protetta nel Cestino con privilegi di amministratore non è ancora supportato."
 
 [STRINGTABLE 198]
-14991,1,"Lettura associazioni dall'archiviazione file, attendere..."
+14704,1,"Incompleto (vedi registro)"
+14705,1,"Un elenco di directory ha superato la propria capacità. Alcuni elementi non sono stati esaminati."
+14706,1,"Un sottoalbero protetto ha superato il limite di elementi. Alcuni elementi non sono stati esaminati."
+14707,1,"Un sottoalbero protetto ha superato il limite di profondità. Alcuni elementi non sono stati esaminati."
+14708,1,"Alcune destinazioni dei collegamenti non sono state esaminate."
+14709,1,"L’accesso a una parte di un albero protetto non è stato approvato o non è riuscito. Alcuni elementi non sono stati esaminati."
 
 [STRINGTABLE 199]
+14991,1,"Lettura associazioni dall'archiviazione file, attendere..."
+
+[STRINGTABLE 200]
 14992,1,"Salvataggio configurazione nell'archiviazione file, attendere..."
 14993,1,"Eliminazione vecchia configurazione dall'archiviazione file, attendere..."
 14994,1,"Lettura associazioni dall'archiviazione file..."

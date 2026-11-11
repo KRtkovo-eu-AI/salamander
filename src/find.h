@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Track searches limited by protected scope capacity. | Report incomplete results separately from an explicit Stop. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Expose bounded legacy path checks and full focused paths. | Avoid passing long results to legacy fixed buffers. | #731 | GPT-6.1 Sol |
@@ -200,6 +201,9 @@ inline CFindActivity FindFinalActivity(bool stopped, bool incomplete)
 }
 
 int GetFindActivityStringID(CFindActivity activity);
+int FindIncompleteStatusStringID(unsigned reasons);
+int FindIncompleteReasonStringID(unsigned reason);
+void FindIncompleteReasonText(unsigned reason, char* output, size_t capacity) noexcept;
 void FindProtectedScopeLimitText(bool carried, char* output, size_t capacity) noexcept;
 
 class CFindWatchdog;
@@ -551,10 +555,11 @@ class CFindLogDialog : public CCommonDialog
 {
 protected:
     CFindLog* Log;
+    unsigned IncompleteReasons;
     HWND HListView;
 
 public:
-    CFindLogDialog(HWND hParent, CFindLog* log);
+    CFindLogDialog(HWND hParent, CFindLog* log, unsigned incompleteReasons);
 
     virtual void Transfer(CTransferInfo& ti);
 

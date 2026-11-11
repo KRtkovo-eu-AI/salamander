@@ -4386,9 +4386,17 @@ SLGINCOMPLETE,""
 14703,1,"Přesun chráněné složky do Koše s oprávněními správce zatím není podporován."
 
 [STRINGTABLE 198]
-14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
+14704,1,"Neúplné (viz protokol)"
+14705,1,"Výpis adresáře překročil svou kapacitu. Některé položky nebyly prohledány."
+14706,1,"Chráněný podstrom překročil limit počtu položek. Některé položky nebyly prohledány."
+14707,1,"Chráněný podstrom překročil limit hloubky. Některé položky nebyly prohledány."
+14708,1,"Některé cíle odkazů nebyly prohledány."
+14709,1,"Přístup k části chráněného stromu nebyl schválen nebo selhal. Některé položky nebyly prohledány."
 
 [STRINGTABLE 199]
+14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
+
+[STRINGTABLE 200]
 14992,1,"Ukládání konfigurace do souborového úložiště, čekejte prosím..."
 14993,1,"Odstraňování staré konfigurace ze souborového úložiště, čekejte prosím..."
 14994,1,"Probíhá čtení přidružení souborů ze souborového úložiště..."

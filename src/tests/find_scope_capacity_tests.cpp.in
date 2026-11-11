@@ -21,6 +21,10 @@ constexpr DWORD FLI_ERROR = 1;
 constexpr int IDS_UAC_FIND_SCOPE_LIMIT = 1;
 constexpr int IDS_UAC_FIND_SCOPE_LIMIT_CARRIED = 2;
 constexpr int IDS_FIND_ACTIVITY_INCOMPLETE = 3, IDS_FIND_NO_DUPS_FOUND = 4, IDS_FIND_NO_FILES_FOUND = 5;
+constexpr int IDS_FIND_ACTIVITY_INCOMPLETE_OTHER = 6, IDS_FIND_INCOMPLETE_DIRECTORY_CAPACITY = 7,
+              IDS_FIND_INCOMPLETE_SCAN_BUDGET = 8, IDS_FIND_INCOMPLETE_DEPTH = 9,
+              IDS_FIND_INCOMPLETE_REPARSE = 10, IDS_FIND_INCOMPLETE_PROTECTED_FAILURE = 11,
+              IDS_FINDLOG_ERROR = 12, IDS_ERRORTITLE = 13;
 constexpr int SB_SETTEXT = 1, SBT_NOBORDERS = 2;
 constexpr WORD CM_FIND_APPEND = 100, CM_FIND_INTERSECT = 101, CM_FIND_SUBTRACT = 102;
 struct CMaskGroup {};
@@ -38,6 +42,13 @@ struct CGrepData {
 };
 const char* LoadStr(int id) {
     if (id == IDS_FIND_ACTIVITY_INCOMPLETE) return "Incomplete (admin limit)";
+    if (id == IDS_FIND_ACTIVITY_INCOMPLETE_OTHER) return "Incomplete (see log)";
+    if (id == IDS_FIND_INCOMPLETE_DIRECTORY_CAPACITY) return "Directory capacity";
+    if (id == IDS_FIND_INCOMPLETE_SCAN_BUDGET) return "Scan budget";
+    if (id == IDS_FIND_INCOMPLETE_DEPTH) return "Depth";
+    if (id == IDS_FIND_INCOMPLETE_REPARSE) return "Reparse";
+    if (id == IDS_FIND_INCOMPLETE_PROTECTED_FAILURE) return "Protected failure";
+    if (id == IDS_FINDLOG_ERROR) return "Error";
     if (id == IDS_FIND_NO_DUPS_FOUND) return "No duplicates";
     if (id == IDS_FIND_NO_FILES_FOUND) return "No files";
     return id == IDS_UAC_FIND_SCOPE_LIMIT_CARRIED ? "Earlier limit %s; items were not searched." :
@@ -49,16 +60,62 @@ void AddFindLog(CGrepData* data, DWORD, const char* text, const char* path) {
 }
 @@LIMIT_TEST@@
 @@LIMIT_TEXT@@
+@@STATUS_ID@@
+@@REASON_ID@@
+@@REASON_TEXT@@
 @@REPORT@@
 @@RETAIN_INCOMPLETE@@
+struct CFindLogItem {};
 struct FakeLog {
     std::vector<std::string> rows, paths;
     void Clean() { rows.clear(); paths.clear(); }
     void Add(DWORD, const char* text, const char* path) { rows.emplace_back(text); paths.emplace_back(path ? path : ""); }
     int GetErrorCount() const { return static_cast<int>(rows.size()); }
     int GetInfoCount() const { return 0; }
+    int GetCount() const { return static_cast<int>(rows.size()); }
+    const CFindLogItem* Get(int) const { static CFindLogItem item; return &item; }
+    bool CopySnapshotTo(FakeLog& target) const { target.rows = rows; target.paths = paths; return true; }
 };
-struct FakeHeader { void SetErrorsInfosCount(int, int) {} };
+struct FakeHeader { int errors = 0; void SetErrorsInfosCount(int value, int) { errors = value; } };
+struct FakeLvi { int iItem = 0, iSubItem = 0, iImage = 0; };
+static std::vector<std::string> summaryRows;
+#define ListView_InsertItem(hwnd, item) 0
+#define ListView_SetItemText(hwnd, index, column, text) do { if ((column) == 1) summaryRows.emplace_back(text); } while (0)
+using CFindLog = FakeLog;
+static int selectedLogRow = -1, executedDialogs = 0;
+static unsigned dialogReasons = 0;
+static int dialogLogRows = -1;
+#define CALL_STACK_MESSAGE1(message) do {} while (0)
+#define LVNI_SELECTED 0
+#define ListView_GetNextItem(hwnd, start, flags) selectedLogRow
+struct CFindLogDialog {
+    FakeLog* Log = nullptr;
+    HWND HListView = nullptr;
+    CFindLogDialog() = default;
+    CFindLogDialog(HWND, FakeLog* log, unsigned reasons) : Log(log), shownReasons(reasons) {}
+    unsigned shownReasons = 0;
+    void Execute() { ++executedDialogs; dialogReasons = shownReasons; dialogLogRows = Log->GetCount(); }
+    const CFindLogItem* GetSelectedItem();
+};
+const CFindLogItem*
+@@SELECT_LOG_ITEM@@
+#define SalMessageBox(hwnd, text, title, flags) 0
+struct CFindDialog {
+    FakeLog Log;
+    HANDLE GrepThread = nullptr;
+    CGrepData GrepData;
+    HWND HWindow = nullptr;
+    void OnShowLog();
+};
+@@SHOW_LOG@@
+struct FakeSummary {
+    unsigned IncompleteReasons = 0;
+    void Draw(int existing) {
+        int i = existing;
+        FakeLvi lvi; char buff[4000];
+@@SUMMARY_ROWS@@
+    }
+};
 struct FakeList { DWORD count = 0; DWORD GetCount() const { return count; } };
 static std::string statusText;
 #undef SendMessage
@@ -233,6 +290,40 @@ int main() {
       ReportFindScopeLimit(&accumulated, "C:\\scope\\33");
       Check(accumulated.IncompleteReasons == (FindIncompleteScanBudget | FindIncompleteScopeCapacity),
             "reporting scope capacity accumulates rather than replacing another reason"); }
+    for (unsigned reasons = 1; reasons < 64; ++reasons) {
+        const int status = FindIncompleteStatusStringID(reasons);
+        Check(status == (reasons == FindIncompleteScopeCapacity ? IDS_FIND_ACTIVITY_INCOMPLETE : IDS_FIND_ACTIVITY_INCOMPLETE_OTHER),
+              "each reason combination has truthful compact status");
+        FakeSummary summary; summary.IncompleteReasons = reasons;
+        for (int existing : {0, 301}) {
+            summaryRows.clear(); summary.Draw(existing);
+            const char* expectedTexts[] = {"Earlier limit 32; items were not searched.", "Directory capacity",
+                                           "Scan budget", "Depth", "Reparse", "Protected failure"};
+            std::vector<std::string> expected;
+            for (unsigned bit = 0; bit < 6; ++bit) if (reasons & (1u << bit)) expected.emplace_back(expectedTexts[bit]);
+            Check(summaryRows == expected, "actual summary rows preserve every reason independently of log capacity");
+        }
+        FakeDialog dialog; dialog.GrepData.IncompleteReasons = reasons;
+        Check(dialog.StartState(CM_FIND_APPEND, true, true) && dialog.GrepData.IncompleteReasons == reasons &&
+              (!!(reasons & FindIncompleteScopeCapacity) == !dialog.Log.rows.empty()),
+              "actual carry does not invent the scope limit for unrelated reasons");
+    }
+    { CFindDialog dialog; dialog.GrepData.IncompleteReasons = FindIncompleteScanDepth;
+      executedDialogs = 0; dialog.OnShowLog();
+      Check(executedDialogs == 1 && dialogReasons == FindIncompleteScanDepth && dialogLogRows == 0,
+            "actual log command opens summary even without a stored log entry");
+      dialog.GrepThread = reinterpret_cast<HANDLE>(1); dialog.OnShowLog();
+      Check(executedDialogs == 1, "actual log command does not read reasons or open empty summary while worker runs");
+      dialog.GrepThread = nullptr; dialog.Log.rows.resize(301); dialog.OnShowLog();
+      Check(executedDialogs == 2 && dialogReasons == FindIncompleteScanDepth && dialogLogRows == 301,
+            "actual log command preserves bounded records and passes separate summary"); }
+    { FakeLog log; log.rows.resize(301); CFindLogDialog logDialog; logDialog.Log = &log;
+      selectedLogRow = 300; Check(logDialog.GetSelectedItem() != nullptr, "real log row still maps to original entry");
+      selectedLogRow = 301; Check(logDialog.GetSelectedItem() == nullptr, "summary row cannot invoke Focus or Ignore");
+      log.rows.clear(); selectedLogRow = 0;
+      Check(logDialog.GetSelectedItem() == nullptr, "summary without log records cannot invoke a path action"); }
+    { FakeDialog dialog; dialog.GrepData.IncompleteReasons = FindIncompleteScanDepth; dialog.SetResultStatus();
+      Check(statusText == "Incomplete (see log)", "depth alone does not claim a 32-scope limit"); }
     Check(FindFileConsentLimit(ERROR_ACCESS_DENIED, 0, 0) &&
           !FindFileConsentLimit(ERROR_ACCESS_DENIED, 0, 1) &&
           !FindFileConsentLimit(ERROR_ACCESS_DENIED, FILE_ATTRIBUTE_ENCRYPTED, 0) &&

@@ -4384,9 +4384,17 @@ SLGINCOMPLETE,""
 14703,1,"Todavía no se admite mover una carpeta protegida a la Papelera de reciclaje con privilegios de administrador."
 
 [STRINGTABLE 198]
-14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
+14704,1,"Incompleto (ver registro)"
+14705,1,"Una lista de directorio superó su capacidad. Algunos elementos no se buscaron."
+14706,1,"Un subárbol protegido superó el límite de elementos. Algunos elementos no se buscaron."
+14707,1,"Un subárbol protegido superó el límite de profundidad. Algunos elementos no se buscaron."
+14708,1,"No se buscaron algunos destinos de enlaces."
+14709,1,"El acceso a una parte de un árbol protegido no se aprobó o falló. Algunos elementos no se buscaron."
 
 [STRINGTABLE 199]
+14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
+
+[STRINGTABLE 200]
 14992,1,"Guardando configuración en el almacenamiento de archivos, espere por favor..."
 14993,1,"Eliminando configuración antigua del almacenamiento de archivos, espere por favor..."
 14994,1,"Leyendo asociaciones del almacenamiento de archivos..."
