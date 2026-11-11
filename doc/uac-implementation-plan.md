@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record Find diagnostic build evidence. | Separate native builds from pending UAC and UI acceptance. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record explicit Find capacity diagnostics. | Preserve partial-result lineage without claiming the limit is removed. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record size batch build evidence. | Keep local build verification distinct from the pending interactive test. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record batch-wide declined size consent. | Preserve available results without widening approval across roots. | #731 | GPT-6.1 Terra |
@@ -508,6 +509,8 @@ Host commitu `f9e6fde3` se sestavil pro x64 Debug i Release; logy jsou v `C:\Sam
 **R5 — diagnostika kapacity Findu.** Naplnění stávající fronty 32 chráněných požadavků a vyčerpání samostatného rozpočtu chráněných souborů při hledání duplicit se hlásí jako limit a neúplný výsledek, nikoli jako samotná chyba přístupu. Deduplikace již zařazeného požadavku se provede před kontrolou kapacity; Stop má přednost. Navazující Append/Intersect/Subtract převezmou neúplnost i její souhrnný důvod. Při Subtract se podle dosavadní sémantiky neověřený řádek ponechá, což neprokazuje neshodu obsahu. Stav upozorní na limit i při nedostupném detailním logu. Kapacita ani počet výzev tím nejsou odstraněny.
 
 Místně prošlo v Debug i Release 96 kontrol skutečné fronty a vybraných řídicích větví s testovacími dvojníky; skutečná extrahovaná traversal smyčka zachovala běžné výsledky a rozlišila limit od Stop. Prošly také kontroly všech 11 překladů a placeholderů. Celé okno Find, skutečné UAC a složené scénáře čekají na společnou VM akceptaci. Vymezená jedna relace pro celý vybraný kořen, více kořenů a stránkovaný průchod nad stávajícími limity zůstávají otevřené.
+
+Host a anglický jazykový modul commitu `f1cd25c5` se sestavily pro x64 Debug i Release; logy jsou v `C:\Samandarin\builds\uac-f1cd25c5-host`. Release host má 5 784 576 B, o 3 072 B více než host `f9e6fde3`. Broker se neměnil. Měření paměti a společná VM akceptace zůstávají otevřené.
 
 **T5 — zastaralá revize a Scan Ahead.** Místní test skutečného dispatcheru kontroluje, že stejný soubor s odlišným časem v předané revizi skončí `ERROR_FILE_INVALID` a zachová zdroj i cíl. Test skutečného těla workeru se simulovaným selháním ověření identity navíc ověřuje, že ani rozhodnutí Overwrite All nespustí broker pro neověřený cíl. To není oprava opakovaného potvrzení ani test skutečného odepřeného ACL. Zůstává nutné předat aktuální revizi z ověřené relace do nové generace konfliktu Scan Ahead, znovu získat nativní rozhodnutí a po něm bezpečně ověřit cílovou cestu až do provedení. Dosavadní přepočet konfliktu při lokálním `ACCESS_DENIED` neumí zachovat ověřenou identitu; otevřené zůstává také připnutí předků proti přesunu během modality. VM důkaz zatím neexistuje.
 
