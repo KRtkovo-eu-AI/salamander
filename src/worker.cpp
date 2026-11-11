@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Permit a verified late F6 retry after an ordinary Overwrite Older copy. | Preserve the native local deletion and ignored-time decisions. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Route ignored-stream F5 overwrites through typed UAC. | Keep the approved conflict and copy only the default stream. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify the singleton special-file timestamp request. | Reject attribute edits and preserve existing compression, sparsity and encryption. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Show a listed target revision in native overwrite confirmation. | Offer a verified retry when opening the target for metadata is denied. | #731 | GPT-6.1 Terra |
@@ -6766,9 +6767,9 @@ COPY_AGAIN:
 
                     if (out != NULL)
                     {
+                        BOOL ignoreSetFileTimeErr = FALSE;
                         if (!ignoreGetFileTimeErr) // only if we did not ignore the error while reading the file time (nothing to set otherwise)
                         {
-                            BOOL ignoreSetFileTimeErr = FALSE;
                             while (!ignoreSetFileTimeErr &&
                                    !SetFileTime(out, NULL /*&creation*/, NULL /*&lastAccess*/, &lastWrite))
                             {
@@ -6817,7 +6818,10 @@ COPY_AGAIN:
                                 }
                             }
                         }
-                        if (moveReceipt && moveReceipt->sourceCaptured)
+                        // The newly supported Overwrite Older retry cannot
+                        // prove a deliberately ignored timestamp outcome.
+                        if (moveReceipt && moveReceipt->sourceCaptured &&
+                            (!script->OverwriteOlder || (!ignoreGetFileTimeErr && !ignoreSetFileTimeErr)))
                             moveReceipt->captured = UacF7::CaptureMoveFileIdentity(out, moveReceipt->target, true);
                         if (!HANDLES(CloseHandle(out)))
                         {
@@ -8308,7 +8312,7 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
         BOOL skip;
         MoveCopyReceipt receipt;
         const bool capture = (op->OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && !script->CopyAttrs && !script->CopySecurity &&
-                             !script->OverwriteOlder && !copyADS && !copyAsEncrypted &&
+                             !copyADS && !copyAsEncrypted &&
                              !(op->OpFlags & (OPFL_SRCPATH_IS_NET | OPFL_TGTPATH_IS_NET)) &&
                              op->SourceNameWValid && op->TargetNameWValid && UacF7::IsPlainDeleteFile(op->Attr) &&
                              op->FileSize.Value <= UacF7::maxCrossVolumeMoveBytes;
@@ -8320,7 +8324,10 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
         {
             const auto sourcePath = WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL);
             const bool verified = receipt.captured && receipt.source.serial != receipt.target.serial;
-            if (!verified)
+            // Overwrite Older did not previously use the receipt on the local
+            // path. Preserve that path and use the receipt only after denial.
+            const bool verifyLocalDeletion = verified && !script->OverwriteOlder;
+            if (!verifyLocalDeletion)
                 WorkerClearReadOnlyW(sourcePath);
             bool protectedCompletion = false;
             while (1)
@@ -8328,7 +8335,7 @@ BOOL DoMoveFile(COperation* op, HWND hProgressDlg, void* buffer,
                 DWORD err = ERROR_ACCESS_DENIED;
                 if (!protectedCompletion)
                 {
-                    if (verified)
+                    if (verifyLocalDeletion)
                         err = UacF7::DeleteCopiedMoveSource(sourcePath, WorkerOperationPathW(op->TargetName, op->TargetNameW.c_str()),
                                                             receipt.source, receipt.target);
                     else

@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record late F6 completion with Overwrite Older. | Separate locally checked scope and unchanged native deletion from pending VM evidence. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Clarify ZIP update and extraction limits. | Avoid presenting copy-based archive updates as general large-ZIP support. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record stale overwrite and Scan Ahead regression coverage. | Keep safe refusal distinct from renewed consent and path-lifetime work. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record Branch View polling lifetime test foundation. | Separate existing controller evidence from the unimplemented elevated scan. | #731 | GPT-6.1 Terra |
@@ -560,6 +561,10 @@ Stejně sestavené x64 Release binárky před/po: `salamand.exe` 5 770 240 → 5
 Stav: **T3 zůstává otevřené**. Pokus v lokálním commitu `66f1a10e` přidal protokol 29 a brokerové ověření CopyAttrs po běžné kopii. Nezávislá revize zjistila, že tento postup nepřebírá uživatelovu výslovnou volbu Ignore: běžný přesun ji respektuje, ale broker při neshodných a ignorovaných atributech zdroj ponechá. Produkční rozšíření proto bylo následně vráceno; platný protokol je opět **28** a původní běžná sémantika zůstává zachovaná. Lokální odstranění před brokerem navíc kontroluje identity, ale neporovnává celý obsah kopie; obecně ověřené dokončení tím není doloženo.
 
 Tehdejší testy pokusu pokrývaly běžné soubory Normal/Archive bez ADS a EFS: SourceGuard prošel **145 kontrolami** v každé konfiguraci, transport **315** a worker přepisu **132**. Kontrolu Ignore a celou dvousvazkovou operaci nepokrývaly, proto neprokazují dokončení T3. Historické logy jsou v `C:\Samandarin\builds\uac-t3-attrs-20261111` a `C:\Samandarin\builds\uac-t3-source-Debug.log` / `uac-t3-source-Release.log`. Pro další řešení je nutné navázat konkrétně zobrazené a schválené hodnoty Ignore na stabilní identitu a revizi cíle, ověřit obsah a respektovat uživatelovo rozhodnutí i bez zbytečné elevace. Read-only, ADS a CopySecurity vyžadují další zajištění cílových proudů a bezpečnou obnovu po pádu.
+
+**Navazující řez T3 — Overwrite Older.** Po dokončené běžné kopii obyčejného souboru bez ADS, EFS, CopyAttrs a CopySecurity lze při odepřeném smazání zdroje požádat o existující ověřené dokončení F6. Při Ignore chyby čtení nebo nastavení času se pro tuto nově podporovanou volbu potvrzení kopie nepoužije; Retry a Skip zachovávají původní rozhodnutí. Běžné lokální mazání zůstává beze změny a samo není chráněné proti souběžné záměně identity. Elevovaný krok znovu ověřuje identity a revizi, porovnává obsah a při neznámém výsledku se automaticky neopakuje.
+
+Místní důkaz: řídicí test vytažených skutečných větví workeru prošel pěti kontrolami v Debug i Release včetně resetu při novém pokusu, Ignore a simulovaného odpojení; brokerový retry v tomto harnessu je nahrazen stubem. Existující nativní SourceGuard test na skutečných dočasných souborech prošel v obou konfiguracích včetně odlišného obsahu, ID, storna a odpojení. Skutečné Overwrite Older UI, přesun mezi dvěma svazky a systémový UAC souhlas čekají na společnou VM akceptaci. CopyAttrs, CopySecurity, ADS a EFS zůstávají samostatně otevřené.
 
 Při vráceném pokusu měly stejně sestavené Release binárky `salamand.exe` 5 772 800 → 5 772 800 B a `uacbroker.exe` 1 397 760 → 1 398 272 B. Nejde o velikosti finálního sestavení; měření paměti zůstává součástí společné VM akceptace.
 
