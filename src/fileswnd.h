@@ -3,6 +3,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Return prepared editor state to Find. | Let the owner thread handle the system prompt. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Accept the original Find editor context. | Keep ordinary editor callers on their existing route. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep the Find viewer context in one argument. | Pass the original row context without adding parallel parameters. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Accept the Find result context for viewing. | Keep named F3 distinct from other viewer entry points. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Pass the current directory-size scope down the walk. | Limit shared elevation to one selected tree. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Share the access probe through the worker header. | Use it for both panel preview and move denial. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Share the local access preview with permanent deletion. | Apply the same fixed-volume and non-following checks as F2 and F7. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Distinguish F2 consent from Quick Rename. | Enable elevated plain-directory rename only from the F2 dialog. | #731 | GPT-6.1 Sol (Codex) |
@@ -33,6 +38,9 @@ struct CExplorerPropertyCache;
 #include <vector>
 #include <memory>
 #include "uacbroker/f7pilot.h"
+
+BOOL ConfirmElevatedFileEdit(HWND owner, const std::wstring& document, const UacF7::ElevatedEditor& editor);
+void LaunchElevatedFileEdit(HWND owner, const std::wstring& document, const UacF7::ElevatedEditor& editor);
 #include "common/zipread.h"
 
 #ifndef SAL_MAX_PATH
@@ -94,6 +102,7 @@ struct CChangeCaseData // data for atChangeCase
 };
 
 class CCopyMoveData;
+struct CSizeScanScope;
 
 struct CTmpDropData
 {
@@ -1525,8 +1534,8 @@ public:
     void Convert(); // converts character sets and line endings
     // handlerID specifies which viewer/editor should open the file; 0xFFFFFFFF = no preference
     void ViewFile(char* name, BOOL altView, DWORD handlerID, int enumFileNamesSourceUID,
-                  int enumFileNamesLastFileIndex);           // name == NULL -> item under the cursor in the panel
-    void EditFile(char* name, DWORD handlerID = 0xFFFFFFFF); // name == NULL -> item under the cursor in the panel
+                  int enumFileNamesLastFileIndex, const COpenViewerData* found = nullptr); // NULL name uses the panel caret
+    void EditFile(char* name, DWORD handlerID = 0xFFFFFFFF, COpenEditorData* found = nullptr); // name == NULL -> item under the cursor in the panel
     void EditNewFile();
     // fills a popup based on available viewers
     void FillViewWithMenu(CMenuPopup* popup);
@@ -1584,7 +1593,7 @@ public:
                         DWORD sourceDirAttr, CChangeCaseData* chCaseData, BOOL firstLevelDir,
                         BOOL onlySize, BOOL fastDirectoryMove, CCriteriaData* filterCriteria,
                         BOOL* canDelUpperDirAfterMove, FILETIME* sourceDirTime,
-                        DWORD srcAndTgtPathsFlags);
+                        DWORD srcAndTgtPathsFlags, CSizeScanScope* sizeScope = nullptr);
     BOOL BuildScriptFile(COperations* script, CActionType type, char* sourcePath,
                          BOOL sourcePathSupADS, char* targetPath, CTargetPathState targetPathState,
                          BOOL targetPathSupADS, BOOL targetPathIsFAT32, char* mask, char* fileName,

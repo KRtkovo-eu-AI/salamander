@@ -10,6 +10,9 @@
 // | 2026-11-07 | Reserve the elevation confirmation for rename. | Prompt with the source and destination paths. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Reserve F7 elevation message IDs. | Localize consent and uncertain-result handling. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Reserve the compatibility alias size explanation. | Localize the zero-size exclusion. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Localize protected directory content comparison consent. | Show the exact subtree and operation before elevation. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Define the size consent scope label. | Localize automatic reuse for protected folders. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Reserve the directory rename confirmation. | Localize unexpected access denial in modal F2. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Reserve the protected empty-directory removal prompt. | Describe the exact scope before requesting Windows consent. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Move UAC strings to an unused resource range. | Preserve upstream association and lock-recovery messages. | #731 | Codex |
@@ -3361,5 +3364,8 @@
 #define IDS_UAC_COPY_COMPRESSED_SECURITY_CONFIRM     14689
 #define IDS_UAC_DELETE_EMPTY_DIRECTORY_CONFIRM       14690
 #define IDS_UAC_RENAME_DIRECTORY_CONFIRM             14691
+#define IDS_UAC_SIZE_CONSENT_SCOPE                   14694
+#define IDS_UAC_COMPARE_CONTENT_CONFIRM              14695
+#define IDS_UAC_SIZE_COMPAT_ALIAS                    14696
 
 #endif // __TEXTS_RH2

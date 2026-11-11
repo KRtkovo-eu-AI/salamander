@@ -4309,13 +4309,13 @@ SLGINCOMPLETE,""
 14635,1,"Acces refuzat. Mutați acest fișier ca administrator?"
 14636,1,"Finalizarea mutării nu a putut fi confirmată. Verificați sursa și destinația înainte de a încerca din nou."
 14637,1,"Inventarul subarborelui protejat"
-14639,1,"Subarborele nu a putut fi parcurs complet. Rezultatele parțiale nu sunt afișate."
+14639,1,"La calcularea dimensiunii nu s-a putut parcurge întregul arbore de directoare."
 
 [STRINGTABLE 194]
 14640,1,"Fișiere: "
 14641,1,"Subfoldere: "
 14642,1,"Dimensiune logică (octeți): "
-14643,1,"Copiați acest folder și conținutul său la destinația înregistrată ca administrator?"
+14643,1,"Copiați acest folder și conținutul său ca administrator?"
 14644,1,"Copierea folderului sau curățarea nu a putut fi confirmată. Verificați destinația înainte de a reîncerca."
 14645,1,"Acces refuzat. Setați datele și orele solicitate pentru acest dosar ca administrator?"
 14646,1,"Conexiunea cu procesul auxiliar s-a întrerupt înainte de confirmarea rezultatului. Verificați datele și orele dosarului înainte de a încerca din nou."
@@ -4368,6 +4368,9 @@ SLGINCOMPLETE,""
 [STRINGTABLE 197]
 14688,1,"Acces refuzat. Mutați acest fișier în Coșul dvs. de reciclare ca administrator?"
 14689,1,"Acces refuzat. Copiați acest fișier ca administrator, păstrând compresia NTFS, proprietarul, grupul și permisiunile explicite?"
+14694,1,"Această aprobare se aplică și folderelor protejate din:"
+14695,1,"Acces refuzat. Citiți ca administrator conținutul fișierelor de sub această cale pentru această comparație?"
+14696,1,"Această legătură de compatibilitate Windows a fost omisă. Contribuie cu 0 octeți la total."
 
 [STRINGTABLE 198]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."

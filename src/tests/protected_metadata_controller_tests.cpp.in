@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Exercise explicit retry after refused delete consent. | Keep a fresh elevation request tied to the worker Retry action. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Verify failed delete preparation through the shared worker. | Skip safely without a file operation or elevation. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Exercise verified deletion through the shared executor. | Keep ordinary traversal and stop when Windows consent is cancelled. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Exercise first-denial metadata confirmation and retry. | Ensure a shield never triggers elevation after local success or identity failure. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Verify metadata ownership, preview and worker outcomes. | Prevent false shields and legacy fallthrough for protected identities. | #731 | GPT-6.1 Sol (Codex) |
@@ -23,6 +25,7 @@ static DWORD LocalError = ERROR_SUCCESS, ElevatedError = ERROR_SUCCESS;
 static BOOL WorkerCancelled = FALSE;
 static int Retries = 0;
 static std::vector<bool> PromptShieldedOk;
+static std::vector<bool> PromptRetryDeclined;
 static char FileName[] = "file.txt";
 static std::wstring LastPath;
 static UacF7::MetadataChange LastChange{};
@@ -82,6 +85,7 @@ static LRESULT SendTestMessage(HWND, UINT message, WPARAM kind, LPARAM data)
     {
         auto& prompt = *reinterpret_cast<UacF7::LeafPrompt*>(data);
         PromptShieldedOk.push_back(prompt.shieldedOk);
+        PromptRetryDeclined.push_back(prompt.retryDeclined);
         prompt.result.error = ElevatedError;
     }
     else
@@ -108,7 +112,7 @@ static void Reset()
     ProbeCalls = OfferCalls = PrepareCalls = Executions = 0;
     ProbeResult = ERROR_ACCESS_DENIED; Offer = PrepareAllowed = true;
     LocalError = ElevatedError = ERROR_SUCCESS; WorkerCancelled = FALSE; Retries = 0;
-    PromptShieldedOk.clear(); LastPath.clear(); LastChange = {}; ExecutedRequest = nullptr;
+    PromptShieldedOk.clear(); PromptRetryDeclined.clear(); LastPath.clear(); LastChange = {}; ExecutedRequest = nullptr;
 }
 int main()
 {
@@ -164,23 +168,36 @@ int main()
     Check(TryChangeBasicMetadata(nullptr, operation, input, dialog, success, nullptr) && success && PrepareCalls == 1, "ordinary metadata keeps local preparation");
 
     Reset(); LocalError = ERROR_ACCESS_DENIED; ElevatedError = ERROR_CANCELLED; Retries = 1;
-    Check(!ExecuteVerifiedWorkerLeaf(nullptr, operation, protectedRequest, dialog,
+    Check(!ExecuteVerifiedWorkerLeaf(nullptr, operation, &protectedRequest, dialog,
                                      WORKER_DIALOG_UAC_DELETE, IDS_ERRORCHANGINGATTRS, true) &&
           PromptShieldedOk == std::vector<bool>{true} && Retries == 1,
           "declining Windows on shielded Yes cancels without a second prompt or retry");
     Reset(); LocalError = ERROR_ACCESS_DENIED;
-    Check(ExecuteVerifiedWorkerLeaf(nullptr, operation, protectedRequest, dialog,
+    Check(ExecuteVerifiedWorkerLeaf(nullptr, operation, &protectedRequest, dialog,
                                     WORKER_DIALOG_UAC_DELETE, IDS_ERRORCHANGINGATTRS) &&
           PromptShieldedOk == std::vector<bool>{false}, "late access denial still requests Administrator");
+    Reset(); LocalError = ERROR_ACCESS_DENIED; ElevatedError = ERROR_CANCELLED; Retries = 1;
+    Check(!ExecuteVerifiedWorkerLeaf(nullptr, operation, &protectedRequest, dialog,
+                                     WORKER_DIALOG_UAC_DELETE, IDS_ERRORCHANGINGATTRS) &&
+          PromptRetryDeclined == std::vector<bool>({false, true}),
+          "explicit Retry alone may reopen a refused delete scope");
     Reset(); LocalError = ERROR_ACCESS_DENIED; ElevatedError = ERROR_DIR_NOT_EMPTY;
     bool nonEmpty = false;
-    Check(ExecuteVerifiedWorkerLeaf(nullptr, operation, protectedRequest, dialog,
+    Check(ExecuteVerifiedWorkerLeaf(nullptr, operation, &protectedRequest, dialog,
                                     WORKER_DIALOG_UAC_DELETE, IDS_ERRORCHANGINGATTRS, true, &nonEmpty) &&
           nonEmpty && PromptShieldedOk == std::vector<bool>{true}, "nonempty direct directory keeps worker traversal pending");
     Reset(); LocalError = ERROR_DIR_NOT_EMPTY; nonEmpty = false;
-    Check(ExecuteVerifiedWorkerLeaf(nullptr, operation, protectedRequest, dialog,
+    Check(ExecuteVerifiedWorkerLeaf(nullptr, operation, &protectedRequest, dialog,
                                     WORKER_DIALOG_UAC_DELETE, IDS_ERRORCHANGINGATTRS, true, &nonEmpty) &&
           nonEmpty && PromptShieldedOk.empty(), "local nonempty result does not elevate");
+
+    Reset();
+    dialog.SkipAllDeleteErr = TRUE;
+    Check(ExecuteVerifiedWorkerLeaf(nullptr, operation, nullptr, dialog, WORKER_DIALOG_UAC_DELETE,
+                                    IDS_ERRORCHANGINGATTRS, false, nullptr, ERROR_FILE_INVALID) &&
+          ExecutedRequest == nullptr && PromptShieldedOk.empty(),
+          "a failed Branch View identity can be skipped without touching the file");
+    dialog.SkipAllDeleteErr = FALSE;
 
     MetadataElevationPreview preview; preview.path = L"C:\\ordinary\\file.txt";
     preview.attributes = FILE_ATTRIBUTE_ARCHIVE; preview.protectedScope = true;

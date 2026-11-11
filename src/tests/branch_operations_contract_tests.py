@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Check prepared deletes across protected disk and Branch View selections. | Keep exact identities and preparation errors ahead of local fallback. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Verify the exact Branch View delete row across dispatch. | Guard relative labels, prepared identities and failed-row handling. | #731 | GPT-6.1 Sol |
 # | 2026-11-08 | Check the shared Shell recycle flags. | Keep recycling and permanent deletion separate. | | GPT-6.1 Sol (Codex) |
 """Contracts keeping Branch View operations on exact per-item identities."""
 from pathlib import Path
@@ -71,6 +73,26 @@ class BranchOperationsContracts(unittest.TestCase):
         self.assertIn('script->AddStoragePath(sourcePath', part)
         self.assertIn('useName = (char*)branchName.c_str()', part)
         self.assertIn('BuildScriptFile(script, type, sourcePath', part)
+    def test_branch_permanent_delete_captures_exact_denied_files(self):
+        controller = source('fileswn8.cpp')
+        self.assertIn('permanentDelete = type == atDelete && recycle == 0 && canUseRecycleBin;', controller)
+        self.assertIn('GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) == f', controller)
+        branch_prompt = controller.index('str.SetW(messageText.c_str(), relative.c_str())')
+        self.assertLess(branch_prompt, controller.index('else if (shieldDeleteYes)', branch_prompt))
+        builder = source('fileswn6.cpp')
+        self.assertIn('fileWideName = SalPathFindFileNameW(branchPath.c_str())', builder)
+        self.assertIn('PrepareListedDeleteSource(*script, *ProtectedListing, deleteItemPath, oneFile->Attr)', builder)
+        self.assertIn('(branchPath.empty() ? GetItemFullPathW(*oneFile) : branchPath).c_str()', builder)
+        self.assertIn('ProbeLocalElevationAccess(path, DELETE, directory) != ERROR_ACCESS_DENIED', builder)
+        self.assertIn('listing.PrepareDeleteLeaf(path, attributes, *request) : ERROR_BROKEN_PIPE', builder)
+        self.assertIn('ProtectedFileSources->emplace(path, COperations::ProtectedFileSource', builder)
+        self.assertIn('(listed ? listed->Request != nullptr : candidate.PrepareDeleteLeaf(deletePath, sourceDirAttr))', builder)
+        worker = source('worker.cpp')
+        self.assertIn('script.ProtectedFileSources->find(path)', worker)
+        self.assertIn('if (op.Opcode == ocDeleteDir && !selected && !listed && !accessDenied)', worker)
+        self.assertIn('if (!request && !preparationError)', worker)
+        self.assertIn('request ? request->ExecuteLocal() : preparationError', worker)
+        self.assertIn('if (request && error == ERROR_ACCESS_DENIED)', worker)
     def test_relative_targets_have_cancel_skip_labels(self):
         text = source('fileswn6.cpp')
         self.assertIn('GetItemRelativePathW(*oneFile)', text)

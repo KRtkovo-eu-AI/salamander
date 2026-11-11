@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Enumerate a protected Branch tree through its approved panel session. | Keep anchored listing requests on the panel thread and share row traversal. | #731 | GPT-6.1 Sol |
 // | 2026-11-07 | Skip hidden and system files in Branch scans, except cloud placeholders. | Match the ordinary panel hide option. | https://github.com/KRtkovo-eu-AI/salamander/pull/818 | Grok 4.7 |
 #ifndef BRANCH_VIEW_TEST
 #include "precomp.h"
@@ -105,10 +106,16 @@ struct Scan::State
     volatile LONG Cancelled;
     std::wstring Root;
     bool HideHiddenSystem;
+    bool Incremental = false;
+    using Directory = std::pair<std::wstring, std::wstring>;
+    std::vector<Directory> PendingDirectories;
     std::vector<Entry> Pending;
     Progress Status;
     State() : Cancelled(0), HideHiddenSystem(false) { InitializeCriticalSection(&Lock); }
     ~State() { DeleteCriticalSection(&Lock); }
+    void Accept(const Directory& directory, const WIN32_FIND_DATAW& data,
+                std::vector<Directory>& remaining, std::vector<Entry>& batch, Progress& progress);
+    void Publish(std::vector<Entry>& batch, const Progress& progress);
 };
 
 class StateLock
@@ -119,11 +126,49 @@ public:
     ~StateLock() { LeaveCriticalSection(Lock); }
 };
 
+void Scan::State::Accept(const Directory& directory, const WIN32_FIND_DATAW& data,
+                         std::vector<Directory>& remaining, std::vector<Entry>& batch, Progress& progress)
+{
+    if (wcscmp(data.cFileName, L".") == 0 || wcscmp(data.cFileName, L"..") == 0 ||
+        (HideHiddenSystem && OmitHiddenSystemEntry(data.dwFileAttributes, data.dwReserved0)))
+        return;
+    if (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+    {
+        // The approved listing cannot descend through any reparse directory.
+        // Ordinary scans retain their handling of non-name-surrogate directories.
+        if ((data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) &&
+            (Incremental || IsReparseTagNameSurrogate(data.dwReserved0)))
+        {
+            ++progress.SkippedLinks;
+            return;
+        }
+        remaining.emplace_back(Join(directory.first, data.cFileName), Join(directory.second, data.cFileName));
+    }
+    else
+    {
+        Entry entry;
+        entry.Directory = directory.first;
+        entry.RelativePath = Join(directory.second, data.cFileName);
+        entry.Data = data;
+        entry.CacheKey = Utf8Path(entry.FullPath());
+        batch.push_back(std::move(entry));
+        ++progress.Files;
+    }
+}
+
+void Scan::State::Publish(std::vector<Entry>& batch, const Progress& progress)
+{
+    StateLock lock(Lock);
+    Pending.insert(Pending.end(), std::make_move_iterator(batch.begin()), std::make_move_iterator(batch.end()));
+    batch.clear();
+    Status = progress;
+}
+
 DWORD WINAPI Scan::Run(void* context)
 {
     std::unique_ptr<std::shared_ptr<State>> reference(static_cast<std::shared_ptr<State>*>(context));
     std::shared_ptr<State> state = *reference;
-    std::vector<std::pair<std::wstring, std::wstring>> pending;
+    std::vector<State::Directory> pending;
     std::vector<Entry> batch;
     Progress progress;
     progress.Running = true;
@@ -157,38 +202,9 @@ DWORD WINAPI Scan::Run(void* context)
                 do
                 {
                     if (InterlockedCompareExchange(&state->Cancelled, 0, 0)) break;
-                    if (wcscmp(data.cFileName, L".") == 0 || wcscmp(data.cFileName, L"..") == 0) continue;
-                    const bool isDirectory = (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-                    if (state->HideHiddenSystem && OmitHiddenSystemEntry(data.dwFileAttributes, data.dwReserved0))
-                        continue;
-                    if (isDirectory)
-                    {
-                        // Follow cloud/other ordinary reparse directories, but not
-                        // name-surrogate links (junctions and symbolic links).
-                        if ((data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) && IsReparseTagNameSurrogate(data.dwReserved0))
-                        {
-                            ++progress.SkippedLinks;
-                            continue;
-                        }
-                        pending.emplace_back(Join(directory.first, data.cFileName), Join(directory.second, data.cFileName));
-                    }
-                    else
-                    {
-                        Entry entry;
-                        entry.Directory = directory.first;
-                        entry.RelativePath = Join(directory.second, data.cFileName);
-                        entry.Data = data;
-                        entry.CacheKey = Utf8Path(entry.FullPath());
-                        batch.push_back(std::move(entry));
-                        ++progress.Files;
-                    }
+                    state->Accept(directory, data, pending, batch, progress);
                     if (batch.size() >= 256)
-                    {
-                        StateLock lock(state->Lock);
-                        state->Pending.insert(state->Pending.end(), std::make_move_iterator(batch.begin()), std::make_move_iterator(batch.end()));
-                        batch.clear();
-                        state->Status = progress;
-                    }
+                        state->Publish(batch, progress);
                 } while (FindNextFileW(search, &data));
                 DWORD error = GetLastError();
                 FindClose(search);
@@ -200,10 +216,7 @@ DWORD WINAPI Scan::Run(void* context)
                 }
             }
             // Small directories publish without waiting for a full batch.
-            StateLock lock(state->Lock);
-            state->Pending.insert(state->Pending.end(), std::make_move_iterator(batch.begin()), std::make_move_iterator(batch.end()));
-            batch.clear();
-            state->Status = progress;
+            state->Publish(batch, progress);
         }
     }
     catch (const std::bad_alloc&)
@@ -234,7 +247,7 @@ void Scan::Cancel()
         Thread = NULL;
     }
 }
-bool Scan::Start(const std::wstring& root, bool hideHiddenSystem)
+bool Scan::Start(const std::wstring& root, bool hideHiddenSystem, bool incremental)
 {
     Cancel();
     try
@@ -243,6 +256,12 @@ bool Scan::Start(const std::wstring& root, bool hideHiddenSystem)
         Shared->Root = root;
         Shared->HideHiddenSystem = hideHiddenSystem;
         Shared->Status.Running = true;
+        if (incremental)
+        {
+            Shared->Incremental = true;
+            Shared->PendingDirectories.emplace_back(root, L"");
+            return true;
+        }
         auto reference = std::make_unique<std::shared_ptr<State>>(Shared);
         Thread = CreateThread(NULL, 0, Run, reference.get(), 0, NULL);
         if (Thread == NULL)
@@ -257,6 +276,54 @@ bool Scan::Start(const std::wstring& root, bool hideHiddenSystem)
     }
     catch (const std::bad_alloc&) { Shared.reset(); return false; }
 }
+void Scan::Advance(ListDirectory list, void* context)
+{
+    if (!Shared || !Shared->Incremental || !Shared->Status.Running || Shared->Cancelled)
+        return;
+
+    auto& state = *Shared;
+    auto& pending = state.PendingDirectories;
+    Progress progress = state.Status;
+    std::vector<Entry> batch;
+    std::vector<WIN32_FIND_DATAW> entries;
+    const ULONGLONG started = GetTickCount64();
+    try
+    {
+        for (unsigned count = 0; !pending.empty() && count < 32; ++count)
+        {
+            if (count && GetTickCount64() - started >= 8)
+                break;
+            auto directory = std::move(pending.back());
+            pending.pop_back();
+            entries.clear();
+            const DWORD error = list(context, directory.first, entries);
+            ++progress.Directories;
+            if (!error)
+            {
+                for (const auto& entry : entries)
+                    state.Accept(directory, entry, pending, batch, progress);
+            }
+            else
+            {
+                ++progress.Errors;
+                progress.LastError = error;
+                if (error == ERROR_BROKEN_PIPE)
+                    pending.clear();
+            }
+        }
+        progress.Running = !pending.empty();
+        state.Publish(batch, progress);
+    }
+    catch (const std::bad_alloc&)
+    {
+        pending.clear();
+        progress.Running = false;
+        ++progress.Errors;
+        progress.LastError = ERROR_NOT_ENOUGH_MEMORY;
+        state.Status = progress;
+    }
+}
+
 void Scan::Drain(std::vector<Entry>& entries, Progress& progress)
 {
     if (!Shared) { progress = Progress(); return; }
@@ -455,7 +522,7 @@ static void StartBranchViewScan(CFilesWindow* panel)
         return;
     }
     state.Preparation->AssociationEpoch = Associations.GetShellAssociationEpoch();
-    state.Worker.Start(state.Root, Configuration.NotHiddenSystemFiles != FALSE);
+    state.Worker.Start(state.Root, Configuration.NotHiddenSystemFiles != FALSE, state.UseProtectedListing);
     state.Status = Salamander::BranchView::Progress();
     state.Status.Running = true;
     state.Dirty = false;
@@ -558,6 +625,8 @@ void CFilesWindow::ToggleBranchView()
     if (index >= 0 && index < Dirs->Count + Files->Count)
         BranchView->OriginalFocus = GetItemFullPathW(index < Dirs->Count ? Dirs->At(index) : Files->At(index - Dirs->Count));
     BranchView->Root = GetPathW() != NULL && GetPathW()[0] != 0 ? GetPathW() : SalMultiByteToWidePath(GetPath(), IsValidPathUtf8Text(GetPath()) ? CP_UTF8 : CP_ACP);
+    BranchView->UseProtectedListing = ProtectedListing &&
+        ProtectedListing->Contains(SalPathRemoveExtendedPrefixW(BranchView->Root.c_str()));
     BranchView->Enabled = true;
     ++BranchView->Generation; // mode change invalidates ordinary-panel property jobs
     BranchView->RestoreState.reset();
@@ -626,6 +695,20 @@ void CFilesWindow::PollBranchView()
     } scope(*lifetime);
     std::vector<Salamander::BranchView::Entry> batch;
     Salamander::BranchView::Progress progress;
+    if (BranchView->UseProtectedListing)
+    {
+        // Keep every exchange on the panel thread. The ordinary worker never
+        // borrows the broker pipe, and leaving this view can drop pending work.
+        BranchView->Worker.Advance([](void* context, const std::wstring& directory,
+                                     std::vector<WIN32_FIND_DATAW>& entries) -> DWORD {
+            auto* session = static_cast<UacF7::ListingSession*>(context);
+            const auto path = SalPathRemoveExtendedPrefixW(directory.c_str());
+            if (!session || !session->Contains(path))
+                return ERROR_BROKEN_PIPE;
+            const DWORD error = session->List(path, entries);
+            return session->IsOpen() ? error : ERROR_BROKEN_PIPE;
+        }, ProtectedListing.get());
+    }
     BranchView->Worker.Drain(batch, progress);
     const bool scanFinished = BranchView->Status.Running && !progress.Running;
     bool statusChanged = scanFinished || progress.Files != BranchView->Status.Files ||
@@ -719,7 +802,8 @@ void CFilesWindow::PollBranchView()
         KillTimer(HWindow, IDT_BRANCHVIEW_POLL);
     else
         SetTimer(HWindow, IDT_BRANCHVIEW_POLL,
-            preparation->Queue.HasPending() ? 15 : 200, NULL);
+            preparation->Queue.HasPending() || (BranchView->UseProtectedListing && BranchView->Status.Running) ? 15 : 200,
+            NULL);
 }
 void CFilesWindow::BranchItemRenamed(const char* oldNameKey, const CFileData& file, const std::wstring& oldFullPath)
 {

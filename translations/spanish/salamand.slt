@@ -4309,13 +4309,13 @@ SLGINCOMPLETE,""
 14635,1,"Acceso denegado. ¿Mover este archivo como administrador?"
 14636,1,"No se pudo confirmar que el traslado se completara. Compruebe el origen y el destino antes de volver a intentarlo."
 14637,1,"Inventario del subárbol protegido"
-14639,1,"No se pudo examinar todo el subárbol. No se muestran resultados parciales."
+14639,1,"El cálculo del tamaño no pudo recorrer todo el árbol de directorios."
 
 [STRINGTABLE 194]
 14640,1,"Archivos: "
 14641,1,"Subcarpetas: "
 14642,1,"Tamaño lógico (bytes): "
-14643,1,"¿Copiar esta carpeta y su contenido al destino registrado como administrador?"
+14643,1,"¿Copiar esta carpeta y su contenido como administrador?"
 14644,1,"No se pudo confirmar la copia de la carpeta o la limpieza. Comprueba el destino antes de volver a intentarlo."
 14645,1,"Acceso denegado. ¿Establecer las fechas y horas solicitadas de esta carpeta como administrador?"
 14646,1,"La conexión con el proceso auxiliar se interrumpió antes de confirmar el resultado. Compruebe las fechas y horas de la carpeta antes de volver a intentarlo."
@@ -4368,6 +4368,9 @@ SLGINCOMPLETE,""
 [STRINGTABLE 197]
 14688,1,"Acceso denegado. ¿Mover este archivo a su Papelera de reciclaje como administrador?"
 14689,1,"Acceso denegado. ¿Copiar este archivo como administrador conservando su compresión NTFS, propietario, grupo y permisos explícitos?"
+14694,1,"Esta autorización también cubre las carpetas protegidas en:"
+14695,1,"Acceso denegado. ¿Leer como administrador el contenido de los archivos de esta ruta para esta comparación?"
+14696,1,"Se omitió este vínculo de compatibilidad de Windows. Aporta 0 bytes al total."
 
 [STRINGTABLE 198]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."

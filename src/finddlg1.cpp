@@ -2,6 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Keep long Find results exact across file actions. | Avoid truncated targets and retain inaccessible results. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Show editor consent and launch from the Find window thread. | Keep Find responsive while the user decides. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Use the exact wide Find result for F4. | Preserve long paths and the Find window when asking for elevation. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Carry the Find result attributes with F3. | Check viewer eligibility against the selected row. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Open the full Unicode Find result with F3. | Preserve the result identity and parent the UAC dialog to Find. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Retain the exact protected root for Find. | Keep the identity alive through search, Stop and restart. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Handle UAC foreground return on the owner thread. | Avoid activating a dialog directly from the broker worker. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Cancel protected reads through the upstream asynchronous Stop flow | Integrate UAC with current upstream behavior. | #731 | Codex |
 // | 2026-11-09 | Create the Find stop event through the tracked wrapper. | Build Debug and Release with the same unnamed event. | | Codex |
@@ -419,6 +425,13 @@ std::wstring CFoundFilesData::GetFullNameW() const
     return ret;
 }
 
+bool CFoundFilesData::CanUseLegacyShellPath() const
+{
+    const size_t pathLength = strlen(Path);
+    return pathLength && pathLength + strlen(Name) + (Path[pathLength - 1] == '\\' ? 0 : 1) < MAX_PATH &&
+           SalMultiByteToWidePath(Path, GetACP()) == PathW && SalMultiByteToWidePath(Name, GetACP()) == NameW;
+}
+
 char* CFoundFilesData::GetText(int i, char* text, int fileNameFormat)
 {
     // several FIND windows may run in parallel, which could overwrite this static buffer
@@ -427,6 +440,8 @@ char* CFoundFilesData::GetText(int i, char* text, int fileNameFormat)
     {
     case 0:
     {
+        if (strlen(Name) >= MAX_PATH)
+            return Name;
         AlterFileName(text, Name, -1, fileNameFormat, 0, IsDir);
         return text;
     }
@@ -827,16 +842,12 @@ void CFoundFilesListView::CheckAndRemoveSelectedItems(BOOL forceRemove, int last
             BOOL remove = forceRemove;
             if (!forceRemove)
             {
-                char fullPath[MAX_PATH];
-                int pathLen = lstrlen(ptr->Path);
-                memmove(fullPath, ptr->Path, pathLen + 1);
-                if (ptr->Path[pathLen - 1] != '\\')
+                const auto path = SalPathAddExtendedPrefixW(ptr->GetFullNameW().c_str());
+                if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES)
                 {
-                    fullPath[pathLen] = '\\';
-                    fullPath[pathLen + 1] = '\0';
+                    const DWORD error = GetLastError();
+                    remove = error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND;
                 }
-                lstrcat(fullPath, ptr->Name);
-                remove = (SalGetFileAttributes(fullPath) == -1);
             }
             if (remove)
             {
@@ -1361,9 +1372,12 @@ BOOL GetNextItemFromFind(int index, char* path, char* name, void* param)
     if (index >= 0 && index < data->Count)
     {
         CFoundFilesData* file = listView->At(data->Index[index]);
-        strcpy(path, file->Path);
-        strcpy(name, file->Name);
-        return TRUE;
+        if (file->CanUseLegacyShellPath())
+        {
+            strcpy(path, file->Path);
+            strcpy(name, file->Name);
+            return TRUE;
+        }
     }
     if (data->Index != NULL)
     {
@@ -1826,10 +1840,12 @@ BOOL CFoundFilesListView::InitColumns()
 // CFindDialog
 //
 
-CFindDialog::CFindDialog(HWND hCenterAgainst, const char* initPath)
+CFindDialog::CFindDialog(HWND hCenterAgainst, const char* initPath,
+                         std::shared_ptr<const UacF7::FindRootIdentity> protectedRoot)
     : CCommonDialog(HLanguage, IDD_FIND, NULL, ooStandard, hCenterAgainst),
       SearchForData(50, 10)
 {
+    GrepData.ProtectedRoot = std::move(protectedRoot);
 #ifndef _UNICODE
     UnicodeWnd = TRUE;
 #endif // _UNICODE
@@ -2463,9 +2479,8 @@ void CFindDialog::BuildSerchForData()
 
     SearchForData.DestroyMembers();
 
-    char path[MAX_PATH];
-    lstrcpy(path, Data.LookInText);
-    begin = path;
+    std::string searchPaths(Data.LookInText);
+    begin = searchPaths.data();
     do
     {
         end = begin;
@@ -3044,31 +3059,29 @@ void CFindDialog::OnFocusFile()
             return;
         }
     }
-    CFoundFilesData* data = FoundFilesListView->At(index);
-    SendMessage(MainWindow->GetActivePanel()->HWindow, WM_USER_FOCUSFILE, (WPARAM)data->Name, (LPARAM)data->Path);
+    const auto* data = FoundFilesListView->At(index);
+    const auto name = SalWideToMultiBytePath(data->NameW.c_str(), CP_UTF8);
+    const auto path = SalWideToMultiBytePath(data->PathW.c_str(), CP_UTF8);
+    if (name.size() >= MAX_PATH || path.size() >= SAL_MAX_PATH)
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    SendMessage(MainWindow->GetActivePanel()->HWindow, WM_USER_FOCUSFILE,
+                reinterpret_cast<WPARAM>(name.c_str()), reinterpret_cast<LPARAM>(path.c_str()));
 }
 
-BOOL CFindDialog::GetFocusedFile(char* buffer, int bufferLen, int* viewedIndex)
+std::string CFindDialog::GetFocusedFile(int* viewedIndex)
 {
-    int index = ListView_GetNextItem(FoundFilesListView->HWindow, -1, LVNI_FOCUSED);
+    const int index = ListView_GetNextItem(FoundFilesListView->HWindow, -1, LVNI_FOCUSED);
     if (index < 0)
-        return FALSE;
-
-    if (viewedIndex != NULL)
+        return {};
+    const auto* file = FoundFilesListView->At(index);
+    if (file->IsDir)
+        return {};
+    if (viewedIndex)
         *viewedIndex = index;
-
-    CFoundFilesData* data = FoundFilesListView->At(index);
-    if (data->IsDir)
-        return FALSE;
-    char longName[MAX_PATH];
-    int len = (int)strlen(data->Path);
-    memmove(longName, data->Path, len);
-    if (data->Path[len - 1] != '\\')
-        longName[len++] = '\\';
-    strcpy(longName + len, data->Name);
-
-    lstrcpyn(buffer, longName, bufferLen);
-    return TRUE;
+    return SalWideToMultiBytePath(file->GetFullNameW().c_str(), CP_UTF8);
 }
 
 BOOL CFindDialog::UpdateInternalViewerData()
@@ -3103,10 +3116,18 @@ BOOL CFindDialog::UpdateInternalViewerData()
 void CFindDialog::OnViewFile(BOOL alternate)
 {
     CALL_STACK_MESSAGE2("CFindDialog::OnViewFile(%d)", alternate);
-    char longName[MAX_PATH];
-    int viewedIndex = 0;
-    if (!GetFocusedFile(longName, MAX_PATH, &viewedIndex))
+    const int viewedIndex = ListView_GetNextItem(FoundFilesListView->HWindow, -1, LVNI_FOCUSED);
+    if (viewedIndex < 0)
         return;
+    const CFoundFilesData* result = FoundFilesListView->At(viewedIndex);
+    if (result->IsDir)
+        return;
+    const std::wstring path = result->GetFullNameW();
+    std::string longName = SalWideToMultiBytePath(path.c_str(), CP_UTF8);
+    if (longName.empty())
+        return;
+    const auto foundView = result->FoundView;
+    const DWORD resultAttributes = result->Attr;
 
     if (SalamanderBusy)
     {
@@ -3120,10 +3141,8 @@ void CFindDialog::OnViewFile(BOOL alternate)
         }
     }
     BOOL passFindText = UpdateInternalViewerData();
-    COpenViewerData openData;
-    openData.FileName = longName;
-    openData.EnumFileNamesSourceUID = FoundFilesListView->EnumFileNamesSourceUID;
-    openData.EnumFileNamesLastFileIndex = viewedIndex;
+    COpenViewerData openData{longName.data(), FoundFilesListView->EnumFileNamesSourceUID,
+                             viewedIndex, HWindow, resultAttributes, foundView.get()};
     PassFindTextToPluginViewer = passFindText;
     SendMessage(MainWindow->GetActivePanel()->HWindow, WM_USER_VIEWFILE, (WPARAM)(&openData), (LPARAM)alternate);
     PassFindTextToPluginViewer = FALSE;
@@ -3132,9 +3151,18 @@ void CFindDialog::OnViewFile(BOOL alternate)
 void CFindDialog::OnEditFile()
 {
     CALL_STACK_MESSAGE1("CFindDialog::OnEditFile()");
-    char longName[MAX_PATH];
-    if (!GetFocusedFile(longName, MAX_PATH, NULL))
+    const int index = ListView_GetNextItem(FoundFilesListView->HWindow, -1, LVNI_FOCUSED);
+    if (index < 0)
         return;
+    const auto& result = *FoundFilesListView->At(index);
+    if (result.IsDir)
+        return;
+    const std::wstring path = result.GetFullNameW();
+    std::string longName = SalWideToMultiBytePath(path.c_str(), CP_UTF8);
+    if (longName.empty())
+        return;
+    UacF7::ElevatedEditor editor;
+    COpenEditorData openData{longName.data(), result.Attr, editor};
 
     if (SalamanderBusy)
     {
@@ -3147,15 +3175,28 @@ void CFindDialog::OnEditFile()
             return;
         }
     }
-    SendMessage(MainWindow->GetActivePanel()->HWindow, WM_USER_EDITFILE, (WPARAM)longName, 0);
+    SendMessage(MainWindow->GetActivePanel()->HWindow, WM_USER_EDITFILE, reinterpret_cast<WPARAM>(&openData), 0);
+    if (openData.DirectoryError != ERROR_SUCCESS)
+        SalMessageBox(HWindow, GetErrorText(openData.DirectoryError), LoadStr(IDS_ERRORCHANGINGDIR),
+                      MB_OK | MB_ICONEXCLAMATION);
+    else if (openData.UntrustedEditor)
+        SalMessageBox(HWindow, LoadStr(IDS_UAC_EDIT_ADMIN_UNTRUSTED), LoadStr(IDS_UAC_EDIT_ADMIN_TITLE),
+                      MB_OK | MB_ICONEXCLAMATION);
+    else if (openData.NeedsConsent)
+    {
+        const auto document = SalPathRemoveExtendedPrefixW(path.c_str());
+        if (ConfirmElevatedFileEdit(HWindow, document, editor))
+            LaunchElevatedFileEdit(HWindow, document, editor);
+    }
 }
 
 void CFindDialog::OnViewFileWith()
 {
     CALL_STACK_MESSAGE1("CFindDialog::OnViewFileWith()");
-    char longName[MAX_PATH];
-    int viewedIndex = 0;
-    if (!GetFocusedFile(longName, MAX_PATH, &viewedIndex))
+    int viewedIndex;
+    std::string fullName = GetFocusedFile(&viewedIndex);
+    char* longName = fullName.data();
+    if (fullName.empty())
         return;
 
     if (SalamanderBusy)
@@ -3204,8 +3245,9 @@ void CFindDialog::OnViewFileWith()
 void CFindDialog::OnEditFileWith()
 {
     CALL_STACK_MESSAGE1("CFindDialog::OnEditFileWith()");
-    char longName[MAX_PATH];
-    if (!GetFocusedFile(longName, MAX_PATH, NULL))
+    std::string fullName = GetFocusedFile();
+    char* longName = fullName.data();
+    if (fullName.empty())
         return;
 
     if (SalamanderBusy)
@@ -3264,6 +3306,16 @@ void CFindDialog::OnUserMenu()
 
     if (cmd != 0)
     {
+        const HWND resultList = FoundFilesListView->HWindow;
+        for (int index = -1; (index = ListView_GetNextItem(resultList, index, LVNI_SELECTED)) != -1;)
+        {
+            if (!FoundFilesListView->At(index)->CanUseLegacyShellPath())
+            {
+                SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                return;
+            }
+        }
+
         CUserMenuAdvancedData userMenuAdvancedData;
 
         char* list = userMenuAdvancedData.ListOfSelNames;
@@ -3406,6 +3458,11 @@ void CFindDialog::OnCopyNameToClipboard(CCopyNameToClipboardModeEnum mode)
             CopyTextToClipboardW(textW.c_str());
             return;
         }
+    }
+    if (!data->CanUseLegacyShellPath())
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return;
     }
     char buff[2 * MAX_PATH];
     buff[0] = 0;

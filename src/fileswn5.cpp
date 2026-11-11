@@ -6,6 +6,15 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Separate trusted editor preparation from the Find prompt. | Avoid blocking the Find window during the application consent dialog. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Reuse explicit editor elevation in Branch View and Find. | Avoid denying eligible F4 requests before the existing editor retry. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Bind all shielded metadata requests before building the script. | Reuse the verified attributes if a direct attributes lookup is denied. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Enable verified singleton metadata from Branch View. | Keep the physical parent and selected row bound to Ctrl+F2. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep named F3 safe for long paths and unsupported files. | Preserve ordinary error handling without passing long paths into fixed-size error text. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Offer internal F3 consent for a verified Find result. | Read only the selected file and preserve the ordinary path for external handlers. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Offer verified rename from Branch View. | Recheck the selected row around consent and update the right file. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Offer verified internal F3 from Branch View. | Use the selected row physical path and the existing viewer consent. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Open Find from a protected panel. | Use verified directory identity before the ordinary path check. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Offer F2 elevation for a verified ordinary directory. | Use shielded OK and same-directory no-replace rename. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Reuse shielded OK for a verified F7, F2 or Ctrl+F2 retry. | Show Windows consent directly for the operation already confirmed in Samandarin. | #731 | Codex |
 // | 2026-11-10 | Prepare verified basic metadata from the protected panel. | Offer UAC and show the OK shield for a supported denied change. | #731 | Codex |
@@ -1422,13 +1431,10 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                         {
                             BOOL isDir = index < Dirs->Count;
 
-                            if (!branchAttributes)
-                            {
-                                metadataPreview.path = SalPathRemoveExtendedPrefixW(GetItemFullPathW(*f).c_str());
-                                metadataPreview.attributes = f->Attr;
-                                metadataPreview.protectedScope = ProtectedListing && ProtectedListing->IsOpen() &&
-                                                                 ProtectedListing->Contains(metadataPreview.path);
-                            }
+                            metadataPreview.path = SalPathRemoveExtendedPrefixW(GetItemFullPathW(*f).c_str());
+                            metadataPreview.attributes = f->Attr;
+                            metadataPreview.protectedScope = ProtectedListing && ProtectedListing->IsOpen() &&
+                                                             ProtectedListing->Contains(metadataPreview.path);
 
                             BOOL timeObtained = FALSE;
 
@@ -1441,8 +1447,14 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                                 HANDLES(FindClose(hFind));
                             else if (metadataPreview.protectedScope)
                             {
+                                // Branch View rows can have the same leaf in different parents.
+                                std::vector<WIN32_FIND_DATAW> branchEntries;
+                                if (branchAttributes)
+                                    ProtectedListing->List(SalPathRemoveExtendedPrefixW(GetItemDirectoryW(*f).c_str()),
+                                                           branchEntries);
                                 const wchar_t* leaf = SalPathFindFileNameW(fileName.c_str());
-                                for (const auto& entry : ProtectedListingEntries)
+                                const auto& entries = branchAttributes ? branchEntries : ProtectedListingEntries;
+                                for (const auto& entry : entries)
                                 {
                                     if (wcscmp(entry.cFileName, leaf) == 0)
                                     {
@@ -1523,7 +1535,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                                     SelectionContainsDirectory(), FileBasedCompression,
                                     FileBasedEncryption,
                                     &timeModified, &timeCreated, &timeAccessed);
-            if (!branchAttributes && !metadataPreview.path.empty())
+            if (!metadataPreview.path.empty())
                 chDlg.SetElevationShieldProbe(&MetadataElevationPreview::Check, &metadataPreview);
             if (setCompress || setEncryption)
             {
@@ -1594,11 +1606,12 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                     (chDlg.ReadOnly != 2 && chDlg.ReadOnly != !!(attr & FILE_ATTRIBUTE_READONLY)) ||
                     (chDlg.Hidden != 2 && chDlg.Hidden != !!(attr & FILE_ATTRIBUTE_HIDDEN)) ||
                     (chDlg.System != 2 && chDlg.System != !!(attr & FILE_ATTRIBUTE_SYSTEM));
-                bool protectedMetadata = metadataPreview.protectedScope && !branchAttributes &&
+                const bool singleBasicMetadata = !metadataPreview.path.empty() &&
                     !setCompress && !setEncryption && !chDlg.RecurseSubDirs &&
                     chDlg.Compressed != 1 && chDlg.Encrypted != 1 &&
                     (metadataPreview.attributes & ~metadataAttributes) == 0 &&
                     (basicChanged || chDlg.ChangeTimeCreated || chDlg.ChangeTimeAccessed || chDlg.ChangeTimeModified);
+                bool protectedMetadata = metadataPreview.protectedScope && singleBasicMetadata;
                 if (protectedMetadata)
                 {
                     int index = GetCaretIndex();
@@ -1621,8 +1634,8 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                 }
 
                 CChangeAttrsData dlgData{};
-                dlgData.AllowBasicMetadataPilot = !branchAttributes && !setCompress && !setEncryption &&
-                                                  !chDlg.RecurseSubDirs;
+                dlgData.AllowBasicMetadataPilot = !setCompress && !setEncryption && !chDlg.RecurseSubDirs &&
+                                                  (!branchAttributes || singleBasicMetadata);
                 dlgData.ChangeTimeModified = chDlg.ChangeTimeModified;
                 if (dlgData.ChangeTimeModified)
                 {
@@ -1766,8 +1779,9 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                     dlgData.BasicMetadataSet = attrsData.AttrOr & UacF7::basicAttributes;
                     dlgData.BasicMetadataClear = ~attrsData.AttrAnd & ~attrsData.AttrOr & UacF7::basicAttributes;
 
+                    const bool shieldedOk = dlgData.AllowBasicMetadataPilot && chDlg.AcceptedShieldedOk();
                     DWORD metadataPreparationError = ERROR_SUCCESS;
-                    if (protectedMetadata)
+                    if (protectedMetadata || shieldedOk)
                     {
                         UacF7::MetadataChange change{};
                         const DWORD desired = (metadataPreview.attributes & attrsData.AttrAnd) | attrsData.AttrOr;
@@ -1786,12 +1800,21 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
 #endif
                             if (!script->ProtectedMetadataRequest)
                                 metadataPreparationError = ERROR_NOT_ENOUGH_MEMORY;
-                            else if (!ProtectedListing || !ProtectedListing->IsOpen() ||
-                                     !ProtectedListing->Contains(metadataPreview.path))
-                                metadataPreparationError = ERROR_INVALID_HANDLE;
                             else
-                                metadataPreparationError = ProtectedListing->PrepareMetadata(metadataPreview.path, change,
-                                    {dlgData.BasicMetadataSet, dlgData.BasicMetadataClear}, *script->ProtectedMetadataRequest);
+                            {
+                                const UacF7::MetadataJobPolicy policy{dlgData.BasicMetadataSet, dlgData.BasicMetadataClear};
+                                if (protectedMetadata)
+                                {
+                                    if (!ProtectedListing || !ProtectedListing->IsOpen() ||
+                                        !ProtectedListing->Contains(metadataPreview.path))
+                                        metadataPreparationError = ERROR_INVALID_HANDLE;
+                                    else
+                                        metadataPreparationError = ProtectedListing->PrepareMetadata(metadataPreview.path, change,
+                                            policy, *script->ProtectedMetadataRequest);
+                                }
+                                else if (!script->ProtectedMetadataRequest->PrepareMetadata(metadataPreview.path, change, policy))
+                                    metadataPreparationError = ERROR_FILE_INVALID;
+                            }
                         }
                     }
 
@@ -1802,13 +1825,12 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                                                indexes, f, &attrsData, NULL, FALSE, NULL);
                     if (script->Count == 0 || (branchAttributes && !branchSelection.IsCurrent(this)))
                         res = FALSE;
-                    const bool shieldedOk = dlgData.AllowBasicMetadataPilot && chDlg.AcceptedShieldedOk();
-                    if (res && (protectedMetadata || shieldedOk))
+                    if (res && (script->ProtectedMetadataRequest || shieldedOk))
                     {
                         const bool sameItem = script->Count == 1 && script->At(0).Opcode == ocChangeAttrs &&
                             script->At(0).SourceNameWValid && script->At(0).Attr == metadataPreview.attributes &&
                             SalPathRemoveExtendedPrefixW(script->At(0).SourceNameW.c_str()) == metadataPreview.path;
-                        if (protectedMetadata && !sameItem)
+                        if (script->ProtectedMetadataRequest && !sameItem)
                         {
                             metadataPreparationError = ERROR_INVALID_DATA;
                             res = FALSE;
@@ -1912,8 +1934,35 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
 void CFilesWindow::FindFile()
 {
     CALL_STACK_MESSAGE1("CFilesWindow::FindFile()");
-    if (Is(ptDisk) && CheckPath(TRUE) != ERROR_SUCCESS)
-        return;
+    std::shared_ptr<const UacF7::FindRootIdentity> protectedRoot;
+    if (Is(ptDisk))
+    {
+        if (ProtectedListing)
+        {
+            try
+            {
+                const auto path = SalPathRemoveExtendedPrefixW(GetPathW());
+                if (ProtectedListing->Contains(path))
+                {
+                    auto identity = std::make_shared<UacF7::FindRootIdentity>();
+                    const DWORD error = ProtectedListing->CaptureFindRoot(path, *identity);
+                    if (error)
+                    {
+                        SalMessageBox(HWindow, GetErrorText(error), LoadStr(IDS_FINDTITLE), MB_OK | MB_ICONEXCLAMATION);
+                        return;
+                    }
+                    protectedRoot = std::move(identity);
+                }
+            }
+            catch (const std::bad_alloc&)
+            {
+                SalMessageBox(HWindow, GetErrorText(ERROR_NOT_ENOUGH_MEMORY), LoadStr(IDS_FINDTITLE), MB_OK | MB_ICONEXCLAMATION);
+                return;
+            }
+        }
+        if (!protectedRoot && CheckPath(TRUE) != ERROR_SUCCESS)
+            return;
+    }
 
     if (Is(ptPluginFS) && GetPluginFS()->NotEmpty() &&
         GetPluginFS()->IsServiceSupported(FS_SERVICE_OPENFINDDLG))
@@ -1940,11 +1989,11 @@ void CFilesWindow::FindFile()
         return;
     }
 
-    OpenFindDialog(MainWindow->HWindow, Is(ptDisk) ? GetPath() : "");
+    OpenFindDialog(MainWindow->HWindow, Is(ptDisk) ? GetPath() : "", std::move(protectedRoot));
 }
 
 void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumFileNamesSourceUID,
-                            int enumFileNamesLastFileIndex)
+                            int enumFileNamesLastFileIndex, const COpenViewerData* found)
 {
     CALL_STACK_MESSAGE6("CFilesWindow::ViewFile(%s, %d, %u, %d, %d)", name, altView, handlerID,
                         enumFileNamesSourceUID, enumFileNamesLastFileIndex);
@@ -1986,10 +2035,12 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
             SalMessageBox(HWindow, GetErrorText(error), LoadStr(IDS_VIEWERTITLE), MB_OK | MB_ICONEXCLAMATION);
         return;
     }
-    const bool panelF3 = name == NULL && Is(ptDisk) && !IsBranchView() && !altView && handlerID == 0xFFFFFFFF;
+    const bool panelF3 = name == NULL && Is(ptDisk) && !altView && handlerID == 0xFFFFFFFF;
     const bool deferredPathCheck = panelF3 && ProtectedListing &&
                                    ProtectedListing->Contains(SalPathRemoveExtendedPrefixW(GetPathW()));
     std::wstring protectedCandidate;
+    bool deniedParent = false;
+    const HWND owner = found && found->FindOwner ? found->FindOwner : HWindow;
     // verify that the file is on an accessible path
     if (name == NULL) // file from the panel
     {
@@ -2004,9 +2055,23 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
         char* backSlash = strrchr(name, '\\');
         if (backSlash != NULL)
         {
-            std::string path(name, backSlash - name);
-            if (CheckPath(TRUE, path.c_str()) != ERROR_SUCCESS)
-                return;
+            const std::string path(name, backSlash - name);
+            constexpr DWORD excluded = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
+                                       FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_OFFLINE;
+            if (found && !altView && handlerID == 0xFFFFFFFF && !(found->FoundAttributes & excluded))
+                protectedCandidate = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(name, CP_UTF8).c_str());
+            const DWORD error = CheckPath(FALSE, path.c_str(), ERROR_SUCCESS, TRUE, owner);
+            deniedParent = error == ERROR_ACCESS_DENIED && !protectedCandidate.empty();
+            if (error != ERROR_SUCCESS && !deniedParent)
+            {
+                if (path.size() >= MAX_PATH)
+                {
+                    SalMessageBox(owner, GetErrorText(error), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                    return;
+                }
+                if (CheckPath(TRUE, path.c_str(), error, TRUE, owner) != ERROR_SUCCESS)
+                    return;
+            }
         }
     }
 
@@ -2219,9 +2284,10 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
 
     HANDLE lock = NULL;
     BOOL lockOwner = FALSE;
-    ViewFileInt(HWindow, name, altView, handlerID, useDiskCache, lock, lockOwner, addToHistory,
+    ViewFileInt(owner, name, altView, handlerID, useDiskCache, lock, lockOwner, addToHistory,
                 enumFileNamesSourceUID, enumFileNamesLastFileIndex,
-                protectedCandidate.empty() ? nullptr : &protectedCandidate, deferredPathCheck ? ProtectedListing.get() : nullptr);
+                protectedCandidate.empty() ? nullptr : &protectedCandidate, deferredPathCheck ? ProtectedListing.get() : nullptr,
+                found ? found->FoundView : nullptr, deniedParent);
 
     if (useDiskCache)
     {
@@ -2238,7 +2304,8 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
 
 BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, BOOL returnLock,
                  HANDLE& lock, BOOL& lockOwner, BOOL addToHistory, int enumFileNamesSourceUID,
-                 int enumFileNamesLastFileIndex, const std::wstring* protectedCandidate, UacF7::ListingSession* protectedListing)
+                 int enumFileNamesLastFileIndex, const std::wstring* protectedCandidate, UacF7::ListingSession* protectedListing,
+                 const UacF7::PreparedLeaf* foundView, bool deniedParent)
 {
     BOOL success = FALSE;
     lock = NULL;
@@ -2315,7 +2382,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                 {
                     viewer = masks->At(i);
 
-                    if (viewer != NULL && viewer->ViewerType != VIEWER_EXTERNAL &&
+                    if (!deniedParent && viewer != NULL && viewer->ViewerType != VIEWER_EXTERNAL &&
                         viewer->ViewerType != VIEWER_INTERNAL)
                     { // plug-in viewers only
                         CPluginData* plugin = Plugins.Get(-viewer->ViewerType - 1);
@@ -2333,6 +2400,12 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
             else
                 TRACE_E("Unexpected error in group mask.");
         }
+    }
+
+    if (deniedParent && (!viewer || viewer->ViewerType != VIEWER_INTERNAL))
+    {
+        SalMessageBox(parent, GetErrorText(ERROR_ACCESS_DENIED), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
     }
 
     if (viewer != NULL)
@@ -2436,6 +2509,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
         case VIEWER_INTERNAL:
         {
             std::unique_ptr<std::vector<BYTE>> snapshot;
+            bool readable = false;
             if (protectedCandidate && protectedCandidate->size() > 3 && (*protectedCandidate)[1] == L':' &&
                 GetDriveTypeW(protectedCandidate->substr(0, 3).c_str()) == DRIVE_FIXED)
             {
@@ -2443,11 +2517,16 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                 HANDLE probe = HANDLES_Q(CreateFileW(ioName.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
                                                     nullptr, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, nullptr));
                 if (probe != INVALID_HANDLE_VALUE)
+                {
                     HANDLES(CloseHandle(probe));
+                    readable = true;
+                }
                 else if (GetLastError() == ERROR_ACCESS_DENIED)
                 {
                     UacF7::PreparedLeaf request;
-                    bool prepared = request.PrepareView(*protectedCandidate);
+                    const UacF7::PreparedLeaf* prepared = foundView;
+                    if (!prepared && request.PrepareView(*protectedCandidate))
+                        prepared = &request;
                     if (!prepared && protectedListing)
                     {
                         const DWORD error = protectedListing->PrepareViewer(*protectedCandidate, request);
@@ -2456,14 +2535,14 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                             SalMessageBox(parent, GetErrorText(error), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
                             return FALSE;
                         }
-                        prepared = true;
+                        prepared = &request;
                     }
                     if (prepared)
                     {
                         if (!ConfirmProtectedRead(parent, IDS_VIEWERTITLE, IDS_UAC_VIEW_CONFIRM, *protectedCandidate))
                             return FALSE;
                         snapshot = std::make_unique<std::vector<BYTE>>();
-                        const UacF7::Result result = request.ReadViewerSnapshot(parent, *snapshot);
+                        const UacF7::Result result = prepared->ReadViewerSnapshot(parent, *snapshot);
                         if (result.error != ERROR_SUCCESS || result.unknown)
                         {
                             if (result.error != ERROR_CANCELLED)
@@ -2478,6 +2557,11 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                         enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1;
                     }
                 }
+            }
+            if (deniedParent && !readable && !snapshot)
+            {
+                SalMessageBox(parent, GetErrorText(ERROR_ACCESS_DENIED), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+                return FALSE;
             }
             if (addToHistory)
                 MainWindow->FileHistory->AddFile(fhitView, viewer->HandlerID, name);
@@ -2559,7 +2643,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
 
 static bool NeedsAdministratorForEdit(const std::wstring& path)
 {
-    if (path.size() <= 3 || path[1] != L':' || GetDriveTypeW(path.substr(0, 3).c_str()) != DRIVE_FIXED)
+    if (path.size() <= 3 || path[1] != L':' || path[2] != L'\\' || GetDriveTypeW(path.substr(0, 3).c_str()) != DRIVE_FIXED)
         return false;
     const auto ioPath = SalPathAddExtendedPrefixW(path.c_str());
     HANDLE file = HANDLES_Q(CreateFileW(ioPath.c_str(), FILE_WRITE_DATA,
@@ -2571,7 +2655,20 @@ static bool NeedsAdministratorForEdit(const std::wstring& path)
     return false;
 }
 
-void CFilesWindow::EditFile(char* name, DWORD handlerID)
+BOOL ConfirmElevatedFileEdit(HWND owner, const std::wstring& document, const UacF7::ElevatedEditor& editor)
+{
+    const std::wstring details = document + L"\n\n" + editor.GetExecutable();
+    return ConfirmProtectedRead(owner, IDS_UAC_EDIT_ADMIN_TITLE, IDS_UAC_EDIT_ADMIN_CONFIRM, details);
+}
+
+void LaunchElevatedFileEdit(HWND owner, const std::wstring& document, const UacF7::ElevatedEditor& editor)
+{
+    const DWORD error = editor.Launch(owner, document);
+    if (error && error != ERROR_CANCELLED)
+        SalMessageBox(owner, GetErrorText(error), LoadStr(IDS_UAC_EDIT_ADMIN_TITLE), MB_OK | MB_ICONEXCLAMATION);
+}
+
+void CFilesWindow::EditFile(char* name, DWORD handlerID, COpenEditorData* found)
 {
     CALL_STACK_MESSAGE3("CFilesWindow::EditFile(%s, %u)", name, handlerID);
     if (!Is(ptDisk) && name == NULL)
@@ -2580,10 +2677,15 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
         return;
     }
 
-    const bool panelF4 = name == NULL && Is(ptDisk) && !IsBranchView() && handlerID == 0xFFFFFFFF;
-    const bool deferredPathCheck = panelF4 && ProtectedListing &&
+    const bool panelF4 = name == NULL && Is(ptDisk) && handlerID == 0xFFFFFFFF;
+    const bool deferredPathCheck = panelF4 && ProtectedListing && ProtectedListing->IsOpen() &&
                                    ProtectedListing->Contains(SalPathRemoveExtendedPrefixW(GetPathW()));
+    constexpr DWORD excluded = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
+                               FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_OFFLINE;
     std::wstring protectedCandidate;
+    DWORD foundParentError = ERROR_SUCCESS;
+    std::string branchKey;
+    ULONGLONG branchTab = 0, branchGeneration = 0;
     // verify that the file is on an accessible path
     if (name == NULL)
     {
@@ -2595,8 +2697,21 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
         char* backSlash = strrchr(name, '\\');
         if (backSlash != NULL)
         {
-            std::string path(name, backSlash - name);
-            if (CheckPath(TRUE, path.c_str()) != ERROR_SUCCESS)
+            const size_t length = backSlash - name;
+            const std::string path(name, length + (length && backSlash[-1] == ':'));
+            if (found)
+            {
+                if (!(found->Attributes & excluded))
+                    protectedCandidate = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(name, CP_UTF8).c_str());
+                foundParentError = CheckPath(FALSE, path.c_str());
+                if (foundParentError != ERROR_SUCCESS &&
+                    (foundParentError != ERROR_ACCESS_DENIED || protectedCandidate.empty()))
+                {
+                    found->DirectoryError = foundParentError;
+                    return;
+                }
+            }
+            else if (CheckPath(TRUE, path.c_str()) != ERROR_SUCCESS)
                 return;
         }
     }
@@ -2611,12 +2726,22 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
         if (i >= Dirs->Count && i < Dirs->Count + Files->Count)
         {
             CFileData* f = &Files->At(i - Dirs->Count);
-            if (IsBranchView() && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f) return;
+            if (IsBranchView())
+            {
+                const char* key = GetItemCacheKeyPtr(*f);
+                if (!key || GetBranchViewFileByCacheKey(key) != f)
+                    return;
+                if (panelF4)
+                {
+                    branchKey = key;
+                    branchTab = GetPanelTabId();
+                    branchGeneration = GetBranchViewGeneration();
+                }
+            }
             if (Is(ptDisk))
             {
                 const std::wstring wideName = GetItemFullPathW(*f);
-                if (panelF4 && !(f->Attr & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
-                                           FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_OFFLINE)))
+                if (panelF4 && !(f->Attr & excluded))
                     protectedCandidate = SalPathRemoveExtendedPrefixW(wideName.c_str());
                 unicodeDiskFileName = SalWideToMultiBytePath(wideName.c_str(), CP_UTF8);
                 if (unicodeDiskFileName.empty())
@@ -2733,24 +2858,44 @@ void CFilesWindow::EditFile(char* name, DWORD handlerID)
 
             if (NeedsAdministratorForEdit(protectedCandidate))
             {
-                UacF7::ElevatedEditor elevated;
-                if (!elevated.Prepare(Salamander::ViewerPaths::Decode(expCommand.Data())))
+                UacF7::ElevatedEditor panelEditor;
+                auto& elevated = found ? found->Editor : panelEditor;
+                const bool ready = elevated.Prepare(Salamander::ViewerPaths::Decode(expCommand.Data()));
+                if (found)
+                {
+                    // Return before Find shows its own modal dialog on its UI thread.
+                    found->NeedsConsent = ready;
+                    found->UntrustedEditor = !ready;
+                    return;
+                }
+                if (!ready)
                 {
                     SalMessageBox(HWindow, LoadStr(IDS_UAC_EDIT_ADMIN_UNTRUSTED), LoadStr(IDS_UAC_EDIT_ADMIN_TITLE),
                                   MB_OK | MB_ICONEXCLAMATION);
                     return;
                 }
-                const std::wstring details = protectedCandidate + L"\n\n" + elevated.GetExecutable();
-                if (ConfirmProtectedRead(HWindow, IDS_UAC_EDIT_ADMIN_TITLE, IDS_UAC_EDIT_ADMIN_CONFIRM, details))
+                if (ConfirmElevatedFileEdit(HWindow, protectedCandidate, elevated))
                 {
-                    const DWORD error = elevated.Launch(HWindow, protectedCandidate);
-                    if (error && error != ERROR_CANCELLED)
-                        SalMessageBox(HWindow, GetErrorText(error), LoadStr(IDS_UAC_EDIT_ADMIN_TITLE), MB_OK | MB_ICONEXCLAMATION);
+                    if (!branchKey.empty())
+                    {
+                        const auto* file = GetBranchViewFileByCacheKey(branchKey.c_str());
+                        const int index = GetCaretIndex() - Dirs->Count;
+                        if (branchTab != GetPanelTabId() || branchGeneration != GetBranchViewGeneration() ||
+                            !file || index < 0 || index >= Files->Count || &Files->At(index) != file ||
+                            SalPathRemoveExtendedPrefixW(GetItemFullPathW(*file).c_str()) != protectedCandidate)
+                            return;
+                    }
+                    LaunchElevatedFileEdit(HWindow, protectedCandidate, elevated);
                 }
                 return;
             }
             if (deferredPathCheck && CheckPath(TRUE) != ERROR_SUCCESS)
                 return;
+            if (foundParentError == ERROR_ACCESS_DENIED)
+            {
+                found->DirectoryError = foundParentError;
+                return;
+            }
 
             STARTUPINFO si;
             PROCESS_INFORMATION pi;
@@ -3896,8 +4041,18 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     if (f == NULL || newNameW.empty() || newNameW.find_first_of(L"\\/:<>|\"") != std::wstring::npos)
         return;
 
-    if (IsBranchView() && GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f)
-    { *tryAgain = FALSE; return; }
+    const bool branchRename = IsBranchView() != FALSE;
+    const std::string branchKey = branchRename ? GetItemCacheKey(*f) : std::string();
+    const ULONGLONG branchGeneration = branchRename ? GetBranchViewGeneration() : 0;
+    const auto rowIsCurrent = [&]() {
+        return !branchRename || (IsBranchView() && GetBranchViewGeneration() == branchGeneration &&
+                                 GetBranchViewFileByCacheKey(branchKey.c_str()) == f);
+    };
+    if (!rowIsCurrent())
+    {
+        *tryAgain = FALSE;
+        return;
+    }
     const char* oldNameKey = f->Name;
     const std::wstring oldFullPath = GetItemFullPathW(*f);
     std::wstring basePath = GetItemDirectoryW(*f);
@@ -3936,7 +4091,7 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
     bool guardedRename = false;
     const bool link = (f->Attr & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
     const bool directoryRename = isDir && !link && consent != RenameDialogConsent::None;
-    if (err == ERROR_ACCESS_DENIED && (!isDir || link || directoryRename) && !IsBranchView())
+    if (err == ERROR_ACCESS_DENIED && (!isDir || link || directoryRename))
     {
         UacF7::PreparedLeaf request;
         bool prepared = false;
@@ -3982,7 +4137,7 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
                 confirmed = SalMessageBoxEx(&confirm) == IDOK;
             }
             err = ERROR_CANCELLED;
-            if (confirmed)
+            if (confirmed && rowIsCurrent())
             {
                 const auto result = request.Execute(HWindow);
                 err = result.error;
@@ -4001,6 +4156,13 @@ void CFilesWindow::RenameFileInternalW(CFileData* f, const std::wstring& newName
                 err = ERROR_SUCCESS;
             }
         }
+    }
+    if (!rowIsCurrent())
+    {
+        *tryAgain = FALSE;
+        if (renamed)
+            MainWindow->PostChangeOnPathNotification(SalWideToMultiBytePath(basePath.c_str(), CP_UTF8).c_str(), isDir);
+        return;
     }
     if (renamed)
     {
@@ -4434,7 +4596,7 @@ void CFilesWindow::RenameFile(int specialIndex)
             }
 
             std::wstring shieldedSource;
-            if (!branchRename && (f->Attr & FILE_ATTRIBUTE_REPARSE_POINT) == 0 && UacF7::CanOfferElevation())
+            if ((f->Attr & FILE_ATTRIBUTE_REPARSE_POINT) == 0 && UacF7::CanOfferElevation())
             {
                 std::wstring source = GetItemFullPathW(*f);
                 const DWORD sourceAccess = ProbeLocalElevationAccess(source, DELETE, isDir != FALSE);

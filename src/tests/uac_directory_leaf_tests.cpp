@@ -1,5 +1,11 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Exercise exclusive creation and rollback of nested destinations. | Check Unicode paths, path replacement, junctions and commit boundaries on NTFS. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Test direct alias inventory and partial inventory around reparse points. | Check that no alias target is opened and the strict copy manifest still fails. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Verify viewer reads with an identity captured from the parent listing. | Cover Unicode paths and reject a different object before reading bytes. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Reproduce a directory that permits listing without traverse access. | Verify the read-only inventory opens it without broadening access. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Verify compatibility links are excluded from read-only totals. | Count the real directory once and keep rooted traversal and mutation guards strict. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Exercise recognition of Windows compatibility links. | Prove ordinary junctions stay strict and the rooted walk never follows the alias. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Cover exact and nonempty ordinary directory deletion. | Prove a verified leaf can never remove its descendants. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Exercise verified plain-directory rename on a long path. | Check the listed identity, no-replace rule, and untouched subtree. | #731 | GPT-6.1 Sol (Codex) |
 | 2026-11-10 | Verify the ID captured from a directory listing. | Detect replacement and reject missing or redirected entries before listing. | #731 | Codex |
@@ -114,6 +120,7 @@
 #include "../uacbroker/metadataleaf.h"
 #include "../uacbroker/deleteleaf.h"
 #include "../uacbroker/listing.h"
+#include "../uacbroker/compatjunction.h"
 #include "../uacbroker/copyleaf.h"
 #include "../uacbroker/zipupdate.h"
 #include "../uacbroker/zipselection.h"
@@ -2994,7 +3001,7 @@ static bool CheckViewerSnapshot(const std::wstring& fixture, HANDLE root)
         return false;
     UacDirectoryLeaf::ParentIdentity parentIdentity;
     HANDLE rawParent = nullptr;
-    if (UacDirectoryLeaf::OpenParentBelowRoot(root, component, rawParent, parentIdentity))
+    if (UacDirectoryLeaf::OpenParentBelowRoot(root, component, rawParent, parentIdentity, FILE_LIST_DIRECTORY))
         return false;
     const Handle parent(rawParent);
     FILE_ID_INFO identity{}, emptyId{}, largeId{};
@@ -3037,17 +3044,24 @@ static bool CheckViewerSnapshot(const std::wstring& fixture, HANDLE root)
           "reject oversized, over-budget and malformed archive ranges", 0);
 
     std::vector<BYTE> snapshot;
-    DWORD error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, identity, leaf, MAXULONGLONG, snapshot);
+    FILE_ID_INFO listedIdentity{parentIdentity.file.VolumeSerialNumber, {}};
+    DWORD listedAttributes = 0;
+    DWORD error = UacListing::CaptureChildId(parent.get(), leaf, false, listedIdentity.FileId, listedAttributes);
+    Check(!error && UacRenameLeaf::Detail::SameSource(listedIdentity, identity),
+          "capture the long Unicode viewer file identity from its readable parent", error);
+    if (error)
+        return false;
+    error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, listedIdentity, leaf, MAXULONGLONG, snapshot);
     Check(error == ERROR_SUCCESS && snapshot == expected && HasContents(name, expected),
-          "read exact bytes of a verified long Unicode viewer file", error);
+          "read exact bytes of a long Unicode viewer file identified by the parent listing", error);
     error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, emptyId, L"empty.txt", MAXULONGLONG, snapshot);
     Check(error == ERROR_SUCCESS && snapshot.empty(), "open an empty protected viewer file", error);
     error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, largeId, L"large.txt", MAXULONGLONG, snapshot);
     Check(error == ERROR_FILE_TOO_LARGE && snapshot.empty(), "refuse an oversized viewer file before transferring bytes", error);
     error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, identity, leaf, GetTickCount64(), snapshot);
     Check(error == ERROR_TIMEOUT && snapshot.empty(), "refuse a viewer read after its deadline", error);
-    error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, identity, L"empty.txt", MAXULONGLONG, snapshot);
-    Check(error == ERROR_FILE_INVALID && snapshot.empty(), "reject a different file identity for the viewer", error);
+    error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, listedIdentity, L"empty.txt", MAXULONGLONG, snapshot);
+    Check(error == ERROR_FILE_INVALID && snapshot.empty(), "reject a viewer file that does not match the listed identity", error);
     error = UacViewLeaf::ReadVerifiedSnapshot(parent.get(), parentIdentity, identity, L"..\\empty.txt", MAXULONGLONG, snapshot);
     Check(error == ERROR_INVALID_NAME && snapshot.empty(), "reject a path in a single viewer leaf request", error);
 
@@ -3121,6 +3135,115 @@ static bool CheckViewerSnapshot(const std::wstring& fixture, HANDLE root)
                                         scopedRaw, scopedSize, scopedInfo);
     Check(error == ERROR_NOT_SUPPORTED && !scopedRaw, "reject a multiply linked Find candidate", error);
     return DeleteFileW(alias.c_str()) != FALSE;
+}
+
+static bool CheckCompatibilityLink(const std::wstring& fixture, HANDLE root)
+{
+    const auto name = fixture + L"\\junction";
+    const HANDLE raw = CreateFileW(name.c_str(), FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES | READ_CONTROL | WRITE_DAC,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (raw == INVALID_HANDLE_VALUE)
+        return false;
+    const Handle link(raw);
+    FILE_BASIC_INFO original{};
+    PACL previous = nullptr;
+    PSECURITY_DESCRIPTOR oldDescriptor = nullptr;
+    if (!GetFileInformationByHandleEx(raw, FileBasicInfo, &original, sizeof(original)) ||
+        GetSecurityInfo(raw, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr, &previous, nullptr, &oldDescriptor))
+        return false;
+    const std::unique_ptr<void, decltype(&LocalFree)> oldSecurity(oldDescriptor, LocalFree);
+    auto marked = original;
+    marked.FileAttributes |= FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
+    if (!SetFileInformationByHandle(raw, FileBasicInfo, &marked, sizeof(marked)))
+        return false;
+
+    Check(!UacListing::IsCompatibilityLink(raw),
+          "hidden system attributes alone do not make an arbitrary junction a compatibility alias");
+    UacF7::DirectoryInventory direct;
+    DWORD selected = UacListing::InventoryBelowRoot(root, L"junction", MAXULONGLONG, direct, nullptr);
+    Check(selected && !direct.flags, "reject direct inventory of an unverified junction", selected);
+    PSECURITY_DESCRIPTOR newDescriptor = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(D;;CC;;;WD)(A;;FA;;;WD)",
+        SDDL_REVISION_1, &newDescriptor, nullptr))
+        return false;
+    const std::unique_ptr<void, decltype(&LocalFree)> newSecurity(newDescriptor, LocalFree);
+    PACL denied = nullptr;
+    BOOL present = FALSE, defaulted = FALSE;
+    constexpr DWORD flags = DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION;
+    if (!GetSecurityDescriptorDacl(newDescriptor, &present, &denied, &defaulted) || !present || !denied ||
+        SetSecurityInfo(raw, SE_FILE_OBJECT, flags, nullptr, nullptr, denied, nullptr))
+        return false;
+    Check(UacListing::IsCompatibilityLink(raw),
+          "a hidden system junction explicitly denying Everyone list access is a compatibility alias");
+    selected = UacListing::InventoryBelowRoot(root, L"junction", MAXULONGLONG, direct, nullptr);
+    Check(!selected && direct.flags == UacF7::inventoryCompatibilityAlias && !direct.bytes && !direct.files,
+          "direct inventory skips a verified compatibility alias without reading its target", selected);
+    selected = UacListing::InventoryBelowRoot(root, L"junction\\nested", MAXULONGLONG, direct, nullptr);
+    Check(selected && !direct.flags && !direct.bytes, "reject a direct request through the alias", selected);
+    const auto sentinel = fixture + L"\\destination\\nested\\size-sentinel.txt";
+    if (!WriteFixture(sentinel, {1, 2, 3}))
+        return false;
+    UacF7::DirectoryInventory inventory;
+    const DWORD sized = UacListing::Inventory(root, MAXULONGLONG, inventory);
+    Check(sized == ERROR_SUCCESS && inventory.files == 1 && inventory.bytes == 3,
+          "count the real file once and never scan the compatibility alias", sized);
+    if (!DeleteFileW(sentinel.c_str()))
+        return false;
+
+    HANDLE escaped = nullptr;
+    UacDirectoryLeaf::ParentIdentity escapedIdentity;
+    const DWORD traversal = UacDirectoryLeaf::OpenParentBelowRoot(root, L"junction\\nested", escaped,
+                                                                  escapedIdentity, FILE_LIST_DIRECTORY);
+    const Handle rejected(escaped);
+    Check(traversal != ERROR_SUCCESS, "the rooted directory walk cannot traverse a compatibility junction", traversal);
+    UacListing::SubtreeManifest manifest;
+    const DWORD mutation = UacListing::CaptureManifest(root, MAXULONGLONG, manifest);
+    Check(mutation == ERROR_REPARSE_TAG_INVALID && manifest.entries.empty(),
+          "a compatibility junction still prevents publishing a copy manifest", mutation);
+
+    SECURITY_DESCRIPTOR_CONTROL control{};
+    DWORD revision = 0;
+    const bool known = GetSecurityDescriptorControl(oldDescriptor, &control, &revision) != FALSE;
+    const DWORD restoreFlags = DACL_SECURITY_INFORMATION |
+        (known && (control & SE_DACL_PROTECTED) ? PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION);
+    return SetSecurityInfo(raw, SE_FILE_OBJECT, restoreFlags, nullptr, nullptr, previous, nullptr) == ERROR_SUCCESS &&
+           SetFileInformationByHandle(raw, FileBasicInfo, &original, sizeof(original));
+}
+
+static bool CheckInventoryWithoutTraverse(const std::wstring& fixture, HANDLE root)
+{
+    PSECURITY_DESCRIPTOR rawSecurity = nullptr;
+    if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(D;;0x20;;;WD)(A;OICI;FA;;;WD)",
+        SDDL_REVISION_1, &rawSecurity, nullptr))
+        return false;
+    const std::unique_ptr<void, decltype(&LocalFree)> security(rawSecurity, LocalFree);
+    SECURITY_ATTRIBUTES attributes{sizeof(attributes), rawSecurity, FALSE};
+    const auto directory = fixture + L"\\inventory-list-only";
+    if (!CreateDirectoryW(directory.c_str(), &attributes) ||
+        !WriteFixture(directory + L"\\child.txt", {1, 2, 3}))
+        return false;
+
+    HANDLE raw = nullptr;
+    UacDirectoryLeaf::ParentIdentity identity;
+    const DWORD traversal = UacDirectoryLeaf::OpenParentBelowRoot(root, L"inventory-list-only", raw, identity,
+                                                                  FILE_LIST_DIRECTORY);
+    const Handle rejected(raw);
+    Check(traversal == ERROR_ACCESS_DENIED, "a list-only directory refuses an explicit traverse handle", traversal);
+
+    const DWORD opened = UacDirectoryLeaf::OpenParentBelowRoot(root, L"inventory-list-only", raw, identity,
+                                                               FILE_LIST_DIRECTORY, false);
+    if (opened)
+    {
+        Check(false, "open the list-only directory with the inventory access mask", opened);
+        return false;
+    }
+    const Handle readable(raw);
+    UacF7::DirectoryInventory totals;
+    const DWORD sized = UacListing::Inventory(raw, MAXULONGLONG, totals);
+    Check(sized == ERROR_SUCCESS && totals.files == 1 && totals.bytes == 3,
+          "measure a directory that grants list access without explicit traversal", sized);
+    return true;
 }
 
 static bool CheckDetailedInventory(const std::wstring& fixture, HANDLE root)
@@ -4322,6 +4445,103 @@ static bool CheckEfsRaw(const std::wstring& folder, const wchar_t* fixturePath)
     return failures == 0;
 }
 
+void CheckPendingDirectoryChain(const std::wstring& fixture, HANDLE root)
+{
+    using namespace UacDirectoryLeaf;
+    ParentIdentity expected;
+    const DWORD captured = ReadParentIdentity(root, expected);
+    if (captured)
+    {
+        Check(false, "capture the existing destination for a pending directory chain", captured);
+        return;
+    }
+
+    const std::wstring first = L"chain-" + std::wstring(171, L'\u65e5');
+    const std::wstring suffix = first + L"\\" + std::wstring(108, L'\u672c');
+    const auto outer = fixture + L"\\" + first;
+    const auto inner = fixture + L"\\" + suffix;
+    {
+        PendingDirectoryChain pending;
+        const DWORD error = pending.Create(root, expected, suffix, MAXULONGLONG);
+        ParentIdentity created;
+        Check(!error && inner.size() > MAX_PATH && DirectoryExists(inner) &&
+                  !ReadParentIdentity(pending.Directory(), created) && SameParent(pending.Identity(), created),
+              "create a long Unicode destination chain and retain its verified final handle", error);
+        Check(!MoveFileW(outer.c_str(), (fixture + L"\\chain-renamed").c_str()) && GetLastError() == ERROR_SHARING_VIOLATION,
+              "pin every new component against rename while a transfer is pending", error);
+    }
+    Check(!DirectoryExists(outer), "closing an unpublished chain removes its own directories in reverse order");
+
+    PendingDirectoryChain published;
+    DWORD error = published.Create(root, expected, suffix, MAXULONGLONG);
+    if (!error)
+        published.Commit();
+    Check(!error && DirectoryExists(inner), "publication keeps the newly created directory chain", error);
+
+    PendingDirectoryChain collision;
+    error = collision.Create(root, expected, first + L"\\not-approved", MAXULONGLONG);
+    Check(error == ERROR_ALREADY_EXISTS && !collision.Directory() && DirectoryExists(inner) &&
+              !DirectoryExists(outer + L"\\not-approved"),
+          "reject a same-name directory that appeared after preparation", error);
+
+    error = collision.Create(root, expected, L"junction\\escaped", MAXULONGLONG);
+    Check(error != ERROR_SUCCESS && !collision.Directory() && !DirectoryExists(fixture + L"\\destination\\escaped"),
+          "do not follow a junction at the first new component", error);
+
+    for (const auto invalid : {L"new\\..\\escape", L"new\\\\nested", L"new\\NUL.txt", L"new\\tail\\"})
+    {
+        error = collision.Create(root, expected, invalid, MAXULONGLONG);
+        Check(error == ERROR_INVALID_NAME && !DirectoryExists(fixture + L"\\new"),
+              "reject an invalid suffix before creating any component", error);
+    }
+
+    ParentIdentity changed = expected;
+    changed.file.FileId.Identifier[0] ^= 1;
+    error = collision.Create(root, changed, L"wrong-root\\new", MAXULONGLONG);
+    Check(error == ERROR_FILE_INVALID && !DirectoryExists(fixture + L"\\wrong-root"),
+          "reject a changed destination ancestor before creating directories", error);
+
+    error = collision.Create(root, expected, L"expired\\new", GetTickCount64());
+    Check(error == ERROR_TIMEOUT && !DirectoryExists(fixture + L"\\expired"),
+          "an expired request does not create a destination chain", error);
+
+    constexpr wchar_t sourceName[] = L"chain-source-\u6771.txt";
+    const auto source = fixture + L"\\" + sourceName;
+    FILE_ID_INFO sourceId{};
+    if (!WriteFixture(source, {2, 4, 6}) || !OpenIdentity(source, sourceId))
+    {
+        Check(false, "prepare the source for nested F5 and F6");
+        return;
+    }
+    constexpr wchar_t copiedName[] = L"copied-\u6771.txt";
+    constexpr wchar_t movedName[] = L"moved-\u6771.txt";
+    error = collision.Create(root, expected, L"transfer\\nested", MAXULONGLONG);
+    if (!error)
+        error = UacCopyLeaf::CopyVerifiedFile(root, expected, sourceId, sourceName,
+                                            collision.Directory(), collision.Identity(), copiedName);
+    const auto transferred = fixture + L"\\transfer\\nested\\";
+    Check(!error && HasContents(source, {2, 4, 6}) && HasContents(transferred + copiedName, {2, 4, 6}),
+          "verified F5 copies into the pending destination and preserves the source", error);
+    if (!error)
+        error = UacRenameLeaf::MoveVerifiedFile(root, expected, sourceId, sourceName,
+                                               collision.Directory(), collision.Identity(), movedName);
+    if (!error)
+        collision.Commit();
+    else
+        collision.RollBack();
+    FILE_ID_INFO moved{};
+    Check(!error && !Exists(source) && OpenIdentity(transferred + movedName, moved) &&
+              UacRenameLeaf::Detail::SameSource(sourceId, moved) && HasContents(transferred + copiedName, {2, 4, 6}),
+          "verified same-volume F6 keeps the original file ID and commits the destination", error);
+
+    const auto foreign = fixture + L"\\non-empty\\nested\\other.txt";
+    error = collision.Create(root, expected, L"non-empty\\nested", MAXULONGLONG);
+    const bool populated = !error && WriteFixture(foreign, {9, 8, 7});
+    const DWORD rollback = collision.RollBack();
+    Check(populated && rollback == ERROR_DIR_NOT_EMPTY && HasContents(foreign, {9, 8, 7}),
+          "rollback leaves a newly populated directory and its file intact", rollback);
+}
+
 int wmain(int argc, wchar_t** argv)
 {
     using namespace UacDirectoryLeaf;
@@ -4361,7 +4581,8 @@ int wmain(int argc, wchar_t** argv)
                        CheckMoveSourceExtendedAttributeGuard(fixture, root.get()) && CheckMoveSourceOplock(fixture) &&
                        CheckMoveSourceSecuritySeal(fixture, root.get()) && CheckVerifiedMoveSourceGuard(fixture, root.get()) &&
                        CheckMoveSourceRecoveryLink(fixture, root.get()) && CheckMoveSourceJournal(fixture) ? 0 : 1;
-    if (!CheckFindTagStream() || !CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
+    if (!CheckFindTagStream() || !CheckCompatibilityLink(fixture, root.get()) || !CheckInventoryWithoutTraverse(fixture, root.get()) ||
+        !CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
         !CheckZipSelection(fixture, root.get()) || !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::Zip) ||
         !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::DiskCopy) || !CheckOverwriteProcessExit(fixture))
         return 2;
@@ -4481,9 +4702,11 @@ int wmain(int argc, wchar_t** argv)
     manifestError = UacListing::CaptureManifest(root.get(), MAXULONGLONG, manifest);
     Check(manifestError == ERROR_REPARSE_TAG_INVALID && manifest.entries.empty() && manifest.root.volume.empty(),
           "publish no manifest when the scan encounters a junction", manifestError);
-    inventoryError = UacListing::Inventory(root.get(), MAXULONGLONG, inventory);
-    Check(inventoryError == ERROR_REPARSE_TAG_INVALID && !inventory.files && !inventory.directories && !inventory.bytes,
-          "a junction aborts inventory without publishing partial counts", inventoryError);
+    std::wstring firstSkipped;
+    inventoryError = UacListing::Inventory(root.get(), MAXULONGLONG, inventory, nullptr, &firstSkipped);
+    Check(!inventoryError && inventory.firstOmission == ERROR_REPARSE_TAG_INVALID &&
+              !firstSkipped.empty() && inventory.files && inventory.bytes,
+          "skip an unverified junction and retain the readable inventory with a diagnostic", inventoryError);
     inventoryError = UacListing::Inventory(listing.get(), GetTickCount64(), inventory);
     Check(inventoryError == ERROR_TIMEOUT && !inventory.files && !inventory.directories && !inventory.bytes,
           "an expired inventory deadline publishes no counts", inventoryError);
@@ -5805,5 +6028,6 @@ int wmain(int argc, wchar_t** argv)
     const BOOL removedParent = RemoveDirectoryW(longPath.c_str());
     const BOOL removedFirst = RemoveDirectoryW((fixture + L"\\" + first).c_str());
     Check(removedFile && removedLeaf && removedParent && removedFirst, "remove only the owned long-path fixture");
+    CheckPendingDirectoryChain(fixture, root.get());
     return failures ? 1 : 0;
 }

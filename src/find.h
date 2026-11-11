@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Expose bounded legacy path checks and full focused paths. | Avoid passing long results to legacy fixed buffers. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Retain the identity of a protected Find result. | Permit a later exact-file viewer request after the search ends. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Pass the protected Find root by value. | Keep search lifetime independent of panel and broker teardown. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Separate protected consent from Find heartbeat | Integrate UAC with current upstream behavior. | #731 | Codex |
 // | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 // | 2026-11-09 | Bind queued Find notifications to the originating search. | Ignore old refresh and completion messages after a restart. | | Codex |
@@ -97,7 +100,7 @@ class CMenuBar;
 
 struct CSearchForData
 {
-    char Dir[MAX_PATH];
+    std::string Dir;
     CMaskGroup MasksGroup;
     BOOL IncludeSubDirs;
 
@@ -114,7 +117,7 @@ struct CSearchForData
         case 0:
             return MasksGroup.GetMasksString();
         case 1:
-            return Dir;
+            return Dir.c_str();
         default:
             return IncludeSubDirs ? LoadStr(IDS_INCLUDESUBDIRSYES) : LoadStr(IDS_INCLUDESUBDIRSNO);
         }
@@ -185,6 +188,7 @@ void CloseFindWatchdog(CFindWatchdog* watchdog);
 std::wstring PollFindWatchdogs(HWND mainWindow);
 
 class CFindLog;
+namespace UacF7 { struct FindRootIdentity; class PreparedLeaf; }
 
 struct CGrepData
 {
@@ -206,6 +210,7 @@ struct CGrepData
     DWORD AttributesValue; // then compare
     CFilterCriteria Criteria;
     // control and data
+    std::shared_ptr<const UacF7::FindRootIdentity> ProtectedRoot;
     HWND ConsentWindow = nullptr; // owner of protected access prompts
     HANDLE StopEvent = nullptr; // owned by the dialog until the search worker has joined
     std::atomic_bool StopSearch{false}; // the dialog requests cancellation of the search
@@ -561,6 +566,7 @@ struct CFoundFilesData
     CQuadWord Size;
     DWORD Attr;
     FILETIME LastWrite;
+    std::shared_ptr<const UacF7::PreparedLeaf> FoundView; // exact file identity from a protected search
 
     // 'Group' is used in two ways:
     // 1) while searching for duplicate files, when contents are compared,
@@ -625,6 +631,7 @@ public:
     BOOL SetW(const wchar_t* path, const wchar_t* name, const CQuadWord& size, DWORD attr,
               const FILETIME* lastWrite, BOOL isDir);
     std::wstring GetFullNameW() const;
+    bool CanUseLegacyShellPath() const;
     // if 'i' refers to Name or Path, returns a pointer to the corresponding variable
     // otherwise fills the buffer 'text' (must be at least 50 characters long) with the appropriate value
     // and returns a pointer to 'text'
@@ -904,7 +911,8 @@ public:
     std::atomic<CStateOfFindCloseQueryEnum> StateOfFindCloseQuery; // main thread asks the Find thread whether the window can close; unsynchronized, used only during shutdown, more than enough...
 
 public:
-    CFindDialog(HWND hCenterAgainst, const char* initPath);
+    CFindDialog(HWND hCenterAgainst, const char* initPath,
+                std::shared_ptr<const UacF7::FindRootIdentity> protectedRoot);
     ~CFindDialog();
     void SetWatchdog(const std::shared_ptr<CFindWatchdog>& watchdog) { Watchdog = watchdog; }
 
@@ -915,7 +923,7 @@ public:
 
     void SetZeroOnDestroy(CFindDialog** zeroOnDestroy) { ZeroOnDestroy = zeroOnDestroy; }
 
-    BOOL GetFocusedFile(char* buffer, int bufferLen, int* viewedIndex /* can be NULL */);
+    std::string GetFocusedFile(int* viewedIndex = nullptr);
     const char* GetName(int index);
     const char* GetPath(int index);
     BOOL UpdateInternalViewerData();
@@ -1038,7 +1046,8 @@ public:
 // externs
 //
 
-BOOL OpenFindDialog(HWND hCenterAgainst, const char* initPath);
+BOOL OpenFindDialog(HWND hCenterAgainst, const char* initPath,
+                    std::shared_ptr<const UacF7::FindRootIdentity> protectedRoot = {});
 
 extern CFindOptions FindOptions;
 extern CFindIgnore FindIgnore;

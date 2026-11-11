@@ -1,5 +1,7 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Show partial directory sizes as lower bounds. | Distinguish incomplete totals from complete sizes in the panel. | #731 | GPT-6.1 Sol |
 // | 2026-11-08 | Read file keywords through a stream-capable Windows property handler. | Keep the same tag semantics for the protected and ordinary paths. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
 
@@ -2363,7 +2365,9 @@ void WINAPI InternalGetDosName()
 
 void WINAPI InternalGetSize()
 {
-    if (TransferIsDir && !TransferFileData->SizeValid) // only directories without a known size
+    const bool partial = TransferIsDir == 1 && !TransferFileData->SizeValid &&
+                         TransferPanelWindow && TransferPanelWindow->Is(ptDisk) && TransferFileData->SizePartial;
+    if (TransferIsDir && !TransferFileData->SizeValid && !partial)
     {
         memmove(TransferBuffer, DirColumnStr, DirColumnStrLen);
         TransferLen = DirColumnStrLen;
@@ -2391,6 +2395,12 @@ void WINAPI InternalGetSize()
             TransferLen = (int)strlen(TransferBuffer);
             break;
         }
+        }
+        if (partial)
+        {
+            memmove(TransferBuffer + 3, TransferBuffer, TransferLen + 1);
+            memcpy(TransferBuffer, ">= ", 3);
+            TransferLen += 3;
         }
     }
 }

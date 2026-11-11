@@ -2,6 +2,18 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Track declined Windows consent on the copy plan. | Distinguish system refusal from skipping the source in the app. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep the protected source plan with its approved connection. | Transfer one scoped session from analysis to the copy worker. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Track the selected root of a per-entry copy. | Distinguish permission to open a job from permission to reuse it. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Carry the deferred target in the transfer script. | Keep it local to the current file operation. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Mark the individual transfer source from a protected listing. | Keep ordinary files on the native worker path in mixed selections. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Identify permanent Branch View deletes in the worker. | Keep ordinary deletes and lock recovery on their usual paths. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep the verification result with each protected source. | Allow skipping a failed row while preserving the rest of the job. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Share prepared file identities between transfer and delete. | Allocate the path map only for work built from a protected listing. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Retain the first inventory omission and direct alias outcome. | Explain a partial result at the end of the size job. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep size calculation completeness per row and per job. | Report skipped subtrees without losing the accessible totals. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Carry protected transfer identities in the job. | Keep the listing pipe on the panel thread. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Keep size consent on the dialog thread. | Remove the scan-end foreground snapshot from the operation script. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Keep the foreground return point with the size scan. | Share consent across the size entry points without changing worker operations. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Integrate clipboard lease cleanup with UAC worker teardown. | Release staged sources in the existing out-of-line destructor. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Retain staged clipboard sources through disk operation completion. | Async disk copies may continue after the clipboard drop callback returns. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
@@ -37,6 +49,7 @@
 #include <vector>
 #include <deque>
 #include <memory>
+#include <map>
 #include <optional>
 #include "storagesched.h"
 #include "uacbroker/f7pilot.h"
@@ -299,6 +312,10 @@ enum COperationCode
 #define OPFL_PARALLEL_DIR_PREPARED 0x00000400 // directory created/resolved by rolling lookahead
 #define OPFL_UAC_TRANSFER_SOURCE 0x00000800       // F5 or F6 source access failed during ADS discovery
 #define OPFL_UAC_TRANSFER_ELIGIBLE 0x00001000     // directly selected F5 or F6 item can offer a broker retry
+#define OPFL_UAC_BRANCH_DELETE 0x00002000         // Branch View file can retry a denied permanent delete
+#define OPFL_UAC_TRANSFER_LISTED 0x00004000       // transfer source was prepared from a protected listing
+#define OPFL_UAC_TREE_ENTRY 0x00008000            // copy entry in a single verified directory tree
+#define OPFL_UAC_TREE_ROOT 0x00010000             // the only directory creation that can start that tree's consent
 enum CCopyMoveItemState
 {
     cmisUnscanned,
@@ -446,7 +463,23 @@ public:
     DWORD PreparedDeleteAttrs = INVALID_FILE_ATTRIBUTES;
     bool DeleteShieldAccepted = false;
     BOOL AllowTransferPilot;
+    bool AllowTreeTransfer = false;
+    struct CopySourcePlan
+    {
+        std::wstring Root, Destination;
+        std::unique_ptr<UacF7::TransferJobSession> Session;
+        bool ElevationDeclined = false;
+    };
+    std::optional<CopySourcePlan> CopySource;
+    bool TransferFromProtectedListing = false;
+    struct ProtectedFileSource
+    {
+        std::unique_ptr<UacF7::PreparedLeaf> Request;
+        DWORD Error = ERROR_SUCCESS;
+    };
+    std::optional<std::map<std::wstring, ProtectedFileSource>> ProtectedFileSources;
     std::optional<UacF7::MoveFileIdentity> ShieldedTransferTarget;
+    std::optional<UacF7::DeferredTransferTarget> DeferredTransferTarget;
     BOOL IgnoreTransferAds;
     std::unique_ptr<UacF7::PreparedTransfer> ProtectedTreeTransfer;
     // The UI owns the listing connection; only this verified single-item request crosses to the worker.
@@ -543,9 +576,11 @@ public:
     BOOL FastMoveUsed;     // is at least one file or directory being "renamed"? (then the total moved data size would be misleading)
     BOOL ChangeSpeedLimit; // TRUE = the speed limit might change (the worker should reach a state where changing it is easy)
 
-    UacF7::ConsentForeground CountSizeForeground;
-    bool CountSizeBatch = false;
-    bool CountSizeIncomplete = false; // current top-level directory in a size batch
+    bool CountSizeIncomplete = false; // current top-level directory
+    bool CountSizeAnyIncomplete = false; // at least one top-level directory was incomplete
+    bool CountSizeAliasSkipped = false;
+    DWORD CountSizeFirstOmission = ERROR_SUCCESS;
+    std::wstring CountSizeFirstOmissionPath;
     bool CountSizeUsedBroker = false;
     bool CountSizeCompressionUnavailable = false;
     bool CountSizeOccupiedUnavailable = false;

@@ -1,5 +1,7 @@
 ﻿// SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Exercise the production permanent directory finalizer. | Verify long and Unicode names, exact trailing dots, and unaffected neighbors. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Exercise Branch View retry at the actual delete worker failure. | Verify cancellation and keep native progress accounting unchanged. | #731 | GPT-6.1 Sol |
 // | 2026-11-09 | Check the locked source without reopening it. | Keep the lock-recovery test compatible with its exclusive test handle. | https://github.com/KRtkovo-eu-AI/salamander/pull/842 | openai/gpt-5.6-luna-pro |
 // | 2026-11-09 | Cover recovery dialogs for sharing failures. | Exercise the new delete-worker recovery message path. | https://github.com/KRtkovo-eu-AI/salamander/pull/842 | GPT-6 (Codex) |
 // S27c3: actual pinned-donor worker function, with isolated dialog/progress facades.
@@ -11,13 +13,19 @@
 #include <cstdio>
 #include <stdexcept>
 struct CQuadWord { ULONGLONG Value=0; CQuadWord(ULONGLONG v=0):Value(v){} CQuadWord& operator+=(const CQuadWord& b){Value+=b.Value;return *this;} };
-struct COperations {BOOL CanUseRecycleBin=FALSE,InvertRecycleBin=FALSE;CQuadWord TotalSize=100;};
+struct COperations {
+    BOOL CanUseRecycleBin=FALSE,InvertRecycleBin=FALSE,AllowPermanentDeletePilot=FALSE;
+    CQuadWord TotalSize=100;
+    void AddBytesToSpeedMetersAndTFSandPS(DWORD, BOOL, int, void*, int) {}
+    void SetProgressSize(const CQuadWord&) {}
+};
+struct COperation {bool SourceNameWValid=false;std::wstring SourceNameW;};
 struct CProgressDlgData {
     BOOL DeleteHiddenAll=FALSE,CnfrmSHFileDel=TRUE,SkipAllSystemOrHidden=FALSE,SkipAllDeleteErr=FALSE;
     int UseRecycleBin=0;HANDLE WorkerNotSuspended=nullptr;BOOL* CancelWorker=nullptr;
     BOOL AgreeRecycleMasks(const char*,const char*){return TRUE;}
 };
-enum { IDB_ALL=400,IDB_SKIPALL,IDB_SKIP,IDS_CONFIRMSHFILEDELETE,IDS_DELETESHFILE,IDS_ERRORDELETINGFILE,WM_USER_DIALOG=WM_APP+3 };
+enum { IDB_ALL=400,IDB_SKIPALL,IDB_SKIP,IDS_CONFIRMSHFILEDELETE,IDS_DELETESHFILE,IDS_ERRORDELETINGFILE,IDS_ERRORDELETINGDIR,MAX_OP_FILESIZE,WM_USER_DIALOG=WM_APP+3 };
 static int Reply=IDCANCEL,DialogCalls=0,ProgressCalls=0,RecycleCalls=0,LastDialogId=-1;
 static char* LoadStr(int){static char value[]="test";return value;}
 static char* GetErrorText(DWORD){return LoadStr(0);}
@@ -35,7 +43,32 @@ BOOL FileNameIsInvalid(const char*,BOOL,BOOL=FALSE);
 #undef SendMessage
 #define SendMessage WorkerDialog
 @@LOCK_ERROR@@
+static int VerifiedAttempts = 0;
+static bool AcceptVerifiedRetry = false;
+static bool InjectDeleteDenied = false;
+static bool TryDeleteVerifiedLeaf(HWND, const COperation&, COperations&, CProgressDlgData&,
+                                  BOOL& success, bool*, bool accessDenied)
+{
+    ++VerifiedAttempts;
+    success = AcceptVerifiedRetry && accessDenied;
+    return true;
+}
+static BOOL TestDeleteFileW(const wchar_t* path)
+{
+    if (!InjectDeleteDenied)
+        return ::DeleteFileW(path);
+    SetLastError(ERROR_ACCESS_DENIED);
+    return FALSE;
+}
+#define DeleteFileW TestDeleteFileW
 @@DELETE@@
+static void MakeCopyWithBackslashIfNeeded(const char*&, char*) {throw std::logic_error("unexpected ANSI directory path");}
+static void ClearReadOnlyAttr(const char*, DWORD) {throw std::logic_error("unexpected ANSI attribute path");}
+static BOOL IsDirectoryEmpty(const char*) {throw std::logic_error("unexpected directory recycle path");}
+static BOOL PathContainsValidComponents(const char*, BOOL) {throw std::logic_error("unexpected ANSI shell path");}
+static DWORD SalGetFileAttributes(const char*) {throw std::logic_error("unexpected ANSI attribute retry");}
+@@DELETE_DIR@@
+#undef DeleteFileW
 #pragma pop_macro("SendMessage")
 static int Checks=0,Failures=0;
 static void Check(bool yes,const char* label){++Checks;if(!yes){++Failures;std::printf("FAIL: %s\n",label);}}
@@ -59,6 +92,19 @@ int wmain(int argc,wchar_t** argv){
     const auto hidden=root/L"hidden.txt";Check(Write(hidden),"create hidden confirmation source");auto h=Utf8(hidden.wstring());auto hw=Api(hidden);Reply=IDCANCEL;
     Check(!DoDeleteFile(nullptr,h.data(),1,&script,done,FILE_ATTRIBUTE_HIDDEN,data,hw.c_str())&&Payload(hidden),"hidden confirmation Cancel preserves source");
     Reply=IDB_SKIP;Check(DoDeleteFile(nullptr,h.data(),1,&script,done,FILE_ATTRIBUTE_HIDDEN,data,hw.c_str())&&Payload(hidden),"hidden confirmation Skip preserves source");
+    COperation branchRow;
+    auto guarded = Utf8(sentinel.wstring());
+    const auto guardedW = Api(sentinel);
+    const int attempts = VerifiedAttempts;
+    InjectDeleteDenied = true;
+    Check(!DoDeleteFile(nullptr, guarded.data(), 1, &script, done, FILE_ATTRIBUTE_NORMAL, data, guardedW.c_str(), &branchRow) &&
+          VerifiedAttempts == attempts + 1 && Payload(sentinel), "denied permanent Branch View delete invokes the exact retry and preserves the file on cancellation");
+    AcceptVerifiedRetry = true;
+    const int progressBefore = ProgressCalls;
+    Check(DoDeleteFile(nullptr, guarded.data(), 1, &script, done, FILE_ATTRIBUTE_NORMAL, data, guardedW.c_str(), &branchRow) &&
+          VerifiedAttempts == attempts + 2 && ProgressCalls == progressBefore + 1,
+          "a completed exact retry advances progress once");
+    InjectDeleteDenied = false;
     auto invalid=Utf8(sentinel.wstring())+".";Reply=IDCANCEL;Check(!DoDeleteFile(nullptr,invalid.data(),1,&script,done,FILE_ATTRIBUTE_NORMAL,data,nullptr)&&Payload(sentinel),"invalid alias cannot delete trimmed sibling");
     auto missing=Utf8((root/L"missing.txt").wstring());Reply=IDCANCEL;Check(!DoDeleteFile(nullptr,missing.data(),1,&script,done,FILE_ATTRIBUTE_NORMAL,data,nullptr)&&Payload(sentinel),"missing-source error Cancel preserves sibling");
     const auto lockedDirect=root/L"locked-direct.txt";HANDLE directLock=CreateFileW(Api(lockedDirect).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);Check(directLock!=INVALID_HANDLE_VALUE,"create locked direct-delete source");auto directName=Utf8(lockedDirect.wstring());auto directW=Api(lockedDirect);data.UseRecycleBin=0;Reply=IDCANCEL;const int directDialogs=DialogCalls;
@@ -70,6 +116,28 @@ int wmain(int argc,wchar_t** argv){
         Check(DoDeleteFile(nullptr,name.data(),1,&script,done,FILE_ATTRIBUTE_NORMAL,data,exact.c_str())&&GetFileAttributesW(exact.c_str())==INVALID_FILE_ATTRIBUTES,"actual worker selected-extension force-recycle succeeds");Check(Payload(sentinel),"worker recycle preserves unselected sibling");}
     const auto locked=root/L"locked.txt";HANDLE lock=CreateFileW(Api(locked).c_str(),GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);Check(lock!=INVALID_HANDLE_VALUE,"create locked selected-extension source");auto lockedName=Utf8(locked.wstring());auto lockedW=Api(locked);Reply=IDCANCEL;
     Check(!DoDeleteFile(nullptr,lockedName.data(),1,&script,done,FILE_ATTRIBUTE_NORMAL,data,lockedW.c_str())&&GetFileAttributesW(lockedW.c_str())!=INVALID_FILE_ATTRIBUTES,"failed worker recycle does not fall back to permanent deletion");if(lock!=INVALID_HANDLE_VALUE)CloseHandle(lock);
+    script.AllowPermanentDeletePilot=TRUE;
+    data.UseRecycleBin=0;
+    const auto decoy=root/L"directory-decoy";
+    std::filesystem::create_directory(decoy);
+    auto display=Utf8(decoy.wstring());
+    for(const auto& directory:std::vector<std::filesystem::path>{
+            root/L"dir-東京", root/std::wstring(100,L'東'), deep/L"long-finalizer",
+            root/L"exact-dot."})
+    {
+        COperation op;
+        op.SourceNameWValid=true;
+        op.SourceNameW=Api(directory);
+        Check(CreateDirectoryW(op.SourceNameW.c_str(),nullptr)!=FALSE,"create exact directory finalizer fixture");
+        const auto priorDone=done.Value;
+        const auto priorProgress=ProgressCalls;
+        Check(DoDeleteDir(nullptr,display.data(),1,&script,done,FILE_ATTRIBUTE_DIRECTORY,TRUE,data,op)!=FALSE,
+              "permanent directory worker removes the owned Unicode path");
+        Check(GetFileAttributesW(op.SourceNameW.c_str())==INVALID_FILE_ATTRIBUTES&&
+              std::filesystem::is_directory(decoy)&&Payload(sentinel),
+              "exact directory is removed and the display-path directory and file remain");
+        Check(done.Value==priorDone+1&&ProgressCalls==priorProgress+1,"directory progress advances once");
+    }
     CloseHandle(data.WorkerNotSuspended);Check(root.parent_path()==parent&&root.filename()==L"owned-delete","cleanup confined to owned root");std::filesystem::remove_all(std::filesystem::path(Api(root)));
     std::printf("Actual delete worker: %d checks, %d failures\n",Checks,Failures);return Failures?1:0;
 }

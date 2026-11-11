@@ -4309,13 +4309,13 @@ SLGINCOMPLETE,""
 14635,1,"Toegang geweigerd. Dit bestand als administrator verplaatsen?"
 14636,1,"De voltooiing van het verplaatsen kon niet worden bevestigd. Controleer de bron en de bestemming voordat u het opnieuw probeert."
 14637,1,"Inventaris van beschermde submappen"
-14639,1,"De submappen konden niet volledig worden gescand. Gedeeltelijke resultaten worden niet getoond."
+14639,1,"De berekening van de mapgrootte kon niet de volledige mappenstructuur doorlopen."
 
 [STRINGTABLE 194]
 14640,1,"Bestanden: "
 14641,1,"Submappen: "
 14642,1,"Logische grootte (bytes): "
-14643,1,"Deze map en de inhoud als beheerder naar de geregistreerde bestemming kopiëren?"
+14643,1,"Deze map en de inhoud als beheerder kopiëren?"
 14644,1,"Het kopiëren of opruimen kon niet worden bevestigd. Controleer de bestemming voordat u het opnieuw probeert."
 14645,1,"Toegang geweigerd. De gevraagde tijdstempels van deze map als beheerder instellen?"
 14646,1,"De verbinding met het hulpproces werd verbroken voordat het resultaat was bevestigd. Controleer de tijdstempels van de map voordat u het opnieuw probeert."
@@ -4368,6 +4368,9 @@ SLGINCOMPLETE,""
 [STRINGTABLE 197]
 14688,1,"Toegang geweigerd. Dit bestand als beheerder naar uw Prullenbak verplaatsen?"
 14689,1,"Toegang geweigerd. Dit bestand als beheerder kopiëren met behoud van NTFS-compressie, eigenaar, groep en expliciete machtigingen?"
+14694,1,"Deze toestemming geldt ook voor beschermde mappen onder:"
+14695,1,"Toegang geweigerd. Bestandsinhoud onder dit pad als administrator lezen voor deze vergelijking?"
+14696,1,"Deze Windows-compatibiliteitskoppeling is overgeslagen. Ze telt voor 0 bytes mee in het totaal."
 
 [STRINGTABLE 198]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."

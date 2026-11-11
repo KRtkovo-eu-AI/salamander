@@ -1,5 +1,25 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Expose the existing leaf consent scope and explicit retry. | Use the exact broker job identity when remembering a declined deletion. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Retain root planning state after disconnection. | Prevent the worker from creating a scoped root locally after the pipe closes. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Represent copy scopes awaiting their target root. | Admit only creation of the exact planned root before copying children. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Expose exact source-directory identity for F5 planning. | Retain a reviewed ID across the system consent. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Define identity-bearing source listings for rooted F5. | Prepare verified operations from the same approved connection. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Define a read-only start for an existing F5 tree. | Keep subsequent writes scoped to the two approved roots. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Define a rooted directory copy job and its allowed entries. | Reuse copy authority within the verified source and destination trees. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Identify same-volume directory move requests. | Keep directory and file consent scopes separate. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Carry a verified deferred target from the file-operation dialog. | Bind file requests to the exact existing ancestor and missing suffix. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Bind nested transfer requests to the same destination suffix. | Keep the identity of the newly published destination for later files. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Expose the verified create parent identity. | Keep destination preview and transfer preparation on the same identity rules. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Support a verified listed source in the overwrite preparation. | Use the same source identity for a new target and an approved replacement. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Compare the viewer identity against the listing attributes. | Keep protected Find rows tied to an eligible file. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Scope read-only comparison grants. | Separate metadata-only and content-enabled comparison. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Verify a scoped read against a prepared source. | Reject an identity changed while asking for consent. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Expose partial inventory and verified aliases to the host. | Keep complete results distinct from skipped protected entries. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Use verified listing identities for transfer sources. | Prepare F5 and F6 after an ordinary source access denial. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Carry a verified protected Find root. | Keep the Find worker on a separate cancellable broker connection. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Define an inventory-only subtree session. | Keep one size approval separate from listing and content access. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Use the live size consent dialog as the broker owner. | Remove restoration deferred until the end of the scan. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Remember the foreground at broker return for size scans. | Restore only after the invoking panel is enabled. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Match destination consent to the prepared transfer parent. | Keep source and destination access failures distinct. | #731 | GPT-6 (Codex) |
 | 2026-11-10 | Verify exact files and empty ordinary directories for permanent deletion. | Bind consent to the chosen object and preserve nested permission checks. | #731 | GPT-6.1 Sol |
@@ -89,25 +109,30 @@ constexpr UINT restoreConsentForegroundMessage = WM_APP + 427;
 class ConsentForeground
 {
 public:
-    ConsentForeground() = default;
     explicit ConsentForeground(HWND owner);
     HWND Owner() const { return owner; }
     void Restore() const;
-    void Remember();
-    void RestoreRemembered() const;
 
 private:
-    HWND owner = nullptr;
-    bool wasForeground = false;
-    HWND returnForeground = nullptr;
-    DWORD returnInput = 0;
-    bool hasReturnPoint = false;
+    HWND owner;
+    bool wasForeground;
 };
 
 void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput);
 bool CanOfferElevation();
 
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40 };
+
+inline constexpr bool IsComparisonScope(Operation operation)
+{
+    return operation == Operation::CompareList || operation == Operation::CompareContent;
+}
+
+inline constexpr bool IsDirectoryReadScope(Operation operation)
+{
+    return operation == Operation::List || operation == Operation::FindContent || operation == Operation::Inventory ||
+           IsComparisonScope(operation);
+}
 
 inline bool IsRename(Operation operation)
 {
@@ -325,6 +350,19 @@ public:
     PreparedLeaf& operator=(const PreparedLeaf&) = delete;
 
     bool Prepare(const std::wstring& path, const std::wstring& renameTo = {});
+    static bool CaptureCreateParentIdentity(const std::wstring& directory, MoveFileIdentity& identity);
+    bool PrepareCopyDirectory(const std::wstring& path)
+    {
+        return PrepareTarget(path, Operation::CopyDirectoryEntry, {}, nullptr);
+    }
+    bool CopyDirectoryIdentity(MoveFileIdentity& identity) const
+    {
+        if (operation != Operation::CopyDirectoryEntry || (!source && !identityFromListing))
+            return false;
+        identity.serial = serial;
+        std::memcpy(identity.id, sourceId, sizeof(sourceId));
+        return true;
+    }
     bool PrepareRenameDirectory(const std::wstring& path, const std::wstring& renameTo);
     bool PrepareRenameLink(const std::wstring& path, const std::wstring& renameTo, bool directory);
     bool IsJunctionRename() const { return operation == Operation::RenameJunction; }
@@ -336,6 +374,11 @@ public:
     bool IsJunctionDelete() const { return operation == Operation::DeleteJunction; }
     bool IsSymlinkDelete() const { return operation == Operation::DeleteSymlink; }
     bool PrepareView(const std::wstring& path) { return PrepareTarget(path, Operation::View, {}, nullptr); }
+    bool MatchesReadSource(const ArchiveRevision& revision) const
+    {
+        return operation == Operation::View && revision.serial == serial &&
+               std::memcmp(revision.fileId, sourceId, sizeof(sourceId)) == 0;
+    }
     Result ReadViewerSnapshot(HWND owner, std::vector<BYTE>& snapshot) const;
     bool PrepareZipSelection(const std::wstring& directory);
     DWORD WriteZipSelectionLocal(const std::vector<BYTE>& bytes) const;
@@ -343,6 +386,7 @@ public:
     DWORD ExecuteLocal() const;
     Result Execute(HWND owner, TransferJobSession* job = nullptr, BrokerActivity activity = nullptr) const;
     bool IsInJob(const TransferJobSession& job) const;
+    TransferJobScope JobScope() const;
     bool IsDirectoryMetadata() const
     {
         return operation == Operation::Metadata && (metadata.expectedAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
@@ -352,6 +396,7 @@ public:
 private:
     friend class ProtectedRecycleSource;
     friend class ListingSession;
+    friend class TransferJobSession;
     friend class ArchiveReadSession;
     friend class PreparedTransfer;
     bool PrepareTarget(const std::wstring& path, Operation requested, const std::wstring& renameTo,
@@ -363,7 +408,6 @@ private:
     BYTE fileId[16]{};
     BYTE sourceId[16]{};
     std::wstring volume, relative, leaf, sourceLeaf;
-    TransferJobScope JobScope() const;
     MetadataChange metadata{};
     MetadataJobPolicy metadataPolicy{};
     Operation operation = Operation::Mkdir;
@@ -386,19 +430,22 @@ private:
 
 inline constexpr bool IsMoveTransfer(Operation operation)
 {
-    return operation == Operation::Move || operation == Operation::MoveAcrossVolume ||
+    return operation == Operation::Move || operation == Operation::MoveDirectory || operation == Operation::MoveAcrossVolume ||
            operation == Operation::FinishCrossVolumeMove || operation == Operation::MoveCompressed;
 }
 
 inline constexpr bool IsCrossVolumeMove(Operation operation)
 {
-    return IsMoveTransfer(operation) && operation != Operation::Move;
+    return operation == Operation::MoveAcrossVolume || operation == Operation::FinishCrossVolumeMove ||
+           operation == Operation::MoveCompressed;
 }
 
 inline bool CanShareTransferJob(Operation operation)
 {
     return IsFileCopy(operation) || IsMoveTransfer(operation) || operation == Operation::CopyOverwrite ||
-           IsLeafDelete(operation) || operation == Operation::Metadata;
+           IsLeafDelete(operation) || operation == Operation::Metadata ||
+           operation == Operation::CopyDirectoryEntry || operation == Operation::MergeCopyTree ||
+           operation == Operation::PlanCopyTree;
 }
 
 inline Result TransferReply(Operation operation, DWORD error, bool transferJob = false)
@@ -426,6 +473,54 @@ struct TransferJobScope
     std::wstring sourcePath, targetPath;
     MetadataJobPolicy policy{};
     MetadataChange change{};
+    std::wstring targetSuffix{};
+    FILE_ID_128 createdTarget{};
+    bool hasCreatedTarget = false;
+
+    static std::wstring CopyTreeRoot(std::wstring_view volume, std::wstring_view parent, std::wstring_view leaf)
+    {
+        std::wstring path(volume);
+        path.append(parent);
+        if (!parent.empty() && parent.back() != L'\\')
+            path += L'\\';
+        path.append(leaf);
+        return path;
+    }
+
+    bool NeedsTreeRoot() const { return operation == Operation::PlanCopyTree; }
+    bool IsTreeCopy() const
+    {
+        return operation == Operation::CopyDirectoryEntry || operation == Operation::MergeCopyTree || NeedsTreeRoot();
+    }
+
+    bool MatchesTreeEntry(const TransferJobScope& entry, std::wstring_view leaf, std::wstring_view targetLeaf) const
+    {
+        if (!IsTreeCopy() || source.serial != entry.source.serial || target.serial != entry.target.serial ||
+            (entry.operation != Operation::CopyDirectoryEntry && entry.operation != Operation::Copy &&
+             entry.operation != Operation::CopyOverwrite))
+            return false;
+        if (NeedsTreeRoot())
+        {
+            return entry.operation == Operation::CopyDirectoryEntry &&
+                   std::memcmp(source.id, entry.source.id, sizeof(source.id)) == 0 &&
+                   std::memcmp(target.id, entry.target.id, sizeof(target.id)) == 0 &&
+                   CopyTreeRoot({}, entry.sourcePath, leaf) == sourcePath &&
+                   CopyTreeRoot({}, entry.targetPath, targetLeaf) == targetPath;
+        }
+        if (leaf != targetLeaf)
+            return false;
+        const auto relative = [](std::wstring_view root, std::wstring_view path, std::wstring_view& suffix) {
+            if (path == root)
+                return true;
+            if (path.size() <= root.size() || path[root.size()] != L'\\' || path.substr(0, root.size()) != root)
+                return false;
+            suffix = path.substr(root.size() + 1);
+            return !suffix.empty();
+        };
+        std::wstring_view sourceRelative, targetRelative;
+        return relative(sourcePath, entry.sourcePath, sourceRelative) &&
+               relative(targetPath, entry.targetPath, targetRelative) && sourceRelative == targetRelative;
+    }
 
     bool Matches(const TransferJobScope& other) const
     {
@@ -433,13 +528,20 @@ struct TransferJobScope
                target.serial == other.target.serial &&
                std::memcmp(source.id, other.source.id, sizeof(source.id)) == 0 &&
                std::memcmp(target.id, other.target.id, sizeof(target.id)) == 0 &&
-               sourcePath == other.sourcePath && targetPath == other.targetPath &&
+               sourcePath == other.sourcePath && targetPath == other.targetPath && targetSuffix == other.targetSuffix &&
                policy.set == other.policy.set && policy.clear == other.policy.clear &&
                change.created == other.change.created && change.accessed == other.change.accessed &&
                change.modified == other.change.modified &&
                ((change.expectedAttributes ^ other.change.expectedAttributes) & FILE_ATTRIBUTE_DIRECTORY) == 0;
     }
 };
+
+struct TreeCopySourceEntry
+{
+    WIN32_FIND_DATAW data;
+    FILE_ID_128 id;
+};
+static_assert(sizeof(TreeCopySourceEntry) == 608);
 
 class TransferJobSession
 {
@@ -450,6 +552,11 @@ public:
     ~TransferJobSession();
     bool IsOpen() const { return pipe != nullptr; }
     void Close();
+    bool NeedsTreeRoot() const { return scope.NeedsTreeRoot(); }
+    DWORD ListTreeSource(std::wstring_view relative, const MoveFileIdentity& directory,
+                         std::vector<TreeCopySourceEntry>& entries);
+    bool PrepareTreeSource(std::wstring_view relativeParent, const MoveFileIdentity& directory,
+                           const TreeCopySourceEntry& entry, PreparedLeaf& request) const;
 
 private:
     friend class PreparedTransfer;
@@ -478,20 +585,34 @@ struct OverwriteApproval
 
 using TransferProgress = void (*)(void* context, ULONGLONG bytes, ULONGLONG total);
 
+struct DeferredTransferTarget
+{
+    std::wstring ancestor;
+    std::wstring suffix;
+    MoveFileIdentity identity{};
+};
+
 class PreparedTransfer
 {
 public:
-    bool Prepare(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize, Operation operation);
+    static bool CaptureDeferredTarget(std::wstring directory, size_t ancestorLength, DeferredTransferTarget& target);
+    bool Prepare(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize, Operation operation,
+                 const PreparedLeaf* listedSource = nullptr, const DeferredTransferTarget* deferred = nullptr);
     bool PrepareMoveCompletion(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize,
                                const MoveFileIdentity& copiedSource, const MoveFileIdentity& copiedTarget);
-    bool PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize);
+    bool PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize,
+                          const PreparedLeaf* listedSource = nullptr);
     bool PrepareTree(const std::wstring& sourcePath, std::wstring_view targetDirectory, std::wstring& destination);
+    bool PrepareTreeMerge(const std::wstring& sourcePath, const std::wstring& targetPath);
+    bool PrepareTreePlan(const std::wstring& sourcePath, const std::wstring& targetPath);
+    bool AllowsTreeEntry(const PreparedTransfer& entry) const;
     Result Execute(HWND owner, HANDLE cancel = nullptr, TransferJobSession* job = nullptr,
                    TransferProgress progress = nullptr, void* progressContext = nullptr,
                    BrokerActivity activity = nullptr) const;
     bool IsInJob(const TransferJobSession& job) const;
     bool CanShareJob() const { return CanShareTransferJob(source.operation); }
     bool IsMove() const { return IsMoveTransfer(source.operation); }
+    bool IsDirectoryMove() const { return source.operation == Operation::MoveDirectory; }
     bool IsCrossVolumeMove() const { return UacF7::IsCrossVolumeMove(source.operation); }
     bool IsMoveCompletion() const { return source.operation == Operation::FinishCrossVolumeMove; }
     bool MatchesTargetDirectory(const MoveFileIdentity& identity) const
@@ -499,7 +620,11 @@ public:
         return identity.serial == target.serial &&
                std::memcmp(identity.id, target.fileId, sizeof(identity.id)) == 0;
     }
-    bool IsTree() const { return source.operation == Operation::CopyTree; }
+    bool IsTree() const { return source.operation == Operation::CopyTree || IsScopedTree(); }
+    bool IsDirectoryCopyEntry() const { return source.operation == Operation::CopyDirectoryEntry; }
+    bool IsTreeMerge() const { return source.operation == Operation::MergeCopyTree; }
+    bool IsScopedTree() const { return IsDirectoryCopyEntry() || IsTreeMerge() || source.operation == Operation::PlanCopyTree; }
+    bool HasDeferredTarget() const { return !targetSuffix.empty(); }
     bool MatchesOverwriteTarget(HANDLE file) const;
     OverwriteApproval Approval() const;
     bool MatchesApproval(const OverwriteApproval& approval) const
@@ -513,9 +638,11 @@ public:
     bool IgnoresAds() const { return source.operation == Operation::CopyIgnoreAds; }
 
 private:
-    TransferJobScope JobScope() const;
+    bool PrepareSource(const std::wstring& sourcePath, Operation operation, const PreparedLeaf* listedSource);
+    TransferJobScope JobScope(bool asRoot = false) const;
     PreparedLeaf source;
     PreparedLeaf target;
+    std::wstring targetSuffix;
     ArchiveRevision overwriteTarget;
     ULONGLONG size = 0;
 };
@@ -553,8 +680,11 @@ struct DirectoryInventory
     ULONGLONG bytes = 0;
     DWORD files = 0;
     DWORD directories = 0;
+    DWORD firstOmission = 0;
+    DWORD flags = 0;
 };
-static_assert(sizeof(DirectoryInventory) == 16);
+static_assert(sizeof(DirectoryInventory) == 24);
+constexpr DWORD inventoryCompatibilityAlias = 1;
 
 constexpr ULONGLONG unavailableSize = MAXULONGLONG;
 
@@ -571,6 +701,15 @@ struct DirectorySizeDetails
     std::vector<ULONGLONG> fileSizes;
 };
 
+struct FindRootIdentity
+{
+    std::wstring path;
+    std::wstring volume;
+    std::wstring relative;
+    ULONGLONG serial = 0;
+    FILE_ID_128 id{};
+};
+
 class ListingSession
 {
 public:
@@ -581,23 +720,33 @@ public:
 
     bool Prepare(const std::wstring& path, bool findContent = false);
     bool PrepareFile(const std::wstring& path);
-    DWORD PrepareViewer(const std::wstring& path, PreparedLeaf& viewer);
+    bool PrepareFindRoot(const FindRootIdentity& identity, bool readContent);
+    DWORD CaptureFindRoot(const std::wstring& path, FindRootIdentity& identity);
+    bool PrepareInventory(const std::wstring& path);
+    bool PrepareComparison(const std::wstring& path, bool contents);
+    static bool CaptureDirectoryIdentity(const std::wstring& path, MoveFileIdentity& identity);
+    DWORD PrepareViewer(const std::wstring& path, PreparedLeaf& viewer,
+                        DWORD expectedAttributes = INVALID_FILE_ATTRIBUTES);
+    DWORD PrepareTransferSource(const std::wstring& path, DWORD attributes, bool move, PreparedLeaf& request);
     DWORD PrepareDeleteLeaf(const std::wstring& path, DWORD attributes, PreparedLeaf& request);
     DWORD PrepareMkdir(const std::wstring& path, PreparedLeaf& mkdir);
     DWORD PrepareRename(const std::wstring& path, const std::wstring& renameTo, PreparedLeaf& rename, bool directory);
     DWORD PrepareMetadata(const std::wstring& path, const MetadataChange& change, MetadataJobPolicy policy,
                           PreparedLeaf& request);
-    DWORD Start(HWND owner, HANDLE stop = nullptr, ConsentForeground* deferredForeground = nullptr);
+    DWORD Start(HWND owner, HANDLE stop = nullptr);
     DWORD OpenContent(const std::wstring& path, ULONGLONG& size, FILETIME& modified, ArchiveRevision& revision);
     DWORD ReadContent(ULONGLONG offset, void* buffer, DWORD bytes);
     DWORD CloseContent();
     bool Contains(const std::wstring& path) const;
     const std::wstring& GetRoot() const { return root; }
-    DWORD List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries);
-    DWORD Inventory(const std::wstring& path, DirectoryInventory& inventory, DirectorySizeDetails* details = nullptr);
+    DWORD List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries,
+               const MoveFileIdentity* expected = nullptr);
+    DWORD Inventory(const std::wstring& path, DirectoryInventory& inventory, DirectorySizeDetails* details = nullptr,
+                    std::wstring* firstSkipped = nullptr);
     bool IsOpen() const { return pipe != nullptr; }
 
 private:
+    bool PrepareDirectory(const std::wstring& path, Operation operation);
     DWORD PrepareLeaf(const std::wstring& path, Operation operation, const std::wstring& renameTo,
                       PreparedLeaf& request, const MetadataChange* change = nullptr,
                       DWORD expectedAttributes = INVALID_FILE_ATTRIBUTES);
@@ -645,5 +794,6 @@ struct LeafPrompt
     const char* path;
     bool shieldedOk;
     Result result{ERROR_CANCELLED, false};
+    bool retryDeclined = false;
 };
 }

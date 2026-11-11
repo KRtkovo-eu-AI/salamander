@@ -2,6 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Respect refused UAC consent in the same delete scope. | Suppress repeated system prompts while allowing an explicit retry. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Display the approved roots for an existing F5 tree. | Keep the consent scope independent of the first denied entry. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Show the scope of the rooted F5 consent. | Describe the selected trees instead of their parent directories. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Describe the directory rename used for same-volume F6. | Show the exact source and destination in the existing transfer dialog. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Use accepted Copy/Move OK for the first matching target denial. | Avoid a duplicate Administrator button while preserving normal consent. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Honor the initial shield for one verified permanent deletion. | Go straight to Windows for the explicitly approved item. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Use the shielded metadata confirmation for the same denied item. | Go straight to Windows consent for one verified change. | #731 | GPT-6.1 Sol (Codex) |
@@ -1923,7 +1927,9 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             const bool moving = prompt.request.IsMove();
             const bool tree = prompt.request.IsTree();
             int confirmText = moving ? IDS_UAC_MOVE_CONFIRM : IDS_UAC_COPY_CONFIRM;
-            if (prompt.request.IsOverwrite())
+            if (prompt.request.IsDirectoryMove())
+                confirmText = IDS_UAC_RENAME_DIRECTORY_CONFIRM;
+            else if (prompt.request.IsOverwrite())
                 confirmText = IDS_UAC_COPY_OVERWRITE_CONFIRM;
             else if (tree)
                 confirmText = IDS_UAC_TREE_COPY_CONFIRM;
@@ -1939,13 +1945,13 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             const bool shareJob = Script->Count > 1 && prompt.request.CanShareJob();
             std::string message = std::string(LoadStr(confirmText)) + "\n\n" +
                                   prompt.sourcePath + "\n -> " + prompt.targetPath;
-            if (shareJob)
+            if (shareJob && !prompt.request.IsScopedTree())
             {
                 auto parent = [](std::string_view path) { return path.substr(0, path.rfind('\\') + 1); };
                 message += std::string("\n\n") + LoadStr(IDS_UAC_TRANSFER_JOB_SCOPE) + "\n" +
                            std::string(parent(prompt.sourcePath)) + "\n -> " + std::string(parent(prompt.targetPath));
             }
-            else if (Script->Count > 1)
+            else if (Script->Count > 1 && !prompt.request.IsScopedTree())
                 message += std::string("\n\n") + LoadStr(IDS_UAC_BATCH_ITEM_SCOPE);
             const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
             MSGBOXEX_PARAMS confirm{};
@@ -1999,6 +2005,20 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 unknownText = attributes ? IDS_UAC_DIRECTORY_ATTRS_UNKNOWN : IDS_UAC_DIRECTORY_TIMES_UNKNOWN;
             }
             const bool shareJob = Script->Count > 1;
+            const bool trackDeleteRefusal = deleting && shareJob;
+            UacF7::TransferJobScope deleteScope;
+            if (trackDeleteRefusal)
+            {
+                deleteScope = prompt.request.JobScope();
+                const auto declined = std::find_if(DeclinedDeleteScopes.begin(), DeclinedDeleteScopes.end(),
+                    [&](const auto& scope) { return scope.Matches(deleteScope); });
+                if (declined != DeclinedDeleteScopes.end())
+                {
+                    if (!prompt.retryDeclined)
+                        break; // Leave the cancellation result for the worker's usual error choices.
+                    DeclinedDeleteScopes.erase(declined);
+                }
+            }
             auto existing = shareJob ? std::find_if(TransferJobs.begin(), TransferJobs.end(),
                                                      [&](const auto& job) { return prompt.request.IsInJob(job); })
                                      : TransferJobs.end();
@@ -2024,10 +2044,13 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             if (approved && !CancelWorker)
             {
-                if (shareJob && existing == TransferJobs.end())
+                const bool newScope = existing == TransferJobs.end();
+                if (shareJob && newScope)
                     existing = TransferJobs.emplace(TransferJobs.end());
                 prompt.result = prompt.request.Execute(HWindow, existing != TransferJobs.end() ? &*existing : nullptr,
                                                        NotifyNativeBrokerActivity);
+                if (trackDeleteRefusal && newScope && !prompt.result.unknown && prompt.result.error == ERROR_CANCELLED)
+                    DeclinedDeleteScopes.push_back(std::move(deleteScope));
                 if (existing != TransferJobs.end() && (CancelWorker || !existing->IsOpen()))
                     TransferJobs.erase(existing);
                 if (prompt.result.unknown)

@@ -1,5 +1,10 @@
 ﻿// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Describe administrator approval for any verified tree copy. | Use the same localized consent wording for registered and ordinary targets. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Explain exclusion of a verified Windows compatibility link. | Show why the target was not counted. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Explain why the size calculation is incomplete. | Preserve a visibly partial directory total. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Localize protected directory content comparison consent. | Show the exact subtree and operation before elevation. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Describe the scope of size consent. | Explain automatic reuse for protected folders. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Describe elevated ordinary-directory rename. | Identify the exact same-parent rename and both paths. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Describe the protected empty-directory removal prompt. | Clarify that elevation cannot remove unknown descendants. | #731 | GPT-6.1 Sol |
 // | 2026-11-09 | Describe combined protected F5 options. | Show both compression and security in the consent prompt. | | GPT-6.1 Sol (Codex) |
@@ -2445,6 +2450,8 @@ STRINGTABLE
  IDS_UAC_DELETE_CONFIRM, "Access was denied. Permanently delete this file as an administrator?"
  IDS_UAC_DELETE_EMPTY_DIRECTORY_CONFIRM, "Access was denied. Permanently delete this empty directory as an administrator?"
  IDS_UAC_RENAME_DIRECTORY_CONFIRM, "Access was denied. Rename this directory as an administrator? The current path is shown first, followed by the new path."
+ IDS_UAC_SIZE_CONSENT_SCOPE, "This approval also covers protected folders under:"
+ IDS_UAC_COMPARE_CONTENT_CONFIRM, "Access was denied. Read file contents under this path as an administrator for this comparison?"
  IDS_UAC_DELETE_SYMLINK_CONFIRM, "Access was denied. Permanently delete this symbolic link as an administrator? The linked file will be kept."
  IDS_UAC_DELETE_DIRECTORY_SYMLINK_CONFIRM, "Access was denied. Permanently delete this directory symbolic link as an administrator? The linked folder will be kept."
  IDS_UAC_DELETE_JUNCTION_CONFIRM, "Access was denied. Permanently delete this directory junction as an administrator? The linked folder will be kept."
@@ -2492,11 +2499,12 @@ STRINGTABLE
  IDS_UAC_MOVE_CONFIRM, "Access was denied. Move this file as an administrator?"
  IDS_UAC_MOVE_UNKNOWN, "The move could not be confirmed as complete. Check the source and destination before retrying."
  IDS_UAC_INVENTORY_TITLE, "Protected subtree inventory"
- IDS_UAC_INVENTORY_INCOMPLETE, "The subtree could not be scanned completely. Partial results are hidden."
+ IDS_UAC_SIZE_COMPAT_ALIAS, "This Windows compatibility link was skipped. It contributes 0 bytes to the total."
+ IDS_UAC_INVENTORY_INCOMPLETE, "The directory size calculation could not scan the entire tree."
  IDS_UAC_INVENTORY_FILES, "Files: "
  IDS_UAC_INVENTORY_DIRECTORIES, "Subfolders: "
  IDS_UAC_INVENTORY_BYTES, "Logical size (bytes): "
- IDS_UAC_TREE_COPY_CONFIRM, "Copy this folder and its contents to the registered destination as an administrator?"
+ IDS_UAC_TREE_COPY_CONFIRM, "Copy this folder and its contents as an administrator?"
  IDS_UAC_TREE_COPY_UNKNOWN, "The folder copy or its cleanup could not be confirmed. Check the destination before retrying."
  IDS_FILELAUNCH_PROGRAM_FAILED, "The program could not be started safely through Windows. It was not retried using another launch method."
  IDS_FILELAUNCH_DOCUMENT_FAILED, "The item could not be opened through Windows Shell. The selected item was not retried using another launch method."

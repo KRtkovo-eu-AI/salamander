@@ -1,5 +1,34 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Retain the opened identity of a protected copy directory. | Allow a reviewed source directory whose listing requires elevation. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Prepare permanent link deletion from the approved listing. | Resolve only the link identity and require a separate authorized mutation. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Open a copy scope without creating its target root. | Verify both sides again when creating the root on the existing session. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Allow F5 source preparation by verified parent listing. | Carry the exact ID when the ordinary caller cannot open directory attributes. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Open the pinned copy root for directory enumeration. | Recheck the exact root ID when opening list access. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Keep tree listing byte counts within the bounded wire size. | Use the protocol transfer width explicitly. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | List a verified directory beneath an approved F5 source root. | Keep recursive planning and file transfers inside one broker session. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Pin the verified existing destination for a tree merge. | Open consent scope without changing the root or any children. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Keep directory validation separate from metadata operations. | Avoid shadowing the request metadata. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Reject unrelated operations before reading tree copy payloads. | Limit rooted authorization to directory creation and file copying. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Copy directory entries within pinned per-job roots. | Use the existing file publication path without staging a readable working tree. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Dispatch a verified directory move without scanning its contents. | Use the existing atomic NTFS rename and recheck both parents and the source identity. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Send the exact deferred target in the authenticated transfer job. | Reject substitutions before consent and reuse the authorized suffix for later files. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Retain destination security reads for nested cross-volume moves. | Preserve the existing stream publication check. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Handle a verified missing suffix in a scoped transfer. | Create and publish a new destination once without accepting replacements or widening approval. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Share destination identity capture with the transfer dialog. | Use the same direct or listed parent identity for preview and execution. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Capture a denied existing transfer destination from its parent listing. | Keep create-only F5, F6 and F7 bound to the same destination object. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Allow listed file identity for basic metadata. | Prepare a verified retry when reading the selected file attributes is denied. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Prepare transfer identities from readable or already approved listings. | Keep physical source verification and target revision checks when attributes cannot be opened. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Allow file identity reads within a protected content search. | Export identities for later exact-file consent without extending search authority. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Capture a denied file rename source from its parent. | Verify the ID even when local metadata opening is refused. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Verify comparison directory and file identities by handle. | Reuse one broker within the approved comparison side. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Carry partial inventory reasons over the broker pipe. | Validate the bounded relative diagnostic path and compatibility alias result. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Offer F3 for an inaccessible file in a readable directory. | Use the verified parent listing when the local file metadata open is denied. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Reopen exact transfer sources verified by the listing. | Use the existing broker request and revalidate both parents and the source file. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Prepare a narrow Find scope from the current listing. | Reopen and revalidate the exact directory in a separate read broker. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Open inventory roots and children with the size access mask. | Keep verified read-only requests independent of explicit traversal permission. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Add a rooted inventory-only broker session. | Reuse size consent within one selected directory. | #731 | GPT-6.1 Sol |
+| 2026-11-10 | Restore foreground after each size consent. | Use the enabled modal owner and the shared immediate return. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Capture the return point as soon as Windows consent ends. | Avoid activating a disabled caller or overriding intervening user input. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Prepare and verify one ordinary directory rename. | Bind a denied child to its ID in a verified parent listing. | #731 | GPT-6.1 Sol (Codex) |
 | 2026-11-10 | Prepare verified permanent deletion from the existing listing. | Preserve one-item identity when local metadata is inaccessible. | #731 | GPT-6.1 Sol |
@@ -504,6 +533,8 @@ using UacF7::Operation;
 
 UacRenameLeaf::MoveKind RenameKind(Operation operation)
 {
+    if (operation == Operation::MoveDirectory)
+        return UacRenameLeaf::MoveKind::OrdinaryDirectory;
     if (operation == Operation::RenameDirectory)
         return UacRenameLeaf::MoveKind::RenameDirectory;
     if (operation == Operation::RenameJunction)
@@ -529,7 +560,8 @@ struct RequestHeader
     DWORD targetRelativeLength;
     DWORD targetLeafLength;
     ULONGLONG copySize;
-    ULONGLONG reportProgress = 0;
+    DWORD reportProgress = 0;
+    DWORD targetSuffixLength = 0;
 };
 static_assert(sizeof(RequestHeader) == 104);
 constexpr DWORD transferProgressFrame = MAXDWORD;
@@ -714,7 +746,7 @@ Handle OpenVolumeRoot(std::wstring_view volume, ACCESS_MASK extraAccess = 0)
 }
 
 DWORD OpenRequestParent(HANDLE root, std::wstring_view relative, Handle& parent, UacDirectoryLeaf::ParentIdentity& identity,
-                        ACCESS_MASK extraAccess = 0)
+                        ACCESS_MASK extraAccess = 0, ULONG sharing = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
 {
     if (relative.empty())
     {
@@ -725,7 +757,7 @@ DWORD OpenRequestParent(HANDLE root, std::wstring_view relative, Handle& parent,
         return UacDirectoryLeaf::ReadParentIdentity(parent.get(), identity);
     }
     HANDLE raw = nullptr;
-    const DWORD error = UacDirectoryLeaf::OpenParentBelowRoot(root, relative, raw, identity, extraAccess);
+    const DWORD error = UacDirectoryLeaf::OpenParentBelowRoot(root, relative, raw, identity, extraAccess, true, sharing);
     parent = Adopt(raw);
     return error;
 }
@@ -1620,9 +1652,71 @@ DWORD WriteZipUpdate(const InstallLocation& install, HANDLE root, std::wstring_v
     return ERROR_SUCCESS;
 }
 
+struct TreeCopyPins
+{
+    Handle source, target;
+};
+
+DWORD VerifyTreeParent(HANDLE root, std::wstring_view rootPath, std::wstring_view parentPath,
+                       const UacDirectoryLeaf::ParentIdentity& expected)
+{
+    if (!root)
+        return ERROR_ACCESS_DENIED;
+    if (parentPath == rootPath)
+        return UacDirectoryLeaf::VerifyParent(root, expected);
+    HANDLE raw = nullptr;
+    UacDirectoryLeaf::ParentIdentity identity;
+    const auto relative = parentPath.substr(rootPath.size() + 1); // already checked by MatchesTreeEntry
+    const DWORD error = UacDirectoryLeaf::OpenParentBelowRoot(root, relative, raw, identity, 0, false);
+    const auto parent = Adopt(raw);
+    return error ? error : UacDirectoryLeaf::SameParent(expected, identity) ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+}
+
+DWORD ReplyTreeSource(HANDLE pipe, ULONGLONG deadline, const TreeCopyPins& pins,
+                      std::wstring_view scopedRoot, std::wstring_view relative,
+                      const UacDirectoryLeaf::ParentIdentity& expected)
+{
+    constexpr ULONG sharing = FILE_SHARE_READ | FILE_SHARE_WRITE;
+    Handle volume;
+    HANDLE root = pins.source.get();
+    DWORD error = ERROR_SUCCESS;
+    if (relative.empty())
+    {
+        error = UacDirectoryLeaf::VerifyParent(root, expected);
+        if (!error)
+        {
+            // Open list access to the same pinned root, checking the identity again.
+            volume = OpenVolumeRoot(expected.volume);
+            if (volume)
+            {
+                root = volume.get();
+                relative = scopedRoot.substr(volumeLength);
+            }
+            else
+                error = ERROR_NOT_SUPPORTED;
+        }
+    }
+
+    HANDLE raw = nullptr;
+    UacDirectoryLeaf::ParentIdentity actual;
+    if (!error)
+        error = UacDirectoryLeaf::OpenParentBelowRoot(root, relative, raw, actual, FILE_LIST_DIRECTORY, false, sharing);
+    const auto directory = Adopt(raw);
+    if (!error && !UacDirectoryLeaf::SameParent(actual, expected))
+        error = ERROR_FILE_INVALID;
+    std::vector<UacF7::TreeCopySourceEntry> entries;
+    if (!error)
+        error = UacListing::EnumerateTreeSource(directory.get(), entries, deadline);
+    ListingReply reply{error, error ? 0 : static_cast<DWORD>(entries.size())};
+    error = TransferRequest(pipe, &reply, sizeof(reply), true, deadline);
+    if (!error && reply.count)
+        error = TransferRequest(pipe, entries.data(), reply.count * static_cast<DWORD>(sizeof(entries.front())), true, deadline);
+    return error;
+}
+
 DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, DWORD hostPid,
                      ULONGLONG& deadline, DWORD& result, Handle& listingRoot, std::vector<BYTE>& snapshot, bool& snapshotRequest, bool& zipUpdate, Operation& listingScope, Handle& archive, UacF7::ArchiveRevision& archiveRevision,
-                     UacF7::TransferJobScope* jobScope = nullptr)
+                     UacF7::TransferJobScope* jobScope = nullptr, TreeCopyPins* treePins = nullptr)
 {
     RequestHeader header{};
     DWORD received = 0;
@@ -1638,7 +1732,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     }
     if (jobScope)
     {
-        if (!UacF7::CanShareTransferJob(header.operation))
+        if (!UacF7::CanShareTransferJob(header.operation) && header.operation != Operation::ListCopyTreeSource)
             return ERROR_ACCESS_DENIED;
         // The idle allowance covers only the next header. The request body
         // must arrive within the normal transaction deadline.
@@ -1649,7 +1743,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool setMetadata = header.operation == Operation::Metadata;
     const bool deleteFile = UacF7::IsLeafDelete(header.operation);
     listingScope = header.operation;
-    const bool list = listingScope == Operation::List || listingScope == Operation::FindContent;
+    const bool list = UacF7::IsDirectoryReadScope(listingScope);
     const bool findFile = listingScope == Operation::FindFile;
     const bool view = header.operation == Operation::View;
     snapshotRequest = view;
@@ -1660,9 +1754,20 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const bool copy = UacF7::IsFileCopy(header.operation) || overwrite;
     const bool finishMove = header.operation == Operation::FinishCrossVolumeMove;
     const bool move = UacF7::IsMoveTransfer(header.operation);
+    const bool moveDirectory = header.operation == Operation::MoveDirectory;
     const bool crossMove = UacF7::IsCrossVolumeMove(header.operation);
     const bool tree = header.operation == Operation::CopyTree;
-    const bool transfer = copy || move || tree;
+    const bool copyDirectory = header.operation == Operation::CopyDirectoryEntry;
+    const bool mergeTree = header.operation == Operation::MergeCopyTree;
+    const bool planTree = header.operation == Operation::PlanCopyTree;
+    const bool openTree = mergeTree || planTree;
+    const bool listTreeSource = header.operation == Operation::ListCopyTreeSource;
+    const bool inTreeCopy = jobScope && jobScope->IsTreeCopy();
+    const bool creatingRoot = inTreeCopy && jobScope->NeedsTreeRoot() && copyDirectory;
+    const bool transfer = copy || move || tree || copyDirectory || openTree;
+    if (listTreeSource ? (!inTreeCopy || !treePins || !treePins->source || !treePins->target)
+                       : (inTreeCopy && !copyDirectory && header.operation != Operation::Copy && !overwrite))
+        return ERROR_ACCESS_DENIED;
     if (header.reportProgress > 1 || (header.reportProgress && !CanReportTransferProgress(header.operation)))
         return ERROR_INVALID_DATA;
     struct ProgressSender
@@ -1690,18 +1795,23 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     const auto* progress = header.reportProgress ? &progressSink : nullptr;
     if (header.relativeLength > UacDirectoryLeaf::maxNativeName || !header.leafLength ||
         header.leafLength > UacDirectoryLeaf::maxComponent || header.sourceLength > UacDirectoryLeaf::maxComponent ||
-        (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer && !view && !readArchive && !writeZipSelection && !zipUpdate) || rename != (header.sourceLength != 0) ||
-        (list && !header.relativeLength) || transfer != (header.targetLeafLength != 0) ||
+        (!rename && !mkdir && !setMetadata && !deleteFile && !list && !transfer && !view &&
+         !readArchive && !writeZipSelection && !zipUpdate && !listTreeSource) || rename != (header.sourceLength != 0) ||
+        (list && !header.relativeLength && !IsComparisonScope(listingScope)) ||
+        transfer != (header.targetLeafLength != 0) ||
         header.targetRelativeLength > UacDirectoryLeaf::maxNativeName || header.targetLeafLength > UacDirectoryLeaf::maxComponent ||
         header.copySize > (zipUpdate ? UacF7::maxZipUpdateBytes :
                            writeZipSelection ? UacF7::maxZipSelectionBytes :
                            crossMove ? UacF7::maxCrossVolumeMoveBytes : UacF7::maxPilotCopyBytes) ||
         (!copy && !crossMove && !writeZipSelection && !zipUpdate && header.copySize) ||
         (writeZipSelection && !header.copySize) || (zipUpdate && header.copySize < 22) ||
-        (!transfer && header.targetRelativeLength))
+        (!transfer && header.targetRelativeLength) ||
+        ((copyDirectory || openTree) && (!treePins || !jobScope || (!inTreeCopy && jobScope->operation != Operation::Mkdir))) ||
+        (header.targetSuffixLength && (!jobScope || !transfer || tree || copyDirectory || openTree || inTreeCopy || overwrite || finishMove ||
+         header.targetSuffixLength > UacDirectoryLeaf::maxNativeName - header.targetRelativeLength)))
         return ERROR_INVALID_DATA;
     const size_t primarySize = volumeLength + header.relativeLength + header.leafLength + header.sourceLength;
-    const size_t targetSize = transfer ? volumeLength + header.targetRelativeLength + header.targetLeafLength : 0;
+    const size_t targetSize = transfer ? volumeLength + header.targetRelativeLength + header.targetLeafLength + header.targetSuffixLength : 0;
     std::wstring payload(primarySize + targetSize, L'\0');
     error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), false, deadline);
     if (error)
@@ -1716,12 +1826,34 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             return ERROR_INVALID_DATA;
     }
 
+    const std::wstring_view suffix(payload.data() + payload.size() - header.targetSuffixLength, header.targetSuffixLength);
+    if (!suffix.empty() && !UacDirectoryLeaf::IsRelativeDirectoryPath(suffix))
+        return ERROR_INVALID_DATA;
+
+    if (listTreeSource)
+    {
+        const std::wstring_view request(payload);
+        const auto volume = request.substr(0, volumeLength);
+        const auto relative = request.substr(volumeLength, header.relativeLength);
+        const auto leaf = request.substr(volumeLength + header.relativeLength, header.leafLength);
+        if (header.serial != jobScope->source.serial ||
+            volume != std::wstring_view(jobScope->sourcePath).substr(0, volumeLength) ||
+            leaf != UacListing::marker || (!relative.empty() && !UacDirectoryLeaf::IsRelativeDirectoryPath(relative)))
+            return ERROR_ACCESS_DENIED;
+        if (!LiveInSession(host, hostPid))
+            return ERROR_OPERATION_ABORTED;
+        result = ERROR_SUCCESS; // The listing has its own result frame.
+        return ReplyTreeSource(pipe, deadline, *treePins, jobScope->sourcePath, relative,
+                               {{header.serial, header.parentId}, std::wstring(volume)});
+    }
+
     if (jobScope)
     {
         UacF7::TransferJobScope requested{
             header.operation, {header.serial, {}}, {header.targetSerial, {}},
             payload.substr(0, volumeLength + header.relativeLength),
             transfer ? payload.substr(primarySize, volumeLength + header.targetRelativeLength) : std::wstring{}};
+        requested.targetSuffix.assign(suffix);
         if (setMetadata)
         {
             error = TransferRequest(pipe, &requested.policy, sizeof(requested.policy), false, deadline);
@@ -1741,7 +1873,16 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             std::memcpy(requested.target.id, header.sourceId.Identifier, sizeof(requested.target.id));
             requested.targetPath.assign(payload, volumeLength + header.relativeLength, header.leafLength);
         }
-        if (jobScope->operation == Operation::Mkdir)
+        if (inTreeCopy)
+        {
+            const auto sourceLeaf = std::wstring_view(payload).substr(volumeLength + header.relativeLength, header.leafLength);
+            const auto targetLeaf = std::wstring_view(payload).substr(primarySize + volumeLength + header.targetRelativeLength,
+                                                                    header.targetLeafLength);
+            if (!treePins || !treePins->source || !treePins->target ||
+                !jobScope->MatchesTreeEntry(requested, sourceLeaf, targetLeaf))
+                return ERROR_ACCESS_DENIED;
+        }
+        else if (jobScope->operation == Operation::Mkdir)
             *jobScope = std::move(requested);
         else if (!jobScope->Matches(requested))
             return ERROR_ACCESS_DENIED;
@@ -1782,7 +1923,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         (zipUpdate && !UacZipUpdate::Detail::IsZipLeaf(leaf)) ||
         volume.find(L'\0') != std::wstring_view::npos)
         return ERROR_INVALID_DATA;
-    const auto root = OpenVolumeRoot(volume);
+    const auto root = OpenVolumeRoot(volume, list && relative.empty() ? FILE_LIST_DIRECTORY : 0);
     if (zipUpdate)
     {
         UacF7::ArchiveRevision revision;
@@ -1806,14 +1947,17 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     }
     Handle parent;
     UacDirectoryLeaf::ParentIdentity actual;
-    if (list)
+    if (list && !relative.empty())
     {
         HANDLE raw = nullptr;
-        result = UacDirectoryLeaf::OpenParentBelowRoot(root.get(), relative, raw, actual, FILE_LIST_DIRECTORY);
+        result = UacDirectoryLeaf::OpenParentBelowRoot(root.get(), relative, raw, actual, FILE_LIST_DIRECTORY,
+            listingScope != Operation::Inventory && !IsComparisonScope(listingScope));
         parent = Adopt(raw);
     }
     else
-        result = OpenRequestParent(root.get(), relative, parent, actual);
+        result = OpenRequestParent(root.get(), relative, parent, actual, 0,
+                                   FILE_SHARE_READ | FILE_SHARE_WRITE |
+                                       (moveDirectory || copyDirectory || openTree || inTreeCopy ? 0 : FILE_SHARE_DELETE));
     if (result)
         return ERROR_SUCCESS;
 
@@ -1834,10 +1978,11 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         const auto targetVolume = data.substr(primarySize, volumeLength);
         const auto targetRelative = data.substr(primarySize + volumeLength, header.targetRelativeLength);
         const auto targetLeaf = data.substr(primarySize + volumeLength + header.targetRelativeLength, header.targetLeafLength);
-        if (targetVolume.find(L'\0') != std::wstring_view::npos || !UacDirectoryLeaf::IsComponent(targetLeaf))
+        if (targetVolume.find(L'\0') != std::wstring_view::npos || !UacDirectoryLeaf::IsComponent(targetLeaf) ||
+            (mergeTree && (targetRelative.empty() || targetLeaf != UacListing::marker)))
             return ERROR_INVALID_DATA;
-        const UacDirectoryLeaf::ParentIdentity expectedTarget{{header.targetSerial, header.targetParentId},
-                                                              std::wstring(targetVolume)};
+        UacDirectoryLeaf::ParentIdentity expectedTarget{{header.targetSerial, header.targetParentId},
+                                                        std::wstring(targetVolume)};
         if (tree)
         {
             RegisteredTreeTarget registered;
@@ -1895,46 +2040,146 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             }
             return ERROR_SUCCESS;
         }
+        constexpr ULONG pinnedSharing = FILE_SHARE_READ | FILE_SHARE_WRITE;
+        const ULONG sharing = suffix.empty() && !moveDirectory && !copyDirectory && !openTree && !inTreeCopy
+            ? pinnedSharing | FILE_SHARE_DELETE : pinnedSharing;
         result = OpenRequestParent(targetRoot.get(), targetRelative, targetParent, targetIdentity,
-                                   inspectMoveTarget ? READ_CONTROL : 0);
+                                   inspectMoveTarget ? READ_CONTROL : 0, sharing);
         if (result == ERROR_ACCESS_DENIED && inspectMoveTarget && !targetRelative.empty())
-            result = OpenRequestParent(targetRoot.get(), targetRelative, targetParent, targetIdentity);
+            result = OpenRequestParent(targetRoot.get(), targetRelative, targetParent, targetIdentity, 0, sharing);
+        if (!result && inTreeCopy && !creatingRoot)
+        {
+            result = VerifyTreeParent(treePins->source.get(), jobScope->sourcePath, std::wstring(volume) + std::wstring(relative), expected);
+            if (!result)
+                result = VerifyTreeParent(treePins->target.get(), jobScope->targetPath,
+                                          std::wstring(targetVolume) + std::wstring(targetRelative), expectedTarget);
+        }
+        if (copyDirectory || openTree)
+        {
+            if (result)
+                return ERROR_SUCCESS;
+            if (!UacDirectoryLeaf::SameParent(actual, expected) || !UacDirectoryLeaf::SameParent(targetIdentity, expectedTarget))
+            {
+                result = ERROR_FILE_INVALID;
+                return ERROR_SUCCESS;
+            }
+            std::wstring sourceRoot, targetCopyRoot;
+            if (!inTreeCopy)
+            {
+                sourceRoot = UacF7::TransferJobScope::CopyTreeRoot(volume, relative, leaf);
+                targetCopyRoot = mergeTree ? std::wstring(targetVolume) + std::wstring(targetRelative)
+                    : UacF7::TransferJobScope::CopyTreeRoot(targetVolume, targetRelative, targetLeaf);
+            }
+            HANDLE raw = nullptr;
+            UacDirectoryLeaf::ParentIdentity sourceDirectory;
+            result = UacDirectoryLeaf::OpenParentBelowRoot(parent.get(), leaf, raw, sourceDirectory,
+                                                           openTree ? 0 : FILE_READ_EA, false, pinnedSharing);
+            auto directory = Adopt(raw);
+            if (!result && (!UacRenameLeaf::Detail::SameSource(sourceIdentity, sourceDirectory.file) ||
+                            !UacDirectoryLeaf::Equal(expected.volume, sourceDirectory.volume)))
+                result = ERROR_FILE_INVALID;
+            if (!result && creatingRoot)
+                result = UacDirectoryLeaf::VerifyParent(treePins->source.get(), sourceDirectory);
+            FILE_BASIC_INFO directoryMetadata{};
+            if (!result && copyDirectory)
+                result = UacCopyLeaf::Detail::ReadPlainMetadata(directory.get(), directoryMetadata, true);
+            if (!result)
+                result = UacRenameLeaf::Detail::CheckTransferConnection(pipe, deadline);
+            Handle pinnedTarget;
+            if (!result)
+            {
+                if (openTree)
+                    pinnedTarget = std::move(targetParent);
+                else
+                {
+                    raw = nullptr;
+                    result = UacDirectoryLeaf::CreateVerifiedLeaf(targetParent.get(), expectedTarget, targetLeaf,
+                                                                  inTreeCopy && !creatingRoot ? nullptr : &raw);
+                    pinnedTarget = Adopt(raw);
+                }
+            }
+            if (!result && !inTreeCopy)
+            {
+                jobScope->sourcePath = std::move(sourceRoot);
+                jobScope->targetPath = std::move(targetCopyRoot);
+                treePins->source = std::move(directory);
+                treePins->target = std::move(pinnedTarget);
+            }
+            if (!result && creatingRoot)
+            {
+                treePins->target = std::move(pinnedTarget);
+                jobScope->operation = Operation::CopyDirectoryEntry;
+            }
+            return ERROR_SUCCESS;
+        }
+        UacDirectoryLeaf::PendingDirectoryChain pending;
+        Handle openedChild;
+        HANDLE destination = targetParent.get();
+        if (!result && !suffix.empty())
+        {
+            if (!UacDirectoryLeaf::SameParent(expectedTarget, targetIdentity) ||
+                !UacDirectoryLeaf::SameParent(expected, actual))
+                result = ERROR_FILE_INVALID;
+            else
+                result = UacRenameLeaf::Detail::CheckTransferConnection(pipe, deadline);
+            if (!result && jobScope->hasCreatedTarget)
+            {
+                HANDLE child = nullptr;
+                expectedTarget.file.FileId = jobScope->createdTarget;
+                result = UacDirectoryLeaf::OpenParentBelowRoot(targetParent.get(), suffix, child, targetIdentity,
+                                                               inspectMoveTarget ? READ_CONTROL : 0, true, sharing);
+                openedChild = Adopt(child);
+                if (!result && !UacDirectoryLeaf::SameParent(expectedTarget, targetIdentity))
+                    result = ERROR_FILE_INVALID;
+                destination = openedChild.get();
+            }
+            else if (!result)
+            {
+                result = pending.Create(targetParent.get(), expectedTarget, suffix, deadline,
+                                        inspectMoveTarget ? READ_CONTROL : 0);
+                if (!result)
+                {
+                    expectedTarget = pending.Identity();
+                    targetIdentity = expectedTarget;
+                    destination = pending.Directory();
+                }
+            }
+        }
+        if (!result && !move && !overwrite)
+        {
+            DiskCopyPublication recovery{install, destination, expectedTarget, targetLeaf, {}};
+            result = UacDirectoryLeaf::SameParent(expectedTarget, targetIdentity)
+                ? recovery.Recover(FILE_OPEN, pipe, deadline) : ERROR_FILE_INVALID;
+        }
         if (!result)
         {
-            if (!move && !overwrite)
-            {
-                DiskCopyPublication recovery{install, targetParent.get(), expectedTarget, targetLeaf, {}};
-                result = UacDirectoryLeaf::SameParent(expectedTarget, targetIdentity)
-                    ? recovery.Recover(FILE_OPEN, pipe, deadline) : ERROR_FILE_INVALID;
-                if (result)
-                    return ERROR_SUCCESS;
-            }
             if (overwrite)
             {
                 const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
                 deadline = copyDeadline + timeoutMs;
                 result = CopyOverExistingFile(install, parent.get(), expected, sourceIdentity, leaf,
-                                              targetParent.get(), expectedTarget, targetLeaf, overwriteTarget,
+                                              destination, expectedTarget, targetLeaf, overwriteTarget,
                                               header.copySize, pipe, copyDeadline, progress);
             }
             else if (crossMove)
             {
                 result = MoveAcrossVolumes(install, parent.get(), expected, sourceIdentity, leaf,
-                                           targetParent.get(), expectedTarget, targetLeaf, header.copySize, pipe, MAXULONGLONG,
+                                           destination, expectedTarget, targetLeaf, header.copySize, pipe, MAXULONGLONG,
                                            header.operation == Operation::MoveCompressed, finishMove ? &overwriteTarget : nullptr, progress);
                 deadline = GetTickCount64() + timeoutMs;
             }
             else if (move)
             {
                 result = UacRenameLeaf::MoveVerifiedFile(parent.get(), expected, sourceIdentity, leaf,
-                                                         targetParent.get(), expectedTarget, targetLeaf,
-                                                         UacRenameLeaf::MoveKind::OrdinaryFile, pipe, deadline);
+                                                         destination, expectedTarget, targetLeaf,
+                                                         moveDirectory ? UacRenameLeaf::MoveKind::OrdinaryDirectory
+                                                                       : UacRenameLeaf::MoveKind::OrdinaryFile, pipe, deadline);
             }
             else
             {
                 const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
                 deadline = copyDeadline + timeoutMs;
-                DiskCopyPublication publication{install, targetParent.get(), expectedTarget, targetLeaf, {}};
+                DiskCopyPublication publication{install, destination, expectedTarget, targetLeaf, {}};
                 const UacCopyLeaf::Detail::PublicationGate gate{
                     [](void* context, HANDLE connection, ULONGLONG limit) {
                         auto& state = *static_cast<DiskCopyPublication*>(context);
@@ -1942,19 +2187,34 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                     }, &publication};
                 if (header.operation == Operation::CopyEncrypted)
                 {
-                    result = CopyEncryptedFile(install, parent.get(), expected, sourceIdentity, leaf, targetParent.get(),
+                    result = CopyEncryptedFile(install, parent.get(), expected, sourceIdentity, leaf, destination,
                                                expectedTarget, targetLeaf, header.copySize, pipe, copyDeadline, progress, &gate);
-                    return ERROR_SUCCESS;
                 }
-                const bool preserveCompression = UacF7::CopiesCompression(header.operation);
-                const bool preserveSecurity = UacF7::CopiesSecurity(header.operation);
-                const auto policy = header.operation == Operation::CopyIgnoreAds
-                    ? UacCopyLeaf::StreamPolicy::IgnoreNamed : UacCopyLeaf::StreamPolicy::PreserveNamed;
-                result = UacCopyLeaf::CopyVerifiedFile(parent.get(), expected, sourceIdentity, leaf,
-                                                       targetParent.get(), expectedTarget, targetLeaf,
-                                                       nullptr, pipe, copyDeadline, header.copySize,
-                                                       policy, ProtectedObject, preserveCompression, preserveSecurity, progress, &gate);
+                else
+                {
+                    const bool preserveCompression = UacF7::CopiesCompression(header.operation);
+                    const bool preserveSecurity = UacF7::CopiesSecurity(header.operation);
+                    const auto policy = header.operation == Operation::CopyIgnoreAds
+                        ? UacCopyLeaf::StreamPolicy::IgnoreNamed : UacCopyLeaf::StreamPolicy::PreserveNamed;
+                    result = UacCopyLeaf::CopyVerifiedFile(parent.get(), expected, sourceIdentity, leaf,
+                                                          destination, expectedTarget, targetLeaf,
+                                                          nullptr, pipe, copyDeadline, header.copySize,
+                                                          policy, ProtectedObject, preserveCompression, preserveSecurity, progress, &gate);
+                }
             }
+        }
+        if (pending.Directory())
+        {
+            if (!result)
+            {
+                jobScope->createdTarget = pending.Identity().file.FileId;
+                jobScope->hasCreatedTarget = true;
+                pending.Commit();
+            }
+            else if (result == ERROR_PARTIAL_COPY)
+                pending.Commit(); // Preserve the destination for the existing publication recovery.
+            else if (pending.RollBack())
+                result = ERROR_PARTIAL_COPY;
         }
     }
     else if (view)
@@ -2117,7 +2377,7 @@ DWORD ServeFindContent(HANDLE pipe, HANDLE root, std::wstring_view relative, ULO
 }
 
 DWORD ReadListedLeafIdentity(HANDLE root, std::wstring_view relative, bool parentOnly, bool directoryLeaf,
-                             UacListing::LeafIdentity& reply)
+                             bool linkLeaf, UacListing::LeafIdentity& reply)
 {
     const auto split = relative.find_last_of(L'\\');
     const auto directory = split == std::wstring_view::npos ? std::wstring_view{} : relative.substr(0, split);
@@ -2132,13 +2392,38 @@ DWORD ReadListedLeafIdentity(HANDLE root, std::wstring_view relative, bool paren
         return error;
     if (parentOnly)
     {
-        reply = {identity.file.FileId, {}, 0};
+        reply = {identity.file.FileId, {}, 0, 0};
         return ERROR_SUCCESS;
     }
 
     HANDLE raw = nullptr;
     FILE_ID_INFO fileIdentity{};
-    if (directoryLeaf)
+    DWORD reparseTag = 0;
+    if (linkLeaf)
+    {
+        error = UacRenameLeaf::Detail::OpenSource(parent.get(), leaf, raw, 0,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            directoryLeaf ? UacRenameLeaf::MoveKind::RenameDirectorySymlink : UacRenameLeaf::MoveKind::RenameSymlink);
+        if (!error)
+        {
+            FILE_ATTRIBUTE_TAG_INFO attributes{};
+            if (!GetFileInformationByHandleEx(raw, FileAttributeTagInfo, &attributes, sizeof(attributes)))
+                error = GetLastError();
+            else
+            {
+                const auto operation = UacDeleteLeaf::LinkOperation(attributes.FileAttributes, attributes.ReparseTag);
+                if (operation == Operation::Delete ||
+                    ((attributes.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) != directoryLeaf)
+                    error = ERROR_NOT_SUPPORTED;
+                else
+                {
+                    error = UacRenameLeaf::Detail::ReadSourceIdentity(raw, fileIdentity, UacDeleteLeaf::SourceKind(operation));
+                    reparseTag = attributes.ReparseTag;
+                }
+            }
+        }
+    }
+    else if (directoryLeaf)
     {
         UacDirectoryLeaf::ParentIdentity directoryIdentity;
         error = UacDirectoryLeaf::OpenParentBelowRoot(parent.get(), leaf, raw, directoryIdentity);
@@ -2159,7 +2444,7 @@ DWORD ReadListedLeafIdentity(HANDLE root, std::wstring_view relative, bool paren
     FILE_BASIC_INFO basic{};
     if (!GetFileInformationByHandleEx(object.get(), FileBasicInfo, &basic, sizeof(basic)))
         return GetLastError();
-    reply = {identity.file.FileId, fileIdentity.FileId, basic.FileAttributes};
+    reply = {identity.file.FileId, fileIdentity.FileId, basic.FileAttributes, reparseTag};
     return ERROR_SUCCESS;
 }
 
@@ -2180,10 +2465,18 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
         const bool leafIdentity = (length & UacListing::leafIdentityRequest) != 0;
         const bool parentOnly = (length & UacListing::parentIdentityRequest) != 0;
         const bool directoryLeaf = (length & UacListing::directoryIdentityRequest) != 0;
+        const bool verifyListing = (length & UacListing::verifiedListingRequest) != 0;
+        const bool linkLeaf = (length & UacListing::linkIdentityRequest) != 0;
         length &= ~(UacListing::inventoryRequest | UacListing::sizeDetailsRequest | UacListing::contentRequest |
-                    UacListing::leafIdentityRequest | UacListing::parentIdentityRequest | UacListing::directoryIdentityRequest);
-        if (((parentOnly || directoryLeaf) && !leafIdentity) || (parentOnly && directoryLeaf) ||
-            (leafIdentity && (scope != Operation::List || !length || inventoryRequest || sizeDetails || contentRequest)) ||
+                    UacListing::leafIdentityRequest | UacListing::parentIdentityRequest |
+                    UacListing::directoryIdentityRequest | UacListing::verifiedListingRequest | UacListing::linkIdentityRequest);
+        const bool canReadIdentity = scope == Operation::List ||
+                                     ((scope == Operation::CompareContent || scope == Operation::FindContent) &&
+                                      !parentOnly && !directoryLeaf);
+        if (((parentOnly || directoryLeaf || linkLeaf) && !leafIdentity) ||
+            (parentOnly && (directoryLeaf || linkLeaf)) || (linkLeaf && scope != Operation::List) ||
+            (leafIdentity && (!canReadIdentity || !length || inventoryRequest || sizeDetails || contentRequest)) ||
+            (verifyListing && (!IsComparisonScope(scope) || !length || inventoryRequest || contentRequest || leafIdentity)) ||
             (sizeDetails && !inventoryRequest) || !UacListing::ValidRequestScope(scope, length, inventoryRequest, contentRequest) ||
             length > UacDirectoryLeaf::maxNativeName || !LiveInSession(host, hostPid))
             return ERROR_INVALID_DATA;
@@ -2198,7 +2491,7 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
         if (leafIdentity)
         {
             UacListing::LeafIdentity identity{};
-            DWORD status = ReadListedLeafIdentity(root, relative, parentOnly, directoryLeaf, identity);
+            DWORD status = ReadListedLeafIdentity(root, relative, parentOnly, directoryLeaf, linkLeaf, identity);
             error = TransferRequest(pipe, &status, sizeof(status), true, deadline);
             if (!error && !status)
                 error = TransferRequest(pipe, &identity, sizeof(identity), true, deadline);
@@ -2213,35 +2506,47 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
                 return error;
             continue;
         }
-        UacDirectoryLeaf::ParentIdentity identity;
-        Handle child;
-        if (length)
-        {
-            HANDLE raw = nullptr;
-            error = UacDirectoryLeaf::OpenParentBelowRoot(root, relative, raw, identity, FILE_LIST_DIRECTORY);
-            child = Adopt(raw);
-        }
-        else
-            error = UacDirectoryLeaf::ReadParentIdentity(root, identity);
         UacF7::DirectoryInventory inventory;
         UacF7::DirectorySizeDetails details;
-        if (!error)
+        std::wstring firstSkipped;
+        if (inventoryRequest)
+            error = UacListing::InventoryBelowRoot(root, relative, deadline - 250, inventory,
+                                                  sizeDetails ? &details : nullptr, &firstSkipped);
+        else
         {
-            HANDLE directory = child ? child.get() : root;
-            error = inventoryRequest ? UacListing::Inventory(directory, deadline - 250, inventory, sizeDetails ? &details : nullptr)
-                                     : UacListing::Enumerate(directory, entries);
+            UacDirectoryLeaf::ParentIdentity identity;
+            HANDLE raw = nullptr;
+            UacF7::MoveFileIdentity expected{};
+            if (verifyListing)
+            {
+                error = TransferRequest(pipe, &expected, sizeof(expected), false, deadline);
+                if (error)
+                    return error;
+            }
+            error = length ? UacDirectoryLeaf::OpenParentBelowRoot(root, relative, raw, identity, FILE_LIST_DIRECTORY,
+                                                                  !IsComparisonScope(scope))
+                           : UacDirectoryLeaf::ReadParentIdentity(root, identity);
+            const auto directory = Adopt(raw);
+            if (!error && verifyListing && (identity.file.VolumeSerialNumber != expected.serial ||
+                std::memcmp(identity.file.FileId.Identifier, expected.id, sizeof(expected.id)) != 0))
+                error = ERROR_FILE_INVALID;
+            if (!error)
+                error = UacListing::Enumerate(directory ? directory.get() : root, entries);
         }
-        ListingReply reply{error, error || inventoryRequest ? 0 : static_cast<DWORD>(entries.size())};
+        const auto count = inventoryRequest ? firstSkipped.size() : entries.size();
+        ListingReply reply{error, error ? 0 : static_cast<DWORD>(count)};
         error = TransferRequest(pipe, &reply, sizeof(reply), true, deadline);
         if (!error && !reply.error && inventoryRequest)
             error = TransferRequest(pipe, &inventory, sizeof(inventory), true, deadline);
+        if (!error && inventoryRequest && reply.count)
+            error = TransferRequest(pipe, firstSkipped.data(), reply.count * static_cast<DWORD>(sizeof(wchar_t)), true, deadline);
         if (!error && !reply.error && sizeDetails)
         {
             error = TransferRequest(pipe, &details.disk, sizeof(details.disk), true, deadline);
             if (!error && inventory.files)
                 error = TransferRequest(pipe, details.fileSizes.data(), inventory.files * sizeof(ULONGLONG), true, deadline);
         }
-        if (!error && reply.count)
+        if (!error && !inventoryRequest && reply.count)
             error = TransferRequest(pipe, entries.data(), reply.count * static_cast<DWORD>(sizeof(WIN32_FIND_DATAW)), true, deadline);
         if (error)
             return error;
@@ -2251,6 +2556,7 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
 DWORD ServeTransferJob(const InstallLocation& install, HANDLE pipe, HANDLE host, DWORD hostPid, ULONGLONG deadline)
 {
     UacF7::TransferJobScope scope;
+    TreeCopyPins treePins;
     while (LiveInSession(host, hostPid))
     {
         DWORD result = ERROR_GEN_FAILURE;
@@ -2261,10 +2567,11 @@ DWORD ServeTransferJob(const InstallLocation& install, HANDLE pipe, HANDLE host,
         UacF7::ArchiveRevision unusedRevision;
         DWORD error = ReceiveRequest(install, pipe, host, hostPid, deadline, result,
                                      unusedRoot, unusedSnapshot, unusedView, unusedZip, unusedListing,
-                                     unusedArchive, unusedRevision, &scope);
+                                     unusedArchive, unusedRevision, &scope, &treePins);
         if (error)
             return error == ERROR_CANCELLED ? ERROR_SUCCESS : error;
-        error = TransferRequest(pipe, &result, sizeof(result), true, deadline);
+        if (unusedListing != Operation::ListCopyTreeSource)
+            error = TransferRequest(pipe, &result, sizeof(result), true, deadline);
         if (error || !UacF7::CanContinueTransferJob(result))
             return error;
         deadline = GetTickCount64() + 15 * 60 * 1000;
@@ -2430,19 +2737,14 @@ bool IsOwnedWindow(HWND window, HWND owner)
     return false;
 }
 
-BOOL LaunchBrokerWithOwner(SHELLEXECUTEINFOW& launch, UacF7::ConsentForeground* deferredForeground)
+BOOL LaunchBrokerWithOwner(SHELLEXECUTEINFOW& launch)
 {
     const UacF7::ConsentForeground foreground(launch.hwnd);
     launch.hwnd = foreground.Owner();
     const BOOL launched = ShellExecuteExW(&launch);
     const DWORD error = launched ? ERROR_SUCCESS : GetLastError();
     if (launched || error == ERROR_CANCELLED)
-    {
-        if (deferredForeground)
-            deferredForeground->Remember();
-        else
-            foreground.Restore();
-    }
+        foreground.Restore();
     if (!launched)
         SetLastError(error);
     return launched;
@@ -2476,7 +2778,7 @@ private:
 
 int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
-             , HWND owner, UacF7::ConsentForeground* deferredForeground, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result,
+             , HWND owner, RequestHeader* request, std::wstring* payload, UacF7::MetadataChange* metadata, UacF7::Result* result,
                HANDLE* sessionPipe = nullptr, HANDLE cancel = nullptr, std::vector<BYTE>* snapshot = nullptr,
                UacF7::ArchiveRevision* archiveRevision = nullptr, std::vector<BYTE>* zipBytes = nullptr,
                HANDLE zipUpdateFile = nullptr, UacF7::ArchiveRevision* overwriteTarget = nullptr,
@@ -2489,7 +2791,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #ifdef SAM_UAC_F7_HOST
     // Read-only Find requests may abandon the pipe. Mutating transfers must
     // still use their cancellation acknowledgement and preserve the result.
-    if (request && (request->operation == Operation::List || request->operation == Operation::FindContent ||
+    if (request && (UacF7::IsDirectoryReadScope(request->operation) ||
                     request->operation == Operation::FindFile))
         stop = cancel;
     if (IsStopSignaled(stop))
@@ -2534,7 +2836,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
     launch.lpDirectory = install.Directory().c_str();
     launch.nShow = SW_HIDE;
 #ifdef SAM_UAC_F7_HOST
-    const BOOL launched = LaunchBrokerWithOwner(launch, deferredForeground);
+    const BOOL launched = LaunchBrokerWithOwner(launch);
 #else
     const BOOL launched = ShellExecuteExW(&launch);
 #endif
@@ -2782,24 +3084,6 @@ void ConsentForeground::Restore() const
         PostMessageW(owner, restoreConsentForegroundMessage, reinterpret_cast<WPARAM>(foreground), input.dwTime);
 }
 
-void ConsentForeground::Remember()
-{
-    const HWND foreground = GetForegroundWindow();
-    LASTINPUTINFO input{sizeof(input)};
-    hasReturnPoint = wasForeground && !IsOwnedWindow(foreground, owner) && GetLastInputInfo(&input);
-    if (hasReturnPoint)
-    {
-        returnForeground = foreground;
-        returnInput = input.dwTime;
-    }
-}
-
-void ConsentForeground::RestoreRemembered() const
-{
-    if (hasReturnPoint)
-        RestoreConsentForeground(owner, returnForeground, returnInput);
-}
-
 void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput)
 {
     LASTINPUTINFO input{sizeof(input)};
@@ -2845,6 +3129,18 @@ PreparedLeaf::~PreparedLeaf()
 bool PreparedLeaf::Prepare(const std::wstring& path, const std::wstring& renameTo)
 {
     return PrepareTarget(path, renameTo.empty() ? Operation::Mkdir : Operation::Rename, renameTo, nullptr);
+}
+
+bool PreparedLeaf::CaptureCreateParentIdentity(const std::wstring& directory, MoveFileIdentity& identity)
+{
+    if (directory.empty())
+        return false;
+    PreparedLeaf target;
+    if (!target.Prepare(directory + (directory.back() == L'\\' ? L"" : L"\\") + UacListing::marker))
+        return false;
+    identity.serial = target.serial;
+    std::memcpy(identity.id, target.fileId, sizeof(target.fileId));
+    return true;
 }
 
 bool PreparedLeaf::PrepareRenameDirectory(const std::wstring& path, const std::wstring& renameTo)
@@ -2968,7 +3264,12 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
     Handle opened;
     UacDirectoryLeaf::ParentIdentity snapshot;
     const DWORD openError = OpenRequestParent(root.get(), parentPath, opened, snapshot);
-    const bool useParentListing = requested == Operation::List && openError == ERROR_ACCESS_DENIED && !parentPath.empty();
+    // Create-only transfers prepare their destination through the same path as F7.
+    // A visible directory can deny even an attribute open. Capture only its ID
+    // from the verified grandparent and let the broker reopen the exact parent.
+    const bool useParentListing = (requested == Operation::List || requested == Operation::Inventory ||
+                                   requested == Operation::Mkdir) &&
+                                  openError == ERROR_ACCESS_DENIED && !parentPath.empty();
     size_t visibleEnd = split == 2 ? 3 : split;
     std::wstring_view listedChild;
     if (useParentListing)
@@ -3029,29 +3330,40 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
             return false;
         std::memcpy(sourceId, anchored.file.FileId.Identifier, sizeof(sourceId));
     }
-    else if (requested != Operation::Mkdir && requested != Operation::List && requested != Operation::FindContent && requested != Operation::WriteZipSelection)
+    else if (requested != Operation::Mkdir && !IsDirectoryReadScope(requested) && requested != Operation::WriteZipSelection)
     {
         const bool deleting = IsLeafDelete(requested);
-        const auto kind = deleting ? UacDeleteLeaf::SourceKind(requested) : RenameKind(requested);
+        const bool deleteLink = deleting && requested != Operation::Delete && requested != Operation::DeleteDirectory;
+        const bool transferring = IsFileCopy(requested) || requested == Operation::CopyOverwrite ||
+                                  requested == Operation::Move || requested == Operation::MoveCompressed ||
+                                  requested == Operation::MoveDirectory || requested == Operation::CopyDirectoryEntry;
+        const auto kind = requested == Operation::CopyDirectoryEntry ? UacRenameLeaf::MoveKind::OrdinaryDirectory
+            : deleting ? UacDeleteLeaf::SourceKind(requested) : RenameKind(requested);
         HANDLE raw = nullptr;
         const DWORD sourceError = UacRenameLeaf::Detail::OpenSource(opened.get(), finalName, raw, 0,
             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, kind);
         if (sourceError == ERROR_ACCESS_DENIED &&
-            (kind == UacRenameLeaf::MoveKind::RenameDirectory || requested == Operation::Delete))
+            (kind == UacRenameLeaf::MoveKind::RenameDirectory || requested == Operation::Rename ||
+             requested == Operation::Delete || deleteLink || requested == Operation::View || change || transferring))
         {
             // Identify an inaccessible ordinary child in its readable parent.
-            // The broker still checks the captured ID and type before mutating it.
+            // The broker checks the captured parent and child IDs when it opens the request.
             const auto volumeListing = parentPath.empty() ? OpenVolumeRoot(volumeName, FILE_LIST_DIRECTORY) : Handle{};
             const HANDLE listRoot = parentPath.empty() ? volumeListing.get() : root.get();
             Handle listing;
             UacDirectoryLeaf::ParentIdentity listingIdentity;
             DWORD attributes = 0;
             const bool directory = UacRenameLeaf::IsDirectory(kind);
+            const DWORD reparseTag = !deleteLink ? 0 :
+                requested == Operation::DeleteJunction ? IO_REPARSE_TAG_MOUNT_POINT : IO_REPARSE_TAG_SYMLINK;
             if (!listRoot || OpenRequestParent(listRoot, parentPath, listing, listingIdentity, FILE_LIST_DIRECTORY) ||
                 !UacDirectoryLeaf::SameParent(snapshot, listingIdentity) ||
-                UacListing::CaptureChildId(listing.get(), finalName, directory, sourceIdentity.FileId, attributes) ||
-                (deleting && !(directory ? IsPlainDeleteDirectory(attributes) : IsPlainDeleteFile(attributes))))
+                UacListing::CaptureChildId(listing.get(), finalName, directory, sourceIdentity.FileId, attributes, reparseTag) ||
+                (change && attributes != change->expectedAttributes) ||
+                (deleting && !(deleteLink ? IsPlainDeleteLink(attributes, directory) :
+                              directory ? IsPlainDeleteDirectory(attributes) : IsPlainDeleteFile(attributes))))
                 return false;
+            identityFromListing = transferring;
         }
         else
         {
@@ -3125,7 +3437,7 @@ Result PreparedLeaf::WriteZipSelection(HWND owner, std::vector<BYTE>& bytes) con
                          0, 0, {}, 0, 0, bytes.size()};
     std::memcpy(header.parentId.Identifier, fileId, sizeof(fileId));
     std::wstring payload = volume + relative + leaf;
-    RunProbe(install, false, false, owner, nullptr, &header, &payload, nullptr, &result,
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result,
              nullptr, nullptr, nullptr, nullptr, &bytes);
     return result;
 }
@@ -3234,7 +3546,7 @@ Result PreparedLeaf::Execute(HWND owner, TransferJobSession* job, BrokerActivity
         job->Close();
         job->scope = JobScope();
     }
-    RunProbe(install, false, false, owner, nullptr, &header, &payload, change, &result, nullptr, nullptr,
+    RunProbe(install, false, false, owner, &header, &payload, change, &result, nullptr, nullptr,
              nullptr, nullptr, nullptr, nullptr, nullptr, job ? &job->pipe : nullptr, job && change ? &policy : nullptr,
              nullptr, nullptr, &activity);
     return result;
@@ -3255,7 +3567,7 @@ Result PreparedLeaf::ReadViewerSnapshot(HWND owner, std::vector<BYTE>& snapshot)
     std::memcpy(header.parentId.Identifier, fileId, sizeof(fileId));
     std::memcpy(header.sourceId.Identifier, sourceId, sizeof(sourceId));
     std::wstring payload = volume + relative + leaf;
-    RunProbe(install, false, false, owner, nullptr, &header, &payload, nullptr, &result, nullptr, nullptr, &snapshot);
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, nullptr, &snapshot);
     return result;
 }
 
@@ -3375,17 +3687,87 @@ DWORD ElevatedEditor::Launch(HWND owner, const std::wstring& document) const
     return error;
 }
 
+bool PreparedTransfer::PrepareSource(const std::wstring& sourcePath, Operation operation, const PreparedLeaf* listedSource)
+{
+    if (!listedSource)
+        return source.PrepareTarget(sourcePath, operation, {}, nullptr);
+    const Operation listedOperation = operation == Operation::CopyOverwrite ? Operation::Copy : operation;
+    // The first denied listing can still have a directly opened directory
+    // identity. The copy plan keeps those handles until the worker finishes.
+    const bool openedCopyDirectory = operation == Operation::CopyDirectoryEntry &&
+                                     listedSource->parent && listedSource->source;
+    if (listedSource->operation != listedOperation || (!listedSource->identityFromListing && !openedCopyDirectory))
+        return false;
+    source.volume = listedSource->volume;
+    source.relative = listedSource->relative;
+    source.leaf = listedSource->leaf;
+    source.serial = listedSource->serial;
+    std::memcpy(source.fileId, listedSource->fileId, sizeof(source.fileId));
+    std::memcpy(source.sourceId, listedSource->sourceId, sizeof(source.sourceId));
+    source.operation = operation;
+    source.identityFromListing = true;
+    return true;
+}
+
+bool PreparedTransfer::CaptureDeferredTarget(std::wstring directory, size_t ancestorLength, DeferredTransferTarget& target)
+{
+    if (ancestorLength < 3 || ancestorLength >= directory.size() || directory[ancestorLength - 1] != L'\\')
+        return false;
+    std::wstring suffix = directory.substr(ancestorLength);
+    directory.resize(ancestorLength == 3 ? 3 : ancestorLength - 1);
+    if (!UacDirectoryLeaf::IsRelativeDirectoryPath(suffix))
+        return false;
+    for (size_t start = 0; start < suffix.size();)
+    {
+        if (suffix[start] == L' ')
+            return false; // Preserve the ordinary directory-creation dialog's name checks.
+        const size_t separator = suffix.find(L'\\', start);
+        if (separator == std::wstring::npos)
+            break;
+        start = separator + 1;
+    }
+    MoveFileIdentity identity{};
+    if (!PreparedLeaf::CaptureCreateParentIdentity(directory, identity))
+        return false;
+    target = {std::move(directory), std::move(suffix), identity};
+    return true;
+}
+
 bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstring& targetPath,
-                               ULONGLONG expectedSize, Operation operation)
+                               ULONGLONG expectedSize, Operation operation, const PreparedLeaf* listedSource,
+                               const DeferredTransferTarget* deferred)
 {
     const bool compressedMove = operation == Operation::MoveCompressed;
-    const bool moving = operation == Operation::Move || compressedMove;
-    if ((!moving && (!IsFileCopy(operation) || expectedSize > maxPilotCopyBytes)) ||
-        !source.PrepareTarget(sourcePath, operation, {}, nullptr) ||
-        !target.Prepare(targetPath))
+    const bool directoryMove = operation == Operation::MoveDirectory;
+    const bool copyDirectory = operation == Operation::CopyDirectoryEntry;
+    const bool moving = operation == Operation::Move || compressedMove || directoryMove;
+    if (copyDirectory ? (expectedSize || deferred) :
+        !moving && (!IsFileCopy(operation) || expectedSize > maxPilotCopyBytes))
+        return false;
+    if (!PrepareSource(sourcePath, operation, listedSource))
+        return false;
+    if (deferred)
+    {
+        std::wstring_view path(targetPath);
+        if (path.substr(0, 4) == LR"(\\?\)")
+            path.remove_prefix(4);
+        const size_t separator = path.rfind(L'\\');
+        std::wstring prefix = deferred->ancestor;
+        if (prefix.empty())
+            return false;
+        if (prefix.back() != L'\\')
+            prefix += L'\\';
+        const auto leaf = separator == std::wstring_view::npos ? std::wstring_view{} : path.substr(separator + 1);
+        if (!UacDirectoryLeaf::IsComponent(leaf) || !UacDirectoryLeaf::IsRelativeDirectoryPath(deferred->suffix) ||
+            !UacDirectoryLeaf::Equal(path.substr(0, separator), prefix + deferred->suffix) ||
+            !target.Prepare(prefix + std::wstring(leaf)) || !MatchesTargetDirectory(deferred->identity))
+            return false;
+        targetSuffix = deferred->suffix;
+    }
+    else if (!target.Prepare(targetPath))
         return false;
     const bool crossMove = moving && !UacDirectoryLeaf::Equal(source.volume, target.volume);
-    if (moving && !crossMove && (compressedMove || source.serial != target.serial))
+    if ((directoryMove && crossMove) || (moving && !crossMove && (compressedMove || source.serial != target.serial)))
         return false;
     if (crossMove)
     {
@@ -3393,7 +3775,8 @@ bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstrin
             return false;
         // Keeping even an attributes-only host handle would prevent the broker
         // from proving that the sealed source has no earlier opens.
-        CloseHandle(source.source);
+        if (source.source)
+            CloseHandle(source.source);
         source.source = nullptr;
         source.operation = compressedMove ? Operation::MoveCompressed : Operation::MoveAcrossVolume;
     }
@@ -3468,10 +3851,10 @@ bool CaptureOverwriteRevision(HANDLE file, ArchiveRevision& revision)
 }
 
 bool PreparedTransfer::PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath,
-                                        ULONGLONG expectedSize)
+                                        ULONGLONG expectedSize, const PreparedLeaf* listedSource)
 {
     if (expectedSize > maxPilotCopyBytes ||
-        !source.PrepareTarget(sourcePath, Operation::CopyOverwrite, {}, nullptr) ||
+        !PrepareSource(sourcePath, Operation::CopyOverwrite, listedSource) ||
         !target.PrepareView(targetPath) ||
         !CaptureOverwriteRevision(target.source, overwriteTarget))
         return false;
@@ -3522,18 +3905,130 @@ void TransferJobSession::Close()
     pipe = nullptr;
 }
 
-TransferJobScope PreparedTransfer::JobScope() const
+DWORD TransferJobSession::ListTreeSource(std::wstring_view relative, const MoveFileIdentity& directory,
+                                        std::vector<TreeCopySourceEntry>& entries)
+{
+    entries.clear();
+    if (!pipe || !scope.IsTreeCopy() || directory.serial != scope.source.serial ||
+        (!relative.empty() && !UacDirectoryLeaf::IsRelativeDirectoryPath(relative)))
+        return ERROR_ACCESS_DENIED;
+
+    RequestHeader header{};
+    header.operation = Operation::ListCopyTreeSource;
+    header.serial = directory.serial;
+    std::memcpy(header.parentId.Identifier, directory.id, sizeof(directory.id));
+    header.relativeLength = static_cast<DWORD>(relative.size());
+    header.leafLength = ARRAYSIZE(UacListing::marker) - 1;
+    std::wstring payload = scope.sourcePath.substr(0, volumeLength);
+    payload.append(relative);
+    payload.append(UacListing::marker);
+
+    const auto deadline = GetTickCount64() + timeoutMs;
+    DWORD error = TransferRequest(pipe, &header, sizeof(header), true, deadline);
+    if (!error)
+        error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline);
+    ListingReply reply{};
+    if (!error)
+        error = TransferRequest(pipe, &reply, sizeof(reply), false, deadline);
+    if (!error && (reply.count > UacListing::maxEntries || (reply.error && reply.count)))
+        error = ERROR_INVALID_DATA;
+    if (!error && reply.count)
+    {
+        entries.resize(reply.count);
+        error = TransferRequest(pipe, entries.data(), reply.count * static_cast<DWORD>(sizeof(entries.front())), false, deadline);
+        for (const auto& entry : entries)
+        {
+            if (error)
+                break;
+            const auto& name = entry.data.cFileName;
+            if (!UacDirectoryLeaf::IsComponent(std::wstring_view(name, wcsnlen_s(name, ARRAYSIZE(name)))))
+                error = ERROR_INVALID_DATA;
+        }
+    }
+    if (error)
+    {
+        entries.clear();
+        Close();
+        return error;
+    }
+    return reply.error;
+}
+
+bool TransferJobSession::PrepareTreeSource(std::wstring_view relativeParent, const MoveFileIdentity& directory,
+                                            const TreeCopySourceEntry& entry, PreparedLeaf& request) const
+{
+    const auto& name = entry.data.cFileName;
+    const std::wstring_view leaf(name, wcsnlen_s(name, ARRAYSIZE(name)));
+    if (!pipe || !scope.IsTreeCopy() || directory.serial != scope.source.serial || request.parent ||
+        request.identityFromListing || !UacDirectoryLeaf::IsComponent(leaf) ||
+        (entry.data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ||
+        (!relativeParent.empty() && !UacDirectoryLeaf::IsRelativeDirectoryPath(relativeParent)))
+        return false;
+
+    request.volume = scope.sourcePath.substr(0, volumeLength);
+    request.relative = scope.sourcePath.substr(volumeLength);
+    if (!relativeParent.empty())
+    {
+        request.relative += L'\\';
+        request.relative.append(relativeParent);
+    }
+    if (request.relative.size() > UacDirectoryLeaf::maxNativeName)
+        return false;
+    request.leaf.assign(leaf);
+    request.serial = directory.serial;
+    std::memcpy(request.fileId, directory.id, sizeof(request.fileId));
+    std::memcpy(request.sourceId, entry.id.Identifier, sizeof(request.sourceId));
+    request.operation = entry.data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY
+        ? Operation::CopyDirectoryEntry : Operation::Copy;
+    request.identityFromListing = true;
+    return true;
+}
+
+bool PreparedTransfer::PrepareTreeMerge(const std::wstring& sourcePath, const std::wstring& targetPath)
+{
+    if (!source.PrepareTarget(sourcePath, Operation::CopyDirectoryEntry, {}, nullptr) ||
+        targetPath.empty() || !target.Prepare(targetPath + L"\\" + UacListing::marker))
+        return false;
+    source.operation = Operation::MergeCopyTree;
+    return true;
+}
+
+bool PreparedTransfer::PrepareTreePlan(const std::wstring& sourcePath, const std::wstring& targetPath)
+{
+    if (!Prepare(sourcePath, targetPath, 0, Operation::CopyDirectoryEntry))
+        return false;
+    source.operation = Operation::PlanCopyTree;
+    return true;
+}
+
+TransferJobScope PreparedTransfer::JobScope(bool asRoot) const
 {
     TransferJobScope scope{source.operation, {source.serial, {}}, {target.serial, {}},
                            source.volume + source.relative, target.volume + target.relative};
     std::memcpy(scope.source.id, source.fileId, sizeof(source.fileId));
     std::memcpy(scope.target.id, target.fileId, sizeof(target.fileId));
+    scope.targetSuffix = targetSuffix;
+    if (asRoot && IsScopedTree())
+    {
+        scope.sourcePath = TransferJobScope::CopyTreeRoot(source.volume, source.relative, source.leaf);
+        if (!IsTreeMerge())
+            scope.targetPath = TransferJobScope::CopyTreeRoot(target.volume, target.relative, target.leaf);
+    }
     return scope;
+}
+
+bool PreparedTransfer::AllowsTreeEntry(const PreparedTransfer& entry) const
+{
+    return IsTreeMerge() && JobScope(true).MatchesTreeEntry(entry.JobScope(), entry.source.leaf, entry.target.leaf);
 }
 
 bool PreparedTransfer::IsInJob(const TransferJobSession& job) const
 {
-    return job.pipe && CanShareJob() && job.scope.Matches(JobScope());
+    if (!job.pipe || !CanShareJob())
+        return false;
+    const auto entry = JobScope();
+    return job.scope.IsTreeCopy() ? job.scope.MatchesTreeEntry(entry, source.leaf, target.leaf)
+                                  : job.scope.Matches(entry);
 }
 
 Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* job,
@@ -3542,9 +4037,9 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* 
     Result result;
     const ComApartment com;
     InstallLocation install;
-    if ((!source.source && !IsCrossVolumeMove()) || !source.parent ||
+    if ((!source.identityFromListing && ((!source.source && !IsCrossVolumeMove()) || !source.parent)) ||
         (source.operation == Operation::CopyTree ? target.relative.empty() : !target.parent) ||
-        FAILED(com.result) || !install.Open() ||
+        ((HasDeferredTarget() || IsScopedTree()) && !job) || FAILED(com.result) || !install.Open() ||
         !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))
         return result;
 
@@ -3554,10 +4049,11 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* 
     if (!CanReportTransferProgress(source.operation))
         progress = nullptr;
     header.reportProgress = progress != nullptr;
+    header.targetSuffixLength = static_cast<DWORD>(targetSuffix.size());
     std::memcpy(header.parentId.Identifier, source.fileId, sizeof(source.fileId));
     std::memcpy(header.sourceId.Identifier, source.sourceId, sizeof(source.sourceId));
     std::memcpy(header.targetParentId.Identifier, target.fileId, sizeof(target.fileId));
-    std::wstring payload = source.volume + source.relative + source.leaf + target.volume + target.relative + target.leaf;
+    std::wstring payload = source.volume + source.relative + source.leaf + target.volume + target.relative + target.leaf + targetSuffix;
     ArchiveRevision revision = overwriteTarget;
     ArchiveRevision* targetRevision = IsOverwrite() || IsMoveCompletion() ? &revision : nullptr;
     if (job && !CanShareJob())
@@ -3566,15 +4062,21 @@ Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* 
     if (job && IsInJob(*job))
     {
         activity.Start();
-        return RepeatTransferJob(job->pipe, header, payload, targetRevision, sizeof(revision), nullptr, cancel, progress, progressContext);
+        auto reply = RepeatTransferJob(job->pipe, header, payload, targetRevision, sizeof(revision), nullptr,
+                                       cancel, progress, progressContext);
+        if (job->NeedsTreeRoot() && !reply.error && !reply.unknown)
+            job->scope.operation = Operation::CopyDirectoryEntry;
+        return reply;
     }
     if (job)
     {
         job->Close();
-        job->scope = JobScope();
+        job->scope = JobScope(true);
     }
-    RunProbe(install, false, false, owner, nullptr, &header, &payload, nullptr, &result, nullptr, cancel,
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, cancel,
              nullptr, nullptr, nullptr, nullptr, targetRevision, job ? &job->pipe : nullptr, nullptr, progress, progressContext, &activity);
+    if (IsScopedTree() && result.error)
+        job->Close();
     return result;
 }
 
@@ -3613,7 +4115,7 @@ DWORD ArchiveReadSession::Start(HWND owner)
     std::memcpy(header.sourceId.Identifier, prepared.sourceId, sizeof(prepared.sourceId));
     std::wstring payload = prepared.volume + prepared.relative + prepared.leaf;
     Result result;
-    RunProbe(install, false, false, owner, nullptr, &header, &payload, nullptr, &result, &pipe, nullptr, nullptr, &revision);
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &pipe, nullptr, nullptr, &revision);
     return result.error;
 }
 
@@ -3686,7 +4188,7 @@ Result ArchiveReadSession::Replace(HWND owner, HANDLE preparedFile)
     std::memcpy(header.parentId.Identifier, prepared.fileId, sizeof(prepared.fileId));
     std::memcpy(header.sourceId.Identifier, prepared.sourceId, sizeof(prepared.sourceId));
     std::wstring payload = prepared.volume + prepared.relative + prepared.leaf;
-    RunProbe(install, false, false, owner, nullptr, &header, &payload, nullptr, &result, &pipe, nullptr, nullptr,
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &pipe, nullptr, nullptr,
              &revision, nullptr, preparedFile);
     if (pipe && std::memcmp(prepared.sourceId, revision.fileId, sizeof(prepared.sourceId)))
     {
@@ -3768,11 +4270,75 @@ void ListingSession::Close()
 
 bool ListingSession::Prepare(const std::wstring& path, bool findContent)
 {
-    const auto operation = findContent ? Operation::FindContent : Operation::List;
-    if (path.size() <= 3 || path.back() == L'\\' ||
-        !prepared.PrepareTarget(path + L"\\" + UacListing::marker, operation, {}, nullptr))
+    return PrepareDirectory(path, findContent ? Operation::FindContent : Operation::List);
+}
+
+bool ListingSession::PrepareInventory(const std::wstring& path)
+{
+    return PrepareDirectory(path, Operation::Inventory);
+}
+
+bool ListingSession::PrepareComparison(const std::wstring& path, bool contents)
+{
+    return PrepareDirectory(path, contents ? Operation::CompareContent : Operation::CompareList);
+}
+
+bool ListingSession::CaptureDirectoryIdentity(const std::wstring& path, MoveFileIdentity& identity)
+{
+    ListingSession snapshot;
+    if (!snapshot.Prepare(path))
+        return false;
+    identity.serial = snapshot.prepared.serial;
+    std::memcpy(identity.id, snapshot.prepared.fileId, sizeof(snapshot.prepared.fileId));
+    return true;
+}
+
+bool ListingSession::PrepareDirectory(const std::wstring& path, Operation operation)
+{
+    const bool volumeRoot = IsComparisonScope(operation) && path.size() == 3 && path.back() == L'\\';
+    if ((!volumeRoot && (path.size() <= 3 || path.back() == L'\\')) ||
+        !prepared.PrepareTarget(path + (volumeRoot ? L"" : L"\\") + UacListing::marker, operation, {}, nullptr))
         return false;
     root = path;
+    return true;
+}
+
+DWORD ListingSession::CaptureFindRoot(const std::wstring& path, FindRootIdentity& identity)
+{
+    if (prepared.operation != Operation::List || !Contains(path))
+        return ERROR_ACCESS_DENIED;
+
+    FindRootIdentity verified;
+    verified.path = path;
+    verified.volume = prepared.volume;
+    verified.relative = prepared.relative;
+    verified.serial = prepared.serial;
+    if (path == root)
+        std::memcpy(verified.id.Identifier, prepared.fileId, sizeof(prepared.fileId));
+    else
+    {
+        PreparedLeaf directory;
+        const DWORD error = PrepareLeaf(path, Operation::FindContent, {}, directory);
+        if (error)
+            return error;
+        verified.relative.append(path, root.size(), std::wstring::npos);
+        std::memcpy(verified.id.Identifier, directory.sourceId, sizeof(directory.sourceId));
+    }
+    identity = std::move(verified);
+    return ERROR_SUCCESS;
+}
+
+bool ListingSession::PrepareFindRoot(const FindRootIdentity& identity, bool readContent)
+{
+    if (!root.empty() || identity.path.empty())
+        return false;
+    prepared.volume = identity.volume;
+    prepared.relative = identity.relative;
+    prepared.leaf = UacListing::marker;
+    prepared.serial = identity.serial;
+    std::memcpy(prepared.fileId, identity.id.Identifier, sizeof(prepared.fileId));
+    prepared.operation = readContent ? Operation::FindContent : Operation::List;
+    root = identity.path;
     return true;
 }
 
@@ -3784,7 +4350,7 @@ bool ListingSession::PrepareFile(const std::wstring& path)
     return true;
 }
 
-DWORD ListingSession::Start(HWND owner, HANDLE stop, ConsentForeground* deferredForeground)
+DWORD ListingSession::Start(HWND owner, HANDLE stop)
 {
     const ComApartment com;
     InstallLocation install;
@@ -3798,7 +4364,7 @@ DWORD ListingSession::Start(HWND owner, HANDLE stop, ConsentForeground* deferred
     std::memcpy(header.sourceId.Identifier, prepared.sourceId, sizeof(prepared.sourceId));
     std::wstring payload = prepared.volume + prepared.relative + prepared.leaf;
     Result result;
-    RunProbe(install, false, false, owner, deferredForeground, &header, &payload, nullptr, &result, &pipe, stop);
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, &pipe, stop);
     if (pipe)
         stopEvent = stop;
     return result.error;
@@ -3809,7 +4375,7 @@ bool ListingSession::Contains(const std::wstring& path) const
     if (prepared.operation == Operation::FindFile)
         return pipe && path == root;
     return pipe && path.compare(0, root.size(), root) == 0 &&
-           (path.size() == root.size() || (path.size() > root.size() && path[root.size()] == L'\\'));
+           (path.size() == root.size() || (path.size() > root.size() && (root.back() == L'\\' || path[root.size()] == L'\\')));
 }
 
 DWORD ListingSession::Transfer(void* buffer, DWORD length, bool send, ULONGLONG deadline)
@@ -3819,9 +4385,12 @@ DWORD ListingSession::Transfer(void* buffer, DWORD length, bool send, ULONGLONG 
 
 DWORD ListingSession::SendPath(const std::wstring& path, DWORD flags, ULONGLONG deadline)
 {
-    if (contentOpen || !Contains(path) || (prepared.operation == Operation::FindFile && flags != UacListing::contentRequest))
+    if (contentOpen || !Contains(path) ||
+        (prepared.operation == Operation::FindFile && flags != UacListing::contentRequest) ||
+        (prepared.operation == Operation::Inventory && !(flags & UacListing::inventoryRequest)))
         return ERROR_ACCESS_DENIED;
-    std::wstring relative = path.size() == root.size() ? std::wstring{} : path.substr(root.size() + 1);
+    const size_t start = root.size() + (root.back() == L'\\' ? 0 : 1);
+    std::wstring relative = path.size() == root.size() ? std::wstring{} : path.substr(start);
     if (relative.size() > UacDirectoryLeaf::maxNativeName)
         return ERROR_FILENAME_EXCED_RANGE;
     DWORD request = static_cast<DWORD>(relative.size()) | flags;
@@ -3833,9 +4402,16 @@ DWORD ListingSession::SendPath(const std::wstring& path, DWORD flags, ULONGLONG 
     return error;
 }
 
-DWORD ListingSession::PrepareViewer(const std::wstring& path, PreparedLeaf& viewer)
+DWORD ListingSession::PrepareViewer(const std::wstring& path, PreparedLeaf& viewer, DWORD expectedAttributes)
 {
-    return PrepareLeaf(path, Operation::View, {}, viewer);
+    return PrepareLeaf(path, Operation::View, {}, viewer, nullptr, expectedAttributes);
+}
+
+DWORD ListingSession::PrepareTransferSource(const std::wstring& path, DWORD attributes, bool move, PreparedLeaf& request)
+{
+    if (!IsPlainDeleteFile(attributes))
+        return ERROR_NOT_SUPPORTED;
+    return PrepareLeaf(path, move ? Operation::Move : Operation::Copy, {}, request, nullptr, attributes);
 }
 
 DWORD ListingSession::PrepareMkdir(const std::wstring& path, PreparedLeaf& mkdir)
@@ -3864,6 +4440,10 @@ DWORD ListingSession::PrepareMetadata(const std::wstring& path, const MetadataCh
 
 DWORD ListingSession::PrepareDeleteLeaf(const std::wstring& path, DWORD attributes, PreparedLeaf& request)
 {
+    const bool directory = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    if (IsPlainDeleteLink(attributes, directory))
+        return PrepareLeaf(path, directory ? Operation::DeleteDirectorySymlink : Operation::DeleteSymlink,
+                           {}, request, nullptr, attributes);
     if (!IsPlainDeleteFile(attributes) && !IsPlainDeleteDirectory(attributes))
         return ERROR_NOT_SUPPORTED;
     const auto operation = IsPlainDeleteDirectory(attributes) ? Operation::DeleteDirectory : Operation::Delete;
@@ -3873,8 +4453,10 @@ DWORD ListingSession::PrepareDeleteLeaf(const std::wstring& path, DWORD attribut
 DWORD ListingSession::PrepareLeaf(const std::wstring& path, Operation operation, const std::wstring& renameTo,
                                   PreparedLeaf& request, const MetadataChange* change, DWORD expectedAttributes)
 {
-    if (prepared.operation != Operation::List || !Contains(path) || path.size() <= root.size() ||
-        request.parent || request.identityFromListing)
+    const bool canReadIdentity = prepared.operation == Operation::List ||
+                                 ((prepared.operation == Operation::CompareContent || prepared.operation == Operation::FindContent) &&
+                                  operation == Operation::View);
+    if (!canReadIdentity || !Contains(path) || path.size() <= root.size() || request.parent || request.identityFromListing)
         return ERROR_ACCESS_DENIED;
     const auto split = path.find_last_of(L'\\');
     const std::wstring_view leaf(path.data() + split + 1, path.size() - split - 1);
@@ -3885,10 +4467,14 @@ DWORD ListingSession::PrepareLeaf(const std::wstring& path, Operation operation,
 
     const auto deadline = GetTickCount64() + timeoutMs;
     DWORD flags = UacListing::leafIdentityRequest;
+    const bool link = operation == Operation::DeleteSymlink || operation == Operation::DeleteDirectorySymlink;
+    if (link)
+        flags |= UacListing::linkIdentityRequest;
     if (operation == Operation::Mkdir)
         flags |= UacListing::parentIdentityRequest;
     else if (operation == Operation::RenameDirectory || operation == Operation::DeleteDirectory ||
-             (change && UacMetadataLeaf::IsDirectory(*change)))
+             operation == Operation::DeleteDirectorySymlink ||
+             operation == Operation::FindContent || (change && UacMetadataLeaf::IsDirectory(*change)))
         flags |= UacListing::directoryIdentityRequest;
     DWORD error = SendPath(path, flags, deadline);
     if (error)
@@ -3908,6 +4494,15 @@ DWORD ListingSession::PrepareLeaf(const std::wstring& path, Operation operation,
     if ((change && identity.attributes != change->expectedAttributes) ||
         (expectedAttributes != INVALID_FILE_ATTRIBUTES && identity.attributes != expectedAttributes))
         return ERROR_FILE_INVALID;
+
+    if (link)
+    {
+        operation = UacDeleteLeaf::LinkOperation(identity.attributes, identity.reparseTag);
+        if (operation == Operation::Delete)
+            return ERROR_NOT_SUPPORTED;
+    }
+    else if (identity.reparseTag)
+        return ERROR_INVALID_DATA;
 
     request.volume = prepared.volume;
     request.relative = prepared.relative;
@@ -3933,7 +4528,8 @@ DWORD ListingSession::OpenContent(const std::wstring& path, ULONGLONG& size, FIL
     modified = {};
     revision = {};
     if (prepared.operation != Operation::FindFile &&
-        (prepared.operation != Operation::FindContent || path.size() <= root.size()))
+        ((prepared.operation != Operation::FindContent && prepared.operation != Operation::CompareContent) ||
+         path.size() <= root.size()))
         return ERROR_ACCESS_DENIED;
     const auto deadline = GetTickCount64() + timeoutMs;
     DWORD error = SendPath(path, UacListing::contentRequest, deadline);
@@ -3995,9 +4591,12 @@ DWORD ListingSession::CloseContent()
     return error ? error : status;
 }
 
-DWORD ListingSession::Inventory(const std::wstring& path, DirectoryInventory& inventory, DirectorySizeDetails* details)
+DWORD ListingSession::Inventory(const std::wstring& path, DirectoryInventory& inventory, DirectorySizeDetails* details,
+                                std::wstring* firstSkipped)
 {
     inventory = {};
+    if (firstSkipped)
+        firstSkipped->clear();
     if (details)
         *details = {};
     const auto deadline = GetTickCount64() + timeoutMs;
@@ -4007,15 +4606,34 @@ DWORD ListingSession::Inventory(const std::wstring& path, DirectoryInventory& in
         return error;
     ListingReply reply{};
     error = Transfer(&reply, sizeof(reply), false, deadline);
-    if (!error && reply.count)
+    if (!error && (reply.count > UacDirectoryLeaf::maxNativeName || (reply.error && reply.count)))
         error = ERROR_INVALID_DATA;
     if (!error && !reply.error)
     {
         DirectoryInventory complete;
         error = Transfer(&complete, sizeof(complete), false, deadline);
         if (!error && (complete.directories > UacListing::maxEntries ||
-                       complete.files > UacListing::maxEntries - complete.directories))
+                       complete.files > UacListing::maxEntries - complete.directories ||
+                       (complete.flags & ~inventoryCompatibilityAlias) ||
+                       (complete.flags && (complete.directories || complete.files || complete.bytes || complete.firstOmission)) ||
+                       (reply.count && !complete.firstOmission)))
             error = ERROR_INVALID_DATA;
+        std::wstring skipped;
+        if (!error && reply.count)
+        {
+            skipped.resize(reply.count);
+            error = Transfer(skipped.data(), reply.count * static_cast<DWORD>(sizeof(wchar_t)), false, deadline);
+            std::wstring_view component = skipped;
+            while (!error)
+            {
+                const size_t split = component.find(L'\\');
+                if (!UacDirectoryLeaf::IsComponent(component.substr(0, split)))
+                    error = ERROR_INVALID_DATA;
+                if (split == std::wstring_view::npos)
+                    break;
+                component.remove_prefix(split + 1);
+            }
+        }
         if (!error && details)
         {
             DirectorySizeDetails measured;
@@ -4041,20 +4659,30 @@ DWORD ListingSession::Inventory(const std::wstring& path, DirectoryInventory& in
                 *details = std::move(measured);
         }
         if (!error)
+        {
             inventory = complete;
+            if (firstSkipped)
+                *firstSkipped = std::move(skipped);
+        }
     }
     if (error)
         Close();
     return error ? error : reply.error;
 }
 
-DWORD ListingSession::List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries)
+DWORD ListingSession::List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries,
+                           const MoveFileIdentity* expected)
 {
     entries.clear();
     const auto deadline = GetTickCount64() + timeoutMs;
-    DWORD error = SendPath(path, 0, deadline);
+    DWORD error = SendPath(path, expected ? UacListing::verifiedListingRequest : 0, deadline);
     if (error)
         return error;
+    if (expected)
+    {
+        MoveFileIdentity identity = *expected;
+        error = Transfer(&identity, sizeof(identity), true, deadline);
+    }
     ListingReply reply{};
     if (!error)
         error = Transfer(&reply, sizeof(reply), false, deadline);

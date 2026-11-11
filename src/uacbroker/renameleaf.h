@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Allow a verified plain directory to move between same-volume parents. | Keep directory rename and link-only operations on their existing scope. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Validate plain directories in the verified rename path. | Preserve no-replace and reparse safety for the selected directory. | #731 | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Expose exchange checkpoints to the native fault fixture. | Exercise real handle teardown after each rename and commit. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Allow an overlapped relative file open for F6. | Request an exclusive oplock on the exact source name. | | GPT-6.1 Sol (Codex) |
@@ -29,11 +30,11 @@ extern "C" NTSYSAPI NTSTATUS NTAPI NtSetInformationFile(
 
 namespace UacRenameLeaf
 {
-enum class MoveKind { OrdinaryFile, RenameFile, RenameSymlink, RenameDirectorySymlink, RenameJunction, RenameDirectory };
+enum class MoveKind { OrdinaryFile, RenameFile, RenameSymlink, RenameDirectorySymlink, RenameJunction, RenameDirectory, OrdinaryDirectory };
 
 inline bool IsDirectory(MoveKind kind)
 {
-    return kind == MoveKind::RenameDirectory || kind == MoveKind::RenameDirectorySymlink ||
+    return kind == MoveKind::OrdinaryDirectory || kind == MoveKind::RenameDirectory || kind == MoveKind::RenameDirectorySymlink ||
            kind == MoveKind::RenameJunction;
 }
 
@@ -282,7 +283,8 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
         expectedParent.file.VolumeSerialNumber != expectedTarget.file.VolumeSerialNumber)
         return ERROR_NOT_SAME_DEVICE;
     const bool sameParent = SameParent(expectedParent, expectedTarget);
-    if ((sameParent && Equal(from, to)) || (kind != MoveKind::OrdinaryFile && !sameParent))
+    const bool renameOnly = kind != MoveKind::OrdinaryFile && kind != MoveKind::OrdinaryDirectory;
+    if ((sameParent && Equal(from, to)) || (renameOnly && !sameParent))
         return ERROR_NOT_SUPPORTED;
 
     ParentIdentity actual;

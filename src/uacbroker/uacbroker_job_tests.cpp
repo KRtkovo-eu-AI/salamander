@@ -1,6 +1,31 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Exercise exact link identity in read-only panel sessions. | Verify type checking, scope isolation and referent preservation after deletion. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Test planned creation of an absent copy root. | Verify read-only planning, cancellation, exact scope, collision, and child copying. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Verify that a copy uses the source identity returned by its listing. | Reject substitution and deny listing to ordinary file jobs. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Test source listings on an approved merge connection. | Verify exact IDs, Unicode, scope boundaries and continued copying. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Test scoped copies into an existing tree. | Exercise immutable root identity and ordinary conflict guarantees. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Use a plain fixture for unelevated rooted copies. | Named streams already require the separate trusted staging ACL. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Open existing destinations in rooted copy tests. | Inspect the directories published by the dispatcher. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Exercise rooted per-entry directory copy. | Verify one connection, Unicode, ADS, collision, scope and cancellation. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Exercise atomic directory moves into a missing destination chain. | Verify identity, reuse, scope separation and cancellation. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Exercise scoped moves of actual NTFS directory trees. | Verify directory IDs, descendants, conflicts, cancellation and file-scope separation. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Exercise nested transfers over the real broker job pipe. | Test destination reuse, path substitution, cancellation and rollback of an interrupted first transfer. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Verify that the parser can see a denied transfer target. | Exercise the same separation between attributes and a write handle as the host. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Exercise an exact destination ID captured under a denied open. | Verify copy, move, directory creation and a same-name replacement on NTFS. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Check same-name Branch View transfer consent isolation. | Refuse a different source parent on the first broker and preserve completed work. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Exercise the production NTFS listing fallback under a real ACL. | Keep the separate trusted-installation gate in the host unchanged. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Exercise denied source attributes in copy and move preparation. | Use a real NTFS ACL and check that overwrite keeps the reviewed source identity. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Verify same-name Branch View delete identities. | Exercise a changed later row and preserve the unrelated branch. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Retain the typed preparation limits for Find. | Permit only the untyped exact-file identity request in content search. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Verify Find result identities across search shutdown. | Reject other rows and replaced files during a later exact snapshot. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Test rooted comparison listing and content scopes. | Reject replaced directories, unrelated paths and unapproved content. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Exercise scoped reads for directory comparison. | Verify reuse and detect a same-length file replacement. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Check a directly denied inventory root. | Verify the broker remains usable after refusal. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Restore the ACL after the partial inventory fixture. | Allow the temporary test directory to be removed. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Read partial inventory over a native pipe. | Verify ACL denial, accurate sibling counts, diagnostic path and scope reuse. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Test inventory isolation and reuse over a native pipe. | Verify repeated siblings and reject requests outside the approved scope. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Test protected metadata identities and mutation guards. | Keep file and directory reads separate from authorization and reject stale attributes or objects. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Test typed panel preparation for mkdir and rename. | Keep identity reads scoped and verify later mutations reject collisions and stale objects. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Test the panel metadata request against the real listing dispatcher. | Bind viewer consent to the selected file inside a protected listing. | #731 | Codex |
@@ -90,9 +115,9 @@ struct Directory
     UacDirectoryLeaf::ParentIdentity identity;
     std::wstring path, relative;
 
-    bool Open(const wchar_t* name)
+    bool Open(const wchar_t* name, bool create = true)
     {
-        if (!CreateDirectoryW(name, nullptr))
+        if (create && !CreateDirectoryW(name, nullptr))
             return false;
         handle = Adopt(CreateFileW(name, FILE_TRAVERSE | FILE_ADD_FILE | FILE_READ_ATTRIBUTES,
                                    FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
@@ -192,6 +217,8 @@ public:
         return !Connect(server.get(), GetTickCount64() + timeoutMs);
     }
 
+    bool Disconnect() { return DisconnectNamedPipe(server.get()) != FALSE; }
+
     DWORD Finish()
     {
         server.reset();
@@ -212,17 +239,22 @@ public:
     bool Request(Operation operation, const Directory& source, std::wstring_view leaf, DWORD& result,
                  const Directory* target = nullptr, UacF7::MetadataChange* change = nullptr,
                  UacF7::MetadataJobPolicy* policy = nullptr, bool stopBeforePayload = false, HANDLE cancelBeforeDispatch = nullptr,
-                 UacF7::ArchiveRevision* revision = nullptr, ULONGLONG copySize = 1)
+                 UacF7::ArchiveRevision* revision = nullptr, ULONGLONG copySize = 1, std::wstring_view suffix = {},
+                 const FILE_ID_128* reviewedSource = nullptr)
     {
+        const DWORD flags = FILE_FLAG_OPEN_REPARSE_POINT |
+                            (operation == Operation::MoveDirectory || operation == Operation::CopyDirectoryEntry ||
+                             operation == Operation::MergeCopyTree || operation == Operation::PlanCopyTree
+                                 ? FILE_FLAG_BACKUP_SEMANTICS : 0);
         const auto file = Adopt(CreateFileW(source.File(leaf).c_str(), FILE_READ_ATTRIBUTES,
-            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, flags, nullptr));
         FILE_ID_INFO identity{};
         if (!file || !GetFileInformationByHandleEx(file.get(), FileIdInfo, &identity, sizeof(identity)))
             return false;
         RequestHeader header{};
         header.serial = source.identity.file.VolumeSerialNumber;
         header.parentId = source.identity.file.FileId;
-        header.sourceId = identity.FileId;
+        header.sourceId = reviewedSource ? *reviewedSource : identity.FileId;
         header.operation = operation;
         header.relativeLength = static_cast<DWORD>(source.relative.size());
         header.leafLength = static_cast<DWORD>(leaf.size());
@@ -232,9 +264,13 @@ public:
             header.targetSerial = target->identity.file.VolumeSerialNumber;
             header.targetParentId = target->identity.file.FileId;
             header.targetRelativeLength = static_cast<DWORD>(target->relative.size());
-            header.targetLeafLength = header.leafLength;
+            const auto targetLeaf = operation == Operation::MergeCopyTree ? std::wstring_view(UacListing::marker) : leaf;
+            header.targetLeafLength = static_cast<DWORD>(targetLeaf.size());
             header.copySize = copySize;
-            payload += target->identity.volume + target->relative + std::wstring(leaf);
+            header.targetSuffixLength = static_cast<DWORD>(suffix.size());
+            payload += target->identity.volume + target->relative;
+            payload.append(targetLeaf);
+            payload.append(suffix);
         }
         const ULONGLONG deadline = GetTickCount64() + timeoutMs;
         if (TransferRequest(server.get(), &header, sizeof(header), true, deadline))
@@ -255,29 +291,53 @@ public:
         return !TransferRequest(server.get(), &result, sizeof(result), false, deadline);
     }
 
+    bool ListTreeSource(const Directory& root, std::wstring_view relative, const FILE_ID_INFO& expected,
+                        ListingReply& reply, std::vector<UacF7::TreeCopySourceEntry>& rows)
+    {
+        RequestHeader header{};
+        header.operation = Operation::ListCopyTreeSource;
+        header.serial = expected.VolumeSerialNumber;
+        header.parentId = expected.FileId;
+        header.relativeLength = static_cast<DWORD>(relative.size());
+        header.leafLength = ARRAYSIZE(UacListing::marker) - 1;
+        std::wstring payload = root.identity.volume;
+        payload.append(relative);
+        payload.append(UacListing::marker);
+        const auto deadline = GetTickCount64() + timeoutMs;
+        if (TransferRequest(server.get(), &header, sizeof(header), true, deadline) ||
+            TransferRequest(server.get(), payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline) ||
+            TransferRequest(server.get(), &reply, sizeof(reply), false, deadline) || reply.count > UacListing::maxEntries)
+            return false;
+        rows.resize(reply.count);
+        return !reply.count || !TransferRequest(server.get(), rows.data(),
+            reply.count * static_cast<DWORD>(sizeof(rows.front())), false, deadline);
+    }
+
     bool ReadLeafIdentity(std::wstring_view path, DWORD& status, UacListing::LeafIdentity& identity,
-                          bool parentOnly = false, bool directory = false)
+                          bool parentOnly = false, bool directory = false, bool link = false)
     {
         status = ERROR_GEN_FAILURE;
         const auto deadline = GetTickCount64() + timeoutMs;
         const DWORD flags = UacListing::leafIdentityRequest | (parentOnly ? UacListing::parentIdentityRequest : 0) |
-                            (directory ? UacListing::directoryIdentityRequest : 0);
+                            (directory ? UacListing::directoryIdentityRequest : 0) |
+                            (link ? UacListing::linkIdentityRequest : 0);
         return SendFindRequest(flags, path, deadline) &&
                !TransferRequest(server.get(), &status, sizeof(status), false, deadline) &&
                (status || !TransferRequest(server.get(), &identity, sizeof(identity), false, deadline));
     }
 
     bool QueryLeafIdentity(std::wstring_view path, DWORD expected, UacListing::LeafIdentity& identity,
-                           bool parentOnly = false, bool directory = false)
+                           bool parentOnly = false, bool directory = false, bool link = false)
     {
         DWORD status = ERROR_GEN_FAILURE;
-        return ReadLeafIdentity(path, status, identity, parentOnly, directory) && status == expected;
+        return ReadLeafIdentity(path, status, identity, parentOnly, directory, link) && status == expected;
     }
 
-    bool OpenFindContent(std::wstring_view leaf)
+    bool OpenFindContent(std::wstring_view leaf, UacF7::ArchiveRevision* openedRevision = nullptr)
     {
         DWORD status = ERROR_GEN_FAILURE;
-        UacF7::ArchiveRevision revision{};
+        UacF7::ArchiveRevision localRevision{};
+        auto& revision = openedRevision ? *openedRevision : localRevision;
         const auto deadline = GetTickCount64() + timeoutMs;
         return SendFindRequest(UacListing::contentRequest, leaf, deadline) &&
                !TransferRequest(server.get(), &status, sizeof(status), false, deadline) && !status &&
@@ -297,6 +357,41 @@ public:
         range = {};
         return !TransferRequest(server.get(), &range, sizeof(range), true, deadline) &&
                !TransferRequest(server.get(), &status, sizeof(status), false, deadline) && !status;
+    }
+
+    bool CompareList(std::wstring_view path, const FILE_ID_INFO& expectedIdentity, DWORD expected, std::wstring_view entry = {})
+    {
+        const auto deadline = GetTickCount64() + timeoutMs;
+        ListingReply reply{};
+        UacF7::MoveFileIdentity identity{expectedIdentity.VolumeSerialNumber};
+        std::memcpy(identity.id, expectedIdentity.FileId.Identifier, sizeof(identity.id));
+        if (!SendFindRequest(UacListing::verifiedListingRequest, path, deadline) ||
+            TransferRequest(server.get(), &identity, sizeof(identity), true, deadline) ||
+            TransferRequest(server.get(), &reply, sizeof(reply), false, deadline) ||
+            reply.error != expected || reply.count != (entry.empty() ? 0u : 1u))
+            return false;
+        WIN32_FIND_DATAW row{};
+        return entry.empty() || (!TransferRequest(server.get(), &row, sizeof(row), false, deadline) &&
+                                 entry == std::wstring_view(row.cFileName));
+    }
+
+    bool Inventory(std::wstring_view path, DWORD expected, DWORD files,
+                   DWORD omission = ERROR_SUCCESS, std::wstring_view expectedSkipped = {})
+    {
+        const auto deadline = GetTickCount64() + timeoutMs;
+        ListingReply reply{};
+        if (!SendFindRequest(UacListing::inventoryRequest, path, deadline) ||
+            TransferRequest(server.get(), &reply, sizeof(reply), false, deadline) ||
+            reply.error != expected || reply.count != expectedSkipped.size())
+            return false;
+        if (expected)
+            return true;
+        UacF7::DirectoryInventory inventory;
+        std::wstring skipped(reply.count, L'\0');
+        return !TransferRequest(server.get(), &inventory, sizeof(inventory), false, deadline) &&
+               (!reply.count || !TransferRequest(server.get(), skipped.data(), reply.count * static_cast<DWORD>(sizeof(wchar_t)), false, deadline)) &&
+               inventory.files == files && inventory.bytes == files && inventory.firstOmission == omission &&
+               !inventory.flags && skipped == expectedSkipped;
     }
 
     bool RejectFindRequest(DWORD header)
@@ -524,6 +619,8 @@ void CheckPanelPreparationFlags(const Directory& source)
     {
         for (const auto flags : {leaf, leaf | parent, leaf | directory})
         {
+            if (scope == Operation::FindContent && flags == leaf)
+                continue; // exact file identity is permitted and tested separately
             JobPipe job;
             Check(job.Open(nullptr, source.handle.get(), scope) && job.RejectFindRequest(flags | 1),
                   "Find grants cannot use a typed panel preparation request");
@@ -739,13 +836,64 @@ void CheckPanelPreparationReparse(const Directory& source, const Directory& outs
                                        status, identity, parentOnly) && status != ERROR_SUCCESS &&
                       HasByte(outside.File(referent), 71),
                   "neither preparation type traverses a directory link beyond the approved root");
-        Check(job.QueryLeafIdentity(L"prepared-ascii", ERROR_SUCCESS, identity),
-              "reparse rejection leaves the read-only panel preparation session usable");
+        UacListing::LeafIdentity reviewedDirectory{};
+        const auto linkHandle = Adopt(CreateFileW(source.File(directoryLink).c_str(), FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        FILE_ID_INFO expectedLink{};
+        Check(linkHandle && GetFileInformationByHandleEx(linkHandle.get(), FileIdInfo, &expectedLink, sizeof(expectedLink)) &&
+                  job.QueryLeafIdentity(directoryLink, ERROR_SUCCESS, reviewedDirectory, false, true, true) &&
+                  UacListing::Detail::SameId(reviewedDirectory.file, expectedLink.FileId) &&
+                  UacListing::Detail::SameId(reviewedDirectory.parent, source.identity.file.FileId) &&
+                  UacDeleteLeaf::LinkOperation(reviewedDirectory.attributes, reviewedDirectory.reparseTag) ==
+                      Operation::DeleteDirectorySymlink && HasByte(outside.File(referent), 71),
+              "a List link query returns the directory link's own identity and type");
+        UacListing::LeafIdentity reviewedFile{};
+        Check(job.QueryLeafIdentity(fileLink, ERROR_SUCCESS, reviewedFile, false, false, true) &&
+                  UacDeleteLeaf::LinkOperation(reviewedFile.attributes, reviewedFile.reparseTag) ==
+                      Operation::DeleteSymlink &&
+                  job.ReadLeafIdentity(std::wstring(directoryLink) + L"\\" + referent, status, identity,
+                                       false, false, true) && status != ERROR_SUCCESS &&
+                  HasByte(outside.File(referent), 71),
+              "file link preparation works without allowing traversal through a directory link");
+        Check(job.QueryLeafIdentity(L"prepared-ascii", ERROR_NOT_SUPPORTED, identity, false, false, true) &&
+                  job.QueryLeafIdentity(L"prepared-ascii", ERROR_SUCCESS, identity) && !identity.reparseTag,
+              "a link request rejects an ordinary file and the normal listing identity remains usable");
+
+        const auto parent = Adopt(CreateFileW(source.path.c_str(), FILE_LIST_DIRECTORY,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS, nullptr));
+        FILE_ID_128 captured{};
+        DWORD attributes = 0;
+        Check(parent &&
+                  UacListing::CaptureChildId(parent.get(), directoryLink, true, captured, attributes) ==
+                      ERROR_REPARSE_TAG_INVALID &&
+                  UacListing::CaptureChildId(parent.get(), directoryLink, true, captured, attributes,
+                                              IO_REPARSE_TAG_MOUNT_POINT) == ERROR_REPARSE_TAG_INVALID &&
+                  UacListing::CaptureChildId(parent.get(), directoryLink, true, captured, attributes,
+                                              IO_REPARSE_TAG_SYMLINK) == ERROR_SUCCESS &&
+                  UacListing::Detail::SameId(captured, reviewedDirectory.file),
+              "a readable parent can supply the link ID only for the exact requested type");
+        Check(UacDeleteLeaf::DeleteVerifiedLeaf(source.handle.get(), source.identity,
+                  {source.identity.file.VolumeSerialNumber, reviewedDirectory.file}, directoryLink,
+                  Operation::DeleteDirectorySymlink) == ERROR_SUCCESS &&
+                  UacDeleteLeaf::DeleteVerifiedLeaf(source.handle.get(), source.identity,
+                  {source.identity.file.VolumeSerialNumber, reviewedFile.file}, fileLink,
+                  Operation::DeleteSymlink) == ERROR_SUCCESS &&
+                  IsAbsent(source.File(fileLink)) && IsAbsent(source.File(directoryLink)) &&
+                  HasByte(outside.File(referent), 71),
+              "the verified delete path removes the two links and preserves their referents");
     }
     else
         Check(false, "open the reparse preparation session");
-    Check(DeleteFileW(source.File(fileLink).c_str()) && RemoveDirectoryW(source.File(directoryLink).c_str()),
-          "remove the test links without touching their outside-scope referents");
+    if (!IsAbsent(source.File(fileLink)))
+        DeleteFileW(source.File(fileLink).c_str());
+    if (!IsAbsent(source.File(directoryLink)))
+        RemoveDirectoryW(source.File(directoryLink).c_str());
+    JobPipe find;
+    Check(find.Open(nullptr, source.handle.get(), Operation::FindContent) &&
+              find.RejectFindRequest(UacListing::leafIdentityRequest | UacListing::linkIdentityRequest),
+          "Find content consent cannot query a delete link identity");
 }
 
 void CheckFindContentDisconnect(const Directory& first, const Directory& second)
@@ -763,6 +911,107 @@ void CheckFindContentDisconnect(const Directory& first, const Directory& second)
     Check(remaining.ReadAndCloseFindContent(23) && remaining.OpenFindContent(leaf) &&
               remaining.ReadAndCloseFindContent(23),
           "another Find session reads the correct file and remains usable after the disconnect");
+}
+
+void CheckFindViewerIdentity(const Directory& root)
+{
+    Directory selected, other;
+    const auto selectedDir = root.File(L"find-view-\u6771");
+    const auto otherDir = root.File(L"find-view-\u5b57");
+    constexpr wchar_t leaf[] = L"sample-\u6771.txt";
+    JobPipe job;
+    if (!selected.Open(selectedDir.c_str()) || !other.Open(otherDir.c_str()) ||
+        !WriteByte(selected.File(leaf), 41) || !WriteByte(other.File(leaf), 42) ||
+        !job.Open(nullptr, root.handle.get(), Operation::FindContent))
+    {
+        Check(false, "prepare two Find results with identical file names");
+        return;
+    }
+    UacListing::LeafIdentity identity{};
+    Check(job.QueryLeafIdentity(std::wstring(L"find-view-\u6771\\") + leaf, ERROR_SUCCESS, identity) &&
+              std::memcmp(identity.parent.Identifier, selected.identity.file.FileId.Identifier,
+                          sizeof(identity.parent.Identifier)) == 0 &&
+              job.RejectFindRequest(UacListing::leafIdentityRequest | UacListing::parentIdentityRequest | 1),
+          "Find content scope provides the exact result identity and rejects parent preparation");
+
+    FILE_ID_INFO expected{selected.identity.file.VolumeSerialNumber, identity.file};
+    std::vector<BYTE> snapshot;
+    const auto deadline = GetTickCount64() + timeoutMs;
+    Check(UacViewLeaf::ReadVerifiedSnapshot(selected.handle.get(), selected.identity, expected, leaf,
+                                           deadline, snapshot) == ERROR_SUCCESS &&
+              snapshot.size() == 1 && snapshot.front() == 41,
+          "the saved Find identity opens the selected result after the search disconnects");
+    snapshot.clear();
+    Check(UacViewLeaf::ReadVerifiedSnapshot(other.handle.get(), selected.identity, expected, leaf,
+                                           deadline, snapshot) == ERROR_FILE_INVALID && snapshot.empty(),
+          "the saved Find identity rejects a same-name result under a different parent");
+    Check(MoveFileW(selected.File(leaf).c_str(), selected.File(L"original").c_str()) &&
+              WriteByte(selected.File(leaf), 41) &&
+              UacViewLeaf::ReadVerifiedSnapshot(selected.handle.get(), selected.identity, expected, leaf,
+                                                deadline, snapshot) == ERROR_FILE_INVALID && snapshot.empty(),
+          "the saved Find identity rejects a same-size replacement after the search disconnects");
+}
+
+void CheckComparisonContent(const Directory& root)
+{
+    Directory child;
+    const auto first = root.File(L"01-compare-\u6771");
+    const auto second = root.File(L"02-compare-\u5b57\\leaf");
+    JobPipe job;
+    if (!child.Open(root.File(L"02-compare-\u5b57").c_str()) || !WriteByte(first, 31) || !WriteByte(second, 42) ||
+        !job.Open(nullptr, root.handle.get(), Operation::CompareContent))
+    {
+        Check(false, "prepare two independent comparison paths in one scope");
+        return;
+    }
+    UacF7::ArchiveRevision before{}, after{};
+    Check(job.OpenFindContent(L"01-compare-\u6771", &before) && job.ReadAndCloseFindContent(31) &&
+              job.OpenFindContent(L"02-compare-\u5b57\\leaf") && job.ReadAndCloseFindContent(42),
+          "comparison reads two distinct files from one approved subtree");
+    Check(MoveFileW(first.c_str(), root.File(L"01-compare-original").c_str()) && WriteByte(first, 31) &&
+              job.OpenFindContent(L"01-compare-\u6771", &after) && job.ReadAndCloseFindContent(31) &&
+              before.serial == after.serial && std::memcmp(before.fileId, after.fileId, sizeof(before.fileId)) != 0,
+          "a same-length replacement at a compared path has a different broker file ID");
+}
+
+void CheckComparisonListing(const Directory& root)
+{
+    constexpr wchar_t firstName[] = L"compare-dir-\u6771";
+    constexpr wchar_t secondName[] = L"compare-dir-\u5b57";
+    constexpr wchar_t leaf[] = L"only-entry";
+    Directory first, second;
+    JobPipe job;
+    if (!first.Open(root.File(firstName).c_str()) || !second.Open(root.File(secondName).c_str()) ||
+        !WriteByte(first.File(leaf), 51) || !WriteByte(second.File(leaf), 52) ||
+        !job.Open(nullptr, root.handle.get(), Operation::CompareContent))
+    {
+        Check(false, "prepare two directories for one comparison grant");
+        return;
+    }
+    const auto firstFile = std::wstring(firstName) + L"\\" + leaf;
+    UacListing::LeafIdentity identified{};
+    Check(job.CompareList(firstName, first.identity.file, ERROR_SUCCESS, leaf) &&
+              job.QueryLeafIdentity(firstFile, ERROR_SUCCESS, identified) &&
+              job.OpenFindContent(firstFile) && job.ReadAndCloseFindContent(51) &&
+              job.CompareList(secondName, second.identity.file, ERROR_SUCCESS, leaf),
+          "one comparison grant verifies two directories and reads a file in the first");
+    Check(job.CompareList(firstName, second.identity.file, ERROR_FILE_INVALID) &&
+              job.CompareList(firstName, first.identity.file, ERROR_SUCCESS, leaf),
+          "a changed directory identity prevents listing without terminating the grant");
+    Check(job.CompareList(L"..\\outside", first.identity.file, ERROR_INVALID_NAME),
+          "a verified listing cannot escape the comparison root");
+    Check(job.RejectFindRequest(UacListing::leafIdentityRequest | UacListing::parentIdentityRequest | 1),
+          "content comparison rejects parent preparation");
+
+    JobPipe metadata;
+    Check(metadata.Open(nullptr, root.handle.get(), Operation::CompareList) &&
+              metadata.CompareList(firstName, first.identity.file, ERROR_SUCCESS, leaf) &&
+              metadata.RejectFindRequest(UacListing::contentRequest | 1),
+          "metadata comparison can verify a directory but cannot read content");
+    JobPipe inventory;
+    Check(inventory.Open(nullptr, root.handle.get(), Operation::CompareContent) &&
+              inventory.RejectFindRequest(UacListing::inventoryRequest | 1),
+          "content comparison does not authorize size inventory");
 }
 
 void CheckStoppedFindReply()
@@ -806,6 +1055,71 @@ void CheckStoppedFindReply()
           "stop an active Find listing wait and close its pipe without a transfer cancellation byte");
 }
 
+void CheckInventoryScope(const Directory& source)
+{
+    Directory first, second;
+    constexpr wchar_t firstName[] = L"size-\u6771";
+    constexpr wchar_t secondName[] = L"size-\u4eac";
+    JobPipe job;
+    if (!first.Open(source.File(firstName).c_str()) || !second.Open(source.File(secondName).c_str()) ||
+        !WriteByte(first.File(L"a.txt"), 1) || !WriteByte(second.File(L"b.txt"), 2) ||
+        !WriteByte(second.File(L"c.txt"), 3) ||
+        !job.Open(nullptr, source.handle.get(), Operation::Inventory))
+    {
+        Check(false, "prepare the rooted inventory fixture");
+        return;
+    }
+    Check(job.Inventory(firstName, ERROR_SUCCESS, 1) && job.Inventory(secondName, ERROR_SUCCESS, 2),
+          "one inventory session counts two separate Unicode subtrees");
+    Check(job.Inventory(L"..\\outside", ERROR_INVALID_NAME, 0),
+          "a size request cannot traverse outside its approved tree");
+    Check(job.Inventory(firstName, ERROR_SUCCESS, 1),
+          "a refused path does not break a valid scoped inventory session");
+    Directory denied;
+    const auto deniedPath = first.File(L"02-denied");
+    PSECURITY_DESCRIPTOR descriptor = nullptr;
+    if (!denied.Open(deniedPath.c_str()) ||
+        !WriteByte(first.File(L"03-after.txt"), 1) ||
+        !ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(D;;CC;;;WD)(A;;FA;;;WD)", SDDL_REVISION_1,
+                                                              &descriptor, nullptr))
+    {
+        Check(false, "prepare a real denied directory between readable entries");
+        return;
+    }
+    const std::unique_ptr<void, decltype(&LocalFree)> security(descriptor, LocalFree);
+    PSECURITY_DESCRIPTOR previous = nullptr;
+    const DWORD captured = GetNamedSecurityInfoW(const_cast<wchar_t*>(deniedPath.c_str()), SE_FILE_OBJECT,
+        DACL_SECURITY_INFORMATION, nullptr, nullptr, nullptr, nullptr, &previous);
+    const std::unique_ptr<void, decltype(&LocalFree)> original(previous, LocalFree);
+    SECURITY_DESCRIPTOR_CONTROL control{};
+    DWORD revision = 0;
+    if (captured || !GetSecurityDescriptorControl(previous, &control, &revision))
+    {
+        Check(false, "capture the original fixture permissions before denying access");
+        return;
+    }
+    const DWORD denyFlags = DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION;
+    const bool configured = SetFileSecurityW(deniedPath.c_str(), denyFlags, descriptor) != FALSE;
+    const bool counted = configured && job.Inventory(firstName, ERROR_SUCCESS, 2, ERROR_ACCESS_DENIED, L"02-denied");
+    const auto deniedRelative = std::wstring(firstName) + L"\\02-denied";
+    const bool directDenied = configured && job.Inventory(deniedRelative.c_str(), ERROR_ACCESS_DENIED, 0);
+    const DWORD restoreFlags = DACL_SECURITY_INFORMATION | ((control & SE_DACL_PROTECTED) ?
+                                  PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION);
+    const bool restored = !configured || SetFileSecurityW(deniedPath.c_str(), restoreFlags, previous);
+    Check(counted && restored, "the pipe reports the denied branch and still counts readable siblings");
+    Check(directDenied && restored, "a directly requested denied subtree reports access denied without totals");
+    Check(job.Inventory(secondName, ERROR_SUCCESS, 2),
+          "a partial inventory does not invalidate the next request in the same session");
+    Check(job.RejectFindRequest(0), "an inventory grant rejects directory listing");
+    for (const DWORD flags : {UacListing::contentRequest, UacListing::leafIdentityRequest})
+    {
+        JobPipe rejected;
+        Check(rejected.Open(nullptr, source.handle.get(), Operation::Inventory) &&
+                  rejected.RejectFindRequest(flags | 1),
+              "an inventory grant rejects content and leaf identities");
+    }
+}
+
 void CheckExactFindScope(const Directory& source)
 {
     const auto path = source.File(L"exact-find-file");
@@ -843,6 +1157,659 @@ void CheckExactFindScope(const Directory& source)
           "an exact-file Find grant closes the pipe without returning bytes beyond EOF");
 }
 
+void CheckTransferSourceFromParentListing(const Directory& source, const Directory& target)
+{
+    constexpr wchar_t leaf[] = L"copy-denied-attributes-\u6771";
+    constexpr wchar_t replacement[] = L"copy-denied-replacement-\u5b57";
+    const auto file = source.File(leaf);
+    if (!WriteByte(file, 65) || !WriteByte(target.File(replacement), 77))
+    {
+        Check(false, "prepare a transfer with source metadata denied");
+        return;
+    }
+    const auto controlHandle = Adopt(CreateFileW(file.c_str(), READ_CONTROL | WRITE_DAC | FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    PSECURITY_DESCRIPTOR original = nullptr;
+    PACL originalDacl = nullptr;
+    FILE_ID_INFO expected{};
+    if (!controlHandle || !GetFileInformationByHandleEx(controlHandle.get(), FileIdInfo, &expected, sizeof(expected)) ||
+        GetSecurityInfo(controlHandle.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr,
+                        &originalDacl, nullptr, &original))
+    {
+        Check(false, "capture the source identity and DACL before applying the fixture");
+        return;
+    }
+    const std::unique_ptr<void, decltype(&LocalFree)> previous(original, LocalFree);
+    SECURITY_DESCRIPTOR_CONTROL flags{};
+    DWORD revision = 0;
+    PSECURITY_DESCRIPTOR denied = nullptr;
+    if (!GetSecurityDescriptorControl(original, &flags, &revision) ||
+        !ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(D;;0x00100080;;;WD)(A;;FA;;;WD)", SDDL_REVISION_1, &denied, nullptr))
+    {
+        Check(false, "prepare a fixture DACL denying the source identity open");
+        return;
+    }
+    const std::unique_ptr<void, decltype(&LocalFree)> descriptor(denied, LocalFree);
+    BOOL present = FALSE, defaulted = FALSE;
+    PACL deniedDacl = nullptr;
+    if (!GetSecurityDescriptorDacl(denied, &present, &deniedDacl, &defaulted) || !present ||
+        SetSecurityInfo(controlHandle.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                        nullptr, nullptr, deniedDacl, nullptr))
+    {
+        Check(false, "apply the source fixture DACL");
+        return;
+    }
+    HANDLE ordinary = nullptr;
+    const DWORD deniedRead = UacRenameLeaf::Detail::OpenSource(source.handle.get(), leaf, ordinary, 0,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
+    const auto closeOrdinary = Adopt(ordinary);
+    const auto parent = Adopt(CreateFileW(source.path.c_str(), FILE_LIST_DIRECTORY,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr));
+    FILE_ID_128 captured{};
+    DWORD attributes = 0;
+    const DWORD listed = parent ? UacListing::CaptureChildId(parent.get(), leaf, false, captured, attributes) : ERROR_OPEN_FAILED;
+    const DWORD restore = SetSecurityInfo(controlHandle.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION |
+        ((flags & SE_DACL_PROTECTED) ? PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION),
+        nullptr, nullptr, originalDacl, nullptr);
+    if (deniedRead != ERROR_ACCESS_DENIED || restore || listed)
+        std::printf("Source ACL fixture: open=%lu listed=%lu restore=%lu attrs=%lu\n", deniedRead, listed, restore, attributes);
+    Check(deniedRead == ERROR_ACCESS_DENIED && !restore && !listed &&
+              std::memcmp(captured.Identifier, expected.FileId.Identifier, sizeof(captured.Identifier)) == 0 &&
+              UacF7::IsPlainCopyFile(attributes),
+          "the readable parent listing preserves an exact transfer identity when source metadata is denied");
+    Check(HasByte(source.File(leaf), 65) && HasByte(target.File(replacement), 77),
+          "preparing a denied transfer source changes neither source nor existing destination");
+}
+
+void CheckTransferTargetFromParentListing(const Directory& source, const Directory& base)
+{
+    const std::wstring middle(112, L'\u6771');
+    const std::wstring selectedName(112, L'\u5b57');
+    Directory parent, selected;
+    if (!parent.Open(base.File(middle).c_str()) || !selected.Open(parent.File(selectedName).c_str()))
+    {
+        Check(false, "prepare a long Unicode destination below a readable parent");
+        return;
+    }
+    const auto listing = Adopt(CreateFileW(parent.path.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    auto control = Adopt(CreateFileW(selected.path.c_str(), READ_CONTROL | WRITE_DAC,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    PSECURITY_DESCRIPTOR original = nullptr;
+    PACL originalDacl = nullptr;
+    if (!listing || !control || GetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+        nullptr, nullptr, &originalDacl, nullptr, &original))
+    {
+        Check(false, "capture the destination DACL before applying the test denial");
+        return;
+    }
+    const std::unique_ptr<void, decltype(&LocalFree)> previous(original, LocalFree);
+    SECURITY_DESCRIPTOR_CONTROL flags{};
+    DWORD revision = 0;
+    PSECURITY_DESCRIPTOR denied = nullptr;
+    if (!GetSecurityDescriptorControl(original, &flags, &revision) ||
+        !ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(D;;0x001000a6;;;WD)(A;;FA;;;WD)",
+                                                             SDDL_REVISION_1, &denied, nullptr))
+    {
+        Check(false, "prepare the test DACL denying the destination directory identity open");
+        return;
+    }
+    const std::unique_ptr<void, decltype(&LocalFree)> descriptor(denied, LocalFree);
+    BOOL present = FALSE, defaulted = FALSE;
+    PACL deniedDacl = nullptr;
+    if (!GetSecurityDescriptorDacl(denied, &present, &deniedDacl, &defaulted) || !present ||
+        SetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                        nullptr, nullptr, deniedDacl, nullptr))
+    {
+        Check(false, "apply the destination fixture DACL");
+        return;
+    }
+    Handle ordinary;
+    UacDirectoryLeaf::ParentIdentity ordinaryIdentity;
+    const DWORD deniedRead = OpenRequestParent(listing.get(), selectedName, ordinary, ordinaryIdentity);
+    const DWORD selectedAttributes = GetFileAttributesW(selected.path.c_str());
+    const auto write = Adopt(CreateFileW(selected.path.c_str(), FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    const DWORD deniedWrite = write ? ERROR_SUCCESS : GetLastError();
+    Directory captured;
+    captured.path = selected.path;
+    captured.relative = selected.relative;
+    DWORD captureError = UacDirectoryLeaf::ReadParentIdentity(listing.get(), captured.identity);
+    if (!captureError)
+        captureError = UacListing::CaptureChildDirectoryId(listing.get(), selectedName, captured.identity.file.FileId);
+    const DWORD restore = SetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION |
+        ((flags & SE_DACL_PROTECTED) ? PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION),
+        nullptr, nullptr, originalDacl, nullptr);
+    const bool verified = deniedRead == ERROR_ACCESS_DENIED && !captureError && !restore &&
+        UacDirectoryLeaf::SameParent(captured.identity, selected.identity);
+    Check(selectedAttributes != INVALID_FILE_ATTRIBUTES &&
+              (selectedAttributes & FILE_ATTRIBUTE_DIRECTORY) && deniedWrite == ERROR_ACCESS_DENIED,
+          "the ordinary destination parser sees the directory but cannot open it for writing");
+    Check(verified, "a readable parent yields the exact destination ID when opening the directory is denied");
+    if (!verified)
+        return;
+    Check(!UacDirectoryLeaf::CreateVerifiedLeaf(selected.handle.get(), captured.identity, L"new-\u6771"),
+          "the directory create checks the captured parent and creates only its selected child");
+
+    constexpr wchar_t copyName[] = L"listed-destination-copy";
+    constexpr wchar_t moveName[] = L"listed-destination-move";
+    constexpr wchar_t staleName[] = L"listed-destination-stale";
+    if (!WriteByte(source.File(copyName), 71) || !WriteByte(source.File(moveName), 72) ||
+        !WriteByte(source.File(staleName), 73))
+    {
+        Check(false, "prepare separate files for verified destination copy, move and race");
+        return;
+    }
+    DWORD result = ERROR_GEN_FAILURE;
+    {
+        JobPipe copy;
+        Check(copy.Open() && copy.Request(Operation::Copy, source, copyName, result, &captured) && !result &&
+                  HasByte(source.File(copyName), 71) && HasByte(captured.File(copyName), 71),
+              "copy uses the listed destination ID and preserves the source");
+    }
+    {
+        JobPipe move;
+        Check(move.Open() && move.Request(Operation::Move, source, moveName, result, &captured,
+                                          nullptr, nullptr, false, nullptr, nullptr, 0) && !result &&
+                  IsAbsent(source.File(moveName)) && HasByte(captured.File(moveName), 72),
+              "same-volume move uses the listed destination ID");
+    }
+
+    selected.handle.reset();
+    control.reset();
+    const auto retired = parent.File(L"retired");
+    if (!MoveFileW(captured.path.c_str(), retired.c_str()) || !CreateDirectoryW(captured.path.c_str(), nullptr))
+    {
+        Check(false, "replace the previously listed directory with a new object at the same path");
+        return;
+    }
+    JobPipe stale;
+    Check(stale.Open() && stale.Request(Operation::Copy, source, staleName, result, &captured) &&
+              result == ERROR_FILE_INVALID && HasByte(source.File(staleName), 73) &&
+              IsAbsent(captured.File(staleName)) && HasByte(retired + L"\\" + moveName, 72),
+          "a replacement at the listed destination cannot receive the transfer");
+}
+
+void CheckDirectoryMoveJob(const Directory& source, const Directory& target)
+{
+    constexpr wchar_t first[] = L"directory-move-\u6771";
+    constexpr wchar_t second[] = L"directory-move-\u65e5";
+    constexpr wchar_t clash[] = L"directory-move-collision";
+    constexpr wchar_t file[] = L"directory-move-file";
+    constexpr wchar_t cancelled[] = L"directory-move-cancel";
+    constexpr wchar_t descendant[] = L"\\sub-\u672c\\inside.txt";
+    Directory firstDir, secondDir;
+    if (!firstDir.Open(source.File(first).c_str()) || !secondDir.Open(source.File(second).c_str()) ||
+        !CreateDirectoryW(firstDir.File(L"sub-\u672c").c_str(), nullptr) ||
+        !WriteByte(firstDir.path + descendant, 17) || !WriteByte(secondDir.File(L"inside.txt"), 29) ||
+        !CreateDirectoryW(source.File(clash).c_str(), nullptr) || !CreateDirectoryW(target.File(clash).c_str(), nullptr) ||
+        !WriteByte(source.File(clash) + L"\\inside.txt", 41) || !WriteByte(target.File(clash) + L"\\keep.txt", 51) ||
+        !WriteByte(source.File(file), 61) || !CreateDirectoryW(source.File(cancelled).c_str(), nullptr))
+    {
+        Check(false, "prepare independent directory moves and a same-name conflict");
+        return;
+    }
+    FILE_BASIC_INFO firstBasic{}, secondBasic{};
+    if (!GetFileInformationByHandleEx(firstDir.handle.get(), FileBasicInfo, &firstBasic, sizeof(firstBasic)) ||
+        !GetFileInformationByHandleEx(secondDir.handle.get(), FileBasicInfo, &secondBasic, sizeof(secondBasic)))
+    {
+        Check(false, "read the source directory timestamps by handle");
+        return;
+    }
+    firstDir.handle.reset();
+    secondDir.handle.reset();
+
+    const auto matches = [&](std::wstring_view leaf, const FILE_ID_INFO& expected, LARGE_INTEGER lastWrite) {
+        const auto opened = Adopt(CreateFileW(target.File(leaf).c_str(), FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, nullptr));
+        FILE_ID_INFO id{};
+        FILE_BASIC_INFO basic{};
+        return opened && GetFileInformationByHandleEx(opened.get(), FileIdInfo, &id, sizeof(id)) &&
+               UacRenameLeaf::Detail::SameSource(id, expected) &&
+               GetFileInformationByHandleEx(opened.get(), FileBasicInfo, &basic, sizeof(basic)) &&
+               basic.LastWriteTime.QuadPart == lastWrite.QuadPart;
+    };
+
+    JobPipe move;
+    DWORD result = ERROR_GEN_FAILURE;
+    Check(move.Open() && move.Request(Operation::MoveDirectory, source, first, result, &target, nullptr,
+                                     nullptr, false, nullptr, nullptr, 0) && !result &&
+              IsAbsent(source.File(first)) && matches(first, firstDir.identity.file, firstBasic.LastWriteTime) &&
+              HasByte(target.File(first) + descendant, 17),
+          "move a whole Unicode directory with its original ID, write time and untouched descendants");
+    Check(move.Request(Operation::MoveDirectory, source, second, result, &target, nullptr,
+                       nullptr, false, nullptr, nullptr, 0) && !result && IsAbsent(source.File(second)) &&
+              matches(second, secondDir.identity.file, secondBasic.LastWriteTime) && HasByte(target.File(second) + L"\\inside.txt", 29),
+          "reuse one directory move authorization for a second exact same-parent move");
+    Check(move.Request(Operation::MoveDirectory, source, clash, result, &target, nullptr,
+                       nullptr, false, nullptr, nullptr, 0) &&
+              (result == ERROR_ALREADY_EXISTS || result == ERROR_FILE_EXISTS) &&
+              HasByte(source.File(clash) + L"\\inside.txt", 41) && HasByte(target.File(clash) + L"\\keep.txt", 51),
+          "keep both trees when a directory move collides");
+    Check(move.Request(Operation::MoveDirectory, source, file, result, &target, nullptr,
+                       nullptr, false, nullptr, nullptr, 0) && result == ERROR_NOT_SUPPORTED &&
+              HasByte(source.File(file), 61) && IsAbsent(target.File(file)),
+          "directory move refuses an ordinary file");
+    Check(!move.Request(Operation::Move, source, file, result, &target, nullptr,
+                        nullptr, false, nullptr, nullptr, 0) && move.Finish() == ERROR_ACCESS_DENIED &&
+              IsAbsent(target.File(file)),
+          "directory move consent cannot be reused for a file move");
+
+    const auto dispatch = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    JobPipe cancel;
+    Check(dispatch && cancel.Open(dispatch.get()) &&
+              cancel.Request(Operation::MoveDirectory, source, cancelled, result, &target, nullptr,
+                             nullptr, false, dispatch.get(), nullptr, 0) &&
+              result == ERROR_CANCELLED && !IsAbsent(source.File(cancelled)) && IsAbsent(target.File(cancelled)),
+          "cancel before the atomic rename without changing either path");
+
+    constexpr wchar_t nestedSuffix[] = L"move-\u6771\\deep-\u65e5";
+    constexpr wchar_t nestedFirst[] = L"nested-directory-first";
+    constexpr wchar_t nestedSecond[] = L"nested-directory-second";
+    Directory firstTree, secondTree;
+    if (!firstTree.Open(source.File(nestedFirst).c_str()) || !secondTree.Open(source.File(nestedSecond).c_str()) ||
+        !WriteByte(firstTree.File(L"payload.txt"), 71) || !WriteByte(secondTree.File(L"payload.txt"), 72) ||
+        !GetFileInformationByHandleEx(firstTree.handle.get(), FileBasicInfo, &firstBasic, sizeof(firstBasic)) ||
+        !GetFileInformationByHandleEx(secondTree.handle.get(), FileBasicInfo, &secondBasic, sizeof(secondBasic)))
+    {
+        Check(false, "prepare two directories for a missing destination chain");
+        return;
+    }
+    firstTree.handle.reset();
+    secondTree.handle.reset();
+    const std::wstring nestedPrefix = std::wstring(nestedSuffix) + L"\\";
+
+    JobPipe nested;
+    Check(nested.Open() &&
+              nested.Request(Operation::MoveDirectory, source, nestedFirst, result, &target, nullptr,
+                             nullptr, false, nullptr, nullptr, 0, nestedSuffix) && !result &&
+              IsAbsent(source.File(nestedFirst)) &&
+              matches(nestedPrefix + nestedFirst, firstTree.identity.file, firstBasic.LastWriteTime) &&
+              HasByte(target.File(nestedPrefix + nestedFirst) + L"\\payload.txt", 71),
+          "create the missing Unicode chain and publish the first directory by identity");
+    Check(nested.Request(Operation::MoveDirectory, source, nestedSecond, result, &target, nullptr,
+                         nullptr, false, nullptr, nullptr, 0, nestedSuffix) && !result &&
+              IsAbsent(source.File(nestedSecond)) &&
+              matches(nestedPrefix + nestedSecond, secondTree.identity.file, secondBasic.LastWriteTime) &&
+              HasByte(target.File(nestedPrefix + nestedSecond) + L"\\payload.txt", 72),
+          "reuse the created destination and move the second directory on the same connection");
+    Check(!nested.Request(Operation::MoveDirectory, source, cancelled, result, &target, nullptr,
+                          nullptr, false, nullptr, nullptr, 0, L"outside-job\\child") &&
+              nested.Finish() == ERROR_ACCESS_DENIED && IsAbsent(target.File(L"outside-job")) &&
+              !IsAbsent(source.File(cancelled)),
+          "the directory move job cannot create another destination chain");
+
+    JobPipe cancelNested;
+    Check(dispatch && cancelNested.Open(dispatch.get()) &&
+              cancelNested.Request(Operation::MoveDirectory, source, cancelled, result, &target, nullptr,
+                                   nullptr, false, dispatch.get(), nullptr, 0, L"cancel-directory\\child") &&
+              result == ERROR_CANCELLED && IsAbsent(target.File(L"cancel-directory")) &&
+              !IsAbsent(source.File(cancelled)),
+          "cancelling a deferred directory move leaves its source and creates no destination");
+}
+
+void CheckTreeEntryJob(const Directory& source, const Directory& target)
+{
+    constexpr wchar_t root[] = L"job-tree-\u6771";
+    constexpr wchar_t branch[] = L"deep-\u65e5";
+    constexpr wchar_t empty[] = L"empty";
+    constexpr wchar_t payload[] = L"payload.bin";
+    Directory sourceRoot, sourceBranch, targetRoot, targetBranch;
+    if (!sourceRoot.Open(source.File(root).c_str()) ||
+        !sourceBranch.Open(sourceRoot.File(branch).c_str()) ||
+        !CreateDirectoryW(sourceBranch.File(empty).c_str(), nullptr) ||
+        !WriteByte(sourceRoot.File(payload), 81) || !WriteByte(sourceBranch.File(payload), 82))
+    {
+        Check(false, "prepare a Unicode copy tree with empty directories");
+        return;
+    }
+
+    DWORD result = ERROR_GEN_FAILURE;
+    JobPipe job;
+    Check(job.Open() &&
+              job.Request(Operation::CopyDirectoryEntry, source, root, result, &target, nullptr,
+                          nullptr, false, nullptr, nullptr, 0) && !result,
+          "create the verified root of an ordinary copy tree");
+    if (!targetRoot.Open(target.File(root).c_str(), false))
+    {
+        Check(false, "open the newly published ordinary destination root");
+        return;
+    }
+    Check(job.Request(Operation::Copy, sourceRoot, payload, result, &targetRoot) && !result &&
+              HasByte(sourceRoot.File(payload), 81) && HasByte(targetRoot.File(payload), 81),
+          "publish a file through the existing copy path on the same connection");
+    Check(job.Request(Operation::CopyDirectoryEntry, sourceRoot, branch, result, &targetRoot, nullptr,
+                      nullptr, false, nullptr, nullptr, 0) && !result &&
+              targetBranch.Open(targetRoot.File(branch).c_str(), false),
+          "create a nested Unicode directory under the same approved roots");
+    if (!targetBranch.handle)
+        return;
+    Check(job.Request(Operation::CopyDirectoryEntry, sourceBranch, empty, result, &targetBranch, nullptr,
+                      nullptr, false, nullptr, nullptr, 0) && !result &&
+              (GetFileAttributesW(targetBranch.File(empty).c_str()) & FILE_ATTRIBUTE_DIRECTORY) &&
+              !IsAbsent(targetBranch.File(empty)),
+          "preserve an empty child through the rooted copy session");
+    Check(job.Request(Operation::Copy, sourceBranch, payload, result, &targetBranch) && !result &&
+              HasByte(sourceBranch.File(payload), 82) && HasByte(targetBranch.File(payload), 82),
+          "copy nested data under the same approved roots");
+    Check(job.Request(Operation::Copy, sourceBranch, payload, result, &targetBranch) &&
+              (result == ERROR_ALREADY_EXISTS || result == ERROR_FILE_EXISTS) &&
+              HasByte(targetBranch.File(payload), 82),
+          "create-only copy preserves the existing file on collision");
+    Check(!job.Request(Operation::Copy, sourceRoot, payload, result, &targetBranch) &&
+              job.Finish() == ERROR_ACCESS_DENIED && HasByte(targetBranch.File(payload), 82),
+          "reject unequal relative source and destination parents and keep prior copies");
+
+    constexpr wchar_t cancelled[] = L"job-tree-cancelled";
+    const auto dispatch = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    JobPipe cancel;
+    Check(CreateDirectoryW(source.File(cancelled).c_str(), nullptr) && dispatch && cancel.Open(dispatch.get()) &&
+              cancel.Request(Operation::CopyDirectoryEntry, source, cancelled, result, &target, nullptr,
+                             nullptr, false, dispatch.get(), nullptr, 0) &&
+              result == ERROR_CANCELLED && IsAbsent(target.File(cancelled)) && !IsAbsent(source.File(cancelled)),
+          "cancellation before creating a tree leaves the source and destination unchanged");
+
+    JobPipe collision;
+    Check(collision.Open() && collision.Request(Operation::CopyDirectoryEntry, source, root, result, &target, nullptr,
+                                               nullptr, false, nullptr, nullptr, 0) &&
+              (result == ERROR_ALREADY_EXISTS || result == ERROR_FILE_EXISTS) && HasByte(targetRoot.File(payload), 81) &&
+              !collision.Request(Operation::Copy, sourceRoot, payload, result, &targetRoot) &&
+              collision.Finish() == ERROR_ACCESS_DENIED,
+          "a collided root cannot authorize later operations in the pre-existing directory");
+}
+
+void CheckTreeMergeJob(const Directory& source, const Directory& target)
+{
+    constexpr wchar_t root[] = L"merge-\u6771";
+    constexpr wchar_t branch[] = L"new-\u65e5";
+    constexpr wchar_t keep[] = L"keep.bin";
+    constexpr wchar_t fresh[] = L"fresh.bin";
+    constexpr wchar_t replace[] = L"replace.bin";
+    Directory from, into;
+    if (!from.Open(source.File(root).c_str()) || !into.Open(target.File(root).c_str()) ||
+        !CreateDirectoryW(from.File(branch).c_str(), nullptr) ||
+        !WriteByte(from.File(fresh), 1) || !WriteByte(from.File(replace), 2) ||
+        !WriteByte(into.File(keep), 3) || !WriteByte(into.File(replace), 4))
+    {
+        Check(false, "prepare an existing Unicode destination tree with a conflict");
+        return;
+    }
+    DWORD result = ERROR_GEN_FAILURE;
+    JobPipe job;
+    Check(job.Open() && job.Request(Operation::MergeCopyTree, source, root, result, &into, nullptr,
+                                   nullptr, false, nullptr, nullptr, 0) && !result &&
+              HasByte(into.File(keep), 3) && HasByte(into.File(replace), 4) &&
+              IsAbsent(into.File(fresh)) && IsAbsent(into.File(branch)),
+          "open an existing verified destination without copying or overwriting anything");
+
+    Directory sourceBranch;
+    constexpr wchar_t nestedFile[] = L"nested-\u672c.txt";
+    if (!sourceBranch.Open(from.File(branch).c_str(), false) || !WriteByte(sourceBranch.File(nestedFile), 7))
+    {
+        Check(false, "prepare the identity-bearing source listing");
+        return;
+    }
+    ListingReply listing{};
+    std::vector<UacF7::TreeCopySourceEntry> rows;
+    Check(job.ListTreeSource(from, {}, from.identity.file, listing, rows) &&
+              !listing.error && rows.size() == 3 &&
+              std::any_of(rows.begin(), rows.end(), [&](const auto& row) {
+                  return std::wstring_view(row.data.cFileName) == branch &&
+                         UacListing::Detail::SameId(row.id, sourceBranch.identity.file.FileId);
+              }) && IsAbsent(into.File(branch)),
+          "list the approved source root by handle without mutating the destination");
+    FILE_ID_INFO reviewedFile{};
+    auto nested = Adopt(CreateFileW(sourceBranch.File(nestedFile).c_str(), FILE_READ_ATTRIBUTES,
+                                         FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr));
+    Check(nested && GetFileInformationByHandleEx(nested.get(), FileIdInfo, &reviewedFile, sizeof(reviewedFile)) &&
+              job.ListTreeSource(from, branch, sourceBranch.identity.file, listing, rows) &&
+              !listing.error && rows.size() == 1 &&
+              std::wstring_view(rows.front().data.cFileName) == nestedFile &&
+              UacListing::Detail::SameId(rows.front().id, reviewedFile.FileId) && rows.front().data.nFileSizeLow == 1,
+          "return Unicode child names, lengths and exact IDs from the approved source");
+    nested.reset();
+    const FILE_ID_128 listedFile = rows.size() == 1 ? rows.front().id : FILE_ID_128{};
+    Check(job.ListTreeSource(from, branch, into.identity.file, listing, rows) &&
+              listing.error == ERROR_FILE_INVALID && rows.empty(),
+          "reject a wrong directory ID and keep the approved copy connection usable");
+    Check(job.Request(Operation::Copy, from, fresh, result, &into) && !result &&
+              HasByte(into.File(fresh), 1) && HasByte(from.File(fresh), 1) && HasByte(into.File(keep), 3),
+          "copy a new file and preserve unrelated entries in the merge");
+    Check(job.Request(Operation::CopyDirectoryEntry, from, branch, result, &into, nullptr,
+                      nullptr, false, nullptr, nullptr, 0) && !result && !IsAbsent(into.File(branch)),
+          "create a nested directory on the same existing-tree connection");
+
+    Directory targetBranch;
+    Check(targetBranch.Open(into.File(branch).c_str(), false) &&
+              MoveFileW(sourceBranch.File(nestedFile).c_str(), sourceBranch.File(L"retired-source").c_str()) &&
+              WriteByte(sourceBranch.File(nestedFile), 8) &&
+              job.Request(Operation::Copy, sourceBranch, nestedFile, result, &targetBranch, nullptr,
+                          nullptr, false, nullptr, nullptr, 1, {}, &listedFile) &&
+              result == ERROR_FILE_INVALID && IsAbsent(targetBranch.File(nestedFile)) &&
+              HasByte(sourceBranch.File(L"retired-source"), 7) && HasByte(into.File(fresh), 1),
+          "refuse a source file substituted after the elevated listing and keep the completed copy");
+    targetBranch.handle.reset();
+
+    UacF7::ArchiveRevision approval{};
+    auto old = Adopt(CreateFileW(into.File(replace).c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ,
+                                nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    const bool captured = old && !UacZipUpdate::ReadRevision(old.get(), approval);
+    old.reset();
+    Check(captured && MoveFileW(into.File(replace).c_str(), into.File(L"prior.bin").c_str()) &&
+              WriteByte(into.File(replace), 5) &&
+              job.Request(Operation::CopyOverwrite, from, replace, result, &into,
+                          nullptr, nullptr, false, nullptr, &approval) &&
+              result == ERROR_FILE_INVALID && HasByte(into.File(replace), 5) && HasByte(into.File(L"prior.bin"), 4),
+          "tree consent does not authorize overwriting a substituted file revision");
+    Check(!job.Request(Operation::MergeCopyTree, source, root, result, &into, nullptr,
+                       nullptr, false, nullptr, nullptr, 0) && job.Finish() == ERROR_ACCESS_DENIED &&
+              HasByte(into.File(keep), 3),
+          "an open merge job cannot begin another merge scope");
+
+    JobPipe outside;
+    Check(outside.Open() && outside.Request(Operation::MergeCopyTree, source, root, result, &into, nullptr,
+                                            nullptr, false, nullptr, nullptr, 0) && !result &&
+              !outside.ListTreeSource(from, L"..", source.identity.file, listing, rows) &&
+              outside.Finish() == ERROR_ACCESS_DENIED,
+          "refuse a parent escape in a source listing on an approved copy connection");
+
+    JobPipe plain;
+    Check(plain.Open() && plain.Request(Operation::Copy, from, fresh, result, &into) &&
+              (result == ERROR_ALREADY_EXISTS || result == ERROR_FILE_EXISTS) &&
+              !plain.ListTreeSource(from, {}, from.identity.file, listing, rows) &&
+              plain.Finish() == ERROR_ACCESS_DENIED,
+          "an ordinary file-copy job cannot request a source directory listing");
+
+    into.handle.reset();
+    const auto retired = target.File(L"merge-original");
+    Directory substitute;
+    if (!MoveFileW(into.path.c_str(), retired.c_str()) || !substitute.Open(into.path.c_str()) ||
+        !WriteByte(substitute.File(keep), 6))
+    {
+        Check(false, "substitute the destination directory after its identity was captured");
+        return;
+    }
+    JobPipe stale;
+    Check(stale.Open() && stale.Request(Operation::MergeCopyTree, source, root, result, &into,
+                                       nullptr, nullptr, false, nullptr, nullptr, 0) &&
+              result == ERROR_FILE_INVALID && IsAbsent(substitute.File(fresh)) &&
+              HasByte(substitute.File(keep), 6) && HasByte(retired + L"\\keep.bin", 3) &&
+              !stale.Request(Operation::Copy, from, fresh, result, &substitute) &&
+              stale.Finish() == ERROR_ACCESS_DENIED,
+          "refuse a same-name replacement of the confirmed root without granting a copy session");
+}
+
+void CheckPlannedTreeJob(const Directory& source, const Directory& target, const Directory& outside)
+{
+    constexpr wchar_t root[] = L"planned-\u6771";
+    constexpr wchar_t cancelled[] = L"planned-cancelled";
+    constexpr wchar_t collision[] = L"planned-collision";
+    constexpr wchar_t payload[] = L"payload-\u65e5.txt";
+    constexpr wchar_t sentinel[] = L"existing.txt";
+    Directory from;
+    if (!from.Open(source.File(root).c_str()) || !WriteByte(from.File(payload), 73) ||
+        !CreateDirectoryW(source.File(cancelled).c_str(), nullptr) ||
+        !CreateDirectoryW(source.File(collision).c_str(), nullptr))
+    {
+        Check(false, "prepare source trees for a deferred root");
+        return;
+    }
+
+    DWORD result = ERROR_GEN_FAILURE;
+    auto plan = [&](JobPipe& job, std::wstring_view name) {
+        return job.Open() && job.Request(Operation::PlanCopyTree, source, name, result, &target,
+                                         nullptr, nullptr, false, nullptr, nullptr, 0) &&
+               result == ERROR_SUCCESS && IsAbsent(target.File(name));
+    };
+
+    ListingReply listing{};
+    std::vector<UacF7::TreeCopySourceEntry> rows;
+    JobPipe job;
+    Check(plan(job, root) && job.ListTreeSource(from, {}, from.identity.file, listing, rows) &&
+              !listing.error && rows.size() == 1 && std::wstring_view(rows.front().data.cFileName) == payload &&
+              IsAbsent(target.File(root)),
+          "plan and list the source before creating the destination");
+    Check(job.Request(Operation::CopyDirectoryEntry, source, root, result, &target,
+                      nullptr, nullptr, false, nullptr, nullptr, 0) && !result,
+          "create exactly the planned root on the original connection");
+    Directory into;
+    Check(into.Open(target.File(root).c_str(), false) &&
+              job.Request(Operation::Copy, from, payload, result, &into) && !result &&
+              HasByte(into.File(payload), 73) && HasByte(from.File(payload), 73),
+          "copy a child through the pinned root after creation");
+
+    JobPipe cancel;
+    Check(plan(cancel, cancelled) && cancel.CancelIdle() == ERROR_SUCCESS && IsAbsent(target.File(cancelled)),
+          "cancel source planning without creating the destination");
+
+    JobPipe wrongParent;
+    Check(plan(wrongParent, cancelled) &&
+              !wrongParent.Request(Operation::CopyDirectoryEntry, source, cancelled, result, &outside,
+                                   nullptr, nullptr, false, nullptr, nullptr, 0) &&
+              wrongParent.Finish() == ERROR_ACCESS_DENIED &&
+              IsAbsent(outside.File(cancelled)) && IsAbsent(target.File(cancelled)),
+          "reject a root creation outside the planned destination");
+
+    JobPipe premature;
+    Check(plan(premature, cancelled) &&
+              !premature.Request(Operation::Copy, from, payload, result, &target) &&
+              premature.Finish() == ERROR_ACCESS_DENIED && IsAbsent(target.File(payload)),
+          "refuse file writes before the approved root is created");
+
+    JobPipe occupied;
+    Directory late;
+    Check(plan(occupied, collision) && late.Open(target.File(collision).c_str()) &&
+              WriteByte(late.File(sentinel), 74) &&
+              occupied.Request(Operation::CopyDirectoryEntry, source, collision, result, &target,
+                               nullptr, nullptr, false, nullptr, nullptr, 0) &&
+              (result == ERROR_ALREADY_EXISTS || result == ERROR_FILE_EXISTS) &&
+              HasByte(late.File(sentinel), 74),
+          "refuse to merge into a root that appeared after consent");
+}
+
+void CheckNestedTransferJob(const Directory& source, const Directory& target)
+{
+    constexpr wchar_t first[] = L"nested-copy-first";
+    constexpr wchar_t second[] = L"nested-copy-second";
+    constexpr wchar_t third[] = L"nested-copy-third";
+    constexpr wchar_t moveFirst[] = L"nested-move-first";
+    constexpr wchar_t moveSecond[] = L"nested-move-second";
+    if (!WriteByte(source.File(first), 1) || !WriteByte(source.File(second), 2) ||
+        !WriteByte(source.File(third), 3) || !WriteByte(source.File(moveFirst), 4) ||
+        !WriteByte(source.File(moveSecond), 5))
+    {
+        Check(false, "prepare the nested transfer source files");
+        return;
+    }
+
+    DWORD result = ERROR_GEN_FAILURE;
+    constexpr wchar_t suffix[] = L"nested-job-\u6771\\child-\u65e5";
+    const auto destination = target.File(suffix) + L"\\";
+    {
+        JobPipe copy;
+        Check(copy.Open() && copy.Request(Operation::Copy, source, first, result, &target, nullptr,
+                                          nullptr, false, nullptr, nullptr, 1, suffix) && !result &&
+                  HasByte(destination + first, 1) && HasByte(source.File(first), 1),
+              "one broker transfer creates a missing Unicode destination and copies the first file");
+        Check(copy.Request(Operation::Copy, source, second, result, &target, nullptr,
+                           nullptr, false, nullptr, nullptr, 1, suffix) && !result &&
+                  HasByte(destination + second, 2) && HasByte(source.File(second), 2),
+              "the same broker reuses its exact nested destination for the next file");
+        Check(!copy.Request(Operation::Copy, source, third, result, &target, nullptr,
+                            nullptr, false, nullptr, nullptr, 1, L"outside-job\\child") &&
+                  copy.Finish() == ERROR_ACCESS_DENIED && IsAbsent(target.File(L"outside-job")) &&
+                  HasByte(source.File(third), 3) && HasByte(destination + second, 2),
+              "a later request cannot redirect the existing broker to a different missing suffix");
+    }
+
+    {
+        JobPipe stale;
+        constexpr wchar_t moveSuffix[] = L"nested-move\\child";
+        const auto final = target.File(moveSuffix);
+        const auto retired = target.File(L"nested-move\\retired");
+        Check(stale.Open() && stale.Request(Operation::Move, source, moveFirst, result, &target, nullptr,
+                                           nullptr, false, nullptr, nullptr, 0, moveSuffix) && !result &&
+                  IsAbsent(source.File(moveFirst)) && HasByte(final + L"\\" + moveFirst, 4),
+              "a same-volume broker move creates the missing destination before retiring the source");
+        Check(MoveFileW(final.c_str(), retired.c_str()) && CreateDirectoryW(final.c_str(), nullptr) &&
+                  stale.Request(Operation::Move, source, moveSecond, result, &target, nullptr,
+                                nullptr, false, nullptr, nullptr, 0, moveSuffix) &&
+                  result == ERROR_FILE_INVALID && HasByte(source.File(moveSecond), 5) &&
+                  HasByte(retired + L"\\" + moveFirst, 4) && IsAbsent(final + L"\\" + moveSecond),
+              "a replacement nested destination does not receive the next move");
+    }
+
+    {
+        JobPipe wrongSize;
+        Check(wrongSize.Open() && wrongSize.Request(Operation::Copy, source, third, result, &target, nullptr,
+                                                    nullptr, false, nullptr, nullptr, 2, L"nested-rollback\\child") &&
+                  result == ERROR_FILE_INVALID && IsAbsent(target.File(L"nested-rollback")) &&
+                  HasByte(source.File(third), 3),
+              "a transfer failure rolls back only its newly created empty destination");
+    }
+
+    {
+        const auto staged = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        const auto resume = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        const UacCopyLeaf::Detail::CopyPause pause{staged.get(), resume.get()};
+        JobPipe disconnected;
+        if (!staged || !resume || !disconnected.Open(nullptr, nullptr, Operation::FindContent, &pause))
+        {
+            Check(false, "prepare a disconnected nested copy");
+            return;
+        }
+        bool reply = false;
+        std::thread request([&] {
+            reply = disconnected.Request(Operation::Copy, source, third, result, &target, nullptr, nullptr,
+                                         false, nullptr, nullptr, 1, L"nested-disconnect\\child");
+        });
+        const bool pending = WaitForSingleObject(staged.get(), timeoutMs) == WAIT_OBJECT_0 &&
+                             !IsAbsent(target.File(L"nested-disconnect\\child")) &&
+                             IsAbsent(target.File(std::wstring(L"nested-disconnect\\child\\") + third));
+        const bool closed = disconnected.Disconnect();
+        SetEvent(resume.get());
+        request.join();
+        const DWORD dispatch = disconnected.Finish();
+        Check(pending && closed && !reply && dispatch != ERROR_SUCCESS &&
+                  IsAbsent(target.File(L"nested-disconnect")) && HasByte(source.File(third), 3),
+              "disconnect after staging rolls back the empty nested destination and keeps the source");
+    }
+
+    {
+        const auto dispatch = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        JobPipe cancelled;
+        Check(dispatch && cancelled.Open(dispatch.get()) &&
+                  cancelled.Request(Operation::Move, source, moveSecond, result, &target, nullptr,
+                                    nullptr, false, dispatch.get(), nullptr, 0, L"nested-cancel\\child") &&
+                  result == ERROR_CANCELLED && IsAbsent(target.File(L"nested-cancel")) && HasByte(source.File(moveSecond), 5),
+              "a cancelled nested move creates no directories and preserves its source");
+    }
+}
+
 void CheckCopyJob(const Directory& source, const Directory& target, const Directory& outside)
 {
     JobPipe job;
@@ -864,6 +1831,32 @@ void CheckCopyJob(const Directory& source, const Directory& target, const Direct
     Check(!job.Request(Operation::Copy, source, third, error, &outside) && job.Finish() == ERROR_ACCESS_DENIED &&
               IsAbsent(outside.File(third)) && HasByte(source.File(third), 3),
           "a different destination parent is refused before mutation");
+}
+
+void CheckBranchTransferScope(const Directory& root, const Directory& target)
+{
+    Directory first, second;
+    constexpr wchar_t leaf[] = L"same-transfer-\u6771.txt";
+    const auto destination = target.File(leaf);
+    const auto saved = target.File(L"first-transfer-result");
+    JobPipe firstJob, secondJob;
+    if (!first.Open(root.File(L"transfer-first").c_str()) || !second.Open(root.File(L"transfer-second").c_str()) ||
+        !WriteByte(first.File(leaf), 61) || !WriteByte(second.File(leaf), 62) || !firstJob.Open())
+    {
+        Check(false, "prepare separate same-name Branch View transfer rows");
+        return;
+    }
+
+    DWORD result = ERROR_GEN_FAILURE;
+    Check(firstJob.Request(Operation::Copy, first, leaf, result, &target) && !result && HasByte(destination, 61) &&
+              MoveFileW(destination.c_str(), saved.c_str()),
+          "the first scoped copy reads the selected branch rather than its same-name sibling");
+    Check(!firstJob.Request(Operation::Copy, second, leaf, result, &target) &&
+              firstJob.Finish() == ERROR_ACCESS_DENIED && IsAbsent(destination) && HasByte(saved, 61),
+          "changing the source parent cannot reuse an earlier transfer approval");
+    Check(secondJob.Open() && secondJob.Request(Operation::Copy, second, leaf, result, &target) && !result &&
+              HasByte(destination, 62) && HasByte(saved, 61) && HasByte(first.File(leaf), 61) && HasByte(second.File(leaf), 62),
+          "an independent approval for the second parent preserves completed work and both sources");
 }
 
 void CheckCopyOptionScope(const Directory& source, const Directory& target)
@@ -1464,6 +2457,43 @@ void CheckMetadataJob(const Directory& source)
           "reject an attribute bit outside the consent before changing the item");
 }
 
+void CheckBranchDeleteIdentity(const Directory& root)
+{
+    Directory first, second;
+    constexpr wchar_t leaf[] = L"same-\u6771.txt";
+    JobPipe listing;
+    if (!first.Open(root.File(L"delete-branch-first").c_str()) ||
+        !second.Open(root.File(L"delete-branch-second").c_str()) ||
+        !WriteByte(first.File(leaf), 11) || !WriteByte(second.File(leaf), 22) ||
+        !listing.Open(nullptr, root.handle.get(), Operation::List))
+    {
+        Check(false, "prepare two Branch View deletion sources with one basename");
+        return;
+    }
+
+    UacListing::LeafIdentity firstId{}, secondId{};
+    Check(listing.QueryLeafIdentity(std::wstring(L"delete-branch-first\\") + leaf, ERROR_SUCCESS, firstId) &&
+              listing.QueryLeafIdentity(std::wstring(L"delete-branch-second\\") + leaf, ERROR_SUCCESS, secondId) &&
+              listing.Finish() == ERROR_BROKEN_PIPE &&
+              std::memcmp(firstId.parent.Identifier, first.identity.file.FileId.Identifier,
+                          sizeof(firstId.parent.Identifier)) == 0 &&
+              std::memcmp(secondId.parent.Identifier, second.identity.file.FileId.Identifier,
+                          sizeof(secondId.parent.Identifier)) == 0,
+          "capture separate physical parents for same-name Branch View rows");
+    const FILE_ID_INFO expectedFirst{first.identity.file.VolumeSerialNumber, firstId.file};
+    const FILE_ID_INFO expectedSecond{second.identity.file.VolumeSerialNumber, secondId.file};
+    Check(UacDeleteLeaf::DeleteVerifiedLeaf(second.handle.get(), first.identity, expectedFirst, leaf) == ERROR_FILE_INVALID &&
+              HasByte(first.File(leaf), 11) && HasByte(second.File(leaf), 22),
+          "a selected Branch View identity cannot delete its same-name sibling");
+    Check(UacDeleteLeaf::DeleteVerifiedLeaf(first.handle.get(), first.identity, expectedFirst, leaf) == ERROR_SUCCESS &&
+              IsAbsent(first.File(leaf)) && HasByte(second.File(leaf), 22),
+          "deleting one selected Branch View row preserves the other branch");
+    Check(MoveFileW(second.File(leaf).c_str(), second.File(L"original").c_str()) && WriteByte(second.File(leaf), 22) &&
+              UacDeleteLeaf::DeleteVerifiedLeaf(second.handle.get(), second.identity, expectedSecond, leaf) == ERROR_FILE_INVALID &&
+              HasByte(second.File(leaf), 22),
+          "the second Branch View row is preserved when its identity changed");
+}
+
 void CheckDeleteJob(const Directory& source)
 {
     JobPipe job;
@@ -1497,9 +2527,21 @@ int wmain()
     CheckPanelMetadataGuards(source);
     CheckPanelPreparationReparse(source, outside);
     CheckFindContentDisconnect(source, outside);
+    CheckFindViewerIdentity(source);
+    CheckComparisonContent(source);
+    CheckComparisonListing(source);
     CheckStoppedFindReply();
     CheckExactFindScope(source);
+    CheckInventoryScope(source);
+    CheckTransferSourceFromParentListing(source, target);
+    CheckTransferTargetFromParentListing(source, target);
+    CheckNestedTransferJob(source, target);
+    CheckTreeEntryJob(source, target);
+    CheckTreeMergeJob(source, target);
+    CheckPlannedTreeJob(source, target, outside);
+    CheckDirectoryMoveJob(source, target);
     CheckCopyJob(source, target, outside);
+    CheckBranchTransferScope(source, target);
     CheckCopyOptionScope(source, target);
     CheckCompetingCopyJobs(source, outside, target);
     CheckActiveOverwriteJournal(source, target);
@@ -1517,6 +2559,7 @@ int wmain()
     CheckTransferReplies();
     CheckMoveSourceEligibility();
     CheckMetadataJob(source);
+    CheckBranchDeleteIdentity(source);
     CheckDeleteJob(source);
     return failures ? 1 : 0;
 }

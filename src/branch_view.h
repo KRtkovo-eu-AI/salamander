@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Keep approved Branch scans on the listing owner thread. | Share traversal and publication while preserving the ordinary background scanner. | #731 | GPT-6.1 Sol |
 // | 2026-11-07 | Skip hidden and system files in Branch scans, except cloud placeholders. | Match the ordinary panel hide option. | https://github.com/KRtkovo-eu-AI/salamander/pull/818 | Grok 4.7 |
 #pragma once
 
@@ -159,7 +160,9 @@ class Scan
 public:
     Scan();
     ~Scan();
-    bool Start(const std::wstring& root, bool hideHiddenSystem);
+    using ListDirectory = DWORD (*)(void* context, const std::wstring& directory, std::vector<WIN32_FIND_DATAW>& entries);
+    bool Start(const std::wstring& root, bool hideHiddenSystem, bool incremental = false);
+    void Advance(ListDirectory list, void* context);
     void Cancel();
     void Drain(std::vector<Entry>& entries, Progress& progress);
     Scan(const Scan&) = delete;
@@ -199,6 +202,7 @@ public:
     bool ForcePublish = false;
     bool Preparing = false;
     bool CompletionPending = false;
+    bool UseProtectedListing = false;
     std::shared_ptr<Salamander::BranchView::PreparationSession> Preparation;
     std::shared_ptr<Salamander::BranchView::PreparationLifetime> PreparationLifetime;
     ULONGLONG Generation = 0;

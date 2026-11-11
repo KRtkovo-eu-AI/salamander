@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Keep declined deletion scopes for the progress dialog lifetime. | Limit cancellation reuse to the current delete job. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Add the destination shield to the native Copy/Move dialog. | Use the live destination text for the preview. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Remember whether metadata was submitted with a shield. | Carry the existing confirmation to the verified metadata request. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Expose the shield state of the accepted operation dialog. | Let the same confirmed operation proceed to system UAC on access denial. | #731 | Codex |
@@ -402,6 +403,7 @@ class CProgressDialog : public CCommonDialog
 {
     friend class CConflictPromptPresentationGuard;
     std::list<UacF7::TransferJobSession> TransferJobs;
+    std::vector<UacF7::TransferJobScope> DeclinedDeleteScopes;
 
 public:
     CProgressDialog(HWND parent, COperations* script, const char* caption,

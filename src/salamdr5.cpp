@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Pass a denied missing destination back to the disk transfer controller. | Preserve path confirmation and packed mask before starting a scoped transfer. | #731 | GPT-6.1 Sol |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // CommentsTranslationProject: TRANSLATED
 
@@ -1007,7 +1008,8 @@ static BOOL ReportSplitPathError(HWND parent, const char* title, int resource)
 
 BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle, int selCount,
                          char* callerPath, char* secondPart, BOOL pathIsDir, BOOL backslashAtEnd,
-                         const char* dirName, const char* curDiskPath, char*& callerMask, int pathBufSize)
+                         const char* dirName, const char* curDiskPath, char*& callerMask, int pathBufSize,
+                         SalDeferredDirectory defer, void* deferContext)
 {
     callerMask = NULL;
     size_t pathLength;
@@ -1075,6 +1077,8 @@ BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle,
             SalPathRemoveBackslash(newDirs);
 
             BOOL ok = TRUE;
+            bool changed = false;
+            bool deferred = false;
             char* st = newDirs + (secondPart - path);
             while (1)
             {
@@ -1100,11 +1104,23 @@ BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle,
                     newDirsW = SalMultiByteToWidePath(newDirs, CP_ACP);
                 if (invalidPath || !(newDirsW.empty() ? CreateDirectory(newDirs, NULL) : SalCreateDirectoryExW(newDirsW.c_str(), NULL)))
                 {
+                    if (!invalidPath && GetLastError() == ERROR_ACCESS_DENIED && defer &&
+                        (selCount <= 1 || strcmp(mask, "*.*") == 0))
+                    {
+                        if (slash)
+                            *slash = '\\';
+                        deferred = defer(deferContext, newDirs, static_cast<size_t>(st - newDirs));
+                        if (deferred)
+                            break;
+                        if (slash)
+                            *slash = 0;
+                    }
                     sprintf(textBuf, LoadStr(IDS_CREATEDIRFAILED), newDirs);
                     SalMessageBox(parent, textBuf, errorTitle, MB_OK | MB_ICONEXCLAMATION);
                     ok = FALSE;
                     break;
                 }
+                changed = true;
                 if (slash != NULL)
                     *slash = '\\';
                 else
@@ -1116,7 +1132,8 @@ BOOL SalSplitWindowsPath(HWND parent, const char* title, const char* errorTitle,
             // ends, so only after the operation is finished)
             // path change - creation of new subdirectories along the path (required even if
             // the new directories could not be created) - change without subdirectories (only subdirectories were being created)
-            MainWindow->PostChangeOnPathNotification(changesRoot.c_str(), FALSE);
+            if (!deferred || changed)
+                MainWindow->PostChangeOnPathNotification(changesRoot.c_str(), FALSE);
 
             if (!ok)
             {

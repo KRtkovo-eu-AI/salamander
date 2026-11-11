@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Check the normalized selected delete path. | Keep the exact-path contract aligned with the worker. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Check Branch View metadata preparation and exact parent. | Prevent duplicate names or an unverified fallback from reaching the worker. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Verify direct and late verified delete requests. | Keep shielded Yes exact and cancel before children. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Test the actual verified metadata executor. | Verify that accepted shields apply only to the matching first denied operation. | #731 | GPT-6.1 Sol (Codex) |
 # | 2026-11-10 | Exercise actual metadata preview and worker dispatch. | Verify denied-write detection and fail-closed protected requests without UI or elevation. | #731 | GPT-6.1 Sol (Codex) |
@@ -28,10 +30,23 @@ def main():
     assert '(deleting || !shareJob) && prompt.shieldedOk' in read('src/dialogs.cpp')
     assert 'if (shareJob && !prompt.request.IsDirectoryDelete())' in read('src/dialogs.cpp')
     delete = block(worker[worker.index('static BOOL ExecuteVerifiedWorkerLeaf('):], 'static bool TryDeleteVerifiedLeaf(HWND progress')
-    assert 'SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str()) == script.PreparedDeletePath' in delete
+    assert 'const std::wstring path = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());' in delete
+    assert 'script.PreparedDeleteRequest && path == script.PreparedDeletePath' in delete
     assert 'shielded = script.DeleteShieldAccepted;' in delete
     assert 'ProtectedListing->IsOpen()' in change
     assert 'find = entry;' in change
+    assert 'ProtectedListing->List(SalPathRemoveExtendedPrefixW(GetItemDirectoryW(*f).c_str()),' in change
+    assert 'const auto& entries = branchAttributes ? branchEntries : ProtectedListingEntries;' in change
+    assert '(!branchAttributes || singleBasicMetadata);' in change
+    assert 'if (protectedMetadata || shieldedOk)' in change
+    assert 'script->ProtectedMetadataRequest->PrepareMetadata(metadataPreview.path, change, policy)' in change
+    assert 'if (script->ProtectedMetadataRequest && !sameItem)' in change
+    build = read('src/fileswn6.cpp').split('BOOL CFilesWindow::BuildScriptFile(', 1)[1]
+    assert 'script->ProtectedMetadataRequest ? sourceFileAttr : GetFileAttributesW' in build
+    prepare = block(read('src/uacbroker/uacbroker.cpp'), 'bool PreparedLeaf::PrepareTarget(')
+    assert 'requested == Operation::View || change || transferring' in prepare
+    assert prepare.index('UacListing::CaptureChildId(listing.get()') < prepare.index(
+        '(change && attributes != change->expectedAttributes)') < prepare.index('std::memcpy(sourceId, sourceIdentity.FileId')
     pieces = {
         'HEADER': str(ROOT / 'src/uacbroker/f7pilot.h').replace('\\', '/'),
         'DATA': block(read('src/worker.h'), 'struct CChangeAttrsData', ';'),

@@ -4309,13 +4309,13 @@ SLGINCOMPLETE,""
 14635,1,"A hozzáférés megtagadva. Áthelyezi ezt a fájlt rendszergazdaként?"
 14636,1,"Az áthelyezés befejezését nem sikerült megerősíteni. Újrapróbálkozás előtt ellenőrizze a forrást és a célhelyet."
 14637,1,"Védett mappafa leltára"
-14639,1,"A mappafa teljes bejárása sikertelen. A részleges eredmények nem jelennek meg."
+14639,1,"A mappaméret kiszámításakor nem sikerült bejárni a teljes mappafát."
 
 [STRINGTABLE 194]
 14640,1,"Fájlok: "
 14641,1,"Almappák: "
 14642,1,"Logikai méret (bájt): "
-14643,1,"Másolja ezt a mappát és tartalmát rendszergazdaként a regisztrált célhelyre?"
+14643,1,"Másolja ezt a mappát és tartalmát rendszergazdaként?"
 14644,1,"A mappa másolását vagy a takarítást nem sikerült megerősíteni. Újrapróbálkozás előtt ellenőrizze a célhelyet."
 14645,1,"A hozzáférés megtagadva. Beállítja a mappa kért időbélyegeit rendszergazdaként?"
 14646,1,"A segédfolyamattal megszakadt a kapcsolat az eredmény megerősítése előtt. Újrapróbálkozás előtt ellenőrizze a mappa időbélyegeit."
@@ -4368,6 +4368,9 @@ SLGINCOMPLETE,""
 [STRINGTABLE 197]
 14688,1,"A hozzáférés megtagadva. Áthelyezi ezt a fájlt a saját Lomtárába rendszergazdaként?"
 14689,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként az NTFS-tömörítés, a tulajdonos, a csoport és a kifejezetten megadott engedélyek megőrzésével?"
+14694,1,"Az engedély az alábbi útvonalon található védett mappákra is vonatkozik:"
+14695,1,"A hozzáférés megtagadva. Rendszergazdaként olvassa be az ezen az útvonalon található fájlok tartalmát ehhez az összehasonlításhoz?"
+14696,1,"A Windows kompatibilitási hivatkozás kimaradt. A teljes mérethez 0 bájttal járul hozzá."
 
 [STRINGTABLE 198]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."

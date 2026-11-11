@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Samandarin Contributors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Model copy planning in the shared scan fixture. | Compile the production error branch without changing size assertions. | #731 | GPT-6.1 Sol |
+// | 2026-11-10 | Exercise Skip, Skip All, Cancel and Windows refusal. | Verify readable totals after declined elevation. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Model incomplete directory deletion in the scan fixture. | Compile the shared error branch after the protected delete change. | #731 | GPT-6.1 Sol |
 // The error branch and storage are extracted verbatim from production. UI is a
 // recording facade; paths include actual UTF-8 bytes, not a shortened surrogate.
@@ -45,9 +47,38 @@ static void Check(bool ok,const char* label){++Checks;if(!ok){++Failures;std::pr
 __declspec(noinline) static BOOL ReadError(char* sourcePath,char* sourceEnd,char* targetEnd,DWORD err) {
 @@STORAGE@@
     [[maybe_unused]] bool directoryDeleteIncomplete = false;
+    [[maybe_unused]] const bool copyTreeEntry = false;
+    [[maybe_unused]] int createDirIndex = -1;
+    struct
+    {
+        int Count = 0;
+        struct Entry { char* SourceName = nullptr; char* TargetName = nullptr; } Value;
+        Entry& At(int) { return Value; }
+        void Delete(int) {}
+        bool IsGood() const { return true; }
+        void ResetState() {}
+    } state;
+    [[maybe_unused]] auto* script = &state;
 @@ERROR@@
     return TRUE;
 }
+#if @@HAS_PROTECTED_SKIP@@
+static BOOL ProtectedReadResult(int choice, DWORD inventoryError, char* sourceEnd, char* targetEnd,
+                                bool& incomplete, bool& declined)
+{
+    struct { bool CountSizeIncomplete = false; } scriptState;
+    struct { bool ElevationDeclined = false; } scope;
+    auto* script = &scriptState;
+    auto* sizeScope = &scope;
+    const BOOL proceed = [&]() -> BOOL {
+@@PROTECTED_SKIP@@
+        return TRUE;
+    }();
+    incomplete = scriptState.CountSizeIncomplete;
+    declined = scope.ElevationDeclined;
+    return proceed;
+}
+#endif
 struct Golden {const char* Pattern;const char* Expected;int Count;};
 static const Golden Patterns[]={
 @@PATTERNS@@
@@ -85,6 +116,25 @@ int main(){
         Check(!ReadError(source.data(),source.data()+parent.size(),nullptr,ERROR_PATH_NOT_FOUND),"malformed resource refuses operation, even with Skip All");
         Check(Dialogs==0&&GetLastError()==ERROR_INVALID_DATA&&source.data()==parent,"no malformed dialog and path restored on formatting failure");
     }
+#if @@HAS_PROTECTED_SKIP@@
+    for (const int choice : {IDYES, IDNO, IDCANCEL, IDOK})
+    {
+        bool incomplete = false, declined = false;
+        const DWORD error = choice == IDOK ? ERROR_CANCELLED : ERROR_SUCCESS;
+        ErrListDirSkipAll = FALSE;
+        char source = 's', target = 't';
+        int bytes = 17; // one readable sibling already counted
+        const BOOL proceed = ProtectedReadResult(choice, error, &source, &target, incomplete, declined);
+        if (proceed)
+            bytes += 27; // the sibling following the inaccessible subtree
+        Check(proceed == (choice != IDCANCEL) && bytes == (choice == IDCANCEL ? 17 : 44),
+              "only canceling the entire scan stops before the next readable sibling");
+        Check(incomplete == (choice != IDCANCEL) && declined == (choice == IDOK),
+              "skips mark partial results and Windows cancellation suppresses another attempt in this tree");
+        Check(ErrListDirSkipAll == (choice == IDNO) && !source && !target,
+              "skip all applies only when selected and restores both paths");
+    }
+#endif
     std::printf("Directory size error/cancel: %d checks, %d failures.\n",Checks,Failures);
     return Failures?1:0;
 }

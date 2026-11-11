@@ -1,5 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Verify optional target deferral. | Keep SDK callers on the existing path. | #731 | GPT-6.1 Sol |
 """Actual Windows/general split and wide directory creation; UI/notification facades."""
 import argparse
 from pathlib import Path
@@ -16,7 +18,9 @@ def main():
     sdk = read('src/zip.cpp')
     assert 'pathIsDir, backslashAtEnd, dirName, curDiskPath, mask, 2 * MAX_PATH);' in sdk
     assert 'isTheSamePathF, 2 * MAX_PATH, MAX_PATH);' in sdk
-    assert 'sourceBaseName.c_str(), sourceDirectory.c_str(), mask, SAL_MAX_PATH))' in read('src/fileswn8.cpp')
+    controller = read('src/fileswn8.cpp')
+    assert 'sourceBaseName.c_str(), sourceDirectory.c_str(), mask, SAL_MAX_PATH,' in controller
+    assert 'deferMissingTarget ? DeferProtectedTransferTarget : nullptr' in controller
     assert 'backslashAtEnd || mustBePath, NULL, NULL, mask, SAL_MAX_PATH))' in read('src/fileswna.cpp')
     source = read('src/salamdr5.cpp')
     bounds = source[source.index('// S31b5b3b: capacities'):source.index('BOOL SalSplitWindowsPath(')]

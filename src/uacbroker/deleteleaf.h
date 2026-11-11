@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-10 | Classify supported links from their attributes and reparse tag. | Share link type validation between listing and deletion. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Delete only the verified empty directory by its exact handle. | Leave tree traversal and confirmations in the native worker. | #731 | GPT-6.1 Sol |
 | 2026-11-09 | Share the verified deletion of an opened leaf. | Retire a copied source only while its exact destination remains pinned. | | GPT-6.1 Sol (Codex) |
 | 2026-11-08 | Detach a verified junction by handle. | Reuse the junction format check and reject other reparse types. | | GPT-6.1 Sol (Codex) |
@@ -16,6 +17,19 @@
 
 namespace UacDeleteLeaf
 {
+inline UacF7::Operation LinkOperation(DWORD attributes, DWORD tag)
+{
+    using UacF7::Operation;
+    const bool directory = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    if (!UacF7::IsPlainDeleteLink(attributes, directory))
+        return Operation::Delete; // Unsupported as a link.
+    if (tag == IO_REPARSE_TAG_SYMLINK)
+        return directory ? Operation::DeleteDirectorySymlink : Operation::DeleteSymlink;
+    if (tag == IO_REPARSE_TAG_MOUNT_POINT && directory)
+        return Operation::DeleteJunction;
+    return Operation::Delete;
+}
+
 inline UacRenameLeaf::MoveKind SourceKind(UacF7::Operation operation)
 {
     if (operation == UacF7::Operation::DeleteDirectory)

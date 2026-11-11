@@ -1,6 +1,22 @@
 ﻿# SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Check opened source identities and exact tree-copy consent. | Cover the protected tree regression and avoid a second application prompt. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Guard the error reported when the copy broker is unavailable. | Retain the original file-system error in the ordinary fallback. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Check that a planned root never falls back to local mutation. | Cover collision and broker disconnection in the host routing. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Match the target creation error guard. | Check ordinary target creation before the privileged retry. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Cover source refusal followed by a target denial. | Preserve ordinary copy and suppress a second elevation in the same job. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Check that prepared tree sessions do not prompt again. | Keep the planned broker scoped to the approved copy. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Verify existing-root identity capture and first-denial consent. | Keep normal confirmations ahead of the privileged merge. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Verify plain recursive copy startup and reuse. | Preserve direct selection rules and prevent descendant prompts. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Check routing for deferred same-volume directory moves. | Prevent local fallback from bypassing the verified target. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Guard the atomic directory move worker and its separate consent. | Keep recursive file operations and cross-volume moves on their existing paths. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Cover deferred destinations through the existing file worker. | Verify single-file sessions and retain source overwrite and Branch View protection. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Cover the verified transfer destination preview. | Require matching target identities before using a shielded approval. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Guard the VM regression for missing relative destination parents. | Keep ADS discovery from blocking a verified retry before directory creation. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Check the installed host gate and protected overwrite source preparation. | Pair the native fallback evidence with the actual host dispatch. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Check protected source identity per Branch View transfer. | Preserve mixed access, exact overwrite and ordinary worker behavior. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Verify automatic F5 and F6 scope reuse. | Keep one shielded confirmation for the verified batch. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Check that shielded OK is scoped to a matching target denial. | Preserve separate source elevation and consume the target choice once. | #731 | GPT-6 (Codex) |
 # | 2026-11-09 | Check Scan Ahead shutdown after a cancelled protected transfer. | Prevent queued conflict work from presenting another dialog. | | Codex |
 # | 2026-11-09 | Check identity-bound retirement after an ordinary F6 copy. | Require the verified path before any broker retry. | | GPT-6.1 Sol (Codex) |
@@ -82,16 +98,22 @@ class WorkerCopyPathContracts(unittest.TestCase):
         vanished = section(revalidate, "else if (GetLastError() == ERROR_FILE_NOT_FOUND", "if (!valid)")
         self.assertIn("conflictType = cmctNone;", vanished)
         self.assertIn("executionConflictType != cmctNone", worker)
-    def test_mixed_selection_limits_protected_retries_to_direct_files(self):
-        panel = section(text("fileswn8.cpp"), "script->AllowTransferPilot =", "script->IgnoreTransferAds")
+    def test_mixed_selection_limits_protected_retries_to_direct_jobs(self):
+        panel = section(text("fileswn8.cpp"), "script->AllowTransferPilot =", "script->AllowTreeTransfer =")
         self.assertNotIn("dirs == 0", panel)
-        self.assertIn("!IsBranchView() && !target->IsBranchView()", panel)
+        self.assertIn("!target->IsBranchView()", panel)
+        self.assertNotIn("!IsBranchView()", panel)
         builder = text("fileswn6.cpp")
         direct = section(builder, "BOOL CFilesWindow::BuildScriptMain(", "BOOL CFilesWindow::BuildScriptDir(")
         recursive = section(builder, "BOOL CFilesWindow::BuildScriptDir(", "BOOL CFilesWindow::BuildScriptFile(")
         self.assertIn("script->AllowTransferPilot ? OPFL_UAC_TRANSFER_ELIGIBLE : 0", direct)
-        self.assertIn("itemFlags, oneFile->UseWideName()", direct)
-        self.assertNotIn("OPFL_UAC_TRANSFER_ELIGIBLE", recursive)
+        self.assertIn("itemFlags, fileWideName", direct)
+        atomic = section(recursive, "op.Opcode = ocMoveDir;", "int createDirIndex = -1")
+        self.assertIn("if (firstLevelDir && script->AllowTransferPilot", atomic)
+        self.assertIn("op.SetSourceNameW", atomic)
+        self.assertIn("op.SetTargetNameW", atomic)
+        self.assertIn("OPFL_UAC_TRANSFER_ELIGIBLE", atomic)
+        self.assertIn("OPFL_UAC_TREE_ENTRY | OPFL_UAC_TRANSFER_ELIGIBLE", recursive)
         self.assertIn("(protectedCopy || protectedMove) && (op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE)", builder)
 
         worker = text("worker.cpp")
@@ -100,14 +122,104 @@ class WorkerCopyPathContracts(unittest.TestCase):
                            ("static bool PrepareWorkerOverwrite(", "struct MoveCopyReceipt")):
             self.assertIn("!(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE)", section(worker, start, end))
 
+    def test_recursive_copy_creation_uses_only_the_selected_root(self):
+        controller = text("fileswn8.cpp")
+        self.assertIn("script->AllowTreeTransfer = type == atCopy", controller)
+        self.assertIn("f->Attr == FILE_ATTRIBUTE_DIRECTORY && count <= 1", controller)
+        builder = text("fileswn6.cpp")
+        self.assertIn("if (firstLevelDir)\n                        op.OpFlags |= OPFL_UAC_TREE_ROOT", builder)
+        worker = text("worker.cpp")
+        create = section(worker, "BOOL DoCreateDir(", "BOOL DoCopyDirTime(")
+        self.assertLess(create.index("WorkerCreateDirectory("), create.index("if (err == ERROR_ACCESS_DENIED"))
+        self.assertIn("TryTransferWithBroker(", create)
+        execute = section(worker, "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
+        self.assertLess(execute.index("!(op.OpFlags & OPFL_UAC_TREE_ROOT)"), execute.index("TransferPrompt prompt"))
+        self.assertIn("request.IsMoveCompletion() || request.IsDirectoryCopyEntry()", execute)
+
+    def test_recursive_merge_freezes_the_root_before_the_confirmation(self):
+        worker = text("worker.cpp")
+        create = section(worker, 'if (attr2 != INVALID_FILE_ATTRIBUTES && (attr2 & FILE_ATTRIBUTE_DIRECTORY))',
+                         'alreadyExisted = TRUE;')
+        self.assertLess(create.index("PrepareWorkerTreeMerge(op, dlgData)"), create.index("WM_USER_DIALOG, 7"))
+        execute = section(worker, "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
+        self.assertLess(execute.index("pending->Request.AllowsTreeEntry(request)"), execute.index("TransferPrompt prompt"))
+        self.assertLess(execute.index("pending->Request.Execute("), execute.index("ExecuteWithNativeTransferProgress("))
+        self.assertIn("opened.unknown || !request.IsInJob(*existing)", execute)
+        self.assertIn("pending.reset()", execute)
+
+    def test_branch_transfer_retries_use_only_the_prepared_row(self):
+        builder = text("fileswn6.cpp")
+        self.assertIn("ProtectedListing->Contains(listedPath)", builder)
+        self.assertIn("ProbeLocalElevationAccess(listedPath, readAccess, false) == ERROR_ACCESS_DENIED", builder)
+        self.assertIn("ProtectedFileSources->emplace(op.SourceNameW", builder)
+        self.assertIn("if (!listedSource && sourcePathSupADS", builder)
+        worker = text("worker.cpp")
+        listed = section(worker, "static const COperations::ProtectedFileSource* ListedTransferSource(",
+                         "static bool TryTransferWithBroker(")
+        self.assertIn("OPFL_UAC_TRANSFER_LISTED", listed)
+        self.assertIn("sources.find(op.SourceNameW)", listed)
+        overwrite = section(worker, "static bool PrepareWorkerOverwrite(", "enum class SourceOverwriteResult")
+        self.assertIn("(!listed || !listed->Request)", overwrite)
+        self.assertIn("listed ? listed->Request.get() : nullptr", overwrite)
+        broker = text("uacbroker/uacbroker.cpp")
+        target = section(broker, "bool PreparedLeaf::PrepareTarget(", "bool PreparedLeaf::PrepareZipSelection(")
+        self.assertLess(target.index("install.MatchesProcess"), target.index("CaptureChildId("))
+        self.assertIn("identityFromListing = transferring", target)
+        prepared = section(broker, "bool PreparedTransfer::PrepareSource(", "bool CaptureMoveFileIdentity(")
+        self.assertIn("operation == Operation::CopyOverwrite ? Operation::Copy : operation", prepared)
+        replacement = section(broker, "bool PreparedTransfer::PrepareOverwrite(", "OverwriteApproval PreparedTransfer::Approval()")
+        self.assertIn("PrepareSource(sourcePath, Operation::CopyOverwrite, listedSource)", replacement)
+        self.assertIn("CaptureOverwriteRevision(target.source, overwriteTarget)", replacement)
+        move = section(worker, "BOOL DoMoveFile(", "if (!copyAsEncrypted")
+        self.assertIn("(!dir && (op->OpFlags & OPFL_UAC_TRANSFER_LISTED))", move)
+
+    def test_directory_move_uses_the_verified_missing_target(self):
+        dialog = text("fileswn8.cpp")
+        callback = section(dialog, "static bool DeferProtectedTransferTarget(", "static bool StartProtectedTreeCopy(")
+        self.assertLess(callback.index("CanMoveDirectoryToParent("), callback.index("state.result ="))
+        self.assertIn("deferDirectoryMove ? sourceDirectory.c_str() : nullptr", dialog)
+        self.assertIn("HasTheSameRootPathAndVolume(GetPath(), transferChangePath)", dialog)
+        move = section(text("worker.cpp"), "BOOL DoMoveFile(", "if (!copyAsEncrypted")
+        self.assertIn("if (script->DeferredTransferTarget ||", move)
+        self.assertIn("return DoCopyFile(", move)
+
+    def test_branch_relative_target_defers_source_denial_until_parent_creation(self):
+        builder = text("fileswn6.cpp")
+        direct = section(builder, "CTargetPathState itemTargetState = targetPathState;",
+                         "// Every created ancestor")
+        self.assertLess(direct.index("branchCreatedDirectories.push_back(createIndex)"),
+                        direct.index("BuildScriptFile("))
+        self.assertIn("? tpsEncryptedNotExisting : tpsNotEncryptedNotExisting", direct)
+        self.assertIn("itemTargetState,", direct)
+        discovery = section(builder, "const bool ordinaryTarget =", "int res;")
+        self.assertIn("((IsBranchView() || script->DeferredTransferTarget) && targetPathState == tpsNotEncryptedNotExisting)", discovery)
+        self.assertIn("!script->OverwriteOlder && ordinaryTarget", discovery)
+        self.assertIn("OPFL_UAC_TRANSFER_SOURCE", discovery)
+
     def test_compressed_move_with_ads_reaches_the_cross_volume_broker(self):
         transfer = section(text("worker.cpp"), "static bool TryTransferWithBroker(", "static bool PrepareWorkerOverwrite(")
         eligible = transfer.split("request.Prepare(", 1)[0]
         self.assertIn("IsEligibleMoveFile(op.Attr, script.CopyAttrs, script.CopySecurity)", eligible)
         self.assertIn("Operation::MoveCompressed", eligible)
-        self.assertNotIn("OPFL_COPY_ADS", eligible)
-        self.assertIn("moving && !request.IsCrossVolumeMove()", transfer)
+        self.assertNotIn("OPFL_COPY_ADS", eligible.replace("(op.OpFlags & OPFL_COPY_ADS)", "", 1))
+        self.assertIn("moving && !directory && !request.IsCrossVolumeMove()", transfer)
         self.assertIn("OPFL_UAC_TRANSFER_SOURCE | OPFL_COPY_ADS", transfer)
+    def test_atomic_directory_move_is_a_separate_same_volume_retry(self):
+        worker = text("worker.cpp")
+        transfer = section(worker, "static bool TryTransferWithBroker(", "static bool PrepareWorkerOverwrite(")
+        self.assertIn("op.Opcode == ocMoveDir", transfer)
+        self.assertIn("Operation::MoveDirectory", transfer)
+        self.assertIn("!(op.Attr & FILE_ATTRIBUTE_REPARSE_POINT)", transfer)
+        move = section(worker, "BOOL DoMoveFile(", "// Novell patch")
+        self.assertLess(move.index("MoveFileW("), move.index("if (err == ERROR_ACCESS_DENIED"))
+        self.assertIn("ProbeLocalElevationAccess(op->SourceNameW, DELETE, dir != FALSE)", move)
+        broker = text("uacbroker/uacbroker.cpp")
+        prepared = section(broker, "bool PreparedTransfer::Prepare(", "bool CaptureMoveFileIdentity(")
+        self.assertIn("directoryMove && crossMove", prepared)
+        rename = text("uacbroker/renameleaf.h")
+        self.assertIn("kind != MoveKind::OrdinaryDirectory", rename)
+        self.assertIn("return ERROR_NOT_SAME_DEVICE;", rename)
+
     def test_closed_sessions_do_not_accumulate_during_the_job(self):
         transfer = section(text("worker.cpp"), "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
         self.assertIn("else if (existing != jobs.end() && !existing->IsOpen())", transfer)
@@ -121,9 +233,60 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertIn("prompt.targetDenied && Script->ShieldedTransferTarget", dialog)
         self.assertIn("MatchesTargetDirectory(*Script->ShieldedTransferTarget)", dialog)
         self.assertLess(dialog.index("ShieldedTransferTarget.reset()"), dialog.index("SalMessageBoxEx(&confirm)"))
+        self.assertIn("prompt.approved = SalMessageBoxEx(&confirm) == IDOK", dialog)
+        self.assertNotIn("IDCONTINUE", dialog)
         worker = text("worker.cpp")
+        transfer = section(worker, "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
+        self.assertIn("if (!planned && shareJob && existing == jobs.end())", transfer)
+        self.assertIn("if (!planned && existing == jobs.end())", transfer)
+        self.assertLess(transfer.index("!request.IsInJob(*planned)"), transfer.index("WORKER_DIALOG_UAC_TRANSFER"))
+        self.assertIn("return request.IsInJob(job)", transfer)
         self.assertIn("HANDLE* input = nullptr, bool targetDenied = false)", worker)
         self.assertIn("success, transferError, &in, true)", worker)
+
+    def test_shield_and_transfer_share_the_verified_destination_capture(self):
+        preview = section(text("fileswn8.cpp"), "struct TransferElevationPreview", "static bool StartProtectedTreeCopy")
+        self.assertLess(preview.index("ProbeLocalElevationAccess"), preview.index("CaptureCreateParentIdentity"))
+        broker = text("uacbroker/uacbroker.cpp")
+        capture = section(broker, "bool PreparedLeaf::CaptureCreateParentIdentity(", "bool PreparedLeaf::PrepareRenameDirectory(")
+        self.assertIn("target.Prepare(", capture)
+        transfer = section(broker, "bool PreparedTransfer::Prepare(", "bool CaptureMoveFileIdentity(")
+        self.assertIn("target.Prepare(targetPath)", transfer)
+        target = section(broker, "bool PreparedLeaf::PrepareTarget(", "bool PreparedLeaf::PrepareZipSelection(")
+        self.assertIn("requested == Operation::Mkdir", target)
+        self.assertIn("openError == ERROR_ACCESS_DENIED && !parentPath.empty()", target)
+        self.assertLess(target.index("SameParent(snapshot, visible)"), target.index("CaptureChildDirectoryId"))
+
+    def test_refusing_source_elevation_preserves_ordinary_copy_and_suppresses_target_consent(self):
+        planning = section(text("fileswn6.cpp"), "static int ReadProtectedCopyDirectory(", "BOOL CFilesWindow::BuildScriptDir(")
+        self.assertIn("if (!error)\n        error = ERROR_NOT_SUPPORTED;", planning)
+        self.assertIn("if (plan.ElevationDeclined)\n        return IDYES;", planning)
+        self.assertIn("if (choice != IDOK)\n            return choice;", planning)
+        self.assertIn("plan.ElevationDeclined = error == ERROR_CANCELLED;", planning)
+        worker = text("worker.cpp")
+        transfer = section(worker, "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
+        refusal = section(transfer, "if (script.CopySource && script.CopySource->ElevationDeclined)", "const auto sourceDisplay")
+        self.assertIn("return false;", refusal)
+        self.assertNotIn("error =", refusal)
+        copy = section(worker, "BOOL DoCopyFile(", "BOOL DoMoveFile(")
+        self.assertLess(copy.index("!dlgData.SkipAllFileOpenOut && GetLastError() == ERROR_ACCESS_DENIED"),
+                        copy.index("success, transferError, &in, true)"))
+
+    def test_protected_tree_copies_directory_with_an_opened_identity(self):
+        broker = text("uacbroker/uacbroker.cpp")
+        prepare = section(broker, "bool PreparedTransfer::PrepareSource(", "bool PreparedTransfer::CaptureDeferredTarget(")
+        self.assertIn("operation == Operation::CopyDirectoryEntry &&\n                                     listedSource->parent && listedSource->source", prepare)
+        self.assertIn("listedSource->operation != listedOperation || (!listedSource->identityFromListing && !openedCopyDirectory)", prepare)
+        self.assertIn("std::memcpy(source.sourceId, listedSource->sourceId, sizeof(source.sourceId));", prepare)
+
+    def test_protected_tree_planning_honors_only_a_matching_shielded_target(self):
+        planning = section(text("fileswn6.cpp"), "static int ReadProtectedCopyDirectory(", "BOOL CFilesWindow::BuildScriptDir(")
+        direct = section(planning, "if (script.ShieldedTransferTarget && opening.MatchesTargetDirectory(*script.ShieldedTransferTarget))", "else\n        {")
+        self.assertIn("script.ShieldedTransferTarget.reset();", direct)
+        self.assertIn("opening.Execute(owner, nullptr, job.get())", direct)
+        self.assertNotIn("consent.Execute()", direct)
+        self.assertLess(planning.index("opening.Execute("), planning.index("choice = consent.Execute()"))
+        self.assertLess(planning.index("choice = consent.Execute()"), planning.index("plan.Session = std::move(job)"))
 
     def test_cancelled_elevation_stops_the_batch(self):
         transfer = section(text("worker.cpp"), "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
@@ -166,6 +329,35 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertIn("request.IsOverwrite() && dlgData.ConflictDecisionInjected", stale)
         self.assertIn("dlgData.ConflictTargetChanged = TRUE;", stale)
         self.assertNotIn("totalDone", stale)
+    def test_planned_root_cannot_fall_back_to_local_creation_or_merge(self):
+        worker = text("worker.cpp")
+        create = section(worker, "BOOL DoCreateDir(", "BOOL DoDelete")
+        self.assertIn("Session->NeedsTreeRoot()", create)
+        self.assertIn("!reviewedSource && !plannedRoot && WorkerCreateDirectory(", create)
+        self.assertIn("if (!plannedRoot && (err == ERROR_ALREADY_EXISTS", create)
+        transfer = section(worker, "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
+        self.assertIn("planned && (!planned->IsOpen() || !request.IsInJob(*planned))", transfer)
+
+    def test_deferred_destination_never_reverts_to_ordinary_mutation(self):
+        code = text("worker.cpp")
+        transfer = section(code, "static bool TryTransferWithBroker(", "static bool PrepareWorkerOverwrite(")
+        self.assertIn("if (!deferred && !plannedRoot)", transfer)
+        self.assertIn("operation, listedSource, deferred)", transfer)
+        worker = section(code, "BOOL DoCopyFile(COperation* op", "BOOL DoMoveFile(")
+        pending = section(worker, "if (deferred ||", "BOOL tgtNameCaseCorrected")
+        self.assertIn("!deferred && !isMove", pending)
+        self.assertIn("TryTransferWithBroker(", pending)
+        self.assertIn("return TRUE;", pending)
+        execute = section(code, "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
+        self.assertIn("script.Count > 1 || request.HasDeferredTarget()", execute)
+        broker = text("uacbroker/uacbroker.cpp")
+        prepare = section(broker, "bool PreparedTransfer::Prepare(", "bool CaptureMoveFileIdentity(")
+        self.assertIn("MatchesTargetDirectory(deferred->identity)", prepare)
+        execute = section(broker, "Result PreparedTransfer::Execute(", "ArchiveReadSession::~ArchiveReadSession(")
+        self.assertIn("(HasDeferredTarget() || IsScopedTree()) && !job", execute)
+        self.assertIn("header.targetSuffixLength", execute)
+        self.assertIn("target.leaf + targetSuffix", execute)
+
     def test_source_denial_can_overwrite_only_the_reviewed_target(self):
         code = text("worker.cpp")
         helper = section(code, "static SourceOverwriteResult TryOverwriteDeniedSource(", "struct MoveCopyReceipt")
@@ -176,7 +368,7 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertIn("return Outcome::Skipped;", helper)
         self.assertIn("return Outcome::Failed;", helper)
         worker = section(code, "BOOL DoCopyFile(COperation* op", "BOOL DoMoveFile(")
-        deferred = section(worker, "if ((op->OpFlags & OPFL_UAC_TRANSFER_SOURCE)", "BOOL tgtNameCaseCorrected")
+        deferred = section(worker, "if (deferred || (op->OpFlags & OPFL_UAC_TRANSFER_SOURCE)", "BOOL tgtNameCaseCorrected")
         denied = section(worker, "OPEN_IN_ERROR:", "SKIP_OPEN_IN:")
         for path in (deferred, denied):
             self.assertIn("TryOverwriteDeniedSource(", path)

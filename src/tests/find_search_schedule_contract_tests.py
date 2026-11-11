@@ -1,6 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Cover exact wide paths and iterative ordinary Find. | Verify wide directory reads, broker routing and UI actions. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Keep Find consent after the synchronous editor dispatch. | Detect modal consent on the wrong UI thread. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Cover protected editor dispatch and the original modal owner. | Guard exact wide paths, application policy and stale Branch View rows. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Check Find F3 dispatch and identity lifetime. | Guard the Unicode result and the separate internal viewer consent. | #731 | GPT-6.1 Sol |
+# | 2026-11-10 | Verify the common immediate broker foreground return. | Size prompts now keep their modal owner alive. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Cover the shared consent return and Shell recycle route. | Keep the disabled-owner snapshot and preserve the existing worker behavior. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Check activation routing for direct and worker UAC requests. | Keep focus with the invoking window unless the user switched away. | #731 | GPT-6 (Codex) |
 # | 2026-11-10 | Exercise protected consent with asynchronous Find publication and cancellation | Integrate UAC with current upstream behavior. | #731 | Codex |
@@ -47,6 +52,19 @@ def main() -> int:
     find_cpp = (ROOT / "src" / "find.cpp").read_text(encoding="utf-8-sig")
     finddlg1 = (ROOT / "src" / "finddlg1.cpp").read_text(encoding="utf-8-sig")
     finddlg2 = (ROOT / "src" / "finddlg2.cpp").read_text(encoding="utf-8-sig")
+
+    view = function_body(finddlg1, "void CFindDialog::OnViewFile(BOOL alternate)")
+    ordered(view, "result->GetFullNameW()", "result->FoundView", "viewedIndex, HWindow",
+            "WM_USER_VIEWFILE")
+    require("MAX_PATH" not in view, "F3 must not truncate the selected Find path")
+    publish = function_body(find_cpp, "void PublishCandidate(")
+    ordered(publish, "maxViewerSnapshotBytes", "session.PrepareViewer(filePath",
+            "AddFoundItem(", "std::move(foundView)")
+    host = (ROOT / "src" / "fileswn5.cpp").read_text(encoding="utf-8-sig")
+    internal = function_body(host, "BOOL ViewFileInt(")
+    ordered(internal, "case VIEWER_INTERNAL:", "GetLastError() == ERROR_ACCESS_DENIED",
+            "prepared = foundView", "!prepared && request.PrepareView", "ConfirmProtectedRead(",
+            "prepared->ReadViewerSnapshot", "enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1")
 
     require("volatile LONG RefreshPending;" in find_h,
             "Find results and log updates must share an atomic pending flag")
@@ -112,8 +130,8 @@ def main() -> int:
     ordered(add_log, "data->Log->Add(flags, text, path);", "InterlockedExchange(&data->RefreshPending, TRUE);")
     require("SendMessage" not in add_log and "PostMessage" not in add_log,
             "the worker must copy its log payload without calling the GUI")
-    require(find_cpp.count("AddFindLog(data, log.Flags, log.Text, log.Path);") >= 12,
-            "all twelve existing Find worker log routes must retain owned log delivery")
+    require(find_cpp.count("AddFindLog(data,") >= 12,
+            "Find worker log routes must retain owned log delivery")
     show_log = function_body(finddlg2, "void CFindDialog::OnShowLog()")
     ordered(show_log, "CFindLog snapshot;", "Log.CopySnapshotTo(snapshot)",
             "CFindLogDialog dlg(HWindow, &snapshot);", "dlg.Execute();")
@@ -131,13 +149,7 @@ def main() -> int:
     broker = (ROOT / "src" / "uacbroker" / "uacbroker.cpp").read_text(encoding="utf-8-sig")
     broker_launch = function_body(broker, "BOOL LaunchBrokerWithOwner(")
     ordered(broker_launch, "ConsentForeground foreground(launch.hwnd)", "ShellExecuteExW(&launch)",
-            "deferredForeground->Remember()", "foreground.Restore()", "SetLastError(error)")
-    remember = function_body(broker, "void ConsentForeground::Remember()")
-    require("GetLastInputInfo(&input)" in remember and "returnForeground = foreground" in remember,
-            "disabled owners must remember the foreground and input at consent return")
-    deferred = function_body(broker, "void ConsentForeground::RestoreRemembered()")
-    require("RestoreConsentForeground(owner, returnForeground, returnInput)" in deferred,
-            "deferred restoration must use the captured foreground and input")
+            "foreground.Restore()", "SetLastError(error)")
     restore = function_body(broker, "void ConsentForeground::Restore()")
     handler = function_body(broker, "void RestoreConsentForeground(")
     require("PostMessageW(owner, restoreConsentForegroundMessage" in restore and
@@ -152,6 +164,30 @@ def main() -> int:
                 f"{name} must handle the worker request on its UI thread")
     editor = function_body(broker, "DWORD ElevatedEditor::Launch(")
     ordered(editor, "ShellExecuteExW(&launch)", "return ERROR_SUCCESS", "ERROR_CANCELLED", "foreground.Restore()")
+    find_edit = function_body(finddlg1, "void CFindDialog::OnEditFile()")
+    ordered(find_edit, "result.IsDir", "result.GetFullNameW()", "SalWideToMultiBytePath(path.c_str(), CP_UTF8)",
+            "COpenEditorData openData{longName.data(), result.Attr, editor}", "SendMessage(",
+            "if (openData.NeedsConsent)", "ConfirmElevatedFileEdit(HWindow, document, editor)",
+            "LaunchElevatedFileEdit(HWindow, document, editor)")
+    require("MAX_PATH" not in find_edit, "Find F4 must preserve the full Unicode result path")
+    dispatch = (ROOT / "src" / "fileswnb.cpp").read_text(encoding="utf-8-sig")
+    ordered(dispatch.split("case WM_USER_EDITFILE:", 1)[1].split("case WM_USER_VIEWFILEWITH:", 1)[0],
+            "reinterpret_cast<COpenEditorData*>", "EditFile(result.FileName, 0xFFFFFFFF, &result)")
+    edit_host = (ROOT / "src" / "fileswn5.cpp").read_text(encoding="utf-8-sig")
+    edit_action = function_body(edit_host, "void CFilesWindow::EditFile(")
+    ordered(edit_action, "if (!(found->Attributes & excluded))", "CheckPath(FALSE, path.c_str()",
+            "SystemPolicies.GetMyCanRun(expCommand.Data())", "NeedsAdministratorForEdit(protectedCandidate)",
+            "elevated.Prepare(", "found->NeedsConsent = ready;", "found->UntrustedEditor = !ready;", "return;",
+            "ConfirmElevatedFileEdit(HWindow", "branchGeneration != GetBranchViewGeneration()",
+            "GetItemFullPathW(*file)", "LaunchElevatedFileEdit(HWindow, protectedCandidate, elevated)",
+            "if (foundParentError == ERROR_ACCESS_DENIED)", "CreateProcessForFileAction(")
+    confirm_edit = function_body(edit_host, "BOOL ConfirmElevatedFileEdit(")
+    ordered(confirm_edit, "editor.GetExecutable()", "ConfirmProtectedRead(owner")
+    launch_edit = function_body(edit_host, "void LaunchElevatedFileEdit(")
+    ordered(launch_edit, "editor.Launch(owner, document)", "ERROR_CANCELLED")
+    require("name == NULL && Is(ptDisk) && handlerID == 0xFFFFFFFF" in edit_action and
+            "FILE_ATTRIBUTE_REPARSE_POINT" in edit_action and "FILE_ATTRIBUTE_READONLY" in edit_action,
+            "Branch View may use default F4, but unsupported result types cannot request an elevated editor")
     recycle = (ROOT / "src" / "fileswn8.cpp").read_text(encoding="utf-8-sig")
     ordered(function_body(recycle, "BOOL CFilesWindow::DeleteThroughRecycleBin("),
             "const HWND owner = GetAncestor(HWindow, GA_ROOT)", "operation->SetOwnerWindow(owner)",
@@ -237,9 +273,20 @@ def main() -> int:
     require("file->Size" not in before_digest and "if (file->Group)" in digest,
             "empty candidates must be verified without dereferencing a nonexistent digest")
     traversal = function_body(find_cpp, "void SearchDirectory(")
-    require("openDenied && !protectedQueue.Add(" in traversal and
+    require("openDenied && !protectedQueue.Add(data, fullPath" in traversal and
             "ignoreList, &file)" in traversal,
-            "a denied ordinary text or tag read must queue a single file")
+            "a denied ordinary text or tag read must queue the exact wide file")
+    require("FindFirstFileW(pattern.c_str(), &file)" in traversal and
+            "FindNextFileW(find.get(), &file)" in traversal and
+            "!protectedQueue.Add(data, directory" in traversal and
+            "directory.c_str(), leaf" in traversal and "MAX_PATH" not in traversal.replace("SAL_MAX_PATH", ""),
+            "ordinary Find must retain wide directory paths in listing, broker queue and results")
+    require("std::reverse(pending.begin() + firstChild, pending.end());" in traversal and
+            "directory.resize(next.parentLength);" in traversal and traversal.count("SearchDirectory(") == 0,
+            "the pending stack must preserve ordinary traversal order without recursion")
+    focused = function_body(finddlg1, "std::string CFindDialog::GetFocusedFile(")
+    require("file->GetFullNameW().c_str(), CP_UTF8" in focused and "MAX_PATH" not in focused,
+            "Find handler actions must accept the full focused path")
     refine = function_body(find_cpp, "void RefineData(")
     require("refineData->GetFullNameW()" in refine and
             "protectedQueue.AddRefined(data, fullPath, masksGroup, *refineData)" in refine and

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Validate all Find shell paths before invoking legacy handlers. | Preserve the selection when a shell entry cannot accept the path. | #731 | GPT-6.1 Sol |
 // | 2026-11-07 | Share opening of a specific Find result. | Let accessibility invoke the verified row without relying on later focus. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Hide repeated Find entries after background path sorting. | Only compare adjacent rows once their path order has been published. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-07 | Open Find messages from a stable log snapshot. | Allow the worker to keep recording errors while the dialog is in use. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
@@ -148,6 +149,15 @@ void CFindDialog::OnDelete(BOOL toRecycle)
     DWORD selCount = ListView_GetSelectedCount(hListView);
     if (selCount == 0)
         return;
+
+    for (int index = -1; (index = ListView_GetNextItem(hListView, index, LVNI_SELECTED)) != -1;)
+    {
+        if (!FoundFilesListView->At(index)->CanUseLegacyShellPath())
+        {
+            SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+            return;
+        }
+    }
 
     // compute the final size of the list
     DWORD listSize = FoundFilesListView->GetSelectedListSize();
@@ -1267,6 +1277,8 @@ BOOL CFindDialog::GetCommonPrefixPath(char* buffer, int bufferMax, int& commonPr
         if (index != -1)
         {
             CFoundFilesData* file = FoundFilesListView->At(index);
+            if (!file->CanUseLegacyShellPath())
+                return FALSE;
             if (path[0] == 0)
             {
                 lstrcpy(path, file->Path); // in the first step we only copy the path
@@ -1682,6 +1694,11 @@ void CFindDialog::OnOpen(BOOL onlyFocused)
 
 void CFindDialog::OpenResult(const CFoundFilesData& file)
 {
+    if (!file.CanUseLegacyShellPath())
+    {
+        SalMessageBox(HWindow, LoadStr(IDS_TOOLONGNAME), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
     BOOL setWait = (GetCursor() != LoadCursor(NULL, IDC_WAIT)); // already waiting?
     HCURSOR oldCur;
     if (setWait)

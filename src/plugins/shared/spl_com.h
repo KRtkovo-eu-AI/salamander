@@ -1,5 +1,7 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-10 | Record a partial disk directory size in a spare flag bit. | Keep complete-size consumers and the existing ABI layout. | #731 | GPT-6.1 Sol |
 
 //****************************************************************************
 //
@@ -230,6 +232,8 @@ struct CFileData // nesmi sem prijit destruktor !
     unsigned Dirty : 1;           // je potreba tuto polozku prekreslit? (pouze docasna platnost; mezi nastavenim bitu a prekreslenim panelu nesmi byt pumpovana message queue, jinak muze dojit k prekresleni ikonky (icon reader) a tim resetu bitu! v dusledku se neprekresli polozka)
     unsigned CutToClip : 1;       // je CUT-nutej na clipboardu? (je-li 1, ikonka je pruhlednejsi o 50% - ghosted)
     unsigned IconOverlayDone : 1; // jen pro potreby icon-reader-threadu: ziskavame nebo uz jsme ziskavali icon-overlay? (0 - ne, 1 - ano)
+
+    unsigned SizePartial : 1;     // core disk panel only, uses a spare flag bit and leaves SizeValid clear
 
     // Keep new fields after the historical plug-in ABI fields. Older plug-ins
     // (including Total Commander proxy builds) pass CFileData with the original

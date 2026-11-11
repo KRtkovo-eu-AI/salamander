@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-10 | Keep active approved Branch scans on the short poll interval. | Accept the shared preparation timer without blocking activation. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Find Branch View translations by resource ID. | Section ordinals can shift when new string blocks are added. | #731 | Codex |
 # | 2026-11-06 | Verify Branch copy-dialog controls in every language archive. | Missing checkbox rows prevented native Translator import despite complete string tables. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 """Branch View activation must not create work or wait for background providers.
@@ -110,7 +111,8 @@ class BranchActivationContracts(unittest.TestCase):
         self.assertLess(poll.index("BranchView->CompletionPending = false"), poll.index("BranchView->Refresh.Finished("))
         self.assertLess(poll.index("BranchView->Refresh.Finished("), poll.index("BranchView->Refresh.Due("))
         self.assertIn("if (!preparation->Alive) return", poll)
-        self.assertIn("preparation->Queue.HasPending() ? 15 : 200", poll)
+        self.assertIn("preparation->Queue.HasPending() ||", poll)
+        self.assertIn("(BranchView->UseProtectedListing && BranchView->Status.Running) ? 15 : 200", poll)
         cancel = block(source("branch_view.cpp"), "void CFilesWindow::CancelBranchViewScan()")
         self.assertIn("BranchView->CompletionPending = false", cancel)
         self.assertIn("BranchView->Preparation->Alive = false", cancel)

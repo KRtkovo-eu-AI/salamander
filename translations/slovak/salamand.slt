@@ -4309,13 +4309,13 @@ SLGINCOMPLETE,""
 14635,1,"Prístup bol odmietnutý. Presunúť tento súbor ako správca?"
 14636,1,"Dokončenie presunu sa nepodarilo potvrdiť. Pred opakovaním skontrolujte zdroj aj cieľ."
 14637,1,"Súpis chráneného podstromu"
-14639,1,"Podstrom sa nepodarilo prejsť celý. Čiastočné výsledky sa nezobrazujú."
+14639,1,"Pri výpočte veľkosti sa nepodarilo prejsť celý adresárový strom."
 
 [STRINGTABLE 194]
 14640,1,"Súbory: "
 14641,1,"Podpriečinky: "
 14642,1,"Logická veľkosť (bajty): "
-14643,1,"Skopírovať tento priečinok a jeho obsah do zaregistrovaného cieľa ako správca?"
+14643,1,"Skopírovať tento priečinok a jeho obsah ako správca?"
 14644,1,"Kopírovanie priečinka alebo čistenie sa nepodarilo potvrdiť. Pred opakovaním skontrolujte cieľ."
 14645,1,"Prístup bol odmietnutý. Nastaviť požadované časové údaje tohto priečinka ako správca?"
 14646,1,"Spojenie s pomocným procesom sa prerušilo pred potvrdením výsledku. Pred opakovaním skontrolujte časové údaje priečinka."
@@ -4368,6 +4368,9 @@ SLGINCOMPLETE,""
 [STRINGTABLE 197]
 14688,1,"Prístup bol odmietnutý. Presunúť tento súbor do vášho Koša ako správca?"
 14689,1,"Prístup bol odmietnutý. Skopírovať tento súbor so zachovaním kompresie NTFS, vlastníka, skupiny a explicitných povolení ako správca?"
+14694,1,"Súhlas platí aj pre chránené priečinky pod touto cestou:"
+14695,1,"Prístup bol odmietnutý. Čítať pre toto porovnanie obsah súborov pod touto cestou ako správca?"
+14696,1,"Odkaz Windows na zabezpečenie kompatibility bol preskočený. Do súčtu sa započítava 0 bajtov."
 
 [STRINGTABLE 198]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."
