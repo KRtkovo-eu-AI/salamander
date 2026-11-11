@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise special timestamp singleton scope on the broker pipe. | Reject sibling and ordinary metadata scope substitutions. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify singleton allocation handshake and exact-file scope. | Reject unselected files, parent changes and every content or listing request. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise scoped file-allocation queries and sentinel handling. | Reject changed identities and unsupported request scopes over the real pipe. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify ZIP read identities obtained from protected listings. | Reject substituted archives and parents before opening content. | #731 | GPT-6.1 Terra |
@@ -3149,6 +3150,59 @@ void CheckMetadataJob(const Directory& source)
           "reject an attribute bit outside the consent before changing the item");
 }
 
+void CheckSpecialMetadataJobScope(const Directory& source)
+{
+    const wchar_t* first = L"meta-sparse-first";
+    const wchar_t* sibling = L"meta-sparse-sibling";
+    const wchar_t* ordinary = L"meta-ordinary-time";
+    DWORD bytes = 0;
+    const auto prepareSparse = [&](const wchar_t* leaf) {
+        if (!WriteByte(source.File(leaf), 1))
+            return false;
+        const auto handle = Adopt(CreateFileW(source.File(leaf).c_str(), GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+        return handle && DeviceIoControl(handle.get(), FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &bytes, nullptr);
+    };
+    FILE_BASIC_INFO special{}, plain{}, after{};
+    if (!prepareSparse(first) || !prepareSparse(sibling) || !WriteByte(source.File(ordinary), 2) ||
+        !ReadBasic(source.File(first), special) || !ReadBasic(source.File(ordinary), plain))
+    {
+        Check(false, "prepare sparse and ordinary NTFS files for metadata scope tests");
+        return;
+    }
+    UacF7::MetadataJobPolicy policy{};
+    UacF7::MetadataChange specialChange{132000000000000000LL, 0, 0, special.FileAttributes, 0};
+    UacF7::MetadataChange plainChange{specialChange.created, 0, 0, plain.FileAttributes, 0};
+    const auto exercise = [&](const wchar_t* initialLeaf, UacF7::MetadataChange initial,
+                              const wchar_t* otherLeaf, UacF7::MetadataChange other, const char* message) {
+        JobPipe job;
+        DWORD error = ERROR_GEN_FAILURE;
+        if (!job.Open() || !job.Request(Operation::Metadata, source, initialLeaf, error, nullptr, &initial, &policy) || error)
+        {
+            Check(false, "apply initial timestamp-only metadata through the broker job");
+            return;
+        }
+        Check(!job.Request(Operation::Metadata, source, otherLeaf, error, nullptr, &other, &policy) &&
+                  job.Finish() == ERROR_ACCESS_DENIED, message);
+    };
+    exercise(first, specialChange, sibling, specialChange, "reject a different special sibling in the same metadata session");
+    exercise(first, specialChange, ordinary, plainChange, "reject a special-to-ordinary metadata session change");
+    exercise(ordinary, plainChange, first, specialChange, "reject an ordinary-to-special metadata session change");
+    {
+        JobPipe job;
+        DWORD error = ERROR_GEN_FAILURE;
+        FILE_ID_128 wrongId{};
+        wrongId.Identifier[0] = 0xAA;
+        Check(job.Open() && job.Request(Operation::Metadata, source, first, error, nullptr, &specialChange, &policy) && !error &&
+                  !job.Request(Operation::Metadata, source, first, error, nullptr, &specialChange, &policy,
+                               false, nullptr, nullptr, 1, {}, &wrongId) && job.Finish() == ERROR_ACCESS_DENIED,
+              "reject a substituted source ID for the same special filename");
+    }
+    Check(ReadBasic(source.File(first), after) && after.FileAttributes == special.FileAttributes &&
+              after.CreationTime.QuadPart == specialChange.created,
+          "preserve sparse attributes when the broker applies timestamp-only metadata");
+}
+
 void CheckBranchDeleteIdentity(const Directory& root)
 {
     Directory first, second;
@@ -3255,6 +3309,7 @@ int wmain()
     CheckTransferReplies();
     CheckMoveSourceEligibility();
     CheckMetadataJob(source);
+    CheckSpecialMetadataJobScope(source);
     CheckBranchDeleteIdentity(source);
     CheckDeleteJob(source);
     return failures ? 1 : 0;

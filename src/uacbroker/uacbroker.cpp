@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Pin special-file timestamp consent to the exact source. | Prevent reuse for sibling items or ordinary metadata jobs. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Pin an exact file for metadata-only allocation queries. | Keep singleton size consent out of broader parent and content scopes. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Serve scoped allocation for one identity-checked file. | Complete size details without rescanning or exposing data. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Prepare typed case-only rename requests. | Defer alias identity and no-replace checks to the verified rename primitive. | #731 | GPT-6.1 Terra |
@@ -1964,10 +1965,11 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         }
         std::memcpy(requested.source.id, header.parentId.Identifier, sizeof(requested.source.id));
         std::memcpy(requested.target.id, header.targetParentId.Identifier, sizeof(requested.target.id));
-        if (header.operation == Operation::DeleteDirectory)
+        if (header.operation == Operation::DeleteDirectory ||
+            (setMetadata && UacF7::IsSpecialTimestampFile(metadata.expectedAttributes)))
         {
-            // The first empty-only attempt may precede the worker deleting descendants.
-            // Reuse that consent for the exact same directory, never for its siblings.
+            // Bind empty-directory and special-file timestamp consent to the
+            // reviewed item itself, not merely its parent or timestamp policy.
             requested.target.serial = header.serial;
             std::memcpy(requested.target.id, header.sourceId.Identifier, sizeof(requested.target.id));
             requested.targetPath.assign(payload, volumeLength + header.relativeLength, header.leafLength);
@@ -3701,7 +3703,8 @@ TransferJobScope PreparedLeaf::JobScope() const
 {
     TransferJobScope scope{operation, {serial, {}}, {}, volume + relative, {}};
     std::memcpy(scope.source.id, fileId, sizeof(fileId));
-    if (operation == Operation::DeleteDirectory)
+    if (operation == Operation::DeleteDirectory ||
+        (operation == Operation::Metadata && IsSpecialTimestampFile(metadata.expectedAttributes)))
     {
         scope.target.serial = serial;
         std::memcpy(scope.target.id, sourceId, sizeof(sourceId));

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Verify time-only metadata on special NTFS files. | Preserve content, streams, permissions and special attributes across the exact-handle update. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Verify anchored case-only renames. | Exercise actual NTFS names, identity checks, collisions, and directory handling. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Keep native overwrite within the same exact-parent transfer family. | Reuse consent while preserving independent conflict approval. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Keep a ReadOnly object intact when its approved identity is stale. | Common attribute deletion now has dedicated native coverage. | #731 | GPT-6.1 Sol |
@@ -2912,6 +2913,89 @@ bool CheckDirectoryMetadata(const std::wstring& fixture, HANDLE root)
     Check(error == ERROR_FILE_INVALID, "refuse a substituted directory at the same name", error);
     return true;
 }
+
+bool CheckSpecialTimestampMetadata(const std::wstring& fixture, HANDLE root)
+{
+    UacDirectoryLeaf::ParentIdentity parent{};
+    if (UacDirectoryLeaf::ReadParentIdentity(root, parent))
+        return false;
+    const std::vector<BYTE> content(131072, 0x5a), stream{9, 8, 7, 6};
+    for (int kind = 0; kind != 3; ++kind)
+    {
+        const std::wstring leaf = kind == 0 ? L"metadata-sparse-\u6771" :
+                                  kind == 1 ? L"metadata-compressed-\u6771" : L"metadata-efs-\u6771";
+        const std::wstring path = fixture + L"\\" + leaf;
+        if (!WriteFixture(path, content) || !WriteFixture(path + L":stream", stream))
+            return false;
+        bool prepared = true;
+        if (kind < 2)
+        {
+            const HANDLE raw = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+            if (raw == INVALID_HANDLE_VALUE) return false;
+            const Handle file(raw);
+            DWORD bytes = 0;
+            if (kind == 0)
+                prepared = DeviceIoControl(raw, FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &bytes, nullptr) != FALSE;
+            else
+            {
+                USHORT format = COMPRESSION_FORMAT_DEFAULT;
+                prepared = DeviceIoControl(raw, FSCTL_SET_COMPRESSION, &format, sizeof(format), nullptr, 0, &bytes, nullptr) != FALSE;
+            }
+        }
+        else
+            prepared = EncryptFileW(path.c_str()) != FALSE;
+        if (!prepared)
+        {
+            std::printf("SKIP: special timestamp fixture %d unavailable (%lu)\n", kind, GetLastError());
+            continue;
+        }
+        FILE_ID_INFO identity{};
+        const auto file = OpenIdentity(path, identity);
+        FILE_BASIC_INFO before{}, after{};
+        FILE_STANDARD_INFO sizeBefore{}, sizeAfter{};
+        PACL beforeAcl = nullptr, afterAcl = nullptr;
+        PSECURITY_DESCRIPTOR rawBefore = nullptr, rawAfter = nullptr;
+        if (!file || !GetFileInformationByHandleEx(file.get(), FileBasicInfo, &before, sizeof(before)) ||
+            !GetFileInformationByHandleEx(file.get(), FileStandardInfo, &sizeBefore, sizeof(sizeBefore)) ||
+            !ReadDacl(path, beforeAcl, rawBefore))
+            return false;
+        const std::unique_ptr<void, decltype(&LocalFree)> beforeDescriptor(rawBefore, LocalFree);
+        UacF7::MetadataChange change{};
+        change.expectedAttributes = before.FileAttributes;
+        change.modified = 133000000000000000LL;
+        const DWORD required = kind == 0 ? FILE_ATTRIBUTE_SPARSE_FILE :
+                               kind == 1 ? FILE_ATTRIBUTE_COMPRESSED : FILE_ATTRIBUTE_ENCRYPTED;
+        Check((before.FileAttributes & required) != 0, "fixture has its real special attribute", before.FileAttributes);
+        FILE_ID_INFO stale = identity;
+        ++stale.FileId.Identifier[0];
+        DWORD error = UacMetadataLeaf::SetVerifiedMetadata(root, parent, stale, leaf, change);
+        Check(error == ERROR_FILE_INVALID, "special timestamp rejects a different file ID", error);
+        auto invalid = change;
+        invalid.attributes = FILE_ATTRIBUTE_HIDDEN;
+        error = UacMetadataLeaf::SetVerifiedMetadata(root, parent, identity, leaf, invalid);
+        Check(error == ERROR_INVALID_DATA, "special timestamp refuses attribute changes", error);
+        invalid = change;
+        invalid.expectedAttributes ^= FILE_ATTRIBUTE_HIDDEN;
+        error = UacMetadataLeaf::SetVerifiedMetadata(root, parent, identity, leaf, invalid);
+        Check(error == ERROR_FILE_INVALID, "special timestamp rejects stale source attributes", error);
+        error = UacMetadataLeaf::SetVerifiedMetadata(root, parent, identity, leaf, change);
+        const bool info = GetFileInformationByHandleEx(file.get(), FileBasicInfo, &after, sizeof(after)) &&
+            GetFileInformationByHandleEx(file.get(), FileStandardInfo, &sizeAfter, sizeof(sizeAfter)) &&
+            ReadDacl(path, afterAcl, rawAfter);
+        const std::unique_ptr<void, decltype(&LocalFree)> afterDescriptor(rawAfter, LocalFree);
+        Check(error == ERROR_SUCCESS && info && after.FileAttributes == before.FileAttributes &&
+              after.CreationTime.QuadPart == before.CreationTime.QuadPart &&
+              after.LastAccessTime.QuadPart == before.LastAccessTime.QuadPart &&
+              after.LastWriteTime.QuadPart == change.modified &&
+              sizeAfter.EndOfFile.QuadPart == sizeBefore.EndOfFile.QuadPart &&
+              sizeAfter.AllocationSize.QuadPart == sizeBefore.AllocationSize.QuadPart &&
+              beforeAcl->AclSize == afterAcl->AclSize && !std::memcmp(beforeAcl, afterAcl, beforeAcl->AclSize),
+              "time-only metadata preserves attributes, allocation, DACL and unselected times", error);
+        Check(HasContents(path, content) && HasContents(path + L":stream", stream),
+              "time-only metadata preserves default and alternate stream contents");
+    }
+    return true;
+}
 }
 
 static bool CheckFindTagStream()
@@ -4585,7 +4669,7 @@ int wmain(int argc, wchar_t** argv)
                        CheckMoveSourceSecuritySeal(fixture, root.get()) && CheckVerifiedMoveSourceGuard(fixture, root.get()) &&
                        CheckMoveSourceRecoveryLink(fixture, root.get()) && CheckMoveSourceJournal(fixture) ? 0 : 1;
     if (!CheckFindTagStream() || !CheckCompatibilityLink(fixture, root.get()) || !CheckInventoryWithoutTraverse(fixture, root.get()) ||
-        !CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
+        !CheckDetailedInventory(fixture, root.get()) || !CheckViewerSnapshot(fixture, root.get()) || !CheckDirectoryMetadata(fixture, root.get()) || !CheckSpecialTimestampMetadata(fixture, root.get()) || !CheckTreeCopy(fixture, root.get(), high) ||
         !CheckZipSelection(fixture, root.get()) || !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::Zip) ||
         !CheckReplacement(fixture, root.get(), UacZipUpdate::ReplacementKind::DiskCopy) || !CheckOverwriteProcessExit(fixture))
         return 2;

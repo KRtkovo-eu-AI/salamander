@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Verify the singleton special-file timestamp request. | Reject attribute edits and preserve existing compression, sparsity and encryption. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Show a listed target revision in native overwrite confirmation. | Offer a verified retry when opening the target for metadata is denied. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Route native overwrites and protected read-only moves through one transaction. | Keep conflict decisions and prevent separate elevated target deletion. | | GPT-6.1 Sol |
 // | 2026-11-11 | Route native large-file transfers through shared eligibility. | Offer UAC without applying snapshot limits to streamed file copies. | #731 | GPT-6.1 Sol |
@@ -10020,7 +10021,10 @@ bool BuildBasicMetadataChange(DWORD expected, DWORD desired, const CChangeAttrsD
                               UacF7::MetadataChange& change)
 {
     constexpr DWORD allowed = UacF7::basicAttributes | FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_DIRECTORY;
-    if (!input.AllowBasicMetadataPilot || ((expected | desired) & ~allowed) != 0 ||
+    const bool specialTimes = input.AllowSpecialMetadataTimes && UacF7::IsSpecialTimestampFile(expected) &&
+        expected == desired && !input.BasicMetadataSet && !input.BasicMetadataClear &&
+        (input.ChangeTimeCreated || input.ChangeTimeAccessed || input.ChangeTimeModified);
+    if (!input.AllowBasicMetadataPilot || (!specialTimes && ((expected | desired) & ~allowed) != 0) ||
         ((expected ^ desired) & FILE_ATTRIBUTE_DIRECTORY) != 0)
         return false;
 

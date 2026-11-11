@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record time-only metadata support for special files. | Track verified local behavior and deferred integration and VM evidence. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record exact-file allocation scope and remaining ACL boundaries. | Distinguish verified metadata access from an atomic snapshot and VM evidence. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record scoped allocation measurement for size scans. | Preserve partial totals and distinguish local evidence from VM acceptance. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Flag the unverified local move-completion branch. | Track the review finding separately from broker-only verification. | #731 | GPT-6.1 Terra |
@@ -574,6 +575,14 @@ Navazující část přidává **samostatnou read-only relaci pro jeden přímo 
 Host a broker x64 se sestavily v Debug/Release, sonda v Release. Controller má **22 kontrol** v každé konfiguraci, transport **362 PASS a jeden SKIP** v každé. Windows při živé relaci zabránilo přesunu rodiče, takže tento pokus byl přeskočen; skutečná záměna rodiče byla samostatně provedena nad produkčním helperem a odmítnuta. Skutečné binárky protokolu 31 odmítly předchozí broker 30. Logy jsou v `C:\Samandarin\builds\uac-r3-single-final-20261111` a `C:\Samandarin\builds\uac-r3-single-final-transport-debug.log` / `uac-r3-single-final-transport-release.log`. Výzva, překlady dalších jazyků a popředí vyžadují společnou VM akceptaci.
 
 Stejně sestavené Release binárky proti protokolu 30: `salamand.exe` 5 775 360 → 5 775 360 B, `uacbroker.exe` 1 398 272 → 1 404 928 B, dohromady 7 173 632 → 7 180 288 B (+6 656 B). Měření paměti čeká na společnou VM akceptaci.
+
+## Časy u komprimovaného, sparse a EFS souboru
+
+Stav M1: **úzká část implementována a testována lokálně; společná VM akceptace čeká**. Tato práce navazuje na `c362b51c` v oddělené lokální větvi `local/uac-goal-followup`, protože v původní pracovní kopii zůstává rozpracované F7. Protokol je **33**; předchozí číslo 32 patřilo testovanému, dosud nedokončenému F7.
+
+Změna podporuje pouze vybrané časy jediného souboru se sparse, kompresí nebo EFS, pokud uživatel neupravil žádný atributový checkbox. Broker ověřuje rodiče, přesný název a ID, odmítá reparse a nepřiměřené počty hardlinků, a zapisuje `FileBasicInfo` s nulovými atributy. Sdílená relace tohoto speciálního případu je vázaná na přesnou položku a nelze ji zaměnit za běžnou metadata relaci. Rekurze, dávka, změna atributů, komprese nebo šifrování zůstávají samostatně otevřené.
+
+V každé konfiguraci Debug/Release prošlo **371** nativních kontrol, **367** transportních kontrol s jedním SKIP, **106** kontrol controlleru a **27** kontrol obsluhy dialogu. NTFS testy skutečně ověřily sparse, compressed a EFS včetně zachování obsahu, ADS a DACL pod místním účtem. Transport odmítl jiné ID i přechod mezi běžným a speciálním rozsahem; test záměny rodiče u starší exact-file relace Windows odmítlo provést, a je proto označen SKIP. Dialogový test vykonává skutečné obslužné metody se simulovanými ovládacími prvky. Logy jsou v `C:\Samandarin\builds\uac-metadata-audit-20261111`. Skutečná UAC výzva, chování jiného účtu bez EFS klíče, plné sestavení výsledné revize a měření paměti čekají na následné ověření.
 
 ## Další postup
 

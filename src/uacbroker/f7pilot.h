@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Bound time-only metadata for special NTFS files. | Preserve compression, sparsity and encryption while restricting the approved policy. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Add exact-file allocation scope. | Limit approval to one selected file without content or directory enumeration. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Add typed allocation measurement for one reviewed file. | Reuse a scoped inventory without returning contents or recounting a subtree. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Bind native overwrite and read-only moves to typed transfer jobs. | Preserve target conflict approval and one consent for matching parents. | | GPT-6.1 Sol |
@@ -431,6 +432,14 @@ struct MetadataChange
 };
 static_assert(sizeof(MetadataChange) == 32);
 
+// Only a plain file's selected timestamps may change in this mode. In
+// particular, it does not authorize compression or encryption operations.
+inline bool IsSpecialTimestampFile(DWORD attributes)
+{
+    constexpr DWORD special = FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ENCRYPTED;
+    return (attributes & special) != 0 && (attributes & ~(basicAttributes | special)) == 0;
+}
+
 struct MetadataJobPolicy
 {
     DWORD set = 0;
@@ -440,6 +449,8 @@ struct MetadataJobPolicy
     {
         if (((set | clear) & ~basicAttributes) || (set & clear))
             return false;
+        if (IsSpecialTimestampFile(change.expectedAttributes))
+            return !(set | clear | change.attributes) && (change.created || change.accessed || change.modified);
         const DWORD before = change.expectedAttributes & basicAttributes;
         const DWORD after = (before & ~clear) | set;
         return change.attributes == (after == before ? 0 : after ? after : FILE_ATTRIBUTE_NORMAL);
@@ -659,6 +670,8 @@ struct TransferJobScope
     bool Matches(const TransferJobScope& other) const
     {
         return TransferJobFamily(operation) == TransferJobFamily(other.operation) && source.serial == other.source.serial &&
+               (operation != Operation::Metadata ||
+                IsSpecialTimestampFile(change.expectedAttributes) == IsSpecialTimestampFile(other.change.expectedAttributes)) &&
                target.serial == other.target.serial &&
                std::memcmp(source.id, other.source.id, sizeof(source.id)) == 0 &&
                std::memcmp(target.id, other.target.id, sizeof(target.id)) == 0 &&

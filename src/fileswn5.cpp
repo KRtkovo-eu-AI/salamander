@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-11 | Offer verified time-only metadata for one special NTFS file. | Preserve compression, sparsity and encryption without treating untouched controls as changes. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Offer verified elevation for case-only rename. | Let the broker verify an existing target alias without treating it as an overwrite. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Offer verified directory elevation from Quick Rename. | Keep inline rename on the same consent and identity path as F2. | #731 | GPT-6.1 Terra |
 // | 2026-11-08 | Keep F3 from reopening a listing-only protected archive. | Use the existing command enabler and guard direct calls. | | GPT-6.1 Sol (Codex) |
@@ -1333,13 +1334,17 @@ struct MetadataElevationPreview
     std::wstring path;
     DWORD attributes = INVALID_FILE_ATTRIBUTES;
     bool protectedScope = false;
+    const CChangeAttrDialog* dialog = nullptr;
 
     static bool Check(DWORD set, DWORD clear, const UacF7::MetadataChange& times, void* context)
     {
         const auto& preview = *static_cast<MetadataElevationPreview*>(context);
         constexpr DWORD allowed = UacF7::basicAttributes | FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_DIRECTORY;
         const DWORD desired = (preview.attributes & ~clear) | set;
-        if (preview.path.empty() || ((preview.attributes | desired) & ~allowed) != 0)
+        const bool specialTimes = UacF7::IsSpecialTimestampFile(preview.attributes) && preview.dialog &&
+            !preview.dialog->AnyAttributeEdited() && desired == preview.attributes &&
+            (times.created || times.accessed || times.modified);
+        if (preview.path.empty() || (!specialTimes && ((preview.attributes | desired) & ~allowed) != 0))
             return false;
         UacF7::MetadataChange change = times;
         change.expectedAttributes = preview.attributes;
@@ -1355,8 +1360,9 @@ struct MetadataElevationPreview
         // A normal item must also pass the same identity preparation as the worker.
         // A protected item is prepared through its existing listing only after OK.
         UacF7::PreparedLeaf request;
-        if (!preview.protectedScope &&
-            !request.PrepareMetadata(preview.path, change, {set & UacF7::basicAttributes, clear & UacF7::basicAttributes}))
+        const UacF7::MetadataJobPolicy policy = specialTimes ? UacF7::MetadataJobPolicy{} :
+            UacF7::MetadataJobPolicy{set & UacF7::basicAttributes, clear & UacF7::basicAttributes};
+        if (!preview.protectedScope && !request.PrepareMetadata(preview.path, change, policy))
             return false;
         return true;
     }
@@ -1537,6 +1543,7 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                                     SelectionContainsDirectory(), FileBasedCompression,
                                     FileBasedEncryption,
                                     &timeModified, &timeCreated, &timeAccessed);
+            metadataPreview.dialog = &chDlg;
             if (!metadataPreview.path.empty())
                 chDlg.SetElevationShieldProbe(&MetadataElevationPreview::Check, &metadataPreview);
             if (setCompress || setEncryption)
@@ -1613,7 +1620,11 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                     chDlg.Compressed != 1 && chDlg.Encrypted != 1 &&
                     (metadataPreview.attributes & ~metadataAttributes) == 0 &&
                     (basicChanged || chDlg.ChangeTimeCreated || chDlg.ChangeTimeAccessed || chDlg.ChangeTimeModified);
-                bool protectedMetadata = metadataPreview.protectedScope && singleBasicMetadata;
+                const bool singleSpecialTimes = !metadataPreview.path.empty() && !setCompress && !setEncryption &&
+                    !chDlg.RecurseSubDirs && !chDlg.AnyAttributeEdited() &&
+                    UacF7::IsSpecialTimestampFile(metadataPreview.attributes) &&
+                    (chDlg.ChangeTimeCreated || chDlg.ChangeTimeAccessed || chDlg.ChangeTimeModified);
+                bool protectedMetadata = metadataPreview.protectedScope && (singleBasicMetadata || singleSpecialTimes);
                 if (protectedMetadata)
                 {
                     int index = GetCaretIndex();
@@ -1637,7 +1648,8 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
 
                 CChangeAttrsData dlgData{};
                 dlgData.AllowBasicMetadataPilot = !setCompress && !setEncryption && !chDlg.RecurseSubDirs &&
-                                                  (!branchAttributes || singleBasicMetadata);
+                                                  (!branchAttributes || singleBasicMetadata || singleSpecialTimes);
+                dlgData.AllowSpecialMetadataTimes = singleSpecialTimes;
                 dlgData.ChangeTimeModified = chDlg.ChangeTimeModified;
                 if (dlgData.ChangeTimeModified)
                 {
@@ -1780,6 +1792,8 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
 
                     dlgData.BasicMetadataSet = attrsData.AttrOr & UacF7::basicAttributes;
                     dlgData.BasicMetadataClear = ~attrsData.AttrAnd & ~attrsData.AttrOr & UacF7::basicAttributes;
+                    if (singleSpecialTimes)
+                        dlgData.BasicMetadataSet = dlgData.BasicMetadataClear = 0;
 
                     const bool shieldedOk = dlgData.AllowBasicMetadataPilot && chDlg.AcceptedShieldedOk();
                     DWORD metadataPreparationError = ERROR_SUCCESS;
@@ -1827,12 +1841,12 @@ void CFilesWindow::ChangeAttr(BOOL setCompress, BOOL compressed, BOOL setEncrypt
                                                indexes, f, &attrsData, NULL, FALSE, NULL);
                     if (script->Count == 0 || (branchAttributes && !branchSelection.IsCurrent(this)))
                         res = FALSE;
-                    if (res && (script->ProtectedMetadataRequest || shieldedOk))
+                    if (res && (script->ProtectedMetadataRequest || shieldedOk || singleSpecialTimes))
                     {
                         const bool sameItem = script->Count == 1 && script->At(0).Opcode == ocChangeAttrs &&
                             script->At(0).SourceNameWValid && script->At(0).Attr == metadataPreview.attributes &&
                             SalPathRemoveExtendedPrefixW(script->At(0).SourceNameW.c_str()) == metadataPreview.path;
-                        if (script->ProtectedMetadataRequest && !sameItem)
+                        if ((script->ProtectedMetadataRequest || singleSpecialTimes) && !sameItem)
                         {
                             metadataPreparationError = ERROR_INVALID_DATA;
                             res = FALSE;

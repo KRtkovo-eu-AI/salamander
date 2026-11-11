@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Expose whether attribute controls were edited. | Keep special-file time-only consent separate from attribute changes. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Keep declined deletion scopes for the progress dialog lifetime. | Limit cancellation reuse to the current delete job. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Add the destination shield to the native Copy/Move dialog. | Use the live destination text for the preview. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Remember whether metadata was submitted with a shield. | Carry the existing confirmation to the verified metadata request. | #731 | GPT-6.1 Sol (Codex) |
@@ -294,6 +295,10 @@ public:
                       const SYSTEMTIME* timeAccessed);
 
     bool AcceptedShieldedOk() const { return ElevationShieldAccepted; }
+    bool AnyAttributeEdited() const
+    {
+        return ArchiveDirty || ReadOnlyDirty || HiddenDirty || SystemDirty || CompressedDirty || EncryptedDirty;
+    }
 
     // Indeterminate attributes are absent from both masks. The change carries only selected timestamps.
     void SetElevationShieldProbe(bool (*probe)(DWORD set, DWORD clear, const UacF7::MetadataChange& times, void*),

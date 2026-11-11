@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Verify the singleton special-file metadata guard. | Exercise the controller, selected policy and exact item. | #731 | GPT-6.1 Terra |
 # | 2026-11-10 | Check the normalized selected delete path. | Keep the exact-path contract aligned with the worker. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Check Branch View metadata preparation and exact parent. | Prevent duplicate names or an unverified fallback from reaching the worker. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Verify direct and late verified delete requests. | Keep shielded Yes exact and cancel before children. | #731 | GPT-6.1 Sol |
@@ -37,10 +38,12 @@ def main():
     assert 'find = entry;' in change
     assert 'ProtectedListing->List(SalPathRemoveExtendedPrefixW(GetItemDirectoryW(*f).c_str()),' in change
     assert 'const auto& entries = branchAttributes ? branchEntries : ProtectedListingEntries;' in change
-    assert '(!branchAttributes || singleBasicMetadata);' in change
+    assert '(!branchAttributes || singleBasicMetadata || singleSpecialTimes);' in change
+    assert '!chDlg.AnyAttributeEdited()' in change
+    assert 'dlgData.AllowSpecialMetadataTimes = singleSpecialTimes;' in change
+    assert 'if ((script->ProtectedMetadataRequest || singleSpecialTimes) && !sameItem)' in change
     assert 'if (protectedMetadata || shieldedOk)' in change
     assert 'script->ProtectedMetadataRequest->PrepareMetadata(metadataPreview.path, change, policy)' in change
-    assert 'if (script->ProtectedMetadataRequest && !sameItem)' in change
     build = read('src/fileswn6.cpp').split('BOOL CFilesWindow::BuildScriptFile(', 1)[1]
     assert 'script->ProtectedMetadataRequest ? sourceFileAttr : GetFileAttributesW' in build
     prepare = block(read('src/uacbroker/uacbroker.cpp'), 'bool PreparedLeaf::PrepareTarget(')

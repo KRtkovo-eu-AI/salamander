@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise timestamp-only special-file preview and dispatch. | Reject dirty attribute controls and nonzero mutation policies. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Exercise explicit retry after refused delete consent. | Keep a fresh elevation request tied to the worker Retry action. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Verify failed delete preparation through the shared worker. | Skip safely without a file operation or elevation. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Exercise verified deletion through the shared executor. | Keep ordinary traversal and stop when Windows consent is cancelled. | #731 | GPT-6.1 Sol |
@@ -105,6 +106,7 @@ static LRESULT SendTestMessage(HWND, UINT message, WPARAM kind, LPARAM data)
 @@TIME@@
 @@CHANGE@@
 @@WORKER@@
+struct CChangeAttrDialog { bool edited = false; bool AnyAttributeEdited() const { return edited; } };
 @@PREVIEW@@
 
 static void Reset()
@@ -136,6 +138,31 @@ int main()
     Check(BuildBasicMetadataChange(FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_ARCHIVE, input, change) && change.modified == MetadataFileTime(input.TimeModified), "modified time selected independently");
     input.TimeCreated = {};
     Check(!BuildBasicMetadataChange(FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_ARCHIVE, input, change), "invalid selected timestamp refused");
+    input = {}; input.AllowBasicMetadataPilot = TRUE; input.AllowSpecialMetadataTimes = TRUE;
+    input.ChangeTimeModified = TRUE; input.TimeModified = FILETIME{111, 222};
+    for (DWORD special : {FILE_ATTRIBUTE_COMPRESSED, FILE_ATTRIBUTE_SPARSE_FILE, FILE_ATTRIBUTE_ENCRYPTED})
+    {
+        const DWORD original = special | FILE_ATTRIBUTE_ARCHIVE;
+        Check(BuildBasicMetadataChange(original, original, input, change) && !change.attributes &&
+              change.expectedAttributes == original && change.modified == MetadataFileTime(input.TimeModified),
+              "special-file timestamp leaves attributes untouched");
+        Check(UacF7::MetadataJobPolicy{}.Allows(change), "timestamp-only policy permits the special file");
+        Check(!UacF7::MetadataJobPolicy{FILE_ATTRIBUTE_HIDDEN, 0}.Allows(change),
+              "special-file scope cannot authorize later attribute mutations");
+        Check(!BuildBasicMetadataChange(original, original | FILE_ATTRIBUTE_HIDDEN, input, change),
+              "special-file attribute mutation is not a timestamp-only request");
+        input.BasicMetadataSet = FILE_ATTRIBUTE_ARCHIVE;
+        Check(!BuildBasicMetadataChange(original, original, input, change), "special-file time policy must be empty");
+        input.BasicMetadataSet = 0;
+    }
+    input.AllowSpecialMetadataTimes = FALSE;
+    Check(!BuildBasicMetadataChange(FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_COMPRESSED,
+                                    FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_COMPRESSED, input, change),
+          "a non-singleton request cannot enable the special-file retry");
+    input.AllowSpecialMetadataTimes = TRUE;
+    for (DWORD rejected : {FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT, FILE_ATTRIBUTE_OFFLINE, FILE_ATTRIBUTE_NORMAL})
+        Check(!BuildBasicMetadataChange(FILE_ATTRIBUTE_COMPRESSED | rejected, FILE_ATTRIBUTE_COMPRESSED | rejected, input, change),
+              "invalid or unsupported special-file flags are refused");
     input = {}; input.AllowBasicMetadataPilot = TRUE; input.BasicMetadataSet = FILE_ATTRIBUTE_HIDDEN;
     COperation operation; CProgressDlgData dialog; BOOL success = FALSE; UacF7::PreparedLeaf protectedRequest;
     Reset();
@@ -232,6 +259,23 @@ int main()
     Check(shield(0, 0, times) && ProbeDirectory && LastPath == preview.path, "directory time preview preserves exact long Unicode path");
     preview.attributes |= FILE_ATTRIBUTE_REPARSE_POINT; Reset();
     Check(!shield(FILE_ATTRIBUTE_HIDDEN) && !ProbeCalls, "reparse directory excluded before probing");
+    CChangeAttrDialog controls;
+    preview.dialog = &controls; preview.path = L"C:\\ordinary\\special-\u6771.txt";
+    for (DWORD special : {FILE_ATTRIBUTE_COMPRESSED, FILE_ATTRIBUTE_SPARSE_FILE, FILE_ATTRIBUTE_ENCRYPTED})
+    {
+        preview.attributes = FILE_ATTRIBUTE_ARCHIVE | special; preview.protectedScope = false; Reset();
+        Check(shield(preview.attributes, 0, times) && PrepareCalls == 1 && LastChange.attributes == 0,
+              "untouched special-file controls show the shield for exact time-only metadata");
+        controls.edited = true; Reset();
+        Check(!shield(preview.attributes, 0, times) && !ProbeCalls,
+              "an edited attribute control refuses special-file timestamp elevation");
+        controls.edited = false; Reset();
+        Check(!shield(preview.attributes | FILE_ATTRIBUTE_HIDDEN, 0, times) && !ProbeCalls,
+              "a special-file basic-attribute change cannot borrow the time-only shield");
+        Reset();
+        Check(!shield(FILE_ATTRIBUTE_ARCHIVE, special, times) && !ProbeCalls,
+              "explicitly clearing the special attribute does not qualify for time-only elevation");
+    }
     printf("Actual protected metadata controller: %d checks, %d failures\n", Checks, Failures);
     return Failures ? 1 : 0;
 }
