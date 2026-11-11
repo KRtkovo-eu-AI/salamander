@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Share native file-copy budgets and permanent-delete eligibility with the host. | Preserve object validation while admitting ordinary attributes and streamed large copies. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Retain the opened identity of a protected copy directory. | Allow a reviewed source directory whose listing requires elevation. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Prepare permanent link deletion from the approved listing. | Resolve only the link identity and require a separate authorized mutation. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Open a copy scope without creating its target root. | Verify both sides again when creating the root on the existing session. | #731 | GPT-6.1 Sol |
@@ -187,7 +188,8 @@ constexpr DWORD timeoutMs = 5000;
 [[maybe_unused]] constexpr DWORD copyTimeoutMs = 30000;
 [[maybe_unused]] ULONGLONG TransferDeadline(UacF7::Operation operation)
 {
-    return UacF7::IsCrossVolumeMove(operation) ? MAXULONGLONG : GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
+    return UacF7::IsCrossVolumeMove(operation) || UacF7::NativeCopyByteLimit(operation) == UacF7::maxNativeCopyBytes
+        ? MAXULONGLONG : GetTickCount64() + copyTimeoutMs + 2 * timeoutMs;
 }
 constexpr DWORD protocolVersion = SAM_UAC_PROTOCOL_VERSION;
 static_assert(protocolVersion > 0 && protocolVersion <= MAXWORD);
@@ -582,7 +584,7 @@ ULONGLONG TransferProgressLimit(Operation operation)
 {
     if (UacF7::IsCrossVolumeMove(operation))
         return UacF7::maxCrossVolumeMoveBytes;
-    return operation == Operation::CopyEncrypted ? 2 * UacF7::maxPilotCopyBytes : UacF7::maxPilotCopyBytes;
+    return operation == Operation::CopyEncrypted ? 2 * UacF7::maxPilotCopyBytes : UacF7::NativeCopyByteLimit(operation);
 }
 struct ListingReply { DWORD error; DWORD count; };
 
@@ -1802,7 +1804,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
         header.targetRelativeLength > UacDirectoryLeaf::maxNativeName || header.targetLeafLength > UacDirectoryLeaf::maxComponent ||
         header.copySize > (zipUpdate ? UacF7::maxZipUpdateBytes :
                            writeZipSelection ? UacF7::maxZipSelectionBytes :
-                           crossMove ? UacF7::maxCrossVolumeMoveBytes : UacF7::maxPilotCopyBytes) ||
+                           crossMove ? UacF7::maxCrossVolumeMoveBytes : UacF7::NativeCopyByteLimit(header.operation)) ||
         (!copy && !crossMove && !writeZipSelection && !zipUpdate && header.copySize) ||
         (writeZipSelection && !header.copySize) || (zipUpdate && header.copySize < 22) ||
         (!transfer && header.targetRelativeLength) ||
@@ -2177,8 +2179,10 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             }
             else
             {
-                const auto copyDeadline = GetTickCount64() + copyTimeoutMs;
-                deadline = copyDeadline + timeoutMs;
+                // Streamed native copies have the cancellable lifetime of F6.
+                // IPC waits and buffered EFS operations retain their own bounds.
+                const auto copyDeadline = header.operation == Operation::CopyEncrypted
+                    ? GetTickCount64() + copyTimeoutMs : MAXULONGLONG;
                 DiskCopyPublication publication{install, destination, expectedTarget, targetLeaf, {}};
                 const UacCopyLeaf::Detail::PublicationGate gate{
                     [](void* context, HANDLE connection, ULONGLONG limit) {
@@ -2201,6 +2205,7 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
                                                           nullptr, pipe, copyDeadline, header.copySize,
                                                           policy, ProtectedObject, preserveCompression, preserveSecurity, progress, &gate);
                 }
+                deadline = GetTickCount64() + timeoutMs;
             }
         }
         if (pending.Directory())
@@ -2960,7 +2965,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         }
         if (error)
             return probeIoError(L"Read request result", error);
-        if (crossMove)
+        if (crossMove || (copy && UacF7::NativeCopyByteLimit(request->operation) == UacF7::maxNativeCopyBytes))
             deadline = GetTickCount64() + timeoutMs;
         if (transferJob)
         {
@@ -3171,13 +3176,13 @@ bool PreparedLeaf::PrepareDelete(const std::wstring& path, Operation requested)
 
 bool PreparedLeaf::PrepareDeleteLeaf(const std::wstring& path, DWORD attributes)
 {
-    if (IsPlainDeleteDirectory(attributes))
+    if (IsEligibleDeleteDirectory(attributes))
         return PrepareDelete(path, Operation::DeleteDirectory);
-    if (IsPlainDeleteLink(attributes, true))
+    if (IsEligibleDeleteLink(attributes, true))
         return PrepareDelete(path, Operation::DeleteDirectorySymlink) || PrepareDelete(path, Operation::DeleteJunction);
-    if (IsPlainDeleteLink(attributes))
+    if (IsEligibleDeleteLink(attributes))
         return PrepareDelete(path, Operation::DeleteSymlink);
-    return IsPlainDeleteFile(attributes) && PrepareDelete(path, Operation::Delete);
+    return IsEligibleDeleteFile(attributes) && PrepareDelete(path, Operation::Delete);
 }
 
 ProtectedRecycleSource::~ProtectedRecycleSource()
@@ -3215,7 +3220,10 @@ bool ProtectedRecycleSource::Prepare(const std::wstring& path, const MoveFileIde
         return false;
     const auto source = Adopt(rawSource);
     FILE_ID_INFO actual{};
-    if (!ProtectedObject(source.get(), false) ||
+    FILE_ATTRIBUTE_TAG_INFO attributes{};
+    // The Shell recycle receipt has a narrower contract than permanent unlink.
+    if (!GetFileInformationByHandleEx(source.get(), FileAttributeTagInfo, &attributes, sizeof(attributes)) ||
+        !IsPlainDeleteFile(attributes.FileAttributes) || !ProtectedObject(source.get(), false) ||
         UacRenameLeaf::Detail::ReadSourceIdentity(source.get(), actual, UacRenameLeaf::MoveKind::RenameFile) ||
         actual.VolumeSerialNumber != expected.serial ||
         std::memcmp(actual.FileId.Identifier, expected.id, sizeof(expected.id)) != 0)
@@ -3360,8 +3368,8 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
                 !UacDirectoryLeaf::SameParent(snapshot, listingIdentity) ||
                 UacListing::CaptureChildId(listing.get(), finalName, directory, sourceIdentity.FileId, attributes, reparseTag) ||
                 (change && attributes != change->expectedAttributes) ||
-                (deleting && !(deleteLink ? IsPlainDeleteLink(attributes, directory) :
-                              directory ? IsPlainDeleteDirectory(attributes) : IsPlainDeleteFile(attributes))))
+                (deleting && !(deleteLink ? IsEligibleDeleteLink(attributes, directory) :
+                              directory ? IsEligibleDeleteDirectory(attributes) : IsEligibleDeleteFile(attributes))))
                 return false;
             identityFromListing = transferring;
         }
@@ -3742,7 +3750,7 @@ bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstrin
     const bool copyDirectory = operation == Operation::CopyDirectoryEntry;
     const bool moving = operation == Operation::Move || compressedMove || directoryMove;
     if (copyDirectory ? (expectedSize || deferred) :
-        !moving && (!IsFileCopy(operation) || expectedSize > maxPilotCopyBytes))
+        !moving && (!IsFileCopy(operation) || expectedSize > NativeCopyByteLimit(operation)))
         return false;
     if (!PrepareSource(sourcePath, operation, listedSource))
         return false;
@@ -4407,11 +4415,11 @@ DWORD ListingSession::PrepareViewer(const std::wstring& path, PreparedLeaf& view
     return PrepareLeaf(path, Operation::View, {}, viewer, nullptr, expectedAttributes);
 }
 
-DWORD ListingSession::PrepareTransferSource(const std::wstring& path, DWORD attributes, bool move, PreparedLeaf& request)
+DWORD ListingSession::PrepareTransferSource(const std::wstring& path, DWORD attributes, Operation operation, PreparedLeaf& request)
 {
-    if (!IsPlainDeleteFile(attributes))
+    if (!IsEligibleTransferSource(attributes, operation))
         return ERROR_NOT_SUPPORTED;
-    return PrepareLeaf(path, move ? Operation::Move : Operation::Copy, {}, request, nullptr, attributes);
+    return PrepareLeaf(path, operation, {}, request, nullptr, attributes);
 }
 
 DWORD ListingSession::PrepareMkdir(const std::wstring& path, PreparedLeaf& mkdir)
@@ -4441,12 +4449,12 @@ DWORD ListingSession::PrepareMetadata(const std::wstring& path, const MetadataCh
 DWORD ListingSession::PrepareDeleteLeaf(const std::wstring& path, DWORD attributes, PreparedLeaf& request)
 {
     const bool directory = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-    if (IsPlainDeleteLink(attributes, directory))
+    if (IsEligibleDeleteLink(attributes, directory))
         return PrepareLeaf(path, directory ? Operation::DeleteDirectorySymlink : Operation::DeleteSymlink,
                            {}, request, nullptr, attributes);
-    if (!IsPlainDeleteFile(attributes) && !IsPlainDeleteDirectory(attributes))
+    if (!IsEligibleDeleteFile(attributes) && !IsEligibleDeleteDirectory(attributes))
         return ERROR_NOT_SUPPORTED;
-    const auto operation = IsPlainDeleteDirectory(attributes) ? Operation::DeleteDirectory : Operation::Delete;
+    const auto operation = IsEligibleDeleteDirectory(attributes) ? Operation::DeleteDirectory : Operation::Delete;
     return PrepareLeaf(path, operation, {}, request, nullptr, attributes);
 }
 

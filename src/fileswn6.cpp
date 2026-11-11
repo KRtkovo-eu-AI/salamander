@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Align transfer and permanent-delete planning with native leaf support. | Keep UAC eligibility for ordinary attributes and streamed large copies. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Record partial directory sizes on disk rows. | Preserve full-size checks without adding a shared SDK field. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Use accepted copy shield for matching protected tree planning. | Open Windows consent directly after confirming the verified destination. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Prepare denied direct delete selections from the approved panel. | Retain each selected path and identity for files, links, and empty-only directory deletion. | #731 | GPT-6.1 Sol |
@@ -1357,9 +1358,9 @@ static bool PrepareListedDeleteSource(COperations& script, UacF7::ListingSession
                                       const std::wstring& path, DWORD attributes)
 {
     const bool directory = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-    const bool plainDirectory = UacF7::IsPlainDeleteDirectory(attributes);
+    const bool plainDirectory = UacF7::IsEligibleDeleteDirectory(attributes);
     if (path.empty() || (script.PreparedDeleteRequest && path == script.PreparedDeletePath) ||
-        (!plainDirectory && !UacF7::IsPlainDeleteFile(attributes) && !UacF7::IsPlainDeleteLink(attributes, directory)))
+        (!plainDirectory && !UacF7::IsEligibleDeleteFile(attributes) && !UacF7::IsEligibleDeleteLink(attributes, directory)))
         return true;
 
     const auto& root = listing.GetRoot();
@@ -1367,7 +1368,8 @@ static bool PrepareListedDeleteSource(COperations& script, UacF7::ListingSession
         (root.back() != L'\\' && path[root.size()] != L'\\'))
         return true;
 
-    if (ProbeLocalElevationAccess(path, DELETE, directory) != ERROR_ACCESS_DENIED &&
+    const DWORD deleteAccess = DELETE | ((attributes & FILE_ATTRIBUTE_READONLY) ? FILE_WRITE_ATTRIBUTES : 0);
+    if (ProbeLocalElevationAccess(path, deleteAccess, directory) != ERROR_ACCESS_DENIED &&
         (!plainDirectory || ProbeLocalElevationAccess(path, FILE_LIST_DIRECTORY, true) != ERROR_ACCESS_DENIED))
         return true;
 
@@ -3040,7 +3042,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 }
             }
             if (verifyDelete && err == ERROR_ACCESS_DENIED && !ErrListDirSkipAll &&
-                UacF7::IsPlainDeleteDirectory(sourceDirAttr))
+                UacF7::IsEligibleDeleteDirectory(sourceDirAttr))
             {
                 // No children were observed. The verified operation below can remove only
                 // an empty directory and must leave a nonempty, unreadable directory intact.
@@ -3678,7 +3680,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 if (script->AllowTransferPilot && !(op.OpFlags & OPFL_AS_ENCRYPTED) && !listedPath.empty())
                 {
                     source = std::make_unique<UacF7::PreparedLeaf>();
-                    error = ProtectedListing->PrepareTransferSource(listedPath, op.Attr, type == atMove, *source);
+                    const auto operation = UacF7::FileTransferOperation(op.Attr, type == atMove, script->CopyAttrs,
+                                                                        script->IgnoreTransferAds, script->CopySecurity);
+                    error = ProtectedListing->PrepareTransferSource(listedPath, op.Attr, operation, *source);
                     if (error)
                         source.reset();
                 }
@@ -3903,7 +3907,8 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                                 ((IsBranchView() || script->DeferredTransferTarget) && targetPathState == tpsNotEncryptedNotExisting);
                             if ((protectedCopy || protectedMove) && (op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) &&
                                 !script->OverwriteOlder && ordinaryTarget &&
-                                op.FileSize.Value <= (protectedMove ? UacF7::maxCrossVolumeMoveBytes : UacF7::maxPilotCopyBytes))
+                                op.FileSize.Value <= (protectedMove ? UacF7::maxCrossVolumeMoveBytes :
+                                    UacF7::IsEncryptedCopyFile(op.Attr) ? UacF7::maxPilotCopyBytes : UacF7::maxNativeCopyBytes))
                             {
                                 op.OpFlags |= OPFL_UAC_TRANSFER_SOURCE;
                                 goto ADS_DISCOVERY_COMPLETE;

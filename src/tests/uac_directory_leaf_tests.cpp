@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Keep a ReadOnly object intact when its approved identity is stale. | Common attribute deletion now has dedicated native coverage. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Exercise exclusive creation and rollback of nested destinations. | Check Unicode paths, path replacement, junctions and commit boundaries on NTFS. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Test direct alias inventory and partial inventory around reparse points. | Check that no alias target is opened and the strict copy manifest still fails. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Verify viewer reads with an identity captured from the parent listing. | Cover Unicode paths and reject a different object before reading bytes. | #731 | GPT-6.1 Sol |
@@ -5718,9 +5719,11 @@ int wmain(int argc, wchar_t** argv)
         return 2;
     if (!SetFileAttributesW(relocatedDelete.c_str(), FILE_ATTRIBUTE_READONLY))
         return 2;
-    error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, deleteId, L"delete-original");
-    Check(error == ERROR_NOT_SUPPORTED && GetFileAttributesW(relocatedDelete.c_str()) == FILE_ATTRIBUTE_READONLY,
-          "delete leaves a read-only file and its attributes intact", error);
+    FILE_ID_INFO wrongDeleteId = deleteId;
+    wrongDeleteId.FileId.Identifier[0] ^= 1;
+    error = UacDeleteLeaf::DeleteVerifiedLeaf(original.get(), expected, wrongDeleteId, L"delete-original");
+    Check(error == ERROR_FILE_INVALID && GetFileAttributesW(relocatedDelete.c_str()) == FILE_ATTRIBUTE_READONLY,
+          "delete leaves a read-only file and its attributes intact for a stale identity", error);
     if (!SetFileAttributesW(relocatedDelete.c_str(), FILE_ATTRIBUTE_NORMAL))
         return 2;
     const HANDLE reader = CreateFileW(relocatedDelete.c_str(), GENERIC_READ,

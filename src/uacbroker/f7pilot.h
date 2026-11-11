@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Separate native transfer budgets and permanent-delete attributes from buffered operations. | Share safe eligibility without widening ZIP or source-retirement contracts. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Use the Windows copy helper for the directory identity. | Avoid expanding the Debug memcpy macro inside the std namespace. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Expose the existing leaf consent scope and explicit retry. | Use the exact broker job identity when remembering a declined deletion. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Retain root planning state after disconnection. | Prevent the worker from creating a scoped root locally after the pipe closes. | #731 | GPT-6.1 Sol |
@@ -234,7 +235,22 @@ inline bool ValidArchiveRange(const ArchiveReadRange& range, ULONGLONG fileSize,
 constexpr DWORD maxViewerSnapshotBytes = 16 * 1024 * 1024;
 constexpr ULONGLONG maxPilotCopyBytes = 16 * 1024 * 1024;
 // Windows file sizes and seek offsets use signed LARGE_INTEGER values.
+constexpr ULONGLONG maxNativeCopyBytes = MAXLONGLONG;
 constexpr ULONGLONG maxCrossVolumeMoveBytes = MAXLONGLONG;
+inline constexpr ULONGLONG NativeCopyByteLimit(Operation operation)
+{
+    switch (operation)
+    {
+    case Operation::Copy:
+    case Operation::CopyIgnoreAds:
+    case Operation::CopyCompressed:
+    case Operation::CopySecurity:
+    case Operation::CopyCompressedSecurity:
+        return maxNativeCopyBytes;
+    default:
+        return maxPilotCopyBytes;
+    }
+}
 constexpr DWORD plainCopyAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE |
                                       FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
 inline bool IsPlainCopyFile(DWORD attributes)
@@ -259,15 +275,32 @@ inline bool IsEncryptedCopyFile(DWORD attributes)
     return (attributes & FILE_ATTRIBUTE_ENCRYPTED) && !(attributes & ~(plainCopyAttributes | FILE_ATTRIBUTE_ENCRYPTED));
 }
 
+// Native copies keep ordinary file attributes. Snapshot, archive and EFS
+// contracts retain their separate attribute and memory limits above.
+constexpr DWORD nativeCopyAttributes = plainCopyAttributes | FILE_ATTRIBUTE_READONLY;
+constexpr DWORD nativeCompressedCopyAttributes = nativeCopyAttributes | FILE_ATTRIBUTE_COMPRESSED;
+inline bool IsNativePlainCopyFile(DWORD attributes)
+{
+    return attributes && !(attributes & ~nativeCopyAttributes);
+}
+inline bool IsNativeDefaultCopyFile(DWORD attributes)
+{
+    return attributes && !(attributes & ~(nativeCopyAttributes | FILE_ATTRIBUTE_SPARSE_FILE));
+}
+inline bool IsNativeCompressedCopyFile(DWORD attributes)
+{
+    return (attributes & FILE_ATTRIBUTE_COMPRESSED) && !(attributes & ~nativeCompressedCopyAttributes);
+}
+
 inline bool IsEligibleFileCopy(DWORD attributes, bool copyAttributes, bool ignoreAds, bool copySecurity)
 {
     if (IsEncryptedCopyFile(attributes))
         return !copySecurity && !ignoreAds;
     if (copySecurity)
-        return !ignoreAds && (copyAttributes ? IsCompressedCopyFile(attributes) : IsDefaultCopyFile(attributes));
+        return !ignoreAds && (copyAttributes ? IsNativeCompressedCopyFile(attributes) : IsNativeDefaultCopyFile(attributes));
     if (copyAttributes)
-        return !ignoreAds && IsCompressedCopyFile(attributes);
-    return ignoreAds ? IsPlainCopyFile(attributes) : IsDefaultCopyFile(attributes);
+        return !ignoreAds && IsNativeCompressedCopyFile(attributes);
+    return ignoreAds ? IsNativePlainCopyFile(attributes) : IsNativeDefaultCopyFile(attributes);
 }
 
 inline bool IsEfsCopyFailure(DWORD attributes, DWORD error)
@@ -293,7 +326,7 @@ inline bool IsPlainDeleteDirectory(DWORD attributes)
     return (attributes & FILE_ATTRIBUTE_DIRECTORY) && !(attributes & ~(FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_ARCHIVE));
 }
 
-constexpr DWORD crossVolumeMoveAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE | FILE_ATTRIBUTE_SPARSE_FILE;
+constexpr DWORD crossVolumeMoveAttributes = plainCopyAttributes | FILE_ATTRIBUTE_SPARSE_FILE;
 inline bool IsCrossVolumeMoveFile(DWORD attributes)
 {
     return attributes && !(attributes & ~crossVolumeMoveAttributes);
@@ -304,11 +337,69 @@ inline bool IsEligibleMoveFile(DWORD attributes, bool copyAttributes, bool copyS
     return !copySecurity && (copyAttributes ? IsCompressedCopyFile(attributes) : IsCrossVolumeMoveFile(attributes));
 }
 
+inline Operation FileTransferOperation(DWORD attributes, bool moving, bool copyAttributes, bool ignoreAds, bool copySecurity)
+{
+    if (moving)
+        return copyAttributes ? Operation::MoveCompressed : Operation::Move;
+    if (IsEncryptedCopyFile(attributes))
+        return Operation::CopyEncrypted;
+    if (copySecurity)
+        return copyAttributes ? Operation::CopyCompressedSecurity : Operation::CopySecurity;
+    if (copyAttributes)
+        return Operation::CopyCompressed;
+    return ignoreAds ? Operation::CopyIgnoreAds : Operation::Copy;
+}
+
+inline bool IsEligibleTransferSource(DWORD attributes, Operation operation)
+{
+    switch (operation)
+    {
+    case Operation::Copy:
+    case Operation::CopySecurity:
+        return IsNativeDefaultCopyFile(attributes);
+    case Operation::CopyIgnoreAds:
+        return IsNativePlainCopyFile(attributes);
+    case Operation::CopyCompressed:
+    case Operation::CopyCompressedSecurity:
+        return IsNativeCompressedCopyFile(attributes);
+    case Operation::CopyEncrypted:
+        return IsEncryptedCopyFile(attributes);
+    case Operation::CopyOverwrite:
+        return IsPlainCopyFile(attributes);
+    case Operation::Move:
+    case Operation::MoveAcrossVolume:
+        return IsCrossVolumeMoveFile(attributes);
+    case Operation::MoveCompressed:
+        return IsCompressedCopyFile(attributes);
+    default:
+        return false;
+    }
+}
+
 inline bool IsPlainDeleteLink(DWORD attributes, bool directory = false)
 {
     const DWORD required = FILE_ATTRIBUTE_REPARSE_POINT | (directory ? FILE_ATTRIBUTE_DIRECTORY : 0);
     const DWORD allowed = required | FILE_ATTRIBUTE_ARCHIVE;
     return (attributes & required) == required && !(attributes & ~allowed);
+}
+
+// Permanent deletion removes the object itself; its data representation is not read.
+// Keep the plain predicates above strict for transfer retirement and Recycle contracts.
+constexpr DWORD deleteObjectAttributes = basicAttributes | FILE_ATTRIBUTE_COMPRESSED |
+                                         FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ENCRYPTED;
+inline bool IsEligibleDeleteFile(DWORD attributes)
+{
+    return attributes == FILE_ATTRIBUTE_NORMAL || (attributes && !(attributes & ~deleteObjectAttributes));
+}
+inline bool IsEligibleDeleteDirectory(DWORD attributes)
+{
+    return (attributes & FILE_ATTRIBUTE_DIRECTORY) &&
+           !(attributes & ~(FILE_ATTRIBUTE_DIRECTORY | deleteObjectAttributes));
+}
+inline bool IsEligibleDeleteLink(DWORD attributes, bool directory = false)
+{
+    const DWORD required = FILE_ATTRIBUTE_REPARSE_POINT | (directory ? FILE_ATTRIBUTE_DIRECTORY : 0);
+    return (attributes & required) == required && !(attributes & ~(required | basicAttributes));
 }
 
 struct MetadataChange
@@ -728,7 +819,7 @@ public:
     static bool CaptureDirectoryIdentity(const std::wstring& path, MoveFileIdentity& identity);
     DWORD PrepareViewer(const std::wstring& path, PreparedLeaf& viewer,
                         DWORD expectedAttributes = INVALID_FILE_ATTRIBUTES);
-    DWORD PrepareTransferSource(const std::wstring& path, DWORD attributes, bool move, PreparedLeaf& request);
+    DWORD PrepareTransferSource(const std::wstring& path, DWORD attributes, Operation operation, PreparedLeaf& request);
     DWORD PrepareDeleteLeaf(const std::wstring& path, DWORD attributes, PreparedLeaf& request);
     DWORD PrepareMkdir(const std::wstring& path, PreparedLeaf& mkdir);
     DWORD PrepareRename(const std::wstring& path, const std::wstring& renameTo, PreparedLeaf& rename, bool directory);

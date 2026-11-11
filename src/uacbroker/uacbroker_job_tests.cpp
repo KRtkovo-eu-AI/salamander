@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exercise streamed native copy limits and ordinary attributes through the dispatcher. | Verify large scoped copies and cancellation while retaining bounded snapshot and overwrite contracts. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Exercise exact link identity in read-only panel sessions. | Verify type checking, scope isolation and referent preservation after deletion. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Test planned creation of an absent copy root. | Verify read-only planning, cancellation, exact scope, collision, and child copying. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Verify that a copy uses the source identity returned by its listing. | Reject substitution and deny listing to ordinary file jobs. | #731 | GPT-6.1 Sol |
@@ -1816,8 +1817,45 @@ void CheckCopyJob(const Directory& source, const Directory& target, const Direct
     constexpr wchar_t collision[] = L"exists";
     constexpr wchar_t second[] = L"\u6771-second";
     constexpr wchar_t third[] = L"outside";
+    constexpr wchar_t large[] = L"large-readonly-\u6771.bin";
+    constexpr ULONGLONG length = 20 * 1024 * 1024 + 17;
+    constexpr DWORD sourceAttributes = FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM;
+    struct ResetAttributes
+    {
+        std::wstring source, target;
+        ~ResetAttributes()
+        {
+            SetFileAttributesW(source.c_str(), FILE_ATTRIBUTE_NORMAL);
+            SetFileAttributesW(target.c_str(), FILE_ATTRIBUTE_NORMAL);
+        }
+    } reset{source.File(large), target.File(large)};
+    const auto patternedFile = [](const std::wstring& path, ULONGLONG count, bool write) {
+        const auto file = Adopt(CreateFileW(path.c_str(), write ? GENERIC_WRITE : GENERIC_READ,
+            FILE_SHARE_READ, nullptr, write ? CREATE_NEW : OPEN_EXISTING, 0, nullptr));
+        if (!file)
+            return false;
+        LARGE_INTEGER size{};
+        if (!write && (!GetFileSizeEx(file.get(), &size) || static_cast<ULONGLONG>(size.QuadPart) != count))
+            return false;
+        std::vector<BYTE> block(64 * 1024, 0x5c);
+        while (count)
+        {
+            const DWORD bytes = static_cast<DWORD>(std::min<ULONGLONG>(count, block.size()));
+            DWORD actual = 0;
+            if (write ? !WriteFile(file.get(), block.data(), bytes, &actual, nullptr)
+                      : !ReadFile(file.get(), block.data(), bytes, &actual, nullptr))
+                return false;
+            if (actual != bytes || (!write && !std::all_of(block.begin(), block.begin() + bytes,
+                                                          [](BYTE value) { return value == 0x5c; })))
+                return false;
+            count -= bytes;
+        }
+        return true;
+    };
     if (!WriteByte(source.File(collision), 1) || !WriteByte(target.File(collision), 9) ||
-        !WriteByte(source.File(second), 2) || !WriteByte(source.File(third), 3) || !job.Open())
+        !WriteByte(source.File(second), 2) || !WriteByte(source.File(third), 3) ||
+        !patternedFile(source.File(large), length, true) || !SetFileAttributesW(source.File(large).c_str(), sourceAttributes) ||
+        !job.Open())
     {
         Check(false, "prepare the real NTFS copy job");
         return;
@@ -1828,6 +1866,11 @@ void CheckCopyJob(const Directory& source, const Directory& target, const Direct
           "a scoped copy reports the collision and preserves the existing destination");
     Check(job.Request(Operation::Copy, source, second, error, &target) && !error && HasByte(target.File(second), 2),
           "the same broker accepts a later eligible item after the collision");
+    Check(job.Request(Operation::Copy, source, large, error, &target, nullptr, nullptr, false, nullptr, nullptr, length) &&
+              !error && patternedFile(source.File(large), length, false) && patternedFile(target.File(large), length, false) &&
+              GetFileAttributesW(source.File(large).c_str()) == sourceAttributes &&
+              GetFileAttributesW(target.File(large).c_str()) == (sourceAttributes | FILE_ATTRIBUTE_ARCHIVE),
+          "the same scoped dispatcher copies more than 16 MiB with read-only hidden system attributes");
     Check(!job.Request(Operation::Copy, source, third, error, &outside) && job.Finish() == ERROR_ACCESS_DENIED &&
               IsAbsent(outside.File(third)) && HasByte(source.File(third), 3),
           "a different destination parent is refused before mutation");
@@ -2381,9 +2424,23 @@ void CheckCrossVolumeBoundary(const Directory& source, const Directory& target)
           "accept a move request beyond the former 4 GiB limit");
     Check(TransferDeadline(Operation::MoveAcrossVolume) == MAXULONGLONG &&
               TransferDeadline(Operation::MoveCompressed) == MAXULONGLONG &&
-              TransferDeadline(Operation::FinishCrossVolumeMove) == MAXULONGLONG &&
-              TransferDeadline(Operation::Copy) != MAXULONGLONG,
-          "wait without a total deadline only for active cross-volume moves");
+              TransferDeadline(Operation::FinishCrossVolumeMove) == MAXULONGLONG,
+          "wait without a total deadline for active cross-volume moves");
+    Check(TransferDeadline(Operation::Copy) == MAXULONGLONG &&
+              TransferDeadline(Operation::CopyIgnoreAds) == MAXULONGLONG &&
+              TransferDeadline(Operation::CopyCompressed) == MAXULONGLONG &&
+              TransferDeadline(Operation::CopySecurity) == MAXULONGLONG &&
+              TransferDeadline(Operation::CopyCompressedSecurity) == MAXULONGLONG &&
+              TransferProgressLimit(Operation::Copy) == UacF7::maxNativeCopyBytes,
+          "stream native copies without a total deadline using signed 64-bit progress");
+    Check(TransferDeadline(Operation::CopyEncrypted) != MAXULONGLONG &&
+              TransferDeadline(Operation::CopyOverwrite) != MAXULONGLONG &&
+              TransferDeadline(Operation::CopyTree) != MAXULONGLONG &&
+              UacF7::NativeCopyByteLimit(Operation::CopyTree) == UacF7::maxPilotCopyBytes &&
+              TransferProgressLimit(Operation::CopyEncrypted) == 2 * UacF7::maxPilotCopyBytes &&
+              TransferProgressLimit(Operation::CopyOverwrite) == UacF7::maxPilotCopyBytes &&
+              TransferProgressLimit(Operation::CopyTree) == UacF7::maxPilotCopyBytes,
+          "keep bounded lifetime and progress for encrypted buffered copies, overwrite receipts and tree manifests");
     JobPipe oversized;
     Check(oversized.Open() && !oversized.Request(Operation::MoveAcrossVolume, source, leaf, error, &target,
               nullptr, nullptr, false, nullptr, nullptr, UacF7::maxCrossVolumeMoveBytes + 1) &&
@@ -2391,9 +2448,18 @@ void CheckCrossVolumeBoundary(const Directory& source, const Directory& target)
           "reject F6 above its limit before mutation");
     JobPipe copyLimit;
     Check(copyLimit.Open() && !copyLimit.Request(Operation::Copy, source, leaf, error, &target,
-              nullptr, nullptr, false, nullptr, nullptr, UacF7::maxPilotCopyBytes + 1) &&
+              nullptr, nullptr, false, nullptr, nullptr, UacF7::maxNativeCopyBytes + 1) &&
               copyLimit.Finish() == ERROR_INVALID_DATA && HasByte(source.File(leaf), 5) && IsAbsent(target.File(leaf)),
-          "keep the existing limit for F5 requests");
+          "reject native copy sizes beyond the signed 64-bit file range before mutation");
+    for (const auto operation : {Operation::CopyEncrypted, Operation::CopyOverwrite})
+    {
+        JobPipe bounded;
+        Check(bounded.Open() && !bounded.Request(operation, source, leaf, error, &target,
+                  nullptr, nullptr, false, nullptr, nullptr, UacF7::maxPilotCopyBytes + 1) &&
+                  bounded.Finish() == ERROR_INVALID_DATA && HasByte(source.File(leaf), 5) && IsAbsent(target.File(leaf)),
+              operation == Operation::CopyEncrypted ? "reject oversized encrypted buffered requests before mutation" :
+                                                       "reject oversized journaled overwrite requests before mutation");
+    }
     JobPipe compressed;
     Check(compressed.Open() && compressed.Request(Operation::MoveCompressed, source, leaf, error, &target) &&
               error == ERROR_NOT_SAME_DEVICE && HasByte(source.File(leaf), 5) && IsAbsent(target.File(leaf)),
@@ -2554,6 +2620,7 @@ int wmain()
     Check(CanReportTransferProgress(Operation::FinishCrossVolumeMove), "enable progress for F6 completion");
     CheckUnboundedTransferCancellation(Operation::MoveAcrossVolume);
     CheckUnboundedTransferCancellation(Operation::FinishCrossVolumeMove);
+    CheckUnboundedTransferCancellation(Operation::Copy);
     CheckMalformedTransferProgress();
     CheckRequestDelivery();
     CheckTransferReplies();

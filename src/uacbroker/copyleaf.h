@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Stream native copies beyond the snapshot budget and preserve ordinary attributes. | Keep read-only staging rollback armed without widening ZIP or EFS contracts. | | GPT-6.1 Sol |
 | 2026-11-09 | Hold the overwrite journal at copy publication. | Coordinate the final rename without locking during data transfer. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Carry the known total alongside copy progress. | Use the verified manifest or raw stream size when available. | | GPT-6.1 Sol (Codex) |
 | 2026-11-09 | Count staged copy bytes. | Report progress for regular, named and sparse streams. | | GPT-6.1 Sol (Codex) |
@@ -403,7 +404,8 @@ inline DWORD ReadDataStreams(HANDLE file, std::vector<DataStream>& streams, ULON
 using StreamHandle = std::unique_ptr<void, decltype(&CloseHandle)>;
 
 inline DWORD OpenDataStream(HANDLE parent, std::wstring_view leaf, const DataStream& stream, const FILE_ID_INFO& identity,
-                            bool create, StreamHandle& opened, bool preserveStorage = false, bool shareDelete = false)
+                            bool create, StreamHandle& opened, bool preserveStorage = false, bool shareDelete = false,
+                            bool nativeAttributes = false)
 {
     // The suffix came from FileStreamInfo and contains one validated component.
     // The base name is pinned by the caller. Open relative to its verified parent.
@@ -425,9 +427,12 @@ inline DWORD OpenDataStream(HANDLE parent, std::wstring_view leaf, const DataStr
     if (!UacRenameLeaf::Detail::SameSource(actual, identity) ||
         size.QuadPart < 0 || static_cast<ULONGLONG>(size.QuadPart) != (create ? 0 : stream.size))
         return ERROR_FILE_INVALID;
-    const bool supported = UacF7::IsPlainCopyFile(basic.FileAttributes) ||
-                           (preserveStorage && (UacF7::IsDefaultCopyFile(basic.FileAttributes) ||
-                                                UacF7::IsCompressedCopyFile(basic.FileAttributes)));
+    const DWORD attributes = basic.FileAttributes;
+    const bool supported = nativeAttributes
+        ? UacF7::IsNativePlainCopyFile(attributes) || (preserveStorage &&
+            (UacF7::IsNativeDefaultCopyFile(attributes) || UacF7::IsNativeCompressedCopyFile(attributes)))
+        : UacF7::IsPlainCopyFile(attributes) || (preserveStorage &&
+            (UacF7::IsDefaultCopyFile(attributes) || UacF7::IsCompressedCopyFile(attributes)));
     return supported ? ERROR_SUCCESS : ERROR_NOT_SUPPORTED;
 }
 
@@ -581,9 +586,9 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
         return ERROR_INVALID_PARAMETER;
     if ((preserveCompression || copySecurity) && policy == StreamPolicy::IgnoreNamed)
         return ERROR_INVALID_PARAMETER;
-    DWORD allowedAttributes = UacF7::plainCopyAttributes;
+    DWORD allowedAttributes = UacF7::nativeCopyAttributes;
     if (preserveCompression)
-        allowedAttributes = UacF7::compressedCopyAttributes;
+        allowedAttributes = moveTarget ? UacF7::compressedCopyAttributes : UacF7::nativeCompressedCopyAttributes;
     else if (moveTarget)
         allowedAttributes = UacF7::crossVolumeMoveAttributes;
     else if (location && policy == StreamPolicy::PreserveNamed)
@@ -598,7 +603,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     USHORT format = COMPRESSION_FORMAT_NONE;
     if (preserveCompression)
     {
-        if (!UacF7::IsCompressedCopyFile(basic.FileAttributes))
+        if (!UacF7::IsNativeCompressedCopyFile(basic.FileAttributes))
             return ERROR_NOT_SUPPORTED;
         if ((error = ReadCompression(source, format)) != ERROR_SUCCESS)
             return error;
@@ -608,7 +613,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
     LARGE_INTEGER size{};
     if (!GetFileSizeEx(source, &size))
         return GetLastError();
-    const ULONGLONG maxBytes = moveTarget ? UacF7::maxCrossVolumeMoveBytes : UacF7::maxPilotCopyBytes;
+    const ULONGLONG maxBytes = moveTarget ? UacF7::maxCrossVolumeMoveBytes : UacF7::maxNativeCopyBytes;
     if (size.QuadPart < 0 || static_cast<ULONGLONG>(size.QuadPart) > maxBytes)
         return ERROR_FILE_TOO_LARGE;
     if (expectedSize != MAXULONGLONG && static_cast<ULONGLONG>(size.QuadPart) != expectedSize)
@@ -644,7 +649,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             else
             {
                 StreamHandle input(nullptr, CloseHandle);
-                error = OpenDataStream(location->parent, location->leaf, stream, location->identity, false, input, true);
+                error = OpenDataStream(location->parent, location->leaf, stream, location->identity, false, input, true, false, true);
                 if (error)
                     return error;
                 inputs.push_back(input.get());
@@ -699,7 +704,7 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
             if (!GetFileInformationByHandleEx(input, FileBasicInfo, &streamBasic, sizeof(streamBasic)))
                 return GetLastError();
             const bool sparseStream = (streamBasic.FileAttributes & FILE_ATTRIBUTE_SPARSE_FILE) != 0;
-            if (!preserveStreamStorage && !UacF7::IsDefaultCopyFile(streamBasic.FileAttributes))
+            if (!preserveStreamStorage && !UacF7::IsNativeDefaultCopyFile(streamBasic.FileAttributes))
                 return ERROR_NOT_SUPPORTED;
             const bool verifyStorage = preserveStreamStorage || sparseStream;
             StreamHandle output(nullptr, CloseHandle);
@@ -754,6 +759,15 @@ inline DWORD CopyOpenedFile(HANDLE source, HANDLE targetParent, std::wstring_vie
                                                      : CopiedAttributes(basic.FileAttributes);
     if (!targetBasic.FileAttributes)
         targetBasic.FileAttributes = FILE_ATTRIBUTE_NORMAL;
+    if (targetBasic.FileAttributes & FILE_ATTRIBUTE_READONLY)
+    {
+        // Arm exact-handle cleanup before setting ReadOnly. This must remain
+        // effective if the process dies, not only while C++ destructors run.
+        FILE_DISPOSITION_INFO_EX rollback{FILE_DISPOSITION_FLAG_DELETE | FILE_DISPOSITION_FLAG_ON_CLOSE |
+                                          FILE_DISPOSITION_FLAG_IGNORE_READONLY_ATTRIBUTE};
+        if (!SetFileInformationByHandle(target.get(), FileDispositionInfoEx, &rollback, sizeof(rollback)))
+            return GetLastError();
+    }
     if (!SetFileInformationByHandle(target.get(), FileBasicInfo, &targetBasic, sizeof(targetBasic)) || !FlushFileBuffers(target.get()))
         return GetLastError();
     if (sparse)

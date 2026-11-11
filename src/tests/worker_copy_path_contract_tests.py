@@ -1,6 +1,8 @@
 ﻿# SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Follow the shared operation selector for compressed moves. | Preserve the exact MoveCompressed route after removing duplicate host selection. | #731 | GPT-6.1 Sol |
 # | 2026-11-11 | Check opened source identities and exact tree-copy consent. | Cover the protected tree regression and avoid a second application prompt. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Guard the error reported when the copy broker is unavailable. | Retain the original file-system error in the ordinary fallback. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Check that a planned root never falls back to local mutation. | Cover collision and broker disconnection in the host routing. | #731 | GPT-6.1 Sol |
@@ -200,7 +202,11 @@ class WorkerCopyPathContracts(unittest.TestCase):
         transfer = section(text("worker.cpp"), "static bool TryTransferWithBroker(", "static bool PrepareWorkerOverwrite(")
         eligible = transfer.split("request.Prepare(", 1)[0]
         self.assertIn("IsEligibleMoveFile(op.Attr, script.CopyAttrs, script.CopySecurity)", eligible)
-        self.assertIn("Operation::MoveCompressed", eligible)
+        self.assertIn("UacF7::FileTransferOperation(op.Attr, moving, script.CopyAttrs,", eligible)
+        self.assertIn("script.IgnoreTransferAds, script.CopySecurity)", eligible)
+        selector = section(text("uacbroker/f7pilot.h"), "inline Operation FileTransferOperation(", "inline bool IsPlainDeleteLink(")
+        self.assertIn("if (moving)", selector)
+        self.assertIn("return copyAttributes ? Operation::MoveCompressed : Operation::Move;", selector)
         self.assertNotIn("OPFL_COPY_ADS", eligible.replace("(op.OpFlags & OPFL_COPY_ADS)", "", 1))
         self.assertIn("moving && !directory && !request.IsCrossVolumeMove()", transfer)
         self.assertIn("OPFL_UAC_TRANSFER_SOURCE | OPFL_COPY_ADS", transfer)

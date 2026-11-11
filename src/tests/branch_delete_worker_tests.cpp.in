@@ -1,5 +1,7 @@
 ﻿// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Include the production Hidden/System delete confirmation. | Keep the existing Cancel and Skip filesystem assertions on the shared helper. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Exercise the production permanent directory finalizer. | Verify long and Unicode names, exact trailing dots, and unaffected neighbors. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Exercise Branch View retry at the actual delete worker failure. | Verify cancellation and keep native progress accounting unchanged. | #731 | GPT-6.1 Sol |
 // | 2026-11-09 | Check the locked source without reopening it. | Keep the lock-recovery test compatible with its exclusive test handle. | https://github.com/KRtkovo-eu-AI/salamander/pull/842 | openai/gpt-5.6-luna-pro |
@@ -61,6 +63,7 @@ static BOOL TestDeleteFileW(const wchar_t* path)
     return FALSE;
 }
 #define DeleteFileW TestDeleteFileW
+@@DELETE_CONFIRM@@
 @@DELETE@@
 static void MakeCopyWithBackslashIfNeeded(const char*&, char*) {throw std::logic_error("unexpected ANSI directory path");}
 static void ClearReadOnlyAttr(const char*, DWORD) {throw std::logic_error("unexpected ANSI attribute path");}

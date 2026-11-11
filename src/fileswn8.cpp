@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Preview permanent-delete elevation for supported native attributes. | Match the confirmation shield to the verified delete executor. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Preview verified protected F5 destinations for a plain tree. | Show the shield when the selected root is absent and creation is denied. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Enable the rooted transfer worker for a plain single-directory F5. | Keep registered atomic copies and unsupported options on their existing paths. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Defer missing protected targets for same-volume directory moves. | Use the existing verified destination chain for atomic F6. | #731 | GPT-6.1 Sol |
@@ -1019,12 +1020,13 @@ void CFilesWindow::FilesAction(CActionType type, CFilesWindow* target, int count
         {
             const DWORD attributes = f->Attr;
             const bool directory = (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-            if (UacF7::IsPlainDeleteFile(attributes) || UacF7::IsPlainDeleteDirectory(attributes) ||
-                UacF7::IsPlainDeleteLink(attributes, directory))
+            if (UacF7::IsEligibleDeleteFile(attributes) || UacF7::IsEligibleDeleteDirectory(attributes) ||
+                UacF7::IsEligibleDeleteLink(attributes, directory))
             {
                 const std::wstring selectedPath = SalPathRemoveExtendedPrefixW(GetItemFullPathW(*f).c_str());
                 const bool inListing = protectedDeleteSource() && ProtectedListing->Contains(selectedPath);
-                const DWORD access = ProbeLocalElevationAccess(selectedPath, DELETE, directory);
+                const DWORD deleteAccess = DELETE | ((attributes & FILE_ATTRIBUTE_READONLY) ? FILE_WRITE_ATTRIBUTES : 0);
+                const DWORD access = ProbeLocalElevationAccess(selectedPath, deleteAccess, directory);
                 if (inListing || access == ERROR_ACCESS_DENIED)
                 {
 #ifdef new

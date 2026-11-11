@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Route native large-file transfers through shared eligibility. | Offer UAC without applying snapshot limits to streamed file copies. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Pass explicit retry to the leaf consent dialog. | Allow the user to reconsider a previous refusal from the usual error dialog. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Use prepared delete identities for all direct selection types. | Keep a failed identity preparation in the error flow and allow only exact verified retry. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Remove a permanent-delete directory by its owned wide name. | Keep Unicode and long paths through the normal attempt and elevated retry. | #731 | GPT-6.1 Sol |
@@ -5949,14 +5950,13 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
               !script.CopyAttrs && !script.CopySecurity
         : UacF7::IsEligibleMoveFile(op.Attr, script.CopyAttrs, script.CopySecurity);
     const bool encrypted = !moving && UacF7::IsEncryptedCopyFile(op.Attr);
-    const bool compressedMove = moving && script.CopyAttrs && UacF7::IsCompressedCopyFile(op.Attr);
     if (!(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) || script.OverwriteOlder || dlgData.ConflictDecisionInjected ||
         ((op.OpFlags & OPFL_AS_ENCRYPTED) != 0 && !encrypted) ||
         !op.SourceNameWValid || !op.TargetNameWValid ||
         (directoryCopy ? (op.Attr != FILE_ATTRIBUTE_DIRECTORY || (op.OpFlags & OPFL_COPY_ADS)) :
          moving ? !eligibleMove
                 : (!UacF7::IsEligibleFileCopy(op.Attr, script.CopyAttrs, script.IgnoreTransferAds, script.CopySecurity) ||
-                   op.FileSize.Value > UacF7::maxPilotCopyBytes)))
+                   op.FileSize.Value > (encrypted ? UacF7::maxPilotCopyBytes : UacF7::maxNativeCopyBytes))))
         return false;
 
     BOOL limited = FALSE;
@@ -5993,26 +5993,17 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
             return false;
     }
 
-    auto operation = UacF7::Operation::Copy;
+    auto operation = UacF7::FileTransferOperation(op.Attr, moving, script.CopyAttrs,
+                                                 script.IgnoreTransferAds, script.CopySecurity);
     if (directoryCopy)
         operation = UacF7::Operation::CopyDirectoryEntry;
     else if (directory)
         operation = UacF7::Operation::MoveDirectory;
-    else if (moving)
-        operation = compressedMove ? UacF7::Operation::MoveCompressed : UacF7::Operation::Move;
-    else if (encrypted)
-        operation = UacF7::Operation::CopyEncrypted;
-    else if (script.CopySecurity)
-        operation = script.CopyAttrs ? UacF7::Operation::CopyCompressedSecurity : UacF7::Operation::CopySecurity;
-    else if (script.CopyAttrs)
-        operation = UacF7::Operation::CopyCompressed;
-    else if (script.IgnoreTransferAds)
-        operation = UacF7::Operation::CopyIgnoreAds;
     UacF7::PreparedTransfer request;
     const ULONGLONG expectedSize = directoryCopy ? 0 : op.FileSize.Value;
     if (!request.Prepare(op.SourceNameW, op.TargetNameW, expectedSize, operation, listedSource, deferred) ||
         (moving && !directory && !request.IsCrossVolumeMove() && !listedSource &&
-         ((op.OpFlags & (OPFL_UAC_TRANSFER_SOURCE | OPFL_COPY_ADS)) != 0 || !UacF7::IsPlainDeleteFile(op.Attr))))
+         ((op.OpFlags & (OPFL_UAC_TRANSFER_SOURCE | OPFL_COPY_ADS)) != 0 || !UacF7::IsPlainCopyFile(op.Attr))))
     {
         if (listedSource || deferred)
             error = ERROR_NOT_SUPPORTED;
@@ -8189,6 +8180,40 @@ static bool TryDeleteVerifiedLeaf(HWND progress, const COperation& op, COperatio
                                   CProgressDlgData& dlgData, BOOL& success, bool* nonEmptyDirectory = nullptr,
                                   bool accessDenied = false);
 
+enum class FileDeleteDecision { Proceed, Skip, Cancel };
+
+static FileDeleteDecision ConfirmDeleteFileAttributes(HWND progress, char* name, DWORD attr,
+                                                       CProgressDlgData& dlgData)
+{
+    if (!(attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) ||
+        dlgData.DeleteHiddenAll || !dlgData.CnfrmSHFileDel)
+        return FileDeleteDecision::Proceed;
+    WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
+    if (*dlgData.CancelWorker)
+        return FileDeleteDecision::Cancel;
+    if (dlgData.SkipAllSystemOrHidden)
+        return FileDeleteDecision::Skip;
+    int result = IDCANCEL;
+    char* data[4] = {reinterpret_cast<char*>(&result), LoadStr(IDS_CONFIRMSHFILEDELETE),
+                     name, LoadStr(IDS_DELETESHFILE)};
+    SendMessage(progress, WM_USER_DIALOG, 2, reinterpret_cast<LPARAM>(data));
+    switch (result)
+    {
+    case IDB_ALL:
+        dlgData.DeleteHiddenAll = TRUE;
+        return FileDeleteDecision::Proceed;
+    case IDYES:
+        return FileDeleteDecision::Proceed;
+    case IDB_SKIPALL:
+        dlgData.SkipAllSystemOrHidden = TRUE;
+        return FileDeleteDecision::Skip;
+    case IDB_SKIP:
+        return FileDeleteDecision::Skip;
+    default:
+        return FileDeleteDecision::Cancel;
+    }
+}
+
 BOOL DoDeleteFile(HWND hProgressDlg, char* name, const CQuadWord& size, COperations* script,
                   CQuadWord& totalDone, DWORD attr, CProgressDlgData& dlgData, const wchar_t* exactName,
                   const COperation* branchRow = nullptr)
@@ -8203,40 +8228,11 @@ BOOL DoDeleteFile(HWND hProgressDlg, char* name, const CQuadWord& size, COperati
     {
         if (!invalidName)
         {
-            if (attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM))
+            switch (ConfirmDeleteFileAttributes(hProgressDlg, name, attr, dlgData))
             {
-                if (!dlgData.DeleteHiddenAll && dlgData.CnfrmSHFileDel)
-                {
-                    WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
-                    if (*dlgData.CancelWorker)
-                        return FALSE;
-
-                    if (dlgData.SkipAllSystemOrHidden)
-                        goto SKIP_DELETE;
-
-                    int ret = IDCANCEL;
-                    char* data[4];
-                    data[0] = (char*)&ret;
-                    data[1] = LoadStr(IDS_CONFIRMSHFILEDELETE);
-                    data[2] = name;
-                    data[3] = LoadStr(IDS_DELETESHFILE);
-                    SendMessage(hProgressDlg, WM_USER_DIALOG, 2, (LPARAM)data);
-                    switch (ret)
-                    {
-                    case IDB_ALL:
-                        dlgData.DeleteHiddenAll = TRUE;
-                    case IDYES:
-                        break;
-
-                    case IDB_SKIPALL:
-                        dlgData.SkipAllSystemOrHidden = TRUE;
-                    case IDB_SKIP:
-                        goto SKIP_DELETE;
-
-                    case IDCANCEL:
-                        return FALSE;
-                    }
-                }
+            case FileDeleteDecision::Skip: goto SKIP_DELETE;
+            case FileDeleteDecision::Cancel: return FALSE;
+            case FileDeleteDecision::Proceed: break;
             }
             WorkerClearReadOnlyW(nameW, attr); // ensure it can be deleted
 
@@ -9792,6 +9788,17 @@ static bool TryDeleteVerifiedLeaf(HWND progress, const COperation& op, COperatio
             if (!localRequest.PrepareDeleteLeaf(op.SourceNameW, op.Attr))
                 return false;
             request = &localRequest;
+        }
+    }
+    // The ordinary worker already confirmed H/S on a late access-denied retry.
+    // Direct verified deletion must honor the same choice before any mutation.
+    if (!accessDenied && op.Opcode == ocDeleteFile)
+    {
+        const auto decision = ConfirmDeleteFileAttributes(progress, op.SourceName, op.Attr, dlgData);
+        if (decision != FileDeleteDecision::Proceed)
+        {
+            success = decision == FileDeleteDecision::Skip;
+            return true;
         }
     }
     const int errorTitle = op.Opcode == ocDeleteDirLink ? IDS_ERRORDELETINGDIRLINK :
