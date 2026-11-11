@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Record in-place overwrite failure boundaries. | Keep data-loss prevention separate from unproven transactional recovery. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record the batch overwrite coordination boundary. | Avoid treating disabled Scan Ahead as proof of serial execution. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record the F5 existing-target probe and scoped source receipt. | Separate local seam results from unresolved real UAC acceptance. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record the NTFS overwrite reachability probe. | Keep the untested common file-exists path visible in the remaining work. | #731 | GPT-6 (Codex) |
@@ -630,6 +631,8 @@ Ve zkoušce 36/36 v Debug i Release běží skutečný host controller a message
 Na čistém commitu `6580a8e6` prošly x64 i Win32 buildy hosta a brokeru v Debug i Release; každý vrátil exit 0. Integrovaný `3353a095` má shodný kód. Logy jsou v `C:\Samandarin\builds\uac-targetexists-6580a8e6`. Build sám neověřuje běh ani systémový souhlas.
 
 Před rozšířením na více položek je nutné koordinovat i paralelní kopie: vypnutý Scan Ahead sám nezaručuje sériový běh. Jedna session smí mít jen jeden čekající probe; pro další přepisy je třeba zachovat nativní All/Skip All i ověření každé revize a nevracet se po zavedení přísného režimu k neověřenému přepisu. Jde o návrhovou hranici, nikoli hotovou dávkovou podporu.
+
+**Otevřená ochrana existujícího cíle.** Statický audit zjistil, že paralelní `ReplaceTarget` po zkrácení existujícího souboru může při selhání zkusit smazat jeho položku. Sériová `DoCopyFile` také používá přímý přepis a její chybové cesty mohou cíl smazat; samotné přepnutí na sériovou cestu tedy neprokazuje zachování původního obsahu. Úplná ochrana vyžaduje samostatný návrh transakčního publikování a zotavení, včetně identity, nativních konfliktů, souběhu, ACL, ADS a dalších požadovaných metadat. Dosavadní lokální analýza neprokazuje obecnou atomickou obnovu ani skutečné UAC; takové řešení zatím není implementováno.
 
 Srovnatelný Release host proti předchozímu buildu má 5 794 816 místo 5 789 184 B (+5 632 B); broker se tímto blokem nemění. Celoprocesové měření soukromé paměti při běžné a elevované úloze zůstává pro společnou akceptaci otevřené.
 
