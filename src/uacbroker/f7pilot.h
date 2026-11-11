@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Expose a scoped transfer source and job opening for a reviewed retry. | Reject source substitution and a replaced broker session. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Bind reviewed overwrite to a single live session. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Define scoped two-phase overwrite probe messages. | Tie renewed consent to a broker-observed item. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Compare prepared copy source and parent identities. | Bind host-generated output to its pinned source. | #731 | GPT-6.1 Sol |
@@ -729,6 +730,7 @@ public:
     TransferJobSession& operator=(const TransferJobSession&) = delete;
     ~TransferJobSession();
     bool IsOpen() const { return pipe != nullptr; }
+    ULONGLONG OpeningGeneration() const { return IsOpen() ? openGeneration : 0; }
     void Close();
     bool NeedsTreeRoot() const { return scope.NeedsTreeRoot(); }
     DWORD ListTreeSource(std::wstring_view relative, const MoveFileIdentity& directory,
@@ -817,6 +819,15 @@ public:
     {
         return identity.serial == target.serial &&
                std::memcmp(identity.id, target.fileId, sizeof(identity.id)) == 0;
+    }
+    void SourceIdentities(MoveFileIdentity& identity, MoveFileIdentity& parent) const
+    {
+        identity.serial = parent.serial = source.serial;
+        for (size_t i = 0; i < sizeof(identity.id); ++i)
+        {
+            identity.id[i] = source.sourceId[i];
+            parent.id[i] = source.fileId[i];
+        }
     }
     bool MatchesSourceIdentity(const MoveFileIdentity& identity, const MoveFileIdentity& parent) const
     {

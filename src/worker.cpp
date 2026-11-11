@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Probe an unreadable existing singleton F5 target before its conflict dialog. | Offer a scoped UAC choice only after a concrete access denial. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Route eligible singleton F5 overwrite through a scoped probe. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Retry one denied F5 overwrite through a reviewed probe. | Preserve scoped consent and the native conflict dialog. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Apply conflict choices atomically against their captured snapshot. | Reject stale modal results and keep Apply All scoped to the current conflict. | #731 | GPT-6.1 Terra |
@@ -5919,10 +5920,19 @@ static UacF7::Result ExecuteWithNativeTransferProgress(const UacF7::PreparedTran
     return result;
 }
 
+struct CreateOnlySourceReceipt
+{
+    UacF7::MoveFileIdentity source{}, parent{};
+    UacF7::TransferJobSession* session = nullptr;
+    ULONGLONG opening = 0;
+};
+
 static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperations& script,
                                   CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success,
-                                  UacF7::PreparedTransfer& request, DWORD& error, bool targetDenied = false)
+                                  UacF7::PreparedTransfer& request, DWORD& error, bool targetDenied = false,
+                                  CreateOnlySourceReceipt* receipt = nullptr)
 {
+    if (receipt) *receipt = {};
     const bool moving = request.IsMove();
     success = FALSE;
     WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE);
@@ -5934,8 +5944,18 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
     const auto targetDisplay = SalPathRemoveExtendedPrefixW(op.TargetNameW.c_str());
     const auto sourceText = SalWideToMultiBytePath(sourceDisplay.c_str(), CP_UTF8);
     const auto targetText = SalWideToMultiBytePath(targetDisplay.c_str(), CP_UTF8);
-    const bool shareJob = (script.Count > 1 || request.HasDeferredTarget() || request.IsDirectoryCopyEntry()) &&
-                          request.CanShareJob();
+    // Keep the create-only job for the supported single-file F5 probe: a
+    // racing existing target must be reviewed on this same scoped session.
+    const bool singleProbeJob = script.Count == 1 && op.Opcode == ocCopyFile &&
+        (op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) && !(op.OpFlags & OPFL_AS_ENCRYPTED) &&
+        !(op.Attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) &&
+        UacF7::IsNativePlainCopyFile(op.Attr) && !request.IsOverwrite() && !request.IsTree() &&
+        !request.IsDirectoryCopyEntry() && !request.PreservesSecurity() && !request.PreservesCompression() &&
+        !request.PreservesEncryption() && !script.OverwriteOlder && !script.CopySecurity && !script.CopyAttrs &&
+        script.CopyMoveConflictMode != CMCM_SCAN_AHEAD && dlgData.CnfrmFileOver &&
+        !dlgData.OverwriteAll && !dlgData.SkipAllOverwrite && !dlgData.ConflictDecisionInjected;
+    const bool shareJob = (script.Count > 1 || request.HasDeferredTarget() || request.IsDirectoryCopyEntry() ||
+                           singleProbeJob) && request.CanShareJob();
     auto& jobs = dlgData.TransferJobs;
     auto existing = shareJob ? std::find_if(jobs.begin(), jobs.end(), [&](const auto& job) { return request.IsInJob(job); })
                              : jobs.end();
@@ -5984,14 +6004,20 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
         return ExecuteWithNativeTransferProgress(request, progress, cancel,
             planned ? planned : existing != jobs.end() ? &*existing : nullptr, op, script, dlgData, totalDone);
     }();
-    if (WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0 || result.unknown || result.error == ERROR_CANCELLED)
+    const bool cancelled = WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0 ||
+                           *dlgData.CancelWorker || result.error == ERROR_CANCELLED;
+    if (cancelled || result.unknown)
     {
         jobs.clear();
+        existing = jobs.end();
         if (planned)
             planned->Close();
     }
     else if (existing != jobs.end() && !existing->IsOpen())
+    {
         jobs.erase(existing);
+        existing = jobs.end();
+    }
     if (result.unknown)
     {
         const WPARAM message = request.NeedsDiskRecoveryWarning(result) ?
@@ -6001,7 +6027,17 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
     }
     if (result.error != ERROR_SUCCESS)
     {
-        error = result.error;
+        error = cancelled ? ERROR_CANCELLED : result.error;
+        if (!cancelled && receipt && singleProbeJob && (error == ERROR_FILE_EXISTS || error == ERROR_ALREADY_EXISTS))
+        {
+            auto* used = planned ? planned : existing != jobs.end() ? &*existing : nullptr;
+            if (used && used->OpeningGeneration() && request.IsInJob(*used))
+            {
+                request.SourceIdentities(receipt->source, receipt->parent);
+                receipt->session = used;
+                receipt->opening = used->OpeningGeneration();
+            }
+        }
         if (error == ERROR_FILE_INVALID && request.IsOverwrite() && dlgData.ConflictDecisionInjected)
         {
             dlgData.ConflictTargetChanged = TRUE;
@@ -6038,8 +6074,9 @@ static const COperations::ProtectedFileSource* ListedTransferSource(const COpera
 
 static bool TryTransferWithBroker(HWND progress, const COperation& op, COperations& script,
                               CQuadWord& totalDone, CProgressDlgData& dlgData, BOOL& success, DWORD& error,
-                              HANDLE* input = nullptr, bool targetDenied = false)
+                              HANDLE* input = nullptr, bool targetDenied = false, CreateOnlySourceReceipt* receipt = nullptr)
 {
+    if (receipt) *receipt = {};
     const bool directory = op.Opcode == ocMoveDir;
     const bool directoryCopy = op.Opcode == ocCreateDir;
     const bool moving = op.Opcode == ocMoveFile || directory;
@@ -6114,7 +6151,7 @@ static bool TryTransferWithBroker(HWND progress, const COperation& op, COperatio
         HANDLES(CloseHandle(*input));
         *input = INVALID_HANDLE_VALUE;
     }
-    return ExecuteWorkerTransfer(progress, op, script, totalDone, dlgData, success, request, error, targetDenied);
+    return ExecuteWorkerTransfer(progress, op, script, totalDone, dlgData, success, request, error, targetDenied, receipt);
 }
 
 static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
@@ -6194,7 +6231,7 @@ static UacF7::ProbedOverwriteDecision PromptSingleProbedOverwrite(void* raw, con
 static SourceOverwriteResult TrySingleProbedOverwrite(HWND progress, COperation& op, COperations& script,
                                                        CQuadWord& totalDone, CProgressDlgData& data,
                                                        const UacF7::OverwriteApproval& prior, DWORD& error,
-                                                       bool targetDenied, bool previousUserDecision)
+                                                       bool targetDenied, bool previousUserDecision, const CreateOnlySourceReceipt* receipt = nullptr)
 {
     using Outcome = SourceOverwriteResult;
     if (!targetDenied || previousUserDecision || prior.captured || !data.CnfrmFileOver ||
@@ -6218,10 +6255,28 @@ static SourceOverwriteResult TrySingleProbedOverwrite(HWND progress, COperation&
         UacF7::PreparedTransfer request;
         if (!request.PrepareOverwriteProbe(op.SourceNameW, op.TargetNameW, op.FileSize.Value,
                                            listed ? listed->Request.get() : nullptr, script.IgnoreTransferAds != FALSE))
+        {
+            if (receipt) { error = ERROR_FILE_INVALID; return Outcome::Failed; }
             return Outcome::Unavailable;
+        }
+        if (receipt && !request.MatchesSourceIdentity(receipt->source, receipt->parent))
+        {
+            error = ERROR_FILE_INVALID;
+            return Outcome::Failed;
+        }
         auto& jobs = data.TransferJobs;
         auto existing = std::find_if(jobs.begin(), jobs.end(), [&](const auto& job) { return request.IsInJob(job); });
         auto* planned = script.CopySource && script.CopySource->Session ? script.CopySource->Session.get() : nullptr;
+        if (receipt)
+        {
+            auto* current = planned ? planned : existing != jobs.end() ? &*existing : nullptr;
+            if (!current || current != receipt->session || !receipt->opening ||
+                current->OpeningGeneration() != receipt->opening || !request.IsInJob(*current))
+            {
+                error = ERROR_FILE_INVALID;
+                return Outcome::Failed;
+            }
+        }
         if (planned && (!planned->IsOpen() || !request.IsInJob(*planned))) return Outcome::Unavailable;
         const auto sourceDisplay = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
         const auto targetDisplay = SalPathRemoveExtendedPrefixW(op.TargetNameW.c_str());
@@ -6425,6 +6480,7 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
     BOOL invalidTgtName = FileNameIsInvalid(op->TargetName, TRUE);
 
     UacF7::OverwriteApproval approvedOverwrite{};
+    CreateOnlySourceReceipt createOnlyReceipt{};
     bool previousNativeOverwriteConfirmed = false;
     const bool deferred = script->DeferredTransferTarget.has_value();
     if (deferred || (op->OpFlags & OPFL_UAC_TRANSFER_SOURCE) != 0)
@@ -6648,7 +6704,7 @@ COPY_AGAIN:
                         !dlgData.SkipAllFileOpenOut && GetLastError() == ERROR_ACCESS_DENIED)
                     {
                         BOOL success = FALSE;
-                        if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, transferError, &in, true))
+                        if (TryTransferWithBroker(hProgressDlg, *op, *script, totalDone, dlgData, success, transferError, &in, true, &createOnlyReceipt))
                         {
                             if (in != INVALID_HANDLE_VALUE)
                                 HANDLES(CloseHandle(in));
@@ -7310,6 +7366,32 @@ COPY_AGAIN:
                                 }
                                 else
                                 {
+                                    const DWORD targetOpenError = GetLastError();
+                                    // CREATE_NEW can report FILE_EXISTS before checking the
+                                    // existing file's ACL. Only the actual metadata open's
+                                    // denial justifies the scoped, pre-dialog broker probe.
+                                    if (targetExists && !transferError && !isMove && !copyAsEncrypted &&
+                                        targetOpenError == ERROR_ACCESS_DENIED &&
+                                        (!brokerTargetAppeared || createOnlyReceipt.opening))
+                                    {
+                                        DWORD probeError = ERROR_SUCCESS;
+                                        const auto result = TrySingleProbedOverwrite(hProgressDlg, *op, *script,
+                                            totalDone, dlgData, approvedOverwrite, probeError, true,
+                                            previousNativeOverwriteConfirmed,
+                                            brokerTargetAppeared ? &createOnlyReceipt : nullptr);
+                                        if (result == SourceOverwriteResult::Finished)
+                                            return TRUE;
+                                        if (result == SourceOverwriteResult::Skipped)
+                                            goto SKIP_OPEN;
+                                        if (result == SourceOverwriteResult::Cancelled)
+                                            goto CANCEL_OPEN;
+                                        if (result == SourceOverwriteResult::Failed)
+                                        {
+                                            in = INVALID_HANDLE_VALUE; // the source handle was already closed
+                                            err = probeError;
+                                            goto NORMAL_ERROR;
+                                        }
+                                    }
                                     canElevateOverwrite = false;
                                     getTimeFailed = TRUE;
                                     strcpy(tAttr, LoadStr(IDS_ERR_FILEOPEN));

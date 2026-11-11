@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Exercise the existing-target identity-open path. | Verify real NTFS access denial at the worker call site. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Exercise denied F5 call-site outcomes. | Verify routing and progress at the real worker branch. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Extend singleton overwrite regression coverage. | Preserve cancellation, lifetime and prompt behavior. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Exercise the single F5 worker through the real host probe controller. | Verify choices, accounting and stop before wiring the full application. | #731 | GPT-6.1 Terra |
@@ -9,7 +10,9 @@
 // a fake success never mutates a file or proves privileged publication.
 // The caller test also forces the prior overwrite preparation to fail and
 // substitutes skipped-file bookkeeping; the rest of DoCopyFile is not run.
+#define _CRT_SECURE_NO_WARNINGS
 #define SAM_UAC_F7_HOST
+#include <aclapi.h>
 #include <thread>
 #include <list>
 #include "uac_single_worker_fixture.cpp"
@@ -25,7 +28,24 @@ volatile LONG* cancelFlag = nullptr;
 int starts = 0, prompts = 0, consents = 0, unknownDialogs = 0;
 int unknownWhileCancelled = 0;
 bool gotCommit = false, gotAbort = false, fakeOk = false;
+bool restoreTraverseOnPeer = false;
+bool initialCreateOnly = false, initialCopySeen = false, expectSourceRejection = false;
 std::wstring sourceFile, targetFile;
+
+bool ToggleTraversePrivilege(bool enabled)
+{
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_ADJUST_PRIVILEGES, &token)) return false;
+    LUID luid{};
+    const bool found = LookupPrivilegeValueW(nullptr, L"SeChangeNotifyPrivilege", &luid) != FALSE;
+    TOKEN_PRIVILEGES privileges{};
+    privileges.PrivilegeCount = 1; privileges.Privileges[0].Luid = luid;
+    privileges.Privileges[0].Attributes = enabled ? SE_PRIVILEGE_ENABLED : 0;
+    SetLastError(ERROR_SUCCESS);
+    const bool ok = found && AdjustTokenPrivileges(token, FALSE, &privileges, 0, nullptr, nullptr) && GetLastError() == ERROR_SUCCESS;
+    CloseHandle(token);
+    return ok;
+}
 
 HANDLE StartRunProbeFakePeer(const std::wstring& name)
 {
@@ -44,11 +64,25 @@ HANDLE StartRunProbeFakePeer(const std::wstring& name)
             !Matches(accept, Phase::AcceptTransferJob, appCapabilities)) return;
         RequestHeader request{};
         if (TransferRequest(pipe.get(), &request, sizeof(request), false, deadline)) return;
-        const size_t chars = volumeLength * 2 + request.relativeLength + request.leafLength +
-                             request.targetRelativeLength + request.targetLeafLength;
-        std::wstring body(chars, L'\0');
-        if (TransferRequest(pipe.get(), body.data(), static_cast<DWORD>(chars * sizeof(wchar_t)), false, deadline) ||
-            request.operation != Operation::ProbeOverwrite) return;
+        auto readBody = [&](const RequestHeader& current) {
+            const size_t chars = volumeLength * 2 + current.relativeLength + current.leafLength +
+                                 current.targetRelativeLength + current.targetLeafLength;
+            std::wstring body(chars, L'\0');
+            return TransferRequest(pipe.get(), body.data(), static_cast<DWORD>(chars * sizeof(wchar_t)), false, deadline);
+        };
+        if (readBody(request)) return;
+        if (initialCreateOnly)
+        {
+            if (request.operation != Operation::Copy) return;
+            initialCopySeen = true;
+            DWORD exists = ERROR_FILE_EXISTS;
+            if (TransferRequest(pipe.get(), &exists, sizeof(exists), true, deadline)) return;
+            const DWORD nextError = TransferRequest(pipe.get(), &request, sizeof(request), false, deadline);
+            if (nextError) { fakeOk = expectSourceRejection; return; }
+            if (readBody(request)) return;
+        }
+        if (request.operation != Operation::ProbeOverwrite) return;
+        if (restoreTraverseOnPeer && !ToggleTraversePrivilege(true)) return;
         auto open = [](const std::wstring& path) {
             return Adopt(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
@@ -220,6 +254,7 @@ static LRESULT TestMessage(HWND, UINT message, WPARAM kind, LPARAM value)
 }
 
 @@DECISION@@
+@@RECEIPT@@
 @@PROMPT_STATE@@
 #undef SendMessage
 #define SendMessage TestMessage
@@ -236,6 +271,8 @@ static SourceOverwriteResult ConfirmBrokerOverwriteAttributes(HWND, COperation&,
 static bool ExecuteWorkerTransfer(HWND, COperation&, COperations&, CQuadWord&, CProgressDlgData&, BOOL&,
                                   UacF7::PreparedTransfer&, DWORD&, bool) { return false; }
 @@PARENT_OVERWRITE@@
+constexpr int IDS_ERR_FILEOPEN = 1;
+static const char* LoadStr(int) { return "file-open-error"; }
 static int skippedAccounting = 0;
 static void SetTFSandPSforSkippedFile(COperation* op, CQuadWord& last, COperations* script, CQuadWord total)
 { ++skippedAccounting; last += op->FileSize; script->SetTFSandProgressSize(last, total); }
@@ -255,6 +292,30 @@ SKIP_OPEN:
 NORMAL_ERROR:
     return -1; // seam: original worker continues its normal error handling
 }
+static int RunTargetExistsCallSite(HWND hProgressDlg, COperation* op, COperations* script, CQuadWord& totalDone,
+                                   CProgressDlgData& dlgData, BOOL& skipValue, DWORD& err,
+                                   const CreateOnlySourceReceipt* receipt = nullptr)
+{
+    HANDLE out = INVALID_HANDLE_VALUE;
+    HANDLE in = nullptr; // actual worker has closed the source before this branch
+    const bool targetExists = err == ERROR_FILE_EXISTS || err == ERROR_ALREADY_EXISTS;
+    DWORD transferError = 0; bool isMove = false, copyAsEncrypted = false;
+    bool canElevateOverwrite = false, previousNativeOverwriteConfirmed = false;
+    bool brokerTargetAppeared = receipt != nullptr;
+    CreateOnlySourceReceipt createOnlyReceipt = receipt ? *receipt : CreateOnlySourceReceipt{};
+    UacF7::PreparedTransfer overwrite;
+    UacF7::OverwriteApproval approvedOverwrite{};
+    BOOL getTimeFailed = FALSE; FILETIME tFileTime{}; char tAttr[101]{};
+    BOOL* skip = &skipValue; CQuadWord lastTransferredFileSize;
+    @@TARGET_EXISTS_CALLSITE@@
+    return getTimeFailed ? -2 : -3; // seam: continue original native conflict dialog
+SKIP_OPEN:
+    @@SKIP_ACTION@@
+CANCEL_OPEN:
+    return FALSE;
+NORMAL_ERROR:
+    return -1;
+}
 #undef HANDLES
 #undef HANDLES_Q
 #undef SendMessage
@@ -266,6 +327,14 @@ bool WriteContent(const std::wstring& path, DWORD value)
     const auto file = Adopt(CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, nullptr));
     DWORD written = 0;
     return file && WriteFile(file.get(), &value, sizeof(value), &written, nullptr) && written == sizeof(value);
+}
+
+bool HasContent(const std::wstring& path, DWORD expected)
+{
+    const auto file = Adopt(CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                         nullptr, OPEN_EXISTING, 0, nullptr));
+    DWORD value = 0, read = 0;
+    return file && ReadFile(file.get(), &value, sizeof(value), &read, nullptr) && read == sizeof(value) && value == expected;
 }
 
 bool MakePrior(UacF7::OverwriteApproval& prior)
@@ -309,7 +378,56 @@ void Reset(FakeMode mode)
 {
     fakeMode = mode; starts = prompts = consents = unknownDialogs = unknownWhileCancelled = progressMessages = 0;
     gotCommit = gotAbort = fakeOk = false;
+    initialCreateOnly = initialCopySeen = expectSourceRejection = false;
 }
+
+struct DenyTraversal
+{
+    std::wstring path;
+    PSECURITY_DESCRIPTOR saved = nullptr;
+    PACL original = nullptr;
+    bool active = false;
+    bool Apply(const std::wstring& dir)
+    {
+        path = dir;
+        if (GetNamedSecurityInfoW(const_cast<wchar_t*>(path.c_str()), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+                                  nullptr, nullptr, &original, nullptr, &saved) != ERROR_SUCCESS) return false;
+        HANDLE token = nullptr;
+        if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return false;
+        DWORD length = 0;
+        GetTokenInformation(token, TokenUser, nullptr, 0, &length);
+        std::vector<BYTE> bytes(length);
+        const bool ok = length && GetTokenInformation(token, TokenUser, bytes.data(), length, &length);
+        CloseHandle(token);
+        if (!ok) return false;
+        EXPLICIT_ACCESSW access{};
+        access.grfAccessPermissions = FILE_TRAVERSE; access.grfAccessMode = DENY_ACCESS;
+        access.grfInheritance = NO_INHERITANCE;
+        access.Trustee.TrusteeForm = TRUSTEE_IS_SID; access.Trustee.TrusteeType = TRUSTEE_IS_USER;
+        access.Trustee.ptstrName = reinterpret_cast<LPWSTR>(reinterpret_cast<TOKEN_USER*>(bytes.data())->User.Sid);
+        PACL changed = nullptr;
+        const DWORD made = SetEntriesInAclW(1, &access, original, &changed);
+        if (made != ERROR_SUCCESS) return false;
+        const DWORD set = SetNamedSecurityInfoW(const_cast<wchar_t*>(path.c_str()), SE_FILE_OBJECT,
+                                                DACL_SECURITY_INFORMATION, nullptr, nullptr, changed, nullptr);
+        LocalFree(changed);
+        active = set == ERROR_SUCCESS;
+        return active;
+    }
+    bool Restore()
+    {
+        const bool privilege = ToggleTraversePrivilege(true);
+        const bool restored = !active || SetNamedSecurityInfoW(const_cast<wchar_t*>(path.c_str()), SE_FILE_OBJECT,
+                                                               DACL_SECURITY_INFORMATION, nullptr, nullptr, original, nullptr) == ERROR_SUCCESS;
+        if (restored) active = false;
+        return privilege && restored;
+    }
+    ~DenyTraversal()
+    {
+        Restore();
+        if (saved) LocalFree(saved);
+    }
+};
 }
 
 int main()
@@ -463,6 +581,99 @@ int main()
                             mode == FakeMode::Oom ? "F5 caller reaches normal error handling" :
                             "F5 caller continues original conflict handling";
         check(expected && fakeOk, label);
+    }
+    {
+        Reset(FakeMode::Success); Fixture f; BOOL skipped = FALSE; DWORD error = ERROR_FILE_EXISTS;
+        const int actual = RunTargetExistsCallSite(f.window, &f.op, &f.script, f.total, f.data, skipped, error);
+        check(actual == -3 && !starts && !prompts, "accessible target retains native conflict path");
+    }
+    {
+        Reset(FakeMode::Success); Fixture f; BOOL skipped = FALSE; DWORD error = ERROR_FILE_EXISTS;
+        f.op.TargetNameW += L"-missing";
+        const int actual = RunTargetExistsCallSite(f.window, &f.op, &f.script, f.total, f.data, skipped, error);
+        check(actual == -2 && !starts && !prompts, "missing target does not trigger elevated probe");
+    }
+    {
+        DenyTraversal acl;
+        const bool installed = acl.Apply(std::wstring(cwd) + L"\\target");
+        check(installed, "test installs explicit deny traversal on its own target parent");
+        if (installed)
+        {
+            for (FakeMode mode : {FakeMode::Success, FakeMode::No, FakeMode::Cancel})
+            {
+                Reset(mode); Fixture f; BOOL skipped = FALSE; DWORD error = ERROR_FILE_EXISTS;
+                const bool disabled = ToggleTraversePrivilege(false);
+                const auto denied = Adopt(CreateFileW(targetFile.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                                       nullptr, OPEN_EXISTING, 0, nullptr));
+                const DWORD accessError = denied ? ERROR_SUCCESS : GetLastError();
+                const auto parent = Adopt(CreateFileW((std::wstring(cwd) + L"\\target").c_str(), FILE_READ_ATTRIBUTES,
+                                                       7, nullptr, OPEN_EXISTING,
+                                                       FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+                restoreTraverseOnPeer = true;
+                const int actual = RunTargetExistsCallSite(f.window, &f.op, &f.script, f.total, f.data, skipped, error);
+                if (peer.joinable()) peer.join();
+                restoreTraverseOnPeer = false; ToggleTraversePrivilege(true);
+                const bool expected = mode == FakeMode::Success ? actual == TRUE && !skipped && gotCommit :
+                                      mode == FakeMode::No ? actual == TRUE && skipped && gotAbort :
+                                      actual == FALSE && !skipped && !gotCommit;
+                check(disabled && accessError == ERROR_ACCESS_DENIED && parent && expected && fakeOk &&
+                      starts == 1 && prompts == 1 && consents == 1,
+                      "prior create-only broker FILE_EXISTS seam reaches real denied NTFS identity and native conflict seam");
+            }
+            for (int scenario : {0, 1, 2, 3})
+            {
+                const bool changeSource = scenario == 1;
+                const bool reject = scenario != 0;
+                Reset(FakeMode::Success); Fixture f; BOOL skipped = FALSE; DWORD error = ERROR_GEN_FAILURE;
+                const bool disabled = ToggleTraversePrivilege(false);
+                restoreTraverseOnPeer = true; initialCreateOnly = true; expectSourceRejection = reject;
+                auto& job = f.data.TransferJobs.emplace_back();
+                UacF7::Result first{}; bool prepared = false;
+                CreateOnlySourceReceipt receipt{};
+                {
+                    UacF7::PreparedTransfer request;
+                    prepared = request.Prepare(sourceFile, targetFile, f.op.FileSize.Value, UacF7::Operation::Copy);
+                    if (prepared)
+                    {
+                        first = request.Execute(f.window, f.cancel.get(), &job);
+                        request.SourceIdentities(receipt.source, receipt.parent);
+                        receipt.session = &job; receipt.opening = job.OpeningGeneration();
+                    }
+                }
+                const bool initialOk = prepared && first.error == ERROR_FILE_EXISTS && !first.unknown && job.IsOpen();
+                const std::wstring savedSource = sourceFile + L".original";
+                bool swapped = !changeSource;
+                bool movedSource = false;
+                if (changeSource && initialOk)
+                {
+                    movedSource = MoveFileExW(sourceFile.c_str(), savedSource.c_str(), 0) != FALSE;
+                    swapped = movedSource && WriteContent(sourceFile, 33);
+                }
+                if (scenario == 2) job.Close();
+                if (scenario == 3) ++receipt.opening;
+                error = first.error;
+                const int actual = initialOk && swapped ?
+                    RunTargetExistsCallSite(f.window, &f.op, &f.script, f.total, f.data, skipped, error, &receipt) : -9;
+                if (reject) f.data.TransferJobs.clear();
+                if (peer.joinable()) peer.join();
+                restoreTraverseOnPeer = false; ToggleTraversePrivilege(true);
+                const bool intact = HasContent(sourceFile, changeSource ? 33 : 11) && HasContent(targetFile, 22);
+                bool restored = true;
+                if (movedSource)
+                {
+                    if (swapped) restored = DeleteFileW(sourceFile.c_str()) != FALSE;
+                    restored = MoveFileExW(savedSource.c_str(), sourceFile.c_str(), 0) && restored;
+                }
+                const bool expected = reject ? actual == -1 && error == ERROR_FILE_INVALID && !gotCommit && !prompts :
+                    actual == TRUE && gotCommit && prompts == 1 && consents == 0 && starts == 1;
+                check(disabled && initialOk && initialCopySeen && swapped && restored && intact && expected && fakeOk,
+                      scenario == 0 ? "create-only FILE_EXISTS and probe reuse one host pipe without re-consent" :
+                      scenario == 1 ? "changed same-size source is rejected before overwrite" :
+                      scenario == 2 ? "closed original session is rejected before overwrite" :
+                                      "different session generation is rejected before overwrite");
+            }
+        }
+        check(acl.Restore(), "test restores the target parent ACL and traverse privilege");
     }
     std::printf("single worker with test peer: %d checks, %d failures; publication and UAC simulated\n", checks, failures);
     return failures ? 1 : 0;

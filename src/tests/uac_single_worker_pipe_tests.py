@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Exercise the existing-target identity-open branch. | Cover a real NTFS denial after the broker-exists seam. | #731 | GPT-6.1 Terra |
 # | 2026-11-12 | Extract the denied F5 call site and skipped-file branch. | Verify outcome routing without claiming a full worker test. | #731 | GPT-6.1 Terra |
 # | 2026-11-12 | Extend singleton overwrite regression coverage. | Preserve cancellation, lifetime and prompt behavior. | #731 | GPT-6 (Codex) |
 # | 2026-11-11 | Exercise the singleton F5 worker with the real host controller and a pipe peer. | Verify native choices and progress without claiming elevation. | #731 | GPT-6.1 Terra |
@@ -24,6 +25,7 @@ def main():
     code = template.replace("@@DECISION@@", block(worker, "enum class SourceOverwriteResult", ";"))
     code = code.replace("@@DIALOG_PAYLOAD@@", block(read("src/worker.h"), "struct CUacOverwriteProbePrompt", ";"))
     code = code.replace("@@PROMPT_STATE@@", block(worker, "struct SingleProbedOverwritePrompt", ";"))
+    code = code.replace("@@RECEIPT@@", block(worker, "struct CreateOnlySourceReceipt", ";"))
     code = code.replace("@@PROMPT_CALLBACK@@", block(worker, "static UacF7::ProbedOverwriteDecision PromptSingleProbedOverwrite("))
     code = code.replace("@@SINGLE_WORKER@@", block(worker, "static SourceOverwriteResult TrySingleProbedOverwrite("))
     code = code.replace("@@PARENT_OVERWRITE@@", block(worker, "static SourceOverwriteResult TryOverwriteDeniedSource("))
@@ -33,6 +35,9 @@ def main():
     skip_start = worker.index("SKIP_OPEN:", copy_start) + len("SKIP_OPEN:")
     skip_end = worker.index("return TRUE;", skip_start) + len("return TRUE;")
     code = code.replace("@@SKIP_ACTION@@", worker[skip_start:skip_end])
+    target_start = worker.index("out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName", copy_start)
+    target_end = worker.index("out = NULL;", target_start) + len("out = NULL;")
+    code = code.replace("@@TARGET_EXISTS_CALLSITE@@", worker[target_start:target_end])
     assert "@@" not in code
 
     broker = inputs[1].read_text(encoding="utf-8-sig")
@@ -67,6 +72,14 @@ def main():
                "        !install.OpenImage(appImage)) return result;")
     assert host.count(install) == 1
     host = host.replace(install, "if (FAILED(com.result)) return result; // test seam: installation gate")
+    broker = broker[:start] + host + broker[stop:]
+    start = broker.index("Result PreparedTransfer::Execute(")
+    stop = broker.index("ArchiveReadSession::~ArchiveReadSession(", start)
+    host = broker[start:stop]
+    install = ("((HasDeferredTarget() || IsScopedTree()) && !job) || FAILED(com.result) || !install.Open() ||\n"
+               "        !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))")
+    assert host.count(install) == 1
+    host = host.replace(install, "((HasDeferredTarget() || IsScopedTree()) && !job) || FAILED(com.result)) // test seam: installation gate")
     broker = broker[:start] + host + broker[stop:]
     env = compiler_environment()
     compiler = shutil.which("cl", path=env.get("PATH"))

@@ -1,0 +1,118 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Exercise cancellation and collision in the worker controller. | Check job and receipt lifetime. | #731 | GPT-6 (Codex) |
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <list>
+#include <memory>
+#include <optional>
+#include <string>
+
+namespace UacF7 {
+struct MoveFileIdentity { unsigned long long serial = 0; unsigned char id[16]{}; };
+struct Result { DWORD error = 0; bool unknown = false; };
+struct TransferJobSession {
+    bool open = true;
+    bool IsOpen() const { return open; }
+    ULONGLONG OpeningGeneration() const { return open ? 1 : 0; }
+    void Close() { open = false; }
+};
+struct PreparedTransfer {
+    bool IsMove() const { return false; }
+    bool IsOverwrite() const { return false; }
+    bool IsTree() const { return false; }
+    bool IsDirectoryCopyEntry() const { return false; }
+    bool PreservesSecurity() const { return false; }
+    bool PreservesCompression() const { return false; }
+    bool PreservesEncryption() const { return false; }
+    bool HasDeferredTarget() const { return false; }
+    bool CanShareJob() const { return true; }
+    bool IsInJob(const TransferJobSession& job) const { return job.IsOpen(); }
+    bool AllowsTreeEntry(const PreparedTransfer&) const { return true; }
+    bool NeedsDiskRecoveryWarning(Result) const { return false; }
+    bool IsMoveCompletion() const { return false; }
+    bool IsCrossVolumeMove() const { return false; }
+    void SourceIdentities(MoveFileIdentity& source, MoveFileIdentity& parent) const { source.serial = parent.serial = 9; }
+    Result Execute(HWND, HANDLE, TransferJobSession*, void*, void*, void (*)(HWND, bool)) { return {}; }
+};
+struct TransferPrompt { PreparedTransfer& request; const char* source; const char* target; bool denied; bool approved = true; };
+bool IsNativePlainCopyFile(DWORD) { return true; }
+}
+struct CQuadWord { ULONGLONG Value = 1; CQuadWord() = default; CQuadWord(DWORD low, DWORD high) : Value((static_cast<ULONGLONG>(high) << 32) | low) {} CQuadWord& operator+=(CQuadWord other) { Value += other.Value; return *this; } };
+CQuadWord operator+(CQuadWord a, CQuadWord b) { a += b; return a; }
+CQuadWord operator-(CQuadWord a, CQuadWord b) { a.Value -= b.Value; return a; }
+bool operator>(CQuadWord a, CQuadWord b) { return a.Value > b.Value; }
+const CQuadWord COPY_MIN_FILE_SIZE{};
+struct COperation { int Opcode = 1; DWORD OpFlags = 1, Attr = FILE_ATTRIBUTE_ARCHIVE; std::wstring SourceNameW = L"source", TargetNameW = L"target"; CQuadWord Size{}, FileSize{}; };
+struct CopySourceContext { bool ElevationDeclined = false; std::unique_ptr<UacF7::TransferJobSession> Session; };
+struct COperations {
+    int Count = 1, CopyMoveConflictMode = 0;
+    bool OverwriteOlder = false, CopySecurity = false, CopyAttrs = false;
+    CopySourceContext* CopySource = nullptr;
+    CQuadWord TotalSize{};
+    void AddBytesToTFSandSetProgressSize(CQuadWord, CQuadWord) {}
+};
+struct TreeMerge { UacF7::PreparedTransfer Request; std::string Source, Target; };
+struct CProgressDlgData {
+    HANDLE WorkerNotSuspended = nullptr, CancelWorkerEvent = nullptr;
+    BOOL* CancelWorker = nullptr;
+    bool CnfrmFileOver = true, OverwriteAll = false, SkipAllOverwrite = false, ConflictDecisionInjected = false;
+    BOOL ConflictTargetChanged = FALSE;
+    std::list<UacF7::TransferJobSession> TransferJobs;
+    std::optional<TreeMerge> PendingTreeMerge;
+};
+constexpr int ocCopyFile = 1, CMCM_SCAN_AHEAD = 2;
+constexpr DWORD OPFL_UAC_TRANSFER_ELIGIBLE = 1, OPFL_AS_ENCRYPTED = 2, OPFL_UAC_TREE_ENTRY = 4,
+                OPFL_UAC_TREE_ROOT = 8, OPFL_COPY_ADS = 16;
+constexpr UINT WM_USER_DIALOG = WM_APP + 1;
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 1, WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN = 2,
+                 WORKER_DIALOG_UAC_TRANSFER_UNKNOWN = 3;
+std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* value) { return value; }
+std::string SalWideToMultiBytePath(const wchar_t*, UINT) { return "item"; }
+void NotifyNativeBrokerActivity(HWND, bool) {}
+LRESULT TestMessage(HWND, UINT, WPARAM, LPARAM) { return 0; }
+#undef SendMessage
+#define SendMessage TestMessage
+int CaclProg(CQuadWord, CQuadWord) { return 0; }
+void SetProgress(HWND, int, int, CProgressDlgData&) {}
+static bool signalCancel = false;
+static DWORD forcedError = ERROR_FILE_EXISTS;
+static UacF7::Result ExecuteWithNativeTransferProgress(UacF7::PreparedTransfer&, HWND, HANDLE event,
+    UacF7::TransferJobSession*, const COperation&, COperations&, CProgressDlgData&, CQuadWord&)
+{
+    if (signalCancel) SetEvent(event);
+    return {forcedError, false};
+}
+@@RECEIPT@@
+@@CONTROLLER@@
+
+int main()
+{
+    int failed = 0;
+    for (int planned = 0; planned != 2; ++planned)
+        for (int cancelled = 0; cancelled != 2; ++cancelled)
+        {
+            HANDLE ready = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+            HANDLE cancel = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+            BOOL flag = FALSE, success = TRUE;
+            COperation op; COperations script; CProgressDlgData data;
+            CopySourceContext source;
+            data.WorkerNotSuspended = ready; data.CancelWorkerEvent = cancel; data.CancelWorker = &flag;
+            if (planned) { source.Session = std::make_unique<UacF7::TransferJobSession>(); script.CopySource = &source; }
+            else data.TransferJobs.emplace_back();
+            UacF7::PreparedTransfer request; CreateOnlySourceReceipt receipt{}; CQuadWord total{}; DWORD error = 0;
+            signalCancel = cancelled != 0;
+            const bool handled = ExecuteWorkerTransfer(nullptr, op, script, total, data, success, request, error, true, &receipt);
+            const bool correct = cancelled ? handled && !success && error == ERROR_CANCELLED && !receipt.session &&
+                !receipt.opening && data.TransferJobs.empty() && (!planned || !source.Session->IsOpen()) :
+                !handled && !success && error == ERROR_FILE_EXISTS && receipt.session && receipt.opening == 1 &&
+                receipt.source.serial == 9 && receipt.parent.serial == 9 && (planned ? source.Session->IsOpen() : data.TransferJobs.size() == 1);
+            std::printf("%s %s: %s\n", planned ? "planned" : "list", cancelled ? "collision+cancel" : "collision", correct ? "PASS" : "FAIL");
+            if (!correct) ++failed;
+            CloseHandle(cancel); CloseHandle(ready);
+        }
+    return failed ? 1 : 0;
+}
