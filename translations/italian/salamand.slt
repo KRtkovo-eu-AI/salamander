@@ -4391,6 +4391,9 @@ SLGINCOMPLETE,""
 14708,1,"Alcune destinazioni dei collegamenti non sono state esaminate."
 14709,1,"L’accesso a una parte di un albero protetto non è stato approvato o non è riuscito. Alcuni elementi non sono stati esaminati."
 
+14710,1,"Il visualizzatore selezionato non può ancora aprire in sicurezza questo risultato verificato. Usare il visualizzatore interno."
+14711,1,"Questo risultato è associato a un’identità verificata in precedenza. Aprire un’istantanea di sola lettura nel visualizzatore interno come amministratore? L’istantanea è limitata a 16 MB."
+
 [STRINGTABLE 199]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."
 

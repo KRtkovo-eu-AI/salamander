@@ -4391,6 +4391,9 @@ SLGINCOMPLETE,""
 14708,1,"No se buscaron algunos destinos de enlaces."
 14709,1,"El acceso a una parte de un árbol protegido no se aprobó o falló. Algunos elementos no se buscaron."
 
+14710,1,"El visor seleccionado aún no puede abrir de forma segura este resultado verificado. Use el visor interno."
+14711,1,"Este resultado está asociado a una identidad verificada anteriormente. ¿Abrir una instantánea de solo lectura en el visor interno como administrador? La instantánea está limitada a 16 MB."
+
 [STRINGTABLE 199]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
 

@@ -4391,6 +4391,9 @@ SLGINCOMPLETE,""
 14708,1,"Sommige doelen van koppelingen zijn niet doorzocht."
 14709,1,"Toegang tot een deel van een beveiligde structuur is niet goedgekeurd of mislukt. Sommige items zijn niet doorzocht."
 
+14710,1,"De gekozen viewer kan dit geverifieerde resultaat nog niet veilig openen. Gebruik de interne viewer."
+14711,1,"Dit resultaat is gekoppeld aan een eerder geverifieerde identiteit. Een alleen-lezenmomentopname als beheerder in de interne viewer openen? De momentopname is beperkt tot 16 MB."
+
 [STRINGTABLE 199]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."
 

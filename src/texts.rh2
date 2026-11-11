@@ -1,3 +1,4 @@
+// | 2026-11-11 | Localize verified Find viewer limitations and consent. | Keep file identity and the snapshot choice clear. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Localize distinct incomplete Find reasons. | Report the actual omission without inventing a path or limit. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Explain the protected folder Recycle Bin limitation. | Report unsupported elevation without assuming the item state. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Localize the protected Find limit and incomplete status. | Explain omitted results without implying success. | #731 | GPT-6.1 Terra |
@@ -3385,5 +3386,7 @@
 #define IDS_FIND_INCOMPLETE_DEPTH                    14707
 #define IDS_FIND_INCOMPLETE_REPARSE                  14708
 #define IDS_FIND_INCOMPLETE_PROTECTED_FAILURE        14709
+#define IDS_UAC_VIEW_IDENTITY_HANDLER_UNSUPPORTED    14710
+#define IDS_UAC_VIEW_VERIFIED_CONFIRM                14711
 
 #endif // __TEXTS_RH2

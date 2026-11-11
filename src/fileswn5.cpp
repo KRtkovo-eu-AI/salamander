@@ -9,6 +9,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Bind protected Find viewing to its captured identity. | Reject readable replacements and pathname-only handlers. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Separate trusted editor preparation from the Find prompt. | Avoid blocking the Find window during the application consent dialog. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Reuse explicit editor elevation in Branch View and Find. | Avoid denying eligible F4 requests before the existing editor retry. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Bind all shielded metadata requests before building the script. | Reuse the verified attributes if a direct attributes lookup is denied. | #731 | GPT-6.1 Sol |
@@ -2008,6 +2009,13 @@ void CFilesWindow::FindFile()
     OpenFindDialog(MainWindow->HWindow, Is(ptDisk) ? GetPath() : "", std::move(protectedRoot));
 }
 
+static bool AllowFindViewerCandidate(bool foundIdentity, bool defaultView, DWORD attributes)
+{
+    constexpr DWORD excluded = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
+                               FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_OFFLINE;
+    return (foundIdentity || defaultView) && !(attributes & excluded);
+}
+
 void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumFileNamesSourceUID,
                             int enumFileNamesLastFileIndex, const COpenViewerData* found)
 {
@@ -2072,9 +2080,8 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
         if (backSlash != NULL)
         {
             const std::string path(name, backSlash - name);
-            constexpr DWORD excluded = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
-                                       FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_OFFLINE;
-            if (found && !altView && handlerID == 0xFFFFFFFF && !(found->FoundAttributes & excluded))
+            if (found && AllowFindViewerCandidate(found->FoundView != nullptr,
+                                                   !altView && handlerID == 0xFFFFFFFF, found->FoundAttributes))
                 protectedCandidate = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(name, CP_UTF8).c_str());
             const DWORD error = CheckPath(FALSE, path.c_str(), ERROR_SUCCESS, TRUE, owner);
             deniedParent = error == ERROR_ACCESS_DENIED && !protectedCandidate.empty();
@@ -2318,6 +2325,74 @@ void CFilesWindow::ViewFile(char* name, BOOL altView, DWORD handlerID, int enumF
     }
 }
 
+// A Find result with a captured identity must never fall back to a path-only open.
+static bool PrepareProtectedViewerSnapshot(HWND parent, const std::wstring* candidate,
+                                           UacF7::ListingSession* protectedListing,
+                                           const UacF7::PreparedLeaf* foundView,
+                                           std::unique_ptr<std::vector<BYTE>>& snapshot, bool& readable,
+                                           int& enumFileNamesSourceUID, int& enumFileNamesLastFileIndex)
+{
+    const bool eligible = candidate && candidate->size() > 3 && (*candidate)[1] == L':' &&
+                          GetDriveTypeW(candidate->substr(0, 3).c_str()) == DRIVE_FIXED;
+    if (!eligible)
+    {
+        if (foundView)
+            SalMessageBox(parent, GetErrorText(candidate ? ERROR_NOT_SUPPORTED : ERROR_INVALID_NAME),
+                          LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+        return foundView == nullptr;
+    }
+
+    UacF7::PreparedLeaf request;
+    const UacF7::PreparedLeaf* prepared = foundView;
+    if (!prepared)
+    {
+        const std::wstring ioName = SalPathAddExtendedPrefixW(candidate->c_str());
+        HANDLE probe = HANDLES_Q(CreateFileW(ioName.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                            nullptr, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, nullptr));
+        if (probe != INVALID_HANDLE_VALUE)
+        {
+            HANDLES(CloseHandle(probe));
+            readable = true;
+        }
+        else if (GetLastError() == ERROR_ACCESS_DENIED)
+        {
+            if (request.PrepareView(*candidate))
+                prepared = &request;
+            else if (protectedListing)
+            {
+                const DWORD error = protectedListing->PrepareViewer(*candidate, request);
+                if (error)
+                {
+                    SalMessageBox(parent, GetErrorText(error), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+                    return false;
+                }
+                prepared = &request;
+            }
+        }
+    }
+    if (prepared)
+    {
+        const int prompt = foundView ? IDS_UAC_VIEW_VERIFIED_CONFIRM : IDS_UAC_VIEW_CONFIRM;
+        if (!ConfirmProtectedRead(parent, IDS_VIEWERTITLE, prompt, *candidate))
+            return false;
+        snapshot = std::make_unique<std::vector<BYTE>>();
+        const UacF7::Result result = prepared->ReadViewerSnapshot(parent, *snapshot);
+        if (result.error != ERROR_SUCCESS || result.unknown)
+        {
+            if (result.error != ERROR_CANCELLED)
+            {
+                const std::string message = std::string(LoadStr(IDS_UAC_VIEW_UNAVAILABLE)) +
+                                            "\n\n" + GetErrorText(result.error ? result.error : ERROR_GEN_FAILURE);
+                SalMessageBox(parent, message.c_str(), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+            }
+            return false;
+        }
+        // A protected snapshot authorizes only this one file.
+        enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1;
+    }
+    return true;
+}
+
 BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, BOOL returnLock,
                  HANDLE& lock, BOOL& lockOwner, BOOL addToHistory, int enumFileNamesSourceUID,
                  int enumFileNamesLastFileIndex, const std::wstring* protectedCandidate, UacF7::ListingSession* protectedListing,
@@ -2398,7 +2473,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                 {
                     viewer = masks->At(i);
 
-                    if (!deniedParent && viewer != NULL && viewer->ViewerType != VIEWER_EXTERNAL &&
+                    if (!deniedParent && !foundView && viewer != NULL && viewer->ViewerType != VIEWER_EXTERNAL &&
                         viewer->ViewerType != VIEWER_INTERNAL)
                     { // plug-in viewers only
                         CPluginData* plugin = Plugins.Get(-viewer->ViewerType - 1);
@@ -2418,6 +2493,11 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
         }
     }
 
+    if (foundView && (!viewer || viewer->ViewerType != VIEWER_INTERNAL))
+    {
+        SalMessageBox(parent, LoadStr(IDS_UAC_VIEW_IDENTITY_HANDLER_UNSUPPORTED), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
+    }
     if (deniedParent && (!viewer || viewer->ViewerType != VIEWER_INTERNAL))
     {
         SalMessageBox(parent, GetErrorText(ERROR_ACCESS_DENIED), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);
@@ -2526,54 +2606,9 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
         {
             std::unique_ptr<std::vector<BYTE>> snapshot;
             bool readable = false;
-            if (protectedCandidate && protectedCandidate->size() > 3 && (*protectedCandidate)[1] == L':' &&
-                GetDriveTypeW(protectedCandidate->substr(0, 3).c_str()) == DRIVE_FIXED)
-            {
-                const std::wstring ioName = SalPathAddExtendedPrefixW(protectedCandidate->c_str());
-                HANDLE probe = HANDLES_Q(CreateFileW(ioName.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                                    nullptr, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, nullptr));
-                if (probe != INVALID_HANDLE_VALUE)
-                {
-                    HANDLES(CloseHandle(probe));
-                    readable = true;
-                }
-                else if (GetLastError() == ERROR_ACCESS_DENIED)
-                {
-                    UacF7::PreparedLeaf request;
-                    const UacF7::PreparedLeaf* prepared = foundView;
-                    if (!prepared && request.PrepareView(*protectedCandidate))
-                        prepared = &request;
-                    if (!prepared && protectedListing)
-                    {
-                        const DWORD error = protectedListing->PrepareViewer(*protectedCandidate, request);
-                        if (error)
-                        {
-                            SalMessageBox(parent, GetErrorText(error), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
-                            return FALSE;
-                        }
-                        prepared = &request;
-                    }
-                    if (prepared)
-                    {
-                        if (!ConfirmProtectedRead(parent, IDS_VIEWERTITLE, IDS_UAC_VIEW_CONFIRM, *protectedCandidate))
-                            return FALSE;
-                        snapshot = std::make_unique<std::vector<BYTE>>();
-                        const UacF7::Result result = prepared->ReadViewerSnapshot(parent, *snapshot);
-                        if (result.error != ERROR_SUCCESS || result.unknown)
-                        {
-                            if (result.error != ERROR_CANCELLED)
-                            {
-                                const std::string message = std::string(LoadStr(IDS_UAC_VIEW_UNAVAILABLE)) +
-                                                            "\n\n" + GetErrorText(result.error);
-                                SalMessageBox(parent, message.c_str(), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
-                            }
-                            return FALSE;
-                        }
-                        // A protected snapshot authorizes only this one file.
-                        enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1;
-                    }
-                }
-            }
+            if (!PrepareProtectedViewerSnapshot(parent, protectedCandidate, protectedListing, foundView,
+                                                snapshot, readable, enumFileNamesSourceUID, enumFileNamesLastFileIndex))
+                return FALSE;
             if (deniedParent && !readable && !snapshot)
             {
                 SalMessageBox(parent, GetErrorText(ERROR_ACCESS_DENIED), LoadStr(IDS_ERRORTITLE), MB_OK | MB_ICONEXCLAMATION);

@@ -4391,6 +4391,9 @@ SLGINCOMPLETE,""
 14708,1,"Niektoré ciele odkazov neboli prehľadané."
 14709,1,"Prístup k časti chráneného stromu nebol schválený alebo zlyhal. Niektoré položky neboli prehľadané."
 
+14710,1,"Zvolený prehliadač zatiaľ nevie bezpečne otvoriť tento overený výsledok. Použite interný prehliadač."
+14711,1,"Tento výsledok je viazaný na skôr overenú identitu. Otvoriť jeho snímku na čítanie v internom prehliadači ako správca? Snímka je obmedzená na 16 MB."
+
 [STRINGTABLE 199]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."
 

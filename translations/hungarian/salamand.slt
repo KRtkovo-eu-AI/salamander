@@ -4391,6 +4391,9 @@ SLGINCOMPLETE,""
 14708,1,"Egyes hivatkozások céljai nem lettek átvizsgálva."
 14709,1,"Egy védett fa egy részéhez való hozzáférést nem hagyták jóvá, vagy az sikertelen volt. Egyes elemek nem lettek átvizsgálva."
 
+14710,1,"A kiválasztott megjelenítő még nem tudja biztonságosan megnyitni ezt az ellenőrzött eredményt. Használja a belső megjelenítőt."
+14711,1,"Ez az eredmény egy korábban ellenőrzött azonossághoz van kötve. Megnyitja az írásvédett pillanatképet a belső megjelenítőben rendszergazdaként? A pillanatkép mérete legfeljebb 16 MB."
+
 [STRINGTABLE 199]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."
 

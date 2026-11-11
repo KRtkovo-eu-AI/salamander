@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Check captured Find viewer identity routing. | Prevent pathname-only fallback while preserving ordinary Branch View. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Check the explicit Stop publication boundary. | Retain refresh cancellation and protected session ownership. | #731 | GPT-6.1 Terra |
 # | 2026-11-10 | Follow the common viewer owner argument. | Keep the Branch View identity assertion after adding Find F3. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Guard Branch View rename consent and row lifetime. | Keep the operation tied to the exact selected row. | #731 | GPT-6.1 Sol |
@@ -279,8 +280,10 @@ class BranchViewContracts(unittest.TestCase):
                      "GetItemFullPathW(*f)", "protectedCandidate = SalPathRemoveExtendedPrefixW",
                      "ViewFileInt(owner", "deferredPathCheck ? ProtectedListing.get() : nullptr")
         internal = body("fileswn5.cpp", "BOOL ViewFileInt(")
-        self.ordered(internal, "case VIEWER_INTERNAL:", "GetLastError() == ERROR_ACCESS_DENIED",
-                     "PrepareViewer(*protectedCandidate", "ConfirmProtectedRead(", "ReadViewerSnapshot(",
+        self.ordered(internal, "case VIEWER_INTERNAL:", "PrepareProtectedViewerSnapshot(")
+        controller = body("fileswn5.cpp", "static bool PrepareProtectedViewerSnapshot(")
+        self.ordered(controller, "GetLastError() == ERROR_ACCESS_DENIED", "PrepareViewer(*candidate",
+                     "ConfirmProtectedRead(", "ReadViewerSnapshot(",
                      "enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1")
 
     def test_branch_rename_reuses_verified_source_and_checks_row_lifetime(self):

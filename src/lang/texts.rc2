@@ -1,4 +1,5 @@
-﻿// | 2026-11-11 | Localize distinct incomplete Find reasons. | Report the actual omission without inventing a path or limit. | #731 | GPT-6.1 Terra |
+﻿// | 2026-11-11 | Localize verified Find viewer limitations and consent. | Keep file identity and the snapshot choice clear. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Localize distinct incomplete Find reasons. | Report the actual omission without inventing a path or limit. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Explain the protected folder Recycle Bin limitation. | Report unsupported elevation without assuming the item state. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Localize the protected Find limit and incomplete status. | Explain omitted results without implying success. | #731 | GPT-6.1 Terra |
 // | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
@@ -2485,6 +2486,8 @@ STRINGTABLE
  IDS_UAC_VIEW_SNAPSHOT, "Administrator snapshot"
  IDS_UAC_VIEW_REFRESH, "This is a read-only snapshot. Return to the panel to request a new snapshot."
  IDS_UAC_VIEW_UNAVAILABLE, "The protected file could not be opened in the internal viewer."
+ IDS_UAC_VIEW_IDENTITY_HANDLER_UNSUPPORTED, "The selected viewer cannot yet safely open this verified result. Use the internal viewer."
+ IDS_UAC_VIEW_VERIFIED_CONFIRM, "This result is bound to a previously verified identity. Open a read-only snapshot in the internal viewer as an administrator? The snapshot is limited to 16 MB."
  IDS_UAC_EDIT_ADMIN_TITLE, "Edit as Administrator"
  IDS_UAC_EDIT_ADMIN_CONFIRM, "Access was denied. Open the original file with the configured editor as an administrator? Windows will request permission for the editor shown below."
  IDS_UAC_ZIP_TITLE, "Protected ZIP Listing"

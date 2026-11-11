@@ -4391,6 +4391,9 @@ SLGINCOMPLETE,""
 14708,1,"Certaines cibles de liens n’ont pas été parcourues."
 14709,1,"L’accès à une partie d’une arborescence protégée n’a pas été approuvé ou a échoué. Certains éléments n’ont pas été parcourus."
 
+14710,1,"La visionneuse sélectionnée ne peut pas encore ouvrir ce résultat vérifié en toute sécurité. Utilisez la visionneuse interne."
+14711,1,"Ce résultat est associé à une identité vérifiée précédemment. Ouvrir un instantané en lecture seule dans la visionneuse interne en tant qu’administrateur ? L’instantané est limité à 16 Mo."
+
 [STRINGTABLE 199]
 14991,1,"Lecture des associations depuis le stockage de fichiers, veuillez patienter..."
 

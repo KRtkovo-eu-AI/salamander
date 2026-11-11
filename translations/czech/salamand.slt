@@ -4393,6 +4393,9 @@ SLGINCOMPLETE,""
 14708,1,"Některé cíle odkazů nebyly prohledány."
 14709,1,"Přístup k části chráněného stromu nebyl schválen nebo selhal. Některé položky nebyly prohledány."
 
+14710,1,"Zvolený prohlížeč zatím neumí bezpečně otevřít tento ověřený výsledek. Použijte interní prohlížeč."
+14711,1,"Tento výsledek je svázán s dříve ověřenou identitou. Otevřít jeho snímek pro čtení v interním prohlížeči jako správce? Snímek je omezen na 16 MB."
+
 [STRINGTABLE 199]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
 

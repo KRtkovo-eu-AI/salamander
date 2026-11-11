@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Check captured Find viewer identity routing. | Prevent pathname-only fallback while preserving ordinary Branch View. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Keep incomplete summaries reachable after the worker joins. | Preserve the log-only refresh contract without racing the worker. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Check typed Find scope capacity outcomes. | Keep stopped and failed requests distinguishable. | #731 | GPT-6.1 Terra |
 # | 2026-11-10 | Cover exact wide paths and iterative ordinary Find. | Verify wide directory reads, broker routing and UI actions. | #731 | GPT-6.1 Sol |
@@ -64,8 +65,11 @@ def main() -> int:
             "AddFoundItem(", "std::move(foundView)")
     host = (ROOT / "src" / "fileswn5.cpp").read_text(encoding="utf-8-sig")
     internal = function_body(host, "BOOL ViewFileInt(")
-    ordered(internal, "case VIEWER_INTERNAL:", "GetLastError() == ERROR_ACCESS_DENIED",
-            "prepared = foundView", "!prepared && request.PrepareView", "ConfirmProtectedRead(",
+    controller = function_body(host, "static bool PrepareProtectedViewerSnapshot(")
+    ordered(internal, "!deniedParent && !foundView", "if (foundView && (!viewer || viewer->ViewerType != VIEWER_INTERNAL))",
+            "case VIEWER_INTERNAL:", "PrepareProtectedViewerSnapshot(")
+    ordered(controller, "prepared = foundView", "if (!prepared)", "CreateFileW(",
+            "GetLastError() == ERROR_ACCESS_DENIED", "request.PrepareView(", "ConfirmProtectedRead(",
             "prepared->ReadViewerSnapshot", "enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1")
 
     require("volatile LONG RefreshPending;" in find_h,
