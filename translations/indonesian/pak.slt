@@ -64,7 +64,7 @@ COMMENT,"indonesian translation stub (English seed)"
 
 [STRINGTABLE 3]
 1024,1,"Tidak dapat membaca file: "
-1025,1,"Tidak dapat menghubungkan plugin ke Open Salamander."
+1025,1,"Tidak dapat menghubungkan plugin ke Open Samandarin."
 1026,1,"Mengoptimalkan, harap tunggu..."
 1027,1,"Mengoptimalkan Arsip PAK - %s"
 1028,1,"Penghapusan file tidak selesai dengan sukses. Anda mungkin perlu menjalankan optimasi PAK dari menu plugin untuk mengosongkan ruang disk yang terbuang."

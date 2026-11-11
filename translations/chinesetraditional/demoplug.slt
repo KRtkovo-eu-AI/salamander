@@ -59,7 +59,7 @@ COMMENT,"chinesetraditional translation stub (English seed)"
 2,151,57,50,14,1,"取消"
 
 [DIALOG 550]
-463,236,1,"Open Salamander 提供的控制項"
+463,236,1,"Open Samandarin 提供的控制項"
 3000,6,4,254,108,1,"CGUIStaticTextAbstract"
 3001,14,17,80,8,1,"未附加的靜態文字"
 551,102,17,152,8,1,"系統已啟動 %d 毫秒。"

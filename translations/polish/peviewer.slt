@@ -34,5 +34,5 @@ COMMENT,"polish translation stub (English seed)"
 10104,1,"Wyświetla informacje o plikach Portable Executable, takich jak EXE, DLL itd."
 
 [STRINGTABLE 2]
-10118,1,"W konfiguracji wtyczki nie znaleziono żadnej wybranej sekcji Portable Executable.\nUżyj menu Opcje > Konfiguracja wtyczek > Przeglądarka Portable Executable\nw głównym oknie Open Salamander, aby ustawić widoczne sekcje."
+10118,1,"W konfiguracji wtyczki nie znaleziono żadnej wybranej sekcji Portable Executable.\nUżyj menu Opcje > Konfiguracja wtyczek > Przeglądarka Portable Executable\nw głównym oknie Open Samandarin, aby ustawić widoczne sekcje."
 

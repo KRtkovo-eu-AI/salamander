@@ -56,7 +56,7 @@ COMMENT,"korean translation stub (English seed)"
 [STRINGTABLE 2]
 144,1,"스크립트 중단"
 145,1,"실행 중인 스크립트 중단\tCtrl+Break"
-146,1,"Open Salamander 창이 자동화 플러그인에 의해 잠겨 있습니다. 실행 중인 스크립트를 완료하세요."
+146,1,"Open Samandarin 창이 자동화 플러그인에 의해 잠겨 있습니다. 실행 중인 스크립트를 완료하세요."
 147,1,"스크립팅 엔진을 초기화하지 못했습니다."
 
 [STRINGTABLE 3]

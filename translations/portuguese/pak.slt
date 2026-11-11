@@ -64,7 +64,7 @@ COMMENT,"portuguese translation stub (English seed)"
 
 [STRINGTABLE 3]
 1024,1,"Não foi possível ler o arquivo: "
-1025,1,"Não foi possível conectar o plug-in ao Open Salamander."
+1025,1,"Não foi possível conectar o plug-in ao Open Samandarin."
 1026,1,"otimizando, aguarde..."
 1027,1,"Otimizando arquivo PAK - %s"
 1028,1,"A exclusão dos arquivos não foi concluída com êxito. Talvez seja necessário executar a otimização PAK no menu do plug-in PAK para evitar desperdício de espaço em disco."

@@ -1,3 +1,6 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Test fallback persistence and row-level request counts. | Ensure permanent validation failures are skipped by future runs while remaining buildable. | | openai/gpt-5.6-luna-pro |
+# | 2026-11-11 | Verify row-level retry request counts. | Prevent valid translations from being resent after one technical-token failure. | | openai/gpt-5.6-luna-pro |
 import importlib.util, io, json, os, shutil, sys, tempfile, unittest, urllib.error
 from pathlib import Path
 P=Path(__file__).parents[1]/"translate_slt_with_openai.py"; spec=importlib.util.spec_from_file_location("slt",P); slt=importlib.util.module_from_spec(spec); sys.modules["slt"]=slt; spec.loader.exec_module(slt)
@@ -105,7 +108,9 @@ COMMENT,\"\"
 
  def test_invalid_translation_is_skipped_without_aborting_batch(self):
   os.environ["CURSOR_API_KEY"]="test"
+  calls=[]
   def requester(payload,key,model):
+   calls.append(payload)
    rows=[]
    for x in payload["items"]:
     text=x["text"].replace("Open","Otevřít").replace("Use","Použít").replace("&default font","výchozí &písmo")
@@ -115,7 +120,28 @@ COMMENT,\"\"
   with tempfile.TemporaryDirectory() as d:
    out=Path(d)/"out.slt"; report=slt.translate(FIX,out,"czech","mock",40,False,False,requester); text=out.read_text(encoding="utf-8-sig")
    self.assertEqual(report["failed"],1); self.assertEqual(report["translated"],1)
-   self.assertIn('101,0,"Open %s\\n"',text); self.assertIn('102,1,"Použít výchozí &písmo"',text)
+   self.assertEqual([[x["id"] for x in call["items"]] for call in calls], [["[STRINGTABLE 0]:101:9", "[STRINGTABLE 0]:102:10"], ["[STRINGTABLE 0]:101:9"]])
+   self.assertIn('101,1,"Open %s\\n"',text); self.assertIn('102,1,"Použít výchozí &písmo"',text)
+   self.assertEqual(slt.parse_items(text.splitlines(keepends=True)),[])
+
+ def test_permanently_rejected_source_fallback_is_skipped_on_next_run(self):
+  os.environ["CURSOR_API_KEY"]="test"
+  def requester(payload,key,model):
+   if payload.get("retry_instructions"):
+    return {"translations":[{"id":payload["items"][0]["id"],"text":"Otevřít"}]}
+   return {"translations":[{"id":x["id"],"text":"Otevřít" if x["resource_id"] == "101" else "Použít výchozí &písmo"} for x in payload["items"]]}
+  with tempfile.TemporaryDirectory() as d:
+   first=Path(d)/"first.slt"; second=Path(d)/"second.slt"
+   report=slt.translate(FIX,first,"czech","mock",40,False,False,requester)
+   text=first.read_text(encoding="utf-8-sig")
+   self.assertEqual(report["failed"],1)
+   self.assertIn('101,1,"Open %s\\n"',text)
+   self.assertEqual(slt.parse_items(text.splitlines(keepends=True)),[])
+   no_request=lambda *_: self.fail("marked source fallback must not be requested again")
+   next_report=slt.translate(first,second,"czech","mock",40,False,False,no_request)
+   self.assertEqual(next_report["found"],0)
+   self.assertEqual(next_report["skipped"],3)
+   self.assertFalse(second.exists())
 
  def test_single_item_retry_can_recover_rejected_translation(self):
   os.environ["CURSOR_API_KEY"]="test"

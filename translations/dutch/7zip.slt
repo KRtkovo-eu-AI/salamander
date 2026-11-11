@@ -168,5 +168,5 @@ COMMENT,"Nederlandse versie"
 1096,1,"Kan één of meerdere bestanden niet toevoegen aan de lijst. Het totale pad is te lang.\nSommige directories of bestanden kunnen ontbreken in het achiefbestand."
 1097,1,"Één of meerdere mappen kunnen niet toegevoegd worden aan de lijst. Het totale pad is te lang.\nEnkele mappen of bestanden kunnen ontbreken in het achiefbestand."
 1098,1,"Naam "%s" met kompleet pad is te lang.\n\nPad: %s"
-1099,0,"Not all archive entries were unpacked. The source archive has been kept."
+1099,1,"Niet alle archiefvermeldingen zijn uitgepakt. Het bronarchief is behouden."
 

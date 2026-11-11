@@ -56,7 +56,7 @@ COMMENT,"chinesetraditional translation stub (English seed)"
 [STRINGTABLE 2]
 144,1,"中止指令碼"
 145,1,"中止執行中的指令碼\tCtrl+Break"
-146,1,"Open Salamander 視窗已被自動化外掛程式鎖定。請等待指令碼執行完畢。"
+146,1,"Open Samandarin 視窗已被自動化外掛程式鎖定。請等待指令碼執行完畢。"
 147,1,"無法初始化指令碼引擎。"
 
 [STRINGTABLE 3]

@@ -64,7 +64,7 @@ COMMENT,"polish translation stub (English seed)"
 
 [STRINGTABLE 3]
 1024,1,"Nie można odczytać z pliku: "
-1025,1,"Nie można połączyć wtyczki z Open Salamander."
+1025,1,"Nie można połączyć wtyczki z Open Samandarin."
 1026,1,"optymalizacja, proszę czekać..."
 1027,1,"Optymalizacja archiwum PAK - %s"
 1028,1,"Usuwanie plików nie zostało zakończone pomyślnie. Może być konieczne uruchomienie optymalizacji PAK z menu wtyczki PAK, aby uniknąć marnowania miejsca na dysku."

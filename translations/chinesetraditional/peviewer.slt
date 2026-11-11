@@ -34,5 +34,5 @@ COMMENT,"chinesetraditional translation stub (English seed)"
 10104,1,"顯示 EXE、DLL 等 Portable Executable 檔案的資訊。"
 
 [STRINGTABLE 2]
-10118,1,"外掛程式設定中未選取任何 Portable Executable 區段。\n請在 Open Salamander 主視窗中使用「選項 > 外掛程式設定 > Portable Executable 檢視器」\n設定可見區段。"
+10118,1,"外掛程式設定中未選取任何 Portable Executable 區段。\n請在 Open Samandarin 主視窗中使用「選項 > 外掛程式設定 > Portable Executable 檢視器」\n設定可見區段。"
 

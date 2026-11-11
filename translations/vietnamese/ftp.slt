@@ -1974,7 +1974,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 11337,1,"Không thể lấy kích thước (theo byte) của phần đã sao chép/di chuyển của tệp mục đích.\r\n"
 11338,1,"Không thể tiếp tục (thêm) tệp (lỗi không mong muốn).\r\n"
 11339,1,"Toàn bộ tệp đã được gửi nhưng máy chủ không xác nhận việc nhận nó.\r\nĐang lấy kích thước tệp (theo byte) để kiểm tra nếu tệp đã được sao chép/di chuyển thành công.\r\n"
-11340,1,"Không thể tìm thấy hoặc tải các thư viện OpenSSL cần thiết cho mã hóa.\n\nCác tệp cần thiết là ssleay32.dll và libeay32.dll.\r\nChúng là một phần của cài đặt Open Salamander.\r\n"
+11340,1,"Không thể tìm thấy hoặc tải các thư viện OpenSSL cần thiết cho mã hóa.\n\nCác tệp cần thiết là ssleay32.dll và libeay32.dll.\r\nChúng là một phần của cài đặt Open Samandarin.\r\n"
 11342,1,"Không thể cấp phát cấu trúc điều khiển OpenSSL. Bộ nhớ thấp."
 11343,1,"LỖI SSL: Không thể cấp phát cấu trúc điều khiển OpenSSL. Không đủ bộ nhớ.\r\n"
 

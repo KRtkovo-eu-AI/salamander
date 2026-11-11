@@ -64,7 +64,7 @@ COMMENT,"croatian translation stub (English seed)"
 
 [STRINGTABLE 3]
 1024,1,"Nije moguće čitati iz datoteke: "
-1025,1,"Nije moguće povezati dodatak s Open Salamanderom."
+1025,1,"Nije moguće povezati dodatak s Open Samandarinom."
 1026,1,"Optimiziranje, pričekajte..."
 1027,1,"Optimiziranje PAK arhive - %s"
 1028,1,"Brisanje datoteka nije uspješno dovršeno. Možda ćete morati pokrenuti optimizaciju PAK arhive iz izbornika dodatka kako biste oslobodili izgubljeni prostor na disku."

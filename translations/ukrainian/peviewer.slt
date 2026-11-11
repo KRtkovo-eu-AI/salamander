@@ -34,5 +34,5 @@ COMMENT,"ukrainian translation stub (English seed)"
 10104,1,"Відображає інформацію про файли Portable Executable, як-от EXE, DLL тощо."
 
 [STRINGTABLE 2]
-10118,1,"У конфігурації плагіна не вибрано жодного розділу Portable Executable.\nЩоб налаштувати видимі розділи, скористайтеся меню Параметри > Налаштування плагіна > Переглядач Portable Executable\nв головному вікні Open Salamander."
+10118,1,"У конфігурації плагіна не вибрано жодного розділу Portable Executable.\nЩоб налаштувати видимі розділи, скористайтеся меню Параметри > Налаштування плагіна > Переглядач Portable Executable\nв головному вікні Open Samandarin."
 

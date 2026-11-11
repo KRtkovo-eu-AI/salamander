@@ -1536,7 +1536,7 @@ COMMENT,"greek translation stub (English seed)"
 10674,0,"Invalid string with text months (format: 12 months separated with spaces)."
 10680,0,"Autodetect condition contains error.\n\nError: %s"
 10685,0,"Unknown server type, unable to parse text listing...\r\n"
-10686,0,"Unable to parse listing of files and directories from server. Only plain text of listing will be displayed in panel.\n\nPlease check our web pages for newer version of Open Salamander. If you are using the latest version, please send us raw listing (if not confidential; right click in panel > Show Raw Listing > Save As) to email support@altap.cz. Please help us to support as many types of servers as possible."
+10686,0,"Unable to parse listing of files and directories from server. Only plain text of listing will be displayed in panel.\n\nPlease check our web pages for newer version of Open Samandarin. If you are using the latest version, please send us raw listing (if not confidential; right click in panel > Show Raw Listing > Save As) to email support@altap.cz. Please help us to support as many types of servers as possible."
 10687,0,"Unable to parse text listing using selected server type...\r\n"
 
 [STRINGTABLE 42]
@@ -1974,7 +1974,7 @@ COMMENT,"greek translation stub (English seed)"
 11337,0,"Unable to get size (in bytes) of already copied/moved part of the target file.\r\n"
 11338,0,"Unable to resume (append) the file (unexpected error).\r\n"
 11339,0,"Entire file was sent but server did not confirm its receiving.\r\nGoing to get file size (in bytes) to test if file was successfully copied/moved.\r\n"
-11340,0,"Unable to find or load OpenSSL libraries needed for encryption.\r\nThe files needed are ssleay32.dll and libeay32.dll.\r\nThey are part of Open Salamander installation."
+11340,0,"Unable to find or load OpenSSL libraries needed for encryption.\r\nThe files needed are ssleay32.dll and libeay32.dll.\r\nThey are part of Open Samandarin installation."
 11342,0,"Unable to allocate OpenSSL control structure. Out of memory."
 11343,0,"SSL ERROR: Unable to allocate OpenSSL control structure. Out of memory.\r\n"
 

@@ -1,5 +1,5 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\uncab\uncab.atp"
+PROJECTNAME,"localization-openai\projects\arabic\uncab\uncab.atp"
 TEXTVERSION,"1.29 (x64)"
 VERSION,"1,29,0,197"
 
@@ -12,11 +12,11 @@ COMMENT,"arabic translation stub (English seed)"
 [DIALOG 100]
 221,122,1,"مجلد CAB التالي"
 112,12,9,198,32,1,""
-300,12,48,40,8,1,"اسم القرص:"
+300,12,48,42,8,1,"اسم القرص:"
 110,54,48,156,8,1,""
 301,12,59,40,8,1,"اسم CAB:"
 111,54,59,156,8,1,""
-302,12,70,19,8,1,"المسار(&P):"
+302,12,70,37,8,1,"المسار(&P):"
 101,12,80,182,12,1,""
 102,197,80,13,12,1,"..."
 1,106,103,50,14,1,"موافق"

@@ -59,7 +59,7 @@ COMMENT,"polish translation stub (English seed)"
 2,151,57,50,14,1,"Anuluj"
 
 [DIALOG 550]
-463,236,1,"Kontrolki dostarczane przez Open Salamander"
+463,236,1,"Kontrolki dostarczane przez Open Samandarin"
 3000,6,4,254,108,1,"CGUIStaticTextAbstract"
 3001,14,17,98,8,1,"Niedołączony tekst statyczny"
 551,102,17,152,8,1,"System został uruchomiony %d ms temu."

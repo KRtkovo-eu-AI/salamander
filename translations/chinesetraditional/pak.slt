@@ -64,7 +64,7 @@ COMMENT,"chinesetraditional translation stub (English seed)"
 
 [STRINGTABLE 3]
 1024,1,"無法讀取檔案："
-1025,1,"無法將外掛程式連線至 Open Salamander。"
+1025,1,"無法將外掛程式連線至 Open Samandarin。"
 1026,1,"正在最佳化，請稍候..."
 1027,1,"正在最佳化 PAK 封存檔 - %s"
 1028,1,"檔案刪除未成功完成。您可能需要從 PAK 外掛程式功能表執行最佳化，以回收浪費的磁碟空間。"

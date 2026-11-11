@@ -56,7 +56,7 @@ COMMENT,"swedish translation stub (English seed)"
 [STRINGTABLE 2]
 144,1,"Avbryt skript"
 145,1,"Avbryt pågående skript\tCtrl+Break"
-146,1,"Open Salamander-fönstret är låst av automatiseringsinsticksprogrammet. Vänta tills skriptet har körts klart."
+146,1,"Open Samandarin-fönstret är låst av automatiseringsinsticksprogrammet. Vänta tills skriptet har körts klart."
 147,1,"Det gick inte att initiera skriptmotorn."
 
 [STRINGTABLE 3]

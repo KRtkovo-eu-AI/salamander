@@ -59,7 +59,7 @@ COMMENT,"hebrew translation stub (English seed)"
 2,151,57,50,14,1,"ביטול"
 
 [DIALOG 550]
-463,236,1,"פקדים המסופקים על ידי Open Salamander"
+463,236,1,"פקדים המסופקים על ידי Open Samandarin"
 3000,6,4,254,108,1,"CGUIStaticTextAbstract"
 3001,14,17,80,8,1,"טקסט סטטי לא משויך"
 551,102,17,152,8,1,"המערכת הופעלה לפני %d אלפיות שנייה."

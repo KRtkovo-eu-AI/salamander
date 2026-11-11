@@ -105,7 +105,7 @@ COMMENT,"swedish translation stub (English seed)"
 2,125,56,50,14,1,"Avbryt"
 
 [DIALOG 550]
-463,236,1,"Kontroller från Open Salamander"
+463,236,1,"Kontroller från Open Samandarin"
 3000,6,4,254,108,1,"CGUIStaticTextAbstract"
 3001,14,17,80,8,1,"Ej ansluten statisk text"
 551,102,17,152,8,1,"Systemet startades för %d ms sedan."

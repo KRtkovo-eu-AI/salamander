@@ -56,7 +56,7 @@ COMMENT,"portuguese translation stub (English seed)"
 [STRINGTABLE 2]
 144,1,"Abortar script"
 145,1,"Abortar script em execução\t Ctrl+Break"
-146,1,"A janela do Open Salamander está bloqueada pelo plug-in Automation. Conclua o script em execução."
+146,1,"A janela do Open Samandarin está bloqueada pelo plug-in Automation. Conclua o script em execução."
 147,1,"Falha ao inicializar o mecanismo de scripts."
 
 [STRINGTABLE 3]

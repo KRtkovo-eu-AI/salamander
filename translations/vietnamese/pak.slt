@@ -64,7 +64,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [STRINGTABLE 3]
 1024,1,"Không thể đọc từ tệp: "
-1025,1,"Không thể kết nối plugin với Open Salamander."
+1025,1,"Không thể kết nối plugin với Open Samandarin."
 1026,1,"đang tối ưu hóa, vui lòng chờ..."
 1027,1,"Đang tối ưu hóa lưu trữ PAK - %s"
 1028,1,"Việc xóa tệp không hoàn thành thành công. Bạn có thể cần chạy tối ưu hóa PAK từ menu plugin PAK để bảo toàn việc lãng phí dung lượng ổ đĩa."

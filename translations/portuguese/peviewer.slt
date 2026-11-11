@@ -34,5 +34,5 @@ COMMENT,"portuguese translation stub (English seed)"
 10104,1,"Exibir informações sobre arquivos Portable Executable como EXE, DLL etc."
 
 [STRINGTABLE 2]
-10118,1,"Nenhuma seção de Portable Executable selecionada na configuração do plug-in foi encontrada.\n Use o menu Opções > Configuração de plug-ins > Visualizador de Portable Executable\nna janela principal do Open Salamander para definir as seções visíveis."
+10118,1,"Nenhuma seção de Portable Executable selecionada na configuração do plug-in foi encontrada.\n Use o menu Opções > Configuração de plug-ins > Visualizador de Portable Executable\nna janela principal do Open Samandarin para definir as seções visíveis."
 

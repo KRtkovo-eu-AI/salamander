@@ -64,7 +64,7 @@ COMMENT,"swedish translation stub (English seed)"
 
 [STRINGTABLE 3]
 1024,1,"Det går inte att läsa från filen: "
-1025,1,"Det går inte att ansluta insticksprogrammet till Open Salamander."
+1025,1,"Det går inte att ansluta insticksprogrammet till Open Samandarin."
 1026,1,"Optimerar, vänta..."
 1027,1,"Optimerar PAK-arkiv - %s"
 1028,1,"Borttagningen av filer slutfördes inte. Du kan behöva optimera PAK från insticksprogrammets meny för att frigöra bortkastat diskutrymme."

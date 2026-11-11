@@ -558,5 +558,5 @@ COMMENT,"Nederlandse versie"
 1252,1,"KB"
 1253,1,"MB"
 1254,1,"Het ZIP bestand gebruikt gegevens in een formaat dat modificatie door de huidige versie van de ZIP plugin niet ondersteund"
-1255,0,"Not all archive entries were unpacked. The source archive has been kept."
+1255,1,"Niet alle archiefitems zijn uitgepakt. Het bronarchief blijft behouden."
 

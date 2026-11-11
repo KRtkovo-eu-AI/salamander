@@ -168,5 +168,5 @@ COMMENT,"Version française"
 1096,1,"Impossible d'ajouter 1 ou plusieurs fichiers à la liste. Le chemin est trop long.\nCertains répertoires ou fichiers peuvent manquer dans la liste d'archive."
 1097,1,"Impossible d'ajouter 1 ou plusieurs répertoires à la liste. Le chemin est trop long.\nCertains répertoires ou fichiers peuvent manquer dans la liste d'archive."
 1098,1,"Le nom "%s" est trop long avec son chemin d'accès complet.\n\nChemin : %s"
-1099,0,"Not all archive entries were unpacked. The source archive has been kept."
+1099,1,"Toutes les entrées n'ont pas été dépaquetées. Archive source conservée."
 

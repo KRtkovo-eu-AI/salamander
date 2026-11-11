@@ -59,7 +59,7 @@ COMMENT,"korean translation stub (English seed)"
 2,151,57,50,14,1,"취소"
 
 [DIALOG 550]
-463,236,1,"Open Salamander 에서 제공하는 제어"
+463,236,1,"Open Samandarin 에서 제공하는 제어"
 3000,6,4,254,108,1,"CGUIStaticTextAbstract"
 3001,14,17,89,8,1,"첨부되지 않은 정적 텍스트"
 551,102,17,152,8,1,"시스템이 %d ms 전에 시작되었습니다."

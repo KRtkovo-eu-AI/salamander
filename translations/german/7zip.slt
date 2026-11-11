@@ -168,5 +168,5 @@ COMMENT,"Deutsche Version"
 1096,1,"1 oder mehrere Dateien können nicht zu der Liste hinzugefügt werden. Der Gesamtpfad ist zu lang.\nMöglicherweise fehlen einige Verzeichnisse oder Dateien in der Archivliste."
 1097,1,"1 oder mehrere Verzeichnisse können nicht zu der Liste hinzugefügt werden. Der Gesamtpfad ist zu lang.\nMöglicherweise fehlen einige Verzeichnisse oder Dateien in der Archivliste."
 1098,1,"Der Name "%s" des vollständigen Pfades ist zu lang.\n\nPfad: %s"
-1099,0,"Not all archive entries were unpacked. The source archive has been kept."
+1099,1,"Nicht alle Archivelemente wurden entpackt. Das Quellarchiv bleibt."
 

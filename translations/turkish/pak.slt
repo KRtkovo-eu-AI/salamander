@@ -64,7 +64,7 @@ COMMENT,"turkish translation stub (English seed)"
 
 [STRINGTABLE 3]
 1024,1,"Dosya okunamıyor: "
-1025,1,"Eklenti Open Salamander'a bağlanamıyor."
+1025,1,"Eklenti Open Samandarin'a bağlanamıyor."
 1026,1,"İyileştiriliyor, lütfen bekleyin..."
 1027,1,"PAK Arşivi İyileştiriliyor - %s"
 1028,1,"Dosya silme işlemi başarıyla tamamlanmadı. Boşa harcanan disk alanını geri kazanmak için eklenti menüsünden PAK iyileştirmesini çalıştırmanız gerekebilir."

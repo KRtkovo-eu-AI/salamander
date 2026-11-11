@@ -59,7 +59,7 @@ COMMENT,"portuguese translation stub (English seed)"
 2,151,57,50,14,1,"Cancelar"
 
 [DIALOG 550]
-463,236,1,"Controles fornecidos pelo Open Salamander"
+463,236,1,"Controles fornecidos pelo Open Samandarin"
 3000,6,4,254,108,1,"CGUIStatic Text Abstract"
 3001,14,17,94,8,1,"Texto estático não anexado"
 551,102,17,152,8,1,"O sistema foi iniciado há %d ms."

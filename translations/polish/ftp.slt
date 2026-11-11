@@ -1536,7 +1536,7 @@ COMMENT,"polish translation stub (English seed)"
 10674,1,"Nieprawidłowy ciąg z tekstowymi miesiącami (format: 12 miesięcy oddzielonych spacjami)."
 10680,1,"Warunek autowykrywania zawiera błąd.\n\nBłąd: %s"
 10685,1,"Nieznany typ serwera, nie można sparsować tekstowego listingu...\r\n"
-10686,1,"Nie można sparsować listingu plików i katalogów z serwera. W panelu zostanie wyświetlony tylko zwykły tekst listingu.\n\nSprawdź na naszych stronach WWW nowszą wersję Open Salamander. Jeśli używasz najnowszej wersji, wyślij nam surowy listing (jeśli nie jest poufny; kliknij prawym przyciskiem w panelu > Pokaż surowy listing > Zapisz jako) na adres support@altap.cz. Pomóż nam obsługiwać jak najwięcej typów serwerów."
+10686,1,"Nie można sparsować listingu plików i katalogów z serwera. W panelu zostanie wyświetlony tylko zwykły tekst listingu.\n\nSprawdź na naszych stronach WWW nowszą wersję Open Samandarin. Jeśli używasz najnowszej wersji, wyślij nam surowy listing (jeśli nie jest poufny; kliknij prawym przyciskiem w panelu > Pokaż surowy listing > Zapisz jako) na adres support@altap.cz. Pomóż nam obsługiwać jak najwięcej typów serwerów."
 10687,1,"Nie można sparsować tekstowego listingu przy użyciu wybranego typu serwera...\r\n"
 
 [STRINGTABLE 42]
@@ -1974,7 +1974,7 @@ COMMENT,"polish translation stub (English seed)"
 11337,1,"Nie można pobrać rozmiaru (w bajtach) już skopiowanej/przeniesionej części pliku docelowego.\r\n"
 11338,1,"Nie można wznowić (dołączyć) pliku (nieoczekiwany błąd).\r\n"
 11339,1,"Cały plik został wysłany, ale serwer nie potwierdził odbioru.\r\nPobieranie rozmiaru pliku (w bajtach) w celu sprawdzenia, czy plik został pomyślnie skopiowany/przeniesiony.\r\n"
-11340,1,"Nie można znaleźć ani załadować bibliotek OpenSSL potrzebnych do szyfrowania.\r\nWymagane pliki to ssleay32.dll i libeay32.dll.\r\nSą one częścią instalacji Open Salamander."
+11340,1,"Nie można znaleźć ani załadować bibliotek OpenSSL potrzebnych do szyfrowania.\r\nWymagane pliki to ssleay32.dll i libeay32.dll.\r\nSą one częścią instalacji Open Samandarin."
 11342,1,"Nie można przydzielić struktury sterującej OpenSSL. Brak pamięci."
 11343,1,"BŁĄD SSL: Nie można przydzielić struktury sterującej OpenSSL. Brak pamięci.\r\n"
 

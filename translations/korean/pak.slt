@@ -64,7 +64,7 @@ COMMENT,"korean translation stub (English seed)"
 
 [STRINGTABLE 3]
 1024,1,"파일을 읽을 수 없습니다."
-1025,1,"Open Salamander 에 플러그인을 연결할 수 없습니다."
+1025,1,"Open Samandarin 에 플러그인을 연결할 수 없습니다."
 1026,1,"최적화 중입니다. 잠시만 기다려주세요..."
 1027,1,"PAK 아카이브 최적화 - %s"
 1028,1,"파일 삭제가 성공적으로 완료되지 않았습니다. 디스크 공간 낭비를 방지하려면 PAK 플러그인 메뉴에서 PAK 최적화를 실행해야 할 수 있습니다."

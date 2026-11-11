@@ -59,7 +59,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 2,151,57,50,14,1,"Hủy"
 
 [DIALOG 550]
-463,236,1,"Các điều khiển được cung cấp bởi Open Salamander"
+463,236,1,"Các điều khiển được cung cấp bởi Open Samandarin"
 3000,6,4,254,108,1,"CGUIStaticTextAbstract"
 3001,14,17,80,8,1,"Văn bản tĩnh chưa gắn"
 551,102,17,152,8,1,"Hệ thống đã được bắt đầu %d ms trước."

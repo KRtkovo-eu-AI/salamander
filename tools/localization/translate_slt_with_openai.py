@@ -1,9 +1,13 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Mark terminal content-validation failures as source-text fallbacks. | Avoid charging future runs for deterministic failures while keeping valid build input. | | openai/gpt-5.6-luna-pro |
+# | 2026-11-11 | Retry only invalid rows from structurally complete batches. | Avoid resending valid translations when technical-token validation rejects one row. | | openai/gpt-5.6-luna-pro |
+# | 2026-11-11 | Parallelize independent translation batches. | Reduce wall-clock time without changing validation or retry behavior. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-05 | Register fifteen major-language translation stubs. | Empty language folders need LANGID metadata before AI batch translation. | | Composer |
 #!/usr/bin/env python3
 """Translate untranslated SLT resource lines through a supported LLM provider."""
 from __future__ import annotations
-import argparse, json, os, re, shutil, socket, subprocess, sys, tempfile, time, urllib.error, urllib.request
+import argparse, json, os, re, shutil, socket, subprocess, sys, tempfile, threading, time, urllib.error, urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -478,27 +482,55 @@ def default_model(provider: str) -> str:
         return os.environ.get("OPENROUTER_MODEL") or DEFAULT_OPENROUTER_MODEL
     return os.environ.get("CURSOR_MODEL") or os.environ.get("OPENAI_MODEL") or DEFAULT_CURSOR_MODEL
 
+def _validate_text(item: Item, text: object, enforce_max_length: bool = False) -> str:
+    if not isinstance(text, str): raise ValueError(f"translated text is not a string for {item.key}")
+    if "\n" in text or "\r" in text: raise ValueError(f"translated text contains newline for {item.key}")
+    if "\x00" in text: raise ValueError(f"translated text contains NUL byte for {item.key}")
+    # SLT text fields are delimited by the final quote on the line; literal
+    # quotes inside the field are valid and are present in the English resources.
+    if any(ch in text for ch in REPLACEMENT_CHARS): raise ValueError(f"translated text contains replacement glyph for {item.key}")
+    if MOJIBAKE_RE.search(text): raise ValueError(f"translated text looks mojibaked for {item.key}")
+    if "??" in text: raise ValueError(f"translated text contains repeated question marks for {item.key}")
+    if tokens(text) != tokens(item.text): raise ValueError(f"technical tokens changed for {item.key}")
+    if enforce_max_length and item.source_text is not None and len(text) > len(item.source_text): raise ValueError(f"translated text is longer than source for {item.key}")
+    return text
+
+def _validate_row_shape(row: object, expected: dict[str, Item], seen: set[str]) -> tuple[str, object]:
+    if not isinstance(row, dict) or set(row) != {"id", "text"} or row["id"] in seen or row["id"] not in expected:
+        raise ValueError("response contains invalid, duplicate, or unknown item")
+    seen.add(row["id"])
+    return row["id"], row["text"]
+
 def validate(items: list[Item], result: dict, language: str | None = None, enforce_max_length: bool = False) -> dict[str,str]:
     rows=result.get("translations")
     if not isinstance(rows,list): raise ValueError("response has no translations array")
     output={}
     expected={i.key:i for i in items}
+    seen=set()
     for row in rows:
-        if not isinstance(row,dict) or set(row) != {"id","text"} or row["id"] in output or row["id"] not in expected: raise ValueError("response contains invalid, duplicate, or unknown item")
-        if "\n" in row["text"] or "\r" in row["text"]: raise ValueError(f"translated text contains newline for {row['id']}")
-        if "\x00" in row["text"]: raise ValueError(f"translated text contains NUL byte for {row['id']}")
-        # SLT text fields are delimited by the final quote on the line; literal
-        # quotes inside the field are valid and are present in the English resources.
-        if any(ch in row["text"] for ch in REPLACEMENT_CHARS): raise ValueError(f"translated text contains replacement glyph for {row['id']}")
-        if MOJIBAKE_RE.search(row["text"]): raise ValueError(f"translated text looks mojibaked for {row['id']}")
-        if "??" in row["text"]: raise ValueError(f"translated text contains repeated question marks for {row['id']}")
-        if tokens(row["text"]) != tokens(expected[row["id"]].text): raise ValueError(f"technical tokens changed for {row['id']}")
-        if enforce_max_length and expected[row["id"]].source_text is not None and len(row["text"]) > len(expected[row["id"]].source_text): raise ValueError(f"translated text is longer than source for {row['id']}")
-        output[row["id"]]=row["text"]
+        key, text = _validate_row_shape(row, expected, seen)
+        output[key]=_validate_text(expected[key], text, enforce_max_length)
     if set(output) != set(expected): raise ValueError("response is incomplete")
     return output
 
-def translate(path: Path, output: Path, language: str, model: str, batch_size: int, dry_run: bool, force: bool, requester=None, trace_file: Path | None = None, source_archive: Path | None = None, trim_translations: bool = False, provider: str | None = None) -> dict:
+def validate_partial(items: list[Item], result: dict, enforce_max_length: bool = False) -> tuple[dict[str,str], list[str]]:
+    """Validate a complete response while isolating content-invalid rows."""
+    rows=result.get("translations")
+    if not isinstance(rows, list): raise ValueError("response has no translations array")
+    expected={i.key:i for i in items}
+    output={}
+    invalid=[]
+    seen=set()
+    for row in rows:
+        key, text = _validate_row_shape(row, expected, seen)
+        try:
+            output[key]=_validate_text(expected[key], text, enforce_max_length)
+        except ValueError:
+            invalid.append(key)
+    if set(seen) != set(expected): raise ValueError("response is incomplete")
+    return output, invalid
+
+def translate(path: Path, output: Path, language: str, model: str, batch_size: int, dry_run: bool, force: bool, requester=None, trace_file: Path | None = None, source_archive: Path | None = None, trim_translations: bool = False, provider: str | None = None, max_concurrency: int = 1) -> dict:
     lang = language_info(language)
     lines=path.read_text(encoding="utf-8-sig").splitlines(keepends=True)
     source_lines=source_archive.read_text(encoding="utf-8-sig").splitlines(keepends=True) if source_archive else None
@@ -534,57 +566,113 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
         key=resolve_api_key(provider) or os.environ.get("OPENAI_API_KEY") or os.environ.get("CURSOR_API_KEY") or ""
     changed=list(lines)
     trace_handle = trace_file.open("a", encoding="utf-8") if trace_file else None
+    trace_lock = threading.Lock()
+    report_lock = threading.Lock()
+
+    def add_report(field: str, amount: int) -> None:
+        with report_lock:
+            report[field] += amount
 
     def call_model(payload: dict) -> dict:
         if trace_handle:
-            trace_handle.write(json.dumps({"event":"request","language":language,"item_count":len(payload["items"]),"ids":[i["id"] for i in payload["items"]]}, ensure_ascii=False)+"\n")
-            trace_handle.flush()
+            with trace_lock:
+                trace_handle.write(json.dumps({"event":"request","language":language,"item_count":len(payload["items"]),"ids":[i["id"] for i in payload["items"]]}, ensure_ascii=False)+"\n")
+                trace_handle.flush()
         result = requester(payload,key,model)
         if trace_handle:
-            trace_handle.write(json.dumps({"event":"response","language":language,"item_count":len(result.get("translations",[]))}, ensure_ascii=False)+"\n")
-            trace_handle.flush()
+            with trace_lock:
+                trace_handle.write(json.dumps({"event":"response","language":language,"item_count":len(result.get("translations",[]))}, ensure_ascii=False)+"\n")
+                trace_handle.flush()
         return result
+
+    def retry_item(item: Item, retry_payload: dict) -> None:
+        try:
+            response = call_model(retry_payload)
+            translated, invalid_keys = validate_partial([item], response, enforce_max_length=trim_translations)
+        except (urllib.error.URLError, socket.timeout, TimeoutError) as exc:
+            # A transient retry failure must remain eligible for a later run.
+            add_report("failed", 1)
+            print(f"translation retry failed (network error, will continue): {item.key}: {exc}", file=sys.stderr)
+            return
+        except ValueError as exc:
+            # A malformed/incomplete response is not a terminal content
+            # rejection, so leave the row at state=0 for a later attempt.
+            add_report("failed", 1)
+            print(f"translation skipped: {item.key}: {exc}", file=sys.stderr)
+            return
+        if invalid_keys:
+            try:
+                validate([item], response, language, enforce_max_length=trim_translations)
+            except ValueError as exc:
+                reason = str(exc)
+            else:
+                reason = "content validation failed"
+            # State 1 keeps the current source text usable by the SLT importer
+            # and excludes this deterministic failure from normal future runs.
+            changed[item.index]=f'{item.prefix}1,"{item.text}"{item.ending}'
+            add_report("failed", 1)
+            print(f"translation skipped: {item.key}: {reason}; keeping source text as fallback", file=sys.stderr)
+            return
+        changed[item.index]=f'{item.prefix}1,"{translated[item.key]}"{item.ending}'
+        add_report("translated", 1)
 
     def translate_batch(batch: list[Item]) -> None:
         selected={i.key for i in batch}
         payload={"target_language":lang["name"],"target_language_key":language,"target_locale":lang["locale"],"target_langid":lang["langid"],"target_script":lang["script"],"mode":"trim" if trim_translations else "translate","existing_translations":translation_context(lines, source_lines, selected),"items":[{"id":i.key,"resource_id":i.prefix.split(',',1)[0],"type":i.section,"text":i.text,"source_text":i.source_text or i.text,"max_length_chars":len(i.source_text or i.text)} for i in batch]}
         try:
-            translated=validate(batch, call_model(payload), language, enforce_max_length=trim_translations)
+            response=call_model(payload)
+            translated, invalid_keys=validate_partial(batch, response, enforce_max_length=trim_translations)
+            if invalid_keys:
+                for item in batch:
+                    if item.key not in invalid_keys:
+                        changed[item.index]=f'{item.prefix}1,"{translated[item.key]}"{item.ending}'
+                        add_report("translated", 1)
+                for key in invalid_keys:
+                    item=next(item for item in batch if item.key == key)
+                    retry_payload=dict(payload)
+                    retry_payload["items"]=[entry for entry in payload["items"] if entry["id"] == key]
+                    retry_payload["existing_translations"]=translation_context(lines, source_lines, {key})
+                    retry_payload["retry_instructions"]="Previous output was rejected. Translate this one item again in the target language's native script. Keep every placeholder, backslash escape, XML/HTML tag, braced token, filesystem path, and accelerator count exactly as in the source. Do not use '?', replacement glyphs, stripped accents, transliteration, or mojibake for target-language characters. If max_length_chars is present, shorten the translation to fit that length."
+                    retry_item(item, retry_payload)
+                return
+            for item in batch:
+                changed[item.index]=f'{item.prefix}1,"{translated[item.key]}"{item.ending}'
+                add_report("translated", 1)
+            return
         except ValueError as exc:
             if len(batch) == 1:
                 retry_payload=dict(payload)
                 retry_payload["retry_instructions"]="Previous output was rejected. Translate this one item again in the target language's native script. Keep every placeholder, backslash escape, XML/HTML tag, braced token, filesystem path, and accelerator count exactly as in the source. Do not use '?', replacement glyphs, stripped accents, transliteration, or mojibake for target-language characters. If max_length_chars is present, shorten the translation to fit that length."
-                try:
-                    translated=validate(batch, call_model(retry_payload), language, enforce_max_length=trim_translations)
-                except ValueError as retry_exc:
-                    report["failed"] += 1
-                    print(f"translation skipped: {batch[0].key}: {retry_exc}", file=sys.stderr)
-                    return
-                except Exception:
-                    report["failed"] += 1
-                    raise
-                for item in batch:
-                    changed[item.index]=f'{item.prefix}1,"{translated[item.key]}"{item.ending}'
-                    report["translated"] += 1
+                retry_item(batch[0], retry_payload)
                 return
             midpoint=max(1, len(batch)//2)
             translate_batch(batch[:midpoint])
             translate_batch(batch[midpoint:])
             return
         except (urllib.error.URLError, socket.timeout, TimeoutError) as exc:
-            report["failed"] += len(batch)
+            add_report("failed", len(batch))
             print(f"batch translation failed (network error, will continue): {exc}", file=sys.stderr)
             return
         except Exception:
-            report["failed"] += len(batch)
+            add_report("failed", len(batch))
             raise
         for item in batch:
             changed[item.index]=f'{item.prefix}1,"{translated[item.key]}"{item.ending}'
-            report["translated"] += 1
+            add_report("translated", 1)
 
     try:
-        for start in range(0,len(items),batch_size):
-            translate_batch(items[start:start+batch_size])
+        batches = [items[start:start + batch_size] for start in range(0, len(items), batch_size)]
+        # Cursor sessions are stateful and are intentionally kept serial. The
+        # HTTP providers can safely handle independent requests concurrently.
+        workers = 1 if provider == "cursor" else max(1, max_concurrency)
+        if workers == 1 or len(batches) <= 1:
+            for batch in batches:
+                translate_batch(batch)
+        else:
+            with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="slt-translate") as executor:
+                futures = [executor.submit(translate_batch, batch) for batch in batches]
+                for future in futures:
+                    future.result()
     finally:
         if trace_handle: trace_handle.close()
         if owns_requester and hasattr(requester, "close"):
@@ -672,8 +760,8 @@ def expand_widths(changed: list[str], items: list[Item]) -> int:
     return modified
 
 def main() -> int:
-    p=argparse.ArgumentParser(); p.add_argument("input",type=Path); p.add_argument("output",type=Path); p.add_argument("--language",required=True); p.add_argument("--provider",choices=("cursor","openai","openrouter"),default=os.environ.get("TRANSLATION_PROVIDER","openrouter")); p.add_argument("--model",default=None); p.add_argument("--batch-size",type=int,default=40); p.add_argument("--dry-run",action="store_true"); p.add_argument("--force-retranslate",action="store_true"); p.add_argument("--trace-file",type=Path); p.add_argument("--source-archive",type=Path); p.add_argument("--trim-translations",action="store_true")
+    p=argparse.ArgumentParser(); p.add_argument("input",type=Path); p.add_argument("output",type=Path); p.add_argument("--language",required=True); p.add_argument("--provider",choices=("cursor","openai","openrouter"),default=os.environ.get("TRANSLATION_PROVIDER","openrouter")); p.add_argument("--model",default=None); p.add_argument("--batch-size",type=int,default=40); p.add_argument("--max-concurrency",type=int,default=1); p.add_argument("--dry-run",action="store_true"); p.add_argument("--force-retranslate",action="store_true"); p.add_argument("--trace-file",type=Path); p.add_argument("--source-archive",type=Path); p.add_argument("--trim-translations",action="store_true")
     a=p.parse_args(); model=a.model or default_model(a.provider)
-    try: print(json.dumps(translate(a.input,a.output,a.language,model,a.batch_size,a.dry_run,a.force_retranslate,trace_file=a.trace_file,source_archive=a.source_archive,trim_translations=a.trim_translations,provider=a.provider),ensure_ascii=False)); return 0
+    try: print(json.dumps(translate(a.input,a.output,a.language,model,a.batch_size,a.dry_run,a.force_retranslate,trace_file=a.trace_file,source_archive=a.source_archive,trim_translations=a.trim_translations,provider=a.provider,max_concurrency=a.max_concurrency),ensure_ascii=False)); return 0
     except Exception as exc: print(f"translation failed: {exc}",file=sys.stderr); return 1
 if __name__ == "__main__": raise SystemExit(main())

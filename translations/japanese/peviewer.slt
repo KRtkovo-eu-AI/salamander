@@ -34,5 +34,5 @@ COMMENT,"Japanese (ja-JP) UI translation"
 10104,1,"EXE、DLL などのポータブル実行可能ファイルに関する情報を表示します。"
 
 [STRINGTABLE 2]
-10118,1,"プラグイン構成で選択されたポータブル実行可能セクションが見つかりませんでした。\nOpen Salamander メイン ウィンドウでメニューの [オプション] > [プラグイン構成] > Portable Executable Viewer\n を使用して、表示されるセクションを設定します。"
+10118,1,"プラグイン構成で選択されたポータブル実行可能セクションが見つかりませんでした。\nOpen Samandarin メイン ウィンドウでメニューの [オプション] > [プラグイン構成] > Portable Executable Viewer\n を使用して、表示されるセクションを設定します。"
 

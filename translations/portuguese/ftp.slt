@@ -1536,7 +1536,7 @@ COMMENT,"portuguese translation stub (English seed)"
 10674,1,"Texto inválido com meses de texto (formato: 12 meses separados por cerejas)."
 10680,1,"A condição de detecção automática contém erro.\n\nError: %s"
 10685,1,"Tipo de servidor desconhecido, não foi possível processar a listagem de texto...\r\n"
-10686,1,"Não foi possível processar a listagem de arquivos e diretórios do servidor. Apenas texto simples de listagem será exibido no painel.\n\nPor favor, verifique nossas páginas web para uma versão mais recente do Open Salamander. Se você estiver usando a versão mais recente, por favor, envie-nos listagem bruta (se não confidencial; clique com o botão direito no painel > Mostrar Listagem Raw > Salvar Como) para suporte de e-mail@altap.cz. Por favor, ajude-nos a suportar tantos tipos de servidores quanto possível."
+10686,1,"Não foi possível processar a listagem de arquivos e diretórios do servidor. Apenas texto simples de listagem será exibido no painel.\n\nPor favor, verifique nossas páginas web para uma versão mais recente do Open Samandarin. Se você estiver usando a versão mais recente, por favor, envie-nos listagem bruta (se não confidencial; clique com o botão direito no painel > Mostrar Listagem Raw > Salvar Como) para suporte de e-mail@altap.cz. Por favor, ajude-nos a suportar tantos tipos de servidores quanto possível."
 10687,1,"Não foi possível processar a listagem de texto usando o tipo de servidor selecionado...\r\n"
 
 [STRINGTABLE 42]
@@ -1974,7 +1974,7 @@ COMMENT,"portuguese translation stub (English seed)"
 11337,1,"Não foi possível obter o tamanho (em bytes) da parte já copiada/movida do arquivo alvo.\r\n"
 11338,1,"Não foi possível retomar (anexar) o arquivo (errro inesperado).\r\n"
 11339,1,"Foi enviado um arquivo inteiro, mas o servidor não confirmou a sua recepção.\r\nIndo para obter o tamanho do arquivo (em bytes) para testar se o arquivo foi copiado/movido com sucesso.\r\n"
-11340,1,"Não foi possível encontrar ou carregar bibliotecas OpenSSL necessárias para criptografia.\r\n Os arquivos necessários são ssleay32.dll e libeay32.dll.\r\nEles fazem parte da instalação do Open Salamander."
+11340,1,"Não foi possível encontrar ou carregar bibliotecas OpenSSL necessárias para criptografia.\r\n Os arquivos necessários são ssleay32.dll e libeay32.dll.\r\nEles fazem parte da instalação do Open Samandarin."
 11342,1,"Não foi possível alocar a estrutura de controle OpenSSL. Sem memória."
 11343,1,"ERRO SSL: Não foi possível alocar a estrutura de controle OpenSSL. Sem memória.\r\n"
 

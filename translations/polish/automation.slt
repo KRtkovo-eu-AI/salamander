@@ -56,7 +56,7 @@ COMMENT,"polish translation stub (English seed)"
 [STRINGTABLE 2]
 144,1,"Przerwij skrypt"
 145,1,"Przerwij uruchomiony skrypt\tCtrl+Break"
-146,1,"Okno Open Salamander jest zablokowane przez wtyczkę Automatyzacja. Zakończ uruchomiony skrypt."
+146,1,"Okno Open Samandarin jest zablokowane przez wtyczkę Automatyzacja. Zakończ uruchomiony skrypt."
 147,1,"Nie udało się zainicjować silnika skryptów."
 
 [STRINGTABLE 3]

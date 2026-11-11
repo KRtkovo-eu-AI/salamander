@@ -1,3 +1,6 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Make workspace directory initialization idempotent. | Allow repeated incremental localization runs to reuse an existing workspace. | | openai/gpt-5.6-luna-pro |
+# | 2026-11-11 | Support incremental translation workspace reuse. | Avoid copying the complete build for each one-language/module localization run. | | openai/gpt-5.6-luna-pro |
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
@@ -13,6 +16,8 @@ param(
     [switch]$ImportArchives,
 
     [switch]$Force,
+
+    [switch]$Reuse,
 
     [string]$TranslatorExe
 )
@@ -585,18 +590,24 @@ if (-not $TranslatorExe)
 
 if (Test-Path -LiteralPath $outputDirPath)
 {
-    if (-not $Force)
+    if (-not $Reuse -and -not $Force)
     {
         throw "Output directory '$outputDirPath' already exists. Re-run with -Force to replace it."
     }
 
-    Remove-Item -LiteralPath $outputDirPath -Recurse -Force
+    if (-not $Reuse)
+    {
+        Remove-Item -LiteralPath $outputDirPath -Recurse -Force
+    }
 }
 
-New-Item -ItemType Directory -Path $outputDirPath, $runtimeRoot, $projectsRoot, $workspaceTranslationsRoot | Out-Null
+New-Item -ItemType Directory -Path $outputDirPath, $runtimeRoot, $projectsRoot, $workspaceTranslationsRoot -Force | Out-Null
 
-Write-Host "Copying populated build output to workspace runtime..."
-Copy-Item -Path (Join-Path $buildRootPath "*") -Destination $runtimeRoot -Recurse -Force
+if (-not $Reuse -or -not (Test-Path -LiteralPath (Join-Path $runtimeRoot "salamand.exe")))
+{
+    Write-Host "Copying populated build output to workspace runtime..."
+    Copy-Item -Path (Join-Path $buildRootPath "*") -Destination $runtimeRoot -Recurse -Force
+}
 
 $requestedLanguages = @()
 if ($Languages -and $Languages.Count -gt 0)

@@ -34,5 +34,5 @@ COMMENT,"korean translation stub (English seed)"
 10104,1,"EXE, DLL 등과 같은 Portable Executable 파일에 대한 정보를 표시합니다."
 
 [STRINGTABLE 2]
-10118,1,"플러그인 구성에서 선택한 Portable Executable 섹션을 찾을 수 없습니다.\nOpen Salamander 메인 창의 옵션 > 플러그인 구성 > Portable Executable Viewer\n메뉴에서 표시할 섹션을 설정하세요."
+10118,1,"플러그인 구성에서 선택한 Portable Executable 섹션을 찾을 수 없습니다.\nOpen Samandarin 메인 창의 옵션 > 플러그인 구성 > Portable Executable Viewer\n메뉴에서 표시할 섹션을 설정하세요."
 

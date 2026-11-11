@@ -59,7 +59,7 @@ COMMENT,"indonesian translation stub (English seed)"
 2,151,57,50,14,1,"Batal"
 
 [DIALOG 550]
-463,236,1,"Kontrol yang disediakan Open Salamander"
+463,236,1,"Kontrol yang disediakan Open Samandarin"
 3000,6,4,254,108,1,"CGUIStaticTextAbstract"
 3001,14,17,92,8,1,"Teks statis tidak terpasang"
 551,102,17,152,8,1,"Sistem dimulai %d md yang lalu."
