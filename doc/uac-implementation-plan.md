@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Record the batch overwrite coordination boundary. | Avoid treating disabled Scan Ahead as proof of serial execution. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record the F5 existing-target probe and scoped source receipt. | Separate local seam results from unresolved real UAC acceptance. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record the NTFS overwrite reachability probe. | Keep the untested common file-exists path visible in the remaining work. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record the clean F5 probe build and caller test. | Distinguish build and simulated caller evidence from pending privileged acceptance. | #731 | GPT-6 (Codex) |
@@ -625,6 +626,10 @@ Následná NTFS sonda pod běžným tokenem ukázala u devíti zkoušených ACL 
 Navazující místní řez pro `targetExists`: jestliže existující nativní `OPEN_EXISTING` cíle před prvním dialogem skutečně vrátí `ERROR_ACCESS_DENIED`, způsobilá singleton F5 může před nativním rozhodnutím použít stejnou scoped sondu. Samotné `ERROR_FILE_EXISTS` ani obecné selhání přípravy nestačí. Pokud existující cíl zjistil create-only broker, worker zachová jeho session a před další sondou ověří původní 128bit ID zdroje i rodiče a generaci stejné session; záměnu odmítne. Nepodporované kombinace zůstávají na předchozí cestě.
 
 Ve zkoušce 36/36 v Debug i Release běží skutečný host controller a message-mode pipe, avšak první odpověď `FILE_EXISTS` dodává fake peer, receipt se vytváří přes accessory a UI/UAC jsou seamy. Řízená záměna zdroje stejné délky, zavřená a znovuotevřená session se odmítnou; ověřují se i obsahy. Samostatný test vyříznuté skutečné `ExecuteWorkerTransfer` prošel 4/4 v obou konfiguracích pro `FILE_EXISTS` s/bez současného Cancel v listové i planned session; transport a dialog jsou stubované. Lokální NTFS doložilo odepření otevření cíle při přístupných atributech rodiče pouze s testově vypnutou `SeChangeNotifyPrivilege`; v těchto podmínkách `CREATE_NEW` vrátil 5, nikoli 80. Realistický celý sled jedné UAC výzvy, skutečného create-only brokeru, 80 a přepisu, privilegované zveřejnění a společná VM akceptace stále chybějí. T5 zůstává otevřená.
+
+Na čistém commitu `6580a8e6` prošly x64 buildy hosta a brokeru v Debug i Release; každý vrátil exit 0. Integrovaný `3353a095` má shodný kód. Logy jsou v `C:\Samandarin\builds\uac-targetexists-6580a8e6`. Build sám neověřuje běh ani systémový souhlas.
+
+Před rozšířením na více položek je nutné koordinovat i paralelní kopie: vypnutý Scan Ahead sám nezaručuje sériový běh. Jedna session smí mít jen jeden čekající probe; pro další přepisy je třeba zachovat nativní All/Skip All i ověření každé revize a nevracet se po zavedení přísného režimu k neověřenému přepisu. Jde o návrhovou hranici, nikoli hotovou dávkovou podporu.
 
 Srovnatelný Release host proti předchozímu buildu má 5 794 816 místo 5 789 184 B (+5 632 B); broker se tímto blokem nemění. Celoprocesové měření soukromé paměti při běžné a elevované úloze zůstává pro společnou akceptaci otevřené.
 
