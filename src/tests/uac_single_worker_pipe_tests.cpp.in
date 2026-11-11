@@ -1,11 +1,14 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Exercise denied F5 call-site outcomes. | Verify routing and progress at the real worker branch. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Extend singleton overwrite regression coverage. | Preserve cancellation, lifetime and prompt behavior. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Exercise the single F5 worker through the real host probe controller. | Verify choices, accounting and stop before wiring the full application. | #731 | GPT-6.1 Terra |
 // Production worker functions and ExecuteProbedOverwrite run on a real pipe.
 // The peer, consent, dialog and installed-image/elevation gates are seams;
 // a fake success never mutates a file or proves privileged publication.
+// The caller test also forces the prior overwrite preparation to fail and
+// substitutes skipped-file bookkeeping; the rest of DoCopyFile is not run.
 #define SAM_UAC_F7_HOST
 #include <thread>
 #include <list>
@@ -146,12 +149,15 @@ struct COperation
     DWORD OpFlags = 1, Attr = FILE_ATTRIBUTE_ARCHIVE;
     bool SourceNameWValid = true, TargetNameWValid = true;
     std::wstring SourceNameW, TargetNameW;
-    const char* SourceName = "source-UTF8", *TargetName = "target-UTF8";
+    char sourceName[32] = "source-UTF8", targetName[32] = "target-UTF8";
+    char* SourceName = sourceName, *TargetName = targetName;
+    UacF7::ArchiveRevision ScannedTargetRevision{};
     CQuadWord FileSize{4, 0}, Size{100, 0};
 };
 struct CProgressDlgData
 {
     bool ConflictDecisionInjected = false, OverwriteAll = false, SkipAllOverwrite = false, CnfrmFileOver = true;
+    BOOL SkipAllFileOpenOut = FALSE, ConflictTargetChanged = FALSE;
     bool OverwriteHiddenAll = false, SkipAllSystemOrHidden = false;
     BOOL* CancelWorker = nullptr;
     HANDLE CancelWorkerEvent = nullptr, WorkerNotSuspended = nullptr;
@@ -162,7 +168,7 @@ constexpr DWORD OPFL_UAC_TRANSFER_ELIGIBLE = 1, OPFL_AS_ENCRYPTED = 2, OPFL_UAC_
 constexpr UINT WM_USER_DIALOG = WM_APP + 20;
 constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 1, WORKER_DIALOG_UAC_OVERWRITE_PROBE = 2,
                  WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN = 3;
-constexpr int IDB_SKIP = 200;
+constexpr int IDB_SKIP = 200, IDB_SKIPALL = 201, IDB_ALL = 202;
 @@DIALOG_PAYLOAD@@
 static const ListedSource* ListedTransferSource(const COperation&, const COperations&) { return nullptr; }
 static std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* text) { return text; }
@@ -219,6 +225,38 @@ static LRESULT TestMessage(HWND, UINT message, WPARAM kind, LPARAM value)
 #define SendMessage TestMessage
 @@PROMPT_CALLBACK@@
 @@SINGLE_WORKER@@
+#define HANDLES_Q(x) (x)
+#define HANDLES(x) (x)
+static bool ValidateInjectedTargetIdentity(COperation*, CProgressDlgData&) { return true; }
+static bool PrepareWorkerOverwrite(COperation&, COperations&, CProgressDlgData&, UacF7::PreparedTransfer&) { return false; }
+static std::wstring WorkerOperationPathW(const char*, const wchar_t* path) { return path; }
+static void GetFileOverwriteInfo(char* text, size_t n, HANDLE, const char*, FILETIME*, BOOL*) { sprintf_s(text, n, "unused"); }
+static SourceOverwriteResult ConfirmBrokerOverwriteAttributes(HWND, COperation&, CProgressDlgData&, DWORD)
+{ return SourceOverwriteResult::Cancelled; }
+static bool ExecuteWorkerTransfer(HWND, COperation&, COperations&, CQuadWord&, CProgressDlgData&, BOOL&,
+                                  UacF7::PreparedTransfer&, DWORD&, bool) { return false; }
+@@PARENT_OVERWRITE@@
+static int skippedAccounting = 0;
+static void SetTFSandPSforSkippedFile(COperation* op, CQuadWord& last, COperations* script, CQuadWord total)
+{ ++skippedAccounting; last += op->FileSize; script->SetTFSandProgressSize(last, total); }
+static int RunDeniedCallSite(HWND hProgressDlg, COperation* op, COperations* script, CQuadWord& totalDone,
+                             CProgressDlgData& dlgData, BOOL& skipValue, DWORD& err)
+{
+    HANDLE in = INVALID_HANDLE_VALUE;
+    bool transferError = false, copyAsEncrypted = false, protectedExistingMove = false;
+    bool isMove = false, protectedExistingMoveTarget = false, previousNativeOverwriteConfirmed = false;
+    BOOL* skip = &skipValue;
+    UacF7::OverwriteApproval approvedOverwrite{};
+    CQuadWord lastTransferredFileSize;
+    @@DENIED_CALLSITE@@
+    return -2; // seam: original worker continues its normal conflict handling
+SKIP_OPEN:
+    @@SKIP_ACTION@@
+NORMAL_ERROR:
+    return -1; // seam: original worker continues its normal error handling
+}
+#undef HANDLES
+#undef HANDLES_Q
 #undef SendMessage
 
 namespace
@@ -408,6 +446,23 @@ int main()
         check(outcome == Outcome::Cancelled && gotCommit && fakeOk && unknownDialogs == 1 &&
               unknownWhileCancelled == 1 && !f.script.completedWrites && f.total.Value == 0,
               "lost commit reply still requests unknown-result dialog when cancellation is active");
+    }
+    for (FakeMode mode : {FakeMode::Success, FakeMode::No, FakeMode::Cancel, FakeMode::Oom, FakeMode::Unsupported})
+    {
+        Reset(mode); Fixture f; BOOL skipped = FALSE; DWORD error = ERROR_ACCESS_DENIED; skippedAccounting = 0;
+        const int actual = RunDeniedCallSite(f.window, &f.op, &f.script, f.total, f.data, skipped, error);
+        if (peer.joinable()) peer.join();
+        const bool expected = mode == FakeMode::Success ? actual == TRUE && !skipped && f.total.Value == 100 && gotCommit :
+                              mode == FakeMode::No ? actual == TRUE && skipped && f.total.Value == 100 && gotAbort && skippedAccounting == 1 :
+                              mode == FakeMode::Cancel ? actual == FALSE && !skipped && f.total.Value == 0 :
+                              mode == FakeMode::Oom ? actual == -1 && error == ERROR_NOT_ENOUGH_MEMORY && f.total.Value == 0 :
+                              actual == -2 && gotAbort && f.total.Value == 0;
+        const char* label = mode == FakeMode::Success ? "F5 caller returns finished" :
+                            mode == FakeMode::No ? "F5 caller reaches skip and advances progress" :
+                            mode == FakeMode::Cancel ? "F5 caller returns cancelled" :
+                            mode == FakeMode::Oom ? "F5 caller reaches normal error handling" :
+                            "F5 caller continues original conflict handling";
+        check(expected && fakeOk, label);
     }
     std::printf("single worker with test peer: %d checks, %d failures; publication and UAC simulated\n", checks, failures);
     return failures ? 1 : 0;

@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Extract the denied F5 call site and skipped-file branch. | Verify outcome routing without claiming a full worker test. | #731 | GPT-6.1 Terra |
 # | 2026-11-12 | Extend singleton overwrite regression coverage. | Preserve cancellation, lifetime and prompt behavior. | #731 | GPT-6 (Codex) |
 # | 2026-11-11 | Exercise the singleton F5 worker with the real host controller and a pipe peer. | Verify native choices and progress without claiming elevation. | #731 | GPT-6.1 Terra |
 """Run extracted worker against production host code and a fake named-pipe peer."""
@@ -25,6 +26,13 @@ def main():
     code = code.replace("@@PROMPT_STATE@@", block(worker, "struct SingleProbedOverwritePrompt", ";"))
     code = code.replace("@@PROMPT_CALLBACK@@", block(worker, "static UacF7::ProbedOverwriteDecision PromptSingleProbedOverwrite("))
     code = code.replace("@@SINGLE_WORKER@@", block(worker, "static SourceOverwriteResult TrySingleProbedOverwrite("))
+    code = code.replace("@@PARENT_OVERWRITE@@", block(worker, "static SourceOverwriteResult TryOverwriteDeniedSource("))
+    callsite = block(worker, "if (!transferError && !copyAsEncrypted && (err == ERROR_ACCESS_DENIED || protectedExistingMove) && !dlgData.SkipAllFileOpenOut)")
+    code = code.replace("@@DENIED_CALLSITE@@", callsite)
+    copy_start = worker.index("BOOL DoCopyFile(")
+    skip_start = worker.index("SKIP_OPEN:", copy_start) + len("SKIP_OPEN:")
+    skip_end = worker.index("return TRUE;", skip_start) + len("return TRUE;")
+    code = code.replace("@@SKIP_ACTION@@", worker[skip_start:skip_end])
     assert "@@" not in code
 
     broker = inputs[1].read_text(encoding="utf-8-sig")
