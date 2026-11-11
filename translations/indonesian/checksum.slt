@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\checksum\checksum.atp"
+PROJECTNAME,"localization-openai\projects\indonesian\checksum\checksum.atp"
 TEXTVERSION,"2.4 (x64)"
-VERSION,"2,4,0,196"
+VERSION,"2,4,0,197"
 
 [TRANSLATION]
 LANGID,1057
@@ -12,12 +12,12 @@ COMMENT,"indonesian translation stub (English seed)"
 [DIALOG 1000]
 344,84,1,"Hitung Checksum"
 1001,5,5,334,54,1,"Daftar 1"
-1007,5,68,42,8,1,"Menghitung:"
+1007,5,68,46,8,1,"Menghitung:"
 1006,50,68,105,8,1,"Progres 1"
 1002,162,65,55,14,1,"&Konfigurasi..."
 1003,223,65,55,14,1,"&Simpan..."
 1004,284,65,55,14,1,"&Hentikan"
-1005,5,68,76,8,1,"petunjuk papan klip"
+1005,5,68,69,8,1,"petunjuk papan klip"
 
 [DIALOG 1001]
 189,109,1,"Konfigurasi Checksum"
@@ -34,7 +34,7 @@ COMMENT,"indonesian translation stub (English seed)"
 [DIALOG 2000]
 260,84,1,""
 1001,5,5,250,54,1,"Daftar 1"
-1007,5,68,34,8,1,"Memverifikasi:"
+1007,5,68,50,8,1,"Memverifikasi:"
 1006,42,68,101,8,1,"Progres 1"
 2002,5,68,140,8,1,""
 2001,149,65,50,14,1,"&Fokus"
@@ -54,15 +54,15 @@ COMMENT,"indonesian translation stub (English seed)"
 41,1,"Menghitung..."
 42,1,"Dibatalkan"
 43,1,"Klik kanan item untuk menyalin checksum ke papan klip."
-44,1,"Salin Nilai &CRC ke Papan Klip	Ctrl+C"
-45,1,"Salin Checksum &MD5 ke Papan Klip	Ctrl+M"
-46,1,"Salin Checksum SHA-&1 ke Papan Klip	Ctrl+1"
-47,1,"Salin Checksum SHA-&256 ke Papan Klip	Ctrl+2"
+44,0,"Copy &CRC Value to Clipboard\tCtrl+C"
+45,0,"Copy &MD5 Checksum to Clipboard\tCtrl+M"
+46,0,"Copy SHA-&1 Checksum to Clipboard\tCtrl+1"
+47,0,"Copy SHA-&256 Checksum to Clipboard\tCtrl+2"
 
 [STRINGTABLE 2]
-48,1,"Salin Checksum SHA-&512 ke Papan Klip	Ctrl+5"
+48,0,"Copy SHA-&512 Checksum to Clipboard\tCtrl+5"
 52,1,"Salin &Semua Nilai ke Papan Klip"
-53,1,"&Hapus Item	Delete"
+53,0,"&Remove Item\tDelete"
 54,1,"Berkas '%s' sudah ada.\nApakah Anda ingin menimpanya?"
 55,1,"Kesalahan membuat berkas."
 56,1,"Berkas yang dilewati atau dibatalkan saat penghitungan tidak disimpan."

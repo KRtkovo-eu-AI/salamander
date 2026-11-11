@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\checkver\checkver.atp"
 TEXTVERSION,"1.2.7 (x64)"
-VERSION,"1,2,7,196"
+VERSION,"1,2,7,197"
 
 [TRANSLATION]
 LANGID,1031
@@ -31,7 +31,7 @@ COMMENT,"Deutsche Version"
 119,232,44,75,12,1,"Alle sechs Monate"
 113,13,62,325,12,1,"Fenster beim &Öffnen der Versionsprüfung minimieren und automatisch verbinden"
 111,13,74,288,12,1,"Fenster &nach Versionsprüfung schließen, falls keine neue Version gefunden wurde"
-402,13,88,357,8,1,"Hinweis: Dieses Fenster kann vom Open Samandarin Menü 'Plugins/Versionsprüfung' aufgerufen werden."
+402,13,88,358,8,1,"Hinweis: Dieses Fenster kann vom Open Samandarin Menü 'Plugins/Versionsprüfung' aufgerufen werden."
 403,5,109,347,110,1,"&Filter"
 120,13,122,191,54,1,""
 121,210,122,135,14,1,"Ausgewählte &Module aus Filter entfernen"

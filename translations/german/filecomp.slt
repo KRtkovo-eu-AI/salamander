@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\filecomp\filecomp.atp"
 TEXTVERSION,"1.22 (x64)"
-VERSION,"1,22,0,196"
+VERSION,"1,22,0,197"
 
 [TRANSLATION]
 LANGID,1031
@@ -253,8 +253,8 @@ COMMENT,"Deutsche Version"
 1060,1,"%s Zeilen %d-%d der rechten Datei (%s)"
 1061,1,"%s : %s - Dateivergleich - Berechne Unterschiede (Drücken Sie ESC um abzubrechen)"
 1062,1,"%s %s: %s %s - Dateivergleich - Berechne Unterschiede"
-1063,1,"%s : %s - Dateivergleich - Unterschiede werden berechnet (%d%% abgeschlossen)"
-1064,1,"{!}%s : %s - Dateivergleich - Unterschiede werden berechnet (%d%% abgeschlossen, %d gefunden{})"
+1063,0,"%s : %s - File Comparator - Computing Differences (%d%% Done)"
+1064,0,"{!}%s : %s - File Comparator - Computing Differences (%d%% Done, %d Found{})"
 1065,1,"%s : %s - Dateivergleich - Mehr als 32 768 Unterschiede"
 1066,1,"OK"
 1067,1,"Abbrechen"

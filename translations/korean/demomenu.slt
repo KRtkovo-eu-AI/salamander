@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\korean\demomenu\demomenu.atp"
+TEXTVERSION,"1.0.2 (x64)"
+VERSION,"1,0,2,197"
+
+[TRANSLATION]
+LANGID,1042
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[STRINGTABLE 0]
+46,0,"DemoMenu"
+47,0,"About Plugin"
+
+[STRINGTABLE 1]
+48,0,"This plugin should help you to make your own menu extension plugin."
+49,0,"www.altap.cz"
+50,0,"&Test Command"
+

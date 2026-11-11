@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\checkver\checkver.atp"
 TEXTVERSION,"1.2.7 (x64)"
-VERSION,"1,2,7,196"
+VERSION,"1,2,7,197"
 
 [TRANSLATION]
 LANGID,1040
@@ -31,7 +31,7 @@ COMMENT,"English version"
 119,232,44,75,12,1,"Ogni sei mesi"
 113,13,62,360,12,1,"&Quando la finestra Verifica nuove versioni viene aperta, nascondila ed esegui la connessione automatica"
 111,13,74,303,12,1,"C&hiudi la finestra se non viene trovata una nuova versione, altrimenti mostra la finestra"
-402,13,88,335,8,1,"Nota: questa finestra può essere richiamata dal menu Open Samandarin, Plugin / Verifica versione."
+402,13,88,336,8,1,"Nota: questa finestra può essere richiamata dal menu Open Samandarin, Plugin / Verifica versione."
 403,5,109,347,110,1,"&Filtri"
 120,13,122,191,54,1,""
 121,210,122,135,14,1,"&Rimuovi elemento selezionato dai filtri"

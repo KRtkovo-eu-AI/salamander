@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\mmviewer\mmviewer.atp"
+PROJECTNAME,"localization-openai\projects\chinesetraditional\mmviewer\mmviewer.atp"
 TEXTVERSION,"1.18 (x64)"
-VERSION,"1,18,0,196"
+VERSION,"1,18,0,197"
 
 [TRANSLATION]
 LANGID,1028
@@ -17,13 +17,13 @@ COMMENT,"chinesetraditional translation stub (English seed)"
 10505,46,19,177,8,1,"dummy"
 10507,11,42,20,20,1,""
 13000,46,41,238,8,1,"MPEG、ID3 標籤版本 1 和 2、OGG、WMA、VQF 與 Tracker 剖析器"
-13001,46,51,92,8,1,"授權自"
+13001,46,51,60,8,1,"授權自"
 10504,107,51,200,8,1,"Disk Explorer Professional"
 13002,46,67,82,8,1,"版權所有 2003-2026"
 13003,128,67,60,8,1,"Tomas Jelinek"
-13004,46,78,30,8,1,"電子郵件："
+13004,46,78,41,8,1,"電子郵件："
 10502,128,78,119,8,1,"tomas@tjelinek.com"
-13005,46,89,52,8,1,"首頁："
+13005,46,89,49,8,1,"首頁："
 10503,128,89,118,8,1,"www.tjelinek.com"
 13006,2,107,356,1,1,""
 
@@ -297,3 +297,4 @@ COMMENT,"chinesetraditional translation stub (English seed)"
 12640,1,"每個取樣的位元數"
 12641,1,"媒體資訊"
 12642,1,"未知"
+

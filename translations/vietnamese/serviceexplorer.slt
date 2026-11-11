@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\serviceexplorer\serviceexplorer.atp"
+PROJECTNAME,"localization-openai\projects\vietnamese\serviceexplorer\serviceexplorer.atp"
 TEXTVERSION,"0.15 (x64)"
-VERSION,"0,15,0,196"
+VERSION,"0,15,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -24,13 +24,13 @@ COMMENT,"vietnamese translation stub (English seed)"
 1010,72,181,54,15,1,"D&ừng"
 1011,138,181,54,15,1,"&Tạm dừng"
 1012,204,181,54,15,1,"&Tiếp tục"
-3000,6,12,51,8,1,"Tên dịch vụ:"
-3001,6,30,58,8,1,"Tên &hiển thị:"
+3000,6,12,46,8,1,"Tên dịch vụ:"
+3001,6,30,46,8,1,"Tên &hiển thị:"
 3004,6,54,52,8,1,"Mô tả:"
 3005,4,100,111,8,1,"Đường dẫn đến tệp thực thi:"
 1013,6,72,46,8,1,"Tên dịch vụ"
-1032,6,136,47,8,1,"Loại khởi động:"
-1033,6,160,62,8,1,"Trạng thái dịch vụ:"
+1032,6,136,54,8,1,"Loại khởi động:"
+1033,6,160,67,8,1,"Trạng thái dịch vụ:"
 1014,60,160,198,8,1,"Trạng thái dịch vụ"
 
 [DIALOG 510]
@@ -40,7 +40,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [DIALOG 520]
 306,180,1,"Đăng ký Dịch vụ Mới"
-1034,7,9,65,8,1,"Tên hiển thị:"
+1034,7,9,60,8,1,"Tên hiển thị:"
 1019,70,7,229,12,1,""
 1035,7,26,60,8,1,"Tên dịch vụ:"
 1020,70,24,229,12,1,""
@@ -51,7 +51,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 1023,70,58,229,12,1,""
 1038,7,79,60,8,1,"Loại khởi động:"
 1024,70,77,120,60,1,""
-1039,7,96,60,8,1,"Đăng nhập bằng:"
+1039,7,96,62,8,1,"Đăng nhập bằng:"
 1025,70,94,120,60,1,""
 1026,7,113,60,8,1,"Tên tài khoản:"
 1027,70,111,229,12,1,""
@@ -123,3 +123,4 @@ COMMENT,"vietnamese translation stub (English seed)"
 153,1,"Dịch vụ Cục bộ"
 154,1,"Dịch vụ Mạng"
 155,1,"Tài khoản này"
+

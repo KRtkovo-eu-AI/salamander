@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\checksum\checksum.atp"
+PROJECTNAME,"localization-openai\projects\vietnamese\checksum\checksum.atp"
 TEXTVERSION,"2.4 (x64)"
-VERSION,"2,4,0,196"
+VERSION,"2,4,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -17,7 +17,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 1002,162,65,55,14,1,"&Cấu hình..."
 1003,223,65,55,14,1,"&Lưu..."
 1004,284,65,55,14,1,"&Dừng"
-1005,5,68,76,8,1,"Gợi ý cho bảng tạm"
+1005,5,68,68,8,1,"Gợi ý cho bảng tạm"
 
 [DIALOG 1001]
 189,109,1,"Cấu hình Checksum"
@@ -34,7 +34,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 [DIALOG 2000]
 260,84,1,""
 1001,5,5,250,54,1,"Danh sách1"
-1007,5,68,34,8,1,"Đang xác minh:"
+1007,5,68,56,8,1,"Đang xác minh:"
 1006,42,68,101,8,1,"Tiến độ1"
 2002,5,68,140,8,1,""
 2001,149,65,50,14,1,"&Tập trung"
@@ -113,3 +113,4 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [STRINGTABLE 6]
 120,1,"Không thể hoàn thành thao tác do tên quá dài."
+

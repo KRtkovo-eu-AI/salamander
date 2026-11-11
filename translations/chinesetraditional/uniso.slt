@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\uniso\uniso.atp"
+PROJECTNAME,"localization-openai\projects\chinesetraditional\uniso\uniso.atp"
 TEXTVERSION,"1.39 (x64)"
-VERSION,"1,39,0,196"
+VERSION,"1,39,0,197"
 
 [TRANSLATION]
 LANGID,1028
@@ -11,9 +11,9 @@ COMMENT,"chinesetraditional translation stub (English seed)"
 
 [DIALOG 1200]
 220,83,1,"UnISO 設定"
-1201,8,11,200,10,1,"從封存檔複製時清除唯讀屬性(&C)"
-1202,8,23,243,10,1,"以目錄顯示工作階段（允許存取所有工作階段）(&S)"
-1203,8,35,154,10,1,"將開機映像磁碟顯示為檔案(&H)"
+1201,8,11,188,10,1,"從封存檔複製時清除唯讀屬性(&C)"
+1202,8,23,198,10,1,"以目錄顯示工作階段（允許存取所有工作階段）(&S)"
+1203,8,35,127,10,1,"將開機映像磁碟顯示為檔案(&H)"
 3000,2,58,216,1,1,""
 1,108,64,50,14,1,"確定"
 2,163,64,50,14,1,"取消"

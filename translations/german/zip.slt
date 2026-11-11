@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\zip\zip.atp"
 TEXTVERSION,"1.8 (x64)"
-VERSION,"1,8,0,196"
+VERSION,"1,8,0,197"
 
 [TRANSLATION]
 LANGID,1031
@@ -558,4 +558,5 @@ COMMENT,"Deutsche Version"
 1252,1,"KB"
 1253,1,"MB"
 1254,1,"Die ZIP-Datei verwendet ein Datenformat, dass keine Änderungen durch die aktuelle Version des ZIP-Plugins unterstützt"
+1255,0,"Not all archive entries were unpacked. The source archive has been kept."
 

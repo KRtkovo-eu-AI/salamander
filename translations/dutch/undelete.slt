@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\undelete\undelete.atp"
 TEXTVERSION,"1.13 (x64)"
-VERSION,"1,13,0,196"
+VERSION,"1,13,0,197"
 
 [TRANSLATION]
 LANGID,1043
@@ -155,7 +155,7 @@ COMMENT,"Nederlandse versie"
 82,1,"Formaat"
 83,1,"Grootte"
 84,1,"Vrij"
-85,1,"% vrij"
+85,0,"% Free"
 86,1,"GUID Pad"
 90,1,"$Bitmap heeft grootte van nul. Schade aan bestanden schatting wordt overgeslagen."
 91,1,"Localisatie van $Bitmap is mislukt op dit volume. Schade aan bestanden schatting is afgebroken."

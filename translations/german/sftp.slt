@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\sftp\sftp.atp"
 TEXTVERSION,"1.3 beta (x64)"
-VERSION,"1,3,0,196"
+VERSION,"1,3,0,197"
 
 [TRANSLATION]
 LANGID,1031
@@ -105,7 +105,7 @@ COMMENT,"English version"
 2,125,56,50,14,1,"Abbrechen"
 
 [DIALOG 550]
-463,236,1,"Steuerelemente, bereitgestellt von Open Samandarin"
+463,236,1,"Steuerelemente, bereitgestellt von Open Salamander"
 3000,6,4,254,108,1,"CGUIStaticTextAbstract"
 3001,14,17,110,8,1,"Nicht angefügter statischer Text"
 551,102,17,152,8,1,"Das System wurde vor %d ms gestartet."

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\filecomp\filecomp.atp"
 TEXTVERSION,"1.22 (x64)"
-VERSION,"1,22,0,196"
+VERSION,"1,22,0,197"
 
 [TRANSLATION]
 LANGID,2052
@@ -253,8 +253,8 @@ COMMENT,"简体中文版"
 1060,1,"%s 行 %d-%d 来自右侧文件(%s)"
 1061,1,"%s : %s - 文件比较器 - 正在计算差异 (按 ESC 取消)"
 1062,1,"%s %s: %s %s - 文件比较器 - 正在计算差异"
-1063,1,"%s：%s - 文件比较器 - 正在计算差异（已完成 %d%%）"
-1064,1,"{!}%s：%s - 文件比较器 - 正在计算差异（已完成 %d%%，找到 %d 项{}）"
+1063,0,"%s : %s - File Comparator - Computing Differences (%d%% Done)"
+1064,0,"{!}%s : %s - File Comparator - Computing Differences (%d%% Done, %d Found{})"
 1065,1,"%s : %s - 文件比较器 - 多于 32 768 处差异"
 1066,1,"确定"
 1067,1,"取消"

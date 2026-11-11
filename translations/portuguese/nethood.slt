@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\nethood\nethood.atp"
+PROJECTNAME,"localization-openai\projects\portuguese\nethood\nethood.atp"
 TEXTVERSION,"1.10 (x64)"
-VERSION,"1,10,0,196"
+VERSION,"1,10,0,197"
 
 [TRANSLATION]
 LANGID,1046
@@ -11,12 +11,12 @@ COMMENT,"portuguese translation stub (English seed)"
 
 [DIALOG 102]
 220,127,1,"Configuração de rede"
-1201,7,7,135,10,1,"Mostrar compartilhamentos &administrativos"
-1203,13,22,215,10,1,"Mostrar compartilhamentos administrativos como itens &ocultos"
-1202,7,37,214,10,1,"Mostrar itens de &Meus Locais de Rede no diretório de nível superior"
-1204,7,52,174,10,1,"Mostrar &computadores da rede no diretório de nível superior"
-1206,7,67,173,10,1,"Mostrar &discos conectados via Área de Trabalho Remota"
-1205,7,82,148,10,1,"&Examinar a rede ao iniciar o Salamander"
+1201,7,7,157,10,1,"Mostrar compartilhamentos &administrativos"
+1203,13,22,221,10,1,"Mostrar compartilhamentos administrativos como itens &ocultos"
+1202,7,37,238,10,1,"Mostrar itens de &Meus Locais de Rede no diretório de nível superior"
+1204,7,52,215,10,1,"Mostrar &computadores da rede no diretório de nível superior"
+1206,7,67,200,10,1,"Mostrar &discos conectados via Área de Trabalho Remota"
+1205,7,82,149,10,1,"&Examinar a rede ao iniciar o Salamander"
 3000,7,99,206,1,1,""
 1,30,106,50,14,1,"OK"
 2,85,106,50,14,1,"Cancelar"

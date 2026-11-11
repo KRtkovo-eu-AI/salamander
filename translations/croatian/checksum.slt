@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\checksum\checksum.atp"
+PROJECTNAME,"localization-openai\projects\croatian\checksum\checksum.atp"
 TEXTVERSION,"2.4 (x64)"
-VERSION,"2,4,0,196"
+VERSION,"2,4,0,197"
 
 [TRANSLATION]
 LANGID,1050
@@ -12,12 +12,12 @@ COMMENT,"croatian translation stub (English seed)"
 [DIALOG 1000]
 344,84,1,"Izračun kontrolnih zbrojeva"
 1001,5,5,334,54,1,"Popis 1"
-1007,5,68,42,8,1,"Izračunavanje:"
+1007,5,68,52,8,1,"Izračunavanje:"
 1006,50,68,105,8,1,"Napredak 1"
 1002,162,65,55,14,1,"&Konfiguracija..."
 1003,223,65,55,14,1,"&Spremi..."
 1004,284,65,55,14,1,"&Zaustavi"
-1005,5,68,76,8,1,"savjet za međuspremnik"
+1005,5,68,83,8,1,"savjet za međuspremnik"
 
 [DIALOG 1001]
 189,109,1,"Postavke Checksum"
@@ -54,15 +54,15 @@ COMMENT,"croatian translation stub (English seed)"
 41,1,"Izračunavanje..."
 42,1,"Otkazano"
 43,1,"Desnom tipkom miša kliknite stavku da biste kopirali kontrolni zbroj u međuspremnik."
-44,1,"Kopiraj vrijednost &CRC u međuspremnik	Ctrl+C"
-45,1,"Kopiraj kontrolni zbroj &MD5 u međuspremnik	Ctrl+M"
-46,1,"Kopiraj kontrolni zbroj SHA-&1 u međuspremnik	Ctrl+1"
-47,1,"Kopiraj kontrolni zbroj SHA-&256 u međuspremnik	Ctrl+2"
+44,0,"Copy &CRC Value to Clipboard\tCtrl+C"
+45,0,"Copy &MD5 Checksum to Clipboard\tCtrl+M"
+46,0,"Copy SHA-&1 Checksum to Clipboard\tCtrl+1"
+47,0,"Copy SHA-&256 Checksum to Clipboard\tCtrl+2"
 
 [STRINGTABLE 2]
-48,1,"Kopiraj kontrolni zbroj SHA-&512 u međuspremnik	Ctrl+5"
+48,0,"Copy SHA-&512 Checksum to Clipboard\tCtrl+5"
 52,1,"Kopiraj &sve vrijednosti u međuspremnik"
-53,1,"&Ukloni stavku	Delete"
+53,0,"&Remove Item\tDelete"
 54,1,"Datoteka '%s' već postoji.\nŽelite li je prebrisati?"
 55,1,"Pogreška pri stvaranju datoteke."
 56,1,"Datoteke preskočene ili otkazane tijekom izračuna nisu spremljene."

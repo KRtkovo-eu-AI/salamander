@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\diskdir\diskdir.atp"
+PROJECTNAME,"localization-openai\projects\turkish\diskdir\diskdir.atp"
 TEXTVERSION,"1.1 (x64)"
-VERSION,"1,1,0,196"
+VERSION,"1,1,0,197"
 
 [TRANSLATION]
 LANGID,1055
@@ -11,11 +11,11 @@ COMMENT,"turkish translation stub (English seed)"
 
 [DIALOG 200]
 278,94,1,"DiskDir Kataloğu Oluştur"
-1004,8,9,34,8,1,"Katalog:"
+1004,8,9,29,8,1,"Katalog:"
 1001,42,9,228,8,1,""
 1005,8,23,262,1,1,""
-1002,16,32,122,12,1,"Yol adlarını da ekle"
-1003,16,48,154,12,1,"Alt dizinleri özyinelemeli olarak ekle"
+1002,16,32,100,12,1,"Yol adlarını da ekle"
+1003,16,48,131,12,1,"Alt dizinleri özyinelemeli olarak ekle"
 1006,8,66,262,1,1,""
 1,84,74,50,14,1,"Tamam"
 2,144,74,50,14,1,"İptal"

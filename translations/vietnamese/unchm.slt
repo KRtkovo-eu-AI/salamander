@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\unchm\unchm.atp"
+PROJECTNAME,"localization-openai\projects\vietnamese\unchm\unchm.atp"
 TEXTVERSION,"1.6 (x64)"
-VERSION,"1,6,0,196"
+VERSION,"1,6,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -44,3 +44,4 @@ COMMENT,"vietnamese translation stub (English seed)"
 1105,1,"Số không hợp lệ."
 1106,1,"đang hủy thao tác, vui lòng chờ..."
 1107,1,"Thư viện CHMLIB, bản quyền © 2001-2010 Jed Wing"
+

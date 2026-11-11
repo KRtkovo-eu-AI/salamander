@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\peviewer\peviewer.atp"
+PROJECTNAME,"localization-openai\projects\indonesian\peviewer\peviewer.atp"
 TEXTVERSION,"3.1 (x64)"
-VERSION,"3,1,0,196"
+VERSION,"3,1,0,197"
 
 [TRANSLATION]
 LANGID,1057
@@ -11,11 +11,11 @@ COMMENT,"indonesian translation stub (English seed)"
 
 [DIALOG 8501]
 346,154,1,"Konfigurasi Penampil Portable Executable"
-1300,7,7,64,8,1,"Bagian yang tersedia:"
+1300,7,7,76,8,1,"Bagian yang tersedia:"
 8700,7,17,105,130,1,""
 8702,119,17,50,14,1,"&Tambah ->"
 8703,119,35,50,14,1,"<- &Hapus"
-1301,176,7,58,8,1,"Bagian yang terlihat:"
+1301,176,7,72,8,1,"Bagian yang terlihat:"
 8701,176,17,105,130,1,""
 8704,289,17,50,14,1,"Pindahkan ke &Atas"
 8705,289,35,50,14,1,"Pindahkan ke &Bawah"

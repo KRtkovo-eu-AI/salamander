@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\unmime\unmime.atp"
+PROJECTNAME,"localization-openai\projects\korean\unmime\unmime.atp"
 TEXTVERSION,"1.16 (x64)"
-VERSION,"1,16,0,196"
+VERSION,"1,16,0,197"
 
 [TRANSLATION]
 LANGID,1042
@@ -11,12 +11,12 @@ COMMENT,"korean translation stub (English seed)"
 
 [DIALOG 101]
 251,111,1,"UnMIME 구성"
-2000,7,7,51,8,1,"목록 옵션"
+2000,7,7,40,8,1,"목록 옵션"
 2001,49,11,196,1,1,""
-1000,18,20,96,10,1,"메일 헤더 나열(&H)"
-1001,18,35,87,10,1,"메시지 본문 나열(&B)"
+1000,18,20,70,10,1,"메일 헤더 나열(&H)"
+1001,18,35,80,10,1,"메시지 본문 나열(&B)"
 1003,31,50,210,10,1,"US-ASCII가 아닌 경우 파일 이름에 문자 집합 정보 추가(&C)"
-1002,18,65,69,10,1,"첨부 파일 나열(&A)"
+1002,18,65,71,10,1,"첨부 파일 나열(&A)"
 2002,6,82,239,1,1,""
 1,137,90,50,14,1,"OK"
 2,194,90,50,14,1,"취소"

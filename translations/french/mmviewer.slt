@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\mmviewer\mmviewer.atp"
 TEXTVERSION,"1.18 (x64)"
-VERSION,"1,18,0,196"
+VERSION,"1,18,0,197"
 
 [TRANSLATION]
 LANGID,1036
@@ -297,3 +297,4 @@ COMMENT,"Version française"
 12640,1,"Bits par échantillon"
 12641,1,"Informations sur le média"
 12642,1,"Inconnu"
+

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\mmviewer\mmviewer.atp"
 TEXTVERSION,"1.18 (x64)"
-VERSION,"1,18,0,196"
+VERSION,"1,18,0,197"
 
 [TRANSLATION]
 LANGID,1048
@@ -297,3 +297,4 @@ COMMENT,"Versiunea romana"
 12640,1,"Biti pe esantion"
 12641,1,"Informatii media"
 12642,1,"Necunoscut"
+

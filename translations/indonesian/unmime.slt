@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\unmime\unmime.atp"
+PROJECTNAME,"localization-openai\projects\indonesian\unmime\unmime.atp"
 TEXTVERSION,"1.16 (x64)"
-VERSION,"1,16,0,196"
+VERSION,"1,16,0,197"
 
 [TRANSLATION]
 LANGID,1057
@@ -11,10 +11,10 @@ COMMENT,"indonesian translation stub (English seed)"
 
 [DIALOG 101]
 251,111,1,"Konfigurasi UnMIME"
-2000,7,7,51,8,1,"Opsi daftar"
+2000,7,7,40,8,1,"Opsi daftar"
 2001,49,11,196,1,1,""
-1000,18,20,96,10,1,"Daftar &header email"
-1001,18,35,87,10,1,"Daftar &isi pesan"
+1000,18,20,79,10,1,"Daftar &header email"
+1001,18,35,80,10,1,"Daftar &isi pesan"
 1003,31,50,210,10,1,"Tambahkan info &charset ke nama file jika bukan US-ASCII"
 1002,18,65,69,10,1,"Daftar &lampiran"
 2002,6,82,239,1,1,""

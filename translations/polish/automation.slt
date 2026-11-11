@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\automation\automation.atp"
+PROJECTNAME,"localization-openai\projects\polish\automation\automation.atp"
 TEXTVERSION,"2.8 (x64)"
-VERSION,"2,8,0,196"
+VERSION,"2,8,0,197"
 
 [TRANSLATION]
 LANGID,1045
@@ -18,9 +18,9 @@ COMMENT,"polish translation stub (English seed)"
 
 [DIALOG 101]
 332,143,1,"Konfiguracja automatyzacji"
-375,8,9,74,8,1,"&Katalogi skryptów:"
+375,8,9,67,8,1,"&Katalogi skryptów:"
 371,8,19,316,73,1,""
-1001,8,102,105,10,1,"Włącz &debugowanie skryptów"
+1001,8,102,112,10,1,"Włącz &debugowanie skryptów"
 1,75,121,50,14,1,"OK"
 2,141,121,50,14,1,"Anuluj"
 9,207,121,50,14,1,"&Pomoc"

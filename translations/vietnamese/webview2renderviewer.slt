@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\webview2renderviewer\webview2renderviewer.atp"
+PROJECTNAME,"localization-openai\projects\vietnamese\webview2renderviewer\webview2renderviewer.atp"
 TEXTVERSION,"1.5 (x64)"
-VERSION,"1,5,0,196"
+VERSION,"1,5,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -22,9 +22,9 @@ COMMENT,"vietnamese translation stub (English seed)"
 53,1,"&Xem"
 54,1,"&Đóng\tEsc"
 55,1,"&Làm mới\tF5"
-56,1,"Phóng to\tCtrl++"
-57,1,"Thu nhỏ\tCtrl+-"
-58,1,"Đặt lại\tCtrl+0"
+56,0,"Zoom &In\tCtrl++"
+57,0,"Zoom &Out\tCtrl+-"
+58,0,"&Reset\tCtrl+0"
 59,1,"Đang tải..."
 60,1,"Sẵn sàng"
 61,1,"Không thể khởi tạo trình hiển thị WebView2."
@@ -32,9 +32,10 @@ COMMENT,"vietnamese translation stub (English seed)"
 63,1,"Hiện &Số dòng"
 
 [STRINGTABLE 2]
-64,1,"Ngắt Dòng\tF2"
-65,1,"Hiện Khoảng trắng"
+64,0,"&Wrap Lines\tF2"
+65,0,"Show &Whitespace"
 66,1,"&Chỉnh sửa"
 67,1,"&Sao chép\tCtrl+C"
-68,1,"Chọn tất cả\tCtrl+A"
-69,1,"In...\tCtrl+P"
+68,0,"Select &All\tCtrl+A"
+69,0,"&Print...\tCtrl+P"
+

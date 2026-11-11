@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\unchm\unchm.atp"
+PROJECTNAME,"localization-openai\projects\hebrew\unchm\unchm.atp"
 TEXTVERSION,"1.6 (x64)"
-VERSION,"1,6,0,196"
+VERSION,"1,6,0,197"
 
 [TRANSLATION]
 LANGID,1037
@@ -22,12 +22,12 @@ COMMENT,"hebrew translation stub (English seed)"
 [STRINGTABLE 1]
 1009,1,"לא ניתן ליצור תיקייה זמנית."
 1010,1,"לא ניתן למחוק את הקובץ הזמני."
-1011,1,"תבנית קובץ לא מוכרת או תמונת CHM לא תקינה.\n\nאם ידוע לך שתמונת CHM תקינה, פנה אל support@altap.cz ועזור לנו לתמוך בתבנית זו."
-1012,1,"לא ניתן לפתוח קובץ זה."
+1011,0,"Can not delete temporary file."
+1012,0,"Unknown file format or not valid CHM image.\n\nIf you are sure this is valid CHM image, please contact support@altap.cz and help us to support this format."
 1013,1,"יצירת קובץ זמני נכשלה."
 1014,1,"לא ניתן להגדיר מאפייני קובץ."
-1015,1,"לא ניתן ליצור את התיקייה '%s'."
-1016,1,"כן"
+1015,0,"Can not set file attributes."
+1016,0,"Can not create directory '%s'."
 1020,1,"לא"
 1021,1,"שגיאה"
 1022,1,"אזהרה"

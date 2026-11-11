@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\undelete\undelete.atp"
 TEXTVERSION,"1.13 (x64)"
-VERSION,"1,13,0,196"
+VERSION,"1,13,0,197"
 
 [TRANSLATION]
 LANGID,1048
@@ -155,7 +155,7 @@ COMMENT,"Versiunea romana"
 82,1,"Format"
 83,1,"Marime"
 84,1,"Liber"
-85,1,"% liber"
+85,0,"% Free"
 86,1,"Cale GUID"
 90,1,"$Bitmap are marime zero. Estimarea compromiterii fisierului va fi anulat."
 91,1,"Esec de localizare $Bitmap pe acest volum. Estimarea compromiterii fisierului anulata."

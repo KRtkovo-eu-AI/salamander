@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\tar\tar.atp"
+PROJECTNAME,"localization-openai\projects\vietnamese\tar\tar.atp"
 TEXTVERSION,"3.35 (x64)"
-VERSION,"3,35,0,196"
+VERSION,"3,35,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -61,3 +61,4 @@ COMMENT,"vietnamese translation stub (English seed)"
 11299,1,"TAR"
 11300,1,"Duyệt và trích xuất các lưu trữ Unix."
 11301,1,"Về Plugin"
+

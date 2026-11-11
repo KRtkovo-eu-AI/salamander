@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\diskdir\diskdir.atp"
+PROJECTNAME,"localization-openai\projects\vietnamese\diskdir\diskdir.atp"
 TEXTVERSION,"1.1 (x64)"
-VERSION,"1,1,0,196"
+VERSION,"1,1,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -11,11 +11,11 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [DIALOG 200]
 278,94,1,"Tạo danh mục DiskDir"
-1004,8,9,34,8,1,"Danh mục:"
+1004,8,9,40,8,1,"Danh mục:"
 1001,42,9,228,8,1,""
 1005,8,23,262,1,1,""
-1002,16,32,122,12,1,"Đóng gói cả tên đường dẫn"
-1003,16,48,154,12,1,"Đóng gói đệ quy các thư mục con"
+1002,16,32,106,12,1,"Đóng gói cả tên đường dẫn"
+1003,16,48,126,12,1,"Đóng gói đệ quy các thư mục con"
 1006,8,66,262,1,1,""
 1,84,74,50,14,1,"Đồng ý"
 2,144,74,50,14,1,"Hủy"

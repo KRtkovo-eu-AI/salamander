@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\mmviewer\mmviewer.atp"
 TEXTVERSION,"1.18 (x64)"
-VERSION,"1,18,0,196"
+VERSION,"1,18,0,197"
 
 [TRANSLATION]
 LANGID,1038
@@ -297,3 +297,4 @@ COMMENT,"Magyar változat"
 12640,1,"Bit mintánként"
 12641,1,"Médiaadatok"
 12642,1,"Ismeretlen"
+

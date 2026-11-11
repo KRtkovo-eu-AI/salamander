@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\pak\pak.atp"
+PROJECTNAME,"localization-openai\projects\indonesian\pak\pak.atp"
 TEXTVERSION,"1.73 (x64)"
-VERSION,"1,73,0,196"
+VERSION,"1,73,0,197"
 
 [TRANSLATION]
 LANGID,1057
@@ -11,11 +11,11 @@ COMMENT,"indonesian translation stub (English seed)"
 
 [DIALOG 100]
 194,73,1,"Optimalkan Arsip PAK"
-300,8,9,80,8,1,"Ukuran data valid:"
+300,8,9,64,8,1,"Ukuran data valid:"
 101,64,9,118,8,1,""
-301,8,20,77,8,1,"Ukuran total file:"
+301,8,20,58,8,1,"Ukuran total file:"
 102,64,20,118,8,1,""
-302,8,31,58,8,1,"Ruang terbuang:"
+302,8,31,60,8,1,"Ruang terbuang:"
 103,64,31,118,8,1,""
 303,8,44,178,1,1,""
 1,41,53,50,14,1,"Optimalkan"

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\uniso\uniso.atp"
+PROJECTNAME,"localization-openai\projects\portuguese\uniso\uniso.atp"
 TEXTVERSION,"1.39 (x64)"
-VERSION,"1,39,0,196"
+VERSION,"1,39,0,197"
 
 [TRANSLATION]
 LANGID,1046
@@ -11,9 +11,9 @@ COMMENT,"portuguese translation stub (English seed)"
 
 [DIALOG 1200]
 220,83,1,"Configuração do Un ISO"
-1201,8,11,200,10,1,"&Limpar atributo somente leitura ao copiar do arquivo"
-1202,8,23,243,10,1,"&Mostrar sessão como diretório (permitir acesso a todas as sessões)"
-1203,8,35,154,10,1,"M&ostrar disco de imagem de inicialização como arquivo"
+1201,8,11,188,10,1,"&Limpar atributo somente leitura ao copiar do arquivo"
+1202,8,23,238,10,1,"&Mostrar sessão como diretório (permitir acesso a todas as sessões)"
+1203,8,35,196,10,1,"M&ostrar disco de imagem de inicialização como arquivo"
 3000,2,58,216,1,1,""
 1,108,64,50,14,1,"OK"
 2,163,64,50,14,1,"Cancelar"

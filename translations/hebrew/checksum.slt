@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\checksum\checksum.atp"
+PROJECTNAME,"localization-openai\projects\hebrew\checksum\checksum.atp"
 TEXTVERSION,"2.4 (x64)"
-VERSION,"2,4,0,196"
+VERSION,"2,4,0,197"
 
 [TRANSLATION]
 LANGID,1037
@@ -17,7 +17,7 @@ COMMENT,"hebrew translation stub (English seed)"
 1002,162,65,55,14,1,"ה&גדרות..."
 1003,223,65,55,14,1,"&שמירה..."
 1004,284,65,55,14,1,"&עצור"
-1005,5,68,76,8,1,"רמז ללוח"
+1005,5,68,48,8,1,"רמז ללוח"
 
 [DIALOG 1001]
 189,109,1,"הגדרות Checksum"
@@ -54,15 +54,15 @@ COMMENT,"hebrew translation stub (English seed)"
 41,1,"מחשב..."
 42,1,"בוטל"
 43,1,"לחץ לחיצה ימנית על פריט כדי להעתיק את סכום הביקורת ללוח."
-44,1,"העתק ערך &CRC ללוח	Ctrl+C"
-45,1,"העתק סכום &MD5 ללוח	Ctrl+M"
-46,1,"העתק סכום SHA-&1 ללוח	Ctrl+1"
-47,1,"העתק סכום SHA-&256 ללוח	Ctrl+2"
+44,0,"Copy &CRC Value to Clipboard\tCtrl+C"
+45,0,"Copy &MD5 Checksum to Clipboard\tCtrl+M"
+46,0,"Copy SHA-&1 Checksum to Clipboard\tCtrl+1"
+47,0,"Copy SHA-&256 Checksum to Clipboard\tCtrl+2"
 
 [STRINGTABLE 2]
-48,1,"העתק סכום SHA-&512 ללוח	Ctrl+5"
+48,0,"Copy SHA-&512 Checksum to Clipboard\tCtrl+5"
 52,1,"העתק את &כל הערכים ללוח"
-53,1,"ה&סר פריט	Delete"
+53,0,"&Remove Item\tDelete"
 54,1,"הקובץ '%s' כבר קיים.\nלהחליף אותו?"
 55,1,"שגיאה ביצירת קובץ."
 56,1,"קבצים שדולגו או בוטלו במהלך החישוב לא נשמרו."

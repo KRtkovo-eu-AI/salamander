@@ -168,4 +168,5 @@ COMMENT,"vietnamese translation stub (English seed)"
 1096,1,"Không thể thêm 1 hoặc nhiều tệp vào danh sách. Tổng đường dẫn quá dài.\nMột số thư mục hoặc tệp có thể bị thiếu trong danh sách lưu trữ."
 1097,1,"Không thể thêm 1 hoặc nhiều thư mục vào danh sách. Tổng đường dẫn quá dài.\nMột số thư mục hoặc tệp có thể bị thiếu trong danh sách lưu trữ."
 1098,1,"Tên ""%s"" với đường dẫn đầy đủ quá dài.\n\nĐường dẫn: %s"
+1099,0,"Not all archive entries were unpacked. The source archive has been kept."
 

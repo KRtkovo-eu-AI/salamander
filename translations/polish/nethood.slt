@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\nethood\nethood.atp"
+PROJECTNAME,"localization-openai\projects\polish\nethood\nethood.atp"
 TEXTVERSION,"1.10 (x64)"
-VERSION,"1,10,0,196"
+VERSION,"1,10,0,197"
 
 [TRANSLATION]
 LANGID,1045
@@ -11,12 +11,12 @@ COMMENT,"polish translation stub (English seed)"
 
 [DIALOG 102]
 220,127,1,"Konfiguracja sieci"
-1201,7,7,135,10,1,"Pokaż udziały &administracyjne"
-1203,13,22,215,10,1,"Pokaż udziały administracyjne jako elementy &ukryte"
-1202,7,37,214,10,1,"Pokaż elementy z &Miejsc sieciowych w katalogu najwyższego poziomu"
-1204,7,52,174,10,1,"Pokaż &komputery sieciowe w katalogu najwyższego poziomu"
-1206,7,67,173,10,1,"Pokaż &dyski podłączone przez Pulpit zdalny"
-1205,7,82,148,10,1,"&Skanuj sieć przy starcie Salamandera"
+1201,7,7,112,10,1,"Pokaż udziały &administracyjne"
+1203,13,22,184,10,1,"Pokaż udziały administracyjne jako elementy &ukryte"
+1202,7,37,244,10,1,"Pokaż elementy z &Miejsc sieciowych w katalogu najwyższego poziomu"
+1204,7,52,213,10,1,"Pokaż &komputery sieciowe w katalogu najwyższego poziomu"
+1206,7,67,155,10,1,"Pokaż &dyski podłączone przez Pulpit zdalny"
+1205,7,82,137,10,1,"&Skanuj sieć przy starcie Salamandera"
 3000,7,99,206,1,1,""
 1,30,106,50,14,1,"OK"
 2,85,106,50,14,1,"Anuluj"

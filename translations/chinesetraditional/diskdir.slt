@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\diskdir\diskdir.atp"
+PROJECTNAME,"localization-openai\projects\chinesetraditional\diskdir\diskdir.atp"
 TEXTVERSION,"1.1 (x64)"
-VERSION,"1,1,0,196"
+VERSION,"1,1,0,197"
 
 [TRANSLATION]
 LANGID,1028
@@ -11,11 +11,11 @@ COMMENT,"chinesetraditional translation stub (English seed)"
 
 [DIALOG 200]
 278,94,1,"建立 DiskDir 目錄檔"
-1004,8,9,34,8,1,"目錄檔："
+1004,8,9,33,8,1,"目錄檔："
 1001,42,9,228,8,1,""
 1005,8,23,262,1,1,""
-1002,16,32,122,12,1,"也封裝路徑名稱"
-1003,16,48,154,12,1,"遞迴封裝子目錄"
+1002,16,32,100,12,1,"也封裝路徑名稱"
+1003,16,48,126,12,1,"遞迴封裝子目錄"
 1006,8,66,262,1,1,""
 1,84,74,50,14,1,"確定"
 2,144,74,50,14,1,"取消"

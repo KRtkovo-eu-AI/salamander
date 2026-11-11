@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\uniso\uniso.atp"
+PROJECTNAME,"localization-openai\projects\vietnamese\uniso\uniso.atp"
 TEXTVERSION,"1.39 (x64)"
-VERSION,"1,39,0,196"
+VERSION,"1,39,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -11,9 +11,9 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [DIALOG 1200]
 220,83,1,"Cấu hình UnISO"
-1201,8,11,200,10,1,"&Xóa thuộc tính chỉ đọc khi sao chép từ lưu trữ"
-1202,8,23,243,10,1,"&Hiện phiên dưới dạng thư mục (cho phép truy cập tất cả các phiên)"
-1203,8,35,154,10,1,"Hiện &đĩa hình ảnh khởi động dưới dạng tệp"
+1201,8,11,188,10,1,"&Xóa thuộc tính chỉ đọc khi sao chép từ lưu trữ"
+1202,8,23,242,10,1,"&Hiện phiên dưới dạng thư mục (cho phép truy cập tất cả các phiên)"
+1203,8,35,158,10,1,"Hiện &đĩa hình ảnh khởi động dưới dạng tệp"
 3000,2,58,216,1,1,""
 1,108,64,50,14,1,"Đồng ý"
 2,163,64,50,14,1,"Hủy"
@@ -108,3 +108,4 @@ COMMENT,"vietnamese translation stub (English seed)"
 1154,1,"  Số đoạn: %d\n"
 1155,1,"  Đoạn: %d, %s, Kích thước: %d KBytes\n"
 1156,1,"  Đoạn: %d, %s, Kích thước: %d KBytes - "%s"\n"
+

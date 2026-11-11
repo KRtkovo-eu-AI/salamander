@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\uniso\uniso.atp"
+PROJECTNAME,"localization-openai\projects\croatian\uniso\uniso.atp"
 TEXTVERSION,"1.39 (x64)"
-VERSION,"1,39,0,196"
+VERSION,"1,39,0,197"
 
 [TRANSLATION]
 LANGID,1050
@@ -11,9 +11,9 @@ COMMENT,"croatian translation stub (English seed)"
 
 [DIALOG 1200]
 220,83,1,"Postavke UnISO-a"
-1201,8,11,200,10,1,"&Ukloni atribut samo za čitanje pri kopiranju iz arhive"
-1202,8,23,243,10,1,"&Prikaži sesiju kao mapu (omogući pristup svim sesijama)"
-1203,8,35,154,10,1,"Prikaži disk sa slikom za pokretanje kao datoteku(&H)"
+1201,8,11,188,10,1,"&Ukloni atribut samo za čitanje pri kopiranju iz arhive"
+1202,8,23,200,10,1,"&Prikaži sesiju kao mapu (omogući pristup svim sesijama)"
+1203,8,35,186,10,1,"Prikaži disk sa slikom za pokretanje kao datoteku(&H)"
 3000,2,58,216,1,1,""
 1,108,64,50,14,1,"U redu"
 2,163,64,50,14,1,"Odustani"

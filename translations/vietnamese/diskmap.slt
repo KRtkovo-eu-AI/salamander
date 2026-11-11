@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\diskmap\diskmap.atp"
+PROJECTNAME,"localization-openai\projects\vietnamese\diskmap\diskmap.atp"
 TEXTVERSION,"1.14 (x64)"
-VERSION,"1,14,0,196"
+VERSION,"1,14,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -60,8 +60,8 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [STRINGTABLE 2]
 64,1,"&Tập trung vào bảng"
-65,1,"Phóng to"
-66,1,"Thu nhỏ"
+65,0,"Zoom &In"
+66,0,"Zoom &Out"
 67,1,"&Mở trong bảng"
 68,1,"Thay đổi &thư mục"
 69,1,"Tạo lúc:"
@@ -75,3 +75,4 @@ COMMENT,"vietnamese translation stub (English seed)"
 77,1,"bytes"
 78,1,"byte"
 79,1,"bytes"
+

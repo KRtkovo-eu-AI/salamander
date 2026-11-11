@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\unarj\unarj.atp"
+PROJECTNAME,"localization-openai\projects\polish\unarj\unarj.atp"
 TEXTVERSION,"1.23 (x64)"
-VERSION,"1,23,0,196"
+VERSION,"1,23,0,197"
 
 [TRANSLATION]
 LANGID,1045
@@ -12,7 +12,7 @@ COMMENT,"polish translation stub (English seed)"
 [DIALOG 100]
 194,110,1,"Następny wolumin archiwum"
 300,12,9,170,32,1,"Włóż dysk z następnym woluminem archiwum lub wskaż odpowiedni plik na dysku.\n\nNaciśnij OK, gdy będzie gotowe."
-301,12,48,70,8,1,"Poprzedni wolumin:"
+301,12,48,68,8,1,"Poprzedni wolumin:"
 103,73,48,109,12,1,""
 302,12,62,67,8,1,"&Następny wolumin:"
 101,12,72,155,12,1,""
@@ -33,9 +33,9 @@ COMMENT,"polish translation stub (English seed)"
 [DIALOG 106]
 220,85,1,"Konfiguracja UnARJ"
 300,23,22,154,8,1,"podczas rozpakowywania."
-107,12,10,218,12,1,"&Automatycznie pomijaj pliki kontynuowane z poprzedniego woluminu"
+107,12,10,242,12,1,"&Automatycznie pomijaj pliki kontynuowane z poprzedniego woluminu"
 301,23,44,111,8,1,"nie może zostać wyświetlona."
-116,12,32,234,12,1,"&Nie wyświetlaj ostrzeżenia, gdy cała zawartość archiwum"
+116,12,32,204,12,1,"&Nie wyświetlaj ostrzeżenia, gdy cała zawartość archiwum"
 302,6,60,208,1,1,""
 1,57,66,50,14,1,"OK"
 2,112,66,50,14,1,"Anuluj"
@@ -44,7 +44,7 @@ COMMENT,"polish translation stub (English seed)"
 213,107,1,"UnARJ - Uwaga"
 300,11,10,194,24,1,"Nie wszystkie pliki w archiwum wielowoluminowym mogą zostać wyświetlone (i widoczne w panelu), ponieważ niektórych woluminów archiwum nie można znaleźć."
 301,11,41,192,16,1,"Aby wyświetlić całą zawartość archiwum, skopiuj wszystkie woluminy archiwum do tego samego katalogu."
-105,11,66,159,12,1,"&Nie pokazuj tej wiadomości w przyszłości"
+105,11,66,157,12,1,"&Nie pokazuj tej wiadomości w przyszłości"
 302,5,83,203,1,1,""
 1,153,89,50,14,1,"OK"
 

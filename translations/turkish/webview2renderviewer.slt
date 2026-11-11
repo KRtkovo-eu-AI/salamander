@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\webview2renderviewer\webview2renderviewer.atp"
+PROJECTNAME,"localization-openai\projects\turkish\webview2renderviewer\webview2renderviewer.atp"
 TEXTVERSION,"1.5 (x64)"
-VERSION,"1,5,0,196"
+VERSION,"1,5,0,197"
 
 [TRANSLATION]
 LANGID,1055
@@ -20,11 +20,11 @@ COMMENT,"turkish translation stub (English seed)"
 51,1,"Seçilen dosya açılamayacak kadar büyük. 32 MB üzerindeki dosyalar desteklenmiyor."
 52,1,"&Dosya"
 53,1,"&Görünüm"
-54,1,"&Kapat	Esc"
-55,1,"&Yenile	F5"
-56,1,"&Yakınlaştır	Ctrl++"
-57,1,"&Uzaklaştır	Ctrl+-"
-58,1,"&Sıfırla	Ctrl+0"
+54,0,"&Close\tEsc"
+55,0,"&Refresh\tF5"
+56,0,"Zoom &In\tCtrl++"
+57,0,"Zoom &Out\tCtrl+-"
+58,0,"&Reset\tCtrl+0"
 59,1,"Yükleniyor..."
 60,1,"Hazır"
 61,1,"WebView2 işleyicisi başlatılamadı."
@@ -32,10 +32,10 @@ COMMENT,"turkish translation stub (English seed)"
 63,1,"&Satır Numaralarını Göster"
 
 [STRINGTABLE 2]
-64,1,"&Satırları Kaydır	F2"
+64,0,"&Wrap Lines\tF2"
 65,1,"&Boşlukları Göster"
 66,1,"&Düzenle"
-67,1,"&Kopyala	Ctrl+C"
-68,1,"Tümünü S&eç	Ctrl+A"
-69,1,"&Yazdır...	Ctrl+P"
+67,0,"&Copy\tCtrl+C"
+68,0,"Select &All\tCtrl+A"
+69,0,"&Print...\tCtrl+P"
 

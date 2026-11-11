@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\peviewer\peviewer.atp"
+PROJECTNAME,"localization-openai\projects\vietnamese\peviewer\peviewer.atp"
 TEXTVERSION,"3.1 (x64)"
-VERSION,"3,1,0,196"
+VERSION,"3,1,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -11,11 +11,11 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [DIALOG 8501]
 346,154,1,"Cấu hình Trình xem Tệp Thực thi"
-1300,7,7,64,8,1,"Các ph&ân đoạn có sẵn:"
+1300,7,7,80,8,1,"Các ph&ân đoạn có sẵn:"
 8700,7,17,105,130,1,""
 8702,119,17,50,14,1,"&Thêm ->"
 8703,119,35,50,14,1,"<- &Xóa"
-1301,176,7,58,8,1,"&Các phần đoạn hiển thị:"
+1301,176,7,84,8,1,"&Các phần đoạn hiển thị:"
 8701,176,17,105,130,1,""
 8704,289,17,50,14,1,"Di chuyển &Lên"
 8705,289,35,50,14,1,"Di chuyển &Xuống"
@@ -35,3 +35,4 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [STRINGTABLE 2]
 10118,1,"Không tìm thấy phần đoạn Thực hiện có Cổng nào được chọn trong cấu hình plugin.\nSử dụng menu Tùy chọn > Cấu hình Plugin > Trình xem Thực hiện có Cổng\ntrong cửa sổ chính Open Salamander để thiết lập các phần đoạn hiển thị."
+

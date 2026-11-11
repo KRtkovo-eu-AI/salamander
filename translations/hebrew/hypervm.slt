@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\hypervm\hypervm.atp"
+PROJECTNAME,"localization-openai\projects\hebrew\hypervm\hypervm.atp"
 TEXTVERSION,"1.10 (x64)"
-VERSION,"1,10,0,196"
+VERSION,"1,10,0,197"
 
 [TRANSLATION]
 LANGID,1037
@@ -16,7 +16,7 @@ COMMENT,"hebrew translation stub (English seed)"
 [STRINGTABLE 1]
 48,1,"הצגת מכונות Hyper-V מקומיות בחלונית."
 49,1,"https://samandarin.net/"
-50,1,"הצג חלון מכונות Hyper-V"
+50,0,"Show &Hyper-V Machines Window"
 51,1,"צור &VHD"
 52,1,"&חבר VHD"
 60,1,"יצירה וחיבור של דיסק קשיח וירטואלי"

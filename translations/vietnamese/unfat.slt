@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\unfat\unfat.atp"
+PROJECTNAME,"localization-openai\projects\vietnamese\unfat\unfat.atp"
 TEXTVERSION,"1.3 (x64)"
-VERSION,"1,3,0,196"
+VERSION,"1,3,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -15,8 +15,8 @@ COMMENT,"vietnamese translation stub (English seed)"
 1003,1,"Duyệt và trích xuất hình ảnh đĩa FAT 12, 16 và 32."
 
 [STRINGTABLE 1]
-1100,1,"Lỗi khi mở tệp "%s".\n"
-1101,1,"Lỗi khi đọc tệp "%s".\n"
+1100,0,"Error opening file "%s"."
+1101,0,"Error reading file "%s"."
 1102,1,"Lỗi khi phân tích tệp "%s".\n\n%s"
 1103,1,"Vùng khởi động bị hỏng hoặc tệp này không phải là hình ảnh FAT 12, 16 hoặc 32."
 
@@ -27,3 +27,4 @@ COMMENT,"vietnamese translation stub (English seed)"
 1108,1,"Tệp "%s" dường như là hình ảnh của toàn bộ ổ đĩa cứng.\nCác hình ảnh như vậy không được hỗ trợ bởi plugin UnFAT."
 1109,1,"Đang trích xuất hình ảnh FAT - %s"
 1110,1,"đang trích xuất: %s"
+

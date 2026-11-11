@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\unmime\unmime.atp"
+PROJECTNAME,"localization-openai\projects\turkish\unmime\unmime.atp"
 TEXTVERSION,"1.16 (x64)"
-VERSION,"1,16,0,196"
+VERSION,"1,16,0,197"
 
 [TRANSLATION]
 LANGID,1055
@@ -11,10 +11,10 @@ COMMENT,"turkish translation stub (English seed)"
 
 [DIALOG 101]
 251,111,1,"UnMIME Yapılandırması"
-2000,7,7,51,8,1,"Liste seçenekleri"
+2000,7,7,57,8,1,"Liste seçenekleri"
 2001,49,11,196,1,1,""
-1000,18,20,96,10,1,"Posta &başlıklarını listele"
-1001,18,35,87,10,1,"İleti &gövdelerini listele"
+1000,18,20,90,10,1,"Posta &başlıklarını listele"
+1001,18,35,86,10,1,"İleti &gövdelerini listele"
 1003,31,50,210,10,1,"US-ASCII değilse dosya adına &karakter kümesi bilgisi ekle"
 1002,18,65,69,10,1,"&Ekleri listele"
 2002,6,82,239,1,1,""

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\serviceexplorer\serviceexplorer.atp"
+PROJECTNAME,"localization-openai\projects\indonesian\serviceexplorer\serviceexplorer.atp"
 TEXTVERSION,"0.15 (x64)"
-VERSION,"0,15,0,196"
+VERSION,"0,15,0,197"
 
 [TRANSLATION]
 LANGID,1057
@@ -24,13 +24,13 @@ COMMENT,"indonesian translation stub (English seed)"
 1010,72,181,54,15,1,"&Hentikan"
 1011,138,181,54,15,1,"&Jeda"
 1012,204,181,54,15,1,"&Lanjutkan"
-3000,6,12,51,8,1,"Nama layanan:"
-3001,6,30,58,8,1,"&Nama tampilan:"
+3000,6,12,53,8,1,"Nama layanan:"
+3001,6,30,56,8,1,"&Nama tampilan:"
 3004,6,54,52,8,1,"Deskripsi:"
 3005,4,100,111,8,1,"Jalur berkas eksekusi:"
-1013,6,72,46,8,1,"Nama layanan"
-1032,6,136,47,8,1,"Jenis startup:"
-1033,6,160,62,8,1,"Status layanan:"
+1013,6,72,50,8,1,"Nama layanan"
+1032,6,136,48,8,1,"Jenis startup:"
+1033,6,160,54,8,1,"Status layanan:"
 1014,60,160,198,8,1,"Status layanan"
 
 [DIALOG 510]
@@ -40,7 +40,7 @@ COMMENT,"indonesian translation stub (English seed)"
 
 [DIALOG 520]
 306,180,1,"Daftarkan Layanan Baru"
-1034,7,9,65,8,1,"Nama tampilan:"
+1034,7,9,60,8,1,"Nama tampilan:"
 1019,70,7,229,12,1,""
 1035,7,26,60,8,1,"Nama layanan:"
 1020,70,24,229,12,1,""

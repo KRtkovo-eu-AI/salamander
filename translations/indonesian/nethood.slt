@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\nethood\nethood.atp"
+PROJECTNAME,"localization-openai\projects\indonesian\nethood\nethood.atp"
 TEXTVERSION,"1.10 (x64)"
-VERSION,"1,10,0,196"
+VERSION,"1,10,0,197"
 
 [TRANSLATION]
 LANGID,1057
@@ -11,12 +11,12 @@ COMMENT,"indonesian translation stub (English seed)"
 
 [DIALOG 102]
 220,127,1,"Konfigurasi Jaringan"
-1201,7,7,135,10,1,"Tampilkan berbagi &administratif"
-1203,13,22,215,10,1,"Tampilkan berbagi administratif sebagai item &tersembunyi"
-1202,7,37,214,10,1,"Tampilkan item dari &Tempat Jaringan di direktori tingkat atas"
-1204,7,52,174,10,1,"Tampilkan &komputer jaringan di direktori tingkat atas"
-1206,7,67,173,10,1,"Tampilkan &disk yang terhubung melalui Remote Desktop"
-1205,7,82,148,10,1,"&Pindai jaringan saat Salamander dimulai"
+1201,7,7,118,10,1,"Tampilkan berbagi &administratif"
+1203,13,22,207,10,1,"Tampilkan berbagi administratif sebagai item &tersembunyi"
+1202,7,37,217,10,1,"Tampilkan item dari &Tempat Jaringan di direktori tingkat atas"
+1204,7,52,190,10,1,"Tampilkan &komputer jaringan di direktori tingkat atas"
+1206,7,67,202,10,1,"Tampilkan &disk yang terhubung melalui Remote Desktop"
+1205,7,82,147,10,1,"&Pindai jaringan saat Salamander dimulai"
 3000,7,99,206,1,1,""
 1,30,106,50,14,1,"OK"
 2,85,106,50,14,1,"Batal"

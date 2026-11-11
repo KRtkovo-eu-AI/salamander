@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\hypervm\hypervm.atp"
+PROJECTNAME,"localization-openai\projects\ukrainian\hypervm\hypervm.atp"
 TEXTVERSION,"1.10 (x64)"
-VERSION,"1,10,0,196"
+VERSION,"1,10,0,197"
 
 [TRANSLATION]
 LANGID,1058
@@ -16,7 +16,7 @@ COMMENT,"ukrainian translation stub (English seed)"
 [STRINGTABLE 1]
 48,1,"Показує локальні віртуальні машини Hyper-V у панелі."
 49,1,"https://samandarin.net/"
-50,1,"Показати вікно машин Hyper-V"
+50,0,"Show &Hyper-V Machines Window"
 51,1,"Створити &VHD"
 52,1,"&Підключити VHD"
 60,1,"Створення та підключення віртуального жорсткого диска"

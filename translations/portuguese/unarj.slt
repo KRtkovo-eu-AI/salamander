@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\unarj\unarj.atp"
+PROJECTNAME,"localization-openai\projects\portuguese\unarj\unarj.atp"
 TEXTVERSION,"1.23 (x64)"
-VERSION,"1,23,0,196"
+VERSION,"1,23,0,197"
 
 [TRANSLATION]
 LANGID,1046
@@ -12,9 +12,9 @@ COMMENT,"portuguese translation stub (English seed)"
 [DIALOG 100]
 194,110,1,"Próximo volume do arquivo"
 300,12,9,170,32,1,"Insira o disco com o próximo volume do arquivo ou localize o arquivo apropriado no disco.\n\n Pressione OK quando estiver pronto."
-301,12,48,70,8,1,"Volume anterior:"
+301,12,48,60,8,1,"Volume anterior:"
 103,73,48,109,12,1,""
-302,12,62,67,8,1,"&Próximo volume:"
+302,12,62,58,8,1,"&Próximo volume:"
 101,12,72,155,12,1,""
 102,170,72,13,12,1,"..."
 1,39,91,50,14,1,"OK"
@@ -33,9 +33,9 @@ COMMENT,"portuguese translation stub (English seed)"
 [DIALOG 106]
 220,85,1,"Configuração do Un ARJ"
 300,23,22,154,8,1,"ao descompactar."
-107,12,10,218,12,1,"&Ignorar automaticamente arquivos continuados do volume anterior"
+107,12,10,237,12,1,"&Ignorar automaticamente arquivos continuados do volume anterior"
 301,23,44,111,8,1,"não pode ser listado."
-116,12,32,234,12,1,"&Não exibir aviso quando o conteúdo inteiro do arquivo"
+116,12,32,197,12,1,"&Não exibir aviso quando o conteúdo inteiro do arquivo"
 302,6,60,208,1,1,""
 1,57,66,50,14,1,"OK"
 2,112,66,50,14,1,"Cancelar"
@@ -44,7 +44,7 @@ COMMENT,"portuguese translation stub (English seed)"
 213,107,1,"Un ARJ - Atenção"
 300,11,10,194,24,1,"Nem todos os arquivos do arquivo multivolume podem ser listados (e vistos no painel), porque alguns volumes não foram encontrados."
 301,11,41,192,16,1,"Para listar todo o conteúdo do arquivo, copie todos os volumes para o mesmo diretório."
-105,11,66,159,12,1,"&Não exibir esta mensagem no futuro"
+105,11,66,157,12,1,"&Não exibir esta mensagem no futuro"
 302,5,83,203,1,1,""
 1,153,89,50,14,1,"OK"
 

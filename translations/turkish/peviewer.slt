@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\peviewer\peviewer.atp"
+PROJECTNAME,"localization-openai\projects\turkish\peviewer\peviewer.atp"
 TEXTVERSION,"3.1 (x64)"
-VERSION,"3,1,0,196"
+VERSION,"3,1,0,197"
 
 [TRANSLATION]
 LANGID,1055
@@ -11,11 +11,11 @@ COMMENT,"turkish translation stub (English seed)"
 
 [DIALOG 8501]
 346,154,1,"Portable Executable Görüntüleyici Yapılandırması"
-1300,7,7,64,8,1,"Kullanılabilir bölümler:"
+1300,7,7,76,8,1,"Kullanılabilir bölümler:"
 8700,7,17,105,130,1,""
 8702,119,17,50,14,1,"&Ekle ->"
 8703,119,35,50,14,1,"<- &Kaldır"
-1301,176,7,58,8,1,"Görünür bölümler:"
+1301,176,7,65,8,1,"Görünür bölümler:"
 8701,176,17,105,130,1,""
 8704,289,17,50,14,1,"&Yukarı Taşı"
 8705,289,35,50,14,1,"Aşağı &Taşı"
@@ -34,5 +34,5 @@ COMMENT,"turkish translation stub (English seed)"
 10104,1,"EXE, DLL vb. Portable Executable dosyaları hakkında bilgi görüntüler."
 
 [STRINGTABLE 2]
-10118,1,"Eklenti yapılandırmasında hiçbir Portable Executable bölümü seçilmedi.\nGörünür bölümleri ayarlamak için Open Salamander ana penceresinde Seçenekler > Eklenti Yapılandırması > Portable Executable Görüntüleyici menüsünü kullanın."
+10118,0,"No Portable Executable section selected in plugin configuration was found.\nUse menu Options > Plugin Configuration > Portable Executable Viewer\nin Open Samandarin main window to setup visible sections."
 

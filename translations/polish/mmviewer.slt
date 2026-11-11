@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\mmviewer\mmviewer.atp"
+PROJECTNAME,"localization-openai\projects\polish\mmviewer\mmviewer.atp"
 TEXTVERSION,"1.18 (x64)"
-VERSION,"1,18,0,196"
+VERSION,"1,18,0,197"
 
 [TRANSLATION]
 LANGID,1045
@@ -17,13 +17,13 @@ COMMENT,"polish translation stub (English seed)"
 10505,46,19,177,8,1,"dummy"
 10507,11,42,20,20,1,""
 13000,46,41,238,8,1,"Parsery MPEG, ID3 Tag wersji 1 i 2, OGG, WMA, VQF i Tracker"
-13001,46,51,92,8,1,"są licencjonowane od"
+13001,46,51,74,8,1,"są licencjonowane od"
 10504,107,51,200,8,1,"Disk Explorer Professional"
 13002,46,67,82,8,1,"Copyright 2003-2026 by"
 13003,128,67,60,8,1,"Tomas Jelinek"
 13004,46,78,30,8,1,"E-mail:"
 10502,128,78,119,8,1,"tomas@tjelinek.com"
-13005,46,89,52,8,1,"Strona główna:"
+13005,46,89,54,8,1,"Strona główna:"
 10503,128,89,118,8,1,"www.tjelinek.com"
 13006,2,107,356,1,1,""
 
@@ -297,3 +297,4 @@ COMMENT,"polish translation stub (English seed)"
 12640,1,"Bitów na próbkę"
 12641,1,"Informacje o nośniku"
 12642,1,"Nieznany"
+

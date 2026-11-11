@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\japanese\demoview\demoview.atp"
+TEXTVERSION,"1.0.3 (x64)"
+VERSION,"1,0,3,197"
+
+[TRANSLATION]
+LANGID,1041
+AUTHOR,"Open Salamander"
+WEB,"www.altap.cz"
+COMMENT,"English version"
+
+[DIALOG 490]
+205,61,0,"Viewer"
+3000,4,6,199,41,0,"Window position"
+491,11,17,63,12,0,"&Save on close"
+492,11,29,156,12,0,"S&et to position of Salamander's window"
+
+[STRINGTABLE 0]
+46,0,"DemoView"
+47,0,"About Plugin"
+
+[STRINGTABLE 1]
+48,0,"This plugin should help you to make your own viewer plugin."
+49,0,"www.altap.cz"
+50,0,"An exception in DemoView has occured, please inform authors!\nIf you have worked with some .DMV file when exception has occured,\nplease try to reproduce the bug with this .DMV file and if exception\noccurs again, send us this .DMV file (we will reproduce and fix the bug).\nThanks!"
+51,0,"petr.solin@altap.cz"
+52,0,"The configuration is already opened."
+53,0,"Some DemoView viewer windows are opened. Do you want to close them?"
+54,0,"DemoView Configuration"
+55,0,"Invalid number!"
+56,0,"DemoView Files (*.dmv)|*.dmv|All Files (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,0,"&Files"
+2001,0,"&Open\tCtrl+O"
+2002,0,"E&xit"
+2010,0,"&Edit"
+2011,0,"&Cut\tCtrl+X"
+2012,0,"&Copy\tCtrl+C"
+2013,0,"&Paste\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,0,"&View"
+2021,0,"&Filter"
+2022,0,"Filter"
+2025,0,"&Options"
+2026,0,"&Configuration..."
+
+[STRINGTABLE 4]
+2032,0,"&Help"
+2033,0,"&About"
+
+[STRINGTABLE 5]
+2500,0,"Cut\tCtrl+X"
+2501,0,"Copy\tCtrl+C"
+2502,0,"Paste\tCtrl+V"
+2503,0,"Filter\tCtrl+U"
+

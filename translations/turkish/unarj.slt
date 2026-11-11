@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\unarj\unarj.atp"
+PROJECTNAME,"localization-openai\projects\turkish\unarj\unarj.atp"
 TEXTVERSION,"1.23 (x64)"
-VERSION,"1,23,0,196"
+VERSION,"1,23,0,197"
 
 [TRANSLATION]
 LANGID,1055
@@ -12,9 +12,9 @@ COMMENT,"turkish translation stub (English seed)"
 [DIALOG 100]
 194,110,1,"Sonraki Arşiv Birimi"
 300,12,9,170,32,1,"Sonraki arşiv biriminin bulunduğu diski takın veya diskte uygun dosyayı bulun.\n\nHazır olduğunuzda Tamam'a basın."
-301,12,48,70,8,1,"Önceki birim:"
+301,12,48,60,8,1,"Önceki birim:"
 103,73,48,109,12,1,""
-302,12,62,67,8,1,"&Sonraki birim:"
+302,12,62,49,8,1,"&Sonraki birim:"
 101,12,72,155,12,1,""
 102,170,72,13,12,1,"..."
 1,39,91,50,14,1,"Tamam"
@@ -33,9 +33,9 @@ COMMENT,"turkish translation stub (English seed)"
 [DIALOG 106]
 220,85,1,"UnARJ Yapılandırması"
 300,23,22,154,8,1,"ayıklarken."
-107,12,10,218,12,1,"Önceki birimden devam eden dosyaları &otomatik olarak atla"
+107,12,10,210,12,1,"Önceki birimden devam eden dosyaları &otomatik olarak atla"
 301,23,44,111,8,1,"listelenemiyor."
-116,12,32,234,12,1,"Arşivin tüm içeriği mevcutsa uyarıyı gösterme"
+116,12,32,197,12,1,"Arşivin tüm içeriği mevcutsa uyarıyı gösterme"
 302,6,60,208,1,1,""
 1,57,66,50,14,1,"Tamam"
 2,112,66,50,14,1,"İptal"
@@ -44,7 +44,7 @@ COMMENT,"turkish translation stub (English seed)"
 213,107,1,"UnARJ - Dikkat"
 300,11,10,194,24,1,"Bazı arşiv birimleri bulunamadığından çok parçalı arşivdeki tüm dosyalar listelenemiyor (ve panelde gösterilemiyor)."
 301,11,41,192,16,1,"Tüm arşiv içeriğini listelemek için bütün arşiv birimlerini aynı dizine kopyalayın."
-105,11,66,159,12,1,"&Bu iletiyi bir daha gösterme"
+105,11,66,157,12,1,"&Bu iletiyi bir daha gösterme"
 302,5,83,203,1,1,""
 1,153,89,50,14,1,"Tamam"
 

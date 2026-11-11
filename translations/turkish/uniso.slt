@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\uniso\uniso.atp"
+PROJECTNAME,"localization-openai\projects\turkish\uniso\uniso.atp"
 TEXTVERSION,"1.39 (x64)"
-VERSION,"1,39,0,196"
+VERSION,"1,39,0,197"
 
 [TRANSLATION]
 LANGID,1055
@@ -11,9 +11,9 @@ COMMENT,"turkish translation stub (English seed)"
 
 [DIALOG 1200]
 220,83,1,"UnISO Yapılandırması"
-1201,8,11,200,10,1,"Arşivden kopyalarken salt okunur özniteliğini &Temizle"
-1202,8,23,243,10,1,"Oturumu dizin olarak &Göster (tüm oturumlara erişime izin ver)"
-1203,8,35,154,10,1,"Önyükleme imajı diskini dosya olarak &Göster"
+1201,8,11,188,10,1,"Arşivden kopyalarken salt okunur özniteliğini &Temizle"
+1202,8,23,219,10,1,"Oturumu dizin olarak &Göster (tüm oturumlara erişime izin ver)"
+1203,8,35,158,10,1,"Önyükleme imajı diskini dosya olarak &Göster"
 3000,2,58,216,1,1,""
 1,108,64,50,14,1,"Tamam"
 2,163,64,50,14,1,"İptal"

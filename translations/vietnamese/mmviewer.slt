@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\mmviewer\mmviewer.atp"
+PROJECTNAME,"localization-openai\projects\vietnamese\mmviewer\mmviewer.atp"
 TEXTVERSION,"1.18 (x64)"
-VERSION,"1,18,0,196"
+VERSION,"1,18,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -16,14 +16,14 @@ COMMENT,"vietnamese translation stub (English seed)"
 10501,46,9,313,8,1,"MMViewer %s - Trình xem Đa phương tiện cho Open Salamander"
 10505,46,19,177,8,1,"mẫu thử"
 10507,11,42,20,20,1,""
-13000,46,41,238,8,1,"Bộ phân tích MPEG, thẻ ID3 phiên bản 1 và 2, OGG, WMA, VQF và Tracker"
-13001,46,51,92,8,1,"được cấp phép từ"
+13000,46,41,254,8,1,"Bộ phân tích MPEG, thẻ ID3 phiên bản 1 và 2, OGG, WMA, VQF và Tracker"
+13001,46,51,63,8,1,"được cấp phép từ"
 10504,107,51,200,8,1,"Disk Explorer Professional"
-13002,46,67,82,8,1,"Bản quyền 2003-2026 thuộc về"
+13002,46,67,107,8,1,"Bản quyền 2003-2026 thuộc về"
 13003,128,67,60,8,1,"Tomas Jelinek"
 13004,46,78,30,8,1,"Email:"
 10502,128,78,119,8,1,"tomas@tjelinek.com"
-13005,46,89,52,8,1,"Trang chủ:"
+13005,46,89,49,8,1,"Trang chủ:"
 10503,128,89,118,8,1,"www.tjelinek.com"
 13006,2,107,356,1,1,""
 
@@ -239,9 +239,9 @@ COMMENT,"vietnamese translation stub (English seed)"
 12525,1,"Stereo"
 12526,1,"Stereo chung"
 12527,1,"Kênh kép"
-12528,1,"Kênh đơn"
 
 [STRINGTABLE 22]
+12528,1,"Kênh đơn"
 12529,1,"Nhạc sĩ"
 12530,1,"Nghệ sĩ gốc"
 12531,1,"Được mã hóa bởi"
@@ -297,3 +297,4 @@ COMMENT,"vietnamese translation stub (English seed)"
 12640,1,"Bit trên mẫu"
 12641,1,"Thông tin phương tiện"
 12642,1,"Không xác định"
+

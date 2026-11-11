@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\peviewer\peviewer.atp"
+PROJECTNAME,"localization-openai\projects\japanese\peviewer\peviewer.atp"
 TEXTVERSION,"3.1 (x64)"
-VERSION,"3,1,0,196"
+VERSION,"3,1,0,197"
 
 [TRANSLATION]
 LANGID,1041
@@ -11,11 +11,11 @@ COMMENT,"Japanese (ja-JP) UI translation"
 
 [DIALOG 8501]
 346,154,1,"Portable Executable Viewer 構成"
-1300,7,7,64,8,1,"利用可能なセクション(&b):"
+1300,7,7,87,8,1,"利用可能なセクション(&b):"
 8700,7,17,105,130,1,""
 8702,119,17,50,14,1,"追加 ->(&A)"
 8703,119,35,50,14,1,"<- 削除(&R)"
-1301,176,7,58,8,1,"表示されるセクション(&V):"
+1301,176,7,82,8,1,"表示されるセクション(&V):"
 8701,176,17,105,130,1,""
 8704,289,17,50,14,1,"上に移動(&U)"
 8705,289,35,50,14,1,"下に移動(&D)"

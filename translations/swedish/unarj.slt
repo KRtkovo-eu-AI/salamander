@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\unarj\unarj.atp"
+PROJECTNAME,"localization-openai\projects\swedish\unarj\unarj.atp"
 TEXTVERSION,"1.23 (x64)"
-VERSION,"1,23,0,196"
+VERSION,"1,23,0,197"
 
 [TRANSLATION]
 LANGID,1053
@@ -12,9 +12,9 @@ COMMENT,"swedish translation stub (English seed)"
 [DIALOG 100]
 194,110,1,"Nästa arkivvolym"
 300,12,9,170,32,1,"Sätt i skivan med nästa arkivvolym eller leta upp rätt fil på disken.\n\nTryck på OK när du är klar."
-301,12,48,70,8,1,"Föregående volym:"
+301,12,48,67,8,1,"Föregående volym:"
 103,73,48,109,12,1,""
-302,12,62,67,8,1,"&Nästa volym:"
+302,12,62,49,8,1,"&Nästa volym:"
 101,12,72,155,12,1,""
 102,170,72,13,12,1,"..."
 1,39,91,50,14,1,"OK"
@@ -33,9 +33,9 @@ COMMENT,"swedish translation stub (English seed)"
 [DIALOG 106]
 220,85,1,"Konfiguration av UnARJ"
 300,23,22,154,8,1,"vid uppackning."
-107,12,10,218,12,1,"&Hoppa automatiskt över filer som fortsätter från föregående volym"
+107,12,10,234,12,1,"&Hoppa automatiskt över filer som fortsätter från föregående volym"
 301,23,44,111,8,1,"kan inte visas."
-116,12,32,234,12,1,"Visa inte någon varning när hela arkivinnehållet är tillgängligt"
+116,12,32,218,12,1,"Visa inte någon varning när hela arkivinnehållet är tillgängligt"
 302,6,60,208,1,1,""
 1,57,66,50,14,1,"OK"
 2,112,66,50,14,1,"Avbryt"
@@ -44,7 +44,7 @@ COMMENT,"swedish translation stub (English seed)"
 213,107,1,"UnARJ – Obs!"
 300,11,10,194,24,1,"Alla filer i arkivet med flera volymer kan inte visas (i panelen), eftersom vissa volymer saknas."
 301,11,41,192,16,1,"Kopiera alla arkivvolymer till samma katalog för att visa hela arkivinnehållet."
-105,11,66,159,12,1,"&Visa inte det här meddelandet igen"
+105,11,66,157,12,1,"&Visa inte det här meddelandet igen"
 302,5,83,203,1,1,""
 1,153,89,50,14,1,"OK"
 

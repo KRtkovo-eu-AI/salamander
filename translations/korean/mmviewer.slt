@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\mmviewer\mmviewer.atp"
+PROJECTNAME,"localization-openai\projects\korean\mmviewer\mmviewer.atp"
 TEXTVERSION,"1.18 (x64)"
-VERSION,"1,18,0,196"
+VERSION,"1,18,0,197"
 
 [TRANSLATION]
 LANGID,1042
@@ -17,13 +17,13 @@ COMMENT,"korean translation stub (English seed)"
 10505,46,19,177,8,1,"dummy"
 10507,11,42,20,20,1,""
 13000,46,41,238,8,1,"MPEG, ID3 태그 버전 1 및 2, OGG, WMA, VQF 및 추적기 파서"
-13001,46,51,92,8,1,"에서 라이센스가 부여됩니다."
+13001,46,51,97,8,1,"에서 라이센스가 부여됩니다."
 10504,107,51,200,8,1,"디스크 탐색기 전문가"
 13002,46,67,82,8,1,"Copyright 2003-2026 by"
 13003,128,67,60,8,1,"토마스 옐리네크"
 13004,46,78,30,8,1,"이메일: "
 10502,128,78,119,8,1,"tomas@tjelinek.com"
-13005,46,89,52,8,1,"홈 페이지:"
+13005,46,89,49,8,1,"홈 페이지:"
 10503,128,89,118,8,1,"www.tjelinek.com"
 13006,2,107,356,1,1,""
 
@@ -297,3 +297,4 @@ COMMENT,"korean translation stub (English seed)"
 12640,1,"캄피오네당 비트"
 12641,1,"미디어 정보"
 12642,1,"Sconosciuto"
+

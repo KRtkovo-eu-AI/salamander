@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\hypervm\hypervm.atp"
+PROJECTNAME,"localization-openai\projects\vietnamese\hypervm\hypervm.atp"
 TEXTVERSION,"1.10 (x64)"
-VERSION,"1,10,0,196"
+VERSION,"1,10,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -51,3 +51,4 @@ COMMENT,"vietnamese translation stub (English seed)"
 85,1,"Máy ảo Hyper-V"
 86,1,"Tạo và đính kèm Đĩa ảo cứng"
 87,1,"Đính kèm Đĩa ảo cứng"
+

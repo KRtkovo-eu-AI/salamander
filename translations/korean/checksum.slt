@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\checksum\checksum.atp"
+PROJECTNAME,"localization-openai\projects\korean\checksum\checksum.atp"
 TEXTVERSION,"2.4 (x64)"
-VERSION,"2,4,0,196"
+VERSION,"2,4,0,197"
 
 [TRANSLATION]
 LANGID,1042
@@ -17,7 +17,7 @@ COMMENT,"korean translation stub (English seed)"
 1002,162,65,55,14,1,"구성(&f)..."
 1003,223,65,55,14,1,"저장(&S)..."
 1004,284,65,55,14,1,"중지(&S)"
-1005,5,68,76,8,1,"클립보드 힌트"
+1005,5,68,48,8,1,"클립보드 힌트"
 
 [DIALOG 1001]
 189,109,1,"체크섬 구성"
@@ -26,7 +26,7 @@ COMMENT,"korean translation stub (English seed)"
 101,15,28,105,10,1,"MD5(&M)"
 102,15,40,105,10,1,"SHA-1(&1)"
 103,15,52,105,10,1,"SHA-256(&2)"
-104,15,64,105,10,1,"name of the hash algorithm(&5)"
+104,15,64,115,10,1,"name of the hash algorithm(&5)"
 1,14,88,50,14,1,"OK"
 2,69,88,50,14,1,"취소"
 9,124,88,50,14,1,"도움말"

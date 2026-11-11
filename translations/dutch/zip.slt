@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\zip\zip.atp"
 TEXTVERSION,"1.8 (x64)"
-VERSION,"1,8,0,196"
+VERSION,"1,8,0,197"
 
 [TRANSLATION]
 LANGID,1043
@@ -558,4 +558,5 @@ COMMENT,"Nederlandse versie"
 1252,1,"KB"
 1253,1,"MB"
 1254,1,"Het ZIP bestand gebruikt gegevens in een formaat dat modificatie door de huidige versie van de ZIP plugin niet ondersteund"
+1255,0,"Not all archive entries were unpacked. The source archive has been kept."
 

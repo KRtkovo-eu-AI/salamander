@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\webview2renderviewer\webview2renderviewer.atp"
+PROJECTNAME,"localization-openai\projects\chinesetraditional\webview2renderviewer\webview2renderviewer.atp"
 TEXTVERSION,"1.5 (x64)"
-VERSION,"1,5,0,196"
+VERSION,"1,5,0,197"
 
 [TRANSLATION]
 LANGID,1028
@@ -20,11 +20,11 @@ COMMENT,"chinesetraditional translation stub (English seed)"
 51,1,"選取的檔案太大，無法開啟。不支援大於 32 MB 的檔案。"
 52,1,"檔案(&F)"
 53,1,"檢視(&V)"
-54,1,"關閉(&C)	Esc"
-55,1,"重新整理(&R)	F5"
-56,1,"放大(&I)	Ctrl++"
-57,1,"縮小(&O)	Ctrl+-"
-58,1,"重設(&R)	Ctrl+0"
+54,0,"&Close\tEsc"
+55,0,"&Refresh\tF5"
+56,0,"Zoom &In\tCtrl++"
+57,0,"Zoom &Out\tCtrl+-"
+58,0,"&Reset\tCtrl+0"
 59,1,"載入中..."
 60,1,"就緒"
 61,1,"無法初始化 WebView2 轉譯器。"
@@ -32,10 +32,10 @@ COMMENT,"chinesetraditional translation stub (English seed)"
 63,1,"顯示行號(&L)"
 
 [STRINGTABLE 2]
-64,1,"自動換行(&W)	F2"
+64,0,"&Wrap Lines\tF2"
 65,1,"顯示空白字元(&W)"
 66,1,"編輯(&M)"
-67,1,"複製(&C)	Ctrl+C"
-68,1,"全選(&A)	Ctrl+A"
-69,1,"列印(&P)...	Ctrl+P"
+67,0,"&Copy\tCtrl+C"
+68,0,"Select &All\tCtrl+A"
+69,0,"&Print...\tCtrl+P"
 

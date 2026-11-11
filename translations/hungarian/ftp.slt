@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\ftp\ftp.atp"
 TEXTVERSION,"1.38 (x64)"
-VERSION,"1,38,0,196"
+VERSION,"1,38,0,197"
 
 [TRANSLATION]
 LANGID,1038
@@ -218,7 +218,7 @@ COMMENT,"Magyar változat"
 
 [DIALOG 660]
 396,165,1,"FTP eseménynapló"
-663,1,0,396,1,1,""
+663,0,0,396,1,1,""
 661,5,5,386,104,1,""
 662,5,19,386,141,1,""
 

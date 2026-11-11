@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\undelete\undelete.atp"
 TEXTVERSION,"1.13 (x64)"
-VERSION,"1,13,0,196"
+VERSION,"1,13,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -14,16 +14,16 @@ COMMENT,"vietnamese translation stub (English seed)"
 1001,12,12,323,8,1,""
 1002,35,32,292,12,1,""
 2,144,54,50,14,1,"Hủy"
-3000,12,33,26,8,1,"Tổng:"
+3000,12,33,22,8,1,"Tổng:"
 
 [DIALOG 1100]
 443,285,1,"Khôi phục"
 3000,6,7,430,193,1,"Chọn &ổ đĩa để phân tích"
 1103,14,21,414,139,1,""
-1104,14,166,67,10,1,"Hình ảnh &Ổ đĩa"
+1104,14,166,51,10,1,"Hình ảnh &Ổ đĩa"
 1105,14,178,361,14,1,""
 1402,379,178,50,14,1,"&Duyệt..."
-1101,7,208,190,10,1,"Quét &cụm trống trên phân vùng FAT"
+1101,7,208,184,10,1,"Quét &cụm trống trên phân vùng FAT"
 1102,7,220,184,10,1,"Hiện các tệp và thư mục hiện có"
 1106,7,232,184,10,1,"Hiện các tệp có &kích thước bằng không"
 1107,7,244,184,10,1,"Hiện các thư mục &trống"
@@ -35,7 +35,7 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [DIALOG 1200]
 353,102,1,"Khôi phục"
-1205,-19,11,62,8,1,"Đang khôi phục"
+1205,3,11,40,8,1,"Đang khôi phục"
 1201,47,11,301,8,1,""
 3000,3,23,40,8,1,"đến"
 1202,47,23,301,8,1,""
@@ -55,11 +55,11 @@ COMMENT,"vietnamese translation stub (English seed)"
 
 [DIALOG 1400]
 257,100,1,"Cấu hình Khôi phục"
-3000,7,7,211,8,1,"Thư mục tạm thời &thay thế để xem tệp:"
+3000,7,7,163,8,1,"Thư mục tạm thời &thay thế để xem tệp:"
 1401,7,17,222,14,1,""
 1402,235,17,16,14,1,"..."
-1403,7,39,196,10,1,"Luôn &sử dụng lại thông tin quét cụm trước đó trên FAT"
-1404,7,50,237,10,1,"Không cảnh báo khi khôi phục sang cùng một ổ đĩa &logic"
+1403,7,39,194,10,1,"Luôn &sử dụng lại thông tin quét cụm trước đó trên FAT"
+1404,7,50,193,10,1,"Không cảnh báo khi khôi phục sang cùng một ổ đĩa &logic"
 1405,7,61,223,10,1,"Không cảnh báo trước khi khôi phục các tệp đã &mã hóa sang FAT hoặc exFAT"
 1,91,80,50,14,1,"OK"
 2,146,80,50,14,1,"Hủy"
@@ -133,7 +133,6 @@ COMMENT,"vietnamese translation stub (English seed)"
 61,1,"Không hiển thị lại"
 62,1,"Chọn thư mục tạm thời thay thế:"
 63,1,"Có vẻ bạn đang khôi phục sang cùng một ổ lập luận nơi các tệp đã xóa nằm. Bạn luôn nên khôi phục sang một phân vùng khác, nếu không các tệp bạn đang khôi phục có thể bị ghi đè bởi chính chúng hoặc bạn có thể mất các tệp đã xóa khác.\n\nMẹo: nếu bạn không có nhiều phân vùng, bạn cũng có thể khôi phục sang một ổ floppy hoặc USB."
-136,
 
 [STRINGTABLE 4]
 64,1,"Đang phân tích các thư viện..."

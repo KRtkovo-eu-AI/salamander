@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\russian\undelete\undelete.atp"
 TEXTVERSION,"1.13 (x64)"
-VERSION,"1,13,0,196"
+VERSION,"1,13,0,197"
 
 [TRANSLATION]
 LANGID,1049
@@ -155,7 +155,7 @@ COMMENT,"Русская версия"
 82,1,"Формат"
 83,1,"Размер"
 84,1,"Свободно"
-85,1,"% свободно"
+85,0,"% Free"
 86,1,"Путь GUID"
 90,1,"Файл "$Bitmap" пуст. Оценка повреждений удаленных файлов будет пропущена."
 91,1,"Файл "$Bitmap" не обнаружен на данном разделе. Оценка повреждений удаленных файлов невозможна."

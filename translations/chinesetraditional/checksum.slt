@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\checksum\checksum.atp"
+PROJECTNAME,"localization-openai\projects\chinesetraditional\checksum\checksum.atp"
 TEXTVERSION,"2.4 (x64)"
-VERSION,"2,4,0,196"
+VERSION,"2,4,0,197"
 
 [TRANSLATION]
 LANGID,1028
@@ -17,7 +17,7 @@ COMMENT,"chinesetraditional translation stub (English seed)"
 1002,162,65,55,14,1,"&設定..."
 1003,223,65,55,14,1,"&儲存..."
 1004,284,65,55,14,1,"&停止"
-1005,5,68,76,8,1,"剪貼簿提示"
+1005,5,68,48,8,1,"剪貼簿提示"
 
 [DIALOG 1001]
 189,109,1,"Checksum 設定"
@@ -54,15 +54,15 @@ COMMENT,"chinesetraditional translation stub (English seed)"
 41,1,"計算中..."
 42,1,"已取消"
 43,1,"按一下項目右鍵可將其 Checksum 複製到剪貼簿。"
-44,1,"複製 &CRC 值到剪貼簿	Ctrl+C"
-45,1,"複製 &MD5 Checksum 到剪貼簿	Ctrl+M"
-46,1,"複製 SHA-&1 Checksum 到剪貼簿	Ctrl+1"
-47,1,"複製 SHA-&256 Checksum 到剪貼簿	Ctrl+2"
+44,0,"Copy &CRC Value to Clipboard\tCtrl+C"
+45,0,"Copy &MD5 Checksum to Clipboard\tCtrl+M"
+46,0,"Copy SHA-&1 Checksum to Clipboard\tCtrl+1"
+47,0,"Copy SHA-&256 Checksum to Clipboard\tCtrl+2"
 
 [STRINGTABLE 2]
-48,1,"複製 SHA-&512 Checksum 到剪貼簿	Ctrl+5"
+48,0,"Copy SHA-&512 Checksum to Clipboard\tCtrl+5"
 52,1,"複製&所有值到剪貼簿"
-53,1,"&移除項目	Delete"
+53,0,"&Remove Item\tDelete"
 54,1,"檔案 '%s' 已存在。\n要覆寫嗎？"
 55,1,"建立檔案時發生錯誤。"
 56,1,"計算期間略過或取消的檔案未儲存。"
