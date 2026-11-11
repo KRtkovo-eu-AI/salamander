@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Reject the prior rooted-inventory protocol for exact-file grants. | Ensure the new singleton scope cannot pair with older peers. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Reject the superseded protocol 29 handshake. | Prevent accidental pairing with the reverted late-move build. | #731 | GPT-6.1 Terra |
 | 2026-11-09 | Cancel the protected Find broker handshake on Stop. | Release the read-only pipe while preserving the transfer cancellation contract. | | Codex |
 | 2026-11-09 | Test the roles of the three UAC images. | Reject a same-version binary in the wrong position. | | GPT-6.1 Sol (Codex) |
@@ -90,9 +91,10 @@ int wmain(int argc, wchar_t** argv)
 
     const Frame current{protocolVersion, capabilities, Phase::Hello};
     const Frame superseded{29, capabilities, Phase::Hello};
-    if (!Matches(current, Phase::Hello) || Matches(superseded, Phase::Hello))
+    const Frame rootedOnly{30, capabilities, Phase::Hello};
+    if (!Matches(current, Phase::Hello) || Matches(superseded, Phase::Hello) || Matches(rootedOnly, Phase::Hello))
         return 14;
-    std::puts("PASS reject the superseded protocol 29 handshake");
+    std::puts("PASS reject the superseded protocol 29 and 30 handshakes");
 
     const ComApartment com;
     if (FAILED(com.result))

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Measure one directly selected file in its own UAC scope. | Keep the approval narrower than the containing directory. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Retry denied allocation metadata in the active size scope. | Preserve ordinary totals while requesting a single verified measurement. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Align transfer and permanent-delete planning with native leaf support. | Keep UAC eligibility for ordinary attributes and streamed large copies. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Record partial directory sizes on disk rows. | Preserve full-size checks without adding a shared SDK field. | #731 | GPT-6.1 Sol |
@@ -1353,6 +1354,7 @@ struct CSizeScanScope
     std::optional<DWORD> StartResult;
     bool Scanned = false;
     bool ElevationDeclined = false;
+    bool ExactFile = false;
 };
 
 static bool PrepareListedDeleteSource(COperations& script, UacF7::ListingSession& listing,
@@ -1869,12 +1871,19 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     }
                     const DWORD itemFlags = srcAndTgtPathsFlags |
                                             (script->AllowTransferPilot ? OPFL_UAC_TRANSFER_ELIGIBLE : 0);
+                    std::optional<CSizeScanScope> selectedSizeScope;
+                    if (countSize && selCount <= 1)
+                    {
+                        selectedSizeScope.emplace();
+                        selectedSizeScope->Root = SalPathRemoveExtendedPrefixW(GetItemFullPathW(*oneFile).c_str());
+                        selectedSizeScope->ExactFile = true;
+                    }
                     if (!BuildScriptFile(script, type, sourcePath, sourceSupADS, itemTargetPath,
                                          itemTargetState,
                                          targetSupADS, targetIsFAT32, mask,
                                          useName, useDOSName, oneFile->Size, attrsData, NULL,
                                          oneFile->Attr, chCaseData, onlySize, NULL,
-                                         itemFlags, fileWideName))
+                                         itemFlags, fileWideName, selectedSizeScope ? &*selectedSizeScope : nullptr))
                     {
                         SetCurrentDirectoryToSystem();
                         return FALSE;
@@ -2055,9 +2064,9 @@ static bool IsDanglingDirectoryLinkForSize(const char* path)
 }
 
 static int ConfirmProtectedSize(HWND owner, const std::wstring& path,
-                                UacF7::ListingSession& session, DWORD& error)
+                                UacF7::ListingSession& session, DWORD& error, bool exactFile = false)
 {
-    std::string message = std::string(LoadStr(IDS_UAC_SIZE_CONFIRM)) + "\n\n" +
+    std::string message = std::string(LoadStr(exactFile ? IDS_UAC_SIZE_FILE_CONFIRM : IDS_UAC_SIZE_CONFIRM)) + "\n\n" +
                                 SalWideToMultiBytePath(path.c_str(), CP_UTF8);
     if (session.GetRoot() != path)
         message += std::string("\n\n") + LoadStr(IDS_UAC_SIZE_CONSENT_SCOPE) + "\n" +
@@ -4049,11 +4058,14 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                 const bool listed = panelRoot && !panelRoot->empty() && path.size() > panelRoot->size() &&
                     path.compare(0, panelRoot->size(), *panelRoot) == 0 &&
                     (panelRoot->back() == L'\\' || path[panelRoot->size()] == L'\\');
-                DWORD preparationError = ERROR_SUCCESS;
-                const bool prepared = listed ?
+                // The standalone confirmation names the original selected row.
+                // Never authorize a differently reconstructed path under it.
+                const bool exactPathMatches = !sizeScope->ExactFile || path == sizeScope->Root;
+                DWORD preparationError = exactPathMatches ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+                const bool prepared = exactPathMatches && (listed ?
                     ((preparationError = ProtectedListing->IsOpen() ?
                         ProtectedListing->PrepareViewer(path, file, sourceFileAttr) : ERROR_BROKEN_PIPE) == ERROR_SUCCESS) :
-                    file.PrepareView(nameW);
+                    file.PrepareView(nameW));
                 if (preparationError)
                     err = preparationError;
                 UacF7::FileAllocationRequest identity{};
@@ -4063,7 +4075,9 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                     if (!session && sizeScope->Session.IsOpen() && sizeScope->Session.Contains(path))
                         session = &sizeScope->Session;
                     if (!session && UacF7::CanOfferElevation() &&
-                        (!sizeScope->Session.GetRoot().empty() || sizeScope->Session.PrepareInventory(sizeScope->Root)))
+                        (!sizeScope->Session.GetRoot().empty() ||
+                         (sizeScope->ExactFile ? sizeScope->Session.PrepareAllocationFile(sizeScope->Root, file) :
+                                                 sizeScope->Session.PrepareInventory(sizeScope->Root))))
                         session = &sizeScope->Session;
                     if (session)
                     {
@@ -4075,7 +4089,7 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
                             allocationError = *sizeScope->StartResult ? *sizeScope->StartResult : ERROR_BROKEN_PIPE;
                         else if (!session->IsOpen())
                         {
-                            choice = ConfirmProtectedSize(HWindow, sizeScope->Root, *session, allocationError);
+                            choice = ConfirmProtectedSize(HWindow, sizeScope->Root, *session, allocationError, sizeScope->ExactFile);
                             consentDeclined = choice == IDOK && allocationError == ERROR_CANCELLED;
                             if (session == &sizeScope->Session && choice == IDOK)
                                 sizeScope->StartResult = allocationError;

@@ -1,5 +1,6 @@
 ﻿// | 2026-11-08 | Explain the protected archive panel scope. | Localize the entry action message. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Describe exact-file allocation consent. | Identify the selected file and metadata-only access. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Describe administrator approval for any verified tree copy. | Use the same localized consent wording for registered and ordinary targets. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Explain exclusion of a verified Windows compatibility link. | Show why the target was not counted. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Explain why the size calculation is incomplete. | Preserve a visibly partial directory total. | #731 | GPT-6.1 Sol |
@@ -2460,6 +2461,7 @@ STRINGTABLE
  IDS_UAC_LIST_CONFIRM, "Access was denied. List this folder and its subfolders as an administrator?"
  IDS_UAC_LIST_ACTIVE, "Administrator listing"
  IDS_UAC_SIZE_CONFIRM, "Access was denied. Calculate the size of this folder and its subfolders as an administrator?"
+ IDS_UAC_SIZE_FILE_CONFIRM, "Access was denied. Read this file's disk allocation as an administrator?"
  IDS_UAC_FIND_FILE_CONFIRM, "Access was denied. Read this file for the current search as an administrator?"
  IDS_UAC_FIND_CONTENT_CONFIRM, "Access was denied. Read file contents in this folder for the current search as an administrator? The search continues in accessible folders while you decide."
  IDS_UAC_FIND_CONFIRM, "Access was denied. Search names and metadata in this folder as an administrator? The search continues in accessible folders while you decide."

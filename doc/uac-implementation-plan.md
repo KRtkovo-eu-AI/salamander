@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record exact-file allocation scope and remaining ACL boundaries. | Distinguish verified metadata access from an atomic snapshot and VM evidence. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record scoped allocation measurement for size scans. | Preserve partial totals and distinguish local evidence from VM acceptance. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Flag the unverified local move-completion branch. | Track the review finding separately from broker-only verification. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record typed late move completion and recursive-delete design. | Keep proven metadata checks separate from remaining recovery and consent work. | #731 | GPT-6.1 Terra |
@@ -554,6 +555,10 @@ Z1 (ZIP z chráněného panelu) zůstává otevřená. Rozpracovaná hostitelsk�
 
 Samotné `FilesActionInProgress` nestačí jako ochrana ZIP přechodu: nezamezí vnořené změně cesty a smyčka vypínání tabů při odmítnutém zavření nesmí zůstat čekat na nezměněný počet tabů. Případná zápůjčka pluginu proto potřebuje i pravidla pro odložené zavření a změnu konfigurace, vnoření a shutdown. Tyto zásahy vyžadují vlastní regresní testy životnosti, nikoli jen kontrolu načtené DLL.
 
+Pro zbývající T1 při přepisu s Ignore ADS nestačí vynechat kopírování proudů: výsledná pracovní kopie musí být chráněná proti novému zápisu ADS a po publikaci neobsahovat žádný pojmenovaný proud. Původní cíl včetně všech proudů zůstává součástí ověřeného rollbacku. Scope souhlasu musí rozlišovat Ignore ADS od jejich zachování; přenos CopyAttrs a CopySecurity vyžaduje vlastní ověření atributů a bezpečnostního deskriptoru před odstraněním zálohy.
+
+Pro N1 nelze spoléhat na to, že `PendingDirectoryChain` po tvrdém ukončení brokeru uklidí vytvořené předky: rollback dnes probíhá až v destruktoru. Vnořené F7 proto potřebuje typovanou žádost svázanou s ověřeným existujícím předkem, přesným suffixem a poctivé hlášení nejistého či částečného výsledku při přerušení. Řízený rollback smí odstranit pouze vlastní ověřené prázdné adresáře; případná automatická obnova po pádu vyžaduje samostatný bezpečný návrh.
+
 ## Obsazená velikost jednotlivého souboru ve výpočtu složky
 
 Stav R3: **část implementována a ověřena lokálně; VM akceptace čeká**. Základ `d8de6b0f`, protokol **30**. Při odepření `GetCompressedFileSizeW` u komprimovaného či sparse souboru uvnitř počítané složky může schválená read-only relace změřit pouze tento soubor. Broker znovu ověří svazek, ID rodiče a souboru, typ a délku; nesleduje reparse body a nevrací obsah. Výsledek nahradí jednotlivý údaj před jeho jediným započítáním. Systémové Ne ponechá dostupný logický součet, Skip, Skip All a Cancel zachovávají své rozdílné významy. Odpojení původní panelové relace samo neotevře novou UAC výzvu. Korektně se rozlišuje i platná hodnota s nízkým DWORD `0xffffffff`.
@@ -563,6 +568,12 @@ Přímý výběr samostatného souboru zatím nemá vlastní přesný metadatov�
 Host a broker x64 se sestavily v Debug i Release, sonda v Release. Controller skutečné výpočetní větve prošel **19 kontrolami** v každé konfiguraci; transport/broker **347** v každé. Zahrnují skutečný ACL denial, sparse nad 4 GiB, komprimovaný soubor a srovnání `FileCompressionInfo` se systémovým `GetCompressedFileSizeW`, odmítnutí záměny a nepovoleného rozsahu, volby uživatele i výpadek relace. Skutečné Release binárky prošly kontrolou rolí/protokolu a odmítly již dříve sestavený, následně vrácený protokol 29. Logy jsou v `C:\Samandarin\builds\uac-r3-final-20261111` a `C:\Samandarin\builds\uac-r3-protocol30-Debug.log` / `uac-r3-protocol30-Release.log`. Interaktivní UAC a společná VM akceptace se v tomto bloku neprováděly.
 
 Stejně sestavené Release binárky proti základu `344021e5`: `salamand.exe` 5 772 800 → 5 775 360 B, `uacbroker.exe` 1 397 760 → 1 398 272 B, dohromady 7 170 560 → 7 173 632 B (+3 072 B). Soukromá paměť hosta a brokeru se změří při odložené společné VM akceptaci.
+
+Navazující část přidává **samostatnou read-only relaci pro jeden přímo vybraný soubor**; protokol je nyní **31**. Po souhlasu může broker změřit pouze tento objekt, nikoli vypsat rodiče, číst obsah nebo měřit sourozence. Před měřením i po něm ověřuje schválenou identitu a cestu. Měření je momentální údaj, nikoli atomický snapshot proti souběžnému zápisu nebo záměně typu ABA. Více přímo vybraných souborů a Branch View tím nejsou pokryty. U ACL, kde lze vypsat rodiče, ale otevření dítěte odmítá i příslušný token, zůstává hranice otevřená; oprávnění se nemění.
+
+Host a broker x64 se sestavily v Debug/Release, sonda v Release. Controller má **22 kontrol** v každé konfiguraci, transport **362 PASS a jeden SKIP** v každé. Windows při živé relaci zabránilo přesunu rodiče, takže tento pokus byl přeskočen; skutečná záměna rodiče byla samostatně provedena nad produkčním helperem a odmítnuta. Skutečné binárky protokolu 31 odmítly předchozí broker 30. Logy jsou v `C:\Samandarin\builds\uac-r3-single-final-20261111` a `C:\Samandarin\builds\uac-r3-single-final-transport-debug.log` / `uac-r3-single-final-transport-release.log`. Výzva, překlady dalších jazyků a popředí vyžadují společnou VM akceptaci.
+
+Stejně sestavené Release binárky proti protokolu 30: `salamand.exe` 5 775 360 → 5 775 360 B, `uacbroker.exe` 1 398 272 → 1 404 928 B, dohromady 7 173 632 → 7 180 288 B (+6 656 B). Měření paměti čeká na společnou VM akceptaci.
 
 ## Další postup
 

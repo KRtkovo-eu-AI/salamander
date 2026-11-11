@@ -26,6 +26,7 @@ static int prompts, warnings, measurements, g_prepared, waitDepth;
 static DWORD localError, g_startError, g_allocationError, prepareError, reportedError;
 static ULONGLONG localValue, brokerValue;
 static int nextChoice;
+static bool exactPrompt;
 static bool offer = true;
 static DWORD QueryLocal(const wchar_t*, DWORD* high)
 {
@@ -48,10 +49,12 @@ struct ListingSession
 {
     std::wstring Root;
     bool Open = false;
-    bool Contains(const std::wstring& path) const { return Open && path.size() > Root.size() && path.compare(0, Root.size(), Root) == 0 && path[Root.size()] == L'\\'; }
+    bool Exact = false;
+    bool Contains(const std::wstring& path) const { return Open && (Exact ? path == Root : path.size() > Root.size() && path.compare(0, Root.size(), Root) == 0 && path[Root.size()] == L'\\'); }
     bool IsOpen() const { return Open; }
     const std::wstring& GetRoot() const { return Root; }
     bool PrepareInventory(const std::wstring& root) { Root = root; return true; }
+    bool PrepareAllocationFile(const std::wstring& root, const PreparedLeaf&) { Root = root; Exact = true; return true; }
     DWORD PrepareViewer(const std::wstring&, PreparedLeaf&, DWORD) { ++g_prepared; return prepareError; }
     DWORD MeasureFileAllocation(const std::wstring&, const FileAllocationRequest&, ULONGLONG& size)
     { ++measurements; if (!g_allocationError) size = brokerValue; return g_allocationError; }
@@ -64,10 +67,12 @@ struct CSizeScanScope
     UacF7::ListingSession Session;
     std::optional<DWORD> StartResult;
     bool ElevationDeclined = false;
+    bool ExactFile = false;
 };
-static int ConfirmProtectedSize(HWND, const std::wstring&, UacF7::ListingSession& session, DWORD& error)
+static int ConfirmProtectedSize(HWND, const std::wstring&, UacF7::ListingSession& session, DWORD& error, bool exact = false)
 {
     ++prompts;
+    exactPrompt = exact;
     error = nextChoice == IDOK ? g_startError : ERROR_CANCELLED;
     if (nextChoice == IDOK && !error) session.Open = true;
     return nextChoice;
@@ -129,7 +134,7 @@ static void Reset()
 {
     prompts = warnings = measurements = g_prepared = waitDepth = 0;
     localError = ERROR_ACCESS_DENIED; g_startError = g_allocationError = prepareError = reportedError = ERROR_SUCCESS;
-    localValue = brokerValue = 0; nextChoice = IDOK; offer = true;
+    localValue = brokerValue = 0; nextChoice = IDOK; offer = true; exactPrompt = false;
 }
 int main()
 {
@@ -215,6 +220,24 @@ int main()
         Check(panel.Measure(&sum, &scope, L"sentinel", localValue, sparse) && prompts == 0 && warnings == 0 &&
               sum.TotalSize.Value == localValue && sum.CompressedSize.Value == localValue,
               "a valid low-word sentinel preserves the entire 64-bit result");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; scope.Root += L"\\single"; scope.ExactFile = true; brokerValue = 25;
+        Check(panel.Measure(&sum, &scope, L"single", 100, sparse) && prompts == 1 && measurements == 1 && exactPrompt &&
+              scope.Session.Exact && sum.TotalSize.Value == 100 && sum.CompressedSize.Value == 25 && sum.Sizes.rows.size() == 1,
+              "a directly selected file uses exactly one metadata-only scope and one contribution");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; scope.Root += L"\\single"; scope.ExactFile = true; g_startError = ERROR_CANCELLED;
+        Check(panel.Measure(&sum, &scope, L"single", 100, sparse) && prompts == 1 && exactPrompt && measurements == 0 &&
+              sum.TotalSize.Value == 100 && sum.CountSizeCompressionUnavailable,
+              "declining exact-file consent keeps the logical size without a metadata result");
+    }
+    {
+        Reset(); CFilesWindow panel; COperations sum; CSizeScanScope scope; scope.Root += L"\\different"; scope.ExactFile = true;
+        Check(panel.Measure(&sum, &scope, L"single", 100, sparse) && prompts == 0 && g_prepared == 0 &&
+              reportedError == ERROR_FILE_INVALID && sum.TotalSize.Value == 100,
+              "a reconstructed path differing from the selected file is refused before consent");
     }
     std::printf("Actual size allocation controller: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

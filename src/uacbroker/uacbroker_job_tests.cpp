@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Verify singleton allocation handshake and exact-file scope. | Reject unselected files, parent changes and every content or listing request. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise scoped file-allocation queries and sentinel handling. | Reject changed identities and unsupported request scopes over the real pipe. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify ZIP read identities obtained from protected listings. | Reject substituted archives and parents before opening content. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify a denied target's full listed revision and stale-revision rejection. | Ensure parent metadata cannot authorize a changed object. | #731 | GPT-6.1 Terra |
@@ -186,7 +187,7 @@ public:
 
     bool Open(HANDLE readyToDispatch = nullptr, HANDLE findRoot = nullptr,
               Operation findScope = Operation::FindContent,
-              const UacCopyLeaf::Detail::CopyPause* copyPause = nullptr)
+              const UacCopyLeaf::Detail::CopyPause* copyPause = nullptr, bool exactInitial = false)
     {
         GUID id{};
         if (FAILED(CoCreateGuid(&id)))
@@ -197,7 +198,7 @@ public:
             1, 4096, 4096, 0, nullptr));
         if (!server)
             return false;
-        dispatcher = std::thread([this, name, readyToDispatch, findRoot, findScope, copyPause] {
+        dispatcher = std::thread([this, name, readyToDispatch, findRoot, findScope, copyPause, exactInitial] {
             const ComApartment com;
             if (FAILED(com.result))
                 return;
@@ -215,6 +216,24 @@ public:
                     FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr)));
                 if (!install.DirectoryHandle())
                     return;
+                if (exactInitial)
+                {
+                    DWORD result = ERROR_GEN_FAILURE;
+                    Handle exactRoot, archive;
+                    std::vector<BYTE> snapshot;
+                    bool view = false, zip = false;
+                    Operation scope = Operation::List;
+                    UacF7::ArchiveRevision revision;
+                    ExactAllocationScope exact;
+                    auto deadline = GetTickCount64() + timeoutMs;
+                    dispatchError = ReceiveRequest(install, peer.get(), GetCurrentProcess(), GetCurrentProcessId(), deadline,
+                        result, exactRoot, snapshot, view, zip, scope, archive, revision, nullptr, nullptr, &exact);
+                    if (!dispatchError)
+                        dispatchError = TransferRequest(peer.get(), &result, sizeof(result), true, deadline);
+                    if (!dispatchError && exactRoot)
+                        dispatchError = ServeListings(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), exactRoot.get(), scope, &exact);
+                    return;
+                }
                 UacCopyLeaf::Detail::activePause = copyPause;
                 dispatchError = ServeTransferJob(install, peer.get(), GetCurrentProcess(), GetCurrentProcessId(),
                                                  GetTickCount64() + timeoutMs);
@@ -224,6 +243,23 @@ public:
     }
 
     bool Disconnect() { return DisconnectNamedPipe(server.get()) != FALSE; }
+
+    bool StartExactAllocation(const Directory& parent, std::wstring_view leaf,
+                              const UacF7::FileAllocationRequest& expected, DWORD& result)
+    {
+        RequestHeader header{};
+        header.serial = expected.serial;
+        CopyMemory(header.parentId.Identifier, expected.parentId, sizeof(expected.parentId));
+        CopyMemory(header.sourceId.Identifier, expected.fileId, sizeof(expected.fileId));
+        header.operation = Operation::FileAllocation;
+        header.relativeLength = static_cast<DWORD>(parent.relative.size());
+        header.leafLength = static_cast<DWORD>(leaf.size());
+        std::wstring payload = parent.identity.volume + parent.relative + std::wstring(leaf);
+        const auto deadline = GetTickCount64() + timeoutMs;
+        return !TransferRequest(server.get(), &header, sizeof(header), true, deadline) &&
+               !TransferRequest(server.get(), payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline) &&
+               !TransferRequest(server.get(), &result, sizeof(result), false, deadline);
+    }
 
     DWORD Finish()
     {
@@ -1254,6 +1290,233 @@ void CheckFileAllocation(const Directory& source)
                   job.Open(nullptr, source.handle.get(), Operation::Inventory) &&
                   job.Allocation(L"allocation-compressed.bin", compressedRequest, ERROR_SUCCESS, &measured) && measured == ordinarySize,
               "the compressed allocation equals GetCompressedFileSizeW through a scoped request");
+    }
+    {
+        constexpr wchar_t selected[] = L"allocation-exact-\u6771";
+        const auto exactPath = source.File(selected);
+        UacF7::FileAllocationRequest exactRequest{};
+        {
+            const auto exactFile = Adopt(CreateFileW(exactPath.c_str(), GENERIC_WRITE | FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, CREATE_NEW, 0, nullptr));
+            FILE_ID_INFO exactId{};
+            FILE_ATTRIBUTE_TAG_INFO exactAttrs{};
+            if (!exactFile || !DeviceIoControl(exactFile.get(), FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &returned, nullptr) ||
+                !GetFileInformationByHandleEx(exactFile.get(), FileIdInfo, &exactId, sizeof(exactId)) ||
+                !GetFileInformationByHandleEx(exactFile.get(), FileAttributeTagInfo, &exactAttrs, sizeof(exactAttrs)))
+            {
+                Check(false, "prepare exact-file allocation fixture");
+                return;
+            }
+            exactRequest.serial = exactId.VolumeSerialNumber;
+            CopyMemory(exactRequest.parentId, source.identity.file.FileId.Identifier, sizeof(exactRequest.parentId));
+            CopyMemory(exactRequest.fileId, exactId.FileId.Identifier, sizeof(exactRequest.fileId));
+            exactRequest.attributes = exactAttrs.FileAttributes;
+        }
+        const auto start = [&](JobPipe& job, const UacF7::FileAllocationRequest& identity, DWORD wanted) {
+            DWORD status = ERROR_GEN_FAILURE;
+            return job.Open(nullptr, nullptr, Operation::FindContent, nullptr, true) &&
+                   job.StartExactAllocation(source, selected, identity, status) && status == wanted;
+        };
+        {
+            JobPipe exact;
+            ULONGLONG size = MAXULONGLONG;
+            Check(start(exact, exactRequest, ERROR_SUCCESS) && exact.Allocation({}, exactRequest, ERROR_SUCCESS, &size) && size == 0,
+                  "exact-file request pins and measures the selected sparse file through the real dispatcher");
+            auto wrong = exactRequest;
+            wrong.parentId[0] ^= 1;
+            Check(exact.Allocation({}, wrong, ERROR_FILE_INVALID), "exact-file request rejects a different parent identity");
+            wrong = exactRequest;
+            wrong.fileId[0] ^= 1;
+            Check(exact.Allocation({}, wrong, ERROR_FILE_INVALID), "exact-file request rejects a different source identity");
+            const auto displaced = source.File(L"allocation-displaced");
+            if (MoveFileExW(exactPath.c_str(), displaced.c_str(), 0))
+            {
+                const bool replaced = WriteByte(exactPath, 41);
+                Check(replaced && exact.Allocation({}, exactRequest, ERROR_FILE_INVALID) && HasByte(exactPath, 41),
+                      "a replacement name is never measured as the approved exact file");
+                if (!DeleteFileW(exactPath.c_str()) || !MoveFileExW(displaced.c_str(), exactPath.c_str(), 0))
+                    return;
+            }
+            else
+                Check(GetLastError() == ERROR_SHARING_VIOLATION && exact.Allocation({}, exactRequest, ERROR_SUCCESS, &size),
+                      "an exclusively pinned exact file remains unchanged");
+        }
+        for (const DWORD flags : {0UL, UacListing::inventoryRequest, UacListing::contentRequest,
+                                  UacListing::leafIdentityRequest | 1, UacListing::fileAllocationRequest | 1})
+        {
+            JobPipe exact;
+            Check(start(exact, exactRequest, ERROR_SUCCESS) && exact.RejectFindRequest(flags),
+                  "exact-file allocation scope rejects listing, content, identity and other file paths");
+        }
+        {
+            auto wrong = exactRequest;
+            wrong.parentId[0] ^= 1;
+            JobPipe exact;
+            Check(start(exact, wrong, ERROR_FILE_INVALID), "exact-file handshake rejects a substituted parent");
+        }
+        {
+            auto wrong = exactRequest;
+            wrong.fileId[0] ^= 1;
+            JobPipe exact;
+            Check(start(exact, wrong, ERROR_FILE_INVALID), "exact-file handshake rejects a substituted source");
+        }
+        Check(DeleteFileW(exactPath.c_str()) != FALSE, "retire the owned exact-file fixture");
+    }
+    {
+        Directory selectedParent;
+        if (!selectedParent.Open(source.File(L"allocation-parent").c_str()))
+        {
+            Check(false, "prepare exact-file parent substitution fixture");
+            return;
+        }
+        constexpr wchar_t selected[] = L"size.bin";
+        UacF7::FileAllocationRequest identity{};
+        {
+            const auto selectedFile = Adopt(CreateFileW(selectedParent.File(selected).c_str(), GENERIC_WRITE | FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, CREATE_NEW, 0, nullptr));
+            FILE_ID_INFO info{};
+            FILE_ATTRIBUTE_TAG_INFO attributes{};
+            if (!selectedFile || !DeviceIoControl(selectedFile.get(), FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &returned, nullptr) ||
+                !GetFileInformationByHandleEx(selectedFile.get(), FileIdInfo, &info, sizeof(info)) ||
+                !GetFileInformationByHandleEx(selectedFile.get(), FileAttributeTagInfo, &attributes, sizeof(attributes)))
+            {
+                Check(false, "prepare sparse file under exact parent");
+                return;
+            }
+            identity.serial = info.VolumeSerialNumber;
+            CopyMemory(identity.parentId, selectedParent.identity.file.FileId.Identifier, sizeof(identity.parentId));
+            CopyMemory(identity.fileId, info.FileId.Identifier, sizeof(identity.fileId));
+            identity.attributes = attributes.FileAttributes;
+        }
+        selectedParent.handle.reset(); // Let the adversary attempt to rename the parent.
+        JobPipe exact;
+        DWORD initial = ERROR_GEN_FAILURE;
+        if (!exact.Open(nullptr, nullptr, Operation::FindContent, nullptr, true) ||
+            !exact.StartExactAllocation(selectedParent, selected, identity, initial) || initial)
+        {
+            Check(false, "open exact-file scope before a parent replacement");
+            return;
+        }
+        const auto displaced = source.File(L"allocation-parent-displaced");
+        DWORD moveError = ERROR_SUCCESS;
+        if (!MoveFileExW(selectedParent.path.c_str(), displaced.c_str(), 0))
+        {
+            HANDLE raw = nullptr;
+            moveError = UacRenameLeaf::Detail::OpenSource(source.handle.get(), L"allocation-parent", raw,
+                DELETE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, UacRenameLeaf::MoveKind::RenameDirectory);
+            const auto renameParent = Adopt(raw);
+            if (!moveError)
+                moveError = UacRenameLeaf::Detail::NativeRename(renameParent.get(), source.handle.get(), L"allocation-parent-displaced");
+        }
+        if (!moveError)
+        {
+            const bool replacement = CreateDirectoryW(selectedParent.path.c_str(), nullptr) != FALSE;
+            Check(replacement && exact.Allocation({}, identity, ERROR_FILE_INVALID),
+                  "exact allocation rejects a replaced parent at the original path");
+            if (!replacement || !RemoveDirectoryW(selectedParent.path.c_str()) ||
+                !MoveFileExW(displaced.c_str(), selectedParent.path.c_str(), 0))
+                return;
+        }
+        else
+        {
+            std::printf("SKIP: parent substitution unavailable while exact scope is open (%lu)\n", moveError);
+            ULONGLONG unchanged = MAXULONGLONG;
+            Check(exact.Allocation({}, identity, ERROR_SUCCESS, &unchanged) && unchanged == 0,
+                  "an unchanged parent remains usable when substitution is blocked");
+        }
+        exact.Finish();
+        {
+            ExactAllocationScope scope;
+            scope.identity = identity;
+            scope.volume = selectedParent.identity.volume;
+            scope.relative = selectedParent.relative;
+            scope.leaf = selected;
+            const auto volume = OpenVolumeRoot(scope.volume);
+            UacDirectoryLeaf::ParentIdentity opened;
+            if (!volume || OpenRequestParent(volume.get(), scope.relative, scope.parent, opened))
+            {
+                Check(false, "prepare an unpinned file under an identity-held parent");
+                return;
+            }
+            ULONGLONG measured = MAXULONGLONG;
+            const DWORD before = MeasureExactAllocation(scope, identity, measured);
+            HANDLE raw = nullptr;
+            DWORD swap = UacRenameLeaf::Detail::OpenSource(source.handle.get(), L"allocation-parent", raw, DELETE,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, UacRenameLeaf::MoveKind::RenameDirectory);
+            auto renameParent = Adopt(raw);
+            if (!swap)
+                swap = UacRenameLeaf::Detail::NativeRename(renameParent.get(), source.handle.get(), L"allocation-parent-displaced");
+            renameParent.reset();
+            if (!swap)
+            {
+                const bool replacement = CreateDirectoryW(selectedParent.path.c_str(), nullptr) != FALSE;
+                const DWORD after = replacement ? MeasureExactAllocation(scope, identity, measured) : ERROR_OPEN_FAILED;
+                Check(!before && replacement && after == ERROR_FILE_INVALID,
+                      "reopened path rejects an actually replaced parent even while the old parent handle stays open");
+                if (!replacement || !RemoveDirectoryW(selectedParent.path.c_str()))
+                    return;
+                raw = nullptr;
+                if (UacRenameLeaf::Detail::OpenSource(source.handle.get(), L"allocation-parent-displaced", raw, DELETE,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, UacRenameLeaf::MoveKind::RenameDirectory))
+                    return;
+                renameParent = Adopt(raw);
+                if (UacRenameLeaf::Detail::NativeRename(renameParent.get(), source.handle.get(), L"allocation-parent"))
+                    return;
+            }
+            else
+            {
+                std::printf("SKIP: actual parent substitution unavailable (%lu)\n", swap);
+                Check(!before, "identity-held parent is measurable before substitution");
+            }
+        }
+        const auto control = Adopt(CreateFileW(selectedParent.path.c_str(), READ_CONTROL | WRITE_DAC,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        PSECURITY_DESCRIPTOR original = nullptr, descriptor = nullptr;
+        PACL originalDacl = nullptr, restricted = nullptr;
+        BOOL present = FALSE, defaulted = FALSE;
+        SECURITY_DESCRIPTOR_CONTROL oldControl{};
+        DWORD revision = 0;
+        if (!control || GetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr, nullptr,
+                                        &originalDacl, nullptr, &original) ||
+            !GetSecurityDescriptorControl(original, &oldControl, &revision) ||
+            !ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(D;;0x20;;;WD)(A;;FA;;;WD)", SDDL_REVISION_1,
+                                                                   &descriptor, nullptr) ||
+            !GetSecurityDescriptorDacl(descriptor, &present, &restricted, &defaulted) || !present)
+        {
+            if (original) LocalFree(original);
+            if (descriptor) LocalFree(descriptor);
+            Check(false, "prepare a directory denying explicit traverse");
+            return;
+        }
+        const std::unique_ptr<void, decltype(&LocalFree)> saved(original, LocalFree), deniedDescriptor(descriptor, LocalFree);
+        const DWORD applied = SetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                                              nullptr, nullptr, restricted, nullptr);
+        const auto volume = OpenVolumeRoot(selectedParent.identity.volume);
+        Handle parentWithTraverse, parentWithoutTraverse;
+        UacDirectoryLeaf::ParentIdentity actualWith, actualWithout;
+        const DWORD explicitError = volume ? OpenRequestParent(volume.get(), selectedParent.relative, parentWithTraverse, actualWith) : ERROR_OPEN_FAILED;
+        const DWORD listError = volume ? OpenRequestParent(volume.get(), selectedParent.relative, parentWithoutTraverse, actualWithout,
+            FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, false) : ERROR_OPEN_FAILED;
+        HANDLE rawChild = nullptr;
+        const DWORD childError = !listError ? UacRenameLeaf::Detail::OpenSource(parentWithoutTraverse.get(), selected,
+            rawChild, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE) : listError;
+        if (rawChild) CloseHandle(rawChild);
+        DWORD initialAgain = ERROR_GEN_FAILURE;
+        ULONGLONG measured = MAXULONGLONG;
+        JobPipe listOnly;
+        const bool works = !applied && explicitError == ERROR_ACCESS_DENIED && !listError && childError == ERROR_ACCESS_DENIED &&
+            listOnly.Open(nullptr, nullptr, Operation::FindContent, nullptr, true) &&
+            listOnly.StartExactAllocation(selectedParent, selected, identity, initialAgain) && initialAgain == ERROR_ACCESS_DENIED;
+        listOnly.Finish();
+        const DWORD restored = SetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION |
+            ((oldControl & SE_DACL_PROTECTED) ? PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION),
+            nullptr, nullptr, originalDacl, nullptr);
+        if (!works || restored)
+            std::printf("Exact allocation traverse fixture: applied=%lu explicit=%lu list=%lu child=%lu initial=%lu restore=%lu\n",
+                        applied, explicitError, listError, childError, initialAgain, restored);
+        Check(works && !restored && measured == MAXULONGLONG,
+              "exact-file allocation safely refuses when a list-only parent also denies child open");
     }
     for (const auto scope : {Operation::FindContent, Operation::CompareList, Operation::CompareContent})
     {

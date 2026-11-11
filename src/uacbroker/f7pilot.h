@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Add exact-file allocation scope. | Limit approval to one selected file without content or directory enumeration. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Add typed allocation measurement for one reviewed file. | Reuse a scoped inventory without returning contents or recounting a subtree. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Bind native overwrite and read-only moves to typed transfer jobs. | Preserve target conflict approval and one consent for matching parents. | | GPT-6.1 Sol |
 | 2026-11-11 | Separate native transfer budgets and permanent-delete attributes from buffered operations. | Share safe eligibility without widening ZIP or source-retirement contracts. | #731 | GPT-6.1 Sol |
@@ -125,7 +126,7 @@ private:
 void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput);
 bool CanOfferElevation();
 
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42, FileAllocation = 43 };
 
 inline constexpr bool IsComparisonScope(Operation operation)
 {
@@ -864,6 +865,7 @@ public:
 
     bool Prepare(const std::wstring& path, bool findContent = false);
     bool PrepareFile(const std::wstring& path);
+    bool PrepareAllocationFile(const std::wstring& path, const PreparedLeaf& file);
     bool PrepareFindRoot(const FindRootIdentity& identity, bool readContent);
     DWORD CaptureFindRoot(const std::wstring& path, FindRootIdentity& identity);
     bool PrepareInventory(const std::wstring& path);
