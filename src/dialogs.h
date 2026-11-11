@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Track validity of a worker-owned overwrite prompt. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
+// | 2026-11-11 | Track typed overwrite prompt lifetime. | Prevent premature worker completion during a modal prompt. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Expose whether attribute controls were edited. | Keep special-file time-only consent separate from attribute changes. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Keep declined deletion scopes for the progress dialog lifetime. | Limit cancellation reuse to the current delete job. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Add the destination shield to the native Copy/Move dialog. | Use the live destination text for the preview. | #731 | GPT-6 (Codex) |
@@ -525,6 +527,8 @@ protected:
     int ConflictPromptIndex;
     int ConflictSelectionRowAfterRemoval;
     BOOL ConflictPromptActive;
+    BOOL WorkerOverwriteProbePromptActive = FALSE;
+    BOOL WorkerOverwriteProbePromptInvalidated = FALSE;
     CParallelProgressData* DeferredParallelProgress;
     enum CDeferredProgressKind
     {

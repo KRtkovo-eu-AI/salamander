@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Carry owned prompt data and allocation errors. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
+// | 2026-11-11 | Define typed overwrite prompt payload. | Own the native dialog text across modal dispatch. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Bind conflict responses to their displayed coordinator snapshot. | Reject decisions for a replaced scan generation. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Identify an uncertain disk replacement. | Explain retained recovery files without changing other operation messages. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Carry the exact singleton special-file timestamp policy. | Keep attribute and compression edits outside the verified time-only retry. | #731 | GPT-6.1 Terra |
@@ -100,6 +102,17 @@ constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 15;
 constexpr WPARAM WORKER_DIALOG_UAC_TREE_RESULT = 16;
 constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER_UNKNOWN = 17;
 constexpr WPARAM WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN = 19;
+constexpr WPARAM WORKER_DIALOG_UAC_OVERWRITE_PROBE = 20;
+
+// Worker-owned during a synchronous typed prompt; the UI copies all strings
+// before entering the modal loop and never retains this object afterwards.
+struct CUacOverwriteProbePrompt
+{
+    int result = IDCANCEL;
+    DWORD error = ERROR_SUCCESS;
+    BOOL singleItem = FALSE;
+    std::string targetName, targetInfo, sourceName, sourceInfo;
+};
 
 struct CChangeAttrsData
 {

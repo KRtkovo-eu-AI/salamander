@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Guard native singleton overwrite and post-cancel recovery warning. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
+// | 2026-11-11 | Guard typed overwrite prompts during nested dispatch. | Keep native prompt payload alive until the worker resumes. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Resolve native conflict dialogs against their original snapshot. | Discard stale answers when Scan Ahead changes the conflict. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Explain uncertain disk overwrite recovery. | Point users to preserved backup and journal files. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Respect refused UAC consent in the same delete scope. | Suppress repeated system prompts while allowing an explicit retry. | #731 | GPT-6.1 Sol |
@@ -1788,7 +1790,8 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         //--- worker request to show a dialog
     case WM_USER_DIALOG:
     {
-        if (CancelWorker && wParam != WORKER_DIALOG_UAC_TREE_RESULT && wParam != WORKER_DIALOG_UAC_TRANSFER_UNKNOWN)
+        if (CancelWorker && wParam != WORKER_DIALOG_UAC_TREE_RESULT && wParam != WORKER_DIALOG_UAC_TRANSFER_UNKNOWN &&
+            wParam != WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN)
             return TRUE; // other worker prompts are suppressed after cancellation
 
         if (DelayParallelProgressShow)
@@ -1845,6 +1848,35 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             CFileErrorDlg dlg(HWindow, lockData->Caption, lockData->FileName, lockData->Error,
                               FALSE, 0, lockData->ExactPath);
             *lockData->Result = (int)dlg.Execute();
+            break;
+        }
+
+        case WORKER_DIALOG_UAC_OVERWRITE_PROBE:
+        {
+            auto* prompt = reinterpret_cast<CUacOverwriteProbePrompt*>(lParam);
+            if (!prompt || WorkerOverwriteProbePromptActive) break;
+            try
+            {
+                // Local ownership makes the visible data independent of list or
+                // operation changes during the modal dispatch.
+                CPathBuffer targetBuffer, sourceBuffer;
+                const std::string targetName = Script && Script->RemapNameFrom ?
+                    RemapNames(targetBuffer.Data(), targetBuffer.Capacity(), prompt->targetName.data(), Script) : prompt->targetName;
+                const std::string sourceName = Script && Script->RemapNameFrom ?
+                    RemapNames(sourceBuffer.Data(), sourceBuffer.Capacity(), prompt->sourceName.data(), Script) : prompt->sourceName;
+                const std::string targetInfo = prompt->targetInfo, sourceInfo = prompt->sourceInfo;
+                WorkerOverwriteProbePromptInvalidated = FALSE;
+                struct PromptGuard
+                {
+                    BOOL& active;
+                    explicit PromptGuard(BOOL& value) : active(value) { active = TRUE; }
+                    ~PromptGuard() { active = FALSE; }
+                } guard(WorkerOverwriteProbePromptActive);
+                COverwriteDlg dlg(HWindow, targetName.c_str(), targetInfo.c_str(), sourceName.c_str(), sourceInfo.c_str(), prompt->singleItem);
+                const int answer = static_cast<int>(dlg.Execute());
+                prompt->result = CancelWorker || WorkerOverwriteProbePromptInvalidated ? IDCANCEL : answer;
+            }
+            catch (const std::bad_alloc&) { prompt->error = ERROR_NOT_ENOUGH_MEMORY; prompt->result = IDCANCEL; }
             break;
         }
 
@@ -2624,6 +2656,15 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
         {
         case IDOK: // operation finished, called only by the worker, must not come from the dialog
         {
+            if (WorkerOverwriteProbePromptActive)
+            {
+                // The worker cannot legitimately finish while it is blocked in
+                // this synchronous prompt. Do not ReplyMessage or release its
+                // stack/event handles from a reentrant IDOK.
+                WorkerOverwriteProbePromptInvalidated = TRUE;
+                if (!IsWindowEnabled(HWindow)) CloseAllOwnedEnabledDialogs(HWindow);
+                return TRUE;
+            }
             if (!IsWindowEnabled(HWindow)) // if a modal dialog is open we must locate and close it
                 CloseAllOwnedEnabledDialogs(HWindow);
             if (InSendMessage())

@@ -1,0 +1,414 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Extend singleton overwrite regression coverage. | Preserve cancellation, lifetime and prompt behavior. | #731 | GPT-6 (Codex) |
+// | 2026-11-11 | Exercise the single F5 worker through the real host probe controller. | Verify choices, accounting and stop before wiring the full application. | #731 | GPT-6.1 Terra |
+// Production worker functions and ExecuteProbedOverwrite run on a real pipe.
+// The peer, consent, dialog and installed-image/elevation gates are seams;
+// a fake success never mutates a file or proves privileged publication.
+#define SAM_UAC_F7_HOST
+#include <thread>
+#include <list>
+#include "uac_single_worker_fixture.cpp"
+
+namespace
+{
+enum class FakeMode { Success, No, Cancel, Unsupported, Unknown, Oom, DialogOom, PauseAfter, CancelAfter, UnknownCancel };
+FakeMode fakeMode = FakeMode::Success;
+std::thread peer;
+HANDLE peerStarted = nullptr;
+HANDLE dialogSeen = nullptr, workerResume = nullptr, commitSeen = nullptr, cancelTrigger = nullptr;
+volatile LONG* cancelFlag = nullptr;
+int starts = 0, prompts = 0, consents = 0, unknownDialogs = 0;
+int unknownWhileCancelled = 0;
+bool gotCommit = false, gotAbort = false, fakeOk = false;
+std::wstring sourceFile, targetFile;
+
+HANDLE StartRunProbeFakePeer(const std::wstring& name)
+{
+    ++starts;
+    if (peerStarted) SetEvent(peerStarted);
+    HANDLE process = nullptr;
+    if (!DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(), GetCurrentProcess(), &process, 0, FALSE,
+                         DUPLICATE_SAME_ACCESS)) return nullptr;
+    peer = std::thread([name] {
+        auto pipe = Adopt(CreateFileW(name.c_str(), pipeAccess, 0, nullptr, OPEN_EXISTING,
+            FILE_FLAG_OVERLAPPED | SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION, nullptr));
+        if (!pipe) return;
+        const auto deadline = GetTickCount64() + 5000;
+        Frame hello{protocolVersion, appCapabilities, Phase::Hello}, accept{};
+        if (Exchange(pipe.get(), hello, true, deadline) || Exchange(pipe.get(), accept, false, deadline, true) ||
+            !Matches(accept, Phase::AcceptTransferJob, appCapabilities)) return;
+        RequestHeader request{};
+        if (TransferRequest(pipe.get(), &request, sizeof(request), false, deadline)) return;
+        const size_t chars = volumeLength * 2 + request.relativeLength + request.leafLength +
+                             request.targetRelativeLength + request.targetLeafLength;
+        std::wstring body(chars, L'\0');
+        if (TransferRequest(pipe.get(), body.data(), static_cast<DWORD>(chars * sizeof(wchar_t)), false, deadline) ||
+            request.operation != Operation::ProbeOverwrite) return;
+        auto open = [](const std::wstring& path) {
+            return Adopt(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        };
+        const auto source = open(sourceFile), target = open(targetFile);
+        UacF7::OverwriteProbeReply reply{};
+        if (!source || !target || UacZipUpdate::ReadRevision(source.get(), reply.source) ||
+            UacZipUpdate::ReadRevision(target.get(), reply.target)) return;
+        reply.present = 1; reply.nonce.Data1 = 123;
+        reply.sourceParentSerial = request.serial; reply.targetParentSerial = request.targetSerial;
+        CopyMemory(reply.sourceParentId, request.parentId.Identifier, 16);
+        CopyMemory(reply.targetParentId, request.targetParentId.Identifier, 16);
+        if (fakeMode == FakeMode::Unsupported) reply.target.attributes |= FILE_ATTRIBUTE_HIDDEN;
+        DWORD status = ERROR_SUCCESS;
+        if (TransferRequest(pipe.get(), &status, sizeof(status), true, deadline) ||
+            TransferRequest(pipe.get(), &reply, sizeof(reply), true, deadline)) return;
+        RequestHeader next{};
+        const DWORD nextError = TransferRequest(pipe.get(), &next, sizeof(next), false, deadline);
+        if (nextError)
+        {
+            fakeOk = fakeMode == FakeMode::Cancel || fakeMode == FakeMode::Oom ||
+                     fakeMode == FakeMode::DialogOom || fakeMode == FakeMode::CancelAfter;
+            return;
+        }
+        if (next.operation == Operation::AbortOverwriteProbe)
+        {
+            GUID nonce{};
+            if (TransferRequest(pipe.get(), &nonce, sizeof(nonce), false, deadline) ||
+                !IsEqualGUID(nonce, reply.nonce)) return;
+            gotAbort = true;
+            fakeOk = !TransferRequest(pipe.get(), &status, sizeof(status), true, deadline);
+            return;
+        }
+        if (next.operation != Operation::CopyOverwrite) return;
+        const size_t nextChars = volumeLength * 2 + next.relativeLength + next.leafLength +
+                                 next.targetRelativeLength + next.targetLeafLength;
+        std::wstring nextBody(nextChars, L'\0');
+        UacF7::ArchiveRevision targetRevision{}; GUID nonce{};
+        if (TransferRequest(pipe.get(), nextBody.data(), static_cast<DWORD>(nextChars * sizeof(wchar_t)), false, deadline) ||
+            TransferRequest(pipe.get(), &targetRevision, sizeof(targetRevision), false, deadline) ||
+            TransferRequest(pipe.get(), &nonce, sizeof(nonce), false, deadline) ||
+            !IsEqualGUID(nonce, reply.nonce) || !UacF7::SameFileRevision(targetRevision, reply.target)) return;
+        gotCommit = true;
+        if (commitSeen) SetEvent(commitSeen);
+        DWORD marker = transferProgressFrame;
+        TransferProgressUpdate update{2, 0}; // ordinary CopyOverwrite progress has no explicit total
+        if (TransferRequest(pipe.get(), &marker, sizeof(marker), true, deadline) ||
+            TransferRequest(pipe.get(), &update, sizeof(update), true, deadline)) return;
+        if (fakeMode == FakeMode::Unknown || fakeMode == FakeMode::UnknownCancel)
+        {
+            if (fakeMode == FakeMode::UnknownCancel)
+            {
+                if (cancelFlag) InterlockedExchange(cancelFlag, TRUE);
+                if (cancelTrigger) SetEvent(cancelTrigger);
+            }
+            fakeOk = true;
+            return;
+        }
+        UacF7::OverwriteProbeReply noChange{};
+        fakeOk = !TransferRequest(pipe.get(), &status, sizeof(status), true, deadline) &&
+                 !TransferRequest(pipe.get(), &noChange, sizeof(noChange), true, deadline);
+    });
+    return process;
+}
+}
+
+struct CQuadWord
+{
+    ULONGLONG Value = 0;
+    CQuadWord() = default;
+    CQuadWord(DWORD low, DWORD high) : Value((static_cast<ULONGLONG>(high) << 32) | low) {}
+    CQuadWord& SetUI64(ULONGLONG value) { Value = value; return *this; }
+    CQuadWord& operator+=(CQuadWord other) { Value += other.Value; return *this; }
+};
+static CQuadWord operator+(CQuadWord a, CQuadWord b) { return CQuadWord().SetUI64(a.Value + b.Value); }
+static CQuadWord operator-(CQuadWord a, CQuadWord b) { return CQuadWord().SetUI64(a.Value - b.Value); }
+static bool operator>(CQuadWord a, CQuadWord b) { return a.Value > b.Value; }
+static const CQuadWord COPY_MIN_FILE_SIZE(64, 0);
+struct ListedSource { std::unique_ptr<UacF7::PreparedLeaf> Request; };
+struct CopySourceContext { bool ElevationDeclined = false; std::unique_ptr<UacF7::TransferJobSession> Session; };
+struct COperations
+{
+    int Count = 1, CopyMoveConflictMode = 0;
+    BOOL OverwriteOlder = FALSE, CopySecurity = FALSE, CopyAttrs = FALSE, IgnoreTransferAds = FALSE;
+    bool limited = false;
+    CopySourceContext* CopySource = nullptr;
+    CQuadWord TotalSize{100, 0}, transferred{};
+    int interimWrites = 0, completedWrites = 0;
+    void GetSpeedLimit(BOOL* value, DWORD* limit) { *value = limited; *limit = 0; }
+    void GetTFS(CQuadWord* value) { *value = transferred; }
+    void SetTFSandProgressSize(CQuadWord value, CQuadWord) { transferred = value; ++interimWrites; }
+    void AddBytesToTFSandSetProgressSize(CQuadWord value, CQuadWord) { transferred += value; ++completedWrites; }
+};
+struct COperation
+{
+    int Opcode = 1;
+    DWORD OpFlags = 1, Attr = FILE_ATTRIBUTE_ARCHIVE;
+    bool SourceNameWValid = true, TargetNameWValid = true;
+    std::wstring SourceNameW, TargetNameW;
+    const char* SourceName = "source-UTF8", *TargetName = "target-UTF8";
+    CQuadWord FileSize{4, 0}, Size{100, 0};
+};
+struct CProgressDlgData
+{
+    bool ConflictDecisionInjected = false, OverwriteAll = false, SkipAllOverwrite = false, CnfrmFileOver = true;
+    bool OverwriteHiddenAll = false, SkipAllSystemOrHidden = false;
+    BOOL* CancelWorker = nullptr;
+    HANDLE CancelWorkerEvent = nullptr, WorkerNotSuspended = nullptr;
+    std::list<UacF7::TransferJobSession> TransferJobs;
+};
+constexpr int CMCM_SCAN_AHEAD = 2, ocCopyFile = 1;
+constexpr DWORD OPFL_UAC_TRANSFER_ELIGIBLE = 1, OPFL_AS_ENCRYPTED = 2, OPFL_UAC_TRANSFER_LISTED = 4, OPFL_COPY_ADS = 8;
+constexpr UINT WM_USER_DIALOG = WM_APP + 20;
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 1, WORKER_DIALOG_UAC_OVERWRITE_PROBE = 2,
+                 WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN = 3;
+constexpr int IDB_SKIP = 200;
+@@DIALOG_PAYLOAD@@
+static const ListedSource* ListedTransferSource(const COperation&, const COperations&) { return nullptr; }
+static std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* text) { return text; }
+static std::string SalWideToMultiBytePath(const wchar_t* text, UINT)
+{
+    const int count = WideCharToMultiByte(CP_UTF8, 0, text, -1, nullptr, 0, nullptr, nullptr);
+    std::string bytes(count > 0 ? static_cast<size_t>(count) : 0, '\0');
+    if (count) WideCharToMultiByte(CP_UTF8, 0, text, -1, bytes.data(), count, nullptr, nullptr);
+    if (!bytes.empty()) bytes.pop_back();
+    return bytes;
+}
+static void GetOverwriteRevisionInfo(char* output, size_t capacity, const UacF7::ArchiveRevision& revision)
+{ sprintf_s(output, capacity, "%lld", revision.size); }
+static int CaclProg(CQuadWord amount, CQuadWord total)
+{ return total.Value ? static_cast<int>(1000 * amount.Value / total.Value) : 0; }
+static int progressMessages = 0;
+static void SetProgressWithoutSuspend(HWND, int, int, CProgressDlgData&) { ++progressMessages; }
+static void SetProgress(HWND, int, int, CProgressDlgData&) { ++progressMessages; }
+static void NotifyNativeBrokerActivity(HWND, bool) {}
+static LRESULT TestMessage(HWND, UINT message, WPARAM kind, LPARAM value)
+{
+    if (message != WM_USER_DIALOG) return 0;
+    if (kind == WORKER_DIALOG_UAC_TRANSFER)
+    {
+        ++consents;
+        reinterpret_cast<UacF7::TransferPrompt*>(value)->approved = true;
+    }
+    else if (kind == WORKER_DIALOG_UAC_OVERWRITE_PROBE)
+    {
+        ++prompts;
+        if (fakeMode == FakeMode::Oom) throw std::bad_alloc();
+        auto& prompt = *reinterpret_cast<CUacOverwriteProbePrompt*>(value);
+        if (fakeMode == FakeMode::DialogOom) { prompt.error = ERROR_NOT_ENOUGH_MEMORY; return 0; }
+        if (!prompt.singleItem || prompt.sourceName != "source-UTF8" || prompt.targetName != "target-UTF8" ||
+            prompt.sourceInfo != "4" || prompt.targetInfo != "4") return 0;
+        if (fakeMode == FakeMode::PauseAfter || fakeMode == FakeMode::CancelAfter)
+        {
+            if (workerResume) ResetEvent(workerResume);
+            if (dialogSeen) SetEvent(dialogSeen);
+        }
+        prompt.result = fakeMode == FakeMode::No ? IDNO : fakeMode == FakeMode::Cancel ? IDCANCEL : IDYES;
+    }
+    else if (kind == WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN)
+    {
+        ++unknownDialogs;
+        if (cancelFlag && InterlockedCompareExchange(cancelFlag, 0, 0)) ++unknownWhileCancelled;
+    }
+    return 0;
+}
+
+@@DECISION@@
+@@PROMPT_STATE@@
+#undef SendMessage
+#define SendMessage TestMessage
+@@PROMPT_CALLBACK@@
+@@SINGLE_WORKER@@
+#undef SendMessage
+
+namespace
+{
+bool WriteContent(const std::wstring& path, DWORD value)
+{
+    const auto file = Adopt(CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, nullptr));
+    DWORD written = 0;
+    return file && WriteFile(file.get(), &value, sizeof(value), &written, nullptr) && written == sizeof(value);
+}
+
+bool MakePrior(UacF7::OverwriteApproval& prior)
+{
+    const auto open = [](const std::wstring& path) {
+        return Adopt(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                 nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    };
+    const auto source = open(sourceFile), target = open(targetFile);
+    UacF7::ArchiveRevision sourceRevision{};
+    if (!source || !target || UacZipUpdate::ReadRevision(source.get(), sourceRevision) ||
+        UacZipUpdate::ReadRevision(target.get(), prior.revision)) return false;
+    prior.captured = true;
+    prior.sourceSerial = sourceRevision.serial;
+    CopyMemory(prior.sourceId, sourceRevision.fileId, 16);
+    return true;
+}
+
+struct Fixture
+{
+    BOOL cancelled = FALSE;
+    Handle cancel = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    Handle resumed = Adopt(CreateEventW(nullptr, TRUE, TRUE, nullptr));
+    COperation op;
+    COperations script;
+    CProgressDlgData data;
+    CQuadWord total;
+    DWORD error = 0;
+    HWND window = nullptr;
+    Fixture()
+    {
+        data.CancelWorker = &cancelled; data.CancelWorkerEvent = cancel.get(); data.WorkerNotSuspended = resumed.get();
+        op.SourceNameW = sourceFile; op.TargetNameW = targetFile;
+        window = CreateWindowExW(0, L"STATIC", L"fixture", WS_OVERLAPPED, 0, 0, 20, 20, nullptr, nullptr,
+                                 GetModuleHandleW(nullptr), nullptr);
+    }
+    ~Fixture() { data.TransferJobs.clear(); if (peer.joinable()) peer.join(); if (window) DestroyWindow(window); }
+};
+
+void Reset(FakeMode mode)
+{
+    fakeMode = mode; starts = prompts = consents = unknownDialogs = unknownWhileCancelled = progressMessages = 0;
+    gotCommit = gotAbort = fakeOk = false;
+}
+}
+
+int main()
+{
+    const ComApartment com;
+    if (FAILED(com.result)) return 2;
+    wchar_t cwd[32768]{};
+    if (!GetCurrentDirectoryW(_countof(cwd), cwd) || !CreateDirectoryW(L"source", nullptr) ||
+        !CreateDirectoryW(L"target", nullptr)) return 2;
+    sourceFile = std::wstring(cwd) + L"\\source\\file-\u6771.txt";
+    targetFile = std::wstring(cwd) + L"\\target\\file-\u65e5.txt";
+    if (!WriteContent(sourceFile, 11) || !WriteContent(targetFile, 22)) return 2;
+    int checks = 0, failures = 0;
+    const auto check = [&](bool ok, const char* text) { ++checks; if (!ok) ++failures; std::printf("%s %s\n", ok ? "PASS" : "FAIL", text); };
+    using Outcome = SourceOverwriteResult;
+    {
+        Reset(FakeMode::Success); Fixture f; UacF7::OverwriteApproval prior{};
+        const auto result = TrySingleProbedOverwrite(f.window, f.op, f.script, f.total, f.data, prior, f.error, true, false);
+        if (peer.joinable()) peer.join();
+        std::printf("debug success: result=%d err=%lu starts=%d consents=%d prompts=%d commit=%d fake=%d progress=%d interim=%d completed=%d transferred=%llu done=%llu\n",
+                    static_cast<int>(result), f.error, starts, consents, prompts, gotCommit, fakeOk, progressMessages,
+                    f.script.interimWrites, f.script.completedWrites, f.script.transferred.Value, f.total.Value);
+        check(result == Outcome::Finished && starts == 1 && consents == 1 && prompts == 1 && gotCommit && fakeOk &&
+              progressMessages >= 2 && f.script.interimWrites >= 1 && f.script.completedWrites == 1 &&
+              f.script.transferred.Value == 4 && f.total.Value == 100,
+              "single item uses probe, native-dialog seam and fake success with single progress accounting");
+    }
+    for (bool same : {true, false})
+    {
+        Reset(FakeMode::Success); Fixture f; UacF7::OverwriteApproval prior{};
+        const bool captured = MakePrior(prior);
+        if (!same) prior.revision.modified ^= 1;
+        const auto result = TrySingleProbedOverwrite(f.window, f.op, f.script, f.total, f.data, prior, f.error, true, false);
+        check(captured && result == Outcome::Unavailable && !starts && !consents && !prompts && !gotCommit,
+              same ? "matching earlier approval returns to original path without new UAC" :
+                     "changed earlier approval returns to original path without new UAC");
+    }
+    for (FakeMode mode : {FakeMode::No, FakeMode::Cancel, FakeMode::Unsupported, FakeMode::Unknown, FakeMode::Oom, FakeMode::DialogOom})
+    {
+        Reset(mode); Fixture f; UacF7::OverwriteApproval prior{};
+        const auto result = TrySingleProbedOverwrite(f.window, f.op, f.script, f.total, f.data, prior, f.error, true, false);
+        if (peer.joinable()) peer.join();
+        const bool expected = mode == FakeMode::No ? result == Outcome::Skipped && gotAbort && prompts == 1 :
+                              mode == FakeMode::Cancel ? result == Outcome::Cancelled && !gotCommit && prompts == 1 :
+                              mode == FakeMode::Unsupported ? result == Outcome::Unavailable && gotAbort && !prompts :
+                              mode == FakeMode::Unknown ? result == Outcome::Cancelled && gotCommit && unknownDialogs == 1 && !f.script.completedWrites :
+                              result == Outcome::Failed && f.error == ERROR_NOT_ENOUGH_MEMORY && !gotCommit && prompts == 1;
+        std::printf("debug mode=%d result=%d err=%lu starts=%d consents=%d prompts=%d commit=%d abort=%d fake=%d unknown=%d transferred=%llu done=%llu\n",
+                    static_cast<int>(mode), static_cast<int>(result), f.error, starts, consents, prompts, gotCommit, gotAbort,
+                    fakeOk, unknownDialogs, f.script.transferred.Value, f.total.Value);
+        check(expected && fakeOk && f.total.Value == 0 && f.script.transferred.Value == 0,
+              "No, Cancel, unsupported target and lost commit reply retain accounting");
+    }
+    {
+        Reset(FakeMode::No); Fixture f; UacF7::OverwriteApproval prior{}; f.script.Count = 2;
+        check(TrySingleProbedOverwrite(f.window, f.op, f.script, f.total, f.data, prior, f.error, true, false) == Outcome::Unavailable &&
+              !starts && !consents, "multi-item jobs are not routed through the singleton pilot");
+    }
+    {
+        Reset(FakeMode::No); Fixture f; UacF7::OverwriteApproval prior{};
+        check(TrySingleProbedOverwrite(f.window, f.op, f.script, f.total, f.data, prior, f.error, false, false) == Outcome::Unavailable &&
+              !starts && !consents, "no confirmed target denial stays on the original path");
+    }
+    {
+        Reset(FakeMode::No); Fixture f; UacF7::OverwriteApproval prior{}; f.script.CopyMoveConflictMode = CMCM_SCAN_AHEAD;
+        check(TrySingleProbedOverwrite(f.window, f.op, f.script, f.total, f.data, prior, f.error, true, false) == Outcome::Unavailable &&
+              !starts && !consents, "Scan Ahead is not claimed by the singleton pilot");
+    }
+    {
+        Reset(FakeMode::No); Fixture f; UacF7::OverwriteApproval prior{};
+        check(TrySingleProbedOverwrite(f.window, f.op, f.script, f.total, f.data, prior, f.error, true, true) == Outcome::Unavailable &&
+              !starts && !consents, "previous user decision remains on the original path");
+    }
+    {
+        Reset(FakeMode::No); Fixture f; UacF7::OverwriteApproval prior{}; f.data.CnfrmFileOver = false;
+        check(TrySingleProbedOverwrite(f.window, f.op, f.script, f.total, f.data, prior, f.error, true, false) == Outcome::Unavailable &&
+              !starts && !consents, "disabled native overwrite confirmation remains on the original path");
+    }
+    {
+        Reset(FakeMode::No); Fixture f; UacF7::OverwriteApproval prior{}; SetEvent(f.cancel.get());
+        check(TrySingleProbedOverwrite(f.window, f.op, f.script, f.total, f.data, prior, f.error, true, false) == Outcome::Cancelled &&
+              f.error == ERROR_CANCELLED && !starts && !consents, "pre-cancelled worker starts no prompt or peer");
+    }
+    {
+        Reset(FakeMode::No); Fixture f; UacF7::OverwriteApproval prior{}; CopySourceContext copy; copy.ElevationDeclined = true;
+        f.script.CopySource = &copy;
+        check(TrySingleProbedOverwrite(f.window, f.op, f.script, f.total, f.data, prior, f.error, true, false) == Outcome::Unavailable &&
+              !starts && !consents, "previously declined elevation is not asked again");
+    }
+    {
+        Reset(FakeMode::No); Fixture f; UacF7::OverwriteApproval prior{};
+        ResetEvent(f.resumed.get());
+        const auto started = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        peerStarted = started.get();
+        Outcome outcome = Outcome::Failed;
+        std::thread worker([&] { outcome = TrySingleProbedOverwrite(f.window, f.op, f.script, f.total, f.data, prior, f.error, true, false); });
+        const bool paused = WaitForSingleObject(started.get(), 150) == WAIT_TIMEOUT;
+        SetEvent(f.resumed.get());
+        worker.join();
+        if (peer.joinable()) peer.join();
+        peerStarted = nullptr;
+        std::printf("debug pause: paused=%d result=%d err=%lu starts=%d consents=%d prompts=%d abort=%d fake=%d\n",
+                    paused, static_cast<int>(outcome), f.error, starts, consents, prompts, gotAbort, fakeOk);
+        check(paused && outcome == Outcome::Skipped && gotAbort && fakeOk,
+              "suspended worker waits before starting consent and probe");
+    }
+    for (bool cancelDuringPause : {false, true})
+    {
+        Reset(cancelDuringPause ? FakeMode::CancelAfter : FakeMode::PauseAfter);
+        Fixture f; UacF7::OverwriteApproval prior{};
+        const auto shown = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        const auto committed = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        dialogSeen = shown.get(); workerResume = f.resumed.get(); commitSeen = committed.get();
+        Outcome outcome = Outcome::Failed;
+        std::thread worker([&] { outcome = TrySingleProbedOverwrite(f.window, f.op, f.script, f.total, f.data, prior, f.error, true, false); });
+        const bool shownInTime = shown && WaitForSingleObject(shown.get(), 4000) == WAIT_OBJECT_0;
+        const bool waited = shownInTime && committed && WaitForSingleObject(committed.get(), 150) == WAIT_TIMEOUT;
+        if (cancelDuringPause) SetEvent(f.cancel.get()); else SetEvent(f.resumed.get());
+        worker.join();
+        if (peer.joinable()) peer.join();
+        dialogSeen = workerResume = commitSeen = nullptr;
+        const bool expected = cancelDuringPause ? outcome == Outcome::Cancelled && !gotCommit && f.error == ERROR_CANCELLED :
+                                                   outcome == Outcome::Finished && gotCommit && f.total.Value == 100;
+        check(waited && expected && fakeOk,
+              cancelDuringPause ? "Cancel during post-dialog pause prevents commit" :
+                                  "post-dialog pause delays commit until resumed");
+    }
+    {
+        Reset(FakeMode::UnknownCancel); Fixture f; UacF7::OverwriteApproval prior{};
+        cancelTrigger = f.cancel.get(); cancelFlag = reinterpret_cast<volatile LONG*>(&f.cancelled);
+        const auto outcome = TrySingleProbedOverwrite(f.window, f.op, f.script, f.total, f.data, prior, f.error, true, false);
+        if (peer.joinable()) peer.join();
+        cancelTrigger = nullptr; cancelFlag = nullptr;
+        check(outcome == Outcome::Cancelled && gotCommit && fakeOk && unknownDialogs == 1 &&
+              unknownWhileCancelled == 1 && !f.script.completedWrites && f.total.Value == 0,
+              "lost commit reply still requests unknown-result dialog when cancellation is active");
+    }
+    std::printf("single worker with test peer: %d checks, %d failures; publication and UAC simulated\n", checks, failures);
+    return failures ? 1 : 0;
+}

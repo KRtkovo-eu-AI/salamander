@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Route eligible singleton F5 overwrite through a scoped probe. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
+// | 2026-11-11 | Retry one denied F5 overwrite through a reviewed probe. | Preserve scoped consent and the native conflict dialog. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Apply conflict choices atomically against their captured snapshot. | Reject stale modal results and keep Apply All scoped to the current conflict. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Permit a verified late F6 retry after an ordinary Overwrite Older copy. | Preserve the native local deletion and ignored-time decisions. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Route ignored-stream F5 overwrites through typed UAC. | Keep the approved conflict and copy only the default stream. | #731 | GPT-6.1 Terra |
@@ -6141,6 +6143,156 @@ static bool PrepareWorkerOverwrite(const COperation& op, COperations& script,
 
 enum class SourceOverwriteResult { Unavailable, Failed, Finished, Skipped, Cancelled };
 
+// Narrow pilot: one ordinary F5 item, no scan-ahead or operation-wide
+// decisions. The broker observes the exact target before the native choice.
+struct SingleProbedOverwritePrompt
+{
+    HWND window;
+    BOOL* cancel;
+    HANDLE cancelEvent, workerNotSuspended;
+    std::string sourceName, targetName;
+    DWORD waitError = ERROR_SUCCESS;
+};
+
+static UacF7::ProbedOverwriteDecision PromptSingleProbedOverwrite(void* raw, const UacF7::OverwriteProbeReply& reply)
+{
+    auto& context = *static_cast<SingleProbedOverwritePrompt*>(raw);
+    using Decision = UacF7::ProbedOverwriteDecision;
+    if (*context.cancel) return Decision::Cancel;
+    if (!IsWindow(context.window)) return Decision::Disconnected;
+    if (reply.target.attributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_READONLY))
+        return Decision::Unavailable; // Preserve the original special-attribute path.
+    CUacOverwriteProbePrompt prompt{};
+    prompt.singleItem = TRUE;
+    prompt.sourceName = context.sourceName;
+    prompt.targetName = context.targetName;
+    char sourceInfo[101], targetInfo[101];
+    GetOverwriteRevisionInfo(sourceInfo, _countof(sourceInfo), reply.source);
+    GetOverwriteRevisionInfo(targetInfo, _countof(targetInfo), reply.target);
+    prompt.sourceInfo = sourceInfo;
+    prompt.targetInfo = targetInfo;
+    SendMessage(context.window, WM_USER_DIALOG, WORKER_DIALOG_UAC_OVERWRITE_PROBE, reinterpret_cast<LPARAM>(&prompt));
+    if (*context.cancel) return Decision::Cancel;
+    if (!IsWindow(context.window)) return Decision::Disconnected;
+    if (prompt.error) { context.waitError = prompt.error; return Decision::Failed; }
+    if (prompt.result == IDYES)
+    {
+        HANDLE waits[2] = {context.cancelEvent, context.workerNotSuspended};
+        const DWORD wait = WaitForMultipleObjects(2, waits, FALSE, INFINITE);
+        if (wait == WAIT_OBJECT_0 || *context.cancel) return Decision::Cancel;
+        if (wait != WAIT_OBJECT_0 + 1)
+        {
+            context.waitError = wait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+            return Decision::Failed;
+        }
+        return IsWindow(context.window) ? Decision::Yes : Decision::Disconnected;
+    }
+    if (prompt.result == IDNO || prompt.result == IDB_SKIP) return Decision::Skip;
+    return Decision::Cancel;
+}
+
+static SourceOverwriteResult TrySingleProbedOverwrite(HWND progress, COperation& op, COperations& script,
+                                                       CQuadWord& totalDone, CProgressDlgData& data,
+                                                       const UacF7::OverwriteApproval& prior, DWORD& error,
+                                                       bool targetDenied, bool previousUserDecision)
+{
+    using Outcome = SourceOverwriteResult;
+    if (!targetDenied || previousUserDecision || prior.captured || !data.CnfrmFileOver ||
+        script.Count != 1 || script.CopyMoveConflictMode == CMCM_SCAN_AHEAD ||
+        data.ConflictDecisionInjected || op.Opcode != ocCopyFile || !(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE) ||
+        !op.SourceNameWValid || !op.TargetNameWValid || script.OverwriteOlder || script.CopySecurity || script.CopyAttrs ||
+        data.OverwriteAll || data.SkipAllOverwrite || data.OverwriteHiddenAll || data.SkipAllSystemOrHidden ||
+        (op.Attr & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) || (op.OpFlags & OPFL_AS_ENCRYPTED) ||
+        !UacF7::IsNativePlainCopyFile(op.Attr)) return Outcome::Unavailable;
+    HANDLE waits[2] = {data.CancelWorkerEvent, data.WorkerNotSuspended};
+    const DWORD waitResult = WaitForMultipleObjects(2, waits, FALSE, INFINITE);
+    if (waitResult == WAIT_OBJECT_0 || *data.CancelWorker) { error = ERROR_CANCELLED; return Outcome::Cancelled; }
+    if (waitResult != WAIT_OBJECT_0 + 1) { error = waitResult == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE; return Outcome::Failed; }
+    if (script.CopySource && script.CopySource->ElevationDeclined) return Outcome::Unavailable;
+    BOOL limited = FALSE; DWORD limit = 0; script.GetSpeedLimit(&limited, &limit);
+    if (limited) return Outcome::Unavailable;
+    const auto* listed = ListedTransferSource(op, script);
+    if ((op.OpFlags & OPFL_UAC_TRANSFER_LISTED) && (!listed || !listed->Request)) return Outcome::Unavailable;
+    try
+    {
+        UacF7::PreparedTransfer request;
+        if (!request.PrepareOverwriteProbe(op.SourceNameW, op.TargetNameW, op.FileSize.Value,
+                                           listed ? listed->Request.get() : nullptr, script.IgnoreTransferAds != FALSE))
+            return Outcome::Unavailable;
+        auto& jobs = data.TransferJobs;
+        auto existing = std::find_if(jobs.begin(), jobs.end(), [&](const auto& job) { return request.IsInJob(job); });
+        auto* planned = script.CopySource && script.CopySource->Session ? script.CopySource->Session.get() : nullptr;
+        if (planned && (!planned->IsOpen() || !request.IsInJob(*planned))) return Outcome::Unavailable;
+        const auto sourceDisplay = SalPathRemoveExtendedPrefixW(op.SourceNameW.c_str());
+        const auto targetDisplay = SalPathRemoveExtendedPrefixW(op.TargetNameW.c_str());
+        const auto sourceText = SalWideToMultiBytePath(sourceDisplay.c_str(), CP_UTF8);
+        const auto targetText = SalWideToMultiBytePath(targetDisplay.c_str(), CP_UTF8);
+        if (!planned && existing == jobs.end())
+        {
+            UacF7::TransferPrompt consent{request, sourceText.c_str(), targetText.c_str(), true};
+            SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&consent));
+            if (!consent.approved) { error = ERROR_CANCELLED; return Outcome::Cancelled; }
+            existing = jobs.emplace(jobs.end());
+        }
+        auto* job = planned ? planned : &*existing;
+        SingleProbedOverwritePrompt prompt{progress, data.CancelWorker, data.CancelWorkerEvent, data.WorkerNotSuspended,
+                                          op.SourceName ? op.SourceName : "", op.TargetName ? op.TargetName : ""};
+        struct Progress
+        {
+            HWND dialog; COperations& script; CProgressDlgData& data; const COperation& op;
+            CQuadWord completed, transferred; bool shown = false;
+        } state{progress, script, data, op, totalDone, CQuadWord(0, 0)};
+        script.GetTFS(&state.transferred);
+        const auto update = [](void* raw, ULONGLONG bytes, ULONGLONG total)
+        {
+            auto& value = *static_cast<Progress*>(raw);
+            CQuadWord current = CQuadWord().SetUI64((std::min)(bytes, value.op.Size.Value));
+            int item = CaclProg(current, value.op.Size);
+            if (total)
+            {
+                const double fraction = static_cast<double>(bytes) / static_cast<double>(total);
+                item = static_cast<int>(1000 * fraction);
+                current.SetUI64(static_cast<ULONGLONG>(value.op.Size.Value * fraction));
+            }
+            else value.script.SetTFSandProgressSize(value.transferred + current, value.completed + current);
+            const int summary = (std::min)(999, CaclProg(value.completed + current, value.script.TotalSize));
+            SetProgressWithoutSuspend(value.dialog, (std::min)(999, item), summary, value.data);
+            value.shown = true;
+        };
+        const auto outcome = request.ExecuteProbedOverwrite(progress, *job, PromptSingleProbedOverwrite, &prompt,
+            data.CancelWorkerEvent, update, &state, NotifyNativeBrokerActivity);
+        if (state.shown)
+        {
+            script.SetTFSandProgressSize(state.transferred, totalDone);
+            if (outcome.transfer.error || outcome.transfer.unknown)
+                SetProgressWithoutSuspend(progress, 0, CaclProg(totalDone, script.TotalSize), data);
+        }
+        if (!planned && existing != jobs.end() && !existing->IsOpen()) jobs.erase(existing);
+        if (outcome.transfer.unknown)
+        {
+            SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN, FALSE);
+            return Outcome::Cancelled;
+        }
+        if (outcome.decision == UacF7::ProbedOverwriteDecision::Unavailable && !outcome.transfer.error)
+            return Outcome::Unavailable;
+        if (outcome.decision == UacF7::ProbedOverwriteDecision::Skip && !outcome.transfer.error)
+            return Outcome::Skipped;
+        if (outcome.transfer.error)
+        {
+            error = prompt.waitError ? prompt.waitError : outcome.transfer.error;
+            return error == ERROR_CANCELLED ? Outcome::Cancelled : Outcome::Failed;
+        }
+        if (outcome.decision != UacF7::ProbedOverwriteDecision::Yes) return Outcome::Cancelled;
+        totalDone += op.Size;
+        const CQuadWord mainWork = max(op.FileSize, COPY_MIN_FILE_SIZE);
+        const CQuadWord namedBytes = (op.OpFlags & OPFL_COPY_ADS) != 0 && op.Size > mainWork ? op.Size - mainWork : CQuadWord(0, 0);
+        script.AddBytesToTFSandSetProgressSize(op.FileSize + namedBytes, totalDone);
+        SetProgress(progress, 0, CaclProg(totalDone, script.TotalSize), data);
+        return Outcome::Finished;
+    }
+    catch (const std::bad_alloc&) { error = ERROR_NOT_ENOUGH_MEMORY; return Outcome::Failed; }
+}
+
 // Use the existing Hidden/System conflict dialog for both ordinary targets and
 // identity-bound broker replacements. No elevated operation skips this choice.
 static SourceOverwriteResult ConfirmBrokerOverwriteAttributes(HWND progress, const COperation& op,
@@ -6170,7 +6322,8 @@ static SourceOverwriteResult ConfirmBrokerOverwriteAttributes(HWND progress, con
 
 static SourceOverwriteResult TryOverwriteDeniedSource(HWND progress, COperation& op, COperations& script,
                                                       CQuadWord& totalDone, CProgressDlgData& dlgData,
-                                                      UacF7::OverwriteApproval& approval, DWORD& error, bool targetDenied = false)
+                                                      UacF7::OverwriteApproval& approval, DWORD& error, bool targetDenied = false,
+                                                      bool previousUserDecision = false)
 {
     using Outcome = SourceOverwriteResult;
     if (dlgData.SkipAllFileOpenOut)
@@ -6184,7 +6337,7 @@ static SourceOverwriteResult TryOverwriteDeniedSource(HWND progress, COperation&
 
     UacF7::PreparedTransfer overwrite;
     if (!PrepareWorkerOverwrite(op, script, dlgData, overwrite))
-        return Outcome::Unavailable;
+        return TrySingleProbedOverwrite(progress, op, script, totalDone, dlgData, approval, error, targetDenied, previousUserDecision);
     if (!dlgData.ConflictDecisionInjected && dlgData.SkipAllOverwrite)
         return Outcome::Skipped;
 
@@ -6272,6 +6425,7 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
     BOOL invalidTgtName = FileNameIsInvalid(op->TargetName, TRUE);
 
     UacF7::OverwriteApproval approvedOverwrite{};
+    bool previousNativeOverwriteConfirmed = false;
     const bool deferred = script->DeferredTransferTarget.has_value();
     if (deferred || (op->OpFlags & OPFL_UAC_TRANSFER_SOURCE) != 0)
     {
@@ -7105,7 +7259,8 @@ COPY_AGAIN:
                             }
                             const auto outcome = TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone,
                                                                           dlgData, approvedOverwrite, err,
-                                                                          err == ERROR_ACCESS_DENIED || protectedExistingMoveTarget);
+                                                                          err == ERROR_ACCESS_DENIED || protectedExistingMoveTarget,
+                                                                          previousNativeOverwriteConfirmed);
                             if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
                             {
                                 if (in != INVALID_HANDLE_VALUE)
@@ -7198,6 +7353,7 @@ COPY_AGAIN:
                                 case IDB_ALL:
                                     dlgData.OverwriteAll = TRUE;
                                 case IDYES:
+                                    previousNativeOverwriteConfirmed = true;
                                 default: // for safety (to prevent exiting this block with the 'in' handle closed)
                                 {
                                     in = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str(), GENERIC_READ,
@@ -7357,7 +7513,7 @@ COPY_AGAIN:
                                                 in = INVALID_HANDLE_VALUE;
                                             }
                                             const auto outcome = TryOverwriteDeniedSource(hProgressDlg, *op, *script, totalDone,
-                                                                                          dlgData, approvedOverwrite, err, true);
+                                                                                          dlgData, approvedOverwrite, err, true, true);
                                             if (outcome == SourceOverwriteResult::Finished || outcome == SourceOverwriteResult::Cancelled)
                                             {
                                                 if (in != INVALID_HANDLE_VALUE)

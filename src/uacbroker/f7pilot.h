@@ -1,5 +1,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Bind reviewed overwrite to a single live session. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
+| 2026-11-11 | Define scoped two-phase overwrite probe messages. | Tie renewed consent to a broker-observed item. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Compare prepared copy source and parent identities. | Bind host-generated output to its pinned source. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Carry exact FindFile identity into a separate verified viewer request. | Prevent pathname-only identity recapture after Find. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Add a typed overwrite without named streams. | Reuse only the matching F5 approval and transfer session. | #731 | GPT-6.1 Terra |
@@ -130,7 +132,7 @@ private:
 void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput);
 bool CanOfferElevation();
 
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42, FileAllocation = 43, CopyOverwriteIgnoreAds = 44 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42, FileAllocation = 43, CopyOverwriteIgnoreAds = 44, ProbeOverwrite = 45, ProbeOverwriteIgnoreAds = 46, AbortOverwriteProbe = 47 };
 
 inline constexpr bool IsComparisonScope(Operation operation)
 {
@@ -217,6 +219,23 @@ inline bool SameFileRevision(const ArchiveRevision& a, const ArchiveRevision& b)
            a.size == b.size && a.created == b.created && a.modified == b.modified &&
            a.changed == b.changed && a.attributes == b.attributes;
 }
+
+// One message-mode reply, scoped to the exact authenticated transfer job.
+// Metadata describes an observed object, not a content digest or a lock.
+struct OverwriteProbeReply
+{
+    DWORD size = sizeof(OverwriteProbeReply);
+    DWORD version = 1;
+    DWORD reserved = 0;
+    DWORD present = 0;
+    GUID nonce{};
+    ULONGLONG sourceParentSerial = 0;
+    BYTE sourceParentId[16]{};
+    ULONGLONG targetParentSerial = 0;
+    BYTE targetParentId[16]{};
+    ArchiveRevision source{}, target{};
+};
+static_assert(sizeof(OverwriteProbeReply) == 208);
 
 constexpr DWORD archiveReadBlock = 64 * 1024;
 constexpr DWORD archiveReadBudget = 64 * 1024 * 1024;
@@ -722,6 +741,7 @@ private:
     friend class PreparedLeaf;
     HANDLE pipe = nullptr;
     TransferJobScope scope;
+    ULONGLONG openGeneration = 1; // invalidated on every Close, including reopen
 };
 
 struct OverwriteApproval
@@ -740,9 +760,22 @@ struct OverwriteApproval
                revision.attributes == other.revision.attributes &&
                std::memcmp(sourceId, other.sourceId, sizeof(sourceId)) == 0;
     }
+
 };
 
 using TransferProgress = void (*)(void* context, ULONGLONG bytes, ULONGLONG total);
+
+enum class ProbedOverwriteDecision { None, Yes, All, Skip, SkipAll, Cancel, Unavailable, Failed, Disconnected };
+using ProbedOverwritePrompt = ProbedOverwriteDecision (*)(void* context, const OverwriteProbeReply& reply);
+struct ProbedOverwriteOutcome
+{
+    Result transfer{};
+    ProbedOverwriteDecision decision = ProbedOverwriteDecision::None;
+    // These are requests, never an already published coordinator policy.
+    bool requestApplyAll = false;
+    bool requestSkipAll = false;
+};
+
 
 struct DeferredTransferTarget
 {
@@ -761,6 +794,12 @@ public:
                                const MoveFileIdentity& copiedSource, const MoveFileIdentity& copiedTarget);
     bool PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize,
                           const PreparedLeaf* listedSource = nullptr, bool moving = false, bool ignoreAds = false);
+    bool PrepareOverwriteProbe(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize,
+                               const PreparedLeaf* listedSource = nullptr, bool ignoreAds = false);
+    ProbedOverwriteOutcome ExecuteProbedOverwrite(HWND owner, TransferJobSession& job,
+        ProbedOverwritePrompt prompt, void* promptContext, HANDLE cancel = nullptr,
+        TransferProgress progress = nullptr, void* progressContext = nullptr,
+        BrokerActivity activity = nullptr) const;
     bool PrepareTree(const std::wstring& sourcePath, std::wstring_view targetDirectory, std::wstring& destination);
     bool PrepareTreeMerge(const std::wstring& sourcePath, const std::wstring& targetPath);
     bool PrepareTreePlan(const std::wstring& sourcePath, const std::wstring& targetPath);
@@ -804,6 +843,23 @@ public:
     bool IgnoresAds() const { return source.operation == Operation::CopyIgnoreAds || source.operation == Operation::CopyOverwriteIgnoreAds; }
 
 private:
+    struct ScopedUse
+    {
+        const PreparedTransfer& owner;
+        bool acquired;
+        explicit ScopedUse(const PreparedTransfer& value) : owner(value),
+            acquired(InterlockedCompareExchange(&owner.inUse, 1, 0) == 0) {}
+        ~ScopedUse() { if (acquired) InterlockedExchange(&owner.inUse, 0); }
+    };
+    mutable volatile LONG inUse = 0;
+    Result ProbeOverwrite(HWND owner, TransferJobSession& job, OverwriteProbeReply& reply,
+                          HANDLE cancel, BrokerActivity activity) const;
+    DWORD AbortOverwriteProbe(TransferJobSession& job, const OverwriteProbeReply& reply, HANDLE cancel) const;
+    Result CommitProbedOverwrite(HWND owner, TransferJobSession& job, const OverwriteProbeReply& reply,
+                                 OverwriteProbeReply& changed, HANDLE cancel, TransferProgress progress,
+                                 void* progressContext, BrokerActivity activity) const;
+    bool PrepareImpl(const std::wstring& sourcePath, const std::wstring& targetPath, ULONGLONG expectedSize,
+                     Operation operation, const PreparedLeaf* listedSource, const DeferredTransferTarget* deferred);
     bool PrepareSource(const std::wstring& sourcePath, Operation operation, const PreparedLeaf* listedSource);
     TransferJobScope JobScope(bool asRoot = false) const;
     PreparedLeaf source;

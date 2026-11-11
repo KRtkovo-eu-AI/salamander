@@ -1,5 +1,7 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Probe and commit one exact overwrite with stale revalidation. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
+| 2026-11-11 | Probe and bind a single overwrite to one job. | Revalidate exact item identity before mutation. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Carry exact FindFile identity into a separate verified viewer request. | Prevent pathname-only identity recapture after Find. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Prepare denied Find scopes from a readable parent. | Bind content consent to a captured directory or file identity. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Bind ignored-stream overwrite to its own request. | Stage only approved default data and preserve protected recovery state. | #731 | GPT-6.1 Terra |
@@ -576,6 +578,65 @@ struct RequestHeader
     DWORD targetSuffixLength = 0;
 };
 static_assert(sizeof(RequestHeader) == 104);
+#ifdef SAM_UAC_PROBE_FAULT_TEST
+// Test-only scheduling seam; no production project defines this macro.
+void OverwriteProbeFaultCheckpoint(unsigned stage);
+#endif
+
+// Private per-pipe state for one reviewed overwrite. Scope equality here does
+// not replace no-follow reopening and revision checks at mutation time.
+struct PendingOverwriteProbe
+{
+    bool present = false;
+    Operation operation = Operation::CopyOverwrite;
+    GUID nonce{};
+    ULONGLONG sourceParentSerial = 0, targetParentSerial = 0;
+    FILE_ID_128 sourceParent{}, targetParent{};
+    UacF7::ArchiveRevision source{}, target{};
+    std::wstring sourceVolume, sourceRelative, sourceLeaf;
+    std::wstring targetVolume, targetRelative, targetLeaf;
+
+    void Clear() noexcept
+    {
+        present = false;
+        nonce = {};
+        source = {}; target = {};
+        sourceParent = {}; targetParent = {};
+        sourceParentSerial = targetParentSerial = 0;
+        sourceVolume.clear(); sourceRelative.clear(); sourceLeaf.clear();
+        targetVolume.clear(); targetRelative.clear(); targetLeaf.clear();
+    }
+
+    // The approval is consumed even on mismatch; a failed or replayed commit
+    // cannot be turned into a different filesystem operation.
+    bool Consume(const PendingOverwriteProbe& request) noexcept
+    {
+        const BYTE zero[16]{};
+        const bool ok = present && request.present && !IsEqualGUID(nonce, GUID_NULL) &&
+            sourceParentSerial != 0 && targetParentSerial != 0 &&
+            std::memcmp(sourceParent.Identifier, zero, sizeof(zero)) != 0 &&
+            std::memcmp(targetParent.Identifier, zero, sizeof(zero)) != 0 &&
+            std::memcmp(source.fileId, zero, sizeof(zero)) != 0 &&
+            std::memcmp(target.fileId, zero, sizeof(zero)) != 0 &&
+            source.serial == sourceParentSerial && target.serial == targetParentSerial &&
+            source.size >= 0 && target.size >= 0 &&
+            UacF7::IsNativePlainCopyFile(source.attributes) && UacF7::IsNativePlainCopyFile(target.attributes) &&
+            !(source.serial == target.serial && std::memcmp(source.fileId, target.fileId, sizeof(source.fileId)) == 0) &&
+            !sourceVolume.empty() && !sourceLeaf.empty() && !targetVolume.empty() && !targetLeaf.empty() &&
+            (operation == Operation::CopyOverwrite || operation == Operation::CopyOverwriteIgnoreAds) &&
+            operation == request.operation && IsEqualGUID(nonce, request.nonce) &&
+            sourceParentSerial == request.sourceParentSerial && targetParentSerial == request.targetParentSerial &&
+            std::memcmp(sourceParent.Identifier, request.sourceParent.Identifier, sizeof(sourceParent.Identifier)) == 0 &&
+            std::memcmp(targetParent.Identifier, request.targetParent.Identifier, sizeof(targetParent.Identifier)) == 0 &&
+            source.reserved == 0 && target.reserved == 0 && request.source.reserved == 0 && request.target.reserved == 0 &&
+            UacF7::SameFileRevision(source, request.source) && UacF7::SameFileRevision(target, request.target) &&
+            sourceVolume == request.sourceVolume && sourceRelative == request.sourceRelative && sourceLeaf == request.sourceLeaf &&
+            targetVolume == request.targetVolume && targetRelative == request.targetRelative && targetLeaf == request.targetLeaf;
+        Clear();
+        return ok;
+    }
+};
+
 constexpr DWORD transferProgressFrame = MAXDWORD;
 struct TransferProgressUpdate
 {
@@ -776,6 +837,113 @@ DWORD OpenRequestParent(HANDLE root, std::wstring_view relative, Handle& parent,
     return error;
 }
 
+// Unlike OpenVolumeRoot's eligibility predicate, probe errors are returned to
+// the user as the actual filesystem error rather than as a revision change.
+DWORD OpenOverwriteProbeRoot(std::wstring_view volume, Handle& root)
+{
+    if (volume.size() != volumeLength ||
+        !UacDirectoryLeaf::Equal(volume.substr(0, volumePrefix.size()), volumePrefix)) return ERROR_INVALID_NAME;
+    const std::wstring guid(volume.substr(volumePrefix.size()));
+    GUID parsed{};
+    if (guid.front() != L'{' || guid.back() != L'}' || FAILED(CLSIDFromString(guid.c_str(), &parsed)))
+        return ERROR_INVALID_NAME;
+    const std::wstring name = std::wstring(volume) + L"\\";
+    if (GetDriveTypeW(name.c_str()) != DRIVE_FIXED) return ERROR_NOT_SUPPORTED;
+    root = Adopt(CreateFileW(name.c_str(), FILE_TRAVERSE | FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    return root ? ERROR_SUCCESS : GetLastError();
+}
+
+// Captures one exact overwrite candidate without changing files. Directory
+// and file handles are owned only by this call, never by the UI dialog.
+// The parent and source IDs must already be bound by the caller's operation.
+DWORD CaptureOverwriteProbe(Operation operation,
+                            const UacDirectoryLeaf::ParentIdentity& expectedSourceParent,
+                            std::wstring_view sourceRelative, std::wstring_view sourceLeaf,
+                            const FILE_ID_INFO& expectedSource, ULONGLONG expectedSize,
+                            const UacDirectoryLeaf::ParentIdentity& expectedTargetParent,
+                            std::wstring_view targetRelative, std::wstring_view targetLeaf,
+                            PendingOverwriteProbe& output)
+{
+    output.Clear();
+    if ((operation != Operation::CopyOverwrite && operation != Operation::CopyOverwriteIgnoreAds) ||
+        !UacDirectoryLeaf::IsComponent(sourceLeaf) || !UacDirectoryLeaf::IsComponent(targetLeaf) ||
+        expectedSize > UacF7::maxNativeCopyBytes)
+        return ERROR_INVALID_PARAMETER;
+    try
+    {
+        Handle sourceRoot, targetRoot;
+        DWORD error = OpenOverwriteProbeRoot(expectedSourceParent.volume, sourceRoot);
+        if (!error) error = OpenOverwriteProbeRoot(expectedTargetParent.volume, targetRoot);
+        if (error) return error;
+        Handle sourceParent, targetParent;
+        UacDirectoryLeaf::ParentIdentity sourceParentId{}, targetParentId{};
+        constexpr ULONG pinSharing = FILE_SHARE_READ | FILE_SHARE_WRITE;
+        error = OpenRequestParent(sourceRoot.get(), sourceRelative, sourceParent, sourceParentId, 0, pinSharing, false);
+        if (!error) error = OpenRequestParent(targetRoot.get(), targetRelative, targetParent, targetParentId, 0, pinSharing, false);
+        if (error) return error;
+        if (!UacDirectoryLeaf::SameParent(sourceParentId, expectedSourceParent) ||
+            !UacDirectoryLeaf::SameParent(targetParentId, expectedTargetParent)) return ERROR_FILE_INVALID;
+        HANDLE sourceRaw = nullptr, targetRaw = nullptr;
+        error = UacRenameLeaf::Detail::OpenSource(sourceParent.get(), sourceLeaf, sourceRaw, FILE_READ_DATA, FILE_SHARE_READ);
+        const auto source = Adopt(sourceRaw);
+        if (!error) error = UacRenameLeaf::Detail::OpenSource(targetParent.get(), targetLeaf, targetRaw, 0,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
+        const auto target = Adopt(targetRaw);
+        if (error) return error;
+        UacF7::ArchiveRevision sourceRevision{}, sourceAgain{}, targetRevision{}, targetAgain{};
+        error = UacZipUpdate::ReadRevision(source.get(), sourceRevision);
+        if (!error) error = UacZipUpdate::ReadRevision(target.get(), targetRevision);
+        if (!error) error = UacZipUpdate::ReadRevision(source.get(), sourceAgain);
+        if (!error) error = UacZipUpdate::ReadRevision(target.get(), targetAgain);
+        if (error) return error;
+        // Attribute-only target access is a snapshot, not a write/rename pin.
+        // Reopen the leaf and both parent paths before offering that snapshot;
+        // the later commit must independently perform its own identity checks.
+        HANDLE targetAgainRaw = nullptr;
+        error = UacRenameLeaf::Detail::OpenSource(targetParent.get(), targetLeaf, targetAgainRaw, 0,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
+        const auto targetByName = Adopt(targetAgainRaw);
+        UacF7::ArchiveRevision targetByNameRevision{};
+        if (!error) error = UacZipUpdate::ReadRevision(targetByName.get(), targetByNameRevision);
+        Handle sourceParentAgain, targetParentAgain;
+        UacDirectoryLeaf::ParentIdentity sourceParentCheck{}, targetParentCheck{};
+        if (!error) error = OpenRequestParent(sourceRoot.get(), sourceRelative, sourceParentAgain, sourceParentCheck, 0, pinSharing, false);
+        if (!error) error = OpenRequestParent(targetRoot.get(), targetRelative, targetParentAgain, targetParentCheck, 0, pinSharing, false);
+        if (error) return error;
+        if (!UacF7::IsNativePlainCopyFile(sourceRevision.attributes) ||
+            !UacF7::IsNativePlainCopyFile(targetRevision.attributes)) return ERROR_NOT_SUPPORTED;
+        if (!UacDirectoryLeaf::SameParent(sourceParentCheck, expectedSourceParent) ||
+            !UacDirectoryLeaf::SameParent(targetParentCheck, expectedTargetParent) ||
+            !UacF7::SameFileRevision(targetRevision, targetByNameRevision) ||
+            !UacF7::SameFileRevision(sourceRevision, sourceAgain) ||
+            !UacF7::SameFileRevision(targetRevision, targetAgain) ||
+            sourceRevision.serial != expectedSource.VolumeSerialNumber ||
+            std::memcmp(sourceRevision.fileId, expectedSource.FileId.Identifier, sizeof(sourceRevision.fileId)) ||
+            sourceRevision.size < 0 || static_cast<ULONGLONG>(sourceRevision.size) != expectedSize ||
+            targetRevision.serial != expectedTargetParent.file.VolumeSerialNumber ||
+            (sourceRevision.serial == targetRevision.serial &&
+             !std::memcmp(sourceRevision.fileId, targetRevision.fileId, sizeof(sourceRevision.fileId))))
+            return ERROR_FILE_INVALID;
+        PendingOverwriteProbe captured{};
+        if (FAILED(CoCreateGuid(&captured.nonce)) || IsEqualGUID(captured.nonce, GUID_NULL)) return ERROR_GEN_FAILURE;
+        captured.operation = operation;
+        captured.sourceParentSerial = sourceParentId.file.VolumeSerialNumber;
+        captured.targetParentSerial = targetParentId.file.VolumeSerialNumber;
+        captured.sourceParent = sourceParentId.file.FileId;
+        captured.targetParent = targetParentId.file.FileId;
+        captured.source = sourceRevision; captured.target = targetRevision;
+        captured.sourceVolume = expectedSourceParent.volume; captured.sourceRelative.assign(sourceRelative);
+        captured.sourceLeaf.assign(sourceLeaf); captured.targetVolume = expectedTargetParent.volume;
+        captured.targetRelative.assign(targetRelative); captured.targetLeaf.assign(targetLeaf);
+        captured.present = true;
+        output = std::move(captured);
+        return ERROR_SUCCESS;
+    }
+    catch (const std::bad_alloc&) { output.Clear(); return ERROR_NOT_ENOUGH_MEMORY; }
+}
+
 // The client reads an exact number of bytes in byte mode. The message-mode
 // server rejects larger replies with ERROR_MORE_DATA.
 DWORD TransferRequest(HANDLE pipe, void* buffer, DWORD length, bool send, ULONGLONG deadline, HANDLE cancel = nullptr,
@@ -918,6 +1086,37 @@ DWORD TransferArchiveFile(HANDLE pipe, HANDLE file, ULONGLONG remaining, bool se
         }
         remaining -= count;
     }
+    return ERROR_SUCCESS;
+}
+
+DWORD ReadOverwriteProbeReply(HANDLE pipe, const RequestHeader& request, DWORD status,
+                              UacF7::OverwriteProbeReply& reply, ULONGLONG deadline, HANDLE stop)
+{
+    reply = {};
+    DWORD error = TransferRequest(pipe, &reply, sizeof(reply), false, deadline, nullptr, nullptr, nullptr, stop);
+    if (error) { reply = {}; return error; }
+    const BYTE zero[16]{};
+    const bool validHeader = reply.size == sizeof(reply) && reply.version == 1 && !reply.reserved && reply.present <= 1;
+    const bool isProbe = request.operation == Operation::ProbeOverwrite || request.operation == Operation::ProbeOverwriteIgnoreAds;
+    const UacF7::ArchiveRevision emptyRevision{};
+    const bool validFailure = (status != ERROR_SUCCESS || !isProbe) && !reply.present && IsEqualGUID(reply.nonce, GUID_NULL) &&
+        !reply.sourceParentSerial && !reply.targetParentSerial &&
+        !std::memcmp(reply.sourceParentId, zero, sizeof(zero)) && !std::memcmp(reply.targetParentId, zero, sizeof(zero)) &&
+        !reply.source.reserved && !reply.target.reserved &&
+        UacF7::SameFileRevision(reply.source, emptyRevision) && UacF7::SameFileRevision(reply.target, emptyRevision);
+    const bool validSuccess = ((isProbe && status == ERROR_SUCCESS) || (!isProbe && status == ERROR_FILE_INVALID)) &&
+        reply.present == 1 && !IsEqualGUID(reply.nonce, GUID_NULL) &&
+        reply.sourceParentSerial == request.serial && reply.targetParentSerial == request.targetSerial &&
+        !std::memcmp(reply.sourceParentId, request.parentId.Identifier, sizeof(reply.sourceParentId)) &&
+        !std::memcmp(reply.targetParentId, request.targetParentId.Identifier, sizeof(reply.targetParentId)) &&
+        reply.source.serial == request.serial && reply.target.serial == request.targetSerial &&
+        !std::memcmp(reply.source.fileId, request.sourceId.Identifier, sizeof(reply.source.fileId)) &&
+        std::memcmp(reply.source.fileId, zero, sizeof(zero)) && std::memcmp(reply.target.fileId, zero, sizeof(zero)) &&
+        reply.source.size >= 0 && static_cast<ULONGLONG>(reply.source.size) == request.copySize && reply.target.size >= 0 &&
+        !reply.source.reserved && !reply.target.reserved &&
+        UacF7::IsNativePlainCopyFile(reply.source.attributes) && UacF7::IsNativePlainCopyFile(reply.target.attributes) &&
+        !(reply.source.serial == reply.target.serial && !std::memcmp(reply.source.fileId, reply.target.fileId, sizeof(zero)));
+    if (!validHeader || (!validFailure && !validSuccess)) { reply = {}; return ERROR_INVALID_DATA; }
     return ERROR_SUCCESS;
 }
 
@@ -1388,7 +1587,10 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
                            HANDLE targetParent, const UacDirectoryLeaf::ParentIdentity& expectedTargetParent,
                            std::wstring_view targetLeaf, const UacF7::ArchiveRevision& expectedTarget,
                            ULONGLONG bytes, HANDLE pipe, ULONGLONG deadline,
-                           const UacCopyLeaf::Detail::CopyProgress* progress, bool ignoreAds)
+                           const UacCopyLeaf::Detail::CopyProgress* progress, bool ignoreAds,
+                           const UacF7::ArchiveRevision* reviewedSource = nullptr,
+                           const PendingOverwriteProbe* reviewedScope = nullptr,
+                           PendingOverwriteProbe* changedTarget = nullptr)
 {
     constexpr auto kind = UacZipUpdate::ReplacementKind::DiskCopy;
     using UacZipUpdate::Detail::CheckParent;
@@ -1407,6 +1609,12 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
     const auto source = Adopt(raw);
     if ((error = UacZipUpdate::Detail::CheckIdentity(source.get(), expectedSource)) != ERROR_SUCCESS)
         return error;
+    if (reviewedSource)
+    {
+        UacF7::ArchiveRevision current{};
+        if ((error = UacZipUpdate::ReadRevision(source.get(), current)) != ERROR_SUCCESS) return error;
+        if (!UacF7::SameFileRevision(current, *reviewedSource)) return ERROR_FILE_INVALID;
+    }
     const auto streams = ignoreAds ? UacCopyLeaf::StreamPolicy::IgnoreNamed : UacCopyLeaf::StreamPolicy::PreserveNamed;
     FILE_BASIC_INFO sourceBasic{};
     if ((error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), sourceBasic, false, streams, UacF7::nativeCopyAttributes)) != ERROR_SUCCESS)
@@ -1421,12 +1629,53 @@ DWORD CopyOverExistingFile(const InstallLocation& install, HANDLE sourceParent,
     // or unreadable target can still need recovery. Publication checks the
     // revision again under an exclusive handle after recovery.
     HANDLE candidate = nullptr;
-    if (!UacRenameLeaf::Detail::OpenSource(targetParent, targetLeaf, candidate, 0,
-                                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE))
+    const DWORD candidateError = UacRenameLeaf::Detail::OpenSource(targetParent, targetLeaf, candidate, 0,
+                                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
+    if (!candidateError)
     {
         const auto current = Adopt(candidate);
-        if (UacZipUpdate::CheckRevision(current.get(), expectedTarget) == ERROR_FILE_INVALID)
+        if (reviewedSource)
+        {
+            UacF7::ArchiveRevision actualTarget{};
+            if ((error = UacZipUpdate::ReadRevision(current.get(), actualTarget)) != ERROR_SUCCESS) return error;
+            if (!UacF7::SameFileRevision(actualTarget, expectedTarget))
+            {
+                // Only this explicit target mismatch may propose a new item.
+                // Source/parent/recovery errors remain ordinary failures.
+                if (reviewedScope && changedTarget)
+                {
+#ifdef SAM_UAC_PROBE_FAULT_TEST
+                    OverwriteProbeFaultCheckpoint(1);
+#endif
+                    if ((error = UacRenameLeaf::Detail::CheckTransferConnection(pipe, deadline)) != ERROR_SUCCESS)
+                        return error;
+                    PendingOverwriteProbe refreshed{};
+                    const DWORD probeError = CaptureOverwriteProbe(reviewedScope->operation, expectedSourceParent,
+                        reviewedScope->sourceRelative, reviewedScope->sourceLeaf, expectedSource, bytes,
+                        expectedTargetParent, reviewedScope->targetRelative, reviewedScope->targetLeaf, refreshed);
+                    if (probeError) return probeError;
+#ifdef SAM_UAC_PROBE_FAULT_TEST
+                    OverwriteProbeFaultCheckpoint(2);
+#endif
+                    if ((error = UacRenameLeaf::Detail::CheckTransferConnection(pipe, deadline)) != ERROR_SUCCESS)
+                        return error;
+                    if (UacF7::SameFileRevision(refreshed.source, *reviewedSource) &&
+                        !UacF7::SameFileRevision(refreshed.target, expectedTarget))
+                        *changedTarget = std::move(refreshed);
+                }
+                return ERROR_FILE_INVALID;
+            }
+        }
+        else if (UacZipUpdate::CheckRevision(current.get(), expectedTarget) == ERROR_FILE_INVALID)
             return ERROR_FILE_INVALID;
+    }
+    else if (reviewedSource) return candidateError;
+    if (reviewedSource)
+    {
+        if ((error = CheckParent(sourceParent, expectedSourceParent)) != ERROR_SUCCESS ||
+            (error = CheckParent(targetParent, expectedTargetParent)) != ERROR_SUCCESS ||
+            (error = UacRenameLeaf::Detail::CheckTransferConnection(pipe, deadline)) != ERROR_SUCCESS)
+            return error;
     }
 
     Handle journal;
@@ -1761,6 +2010,67 @@ struct TreeCopyPins
     Handle source, target;
 };
 
+// Probe requests carry only source/target names and caller-verified identities.
+// They never run recovery, create a stage, or mutate the filesystem.
+DWORD ReceiveOverwriteProbe(const RequestHeader& header, HANDLE pipe, HANDLE host, DWORD hostPid,
+                            ULONGLONG deadline, DWORD& result, UacF7::TransferJobScope& scope,
+                            PendingOverwriteProbe& pending, UacF7::OverwriteProbeReply& reply)
+{
+    try
+    {
+    reply = {};
+    if (pending.present || header.sourceLength || header.reportProgress || header.targetSuffixLength ||
+        !header.leafLength || !header.targetLeafLength ||
+        header.leafLength > UacDirectoryLeaf::maxComponent || header.targetLeafLength > UacDirectoryLeaf::maxComponent ||
+        header.relativeLength > UacDirectoryLeaf::maxNativeName || header.targetRelativeLength > UacDirectoryLeaf::maxNativeName ||
+        header.copySize > UacF7::maxNativeCopyBytes) return ERROR_INVALID_DATA;
+    const size_t sourceLength = volumeLength + header.relativeLength + header.leafLength;
+    const size_t targetLength = volumeLength + header.targetRelativeLength + header.targetLeafLength;
+    std::wstring payload(sourceLength + targetLength, L'\0');
+    DWORD error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), false, deadline);
+    if (error) return error;
+    const std::wstring_view data(payload);
+    const auto sourceVolume = data.substr(0, volumeLength);
+    const auto sourceRelative = data.substr(volumeLength, header.relativeLength);
+    const auto sourceLeaf = data.substr(volumeLength + header.relativeLength, header.leafLength);
+    const auto targetVolume = data.substr(sourceLength, volumeLength);
+    const auto targetRelative = data.substr(sourceLength + volumeLength, header.targetRelativeLength);
+    const auto targetLeaf = data.substr(sourceLength + volumeLength + header.targetRelativeLength, header.targetLeafLength);
+    if (sourceVolume.find(L'\0') != std::wstring_view::npos || targetVolume.find(L'\0') != std::wstring_view::npos ||
+        !UacDirectoryLeaf::IsComponent(sourceLeaf) || !UacDirectoryLeaf::IsComponent(targetLeaf)) return ERROR_INVALID_DATA;
+    const auto operation = header.operation == Operation::ProbeOverwriteIgnoreAds ? Operation::CopyOverwriteIgnoreAds : Operation::CopyOverwrite;
+    UacF7::TransferJobScope requested{operation, {header.serial, {}}, {header.targetSerial, {}},
+        std::wstring(sourceVolume) + std::wstring(sourceRelative), std::wstring(targetVolume) + std::wstring(targetRelative)};
+    std::memcpy(requested.source.id, header.parentId.Identifier, sizeof(requested.source.id));
+    std::memcpy(requested.target.id, header.targetParentId.Identifier, sizeof(requested.target.id));
+    if (scope.operation != Operation::Mkdir && !scope.Matches(requested)) return ERROR_ACCESS_DENIED;
+    if (!LiveInSession(host, hostPid)) return ERROR_OPERATION_ABORTED;
+    const UacDirectoryLeaf::ParentIdentity sourceParent{{header.serial, header.parentId}, std::wstring(sourceVolume)};
+    const UacDirectoryLeaf::ParentIdentity targetParent{{header.targetSerial, header.targetParentId}, std::wstring(targetVolume)};
+    const FILE_ID_INFO sourceId{header.serial, header.sourceId};
+    PendingOverwriteProbe captured{};
+    result = CaptureOverwriteProbe(operation, sourceParent, sourceRelative, sourceLeaf, sourceId, header.copySize,
+                                   targetParent, targetRelative, targetLeaf, captured);
+    if (result) return ERROR_SUCCESS;
+    if (!LiveInSession(host, hostPid)) return ERROR_OPERATION_ABORTED;
+    reply.present = 1; reply.nonce = captured.nonce;
+    reply.sourceParentSerial = captured.sourceParentSerial; reply.targetParentSerial = captured.targetParentSerial;
+    std::memcpy(reply.sourceParentId, captured.sourceParent.Identifier, sizeof(reply.sourceParentId));
+    std::memcpy(reply.targetParentId, captured.targetParent.Identifier, sizeof(reply.targetParentId));
+    reply.source = captured.source; reply.target = captured.target;
+    if (scope.operation == Operation::Mkdir) scope = std::move(requested);
+    pending = std::move(captured);
+    return ERROR_SUCCESS;
+    }
+    catch (const std::bad_alloc&)
+    {
+        pending.Clear();
+        reply = {};
+        result = ERROR_NOT_ENOUGH_MEMORY;
+        return ERROR_SUCCESS;
+    }
+}
+
 DWORD VerifyTreeParent(HANDLE root, std::wstring_view rootPath, std::wstring_view parentPath,
                        const UacDirectoryLeaf::ParentIdentity& expected)
 {
@@ -1830,7 +2140,10 @@ struct ExactAllocationScope
 DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, DWORD hostPid,
                      ULONGLONG& deadline, DWORD& result, Handle& listingRoot, std::vector<BYTE>& snapshot, bool& snapshotRequest, bool& zipUpdate, Operation& listingScope, Handle& archive, UacF7::ArchiveRevision& archiveRevision,
                      UacF7::TransferJobScope* jobScope = nullptr, TreeCopyPins* treePins = nullptr,
-                     ExactAllocationScope* exactAllocation = nullptr)
+                     ExactAllocationScope* exactAllocation = nullptr,
+                     PendingOverwriteProbe* pendingOverwrite = nullptr,
+                     UacF7::OverwriteProbeReply* overwriteProbeReply = nullptr,
+                     bool* strictOverwriteSession = nullptr, bool* reviewedCommitReply = nullptr)
 {
     RequestHeader header{};
     DWORD received = 0;
@@ -1843,6 +2156,48 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             *reinterpret_cast<const BYTE*>(&header) == UacRenameLeaf::Detail::transferCancelSignal)
             return ERROR_CANCELLED;
         return error;
+    }
+    if (header.operation == Operation::AbortOverwriteProbe)
+    {
+        listingScope = header.operation;
+        const BYTE zero[16]{};
+        if (!jobScope || !pendingOverwrite || !pendingOverwrite->present || !strictOverwriteSession || !*strictOverwriteSession ||
+            header.serial || header.targetSerial || header.relativeLength || header.leafLength || header.sourceLength ||
+            header.targetRelativeLength || header.targetLeafLength || header.copySize || header.reportProgress || header.targetSuffixLength ||
+            std::memcmp(header.parentId.Identifier, zero, sizeof(zero)) ||
+            std::memcmp(header.sourceId.Identifier, zero, sizeof(zero)) ||
+            std::memcmp(header.targetParentId.Identifier, zero, sizeof(zero))) return ERROR_INVALID_DATA;
+        GUID nonce{};
+        const DWORD abortError = TransferRequest(pipe, &nonce, sizeof(nonce), false, deadline);
+        if (abortError || !IsEqualGUID(nonce, pendingOverwrite->nonce))
+        {
+            pendingOverwrite->Clear();
+            return abortError ? abortError : ERROR_ACCESS_DENIED;
+        }
+        pendingOverwrite->Clear();
+        result = ERROR_SUCCESS;
+        return ERROR_SUCCESS;
+    }
+    const bool overwriteProbe = header.operation == Operation::ProbeOverwrite || header.operation == Operation::ProbeOverwriteIgnoreAds;
+    if (overwriteProbe)
+    {
+        listingScope = header.operation;
+        if (!jobScope || !pendingOverwrite || !overwriteProbeReply) return ERROR_ACCESS_DENIED;
+        deadline = GetTickCount64() + timeoutMs;
+        const DWORD probeError = ReceiveOverwriteProbe(header, pipe, host, hostPid, deadline, result, *jobScope,
+                                                        *pendingOverwrite, *overwriteProbeReply);
+        if (!probeError && !result && strictOverwriteSession) *strictOverwriteSession = true;
+        return probeError;
+    }
+    const bool reviewedOverwrite = pendingOverwrite && pendingOverwrite->present;
+    if (strictOverwriteSession && *strictOverwriteSession && !reviewedOverwrite &&
+        UacF7::IsOverwriteTransfer(header.operation)) return ERROR_ACCESS_DENIED;
+    UacF7::ArchiveRevision reviewedSource{};
+    PendingOverwriteProbe reviewedScope{};
+    if (reviewedOverwrite && header.operation != pendingOverwrite->operation)
+    {
+        pendingOverwrite->Clear();
+        return ERROR_ACCESS_DENIED;
     }
     if (jobScope)
     {
@@ -2013,6 +2368,36 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             return error;
         if (overwriteTarget.reserved || overwriteTarget.size < 0 || overwriteTarget.serial != header.targetSerial)
             return ERROR_INVALID_DATA;
+    }
+
+    if (reviewedOverwrite)
+    {
+        GUID nonce{};
+        error = TransferRequest(pipe, &nonce, sizeof(nonce), false, deadline);
+        if (error) { pendingOverwrite->Clear(); return error; }
+        try
+        {
+            PendingOverwriteProbe supplied = *pendingOverwrite;
+            supplied.nonce = nonce;
+            supplied.operation = header.operation;
+            supplied.sourceParentSerial = header.serial; supplied.targetParentSerial = header.targetSerial;
+            supplied.sourceParent = header.parentId; supplied.targetParent = header.targetParentId;
+            supplied.source.serial = header.serial;
+            std::memcpy(supplied.source.fileId, header.sourceId.Identifier, sizeof(supplied.source.fileId));
+            supplied.source.size = static_cast<LONGLONG>(header.copySize);
+            supplied.target = overwriteTarget;
+            supplied.sourceVolume.assign(payload, 0, volumeLength);
+            supplied.sourceRelative.assign(payload, volumeLength, header.relativeLength);
+            supplied.sourceLeaf.assign(payload, volumeLength + header.relativeLength, header.leafLength);
+            supplied.targetVolume.assign(payload, primarySize, volumeLength);
+            supplied.targetRelative.assign(payload, primarySize + volumeLength, header.targetRelativeLength);
+            supplied.targetLeaf.assign(payload, primarySize + volumeLength + header.targetRelativeLength, header.targetLeafLength);
+            reviewedSource = pendingOverwrite->source;
+            reviewedScope = *pendingOverwrite;
+            if (!pendingOverwrite->Consume(supplied)) return ERROR_ACCESS_DENIED;
+            if (reviewedCommitReply) *reviewedCommitReply = true;
+        }
+        catch (const std::bad_alloc&) { pendingOverwrite->Clear(); return ERROR_NOT_ENOUGH_MEMORY; }
     }
 
     std::vector<BYTE> zipBytes;
@@ -2281,10 +2666,24 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             else if (overwrite && !moveOverwrite)
             {
                 const auto copyDeadline = MAXULONGLONG;
+                PendingOverwriteProbe changed{};
                 result = CopyOverExistingFile(install, parent.get(), expected, sourceIdentity, leaf,
                                               destination, expectedTarget, targetLeaf, overwriteTarget,
                                               header.copySize, pipe, copyDeadline, progress,
-                                              header.operation == Operation::CopyOverwriteIgnoreAds);
+                                              header.operation == Operation::CopyOverwriteIgnoreAds,
+                                              reviewedOverwrite ? &reviewedSource : nullptr,
+                                              reviewedOverwrite ? &reviewedScope : nullptr,
+                                              reviewedOverwrite ? &changed : nullptr);
+                if (reviewedOverwrite && result == ERROR_FILE_INVALID && changed.present && pendingOverwrite && overwriteProbeReply)
+                {
+                    overwriteProbeReply->present = 1; overwriteProbeReply->nonce = changed.nonce;
+                    overwriteProbeReply->sourceParentSerial = changed.sourceParentSerial;
+                    overwriteProbeReply->targetParentSerial = changed.targetParentSerial;
+                    std::memcpy(overwriteProbeReply->sourceParentId, changed.sourceParent.Identifier, sizeof(overwriteProbeReply->sourceParentId));
+                    std::memcpy(overwriteProbeReply->targetParentId, changed.targetParent.Identifier, sizeof(overwriteProbeReply->targetParentId));
+                    overwriteProbeReply->source = changed.source; overwriteProbeReply->target = changed.target;
+                    *pendingOverwrite = std::move(changed);
+                }
                 deadline = GetTickCount64() + timeoutMs;
             }
             else if (crossMove)
@@ -2780,6 +3179,8 @@ DWORD ServeTransferJob(const InstallLocation& install, HANDLE pipe, HANDLE host,
 {
     UacF7::TransferJobScope scope;
     TreeCopyPins treePins;
+    PendingOverwriteProbe pendingOverwrite{};
+    bool strictOverwriteSession = false;
     while (LiveInSession(host, hostPid))
     {
         DWORD result = ERROR_GEN_FAILURE;
@@ -2788,13 +3189,23 @@ DWORD ServeTransferJob(const InstallLocation& install, HANDLE pipe, HANDLE host,
         bool unusedView = false, unusedZip = false;
         Operation unusedListing = Operation::List;
         UacF7::ArchiveRevision unusedRevision;
+        UacF7::OverwriteProbeReply overwriteProbeReply{};
+        bool reviewedCommitReply = false;
         DWORD error = ReceiveRequest(install, pipe, host, hostPid, deadline, result,
                                      unusedRoot, unusedSnapshot, unusedView, unusedZip, unusedListing,
-                                     unusedArchive, unusedRevision, &scope, &treePins);
+                                     unusedArchive, unusedRevision, &scope, &treePins, nullptr,
+                                     &pendingOverwrite, &overwriteProbeReply, &strictOverwriteSession, &reviewedCommitReply);
         if (error)
             return error == ERROR_CANCELLED ? ERROR_SUCCESS : error;
         if (unusedListing != Operation::ListCopyTreeSource)
             error = TransferRequest(pipe, &result, sizeof(result), true, deadline);
+        const bool isOverwriteProbe = unusedListing == Operation::ProbeOverwrite || unusedListing == Operation::ProbeOverwriteIgnoreAds;
+        if (!error && (isOverwriteProbe || reviewedCommitReply))
+            error = TransferRequest(pipe, &overwriteProbeReply, sizeof(overwriteProbeReply), true, deadline);
+        // The initial probe did not establish a scope. Never let a later
+        // request choose a different operation or parent under this consent.
+        if (!error && isOverwriteProbe && result != ERROR_SUCCESS && scope.operation == Operation::Mkdir)
+            return ERROR_SUCCESS;
         if (error || !UacF7::CanContinueTransferJob(result))
             return error;
         deadline = GetTickCount64() + 15 * 60 * 1000;
@@ -3008,7 +3419,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
                UacF7::ArchiveRevision* archiveRevision = nullptr, std::vector<BYTE>* zipBytes = nullptr,
                HANDLE zipUpdateFile = nullptr, UacF7::ArchiveRevision* overwriteTarget = nullptr,
                HANDLE* transferJob = nullptr, UacF7::MetadataJobPolicy* metadataPolicy = nullptr,
-               UacF7::TransferProgress progress = nullptr, void* progressContext = nullptr, BrokerActivityScope* activity = nullptr
+               UacF7::TransferProgress progress = nullptr, void* progressContext = nullptr, BrokerActivityScope* activity = nullptr,
+               UacF7::OverwriteProbeReply* overwriteProbeReply = nullptr
 #endif
 )
 {
@@ -3017,7 +3429,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
     // Read-only Find requests may abandon the pipe. Mutating transfers must
     // still use their cancellation acknowledgement and preserve the result.
     if (request && (UacF7::IsDirectoryReadScope(request->operation) ||
-                    request->operation == Operation::FindFile || request->operation == Operation::FileAllocation))
+                    request->operation == Operation::FindFile || request->operation == Operation::FileAllocation ||
+                    request->operation == Operation::ProbeOverwrite || request->operation == Operation::ProbeOverwriteIgnoreAds))
         stop = cancel;
     if (IsStopSignaled(stop))
     {
@@ -3027,8 +3440,10 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #endif
     const auto probeIoError = [&](const wchar_t* stage, DWORD error) {
 #ifdef SAM_UAC_F7_HOST
-        if (stop)
+        if (stop || overwriteProbeReply)
             result->error = error;
+        if (overwriteProbeReply)
+            result->unknown = false; // A read-only probe cannot mutate files.
 #endif
         return IoError(stage, error);
     };
@@ -3167,6 +3582,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         if (error)
         {
             result->error = error;
+            if (overwriteProbeReply) result->unknown = false;
             return IoError(L"Send request", error);
         }
 
@@ -3177,6 +3593,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
             deadline = TransferDeadline(request->operation);
         error = ReadTransferResult(pipe.get(), operationError, deadline, stop ? nullptr : cancel,
                                    progress, progressContext, request->operation, stop);
+        if (!error && overwriteProbeReply)
+            error = ReadOverwriteProbeReply(pipe.get(), *request, operationError, *overwriteProbeReply, deadline, stop);
         if (!error && (transferJob || copy || UacF7::IsMoveTransfer(request->operation) || tree || zipBytes ||
                        zipUpdateFile))
         {
@@ -3189,7 +3607,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
             deadline = GetTickCount64() + timeoutMs;
         if (transferJob)
         {
-            if (UacF7::CanContinueTransferJob(operationError))
+            if (UacF7::CanContinueTransferJob(operationError) && (!overwriteProbeReply || operationError == ERROR_SUCCESS))
                 *transferJob = pipe.release();
             return Ok;
         }
@@ -3742,22 +4160,43 @@ bool PreparedLeaf::IsInJob(const TransferJobSession& job) const
 
 static Result RepeatTransferJob(HANDLE& pipe, RequestHeader& header, std::wstring& payload,
                                 void* extra, DWORD extraBytes, MetadataJobPolicy* policy = nullptr, HANDLE cancel = nullptr,
-                                TransferProgress progress = nullptr, void* progressContext = nullptr)
+                                TransferProgress progress = nullptr, void* progressContext = nullptr,
+                                OverwriteProbeReply* overwriteProbeReply = nullptr, const GUID* overwriteNonce = nullptr)
 {
     Result result;
+    if ((overwriteProbeReply || overwriteNonce) && cancel && WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0)
+    {
+        CloseHandle(pipe);
+        pipe = nullptr; // Discard any pending request without sending a commit.
+        result.error = ERROR_CANCELLED;
+        result.unknown = false;
+        return result;
+    }
     auto deadline = GetTickCount64() + timeoutMs;
-    DWORD error = SendOperationRequest(pipe, header, payload, extra, extraBytes, policy, false, deadline, result);
+    DWORD error = SendOperationRequest(pipe, header, payload, extra, extraBytes, policy, overwriteNonce != nullptr, deadline, result);
+    if (!error && overwriteNonce)
+    {
+        result.unknown = true; // commit is usable only after the whole reply arrives
+        GUID nonce = *overwriteNonce;
+        error = TransferRequest(pipe, &nonce, sizeof(nonce), true, deadline);
+    }
     if (!error)
     {
         deadline = TransferDeadline(header.operation);
         error = ReadTransferResult(pipe, result.error, deadline, cancel, progress, progressContext,
                                    header.operation);
     }
+    if (!error && overwriteProbeReply)
+        error = ReadOverwriteProbeReply(pipe, header, result.error, *overwriteProbeReply, GetTickCount64() + timeoutMs, cancel);
     if (error)
+    {
         result.error = error;
+        if (overwriteProbeReply && !overwriteNonce) result.unknown = false; // probe has no mutation
+    }
     else
         result = TransferReply(header.operation, result.error, true);
-    if (error || !CanContinueTransferJob(result.error))
+    if (error || !CanContinueTransferJob(result.error) ||
+        ((overwriteProbeReply || overwriteNonce) && cancel && WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0))
     {
         CloseHandle(pipe);
         pipe = nullptr;
@@ -3986,6 +4425,15 @@ bool PreparedTransfer::Prepare(const std::wstring& sourcePath, const std::wstrin
                                ULONGLONG expectedSize, Operation operation, const PreparedLeaf* listedSource,
                                const DeferredTransferTarget* deferred)
 {
+    ScopedUse use(*this);
+    if (!use.acquired) return false;
+    return PrepareImpl(sourcePath, targetPath, expectedSize, operation, listedSource, deferred);
+}
+
+bool PreparedTransfer::PrepareImpl(const std::wstring& sourcePath, const std::wstring& targetPath,
+                                   ULONGLONG expectedSize, Operation operation, const PreparedLeaf* listedSource,
+                                   const DeferredTransferTarget* deferred)
+{
     const bool compressedMove = operation == Operation::MoveCompressed;
     const bool directoryMove = operation == Operation::MoveDirectory;
     const bool copyDirectory = operation == Operation::CopyDirectoryEntry;
@@ -4072,7 +4520,9 @@ bool PreparedTransfer::PrepareMoveCompletion(const std::wstring& sourcePath, con
                                               ULONGLONG expectedSize, const MoveFileIdentity& copiedSource,
                                               const MoveFileIdentity& copiedTarget)
 {
-    if (!Prepare(sourcePath, targetPath, expectedSize, Operation::Move) || !IsCrossVolumeMove() ||
+    ScopedUse use(*this);
+    if (!use.acquired) return false;
+    if (!PrepareImpl(sourcePath, targetPath, expectedSize, Operation::Move, nullptr, nullptr) || !IsCrossVolumeMove() ||
         source.serial != copiedSource.serial ||
         std::memcmp(source.sourceId, copiedSource.id, sizeof(source.sourceId)))
         return false;
@@ -4101,6 +4551,8 @@ bool CaptureOverwriteRevision(HANDLE file, ArchiveRevision& revision)
 bool PreparedTransfer::PrepareOverwrite(const std::wstring& sourcePath, const std::wstring& targetPath,
                                         ULONGLONG expectedSize, const PreparedLeaf* listedSource, bool moving, bool ignoreAds)
 {
+    ScopedUse use(*this);
+    if (!use.acquired) return false;
     if ((moving && ignoreAds) || expectedSize > maxNativeCopyBytes ||
         !PrepareSource(sourcePath, moving ? Operation::MoveOverwrite :
                                    ignoreAds ? Operation::CopyOverwriteIgnoreAds : Operation::CopyOverwrite, listedSource) ||
@@ -4140,6 +4592,237 @@ bool PreparedTransfer::PrepareOverwrite(const std::wstring& sourcePath, const st
     return true;
 }
 
+bool PreparedTransfer::PrepareOverwriteProbe(const std::wstring& sourcePath, const std::wstring& targetPath,
+                                             ULONGLONG expectedSize, const PreparedLeaf* listedSource, bool ignoreAds)
+{
+    ScopedUse use(*this);
+    if (!use.acquired) return false;
+    if (expectedSize > maxNativeCopyBytes ||
+        !PrepareSource(sourcePath, ignoreAds ? Operation::CopyOverwriteIgnoreAds : Operation::CopyOverwrite, listedSource) ||
+        !target.PrepareTarget(targetPath, Operation::Mkdir, {}, nullptr)) return false;
+    size = expectedSize;
+    return true;
+}
+
+Result PreparedTransfer::ProbeOverwrite(HWND owner, TransferJobSession& job, OverwriteProbeReply& reply,
+                                        HANDLE cancel, BrokerActivity notify) const
+{
+    reply = {};
+    Result result{};
+    result.error = ERROR_INVALID_PARAMETER;
+    if (cancel && WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0)
+    {
+        result.error = ERROR_CANCELLED;
+        return result;
+    }
+    if (!IsOverwrite() || IsMove() || !target.parent ||
+        (!source.identityFromListing && (!source.source || !source.parent))) return result;
+    const ComApartment com;
+    InstallLocation install;
+    if (FAILED(com.result) || !install.Open() || !install.MatchesProcess(GetCurrentProcess(), appImage) ||
+        !install.OpenImage(appImage)) return result;
+    RequestHeader header{source.serial, {}, {},
+        IgnoresAds() ? Operation::ProbeOverwriteIgnoreAds : Operation::ProbeOverwrite,
+        static_cast<DWORD>(source.relative.size()), static_cast<DWORD>(source.leaf.size()), 0,
+        target.serial, {}, static_cast<DWORD>(target.relative.size()), static_cast<DWORD>(target.leaf.size()), size};
+    std::memcpy(header.parentId.Identifier, source.fileId, sizeof(source.fileId));
+    std::memcpy(header.sourceId.Identifier, source.sourceId, sizeof(source.sourceId));
+    std::memcpy(header.targetParentId.Identifier, target.fileId, sizeof(target.fileId));
+    std::wstring payload = source.volume + source.relative + source.leaf + target.volume + target.relative + target.leaf;
+    BrokerActivityScope activity(owner, notify);
+    if (job.pipe)
+    {
+        if (!IsInJob(job)) return result;
+        activity.Start();
+        return RepeatTransferJob(job.pipe, header, payload, nullptr, 0, nullptr, cancel, nullptr, nullptr, &reply);
+    }
+    job.Close(); // A new opening gets a different generation even after handle reuse.
+    if (!job.openGeneration) return result;
+    job.scope = JobScope(true);
+    RunProbe(install, false, false, owner, &header, &payload, nullptr, &result, nullptr, cancel,
+             nullptr, nullptr, nullptr, nullptr, nullptr, &job.pipe, nullptr, nullptr, nullptr, &activity, &reply);
+    if (result.error || result.unknown) job.Close();
+    return result;
+}
+
+DWORD PreparedTransfer::AbortOverwriteProbe(TransferJobSession& job, const OverwriteProbeReply& reply, HANDLE cancel) const
+{
+    if (!IsInJob(job) || reply.size != sizeof(reply) || reply.version != 1 || reply.reserved ||
+        reply.present != 1 || IsEqualGUID(reply.nonce, GUID_NULL)) return ERROR_INVALID_PARAMETER;
+    RequestHeader header{};
+    header.operation = Operation::AbortOverwriteProbe;
+    auto deadline = GetTickCount64() + timeoutMs;
+    DWORD error = TransferRequest(job.pipe, &header, sizeof(header), true, deadline, nullptr, nullptr, nullptr, cancel);
+    GUID nonce = reply.nonce;
+    if (!error) error = TransferRequest(job.pipe, &nonce, sizeof(nonce), true, deadline, nullptr, nullptr, nullptr, cancel);
+    DWORD status = ERROR_GEN_FAILURE;
+    if (!error) error = TransferRequest(job.pipe, &status, sizeof(status), false, deadline, nullptr, nullptr, nullptr, cancel);
+    if (error || status != ERROR_SUCCESS) job.Close();
+    return error ? error : status;
+}
+
+ProbedOverwriteOutcome PreparedTransfer::ExecuteProbedOverwrite(HWND owner, TransferJobSession& job,
+    ProbedOverwritePrompt prompt, void* promptContext, HANDLE cancel, TransferProgress progress,
+    void* progressContext, BrokerActivity activity) const
+{
+    ScopedUse use(*this);
+    if (!use.acquired) { ProbedOverwriteOutcome busy{}; busy.transfer.error = ERROR_BUSY; return busy; }
+    ProbedOverwriteOutcome outcome{};
+    outcome.transfer.error = ERROR_INVALID_PARAMETER;
+    if (!prompt) return outcome;
+    OverwriteProbeReply reply{}; // owned by this worker stack, never by the modal window
+    outcome.transfer = ProbeOverwrite(owner, job, reply, cancel, activity);
+    if (outcome.transfer.error || outcome.transfer.unknown || !job.IsOpen() || !job.openGeneration)
+    {
+        if (!outcome.transfer.error) outcome.transfer.error = ERROR_BROKEN_PIPE;
+        outcome.decision = outcome.transfer.error == ERROR_CANCELLED ? ProbedOverwriteDecision::Cancel :
+            outcome.transfer.error == ERROR_BROKEN_PIPE || outcome.transfer.error == ERROR_NO_DATA ?
+                ProbedOverwriteDecision::Disconnected : ProbedOverwriteDecision::Failed;
+        return outcome;
+    }
+    const ULONGLONG opened = job.openGeneration;
+    for (;;)
+    {
+    if (cancel && WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0)
+    {
+        if (job.openGeneration == opened) job.Close();
+        outcome.transfer.error = ERROR_CANCELLED;
+        outcome.transfer.unknown = false;
+        outcome.decision = ProbedOverwriteDecision::Cancel;
+        return outcome;
+    }
+    try
+    {
+        outcome.decision = prompt(promptContext, reply);
+    }
+    catch (const std::bad_alloc&)
+    {
+        if (job.openGeneration == opened) job.Close();
+        outcome.transfer.error = ERROR_NOT_ENOUGH_MEMORY;
+        outcome.transfer.unknown = false;
+        outcome.decision = ProbedOverwriteDecision::Failed;
+        return outcome;
+    }
+    catch (...)
+    {
+        if (job.openGeneration == opened) job.Close();
+        outcome.transfer.error = ERROR_GEN_FAILURE;
+        outcome.transfer.unknown = false;
+        outcome.decision = ProbedOverwriteDecision::Failed;
+        return outcome;
+    }
+    const bool sameOpening = opened && job.openGeneration == opened;
+    if (cancel && WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0)
+    {
+        if (sameOpening) job.Close();
+        outcome.transfer.error = ERROR_CANCELLED;
+        outcome.transfer.unknown = false;
+        outcome.decision = ProbedOverwriteDecision::Cancel;
+        return outcome;
+    }
+    if (!job.IsOpen() || !sameOpening || !IsInJob(job))
+    {
+        // A reentrant caller may have opened a different session in the same
+        // object. It belongs to that caller and must not be closed here.
+        if (sameOpening) job.Close();
+        outcome.transfer.error = ERROR_BROKEN_PIPE;
+        outcome.transfer.unknown = false;
+        outcome.decision = ProbedOverwriteDecision::Disconnected;
+        return outcome;
+    }
+    if (outcome.decision == ProbedOverwriteDecision::Unavailable)
+    {
+        outcome.transfer.error = AbortOverwriteProbe(job, reply, cancel);
+        if (outcome.transfer.error)
+            outcome.decision = outcome.transfer.error == ERROR_CANCELLED ? ProbedOverwriteDecision::Cancel : ProbedOverwriteDecision::Disconnected;
+        return outcome;
+    }
+    if (outcome.decision == ProbedOverwriteDecision::Skip || outcome.decision == ProbedOverwriteDecision::SkipAll)
+    {
+        const bool skipAll = outcome.decision == ProbedOverwriteDecision::SkipAll;
+        outcome.transfer.error = AbortOverwriteProbe(job, reply, cancel);
+        if (outcome.transfer.error) outcome.decision = outcome.transfer.error == ERROR_CANCELLED ?
+            ProbedOverwriteDecision::Cancel : ProbedOverwriteDecision::Disconnected;
+        else { outcome.decision = ProbedOverwriteDecision::Skip; outcome.requestSkipAll = skipAll; }
+        return outcome;
+    }
+    if (outcome.decision != ProbedOverwriteDecision::Yes && outcome.decision != ProbedOverwriteDecision::All)
+    {
+        job.Close();
+        if (outcome.decision == ProbedOverwriteDecision::Disconnected)
+            outcome.transfer.error = ERROR_BROKEN_PIPE;
+        else if (outcome.decision == ProbedOverwriteDecision::Cancel)
+            outcome.transfer.error = ERROR_CANCELLED;
+        else
+        {
+            outcome.transfer.error = ERROR_INVALID_DATA;
+            outcome.decision = ProbedOverwriteDecision::Failed;
+        }
+        return outcome;
+    }
+    const bool applyAll = outcome.decision == ProbedOverwriteDecision::All;
+    OverwriteProbeReply changed{};
+    outcome.transfer = CommitProbedOverwrite(owner, job, reply, changed, cancel, progress, progressContext, activity);
+    if (outcome.transfer.error == ERROR_FILE_INVALID && !outcome.transfer.unknown && changed.present == 1 &&
+        job.IsOpen() && job.openGeneration == opened &&
+        UacF7::SameFileRevision(reply.source, changed.source) &&
+        !UacF7::SameFileRevision(reply.target, changed.target))
+    {
+        // This is a new observation, not an implicit Yes/All. The same
+        // scoped session remains open; present the native choice again.
+        reply = changed;
+        continue;
+    }
+    if (changed.present && job.IsOpen() && job.openGeneration == opened)
+        job.Close(); // A malformed or out-of-scope proposal cannot be reused.
+    if (!outcome.transfer.error && !outcome.transfer.unknown)
+    {
+        outcome.decision = ProbedOverwriteDecision::Yes;
+        outcome.requestApplyAll = applyAll; // coordinator must still atomically check lease + policy epoch
+    }
+    else
+        outcome.decision = outcome.transfer.error == ERROR_CANCELLED ? ProbedOverwriteDecision::Cancel :
+            outcome.transfer.error == ERROR_BROKEN_PIPE || outcome.transfer.error == ERROR_NO_DATA ?
+                ProbedOverwriteDecision::Disconnected : ProbedOverwriteDecision::Failed;
+    return outcome;
+    }
+}
+
+Result PreparedTransfer::CommitProbedOverwrite(HWND owner, TransferJobSession& job, const OverwriteProbeReply& reply,
+                                               OverwriteProbeReply& changed, HANDLE cancel, TransferProgress progress,
+                                               void* progressContext, BrokerActivity notify) const
+{
+    changed = {};
+    Result result{};
+    result.error = ERROR_INVALID_PARAMETER;
+    if (cancel && WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0)
+    {
+        job.Close(); // Discard the outstanding pending without sending a commit.
+        result.error = ERROR_CANCELLED;
+        return result;
+    }
+    if (!IsOverwrite() || IsMove() || !IsInJob(job) || reply.size != sizeof(reply) || reply.version != 1 ||
+        reply.reserved || reply.present != 1 || IsEqualGUID(reply.nonce, GUID_NULL) ||
+        reply.sourceParentSerial != source.serial || reply.targetParentSerial != target.serial ||
+        std::memcmp(reply.sourceParentId, source.fileId, sizeof(source.fileId)) ||
+        std::memcmp(reply.targetParentId, target.fileId, sizeof(target.fileId)) ||
+        reply.source.serial != source.serial || std::memcmp(reply.source.fileId, source.sourceId, sizeof(source.sourceId)) ||
+        reply.source.size < 0 || static_cast<ULONGLONG>(reply.source.size) != size || reply.source.reserved ||
+        reply.target.reserved || reply.target.serial != target.serial) return result;
+    RequestHeader header{source.serial, {}, {}, source.operation,
+        static_cast<DWORD>(source.relative.size()), static_cast<DWORD>(source.leaf.size()), 0,
+        target.serial, {}, static_cast<DWORD>(target.relative.size()), static_cast<DWORD>(target.leaf.size()), size};
+    std::memcpy(header.parentId.Identifier, source.fileId, sizeof(source.fileId));
+    std::memcpy(header.sourceId.Identifier, source.sourceId, sizeof(source.sourceId));
+    std::memcpy(header.targetParentId.Identifier, target.fileId, sizeof(target.fileId));
+    header.reportProgress = progress != nullptr;
+    std::wstring payload = source.volume + source.relative + source.leaf + target.volume + target.relative + target.leaf;
+    ArchiveRevision revision = reply.target;
+    BrokerActivityScope activity(owner, notify); activity.Start();
+    return RepeatTransferJob(job.pipe, header, payload, &revision, sizeof(revision), nullptr, cancel, progress,
+                             progressContext, &changed, &reply.nonce);
+}
+
 OverwriteApproval PreparedTransfer::Approval() const
 {
     OverwriteApproval approval{overwriteTarget, source.serial, true};
@@ -4154,6 +4837,8 @@ bool PreparedTransfer::MatchesOverwriteTarget(HANDLE file) const
 
 bool PreparedTransfer::PrepareTree(const std::wstring& sourcePath, std::wstring_view targetDirectory, std::wstring& destination)
 {
+    ScopedUse use(*this);
+    if (!use.acquired) return false;
     targetDirectory = TrimTreePath(targetDirectory);
     InstallLocation install;
     if (!IsTreePath(targetDirectory) || !install.Open())
@@ -4181,6 +4866,8 @@ void TransferJobSession::Close()
     if (pipe)
         CloseHandle(pipe);
     pipe = nullptr;
+    if (openGeneration != 0)
+        openGeneration = openGeneration == MAXULONGLONG ? 0 : openGeneration + 1;
 }
 
 DWORD TransferJobSession::ListTreeSource(std::wstring_view relative, const MoveFileIdentity& directory,
@@ -4264,6 +4951,8 @@ bool TransferJobSession::PrepareTreeSource(std::wstring_view relativeParent, con
 
 bool PreparedTransfer::PrepareTreeMerge(const std::wstring& sourcePath, const std::wstring& targetPath)
 {
+    ScopedUse use(*this);
+    if (!use.acquired) return false;
     if (!source.PrepareTarget(sourcePath, Operation::CopyDirectoryEntry, {}, nullptr) ||
         targetPath.empty() || !target.Prepare(targetPath + L"\\" + UacListing::marker))
         return false;
@@ -4273,7 +4962,9 @@ bool PreparedTransfer::PrepareTreeMerge(const std::wstring& sourcePath, const st
 
 bool PreparedTransfer::PrepareTreePlan(const std::wstring& sourcePath, const std::wstring& targetPath)
 {
-    if (!Prepare(sourcePath, targetPath, 0, Operation::CopyDirectoryEntry))
+    ScopedUse use(*this);
+    if (!use.acquired) return false;
+    if (!PrepareImpl(sourcePath, targetPath, 0, Operation::CopyDirectoryEntry, nullptr, nullptr))
         return false;
     source.operation = Operation::PlanCopyTree;
     return true;
@@ -4312,6 +5003,8 @@ bool PreparedTransfer::IsInJob(const TransferJobSession& job) const
 Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* job,
                                  TransferProgress progress, void* progressContext, BrokerActivity notify) const
 {
+    ScopedUse use(*this);
+    if (!use.acquired) return {ERROR_BUSY, false};
     Result result;
     const ComApartment com;
     InstallLocation install;
