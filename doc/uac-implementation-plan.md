@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record verified Find viewer build evidence. | Separate local x64 builds from pending VM and other viewer entry points. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Bind Find F3 to its captured identity. | Reject readable replacements without a pathname fallback. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record NTFS deletion pin probes. | Separate observed handle behavior from an unimplemented recursive executor. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record Find reason display build evidence. | Separate built UI preparation from pending protected search behavior. | #731 | GPT-6.1 Terra |
@@ -513,6 +514,8 @@ Společné příčiny určují pořadí oprav.
 **R1 — ruční obnovení po ztrátě relace.** První bezpečný řez může mířit na výslovné obnovení přesně schváleného diskového kořene s novým souhlasem a opětovným ověřením uložené identity; automatický refresh, Branch a ZIP nesmí sám vyvolat další výzvu. Pouhý návrat původních polí souborů při selhání nestačí jako rollback: současná cesta při obnově mění také stav cesty, hlaviček, ikon a monitorování. Před napojením souhlasu je třeba prokázat transakční přípravu a předání nového výpisu, životnost a generaci tabu i obnovu těchto vedlejších stavů při chybě. Pro potomek navštívený před výpadkem je navíc třeba bezpečně uchovat jeho vlastní identitu, ne pouze identitu kořene. Jde o statickou analýzu; tato část R1 zůstává neimplementovaná a bez VM důkazu.
 
 **V1 — F3 výsledku s již zachycenou identitou.** Interní prohlížeč nyní při předané ověřené identitě nepoužije běžné otevření podle cesty ani nezíská novou identitu; po přesném souhlasu pracuje pouze s ověřeným read-only snímkem. Jiný zvolený handler dostane vysvětlení a cestu nepřevezme. Na místním NTFS prošlo 11 kontrol v Debug i Release se skutečným ověřením snímku, včetně čitelné náhrady se shodnou velikostí, atributy i časy; dialog a transport jsou v tomto testu nahrazené rozhraními. Samostatný test skutečného dispatcheru prošel v každé konfiguraci 378 kontrolami a jednu starší přeskočil. Ochrana začíná až při zachycení `FoundView`, nikoli při dřívějším výpisu. Exact-file Find, selhání vytvoření markeru a `OnViewFileWith`, který jej zatím nepředává, zůstávají otevřené. Snímek si zachovává dosavadní limit 16 MiB; skutečný UAC a VM zůstávají otevřené.
+
+Host a anglický jazykový modul `e5d68e40` se sestavily pro x64 Debug i Release; logy jsou v `C:\Samandarin\builds\uac-e5d68e40-host`. Release host má 5 787 648 B, stejně jako `27984595`. Broker se neměnil; měření paměti a společná VM akceptace zůstávají otevřené.
 
 **D3 — adresáře v Koši.** Přijetí výsledného potvrzení se stejným ID a SID Koše samo neprokazuje, že Shell při selhání či stornu neprovedl částečné nebo trvalé smazání obsahu. Před rozšířením existující souborové cesty na adresáře je nutné doložit chování neprázdného podstromu, odmítnutí trvalého fallbacku a ochranu před souběžnou změnou; post-factum hlášení chyby nenahrazuje prevenci ztráty dat. Jde o otevřenou návrhovou a testovací hranici, nikoli implementovanou podporu.
 
