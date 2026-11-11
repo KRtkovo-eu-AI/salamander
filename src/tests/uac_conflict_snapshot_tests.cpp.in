@@ -1,0 +1,156 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Test real conflict snapshot and resolution methods. | Prevent stale modal decisions from authorizing a new target. | #731 | GPT-6.1 Terra |
+#include <windows.h>
+#include <cstdio>
+#include <cstring>
+#include <deque>
+#include <string>
+#include <vector>
+
+namespace UacF7 {
+@@REVISION@@
+@@SAME_REVISION@@
+}
+enum CCopyMoveConflictType { cmctNone, cmctFileExists, cmctDirectoryExists, cmctTypeMismatch };
+enum CCopyMoveItemState { cmisUnscanned, cmisReady, cmisBlocked, cmisConflict, cmisOverwrite, cmisSkip, cmisRunning, cmisDone, cmisSuppressed };
+enum CCopyMoveConflictDecision { cmcdNone, cmcdOverwrite, cmcdSkip };
+enum ItemPhase { ccipUnscanned, ccipAwaitingDecision, ccipReady, ccipProbed };
+enum OpcodeType { ocCopyFile, ocMoveFile, ocCreateDir };
+constexpr DWORD OPFL_UAC_TRANSFER_ELIGIBLE = 1;
+@@SNAPSHOT@@
+@@DECISION_SNAPSHOT@@
+@@REQUEST@@
+struct CConflictProbeResult {
+    CCopyMoveConflictType Type{}; DWORD Attributes{}; ULONGLONG Size{}; FILETIME WriteTime{};
+    DWORD VolumeSerial{}; ULONGLONG FileIndex{}; BOOL IdentityValid{}, Existed{};
+};
+struct COperation {
+    int Opcode = ocCopyFile; DWORD OpFlags = OPFL_UAC_TRANSFER_ELIGIBLE;
+    CCopyMoveItemState ConflictState = cmisUnscanned; CCopyMoveConflictType ConflictType = cmctNone;
+    CCopyMoveConflictDecision ConflictDecision = cmcdNone, ConflictLeaseDecision = cmcdNone;
+    int ConflictParent = -1; BOOL ConflictIsFinalizer = FALSE; ItemPhase ConflictItemState = ccipUnscanned;
+    ULONGLONG ConflictOperationId = 0, ConflictLeaseToken = 0; DWORD ConflictGeneration = 0, ConflictLeaseDependencyEpoch = 0;
+    DWORD ScannedTargetAttributes = INVALID_FILE_ATTRIBUTES, ScannedTargetVolumeSerial = 0;
+    ULONGLONG ScannedTargetSize = 0, ScannedTargetFileIndex = 0; FILETIME ScannedTargetWriteTime{};
+    BOOL ScannedTargetIdentityValid = FALSE, ScannedTargetExisted = FALSE;
+    UacF7::ArchiveRevision ScannedTargetRevision{}; CConflictProbeResult ConflictProbe{};
+};
+class COperations {
+public:
+    CRITICAL_SECTION ConflictCS{}; int Count = 2, DeferredConflictCount = 0, ConflictScannedCount = 0, ConflictListVersion = 0;
+    DWORD ConflictCoordinatorGeneration = 20; int Signals = 0;
+    CCopyMoveConflictDecision ConflictApplyAll[4]{}; std::deque<CCopyMoveConflictRequest> ConflictRequestQueue;
+    COperation Items[2]{};
+    COperations() { InitializeCriticalSection(&ConflictCS); Items[0].ConflictOperationId = 101; Items[1].ConflictOperationId = 102; Items[0].ConflictGeneration = Items[1].ConflictGeneration = 1; }
+    ~COperations() { DeleteCriticalSection(&ConflictCS); }
+    COperation& At(int index) { return Items[index]; }
+    BOOL AreConflictAncestorsPreparedLocked(int) { return TRUE; }
+    void AdmitConflictSubtreeLocked(int) {}
+    void RetractConflictSubtreeLocked(int) {}
+    void RebuildConflictQueuesLocked() {}
+    void SignalConflictChanged() { ++Signals; }
+    void GetConflictSnapshotLocked(int, CCopyMoveConflictSnapshot&);
+    BOOL GetConflictSnapshot(int, CCopyMoveConflictSnapshot&);
+    BOOL GetConflictDecisionSnapshot(int, CCopyMoveConflictDecisionSnapshot&);
+    void PublishConflictScanResult(int, CCopyMoveConflictType, DWORD, ULONGLONG, const FILETIME&, DWORD, ULONGLONG, BOOL, BOOL, const UacF7::ArchiveRevision&);
+    void RequeueChangedConflictItem(int);
+    BOOL ResolveConflictRequest(const CCopyMoveConflictRequest&, CCopyMoveConflictDecision, BOOL);
+    BOOL ResolveConflictSnapshot(const CCopyMoveConflictDecisionSnapshot&, CCopyMoveConflictDecision, BOOL);
+    void SetDeferredConflictDecisionLocked(int, CCopyMoveConflictDecision, BOOL);
+    void SetDeferredConflictDecision(int, CCopyMoveConflictDecision, BOOL);
+};
+#define HANDLES(value) (value)
+#define HANDLES_Q(value) (value)
+static BY_HANDLE_FILE_INFORMATION NextInfo{};
+static UacF7::ArchiveRevision NextRevision{};
+static HANDLE FakeOpen(const wchar_t*, DWORD, DWORD, void*, DWORD, DWORD, HANDLE) { return reinterpret_cast<HANDLE>(1); }
+static BOOL FakeInfo(HANDLE, BY_HANDLE_FILE_INFORMATION* info) { *info = NextInfo; return TRUE; }
+static BOOL FakeClose(HANDLE) { return TRUE; }
+static std::wstring GetParallelCopyPathW(COperation*, BOOL) { return L"C:\\fixture-東\\target.txt"; }
+static std::wstring SalPathAddExtendedPrefixW(const wchar_t* path) { return path; }
+static void CaptureScannedOverwriteRevision(const std::wstring&, const BY_HANDLE_FILE_INFORMATION&, UacF7::ArchiveRevision& revision) { revision = NextRevision; }
+#define CreateFileW FakeOpen
+#define GetFileInformationByHandle FakeInfo
+#define CloseHandle FakeClose
+@@GET_SNAPSHOT_LOCKED@@
+@@GET_SNAPSHOT@@
+@@GET_DECISION_SNAPSHOT@@
+@@PUBLISH@@
+@@REQUEUE@@
+@@RESOLVE_REQUEST@@
+@@RESOLVE_SNAPSHOT@@
+@@SET_LOCKED@@
+@@SET@@
+#undef CreateFileW
+#undef GetFileInformationByHandle
+#undef CloseHandle
+
+static int Checks = 0, Failures = 0;
+static void Check(bool ok, const char* message) { ++Checks; if (!ok) { ++Failures; std::printf("FAIL: %s\n", message); } }
+static UacF7::ArchiveRevision Revision(BYTE id, LONGLONG modified = 10) {
+    UacF7::ArchiveRevision revision{}; revision.serial = 11; revision.fileId[0] = id;
+    revision.size = 7; revision.created = 8; revision.modified = modified; revision.changed = 12;
+    revision.attributes = FILE_ATTRIBUTE_ARCHIVE; return revision;
+}
+static void Publish(COperations& operations, int index, BYTE id = 1) {
+    FILETIME time{10, 0}; auto revision = Revision(id);
+    operations.PublishConflictScanResult(index, cmctFileExists, FILE_ATTRIBUTE_ARCHIVE, 7, time, 11, id, TRUE, TRUE, revision);
+}
+static void PrepareRequeue(BYTE id) {
+    NextInfo = {}; NextInfo.dwFileAttributes = FILE_ATTRIBUTE_ARCHIVE; NextInfo.dwVolumeSerialNumber = 11;
+    NextInfo.nFileIndexLow = id; NextInfo.nFileSizeLow = 7; NextInfo.ftLastWriteTime.dwLowDateTime = 10;
+    NextRevision = Revision(id);
+}
+int main() {
+    std::printf("list snapshot bytes=%zu, active decision snapshot bytes=%zu\n",
+                sizeof(CCopyMoveConflictSnapshot), sizeof(CCopyMoveConflictDecisionSnapshot));
+    {
+        COperations operations; Publish(operations, 0); Publish(operations, 1);
+        CCopyMoveConflictDecisionSnapshot snapshot{}; Check(operations.GetConflictDecisionSnapshot(0, snapshot), "capture conflict");
+        Check(operations.ResolveConflictSnapshot(snapshot, cmcdOverwrite, FALSE), "current Yes resolves");
+        Check(operations.Items[0].ConflictState == cmisOverwrite && operations.Items[1].ConflictState == cmisConflict && operations.Signals == 1, "Yes affects one item and signals once");
+        Check(!operations.ResolveConflictSnapshot(snapshot, cmcdOverwrite, TRUE) && operations.Items[1].ConflictState == cmisConflict, "replay cannot apply All");
+    }
+    {
+        COperations operations; Publish(operations, 0); Publish(operations, 1);
+        CCopyMoveConflictDecisionSnapshot snapshot{}; operations.GetConflictDecisionSnapshot(0, snapshot);
+        PrepareRequeue(3); operations.RequeueChangedConflictItem(0);
+        Check(operations.Items[0].ConflictGeneration != snapshot.Conflict.Generation && operations.Items[0].ConflictState == cmisConflict, "actual requeue publishes a different generation");
+        Check(!operations.ResolveConflictSnapshot(snapshot, cmcdOverwrite, TRUE), "stale Yes All refused");
+        Check(operations.Items[0].ConflictState == cmisConflict && operations.Items[1].ConflictState == cmisConflict && operations.ConflictApplyAll[cmctFileExists] == cmcdNone && operations.Signals == 0, "stale All changes neither conflict nor policy");
+        CCopyMoveConflictDecisionSnapshot current{}; operations.GetConflictDecisionSnapshot(0, current);
+        Check(operations.ResolveConflictSnapshot(current, cmcdSkip, TRUE), "fresh Skip All resolves");
+        Check(operations.Items[0].ConflictState == cmisSkip && operations.Items[1].ConflictState == cmisSkip && operations.ConflictApplyAll[cmctFileExists] == cmcdSkip, "fresh Skip All updates both and policy");
+    }
+    {
+        COperations operations; Publish(operations, 0); Publish(operations, 1);
+        CCopyMoveConflictDecisionSnapshot snapshot{}; operations.GetConflictDecisionSnapshot(0, snapshot);
+        FILETIME time{10, 0}; auto revision = Revision(2);
+        operations.PublishConflictScanResult(0, cmctFileExists, FILE_ATTRIBUTE_ARCHIVE, 7, time, 11, 2, TRUE, TRUE, revision);
+        Check(operations.Items[0].ConflictGeneration == snapshot.Conflict.Generation, "real scanner republished without incrementing generation");
+        Check(!operations.ResolveConflictSnapshot(snapshot, cmcdOverwrite, TRUE), "same-generation changed identity refused");
+        Check(operations.Items[1].ConflictState == cmisConflict && operations.ConflictApplyAll[cmctFileExists] == cmcdNone, "same-generation stale All has no side effects");
+    }
+    for (int field = 0; field < 7; ++field) {
+        COperations operations; Publish(operations, 0); CCopyMoveConflictDecisionSnapshot snapshot{}; operations.GetConflictDecisionSnapshot(0, snapshot);
+        auto& revision = operations.Items[0].ScannedTargetRevision;
+        switch (field) { case 0: ++revision.serial; break; case 1: ++revision.fileId[0]; break; case 2: ++revision.size; break;
+                         case 3: ++revision.created; break; case 4: ++revision.modified; break; case 5: ++revision.changed; break; default: ++revision.attributes; }
+        Check(!operations.ResolveConflictSnapshot(snapshot, cmcdOverwrite, FALSE), "every meaningful revision field is bound");
+    }
+    {
+        COperations operations; Publish(operations, 0); Publish(operations, 1);
+        const CCopyMoveConflictRequest request = operations.ConflictRequestQueue.front();
+        PrepareRequeue(4); operations.RequeueChangedConflictItem(0);
+        Check(!operations.ResolveConflictRequest(request, cmcdOverwrite, TRUE), "stale request rejected after actual requeue");
+        Check(operations.Items[1].ConflictState == cmisConflict && operations.ConflictApplyAll[cmctFileExists] == cmcdNone, "stale request cannot apply All");
+        CCopyMoveConflictDecisionSnapshot current{}; operations.GetConflictDecisionSnapshot(0, current);
+        Check(!operations.ResolveConflictSnapshot(current, cmcdNone, TRUE), "invalid decision is refused");
+        Check(operations.ResolveConflictSnapshot(current, cmcdOverwrite, TRUE), "fresh Overwrite All resolves");
+        Check(operations.Items[0].ConflictState == cmisOverwrite && operations.Items[1].ConflictState == cmisOverwrite, "fresh Overwrite All applies");
+    }
+    std::printf("%d checks, %d failures\n", Checks, Failures);
+    return Failures ? 1 : 0;
+}

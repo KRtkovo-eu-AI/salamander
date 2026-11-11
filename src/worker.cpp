@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Apply conflict choices atomically against their captured snapshot. | Reject stale modal results and keep Apply All scoped to the current conflict. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Permit a verified late F6 retry after an ordinary Overwrite Older copy. | Preserve the native local deletion and ignored-time decisions. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Route ignored-stream F5 overwrites through typed UAC. | Keep the approved conflict and copy only the default stream. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify the singleton special-file timestamp request. | Reject attribute edits and preserve existing compression, sparsity and encryption. | #731 | GPT-6.1 Terra |
@@ -969,20 +970,45 @@ void COperations::GetDeferredConflicts(std::vector<CCopyMoveConflictSnapshot>& c
     HANDLES(LeaveCriticalSection(&ConflictCS));
 }
 
+void COperations::GetConflictSnapshotLocked(int index, CCopyMoveConflictSnapshot& conflict)
+{
+    conflict.ScriptIndex = index;
+    conflict.Type = At(index).ConflictType;
+    conflict.State = At(index).ConflictState;
+    conflict.OperationId = At(index).ConflictOperationId;
+    conflict.Generation = At(index).ConflictGeneration;
+    conflict.LeaseToken = At(index).ConflictLeaseToken;
+    conflict.DependencyEpoch = At(index).ConflictLeaseDependencyEpoch;
+    conflict.AuthorizedDecision = At(index).ConflictDecision;
+}
+
 BOOL COperations::GetConflictSnapshot(int index, CCopyMoveConflictSnapshot& conflict)
 {
     HANDLES(EnterCriticalSection(&ConflictCS));
     BOOL found = index >= 0 && index < Count && At(index).ConflictState == cmisConflict;
     if (found)
     {
-        conflict.ScriptIndex = index;
-        conflict.Type = At(index).ConflictType;
-        conflict.State = At(index).ConflictState;
-        conflict.OperationId = At(index).ConflictOperationId;
-        conflict.Generation = At(index).ConflictGeneration;
-        conflict.LeaseToken = At(index).ConflictLeaseToken;
-        conflict.DependencyEpoch = At(index).ConflictLeaseDependencyEpoch;
-        conflict.AuthorizedDecision = At(index).ConflictLeaseDecision;
+        GetConflictSnapshotLocked(index, conflict);
+    }
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    return found;
+}
+
+BOOL COperations::GetConflictDecisionSnapshot(int index, CCopyMoveConflictDecisionSnapshot& conflict)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    const BOOL found = index >= 0 && index < Count && At(index).ConflictState == cmisConflict;
+    if (found)
+    {
+        GetConflictSnapshotLocked(index, conflict.Conflict);
+        conflict.TargetVolumeSerial = At(index).ScannedTargetVolumeSerial;
+        conflict.TargetFileIndex = At(index).ScannedTargetFileIndex;
+        conflict.TargetIdentityValid = At(index).ScannedTargetIdentityValid;
+        conflict.TargetExisted = At(index).ScannedTargetExisted;
+        conflict.TargetAttributes = At(index).ScannedTargetAttributes;
+        conflict.TargetSize = At(index).ScannedTargetSize;
+        conflict.TargetWriteTime = At(index).ScannedTargetWriteTime;
+        conflict.TargetRevision = At(index).ScannedTargetRevision;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
     return found;
@@ -1432,23 +1458,53 @@ BOOL COperations::ResolveConflictRequest(const CCopyMoveConflictRequest& request
                                           CCopyMoveConflictDecision decision, BOOL applyAll)
 {
     HANDLES(EnterCriticalSection(&ConflictCS));
-    const BOOL valid = request.ScriptIndex >= 0 && request.ScriptIndex < Count &&
+    const BOOL valid = (decision == cmcdOverwrite || decision == cmcdSkip) &&
+                       request.Type > cmctNone && request.Type <= cmctTypeMismatch &&
+                       request.ScriptIndex >= 0 && request.ScriptIndex < Count &&
                        At(request.ScriptIndex).ConflictOperationId == request.OperationId &&
                        At(request.ScriptIndex).ConflictGeneration == request.Generation &&
                        At(request.ScriptIndex).ConflictState == cmisConflict &&
+                       At(request.ScriptIndex).ConflictType == request.Type &&
                        At(request.ScriptIndex).ScannedTargetVolumeSerial == request.ExpectedTargetVolumeSerial &&
                        At(request.ScriptIndex).ScannedTargetFileIndex == request.ExpectedTargetFileIndex &&
                        At(request.ScriptIndex).ScannedTargetIdentityValid == request.ExpectedTargetIdentityValid &&
                        At(request.ScriptIndex).ConflictDecision == request.AuthorizedDecision;
+    if (valid)
+        SetDeferredConflictDecisionLocked(request.ScriptIndex, decision, applyAll);
     HANDLES(LeaveCriticalSection(&ConflictCS));
-    if (!valid)
-        return FALSE;
-    SetDeferredConflictDecision(request.ScriptIndex, decision, applyAll);
-    return TRUE;
+    if (valid) SignalConflictChanged();
+    return valid;
 }
-void COperations::SetDeferredConflictDecision(int index, CCopyMoveConflictDecision decision, BOOL applyAll)
+
+BOOL COperations::ResolveConflictSnapshot(const CCopyMoveConflictDecisionSnapshot& conflict,
+                                          CCopyMoveConflictDecision decision, BOOL applyAll)
 {
     HANDLES(EnterCriticalSection(&ConflictCS));
+    const auto& basic = conflict.Conflict;
+    const int index = basic.ScriptIndex;
+    const BOOL valid = (decision == cmcdOverwrite || decision == cmcdSkip) &&
+        basic.Type > cmctNone && basic.Type <= cmctTypeMismatch &&
+        index >= 0 && index < Count && basic.State == cmisConflict &&
+        At(index).ConflictState == cmisConflict && At(index).ConflictType == basic.Type &&
+        At(index).ConflictOperationId == basic.OperationId && At(index).ConflictGeneration == basic.Generation &&
+        At(index).ConflictDecision == basic.AuthorizedDecision &&
+        At(index).ScannedTargetVolumeSerial == conflict.TargetVolumeSerial &&
+        At(index).ScannedTargetFileIndex == conflict.TargetFileIndex &&
+        At(index).ScannedTargetIdentityValid == conflict.TargetIdentityValid &&
+        At(index).ScannedTargetExisted == conflict.TargetExisted &&
+        At(index).ScannedTargetAttributes == conflict.TargetAttributes &&
+        At(index).ScannedTargetSize == conflict.TargetSize &&
+        CompareFileTime(&At(index).ScannedTargetWriteTime, &conflict.TargetWriteTime) == 0 &&
+        UacF7::SameFileRevision(At(index).ScannedTargetRevision, conflict.TargetRevision);
+    if (valid)
+        SetDeferredConflictDecisionLocked(index, decision, applyAll);
+    HANDLES(LeaveCriticalSection(&ConflictCS));
+    if (valid) SignalConflictChanged();
+    return valid;
+}
+
+void COperations::SetDeferredConflictDecisionLocked(int index, CCopyMoveConflictDecision decision, BOOL applyAll)
+{
     if (index >= 0 && index < Count && At(index).ConflictType != cmctNone)
     {
         CCopyMoveConflictType type = At(index).ConflictType;
@@ -1470,6 +1526,12 @@ void COperations::SetDeferredConflictDecision(int index, CCopyMoveConflictDecisi
         RebuildConflictQueuesLocked();
         ConflictListVersion++;
     }
+}
+
+void COperations::SetDeferredConflictDecision(int index, CCopyMoveConflictDecision decision, BOOL applyAll)
+{
+    HANDLES(EnterCriticalSection(&ConflictCS));
+    SetDeferredConflictDecisionLocked(index, decision, applyAll);
     HANDLES(LeaveCriticalSection(&ConflictCS));
     SignalConflictChanged();
 }

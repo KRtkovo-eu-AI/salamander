@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Bind conflict responses to their displayed coordinator snapshot. | Reject decisions for a replaced scan generation. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Identify an uncertain disk replacement. | Explain retained recovery files without changing other operation messages. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Carry the exact singleton special-file timestamp policy. | Keep attribute and compression edits outside the verified time-only retry. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Track declined Windows consent on the copy plan. | Distinguish system refusal from skipping the source in the app. | #731 | GPT-6.1 Sol |
@@ -383,6 +384,21 @@ struct CCopyMoveConflictSnapshot
     CCopyMoveConflictDecision AuthorizedDecision;
 };
 
+// The visible conflict list keeps its small snapshot; only an active prompt
+// needs the complete target state used to reject stale modal responses.
+struct CCopyMoveConflictDecisionSnapshot
+{
+    CCopyMoveConflictSnapshot Conflict;
+    DWORD TargetVolumeSerial;
+    ULONGLONG TargetFileIndex;
+    BOOL TargetIdentityValid;
+    BOOL TargetExisted;
+    DWORD TargetAttributes;
+    ULONGLONG TargetSize;
+    FILETIME TargetWriteTime;
+    UacF7::ArchiveRevision TargetRevision;
+};
+
 struct CCopyMoveConflictRequest
 {
     ULONGLONG OperationId;
@@ -529,6 +545,8 @@ public:
     int GetConflictListVersion();
     void GetDeferredConflicts(std::vector<CCopyMoveConflictSnapshot>& conflicts);
     BOOL GetConflictSnapshot(int index, CCopyMoveConflictSnapshot& conflict);
+    BOOL GetConflictDecisionSnapshot(int index, CCopyMoveConflictDecisionSnapshot& conflict);
+    BOOL ResolveConflictSnapshot(const CCopyMoveConflictDecisionSnapshot& conflict, CCopyMoveConflictDecision decision, BOOL applyAll);
     BOOL GetNextConflictPromptItem(int& index, int excludedIndex = -1);
     void SetDeferredConflictDecision(int index, CCopyMoveConflictDecision decision, BOOL applyAll);
     void SetOperationWideConflictDecision(CCopyMoveConflictDecision decision);
@@ -600,6 +618,8 @@ public:
     char* WaitInQueueTo;      // text for the "waiting in queue" state: bottom line (To)
 
 private:
+    void GetConflictSnapshotLocked(int index, CCopyMoveConflictSnapshot& conflict);
+    void SetDeferredConflictDecisionLocked(int index, CCopyMoveConflictDecision decision, BOOL applyAll);
     // for the status line in the progress dialog (Copy and Move only)
     CRITICAL_SECTION StatusCS;              // critical section protecting TransferSpeedMeter, ProgressSpeedMeter, and
     CRITICAL_SECTION ConflictCS;            // protects scan-ahead item states and snapshots

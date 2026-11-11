@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Resolve native conflict dialogs against their original snapshot. | Discard stale answers when Scan Ahead changes the conflict. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Explain uncertain disk overwrite recovery. | Point users to preserved backup and journal files. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Respect refused UAC consent in the same delete scope. | Suppress repeated system prompts while allowing an explicit retry. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Display the approved roots for an existing F5 tree. | Keep the consent scope independent of the first denied entry. | #731 | GPT-6.1 Sol |
@@ -1095,6 +1096,15 @@ void CProgressDialog::EndConflictPromptPresentation()
     DeferredParallelProgress = NULL;
     DeferredProgressKind = dpkNone;
 
+    // Ending the worker can close this window during the nested modal loop.
+    // The deferred payload is still ours even when there is no UI to update.
+    if (Script == NULL || HWindow == NULL || !IsWindow(HWindow))
+    {
+        if (parallel != NULL) FreeParallelProgressMessage(parallel);
+        ConflictRefreshDeferred = FALSE;
+        return;
+    }
+
     if (progressKind == dpkParallel && parallel != NULL)
     {
         ParallelProgressActive = TRUE;
@@ -1138,16 +1148,20 @@ void CProgressDialog::PromptNextConflict()
     // Operation/dialog lifetime policy: opening the first automatic prompt consumes
     // the only automatic admission, regardless of its eventual result.
     ConflictAutomaticPromptConsumed = TRUE;
-    CCopyMoveConflictSnapshot conflict;
+    CCopyMoveConflictDecisionSnapshot conflict;
+    COperations* const promptScript = Script;
+    const HWND promptWindow = HWindow;
     BOOL decided = FALSE;
-    if (Script->GetConflictSnapshot(index, conflict))
+    if (Script->GetConflictDecisionSnapshot(index, conflict))
     {
         COperation& operation = Script->At(index);
+        const std::string targetName = operation.TargetName != NULL ? operation.TargetName : "";
+        const std::string sourceName = operation.SourceName != NULL ? operation.SourceName : "";
         char targetInfo[101], sourceInfo[101];
         std::wstring targetPath = operation.TargetNameWValid ? operation.TargetNameW :
-            SalMultiByteToWidePath(operation.TargetName, IsValidPathUtf8Text(operation.TargetName) ? CP_UTF8 : CP_ACP);
+            SalMultiByteToWidePath(targetName.c_str(), IsValidPathUtf8Text(targetName.c_str()) ? CP_UTF8 : CP_ACP);
         std::wstring sourcePath = operation.SourceNameWValid ? operation.SourceNameW :
-            SalMultiByteToWidePath(operation.SourceName, IsValidPathUtf8Text(operation.SourceName) ? CP_UTF8 : CP_ACP);
+            SalMultiByteToWidePath(sourceName.c_str(), IsValidPathUtf8Text(sourceName.c_str()) ? CP_UTF8 : CP_ACP);
         if (!targetPath.empty() && !sourcePath.empty())
         {
             targetPath = SalPathAddExtendedPrefixW(targetPath.c_str());
@@ -1155,20 +1169,36 @@ void CProgressDialog::PromptNextConflict()
             BOOL failed = FALSE;
             HANDLE target = HANDLES_Q(CreateFileW(targetPath.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
             HANDLE source = HANDLES_Q(CreateFileW(sourcePath.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
-            GetFileOverwriteInfo(targetInfo, _countof(targetInfo), target, operation.TargetName, NULL, &failed);
-            GetFileOverwriteInfo(sourceInfo, _countof(sourceInfo), source, operation.SourceName, NULL, &failed);
+            GetFileOverwriteInfo(targetInfo, _countof(targetInfo), target, targetName.c_str(), NULL, &failed);
+            GetFileOverwriteInfo(sourceInfo, _countof(sourceInfo), source, sourceName.c_str(), NULL, &failed);
             if (target != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(target));
             if (source != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(source));
-            COverwriteDlg dlg(HWindow, operation.TargetName, targetInfo, operation.SourceName,
-                              sourceInfo, FALSE, conflict.Type == cmctDirectoryExists);
+            COverwriteDlg dlg(promptWindow, targetName.c_str(), targetInfo, sourceName.c_str(),
+                              sourceInfo, FALSE, conflict.Conflict.Type == cmctDirectoryExists);
             int ret = (int)dlg.Execute();
-            if (ret == IDYES || ret == IDB_ALL)
-                Script->SetDeferredConflictDecision(index, cmcdOverwrite, ret == IDB_ALL);
-            else if (ret == IDB_SKIP || ret == IDB_SKIPALL)
-                Script->SetDeferredConflictDecision(index, cmcdSkip, ret == IDB_SKIPALL);
+            if (Script != promptScript || HWindow != promptWindow || !IsWindow(promptWindow) || CancelWorker ||
+                (CancelWorkerEvent != NULL && WaitForSingleObject(CancelWorkerEvent, 0) == WAIT_OBJECT_0))
+                return;
+            if (ret == IDYES || ret == IDB_ALL || ret == IDB_SKIP || ret == IDB_SKIPALL)
+            {
+                const auto decision = ret == IDYES || ret == IDB_ALL ? cmcdOverwrite : cmcdSkip;
+                decided = Script == promptScript && !CancelWorker &&
+                    Script->ResolveConflictSnapshot(conflict, decision, ret == IDB_ALL || ret == IDB_SKIPALL);
+                if (!decided && Script == promptScript && !CancelWorker)
+                {
+                    CCopyMoveConflictSnapshot current;
+                    ConflictPromptIndex = -1;
+                    if (Script->GetConflictSnapshot(index, current))
+                    {
+                        // A changed generation needs a new native decision, not
+                        // the answer just given for its predecessor.
+                        ConflictAutomaticPromptConsumed = FALSE;
+                        PostMessage(HWindow, WM_TIMER, IDT_UPDATESTATUS, 0);
+                    }
+                }
+            }
             else
                 ConflictPromptIndex = index;
-            decided = ret == IDYES || ret == IDB_ALL || ret == IDB_SKIP || ret == IDB_SKIPALL;
         }
     }
     if (decided)
@@ -2505,19 +2535,23 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
             BOOL retainedPrompt = index >= 0 && index == ConflictPromptIndex;
             if (index >= 0)
             {
-                CCopyMoveConflictSnapshot conflict;
-                if (Script->GetConflictSnapshot(index, conflict))
+                CCopyMoveConflictDecisionSnapshot conflict;
+                if (Script->GetConflictDecisionSnapshot(index, conflict))
                 {
+                    COperations* const promptScript = Script;
+                    const HWND promptWindow = HWindow;
                     CCopyMoveConflictDecision decision = cmcdSkip;
                     if (command == IDC_PROGRESS_SOLVE)
                     {
                         int ret = IDCANCEL;
                         char targetInfo[101], sourceInfo[101];
                         COperation& operation = Script->At(index);
+                        const std::string targetName = operation.TargetName != NULL ? operation.TargetName : "";
+                        const std::string sourceName = operation.SourceName != NULL ? operation.SourceName : "";
                         std::wstring targetPath = operation.TargetNameWValid ? operation.TargetNameW :
-                            SalMultiByteToWidePath(operation.TargetName, IsValidPathUtf8Text(operation.TargetName) ? CP_UTF8 : CP_ACP);
+                            SalMultiByteToWidePath(targetName.c_str(), IsValidPathUtf8Text(targetName.c_str()) ? CP_UTF8 : CP_ACP);
                         std::wstring sourcePath = operation.SourceNameWValid ? operation.SourceNameW :
-                            SalMultiByteToWidePath(operation.SourceName, IsValidPathUtf8Text(operation.SourceName) ? CP_UTF8 : CP_ACP);
+                            SalMultiByteToWidePath(sourceName.c_str(), IsValidPathUtf8Text(sourceName.c_str()) ? CP_UTF8 : CP_ACP);
                         if (targetPath.empty() || sourcePath.empty())
                             return TRUE;
                         targetPath = SalPathAddExtendedPrefixW(targetPath.c_str());
@@ -2525,30 +2559,44 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
                         BOOL failed = FALSE;
                         HANDLE target = HANDLES_Q(CreateFileW(targetPath.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
                         HANDLE source = HANDLES_Q(CreateFileW(sourcePath.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL));
-                        GetFileOverwriteInfo(targetInfo, _countof(targetInfo), target, operation.TargetName, NULL, &failed);
-                        GetFileOverwriteInfo(sourceInfo, _countof(sourceInfo), source, operation.SourceName, NULL, &failed);
+                        GetFileOverwriteInfo(targetInfo, _countof(targetInfo), target, targetName.c_str(), NULL, &failed);
+                        GetFileOverwriteInfo(sourceInfo, _countof(sourceInfo), source, sourceName.c_str(), NULL, &failed);
                         if (target != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(target));
                         if (source != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(source));
-                        COverwriteDlg dlg(HWindow, operation.TargetName, targetInfo, operation.SourceName,
-                                          sourceInfo, FALSE, conflict.Type == cmctDirectoryExists);
+                        COverwriteDlg dlg(promptWindow, targetName.c_str(), targetInfo, sourceName.c_str(),
+                                          sourceInfo, FALSE, conflict.Conflict.Type == cmctDirectoryExists);
                         CConflictPromptPresentationGuard presentation(this);
                         ret = (int)dlg.Execute();
+                        if (Script != promptScript || HWindow != promptWindow || !IsWindow(promptWindow) || CancelWorker ||
+                            (CancelWorkerEvent != NULL && WaitForSingleObject(CancelWorkerEvent, 0) == WAIT_OBJECT_0))
+                            return TRUE;
                         if (ret == IDYES || ret == IDB_ALL) decision = cmcdOverwrite;
                         else if (ret != IDB_SKIP && ret != IDB_SKIPALL)
                         {
                             return TRUE;
                         }
-                        if (selectedAction)
+                        const BOOL resolved = Script == promptScript && !CancelWorker &&
+                            Script->ResolveConflictSnapshot(conflict, decision, ret == IDB_ALL || ret == IDB_SKIPALL);
+                        if (resolved && selectedAction)
                             ConflictSelectionRowAfterRemoval = selectedRow;
-                        Script->SetDeferredConflictDecision(index,
-                            decision, ret == IDB_ALL || ret == IDB_SKIPALL);
                         ConflictPromptIndex = -1;
+                        if (!resolved && Script == promptScript && !CancelWorker)
+                        {
+                            CCopyMoveConflictSnapshot current;
+                            if (Script->GetConflictSnapshot(index, current))
+                            {
+                                ConflictAutomaticPromptConsumed = FALSE;
+                                PostMessage(HWindow, WM_TIMER, IDT_UPDATESTATUS, 0);
+                            }
+                        }
                         return TRUE;
                     }
-                    if (selectedAction)
+                    const BOOL resolved = Script->ResolveConflictSnapshot(conflict, decision, FALSE);
+                    if (resolved && selectedAction)
                         ConflictSelectionRowAfterRemoval = selectedRow;
-                    Script->SetDeferredConflictDecision(index, decision, FALSE);
                     if (retainedPrompt)
+                        ConflictPromptIndex = -1;
+                    else if (!resolved)
                         ConflictPromptIndex = -1;
                 }
             }
