@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Track searches limited by protected scope capacity. | Report incomplete results separately from an explicit Stop. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Expose bounded legacy path checks and full focused paths. | Avoid passing long results to legacy fixed buffers. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Retain the identity of a protected Find result. | Permit a later exact-file viewer request after the search ends. | #731 | GPT-6.1 Sol |
@@ -168,6 +169,19 @@ public:
 #define FIND_DUPLICATES_SIZE 0x00000002    // same size
 #define FIND_DUPLICATES_CONTENT 0x00000004 // same content
 
+// Reasons are accumulated by the search worker; the dialog reads them only after it joins.
+// New reasons must not be emitted until their localized UI and carried log are supported.
+enum FindIncompleteReason : unsigned
+{
+    FindIncompleteNone = 0,
+    FindIncompleteScopeCapacity = 1u << 0,
+    FindIncompleteDirectoryCapacity = 1u << 1,
+    FindIncompleteScanBudget = 1u << 2,
+    FindIncompleteScanDepth = 1u << 3,
+    FindIncompleteReparse = 1u << 4,
+    FindIncompleteProtectedFailure = 1u << 5
+};
+
 enum class CFindActivity
 {
     Idle,
@@ -223,7 +237,7 @@ struct CGrepData
     HANDLE StopEvent = nullptr; // owned by the dialog until the search worker has joined
     std::atomic_bool StopSearch{false}; // the dialog requests cancellation of the search
     BOOL SearchStopped; // has it been terminated or not?
-    BOOL SearchIncomplete = FALSE; // worker writes; UI reads after the worker handle is signaled
+    unsigned IncompleteReasons = FindIncompleteNone; // worker writes; UI reads after the worker handle is signaled
     CFindLog* Log;      // dialog-owned storage; worker copies messages without calling the UI
     CFindWatchdog* Watchdog; // optional scalar telemetry; retained by the Find dialog
     TIndirectArray<CSearchForData>* Data;

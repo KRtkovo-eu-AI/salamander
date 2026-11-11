@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Prepare typed incomplete Find reasons. | Preserve reason lineage before extending protected traversal. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Clarify directory recycle safety requirements. | Prevent post-operation receipts from being mistaken for a guarantee against permanent deletion. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Clarify protected panel refresh transaction requirements. | Avoid claiming rollback from restoration of file arrays alone. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record Find diagnostic build evidence. | Separate native builds from pending UAC and UI acceptance. | #731 | GPT-6.1 Terra |
@@ -517,6 +518,8 @@ Host commitu `f9e6fde3` se sestavil pro x64 Debug i Release; logy jsou v `C:\Sam
 Místně prošlo v Debug i Release 96 kontrol skutečné fronty a vybraných řídicích větví s testovacími dvojníky; skutečná extrahovaná traversal smyčka zachovala běžné výsledky a rozlišila limit od Stop. Prošly také kontroly všech 11 překladů a placeholderů. Celé okno Find, skutečné UAC a složené scénáře čekají na společnou VM akceptaci. Vymezená jedna relace pro celý vybraný kořen, více kořenů a stránkovaný průchod nad stávajícími limity zůstávají otevřené.
 
 Host a anglický jazykový modul commitu `f1cd25c5` se sestavily pro x64 Debug i Release; logy jsou v `C:\Samandarin\builds\uac-f1cd25c5-host`. Release host má 5 784 576 B, o 3 072 B více než host `f9e6fde3`. Broker se neměnil. Měření paměti a společná VM akceptace zůstávají otevřené.
+
+Příprava dalšího řezu ukládá příčiny neúplného Findu jako oddělené příznaky a zachovává je při navazujících operacích i neúspěšném spuštění. Produkce zatím nastavuje pouze dosavadní kapacitní důvod; ostatní se nesmí aktivovat, dokud pro ně nebude odpovídající text a zobrazení. Místní řídicí harness prošel 103 kontrolami v Debug i Release. Nový společný root job ani VM tím nejsou hotové.
 
 **T5 — zastaralá revize a Scan Ahead.** Místní test skutečného dispatcheru kontroluje, že stejný soubor s odlišným časem v předané revizi skončí `ERROR_FILE_INVALID` a zachová zdroj i cíl. Test skutečného těla workeru se simulovaným selháním ověření identity navíc ověřuje, že ani rozhodnutí Overwrite All nespustí broker pro neověřený cíl. To není oprava opakovaného potvrzení ani test skutečného odepřeného ACL. Zůstává nutné předat aktuální revizi z ověřené relace do nové generace konfliktu Scan Ahead, znovu získat nativní rozhodnutí a po něm bezpečně ověřit cílovou cestu až do provedení. Dosavadní přepočet konfliktu při lokálním `ACCESS_DENIED` neumí zachovat ověřenou identitu; otevřené zůstává také připnutí předků proti přesunu během modality. VM důkaz zatím neexistuje.
 

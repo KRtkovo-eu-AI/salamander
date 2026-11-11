@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Report an incomplete protected Find separately from Stop. | Do not present a capacity-limited search as complete. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Keep long Find results exact across file actions. | Avoid truncated targets and retain inaccessible results. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Show editor consent and launch from the Find window thread. | Keep Find responsive while the user decides. | #731 | GPT-6.1 Sol |
@@ -2545,9 +2546,9 @@ void CFindDialog::BuildSerchForData()
     } while (*end != 0);
 }
 
-static bool RetainFindIncomplete(WORD command, bool incomplete)
+static unsigned RetainFindIncomplete(WORD command, unsigned reasons)
 {
-    return incomplete && (command == CM_FIND_APPEND || command == CM_FIND_INTERSECT || command == CM_FIND_SUBTRACT);
+    return command == CM_FIND_APPEND || command == CM_FIND_INTERSECT || command == CM_FIND_SUBTRACT ? reasons : FindIncompleteNone;
 }
 
 void CFindDialog::StartSearch(WORD command)
@@ -2581,8 +2582,8 @@ void CFindDialog::StartSearch(WORD command)
     ListView_SetItemCount(FoundFilesListView->HWindow, 0);
     UpdateWindow(FoundFilesListView->HWindow);
 
-    const bool previousIncomplete = GrepData.SearchIncomplete != FALSE;
-    const bool retainIncomplete = RetainFindIncomplete(command, previousIncomplete);
+    const unsigned previousIncomplete = GrepData.IncompleteReasons;
+    const unsigned retainIncomplete = RetainFindIncomplete(command, previousIncomplete);
     const auto restoreIncompleteLog = [&] {
         char reason[1024];
         FindProtectedScopeLimitText(true, reason, sizeof(reason));
@@ -2737,12 +2738,12 @@ void CFindDialog::StartSearch(WORD command)
         Log.Clean();
         TBHeader->SetErrorsInfosCount(0, 0);
     }
-    GrepData.SearchIncomplete = retainIncomplete;
+    GrepData.IncompleteReasons = retainIncomplete;
     DWORD threadId;
     GrepThread = HANDLES(CreateThread(NULL, 0, GrepThreadF, &GrepData, 0, &threadId));
     if (GrepThread == NULL)
     {
-        GrepData.SearchIncomplete = previousIncomplete;
+        GrepData.IncompleteReasons = previousIncomplete;
         if (previousIncomplete && !retainIncomplete)
             restoreIncompleteLog();
         if (GrepData.StopEvent)
@@ -2832,7 +2833,7 @@ void CFindDialog::FinishSearch()
     if (!GrepData.SearchStopped && !SearchStopRequested)
     {
         DWORD items = FoundFilesListView->GetCount();
-        if (items == 0 && GrepData.SearchIncomplete)
+        if (items == 0 && GrepData.IncompleteReasons)
             SendMessage(HStatusBar, SB_SETTEXT, 1 | SBT_NOBORDERS, (LPARAM)LoadStr(IDS_FIND_ACTIVITY_INCOMPLETE));
         else if (items == 0)
         {
@@ -2867,7 +2868,7 @@ void CFindDialog::OnFindWorkIdle()
         return;
 
     if (Activity == CFindActivity::Finishing)
-        SetFindActivity(FindFinalActivity(GrepData.SearchStopped || SearchStopRequested, GrepData.SearchIncomplete));
+        SetFindActivity(FindFinalActivity(GrepData.SearchStopped || SearchStopRequested, GrepData.IncompleteReasons));
 
     if (FindCloseQueryPending)
     {

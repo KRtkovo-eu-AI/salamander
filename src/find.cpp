@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Report exhausted protected Find scope capacity. | Distinguish the current limit from an access failure. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Use the established UTF-8 or ACP decoding for Find roots. | Keep legacy configuration roots compatible. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Traverse ordinary Find with wide paths and a pending directory stack. | Keep long Unicode results and protected requests tied to the actual path. | #731 | GPT-6.1 Sol |
@@ -908,7 +909,7 @@ static void ReportFindScopeLimit(CGrepData* data, const char* path)
 {
     if (data->StopSearch)
         return;
-    data->SearchIncomplete = TRUE;
+    data->IncompleteReasons |= FindIncompleteScopeCapacity;
     char message[1024];
     FindProtectedScopeLimitText(false, message, sizeof(message));
     if (!data->StopSearch)

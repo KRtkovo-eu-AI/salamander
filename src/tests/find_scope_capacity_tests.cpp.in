@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise the real protected Find queue and limit report. | Preserve Stop and deduplication at capacity. | #731 | GPT-6.1 Terra |
 #include <windows.h>
 #include <array>
@@ -11,6 +12,7 @@
 #include <vector>
 #include "@@LOCALIZED_HEADER@@"
 
+@@INCOMPLETE_REASONS@@
 @@ACTIVITY@@
 @@FINAL_ACTIVITY@@
 enum class FindQueueResult { Added, Stopped, Limit, Failed };
@@ -27,7 +29,7 @@ struct CDuplicateCandidates {};
 struct Root { std::wstring path; };
 struct CGrepData {
     std::atomic_bool StopSearch{false};
-    bool SearchIncomplete = false;
+    unsigned IncompleteReasons = FindIncompleteNone;
     bool FindDuplicates = false;
     bool failLog = false;
     int Refine = 0;
@@ -164,7 +166,7 @@ int main() {
     Check(queue.Add(&data, L"C:\\scope\\32", &mask, TRUE, 0, {}) == FindQueueResult::Limit,
           "the next distinct scope reports capacity rather than access denied");
     ReportFindScopeLimit(&data, "C:\\scope\\32");
-    Check(data.SearchIncomplete && data.logs.size() == 1 && data.logs[0].find("32") != std::string::npos,
+    Check(data.IncompleteReasons && data.logs.size() == 1 && data.logs[0].find("32") != std::string::npos,
           "capacity marks incomplete and reports the actual limit");
     data.StopSearch = true;
     Check(queue.Add(&data, L"C:\\scope\\33", &mask, TRUE, 0, {}) == FindQueueResult::Stopped,
@@ -181,12 +183,12 @@ int main() {
           "append and both refine modes retain incompleteness only when prior results need it");
     { CGrepData noLog; noLog.failLog = true;
       ReportFindScopeLimit(&noLog, "C:\\scope\\33");
-      Check(noLog.SearchIncomplete && noLog.logs.empty() &&
-            FindFinalActivity(false, noLog.SearchIncomplete) == CFindActivity::Incomplete,
+      Check(noLog.IncompleteReasons && noLog.logs.empty() &&
+            FindFinalActivity(false, noLog.IncompleteReasons) == CFindActivity::Incomplete,
             "a full or unavailable log still leaves the precise incomplete status visible"); }
-    { FakeDialog dialog; dialog.GrepData.SearchIncomplete = true; dialog.SetResultStatus();
+    { FakeDialog dialog; dialog.GrepData.IncompleteReasons = true; dialog.SetResultStatus();
       Check(statusText == "Incomplete (admin limit)", "zero unverified results do not claim no files found");
-      dialog.GrepData.SearchIncomplete = false; dialog.SetResultStatus();
+      dialog.GrepData.IncompleteReasons = false; dialog.SetResultStatus();
       Check(statusText == "No files", "a complete empty search keeps the normal no files status");
       dialog.GrepData.FindDuplicates = true; dialog.SetResultStatus();
       Check(statusText == "No duplicates", "a complete empty duplicate search keeps its own status");
@@ -196,22 +198,41 @@ int main() {
     Check(std::string(carriedText).find("Earlier limit 32") != std::string::npos,
           "carried limit reason identifies an earlier search without attributing a current path");
     for (const WORD command : {CM_FIND_APPEND, CM_FIND_INTERSECT, CM_FIND_SUBTRACT}) {
-        FakeDialog dialog; dialog.GrepData.SearchIncomplete = true;
-        Check(dialog.StartState(command, true, true) && dialog.GrepData.SearchIncomplete &&
+        FakeDialog dialog; dialog.GrepData.IncompleteReasons = true;
+        Check(dialog.StartState(command, true, true) && dialog.GrepData.IncompleteReasons &&
               dialog.Log.rows.size() == 1 && dialog.Log.rows[0].find("Earlier limit 32") != std::string::npos &&
               dialog.Log.paths[0].empty(), "actual startup carries the prior reason without a misleading current path");
     }
     {
-        FakeDialog dialog; dialog.GrepData.SearchIncomplete = true;
-        Check(dialog.StartState(IDOK, true, true) && !dialog.GrepData.SearchIncomplete && dialog.Log.rows.empty(),
+        FakeDialog dialog; dialog.GrepData.IncompleteReasons = true;
+        Check(dialog.StartState(IDOK, true, true) && !dialog.GrepData.IncompleteReasons && dialog.Log.rows.empty(),
               "a successfully started replacing search clears the prior limit reason");
     }
     for (const bool timerStarted : {false, true}) {
-        FakeDialog dialog; dialog.GrepData.SearchIncomplete = true;
-        Check(!dialog.StartState(IDOK, timerStarted, false) && dialog.GrepData.SearchIncomplete &&
+        FakeDialog dialog; dialog.GrepData.IncompleteReasons = true;
+        Check(!dialog.StartState(IDOK, timerStarted, false) && dialog.GrepData.IncompleteReasons &&
               dialog.Log.rows.size() == 1 && dialog.Log.rows[0].find("Earlier limit 32") != std::string::npos &&
               dialog.Log.paths[0].empty(), "a timer or worker startup failure preserves prior incomplete reason");
     }
+    // Synthetic future flags test storage only; production emits only scope capacity until localized reporting exists.
+    constexpr unsigned mixed = FindIncompleteScopeCapacity | FindIncompleteScanDepth | FindIncompleteReparse;
+    for (const WORD command : {CM_FIND_APPEND, CM_FIND_INTERSECT, CM_FIND_SUBTRACT}) {
+        FakeDialog dialog; dialog.GrepData.IncompleteReasons = mixed;
+        Check(dialog.StartState(command, true, true) && dialog.GrepData.IncompleteReasons == mixed,
+              "actual append and refine startup preserve each incomplete reason");
+    }
+    for (const bool timerStarted : {false, true}) {
+        FakeDialog dialog; dialog.GrepData.IncompleteReasons = mixed;
+        Check(!dialog.StartState(IDOK, timerStarted, false) && dialog.GrepData.IncompleteReasons == mixed,
+              "timer and worker startup failure preserve each previous reason");
+    }
+    { FakeDialog dialog; dialog.GrepData.IncompleteReasons = mixed;
+      Check(dialog.StartState(IDOK, true, true) && dialog.GrepData.IncompleteReasons == FindIncompleteNone,
+            "successful replacing search resets all previous reasons"); }
+    { CGrepData accumulated; accumulated.IncompleteReasons = FindIncompleteScanBudget;
+      ReportFindScopeLimit(&accumulated, "C:\\scope\\33");
+      Check(accumulated.IncompleteReasons == (FindIncompleteScanBudget | FindIncompleteScopeCapacity),
+            "reporting scope capacity accumulates rather than replacing another reason"); }
     Check(FindFileConsentLimit(ERROR_ACCESS_DENIED, 0, 0) &&
           !FindFileConsentLimit(ERROR_ACCESS_DENIED, 0, 1) &&
           !FindFileConsentLimit(ERROR_ACCESS_DENIED, FILE_ATTRIBUTE_ENCRYPTED, 0) &&
@@ -221,16 +242,16 @@ int main() {
     {
         CGrepData digest; CFoundFilesData row; size_t remaining = 0;
         digestAuthorizations = 0; digestAuthorizationResult = ERROR_SUCCESS;
-        Check(DigestDenied(&digest, &row, remaining) == ERROR_ACCESS_DENIED && digest.SearchIncomplete &&
+        Check(DigestDenied(&digest, &row, remaining) == ERROR_ACCESS_DENIED && digest.IncompleteReasons &&
               digest.logs.size() == 1 && digestAuthorizations == 0,
               "the actual denied digest branch reports exhausted consent without starting a broker");
-        digest.SearchIncomplete = false; digest.logs.clear(); row.Attr = FILE_ATTRIBUTE_ENCRYPTED;
-        Check(DigestDenied(&digest, &row, remaining) == ERROR_ACCESS_DENIED && !digest.SearchIncomplete &&
+        digest.IncompleteReasons = false; digest.logs.clear(); row.Attr = FILE_ATTRIBUTE_ENCRYPTED;
+        Check(DigestDenied(&digest, &row, remaining) == ERROR_ACCESS_DENIED && !digest.IncompleteReasons &&
               digest.logs.empty() && digestAuthorizations == 0,
               "an unsupported encrypted digest is not misreported as the scope limit");
         row.Attr = 0; remaining = 1;
         Check(DigestDenied(&digest, &row, remaining) == ERROR_SUCCESS && remaining == 0 &&
-              digestAuthorizations == 1 && !digest.SearchIncomplete,
+              digestAuthorizations == 1 && !digest.IncompleteReasons,
               "an available file consent is consumed and authorized normally");
     }
     {
@@ -244,13 +265,13 @@ int main() {
         Check(items.AddRefined(&refine, L"C:\\file0", &mask, row) == FindQueueResult::Limit,
               "a changed refined row cannot merge into the old consent at capacity");
         row.Attr = 0;
-        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 0 && refine.SearchIncomplete &&
+        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 0 && refine.IncompleteReasons &&
               refine.logs.size() == 1, "limited intersection omits an unverified row and reports incomplete");
-        refine.SearchIncomplete = false; refine.logs.clear(); refine.Refine = 2;
-        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 1 && refine.SearchIncomplete &&
+        refine.IncompleteReasons = false; refine.logs.clear(); refine.Refine = 2;
+        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 1 && refine.IncompleteReasons &&
               refine.logs.size() == 1, "limited subtraction retains the original row and reports incomplete");
-        refine.SearchIncomplete = false; refine.logs.clear(); refine.StopSearch = true;
-        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 0 && !refine.SearchIncomplete &&
+        refine.IncompleteReasons = false; refine.logs.clear(); refine.StopSearch = true;
+        Check(RefineDenied(&refine, items, &row, &mask, L"C:\\other") == 0 && !refine.IncompleteReasons &&
               refine.logs.empty(), "Stop prevents a new refine result or false capacity report");
     }
     {

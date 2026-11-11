@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Test actual protected Find queue capacity. | Distinguish Stop and failure from incomplete results. | #731 | GPT-6.1 Terra |
 """Compile the actual protected queue and final activity with controlled seams."""
 import argparse
@@ -18,23 +19,24 @@ def main():
     source, header = read('src/find.cpp'), read('src/find.h')
     dialog = read('src/finddlg1.cpp')
     start = block(dialog, 'void CFindDialog::StartSearch(')
-    state_start = start.index('    const bool previousIncomplete =')
+    state_start = start.index('    const unsigned previousIncomplete =')
     state_end = start.index('    GrepData.FindDuplicates = FALSE;', state_start)
     before_thread = start.index('    if (!retainIncomplete)', state_end)
     before_thread_end = start.index('    DWORD threadId;', before_thread)
-    failed_start = start.index('        GrepData.SearchIncomplete = previousIncomplete;', before_thread_end)
+    failed_start = start.index('        GrepData.IncompleteReasons = previousIncomplete;', before_thread_end)
     failed_end = start.index('        if (GrepData.StopEvent)', failed_start)
     refine = block(source, 'void RefineData(')
     digest = block(source, 'BOOL CDuplicateCandidates::GetMD5Digest(')
     fixture = read('src/tests/find_scope_capacity_tests.cpp.in')
     pieces = {
         'LOCALIZED_HEADER': (ROOT / 'src/common/localizedtext.h').as_posix(),
+        'INCOMPLETE_REASONS': block(header, 'enum FindIncompleteReason', ';'),
         'ACTIVITY': block(header, 'enum class CFindActivity', ';'),
         'FINAL_ACTIVITY': block(header, 'inline CFindActivity FindFinalActivity('),
         'LIMIT_TEST': block(source, 'static bool FindFileConsentLimit('),
         'LIMIT_TEXT': block(source, 'void FindProtectedScopeLimitText('),
         'REPORT': block(source, 'static void ReportFindScopeLimit('),
-        'RETAIN_INCOMPLETE': block(dialog, 'static bool RetainFindIncomplete('),
+        'RETAIN_INCOMPLETE': block(dialog, 'static unsigned RetainFindIncomplete('),
         'FINISH_ITEMS': dialog[dialog.index('DWORD items = FoundFilesListView->GetCount();', dialog.index('void CFindDialog::FinishSearch(')):dialog.index('UpdateStatusBar = TRUE;', dialog.index('DWORD items = FoundFilesListView->GetCount();', dialog.index('void CFindDialog::FinishSearch('))) + len('UpdateStatusBar = TRUE;')],
         'START_STATE': start[state_start:state_end],
         'BEFORE_THREAD': start[before_thread:before_thread_end],
