@@ -1,5 +1,7 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Clarify directory recycle safety requirements. | Prevent post-operation receipts from being mistaken for a guarantee against permanent deletion. | #731 | GPT-6.1 Terra |
+| 2026-11-11 | Clarify protected panel refresh transaction requirements. | Avoid claiming rollback from restoration of file arrays alone. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record Find diagnostic build evidence. | Separate native builds from pending UAC and UI acceptance. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record explicit Find capacity diagnostics. | Preserve partial-result lineage without claiming the limit is removed. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record size batch build evidence. | Keep local build verification distinct from the pending interactive test. | #731 | GPT-6.1 Terra |
@@ -499,6 +501,10 @@ Společné příčiny určují pořadí oprav.
 | **Z3** | C3 | F5 z obyčejného čitelného ZIPu do chráněného cíle nejde cestou chráněné extrakce. SafeFileCreate nabídne jen běžný retry/skip/cancel. `fileswn7.cpp:1719–1723`, `safefile.cpp:705–732`. Zachovat běžný ZIP panel i konfliktové dialogy. |
 | **O1** | C3 | Další nativní vstupy bez UAC retry zahrnují Edit New File, Convert, vlastnosti/tagy, Save File List a změnu jmenovky svazku. `fileswn5.cpp:3039,511,573`, `worker.cpp:9207,9235,9604`, `salamdr4.cpp:2859`, `mainwnd4.cpp:657`, `dialogs3.cpp:2349`. Každý nejprve vymezit jako konkrétní existující operaci. |
 | **E1** | C5 | Společné přípravy vracející pouze bool ztrácejí důvod nezpůsobilosti. Rozlišit běžné odepření, nepodporovanou kombinaci, změnu identity, neověřitelného předka a nedostupný broker. Tato diagnostika provází všechny předchozí opravy. |
+
+**R1 — ruční obnovení po ztrátě relace.** První bezpečný řez může mířit na výslovné obnovení přesně schváleného diskového kořene s novým souhlasem a opětovným ověřením uložené identity; automatický refresh, Branch a ZIP nesmí sám vyvolat další výzvu. Pouhý návrat původních polí souborů při selhání nestačí jako rollback: současná cesta při obnově mění také stav cesty, hlaviček, ikon a monitorování. Před napojením souhlasu je třeba prokázat transakční přípravu a předání nového výpisu, životnost a generaci tabu i obnovu těchto vedlejších stavů při chybě. Pro potomek navštívený před výpadkem je navíc třeba bezpečně uchovat jeho vlastní identitu, ne pouze identitu kořene. Jde o statickou analýzu; tato část R1 zůstává neimplementovaná a bez VM důkazu.
+
+**D3 — adresáře v Koši.** Přijetí výsledného potvrzení se stejným ID a SID Koše samo neprokazuje, že Shell při selhání či stornu neprovedl částečné nebo trvalé smazání obsahu. Před rozšířením existující souborové cesty na adresáře je nutné doložit chování neprázdného podstromu, odmítnutí trvalého fallbacku a ochranu před souběžnou změnou; post-factum hlášení chyby nenahrazuje prevenci ztráty dat. Jde o otevřenou návrhovou a testovací hranici, nikoli implementovanou podporu.
 
 **R2 — testovací základ, implementace dále otevřená.** `branch_poll_lifetime_tests.py` vykonává aktuální metody `PollBranchView`, `CancelBranchViewScan`, `ShutdownBranchView`, `StartBranchViewScan` a `RefreshBranchView` s reálným skrytým modálním oknem Windows. V Debug i Release prošlo 9 kontrol: publikace, zánik tabu při modalitě či publikaci, storno, nahrazení scanu a automatický refresh během běhu a po stornu. Worker, asociace, seznam položek a broker jsou nahrazené testovacími rozhraními; nejde o ověření skutečného UAC ani nové fronty odepřených větví. Současné storno zachová již zveřejněný snapshot, ale zahodí dosud nezveřejněné `IncomingEntries`.
 
