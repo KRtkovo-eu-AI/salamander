@@ -4398,6 +4398,7 @@ SLGINCOMPLETE,""
 14713,1,"View With non può ancora preservare in sicurezza l’identità verificata di questo risultato protetto. Usare invece F3."
 
 14714,1,"Il contenuto e le etichette di questo risultato protetto non possono essere letti in sicurezza durante il perfezionamento usando l’identità verificata in precedenza. Questo elemento non è stato verificato."
+14715,1,"Accesso negato. Creare questo elenco di file come amministratore?"
 
 [STRINGTABLE 199]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."

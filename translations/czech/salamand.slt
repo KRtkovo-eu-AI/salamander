@@ -4400,6 +4400,7 @@ SLGINCOMPLETE,""
 14713,1,"Volba View With zatím neumí bezpečně zachovat ověřenou identitu tohoto chráněného výsledku. Použijte běžné F3."
 
 14714,1,"Obsah ani štítky chráněného výsledku nyní nelze při zpřesnění bezpečně přečíst s původní ověřenou identitou. Tato položka nebyla ověřena."
+14715,1,"Přístup byl odepřen. Vytvořit tento seznam souborů jako správce?"
 
 [STRINGTABLE 199]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."

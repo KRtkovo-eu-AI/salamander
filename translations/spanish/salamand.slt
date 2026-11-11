@@ -4398,6 +4398,7 @@ SLGINCOMPLETE,""
 14713,1,"View With aún no puede conservar de forma segura la identidad verificada de este resultado protegido. Use F3 en su lugar."
 
 14714,1,"El contenido y las etiquetas de este resultado protegido no se pueden leer de forma segura durante el refinamiento con la identidad verificada anteriormente. Este elemento no se verificó."
+14715,1,"Acceso denegado. ¿Crear esta lista de archivos como administrador?"
 
 [STRINGTABLE 199]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."

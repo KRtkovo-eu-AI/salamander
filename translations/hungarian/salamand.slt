@@ -4398,6 +4398,7 @@ SLGINCOMPLETE,""
 14713,1,"A View With még nem tudja biztonságosan megőrizni a védett eredmény ellenőrzött azonosságát. Használja helyette az F3 billentyűt."
 
 14714,1,"A védett eredmény tartalma és címkéi a pontosítás során jelenleg nem olvashatók biztonságosan a korábban ellenőrzött azonossággal. Ez az elem nem lett ellenőrizve."
+14715,1,"A hozzáférés megtagadva. Létrehozza ezt a fájllistát rendszergazdaként?"
 
 [STRINGTABLE 199]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."

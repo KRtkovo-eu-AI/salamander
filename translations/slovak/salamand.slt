@@ -4398,6 +4398,7 @@ SLGINCOMPLETE,""
 14713,1,"Voľba View With zatiaľ nevie bezpečne zachovať overenú identitu tohto chráneného výsledku. Použite bežné F3."
 
 14714,1,"Obsah ani štítky chráneného výsledku teraz nemožno pri spresnení bezpečne prečítať s pôvodnou overenou identitou. Táto položka nebola overená."
+14715,1,"Prístup bol odmietnutý. Vytvoriť tento zoznam súborov ako správca?"
 
 [STRINGTABLE 199]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."

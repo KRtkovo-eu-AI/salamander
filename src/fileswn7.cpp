@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Prevent copying and deleting from the protected archive pilot. | Keep the archive listing read-only. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Exclude a pinned workspace by its exact directory identity. | Prevent recursive file lists from including their own private staging tree. | #731 | GPT-6.1 Sol |
 // | 2026-11-08 | Remove the standalone ZIP recovery action. | Keep recovery mechanics internal to archive publication. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Recover the recorded ZIP update in the selected disk folder. | Revalidate the panel after consent and refresh on success. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Apply ZIP edits to the requested archive subdirectory. | Reject invalid internal path components before staging. | | GPT-6.1 Sol (Codex) |
@@ -440,6 +441,7 @@ struct CDiskDirEnumData
     std::vector<int> Indexes;
     std::vector<CDiskDirEnumEntry> Entries;
     std::wstring OutputPath;
+    const CFileListExclusion* Exclusion;
 };
 
 static std::wstring DiskDirFileNameW(const CFileData* file)
@@ -505,6 +507,32 @@ static bool DiskDirReportEnumerationError(HWND parent,
     return false;
 }
 
+// Only compare a potential match. A failure to prove its identity aborts the
+// output instead of silently omitting a possibly unrelated user directory.
+static bool DiskDirExcludeWorkspace(HWND parent, const std::wstring& path,
+                                    CDiskDirEnumData* data, bool candidate, bool& excluded)
+{
+    excluded = false;
+    if (!data->Exclusion || !candidate) return true;
+    const std::wstring io = SalPathAddExtendedPrefixW(path.c_str());
+    HANDLE directory = HANDLES_Q(CreateFileW(io.c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    if (directory == INVALID_HANDLE_VALUE)
+        return DiskDirReportEnumerationError(parent, path, GetLastError());
+    FILE_ID_INFO identity{};
+    FILE_ATTRIBUTE_TAG_INFO attributes{};
+    const bool read = GetFileInformationByHandleEx(directory, FileIdInfo, &identity, sizeof(identity)) &&
+        GetFileInformationByHandleEx(directory, FileAttributeTagInfo, &attributes, sizeof(attributes));
+    const DWORD error = read ? ERROR_SUCCESS : GetLastError();
+    HANDLES(CloseHandle(directory));
+    if (!read) return DiskDirReportEnumerationError(parent, path, error);
+    excluded = (attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) == FILE_ATTRIBUTE_DIRECTORY &&
+        identity.VolumeSerialNumber == data->Exclusion->Identity.VolumeSerialNumber &&
+        !memcmp(identity.FileId.Identifier, data->Exclusion->Identity.FileId.Identifier, sizeof(identity.FileId.Identifier));
+    return true;
+}
+
 static bool DiskDirEnumDirectory(HWND parent, const std::wstring& fullPath,
                                  const std::wstring& relativePath,
                                  CDiskDirEnumData* data)
@@ -547,6 +575,13 @@ static bool DiskDirEnumDirectory(HWND parent, const std::wstring& fullPath,
 
         BOOL isDirectory =
             (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        bool excluded = false;
+        const bool workspaceName = data->Exclusion && isDirectory &&
+            (DiskDirSamePath(found.cFileName, data->Exclusion->Name) ||
+             DiskDirSamePath(found.cAlternateFileName, data->Exclusion->Name));
+        if (!DiskDirExcludeWorkspace(parent, childFull, data, workspaceName, excluded))
+        { result = false; break; }
+        if (excluded) continue;
         CQuadWord size(isDirectory ? 0 : found.nFileSizeLow,
                        isDirectory ? 0 : found.nFileSizeHigh);
         if (!DiskDirAddEnumEntry(data, childRelative,
@@ -604,6 +639,13 @@ static bool DiskDirBuildEnumeration(HWND parent, int enumFiles,
         if (DiskDirSamePath(fullPath, data->OutputPath))
             continue;
 
+        bool excluded = false;
+        // A panel row can use an 8.3 name; compare every selected directory
+        // by identity rather than relying on its displayed spelling.
+        if (!DiskDirExcludeWorkspace(parent, fullPath, data, isDirectory != FALSE, excluded))
+            return false;
+        if (excluded) continue;
+
         std::wstring dosName;
         if (file->DosName != NULL)
             dosName = SalMultiByteToWidePath(file->DosName, CP_ACP);
@@ -657,7 +699,8 @@ static void DiskDirPrepareFileListEntry(const CDiskDirEnumEntry& entry,
 }
 
 BOOL CFilesWindow::MakeFileListRecursive(HANDLE hFile,
-                                         const char* outputFileName)
+                                         const char* outputFileName,
+                                         const CFileListExclusion* exclusion)
 {
     CALL_STACK_MESSAGE2("CFilesWindow::MakeFileListRecursive(, %s)",
                         outputFileName);
@@ -665,6 +708,7 @@ BOOL CFilesWindow::MakeFileListRecursive(HANDLE hFile,
         return FALSE;
 
     CDiskDirEnumData data = {};
+    data.Exclusion = exclusion;
     data.Panel = this;
     data.OutputPath = SalMultiByteToWidePath(outputFileName, CP_UTF8);
     if (data.OutputPath.empty())

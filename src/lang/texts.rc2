@@ -2492,6 +2492,7 @@ STRINGTABLE
  IDS_UAC_FIND_VIEW_IDENTITY_UNAVAILABLE, "The verified identity of this protected result is unavailable. The file cannot be opened safely; try running the search again."
  IDS_UAC_FIND_VIEW_WITH_UNAVAILABLE, "View With cannot yet safely preserve the verified identity of this protected result. Use F3 instead."
  IDS_UAC_FIND_REFINE_IDENTITY_UNAVAILABLE, "Content and tags of this protected result cannot currently be read safely using its previously verified identity during refinement. This item was not verified."
+ IDS_UAC_FILELIST_CREATE_CONFIRM, "Access was denied. Create this file list as an administrator?"
  IDS_UAC_EDIT_ADMIN_TITLE, "Edit as Administrator"
  IDS_UAC_EDIT_ADMIN_CONFIRM, "Access was denied. Open the original file with the configured editor as an administrator? Windows will request permission for the editor shown below."
  IDS_UAC_ZIP_TITLE, "Protected ZIP Listing"

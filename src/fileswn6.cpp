@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Pass the private workspace identity to recursive file-list generation. | Keep staged output out of the exported tree. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Reuse approved panel allocation metadata for multi-selection. | Measure eligible selected files without broadening consent or starting new sessions. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Retain a declined size elevation across the selected batch. | Continue accessible work without widening approved listing scopes. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Measure one directly selected file in its own UAC scope. | Keep the approval narrower than the containing directory. | #731 | GPT-6.1 Terra |
@@ -258,11 +259,11 @@ void CFilesWindow::Activate(BOOL shares)
 }
 
 BOOL CFilesWindow::MakeFileList(HANDLE hFile, BOOL recursively,
-                                const char* outputFileName)
+                                const char* outputFileName, const CFileListExclusion* exclusion)
 {
     CALL_STACK_MESSAGE_NONE
     if (recursively)
-        return MakeFileListRecursive(hFile, outputFileName);
+        return MakeFileListRecursive(hFile, outputFileName, exclusion);
 
     BOOL ret = TRUE;
 

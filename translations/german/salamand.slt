@@ -4399,6 +4399,7 @@ SLGINCOMPLETE,""
 14713,1,"View With kann die überprüfte Identität dieses geschützten Ergebnisses noch nicht sicher erhalten. Verwenden Sie stattdessen F3."
 
 14714,1,"Inhalt und Tags dieses geschützten Ergebnisses können beim Verfeinern derzeit nicht sicher mit der zuvor überprüften Identität gelesen werden. Dieses Element wurde nicht überprüft."
+14715,1,"Der Zugriff wurde verweigert. Diese Dateiliste als Administrator erstellen?"
 
 [STRINGTABLE 199]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."

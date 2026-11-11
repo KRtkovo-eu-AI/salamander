@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Pass an identity-bound file-list exclusion. | Avoid listing a private staging directory inside the selected tree. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Distinguish an explicit Branch Stop from internal cancellation. | Preserve initial partial results without publishing abandoned generations. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Pass the active size scope to file measurements. | Reuse one verified metadata consent across a selected tree. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Keep the directory size marker in disk-only row data. | Preserve the released SDK layout. | #731 | GPT-6.1 Sol |
@@ -808,6 +809,12 @@ struct CTreeViewAsyncLoadData
     int DirCount;
     BOOL HasChildren;
     volatile BOOL Cancelled;                   // TRUE = abort reading
+};
+
+struct CFileListExclusion
+{
+    std::wstring Name;
+    FILE_ID_INFO Identity{};
 };
 
 class CFilesWindow : public CFilesWindowAncestor
@@ -1691,8 +1698,10 @@ public:
     void OfferArchiveUpdateIfNeededAux(HWND parent, int textID, BOOL* archMaybeUpdated); // used internally only
 
     // writes the list of selected files to the file hFile
-    BOOL MakeFileList(HANDLE hFile, BOOL recursively, const char* outputFileName);
-    BOOL MakeFileListRecursive(HANDLE hFile, const char* outputFileName);
+    BOOL MakeFileList(HANDLE hFile, BOOL recursively, const char* outputFileName,
+                      const CFileListExclusion* exclusion = nullptr);
+    BOOL MakeFileListRecursive(HANDLE hFile, const char* outputFileName,
+                               const CFileListExclusion* exclusion = nullptr);
 
     void Pack(CFilesWindow* target, int pluginIndex = -1, const char* pluginName = NULL, int delFilesAfterPacking = 0);
     void Unpack(CFilesWindow* target, int pluginIndex = -1, const char* pluginName = NULL, const char* unpackMask = NULL);

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Compare prepared copy source and parent identities. | Bind host-generated output to its pinned source. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Carry exact FindFile identity into a separate verified viewer request. | Prevent pathname-only identity recapture after Find. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Add a typed overwrite without named streams. | Reuse only the matching F5 approval and transfer session. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Bound time-only metadata for special NTFS files. | Preserve compression, sparsity and encryption while restricting the approved policy. | #731 | GPT-6.1 Terra |
@@ -777,6 +778,12 @@ public:
     {
         return identity.serial == target.serial &&
                std::memcmp(identity.id, target.fileId, sizeof(identity.id)) == 0;
+    }
+    bool MatchesSourceIdentity(const MoveFileIdentity& identity, const MoveFileIdentity& parent) const
+    {
+        return identity.serial == source.serial && parent.serial == source.serial &&
+               std::memcmp(identity.id, source.sourceId, sizeof(identity.id)) == 0 &&
+               std::memcmp(parent.id, source.fileId, sizeof(parent.id)) == 0;
     }
     bool IsTree() const { return source.operation == Operation::CopyTree || IsScopedTree(); }
     bool IsDirectoryCopyEntry() const { return source.operation == Operation::CopyDirectoryEntry; }
