@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record clean metadata host and broker build evidence. | Separate the committed build from unrelated in-progress ADS work. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record time-only metadata support for special files. | Track verified local behavior and deferred integration and VM evidence. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record exact-file allocation scope and remaining ACL boundaries. | Distinguish verified metadata access from an atomic snapshot and VM evidence. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record scoped allocation measurement for size scans. | Preserve partial totals and distinguish local evidence from VM acceptance. | #731 | GPT-6.1 Terra |
@@ -582,7 +583,9 @@ Stav M1: **úzká část implementována a testována lokálně; společná VM a
 
 Změna podporuje pouze vybrané časy jediného souboru se sparse, kompresí nebo EFS, pokud uživatel neupravil žádný atributový checkbox. Broker ověřuje rodiče, přesný název a ID, odmítá reparse a nepřiměřené počty hardlinků, a zapisuje `FileBasicInfo` s nulovými atributy. Sdílená relace tohoto speciálního případu je vázaná na přesnou položku a nelze ji zaměnit za běžnou metadata relaci. Rekurze, dávka, změna atributů, komprese nebo šifrování zůstávají samostatně otevřené.
 
-V každé konfiguraci Debug/Release prošlo **371** nativních kontrol, **367** transportních kontrol s jedním SKIP, **106** kontrol controlleru a **27** kontrol obsluhy dialogu. NTFS testy skutečně ověřily sparse, compressed a EFS včetně zachování obsahu, ADS a DACL pod místním účtem. Transport odmítl jiné ID i přechod mezi běžným a speciálním rozsahem; test záměny rodiče u starší exact-file relace Windows odmítlo provést, a je proto označen SKIP. Dialogový test vykonává skutečné obslužné metody se simulovanými ovládacími prvky. Logy jsou v `C:\Samandarin\builds\uac-metadata-audit-20261111`. Skutečná UAC výzva, chování jiného účtu bez EFS klíče, plné sestavení výsledné revize a měření paměti čekají na následné ověření.
+V každé konfiguraci Debug/Release prošlo **371** nativních kontrol, **367** transportních kontrol s jedním SKIP, **106** kontrol controlleru a **27** kontrol obsluhy dialogu. NTFS testy skutečně ověřily sparse, compressed a EFS včetně zachování obsahu, ADS a DACL pod místním účtem. Transport odmítl jiné ID i přechod mezi běžným a speciálním rozsahem; test záměny rodiče u starší exact-file relace Windows odmítlo provést, a je proto označen SKIP. Dialogový test vykonává skutečné obslužné metody se simulovanými ovládacími prvky. Host a broker se z čistého commitu `dbefc233` sestavily v Debug i Release, sonda v Release; skutečná dvojice protokolu 33 odmítla broker 31. Logy jsou v `C:\Samandarin\builds\uac-metadata-audit-20261111` a `C:\Samandarin\builds\uac-m1-clean-20261111`. Skutečná UAC výzva, chování jiného účtu bez EFS klíče a měření paměti čekají na následné ověření.
+
+Stejně sestavené Release binárky proti protokolu 31: `salamand.exe` 5 775 360 → 5 775 872 B, `uacbroker.exe` 1 404 928 → 1 404 928 B, dohromady 7 180 288 → 7 180 800 B (+512 B).
 
 ## Další postup
 
