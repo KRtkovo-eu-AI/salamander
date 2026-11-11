@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Track protected archive mode on the panel. | Distinguish manual refresh from background refresh. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Keep the directory size marker in disk-only row data. | Preserve the released SDK layout. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Return prepared editor state to Find. | Let the owner thread handle the system prompt. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Accept the original Find editor context. | Keep ordinary editor callers on their existing route. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Keep the Find viewer context in one argument. | Pass the original row context without adding parallel parameters. | #731 | GPT-6.1 Sol |
@@ -746,6 +747,11 @@ public:
     // Called only by the icon reader
     BOOL ArrContainsIndex(int index, BOOL* isArrValid, int* versionNum);
 };
+
+// Disk rows have no plug-in data owner. These values travel with the row on
+// sort and refresh without changing the public CFileData layout.
+constexpr DWORD_PTR DiskItemNoPluginData = static_cast<DWORD_PTR>(-1);
+constexpr DWORD_PTR DiskDirectoryPartialSizeMarker = static_cast<DWORD_PTR>(-2);
 
 enum CTargetPathState // state of the target path when building the operation script
 {

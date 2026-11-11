@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Carry manual protected ZIP refresh into archive navigation. | Keep the existing refresh rollback behavior. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Carry the disk directory size marker across refresh. | Restrict private row metadata to disk listings. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Retain the partial size marker on a refresh. | Preserve a visibly partial directory total. | #731 | GPT-6.1 Sol |
 // | 2026-11-05 | Survive faulty shell extension SEH in panel menu messages. | New submenu and ContextMenu HandleMenuMsg must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -2998,7 +2999,8 @@ void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloa
         for (; j < oldDirs->Count; j++) // first directories
         {
             CFileData* oldData = &oldDirs->At(j);
-            const bool partial = Is(ptDisk) && oldData->SizePartial;
+            const bool partial = oldPanelType == ptDisk && Is(ptDisk) &&
+                                 oldData->PluginData == DiskDirectoryPartialSizeMarker;
             if (focusFirstNewItem || oldData->Selected || oldData->SizeValid || partial || oldData->CutToClip ||
                 oldData->IconOverlayIndex != ICONOVERLAYINDEX_NOTUSED)
             {
@@ -3045,7 +3047,8 @@ void CFilesWindow::RefreshDirectory(BOOL probablyUselessRefresh, BOOL forceReloa
                                 if (oldData->Selected)
                                     SetSel(TRUE, newData);
                                 newData->SizeValid = oldData->SizeValid;
-                                newData->SizePartial = partial;
+                                if (partial)
+                                    newData->PluginData = DiskDirectoryPartialSizeMarker;
                                 if (newData->SizeValid || partial)
                                     newData->Size = oldData->Size;
                                 newData->CutToClip = oldData->CutToClip;

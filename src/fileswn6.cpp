@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Record partial directory sizes on disk rows. | Preserve full-size checks without adding a shared SDK field. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Use accepted copy shield for matching protected tree planning. | Open Windows consent directly after confirming the verified destination. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Prepare denied direct delete selections from the approved panel. | Retain each selected path and identity for files, links, and empty-only directory deletion. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Keep ordinary filters and exact directory enumeration paths. | Avoid DOS-name fallback and Win32 normalization for verified permanent deletion. | #731 | GPT-6.1 Sol |
@@ -1699,7 +1700,7 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                         oldTotalSize = script->TotalSize;
                         script->CountSizeIncomplete = false;
                         oneFile->SizeValid = 0;
-                        oneFile->SizePartial = 0;
+                        oneFile->PluginData = DiskItemNoPluginData;
                     }
                     std::optional<CSizeScanScope> sizeScope;
                     std::string unicodeName;
@@ -1741,8 +1742,10 @@ BOOL CFilesWindow::BuildScriptMain(COperations* script, CActionType type,
                     {
                         script->CountSizeAnyIncomplete |= script->CountSizeIncomplete;
                         oneFile->SizeValid = !script->CountSizeIncomplete;
-                        oneFile->SizePartial = script->CountSizeIncomplete && sizeScope->Scanned;
-                        if (oneFile->SizeValid || oneFile->SizePartial)
+                        const bool partial = script->CountSizeIncomplete && sizeScope->Scanned;
+                        if (partial)
+                            oneFile->PluginData = DiskDirectoryPartialSizeMarker;
+                        if (oneFile->SizeValid || partial)
                             oneFile->Size = script->TotalSize - oldTotalSize;
                     }
                 }

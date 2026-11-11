@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Use the Windows copy helper for the directory identity. | Avoid expanding the Debug memcpy macro inside the std namespace. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Expose the existing leaf consent scope and explicit retry. | Use the exact broker job identity when remembering a declined deletion. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Retain root planning state after disconnection. | Prevent the worker from creating a scoped root locally after the pipe closes. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Represent copy scopes awaiting their target root. | Admit only creation of the exact planned root before copying children. | #731 | GPT-6.1 Sol |
@@ -360,7 +361,7 @@ public:
         if (operation != Operation::CopyDirectoryEntry || (!source && !identityFromListing))
             return false;
         identity.serial = serial;
-        std::memcpy(identity.id, sourceId, sizeof(sourceId));
+        CopyMemory(identity.id, sourceId, sizeof(identity.id));
         return true;
     }
     bool PrepareRenameDirectory(const std::wstring& path, const std::wstring& renameTo);

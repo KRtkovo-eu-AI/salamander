@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Initialize the extracted copy target state. | Match the inputs of the production copy planner. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Model the clipboard lease in the Shell data fixture. | Compile the extracted delayed copy handoff against CCopyMoveData's current contract. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
 // | 2026-11-10 | Remove unused shell fallback mocks from the clipboard fixture. | Its source extractor includes only the disk clipboard branch. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
 // | 2026-11-10 | Stub shell menu fallback in the clipboard route fixture. | Keep the Branch panel getter test compiling against the disk and non-disk clipboard routes. | https://github.com/KRtkovo-eu-AI/salamander/pull/844 | GPT-6 |
@@ -141,6 +142,7 @@ static DWORD RecordAttributes(const wchar_t* path) {
 
 // Recorders for the actual BuildScriptMain per-item source block. Worker I/O
 // is validated separately and by the real host GUI; no test-only copy engine.
+@@COPY_TARGET_STATE@@
 const int atCopy=1, atMove=2, atDelete=3, atChangeAttrs=4, SACCESS_READ=1,SACCESS_READWRITE=3;
 const DWORD OPFL_SRCPATH_IS_NET=1, OPFL_SRCPATH_IS_FAST=2, OPFL_TGTPATH_IS_NET=4;
 struct CopyCriteria {BOOL IgnoreADS=FALSE;};
@@ -499,6 +501,7 @@ BOOL CFilesWindow::PrepareCopySource(CFileData* oneFile,int type,CopyCapture& re
 BOOL CFilesWindow::PrepareRelativeTarget(CFileData* oneFile,BOOL keepBranchPaths,CopyScript* script,std::string& result)
 {
     int type=atCopy;char target[]="D:\\target";char* targetPath=target;
+    [[maybe_unused]] const auto targetPathState = tpsNotEncryptedExisting;
 @@COPY_RELATIVE@@
     result=itemTargetPath;
     COperation file;file.Opcode=ocTestCopy;if(script->Add(file)<0)return FALSE;

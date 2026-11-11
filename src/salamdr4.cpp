@@ -1,6 +1,7 @@
 ﻿// SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Render the private disk size marker in the size column. | Preserve the released shared file data. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Show partial directory sizes as lower bounds. | Distinguish incomplete totals from complete sizes in the panel. | #731 | GPT-6.1 Sol |
 // | 2026-11-08 | Read file keywords through a stream-capable Windows property handler. | Keep the same tag semantics for the protected and ordinary paths. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -2366,7 +2367,8 @@ void WINAPI InternalGetDosName()
 void WINAPI InternalGetSize()
 {
     const bool partial = TransferIsDir == 1 && !TransferFileData->SizeValid &&
-                         TransferPanelWindow && TransferPanelWindow->Is(ptDisk) && TransferFileData->SizePartial;
+                         TransferPanelWindow && TransferPanelWindow->Is(ptDisk) &&
+                         TransferFileData->PluginData == DiskDirectoryPartialSizeMarker;
     if (TransferIsDir && !TransferFileData->SizeValid && !partial)
     {
         memmove(TransferBuffer, DirColumnStr, DirColumnStrLen);

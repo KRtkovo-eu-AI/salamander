@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Check the current Branch View path and generation guards. | Cover exact deletion and reject a stale row after consent. | #731 | GPT-6.1 Sol |
 # | 2026-11-08 | Check the shared Shell recycle flags. | Keep recycling and permanent deletion separate. | | GPT-6.1 Sol (Codex) |
 # | 2026-11-07 | Require the hidden/system filter command in Branch View. | Catch a blocked Ctrl+H before the existing refresh handler. | | GPT-6 (Codex) |
 """Transition gates expose only accepted Branch integrations."""
@@ -152,7 +153,9 @@ class BranchTransitionContracts(unittest.TestCase):
   confirm=function('fileswn8.cpp','static void AppendConfirmDeleteExtInfo(')
   self.assertIn('panel->GetItemRelativePathW(*file)',confirm)
   builder=function('fileswn6.cpp','BOOL CFilesWindow::BuildScriptMain(')
-  self.assertIn('!IsBranchView() && type == atDelete && selCount <= 1',builder)
+  self.assertIn('!IsBranchView() && type == atDelete && !permanentDelete && selCount <= 1',builder)
+  exact=builder[builder.index('            if (permanentDelete)'):]
+  self.assertLess(exact.index('useDOSName = nullptr;'),exact.index('PrepareListedDeleteSource('))
  def test_branch_recycle_keeps_force_policy_and_checks_setup_failures(self):
   part=function('fileswn8.cpp','BOOL CFilesWindow::DeleteThroughRecycleBin(')
   self.assertIn('result = operation->SetOperationFlags(OperationRecycleFlags)',part)
@@ -174,19 +177,25 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertIn('GetBranchViewFileByCacheKey(data->Panel->GetItemCacheKeyPtr(file)) != &file',paths)
   self.assertIn('if (path.empty())',paths)
  def test_rename_requires_current_metadata_and_preserves_modal_identity(self):
-  for marker in ('void CFilesWindow::RenameFile(', 'void CFilesWindow::QuickRenameBegin(', 'void CFilesWindow::RenameFileInternalW(', 'BOOL CFilesWindow::HandeQuickRenameWindowKey('):
+  for marker in ('void CFilesWindow::RenameFile(', 'void CFilesWindow::QuickRenameBegin(', 'BOOL CFilesWindow::HandeQuickRenameWindowKey('):
    part=function('fileswn5.cpp',marker)
    self.assertIn('GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f',part)
   part=function('fileswn5.cpp','void CFilesWindow::RenameFile(')
   self.assertIn('GetBranchViewFileByCacheKey(renameIdentity.c_str()) != f',part)
   rename=function('fileswn5.cpp','void CFilesWindow::RenameFileInternalW(')
+  self.assertIn('GetBranchViewGeneration() == branchGeneration',rename)
+  self.assertIn('GetBranchViewFileByCacheKey(branchKey.c_str()) == f',rename)
+  self.assertLess(rename.index('if (!rowIsCurrent())'),rename.index('MoveFileExW('))
+  self.assertLess(rename.rindex('if (!rowIsCurrent())'),rename.index('BranchItemRenamed('))
   self.assertEqual(rename.count('BranchItemRenamed(oldNameKey, *f, oldFullPath)'),3)
   self.assertEqual(rename.count('SleepIconCacheThread()'),3)
   self.assertEqual(rename.count('WakeupIconCacheThread()'),3)
  def test_view_and_edit_require_current_metadata_before_full_path(self):
-  for marker in ('void CFilesWindow::ViewFile(', 'void CFilesWindow::EditFile('):
-   part=function('fileswn5.cpp',marker)
-   self.assertLess(part.index('GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f'),part.index('GetItemFullPathW(*f)'))
+  view=function('fileswn5.cpp','void CFilesWindow::ViewFile(')
+  self.assertLess(view.index('GetBranchViewFileByCacheKey(GetItemCacheKeyPtr(*f)) != f'),view.index('GetItemFullPathW(*f)'))
+  edit=function('fileswn5.cpp','void CFilesWindow::EditFile(')
+  self.assertLess(edit.index('GetBranchViewFileByCacheKey(key) != f'),edit.index('GetItemFullPathW(*f)'))
+  self.assertLess(edit.index('branchGeneration != GetBranchViewGeneration()'),edit.index('LaunchElevatedFileEdit('))
  def test_plugin_viewer_policy_precedes_the_dispatch(self):
   part=function('fileswn5.cpp','void CFilesWindow::ViewFile(')
   self.assertLess(part.index('// S27a transition:'),part.index('ViewFileInt('))

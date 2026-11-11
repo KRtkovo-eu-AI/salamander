@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record the CI compatibility and fixture fixes. | Keep the frozen SDK contract and local verification visible. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Record the rooted F5 approval failure and verified refusal. | Track the exact error and keep the corrected pilot open. | #731 | GPT-6.1 Sol |
 | 2026-11-10 | Consolidate UAC status and remaining acceptance work. | Replace repeated status snapshots with one plan and keep the detailed evidence. | https://github.com/KRtkovo-eu-AI/salamander/issues/731 | GPT-6.1 Sol |
 | 2026-11-10 | Record exact selection and mixed permanent-delete checks. | Document the ordinary VM run and the prepared protected fixture. | #731 | GPT-6.1 Sol |
@@ -447,6 +448,8 @@ Při přípravě kopie chráněné složky host dříve přijímal jen identitu 
 4. **Ověřit přesnou revizi k vydání.** Místně spustit relevantní nativní, transportní a integrační testy. Po společném pushi vyhodnotit sestavení, testy a skutečnou analýzu CodeQL v #67 pro přesné SHA. Nativní běh ARM64, podepsaný distribuční pár a vyšší DPI mají samostatné podmínky. ARM64 bylo křížově sestaveno, Win32 ověřen pod WOW64. Podpis a prostředí ARM64 zatím nejsou k dispozici. Vyšší DPI je odloženo.
 
 Už ověřený scénář opakovat při změně dotčené cesty, doložené regresi nebo při akceptaci nové platformy či společné revize. Souběžné F5, F6 nad 4 GiB, stejný účet u Koše a základní ZIP akceptaci proto nevedeme jako nové implementační úkoly. Srovnatelné údaje o velikosti binárek a soukromé paměti patří k příslušné změně v historii. Starší měření nepopisují současný build.
+
+CI na `fc70927d` zachytilo změnu zmrazeného `CFileData`, zastaralé testovací modely Branch View a konflikt při překladu `memcpy` v Debug. Oprava obnovuje sdílenou hlavičku SDK, ukládá příznak neúplné velikosti v interních datech diskového řádku a používá `CopyMemory` pro identitu adresáře. Všech šest dříve neúspěšných skupin a 256 kontrol výpočtu velikosti následně prošlo místně v Debug. [Původní běh testů](https://github.com/majklvi/salamander/actions/runs/42979610795/job/130386719517).
 
 ## Architektura a hranice
 

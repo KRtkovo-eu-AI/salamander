@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Initialize disk rows with the private data marker. | Leave archive and plugin rows on the released ABI. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Initialize partial disk size state. | A new listing starts without an observed size. | #731 | GPT-6.1 Sol |
 // | 2026-11-07 | Render the verified broker listing through the existing disk panel. | Use exact wide names and keep preview providers out of protected listings. | | GPT-6.1 Sol (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -1065,10 +1066,9 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
         BOOL addtoIconCache;
         CFileData file = {0};
         // inicialization of structure members which will not be changed later
-        file.PluginData = -1; // -1 just like that, ignored
+        file.PluginData = DiskItemNoPluginData;
         file.Selected = 0;
         file.SizeValid = 0;
-        file.SizePartial = 0;
         file.Dirty = 0; // unnecessary, just for the form
         file.CutToClip = 0;
         file.IconOverlayIndex = ICONOVERLAYINDEX_NOTUSED;
@@ -1938,7 +1938,6 @@ BOOL CFilesWindow::ReadDirectory(HWND parent, BOOL isRefresh)
                 upDir.Shared = 0;
                 upDir.Archive = 0;
                 upDir.SizeValid = 0;
-                upDir.SizePartial = 0;
                 upDir.Dirty = 0; // unnecessary, just for form
                 upDir.CutToClip = 0;
                 upDir.IconOverlayIndex = ICONOVERLAYINDEX_NOTUSED;

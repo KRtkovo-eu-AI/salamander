@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Model the Branch View rename identity and generation. | Compile the production rename guard in the native fixture. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Verify F2 consent for an ordinary directory. | Cover direct elevation, cancellation, and Quick Rename boundaries. | #731 | GPT-6.1 Sol (Codex) |
 // | 2026-11-10 | Verify shielded F2 retry and its fallback boundaries. | Retain native consent and link-specific confirmation. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Exercise rename from a protected listing. | Verify the target probe, consent and collision behavior. | #731 | GPT-6 (Codex) |
@@ -98,6 +99,8 @@ public:
  int GetCaretIndex(){return 0;}const char* GetPath(){return Root.c_str();}
  FakeFS* GetPluginFS(){return &FS;}HWND GetListBoxHWND(){return HWindow;}
  const char* GetItemCacheKeyPtr(const CFileData& f){return f.Name;}
+ std::string GetItemCacheKey(const CFileData& f){return GetItemCacheKeyPtr(f);}
+ ULONGLONG GetBranchViewGeneration() const {return 1;}
  const CFileData* GetBranchViewFileByCacheKey(const char*){return Current?&Storage.Item:NULL;}
  std::wstring GetItemDirectoryW(const CFileData& f){return f.Parent;}
  std::wstring GetItemFullPathW(const CFileData& f){return f.Parent+L"\\"+f.Wide;}
@@ -247,7 +250,8 @@ static void CheckProtectedRenameController(HWND owner,const std::wstring& parent
 
  reset();panel.Branch=TRUE;
  panel.RenameFileInternalW(&file,target,FALSE,&change,&retry);
- Check(ScopedPreparations==0&&ConsentCalls==0,"Branch View remains outside the protected listing rename capability");
+ Check(ScopedPreparations==1&&ConsentCalls==1&&ExecutedRenames==0&&!retry&&file.Wide==source,
+       "a current Branch View row uses the verified listing but still requires explicit rename consent");
 
  ForcedRenameError=ForcedAttributesError=ERROR_SUCCESS;
 }

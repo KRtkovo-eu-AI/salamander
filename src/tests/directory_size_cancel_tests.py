@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Check the private partial size marker. | Keep incomplete directory size coverage without changing the SDK. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Check the shared modal UAC consent owner. | Retain coverage of size calculation after sharing the dialog. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Check continuation after a live broker denies access. | Avoid a separate dialog for each omitted subtree. | #731 | GPT-6.1 Sol |
 # | 2026-11-10 | Compile the production protected size skip branch. | Verify readable totals after declined elevation. | #731 | GPT-6.1 Sol |
@@ -63,7 +64,8 @@ def main():
         assert scan.index('script->CountSizeIncomplete = false;') < scan.index('if (!BuildScriptDir(')
         assert scan.index('oneFile->SizeValid = 0;') < scan.index('if (!BuildScriptDir(')
         assert 'oneFile->SizeValid = !script->CountSizeIncomplete;' in scan
-        assert 'oneFile->SizePartial = script->CountSizeIncomplete && sizeScope->Scanned;' in scan
+        assert 'const bool partial = script->CountSizeIncomplete && sizeScope->Scanned;' in scan
+        assert 'oneFile->PluginData = DiskDirectoryPartialSizeMarker;' in scan
         assert 'script->CountSizeAnyIncomplete |= script->CountSizeIncomplete;' in scan
     protected_skip = ''
     if not args.source_ref:
