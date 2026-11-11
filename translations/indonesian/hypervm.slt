@@ -16,7 +16,7 @@ COMMENT,"indonesian (automatic AI translation)"
 [STRINGTABLE 1]
 48,1,"Tampilkan mesin virtual Hyper-V lokal di panel."
 49,1,"https://samandarin.net/"
-50,0,"Show &Hyper-V Machines Window"
+50,1,"Lihat &Mesin Virtual Hyper-V"
 51,1,"Buat &VHD"
 52,1,"&Pasang VHD"
 60,1,"Buat dan Pasang Hard Disk Virtual"

@@ -7,7 +7,7 @@ VERSION,"1,2,7,197"
 LANGID,1025
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 100]
 338,238,1,"فحص الإصدارات الجديدة"
@@ -78,7 +78,7 @@ COMMENT,"English version"
 218,1,"الإضافة متصلة بالإنترنت.\nهل تريد إنهاء جلسة الإنترنت هذه؟"
 220,1,"جارٍ تهيئة اتصال الإنترنت..."
 221,1,"فشلت التهيئة: %s"
-222,1,"جارٍ الاتصال بـ https://samandarin.net/"
+222,1,"Connecting to \tuwww.altap.cz\tlhttps://www.altap.cz\tn..."
 223,1,"فشل الاتصال: %s"
 
 [STRINGTABLE 2]

@@ -7,7 +7,7 @@ VERSION,"1,14,0,197"
 LANGID,1040
 AUTHOR,"Ondrej Zarevucky"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [MENU 109]
 0,1,"&File"

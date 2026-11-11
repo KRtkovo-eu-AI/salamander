@@ -7,7 +7,7 @@ VERSION,"1,13,0,197"
 LANGID,1040
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 1000]
 341,77,1,"Annulla ripristino"
@@ -155,7 +155,7 @@ COMMENT,"English version"
 82,1,"Formato"
 83,1,"Dimensione"
 84,1,"Libero"
-85,0,"% Free"
+85,1,"% Free"
 86,1,"Percorso GUID"
 90,1,"L'immagine ha dimensione zero. Stima danni del file annullata."
 91,1,"Impossibile trovare $Bitmap in questa unità. Stima danni del file annullata."

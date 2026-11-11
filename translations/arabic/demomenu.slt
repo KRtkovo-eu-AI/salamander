@@ -7,7 +7,7 @@ VERSION,"1,0,2,197"
 LANGID,1025
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 0]
 46,1,"قائمة"

@@ -7,7 +7,7 @@ VERSION,"2,4,0,197"
 LANGID,1040
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 1000]
 344,84,1,"Calcola checksum"

@@ -7,7 +7,7 @@ VERSION,"0,6,0,197"
 LANGID,1040
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 0]
 128,1,"{!}%d dispositivi selezionati{2:s|0||1|s}"

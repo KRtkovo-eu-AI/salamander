@@ -170,8 +170,8 @@ COMMENT,"greek (automatic AI translation)"
 2002,1,"Έ&ξοδος"
 2010,1,"&Επεξεργασία"
 2011,1,"&Cut\tCtrl+X"
-2012,1,"&Αντ.\tCtrl+C"
-2013,1,"&Κόλλα\tCtrl+V"
+2012,1,"&Αντιγραφή\tCtrl+C"
+2013,1,"&Paste\tCtrl+V"
 
 [STRINGTABLE 3]
 2020,1,"&Προβολή"

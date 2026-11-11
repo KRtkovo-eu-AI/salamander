@@ -1,0 +1,61 @@
+{
+  "name": "事件檢視器",
+  "description": "在 Salamander 檔案系統面板中瀏覽 Windows 事件記錄檔。",
+  "commands": {
+    "EventViewer.open": "開啟事件檢視器"
+  },
+  "fileSystems": {
+    "events": {
+      "name": "事件檢視器",
+      "rootItems": {
+        "custom-views": "自訂檢視",
+        "windows-logs": "Windows 記錄檔",
+        "applications-services": "應用程式與服務記錄檔"
+      },
+      "columns": {
+        "level": {
+          "name": "層級",
+          "description": "事件嚴重性"
+        },
+        "logged": {
+          "name": "日期與時間",
+          "description": "事件記錄時間"
+        },
+        "source": {
+          "name": "來源",
+          "description": "事件提供者"
+        },
+        "eventId": {
+          "name": "事件識別碼",
+          "description": "事件識別碼"
+        },
+        "task": {
+          "name": "工作類別",
+          "description": "事件工作類別"
+        }
+      },
+      "actions": {
+        "openEvent": "事件內容"
+      }
+    }
+  },
+  "administrativeEvents": "管理事件",
+  "eventName": "事件 {0}，{1} [{2}]",
+  "windowTitle": "事件內容 - 事件 {0}，{1}",
+  "general": "一般",
+  "descriptionLabel": "描述",
+  "details": "詳細資料",
+  "close": "關閉",
+  "messageUnavailable": "事件訊息無法使用。",
+  "textTruncated": "文字已截斷。",
+  "openErrorTitle": "無法開啟事件",
+  "openError": "無法開啟事件。\r\n\r\n{0}",
+  "metadata": "記錄檔名稱：{0}\r\n來源：{1}\r\n事件識別碼：{2}    層級：{3}\r\n記錄時間：{4}    工作類別：{5}\r\n使用者：{6}    電腦：{7}\r\n記錄識別碼：{8}",
+  "levels": {
+    "critical": "重大",
+    "error": "錯誤",
+    "warning": "警告",
+    "information": "資訊",
+    "verbose": "詳細"
+  }
+}

@@ -7,7 +7,7 @@ VERSION,"1,11,0,197"
 LANGID,1040
 AUTHOR,"Juraj Rojko"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 500]
 353,77,1,""

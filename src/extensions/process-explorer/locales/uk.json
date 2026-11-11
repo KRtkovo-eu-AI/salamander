@@ -1,0 +1,52 @@
+{
+  "name": "Провідник процесів",
+  "description": "Показує запущені процеси Windows на панелі файлової системи Salamander.",
+  "commands": {
+    "ProcessExplorer.open": "Відкрити провідник процесів"
+  },
+  "fileSystems": {
+    "processes": {
+      "name": "Запущені процеси",
+      "columns": {
+        "pid": {
+          "name": "PID",
+          "description": "Ідентифікатор процесу"
+        },
+        "status": {
+          "name": "Стан",
+          "description": "Стан процесу"
+        },
+        "userName": {
+          "name": "Користувач",
+          "description": "Обліковий запис, якому належить процес"
+        },
+        "cpu": {
+          "name": "CPU",
+          "description": "Поточне використання процесора"
+        },
+        "memory": {
+          "name": "Пам’ять",
+          "description": "Активний приватний робочий набір"
+        }
+      },
+      "actions": {
+        "endTask": "Завершити завдання",
+        "endProcessTree": "Завершити дерево процесів",
+        "openFileLocation": "Відкрити розташування файлу",
+        "properties": "Властивості"
+      }
+    }
+  },
+  "strings": {
+    "running": "Працює",
+    "suspended": "Призупинено",
+    "ended": "Завершено",
+    "errorTitle": "Провідник процесів",
+    "processUnavailable": "Процес більше недоступний.",
+    "endFailed": "Не вдалося завершити процес. Помилка Windows: {0}.",
+    "pathUnavailable": "Розташування виконуваного файлу недоступне.",
+    "openLocationFailed": "Не вдалося відкрити розташування файлу. Помилка Windows: {0}.",
+    "propertiesFailed": "Не вдалося відкрити властивості файлу. Помилка Windows: {0}.",
+    "openPanelFailed": "Не вдалося відкрити панель провідника процесів."
+  }
+}

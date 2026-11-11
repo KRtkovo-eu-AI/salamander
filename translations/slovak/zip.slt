@@ -558,5 +558,5 @@ COMMENT,"Slovenská verzia"
 1252,1,"KB"
 1253,1,"MB"
 1254,1,"Tento ZIP súbor používa formát údajov, v ktorom aktuálna verzia pluginu ZIP nedokáže vykonávať zmeny"
-1255,0,"Not all archive entries were unpacked. The source archive has been kept."
+1255,1,"Nie všetky záznamy archívu boli extrahované. Zdrojový archív zostal."
 

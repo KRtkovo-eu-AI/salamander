@@ -7,7 +7,7 @@ VERSION,"1,12,0,197"
 LANGID,1040
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 101]
 210,102,1,"Separa e combina impostazioni"

@@ -7,7 +7,7 @@ VERSION,"1,16,0,197"
 LANGID,1040
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 101]
 251,111,1,"Configurazione UnMIME"

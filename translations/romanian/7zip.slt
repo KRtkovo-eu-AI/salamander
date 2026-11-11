@@ -168,5 +168,5 @@ COMMENT,"Versiunea romana"
 1096,1,"Nu pot adauga 1 sau mai multe fisiere la lista. Calea finala e prea lunga.\nCateva directoare sau fisiere pot lipsi in listarea arhivei."
 1097,1,"Nu pot adauga 1 sau mai multe fisiere la lista. Calea finala e prea lunga.\nCateva directoare sau fisiere pot lipsi in listarea arhivei."
 1098,1,"Nume "%s" cu calea intreaga e prea lunga.\n\nCale: %s"
-1099,0,"Not all archive entries were unpacked. The source archive has been kept."
+1099,1,"Nu toate obiectele arhivei au fost dezarhivate. Sursa a fost păstrată."
 

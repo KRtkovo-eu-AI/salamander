@@ -15,8 +15,8 @@ COMMENT,"vietnamese (automatic AI translation)"
 1003,1,"Duyệt và trích xuất hình ảnh đĩa FAT 12, 16 và 32."
 
 [STRINGTABLE 1]
-1100,0,"Error opening file "%s"."
-1101,0,"Error reading file "%s"."
+1100,1,"Lỗi khi mở tệp "%s"."
+1101,1,"Lỗi khi đọc tệp "%s"."
 1102,1,"Lỗi khi phân tích tệp "%s".\n\n%s"
 1103,1,"Vùng khởi động bị hỏng hoặc tệp này không phải là hình ảnh FAT 12, 16 hoặc 32."
 

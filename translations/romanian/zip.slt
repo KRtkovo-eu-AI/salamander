@@ -558,5 +558,5 @@ COMMENT,"Versiunea romana"
 1252,1,"KB"
 1253,1,"MB"
 1254,1,"Fisierele ZIP folosesc data format care nu e suportata pentru modificarea versiunii curente de plugin ZIP"
-1255,0,"Not all archive entries were unpacked. The source archive has been kept."
+1255,1,"Nu toate intrările au fost dezarhivate. Arhiva sursă a fost păstrată."
 

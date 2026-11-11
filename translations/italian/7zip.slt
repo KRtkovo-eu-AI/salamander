@@ -7,7 +7,7 @@ VERSION,"1,36,0,197"
 LANGID,1040
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 1200]
 220,200,1,"Configurazione 7-Zip"
@@ -168,5 +168,5 @@ COMMENT,"English version"
 1096,1,"Impossibile aggiungere uno o piu file all'elenco. Il percorso complessivo e troppo lungo.\nAlcune cartelle o file potrebbero mancare nell'elenco dell'archivio."
 1097,1,"Impossibile aggiungere 1 o più directory all'elenco. Il percorso totale è troppo lungo.\nAlcune directory o file potrebbero mancare nell'elenco dell'archivio."
 1098,1,"Il nome "%s" con percorso completo è troppo lungo.\n\nPercorso: %s"
-1099,0,"Not all archive entries were unpacked. The source archive has been kept."
+1099,1,"Non tutte le voci sono estratte. L'archivio di origine è conservato."
 

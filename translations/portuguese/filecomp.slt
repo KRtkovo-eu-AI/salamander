@@ -233,7 +233,7 @@ COMMENT,"portuguese (automatic AI translation)"
 [STRINGTABLE 3]
 1041,1,"Insira um valor positivo"
 1042,1,"Selecionar primeiro arquivo"
-1043,0,"Select Second File"
+1043,1,"Escolha 2º arquivo"
 1044,1,"O arquivo%snão existe.\n Especifique um nome de arquivo válido."
 1045,1,"Todos os arquivos (*.*)"
 1046,1,"Configurar..."

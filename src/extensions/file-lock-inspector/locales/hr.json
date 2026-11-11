@@ -1,0 +1,40 @@
+{
+  "name": "Preglednik zaključanih datoteka",
+  "commands": {
+    "FileLockInspector.inspect": "Preglednik zaključanih datoteka..."
+  },
+  "strings": {
+    "title": "Preglednik zaključanih datoteka",
+    "files": "Datoteke",
+    "noLocks": "Nisu pronađeni procesi koji zaključavaju datoteke.",
+    "lockingProcesses": "Procesi koji zaključavaju datoteke",
+    "process": "Proces",
+    "pid": "PID",
+    "type": "Vrsta",
+    "status": "Status",
+    "executable": "Izvršna datoteka",
+    "inspecting": "Traženje procesa koji zaključavaju datoteke...",
+    "lockCount": "Pronađeno zaključanih procesa: {0}",
+    "inspectFailed": "Provjera zaključavanja nije uspjela.",
+    "openLocation": "Otvori lokaciju",
+    "closeProcess": "Zatvori proces",
+    "endProcess": "Završi proces...",
+    "copyReport": "Kopiraj izvješće",
+    "refresh": "Osvježi",
+    "close": "Zatvori",
+    "locationUnavailable": "Lokacija izvršne datoteke nije dostupna za ovaj proces.",
+    "closeUnavailable": "Proces nema glavni prozor koji se može sigurno zatvoriti.",
+    "confirmEnd": "Želite li završiti proces \"{0}\" (PID {1})?{2}{2}Nespremljeni podaci u toj aplikaciji mogu se izgubiti.",
+    "selectFile": "Najprije odaberite ili označite barem jednu datoteku.",
+    "responding": "Odgovara",
+    "notResponding": "Ne odgovara",
+    "processEnded": "(proces je završen)",
+    "appMainWindow": "Aplikacija",
+    "appOtherWindow": "Pozadinski prozor",
+    "appService": "Usluga",
+    "appExplorer": "Windows Explorer",
+    "appConsole": "Konzola",
+    "appCritical": "Kritični proces",
+    "appUnknown": "Nepoznato"
+  }
+}

@@ -7,7 +7,7 @@ VERSION,"1,10,0,197"
 LANGID,1040
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 0]
 46,1,"Macchine Hyper-V"

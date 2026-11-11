@@ -16,7 +16,7 @@ COMMENT,"chinesetraditional (automatic AI translation)"
 [STRINGTABLE 1]
 48,1,"在檔案面板中顯示本機 Hyper-V 虛擬機器。"
 49,1,"https://samandarin.net/"
-50,0,"Show &Hyper-V Machines Window"
+50,1,"顯示 &Hyper-V 虛擬機器視窗"
 51,1,"建立 &VHD"
 52,1,"&連結 VHD"
 60,1,"建立並連結虛擬硬碟"

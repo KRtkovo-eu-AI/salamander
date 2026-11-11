@@ -1,0 +1,52 @@
+{
+  "name": "Eksplorator procesów",
+  "description": "Wyświetla uruchomione procesy systemu Windows w panelu systemu plików Salamandera.",
+  "commands": {
+    "ProcessExplorer.open": "Otwórz Eksplorator procesów"
+  },
+  "fileSystems": {
+    "processes": {
+      "name": "Uruchomione procesy",
+      "columns": {
+        "pid": {
+          "name": "PID",
+          "description": "Identyfikator procesu"
+        },
+        "status": {
+          "name": "Stan",
+          "description": "Stan procesu"
+        },
+        "userName": {
+          "name": "Użytkownik",
+          "description": "Konto będące właścicielem procesu"
+        },
+        "cpu": {
+          "name": "CPU",
+          "description": "Bieżące użycie procesora"
+        },
+        "memory": {
+          "name": "Pamięć",
+          "description": "Aktywny prywatny zestaw roboczy"
+        }
+      },
+      "actions": {
+        "endTask": "Zakończ zadanie",
+        "endProcessTree": "Zakończ drzewo procesów",
+        "openFileLocation": "Otwórz lokalizację pliku",
+        "properties": "Właściwości"
+      }
+    }
+  },
+  "strings": {
+    "running": "Uruchomiony",
+    "suspended": "Wstrzymany",
+    "ended": "Zakończony",
+    "errorTitle": "Eksplorator procesów",
+    "processUnavailable": "Proces jest już niedostępny.",
+    "endFailed": "Nie można zakończyć procesu. Błąd systemu Windows: {0}.",
+    "pathUnavailable": "Lokalizacja pliku wykonywalnego jest niedostępna.",
+    "openLocationFailed": "Nie można otworzyć lokalizacji pliku. Błąd systemu Windows: {0}.",
+    "propertiesFailed": "Nie można otworzyć właściwości pliku. Błąd systemu Windows: {0}.",
+    "openPanelFailed": "Nie można otworzyć panelu Eksploratora procesów."
+  }
+}

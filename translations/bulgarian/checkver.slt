@@ -7,7 +7,7 @@ VERSION,"1,2,7,197"
 LANGID,1026
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 100]
 338,238,1,"Проверка за версии"
@@ -78,7 +78,7 @@ COMMENT,"English version"
 218,1,"Добавката използва интернет.\nДа прекратите ли тази интернет сесия?"
 220,1,"Инициализиране на интернет връзката..."
 221,1,"Неуспешна инициализация: %s"
-222,1,"Свързване с https://samandarin.net/"
+222,1,"Свързване с \tuwww.altap.cz\tlhttps://www.altap.cz\tn..."
 223,1,"Неуспешно свързване: %s"
 
 [STRINGTABLE 2]

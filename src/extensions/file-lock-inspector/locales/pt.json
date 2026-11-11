@@ -1,0 +1,40 @@
+{
+  "name": "Inspetor de bloqueios de ficheiros",
+  "commands": {
+    "FileLockInspector.inspect": "Inspetor de bloqueios de ficheiros..."
+  },
+  "strings": {
+    "title": "Inspetor de bloqueios de ficheiros",
+    "files": "Ficheiros",
+    "noLocks": "Não foram encontrados processos que bloqueiem ficheiros.",
+    "lockingProcesses": "Processos que bloqueiam ficheiros",
+    "process": "Processo",
+    "pid": "PID",
+    "type": "Tipo",
+    "status": "Estado",
+    "executable": "Executável",
+    "inspecting": "A procurar processos que bloqueiam ficheiros...",
+    "lockCount": "Processos bloqueadores encontrados: {0}",
+    "inspectFailed": "A inspeção dos bloqueios falhou.",
+    "openLocation": "Abrir localização",
+    "closeProcess": "Fechar processo",
+    "endProcess": "Terminar processo...",
+    "copyReport": "Copiar relatório",
+    "refresh": "Atualizar",
+    "close": "Fechar",
+    "locationUnavailable": "A localização do executável não está disponível para este processo.",
+    "closeUnavailable": "O processo não tem uma janela principal que possa ser fechada em segurança.",
+    "confirmEnd": "Terminar o processo {0} (PID {1})?{2}{2}Os dados não guardados nessa aplicação poderão perder-se.",
+    "selectFile": "Selecione ou foque primeiro pelo menos um ficheiro.",
+    "responding": "A responder",
+    "notResponding": "Sem resposta",
+    "processEnded": "(processo terminado)",
+    "appMainWindow": "Aplicação",
+    "appOtherWindow": "Janela em segundo plano",
+    "appService": "Serviço",
+    "appExplorer": "Explorador do Windows",
+    "appConsole": "Consola",
+    "appCritical": "Processo crítico",
+    "appUnknown": "Desconhecido"
+  }
+}

@@ -168,5 +168,5 @@ COMMENT,"portuguese (automatic AI translation)"
 1096,1,"Não foi possível adicionar 1 ou mais arquivos à lista. O caminho total é longo demais.\n Alguns diretórios ou arquivos podem estar ausentes na listagem do arquivo."
 1097,1,"Não foi possível adicionar 1 ou mais diretórios à lista. O caminho total é longo demais.\n Alguns diretórios ou arquivos podem estar ausentes na listagem do arquivo."
 1098,1,"O nome "%s" com o caminho completo é longo demais.\n\n Caminho: %s"
-1099,0,"Not all archive entries were unpacked. The source archive has been kept."
+1099,1,"Nem todas as entradas foram extraídas. O arquivo de origem foi mantido."
 

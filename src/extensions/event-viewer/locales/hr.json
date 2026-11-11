@@ -1,0 +1,61 @@
+{
+  "name": "Preglednik događaja",
+  "description": "Pregledava zapisnike događaja sustava Windows u oknu datotečnog sustava Salamandera.",
+  "commands": {
+    "EventViewer.open": "Otvori preglednik događaja"
+  },
+  "fileSystems": {
+    "events": {
+      "name": "Preglednik događaja",
+      "rootItems": {
+        "custom-views": "Prilagođeni prikazi",
+        "windows-logs": "Zapisnici sustava Windows",
+        "applications-services": "Zapisnici aplikacija i usluga"
+      },
+      "columns": {
+        "level": {
+          "name": "Razina",
+          "description": "Ozbiljnost događaja"
+        },
+        "logged": {
+          "name": "Datum i vrijeme",
+          "description": "Vrijeme zapisivanja događaja"
+        },
+        "source": {
+          "name": "Izvor",
+          "description": "Davatelj događaja"
+        },
+        "eventId": {
+          "name": "ID događaja",
+          "description": "Identifikator događaja"
+        },
+        "task": {
+          "name": "Kategorija zadatka",
+          "description": "Kategorija zadatka događaja"
+        }
+      },
+      "actions": {
+        "openEvent": "Svojstva događaja"
+      }
+    }
+  },
+  "administrativeEvents": "Administrativni događaji",
+  "eventName": "Događaj {0}, {1} [{2}]",
+  "windowTitle": "Svojstva događaja - Događaj {0}, {1}",
+  "general": "Općenito",
+  "descriptionLabel": "Opis",
+  "details": "Pojedinosti",
+  "close": "Zatvori",
+  "messageUnavailable": "Poruka događaja nije dostupna.",
+  "textTruncated": "Tekst događaja je skraćen.",
+  "openErrorTitle": "Događaj nije moguće otvoriti",
+  "openError": "Događaj nije moguće otvoriti.\r\n\r\n{0}",
+  "metadata": "Naziv zapisnika: {0}\r\nIzvor: {1}\r\nID događaja: {2}    Razina: {3}\r\nZapisano: {4}    Kategorija zadatka: {5}\r\nKorisnik: {6}    Računalo: {7}\r\nID zapisa: {8}",
+  "levels": {
+    "critical": "Kritično",
+    "error": "Pogreška",
+    "warning": "Upozorenje",
+    "information": "Informacije",
+    "verbose": "Opširno"
+  }
+}

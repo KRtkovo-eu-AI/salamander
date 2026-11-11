@@ -60,8 +60,8 @@ COMMENT,"swedish (automatic AI translation)"
 
 [STRINGTABLE 2]
 64,1,"&Fokusera i panelen"
-65,0,"Zoom &In"
-66,0,"Zoom &Out"
+65,1,"Zo&ma in"
+66,1,"Zooma &ut"
 67,1,"&Öppna i panelen"
 68,1,"Byt &katalog"
 69,1,"Skapad:"

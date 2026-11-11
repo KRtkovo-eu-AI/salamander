@@ -1,0 +1,61 @@
+{
+  "name": "이벤트 뷰어",
+  "description": "Salamander 파일 시스템 패널에서 Windows 이벤트 로그를 탐색합니다.",
+  "commands": {
+    "EventViewer.open": "이벤트 뷰어 열기"
+  },
+  "fileSystems": {
+    "events": {
+      "name": "이벤트 뷰어",
+      "rootItems": {
+        "custom-views": "사용자 지정 보기",
+        "windows-logs": "Windows 로그",
+        "applications-services": "응용 프로그램 및 서비스 로그"
+      },
+      "columns": {
+        "level": {
+          "name": "수준",
+          "description": "이벤트 심각도"
+        },
+        "logged": {
+          "name": "날짜 및 시간",
+          "description": "이벤트가 기록된 시간"
+        },
+        "source": {
+          "name": "원본",
+          "description": "이벤트 공급자"
+        },
+        "eventId": {
+          "name": "이벤트 ID",
+          "description": "이벤트 식별자"
+        },
+        "task": {
+          "name": "작업 범주",
+          "description": "이벤트 작업 범주"
+        }
+      },
+      "actions": {
+        "openEvent": "이벤트 속성"
+      }
+    }
+  },
+  "administrativeEvents": "관리 이벤트",
+  "eventName": "이벤트 {0}, {1} [{2}]",
+  "windowTitle": "이벤트 속성 - 이벤트 {0}, {1}",
+  "general": "일반",
+  "descriptionLabel": "설명",
+  "details": "세부 정보",
+  "close": "닫기",
+  "messageUnavailable": "이벤트 메시지를 사용할 수 없습니다.",
+  "textTruncated": "텍스트가 잘렸습니다.",
+  "openErrorTitle": "이벤트를 열 수 없음",
+  "openError": "이벤트를 열 수 없습니다.\r\n\r\n{0}",
+  "metadata": "로그 이름: {0}\r\n원본: {1}\r\n이벤트 ID: {2}    수준: {3}\r\n기록 시간: {4}    작업 범주: {5}\r\n사용자: {6}    컴퓨터: {7}\r\n레코드 ID: {8}",
+  "levels": {
+    "critical": "위험",
+    "error": "오류",
+    "warning": "경고",
+    "information": "정보",
+    "verbose": "자세히"
+  }
+}

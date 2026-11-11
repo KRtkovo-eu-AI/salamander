@@ -1,5 +1,5 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\unrar\unrar.atp"
+PROJECTNAME,"localization-openai\projects\swedish\unrar\unrar.atp"
 TEXTVERSION,"3.4 (x64)"
 VERSION,"3,4,0,197"
 
@@ -30,8 +30,8 @@ COMMENT,"swedish (automatic AI translation)"
 
 [DIALOG 106]
 220,115,1,"UnRAR-inställningar"
-107,12,10,200,12,1,"&Hoppa automatiskt över filer som fortsätter från föregående volymer"
-116,12,32,197,12,1,"&Visa inte en varning när hela arkivinnehållet inte kan visas"
+107,12,10,241,12,1,"&Hoppa automatiskt över filer som fortsätter från föregående volymer"
+116,12,32,206,12,1,"&Visa inte en varning när hela arkivinnehållet inte kan visas"
 300,23,22,154,8,1,"vid uppackning."
 301,23,44,111,8,1,"inte kan visas."
 302,6,60,208,1,1,""

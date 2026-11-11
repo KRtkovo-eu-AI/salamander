@@ -116,7 +116,7 @@ COMMENT,"Japanese (ja-JP) UI translation"
 9,358,142,50,14,1,"ヘルプ"
 
 [DIALOG 580]
-328,301,1,"詳細オプション"
+596,301,1,"詳細オプション"
 3000,7,10,69,8,1,"プロキシサーバー(&P):"
 531,84,8,179,89,1,""
 532,270,7,50,14,1,"追加(&A)..."
@@ -345,7 +345,7 @@ COMMENT,"Japanese (ja-JP) UI translation"
 778,7,81,163,12,1,"操作が終了したらこのダイアログを閉じます(&g)"
 
 [DIALOG 779]
-244,64,1,""
+489,64,1,""
 780,10,9,226,8,1,""
 781,10,19,225,130,1,""
 782,292,47,202,12,1,"キューに追加のみ (アクティブな接続では処理しません)(&O)"
@@ -354,7 +354,7 @@ COMMENT,"Japanese (ja-JP) UI translation"
 9,157,42,50,14,1,"ヘルプ"
 
 [DIALOG 785]
-331,61,1,"削除の確認"
+549,61,1,"削除の確認"
 1,112,39,50,14,1,"はい(&Y)"
 2,169,39,50,14,1,"いいえ(&N)"
 788,8,8,18,20,1,""
@@ -362,7 +362,7 @@ COMMENT,"Japanese (ja-JP) UI translation"
 787,352,40,202,12,1,"キューに追加のみ (アクティブな接続では処理しません)(&O)"
 
 [DIALOG 795]
-278,200,1,"属性の変更"
+522,200,1,"属性の変更"
 796,7,10,264,8,1,""
 3000,7,26,84,51,1," Owner "
 3001,97,26,84,51,1,"グループ"
@@ -1217,10 +1217,10 @@ COMMENT,"Japanese (ja-JP) UI translation"
 10259,1,"次回このメッセージを表示しない(&D)\t元に戻す方法\tこのオプションは、後でFTP 設定の確認ページで変更できます"
 
 [STRINGTABLE 17]
-10300,0,"Connecting to "%s" (%s) on port %d.\r\nLog UID is %d, time is %s.\r\n\r\n"
-10301,0,"\r\n-----\r\n\r\nReconnecting to "%s" (%s) on port %d (attempt no. %d).\r\nTime is %s.\r\n\r\n"
-10302,0,"FTP server address: %s, port: %d, user: %s\r\nProxy server name: %s, type: %s\r\nProxy server address: %s, port: %d, user: %s\r\nConnecting to "%s" (%s) on port %d.\r\nLog UID is %d, time is %s.\r\n\r\n"
-10303,0,"\r\n-----\r\n\r\nFTP server address: %s, port: %d, user: %s\r\nProxy server name: %s, type: %s\r\nProxy server address: %s, port: %d, user: %s\r\nReconnecting to "%s" (%s) on port %d (attempt no. %d).\r\nTime is %s.\r\n\r\n"
+10300,1,""%s" (%s)のポート %d に接続しています。\r\nログ UID は %d、時刻は %s。\r\n\r\n"
+10301,1,"\r\n-----\r\n\r\n"%s" (%s)のポート %d に再接続しています (試行回数 %d)。\r\n時刻は %s。\r\n\r\n"
+10302,1,"FTP サーバーのアドレス: %s、ポート: %d、ユーザー: %s\r\nプロキシサーバー名: %s、タイプ: %s\r\nプロキシサーバーのアドレス: %s、ポート: %d、ユーザー: %s\r\n"%s" (%s)のポート %d に接続しています。\r\nログ UID は %d、時刻は %s。\r\n\r\n"
+10303,1,"\r\n-----\r\n\r\nFTP サーバーのアドレス: %s、ポート: %d、ユーザー: %s\r\nプロキシサーバー名: %s、タイプ: %s\r\nプロキシサーバーのアドレス: %s、ポート: %d、ユーザー: %s\r\n"%s" (%s)のポート %d に再接続しています (試行回数 %d)。\r\n時刻は %s。\r\n\r\n"
 
 [STRINGTABLE 18]
 10305,1,"表示するログはありません。"
@@ -1724,8 +1724,8 @@ COMMENT,"Japanese (ja-JP) UI translation"
 10935,1,"FTP コマンドの送信がタイムアウトしました。\r\n"
 10936,1,"ポート %d...\r\n\r\n の「%s」 (%s) に接続中"
 10937,1,"ログイン プロンプトの待機がタイムアウトになりました。\r\n"
-10938,0,"\r\n-----\r\n\r\nLogin parameters have been changed or the server certificate (SSL) has been accepted or verified.\r\n\r\n"
-10939,0,"FTP server address: %s, port: %d, user: %s\r\nProxy server name: %s, type: %s\r\nProxy server address: %s, port: %d, user: %s\r\nConnecting to "%s" (%s) on port %d...\r\n\r\n"
+10938,1,"\r\n-----\r\n\r\nログイン パラメーターが変更されたか、サーバー証明書 (SSL) の受け入れまたは確認が行われました。\r\n\r\n"
+10939,1,"FTP サーバーのアドレス: %s、ポート: %d、ユーザー: %s\r\nプロキシサーバー名: %s、タイプ: %s\r\nプロキシサーバーのアドレス: %s、ポート: %d、ユーザー: %s\r\n"%s" (%s)のポート %d に接続しています...\r\n\r\n"
 
 [STRINGTABLE 58]
 10950,1,"IP アドレス取得エラー: %s"

@@ -168,5 +168,5 @@ COMMENT,"Slovenská verzia"
 1096,1,"Nie je možné pridať 1 alebo viac súborov do výpisu. Plná cesta je príliš dlhá.\nVo výpise archívu môžu chýbať niektoré adresáre alebo súbory."
 1097,1,"Nie je možné pridať 1 alebo viac adresárov do výpisu. Plná cesta je príliš dlhá.\nVo výpise archívu môžu chýbať niektoré adresáre alebo súbory."
 1098,1,"Názov "%s" s plnou cestou je príliš dlhý.\n\nCesta: %s"
-1099,0,"Not all archive entries were unpacked. The source archive has been kept."
+1099,1,"Nie všetky položky boli extrahované. Zdrojový archív bol zachovaný."
 

@@ -1,0 +1,12 @@
+{
+  "name": "JSON Viewer (nodeJS)",
+  "description": "Alternatif ringan untuk JSON Viewer .NET. Menampilkan berkas JSON di WebView2 dengan JSON Viewer Firefox/Chrome (pd4d10/json-viewer).",
+  "viewers": {
+    "JSON Viewer (nodeJS)": "JSON Viewer (nodeJS)"
+  },
+  "strings": {
+    "invalidFallback": "Berkas bukan JSON yang valid dan penampil teks Prism tidak dapat dibuka.",
+    "viewerOpenFailed": "Penampil dokumen WebView2 tidak dapat dibuka.\nPasang Salamatrix (kerangka Viewer bersama) dan pastikan WebView2 Runtime tersedia.",
+    "noPath": "Tidak ada jalur berkas yang diberikan kepada JSON Viewer (nodeJS)."
+  }
+}

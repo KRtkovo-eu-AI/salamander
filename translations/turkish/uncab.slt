@@ -1,5 +1,5 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\uncab\uncab.atp"
+PROJECTNAME,"localization-openai\projects\turkish\uncab\uncab.atp"
 TEXTVERSION,"1.29 (x64)"
 VERSION,"1,29,0,197"
 
@@ -37,9 +37,9 @@ COMMENT,"turkish (automatic AI translation)"
 [DIALOG 106]
 220,85,1,"UnCAB Yapılandırması"
 300,23,22,154,8,1,"çıkarırken."
-107,12,10,197,12,1,"Önceki birimden devam eden dosyaları otomatik olarak atla(&A)"
+107,12,10,220,12,1,"Önceki birimden devam eden dosyaları otomatik olarak atla(&A)"
 301,23,44,111,8,1,"listelenemediğinde."
-116,12,32,197,12,1,"Arşivin tüm içeriği listelenemediğinde uyarı gösterme(&D)"
+116,12,32,199,12,1,"Arşivin tüm içeriği listelenemediğinde uyarı gösterme(&D)"
 302,6,60,208,1,1,""
 1,57,66,50,14,1,"Tamam"
 2,112,66,50,14,1,"İptal"

@@ -1,0 +1,40 @@
+{
+  "name": "Trình kiểm tra khóa tệp",
+  "commands": {
+    "FileLockInspector.inspect": "Trình kiểm tra khóa tệp..."
+  },
+  "strings": {
+    "title": "Trình kiểm tra khóa tệp",
+    "files": "Tệp",
+    "noLocks": "Không tìm thấy tiến trình nào đang khóa tệp.",
+    "lockingProcesses": "Tiến trình đang khóa tệp",
+    "process": "Tiến trình",
+    "pid": "PID",
+    "type": "Loại",
+    "status": "Trạng thái",
+    "executable": "Tệp thực thi",
+    "inspecting": "Đang tìm tiến trình khóa tệp...",
+    "lockCount": "Số tiến trình khóa tìm thấy: {0}",
+    "inspectFailed": "Không thể kiểm tra khóa tệp.",
+    "openLocation": "Mở vị trí",
+    "closeProcess": "Đóng tiến trình",
+    "endProcess": "Kết thúc tiến trình...",
+    "copyReport": "Sao chép báo cáo",
+    "refresh": "Làm mới",
+    "close": "Đóng",
+    "locationUnavailable": "Không có vị trí tệp thực thi của tiến trình này.",
+    "closeUnavailable": "Tiến trình không có cửa sổ chính có thể đóng an toàn.",
+    "confirmEnd": "Kết thúc tiến trình {0} (PID {1})?{2}{2}Dữ liệu chưa lưu trong ứng dụng đó có thể bị mất.",
+    "selectFile": "Trước tiên hãy chọn hoặc đặt tiêu điểm vào ít nhất một tệp.",
+    "responding": "Đang phản hồi",
+    "notResponding": "Không phản hồi",
+    "processEnded": "(tiến trình đã kết thúc)",
+    "appMainWindow": "Ứng dụng",
+    "appOtherWindow": "Cửa sổ nền",
+    "appService": "Dịch vụ",
+    "appExplorer": "Windows Explorer",
+    "appConsole": "Bảng điều khiển",
+    "appCritical": "Tiến trình quan trọng",
+    "appUnknown": "Không xác định"
+  }
+}

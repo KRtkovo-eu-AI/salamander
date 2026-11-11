@@ -1,0 +1,52 @@
+{
+  "name": "مستكشف العمليات",
+  "description": "يعرض عمليات Windows قيد التشغيل في لوحة نظام ملفات Salamander.",
+  "commands": {
+    "ProcessExplorer.open": "فتح مستكشف العمليات"
+  },
+  "fileSystems": {
+    "processes": {
+      "name": "العمليات قيد التشغيل",
+      "columns": {
+        "pid": {
+          "name": "معرّف العملية",
+          "description": "معرّف العملية"
+        },
+        "status": {
+          "name": "الحالة",
+          "description": "حالة العملية"
+        },
+        "userName": {
+          "name": "اسم المستخدم",
+          "description": "الحساب الذي يملك العملية"
+        },
+        "cpu": {
+          "name": "المعالج",
+          "description": "الاستخدام الحالي للمعالج"
+        },
+        "memory": {
+          "name": "الذاكرة",
+          "description": "مجموعة العمل الخاصة النشطة"
+        }
+      },
+      "actions": {
+        "endTask": "إنهاء المهمة",
+        "endProcessTree": "إنهاء شجرة العمليات",
+        "openFileLocation": "فتح موقع الملف",
+        "properties": "الخصائص"
+      }
+    }
+  },
+  "strings": {
+    "running": "قيد التشغيل",
+    "suspended": "معلّقة",
+    "ended": "منتهية",
+    "errorTitle": "مستكشف العمليات",
+    "processUnavailable": "لم تعد العملية متاحة.",
+    "endFailed": "تعذّر إنهاء العملية. خطأ Windows: {0}.",
+    "pathUnavailable": "موقع الملف التنفيذي غير متاح.",
+    "openLocationFailed": "تعذّر فتح موقع الملف. خطأ Windows: {0}.",
+    "propertiesFailed": "تعذّر فتح خصائص الملف. خطأ Windows: {0}.",
+    "openPanelFailed": "تعذّر فتح لوحة مستكشف العمليات."
+  }
+}

@@ -7,7 +7,7 @@ VERSION,"1,2,7,197"
 LANGID,1040
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 100]
 338,238,1,"Verifica nuove versioni"
@@ -78,7 +78,7 @@ COMMENT,"English version"
 218,1,"Il plugin sta funzionando con Internet.\nVuoi interrompere questa sessione Internet?"
 220,1,"Inizializzazione connessione Internet..."
 221,1,"Inizializzazione non riuscita: %s"
-222,1,"Connessione a https://samandarin.net/"
+222,1,"Connecting to \tuwww.altap.cz\tlhttps://www.altap.cz\tn..."
 223,1,"Connessione non riuscita: %s"
 
 [STRINGTABLE 2]

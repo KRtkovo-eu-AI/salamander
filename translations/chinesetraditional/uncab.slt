@@ -1,5 +1,5 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\uncab\uncab.atp"
+PROJECTNAME,"localization-openai\projects\chinesetraditional\uncab\uncab.atp"
 TEXTVERSION,"1.29 (x64)"
 VERSION,"1,29,0,197"
 
@@ -16,7 +16,7 @@ COMMENT,"chinesetraditional (automatic AI translation)"
 110,54,48,156,8,1,""
 301,12,59,40,8,1,"CAB 名稱："
 111,54,59,156,8,1,""
-302,12,70,19,8,1,"路徑(&P)："
+302,12,70,34,8,1,"路徑(&P)："
 101,12,80,182,12,1,""
 102,197,80,13,12,1,"…"
 1,106,103,50,14,1,"確定"

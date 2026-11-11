@@ -34,5 +34,5 @@ COMMENT,"turkish (automatic AI translation)"
 10104,1,"EXE, DLL vb. Portable Executable dosyaları hakkında bilgi görüntüler."
 
 [STRINGTABLE 2]
-10118,0,"No Portable Executable section selected in plugin configuration was found.\nUse menu Options > Plugin Configuration > Portable Executable Viewer\nin Open Samandarin main window to setup visible sections."
+10118,1,"No Portable Executable section selected in plugin configuration was found.\nUse menu Options > Plugin Configuration > Portable Executable Viewer\nin Open Samandarin main window to setup visible sections."
 

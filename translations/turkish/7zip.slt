@@ -168,5 +168,5 @@ COMMENT,"turkish (automatic AI translation)"
 1096,1,"Bir veya daha fazla dosya listeye eklenemiyor. Toplam yol çok uzun.\nArşiv listesinde bazı dizinler veya dosyalar eksik olabilir."
 1097,1,"Bir veya daha fazla dizin listeye eklenemiyor. Toplam yol çok uzun.\nArşiv listesinde bazı dizinler veya dosyalar eksik olabilir."
 1098,1,"Tam yolu ile birlikte "%s" adı çok uzun.\n\nYol: %s"
-1099,0,"Not all archive entries were unpacked. The source archive has been kept."
+1099,1,"Tüm arşiv öğeleri ayıklanmadı. Kaynak arşiv korundu."
 

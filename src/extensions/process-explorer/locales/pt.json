@@ -1,0 +1,52 @@
+{
+  "name": "Explorador de Processos",
+  "description": "Apresenta os processos do Windows em execução num painel do sistema de ficheiros do Salamander.",
+  "commands": {
+    "ProcessExplorer.open": "Abrir Explorador de Processos"
+  },
+  "fileSystems": {
+    "processes": {
+      "name": "Processos em Execução",
+      "columns": {
+        "pid": {
+          "name": "PID",
+          "description": "Identificador do processo"
+        },
+        "status": {
+          "name": "Estado",
+          "description": "Estado do processo"
+        },
+        "userName": {
+          "name": "Utilizador",
+          "description": "Conta proprietária do processo"
+        },
+        "cpu": {
+          "name": "CPU",
+          "description": "Utilização atual do processador"
+        },
+        "memory": {
+          "name": "Memória",
+          "description": "Conjunto de trabalho privado ativo"
+        }
+      },
+      "actions": {
+        "endTask": "Terminar tarefa",
+        "endProcessTree": "Terminar árvore de processos",
+        "openFileLocation": "Abrir localização do ficheiro",
+        "properties": "Propriedades"
+      }
+    }
+  },
+  "strings": {
+    "running": "Em execução",
+    "suspended": "Suspenso",
+    "ended": "Terminado",
+    "errorTitle": "Explorador de Processos",
+    "processUnavailable": "O processo já não está disponível.",
+    "endFailed": "Não foi possível terminar o processo. Erro do Windows: {0}.",
+    "pathUnavailable": "A localização do ficheiro executável não está disponível.",
+    "openLocationFailed": "Não foi possível abrir a localização do ficheiro. Erro do Windows: {0}.",
+    "propertiesFailed": "Não foi possível abrir as propriedades do ficheiro. Erro do Windows: {0}.",
+    "openPanelFailed": "Não foi possível abrir o painel do Explorador de Processos."
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "name": "Диспечер на процеси",
+  "description": "Показва изпълняваните процеси на Windows във файлов панел на Salamander.",
+  "commands": {
+    "ProcessExplorer.open": "Отваряне на диспечера на процеси"
+  },
+  "fileSystems": {
+    "processes": {
+      "name": "Изпълнявани процеси",
+      "columns": {
+        "pid": {
+          "name": "PID",
+          "description": "Идентификатор на процеса"
+        },
+        "status": {
+          "name": "Състояние",
+          "description": "Състояние на процеса"
+        },
+        "userName": {
+          "name": "Потребител",
+          "description": "Акаунтът, който притежава процеса"
+        },
+        "cpu": {
+          "name": "CPU",
+          "description": "Текущо използване на процесора"
+        },
+        "memory": {
+          "name": "Памет",
+          "description": "Активен личен работен набор"
+        }
+      },
+      "actions": {
+        "endTask": "Край на задачата",
+        "endProcessTree": "Край на дървото на процесите",
+        "openFileLocation": "Отваряне на местоположението на файла",
+        "properties": "Свойства"
+      }
+    }
+  },
+  "strings": {
+    "running": "Работи",
+    "suspended": "Спрян",
+    "ended": "Приключил",
+    "errorTitle": "Диспечер на процеси",
+    "processUnavailable": "Процесът вече не е наличен.",
+    "endFailed": "Процесът не може да бъде прекратен. Грешка на Windows: {0}.",
+    "pathUnavailable": "Местоположението на изпълнимия файл не е налично.",
+    "openLocationFailed": "Местоположението на файла не може да бъде отворено. Грешка на Windows: {0}.",
+    "propertiesFailed": "Свойствата на файла не могат да бъдат отворени. Грешка на Windows: {0}.",
+    "openPanelFailed": "Панелът на диспечера на процеси не може да бъде отворен."
+  }
+}

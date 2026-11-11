@@ -168,5 +168,5 @@ COMMENT,"indonesian (automatic AI translation)"
 1096,1,"Satu atau beberapa file tidak dapat ditambahkan ke daftar. Total panjang jalur terlalu panjang.\nBeberapa direktori atau file mungkin tidak tercantum dalam daftar arsip."
 1097,1,"Satu atau beberapa direktori tidak dapat ditambahkan ke daftar. Total panjang jalur terlalu panjang.\nBeberapa direktori atau file mungkin tidak tercantum dalam daftar arsip."
 1098,1,"Nama "%s" dengan jalur lengkap terlalu panjang.\n\nJalur: %s"
-1099,0,"Not all archive entries were unpacked. The source archive has been kept."
+1099,1,"Tidak semua entri arsip diekstrak. Arsip sumber telah disimpan."
 

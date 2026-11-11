@@ -168,5 +168,5 @@ COMMENT,"Magyar változat"
 1096,1,"Egy vagy több fájl nem adható hozzá a listához. Túl hosszú a teljes elérési út.\nNéhány mappa vagy fájl talán hiányozni fog az archívum listájából."
 1097,1,"Egy vagy több fájl nem adható hozzá a listához. Túl hosszú a teljes elérési út.\nNéhány mappa vagy fájl talán hiányozni fog az archívum listájából."
 1098,1,"A(z) "%s" név túl hosszú a teljes elérési úttal.\n\nElérés: %s"
-1099,0,"Not all archive entries were unpacked. The source archive has been kept."
+1099,1,"Nem minden archívumelem lett kibontva. A forrásarchívum megmaradt."
 

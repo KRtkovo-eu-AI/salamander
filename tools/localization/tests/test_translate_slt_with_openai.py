@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Keep non-token validation failures retryable. | Prevent newline and formatting errors from becoming English state-1 fallbacks. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Preserve dialog control rows during width expansion. | Prevent invalid SLT structure when a state-1 control precedes translatable controls. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Test fallback persistence and row-level request counts. | Ensure permanent validation failures are skipped by future runs while remaining buildable. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Verify row-level retry request counts. | Prevent valid translations from being resent after one technical-token failure. | | openai/gpt-5.6-luna-pro |
@@ -78,7 +79,7 @@ class Tests(unittest.TestCase):
   seen=[]
   def requester(payload,key,model):
    seen.append(payload)
-   return {"translations":[{"id":x["id"],"text":"Открыть %s\n" if x["resource_id"] == "101" else "Использовать &шрифт по умолчанию"} for x in payload["items"]]}
+   return {"translations":[{"id":x["id"],"text":"Открыть %s\\n" if x["resource_id"] == "101" else "Использовать &шрифт по умолчанию"} for x in payload["items"]]}
   with tempfile.TemporaryDirectory() as d:
    out=Path(d)/"out.slt"; slt.translate(FIX,out,"russian","mock",40,False,False,requester)
   self.assertEqual(seen[0]["target_language"],"Russian")
@@ -140,7 +141,7 @@ COMMENT,\"\"
    self.assertIn('101,1,"Open %s\\n"',text); self.assertIn('102,1,"Použít výchozí &písmo"',text)
    self.assertEqual(slt.parse_items(text.splitlines(keepends=True)),[])
 
- def test_permanently_rejected_source_fallback_is_skipped_on_next_run(self):
+ def test_permanently_changed_tokens_use_source_fallback_and_are_skipped(self):
   os.environ["CURSOR_API_KEY"]="test"
   def requester(payload,key,model):
    if payload.get("retry_instructions"):
@@ -156,8 +157,45 @@ COMMENT,\"\"
    no_request=lambda *_: self.fail("marked source fallback must not be requested again")
    next_report=slt.translate(first,second,"czech","mock",40,False,False,no_request)
    self.assertEqual(next_report["found"],0)
-   self.assertEqual(next_report["skipped"],3)
-   self.assertFalse(second.exists())
+  self.assertEqual(next_report["skipped"],3)
+  self.assertFalse(second.exists())
+
+ def test_newline_validation_retries_and_accepts_escaped_newline(self):
+   os.environ["CURSOR_API_KEY"]="test"
+   calls=[]
+   def requester(payload,key,model):
+    calls.append(payload)
+    rows=[]
+    for item in payload["items"]:
+     if item["resource_id"] == "101":
+      text="Otevřít %s\\n" if payload.get("retry_instructions") else "Otevřít %s\n"
+     else:
+      text="Použít výchozí &písmo"
+     rows.append({"id":item["id"],"text":text})
+    return {"translations":rows}
+   with tempfile.TemporaryDirectory() as d:
+    out=Path(d)/"out.slt"
+    report=slt.translate(FIX,out,"czech","mock",40,False,False,requester)
+    text=out.read_text(encoding="utf-8-sig")
+   self.assertEqual(report["failed"],0)
+   self.assertEqual(report["translated"],2)
+   self.assertEqual(len(calls),2)
+   self.assertTrue(calls[1].get("retry_instructions"))
+   self.assertIn('101,1,"Otevřít %s\\n"',text)
+
+ def test_persistent_newline_validation_error_stays_untranslated(self):
+  os.environ["CURSOR_API_KEY"]="test"
+  def requester(payload,key,model):
+   return {"translations":[{"id":item["id"],"text":"Otevřít %s\n" if item["resource_id"] == "101" else "Použít výchozí &písmo"} for item in payload["items"]]}
+  with tempfile.TemporaryDirectory() as d:
+   out=Path(d)/"out.slt"
+   report=slt.translate(FIX,out,"czech","mock",40,False,False,requester)
+   text=out.read_text(encoding="utf-8-sig")
+   self.assertEqual(report["failed"],1)
+   self.assertEqual(report["translated"],1)
+   self.assertIn('101,0,"Open %s\\n"',text)
+   self.assertIn('102,1,"Použít výchozí &písmo"',text)
+   self.assertEqual([item.key for item in slt.parse_items(text.splitlines(keepends=True))], ["[STRINGTABLE 0]:101:9"])
 
  def test_single_item_retry_can_recover_rejected_translation(self):
   os.environ["CURSOR_API_KEY"]="test"

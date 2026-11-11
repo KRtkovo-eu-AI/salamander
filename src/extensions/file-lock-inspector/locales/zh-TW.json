@@ -1,0 +1,40 @@
+{
+  "name": "檔案鎖定檢查器",
+  "commands": {
+    "FileLockInspector.inspect": "檔案鎖定檢查器..."
+  },
+  "strings": {
+    "title": "檔案鎖定檢查器",
+    "files": "檔案",
+    "noLocks": "找不到鎖定檔案的程序。",
+    "lockingProcesses": "鎖定檔案的程序",
+    "process": "程序",
+    "pid": "PID",
+    "type": "類型",
+    "status": "狀態",
+    "executable": "可執行檔",
+    "inspecting": "正在搜尋鎖定檔案的程序...",
+    "lockCount": "找到鎖定程序：{0}",
+    "inspectFailed": "檔案鎖定檢查失敗。",
+    "openLocation": "開啟位置",
+    "closeProcess": "關閉程序",
+    "endProcess": "結束程序...",
+    "copyReport": "複製報告",
+    "refresh": "重新整理",
+    "close": "關閉",
+    "locationUnavailable": "無法取得此程序的可執行檔位置。",
+    "closeUnavailable": "此程序沒有可安全關閉的主視窗。",
+    "confirmEnd": "要結束程序 {0} (PID {1}) 嗎？{2}{2}該應用程式中尚未儲存的資料可能會遺失。",
+    "selectFile": "請先選取或聚焦至少一個檔案。",
+    "responding": "回應中",
+    "notResponding": "沒有回應",
+    "processEnded": "(程序已結束)",
+    "appMainWindow": "應用程式",
+    "appOtherWindow": "背景視窗",
+    "appService": "服務",
+    "appExplorer": "Windows 檔案總管",
+    "appConsole": "主控台",
+    "appCritical": "關鍵程序",
+    "appUnknown": "未知"
+  }
+}

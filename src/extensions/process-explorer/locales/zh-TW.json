@@ -1,0 +1,52 @@
+{
+  "name": "處理程序總管",
+  "description": "在 Salamander 檔案系統面板中列出執行中的 Windows 處理程序。",
+  "commands": {
+    "ProcessExplorer.open": "開啟處理程序總管"
+  },
+  "fileSystems": {
+    "processes": {
+      "name": "執行中的處理程序",
+      "columns": {
+        "pid": {
+          "name": "PID",
+          "description": "處理程序識別碼"
+        },
+        "status": {
+          "name": "狀態",
+          "description": "處理程序狀態"
+        },
+        "userName": {
+          "name": "使用者名稱",
+          "description": "擁有此處理程序的帳戶"
+        },
+        "cpu": {
+          "name": "CPU",
+          "description": "目前處理器使用量"
+        },
+        "memory": {
+          "name": "記憶體",
+          "description": "作用中的私用工作集"
+        }
+      },
+      "actions": {
+        "endTask": "結束工作",
+        "endProcessTree": "結束處理程序樹狀結構",
+        "openFileLocation": "開啟檔案位置",
+        "properties": "內容"
+      }
+    }
+  },
+  "strings": {
+    "running": "執行中",
+    "suspended": "已暫停",
+    "ended": "已結束",
+    "errorTitle": "處理程序總管",
+    "processUnavailable": "處理程序已無法使用。",
+    "endFailed": "無法結束處理程序。Windows 錯誤：{0}。",
+    "pathUnavailable": "無法取得可執行檔的位置。",
+    "openLocationFailed": "無法開啟檔案位置。Windows 錯誤：{0}。",
+    "propertiesFailed": "無法開啟檔案內容。Windows 錯誤：{0}。",
+    "openPanelFailed": "無法開啟處理程序總管面板。"
+  }
+}

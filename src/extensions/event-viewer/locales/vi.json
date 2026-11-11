@@ -1,0 +1,61 @@
+{
+  "name": "Trình xem sự kiện",
+  "description": "Duyệt nhật ký sự kiện Windows trong bảng hệ thống tệp của Salamander.",
+  "commands": {
+    "EventViewer.open": "Mở Trình xem sự kiện"
+  },
+  "fileSystems": {
+    "events": {
+      "name": "Trình xem sự kiện",
+      "rootItems": {
+        "custom-views": "Chế độ xem tùy chỉnh",
+        "windows-logs": "Nhật ký Windows",
+        "applications-services": "Nhật ký ứng dụng và dịch vụ"
+      },
+      "columns": {
+        "level": {
+          "name": "Mức",
+          "description": "Mức độ nghiêm trọng của sự kiện"
+        },
+        "logged": {
+          "name": "Ngày và giờ",
+          "description": "Thời điểm sự kiện được ghi nhật ký"
+        },
+        "source": {
+          "name": "Nguồn",
+          "description": "Nhà cung cấp sự kiện"
+        },
+        "eventId": {
+          "name": "ID sự kiện",
+          "description": "Mã định danh sự kiện"
+        },
+        "task": {
+          "name": "Danh mục tác vụ",
+          "description": "Danh mục tác vụ của sự kiện"
+        }
+      },
+      "actions": {
+        "openEvent": "Thuộc tính sự kiện"
+      }
+    }
+  },
+  "administrativeEvents": "Sự kiện quản trị",
+  "eventName": "Sự kiện {0}, {1} [{2}]",
+  "windowTitle": "Thuộc tính sự kiện - Sự kiện {0}, {1}",
+  "general": "Chung",
+  "descriptionLabel": "Mô tả",
+  "details": "Chi tiết",
+  "close": "Đóng",
+  "messageUnavailable": "Thông báo sự kiện không khả dụng.",
+  "textTruncated": "Văn bản đã bị cắt bớt.",
+  "openErrorTitle": "Không thể mở sự kiện",
+  "openError": "Không thể mở sự kiện.\r\n\r\n{0}",
+  "metadata": "Tên nhật ký: {0}\r\nNguồn: {1}\r\nID sự kiện: {2}    Mức: {3}\r\nĐược ghi: {4}    Danh mục tác vụ: {5}\r\nNgười dùng: {6}    Máy tính: {7}\r\nID bản ghi: {8}",
+  "levels": {
+    "critical": "Nghiêm trọng",
+    "error": "Lỗi",
+    "warning": "Cảnh báo",
+    "information": "Thông tin",
+    "verbose": "Chi tiết"
+  }
+}

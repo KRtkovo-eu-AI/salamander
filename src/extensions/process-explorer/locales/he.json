@@ -1,0 +1,52 @@
+{
+  "name": "סייר התהליכים",
+  "description": "מציג תהליכי Windows פועלים בחלונית מערכת קבצים של Salamander.",
+  "commands": {
+    "ProcessExplorer.open": "פתיחת סייר התהליכים"
+  },
+  "fileSystems": {
+    "processes": {
+      "name": "תהליכים פועלים",
+      "columns": {
+        "pid": {
+          "name": "PID",
+          "description": "מזהה התהליך"
+        },
+        "status": {
+          "name": "מצב",
+          "description": "מצב התהליך"
+        },
+        "userName": {
+          "name": "שם משתמש",
+          "description": "החשבון שבבעלותו התהליך"
+        },
+        "cpu": {
+          "name": "מעבד",
+          "description": "השימוש הנוכחי במעבד"
+        },
+        "memory": {
+          "name": "זיכרון",
+          "description": "מערך העבודה הפרטי הפעיל"
+        }
+      },
+      "actions": {
+        "endTask": "סיום משימה",
+        "endProcessTree": "סיום עץ התהליכים",
+        "openFileLocation": "פתיחת מיקום הקובץ",
+        "properties": "מאפיינים"
+      }
+    }
+  },
+  "strings": {
+    "running": "פועל",
+    "suspended": "מושהה",
+    "ended": "הסתיים",
+    "errorTitle": "סייר התהליכים",
+    "processUnavailable": "התהליך אינו זמין עוד.",
+    "endFailed": "לא ניתן לסיים את התהליך. שגיאת Windows: {0}.",
+    "pathUnavailable": "מיקום קובץ ההפעלה אינו זמין.",
+    "openLocationFailed": "לא ניתן לפתוח את מיקום הקובץ. שגיאת Windows: {0}.",
+    "propertiesFailed": "לא ניתן לפתוח את מאפייני הקובץ. שגיאת Windows: {0}.",
+    "openPanelFailed": "לא ניתן לפתוח את חלונית סייר התהליכים."
+  }
+}

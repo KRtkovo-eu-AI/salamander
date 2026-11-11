@@ -558,5 +558,5 @@ COMMENT,"Versión en español"
 1252,1,"KB"
 1253,1,"MB"
 1254,1,"El fichero ZIP usa un formato de datos no soportado para modificación por la versión actual del plugin ZIP"
-1255,0,"Not all archive entries were unpacked. The source archive has been kept."
+1255,1,"No se descomprimieron todas las entradas. Se conservó el archivo fuente."
 

@@ -7,14 +7,14 @@ VERSION,"1,0,5,197"
 LANGID,1042
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 0]
-46,0,"C# Demo"
-47,0,"About Plugin"
+46,1,"C# 데모"
+47,1,"플러그인 정보"
 
 [STRINGTABLE 1]
-48,0,"Example plugin that hosts managed WinForms UI through the CLR."
-49,0,"https://samandarin.net/"
-50,0,"Show &C# Demo Window"
+48,1,"CLR을 통해 호스트되는 관리 WinForms UI의 예제 플러그인입니다."
+49,1,"https://samandarin.net/"
+50,1,"&C# 데모 창 표시"
 

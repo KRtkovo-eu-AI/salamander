@@ -16,7 +16,7 @@ COMMENT,"swedish (automatic AI translation)"
 [STRINGTABLE 1]
 48,1,"Visa lokala Hyper-V virtuella datorer i panelen."
 49,1,"https://samandarin.net/"
-50,0,"Show &Hyper-V Machines Window"
+50,1,"Visa &Hyper-V-datorfönstret"
 51,1,"Skapa &VHD"
 52,1,"&Anslut VHD"
 60,1,"Skapa och anslut virtuell hårddisk"

@@ -7,7 +7,7 @@ VERSION,"1,8,0,197"
 LANGID,1040
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 100]
 308,201,1,"Opzioni pacchetto esteso"
@@ -558,5 +558,5 @@ COMMENT,"English version"
 1252,1,"KB"
 1253,1,"MB"
 1254,1,"Il file ZIP usa un formato dati non supportato per la modifica dalla versione corrente del plug-in ZIP"
-1255,0,"Not all archive entries were unpacked. The source archive has been kept."
+1255,1,"Non tutte le voci sono state decompresse. Archivio originale conservato."
 

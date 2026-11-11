@@ -1,0 +1,40 @@
+{
+  "name": "파일 잠금 검사기",
+  "commands": {
+    "FileLockInspector.inspect": "파일 잠금 검사기..."
+  },
+  "strings": {
+    "title": "파일 잠금 검사기",
+    "files": "파일",
+    "noLocks": "파일을 잠그고 있는 프로세스를 찾지 못했습니다.",
+    "lockingProcesses": "파일을 잠그고 있는 프로세스",
+    "process": "프로세스",
+    "pid": "PID",
+    "type": "유형",
+    "status": "상태",
+    "executable": "실행 파일",
+    "inspecting": "파일을 잠그고 있는 프로세스를 찾는 중...",
+    "lockCount": "잠금 프로세스 수: {0}",
+    "inspectFailed": "파일 잠금 검사에 실패했습니다.",
+    "openLocation": "위치 열기",
+    "closeProcess": "프로세스 닫기",
+    "endProcess": "프로세스 종료...",
+    "copyReport": "보고서 복사",
+    "refresh": "새로 고침",
+    "close": "닫기",
+    "locationUnavailable": "이 프로세스의 실행 파일 위치를 사용할 수 없습니다.",
+    "closeUnavailable": "이 프로세스에는 안전하게 닫을 수 있는 기본 창이 없습니다.",
+    "confirmEnd": "프로세스 {0}(PID {1})를 종료하시겠습니까?{2}{2}해당 애플리케이션의 저장되지 않은 데이터가 손실될 수 있습니다.",
+    "selectFile": "먼저 파일을 하나 이상 선택하거나 포커스하세요.",
+    "responding": "응답 중",
+    "notResponding": "응답 없음",
+    "processEnded": "(프로세스 종료됨)",
+    "appMainWindow": "애플리케이션",
+    "appOtherWindow": "백그라운드 창",
+    "appService": "서비스",
+    "appExplorer": "Windows 탐색기",
+    "appConsole": "콘솔",
+    "appCritical": "중요 프로세스",
+    "appUnknown": "알 수 없음"
+  }
+}

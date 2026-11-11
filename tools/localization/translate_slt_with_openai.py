@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Restrict source-text fallback to technical-token failures. | Keep other invalid translations retryable instead of marking English text as translated. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Preserve dialog control rows during width expansion. | Prevent translated controls from being mistaken for captions and rejected by the native SLT importer. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Mark terminal content-validation failures as source-text fallbacks. | Avoid charging future runs for deterministic failures while keeping valid build input. | | openai/gpt-5.6-luna-pro |
 # | 2026-11-11 | Retry only invalid rows from structurally complete batches. | Avoid resending valid translations when technical-token validation rejects one row. | | openai/gpt-5.6-luna-pro |
@@ -39,6 +40,9 @@ TOKEN_RE = re.compile(r'%(?:\d+\$)?[-+#0 ]*(?:\d+|\*)?(?:\.\d+|\.\*)?[a-zA-Z]|\{
 ACCELERATOR_RE = re.compile(r'(?<!&)&(?!&)')
 MOJIBAKE_RE = re.compile(r'[ÃÂÅ][\u0080-\u00BF\u00A0-\u00BF\u0100-\u017F\u2122]')
 REPLACEMENT_CHARS = {"\ufffd", "\u25a1", "\u25a0"}
+
+class TechnicalTokenValidationError(ValueError):
+    """A translation changed a protected placeholder or technical token."""
 LANGUAGES = {
     "arabic": {"name": "Arabic", "locale": "ar-SA", "langid": 1025, "script": "Arabic script (RTL)"},
     "bulgarian": {"name": "Bulgarian", "locale": "bg-BG", "langid": 1026, "script": "Cyrillic"},
@@ -210,6 +214,7 @@ def translation_instructions(payload: dict) -> str:
         "Translate Windows UI resources. Return only valid JSON with a translations array containing id and text. "
         "Do not use tools, edit files, or add markdown fences or commentary. "
         "Preserve placeholders, escapes, accelerators (&), markup, paths, and technical tokens exactly. "
+        "Preserve SLT escape sequences literally, including a backslash followed by n (`\\n`); never put an actual line break inside a text value. "
         "Use the supplied existing_translations as translation memory for consistent terminology. "
         f"Use natural {language_name} in {language_script}; do not transliterate, strip accents/diacritics, "
         "or replace unrepresentable characters with '?', boxes, replacement characters, or mojibake. "
@@ -492,7 +497,7 @@ def _validate_text(item: Item, text: object, enforce_max_length: bool = False) -
     if any(ch in text for ch in REPLACEMENT_CHARS): raise ValueError(f"translated text contains replacement glyph for {item.key}")
     if MOJIBAKE_RE.search(text): raise ValueError(f"translated text looks mojibaked for {item.key}")
     if "??" in text: raise ValueError(f"translated text contains repeated question marks for {item.key}")
-    if tokens(text) != tokens(item.text): raise ValueError(f"technical tokens changed for {item.key}")
+    if tokens(text) != tokens(item.text): raise TechnicalTokenValidationError(f"technical tokens changed for {item.key}")
     if enforce_max_length and item.source_text is not None and len(text) > len(item.source_text): raise ValueError(f"translated text is longer than source for {item.key}")
     return text
 
@@ -604,15 +609,17 @@ def translate(path: Path, output: Path, language: str, model: str, batch_size: i
         if invalid_keys:
             try:
                 validate([item], response, language, enforce_max_length=trim_translations)
-            except ValueError as exc:
+            except TechnicalTokenValidationError as exc:
                 reason = str(exc)
-            else:
-                reason = "content validation failed"
-            # State 1 keeps the current source text usable by the SLT importer
-            # and excludes this deterministic failure from normal future runs.
-            changed[item.index]=f'{item.prefix}1,"{item.text}"{item.ending}'
-            add_report("failed", 1)
-            print(f"translation skipped: {item.key}: {reason}; keeping source text as fallback", file=sys.stderr)
+                # Only an unrecoverable token change is quarantined as source
+                # text. Formatting and other content errors remain state=0.
+                changed[item.index]=f'{item.prefix}1,"{item.text}"{item.ending}'
+                add_report("failed", 1)
+                print(f"translation skipped: {item.key}: {reason}; keeping source text as fallback", file=sys.stderr)
+                return
+            except ValueError as exc:
+                add_report("failed", 1)
+                print(f"translation skipped: {item.key}: {exc}; leaving it untranslated for retry", file=sys.stderr)
             return
         changed[item.index]=f'{item.prefix}1,"{translated[item.key]}"{item.ending}'
         add_report("translated", 1)

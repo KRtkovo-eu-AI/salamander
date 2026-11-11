@@ -7,7 +7,7 @@ VERSION,"1,18,0,197"
 LANGID,1040
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net/"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 10500]
 364,132,1,"Informazioni sul plug-in"

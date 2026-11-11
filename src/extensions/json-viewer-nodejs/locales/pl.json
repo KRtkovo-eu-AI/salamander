@@ -1,0 +1,12 @@
+{
+  "name": "JSON Viewer (nodeJS)",
+  "description": "Lekka alternatywa dla JSON Viewer .NET. Wyświetla pliki JSON w WebView2 za pomocą JSON Viewer dla Firefoksa/Chrome (pd4d10/json-viewer).",
+  "viewers": {
+    "JSON Viewer (nodeJS)": "JSON Viewer (nodeJS)"
+  },
+  "strings": {
+    "invalidFallback": "Plik nie jest prawidłowym JSON-em i nie można otworzyć przeglądarki tekstu Prism.",
+    "viewerOpenFailed": "Nie można otworzyć przeglądarki dokumentów WebView2.\nZainstaluj Salamatrix (wspólną ramkę Viewer) i upewnij się, że środowisko WebView2 Runtime jest dostępne.",
+    "noPath": "Nie podano ścieżki pliku dla JSON Viewer (nodeJS)."
+  }
+}

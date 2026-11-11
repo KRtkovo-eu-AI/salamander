@@ -558,5 +558,5 @@ COMMENT,"korean (automatic AI translation)"
 1252,1,"KB"
 1253,1,"MB"
 1254,1,"ZIP 파일은 현재 버전의 ZIP 플러그인에서 수정이 지원되지 않는 데이터 형식을 사용합니다."
-1255,0,"Not all archive entries were unpacked. The source archive has been kept."
+1255,1,"모든 아카이브 항목이 압축 해제되지 않았습니다. 원본 아카이브가 유지되었습니다."
 
