@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record typed late move completion and recursive-delete design. | Keep proven metadata checks separate from remaining recovery and consent work. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record verified overwrite identity, panel transitions and rename work. | Separate local evidence from remaining safety limits and VM acceptance. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record native overwrite and read-only move remediation. | Separate the completed local block from remaining combinations and VM acceptance. | #731 | GPT-6.1 Sol |
 | 2026-11-11 | Record the static UAC audit and grouped remediation plan. | Track shared causes, remaining access-denied paths and separate local and VM acceptance. | #731 | GPT-6.1 Sol |
@@ -534,6 +535,16 @@ Stav: **částečně implementováno a ověřeno lokálně; společná VM akcept
 Host i broker se sestavily pro x64 v Debug a Release. V obou konfiguracích prošlo **35** kontrol řídicí cesty přechodu panelu, **70** kontrol skutečného controlleru přejmenování, **132** kontrol workeru přepisu, **353** nativních leaf kontrol a **314** transportních kontrol. Prošly také Branch kontrakty (**21**, **30** a **22**) a **28** copy-path kontrol. Testy zahrnují odmítnutí, záměnu revize či objektu, zachování staré cache, Unicode cesty a skutečný case-sensitive adresář. Jde o místní testy; systémovou výzvu, návrat do popředí a složené scénáře ověří až společná VM akceptace. Logy jsou v `C:\Samandarin\builds\uac-next-block-20261111` a `C:\Samandarin\builds\uac-change-case-20261111`.
 
 Stejně sestavené x64 Release binárky před/po: `salamand.exe` 5 770 240 → 5 772 800 B, `uacbroker.exe` 1 397 760 → 1 397 760 B, dohromady 7 168 000 → 7 170 560 B (+2 560 B). Měření soukromé paměti běžné a elevované úlohy zůstává součástí odložené společné VM akceptace.
+
+## Pozdní dokončení F6 a návrh rekurzivního mazání
+
+Stav: **úzká část T3 implementována a ověřena lokálně; VM akceptace čeká**. Základ `344021e5`, protokol **29**. Po úspěšně dokončené běžné kopii může worker připravit ověřené dokončení F6 také s volbou CopyAttrs nebo s dříve rozhodnutou volbou Overwrite Older. Pro CopyAttrs nová typovaná operace před odstraněním zdroje kontroluje identitu obou objektů, obsah, čas poslední změny a skutečně zachované atributy; cílový handle zůstává po ověření výhradně držený až do dokončení. Původní konfliktové rozhodnutí se neopakuje.
+
+Tento krok se týká pouze běžných souborů Normal/Archive bez ADS a EFS. Pozdní dokončení read-only souborů, ADS, CopySecurity a dalších metadat zůstává otevřené; zdroj se v nepodporovaných případech nemaže na základě neúplného důkazu. Host a broker x64 se sestavily v Debug i Release, sonda v Release. SourceGuard prošel **145 kontrolami** v každé konfiguraci, transport a dispatcher **315** v každé, skutečný worker přepisu **132** v každé a copy-path **29**. Skutečná Release dvojice a sonda prošly kontrolou rolí a protokolu, starý broker 28 byl odmítnut. Logy jsou v `C:\Samandarin\builds\uac-t3-attrs-20261111` a `C:\Samandarin\builds\uac-t3-source-Debug.log` / `uac-t3-source-Release.log`. Přesun mezi dvěma svazky, skutečná výzva a měření paměti obou procesů čekají na společnou VM akceptaci.
+
+Stejně sestavené Release binárky před/po: `salamand.exe` 5 772 800 → 5 772 800 B, `uacbroker.exe` 1 397 760 → 1 398 272 B; dohromady 7 170 560 → 7 171 072 B (+512 B).
+
+Pro D2 je připraven návrh samostatné typované úlohy nad přesně vybranými kořeny, nikoli nad společným textovým prefixem. Jedna schválená relace musí umožnit ověřený výpis a jednotlivé mazání v tomto rozsahu, kontrolovat ID a typy bez následování odkazů a odmítnout finalizaci předků s přeskočenými nebo neúplnými větvemi. Před smazáním adresáře musí být nadále připnut jeho rodič a znovu ověřena identita; po výpadku spojení se výsledek nesmí automaticky opakovat. Implementace ani VM důkaz tohoto návrhu zatím neexistují.
 
 ## Další postup
 

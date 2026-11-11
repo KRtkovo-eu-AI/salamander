@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Verify attribute-preserving completion dispatch boundaries. | Keep target revision and cross-volume checks intact. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify a denied target's full listed revision and stale-revision rejection. | Ensure parent metadata cannot authorize a changed object. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Reject changed parent identities before cross-volume transfer setup. | Preserve the approved parent scope even when the original source file ID still matches. | | GPT-6.1 Sol |
 // | 2026-11-11 | Verify typed native replacement framing and job reuse. | Keep overwrite revision approval separate from data budgets. | #731 | GPT-6.1 Sol |
@@ -2237,7 +2238,8 @@ void CheckMoveOverwriteJob(const Directory& source, const Directory& target, con
                   UacDirectoryLeaf::SameParent(actual, target.identity) && !readSecurity(inspect.get()),
               "cross-volume destination policy opens a handle that can verify its actual DACL before named-stream publication");
     }
-    Check(!UacF7::InspectsMoveTarget(Operation::Copy) && !UacF7::InspectsMoveTarget(Operation::FinishCrossVolumeMove),
+    Check(!UacF7::InspectsMoveTarget(Operation::Copy) && !UacF7::InspectsMoveTarget(Operation::FinishCrossVolumeMove) &&
+              !UacF7::InspectsMoveTarget(Operation::FinishCrossVolumeMoveAttrs),
           "target DACL inspection remains confined to cross-volume copy publication");
 }
 
@@ -2624,6 +2626,12 @@ void CheckCrossVolumeBoundary(const Directory& source, const Directory& target)
                                  nullptr, nullptr, false, nullptr, &revision) &&
               error == ERROR_NOT_SAME_DEVICE && HasByte(source.File(leaf), 5) && HasByte(target.File(leaf), 5),
           "consume the late move target revision and reject a same-volume completion without changing either file");
+    JobPipe completionAttrs;
+    Check(completionAttrs.Open() &&
+              completionAttrs.Request(Operation::FinishCrossVolumeMoveAttrs, source, leaf, error, &target,
+                                      nullptr, nullptr, false, nullptr, &revision) &&
+              error == ERROR_NOT_SAME_DEVICE && HasByte(source.File(leaf), 5) && HasByte(target.File(leaf), 5),
+          "the attribute-preserving completion carries the exact target revision and rejects the same volume");
 }
 
 void CheckMetadataJob(const Directory& source)

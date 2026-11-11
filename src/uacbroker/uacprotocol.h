@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Version attribute-preserving late move completion. | Keep the host and broker on the same typed transfer contract. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Version native overwrite and read-only move semantics. | Reject peers with the older transfer contract. | | GPT-6.1 Sol |
 // | 2026-11-11 | Version native large-copy and extended permanent-delete support. | Prevent mixing hosts and brokers with different budgets or leaf semantics. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Version the link identity reply. | Pair hosts and brokers that understand verified link preparation. | #731 | GPT-6.1 Sol |
@@ -27,7 +28,7 @@
 // | 2026-11-09 | Share the UAC protocol marker. | Keep the handshake and executable resource on one version. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
-#define SAM_UAC_PROTOCOL_VERSION 28
+#define SAM_UAC_PROTOCOL_VERSION 29
 #define SAM_UAC_PROTOCOL_RESOURCE 63001
 #define SAM_UAC_IMAGE_HOST 1
 #define SAM_UAC_IMAGE_BROKER 2
