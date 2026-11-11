@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Record the volume-label UAC boundary. | Distinguish the existing native operation from an unverified scoped broker design. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Verify the file-list host on Win32. | Check the new translation unit beyond x64 builds. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Verify the clean file-list build and local tests. | Separate exact-revision evidence from pending interactive acceptance. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record and address the clean file-list build failure. | Keep SDK identity types outside the host PCH without changing the global Windows target. | #731 | GPT-6.1 Terra |
@@ -545,6 +546,8 @@ Místně prošly v Debug i Release testy skutečné enumerace a generování **1
 Srovnatelný x64 Release host má 5 812 736 B proti 5 794 816 B v předchozím buildu (+17 920 B); broker této revize má 1 405 952 B. Srovnání soukromé paměti běžné a elevované úlohy zatím chybí a patří do společné akceptace.
 
 Na stejné čisté revizi `a9f3c274` se po doplnění samostatné jednotky sestavil také Win32 host v Debug i Release (`C:\Samandarin\builds\uac-filelist-a9f3c274-win32`). Jde pouze o sestavení, nikoli o běh či interaktivní UAC test na Win32.
+
+**O1 — jmenovka svazku (Drive Information).** Statická revize: `CDriveInfo::Validate` po změně názvu volá běžný `SetVolumeLabel`, vrací panely z `HandsOff` a při chybě včetně 5 pouze zobrazí chybu a ponechá editaci; UAC retry chybí. Původní operace používá sémantiku posledního zápisu (*last writer wins*), bez atomického porovnání předchozí jmenovky. Existující brokerové operace pro metadata souborů nejsou mutací svazku. Bezpečné svázání požadovaného zápisu s konkrétním svazkem, včetně použití volume GUID při změně mount pointu a přihlášení jiným správcem, dosud nebylo prokázáno; samotná opakovaná kontrola následovaná zápisem podle písmene ponechává časové okno pro záměnu. Případná podpora proto vyžaduje úzce vymezenou operaci, ověření identity i nativního dialogu a testy na vyhrazeném svazku. Zatím nebyla implementována ani prakticky ověřena. Podle [dokumentace SetVolumeLabelW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-setvolumelabelw) je limit jmenovky 32 znaků (u FAT 11) a SMB tuto správu svazku nepodporuje.
 
 **R1 — ruční obnovení po ztrátě relace.** První bezpečný řez může mířit na výslovné obnovení přesně schváleného diskového kořene s novým souhlasem a opětovným ověřením uložené identity; automatický refresh, Branch a ZIP nesmí sám vyvolat další výzvu. Pouhý návrat původních polí souborů při selhání nestačí jako rollback: současná cesta při obnově mění také stav cesty, hlaviček, ikon a monitorování. Před napojením souhlasu je třeba prokázat transakční přípravu a předání nového výpisu, životnost a generaci tabu i obnovu těchto vedlejších stavů při chybě. Pro potomek navštívený před výpadkem je navíc třeba bezpečně uchovat jeho vlastní identitu, ne pouze identitu kořene. Jde o statickou analýzu; tato část R1 zůstává neimplementovaná a bez VM důkazu.
 
