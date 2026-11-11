@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Verify exact Find-to-view identity conversion. | Reject changed scope, parent and source without pathname recapture. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Test Find identity preparation against real NTFS ACLs. | Reject same-name substitutions after parent enumeration. | #731 | GPT-6.1 Terra |
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -12,6 +13,7 @@
 #include <string_view>
 #include <vector>
 #include <cstdio>
+#include <cstdlib>
 #define private public
 #include "@@INCLUDES@@/f7pilot.h"
 #undef private
@@ -21,6 +23,15 @@
 #include "@@INCLUDES@@/copyleaf.h"
 #include "@@INCLUDES@@/viewleaf.h"
 
+static int allocationBudget = -1;
+void* operator new(std::size_t size) {
+    if (allocationBudget == 0) throw std::bad_alloc();
+    if (allocationBudget > 0) --allocationBudget;
+    if (void* memory = std::malloc(size)) return memory;
+    throw std::bad_alloc();
+}
+void operator delete(void* memory) noexcept { std::free(memory); }
+void operator delete(void* memory, std::size_t) noexcept { std::free(memory); }
 struct CloseHandleDeleter { void operator()(void* handle) const { CloseHandle(handle); } };
 using Handle = std::unique_ptr<void, CloseHandleDeleter>;
 static Handle Adopt(HANDLE h) { return Handle(h != INVALID_HANDLE_VALUE ? h : nullptr); }
@@ -40,7 +51,10 @@ using UacF7::Operation;
 @@OPEN_PARENT@@
 namespace UacF7 {
 @@DESTRUCTOR@@
+ListingSession::~ListingSession() {}
 @@PREPARE@@
+@@PREPARE_FILE@@
+@@EXACT_VIEW@@
 }
 
 static int checks = 0, failures = 0;
@@ -101,7 +115,58 @@ int wmain(int argc, wchar_t** argv)
           exact.operation == Operation::FindFile && exact.serial == fileId.VolumeSerialNumber &&
           !std::memcmp(exact.sourceId, &fileId.FileId, sizeof(exact.sourceId)),
           "actual FindFile preparation captures the exact denied child from its readable parent");
+    UacF7::ListingSession exactSession;
+    UacF7::PreparedLeaf viewer;
+    Check(exactSession.PrepareFile(deniedFile) && !exactSession.PrepareExactFindViewer(deniedFile, 0, viewer),
+          "exact Find identity alone does not create a viewer before an authenticated session");
+    // The transport/session is an explicit seam; preparation and identity conversion are production code.
+    exactSession.pipe = reinterpret_cast<HANDLE>(1);
+    UacF7::PreparedLeaf wrongPath, excluded;
+    Check(!exactSession.PrepareExactFindViewer(root + L"\\other.txt", 0, wrongPath),
+          "the exact conversion rejects another path");
+    for (const DWORD flag : {FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_REPARSE_POINT,
+                             FILE_ATTRIBUTE_ENCRYPTED, FILE_ATTRIBUTE_OFFLINE})
+        Check(!exactSession.PrepareExactFindViewer(deniedFile, flag, excluded) &&
+              !excluded.identityFromListing && excluded.volume.empty(),
+              "the exact conversion rejects unsupported object attributes without publishing a request");
+    for (int allocation = 0; allocation < 3; ++allocation)
+    {
+        UacF7::PreparedLeaf outOfMemory;
+        bool allocationThrew = false;
+        try
+        {
+            allocationBudget = allocation;
+            (void)exactSession.PrepareExactFindViewer(deniedFile, 0, outOfMemory);
+        }
+        catch (const std::bad_alloc&) { allocationThrew = true; }
+        allocationBudget = -1;
+        Check(allocationThrew && !outOfMemory.identityFromListing && outOfMemory.volume.empty() &&
+              outOfMemory.relative.empty() && outOfMemory.leaf.empty(),
+              "failure of a staged path allocation leaves the request wholly unpublished");
+    }
+    Check(exactSession.PrepareExactFindViewer(deniedFile, 0, viewer) &&
+          viewer.operation == Operation::View && viewer.identityFromListing && !viewer.parent && !viewer.source &&
+          viewer.volume == exact.volume && viewer.relative == exact.relative && viewer.leaf == exact.leaf &&
+          viewer.serial == exact.serial && !std::memcmp(viewer.fileId, exact.fileId, sizeof(viewer.fileId)) &&
+          !std::memcmp(viewer.sourceId, exact.sourceId, sizeof(viewer.sourceId)) &&
+          !exactSession.PrepareExactFindViewer(deniedFile, 0, viewer),
+          "an approved exact Find produces a one-file View request with unchanged parent and source IDs");
+    UacF7::PreparedLeaf wrongScope;
+    exactSession.prepared.operation = Operation::FindContent;
+    Check(!exactSession.PrepareExactFindViewer(deniedFile, 0, wrongScope),
+          "a different operation cannot be converted into an exact Find viewer");
+    exactSession.prepared.operation = Operation::FindFile;
+    exactSession.pipe = nullptr;
     Check(fileAcl.Restore(), "restore only the fixture file DACL");
+    UacDirectoryLeaf::ParentIdentity viewerParent{};
+    viewerParent.volume = viewer.volume; viewerParent.file.VolumeSerialNumber = viewer.serial;
+    CopyMemory(&viewerParent.file.FileId, viewer.fileId, sizeof(viewer.fileId));
+    FILE_ID_INFO viewerSource{}; viewerSource.VolumeSerialNumber = viewer.serial;
+    CopyMemory(&viewerSource.FileId, viewer.sourceId, sizeof(viewer.sourceId));
+    std::vector<BYTE> viewerSnapshot;
+    Check(UacViewLeaf::ReadVerifiedSnapshot(exact.parent, viewerParent, viewerSource, viewer.leaf,
+          GetTickCount64() + 5000, viewerSnapshot) == ERROR_SUCCESS && viewerSnapshot.empty(),
+          "converted viewer identity reads the original after the Find session closes");
     const auto oldFile = root + L"\\old-file";
     Check(MoveFileW(deniedFile.c_str(), oldFile.c_str()) != FALSE, "move the previously captured file");
     file = Adopt(CreateFileW(deniedFile.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr));
@@ -128,6 +193,10 @@ int wmain(int argc, wchar_t** argv)
                                                          MAXULONGLONG, refused, refusedSize, refusedMetadata);
     Check(refusal == ERROR_FILE_INVALID && !refused,
           "broker read primitive refuses a same-name replacement without opening content");
+    viewerSnapshot.clear();
+    Check(UacViewLeaf::ReadVerifiedSnapshot(exact.parent, viewerParent, viewerSource, viewer.leaf,
+          GetTickCount64() + 5000, viewerSnapshot) == ERROR_FILE_INVALID && viewerSnapshot.empty(),
+          "converted viewer identity rejects a same-name replacement even after the Find session closes");
     if (refused) CloseHandle(refused);
     UacF7::PreparedLeaf absent;
     Check(!absent.PrepareTarget(root + L"\\absent-file", Operation::FindFile, {}, nullptr),

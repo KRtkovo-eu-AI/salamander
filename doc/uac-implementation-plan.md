@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Carry exact-file Find identity into F3. | Avoid recapturing a replacement by pathname after an approved Find. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record protected Find provenance build. | Keep compilation evidence distinct from pending identity coverage. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Preserve protected Find provenance on unavailable identities. | Refuse pathname reads and distinguish unverified refinement results. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Record verified Find viewer build evidence. | Separate local x64 builds from pending VM and other viewer entry points. | #731 | GPT-6.1 Terra |
@@ -520,6 +521,8 @@ Společné příčiny určují pořadí oprav.
 Host a anglický jazykový modul `e5d68e40` se sestavily pro x64 Debug i Release; logy jsou v `C:\Samandarin\builds\uac-e5d68e40-host`. Release host má 5 787 648 B, stejně jako `27984595`. Broker se neměnil; měření paměti a společná VM akceptace zůstávají otevřené.
 
 Chráněný výsledek Findu nyní uchovává původ i tehdy, když se jeho viewer identitu nepodaří připravit. F3 bez identity a View With takovou položku zatím odmítnou s vysvětlením; Refine podle obsahu nebo štítků ji nečte podle cesty a označí výsledek za neúplný. Subtract ponechá neověřený řádek, nikoli potvrzenou neshodu. Deduplikace nesloučí běžný a chráněný původ ani různé zachycené identity jen kvůli stejné cestě. Místní test skutečných vybraných větví s dvojníky prošel 22 kontrolami v Debug i Release. Exact-file F3, chráněný View With a obsahové Refine tím nejsou plně podporované; ostatní pathname akce Findu ani záměna před zachycením identity nejsou tímto řezem vyřešené. VM akceptace čeká.
+
+**Navazující exact-file F3.** Po schváleném FindFile se pro interní prohlížeč připraví samostatný View požadavek z původní identity rodiče a souboru, nikoli novým čtením identity z cesty. Odpojení, jiná cesta či typ a neúspěšná příprava zůstanou fail-closed. Na skutečném NTFS prošlo 31 kontrol v každé konfiguraci včetně tří injektovaných chyb alokace a záměny souboru i rodiče. Samostatný in-process dispatcher prošel 381 kontrolami a jednou starší přeskočenou v každé konfiguraci; test žádost skládá ručně a sám nedokládá kompletní produkční serializaci ani systémový UAC. View With, obsahové Refine a identita před prvotním zachycením zůstávají otevřené; společná VM akceptace čeká.
 
 Host a anglický jazykový modul `b1e18b79` se sestavily pro x64 Debug i Release; logy jsou v `C:\Samandarin\builds\uac-b1e18b79-host`. Release host má 5 788 672 B, o 1 024 B více než `e5d68e40`. Broker se neměnil; měření paměti a společná VM zkouška zůstávají otevřené.
 

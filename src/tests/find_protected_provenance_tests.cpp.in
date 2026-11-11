@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Verify exact Find-to-view identity conversion. | Preserve the captured identity after session closure. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Test actual protected Find publication and Refine guards. | Keep provenance on optional identity allocation failure. | #731 | GPT-6.1 Terra |
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -15,7 +16,7 @@ constexpr int IDS_CANTSHOWRESULTS = 1, IDS_UAC_FIND_REFINE_IDENTITY_UNAVAILABLE 
               IDS_UAC_FIND_VIEW_IDENTITY_UNAVAILABLE = 3, IDS_ERRORREADINGFILE = 4,
               IDS_UAC_FIND_VIEW_WITH_UNAVAILABLE = 5;
 static int logs, messages, contentReads, tagReads, probeReads;
-static bool failIdentity, throwIdentity;
+static bool failIdentity, throwIdentity, allowExact;
 struct CQuadWord { DWORD LoDWord, HiDWord; CQuadWord(DWORD lo, DWORD hi) : LoDWord(lo), HiDWord(hi) {} };
 struct CFoundFilesData {
     DWORD Attr = 0; CQuadWord Size{0, 0}; FILETIME LastWrite{}; bool IsDir = false, ProtectedOrigin = false;
@@ -55,6 +56,10 @@ static void RecordFindWatchdogResult(void*, int) {}
 static void RequestFindResultsRefresh(CGrepData*) {}
 @@ADD@@
 struct Session {
+    bool PrepareExactFindViewer(const std::wstring&, DWORD, UacF7::PreparedLeaf&) {
+        if (throwIdentity) throw std::bad_alloc();
+        return allowExact;
+    }
     DWORD PrepareViewer(const std::wstring&, UacF7::PreparedLeaf&, DWORD) {
         if (throwIdentity) throw std::bad_alloc();
         return failIdentity ? ERROR_ACCESS_DENIED : ERROR_SUCCESS;
@@ -129,15 +134,18 @@ int main() {
     throwIdentity = false; publisher.singleFile = true; publisher.PublishCandidate(L"C:\\x", entry, nullptr);
     Check(list.rows.size() == 3 && list.rows[2]->ProtectedOrigin && !list.rows[2]->FoundView,
           "exact-file results remain protected even before viewer identity support");
-    publisher.singleFile = false; publisher.PublishCandidate(L"C:\\x", entry, nullptr);
+    allowExact = true; publisher.PublishCandidate(L"C:\\x", entry, nullptr);
     Check(list.rows.size() == 4 && list.rows[3]->ProtectedOrigin && list.rows[3]->FoundView,
+          "an authorized exact-file result carries its prepared viewer identity");
+    allowExact = false; publisher.singleFile = false; publisher.PublishCandidate(L"C:\\x", entry, nullptr);
+    Check(list.rows.size() == 5 && list.rows[4]->ProtectedOrigin && list.rows[4]->FoundView,
           "successful identity preparation retains protected provenance and identity");
     bool continued = false;
     F3Guard(nullptr, list.rows[0], continued);
     Check(!continued && messages == 1, "F3 refuses a protected result whose identity is missing");
-    F3Guard(nullptr, list.rows[3], continued);
+    F3Guard(nullptr, list.rows[4], continued);
     Check(continued, "F3 allows a protected result with a captured identity into the verified controller");
-    continued = false; WithGuard(nullptr, &list, 3, continued);
+    continued = false; WithGuard(nullptr, &list, 4, continued);
     Check(!continued && messages == 2, "View With fails before presenting a pathname-only handler");
     FILETIME time{};
     AddFoundItem("C:\\x", "ordinary", 0, 0, 0, &time, FALSE, &data, nullptr);
@@ -146,7 +154,7 @@ int main() {
     for (int mode : {1, 2}) {
         data.Grep = TRUE; data.Criteria.tags = true; data.IncompleteReasons = 0;
         logs = contentReads = tagReads = probeReads = 0;
-        const bool match = RefineCandidate(&data, list.rows[3]);
+        const bool match = RefineCandidate(&data, list.rows[4]);
         Check(!match && data.IncompleteReasons == FindIncompleteProtectedFailure && logs == 1 &&
               contentReads == 0 && tagReads == 0 && probeReads == 0 &&
               IncludeRefinedFindResult(mode, match) == (mode == 2),
@@ -156,12 +164,12 @@ int main() {
       PublishRefined(&data, retained, FALSE);
       Check(list.rows.size() == before + 1 && list.rows.back()->ProtectedOrigin && !list.rows.back()->FoundView,
             "actual Subtract publication preserves missing identity and protected provenance"); }
-    { auto* retained = list.rows[3]; data.Refine = 1; const auto identity = retained->FoundView;
+    { auto* retained = list.rows[4]; data.Refine = 1; const auto identity = retained->FoundView;
       PublishRefined(&data, retained, TRUE);
       Check(list.rows.back()->ProtectedOrigin && list.rows.back()->FoundView == identity,
             "actual Intersect publication preserves captured identity and protected provenance"); }
     { data.StopSearch = TRUE; data.IncompleteReasons = 0; logs = probeReads = contentReads = tagReads = 0;
-      Check(!RefineCandidate(&data, list.rows[3]) && !data.IncompleteReasons && !logs && !probeReads &&
+      Check(!RefineCandidate(&data, list.rows[4]) && !data.IncompleteReasons && !logs && !probeReads &&
             !contentReads && !tagReads, "explicit Stop suppresses new diagnostics and all protected reads");
       data.StopSearch = FALSE; }
     { FakeList rows; activeList = &rows; CFindDialog dialog; dialog.FoundFilesListView = &rows;
@@ -206,7 +214,7 @@ int main() {
       rows.rows = {new CFoundFilesData, new CFoundFilesData}; dialog.OnHideDuplicateNamesSorted(2);
       Check(rows.rows.size() == 1 && !rows.rows[0]->ProtectedOrigin, "ordinary dedup is unchanged"); }
     data.IncompleteReasons = 0; logs = contentReads = tagReads = probeReads = 0;
-    (void)RefineCandidate(&data, list.rows[4]);
+    (void)RefineCandidate(&data, list.rows[5]);
     Check(probeReads == 1, "ordinary Refine keeps its native pathname probe");
     std::printf("Find protected provenance: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

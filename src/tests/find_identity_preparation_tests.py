@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Verify exact Find-to-view identity conversion. | Preserve the captured identity after session closure. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Exercise real Find preparation against denied NTFS attributes. | Bind scoped consent to captured file and directory IDs. | #731 | GPT-6.1 Terra |
 """Run the production PrepareTarget body with an isolated installation-trust seam."""
 import argparse
@@ -22,6 +23,8 @@ def main():
         'RENAME_KIND': block(source, 'UacRenameLeaf::MoveKind RenameKind('),
         'DESTRUCTOR': block(source, 'PreparedLeaf::~PreparedLeaf('),
         'PREPARE': block(source, 'bool PreparedLeaf::PrepareTarget('),
+        'PREPARE_FILE': block(source, 'bool ListingSession::PrepareFile('),
+        'EXACT_VIEW': block(source, 'bool ListingSession::PrepareExactFindViewer('),
     }
     template = (ROOT / 'src/tests/find_identity_preparation_tests.cpp.in').read_text(encoding='utf-8')
     for name, value in pieces.items():

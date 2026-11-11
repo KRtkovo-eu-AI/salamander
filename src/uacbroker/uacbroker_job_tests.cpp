@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Test converted Find identities through the View dispatcher. | Reject readable same-name substitutions before returning bytes. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Reject an overwrite receipt with a stale timestamp on the same file ID. | Preserve both names when listing metadata lags. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify a listed Find identity through the broker dispatcher. | Reject replacement and keep the exact-file scope bounded. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Check ignored-stream overwrite consent reuse. | Prevent cross-policy jobs and preserve changed targets. | #731 | GPT-6.1 Terra |
@@ -234,6 +235,13 @@ public:
                         result, exactRoot, snapshot, view, zip, scope, archive, revision, nullptr, nullptr, &exact);
                     if (!dispatchError)
                         dispatchError = TransferRequest(peer.get(), &result, sizeof(result), true, deadline);
+                    if (!dispatchError && view && result == ERROR_SUCCESS)
+                    {
+                        DWORD bytes = static_cast<DWORD>(snapshot.size());
+                        dispatchError = TransferRequest(peer.get(), &bytes, sizeof(bytes), true, deadline);
+                        if (!dispatchError && bytes)
+                            dispatchError = TransferRequest(peer.get(), snapshot.data(), bytes, true, deadline);
+                    }
                     if (!dispatchError && exactRoot)
                         dispatchError = ServeListings(peer.get(), GetCurrentProcess(), GetCurrentProcessId(), exactRoot.get(), scope, &exact);
                     return;
@@ -263,6 +271,33 @@ public:
         return !TransferRequest(server.get(), &header, sizeof(header), true, deadline) &&
                !TransferRequest(server.get(), payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline) &&
                !TransferRequest(server.get(), &result, sizeof(result), false, deadline);
+    }
+
+    bool StartExactView(const Directory& parent, std::wstring_view leaf, const FILE_ID_INFO& expected,
+                        DWORD& result, std::vector<BYTE>& snapshot)
+    {
+        snapshot.clear();
+        RequestHeader header{};
+        header.serial = parent.identity.file.VolumeSerialNumber;
+        header.parentId = parent.identity.file.FileId;
+        header.sourceId = expected.FileId;
+        header.operation = Operation::View;
+        header.relativeLength = static_cast<DWORD>(parent.relative.size());
+        header.leafLength = static_cast<DWORD>(leaf.size());
+        std::wstring payload = parent.identity.volume + parent.relative + std::wstring(leaf);
+        const auto deadline = GetTickCount64() + timeoutMs;
+        if (TransferRequest(server.get(), &header, sizeof(header), true, deadline) ||
+            TransferRequest(server.get(), payload.data(),
+                            static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline) ||
+            TransferRequest(server.get(), &result, sizeof(result), false, deadline))
+            return false;
+        if (result)
+            return true;
+        DWORD bytes = 0;
+        if (TransferRequest(server.get(), &bytes, sizeof(bytes), false, deadline) || bytes > UacF7::maxViewerSnapshotBytes)
+            return false;
+        snapshot.resize(bytes);
+        return !bytes || !TransferRequest(server.get(), snapshot.data(), bytes, false, deadline);
     }
 
     bool StartFindRoot(const Directory& parent, std::wstring_view directory,
@@ -1704,8 +1739,32 @@ void CheckExactFindScope(const Directory& source)
           initially.OpenFindContent({}) && initially.ReadAndCloseFindContent(61),
           "the dispatcher opens exactly the file identified by the readable parent listing");
     initially.Finish();
+    JobPipe firstView;
+    std::vector<BYTE> viewSnapshot;
+    status = ERROR_GEN_FAILURE;
+    Check(firstView.Open(nullptr, nullptr, Operation::View, nullptr, true) &&
+          firstView.StartExactView(source, listedName, expected, status, viewSnapshot) && !status &&
+          viewSnapshot.size() == 1 && viewSnapshot[0] == 61,
+          "the View dispatcher reads the original exact Find identity");
+    firstView.Finish();
+    constexpr wchar_t unrelatedName[] = L"listed-find-unrelated";
+    JobPipe unrelatedView;
+    status = ERROR_GEN_FAILURE;
+    Check(WriteByte(source.File(unrelatedName), 61) &&
+          unrelatedView.Open(nullptr, nullptr, Operation::View, nullptr, true) &&
+          unrelatedView.StartExactView(source, unrelatedName, expected, status, viewSnapshot) &&
+          status == ERROR_FILE_INVALID && viewSnapshot.empty(),
+          "the View dispatcher does not apply the exact Find identity to a different leaf");
+    unrelatedView.Finish();
     Check(MoveFileW(source.File(listedName).c_str(), source.File(oldName).c_str()) &&
           WriteByte(source.File(listedName), 61), "substitute a same-size exact Find file");
+    JobPipe replacedView;
+    status = ERROR_GEN_FAILURE;
+    Check(replacedView.Open(nullptr, nullptr, Operation::View, nullptr, true) &&
+          replacedView.StartExactView(source, listedName, expected, status, viewSnapshot) &&
+          status == ERROR_FILE_INVALID && viewSnapshot.empty(),
+          "the View dispatcher refuses a readable same-name replacement of the exact Find identity");
+    replacedView.Finish();
     JobPipe replaced;
     status = ERROR_GEN_FAILURE;
     Check(replaced.Open(nullptr, nullptr, Operation::FindFile, nullptr, true) &&

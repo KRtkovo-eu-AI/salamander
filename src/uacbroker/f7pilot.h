@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Carry exact FindFile identity into a separate verified viewer request. | Prevent pathname-only identity recapture after Find. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Add a typed overwrite without named streams. | Reuse only the matching F5 approval and transfer session. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Bound time-only metadata for special NTFS files. | Preserve compression, sparsity and encryption while restricting the approved policy. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Add exact-file allocation scope. | Limit approval to one selected file without content or directory enumeration. | #731 | GPT-6.1 Terra |
@@ -889,6 +890,7 @@ public:
 
     bool Prepare(const std::wstring& path, bool findContent = false);
     bool PrepareFile(const std::wstring& path);
+    bool PrepareExactFindViewer(const std::wstring& path, DWORD attributes, PreparedLeaf& viewer) const;
     bool PrepareAllocationFile(const std::wstring& path, const PreparedLeaf& file);
     bool PrepareFindRoot(const FindRootIdentity& identity, bool readContent);
     DWORD CaptureFindRoot(const std::wstring& path, FindRootIdentity& identity);

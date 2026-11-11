@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-11 | Carry exact FindFile identity into a separate verified viewer request. | Prevent pathname-only identity recapture after Find. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Retain protected Find provenance through viewing and refinement. | Refuse pathname-only reads when identity cannot be preserved. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
@@ -2228,7 +2229,7 @@ private:
         constexpr DWORD excluded = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
                                    FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_OFFLINE;
         std::shared_ptr<UacF7::PreparedLeaf> foundView;
-        if (!singleFile && !(file.dwFileAttributes & excluded) && !file.nFileSizeHigh &&
+        if (!(file.dwFileAttributes & excluded) && !file.nFileSizeHigh &&
             file.nFileSizeLow <= UacF7::maxViewerSnapshotBytes)
         {
             try
@@ -2236,7 +2237,10 @@ private:
                 std::wstring filePath = directory;
                 SalPathAppendW(filePath, file.cFileName);
                 auto identity = std::make_shared<UacF7::PreparedLeaf>();
-                if (!session.PrepareViewer(filePath, *identity, file.dwFileAttributes))
+                const bool prepared = singleFile ?
+                    session.PrepareExactFindViewer(filePath, file.dwFileAttributes, *identity) :
+                    !session.PrepareViewer(filePath, *identity, file.dwFileAttributes);
+                if (prepared)
                     foundView = std::move(identity);
             }
             catch (const std::bad_alloc&)

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-11 | Carry exact FindFile identity into a separate verified viewer request. | Prevent pathname-only identity recapture after Find. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Prepare denied Find scopes from a readable parent. | Bind content consent to a captured directory or file identity. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Bind ignored-stream overwrite to its own request. | Stage only approved default data and preserve protected recovery state. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Pin special-file timestamp consent to the exact source. | Prevent reuse for sibling items or ordinary metadata jobs. | #731 | GPT-6.1 Terra |
@@ -4624,6 +4625,28 @@ bool ListingSession::PrepareFile(const std::wstring& path)
     if (!prepared.PrepareTarget(path, Operation::FindFile, {}, nullptr))
         return false;
     root = path;
+    return true;
+}
+
+bool ListingSession::PrepareExactFindViewer(const std::wstring& path, DWORD attributes, PreparedLeaf& viewer) const
+{
+    constexpr DWORD excluded = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
+                               FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_OFFLINE;
+    if (!pipe || prepared.operation != Operation::FindFile || !prepared.parent || path != root || path.empty() ||
+        (attributes & excluded) || viewer.parent || viewer.source || viewer.identityFromListing ||
+        !viewer.volume.empty() || !viewer.relative.empty() || !viewer.leaf.empty())
+        return false;
+
+    // All allocations precede publication of the destination request.
+    std::wstring volume = prepared.volume, relative = prepared.relative, leaf = prepared.leaf;
+    viewer.volume.swap(volume);
+    viewer.relative.swap(relative);
+    viewer.leaf.swap(leaf);
+    viewer.serial = prepared.serial;
+    std::memcpy(viewer.fileId, prepared.fileId, sizeof(viewer.fileId));
+    std::memcpy(viewer.sourceId, prepared.sourceId, sizeof(viewer.sourceId));
+    viewer.operation = Operation::View;
+    viewer.identityFromListing = true;
     return true;
 }
 
