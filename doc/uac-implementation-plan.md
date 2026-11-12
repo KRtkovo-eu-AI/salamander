@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Correct the active integration status and highlight overwrite risk. | Keep the current local branch and safety boundary visible before VM acceptance. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record clean case-sensitive link builds. | Separate broker compilation from pending UAC and VM acceptance. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record exact case-sensitive link renames. | Separate real NTFS identity and collision evidence from pending UAC acceptance. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record clean protected View With builds. | Keep host compilation evidence separate from shared-session and VM acceptance. | #731 | GPT-6 (Codex) |
@@ -461,13 +462,14 @@
 
 Stav k 11. listopadu 2026. Základní podpora UAC pro běžné interní operace a vestavěný ZIP je ověřená v konkrétních scénářích na místním NTFS. Statický audit níže zachycuje další mezery v podmínkách způsobilosti, přípravě identity, návazných krocích a rozsahu souhlasu. Dokončení se posuzuje po jednotlivých operacích a jejich kombinacích.
 
-Vývoj probíhá na `feature/uac-support`. Důkazy v tabulce pocházejí z různých sestavení. Výchozí revizí tohoto auditu je `4e678fbfa73836bdc0186cbc61d4f2969d0f541a` s protokolem 26. Následující implementační dávky a jejich ověření se evidují samostatně. [Fork PR #67](https://github.com/majklvi/salamander/pull/67) slouží k CI a CodeQL publikovaných revizí. Podrobné výsledky P0–P7, konfigurace, otisky a odkazy na důkazy jsou v [historii implementace a testů](uac-implementation-history.md).
+Publikovaným základem je `feature/uac-support`; další změny zůstávají v místní integrační větvi uvedené níže. Důkazy v tabulce pocházejí z různých sestavení. Výchozí revizí tohoto auditu je `4e678fbfa73836bdc0186cbc61d4f2969d0f541a` s protokolem 26. Následující implementační dávky a jejich ověření se evidují samostatně. [Fork PR #67](https://github.com/majklvi/salamander/pull/67) slouží k CI a CodeQL publikovaných revizí. Podrobné výsledky P0–P7, konfigurace, otisky a odkazy na důkazy jsou v [historii implementace a testů](uac-implementation-history.md).
 
-### Stav rozpracované práce — 11. listopadu 2026
+### Stav rozpracované práce — 12. listopadu 2026
 
-- **Místní commity:** dokončené navazující změny jsou sjednocené ve větvi `local/uac-find-total-budget`, včetně úprav F5/F6, metadat, Branch View a Findu. Jednotlivé odstavce níže uvádějí přesný podporovaný rozsah a místní testy; jejich úspěch neznamená dokončení celé položky auditu.
+- **Místní commity:** navazující změny jsou sjednocené v pracovní kopii `C:\Samandarin\uac-integrated41` na větvi `local/uac-integrated41`, včetně úprav F5/F6, metadat, Branch View a Findu. Jednotlivé odstavce níže uvádějí přesný podporovaný rozsah a místní testy; jejich úspěch neznamená dokončení celé položky auditu. Rozpracované změny v původní pracovní kopii jsou zachované samostatně.
 - **Prototypy:** stránkovaný výpis velkých chráněných složek ve Findu a hromadný Change Case dosud nejsou hotové ani schválené pro nasazení. U stránkování je nutné zajistit identitu při následných operacích; u Change Case přesný rozsah souhlasu, původní konfliktní dialogy a životnost panelu. Původní rozpracovaná změna F7 zůstává zachovaná mimo tuto větev a vyžaduje dořešení životnosti panelu.
 - **Akceptace:** aktuální souhrn změn zatím nemá společný důkaz z izolované VM. VM scénáře a další otevřené bezpečnostní hranice níže zůstávají otevřené; výsledky dřívějších buildů nejsou důkazem pro nové změny. Lokální commity se neposílají na GitHub bez výslovného pokynu.
+- **Ochrana cíle F5:** u souběžného i sériového přímého přepisu existuje při selhání cesta, která může odstranit již zkrácený cíl. Ochrana původního obsahu při přerušení není obecně implementovaná; podrobnosti a potřebná transakční záruka jsou u T5 níže. Aktuální stav není vhodný pro ověřování na nenahraditelných datech.
 
 ## Cíl a pravidla
 
