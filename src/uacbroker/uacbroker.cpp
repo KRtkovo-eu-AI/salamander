@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Pin verified source parents per experimental thin request. | Support protected source directories without exposing privileged directory handles. | #731 | GPT-6 |
 | 2026-11-12 | Order thin F5 consent return before worker completion. | Avoid losing a posted focus return when the progress window closes quickly. | #731 | GPT-6 |
 | 2026-11-12 | Refuse elevated laboratory fixture processes. | Avoid running user-writable test images with administrative rights. | #731 | GPT-6 |
 | 2026-11-12 | Refuse non-thin launches from laboratory locations. | Prevent accidental elevation of user-writable fixture images. | #731 | GPT-6 |
@@ -659,6 +660,26 @@ struct ThinWireReply
     FILE_ID_INFO target{};
 };
 static_assert(sizeof(ThinWireOptions) == 48);
+#ifdef SAM_UAC_THIN_COPY_TEST
+DWORD SelectThinSourceParent(DWORD pinError, HANDLE& parent, ThinWireOptions& options)
+{
+    if (pinError == ERROR_ACCESS_DENIED)
+    {
+        options.flags |= 2u;
+        parent = nullptr; // a failed walk may have left a successful ancestor here
+        return ERROR_SUCCESS;
+    }
+    return pinError;
+}
+#endif
+#if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_BROKER_JOB_TEST)
+struct ThinIdentityScanPause
+{
+    HANDLE reached, resume;
+    unsigned calls = 0;
+};
+thread_local ThinIdentityScanPause* activeThinIdentityScanPause = nullptr;
+#endif
 static_assert(sizeof(ThinWireReply) == 32);
 inline bool IsThinOpen(Operation operation)
 {
@@ -906,6 +927,15 @@ Handle OpenVolumeRoot(std::wstring_view volume, ACCESS_MASK extraAccess = 0)
                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
                              FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
 }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+Handle OpenThinSourceRoot(std::wstring_view volume, std::wstring_view relative)
+{
+    // A source directly in the volume root needs a listing handle for the
+    // name-to-ID check; the ordinary root handle only requests traverse.
+    return OpenVolumeRoot(volume, relative.empty() ? FILE_LIST_DIRECTORY : 0);
+}
+#endif
 
 DWORD OpenRequestParent(HANDLE root, std::wstring_view relative, Handle& parent, UacDirectoryLeaf::ParentIdentity& identity,
                         ACCESS_MASK extraAccess = 0, ULONG sharing = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -2372,7 +2402,14 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         ThinWireOptions options{};
         error = TransferRequest(pipe, &options, sizeof(options), false, deadline);
         if (error) return error;
-        if (options.reserved || (options.flags & ~1u))
+#ifdef SAM_UAC_THIN_COPY_TEST
+        // Experimental flag 2 requests an identity-checked broker-owned
+        // source-parent pin. An older broker rejects this unknown flag.
+        constexpr DWORD allowedThinOptions = 3u;
+#else
+        constexpr DWORD allowedThinOptions = 1u;
+#endif
+        if (options.reserved || (options.flags & ~allowedThinOptions))
             return ERROR_INVALID_DATA;
         const std::wstring_view data(payload);
         const auto sourceVolume = data.substr(0, volumeLength);
@@ -2414,30 +2451,67 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         std::memcpy(targetParentId.id, header.targetParentId.Identifier, sizeof(targetParentId.id));
         const UacDirectoryLeaf::ParentIdentity expectedSource{{header.serial, header.parentId}, std::wstring(sourceVolume)};
         const UacDirectoryLeaf::ParentIdentity expectedParent{{header.targetSerial, header.targetParentId}, std::wstring(targetVolume)};
+#ifdef SAM_UAC_THIN_COPY_TEST
+        const bool brokerSourceParent = (options.flags & 2u) != 0;
+        if (brokerSourceParent && (sourceRole || discard || options.sourceParentHandle))
+            return ERROR_INVALID_DATA;
+#endif
         if (sourceRole)
         {
             if (options.sourceParentHandle) return ERROR_INVALID_DATA;
+#ifdef SAM_UAC_THIN_COPY_TEST
+            sourceRoot = OpenThinSourceRoot(sourceVolume, sourceRelative);
+#else
             sourceRoot = OpenVolumeRoot(sourceVolume);
+#endif
             error = sourceRoot ? PinPagedDirectory(sourceRoot.get(), sourceRelative, &sourceParentId, sourcePins, sourceParent)
                                : ERROR_NOT_SUPPORTED;
         }
         else if (!discard)
         {
-            if (!options.sourceParentHandle ||
-                options.sourceParentHandle > static_cast<ULONGLONG>(static_cast<ULONG_PTR>(~ULONG_PTR{})))
-                return ERROR_INVALID_DATA;
-            const auto hostForParent = OpenThinHostForDup(host, hostPid);
-            HANDLE rawParent = nullptr;
-            if (!hostForParent || !DuplicateHandle(hostForParent.get(),
-                reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(options.sourceParentHandle)), GetCurrentProcess(),
-                &rawParent, FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES, FALSE, 0))
-                error = ERROR_ACCESS_DENIED;
-            borrowedParent = Adopt(rawParent);
-            UacDirectoryLeaf::ParentIdentity parentIdentity;
-            if (!error) error = UacDirectoryLeaf::ReadParentIdentity(borrowedParent.get(), parentIdentity);
-            if (!error && !UacDirectoryLeaf::SameParent(expectedSource, parentIdentity)) error = ERROR_FILE_INVALID;
-            if (!error) error = CheckThinParentPath(borrowedParent.get(), sourceVolume, sourceRelative);
-            sourceParent = borrowedParent.get();
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (brokerSourceParent)
+            {
+                // Pin the approved source parent and every ancestor only for
+                // this request; never send directory handles to the host or
+                // keep rename/delete restrictions until the whole job ends.
+                sourceRoot = OpenThinSourceRoot(sourceVolume, sourceRelative);
+                error = sourceRoot ? PinPagedDirectory(sourceRoot.get(), sourceRelative, &sourceParentId,
+                                                       sourcePins, sourceParent) : ERROR_NOT_SUPPORTED;
+                if (!error) error = CheckThinParentPath(sourceParent, sourceVolume, sourceRelative);
+            }
+            else
+#endif
+            {
+                if (!options.sourceParentHandle ||
+                    options.sourceParentHandle > static_cast<ULONGLONG>(static_cast<ULONG_PTR>(~ULONG_PTR{})))
+                    return ERROR_INVALID_DATA;
+                const auto hostForParent = OpenThinHostForDup(host, hostPid);
+                HANDLE rawParent = nullptr;
+                if (!hostForParent || !DuplicateHandle(hostForParent.get(),
+                    reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(options.sourceParentHandle)), GetCurrentProcess(),
+                    &rawParent, FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES, FALSE, 0))
+                    error = ERROR_ACCESS_DENIED;
+                borrowedParent = Adopt(rawParent);
+                UacDirectoryLeaf::ParentIdentity parentIdentity;
+                if (!error) error = UacDirectoryLeaf::ReadParentIdentity(borrowedParent.get(), parentIdentity);
+                if (!error && !UacDirectoryLeaf::SameParent(expectedSource, parentIdentity)) error = ERROR_FILE_INVALID;
+                if (!error) error = CheckThinParentPath(borrowedParent.get(), sourceVolume, sourceRelative);
+#ifdef SAM_UAC_THIN_COPY_TEST
+                // DuplicateHandle preserves the host's directory-enumeration
+                // cursor. Validate that handle but enumerate through a new
+                // broker-owned file object the host cannot seek or reset.
+                if (!error)
+                {
+                    sourceRoot = OpenThinSourceRoot(sourceVolume, sourceRelative);
+                    error = sourceRoot ? PinPagedDirectory(sourceRoot.get(), sourceRelative, &sourceParentId,
+                                                           sourcePins, sourceParent) : ERROR_NOT_SUPPORTED;
+                    if (!error) error = CheckThinParentPath(sourceParent, sourceVolume, sourceRelative);
+                }
+#else
+                sourceParent = borrowedParent.get();
+#endif
+            }
         }
         else if (options.sourceParentHandle)
             return ERROR_INVALID_DATA;
@@ -2453,6 +2527,21 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         const bool retry = header.operation == Operation::ThinTargetRetry;
         const bool probe = header.operation == Operation::ThinTargetProbe;
         const bool overlapped = (options.flags & 1u) != 0;
+#ifdef SAM_UAC_THIN_COPY_TEST
+        const auto thinConnection = [&]() -> DWORD {
+#ifdef SAM_UAC_BROKER_JOB_TEST
+            if (activeThinIdentityScanPause && ++activeThinIdentityScanPause->calls == 2)
+            {
+                auto* pause = activeThinIdentityScanPause;
+                activeThinIdentityScanPause = nullptr;
+                if (!SetEvent(pause->reached) || WaitForSingleObject(pause->resume, 10000) != WAIT_OBJECT_0)
+                    return ERROR_TIMEOUT;
+            }
+#endif
+            if (!LiveInSession(host, hostPid)) return ERROR_OPERATION_ABORTED;
+            return UacRenameLeaf::Detail::CheckTransferConnection(pipe, deadline);
+        };
+#endif
         const FILE_ID_INFO expectedFile{header.serial, header.sourceId};
         HANDLE rawSource = nullptr;
         Handle source;
@@ -2488,7 +2577,12 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             // not just to a free-standing file ID.
             FILE_ID_128 listedId{};
             DWORD listedAttributes = 0;
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (!error) error = UacListing::CaptureChildIdStreaming(sourceParent, sourceLeaf, false, listedId,
+                                                                    listedAttributes, thinConnection);
+#else
             if (!error) error = UacListing::CaptureChildId(sourceParent, sourceLeaf, false, listedId, listedAttributes);
+#endif
             if (!error && std::memcmp(listedId.Identifier, expectedFile.FileId.Identifier, sizeof(listedId.Identifier)))
                 error = ERROR_FILE_INVALID;
             FILE_BASIC_INFO basic{};
@@ -2502,6 +2596,15 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         }
         if (error) { result = error; return ERROR_SUCCESS; }
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+        // Re-check after enumeration and metadata, immediately before target
+        // creation/open. This cannot make cancellation atomic with NTFS I/O.
+        if (const DWORD interrupted = thinConnection())
+        {
+            result = interrupted;
+            return ERROR_SUCCESS;
+        }
+#endif
         auto record = state.created.end();
         if (!sourceRole && !probe)
             for (auto i = state.created.begin(); i != state.created.end(); ++i)
@@ -2586,6 +2689,13 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         }
         if (discard)
         {
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (const DWORD interrupted = thinConnection())
+            {
+                result = interrupted;
+                return ERROR_SUCCESS;
+            }
+#endif
             FILE_DISPOSITION_INFO disposition{TRUE};
             if (!SetFileInformationByHandle(file.get(), FileDispositionInfo, &disposition, sizeof(disposition)))
                 { result = GetLastError(); return ERROR_SUCCESS; }
@@ -5867,14 +5977,32 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
         std::vector<Handle> pinnedSourceParents;
         if (kind != ThinOpenKind::Source && kind != ThinOpenKind::Discard)
         {
+#ifdef SAM_UAC_THIN_COPY_TEST
+            SetLastError(ERROR_SUCCESS);
+            pinnedRoot = OpenThinSourceRoot(prepared.source.volume, prepared.source.relative);
+            const DWORD rootError = pinnedRoot ? ERROR_SUCCESS : GetLastError();
+#else
             pinnedRoot = OpenVolumeRoot(prepared.source.volume);
+#endif
             MoveFileIdentity parentId{};
             parentId.serial = prepared.source.serial;
             std::memcpy(parentId.id, prepared.source.fileId, sizeof(parentId.id));
             HANDLE pinnedParent = nullptr;
             const DWORD pinError = pinnedRoot ? PinPagedDirectory(pinnedRoot.get(), prepared.source.relative,
-                &parentId, pinnedSourceParents, pinnedParent) : ERROR_NOT_SUPPORTED;
-            if (pinError) { output.error = pinError; return output; }
+                &parentId, pinnedSourceParents, pinnedParent) :
+#ifdef SAM_UAC_THIN_COPY_TEST
+                (rootError == ERROR_ACCESS_DENIED ? rootError : ERROR_NOT_SUPPORTED);
+#else
+                ERROR_NOT_SUPPORTED;
+#endif
+#ifdef SAM_UAC_THIN_COPY_TEST
+            // Only an access denial permits asking this authenticated broker
+            // to use its own identity-bound pin. All other errors are final.
+            const DWORD parentError = SelectThinSourceParent(pinError, pinnedParent, options);
+#else
+            const DWORD parentError = pinError;
+#endif
+            if (parentError) { output.error = parentError; return output; }
             options.sourceHandle = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(openedSource));
             options.sourceParentHandle = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(pinnedParent));
         }

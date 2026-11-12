@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Stream exact thin-copy child identity checks. | Check large directories without losing duplicate detection or cancellation. | #731 | GPT-6 |
 | 2026-11-12 | Give paged directory requests cursor tokens. | Keep nested Find traversal scoped to its exact open handles. | #731 | GPT-6.1 Terra |
 | 2026-11-12 | Define bounded verified directory page frames. | Keep streamed metadata confined to a CompareList session. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
@@ -199,14 +200,19 @@ inline bool VerifyCompatibilityAlias(HANDLE directory, std::wstring_view name, c
            IsCompatibilityLink(link.get());
 }
 
-template <typename Accept>
-DWORD EnumerateRows(HANDLE directory, bool strict, Accept accept)
+template <typename Accept, typename BeforePage>
+DWORD EnumerateRowsChecked(HANDLE directory, bool strict, Accept&& accept, BeforePage&& beforePage)
 {
     std::vector<ULONGLONG> buffer(65536 / sizeof(ULONGLONG));
     const DWORD bytes = static_cast<DWORD>(buffer.size() * sizeof(ULONGLONG));
     auto mode = FileIdExtdDirectoryRestartInfo;
-    while (GetFileInformationByHandleEx(directory, mode, buffer.data(), bytes))
+    for (;;)
     {
+        const DWORD interrupted = beforePage();
+        if (interrupted)
+            return interrupted;
+        if (!GetFileInformationByHandleEx(directory, mode, buffer.data(), bytes))
+            break;
         mode = FileIdExtdDirectoryInfo;
         DWORD offset = 0;
         for (;;)
@@ -239,6 +245,12 @@ DWORD EnumerateRows(HANDLE directory, bool strict, Accept accept)
     }
     const DWORD error = GetLastError();
     return error == ERROR_NO_MORE_FILES ? ERROR_SUCCESS : error;
+}
+
+template <typename Accept>
+DWORD EnumerateRows(HANDLE directory, bool strict, Accept accept)
+{
+    return EnumerateRowsChecked(directory, strict, accept, []() -> DWORD { return ERROR_SUCCESS; });
 }
 }
 
@@ -278,6 +290,52 @@ inline DWORD CaptureChildId(HANDLE parent, std::wstring_view child, bool directo
     attributes = candidateAttributes;
     return ERROR_SUCCESS;
 }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+// The ordinary bounded listing API remains unchanged. A thin-copy caller may
+// instead scan all pages with constant memory; its callback must check the
+// authenticated connection and deadline without changing the directory.
+// The caller MUST provide its own independently opened file object, not a
+// duplicate of a host-controlled handle sharing an enumeration cursor.
+// Enumeration is not an atomic snapshot and an individual OS call may block.
+template <typename BeforePage>
+DWORD CaptureChildIdStreaming(HANDLE parent, std::wstring_view child, bool directory, FILE_ID_128& id,
+                              DWORD& attributes, BeforePage&& beforePage, DWORD expectedReparseTag = 0)
+{
+    if (!UacDirectoryLeaf::IsComponent(child))
+        return ERROR_INVALID_NAME;
+
+    bool found = false;
+    FILE_ID_128 candidate{};
+    DWORD candidateAttributes = 0;
+    const DWORD error = Detail::EnumerateRowsChecked(parent, false,
+        [&](const FILE_ID_EXTD_DIR_INFO& row, std::wstring_view name) -> DWORD {
+            if (!UacDirectoryLeaf::Equal(name, child))
+                return ERROR_SUCCESS;
+            if (found)
+                return ERROR_DUP_NAME;
+            const bool reparse = (row.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+            if (reparse != (expectedReparseTag != 0) || (reparse && row.ReparsePointTag != expectedReparseTag))
+                return ERROR_REPARSE_TAG_INVALID;
+            if (((row.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) != directory)
+                return ERROR_DIRECTORY;
+            candidate = row.FileId;
+            candidateAttributes = row.FileAttributes;
+            found = true;
+            return ERROR_SUCCESS;
+        }, beforePage);
+    if (error)
+        return error;
+    const DWORD interrupted = beforePage();
+    if (interrupted)
+        return interrupted;
+    if (!found)
+        return ERROR_FILE_NOT_FOUND;
+    id = candidate;
+    attributes = candidateAttributes;
+    return ERROR_SUCCESS;
+}
+#endif
 
 inline DWORD CaptureChildDirectoryId(HANDLE parent, std::wstring_view child, FILE_ID_128& id)
 {

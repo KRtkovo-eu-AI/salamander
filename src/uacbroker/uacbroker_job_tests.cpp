@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Test scoped per-request source-parent pins. | Check host denial, file identity and pin lifetime over the real job pipe. | #731 | GPT-6 |
 // | 2026-11-12 | Refuse missing or replaced targets on Retry. | Preserve the identity of the target owned by the transfer job. | #731 | GPT-6 |
 // | 2026-11-12 | Exercise typed handle requests over the broker job pipe. | Verify real NTFS handles and scope before worker integration. | #731 | GPT-6 |
 // | 2026-11-12 | Test listed ZIP IDs through the archive dispatcher. | Reject substituted parent and file identities. | #731 | GPT-6.1 Sol |
@@ -198,7 +199,11 @@ public:
 
     bool Open(HANDLE readyToDispatch = nullptr, HANDLE findRoot = nullptr,
               Operation findScope = Operation::FindContent,
-              const UacCopyLeaf::Detail::CopyPause* copyPause = nullptr, bool exactInitial = false)
+              const UacCopyLeaf::Detail::CopyPause* copyPause = nullptr, bool exactInitial = false
+#ifdef SAM_UAC_THIN_COPY_TEST
+              , ThinIdentityScanPause* thinPause = nullptr
+#endif
+              )
     {
         GUID id{};
         if (FAILED(CoCreateGuid(&id)))
@@ -209,7 +214,11 @@ public:
             1, 4096, 4096, 0, nullptr));
         if (!server)
             return false;
-        dispatcher = std::thread([this, name, readyToDispatch, findRoot, findScope, copyPause, exactInitial] {
+        dispatcher = std::thread([this, name, readyToDispatch, findRoot, findScope, copyPause, exactInitial
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                 , thinPause
+#endif
+                                 ] {
             const ComApartment com;
             if (FAILED(com.result))
                 return;
@@ -253,8 +262,14 @@ public:
                     return;
                 }
                 UacCopyLeaf::Detail::activePause = copyPause;
+#ifdef SAM_UAC_THIN_COPY_TEST
+                activeThinIdentityScanPause = thinPause;
+#endif
                 dispatchError = ServeTransferJob(install, peer.get(), GetCurrentProcess(), GetCurrentProcessId(),
                                                  GetTickCount64() + timeoutMs);
+#ifdef SAM_UAC_THIN_COPY_TEST
+                activeThinIdentityScanPause = nullptr;
+#endif
             }
         });
         return !Connect(server.get(), GetTickCount64() + timeoutMs);
@@ -264,7 +279,11 @@ public:
     bool Thin(const Directory& src, std::wstring_view sourceLeaf, const FILE_ID_INFO& sourceId,
               const Directory& dst, std::wstring_view targetLeaf, Operation operation,
               const FILE_ID_INFO* expected, bool overlapped, DWORD& result, ThinWireReply& reply,
-              HANDLE openedSource = INVALID_HANDLE_VALUE, HANDLE openedParent = INVALID_HANDLE_VALUE)
+              HANDLE openedSource = INVALID_HANDLE_VALUE, HANDLE openedParent = INVALID_HANDLE_VALUE
+#ifdef SAM_UAC_THIN_COPY_TEST
+              , bool brokerParent = false
+#endif
+              )
     {
         RequestHeader header{};
         header.serial = src.identity.file.VolumeSerialNumber;
@@ -285,6 +304,11 @@ public:
         Handle localParent;
         if (openedSource != INVALID_HANDLE_VALUE)
         {
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (brokerParent)
+                options.flags |= 2u;
+            else
+#endif
             if (openedParent == INVALID_HANDLE_VALUE)
             {
                 localParent = Adopt(CreateFileW(src.path.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES,
@@ -292,9 +316,16 @@ public:
                     FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
                 openedParent = localParent.get();
             }
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (!brokerParent && (!openedParent || openedParent == INVALID_HANDLE_VALUE)) return false;
+#else
             if (!openedParent || openedParent == INVALID_HANDLE_VALUE) return false;
+#endif
             options.sourceHandle = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(openedSource));
-            options.sourceParentHandle = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(openedParent));
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (!brokerParent)
+#endif
+                options.sourceParentHandle = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(openedParent));
         }
         if (expected) options.expectedTarget = *expected;
         const auto deadline = GetTickCount64() + timeoutMs;
@@ -306,6 +337,14 @@ public:
     }
 
     bool Disconnect() { return DisconnectNamedPipe(server.get()) != FALSE; }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+    DWORD CancelActive()
+    {
+        BYTE signal = UacRenameLeaf::Detail::transferCancelSignal;
+        return TransferRequest(server.get(), &signal, sizeof(signal), true, GetTickCount64() + timeoutMs);
+    }
+#endif
 
     bool StartExactFind(const Directory& parent, std::wstring_view leaf,
                         const FILE_ID_INFO& expected, DWORD& result)
@@ -3754,6 +3793,15 @@ void CheckThinSourceParentDenied(const Directory& source, const Directory& targe
         JobPipe job;
         DWORD status = ERROR_GEN_FAILURE;
         ThinWireReply reply{};
+#ifdef SAM_UAC_THIN_COPY_TEST
+        // The authenticated broker must re-open its own file object after
+        // verifying the host handle; in this fixture both share the denied token.
+        Check(job.Open() && job.Thin(restricted, L"source.txt", identity, target, L"thin-parent-target.txt",
+            Operation::ThinTargetCreate, nullptr, false, status, reply, input.get(), listing.get()) &&
+            status == ERROR_ACCESS_DENIED && !reply.value &&
+            GetFileAttributesW(target.File(L"thin-parent-target.txt").c_str()) == INVALID_FILE_ATTRIBUTES,
+            "same-token broker cannot bypass a denial using the preopened host parent");
+#else
         Check(job.Open() && job.Thin(restricted, L"source.txt", identity, target, L"thin-parent-target.txt",
             Operation::ThinTargetCreate, nullptr, false, status, reply, input.get(), listing.get()) &&
             !status && reply.value, "target open accepts identity-checked host parent and source handles");
@@ -3763,6 +3811,7 @@ void CheckThinSourceParentDenied(const Directory& source, const Directory& targe
         Check(job.Thin(restricted, L"source.txt", identity, target, L"thin-parent-target.txt",
             Operation::ThinDiscardTarget, &id, false, status, reply) && !status,
             "cleanup does not need to reopen the source parent");
+#endif
         job.Finish();
     }
     Check(acl.Restore(), "restore denied source parent ACL");
@@ -3772,6 +3821,234 @@ void CheckThinSourceParentDenied(const Directory& source, const Directory& targe
     Check(RemoveDirectoryW(sourceDirPath.c_str()) != FALSE, "remove denied source parent");
 }
 
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+// This probe is read-only: it never reads or changes the contents of a root
+// file. If a machine has no suitable root item, report an explicit skip.
+void CheckThinVolumeRoot(const Directory& source)
+{
+    const auto volumePath = source.identity.volume + L"\\";
+    WIN32_FIND_DATAW entry{};
+    const HANDLE search = FindFirstFileW((volumePath + L"*").c_str(), &entry);
+    if (search == INVALID_HANDLE_VALUE)
+    {
+        std::printf("SKIP thin root listing unavailable (%lu)\n", GetLastError());
+        return;
+    }
+    Handle file;
+    std::wstring leaf;
+    do
+    {
+        if ((entry.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) != 0)
+            continue;
+        auto candidate = Adopt(CreateFileW((volumePath + entry.cFileName).c_str(), FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        if (candidate) { file = std::move(candidate); leaf = entry.cFileName; break; }
+    } while (FindNextFileW(search, &entry));
+    FindClose(search);
+    if (!file)
+    {
+        std::printf("SKIP no readable regular root file for thin root probe\n");
+        return;
+    }
+    FILE_ID_INFO actual{};
+    FILE_ID_128 listed{};
+    DWORD attributes = 0;
+    const auto root = OpenThinSourceRoot(source.identity.volume, {});
+    UacF7::MoveFileIdentity expected{};
+    expected.serial = source.identity.file.VolumeSerialNumber;
+    // The ID used for a root parent is the root itself, not this fixture's
+    // nested source directory.
+    UacDirectoryLeaf::ParentIdentity rootIdentity;
+    const DWORD parentStatus = root ? UacDirectoryLeaf::ReadParentIdentity(root.get(), rootIdentity) : ERROR_ACCESS_DENIED;
+    if (!parentStatus)
+    {
+        expected.serial = rootIdentity.file.VolumeSerialNumber;
+        std::memcpy(expected.id, rootIdentity.file.FileId.Identifier, sizeof(expected.id));
+    }
+    std::vector<Handle> pins;
+    HANDLE parent = nullptr;
+    const DWORD pinStatus = !parentStatus ? PinPagedDirectory(root.get(), {}, &expected, pins, parent) : parentStatus;
+    const DWORD listedStatus = !pinStatus ? UacListing::CaptureChildId(parent, leaf, false, listed, attributes) : pinStatus;
+    Check(!listedStatus && GetFileInformationByHandleEx(file.get(), FileIdInfo, &actual, sizeof(actual)) &&
+          !std::memcmp(actual.FileId.Identifier, listed.Identifier, sizeof(listed.Identifier)),
+          "a readable root file is identity-checked using an actual root listing handle");
+}
+
+// The dispatcher thread and host share a token in this fixture. A positive
+// pin does not prove the medium-token -> elevated-token boundary.
+void CheckThinBrokerSourceParent(const Directory& source, const Directory& target)
+{
+    const auto sourceDirPath = source.File(L"thin-parent-pin-東");
+    const auto parkedPath = source.File(L"thin-parent-parked-日");
+    Directory restricted;
+    if (!restricted.Open(sourceDirPath.c_str())) { Check(false, "prepare broker-parent directory"); return; }
+    const auto sourcePath = restricted.File(L"source-日.txt");
+    const auto targetPath = target.File(L"thin-broker-parent-target.txt");
+    const auto laterPath = target.File(L"thin-parent-later.txt");
+    if (!WriteByte(sourcePath, 0x65)) { Check(false, "prepare broker-parent source"); return; }
+    auto input = Adopt(CreateFileW(sourcePath.c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    FILE_ID_INFO identity{};
+    const bool prepared = input && GetFileInformationByHandleEx(input.get(), FileIdInfo, &identity, sizeof(identity));
+    Check(prepared, "capture broker-parent source identity");
+    if (!prepared) return;
+
+    // First request may be the target when the source itself is readable.
+    JobPipe job;
+    DWORD status = ERROR_GEN_FAILURE;
+    ThinWireReply reply{};
+    Check(job.Open() && job.Thin(restricted, L"source-日.txt", identity, target,
+        L"thin-broker-parent-target.txt", Operation::ThinTargetCreate, nullptr, false,
+        status, reply, input.get(), INVALID_HANDLE_VALUE, true) && !status && reply.value,
+        "first target request pins its source parent in the same-token broker");
+    const auto targetIdentity = reply.target;
+    auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    BYTE byte = 0x65;
+    DWORD count = 0;
+    Check(output && WriteFile(output.get(), &byte, 1, &count, nullptr) && count == 1,
+          "write through target returned by the real dispatcher");
+    output.reset();
+    Check(job.Thin(restricted, L"source-日.txt", identity, target,
+        L"thin-broker-parent-target.txt", Operation::ThinTargetProbe, nullptr, false,
+        status, reply, input.get(), INVALID_HANDLE_VALUE, true) && !status && reply.value,
+        "probe independently repins and verifies the source parent");
+    output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    output.reset();
+    Check(job.Thin(restricted, L"source-日.txt", identity, target,
+        L"thin-broker-parent-target.txt", Operation::ThinTargetRetry, &targetIdentity, true,
+        status, reply, input.get(), INVALID_HANDLE_VALUE, true) && !status && reply.value,
+        "overlapped retry independently repins the source parent");
+    output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    output.reset();
+    auto incorrect = identity;
+    incorrect.FileId.Identifier[0] ^= 1;
+    Check(job.Thin(restricted, L"source-日.txt", incorrect, target, L"thin-parent-later.txt",
+        Operation::ThinTargetCreate, nullptr, false, status, reply, input.get(), INVALID_HANDLE_VALUE, true) &&
+        status == ERROR_FILE_INVALID && !reply.value && GetFileAttributesW(laterPath.c_str()) == INVALID_FILE_ATTRIBUTES,
+        "changed source identity is refused before another target exists");
+    const auto otherPath = restricted.File(L"other-東.txt");
+    Check(WriteByte(otherPath, 0x66), "prepare an unrelated same-size source");
+    auto other = Adopt(CreateFileW(otherPath.c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    Check(other && job.Thin(restricted, L"source-日.txt", identity, target, L"thin-parent-later.txt",
+        Operation::ThinTargetCreate, nullptr, false, status, reply, other.get(), INVALID_HANDLE_VALUE, true) &&
+        status == ERROR_FILE_INVALID && !reply.value && GetFileAttributesW(laterPath.c_str()) == INVALID_FILE_ATTRIBUTES,
+        "same-size substituted source handle is rejected without creating a target");
+    other.reset();
+    Check(DeleteFileW(otherPath.c_str()) != FALSE, "remove unrelated same-size source");
+    restricted.identity.file.FileId.Identifier[0] ^= 1;
+    const bool wrongParent = job.Thin(restricted, L"source-日.txt", identity, target, L"thin-parent-later.txt",
+        Operation::ThinTargetCreate, nullptr, false, status, reply, input.get(), INVALID_HANDLE_VALUE, true);
+    restricted.identity.file.FileId.Identifier[0] ^= 1;
+    Check(wrongParent && status == ERROR_ACCESS_DENIED && !reply.value &&
+          GetFileAttributesW(laterPath.c_str()) == INVALID_FILE_ATTRIBUTES,
+          "changed source-parent identity is rejected by the approved job scope");
+    Check(job.Thin(restricted, L"absent-日.txt", identity, target, L"thin-parent-later.txt",
+        Operation::ThinTargetCreate, nullptr, false, status, reply, input.get(), INVALID_HANDLE_VALUE, true) &&
+        status == ERROR_FILE_NOT_FOUND && !reply.value && GetFileAttributesW(laterPath.c_str()) == INVALID_FILE_ATTRIBUTES,
+        "changed source leaf is rejected without creating a target");
+    const auto linkPath = restricted.File(L"link-東.txt");
+    if (CreateSymbolicLinkW(linkPath.c_str(), sourcePath.c_str(), SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE))
+    {
+        Check(job.Thin(restricted, L"link-東.txt", identity, target, L"thin-parent-later.txt",
+            Operation::ThinTargetCreate, nullptr, false, status, reply, input.get(), INVALID_HANDLE_VALUE, true) &&
+            status == ERROR_REPARSE_TAG_INVALID && !reply.value && GetFileAttributesW(laterPath.c_str()) == INVALID_FILE_ATTRIBUTES,
+            "source link cannot stand in for the approved regular source");
+        Check(DeleteFileW(linkPath.c_str()) != FALSE, "remove source link fixture only");
+    }
+    else if (GetLastError() == ERROR_PRIVILEGE_NOT_HELD)
+        std::puts("SKIP broker-parent source link requires Developer Mode or SeCreateSymbolicLinkPrivilege");
+    else
+        Check(false, "create broker-parent source link fixture");
+
+    // The broker must release its pinned parent between requests. The test's
+    // own directory and source handles may also prevent a directory rename.
+    restricted.handle.reset();
+    input.reset();
+    const BOOL moved = MoveFileW(sourceDirPath.c_str(), parkedPath.c_str());
+    if (!moved) std::printf("INFO source-parent rename error %lu\n", GetLastError());
+    Check(moved != FALSE, "source parent can be renamed after the broker request ends");
+    if (moved)
+    {
+        const auto parkedSource = parkedPath + L"\\source-日.txt";
+        input = Adopt(CreateFileW(parkedSource.c_str(), GENERIC_READ,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+        Check(input != nullptr, "reopen the same source after renaming its parent");
+        Check(job.Thin(restricted, L"source-日.txt", identity, target, L"thin-parent-later.txt",
+            Operation::ThinTargetCreate, nullptr, false, status, reply, input.get(), INVALID_HANDLE_VALUE, true) &&
+            (status == ERROR_FILE_NOT_FOUND || status == ERROR_PATH_NOT_FOUND) && !reply.value &&
+            GetFileAttributesW(laterPath.c_str()) == INVALID_FILE_ATTRIBUTES,
+            "renamed source parent fails closed on a later request");
+        const BOOL replacementDir = CreateDirectoryW(sourceDirPath.c_str(), nullptr);
+        const bool replacementFile = replacementDir && WriteByte(sourcePath, 0x65);
+        Check(replacementFile, "prepare a same-name same-size replacement under a different parent");
+        if (replacementFile)
+        {
+            Check(job.Thin(restricted, L"source-日.txt", identity, target, L"thin-parent-later.txt",
+                Operation::ThinTargetCreate, nullptr, false, status, reply, input.get(), INVALID_HANDLE_VALUE, true) &&
+                status == ERROR_FILE_INVALID && !reply.value && GetFileAttributesW(laterPath.c_str()) == INVALID_FILE_ATTRIBUTES &&
+                HasByte(sourcePath, 0x65),
+                "same-name replacement parent and source are rejected without altering either file");
+            Check(DeleteFileW(sourcePath.c_str()) != FALSE, "remove only replacement source fixture");
+        }
+        if (replacementDir)
+            Check(RemoveDirectoryW(sourceDirPath.c_str()) != FALSE, "remove only replacement parent fixture");
+        input.reset();
+        Check(MoveFileW(parkedPath.c_str(), sourceDirPath.c_str()) != FALSE,
+              "restore the exact source directory name");
+    }
+    input = Adopt(CreateFileW(sourcePath.c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    Check(input != nullptr, "restore source handle after parent rename test");
+    Check(job.Thin(restricted, L"source-日.txt", identity, target,
+        L"thin-broker-parent-target.txt", Operation::ThinDiscardTarget, &targetIdentity, false,
+        status, reply) && !status && GetFileAttributesW(targetPath.c_str()) == INVALID_FILE_ATTRIBUTES,
+        "identity-bound cleanup still works after the parent rename test");
+    job.Finish();
+
+    // ACL denial is real, but applies to both threads of this fixture. The
+    // expected result is safe denial, not a claim that elevation was tested.
+    ThinDenyAcl acl;
+    const bool deniedPrepared = acl.Apply(sourceDirPath, true, L"D:P(D;;0x21;;;WD)(A;;FA;;;WD)");
+    Check(deniedPrepared, "deny list and traverse on source parent for current token");
+    if (deniedPrepared)
+    {
+        auto root = OpenVolumeRoot(restricted.identity.volume);
+        std::vector<Handle> pins;
+        HANDLE partialParent = nullptr;
+        UacF7::MoveFileIdentity parentId{};
+        parentId.serial = restricted.identity.file.VolumeSerialNumber;
+        std::memcpy(parentId.id, restricted.identity.file.FileId.Identifier, sizeof(parentId.id));
+        DWORD pinError = root ? PinPagedDirectory(root.get(), restricted.relative, &parentId, pins, partialParent)
+                              : ERROR_NOT_SUPPORTED;
+        const bool partial = pinError == ERROR_ACCESS_DENIED && partialParent && !pins.empty();
+        ThinWireOptions options{};
+        options.flags = 1u; // preserve the existing overlapped setting
+        const DWORD selected = SelectThinSourceParent(pinError, partialParent, options);
+        Check(partial && selected == ERROR_SUCCESS && !partialParent && options.flags == 3u,
+              "real partially pinned access denial clears parent and selects broker pin");
+        HANDLE unchanged = root.get();
+        ThinWireOptions errorOptions{};
+        Check(SelectThinSourceParent(ERROR_SHARING_VIOLATION, unchanged, errorOptions) == ERROR_SHARING_VIOLATION &&
+              unchanged == root.get() && !errorOptions.flags,
+              "non-access pin failure is propagated without changing options");
+        pins.clear(); root.reset();
+        JobPipe deniedJob;
+        Check(deniedJob.Open() && deniedJob.Thin(restricted, L"source-日.txt", identity, target,
+            L"thin-parent-later.txt", Operation::ThinTargetCreate, nullptr, false,
+            status, reply, input.get(), INVALID_HANDLE_VALUE, true) &&
+            status == ERROR_ACCESS_DENIED && !reply.value && GetFileAttributesW(laterPath.c_str()) == INVALID_FILE_ATTRIBUTES,
+            "same-token broker denial leaves the target absent");
+        deniedJob.Finish();
+    }
+    Check(acl.Restore(), "restore source parent ACL after broker-parent fixture");
+    input.reset();
+    Check(DeleteFileW(sourcePath.c_str()) != FALSE, "remove broker-parent source fixture");
+    Check(RemoveDirectoryW(sourceDirPath.c_str()) != FALSE, "remove broker-parent directory");
+}
+#endif
 
 void CheckThinTargetNoList(const Directory& source, const Directory& target)
 {
@@ -3983,6 +4260,9 @@ void CheckThinJob(const Directory& source, const Directory& target, const Direct
     sourceFile.reset();
     Check(DeleteFileW(sourcePath.c_str()) != FALSE, "thin job removes source fixture");
 }
+#ifdef SAM_UAC_THIN_COPY_TEST
+#include "uacbroker_thin_parent_large_tests.inc"
+#endif
 }
 
 int wmain()
@@ -3993,6 +4273,11 @@ int wmain()
     CheckThinJob(source, target, outside);
     CheckThinSourceReadDenied(source, target);
     CheckThinSourceParentDenied(source, target);
+#ifdef SAM_UAC_THIN_COPY_TEST
+    CheckThinVolumeRoot(source);
+    CheckThinBrokerSourceParent(source, target);
+    CheckThinLargeParent(source, target);
+#endif
     CheckThinTargetNoList(source, target);
     CheckListedLeafIdentity(source);
     CheckListedArchiveIdentity(source, outside);
