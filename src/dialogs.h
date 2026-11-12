@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Track scoped thin F5 foreground return. | Avoid restoring focus after later user input. | #731 | GPT-6 |
 // | 2026-11-12 | Track validity of a worker-owned overwrite prompt. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Track typed overwrite prompt lifetime. | Prevent premature worker completion during a modal prompt. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Expose whether attribute controls were edited. | Keep special-file time-only consent separate from attribute changes. | #731 | GPT-6.1 Terra |
@@ -485,6 +486,11 @@ protected:
     BOOL FirstUserSetDialog; // TRUE = WM_USER_SETDIALOG message isn't processed yet (the first call forces a repaint so the user sees the dialog at least flash)
 
     HWND NextForegroundWindow; // window that should be foreground after closing this dialog (on XP with service pack 1 and with a top-most window opened the activation may fail after closing the dialog - focus sometimes went to the top-most window instead of Salamander)
+#ifdef SAM_UAC_THIN_COPY_TEST
+    bool ThinConsentReturned = false;
+    bool ThinCompletionSelected = false;
+    DWORD ThinCompletionInput = 0;
+#endif
 
     BOOL DoNotBeepOnClose; // TRUE = operation cancels because Salamander is exiting; beeping makes no sense
 

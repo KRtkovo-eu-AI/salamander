@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Return thin F5 progress focus without overriding later input. | Keep the native panel active after a short elevated operation. | #731 | GPT-6 |
 // | 2026-11-12 | Guard native singleton overwrite and post-cancel recovery warning. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Guard typed overwrite prompts during nested dispatch. | Keep native prompt payload alive until the worker resumes. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Resolve native conflict dialogs against their original snapshot. | Discard stale answers when Scan Ahead changes the conflict. | #731 | GPT-6.1 Terra |
@@ -49,6 +50,9 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#ifdef SAM_UAC_THIN_COPY_TEST
+#include "uac_thin_foreground.h"
+#endif
 
 #include "mainwnd.h"
 #include "plugins.h"
@@ -1618,6 +1622,19 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case UacF7::restoreConsentForegroundMessage:
         UacF7::RestoreConsentForeground(HWindow, reinterpret_cast<HWND>(wParam), static_cast<DWORD>(lParam));
         return TRUE;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    case UacF7::restoreThinProgressForegroundMessage:
+    {
+        ThinConsentReturned = false;
+        const HWND foreground = reinterpret_cast<HWND>(wParam);
+        const DWORD lastInput = static_cast<DWORD>(lParam);
+        if (!ThinProgressSnapshotMatches(foreground, lastInput))
+            return TRUE;
+        UacF7::RestoreConsentForeground(HWindow, foreground, lastInput);
+        ThinConsentReturned = ThinProgressIsActive(HWindow, lastInput);
+        return TRUE;
+    }
+#endif
 
     case WM_USER_UAC_PROGRESS_ACTIVE:
         SetBrokerActive(wParam != 0);
@@ -2524,18 +2541,32 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
             // Prior to Windows Vista we only called GetNextWindow(), which was enough to reach the next window in the Z-order.
             // Vista introduced new hidden helper windows such as "MSCTFIME UI" and "Default IME" that sit between us and 
             // our window (main, viver, ect.). So we skip hidden windows here.
-            BOOL valid;
-            HWND hNext = HWindow;
-            do
+#ifdef SAM_UAC_THIN_COPY_TEST
+            const HWND thinTarget = ThinProgressReturnTarget(HWindow,
+                MainWindow ? MainWindow->HWindow : nullptr, ThinConsentReturned);
+            LASTINPUTINFO input{sizeof(input)};
+            if (thinTarget && GetLastInputInfo(&input) && ThinProgressIsActive(HWindow, input.dwTime))
             {
-                hNext = GetNextWindow(hNext, GW_HWNDNEXT);
-                //          TRACE_I("WM_USER_PROGRDLGEND hNext=0x"<<std::hex<<hNext);
-                if (hNext != NULL)
-                    valid = IsWindowVisible(hNext) && IsWindowEnabled(hNext);
-                else
-                    valid = FALSE;
-            } while (hNext != NULL && hNext != HWindow && !valid);
-            NextForegroundWindow = hNext;
+                NextForegroundWindow = thinTarget;
+                ThinCompletionSelected = true;
+                ThinCompletionInput = input.dwTime;
+            }
+            else
+#endif
+            {
+                BOOL valid;
+                HWND hNext = HWindow;
+                do
+                {
+                    hNext = GetNextWindow(hNext, GW_HWNDNEXT);
+                    //          TRACE_I("WM_USER_PROGRDLGEND hNext=0x"<<std::hex<<hNext);
+                    if (hNext != NULL)
+                        valid = IsWindowVisible(hNext) && IsWindowEnabled(hNext);
+                    else
+                        valid = FALSE;
+                } while (hNext != NULL && hNext != HWindow && !valid);
+                NextForegroundWindow = hNext;
+            }
         }
         if (IsInQueue)
         {
@@ -2916,6 +2947,12 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
         // activates the top-most window that is the highest; see \Source\zorder and
         // \Source\windowtest utilities.
         // Issue reported here: https://forum.altap.cz/viewtopic.php?t=2922&start=15
+#ifdef SAM_UAC_THIN_COPY_TEST
+        // Do not steal focus if the user switched windows or provided input
+        // after the completion message chose the target.
+        if (ThinCompletionSelected && !ThinProgressIsActive(HWindow, ThinCompletionInput))
+            NextForegroundWindow = NULL;
+#endif
         if (NextForegroundWindow != NULL && NextForegroundWindow != GetForegroundWindow())
         {
             DWORD pid;

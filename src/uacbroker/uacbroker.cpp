@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Order thin F5 consent return before worker completion. | Avoid losing a posted focus return when the progress window closes quickly. | #731 | GPT-6 |
 | 2026-11-12 | Refuse elevated laboratory fixture processes. | Avoid running user-writable test images with administrative rights. | #731 | GPT-6 |
 | 2026-11-12 | Refuse non-thin launches from laboratory locations. | Prevent accidental elevation of user-writable fixture images. | #731 | GPT-6 |
 | 2026-11-12 | Isolate unelevated integration fixtures from installed builds. | Exercise the worker without modifying the protected installation. | #731 | GPT-6 |
@@ -4007,14 +4008,25 @@ bool IsOwnedWindow(HWND window, HWND owner)
     return false;
 }
 
-BOOL LaunchBrokerWithOwner(SHELLEXECUTEINFOW& launch)
+BOOL LaunchBrokerWithOwner(SHELLEXECUTEINFOW& launch
+#ifdef SAM_UAC_THIN_COPY_TEST
+                           , bool thinProgress
+#endif
+                           )
 {
     const UacF7::ConsentForeground foreground(launch.hwnd);
     launch.hwnd = foreground.Owner();
     const BOOL launched = ShellExecuteExW(&launch);
     const DWORD error = launched ? ERROR_SUCCESS : GetLastError();
     if (launched || error == ERROR_CANCELLED)
-        foreground.Restore();
+    {
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (thinProgress)
+            foreground.RestoreThinProgress();
+        else
+#endif
+            foreground.Restore();
+    }
     if (!launched)
         SetLastError(error);
     return launched;
@@ -4145,7 +4157,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         if (launched) { launch.hProcess = process.hProcess; CloseHandle(process.hThread); }
     }
     else
-        launched = LaunchBrokerWithOwner(launch);
+        launched = LaunchBrokerWithOwner(launch, request && IsThinOpen(request->operation));
 #else
     const BOOL launched = LaunchBrokerWithOwner(launch);
 #endif
@@ -4410,6 +4422,33 @@ void ConsentForeground::Restore() const
     else
         PostMessageW(owner, restoreConsentForegroundMessage, reinterpret_cast<WPARAM>(foreground), input.dwTime);
 }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+void ConsentForeground::RestoreThinProgress() const
+{
+    if (!wasForeground || !owner)
+        return;
+    DWORD process = 0;
+    const DWORD thread = GetWindowThreadProcessId(owner, &process);
+    if (!thread || process != GetCurrentProcessId() || !IsWindow(owner))
+        return;
+    const HWND foreground = GetForegroundWindow();
+    LASTINPUTINFO input{sizeof(input)};
+    if (!GetLastInputInfo(&input))
+        return;
+    if (thread == GetCurrentThreadId())
+        SendMessageW(owner, restoreThinProgressForegroundMessage, reinterpret_cast<WPARAM>(foreground), input.dwTime);
+    else
+    {
+        DWORD_PTR ignored = 0;
+        // Never keep the worker waiting indefinitely for a busy UI. No late
+        // fallback is sent after timeout; an already-dispatched message checks
+        // the same foreground and last-input snapshot before acting.
+        SendMessageTimeoutW(owner, restoreThinProgressForegroundMessage, reinterpret_cast<WPARAM>(foreground),
+                            input.dwTime, SMTO_ABORTIFHUNG | SMTO_BLOCK | SMTO_ERRORONEXIT, 750, &ignored);
+    }
+}
+#endif
 
 void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput)
 {

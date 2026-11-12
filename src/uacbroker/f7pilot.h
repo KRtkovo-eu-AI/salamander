@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Add scoped thin F5 foreground return. | Coordinate progress focus before worker completion. | #731 | GPT-6 |
 | 2026-11-12 | Expose test-only authenticated broker PID markers. | Measure a singleton job without lending a process handle. | #731 | GPT-6 |
 | 2026-11-12 | Type distinct worker handle arguments. | Prevent accidental exchange of source and cancel handles. | #731 | GPT-6 |
 | 2026-11-12 | Declare scoped worker file handle transfers. | Keep native copy I/O in the unelevated process. | #731 | GPT-6 |
@@ -135,6 +136,9 @@ inline ULONGLONG ReservePagedCursorToken()
     return token;
 }
 constexpr UINT restoreConsentForegroundMessage = WM_APP + 427;
+#ifdef SAM_UAC_THIN_COPY_TEST
+constexpr UINT restoreThinProgressForegroundMessage = WM_APP + 429;
+#endif
 
 class ConsentForeground
 {
@@ -142,6 +146,9 @@ public:
     explicit ConsentForeground(HWND owner);
     HWND Owner() const { return owner; }
     void Restore() const;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    void RestoreThinProgress() const;
+#endif
 
 private:
     HWND owner;
