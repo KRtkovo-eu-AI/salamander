@@ -262,7 +262,8 @@ public:
 
     bool Thin(const Directory& src, std::wstring_view sourceLeaf, const FILE_ID_INFO& sourceId,
               const Directory& dst, std::wstring_view targetLeaf, Operation operation,
-              const FILE_ID_INFO* expected, bool overlapped, DWORD& result, ThinWireReply& reply)
+              const FILE_ID_INFO* expected, bool overlapped, DWORD& result, ThinWireReply& reply,
+              HANDLE openedSource = INVALID_HANDLE_VALUE, HANDLE openedParent = INVALID_HANDLE_VALUE)
     {
         RequestHeader header{};
         header.serial = src.identity.file.VolumeSerialNumber;
@@ -280,6 +281,20 @@ public:
                                dst.identity.volume + dst.relative + std::wstring(targetLeaf);
         ThinWireOptions options{};
         options.flags = overlapped ? 1 : 0;
+        Handle localParent;
+        if (openedSource != INVALID_HANDLE_VALUE)
+        {
+            if (openedParent == INVALID_HANDLE_VALUE)
+            {
+                localParent = Adopt(CreateFileW(src.path.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+                    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+                openedParent = localParent.get();
+            }
+            if (!openedParent || openedParent == INVALID_HANDLE_VALUE) return false;
+            options.sourceHandle = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(openedSource));
+            options.sourceParentHandle = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(openedParent));
+        }
         if (expected) options.expectedTarget = *expected;
         const auto deadline = GetTickCount64() + timeoutMs;
         return !TransferRequest(server.get(), &header, sizeof(header), true, deadline) &&
@@ -3626,6 +3641,184 @@ void CheckDeleteJob(const Directory& source)
 
 namespace
 {
+
+struct ThinDenyAcl
+{
+    Handle control;
+    PSECURITY_DESCRIPTOR original = nullptr, restricted = nullptr;
+    PACL previous = nullptr, deny = nullptr;
+    SECURITY_DESCRIPTOR_CONTROL flags{};
+    bool changed = false;
+
+    bool Apply(const std::wstring& path, bool directory, const wchar_t* sddl)
+    {
+        control = Adopt(CreateFileW(path.c_str(), READ_CONTROL | WRITE_DAC,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_OPEN_REPARSE_POINT | (directory ? FILE_FLAG_BACKUP_SEMANTICS : 0), nullptr));
+        DWORD revision = 0;
+        BOOL present = FALSE, defaulted = FALSE;
+        if (!control || GetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+                nullptr, nullptr, &previous, nullptr, &original) ||
+            !GetSecurityDescriptorControl(original, &flags, &revision) ||
+            !ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl, SDDL_REVISION_1, &restricted, nullptr) ||
+            !GetSecurityDescriptorDacl(restricted, &present, &deny, &defaulted) || !present)
+            return false;
+        changed = SetSecurityInfo(control.get(), SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+            nullptr, nullptr, deny, nullptr) == ERROR_SUCCESS;
+        return changed;
+    }
+
+    bool Restore()
+    {
+        if (!changed) return true;
+        const DWORD error = SetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION |
+            ((flags & SE_DACL_PROTECTED) ? PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION),
+            nullptr, nullptr, previous, nullptr);
+        if (!error) changed = false;
+        return error == ERROR_SUCCESS;
+    }
+
+    ~ThinDenyAcl()
+    {
+        Restore();
+        if (original) LocalFree(original);
+        if (restricted) LocalFree(restricted);
+    }
+};
+
+void CheckThinSourceReadDenied(const Directory& source, const Directory& target)
+{
+    const auto sourcePath = source.File(L"thin-source-denied.txt");
+    const auto targetPath = target.File(L"thin-target-source-denied.txt");
+    if (!WriteByte(sourcePath, 0x62)) { Check(false, "prepare denied source fixture"); return; }
+    auto input = Adopt(CreateFileW(sourcePath.c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    FILE_ID_INFO identity{};
+    ThinDenyAcl acl;
+    const bool prepared = input && GetFileInformationByHandleEx(input.get(), FileIdInfo, &identity, sizeof(identity)) &&
+        acl.Apply(sourcePath, false, L"D:P(D;;0x1;;;WD)(A;;FA;;;WD)");
+    Check(prepared, "install real source READ_DATA denial after host open");
+    DWORD status = ERROR_GEN_FAILURE;
+    ThinWireReply reply{};
+    if (prepared)
+    {
+        const auto refused = Adopt(CreateFileW(sourcePath.c_str(), GENERIC_READ,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+        Check(!refused && GetLastError() == ERROR_ACCESS_DENIED,
+              "new source GENERIC_READ is denied under current token");
+        JobPipe job;
+        Check(job.Open() && job.Thin(source, L"thin-source-denied.txt", identity, target,
+            L"thin-target-source-denied.txt", Operation::ThinTargetCreate, nullptr, false, status, reply, input.get()) &&
+            !status && reply.value, "target open uses the preopened host source without broker content access");
+        const auto id = reply.target;
+        auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+        output.reset();
+        Check(job.Thin(source, L"thin-source-denied.txt", identity, target,
+            L"thin-target-source-denied.txt", Operation::ThinDiscardTarget, &id, false, status, reply) &&
+            !status && GetFileAttributesW(targetPath.c_str()) == INVALID_FILE_ATTRIBUTES,
+            "owned target can be discarded while source content is denied");
+        job.Finish();
+    }
+    Check(acl.Restore(), "restore denied source fixture ACL");
+    input.reset();
+    Check(DeleteFileW(sourcePath.c_str()) != FALSE, "remove denied source fixture");
+}
+
+
+void CheckThinSourceParentDenied(const Directory& source, const Directory& target)
+{
+    const auto sourceDirPath = source.File(L"thin-denied-parent");
+    Directory restricted;
+    if (!restricted.Open(sourceDirPath.c_str())) { Check(false, "prepare denied source parent"); return; }
+    const auto sourcePath = restricted.File(L"source.txt");
+    if (!WriteByte(sourcePath, 0x64)) { Check(false, "prepare denied-parent source file"); return; }
+    auto input = Adopt(CreateFileW(sourcePath.c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    auto listing = Adopt(CreateFileW(restricted.path.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    FILE_ID_INFO identity{};
+    ThinDenyAcl acl;
+    const bool prepared = input && listing && GetFileInformationByHandleEx(input.get(), FileIdInfo, &identity, sizeof(identity)) &&
+        acl.Apply(restricted.path, true, L"D:P(D;;0x21;;;WD)(A;;FA;;;WD)");
+    Check(prepared, "deny list and explicit traverse after host pins the source parent");
+    if (prepared)
+    {
+        auto denied = Adopt(CreateFileW(restricted.path.c_str(), FILE_LIST_DIRECTORY,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        Check(!denied && GetLastError() == ERROR_ACCESS_DENIED,
+              "source parent cannot be freshly opened for listing under this token");
+        JobPipe job;
+        DWORD status = ERROR_GEN_FAILURE;
+        ThinWireReply reply{};
+        Check(job.Open() && job.Thin(restricted, L"source.txt", identity, target, L"thin-parent-target.txt",
+            Operation::ThinTargetCreate, nullptr, false, status, reply, input.get(), listing.get()) &&
+            !status && reply.value, "target open accepts identity-checked host parent and source handles");
+        const auto id = reply.target;
+        auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+        output.reset();
+        Check(job.Thin(restricted, L"source.txt", identity, target, L"thin-parent-target.txt",
+            Operation::ThinDiscardTarget, &id, false, status, reply) && !status,
+            "cleanup does not need to reopen the source parent");
+        job.Finish();
+    }
+    Check(acl.Restore(), "restore denied source parent ACL");
+    listing.reset(); input.reset();
+    Check(DeleteFileW(sourcePath.c_str()) != FALSE, "remove denied-parent source");
+    restricted.handle.reset();
+    Check(RemoveDirectoryW(sourceDirPath.c_str()) != FALSE, "remove denied source parent");
+}
+
+
+void CheckThinTargetNoList(const Directory& source, const Directory& target)
+{
+    const auto sourcePath = source.File(L"thin-no-list-source.txt");
+    const auto targetDirPath = target.File(L"thin-no-list-target");
+    if (!WriteByte(sourcePath, 0x63)) { Check(false, "prepare no-list source fixture"); return; }
+    auto input = Adopt(CreateFileW(sourcePath.c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    FILE_ID_INFO identity{};
+    Directory restricted;
+    ThinDenyAcl acl;
+    const bool prepared = input && GetFileInformationByHandleEx(input.get(), FileIdInfo, &identity, sizeof(identity)) &&
+        restricted.Open(targetDirPath.c_str()) &&
+        acl.Apply(restricted.path, true, L"D:P(D;;0x1;;;WD)(A;;FA;;;WD)");
+    Check(prepared, "install real target LIST_DIRECTORY denial");
+    if (prepared)
+    {
+        const auto denied = Adopt(CreateFileW(restricted.path.c_str(), FILE_LIST_DIRECTORY,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        Check(!denied && GetLastError() == ERROR_ACCESS_DENIED,
+              "target explicitly denies directory listing");
+        const auto allowed = Adopt(CreateFileW(restricted.path.c_str(), FILE_ADD_FILE | FILE_TRAVERSE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        Check(allowed != nullptr, "target allows creation and traversal");
+        JobPipe job;
+        DWORD status = ERROR_GEN_FAILURE;
+        ThinWireReply reply{};
+        Check(job.Open() && job.Thin(source, L"thin-no-list-source.txt", identity, restricted,
+            L"created.txt", Operation::ThinTargetCreate, nullptr, false, status, reply, input.get()) &&
+            !status && reply.value, "target without list access supports scoped create");
+        const auto id = reply.target;
+        auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+        output.reset();
+        Check(job.Thin(source, L"thin-no-list-source.txt", identity, restricted,
+            L"created.txt", Operation::ThinDiscardTarget, &id, false, status, reply) && !status,
+            "target without list access supports verified cleanup");
+        job.Finish();
+    }
+    Check(acl.Restore(), "restore no-list target ACL");
+    restricted.handle.reset();
+    Check(RemoveDirectoryW(targetDirPath.c_str()) != FALSE, "remove no-list target directory");
+    input.reset();
+    Check(DeleteFileW(sourcePath.c_str()) != FALSE, "remove no-list source fixture");
+}
+
+
 void CheckThinJob(const Directory& source, const Directory& target, const Directory& outside)
 {
     constexpr auto sourceLeaf = L"thin-source-東.txt";
@@ -3633,12 +3826,11 @@ void CheckThinJob(const Directory& source, const Directory& target, const Direct
     const auto sourcePath = source.File(sourceLeaf);
     const auto targetPath = target.File(targetLeaf);
     Check(WriteByte(sourcePath, 0x51), "thin job creates source fixture");
-    auto sourceFile = Adopt(CreateFileW(sourcePath.c_str(), FILE_READ_ATTRIBUTES,
+    auto sourceFile = Adopt(CreateFileW(sourcePath.c_str(), GENERIC_READ,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
     FILE_ID_INFO sourceId{};
     Check(sourceFile && GetFileInformationByHandleEx(sourceFile.get(), FileIdInfo, &sourceId, sizeof(sourceId)),
           "thin job captures real source identity");
-    sourceFile.reset();
     JobPipe job;
     Check(job.Open(), "thin job opens actual dispatcher pipe");
     DWORD status = ERROR_GEN_FAILURE;
@@ -3660,7 +3852,17 @@ void CheckThinJob(const Directory& source, const Directory& target, const Direct
           "source duplicate does not grant write");
     input.reset();
 
-    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetCreate, nullptr, false, status, reply) &&
+    const auto wrongPath = source.File(L"thin-other-source.txt");
+    Check(WriteByte(wrongPath, 0x52), "prepare unrelated source handle");
+    auto wrongFile = Adopt(CreateFileW(wrongPath.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                       nullptr, OPEN_EXISTING, 0, nullptr));
+    Check(wrongFile && job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetCreate,
+          nullptr, false, status, reply, wrongFile.get()) && status == ERROR_FILE_INVALID && !reply.value &&
+          GetFileAttributesW(targetPath.c_str()) == INVALID_FILE_ATTRIBUTES,
+          "target open rejects another host source handle with no target creation");
+    wrongFile.reset();
+    Check(DeleteFileW(wrongPath.c_str()) != FALSE, "remove unrelated source fixture");
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetCreate, nullptr, false, status, reply, sourceFile.get()) &&
           !status && reply.value, "thin target creates and transfers exact file");
     const FILE_ID_INFO targetId = reply.target;
     auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
@@ -3672,7 +3874,7 @@ void CheckThinJob(const Directory& source, const Directory& target, const Direct
           GetLastError() == ERROR_ACCESS_DENIED, "target duplicate does not grant delete");
     output.reset();
     Check(HasByte(targetPath, 0x51), "new target contains host-written byte");
-    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetProbe, nullptr, false, status, reply) &&
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetProbe, nullptr, false, status, reply, sourceFile.get()) &&
           !status && reply.value, "target probe supplies the existing native metadata handle");
     auto probe = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
     FILE_ID_INFO probed{};
@@ -3682,16 +3884,16 @@ void CheckThinJob(const Directory& source, const Directory& target, const Direct
     Check(probe && !WriteFile(probe.get(), &byte, 1, &count, nullptr) && GetLastError() == ERROR_ACCESS_DENIED,
           "metadata handle does not grant write");
     probe.reset();
-    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetCreate, nullptr, false, status, reply) &&
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetCreate, nullptr, false, status, reply, sourceFile.get()) &&
           status == ERROR_FILE_EXISTS && !reply.value && HasByte(targetPath, 0x51),
           "native CREATE_NEW collision preserves existing target");
 
     wrong = targetId;
     wrong.FileId.Identifier[0] ^= 1;
-    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetRetry, &wrong, false, status, reply) &&
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetRetry, &wrong, false, status, reply, sourceFile.get()) &&
           status == ERROR_FILE_INVALID && !reply.value && HasByte(targetPath, 0x51),
           "thin retry rejects changed target ID and preserves contents");
-    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetRetry, &targetId, false, status, reply) &&
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetRetry, &targetId, false, status, reply, sourceFile.get()) &&
           !status && reply.value, "thin retry reopens owned target for reading and writing");
     output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
     byte = 0; count = 0;
@@ -3699,7 +3901,7 @@ void CheckThinJob(const Directory& source, const Directory& target, const Direct
           "retry handle retains native read access for verification");
     output.reset();
 
-    Check(job.Thin(source, sourceLeaf, sourceId, outside, targetLeaf, Operation::ThinTargetCreate, nullptr, false, status, reply) &&
+    Check(job.Thin(source, sourceLeaf, sourceId, outside, targetLeaf, Operation::ThinTargetCreate, nullptr, false, status, reply, sourceFile.get()) &&
           status == ERROR_ACCESS_DENIED && !reply.value,
           "same consent refuses another target parent");
     Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinDiscardTarget, &wrong, false, status, reply) &&
@@ -3708,6 +3910,28 @@ void CheckThinJob(const Directory& source, const Directory& target, const Direct
     Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinDiscardTarget, &targetId, false, status, reply) &&
           !status && !reply.value && GetFileAttributesW(targetPath.c_str()) == INVALID_FILE_ATTRIBUTES,
           "thin cleanup removes only the created, verified target");
+
+    const auto retryLeaf = L"thin-recreated-target.txt";
+    const auto retryPath = target.File(retryLeaf);
+    Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinTargetCreate,
+          nullptr, false, status, reply, sourceFile.get()) && !status && reply.value,
+          "create a target for missing-file retry");
+    const auto firstId = reply.target;
+    output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    output.reset();
+    Check(DeleteFileW(retryPath.c_str()) != FALSE, "remove retry fixture before reopen");
+    Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinTargetRetry,
+          &firstId, false, status, reply, sourceFile.get()) && !status && reply.value,
+          "OPEN_ALWAYS retry recreates an absent owned target");
+    const auto reopenedId = reply.target;
+    output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    byte = 0x51; count = 0;
+    Check(output && WriteFile(output.get(), &byte, 1, &count, nullptr) && count == 1,
+          "recreated retry handle is usable for worker writing");
+    output.reset();
+    Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinDiscardTarget,
+          &reopenedId, false, status, reply) && !status && GetFileAttributesW(retryPath.c_str()) == INVALID_FILE_ATTRIBUTES,
+          "cleanup accepts returned identity of recreated target");
 
     Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinOpenSource, nullptr, true, status, reply) &&
           !status && reply.value, "same job transfers an overlapped source handle");
@@ -3727,6 +3951,7 @@ void CheckThinJob(const Directory& source, const Directory& target, const Direct
     Check(input && ReadFile(input.get(), &byte, 1, &count, nullptr) && count == 1 && byte == 0x51,
           "transferred handle remains valid after broker dispatcher disconnects");
     input.reset();
+    sourceFile.reset();
     Check(DeleteFileW(sourcePath.c_str()) != FALSE, "thin job removes source fixture");
 }
 }
@@ -3737,6 +3962,9 @@ int wmain()
     if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
         return 2;
     CheckThinJob(source, target, outside);
+    CheckThinSourceReadDenied(source, target);
+    CheckThinSourceParentDenied(source, target);
+    CheckThinTargetNoList(source, target);
     CheckListedLeafIdentity(source);
     CheckListedArchiveIdentity(source, outside);
     CheckPanelPreparationPaths(source, outside);

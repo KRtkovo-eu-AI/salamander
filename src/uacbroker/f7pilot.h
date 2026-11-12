@@ -952,7 +952,7 @@ public:
     ThinCopySession& operator=(const ThinCopySession&) = delete;
     ThinOpenResult Open(HWND owner, const PreparedTransfer& prepared, ThinOpenKind kind,
                         bool overlapped, bool copyAttrs, const MoveFileIdentity* expectedTarget,
-                        HANDLE cancel = nullptr);
+                        HANDLE openedSource = INVALID_HANDLE_VALUE, HANDLE cancel = nullptr);
     DWORD DiscardTarget(const PreparedTransfer& prepared, const MoveFileIdentity& target);
     bool Attach(TransferJobSession& existing, const PreparedTransfer& prepared);
     bool IsOpen() const;

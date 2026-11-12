@@ -591,13 +591,15 @@ struct ThinWireOptions
     DWORD flags = 0;
     DWORD reserved = 0;
     FILE_ID_INFO expectedTarget{};
+    ULONGLONG sourceHandle = 0;
+    ULONGLONG sourceParentHandle = 0;
 };
 struct ThinWireReply
 {
     ULONGLONG value = 0;
     FILE_ID_INFO target{};
 };
-static_assert(sizeof(ThinWireOptions) == 32);
+static_assert(sizeof(ThinWireOptions) == 48);
 static_assert(sizeof(ThinWireReply) == 32);
 inline bool IsThinOpen(Operation operation)
 {
@@ -868,7 +870,7 @@ DWORD OpenRequestParent(HANDLE root, std::wstring_view relative, Handle& parent,
 // access: an attributes-only handle does not reliably exclude an existing
 // rename/delete handle. Never follow a link to leave the approved root.
 DWORD PinPagedDirectory(HANDLE root, std::wstring_view relative, const UacF7::MoveFileIdentity* expected,
-                        std::vector<Handle>& pins, HANDLE& directory)
+                        std::vector<Handle>& pins, HANDLE& directory, bool allowTargetNoList = false)
 {
     directory = root;
     UacDirectoryLeaf::ParentIdentity rootIdentity{};
@@ -898,8 +900,11 @@ DWORD PinPagedDirectory(HANDLE root, std::wstring_view relative, const UacF7::Mo
             // Ancestors need traversal rather than enumeration. Some ACLs
             // deliberately deny listing while permitting traversal; retain a
             // real access bit for share-mode protection in that case.
-            if (error == ERROR_ACCESS_DENIED && split != std::wstring_view::npos)
+            if (error == ERROR_ACCESS_DENIED && (split != std::wstring_view::npos || allowTargetNoList))
                 error = UacRenameLeaf::Detail::OpenSource(directory, component, raw, FILE_TRAVERSE,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE, UacRenameLeaf::MoveKind::RenameDirectory, exact);
+            if (error == ERROR_ACCESS_DENIED && allowTargetNoList && split == std::wstring_view::npos)
+                error = UacRenameLeaf::Detail::OpenSource(directory, component, raw, FILE_ADD_FILE,
                     FILE_SHARE_READ | FILE_SHARE_WRITE, UacRenameLeaf::MoveKind::RenameDirectory, exact);
             if (error) return error;
             auto pin = Adopt(raw);
@@ -918,6 +923,7 @@ DWORD PinPagedDirectory(HANDLE root, std::wstring_view relative, const UacF7::Mo
         return ERROR_FILE_INVALID;
     return ERROR_SUCCESS;
 }
+
 
 // Unlike OpenVolumeRoot's eligibility predicate, probe errors are returned to
 // the user as the actual filesystem error rather than as a revision change.
@@ -2263,6 +2269,24 @@ Handle OpenThinHostForDup(HANDLE pinnedHost, DWORD pid)
     return process;
 }
 
+
+DWORD CheckThinParentPath(HANDLE parent, std::wstring_view volume, std::wstring_view relative)
+{
+    constexpr DWORD flags = FILE_NAME_OPENED | VOLUME_NAME_GUID;
+    const DWORD capacity = GetFinalPathNameByHandleW(parent, nullptr, 0, flags);
+    if (!capacity) return GetLastError();
+    if (capacity > UacDirectoryLeaf::maxNativeName) return ERROR_FILENAME_EXCED_RANGE;
+    std::wstring path(capacity, L'\0');
+    const DWORD written = GetFinalPathNameByHandleW(parent, path.data(), capacity, flags);
+    if (!written) return GetLastError();
+    if (written >= capacity) return ERROR_FILENAME_EXCED_RANGE;
+    path.resize(written);
+    std::wstring expected(volume);
+    expected.push_back(L'\\');
+    expected.append(relative);
+    return UacDirectoryLeaf::Equal(path, expected) ? ERROR_SUCCESS : ERROR_FILE_INVALID;
+}
+
 // Request framing and consent scope are shared with the existing transfer job.
 // Only a file object with the role-specific access is duplicated, never the
 // broker process or token. A lost reply can leave a remote handle unclaimed.
@@ -2319,18 +2343,46 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             { result = ERROR_ACCESS_DENIED; return ERROR_SUCCESS; }
         if (!LiveInSession(host, hostPid)) return ERROR_OPERATION_ABORTED;
 
-        const auto sourceRoot = OpenVolumeRoot(sourceVolume);
+        const bool discard = header.operation == Operation::ThinDiscardTarget;
+        const bool sourceRole = header.operation == Operation::ThinOpenSource;
         const auto targetRoot = OpenVolumeRoot(targetVolume);
-        if (!sourceRoot || !targetRoot) { result = ERROR_NOT_SUPPORTED; return ERROR_SUCCESS; }
+        if (!targetRoot) { result = ERROR_NOT_SUPPORTED; return ERROR_SUCCESS; }
         std::vector<Handle> sourcePins, targetPins;
+        Handle sourceRoot, borrowedParent;
         HANDLE sourceParent = nullptr, targetParent = nullptr;
         UacF7::MoveFileIdentity sourceParentId{header.serial, {}}, targetParentId{header.targetSerial, {}};
         std::memcpy(sourceParentId.id, header.parentId.Identifier, sizeof(sourceParentId.id));
         std::memcpy(targetParentId.id, header.targetParentId.Identifier, sizeof(targetParentId.id));
-        error = PinPagedDirectory(sourceRoot.get(), sourceRelative, &sourceParentId, sourcePins, sourceParent);
-        if (!error) error = PinPagedDirectory(targetRoot.get(), targetRelative, &targetParentId, targetPins, targetParent);
         const UacDirectoryLeaf::ParentIdentity expectedSource{{header.serial, header.parentId}, std::wstring(sourceVolume)};
         const UacDirectoryLeaf::ParentIdentity expectedParent{{header.targetSerial, header.targetParentId}, std::wstring(targetVolume)};
+        if (sourceRole)
+        {
+            if (options.sourceParentHandle) return ERROR_INVALID_DATA;
+            sourceRoot = OpenVolumeRoot(sourceVolume);
+            error = sourceRoot ? PinPagedDirectory(sourceRoot.get(), sourceRelative, &sourceParentId, sourcePins, sourceParent)
+                               : ERROR_NOT_SUPPORTED;
+        }
+        else if (!discard)
+        {
+            if (!options.sourceParentHandle ||
+                options.sourceParentHandle > static_cast<ULONGLONG>(static_cast<ULONG_PTR>(~ULONG_PTR{})))
+                return ERROR_INVALID_DATA;
+            const auto hostForParent = OpenThinHostForDup(host, hostPid);
+            HANDLE rawParent = nullptr;
+            if (!hostForParent || !DuplicateHandle(hostForParent.get(),
+                reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(options.sourceParentHandle)), GetCurrentProcess(),
+                &rawParent, FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES, FALSE, 0))
+                error = ERROR_ACCESS_DENIED;
+            borrowedParent = Adopt(rawParent);
+            UacDirectoryLeaf::ParentIdentity parentIdentity;
+            if (!error) error = UacDirectoryLeaf::ReadParentIdentity(borrowedParent.get(), parentIdentity);
+            if (!error && !UacDirectoryLeaf::SameParent(expectedSource, parentIdentity)) error = ERROR_FILE_INVALID;
+            if (!error) error = CheckThinParentPath(borrowedParent.get(), sourceVolume, sourceRelative);
+            sourceParent = borrowedParent.get();
+        }
+        else if (options.sourceParentHandle)
+            return ERROR_INVALID_DATA;
+        if (!error) error = PinPagedDirectory(targetRoot.get(), targetRelative, &targetParentId, targetPins, targetParent, true);
         if (!error && scope.IsTreeCopy())
         {
             error = VerifyTreeParent(treePins->source.get(), scope.sourcePath, requested.sourcePath, expectedSource);
@@ -2338,27 +2390,53 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         }
         if (error) { result = error; return ERROR_SUCCESS; }
 
-        const bool discard = header.operation == Operation::ThinDiscardTarget;
-        const bool sourceRole = header.operation == Operation::ThinOpenSource;
         const bool create = header.operation == Operation::ThinTargetCreate;
         const bool retry = header.operation == Operation::ThinTargetRetry;
         const bool probe = header.operation == Operation::ThinTargetProbe;
         const bool overlapped = (options.flags & 1u) != 0;
         const FILE_ID_INFO expectedFile{header.serial, header.sourceId};
         HANDLE rawSource = nullptr;
-        error = UacRenameLeaf::Detail::OpenFile(sourceParent, sourceLeaf, rawSource,
-                discard ? 0 : GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OPEN, FILE_SEQUENTIAL_ONLY,
-                nullptr, false, sourceRole && overlapped);
-        auto source = Adopt(rawSource);
-        FILE_ID_INFO openedSource{};
-        if (!error) error = UacRenameLeaf::Detail::ReadSourceIdentity(source.get(), openedSource);
-        if (!error && !UacRenameLeaf::Detail::SameSource(expectedFile, openedSource)) error = ERROR_FILE_INVALID;
-        FILE_BASIC_INFO basic{};
-        LARGE_INTEGER sourceSize{};
-        if (!error && !discard)
+        Handle source;
+        if (sourceRole)
         {
-            error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), basic, false,
-                UacCopyLeaf::StreamPolicy::RequireDefault, FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE);
+            if (options.sourceHandle) return ERROR_INVALID_DATA;
+            error = UacRenameLeaf::Detail::OpenFile(sourceParent, sourceLeaf, rawSource,
+                    GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OPEN, FILE_SEQUENTIAL_ONLY,
+                    nullptr, false, overlapped);
+            source = Adopt(rawSource);
+        }
+        else if (!discard)
+        {
+            if (!options.sourceHandle ||
+                options.sourceHandle > static_cast<ULONGLONG>(static_cast<ULONG_PTR>(~ULONG_PTR{})))
+                return ERROR_INVALID_DATA;
+            const auto hostForSource = OpenThinHostForDup(host, hostPid);
+            if (!hostForSource || !DuplicateHandle(hostForSource.get(),
+                reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(options.sourceHandle)), GetCurrentProcess(),
+                &rawSource, FILE_READ_ATTRIBUTES | FILE_READ_EA, FALSE, 0))
+                error = ERROR_ACCESS_DENIED;
+            source = Adopt(rawSource);
+        }
+        else if (options.sourceHandle)
+            return ERROR_INVALID_DATA;
+        if (!discard)
+        {
+            FILE_ID_INFO openedSource{};
+            if (!error && GetFileType(source.get()) != FILE_TYPE_DISK) error = ERROR_INVALID_HANDLE;
+            if (!error) error = UacRenameLeaf::Detail::ReadSourceIdentity(source.get(), openedSource);
+            if (!error && !UacRenameLeaf::Detail::SameSource(expectedFile, openedSource)) error = ERROR_FILE_INVALID;
+            // Bind the supplied host handle to this exact parent and name,
+            // not just to a free-standing file ID.
+            FILE_ID_128 listedId{};
+            DWORD listedAttributes = 0;
+            if (!error) error = UacListing::CaptureChildId(sourceParent, sourceLeaf, false, listedId, listedAttributes);
+            if (!error && std::memcmp(listedId.Identifier, expectedFile.FileId.Identifier, sizeof(listedId.Identifier)))
+                error = ERROR_FILE_INVALID;
+            FILE_BASIC_INFO basic{};
+            LARGE_INTEGER sourceSize{};
+            if (!error)
+                error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), basic, false,
+                    UacCopyLeaf::StreamPolicy::RequireDefault, FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE);
             if (!error && (!GetFileSizeEx(source.get(), &sourceSize) ||
                 sourceSize.QuadPart < 0 || static_cast<ULONGLONG>(sourceSize.QuadPart) != header.copySize))
                 error = ERROR_FILE_INVALID;
@@ -2387,7 +2465,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         }
         Handle file;
         ACCESS_MASK duplicateAccess = 0;
-        bool madeTarget = false;
+        bool madeTarget = false, targetIdentityValid = false;
         if (sourceRole)
         {
             file = std::move(source);
@@ -2410,8 +2488,11 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
                 madeTarget = !error;
             }
             file = Adopt(raw);
-            if (!error && !GetFileInformationByHandleEx(file.get(), FileIdInfo, &reply.target, sizeof(reply.target)))
-                error = GetLastError();
+            if (!error)
+            {
+                targetIdentityValid = GetFileInformationByHandleEx(file.get(), FileIdInfo, &reply.target, sizeof(reply.target)) != FALSE;
+                if (!targetIdentityValid) error = GetLastError();
+            }
             if (!error && !madeTarget && (retry || discard) &&
                 !UacRenameLeaf::Detail::SameSource(reply.target, options.expectedTarget)) error = ERROR_FILE_INVALID;
             FILE_ATTRIBUTE_TAG_INFO attrs{};
@@ -2424,7 +2505,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         const auto cleanupCreated = [&]() -> DWORD {
             if (!madeTarget) return ERROR_SUCCESS;
             // A failed identity query cannot authorize unlinking by pathname.
-            if (!reply.target.VolumeSerialNumber) return ERROR_PARTIAL_COPY;
+            if (!targetIdentityValid) return ERROR_PARTIAL_COPY;
             file.reset();
             HANDLE rawDelete = nullptr;
             DWORD status = UacRenameLeaf::Detail::OpenFile(targetParent, targetLeaf, rawDelete, DELETE,
@@ -3901,7 +3982,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
     // still use their cancellation acknowledgement and preserve the result.
     if (request && (UacF7::IsDirectoryReadScope(request->operation) ||
                     request->operation == Operation::FindFile || request->operation == Operation::FileAllocation ||
-                    request->operation == Operation::ProbeOverwrite || request->operation == Operation::ProbeOverwriteIgnoreAds))
+                    request->operation == Operation::ProbeOverwrite || request->operation == Operation::ProbeOverwriteIgnoreAds ||
+                    IsThinOpen(request->operation)))
         stop = cancel;
     if (IsStopSignaled(stop))
     {
@@ -4067,7 +4149,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         if (!error && overwriteProbeReply)
             error = ReadOverwriteProbeReply(pipe.get(), *request, operationError, *overwriteProbeReply, deadline, stop);
         if (!error && thinReply)
-            error = TransferRequest(pipe.get(), thinReply, sizeof(*thinReply), false, deadline);
+            error = TransferRequest(pipe.get(), thinReply, sizeof(*thinReply), false, deadline,
+                                    nullptr, nullptr, nullptr, stop);
         if (!error && (transferJob || copy || UacF7::IsMoveTransfer(request->operation) || tree || zipBytes ||
                        zipUpdateFile))
         {
@@ -5504,21 +5587,22 @@ bool ThinCopySession::Matches(const PreparedTransfer& prepared) const
 
 bool ThinCopySession::Attach(TransferJobSession& existing, const PreparedTransfer& prepared)
 {
-    std::lock_guard<std::mutex> guard(gate);
-    if (shared || owned.IsOpen() || !prepared.IsInJob(existing)) return false;
-    shared = &existing; // Must outlive the thin session; caller serializes use.
-    return true;
+    // A borrowed session has no independently enforced lifetime or shared
+    // transport lock. Refuse until its owner can prove both guarantees.
+    (void)existing;
+    (void)prepared;
+    return false;
 }
 
 DWORD ThinCopySession::DiscardTarget(const PreparedTransfer& prepared, const MoveFileIdentity& target)
 {
-    const ThinOpenResult result = Open(nullptr, prepared, ThinOpenKind::Discard, false, false, &target);
+    const ThinOpenResult result = Open(nullptr, prepared, ThinOpenKind::Discard, false, false, &target, INVALID_HANDLE_VALUE);
     return result.unknown ? ERROR_PARTIAL_COPY : result.error;
 }
 
 ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepared, ThinOpenKind kind,
                                      bool overlapped, bool copyAttrs, const MoveFileIdentity* expectedTarget,
-                                     HANDLE cancel)
+                                     HANDLE openedSource, HANDLE cancel)
 {
     std::lock_guard<std::mutex> guard(gate);
     ThinOpenResult output;
@@ -5545,6 +5629,12 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
     if ((kind == ThinOpenKind::TargetRetry || kind == ThinOpenKind::Discard) && !expectedTarget)
     {
         output.error = ERROR_INVALID_PARAMETER;
+        return output;
+    }
+    if (kind != ThinOpenKind::Source && kind != ThinOpenKind::Discard &&
+        (!openedSource || openedSource == INVALID_HANDLE_VALUE))
+    {
+        output.error = ERROR_INVALID_HANDLE;
         return output;
     }
     auto* job = shared ? shared : &owned;
@@ -5580,6 +5670,21 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
                                prepared.target.volume + prepared.target.relative + prepared.target.leaf;
         ThinWireOptions options{};
         options.flags = overlapped ? 1u : 0u;
+        Handle pinnedRoot;
+        std::vector<Handle> pinnedSourceParents;
+        if (kind != ThinOpenKind::Source && kind != ThinOpenKind::Discard)
+        {
+            pinnedRoot = OpenVolumeRoot(prepared.source.volume);
+            MoveFileIdentity parentId{};
+            parentId.serial = prepared.source.serial;
+            std::memcpy(parentId.id, prepared.source.fileId, sizeof(parentId.id));
+            HANDLE pinnedParent = nullptr;
+            const DWORD pinError = pinnedRoot ? PinPagedDirectory(pinnedRoot.get(), prepared.source.relative,
+                &parentId, pinnedSourceParents, pinnedParent) : ERROR_NOT_SUPPORTED;
+            if (pinError) { output.error = pinError; return output; }
+            options.sourceHandle = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(openedSource));
+            options.sourceParentHandle = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(pinnedParent));
+        }
         if (expectedTarget)
         {
             options.expectedTarget.VolumeSerialNumber = expectedTarget->serial;
@@ -5593,21 +5698,23 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
             const int launched = RunProbe(install, false, false, owner, &header, &payload, nullptr, &result,
                 nullptr, cancel, nullptr, nullptr, nullptr, nullptr, nullptr, &job->pipe,
                 nullptr, nullptr, nullptr, nullptr, nullptr, &options, &reply);
-            output.declined = launched == Cancelled && result.error == ERROR_CANCELLED;
+            output.declined = launched == Cancelled && result.error == ERROR_CANCELLED &&
+                              (!cancel || WaitForSingleObject(cancel, 0) != WAIT_OBJECT_0);
         }
         else
         {
             const ULONGLONG deadline = GetTickCount64() + timeoutMs;
             DWORD error = SendOperationRequest(job->pipe, header, payload, &options, sizeof(options), nullptr,
-                                               false, deadline, result);
+                                               false, deadline, result, cancel);
             DWORD operationError = ERROR_GEN_FAILURE;
-            if (!error) error = ReadTransferResult(job->pipe, operationError, deadline, nullptr, nullptr, nullptr, operation);
-            if (!error) error = TransferRequest(job->pipe, &reply, sizeof(reply), false, deadline);
+            if (!error) error = ReadTransferResult(job->pipe, operationError, deadline, nullptr, nullptr, nullptr, operation, cancel);
+            if (!error) error = TransferRequest(job->pipe, &reply, sizeof(reply), false, deadline,
+                                                nullptr, nullptr, nullptr, cancel);
             if (error)
             {
                 result.error = error;
-                // The request may have duplicated a handle or created a file.
-                result.unknown = true;
+                // SendOperationRequest marks the result unknown before the
+                // final frame can cause a duplicate or create a target.
                 job->Close();
             }
             else
