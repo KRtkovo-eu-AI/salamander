@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Trình xem Phiên renders WebView2"
+47,1,"Về Plugin"
+
+[STRINGTABLE 1]
+48,1,"Trình xem hiển thị tài liệu HTML, Markdown và web đã được renders bằng WebView2."
+49,1,"open.samandarin.net"
+50,1,"Không thể chuẩn bị sự kiện đồng bộ hóa yêu cầu bởi trình xem."
+51,1,"Tệp được chọn quá lớn để mở. Các tệp lớn hơn 32 MB không được hỗ trợ."
+52,1,"&Tệp"
+53,1,"&Xem"
+54,1,"&Đóng\tEsc"
+55,1,"&Làm mới\tF5"
+56,1,"Thu &gần\tCtrl++"
+57,1,"Thu &xa\tCtrl+-"
+58,1,"&Reset\tCtrl+0"
+59,1,"Đang tải..."
+60,1,"Sẵn sàng"
+61,1,"Không thể khởi tạo trình hiển thị WebView2."
+62,1,"Không thể mở tệp đã chọn."
+63,1,"Hiện &Số dòng"
+
+[STRINGTABLE 2]
+64,1,"&Xuống dòng\tF2"
+65,1,"Hiện &Dấu cách"
+66,1,"&Chỉnh sửa"
+67,1,"&Sao chép\tCtrl+C"
+68,1,"Chọn &hết\tCtrl+A"
+69,1,"&In...\tCtrl+P"
+

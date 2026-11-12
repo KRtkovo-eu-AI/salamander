@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\polish\demomenu\demomenu.atp"
+TEXTVERSION,"1.0.2 (x64)"
+VERSION,"1,0,2,197"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
+
+[STRINGTABLE 0]
+46,1,"MenuDemo"
+47,1,"O wtyczce"
+
+[STRINGTABLE 1]
+48,1,"Ta wtyczka pomoże Ci utworzyć własne rozszerzenie menu."
+49,1,"www.altap.cz"
+50,1,"&Komenda test"
+

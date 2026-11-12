@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\folders\folders.atp"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"Pastas"
+1001,1,"Sobre o plug-in"
+1003,1,"Navegar por pastas como Área de Trabalho, Painel de Controle, Lixeira etc."
+1004,1,"'\t Área de Trabalho"
+

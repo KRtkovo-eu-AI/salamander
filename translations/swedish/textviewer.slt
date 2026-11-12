@@ -1,0 +1,83 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\textviewer\textviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[DIALOG 8500]
+310,129,1,"Konfiguration av Prism-textvisaren"
+8701,7,7,296,86,1,"Prestanda"
+8700,17,21,276,18,1,"&Håll Prism redo för snabbare återöppning"
+8702,17,44,276,40,1,"Håller visaren redo i upp till 60 sekunder efter att en fil stängts. Kräver extra minne (cirka 100 MB eller mer). Den första filen öppnas som vanligt."
+1,197,108,50,14,1,"OK"
+2,253,108,50,14,1,"Avbryt"
+
+[STRINGTABLE 0]
+46,1,"Prism-textvisare"
+47,1,"Om insticksprogrammet"
+
+[STRINGTABLE 1]
+48,1,"Inbyggd visare som återger textfiler med Prism.js-syntaxmarkering."
+49,1,"open.samandarin.net"
+50,1,"Det går inte att förbereda synkroniseringshändelsen som visaren behöver."
+52,1,"&Arkiv"
+53,1,"&Visa"
+54,1,"&Stäng\tEsc"
+55,1,"&Uppdatera\tF5"
+56,1,"&Zooma in\tCtrl++"
+57,1,"Zooma &ut\tCtrl+-"
+58,1,"Åter&ställ\tCtrl+0"
+59,1,"Läser in..."
+60,1,"Klar"
+61,1,"Det går inte att initiera WebView2-renderaren."
+62,1,"Det går inte att öppna den valda filen."
+63,1,"Visa &radnummer"
+
+[STRINGTABLE 2]
+64,1,"&Radbryt\tF2"
+65,1,"Visa &blanksteg"
+66,1,"Syntax&markering"
+67,1,"&Automatisk"
+68,1,"&Färger"
+69,1,"&Visual Studio"
+70,1,"Standard &Prism"
+71,1,"&Anpassad"
+72,1,"Redigera &anpassad"
+73,1,"Redigera anpassad"
+74,1,"&Spara"
+75,1,"Avbryt"
+76,1,"Ljust"
+77,1,"Mörkt"
+78,1,"Kommentar"
+79,1,"Skiljetecken"
+
+[STRINGTABLE 3]
+80,1,"Nyckelord"
+81,1,"Kontrollnyckelord"
+82,1,"Klassnamn"
+83,1,"Funktion"
+84,1,"Sträng"
+85,1,"Tal"
+86,1,"Boolesk"
+87,1,"Variabel"
+88,1,"Namnrymd"
+89,1,"Reguljärt uttryck"
+90,1,"Det går inte att spara den anpassade färgpaletten."
+91,1,"Salamatrix.UI är inte tillgängligt."
+92,1,"Det går inte att öppna insticksprogrammets konfigurationsfönster."
+93,1,"&Redigera"
+94,1,"&Kopiera\tCtrl+C"
+95,1,"Markera a&lla\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Sök...\tCtrl+F"
+97,1,"Sök &nästa\tF3"
+98,1,"Sök &föregående\tShift+F3"
+99,1,"&Gå till rad...\tCtrl+G"
+100,1,"S&kriv ut...\tCtrl+P"
+

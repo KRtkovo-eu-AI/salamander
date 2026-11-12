@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\unchm\unchm.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"Nije moguće otvoriti datoteku."
+1002,1,"Neodređena pogreška."
+1003,1,"Raspakiravanje CHM arhive"
+1004,1,"Pogreška pri raspakiravanju datoteke."
+1005,1,"Nije moguće obraditi ovu datoteku."
+1006,1,"Nedovoljno memorije."
+1007,1,"O dodatku"
+
+[STRINGTABLE 1]
+1009,1,"Pregledavanje i raspakiravanje CHM datoteka."
+1010,1,"Nije moguće stvoriti privremenu mapu."
+1011,1,"Nije moguće izbrisati privremenu datoteku."
+1012,1,"Nepoznat format datoteke ili neispravna CHM slika.\n\nAko ste sigurni da je CHM slika valjana, obratite se na support@altap.cz i pomozite nam podržati ovaj format."
+1013,1,"Nije moguće otvoriti ovu datoteku."
+1014,1,"Stvaranje privremene datoteke nije uspjelo."
+1015,1,"Nije moguće postaviti atribute datoteke."
+1016,1,"Nije moguće stvoriti mapu '%s'."
+1020,1,"Da"
+1021,1,"Ne"
+1022,1,"Pogreška"
+1023,1,"Upozorenje"
+
+[STRINGTABLE 2]
+1032,1,"Interna pogreška dodatka."
+
+[STRINGTABLE 3]
+1100,1,"Pogreška čitanja"
+1101,1,"Pogreška pisanja"
+
+[STRINGTABLE 4]
+1105,1,"Neispravan broj."
+1106,1,"Operacija se otkazuje, pričekajte..."
+1107,1,"CHMLIB biblioteka, autorska prava © 2001-2010 Jed Wing"
+

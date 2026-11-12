@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\uncab\uncab.atp"
 TEXTVERSION,"1.29 (x64)"
-VERSION,"1,29,0,196"
+VERSION,"1,29,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 100]
 221,122,1,"Volume successivo del cabinet"

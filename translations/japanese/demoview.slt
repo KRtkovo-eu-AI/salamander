@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\japanese\demoview\demoview.atp"
+TEXTVERSION,"1.0.3 (x64)"
+VERSION,"1,0,3,197"
+
+[TRANSLATION]
+LANGID,1041
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
+
+[DIALOG 490]
+205,61,1,"ビューア"
+3000,4,6,199,41,1,"ウィンドウ位置"
+491,11,17,63,12,1,"&終了時に保存"
+492,11,29,156,12,1,"&Salamanderのウィンドウ位置に設定"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"プラグインについて"
+
+[STRINGTABLE 1]
+48,1,"このプラグインは、独自のビューアープラグインの作成に役立ちます。"
+49,1,"www.altap.cz"
+50,1,"DemoViewで例外が発生しましたので、作成者にお知らせください！\n例外発生時に .DMV ファイルを使用していた場合は、\nその .DMV ファイルでバグを再現してみてください。同じ例外が\n再度発生した場合は、その .DMV ファイルを送信してください(再現してバグを修正します)。\nありがとうございます！"
+51,1,"petr.solin@altap.cz"
+52,1,"設定はすでに開かれています。"
+53,1,"DemoViewビューアーウィンドウが開いています。閉じますか？"
+54,1,"DemoViewの設定"
+55,1,"無効な数値！"
+56,1,"DemoViewファイル (*.dmv)|*.dmv|すべてのファイル (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&ファイル"
+2001,1,"&開く\tCtrl+O"
+2002,1,"&終了"
+2010,1,"&編集"
+2011,1,"&カット\tCtrl+X"
+2012,1,"&コピー\tCtrl+C"
+2013,1,"&貼り付け\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&表示"
+2021,1,"&フィルター"
+2022,1,"フィルター"
+2025,1,"&オプション"
+2026,1,"&設定..."
+
+[STRINGTABLE 4]
+2032,1,"&ヘルプ"
+2033,1,"&情報"
+
+[STRINGTABLE 5]
+2500,1,"カット\tCtrl+X"
+2501,1,"コピー\tCtrl+C"
+2502,1,"貼り付け\tCtrl+V"
+2503,1,"フィルター\tCtrl+U"
+

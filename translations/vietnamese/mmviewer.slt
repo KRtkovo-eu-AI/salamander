@@ -1,0 +1,300 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\mmviewer\mmviewer.atp"
+TEXTVERSION,"1.18 (x64)"
+VERSION,"1,18,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[DIALOG 10500]
+364,132,1,"Về Plugin"
+2,306,113,50,14,1,"Đóng"
+10506,11,9,20,20,1,""
+10501,46,9,313,8,1,"MMViewer %s - Trình xem Đa phương tiện cho Open Samandarin"
+10505,46,19,177,8,1,"mẫu thử"
+10507,11,42,20,20,1,""
+13000,46,41,254,8,1,"Bộ phân tích MPEG, thẻ ID3 phiên bản 1 và 2, OGG, WMA, VQF và Tracker"
+13001,46,51,63,8,1,"được cấp phép từ"
+10504,107,51,200,8,1,"Disk Explorer Professional"
+13002,46,67,107,8,1,"Bản quyền 2003-2026 thuộc về"
+13003,128,67,60,8,1,"Tomas Jelinek"
+13004,46,78,30,8,1,"Email:"
+10502,128,78,119,8,1,"tomas@tjelinek.com"
+13005,46,89,49,8,1,"Trang chủ:"
+10503,128,89,118,8,1,"www.tjelinek.com"
+13006,2,107,356,1,1,""
+
+[STRINGTABLE 0]
+11100,1,"Hết bộ nhớ"
+11101,1,"Không biết tệp"
+11102,1,"Lỗi mở"
+11103,1,"Lỗi đọc"
+
+[STRINGTABLE 1]
+11104,1,"Lỗi ghi"
+11105,1,"Lỗi tìm kiếm"
+11106,1,"Tệp bị hỏng"
+11107,1,"Không thể khởi tạo mở rộng Windows"
+11110,1,"Trình xem Đa phương tiện"
+11111,1,"Một số cửa sổ Trình xem Đa phương tiện đã được mở. Bạn có muốn đóng chúng không?"
+
+[STRINGTABLE 2]
+11120,1,"Tệp Đa phương tiện (*.mp3;*.ogg;*.opus;*.flac;*.m4a;*.aac;*.ape;*.wv;*.wav;*.wma;...)|*.mp3;*.mp2;*.ogg;*.oga;*.opus;*.flac;*.m4a;*.mp4;*.m4b;*.aac;*.aif;*.aiff;*.ape;*.mpc;*.wv;*.tta;*.dsf;*.dff;*.mka;*.webm;*.spx;*.wma;*.wav;*.wave;*.vqf;*.669;*.it;*.mod;*.mtm;*.s3m;*.stm;*.xm|Tất cả các Tệp (*.*)|*.*||"
+11123,1,"Lỗi mở %s.\nĐịnh dạng này không được hỗ trợ bởi Trình xem Đa phương tiện."
+11124,1,"Tệp HTML (*.htm;*.html)|*.htm;*.html|Tất cả các Tệp (*.*)|*.*||"
+11125,1,"Bạn có muốn mở dữ liệu đã xuất không?"
+11126,1,"Xuất Thông tin thành &HTML..."
+11127,1,"Thuộc tính Âm thanh"
+11128,1,".html"
+11129,1,"Đang xử lý các tệp, vui lòng chờ..."
+11130,1,"%lu của %lu tệp đã được xử lý thành công."
+11131,1,"Hiển thị thông tin về các tệp đa phương tiện như MP3, OGG, WAV, v.v."
+11132,1,"Về Plugin"
+
+[STRINGTABLE 3]
+11200,1,"&Tệp"
+11201,1,"&Mở...\tCtr+O"
+11202,1,"&Thuộc tính...\tCtrl+F1"
+11204,1,"Tho&át\tAlt+F4"
+11205,1,"&Tệp khác"
+11206,1,"&Đầu\tShift+Backspace"
+11207,1,"&Cuối\tShift+Space"
+11208,1,"&Trước\tBackspace"
+11209,1,"&Kế\tSpace"
+11210,1,"&Sửa"
+11211,1,"&Sao chép tất cả\tCtrl+A"
+
+[STRINGTABLE 4]
+11230,1,"&Xem"
+
+[STRINGTABLE 5]
+11232,1,"&Toàn màn hình\tF11"
+
+[STRINGTABLE 6]
+11270,1,"&Tùy chọn"
+11271,1,"&Cấu hình..."
+
+[STRINGTABLE 7]
+11280,1,"&Trợ giúp"
+11281,1,"&Về..."
+11290,1,"Xuất sang &HTML...\tCtr+H"
+
+[STRINGTABLE 8]
+11500,1,"Sao chép tất cả\tCtrl+A"
+11501,1,"Mở\tCtrl+O"
+11502,1,"Tìm\tCtrl+F"
+11503,1,"Thuộc tính\tCtrl+F1"
+
+[STRINGTABLE 9]
+11504,1,"Toàn màn hình\tF11"
+11505,1,"Mở Trước\tBackspace"
+11506,1,"Mở Kế\tSpace"
+11507,1,"Xuất sang HTML\tCtrl+H"
+
+[STRINGTABLE 10]
+12001,1,"Có"
+12002,1,"Không"
+12009,1,"Thông tin VQF"
+12010,1,"Bản quyền"
+12011,1,"Tác giả"
+12012,1,"Tiêu đề"
+12013,1,"Bình luận"
+12014,1,"Năm"
+12015,1,"Album"
+
+[STRINGTABLE 11]
+12016,1,"Bài hát"
+12017,1,"Tên tệp gốc"
+12018,1,"LYRC"
+12019,1,"WORD"
+12020,1,"MUSC"
+12021,1,"ARNG"
+12022,1,"PROD"
+12023,1,"REMX"
+12024,1,"CDCT"
+12025,1,"SING"
+12026,1,"LABL"
+12027,1,"NOTE"
+12028,1,"PRSN"
+12029,1,"BAND"
+
+[STRINGTABLE 12]
+12100,1,"Thông tin Âm thanh Windows Media"
+12101,1,"nhị phân (%luB)"
+12102,1,"Thời lượng"
+12103,1,"Bitrate (kbps)"
+12104,1,"Có thể tìm kiếm"
+12105,1,"Stridable"
+12106,1,"Phát thanh"
+12107,1,"Bảo vệ"
+12108,1,"Đã tin cậy"
+12109,1,"Tên chữ ký"
+12110,1,"Tiêu đề"
+12111,1,"Tác giả"
+
+[STRINGTABLE 13]
+12112,1,"Mô tả"
+12113,1,"Đánh giá"
+12114,1,"Bản quyền"
+12115,1,"Album"
+12116,1,"Bài hát"
+12117,1,"URL quảng cáo"
+12118,1,"URL bìa Album"
+12119,1,"Thể loại"
+12120,1,"Năm"
+12121,1,"MCDI"
+12122,1,"Loại Hình Banner"
+12123,1,"Dữ liệu Hình Banner"
+12124,1,"URL Hình Banner"
+12125,1,"URL Bản quyền"
+12126,1,"Tên NSC"
+12127,1,"Địa chỉ NSC"
+
+[STRINGTABLE 14]
+12128,1,"Điện thoại NSC"
+12129,1,"Email NSC"
+12130,1,"Mô tả NSC"
+
+[STRINGTABLE 15]
+12200,1,"Thông tin Mô-đun Tracker"
+12201,1,"Mẫu"
+12202,1,"Mẫu âm thanh"
+12203,1,"Nhạc cụ"
+12204,1,"Tiêu đề"
+
+[STRINGTABLE 16]
+12300,1,"Thông tin Âm thanh"
+12301,1,"Phiên bản"
+12302,1,"Bitrate danh mục (kbps)"
+12303,1,"Tần số (Hz)"
+
+[STRINGTABLE 17]
+12304,1,"Kênh"
+12305,1,"Bản quyền"
+12306,1,"Phiên bản"
+12307,1,"Liên hệ"
+12308,1,"ISRC"
+12309,1,"Tác giả"
+12310,1,"Tiêu đề"
+12311,1,"Thể loại"
+12312,1,"Bình luận"
+12313,1,"Ngày"
+12314,1,"Album"
+12315,1,"Bài hát"
+12316,1,"Thực hiện"
+12317,1,"Tổ chức"
+12318,1,"Mô tả"
+12319,1,"Chi tiết"
+
+[STRINGTABLE 18]
+12320,1,"Vị trí"
+12321,1,"Mẫu âm thanh"
+12322,1,"Độ dài"
+12323,1,"Thông tin bổ sung"
+12324,1,"Mã Đĩa"
+12325,1,"Nhà cung cấp"
+12326,1,"Thẻ Chuẩn"
+12327,1,"Thẻ Khác"
+
+[STRINGTABLE 19]
+12400,1,"Thông tin WAVE"
+12401,1,"Bitrate (bps)"
+12402,1,"Tần số (Hz)"
+12403,1,"Chế độ"
+12404,1,"Nén"
+12405,1,"Stereo"
+12406,1,"Mono"
+12407,1,"Độ dài"
+
+[STRINGTABLE 20]
+12501,1,"Phiên bản"
+12502,1,"MPEG %u.%u lớp %s"
+12503,1,"Bitrate (kbps)"
+12504,1,"Tần số (Hz)"
+12505,1,"Chế độ"
+12506,1,"Bản quyền (c)"
+12507,1,"Gốc"
+12508,1,"Tác giả"
+12509,1,"Tiêu đề"
+12510,1,"Thể loại"
+12511,1,"Bình luận"
+
+[STRINGTABLE 21]
+12512,1,"Năm"
+12513,1,"Album"
+12514,1,"Nhấn nháy"
+12515,1,"Thẻ ID3 phiên bản %u.%u"
+12516,1,"Thông tin Âm thanh MPEG"
+12517,1,"Khung"
+12518,1,"Độ dài"
+12519,1,"Biến, trung bình "
+12520,1,"Bài hát"
+12521,1,"-"
+12522,1,"50/15 micro giây"
+12523,1,"CCITT J 17"
+12524,1,"?"
+12525,1,"Stereo"
+12526,1,"Stereo chung"
+12527,1,"Kênh kép"
+
+[STRINGTABLE 22]
+12528,1,"Kênh đơn"
+12529,1,"Nhạc sĩ"
+12530,1,"Nghệ sĩ gốc"
+12531,1,"Được mã hóa bởi"
+12532,1,"URL thông tin thương mại"
+12533,1,"URL thông tin bản quyền/pháp lý"
+12534,1,"URL tệp âm thanh chính thức"
+12535,1,"URL nghệ sĩ/thực hiện chính thức"
+12536,1,"URL nguồn âm thanh chính thức"
+12537,1,"URL trạm phát radio internet chính thức"
+12538,1,"URL thanh toán"
+12539,1,"URL chính thức của nhà xuất bản"
+12540,1,"Nhà xuất bản"
+12541,1,"URL tùy chỉnh"
+12542,1,"Văn bản tùy chỉnh"
+
+[STRINGTABLE 23]
+12600,1,"Thông tin AAC"
+12601,1,"Bitrate (bps)"
+12602,1,"Tần số lấy mẫu (Hz)"
+12603,1,"Kênh"
+12604,1,"Thời lượng"
+12605,1,"Loại đầu"
+12606,1,"Phiên bản MPEG"
+12607,1,"MAIN"
+
+[STRINGTABLE 24]
+12608,1,"LC"
+12609,1,"SSR"
+12610,1,"LTP"
+12611,1,"RAW"
+12612,1,"ADIF"
+12613,1,"ADTS"
+
+[STRINGTABLE 25]
+12624,1,"Thông tin video"
+12625,1,"Thông tin video %u"
+12626,1,"Codec"
+12627,1,"Độ phân giải"
+12628,1,"Tần số khung hình (fps)"
+12629,1,"Bitrate (kbps)"
+12630,1,"Tỷ lệ pixel"
+12631,1,"Quét"
+12632,1,"Xoay"
+12633,1,"Hồ sơ"
+12634,1,"Mức"
+12635,1,"Tiến bộ"
+12636,1,"Keo conoscenza"
+12637,1,"Trộn"
+12638,1,"Thông tin âm thanh %u"
+12639,1,"Codec âm thanh"
+
+[STRINGTABLE 26]
+12640,1,"Bit trên mẫu"
+12641,1,"Thông tin phương tiện"
+12642,1,"Không xác định"
+

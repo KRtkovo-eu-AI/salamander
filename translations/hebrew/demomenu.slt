@@ -1,0 +1,20 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\hebrew\demomenu\demomenu.atp"
+TEXTVERSION,"1.0.2 (x64)"
+VERSION,"1,0,2,197"
+
+[TRANSLATION]
+LANGID,1037
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
+
+[STRINGTABLE 0]
+46,1,"DemoMenu"
+47,1,"אודות התוסף"
+
+[STRINGTABLE 1]
+48,1,"תוסף זה יעזור לך ליצור את תוסף הרחבת התפריט שלך."
+49,1,"open.samandarin.net"
+50,1,"&פקודת בדיקה"
+

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\mmviewer\mmviewer.atp"
 TEXTVERSION,"1.18 (x64)"
-VERSION,"1,18,0,196"
+VERSION,"1,18,0,197"
 
 [TRANSLATION]
 LANGID,2052
@@ -297,3 +297,4 @@ COMMENT,"简体中文版"
 12640,1,"每样本位数"
 12641,1,"媒体信息"
 12642,1,"未知"
+

@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\folders\folders.atp"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"Thư mục"
+1001,1,"Về Plugin"
+1003,1,"Duyệt thư mục như Màn hình làm việc, Bảng điều khiển, Thùng rác, v.v."
+1004,1,"'\tMàn hình làm việc"
+

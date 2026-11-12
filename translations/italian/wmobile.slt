@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\wmobile\wmobile.atp"
 TEXTVERSION,"1.11 (x64)"
-VERSION,"1,11,0,196"
+VERSION,"1,11,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Juraj Rojko"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 500]
 353,77,1,""

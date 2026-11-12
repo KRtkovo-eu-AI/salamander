@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\folders\folders.atp"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"Folder"
+1001,1,"Tentang Plugin"
+1003,1,"Jelajahi folder seperti Desktop, Panel Kontrol, Keranjang Sampah, dan sebagainya."
+1004,1,"'\tDesktop"
+

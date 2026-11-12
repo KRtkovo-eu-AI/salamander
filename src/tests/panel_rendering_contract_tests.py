@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Keep file panels visible during shell launches and listing replacement. | Guard shell-helper parenting and refresh paint suppression against regression. | | openai/gpt-6-luna-pro |
 # | 2026-11-09 | Track the compact Change Drive configuration layout. | Match the contract with the new ordering selector and reduced dialog height. | https://github.com/KRtkovo-eu-AI/salamander/issues/772 | openai/gpt-5.6-luna-pro |
 # | 2026-11-04 | Reject process-wide CLR Stop in the managed bridges. | Stopping the CLR prevents JSON Viewer from opening again in the same process. | | Grok 4.7 |
 # | 2026-11-07 | Keep draggable owner-drawn ListBoxes on the native drag-list path. | MakeDragList installs its own subclass and must not be combined with darkmodelib client-border handling. | | GPT-5.6 Luna Pro |
@@ -29,10 +30,14 @@ ROOT = Path(__file__).resolve().parents[1]
 def main() -> int:
     geticon = (ROOT / "geticon.cpp").read_text(encoding="utf-8")
     filesbox = (ROOT / "filesbx1.cpp").read_text(encoding="utf-8")
+    filesbox2 = (ROOT / "filesbx2.cpp").read_text(encoding="utf-8")
+    filesbox_header = (ROOT / "filesbox.h").read_text(encoding="utf-8")
     fileswnd0 = (ROOT / "fileswn0.cpp").read_text(encoding="utf-8")
     fileswnd = (ROOT / "fileswn1.cpp").read_text(encoding="utf-8")
     fileswnd_header = (ROOT / "fileswnd.h").read_text(encoding="utf-8")
     fileswnd2 = (ROOT / "fileswn2.cpp").read_text(encoding="utf-8")
+    fileswnd6 = (ROOT / "fileswn6.cpp").read_text(encoding="utf-8")
+    salamdr4 = (ROOT / "salamdr4.cpp").read_text(encoding="utf-8")
     fileswnd3 = (ROOT / "fileswn3.cpp").read_text(encoding="utf-8")
     fileswnd4 = (ROOT / "fileswn4.cpp").read_text(encoding="utf-8")
     fileswndb = (ROOT / "fileswnb.cpp").read_text(encoding="utf-8")
@@ -199,6 +204,49 @@ def main() -> int:
         or "BitBlt(paintDC" not in buffered_paint.group(0)
     ):
         print("full files-box WM_PAINT must publish one buffered frame")
+        return 1
+    paint_suppression = re.search(
+        r"void CFilesBox::BeginPaintSuppression\(\).*?void CFilesBox::PaintAllItems",
+        filesbox,
+        re.DOTALL,
+    )
+    if (
+        "PaintSuppressionCount" not in filesbox_header
+        or "BeginPaintSuppression();" not in filesbox_header
+        or "EndPaintSuppression();" not in filesbox_header
+        or paint_suppression is None
+        or "InvalidateRect(HWindow, NULL, FALSE);" not in paint_suppression.group(0)
+        or "if (PaintSuppressionCount > 0)" not in filesbox
+        or "paintSuppression(ListBox, !OnlyDetachFSListing);" not in fileswnd0
+    ):
+        print("directory listing replacement must suppress panel paint until the listing is coherent")
+        return 1
+
+    header_paint_methods = re.search(
+        r"void CHeaderLine::PaintAllItems\(.*?LRESULT\s+CHeaderLine::WindowProc",
+        filesbox2,
+        re.DOTALL,
+    )
+    header_windowproc = re.search(
+        r"LRESULT\s+CHeaderLine::WindowProc.*?case WM_SETCURSOR:",
+        filesbox2,
+        re.DOTALL,
+    )
+    if (
+        header_paint_methods is None
+        or header_paint_methods.group(0).count("Parent->PaintSuppressionCount") < 2
+        or header_windowproc is None
+        or header_windowproc.group(0).count("Parent->PaintSuppressionCount") < 2
+    ):
+        print("header paint, erase, and direct-paint paths must honor panel paint suppression")
+        return 1
+
+    if (
+        "ExecuteAssociation(MainWindow->HWindow, GetPath(), fileName);" not in fileswnd2
+        or "ExecuteAssociation(MainWindow->HWindow, buf, s);" not in fileswnd6
+        or "ExecuteAssociation(MainWindow->HWindow, buff, ptr + 1);" not in salamdr4
+    ):
+        print("transparent shell execute windows must be siblings of owner-drawn file lists")
         return 1
 
     production = geticon + fileswnd + fileswndb + mainwnd2 + plugins2 + salamdr1

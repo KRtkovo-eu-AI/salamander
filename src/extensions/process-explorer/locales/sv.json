@@ -1,0 +1,52 @@
+{
+  "name": "Processutforskaren",
+  "description": "Visar Windows-processer som körs i en filsystemspanel i Salamander.",
+  "commands": {
+    "ProcessExplorer.open": "Öppna Processutforskaren"
+  },
+  "fileSystems": {
+    "processes": {
+      "name": "Processer som körs",
+      "columns": {
+        "pid": {
+          "name": "PID",
+          "description": "Processidentifierare"
+        },
+        "status": {
+          "name": "Status",
+          "description": "Processens status"
+        },
+        "userName": {
+          "name": "Användarnamn",
+          "description": "Kontot som äger processen"
+        },
+        "cpu": {
+          "name": "CPU",
+          "description": "Aktuell processoranvändning"
+        },
+        "memory": {
+          "name": "Minne",
+          "description": "Aktiv privat arbetsmängd"
+        }
+      },
+      "actions": {
+        "endTask": "Avsluta aktivitet",
+        "endProcessTree": "Avsluta processträd",
+        "openFileLocation": "Öppna filsökväg",
+        "properties": "Egenskaper"
+      }
+    }
+  },
+  "strings": {
+    "running": "Körs",
+    "suspended": "Pausad",
+    "ended": "Avslutad",
+    "errorTitle": "Processutforskaren",
+    "processUnavailable": "Processen är inte längre tillgänglig.",
+    "endFailed": "Det gick inte att avsluta processen. Windows-fel: {0}.",
+    "pathUnavailable": "Den körbara filens plats är inte tillgänglig.",
+    "openLocationFailed": "Det gick inte att öppna filsökvägen. Windows-fel: {0}.",
+    "propertiesFailed": "Det gick inte att öppna filegenskaperna. Windows-fel: {0}.",
+    "openPanelFailed": "Det gick inte att öppna Processutforskarens panel."
+  }
+}

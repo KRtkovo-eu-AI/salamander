@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\polish\unole\unole.atp"
+TEXTVERSION,"1.3 (x64)"
+VERSION,"1,3,0,197"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"polish (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Niewystarczająca ilość pamięci."
+1002,1,"Nie można otworzyć pliku Compound %s.\n"
+1003,1,"Nie można uzyskać alokatora pamięci.\n"
+1004,1,"Nie można zapisać do pliku.\n"
+1005,1,"Nie można utworzyć pliku %s.\n"
+1006,1,"Nie można otworzyć strumienia %s.\n"
+1007,1,"Nie można zapisać do pliku.\n"
+
+[STRINGTABLE 1]
+1008,1,"Wystąpił nieznany błąd."
+1014,1,"Nie można dodać wpisu archiwum do listy plików."
+1015,1,"Rozpakowywanie pliku Compound"
+1017,1,"rozpakowywanie..."
+1018,1,"rozpakowywanie: "
+
+[STRINGTABLE 2]
+1025,1,"Przepraszamy, ważność wtyczki wygasła. Sprawdź naszą witrynę w poszukiwaniu nowszej wersji."
+
+[STRINGTABLE 3]
+1041,1,"Błąd"
+1042,1,"Przeglądaj i wypakowuj pliki OLE Compound."
+1043,1,"O wtyczce"
+

@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\nethood\nethood.atp"
+TEXTVERSION,"1.10 (x64)"
+VERSION,"1,10,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[DIALOG 102]
+220,127,1,"Configuração de rede"
+1201,7,7,157,10,1,"Mostrar compartilhamentos &administrativos"
+1203,13,22,221,10,1,"Mostrar compartilhamentos administrativos como itens &ocultos"
+1202,7,37,238,10,1,"Mostrar itens de &Meus Locais de Rede no diretório de nível superior"
+1204,7,52,215,10,1,"Mostrar &computadores da rede no diretório de nível superior"
+1206,7,67,200,10,1,"Mostrar &discos conectados via Área de Trabalho Remota"
+1205,7,82,149,10,1,"&Examinar a rede ao iniciar o Salamander"
+3000,7,99,206,1,1,""
+1,30,106,50,14,1,"OK"
+2,85,106,50,14,1,"Cancelar"
+9,140,106,50,14,1,"Ajuda"
+
+[STRINGTABLE 0]
+128,1,"Rede"
+129,1,"Fornece acesso a computadores na rede."
+
+[STRINGTABLE 1]
+1024,1,"Comentário"
+1025,1,"{!}<%d> objeto{|1|s} selecionado{|1|s}"
+1026,1,"Rede"
+1027,1,"Examinando a rede…"
+1028,1,"A rede não está disponível."
+1029,1,"Sobre o plug-in"
+1030,1,"%1 em %2"
+1031,1,"Computador local"
+1032,1,"Computador host"
+1033,1,"Discos de %s"
+

@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\unchm\unchm.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"Un CHM"
+1001,1,"Não foi possível abrir o arquivo."
+1002,1,"Erro não especificado."
+1003,1,"Descompactando arquivo CHM"
+1004,1,"Erro ao descompactar o arquivo."
+1005,1,"Não é possível processar este arquivo."
+1006,1,"Memória insuficiente."
+1007,1,"Sobre o plug-in"
+
+[STRINGTABLE 1]
+1009,1,"Navegar e extrair arquivos CHM."
+1010,1,"Não foi possível criar o diretório temporário."
+1011,1,"Não foi possível excluir o arquivo temporário."
+1012,1,"Formato de arquivo desconhecido ou imagem CHM inválida.\n\n Se tiver certeza de que esta é uma imagem CHM válida, entre em contato com support@altap.cz e ajude-nos a oferecer suporte a este formato."
+1013,1,"Não foi possível abrir este arquivo."
+1014,1,"Falha ao criar o arquivo temporário."
+1015,1,"Não foi possível definir os atributos do arquivo."
+1016,1,"Não foi possível criar o diretório '%s'."
+1020,1,"Sim"
+1021,1,"Não"
+1022,1,"Erro"
+1023,1,"Aviso"
+
+[STRINGTABLE 2]
+1032,1,"Erro interno do plug-in."
+
+[STRINGTABLE 3]
+1100,1,"Erro de leitura"
+1101,1,"Erro de gravação"
+
+[STRINGTABLE 4]
+1105,1,"Número inválido."
+1106,1,"cancelando a operação, aguarde..."
+1107,1,"Biblioteca CHMLIB Copyright © 2001-2010 Jed Wing"
+

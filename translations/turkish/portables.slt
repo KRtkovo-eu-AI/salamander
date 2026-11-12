@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\portables\portables.atp"
+TEXTVERSION,"0.6 (x64)"
+VERSION,"0,6,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[STRINGTABLE 0]
+128,1,"{!}%d cihaz seçildi{2:s|0||1|s}"
+129,1,"Cihaz yok"
+130,1,"Taşınabilir Aygıtlar"
+131,1,"İptal"
+132,1,"Hazırlanıyor..."
+133,1,"Dosya:"
+134,1,"Toplam:"
+135,1,"Simge durumuna küçült"
+136,1,"Duraklat"
+137,1,"Taşınabilir aygıt yanıt vermeyi durdurdu. Lütfen bağlantısını kesip yeniden bağlayın. Taşınabilirler paneli aygıt listesine dönecek."
+138,1,"%s / %s kopyalandı"
+139,1,"Kopyala"
+140,1,"Taşı"
+141,1,"Sil"
+142,1,"Kopyalanıyor"
+143,1,"Taşınıyor"
+
+[STRINGTABLE 1]
+144,1,"Siliniyor"
+145,1,"hedefe"
+146,1,"%s / %s taşındı"
+147,1,"%s / %s işlendi"
+148,1,"Seçilen öğeler siliniyor"
+149,1,"%s '%s' işlemi başarısız oldu (0x%08X)."
+150,1,"Yeniden Adlandır"
+151,1,"Klasör Oluştur"
+152,1,"Görüntüle"
+153,1,"Ad hâlâ aygıtta. Öğe yeniden oluşturulmadı."
+154,1,"Dosya klasörün yerini alamaz."
+155,1,"Klasör dosyanın yerini alamaz."
+156,1,"Bu ada sahip bir öğe zaten var."
+157,1,"?"
+
+[STRINGTABLE 2]
+8192,1,"Taşınabilir Aygıtlar"
+8193,1,"Taşınabilir aygıtları yönetin."
+
+[STRINGTABLE 3]
+9216,1,"Eklenti Hakkında"
+
+[STRINGTABLE 4]
+10240,1,"Dizin Değiştirme Hatası"
+10241,1,"Yol: "%s"\r\nHata: %s"
+
+[STRINGTABLE 5]
+19457,1,"Belirtilen yol bir dosya yolu içeriyor."
+

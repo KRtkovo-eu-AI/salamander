@@ -1,0 +1,64 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\tar\tar.atp"
+TEXTVERSION,"3.35 (x64)"
+VERSION,"3,35,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[STRINGTABLE 0]
+11200,1,"Lỗi Plugin TAR"
+11201,1,"Định dạng lưu trữ không được nhận dạng hoặc không được hỗ trợ."
+11202,1,"Dữ liệu không hợp lệ trong tiêu đề TAR - lưu trữ bị hỏng."
+11203,1,"Mã kiểm tra tệp hoặc tiêu đề sai - lưu trữ bị hỏng."
+11204,1,"Lỗi nội bộ: cấu trúc dữ liệu tệp bị hỏng."
+11205,1,"Chữ ký khối không xác định - bỏ qua."
+11206,1,"Tệp bắt buộc không tìm thấy trong lưu trữ."
+11207,1,"Lỗi cấp phát bộ nhớ."
+
+[STRINGTABLE 1]
+11240,1,"Lưu trữ LZH chưa được hỗ trợ."
+
+[STRINGTABLE 2]
+11250,1,"Giải nén"
+11251,1,"Đang trích xuất "
+11252,1,"Bỏ qua "
+11260,1,"Lỗi GZip"
+11261,1,"Phương pháp nén không xác định được sử dụng, không thể trích xuất."
+11262,1,"Tệp này được mã hóa. Mã hóa không được hỗ trợ trong lưu trữ GZip."
+11263,1,"Tệp này là một phần của lưu trữ nhiều phần. Lưu trữ GZip nhiều phần không được hỗ trợ."
+
+[STRINGTABLE 3]
+11264,1,"Cờ không xác định trong tiêu đề GZip, không thể trích xuất."
+11265,1,"Lỗi khi mở tệp lưu trữ: "
+11266,1,"Kết thúc tệp sớm bị gặp phải."
+11267,1,"Lỗi khi đọc tệp lưu trữ: "
+11268,1,"Lỗi khi ghi vào tệp đầu ra: "
+11269,1,"Hàm WriteFile từ chối ghi tất cả dữ liệu yêu cầu."
+11270,1,"Khối không hợp lệ trong dòng GZip, không thể trích xuất."
+11271,1,"Lỗi nội bộ trong plugin TAR, vui lòng cho chúng tôi biết qua email support@altap.cz."
+11272,1,"Lỗi cấp phát bộ nhớ."
+11273,1,"Lỗi CRC."
+11274,1,"Dữ liệu không mong muốn trong dòng nén, lưu trữ bị hỏng."
+11275,1,"Lỗi khi tìm kiếm trong tệp lưu trữ: "
+
+[STRINGTABLE 4]
+11280,1,"Trình xem RPM"
+11281,1,"Lỗi RPM"
+11282,1,"Lỗi khi tạo tên tệp tạm thời."
+11283,1,"Lỗi khi tạo tệp tạm thời."
+11284,1,"Tệp không được nhận dạng là lưu trữ RPM."
+11285,1,"Phiên bản RPM được yêu cầu bởi lưu trữ này không được hỗ trợ."
+11286,1,"Chữ ký lưu trữ RPM không xác định bị gặp phải."
+11291,1,"Bản ghi tệp có chữ ký sai."
+11292,1,"Bản ghi tiêu đề tệp bị hỏng."
+11293,1,"Định dạng tiêu đề cpio không xác định."
+
+[STRINGTABLE 5]
+11299,1,"TAR"
+11300,1,"Duyệt và trích xuất các lưu trữ Unix."
+11301,1,"Về Plugin"
+

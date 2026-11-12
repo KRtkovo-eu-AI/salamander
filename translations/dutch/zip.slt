@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\zip\zip.atp"
 TEXTVERSION,"1.8 (x64)"
-VERSION,"1,8,0,196"
+VERSION,"1,8,0,197"
 
 [TRANSLATION]
 LANGID,1043
@@ -37,7 +37,7 @@ COMMENT,"Nederlandse versie"
 1,32,180,55,14,1,"OK"
 2,95,180,55,14,1,"Annuleren"
 109,158,180,55,14,1,"C&onfigureren..."
-9,221,180,55,14,1,"Help"
+9,221,180,55,14,1,"Hulp"
 
 [DIALOG 112]
 312,277,1,"ZIP Configuratie"
@@ -69,7 +69,7 @@ COMMENT,"Nederlandse versie"
 1,42,256,50,14,1,"OK"
 2,101,256,50,14,1,"Annuleren"
 113,160,256,50,14,1,"&Standaardwaarden instellen"
-9,219,256,50,14,1,"Help"
+9,219,256,50,14,1,"Hulp"
 
 [DIALOG 123]
 271,74,1,"Voer ZIP wachtwoord in"
@@ -168,7 +168,7 @@ COMMENT,"Nederlandse versie"
 256,160,258,127,12,1,"&Beheerdersbevoegdheden vereist "
 1,66,283,50,14,1,"OK"
 2,127,283,50,14,1,"Annuleren"
-9,188,283,50,14,1,"Help"
+9,188,283,50,14,1,"Hulp"
 3009,7,101,292,57,1,"Na extractie is voltooid"
 
 [DIALOG 152]
@@ -200,7 +200,7 @@ COMMENT,"Nederlandse versie"
 3000,7,87,191,1,1,""
 1,18,94,50,14,1,"OK"
 2,77,94,50,14,1,"Annuleren"
-9,136,94,50,14,1,"Help"
+9,136,94,50,14,1,"Hulp"
 
 [DIALOG 180]
 340,180,1,"ZIP archief aantekening"
@@ -233,7 +233,7 @@ COMMENT,"Nederlandse versie"
 1,24,333,50,14,1,"OK"
 2,78,333,50,14,1,"Annuleren"
 198,132,333,50,14,1,"&Reset"
-9,186,333,50,14,1,"Help"
+9,186,333,50,14,1,"Hulp"
 
 [DIALOG 210]
 220,123,1,"Beheren van favorieten"
@@ -253,14 +253,14 @@ COMMENT,"Nederlandse versie"
 3003,3,121,221,1,1,""
 1,28,128,50,14,1,"OK"
 2,88,128,50,14,1,"Annuleren"
-9,148,128,50,14,1,"Help"
+9,148,128,50,14,1,"Hulp"
 
 [DIALOG 250]
 248,114,1,"Verander Zelf-Extractor teksten"
 3000,11,8,214,32,1,"U hebt de zelf-extractor taal verandert, wilt u de aangepaste teksten die u hebt verandert in het dialoogvenster 'Zelf-Extractor teksten' laten wijzigigen naar hun standaardwaarden die corresponderen met de taal die u geselecteerd hebt?"
 1,40,48,50,14,1,"Ja"
 2,99,48,50,14,1,"Nee"
-9,158,48,50,14,1,"Help"
+9,158,48,50,14,1,"Hulp"
 3001,3,70,242,1,1,""
 251,11,74,176,12,1,"&Altijd navragen voordat er tekst veranderd wordt"
 252,11,86,228,12,1,"Tekst automatisch &vervangen met hun standaardwaarden"
@@ -558,4 +558,5 @@ COMMENT,"Nederlandse versie"
 1252,1,"KB"
 1253,1,"MB"
 1254,1,"Het ZIP bestand gebruikt gegevens in een formaat dat modificatie door de huidige versie van de ZIP plugin niet ondersteund"
+1255,1,"Niet alle archiefitems zijn uitgepakt. Het bronarchief blijft behouden."
 

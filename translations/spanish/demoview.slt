@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\demoview\demoview.atp"
 TEXTVERSION,"1.0.3 (x64)"
-VERSION,"1,0,3,196"
+VERSION,"1,0,3,197"
 
 [TRANSLATION]
 LANGID,3082
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 490]
 205,61,1,"Visor"
@@ -21,9 +21,9 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Este complemento debería ayudarte a crear tu propio complemento de visor."
-49,1,"www.altap.cz"
+49,1,"open.samandarin.net"
 50,1,"Se ha producido una excepción en DemoView, ¡informe a los autores!\nSi has trabajado con algún archivo .DMV cuando se produjo la excepción,\nintenta reproducir el error con este archivo .DMV y, si la excepción\nse vuelve a producir, envíanos este archivo .DMV (lo reproduciremos y corregiremos el error).\n¡Gracias!"
-51,1,"petr.solin@altap.cz"
+51,1,"open.samandarin.net"
 52,1,"La configuración ya está abierta."
 53,1,"Hay abiertas algunas ventanas del visor de DemoView. ¿Quieres cerrarlas?"
 54,1,"Configuración de DemoView"

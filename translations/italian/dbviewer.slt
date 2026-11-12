@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\dbviewer\dbviewer.atp"
 TEXTVERSION,"1.27 (x64)"
-VERSION,"1,27,0,196"
+VERSION,"1,27,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 12200]
 235,181,1,"Proprietà"

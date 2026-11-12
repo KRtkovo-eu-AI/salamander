@@ -1,13 +1,13 @@
-04
+09
 
-"自解压 ZIP 压缩包"
+"Self-Extracting ZIP Archive"
 
-"这将解压缩 ZIP 压缩包。"
+"This will extract ZIP archive."
 
-"版本 1.40"
+"Version 1.40"
 
-"解压(&E)"
+"&Extract"
 
-"Self-Extractor (c) 2000-2023 Open Salamander Authors"
+"Self-Extractor 漏 2000-2023 Open Salamander Authors"
 
-"https://www.altap.cz"
+"https://samandarin.net"

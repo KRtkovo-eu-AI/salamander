@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\ukrainian\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,197"
+
+[TRANSLATION]
+LANGID,1058
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"ukrainian (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Перегляд WebView2"
+47,1,"Про плагін"
+
+[STRINGTABLE 1]
+48,1,"Переглядач відображає оброблені HTML, Markdown і вебдокументи за допомогою WebView2."
+49,1,"open.samandarin.net"
+50,1,"Не вдалося підготувати подію синхронізації, потрібну переглядачу."
+51,1,"Вибраний файл завеликий для відкриття. Файли розміром понад 32 МБ не підтримуються."
+52,1,"&Файл"
+53,1,"&Вигляд"
+54,1,"&Закрити\tEsc"
+55,1,"&Оновити\tF5"
+56,1,"&Збільшити\tCtrl++"
+57,1,"&Зменшити\tCtrl+-"
+58,1,"&Скинути\tCtrl+0"
+59,1,"Завантаження..."
+60,1,"Готово"
+61,1,"Не вдалося ініціалізувати засіб обробки WebView2."
+62,1,"Не вдалося відкрити вибраний файл."
+63,1,"Показати &номери рядків"
+
+[STRINGTABLE 2]
+64,1,"&Переносити рядки\tF2"
+65,1,"Показати &пробіли"
+66,1,"&Редагувати"
+67,1,"&Копіювати\tCtrl+C"
+68,1,"Вибрати &все\tCtrl+A"
+69,1,"&Друкувати...\tCtrl+P"
+

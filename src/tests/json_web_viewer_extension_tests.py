@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 """
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Derive locale coverage from the shipped locale files. | The expanded translations made the fixed locale list stale. |  | openai/gpt-6-luna-pro |
 | 2026-11-07 | Verify Find phrase prefill stays hidden across Salamatrix viewers. | Issue #758 requires Find context to survive the extension and native viewer boundaries. | https://github.com/KRtkovo-eu-AI/salamander/issues/758 | openai/gpt-5.6-luna-pro |
 | 2026-11-06 | Expect locales for every supported extension language. | JSON Viewer must ship the same locale set as other packages. |  | Composer |
 | 2026-11-06 | Expect the Prism Sharp Find bar for document viewers. | JSON Viewer must reuse the same Find chrome as Prism Text. |  | Composer |
@@ -49,39 +50,18 @@ class JsonWebViewerExtensionTests(unittest.TestCase):
         self.assertEqual(viewers[0]["handler"], "viewJson")
         self.assertIn("*.json", viewers[0]["patterns"])
         expected_locales = {
-            "en",
-            "cs",
-            "de",
-            "es",
-            "fr",
-            "hu",
-            "it",
-            "nl",
-            "ro",
-            "ru",
-            "sk",
-            "zh-CN",
+            path.stem for path in (EXTENSION_ROOT / "locales").glob("*.json")
         }
+        self.assertTrue(expected_locales, "no JSON Viewer locale files found")
         self.assertEqual(set(manifest["locales"]), expected_locales)
 
     def test_locale_files_cover_supported_languages(self) -> None:
         required_string_keys = {"invalidFallback", "viewerOpenFailed", "noPath"}
-        expected_locales = (
-            "en",
-            "cs",
-            "de",
-            "es",
-            "fr",
-            "hu",
-            "it",
-            "nl",
-            "ro",
-            "ru",
-            "sk",
-            "zh-CN",
-        )
-        for lang in expected_locales:
-            path = EXTENSION_ROOT / "locales" / f"{lang}.json"
+        manifest = json.loads(
+            (EXTENSION_ROOT / "extension.json").read_text(encoding="utf-8"))
+        for lang, relative_path in manifest["locales"].items():
+            self.assertEqual(relative_path, f"locales/{lang}.json")
+            path = EXTENSION_ROOT / relative_path
             self.assertTrue(path.is_file(), f"missing locale {path}")
             data = json.loads(path.read_text(encoding="utf-8"))
             self.assertIn("name", data)

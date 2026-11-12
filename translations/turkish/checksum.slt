@@ -1,0 +1,116 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\checksum\checksum.atp"
+TEXTVERSION,"2.4 (x64)"
+VERSION,"2,4,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[DIALOG 1000]
+344,84,1,"Sağlama Toplamlarını Hesapla"
+1001,5,5,334,54,1,"Liste 1"
+1007,5,68,48,8,1,"Hesaplanıyor:"
+1006,50,68,105,8,1,"İlerleme 1"
+1002,162,65,55,14,1,"&Yapılandır..."
+1003,223,65,55,14,1,"&Kaydet..."
+1004,284,65,55,14,1,"&Durdur"
+1005,5,68,48,8,1,"pano ipucu"
+
+[DIALOG 1001]
+189,109,1,"Checksum Yapılandırması"
+300,8,5,174,76,1," Sağlama Toplamlarını Hesapla "
+100,15,16,105,10,1,"&CRC/SFV"
+101,15,28,105,10,1,"&MD5"
+102,15,40,105,10,1,"SHA-&1"
+103,15,52,105,10,1,"SHA-&256"
+104,15,64,105,10,1,"SHA-&512"
+1,14,88,50,14,1,"Tamam"
+2,69,88,50,14,1,"İptal"
+9,124,88,50,14,1,"Yardım"
+
+[DIALOG 2000]
+260,84,1,""
+1001,5,5,250,54,1,"Liste 1"
+1007,5,68,48,8,1,"Doğrulanıyor:"
+1006,42,68,101,8,1,"İlerleme 1"
+2002,5,68,140,8,1,""
+2001,149,65,50,14,1,"&Odaklan"
+1004,205,65,50,14,1,"&Durdur"
+
+[STRINGTABLE 0]
+1,1,"Checksum"
+2,1,"Eklenti Hakkında"
+3,1,"SFV, MD5, SHA-1, SHA-256 ve SHA-512 sağlama toplamlarını doğrular ve hesaplar."
+4,1,"Bellek yetersiz"
+5,1,"Dosya açma hatası"
+6,1,"Okuma hatası"
+7,1,"Yazma hatası"
+
+[STRINGTABLE 1]
+40,1,"Atlandı"
+41,1,"Hesaplanıyor..."
+42,1,"İptal edildi"
+43,1,"Sağlama toplamını panoya kopyalamak için öğeye sağ tıklayın."
+44,1,"&CRC Değerini Panoya Kopyala\tCtrl+C"
+45,1,"&MD5 Sağlamasını Panoya Kopyala\tCtrl+M"
+46,1,"SHA-&1 Sağlama Toplamını Kopyala\tCtrl+1"
+47,1,"SHA-&256 Sağlama Toplamını Kopyala\tCtrl+2"
+
+[STRINGTABLE 2]
+48,1,"SHA-&512 Sağlamasını Panoya Kopyala\tCtrl+5"
+52,1,"&Tüm Değerleri Panoya Kopyala"
+53,1,"&Öğeyi Kaldır\tSil"
+54,1,"'%s' dosyası zaten var.\nÜzerine yazılsın mı?"
+55,1,"Dosya oluşturma hatası."
+56,1,"Hesaplama sırasında atlanan veya iptal edilen dosyalar kaydedilmedi."
+57,1,"'%s' dosyası açılırken hata oluştu."
+58,1,"Eksik"
+59,1,"Seçili dosyanın SFV, MD5, SHA1, SHA256 veya SHA512 uzantısı yok. Yine de devam edilsin mi?"
+60,1,"Seçili dosya geçerli bir SFV, MD5, SHA-1, SHA-256 veya SHA-512 dosyası değil."
+61,1,"Doğrulanıyor..."
+62,1,"Tamam"
+63,1,"Bozuk"
+
+[STRINGTABLE 3]
+65,1,"Sağlama Toplamlarını &Doğrula..."
+66,1,"Sağlama Toplamlarını &Hesapla..."
+67,1,"Yapılandırma zaten açık."
+68,1,"Değişiklikler, Sağlama Toplamlarını Hesapla penceresi bir sonraki açıldığında geçerli olur."
+70,1,"Tüm dosyalar OK"
+71,1,"%d bozuk, %d eksik, %d atlandı"
+72,1,"Open Samandarin meşgul. İstenen komut gerçekleştirilemiyor, daha sonra yeniden deneyin."
+74,1,"&Kapat"
+75,1,"Dizin ağacı okunuyor, lütfen bekleyin..."
+76,1,"Dizin okuma hatası"
+77,1,"Dosya yok"
+78,1,"Sağlama Toplamlarını Doğrula"
+79,1,"Dosya"
+
+[STRINGTABLE 4]
+80,1,"Boyut"
+81,1,"Durum"
+82,1,"CRC"
+83,1,"MD5"
+84,1,"SHA-1"
+85,1,"SHA-256"
+86,1,"SHA-512"
+90,1,"Sağlama Toplamı Dosyasını Kaydet"
+91,1,"SFV Dosyaları (*.sfv)|*.sfv|"
+92,1,"MD5 Dosyaları (*.md5)|*.md5|"
+93,1,"SHA-1 Dosyaları (*.sha1)|*.sha1|"
+94,1,"SHA-256 Dosyaları (*.sha256)|*.sha256|"
+95,1,"SHA-512 Dosyaları (*.sha512)|*.sha512|"
+
+[STRINGTABLE 5]
+100,1,"CRC Doğrula"
+101,1,"MD5 Doğrula"
+102,1,"SHA-1 Doğrula"
+103,1,"SHA-256 Doğrula"
+104,1,"SHA-512 Doğrula"
+
+[STRINGTABLE 6]
+120,1,"Ad çok uzun olduğundan işlem tamamlanamıyor."
+

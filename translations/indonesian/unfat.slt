@@ -1,0 +1,30 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\unfat\unfat.atp"
+TEXTVERSION,"1.3 (x64)"
+VERSION,"1,3,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnFAT"
+1001,1,"Tentang Plugin"
+1003,1,"Telusuri dan ekstrak citra disk FAT 12, 16, dan 32."
+
+[STRINGTABLE 1]
+1100,1,"File "%s" tidak dapat dibuka."
+1101,1,"Kesalahan saat membaca file "%s"."
+1102,1,"Kesalahan saat mengurai file "%s".\n\n%s"
+1103,1,"Sektor boot rusak atau file ini bukan citra FAT 12, 16, atau 32."
+
+[STRINGTABLE 2]
+1104,1,"Kesalahan saat membaca direktori dari file "%s".\n%s\nSektor: %d, offset: 0x%s\n\nFile ini bukan citra FAT 12, 16, atau 32 yang valid."
+1106,1,"Kesalahan saat membaca file dari file "%s".\n%s\nKlaster: %d\n\nFile ini bukan citra FAT 12, 16, atau 32 yang valid."
+1107,1,"Kesalahan saat menulis file"
+1108,1,"File "%s" tampaknya merupakan citra seluruh hard disk.\nPlugin UnFAT tidak mendukung citra seperti ini."
+1109,1,"Mengekstrak citra FAT - %s"
+1110,1,"mengekstrak: %s"
+

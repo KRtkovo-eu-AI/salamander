@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Derive extension locale coverage from shipped locale resources. | Translation expansion must not stale fixed locale lists. | | openai/gpt-6-luna-pro |
 # | 2026-11-07 | Check foreground ownership for viewers and extension UI. | Issue #757 regressions must keep dialogs and viewers attached to the active extension window. | https://github.com/KRtkovo-eu-AI/salamander/issues/757 | OpenAI GPT-5.6 Luna Pro |
 # | 2026-11-06 | Check deferred plug-in references through refusal and reload. | The production vector owns one LoadLibrary reference per successful deferred unload. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 # | 2026-11-06 | Expect short Salamatrix extension/command IDs. | Packages dropped the OpenSalamander. prefix; old IDs failed CI. | | Composer |
@@ -2128,9 +2129,11 @@ def main() -> int:
         r"frame\.Payload\.ok\s+-eq\s+\$false",
         "PowerShell runtime still reads an optional ok field under StrictMode")
     expected_locales = {
-        "en", "cs", "de", "es", "fr", "hu",
-        "nl", "ro", "ru", "sk", "zh-CN",
+        path.stem for path in (
+            ROOT / "src/extensions/json-viewer-nodejs/locales").glob("*.json")
     }
+    if not expected_locales:
+        raise AssertionError("JSON Viewer does not provide a supported locale inventory")
     if set(menu_builder_manifest.get("locales", {})) != expected_locales:
         raise AssertionError(
             "Extension Menu Builder does not declare every supported locale")

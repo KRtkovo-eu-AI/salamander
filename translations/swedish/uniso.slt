@@ -1,0 +1,111 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\uniso\uniso.atp"
+TEXTVERSION,"1.39 (x64)"
+VERSION,"1,39,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[DIALOG 1200]
+220,83,1,"UnISO-inställningar"
+1201,8,11,188,10,1,"&Rensa skrivskyddat attribut vid kopiering från arkiv"
+1202,8,23,198,10,1,"&Visa session som katalog (ge åtkomst till alla sessioner)"
+1203,8,35,118,10,1,"V&isa startavbildningsdisk som fil"
+3000,2,58,216,1,1,""
+1,108,64,50,14,1,"OK"
+2,163,64,50,14,1,"Avbryt"
+
+[STRINGTABLE 0]
+1000,1,"UnISO"
+1001,1,"Det gick inte att öppna filen."
+1002,1,"Ospecificerat fel."
+1003,1,"Packar upp ISO-arkiv"
+1004,1,"Fel vid uppackning av arkivet."
+1005,1,"Det går inte att hantera den här filen."
+1006,1,"Otillräckligt med minne."
+1007,1,"Om plugin"
+
+[STRINGTABLE 1]
+1009,1,"Bläddra bland och packa upp CD/DVD ISO-avbildningar."
+1010,1,"Det gick inte att skapa en tillfällig katalog."
+1011,1,"Det gick inte att ta bort den tillfälliga filen."
+1012,1,"Okänt filformat eller ingen giltig ISO-avbildning.\n\nKontakta support@altap.cz om du är säker på att ISO-avbildningen är giltig, så kan du hjälpa oss att stödja formatet."
+1013,1,"Det gick inte att öppna filen '%s'."
+1014,1,"Det gick inte att skapa den tillfälliga filen."
+1015,1,"Det gick inte att ange filattribut."
+1016,1,"Det gick inte att skapa katalogen '%s'."
+1020,1,"Ja"
+1021,1,"Nej"
+1022,1,"Fel"
+1023,1,"Varning"
+
+[STRINGTABLE 2]
+1024,1,"Fel uppstod när avbildningen med flera sessioner lästes.\n\nEndast sessioner som kunde läsas visas."
+1025,1,"Okänd spårtyp."
+1026,1,"Okänd allokeringsstrategi (%d).\n\nKontakta support@altap.cz och hjälp oss att åtgärda problemet."
+1027,1,"Felaktigt format på .CCD-filen.\n\nDen visade avbildningen kan vara ofullständig."
+1028,1,".CCD-filen saknas.\n\nDen visade avbildningen kan vara ofullständig."
+1029,1,"Det gick inte att läsa sektor #%08X."
+1030,1,"Ogiltigt UDF-tagg-ID."
+1031,1,"Fel vid läsning av katalogstrukturen i sektor #%08X.\n\nISO-avbildningens innehåll är ofullständigt."
+1032,1,"Internt pluginfel."
+1033,1,"Fel vid läsning av virtuell allokeringstabell i sektor #%08X."
+1034,1,"Den virtuella allokeringstabellen saknas."
+1035,1,"Felaktig ICB-rot.\n\nDet gick inte att läsa katalogstrukturen."
+1036,1,"Filen "%s" kan inte packas upp.\n\nFilstorleken stämmer inte med ICB-blocken."
+1037,1,"Det gick inte att öppna spår #%d."
+1038,1,"Den här diskavbildningen verkar vara en diskett, hårddisk eller hårddiskpartition.\nByt namn på filen till .ima för att aktivera UnFAT-plugin-programmet."
+1039,1,"Diskavbildningen innehåller filsystemet APFS.\nDet här filsystemet stöds inte ännu."
+
+[STRINGTABLE 3]
+1050,1,"Det gick inte att läsa partitionshuvudet. Filen är för liten."
+1051,1,"Partition Manager-strukturerna är skadade."
+1052,1,"Diskavbildningen innehåller ingen HFS Plus-partition."
+1053,1,"Diskavbildningen innehåller HFS och inte HFS Plus.\nHFS stöds inte."
+1054,1,"Det gick inte att söka till block #%08X.\nFilen %s packas inte upp."
+1055,1,"Det gick inte att söka till block #%08X."
+
+[STRINGTABLE 4]
+1056,1,"BTree-rotnodtypen i Catalog-filen stöds inte."
+1057,1,"Catalog-filen är fragmenterad i fler än 8 delar, vilket inte stöds."
+1058,1,"Filen '%s' är fragmenterad i fler än 8 delar, vilket inte stöds.\nFilen packas inte upp."
+1059,1,"Diskavbildningen innehåller en sökväg som är för lång för Open Samandarin."
+1060,1,"Åtgärden kan inte slutföras eftersom namnet är för långt."
+1070,1,"Det gick inte att läsa pakethuvudet. Filen är för liten."
+1071,1,"Paket är krypterat.\nKrypterade paket stöds inte."
+
+[STRINGTABLE 5]
+1072,1,"Filen verkar inte vara ett DMG-paket eller är ofullständig.\nDen saknar ett giltigt DMG-slut."
+1073,1,"Filen verkar inte vara ett giltigt DMG-paket eller är ofullständig.\nDen saknar en giltig Property List."
+1074,1,"Paket innehåller inget datablock för HFS Plus-partitionen vid position %I64u.\nBlocket behövs för korrekt hantering av paketet."
+1075,1,"Det gick inte att läsa data från diskavbildningen vid position %I64u."
+1076,1,"Det gick inte att söka till position %I64u i diskavbildningen."
+1077,1,"Internt fel: sökmetoden stöds inte."
+1078,1,"Diskavbildningen innehåller ett block som komprimerats med en okänd metod.\nSådana avbildningar stöds inte."
+1079,1,"Det gick inte att packa upp ett ZLIB-block. Diskavbildningen verkar skadad."
+1080,1,"Det gick inte att packa upp ett BZIP2-block. Diskavbildningen verkar skadad."
+1085,1,"Filen verkar inte vara en komprimerad ISZ-avbildning eller är ofullständig.\nDen saknar en giltig ISZ-rubrik."
+1086,1,"Det gick inte att läsa rubriken för den komprimerade avbildningen. Filen är för liten."
+1087,1,"Avbildningen är segmenterad.\nSegmenterade avbildningar stöds inte."
+
+[STRINGTABLE 6]
+1088,1,"Avbildningen är krypterad.\nKrypterade avbildningar stöds inte."
+1100,1,"Läsfel"
+1101,1,"Skrivfel"
+1102,1,"Ljudspår kan inte packas upp."
+1103,1,"Avbryter åtgärden, vänta..."
+
+[STRINGTABLE 7]
+1150,1,"Information om avbildningen\n\n"
+1151,1,"Information om avbildningen "%s"\n\n"
+
+[STRINGTABLE 8]
+1152,1,"Antal sessioner: %d"
+1153,1,"\nSession %d\n"
+1154,1,"  Antal spår: %d\n"
+1155,1,"  Spår: %d, %s, storlek: %d kB\n"
+1156,1,"  Spår: %d, %s, storlek: %d kB – "%s"\n"
+

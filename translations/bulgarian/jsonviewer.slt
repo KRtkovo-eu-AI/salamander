@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\bulgarian\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,197"
+
+[TRANSLATION]
+LANGID,1026
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"bulgarian (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Преглед на JSON .NET"
+47,1,"За приставката"
+
+[STRINGTABLE 1]
+48,1,"Вътрешен преглед на JSON документи чрез управляван интерфейс WinForms."
+49,1,"open.samandarin.net"
+50,1,"Събитието за синхронизация, необходимо на визуализатора, не може да бъде подготвено."
+51,1,"Избраният JSON файл е твърде голям и не може да бъде отворен. Не се поддържат файлове, по-големи от 8 MB."
+

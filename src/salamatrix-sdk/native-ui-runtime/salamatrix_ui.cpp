@@ -1747,11 +1747,11 @@ BOOL WINAPI ShowNativeControlsShowcase(HWND parent)
         &dialog, ControlKindLabel, NULL, "SetActionOpen",
         277, 17, 75, 8) != NULL && complete;
     IControl* open = AddControlsShowcaseControl(
-        &dialog, ControlKindHyperLink, "open-link", "www.altap.cz",
+        &dialog, ControlKindHyperLink, "open-link", "samandarin.net",
         365, 17, 47, 8);
     complete = open != NULL &&
                open->SetStyleFlags(StaticTextUnderline | StaticTextHyperLinkColor) &&
-               open->SetActionOpen("https://www.altap.cz") && complete;
+               open->SetActionOpen("https://samandarin.net") && complete;
     complete = AddControlsShowcaseControl(
         &dialog, ControlKindLabel, NULL, "SetActionPostCommand",
         277, 27, 81, 8) != NULL && complete;

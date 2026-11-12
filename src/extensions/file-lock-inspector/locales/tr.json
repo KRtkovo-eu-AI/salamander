@@ -1,0 +1,40 @@
+{
+  "name": "Dosya Kilidi Denetleyicisi",
+  "commands": {
+    "FileLockInspector.inspect": "Dosya Kilidi Denetleyicisi..."
+  },
+  "strings": {
+    "title": "Dosya Kilidi Denetleyicisi",
+    "files": "Dosyalar",
+    "noLocks": "Dosyaları kilitleyen işlem bulunamadı.",
+    "lockingProcesses": "Dosyaları kilitleyen işlemler",
+    "process": "İşlem",
+    "pid": "PID",
+    "type": "Tür",
+    "status": "Durum",
+    "executable": "Çalıştırılabilir dosya",
+    "inspecting": "Dosyaları kilitleyen işlemler aranıyor...",
+    "lockCount": "Bulunan kilitleme işlemleri: {0}",
+    "inspectFailed": "Dosya kilidi denetimi başarısız oldu.",
+    "openLocation": "Konumu aç",
+    "closeProcess": "İşlemi kapat",
+    "endProcess": "İşlemi sonlandır...",
+    "copyReport": "Raporu kopyala",
+    "refresh": "Yenile",
+    "close": "Kapat",
+    "locationUnavailable": "Bu işlem için çalıştırılabilir dosyanın konumu kullanılamıyor.",
+    "closeUnavailable": "İşlemin güvenle kapatılabilecek bir ana penceresi yok.",
+    "confirmEnd": "{0} işlemi (PID {1}) sonlandırılsın mı?{2}{2}Uygulamadaki kaydedilmemiş veriler kaybolabilir.",
+    "selectFile": "Önce en az bir dosya seçin veya odaklayın.",
+    "responding": "Yanıt veriyor",
+    "notResponding": "Yanıt vermiyor",
+    "processEnded": "(işlem sona erdi)",
+    "appMainWindow": "Uygulama",
+    "appOtherWindow": "Arka plan penceresi",
+    "appService": "Hizmet",
+    "appExplorer": "Windows Gezgini",
+    "appConsole": "Konsol",
+    "appCritical": "Kritik işlem",
+    "appUnknown": "Bilinmiyor"
+  }
+}

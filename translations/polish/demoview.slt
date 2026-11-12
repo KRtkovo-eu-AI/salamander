@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\polish\demoview\demoview.atp"
+TEXTVERSION,"1.0.3 (x64)"
+VERSION,"1,0,3,197"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
+
+[DIALOG 490]
+205,61,1,"Podgląd"
+3000,4,6,199,41,1,"Położenie okna"
+491,11,17,113,12,1,"&Zapisz przy zamykaniu"
+492,11,29,156,12,1,"&Ustaw na pozycji okna Salamander"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"O wtyczce"
+
+[STRINGTABLE 1]
+48,1,"Ta wtyczka pomoże Ci utworzyć własną wtyczkę podglądu."
+49,1,"www.altap.cz"
+50,1,"W DemoView wystąpił wyjątek, powiadom autorów!\nJeśli pracowałeś z plikiem .DMV, gdy wystąpił wyjątek,\nspróbuj odtworzyć błąd przy użyciu tego pliku .DMV i jeśli wyjątek\nwystąpi ponownie, wyślij nam ten plik .DMV (odtworzymy i naprawimy błąd).\nDziękujemy!"
+51,1,"petr.solin@altap.cz"
+52,1,"Konfiguracja jest już otwarta."
+53,1,"Niektóre okna podglądu DemoView są otwarte. Czy zamknąć je?"
+54,1,"Konfiguracja DemoView"
+55,1,"Błędny numer!"
+56,1,"Pliki DemoView (*.dmv)|*.dmv|Wszystkie pliki (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Pliki"
+2001,1,"&Otwórz\tCtrl+O"
+2002,1,"&Wyjdź"
+2010,1,"&Edytuj"
+2011,1,"&Wytnij\tCtrl+X"
+2012,1,"&Kopiuj\tCtrl+C"
+2013,1,"&Wklej\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Widok"
+2021,1,"&Filtr"
+2022,1,"Filtr"
+2025,1,"&Opcje"
+2026,1,"&Konfiguracja..."
+
+[STRINGTABLE 4]
+2032,1,"&Pomoc"
+2033,1,"&O programie"
+
+[STRINGTABLE 5]
+2500,1,"Wytnij\tCtrl+X"
+2501,1,"Kopiuj\tCtrl+C"
+2502,1,"Wklej\tCtrl+V"
+2503,1,"Filtr\tCtrl+U"
+

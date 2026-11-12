@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\unlha\unlha.atp"
+TEXTVERSION,"1.15 (x64)"
+VERSION,"1,15,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[STRINGTABLE 0]
+1,1,"Tệp LZH không hợp lệ hoặc định dạng tệp không xác định."
+2,1,"Lỗi kiểm tra tiêu đề.\nLưu trữ bị hỏng - không phải tất cả các tệp có thể được liệt kê."
+3,1,"Hết bộ nhớ."
+4,1,"Lỗi ghi"
+5,1,"UnLHA"
+6,1,"Lỗi khi mở lưu trữ."
+7,1,"Không thể thêm mục lưu trữ vào danh sách tệp."
+8,1,"Lưu trữ chứa một hoặc nhiều liên kết biểu tượng UNIX, sẽ không được hiển thị."
+10,1,"Không thể giải nén tệp."
+11,1,"Lỗi trong dữ liệu đã nén. CRC không khớp."
+12,1,"Lỗi khi đọc lưu trữ."
+13,1,"Đang giải nén Lưu trữ LHA - %s"
+14,1,"đang chuẩn bị dữ liệu và tạo các thư mục..."
+15,1,"đang giải nén: "
+
+[STRINGTABLE 1]
+16,1,"đang giải nén..."
+17,1,"Không thể hoàn thành thao tác vì tên đường dẫn quá dài."
+18,1,"Không thể hoàn thành thao tác vì mặt nạ quá dài."
+19,1,"Phương pháp nén không xác định. Tệp không thể được giải nén."
+20,1,"phương pháp không xác định đã bỏ qua..."
+21,1,"Duyệt và trích xuất các lưu trữ LHA."
+22,1,"Về Plugin"
+

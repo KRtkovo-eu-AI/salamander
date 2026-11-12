@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\chinesetraditional\unchm\unchm.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1028
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"chinesetraditional (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"無法開啟檔案。"
+1002,1,"未指定的錯誤。"
+1003,1,"正在解壓縮 CHM 封存檔"
+1004,1,"解壓縮檔案時發生錯誤。"
+1005,1,"無法處理此檔案。"
+1006,1,"記憶體不足。"
+1007,1,"關於外掛程式"
+
+[STRINGTABLE 1]
+1009,1,"瀏覽並解壓縮 CHM 檔案。"
+1010,1,"無法建立暫存目錄。"
+1011,1,"無法刪除暫存檔。"
+1012,1,"未知的檔案格式或無效的 CHM 映像。\n\n如果您確定此 CHM 映像有效，請聯絡 support@altap.cz，協助我們支援此格式。"
+1013,1,"無法開啟此檔案。"
+1014,1,"建立暫存檔失敗。"
+1015,1,"無法設定檔案屬性。"
+1016,1,"無法建立目錄 '%s'。"
+1020,1,"是"
+1021,1,"否"
+1022,1,"錯誤"
+1023,1,"警告"
+
+[STRINGTABLE 2]
+1032,1,"外掛程式內部錯誤。"
+
+[STRINGTABLE 3]
+1100,1,"讀取錯誤"
+1101,1,"寫入錯誤"
+
+[STRINGTABLE 4]
+1105,1,"無效的數字。"
+1106,1,"正在取消作業，請稍候…"
+1107,1,"CHMLIB 程式庫版權所有 © 2001-2010 Jed Wing"
+

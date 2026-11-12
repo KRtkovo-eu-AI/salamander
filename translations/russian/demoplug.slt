@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\russian\demoplug\demoplug.atp"
 TEXTVERSION,"2.0 (x64)"
-VERSION,"2,0,0,196"
+VERSION,"2,0,0,197"
 
 [TRANSLATION]
 LANGID,1049
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 490]
 205,61,1,"Просмотрщик"
@@ -92,7 +92,7 @@ COMMENT,"English version"
 563,215,204,33,14,1,"Текст"
 3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
 3015,277,17,75,8,1,"SetActionOpen"
-557,365,17,47,8,1,"www.altap.cz"
+557,365,17,83,8,1,"open.samandarin.net"
 3016,277,27,81,8,1,"SetActionPostCommand"
 558,365,27,74,8,1,"Сказать что-нибудь!"
 3017,277,37,81,8,1,"SetActionPostCommand"
@@ -109,9 +109,9 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Этот плагин должен помочь вам создавать собственные плагины."
-49,1,"www.altap.cz"
+49,1,"open.samandarin.net"
 50,1,"При обработке DemoPlug произошла ошибка, пожалуйста, сообщите авторам!\nЕсли вы работали с каким-либо .dop файлом во время возникновения ошибки,\nпожалуйста, попробуйте воспроизвести проблему с помощью этого .dop файла и если ошибка\nвозникнет снова, пришлите нам этот .dop файл (мы воспроизведём и исправим ошибку).\nСпасибо!"
-51,1,"petr.solin@altap.cz"
+51,1,"open.samandarin.net"
 52,1,"Конфигурация уже открыта."
 53,1,"Открыты некоторые окна просмотра конфигурации DemoPlug. Закрыть их?"
 54,1,"Конфигурация DemoPlug"

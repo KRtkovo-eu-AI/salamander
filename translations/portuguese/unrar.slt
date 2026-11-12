@@ -1,0 +1,109 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\unrar\unrar.atp"
+TEXTVERSION,"3.4 (x64)"
+VERSION,"3,4,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[DIALOG 100]
+194,95,1,"Próximo volume do arquivo"
+117,12,9,170,32,1,"Insira o disco com o próximo volume do arquivo ou localize o arquivo apropriado no disco.\n\n Pressione OK quando estiver pronto."
+300,12,48,63,8,1,"&Nome do arquivo:"
+101,12,58,155,12,1,""
+102,170,58,13,12,1,"..."
+1,39,76,50,14,1,"OK"
+2,102,76,50,14,1,"Cancelar"
+
+[DIALOG 103]
+352,85,1,"Erro"
+300,6,10,26,8,1,"Nome:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Erro:"
+302,36,23,309,16,1,"O arquivo não pode ser extraído porque continua de um volume anterior. Para extrair este arquivo, você deve começar pelo volume em que o arquivo inicia."
+105,36,44,183,12,1,"&Não exibir esta mensagem no futuro."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Cancelar"
+
+[DIALOG 106]
+220,115,1,"Configuração do Un RAR"
+107,12,10,247,12,1,"&Ignorar automaticamente arquivos continuados de volumes anteriores"
+116,12,32,197,12,1,"&Não exibir aviso quando o conteúdo inteiro do arquivo"
+300,23,22,154,8,1,"ao descompactar."
+301,23,44,111,8,1,"não pode ser listado."
+302,6,60,208,1,1,""
+117,12,70,200,12,1,"Mostrar coluna "&Compactado" ao listar o arquivo"
+303,6,90,208,1,1,""
+1,57,96,50,14,1,"OK"
+2,112,96,50,14,1,"Cancelar"
+
+[DIALOG 108]
+350,80,1,"Informar senha"
+113,18,18,18,20,1,""
+300,57,10,239,8,1,"Este arquivo está criptografado. Informe a senha para descriptografia."
+301,57,25,30,8,1,"Arquivo:"
+104,97,25,240,8,1,""
+302,57,38,37,8,1,"&Senha:"
+110,97,36,157,12,1,""
+1,30,58,50,14,1,"&OK"
+112,90,58,50,14,1,"&Todos"
+109,150,58,50,14,1,"&Ignorar"
+111,210,58,50,14,1,"I&gnorar todos"
+2,270,58,50,14,1,"Cancelar"
+
+[DIALOG 115]
+213,105,1,"Un RAR - Atenção"
+300,11,8,194,24,1,"Nem todos os arquivos do arquivo multivolume podem ser listados (e mostrados no painel), porque alguns volumes não foram encontrados."
+301,11,39,194,16,1,"Para listar todo o conteúdo do arquivo, copie todos os volumes para o mesmo diretório."
+105,11,64,157,12,1,"&Não exibir esta mensagem no futuro"
+302,5,81,202,1,1,""
+1,155,87,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"Un RAR"
+1001,1,"Memória insuficiente."
+1002,1,"Não foi possível obter o nome do módulo."
+1003,1,"Não foi possível carregar a biblioteca '%s'."
+1004,1,"Não foi possível obter o endereço do procedimento."
+1005,1,"O arquivo está corrompido. (Senha incorreta?)"
+1006,1,"O arquivo tem formato desconhecido ou não é um arquivo RAR válido. (Senha incorreta?)"
+1007,1,"Não foi possível abrir o arquivo compactado."
+
+[STRINGTABLE 1]
+1008,1,"Ocorreu um erro desconhecido."
+1009,1,"Não foi possível abrir o volume do arquivo."
+1010,1,"Não foi possível ler o arquivo compactado."
+1011,1,"Arquivos RAR (*.R*)"
+1012,1,"Selecionar arquivo compactado"
+1013,1,"Erro nos dados compactados. O CRC não confere. (Senha incorreta?)"
+1014,1,"Não foi possível adicionar a entrada do arquivo à lista de arquivos."
+1015,1,"Descompactando arquivo RAR - %s"
+1016,1,"preparando dados e criando diretórios..."
+1017,1,"descompactando..."
+1018,1,"descompactando: "
+1019,1,"Não foi possível obter o ponteiro do arquivo: "
+1020,1,"Não foi possível gravar no arquivo:"
+1021,1,"Não foi possível definir o ponteiro do arquivo: "
+1022,1,"Não é possível concluir a operação porque o caminho é longo demais."
+1023,1,"Não é possível concluir a operação porque a máscara é longa demais."
+
+[STRINGTABLE 2]
+1024,1,"Informe pelo menos um caractere."
+1027,1,"Todos os arquivos (*.*)"
+1028,1,"Erro"
+1029,1,"Arquivo não encontrado"
+1030,1,"Versão incorreta de unrar.dll. Reinstale o plug-in Un RAR."
+1031,1,"Parece que este é um arquivo multivolume. Se for, selecione o primeiro volume e pressione OK.\n\n Se não for um arquivo multivolume, pressione Cancelar."
+1032,1,"Selecionar o primeiro volume"
+1033,1,"Navegar e extrair arquivos RAR."
+1034,1,"Sobre o plug-in"
+1035,1,"Arquivo não encontrado no arquivo compactado."
+1036,1,"A senha está incorreta. As letras da senha devem ser digitadas com a capitalização correta. Verifique se o Caps Lock não está ligado acidentalmente."
+
+[STRINGTABLE 3]
+1040,1,"Compactado"
+1041,1,"Tamanho compactado do arquivo"
+

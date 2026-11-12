@@ -1,0 +1,83 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\textviewer\textviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[DIALOG 8500]
+310,129,1,"Konfiguracija tekstualnog preglednika Prism"
+8701,7,7,296,86,1,"Performanse"
+8700,17,21,276,18,1,"&Zadrži Prism spremnim za brže ponovno otvaranje"
+8702,17,44,276,40,1,"Preglednik ostaje spreman do 60 sekundi nakon zatvaranja datoteke. Zahtijeva dodatnu memoriju (oko 100 MB ili više). Prva datoteka i dalje se otvara uobičajeno."
+1,197,108,50,14,1,"U redu"
+2,253,108,50,14,1,"Odustani"
+
+[STRINGTABLE 0]
+46,1,"Tekstualni preglednik Prism"
+47,1,"O dodatku"
+
+[STRINGTABLE 1]
+48,1,"Izvorni preglednik koji prikazuje tekstualne datoteke s isticanjem sintakse Prism.js."
+49,1,"open.samandarin.net"
+50,1,"Nije moguće pripremiti događaj sinkronizacije potreban pregledniku."
+52,1,"&Datoteka"
+53,1,"&Prikaz"
+54,1,"&Zatvori\tEsc"
+55,1,"&Osvježi\tF5"
+56,1,"&Povećaj\tCtrl++"
+57,1,"&Smanji\tCtrl+-"
+58,1,"&Vrati\tCtrl+0"
+59,1,"Učitavanje..."
+60,1,"Spremno"
+61,1,"Nije moguće pokrenuti prikazivač WebView2."
+62,1,"Nije moguće otvoriti odabranu datoteku."
+63,1,"Prikaži &brojeve redaka"
+
+[STRINGTABLE 2]
+64,1,"&Prelamanje redaka\tF2"
+65,1,"Prikaži &bjeline"
+66,1,"Isticanje &sintakse"
+67,1,"&Automatski"
+68,1,"&Boje"
+69,1,"&Visual Studio"
+70,1,"Zadani &Prism"
+71,1,"&Prilagođeno"
+72,1,"Uredi &prilagođeno"
+73,1,"Uredi prilagođeno"
+74,1,"&Spremi"
+75,1,"Odustani"
+76,1,"Svijetlo"
+77,1,"Tamno"
+78,1,"Komentar"
+79,1,"Interpunkcija"
+
+[STRINGTABLE 3]
+80,1,"Ključna riječ"
+81,1,"Kontrolna ključna riječ"
+82,1,"Naziv klase"
+83,1,"Funkcija"
+84,1,"Niz"
+85,1,"Broj"
+86,1,"Booleova vrijednost"
+87,1,"Varijabla"
+88,1,"Imenski prostor"
+89,1,"Regularni izraz"
+90,1,"Nije moguće spremiti prilagođenu paletu boja."
+91,1,"Salamatrix.UI nije dostupan."
+92,1,"Nije moguće otvoriti prozor konfiguracije dodatka."
+93,1,"&Uredi"
+94,1,"&Kopiraj\tCtrl+C"
+95,1,"Označi s&ve\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Pronađi...\tCtrl+F"
+97,1,"Pronađi &sljedeće\tF3"
+98,1,"Pronađi &prethodno\tShift+F3"
+99,1,"&Idi na redak...\tCtrl+G"
+100,1,"I&sprintaj...\tCtrl+P"
+

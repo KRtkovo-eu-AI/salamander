@@ -1,3 +1,5 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Add language filtering to plugin translation sync. | Keep both translation sync directions selectable for newly added languages. | | openai/gpt-5.6-luna-pro |
 <#
 .SYNOPSIS
     Sync .slt translation archives from plugin submodules into the repo translations/ directory.
@@ -18,16 +20,23 @@
     Comma-separated list of plugin modules to synchronize. If omitted, all
     plugin translation archives are synchronized.
 
+.PARAMETER Languages
+    Comma-separated list of language directories to synchronize. If omitted,
+    all plugin language directories are synchronized.
+
 .EXAMPLE
     pwsh -File tools\localization\sync_plugin_translations.ps1
     pwsh -File tools\localization\sync_plugin_translations.ps1 -RepoRoot H:\_projects\salamander
     pwsh -File tools\localization\sync_plugin_translations.ps1 -Modules sftp
+    pwsh -File tools\localization\sync_plugin_translations.ps1 -Modules sftp -Languages arabic,vietnamese
 #>
 [CmdletBinding()]
 param(
     [string]$RepoRoot,
 
-    [string[]]$Modules
+    [string[]]$Modules,
+
+    [string[]]$Languages
 )
 
 Set-StrictMode -Version Latest
@@ -64,6 +73,23 @@ if ($Modules -and $Modules.Count -gt 0)
     $requestedModules = @($requestedModules | Sort-Object -Unique)
 }
 
+$requestedLanguages = @()
+if ($Languages -and $Languages.Count -gt 0)
+{
+    foreach ($language in $Languages)
+    {
+        foreach ($piece in ($language -split "[,;]"))
+        {
+            $trimmed = $piece.Trim().ToLowerInvariant()
+            if ($trimmed -ne "")
+            {
+                $requestedLanguages += $trimmed
+            }
+        }
+    }
+    $requestedLanguages = @($requestedLanguages | Sort-Object -Unique)
+}
+
 # Scan each plugin for a translations/ subdirectory
 foreach ($pluginDir in (Get-ChildItem -Path $pluginsDir -Directory))
 {
@@ -82,6 +108,12 @@ foreach ($pluginDir in (Get-ChildItem -Path $pluginsDir -Directory))
     # Scan language subdirectories within the plugin
     foreach ($langDir in (Get-ChildItem -Path $pluginTranslationsDir -Directory))
     {
+        if ($requestedLanguages.Count -gt 0 -and
+            $requestedLanguages -notcontains $langDir.Name.ToLowerInvariant())
+        {
+            continue
+        }
+
         $sltFiles = Get-ChildItem -LiteralPath $langDir.FullName -Filter "*.slt" -File
         if (-not $sltFiles)
         {

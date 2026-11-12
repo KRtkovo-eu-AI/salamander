@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\unmime\unmime.atp"
+TEXTVERSION,"1.16 (x64)"
+VERSION,"1,16,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[DIALOG 101]
+251,111,1,"Cấu hình UnMIME"
+2000,7,7,71,8,1,"Tùy chọn danh sách"
+2001,49,11,196,1,1,""
+1000,18,20,74,10,1,"Liệt kê &tiêu đề thư"
+1001,18,35,105,10,1,"Liệt kê &nội dung thông điệp"
+1003,31,50,210,10,1,"Thêm &thông tin charset vào tên tệp nếu khác US-ASCII"
+1002,18,65,69,10,1,"Liệt kê &đính kèm"
+2002,6,82,239,1,1,""
+1,137,90,50,14,1,"Đồng ý"
+2,194,90,50,14,1,"Hủy"
+
+[STRINGTABLE 0]
+1,1,"UnMIME"
+2,1,"Không thể mở tệp."
+3,1,"Bộ nhớ không đủ."
+4,1,"Không thể thêm mục lưu trữ vào danh sách tệp."
+5,1,"Tệp này chứa một hoặc nhiều khối với mã hóa không xác định.\nCác khối này sẽ không được giải mã."
+6,1,"Lỗi ghi"
+7,1,"Đang giải nén Tệp Thư - %s"
+8,1,"đang giải nén: "
+9,1,"Đang phân tích tệp..."
+10,1,"Một hoặc nhiều khối %s bị hư hoặc có\nđịnh dạng không rõ và sẽ không được giải mã."
+11,1,"CRC sai trong một hoặc nhiều khối %s.\nCác khối này sẽ không được giải mã."
+12,1,"Duyệt và trích xuất các tệp MIME/Base64, UU/XXEncode, yEncode và BinHex."
+13,1,"Về Plugin"
+14,1,"Cảnh báo: tệp này chứa một nhánh tài nguyên Mac.\nNhánh này sẽ không được giải nén."
+15,1,"&Không hiển thị lại"
+

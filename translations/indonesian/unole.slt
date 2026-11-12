@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\unole\unole.atp"
+TEXTVERSION,"1.3 (x64)"
+VERSION,"1,3,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Memori tidak cukup."
+1002,1,"File Compound %s tidak dapat dibuka.\n"
+1003,1,"Alokator memori tidak dapat diperoleh.\n"
+1004,1,"File tidak dapat ditulis.\n"
+1005,1,"File %s tidak dapat dibuat.\n"
+1006,1,"Stream %s tidak dapat dibuka.\n"
+1007,1,"File tidak dapat ditulis.\n"
+
+[STRINGTABLE 1]
+1008,1,"Terjadi kesalahan yang tidak diketahui."
+1014,1,"Entri arsip tidak dapat ditambahkan ke daftar file."
+1015,1,"Mengekstrak File Compound"
+1017,1,"mengekstrak..."
+1018,1,"mengekstrak: "
+
+[STRINGTABLE 2]
+1025,1,"Maaf, masa berlaku plugin telah berakhir. Periksa situs web kami untuk versi yang lebih baru."
+
+[STRINGTABLE 3]
+1041,1,"Kesalahan"
+1042,1,"Telusuri dan ekstrak file OLE Compound."
+1043,1,"Tentang Plugin"
+

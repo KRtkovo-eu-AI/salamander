@@ -1,0 +1,52 @@
+{
+  "name": "プロセス エクスプローラー",
+  "description": "Salamander のファイル システム パネルに実行中の Windows プロセスを表示します。",
+  "commands": {
+    "ProcessExplorer.open": "プロセス エクスプローラーを開く"
+  },
+  "fileSystems": {
+    "processes": {
+      "name": "実行中のプロセス",
+      "columns": {
+        "pid": {
+          "name": "PID",
+          "description": "プロセス識別子"
+        },
+        "status": {
+          "name": "状態",
+          "description": "プロセスの状態"
+        },
+        "userName": {
+          "name": "ユーザー名",
+          "description": "プロセスを所有するアカウント"
+        },
+        "cpu": {
+          "name": "CPU",
+          "description": "現在のプロセッサ使用率"
+        },
+        "memory": {
+          "name": "メモリ",
+          "description": "アクティブなプライベート ワーキング セット"
+        }
+      },
+      "actions": {
+        "endTask": "タスクを終了",
+        "endProcessTree": "プロセス ツリーを終了",
+        "openFileLocation": "ファイルの場所を開く",
+        "properties": "プロパティ"
+      }
+    }
+  },
+  "strings": {
+    "running": "実行中",
+    "suspended": "中断",
+    "ended": "終了",
+    "errorTitle": "プロセス エクスプローラー",
+    "processUnavailable": "このプロセスは利用できなくなりました。",
+    "endFailed": "プロセスを終了できませんでした。Windows エラー: {0}。",
+    "pathUnavailable": "実行ファイルの場所を取得できません。",
+    "openLocationFailed": "ファイルの場所を開けませんでした。Windows エラー: {0}。",
+    "propertiesFailed": "ファイルのプロパティを開けませんでした。Windows エラー: {0}。",
+    "openPanelFailed": "プロセス エクスプローラー パネルを開けませんでした。"
+  }
+}

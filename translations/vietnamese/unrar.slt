@@ -1,0 +1,109 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\unrar\unrar.atp"
+TEXTVERSION,"3.4 (x64)"
+VERSION,"3,4,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[DIALOG 100]
+194,95,1,"Khối lưu trữ tiếp theo"
+117,12,9,170,32,1,"Vui lòng chèn ổ đĩa với khối lưu trữ tiếp theo hoặc tìm tệp phù hợp trên ổ đĩa.\n\nNhấn OK khi sẵn sàng."
+300,12,48,42,8,1,"&Tên tệp:"
+101,12,58,155,12,1,""
+102,170,58,13,12,1,"..."
+1,39,76,50,14,1,"Đồng ý"
+2,102,76,50,14,1,"Hủy"
+
+[DIALOG 103]
+352,85,1,"Lỗi"
+300,6,10,26,8,1,"Tên:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Lỗi:"
+302,36,23,309,16,1,"Không thể giải nén tệp này vì tệp nối tiếp từ phần lưu trữ trước đó. Để giải nén, hãy bắt đầu từ phần lưu trữ chứa đầu tệp."
+105,36,44,183,12,1,"&Không hiển thị thông báo này trong tương lai."
+1,121,63,50,14,1,"Đồng ý"
+2,181,63,50,14,1,"Hủy"
+
+[DIALOG 106]
+220,115,1,"Cấu hình UnRAR"
+107,12,10,200,12,1,"&Tự động bỏ qua các tệp được tiếp tục từ các khối trước"
+116,12,32,197,12,1,"&Không hiển thị chú ý khi toàn bộ nội dung lưu trữ"
+300,23,22,154,8,1,"khi giải nén."
+301,23,44,111,8,1,"không thể được liệt kê."
+302,6,60,208,1,1,""
+117,12,70,200,12,1,"Hiện cột "&Đã nén" khi liệt kê tệp nén"
+303,6,90,208,1,1,""
+1,57,96,50,14,1,"Đồng ý"
+2,112,96,50,14,1,"Hủy"
+
+[DIALOG 108]
+350,80,1,"Nhập Mật khẩu"
+113,18,18,18,20,1,""
+300,57,10,202,8,1,"Tệp này được mã hóa. Vui lòng nhập mật khẩu để giải mã."
+301,57,25,17,8,1,"Tệp:"
+104,97,25,240,8,1,""
+302,57,38,37,8,1,"&Mật khẩu:"
+110,97,36,157,12,1,""
+1,30,58,50,14,1,"&Đồng ý"
+112,90,58,50,14,1,"&Tất cả"
+109,150,58,50,14,1,"&Bỏ qua"
+111,210,58,50,14,1,"Bỏ qua &Tất cả"
+2,270,58,50,14,1,"Hủy"
+
+[DIALOG 115]
+213,105,1,"UnRAR - Chú ý"
+300,11,8,194,24,1,"Không phải tất cả các tệp trong lưu trữ nhiều khối có thể được liệt kê (và hiển thị trong bảng), vì một số khối lưu trữ không thể được tìm thấy."
+301,11,39,194,16,1,"Để liệt kê toàn bộ nội dung lưu trữ hãy sao chép tất cả các khối lưu trữ vào cùng một thư mục."
+105,11,64,165,12,1,"&Không hiển thị thông báo này trong tương lai"
+302,5,81,202,1,1,""
+1,155,87,50,14,1,"Đồng ý"
+
+[STRINGTABLE 0]
+1000,1,"UnRAR"
+1001,1,"Bộ nhớ không đủ."
+1002,1,"Không thể lấy tên mô-đun."
+1003,1,"Không thể tải thư viện '%s'."
+1004,1,"Không thể lấy địa chỉ thủ tục."
+1005,1,"Lưu trữ bị hỏng. (Mật khẩu sai?)"
+1006,1,"Tệp ở định dạng không xác định hoặc không phải lưu trữ RAR hợp lệ. (Mật khẩu sai?)"
+1007,1,"Không thể mở tệp lưu trữ."
+
+[STRINGTABLE 1]
+1008,1,"Có lỗi không xác định xảy ra."
+1009,1,"Không thể mở khối lưu trữ."
+1010,1,"Không thể đọc tệp lưu trữ."
+1011,1,"Tệp Lưu trữ RAR (*.R*)"
+1012,1,"Chọn Tệp Lưu trữ"
+1013,1,"Lỗi trong dữ liệu đã nén. CRC không khớp. (Mật khẩu sai?)"
+1014,1,"Không thể thêm mục lưu trữ vào danh sách tệp."
+1015,1,"Đang giải nén Lưu trữ RAR - %s"
+1016,1,"đang chuẩn bị dữ liệu và tạo các thư mục..."
+1017,1,"đang giải nén..."
+1018,1,"đang giải nén: "
+1019,1,"Không thể lấy con trỏ tệp: "
+1020,1,"Không thể ghi vào tệp:"
+1021,1,"Không thể đặt con trỏ tệp: "
+1022,1,"Không thể hoàn thành thao tác vì tên đường dẫn quá dài."
+1023,1,"Không thể hoàn thành thao tác vì mặt nạ quá dài."
+
+[STRINGTABLE 2]
+1024,1,"Vui lòng nhập ít nhất một ký tự."
+1027,1,"Tất cả các Tệp (*.*)"
+1028,1,"Lỗi"
+1029,1,"Không tìm thấy tệp"
+1030,1,"Phiên bản unrar.dll không chính xác. Vui lòng cài đặt lại plugin UnRAR."
+1031,1,"Có vẻ đây là lưu trữ nhiều khối. Nếu vậy, vui lòng chọn khối lưu trữ đầu tiên và nhấn OK.\n\nNếu nó không phải là lưu trữ nhiều khối, nhấn Hủy."
+1032,1,"Chọn Khối đầu tiên"
+1033,1,"Duyệt và trích xuất các lưu trữ RAR."
+1034,1,"Về Plugin"
+1035,1,"Không tìm thấy tệp trong lưu trữ."
+1036,1,"Mật khẩu không chính xác. Các chữ cái trong mật khẩu phải được gõ bằng cách chính xác. Hãy đảm bảo CapsLock không vô tình được bật."
+
+[STRINGTABLE 3]
+1040,1,"Đã đóng gói"
+1041,1,"Kích thước đã đóng gói của tệp"
+

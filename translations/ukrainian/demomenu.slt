@@ -1,0 +1,19 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\ukrainian\demomenu\demomenu.atp"
+TEXTVERSION,"1.0.2 (x64)"
+VERSION,"1,0,2,197"
+
+[TRANSLATION]
+LANGID,1058
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
+
+[STRINGTABLE 0]
+46,1,"ДемоМеню"
+47,1,"Про плагін"
+
+[STRINGTABLE 1]
+48,1,"Цей плагін допоможе вам створити власний плагін розширення меню."
+49,1,"www.altap.cz"
+50,1,"&Тест команди"

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\czech\7zip\7zip.atp"
 TEXTVERSION,"1.36 (x64)"
-VERSION,"1,36,0,196"
+VERSION,"1,36,0,197"
 
 [TRANSLATION]
 LANGID,1029
@@ -168,4 +168,5 @@ COMMENT,"Česká verze"
 1096,1,"Nelze přidat 1 nebo více souborů do výpisu. Plná cesta je příliš dlouhá.\nVe výpisu archivu mohou chybět některé adresáře nebo soubory."
 1097,1,"Nelze přidat 1 nebo více adresářů do výpisu. Plná cesta je příliš dlouhá.\nVe výpisu archivu mohou chybět některé adresáře nebo soubory."
 1098,1,"Název "%s" s plnou cestou je příliš dlouhý.\n\nCesta: %s"
+1099,1,"Nebyly extrahovány všechny položky archivu. Zdrojový archiv zůstal."
 

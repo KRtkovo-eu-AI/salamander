@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\diskdir\diskdir.atp"
+TEXTVERSION,"1.1 (x64)"
+VERSION,"1,1,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[DIALOG 200]
+278,94,1,"Criar catálogo Disk Dir"
+1004,8,9,34,8,1,"Catálogo:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"Também incluir caminhos"
+1003,16,48,132,12,1,"Incluir subdiretórios recursivamente"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Cancelar"
+
+[STRINGTABLE 0]
+100,1,"Disk Dir"
+101,1,"Cria e navega em catálogos de arquivos compatíveis com Disk Dir do Total Commander."
+102,1,"Disk Dir"
+103,1,"Sobre o Disk Dir"
+104,1,"Suporte nativo a catálogos compatíveis com Disk Dir.\n\n Os arquivos de catálogo contêm nomes, tamanhos e carimbos de data/hora, não o conteúdo dos arquivos."
+105,1,"Catálogo Disk Dir"
+106,1,"O caminho do catálogo é inválido ou longo demais."
+107,1,"O nome do catálogo já é usado por um diretório."
+108,1,"O catálogo já existe:\n\n"
+109,1,"\n\n Deseja substituí-lo?"
+110,1,"Os catálogos Disk Dir não armazenam o conteúdo dos arquivos, portanto os arquivos de origem não podem ser movidos."
+111,1,"Adicionar entradas a um catálogo Disk Dir existente não é suportado."
+
+[STRINGTABLE 1]
+112,1,"Não foi possível criar o catálogo Disk Dir."
+113,1,"O arquivo original registrado no catálogo não está disponível."
+114,1,"Um ou mais arquivos originais registrados no catálogo não estão disponíveis."
+115,1,"Não foi possível abrir o catálogo."
+116,1,"O catálogo é grande demais."
+117,1,"Não foi possível ler o catálogo."
+118,1,"O catálogo UTF-8 contém texto inválido."
+119,1,"O arquivo não contém um catálogo Disk Dir válido."
+120,1,"Não foi possível gravar o catálogo Disk Dir."
+

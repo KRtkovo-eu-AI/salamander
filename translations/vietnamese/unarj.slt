@@ -1,0 +1,88 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\unarj\unarj.atp"
+TEXTVERSION,"1.23 (x64)"
+VERSION,"1,23,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[DIALOG 100]
+194,110,1,"Khối lưu trữ tiếp theo"
+300,12,9,170,32,1,"Vui lòng chèn ổ đĩa với khối lưu trữ tiếp theo hoặc tìm tệp phù hợp trên ổ đĩa.\n\nNhấn OK khi sẵn sàng."
+301,12,48,60,8,1,"Khối trước:"
+103,73,48,109,12,1,""
+302,12,62,52,8,1,"&Khối tiếp theo:"
+101,12,72,155,12,1,""
+102,170,72,13,12,1,"..."
+1,39,91,50,14,1,"Đồng ý"
+2,102,91,50,14,1,"Hủy"
+
+[DIALOG 103]
+352,85,1,"Lỗi"
+300,6,10,26,8,1,"Tên:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Lỗi:"
+302,36,23,309,16,1,"Tệp không thể được trích xuất vì nó được tiếp tục từ một khối trước. Để trích xuất tệp này, bạn phải bắt đầu từ một khối nơi tệp bắt đầu."
+105,36,44,183,12,1,"&Không hiển thị thông báo này trong tương lai."
+1,121,63,50,14,1,"Đồng ý"
+2,181,63,50,14,1,"Hủy"
+
+[DIALOG 106]
+220,85,1,"Cấu hình UnARJ"
+300,23,22,154,8,1,"khi giải nén."
+107,12,10,197,12,1,"&Tự động bỏ qua các tệp được tiếp tục từ khối trước"
+301,23,44,111,8,1,"không thể được liệt kê."
+116,12,32,197,12,1,"&Không hiển thị chú ý khi toàn bộ nội dung lưu trữ"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"Đồng ý"
+2,112,66,50,14,1,"Hủy"
+
+[DIALOG 115]
+213,107,1,"UnARJ - Chú ý"
+300,11,10,194,24,1,"Không phải tất cả các tệp trong lưu trữ nhiều khối có thể được liệt kê (và thấy trong bảng), vì một số khối lưu trữ không thể được tìm thấy."
+301,11,41,192,16,1,"Để liệt kê toàn bộ nội dung lưu trữ hãy sao chép tất cả các khối lưu trữ vào cùng một thư mục."
+105,11,66,165,12,1,"&Không hiển thị thông báo này trong tương lai"
+302,5,83,203,1,1,""
+1,153,89,50,14,1,"Đồng ý"
+
+[STRINGTABLE 0]
+1000,1,"UnARJ"
+1001,1,"Bộ nhớ không đủ."
+1002,1,"Kết thúc không mong muốn của tệp lưu trữ."
+1005,1,"Lưu trữ bị hỏng."
+1006,1,"Tệp ở định dạng không xác định hoặc không phải lưu trữ ARJ hợp lệ."
+1007,1,"Không thể mở tệp lưu trữ."
+
+[STRINGTABLE 1]
+1008,1,"Có lỗi không xác định xảy ra."
+1010,1,"Không thể truy cập tệp lưu trữ."
+1011,1,"Tệp Lưu trữ ARJ (*.A*)"
+1012,1,"Chọn Tệp Lưu trữ"
+1013,1,"Lỗi trong dữ liệu đã nén. CRC không khớp."
+1014,1,"Không thể thêm mục lưu trữ vào danh sách tệp."
+1015,1,"Đang giải nén Lưu trữ ARJ - %s"
+1016,1,"đang chuẩn bị dữ liệu và tạo các thư mục..."
+1017,1,"đang giải nén..."
+1018,1,"đang giải nén: "
+1019,1,"Không thể lấy con trỏ tệp: "
+1020,1,"Không thể ghi vào tệp:"
+1021,1,"Không thể đặt con trỏ tệp: "
+1022,1,"Không thể hoàn thành thao tác vì tên đường dẫn quá dài."
+1023,1,"Không thể hoàn thành thao tác vì mặt nạ quá dài."
+
+[STRINGTABLE 2]
+1024,1,"Phiên bản không xác định của tệp đã nén."
+1025,1,"Loại không xác định của tệp đã nén."
+1026,1,"Tệp được nén bằng phương pháp không được hỗ trợ bởi plugin UnARJ."
+1027,1,"Xin lỗi, các tệp đã mã hóa không được hỗ trợ."
+1028,1,"Khối không hợp lệ hoặc cấu trúc lưu trữ không xác định."
+1029,1,"Xin lỗi, plugin đã hết hạn. Vui lòng kiểm tra trang web của chúng tôi để tìm phiên bản mới."
+1030,1,"Không tìm thấy tệp."
+1031,1,"Lỗi"
+1032,1,"Tất cả các Tệp (*.*)"
+1033,1,"Duyệt và trích xuất các lưu trữ ARJ."
+1034,1,"Về Plugin"
+

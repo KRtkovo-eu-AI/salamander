@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\diskdir\diskdir.atp"
 TEXTVERSION,"1.1 (x64)"
-VERSION,"1,1,0,196"
+VERSION,"1,1,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"KRtkovo.eu"
 WEB,"samandarin.net"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 200]
 278,94,1,"Crea catalogo DiskDir"
@@ -29,7 +29,7 @@ COMMENT,"English version"
 105,1,"Catalogo DiskDir"
 106,1,"Il percorso della raccolta non è valido o è troppo lungo."
 107,1,"Il nome della raccolta è già usato da una directory."
-108,0,"The catalog already exists:\n\n"
+108,1,"Il catalogo esiste già:\n\n"
 109,1,"\n\nVuoi sovrascriverlo? "
 110,1,"I cataloghi DiskDir non memorizzano i contenuti dei file, quindi i file di origine non possono essere spostati."
 111,1,"L'aggiunta di voci a un catalogo DiskDir esistente non è supportata."

@@ -1,0 +1,61 @@
+{
+  "name": "Händelsevisaren",
+  "description": "Bläddrar bland Windows-händelseloggar i en Salamander-filsystempanel.",
+  "commands": {
+    "EventViewer.open": "Öppna Händelsevisaren"
+  },
+  "fileSystems": {
+    "events": {
+      "name": "Händelsevisaren",
+      "rootItems": {
+        "custom-views": "Anpassade vyer",
+        "windows-logs": "Windows-loggar",
+        "applications-services": "Program- och tjänsteloggar"
+      },
+      "columns": {
+        "level": {
+          "name": "Nivå",
+          "description": "Händelsens allvarlighetsgrad"
+        },
+        "logged": {
+          "name": "Datum och tid",
+          "description": "När händelsen loggades"
+        },
+        "source": {
+          "name": "Källa",
+          "description": "Händelseleverantör"
+        },
+        "eventId": {
+          "name": "Händelse-ID",
+          "description": "Händelseidentifierare"
+        },
+        "task": {
+          "name": "Aktivitetskategori",
+          "description": "Händelsens aktivitetskategori"
+        }
+      },
+      "actions": {
+        "openEvent": "Händelseegenskaper"
+      }
+    }
+  },
+  "administrativeEvents": "Administrativa händelser",
+  "eventName": "Händelse {0}, {1} [{2}]",
+  "windowTitle": "Händelseegenskaper - händelse {0}, {1}",
+  "general": "Allmänt",
+  "descriptionLabel": "Beskrivning",
+  "details": "Information",
+  "close": "Stäng",
+  "messageUnavailable": "Händelsemeddelandet är inte tillgängligt.",
+  "textTruncated": "Texten har kortats av.",
+  "openErrorTitle": "Det gick inte att öppna händelsen",
+  "openError": "Det gick inte att öppna händelsen.\r\n\r\n{0}",
+  "metadata": "Loggnamn: {0}\r\nKälla: {1}\r\nHändelse-ID: {2}    Nivå: {3}\r\nLoggad: {4}    Aktivitetskategori: {5}\r\nAnvändare: {6}    Dator: {7}\r\nPost-ID: {8}",
+  "levels": {
+    "critical": "Kritisk",
+    "error": "Fel",
+    "warning": "Varning",
+    "information": "Information",
+    "verbose": "Utförlig"
+  }
+}

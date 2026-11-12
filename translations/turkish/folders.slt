@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\folders\folders.atp"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"Klasörler"
+1001,1,"Eklenti hakkında"
+1003,1,"Masaüstü, Denetim Masası, Geri Dönüşüm Kutusu gibi klasörlere göz atın."
+1004,1,"'\tMasaüstü"
+

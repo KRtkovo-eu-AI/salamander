@@ -6,12 +6,33 @@
   },
   "fileSystems": {
     "hardware-info": {
-      "rootItems": {"cpu":"Procesador","memory":"Memoria","motherboard":"Placa base","gpu":"Procesador gráfico","storage":"Almacenamiento","network":"Red","sensors":"Sensores","device-manager":"Administrador de dispositivos"},
-      "actions":{"updateDriver":"Actualizar controlador","disableDevice":"Deshabilitar dispositivo","uninstallDevice":"Desinstalar dispositivo","scanDevices":"Buscar cambios de hardware","deviceProperties":"Propiedades"},
+      "rootItems": {
+        "cpu": "Procesador",
+        "memory": "Memoria",
+        "motherboard": "Placa base",
+        "gpu": "Procesador gráfico",
+        "storage": "Almacenamiento",
+        "network": "Red",
+        "sensors": "Sensores",
+        "device-manager": "Administrador de dispositivos"
+      },
+      "actions": {
+        "updateDriver": "Actualizar controlador",
+        "disableDevice": "Deshabilitar dispositivo",
+        "uninstallDevice": "Desinstalar dispositivo",
+        "scanDevices": "Buscar cambios de hardware",
+        "deviceProperties": "Propiedades"
+      },
       "name": "Monitor de Hardware",
       "columns": {
-        "property": {"name": "Campo", "description": "Nombre de propiedad o sensor"},
-        "value": {"name": "Valor", "description": "Valor de propiedad o lectura de sensor"}
+        "property": {
+          "name": "Campo",
+          "description": "Nombre de propiedad o sensor"
+        },
+        "value": {
+          "name": "Valor",
+          "description": "Valor de propiedad o lectura de sensor"
+        }
       }
     }
   },
@@ -26,7 +47,10 @@
     "deviceManager": "Administrador de dispositivos"
   },
   "strings": {
-    "disableDevice":"Deshabilitar dispositivo","uninstallDevice":"Desinstalar dispositivo","confirmDeviceAction":"¿{0} '{1}'?","loading": "Cargando...",
+    "disableDevice": "Deshabilitar dispositivo",
+    "uninstallDevice": "Desinstalar dispositivo",
+    "confirmDeviceAction": "¿{0} '{1}'?",
+    "loading": "Cargando...",
     "notAvailable": "N/D",
     "errorTitle": "Monitor de Hardware",
     "sensorInitFailed": "No se pudo cargar la biblioteca de sensores (LibreHardwareMonitorLib.dll). Las lecturas de sensores no estarán disponibles.\nColoque la DLL en el directorio de la extensión o en el PATH del sistema.",

@@ -1,0 +1,95 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\uncab\uncab.atp"
+TEXTVERSION,"1.29 (x64)"
+VERSION,"1,29,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[DIALOG 100]
+221,122,1,"Próximo volume do cabinet"
+112,12,9,198,32,1,""
+300,12,48,55,8,1,"Nome do disco:"
+110,54,48,156,8,1,""
+301,12,59,51,8,1,"Nome do CAB:"
+111,54,59,156,8,1,""
+302,12,70,34,8,1,"&Caminho:"
+101,12,80,182,12,1,""
+102,197,80,13,12,1,"..."
+1,106,103,50,14,1,"OK"
+2,160,103,50,14,1,"Cancelar"
+303,6,97,209,1,1,""
+
+[DIALOG 103]
+352,85,1,"Erro"
+300,6,10,26,8,1,"Nome:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Erro:"
+302,36,23,309,16,1,"O arquivo não pode ser extraído porque continua de um volume anterior. Para extrair este arquivo, você deve começar pelo volume em que o arquivo inicia."
+105,36,44,183,12,1,"&Não exibir esta mensagem no futuro."
+108,91,63,50,14,1,"&Ignorar"
+109,151,63,50,14,1,"Ignorar &todos"
+2,211,63,50,14,1,"Cancelar"
+
+[DIALOG 106]
+220,85,1,"Configuração do Un CAB"
+300,23,22,154,8,1,"ao descompactar."
+107,12,10,237,12,1,"&Ignorar automaticamente arquivos continuados do volume anterior"
+301,23,44,111,8,1,"não pode ser listado."
+116,12,32,197,12,1,"&Não exibir aviso quando o conteúdo inteiro do arquivo"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Cancelar"
+
+[DIALOG 115]
+213,108,1,"Un CAB - Atenção"
+300,11,9,193,24,1,"Nem todos os arquivos do arquivo multivolume podem ser listados (e vistos no painel), porque alguns volumes não foram encontrados."
+301,11,40,193,16,1,"Para listar todo o conteúdo do arquivo, copie todos os volumes para o mesmo diretório e abra o PRIMEIRO volume."
+105,11,65,157,12,1,"&Não exibir esta mensagem no futuro"
+302,5,83,202,1,1,""
+1,154,90,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"Un CAB"
+1001,1,"Memória insuficiente."
+
+[STRINGTABLE 1]
+1008,1,"Ocorreu um erro desconhecido."
+1012,1,"Selecionar pasta"
+1014,1,"Não foi possível adicionar a entrada do arquivo à lista de arquivos."
+1015,1,"Descompactando arquivo CAB - %s"
+1016,1,"preparando dados e criando diretórios..."
+1017,1,"descompactando..."
+1018,1,"descompactando: "
+1019,1,"Não foi possível obter o ponteiro do arquivo: "
+1020,1,"Não foi possível gravar no arquivo:"
+1021,1,"Não foi possível definir o ponteiro do arquivo: "
+1022,1,"Não é possível concluir a operação porque o caminho é longo demais."
+1023,1,"Não é possível concluir a operação porque a máscara é longa demais."
+
+[STRINGTABLE 2]
+1025,1,"Desculpe, o plug-in expirou. Verifique nosso site para obter uma versão mais recente."
+1026,1,"Não foi possível criar ou abrir o arquivo."
+1027,1,"Não foi possível ler o arquivo."
+1028,1,"Cabinet não encontrado."
+1029,1,"O arquivo cabinet não tem o formato correto."
+1030,1,"O arquivo cabinet tem um número de versão desconhecido."
+1031,1,"O arquivo cabinet está corrompido."
+1032,1,"Tipo de compactação desconhecido em uma pasta do cabinet."
+1033,1,"Falha ao descompactar dados de um arquivo cabinet."
+1034,1,"Os cabinets de um conjunto não têm os mesmos tamanhos RESERVE."
+1035,1,"Interrompido pelo usuário."
+1036,1,"Selecione uma pasta que contenha '%s'."
+1037,1,"Arquivo cabinet incorreto."
+1038,1,"Arquivo não encontrado."
+1039,1,"ignorando arquivo"
+
+[STRINGTABLE 3]
+1040,1,"Insira um disco com o volume do cabinet número %d ou localize o arquivo cabinet apropriado no disco.\n\n Pressione OK quando estiver pronto."
+1041,1,"Erro"
+1042,1,"Navegar e extrair arquivos CAB."
+1043,1,"Sobre o plug-in"
+

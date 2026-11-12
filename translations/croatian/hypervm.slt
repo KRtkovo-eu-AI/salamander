@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\hypervm\hypervm.atp"
+TEXTVERSION,"1.10 (x64)"
+VERSION,"1,10,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Hyper-V virtualni strojevi"
+47,1,"O dodatku"
+
+[STRINGTABLE 1]
+48,1,"Prikazuje lokalne Hyper-V virtualne strojeve u panelu."
+49,1,"open.samandarin.net"
+50,1,"Prikaži &Hyper-V strojeve"
+51,1,"Stvori &VHD"
+52,1,"&Priključi VHD"
+60,1,"Stvori i priključi virtualni tvrdi disk"
+61,1,"Priključi virtualni tvrdi disk"
+62,1,"Odspoji virtualni tvrdi disk"
+63,1,"Lokacija:"
+
+[STRINGTABLE 2]
+64,1,"Pregledaj..."
+65,1,"Veličina virtualnog tvrdog diska:"
+66,1,"Format virtualnog tvrdog diska"
+67,1,"Vrsta virtualnog tvrdog diska"
+68,1,"Podržava virtualne diskove do 2040 GB."
+69,1,"Podržava virtualne diskove veće od 2040 GB (najviše 64 TB) i otporan je na prekide napajanja."
+70,1,"Fiksna veličina (preporučeno)"
+71,1,"Dinamičko proširenje"
+72,1,"Datoteka virtualnog diska zauzima maksimalnu veličinu pri stvaranju."
+73,1,"Datoteka virtualnog diska raste do maksimalne veličine kako se podaci zapisuju na disk."
+74,1,"Samo za čitanje."
+75,1,"Odredite lokaciju virtualnog diska na stroju."
+76,1,"Odredite lokaciju virtualnog diska na računalu."
+77,1,"Odspojiti virtualni tvrdi disk {0}?"
+78,1,"Priključen virtualni tvrdi disk: {0}"
+79,1,"Nisu pronađeni Hyper-V virtualni strojevi."
+
+[STRINGTABLE 3]
+80,1,"Konfiguracija"
+81,1,"Konfiguracija još nije postavljena."
+82,1,"U redu"
+83,1,"Odustani"
+84,1,"Virtualni tvrdi diskovi (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Hyper-V virtualni strojevi"
+86,1,"Stvori i priključi virtualni tvrdi disk"
+87,1,"Priključi virtualni tvrdi disk"
+

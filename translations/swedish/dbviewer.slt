@@ -1,0 +1,228 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\dbviewer\dbviewer.atp"
+TEXTVERSION,"1.27 (x64)"
+VERSION,"1,27,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[DIALOG 12200]
+235,181,1,"Egenskaper"
+1,179,162,50,14,1,"OK"
+13000,4,155,227,1,1,""
+12201,5,5,224,143,1,""
+
+[DIALOG 12220]
+282,105,1,"Inställningar för Database Viewer"
+13000,6,10,270,35,1,"Teckensnitt"
+12221,13,23,50,14,1,"&Teckensnitt"
+12222,69,23,200,14,1,""
+13001,6,48,270,27,1,"Fönsterposition"
+12223,14,58,80,12,1,"&Spara vid stängning"
+12224,107,58,192,12,1,"&Ange samma position som Salamanders huvudfönster"
+12225,13,85,60,14,1,"CSV-alternativ..."
+1,113,85,50,14,1,"OK"
+2,168,85,50,14,1,"Avbryt"
+9,223,85,50,14,1,"Hjälp"
+
+[DIALOG 12240]
+282,178,1,"Fält"
+12241,6,6,270,142,1,""
+13000,4,153,274,1,1,""
+12242,6,159,69,14,1,"&Återställ standardvärden"
+1,115,159,50,14,1,"OK"
+2,170,159,50,14,1,"Avbryt"
+9,225,159,50,14,1,"Hjälp"
+
+[DIALOG 12250]
+303,137,1,"CSV-alternativ"
+13000,6,6,90,101,1,"&Avgränsare"
+12264,15,18,67,12,1,"Välj automatiskt"
+12261,15,32,60,12,1,"Tabulator"
+12260,15,46,60,12,1,"Semikolon (;)"
+12259,15,60,60,12,1,"Komma (,)"
+12258,15,74,60,12,1,"Blanksteg ( )"
+12257,15,88,32,12,1,"Annat"
+12256,49,88,16,12,1,""
+13001,106,6,90,101,1,"Textavgränsare (&Q)"
+12262,115,18,67,12,1,"Välj automatiskt"
+12255,115,32,87,12,1,"Dubbla citattecken (")"
+12254,115,46,60,12,1,"Citattecken (')"
+12253,115,60,60,12,1,"Ingen"
+13002,206,6,90,101,1,"&Första raden"
+12263,215,18,67,12,1,"Välj automatiskt"
+12265,215,32,74,12,1,"Som kolumnnamn"
+12266,215,46,60,12,1,"Som data"
+1,136,118,50,14,1,"OK"
+2,191,118,50,14,1,"Avbryt"
+9,246,118,50,14,1,"Hjälp"
+12252,6,118,63,14,1,"Ange som &standard"
+
+[DIALOG 12300]
+210,131,1,"Sök"
+13000,28,11,174,1,1,""
+13001,9,7,17,8,1,"&Sök"
+12301,16,17,182,64,1,""
+13002,38,47,164,1,1,""
+13003,9,43,34,8,1,"Alternativ"
+12302,16,53,66,12,1,"Sök &framåt"
+12303,16,65,72,12,1,"Sök &bakåt"
+12304,113,53,57,12,1,"&Hela ord"
+12305,113,65,68,12,1,"&Skiftlägeskänslig"
+12306,113,77,75,12,1,"&Reguljärt uttryck"
+13004,8,102,194,1,1,""
+1,20,110,50,14,1,"OK"
+2,80,110,50,14,1,"Avbryt"
+9,140,110,50,14,1,"Hjälp"
+
+[DIALOG 12400]
+123,54,1,"Gå till post"
+13000,8,9,29,8,1,"&Post:"
+100,40,7,74,12,1,""
+1,8,32,50,14,1,"OK"
+2,65,32,50,14,1,"Avbryt"
+
+[STRINGTABLE 0]
+11089,1,"Databasvisare"
+11090,1,"Visar databasfiler i formaten dBase, FoxPro och CSV."
+11092,1,"Om insticksprogrammet"
+11101,1,"Några fönster för databasvisaren är öppna. Vill du stänga dem?"
+
+[STRINGTABLE 1]
+11110,1,"Slut på minne."
+11111,1,"Filen har ett okänt databasformat."
+11112,1,"Filen kunde inte hittas."
+11113,1,"Det gick inte att läsa databasfilen. Den kan ha trunkerats."
+11114,1,"Det gick inte att skriva till databasfilen."
+11115,1,"Det gick inte att söka i databasfilen."
+11116,1,"Memo-filen är inte tillgänglig."
+11117,1,"Memo-filen är skadad."
+
+[STRINGTABLE 2]
+11120,1,"Databasfiler (*.csv;*.dbf;*.jsonl;*.txt)|*.csv;*.dbf;*.jsonl;*.txt|Alla filer (*.*)|*.*|"
+11121,1,"%d pt. %s (%s)"
+11122,1,"Konfigurationen är redan öppen."
+11123,1,"Namn"
+11124,1,"Typ"
+11125,1,"Bredd"
+11126,1,"Decimaler"
+11130,1,"dBase II"
+11131,1,"dBase III"
+11132,1,"dBase IV"
+11133,1,"dBase V"
+11134,1,"Visual dBase 7"
+11135,1,"FoxPro"
+
+[STRINGTABLE 3]
+11136,1,"Okänd"
+11140,1,"Tecken"
+11141,1,"Tal"
+11142,1,"Logisk"
+11143,1,"Datum"
+11144,1,"Memo"
+11145,1,"Flyttal"
+11146,1,"Binär"
+11147,1,"Allmän"
+11148,1,"Bild"
+11149,1,"Valuta"
+11150,1,"Datum/tid"
+11151,1,"Heltal"
+
+[STRINGTABLE 4]
+11152,1,"Okänd"
+11153,1,"Dubbel precision"
+11154,1,"Tidsstämpel"
+11155,1,"Automatisk ökning"
+11160,1,"Minst ett fält måste vara synligt."
+11162,1,"Det finns inga giltiga fält i databasen."
+11163,1,"Sant"
+11164,1,"Falskt"
+11165,1,"Ändrad"
+11166,1,"Storlek"
+11167,1,"Version"
+
+[STRINGTABLE 5]
+11168,1,"Antal poster"
+11169,1,"Antal fält"
+11170,1,"Antal memofält"
+11171,1,"Huvudstorlek"
+11172,1,"Poststorlek"
+11173,1,"Teckentabell"
+
+[STRINGTABLE 6]
+11194,1,"Fel i reguljärt uttryck"
+11195,1,"Sök"
+11196,1,"Kan inte hitta strängen '%s'."
+11197,1,"Hittar ingen träff för det reguljära uttrycket '%s'."
+
+[STRINGTABLE 7]
+11200,1,"&Arkiv"
+11201,1,"&Öppna...\tCtr+O"
+11202,1,"&Uppdatera\tCtr+R"
+11203,1,"E&genskaper...\tCtrl+F1"
+11204,1,"&Andra filer"
+11205,1,"&Föregående\tBackspace"
+11206,1,"&Nästa\tSpace"
+11207,1,"Fö&regående markerade\tCtrl+Backspace"
+11208,1,"N&ästa markerade\tCtrl+Space"
+11209,1,"&Första\tShift+Backspace"
+11210,1,"&Sista\tShift+Space"
+11211,1,"A&vsluta\tAlt+F4"
+
+[STRINGTABLE 8]
+11217,1,"&Redigera"
+11218,1,"&Kopiera\tCtrl+C"
+11219,1,"&Markera allt\tCtrl+A"
+11220,1,"&Sök...\tCtrl+F"
+11221,1,"Sök &nästa\tCtrl+N"
+11222,1,"Sök &föregående\tCtrl+P"
+11223,1,"&Växla bokmärke\tCtrl+F2"
+11224,1,"N&ästa bokmärke\tF2"
+11225,1,"Fö&regående bokmärke\tShift+F2"
+11226,1,"Rensa &alla bokmärken\tCtrl+Shift+F2"
+11230,1,"&Visa"
+11231,1,"&Gå till post...\tG"
+
+[STRINGTABLE 9]
+11232,1,"&Fält...\tI"
+11233,1,"&Helskärm\tF11"
+
+[STRINGTABLE 10]
+11250,1,"&Konvertering"
+11251,1,"&Välj automatiskt"
+11252,1,"&Konvertera inte"
+11253,1,"Ange som standard"
+11254,1,"Nästa\tF8"
+11255,1,"Föregående\tShift+F8"
+
+[STRINGTABLE 11]
+11270,1,"&Alternativ"
+11271,1,"C&SV-alternativ..."
+11272,1,"&Inställningar..."
+
+[STRINGTABLE 12]
+11280,1,"&Hjälp"
+11281,1,"&Om..."
+11282,1,"&Innehåll\tF1"
+11283,1,"&Index..."
+11284,1,"&Sök..."
+
+[STRINGTABLE 13]
+11500,1,"Kopiera\tCtrl+C"
+11501,1,"Öppna\tCtrl+O"
+11502,1,"Sök\tCtrl+F"
+11503,1,"Egenskaper\tCtrl+F1"
+
+[STRINGTABLE 14]
+11504,1,"Helskärm\tF11"
+11505,1,"Aktuell post/antal poster\tG"
+
+[STRINGTABLE 15]
+11520,1,"Använd &standardteckensnitt"
+11521,1,"Använd &anpassat teckensnitt..."
+11522,1,"standardteckensnitt"
+11523,1,"anpassat teckensnitt"
+

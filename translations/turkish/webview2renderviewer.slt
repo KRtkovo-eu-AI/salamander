@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"WebView2 Görüntüleyici"
+47,1,"Eklenti Hakkında"
+
+[STRINGTABLE 1]
+48,1,"WebView2 kullanarak işlenmiş HTML, Markdown ve web belgelerini görüntüler."
+49,1,"open.samandarin.net"
+50,1,"Görüntüleyicinin gerektirdiği eşitleme olayı hazırlanamadı."
+51,1,"Seçilen dosya açılamayacak kadar büyük. 32 MB üzerindeki dosyalar desteklenmiyor."
+52,1,"&Dosya"
+53,1,"&Görünüm"
+54,1,"&Kapat\tEsc"
+55,1,"&Yenile\tF5"
+56,1,"&Büyüt\tCtrl++"
+57,1,"&Küçült\tCtrl+-"
+58,1,"&Sıfırla\tCtrl+0"
+59,1,"Yükleniyor..."
+60,1,"Hazır"
+61,1,"WebView2 işleyicisi başlatılamadı."
+62,1,"Seçilen dosya açılamadı."
+63,1,"&Satır Numaralarını Göster"
+
+[STRINGTABLE 2]
+64,1,"&Satırı Sar\tF2"
+65,1,"&Boşlukları Göster"
+66,1,"&Düzenle"
+67,1,"&Kopyala\tCtrl+C"
+68,1,"&Tümünü Seç\tCtrl+A"
+69,1,"&Yazdır...\tCtrl+P"
+

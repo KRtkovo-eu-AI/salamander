@@ -1,0 +1,18 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\chinesetraditional\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.13 (x64)"
+VERSION,"1,13,0,197"
+
+[TRANSLATION]
+LANGID,1028
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"chinesetraditional (automatic AI translation)"
+
+[STRINGTABLE 0]
+10100,1,"Internet Explorer 檢視器"
+10101,1,"無法開啟 Internet Explorer 檢視器。\n請將此問題回報至 support@altap.cz。"
+10102,1,"錯誤"
+10103,1,"以 Internet Explorer 為基礎的輕量 HTML 與 XML 檢視器。"
+10105,1,"關於外掛程式"
+

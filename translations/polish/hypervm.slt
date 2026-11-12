@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\polish\hypervm\hypervm.atp"
+TEXTVERSION,"1.10 (x64)"
+VERSION,"1,10,0,197"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"polish (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Maszyny Hyper-V"
+47,1,"O wtyczce"
+
+[STRINGTABLE 1]
+48,1,"Wyświetla lokalne maszyny wirtualne Hyper-V w panelu."
+49,1,"open.samandarin.net"
+50,1,"Pokaż okno &maszyn Hyper-V"
+51,1,"Utwórz &VHD"
+52,1,"&Dołącz VHD"
+60,1,"Utwórz i dołącz wirtualny dysk twardy"
+61,1,"Dołącz wirtualny dysk twardy"
+62,1,"Odłącz wirtualny dysk twardy"
+63,1,"Lokalizacja:"
+
+[STRINGTABLE 2]
+64,1,"Przeglądaj..."
+65,1,"Rozmiar wirtualnego dysku twardego:"
+66,1,"Format wirtualnego dysku twardego"
+67,1,"Typ wirtualnego dysku twardego"
+68,1,"Obsługuje wirtualne dyski o rozmiarze do 2040 GB."
+69,1,"Obsługuje wirtualne dyski większe niż 2040 GB (obsługiwane maksimum 64 TB) i jest odporny na zdarzenia utraty zasilania."
+70,1,"Stały rozmiar (zalecane)"
+71,1,"Dynamicznie rozszerzany"
+72,1,"Plik wirtualnego dysku twardego jest przydzielany do maksymalnego rozmiaru przy tworzeniu wirtualnego dysku twardego."
+73,1,"Plik wirtualnego dysku twardego rośnie do maksymalnego rozmiaru w miarę zapisywania danych na wirtualnym dysku twardym."
+74,1,"Tylko do odczytu."
+75,1,"Określ lokalizację wirtualnego dysku twardego na maszynie."
+76,1,"Określ lokalizację wirtualnego dysku twardego na komputerze."
+77,1,"Odłączyć wirtualny dysk twardy {0}?"
+78,1,"Dołączono wirtualny dysk twardy: {0}"
+79,1,"Nie znaleziono maszyn wirtualnych Hyper-V."
+
+[STRINGTABLE 3]
+80,1,"Konfiguracja"
+81,1,"Brak konfiguracji."
+82,1,"OK"
+83,1,"Anuluj"
+84,1,"Virtual hard disks (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Maszyny Hyper-V"
+86,1,"Utwórz i dołącz wirtualny dysk twardy"
+87,1,"Dołącz wirtualny dysk twardy"
+

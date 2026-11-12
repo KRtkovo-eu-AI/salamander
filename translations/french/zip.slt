@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\zip\zip.atp"
 TEXTVERSION,"1.8 (x64)"
-VERSION,"1,8,0,196"
+VERSION,"1,8,0,197"
 
 [TRANSLATION]
 LANGID,1036
@@ -558,4 +558,5 @@ COMMENT,"Version française"
 1252,1,"Ko"
 1253,1,"Mo"
 1254,1,"Le fichier ZIP utilise un format de donnée dont la modification n'est pas supportée par la version actuelle du module ZIP"
+1255,1,"Certaines entrées n'ont pas été décompressées. Archive source conservée."
 

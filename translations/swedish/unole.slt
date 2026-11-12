@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\unole\unole.atp"
+TEXTVERSION,"1.3 (x64)"
+VERSION,"1,3,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnOLE2"
+1001,1,"Otillräckligt minne."
+1002,1,"Det går inte att öppna den sammansatta filen %s.\n"
+1003,1,"Det går inte att hämta minnesallokeraren.\n"
+1004,1,"Det går inte att skriva till filen.\n"
+1005,1,"Det går inte att skapa filen %s.\n"
+1006,1,"Det går inte att öppna strömmen %s.\n"
+1007,1,"Det går inte att skriva till filen.\n"
+
+[STRINGTABLE 1]
+1008,1,"Ett okänt fel inträffade."
+1014,1,"Det går inte att lägga till arkivposten i fillistan."
+1015,1,"Packar upp sammansatt fil"
+1017,1,"packar upp..."
+1018,1,"packar upp: "
+
+[STRINGTABLE 2]
+1025,1,"Insticksmodulen har upphört att gälla. Besök vår webbplats för en nyare version."
+
+[STRINGTABLE 3]
+1041,1,"Fel"
+1042,1,"Bläddra bland och packa upp sammansatta OLE-filer."
+1043,1,"Om insticksmodulen"
+

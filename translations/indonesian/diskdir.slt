@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\diskdir\diskdir.atp"
+TEXTVERSION,"1.1 (x64)"
+VERSION,"1,1,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[DIALOG 200]
+278,94,1,"Buat Katalog DiskDir"
+1004,8,9,29,8,1,"Katalog:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"Sertakan juga nama jalur"
+1003,16,48,135,12,1,"Sertakan subdirektori secara rekursif"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Batal"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Membuat dan menelusuri katalog file yang kompatibel dengan DiskDir Total Commander."
+102,1,"DiskDir"
+103,1,"Tentang DiskDir"
+104,1,"Dukungan asli untuk katalog yang kompatibel dengan DiskDir.\n\nFile katalog berisi nama, ukuran, dan stempel waktu, bukan isi file."
+105,1,"Katalog DiskDir"
+106,1,"Jalur katalog tidak valid atau terlalu panjang."
+107,1,"Nama katalog sudah digunakan oleh direktori."
+108,1,"Katalog sudah ada:\n\n"
+109,1,"\n\nTimpa katalog tersebut?"
+110,1,"Katalog DiskDir tidak menyimpan isi file, sehingga file sumber tidak dapat dipindahkan."
+111,1,"Penambahan entri ke katalog DiskDir yang sudah ada tidak didukung."
+
+[STRINGTABLE 1]
+112,1,"Tidak dapat membuat katalog DiskDir."
+113,1,"File asli yang tercatat dalam katalog tidak tersedia."
+114,1,"Satu atau beberapa file asli yang tercatat dalam katalog tidak tersedia."
+115,1,"Tidak dapat membuka katalog."
+116,1,"Katalog terlalu besar."
+117,1,"Tidak dapat membaca katalog."
+118,1,"Katalog UTF-8 berisi teks tidak valid."
+119,1,"File tidak berisi katalog DiskDir yang valid."
+120,1,"Tidak dapat menulis katalog DiskDir."
+

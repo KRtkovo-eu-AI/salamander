@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\unlha\unlha.atp"
+TEXTVERSION,"1.15 (x64)"
+VERSION,"1,15,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[STRINGTABLE 0]
+1,1,"Geçersiz LZH dosyası veya bilinmeyen dosya biçimi."
+2,1,"Üstbilgi sağlama toplamı hatası.\nArşiv bozuk; tüm dosyalar listelenemiyor."
+3,1,"Bellek yetersiz."
+4,1,"Yazma hatası"
+5,1,"UnLHA"
+6,1,"Arşiv açılırken hata oluştu."
+7,1,"Arşiv girdisi dosya listesine eklenemedi."
+8,1,"Arşivde görüntülenmeyecek bir veya daha fazla UNIX sembolik bağlantısı var."
+10,1,"Dosya ayıklanamıyor."
+11,1,"Sıkıştırılmış veride hata. CRC eşleşmiyor."
+12,1,"Arşiv okunurken hata oluştu."
+13,1,"LHA Arşivi Ayıklanıyor - %s"
+14,1,"Veriler hazırlanıyor ve dizinler oluşturuluyor..."
+15,1,"ayıklanıyor: "
+
+[STRINGTABLE 1]
+16,1,"ayıklanıyor..."
+17,1,"Yol adı çok uzun olduğundan işlem tamamlanamıyor."
+18,1,"Maske çok uzun olduğundan işlem tamamlanamıyor."
+19,1,"Bilinmeyen sıkıştırma yöntemi. Dosya ayıklanamıyor."
+20,1,"bilinmeyen yöntem atlandı..."
+21,1,"LHA arşivlerine göz atın ve bunları ayıklayın."
+22,1,"Eklenti Hakkında"
+

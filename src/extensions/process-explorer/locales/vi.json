@@ -1,0 +1,52 @@
+{
+  "name": "Trình khám phá tiến trình",
+  "description": "Liệt kê các tiến trình Windows đang chạy trong ngăn hệ thống tệp của Salamander.",
+  "commands": {
+    "ProcessExplorer.open": "Mở Trình khám phá tiến trình"
+  },
+  "fileSystems": {
+    "processes": {
+      "name": "Tiến trình đang chạy",
+      "columns": {
+        "pid": {
+          "name": "PID",
+          "description": "Mã định danh tiến trình"
+        },
+        "status": {
+          "name": "Trạng thái",
+          "description": "Trạng thái tiến trình"
+        },
+        "userName": {
+          "name": "Tên người dùng",
+          "description": "Tài khoản sở hữu tiến trình"
+        },
+        "cpu": {
+          "name": "CPU",
+          "description": "Mức sử dụng bộ xử lý hiện tại"
+        },
+        "memory": {
+          "name": "Bộ nhớ",
+          "description": "Tập làm việc riêng đang hoạt động"
+        }
+      },
+      "actions": {
+        "endTask": "Kết thúc tác vụ",
+        "endProcessTree": "Kết thúc cây tiến trình",
+        "openFileLocation": "Mở vị trí tệp",
+        "properties": "Thuộc tính"
+      }
+    }
+  },
+  "strings": {
+    "running": "Đang chạy",
+    "suspended": "Đã tạm ngưng",
+    "ended": "Đã kết thúc",
+    "errorTitle": "Trình khám phá tiến trình",
+    "processUnavailable": "Tiến trình không còn khả dụng.",
+    "endFailed": "Không thể kết thúc tiến trình. Lỗi Windows: {0}.",
+    "pathUnavailable": "Không có vị trí của tệp thực thi.",
+    "openLocationFailed": "Không thể mở vị trí tệp. Lỗi Windows: {0}.",
+    "propertiesFailed": "Không thể mở thuộc tính tệp. Lỗi Windows: {0}.",
+    "openPanelFailed": "Không thể mở ngăn Trình khám phá tiến trình."
+  }
+}

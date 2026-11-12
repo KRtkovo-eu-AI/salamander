@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\automation\automation.atp"
+TEXTVERSION,"2.8 (x64)"
+VERSION,"2,8,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[DIALOG 100]
+205,64,1,"Polje za unos"
+1150,8,8,189,8,1,"Upit:"
+101,8,18,189,12,1,""
+1,48,42,50,14,1,"U redu"
+2,107,42,50,14,1,"Odustani"
+
+[DIALOG 101]
+332,143,1,"Konfiguracija automatizacije"
+375,8,9,67,8,1,"Direktoriji &skripti:"
+371,8,19,316,73,1,""
+1001,8,102,140,10,1,"Omogući &otklanjanje pogrešaka skripti"
+1,75,121,50,14,1,"U redu"
+2,141,121,50,14,1,"Odustani"
+9,207,121,50,14,1,"&Pomoć"
+
+[MENU 106]
+0,1,"[POPUP]"
+40013,1,"Pregledaj…"
+40014,1,"Direktorij Salamandera"
+40015,1,"Varijabla okruženja"
+
+[STRINGTABLE 0]
+1,1,"Automatizacija"
+2,1,"Automatizira uobičajene zadatke pomoću skripti."
+3,1,"O dodatku"
+
+[STRINGTABLE 1]
+128,1,"Pogreška skripte automatizacije"
+129,1,"Redak:\t%u\r\n"
+130,1,"Stupac:\t%u\r\n"
+131,1,"Pogreška:\t%s"
+132,1,"Pokreni odabranu skriptu"
+134,1,"Napredak operacije"
+135,1,"Izvor:\t%s\r\n"
+136,1,"Otvori izbornik skripti"
+137,1,"(nema skripte)"
+138,1,"Izvršavanje skripte '%s' nije uspjelo.\r\n%s"
+139,1,"Nepoznata pogreška."
+140,1,"1\t&Prekini"
+141,1,"1\t&Otklanjanje pogrešaka\t2\t&Prekini"
+142,1,"Direktorij skripti"
+143,1,"Odaberite direktorij repozitorija skripti."
+
+[STRINGTABLE 2]
+144,1,"Prekini skriptu"
+145,1,"Prekini pokrenutu skriptu\tCtrl+Break"
+146,1,"Prozor Open Samandarina zaključao je dodatak za automatizaciju. Pričekajte da skripta završi."
+147,1,"Nije uspjela inicijalizacija skriptnog mehanizma."
+
+[STRINGTABLE 3]
+256,1,"Nevaljana arhiva."
+257,1,"Nije moguće zatvoriti trenutačnu putanju."
+258,1,"Putanja je skraćena."
+259,1,"Nije moguće promijeniti svojstvo ili pozvati metodu %s dok je prozor prikazan."
+260,1,"Nije moguće promijeniti svojstvo ili pozvati metodu %s dok je prozor skriven."
+261,1,"Učitavanje dodatka nije uspjelo."
+262,1,"Pogreška dodatka."
+263,1,"Nije moguće premjestiti datoteku u predmemoriju diska."
+264,1,"Pogreška sintakse maske datoteke."
+265,1,"U spremnik se mogu dodati samo komponente."
+266,1,"Obrasci se ne mogu dodavati u spremnik."
+267,1,"Korisnik je prekinuo izvršavanje skripte."
+

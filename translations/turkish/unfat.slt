@@ -1,0 +1,30 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\unfat\unfat.atp"
+TEXTVERSION,"1.3 (x64)"
+VERSION,"1,3,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnFAT"
+1001,1,"Eklenti Hakkında"
+1003,1,"FAT 12, 16 ve 32 disk görüntülerine göz atın ve bunları ayıklayın."
+
+[STRINGTABLE 1]
+1100,1,""%s" dosyası açılamıyor."
+1101,1,""%s" dosyası okunurken hata oluştu."
+1102,1,""%s" dosyası ayrıştırılırken hata oluştu.\n\n%s"
+1103,1,"Önyükleme sektörü bozuk veya bu dosya FAT 12, 16 ya da 32 görüntüsü değil."
+
+[STRINGTABLE 2]
+1104,1,""%s" dosyasından dizin okunurken hata oluştu.\n%s\nSektör: %d, Ofset: 0x%s\n\nDosya geçerli bir FAT 12, 16 ya da 32 görüntüsü değil."
+1106,1,""%s" dosyasından dosya okunurken hata oluştu.\n%s\nKüme: %d\n\nDosya geçerli bir FAT 12, 16 ya da 32 görüntüsü değil."
+1107,1,"Dosya yazılırken hata oluştu"
+1108,1,""%s" dosyası tüm sabit diskin görüntüsü gibi görünüyor.\nUnFAT eklentisi bu tür görüntüleri desteklemiyor."
+1109,1,"FAT görüntüsü ayıklanıyor - %s"
+1110,1,"ayıklanıyor: %s"
+

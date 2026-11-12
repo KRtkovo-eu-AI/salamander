@@ -29,7 +29,7 @@
 #endif
 
 // for SLG translators
-#define VERSINFO_SLG_WEB     "www.altap.cz"
+#define VERSINFO_SLG_WEB     "samandarin.net"
 #define VERSINFO_SLG_COMMENT "English version"
 
 #endif // __IEVIEWER_VERSINFO_RH2

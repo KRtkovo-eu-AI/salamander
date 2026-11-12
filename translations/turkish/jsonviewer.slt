@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"JSON Görüntüleyicisi .NET"
+47,1,"Eklenti Hakkında"
+
+[STRINGTABLE 1]
+48,1,"JSON belgelerini yönetilen WinForms arayüzüyle gösteren dahili görüntüleyici."
+49,1,"open.samandarin.net"
+50,1,"Görüntüleyicinin gerektirdiği eşitleme olayı hazırlanamadı."
+51,1,"Seçilen JSON dosyası açılamayacak kadar büyük. 8 MB'den büyük dosyalar desteklenmiyor."
+

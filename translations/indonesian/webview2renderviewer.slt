@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Penampil Render WebView2"
+47,1,"Tentang Plugin"
+
+[STRINGTABLE 1]
+48,1,"Penampil untuk menampilkan HTML, Markdown, dan dokumen web yang dirender menggunakan WebView2."
+49,1,"open.samandarin.net"
+50,1,"Tidak dapat menyiapkan peristiwa sinkronisasi yang diperlukan oleh penampil."
+51,1,"File yang dipilih terlalu besar untuk dibuka. File yang lebih besar dari 32 MB tidak didukung."
+52,1,"&File"
+53,1,"&Tampilan"
+54,1,"&Tutup\tEsc"
+55,1,"&Ulangi\tF5"
+56,1,"&Besar\tCtrl++"
+57,1,"&Perkecil\tCtrl+-"
+58,1,"&Reset\tCtrl+0"
+59,1,"Memuat..."
+60,1,"Siap"
+61,1,"Tidak dapat menginisialisasi perender WebView2."
+62,1,"Tidak dapat membuka file yang dipilih."
+63,1,"Tampilkan &Nomor Baris"
+
+[STRINGTABLE 2]
+64,1,"&Bungkus\tF2"
+65,1,"Tampilkan &Whitespace"
+66,1,"&Edit"
+67,1,"&Tiru\tCtrl+C"
+68,1,"&Semua\tCtrl+A"
+69,1,"&Cetak...\tCtrl+P"
+

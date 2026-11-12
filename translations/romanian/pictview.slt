@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\pictview\pictview.atp"
 TEXTVERSION,"2.27 (x64)"
-VERSION,"2,27,0,196"
+VERSION,"2,27,0,197"
 
 [TRANSLATION]
 LANGID,1048
@@ -17,11 +17,11 @@ COMMENT,"Versiunea romana"
 2011,46,19,288,8,1,""
 3001,46,40,190,8,1,"Acest produs este bazat pe libraria"
 2008,46,51,277,8,1,"%hs - Motor de Procesare a Imaginii"
-3002,46,62,220,8,1,"Copyright © 1997-2026 Open Salamander Authors, Open Samandarin Authors"
+3002,46,62,220,8,1,"Copyright © 1997-2026 Open Samandarin Authors"
 3005,46,81,50,8,1,"Tipuri:"
 2009,99,81,120,8,1,"WIC codecs from Microsoft"
 3006,46,92,50,8,1,"Home page:"
-2010,99,92,160,8,1,"https://samandarin.net/"
+2010,99,92,160,8,1,"open.samandarin.net"
 3004,2,108,339,1,1,""
 
 [DIALOG 2020]
@@ -55,6 +55,10 @@ COMMENT,"Versiunea romana"
 3000,6,5,256,43,1,"Taste PageUp && PageDown, rotita mouse"
 2061,14,17,203,12,1,"Utilizate pentru depla&sare imagine"
 2062,14,29,218,12,1,"Utilizate pentru accesare &imagine anterioara/urmatoare"
+3001,6,52,256,65,1,"Roată mouse"
+2063,14,64,203,12,1,"Pentru depla&sare imagine"
+2064,14,78,203,12,1,"&Mărire imagine"
+2065,14,92,218,12,1,"&Imagine anterioară/următoare"
 
 [DIALOG 2070]
 268,150,1,"Unelte"
@@ -385,7 +389,7 @@ COMMENT,"Versiunea romana"
 1032,1,"Captura ecran a fost anulata."
 1033,1,"Captura Ecran"
 1034,1,"<Clipboard>"
-1035,0,"<Screen Capture>"
+1035,1,"<Screen Capture>"
 1036,1,"Gol"
 1037,1,"Fisiere Grafice Comune (*.bmp;*.cur;*.gif;*.icn;*.ico;*.jpg;*.jpeg;*.lbm;*.pcx;*.png;*.psd;*.tga;*.tif;*.tiff)|*.bmp;*.cur;*.gif;*.icn;*.ico;*.jpg;*.jpeg;*.lbm;*.pcx;*.png;*.psd;*.tga;*.tif;*.tiff|Toate Fisierele (*.*)|*.*|"
 1038,1,"<Scan>"

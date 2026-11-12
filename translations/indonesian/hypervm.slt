@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\hypervm\hypervm.atp"
+TEXTVERSION,"1.10 (x64)"
+VERSION,"1,10,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Mesin Virtual Hyper-V"
+47,1,"Tentang Plugin"
+
+[STRINGTABLE 1]
+48,1,"Tampilkan mesin virtual Hyper-V lokal di panel."
+49,1,"open.samandarin.net"
+50,1,"Lihat &Mesin Virtual Hyper-V"
+51,1,"Buat &VHD"
+52,1,"&Pasang VHD"
+60,1,"Buat dan Pasang Hard Disk Virtual"
+61,1,"Pasang Hard Disk Virtual"
+62,1,"Lepaskan Hard Disk Virtual"
+63,1,"Lokasi:"
+
+[STRINGTABLE 2]
+64,1,"Jelajahi..."
+65,1,"Ukuran hard disk virtual:"
+66,1,"Format hard disk virtual"
+67,1,"Jenis hard disk virtual"
+68,1,"Mendukung disk virtual hingga 2040 GB."
+69,1,"Mendukung disk virtual lebih dari 2040 GB (maksimal 64 TB) dan tahan terhadap gangguan daya."
+70,1,"Ukuran tetap (Disarankan)"
+71,1,"Berkembang dinamis"
+72,1,"File hard disk virtual dialokasikan dengan ukuran maksimum saat dibuat."
+73,1,"File hard disk virtual membesar hingga ukuran maksimum saat data ditulis ke disk."
+74,1,"Hanya-baca."
+75,1,"Tentukan lokasi hard disk virtual di mesin."
+76,1,"Tentukan lokasi hard disk virtual di komputer."
+77,1,"Lepaskan hard disk virtual {0}?"
+78,1,"Hard disk virtual terpasang: {0}"
+79,1,"Tidak ditemukan mesin virtual Hyper-V."
+
+[STRINGTABLE 3]
+80,1,"Konfigurasi"
+81,1,"Belum ada konfigurasi."
+82,1,"OK"
+83,1,"Batal"
+84,1,"Hard disk virtual (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Mesin Virtual Hyper-V"
+86,1,"Buat dan Pasang Hard Disk Virtual"
+87,1,"Pasang Hard Disk Virtual"
+

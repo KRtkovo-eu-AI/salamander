@@ -1,12 +1,12 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\jsonviewer\jsonviewer.atp"
 TEXTVERSION,"1.5 (x64)"
-VERSION,"1,5,0,196"
+VERSION,"1,5,0,197"
 
 [TRANSLATION]
 LANGID,2052
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"内部查看器，使用托管的 WinForms UI 显示 JSON 文档。"
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"无法准备查看器所需的同步事件。"
 51,1,"所选 JSON 文件过大，无法打开。不支持大于 8 MB 的文件。"
 

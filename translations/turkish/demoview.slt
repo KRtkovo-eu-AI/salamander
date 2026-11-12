@@ -1,0 +1,58 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\demoview\demoview.atp"
+TEXTVERSION,"1.0.3 (x64)"
+VERSION,"1,0,3,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
+
+[DIALOG 490]
+205,61,1,"Görüntüleyici"
+3000,4,6,199,41,1,"Pencere konumu"
+491,11,17,93,12,1,"&Kapatırken kaydet"
+492,11,29,184,12,1,"Salamander penceresinin konumuna &ayarla"
+
+[STRINGTABLE 0]
+46,1,"DemoView"
+47,1,"Eklenti Hakkında"
+
+[STRINGTABLE 1]
+48,1,"Bu eklenti kendi görüntüleyici eklentinizi oluşturmanıza yardımcı olmalı."
+49,1,"www.altap.cz"
+50,1,"DemoView'de bir istisna oluştu, lütfen yazarları bilgilendirin!\nBir .DMV dosyasıyla çalışırken istisna oluştuysa,\nlütfen bu .DMV dosyasıyla hatayı yeniden üretmeyi deneyin ve istisna\nyine oluşursa bize bu .DMV dosyasını gönderin (hatayı yeniden üretip düzelteceğiz).\nTeşekkürler!"
+51,1,"petr.solin@altap.cz"
+52,1,"Yapılandırma zaten açık."
+53,1,"Bazı DemoView görüntüleyici pencereleri açık. Kapatılsın mı?"
+54,1,"DemoView Yapılandırma"
+55,1,"Geçersiz sayı!"
+56,1,"DemoView Dosyaları (*.dmv)|*.dmv|Tüm Dosyalar (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Dosya"
+2001,1,"&Aç\tCtrl+O"
+2002,1,"&Çıkış"
+2010,1,"&Düzenle"
+2011,1,"&Kes\tCtrl+X"
+2012,1,"&Kopyala\tCtrl+C"
+2013,1,"&Yapıştır\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Görünüm"
+2021,1,"&Filtre"
+2022,1,"Filtre"
+2025,1,"&Seçenekler"
+2026,1,"&Yapılandırma..."
+
+[STRINGTABLE 4]
+2032,1,"&Yardım"
+2033,1,"&Hakkında"
+
+[STRINGTABLE 5]
+2500,1,"Kes\tCtrl+X"
+2501,1,"Kopyala\tCtrl+C"
+2502,1,"Yapıştır\tCtrl+V"
+2503,1,"Filtre\tCtrl+U"
+

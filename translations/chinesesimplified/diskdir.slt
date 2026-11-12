@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\diskdir\diskdir.atp"
 TEXTVERSION,"1.1 (x64)"
-VERSION,"1,1,0,196"
+VERSION,"1,1,0,197"
 
 [TRANSLATION]
 LANGID,2052
 AUTHOR,"KRtkovo.eu"
 WEB,"samandarin.net"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 200]
 278,94,1,"创建 DiskDir 目录"
@@ -29,7 +29,7 @@ COMMENT,"English version"
 105,1,"DiskDir 目录"
 106,1,"目录路径无效或过长。"
 107,1,"该目录名已被其他目录使用。"
-108,0,"The catalog already exists:\n\n"
+108,1,"目录已存在：\n\n"
 109,1,"\n\n要覆盖吗？"
 110,1,"DiskDir 目录不存储文件内容，因此无法移动源文件。"
 111,1,"不支持向现有 DiskDir 目录添加条目。"

@@ -1,0 +1,146 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\demoplug\demoplug.atp"
+TEXTVERSION,"2.0 (x64)"
+VERSION,"2,0,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[DIALOG 490]
+205,61,1,"Penampil"
+3000,4,6,199,41,1,"Posisi Jendela"
+491,11,17,86,12,1,"&Simpan saat menutup"
+492,11,29,156,12,1,"Atur ke posisi jendela Salamander(&E)"
+
+[DIALOG 500]
+205,84,1,"Halaman pertama"
+3000,7,10,40,8,1,"String uji:"
+501,53,8,144,12,1,""
+3001,7,25,44,8,1,"Angka uji:"
+502,53,23,54,12,1,""
+3002,112,25,72,8,1,"harus kurang dari 10"
+3003,57,53,143,1,1,""
+3004,5,49,56,8,1,"Ini kotak kombo"
+3005,15,62,59,8,1,"Kotak kombo uji:"
+503,61,60,113,50,1,""
+
+[DIALOG 510]
+205,61,1,"Halaman kedua"
+511,5,5,60,12,1,"Kotak centang"
+512,5,20,64,12,1,"Tombol radio 1"
+513,5,32,64,12,1,"Tombol radio 2"
+514,5,44,64,12,1,"Tombol radio 3"
+
+[DIALOG 520]
+205,68,1,"Jalur Koneksi"
+3000,7,10,51,8,1,"&Jalur koneksi:"
+521,7,20,191,80,1,""
+1,48,45,50,14,1,"OK"
+2,107,45,50,14,1,"Batal"
+
+[DIALOG 530]
+205,79,1,"Masukkan Jalur Disk"
+3000,7,10,40,8,1,"Jalur:"
+531,53,8,144,12,1,""
+532,9,31,162,12,1,"Jalur ke berkas (nonaktif = jalur ke direktori)"
+1,18,55,50,14,1,"OK"
+2,77,55,50,14,1,"Batal"
+9,136,55,50,14,1,"Bantuan"
+
+[DIALOG 540]
+353,77,1,""
+3000,-2,11,42,8,1,"Menghapus"
+541,43,11,305,8,1,""
+3001,16,35,24,8,1,"Total:"
+542,43,34,297,12,1,""
+2,151,57,50,14,1,"Batal"
+
+[DIALOG 550]
+463,236,1,"Kontrol yang disediakan Open Samandarin"
+3000,6,4,254,108,1,"CGUIStaticTextAbstract"
+3001,14,17,92,8,1,"Teks statis tidak terpasang"
+551,102,17,152,8,1,"Sistem dimulai %d md yang lalu."
+3002,14,27,75,8,1,"0 (tanpa flag)"
+565,102,27,152,8,1,"contoh"
+3003,14,37,75,8,1,"STF_CACHED_PAINT"
+554,102,37,152,8,1,"contoh"
+3004,14,47,75,8,1,"STF_BOLD"
+552,102,47,152,8,1,"&Teks tebal"
+3005,14,56,75,8,1,"STF_UNDERLINE"
+553,102,56,152,8,1,"Teks bergaris bawah"
+3006,14,66,75,8,1,"STF_END_ELLIPSIS"
+556,102,66,152,8,1,"String yang sangat panjang."
+3007,14,76,75,8,1,"STF_PATH_ELLIPSIS"
+555,102,76,216,8,1,"C:\\Program Files\\Some Application With Long Path\\example.exe"
+3008,14,87,75,8,1,"STF_PATH_ELLIPSIS"
+564,102,87,160,8,1,"ftp://ftp.altap.cz/pub/salamander/example.exe"
+3009,118,97,136,8,1,"Seret teks untuk mengubah ukurannya."
+3010,6,118,254,66,1,"CGUIProgressBarAbstract"
+3011,15,129,60,8,1,"Label progres"
+559,15,138,235,12,1,""
+3012,15,154,79,8,1,"Progres tidak diketahui"
+570,15,163,235,12,1,""
+3013,6,188,254,40,1,"Tombol, CGUITextArrowButtonAbstract, CGUIColorArrowButtonAbstract"
+566,15,204,15,14,1,"..."
+562,37,204,15,14,1,""
+560,60,204,50,14,1,"&Pilih"
+568,117,204,50,14,1,"&Jatuhkan"
+561,174,204,33,14,1,""
+563,215,204,33,14,1,"Teks"
+3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
+3015,277,17,75,8,1,"SetActionOpen"
+557,365,17,83,8,1,"open.samandarin.net"
+3016,277,27,81,8,1,"SetActionPostCommand"
+558,365,27,60,8,1,"Katakan sesuatu!"
+3017,277,37,81,8,1,"SetActionPostCommand"
+569,365,37,52,8,1,"petunjuk mask"
+3018,269,59,185,31,1,"SetCurrentToolTip"
+567,278,73,130,8,1,"Arahkan penunjuk tetikus ke teks ini."
+2510,269,102,96,8,1,"CGUIToolbarHeaderAbstract"
+2511,269,113,185,50,1,""
+1,403,213,50,14,1,"Tutup"
+
+[STRINGTABLE 0]
+46,1,"DemoPlug"
+47,1,"Tentang Plugin"
+
+[STRINGTABLE 1]
+48,1,"Plugin ini seharusnya membantu Anda membuat plugin sendiri."
+49,1,"open.samandarin.net"
+50,1,"Terjadi pengecualian pada DemoPlug, beri tahu pembuatnya!\nJika Anda sedang menggunakan berkas .dop saat pengecualian terjadi,\ncoba ulangi masalah dengan berkas .dop tersebut; jika terjadi lagi,\nkirimkan berkas .dop kepada kami (kami akan mereproduksi dan memperbaikinya).\nTerima kasih!"
+51,1,"open.samandarin.net"
+52,1,"Konfigurasi sudah terbuka."
+53,1,"Beberapa jendela penampil DemoPlug terbuka. Apakah Anda ingin menutupnya?"
+54,1,"Konfigurasi DemoPlug"
+55,1,"Angka tidak valid!"
+56,1,"Berkas DemoPlug (*.dop)|*.dop|Semua Berkas (*.*)|*.*|"
+
+[STRINGTABLE 2]
+2000,1,"&Berkas"
+2001,1,"&Buka\tCtrl+O"
+2002,1,"&Keluar"
+2010,1,"&Edit"
+2011,1,"&Pot\tCtrl+X"
+2012,1,"&Salin\tCtrl+C"
+2013,1,"&Paste\tCtrl+V"
+
+[STRINGTABLE 3]
+2020,1,"&Tampilan"
+2021,1,"&Filter"
+2022,1,"Filter"
+2025,1,"&Opsi"
+2026,1,"&Konfigurasi..."
+
+[STRINGTABLE 4]
+2032,1,"&Bantuan"
+2033,1,"&Tentang"
+
+[STRINGTABLE 5]
+2500,1,"Potong\tCtrl+X"
+2501,1,"Salin\tCtrl+C"
+2502,1,"Tempel\tCtrl+V"
+2503,1,"Filter\tCtrl+U"
+

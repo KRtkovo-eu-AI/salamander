@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\diskdir\diskdir.atp"
 TEXTVERSION,"1.1 (x64)"
-VERSION,"1,1,0,196"
+VERSION,"1,1,0,197"
 
 [TRANSLATION]
 LANGID,1051
 AUTHOR,"KRtkovo.eu"
 WEB,"samandarin.net"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 200]
 278,94,1,"Vytvoriť katalóg DiskDir"
@@ -29,7 +29,7 @@ COMMENT,"English version"
 105,1,"Katalóg DiskDir"
 106,1,"Cesta k katalógu je neplatná alebo príliš dlhá."
 107,1,"Názov katalógu už používa priečinok."
-108,0,"The catalog already exists:\n\n"
+108,1,"Katalóg už existuje:\n\n"
 109,1,"Chcete ho prepísať?\n\n"
 110,1,"Katalógy DiskDir neuchovávajú obsah súborov, takže zdrojové súbory sa nedajú premiestniť."
 111,1,"Pridávanie záznamov do existujúceho katalógu DiskDir nie je podporované."

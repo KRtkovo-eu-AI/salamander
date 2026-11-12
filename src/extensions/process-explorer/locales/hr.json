@@ -1,0 +1,52 @@
+{
+  "name": "Upravitelj procesa",
+  "description": "Prikazuje pokrenute procese sustava Windows u ploči datotečnog sustava Salamandera.",
+  "commands": {
+    "ProcessExplorer.open": "Otvori upravitelj procesa"
+  },
+  "fileSystems": {
+    "processes": {
+      "name": "Pokrenuti procesi",
+      "columns": {
+        "pid": {
+          "name": "PID",
+          "description": "Identifikator procesa"
+        },
+        "status": {
+          "name": "Status",
+          "description": "Status procesa"
+        },
+        "userName": {
+          "name": "Korisnik",
+          "description": "Korisnički račun koji je vlasnik procesa"
+        },
+        "cpu": {
+          "name": "CPU",
+          "description": "Trenutačno korištenje procesora"
+        },
+        "memory": {
+          "name": "Memorija",
+          "description": "Aktivni privatni radni skup"
+        }
+      },
+      "actions": {
+        "endTask": "Završi zadatak",
+        "endProcessTree": "Završi stablo procesa",
+        "openFileLocation": "Otvori mjesto datoteke",
+        "properties": "Svojstva"
+      }
+    }
+  },
+  "strings": {
+    "running": "Pokrenut",
+    "suspended": "Obustavljen",
+    "ended": "Završen",
+    "errorTitle": "Upravitelj procesa",
+    "processUnavailable": "Proces više nije dostupan.",
+    "endFailed": "Proces nije moguće završiti. Pogreška sustava Windows: {0}.",
+    "pathUnavailable": "Mjesto izvršne datoteke nije dostupno.",
+    "openLocationFailed": "Nije moguće otvoriti mjesto datoteke. Pogreška sustava Windows: {0}.",
+    "propertiesFailed": "Nije moguće otvoriti svojstva datoteke. Pogreška sustava Windows: {0}.",
+    "openPanelFailed": "Nije moguće otvoriti ploču upravitelja procesa."
+  }
+}

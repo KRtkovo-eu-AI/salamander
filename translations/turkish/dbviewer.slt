@@ -1,0 +1,228 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\dbviewer\dbviewer.atp"
+TEXTVERSION,"1.27 (x64)"
+VERSION,"1,27,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[DIALOG 12200]
+235,181,1,"Özellikler"
+1,179,162,50,14,1,"Tamam"
+13000,4,155,227,1,1,""
+12201,5,5,224,143,1,""
+
+[DIALOG 12220]
+282,105,1,"Database Viewer Yapılandırması"
+13000,6,10,270,35,1,"Yazı tipi"
+12221,13,23,50,14,1,"&Yazı tipi"
+12222,69,23,200,14,1,""
+13001,6,48,270,27,1,"Pencere konumu"
+12223,14,58,73,12,1,"Kapatırken &kaydet"
+12224,107,58,172,12,1,"Salamander ana penceresinin konumuna &ayarla"
+12225,13,85,60,14,1,"CSV Seçenekleri..."
+1,113,85,50,14,1,"Tamam"
+2,168,85,50,14,1,"İptal"
+9,223,85,50,14,1,"Yardım"
+
+[DIALOG 12240]
+282,178,1,"Alanlar"
+12241,6,6,270,142,1,""
+13000,4,153,274,1,1,""
+12242,6,159,69,14,1,"&Varsayılanları Geri Yükle"
+1,115,159,50,14,1,"Tamam"
+2,170,159,50,14,1,"İptal"
+9,225,159,50,14,1,"Yardım"
+
+[DIALOG 12250]
+303,137,1,"CSV Seçenekleri"
+13000,6,6,90,101,1,"&Ayırıcı"
+12264,15,18,60,12,1,"Otomatik seç"
+12261,15,32,60,12,1,"Sekme"
+12260,15,46,67,12,1,"Noktalı virgül (;)"
+12259,15,60,60,12,1,"Virgül (,)"
+12258,15,74,60,12,1,"Boşluk ( )"
+12257,15,88,32,12,1,"Diğer"
+12256,49,88,16,12,1,""
+13001,106,6,90,101,1,"Metin &niteleyicisi"
+12262,115,18,60,12,1,"Otomatik seç"
+12255,115,32,74,12,1,"Çift tırnak işareti"
+12254,115,46,69,12,1,"Tek tırnak işareti"
+12253,115,60,60,12,1,"Yok"
+13002,206,6,90,101,1,"&İlk Satır"
+12263,215,18,60,12,1,"Otomatik seç"
+12265,215,32,76,12,1,"Sütun adları olarak"
+12266,215,46,60,12,1,"Veri olarak"
+1,136,118,50,14,1,"Tamam"
+2,191,118,50,14,1,"İptal"
+9,246,118,50,14,1,"Yardım"
+12252,6,118,63,14,1,"&Varsayılan olarak ayarla"
+
+[DIALOG 12300]
+210,131,1,"Bul"
+13000,28,11,174,1,1,""
+13001,9,7,17,8,1,"&Bul"
+12301,16,17,182,64,1,""
+13002,38,47,164,1,1,""
+13003,9,43,39,8,1,"Seçenekler"
+12302,16,53,68,12,1,"İleriye &doğru ara"
+12303,16,65,72,12,1,"&Geriye doğru ara"
+12304,113,53,61,12,1,"&Tam sözcükler"
+12305,113,65,100,12,1,"&Büyük/küçük harfe duyarlı"
+12306,113,77,75,12,1,"&Düzenli ifade"
+13004,8,102,194,1,1,""
+1,20,110,50,14,1,"Tamam"
+2,80,110,50,14,1,"İptal"
+9,140,110,50,14,1,"Yardım"
+
+[DIALOG 12400]
+123,54,1,"Kayda Git"
+13000,8,9,29,8,1,"&Kayıt:"
+100,40,7,74,12,1,""
+1,8,32,50,14,1,"Tamam"
+2,65,32,50,14,1,"İptal"
+
+[STRINGTABLE 0]
+11089,1,"Veritabanı Görüntüleyicisi"
+11090,1,"dBase, FoxPro ve CSV veritabanı dosyalarını görüntüler."
+11092,1,"Eklenti Hakkında"
+11101,1,"Bazı Veritabanı Görüntüleyicisi pencereleri açık. Kapatmak istiyor musunuz?"
+
+[STRINGTABLE 1]
+11110,1,"Bellek yetersiz."
+11111,1,"Dosyanın veritabanı biçimi tanınmıyor."
+11112,1,"Dosya bulunamadı."
+11113,1,"Veritabanı dosyası okunamadı. Dosya kesilmiş olabilir."
+11114,1,"Veritabanı dosyasına yazılamadı."
+11115,1,"Veritabanı dosyasında arama yapılamadı."
+11116,1,"Memo dosyası kullanılamıyor."
+11117,1,"Memo dosyası bozuk."
+
+[STRINGTABLE 2]
+11120,1,"Veritabanı dosyaları (*.csv;*.dbf;*.jsonl;*.txt)|*.csv;*.dbf;*.jsonl;*.txt|Tüm Dosyalar (*.*)|*.*|"
+11121,1,"%d pt. %s (%s)"
+11122,1,"Yapılandırma zaten açık."
+11123,1,"Ad"
+11124,1,"Tür"
+11125,1,"Genişlik"
+11126,1,"Ondalık basamaklar"
+11130,1,"dBase II"
+11131,1,"dBase III"
+11132,1,"dBase IV"
+11133,1,"dBase V"
+11134,1,"Visual dBase 7"
+11135,1,"FoxPro"
+
+[STRINGTABLE 3]
+11136,1,"Bilinmiyor"
+11140,1,"Karakter"
+11141,1,"Sayı"
+11142,1,"Mantıksal"
+11143,1,"Tarih"
+11144,1,"Memo"
+11145,1,"Kayan nokta"
+11146,1,"İkili"
+11147,1,"Genel"
+11148,1,"Resim"
+11149,1,"Para birimi"
+11150,1,"Tarih/Saat"
+11151,1,"Tamsayı"
+
+[STRINGTABLE 4]
+11152,1,"Bilinmiyor"
+11153,1,"Çift duyarlıklı"
+11154,1,"Zaman damgası"
+11155,1,"Otomatik artış"
+11160,1,"En az bir alan görünür olmalıdır."
+11162,1,"Bu veritabanında geçerli alan yok."
+11163,1,"Doğru"
+11164,1,"Yanlış"
+11165,1,"Değiştirildi"
+11166,1,"Boyut"
+11167,1,"Sürüm"
+
+[STRINGTABLE 5]
+11168,1,"Kayıt sayısı"
+11169,1,"Alan sayısı"
+11170,1,"Memo alanı sayısı"
+11171,1,"Başlık boyutu"
+11172,1,"Kayıt boyutu"
+11173,1,"Kod sayfası"
+
+[STRINGTABLE 6]
+11194,1,"Düzenli ifade hatası"
+11195,1,"Bul"
+11196,1,"'%s' dizesi bulunamadı."
+11197,1,"'%s' düzenli ifadesiyle eşleşme bulunamadı."
+
+[STRINGTABLE 7]
+11200,1,"&Dosya"
+11201,1,"&Aç...\tCtr+O"
+11202,1,"&Yenile\tCtr+R"
+11203,1,"Ö&zellikler...\tCtrl+F1"
+11204,1,"&Diğer Dosyalar"
+11205,1,"&Önceki\tBackspace"
+11206,1,"&Sonraki\tSpace"
+11207,1,"Seçilen &Önceki\tCtrl+Backspace"
+11208,1,"Seçilen S&onraki\tCtrl+Space"
+11209,1,"&İlk\tShift+Backspace"
+11210,1,"&Son\tShift+Space"
+11211,1,"&Çıkış\tAlt+F4"
+
+[STRINGTABLE 8]
+11217,1,"&Düzenle"
+11218,1,"&Kopyala\tCtrl+C"
+11219,1,"Tümünü &Seç\tCtrl+A"
+11220,1,"&Bul...\tCtrl+F"
+11221,1,"&Sonrakini Bul\tCtrl+N"
+11222,1,"&Öncekini Bul\tCtrl+P"
+11223,1,"Yer İşaretini &Değiştir\tCtrl+F2"
+11224,1,"&Sonraki Yer İşareti\tF2"
+11225,1,"&Önceki Yer İşareti\tShift+F2"
+11226,1,"Tüm Yer İşaretlerini &Temizle\tCtrl+Shift+F2"
+11230,1,"&Görünüm"
+11231,1,"&Kayda Git...\tG"
+
+[STRINGTABLE 9]
+11232,1,"&Alanlar...\tI"
+11233,1,"&Tam Ekran\tF11"
+
+[STRINGTABLE 10]
+11250,1,"&Dönüştür"
+11251,1,"&Otomatik Seç"
+11252,1,"&Dönüştürme"
+11253,1,"Varsayılan Olarak Ayarla"
+11254,1,"Sonraki\tF8"
+11255,1,"Önceki\tShift+F8"
+
+[STRINGTABLE 11]
+11270,1,"&Seçenekler"
+11271,1,"C&SV Seçenekleri..."
+11272,1,"&Yapılandırma..."
+
+[STRINGTABLE 12]
+11280,1,"&Yardım"
+11281,1,"&Hakkında..."
+11282,1,"&İçindekiler\tF1"
+11283,1,"&Dizin..."
+11284,1,"&Ara..."
+
+[STRINGTABLE 13]
+11500,1,"Kopyala\tCtrl+C"
+11501,1,"Aç\tCtrl+O"
+11502,1,"Bul\tCtrl+F"
+11503,1,"Özellikler\tCtrl+F1"
+
+[STRINGTABLE 14]
+11504,1,"Tam Ekran\tF11"
+11505,1,"Geçerli Kayıt/Kayıt Sayısı\tG"
+
+[STRINGTABLE 15]
+11520,1,"&Varsayılan yazı tipini kullan"
+11521,1,"&Özel yazı tipini kullan..."
+11522,1,"varsayılan yazı tipi"
+11523,1,"özel yazı tipi"
+

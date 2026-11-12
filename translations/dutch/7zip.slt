@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\7zip\7zip.atp"
 TEXTVERSION,"1.36 (x64)"
-VERSION,"1,36,0,196"
+VERSION,"1,36,0,197"
 
 [TRANSLATION]
 LANGID,1043
@@ -31,7 +31,7 @@ COMMENT,"Nederlandse versie"
 1308,3,175,214,1,1,""
 1,53,181,50,14,1,"OK"
 2,108,181,50,14,1,"Annuleren"
-9,163,181,50,14,1,"Help"
+9,163,181,50,14,1,"Hulp"
 
 [DIALOG 1201]
 290,224,1,"Maak nieuw archief"
@@ -59,7 +59,7 @@ COMMENT,"Nederlandse versie"
 1217,10,204,50,14,1,"Con&figureren..."
 1,120,204,50,14,1,"OK"
 2,175,204,50,14,1,"Annuleren"
-9,230,204,50,14,1,"Help"
+9,230,204,50,14,1,"Hulp"
 
 [DIALOG 1202]
 257,87,1,"Voer 7-Zip wachtwoord in"
@@ -168,4 +168,5 @@ COMMENT,"Nederlandse versie"
 1096,1,"Kan één of meerdere bestanden niet toevoegen aan de lijst. Het totale pad is te lang.\nSommige directories of bestanden kunnen ontbreken in het achiefbestand."
 1097,1,"Één of meerdere mappen kunnen niet toegevoegd worden aan de lijst. Het totale pad is te lang.\nEnkele mappen of bestanden kunnen ontbreken in het achiefbestand."
 1098,1,"Naam "%s" met kompleet pad is te lang.\n\nPad: %s"
+1099,1,"Niet alle archiefvermeldingen zijn uitgepakt. Het bronarchief is behouden."
 

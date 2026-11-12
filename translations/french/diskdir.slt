@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\french\diskdir\diskdir.atp"
 TEXTVERSION,"1.1 (x64)"
-VERSION,"1,1,0,196"
+VERSION,"1,1,0,197"
 
 [TRANSLATION]
 LANGID,1036
 AUTHOR,"KRtkovo.eu"
 WEB,"samandarin.net"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"nslation"
 
 [DIALOG 200]
 278,94,1,"Créer un catalogue DiskDir"
@@ -29,7 +29,7 @@ COMMENT,"English version"
 105,1,"Catalogue DiskDir"
 106,1,"Le chemin du catalogue est invalide ou trop long."
 107,1,"Le nom du catalogue est deja utilise par un dossier."
-108,0,"The catalog already exists:\n\n"
+108,1,"Le catalogue existe déjà :\n\n"
 109,1,"\n\nVoulez-vous l'ecraser ?"
 110,1,"Les catalogues DiskDir ne stockent pas le contenu des fichiers ; les fichiers source ne peuvent donc pas etre deplaces."
 111,1,"L'ajout d'entrees a un catalogue DiskDir existant n'est pas pris en charge."

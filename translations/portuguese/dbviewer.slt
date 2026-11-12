@@ -1,0 +1,228 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\dbviewer\dbviewer.atp"
+TEXTVERSION,"1.27 (x64)"
+VERSION,"1,27,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[DIALOG 12200]
+235,181,1,"Propriedades"
+1,179,162,50,14,1,"OK"
+13000,4,155,227,1,1,""
+12201,5,5,224,143,1,""
+
+[DIALOG 12220]
+282,105,1,"Configuração do Visualizador de Banco de Dados"
+13000,6,10,270,35,1,"Fonte"
+12221,13,23,50,14,1,"&Fonte"
+12222,69,23,200,14,1,""
+13001,6,48,270,27,1,"Posição da janela"
+12223,14,58,85,12,1,"&Economizar ao fechar"
+12224,107,58,203,12,1,"&Definir para a posição da janela principal da Salamandra"
+12225,13,85,60,14,1,"Opções de CSV"
+1,113,85,50,14,1,"OK"
+2,168,85,50,14,1,"Cancelar"
+9,223,85,50,14,1,"Ajuda"
+
+[DIALOG 12240]
+282,178,1,"Campos"
+12241,6,6,270,142,1,""
+13000,4,153,274,1,1,""
+12242,6,159,69,14,1,"&Restore Defaults (Restaurar Configurações)"
+1,115,159,50,14,1,"OK"
+2,170,159,50,14,1,"Cancelar"
+9,225,159,50,14,1,"Ajuda"
+
+[DIALOG 12250]
+303,137,1,"Opções de CSV"
+13000,6,6,90,101,1,"&Separador"
+12264,15,18,78,12,1,"Seleção automática"
+12261,15,32,60,12,1,"Tab"
+12260,15,46,74,12,1,"Ponto e vírgula (;)"
+12259,15,60,60,12,1,"Virgula (,)"
+12258,15,74,60,12,1,"(space)"
+12257,15,88,32,12,1,"Outro"
+12256,49,88,16,12,1,""
+13001,106,6,90,101,1,"Texto e&Qualificador"
+12262,115,18,78,12,1,"Seleção automática"
+12255,115,32,74,12,1,"Aspas"
+12254,115,46,60,12,1,"Propostas"
+12253,115,60,60,12,1,"Nenhum"
+13002,206,6,90,101,1,"Primeira &linha"
+12263,215,18,78,12,1,"Seleção automática"
+12265,215,32,74,12,1,"Nomes de colunas"
+12266,215,46,60,12,1,"Como dados"
+1,136,118,50,14,1,"OK"
+2,191,118,50,14,1,"Cancelar"
+9,246,118,50,14,1,"Ajuda"
+12252,6,118,63,14,1,"&Definir Como Padrão"
+
+[DIALOG 12300]
+210,131,1,"Localizar"
+13000,28,11,174,1,1,""
+13001,9,7,22,8,1,"&Achar"
+12301,16,17,182,64,1,""
+13002,38,47,164,1,1,""
+13003,9,43,28,8,1,"Opções"
+12302,16,53,75,12,1,"Pesquisar porwar&d"
+12303,16,65,86,12,1,"&Pesquisar eretroceder"
+12304,113,53,74,12,1,"***&REMOVER***"
+12305,113,65,85,12,1,"&Sensível a maiúsculas"
+12306,113,77,75,12,1,"Exp&ressão regular"
+13004,8,102,194,1,1,""
+1,20,110,50,14,1,"OK"
+2,80,110,50,14,1,"Cancelar"
+9,140,110,50,14,1,"Ajuda"
+
+[DIALOG 12400]
+123,54,1,"Ir para Gravação"
+13000,8,9,38,8,1,"&Registrar: "
+100,40,7,74,12,1,""
+1,8,32,50,14,1,"OK"
+2,65,32,50,14,1,"Cancelar"
+
+[STRINGTABLE 0]
+11089,1,"Visualizador de Banco de Dados"
+11090,1,"Exibir arquivos de banco de dados d Base, Fox Pro e CSV."
+11092,1,"Sobre o plug-in"
+11101,1,"Algumas janelas do Visualizador de Banco de Dados são abertas. Deseja fechá-los?"
+
+[STRINGTABLE 1]
+11110,1,"Memória insuficiente."
+11111,1,"O arquivo tem formato de banco de dados não reconhecido."
+11112,1,"Arquivo não foi encontrado."
+11113,1,"Erro ao ler o arquivo de banco de dados. Pode ter sido truncado."
+11114,1,"Erro ao gravar o arquivo de banco de dados."
+11115,1,"Erro ao buscar o arquivo do banco de dados."
+11116,1,"Arquivo não está disponível."
+11117,1,"O arquivo de memorando está corrompido."
+
+[STRINGTABLE 2]
+11120,1,"Arquivos de banco de dados (*.csv;* .dbf;* .jsonl;*.txt)|*.csv;*.dbf;* .jsonl;*.txt|Todos os arquivos (*.*)|*.*|"
+11121,1,"%dpt.%s(%s)"
+11122,1,"A configuração já está aberta."
+11123,1,"Nome"
+11124,1,"Tipo"
+11125,1,"Largura"
+11126,1,"Decimais"
+11130,1,"d Base II"
+11131,1,"d Base III"
+11132,1,"d Base IV"
+11133,1,"d Base V"
+11134,1,"Visual d Base 7"
+11135,1,"Fox Pro"
+
+[STRINGTABLE 3]
+11136,1,"Desconhecido"
+11140,1,"Caráter"
+11141,1,"Número"
+11142,1,"Lógica"
+11143,1,"Data"
+11144,1,"Memorando"
+11145,1,"Ponto flutuante"
+11146,1,"Binário "
+11147,1,"Geral"
+11148,1,"Foto"
+11149,1,"Moeda"
+11150,1,"Data/Hora"
+11151,1,"Número inteiro"
+
+[STRINGTABLE 4]
+11152,1,"Desconhecido"
+11153,1,"Duplo"
+11154,1,"Marcação de tempo"
+11155,1,"Auto Incrementar"
+11160,1,"Pelo menos um campo deve estar visível."
+11162,1,"Não há campos válidos neste banco de dados."
+11163,1,"Verdadeiro"
+11164,1,"Falso"
+11165,1,"Modificado"
+11166,1,"Tamanho"
+11167,1,"Versão"
+
+[STRINGTABLE 5]
+11168,1,"Número de registros"
+11169,1,"Contagem de campos"
+11170,1,"Contagem de campo de memorando"
+11171,1,"Tamanho do cabeçalho"
+11172,1,"Tamanho Registro"
+11173,1,"página de código"
+
+[STRINGTABLE 6]
+11194,1,"Erro de expressão regular"
+11195,1,"Localizar"
+11196,1,"Não é possível encontrar a string '%s'."
+11197,1,"Não é possível encontrar uma correspondência para a expressão regular '%s'."
+
+[STRINGTABLE 7]
+11200,1,"&Arquivo"
+11201,1,"&Abrir...\t Ctr+O"
+11202,1,"&Atualizar\t Ctr+R"
+11203,1,"Prop&erties...\t Ctrl+F1"
+11204,1,"O&utros Arquivos"
+11205,1,"&Anterior\t Backspace"
+11206,1,"&Próximo\t Espaço"
+11207,1,"P&revious Selecionado\t Ctrl+Backspace"
+11208,1,"N&exto Selecionado\t Ctrl+Space"
+11209,1,"&Primeiro\t Shift+Backspace"
+11210,1,"&Último\t Shift+Space"
+11211,1,"E&xit\t Alt+F4"
+
+[STRINGTABLE 8]
+11217,1,"&Editar"
+11218,1,"&Copiar\t Ctrl+C"
+11219,1,"&Selecionar Todos\t Ctrl+A"
+11220,1,"&Localizar...\t Ctrl+F"
+11221,1,"Localizar &Próximo\t Ctrl+N"
+11222,1,"Localizar &Anterior\t Ctrl+P"
+11223,1,"&Alternar Marcador\t Ctrl+F2"
+11224,1,"N&exto Marcador\t F2"
+11225,1,"P&revious Marcador\t Shift+F2"
+11226,1,"Limpar &Todos os Marcadores\t Ctrl+Shift+F2"
+11230,1,"&Exibir"
+11231,1,"&Ir para Gravar...\t G"
+
+[STRINGTABLE 9]
+11232,1,"Fi&elds...\t I"
+11233,1,"&Tela Cheia\t F11"
+
+[STRINGTABLE 10]
+11250,1,"&Converter"
+11251,1,"Seleção &automática"
+11252,1,"&Não Converter"
+11253,1,"Definir Como Padrão"
+11254,1,"Próximo\t F8"
+11255,1,"Anterior\t Shift+F8"
+
+[STRINGTABLE 11]
+11270,1,"&Opções"
+11271,1,"Opções de C&SV..."
+11272,1,"&Configuração"
+
+[STRINGTABLE 12]
+11280,1,"A&juda"
+11281,1,"&Sobre..."
+11282,1,"&Conteúdos\t F1"
+11283,1,"Índ&ice"
+11284,1,"Bu&scar ..."
+
+[STRINGTABLE 13]
+11500,1,"Cópia\t Ctrl+C"
+11501,1,"Abrir\t Ctrl+O"
+11502,1,"Localizar\t Ctrl+F"
+11503,1,"Propriedades\t Ctrl+F1"
+
+[STRINGTABLE 14]
+11504,1,"Tela Cheia\t F11"
+11505,1,"Registro Atual/Contagem de Registros\t G"
+
+[STRINGTABLE 15]
+11520,1,"Use a fonte pa&drão"
+11521,1,"&Usar Fonte Personalizada?"
+11522,1,"fonte padrão"
+11523,1,"Tipo de letra personalizada"
+

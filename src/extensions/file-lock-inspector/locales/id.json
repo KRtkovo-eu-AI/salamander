@@ -1,0 +1,40 @@
+{
+  "name": "Pemeriksa Kunci Berkas",
+  "commands": {
+    "FileLockInspector.inspect": "Pemeriksa Kunci Berkas..."
+  },
+  "strings": {
+    "title": "Pemeriksa Kunci Berkas",
+    "files": "Berkas",
+    "noLocks": "Tidak ditemukan proses yang mengunci berkas.",
+    "lockingProcesses": "Proses yang mengunci berkas",
+    "process": "Proses",
+    "pid": "PID",
+    "type": "Jenis",
+    "status": "Status",
+    "executable": "Berkas eksekusi",
+    "inspecting": "Mencari proses yang mengunci berkas...",
+    "lockCount": "Proses pengunci ditemukan: {0}",
+    "inspectFailed": "Pemeriksaan kunci gagal.",
+    "openLocation": "Buka lokasi",
+    "closeProcess": "Tutup proses",
+    "endProcess": "Akhiri proses...",
+    "copyReport": "Salin laporan",
+    "refresh": "Muat ulang",
+    "close": "Tutup",
+    "locationUnavailable": "Lokasi berkas eksekusi tidak tersedia untuk proses ini.",
+    "closeUnavailable": "Proses ini tidak memiliki jendela utama yang dapat ditutup dengan aman.",
+    "confirmEnd": "Akhiri proses {0} (PID {1})?{2}{2}Data yang belum disimpan dalam aplikasi tersebut mungkin hilang.",
+    "selectFile": "Pilih atau fokuskan setidaknya satu berkas terlebih dahulu.",
+    "responding": "Merespons",
+    "notResponding": "Tidak merespons",
+    "processEnded": "(proses berakhir)",
+    "appMainWindow": "Aplikasi",
+    "appOtherWindow": "Jendela latar belakang",
+    "appService": "Layanan",
+    "appExplorer": "Windows Explorer",
+    "appConsole": "Konsol",
+    "appCritical": "Proses penting",
+    "appUnknown": "Tidak diketahui"
+  }
+}

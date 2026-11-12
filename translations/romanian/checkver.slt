@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\checkver\checkver.atp"
 TEXTVERSION,"1.2.7 (x64)"
-VERSION,"1,2,7,196"
+VERSION,"1,2,7,197"
 
 [TRANSLATION]
 LANGID,1048
@@ -78,7 +78,7 @@ COMMENT,"Versiunea romana"
 218,1,"Plugin lucreaza cu Internetul.\nDoriti sa anulati aceasta sesiune de Internet?"
 220,1,"Initializez conexiunea la Internet..."
 221,1,"Initializare esuata: %s"
-222,1,"Ma conectez la \tuwww.altap.cz\tlhttps://www.altap.cz\tn..."
+222,1,"Conectare la \tuwww.altap.cz\tlhttps://www.altap.cz\tn..."
 223,1,"Conexiune esuata: %s"
 
 [STRINGTABLE 2]

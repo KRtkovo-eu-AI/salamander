@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\hypervm\hypervm.atp"
+TEXTVERSION,"1.10 (x64)"
+VERSION,"1,10,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Hyper-V Sanal Makineleri"
+47,1,"Eklenti Hakkında"
+
+[STRINGTABLE 1]
+48,1,"Yerel Hyper-V sanal makinelerini panelde gösterir."
+49,1,"open.samandarin.net"
+50,1,"&Hyper-V Sanal Makineleri Aç"
+51,1,"&VHD Oluştur"
+52,1,"VHD'yi &Bağla"
+60,1,"Sanal Sabit Disk Oluştur ve Bağla"
+61,1,"Sanal Sabit Diski Bağla"
+62,1,"Sanal Sabit Diski Ayır"
+63,1,"Konum:"
+
+[STRINGTABLE 2]
+64,1,"Gözat..."
+65,1,"Sanal sabit disk boyutu:"
+66,1,"Sanal sabit disk biçimi"
+67,1,"Sanal sabit disk türü"
+68,1,"2040 GB'a kadar sanal diskleri destekler."
+69,1,"2040 GB'tan büyük (en fazla 64 TB) sanal diskleri destekler ve güç kesintilerine dayanıklıdır."
+70,1,"Sabit boyut (Önerilen)"
+71,1,"Dinamik genişleyen"
+72,1,"Sanal sabit disk dosyası oluşturulurken en büyük boyutuna göre ayrılır."
+73,1,"Sanal sabit disk dosyası, üzerine veri yazıldıkça en büyük boyutuna kadar büyür."
+74,1,"Salt okunur."
+75,1,"Sanal sabit diskin makinedeki konumunu belirtin."
+76,1,"Sanal sabit diskin bilgisayardaki konumunu belirtin."
+77,1,"{0} sanal sabit diski ayrılsın mı?"
+78,1,"Bağlanan sanal sabit disk: {0}"
+79,1,"Hyper-V sanal makinesi bulunamadı."
+
+[STRINGTABLE 3]
+80,1,"Yapılandırma"
+81,1,"Henüz yapılandırma yok."
+82,1,"Tamam"
+83,1,"İptal"
+84,1,"Sanal sabit diskler (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Hyper-V Sanal Makineleri"
+86,1,"Sanal Sabit Disk Oluştur ve Bağla"
+87,1,"Sanal Sabit Diski Bağla"
+

@@ -1,0 +1,38 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\korean\peviewer\peviewer.atp"
+TEXTVERSION,"3.1 (x64)"
+VERSION,"3,1,0,197"
+
+[TRANSLATION]
+LANGID,1042
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"korean (automatic AI translation)"
+
+[DIALOG 8501]
+346,154,1,"Portable Executable Viewer 구성"
+1300,7,7,70,8,1,"사용 가능한 섹션(&B):"
+8700,7,17,105,130,1,""
+8702,119,17,50,14,1,"추가(&A) ->"
+8703,119,35,50,14,1,"<- 제거(&R)"
+1301,176,7,58,8,1,"표시할 섹션(&V):"
+8701,176,17,105,130,1,""
+8704,289,17,50,14,1,"위로(&U)"
+8705,289,35,50,14,1,"아래로(&D)"
+1,289,97,50,14,1,"OK"
+2,289,115,50,14,1,"취소"
+8706,289,133,50,14,1,"초기화(&S)"
+
+[STRINGTABLE 0]
+1016,1,"플러그인 정보"
+
+[STRINGTABLE 1]
+10100,1,"Portable Executable Viewer"
+10101,1,"파일 %s을(를) 열 수 없습니다."
+10102,1,"임시 파일을 만들지 못했습니다."
+10103,1,"예외가 발생했습니다.\n\n본 파일: %s\n\n본 파일이 손상되지 않았다고 생각되면 support@altap.cz로 이 파일을 보내 주세요.\n뷰어 버그를 재현하고 수정하겠습니다. 협조해 주셔서 감사합니다!"
+10104,1,"EXE, DLL 등과 같은 Portable Executable 파일에 대한 정보를 표시합니다."
+
+[STRINGTABLE 2]
+10118,1,"플러그인 구성에서 선택한 Portable Executable 섹션을 찾을 수 없습니다.\nOpen Samandarin 메인 창의 옵션 > 플러그인 구성 > Portable Executable Viewer\n메뉴에서 표시할 섹션을 설정하세요."
+

@@ -1,0 +1,38 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\peviewer\peviewer.atp"
+TEXTVERSION,"3.1 (x64)"
+VERSION,"3,1,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[DIALOG 8501]
+346,154,1,"Konfigurasi Penampil Portable Executable"
+1300,7,7,76,8,1,"Bagian yang tersedia:"
+8700,7,17,105,130,1,""
+8702,119,17,50,14,1,"&Tambah ->"
+8703,119,35,50,14,1,"<- &Hapus"
+1301,176,7,72,8,1,"Bagian yang terlihat:"
+8701,176,17,105,130,1,""
+8704,289,17,50,14,1,"Pindahkan ke &Atas"
+8705,289,35,50,14,1,"Pindahkan ke &Bawah"
+1,289,97,50,14,1,"OK"
+2,289,115,50,14,1,"Batal"
+8706,289,133,50,14,1,"&Atur Ulang"
+
+[STRINGTABLE 0]
+1016,1,"Tentang Plugin"
+
+[STRINGTABLE 1]
+10100,1,"Penampil Portable Executable"
+10101,1,"Tidak dapat membuka file %s."
+10102,1,"Pembuatan file sementara gagal."
+10103,1,"Terjadi pengecualian.\n\nFile yang ditampilkan: %s\n\nJika Anda yakin file tersebut tidak rusak, kirimkan file ini ke support@altap.cz.\nKami akan mereproduksi dan memperbaiki bug penampil. Terima kasih atas kerja samanya!"
+10104,1,"Menampilkan informasi tentang file Portable Executable seperti EXE, DLL, dll."
+
+[STRINGTABLE 2]
+10118,1,"Tidak ada bagian Portable Executable yang dipilih dalam konfigurasi plugin.\nGunakan menu Opsi > Konfigurasi Plugin > Penampil Portable Executable\ndi jendela utama Open Samandarin untuk mengatur bagian yang terlihat."
+

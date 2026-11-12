@@ -1,0 +1,83 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\textviewer\textviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[DIALOG 8500]
+310,129,1,"Prism Metin Görüntüleyici Yapılandırması"
+8701,7,7,296,86,1,"Performans"
+8700,17,21,276,18,1,"Daha hızlı yeniden açmak için Prism'i hazır &tut"
+8702,17,44,276,40,1,"Dosya kapatıldıktan sonra görüntüleyiciyi 60 saniyeye kadar hazır tutar. Ek bellek (yaklaşık 100 MB veya daha fazla) gerektirir. İlk dosya normal şekilde açılmaya devam eder."
+1,197,108,50,14,1,"Tamam"
+2,253,108,50,14,1,"İptal"
+
+[STRINGTABLE 0]
+46,1,"Prism Metin Görüntüleyici"
+47,1,"Eklenti Hakkında"
+
+[STRINGTABLE 1]
+48,1,"Prism.js sözdizimi vurgulamasıyla metin dosyalarını işleyen yerel görüntüleyici."
+49,1,"open.samandarin.net"
+50,1,"Görüntüleyicinin gerektirdiği eşitleme olayı hazırlanamadı."
+52,1,"&Dosya"
+53,1,"&Görünüm"
+54,1,"&Kapat\tEsc"
+55,1,"&Yenile\tF5"
+56,1,"&Yakınlaştır\tCtrl++"
+57,1,"&Uzaklaştır\tCtrl+-"
+58,1,"&Sıfırla\tCtrl+0"
+59,1,"Yükleniyor..."
+60,1,"Hazır"
+61,1,"WebView2 işleyicisi başlatılamadı."
+62,1,"Seçilen dosya açılamadı."
+63,1,"&Satır Numaralarını Göster"
+
+[STRINGTABLE 2]
+64,1,"&Satırları Kaydır\tF2"
+65,1,"&Boşlukları Göster"
+66,1,"Sözdizimi &Vurgulayıcı"
+67,1,"&Otomatik"
+68,1,"&Renkler"
+69,1,"&Visual Studio"
+70,1,"Varsayılan &Prism"
+71,1,"&Özel"
+72,1,"&Özeli Düzenle"
+73,1,"Özeli Düzenle"
+74,1,"&Kaydet"
+75,1,"İptal"
+76,1,"Açık"
+77,1,"Koyu"
+78,1,"Yorum"
+79,1,"Noktalama"
+
+[STRINGTABLE 3]
+80,1,"Anahtar sözcük"
+81,1,"Denetim anahtar sözcüğü"
+82,1,"Sınıf adı"
+83,1,"İşlev"
+84,1,"Dize"
+85,1,"Sayı"
+86,1,"Boole"
+87,1,"Değişken"
+88,1,"Ad alanı"
+89,1,"Düzenli ifade"
+90,1,"Özel renk paleti kaydedilemedi."
+91,1,"Salamatrix.UI kullanılamıyor."
+92,1,"Eklenti yapılandırma penceresi açılamadı."
+93,1,"&Düzenle"
+94,1,"&Kopyala\tCtrl+C"
+95,1,"Tümünü S&eç\tCtrl+A"
+
+[STRINGTABLE 4]
+96,1,"&Bul...\tCtrl+F"
+97,1,"&Sonrakini Bul\tF3"
+98,1,"&Öncekini Bul\tShift+F3"
+99,1,"&Satıra Git...\tCtrl+G"
+100,1,"&Yazdır...\tCtrl+P"
+

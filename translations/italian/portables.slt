@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\portables\portables.atp"
 TEXTVERSION,"0.6 (x64)"
-VERSION,"0,6,0,196"
+VERSION,"0,6,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 0]
 128,1,"{!}%d dispositivi selezionati{2:s|0||1|s}"

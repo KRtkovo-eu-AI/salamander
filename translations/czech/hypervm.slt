@@ -1,12 +1,12 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\czech\hypervm\hypervm.atp"
 TEXTVERSION,"1.10 (x64)"
-VERSION,"1,10,0,196"
+VERSION,"1,10,0,197"
 
 [TRANSLATION]
 LANGID,1029
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Zobrazí lokální virtuální počítače Hyper-V v panelu."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Zobrazit &Okno se stroji Hyper-V"
 51,1,"Vytvořit &VHD"
 52,1,"&Připojit VHD"

@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\unole\unole.atp"
+TEXTVERSION,"1.3 (x64)"
+VERSION,"1,3,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"Un OLE2"
+1001,1,"Memória insuficiente."
+1002,1,"Não foi possível abrir o Compound File %s.\n"
+1003,1,"Não foi possível obter o alocador de memória.\n"
+1004,1,"Não foi possível gravar no arquivo.\n"
+1005,1,"Não foi possível criar o arquivo %s.\n"
+1006,1,"Não foi possível abrir o fluxo %s.\n"
+1007,1,"Não foi possível gravar no arquivo.\n"
+
+[STRINGTABLE 1]
+1008,1,"Ocorreu um erro desconhecido."
+1014,1,"Não foi possível adicionar a entrada do arquivo à lista de arquivos."
+1015,1,"Descompactando Compound File"
+1017,1,"descompactando..."
+1018,1,"descompactando: "
+
+[STRINGTABLE 2]
+1025,1,"Desculpe, o plug-in expirou. Verifique nosso site para obter uma versão mais recente."
+
+[STRINGTABLE 3]
+1041,1,"Erro"
+1042,1,"Navegar e extrair arquivos OLE Compound."
+1043,1,"Sobre o plug-in"
+

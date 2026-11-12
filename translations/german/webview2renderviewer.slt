@@ -1,12 +1,12 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\webview2renderviewer\webview2renderviewer.atp"
 TEXTVERSION,"1.5 (x64)"
-VERSION,"1,5,0,196"
+VERSION,"1,5,0,197"
 
 [TRANSLATION]
 LANGID,1031
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Ansicht, die gerendertes HTML, Markdown und Webdokumente mithilfe von WebView2 anzeigt."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Synchronisierungsevent, das für die Ansicht erforderlich ist, konnte nicht vorbereitet werden."
 51,1,"Die ausgewählte Datei ist zu groß, um sie zu öffnen. Dateien, die größer als 32 MB sind, werden nicht unterstützt."
 52,1,"&Datei"

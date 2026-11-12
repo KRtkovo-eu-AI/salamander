@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\unlha\unlha.atp"
+TEXTVERSION,"1.15 (x64)"
+VERSION,"1,15,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[STRINGTABLE 0]
+1,1,"Ogiltig LZH-fil eller okänt filformat."
+2,1,"Fel i kontrollsumman för huvudet.\nArkivet är skadat – alla filer kan inte visas."
+3,1,"Slut på minne."
+4,1,"Skrivfel"
+5,1,"UnLHA"
+6,1,"Det gick inte att öppna arkivet."
+7,1,"Det går inte att lägga till arkivposten i fillistan."
+8,1,"Arkivet innehåller en eller flera symboliska UNIX-länkar som inte visas."
+10,1,"Det går inte att packa upp filen."
+11,1,"Fel i komprimerade data. CRC stämmer inte."
+12,1,"Fel vid läsning av arkivet."
+13,1,"Packar upp LHA-arkiv - %s"
+14,1,"Förbereder data och skapar kataloger..."
+15,1,"packar upp: "
+
+[STRINGTABLE 1]
+16,1,"packar upp..."
+17,1,"Åtgärden kan inte slutföras eftersom sökvägsnamnet är för långt."
+18,1,"Åtgärden kan inte slutföras eftersom masken är för lång."
+19,1,"Okänd komprimeringsmetod. Det går inte att packa upp filen."
+20,1,"okänd metod hoppas över..."
+21,1,"Bläddra bland och packa upp LHA-arkiv."
+22,1,"Om insticksmodulen"
+

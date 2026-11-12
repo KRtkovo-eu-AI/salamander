@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\diskdir\diskdir.atp"
+TEXTVERSION,"1.1 (x64)"
+VERSION,"1,1,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[DIALOG 200]
+278,94,1,"Tạo danh mục DiskDir"
+1004,8,9,40,8,1,"Danh mục:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,106,12,1,"Đóng gói cả tên đường dẫn"
+1003,16,48,126,12,1,"Đóng gói đệ quy các thư mục con"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"Đồng ý"
+2,144,74,50,14,1,"Hủy"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Tạo và duyệt danh mục tệp tương thích với DiskDir của Total Commander."
+102,1,"DiskDir"
+103,1,"Giới thiệu DiskDir"
+104,1,"Hỗ trợ tích hợp cho danh mục tương thích với DiskDir.\n\nCác tệp danh mục chứa tên, kích thước và dấu thời gian, không chứa nội dung tệp."
+105,1,"Danh mục DiskDir"
+106,1,"Đường dẫn danh mục không hợp lệ hoặc quá dài."
+107,1,"Tên danh mục đã được một thư mục sử dụng."
+108,1,"Danh mục đã tồn tại:\n\n"
+109,1,"\n\nBạn có muốn ghi đè không?"
+110,1,"Danh mục DiskDir không lưu nội dung tệp nên không thể di chuyển các tệp nguồn."
+111,1,"Không hỗ trợ thêm mục vào danh mục DiskDir hiện có."
+
+[STRINGTABLE 1]
+112,1,"Không thể tạo danh mục DiskDir."
+113,1,"Không tìm thấy tệp gốc được ghi trong danh mục."
+114,1,"Không tìm thấy một hoặc nhiều tệp gốc được ghi trong danh mục."
+115,1,"Không thể mở danh mục."
+116,1,"Danh mục quá lớn."
+117,1,"Không thể đọc danh mục."
+118,1,"Danh mục UTF-8 chứa văn bản không hợp lệ."
+119,1,"Tệp không chứa danh mục DiskDir hợp lệ."
+120,1,"Không thể ghi danh mục DiskDir."
+

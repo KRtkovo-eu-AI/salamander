@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\czech\undelete\undelete.atp"
 TEXTVERSION,"1.13 (x64)"
-VERSION,"1,13,0,196"
+VERSION,"1,13,0,197"
 
 [TRANSLATION]
 LANGID,1029
@@ -155,7 +155,7 @@ COMMENT,"Česká verze"
 82,1,"Formát"
 83,1,"Velikost"
 84,1,"Volných"
-85,0,"% Free"
+85,1,"% Free"
 86,1,"GUID cesta"
 90,1,"$Bitmap má nulovou velikost. Odhadnutí poškození souboru se neprovede."
 91,1,"Nelze nalézt $Bitmap na tomto svazku. Odhadnutí poškození souboru se neprovede."

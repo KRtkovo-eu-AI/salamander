@@ -1,12 +1,12 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\jsonviewer\jsonviewer.atp"
 TEXTVERSION,"1.5 (x64)"
-VERSION,"1,5,0,196"
+VERSION,"1,5,0,197"
 
 [TRANSLATION]
 LANGID,3082
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Visor interno que muestra documentos JSON mediante una interfaz de usuario de WinForms administrada."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"No se pudo preparar el evento de sincronización requerido por el visor."
 51,1,"El archivo JSON seleccionado es demasiado grande para abrirse. No se admiten archivos de más de 8 MB."
 

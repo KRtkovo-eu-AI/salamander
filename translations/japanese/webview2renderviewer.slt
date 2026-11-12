@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\japanese\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,197"
+
+[TRANSLATION]
+LANGID,1041
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Japanese (ja-JP) UI translation"
+
+[STRINGTABLE 0]
+46,1,"WebView2 Render Viewer"
+47,1,"プラグインについて"
+
+[STRINGTABLE 1]
+48,1,"WebView2 を使用してレンダリングされた HTML、Markdown、および Web ドキュメントを表示するビューアー。"
+49,1,"open.samandarin.net"
+50,1,"ビューアが必要とする同期イベントを準備できません。"
+51,1,"選択したファイルは大きすぎて開けません。 32 MB を超えるファイルはサポートされていません。"
+52,1,"ファイル(&F)"
+53,1,"表示(&V)"
+54,1,"閉じる(&C)\tEsc"
+55,1,"更新(&R)\tF5"
+56,1,"ズームイン(&I)\tCtrl++"
+57,1,"ズームアウト(&O)\tCtrl+-"
+58,1,"リセット(&R)\tCtrl+0"
+59,1,"読み込み中..."
+60,1,"準備完了"
+61,1,"WebView2 レンダラを初期化できません。"
+62,1,"選択したファイルを開けません。"
+63,1,"行番号を表示(&L)"
+
+[STRINGTABLE 2]
+64,1,"折り返しライン(&W)\tF2"
+65,1,"空白を表示(&W)"
+66,1,"モディフィカ(&M)"
+67,1,"コピア(&C)\tCtrl+C"
+68,1,"セレツィオナ トゥット(&u)\tCtrl+A"
+69,1,"スタンパ...(&a)\tCtrl+P"
+

@@ -1,0 +1,88 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\unarj\unarj.atp"
+TEXTVERSION,"1.23 (x64)"
+VERSION,"1,23,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[DIALOG 100]
+194,110,1,"Próximo volume do arquivo"
+300,12,9,170,32,1,"Insira o disco com o próximo volume do arquivo ou localize o arquivo apropriado no disco.\n\n Pressione OK quando estiver pronto."
+301,12,48,60,8,1,"Volume anterior:"
+103,73,48,109,12,1,""
+302,12,62,58,8,1,"&Próximo volume:"
+101,12,72,155,12,1,""
+102,170,72,13,12,1,"..."
+1,39,91,50,14,1,"OK"
+2,102,91,50,14,1,"Cancelar"
+
+[DIALOG 103]
+352,85,1,"Erro"
+300,6,10,26,8,1,"Nome:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Erro:"
+302,36,23,309,16,1,"O arquivo não pode ser extraído porque continua de um volume anterior. Para extrair este arquivo, você deve começar pelo volume em que o arquivo inicia."
+105,36,44,183,12,1,"&Não exibir esta mensagem no futuro."
+1,121,63,50,14,1,"OK"
+2,181,63,50,14,1,"Cancelar"
+
+[DIALOG 106]
+220,85,1,"Configuração do Un ARJ"
+300,23,22,154,8,1,"ao descompactar."
+107,12,10,237,12,1,"&Ignorar automaticamente arquivos continuados do volume anterior"
+301,23,44,111,8,1,"não pode ser listado."
+116,12,32,197,12,1,"&Não exibir aviso quando o conteúdo inteiro do arquivo"
+302,6,60,208,1,1,""
+1,57,66,50,14,1,"OK"
+2,112,66,50,14,1,"Cancelar"
+
+[DIALOG 115]
+213,107,1,"Un ARJ - Atenção"
+300,11,10,194,24,1,"Nem todos os arquivos do arquivo multivolume podem ser listados (e vistos no painel), porque alguns volumes não foram encontrados."
+301,11,41,192,16,1,"Para listar todo o conteúdo do arquivo, copie todos os volumes para o mesmo diretório."
+105,11,66,157,12,1,"&Não exibir esta mensagem no futuro"
+302,5,83,203,1,1,""
+1,153,89,50,14,1,"OK"
+
+[STRINGTABLE 0]
+1000,1,"Un ARJ"
+1001,1,"Memória insuficiente."
+1002,1,"Fim inesperado do arquivo compactado."
+1005,1,"O arquivo está corrompido."
+1006,1,"O arquivo tem formato desconhecido ou não é um arquivo ARJ válido."
+1007,1,"Não foi possível abrir o arquivo compactado."
+
+[STRINGTABLE 1]
+1008,1,"Ocorreu um erro desconhecido."
+1010,1,"Não foi possível acessar o arquivo compactado."
+1011,1,"Arquivos ARJ (*.A*)"
+1012,1,"Selecionar arquivo compactado"
+1013,1,"Erro nos dados compactados. O CRC não confere."
+1014,1,"Não foi possível adicionar a entrada do arquivo à lista de arquivos."
+1015,1,"Descompactando arquivo ARJ - %s"
+1016,1,"preparando dados e criando diretórios..."
+1017,1,"descompactando..."
+1018,1,"descompactando: "
+1019,1,"Não foi possível obter o ponteiro do arquivo: "
+1020,1,"Não foi possível gravar no arquivo:"
+1021,1,"Não foi possível definir o ponteiro do arquivo: "
+1022,1,"Não é possível concluir a operação porque o caminho é longo demais."
+1023,1,"Não é possível concluir a operação porque a máscara é longa demais."
+
+[STRINGTABLE 2]
+1024,1,"Versão desconhecida do arquivo compactado."
+1025,1,"Tipo desconhecido do arquivo compactado."
+1026,1,"O arquivo foi compactado por um método não suportado pelo plug-in Un ARJ."
+1027,1,"Desculpe, arquivos criptografados não são suportados."
+1028,1,"Volume inválido ou estrutura de arquivo desconhecida."
+1029,1,"Desculpe, o plug-in expirou. Verifique nosso site para obter uma versão mais recente."
+1030,1,"Arquivo não encontrado."
+1031,1,"Erro"
+1032,1,"Todos os arquivos (*.*)"
+1033,1,"Navegar e extrair arquivos ARJ."
+1034,1,"Sobre o plug-in"
+

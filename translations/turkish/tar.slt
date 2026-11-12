@@ -1,0 +1,64 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\tar\tar.atp"
+TEXTVERSION,"3.35 (x64)"
+VERSION,"3,35,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[STRINGTABLE 0]
+11200,1,"TAR Eklenti Hatası"
+11201,1,"Arşiv biçimi tanınmıyor veya desteklenmiyor."
+11202,1,"TAR başlığında geçersiz veri var; arşiv bozuk."
+11203,1,"Dosya veya başlık sağlama toplamı hatalı; arşiv bozuk."
+11204,1,"İç hata: dosya veri yapısı bozuk."
+11205,1,"Bilinmeyen blok imzası; atlanıyor."
+11206,1,"Gerekli dosya arşivde bulunamadı."
+11207,1,"Bellek ayırma hatası."
+
+[STRINGTABLE 1]
+11240,1,"LZH arşivleri henüz desteklenmiyor."
+
+[STRINGTABLE 2]
+11250,1,"Ayıkla"
+11251,1,"Ayıklanıyor "
+11252,1,"Atlanıyor "
+11260,1,"GZip Hatası"
+11261,1,"Bilinmeyen sıkıştırma yöntemi kullanılmış, ayıklanamıyor."
+11262,1,"Bu dosya şifrelenmiş. GZip arşivlerinde şifreleme desteklenmiyor."
+11263,1,"Bu dosya çok parçalı bir arşivin parçası. Çok parçalı GZip arşivleri desteklenmiyor."
+
+[STRINGTABLE 3]
+11264,1,"GZip başlığında bilinmeyen bayraklar bulundu, ayıklanamıyor."
+11265,1,"Arşiv dosyası açılamadı: "
+11266,1,"Dosya beklenenden önce sona erdi."
+11267,1,"Arşiv dosyası okunamadı: "
+11268,1,"Çıktı dosyasına yazılamadı: "
+11269,1,"WriteFile işlevi istenen verilerin tümünü yazmayı reddetti."
+11270,1,"GZip akışında geçersiz blok bulundu, ayıklanamıyor."
+11271,1,"TAR eklentisinde iç hata oluştu. Lütfen support@altap.cz adresine bildirin."
+11272,1,"Bellek ayırma hatası."
+11273,1,"CRC hatası."
+11274,1,"Sıkıştırılmış akışta beklenmeyen veri var; arşiv bozuk."
+11275,1,"Arşiv dosyasında konum arama hatası: "
+
+[STRINGTABLE 4]
+11280,1,"RPM Görüntüleyici"
+11281,1,"RPM Hatası"
+11282,1,"Geçici dosya adı oluşturulamadı."
+11283,1,"Geçici dosya oluşturulamadı."
+11284,1,"Dosya bir RPM arşivi olarak tanınmadı."
+11285,1,"Bu arşivin istediği RPM sürümü desteklenmiyor."
+11286,1,"Bilinmeyen RPM arşiv imzası bulundu."
+11291,1,"Dosya kaydının imzası hatalı."
+11292,1,"Dosya başlık kaydı bozuk."
+11293,1,"Bilinmeyen cpio başlık biçimi."
+
+[STRINGTABLE 5]
+11299,1,"TAR"
+11300,1,"Unix arşivlerine göz atın ve arşivleri ayıklayın."
+11301,1,"Eklenti Hakkında"
+

@@ -74,7 +74,7 @@ protected:
     BOOL Beta; // FALSE = release version; TRUE = beta version
     // allocated strings
     char* Name;                // Open Salamander
-    char* Url;                 // www.altap.cz
+    char* Url;                 // samandarin.net
     TDirectArray<char*> Infos; // a certain number of lines describing the module
 
     // internal flag for CompareWithInstalledModulesAndLogIt

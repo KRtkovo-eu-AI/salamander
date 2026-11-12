@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\hypervm\hypervm.atp"
+TEXTVERSION,"1.10 (x64)"
+VERSION,"1,10,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Máy ảo Hyper-V"
+47,1,"Về Plugin"
+
+[STRINGTABLE 1]
+48,1,"Hiển thị máy ảo Hyper-V cục bộ trong bảng."
+49,1,"open.samandarin.net"
+50,1,"Hiện &cửa sổ Máy ảo Hyper-V"
+51,1,"Tạo &VHD"
+52,1,"&Đính kèm VHD"
+60,1,"Tạo và đính kèm Đĩa ảo cứng"
+61,1,"Đính kèm Đĩa ảo cứng"
+62,1,"Ngắt đính kèm Đĩa ảo cứng"
+63,1,"Vị trí:"
+
+[STRINGTABLE 2]
+64,1,"Duyệt..."
+65,1,"Kích thước đĩa ảo cứng:"
+66,1,"Định dạng đĩa ảo cứng"
+67,1,"Loại đĩa ảo cứng"
+68,1,"Hỗ trợ đĩa ảo lên đến 2040 GB dung lượng."
+69,1,"Hỗ trợ đĩa ảo lớn hơn 2040 GB dung lượng (Giới hạn hỗ trợ tối đa 64 TB) và kháng lỗi sự kiện mất điện."
+70,1,"Kích thước cố định (Khuyến khích)"
+71,1,"Mở rộng động"
+72,1,"Tệp đĩa ảo cứng được phân bổ tối đa khi tạo đĩa ảo cứng."
+73,1,"Tệp đĩa ảo cứng tăng lên tối đa khi dữ liệu được ghi vào đĩa ảo cứng."
+74,1,"Chỉ đọc."
+75,1,"Chỉ định vị trí đĩa ảo cứng trên máy."
+76,1,"Chỉ định vị trí đĩa ảo cứng trên máy tính."
+77,1,"Ngắt đính kèm đĩa ảo cứng {0}?"
+78,1,"Đĩa ảo cứng đã đính kèm: {0}"
+79,1,"Không tìm thấy máy ảo Hyper-V nào."
+
+[STRINGTABLE 3]
+80,1,"Cấu hình"
+81,1,"Chưa có cấu hình nào."
+82,1,"OK"
+83,1,"Hủy"
+84,1,"Đĩa ảo cứng (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Máy ảo Hyper-V"
+86,1,"Tạo và đính kèm Đĩa ảo cứng"
+87,1,"Đính kèm Đĩa ảo cứng"
+

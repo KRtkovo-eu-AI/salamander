@@ -1,0 +1,109 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\unrar\unrar.atp"
+TEXTVERSION,"3.4 (x64)"
+VERSION,"3,4,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[DIALOG 100]
+194,95,1,"Sljedeći svezak arhive"
+117,12,9,170,32,1,"Umetnite disk sa sljedećim sveskom arhive ili pronađite odgovarajuću datoteku.\n\nKada budete spremni, pritisnite U redu."
+300,12,48,54,8,1,"Naziv &datoteke:"
+101,12,58,155,12,1,""
+102,170,58,13,12,1,"..."
+1,39,76,50,14,1,"U redu"
+2,102,76,50,14,1,"Odustani"
+
+[DIALOG 103]
+352,85,1,"Pogreška"
+300,6,10,26,8,1,"Naziv:"
+104,36,10,309,8,1,""
+301,-3,23,35,8,1,"Pogreška:"
+302,36,23,309,16,1,"Datoteku nije moguće raspakirati jer se nastavlja iz prethodnog sveska. Počnite od sveska u kojem datoteka počinje."
+105,36,44,183,12,1,"&Ne prikazuj više ovu poruku."
+1,121,63,50,14,1,"U redu"
+2,181,63,50,14,1,"Odustani"
+
+[DIALOG 106]
+220,115,1,"Postavke UnRAR-a"
+107,12,10,249,12,1,"&Automatski preskoči datoteke koje se nastavljaju iz prethodnih svezaka"
+116,12,32,244,12,1,"&Ne prikazuj upozorenje kada se ne može prikazati cijeli sadržaj arhive"
+300,23,22,154,8,1,"prilikom raspakiravanja."
+301,23,44,111,8,1,"ne može prikazati."
+302,6,60,208,1,1,""
+117,12,70,200,12,1,"Prikaži stupac "&Packed" pri prikazu arhive"
+303,6,90,208,1,1,""
+1,57,96,50,14,1,"U redu"
+2,112,96,50,14,1,"Odustani"
+
+[DIALOG 108]
+350,80,1,"Unos lozinke"
+113,18,18,18,20,1,""
+300,57,10,202,8,1,"Datoteka je šifrirana. Unesite lozinku za dešifriranje."
+301,57,25,35,8,1,"Datoteka:"
+104,97,25,240,8,1,""
+302,57,38,37,8,1,"&Lozinka:"
+110,97,36,157,12,1,""
+1,30,58,50,14,1,"&U redu"
+112,90,58,50,14,1,"&Sve"
+109,150,58,50,14,1,"&Preskoči"
+111,210,58,50,14,1,"Preskoči &sve"
+2,270,58,50,14,1,"Odustani"
+
+[DIALOG 115]
+213,105,1,"UnRAR - Upozorenje"
+300,11,8,194,24,1,"Nije moguće prikazati sve datoteke višedijelne arhive jer se neki njezini svesci ne mogu pronaći."
+301,11,39,194,16,1,"Za prikaz cijelog sadržaja arhive kopirajte sve sveske u istu mapu."
+105,11,64,157,12,1,"&Don't display this message in the future"
+302,5,81,202,1,1,""
+1,155,87,50,14,1,"U redu"
+
+[STRINGTABLE 0]
+1000,1,"UnRAR"
+1001,1,"Nema dovoljno memorije."
+1002,1,"Nije moguće dohvatiti naziv datoteke modula."
+1003,1,"Nije moguće učitati biblioteku '%s'."
+1004,1,"Nije moguće dohvatiti adresu procedure."
+1005,1,"Arhiva je oštećena. (Pogrešna lozinka?)"
+1006,1,"Datoteka je nepoznatog formata ili nije valjana RAR arhiva. (Pogrešna lozinka?)"
+1007,1,"Nije moguće otvoriti arhivsku datoteku."
+
+[STRINGTABLE 1]
+1008,1,"Došlo je do nepoznate pogreške."
+1009,1,"Nije moguće otvoriti svezak arhive."
+1010,1,"Nije moguće pročitati arhivsku datoteku."
+1011,1,"RAR arhivske datoteke (*.R*)"
+1012,1,"Odaberi arhivsku datoteku"
+1013,1,"Pogreška u komprimiranim podacima. CRC se ne podudara. (Pogrešna lozinka?)"
+1014,1,"Nije moguće dodati stavku arhive na popis datoteka."
+1015,1,"Raspakiravanje RAR arhive - %s"
+1016,1,"priprema podataka i stvaranje mapa..."
+1017,1,"raspakiravanje..."
+1018,1,"raspakiravanje: "
+1019,1,"Nije moguće dohvatiti pokazivač datoteke: "
+1020,1,"Nije moguće zapisati u datoteku:"
+1021,1,"Nije moguće postaviti pokazivač datoteke: "
+1022,1,"Operaciju nije moguće dovršiti jer je naziv putanje predug."
+1023,1,"Operaciju nije moguće dovršiti jer je maska preduga."
+
+[STRINGTABLE 2]
+1024,1,"Unesite barem jedan znak."
+1027,1,"Sve datoteke (*.*)"
+1028,1,"Pogreška"
+1029,1,"Datoteka nije pronađena"
+1030,1,"Neispravna verzija unrar.dll. Ponovno instalirajte dodatak UnRAR."
+1031,1,"Čini se da je riječ o višedijelnoj arhivi. Ako jest, odaberite prvi svezak i pritisnite U redu.\n\nAko nije višedijelna arhiva, pritisnite Odustani."
+1032,1,"Odaberi prvi svezak"
+1033,1,"Pregledavanje i raspakiravanje RAR arhiva."
+1034,1,"O dodatku"
+1035,1,"Datoteka nije pronađena u arhivi."
+1036,1,"Lozinka je pogrešna. Slova unesite ispravnim velikim i malim slovima. Provjerite nije li CapsLock slučajno uključen."
+
+[STRINGTABLE 3]
+1040,1,"Komprimirano"
+1041,1,"Veličina komprimirane datoteke"
+

@@ -1,10 +1,14 @@
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-11 | Preserve array-valued parameters and limit synchronization to the selected languages. | Prevent PowerShell positional binding errors and avoid copying unrelated plugin archives for each job. | | openai/gpt-5.6-luna-pro |
+# | 2026-11-11 | Use real concurrent AI batches and reusable workspaces. | Reduce translation latency and avoid rebuilding the full workspace for every interactive archive. | | openai/gpt-5.6-luna-pro |
+# | 2026-11-05 | Register fifteen major-language translation stubs. | Empty language folders need LANGID metadata before AI batch translation. | | Composer |
 <# .SYNOPSIS Headlessly translates every selected language/module using OpenRouter (default), Cursor, or OpenAI. #>
 [CmdletBinding()] param(
  [string]$BuildRoot=".\build\out\salamand\Release_x64", [string[]]$Languages, [string[]]$Modules,
  [ValidateSet("openrouter","cursor","openai")][string]$Provider=$(if($env:TRANSLATION_PROVIDER){$env:TRANSLATION_PROVIDER}else{"openrouter"}),
  [string]$Model="",
- [ValidateRange(1,32)][int]$MaxParallelRequests=4,
- [switch]$DryRun, [switch]$ForceRetranslate, [switch]$AutoTrimTranslations, [switch]$BuildLanguagePacks, [switch]$ImportOnly)
+  [ValidateRange(1,32)][int]$MaxParallelRequests=4, [ValidateRange(1,200)][int]$BatchSize=40,
+  [switch]$DryRun, [switch]$ForceRetranslate, [switch]$AutoTrimTranslations, [switch]$BuildLanguagePacks, [switch]$ImportOnly, [switch]$ReuseWorkspace)
 Set-StrictMode -Version Latest; $ErrorActionPreference="Stop"
 Import-Module (Join-Path $PSScriptRoot "Localization.Common.psm1") -Force
 $repoRoot=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent; $workspace=Join-Path $repoRoot "out\localization-openai"; $log=Join-Path $workspace "localize.log"; $apiTrace=Join-Path $workspace "openai-requests.jsonl"
@@ -24,12 +28,16 @@ $runtime=(Resolve-Path $BuildRoot).Path; $availableModules=@('salamand') + @(Get
 if($Modules){$selectedModules=Expand-List $Modules}else{$selectedModules=$availableModules}
 $unknown=@($selectedModules | Where-Object {$availableModules -notcontains $_}); if($unknown){throw "Unknown modules: $($unknown -join ', ')"}
 
-# Sync .slt files from plugin submodules into translations/
-$syncScript=Join-Path $PSScriptRoot 'sync_plugin_translations.ps1'; if(Test-Path $syncScript){ & $syncScript -RepoRoot $repoRoot }
+# Sync selected .slt files from plugin submodules into translations/
+$syncScript=Join-Path $PSScriptRoot 'sync_plugin_translations.ps1'; if(Test-Path $syncScript){ & $syncScript -RepoRoot $repoRoot -Languages $selectedLanguages }
 
 $langIdByLanguage = @{
- chinesesimplified = 2052; czech = 1029; dutch = 1043; french = 1036; german = 1031
- hungarian = 1038; italian = 1040; romanian = 1048; russian = 1049; slovak = 1051; spanish = 3082
+ arabic = 1025; bulgarian = 1026; chinesesimplified = 2052; chinesetraditional = 1028
+ croatian = 1050; czech = 1029; dutch = 1043; french = 1036; german = 1031; greek = 1032
+ hebrew = 1037; hungarian = 1038; indonesian = 1057; italian = 1040; japanese = 1041
+ korean = 1042; polish = 1045; portuguese = 1046; romanian = 1048; russian = 1049
+ slovak = 1051; spanish = 3082; swedish = 1053; turkish = 1055; ukrainian = 1058
+ vietnamese = 1066
 }
 function Set-SltLangId([string]$Path,[string]$Language){
  $langId=$langIdByLanguage[$Language]
@@ -41,7 +49,9 @@ function Set-SltLangId([string]$Path,[string]$Language){
 if($ImportOnly){
  if(-not (Test-Path (Join-Path $workspace 'runtime\utils\translator.exe'))){throw "Workspace '$workspace' does not exist. Run a full DryRun first to generate the workspace and candidates."}
 } else {
- & (Join-Path $PSScriptRoot 'prepare_translation_workspace.ps1') -BuildRoot $runtime -OutputDir $workspace -Languages $selectedLanguages -Modules $selectedModules -Force
+  $prepareArgs=@{BuildRoot=$runtime;OutputDir=$workspace;Languages=$selectedLanguages;Modules=$selectedModules}
+  if($ReuseWorkspace){$prepareArgs['Reuse']=$true}else{$prepareArgs['Force']=$true}
+  & (Join-Path $PSScriptRoot 'prepare_translation_workspace.ps1') @prepareArgs
 }
 $translator=Join-Path $workspace 'runtime\utils\translator.exe'; $failures=0; $reports=@()
 foreach($language in $selectedLanguages){foreach($module in $selectedModules){
@@ -51,7 +61,7 @@ foreach($language in $selectedLanguages){foreach($module in $selectedModules){
    Invoke-SalamanderTranslatorQuiet -TranslatorExe $translator -Arguments @('-quiet-export-slt',$skeletonDir,$project) -FailureMessage "Skeleton export failed for $language/$module." -DiagnosticLog $log
    $source=Join-Path $skeletonDir "$module.slt"; $legacy=Join-Path $repoRoot "translations\$language\$module.slt"; $rebased=Join-Path $candidateDir "$module.slt"
    $translateAllCurrentStrings=$false; if(Test-Path $legacy){ & (Join-Path $PSScriptRoot 'rebase_text_archive.ps1') -CurrentArchive $source -LegacyArchive $legacy -OutputArchive $rebased } else { Copy-Item $source $rebased; $translateAllCurrentStrings=$true }
-   $args=@($rebased,$rebased,'--language',$language,'--provider',$Provider,'--model',$Model,'--batch-size',[Math]::Max(1,40*$MaxParallelRequests),'--trace-file',$apiTrace,'--source-archive',$source); if($ForceRetranslate -or $translateAllCurrentStrings){$args+='--force-retranslate'}; if($AutoTrimTranslations){$args+='--trim-translations'}
+    $args=@($rebased,$rebased,'--language',$language,'--provider',$Provider,'--model',$Model,'--batch-size',$BatchSize,'--max-concurrency',$MaxParallelRequests,'--trace-file',$apiTrace,'--source-archive',$source); if($ForceRetranslate -or $translateAllCurrentStrings){$args+='--force-retranslate'}; if($AutoTrimTranslations){$args+='--trim-translations'}
     $json=& python (Join-Path $PSScriptRoot 'translate_slt_with_openai.py') @args; if(-not $?){throw "Translation failed."}; $report=$json|ConvertFrom-Json; if($report.failed -gt 0){Write-Warning ("{0}/{1}: {2} strings were left untranslated after validation retries." -f $language,$module,$report.failed)}; $reports += [pscustomobject]@{Language=$language;Module=$module;Found=$report.found;Translated=$report.translated;Skipped=$report.skipped;Failed=$report.failed;EstimatedInputCharacters=$report.estimated_input_characters}
   } else {
    $rebased=Join-Path $candidateDir "$module.slt"

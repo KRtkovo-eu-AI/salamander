@@ -1,0 +1,109 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\unrar\unrar.atp"
+TEXTVERSION,"3.4 (x64)"
+VERSION,"3,4,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[DIALOG 100]
+194,95,1,"Sonraki arşiv birimi"
+117,12,9,170,32,1,"Sonraki arşiv birimini içeren diski takın veya uygun dosyayı bulun.\n\nHazır olduğunuzda Tamam düğmesine basın."
+300,12,48,42,8,1,"&Dosya adı:"
+101,12,58,155,12,1,""
+102,170,58,13,12,1,"..."
+1,39,76,50,14,1,"Tamam"
+2,102,76,50,14,1,"İptal"
+
+[DIALOG 103]
+352,85,1,"Hata"
+300,6,10,26,8,1,"Ad:"
+104,36,10,309,8,1,""
+301,6,23,26,8,1,"Hata:"
+302,36,23,309,16,1,"Dosya önceki birimden devam ettiği için çıkarılamıyor. Dosyanın başladığı birimden başlayın."
+105,36,44,183,12,1,"Bu iletiyi bir daha gösterme(&D)."
+1,121,63,50,14,1,"Tamam"
+2,181,63,50,14,1,"İptal"
+
+[DIALOG 106]
+220,115,1,"UnRAR Yapılandırması"
+107,12,10,228,12,1,"Önceki birimlerden devam eden dosyaları otomatik olarak atla(&A)"
+116,12,32,199,12,1,"Arşivin tüm içeriği listelenemediğinde uyarı gösterme(&D)"
+300,23,22,154,8,1,"çıkarırken."
+301,23,44,111,8,1,"listelenemediğinde."
+302,6,60,208,1,1,""
+117,12,70,200,12,1,"Arşiv listelenirken "&Packed" sütununu göster"
+303,6,90,208,1,1,""
+1,57,96,50,14,1,"Tamam"
+2,112,96,50,14,1,"İptal"
+
+[DIALOG 108]
+350,80,1,"Parola Gir"
+113,18,18,18,20,1,""
+300,57,10,202,8,1,"Bu dosya şifreli. Şifresini çözmek için parolayı girin."
+301,57,25,26,8,1,"Dosya:"
+104,97,25,240,8,1,""
+302,57,38,37,8,1,"&Parola:"
+110,97,36,157,12,1,""
+1,30,58,50,14,1,"&Tamam"
+112,90,58,50,14,1,"&Tümü"
+109,150,58,50,14,1,"&Atla"
+111,210,58,50,14,1,"Tümünü &atla"
+2,270,58,50,14,1,"İptal"
+
+[DIALOG 115]
+213,105,1,"UnRAR - Uyarı"
+300,11,8,194,24,1,"Çok birimli arşivdeki bazı birimler bulunamadığından tüm dosyalar listelenemiyor."
+301,11,39,194,16,1,"Arşivin tüm içeriğini listelemek için tüm birimleri aynı klasöre kopyalayın."
+105,11,64,157,12,1,"&Don't display this message in the future"
+302,5,81,202,1,1,""
+1,155,87,50,14,1,"Tamam"
+
+[STRINGTABLE 0]
+1000,1,"UnRAR"
+1001,1,"Yetersiz bellek."
+1002,1,"Modül dosya adı alınamıyor."
+1003,1,"'%s' kitaplığı yüklenemiyor."
+1004,1,"Yordam adresi alınamıyor."
+1005,1,"Arşiv bozuk. (Parola yanlış mı?)"
+1006,1,"Dosya biçimi bilinmiyor veya geçerli bir RAR arşivi değil. (Parola yanlış mı?)"
+1007,1,"Arşiv dosyası açılamıyor."
+
+[STRINGTABLE 1]
+1008,1,"Bilinmeyen bir hata oluştu."
+1009,1,"Arşiv birimi açılamıyor."
+1010,1,"Arşiv dosyası okunamıyor."
+1011,1,"RAR Arşiv Dosyaları (*.R*)"
+1012,1,"Arşiv Dosyası Seç"
+1013,1,"Sıkıştırılmış veride hata. CRC eşleşmiyor. (Parola yanlış mı?)"
+1014,1,"Arşiv girdisi dosya listesine eklenemiyor."
+1015,1,"RAR Arşivi Çıkarılıyor - %s"
+1016,1,"veriler hazırlanıyor ve klasörler oluşturuluyor..."
+1017,1,"çıkarılıyor..."
+1018,1,"çıkarılıyor: "
+1019,1,"Dosya işaretçisi alınamıyor: "
+1020,1,"Dosyaya yazılamıyor:"
+1021,1,"Dosya işaretçisi ayarlanamıyor: "
+1022,1,"Yol adı çok uzun olduğundan işlem tamamlanamıyor."
+1023,1,"Maske çok uzun olduğundan işlem tamamlanamıyor."
+
+[STRINGTABLE 2]
+1024,1,"En az bir karakter girin."
+1027,1,"Tüm Dosyalar (*.*)"
+1028,1,"Hata"
+1029,1,"Dosya bulunamadı"
+1030,1,"unrar.dll sürümü yanlış. UnRAR eklentisini yeniden yükleyin."
+1031,1,"Bu çok birimli bir arşiv gibi görünüyor. Öyleyse ilk birimi seçip Tamam’a basın.\n\nÇok birimli arşiv değilse İptal’e basın."
+1032,1,"İlk Birimi Seç"
+1033,1,"RAR arşivlerine göz atın ve arşivleri çıkarın."
+1034,1,"Eklenti Hakkında"
+1035,1,"Dosya arşivde bulunamadı."
+1036,1,"Parola yanlış. Harfleri doğru büyük/küçük biçimde yazın. CapsLock’un yanlışlıkla açık olmadığını kontrol edin."
+
+[STRINGTABLE 3]
+1040,1,"Sıkıştırılmış"
+1041,1,"Sıkıştırılmış dosya boyutu"
+

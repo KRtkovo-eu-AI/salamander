@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\zip\zip.atp"
 TEXTVERSION,"1.8 (x64)"
-VERSION,"1,8,0,196"
+VERSION,"1,8,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 100]
 308,201,1,"Opzioni pacchetto esteso"
@@ -50,7 +50,7 @@ COMMENT,"English version"
 115,14,58,168,12,1,"Non memorizzare cartelle &vuote in archivio ZIP"
 174,14,70,253,12,1,"Imposta ora dell'archivio sull'ora del file &più recente quando lo modifichi"
 118,14,82,279,12,1,"Usa nomi file compatibili con WinZip per archivi a più volumi (eccetto per il self-"
-3004,26,94,319,8,1,"estrazione di archivi, che usano sempre le convenzioni di denominazione di Open Samandarin)"
+3004,26,94,320,8,1,"estrazione di archivi, che usano sempre le convenzioni di denominazione di Open Samandarin)"
 3005,14,107,251,8,1,"Livello di &compressione (0 - 9, 9 compressione migliore, tempo più lungo):"
 116,218,105,16,12,1,""
 3006,14,120,180,8,1,"Lingua predefinita dell'autoestrattore (&self-extractor):"
@@ -513,7 +513,7 @@ COMMENT,"English version"
 1202,1,"Crea, sfoglia ed estrae archivi ZIP."
 1208,1,"Errore nel flusso BZIP2. L'archivio potrebbe essere danneggiato."
 1209,1,"La directory centrale di questo archivio, con l'elenco dei file, è cifrata o compressa.\nOperazione non supportata."
-1210,0,";Self-Extractor Settings\r\n\r\n;This is settings file for Self-Extractor.\r\n;\r\n;File format syntax:\r\n;\r\n"
+1210,1,";Impostazioni auto-estrattore\r\n\r\n;Questo file contiene le impostazioni dello strumento di autoestrazione.\r\n;\r\n;Sintassi del formato del file:\r\n;\r\n"
 1211,1,";Le righe che iniziano con il carattere ';' vengono trattate come commenti e\r\n;ignorate durante l'elaborazione del file di configurazione.\r\n;\r\n"
 1212,1,";Tutte le variabili tranne version sono facoltative. Se la variabile non è\r\n;presente nel file di configurazione, viene usato il valore predefinito.\r\n;I valori predefiniti delle variabili dipendenti dalla lingua (dlg_text, dlg_title,\r\n;button_text) vengono presi dal pacchetto sfx.\r\n;\r\n"
 1213,1,";Tutti i valori stringa, incluse le stringhe nulle, devono essere racchiusi in\r\n;virgolette doppie. Per inserire virgolette doppie nella stringa usare due\r\n;virgolette doppie consecutive.\r\n;\r\n;I numeri non possono essere racchiusi in virgolette doppie.\r\n\r\n"
@@ -521,7 +521,7 @@ COMMENT,"English version"
 1215,1,"\r\n;Specificare la directory di destinazione: può essere un percorso assoluto\r\n;oppure un percorso relativo. Il percorso relativo è relativo alla directory corrente\r\n;quando viene avviato l'eseguibile SFX\r\n"
 
 [STRINGTABLE 15]
-1216,0,";you could also use predefined variables at the beginning (!)\r\n;of the 'target_dir' string:\r\n;\r\n"
+1216,1,";è possibile usare anche variabili predefinite all'inizio (!)\r\n;della stringa 'target_dir':\r\n;\r\n"
 1217,1,";  $(Temp)      directory temporanea, deve comparire da sola\r\n;               nel campo target_dir non seguita da alcun percorso\r\n;               parte\r\n"
 1218,1,";  $(ProgFiles) cartella "Program Files" dell'utente\r\n;  $(WinDir) directory di Windows\r\n;  $(SysDir) directory di sistema\r\n"
 1219,1,";  $[variable]  valore di una variabile di ambiente descritta da\r\n;               'variable'\r\n;  $<regkey>    valore del valore della chiave del Registro descritta da 'regkey'\r\n;  e.g SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ProgramFilesDir\r\n\r\n"
@@ -558,4 +558,5 @@ COMMENT,"English version"
 1252,1,"KB"
 1253,1,"MB"
 1254,1,"Il file ZIP usa un formato dati non supportato per la modifica dalla versione corrente del plug-in ZIP"
+1255,1,"Non tutte le voci sono state decompresse. Archivio originale conservato."
 

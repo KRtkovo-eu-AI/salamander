@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\dutch\checkver\checkver.atp"
 TEXTVERSION,"1.2.7 (x64)"
-VERSION,"1,2,7,196"
+VERSION,"1,2,7,197"
 
 [TRANSLATION]
 LANGID,1043
@@ -13,7 +13,7 @@ COMMENT,"Nederlandse versie"
 338,238,1,"Controleren op nieuwe versies"
 103,161,220,50,14,1,"&Nu controleren"
 2,220,220,50,14,1,"S&luiten"
-9,279,220,50,14,1,"Help"
+9,279,220,50,14,1,"Hulp"
 101,5,5,328,209,1,""
 102,6,220,60,14,1,"&Configureer..."
 
@@ -42,7 +42,7 @@ COMMENT,"Nederlandse versie"
 122,6,227,60,14,1,"S&tandaardwaarden"
 1,183,227,50,14,1,"OK"
 2,242,227,50,14,1,"Annuleren"
-9,301,227,50,14,1,"Help"
+9,301,227,50,14,1,"Hulp"
 
 [DIALOG 130]
 258,200,1,"CheckVer internetverbinding instellingen"
@@ -60,7 +60,7 @@ COMMENT,"Nederlandse versie"
 404,3,174,250,1,1,""
 1,85,181,50,14,1,"OK"
 2,142,181,50,14,1,"Annuleren"
-9,199,181,50,14,1,"Help"
+9,199,181,50,14,1,"Hulp"
 
 [STRINGTABLE 0]
 190,1,"Controleer op updates van Open Samandarin en plugins."

@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\portables\portables.atp"
+TEXTVERSION,"0.6 (x64)"
+VERSION,"0,6,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[STRINGTABLE 0]
+128,1,"{!}%d perangkat dipilih{2:s|0||1|s}"
+129,1,"Tidak ada perangkat"
+130,1,"Perangkat Portabel"
+131,1,"Batal"
+132,1,"Menyiapkan..."
+133,1,"File:"
+134,1,"Total:"
+135,1,"Minimalkan"
+136,1,"Jeda"
+137,1,"Perangkat portabel berhenti merespons. Putuskan sambungan lalu sambungkan kembali. Panel Portables akan kembali ke daftar perangkat."
+138,1,"%s dari %s disalin"
+139,1,"Salin"
+140,1,"Pindahkan"
+141,1,"Hapus"
+142,1,"Menyalin"
+143,1,"Memindahkan"
+
+[STRINGTABLE 1]
+144,1,"Menghapus"
+145,1,"ke"
+146,1,"%s dari %s dipindahkan"
+147,1,"%s dari %s diproses"
+148,1,"Menghapus item yang dipilih"
+149,1,"%s '%s' gagal (0x%08X)."
+150,1,"Ganti Nama"
+151,1,"Buat Folder"
+152,1,"Lihat"
+153,1,"Nama masih ada di perangkat. Item tidak dibuat ulang."
+154,1,"File tidak dapat menggantikan folder."
+155,1,"Folder tidak dapat menggantikan file."
+156,1,"Item dengan nama ini sudah ada."
+157,1,"?"
+
+[STRINGTABLE 2]
+8192,1,"Perangkat Portabel"
+8193,1,"Kelola perangkat portabel."
+
+[STRINGTABLE 3]
+9216,1,"Tentang Plugin"
+
+[STRINGTABLE 4]
+10240,1,"Kesalahan saat Mengubah Direktori"
+10241,1,"Jalur: "%s"\r\nKesalahan: %s"
+
+[STRINGTABLE 5]
+19457,1,"Jalur yang ditentukan berisi jalur ke file."
+

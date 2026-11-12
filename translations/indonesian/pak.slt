@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\pak\pak.atp"
+TEXTVERSION,"1.73 (x64)"
+VERSION,"1,73,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[DIALOG 100]
+194,73,1,"Optimalkan Arsip PAK"
+300,8,9,64,8,1,"Ukuran data valid:"
+101,64,9,118,8,1,""
+301,8,20,58,8,1,"Ukuran total file:"
+102,64,20,118,8,1,""
+302,8,31,60,8,1,"Ruang terbuang:"
+103,64,31,118,8,1,""
+303,8,44,178,1,1,""
+1,41,53,50,14,1,"Optimalkan"
+2,101,53,50,14,1,"Batal"
+
+[STRINGTABLE 0]
+500,1,"Tidak dapat membuka file: %s"
+501,1,"Tidak dapat menginisialisasi antarmuka paklib. Sudah ada file yang terbuka."
+502,1,"Tidak dapat membuka file. Sudah ada file yang terbuka."
+503,1,"Tidak dapat memperoleh ukuran file: %s"
+504,1,"Format data tidak valid."
+505,1,"Memori tidak cukup."
+506,1,"Direktori pusat PAK saat ini"
+507,1,"Tidak dapat mengatur posisi file: %s"
+508,1,"Tidak dapat membaca file: %s"
+509,1,"Tidak dapat memperoleh posisi file: %s"
+510,1,"Tidak dapat menulis ke file: %s"
+511,1,"File tidak dapat ditambahkan karena namanya terlalu panjang."
+
+[STRINGTABLE 1]
+1000,1,"PAK"
+1001,1,"Memori tidak cukup."
+1002,1,"Tidak dapat menambahkan file ke daftar."
+1003,1,"Tidak dapat memuat paklib.dll atau memperoleh alamat prosedur: "
+1004,1,"Mengekstrak Arsip PAK - %s"
+1005,1,"Menyiapkan data..."
+1006,1,"Mengekstrak..."
+1007,1,"Mengekstrak: "
+
+[STRINGTABLE 2]
+1008,1,"Operasi tidak dapat diselesaikan karena jalur file terlalu panjang."
+1009,1,"Tidak dapat mengatur posisi file: "
+1010,1,"Tidak dapat memperoleh posisi file: "
+1011,1,"Tidak dapat menulis ke file:"
+1013,1,"Tidak dapat membuka file: "
+1014,1,"Operasi tidak dapat diselesaikan karena mask terlalu panjang."
+1015,1,"Menghapus dari Arsip PAK - %s"
+1016,1,"Menghapus..."
+1017,1,"Menghapus: "
+1018,1,"Membatalkan operasi, harap tunggu..."
+1019,1,"Mengemas ke Arsip PAK - %s"
+1020,1,"File tidak dapat ditambahkan: ukurannya terlalu besar."
+1021,1,"Mengemas..."
+1022,1,"File tidak dapat ditambahkan karena namanya terlalu panjang."
+1023,1,"Mengemas: "
+
+[STRINGTABLE 3]
+1024,1,"Tidak dapat membaca file: "
+1025,1,"Tidak dapat menghubungkan plugin ke Open Samandarin."
+1026,1,"Mengoptimalkan, harap tunggu..."
+1027,1,"Mengoptimalkan Arsip PAK - %s"
+1028,1,"Penghapusan file tidak selesai dengan sukses. Anda mungkin perlu menjalankan optimasi PAK dari menu plugin untuk mengosongkan ruang disk yang terbuang."
+1029,1,"&Optimalkan PAK"
+1030,1,"Maaf, masa berlaku plugin telah habis. Periksa situs web kami untuk versi lebih baru."
+1031,1,"Jelajahi dan ekstrak arsip Quake PAK."
+1032,1,"Tentang Plugin"
+

@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\vietnamese\portables\portables.atp"
+TEXTVERSION,"0.6 (x64)"
+VERSION,"0,6,0,197"
+
+[TRANSLATION]
+LANGID,1066
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"vietnamese (automatic AI translation)"
+
+[STRINGTABLE 0]
+128,1,"{!}%d thiết bị đã chọn{2:s|0||1|s}"
+129,1,"Không có thiết bị"
+130,1,"Thiết bị Di động"
+131,1,"Hủy"
+132,1,"Đang chuẩn bị..."
+133,1,"Tệp:"
+134,1,"Tổng:"
+135,1,"Thu nhỏ"
+136,1,"Tạm dừng"
+137,1,"Thiết bị di động đã ngừng phản hồi. Vui lòng ngắt kết nối và kết nối lại. Bảng Thiết bị Di động sẽ quay lại danh sách thiết bị."
+138,1,"%s của %s đã sao chép"
+139,1,"Sao chép"
+140,1,"Di chuyển"
+141,1,"Xóa"
+142,1,"Đang sao chép"
+143,1,"Đang di chuyển"
+
+[STRINGTABLE 1]
+144,1,"Đang xóa"
+145,1,"đến"
+146,1,"%s của %s đã di chuyển"
+147,1,"%s của %s đã xử lý"
+148,1,"Đang xóa các mục đã chọn"
+149,1,"%s '%s' thất bại (0x%08X)."
+150,1,"Đổi tên"
+151,1,"Tạo thư mục"
+152,1,"Xem"
+153,1,"Tên còn tồn tại trên thiết bị. Mục không được tạo lại."
+154,1,"Một tệp không thể thay thế một thư mục."
+155,1,"Một thư mục không thể thay thế một tệp."
+156,1,"Một mục với tên này đã tồn tại."
+157,1,"?"
+
+[STRINGTABLE 2]
+8192,1,"Thiết bị Di động"
+8193,1,"Quản lý các thiết bị di động."
+
+[STRINGTABLE 3]
+9216,1,"Về Plugin"
+
+[STRINGTABLE 4]
+10240,1,"Lỗi khi thay đổi thư mục"
+10241,1,"Đường dẫn: ""%s""\r\nLỗi: %s"
+
+[STRINGTABLE 5]
+19457,1,"Đường dẫn được chỉ định chứa đường dẫn đến một tệp."
+

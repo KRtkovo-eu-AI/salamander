@@ -318,7 +318,7 @@ static BOOL SplitFile(const char* fileName, const char* targetDir, CQuadWord& qw
                 "setlocal DisableDelayedExpansion\r\n"
                 "chcp 65001 >nul\r\n"
                 "rem encoding=utf8-cmd\r\n"
-                "rem %s, https://www.altap.cz\r\n"
+                "rem %s, https://samandarin.net\r\n"
                 "rem name=%s\r\n"
                 "rem crc32=%X\r\n"
                 "rem time=%d-%d-%d %d:%02d:%02d\r\n"

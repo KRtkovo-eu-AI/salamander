@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\german\demoplug\demoplug.atp"
 TEXTVERSION,"2.0 (x64)"
-VERSION,"2,0,0,196"
+VERSION,"2,0,0,197"
 
 [TRANSLATION]
 LANGID,1031
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 490]
 205,61,1,"Viewer"
@@ -92,7 +92,7 @@ COMMENT,"English version"
 563,215,204,33,14,1,"Text"
 3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
 3015,277,17,75,8,1,"SetActionOpen"
-557,365,17,47,8,1,"www.altap.cz"
+557,365,17,83,8,1,"open.samandarin.net"
 3016,277,27,81,8,1,"SetActionPostCommand"
 558,365,27,60,8,1,"Sagen Sie etwas!"
 3017,277,37,81,8,1,"SetActionPostCommand"
@@ -109,9 +109,9 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Dieses Plugin soll Ihnen helfen, eigene Plugins zu erstellen."
-49,1,"www.altap.cz"
+49,1,"open.samandarin.net"
 50,1,"In DemoPlug ist eine Ausnahme aufgetreten. Bitte informieren Sie die Autoren!\nWenn Sie mit einer .dop-Datei gearbeitet haben, als die Ausnahme aufgetreten ist,\nversuchen Sie bitte, den Fehler mit dieser .dop-Datei zu reproduzieren und wenn die Ausnahme\nwieder auftritt, senden Sie uns diese .dop-Datei (wir werden den Fehler reproduzieren und beheben).\nDanke!"
-51,1,"petr.solin@altap.cz"
+51,1,"open.samandarin.net"
 52,1,"Die Konfiguration ist bereits geöffnet."
 53,1,"Einige Viewer-Fenster von DemoPlug sind geöffnet. Möchten Sie sie schließen?"
 54,1,"DemoPlug-Konfiguration"

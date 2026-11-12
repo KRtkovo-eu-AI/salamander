@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\greek\folders\folders.atp"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,197"
+
+[TRANSLATION]
+LANGID,1032
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"greek (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"Φάκελοι"
+1001,1,"Σχετικά με την πρόσθετη λειτουργία"
+1003,1,"Περιήγηση σε φακέλους όπως Επιφάνεια εργασίας, Πίνακας Ελέγχου, Κάδος Ανακύκλωσης κ.λπ."
+1004,1,"'\tΕπιφάνεια εργασίας"
+

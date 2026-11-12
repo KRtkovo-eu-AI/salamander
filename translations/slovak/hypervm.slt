@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\hypervm\hypervm.atp"
 TEXTVERSION,"1.10 (x64)"
-VERSION,"1,10,0,196"
+VERSION,"1,10,0,197"
 
 [TRANSLATION]
 LANGID,1051
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 0]
 46,1,"Stroje Hyper-V"
@@ -15,7 +15,7 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Zobraziť lokálne virtuálne počítače Hyper-V v paneli."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Zobraziť okno &Stroje Hyper-V"
 51,1,"Vytvoriť &VHD"
 52,1,"&Pripojiť VHD"

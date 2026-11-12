@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\portuguese\unlha\unlha.atp"
+TEXTVERSION,"1.15 (x64)"
+VERSION,"1,15,0,197"
+
+[TRANSLATION]
+LANGID,1046
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"portuguese (automatic AI translation)"
+
+[STRINGTABLE 0]
+1,1,"Arquivo LZH inválido ou formato desconhecido."
+2,1,"Erro de checksum do cabeçalho.\n O arquivo está corrompido - nem todos os arquivos podem ser listados."
+3,1,"Memória insuficiente."
+4,1,"Erro de gravação"
+5,1,"Un LHA"
+6,1,"Erro ao abrir o arquivo compactado."
+7,1,"Não foi possível adicionar a entrada do arquivo à lista de arquivos."
+8,1,"O arquivo contém um ou mais links simbólicos UNIX, que não serão exibidos."
+10,1,"Não foi possível descompactar o arquivo."
+11,1,"Erro nos dados compactados. O CRC não confere."
+12,1,"Erro ao ler o arquivo compactado."
+13,1,"Descompactando arquivo LHA - %s"
+14,1,"preparando dados e criando diretórios..."
+15,1,"descompactando: "
+
+[STRINGTABLE 1]
+16,1,"descompactando..."
+17,1,"Não é possível concluir a operação porque o caminho é longo demais."
+18,1,"Não é possível concluir a operação porque a máscara é longa demais."
+19,1,"Método de compactação desconhecido. O arquivo não pode ser descompactado."
+20,1,"método desconhecido ignorado..."
+21,1,"Navegar e extrair arquivos LHA."
+22,1,"Sobre o plug-in"
+

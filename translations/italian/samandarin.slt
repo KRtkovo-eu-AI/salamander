@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\samandarin\samandarin.atp"
 TEXTVERSION,"0.10 (x64)"
-VERSION,"0,10,0,196"
+VERSION,"0,10,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
 WEB,"https://samandarin.net"
-COMMENT,"English version"
+COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 0]
 46,1,"Notificatore aggiornamenti Samandarin"
@@ -15,7 +15,7 @@ COMMENT,"English version"
 
 [STRINGTABLE 1]
 48,1,"Controlla le release di GitHub e offre di aprire l'ultima build di Samandarin."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Controlla aggiornamenti ora"
 51,1,"Eccezione gestita imprevista:"
 52,1,"Impossibile inizializzare l'helper gestito di Samandarin.\nVerifica che Samandarin.Managed.dll si trovi accanto al plug-in."
@@ -97,7 +97,7 @@ COMMENT,"English version"
 120,1,"L'installazione automatica è disponibile solo per pacchetti di rilascio .7z ufficiali di plugin o estensioni."
 121,1,"Il pacchetto è pronto e verrà installato dopo l'uscita di Open Samandarin."
 122,1,"L'aggiornamento è pronto e sostituirà il pacchetto installato dopo l'uscita di Open Samandarin."
-123,0,"The selected plugin requires these missing dependencies. They will be installed automatically or their web pages will be opened together:\n\n{0}\n\nContinue?"
+123,1,"Il plugin selezionato richiede le seguenti dipendenze mancanti. Verranno installate automaticamente oppure verranno aperte le relative pagine web:\n\n{0}\n\nContinuare?"
 124,1,"Manca una dipendenza richiesta nei cataloghi abilitati o non fornisce una pagina di installazione:\n\n{0}"
 125,1,"L'installazione automatica richiede un digest SHA-256 nel catalogo. Il catalogo ufficiale non ha ancora pubblicato un hash per questo pacchetto."
 126,1,"Il pacchetto scaricato non corrisponde al digest SHA-256 del catalogo. L'installazione è stata annullata."
@@ -125,8 +125,8 @@ COMMENT,"English version"
 144,1,"Possibile"
 145,1,"Richiesto durante l'installazione"
 146,1,"No"
-147,0,"This package has higher-risk capabilities:\n\n{0}\n\nInstall or update it anyway?"
+147,1,"Questo pacchetto dispone di funzionalità a rischio elevato:\n\n{0}\n\nInstallarlo o aggiornarlo comunque?"
 148,1,"Incluso con l'installatore"
-149,0,"Updates are available for the following plugins or extensions:\n\n{0}"
+149,1,"Sono disponibili aggiornamenti per i seguenti plugin o estensioni:\n\n{0}"
 150,1,"Apri aggiornamenti plug-in"
 

@@ -1,0 +1,38 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\peviewer\peviewer.atp"
+TEXTVERSION,"3.1 (x64)"
+VERSION,"3,1,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[DIALOG 8501]
+346,154,1,"Portable Executable Görüntüleyici Yapılandırması"
+1300,7,7,76,8,1,"Kullanılabilir bölümler:"
+8700,7,17,105,130,1,""
+8702,119,17,50,14,1,"&Ekle ->"
+8703,119,35,50,14,1,"<- &Kaldır"
+1301,176,7,65,8,1,"Görünür bölümler:"
+8701,176,17,105,130,1,""
+8704,289,17,50,14,1,"&Yukarı Taşı"
+8705,289,35,50,14,1,"Aşağı &Taşı"
+1,289,97,50,14,1,"Tamam"
+2,289,115,50,14,1,"İptal"
+8706,289,133,50,14,1,"&Sıfırla"
+
+[STRINGTABLE 0]
+1016,1,"Eklenti Hakkında"
+
+[STRINGTABLE 1]
+10100,1,"Portable Executable Görüntüleyici"
+10101,1,"%s dosyası açılamıyor."
+10102,1,"Geçici dosya oluşturulamadı."
+10103,1,"Özel durum oluştu.\n\nGörüntülenen dosya: %s\n\nDosyanın bozuk olmadığını düşünüyorsanız lütfen support@altap.cz adresine gönderin.\nSorunu yeniden oluşturup görüntüleyici hatasını düzelteceğiz. İşbirliğiniz için teşekkürler!"
+10104,1,"EXE, DLL vb. Portable Executable dosyaları hakkında bilgi görüntüler."
+
+[STRINGTABLE 2]
+10118,1,"No Portable Executable section selected in plugin configuration was found.\nUse menu Options > Plugin Configuration > Portable Executable Viewer\nin Open Samandarin main window to setup visible sections."
+

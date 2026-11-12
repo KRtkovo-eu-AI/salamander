@@ -1,0 +1,52 @@
+{
+  "name": "İşlem Gezgini",
+  "description": "Çalışan Windows işlemlerini Salamander dosya sistemi panelinde listeler.",
+  "commands": {
+    "ProcessExplorer.open": "İşlem Gezgini'ni aç"
+  },
+  "fileSystems": {
+    "processes": {
+      "name": "Çalışan İşlemler",
+      "columns": {
+        "pid": {
+          "name": "PID",
+          "description": "İşlem tanımlayıcısı"
+        },
+        "status": {
+          "name": "Durum",
+          "description": "İşlem durumu"
+        },
+        "userName": {
+          "name": "Kullanıcı adı",
+          "description": "İşlemin sahibi olan hesap"
+        },
+        "cpu": {
+          "name": "CPU",
+          "description": "Geçerli işlemci kullanımı"
+        },
+        "memory": {
+          "name": "Bellek",
+          "description": "Etkin özel çalışma kümesi"
+        }
+      },
+      "actions": {
+        "endTask": "Görevi sonlandır",
+        "endProcessTree": "İşlem ağacını sonlandır",
+        "openFileLocation": "Dosya konumunu aç",
+        "properties": "Özellikler"
+      }
+    }
+  },
+  "strings": {
+    "running": "Çalışıyor",
+    "suspended": "Askıya alındı",
+    "ended": "Sonlandı",
+    "errorTitle": "İşlem Gezgini",
+    "processUnavailable": "İşlem artık kullanılamıyor.",
+    "endFailed": "İşlem sonlandırılamadı. Windows hatası: {0}.",
+    "pathUnavailable": "Yürütülebilir dosyanın konumu kullanılamıyor.",
+    "openLocationFailed": "Dosya konumu açılamadı. Windows hatası: {0}.",
+    "propertiesFailed": "Dosya özellikleri açılamadı. Windows hatası: {0}.",
+    "openPanelFailed": "İşlem Gezgini paneli açılamadı."
+  }
+}

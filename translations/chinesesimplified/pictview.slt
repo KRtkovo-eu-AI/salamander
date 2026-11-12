@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\chinesesimplified\pictview\pictview.atp"
 TEXTVERSION,"2.27 (x64)"
-VERSION,"2,27,0,196"
+VERSION,"2,27,0,197"
 
 [TRANSLATION]
 LANGID,2052
@@ -17,11 +17,11 @@ COMMENT,"简体中文版"
 2011,46,19,288,8,1,""
 3001,46,40,190,8,1,"此产品基于库"
 2008,46,51,277,8,1,"%hs - 图像处理引擎"
-3002,46,62,220,8,1,"版权所有 © 1997-2026 Open Salamander Authors, Open Samandarin Authors"
+3002,46,62,220,8,1,"版权所有 © 1997-2026 Open Samandarin Authors"
 3005,46,81,50,8,1,"文件类型："
 2009,99,81,120,8,1,"WIC codecs from Microsoft"
 3006,46,92,50,8,1,"主页:"
-2010,99,92,160,8,1,"https://samandarin.net/"
+2010,99,92,160,8,1,"open.samandarin.net"
 3004,2,108,339,1,1,""
 
 [DIALOG 2020]
@@ -55,6 +55,10 @@ COMMENT,"简体中文版"
 3000,6,5,256,43,1,"PageUp && PageDown 键，鼠标滚轮"
 2061,14,17,203,12,1,"用于图像滚动(&S)"
 2062,14,29,218,12,1,"用于访问上一个/下一个图像(&I)"
+3001,6,52,256,65,1,"鼠标滚轮"
+2063,14,64,203,12,1,"用于图像滚动(&S)"
+2064,14,78,203,12,1,"用于缩放图像(&Z)"
+2065,14,92,218,12,1,"用于访问上一个/下一个图像(&I)"
 
 [DIALOG 2070]
 268,150,1,"工具"
@@ -384,11 +388,11 @@ COMMENT,"简体中文版"
 1031,1,"分配某个可用的热键。"
 1032,1,"屏幕捕捉被取消。"
 1033,1,"屏幕捕捉"
-1034,0,"<Clipboard>"
-1035,0,"<Screen Capture>"
+1034,1,"<Clipboard>"
+1035,1,"<Screen Capture>"
 1036,1,"空"
 1037,1,"常见的图形文件 (*.bmp;*.cur;*.gif;*.icn;*.ico;*.jpg;*.jpeg;*.lbm;*.pcx;*.png;*.psd;*.tga;*.tif;*.tiff)|*.bmp;*.cur;*.gif;*.icn;*.ico;*.jpg;*.jpeg;*.lbm;*.pcx;*.png;*.psd;*.tga;*.tif;*.tiff|All Files (*.*)|*.*|"
-1038,0,"<Scan>"
+1038,1,"<Scan>"
 1039,1,"Autodesk CEL (*.cel)|*.cel|Amiga 交换格式 (*.iff,*.lbm)|*.iff;*.lbm|电脑服务 GIF (*.gif)|*.gif|Intergraph (*.cit,*.dat,*.rle)|*.dat;*.cit;*.rle|JPEG (*.jpg,*.jpeg)|*.jpg;*.jpeg|便携式位图 (*.pbm,*.ppm)|*.pbm;*.ppm|便携式网络图形 (*.png)|*.png|Silicon 图形 (*.bw)|*.bw|SunRaster (*.ras)|*.ras|Targa (*.tga)|*.tga|TIFF (*.tif)|*.tif;*.tiff|Utah RLE (*.rle)|*.rle|视频租赁盒 SKA (*.ska)|*.ska|Windows 位图 (*.bmp)|*.bmp|无线位图 (*.wbmp)|*.wbmp|ZSoft PCX (*.pcx)|*.pcx|"
 
 [STRINGTABLE 11]
@@ -500,9 +504,9 @@ COMMENT,"简体中文版"
 [STRINGTABLE 18]
 1160,1,"无法从设备获取图像。请验证设备已正确连接然后重试。错误: (0x%08X) %s"
 1161,1,"等待..."
-1162,0,"Reading data from the device (%d%% complete)"
-1163,0,"Processing data (%d%% complete)"
-1164,0,"Transferring data (%d%% complete)"
+1162,1,"Reading data from the device (%d%% complete)"
+1163,1,"Processing data (%d%% complete)"
+1164,1,"Transferring data (%d%% complete)"
 
 [STRINGTABLE 19]
 1170,1,"你从扫描仪获得了更多的图像。第一个图像在此窗口中打开。你想为其它图像各自打开单独的窗口吗？如果否，图像将被忽略。\n\n新窗口数量: %d"

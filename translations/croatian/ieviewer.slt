@@ -1,0 +1,18 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.13 (x64)"
+VERSION,"1,13,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[STRINGTABLE 0]
+10100,1,"Preglednik Internet Explorera"
+10101,1,"Nije moguće otvoriti preglednik Internet Explorera.\nPrijavi ovaj problem na support@altap.cz."
+10102,1,"Pogreška"
+10103,1,"Lagani preglednik HTML i XML dokumenata temeljen na Internet Exploreru."
+10105,1,"O dodatku"
+

@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\japanese\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,197"
+
+[TRANSLATION]
+LANGID,1041
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"Japanese (ja-JP) UI translation"
+
+[STRINGTABLE 0]
+46,1,"JSON Viewer .NET"
+47,1,"プラグインについて"
+
+[STRINGTABLE 1]
+48,1,"マネージド WinForms UI を使用して JSON ドキュメントを表示する内部ビューア。"
+49,1,"open.samandarin.net"
+50,1,"ビューアが必要とする同期イベントを準備できません。"
+51,1,"選択した JSON ファイルは大きすぎて開けません。 8 MB を超えるファイルはサポートされていません。"
+

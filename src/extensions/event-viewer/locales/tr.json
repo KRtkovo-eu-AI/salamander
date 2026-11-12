@@ -1,0 +1,61 @@
+{
+  "name": "Olay Görüntüleyicisi",
+  "description": "Salamander dosya sistemi panelinde Windows olay günlüklerine göz atar.",
+  "commands": {
+    "EventViewer.open": "Olay Görüntüleyicisini Aç"
+  },
+  "fileSystems": {
+    "events": {
+      "name": "Olay Görüntüleyicisi",
+      "rootItems": {
+        "custom-views": "Özel Görünümler",
+        "windows-logs": "Windows Günlükleri",
+        "applications-services": "Uygulama ve Hizmet Günlükleri"
+      },
+      "columns": {
+        "level": {
+          "name": "Düzey",
+          "description": "Olay önem derecesi"
+        },
+        "logged": {
+          "name": "Tarih ve Saat",
+          "description": "Olayın günlüğe kaydedildiği zaman"
+        },
+        "source": {
+          "name": "Kaynak",
+          "description": "Olay sağlayıcısı"
+        },
+        "eventId": {
+          "name": "Olay Kimliği",
+          "description": "Olay tanımlayıcısı"
+        },
+        "task": {
+          "name": "Görev Kategorisi",
+          "description": "Olay görev kategorisi"
+        }
+      },
+      "actions": {
+        "openEvent": "Olay Özellikleri"
+      }
+    }
+  },
+  "administrativeEvents": "Yönetimsel Olaylar",
+  "eventName": "Olay {0}, {1} [{2}]",
+  "windowTitle": "Olay Özellikleri - Olay {0}, {1}",
+  "general": "Genel",
+  "descriptionLabel": "Açıklama",
+  "details": "Ayrıntılar",
+  "close": "Kapat",
+  "messageUnavailable": "Olay iletisi kullanılamıyor.",
+  "textTruncated": "Metin kısaltıldı.",
+  "openErrorTitle": "Olay Açılamadı",
+  "openError": "Olay açılamadı.\r\n\r\n{0}",
+  "metadata": "Günlük Adı: {0}\r\nKaynak: {1}\r\nOlay Kimliği: {2}    Düzey: {3}\r\nKaydedilme: {4}    Görev Kategorisi: {5}\r\nKullanıcı: {6}    Bilgisayar: {7}\r\nKayıt Kimliği: {8}",
+  "levels": {
+    "critical": "Kritik",
+    "error": "Hata",
+    "warning": "Uyarı",
+    "information": "Bilgi",
+    "verbose": "Ayrıntılı"
+  }
+}

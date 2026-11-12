@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\polish\diskdir\diskdir.atp"
+TEXTVERSION,"1.1 (x64)"
+VERSION,"1,1,0,197"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"samandarin.net"
+COMMENT,"polish (automatic AI translation)"
+
+[DIALOG 200]
+278,94,1,"Utwórz katalog DiskDir"
+1004,8,9,29,8,1,"Katalog:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"Dołącz także ścieżki"
+1003,16,48,126,12,1,"Rekurencyjnie dołącz podkatalogi"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Anuluj"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Tworzy i przegląda katalogi plików zgodne z DiskDir programu Total Commander."
+102,1,"DiskDir"
+103,1,"O DiskDir"
+104,1,"Natywna obsługa katalogów zgodnych z DiskDir.\n\nPliki katalogu zawierają nazwy, rozmiary i znaczniki czasu, a nie zawartość plików."
+105,1,"Katalog DiskDir"
+106,1,"Ścieżka katalogu jest nieprawidłowa lub zbyt długa."
+107,1,"Nazwa katalogu jest już używana przez folder."
+108,1,"Katalog już istnieje:\n\n"
+109,1,"\n\nCzy chcesz go nadpisać?"
+110,1,"Katalogi DiskDir nie przechowują zawartości plików, więc plików źródłowych nie można przenieść."
+111,1,"Dodawanie wpisów do istniejącego katalogu DiskDir nie jest obsługiwane."
+
+[STRINGTABLE 1]
+112,1,"Nie można utworzyć katalogu DiskDir."
+113,1,"Oryginalny plik zapisany w katalogu jest niedostępny."
+114,1,"Co najmniej jeden oryginalny plik zapisany w katalogu jest niedostępny."
+115,1,"Nie można otworzyć katalogu."
+116,1,"Katalog jest zbyt duży."
+117,1,"Nie można odczytać katalogu."
+118,1,"Katalog UTF-8 zawiera nieprawidłowy tekst."
+119,1,"Plik nie zawiera prawidłowego katalogu DiskDir."
+120,1,"Nie można zapisać katalogu DiskDir."
+

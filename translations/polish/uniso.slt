@@ -1,0 +1,111 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\polish\uniso\uniso.atp"
+TEXTVERSION,"1.39 (x64)"
+VERSION,"1,39,0,197"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"polish (automatic AI translation)"
+
+[DIALOG 1200]
+220,83,1,"Konfiguracja UnISO"
+1201,8,11,209,10,1,"&Usuń atrybut tylko do odczytu przy kopiowaniu z archiwum"
+1202,8,23,226,10,1,"&Pokaż sesję jako katalog (umożliwia dostęp do wszystkich sesji)"
+1203,8,35,153,10,1,"Po&każ obraz dysku rozruchowego jako plik"
+3000,2,58,216,1,1,""
+1,108,64,50,14,1,"OK"
+2,163,64,50,14,1,"Anuluj"
+
+[STRINGTABLE 0]
+1000,1,"UnISO"
+1001,1,"Nie można otworzyć pliku."
+1002,1,"Nieokreślony błąd."
+1003,1,"Rozpakowywanie archiwum ISO"
+1004,1,"Błąd rozpakowywania archiwum."
+1005,1,"Nie można obsłużyć tego pliku."
+1006,1,"Niewystarczająca ilość pamięci."
+1007,1,"O wtyczce"
+
+[STRINGTABLE 1]
+1009,1,"Przeglądaj i wypakowuj pliki obrazów ISO CD/DVD."
+1010,1,"Nie można utworzyć katalogu tymczasowego."
+1011,1,"Nie można usunąć pliku tymczasowego."
+1012,1,"Nieznany format pliku lub nieprawidłowy obraz ISO.\n\nJeśli masz pewność, że jest to prawidłowy obraz ISO, skontaktuj się z support@altap.cz i pomóż nam dodać obsługę tego formatu."
+1013,1,"Nie można otworzyć pliku '%s'."
+1014,1,"Utworzenie pliku tymczasowego nie powiodło się."
+1015,1,"Nie można ustawić atrybutów pliku."
+1016,1,"Nie można utworzyć katalogu '%s'."
+1020,1,"Tak"
+1021,1,"Nie"
+1022,1,"Błąd"
+1023,1,"Ostrzeżenie"
+
+[STRINGTABLE 2]
+1024,1,"Podczas odczytu obrazu wielosesyjnego wystąpiły błędy.\n\nPokazywane są tylko poprawnie odczytane sesje."
+1025,1,"Nieznany typ ścieżki."
+1026,1,"Nieznana strategia alokacji (%d).\n\nSkontaktuj się z support@altap.cz i pomóż nam naprawić ten problem."
+1027,1,"Nieprawidłowy format pliku .CCD.\n\nWyświetlony obraz może być niekompletny."
+1028,1,"Brak pliku .CCD.\n\nWyświetlony obraz może być niekompletny."
+1029,1,"Nie można odczytać sektora #%08X."
+1030,1,"Nieprawidłowy identyfikator znacznika UDF."
+1031,1,"Błąd odczytu struktury katalogów w sektorze #%08X.\n\nNiekompletna zawartość obrazu ISO."
+1032,1,"Wewnętrzny błąd wtyczki."
+1033,1,"Błąd odczytu wirtualnej tablicy alokacji w sektorze #%08X."
+1034,1,"Brak wirtualnej tablicy alokacji."
+1035,1,"Nieprawidłowy korzeń ICB.\n\nNie można odczytać struktury katalogów."
+1036,1,"Pliku "%s" nie można wypakować.\n\nNiezgodność między rozmiarem pliku a blokami ICB."
+1037,1,"Nie można otworzyć ścieżki #%d."
+1038,1,"Ten plik wygląda na obraz dyskietki, dysku twardego lub partycji dysku twardego.\nSpróbuj zmienić nazwę pliku na .ima, aby aktywować wtyczkę UnFAT."
+1039,1,"Ten obraz dysku zawiera system plików APFS.\nTen system plików nie jest jeszcze obsługiwany."
+
+[STRINGTABLE 3]
+1050,1,"Nie można odczytać nagłówka partycji. Plik jest zbyt mały."
+1051,1,"Uszkodzone struktury menedżera partycji."
+1052,1,"Ten obraz dysku nie zawiera partycji HFS Plus."
+1053,1,"Ten obraz dysku zawiera system plików HFS, a nie HFS Plus.\nHFS nie jest obsługiwany."
+1054,1,"Nie można przejść do bloku #%08X.\nPlik %s nie zostanie wypakowany."
+1055,1,"Nie można przejść do bloku #%08X."
+
+[STRINGTABLE 4]
+1056,1,"Nieobsługiwany typ węzła głównego BTree w pliku katalogu."
+1057,1,"Plik katalogu jest podzielony na więcej niż 8 fragmentów, co nie jest obsługiwane."
+1058,1,"Plik '%s' jest podzielony na więcej niż 8 fragmentów, co nie jest obsługiwane.\nPlik nie zostanie wypakowany."
+1059,1,"Ten obraz dysku zawiera zbyt długą ścieżkę, której Open Samandarin nie może obsłużyć."
+1060,1,"Nie można dokończyć operacji z powodu zbyt długiej nazwy."
+1070,1,"Nie można odczytać nagłówka pakietu. Plik jest zbyt mały."
+1071,1,"Ten pakiet jest zaszyfrowany.\nZaszyfrowane pakiety nie są obsługiwane."
+
+[STRINGTABLE 5]
+1072,1,"Ten plik nie wygląda na pakiet DMG lub jest niekompletny.\nNie zawiera prawidłowej stopki DMG."
+1073,1,"Ten plik nie wygląda na prawidłowy pakiet DMG lub jest niekompletny.\nNie zawiera prawidłowej listy właściwości."
+1074,1,"Ten pakiet nie zawiera bloku danych partycji HFS Plus zaczynającego się od %I64u.\nBlok jest potrzebny do prawidłowej obsługi pakietu."
+1075,1,"Nie można odczytać danych z obrazu dysku w pozycji %I64u."
+1076,1,"Nie można przejść w obrazie dysku do pozycji %I64u."
+1077,1,"Wewnętrzny błąd: nieobsługiwana metoda pozycjonowania."
+1078,1,"Ten obraz dysku zawiera blok skompresowany nieznaną metodą.\nTakie obrazy dysków nie są obsługiwane."
+1079,1,"Rozpakowywanie bloku skompresowanego ZLIB nie powiodło się. Obraz dysku wydaje się uszkodzony."
+1080,1,"Rozpakowywanie bloku skompresowanego BZIP2 nie powiodło się. Obraz dysku wydaje się uszkodzony."
+1085,1,"Ten plik nie wygląda na skompresowany obraz ISZ lub jest niekompletny.\nNie zawiera prawidłowego nagłówka ISZ."
+1086,1,"Nie można odczytać nagłówka skompresowanego obrazu. Plik jest zbyt mały."
+1087,1,"Ten obraz jest segmentowany.\nSegmentowane obrazy nie są obsługiwane."
+
+[STRINGTABLE 6]
+1088,1,"Ten obraz jest zaszyfrowany.\nZaszyfrowane obrazy nie są obsługiwane."
+1100,1,"Błąd odczytu"
+1101,1,"Błąd zapisu"
+1102,1,"Ścieżek audio nie można wypakować."
+1103,1,"Anulowanie operacji, proszę czekać..."
+
+[STRINGTABLE 7]
+1150,1,"Informacje o obrazie\n\n"
+1151,1,"Informacje o obrazie "%s"\n\n"
+
+[STRINGTABLE 8]
+1152,1,"Liczba sesji: %d"
+1153,1,"\nSesja %d\n"
+1154,1,"  Liczba ścieżek: %d\n"
+1155,1,"  Ścieżka: %d, %s, Rozmiar: %d KB\n"
+1156,1,"  Ścieżka: %d, %s, Rozmiar: %d KB - "%s"\n"
+

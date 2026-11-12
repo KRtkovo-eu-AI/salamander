@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Keep the file panel visible during shell launch. | Parent the transparent shell helper beside the owner-drawn list instead of over it. | | openai/gpt-6-luna-pro |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -1195,7 +1198,7 @@ void CFilesWindow::Execute(int index)
             // launch of the default context menu item (association)
             HCURSOR oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
             MainWindow->SetDefaultDirectories(); // to ensure the launching process inherits the correct current directories
-            ExecuteAssociation(GetListBoxHWND(), GetPath(), fileName);
+            ExecuteAssociation(MainWindow->HWindow, GetPath(), fileName);
 
             // we add the file to history
             if (fullPath[0] != 0)

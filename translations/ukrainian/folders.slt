@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\ukrainian\folders\folders.atp"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,197"
+
+[TRANSLATION]
+LANGID,1058
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"ukrainian (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"Папки"
+1001,1,"Про плагін"
+1003,1,"Перегляд папок, як-от Робочий стіл, Панель керування, Кошик тощо."
+1004,1,"'\tРобочий стіл"
+

@@ -1,0 +1,111 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\indonesian\uniso\uniso.atp"
+TEXTVERSION,"1.39 (x64)"
+VERSION,"1,39,0,197"
+
+[TRANSLATION]
+LANGID,1057
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"indonesian (automatic AI translation)"
+
+[DIALOG 1200]
+220,83,1,"Konfigurasi UnISO"
+1201,8,11,188,10,1,"&Hapus atribut hanya-baca saat menyalin dari arsip"
+1202,8,23,220,10,1,"&Tampilkan sesi sebagai direktori (izinkan akses ke semua sesi)"
+1203,8,35,154,10,1,"T&ampilkan disk image boot sebagai berkas"
+3000,2,58,216,1,1,""
+1,108,64,50,14,1,"OK"
+2,163,64,50,14,1,"Batal"
+
+[STRINGTABLE 0]
+1000,1,"UnISO"
+1001,1,"Tidak dapat membuka berkas."
+1002,1,"Kesalahan tidak ditentukan."
+1003,1,"Mengekstrak Arsip ISO"
+1004,1,"Kesalahan saat mengekstrak arsip."
+1005,1,"Berkas ini tidak dapat ditangani."
+1006,1,"Memori tidak cukup."
+1007,1,"Tentang Plugin"
+
+[STRINGTABLE 1]
+1009,1,"Menelusuri dan mengekstrak berkas image ISO CD/DVD."
+1010,1,"Tidak dapat membuat direktori sementara."
+1011,1,"Tidak dapat menghapus berkas sementara."
+1012,1,"Format berkas tidak dikenal atau bukan image ISO yang valid.\n\nJika Anda yakin ini image ISO yang valid, hubungi support@altap.cz dan bantu kami mendukung format ini."
+1013,1,"Tidak dapat membuka berkas '%s'."
+1014,1,"Gagal membuat berkas sementara."
+1015,1,"Tidak dapat mengatur atribut berkas."
+1016,1,"Tidak dapat membuat direktori '%s'."
+1020,1,"Ya"
+1021,1,"Tidak"
+1022,1,"Kesalahan"
+1023,1,"Peringatan"
+
+[STRINGTABLE 2]
+1024,1,"Terjadi kesalahan saat membaca image multis sesi.\n\nHanya sesi yang berhasil dibaca yang ditampilkan."
+1025,1,"Jenis trek tidak dikenal."
+1026,1,"Strategi alokasi tidak dikenal (%d).\n\nHubungi support@altap.cz dan bantu kami memperbaiki masalah ini."
+1027,1,"Format berkas .CCD salah.\n\nImage yang ditampilkan mungkin tidak lengkap."
+1028,1,"Berkas .CCD tidak ditemukan.\n\nImage yang ditampilkan mungkin tidak lengkap."
+1029,1,"Tidak dapat membaca sektor #%08X."
+1030,1,"ID Tag UDF tidak valid."
+1031,1,"Kesalahan membaca struktur direktori pada sektor #%08X.\n\nIsi image ISO tidak lengkap."
+1032,1,"Kesalahan internal plugin."
+1033,1,"Kesalahan membaca tabel alokasi virtual pada sektor #%08X."
+1034,1,"Tabel alokasi virtual tidak ditemukan."
+1035,1,"ICB root salah.\n\nTidak dapat membaca struktur direktori."
+1036,1,"Berkas "%s" tidak dapat diekstrak.\n\nUkuran berkas tidak cocok dengan blok ICB."
+1037,1,"Tidak dapat membuka trek #%d."
+1038,1,"Image disk ini tampaknya berupa disket, hard disk, atau partisi hard disk.\nUbah nama berkas menjadi .ima untuk mengaktifkan plugin UnFAT."
+1039,1,"Image disk ini berisi sistem berkas APFS.\nSistem berkas ini belum didukung."
+
+[STRINGTABLE 3]
+1050,1,"Tidak dapat membaca header partisi. Berkas terlalu kecil."
+1051,1,"Struktur Partition Manager rusak."
+1052,1,"Image disk ini tidak berisi partisi HFS Plus."
+1053,1,"Image disk ini berisi sistem berkas HFS, bukan HFS Plus.\nHFS tidak didukung."
+1054,1,"Tidak dapat mencari blok #%08X.\nBerkas %s tidak akan diekstrak."
+1055,1,"Tidak dapat mencari blok #%08X."
+
+[STRINGTABLE 4]
+1056,1,"Jenis simpul root BTree tidak didukung dalam berkas Catalog."
+1057,1,"Berkas Catalog terfragmentasi menjadi lebih dari 8 bagian dan tidak didukung."
+1058,1,"Berkas '%s' terfragmentasi menjadi lebih dari 8 bagian dan tidak didukung.\nBerkas tidak akan diekstrak."
+1059,1,"Image disk ini berisi jalur terlalu panjang yang tidak dapat ditangani Open Samandarin."
+1060,1,"Operasi tidak dapat diselesaikan karena nama terlalu panjang."
+1070,1,"Tidak dapat membaca header paket. Berkas terlalu kecil."
+1071,1,"Paket ini terenkripsi.\nPaket terenkripsi tidak didukung."
+
+[STRINGTABLE 5]
+1072,1,"Berkas ini tampaknya bukan paket DMG atau tidak lengkap.\nTidak berisi footer DMG yang valid."
+1073,1,"Berkas ini tampaknya bukan paket DMG yang valid atau tidak lengkap.\nTidak berisi Property List yang valid."
+1074,1,"Paket ini tidak berisi blok data partisi HFS Plus pada posisi %I64u.\nBlok ini diperlukan untuk menangani paket dengan benar."
+1075,1,"Tidak dapat membaca data dari image disk pada posisi %I64u."
+1076,1,"Tidak dapat mencari posisi %I64u pada image disk."
+1077,1,"Kesalahan internal: metode pencarian tidak didukung."
+1078,1,"Image disk ini berisi blok yang dikompresi dengan metode yang tidak dikenal.\nImage seperti ini tidak didukung."
+1079,1,"Gagal mendekompresi blok ZLIB. Image disk tampaknya rusak."
+1080,1,"Gagal mendekompresi blok BZIP2. Image disk tampaknya rusak."
+1085,1,"Berkas ini tampaknya bukan image ISZ terkompresi atau tidak lengkap.\nTidak berisi header ISZ yang valid."
+1086,1,"Tidak dapat membaca header image terkompresi. Berkas terlalu kecil."
+1087,1,"Image ini tersegmentasi.\nImage tersegmentasi tidak didukung."
+
+[STRINGTABLE 6]
+1088,1,"Image ini terenkripsi.\nImage terenkripsi tidak didukung."
+1100,1,"Kesalahan baca"
+1101,1,"Kesalahan tulis"
+1102,1,"Trek audio tidak dapat diekstrak."
+1103,1,"Membatalkan operasi, harap tunggu..."
+
+[STRINGTABLE 7]
+1150,1,"Informasi image\n\n"
+1151,1,"Informasi image "%s"\n\n"
+
+[STRINGTABLE 8]
+1152,1,"Jumlah sesi: %d"
+1153,1,"\nSesi %d\n"
+1154,1,"  Jumlah trek: %d\n"
+1155,1,"  Trek: %d, %s, Ukuran: %d KB\n"
+1156,1,"  Trek: %d, %s, Ukuran: %d KB - "%s"\n"
+

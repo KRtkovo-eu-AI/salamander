@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\korean\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,197"
+
+[TRANSLATION]
+LANGID,1042
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"korean (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"WebView2 Render Viewer"
+47,1,"플러그인 정보"
+
+[STRINGTABLE 1]
+48,1,"WebView2를 사용하여 렌더링된 HTML, Markdown 및 웹 문서를 표시하는 뷰어입니다."
+49,1,"open.samandarin.net"
+50,1,"뷰어에 필요한 동기화 이벤트를 준비할 수 없습니다."
+51,1,"선택한 파일이 너무 커서 열 수 없습니다. 32 MB보다 큰 파일은 지원되지 않습니다."
+52,1,"파일(&F)"
+53,1,"보기(&V)"
+54,1,"닫기(&C)\tEsc"
+55,1,"새로 고침(&R)\tF5"
+56,1,"확대(&I)\tCtrl++"
+57,1,"축소(&O)\tCtrl+-"
+58,1,"초기화(&R)\tCtrl+0"
+59,1,"로드 중..."
+60,1,"준비"
+61,1,"WebView2 렌더러를 초기화할 수 없습니다."
+62,1,"선택한 파일을 열 수 없습니다."
+63,1,"줄 번호 표시(&L)"
+
+[STRINGTABLE 2]
+64,1,"줄 바꿈(&W)\tF2"
+65,1,"공백 표시(&W)"
+66,1,"편집(&M)"
+67,1,"복사(&C)\tCtrl+C"
+68,1,"모두 선택(&A)\tCtrl+A"
+69,1,"인쇄(&A)...\tCtrl+P"
+

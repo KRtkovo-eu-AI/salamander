@@ -1,0 +1,59 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\portables\portables.atp"
+TEXTVERSION,"0.6 (x64)"
+VERSION,"0,6,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[STRINGTABLE 0]
+128,1,"{!}%d odabranih uređaja{2:s|0||1|s}"
+129,1,"Nema uređaja"
+130,1,"Prijenosni uređaji"
+131,1,"Odustani"
+132,1,"Priprema..."
+133,1,"Datoteka:"
+134,1,"Ukupno:"
+135,1,"Minimiziraj"
+136,1,"Pauziraj"
+137,1,"Prijenosni uređaj prestao je reagirati. Odspojite ga i ponovno spojite. Panel prijenosnih uređaja vratit će se na popis uređaja."
+138,1,"Kopirano %s od %s"
+139,1,"Kopiraj"
+140,1,"Premjesti"
+141,1,"Izbriši"
+142,1,"Kopiranje"
+143,1,"Premještanje"
+
+[STRINGTABLE 1]
+144,1,"Brisanje"
+145,1,"u"
+146,1,"Premješteno %s od %s"
+147,1,"Obrađeno %s od %s"
+148,1,"Brisanje odabranih stavki"
+149,1,"Radnja %s '%s' nije uspjela (0x%08X)."
+150,1,"Preimenuj"
+151,1,"Stvori mapu"
+152,1,"Prikaži"
+153,1,"Naziv je još na uređaju. Stavka nije ponovno stvorena."
+154,1,"Datoteka ne može zamijeniti mapu."
+155,1,"Mapa ne može zamijeniti datoteku."
+156,1,"Stavka s tim nazivom već postoji."
+157,1,"?"
+
+[STRINGTABLE 2]
+8192,1,"Prijenosni uređaji"
+8193,1,"Upravljanje prijenosnim uređajima."
+
+[STRINGTABLE 3]
+9216,1,"O dodatku"
+
+[STRINGTABLE 4]
+10240,1,"Pogreška pri promjeni direktorija"
+10241,1,"Putanja: "%s"\r\nPogreška: %s"
+
+[STRINGTABLE 5]
+19457,1,"Navedena putanja sadrži putanju do datoteke."
+

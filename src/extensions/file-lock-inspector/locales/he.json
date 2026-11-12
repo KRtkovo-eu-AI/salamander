@@ -1,0 +1,40 @@
+{
+  "name": "בודק נעילות קבצים",
+  "commands": {
+    "FileLockInspector.inspect": "בודק נעילות קבצים..."
+  },
+  "strings": {
+    "title": "בודק נעילות קבצים",
+    "files": "קבצים",
+    "noLocks": "לא נמצאו תהליכים שנועלים קבצים.",
+    "lockingProcesses": "תהליכים שנועלים קבצים",
+    "process": "תהליך",
+    "pid": "PID",
+    "type": "סוג",
+    "status": "מצב",
+    "executable": "קובץ הפעלה",
+    "inspecting": "מחפש תהליכים שנועלים קבצים...",
+    "lockCount": "נמצאו תהליכים נועלים: {0}",
+    "inspectFailed": "בדיקת הנעילות נכשלה.",
+    "openLocation": "פתח מיקום",
+    "closeProcess": "סגור תהליך",
+    "endProcess": "סיים תהליך...",
+    "copyReport": "העתק דוח",
+    "refresh": "רענן",
+    "close": "סגור",
+    "locationUnavailable": "מיקום קובץ ההפעלה אינו זמין עבור תהליך זה.",
+    "closeUnavailable": "לתהליך אין חלון ראשי שניתן לסגור בבטחה.",
+    "confirmEnd": "לסיים את התהליך {0} (PID {1})?{2}{2}נתונים שלא נשמרו ביישום עלולים ללכת לאיבוד.",
+    "selectFile": "בחר או העבר את המיקוד לקובץ אחד לפחות תחילה.",
+    "responding": "מגיב",
+    "notResponding": "אינו מגיב",
+    "processEnded": "(התהליך הסתיים)",
+    "appMainWindow": "יישום",
+    "appOtherWindow": "חלון ברקע",
+    "appService": "שירות",
+    "appExplorer": "סייר Windows",
+    "appConsole": "מסוף",
+    "appCritical": "תהליך קריטי",
+    "appUnknown": "לא ידוע"
+  }
+}

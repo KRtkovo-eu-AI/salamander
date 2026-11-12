@@ -1,0 +1,36 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\polish\unlha\unlha.atp"
+TEXTVERSION,"1.15 (x64)"
+VERSION,"1,15,0,197"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"polish (automatic AI translation)"
+
+[STRINGTABLE 0]
+1,1,"Nieprawidłowy plik LZH lub nieznany format pliku."
+2,1,"Błąd sumy kontrolnej nagłówka.\nArchiwum jest uszkodzone — nie wszystkie pliki mogą zostać wyświetlone."
+3,1,"Brak pamięci."
+4,1,"Błąd zapisu"
+5,1,"UnLHA"
+6,1,"Błąd otwierania archiwum."
+7,1,"Nie można dodać wpisu archiwum do listy plików."
+8,1,"Archiwum zawiera co najmniej jedno dowiązanie symboliczne UNIX, które nie zostanie wyświetlone."
+10,1,"Nie można rozpakować pliku."
+11,1,"Błąd w skompresowanych danych. CRC się nie zgadza."
+12,1,"Błąd odczytu archiwum."
+13,1,"Rozpakowywanie archiwum LHA - %s"
+14,1,"przygotowywanie danych i tworzenie katalogów..."
+15,1,"rozpakowywanie: "
+
+[STRINGTABLE 1]
+16,1,"rozpakowywanie..."
+17,1,"Nie można dokończyć operacji z powodu zbyt długiej nazwy ścieżki."
+18,1,"Nie można dokończyć operacji z powodu zbyt długiej maski."
+19,1,"Nieznana metoda kompresji. Pliku nie można rozpakować."
+20,1,"pomijanie nieznanej metody..."
+21,1,"Przeglądaj i wypakowuj archiwa LHA."
+22,1,"O wtyczce"
+

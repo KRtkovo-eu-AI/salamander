@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\turkish\diskdir\diskdir.atp"
+TEXTVERSION,"1.1 (x64)"
+VERSION,"1,1,0,197"
+
+[TRANSLATION]
+LANGID,1055
+AUTHOR,"Open Samandarin"
+WEB,"samandarin.net"
+COMMENT,"turkish (automatic AI translation)"
+
+[DIALOG 200]
+278,94,1,"DiskDir Kataloğu Oluştur"
+1004,8,9,29,8,1,"Katalog:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,100,12,1,"Yol adlarını da ekle"
+1003,16,48,131,12,1,"Alt dizinleri özyinelemeli olarak ekle"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"Tamam"
+2,144,74,50,14,1,"İptal"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Total Commander DiskDir ile uyumlu dosya katalogları oluşturur ve bunlara göz atar."
+102,1,"DiskDir"
+103,1,"DiskDir Hakkında"
+104,1,"DiskDir uyumlu kataloglar için yerel destek.\n\nKatalog dosyaları dosya içeriklerini değil, adları, boyutları ve zaman damgalarını içerir."
+105,1,"DiskDir Kataloğu"
+106,1,"Katalog yolu geçersiz veya çok uzun."
+107,1,"Katalog adı zaten bir dizin tarafından kullanılıyor."
+108,1,"Katalog zaten var:\n\n"
+109,1,"\n\nÜzerine yazılsın mı?"
+110,1,"DiskDir katalogları dosya içeriklerini saklamaz, bu nedenle kaynak dosyalar taşınamaz."
+111,1,"Var olan bir DiskDir kataloğuna kayıt ekleme desteklenmiyor."
+
+[STRINGTABLE 1]
+112,1,"DiskDir kataloğu oluşturulamıyor."
+113,1,"Katalogda kaydedilen özgün dosya kullanılamıyor."
+114,1,"Katalogda kaydedilen bir veya daha fazla özgün dosya kullanılamıyor."
+115,1,"Katalog açılamıyor."
+116,1,"Katalog çok büyük."
+117,1,"Katalog okunamıyor."
+118,1,"UTF-8 kataloğu geçersiz metin içeriyor."
+119,1,"Dosya geçerli bir DiskDir kataloğu içermiyor."
+120,1,"DiskDir kataloğu yazılamıyor."
+

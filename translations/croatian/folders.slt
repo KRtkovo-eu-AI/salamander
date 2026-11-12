@@ -1,0 +1,17 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\croatian\folders\folders.atp"
+TEXTVERSION,"0.3 (x64)"
+VERSION,"0,3,0,197"
+
+[TRANSLATION]
+LANGID,1050
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"croatian (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"Mape"
+1001,1,"O dodatku"
+1003,1,"Pregledavanje mapa kao što su Radna površina, Upravljačka ploča, Koš za smeće itd."
+1004,1,"'\tRadna površina"
+

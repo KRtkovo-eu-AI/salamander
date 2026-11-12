@@ -1,13 +1,13 @@
-0E
+09
 
-"Önkitömörítõ ZIP archívum"
+"Self-Extracting ZIP Archive"
 
-"Kitömöríti a ZIP archívumot."
+"This will extract ZIP archive."
 
-"Verzió 1.40"
+"Version 1.40"
 
-"Kitömörít"
+"&Extract"
 
-"Self-Extractor © 2000-2023 Open Salamander Authors"
+"Self-Extractor Â© 2000-2023 Open Salamander Authors"
 
-"https://www.altap.cz"
+"https://samandarin.net"

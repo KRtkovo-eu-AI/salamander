@@ -1,0 +1,40 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\polish\nethood\nethood.atp"
+TEXTVERSION,"1.10 (x64)"
+VERSION,"1,10,0,197"
+
+[TRANSLATION]
+LANGID,1045
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"polish (automatic AI translation)"
+
+[DIALOG 102]
+220,127,1,"Konfiguracja sieci"
+1201,7,7,112,10,1,"Pokaż udziały &administracyjne"
+1203,13,22,184,10,1,"Pokaż udziały administracyjne jako elementy &ukryte"
+1202,7,37,244,10,1,"Pokaż elementy z &Miejsc sieciowych w katalogu najwyższego poziomu"
+1204,7,52,213,10,1,"Pokaż &komputery sieciowe w katalogu najwyższego poziomu"
+1206,7,67,155,10,1,"Pokaż &dyski podłączone przez Pulpit zdalny"
+1205,7,82,137,10,1,"&Skanuj sieć przy starcie Salamandera"
+3000,7,99,206,1,1,""
+1,30,106,50,14,1,"OK"
+2,85,106,50,14,1,"Anuluj"
+9,140,106,50,14,1,"Pomoc"
+
+[STRINGTABLE 0]
+128,1,"Sieć"
+129,1,"Zapewnia dostęp do komputerów w sieci."
+
+[STRINGTABLE 1]
+1024,1,"Komentarz"
+1025,1,"{!}<%d> zaznaczon{y obiekt|1|e obiekty|4|ych obiektów}"
+1026,1,"Sieć"
+1027,1,"Skanowanie sieci…"
+1028,1,"Sieć jest niedostępna."
+1029,1,"O wtyczce"
+1030,1,"%1 na %2"
+1031,1,"Komputer lokalny"
+1032,1,"Komputer hosta"
+1033,1,"Dyski z %s"
+

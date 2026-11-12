@@ -1,13 +1,13 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\italian\unmime\unmime.atp"
 TEXTVERSION,"1.16 (x64)"
-VERSION,"1,16,0,196"
+VERSION,"1,16,0,197"
 
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"www.altap.cz"
-COMMENT,"English version"
+WEB,"open.samandarin.net"
+COMMENT,"Automatic AI translation"
 
 [DIALOG 101]
 251,111,1,"Configurazione UnMIME"

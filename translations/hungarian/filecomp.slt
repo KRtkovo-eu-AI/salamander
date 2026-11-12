@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\filecomp\filecomp.atp"
 TEXTVERSION,"1.22 (x64)"
-VERSION,"1,22,0,196"
+VERSION,"1,22,0,197"
 
 [TRANSLATION]
 LANGID,1038
@@ -106,7 +106,7 @@ COMMENT,"Magyar változat"
 136,65,134,165,14,1,""
 309,6,156,23,8,1,"Egyéb"
 310,29,160,219,1,1,""
-144,12,166,185,12,1,"A plugin betö&ltése az Open Samandarin indulásakor"
+144,12,166,186,12,1,"A plugin betö&ltése az Open Samandarin indulásakor"
 
 [DIALOG 150]
 254,221,1,"Alap összehasonlítási beállítások"
@@ -253,8 +253,8 @@ COMMENT,"Magyar változat"
 1060,1,"%s jobb fájl %d-%d.soraihoz képest (%s)"
 1061,1,"%s : %s - Fájl összehasonlító - Különbségek számítása (megszakításhoz ESC)"
 1062,1,"%s %s: %s %s - Fájl összehasonlító - Különbségek számítása"
-1063,0,"%s : %s - File Comparator - Computing Differences (%d%% Done)"
-1064,0,"{!}%s : %s - File Comparator - Computing Differences (%d%% Done, %d Found{})"
+1063,1,"%s : %s - File Comparator - Computing Differences (%d%% Done)"
+1064,1,"{!}%s : %s - File Comparator - Computing Differences (%d%% Done, %d Found{})"
 1065,1,"%s : %s - Fájl összehasonlító - Több, mint 32 768 különbség"
 1066,1,"OK"
 1067,1,"Mégse"

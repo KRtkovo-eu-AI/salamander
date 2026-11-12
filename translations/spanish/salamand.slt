@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\spanish\salamand\salamand.atp"
 TEXTVERSION,"5.0 (x64)"
-VERSION,"5,0,0,196"
+VERSION,"5,0,0,197"
 
 [TRANSLATION]
 LANGID,3082
@@ -35,49 +35,49 @@ SLGINCOMPLETE,""
 152,45,11,305,8,1,""
 153,3,23,39,8,1,""
 154,45,23,305,8,1,""
-1150,18,41,44,8,1,"Fichero:"
+1150,12,41,30,8,1,"Fichero:"
 155,45,40,297,12,1,""
 1820,3,11,39,8,1,""
 1821,45,11,305,8,1,""
 1822,3,23,39,8,1,""
 1823,45,23,305,8,1,""
-1824,18,41,44,8,1,"Fichero:"
+1824,12,41,30,8,1,"Fichero:"
 1825,45,40,297,12,1,""
 1826,3,11,39,8,1,""
 1827,45,11,305,8,1,""
 1828,3,23,39,8,1,""
 1829,45,23,305,8,1,""
-1830,18,41,44,8,1,"Fichero:"
+1830,12,41,30,8,1,"Fichero:"
 1831,45,40,297,12,1,""
 1832,3,11,39,8,1,""
 1833,45,11,305,8,1,""
 1834,3,23,39,8,1,""
 1835,45,23,305,8,1,""
-1836,18,41,44,8,1,"Fichero:"
+1836,12,41,30,8,1,"Fichero:"
 1837,45,40,297,12,1,""
 1838,3,11,39,8,1,""
 1839,45,11,305,8,1,""
 1840,3,23,39,8,1,""
 1841,45,23,305,8,1,""
-1842,18,41,44,8,1,"Fichero:"
+1842,12,41,30,8,1,"Fichero:"
 1843,45,40,297,12,1,""
 1844,3,11,39,8,1,""
 1845,45,11,305,8,1,""
 1846,3,23,39,8,1,""
 1847,45,23,305,8,1,""
-1848,18,41,44,8,1,"Fichero:"
+1848,12,41,30,8,1,"Fichero:"
 1849,45,40,297,12,1,""
 1850,3,11,39,8,1,""
 1851,45,11,305,8,1,""
 1852,3,23,39,8,1,""
 1853,45,23,305,8,1,""
-1854,18,41,44,8,1,"Fichero:"
+1854,12,41,30,8,1,"Fichero:"
 1855,45,40,297,12,1,""
 1856,3,11,39,8,1,""
 1857,45,11,305,8,1,""
 1858,3,23,39,8,1,""
 1859,45,23,305,8,1,""
-1860,18,41,44,8,1,"Fichero:"
+1860,12,41,30,8,1,"Fichero:"
 1861,45,40,297,12,1,""
 1151,18,56,24,8,1,"Total:"
 156,45,55,297,12,1,""
@@ -85,13 +85,13 @@ SLGINCOMPLETE,""
 1876,5,84,75,10,1,""
 1871,85,84,265,10,1,""
 1870,5,96,345,82,1,""
-1872,5,182,86,14,1,"&Resolver"
-1873,60,182,80,14,1,"S&altar"
-1874,115,182,101,14,1,"Sobrescribir &todos"
-1875,185,182,84,14,1,"Saltar a&dos"
-157,92,202,63,14,1,"&Minimizar"
+1872,5,182,50,14,1,"&Resolver"
+1873,60,182,50,14,1,"S&altar"
+1874,115,182,65,14,1,"Sobrescribir &todos"
+1875,185,182,55,14,1,"Saltar a&dos"
+157,92,202,50,14,1,"&Minimizar"
 158,152,202,50,14,1,""
-2,212,202,76,14,1,"Cancelar"
+2,212,202,50,14,1,"Cancelar"
 
 [DIALOG 148]
 355,98,1,"Comparación de directorios"
@@ -207,7 +207,7 @@ SLGINCOMPLETE,""
 2,270,57,50,14,1,"Cancelar"
 
 [DIALOG 191]
-255,289,1,"Comparar directorios"
+273,289,1,"Comparar directorios"
 1150,9,6,234,8,1,"Al principio los nombres no estarán seleccionados en ambos paneles."
 1151,9,15,211,8,1,"Serán seleccionados los ficheros que existan sólo en un panel."
 1152,9,31,161,8,1,"Comparar ficheros con el mismo nombre según"
@@ -265,14 +265,14 @@ SLGINCOMPLETE,""
 9,153,43,50,14,1,"Ayuda"
 
 [DIALOG 205]
-255,257,1,""
+269,257,1,""
 209,10,9,207,8,1,""
 210,10,19,208,131,1,""
 362,223,18,23,14,1,""
 1817,10,37,80,8,1,"&Modo de transferencia:"
 1818,78,35,167,49,1,""
 222,10,50,240,12,1,"&Esperar hasta que todas las operaciones de copia/traslado terminen"
-1868,10,66,106,8,1,"&Tratamiento de conflictos:"
+1868,10,66,90,8,1,"&Tratamiento de conflictos:"
 1869,78,64,167,49,1,""
 213,10,79,244,12,1,"&Reemplazar ficheros anteriores y saltar otros existentes sin preguntar"
 225,10,92,79,12,1,"&Límite de velocidad:"
@@ -414,7 +414,7 @@ SLGINCOMPLETE,""
 1151,10,41,160,16,1,"Fork comunitario basado en Open Salamander 5.0"
 1150,10,63,180,18,1,"Copyright © 1997-2026 Open Salamander Authors,\nOpen Samandarin Authors, Ondřej Kotas (KRtekTM)"
 1152,10,84,20,8,1,"Web:"
-272,31,84,220,8,1,"https://samandarin.net/"
+272,31,84,220,8,1,"open.samandarin.net"
 1153,10,95,165,8,1,"Open Samandarin es software gratuito"
 1154,10,106,232,8,1,"Con licencia bajo la GNU General Public License versión 2 o posterior"
 286,2,122,294,1,1,""
@@ -631,23 +631,23 @@ SLGINCOMPLETE,""
 1159,1,1,72,8,1,"Unidades de &diskette"
 1150,49,5,244,1,1,""
 477,13,11,104,12,1,"Usar refresco automático"
-478,154,11,79,12,1,"Usar iconos simples"
+478,145,11,79,12,1,"Usar iconos simples"
 1151,1,25,225,8,1,"Otras unidades &removibles (discos USB, unidades ZIP y JAZ)"
 1152,228,29,65,1,1,""
 479,13,35,104,12,1,"Usar refresco automático"
-480,154,35,79,12,1,"Usar iconos simples"
+480,145,35,79,12,1,"Usar iconos simples"
 1153,1,49,140,8,1,"Unidades fi&jas (p.ej. discos duros locales)"
 1160,117,53,176,1,1,""
 481,13,59,104,12,1,"Usar refresco automático"
-482,154,59,79,12,1,"Usar iconos simples"
+482,145,59,79,12,1,"Usar iconos simples"
 1155,1,73,106,8,1,"Unidades &CD-ROM o DVD-ROM"
 1154,101,77,192,1,1,""
 485,13,83,104,12,1,"Usar refresco automático"
-486,154,83,79,12,1,"Usar iconos simples"
+486,145,83,79,12,1,"Usar iconos simples"
 1157,1,97,58,8,1,"Unidades de red"
 1156,55,101,238,1,1,""
 483,13,107,104,12,1,"Usar refresco au&tomático"
-484,154,107,79,12,1,"Usar iconos simp&les"
+484,145,107,79,12,1,"Usar iconos simp&les"
 487,13,119,276,12,1,"N&o refrescar al activar Salamander (puede ser necesario refresco manual)"
 6296,1,136,292,51,1,"Información del espacio libre"
 6297,10,150,92,8,1,"Unidades e&xtraíbles:"
@@ -658,7 +658,7 @@ SLGINCOMPLETE,""
 1162,42,195,251,1,1,""
 489,13,201,276,12,1,"Habilitar rutas largas Win32 (Windows 10 1607+ / Windows 11)"
 1158,1,219,135,8,1,"Si la ruta del panel es inaccessi&ble, ir a:"
-488,138,217,138,12,1,""
+488,130,217,146,12,1,""
 360,280,217,13,12,1,"..."
 
 [DIALOG 490]
@@ -793,6 +793,42 @@ SLGINCOMPLETE,""
 299,231,1,"Visores y editores"
 1150,87,86,125,8,1,"Seleccione un elemento de la lista"
 
+[DIALOG 576]
+420,300,1,"Asociaciones de ficheros"
+6324,4,3,80,20,1,""
+6319,4,3,90,20,1,""
+6320,98,3,90,20,1,""
+6321,192,3,78,20,1,""
+6322,274,3,142,20,1,""
+6325,400,3,16,20,1,""
+6312,4,29,170,14,1,""
+6314,180,29,90,60,1,""
+6323,180,29,90,60,1,""
+6315,276,30,82,14,1,""
+6308,342,28,74,16,1,""
+6301,4,60,412,100,1,""
+6317,4,164,412,12,1,""
+1151,4,180,412,84,1,""
+1150,10,184,160,12,1,""
+1152,10,202,42,8,1,""
+6302,55,199,170,14,1,""
+1153,10,217,42,8,1,""
+6327,10,225,80,20,1,""
+6328,92,225,80,20,1,""
+6329,174,225,80,20,1,""
+6330,256,225,80,20,1,""
+6331,338,225,72,20,1,""
+1155,16,245,42,8,1,""
+6305,62,242,340,60,1,""
+1156,16,265,42,8,1,""
+6316,62,262,340,60,1,""
+6307,16,282,386,10,1,""
+6332,330,280,72,18,1,""
+6309,4,284,58,14,1,""
+6310,66,284,92,14,1,""
+6311,162,284,92,14,1,""
+6318,338,284,78,14,1,""
+
 [DIALOG 580]
 299,231,1,"Visores"
 585,1,6,142,8,1,"&Lista de prioridad de plantillas de ficheros"
@@ -886,6 +922,42 @@ SLGINCOMPLETE,""
 641,72,209,30,14,1,"text"
 1160,197,212,94,8,1,"Color de texto seleccionado"
 642,263,209,30,14,1,"text"
+
+[DIALOG 640]
+299,231,1,"Visores propios"
+1151,1,0,295,12,1,""
+6340,1,18,295,76,1,""
+1150,1,100,295,108,1,""
+6342,6,116,50,8,1,""
+6341,59,114,220,14,1,""
+6343,6,134,50,8,1,""
+352,59,132,220,14,1,""
+360,284,132,12,14,1,""
+6344,6,152,50,8,1,""
+359,59,150,220,14,1,""
+358,284,150,12,14,1,""
+6345,6,170,50,8,1,""
+357,59,168,220,14,1,""
+356,284,168,12,14,1,""
+6346,216,188,64,14,1,""
+
+[DIALOG 641]
+299,231,1,"Editores propios"
+1151,1,0,295,12,1,""
+6340,1,18,295,76,1,""
+1150,1,100,295,108,1,""
+6342,6,116,50,8,1,""
+6341,59,114,220,14,1,""
+6343,6,134,50,8,1,""
+352,59,132,220,14,1,""
+360,284,132,12,14,1,""
+6344,6,152,50,8,1,""
+359,59,150,220,14,1,""
+358,284,150,12,14,1,""
+6345,6,170,50,8,1,""
+357,59,168,220,14,1,""
+356,284,168,12,14,1,""
+6346,216,188,64,14,1,""
 
 [DIALOG 660]
 231,195,1,"Cambiar icono"
@@ -1025,7 +1097,7 @@ SLGINCOMPLETE,""
 254,148,1,"Open Samandarin"
 1,71,127,50,14,1,"&Sí"
 2,132,127,50,14,1,"&No"
-1150,8,7,253,8,1,"Parece que Open Samandarin se está ejecutando en modo compatibilidad."
+1150,8,7,254,8,1,"Parece que Open Samandarin se está ejecutando en modo compatibilidad."
 1151,8,16,251,8,1,"Esto puede originar inestabilidad u otros problemas en Open Samandarin."
 1152,8,31,160,8,1,"Puede desconectar el modo de compatibilidad:"
 1153,17,41,188,8,1,"1) Haga click derecho en el icono de Open Samandarin"
@@ -1134,11 +1206,13 @@ SLGINCOMPLETE,""
 1096,103,202,55,12,1,"&Imágenes"
 1097,197,202,50,12,1,"&Vídeos"
 610,9,215,178,12,1,"Como &Otro panel (sólo en menú Cambiar unidad)"
-1155,1,238,98,8,1,"Cómo cambiar visibilidad de "
-1088,92,238,42,8,1,"Ruta rápida"
-1156,125,238,15,8,1,"y"
-1089,142,238,33,8,1,"Plugin FS"
-1157,175,238,39,8,1,"elementos."
+1104,1,235,226,8,1,"Mostrar primero en el menú Cambiar unidad:"
+1107,155,232,131,40,1,""
+1155,1,252,98,8,1,"Cómo cambiar visibilidad de "
+1088,92,252,42,8,1,"Ruta rápida"
+1156,125,252,15,8,1,"y"
+1089,142,252,33,8,1,"Plugin FS"
+1157,175,252,39,8,1,"elementos."
 
 [DIALOG 1105]
 299,263,1,"Paneles"
@@ -1488,14 +1562,14 @@ SLGINCOMPLETE,""
 2612,51,171,273,8,1,""
 1157,5,182,42,8,1,"Nombre FS:"
 2615,51,182,273,8,1,""
-1160,5,193,44,8,1,"Miniaturas:"
-2617,49,193,275,12,1,""
+1160,5,193,42,8,1,"Miniaturas:"
+2617,51,193,273,12,1,""
 1158,5,205,42,8,1,"Funciones:"
 2613,51,205,273,16,1,""
 2626,5,223,42,8,1,"Seguridad:"
 2625,51,223,273,72,1,""
-2620,5,306,300,12,1,"&Ver icono %s en barra de Plugins"
-2621,5,318,300,12,1,"V&er elemento %s en menú Cambiar unidad y Barra de unidades"
+2621,5,306,300,12,1,"V&er elemento %s en menú Cambiar unidad y Barra de unidades"
+2620,5,318,300,12,1,"&Ver icono %s en barra de Plugins"
 9,331,294,50,14,1,"A&yuda"
 1,331,313,50,14,1,"Cerrar"
 2624,376,322,10,10,1,""
@@ -1521,7 +1595,7 @@ SLGINCOMPLETE,""
 2650,11,97,150,12,1,"Guardar lista de directorios de &trabajo"
 2653,11,110,150,12,1,"Guardar &directorios visitados"
 1152,1,141,228,16,1,"Para el historial de línea de comando (puede contener contraseñas) puede escoger opciones especiales."
-2647,1,174,247,12,1,"&Habilitar historial de línea de comando"
+2647,1,161,247,12,1,"&Habilitar historial de línea de comando"
 2648,1,174,247,12,1,"G&uardar historial de línea de comando"
 1153,1,197,188,8,1,"Puede borrar ahora todos los datos relativos al historial."
 2649,1,207,60,14,1,"&Borrar historial..."
@@ -1552,7 +1626,7 @@ SLGINCOMPLETE,""
 [DIALOG 2680]
 299,231,1,"Ventana principal"
 2681,1,3,132,12,1,"Ver &pantalla de bienvenida al iniciar"
-2682,1,17,275,12,1,"Mostrar &icono de Open Samandarin en el área de estado de la barra de tareas"
+2682,1,17,276,12,1,"Mostrar &icono de Open Samandarin en el área de estado de la barra de tareas"
 2683,1,31,162,12,1,"&Ver ruta actual en título de la ventana como:"
 2684,164,31,130,55,1,""
 2685,1,45,151,12,1,"Prefijo de &texto personalizado en el título:"
@@ -1725,16 +1799,16 @@ SLGINCOMPLETE,""
 
 [DIALOG 2975]
 299,231,1,"Operaciones de archivo"
-1866,1,3,204,8,1,"Tratamiento de &conflictos:"
-1867,125,1,169,60,1,""
-1864,1,19,215,8,1,"Modo de &transferencia preferido:"
-1865,125,17,169,80,1,""
-1812,1,35,188,8,1,"Máx. transferencias simultáneas de archivos en &SSD:"
-1813,193,33,20,12,1,""
-1862,216,36,9,14,1,""
-1814,1,50,188,8,1,"Máx. transferencias simultáneas de archivos en &NVMe:"
-1815,193,48,20,12,1,""
-1863,216,51,9,14,1,""
+1866,1,3,170,8,1,"Tratamiento de &conflictos:"
+1867,175,1,119,60,1,""
+1864,1,19,170,8,1,"Modo de &transferencia preferido:"
+1865,175,17,119,80,1,""
+1812,1,35,180,8,1,"Máx. transferencias simultáneas de archivos en &SSD:"
+1813,175,33,20,12,1,""
+1862,198,36,9,14,1,""
+1814,1,50,185,8,1,"Máx. transferencias simultáneas de archivos en &NVMe:"
+1815,175,48,20,12,1,""
+1863,198,51,9,14,1,""
 
 [DIALOG 6110]
 210,144,1,"Buscar"
@@ -1823,13 +1897,13 @@ SLGINCOMPLETE,""
 2,434,300,80,14,1,"Cancelar"
 
 [DIALOG 8201]
-255,302,1,""
+269,302,1,""
 209,10,9,235,8,1,""
 6261,10,19,235,44,1,""
 1817,10,82,80,8,1,"&Modo de transferencia:"
 1818,78,80,167,49,1,""
 222,10,95,268,12,1,"&Esperar a que se terminen todas las demás operaciones de Copiar/Trasladar"
-1868,10,111,90,8,1,"&Gestión de conflictos:"
+1868,10,111,74,8,1,"&Gestión de conflictos:"
 1869,78,109,167,49,1,""
 213,10,124,260,12,1,"O&mitir archivos existentes más antiguos y no preguntarme para los demás"
 225,10,137,79,12,1,"&Límite de velocidad:"
@@ -1957,6 +2031,21 @@ SLGINCOMPLETE,""
 1091,1,"La visibilidad de elementos de Plugin FS puede cambiarse en el Gestor de Plugins (ver menú Plugins)."
 
 [STRINGTABLE 3]
+1108,1,"Elementos del plugin"
+1109,1,"Rutas frecuentes"
+
+[STRINGTABLE 4]
+2421,1,"Origen"
+2422,1,"Detalles de asociación"
+2423,1,"Conflictos (%u)"
+2424,1,"Añadir nuevo patrón"
+2426,1,"Todos los estados"
+2427,1,"Todos los orígenes"
+
+[STRINGTABLE 5]
+2468,1,"Aplicar"
+
+[STRINGTABLE 6]
 10000,1,"Pregunta"
 10001,1,"¿Desea cancelar esta operación?"
 10002,1,"Nombre de elemento"
@@ -1970,7 +2059,7 @@ SLGINCOMPLETE,""
 10013,1,"Imposible comprobar la ruta."
 10014,1,"La ruta tiene un formato incorrecto."
 
-[STRINGTABLE 4]
+[STRINGTABLE 7]
 10016,1,"Configuración"
 10017,1,"sí"
 10018,1,"no"
@@ -1987,7 +2076,7 @@ SLGINCOMPLETE,""
 10030,1,"unidad de RAM"
 10031,1,"desconocido (tipo: %d)"
 
-[STRINGTABLE 5]
+[STRINGTABLE 8]
 10032,1,"No se encontraron concordancias."
 10033,1,"Información"
 10034,1,"Imposible leer asociaciones del registro.\nError: %s"
@@ -2004,7 +2093,7 @@ SLGINCOMPLETE,""
 10046,1,"sí"
 10047,1,"no"
 
-[STRINGTABLE 6]
+[STRINGTABLE 9]
 10048,1,"Fichero: "%s"\nError: %s"
 10051,1,"El tamaño del fichero debe ser un número positivo."
 10052,1,"La fecha tiene formato incorrecto."
@@ -2020,7 +2109,7 @@ SLGINCOMPLETE,""
 10062,1,"Especifique opciones de búsqueda y pulse Buscar ahora."
 10063,1,"Debe seleccionar al menos una opción."
 
-[STRINGTABLE 7]
+[STRINGTABLE 10]
 10064,1,"Debe especificarse al menos una opción de conversión."
 10065,1,"No hay ficheros que concuerden con la plantilla de búsqueda especificada."
 10066,1,"Error al abrir fichero "%s".\n%s"
@@ -2037,7 +2126,7 @@ SLGINCOMPLETE,""
 10077,1,"Atrib"
 10079,1,"Todos los ficheros y directorios deben ser de la misma unidad."
 
-[STRINGTABLE 8]
+[STRINGTABLE 11]
 10080,1,"Algún fichero o directorio seleccionado no está disponible.\nPulse el botón Buscar ahora para refrescar la lista de elementos encontrados."
 10081,1,"¿Desea cerrar la búsqueda?"
 10082,1,"&No ver este mensaje de nuevo\tcómo revertir\tPuede cambiar esta opción más tarde en la página de Confirmaciones en la Configuración."
@@ -2055,7 +2144,7 @@ SLGINCOMPLETE,""
 10094,1,"Error al cambiar de nombre el fichero"
 10095,1,"Error al abrir fichero"
 
-[STRINGTABLE 9]
+[STRINGTABLE 12]
 10096,1,"Error al guardar fichero"
 10097,1,"Error al reemplazar fichero"
 10098,1,"Error al borrar fichero"
@@ -2072,7 +2161,7 @@ SLGINCOMPLETE,""
 10109,1,"No se encontró fichero o directorio"
 10111,1,"DIR"
 
-[STRINGTABLE 10]
+[STRINGTABLE 13]
 10112,1,"Cambiar mayúsculas/minúsculas"
 10113,1,"La fecha o la hora tienen formato incorrecto."
 10114,1,"Cambiar atributos"
@@ -2090,7 +2179,7 @@ SLGINCOMPLETE,""
 10126,1,"Cambio rápido de nombre"
 10127,1,"Cambiar nombre de %s a"
 
-[STRINGTABLE 11]
+[STRINGTABLE 14]
 10129,1,"Copiar"
 10130,1,"Trasladar/Cambiar nombre"
 10131,1,"Borrar"
@@ -2107,7 +2196,7 @@ SLGINCOMPLETE,""
 10142,1,"Todos los ficheros (*.*)|*.*|"
 10143,1,"Confirmar borrado de ficheros"
 
-[STRINGTABLE 12]
+[STRINGTABLE 15]
 10144,1,"¿Desea borrar el fichero con atributo Sistema u Oculto?"
 10145,1,"Este nombre ya ha sido usado para un fichero."
 10147,1,"El directorio "%s" tiene atributo Sistema u Oculto.\n¿Desea borrarlo?"
@@ -2122,7 +2211,7 @@ SLGINCOMPLETE,""
 10157,1,"'*' representa cualquier nº de caracteres. '?' representa cualquier caracter.\nEjemplo: *.a? (.a1, alguno.ai, etc)\nPlantillas: se separan por punto y coma. Ejemplo: *.txt;*.doc (a.txt, b.doc, etc)\nPlantillas excluidas: después de '|'. Ejemplo: |*.txt;*.doc (todo excepto  *.txt;*.doc)\nSi necesita punto y coma dentro de plantilla, duplíquelas. Ejemplo: ono;;dos"
 10158,1,"Las plantillas están separadas por punto y coma.\nEl caracter '#' representa cualquier dígito ('0' ... '9')"
 
-[STRINGTABLE 13]
+[STRINGTABLE 16]
 10160,1,"Puede ajustar el valor del ancho de variable a un nº de caracteres o 'max' (ajustar el valor más grande).\nPor ejemplo: $(Nombre:20) or $(Nombre:max)."
 10164,1,"Buscar"
 10165,1,"La expresión regular concuerda con cadena vacía."
@@ -2137,7 +2226,7 @@ SLGINCOMPLETE,""
 10174,1,"Rango de [] incorrecto"
 10175,1,"[] desequilibrados"
 
-[STRINGTABLE 14]
+[STRINGTABLE 17]
 10176,1,"?+* seguido por nada"
 10177,1,"Al final hay \\"
 10178,1,"Desastre interno"
@@ -2155,7 +2244,7 @@ SLGINCOMPLETE,""
 10190,1,"(Vacío)"
 10191,1,"Red"
 
-[STRINGTABLE 15]
+[STRINGTABLE 18]
 10192,1,"Como el otro panel"
 10193,1,"Cambiar unidad"
 10194,1,"Seleccione la ruta de red que desea visitar."
@@ -2164,17 +2253,17 @@ SLGINCOMPLETE,""
 10198,1,"Seleccione el directorio destino."
 10199,1,"desplazamiento: %s"
 
-[STRINGTABLE 16]
+[STRINGTABLE 19]
 10220,1,"Copiar"
 10221,1,"Comprimir"
 10222,1,"Trasladar"
 10223,1,"Error al descomprimir archivo"
 
-[STRINGTABLE 17]
+[STRINGTABLE 20]
 10254,1,"archivo."
 10255,1,"Descomprimir archivo "%s" a"
 
-[STRINGTABLE 18]
+[STRINGTABLE 21]
 10256,1,"El directorio "%s" no existe.\n\n¿Desea crearlo?"
 10257,1,"El nombre "%s" ya ha sido usado para un fichero."
 10258,1,"Imposible crear el directorio "%s"."
@@ -2190,7 +2279,7 @@ SLGINCOMPLETE,""
 10270,1,"Nombre"
 10271,1,"Extensión"
 
-[STRINGTABLE 19]
+[STRINGTABLE 22]
 10272,1,"Nombre DOS (8.3)"
 10273,1,"Tamaño"
 10274,1,"Tipo"
@@ -2205,7 +2294,7 @@ SLGINCOMPLETE,""
 10286,1,"JAR a volúmenes 1.44MB (Externo Win32/x64, probado con v1.02)"
 10287,1,"RAR (Externo Win32/x64, probado con v2.50)"
 
-[STRINGTABLE 20]
+[STRINGTABLE 23]
 10288,1,"RAR a volúmenes 1.44MB (Externo Win32/x64, probado con v2.50)"
 10289,1,"ARJ (Externo DOS, probado con v2.60)"
 10290,1,"ARJ a volúmenes 1.44MB (Externo DOS, probado con v2.60)"
@@ -2223,7 +2312,7 @@ SLGINCOMPLETE,""
 10302,1,"RAR a volúmenes 1.44MB (Externo DOS, probado con v2.50)"
 10303,1,"PKZIP (Externo Win32/x64, probado con v2.50)"
 
-[STRINGTABLE 21]
+[STRINGTABLE 24]
 10304,1,"PKZIP (Externo DOS, probado con v2.04g)"
 10307,1,"JAR (Externo Win32/x64, probado con v1.02)"
 10308,1,"RAR (Externo Win32/x64, probado con v2.50)"
@@ -2239,7 +2328,7 @@ SLGINCOMPLETE,""
 10318,1,"PKUNZIP (Externo DOS, probado con v2.04g)"
 10319,1,"Win32/x64 JAR ejecutable de consola (probado con v1.02)"
 
-[STRINGTABLE 22]
+[STRINGTABLE 25]
 10320,1,"Win32/x64 RAR ejecutable de consola (probado con v2.50)"
 10321,1,"MS-DOS ARJ ejecutable (probado con v2.60)"
 10322,1,"MS-DOS LHA ejecutable (probado con v2.55)"
@@ -2256,7 +2345,7 @@ SLGINCOMPLETE,""
 10334,1,"Modificar (F2)"
 10335,1,"Nuevo (Insertar)"
 
-[STRINGTABLE 23]
+[STRINGTABLE 26]
 10336,1,"Borrar (Supr)"
 10337,1,"Mover elemento arriba (Alt + Flecha arriba)"
 10338,1,"Mover elemento abajo (Alt + Flecha abajo)"
@@ -2274,7 +2363,7 @@ SLGINCOMPLETE,""
 10350,1,"Variable de entorno"
 10351,1,"Nombre completo"
 
-[STRINGTABLE 24]
+[STRINGTABLE 27]
 10352,1,"Nombre completo DOS"
 10353,1,"Ruta completa"
 10354,1,"Directorio Windows"
@@ -2291,7 +2380,7 @@ SLGINCOMPLETE,""
 10366,1,"La resolución del tiempo debe estar entre 0 y 3600 s"
 10367,1,"B&arra de plugins"
 
-[STRINGTABLE 25]
+[STRINGTABLE 28]
 10368,1,"Barra d&e menú de usuario"
 10369,1,"Barra de herramientas &superior"
 10370,1,"Barra de &ruta rápida"
@@ -2309,7 +2398,7 @@ SLGINCOMPLETE,""
 10382,1,"Última &fecha de grabación"
 10383,1,"Última &hora de grabación"
 
-[STRINGTABLE 26]
+[STRINGTABLE 29]
 10384,1,"&Atribiutos de fichero"
 10385,1,"&Personalizar barra de herramientas de panel..."
 10386,1,"&Asignar ruta rápida"
@@ -2319,7 +2408,7 @@ SLGINCOMPLETE,""
 10390,1,"Modo de columnas sencillo\tCtrl+N"
 10391,1,"&Paneles con pestañas"
 
-[STRINGTABLE 27]
+[STRINGTABLE 30]
 10400,1,"Ayuda,Cambiar nombre,Ver,Editar,Copiar,Trasladar,HacerDir,Borrar,MenúUsr,Menú,Conectar,Desconectar"
 10401,1,"LChDrv,RChDrv,AltView,Exit,Pack,Unpack,Find,,Unpack,CalcSpc,OpnFiles,WorkDirs"
 10402,1,"DrvInfo,ChAttrs,ByName,ByExt,ByTime,BySize,ChCase,,Refresh,Compare,MaxPanel,Filter"
@@ -2328,7 +2417,7 @@ SLGINCOMPLETE,""
 10406,1,",,,,,,,,,DirMenu,,"
 10408,1,"Help,,,,,,,,,Menu,,"
 
-[STRINGTABLE 28]
+[STRINGTABLE 31]
 10420,1,"Conectar unidad de red\tF11"
 10421,1,"Desconectar\tF12"
 10424,1,"Crear directorio\tF7"
@@ -2339,7 +2428,7 @@ SLGINCOMPLETE,""
 10430,1,"Ordenar por extensión\tCtrl+F4"
 10431,1,"Ordenar por tamaño\tCtrl+F6"
 
-[STRINGTABLE 29]
+[STRINGTABLE 32]
 10432,1,"Ordenar por fecha\tCtrl+F5"
 10433,1,"Directorio padre\tBackspace"
 10434,1,"Directorio raíz\tMays+Retroceso"
@@ -2356,7 +2445,7 @@ SLGINCOMPLETE,""
 10445,1,"Borrar\tF8"
 10447,1,"Comprimir NTFS"
 
-[STRINGTABLE 30]
+[STRINGTABLE 33]
 10448,1,"Descomprimir NTFS"
 10449,1,"Cambio rápido de nombre\tF2"
 10450,1,"Cambiar mays/minúsculas\tCtrl+F7"
@@ -2373,7 +2462,7 @@ SLGINCOMPLETE,""
 10462,1,"Cambiar unidad"
 10463,1,"Editar\tF4"
 
-[STRINGTABLE 31]
+[STRINGTABLE 34]
 10465,1,"Seleccionar\tNum +"
 10466,1,"Deseleccionar\tNum -"
 10467,1,"Invertir selección\tNum *"
@@ -2390,7 +2479,7 @@ SLGINCOMPLETE,""
 10478,1,"Abrir Fuentes"
 10479,1,"Convertir\tCtrl+K"
 
-[STRINGTABLE 32]
+[STRINGTABLE 35]
 10480,1,"Deseleccionar todo\tCtrl+D"
 10481,1,"Entras o salir del menú"
 10482,1,"Vista alternativa"
@@ -2408,7 +2497,7 @@ SLGINCOMPLETE,""
 10494,1,"Ir a ruta rápida\tMays+F9"
 10495,1,"Email"
 
-[STRINGTABLE 33]
+[STRINGTABLE 36]
 10496,1,"Maximizar/Restaurar Panel"
 10497,1,"Directorios compartidos\tCtrl+Mays+F9"
 10498,1,"Pasar a pantalla completa"
@@ -2426,7 +2515,7 @@ SLGINCOMPLETE,""
 10510,1,"Abrir carpeta"
 10511,1,"Configuración"
 
-[STRINGTABLE 34]
+[STRINGTABLE 37]
 10512,1,"Menú contextual del directorio actual"
 10513,1,"Enfocar nombre en el otro panel"
 10514,1,"Abrir nombre en el otro panel"
@@ -2442,7 +2531,7 @@ SLGINCOMPLETE,""
 10524,1,"Pestaña anterior"
 10525,1,"Duplicar pestaña"
 
-[STRINGTABLE 35]
+[STRINGTABLE 38]
 10530,1,"La variable debe terminar con ')'."
 10531,1,"Error interno."
 10532,1,"La variable "%s" no fue encontrada."
@@ -2455,7 +2544,7 @@ SLGINCOMPLETE,""
 10539,1,"No se permite aquí una cadena vacía."
 10540,1,"Ancho de variable incorrecto (debe estar entre 1 y 9999 o texto 'max' si debe encajar el valor máximo de la variable)."
 
-[STRINGTABLE 36]
+[STRINGTABLE 39]
 10550,1,"Programa externo"
 10551,1,"-- no admitido --"
 10552,1,"&Color personalizado..."
@@ -2467,7 +2556,7 @@ SLGINCOMPLETE,""
 10558,1,"&No cambiar el color del texto"
 10559,1,"N&o cambiar el color del fondo"
 
-[STRINGTABLE 37]
+[STRINGTABLE 40]
 10564,1,"Elementos en el panel"
 10565,1,"Marco del elemento enfocado en el panel"
 10566,1,"Transparencia de icono en el panel"
@@ -2481,7 +2570,7 @@ SLGINCOMPLETE,""
 10574,1,"Normal"
 10575,1,"Seleccionado"
 
-[STRINGTABLE 38]
+[STRINGTABLE 41]
 10576,1,"Enfocado"
 10577,1,"Enfocado y seleccionado"
 10578,1,"Parte izquierda (hecho)"
@@ -2495,7 +2584,7 @@ SLGINCOMPLETE,""
 10586,1,"Sugerencias de autocompletado de ruta"
 10588,1,"Elemento seleccionado en la lista"
 
-[STRINGTABLE 39]
+[STRINGTABLE 42]
 10595,1,"Marco de miniatura en el panel"
 10600,1,"Personalizado"
 10601,1,"Open Samandarin"
@@ -2504,13 +2593,13 @@ SLGINCOMPLETE,""
 10604,1,"DOS Navigator"
 10605,1,"Modo oscuro de Windows (experimental)"
 
-[STRINGTABLE 40]
+[STRINGTABLE 43]
 10665,1,"Nombre"
 10666,1,"Tecla rápida"
 10667,1,"Nombre"
 10671,1,"Filtro activado"
 
-[STRINGTABLE 41]
+[STRINGTABLE 44]
 10672,1,"Espacio libre\nPulse para ver información de la unidad (Ctrl+F1)"
 10673,1,"Lista de directorios de trabajo (Alt+F12)"
 10674,1,"Maximizar/Restaurar Panel (Ctrl+F11)"
@@ -2519,7 +2608,7 @@ SLGINCOMPLETE,""
 10680,1,"Visor interno"
 10681,1,"Visor externo"
 
-[STRINGTABLE 42]
+[STRINGTABLE 45]
 10694,1,"Imposible cambiar etiqueta de unidad.\nError: %s"
 10696,1,"Ctrl"
 10697,1,"Mays"
@@ -2529,7 +2618,7 @@ SLGINCOMPLETE,""
 10702,1,"Un nombre de fichero "%s" es incorrecto."
 10703,1,"El fichero "%s" no contiene iconos."
 
-[STRINGTABLE 43]
+[STRINGTABLE 46]
 10704,1,"Imposible encontrar el fichero "%s"."
 10706,1,"Visor externo [%s]"
 10707,1,"Visor interno"
@@ -2542,7 +2631,7 @@ SLGINCOMPLETE,""
 10716,1,"Editar"
 10717,1,"Abrir"
 
-[STRINGTABLE 44]
+[STRINGTABLE 47]
 10720,1,"Atributos"
 10721,1,"Tamaño"
 10722,1,"Fecha"
@@ -2555,7 +2644,7 @@ SLGINCOMPLETE,""
 10734,1,"Buscando:"
 10735,1,"Buscar"
 
-[STRINGTABLE 45]
+[STRINGTABLE 48]
 10736,1,"buscando"
 10737,1,"No se permiten cadenas vacías aquí."
 10738,1,"Se cargaron las opciones "%s""
@@ -2569,7 +2658,7 @@ SLGINCOMPLETE,""
 10750,1,"Iniciando datos..."
 10751,1,"Leyendo lista de directorios compartidos..."
 
-[STRINGTABLE 46]
+[STRINGTABLE 49]
 10752,1,"Leyendo configuración del registro..."
 10753,1,"Importando configuración del registro..."
 10754,1,"Leyendo configuración del registro..."
@@ -2584,7 +2673,7 @@ SLGINCOMPLETE,""
 10766,1,"Información"
 10767,1,"Saltando directorio"
 
-[STRINGTABLE 47]
+[STRINGTABLE 50]
 10768,1,"¿Desea añadir el directorio "%s" a la lista de directorios ignorados?"
 10769,1,"Saltando %d errors..."
 10770,1,"&Diferir siguientes mensajes de error"
@@ -2594,7 +2683,7 @@ SLGINCOMPLETE,""
 10782,1,"Cualquiera del juego de caracteres"
 10783,1,"Cualquiera excepto del juego de caracteres"
 
-[STRINGTABLE 48]
+[STRINGTABLE 51]
 10784,1,"Cualquiera del rango de caracteres"
 10785,1,"Comienzo de línea"
 10786,1,"Fin de línea"
@@ -2612,7 +2701,7 @@ SLGINCOMPLETE,""
 10798,1,"Dígito decimal"
 10799,1,"Número decimal"
 
-[STRINGTABLE 49]
+[STRINGTABLE 52]
 10800,1,"Número hexadecimal"
 10801,1,"Número real"
 10802,1,"Cadena entre comillas"
@@ -2629,7 +2718,7 @@ SLGINCOMPLETE,""
 10814,1,"Unidad local"
 10815,1,"Unidad extraíble"
 
-[STRINGTABLE 50]
+[STRINGTABLE 53]
 10818,1,"Enviando correo:"
 10819,1,"Sus ficheros han sido incorporados y preparados para ser enviados con este mensaje."
 10820,1,"Imposible enviar correo. No hay programas preparados para enviar correo, MAPI32.DLL no fue encontrado."
@@ -2642,7 +2731,7 @@ SLGINCOMPLETE,""
 10830,1,"(No hay plugins instalados)"
 10831,1,"(No hay plugins configurables)"
 
-[STRINGTABLE 51]
+[STRINGTABLE 54]
 10832,1,"El nombre "%s" no puede ser convertido a UNC.\nNo es ni de un directorio compartido ni de una unidad mapeada."
 10833,1,"¿Está´seguro de querer dejar de compartir "%s"?"
 10834,1,"Nombre compartido"
@@ -2657,7 +2746,7 @@ SLGINCOMPLETE,""
 10846,1,"&Probar de nuevo"
 10847,1,"&Continuar"
 
-[STRINGTABLE 52]
+[STRINGTABLE 55]
 10848,1,"&Sí"
 10849,1,"&No"
 10850,1,"Izquierda"
@@ -2669,7 +2758,7 @@ SLGINCOMPLETE,""
 10862,1,"Marra de herramientas &media"
 10863,1,"Ruta completa"
 
-[STRINGTABLE 53]
+[STRINGTABLE 56]
 10864,1,"Sólo nombre de directorio"
 10865,1,"Ruta corta"
 10866,1,"Ninguno"
@@ -2683,7 +2772,7 @@ SLGINCOMPLETE,""
 10874,1,"Imposible conseguir destino del enlace."
 10875,1,"Este enlace es un punto de montaje de volumen. No se puede mostrar en panel.\nRuta: %s"
 
-[STRINGTABLE 54]
+[STRINGTABLE 57]
 10880,1,"{!}segundo{s|0||1|s}"
 10881,1,"{!}minuto{s|0||1|s}"
 10882,1,"{!}hora{s|0||1|s}"
@@ -2698,13 +2787,13 @@ SLGINCOMPLETE,""
 10893,1,"Comparar con sistema de ficheros de plugin no está aún soportado."
 10894,1,"Hay la misma ruta en los paneles izquierdo y derecho."
 
-[STRINGTABLE 55]
+[STRINGTABLE 58]
 10900,1,"La encriptación no está permitida en este volumen o este sistema operativo."
 10905,1,"Error al cambiar encriptación"
 10910,1,"Confirmar encriptación de fichero"
 10911,1,"¿Desea encriptar el fichero con atributo SISTEMA?"
 
-[STRINGTABLE 56]
+[STRINGTABLE 59]
 10920,1,"&Pausar"
 10921,1,"&Reanudar"
 10922,1,"pausado"
@@ -2713,7 +2802,7 @@ SLGINCOMPLETE,""
 10926,1,"(nombre: %s, usuario: %s)"
 10927,1,"Documentos"
 
-[STRINGTABLE 57]
+[STRINGTABLE 60]
 10928,1,"Objetos 3D"
 10929,1,"Escritorio"
 10930,1,"Nombre"
@@ -2725,7 +2814,7 @@ SLGINCOMPLETE,""
 10936,1,"Vídeos"
 10940,1,"(ninguno)"
 
-[STRINGTABLE 58]
+[STRINGTABLE 61]
 10945,1,"Imposible descomprimir fichero desde archivo a directorio temporal\nporque el nombre de fichero resultante es demasiado largo."
 10946,1,"Imposible descomprimir fichero desde archivo porque su nombre es incorrecto en sistemas Windows y el plugin de compresión no soporta compresión hacia otro nombre de fichero."
 10950,1,"Seleccione ruta"
@@ -2734,7 +2823,7 @@ SLGINCOMPLETE,""
 10953,1,"(symlink a: %s)"
 10955,1,"Ignorar &todo"
 
-[STRINGTABLE 59]
+[STRINGTABLE 62]
 10960,1,"Tal como están almacenados en el disco"
 10961,1,"Parcialmente en minúsculas si están en formato DOS"
 10962,1,"En minúsculas; directorios en mayúsculas"
@@ -2743,7 +2832,7 @@ SLGINCOMPLETE,""
 10965,1,"En mayúsculas"
 10970,1,"No importar, empezar con la configuración por omisión"
 
-[STRINGTABLE 60]
+[STRINGTABLE 63]
 10980,1,"&Hojear...\tCtrl+B"
 10981,1,"Active Ruta del panel &izquierdo\tCtrl+["
 10982,1,"Active Ruta del panel &derecho\tCtrl+]"
@@ -2751,7 +2840,7 @@ SLGINCOMPLETE,""
 10986,1,"En Kilobytes (por defecto en Windows Explorer)"
 10987,1,"En formato corto (por ejemplo 15 B, 3.41 KB, o 12.5 MB)"
 
-[STRINGTABLE 61]
+[STRINGTABLE 64]
 10994,1,"Imposible ejecutar nueva tarea porque la tarea anterior no ha terminado todavía. Pulse Continuar y espere hasta que se ejecute la tarea previa.\n\nSi no hay tal tarea, pulse Interrumpir y envíenos un informe de fallos para ayudarnos a resolver el problema. Open Samandarin finalizará."
 10995,1,"Esta ventana no puede cerrarse en este momento porque hay alguna tarea pendiente que la está´usando. Pulse Continuar y espere hasta que esta tarea finalice.\n\nSi no hay tal tarea, pulse Interrumpir y envíenos un informe de fallos para ayudarnos a resolver el problema. Open Samandarin finalizará."
 10996,1,"Open Samandarin se ha vuelto inestable por fallo de alguna extensión shell. Por favor, envíenos el siguiente informe de fallos para ayudarnos a resolver este problema.\n\nPulse OK para abrir el cuadro de diálogo Informe de fallos."
@@ -2766,7 +2855,7 @@ SLGINCOMPLETE,""
 11006,1,"El programa externo "%1" ha devuelto un error: %2"
 11007,1,"El compresor externo "%1" no puede ser ejecutado."
 
-[STRINGTABLE 62]
+[STRINGTABLE 65]
 11008,1,"Fichero temporal incorrecto."
 11009,1,"Ruta demasiado larga hacia el fichero: %1"
 11010,1,"Error manejando línea de comando al compresor."
@@ -2782,7 +2871,7 @@ SLGINCOMPLETE,""
 11020,1,"Imposible cambiar nombre de fichero temporal de archivo (%1) hacia nombre de archivo (%2)."
 11021,1,"Este nombre de fichero es incorrecto en sistemas Windows. Los compresores externos no soportan descomprimir hacia otro nombre de fichero, por lo que no es posible descomprimir este fichero."
 
-[STRINGTABLE 63]
+[STRINGTABLE 66]
 11025,1,"Código de salida %d."
 11026,1,"Se ha encontrado un aviso."
 11027,1,"Error de extracción de fichero."
@@ -2799,7 +2888,7 @@ SLGINCOMPLETE,""
 11038,1,"Demasiados capítulos en el archivo."
 11039,1,"Imposible convertir el fichero temporal al archivo."
 
-[STRINGTABLE 64]
+[STRINGTABLE 67]
 11040,1,"Error interno."
 11041,1,"Error desconocido."
 11042,1,"Se saltó un fichero."
@@ -2817,7 +2906,7 @@ SLGINCOMPLETE,""
 11054,1,"Ejecutando programa externo; espere por favor..."
 11055,1,"Nombre de ruta al ejecutable Jar32"
 
-[STRINGTABLE 65]
+[STRINGTABLE 68]
 11056,1,"Nombre de ruta al ejecutable Jar16"
 11057,1,"Nombre de ruta al ejecutable Rar32"
 11058,1,"Nombre de ruta al ejecutable Rar16"
@@ -2833,20 +2922,20 @@ SLGINCOMPLETE,""
 11068,1,"Hojear ejecutables"
 11070,1,"Interrumpción del usuario o cuestión sin resolver (repita operación y pulse el proceso "salspawn.exe" en la barra de tareas; verá el indicador del compresor)."
 
-[STRINGTABLE 66]
+[STRINGTABLE 69]
 11102,1,"El compresor no permite compresión a subdirectorios.\n¿Desea colocar ficheros en el directorio raíz del archivo?"
 11103,1,"El compresor no permite el comando "trasladar al archivo".\n¿Desea usar "copiar al archivo" en su lugar?"
 
-[STRINGTABLE 67]
+[STRINGTABLE 70]
 11104,1,"La ruta no es un directorio válido."
 
-[STRINGTABLE 68]
+[STRINGTABLE 71]
 11209,1,"Error en la ayuda"
 11210,1,"Imposible lanzar HtmlHelp."
 11211,1,"Imposible encontrar fichero de ayuda."
 11215,1,"Para abrir menú desde el campo de edición pulse Alt+Dcha"
 
-[STRINGTABLE 69]
+[STRINGTABLE 72]
 11220,1,"Enfocar"
 11221,1,"Enfocar elemento\tEspacio"
 11222,1,"Ver fichero\tF3"
@@ -2859,13 +2948,13 @@ SLGINCOMPLETE,""
 11229,1,"Mensajes de error: %d\nMensajes de información: %d\nPulse para ver el registro de búsqueda"
 11231,1,"Propiedades\tAlt+Intro"
 
-[STRINGTABLE 70]
+[STRINGTABLE 73]
 11240,1,"Ha especificado algunas opciones especiales (ver botónOpciones en diálogo Copiar/Trasladar). Estas opciones no se permiten al copiar/trasladar hacia sistemas de ficheros de plugins y archivos. Las opciones serán ignoradas."
 11241,1,"&No ver este mensaje otra vez\tcómo revertir\tPede cambiar esta opción más tarde en la página de Confirmaciones en Configuración."
 11245,1,"Parte de nombre de fichero"
 11246,1,"Parte de extensión de fichero"
 
-[STRINGTABLE 71]
+[STRINGTABLE 74]
 11250,1,"La ruta al directorio destino es muy larga, pulse el botón Saltar para saltar todo el directorio.\n\nRuta: %s\n\nNombre: %s"
 11255,1,"Avanzado"
 11256,1,"Ruta completa en panel inactivo"
@@ -2877,7 +2966,7 @@ SLGINCOMPLETE,""
 11262,1,"Segundo directorio a comparar (preferencia panel derecho)"
 11263,1,"Primer fichero a comparar (preferencia panel activo)"
 
-[STRINGTABLE 72]
+[STRINGTABLE 75]
 11264,1,"Segundo fichero a comparar (preferencia panel inactivo)"
 11265,1,"Primer directorio a comparar (preferencia panel activo)"
 11266,1,"Segundo directorio a comparar (preferencia panel inactivo)"
@@ -2888,7 +2977,7 @@ SLGINCOMPLETE,""
 11271,1,"Primer fichero o directorio a comparar (preferencia panel activo)"
 11272,1,"Segundo fichero o directorio a comparar (preferencia panel inactivo)"
 
-[STRINGTABLE 73]
+[STRINGTABLE 76]
 12000,1,"Nue&vo"
 12001,1,"Imposible lanzar gestor de correo. Error número %d."
 12002,1,"Confirmar compresión NTFS"
@@ -2902,7 +2991,7 @@ SLGINCOMPLETE,""
 12011,1,"El fichero de la configuración exportada será creado usando la configuración del registro.\n¿Desea guardar la configuración al registro antes de exportar?"
 12015,1,"Importar la configuración es bastante sencillo. Encuentre el fichero con la configuración y ábralo (use la tecla Enter o haga doble click en él). Debería abrirse en el Editor del Registro. Cuando le pregunte si desea añadir información desde el fichero al registro, vd. debería cerrar todas las instancias de Open Samandarin en ejecución. Ello impedirá la sobreescritura de la configuración recién importada por la grabación automática de la configuración al salir de Open Samandarin. Cuando Open Samandarin no esté funcionando, Sí en el cuadro de pregunta del Editor del Registro. Entonces éste importará la configuración desde el fichero al registro."
 
-[STRINGTABLE 74]
+[STRINGTABLE 77]
 12020,1,"Imposible cargar plugin %s (%s) o alguno de sus componentes.\nError: %s\nVer detalles del plugin en el menú Plugins / Gestión de plugins."
 12021,1,"El fichero SPL %s no es un plugin de Open Samandarin."
 12022,1,"El plugin %s (%s) ha cambiado. Reinstale este plugin (elimínelo y añádalo en menú Plugins / Gestión de plugins)."
@@ -2911,7 +3000,7 @@ SLGINCOMPLETE,""
 12025,1,"Este plugin (%s) no ha sido cargado. El plugin no es un plugin válido de Open Samandarin  ha sucedido algún error interno del plugin."
 12026,1,"El plugin (%s) no está soportado en esta versión de Open Samandarin. Consiga una versión más actual de este plugin."
 
-[STRINGTABLE 75]
+[STRINGTABLE 78]
 12033,1,"La compresión de ficheros actualizados al archivo ha fallado. ¿Quiere probar de nuevo? Si elige NO, volverá al diálogo Actualización de archivo, y podrá copiar ficheros actualizados al directorio escogido (para después comprimirlos al archivo)."
 12039,1,"El tamaño del bloque seleccionado en este visor supera los 100 MB. Copiar este bloque en el Portapapeles o moverlo mediante arrastrar y soltar puede ser lento. ¿Desea omitir estas operaciones para bloques de más de 100 MB en este visor?"
 12040,1,"Error desconocido."
@@ -2923,7 +3012,7 @@ SLGINCOMPLETE,""
 12046,1,"&OEM - ANSI"
 12047,1,"Tamaño incorrecto de fichero (no 256 bytes)."
 
-[STRINGTABLE 76]
+[STRINGTABLE 79]
 12048,1,"Error al abrir fichero "%s".\n%s"
 12049,1,"Nombre de codifiación interna desconocido (ni ANSI - OEM o OEM - ANSI) en fichero "%s"."
 12050,1,"Línea incorrecta en fichero "%s"."
@@ -2936,7 +3025,7 @@ SLGINCOMPLETE,""
 12060,1,"Un nombre vacío no tiene sentido aquí."
 12061,1,"La ruta especificada es incompleta; especifique una ruta completa."
 
-[STRINGTABLE 77]
+[STRINGTABLE 80]
 12080,1,"La copia de Open Samandarin en ejecución está ocupada.\n¿Desea ejecutar una nueva copia?"
 12081,1,"Open Samandarin está ocupado. El comando requerido no puede ejecutarse; inténtelo de nuevo más tarde."
 12085,1,"Copiar a fichero"
@@ -2951,7 +3040,7 @@ SLGINCOMPLETE,""
 12094,1,"Visor de ficheros"
 12095,1,"Extensión del menú"
 
-[STRINGTABLE 78]
+[STRINGTABLE 81]
 12096,1,"Sistema de ficheros (FS)"
 12097,1,"Sí"
 12098,1,"No"
@@ -2969,7 +3058,7 @@ SLGINCOMPLETE,""
 12110,1,"Nombre"
 12111,1,"Cargado"
 
-[STRINGTABLE 79]
+[STRINGTABLE 82]
 12112,1,"Versión"
 12113,1,"Localización"
 12114,1,"(ninguno)"
@@ -2987,7 +3076,7 @@ SLGINCOMPLETE,""
 12126,1,"Error al pedir propiedades del fichero."
 12127,1,"Herramienta de ayuda de extensiones"
 
-[STRINGTABLE 80]
+[STRINGTABLE 83]
 12128,1,"&Activar"
 12129,1,"&Desactivar"
 12130,1,"La ruta especificada no fue encontrada."
@@ -2997,7 +3086,7 @@ SLGINCOMPLETE,""
 12134,1,"El fichero de archivo "%s" ha cambiado. El archivo será reabierto en el panel."
 12135,1,"El archivo "%s" va a ser cerrado. Si está aún editando algunos ficheros de este archivo, guarde los cambios y ciérrelos de los editores ahora. Se le ofrecerá actualización del archivo en caso de cambios en ficheros editados."
 12136,1,"Actualización de archivo necesaria antes de usar el comando requerido. Si está aún editando algunos ficheros del archivo "%s", guarde los cambios y ciérrelos de los editores ahora. Se le ofrecerá actualización del archivo en caso de cambios en ficheros editados. Tras la actualización del archivo revise su selección en el panel refrescado y repita el comando."
-12137,0,"Archive update is necessary before starting drag&drop operation. If you are still editing some files from archive "%s", please save changes and close these files in editors now. Archive update will be offered only in case of changes in edited files. After archive update, please check your selection in refreshed panel and start drag&drop operation again."
+12137,1,"Es necesario actualizar el archivo antes de iniciar la operación drag&drop. Si estás editando ficheros del archivo "%s", guarda los cambios y ciérralos ahora en los editores. La actualización solo se ofrecerá si cambiaron los ficheros editados. Tras la actualización, comprueba la selección en el panel actualizado e inicia de nuevo la operación drag&drop."
 12138,1,"Imposible enfocar el fichero "%s". No se encuentra el fichero."
 12139,1,"(inicialización)"
 12140,1,"Instalando nuevos plugins, espere por favor..."
@@ -3005,13 +3094,13 @@ SLGINCOMPLETE,""
 12142,1,"Intentando conectar con unidad de red; pulse ESC para cancelar..."
 12143,1,"Guardando configuración en el registro, espere por favor..."
 
-[STRINGTABLE 81]
+[STRINGTABLE 84]
 12145,1,"Borrando configuración antigua del registro, espere por favor..."
 12146,1,"Descomprimiendo fichero del archivo, espere por favor..."
 12147,1,"Leyendo lista de ficheros y directorios del archivo, espere por favor..."
 12148,1,"Cargando todos los plugins. espere por favor..."
 
-[STRINGTABLE 82]
+[STRINGTABLE 85]
 12160,1,"La ruta "%s" ha rechazado cerrarse.\n¿Desea forzar su cierre?"
 12165,1,"No se permiten conexiones múltiples a un servidor o recurso compartido por un mismo usuario, usando más de un nombre de usuario. Desconecte todas las conexiones previas al servidor o recurso compartido y pruebe de nuevo."
 12170,1,"¿Quiere ignorar todos los ficheros seleccionados (para excluirlos de la actualización del archivo)?"
@@ -3019,22 +3108,22 @@ SLGINCOMPLETE,""
 12172,1,"Copiar ficheros actualizados"
 12173,1,"Seleccione la carpeta destino para ficheros actualizados."
 
-[STRINGTABLE 83]
+[STRINGTABLE 86]
 12180,1,"Comprobando ruta "%s", pulse ESC para cancelar..."
 12181,1,"Listando ruta "%s", pulse ESC para cancelar..."
 12190,1,"Buscando texto, pulse ESC para cancelar..."
 
-[STRINGTABLE 84]
+[STRINGTABLE 87]
 12200,1,"Ruta: "%s"\nError: %s"
 12201,1,"La ruta "%s" no existe en el archivo."
 12205,1,"No se permite un nombre de usuario vacío aquí."
 
-[STRINGTABLE 85]
+[STRINGTABLE 88]
 12210,1,"Menú Nuevo no disponible."
 12215,1,"El directorio especificado por las variables de entorno TMP o TEMP no existe o no es accesible. Open Samandarin usará el directorio de sistema para los ficheros temporales."
 12220,1,"Directorio superior"
 
-[STRINGTABLE 86]
+[STRINGTABLE 89]
 12225,1,"Diskette 3.5"
 12226,1,"Diskette 5.25"
 12227,1,"Diskette 8.0"
@@ -3043,7 +3132,7 @@ SLGINCOMPLETE,""
 12233,1,"No hay elementos en este panel."
 12235,1," (Plugin)"
 
-[STRINGTABLE 87]
+[STRINGTABLE 90]
 12240,1,"No puede interrumpir esta tarea (no tiene sentido). Use otra tarea de Open Samandarin para interrumpir esta."
 12241,1,"¿Está seguro de querer terminar el proceso actual?\n\nAVISO: ¡Todos los datos no guardados en el proceso actual se perderán!"
 12242,1,"¿Está seguro de querer terminar el proceso especificado?\n\nAVISO: ¡Todos los datos no guardados en el proceso especificado se perderán!"
@@ -3056,16 +3145,16 @@ SLGINCOMPLETE,""
 12249,1,"¿Está seguro de querer interrumpir el proceso especificado y enviarnos un informe de fallos?\n\nAVISO: Todos los datos no guardados en el proceso especificado se perderán!"
 12255,1,"Imposible leer fichero."
 
-[STRINGTABLE 88]
+[STRINGTABLE 91]
 12285,1,"Esta operación probablemente no tiene sentido. Todos los ficheros y directorios seleccionados tienen el mismo nombre de destino (se reemplazaríán unos a otros).\n¿Desea continuar con esta operación?"
 
-[STRINGTABLE 89]
+[STRINGTABLE 92]
 12290,1,"La ruta destino "%s" no existe. ¿Desea crearla?"
 12291,1,"&Crear ruta destino sin preguntar la próxima vez\tcómo revertir\tPuede cambiar esta opción más adelante en la página Confirmaciones de la Configuración."
 12295,1,"No se admiten pplantillas de operación en archivos (la ruta al archivo debe terminar en barra hacia atrás)."
 12300,1,"Número incorrecto."
 
-[STRINGTABLE 90]
+[STRINGTABLE 93]
 12305,1,"No se admite todavía descompresión hacia archivos o sistemas de ficheros de plugins."
 12306,1,"Las plantillas de operaciones no se admiten cuando se descomprime desde archivos (la ruta destino debe existir o terminar en barra hacia atrás)."
 12307,1,"Los cambios de idioma no surtirán efecto hasta que se reinicie Open Samandarin."
@@ -3076,7 +3165,7 @@ SLGINCOMPLETE,""
 12313,1,"No se admite copiar o trasladar dentro de este sistema de ficheros de plugin."
 12314,1,"No se admite copiar o trasladar hasta el sistema de ficheros de plugin especificado."
 
-[STRINGTABLE 91]
+[STRINGTABLE 94]
 12320,1,"Imposible saber el tamaño del fichero comprimido: "%s"\nError: %s\n¿Desea saltar el resto de errores similares?"
 12325,1,"La ruta destino para esta operación no puede contener una ruta hacia un fichero (no se admiten archivos aquí)."
 12326,1,"La ruta destino para esta operación debe existir (crear la ruta destino no se admite aquí)."
@@ -3084,13 +3173,13 @@ SLGINCOMPLETE,""
 12331,1,"Imposible editar o abrir fichero desde archivo. El nombre de este fichero es incorrecto en sistemas Windows  (dichos ficheros sólo pueden abrirse en visores)."
 12335,1,"No se admite compresión hacia este tipo de archivo. Open Samandarin no podrá actualizar el fichero en el archivo.\n\n¿Desea seguir con la edición de este fichero?"
 
-[STRINGTABLE 92]
+[STRINGTABLE 95]
 12340,1,"Aviso"
 12345,1,"La cadena '%s' no es una expresión regular válida.\nError: %s."
 12350,1,"Ver &con\tCtrl+Mays+F3"
 12351,1,"Editar c&on\tCtrl+Mays+F4"
 
-[STRINGTABLE 93]
+[STRINGTABLE 96]
 12352,1,"&Abrir\tIntro"
 12353,1,"Imposible encontrar la cadena '%s'."
 12354,1,"No se encuentra concordancia para la expresión '%s'."
@@ -3103,7 +3192,7 @@ SLGINCOMPLETE,""
 12363,1,"&Enfocar"
 12365,1,"Fichero:"
 
-[STRINGTABLE 94]
+[STRINGTABLE 97]
 12370,1,"Imposible descomprimir ficheros y directorios especificados en el portapapeles. Ya no están en el archivo."
 12371,1,"Algunos ficheros o directorios especificados en el portapapeles no se encontraron en el archivo.\n\n¿Desea continuar?"
 12372,1,"Imposible pegar aquí ficheros y directorios del portapapeles. La ventana principal\n de Open Samandarin debe ser accesible para procesar el comando Pegar."
@@ -3113,7 +3202,7 @@ SLGINCOMPLETE,""
 12382,1,"admite el Sistema de Ficheros Encriptados (EFS)"
 12383,1,"admite identificadores de objeto"
 
-[STRINGTABLE 95]
+[STRINGTABLE 98]
 12384,1,"admite puntos de análisis"
 12385,1,"admite ficheros dispersos"
 12386,1,"admite cuotas de disco"
@@ -3121,7 +3210,7 @@ SLGINCOMPLETE,""
 12391,1,"Confirmar desencriptación NTFS"
 12395,1,"El fichero ya existe. ¿Desea editar este fichero existente?"
 
-[STRINGTABLE 96]
+[STRINGTABLE 99]
 12400,1,"La ruta origen no puede ser trasladada desde Unicode a multibyte, por lo que Open Samandarin no puede trabajar con ella."
 12401,1,"No se encontraron algunos archivos o directorios especificados en la operación de arrastrar&soltar o en el portapapeles.\n\n¿Desea continuar?"
 12405,1,"Imposible hallar compresor para el plugin %s (ver Compresores en página de cuadro de diálogo Compresión en Configuración)."
@@ -3132,7 +3221,7 @@ SLGINCOMPLETE,""
 12413,1,"El fichero contiene secuencias de datos alternativas (ADS). No se admiten ADS en la ruta destino. Pulse Sí para copiar el fichero sin ADS (AVISO: se perderá la ADS). Pulse Saltar para omitir la copia de este fichero."
 12414,1,"El directorio contiene secuencias de datos alternativas (ADS). No se admiten ADS en la ruta destino. Pulse Sí para copiar el directorio sin ADS (AVISO: se perderá la ADS). Pulse Saltar para omitir la copia de este directorio."
 
-[STRINGTABLE 97]
+[STRINGTABLE 100]
 12420,1,"Error abriendo secuencia de datos alternativa"
 12421,1,"Error al leer secuencia de datos alternativa"
 12422,1,"Error al grabar secuencia de datos alternativa"
@@ -3141,7 +3230,7 @@ SLGINCOMPLETE,""
 12430,1,"Nombre de fichero"
 12431,1,"Tamaño de fichero"
 
-[STRINGTABLE 98]
+[STRINGTABLE 101]
 12432,1,"Última fecha de grabación"
 12433,1,"Última hora de grabación"
 12434,1,"Atributos del fichero"
@@ -3151,7 +3240,7 @@ SLGINCOMPLETE,""
 12442,1,"CRLF (Fin de Línea DOS, Windows, OS/2)"
 12443,1,"TAB"
 
-[STRINGTABLE 99]
+[STRINGTABLE 102]
 12450,1,"Error de Menú de usuario"
 12451,1,"La lista de nombres seleccionados es muy larga. Deseleccione algunos nombres. La longitud máxima es 32771 caracteres."
 12452,1,"La lista de nombres seleccionados está vacía. Seleccione algunos nombres o enfoque alguno."
@@ -3164,7 +3253,7 @@ SLGINCOMPLETE,""
 12459,1,"La lista de nombres seleccionados con ruta es muy larga. Deseleccione algunos nombres. La longitud máxima es de 32771 caracteres."
 12460,1,"La lista de nombres seleccionados con ruta está vacía. Seleccione algunos nombres o enfoque alguno."
 
-[STRINGTABLE 100]
+[STRINGTABLE 103]
 12465,1,"Escoja directorios para comparar"
 12466,1,"&Comparar directorio:"
 12467,1,"&Con directorio:"
@@ -3176,13 +3265,13 @@ SLGINCOMPLETE,""
 12476,1,"unión "%s""
 12477,1,"enlace simbólico "%s""
 
-[STRINGTABLE 101]
+[STRINGTABLE 104]
 12480,1,"El fichero destino debería estar encriptado (usando EFS) pero no se admite encriptación en la ruta destino o no es posible encriptar el fichero en su estado actual. Pulse Sí para trasladar el fichero sin encriptarlo. Pulse Saltar para evitar el traslado de este fichero."
 12481,1,"El directorio destino debería estar encriptado (usando EFS) pero no se admite encriptación en la ruta destino o no es posible encriptar el directorio en su estado actual. Pulse Sí para trasladar el directorio sin encriptarlo. Pulse Saltar para evitar el traslado de este directorio."
 12482,1,"El fichero destino debería estar encriptado (usando EFS) pero no se admite encriptación en la ruta destino o no es posible encriptar el fichero en su estado actual. Pulse Sí para copiar el fichero sin encriptarlo. Pulse Saltar para evitar copiar este fichero."
 12483,1,"El directorio destino debería estar encriptado (usando EFS) pero no se admite encriptación en la ruta destino o no es posible encriptar el directorio en su estado actual. Pulse Sí para copiar el directorio sin encriptarlo. Pulse Saltar para evitar copiar este directorio."
 
-[STRINGTABLE 102]
+[STRINGTABLE 105]
 12801,1,"fichero "%s""
 12802,1,"directorio "%s""
 12803,1,"¿Está seguro de querer comprimir %s?\n\nAviso: los ficheros y directorios ser´an desencriptados antes de ser comprimidos."
@@ -3198,7 +3287,7 @@ SLGINCOMPLETE,""
 12813,1,"¿Está seguro de querer desencriptar %s?"
 12815,1,"Fichero "%s""
 
-[STRINGTABLE 103]
+[STRINGTABLE 106]
 12816,1,"Directorio "%s""
 12818,1,"Confirmar borrado"
 12820,1,"{!}%s byte{s|0||1|s}"
@@ -3213,7 +3302,7 @@ SLGINCOMPLETE,""
 12830,1,"{!}%s byte{s|0||1|s} en %d fichero{2:s|0||1|s} seleccionado{2:s|0||1|s} y %d directori{3:o|1|os} seleccionado{3:s|0||1|s}"
 12831,1,"{!}%d fichero{s|0||1|s}"
 
-[STRINGTABLE 104]
+[STRINGTABLE 107]
 12832,1,"{!}%d directori{o|1|os}"
 12833,1,"{!}%d fchero{|1|s} y %d directori{o|1|os}"
 12834,1,"{!}<%s> byte{s|0||1|s} en %d fichero{2:s|0||1|s} seleccionado{2:s|0||1|s}"
@@ -3229,7 +3318,7 @@ SLGINCOMPLETE,""
 12844,1,"{!}%d Directori{o|1|os} oculto{1:s|0||1|s}"
 12845,1,"{!}%d Fichero{s|0||1|s} oculto{1:s|0||1|s} y %d directori{2:o|1|os} oculto{2:s|0||1|s}"
 
-[STRINGTABLE 105]
+[STRINGTABLE 108]
 13000,1,"&Izquierda"
 13001,1,"&Cambiar unidad\tAlt+F1"
 13002,1,"&Filtrar...\tCtrl+F12"
@@ -3239,7 +3328,7 @@ SLGINCOMPLETE,""
 13006,1,"Línea de &directorio"
 13007,1,"Línea de &cabecera"
 
-[STRINGTABLE 106]
+[STRINGTABLE 109]
 13008,1,"Línea de &información"
 13009,1,"&Refrescar\tCtrl+F9"
 13010,1,"Ir &a"
@@ -3257,7 +3346,7 @@ SLGINCOMPLETE,""
 13022,1,"&Ver\tF3"
 13023,1,"Vista a&lternativa\tAlt+F3"
 
-[STRINGTABLE 107]
+[STRINGTABLE 110]
 13024,1,"&Editar\tF4"
 13025,1,"Editar nuevo fic&hero...\tMays+F4"
 13026,1,"C&opiar...\tF5"
@@ -3272,7 +3361,7 @@ SLGINCOMPLETE,""
 13038,1,"De&scompresión NTFS..."
 13039,1,"Com&primir...\tAlt+F5"
 
-[STRINGTABLE 108]
+[STRINGTABLE 111]
 13040,1,"&Descomprimir...\tAlt+F9"
 13041,1,"N&uevo"
 13042,1,"S&alir\tAlt+F4"
@@ -3283,7 +3372,7 @@ SLGINCOMPLETE,""
 13047,1,"Desencri&ptar NTFS..."
 13048,1,"Comandos NT&FS"
 
-[STRINGTABLE 109]
+[STRINGTABLE 112]
 13060,1,"&Editar"
 13061,1,"Cort&ar\tCtrl+X"
 13062,1,"&Copiar\tCtrl+C"
@@ -3297,7 +3386,7 @@ SLGINCOMPLETE,""
 13070,1,"&Invertir selección\tNum *"
 13071,1,"&Seleccionar todo\tCtrl+A"
 
-[STRINGTABLE 110]
+[STRINGTABLE 113]
 13072,1,"Dese&leccionar todo\tCtrl+D"
 13073,1,"Gu&ardar selección\tCtrl+Mays+F5"
 13074,1,"Car&gar selección...\tCtrl+Mays+F6"
@@ -3314,7 +3403,7 @@ SLGINCOMPLETE,""
 13085,1,"O&cultar nombres no seleccionados"
 13086,1,"&Ver nombres ocultos"
 
-[STRINGTABLE 111]
+[STRINGTABLE 114]
 13090,1,"&Comandos"
 13091,1,"&Crear directorio...\tF7"
 13092,1,"C&ambiar directorio...\tMays+F7"
@@ -3330,7 +3419,7 @@ SLGINCOMPLETE,""
 13102,1,"Conectar &unidad de red...\tF11"
 13103,1,"&Desconectar...\tF12"
 
-[STRINGTABLE 112]
+[STRINGTABLE 115]
 13104,1,"Shell de co&mandos\tNum /"
 13105,1,"&Releer asociaciones"
 13107,1,"Me&nú de usuario\tF9"
@@ -3346,7 +3435,7 @@ SLGINCOMPLETE,""
 13118,1,"&Documentos recientes"
 13119,1,"Mis d&ocumentos"
 
-[STRINGTABLE 113]
+[STRINGTABLE 116]
 13120,1,"Plantillas de doc&umentos"
 13121,1,"Enviar a direc&torio"
 13122,1,"Directorio del es&critorio"
@@ -3359,7 +3448,7 @@ SLGINCOMPLETE,""
 13131,1,"Gestor de &Plugins..."
 13132,1,"Último comando\tCtrl+I"
 
-[STRINGTABLE 114]
+[STRINGTABLE 117]
 13140,1,"&Opciones"
 13141,1,"&Configuración..."
 13142,1,"&Autoconfiguración de compresores..."
@@ -3373,7 +3462,7 @@ SLGINCOMPLETE,""
 13150,1,"&Barra de herramientas del usuario"
 13151,1,"Línea de c&omandos"
 
-[STRINGTABLE 115]
+[STRINGTABLE 118]
 13152,1,"Barra de herramientas &inferior"
 13153,1,"&Guardar configuración"
 13154,1,"&Exportar configuración..."
@@ -3391,14 +3480,14 @@ SLGINCOMPLETE,""
 13166,1,"Barra de herramientas de &plugins..."
 13167,1,"&Importar configuración..."
 
-[STRINGTABLE 116]
+[STRINGTABLE 119]
 13168,1,"&Vista de árbol"
 13169,1,"&Administrar configuraciones..."
 13170,1,"&Derecha"
 13171,1,"&Cambiar unidad\tAlt+F2"
 13172,1,"&Paneles con pestañas."
 
-[STRINGTABLE 117]
+[STRINGTABLE 120]
 13190,1,"&Ayuda"
 13191,1,"&Contenidos\tF1"
 13192,1,"&Buscar..."
@@ -3408,7 +3497,7 @@ SLGINCOMPLETE,""
 13197,1,"&Lista de tareas..."
 13199,1,"Acerca del &plugin"
 
-[STRINGTABLE 118]
+[STRINGTABLE 121]
 13200,1,"&Acerca de Open Samandarin"
 13201,1,"Créditos y &agradecimientos"
 13202,1,"Foro de a&sistencia oficial"
@@ -3423,7 +3512,7 @@ SLGINCOMPLETE,""
 13213,1,"P&revia pestaña"
 13214,1,"D&uplicar pestaña"
 
-[STRINGTABLE 119]
+[STRINGTABLE 122]
 13220,1,"Nueva &pestaña\tCtrl+Shift+T"
 13221,1,"&Cerrar pestaña\tCtrl+Shift+W"
 13222,1,"&Siguiente pestaña\tCtrl+Shift+Page Down"
@@ -3437,7 +3526,7 @@ SLGINCOMPLETE,""
 13230,1,"Establecer &color de pestaña..."
 13231,1,"C&limpiar color de pestaña"
 
-[STRINGTABLE 120]
+[STRINGTABLE 123]
 13232,1,"Establecer &color de pestaña..."
 13233,1,"C&limpiar color de pestaña"
 13234,1,"Establecer &prefijo de pestaña..."
@@ -3455,7 +3544,7 @@ SLGINCOMPLETE,""
 13246,1,"D&uplicar pestaña"
 13247,1,"D&uplicar pestaña"
 
-[STRINGTABLE 121]
+[STRINGTABLE 124]
 13248,1,"Volver a abrir la &pestaña cerrada"
 13249,1,"&Bloquear pestaña"
 13250,1,"Des&bloquear pestaña"
@@ -3467,7 +3556,7 @@ SLGINCOMPLETE,""
 13260,1,"&Pestañas"
 13261,1,"&Pestañas"
 
-[STRINGTABLE 122]
+[STRINGTABLE 125]
 13300,1,"&Ficheros"
 13301,1,"&Abrir\tIntro"
 13302,1,"&Enfocar\tEspacio"
@@ -3481,7 +3570,7 @@ SLGINCOMPLETE,""
 13310,1,"Menú del &usuario\tF9"
 13311,1,"&Cerrar\tAlt+F4"
 
-[STRINGTABLE 123]
+[STRINGTABLE 126]
 13312,1,"Ocultar nombres &duplicados\tCtrl+Mays+H"
 13313,1,"C&omandos"
 13314,1,"&Propiedades\tAlt+Enter"
@@ -3495,7 +3584,7 @@ SLGINCOMPLETE,""
 13326,1,"Copiar nombre como te&xto\tAlt+Mays+Insertar"
 13327,1,"Copiar &ruta como texto\tCtrl+Alt+Insert"
 
-[STRINGTABLE 124]
+[STRINGTABLE 127]
 13328,1,"Copiar ruta &UNC + nombre como texto\tCtrl+Mays+Insertar"
 13330,1,"&Ver"
 13331,1,"Ordenar por &nombre\tCtrl+F3"
@@ -3507,7 +3596,7 @@ SLGINCOMPLETE,""
 13342,1,"&Añadir actual\tCtrl+N"
 13343,1,"&Gestionar...\tCtrl+M"
 
-[STRINGTABLE 125]
+[STRINGTABLE 128]
 13344,1,"Sólo permitir &una ventana de búsqueda"
 13345,1,"Ver &registro de búsqueda...\tCtrl+L"
 13346,1,"&Ignorar lista de directorios...\tCtrl+G"
@@ -3520,7 +3609,7 @@ SLGINCOMPLETE,""
 13358,1,"&Añadir a los elementos encontrados\tCtrl+W"
 13359,1,"Buscar ficheros &duplicados...\tCtrl+D"
 
-[STRINGTABLE 126]
+[STRINGTABLE 129]
 13360,1,"&Abrir\tIntro"
 13361,1,"&Ver\tF3"
 13362,1,"Ve&r con\tCtrl+Mays+F3"
@@ -3532,7 +3621,7 @@ SLGINCOMPLETE,""
 13368,1,"Cop&iar al portapapeles\tCtrl+C"
 13369,1,"&Pegar\tCtrl+V"
 
-[STRINGTABLE 127]
+[STRINGTABLE 130]
 13380,1,"Nombre"
 13381,1,"Extensión separada"
 13382,1,"Nombre DOS (8.3)"
@@ -3543,14 +3632,14 @@ SLGINCOMPLETE,""
 13387,1,"Atributos"
 13388,1,"Descripción"
 
-[STRINGTABLE 128]
+[STRINGTABLE 131]
 13400,1,"&Nombre\tCtrl+F3"
 13401,1,"&Extensión\tCtrl+F4"
 13402,1,"&Tamaño\tCtrl+F6"
 13403,1,"&Hora\tCtrl+F5"
 13404,1,"&Atributos"
 
-[STRINGTABLE 129]
+[STRINGTABLE 132]
 13445,1,"Confirmar al"
 13446,1,"Ver mensaje"
 13450,1,"borrar fichero o directorio (ver nota 1 abajo)"
@@ -3560,7 +3649,7 @@ SLGINCOMPLETE,""
 13454,1,"borrar directorio oculto o de sistema (ver nota 2 abajo)"
 13455,1,"reemplazar fichero oculto o de sistema (ignorado en archivos)"
 
-[STRINGTABLE 130]
+[STRINGTABLE 133]
 13456,1,"compresión o descompresión NTFS (ignorado en archivos)"
 13457,1,"encriptación o desencriptación NTFS (ignorado en archivos)"
 13458,1,"operaciones arrastrar-y-soltar"
@@ -3572,7 +3661,7 @@ SLGINCOMPLETE,""
 13470,1,"¿Desea cerrar la búsqueda?"
 13471,1,"¿Desea crear la ruta destino? (en operaciones de Copiar/trasladar)"
 
-[STRINGTABLE 131]
+[STRINGTABLE 134]
 13472,1,"¿Desea activar Siempre en primer plano?"
 13473,1,"¿Desea cerrar Open Samandarin?"
 13474,1,"¿Desea enviar por email los ficheros seleccionados?"
@@ -3586,10 +3675,10 @@ SLGINCOMPLETE,""
 13482,1,"fichero"
 13483,1,"carpeta"
 
-[STRINGTABLE 132]
+[STRINGTABLE 135]
 13551,1,"¿Desea cerrar Open Samandarin?"
 
-[STRINGTABLE 133]
+[STRINGTABLE 136]
 13553,1,"(ninguno)"
 13554,1,"Red"
 13555,1,"Plugins"
@@ -3603,7 +3692,7 @@ SLGINCOMPLETE,""
 13563,1,"&Cerrar Open Samandarin sin preguntar la siguiente vez\tcómo revertir\tPuede cambiar esta opción más adelante en la página Confirmaciones en la Configuración."
 13564,1,"&Crear directorio sin preguntar la siguiente vez\tcómo revertir\tPuede cambiar esta opción más adelante en la página Confirmaciones en la Configuración."
 
-[STRINGTABLE 134]
+[STRINGTABLE 137]
 13670,1,"Modo"
 13671,1,"Miniaturas"
 13672,1,"Breve"
@@ -3612,7 +3701,7 @@ SLGINCOMPLETE,""
 13675,1,"Reservado"
 13676,1,"Baldosas"
 
-[STRINGTABLE 135]
+[STRINGTABLE 138]
 13680,1,"&Miniaturas"
 13681,1,"&Breve"
 13682,1,"&Detallado"
@@ -3622,19 +3711,19 @@ SLGINCOMPLETE,""
 13686,1,"Reservado"
 13687,1,"Ba&ldosas"
 
-[STRINGTABLE 136]
+[STRINGTABLE 139]
 13700,1,"Actualmente asignada a: %s"
 13701,1,"Este atajo es de Open Samandarin. Por favor, elija otro."
 13710,1,"Copiar %s"
 13711,1,"Trasladar %s"
 
-[STRINGTABLE 137]
+[STRINGTABLE 140]
 13712,1,"Desde:"
 13713,1,"A:"
 13720,1,"Elaborar lista de ficheros"
 13725,1,"Los propietarios y permisos no pueden ser preservados. No se admiten\nen la ruta destino (no es un volumen NTFS).\n\n?Desea continuar?"
 
-[STRINGTABLE 138]
+[STRINGTABLE 141]
 13730,1,"Informar de un fallo"
 13731,1,"Para informes de fallos o peticiones de funcionalidades use el menú Ayuda > Foro oficial de asistencia.\n\nUse este informe de fallos sólo para enviarnos datos confidenciales o cuando se lo pidamos."
 13735,1,"&Saltar"
@@ -3645,7 +3734,7 @@ SLGINCOMPLETE,""
 13742,1,"Parece que no tiene módulos de idioma (.SLG) para este plugin (ver el subdirectorio LANG del plugin)."
 13743,1,"&No presentar este mensaje para otros plugins"
 
-[STRINGTABLE 139]
+[STRINGTABLE 142]
 13750,1,"La configuración guardada en el registro está mal, y no puede ser cargada. Open Samandarin probablemente se cerró mientras guardaba la configuración. Esto suele pasar cuando Open Samandarin todavía está en uso cuando apaga Windows (o cierra la sesión). Para impedir este problema, cierre Open Samandarin antes de apagar (o cerrar sesión).\n\nPuede salvar copia de la configuración ahora (ejecute RegEdit.exe, cambie de nombre la clave HKEY_CURRENT_USER\\%s). Más tarde puede intentar conseguir parte de la configuración de esta copia Menú´de usuario, rutas rápidas, marcas FTP, etc.); visite forum.altap.cz para detalles.\n\nLa configuración errónea debe ser retirada del registro antes de iniciar Open Samandarin."
 13751,1,"Está usando valores no estándar para los siguientes parámetros durante el apagado y cierre de sesión. Probablemente cause alteración de la configuración de Open Samandarin (termina durante la grabación de la configuración).\n\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\WaitToKillAppTimeout debería ser 20000.\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\AutoEndTasks debería ser 0."
 13752,1,"&Eliminar configuración"
@@ -3653,21 +3742,21 @@ SLGINCOMPLETE,""
 13756,1,"&Ficheros"
 13757,1,"&Directorios"
 
-[STRINGTABLE 140]
+[STRINGTABLE 143]
 13760,1,"El fichero no puede copiarse a la ruta destino especificada por que es muy grande para un sistema de ficheros FAT32.\n\nFichero: %s"
 13765,1,"La ruta donde ir si la ruta del panel es inaccesible es incorrecta; modifique esta ruta en configuración, en la página Unidades."
 13770,1,"Imposible colocar fichero en el directorio temporal."
 13771,1,"El nombre de fichero resultante es demasiado largo."
-13775,0,"Drag&drop operation from archive or plugin file system has failed. Please remove unwantedly created DROPFAKE directory (if any) from target directory.\n\nThis should happen only immediately after installation or if drop target is not Windows Explorer nor Open Samandarin. If drop target is Windows Explorer, please restart Windows to correct this problem (advanced users can just kill explorer.exe process and start it again)."
+13775,1,"La operación drag&drop desde el archivo o el sistema de ficheros del plugin falló. Borra el directorio DROPFAKE creado por error (si existe) en el destino.\n\nEsto solo debería ocurrir justo tras la instalación o si el destino no es Windows Explorer ni Open Samandarin. Si el destino es Windows Explorer, reinicia Windows para corregirlo (los usuarios avanzados pueden finalizar explorer.exe e iniciarlo de nuevo)."
 
-[STRINGTABLE 141]
+[STRINGTABLE 144]
 13776,1,"Por omisión"
 13777,1,"Rojo"
 13778,1,"Verde"
 13779,1,"Azul"
 13780,1,"samarandín"
 
-[STRINGTABLE 142]
+[STRINGTABLE 145]
 13800,1,"%d h"
 13801,1,"%d min"
 13802,1,"%d s"
@@ -3675,21 +3764,21 @@ SLGINCOMPLETE,""
 13806,1,"%s de %s trasladados"
 13807,1,"velocidad: %s/s"
 
-[STRINGTABLE 143]
+[STRINGTABLE 146]
 13808,1,"velocidad: %s/s (límite: %s/s)"
 13809,1,"tiempo restante: %s"
 13815,1,"El límite de velocidad debe estar entre 1 B/s y 4 GB/s."
 13820,1,"P&oner límite de velocidad..."
 13821,1,"&Esperar hasta que otras operaciones de copia/traslado hayan terminado"
 
-[STRINGTABLE 144]
+[STRINGTABLE 147]
 13825,1,"&Salir"
 
-[STRINGTABLE 145]
+[STRINGTABLE 148]
 13850,1,"Imposible guardar la configuración del plugin %s (error al abrir la clave de configuración de Open Samandarin).\n\n¿Todavía quiere descargarlo?"
 13855,1,"Nombre"
 
-[STRINGTABLE 146]
+[STRINGTABLE 149]
 13856,1,"Descripción"
 13857,1,"Los cambios de transparencia de iconos no tendrán efecto hasta que se reinicie Open Samandarin."
 13865,1,"Open Samandarin se ha vuelto inestable. Ha ocurrido una excepción no gestionada en el gestor de iconos %s. Puede impedir cuelgues similares si Open Samandarin no usa este gestor (pulse botón Este) o deja de presentar iconos personalizados (pulsar botón Todos). Puede intentar también actualizar el software que provee este gestor (busque en  forum.altap.cz más detalles).\n\n¿Qué gestores de iconos desea deshabilitar?\n\nNota: puede disponer transparencias de iconos en el diálogo configuración (ver página Transparencia de iconos)."
@@ -3698,7 +3787,7 @@ SLGINCOMPLETE,""
 13870,1,"El fichero config.reg (u otro fichero especificado con parámetro -c) no fue importado al registro por haber importado la configuración de una versión anterior de Open Samandarin. Salga de Open Samandarin ahora y reinicielo para resolver este problema."
 13871,1,"Se ha actualizado a una nueva versión de Open Samandarin. Se está importando ahora la configuración de la versión anterior. La versión anterior contenía algunos plugins (listados abajo) que faltan o que no funcionan en esta versión, por lo que su configuración no puede ser importada ahora. Puede iniciar Open Samandarin sin estos plugins ahora (la configuración de la versión anterior queda en el registro, por lo que puede importarla más tarde). O bien salga de Open Samandarin ahora, instale los plugins que faltan, e inicie Open Samandarin de nuevo.\n\nPlugins que faltan o no funcionan: %s%s."
 
-[STRINGTABLE 147]
+[STRINGTABLE 150]
 13872,1,", %d plugins más saltados"
 13873,1,"&Iniciar sin los plugins que faltan"
 13880,1,"Memoria insuficiente para colocar %Iu bytes. Intente liberar memoria (p.ej. cierre alguna aplicación en ejecución) y pulse Reintentar. Si no funciona, puede pulsar Ignorar para pasar el error de memoria a esta aplicación o pulsar Parar para terminar esta aplicación."
@@ -3707,7 +3796,7 @@ SLGINCOMPLETE,""
 13885,1,"Conectar con %s"
 13886,1,"Contraseña incorrecta o nombre de usuario desconocido para: %s"
 
-[STRINGTABLE 148]
+[STRINGTABLE 151]
 13890,1,"Fichero"
 13891,1,"%s fichero"
 13900,1,"Su contraseña es demasiado fácil y puede que no represente buena seguridad contra ataques por diccionario o fuerza bruta.\n¿Está seguro de querer usarla?\n\nNota: las buenas contraseñas tienen al menos 6 caracteres y contienen letras en mayúscula y minúscula, números y caracteres especiales: delimitadores, símbolos, letras acentuadas, etc."
@@ -3715,7 +3804,7 @@ SLGINCOMPLETE,""
 13902,1,"Contraseña cambiada con éxito"
 13903,1,"Ha borrado su contraseña maestra. Sus contraseñas guardadas (por ejemplo para FTP y WinSCP) no estarán protegidas."
 
-[STRINGTABLE 149]
+[STRINGTABLE 152]
 13904,1,"Contraseña maestra cambiada con éxito. Sus contraseñas guardadas (por ejemplo para FTP y WinSCP) están seguras ahora por cifrado AES."
 13905,1,"No introdujo la contraseña maestra actual correctamente. Inténtelo de nuevo."
 13906,1,"Hojear directorio"
@@ -3725,7 +3814,7 @@ SLGINCOMPLETE,""
 13915,1,"PID=%d, iniciada el %s, %s%s"
 13916,1,", proceso actual"
 
-[STRINGTABLE 150]
+[STRINGTABLE 153]
 13920,1,"Guardar nombre de fichero actual por defecto"
 13921,1,"Revertir nombre de fichero por defecto a %s"
 13925,1,"{!}Los directorios comparados contienen al menos %d par{|1|es} de ficheros con diferencia de tiempo de exaxtamente 1 o 2 horas. {Esta diferencia se pudo|1|Estas diferencias se pudieron} ignorar como relativas a DST (Daylight Saving Time). Puede suprimirlo en Configuración/General."
@@ -3737,14 +3826,14 @@ SLGINCOMPLETE,""
 13933,1,"Guardar opciones como valores por defecto"
 13934,1,"Reiniciar opciones y valores por defecto"
 
-[STRINGTABLE 151]
+[STRINGTABLE 154]
 13945,1,"Si desea importar la configuración cada vez que se inicie Open Samandarin, expórtela al directorio de instalación al fichero denominado config.reg. Para importar otro fichero de configuración use el parámetro de línea de comando -C (p.ej. "salamand.exe -C miconfig.reg").\n\nRecomendamos añadir borrado de clave de registro con configuración directamente a fichero exportado. De lo contrario la configuración importada se mezclará con la actual en el registro y puede originar una configuración inconsistente."
 13946,1,"Si desea importar la configuración cada vez que se inicie Open Samandarin, expórtela al directorio de datos de la aplicación (o directorio de instalación) al fichero denominado config.reg. Para importar otro fichero de configuración use el parámetro de línea de comando -C (p.ej. "salamand.exe -C miconfig.reg").\n\nRecomendamos añadir borrado de clave de registro con configuración directamente a fichero exportado. De lo contrario la configuración importada se mezclará con la actual en el registro y puede originar una configuración inconsistente."
 13947,1,"&Añadir borrado de clave de registro con configuración directamente a fichero exportado"
 13950,1,"Imposible abrir o leer fichero de configuración.\n\nFichero: %s\nError: %s"
 13951,1,"El fichero de configuración es demasiado grande.\n\nFichero: %s"
 
-[STRINGTABLE 152]
+[STRINGTABLE 155]
 13952,1,"Imposible importar el fichero especificado. No es un fichero de configuración.\n\nFichero: %s"
 13953,1,"Imposible importar el fichero de configuración. Tiene formato incorrecto.\n\nFichero: %s"
 13954,1,"Imposible importar el fichero de configuración al registro. Error al grabar en el registro.\n\nFichero: %s"
@@ -3752,7 +3841,7 @@ SLGINCOMPLETE,""
 13965,1,"Imposible exportar configuración al fichero. Error al leer la configuración del registro."
 13966,1,"Imposible exportar la configuración al fichero. Error al grabar la configuración al fichero.\n\nFichero: %s"
 
-[STRINGTABLE 153]
+[STRINGTABLE 156]
 13970,1,"Imposible abrir menú contextual para el panel porque la ruta del panel es un pseudo-directorio para el redirector WOW64."
 13971,1,"Imposible abrir menú contextual porque la selección actual contiene "%s", que es sólo un pseudo-directorio para el redirector WOW64."
 13972,1,"Imposible abrir la ventana de propiedades porque la selección actual contiene "%s", que es sólo un pseudo-directorio para el redirector WOW64."
@@ -3765,7 +3854,7 @@ SLGINCOMPLETE,""
 13982,1,"MB"
 13983,1,"GB"
 
-[STRINGTABLE 154]
+[STRINGTABLE 157]
 13984,1,"TB"
 13985,1,"PB"
 13986,1,"EB"
@@ -3774,14 +3863,14 @@ SLGINCOMPLETE,""
 13992,1,"MB/s"
 13993,1,"GB/s"
 
-[STRINGTABLE 155]
+[STRINGTABLE 158]
 14000,1,"[no válida]"
 14005,1,"Administrador"
 14010,1,"Por favor, introduzca una dirección de email válida para que podamos ayudarle con el problema."
 14011,1,"Por favor, espere mientras termina la compresión y la carga."
 14012,1,"¿Está segudo de no querer que conozcamos este problema? Sin su informe no seremos capaces de arreglarlo.\n\nPulse OK para borrar el informe sin que nosotros lo sepamos."
 
-[STRINGTABLE 156]
+[STRINGTABLE 159]
 14020,1,"El fichero cargado supera el tamaño permitido. Código: %d."
 14021,1,"El fichero cargado fue cargado sólo en parte. Código: %d."
 14022,1,"El fichero no fue cargado. Código: %d."
@@ -3792,7 +3881,7 @@ SLGINCOMPLETE,""
 14030,1,"Error de sintaxis en la respuesta del servidor. No se encontró señal de apertura."
 14031,1,"Error de sintaxis en la respuesta del servidor. No se encontró señal de cierre."
 
-[STRINGTABLE 157]
+[STRINGTABLE 160]
 14032,1,"Error de sintaxis en la respuesta del servidor. Valor no encontrado."
 14040,1,"No es posible recibir datos. Código: %d."
 14041,1,"No es posible detener la conexión. Código: %d."
@@ -3802,7 +3891,7 @@ SLGINCOMPLETE,""
 14045,1,"No es posible resolver el nombre del hospedador. Código: %d."
 14046,1,"No es posible inicializar la conexión. Código: %d."
 
-[STRINGTABLE 158]
+[STRINGTABLE 161]
 14050,1,"Error leyendo el fichero %s"
 14051,1,"Memoria insuficiente"
 14052,1,"Fallo al obtener el tamaño del fichero %s"
@@ -3811,7 +3900,7 @@ SLGINCOMPLETE,""
 14062,1,"Informador de Fallos de Open Samandarin"
 14063,1,"Comprimiendo, espere por favor..."
 
-[STRINGTABLE 159]
+[STRINGTABLE 162]
 14064,1,"Cargando, espere por favor..."
 14065,1,"El informe ha sido cargado con éxito.\n\nGracias por ayudarnos a mejorar Open Samandarin!"
 14066,1,"No se pudo abrir el informe de GitHub. ShellExecute devolvio el codigo %d.\n\nEl archivo de informe permanece en su disco. Haga clic en Aceptar para mostrar la carpeta del informe."
@@ -3824,15 +3913,15 @@ SLGINCOMPLETE,""
 14074,1,"No es posible crear el fichero de minidump %s. Código: %d."
 14075,1,"Error durante la creación del minidump. Código: %d."
 
-[STRINGTABLE 160]
+[STRINGTABLE 163]
 14100,1,"El Informador de Fallor de Open Samandarin (salmon.exe) no está ejecutándose. Open Samandarin no podrá manejar posibles cuelgues. Por favor, reinicie Open Samandarin."
 
-[STRINGTABLE 161]
+[STRINGTABLE 164]
 14150,1,"Traducción inacabada de Open Samandarin"
 14151,1,"La traducción de Open Samandarin a su idioma no ha terminado. Por favor, piense en visitar nuestro foro de discusión y unirse al equipo de traducción:"
 14155,1,"Imposible enviar fichero o directorio a la Papelera porque su nombre es incorrecto.\n\nParte incorrecta: "%s"\n\nConsejo: Pruebe a cambiar el nombre antes de enviarlo a la Papelera o borrarlo definitivamente (pruebe con las teclas Mays+Supr)."
 
-[STRINGTABLE 162]
+[STRINGTABLE 165]
 14160,1,"Imposible cargar el plugin %s. Este plugin sólo está disponible para la versión x86 (32-bit) de Open Samandarin. Por favor, ejecute la versión x86 de Open Samandarin para usar este plugin. Lamentamos los inconvenientes."
 14165,1,"Google Drive"
 14166,1,"Dropbox"
@@ -3841,7 +3930,7 @@ SLGINCOMPLETE,""
 14170,1,"no se puede resolver el enlace"
 14171,1,"punto de montaje del volumen"
 
-[STRINGTABLE 163]
+[STRINGTABLE 166]
 14180,1,"Error al obtener el tamaño del ficihero de destino del enlace"
 14181,1,"Está intentando pasar los ficheros y directorios seleccionados a un archivo. Esto no es posible porque la selección contiene un enlace a directorio (punto de unión, punto de montaje de volumen o enlace simbólico). Por favor, continúe sin borrar ficheros del disco después de comprimir al archivo.\n\nEnlace: %s"
 14185,1,"Ejecutando operación sobre disco."
@@ -3850,7 +3939,7 @@ SLGINCOMPLETE,""
 14188,1,"Windows está rechazando cancelar el apagado. Este mensaje lo bloqueará temporalmente. Por favor, espere para cancelar el apagado manualmente antes de que cierre este mensaje, de lo contrario Open Samandarin terminará sin guardar la configuración."
 14189,1,"Windows está rechazando cancelar el apagado. Este mensaje lo bloqueará temporalmente.\n\nVd. tiene algunas operaciones sobre disco ejecutándose. ¿Desea cancelarlas ahora? Pulse NO sólo si ha cancelado el apagado manualmente, de lo contrario se arriesga a tener ficheros no terminados en su disco.\n\nPor favor, espere para cancelar manualmente el apagado antes de responder a esta cuestión; de lo contrario, Open Samandarin terminará sin guardar la configuración."
 
-[STRINGTABLE 164]
+[STRINGTABLE 167]
 14195,1,"Cerrando ventanas de Búsqueda; por favor, espere..."
 14196,1,"Cerrando extensiones y complementos; por favor, espere..."
 14197,1,"Cerrando paneles y sistemas de archivos; por favor, espere..."
@@ -3864,7 +3953,7 @@ SLGINCOMPLETE,""
 14206,1,"Panel de vista de árbol"
 14207,1,"Cerrar panel de vista de árbol"
 
-[STRINGTABLE 165]
+[STRINGTABLE 168]
 14208,1,"Ocultar automáticamente el panel de vista de árbol"
 14209,1,"Fijar panel de vista de árbol"
 14210,1,"No se puede determinar la ruta del archivo de configuración portátil config.reg."
@@ -3881,7 +3970,7 @@ SLGINCOMPLETE,""
 14221,1,"Advertencia de compatibilidad de páginas de códigos"
 14222,1,"El idioma seleccionado puede no mostrar todos los caracteres correctamente porque su página de códigos de configuración regional del sistema Windows (%u) no coincide con la página de códigos esperada para este idioma (%u).\n\nPara solucionarlo, cambie su configuración regional del sistema en Windows: Configuración > Hora e idioma > Región > Administración > Cambiar configuración regional del sistema."
 
-[STRINGTABLE 166]
+[STRINGTABLE 169]
 14232,1,"Último guardado"
 14233,1,"Nombre de la configuración"
 14234,1,"Versión"
@@ -3890,7 +3979,7 @@ SLGINCOMPLETE,""
 14237,1,"Ubicación"
 14239,1,"Restablecer la configuración con valores predeterminados"
 
-[STRINGTABLE 167]
+[STRINGTABLE 170]
 14256,1,"portátil"
 14258,1,"-"
 14259,1,"Registro"
@@ -3902,12 +3991,12 @@ SLGINCOMPLETE,""
 14265,1,"La configuración se ha escrito. Reinicie Open Samandarin para que los cambios surtan efecto."
 14266,1,"Limpiar la configuración con valores predeterminados"
 14267,1,"Archivo: %s"
-14268,1,"Open Salamander %s"
+14268,1,"Open Samandarin %s"
 14269,1,"Altap Salamander %s"
 14270,1,"Servant Salamander %s"
 14271,1,"La configuración se importó correctamente."
 
-[STRINGTABLE 168]
+[STRINGTABLE 171]
 14272,1,"Esta configuración se usa actualmente por esta instancia de la aplicación."
 14273,1,"No se pudo eliminar el archivo de configuración.\n\nArchivo: %s\nError: %s"
 14274,1,"El ajuste de rutas largas de Win32/x64 se cambió. Reinicia Windows para que el cambio surta efecto."
@@ -3925,7 +4014,7 @@ SLGINCOMPLETE,""
 14286,1,"&Volver a unir la ventana separada"
 14287,1,"Ventana principal"
 
-[STRINGTABLE 169]
+[STRINGTABLE 172]
 14288,1,"La escala de pantalla ha cambiado"
 14289,1,"El escalado de pantalla de Windows o el DPI de la sesión de escritorio remoto puede haber cambiado. Reinicie Open Samandarin para redibujar toda la interfaz de usuario con nitidez en el DPI actual."
 14290,1,"Reiniciar"
@@ -3943,7 +4032,7 @@ SLGINCOMPLETE,""
 14302,1,"Esta pestaña está bloqueada para evitar cambiar el contenido que se muestra. ¿Quieres desbloquear la pestaña y abrir la ubicación solicitada?"
 14303,1,"Extensión (tiempo no disponible)"
 
-[STRINGTABLE 170]
+[STRINGTABLE 173]
 14304,1,"Extensión (dependencia no disponible)"
 14305,1,"Extensión (deshabilitada)"
 14306,1,"Esta extensión declara demasiadas opciones para este cuadro de diálogo de configuración."
@@ -3961,7 +4050,7 @@ SLGINCOMPLETE,""
 14318,1,"Seleccione al menos una carpeta en el panel de destino."
 14319,1,"Todas las carpetas de destino seleccionadas deben estar en el mismo volumen."
 
-[STRINGTABLE 171]
+[STRINGTABLE 174]
 14320,1,"Extensión"
 14321,1,"Cargando extensiones y complementos; por favor, espere..."
 14322,1,"Buscando paquetes de extensión; por favor, espere..."
@@ -3979,7 +4068,7 @@ SLGINCOMPLETE,""
 14334,1,"Deteniendo el entorno de ejecución de la extensión; por favor, espere..."
 14335,1,"Cerrando ventanas de extensiones; por favor, espere..."
 
-[STRINGTABLE 172]
+[STRINGTABLE 175]
 14336,1,"Deteniendo servicios de extensiones; por favor, espere..."
 14337,1,"&Detach Tab"
 14338,1,"Detached tab"
@@ -3997,7 +4086,7 @@ SLGINCOMPLETE,""
 14350,1,"Path"
 14351,1,"State"
 
-[STRINGTABLE 173]
+[STRINGTABLE 176]
 14352,1,"Attached"
 14353,1,"Detached"
 14354,1,"Left"
@@ -4015,7 +4104,7 @@ SLGINCOMPLETE,""
 14366,1,"Todo"
 14367,1,"Común"
 
-[STRINGTABLE 174]
+[STRINGTABLE 177]
 14368,1,"Sistema de archivos"
 14369,1,"Documento"
 14370,1,"Imagen / Foto"
@@ -4033,7 +4122,7 @@ SLGINCOMPLETE,""
 14382,1,"Propiedades seleccionadas"
 14383,1,"&Quitar"
 
-[STRINGTABLE 175]
+[STRINGTABLE 178]
 14384,1,"Mover &arriba"
 14385,1,"Mover &abajo"
 14386,1,"Ejecutable"
@@ -4048,9 +4137,10 @@ SLGINCOMPLETE,""
 14395,1,"Añadir"
 14396,1,"Quitar"
 14397,1,"Borrar"
+14398,1,"Múltiples elementos seleccionados: sin información"
 14399,1,"Separe varias etiquetas con punto y coma. Las usadas recientemente están disponibles en la lista Valor."
 
-[STRINGTABLE 176]
+[STRINGTABLE 179]
 14400,1,"El valor se convierte al tipo necesario para Windows."
 14402,1,"Actualizado: %d\nError o solo lectura: %d"
 14404,1,"Etiquetas"
@@ -4063,10 +4153,10 @@ SLGINCOMPLETE,""
 14411,1,"&Cambiar etiquetas"
 14412,1,"Propiedades de Windows"
 14413,1,"Para varios archivos: el valor indeterminado deja una propiedad sin cambios; marcado la establece; desmarcado la elimina."
-14414,0,"First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
+14414,1,"Primer error:\nArchivo: %s\nPropiedad: %s\nMotivo: %s (0x%08X)"
 14415,1,"Este tipo de archivo no admite esta propiedad."
 
-[STRINGTABLE 177]
+[STRINGTABLE 180]
 14416,1,"El archivo o la propiedad es de solo lectura o se denegó el acceso."
 14417,1,"Windows no pudo escribir la propiedad."
 14418,1,"Valor"
@@ -4084,7 +4174,7 @@ SLGINCOMPLETE,""
 14430,1,"Contenido web activo"
 14431,1,"Elevacion"
 
-[STRINGTABLE 178]
+[STRINGTABLE 181]
 14432,1,"Firmante del paquete"
 14433,1,"Paquete SHA-256"
 14434,1,"Origen del paquete"
@@ -4102,7 +4192,7 @@ SLGINCOMPLETE,""
 14446,1,"Manual (opción del diálogo Copiar/Mover)"
 14447,1,"Controlado por el usuario"
 
-[STRINGTABLE 179]
+[STRINGTABLE 182]
 14448,1,"Según el almacenamiento"
 14449,1,"Manual"
 14450,1,"Poner esta operación en &cola (esperar a que terminen todas las demás operaciones de Copiar/Mover)"
@@ -4120,7 +4210,7 @@ SLGINCOMPLETE,""
 14462,1,"en espera de un dispositivo de almacenamiento"
 14463,1,"en espera de un espacio de flujo SSD/NVMe"
 
-[STRINGTABLE 180]
+[STRINGTABLE 183]
 14464,1,"en espera porque no se pudo identificar el almacenamiento"
 14465,1,"Listo"
 14466,1,"Buscando"
@@ -4138,7 +4228,7 @@ SLGINCOMPLETE,""
 14478,1,"Escaneo de conflictos: %1!s!, %2!d! pendiente, %3!d!/%4!d! inspeccionado"
 14479,1,"activo"
 
-[STRINGTABLE 181]
+[STRINGTABLE 184]
 14480,1,"finalizado"
 14481,1,"Nombre de archivo"
 14482,1,"Estado"
@@ -4154,7 +4244,7 @@ SLGINCOMPLETE,""
 14492,1,"Suprimido"
 14493,1,"No coincide el tipo de archivo/directorio"
 
-[STRINGTABLE 182]
+[STRINGTABLE 185]
 14500,1,"Vista de rama"
 14501,1,"&Vista de rama\tCtrl+B"
 14502,1,"Ruta"
@@ -4168,28 +4258,120 @@ SLGINCOMPLETE,""
 14510,1,"Conservar las rutas de subcarpetas relativas a la raíz de la vista de rama"
 14511,1,"Ruta: "
 
-[STRINGTABLE 183]
+[STRINGTABLE 186]
 14512,1,"No se pudo leer el árbol de carpetas. Actualice la vista para intentarlo de nuevo."
 14513,1,"Vista de rama - actualizando... %I64u archivos conservados"
 14514,1,"Vista de rama - actualización detenida; resultados anteriores conservados (%I64u archivos)"
 14515,1,"Vista de rama - preparando %I64u archivos; %I64u resultados anteriores conservados"
-14516,0,"The program could not be started safely through Windows. It was not retried using another launch method."
-14517,0,"The item could not be opened through Windows Shell. The selected item was not retried using another launch method."
-14518,0,"Windows long-path setting: disabled."
-14519,0,"Windows long-path setting: enabled. Running processes may still use an earlier cached setting."
-14520,0,"Windows long-path setting: not configured (default behavior)."
-14521,0,"Windows long-path setting could not be determined."
-14522,0,"This setting is diagnostic information, not the established cause of this failure. Enabling it does not guarantee support by Shell, security services or the target application."
-14523,0,"Close"
-14524,0,"Windows settings guide"
-14525,0,"Windows long-path support"
-14526,0,"An administrator can enable the Windows policy:\nComputer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths.\n\nIts registry equivalent is REG_DWORD LongPathsEnabled = 1 under:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nRestart affected applications; restarting Windows may also be necessary. Applications must support long paths themselves. This is not a way to override a security denial, and Shell or the target program may still reject the path. Salamander does not change this setting."
-14527,0,"Windows error:"
+14516,1,"No se pudo iniciar el programa de forma segura mediante Windows. No se volvió a intentar iniciarlo con otro método."
+14517,1,"No se pudo abrir el elemento mediante Windows Shell. No se volvió a intentar abrir el elemento seleccionado con otro método."
+14518,1,"Configuración de rutas largas de Windows: deshabilitada."
+14519,1,"Configuración de rutas largas de Windows: habilitada. Los procesos en ejecución aún pueden usar un valor almacenado anteriormente."
+14520,1,"Configuración de rutas largas de Windows: sin configurar (comportamiento predeterminado)."
+14521,1,"No se pudo determinar la configuración de rutas largas de Windows."
+14522,1,"Esta configuración es información de diagnóstico, no la causa confirmada de este error. Habilitarla no garantiza la compatibilidad de Shell, los servicios de seguridad ni la aplicación de destino."
+14523,1,"Cerrar"
+14524,1,"Guía de configuración de Windows"
+14525,1,"Compatibilidad con rutas largas de Windows"
+14526,1,"Un administrador puede habilitar la directiva de Windows:\nConfiguración del equipo > Plantillas administrativas > Sistema > Sistema de archivos > Habilitar rutas Win32 largas.\n\nEl valor equivalente del Registro es REG_DWORD LongPathsEnabled = 1 en:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nReinicie las aplicaciones afectadas; también puede ser necesario reiniciar Windows. Las aplicaciones deben admitir por sí mismas las rutas largas. Esta opción no permite eludir una denegación de seguridad, y Shell o el programa de destino aún pueden rechazar la ruta. Salamander no cambia esta configuración."
+14527,1,"Error de Windows:"
 
-[STRINGTABLE 184]
+[STRINGTABLE 187]
+14530,1,"Asociaciones de ficheros"
+14531,1,"&Patrón:"
+14532,1,"&Acción:"
+14533,1,"&Operación:"
+14534,1,"&Destino:"
+14535,1,"Destino &ID:"
+14536,1,"Estado:"
+14537,1,"&Añadir / Actualizar"
+14538,1,"&Eliminar"
+14539,1,"&Restablecer"
+14540,1,"Marcar &sin asignar"
+14541,1,"Ver"
+14542,1,"Ver alternativo"
+14543,1,"Editar"
+
+[STRINGTABLE 188]
+14544,1,"Archivo del panel"
+14545,1,"No aplicable"
+14546,1,"Listar / Desempaquetar"
+14547,1,"Eliminar / Empaquetar"
+14548,1,"Integrado"
+14549,1,"Plugin"
+14551,1,"Listo"
+14552,1,"Conflicto: resuelve patrones solapados al guardar"
+14553,1,"Predeterminado"
+14554,1,"Usuario"
+14555,1,"Heredado"
+14556,1,"Inactivo"
+14557,1,"Conflicto"
+14558,1,"Patrones de búsqueda"
+14559,1,"Categoría"
+
+[STRINGTABLE 189]
+14560,1,"Procedencia"
+14561,1,"Todos"
+14562,1,"Mostrar solo conflictos"
+14563,1,"Patrón"
+14564,1,"Ver"
+14565,1,"Vista alternativa"
+14566,1,"Editar"
+14567,1,"Panel de archivo"
+14568,1,"%u de %u asociaciones | %u conflictos"
+14569,1,"Seleccione una celda de patrón para cambiar su propietario. Los valores predeterminados existentes se importan automáticamente."
+14570,1,"No hay destinos compatibles instalados"
+14571,1,"Visor interno"
+14572,1,"Runtime heredado"
+14573,1,"Seleccione un destino de complemento compatible"
+14575,1,"El patrón no debe estar vacío"
+
+[STRINGTABLE 190]
+14576,1,"Extensión"
+14577,1,"%u asociaciones seleccionadas"
+14578,1,"Sin asignar"
+14579,1,"Definido por el usuario"
+14580,1,"Panel de archivo"
+14581,1,"Extensiones"
+14582,1,"Conflicto: %s tiene destinos en competencia en %s: %s"
+14583,1," (+%u más)"
+14584,1,"Seleccione un visor de extensión compatible"
+14585,1,"Visor personalizado"
+14586,1,"Editor personalizado"
+14587,1,"&Nombre:"
+14588,1,"&Comando:"
+14589,1,"&Argumentos:"
+14590,1,"&Directorio inicial:"
+14591,1,"&Guardar"
+
+[STRINGTABLE 191]
+14592,1,"Controladores personalizados guardados"
+14593,1,"Introduzca un nombre y un comando para este controlador."
+14594,1,"Ya existe un controlador con este nombre."
+14595,1,"Nombre"
+14596,1,"Comando"
+14597,1,"Controlador personalizado no válido o supera el límite de tamaño."
+14598,1,"Editor heredado no configurado"
+14599,1,"Configurar visores personalizados para ficheros"
+14600,1,"Configurar editores personalizados para ficheros"
+14601,1,"Detalles"
+14602,1,"Parámetros"
+14603,1,"Ubicación inicial"
+14604,1,"Añadir nuevo patrón de ficheros"
+14605,1,"Introduzca el patrón:"
+14606,1,"Escriba un patrón válido."
+14607,1,"Este patrón de fichero ya existe."
+
+[STRINGTABLE 192]
+14608,1,"Finalizar y reintentar"
+14609,1,"El archivo está siendo utilizado por: %s"
+14610,1,"¿Finalizar estos procesos y volver a intentarlo?\n\nSe pueden perder los datos no guardados de estos procesos:\n%s"
+14611,1,"No se pudo finalizar ninguno de los procesos que utilizan este archivo."
+
+[STRINGTABLE 193]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
 
-[STRINGTABLE 185]
+[STRINGTABLE 194]
 14992,1,"Guardando configuración en el almacenamiento de archivos, espere por favor..."
 14993,1,"Eliminando configuración antigua del almacenamiento de archivos, espere por favor..."
 14994,1,"Leyendo asociaciones del almacenamiento de archivos..."
@@ -4205,7 +4387,3 @@ SLGINCOMPLETE,""
 15004,1,"%s libres (en caché, actualizado %s)"
 15005,1,"%s libres (obsoleto, actualizado %s)"
 
-14608,1,"Finalizar y reintentar"
-14609,1,"El archivo está siendo utilizado por: %s"
-14610,1,"¿Finalizar estos procesos y volver a intentarlo?\n\nSe pueden perder los datos no guardados de estos procesos:\n%s"
-14611,1,"No se pudo finalizar ninguno de los procesos que utilizan este archivo."

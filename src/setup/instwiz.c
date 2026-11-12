@@ -1454,7 +1454,7 @@ WizardDlgProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             if (uMsg == WM_LBUTTONDOWN)
             {
-                ShellExecute(NULL, "open", "https://www.altap.cz", NULL, NULL, 0);
+                ShellExecute(NULL, "open", "https://samandarin.net", NULL, NULL, 0);
             }
             else
             {

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\checkver\checkver.atp"
 TEXTVERSION,"1.2.7 (x64)"
-VERSION,"1,2,7,196"
+VERSION,"1,2,7,197"
 
 [TRANSLATION]
 LANGID,1038
@@ -78,7 +78,7 @@ COMMENT,"Magyar változat"
 218,1,"A plugin az internettel dolgozik.\nMegszakítja ezt az internet feladatot?"
 220,1,"Internet kapcsolat inicializálása..."
 221,1,"Sikertelen inicializálás: %s"
-222,1,"Kapcsolódás a \tuwww.altap.cz\tlhttps://www.altap.cz\tn oldalra..."
+222,1,"Kapcsolódás a \tuopen.samandarin.net\tlhttps://open.samandarin.net\tn oldalra..."
 223,1,"Csatlakozás sikertelen: %s"
 
 [STRINGTABLE 2]

@@ -1,12 +1,12 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\hungarian\samandarin\samandarin.atp"
 TEXTVERSION,"0.10 (x64)"
-VERSION,"0,10,0,196"
+VERSION,"0,10,0,197"
 
 [TRANSLATION]
 LANGID,1038
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Ellenőrzi a GitHub kiadásokat, és felajánlja a legújabb Samandarin build megnyitását."
-49,1,"https://samandarin.net/download"
+49,1,"open.samandarin.netdownload"
 50,1,"Frissítések ellenőrzése most"
 51,1,"Váratlan kezelt kivétel:"
 52,1,"Nem sikerült inicializálni a Samandarin kezelt segédet.\nEllenőrizze, hogy a Samandarin.Managed.dll a bővítmény mellett található."
@@ -125,8 +125,8 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 144,1,"Lehetséges"
 145,1,"Szükséges telepítéskor"
 146,1,"Nem"
-147,0,"This package has higher-risk capabilities:\n\n{0}\n\nInstall or update it anyway?"
+147,1,"Ez a csomag nagyobb kockázatú képességekkel rendelkezik:\n\n{0}\n\nTelepíti vagy frissíti ennek ellenére?"
 148,1,"Telepítővel együtt érkezik"
-149,0,"Updates are available for the following plugins or extensions:\n\n{0}"
+149,1,"A következő bővítményekhez vagy kiterjesztésekhez frissítések érhetők el:\n\n{0}"
 150,1,"Bővítményfrissítések megnyitása"
 

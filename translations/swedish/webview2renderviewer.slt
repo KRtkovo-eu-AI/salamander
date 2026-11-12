@@ -1,0 +1,41 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\webview2renderviewer\webview2renderviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"WebView2-visare"
+47,1,"Om insticksprogrammet"
+
+[STRINGTABLE 1]
+48,1,"Visare som visar renderade HTML-, Markdown- och webbdokument med WebView2."
+49,1,"open.samandarin.net"
+50,1,"Det går inte att förbereda synkroniseringshändelsen som visaren behöver."
+51,1,"Den valda filen är för stor för att öppnas. Filer större än 32 MB stöds inte."
+52,1,"&Arkiv"
+53,1,"&Visa"
+54,1,"&Stäng\tEsc"
+55,1,"&Ladda om\tF5"
+56,1,"Zooma &in\tCtrl++"
+57,1,"Zooma &ut\tCtrl+-"
+58,1,"&Återställ\tCtrl+0"
+59,1,"Läser in..."
+60,1,"Klar"
+61,1,"Det går inte att initiera WebView2-renderaren."
+62,1,"Det går inte att öppna den valda filen."
+63,1,"Visa &radnummer"
+
+[STRINGTABLE 2]
+64,1,"&Bryt rader\tF2"
+65,1,"Visa &blanksteg"
+66,1,"&Redigera"
+67,1,"&Kopiera\tCtrl+C"
+68,1,"Välj &allt\tCtrl+A"
+69,1,"&Skriv ut\tCtrl+P"
+

@@ -1,0 +1,61 @@
+{
+  "name": "Visualizador de Eventos",
+  "description": "Navega pelos logs de eventos do Windows em um painel do sistema de arquivos Salamander.",
+  "commands": {
+    "EventViewer.open": "Abrir Visualizador de Eventos"
+  },
+  "fileSystems": {
+    "events": {
+      "name": "Visualizador de Eventos",
+      "rootItems": {
+        "custom-views": "Exibições Personalizadas",
+        "windows-logs": "Logs do Windows",
+        "applications-services": "Logs de Aplicativos e Serviços"
+      },
+      "columns": {
+        "level": {
+          "name": "Nível",
+          "description": "Gravidade do evento"
+        },
+        "logged": {
+          "name": "Data e Hora",
+          "description": "Horário em que o evento foi registrado"
+        },
+        "source": {
+          "name": "Origem",
+          "description": "Provedor do evento"
+        },
+        "eventId": {
+          "name": "ID do Evento",
+          "description": "Identificador do evento"
+        },
+        "task": {
+          "name": "Categoria da Tarefa",
+          "description": "Categoria da tarefa do evento"
+        }
+      },
+      "actions": {
+        "openEvent": "Propriedades do Evento"
+      }
+    }
+  },
+  "administrativeEvents": "Eventos Administrativos",
+  "eventName": "Evento {0}, {1} [{2}]",
+  "windowTitle": "Propriedades do Evento - Evento {0}, {1}",
+  "general": "Geral",
+  "descriptionLabel": "Descrição",
+  "details": "Detalhes",
+  "close": "Fechar",
+  "messageUnavailable": "A mensagem do evento não está disponível.",
+  "textTruncated": "O texto foi truncado.",
+  "openErrorTitle": "Não foi possível abrir o evento",
+  "openError": "Não foi possível abrir o evento.\r\n\r\n{0}",
+  "metadata": "Nome do Log: {0}\r\nOrigem: {1}\r\nID do Evento: {2}    Nível: {3}\r\nRegistrado: {4}    Categoria da Tarefa: {5}\r\nUsuário: {6}    Computador: {7}\r\nID do Registro: {8}",
+  "levels": {
+    "critical": "Crítico",
+    "error": "Erro",
+    "warning": "Aviso",
+    "information": "Informações",
+    "verbose": "Detalhado"
+  }
+}

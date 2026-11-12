@@ -1,0 +1,54 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\hypervm\hypervm.atp"
+TEXTVERSION,"1.10 (x64)"
+VERSION,"1,10,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"Hyper-V virtuella datorer"
+47,1,"Om insticksprogrammet"
+
+[STRINGTABLE 1]
+48,1,"Visa lokala Hyper-V virtuella datorer i panelen."
+49,1,"open.samandarin.net"
+50,1,"Visa &Hyper-V-datorfönstret"
+51,1,"Skapa &VHD"
+52,1,"&Anslut VHD"
+60,1,"Skapa och anslut virtuell hårddisk"
+61,1,"Anslut virtuell hårddisk"
+62,1,"Koppla från virtuell hårddisk"
+63,1,"Plats:"
+
+[STRINGTABLE 2]
+64,1,"Bläddra..."
+65,1,"Storlek på virtuell hårddisk:"
+66,1,"Format för virtuell hårddisk"
+67,1,"Typ av virtuell hårddisk"
+68,1,"Stöder virtuella diskar på upp till 2040 GB."
+69,1,"Stöder virtuella diskar större än 2040 GB (högst 64 TB) och tål strömavbrott."
+70,1,"Fast storlek (rekommenderas)"
+71,1,"Dynamiskt växande"
+72,1,"Den virtuella diskfilen tilldelas sin maximala storlek när den skapas."
+73,1,"Den virtuella diskfilen växer till sin maximala storlek när data skrivs till den."
+74,1,"Skrivskyddad."
+75,1,"Ange den virtuella diskens plats på maskinen."
+76,1,"Ange den virtuella diskens plats på datorn."
+77,1,"Koppla från den virtuella hårddisken {0}?"
+78,1,"Virtuell hårddisk ansluten: {0}"
+79,1,"Inga virtuella Hyper-V-datorer hittades."
+
+[STRINGTABLE 3]
+80,1,"Konfiguration"
+81,1,"Ingen konfiguration ännu."
+82,1,"OK"
+83,1,"Avbryt"
+84,1,"Virtuella hårddiskar (*.vhd;*.vhdx)|*.vhd;*.vhdx"
+85,1,"Hyper-V virtuella datorer"
+86,1,"Skapa och anslut virtuell hårddisk"
+87,1,"Anslut virtuell hårddisk"
+

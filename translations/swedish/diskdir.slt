@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\diskdir\diskdir.atp"
+TEXTVERSION,"1.1 (x64)"
+VERSION,"1,1,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[DIALOG 200]
+278,94,1,"Skapa DiskDir-katalog"
+1004,8,9,29,8,1,"Katalog:"
+1001,42,9,228,8,1,""
+1005,8,23,262,1,1,""
+1002,16,32,104,12,1,"Ta även med sökvägsnamn"
+1003,16,48,126,12,1,"Ta med underkataloger rekursivt"
+1006,8,66,262,1,1,""
+1,84,74,50,14,1,"OK"
+2,144,74,50,14,1,"Avbryt"
+
+[STRINGTABLE 0]
+100,1,"DiskDir"
+101,1,"Skapar och bläddrar i filkataloger som är kompatibla med Total Commanders DiskDir."
+102,1,"DiskDir"
+103,1,"Om DiskDir"
+104,1,"Inbyggt stöd för DiskDir-kompatibla kataloger.\n\nKatalogfiler innehåller namn, storlekar och tidsstämplar, inte filinnehåll."
+105,1,"DiskDir-katalog"
+106,1,"Katalogsökvägen är ogiltig eller för lång."
+107,1,"Katalognamnet används redan av en katalog."
+108,1,"Katalogen finns redan:\n\n"
+109,1,"\n\nVill du skriva över den?"
+110,1,"DiskDir-kataloger lagrar inte filinnehåll, så källfiler kan inte flyttas."
+111,1,"Det går inte att lägga till poster i en befintlig DiskDir-katalog."
+
+[STRINGTABLE 1]
+112,1,"Det går inte att skapa DiskDir-katalogen."
+113,1,"Den ursprungliga filen som anges i katalogen är inte tillgänglig."
+114,1,"En eller flera ursprungliga filer som anges i katalogen är inte tillgängliga."
+115,1,"Det går inte att öppna katalogen."
+116,1,"Katalogen är för stor."
+117,1,"Det går inte att läsa katalogen."
+118,1,"UTF-8-katalogen innehåller ogiltig text."
+119,1,"Filen innehåller ingen giltig DiskDir-katalog."
+120,1,"Det går inte att skriva DiskDir-katalogen."
+

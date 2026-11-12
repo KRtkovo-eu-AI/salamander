@@ -1,0 +1,47 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\korean\unchm\unchm.atp"
+TEXTVERSION,"1.6 (x64)"
+VERSION,"1,6,0,197"
+
+[TRANSLATION]
+LANGID,1042
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"korean (automatic AI translation)"
+
+[STRINGTABLE 0]
+1000,1,"UnCHM"
+1001,1,"파일을 열 수 없습니다."
+1002,1,"지정되지 않은 오류입니다."
+1003,1,"CHM 아카이브 압축 해제 중"
+1004,1,"파일 압축 해제 오류입니다."
+1005,1,"이 파일을 처리할 수 없습니다."
+1006,1,"메모리가 부족합니다."
+1007,1,"플러그인 정보"
+
+[STRINGTABLE 1]
+1009,1,"CHM 파일을 탐색하고 추출합니다."
+1010,1,"임시 디렉터리를 만들 수 없습니다."
+1011,1,"임시 파일을 삭제할 수 없습니다."
+1012,1,"알 수 없는 파일 형식이거나 올바른 CHM 이미지가 아닙니다.\n\n올바른 CHM 이미지라고 확신하는 경우 support@altap.cz로 문의하여 이 형식 지원에 도움을 주세요."
+1013,1,"이 파일을 열 수 없습니다."
+1014,1,"임시 파일을 만들지 못했습니다."
+1015,1,"파일 특성을 설정할 수 없습니다."
+1016,1,"디렉터리 '%s'을(를) 만들 수 없습니다."
+1020,1,"예"
+1021,1,"아니요"
+1022,1,"오류"
+1023,1,"경고"
+
+[STRINGTABLE 2]
+1032,1,"내부 플러그인 오류입니다."
+
+[STRINGTABLE 3]
+1100,1,"읽기 오류"
+1101,1,"쓰기 오류"
+
+[STRINGTABLE 4]
+1105,1,"잘못된 숫자입니다."
+1106,1,"작업을 취소하는 중, 잠시만 기다려 주세요..."
+1107,1,"CHMLIB Library Copyright © 2001-2010 Jed Wing"
+

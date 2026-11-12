@@ -1,0 +1,18 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\hebrew\ieviewer\ieviewer.atp"
+TEXTVERSION,"1.13 (x64)"
+VERSION,"1,13,0,197"
+
+[TRANSLATION]
+LANGID,1037
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"hebrew (automatic AI translation)"
+
+[STRINGTABLE 0]
+10100,1,"מציג Internet Explorer"
+10101,1,"לא ניתן לפתוח את מציג Internet Explorer.\nנא לדווח על הבעיה לכתובת support@altap.cz."
+10102,1,"שגיאה"
+10103,1,"מציג קל משקל לקובצי HTML ו־XML המבוסס על Internet Explorer."
+10105,1,"על אודות התוסף"
+

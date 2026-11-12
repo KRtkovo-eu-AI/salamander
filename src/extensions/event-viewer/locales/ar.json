@@ -1,0 +1,61 @@
+{
+  "name": "عارض الأحداث",
+  "description": "استعراض سجلات أحداث Windows في لوحة نظام ملفات Salamander.",
+  "commands": {
+    "EventViewer.open": "فتح عارض الأحداث"
+  },
+  "fileSystems": {
+    "events": {
+      "name": "عارض الأحداث",
+      "rootItems": {
+        "custom-views": "طرق العرض المخصصة",
+        "windows-logs": "سجلات Windows",
+        "applications-services": "سجلات التطبيقات والخدمات"
+      },
+      "columns": {
+        "level": {
+          "name": "المستوى",
+          "description": "درجة خطورة الحدث"
+        },
+        "logged": {
+          "name": "التاريخ والوقت",
+          "description": "وقت تسجيل الحدث"
+        },
+        "source": {
+          "name": "المصدر",
+          "description": "موفّر الحدث"
+        },
+        "eventId": {
+          "name": "معرّف الحدث",
+          "description": "معرّف الحدث"
+        },
+        "task": {
+          "name": "فئة المهمة",
+          "description": "فئة مهمة الحدث"
+        }
+      },
+      "actions": {
+        "openEvent": "خصائص الحدث"
+      }
+    }
+  },
+  "administrativeEvents": "الأحداث الإدارية",
+  "eventName": "الحدث {0}، {1} [{2}]",
+  "windowTitle": "خصائص الحدث - الحدث {0}، {1}",
+  "general": "عام",
+  "descriptionLabel": "الوصف",
+  "details": "التفاصيل",
+  "close": "إغلاق",
+  "messageUnavailable": "رسالة الحدث غير متاحة.",
+  "textTruncated": "تم اقتطاع نص الحدث.",
+  "openErrorTitle": "تعذر فتح الحدث",
+  "openError": "تعذر فتح الحدث.\r\n\r\n{0}",
+  "metadata": "اسم السجل: {0}\r\nالمصدر: {1}\r\nمعرّف الحدث: {2}    المستوى: {3}\r\nوقت التسجيل: {4}    فئة المهمة: {5}\r\nالمستخدم: {6}    الكمبيوتر: {7}\r\nمعرّف السجل: {8}",
+  "levels": {
+    "critical": "حرج",
+    "error": "خطأ",
+    "warning": "تحذير",
+    "information": "معلومات",
+    "verbose": "تفصيلي"
+  }
+}

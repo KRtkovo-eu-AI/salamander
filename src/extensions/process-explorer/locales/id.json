@@ -1,0 +1,52 @@
+{
+  "name": "Penjelajah Proses",
+  "description": "Menampilkan proses Windows yang berjalan di panel sistem berkas Salamander.",
+  "commands": {
+    "ProcessExplorer.open": "Buka Penjelajah Proses"
+  },
+  "fileSystems": {
+    "processes": {
+      "name": "Proses yang Berjalan",
+      "columns": {
+        "pid": {
+          "name": "PID",
+          "description": "ID proses"
+        },
+        "status": {
+          "name": "Status",
+          "description": "Status proses"
+        },
+        "userName": {
+          "name": "Nama pengguna",
+          "description": "Akun pemilik proses"
+        },
+        "cpu": {
+          "name": "CPU",
+          "description": "Penggunaan prosesor saat ini"
+        },
+        "memory": {
+          "name": "Memori",
+          "description": "Working set privat yang aktif"
+        }
+      },
+      "actions": {
+        "endTask": "Akhiri tugas",
+        "endProcessTree": "Akhiri pohon proses",
+        "openFileLocation": "Buka lokasi berkas",
+        "properties": "Properti"
+      }
+    }
+  },
+  "strings": {
+    "running": "Berjalan",
+    "suspended": "Ditangguhkan",
+    "ended": "Berakhir",
+    "errorTitle": "Penjelajah Proses",
+    "processUnavailable": "Proses sudah tidak tersedia.",
+    "endFailed": "Proses tidak dapat diakhiri. Kesalahan Windows: {0}.",
+    "pathUnavailable": "Lokasi berkas yang dapat dijalankan tidak tersedia.",
+    "openLocationFailed": "Lokasi berkas tidak dapat dibuka. Kesalahan Windows: {0}.",
+    "propertiesFailed": "Properti berkas tidak dapat dibuka. Kesalahan Windows: {0}.",
+    "openPanelFailed": "Panel Penjelajah Proses tidak dapat dibuka."
+  }
+}

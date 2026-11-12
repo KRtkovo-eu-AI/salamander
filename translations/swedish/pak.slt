@@ -1,0 +1,75 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\swedish\pak\pak.atp"
+TEXTVERSION,"1.73 (x64)"
+VERSION,"1,73,0,197"
+
+[TRANSLATION]
+LANGID,1053
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"swedish (automatic AI translation)"
+
+[DIALOG 100]
+194,73,1,"Optimera PAK-arkiv"
+300,8,9,78,8,1,"Storlek på giltiga data:"
+101,64,9,118,8,1,""
+301,8,20,52,8,1,"Total filstorlek:"
+102,64,20,118,8,1,""
+302,8,31,71,8,1,"Bortkastat utrymme:"
+103,64,31,118,8,1,""
+303,8,44,178,1,1,""
+1,41,53,50,14,1,"Optimera"
+2,101,53,50,14,1,"Avbryt"
+
+[STRINGTABLE 0]
+500,1,"Det går inte att öppna filen: %s"
+501,1,"Det går inte att initiera paklib-gränssnittet. En fil är redan öppen."
+502,1,"Det går inte att öppna filen. En fil är redan öppen."
+503,1,"Det går inte att hämta filstorleken: %s"
+504,1,"Ogiltigt dataformat."
+505,1,"Otillräckligt minne."
+506,1,"Aktuell PAK-central katalog"
+507,1,"Det går inte att ange filposition: %s"
+508,1,"Det går inte att läsa från filen: %s"
+509,1,"Det går inte att hämta filposition: %s"
+510,1,"Det går inte att skriva till filen: %s"
+511,1,"Filen kan inte läggas till eftersom namnet är för långt."
+
+[STRINGTABLE 1]
+1000,1,"PAK"
+1001,1,"Otillräckligt minne."
+1002,1,"Det går inte att lägga till filen i listan."
+1003,1,"Det går inte att läsa in paklib.dll eller hämta proceduradressen: "
+1004,1,"Packar upp PAK-arkiv - %s"
+1005,1,"Förbereder data..."
+1006,1,"Packar upp..."
+1007,1,"Packar upp: "
+
+[STRINGTABLE 2]
+1008,1,"Åtgärden kan inte slutföras eftersom filsökvägen är för lång."
+1009,1,"Det går inte att ange filposition: "
+1010,1,"Det går inte att hämta filposition: "
+1011,1,"Det går inte att skriva till filen:"
+1013,1,"Det går inte att öppna filen: "
+1014,1,"Åtgärden kan inte slutföras eftersom masken är för lång."
+1015,1,"Tar bort från PAK-arkiv - %s"
+1016,1,"Tar bort..."
+1017,1,"Tar bort: "
+1018,1,"Avbryter åtgärden, vänta..."
+1019,1,"Packar till PAK-arkiv - %s"
+1020,1,"Filen kan inte läggas till: den är för stor."
+1021,1,"Packar..."
+1022,1,"Filen kan inte läggas till eftersom namnet är för långt."
+1023,1,"Packar: "
+
+[STRINGTABLE 3]
+1024,1,"Det går inte att läsa från filen: "
+1025,1,"Det går inte att ansluta insticksprogrammet till Open Samandarin."
+1026,1,"Optimerar, vänta..."
+1027,1,"Optimerar PAK-arkiv - %s"
+1028,1,"Borttagningen av filer slutfördes inte. Du kan behöva optimera PAK från insticksprogrammets meny för att frigöra bortkastat diskutrymme."
+1029,1,"&Optimera PAK"
+1030,1,"Insticksprogrammets giltighetstid har gått ut. Besök vår webbplats för en nyare version."
+1031,1,"Bläddra bland och packa upp Quake PAK-arkiv."
+1032,1,"Om insticksprogrammet"
+

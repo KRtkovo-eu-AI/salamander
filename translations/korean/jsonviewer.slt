@@ -1,0 +1,21 @@
+﻿[EXPORTINFO]
+PROJECTNAME,"localization-openai\projects\korean\jsonviewer\jsonviewer.atp"
+TEXTVERSION,"1.5 (x64)"
+VERSION,"1,5,0,197"
+
+[TRANSLATION]
+LANGID,1042
+AUTHOR,"Open Samandarin"
+WEB,"open.samandarin.net"
+COMMENT,"korean (automatic AI translation)"
+
+[STRINGTABLE 0]
+46,1,"JSON Viewer .NET"
+47,1,"플러그인 정보"
+
+[STRINGTABLE 1]
+48,1,"관리되는 WinForms UI로 JSON 문서를 표시하는 내부 뷰어입니다."
+49,1,"open.samandarin.net"
+50,1,"뷰어에 필요한 동기화 이벤트를 준비할 수 없습니다."
+51,1,"선택한 JSON 파일이 너무 커서 열 수 없습니다. 8 MB보다 큰 파일은 지원되지 않습니다."
+

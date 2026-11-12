@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\salamand\salamand.atp"
 TEXTVERSION,"5.0 (x64)"
-VERSION,"5,0,0,196"
+VERSION,"5,0,0,197"
 
 [TRANSLATION]
 LANGID,1048
@@ -35,49 +35,49 @@ SLGINCOMPLETE,""
 152,45,11,305,8,1,""
 153,3,23,39,8,1,""
 154,45,23,305,8,1,""
-1150,18,41,38,8,1,"Fisier:"
+1150,18,41,24,8,1,"Fisier:"
 155,45,40,297,12,1,""
 1820,3,11,39,8,1,""
 1821,45,11,305,8,1,""
 1822,3,23,39,8,1,""
 1823,45,23,305,8,1,""
-1824,18,41,38,8,1,"Fisier:"
+1824,18,41,24,8,1,"Fisier:"
 1825,45,40,297,12,1,""
 1826,3,11,39,8,1,""
 1827,45,11,305,8,1,""
 1828,3,23,39,8,1,""
 1829,45,23,305,8,1,""
-1830,18,41,38,8,1,"Fisier:"
+1830,18,41,24,8,1,"Fisier:"
 1831,45,40,297,12,1,""
 1832,3,11,39,8,1,""
 1833,45,11,305,8,1,""
 1834,3,23,39,8,1,""
 1835,45,23,305,8,1,""
-1836,18,41,38,8,1,"Fisier:"
+1836,18,41,24,8,1,"Fisier:"
 1837,45,40,297,12,1,""
 1838,3,11,39,8,1,""
 1839,45,11,305,8,1,""
 1840,3,23,39,8,1,""
 1841,45,23,305,8,1,""
-1842,18,41,38,8,1,"Fisier:"
+1842,18,41,24,8,1,"Fisier:"
 1843,45,40,297,12,1,""
 1844,3,11,39,8,1,""
 1845,45,11,305,8,1,""
 1846,3,23,39,8,1,""
 1847,45,23,305,8,1,""
-1848,18,41,38,8,1,"Fisier:"
+1848,18,41,24,8,1,"Fisier:"
 1849,45,40,297,12,1,""
 1850,3,11,39,8,1,""
 1851,45,11,305,8,1,""
 1852,3,23,39,8,1,""
 1853,45,23,305,8,1,""
-1854,18,41,38,8,1,"Fisier:"
+1854,18,41,24,8,1,"Fisier:"
 1855,45,40,297,12,1,""
 1856,3,11,39,8,1,""
 1857,45,11,305,8,1,""
 1858,3,23,39,8,1,""
 1859,45,23,305,8,1,""
-1860,18,41,38,8,1,"Fisier:"
+1860,18,41,24,8,1,"Fisier:"
 1861,45,40,297,12,1,""
 1151,18,56,24,8,1,"Total:"
 156,45,55,297,12,1,""
@@ -85,13 +85,13 @@ SLGINCOMPLETE,""
 1876,5,84,75,10,1,""
 1871,85,84,265,10,1,""
 1870,5,96,345,82,1,""
-1872,5,182,76,14,1,"&Rezolva"
+1872,5,182,50,14,1,"&Rezolva"
 1873,60,182,50,14,1,"S&ari"
-1874,115,182,80,14,1,"Suprascrie &Tot"
-1875,185,182,105,14,1,"Sari Peste A&ll"
-157,92,202,76,14,1,"&Minimizeaza"
+1874,115,182,65,14,1,"Suprascrie &Tot"
+1875,185,182,55,14,1,"Sari Peste A&ll"
+157,92,202,50,14,1,"&Minimizeaza"
 158,152,202,50,14,1,""
-2,212,202,76,14,1,"Anuleaza"
+2,212,202,50,14,1,"Anuleaza"
 
 [DIALOG 148]
 355,98,1,"Compar Directoarele"
@@ -207,7 +207,7 @@ SLGINCOMPLETE,""
 2,270,57,50,14,1,"Anuleaza"
 
 [DIALOG 191]
-255,289,1,"Compara Directoarele"
+273,289,1,"Compara Directoarele"
 1150,9,6,208,8,1,"La inceput toate numele vor fi deselectate in ambele panouri."
 1151,9,15,186,8,1,"Fisierele care exista in doar un panou vor fi selectate."
 1152,9,31,136,8,1,"Compara fisierele cu acelasi nume dupa"
@@ -265,14 +265,14 @@ SLGINCOMPLETE,""
 9,153,43,50,14,1,"Help"
 
 [DIALOG 205]
-255,257,1,""
+269,257,1,""
 209,10,9,207,8,1,""
 210,10,19,208,131,1,""
 362,223,18,23,14,1,""
 1817,10,37,65,8,1,"&Mod transfer:"
 1818,78,35,167,49,1,""
 222,10,50,247,12,1,"&Asteapta pana ce toate operatiunile de Copiere/Mutare sunt terminate"
-1868,10,66,86,8,1,"Gestionare &conflicte:"
+1868,10,66,71,8,1,"Gestionare &conflicte:"
 1869,78,64,167,49,1,""
 213,10,79,229,12,1,"S&uprascrie fisierele mai vechi si sari peste celelalte fara sa intrebi"
 225,10,92,68,12,1,"Limita de &viteza:"
@@ -414,7 +414,7 @@ SLGINCOMPLETE,""
 1151,10,41,160,16,1,"Fork comunitar bazat pe Open Salamander 5.0"
 1150,10,63,180,18,1,"Copyright © 1997-2026 Open Salamander Authors,\nOpen Samandarin Authors, Ondřej Kotas (KRtekTM)"
 1152,10,84,20,8,1,"Web:"
-272,31,84,220,8,1,"https://samandarin.net/"
+272,31,84,220,8,1,"open.samandarin.net"
 1153,10,95,165,8,1,"Open Samandarin este software gratuit"
 1154,10,106,228,8,1,"Licențiat sub GNU General Public License versiunea 2 sau ulterioară"
 286,2,122,294,1,1,""
@@ -631,23 +631,23 @@ SLGINCOMPLETE,""
 1159,1,1,46,8,1,"Dis&keta"
 1150,49,5,244,1,1,""
 477,13,11,104,12,1,"Foloseste refresh automat"
-478,154,11,92,12,1,"Foloseste icoane simple"
+478,145,11,92,12,1,"Foloseste icoane simple"
 1151,1,25,225,8,1,"&Alte drive-uri care se scot (ex. stick USB , ZIP si JAZ)"
 1152,228,29,65,1,1,""
 479,13,35,104,12,1,"Foloseste refresh automat"
-480,154,35,92,12,1,"Foloseste icoane simple"
+480,145,35,92,12,1,"Foloseste icoane simple"
 1153,1,49,128,8,1,"Drive-uri fi&xate drives (ex. hdd locale)"
 1160,117,53,176,1,1,""
 481,13,59,104,12,1,"Foloseste refresh automat"
-482,154,59,92,12,1,"Foloseste icoane simple"
+482,145,59,92,12,1,"Foloseste icoane simple"
 1155,1,73,107,8,1,"U&nitate CD-ROM sau DVD-ROM"
 1154,101,77,192,1,1,""
 485,13,83,104,12,1,"Foloseste refresh automat"
-486,154,83,92,12,1,"Foloseste icoane simple"
+486,145,83,92,12,1,"Foloseste icoane simple"
 1157,1,97,61,8,1,"Drive-uri in Retea"
 1156,55,101,238,1,1,""
 483,13,107,104,12,1,"Foloseste refresh au&tomat"
-484,154,107,92,12,1,"Foloseste icoane simp&le"
+484,145,107,92,12,1,"Foloseste icoane simp&le"
 487,13,119,276,12,1,"N&u fa refresh la activarea Salamander (refresh manual poate fi necesar)"
 6296,1,136,292,51,1,"Informații despre spațiul liber"
 6297,10,150,92,8,1,"Unități amo&vibile:"
@@ -658,7 +658,7 @@ SLGINCOMPLETE,""
 1162,42,195,251,1,1,""
 489,13,201,276,12,1,"Activeaza cailor lungi Win32 (Windows 10 1607+ / Windows 11)"
 1158,1,219,167,8,1,"Daca calea in panou nu este accesi&bila, mergi la:"
-488,170,217,106,12,1,""
+488,130,217,146,12,1,""
 360,280,217,13,12,1,"..."
 
 [DIALOG 490]
@@ -793,6 +793,42 @@ SLGINCOMPLETE,""
 299,231,1,"Vizualizatori si editori"
 1150,87,86,130,8,1,"Va rugam alegeti o subintrare din lista"
 
+[DIALOG 576]
+420,300,1,"Asocieri fișiere"
+6324,4,3,80,20,1,""
+6319,4,3,90,20,1,""
+6320,98,3,90,20,1,""
+6321,192,3,78,20,1,""
+6322,274,3,142,20,1,""
+6325,400,3,16,20,1,""
+6312,4,29,170,14,1,""
+6314,180,29,90,60,1,""
+6323,180,29,90,60,1,""
+6315,276,30,82,14,1,""
+6308,342,28,74,16,1,""
+6301,4,60,412,100,1,""
+6317,4,164,412,12,1,""
+1151,4,180,412,84,1,""
+1150,10,184,160,12,1,""
+1152,10,202,42,8,1,""
+6302,55,199,170,14,1,""
+1153,10,217,42,8,1,""
+6327,10,225,80,20,1,""
+6328,92,225,80,20,1,""
+6329,174,225,80,20,1,""
+6330,256,225,80,20,1,""
+6331,338,225,72,20,1,""
+1155,16,245,42,8,1,""
+6305,62,242,340,60,1,""
+1156,16,265,42,8,1,""
+6316,62,262,340,60,1,""
+6307,16,282,386,10,1,""
+6332,330,280,72,18,1,""
+6309,4,284,58,14,1,""
+6310,66,284,92,14,1,""
+6311,162,284,92,14,1,""
+6318,338,284,78,14,1,""
+
 [DIALOG 580]
 299,231,1,"Vizualizatori"
 585,1,6,90,8,1,"Masca fisier prioritate &lista"
@@ -886,6 +922,42 @@ SLGINCOMPLETE,""
 641,72,209,30,14,1,"text"
 1160,197,212,71,8,1,"Culoare text selectat"
 642,263,209,30,14,1,"text"
+
+[DIALOG 640]
+299,231,1,"Vizualizatoare"
+1151,1,0,295,12,1,""
+6340,1,18,295,76,1,""
+1150,1,100,295,108,1,""
+6342,6,116,50,8,1,""
+6341,59,114,220,14,1,""
+6343,6,134,50,8,1,""
+352,59,132,220,14,1,""
+360,284,132,12,14,1,""
+6344,6,152,50,8,1,""
+359,59,150,220,14,1,""
+358,284,150,12,14,1,""
+6345,6,170,50,8,1,""
+357,59,168,220,14,1,""
+356,284,168,12,14,1,""
+6346,216,188,64,14,1,""
+
+[DIALOG 641]
+299,231,1,"Editoare"
+1151,1,0,295,12,1,""
+6340,1,18,295,76,1,""
+1150,1,100,295,108,1,""
+6342,6,116,50,8,1,""
+6341,59,114,220,14,1,""
+6343,6,134,50,8,1,""
+352,59,132,220,14,1,""
+360,284,132,12,14,1,""
+6344,6,152,50,8,1,""
+359,59,150,220,14,1,""
+358,284,150,12,14,1,""
+6345,6,170,50,8,1,""
+357,59,168,220,14,1,""
+356,284,168,12,14,1,""
+6346,216,188,64,14,1,""
 
 [DIALOG 660]
 231,195,1,"Schimba Icoana"
@@ -1025,7 +1097,7 @@ SLGINCOMPLETE,""
 254,148,1,"Open Samandarin"
 1,71,127,50,14,1,"&Da"
 2,132,127,50,14,1,"&Nu"
-1150,8,7,234,8,1,"Se pare ca rulezi Open Samandarin in Mod Compatibil. Aceasta poate"
+1150,8,7,236,8,1,"Se pare ca rulezi Open Samandarin in Mod Compatibil. Aceasta poate"
 1151,8,16,239,8,1,"conduce la instabilitatea Open Samandarin sau cauza alte probleme."
 1152,8,31,131,8,1,"Poti inchide Mod Compatibilitate:"
 1153,17,41,184,8,1,"1) Click dreapta pe icoana Open Samandarin"
@@ -1134,11 +1206,13 @@ SLGINCOMPLETE,""
 1096,103,202,55,12,1,"&Imagini"
 1097,197,202,50,12,1,"&Videoclipuri"
 610,9,215,186,12,1,"Ca &in Celalalt Panou (doar in meniul Schimba Drive)"
-1155,1,238,96,8,1,"Cum sa schimbi vizibilitatea "
-1088,92,238,42,8,1,"Cale Rapida"
-1156,125,238,15,8,1,"si"
-1089,142,238,33,8,1,"Plugin FS"
-1157,175,238,29,8,1,"obiecte."
+1104,1,235,150,8,1,"Arată întâi în meniul Unități:"
+1107,155,232,131,40,1,""
+1155,1,252,96,8,1,"Cum sa schimbi vizibilitatea "
+1088,92,252,42,8,1,"Cale Rapida"
+1156,125,252,15,8,1,"si"
+1089,142,252,33,8,1,"Plugin FS"
+1157,175,252,29,8,1,"obiecte."
 
 [DIALOG 1105]
 299,263,1,"Panouri"
@@ -1170,7 +1244,7 @@ SLGINCOMPLETE,""
 14528,1,247,295,12,1,"Folosește căi relative în coloana Path din Branch View"
 
 [DIALOG 1106]
-299,104,1,"File"
+299,104,1,"Fișier"
 2690,1,3,162,8,1,"&Afișează calea curentă în captionul filei ca:"
 2689,164,3,130,55,1,""
 2691,1,22,150,8,1,"&Lățimea minimă a butonului de filă:"
@@ -1489,13 +1563,13 @@ SLGINCOMPLETE,""
 1157,5,182,42,8,1,"FS Nume:"
 2615,51,182,273,8,1,""
 1160,5,193,44,8,1,"Thumbnails:"
-2617,49,193,275,12,1,""
+2617,51,193,273,12,1,""
 1158,5,205,42,8,1,"Functii:"
 2613,51,205,273,16,1,""
 2626,5,223,42,8,1,"Securitate:"
 2625,51,223,273,72,1,""
-2620,5,306,300,12,1,"A&rata %s icoana in bara Plugin"
-2621,5,318,300,12,1,"Arata %s o&biectul in meniul Schimba Drive si bara Drive"
+2621,5,306,300,12,1,"Arata %s o&biectul in meniul Schimba Drive si bara Drive"
+2620,5,318,300,12,1,"A&rata %s icoana in bara Plugin"
 9,331,294,50,14,1,"&Help"
 1,331,313,50,14,1,"Inchide"
 2624,376,322,10,10,1,""
@@ -1521,7 +1595,7 @@ SLGINCOMPLETE,""
 2650,11,97,150,12,1,"Lista Salvata a Directoarelor in &Lucru"
 2653,11,110,150,12,1,"Salveaza Directoarele &Navigat"
 1152,1,141,228,16,1,"Pentru istoria Comenzii de linie (poate contine parole) puteti alege optiuni speciale."
-2647,1,174,247,12,1,"&Activeaza istoria Comenzii de linie"
+2647,1,161,247,12,1,"&Activeaza istoria Comenzii de linie"
 2648,1,174,247,12,1,"Salvea&za istoria Comenzii de linie"
 1153,1,197,177,8,1,"Puteti sterge acum toate datele referitoare la istorie."
 2649,1,207,60,14,1,"S&terge Istoria..."
@@ -1725,16 +1799,16 @@ SLGINCOMPLETE,""
 
 [DIALOG 2975]
 299,231,1,"Operațiuni fișiere"
-1866,1,3,166,8,1,"Gestionare &conflicte:"
-1867,125,1,169,60,1,""
-1864,1,19,191,8,1,"Mod preferat de &transfer:"
-1865,125,17,169,80,1,""
-1812,1,35,203,8,1,"Număr maxim de transferuri de fișiere simultane pe &SSD:"
-1813,208,33,20,12,1,""
-1862,231,36,9,14,1,""
-1814,1,50,203,8,1,"Număr maxim de transferuri de fișiere simultane pe &NVMe:"
-1815,208,48,20,12,1,""
-1863,231,51,9,14,1,""
+1866,1,3,170,8,1,"Gestionare &conflicte:"
+1867,175,1,119,60,1,""
+1864,1,19,170,8,1,"Mod preferat de &transfer:"
+1865,175,17,119,80,1,""
+1812,1,35,195,8,1,"Număr maxim de transferuri de fișiere simultane pe &SSD:"
+1813,175,33,20,12,1,""
+1862,198,36,9,14,1,""
+1814,1,50,200,8,1,"Număr maxim de transferuri de fișiere simultane pe &NVMe:"
+1815,175,48,20,12,1,""
+1863,198,51,9,14,1,""
 
 [DIALOG 6110]
 210,144,1,"Gaseste"
@@ -1823,13 +1897,13 @@ SLGINCOMPLETE,""
 2,434,300,80,14,1,"Anulează"
 
 [DIALOG 8201]
-255,302,1,""
+269,302,1,""
 209,10,9,235,8,1,""
 6261,10,19,235,44,1,""
 1817,10,82,65,8,1,"&Mod transfer:"
 1818,78,80,167,49,1,""
 222,10,95,247,12,1,"&Asteapta pana ce toate operatiunile de Copiere/Mutare sunt terminate"
-1868,10,111,102,8,1,"Gestionarea &conflictelor:"
+1868,10,111,83,8,1,"Gestionarea &conflictelor:"
 1869,78,109,167,49,1,""
 213,10,124,229,12,1,"S&uprascrie fisierele mai vechi si sari peste celelalte fara sa intrebi"
 225,10,137,68,12,1,"Limita de &viteza:"
@@ -1957,6 +2031,21 @@ SLGINCOMPLETE,""
 1091,1,"Vizibilitatea obiectelor Plugin FS poate fi schimbata in Manager de Plugin-uri (vezi meniul Plugins)."
 
 [STRINGTABLE 3]
+1108,1,"Itemi plugin"
+1109,1,"Căi rapide"
+
+[STRINGTABLE 4]
+2421,1,"Sursă"
+2422,1,"Detalii asociere"
+2423,1,"Conflicte (%u)"
+2424,1,"Adaugă model"
+2426,1,"Toate stări"
+2427,1,"Toate surse"
+
+[STRINGTABLE 5]
+2468,1,"Aplică"
+
+[STRINGTABLE 6]
 10000,1,"Intrebare"
 10001,1,"Doriti sa anulati aceasta operatiune?"
 10002,1,"Numele Obiectului"
@@ -1970,7 +2059,7 @@ SLGINCOMPLETE,""
 10013,1,"Nu pot verifica calea."
 10014,1,"Calea are un format invalid."
 
-[STRINGTABLE 4]
+[STRINGTABLE 7]
 10016,1,"Configurare"
 10017,1,"da"
 10018,1,"nu"
@@ -1987,7 +2076,7 @@ SLGINCOMPLETE,""
 10030,1,"unitate de RAM"
 10031,1,"necunoscut (tip: %d)"
 
-[STRINGTABLE 5]
+[STRINGTABLE 8]
 10032,1,"Nu am gasit ce cautam."
 10033,1,"Informatii"
 10034,1,"Nu pot citi asocierea din Registri.\nEroare: %s"
@@ -2004,7 +2093,7 @@ SLGINCOMPLETE,""
 10046,1,"da"
 10047,1,"nu"
 
-[STRINGTABLE 6]
+[STRINGTABLE 9]
 10048,1,"Fisier: "%s"\nEroare: %s"
 10051,1,"Marimea fisierului trebuie sa fie un numar pozitiv."
 10052,1,"Data are un format invalid."
@@ -2020,7 +2109,7 @@ SLGINCOMPLETE,""
 10062,1,"Specifica optiunile de gasire si da click pe Gaseste acum."
 10063,1,"Trebuie selectata cel putin o optiune."
 
-[STRINGTABLE 7]
+[STRINGTABLE 10]
 10064,1,"Trebuie specificata cel putin o actiune de convert."
 10065,1,"Nu exista nici un fisier sa se potrivesca cu masca de fisier specificata."
 10066,1,"Eroare in deschiderea fisierului "%s".\n%s"
@@ -2037,7 +2126,7 @@ SLGINCOMPLETE,""
 10077,1,"Attr"
 10079,1,"Toate fisierele si directoarele trebuie sa fie de pe acelasi drive."
 
-[STRINGTABLE 8]
+[STRINGTABLE 11]
 10080,1,"Cateva din fisierele sau directoarele selectate nu sunt disponibile.\nApasa butonul Gaseste Acum pentru a reimprospata lista obiectelor gasite."
 10081,1,"Doriti sa inchideti Gaseste?"
 10082,1,"&Nu mai arata acest mesaj din nou\tcum sa revin\tPuteti schimba aceasta optiune mai tarziu din pagina de Confirmari in Configurare."
@@ -2055,7 +2144,7 @@ SLGINCOMPLETE,""
 10094,1,"Eroare in Redenumirea Fisierului"
 10095,1,"Eroare in Deschiderea Fisierului"
 
-[STRINGTABLE 9]
+[STRINGTABLE 12]
 10096,1,"Eroare in Scriere Fisierului"
 10097,1,"Eroare in Suprascrierea Fisierului"
 10098,1,"Eroare in Stergerea Fisierului"
@@ -2072,7 +2161,7 @@ SLGINCOMPLETE,""
 10109,1,"Nu am gasit fisier sau director"
 10111,1,"DIR"
 
-[STRINGTABLE 10]
+[STRINGTABLE 13]
 10112,1,"Schimba Litera"
 10113,1,"Data sau Ora are un format invalid."
 10114,1,"Schimba Atributele"
@@ -2090,7 +2179,7 @@ SLGINCOMPLETE,""
 10126,1,"Redenumire Rapida"
 10127,1,"Redenumeste %s in"
 
-[STRINGTABLE 11]
+[STRINGTABLE 14]
 10129,1,"Copie"
 10130,1,"Muta/Redenumeste"
 10131,1,"Sterge"
@@ -2107,7 +2196,7 @@ SLGINCOMPLETE,""
 10142,1,"Toate Fisierele (*.*)|*.*|"
 10143,1,"Confirm Stergerea Fisierului"
 
-[STRINGTABLE 12]
+[STRINGTABLE 15]
 10144,1,"Doriti sa stergeti fisierul cu atribute SISTEM sau ASCUNS?"
 10145,1,"Acest nume a fost deja folosit pentru un fisier."
 10147,1,"Directorul "%s" are atribut SISTEM sau ASCUNS.\nDoriti sa il stergeti?"
@@ -2122,7 +2211,7 @@ SLGINCOMPLETE,""
 10157,1,"'*' reprezinta orice numar de caractere. '?' reprezinta orice caracter.\nExemplu: *.a? (.a1, anything.ai, etc)\nMastile sunt separate de punct si virgula. Exemplu: *.txt;*.doc (a.txt, b.doc, etc)\nMastile excluse sunt plasate dupa '|'. Exemplu: |*.txt;*.doc (anything except *.txt;*.doc)\nDaca aveti nevoie de un punct si virgula inauntrul mastii, tastati-l de doua ori. Exemplu: one;;mask"
 10158,1,"Mastile sunt separate de punct si virgula.\nCaracterul '#' reprezinta orice cifra ('0' ... '9')"
 
-[STRINGTABLE 13]
+[STRINGTABLE 16]
 10160,1,"Puteti seta marimea unei valori variabile la un numar de caractere sau la 'max' (sa se potriveasca cu cea mai mare valoare).\nDe exemplu: $(NumeFisier:20) sau $(NumeFisier:max)."
 10164,1,"Gaseste"
 10165,1,"Expresia normala se potriveste cu sirul gol."
@@ -2137,7 +2226,7 @@ SLGINCOMPLETE,""
 10174,1,"Valoare de la .. la  [] invalida"
 10175,1,"Negasit []"
 
-[STRINGTABLE 14]
+[STRINGTABLE 17]
 10176,1,"?+* vine la sfarsit"
 10177,1,"Trailing \\"
 10178,1,"Dezastru intern"
@@ -2155,7 +2244,7 @@ SLGINCOMPLETE,""
 10190,1,"(Empty)"
 10191,1,"Retea"
 
-[STRINGTABLE 15]
+[STRINGTABLE 18]
 10192,1,"Ca Celalalt Panou"
 10193,1,"Schimba Drive-ul"
 10194,1,"Selecteaza calea de retea unde vrei sa mergi."
@@ -2164,17 +2253,17 @@ SLGINCOMPLETE,""
 10198,1,"Selecteaza directorul tinta."
 10199,1,"offset: %s"
 
-[STRINGTABLE 16]
+[STRINGTABLE 19]
 10220,1,"Copie"
 10221,1,"Arhiveaza"
 10222,1,"Muta"
 10223,1,"Eroare la Dezarhivarea Arhivei"
 
-[STRINGTABLE 17]
+[STRINGTABLE 20]
 10254,1,"arhiva."
 10255,1,"Dezarhiveaza arhiva "%s" in"
 
-[STRINGTABLE 18]
+[STRINGTABLE 21]
 10256,1,"Directorul "%s" nu exista.\n\nDoriti sa-l creati?"
 10257,1,"Numele "%s" a fost deja folosit pentru un fisier."
 10258,1,"Nu pot crea directorul "%s"."
@@ -2190,7 +2279,7 @@ SLGINCOMPLETE,""
 10270,1,"Nume"
 10271,1,"Extensie"
 
-[STRINGTABLE 19]
+[STRINGTABLE 22]
 10272,1,"Nume DOS (8.3)"
 10273,1,"Marime"
 10274,1,"Tip"
@@ -2205,7 +2294,7 @@ SLGINCOMPLETE,""
 10286,1,"JAR in 1.44MB volume (Extern Win32/x64, testat cu v1.02)"
 10287,1,"RAR (Extern Win32/x64, testat cu v2.50)"
 
-[STRINGTABLE 20]
+[STRINGTABLE 23]
 10288,1,"RAR in 1.44MB volume (Extern Win32/x64, testat cu v2.50)"
 10289,1,"ARJ (Extern DOS, testat cu v2.60)"
 10290,1,"ARJ in 1.44MB volume (Extern DOS, testat cu v2.60)"
@@ -2223,7 +2312,7 @@ SLGINCOMPLETE,""
 10302,1,"RAR in 1.44MB volume (Extern DOS, testat cu v2.50)"
 10303,1,"PKZIP (Extern Win32/x64, testat cu v2.50)"
 
-[STRINGTABLE 21]
+[STRINGTABLE 24]
 10304,1,"PKZIP (Extern DOS, testat cu v2.04g)"
 10307,1,"JAR (Extern Win32/x64, testat cu v1.02)"
 10308,1,"RAR (Extern Win32/x64, testat cu v2.50)"
@@ -2239,7 +2328,7 @@ SLGINCOMPLETE,""
 10318,1,"PKUNZIP (Extern DOS, testat cu v2.04g)"
 10319,1,"Win32/x64 JAR consola executabila (testat cu v1.02)"
 
-[STRINGTABLE 22]
+[STRINGTABLE 25]
 10320,1,"Win32/x64 RAR consola executabila (testata cu v2.50)"
 10321,1,"MS-DOS ARJ executabil (testata cu v2.60)"
 10322,1,"MS-DOS LHA executabil (testat cu v2.55)"
@@ -2256,7 +2345,7 @@ SLGINCOMPLETE,""
 10334,1,"Modifica (F2)"
 10335,1,"Nou (Introdu)"
 
-[STRINGTABLE 23]
+[STRINGTABLE 26]
 10336,1,"Sterge (Sterge)"
 10337,1,"Muta Obiectul Sus (Alt + Up Arrow)"
 10338,1,"Muta Obiectul Jos (Alt + Down Arrow)"
@@ -2274,7 +2363,7 @@ SLGINCOMPLETE,""
 10350,1,"Variabila de Mediu"
 10351,1,"Numele Intreg"
 
-[STRINGTABLE 24]
+[STRINGTABLE 27]
 10352,1,"Nume Intreg DOS"
 10353,1,"Clea Intreaga"
 10354,1,"Director Windows"
@@ -2291,7 +2380,7 @@ SLGINCOMPLETE,""
 10366,1,"Timpul trebuie sa fie intre 0 si 3600 s"
 10367,1,"Bara &Plugin"
 
-[STRINGTABLE 25]
+[STRINGTABLE 28]
 10368,1,"Bara Meniu &Utilizator"
 10369,1,"Toolbar de &Sus"
 10370,1,"B&ara Cale Rapida"
@@ -2309,7 +2398,7 @@ SLGINCOMPLETE,""
 10382,1,"&Data Ultimei Scrieri"
 10383,1,"&Ora Ultimei Scrieri"
 
-[STRINGTABLE 26]
+[STRINGTABLE 29]
 10384,1,"&Atributele Fisierului"
 10385,1,"&Customizeaza Toolbar Panou..."
 10386,1,"&Asigneaza Cale Rapida"
@@ -2319,7 +2408,7 @@ SLGINCOMPLETE,""
 10390,1,"Mod Smart al Coloanei\tCtrl+N"
 10391,1,"File &panouri"
 
-[STRINGTABLE 27]
+[STRINGTABLE 30]
 10400,1,"Help,Redenumeste,Vizualizeaza,Editeaza,Copie,Muta,CreeazaDirector,Sterge,UsrMeniu,Menu,Conect,Disconect"
 10401,1,"LChDrv,RChDrv,AltView,Exit,Arhiveaza,Dezarhiveaza,Gaseste,,Dezarhiveaza,CalcSpc,OpnFiles,WorkDirs"
 10402,1,"DrvInfo,ChAttrs,DupaNume,DupaExt,DupaTimp,DupaMarime,ChCase,,Refresh,Compara,MaxPanel,Filtru"
@@ -2328,7 +2417,7 @@ SLGINCOMPLETE,""
 10406,1,",,,,,,,,,DirMeniu,,"
 10408,1,"Help,,,,,,,,,Meniu,,"
 
-[STRINGTABLE 28]
+[STRINGTABLE 31]
 10420,1,"Conecteaza Drive Retea\tF11"
 10421,1,"Deconecteaza\tF12"
 10424,1,"Creeaza Director\tF7"
@@ -2339,7 +2428,7 @@ SLGINCOMPLETE,""
 10430,1,"Sortat dupa Extensie\tCtrl+F4"
 10431,1,"Sortat dupa Marime\tCtrl+F6"
 
-[STRINGTABLE 29]
+[STRINGTABLE 32]
 10432,1,"Sortat dupa Data\tCtrl+F5"
 10433,1,"Directorul Parinte\tBackspace"
 10434,1,"Directorul Radacina\tShift+Backspace"
@@ -2356,7 +2445,7 @@ SLGINCOMPLETE,""
 10445,1,"Sterge\tF8"
 10447,1,"Compresie NTFS"
 
-[STRINGTABLE 30]
+[STRINGTABLE 33]
 10448,1,"Decompresie NTFS"
 10449,1,"Redenumire Rapida\tF2"
 10450,1,"Schimba Marimea Literei\tCtrl+F7"
@@ -2373,7 +2462,7 @@ SLGINCOMPLETE,""
 10462,1,"Schimba Drive"
 10463,1,"Editeaza\tF4"
 
-[STRINGTABLE 31]
+[STRINGTABLE 34]
 10465,1,"Selecteaza\tNum +"
 10466,1,"Deselecteaza\tNum -"
 10467,1,"Inverseaza Selectia\tNum *"
@@ -2390,7 +2479,7 @@ SLGINCOMPLETE,""
 10478,1,"Deschide Fonts"
 10479,1,"Converteste\tCtrl+K"
 
-[STRINGTABLE 32]
+[STRINGTABLE 35]
 10480,1,"Deselecteaza Tot\tCtrl+D"
 10481,1,"Intra sau Paraseste Meniu"
 10482,1,"Vizualizare Alternativa"
@@ -2408,7 +2497,7 @@ SLGINCOMPLETE,""
 10494,1,"Mergi la Calea Rapida\tShift+F9"
 10495,1,"Email"
 
-[STRINGTABLE 33]
+[STRINGTABLE 36]
 10496,1,"Maximizeaza/Restaureaza Panou"
 10497,1,"Directoare Partajate\tCtrl+Shift+F9"
 10498,1,"Toggle Pe Tot Ecranul"
@@ -2426,7 +2515,7 @@ SLGINCOMPLETE,""
 10510,1,"Deschide Directorul"
 10511,1,"Configurare"
 
-[STRINGTABLE 34]
+[STRINGTABLE 37]
 10512,1,"Meniu in Context al Directorului Curent"
 10513,1,"Focus pe Nume in Celalalt Panou"
 10514,1,"Deschide Numele in Celalalt Panou"
@@ -2442,7 +2531,7 @@ SLGINCOMPLETE,""
 10524,1,"Fila precedentă"
 10525,1,"Duplică fila"
 
-[STRINGTABLE 35]
+[STRINGTABLE 38]
 10530,1,"Numele variabilei trebuie sa fie terminat prin ')'."
 10531,1,"Eroare interna."
 10532,1,"Variabila "%s" nu a fost gasita."
@@ -2455,7 +2544,7 @@ SLGINCOMPLETE,""
 10539,1,"Sir gol, fara cifre, nu e permis aici."
 10540,1,"Marime variabila invalida (trebuie sa fie intre 1 si 9999 sau text 'max' daca ar trebui sa se potriveasca cu cea mai lunga valoare a variabilei)."
 
-[STRINGTABLE 36]
+[STRINGTABLE 39]
 10550,1,"Program Extern"
 10551,1,"-- nu e suportat --"
 10552,1,"Culoare &custom..."
@@ -2467,7 +2556,7 @@ SLGINCOMPLETE,""
 10558,1,"&Nu schimba culoarea textului"
 10559,1,"N&u schimba culoarea fundalului"
 
-[STRINGTABLE 37]
+[STRINGTABLE 40]
 10564,1,"Obiecte in panou"
 10565,1,"Cadrul obiectului focused in panou"
 10566,1,"Tinctura icoanei in panou"
@@ -2481,7 +2570,7 @@ SLGINCOMPLETE,""
 10574,1,"Normal"
 10575,1,"Selectat"
 
-[STRINGTABLE 38]
+[STRINGTABLE 41]
 10576,1,"Evidentiat"
 10577,1,"Evidentiat si Selectat"
 10578,1,"Partea Stanga (facut)"
@@ -2495,7 +2584,7 @@ SLGINCOMPLETE,""
 10586,1,"Sugestii de completare automata a caii"
 10588,1,"Fundal selectat"
 
-[STRINGTABLE 39]
+[STRINGTABLE 42]
 10595,1,"Linii punctate in jurul thumbnail in panou"
 10600,1,"Custom"
 10601,1,"Open Samandarin"
@@ -2504,13 +2593,13 @@ SLGINCOMPLETE,""
 10604,1,"DOS Navigator"
 10605,1,"Windows Dark Mode (experimental)"
 
-[STRINGTABLE 40]
+[STRINGTABLE 43]
 10665,1,"Nume"
 10666,1,"Scurtatura"
 10667,1,"Nume"
 10671,1,"Fitru e pornit"
 
-[STRINGTABLE 41]
+[STRINGTABLE 44]
 10672,1,"Spatiu Liber pe Disk\nDa click pentru a arata Informatii despre Drive (Ctrl+F1)"
 10673,1,"Lista Directoarelor in Lucru (Alt+F12)"
 10674,1,"Maximizeaza/Revino la Panou (Ctrl+F11)"
@@ -2519,7 +2608,7 @@ SLGINCOMPLETE,""
 10680,1,"Vizualizator Intern"
 10681,1,"Vizualizator Extern"
 
-[STRINGTABLE 42]
+[STRINGTABLE 45]
 10694,1,"Nu pot schimba eticheta drive-ului.\nEroare: %s"
 10696,1,"Ctrl"
 10697,1,"Shift"
@@ -2529,7 +2618,7 @@ SLGINCOMPLETE,""
 10702,1,"Un nume de fisier "%s" este invalid."
 10703,1,"Fisierul "%s" nu contine icoane."
 
-[STRINGTABLE 43]
+[STRINGTABLE 46]
 10704,1,"Nu pot gasi fisierul "%s"."
 10706,1,"Vizualizator Extern [%s]"
 10707,1,"Vizualizator Intern"
@@ -2542,7 +2631,7 @@ SLGINCOMPLETE,""
 10716,1,"Editeaza"
 10717,1,"Deschide"
 
-[STRINGTABLE 44]
+[STRINGTABLE 47]
 10720,1,"Atribute"
 10721,1,"Marime"
 10722,1,"Data"
@@ -2555,7 +2644,7 @@ SLGINCOMPLETE,""
 10734,1,"Caut:"
 10735,1,"Gaseste"
 
-[STRINGTABLE 45]
+[STRINGTABLE 48]
 10736,1,"caut"
 10737,1,"Sir empty nu e permis aici."
 10738,1,"Optiunile "%s" erau incarcate"
@@ -2569,7 +2658,7 @@ SLGINCOMPLETE,""
 10750,1,"Initializez data..."
 10751,1,"Citesc lista directoarelor partajate..."
 
-[STRINGTABLE 46]
+[STRINGTABLE 49]
 10752,1,"Citesc configuratia din registri..."
 10753,1,"Import configuratia in registri..."
 10754,1,"Citesc asocierile din registri..."
@@ -2584,7 +2673,7 @@ SLGINCOMPLETE,""
 10766,1,"Informatie"
 10767,1,"Sar Peste director"
 
-[STRINGTABLE 47]
+[STRINGTABLE 50]
 10768,1,"Doriti sa adaugati directorul "%s" la Lista de Directoare Ignorate?"
 10769,1,"Sar peste %d erori..."
 10770,1,"&Amana urmatoarele mesaje de eroare"
@@ -2594,7 +2683,7 @@ SLGINCOMPLETE,""
 10782,1,"Orice din Setul de Caractere"
 10783,1,"Orice cu Exceptia Setului de Caractere"
 
-[STRINGTABLE 48]
+[STRINGTABLE 51]
 10784,1,"Orice din Sirul Caracterelor"
 10785,1,"Inceputul Liniei"
 10786,1,"Sfarsitul Liniei"
@@ -2612,7 +2701,7 @@ SLGINCOMPLETE,""
 10798,1,"Cifra Decimala"
 10799,1,"Numar Decimal"
 
-[STRINGTABLE 49]
+[STRINGTABLE 52]
 10800,1,"Numar Hexadecimal"
 10801,1,"Numar Real"
 10802,1,"Sir Intre Ghilimele"
@@ -2629,7 +2718,7 @@ SLGINCOMPLETE,""
 10814,1,"Unitate locală"
 10815,1,"Unitate amovibilă"
 
-[STRINGTABLE 50]
+[STRINGTABLE 53]
 10818,1,"Emailing:"
 10819,1,"Fisierele dumneavoastra sunt atasate si pregatite sa fie trimise cu acest mesaj."
 10820,1,"Nu pot trimite mail. Nici un program de mail nu e setat sa trimita mail, MAPI32.DLL nu a fost  gasit."
@@ -2642,7 +2731,7 @@ SLGINCOMPLETE,""
 10830,1,"(Nu e nici un plugin instalat)"
 10831,1,"(Nu sunt plugin-uri configurabile)"
 
-[STRINGTABLE 51]
+[STRINGTABLE 54]
 10832,1,"Numele  "%s" nu poate fi convertit la UNC.\nNumele nu e nici din directorul partajat nici de pe drive-ul mapat."
 10833,1,"Sunteti sigur-a ca doriti sa opriti partajarea "%s"?"
 10834,1,"Nume Partajare"
@@ -2657,7 +2746,7 @@ SLGINCOMPLETE,""
 10846,1,"&Incearca din Nou"
 10847,1,"&Continua"
 
-[STRINGTABLE 52]
+[STRINGTABLE 55]
 10848,1,"&Da"
 10849,1,"&Nu"
 10850,1,"Stânga"
@@ -2669,7 +2758,7 @@ SLGINCOMPLETE,""
 10862,1,"Toolbar &Mijloc"
 10863,1,"Calea Intreaga"
 
-[STRINGTABLE 53]
+[STRINGTABLE 56]
 10864,1,"Doar Numele Directorului"
 10865,1,"Cale Scurtata"
 10866,1,"Niciuna"
@@ -2683,7 +2772,7 @@ SLGINCOMPLETE,""
 10874,1,"Nu pot obtine tinta link."
 10875,1,"Acest link este punctul de montare al volumului. Nu se poate arata in panou.\nCale %s"
 
-[STRINGTABLE 54]
+[STRINGTABLE 57]
 10880,1,"{!}secund{s|0||1|s}"
 10881,1,"{!}minut{s|0||1|s}"
 10882,1,"{!}ora{s|0||1|s}"
@@ -2698,13 +2787,13 @@ SLGINCOMPLETE,""
 10893,1,"Compararea cu plugin al fisierelor sistem nu e inca suportata."
 10894,1,"E aceeasi cale in panoul din stanga si din dreapta."
 
-[STRINGTABLE 55]
+[STRINGTABLE 58]
 10900,1,"Criptarea nu e suportata pe acest volum sau sub acest sistem de operare."
 10905,1,"Eroare in Schimbarea Criptarii"
 10910,1,"Confirma Criptarea Fisierului"
 10911,1,"Doriti sa criptati fisierul cu atributul SISTEM?"
 
-[STRINGTABLE 56]
+[STRINGTABLE 59]
 10920,1,"&Pauza"
 10921,1,"&Reia"
 10922,1,"pe pauza"
@@ -2713,7 +2802,7 @@ SLGINCOMPLETE,""
 10926,1,"(nume: %s, utilizator: %s)"
 10927,1,"Documente"
 
-[STRINGTABLE 57]
+[STRINGTABLE 60]
 10928,1,"Obiecte 3D"
 10929,1,"Desktop"
 10930,1,"Nume"
@@ -2725,7 +2814,7 @@ SLGINCOMPLETE,""
 10936,1,"Videoclipuri"
 10940,1,"(nimic)"
 
-[STRINGTABLE 58]
+[STRINGTABLE 61]
 10945,1,"Nu pot dezarhiva fisierul din arhiva in directorul temporar pentru ca\nnumele de fisier ce rezulta e prea lung."
 10946,1,"Nu pot dezarhiva fisierul din arhiva pentru ca numele sau e invalid sub Windows si plugin-ul de arhivare nu suporta dezarhivarea sub un alt nume."
 10950,1,"Selecteaza Calea"
@@ -2734,7 +2823,7 @@ SLGINCOMPLETE,""
 10953,1,"(symlink cu: %s)"
 10955,1,"Ignora &Tot"
 
-[STRINGTABLE 59]
+[STRINGTABLE 62]
 10960,1,"Exact cum sunt stocate pe disk"
 10961,1,"In litere amestecate daca ele sunt in format DOS"
 10962,1,"Cu litere mici; directoarele cu majuscule"
@@ -2743,7 +2832,7 @@ SLGINCOMPLETE,""
 10965,1,"Cu majuscule"
 10970,1,"Nu importa, porneste cu configuratia default"
 
-[STRINGTABLE 60]
+[STRINGTABLE 63]
 10980,1,"&Rasfoieste...\tCtrl+B"
 10981,1,"Active Cale Panou &Stanga\tCtrl+["
 10982,1,"Active Cale Panou &Dreapta\tCtrl+]"
@@ -2751,7 +2840,7 @@ SLGINCOMPLETE,""
 10986,1,"In Kilo Bytes (Windows Explorer default)"
 10987,1,"In format scurt (de exemplu 15 B, 3.41 KB, sau 12.5 MB)"
 
-[STRINGTABLE 61]
+[STRINGTABLE 64]
 10994,1,"Nu pot executa noul task pentru ca executarea celui anterior nu s-a terminat inca. Apasa Continua si asteapta pana se termina cel anterior.\n\nDaca asa ceva nu exista, apasa Renunta si trimite-ne un raport bug pentru a ne ajuta sa rezolvam aceasta problema. Open Samandarin va fi inchis."
 10995,1,"Acesta fereastra nu poate fi inchisa pentru ca este un task in asteptare care o foloseste. Apasa Continua si asteapta pana ce task-ul se termina.\n\nDaca asa ceva nu exista, apasa Renunta si trimite-ne un raport bug pentru a ne ajuta sa rezolvam aceasta problema. Open Samandarin va fi inchis."
 10996,1,"Open Samandarin devine instabil din cauza unor extensii shell cu probleme. Va rugam sa ne trimiteti un raport de bug pentru a ne ajuta sa rezolvam aceasta problema.\n\nApasa OK pentru a deschide casuta de dialog Bug Report."
@@ -2766,7 +2855,7 @@ SLGINCOMPLETE,""
 11006,1,"Program extern "%1" a returnat o eroare: %2"
 11007,1,"arhivatorul extern "%1" nu poate fi executat."
 
-[STRINGTABLE 62]
+[STRINGTABLE 65]
 11008,1,"Fisier temporar invalid."
 11009,1,"Calea catre fisier e prea lunga; %1"
 11010,1,"Eroare in analizarea liniei de comanda a arhivatorului."
@@ -2782,7 +2871,7 @@ SLGINCOMPLETE,""
 11020,1,"Nu pot redenumi fisierul arhiva temporar (%1) in nume arhiva (%2)."
 11021,1,"Acest nume fisier e invalid pe sistemul de fisiere Windows. Arhivatorii externi nu suporta dezarhivarea in alt nume fisier deci nu e posibil sa se dezarhiveze."
 
-[STRINGTABLE 63]
+[STRINGTABLE 66]
 11025,1,"Cod de exit %d."
 11026,1,"Atentionare intalnita."
 11027,1,"Eroare in extragerea fisierului."
@@ -2799,7 +2888,7 @@ SLGINCOMPLETE,""
 11038,1,"Prea multe capitole in arhiva."
 11039,1,"Nu pot converti fisierul temporar in arhiva."
 
-[STRINGTABLE 64]
+[STRINGTABLE 67]
 11040,1,"Eroare interna."
 11041,1,"Eroare necunoscuta."
 11042,1,"Sarit Peste un fisier."
@@ -2817,7 +2906,7 @@ SLGINCOMPLETE,""
 11054,1,"Execut programul extern, va rugam asteptati..."
 11055,1,"Jar32 Executabil Cale nume"
 
-[STRINGTABLE 65]
+[STRINGTABLE 68]
 11056,1,"Jar16Executabil Cale nume"
 11057,1,"Rar32 Executabil Cale nume"
 11058,1,"Rar16 Executabil Cale nume"
@@ -2833,20 +2922,20 @@ SLGINCOMPLETE,""
 11068,1,"Rasfoieste pentru Executabil"
 11070,1,"Pauza de utilizator sau cerere fara raspuns (repeta operatiunea si da click pe  procesul "salspawn.exe" in taskbar, vei vedea prompt-ul de la arhivator)."
 
-[STRINGTABLE 66]
+[STRINGTABLE 69]
 11102,1,"Arhivatorul nu suporta compresie la subdirectoare.\nDoriti sa plasati fisierele in directorul radacina al arhivei?"
 11103,1,"Arhivatorul nu suporta comanda "muta in arhiva".\nDoriti sa folositi "copie in arhiva" in loc de asta?"
 
-[STRINGTABLE 67]
+[STRINGTABLE 70]
 11104,1,"Calea nu este un director valid."
 
-[STRINGTABLE 68]
+[STRINGTABLE 71]
 11209,1,"Eroare in Help"
 11210,1,"Nu pot lansa HtmlHelp."
 11211,1,"Nu pot gasi fisierul help."
 11215,1,"Pentru a deschide meniul din campul edit apasa Alt+Right"
 
-[STRINGTABLE 69]
+[STRINGTABLE 72]
 11220,1,"Evidentiaza"
 11221,1,"Evidentiaza Obiect\tSpace"
 11222,1,"Vizualizeaza Fisier\tF3"
@@ -2859,13 +2948,13 @@ SLGINCOMPLETE,""
 11229,1,"Mesaje de Eroare: %d\nMesaje Informatie: %d\nDa click pentru a arata Log-ul de Gasire"
 11231,1,"Proprietati\tAlt+Enter"
 
-[STRINGTABLE 70]
+[STRINGTABLE 73]
 11240,1,"Aveti specificat cateva optiuni speciale (vezi butonul Optiuni in dialogul Copie/Muta). aceste optiuni nu sunt suportate cand copii/muti fisiere sistem in plugin si arhive. Optiunile vor fi ignorate."
 11241,1,"&Nu arata acest mesaj din nou\tcum sa revin\tPuteti schimba aceasta optiune mai tarziu din pagina de Cornfirmare din Configurare."
 11245,1,"Partea Nume Fisier"
 11246,1,"Partea Extensie Fisier"
 
-[STRINGTABLE 71]
+[STRINGTABLE 74]
 11250,1,"Calea catre directorul tinta e prea lunga, apasa butonul Sari Peste pentru a sari peste tot directorul.\n\nCale: %s\n\nNume: %s"
 11255,1,"Avansat"
 11256,1,"Calea Intreaga in Panoul Inactiv"
@@ -2877,7 +2966,7 @@ SLGINCOMPLETE,""
 11262,1,"Al Doilea Director pentru Comparare (preferabil panou dreapta)"
 11263,1,"Primul Fisier pentru Comparare (preferabil panoul activ)"
 
-[STRINGTABLE 72]
+[STRINGTABLE 75]
 11264,1,"Al Doilea Fisier pentru Comparare (preferabil panou inactiv)"
 11265,1,"Primul Director pentru Comparare (preferabil panoul activ)"
 11266,1,"Al Doilea Director pentru Comparare (preferabil panoul inactiv)"
@@ -2888,7 +2977,7 @@ SLGINCOMPLETE,""
 11271,1,"Primul Fisier sau Director pentru Comparare (preferabil panoul activ)"
 11272,1,"Al doilea Fisier sau Director pentru Comparare (preferabil panoul inactiv)"
 
-[STRINGTABLE 73]
+[STRINGTABLE 76]
 12000,1,"No&u"
 12001,1,"Nu pot lansa program de mail default. Eroarea numarul %d."
 12002,1,"Confirm Compresie NTFS"
@@ -2902,7 +2991,7 @@ SLGINCOMPLETE,""
 12011,1,"Fisierul de configurare exportat va fi creat folosind configuratia din registri.\nDoriti sa salvati configuratia in registri inainte de export?"
 12015,1,"Importarea configuratiei e destul de simplu. Doar gaseste fisierul cu configuratia si deschide-l (foloseste Enter sau da dublu click pe el). Ar trebui sa se deschida cu Registry Editor. Canad apare intrebarea daca vrei sa adaugi informatia din fisier in registri, ar trebui sa inchizi toate ferestrele cu Open Samandarin deschise. Se va preveni suprascrierea configuratiei nou importate cu cea automata de salvare la iesirea din Open Samandarin. Cand nu ruleazadeloc Open Samandarin, apasa Yes in casuta de dialog a Registry Editor. Atunci va importa configuratia din fisier in registri."
 
-[STRINGTABLE 74]
+[STRINGTABLE 77]
 12020,1,"Nu pot incarca %s plugin (%s) sau cateva din componentele sale.\nEroare: %s\nVezi detalii plugin in meniul Plugins / Manager de Plugins."
 12021,1,"Fisierul SPL %s nu este un plugin al Open Samandarin."
 12022,1,"%s plugin (%s) s-a schimbat. Va rog reinstalati (eliminati si adaugati) acest plugin (in meniul Plugins / Manager de Plugins)."
@@ -2911,7 +3000,7 @@ SLGINCOMPLETE,""
 12025,1,"Acest plugin (%s) nu a fost incarcat. Plugin nu este un Plugin valid al Open Samandarin Plugin sau o eroare interna a plugin a avut loc."
 12026,1,"Plugin (%s) nu e suportat de aceasta versiune de Open Samandarin. Va rugam obtineti o versiune actualizata a acestei versiuni de plugin."
 
-[STRINGTABLE 75]
+[STRINGTABLE 78]
 12033,1,"Arhivarea fisierelor actualizate in arhiva a esuat. Doriti sa incercati din nou? Daca alegeti NU, ajungeti inapoi la dialogul Actualizare Arhiva, deci veti putea copia fisierele actualizate in directorul ales de pe disk (pentru a fi adaugate mai tarziu in arhiva)."
 12039,1,"Dimensiunea blocului selectat în acest vizualizator este peste 100MB. Copierea acestui bloc în clipboard sau mutarea lui prin drag & drop poate fi lentă. Doriți să omiteți astfel de operații pentru blocurile de peste 100MB în acest vizualizator?"
 12040,1,"Eroare necunoscuta."
@@ -2923,7 +3012,7 @@ SLGINCOMPLETE,""
 12046,1,"&OEM - ANSI"
 12047,1,"Marime fisier incorecta (nu are 256 bytes)."
 
-[STRINGTABLE 76]
+[STRINGTABLE 79]
 12048,1,"Eroare in deschiderea fisierului "%s".\n%s"
 12049,1,"Codarea numelui intern necunoscuta (nici ANSI - OEM nici OEM - ANSI) in fisier "%s"."
 12050,1,"Linie invalida in fisier "%s"."
@@ -2936,7 +3025,7 @@ SLGINCOMPLETE,""
 12060,1,"Nume empty nu are nici un sens aici."
 12061,1,"Calea specificata e incompleta, va rugam specificati toata calea."
 
-[STRINGTABLE 77]
+[STRINGTABLE 80]
 12080,1,"Rularea  instantei de Open Samandarin e ocupata.\nDoriti sa rulati o noua instanta?"
 12081,1,"Open Samandarin e ocupat. Comanda ceruta nu poate fi indeplinita, va rugam incercati mai tarziu."
 12085,1,"Copie In Fisier"
@@ -2951,7 +3040,7 @@ SLGINCOMPLETE,""
 12094,1,"Vizualizator Fisier"
 12095,1,"Meniu Extensie"
 
-[STRINGTABLE 78]
+[STRINGTABLE 81]
 12096,1,"Fisier Sistem (FS)"
 12097,1,"Da"
 12098,1,"Nu"
@@ -2969,7 +3058,7 @@ SLGINCOMPLETE,""
 12110,1,"Nume"
 12111,1,"Incarcat"
 
-[STRINGTABLE 79]
+[STRINGTABLE 82]
 12112,1,"Versiune"
 12113,1,"Localizare"
 12114,1,"(nimic)"
@@ -2987,7 +3076,7 @@ SLGINCOMPLETE,""
 12126,1,"Eroare in verificarea proprietatilor fisierului."
 12127,1,"Instrument de extensie"
 
-[STRINGTABLE 80]
+[STRINGTABLE 83]
 12128,1,"&Activare"
 12129,1,"&Dezactivare"
 12130,1,"Calea specificata nu a fost gasita."
@@ -3005,13 +3094,13 @@ SLGINCOMPLETE,""
 12142,1,"Incerc sa conectez drive-ul retea, apasati tasta ESC pentru anulare..."
 12143,1,"Salvez configuratia in registri, va rugam asteptati..."
 
-[STRINGTABLE 81]
+[STRINGTABLE 84]
 12145,1,"Sterg vechea configuratie din registri, va rugam asteptati..."
 12146,1,"Dezarhivez fisierul din arhiva, va rugam asteptati..."
 12147,1,"Citesc lista de fisiere si directoare din arhiva, va rugam asteptati..."
 12148,1,"Incarc toate plugins, va rugam asteptati..."
 
-[STRINGTABLE 82]
+[STRINGTABLE 85]
 12160,1,"Calea "%s" a  refuzat sa se inchida.\nDoriti s-o inchideti fortat?"
 12165,1,"Mai multe conexiuni la un server sau resurse folosite de acelasi utilizator, folosind mai mult de un nume utilizator, nu sunt permise. Inchideti toate conexiunile cu serverul in afara de una sau resursele folosite si incercati din nou."
 12170,1,"Doriti sa ignorati toate fisierele selectate (pentru a le exclude din actualizarea arhivei)?"
@@ -3019,22 +3108,22 @@ SLGINCOMPLETE,""
 12172,1,"Copie Fisierele Actualizate"
 12173,1,"Selectati directorul tinta pentru fisierele actualizate."
 
-[STRINGTABLE 83]
+[STRINGTABLE 86]
 12180,1,"Verific calea "%s", apasa tasta ESC pentru anulare..."
 12181,1,"Listez calea "%s", apasa tasta ESC pentru anulare..."
 12190,1,"Caut text, apasa tasta ESC pentru anulare..."
 
-[STRINGTABLE 84]
+[STRINGTABLE 87]
 12200,1,"Cale: "%s"\nEroare: %s"
 12201,1,"Calea "%s" nu exista in arhiva."
 12205,1,"Nume utilizator empty nu e permis aici."
 
-[STRINGTABLE 85]
+[STRINGTABLE 88]
 12210,1,"Meniu Nou nu e disponibil."
 12215,1,"Directorul specificat de TMP sau TEMP variabile de mediu nu exista sau nu e accesibil. Open Samandarin va folosi directorul sistem pentru fisiere temporare."
 12220,1,"Directorul de Mai Sus"
 
-[STRINGTABLE 86]
+[STRINGTABLE 89]
 12225,1,"3.5 Floppy"
 12226,1,"5.25 Floppy"
 12227,1,"8.0 Floppy"
@@ -3043,7 +3132,7 @@ SLGINCOMPLETE,""
 12233,1,"Nu sunt obiecte in acest panou."
 12235,1," (Plugin)"
 
-[STRINGTABLE 87]
+[STRINGTABLE 90]
 12240,1,"Nu poti opri acest task (nu are nici un sens). Foloseste alt Open Samandarin task pentru a opri pe acesta."
 12241,1,"Sunteti sigur-a ca doriti sa opriti procesul curent?\n\nATENTIE: Toata data nesalvata in procesul curent va fi pierduta!"
 12242,1,"Sunteti sigur-a ca doriti sa opriti procesul specificat?\n\nATENTIE: Toata data nesalvata in procesul specificat va fi pierduta!"
@@ -3056,16 +3145,16 @@ SLGINCOMPLETE,""
 12249,1,"Sunteti sigur ca doriti sa intrerupeti procesele specificate si sa ne trimiteti un raport de bug?\n\nATENTIE: Toate datele nesalvate in procesul specificat se vor pierde!"
 12255,1,"Nu pot citi fisierul."
 
-[STRINGTABLE 88]
+[STRINGTABLE 91]
 12285,1,"Aceasta operatiune nu are probabil nici un sens. Toate fisierele si directoarele selectate au acelasi nume tinta (ele s-ar suprascrie unul pe celalalt).\nDoriti sa continuati cu aceasta operatiune?"
 
-[STRINGTABLE 89]
+[STRINGTABLE 92]
 12290,1,"Calea tinta "%s" nu exista. Doriti s-o creati?"
 12291,1,"&Creaza calea tinta fara sa intrebi data viitoare\tcum sa revin\tPuteti schimba aceasta optiune mai tarziu la pagina de Confirmari din Configurare."
 12295,1,"Operatiunile masca nu sunt suportate in arhive (calea in arhiva trebuie sa se termine cu backslash)."
 12300,1,"Numar invalid."
 
-[STRINGTABLE 90]
+[STRINGTABLE 93]
 12305,1,"Dezarhivarea in arhive sau fisiere sistem plugin nu e inca suportata."
 12306,1,"Operatiune masca nu este suportata cand dezarhivam din arhive (calea tinta trebuie sa existe sau sa se termine cu backslah)."
 12307,1,"Schimbarile de limba nu au efect decat dupa restartarea Open Samandarin."
@@ -3076,7 +3165,7 @@ SLGINCOMPLETE,""
 12313,1,"Copierea si mutarea in acest fisier sistem plugin nu e suportata."
 12314,1,"Copierea si mutarea in fisierul sistem plugin specificat nu sunt suportate."
 
-[STRINGTABLE 91]
+[STRINGTABLE 94]
 12320,1,"Nu pot obtine marimea fisierului comprimat pentru fisierul: "%s"\nEroare: %s\nDoriti sa sariti peste toate erorile similare?"
 12325,1,"Calea tinta pentru aceasta operatiune nu poate contine cale catre un fisier (arhivele nu sunt suportate aici)."
 12326,1,"Calea tinta pentru aceasta operatiune trebuie sa existe (crearea caii tinta nu e suportata aici)."
@@ -3084,13 +3173,13 @@ SLGINCOMPLETE,""
 12331,1,"Nu pot edita sau deschide fisierul din arhiva. Numele fisierului e invalid pe fisierele sistem Windows (asemenea fisiere pot fi deschise doar in vizualizator)."
 12335,1,"Arhivarea acestui tip de arhiva nu e suportat. Open Samandarin nu va putea sa actualizeze fisierul in arhiva.\n\nChiar doriti sa editati acest fisier?"
 
-[STRINGTABLE 92]
+[STRINGTABLE 95]
 12340,1,"Atentie"
 12345,1,"Sirul '%s' nu este o expresie normala valida.\nEroare: %s."
 12350,1,"Vizualizeaza &Cu\tCtrl+Shift+F3"
 12351,1,"Editeaza C&u\tCtrl+Shift+F4"
 
-[STRINGTABLE 93]
+[STRINGTABLE 96]
 12352,1,"&Deschide\tEnter"
 12353,1,"Nu pot gasi sirul '%s'."
 12354,1,"Nu pot gasi potrivire pentru expresia normala '%s'."
@@ -3103,7 +3192,7 @@ SLGINCOMPLETE,""
 12363,1,"&Focus"
 12365,1,"Fisier:"
 
-[STRINGTABLE 94]
+[STRINGTABLE 97]
 12370,1,"Nu pot dezarhiva fisierele si directoarele specificate in clipboard. Ele nu mai sunt in arhiva."
 12371,1,"Cateva fisiere si directoare specificate in clipboard nu au fost gasite in arhiva.\n\nDoriti sa continuati?"
 12372,1,"Nu pot aduce din memorie fisierele si directoarele aici. Fereastra principala a Open Samandarin\ntrebuie sa fie accesibila de a procesa comanda Paste."
@@ -3113,7 +3202,7 @@ SLGINCOMPLETE,""
 12382,1,"suporta Criptare Fisier Sistem (EFS)"
 12383,1,"suporta identificatori obiect"
 
-[STRINGTABLE 95]
+[STRINGTABLE 98]
 12384,1,"suporta puncte de reanaliza"
 12385,1,"suporta fisiere risipite"
 12386,1,"suporta limita de disk"
@@ -3121,7 +3210,7 @@ SLGINCOMPLETE,""
 12391,1,"Confirm Decriptare NTFS"
 12395,1,"Fisierul exista deja. Doriti sa editati acest fisier existent?"
 
-[STRINGTABLE 96]
+[STRINGTABLE 99]
 12400,1,"Calea sursa nu poate fi tradusa din Unicode in multibyte, deci Open Samandarin nu poate lucra cu ea."
 12401,1,"Cateva fisiere sau directoare specificate in operatiuni drag&drop sau clipboard nu au fost gasite.\n\nDoriti sa continuati?"
 12405,1,"Nu pot gasi arhivator pentru %s plugin (vezi Arhivatori in pagina dialog Arhivator din Configurare)."
@@ -3132,7 +3221,7 @@ SLGINCOMPLETE,""
 12413,1,"Fisierul contine alternate data streams (ADS). ADS nu sunt suportate in calea tinta. Apasa butonul Da pentru a copia fisierul fara ADS (ATENTIE: ADS va fi pierdut). Apasa butonul Sari Peste pentru a nu copia acest fisier."
 12414,1,"Directorul contine alternate data streams (ADS). ADS nu sunt suportate in calea tinta. Apasa butonul Da pentru a copia directorul fara ADS (ATENTIE: ADS va fi pierdut). Apasa butonul Sari Peste pentru a nu copia acest director."
 
-[STRINGTABLE 97]
+[STRINGTABLE 100]
 12420,1,"Eroare in Deschiderea Alternate Data Stream"
 12421,1,"Eroare in Citirea Alternate Data Stream"
 12422,1,"Eroare in Scrierea Alternate Data Stream"
@@ -3141,7 +3230,7 @@ SLGINCOMPLETE,""
 12430,1,"Nume Fisier"
 12431,1,"Marime Fisier"
 
-[STRINGTABLE 98]
+[STRINGTABLE 101]
 12432,1,"Ultima Data Scrisa"
 12433,1,"Ultima Ora Scrisa"
 12434,1,"Atribute Fisier"
@@ -3151,7 +3240,7 @@ SLGINCOMPLETE,""
 12442,1,"CRLF (DOS, Windows, OS/2 Line End)"
 12443,1,"TAB"
 
-[STRINGTABLE 99]
+[STRINGTABLE 102]
 12450,1,"Eroare Meniu Utilizator"
 12451,1,"Lista numelor selectate este prea lunga. Va rugam deselectati cateva nume. Marimea maxima este de 32771 caracteres."
 12452,1,"Lista numelor selectate este goala. Va rugam selectati cateva nume sau faceti focus pe cateva nume."
@@ -3164,7 +3253,7 @@ SLGINCOMPLETE,""
 12459,1,"Lista numelor selectate cu cale este prea lunga. va rugam deselectati cateva nume. Lungimea maxima este 32771 caractere."
 12460,1,"Lista numelor selectate cu cale este empty. Va rugam selectati cateva nume sau focus pe cateva nume."
 
-[STRINGTABLE 100]
+[STRINGTABLE 103]
 12465,1,"Alegeti Directoarele pentru Comparare"
 12466,1,"&Compara directorul:"
 12467,1,"&Cu directorul:"
@@ -3176,13 +3265,13 @@ SLGINCOMPLETE,""
 12476,1,"intersectie "%s""
 12477,1,"symbolic link "%s""
 
-[STRINGTABLE 101]
+[STRINGTABLE 104]
 12480,1,"Fisierul tinta trebuie sa fie criptat (folosind EFS) dar criptarea nu e suportata pe calea tinta sau nu e posibil sa criptezi fisierul in starea curenta. Apasa butonul Da pentru a muta fisierul fara criptare. Apasa butonul Sari Peste pentru a nu mai muta acest fisier."
 12481,1,"Directorul tinta trebuie sa fie criptat (folosind EFS) dar criptarea nu e suportata pe calea tinta sau nu e posibil sa criptezi directorul in starea curenta. Apasa butonul Da pentru a muta directorul fara criptare. Apasa butonul Sari Peste pentru a nu mai muta acest director."
 12482,1,"Fisierul tinta trebuie sa fie criptat (folosind EFS) dar criptarea nu e suportata pe calea tinta sau nu e posibil sa criptezi fisierul in starea curenta. Apasa butonul Da pentru a copia fisierul fara criptare. Apasa butonul Sari Peste pentru a nu mai copia acest fisier."
 12483,1,"Directorul tinta trebuie sa fie criptat (folosind EFS) dar criptarea nu e suportata pe calea tinta sau nu e posibil sa criptezi directorul in starea curenta. Apasa butonul Da pentru a copia directorul fara criptare. Apasa butonul Sari Peste pentru a nu mai copia acest director."
 
-[STRINGTABLE 102]
+[STRINGTABLE 105]
 12801,1,"fisier "%s""
 12802,1,"director "%s""
 12803,1,"Suneti sigur-a ca doriti sa comprimati %s?\n\nAtentie: fisierele si directoarele vor fi decriptate inainte de comprimare."
@@ -3198,7 +3287,7 @@ SLGINCOMPLETE,""
 12813,1,"Sunteti sigur-a ca doriti sa decriptati %s?"
 12815,1,"Fisier "%s""
 
-[STRINGTABLE 103]
+[STRINGTABLE 106]
 12816,1,"Director "%s""
 12818,1,"Confirm Stergere"
 12820,1,"{!}%s byte{s|0||1|s}"
@@ -3213,7 +3302,7 @@ SLGINCOMPLETE,""
 12830,1,"{!}%s byte{s|0||1|s} in %d fisier {e|0||1|e} selectat si %d director {oare|0||1|oare} selectat"
 12831,1,"{!}%d fisier {e|0||1|e}"
 
-[STRINGTABLE 104]
+[STRINGTABLE 107]
 12832,1,"{!}%d director {oare|0||1|oare}"
 12833,1,"{!}%d fisier {e|0||1|e} si %d director {e|0||1|e}"
 12834,1,"{!}<%s> byte{s|0||1|s} in %d fisier {e|0||1|e} selectat"
@@ -3229,7 +3318,7 @@ SLGINCOMPLETE,""
 12844,1,"{!}%d Director {oare|0||1|oare} Ascuns"
 12845,1,"{!}%d Fisier {e|0||1|e} Ascuns si %d Director {oare|0||1|oare} Ascuns"
 
-[STRINGTABLE 105]
+[STRINGTABLE 108]
 13000,1,"&Stanga"
 13001,1,"Schim&ba Drive\tAlt+F1"
 13002,1,"&Filtru...\tCtrl+F12"
@@ -3239,7 +3328,7 @@ SLGINCOMPLETE,""
 13006,1,"Linia &Director"
 13007,1,"Linie &Header"
 
-[STRINGTABLE 106]
+[STRINGTABLE 109]
 13008,1,"Linie &Informatie"
 13009,1,"&Reimprospateaza\tCtrl+F9"
 13010,1,"Mer&gi La"
@@ -3257,7 +3346,7 @@ SLGINCOMPLETE,""
 13022,1,"&Vizualizeaza\tF3"
 13023,1,"Vizualizare A&lternativa\tAlt+F3"
 
-[STRINGTABLE 107]
+[STRINGTABLE 110]
 13024,1,"&Editeaza\tF4"
 13025,1,"Editeaza Fisier &Nou...\tShift+F4"
 13026,1,"&Copie...\tF5"
@@ -3272,7 +3361,7 @@ SLGINCOMPLETE,""
 13038,1,"Deco&mprimare NTFS..."
 13039,1,"Ar&hiveaza...\tAlt+F5"
 
-[STRINGTABLE 108]
+[STRINGTABLE 111]
 13040,1,"&Dezarhiveaza...\tAlt+F9"
 13041,1,"N&ou"
 13042,1,"E&xit\tAlt+F4"
@@ -3283,7 +3372,7 @@ SLGINCOMPLETE,""
 13047,1,"Decr&iptare NTFS..."
 13048,1,"Comenzi NT&FS"
 
-[STRINGTABLE 109]
+[STRINGTABLE 112]
 13060,1,"&Editeaza"
 13061,1,"C&ut\tCtrl+X"
 13062,1,"&Copie\tCtrl+C"
@@ -3297,7 +3386,7 @@ SLGINCOMPLETE,""
 13070,1,"&Inverseaza Selectia\tNum *"
 13071,1,"Selecteaza &Tot\tCtrl+A"
 
-[STRINGTABLE 110]
+[STRINGTABLE 113]
 13072,1,"Dese&lecteaza Tot\tCtrl+D"
 13073,1,"Sal&veaza Selectia\tCtrl+Shift+F5"
 13074,1,"I&ncarca Selectia...\tCtrl+Shift+F6"
@@ -3314,7 +3403,7 @@ SLGINCOMPLETE,""
 13085,1,"As&cunde Numele Deselectate"
 13086,1,"Ara&ta Numele Ascunse"
 
-[STRINGTABLE 111]
+[STRINGTABLE 114]
 13090,1,"&Comenzi"
 13091,1,"Crea&za Director...\tF7"
 13092,1,"Sc&himba Director...\tShift+F7"
@@ -3330,7 +3419,7 @@ SLGINCOMPLETE,""
 13102,1,"Conecteaza D&rive-ul din Retea...\tF11"
 13103,1,"&Deconecteaza...\tF12"
 
-[STRINGTABLE 112]
+[STRINGTABLE 115]
 13104,1,"Coma&nda Shell\tNum /"
 13105,1,"Recitire Asociatii (&w)"
 13107,1,"Meniu &Utilizator\tF9"
@@ -3346,7 +3435,7 @@ SLGINCOMPLETE,""
 13118,1,"R&ecently Used Documents"
 13119,1,"My D&ocuments"
 
-[STRINGTABLE 113]
+[STRINGTABLE 116]
 13120,1,"Template-uri Doc&ument"
 13121,1,"Trimit La D&irector"
 13122,1,"Director Des&ktop"
@@ -3359,7 +3448,7 @@ SLGINCOMPLETE,""
 13131,1,"Manager de &Plugins..."
 13132,1,"Ultima Comanda\tCtrl+I"
 
-[STRINGTABLE 114]
+[STRINGTABLE 117]
 13140,1,"&Optiuni"
 13141,1,"&Configurare..."
 13142,1,"Aut&oconfigurare Archivatori..."
@@ -3373,7 +3462,7 @@ SLGINCOMPLETE,""
 13150,1,"Bara Meniu &Utilizator"
 13151,1,"&Linie de Comanda"
 
-[STRINGTABLE 115]
+[STRINGTABLE 118]
 13152,1,"Toolbar &Jos"
 13153,1,"&Salveaza Configurarea"
 13154,1,"&Exporta Configurarea..."
@@ -3391,14 +3480,14 @@ SLGINCOMPLETE,""
 13166,1,"Bara &Plugin..."
 13167,1,"&Importa Configuratia..."
 
-[STRINGTABLE 116]
+[STRINGTABLE 119]
 13168,1,"&Vizualizare arbore"
 13169,1,"&Gestionați configurațiile..."
 13170,1,"&Dreapta"
 13171,1,"Schim&ba Drive\tAlt+F2"
 13172,1,"File &panouri"
 
-[STRINGTABLE 117]
+[STRINGTABLE 120]
 13190,1,"&Help"
 13191,1,"C&ontinut\tF1"
 13192,1,"&Cauta..."
@@ -3408,7 +3497,7 @@ SLGINCOMPLETE,""
 13197,1,"Task &List..."
 13199,1,"Despre &Plugin"
 
-[STRINGTABLE 118]
+[STRINGTABLE 121]
 13200,1,"&Despre Open Samandarin"
 13201,1,"Credite și &Mulțumiri"
 13202,1,"&Forum Oficial de Suport"
@@ -3423,7 +3512,7 @@ SLGINCOMPLETE,""
 13213,1,"&Tabul precedent"
 13214,1,"D&uplică tabul"
 
-[STRINGTABLE 119]
+[STRINGTABLE 122]
 13220,1,"Tab nou &Tab\tCtrl+Shift+T"
 13221,1,"&Închide tabul\tCtrl+Shift+W"
 13222,1,"&Următorul tab\tCtrl+Shift+Page Down"
@@ -3437,7 +3526,7 @@ SLGINCOMPLETE,""
 13230,1,"Setează culoarea tabului &..."
 13231,1,"C&urăță culoarea tabului"
 
-[STRINGTABLE 120]
+[STRINGTABLE 123]
 13232,1,"Setează culoarea tabului &..."
 13233,1,"C&urăță culoarea tabului"
 13234,1,"Setează prefixul tabului &..."
@@ -3455,7 +3544,7 @@ SLGINCOMPLETE,""
 13246,1,"D&uplică tabul"
 13247,1,"D&uplică tabul"
 
-[STRINGTABLE 121]
+[STRINGTABLE 124]
 13248,1,"Redeschide tabul &închis"
 13249,1,"&Blochează tabul"
 13250,1,"Deblo&chează tabul"
@@ -3467,7 +3556,7 @@ SLGINCOMPLETE,""
 13260,1,"&File"
 13261,1,"&File"
 
-[STRINGTABLE 122]
+[STRINGTABLE 125]
 13300,1,"&Fisiere"
 13301,1,"&Deschide\tEnter"
 13302,1,"&Focus\tSpace"
@@ -3481,7 +3570,7 @@ SLGINCOMPLETE,""
 13310,1,"&Meniu Utilizator\tF9"
 13311,1,"&Inchide\tAlt+F4"
 
-[STRINGTABLE 123]
+[STRINGTABLE 126]
 13312,1,"Ascunde Numele Du&plicat\tCtrl+Shift+H"
 13313,1,"Co&menzi"
 13314,1,"P&roprietati\tAlt+Enter"
@@ -3495,7 +3584,7 @@ SLGINCOMPLETE,""
 13326,1,"Copie Nume ca Te&xt\tAlt+Shift+Insert"
 13327,1,"Copie Cal&e ca Text\tCtrl+Alt+Insert"
 
-[STRINGTABLE 124]
+[STRINGTABLE 127]
 13328,1,"Copie U&NC Cale + Nume ca Text\tCtrl+Shift+Insert"
 13330,1,"Vi&zualizeaza"
 13331,1,"Sorteaza dupa &Nume\tCtrl+F3"
@@ -3507,7 +3596,7 @@ SLGINCOMPLETE,""
 13342,1,"A&dauga Curent\tCtrl+N"
 13343,1,"&Manage...\tCtrl+M"
 
-[STRINGTABLE 125]
+[STRINGTABLE 128]
 13344,1,"Permite Doar &O Sinngura Fereastra de Cautare"
 13345,1,"Arata Gaseste &Log...\tCtrl+L"
 13346,1,"Ig&nora Lista Director...\tCtrl+G"
@@ -3520,7 +3609,7 @@ SLGINCOMPLETE,""
 13358,1,"&Adauga la Obiecte Gasite\tCtrl+W"
 13359,1,"Gaseste Fisierele &Duplicat...\tCtrl+D"
 
-[STRINGTABLE 126]
+[STRINGTABLE 129]
 13360,1,"&Deschide\tEnter"
 13361,1,"&Vizualizeaza\tF3"
 13362,1,"Vizuali&zeaza Cu\tCtrl+Shift+F3"
@@ -3532,7 +3621,7 @@ SLGINCOMPLETE,""
 13368,1,"Cop&ie in Clipboard\tCtrl+C"
 13369,1,"&Paste\tCtrl+V"
 
-[STRINGTABLE 127]
+[STRINGTABLE 130]
 13380,1,"Nume"
 13381,1,"Extensie Separata"
 13382,1,"Nume DOS (8.3)"
@@ -3543,14 +3632,14 @@ SLGINCOMPLETE,""
 13387,1,"Atribute"
 13388,1,"Descriere"
 
-[STRINGTABLE 128]
+[STRINGTABLE 131]
 13400,1,"&Nume\tCtrl+F3"
 13401,1,"&Extensie\tCtrl+F4"
 13402,1,"&Marime\tCtrl+F6"
 13403,1,"&Timp\tCtrl+F5"
 13404,1,"&Atribute"
 
-[STRINGTABLE 129]
+[STRINGTABLE 132]
 13445,1,"Confirma pe"
 13446,1,"Arata mesaj"
 13450,1,"Fisier sau director sters (vezi nota 1 de mai jos)"
@@ -3560,7 +3649,7 @@ SLGINCOMPLETE,""
 13454,1,"Director ascuns sau sistem sters (vezi nota 2 de mai jos)"
 13455,1,"Suprascriere fisier sistem sau ascuns (e ignorat in arhive)"
 
-[STRINGTABLE 130]
+[STRINGTABLE 133]
 13456,1,"comprimare sau decomprimare NTFS (e ignorata in arhive)"
 13457,1,"criptare sau decriptare NTFS (e ignorata in arhive)"
 13458,1,"operatiuni Drag and Drop"
@@ -3572,7 +3661,7 @@ SLGINCOMPLETE,""
 13470,1,"Doriti sa inchideti Gaseste?"
 13471,1,"Doriti sa creati calea tinta? (in operatiunile Copie/Muta)"
 
-[STRINGTABLE 131]
+[STRINGTABLE 134]
 13472,1,"Doriti sa activati Intotdeauna Deasupra?"
 13473,1,"Doriti sa inchideti Open Samandarin?"
 13474,1,"Doriti sa trimiteti pe Email fisierele selectate?"
@@ -3586,10 +3675,10 @@ SLGINCOMPLETE,""
 13482,1,"fisier"
 13483,1,"dosar"
 
-[STRINGTABLE 132]
+[STRINGTABLE 135]
 13551,1,"Doriti sa inchideti Open Samandarin?"
 
-[STRINGTABLE 133]
+[STRINGTABLE 136]
 13553,1,"(nimic)"
 13554,1,"Retea"
 13555,1,"Plugins"
@@ -3603,7 +3692,7 @@ SLGINCOMPLETE,""
 13563,1,"&Inchide Open Samandarin fara sa mai intrebi data viitoare\tcum sa revin\tPuteti schimba aceasta optiune mai tarziu din pagina Confirmari in Configurare."
 13564,1,"&Creaza director fara sa mai intrebi data viitoare\tcum sa revin\tPuteti schimba aceasta optiune mai tarziu din pagina Confirmari in Configurare."
 
-[STRINGTABLE 134]
+[STRINGTABLE 137]
 13670,1,"Mod"
 13671,1,"Thumbnails"
 13672,1,"Scurt"
@@ -3612,7 +3701,7 @@ SLGINCOMPLETE,""
 13675,1,"Rezervat"
 13676,1,"Tiles"
 
-[STRINGTABLE 135]
+[STRINGTABLE 138]
 13680,1,"T&humbnails"
 13681,1,"Sc&urt"
 13682,1,"&Detaliat"
@@ -3622,19 +3711,19 @@ SLGINCOMPLETE,""
 13686,1,"Rezervat"
 13687,1,"Ti&les"
 
-[STRINGTABLE 136]
+[STRINGTABLE 139]
 13700,1,"Acum asignat lui: %s"
 13701,1,"Aceast scurtatura apartine Open Samandarin. Va rugam, alegeti alta."
 13710,1,"Copie %s"
 13711,1,"Muta %s"
 
-[STRINGTABLE 137]
+[STRINGTABLE 140]
 13712,1,"De la:"
 13713,1,"La:"
 13720,1,"Creaza Output cu Lista Fisier"
 13725,1,"Permisii si autorii nu pot fi pastrati. Ei nu sunt suportati\nu e cale tinta (nu e volum NTFS).\n\nDoriti sa continuati?"
 
-[STRINGTABLE 138]
+[STRINGTABLE 141]
 13730,1,"Raporteaza Bug"
 13731,1,"Pentru raporturi bug sau cereri de caracteristici va rugam folositi meniul Help > Forum Oficiall Suport.\n\nFolositi acest raport de bug doar pentru a ne trimite date sensibile sau cand va cerem noi."
 13735,1,"&Sari Peste"
@@ -3645,7 +3734,7 @@ SLGINCOMPLETE,""
 13742,1,"Se pare ca nu ai nici un modul de limba selectate (.SLG) pentru acest plugin (vezi subdirectorul LANG din plugin)."
 13743,1,"&Nu arata acest mesaj pentru alte plugins"
 
-[STRINGTABLE 139]
+[STRINGTABLE 142]
 13750,1,"Configuratia stocata in registri e corupta, deci nu poate fi incarcata. Open Samandarin a fost probabil oprit brusc in timpul salvarii configurarii. Acest lucru se intampla de obicei cand Open Samandarin inca ruleaza cand dai shutdown system (sau log off). Pentru a preveni aceasta problema, inchide Open Samandarin inainte de shutdown (sau log off).\n\nPoti face backup configuratiei corupte acum (ruleaza RegEdit.exe, redenumeste key HKEY_CURRENT_USER\\%s). Mai tarziu poti incerca sa obtii ceva setari din acest backup (Meniu Utilizator, Cai Rapide, Boomarks FTP, etc.), viziteaza forum.altap.cz pentru detalii.\n\nConfiguratia corupta trebuie sa fie scoasa din registri inainte de a porni Open Samandarin."
 13751,1,"Dvs. utilizati valori nonstandard ai urmatorilor parametri folositi in timpul Log off si Shutdown. Acest lucru probabil cauzeaza coruperea configurarii Open Samandarin (e oprita brusc in timpul salvarii configurarii).\n\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\WaitToKillAppTimeout ar trebui sa fie 20000.\nHKEY_CURRENT_USER\\Control Panel\\Desktop\\AutoEndTasks ar trebui sa fie 0."
 13752,1,"Eli&minati Configurarea"
@@ -3653,21 +3742,21 @@ SLGINCOMPLETE,""
 13756,1,"&Fisiere"
 13757,1,"&Directoare"
 
-[STRINGTABLE 140]
+[STRINGTABLE 143]
 13760,1,"Acest fisier nu poate fi copiat la calea tinta specificata pentru ca e prea mare pentru fisier sistem FAT32.\n\nFisier: %s"
 13765,1,"Calea unde sa mergi daca calea in panou e inaccesibila, e invalida, va rog corectati aceasta cale in configurare in pagina Drives."
 13770,1,"Nu pot pune fisierul in directorul temporar."
 13771,1,"Nume de fisier rezultat e prea lung."
 13775,1,"Operatiunea  drag&drop din arhiva sau fisier sistem plugin a esuat. Va rugam scoateti directorul DROPFAKE (daca e vreunul) din tinta director.\n\nAceasta ar trebui sa se intample doar dupa instalare sau daca tinta drop nu e Windows Explorer nici Open Samandarin. Daca tinta drop este Windows Explorer, va rugam dati restart Windows pentru a corecta aceasta problema (utilizatorii avansati pot termina procesul explorer.exe si sa-l porneasca din nou)."
 
-[STRINGTABLE 141]
+[STRINGTABLE 144]
 13776,1,"Default"
 13777,1,"Rosu"
 13778,1,"Verde"
 13779,1,"Albastru"
 13780,1,"Samandarin"
 
-[STRINGTABLE 142]
+[STRINGTABLE 145]
 13800,1,"%d hr"
 13801,1,"%d min"
 13802,1,"%d sec"
@@ -3675,21 +3764,21 @@ SLGINCOMPLETE,""
 13806,1,"%s din %s mutat"
 13807,1,"viteza: %s/s"
 
-[STRINGTABLE 143]
+[STRINGTABLE 146]
 13808,1,"viteza: %s/s (limita: %s/s)"
 13809,1,"timp ramas: %s"
 13815,1,"Limita de viteza trebuie sa fie un numar intre 1 B/s pana in 4 GB/s."
 13820,1,"&Seteaza Limita de Viteza..."
 13821,1,"&Asteapta Pana Celelalte Operatiuni Copie/Muta sunt Terminate"
 
-[STRINGTABLE 144]
+[STRINGTABLE 147]
 13825,1,"&Exit"
 
-[STRINGTABLE 145]
+[STRINGTABLE 148]
 13850,1,"Nu pot salva configurarea %s plugin (eroare in deschiderea cheii de configurarea a Open Samandarin).\n\nDoriti inca sa-l opriti?"
 13855,1,"Nume"
 
-[STRINGTABLE 146]
+[STRINGTABLE 149]
 13856,1,"Descriere"
 13857,1,"Schimbarea Overlays de Icoane nu are efect pana ce Open Samandarin nu e restartata."
 13865,1,"Open Samandarin a devenit instabila. O eroare a avut loc in %s icoana overlay. Puteti preveni asemenea probleme daca Open Samandarin nu va folosi acest handler (dati click pe butonul Acesta) sau va opri aratarea icoanelor custom orverlays de tot (dati click pe butonul Tot). De asemenea puteti incerca sa actualizati soft-ul care foloseste acest handler (cautati in forum.altap.cz pentru detalii).\n\nCe handler pentru icoana overlay doriti sa dezactivati?\n\nNota: puteti seta icoane overlays in dialogul de configurare (vezi pagina Icoane Overlays)."
@@ -3698,7 +3787,7 @@ SLGINCOMPLETE,""
 13870,1,"Fisierul onfig.reg (sau alt fisier specificat cu parametrul -c) nu a fost importat in registri din cauza importului configuratiei din versiunea veche de Open Samandarin. Va rugam inchideti acum Open Samandarin si porniti-o din nou pentru a rezolva aceasta problema."
 13871,1,"Ati actualizat la noua versiune de Open Samandarin. Isi importa configurarea vechii versiuni acum. Versiunea veche contine cateva pugins (listate mai jos) care lipsesc (sau care nu functioneaza) in noua versiune, deci configuratia lor nu poate fi importata acum. Puteti porni acum Open Samandarin fara aceste plugins (configurarea vechii versiuni ramane in registri, deci puteti s-o importati mai tarziu). sau iesiti acum din Open Samandarin, instalati plugins lipsa, si porniti din nou Open Samandarin.\n\nPlugins care lipsesc (sau care nu functioneaza): %s%s."
 
-[STRINGTABLE 147]
+[STRINGTABLE 150]
 13872,1,", %d mai multe plugins care au fost sarite peste"
 13873,1,"&Porneste Fara Plugins Lipsa"
 13880,1,"Memorie Insuficienta de alocat %Iu bytes. Incercati sa eliberati ceva memorie (ex. inchideti cateva aplicatii care ruleaza) si dati click pe Mai Incearca. Daca nu ajuta, puteti da click pe Ignora pentru a trece eroarea de alocare de memorie acestei aplicatii sau dati click pe Opreste pentru a inchide aceasta aplicatie."
@@ -3707,7 +3796,7 @@ SLGINCOMPLETE,""
 13885,1,"Conectare la %s"
 13886,1,"Parola incorecta sau nume utilizator necunoscu pentru: %s"
 
-[STRINGTABLE 148]
+[STRINGTABLE 151]
 13890,1,"Fisier"
 13891,1,"%s Fisier"
 13900,1,"Parola dvs  e prea simpla si poate nu asigura suficienta securitate contra hacker-ilor.\nSunteti sigur-a ca doriti s-o folositi?\n\nNota: parolele bune au cel putin sase caractere si contin atat litere mici cat si majuscule, numere si caractere speciale, cum ar fi: :,  -, # simboluri, litere cu accent, etc."
@@ -3715,7 +3804,7 @@ SLGINCOMPLETE,""
 13902,1,"Parola Schimbata cu Succes"
 13903,1,"Ati sters Parola Master. Parolele dvs stocate nu vor mai fi protejate (de ex FTP si WINSCP)."
 
-[STRINGTABLE 149]
+[STRINGTABLE 152]
 13904,1,"Parola Master a fost schimbata cu succes. Parolele dvs stocate sunt securizate acum de cifrarea AES (de exemplu FTP si WinSCP)."
 13905,1,"Nu ati introdus corect Parola Master curenta. Va rugam incercati din nou."
 13906,1,"Rasfoieste Directorul"
@@ -3725,7 +3814,7 @@ SLGINCOMPLETE,""
 13915,1,"PID=%d, pornit la %s, %s%s"
 13916,1,", proces curent"
 
-[STRINGTABLE 150]
+[STRINGTABLE 153]
 13920,1,"Salveaza nume fisier curent ca default"
 13921,1,"Revino la numele fisier default ca %s"
 13925,1,"{!}Directoarele comparate contin cel putin %d pereche{|1|s} de fisiere cu diferenta de timp de exact o ora sau doua ore. {Aceasta diferenta a fost|1|Aceste diferente au fost} ignorate ca avand legatura cu DST (Daylight Saving Time). Puteti sa le suprimati in Configurare/Generala."
@@ -3737,14 +3826,14 @@ SLGINCOMPLETE,""
 13933,1,"Salveaza optiunile ca defaults"
 13934,1,"Reseteaza optiunile si defaults"
 
-[STRINGTABLE 151]
+[STRINGTABLE 154]
 13945,1,"Daca doriti sa importati configuratia la fiecare pornire a Open Samandarin, exportati-o in directorul de instalare in numele config.reg. Pentru a importa alt fisier de configurare folositi parametrul -C in linia de comanda (ex. "salamand.exe -C myconfig.reg").\n\nVa recomandam sa adaugati curatarea cheii din registri cu configurarea exportata direct in fisier. Altfel, configurarea importata va fi adaugata in cea curenta si poate rezulta intr-o configurare inconsistenta."
 13946,1,"Daca doriti sa importati configuratia la fiecare pornire a Open Samandarin, exportati-o in directorul aplicatiei in numele config.reg. Pentru a importa alt fisier de configurare folositi parametrul -C in linia de comanda (ex. "salamand.exe -C myconfig.reg").\n\nVa recomandam sa adaugati curatarea cheii din registri cu configurarea exportata direct in fisier. Altfel, configurarea importata va fi adaugata in cea curenta si poate rezulta intr-o configurare inconsistenta."
 13947,1,"&Adauga curatarea cheii din registri cu configurarea exportata direct in fisier"
 13950,1,"Nu pot deschide sau citi fisierul de configurare.\n\nFisier: %s\nEroare: %s"
 13951,1,"Fiserul de configurare e prea mare.\n\nFisier: %s"
 
-[STRINGTABLE 152]
+[STRINGTABLE 155]
 13952,1,"Nu pot importa fisierul specificat. Nu este un fisier de configurare.\n\nFisier: %s"
 13953,1,"Nu pot importa fisierul de configurare. Are format invalid.\n\nFisier: %s"
 13954,1,"Nu pot importa configurarea fisierului in registri. Eroare la scrierea in registri.\n\nFisier: %s"
@@ -3752,7 +3841,7 @@ SLGINCOMPLETE,""
 13965,1,"Nu pot exporta configurarea in fisier. Eroare la citirea configurarii din registri."
 13966,1,"Nu pot exporta configurarea in fisier. Eroare la scrierea configurarii in fisier.\n\nFisier: %s"
 
-[STRINGTABLE 153]
+[STRINGTABLE 156]
 13970,1,"Nu pot deschide meniul context pentru panou pentru ca calea din panou este doar pseudo-director pentru redirector WOW64."
 13971,1,"Nu pot deschide meniul context pentru ca selectia curenta contine "%s" care este doar psudo-director pentru redirector WOW64."
 13972,1,"Nu pot deschide Proprietati pentru ca selectia curenta contine "%s" care este doar psudo-director pentru redirector WOW64."
@@ -3765,7 +3854,7 @@ SLGINCOMPLETE,""
 13982,1,"MB"
 13983,1,"GB"
 
-[STRINGTABLE 154]
+[STRINGTABLE 157]
 13984,1,"TB"
 13985,1,"PB"
 13986,1,"EB"
@@ -3774,14 +3863,14 @@ SLGINCOMPLETE,""
 13992,1,"MB/s"
 13993,1,"GB/s"
 
-[STRINGTABLE 155]
+[STRINGTABLE 158]
 14000,1,"[invalid]"
 14005,1,"Administrator"
 14010,1,"Va rugam introduceti o adresa de email valabila ca sa va putem ajuta cu problema raportata."
 14011,1,"Va rugam asteptati pana ce compresia si transmiterea de date este terminata."
 14012,1,"Sunteti sigur ca nu doriti sa ne raportati aceasta problema? Fara raportul dumneavoastra nu vom reusi sa rezolvam problema.\n\nDati click pe OK pentru a sterge raportul fara a ne comunica."
 
-[STRINGTABLE 156]
+[STRINGTABLE 159]
 14020,1,"Fisierul transmis depaseste marimea alocata. Cod: %d."
 14021,1,"Fisierul transmis a fost doar partial transmis. Cod: %d."
 14022,1,"Nici un fisier nu a fost transmis. Cod: %d."
@@ -3792,7 +3881,7 @@ SLGINCOMPLETE,""
 14030,1,"Eroare de sintaxa in raspunsul serverului. Nu s-a gasit open tag."
 14031,1,"Eroare de sintaxa in raspunsul serverului. Nu s-a gasit close tag."
 
-[STRINGTABLE 157]
+[STRINGTABLE 160]
 14032,1,"Eroare de sintaxa in raspunsul serverului. Nu s-a gasit value."
 14040,1,"Nu primesc date. Cod: %d."
 14041,1,"Nu pot inchide conexiunea. Cod: %d."
@@ -3802,7 +3891,7 @@ SLGINCOMPLETE,""
 14045,1,"Nu gasesc host name. Cod: %d."
 14046,1,"Nu pot initializa conexiunea. Cod: %d."
 
-[STRINGTABLE 158]
+[STRINGTABLE 161]
 14050,1,"Eroare la citirea fisierului %s"
 14051,1,"Memorie insuficienta"
 14052,1,"Obtinerea marimii fisierului care a esuat pentru %s"
@@ -3811,7 +3900,7 @@ SLGINCOMPLETE,""
 14062,1,"Raport Bug Open Samandarin"
 14063,1,"Comprim, va rugam asteptati..."
 
-[STRINGTABLE 159]
+[STRINGTABLE 162]
 14064,1,"Trasmit date, va rugam asteptati..."
 14065,1,"Raportul a fost transmis cu succes.\n\nVa multumim ca ne ajutati sa imbunatatim Open Samandarin!"
 14066,1,"Deschiderea problemei GitHub a eșuat. ShellExecute a returnat codul %d.\n\nArhiva raportului rămâne pe disc. Faceți clic pe OK pentru a afișa folderul de raport."
@@ -3824,15 +3913,15 @@ SLGINCOMPLETE,""
 14074,1,"Nu pot crea fisierul minidump %s. Cod: %d."
 14075,1,"Eroare in timpul crearii minidump. Cod: %d."
 
-[STRINGTABLE 160]
+[STRINGTABLE 163]
 14100,1,"Raportorul Bug Open Samandarin (salmon.exe) nu ruleaza. Open Samandarin nu va fi capabila sa rezolve posibile erori. Va rugam restartati Open Samandarin."
 
-[STRINGTABLE 161]
+[STRINGTABLE 164]
 14150,1,"Traducere Neterminata a Open Samandarin"
 14151,1,"Traducerea Open Samandarin in limba dumneavoastra nu este finalizata. Va rugam sa luati in considerare vizitarea forumului nostru de discutii si sa va alaturati echipei de traducere:"
 14155,1,"Nu pot trimite fisier sau director la Recycle Bin pentru ca are nume invalid.\n\nNume partial invalid:"%s"\n\nSfat: Incearca sa-l redenumesti inainte de a=l trimite la Recycle bin sau sa-l stergi de tot (incearca combinatia Shift+Delete)."
 
-[STRINGTABLE 162]
+[STRINGTABLE 165]
 14160,1,"Nu pot incarca %s plugin. Acest plugin este disponibil doar in versiunea de x86 (32-bit) a Open Samandarin. Va rog lansati versiunea x86 a Open Samandarin pentru a folosi acest plugin. Ne pare rau pentru neplacerea creata."
 14165,1,"Google Drive"
 14166,1,"Dropbox"
@@ -3841,7 +3930,7 @@ SLGINCOMPLETE,""
 14170,1,"nu pot rezolva link"
 14171,1,"punctul de montare volum"
 
-[STRINGTABLE 163]
+[STRINGTABLE 166]
 14180,1,"Eroare In Obtinerea Link Marimii Fisierului Cautat"
 14181,1,"Incerci sa muti fisierele si directoarele selectate in arhiva. Acest lucru nu e posibil pentru ca selectia contine link catre director (punct de jonctiune, punct de montare volum,sau link symbolic). Te rog sa continui fara stergerea fisierelor de pe disk dupa pregatirea lor pentr arhivare.\n\nLink: %s"
 14185,1,"Operatiunea disk-ului este in progress."
@@ -3850,7 +3939,7 @@ SLGINCOMPLETE,""
 14188,1,"Windows-ul refuza anularea shutdown. Acest mesaj il va bloca temporar. Te rog asteapta sa anulezi manual shutdown inainte de a inchide acest mesaj, altfel Open Samandarin va fi inchis brusc fara salvarea configuratiei."
 14189,1,"Windows-ul refuza anularea shutdown. Acest mesaj il va bloca temporar.\n\nAi niste operatii pe disk in progres. Vrei sa le anulezi acum? Click pe Nu ai anulat manual shutdown, altfel risti sa ai fisiere neterminate pe disk.\n\nTe rog asteapta sa anulezi manual shutdown inainte de a raspunde la aceasta intrebare, altfel Open Samandarin va fi inchis brusc fara salvarea configuratiei."
 
-[STRINGTABLE 164]
+[STRINGTABLE 167]
 14195,1,"Inchid ferestrele Find windows, te rog asteapta..."
 14196,1,"Se închid extensiile și modulele, așteptați..."
 14197,1,"Se închid panourile și sistemele de fișiere, așteptați..."
@@ -3864,7 +3953,7 @@ SLGINCOMPLETE,""
 14206,1,"Panou de vizualizare arborescentă"
 14207,1,"Închide panoul de vizualizare arborescentă"
 
-[STRINGTABLE 165]
+[STRINGTABLE 168]
 14208,1,"Ascunde automat panoul de vizualizare arborescentă"
 14209,1,"Fixează panoul de vizualizare arborescentă"
 14210,1,"Nu se poate determina calea către fișierul portabil de configurație config.reg."
@@ -3881,7 +3970,7 @@ SLGINCOMPLETE,""
 14221,1,"Avertisament compatibilitate pagină de coduri"
 14222,1,"Limba selectată poate să nu afișeze corect toate caracterele, deoarece pagina de coduri a setărilor de sistem Windows (%u) nu corespunde paginii de coduri așteptate de această limbă (%u).\n\nPentru a remedia, modificați setările de sistem în Windows: Setări > Ora și limba > Regiune > Administrare > Modificarea setărilor de sistem."
 
-[STRINGTABLE 166]
+[STRINGTABLE 169]
 14232,1,"Salvat ultima data"
 14233,1,"Nume configurare"
 14234,1,"Versiune"
@@ -3890,7 +3979,7 @@ SLGINCOMPLETE,""
 14237,1,"Locație"
 14239,1,"Curăță configurația cu valori implicite"
 
-[STRINGTABLE 167]
+[STRINGTABLE 170]
 14256,1,"portabil"
 14258,1,"-"
 14259,1,"Registru"
@@ -3902,12 +3991,12 @@ SLGINCOMPLETE,""
 14265,1,"Configuratia a fost scrisa. Te rugam reporneste Open Samandarin pentru ca modificarile sa intre in vigoare."
 14266,1,"Curata configuratia cu valori implicite"
 14267,1,"Fișier: %s"
-14268,1,"Open Salamander %s"
+14268,1,"Open Samandarin %s"
 14269,1,"Altap Salamander %s"
 14270,1,"Servant Salamander %s"
 14271,1,"Configurarea a fost importată cu succes."
 
-[STRINGTABLE 168]
+[STRINGTABLE 171]
 14272,1,"Această configurație este utilizată în prezent de această instanță a aplicației."
 14273,1,"Imposibil de șters fișierul de configurare.\n\nFișier: %s\nEroare: %s"
 14274,1,"Setarea pentru căi lungi Win32/x64 a fost modificată. Reporniți Windows pentru ca modificarea să intre în vigoare."
@@ -3925,7 +4014,7 @@ SLGINCOMPLETE,""
 14286,1,"&Ataseaza din nou fereastra decuplata"
 14287,1,"Fereastra principala"
 
-[STRINGTABLE 169]
+[STRINGTABLE 172]
 14288,1,"Scalare afișaj modificată"
 14289,1,"Scalarea afișajului Windows sau DPI-ul sesiunii desktop la distanță s-ar putea să se fi schimbat. Repornește Open Samandarin pentru a redesena interfața complet, clar, la DPI-ul curent."
 14290,1,"Resetează"
@@ -3943,7 +4032,7 @@ SLGINCOMPLETE,""
 14302,1,"Acest tab este blocat pentru a preveni schimbarea conținutului afișat. Doriți să deblocați tabul și să deschideți locația solicitată?"
 14303,1,"Extensie (runtime indisponibil)"
 
-[STRINGTABLE 170]
+[STRINGTABLE 173]
 14304,1,"Extensie (dependenta indisponibila)"
 14305,1,"Extensie (dezactivata)"
 14306,1,"Aceasta extensie declara prea multe setari pentru acest dialog de configurare."
@@ -3961,7 +4050,7 @@ SLGINCOMPLETE,""
 14318,1,"Selecteaza cel putin un dosar in panoul tinta."
 14319,1,"Toate dosarele tinta selectate trebuie sa fie pe acelasi volum."
 
-[STRINGTABLE 171]
+[STRINGTABLE 174]
 14320,1,"Extensie"
 14321,1,"Se încarcă extensiile și modulele, așteptați..."
 14322,1,"Se caută pachetele de extensii, așteptați..."
@@ -3979,7 +4068,7 @@ SLGINCOMPLETE,""
 14334,1,"Se oprește mediul de execuție al extensiei, așteptați..."
 14335,1,"Se închid ferestrele extensiilor, așteptați..."
 
-[STRINGTABLE 172]
+[STRINGTABLE 175]
 14336,1,"Se opresc serviciile extensiilor, așteptați..."
 14337,1,"&Detach Tab"
 14338,1,"Detached tab"
@@ -3997,7 +4086,7 @@ SLGINCOMPLETE,""
 14350,1,"Path"
 14351,1,"State"
 
-[STRINGTABLE 173]
+[STRINGTABLE 176]
 14352,1,"Attached"
 14353,1,"Detached"
 14354,1,"Left"
@@ -4015,7 +4104,7 @@ SLGINCOMPLETE,""
 14366,1,"Tot"
 14367,1,"Comun"
 
-[STRINGTABLE 174]
+[STRINGTABLE 177]
 14368,1,"Sistem de fisiere"
 14369,1,"Document"
 14370,1,"Imagine / Fotografie"
@@ -4033,7 +4122,7 @@ SLGINCOMPLETE,""
 14382,1,"Proprietăți selectate"
 14383,1,"&Elimină"
 
-[STRINGTABLE 175]
+[STRINGTABLE 178]
 14384,1,"Mută &sus"
 14385,1,"Mută &jos"
 14386,1,"Executabil"
@@ -4048,9 +4137,10 @@ SLGINCOMPLETE,""
 14395,1,"Adaugă"
 14396,1,"Elimină"
 14397,1,"Golește"
+14398,1,"Mai multe elemente selectate - informații lipsă"
 14399,1,"Separa mai multe etichete cu punct si virgula. Etichetele folosite recent sunt disponibile in lista Valoare."
 
-[STRINGTABLE 176]
+[STRINGTABLE 179]
 14400,1,"Valoarea este convertita la tipul necesar de Windows."
 14402,1,"Actualizat: %d\nEșuat sau numai pentru citire: %d"
 14404,1,"Etichete"
@@ -4063,10 +4153,10 @@ SLGINCOMPLETE,""
 14411,1,"&Schimba etichetele"
 14412,1,"Proprietati Windows"
 14413,1,"Pentru mai multe fisiere: valoarea nedeterminata lasa proprietatea neschimbata; bifat o seteaza; nebifat o elimina."
-14414,0,"First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
+14414,1,"Prima eroare:\nFișier: %s\nProprietate: %s\nMotiv: %s (0x%08X)"
 14415,1,"Acest tip de fisier nu suporta aceasta proprietate."
 
-[STRINGTABLE 177]
+[STRINGTABLE 180]
 14416,1,"Fisierul sau proprietatea este doar in citire sau accesul a fost refuzat."
 14417,1,"Windows nu a putut scrie proprietatea."
 14418,1,"Valoare"
@@ -4084,7 +4174,7 @@ SLGINCOMPLETE,""
 14430,1,"Conținut web activ"
 14431,1,"Ridicare"
 
-[STRINGTABLE 178]
+[STRINGTABLE 181]
 14432,1,"Semnatar pachet"
 14433,1,"Pachet SHA-256"
 14434,1,"Sursa pachetului"
@@ -4102,7 +4192,7 @@ SLGINCOMPLETE,""
 14446,1,"Manual (opțiunea din dialogul Copiere/Mutare)"
 14447,1,"Controlat de utilizator"
 
-[STRINGTABLE 179]
+[STRINGTABLE 182]
 14448,1,"În funcție de stocare"
 14449,1,"Manual"
 14450,1,"Pune această operațiune în &coadă (așteaptă terminarea tuturor celorlalte operațiuni de Copiere/Mutare)"
@@ -4120,7 +4210,7 @@ SLGINCOMPLETE,""
 14462,1,"Se așteaptă un dispozitiv de stocare"
 14463,1,"Se așteaptă un slot de flux SSD/NVMe"
 
-[STRINGTABLE 180]
+[STRINGTABLE 183]
 14464,1,"Se așteaptă deoarece stocarea nu a putut fi identificată"
 14465,1,"Pregătit"
 14466,1,"Căutare"
@@ -4138,7 +4228,7 @@ SLGINCOMPLETE,""
 14478,1,"Scanare conflicte: %1!s!, %2!d! in a0teptare, %3!d!/%4!d! inspectate"
 14479,1,"activa"
 
-[STRINGTABLE 181]
+[STRINGTABLE 184]
 14480,1,"finalizat"
 14481,1,"Nume fisier"
 14482,1,"Stare"
@@ -4154,7 +4244,7 @@ SLGINCOMPLETE,""
 14492,1,"Suprimat"
 14493,1,"Neconcordanta tip fisier/director"
 
-[STRINGTABLE 182]
+[STRINGTABLE 185]
 14500,1,"Vizualizare ramură"
 14501,1,"&Vizualizare ramură\tCtrl+B"
 14502,1,"Cale"
@@ -4168,28 +4258,120 @@ SLGINCOMPLETE,""
 14510,1,"Păstrează căile subfolderelor relative la rădăcina vizualizării ramurii"
 14511,1,"Cale: "
 
-[STRINGTABLE 183]
+[STRINGTABLE 186]
 14512,1,"Arborele de foldere nu a putut fi citit. Reîmprospătează vizualizarea pentru a reîncerca."
 14513,1,"Vizualizare ramură - reîmprospătare... %I64u fișiere păstrate"
 14514,1,"Vizualizare ramură - reîmprospătare oprită; rezultatele anterioare păstrate (%I64u fișiere)"
 14515,1,"Vizualizare ramură - pregătirea a %I64u fișiere; %I64u rezultate anterioare păstrate"
-14516,0,"The program could not be started safely through Windows. It was not retried using another launch method."
-14517,0,"The item could not be opened through Windows Shell. The selected item was not retried using another launch method."
-14518,0,"Windows long-path setting: disabled."
-14519,0,"Windows long-path setting: enabled. Running processes may still use an earlier cached setting."
-14520,0,"Windows long-path setting: not configured (default behavior)."
-14521,0,"Windows long-path setting could not be determined."
-14522,0,"This setting is diagnostic information, not the established cause of this failure. Enabling it does not guarantee support by Shell, security services or the target application."
-14523,0,"Close"
-14524,0,"Windows settings guide"
-14525,0,"Windows long-path support"
-14526,0,"An administrator can enable the Windows policy:\nComputer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths.\n\nIts registry equivalent is REG_DWORD LongPathsEnabled = 1 under:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nRestart affected applications; restarting Windows may also be necessary. Applications must support long paths themselves. This is not a way to override a security denial, and Shell or the target program may still reject the path. Salamander does not change this setting."
-14527,0,"Windows error:"
+14516,1,"Programul nu a putut fi pornit în siguranță prin Windows. Nu s-a încercat din nou pornirea printr-o altă metodă."
+14517,1,"Elementul nu a putut fi deschis prin Windows Shell. Nu s-a încercat din nou deschiderea elementului selectat printr-o altă metodă."
+14518,1,"Setarea Windows pentru căi lungi: dezactivată."
+14519,1,"Setarea Windows pentru căi lungi: activată. Procesele în curs de execuție pot folosi încă o setare memorată anterior."
+14520,1,"Setarea Windows pentru căi lungi: neconfigurată (comportament implicit)."
+14521,1,"Setarea Windows pentru căi lungi nu a putut fi determinată."
+14522,1,"Această setare oferă informații de diagnosticare, nu cauza stabilită a acestei erori. Activarea ei nu garantează compatibilitatea cu Shell, serviciile de securitate sau aplicația țintă."
+14523,1,"Închidere"
+14524,1,"Ghid pentru setările Windows"
+14525,1,"Compatibilitatea Windows cu căile lungi"
+14526,1,"Un administrator poate activa politica Windows:\nConfigurație computer > Șabloane administrative > Sistem > Sistem de fișiere > Activare căi Win32 lungi.\n\nValoarea echivalentă din registru este REG_DWORD LongPathsEnabled = 1 în:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nReporniți aplicațiile afectate; poate fi necesară și repornirea Windows. Aplicațiile trebuie să accepte singure căile lungi. Această setare nu ocolește o interdicție de securitate, iar Shell sau programul țintă poate respinge în continuare calea. Salamander nu modifică această setare."
+14527,1,"Eroare Windows:"
 
-[STRINGTABLE 184]
+[STRINGTABLE 187]
+14530,1,"Asocieri fișiere"
+14531,1,"&Model:"
+14532,1,"&Acțiune:"
+14533,1,"&Operație:"
+14534,1,"&Țintă:"
+14535,1,"Țintă &ID:"
+14536,1,"Status:"
+14537,1,"&Adaugă/Update"
+14538,1,"&Șterge"
+14539,1,"&Reset implicit"
+14540,1,"Set &nealocat"
+14541,1,"Vezi"
+14542,1,"Vedere alt."
+14543,1,"Edit"
+
+[STRINGTABLE 188]
+14544,1,"Arhivă panou"
+14545,1,"Nu se aplică"
+14546,1,"Listă/Extrage"
+14547,1,"Șterge / Pack"
+14548,1,"Integrat"
+14549,1,"Plugin"
+14551,1,"Gata"
+14552,1,"Conflict: rezolvă suprapunerile înainte de salvare"
+14553,1,"De bază"
+14554,1,"User"
+14555,1,"Vechi"
+14556,1,"Inactiv"
+14557,1,"Conflict"
+14558,1,"Tipare de căutare"
+14559,1,"Categorie"
+
+[STRINGTABLE 189]
+14560,1,"Origine"
+14561,1,"Tot"
+14562,1,"Afișează conflicte"
+14563,1,"Tipar"
+14564,1,"Vedere"
+14565,1,"Vedere alternativă"
+14566,1,"Editare"
+14567,1,"Panou arhivă"
+14568,1,"%u din %u asocieri | %u conflicte"
+14569,1,"Alege celula tipar ca să-i schimbi proprietarul. Valorile implicite se importă automat."
+14570,1,"Nu sunt instalate ținte compatibile"
+14571,1,"Vizualizator intern"
+14572,1,"Runtime vechi"
+14573,1,"Selectează o țintă de plugin compatibilă"
+14575,1,"Tiparul nu poate fi gol"
+
+[STRINGTABLE 190]
+14576,1,"Extensie"
+14577,1,"%u asocieri selectate"
+14578,1,"Neatribuit"
+14579,1,"Definit de utilizator"
+14580,1,"Panou arhivă"
+14581,1,"Extensii"
+14582,1,"Conflict: %s are ținte concurente în %s: %s"
+14583,1," (+%u mai multe)"
+14584,1,"Selectează un vizualizator de extensie compatibil"
+14585,1,"Vizualizator personalizat"
+14586,1,"Editor personalizat"
+14587,1,"&Nume:"
+14588,1,"&Comandă:"
+14589,1,"&Argumente:"
+14590,1,"&Director inițial:"
+14591,1,"&Salvează"
+
+[STRINGTABLE 191]
+14592,1,"Gestionari personalizați salvați"
+14593,1,"Introdu numele și comanda gestionarului."
+14594,1,"Un gestionar cu acest nume există deja."
+14595,1,"Nume"
+14596,1,"Comandă"
+14597,1,"Gestionarul personalizat este invalid sau depășește limita acceptată."
+14598,1,"Editorul vechi nu e configurat"
+14599,1,"Configurați vizualizatoarele proprii pentru fișiere."
+14600,1,"Configurați editorii proprii pentru fișiere."
+14601,1,"Detalii handler"
+14602,1,"Argumente"
+14603,1,"Director inițial"
+14604,1,"Adaugă un nou model de asociere"
+14605,1,"Introduceți un model:"
+14606,1,"Introduceți un model valid."
+14607,1,"Modelul de fișier există deja."
+
+[STRINGTABLE 192]
+14608,1,"Încheie și reîncearcă"
+14609,1,"Fișierul este utilizat de: %s"
+14610,1,"Închei aceste procese și reîncerci?\n\nDatele nesalvate din aceste procese se pot pierde:\n%s"
+14611,1,"Nu s-a putut încheia niciun proces care utilizează acest fișier."
+
+[STRINGTABLE 193]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."
 
-[STRINGTABLE 185]
+[STRINGTABLE 194]
 14992,1,"Salvez configurația în stocarea fișierelor, vă rugăm așteptați..."
 14993,1,"Șterg configurația veche din stocarea fișierelor, vă rugăm așteptați..."
 14994,1,"Citesc asocierile din stocarea fișierelor..."
@@ -4205,7 +4387,3 @@ SLGINCOMPLETE,""
 15004,1,"%s liber (în cache, actualizat %s)"
 15005,1,"%s liber (neactualizat, actualizat %s)"
 
-14608,1,"Încheie și reîncearcă"
-14609,1,"Fișierul este utilizat de: %s"
-14610,1,"Închei aceste procese și reîncerci?\n\nDatele nesalvate din aceste procese se pot pierde:\n%s"
-14611,1,"Nu s-a putut încheia niciun proces care utilizează acest fișier."

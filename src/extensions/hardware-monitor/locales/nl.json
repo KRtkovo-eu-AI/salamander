@@ -6,12 +6,33 @@
   },
   "fileSystems": {
     "hardware-info": {
-      "rootItems": {"cpu":"Processor","memory":"Geheugen","motherboard":"Moederbord","gpu":"Grafische processor","storage":"Opslag","network":"Netwerk","sensors":"Sensoren","device-manager":"Apparaatbeheer"},
-      "actions":{"updateDriver":"Stuurprogramma bijwerken","disableDevice":"Apparaat uitschakelen","uninstallDevice":"Apparaat verwijderen","scanDevices":"Zoeken naar gewijzigde apparaten","deviceProperties":"Eigenschappen"},
+      "rootItems": {
+        "cpu": "Processor",
+        "memory": "Geheugen",
+        "motherboard": "Moederbord",
+        "gpu": "Grafische processor",
+        "storage": "Opslag",
+        "network": "Netwerk",
+        "sensors": "Sensoren",
+        "device-manager": "Apparaatbeheer"
+      },
+      "actions": {
+        "updateDriver": "Stuurprogramma bijwerken",
+        "disableDevice": "Apparaat uitschakelen",
+        "uninstallDevice": "Apparaat verwijderen",
+        "scanDevices": "Zoeken naar gewijzigde apparaten",
+        "deviceProperties": "Eigenschappen"
+      },
       "name": "Hardware-monitor",
       "columns": {
-        "property": {"name": "Veld", "description": "Eigenschaps- of sensornaam"},
-        "value": {"name": "Waarde", "description": "Eigenschapswaarde of sensorwaarde"}
+        "property": {
+          "name": "Veld",
+          "description": "Eigenschaps- of sensornaam"
+        },
+        "value": {
+          "name": "Waarde",
+          "description": "Eigenschapswaarde of sensorwaarde"
+        }
       }
     }
   },
@@ -26,7 +47,10 @@
     "deviceManager": "Apparaatbeheer"
   },
   "strings": {
-    "disableDevice":"Apparaat uitschakelen","uninstallDevice":"Apparaat verwijderen","confirmDeviceAction":"{0} '{1}'?","loading": "Laden...",
+    "disableDevice": "Apparaat uitschakelen",
+    "uninstallDevice": "Apparaat verwijderen",
+    "confirmDeviceAction": "{0} '{1}'?",
+    "loading": "Laden...",
     "notAvailable": "N/B",
     "errorTitle": "Hardware-monitor",
     "sensorInitFailed": "De hardware-sensorbibliotheek (LibreHardwareMonitorLib.dll) kon niet worden geladen. Sensorwaarden zijn niet beschikbaar.\nPlaats de DLL in de extensiemap of in het SYSTEEM-PAD.",
