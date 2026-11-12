@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Allocate the test fixture path buffer on the heap. | Avoid a large stack frame in the native probe. | #731 | GPT-6 |
 // | 2026-11-12 | Cover deferred source cancellation and safe local retry. | Preserve live targets and reject side-effecting reopen. | #731 | GPT-6 |
 // | 2026-11-12 | Exercise scoped cleanup state transitions. | Check uncertain close and broker cleanup outcomes without a GUI. | #731 | GPT-6 |
 #include <windows.h>
 #include <memory>
 #include <string>
+#include <vector>
 #include <cstdio>
 
 constexpr int IDS_ERRORDELETINGFILE = 1;
@@ -185,10 +187,13 @@ int main()
     }
     {
         // The real scoped local-retry opening must have no CREATE side effect.
-        wchar_t directory[32768]{};
-        DWORD length = GetCurrentDirectoryW(_countof(directory), directory);
-        Check(length && length < _countof(directory), "test directory is available", failures);
-        std::wstring path = std::wstring(directory) + L"\\target-retry-fixture.tmp";
+        const DWORD capacity = GetCurrentDirectoryW(0, nullptr);
+        if (!capacity || capacity > 32768) return 2;
+        std::vector<wchar_t> directory(capacity);
+        DWORD length = GetCurrentDirectoryW(capacity, directory.data());
+        Check(length && length < capacity, "test directory is available", failures);
+        if (!length || length >= capacity) return 2;
+        std::wstring path = std::wstring(directory.data()) + L"\\target-retry-fixture.tmp";
         Check(GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES,
               "retry fixture starts absent", failures);
         cancelled = FALSE;
