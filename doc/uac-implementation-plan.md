@@ -700,7 +700,7 @@ Host i broker se sestavily pro x64 v Debug a Release. V obou konfiguracích pro�
 
 Navazující změna zkoumá příznak case sensitivity na ověřeném rodiči. Jen u case-only přejmenování běžného souboru či adresáře v takto výslovně označené složce otevírá přesný zdroj a cíl bez case-insensitive vyhledávání; při volném přesném názvu zůstává samotné přejmenování atomicky bez náhrady cíle. Ostatní režimy používají dosavadní cestu. Na skutečném NTFS prošla nativní sada v Debug i Release **385 PASS, 0 FAIL, 0 SKIP** v každé konfiguraci, včetně souboru a adresáře, zachování podstromu, Unicode cesty přes `MAX_PATH`, staré identity zdroje a rodiče i již obsazeného cíle. Pozdní kolize byla vytvořena po otevření zdroje a testuje přímo no-replace `NativeRename`, nikoli celý souběžný `MoveVerifiedFile`. Stejná opravená reprodukce proti původnímu helperu vrátila chybu 2. Skutečný brokerový transport, systémový souhlas a společná VM akceptace zůstávají otevřené. Logy jsou v `C:\Samandarin\builds\uac-n2-case-sensitive-20261112`.
 
-Na čistém commitu `f6b10e51`, obsahově shodném s integrovaným `b9e4765e`, prošel x64 build hosta a brokeru v Debug i Release; všechny příkazy vrátily exit 0. Jde o důkaz překladu, nikoli interaktivního UAC. Logy jsou ve stejné složce.
+Na čistém commitu `f6b10e51`, obsahově shodném s integrovaným `b9e4765e`, prošel x64 i Win32 build hosta a brokeru v Debug i Release; všechny příkazy vrátily exit 0. Jde o důkaz překladu, nikoli interaktivního UAC. Logy jsou ve stejné složce.
 
 Stejně sestavené x64 Release binárky před/po: `salamand.exe` 5 770 240 → 5 772 800 B, `uacbroker.exe` 1 397 760 → 1 397 760 B, dohromady 7 168 000 → 7 170 560 B (+2 560 B). Měření soukromé paměti běžné a elevované úlohy zůstává součástí odložené společné VM akceptace.
 
