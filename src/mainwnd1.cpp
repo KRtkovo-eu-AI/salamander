@@ -6927,30 +6927,43 @@ void CMainWindow_RefreshCommandStates(CMainWindow* obj)
                                             (onDisk || archive ||
                                              validPluginFS && activePanel->GetPluginFS()->IsServiceSupported(FS_SERVICE_COPYFROMFS)));
 #ifdef SAM_UAC_THIN_COPY_TEST
-    // Observation only: never trigger a refresh, selection or command.
-    // The normal idle refresh must already enable F5 for this exact fixture.
-    if (EnablerFilesCopy && activePanel && activePanel == obj->LeftPanel && onDisk && selCount == 1)
+    // Observation only: the ordinary refresh remains responsible for all
+    // selection, command enablement and scheduling.
+    if (activePanel && activePanel == obj->LeftPanel && onDisk)
     {
-        wchar_t expectedPath[32768]{}, expectedName[512]{}, eventName[256]{};
-        const DWORD pathLen = GetEnvironmentVariableW(L"SAM_UAC_TEST_READY_PATH", expectedPath, _countof(expectedPath));
-        const DWORD nameLen = GetEnvironmentVariableW(L"SAM_UAC_TEST_READY_NAME", expectedName, _countof(expectedName));
-        const DWORD eventLen = GetEnvironmentVariableW(L"SAM_UAC_TEST_READY_EVENT", eventName, _countof(eventName));
-        if (pathLen && pathLen < _countof(expectedPath) && nameLen && nameLen < _countof(expectedName) &&
-            eventLen && eventLen < _countof(eventName) && wcscmp(activePanel->GetPathW(), expectedPath) == 0)
+        const DWORD pathSize = GetEnvironmentVariableW(L"SAM_UAC_TEST_READY_PATH", nullptr, 0);
+        if (pathSize && pathSize <= 32768)
         {
-            for (int i = 0; i < activePanel->Files->Count; ++i)
+            try
             {
-                const auto& item = activePanel->Files->At(i);
-                if (!activePanel->GetSel(activePanel->Dirs->Count + i)) continue;
-                const std::wstring itemName = item.UseWideName() ? std::wstring(item.NameW) :
-                    SalMultiByteToWidePath(item.Name, IsValidPathUtf8Text(item.Name) ? CP_UTF8 : CP_ACP);
-                if (itemName == expectedName)
+                std::vector<wchar_t> expectedPath(pathSize);
+                wchar_t expectedName[512]{}, loadedEvent[256]{}, readyEvent[256]{};
+                const DWORD pathLen = GetEnvironmentVariableW(L"SAM_UAC_TEST_READY_PATH", expectedPath.data(), pathSize);
+                const DWORD nameLen = GetEnvironmentVariableW(L"SAM_UAC_TEST_READY_NAME", expectedName, _countof(expectedName));
+                const DWORD loadedLen = GetEnvironmentVariableW(L"SAM_UAC_TEST_LOADED_EVENT", loadedEvent, _countof(loadedEvent));
+                const DWORD readyLen = GetEnvironmentVariableW(L"SAM_UAC_TEST_READY_EVENT", readyEvent, _countof(readyEvent));
+                if (pathLen && pathLen < pathSize && nameLen && nameLen < _countof(expectedName) &&
+                    wcscmp(activePanel->GetPathW(), expectedPath.data()) == 0)
                 {
-                    HANDLE event = OpenEventW(EVENT_MODIFY_STATE, FALSE, eventName);
-                    if (event) { SetEvent(event); CloseHandle(event); }
+                    for (int i = 0; i < activePanel->Files->Count; ++i)
+                    {
+                        const auto& item = activePanel->Files->At(i);
+                        const std::wstring itemName = item.UseWideName() ? std::wstring(item.NameW) :
+                            SalMultiByteToWidePath(item.Name, IsValidPathUtf8Text(item.Name) ? CP_UTF8 : CP_ACP);
+                        if (itemName != expectedName) continue;
+                        auto signal = [](const wchar_t* name)
+                        {
+                            HANDLE event = OpenEventW(EVENT_MODIFY_STATE, FALSE, name);
+                            if (event) { SetEvent(event); CloseHandle(event); }
+                        };
+                        if (loadedLen && loadedLen < _countof(loadedEvent)) signal(loadedEvent);
+                        if (readyLen && readyLen < _countof(readyEvent) && EnablerFilesCopy && selCount == 1 &&
+                            activePanel->GetSel(activePanel->Dirs->Count + i)) signal(readyEvent);
+                        break;
+                    }
                 }
-                break;
             }
+            catch (const std::bad_alloc&) { /* observation failure leaves test waiting */ }
         }
     }
 #endif
