@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Record clean case-sensitive rename builds. | Distinguish compiled broker and host from pending interactive UAC testing. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record exact case-sensitive file and directory renames. | Distinguish local NTFS evidence from remaining link and UAC acceptance. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record in-place overwrite failure boundaries. | Keep data-loss prevention separate from unproven transactional recovery. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record the batch overwrite coordination boundary. | Avoid treating disabled Scan Ahead as proof of serial execution. | #731 | GPT-6 (Codex) |
@@ -698,6 +699,8 @@ Stav: **částečně implementováno a ověřeno lokálně; společná VM akcept
 Host i broker se sestavily pro x64 v Debug a Release. V obou konfiguracích prošlo **35** kontrol řídicí cesty přechodu panelu, **70** kontrol skutečného controlleru přejmenování, **132** kontrol workeru přepisu, **353** nativních leaf kontrol a **314** transportních kontrol. Prošly také Branch kontrakty (**21**, **30** a **22**) a **28** copy-path kontrol. Testy zahrnují odmítnutí, záměnu revize či objektu, zachování staré cache, Unicode cesty a skutečný case-sensitive adresář. Jde o místní testy; systémovou výzvu, návrat do popředí a složené scénáře ověří až společná VM akceptace. Logy jsou v `C:\Samandarin\builds\uac-next-block-20261111` a `C:\Samandarin\builds\uac-change-case-20261111`.
 
 Navazující změna zkoumá příznak case sensitivity na ověřeném rodiči. Jen u case-only přejmenování běžného souboru či adresáře v takto výslovně označené složce otevírá přesný zdroj a cíl bez case-insensitive vyhledávání; při volném přesném názvu zůstává samotné přejmenování atomicky bez náhrady cíle. Ostatní režimy používají dosavadní cestu. Na skutečném NTFS prošla nativní sada v Debug i Release **385 PASS, 0 FAIL, 0 SKIP** v každé konfiguraci, včetně souboru a adresáře, zachování podstromu, Unicode cesty přes `MAX_PATH`, staré identity zdroje a rodiče i již obsazeného cíle. Pozdní kolize byla vytvořena po otevření zdroje a testuje přímo no-replace `NativeRename`, nikoli celý souběžný `MoveVerifiedFile`. Stejná opravená reprodukce proti původnímu helperu vrátila chybu 2. Skutečný brokerový transport, systémový souhlas a společná VM akceptace zůstávají otevřené. Logy jsou v `C:\Samandarin\builds\uac-n2-case-sensitive-20261112`.
+
+Na čistém commitu `f6b10e51`, obsahově shodném s integrovaným `b9e4765e`, prošel x64 build hosta a brokeru v Debug i Release; všechny příkazy vrátily exit 0. Jde o důkaz překladu, nikoli interaktivního UAC. Logy jsou ve stejné složce.
 
 Stejně sestavené x64 Release binárky před/po: `salamand.exe` 5 770 240 → 5 772 800 B, `uacbroker.exe` 1 397 760 → 1 397 760 B, dohromady 7 168 000 → 7 170 560 B (+2 560 B). Měření soukromé paměti běžné a elevované úlohy zůstává součástí odložené společné VM akceptace.
 
