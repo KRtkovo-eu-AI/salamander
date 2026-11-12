@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Refuse elevated laboratory fixture processes. | Avoid running user-writable test images with administrative rights. | #731 | GPT-6 |
 | 2026-11-12 | Refuse non-thin launches from laboratory locations. | Prevent accidental elevation of user-writable fixture images. | #731 | GPT-6 |
 | 2026-11-12 | Isolate unelevated integration fixtures from installed builds. | Exercise the worker without modifying the protected installation. | #731 | GPT-6 |
 | 2026-11-12 | Gate unelevated worker integration behind a test-only build. | Exercise the real broker process without claiming a UAC boundary. | #731 | GPT-6 |
@@ -491,6 +492,14 @@ public:
         if (GetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", enabled, ARRAYSIZE(enabled)) == 1 &&
             enabled[0] == L'1')
         {
+            HANDLE rawToken = nullptr;
+            if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &rawToken)) return false;
+            const auto token = Adopt(rawToken);
+            TOKEN_ELEVATION elevation{};
+            DWORD tokenBytes = 0;
+            if (!GetTokenInformation(token.get(), TokenElevation, &elevation, sizeof(elevation), &tokenBytes) ||
+                tokenBytes != sizeof(elevation) || elevation.TokenIsElevated)
+                return false;
             wchar_t requested[32768]{};
             const DWORD length = GetEnvironmentVariableW(L"SAM_UAC_THIN_TEST_INSTALL", requested, ARRAYSIZE(requested));
             if (!length || length >= ARRAYSIZE(requested) || length < 4 || requested[1] != L':' || requested[2] != L'\\')
@@ -3826,6 +3835,16 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &rawToken))
         return Report(Untrusted, L"Open broker token", GetLastError());
     const auto token = Adopt(rawToken);
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (thinUnelevatedTest)
+    {
+        TOKEN_ELEVATION elevation{};
+        DWORD tokenBytes = 0;
+        if (!GetTokenInformation(token.get(), TokenElevation, &elevation, sizeof(elevation), &tokenBytes) ||
+            tokenBytes != sizeof(elevation) || elevation.TokenIsElevated)
+            return Report(Untrusted, L"Test broker must not be elevated", ERROR_ACCESS_DENIED);
+    }
+#endif
     if (!Elevated(token.get())
 #ifdef SAM_UAC_THIN_COPY_TEST
         && !thinUnelevatedTest
