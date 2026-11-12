@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Record clean case-sensitive link builds. | Separate broker compilation from pending UAC and VM acceptance. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record exact case-sensitive link renames. | Separate real NTFS identity and collision evidence from pending UAC acceptance. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record clean protected View With builds. | Keep host compilation evidence separate from shared-session and VM acceptance. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Add guarded panel View With for internal viewers. | Record exact identity, partial local evidence and remaining session work. | #731 | GPT-6 (Codex) |
@@ -708,6 +709,8 @@ Host i broker se sestavily pro x64 v Debug a Release. V obou konfiguracích pro�
 Navazující změna zkoumá příznak case sensitivity na ověřeném rodiči. Jen u case-only přejmenování běžného souboru či adresáře v takto výslovně označené složce otevírá přesný zdroj a cíl bez case-insensitive vyhledávání; při volném přesném názvu zůstává samotné přejmenování atomicky bez náhrady cíle. Ostatní režimy používají dosavadní cestu. Na skutečném NTFS prošla nativní sada v Debug i Release **385 PASS, 0 FAIL, 0 SKIP** v každé konfiguraci, včetně souboru a adresáře, zachování podstromu, Unicode cesty přes `MAX_PATH`, staré identity zdroje a rodiče i již obsazeného cíle. Pozdní kolize byla vytvořena po otevření zdroje a testuje přímo no-replace `NativeRename`, nikoli celý souběžný `MoveVerifiedFile`. Stejná opravená reprodukce proti původnímu helperu vrátila chybu 2. Skutečný brokerový transport, systémový souhlas a společná VM akceptace zůstávají otevřené. Logy jsou v `C:\Samandarin\builds\uac-n2-case-sensitive-20261112`.
 
 Tentýž přesný postup nyní pokrývá i typované symbolické odkazy souborů a adresářů a junction, aniž by se sledoval jejich referent. Původní helper v case-sensitive rodiči u každého z těchto tří typů s volným přesným cílem vrátil chybu 2. Po opravě prošla nativní NTFS sada v Debug i Release **397 PASS, 0 FAIL, 0 SKIP** v každé konfiguraci, pod tokenem **Medium integrity** se skupinou Administrators pouze deny-only. Nové kontroly zahrnují nesprávné ID, existující cíl a volný cíl pro každý typ, navíc dlouhý Unicode symlink přes `MAX_PATH`; ověřují ID, nezměněná surová reparse data i obsah referentů. Kolizní test přijímá libovolnou chybu a dokládá zachování obou objektů, nikoli konkrétní chybové hlášení. Jde o přímé lokální testy helperu, nikoli systémový UAC, brokerový transport či interaktivní test ve VM. Logy jsou v `C:\Samandarin\builds\uac-sensitive-links-b328821a`.
+
+Na čistém commitu `e579c226`, obsahově shodném s integrovaným `64c2606f`, prošel x64 broker build v Debug i Release; logy jsou v `C:\Samandarin\builds\uac-sensitive-links-e579c226`. Build neprokazuje běh ani interaktivní souhlas.
 
 Na čistém commitu `f6b10e51`, obsahově shodném s integrovaným `b9e4765e`, prošel x64 i Win32 build hosta a brokeru v Debug i Release; všechny příkazy vrátily exit 0. Jde o důkaz překladu, nikoli interaktivního UAC. Logy jsou ve stejné složce.
 
