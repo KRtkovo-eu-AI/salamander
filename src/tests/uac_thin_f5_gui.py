@@ -107,6 +107,10 @@ class Native:
         self.user.GetWindowTextW.restype = ctypes.c_int
         self.user.IsWindowVisible.argtypes = [wintypes.HWND]
         self.user.IsWindowVisible.restype = wintypes.BOOL
+        self.user.IsWindowEnabled.argtypes = [wintypes.HWND]
+        self.user.IsWindowEnabled.restype = wintypes.BOOL
+        self.user.IsWindow.argtypes = [wintypes.HWND]
+        self.user.IsWindow.restype = wintypes.BOOL
         self.user.GetDlgItem.argtypes = [wintypes.HWND, ctypes.c_int]
         self.user.GetDlgItem.restype = wintypes.HWND
         self.user.GetWindow.argtypes = [wintypes.HWND, wintypes.UINT]
@@ -123,6 +127,8 @@ class Native:
         self.kernel.WaitForSingleObject.restype = wintypes.DWORD
         self.kernel.CloseHandle.argtypes = [wintypes.HANDLE]
         self.kernel.CloseHandle.restype = wintypes.BOOL
+        self.kernel.SetEvent.argtypes = [wintypes.HANDLE]
+        self.kernel.SetEvent.restype = wintypes.BOOL
 
     def text(self, handle):
         count = self.user.GetWindowTextLengthW(handle)
@@ -261,6 +267,12 @@ def confirm_own_cancel(native, process, progress, deadline):
     native.post(progress, WM_COMMAND, IDCANCEL)
     question = wait_until(own_question, process, deadline, "own cancel confirmation")
     native.post(question, WM_COMMAND, IDYES)
+    wait_until(lambda: not native.user.IsWindow(question), process, deadline, "cancel confirmation close")
+    pause = native.user.GetDlgItem(progress, IDB_PAUSERESUME)
+    if not pause:
+        raise RuntimeError("cancelled progress window lost its pause control")
+    # CProgressDlg signals CancelWorkerEvent before disabling Pause.
+    wait_until(lambda: not native.user.IsWindowEnabled(pause), process, deadline, "native cancellation signal")
 
 
 def own_hive_ready(hive_path, marker):
@@ -343,6 +355,8 @@ def main():
     parser.add_argument("--mode", choices=("sync", "async"), required=True)
     parser.add_argument("--fault", choices=("none", "read", "write"), default="none")
     parser.add_argument("--scenario", choices=("copy", "pause", "cancel", "speed"), default="copy")
+    parser.add_argument("--cancel-after-handle", choices=("source", "target"),
+                        help="test-only gate after a broker handle is accepted")
     parser.add_argument("--collision", choices=("none", "replace", "skip"), default="none")
     parser.add_argument("--long-path", action="store_true", help="prepare multi-component Unicode paths beyond MAX_PATH")
     parser.add_argument("--speed-kib", type=int, default=1024, choices=range(1024, 8193), metavar="1024..8192")
@@ -358,6 +372,8 @@ def main():
         parser.error("retry faults and pause/cancel/speed are separate test scenarios")
     if args.collision != "none" and (args.scenario != "copy" or args.fault != "none"):
         parser.error("collision, fault and progress cases are separate test scenarios")
+    if args.cancel_after_handle and args.scenario != "cancel":
+        parser.error("handle-gated cancellation requires --scenario cancel")
     if not args.run:
         print("Preparation only: host was not started; no fixture was created.")
         return 0
@@ -381,9 +397,13 @@ def main():
     expected = digest(source_file)
     original_target = digest(target / source_file.name) if args.collision != "none" else None
     prefix = "UAC-Thin-F5-" + run_id
-    env = os.environ.copy()
+    # Do not let a shell's earlier acceptance settings select an unintended
+    # test hook, path, marker, or fault in this new process.
+    env = {key: value for key, value in os.environ.items() if not key.upper().startswith("SAM_UAC_TEST_")}
     env["SAM_UAC_TEST_COPY_MODE"] = args.mode
     env["SAM_UAC_TEST_FAIL"] = args.fault
+    if args.cancel_after_handle:
+        env["SAM_UAC_TEST_HANDLE_ROLE"] = args.cancel_after_handle
     env["SAM_UAC_TEST_ISOLATION_NONCE"] = run_id
     marker = "Software\\SamandarinThinProbe-" + run_id
     if not absent(marker):
@@ -408,6 +428,11 @@ def main():
             name = "Local\\" + prefix + "-" + key
             env["SAM_UAC_TEST_" + key + "_EVENT"] = name
             events[key] = native.make_event(name)
+        if args.cancel_after_handle:
+            for key in ("HANDLE_EVENT", "HANDLE_RELEASE"):
+                name = "Local\\" + prefix + "-" + key
+                env["SAM_UAC_TEST_" + key] = name
+                events[key] = native.make_event(name)
         process = subprocess.Popen([str(test_exe), "-c", str(config), "-t", prefix, "-p", "1",
                                     "-l", str(source), "-r", str(target), "-language", "english"],
                                    cwd=str(test_exe.parent), env=env, creationflags=CREATE_NEW_CONSOLE)
@@ -466,7 +491,8 @@ def main():
                         broker_sample["pid_provenance"] = "test-only PID file; identity handshake not yet implemented"
                 memory_samples.append({"seconds": now - started, "host": host_sample, "broker": broker_sample})
                 last_sample = now
-            if progress and native.signalled(events["ENTER"]) and not action:
+            accepted = not args.cancel_after_handle or native.signalled(events["HANDLE_EVENT"])
+            if progress and native.signalled(events["ENTER"]) and accepted and not action:
                 if args.scenario == "pause":
                     native.post(progress, WM_COMMAND, IDB_PAUSERESUME)
                     pause_button = native.user.GetDlgItem(progress, IDB_PAUSERESUME)
@@ -486,6 +512,8 @@ def main():
                     action = True
                 elif args.scenario == "cancel":
                     confirm_own_cancel(native, process, progress, deadline)
+                    if args.cancel_after_handle and not native.kernel.SetEvent(events["HANDLE_RELEASE"]):
+                        raise ctypes.WinError(ctypes.get_last_error())
                     action = True
             for handle in native.windows(process.pid):
                 if native.class_name(handle) != "#32770":
@@ -544,6 +572,8 @@ def main():
             raise RuntimeError("source changed")
         result = {"Fixture": str(root), "HostPid": process.pid, "Mode": args.mode, "Scenario": args.scenario,
                   "Fault": args.fault, "Collision": args.collision, "LongPath": args.long_path,
+                  "CancelAfterHandle": args.cancel_after_handle,
+                  "HandleGateObserved": bool(args.cancel_after_handle and native.signalled(events["HANDLE_EVENT"])),
                   "CollisionAnswered": collision_answered, "OriginalTargetSha256": original_target,
                   "RetryObserved": retried, "SourceSha256": expected,
                   "TargetSha256": digest(destination) if exists(destination) else None,
