@@ -371,6 +371,8 @@ def main():
     parser.add_argument("--expected-broker-image", type=Path, help="verified test broker image for memory samples")
     parser.add_argument("--mode", choices=("sync", "async"), required=True)
     parser.add_argument("--fault", choices=("none", "read", "write"), default="none")
+    parser.add_argument("--deny-open", choices=("source", "target", "both"),
+                        help="inject one access denial per selected side in the test-only worker")
     parser.add_argument("--scenario", choices=("copy", "pause", "cancel", "speed"), default="copy")
     parser.add_argument("--cancel-after-handle", choices=("source", "target"),
                         help="test-only gate after a broker handle is accepted")
@@ -423,6 +425,8 @@ def main():
     env = {key: value for key, value in os.environ.items() if not key.upper().startswith("SAM_UAC_TEST_")}
     env["SAM_UAC_TEST_COPY_MODE"] = args.mode
     env["SAM_UAC_TEST_FAIL"] = args.fault
+    if args.deny_open:
+        env["SAM_UAC_TEST_DENY_OPEN"] = args.deny_open
     if args.cancel_after_handle:
         env["SAM_UAC_TEST_HANDLE_ROLE"] = args.cancel_after_handle
     if args.replace_before_retry:
@@ -633,7 +637,7 @@ def main():
         if args.replace_before_retry != "source" and digest(source_file) != expected:
             raise RuntimeError("source changed")
         result = {"Fixture": str(root), "HostPid": process.pid, "Mode": args.mode, "Scenario": args.scenario,
-                  "Fault": args.fault, "Collision": args.collision, "LongPath": args.long_path,
+                  "Fault": args.fault, "DenyOpen": args.deny_open, "Collision": args.collision, "LongPath": args.long_path,
                   "CancelAfterHandle": args.cancel_after_handle,
                   "HandleGateObserved": bool(args.cancel_after_handle and native.signalled(events["HANDLE_EVENT"])),
                   "RetryReplacement": args.replace_before_retry, "ReplacementSha256": replacement_hash,
