@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Carry cursor tokens in pipe fixtures. | Test independent nested page requests. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Exercise verified paged metadata over the dispatcher pipe. | Check scoped cursors without restarting or exposing incomplete pages. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Test converted Find identities through the View dispatcher. | Reject readable same-name substitutions before returning bytes. | #731 | GPT-6.1 Terra |
@@ -493,11 +494,13 @@ public:
 
     bool PageRequest(UacListing::PagedListingOp operation, std::wstring_view path,
                      const UacF7::MoveFileIdentity* identity, UacListing::PagedListingReply& reply,
-                     std::vector<UacF7::PagedListingEntry>& entries)
+                     std::vector<UacF7::PagedListingEntry>& entries, ULONGLONG* selected = nullptr)
     {
         entries.clear();
         const auto deadline = GetTickCount64() + timeoutMs;
-        UacListing::PagedListingFrame frame{operation, 0};
+        ULONGLONG& active = selected ? *selected : pageCursor;
+        const ULONGLONG token = operation == UacListing::PagedListingOp::Open ? nextPageCursor++ : active;
+        UacListing::PagedListingFrame frame{operation, 0, token};
         UacF7::MoveFileIdentity copy = identity ? *identity : UacF7::MoveFileIdentity{};
         if (!SendFindRequest(UacListing::pagedListingRequest, path, deadline) ||
             TransferRequest(server.get(), &frame, sizeof(frame), true, deadline) ||
@@ -505,6 +508,7 @@ public:
             TransferRequest(server.get(), &reply, sizeof(reply), false, deadline) ||
             reply.count > UacF7::maxPagedListingEntries)
             return false;
+        if (operation == UacListing::PagedListingOp::Open && !reply.error) active = token;
         entries.resize(reply.count);
         return !reply.count || !TransferRequest(server.get(), entries.data(),
             reply.count * static_cast<DWORD>(sizeof(entries[0])), false, deadline);
@@ -524,6 +528,16 @@ public:
         WIN32_FIND_DATAW row{};
         return entry.empty() || (!TransferRequest(server.get(), &row, sizeof(row), false, deadline) &&
                                  entry == std::wstring_view(row.cFileName));
+    }
+
+    bool PlainList(std::wstring_view path, std::wstring_view entry)
+    {
+        const auto deadline = GetTickCount64() + timeoutMs;
+        ListingReply reply{};
+        WIN32_FIND_DATAW row{};
+        return SendFindRequest(0, path, deadline) &&
+               !TransferRequest(server.get(), &reply, sizeof(reply), false, deadline) && !reply.error && reply.count == 1 &&
+               !TransferRequest(server.get(), &row, sizeof(row), false, deadline) && entry == std::wstring_view(row.cFileName);
     }
 
     bool Inventory(std::wstring_view path, DWORD expected, DWORD files,
@@ -573,6 +587,7 @@ private:
                Finish() == ERROR_INVALID_DATA;
     }
 
+    ULONGLONG pageCursor = 0, nextPageCursor = 1;
     Handle server;
     std::thread dispatcher;
     DWORD dispatchError = ERROR_GEN_FAILURE;

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Check cursor leases across sessions. | Keep one session from addressing another session's cursor. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Test concurrent paged listing client calls. | Bind response frames to leases and cancellation. | #731 | GPT-6 (Codex) |
 #include <windows.h>
 #include <algorithm>
@@ -237,6 +238,83 @@ void StaleLease()
     Check(peerOk && pageOk && newClose == ERROR_SUCCESS, "new cursor still reads and closes normally");
 }
 
+void CrossSessionLease()
+{
+    Pair first, second;
+    if (!first.Open(10) || !second.Open(11)) { Check(false, "prepare independent lease fixture"); return; }
+    auto a = Session(first), b = Session(second);
+    const auto expected = Identity(15);
+    std::atomic<bool> peerA{false}, peerB{false};
+    auto serve = [&](Pair& pair, std::atomic<bool>& ok) {
+        UacF7::MoveFileIdentity request{};
+        ok = Request(pair.peer.get(), UacListing::PagedListingOp::Open, &request) && OpenReply(pair.peer.get(), expected) &&
+             Request(pair.peer.get(), UacListing::PagedListingOp::Close) && CloseReply(pair.peer.get());
+    };
+    std::thread pa(serve, std::ref(first), std::ref(peerA)), pb(serve, std::ref(second), std::ref(peerB));
+    UacF7::MoveFileIdentity actual{}; ULONGLONG leaseA = 0, leaseB = 0;
+    const DWORD openA = a->OpenDirectoryCursor(L"C:\\owned-fixture", expected, actual, leaseA);
+    const DWORD openB = b->OpenDirectoryCursor(L"C:\\owned-fixture", expected, actual, leaseB);
+    std::vector<UacF7::PagedListingEntry> rows; bool done = false;
+    const DWORD foreignNext = a->NextDirectoryPage(leaseB, rows, done);
+    const DWORD foreignClose = b->CloseDirectoryCursor(leaseA);
+    const bool quiet = NoBytes(first.peer.get()) && NoBytes(second.peer.get());
+    const DWORD closeA = a->CloseDirectoryCursor(leaseA), closeB = b->CloseDirectoryCursor(leaseB);
+    pa.join(); pb.join();
+    Check(!openA && !openB && leaseA && leaseB && leaseA != leaseB &&
+          foreignNext == ERROR_INVALID_HANDLE && foreignClose == ERROR_INVALID_HANDLE && quiet &&
+          !closeA && !closeB && peerA && peerB,
+          "leases from separate sessions cannot address or close one another's cursor");
+}
+
+void StopDuringContentWithCursor()
+{
+    Pair pair;
+    const auto arrived = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto release = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    const auto stop = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    if (!pair.Open(12) || !arrived || !release || !stop) { Check(false, "prepare content Stop fixture"); return; }
+    auto session = Session(pair);
+    session->prepared.operation = UacF7::Operation::FindContent;
+    session->stopEvent = stop.get();
+    const auto expected = Identity(19);
+    std::atomic<bool> peerOk{false};
+    std::thread peer([&] {
+        UacF7::MoveFileIdentity request{};
+        bool ok = true;
+        for (size_t i = 0; i < UacF7::maxPagedDirectoryCursors && ok; ++i)
+            ok = Request(pair.peer.get(), UacListing::PagedListingOp::Open, &request) && OpenReply(pair.peer.get(), expected);
+        DWORD length = 0; std::wstring relative;
+        ok = ok && Read(pair.peer.get(), &length, sizeof(length)) && (length & UacListing::contentRequest);
+        length &= ~UacListing::contentRequest;
+        relative.resize(length);
+        ok = ok && Read(pair.peer.get(), relative.data(), length * sizeof(wchar_t)) && relative == L"file.txt";
+        DWORD status = 0; UacF7::ArchiveRevision revision{}; revision.size = 1;
+        ok = ok && Write(pair.peer.get(), &status, sizeof(status)) && Write(pair.peer.get(), &revision, sizeof(revision));
+        UacF7::ArchiveReadRange range{};
+        ok = ok && Read(pair.peer.get(), &range, sizeof(range)) && range.size == 1;
+        SetEvent(arrived.get());
+        ok = ok && Wait(release.get());
+        peerOk = ok;
+    });
+    UacF7::MoveFileIdentity actual{}; ULONGLONG size = 0; FILETIME modified{};
+    std::array<ULONGLONG, UacF7::maxPagedDirectoryCursors> leases{};
+    UacF7::ArchiveRevision revision{};
+    bool opened = true;
+    for (auto& lease : leases)
+        opened = opened && !session->OpenDirectoryCursor(L"C:\\owned-fixture", expected, actual, lease);
+    const DWORD content = session->OpenContent(L"C:\\owned-fixture\\file.txt", size, modified, revision);
+    BYTE byte = 0; DWORD readError = MAXDWORD;
+    std::thread reader([&] { readError = session->ReadContent(0, &byte, 1); });
+    const bool active = Wait(arrived.get());
+    SetEvent(stop.get());
+    reader.join();
+    bool closed = !session->IsOpen();
+    for (auto lease : leases) closed = closed && session->CloseDirectoryCursor(lease) == ERROR_INVALID_STATE;
+    SetEvent(release.get()); peer.join();
+    Check(opened && !content && active && readError == ERROR_CANCELLED && closed && peerOk,
+          "Stop during content read closes the pipe and all 33 active cursor leases");
+}
+
 void ForegroundBeforeLaterPage()
 {
     Pair pair;
@@ -436,6 +514,8 @@ int main()
 {
     SerializedAndCancelledWaiter();
     StaleLease();
+    CrossSessionLease();
+    StopDuringContentWithCursor();
     ForegroundBeforeLaterPage();
     PartialReplyAndCancellation();
     PartialPage();

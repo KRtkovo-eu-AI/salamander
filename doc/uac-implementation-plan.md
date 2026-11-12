@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Record paged protected Find and identity limits. | Separate broker and local evidence from pending UI and VM validation. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record paged Branch retry and identity boundaries. | Separate real NTFS and pipe evidence from remaining UI and VM acceptance. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record scoped Branch retry and local evidence. | Distinguish accessible results, protocol checks and remaining VM acceptance. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Correct the active integration status and highlight overwrite risk. | Keep the current local branch and safety boundary visible before VM acceptance. | #731 | GPT-6 (Codex) |
@@ -469,7 +470,7 @@ Publikovaným základem je `feature/uac-support`; další změny zůstávají v 
 ### Stav rozpracované práce — 12. listopadu 2026
 
 - **Místní commity:** navazující změny jsou sjednocené v pracovní kopii `C:\Samandarin\uac-integrated41` na větvi `local/uac-integrated41`, včetně úprav F5/F6, metadat, Branch View a Findu. Jednotlivé odstavce níže uvádějí přesný podporovaný rozsah a místní testy; jejich úspěch neznamená dokončení celé položky auditu. Rozpracované změny v původní pracovní kopii jsou zachované samostatně.
-- **Prototypy:** stránkovaný výpis velkých chráněných složek ve Findu a hromadný Change Case dosud nejsou hotové ani schválené pro nasazení. U stránkování je nutné zajistit identitu při následných operacích; u Change Case přesný rozsah souhlasu, původní konfliktní dialogy a životnost panelu. Původní rozpracovaná změna F7 zůstává zachovaná mimo tuto větev a vyžaduje dořešení životnosti panelu.
+- **Rozpracované a neověřené části:** stránkovaný chráněný Find je implementovaný a místně otestovaný v rozsahu uvedeném níže; skutečné UI a VM akceptace čekají. Hromadný Change Case zatím není hotový: vyžaduje přesný rozsah souhlasu, původní konfliktní dialogy a životnost panelu. Původní rozpracovaná změna F7 zůstává zachovaná mimo tuto větev a vyžaduje dořešení životnosti panelu.
 - **Akceptace:** aktuální souhrn změn zatím nemá společný důkaz z izolované VM. VM scénáře a další otevřené bezpečnostní hranice níže zůstávají otevřené; výsledky dřívějších buildů nejsou důkazem pro nové změny. Lokální commity se neposílají na GitHub bez výslovného pokynu.
 - **Ochrana cíle F5:** u souběžného i sériového přímého přepisu existuje při selhání cesta, která může odstranit již zkrácený cíl. Ochrana původního obsahu při přerušení není obecně implementovaná; podrobnosti a potřebná transakční záruka jsou u T5 níže. Aktuální stav není vhodný pro ověřování na nenahraditelných datech.
 
@@ -813,6 +814,13 @@ Host a broker x64 se sestavily v Debug i Release, sonda v Release a anglický ja
 Pozitivní lokální stage/Publish test používá testovací kontrolu zabezpečení: místní token nemá `SeSecurityPrivilege`, takže skutečný produkční `ProtectedObject` a čtení SACL nejsou tímto testem doloženy. Tyto scénáře, skutečné UAC, popředí, výkon a soukromá paměť hosta i brokeru vyžadují společnou VM akceptaci.
 
 Stejně sestavené Release binárky proti `dbefc233`: `salamand.exe` 5 775 872 → 5 776 896 B, `uacbroker.exe` 1 404 928 → 1 405 952 B, dohromady 7 180 800 → 7 182 848 B (+2 048 B).
+
+## Stránkovaný chráněný Find
+
+- **Implementace:** Již schválená relace `List` nebo `FindContent` používá stránky s identitou nejvýše 64 položek. Až 33 současných kurzorů zachovává dosavadní hloubkové procházení s limitem hloubky 32; čtení obsahu probíhá ve stejné relaci. Broker kontroluje rozsah a identitu adresářů. Čtení obsahu a pozdější hashování chráněných výsledků se váže k identitě z výpisu; Refine ji zachovává. Výsledky s nezávislou nebo neznámou identitou se konzervativně neslučují, proto mohou zůstat vizuálně duplicitní. Protokol je **44**; před spojením s experimentální větví vieweru je nutné protokoly sjednotit a znovu ověřit.
+- **Místní důkazy:** Test skutečného broker dispatcheru na NTFS prošel v Debug i Release včetně 4 104 položek, 33 vnořených kurzorů, souběžného čtení obsahu, kontroly rozsahu a identity a uvolnění kurzorů po ztrátě spojení. Klientská relace proti řízenému protějšku prošla 15/15 v každé konfiguraci; izolovaná produkční logika procházení 35/35 a provenience výsledků 28/28 v každé konfiguraci. Poslední dvě sady používají simulovaný zdroj stránek. Host a broker se sestavily pro x64 Debug i Release; host má dvě stávající varování MSB8028 sdíleného `IntDir`. Před- a posestavovací manifest zdrojů se shoduje: `5b106809b08b160fc1916ba89b23b5521981acecc4b93cb76605e19ed77b513e`. Výstupy jsou v `C:\Samandarin\builds\uac-find-paging-final-20261112`.
+- **Omezení a zbývající ověření:** Nepodporuje-li poskytovatel stránkování, používá se před první stránkou původní výpis s limitem 4 096 položek a jeho původními hranicemi identity. Nové připnutí chráněné cesty může při cizím otevřeném handle s právem DELETE skončit `ERROR_SHARING_VIOLATION`, přestože starší výpis povolující sdílené mazání projde; ověřeno na NTFS. Výpis není atomický snímek a mezi položkami nelze zcela vyloučit opětovné použití ID. Přerušení čekání nezaručuje dokončení systémového I/O. Skutečné UI, UAC a společné scénáře ve VM zatím ověřeny nejsou.
+- **Paměť:** Samostatné měření odpovídajícího rozložení struktury ukázalo nárůst o 16 bajtů na výsledek x64 a 8 bajtů Win32; pro milion chráněných kandidátů k porovnání obsahu navíc požaduje každá sdílená identita přibližně 40 bajtů. Jde o měření izolované struktury a alokací, nikoli celkové paměti aplikace.
 
 ## Další postup
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Retain paged duplicate identities. | Revalidate the same protected file when hashing later. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Retain protected Find provenance through viewing and refinement. | Refuse pathname-only reads when identity cannot be preserved. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
@@ -215,7 +216,7 @@ void CloseFindWatchdog(CFindWatchdog* watchdog);
 std::wstring PollFindWatchdogs(HWND mainWindow);
 
 class CFindLog;
-namespace UacF7 { struct FindRootIdentity; class PreparedLeaf; }
+namespace UacF7 { struct FindRootIdentity; struct MoveFileIdentity; class PreparedLeaf; }
 
 struct CGrepData
 {
@@ -596,6 +597,7 @@ struct CFoundFilesData
     DWORD Attr;
     FILETIME LastWrite;
     std::shared_ptr<const UacF7::PreparedLeaf> FoundView; // exact file identity from a protected search
+    std::shared_ptr<const UacF7::MoveFileIdentity> ProtectedListedIdentity; // retained only for deferred protected duplicate reads
 
     // 'Group' is used in two ways:
     // 1) while searching for duplicate files, when contents are compared,

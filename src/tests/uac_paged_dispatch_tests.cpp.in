@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Interleave Find content with identity pages. | Verify the allowed scope and pipe termination on an interrupted read. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Exercise scoped identity pages through the real dispatcher. | Check paging, identity and scope without a UAC or UI claim. | #731 | GPT-6 (Codex) |
 @@JOB_FIXTURE@@
 #include <set>
@@ -18,6 +19,133 @@ int wmain()
     if (!target || !GetFileInformationByHandleEx(target.get(), FileIdInfo, &targetId, sizeof(targetId))) return 4;
     UacF7::MoveFileIdentity expected{targetId.VolumeSerialNumber};
     std::memcpy(expected.id, targetId.FileId.Identifier, sizeof(expected.id));
+    const auto smallPath = root.File(L"verified-\u6771");
+    if (!CreateDirectoryW(smallPath.c_str(), nullptr) || !WriteByte(smallPath + L"\\\u65e5.txt", 9)) return 12;
+    const auto smallHandle = Adopt(CreateFileW(smallPath.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    FILE_ID_INFO smallId{};
+    if (!smallHandle || !GetFileInformationByHandleEx(smallHandle.get(), FileIdInfo, &smallId, sizeof(smallId))) return 13;
+    for (const auto scope : {Operation::List, Operation::FindContent})
+    {
+        JobPipe verified;
+        FILE_ID_INFO wrongSmall = smallId; wrongSmall.FileId.Identifier[0] ^= 1;
+        Check(verified.Open(nullptr, root.handle.get(), scope) &&
+              verified.CompareList(L"verified-\u6771", smallId, ERROR_SUCCESS, L"\u65e5.txt") &&
+              verified.CompareList(L"verified-\u6771", wrongSmall, ERROR_FILE_INVALID),
+              "verified legacy descendant listing accepts exact ID and rejects a replacement");
+        JobPipe noRoot;
+        Check(noRoot.Open(nullptr, root.handle.get(), scope) && noRoot.RejectFindRequest(UacListing::verifiedListingRequest),
+              "Find listing scopes reject a verified request for the root itself");
+    }
+    for (const auto scope : {Operation::Inventory, Operation::FindFile})
+    {
+        JobPipe denied;
+        Check(denied.Open(nullptr, root.handle.get(), scope) && denied.RejectFindRequest(UacListing::verifiedListingRequest | 1),
+              "unrelated scope rejects a verified descendant listing");
+    }
+    {
+        UacListing::PagedListingReply reply{};
+        std::vector<UacF7::PagedListingEntry> rows;
+        const auto lockedPath = root.File(L"delete-locked");
+        if (!CreateDirectoryW(lockedPath.c_str(), nullptr) || !WriteByte(lockedPath + L"\\readable.txt", 1)) return 15;
+        auto deleteHandle = Adopt(CreateFileW(lockedPath.c_str(), DELETE | FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        FILE_ID_INFO lockedId{};
+        if (!deleteHandle || !GetFileInformationByHandleEx(deleteHandle.get(), FileIdInfo, &lockedId, sizeof(lockedId))) return 16;
+        UacF7::MoveFileIdentity lockedExpected{lockedId.VolumeSerialNumber};
+        std::memcpy(lockedExpected.id, lockedId.FileId.Identifier, sizeof(lockedExpected.id));
+        for (const auto scope : {Operation::List, Operation::FindContent})
+        {
+            JobPipe denied;
+            Check(denied.Open(nullptr, root.handle.get(), scope) && denied.PlainList(L"delete-locked", L"readable.txt") &&
+                  denied.PageRequest(UacListing::PagedListingOp::Open, L"delete-locked", &lockedExpected, reply, rows) &&
+                  reply.error == ERROR_SHARING_VIOLATION && rows.empty() &&
+                  denied.CompareList(L"delete-locked", lockedId, ERROR_SHARING_VIOLATION),
+                  "preexisting DELETE handle permits old List but verified paging fails closed");
+        }
+        deleteHandle.reset();
+        for (const auto scope : {Operation::List, Operation::FindContent})
+        {
+            JobPipe retry;
+            Check(retry.Open(nullptr, root.handle.get(), scope) &&
+                  retry.PageRequest(UacListing::PagedListingOp::Open, L"delete-locked", &lockedExpected, reply, rows) && !reply.error &&
+                  retry.PageRequest(UacListing::PagedListingOp::Close, {}, nullptr, reply, rows) && !reply.error,
+                  "verified paging succeeds when the conflicting DELETE handle is released");
+        }
+    }
+    {
+        UacListing::PagedListingReply reply{};
+        std::vector<UacF7::PagedListingEntry> rows;
+        const auto parentPath = root.File(L"delete-locked-parent");
+        const auto childPath = parentPath + L"\\child";
+        if (!CreateDirectoryW(parentPath.c_str(), nullptr) || !CreateDirectoryW(childPath.c_str(), nullptr) ||
+            !WriteByte(childPath + L"\\readable.txt", 1)) return 17;
+        auto child = Adopt(CreateFileW(childPath.c_str(), FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        FILE_ID_INFO childId{};
+        if (!child || !GetFileInformationByHandleEx(child.get(), FileIdInfo, &childId, sizeof(childId))) return 18;
+        child.reset();
+        auto deleteHandle = Adopt(CreateFileW(parentPath.c_str(), DELETE | FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        if (!deleteHandle) return 19;
+        UacF7::MoveFileIdentity childExpected{childId.VolumeSerialNumber};
+        std::memcpy(childExpected.id, childId.FileId.Identifier, sizeof(childExpected.id));
+        for (const auto scope : {Operation::List, Operation::FindContent})
+        {
+            JobPipe denied;
+            Check(denied.Open(nullptr, root.handle.get(), scope) &&
+                  denied.PlainList(L"delete-locked-parent\\child", L"readable.txt") &&
+                  denied.PageRequest(UacListing::PagedListingOp::Open, L"delete-locked-parent\\child", &childExpected, reply, rows) &&
+                  reply.error == ERROR_SHARING_VIOLATION && rows.empty() &&
+                  denied.CompareList(L"delete-locked-parent\\child", childId, ERROR_SHARING_VIOLATION),
+                  "preexisting DELETE handle on ancestor preserves old List but verified paging fails closed");
+        }
+        deleteHandle.reset();
+        for (const auto scope : {Operation::List, Operation::FindContent})
+        {
+            JobPipe retry;
+            Check(retry.Open(nullptr, root.handle.get(), scope) &&
+                  retry.PageRequest(UacListing::PagedListingOp::Open, L"delete-locked-parent\\child", &childExpected, reply, rows) && !reply.error &&
+                  retry.PageRequest(UacListing::PagedListingOp::Close, {}, nullptr, reply, rows) && !reply.error,
+                  "verified descendant paging succeeds after the ancestor DELETE handle closes");
+        }
+    }
+    {
+        const auto casePath = root.File(L"case-parent");
+        const bool created = CreateDirectoryW(casePath.c_str(), nullptr) != FALSE;
+        const auto caseHandle = Adopt(CreateFileW(casePath.c_str(), FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        ULONG enabled = 1;
+        const bool caseEnabled = created && caseHandle && SetFileInformationByHandle(caseHandle.get(),
+            static_cast<FILE_INFO_BY_HANDLE_CLASS>(23), &enabled, sizeof(enabled));
+        if (caseEnabled && CreateDirectoryW((casePath + L"\\a").c_str(), nullptr) &&
+            CreateDirectoryW((casePath + L"\\A").c_str(), nullptr) &&
+            WriteByte(casePath + L"\\a\\lower.txt", 1) && WriteByte(casePath + L"\\A\\upper.txt", 2))
+        {
+            auto lower = Adopt(CreateFileW((casePath + L"\\a").c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+            auto upper = Adopt(CreateFileW((casePath + L"\\A").c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+            FILE_ID_INFO lowId{}, highId{};
+            const bool ids = lower && upper && GetFileInformationByHandleEx(lower.get(), FileIdInfo, &lowId, sizeof(lowId)) &&
+                GetFileInformationByHandleEx(upper.get(), FileIdInfo, &highId, sizeof(highId)) &&
+                std::memcmp(lowId.FileId.Identifier, highId.FileId.Identifier, sizeof(lowId.FileId.Identifier));
+            JobPipe exact;
+            Check(ids && exact.Open(nullptr, root.handle.get(), Operation::FindContent) &&
+                  exact.CompareList(L"case-parent\\a", lowId, ERROR_SUCCESS, L"lower.txt") &&
+                  exact.CompareList(L"case-parent\\A", highId, ERROR_SUCCESS, L"upper.txt") &&
+                  exact.CompareList(L"case-parent\\a", highId, ERROR_FILE_INVALID),
+                  "verified Find fallback preserves exact case-distinct directory identities");
+        }
+        else std::printf("SKIP: case-sensitive directory fixture unavailable (%lu)\n", GetLastError());
+    }
     for (unsigned i = 0; i < 4104; ++i)
     {
         wchar_t leaf[32]{};
@@ -37,8 +165,12 @@ int wmain()
     Check(job.PageRequest(UacListing::PagedListingOp::Open, L"paged-\u6771", &expected, reply, rows) &&
           !reply.error && reply.identity.serial == expected.serial &&
           !std::memcmp(reply.identity.id, expected.id, sizeof(expected.id)), "open exact directory identity");
-    Check(job.PageRequest(UacListing::PagedListingOp::Open, L"paged-\u6771", &expected, reply, rows) &&
-          reply.error == ERROR_BUSY, "second cursor cannot replace active cursor");
+    ULONGLONG sibling = 0;
+    Check(job.PageRequest(UacListing::PagedListingOp::Open, L"paged-\u6771", &expected, reply, rows, &sibling) && !reply.error &&
+          job.PageRequest(UacListing::PagedListingOp::Next, {}, nullptr, reply, rows, &sibling) && !reply.error && !rows.empty() &&
+          job.PageRequest(UacListing::PagedListingOp::Close, {}, nullptr, reply, rows, &sibling) && !reply.error &&
+          job.PageRequest(UacListing::PagedListingOp::Next, {}, nullptr, reply, rows, &sibling) && reply.error == ERROR_INVALID_STATE,
+          "a nested token is independent and cannot be reused after close");
     std::set<std::wstring> names;
     bool complete = false, pagesOk = true;
     unsigned pages = 0;
@@ -63,6 +195,76 @@ int wmain()
           job.PageRequest(UacListing::PagedListingOp::Close, {}, nullptr, reply, rows) && !reply.error &&
           job.PageRequest(UacListing::PagedListingOp::Next, {}, nullptr, reply, rows) && reply.error == ERROR_INVALID_STATE,
           "closing one cursor prevents further reads and permits a new one");
+    {
+        JobPipe find;
+        UacF7::ArchiveRevision revision{};
+        const auto exactFile = Adopt(CreateFileW((targetPath + L"\\row-0001.txt").c_str(), FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
+        FILE_ID_INFO fileId{};
+        const bool exactId = exactFile && GetFileInformationByHandleEx(exactFile.get(), FileIdInfo, &fileId, sizeof(fileId));
+        Check(find.Open(nullptr, root.handle.get(), Operation::FindContent) &&
+              find.PageRequest(UacListing::PagedListingOp::Open, L"paged-\u6771", &expected, reply, rows) && !reply.error &&
+              find.PageRequest(UacListing::PagedListingOp::Next, {}, nullptr, reply, rows) && !reply.error && !rows.empty() &&
+              find.OpenFindContent(L"paged-\u6771\\row-0001.txt", &revision) &&
+              exactId && revision.serial == fileId.VolumeSerialNumber &&
+              !std::memcmp(revision.fileId, fileId.FileId.Identifier, sizeof(revision.fileId)) &&
+              find.ReadAndCloseFindContent(1) &&
+              find.PageRequest(UacListing::PagedListingOp::Next, {}, nullptr, reply, rows) && !reply.error && !rows.empty() &&
+              find.PageRequest(UacListing::PagedListingOp::Close, {}, nullptr, reply, rows) && !reply.error,
+              "FindContent interleaves bounded pages with one verified content read on the same pipe");
+        JobPipe stopped;
+        Check(stopped.Open(nullptr, root.handle.get(), Operation::FindContent) &&
+              stopped.PageRequest(UacListing::PagedListingOp::Open, L"paged-\u6771", &expected, reply, rows) && !reply.error &&
+              stopped.OpenFindContent(L"paged-\u6771\\row-0001.txt") && stopped.Finish() == ERROR_BROKEN_PIPE,
+              "disconnect during a content read ends the scoped dispatcher and cursor");
+    }
+    {
+        DWORD before = 0, during = 0, after = 0;
+        GetProcessHandleCount(GetCurrentProcess(), &before);
+        JobPipe many;
+        std::array<ULONGLONG, UacF7::maxPagedDirectoryCursors> tokens{};
+        bool opened = many.Open(nullptr, root.handle.get(), Operation::FindContent);
+        for (auto& token : tokens)
+            opened = opened && many.PageRequest(UacListing::PagedListingOp::Open, L"paged-\u6771", &expected, reply, rows, &token) && !reply.error;
+        ULONGLONG overflow = 0;
+        const bool limited = opened && many.PageRequest(UacListing::PagedListingOp::Open, L"paged-\u6771", &expected, reply, rows, &overflow) &&
+            reply.error == ERROR_TOO_MANY_OPEN_FILES;
+        GetProcessHandleCount(GetCurrentProcess(), &during);
+        const bool interrupted = limited &&
+            many.PageRequest(UacListing::PagedListingOp::Next, {}, nullptr, reply, rows, &tokens[0]) && !reply.error && !rows.empty() &&
+            many.OpenFindContent(L"paged-\u6771\\row-0001.txt") && many.Finish() == ERROR_BROKEN_PIPE;
+        GetProcessHandleCount(GetCurrentProcess(), &after);
+        Check(interrupted && during >= before + UacF7::maxPagedDirectoryCursors && after <= before + 2,
+              "all 33 open cursors are released when the pipe ends during content read");
+    }
+    {
+        std::wstring relative = L"depth";
+        std::wstring native = root.File(relative.c_str());
+        bool made = CreateDirectoryW(native.c_str(), nullptr) != FALSE;
+        JobPipe nested;
+        made = made && nested.Open(nullptr, root.handle.get(), Operation::FindContent);
+        std::array<ULONGLONG, UacF7::maxPagedDirectoryCursors> tokens{};
+        for (size_t i = 0; made && i < tokens.size(); ++i)
+        {
+            if (i) { relative += L"\\d"; native += L"\\d"; made = CreateDirectoryW(native.c_str(), nullptr) != FALSE; }
+            auto directory = Adopt(CreateFileW(native.c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+            FILE_ID_INFO id{};
+            made = made && directory && GetFileInformationByHandleEx(directory.get(), FileIdInfo, &id, sizeof(id));
+            UacF7::MoveFileIdentity item{id.VolumeSerialNumber};
+            std::memcpy(item.id, id.FileId.Identifier, sizeof(item.id));
+            made = made && nested.PageRequest(UacListing::PagedListingOp::Open, relative, &item, reply, rows, &tokens[i]) && !reply.error;
+        }
+        const bool parentStillWorks = made &&
+            nested.PageRequest(UacListing::PagedListingOp::Next, {}, nullptr, reply, rows, &tokens[0]) &&
+            !reply.error && rows.size() == 1 && !wcscmp(rows[0].data.cFileName, L"d");
+        bool closed = made;
+        for (size_t i = tokens.size(); i > 1; --i)
+            closed = nested.PageRequest(UacListing::PagedListingOp::Close, {}, nullptr, reply, rows, &tokens[i - 1]) && !reply.error && closed;
+        // The root cursor reached its terminal page above and is already closed.
+        Check(parentStillWorks && closed, "33 distinct nested directory cursors keep their own traversal state");
+    }
     const bool openedBeforeChange = job.PageRequest(UacListing::PagedListingOp::Open, L"paged-\u6771", &expected, reply, rows) && !reply.error;
     target.reset();
     const auto movedTarget = root.File(L"paged-moved");
@@ -107,6 +309,8 @@ int wmain()
         !GetSecurityDescriptorDacl(childDescriptor, &childPresent, &childDacl, &childDefaulted) || !childPresent ||
         SetSecurityInfo(childControl.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
                         nullptr, nullptr, childDacl, nullptr)) return 10;
+    FILE_ID_INFO childIdentity{};
+    if (!GetFileInformationByHandleEx(childControl.get(), FileIdInfo, &childIdentity, sizeof(childIdentity))) return 14;
     LocalFree(childDescriptor);
     const auto control = Adopt(CreateFileW(ancestorPath.c_str(), READ_CONTROL | WRITE_DAC,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
@@ -134,6 +338,13 @@ int wmain()
         std::vector<Handle> pins;
         HANDLE anchored = nullptr;
         const DWORD pinStatus = PinPagedDirectory(root.handle.get(), L"traverse-only\\child", nullptr, pins, anchored);
+        for (const auto scope : {Operation::List, Operation::FindContent})
+        {
+            JobPipe verified;
+            Check(verified.Open(nullptr, root.handle.get(), scope) &&
+                  verified.CompareList(L"traverse-only\\child", childIdentity, ERROR_SUCCESS),
+                  "verified legacy listing traverses a non-listable ancestor with exact child ID");
+        }
         // Restore the original ACL while the traverse-only pin is still held,
         // so that the following rename probes share-mode protection rather than
         // merely rediscovering an ACL denial.
@@ -171,7 +382,7 @@ int wmain()
     LocalFree(temporaryDescriptor);
     LocalFree(oldDescriptor);
     Check(restored == ERROR_SUCCESS, "restore disposable ancestor DACL");
-    for (const auto scope : {Operation::CompareContent, Operation::Inventory, Operation::FindFile, Operation::FindContent})
+    for (const auto scope : {Operation::CompareContent, Operation::Inventory, Operation::FindFile})
     {
         JobPipe rejected;
         Check(rejected.Open(nullptr, root.handle.get(), scope) &&

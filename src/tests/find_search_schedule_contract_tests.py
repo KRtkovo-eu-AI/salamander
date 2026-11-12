@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Check paged and legacy Find session loss. | Preserve cancellation and avoid crossing protected scopes. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Check captured Find viewer identity routing. | Prevent pathname-only fallback while preserving ordinary Branch View. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Keep incomplete summaries reachable after the worker joins. | Preserve the log-only refresh contract without racing the worker. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Check typed Find scope capacity outcomes. | Keep stopped and failed requests distinguishable. | #731 | GPT-6.1 Terra |
@@ -207,7 +208,7 @@ def main() -> int:
     ordered(admin_shell, "ShellExecuteEx(&sei)", "ERROR_CANCELLED", "foreground.Restore()",
             "else if (sei.hProcess != NULL)")
     listing_transfer = function_body(broker, "DWORD ListingSession::Transfer(")
-    require("TransferRequest(pipe, buffer, length, send, deadline, nullptr, nullptr, nullptr, stopEvent)" in listing_transfer,
+    require("callStop ? callStop : stopEvent" in listing_transfer and "TransferRequest(" in listing_transfer,
             "active listing requests must use local cancellation without a transfer cancellation byte")
     for name in ("SendPath", "OpenContent", "ReadContent", "CloseContent", "List"):
         method = function_body(broker, f"DWORD ListingSession::{name}(")
@@ -246,7 +247,9 @@ def main() -> int:
             examine.index("if (scope && (!session || !session->IsOpen()))") < examine.index("GetMD5Digest("),
             "candidates from a disconnected scope must not be read or reauthorized")
     scan = function_body(find_cpp, "void Scan(const std::wstring& directory")
-    require(scan.count("data->StopSearch || !session.IsOpen()") == 2 and
+    require("CanContinue(directory)" in scan and
+            "CanContinue(directory)" in function_body(find_cpp, "void ScanPaged(") and
+            "CanContinue(directory)" in function_body(find_cpp, "void ScanLegacy(") and
             "return session.IsOpen() && !data->Refine" in request_finish,
             "a lost session must end its traversal without discarding other scopes")
     digest = function_body(find_cpp, "BOOL CDuplicateCandidates::GetMD5Digest(")

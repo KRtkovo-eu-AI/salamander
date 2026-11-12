@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Preserve paged identity through Append and Refine. | Prevent name-only merging of independent protected results. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Test protected Find result provenance across publication and refinement. | Prevent unverified pathname reads when identity preparation fails. | #731 | GPT-6.1 Terra |
 """Exercise production publication, F3 guards and protected Refine branches."""
 import argparse
@@ -17,6 +18,9 @@ def main():
     args = parser.parse_args()
     source, dialog = read('src/find.cpp'), read('src/finddlg1.cpp')
     dialog2 = read('src/finddlg2.cpp')
+    start_search = block(dialog, 'void CFindDialog::StartSearch(')
+    append_case = start_search.split('case CM_FIND_APPEND:', 1)[1].split('case CM_FIND_DUPLICATES:', 1)[0]
+    assert 'DestroyMembers' not in append_case and 'TakeDataForRefine' not in append_case
     refine = block(source, 'void RefineData(')
     start = refine.index('        if (ok && refineData->ProtectedOrigin')
     end = refine.index('        if (openDenied)', start)

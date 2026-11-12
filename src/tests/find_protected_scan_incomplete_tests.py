@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Measure protected Find page buffers. | Verify traversal behavior with bounded per-level pages. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Measure bounded concurrent protected listings. | Distinguish traversal workspace from accumulated results. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Exercise protected Find scan incompleteness. | Keep existing limits and errors distinct from completed results. | #731 | GPT-6.1 Terra |
 """Compile the production protected Find scan and finish methods with controlled seams."""
@@ -19,10 +20,11 @@ def main():
     source, header = read('src/find.cpp'), read('src/find.h')
     fixture = read('src/tests/find_protected_scan_incomplete_tests.cpp.in')
     scan = block(source, 'void Scan(const std::wstring& directory, unsigned depth')
-    line = 'DWORD error = session.List(directory, entries);'
-    if scan.count(line) != 1:
-        raise AssertionError('expected a single protected directory List call')
-    scan = scan.replace(line, line + '\n        TrackRows liveRows(entries.size());')
+    paged = block(source, 'void ScanPaged(const std::wstring& directory, unsigned depth')
+    line = 'error = session.NextDirectoryPage(lease, page, done, data->StopEvent);'
+    if paged.count(line) != 1:
+        raise AssertionError('expected one protected page call')
+    paged = paged.replace(line, line + '\n            TrackRows liveRows(page.size());')
     for name, content in {
         'REASONS': block(header, 'enum FindIncompleteReason', ';'),
         'IGNORE_TYPE': block(header, 'enum CFindIgnoreItemType', ';'),
@@ -32,8 +34,11 @@ def main():
         'IGNORE': block(source, 'bool IsIgnored(const std::wstring& directory)'),
         'CONTINUE': block(source, 'bool CanContinue(const std::wstring& directory)'),
         'SCAN': scan,
+        'SCAN_PAGED': paged,
+        'SCAN_LEGACY': block(source, 'void ScanLegacy(const std::wstring& directory, unsigned depth'),
         'FINISH': block(source, 'UacF7::ListingSession* Finish(CDuplicateCandidates* candidates)'),
         'MATCH_FILE': block(source, 'bool MatchFile(const std::wstring& directory, const WIN32_FIND_DATAW& file'),
+        'IDENTITY_MATCH': block(source, 'static bool FindListedIdentityMatches('),
     }.items():
         fixture = fixture.replace('@@' + name + '@@', content)
     assert '@@' not in fixture

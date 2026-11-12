@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Expose the prepared Find root identity. | Bind paged Find requests to the existing consent. | #731 | GPT-6.1 Terra |
 | 2026-11-12 | Add bounded identity-bearing directory cursors. | Stream verified metadata without the single-listing item cap. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Expose a scoped transfer source and job opening for a reviewed retry. | Reject source substitution and a replaced broker session. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Bind reviewed overwrite to a single live session. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
@@ -112,6 +113,7 @@
 #include <windows.h>
 #include <cstring>
 #include <atomic>
+#include <array>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -119,6 +121,15 @@
 
 namespace UacF7
 {
+constexpr size_t maxPagedDirectoryCursors = 33; // Find root plus its existing 32-level limit
+inline std::atomic<ULONGLONG> nextProcessCursorToken{1};
+inline ULONGLONG ReservePagedCursorToken()
+{
+    ULONGLONG token = nextProcessCursorToken.load(std::memory_order_relaxed);
+    while (token && !nextProcessCursorToken.compare_exchange_weak(token, token + 1,
+            std::memory_order_relaxed, std::memory_order_relaxed)) {}
+    return token;
+}
 constexpr UINT restoreConsentForegroundMessage = WM_APP + 427;
 
 class ConsentForeground
@@ -555,6 +566,11 @@ public:
     {
         return operation == Operation::View && revision.serial == serial &&
                std::memcmp(revision.fileId, sourceId, sizeof(sourceId)) == 0;
+    }
+    bool MatchesFileIdentity(const MoveFileIdentity& identity) const
+    {
+        return operation == Operation::View && identity.serial == serial &&
+               std::memcmp(identity.id, sourceId, sizeof(sourceId)) == 0;
     }
     Result ReadViewerSnapshot(HWND owner, std::vector<BYTE>& snapshot) const;
     bool PrepareZipSelection(const std::wstring& directory);
@@ -1018,6 +1034,7 @@ public:
         return true;
     }
     const std::wstring& GetRoot() const { return root; }
+    bool GetPreparedFindRootIdentity(MoveFileIdentity& identity) const;
     DWORD List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries,
                const MoveFileIdentity* expected = nullptr);
     DWORD OpenDirectoryCursor(const std::wstring& path, const MoveFileIdentity& expected, MoveFileIdentity& actual,
@@ -1047,8 +1064,7 @@ private:
     HANDLE pipe = nullptr;
     HANDLE stopEvent = nullptr; // borrowed until the Find worker joins
     bool contentOpen = false;
-    ULONGLONG directoryCursorLease = 0;
-    ULONGLONG nextDirectoryCursorLease = 1;
+    std::array<ULONGLONG, maxPagedDirectoryCursors> directoryCursorLeases{};
     bool starting = false;
     mutable std::recursive_mutex mutex;
     std::atomic<bool> publishedOpen{false};

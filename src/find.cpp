@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Stream protected Find directory pages. | Search wide directories under one identity-bound consent. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Remove the aggregate protected Find tree entry cap. | Search independently bounded directories under one approved session. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Mark protected Find scans incomplete when branches are skipped. | Preserve existing limits and distinguish failed access from complete results. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Carry exact FindFile identity into a separate verified viewer request. | Prevent pathname-only identity recapture after Find. | #731 | GPT-6.1 Terra |
@@ -1245,6 +1246,13 @@ LABEL_QuickSort:
 
 #define DUPLICATES_BUFFER_SIZE 16384 // buffer size for MD5 calculation
 
+static bool FindListedIdentityMatches(const UacF7::MoveFileIdentity* identity,
+                                      const UacF7::ArchiveRevision& revision)
+{
+    return !identity || (revision.serial == identity->serial &&
+        memcmp(revision.fileId, identity->id, sizeof(identity->id)) == 0);
+}
+
 BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
                                         int* progress, CQuadWord* readSize, const CQuadWord* totalSize,
                                         UacF7::ListingSession* protectedSession, size_t& remainingFileConsents,
@@ -1311,7 +1319,8 @@ BOOL CDuplicateCandidates::GetMD5Digest(CGrepData* data, CFoundFilesData* file,
         opened = error == ERROR_SUCCESS;
         if (opened)
         {
-            if (size != file->Size.Value || CompareFileTime(&modified, &file->LastWrite) != 0)
+            if (size != file->Size.Value || CompareFileTime(&modified, &file->LastWrite) != 0 ||
+                !FindListedIdentityMatches(file->ProtectedListedIdentity.get(), revision))
                 error = ERROR_FILE_INVALID;
             else
                 match = predicates.Match(data, *protectedSession, fullPath, display, file->Size, error);
@@ -1948,7 +1957,7 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
                   CDuplicateCandidates* duplicateCandidates,
                   const wchar_t* pathW = nullptr, const wchar_t* nameW = nullptr,
                   unsigned protectedScope = 0, std::shared_ptr<const UacF7::PreparedLeaf> foundView = nullptr,
-                  bool protectedOrigin = false)
+                  bool protectedOrigin = false, std::shared_ptr<const UacF7::MoveFileIdentity> listedIdentity = nullptr)
 {
     if (duplicateCandidates != NULL && isDir) // directories are irrelevant to us when searching for duplicates
         return TRUE;
@@ -1962,6 +1971,7 @@ BOOL AddFoundItem(const char* path, const char* name, DWORD sizeLow, DWORD sizeH
         if (good)
         {
             foundData->FoundView = std::move(foundView);
+            foundData->ProtectedListedIdentity = std::move(listedIdentity);
             foundData->ProtectedOrigin = protectedOrigin;
             if (duplicateCandidates == NULL)
             {
@@ -2139,7 +2149,8 @@ private:
         AddFindLog(data, log.Flags, log.Text, log.Path);
     }
 
-    bool MatchFile(const std::wstring& directory, const WIN32_FIND_DATAW& file, const CQuadWord& listedSize)
+    bool MatchFile(const std::wstring& directory, const WIN32_FIND_DATAW& file, const CQuadWord& listedSize,
+                   const UacF7::MoveFileIdentity* listedIdentity = nullptr)
     {
         std::wstring filePath = directory;
         SalPathAppendW(filePath, file.cFileName);
@@ -2160,7 +2171,8 @@ private:
             return false;
         }
 
-        if (size != listedSize.Value || CompareFileTime(&modified, &file.ftLastWriteTime) != 0)
+        if (size != listedSize.Value || CompareFileTime(&modified, &file.ftLastWriteTime) != 0 ||
+            !FindListedIdentityMatches(listedIdentity, revision))
             error = ERROR_FILE_INVALID;
         const bool match = !error && predicates.Match(data, session, filePath, pathText, listedSize, error);
         const DWORD closeError = session.CloseContent();
@@ -2196,62 +2208,126 @@ private:
 
     void Scan(const std::wstring& directory, unsigned depth, CDuplicateCandidates* candidates)
     {
-        if (data->StopSearch)
-            return;
-        // An explicitly ignored branch is not incomplete, even at a scan limit.
-        if (IsIgnored(directory))
+        if (data->StopSearch) return;
+        if (IsIgnored(directory)) { Log(directory, ERROR_CANCELLED); return; }
+        if (!CanContinue(directory)) return;
+        UacF7::MoveFileIdentity rootIdentity{};
+        if (!session.GetPreparedFindRootIdentity(rootIdentity))
         {
-            Log(directory, ERROR_CANCELLED);
+            if (!data->StopSearch) { data->IncompleteReasons |= FindIncompleteProtectedFailure; Log(directory, ERROR_INVALID_STATE); }
             return;
         }
-        if (!CanContinue(directory))
-            return;
-        if (depth > 32)
+        try
         {
-            data->IncompleteReasons |= FindIncompleteScanDepth;
-            Log(directory, ERROR_BUFFER_OVERFLOW);
-            return;
+            ScanPaged(directory, depth, candidates, rootIdentity);
         }
+        catch (const std::bad_alloc&)
+        {
+            if (!data->StopSearch) { data->IncompleteReasons |= FindIncompleteProtectedFailure; Log(directory, ERROR_NOT_ENOUGH_MEMORY); }
+        }
+    }
 
+    void ScanLegacy(const std::wstring& directory, unsigned depth, CDuplicateCandidates* candidates,
+                    const UacF7::MoveFileIdentity* expected = nullptr)
+    {
+        if (data->StopSearch) return;
+        if (IsIgnored(directory)) { Log(directory, ERROR_CANCELLED); return; }
+        if (!CanContinue(directory)) return;
+        if (depth > 32) { data->IncompleteReasons |= FindIncompleteScanDepth; Log(directory, ERROR_BUFFER_OVERFLOW); return; }
         std::vector<WIN32_FIND_DATAW> entries;
-        DWORD error = session.List(directory, entries);
-        if (data->StopSearch)
-            return;
-        if (error)
+        const DWORD error = session.List(directory, entries, expected);
+        if (data->StopSearch) return;
+        if (error) { data->IncompleteReasons |= FindIncompleteProtectedFailure; Log(directory, error); return; }
+        for (const auto& file : entries)
         {
-            data->IncompleteReasons |= FindIncompleteProtectedFailure;
-            Log(directory, error);
-            return;
-        }
-        for (auto& file : entries)
-        {
-            if (!CanContinue(directory))
-                return;
+            if (!CanContinue(directory)) return;
             AddCandidate(directory, file, candidates);
-            if (data->StopSearch)
-                return;
-            const bool isDir = (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-            if (includeSubDirs && isDir)
+            if (data->StopSearch) return;
+            if (includeSubDirs && (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
             {
                 std::wstring child = directory;
                 SalPathAppendW(child, file.cFileName);
                 if (file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
                 {
-                    if (IsIgnored(child))
-                        Log(child, ERROR_CANCELLED);
-                    else if (!data->StopSearch)
-                    {
-                        data->IncompleteReasons |= FindIncompleteReparse;
-                        Log(child, ERROR_NOT_SUPPORTED);
-                    }
+                    if (IsIgnored(child)) Log(child, ERROR_CANCELLED);
+                    else { data->IncompleteReasons |= FindIncompleteReparse; Log(child, ERROR_NOT_SUPPORTED); }
                 }
-                else
-                    Scan(child, depth + 1, candidates);
+                else ScanLegacy(child, depth + 1, candidates);
             }
         }
     }
 
-    bool MatchesCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates)
+    void ScanPaged(const std::wstring& directory, unsigned depth, CDuplicateCandidates* candidates,
+                   const UacF7::MoveFileIdentity& expected)
+    {
+        if (data->StopSearch) return;
+        if (IsIgnored(directory)) { Log(directory, ERROR_CANCELLED); return; }
+        if (!CanContinue(directory)) return;
+        if (depth > 32) { data->IncompleteReasons |= FindIncompleteScanDepth; Log(directory, ERROR_BUFFER_OVERFLOW); return; }
+        UacF7::MoveFileIdentity actual{};
+        ULONGLONG lease = 0;
+        DWORD error = session.OpenDirectoryCursor(directory, expected, actual, lease, data->StopEvent);
+        if (error)
+        {
+            if (data->StopSearch) return;
+            if (error == ERROR_NOT_SUPPORTED || error == ERROR_INVALID_FUNCTION || error == ERROR_INVALID_PARAMETER)
+                ScanLegacy(directory, depth, candidates, directory == path ? nullptr : &expected); // legacy 4096 limit remains
+            else { data->IncompleteReasons |= FindIncompleteProtectedFailure; Log(directory, error); }
+            return;
+        }
+        struct CursorGuard
+        {
+            UacF7::ListingSession& session;
+            ULONGLONG& lease;
+            ~CursorGuard() { if (lease) session.CloseDirectoryCursor(lease); }
+        } guard{session, lease};
+        bool done = false;
+        bool publishedPage = false;
+        while (!done && !data->StopSearch)
+        {
+            std::vector<UacF7::PagedListingEntry> page;
+            error = session.NextDirectoryPage(lease, page, done, data->StopEvent);
+            if (!error && done) lease = 0;
+            if (error)
+            {
+                if (!data->StopSearch && !publishedPage &&
+                    (error == ERROR_NOT_SUPPORTED || error == ERROR_INVALID_FUNCTION || error == ERROR_INVALID_PARAMETER))
+                {
+                    session.CloseDirectoryCursor(lease);
+                    lease = 0;
+                    ScanLegacy(directory, depth, candidates, directory == path ? nullptr : &expected);
+                    return;
+                }
+                if (!data->StopSearch) { data->IncompleteReasons |= FindIncompleteProtectedFailure; Log(directory, error); }
+                return;
+            }
+            publishedPage = publishedPage || !page.empty();
+            for (const auto& row : page)
+            {
+                if (!CanContinue(directory)) return;
+                const auto& file = row.data;
+                UacF7::MoveFileIdentity listed{};
+                listed.serial = actual.serial;
+                memcpy(listed.id, row.id, sizeof(listed.id));
+                AddCandidate(directory, file, candidates, &listed);
+                if (data->StopSearch) return;
+                if (includeSubDirs && (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+                {
+                    std::wstring child = directory;
+                    SalPathAppendW(child, file.cFileName);
+                    if (file.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
+                    {
+                        if (IsIgnored(child)) Log(child, ERROR_CANCELLED);
+                        else { data->IncompleteReasons |= FindIncompleteReparse; Log(child, ERROR_NOT_SUPPORTED); }
+                    }
+                    else ScanPaged(child, depth + 1, candidates, listed);
+                }
+            }
+        }
+    }
+
+    bool MatchesCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates,
+                          const UacF7::MoveFileIdentity* listedIdentity = nullptr)
     {
         CQuadWord size(file.nFileSizeLow, file.nFileSizeHigh);
         const bool isDir = (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
@@ -2266,11 +2342,15 @@ private:
         // their predicates later while the same file remains open for hashing.
         if ((candidates && FindDuplicateContent(*data)) || (!data->Grep && !data->Criteria.HasTags()))
             return true;
-        return MatchFile(directory, file, size);
+        return MatchFile(directory, file, size, listedIdentity);
     }
 
-    void PublishCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates)
+    void PublishCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates,
+                          const UacF7::MoveFileIdentity* listedIdentity = nullptr)
     {
+        std::shared_ptr<const UacF7::MoveFileIdentity> duplicateIdentity;
+        if (candidates && FindDuplicateContent(*data) && listedIdentity)
+            duplicateIdentity = std::make_shared<UacF7::MoveFileIdentity>(*listedIdentity);
         constexpr DWORD excluded = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
                                    FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_OFFLINE;
         std::shared_ptr<UacF7::PreparedLeaf> foundView;
@@ -2285,7 +2365,7 @@ private:
                 const bool prepared = singleFile ?
                     session.PrepareExactFindViewer(filePath, file.dwFileAttributes, *identity) :
                     !session.PrepareViewer(filePath, *identity, file.dwFileAttributes);
-                if (prepared)
+                if (prepared && (!listedIdentity || identity->MatchesFileIdentity(*listedIdentity)))
                     foundView = std::move(identity);
             }
             catch (const std::bad_alloc&)
@@ -2295,13 +2375,15 @@ private:
         }
         AddFoundItem(nullptr, nullptr, file.nFileSizeLow, file.nFileSizeHigh, file.dwFileAttributes,
                      &file.ftLastWriteTime, (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0,
-                     data, candidates, directory.c_str(), file.cFileName, scopeId, std::move(foundView), true);
+                     data, candidates, directory.c_str(), file.cFileName, scopeId, std::move(foundView), true,
+                     std::move(duplicateIdentity));
     }
 
-    void AddCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates)
+    void AddCandidate(const std::wstring& directory, const WIN32_FIND_DATAW& file, CDuplicateCandidates* candidates,
+                      const UacF7::MoveFileIdentity* listedIdentity = nullptr)
     {
-        if (MatchesCandidate(directory, file, candidates))
-            PublishCandidate(directory, file, candidates);
+        if (MatchesCandidate(directory, file, candidates, listedIdentity))
+            PublishCandidate(directory, file, candidates, listedIdentity);
     }
 
     void PublishSingleFile(CDuplicateCandidates* candidates, bool authorized)
@@ -2686,7 +2768,7 @@ void RefineData(CMaskGroup* masksGroup, CGrepData* data)
                          refineData->Size.LoDWord, refineData->Size.HiDWord,
                          refineData->Attr, &refineData->LastWrite, refineData->IsDir, data, nullptr,
                          wide ? refineData->PathW.c_str() : nullptr, wide ? refineData->NameW.c_str() : nullptr,
-                         0, refineData->FoundView, refineData->ProtectedOrigin);
+                         0, refineData->FoundView, refineData->ProtectedOrigin, refineData->ProtectedListedIdentity);
         }
     }
     RequestFindResultsRefresh(data);

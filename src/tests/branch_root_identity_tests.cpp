@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Check the Find paging protocol version. | Refuse mismatched broker wire semantics. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 #include "../uacbroker/listing.h"
 #include "../uacbroker/uacprotocol.h"
@@ -12,7 +13,7 @@ int wmain(int argc, wchar_t** argv)
 {
     if (argc != 2) return 2;
     using UacF7::Operation;
-    Check(SAM_UAC_PROTOCOL_VERSION == 42, "protocol version is 42");
+    Check(SAM_UAC_PROTOCOL_VERSION == 44, "protocol version is 44");
     Check(UacListing::ValidVerifiedListingScope(Operation::CompareList, 0), "verified metadata comparison accepts root");
     Check(!UacListing::ValidVerifiedListingScope(Operation::CompareContent, 0) &&
           !UacListing::ValidVerifiedListingScope(Operation::List, 0) &&

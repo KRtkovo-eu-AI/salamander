@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Preserve protected listed identity when hiding duplicates. | Do not merge a replaced or unidentified paged result by name. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Preserve protected provenance when hiding Find duplicates. | Do not merge distinct identities based only on pathname. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Display each incomplete Find reason without losing its origin. | Keep bounded logs and carried results truthful. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Validate all Find shell paths before invoking legacy handlers. | Preserve the selection when a shell entry cannot accept the path. | #731 | GPT-6.1 Sol |
@@ -100,8 +101,12 @@ void CFindDialog::OnHideDuplicateNames()
 static bool CanMergeFindDuplicate(const CFoundFilesData& left, const CFoundFilesData& right)
 {
     // A pathname alone cannot prove two protected results identify the same file.
+    // Independent captures may have equal numeric IDs after reuse; retaining
+    // both rows is safer than merging identities that were not jointly pinned.
     return left.ProtectedOrigin == right.ProtectedOrigin &&
-           (!left.ProtectedOrigin || left.FoundView == right.FoundView);
+           (!left.ProtectedOrigin || ((left.FoundView || left.ProtectedListedIdentity) &&
+            left.FoundView == right.FoundView &&
+            left.ProtectedListedIdentity == right.ProtectedListedIdentity));
 }
 
 void CFindDialog::OnHideDuplicateNamesSorted(int sortedCount)

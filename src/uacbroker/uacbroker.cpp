@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Permit scoped FindContent paging. | Reuse one verified consent for metadata pages and file reads. | #731 | GPT-6.1 Terra |
 | 2026-11-12 | Stream identity-bearing metadata pages. | Keep a verified directory handle within one scoped listing session. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 | 2026-11-12 | Probe and commit one exact overwrite with stale revalidation. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
@@ -3096,10 +3097,15 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
     constexpr ULONGLONG idleTimeoutMs = 15 * 60 * 1000;
     ULONGLONG contentBudget = UacListing::contentBudget;
     std::vector<WIN32_FIND_DATAW> entries;
-    UacListing::PagedCursor cursor;
-    bool cursorOpen = false;
-    std::wstring cursorRelative;
-    UacF7::MoveFileIdentity cursorIdentity{};
+    struct CursorSlot
+    {
+        UacListing::PagedCursor cursor;
+        std::wstring relative;
+        UacF7::MoveFileIdentity identity{};
+        ULONGLONG token = 0;
+    };
+    std::array<CursorSlot, UacF7::maxPagedDirectoryCursors> cursors{};
+    ULONGLONG lastCursorToken = 0;
     for (;;)
     {
         DWORD length = 0;
@@ -3123,7 +3129,7 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
         const bool canReadIdentity = scope == Operation::List ||
                                      ((scope == Operation::CompareContent || scope == Operation::FindContent) &&
                                       !parentOnly && !directoryLeaf);
-        if ((pagedListing && ((scope != Operation::CompareList && scope != Operation::List) || inventoryRequest || sizeDetails || contentRequest ||
+        if ((pagedListing && ((scope != Operation::CompareList && scope != Operation::List && scope != Operation::FindContent) || inventoryRequest || sizeDetails || contentRequest ||
                               leafIdentity || parentOnly || directoryLeaf || verifyListing || linkLeaf || fileAllocation)) ||
             (fileAllocation && (!UacListing::ValidAllocationScope(scope, length) || inventoryRequest || sizeDetails ||
                                 contentRequest || leafIdentity || parentOnly || directoryLeaf || verifyListing || linkLeaf)) ||
@@ -3148,27 +3154,33 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
             error = TransferRequest(pipe, &frame, sizeof(frame), false, deadline);
             if (error)
                 return error;
-            if (frame.reserved || (frame.operation != UacListing::PagedListingOp::Open &&
+            if (frame.reserved || !frame.cursor || (frame.operation != UacListing::PagedListingOp::Open &&
                                    frame.operation != UacListing::PagedListingOp::Next &&
                                    frame.operation != UacListing::PagedListingOp::Close) ||
                 (frame.operation != UacListing::PagedListingOp::Open && length))
                 return ERROR_INVALID_DATA;
             UacListing::PagedListingReply reply{};
             std::vector<UacF7::PagedListingEntry> page;
+            auto slot = std::find_if(cursors.begin(), cursors.end(), [&](const CursorSlot& item) { return item.token == frame.cursor; });
             if (frame.operation == UacListing::PagedListingOp::Open)
             {
                 UacF7::MoveFileIdentity expected{};
                 error = TransferRequest(pipe, &expected, sizeof(expected), false, deadline);
                 if (error) return error;
-                if (cursorOpen)
+                if (slot != cursors.end())
                     reply.error = ERROR_BUSY;
+                else if (frame.cursor <= lastCursorToken)
+                    reply.error = ERROR_INVALID_HANDLE;
                 else
                 {
+                    lastCursorToken = frame.cursor;
+                    slot = std::find_if(cursors.begin(), cursors.end(), [](const CursorSlot& item) { return item.token == 0; });
+                    if (slot == cursors.end()) reply.error = ERROR_TOO_MANY_OPEN_FILES;
                     try
                     {
                         std::vector<Handle> pins;
                         HANDLE directory = nullptr;
-                        reply.error = PinPagedDirectory(root, relative, &expected, pins, directory);
+                        if (!reply.error) reply.error = PinPagedDirectory(root, relative, &expected, pins, directory);
                         HANDLE raw = nullptr;
                         if (!reply.error)
                         {
@@ -3180,15 +3192,13 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
                         }
                         if (!reply.error)
                         {
-                            reply.error = cursor.Open(raw, &expected, reply.identity);
-                            cursorOpen = reply.error == ERROR_SUCCESS;
-                            if (cursorOpen) { cursorRelative = relative; cursorIdentity = reply.identity; }
+                            reply.error = slot->cursor.Open(raw, &expected, reply.identity);
+                            if (!reply.error) { slot->relative = relative; slot->identity = reply.identity; slot->token = frame.cursor; }
                         }
                     }
                     catch (const std::bad_alloc&)
                     {
-                        cursor.Close();
-                        cursorOpen = false;
+                        if (slot != cursors.end()) { slot->cursor.Close(); slot->token = 0; }
                         reply = {};
                         reply.error = ERROR_NOT_ENOUGH_MEMORY;
                     }
@@ -3197,31 +3207,29 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
             else if (frame.operation == UacListing::PagedListingOp::Next)
             {
                 bool done = false;
-                if (!cursorOpen)
+                if (slot == cursors.end())
                     reply.error = ERROR_INVALID_STATE;
                 else try
                 {
                     std::vector<Handle> pins;
                     HANDLE directory = nullptr;
-                    reply.error = PinPagedDirectory(root, cursorRelative, &cursorIdentity, pins, directory);
-                    if (!reply.error) reply.error = cursor.Next(page, done);
+                    reply.error = PinPagedDirectory(root, slot->relative, &slot->identity, pins, directory);
+                    if (!reply.error) reply.error = slot->cursor.Next(page, done);
                 }
                 catch (const std::bad_alloc&) { reply.error = ERROR_NOT_ENOUGH_MEMORY; }
                 reply.done = done ? 1 : 0;
                 if (reply.error || done)
                 {
-                    cursor.Close();
-                    cursorOpen = false;
+                    if (slot != cursors.end()) { slot->cursor.Close(); slot->token = 0; }
                 }
                 if (!reply.error)
                     reply.count = static_cast<DWORD>(page.size());
             }
             else
             {
-                if (!cursorOpen)
+                if (slot == cursors.end())
                     reply.error = ERROR_INVALID_STATE;
-                cursor.Close();
-                cursorOpen = false;
+                else { slot->cursor.Close(); slot->token = 0; }
             }
             error = TransferRequest(pipe, &reply, sizeof(reply), true, deadline);
             if (!error && reply.count)
@@ -3297,14 +3305,30 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
                 if (error)
                     return error;
             }
-            error = length ? UacDirectoryLeaf::OpenParentBelowRoot(root, relative, raw, identity, FILE_LIST_DIRECTORY,
-                                                                  !IsComparisonScope(scope))
-                           : UacDirectoryLeaf::ReadParentIdentity(root, identity);
-            const auto directory = Adopt(raw);
-            if (!error && verifyListing && !UacListing::MatchesListingIdentity(identity, expected))
-                error = ERROR_FILE_INVALID;
-            if (!error)
-                error = UacListing::Enumerate(directory ? directory.get() : root, entries);
+            if (verifyListing && (scope == Operation::List || scope == Operation::FindContent))
+            {
+                // Match each component using its parent's case-sensitivity and
+                // retain the no-follow pins through the entire enumeration.
+                try
+                {
+                    std::vector<Handle> pins;
+                    HANDLE directory = nullptr;
+                    error = PinPagedDirectory(root, relative, &expected, pins, directory);
+                    if (!error) error = UacListing::Enumerate(directory, entries);
+                }
+                catch (const std::bad_alloc&) { error = ERROR_NOT_ENOUGH_MEMORY; }
+            }
+            else
+            {
+                error = length ? UacDirectoryLeaf::OpenParentBelowRoot(root, relative, raw, identity, FILE_LIST_DIRECTORY,
+                                                                      !IsComparisonScope(scope))
+                               : UacDirectoryLeaf::ReadParentIdentity(root, identity);
+                const auto directory = Adopt(raw);
+                if (!error && verifyListing && !UacListing::MatchesListingIdentity(identity, expected))
+                    error = ERROR_FILE_INVALID;
+                if (!error)
+                    error = UacListing::Enumerate(directory ? directory.get() : root, entries);
+            }
         }
         const auto count = inventoryRequest ? firstSkipped.size() : entries.size();
         ListingReply reply{error, error ? 0 : static_cast<DWORD>(count)};
@@ -5432,7 +5456,7 @@ void ListingSession::Close()
     publishedOpen.store(false, std::memory_order_release);
     ListingForegroundLock lock(mutex, foregroundWaiters);
     contentOpen = false;
-    directoryCursorLease = 0;
+    directoryCursorLeases.fill(0);
     stopEvent = nullptr;
     if (pipe)
     {
@@ -5612,6 +5636,16 @@ bool ListingSession::PrepareFindRoot(const FindRootIdentity& identity, bool read
     std::memcpy(prepared.fileId, identity.id.Identifier, sizeof(prepared.fileId));
     prepared.operation = readContent ? Operation::FindContent : Operation::List;
     root = identity.path;
+    return true;
+}
+
+bool ListingSession::GetPreparedFindRootIdentity(MoveFileIdentity& identity) const
+{
+    ListingForegroundLock lock(mutex, foregroundWaiters);
+    if (!pipe || (prepared.operation != Operation::List && prepared.operation != Operation::FindContent) || root.empty())
+        return false;
+    identity.serial = prepared.serial;
+    std::memcpy(identity.id, prepared.fileId, sizeof(identity.id));
     return true;
 }
 
@@ -6072,13 +6106,15 @@ DWORD ListingSession::OpenDirectoryCursor(const std::wstring& path, const MoveFi
     const DWORD lockError = LockListingForCall(stop, lock, foregroundWaiters, true);
     if (lockError) return lockError;
     if (stop && stopEvent && stop != stopEvent) return ERROR_INVALID_PARAMETER;
-    if (!pipe || (prepared.operation != Operation::CompareList && prepared.operation != Operation::List))
+    if (!pipe || (prepared.operation != Operation::CompareList && prepared.operation != Operation::List && prepared.operation != Operation::FindContent))
         return ERROR_INVALID_STATE;
-    if (directoryCursorLease) return ERROR_BUSY;
-    if (!nextDirectoryCursorLease) return ERROR_ARITHMETIC_OVERFLOW;
+    auto slot = std::find(directoryCursorLeases.begin(), directoryCursorLeases.end(), 0);
+    if (slot == directoryCursorLeases.end()) return ERROR_TOO_MANY_OPEN_FILES;
+    const ULONGLONG token = ReservePagedCursorToken();
+    if (!token) return ERROR_ARITHMETIC_OVERFLOW;
     const auto deadline = GetTickCount64() + timeoutMs;
     DWORD error = SendPath(path, UacListing::pagedListingRequest, deadline, stop);
-    UacListing::PagedListingFrame frame{UacListing::PagedListingOp::Open, 0};
+    UacListing::PagedListingFrame frame{UacListing::PagedListingOp::Open, 0, token};
     if (!error) error = Transfer(&frame, sizeof(frame), true, deadline, stop);
     MoveFileIdentity request = requested;
     if (!error) error = Transfer(&request, sizeof(request), true, deadline, stop);
@@ -6091,8 +6127,8 @@ DWORD ListingSession::OpenDirectoryCursor(const std::wstring& path, const MoveFi
     if (error) { Close(); return error; }
     if (reply.error) return reply.error;
     actual = reply.identity;
-    directoryCursorLease = nextDirectoryCursorLease++;
-    lease = directoryCursorLease;
+    *slot = token;
+    lease = token;
     return ERROR_SUCCESS;
 }
 
@@ -6104,12 +6140,13 @@ DWORD ListingSession::NextDirectoryPage(ULONGLONG lease, std::vector<PagedListin
     const DWORD lockError = LockListingForCall(stop, lock, foregroundWaiters, true);
     if (lockError) return lockError;
     if (stop && stopEvent && stop != stopEvent) return ERROR_INVALID_PARAMETER;
-    if (!pipe || (prepared.operation != Operation::CompareList && prepared.operation != Operation::List))
+    if (!pipe || (prepared.operation != Operation::CompareList && prepared.operation != Operation::List && prepared.operation != Operation::FindContent))
         return ERROR_INVALID_STATE;
-    if (!lease || lease != directoryCursorLease) return ERROR_INVALID_HANDLE;
+    auto slot = std::find(directoryCursorLeases.begin(), directoryCursorLeases.end(), lease);
+    if (!lease || slot == directoryCursorLeases.end()) return ERROR_INVALID_HANDLE;
     const auto deadline = GetTickCount64() + timeoutMs;
     DWORD error = SendPath(root, UacListing::pagedListingRequest, deadline, stop);
-    UacListing::PagedListingFrame frame{UacListing::PagedListingOp::Next, 0};
+    UacListing::PagedListingFrame frame{UacListing::PagedListingOp::Next, 0, lease};
     if (!error) error = Transfer(&frame, sizeof(frame), true, deadline, stop);
     UacListing::PagedListingReply reply{};
     if (!error) error = Transfer(&reply, sizeof(reply), false, deadline, stop);
@@ -6143,11 +6180,11 @@ DWORD ListingSession::NextDirectoryPage(ULONGLONG lease, std::vector<PagedListin
     if (error) { Close(); return error; }
     if (reply.error)
     {
-        directoryCursorLease = 0;
+        *slot = 0;
         return reply.error;
     }
     done = reply.done != 0;
-    if (done) directoryCursorLease = 0;
+    if (done) *slot = 0;
     entries.swap(page);
     return ERROR_SUCCESS;
 }
@@ -6158,12 +6195,13 @@ DWORD ListingSession::CloseDirectoryCursor(ULONGLONG lease, HANDLE stop)
     const DWORD lockError = LockListingForCall(stop, lock, foregroundWaiters, true);
     if (lockError) return lockError;
     if (stop && stopEvent && stop != stopEvent) return ERROR_INVALID_PARAMETER;
-    if (!pipe || (prepared.operation != Operation::CompareList && prepared.operation != Operation::List))
+    if (!pipe || (prepared.operation != Operation::CompareList && prepared.operation != Operation::List && prepared.operation != Operation::FindContent))
         return ERROR_INVALID_STATE;
-    if (!lease || lease != directoryCursorLease) return ERROR_INVALID_HANDLE;
+    auto slot = std::find(directoryCursorLeases.begin(), directoryCursorLeases.end(), lease);
+    if (!lease || slot == directoryCursorLeases.end()) return ERROR_INVALID_HANDLE;
     const auto deadline = GetTickCount64() + timeoutMs;
     DWORD error = SendPath(root, UacListing::pagedListingRequest, deadline, stop);
-    UacListing::PagedListingFrame frame{UacListing::PagedListingOp::Close, 0};
+    UacListing::PagedListingFrame frame{UacListing::PagedListingOp::Close, 0, lease};
     if (!error) error = Transfer(&frame, sizeof(frame), true, deadline, stop);
     UacListing::PagedListingReply reply{};
     if (!error) error = Transfer(&reply, sizeof(reply), false, deadline, stop);
@@ -6171,7 +6209,7 @@ DWORD ListingSession::CloseDirectoryCursor(ULONGLONG lease, HANDLE stop)
     if (!error && (reply.reserved || reply.count || reply.done || reply.identity.serial ||
                    std::memcmp(reply.identity.id, empty.id, sizeof(empty.id))))
         error = ERROR_INVALID_DATA;
-    directoryCursorLease = 0;
+    *slot = 0;
     if (error) { Close(); return error; }
     return reply.error;
 }

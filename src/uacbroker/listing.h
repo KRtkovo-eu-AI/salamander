@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Give paged directory requests cursor tokens. | Keep nested Find traversal scoped to its exact open handles. | #731 | GPT-6.1 Terra |
 | 2026-11-12 | Define bounded verified directory page frames. | Keep streamed metadata confined to a CompareList session. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Measure one pinned file without a directory grant. | Keep standalone file consent limited to metadata for that exact object. | #731 | GPT-6.1 Terra |
@@ -58,6 +59,7 @@ struct PagedListingFrame
 {
     PagedListingOp operation;
     DWORD reserved;
+    ULONGLONG cursor;
 };
 struct PagedListingReply
 {
@@ -67,7 +69,7 @@ struct PagedListingReply
     DWORD reserved;
     UacF7::MoveFileIdentity identity;
 };
-static_assert(sizeof(PagedListingFrame) == 8);
+static_assert(sizeof(PagedListingFrame) == 16);
 static_assert(sizeof(PagedListingReply) == 40);
 
 struct LeafIdentity
@@ -93,10 +95,12 @@ inline bool ValidRequestScope(UacF7::Operation scope, DWORD pathLength, bool inv
     return !content || (scope == UacF7::Operation::FindContent && !inventory && pathLength != 0);
 }
 
-// A root identity check is permitted only for metadata-only CompareList.
+// Root checks remain exclusive to CompareList; the Find roles can verify an
+// already-listed descendant without gaining a broader root-level operation.
 inline bool ValidVerifiedListingScope(UacF7::Operation scope, DWORD pathLength)
 {
-    return UacF7::IsComparisonScope(scope) && (pathLength != 0 || scope == UacF7::Operation::CompareList);
+    return (UacF7::IsComparisonScope(scope) && (pathLength != 0 || scope == UacF7::Operation::CompareList)) ||
+           (pathLength != 0 && (scope == UacF7::Operation::List || scope == UacF7::Operation::FindContent));
 }
 
 inline bool MatchesListingIdentity(const UacDirectoryLeaf::ParentIdentity& actual, const UacF7::MoveFileIdentity& expected)
