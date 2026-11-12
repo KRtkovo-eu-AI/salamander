@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Report allocation failures during source recovery. | Preserve the journal when recovery has only partly completed. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Recover read-only move links and the original Archive bit. | Preserve source attributes and identity after cancellation or hard process exit. | | GPT-6.1 Sol |
 // | 2026-11-09 | Restore the original Archive bit after a compressed F6 rollback. | Record the source write time and repair the attributes on the pinned source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Separate the source seal from recovery link creation. | Make the durable DACL record recoverable before any hard link exists. | | GPT-6.1 Sol (Codex) |
@@ -12,6 +13,7 @@
 
 #include "renameleaf.h"
 #include "recoveryjournal.h"
+#include <new>
 
 namespace UacMoveSourceJournal
 {
@@ -445,7 +447,12 @@ inline DWORD RememberDestination(HANDLE journal, PSECURITY_DESCRIPTOR journalSec
     return FlushFileBuffers(journal) ? ERROR_SUCCESS : GetLastError();
 }
 
-inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DESCRIPTOR security)
+#ifdef SAM_UAC_MOVE_RECOVERY_EXCEPTION_TEST
+enum class RecoveryExceptionPoint { BeforeRecord, AfterRestoreName, AfterAliasRetired };
+void InjectRecoveryException(RecoveryExceptionPoint point);
+#endif
+
+inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DESCRIPTOR security) try
 {
     using namespace Detail;
     UacDirectoryLeaf::ParentIdentity original, recovery;
@@ -458,6 +465,9 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
         return GetLastError();
     if (!size.QuadPart)
         return ERROR_SUCCESS;
+#ifdef SAM_UAC_MOVE_RECOVERY_EXCEPTION_TEST
+    InjectRecoveryException(RecoveryExceptionPoint::BeforeRecord);
+#endif
     Record record{};
     DWORD bytes = 0;
     if (!SetFilePointerEx(journal, {}, nullptr, FILE_BEGIN) || !ReadFile(journal, &record, sizeof(record), &bytes, nullptr))
@@ -555,6 +565,9 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
             error = UacRenameLeaf::Detail::NativeRename(retained.get(), parent, leaf);
             if (error)
                 return error;
+#ifdef SAM_UAC_MOVE_RECOVERY_EXCEPTION_TEST
+            InjectRecoveryException(RecoveryExceptionPoint::AfterRestoreName);
+#endif
             source = std::move(retained);
             if (clearArchive)
             {
@@ -585,6 +598,9 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
         // Rename the exact recovery link back. A late collision is still
         // rejected by NTFS without replacing the new file.
         error = UacRenameLeaf::Detail::NativeRename(retained.get(), parent, leaf);
+#ifdef SAM_UAC_MOVE_RECOVERY_EXCEPTION_TEST
+        if (!error) InjectRecoveryException(RecoveryExceptionPoint::AfterRestoreName);
+#endif
     }
     else if (!error && retained)
     {
@@ -602,6 +618,9 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
         if (error != ERROR_FILE_NOT_FOUND)
             return error ? error : ERROR_FILE_INVALID;
         error = ERROR_SUCCESS;
+#ifdef SAM_UAC_MOVE_RECOVERY_EXCEPTION_TEST
+        InjectRecoveryException(RecoveryExceptionPoint::AfterAliasRetired);
+#endif
     }
     if (error)
         return error;
@@ -610,5 +629,11 @@ inline DWORD Recover(HANDLE parent, HANDLE storage, HANDLE journal, PSECURITY_DE
     if (metadata && (error = CheckOrRestoreDacl(metadata.get(), *dacl, true, &recordedWrite)))
         return error;
     return UacRecoveryJournal::ClearRecord(journal);
+}
+catch (const std::bad_alloc&)
+{
+    // Recovery can already have restored the name or retired an alias. Leave
+    // its journal untouched; the caller must report an incomplete outcome.
+    return ERROR_NOT_ENOUGH_MEMORY;
 }
 }
