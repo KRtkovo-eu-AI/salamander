@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-12 | Record test-only denied and broker-open events. | Prove each side of the real worker experiment without changing its error flow. | #731 | GPT-6 |
+// | 2026-11-12 | Observe test-only overlapped I/O completion. | Distinguish issued, completed and drained worker states without changing the production path. | #731 | GPT-6 |
 // | 2026-11-12 | Inject target denial before native creation in test builds. | Keep the real worker fixture free of premature files and leaked handles. | #731 | GPT-6 |
 // | 2026-11-12 | Add isolated native copy acceptance instrumentation. | Exercise the original worker, both I/O loops and Retry without affecting production builds. | #731 | GPT-6 |
 // | 2026-11-12 | Make parallel conflict preflight allocation-safe. | Preserve the destination and release coordinator resources on failure. | #731 | GPT-6 (Codex) |
@@ -4872,6 +4873,14 @@ static bool ThinCopyTestFailure(const wchar_t* expected, volatile LONG* once)
            InterlockedCompareExchange(once, 1, 0) == 0;
 }
 
+// Observation must not change the error seen by the existing I/O state machine.
+static void ThinCopyTestObserve(const wchar_t* name)
+{
+    const DWORD error = GetLastError();
+    ThinCopyTestSignal(name);
+    SetLastError(error);
+}
+
 static BOOL ThinCopyTestReadFile(HANDLE file, void* buffer, DWORD size, DWORD* read, OVERLAPPED* overlapped)
 {
     static volatile LONG failed = 0;
@@ -4880,7 +4889,16 @@ static BOOL ThinCopyTestReadFile(HANDLE file, void* buffer, DWORD size, DWORD* r
         SetLastError(ERROR_READ_FAULT);
         return FALSE;
     }
-    return ReadFile(file, buffer, size, read, overlapped);
+    const BOOL result = ReadFile(file, buffer, size, read, overlapped);
+    const DWORD error = GetLastError();
+    if (overlapped && (result || error == ERROR_IO_PENDING))
+    {
+        ThinCopyTestObserve(L"SAM_UAC_TEST_ASYNC_READ_ISSUED_EVENT");
+        ThinCopyTestObserve(result ? L"SAM_UAC_TEST_ASYNC_READ_INLINE_EVENT" :
+                                   L"SAM_UAC_TEST_ASYNC_READ_PENDING_EVENT");
+    }
+    SetLastError(error);
+    return result;
 }
 
 static BOOL ThinCopyTestWriteFile(HANDLE file, const void* buffer, DWORD size, DWORD* written, OVERLAPPED* overlapped)
@@ -4891,7 +4909,16 @@ static BOOL ThinCopyTestWriteFile(HANDLE file, const void* buffer, DWORD size, D
         SetLastError(ERROR_WRITE_FAULT);
         return FALSE;
     }
-    return WriteFile(file, buffer, size, written, overlapped);
+    const BOOL result = WriteFile(file, buffer, size, written, overlapped);
+    const DWORD error = GetLastError();
+    if (overlapped && (result || error == ERROR_IO_PENDING))
+    {
+        ThinCopyTestObserve(L"SAM_UAC_TEST_ASYNC_WRITE_ISSUED_EVENT");
+        ThinCopyTestObserve(result ? L"SAM_UAC_TEST_ASYNC_WRITE_INLINE_EVENT" :
+                                   L"SAM_UAC_TEST_ASYNC_WRITE_PENDING_EVENT");
+    }
+    SetLastError(error);
+    return result;
 }
 #define THIN_COPY_READ ThinCopyTestReadFile
 #define THIN_COPY_WRITE ThinCopyTestWriteFile
@@ -6017,6 +6044,10 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
 #endif // ASYNC_COPY_DEBUG_MSG
 
                         BOOL res = GetOverlappedResult(in, asyncPar->GetOverlapped(i), &bytes, TRUE);
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (res && bytes != 0)
+                            ThinCopyTestObserve(L"SAM_UAC_TEST_ASYNC_READ_COMPLETED_EVENT");
+#endif
                         if (testingEOF && res && bytes == 0)
                         {
                             res = FALSE; // MSDN says it should return FALSE and ERROR_HANDLE_EOF at EOF, so enforce that (Novell Netware 6.5 disk returns TRUE)
@@ -6081,6 +6112,10 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
 #endif // ASYNC_COPY_DEBUG_MSG
 
                         BOOL res = GetOverlappedResult(out, asyncPar->GetOverlapped(i), &bytes, TRUE);
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (res && bytes != 0 && bytes == ctx.BlockDataLen[i])
+                            ThinCopyTestObserve(L"SAM_UAC_TEST_ASYNC_WRITE_COMPLETED_EVENT");
+#endif
                         if (!res || bytes != ctx.BlockDataLen[i]) // error
                         {
                             err = GetLastError();
@@ -6280,6 +6315,11 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
             }
         }
     }
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (ctx.IsOperationDone(numOfBlocks) && !copyError && !skipCopy && !copyAgain &&
+        ctx.ReadOffset == ctx.WriteOffset && operationDone == ctx.WriteOffset)
+        ThinCopyTestObserve(L"SAM_UAC_TEST_ASYNC_DRAINED_EVENT");
+#endif
 }
 
 static UacF7::Result ExecuteWithNativeTransferProgress(const UacF7::PreparedTransfer& request, HWND progress,
