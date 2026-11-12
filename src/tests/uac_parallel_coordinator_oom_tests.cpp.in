@@ -1,0 +1,343 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Exercise actual parallel coordinator operations under injected OOM. | Verify unlocked critical sections and coherent lease state. | #731 | GPT-6 (Codex) |
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <new>
+#include <string>
+#include <vector>
+
+#define HANDLES(x) (x)
+#define HANDLES_Q(x) (x)
+namespace UacF7 { struct ArchiveRevision { DWORD attributes = 0; }; }
+enum CCopyMoveItemState { cmisUnscanned, cmisReady, cmisBlocked, cmisConflict, cmisOverwrite, cmisSkip, cmisRunning, cmisDone, cmisSuppressed };
+enum CCopyMoveConflictDecision { cmcdNone, cmcdOverwrite, cmcdSkip };
+enum CCopyMoveConflictType { cmctNone, cmctDirectoryExists, cmctTypeMismatch, cmctFileExists };
+enum ItemPhase { ccipUnscanned, ccipReady, ccipLeased, ccipCompleted, ccipProbed, ccipAwaitingDecision };
+enum Opcode { ocCopyFile, ocCreateDir, ocMoveFile };
+enum CConflictLeaseOutcome { ccloInvalid, ccloReblocked, ccloCommitted, ccloReleased };
+constexpr DWORD OPFL_UAC_TRANSFER_ELIGIBLE = 1;
+constexpr int ccwpExecuting = 1;
+constexpr int CMCM_SCAN_AHEAD = 1;
+struct CConflictDependencyNode { int Parent = -1, SubtreeEnd = 0, FinalizeStart = 0, Finalizer = -1; };
+struct COperation {
+    int Opcode = ocCopyFile, ConflictParent = -1;
+    DWORD OpFlags = 0;
+    CCopyMoveItemState ConflictState = cmisUnscanned;
+    CCopyMoveConflictDecision ConflictDecision = cmcdNone, ConflictLeaseDecision = cmcdNone;
+    CCopyMoveConflictType ConflictType = cmctNone;
+    ItemPhase ConflictItemState = ccipUnscanned;
+    BOOL ConflictDirectoryPrepared = FALSE, ConflictIsFinalizer = FALSE;
+    BOOL ScannedTargetIdentityValid = FALSE, ScannedTargetExisted = FALSE;
+    DWORD ScannedTargetAttributes = 0, ScannedTargetVolumeSerial = 0;
+    ULONGLONG ScannedTargetSize = 0, ScannedTargetFileIndex = 0;
+    FILETIME ScannedTargetWriteTime{};
+    UacF7::ArchiveRevision ScannedTargetRevision{};
+    ULONGLONG ConflictGeneration = 1, ConflictLeaseGeneration = 0, ConflictLeaseToken = 0;
+    ULONGLONG ConflictLeaseDependencyEpoch = 0;
+};
+class COperations {
+public:
+    CRITICAL_SECTION ConflictCS{};
+    int Count = 3, ConflictWorkerState = 0, ConflictListVersion = 0, DeferredConflictCount = 0, Signals = 0;
+    ULONGLONG NextConflictLeaseGeneration = 0, NextConflictLeaseToken = 0, ConflictCoordinatorGeneration = 10;
+    int CopyMoveConflictMode = CMCM_SCAN_AHEAD;
+    std::vector<CConflictDependencyNode> ConflictDependencies;
+    COperation Items[3]{};
+    COperations() : ConflictDependencies(3) { InitializeCriticalSection(&ConflictCS); }
+    ~COperations() { DeleteCriticalSection(&ConflictCS); }
+    COperation& At(int i) { return Items[i]; }
+    const COperation& At(int i) const { return Items[i]; }
+    void SignalConflictChanged() { ++Signals; }
+    BOOL IsParallelCopyDisabled() const { return FALSE; }
+    void GetSpeedLimit(BOOL* enabled, DWORD* value) const { *enabled = FALSE; *value = 0; }
+    void AddParallelCopyBytes(DWORD, DWORD) {}
+    BOOL IsPreparedParentDirectoryLocked(int) const;
+    BOOL AreConflictAncestorsPreparedLocked(int) const;
+    BOOL IsConflictItemReadyLocked(int) const;
+    void RetractConflictSubtreeLocked(int);
+    BOOL GetNextConflictReadyItem(int&, ULONGLONG&);
+    BOOL LeaseNextParallelCopy(int&, ULONGLONG&, int);
+    CConflictLeaseOutcome FinishParallelCopyLeaseLocked(int, ULONGLONG, CConflictLeaseOutcome);
+    CConflictLeaseOutcome ReleaseParallelCopyLease(int, ULONGLONG);
+    CConflictLeaseOutcome ReblockParallelCopyLease(int, ULONGLONG);
+    BOOL RevalidatePreparedConflictAncestors(int);
+    void RequeueChangedConflictItem(int);
+    BOOL ValidateParallelCopyLeaseForSideEffect(int, ULONGLONG);
+};
+
+static bool InjectAncestors = false;
+static int PathCalls = 0, ThrowPathCall = 0;
+static std::wstring FixturePath;
+static std::wstring GetParallelCopyPathW(COperation*, BOOL)
+{
+    if (++PathCalls == ThrowPathCall) throw std::bad_alloc();
+    return FixturePath;
+}
+static std::wstring SalPathAddExtendedPrefixW(const wchar_t* path) { return path; }
+static void CaptureScannedOverwriteRevision(const std::wstring&, const BY_HANDLE_FILE_INFORMATION&, UacF7::ArchiveRevision&) {}
+
+@@LOCK@@
+@@PREPARED@@
+@@ANCESTORS@@
+@@READY@@
+@@RETRACT@@
+@@GET_NEXT@@
+@@LEASE_NEXT@@
+@@FINISH@@
+@@RELEASE@@
+@@REBLOCK@@
+@@REVALIDATE@@
+@@REQUEUE@@
+@@VALIDATE@@
+
+struct CQuadWord
+{
+    ULONGLONG Value;
+    CQuadWord(DWORD lo, DWORD hi) : Value((static_cast<ULONGLONG>(hi) << 32) | lo) {}
+    explicit CQuadWord(ULONGLONG value) : Value(value) {}
+    CQuadWord& operator+=(const CQuadWord& x) { Value += x.Value; return *this; }
+    CQuadWord operator*(const CQuadWord& x) const { return CQuadWord(Value * x.Value); }
+    CQuadWord operator/(const CQuadWord& x) const { return CQuadWord(Value / x.Value); }
+    bool operator!=(const CQuadWord& x) const { return Value != x.Value; }
+};
+struct FileOperation { CQuadWord FileSize{0, 0}; };
+struct DialogData { HANDLE WorkerNotSuspended{}; BOOL* CancelWorker{}; };
+struct CParallelCopyBatch { ::DialogData* DialogData{}; COperations* Script{}; CRITICAL_SECTION CS{}; };
+struct CParallelCopyTask
+{
+    CParallelCopyBatch* Batch{}; HANDLE Input{INVALID_HANDLE_VALUE};
+    BOOL SourceIdentityValid{}; DWORD SourceVolumeSerial{}; ULONGLONG SourceFileIndex{};
+    volatile LONG Cancel{}; int ScriptIndex{}; ULONGLONG LeaseGeneration{};
+    std::wstring Target; BOOL ReplaceTarget{}, DeleteOnFailure{}, OutputIdentityValid{};
+    DWORD TargetVolumeSerial{}, OutputVolumeSerial{}; ULONGLONG TargetFileIndex{}, OutputFileIndex{};
+    FileOperation* Operation{}; int Progress{}; BOOL Finished{}, Success{};
+    DWORD FinalAttributes{FILE_ATTRIBUTE_ARCHIVE};
+};
+static BOOL ParallelHandleHasNamedStreams(HANDLE, BOOL& hasStreams) { hasStreams = FALSE; return TRUE; }
+static unsigned BufferCount = 0, TargetOpenCount = 0;
+static void* TestMalloc(size_t size) { void* result = std::malloc(size); if (result) ++BufferCount; return result; }
+static void TestFree(void* value) { if (value) --BufferCount; std::free(value); }
+static HANDLE TestCreateFileW(LPCWSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES security,
+                              DWORD disposition, DWORD flags, HANDLE base)
+{
+    ++TargetOpenCount;
+    return CreateFileW(name, access, share, security, disposition, flags, base);
+}
+#define malloc TestMalloc
+#define free TestFree
+#define CreateFileW TestCreateFileW
+@@PARALLEL_COPY@@
+@@PARALLEL_THREAD@@
+#undef CreateFileW
+#undef free
+#undef malloc
+
+static int Checks = 0, Failures = 0;
+static void Check(bool result, const char* what)
+{
+    ++Checks;
+    std::printf("%s: %s\n", result ? "PASS" : "FAIL", what);
+    if (!result) ++Failures;
+}
+static DWORD WINAPI ProbeLock(void* argument)
+{
+    auto* lock = static_cast<CRITICAL_SECTION*>(argument);
+    if (!TryEnterCriticalSection(lock)) return 1;
+    LeaveCriticalSection(lock);
+    return 0;
+}
+static bool LockAvailableOnOtherThread(CRITICAL_SECTION& lock)
+{
+    HANDLE thread = CreateThread(nullptr, 0, ProbeLock, &lock, 0, nullptr);
+    if (!thread) return false;
+    DWORD exit = 1;
+    const bool ok = WaitForSingleObject(thread, 5000) == WAIT_OBJECT_0 && GetExitCodeThread(thread, &exit) && exit == 0;
+    CloseHandle(thread);
+    return ok;
+}
+static bool CaptureDirectory(BY_HANDLE_FILE_INFORMATION& info)
+{
+    HANDLE h = CreateFileW(FixturePath.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                           nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    const bool ok = GetFileInformationByHandle(h, &info) != 0;
+    CloseHandle(h);
+    return ok;
+}
+static bool WriteNew(const std::wstring& path, const char* value)
+{
+    HANDLE h = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, 0, nullptr);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    DWORD done = 0, size = static_cast<DWORD>(std::strlen(value));
+    bool ok = WriteFile(h, value, size, &done, nullptr) && done == size;
+    CloseHandle(h);
+    return ok;
+}
+static bool ReadExact(const std::wstring& path, const char* expected)
+{
+    HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                           nullptr, OPEN_EXISTING, 0, nullptr);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    char data[128]{}; DWORD count = 0;
+    bool ok = ReadFile(h, data, sizeof(data), &count, nullptr) && count == std::strlen(expected) &&
+              std::memcmp(data, expected, count) == 0;
+    CloseHandle(h);
+    return ok;
+}
+static bool Identity(const std::wstring& path, BY_HANDLE_FILE_INFORMATION& info)
+{
+    HANDLE h = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                           nullptr, OPEN_EXISTING, 0, nullptr);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    bool ok = GetFileInformationByHandle(h, &info) != FALSE;
+    CloseHandle(h);
+    return ok;
+}
+static bool SameId(const BY_HANDLE_FILE_INFORMATION& a, const BY_HANDLE_FILE_INFORMATION& b)
+{
+    return a.dwVolumeSerialNumber == b.dwVolumeSerialNumber && a.nFileIndexHigh == b.nFileIndexHigh &&
+           a.nFileIndexLow == b.nFileIndexLow;
+}
+static void Prepare(COperations& ops, const BY_HANDLE_FILE_INFORMATION& info)
+{
+    COperation& parent = ops.At(0);
+    parent.Opcode = ocCreateDir; parent.ConflictState = cmisDone; parent.ConflictDirectoryPrepared = TRUE;
+    parent.ScannedTargetIdentityValid = TRUE; parent.ScannedTargetExisted = TRUE;
+    parent.ScannedTargetAttributes = FILE_ATTRIBUTE_DIRECTORY;
+    parent.ScannedTargetVolumeSerial = info.dwVolumeSerialNumber;
+    parent.ScannedTargetFileIndex = (static_cast<ULONGLONG>(info.nFileIndexHigh) << 32) | info.nFileIndexLow;
+    ops.ConflictDependencies[0].SubtreeEnd = 1;
+    ops.ConflictDependencies[1].Parent = 0; ops.ConflictDependencies[1].SubtreeEnd = 1;
+    ops.At(1).ConflictState = cmisReady; ops.At(1).ConflictItemState = ccipReady;
+    ops.At(2).ConflictState = cmisReady; ops.At(2).ConflictItemState = ccipReady;
+    ops.ConflictDependencies[2].SubtreeEnd = 2;
+}
+static bool LeaseFirst(COperations& ops, ULONGLONG& token)
+{
+    int index = -1;
+    return ops.LeaseNextParallelCopy(index, token, 99) && index == 1 && token != 0;
+}
+static bool WorkerPreflight(COperations& ops, ULONGLONG token)
+{
+    try { return ops.ValidateParallelCopyLeaseForSideEffect(1, token) != FALSE; }
+    catch (const std::bad_alloc&) { return false; }
+}
+int main()
+{
+    std::puts("Fault seams: extracted ancestor push; GetParallelCopyPathW calls 1 and 2. No global allocator replacement.");
+    DWORD size = GetCurrentDirectoryW(0, nullptr);
+    if (!size) return 2;
+    std::vector<wchar_t> path(size);
+    if (!GetCurrentDirectoryW(size, path.data())) return 3;
+    FixturePath = path.data();
+    BY_HANDLE_FILE_INFORMATION info{};
+    if (!CaptureDirectory(info)) return 4;
+    {
+        COperations ops; Prepare(ops, info);
+        int index = -1; ULONGLONG token = 0;
+        Check(ops.IsConflictItemReadyLocked(1) && ops.GetNextConflictReadyItem(index, token) && index == 1 && token,
+              "general selection chooses first ready item in ascending order");
+        Check(ops.At(1).ConflictState == cmisRunning && ops.At(1).ConflictLeaseToken == token,
+              "general selection records a live lease");
+    }
+    {
+        COperations ops; Prepare(ops, info);
+        ops.At(1).ScannedTargetRevision.attributes = FILE_ATTRIBUTE_ARCHIVE;
+        int index = -1; ULONGLONG token = 0;
+        Check(ops.LeaseNextParallelCopy(index, token, 99) && index == 2,
+              "parallel selection preserves ready predicate and revision filtering");
+    }
+    for (int fault = 1; fault <= 3; ++fault)
+    {
+        COperations ops; Prepare(ops, info); ULONGLONG token = 0;
+        if (!LeaseFirst(ops, token)) return 5;
+        InjectAncestors = fault == 1;
+        PathCalls = 0; ThrowPathCall = fault == 2 ? 1 : fault == 3 ? 2 : 0;
+        if (fault == 3) ++ops.At(0).ScannedTargetFileIndex;
+        const bool ok = WorkerPreflight(ops, token);
+        InjectAncestors = false; ThrowPathCall = 0;
+        Check(!ok && LockAvailableOnOtherThread(ops.ConflictCS),
+              fault == 1 ? "ancestor OOM releases coordinator lock" : fault == 2 ?
+              "path OOM inside lock releases coordinator lock" : "requeue path OOM leaves lock available");
+        Check(ops.At(1).ConflictState == cmisRunning && ops.At(1).ConflictLeaseToken == token &&
+              ops.At(1).ConflictLeaseDependencyEpoch == ops.At(1).ConflictGeneration && ops.At(0).ConflictState == cmisDone,
+              "failed preflight leaves original lease and ancestor state intact");
+        Check(ops.ReleaseParallelCopyLease(1, token) == ccloReleased && ops.At(1).ConflictState == cmisReady &&
+              !ops.At(1).ConflictLeaseToken && ops.Signals == 1,
+              "failed task releases its lease with one coordinator signal");
+    }
+    {
+        COperations ops; Prepare(ops, info); ULONGLONG token = 0;
+        if (!LeaseFirst(ops, token)) return 6;
+        ++ops.At(0).ScannedTargetFileIndex;
+        PathCalls = 0; ThrowPathCall = 0;
+        Check(!WorkerPreflight(ops, token) && ops.At(0).ConflictState == cmisConflict &&
+              ops.At(1).ConflictState == cmisBlocked && !ops.At(1).ConflictLeaseToken && ops.Signals == 1,
+              "changed ancestor is requeued and child lease reblocked");
+        Check(LockAvailableOnOtherThread(ops.ConflictCS) && ops.DeferredConflictCount == 1,
+              "successful requeue keeps coordinator unlocked and conflict count correct");
+    }
+    const std::wstring source = FixturePath + L"\\source-東.txt";
+    const std::wstring target = FixturePath + L"\\target-日.txt";
+    const std::wstring alias = FixturePath + L"\\target-hardlink.txt";
+    const std::wstring ads = target + L":private-流";
+    const char* sourceBytes = "source contents";
+    const char* targetBytes = "original target contents";
+    const char* streamBytes = "original alternate stream";
+    if (!WriteNew(source, sourceBytes) || !WriteNew(target, targetBytes) || !WriteNew(ads, streamBytes) ||
+        !CreateHardLinkW(alias.c_str(), target.c_str(), nullptr)) return 7;
+    BY_HANDLE_FILE_INFORMATION sourceInfo{}, original{}, aliasInfo{}, after{}, aliasAfter{};
+    if (!Identity(source, sourceInfo) || !Identity(target, original) || !Identity(alias, aliasInfo) ||
+        !SameId(original, aliasInfo) || original.nNumberOfLinks != 2) return 8;
+    BOOL cancel = FALSE;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!resumed) return 9;
+    for (int fault = 1; fault <= 3; ++fault)
+    {
+        COperations ops; Prepare(ops, info); ULONGLONG token = 0;
+        if (!LeaseFirst(ops, token)) return 10;
+        if (fault == 3) ++ops.At(0).ScannedTargetFileIndex;
+        DialogData dialog{resumed, &cancel}; CParallelCopyBatch batch{&dialog, &ops, {}};
+        InitializeCriticalSection(&batch.CS);
+        FileOperation fileOp; fileOp.FileSize = CQuadWord(static_cast<ULONGLONG>(std::strlen(sourceBytes)));
+        CParallelCopyTask task; task.Batch = &batch; task.Operation = &fileOp; task.Target = target;
+        task.ScriptIndex = 1; task.LeaseGeneration = token; task.ReplaceTarget = TRUE;
+        task.SourceIdentityValid = TRUE; task.SourceVolumeSerial = sourceInfo.dwVolumeSerialNumber;
+        task.SourceFileIndex = (static_cast<ULONGLONG>(sourceInfo.nFileIndexHigh) << 32) | sourceInfo.nFileIndexLow;
+        task.TargetVolumeSerial = original.dwVolumeSerialNumber;
+        task.TargetFileIndex = (static_cast<ULONGLONG>(original.nFileIndexHigh) << 32) | original.nFileIndexLow;
+        task.Input = CreateFileW(source.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (task.Input == INVALID_HANDLE_VALUE) return 11;
+        HANDLE transferredInput = task.Input;
+        InjectAncestors = fault == 1; PathCalls = 0; ThrowPathCall = fault == 2 ? 1 : fault == 3 ? 2 : 0;
+        TargetOpenCount = 0;
+        HANDLE thread = CreateThread(nullptr, 0, ParallelCopyThreadProc, &task, 0, nullptr);
+        if (!thread || WaitForSingleObject(thread, 5000) != WAIT_OBJECT_0) return 12;
+        CloseHandle(thread);
+        InjectAncestors = false; ThrowPathCall = 0;
+        DWORD flags = 0;
+        Check(task.Finished && !task.Success && task.Input == INVALID_HANDLE_VALUE &&
+              !GetHandleInformation(transferredInput, &flags) && GetLastError() == ERROR_INVALID_HANDLE &&
+              BufferCount == 0 && TargetOpenCount == 0 && !task.DeleteOnFailure && !task.OutputIdentityValid,
+              fault == 1 ? "actual worker ancestor OOM completes and closes input and buffer before target open" :
+              fault == 2 ? "actual worker locked-path OOM completes and closes input and buffer before target open" :
+                           "actual worker requeue-path OOM completes and closes input and buffer before target open");
+        Check(Identity(target, after) && Identity(alias, aliasAfter) && SameId(original, after) && SameId(after, aliasAfter) &&
+              after.nNumberOfLinks == 2 && ReadExact(target, targetBytes) && ReadExact(alias, targetBytes) &&
+              ReadExact(ads, streamBytes) && ReadExact(source, sourceBytes),
+              "actual worker failure preserves source, both hardlinks, identity and ADS");
+        Check(LockAvailableOnOtherThread(ops.ConflictCS) && ops.At(1).ConflictState == cmisRunning &&
+              ops.At(1).ConflictLeaseToken == token && ops.ReleaseParallelCopyLease(1, token) == ccloReleased &&
+              ops.At(1).ConflictState == cmisReady && !ops.At(1).ConflictLeaseToken,
+              "actual worker failure unlocks coordinator and its lease releases cleanly");
+        DeleteCriticalSection(&batch.CS);
+    }
+    CloseHandle(resumed);
+    std::printf("%d checks, %d failures\n", Checks, Failures);
+    return Failures ? 1 : 0;
+}

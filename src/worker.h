@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Select ready conflicts without allocating queues. | Keep the coordinator consistent under memory pressure. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Carry owned prompt data and allocation errors. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Define typed overwrite prompt payload. | Own the native dialog text across modal dispatch. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Bind conflict responses to their displayed coordinator snapshot. | Reject decisions for a replaced scan generation. | #731 | GPT-6.1 Terra |
@@ -596,7 +597,6 @@ public:
     BOOL IsPreparedParentDirectoryLocked(int index) const;
     BOOL AreConflictAncestorsPreparedLocked(int index) const;
     BOOL IsConflictItemReadyLocked(int index) const;
-    void RebuildConflictQueuesLocked();
     void SuppressConflictSubtreeLocked(int index);
     void AdmitConflictSubtreeLocked(int index);
     void RetractConflictSubtreeLocked(int index);
@@ -647,8 +647,6 @@ private:
     HWND ConflictProgressWindow;
     BOOL ConflictProgressNotificationPosted;
     std::vector<CConflictDependencyNode> ConflictDependencies;
-    std::deque<int> ConflictReadyQueue;
-    std::deque<int> ConflictPendingQueue;
     std::deque<CCopyMoveConflictRequest> ConflictRequestQueue;
     CTransferSpeedMeter TransferSpeedMeter; // meter for data transfers (Read/WriteFile)
     CProgressSpeedMeter ProgressSpeedMeter; // meter for calculating "time left" (also tracks directory creation speed, empty copies, etc.; uses the same operation sizes as the progress meter)

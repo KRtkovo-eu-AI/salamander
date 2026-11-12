@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Locate readiness predicate before its scoped lock helper. | Keep scheduling contract coverage after removal of redundant queues. | #731 | GPT-6 (Codex) |
 # | 2026-11-11 | Check identity guards without assuming adjacent read-only preparation. | Preserve wide-path and stale-target coverage after overwrite preparation. | #731 | GPT-6 (Codex) |
 # | 2026-11-07 | Cover Copy/Move reset-and-hide behavior. | Reset and hide options must reset values before collapsing the dialog. |  | openai/gpt-5.6-luna-pro |
 # | 2026-11-07 | Verify Copy/Move reset restores the configured wait behavior. | Reset options and defaults must derive Wait until from the transfer preference. |  | openai/gpt-5.6-luna-pro |
@@ -484,7 +485,7 @@ def main() -> None:
             "one-task fallback rolls back speculative directories")
     for function_start, function_end in (
         ("BOOL COperations::GetNextConflictPromptItem", "void COperations::SetConflictChangedEvent"),
-        ("BOOL COperations::IsConflictItemReadyLocked", "void COperations::RebuildConflictQueuesLocked"),
+        ("BOOL COperations::IsConflictItemReadyLocked", "class CScopedConflictLock"),
         ("void COperations::AdmitConflictSubtreeLocked", "BOOL COperations::BeginConflictScan"),
         ("void COperations::PublishConflictScanResult", "BOOL COperations::GetNextConflictRequest"),
     ):

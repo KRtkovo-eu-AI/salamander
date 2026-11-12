@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Make parallel conflict preflight allocation-safe. | Preserve the destination and release coordinator resources on failure. | #731 | GPT-6 (Codex) |
+// | 2026-11-12 | Allocate the parallel copy buffer before opening the target. | Preserve an existing target and its links when buffer allocation fails. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Probe an unreadable existing singleton F5 target before its conflict dialog. | Offer a scoped UAC choice only after a concrete access denial. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Route eligible singleton F5 overwrite through a scoped probe. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Retry one denied F5 overwrite through a reviewed probe. | Preserve scoped consent and the native conflict dialog. | #731 | GPT-6 (Codex) |
@@ -101,6 +103,7 @@
 #include <Aclapi.h>
 #include <Ntsecapi.h>
 #include <deque>
+#include <new>
 
 // these functions have no header, we must load them dynamically
 NTQUERYINFORMATIONFILE DynNtQueryInformationFile = NULL;
@@ -1134,18 +1137,15 @@ BOOL COperations::IsConflictItemReadyLocked(int index) const
     return TRUE;
 }
 
-void COperations::RebuildConflictQueuesLocked()
+class CScopedConflictLock
 {
-    ConflictReadyQueue.clear();
-    ConflictPendingQueue.clear();
-    for (int index = 0; index < Count; ++index)
-    {
-        COperation& op = At(index);
-        if (IsConflictItemReadyLocked(index)) ConflictReadyQueue.push_back(index);
-        else if (op.ConflictState == cmisUnscanned || op.ConflictState == cmisConflict || op.ConflictState == cmisBlocked)
-            ConflictPendingQueue.push_back(index);
-    }
-}
+    CRITICAL_SECTION* Lock;
+public:
+    explicit CScopedConflictLock(CRITICAL_SECTION* lock) : Lock(lock) { HANDLES(EnterCriticalSection(Lock)); }
+    ~CScopedConflictLock() { HANDLES(LeaveCriticalSection(Lock)); }
+    CScopedConflictLock(const CScopedConflictLock&) = delete;
+    CScopedConflictLock& operator=(const CScopedConflictLock&) = delete;
+};
 
 void COperations::SuppressConflictSubtreeLocked(int index)
 {
@@ -1341,7 +1341,6 @@ void COperations::InitializeConflictDependencies()
         ConflictDependencies[index].FinalizeStart = At(index).ConflictFinalizeStart;
         ConflictDependencies[index].Finalizer = At(index).ConflictIsFinalizer ? index : -1;
     }
-    RebuildConflictQueuesLocked();
     ConflictListVersion++;
     HANDLES(LeaveCriticalSection(&ConflictCS));
 
@@ -1437,7 +1436,6 @@ void COperations::PublishConflictScanResult(int index, CCopyMoveConflictType typ
         }
         else op.ConflictState = cmisReady;
         ConflictScannedCount++;
-        RebuildConflictQueuesLocked();
         ConflictListVersion++;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
@@ -1526,7 +1524,6 @@ void COperations::SetDeferredConflictDecisionLocked(int index, CCopyMoveConflict
                     AdmitConflictSubtreeLocked(item);
             }
         }
-        RebuildConflictQueuesLocked();
         ConflictListVersion++;
     }
 }
@@ -1563,7 +1560,6 @@ void COperations::SetOperationWideConflictDecision(CCopyMoveConflictDecision dec
             op.ConflictType == cmctDirectoryExists)
             AdmitConflictSubtreeLocked(item);
     }
-    RebuildConflictQueuesLocked();
     ++ConflictListVersion;
     HANDLES(LeaveCriticalSection(&ConflictCS));
     SignalConflictChanged();
@@ -1573,12 +1569,9 @@ BOOL COperations::GetNextConflictReadyItem(int& index, ULONGLONG& leaseToken)
 {
     leaseToken = 0;
     HANDLES(EnterCriticalSection(&ConflictCS));
-    RebuildConflictQueuesLocked();
     BOOL found = FALSE;
-    while (!ConflictReadyQueue.empty())
+    for (int item = 0; item < Count; ++item)
     {
-        const int item = ConflictReadyQueue.front();
-        ConflictReadyQueue.pop_front();
         if (!IsConflictItemReadyLocked(item)) continue;
         COperation& op = At(item);
         op.ConflictState = cmisRunning;
@@ -1602,13 +1595,12 @@ BOOL COperations::LeaseNextParallelCopy(int& index, ULONGLONG& leaseToken, int s
 {
     leaseToken = 0;
     HANDLES(EnterCriticalSection(&ConflictCS));
-    RebuildConflictQueuesLocked();
     BOOL found = FALSE;
-    for (std::deque<int>::iterator item = ConflictReadyQueue.begin(); item != ConflictReadyQueue.end(); ++item)
+    for (int item = 0; item < Count; ++item)
     {
         // startIndex is only a fairness hint; it must never exclude an older ready item.
-        if (*item < 0 || *item >= Count) continue;
-        COperation& op = At(*item);
+        if (!IsConflictItemReadyLocked(item)) continue;
+        COperation& op = At(item);
         if (op.Opcode != ocCopyFile || op.ConflictIsFinalizer || op.ScannedTargetRevision.attributes ||
             (op.ConflictState != cmisReady && op.ConflictState != cmisOverwrite)) continue;
         op.ConflictState = cmisRunning;
@@ -1618,7 +1610,7 @@ BOOL COperations::LeaseNextParallelCopy(int& index, ULONGLONG& leaseToken, int s
         if (op.ConflictLeaseToken == 0) op.ConflictLeaseToken = ++NextConflictLeaseToken;
         op.ConflictLeaseDependencyEpoch = op.ConflictGeneration;
         op.ConflictLeaseDecision = op.ConflictDecision;
-        index = *item; leaseToken = op.ConflictLeaseToken; found = TRUE; break;
+        index = item; leaseToken = op.ConflictLeaseToken; found = TRUE; break;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
     return found;
@@ -1657,7 +1649,6 @@ CConflictLeaseOutcome COperations::FinishParallelCopyLeaseLocked(int index, ULON
         outcome = ccloReleased;
     }
     op.ConflictGeneration = ++ConflictCoordinatorGeneration;
-    RebuildConflictQueuesLocked();
     ++ConflictListVersion;
     return outcome;
 }
@@ -1683,9 +1674,11 @@ CConflictLeaseOutcome COperations::ReleaseParallelCopyLease(int index, ULONGLONG
 
 CConflictLeaseOutcome COperations::ReblockParallelCopyLease(int index, ULONGLONG leaseToken)
 {
-    HANDLES(EnterCriticalSection(&ConflictCS));
-    CConflictLeaseOutcome outcome = FinishParallelCopyLeaseLocked(index, leaseToken, ccloReblocked);
-    HANDLES(LeaveCriticalSection(&ConflictCS));
+    CConflictLeaseOutcome outcome;
+    {
+        CScopedConflictLock lock(&ConflictCS);
+        outcome = FinishParallelCopyLeaseLocked(index, leaseToken, ccloReblocked);
+    }
     if (outcome != ccloInvalid) SignalConflictChanged();
     return outcome;
 }
@@ -1752,7 +1745,6 @@ void COperations::CompleteConflictItem(int index, BOOL skipped, int throughIndex
                 }
             }
         }
-        RebuildConflictQueuesLocked();
         ConflictListVersion++;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
@@ -1834,7 +1826,6 @@ BOOL COperations::RevalidateConflictItem(int index, CCopyMoveConflictType& confl
             op.ConflictItemState = ccipAwaitingDecision;
             DeferredConflictCount++;
         }
-        RebuildConflictQueuesLocked();
         ConflictListVersion++;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
@@ -1846,14 +1837,15 @@ BOOL COperations::RevalidateConflictItem(int index, CCopyMoveConflictType& confl
 BOOL COperations::RevalidatePreparedConflictAncestors(int index)
 {
     std::vector<int> ancestors;
-    HANDLES(EnterCriticalSection(&ConflictCS));
-    if (index >= 0 && index < Count && index < (int)ConflictDependencies.size())
-        for (int parent = ConflictDependencies[index].Parent; parent >= 0;
-             parent = ConflictDependencies[parent].Parent)
-            if (At(parent).Opcode == ocCreateDir &&
-                (At(parent).ConflictDirectoryPrepared || At(parent).ConflictState != cmisDone))
-                ancestors.push_back(parent);
-    HANDLES(LeaveCriticalSection(&ConflictCS));
+    {
+        CScopedConflictLock lock(&ConflictCS);
+        if (index >= 0 && index < Count && index < (int)ConflictDependencies.size())
+            for (int parent = ConflictDependencies[index].Parent; parent >= 0;
+                 parent = ConflictDependencies[parent].Parent)
+                if (At(parent).Opcode == ocCreateDir &&
+                    (At(parent).ConflictDirectoryPrepared || At(parent).ConflictState != cmisDone))
+                    ancestors.push_back(parent);
+    }
 
     for (std::vector<int>::reverse_iterator item = ancestors.rbegin(); item != ancestors.rend(); ++item)
     {
@@ -1861,13 +1853,15 @@ BOOL COperations::RevalidatePreparedConflictAncestors(int index)
         ULONGLONG expectedIndex;
         BOOL expectedIdentity;
         std::wstring target;
-        HANDLES(EnterCriticalSection(&ConflictCS));
-        const BOOL prepared = IsPreparedParentDirectoryLocked(*item);
-        expectedVolume = At(*item).ScannedTargetVolumeSerial;
-        expectedIndex = At(*item).ScannedTargetFileIndex;
-        expectedIdentity = At(*item).ScannedTargetIdentityValid;
-        target = GetParallelCopyPathW(&At(*item), FALSE);
-        HANDLES(LeaveCriticalSection(&ConflictCS));
+        BOOL prepared;
+        {
+            CScopedConflictLock lock(&ConflictCS);
+            prepared = IsPreparedParentDirectoryLocked(*item);
+            expectedVolume = At(*item).ScannedTargetVolumeSerial;
+            expectedIndex = At(*item).ScannedTargetFileIndex;
+            expectedIdentity = At(*item).ScannedTargetIdentityValid;
+            target = GetParallelCopyPathW(&At(*item), FALSE);
+        }
         if (!target.empty()) target = SalPathAddExtendedPrefixW(target.c_str());
         HANDLE directory = prepared && expectedIdentity && !target.empty() ?
             HANDLES_Q(CreateFileW(target.c_str(), FILE_READ_ATTRIBUTES,
@@ -1884,9 +1878,10 @@ BOOL COperations::RevalidatePreparedConflictAncestors(int index)
         if (!unchanged)
         {
             ULONGLONG leaseToken = 0;
-            HANDLES(EnterCriticalSection(&ConflictCS));
-            if (index >= 0 && index < Count) leaseToken = At(index).ConflictLeaseToken;
-            HANDLES(LeaveCriticalSection(&ConflictCS));
+            {
+                CScopedConflictLock lock(&ConflictCS);
+                if (index >= 0 && index < Count) leaseToken = At(index).ConflictLeaseToken;
+            }
             RequeueChangedConflictItem(*item);
             if (leaseToken != 0) ReblockParallelCopyLease(index, leaseToken);
             return FALSE;
@@ -1929,7 +1924,7 @@ void COperations::RequeueChangedConflictItem(int index)
         HANDLES(CloseHandle(targetHandle));
     }
 
-    HANDLES(EnterCriticalSection(&ConflictCS));
+    CScopedConflictLock lock(&ConflictCS);
     COperation& op = At(index);
     RetractConflictSubtreeLocked(index);
     op.ConflictGeneration = ++ConflictCoordinatorGeneration;
@@ -1956,9 +1951,7 @@ void COperations::RequeueChangedConflictItem(int index)
         op.ConflictItemState = ccipAwaitingDecision;
         DeferredConflictCount++;
     }
-    RebuildConflictQueuesLocked();
     ConflictListVersion++;
-    HANDLES(LeaveCriticalSection(&ConflictCS));
 }
 
 void COperations::MarkConflictDirectoryPrepared(int index, BOOL created, DWORD volumeSerial,
@@ -1977,7 +1970,6 @@ void COperations::MarkConflictDirectoryPrepared(int index, BOOL created, DWORD v
         op.ScannedTargetAttributes = FILE_ATTRIBUTE_DIRECTORY;
         op.ConflictGeneration = ++ConflictCoordinatorGeneration;
         AdmitConflictSubtreeLocked(index);
-        RebuildConflictQueuesLocked();
         ++ConflictListVersion;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
@@ -2001,7 +1993,6 @@ void COperations::RollbackConflictDirectoryPrepared(int index, BOOL removed)
         // If identity-safe removal failed, committed children may own the directory.
         // Keep/adopt it as prepared so coordinator state remains physically truthful.
         op.ConflictGeneration = ++ConflictCoordinatorGeneration;
-        RebuildConflictQueuesLocked();
         ++ConflictListVersion;
     }
     HANDLES(LeaveCriticalSection(&ConflictCS));
@@ -2010,14 +2001,16 @@ void COperations::RollbackConflictDirectoryPrepared(int index, BOOL removed)
 
 BOOL COperations::ValidateParallelCopyLeaseForSideEffect(int index, ULONGLONG leaseToken)
 {
-    HANDLES(EnterCriticalSection(&ConflictCS));
-    BOOL valid = index >= 0 && index < Count && leaseToken != 0 &&
-                 At(index).ConflictState == cmisRunning &&
-                 At(index).ConflictLeaseToken == leaseToken &&
-                 At(index).ConflictLeaseDependencyEpoch == At(index).ConflictGeneration &&
-                 At(index).ConflictLeaseDecision == At(index).ConflictDecision &&
-                 AreConflictAncestorsPreparedLocked(index);
-    HANDLES(LeaveCriticalSection(&ConflictCS));
+    BOOL valid;
+    {
+        CScopedConflictLock lock(&ConflictCS);
+        valid = index >= 0 && index < Count && leaseToken != 0 &&
+                At(index).ConflictState == cmisRunning &&
+                At(index).ConflictLeaseToken == leaseToken &&
+                At(index).ConflictLeaseDependencyEpoch == At(index).ConflictGeneration &&
+                At(index).ConflictLeaseDecision == At(index).ConflictDecision &&
+                AreConflictAncestorsPreparedLocked(index);
+    }
     if (!valid) ReblockParallelCopyLease(index, leaseToken);
     return valid && RevalidatePreparedConflictAncestors(index);
 }
@@ -10710,6 +10703,19 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
     task->Input = INVALID_HANDLE_VALUE;
     if (input == INVALID_HANDLE_VALUE)
         return FALSE;
+    struct CScopedParallelHandle
+    {
+        HANDLE Value;
+        explicit CScopedParallelHandle(HANDLE value) : Value(value) {}
+        ~CScopedParallelHandle() { Close(); }
+        BOOL Close()
+        {
+            if (Value == INVALID_HANDLE_VALUE) return TRUE;
+            HANDLE value = Value;
+            Value = INVALID_HANDLE_VALUE;
+            return HANDLES(CloseHandle(value));
+        }
+    } inputOwner(input);
     BY_HANDLE_FILE_INFORMATION inputInfo;
     if (task->SourceIdentityValid &&
         (!GetFileInformationByHandle(input, &inputInfo) ||
@@ -10717,7 +10723,7 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
          (((ULONGLONG)inputInfo.nFileIndexHigh << 32) | inputInfo.nFileIndexLow) !=
              task->SourceFileIndex))
     {
-        HANDLES(CloseHandle(input));
+        inputOwner.Close();
         return FALSE;
     }
     while (WaitForSingleObject(batch->DialogData->WorkerNotSuspended, 100) == WAIT_TIMEOUT)
@@ -10726,7 +10732,7 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
             InterlockedCompareExchange(&task->Cancel, 0, 0) != 0 ||
             batch->Script->IsParallelCopyDisabled())
         {
-            HANDLES(CloseHandle(input));
+            inputOwner.Close();
             return FALSE;
         }
     }
@@ -10734,14 +10740,54 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
         InterlockedCompareExchange(&task->Cancel, 0, 0) != 0 ||
         batch->Script->IsParallelCopyDisabled())
     {
-        HANDLES(CloseHandle(input));
+        inputOwner.Close();
         return FALSE;
     }
-    if (batch->Script->CopyMoveConflictMode == CMCM_SCAN_AHEAD &&
-        !batch->Script->ValidateParallelCopyLeaseForSideEffect(task->ScriptIndex,
-                                                                task->LeaseGeneration))
+    // Allocate before opening or truncating the destination: allocation
+    // failure can then stop without damaging an existing target.
+    const DWORD bufferSize = 1024 * 1024;
+    struct CScopedCopyBuffer
     {
-        HANDLES(CloseHandle(input));
+        BYTE* Data;
+        explicit CScopedCopyBuffer(DWORD size) : Data((BYTE*)malloc(size)) {}
+        ~CScopedCopyBuffer() { free(Data); }
+    } allocation(bufferSize);
+    BYTE* buffer = allocation.Data;
+    if (buffer == NULL)
+    {
+        inputOwner.Close();
+        return FALSE;
+    }
+    // Allocation may take time. Recheck cancellation and pause, then perform
+    // the scan-ahead lease check before touching the target. This does not
+    // atomically exclude a later state change.
+    while (WaitForSingleObject(batch->DialogData->WorkerNotSuspended, 100) == WAIT_TIMEOUT)
+    {
+        if (*batch->DialogData->CancelWorker ||
+            InterlockedCompareExchange(&task->Cancel, 0, 0) != 0 ||
+            batch->Script->IsParallelCopyDisabled())
+        {
+            inputOwner.Close();
+            return FALSE;
+        }
+    }
+    if (*batch->DialogData->CancelWorker ||
+        InterlockedCompareExchange(&task->Cancel, 0, 0) != 0 ||
+        batch->Script->IsParallelCopyDisabled())
+    {
+        inputOwner.Close();
+        return FALSE;
+    }
+    try
+    {
+        if (batch->Script->CopyMoveConflictMode == CMCM_SCAN_AHEAD &&
+            !batch->Script->ValidateParallelCopyLeaseForSideEffect(task->ScriptIndex, task->LeaseGeneration))
+            return FALSE;
+    }
+    catch (const std::bad_alloc&)
+    {
+        // No destination handle has been opened yet. The batch handles this
+        // as an ordinary failed task and releases its outstanding lease.
         return FALSE;
     }
     HANDLE output = HANDLES_Q(CreateFileW(task->Target.c_str(), GENERIC_WRITE | FILE_READ_ATTRIBUTES,
@@ -10750,9 +10796,10 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
                                           FILE_FLAG_SEQUENTIAL_SCAN, NULL));
     if (output == INVALID_HANDLE_VALUE)
     {
-        HANDLES(CloseHandle(input));
+        inputOwner.Close();
         return FALSE;
     }
+    CScopedParallelHandle outputOwner(output);
     BY_HANDLE_FILE_INFORMATION outputInfo;
     if (!GetFileInformationByHandle(output, &outputInfo) ||
         task->ReplaceTarget &&
@@ -10760,8 +10807,8 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
              (((ULONGLONG)outputInfo.nFileIndexHigh << 32) | outputInfo.nFileIndexLow) !=
                  task->TargetFileIndex))
     {
-        HANDLES(CloseHandle(output));
-        HANDLES(CloseHandle(input));
+        outputOwner.Close();
+        inputOwner.Close();
         return FALSE;
     }
     if (!task->ReplaceTarget)
@@ -10779,16 +10826,16 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
                                              FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM)) != 0 ||
             !ParallelHandleHasNamedStreams(output, hasNamedStreams) || hasNamedStreams)
         {
-            HANDLES(CloseHandle(output));
-            HANDLES(CloseHandle(input));
+            outputOwner.Close();
+            inputOwner.Close();
             return FALSE;
         }
         LARGE_INTEGER zero;
         zero.QuadPart = 0;
         if (!SetFilePointerEx(output, zero, NULL, FILE_BEGIN) || !SetEndOfFile(output))
         {
-            HANDLES(CloseHandle(output));
-            HANDLES(CloseHandle(input));
+            outputOwner.Close();
+            inputOwner.Close();
             return FALSE;
         }
         task->DeleteOnFailure = TRUE;
@@ -10798,9 +10845,7 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
                                 outputInfo.nFileIndexLow;
     }
 
-    const DWORD bufferSize = 1024 * 1024;
-    BYTE* buffer = (BYTE*)malloc(bufferSize);
-    BOOL success = buffer != NULL;
+    BOOL success = TRUE;
     CQuadWord copied(0, 0);
     while (success)
     {
@@ -10858,8 +10903,6 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
             HANDLES(LeaveCriticalSection(&batch->CS));
         }
     }
-    if (buffer != NULL)
-        free(buffer);
     if (success && copied != task->Operation->FileSize)
         success = FALSE;
     FILETIME lastWrite;
@@ -10878,9 +10921,9 @@ static BOOL ParallelCopyFileW(CParallelCopyTask* task)
                 success = FALSE;
         }
     }
-    if (!HANDLES(CloseHandle(output)))
+    if (!outputOwner.Close())
         success = FALSE;
-    HANDLES(CloseHandle(input));
+    inputOwner.Close();
     return success;
 }
 

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Compile the coordinator lock guard in the snapshot harness. | Exercise the production requeue method after its RAII conversion. | #731 | GPT-6 (Codex) |
 # | 2026-11-11 | Exercise real conflict snapshot and resolution methods. | Reject stale native modal choices and their Apply All effect. | #731 | GPT-6.1 Terra |
 """Compile real coordinator methods with isolated path and queue seams."""
 import argparse
@@ -33,6 +34,7 @@ def main():
 
     code = read("src/tests/uac_conflict_snapshot_tests.cpp.in")
     snippets = {
+        "@@CONFLICT_LOCK@@": block(worker, "class CScopedConflictLock", ";"),
         "@@REVISION@@": block(uac, "struct ArchiveRevision", ";"),
         "@@SAME_REVISION@@": block(uac, "inline bool SameFileRevision("),
         "@@SNAPSHOT@@": block(header, "struct CCopyMoveConflictSnapshot", ";"),

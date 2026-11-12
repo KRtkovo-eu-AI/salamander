@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Use the real coordinator lock guard. | Keep requeue tests aligned with exception-safe locking. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Test real conflict snapshot and resolution methods. | Prevent stale modal decisions from authorizing a new target. | #731 | GPT-6.1 Terra |
 #include <windows.h>
 #include <cstdio>
@@ -49,7 +50,6 @@ public:
     BOOL AreConflictAncestorsPreparedLocked(int) { return TRUE; }
     void AdmitConflictSubtreeLocked(int) {}
     void RetractConflictSubtreeLocked(int) {}
-    void RebuildConflictQueuesLocked() {}
     void SignalConflictChanged() { ++Signals; }
     void GetConflictSnapshotLocked(int, CCopyMoveConflictSnapshot&);
     BOOL GetConflictSnapshot(int, CCopyMoveConflictSnapshot&);
@@ -63,6 +63,7 @@ public:
 };
 #define HANDLES(value) (value)
 #define HANDLES_Q(value) (value)
+@@CONFLICT_LOCK@@
 static BY_HANDLE_FILE_INFORMATION NextInfo{};
 static UacF7::ArchiveRevision NextRevision{};
 static HANDLE FakeOpen(const wchar_t*, DWORD, DWORD, void*, DWORD, DWORD, HANDLE) { return reinterpret_cast<HANDLE>(1); }
