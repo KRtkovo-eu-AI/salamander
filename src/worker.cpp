@@ -2486,10 +2486,32 @@ static HANDLE ThinCopyOpenRetry(CThinCopyWorker* context, bool overlapped)
     }
     return file;
 }
+// Only a compile-time laboratory build may inject an access denial before
+// the real CreateFile expression is evaluated. Each side is injected once.
+static bool ThinCopyTestDenyOpen(CThinCopyWorker* context, bool target)
+{
+    if (!context || !context->active)
+        return false;
+    wchar_t mode[16]{};
+    const DWORD length = GetEnvironmentVariableW(L"SAM_UAC_TEST_DENY_OPEN", mode, _countof(mode));
+    if (!length || length >= _countof(mode) ||
+        (_wcsicmp(mode, L"both") != 0 && _wcsicmp(mode, target ? L"target" : L"source") != 0))
+        return false;
+    static volatile LONG sourceInjected = 0;
+    static volatile LONG targetInjected = 0;
+    return InterlockedCompareExchange(target ? &targetInjected : &sourceInjected, 1, 0) == 0;
+}
+
+static HANDLE ThinCopyTestDeniedHandle()
+{
+    SetLastError(ERROR_ACCESS_DENIED);
+    return INVALID_HANDLE_VALUE;
+}
+
 #define THIN_REMEMBER_SOURCE(ctx, file) do { if (ctx) (ctx)->RememberSource((file), true); } while (0)
 #define THIN_REMEMBER_TARGET(ctx, file) do { if (ctx) (ctx)->RememberTarget((file), true); } while (0)
-#define THIN_OPEN_SOURCE(ctx, local, overlapped) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::Source, (overlapped))
-#define THIN_OPEN_TARGET_CREATE(ctx, local, overlapped) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetCreate, (overlapped))
+#define THIN_OPEN_SOURCE(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyOpen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped))
+#define THIN_OPEN_TARGET_CREATE(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyOpen((ctx), true) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::TargetCreate, (overlapped))
 #define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) \
     ((ctx) && (ctx)->targetCreatedByBroker ? \
         ThinCopyOpenRetry((ctx), (overlapped)) : \
