@@ -1,0 +1,107 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Test actual progress completion branch with deterministic windows. | Preserve queue priority and user focus choices. | #731 | GPT-6 |
+#include <windows.h>
+#include <map>
+#include <cstdio>
+struct Window { DWORD pid=0, thread=0; HWND root=nullptr; bool visible=true,enabled=true,iconic=false; };
+static std::map<HWND,Window> windows;
+static DWORD currentPid=10,currentThread=1,inputTime=100;
+static bool inputWorks=true, foregroundSuccess=true;
+static HWND currentForeground=nullptr, activated=nullptr, posted=nullptr, nextZ=nullptr, queueResult=nullptr;
+static unsigned activations=0, posts=0;
+static bool queueChangesInput=false, queueChangesForeground=false;
+static HWND window(unsigned n) { return reinterpret_cast<HWND>(static_cast<ULONG_PTR>(n)); }
+static HWND fakeForeground() { return currentForeground; }
+static BOOL fakeInput(PLASTINPUTINFO p) { if(!inputWorks) return FALSE;p->dwTime=inputTime;return TRUE; }
+static DWORD fakeThread(HWND h,LPDWORD pid) { auto it=windows.find(h);if(pid)*pid=it==windows.end()?0:it->second.pid;return it==windows.end()?0:it->second.thread; }
+static DWORD fakePid() {return currentPid;}
+static DWORD fakeCurrentThread() {return currentThread;}
+static HWND fakeAncestor(HWND h,UINT) {auto it=windows.find(h);return it==windows.end()?nullptr:(it->second.root?it->second.root:h);}
+static BOOL fakeVisible(HWND h) {auto it=windows.find(h);return it!=windows.end() && it->second.visible;}
+static BOOL fakeEnabled(HWND h) {auto it=windows.find(h);return it!=windows.end() && it->second.enabled;}
+static BOOL fakeIconic(HWND h) {auto it=windows.find(h);return it!=windows.end() && it->second.iconic;}
+static HWND fakeNext(HWND,UINT) {return nextZ;}
+static BOOL fakeSetForeground(HWND h) {++activations;activated=h;if(foregroundSuccess)currentForeground=h;return foregroundSuccess?TRUE:FALSE;}
+static BOOL fakePost(HWND h,UINT,WPARAM,LPARAM) {++posts;posted=h;return TRUE;}
+#define SAM_UAC_THIN_COPY_TEST
+#define GetForegroundWindow fakeForeground
+#define GetLastInputInfo fakeInput
+#define GetWindowThreadProcessId fakeThread
+#define GetCurrentProcessId fakePid
+#define GetCurrentThreadId fakeCurrentThread
+#define GetAncestor fakeAncestor
+#define IsWindowVisible fakeVisible
+#define IsWindowEnabled fakeEnabled
+#define IsIconic fakeIconic
+#undef GetNextWindow
+#define GetNextWindow fakeNext
+#define SetForegroundWindow fakeSetForeground
+#undef PostMessage
+#define PostMessage fakePost
+#include "uac_thin_foreground.h"
+static HWND HWindow=nullptr, NextForegroundWindow=nullptr;
+static bool RunningInOwnThread=true, ThinConsentReturned=true, IsInQueue=false;
+static struct { bool AlwaysOnTop=false; } Configuration;
+struct Main { HWND HWindow=nullptr; };
+static Main mainObject; static Main* MainWindow=&mainObject;
+static constexpr UINT WM_USER_PROGRDLGEND=WM_USER+1, WM_USER_FOCUSPROGRDLG=WM_USER+2;
+struct Queue {
+    void OperationEnded(HWND,BOOL,HWND* out) {
+        if(queueChangesInput) ++inputTime;
+        if(queueChangesForeground) currentForeground=window(3);
+        *out=queueResult;
+    }
+};
+static Queue OperationsQueue;
+static void runCompletion() {
+    UINT uMsg=0;
+    switch(WM_USER_PROGRDLGEND) {
+@@CASE@@
+    }
+    (void)uMsg;
+}
+static unsigned failures=0;
+static void expect(bool value,const char* label) {std::printf("%s: %s\n",value?"PASS":"FAIL",label);if(!value)++failures;}
+static void reset(HWND progress,HWND mainWindow) {
+    windows.clear(); Window a;a.pid=10;a.thread=1;windows[progress]=a;windows[mainWindow]=a;
+    HWindow=progress;mainObject.HWindow=mainWindow;MainWindow=&mainObject;NextForegroundWindow=nullptr;
+    currentPid=10;currentThread=1;inputTime=100;inputWorks=foregroundSuccess=true;currentForeground=progress;
+    RunningInOwnThread=ThinConsentReturned=true;IsInQueue=Configuration.AlwaysOnTop=false;
+    activations=posts=0;activated=posted=nextZ=queueResult=nullptr;queueChangesInput=queueChangesForeground=false;
+}
+int main() {
+    const HWND progress=window(1),mainWindow=window(2),other=window(3),queued=window(4);
+    reset(progress,mainWindow);runCompletion();
+    expect(activations==1 && activated==mainWindow && NextForegroundWindow==nullptr,"active thin progress returns directly to main before teardown");
+    reset(progress,mainWindow);IsInQueue=true;queueResult=queued;runCompletion();
+    expect(posts==1 && posted==queued && activations==0 && NextForegroundWindow==nullptr && !IsInQueue,"next operation has priority over main window");
+    reset(progress,mainWindow);currentForeground=other;runCompletion();
+    expect(activations==0 && posts==0,"foreign foreground before completion is respected");
+    reset(progress,mainWindow);IsInQueue=true;queueChangesInput=true;runCompletion();
+    expect(activations==0 && NextForegroundWindow==nullptr,"user input after selection prevents activation");
+    reset(progress,mainWindow);IsInQueue=true;queueChangesForeground=true;runCompletion();
+    expect(activations==0 && NextForegroundWindow==nullptr,"foreground switch after selection prevents activation");
+    reset(progress,mainWindow);inputWorks=false;runCompletion();
+    expect(activations==0 && NextForegroundWindow==nullptr,"unknown input state does not leave deferred activation");
+    reset(progress,mainWindow);windows[mainWindow].enabled=false;runCompletion();
+    expect(activations==0 && NextForegroundWindow==nullptr,"disabled main does not receive foreground");
+    reset(progress,mainWindow);windows[mainWindow].iconic=true;runCompletion();
+    expect(activations==0 && NextForegroundWindow==nullptr,"minimized main is not restored");
+    reset(progress,mainWindow);foregroundSuccess=false;runCompletion();
+    expect(activations==1 && currentForeground==progress && NextForegroundWindow==nullptr,"failed SetForegroundWindow has no delayed fallback");
+    reset(progress,mainWindow);ThinConsentReturned=false;nextZ=other;Window external;external.pid=99;external.thread=3;windows[other]=external;runCompletion();
+    expect(activations==0 && NextForegroundWindow==other,"ordinary operation keeps legacy target selection");
+    reset(progress,mainWindow);Configuration.AlwaysOnTop=true;runCompletion();
+    expect(activations==1 && activated==mainWindow,"always-on-top still returns from active thin progress");
+    reset(progress,mainWindow);Configuration.AlwaysOnTop=true;ThinConsentReturned=false;runCompletion();
+    expect(activations==0 && NextForegroundWindow==nullptr,"ordinary always-on-top keeps legacy behavior");
+    reset(progress,mainWindow);Window own;own.pid=10;own.thread=1;windows[other]=own;currentForeground=other;runCompletion();
+    expect(activations==0 && posts==0,"active different window of the same process is respected");
+    reset(progress,mainWindow);Window popup;popup.pid=10;popup.thread=1;windows[other]=popup;currentForeground=other;windows[progress].enabled=false;runCompletion();
+    expect(activations==0 && posts==0,"active modal window is not displaced by completion");
+    reset(progress,mainWindow);RunningInOwnThread=false;runCompletion();
+    expect(activations==0,"modal progress does not use threaded completion path");
+    std::printf("Failures: %u\n",failures);return failures?1:0;
+}
