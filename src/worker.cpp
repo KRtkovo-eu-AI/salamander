@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Add isolated native copy acceptance instrumentation. | Exercise the original worker, both I/O loops and Retry without affecting production builds. | #731 | GPT-6 |
 // | 2026-11-12 | Make parallel conflict preflight allocation-safe. | Preserve the destination and release coordinator resources on failure. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Allocate the parallel copy buffer before opening the target. | Preserve an existing target and its links when buffer allocation fails. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Probe an unreadable existing singleton F5 target before its conflict dialog. | Offer a scoped UAC choice only after a concrete access denial. | #731 | GPT-6 (Codex) |
@@ -4589,18 +4590,75 @@ void SetTFSandPSforSkippedFile(COperation* op, CQuadWord& lastTransferredFileSiz
     script->SetTFSandProgressSize(lastTransferredFileSize, pSize);
 }
 
+// The acceptance build uses the original copy implementation. Its opt-in
+// hooks merely select the existing I/O mode, signal entry and inject one I/O
+// failure; ordinary builds contain neither environment reads nor fault logic.
+#ifdef SAM_UAC_THIN_COPY_TEST
+static void ThinCopyTestSignal(const wchar_t* variable)
+{
+    wchar_t name[256]{};
+    DWORD length = GetEnvironmentVariableW(variable, name, _countof(name));
+    if (!length || length >= _countof(name))
+        return;
+    HANDLE event = OpenEventW(EVENT_MODIFY_STATE, FALSE, name);
+    if (event)
+    {
+        SetEvent(event);
+        CloseHandle(event);
+    }
+}
+
+static bool ThinCopyTestFailure(const wchar_t* expected, volatile LONG* once)
+{
+    wchar_t mode[32]{};
+    DWORD length = GetEnvironmentVariableW(L"SAM_UAC_TEST_FAIL", mode, _countof(mode));
+    return length && length < _countof(mode) && _wcsicmp(mode, expected) == 0 &&
+           InterlockedCompareExchange(once, 1, 0) == 0;
+}
+
+static BOOL ThinCopyTestReadFile(HANDLE file, void* buffer, DWORD size, DWORD* read, OVERLAPPED* overlapped)
+{
+    static volatile LONG failed = 0;
+    if (ThinCopyTestFailure(L"read", &failed))
+    {
+        SetLastError(ERROR_READ_FAULT);
+        return FALSE;
+    }
+    return ReadFile(file, buffer, size, read, overlapped);
+}
+
+static BOOL ThinCopyTestWriteFile(HANDLE file, const void* buffer, DWORD size, DWORD* written, OVERLAPPED* overlapped)
+{
+    static volatile LONG failed = 0;
+    if (ThinCopyTestFailure(L"write", &failed))
+    {
+        SetLastError(ERROR_WRITE_FAULT);
+        return FALSE;
+    }
+    return WriteFile(file, buffer, size, written, overlapped);
+}
+#define THIN_COPY_READ ThinCopyTestReadFile
+#define THIN_COPY_WRITE ThinCopyTestWriteFile
+#else
+#define THIN_COPY_READ ReadFile
+#define THIN_COPY_WRITE WriteFile
+#endif
+
 void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferSize,
                         COperations* script, CProgressDlgData& dlgData, BOOL wholeFileAllocated,
                         COperation* op, const CQuadWord& totalDone, BOOL& copyError, BOOL& skipCopy,
                         HWND hProgressDlg, CQuadWord& operationDone, CQuadWord& fileSize,
                         int bufferSize, int& allocWholeFileOnStart, BOOL& copyAgain)
 {
+#ifdef SAM_UAC_THIN_COPY_TEST
+    ThinCopyTestSignal(L"SAM_UAC_TEST_SYNC_EVENT");
+#endif
     int autoRetryAttemptsSNAP = 0;
     DWORD read;
     DWORD written;
     while (1)
     {
-        if (ReadFile(in, buffer, limitBufferSize, &read, NULL))
+        if (THIN_COPY_READ(in, buffer, limitBufferSize, &read, NULL))
         {
             autoRetryAttemptsSNAP = 0;
             if (read == 0)
@@ -4615,7 +4673,7 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
 
             while (1)
             {
-                if (WriteFile(out, buffer, read, &written, NULL) &&
+                if (THIN_COPY_WRITE(out, buffer, read, &written, NULL) &&
                     read == written)
                 {
                     break;
@@ -5013,7 +5071,7 @@ BOOL CCopy_Context::StartReading(int blkIndex, DWORD readSize, DWORD* err, BOOL 
     TRACE_I(sss);
 #endif // ASYNC_COPY_DEBUG_MSG
 
-    if (!ReadFile(*In, AsyncPar->Buffers[blkIndex], readSize, NULL,
+    if (!THIN_COPY_READ(*In, AsyncPar->Buffers[blkIndex], readSize, NULL,
                   AsyncPar->InitOverlappedWithOffset(blkIndex, ReadOffset)) &&
         GetLastError() != ERROR_IO_PENDING)
     { // a read error occurred; handle it
@@ -5063,7 +5121,7 @@ BOOL CCopy_Context::StartWriting(int blkIndex, DWORD* err)
     TRACE_I(sss);
 #endif // ASYNC_COPY_DEBUG_MSG
 
-    if (!WriteFile(*Out, AsyncPar->Buffers[blkIndex], BlockDataLen[blkIndex], NULL,
+    if (!THIN_COPY_WRITE(*Out, AsyncPar->Buffers[blkIndex], BlockDataLen[blkIndex], NULL,
                    AsyncPar->InitOverlappedWithOffset(blkIndex, WriteOffset)) &&
         GetLastError() != ERROR_IO_PENDING)
     { // a write error occurred; handle it
@@ -5525,6 +5583,9 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
                          CQuadWord& operationDone, CQuadWord& fileSize, int bufferSize,
                          int& allocWholeFileOnStart, BOOL& copyAgain, const CQuadWord& lastTransferredFileSize)
 {
+#ifdef SAM_UAC_THIN_COPY_TEST
+    ThinCopyTestSignal(L"SAM_UAC_TEST_ASYNC_EVENT");
+#endif
     CQuadWord allocFileSize = fileSize;
     DWORD err = NO_ERROR;
     DWORD bytes = 0; // helper DWORD - how many bytes were read/written in the block
@@ -6464,6 +6525,9 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
                 CProgressDlgData& dlgData, BOOL copyADS, BOOL copyAsEncrypted,
                 BOOL isMove, CAsyncCopyParams*& asyncPar, MoveCopyReceipt* moveReceipt = nullptr)
 {
+#ifdef SAM_UAC_THIN_COPY_TEST
+    ThinCopyTestSignal(L"SAM_UAC_TEST_ENTER_EVENT");
+#endif
     if (script->CopyAttrs && copyAsEncrypted)
         TRACE_E("DoCopyFile(): unexpected parameter value: copyAsEncrypted is TRUE when script->CopyAttrs is TRUE!");
 
@@ -6600,6 +6664,17 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
                        ((op->OpFlags & OPFL_SRCPATH_IS_NET) && ((op->OpFlags & OPFL_TGTPATH_IS_NET) ||
                                                                 (op->OpFlags & OPFL_TGTPATH_IS_FAST)) ||
                         (op->OpFlags & OPFL_TGTPATH_IS_NET) && (op->OpFlags & OPFL_SRCPATH_IS_FAST));
+#ifdef SAM_UAC_THIN_COPY_TEST
+    wchar_t testMode[16]{};
+    const DWORD testModeLength = GetEnvironmentVariableW(L"SAM_UAC_TEST_COPY_MODE", testMode, _countof(testMode));
+    if (testModeLength && testModeLength < _countof(testMode))
+    {
+        if (_wcsicmp(testMode, L"sync") == 0)
+            useAsyncAlg = FALSE;
+        else if (_wcsicmp(testMode, L"async") == 0 && op->FileSize.Value > 0)
+            useAsyncAlg = TRUE;
+    }
+#endif
 
     if (asyncPar == NULL)
         asyncPar = new CAsyncCopyParams;
