@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Expose test-only authenticated broker PID markers. | Measure a singleton job without lending a process handle. | #731 | GPT-6 |
 | 2026-11-12 | Type distinct worker handle arguments. | Prevent accidental exchange of source and cancel handles. | #731 | GPT-6 |
 | 2026-11-12 | Add typed worker handle transfer requests. | Retain original worker data I/O under a scoped broker session. | #731 | GPT-6 |
 | 2026-11-12 | Recover guarded moves after allocation failure. | Preserve source recovery and report uncertain publication as partial. | #731 | GPT-6 (Codex) |
@@ -3974,6 +3975,9 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
                UacF7::TransferProgress progress = nullptr, void* progressContext = nullptr, BrokerActivityScope* activity = nullptr,
                UacF7::OverwriteProbeReply* overwriteProbeReply = nullptr,
                ThinWireOptions* thinOptions = nullptr, ThinWireReply* thinReply = nullptr
+#ifdef SAM_UAC_THIN_COPY_TEST
+               , DWORD* authenticatedThinPid = nullptr
+#endif
 #endif
 )
 {
@@ -4072,6 +4076,10 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
     if (!InspectPipeClient(pipe.get(), elevated) || !elevated || !LiveInSession(child.get(), pid))
         return Report(Untrusted, L"Verify elevated identification token", ERROR_ACCESS_DENIED);
 
+#if defined(SAM_UAC_F7_HOST) && defined(SAM_UAC_THIN_COPY_TEST)
+    if (authenticatedThinPid && request && IsThinOpen(request->operation))
+        *authenticatedThinPid = pid;
+#endif
 #ifdef SAM_UAC_F7_HOST
     DWORD operationError = ERROR_GEN_FAILURE;
     std::vector<BYTE> receivedSnapshot;
@@ -5560,8 +5568,26 @@ bool PreparedTransfer::IsInJob(const TransferJobSession& job) const
 
 ThinCopySession::~ThinCopySession() { Close(); }
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+void ThinCopySession::ClearMarker()
+{
+    if (markerWindow && IsWindow(markerWindow) &&
+        GetPropW(markerWindow, L"SamUacThinTestOwner") == reinterpret_cast<HANDLE>(this) &&
+        GetPropW(markerWindow, L"SamUacThinTestBrokerPid") == reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(markerPid)))
+    {
+        RemovePropW(markerWindow, L"SamUacThinTestBrokerPid");
+        RemovePropW(markerWindow, L"SamUacThinTestOwner");
+    }
+    markerWindow = nullptr;
+    markerPid = 0;
+}
+#endif
+
 void ThinCopySession::CloseLocked()
 {
+#ifdef SAM_UAC_THIN_COPY_TEST
+    ClearMarker();
+#endif
     if (shared)
         shared = nullptr; // Borrowed; its owner controls the original job.
     owned.Close();
@@ -5698,9 +5724,33 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
         if (!job->IsOpen())
         {
             job->scope = prepared.JobScope(true);
+#ifdef SAM_UAC_THIN_COPY_TEST
+            DWORD authenticatedPid = 0;
+#endif
             const int launched = RunProbe(install, false, false, owner, &header, &payload, nullptr, &result,
                 nullptr, cancel, nullptr, nullptr, nullptr, nullptr, nullptr, &job->pipe,
-                nullptr, nullptr, nullptr, nullptr, nullptr, &options, &reply);
+                nullptr, nullptr, nullptr, nullptr, nullptr, &options, &reply
+#ifdef SAM_UAC_THIN_COPY_TEST
+                , &authenticatedPid
+#endif
+                );
+#ifdef SAM_UAC_THIN_COPY_TEST
+            const HWND markerOwner = owner ? GetAncestor(owner, GA_ROOT) : nullptr;
+            if (job->IsOpen() && authenticatedPid && markerOwner && IsWindow(markerOwner) &&
+                !GetPropW(markerOwner, L"SamUacThinTestOwner") &&
+                !GetPropW(markerOwner, L"SamUacThinTestBrokerPid") &&
+                SetPropW(markerOwner, L"SamUacThinTestOwner", reinterpret_cast<HANDLE>(this)))
+            {
+                if (SetPropW(markerOwner, L"SamUacThinTestBrokerPid",
+                             reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(authenticatedPid))))
+                {
+                    markerWindow = markerOwner;
+                    markerPid = authenticatedPid;
+                }
+                else if (GetPropW(markerOwner, L"SamUacThinTestOwner") == reinterpret_cast<HANDLE>(this))
+                    RemovePropW(markerOwner, L"SamUacThinTestOwner");
+            }
+#endif
             output.declined = launched == Cancelled && result.error == ERROR_CANCELLED &&
                               (!cancel || WaitForSingleObject(cancel, 0) != WAIT_OBJECT_0);
         }
@@ -5719,6 +5769,9 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
                 // SendOperationRequest marks the result unknown before the
                 // final frame can cause a duplicate or create a target.
                 job->Close();
+#ifdef SAM_UAC_THIN_COPY_TEST
+                ClearMarker();
+#endif
             }
             else
                 result = TransferReply(operation, operationError, true);
@@ -5737,6 +5790,9 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
             output.error = ERROR_INVALID_HANDLE;
             output.unknown = true;
             job->Close();
+#ifdef SAM_UAC_THIN_COPY_TEST
+            ClearMarker();
+#endif
             return output;
         }
         HANDLE received = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value));

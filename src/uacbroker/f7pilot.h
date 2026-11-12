@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Expose test-only authenticated broker PID markers. | Measure a singleton job without lending a process handle. | #731 | GPT-6 |
 | 2026-11-12 | Type distinct worker handle arguments. | Prevent accidental exchange of source and cancel handles. | #731 | GPT-6 |
 | 2026-11-12 | Declare scoped worker file handle transfers. | Keep native copy I/O in the unelevated process. | #731 | GPT-6 |
 | 2026-11-12 | Prepare an archive read from a scoped listing. | Bind archive consent to captured parent and file identities. | #731 | GPT-6.1 Sol |
@@ -965,9 +966,16 @@ public:
 
 private:
     void CloseLocked();
+#ifdef SAM_UAC_THIN_COPY_TEST
+    void ClearMarker();
+#endif
     mutable std::mutex gate;
     TransferJobSession owned;
     TransferJobSession* shared = nullptr;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    HWND markerWindow = nullptr;
+    DWORD markerPid = 0;
+#endif
 };
 
 
