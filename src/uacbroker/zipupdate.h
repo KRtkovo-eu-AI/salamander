@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Preserve replacement evidence on allocation failure. | Report uncertain publication without discarding its durable journal. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Preserve legacy disk journals after interruption. | Avoid claiming security-descriptor recovery without durable proof. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Prepare a default-stream-only replacement stage. | Keep ignored source streams out of a protected overwrite stage. | | GPT-6.1 Terra |
 // | 2026-11-11 | Stream cancellable disk overwrite receipts and retire read-only backups atomically. | Support ordinary large attributed replacements while preserving journal and ZIP boundaries. | | GPT-6.1 Sol |
@@ -21,6 +22,7 @@
 #include "copyleaf.h"
 #include <algorithm>
 #include <bcrypt.h>
+#include <new>
 
 #pragma comment(lib, "bcrypt.lib")
 
@@ -510,6 +512,9 @@ struct PublishResult
 {
     DWORD error;
     DWORD recoveryError = ERROR_SUCCESS;
+    // On ERROR_PARTIAL_COPY, false means publication was not confirmed, not
+    // that the original name is known to be unchanged. A returned file ID is
+    // meaningful only when publication was confirmed and no error remains.
     bool published = false;
 };
 
@@ -575,6 +580,10 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
                              FILE_ID_INFO* published = nullptr, ReplacementKind kind = ReplacementKind::Zip,
                              UacCopyLeaf::StageVerifier verify = nullptr)
 {
+    bool journalMayBeDirty = false;
+    bool exchangeConfirmed = false;
+    try
+    {
     using namespace Detail;
     using namespace UacRenameLeaf::Detail;
     if (!IsReplacementLeaf(leaf, kind))
@@ -635,6 +644,12 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
             return WriteRecord(journal, backupRecord);
         return disk ? WriteRecord(journal, diskRecord) : WriteRecord(journal, record);
     };
+#ifdef SAM_UAC_REPLACEMENT_FAULT_TEST
+    PauseReplacementAt(ReplacementFaultPoint::BeforeJournal);
+#endif
+    // From this point a partial record or a later rename can be durable.
+    // The exception handler must not erase evidence or guess at rollback.
+    journalMayBeDirty = true;
     error = writeRecord();
     if (error)
         return {error, ClearRecord(journal)};
@@ -645,6 +660,9 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
     if (exchange.error)
         return {exchange.error, exchange.rollbackError ? exchange.rollbackError : ClearRecord(journal)};
 
+    // ReplaceStagedFile succeeds only after the stage's delete-on-close flag
+    // has been cleared. A throw inside it leaves publication uncertain.
+    exchangeConfirmed = true;
     if (published)
         *published = record.replacement;
     DWORD cleanup = ERROR_SUCCESS;
@@ -680,5 +698,14 @@ inline PublishResult Publish(HANDLE parent, const UacDirectoryLeaf::ParentIdenti
     if (!cleanup)
         cleanup = ClearRecord(journal);
     return {ERROR_SUCCESS, cleanup, true};
+    }
+    catch (const std::bad_alloc&)
+    {
+        // On a dirty journal do not touch names, the stage or backup here.
+        // Existing callers map recoveryError to ERROR_PARTIAL_COPY and must
+        // treat published=false as unconfirmed, not evidence of no exchange.
+        const DWORD recoveryError = journalMayBeDirty ? static_cast<DWORD>(ERROR_PARTIAL_COPY) : ERROR_SUCCESS;
+        return {ERROR_NOT_ENOUGH_MEMORY, recoveryError, exchangeConfirmed};
+    }
 }
 }

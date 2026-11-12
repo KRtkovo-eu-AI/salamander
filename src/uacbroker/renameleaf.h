@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Add replacement exception checkpoints to the test seam. | Exercise uncertainty before journal write and during rollback. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Apply exact case-only lookup to verified links. | Rename reparse entries in sensitive directories without following their targets. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Handle exact case-only renames in case-sensitive directories. | Preserve the anchored identity and no-replace operation without changing case-insensitive behavior. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Verify case-only renames against the same anchored object. | Preserve identity and no-replace semantics for native rename operations. | #731 | GPT-6.1 Terra |
@@ -220,7 +221,7 @@ inline DWORD CheckTransferConnection(HANDLE connection, ULONGLONG deadline)
 }
 
 #ifdef SAM_UAC_REPLACEMENT_FAULT_TEST
-enum class ReplacementFaultPoint { JournalFlushed, BackupRenamed, StageRenamed, StageKept, ReceiptFlushed, BackupRetired };
+enum class ReplacementFaultPoint { JournalFlushed, BackupRenamed, StageRenamed, StageKept, ReceiptFlushed, BackupRetired, BeforeJournal, BeforeRollback };
 void PauseReplacementAt(ReplacementFaultPoint point);
 #endif
 
@@ -254,7 +255,12 @@ inline StagedReplacement ReplaceStagedFile(HANDLE parent, HANDLE original, HANDL
     if (!error)
         error = NativeRename(stage, parent, leaf);
     if (error)
+    {
+#ifdef SAM_UAC_REPLACEMENT_FAULT_TEST
+        PauseReplacementAt(ReplacementFaultPoint::BeforeRollback);
+#endif
         return {error, NativeRename(original, parent, leaf)};
+    }
 #ifdef SAM_UAC_REPLACEMENT_FAULT_TEST
     PauseReplacementAt(ReplacementFaultPoint::StageRenamed);
 #endif
