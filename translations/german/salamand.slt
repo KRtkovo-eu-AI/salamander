@@ -4401,6 +4401,9 @@ SLGINCOMPLETE,""
 14714,1,"Inhalt und Tags dieses geschützten Ergebnisses können beim Verfeinern derzeit nicht sicher mit der zuvor überprüften Identität gelesen werden. Dieses Element wurde nicht überprüft."
 14715,1,"Der Zugriff wurde verweigert. Diese Dateiliste als Administrator erstellen?"
 
+14716,1,"Die Identität einiger geschützter Ordner kann nicht überprüft werden. Sie wurden nicht geöffnet; die Liste ist unvollständig. Erster Ordner:"
+14717,1,"Ein geschützter Ordner enthält mehr als 4096 Einträge. Seine Liste ist unvollständig."
+
 [STRINGTABLE 199]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
 

@@ -4402,6 +4402,9 @@ SLGINCOMPLETE,""
 14714,1,"Obsah ani štítky chráněného výsledku nyní nelze při zpřesnění bezpečně přečíst s původní ověřenou identitou. Tato položka nebyla ověřena."
 14715,1,"Přístup byl odepřen. Vytvořit tento seznam souborů jako správce?"
 
+14716,1,"Identitu některých chráněných složek nelze ověřit. Nebyly otevřeny; výpis je neúplný. První složka:"
+14717,1,"Chráněná složka obsahuje více než 4096 položek. Její výpis je neúplný."
+
 [STRINGTABLE 199]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
 

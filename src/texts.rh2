@@ -1,3 +1,4 @@
+// | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Explain unavailable Find result identity. | Prevent unsafe viewer fallback and suggest a new search. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Localize verified Find viewer limitations and consent. | Keep file identity and the snapshot choice clear. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Localize distinct incomplete Find reasons. | Report the actual omission without inventing a path or limit. | #731 | GPT-6.1 Terra |
@@ -3393,5 +3394,7 @@
 #define IDS_UAC_FIND_VIEW_WITH_UNAVAILABLE           14713
 #define IDS_UAC_FIND_REFINE_IDENTITY_UNAVAILABLE     14714
 #define IDS_UAC_FILELIST_CREATE_CONFIRM              14715
+#define IDS_BRANCH_IDENTITY_UNAVAILABLE              14716
+#define IDS_BRANCH_LIST_LIMIT                        14717
 
 #endif // __TEXTS_RH2

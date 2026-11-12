@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Include the real explicit Stop controller. | Exercise reentrant partial publication. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Exercise actual Branch poll and cancellation methods. | Check reentrant lifetime and snapshot handling before changing UAC. | #731 | GPT-6.1 Terra |
 """Compile the actual Branch polling controller with isolated worker and UI seams."""
@@ -35,6 +36,8 @@ def main():
     template = (ROOT / 'src/tests/branch_poll_lifetime_tests.cpp.in').read_text(encoding='utf-8')
     for name, value in pieces.items():
         template = template.replace('@@' + name + '@@', value)
+    template = template.replace('state.Worker.SetCaptureDenied(state.UseProtectedListing ? nullptr : CaptureBranchDenied);', '')
+    template = template.replace('RetryBranchDenied(this);', '/* separately tested retry controller */')
     template = template.replace('auto preparation = hadPreparation ?',
                                 'if (testOomBeforeDrain) throw std::bad_alloc(); auto preparation = hadPreparation ?')
     template = template.replace('BranchView->Worker.Drain(BranchView->StoppedBatch, progress);',

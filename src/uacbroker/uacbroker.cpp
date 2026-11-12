@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 | 2026-11-12 | Probe and commit one exact overwrite with stale revalidation. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Probe and bind a single overwrite to one job. | Revalidate exact item identity before mutation. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Carry exact FindFile identity into a separate verified viewer request. | Prevent pathname-only identity recapture after Find. | #731 | GPT-6.1 Terra |
@@ -3065,7 +3066,7 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
             ((parentOnly || directoryLeaf || linkLeaf) && !leafIdentity) ||
             (parentOnly && (directoryLeaf || linkLeaf)) || (linkLeaf && scope != Operation::List) ||
             (leafIdentity && (!canReadIdentity || !length || inventoryRequest || sizeDetails || contentRequest)) ||
-            (verifyListing && (!IsComparisonScope(scope) || !length || inventoryRequest || contentRequest || leafIdentity)) ||
+            (verifyListing && (!UacListing::ValidVerifiedListingScope(scope, length) || inventoryRequest || contentRequest || leafIdentity)) ||
             (sizeDetails && !inventoryRequest) || (!fileAllocation && !UacListing::ValidRequestScope(scope, length, inventoryRequest, contentRequest)) ||
             length > UacDirectoryLeaf::maxNativeName || !LiveInSession(host, hostPid))
             return ERROR_INVALID_DATA;
@@ -3149,8 +3150,7 @@ DWORD ServeListings(HANDLE pipe, HANDLE host, DWORD hostPid, HANDLE root, Operat
                                                                   !IsComparisonScope(scope))
                            : UacDirectoryLeaf::ReadParentIdentity(root, identity);
             const auto directory = Adopt(raw);
-            if (!error && verifyListing && (identity.file.VolumeSerialNumber != expected.serial ||
-                std::memcmp(identity.file.FileId.Identifier, expected.id, sizeof(expected.id)) != 0))
+            if (!error && verifyListing && !UacListing::MatchesListingIdentity(identity, expected))
                 error = ERROR_FILE_INVALID;
             if (!error)
                 error = UacListing::Enumerate(directory ? directory.get() : root, entries);
@@ -3915,7 +3915,7 @@ bool PreparedLeaf::PrepareTarget(const std::wstring& path, Operation requested, 
     // A visible directory can deny even an attribute open. Capture only its ID
     // from the verified grandparent and let the broker reopen the exact parent.
     const bool useParentListing = (requested == Operation::List || requested == Operation::Inventory ||
-                                   requested == Operation::FindContent ||
+                                   requested == Operation::FindContent || requested == Operation::CompareList ||
                                    requested == Operation::Mkdir) &&
                                   openError == ERROR_ACCESS_DENIED && !parentPath.empty();
     size_t visibleEnd = split == 2 ? 3 : split;

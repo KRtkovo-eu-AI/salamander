@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Publish completed initial Branch batches on explicit Stop. | Keep accessible results without replacing an older refresh snapshot. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Enumerate a protected Branch tree through its approved panel session. | Keep anchored listing requests on the panel thread and share row traversal. | #731 | GPT-6.1 Sol |
 // | 2026-11-07 | Skip hidden and system files in Branch scans, except cloud placeholders. | Match the ordinary panel hide option. | https://github.com/KRtkovo-eu-AI/salamander/pull/818 | Grok 4.7 |
@@ -111,6 +112,13 @@ struct Scan::State
     using Directory = std::pair<std::wstring, std::wstring>;
     std::vector<Directory> PendingDirectories;
     std::vector<Entry> Pending;
+    std::vector<DeniedDirectory> Denied;
+    std::wstring FailurePath;
+    DWORD FailureError = ERROR_SUCCESS;
+    CaptureDenied Capture = nullptr;
+    ListDirectory List = nullptr;
+    std::shared_ptr<void> ListContext;
+    HANDLE StopEvent = NULL; // owned by ListContext
     Progress Status;
     State() : Cancelled(0), HideHiddenSystem(false) { InitializeCriticalSection(&Lock); }
     ~State() { DeleteCriticalSection(&Lock); }
@@ -194,8 +202,20 @@ DWORD WINAPI Scan::Run(void* context)
                 DWORD error = GetLastError();
                 if (error != ERROR_FILE_NOT_FOUND && error != ERROR_NO_MORE_FILES)
                 {
-                    ++progress.Errors;
-                    progress.LastError = error;
+                    if (error == ERROR_ACCESS_DENIED && state->Capture)
+                    {
+                        DeniedDirectory denied;
+                        denied.Path = directory.first;
+                        denied.Relative = directory.second;
+                        denied.Verified = state->Capture(directory.first, denied);
+                        StateLock lock(state->Lock);
+                        state->Denied.push_back(std::move(denied));
+                    }
+                    else
+                    {
+                        ++progress.Errors;
+                        progress.LastError = error;
+                    }
                 }
             }
             else
@@ -240,7 +260,11 @@ Scan::Scan() : Thread(NULL) {}
 Scan::~Scan() { Cancel(); }
 void Scan::Cancel()
 {
-    if (Shared) InterlockedExchange(&Shared->Cancelled, 1);
+    if (Shared)
+    {
+        InterlockedExchange(&Shared->Cancelled, 1);
+        if (Shared->StopEvent) SetEvent(Shared->StopEvent);
+    }
     if (Thread != NULL)
     {
         CancelSynchronousIo(Thread);
@@ -255,6 +279,7 @@ bool Scan::Start(const std::wstring& root, bool hideHiddenSystem, bool increment
     {
         Shared = std::make_shared<State>();
         Shared->Root = root;
+        Shared->Capture = incremental ? nullptr : Capture;
         Shared->HideHiddenSystem = hideHiddenSystem;
         Shared->Status.Running = true;
         if (incremental)
@@ -277,6 +302,118 @@ bool Scan::Start(const std::wstring& root, bool hideHiddenSystem, bool increment
     }
     catch (const std::bad_alloc&) { Shared.reset(); return false; }
 }
+DWORD WINAPI Scan::RunProtected(void* context)
+{
+    std::unique_ptr<std::shared_ptr<State>> reference(static_cast<std::shared_ptr<State>*>(context));
+    auto state = *reference;
+    auto& pending = state->PendingDirectories;
+    Progress progress = state->Status;
+    std::vector<Entry> batch;
+    std::vector<WIN32_FIND_DATAW> entries;
+    try
+    {
+        while (!pending.empty() && !InterlockedCompareExchange(&state->Cancelled, 0, 0))
+        {
+            auto directory = std::move(pending.back());
+            pending.pop_back();
+            entries.clear();
+            const DWORD error = state->List(state->ListContext.get(), directory.first, entries);
+            if (InterlockedCompareExchange(&state->Cancelled, 0, 0)) break;
+            ++progress.Directories;
+            if (error == ERROR_SUCCESS)
+                for (const auto& entry : entries)
+                    state->Accept(directory, entry, pending, batch, progress);
+            else
+            {
+                ++progress.Errors;
+                progress.LastError = error;
+                if (state->FailurePath.empty())
+                {
+                    StateLock lock(state->Lock);
+                    state->FailurePath = directory.first;
+                    state->FailureError = error;
+                }
+                if (error == ERROR_BUFFER_OVERFLOW) progress.LimitExceeded = true;
+                if (error == ERROR_BROKEN_PIPE)
+                {
+                    // Every queued directory is now known to be unprocessed.
+                    const size_t available = static_cast<size_t>(UINT_MAX - progress.Errors);
+                    progress.Errors += static_cast<unsigned>((std::min)(pending.size(), available));
+                    pending.clear();
+                }
+            }
+            state->Publish(batch, progress);
+        }
+    }
+    catch (const std::bad_alloc&)
+    {
+        ++progress.Errors;
+        progress.LastError = ERROR_NOT_ENOUGH_MEMORY;
+    }
+    progress.Cancelled = InterlockedCompareExchange(&state->Cancelled, 0, 0) != 0;
+    progress.Running = false;
+    try { state->Publish(batch, progress); }
+    catch (const std::bad_alloc&)
+    {
+        ++progress.Errors;
+        progress.LastError = ERROR_NOT_ENOUGH_MEMORY;
+        StateLock lock(state->Lock);
+        state->Status = progress;
+    }
+    return 0;
+}
+
+bool Scan::StartProtected(const std::vector<DeniedDirectory>& denied, const Progress& initial,
+                          ListDirectory list, std::shared_ptr<void> context, HANDLE stop)
+{
+    if (!Shared || !list || !context || !stop || denied.empty()) return false;
+    try
+    {
+        auto state = std::make_shared<State>();
+        state->Root = Shared->Root;
+        state->HideHiddenSystem = Shared->HideHiddenSystem;
+        state->Incremental = true;
+        state->Status = initial;
+        state->Status.Running = true;
+        state->Status.Cancelled = false;
+        state->List = list;
+        state->ListContext = std::move(context);
+        state->StopEvent = stop;
+        for (auto it = denied.rbegin(); it != denied.rend(); ++it)
+        {
+            if (!it->Verified || !IsWithin(state->Root, it->Path) ||
+                (it->Relative.empty() && it->Path != state->Root))
+                return false;
+            state->PendingDirectories.emplace_back(it->Path, it->Relative);
+        }
+        auto reference = std::make_unique<std::shared_ptr<State>>(state);
+        HANDLE thread = CreateThread(NULL, 0, RunProtected, reference.get(), 0, NULL);
+        if (!thread) return false;
+        reference.release();
+        Cancel();
+        Shared = std::move(state);
+        Thread = thread;
+        return true;
+    }
+    catch (const std::bad_alloc&) { return false; }
+}
+
+void Scan::DrainDenied(std::vector<DeniedDirectory>& denied)
+{
+    if (!Shared) return;
+    StateLock lock(Shared->Lock);
+    denied.swap(Shared->Denied);
+}
+
+void Scan::DrainFailure(std::wstring& path, DWORD& error)
+{
+    if (!Shared) return;
+    StateLock lock(Shared->Lock);
+    path.swap(Shared->FailurePath);
+    error = Shared->FailureError;
+    Shared->FailureError = ERROR_SUCCESS;
+}
+
 void Scan::Advance(ListDirectory list, void* context)
 {
     if (!Shared || !Shared->Incremental || !Shared->Status.Running || Shared->Cancelled)
@@ -336,6 +473,8 @@ void Scan::Drain(std::vector<Entry>& entries, Progress& progress)
 
 #ifndef BRANCH_VIEW_TEST
 #include "plugins.h"
+#include "dialogs.h"
+#include "operationrecycle.h"
 #include "fileswnd.h"
 #include "filesbox.h"
 #include "mainwnd.h"
@@ -473,7 +612,8 @@ void CFilesWindow::StopBranchViewScan()
     // A stopped worker can still publish after a blocked I/O returns. Never
     // drain it a second time while the first stopped snapshot is preparing.
     if (IsBranchView() && BranchView->StoppingInitial) return;
-    if (!IsBranchView() || BranchView->Applying || BranchView->PreserveListing ||
+    if (!IsBranchView() || BranchView->Applying ||
+        (BranchView->PreserveListing && !BranchView->RetryingProtected) ||
         (!BranchView->Status.Running && !BranchView->CompletionPending))
     {
         CancelBranchViewScan();
@@ -541,11 +681,195 @@ void CFilesWindow::LeaveBranchView()
     // Metadata is retained until the old icon reader/listing is released.
     // A subsequent ReadDirectory prunes it before constructing ordinary rows.
 }
+// The ordinary worker captures a no-follow identity before any elevation UI.
+// WIN32_FIND_DATAW contains no file ID, so a replacement before this capture
+// cannot be attributed to the earlier enumeration.
+static bool CaptureBranchDenied(const std::wstring& path, Salamander::BranchView::DeniedDirectory& result)
+{
+    UacF7::MoveFileIdentity identity{};
+    const std::wstring plain = SalPathRemoveExtendedPrefixW(path.c_str());
+    if (!UacF7::ListingSession::CaptureDirectoryIdentity(plain, identity))
+    {
+        // PrepareDirectory intentionally excludes volume roots. Capture one
+        // directly, without following a reparse point, and retain the NTFS-only
+        // policy used by the broker's ReadParentIdentity.
+        if (plain.size() != 3 || plain[1] != L':' || plain[2] != L'\\') return false;
+        HANDLE dir = CreateFileW(plain.c_str(), FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+        if (dir == INVALID_HANDLE_VALUE) return false;
+        OperationRecycleDetail::RecycleFileId id{};
+        FILE_ATTRIBUTE_TAG_INFO attr{};
+        wchar_t fs[16]{};
+        const bool ok = GetFileInformationByHandleEx(dir, OperationRecycleDetail::recycleFileIdInfo, &id, sizeof(id)) &&
+            GetFileInformationByHandleEx(dir, FileAttributeTagInfo, &attr, sizeof(attr)) &&
+            (attr.FileAttributes & FILE_ATTRIBUTE_DIRECTORY) && !(attr.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) &&
+            GetVolumeInformationByHandleW(dir, nullptr, 0, nullptr, nullptr, nullptr, fs, ARRAYSIZE(fs)) &&
+            _wcsicmp(fs, L"NTFS") == 0;
+        CloseHandle(dir);
+        if (!ok) return false;
+        identity.serial = id.VolumeSerialNumber;
+        CopyMemory(identity.id, id.FileId, sizeof(identity.id));
+    }
+    result.Volume = identity.serial;
+    memcpy(result.FileId, identity.id, sizeof(result.FileId));
+    return true;
+}
+
+struct BranchRetryContext
+{
+    HANDLE Stop = NULL;
+    std::shared_ptr<UacF7::ListingSession> Session;
+    std::vector<Salamander::BranchView::DeniedDirectory> Denied;
+    ~BranchRetryContext() { Session.reset(); if (Stop) CloseHandle(Stop); }
+};
+
+static DWORD ListBranchRetry(void* opaque, const std::wstring& directory, std::vector<WIN32_FIND_DATAW>& entries)
+{
+    auto* context = static_cast<BranchRetryContext*>(opaque);
+    const std::wstring path = SalPathRemoveExtendedPrefixW(directory.c_str());
+    if (!context || !context->Session->Contains(path)) return ERROR_ACCESS_DENIED;
+    UacF7::MoveFileIdentity expected{};
+    const UacF7::MoveFileIdentity* identity = nullptr;
+    for (const auto& denied : context->Denied)
+    {
+        if (denied.Path == directory)
+        {
+            if (!denied.Verified) return ERROR_ACCESS_DENIED;
+            expected.serial = denied.Volume;
+            memcpy(expected.id, denied.FileId, sizeof(expected.id));
+            identity = &expected;
+            break;
+        }
+    }
+    const DWORD error = context->Session->List(path, entries, identity);
+    return context->Session->IsOpen() ? error : ERROR_BROKEN_PIPE;
+}
+
+// Called only after the complete ordinary snapshot is visible. The session is
+// owned by the retry worker, never borrowed from another panel or UI thread.
+static void RetryBranchDenied(CFilesWindow* panel)
+{
+    using namespace Salamander::BranchView;
+    CBranchViewState* const state = panel->BranchView;
+    std::vector<DeniedDirectory> denied;
+    state->Worker.DrainDenied(denied);
+    if (denied.empty()) return;
+    const auto lifetime = state->PreparationLifetime;
+    const auto preparation = state->Preparation;
+    const ULONGLONG tab = panel->GetPanelTabId();
+    const ULONGLONG generation = state->Generation;
+    const std::wstring root = state->Root;
+    auto current = [&]() {
+        return lifetime->Alive && preparation->Alive && panel->BranchView == state &&
+               panel->IsBranchView() && panel->GetPanelTabId() == tab &&
+               state->Generation == generation && state->Root == root;
+    };
+    std::vector<DeniedDirectory> verified;
+    std::wstring firstUnverified;
+    for (auto& item : denied)
+    {
+        if (item.Verified) verified.push_back(std::move(item));
+        else
+        {
+            if (firstUnverified.empty()) firstUnverified = item.Path;
+            ++state->Status.Errors;
+            state->Status.LastError = ERROR_ACCESS_DENIED;
+        }
+    }
+    if (!firstUnverified.empty())
+    {
+        const std::string text = std::string(LoadStr(IDS_BRANCH_IDENTITY_UNAVAILABLE)) +
+            "\n\n" + SalWideToMultiBytePath(firstUnverified.c_str(), CP_UTF8) +
+            "\n\n" + GetErrorText(ERROR_ACCESS_DENIED);
+        SalMessageBox(panel->HWindow, text.c_str(), LoadStr(IDS_BRANCH_VIEW), MB_OK | MB_ICONEXCLAMATION);
+        if (!current()) return;
+    }
+    if (verified.empty()) return;
+    auto session = std::make_shared<UacF7::ListingSession>();
+    const std::wstring scope = SalPathRemoveExtendedPrefixW(root.c_str());
+    if (!session->PrepareComparison(scope, false))
+    {
+        state->Status.Errors += (unsigned)verified.size();
+        state->Status.LastError = ERROR_ACCESS_DENIED;
+        const std::string text = std::string(LoadStr(IDS_BRANCH_IDENTITY_UNAVAILABLE)) + "\n\n" +
+                                 SalWideToMultiBytePath(scope.c_str(), CP_UTF8);
+        SalMessageBox(panel->HWindow, text.c_str(), LoadStr(IDS_BRANCH_VIEW), MB_OK | MB_ICONEXCLAMATION);
+        return;
+    }
+    const std::string aliases = std::to_string(IDYES) + "\t" + LoadStr(IDS_MSGBOXBTN_SKIP) +
+        "\t" + std::to_string(IDNO) + "\t" + LoadStr(IDS_MSGBOXBTN_SKIPALL) +
+        "\t" + std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+    size_t next = 0;
+    while (next < verified.size())
+    {
+        const std::string message = std::string(LoadStr(IDS_UAC_LIST_CONFIRM)) + "\n\n" +
+            SalWideToMultiBytePath(verified[next].Path.c_str(), CP_UTF8) + "\n\n" +
+            LoadStr(IDS_UAC_SIZE_CONSENT_SCOPE) + "\n" + SalWideToMultiBytePath(scope.c_str(), CP_UTF8);
+        MSGBOXEX_PARAMS consent{};
+        consent.HParent = panel->HWindow;
+        consent.Text = message.c_str();
+        consent.Caption = LoadStr(IDS_BRANCH_VIEW);
+        consent.Flags = MSGBOXEX_YESNOOKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON4 | MSGBOXEX_SHIELDONOKBTN;
+        consent.AliasBtnNames = aliases.c_str();
+        const int choice = SalMessageBoxEx(&consent);
+        if (!current()) return;
+        if (choice == IDYES) { ++next; ++state->Status.Errors; state->Status.LastError = ERROR_ACCESS_DENIED; continue; }
+        if (choice != IDOK)
+        {
+            state->Status.Errors += (unsigned)(verified.size() - next);
+            state->Status.LastError = ERROR_ACCESS_DENIED;
+            if (choice == IDCANCEL) state->Refresh.Cancel();
+            return;
+        }
+        break;
+    }
+    if (next == verified.size()) return;
+    verified.erase(verified.begin(), verified.begin() + next);
+    // Build the replacement snapshot before elevation, keeping ordinary rows
+    // visible throughout a long or cancelled retry.
+    std::vector<Entry> accessible = state->Entries;
+    auto context = std::make_shared<BranchRetryContext>();
+    context->Stop = CreateEventW(NULL, TRUE, FALSE, NULL);
+    if (!context->Stop)
+    {
+        state->Status.Errors += (unsigned)verified.size();
+        state->Status.LastError = GetLastError();
+        return;
+    }
+    const DWORD started = session->Start(panel->HWindow, context->Stop);
+    if (!current()) return;
+    if (started != ERROR_SUCCESS)
+    {
+        state->Status.Errors += (unsigned)verified.size();
+        state->Status.LastError = started;
+        if (started == ERROR_CANCELLED) state->Refresh.Cancel();
+        return;
+    }
+    context->Session = std::move(session);
+    context->Denied = verified;
+    if (!state->Worker.StartProtected(verified, state->Status, ListBranchRetry, context, context->Stop))
+    {
+        state->Status.Errors += (unsigned)verified.size();
+        state->Status.LastError = ERROR_NOT_ENOUGH_MEMORY;
+        return;
+    }
+    state->IncomingEntries = std::move(accessible);
+    state->RetryingProtected = true;
+    state->PreserveListing = true;
+    state->ForcePublish = true;
+    state->Status.Running = true;
+    state->Status.Cancelled = false;
+    state->Refresh.Continue(GetTickCount64());
+}
+
 static void StartBranchViewScan(CFilesWindow* panel)
 {
     CBranchViewState& state = *panel->BranchView;
     // An explicit refresh may apply new file filters, hidden names or property
     // columns even when the filesystem snapshot itself has not changed.
+    state.RetryingProtected = false;
+    state.Worker.SetCaptureDenied(state.UseProtectedListing ? nullptr : CaptureBranchDenied);
     state.ForcePublish = state.Refresh.IsManual();
     state.Refresh.Started(GetTickCount64());
     state.PreserveListing = state.HasCompletedSnapshot || !state.Entries.empty();
@@ -879,6 +1203,36 @@ void CFilesWindow::PollBranchView()
             BranchView->Refresh.Finished(GetTickCount64());
             statusChanged = true;
         }
+    }
+    if (finished && BranchView->RetryingProtected)
+    {
+        std::wstring failurePath;
+        DWORD failure = ERROR_SUCCESS;
+        BranchView->Worker.DrainFailure(failurePath, failure);
+        if (failure)
+        {
+            std::string text = std::string(LoadStr(failure == ERROR_BUFFER_OVERFLOW ?
+                IDS_BRANCH_LIST_LIMIT : IDS_FIND_INCOMPLETE_PROTECTED_FAILURE)) + "\n\n" +
+                SalWideToMultiBytePath(failurePath.c_str(), CP_UTF8) + "\n\n" + GetErrorText(failure);
+            if (failure != ERROR_BUFFER_OVERFLOW && BranchView->Status.LimitExceeded)
+                text += "\n\n" + std::string(LoadStr(IDS_BRANCH_LIST_LIMIT));
+            SalMessageBox(HWindow, text.c_str(), LoadStr(IDS_BRANCH_VIEW), MB_OK | MB_ICONEXCLAMATION);
+            if (!lifetime->Alive || !preparation->Alive) return;
+        }
+    }
+    if (finished && !BranchView->UseProtectedListing && !BranchView->RetryingProtected &&
+        !BranchView->Status.Cancelled)
+    {
+        try { RetryBranchDenied(this); }
+        catch (const std::bad_alloc&)
+        {
+            if (!lifetime->Alive || !preparation->Alive) return;
+            ++BranchView->Status.Errors;
+            BranchView->Status.LastError = ERROR_NOT_ENOUGH_MEMORY;
+            SalMessageBox(HWindow, GetErrorText(ERROR_NOT_ENOUGH_MEMORY), LoadStr(IDS_BRANCH_VIEW), MB_OK | MB_ICONEXCLAMATION);
+        }
+        if (!lifetime->Alive || !preparation->Alive) return;
+        statusChanged = true;
     }
     if (BranchView->Refresh.Due(GetTickCount64())) StartBranchViewScan(this);
     if (statusChanged) { DirectoryLineSetText(); IdleRefreshStates = TRUE; }

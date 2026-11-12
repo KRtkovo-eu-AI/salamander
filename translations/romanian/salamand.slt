@@ -4400,6 +4400,9 @@ SLGINCOMPLETE,""
 14714,1,"Conținutul și etichetele acestui rezultat protejat nu pot fi citite în siguranță la rafinare folosind identitatea verificată anterior. Acest element nu a fost verificat."
 14715,1,"Accesul a fost refuzat. Creați această listă de fișiere ca administrator?"
 
+14716,1,"Identitatea unor foldere protejate nu poate fi verificată. Acestea nu au fost deschise; lista este incompletă. Primul folder:"
+14717,1,"Un folder protejat conține peste 4096 de elemente. Lista sa este incompletă."
+
 [STRINGTABLE 199]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."
 

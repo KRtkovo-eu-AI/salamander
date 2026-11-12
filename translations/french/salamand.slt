@@ -4400,6 +4400,9 @@ SLGINCOMPLETE,""
 14714,1,"Le contenu et les étiquettes de ce résultat protégé ne peuvent pas être lus en toute sécurité avec l’identité vérifiée précédemment lors de l’affinement. Cet élément n’a pas été vérifié."
 14715,1,"Accès refusé. Créer cette liste de fichiers en tant qu’administrateur ?"
 
+14716,1,"L’identité de certains dossiers protégés ne peut pas être vérifiée. Ils ne sont pas ouverts ; la liste est incomplète. Premier dossier :"
+14717,1,"Un dossier protégé contient plus de 4096 éléments. Sa liste est incomplète."
+
 [STRINGTABLE 199]
 14991,1,"Lecture des associations depuis le stockage de fichiers, veuillez patienter..."
 

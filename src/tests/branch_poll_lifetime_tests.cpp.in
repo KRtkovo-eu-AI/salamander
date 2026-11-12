@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Test real Branch Stop and polling across reentrant callbacks. | Preserve partial initial results and snapshot lifetime. | #731 | GPT-6.1 Terra |
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -33,6 +34,9 @@ static int errorDialogs = 0;
 static bool testOomBeforeDrain = false, testOomAfterDrain = false, testOomQueue = false;
 static BOOL StopRefresh = FALSE, SnooperSuspended = FALSE, IdleRefreshStates = FALSE;
 static const int IDS_ERRORTITLE = 1;
+static const int IDS_BRANCH_VIEW = 2;
+static const int IDS_BRANCH_LIST_LIMIT = 3;
+static const int IDS_FIND_INCOMPLETE_PROTECTED_FAILURE = 4;
 static const char* GetErrorText(DWORD) { return "out of memory"; }
 static const char* LoadStr(int) { return "Error"; }
 static int SalMessageBox(HWND, const char*, const char*, UINT) { ++errorDialogs; return IDOK; }
@@ -46,6 +50,7 @@ static BOOL FakeKillTimer(HWND, UINT_PTR) { ++timerCalls; return TRUE; }
 #define TRACE_E(...)
 #define LOW_MEMORY 1
 static void CopyStringTruncateUtf8(char* out, int length, const char* in) { strncpy_s(out, length, in, _TRUNCATE); }
+static std::string SalWideToMultiBytePath(const wchar_t*, UINT) { return "fixture"; }
 static std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* path) { return path; }
 struct AssociationFixture {
     ULONGLONG epoch = 1;
@@ -85,11 +90,12 @@ struct FakeWorker {
         if (real) BranchTestDrain(real, &out, &status);
         else { out.swap(batch); status = next; }
     }
+    void DrainFailure(std::wstring&, DWORD&) {}
     template<class Callback> void Advance(Callback, void*) {}
 };
 struct CBranchViewState {
     bool Enabled = true, Applying = false, Dirty = false, PreserveListing = false, HasCompletedSnapshot = false;
-    bool ForcePublish = false, Preparing = false, CompletionPending = false, StoppingInitial = false, UseProtectedListing = false;
+    bool ForcePublish = false, Preparing = false, CompletionPending = false, StoppingInitial = false, UseProtectedListing = false, RetryingProtected = false;
     std::shared_ptr<PreparationSession> Preparation;
     std::shared_ptr<PreparationLifetime> PreparationLifetime;
     ULONGLONG Generation = 0;
@@ -287,6 +293,24 @@ int main() {
               panel->BranchView->Status.LastError == ERROR_NOT_ENOUGH_MEMORY &&
               !panel->BranchView->StoppingInitial && panel->BranchView->Entries.empty(),
               "OOM while preparing an extension does not publish a partial snapshot as complete");
+        delete panel;
+    }
+    Reset();
+    {
+        auto* panel = Fixture();
+        panel->BranchView->RetryingProtected = true;
+        panel->BranchView->PreserveListing = true;
+        Entry ordinary; ordinary.CacheKey = "C:\\fixture\\ordinary.txt";
+        panel->BranchView->Entries.push_back(ordinary);
+        panel->BranchView->IncomingEntries.push_back(ordinary);
+        Entry protectedRow; protectedRow.CacheKey = "C:\\fixture\\protected.txt";
+        panel->BranchView->Worker.batch.clear();
+        panel->BranchView->Worker.batch.push_back(protectedRow);
+        panel->StopBranchViewScan();
+        panel->PollBranchView();
+        Check(panel->BranchView->Status.Cancelled && panel->BranchView->Entries.size() == 2 &&
+              !panel->BranchView->StoppingInitial,
+              "Stop publishes both the ordinary snapshot and completed protected rows");
         delete panel;
     }
     Reset();

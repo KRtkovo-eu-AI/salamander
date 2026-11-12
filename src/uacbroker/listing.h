@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Measure one pinned file without a directory grant. | Keep standalone file consent limited to metadata for that exact object. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Measure allocation for one verified file within a read-only scope. | Resolve a denied compressed size without rescanning or exposing file contents. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Capture a complete replacement revision from a verified parent listing. | Support inaccessible targets without relaxing no-follow or revision checks. | #731 | GPT-6.1 Terra |
@@ -71,6 +72,18 @@ inline bool ValidRequestScope(UacF7::Operation scope, DWORD pathLength, bool inv
     if (UacF7::IsComparisonScope(scope))
         return !inventory && (!content || (scope == UacF7::Operation::CompareContent && pathLength != 0));
     return !content || (scope == UacF7::Operation::FindContent && !inventory && pathLength != 0);
+}
+
+// A root identity check is permitted only for metadata-only CompareList.
+inline bool ValidVerifiedListingScope(UacF7::Operation scope, DWORD pathLength)
+{
+    return UacF7::IsComparisonScope(scope) && (pathLength != 0 || scope == UacF7::Operation::CompareList);
+}
+
+inline bool MatchesListingIdentity(const UacDirectoryLeaf::ParentIdentity& actual, const UacF7::MoveFileIdentity& expected)
+{
+    return actual.file.VolumeSerialNumber == expected.serial &&
+           std::memcmp(actual.file.FileId.Identifier, expected.id, sizeof(expected.id)) == 0;
 }
 
 inline bool ValidAllocationScope(UacF7::Operation scope, DWORD pathLength)

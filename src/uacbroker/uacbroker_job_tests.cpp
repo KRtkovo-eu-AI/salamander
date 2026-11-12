@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Test converted Find identities through the View dispatcher. | Reject readable same-name substitutions before returning bytes. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Reject an overwrite receipt with a stale timestamp on the same file ID. | Preserve both names when listing metadata lags. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Verify a listed Find identity through the broker dispatcher. | Reject replacement and keep the exact-file scope bounded. | #731 | GPT-6.1 Terra |
@@ -301,13 +302,13 @@ public:
     }
 
     bool StartFindRoot(const Directory& parent, std::wstring_view directory,
-                       const FILE_ID_INFO& expected, DWORD& result)
+                       const FILE_ID_INFO& expected, DWORD& result, Operation scope = Operation::FindContent)
     {
         const auto relative = parent.relative + L"\\" + std::wstring(directory);
         RequestHeader header{};
         header.serial = expected.VolumeSerialNumber;
         header.parentId = expected.FileId;
-        header.operation = Operation::FindContent;
+        header.operation = scope;
         header.relativeLength = static_cast<DWORD>(relative.size());
         header.leafLength = ARRAYSIZE(UacListing::marker) - 1;
         std::wstring payload = parent.identity.volume + relative + UacListing::marker;
@@ -1174,6 +1175,49 @@ void CheckComparisonListing(const Directory& root)
     Check(job.RejectFindRequest(UacListing::leafIdentityRequest | UacListing::parentIdentityRequest | 1),
           "content comparison rejects parent preparation");
 
+    Directory rootScope;
+    if (!rootScope.Open(root.File(L"compare-verified-root").c_str()) ||
+        !WriteByte(rootScope.File(L"root-entry"), 39))
+    {
+        Check(false, "prepare a verified comparison root");
+        return;
+    }
+    const auto rootListing = Adopt(CreateFileW(rootScope.path.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    JobPipe verifiedRoot;
+    Check(rootListing && verifiedRoot.Open(nullptr, rootListing.get(), Operation::CompareList) &&
+              verifiedRoot.CompareList({}, rootScope.identity.file, ERROR_SUCCESS, L"root-entry") &&
+              verifiedRoot.CompareList({}, first.identity.file, ERROR_FILE_INVALID) &&
+              verifiedRoot.CompareList({}, rootScope.identity.file, ERROR_SUCCESS, L"root-entry"),
+          "metadata comparison verifies root identity, rejects a substituted ID and remains usable");
+    Directory substitution;
+    if (!substitution.Open(root.File(L"compare-replaced-root").c_str()))
+    {
+        Check(false, "prepare a same-name root substitution");
+        return;
+    }
+    const auto oldIdentity = substitution.identity.file;
+    const auto sameName = substitution.path;
+    const auto movedName = sameName + L"-old";
+    substitution.handle.reset();
+    const bool replaced = MoveFileW(sameName.c_str(), movedName.c_str()) && CreateDirectoryW(sameName.c_str(), nullptr);
+    const auto replacementRoot = replaced ? Adopt(CreateFileW(sameName.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr)) : Handle{};
+    JobPipe replacedRoot;
+    Check(replacementRoot && replacedRoot.Open(nullptr, replacementRoot.get(), Operation::CompareList) &&
+              replacedRoot.CompareList({}, oldIdentity, ERROR_FILE_INVALID),
+          "verified root request rejects a same-name NTFS replacement before listing");
+
+    for (const auto scope : {Operation::CompareContent, Operation::List, Operation::Inventory, Operation::FindFile})
+    {
+        JobPipe rejected;
+        Check(rootListing && rejected.Open(nullptr, rootListing.get(), scope) &&
+                  rejected.RejectFindRequest(UacListing::verifiedListingRequest),
+              "verified root request is rejected outside metadata comparison");
+    }
+
     JobPipe metadata;
     Check(metadata.Open(nullptr, root.handle.get(), Operation::CompareList) &&
               metadata.CompareList(firstName, first.identity.file, ERROR_SUCCESS, leaf) &&
@@ -1961,6 +2005,12 @@ void CheckTransferTargetFromParentListing(const Directory& source, const Directo
     Check(verified, "a readable parent yields the exact destination ID when opening the directory is denied");
     if (!verified)
         return;
+    DWORD listStatus = ERROR_GEN_FAILURE;
+    JobPipe compareRoot;
+    Check(compareRoot.Open(nullptr, nullptr, Operation::CompareList, nullptr, true) &&
+          compareRoot.StartFindRoot(parent, selectedName, captured.identity.file, listStatus, Operation::CompareList) &&
+          listStatus == ERROR_SUCCESS && compareRoot.CompareList({}, captured.identity.file, ERROR_SUCCESS),
+          "metadata-only comparison opens the exact root identified from its readable parent");
     Check(!UacDirectoryLeaf::CreateVerifiedLeaf(selected.handle.get(), captured.identity, L"new-\u6771"),
           "the directory create checks the captured parent and creates only its selected child");
 

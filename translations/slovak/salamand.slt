@@ -4400,6 +4400,9 @@ SLGINCOMPLETE,""
 14714,1,"Obsah ani štítky chráneného výsledku teraz nemožno pri spresnení bezpečne prečítať s pôvodnou overenou identitou. Táto položka nebola overená."
 14715,1,"Prístup bol odmietnutý. Vytvoriť tento zoznam súborov ako správca?"
 
+14716,1,"Identitu niektorých chránených priečinkov nemožno overiť. Neboli otvorené; výpis je neúplný. Prvý priečinok:"
+14717,1,"Chránený priečinok obsahuje viac ako 4096 položiek. Jeho výpis je neúplný."
+
 [STRINGTABLE 199]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."
 

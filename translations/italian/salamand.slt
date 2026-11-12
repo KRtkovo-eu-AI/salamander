@@ -4400,6 +4400,9 @@ SLGINCOMPLETE,""
 14714,1,"Il contenuto e le etichette di questo risultato protetto non possono essere letti in sicurezza durante il perfezionamento usando l’identità verificata in precedenza. Questo elemento non è stato verificato."
 14715,1,"Accesso negato. Creare questo elenco di file come amministratore?"
 
+14716,1,"Impossibile verificare l’identità di alcune cartelle protette. Non sono state aperte; l’elenco è incompleto. Prima cartella:"
+14717,1,"Una cartella protetta contiene più di 4096 elementi. Il suo elenco è incompleto."
+
 [STRINGTABLE 199]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."
 

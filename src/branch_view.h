@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Track an explicitly stopped initial scan until its partial snapshot is published. | Preserve discovered results without affecting replacement and refresh cancellation. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Keep approved Branch scans on the listing owner thread. | Share traversal and publication while preserving the ordinary background scanner. | #731 | GPT-6.1 Sol |
 // | 2026-11-07 | Skip hidden and system files in Branch scans, except cloud placeholders. | Match the ordinary panel hide option. | https://github.com/KRtkovo-eu-AI/salamander/pull/818 | Grok 4.7 |
@@ -35,11 +36,22 @@ struct Progress
 {
     bool Running = false;
     bool Cancelled = false;
+    bool LimitExceeded = false;
     unsigned Errors = 0;
     unsigned SkippedLinks = 0;
     ULONGLONG Directories = 0;
     ULONGLONG Files = 0;
     DWORD LastError = ERROR_SUCCESS;
+};
+
+// Captured before consent. A failed capture must never be retried by name.
+struct DeniedDirectory
+{
+    std::wstring Path;
+    std::wstring Relative;
+    ULONGLONG Volume = 0;
+    BYTE FileId[16] = {};
+    bool Verified = false;
 };
 
 // Automatic notifications never interrupt an active scan. Keep a completed
@@ -77,6 +89,7 @@ public:
     {
         Active = true; Pending = false; Manual = false; StartedAt = now;
     }
+    void Continue(ULONGLONG now) { Active = true; StartedAt = now; }
     void Finished(ULONGLONG now)
     {
         Active = false;
@@ -158,11 +171,19 @@ class Scan
     std::shared_ptr<State> Shared;
     HANDLE Thread;
     static DWORD WINAPI Run(void* context);
+    static DWORD WINAPI RunProtected(void* context);
+    using CaptureDenied = bool (*)(const std::wstring&, DeniedDirectory&);
+    CaptureDenied Capture = nullptr;
 public:
     Scan();
     ~Scan();
     using ListDirectory = DWORD (*)(void* context, const std::wstring& directory, std::vector<WIN32_FIND_DATAW>& entries);
+    void SetCaptureDenied(CaptureDenied capture) { Capture = capture; }
     bool Start(const std::wstring& root, bool hideHiddenSystem, bool incremental = false);
+    bool StartProtected(const std::vector<DeniedDirectory>& denied, const Progress& initial,
+                        ListDirectory list, std::shared_ptr<void> context, HANDLE stop);
+    void DrainDenied(std::vector<DeniedDirectory>& denied);
+    void DrainFailure(std::wstring& path, DWORD& error);
     void Advance(ListDirectory list, void* context);
     void Cancel();
     void Drain(std::vector<Entry>& entries, Progress& progress);
@@ -209,6 +230,7 @@ public:
     bool CompletionPending = false;
     bool StoppingInitial = false;
     bool UseProtectedListing = false;
+    bool RetryingProtected = false;
     std::shared_ptr<Salamander::BranchView::PreparationSession> Preparation;
     std::shared_ptr<Salamander::BranchView::PreparationLifetime> PreparationLifetime;
     ULONGLONG Generation = 0;

@@ -4400,6 +4400,9 @@ SLGINCOMPLETE,""
 14714,1,"El contenido y las etiquetas de este resultado protegido no se pueden leer de forma segura durante el refinamiento con la identidad verificada anteriormente. Este elemento no se verificó."
 14715,1,"Acceso denegado. ¿Crear esta lista de archivos como administrador?"
 
+14716,1,"No se puede verificar la identidad de algunas carpetas protegidas. No se abrieron; la lista está incompleta. Primera carpeta:"
+14717,1,"Una carpeta protegida contiene más de 4096 elementos. Su lista está incompleta."
+
 [STRINGTABLE 199]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
 

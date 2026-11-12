@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Version the two-phase overwrite protocol. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Version two-phase overwrite probe framing. | Reject peers that lack the same exact-item authorization. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Version overwrite with ignored named streams. | Reject peers that do not enforce the same typed copy policy. | #731 | GPT-6.1 Terra |
@@ -33,7 +34,7 @@
 // | 2026-11-09 | Share the UAC protocol marker. | Keep the handshake and executable resource on one version. | | GPT-6.1 Sol (Codex) |
 #pragma once
 
-#define SAM_UAC_PROTOCOL_VERSION 41
+#define SAM_UAC_PROTOCOL_VERSION 42
 #define SAM_UAC_PROTOCOL_RESOURCE 63001
 #define SAM_UAC_IMAGE_HOST 1
 #define SAM_UAC_IMAGE_BROKER 2

@@ -4400,6 +4400,9 @@ SLGINCOMPLETE,""
 14714,1,"A védett eredmény tartalma és címkéi a pontosítás során jelenleg nem olvashatók biztonságosan a korábban ellenőrzött azonossággal. Ez az elem nem lett ellenőrizve."
 14715,1,"A hozzáférés megtagadva. Létrehozza ezt a fájllistát rendszergazdaként?"
 
+14716,1,"Néhány védett mappa azonossága nem ellenőrizhető. Nem lettek megnyitva; a lista hiányos. Első mappa:"
+14717,1,"Egy védett mappa több mint 4096 elemet tartalmaz. A listája hiányos."
+
 [STRINGTABLE 199]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."
 

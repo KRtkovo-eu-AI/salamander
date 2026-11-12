@@ -4400,6 +4400,9 @@ SLGINCOMPLETE,""
 14714,1,"De inhoud en tags van dit beveiligde resultaat kunnen bij het verfijnen momenteel niet veilig met de eerder geverifieerde identiteit worden gelezen. Dit item is niet geverifieerd."
 14715,1,"Toegang is geweigerd. Deze bestandslijst als administrator maken?"
 
+14716,1,"De identiteit van sommige beveiligde mappen kan niet worden gecontroleerd. Ze zijn niet geopend; de lijst is onvolledig. Eerste map:"
+14717,1,"Een beveiligde map bevat meer dan 4096 items. De lijst is onvolledig."
+
 [STRINGTABLE 199]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."
 

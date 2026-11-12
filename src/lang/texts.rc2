@@ -1,4 +1,5 @@
-﻿// | 2026-11-11 | Explain unavailable Find result identity. | Prevent unsafe viewer fallback and suggest a new search. | #731 | GPT-6.1 Terra |
+﻿// | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
+// | 2026-11-11 | Explain unavailable Find result identity. | Prevent unsafe viewer fallback and suggest a new search. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Localize verified Find viewer limitations and consent. | Keep file identity and the snapshot choice clear. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Localize distinct incomplete Find reasons. | Report the actual omission without inventing a path or limit. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Explain the protected folder Recycle Bin limitation. | Report unsupported elevation without assuming the item state. | #731 | GPT-6.1 Terra |
@@ -2493,6 +2494,8 @@ STRINGTABLE
  IDS_UAC_FIND_VIEW_WITH_UNAVAILABLE, "View With cannot yet safely preserve the verified identity of this protected result. Use F3 instead."
  IDS_UAC_FIND_REFINE_IDENTITY_UNAVAILABLE, "Content and tags of this protected result cannot currently be read safely using its previously verified identity during refinement. This item was not verified."
  IDS_UAC_FILELIST_CREATE_CONFIRM, "Access was denied. Create this file list as an administrator?"
+ IDS_BRANCH_IDENTITY_UNAVAILABLE, "Some protected folders could not be safely identified and were not opened. The listing is incomplete. First folder:"
+ IDS_BRANCH_LIST_LIMIT, "A protected folder contains more than 4096 items. Its listing is incomplete."
  IDS_UAC_EDIT_ADMIN_TITLE, "Edit as Administrator"
  IDS_UAC_EDIT_ADMIN_CONFIRM, "Access was denied. Open the original file with the configured editor as an administrator? Windows will request permission for the editor shown below."
  IDS_UAC_ZIP_TITLE, "Protected ZIP Listing"
