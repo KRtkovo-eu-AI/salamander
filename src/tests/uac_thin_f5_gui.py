@@ -377,6 +377,8 @@ def main():
     parser.add_argument("--fault", choices=("none", "read", "write"), default="none")
     parser.add_argument("--deny-open", choices=("source", "target", "both"),
                         help="inject one access denial per selected side in the test-only worker")
+    parser.add_argument("--deny-reopen", choices=("source", "target", "both"),
+                        help="inject access denial at the selected Retry open in the test-only worker")
     parser.add_argument("--scenario", choices=("copy", "pause", "cancel", "speed"), default="copy")
     parser.add_argument("--cancel-after-handle", choices=("source", "target"),
                         help="test-only gate after a broker handle is accepted")
@@ -401,7 +403,10 @@ def main():
         parser.error("handle-gated cancellation requires --scenario cancel")
     if args.replace_before_retry and (args.fault == "none" or args.scenario != "copy" or args.collision != "none"):
         parser.error("retry replacement requires a standalone read or write fault")
-    if args.lab_unelevated and (not args.deny_open or not args.expected_broker_sha256 or not args.manifest_tool):
+    if args.deny_reopen and args.fault == "none":
+        parser.error("retry-only denial requires a read or write fault")
+    if args.lab_unelevated and (not (args.deny_open or args.deny_reopen) or
+                               not args.expected_broker_sha256 or not args.manifest_tool):
         parser.error("the laboratory peer requires injected denial, broker hash and Windows SDK manifest tool")
     if not args.run:
         print("Preparation only: host was not started; no fixture was created.")
@@ -438,6 +443,8 @@ def main():
     env["SAM_UAC_TEST_FAIL"] = args.fault
     if args.deny_open:
         env["SAM_UAC_TEST_DENY_OPEN"] = args.deny_open
+    if args.deny_reopen:
+        env["SAM_UAC_TEST_DENY_REOPEN"] = args.deny_reopen
     if args.lab_unelevated:
         env["SAM_UAC_THIN_UNELEVATED_TEST"] = "1"
         env["SAM_UAC_THIN_TEST_INSTALL"] = str(test_exe.parent)
@@ -659,7 +666,8 @@ def main():
         if args.replace_before_retry != "source" and digest(source_file) != expected:
             raise RuntimeError("source changed")
         result = {"Fixture": str(root), "HostPid": process.pid, "Mode": args.mode, "Scenario": args.scenario,
-                  "Fault": args.fault, "DenyOpen": args.deny_open, "Collision": args.collision, "LongPath": args.long_path,
+                  "Fault": args.fault, "DenyOpen": args.deny_open, "DenyReopen": args.deny_reopen,
+                  "Collision": args.collision, "LongPath": args.long_path,
                   "CancelAfterHandle": args.cancel_after_handle,
                   "HandleGateObserved": bool(args.cancel_after_handle and native.signalled(events["HANDLE_EVENT"])),
                   "RetryReplacement": args.replace_before_retry, "ReplacementSha256": replacement_hash,
