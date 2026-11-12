@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Exercise typed handle requests over the broker job pipe. | Verify real NTFS handles and scope before worker integration. | #731 | GPT-6 |
 // | 2026-11-12 | Test listed ZIP IDs through the archive dispatcher. | Reject substituted parent and file identities. | #731 | GPT-6.1 Sol |
 // | 2026-11-12 | Carry cursor tokens in pipe fixtures. | Test independent nested page requests. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Exercise verified paged metadata over the dispatcher pipe. | Check scoped cursors without restarting or exposing incomplete pages. | #731 | GPT-6 (Codex) |
@@ -256,6 +257,36 @@ public:
             }
         });
         return !Connect(server.get(), GetTickCount64() + timeoutMs);
+    }
+
+
+    bool Thin(const Directory& src, std::wstring_view sourceLeaf, const FILE_ID_INFO& sourceId,
+              const Directory& dst, std::wstring_view targetLeaf, Operation operation,
+              const FILE_ID_INFO* expected, bool overlapped, DWORD& result, ThinWireReply& reply)
+    {
+        RequestHeader header{};
+        header.serial = src.identity.file.VolumeSerialNumber;
+        header.parentId = src.identity.file.FileId;
+        header.sourceId = sourceId.FileId;
+        header.operation = operation;
+        header.relativeLength = static_cast<DWORD>(src.relative.size());
+        header.leafLength = static_cast<DWORD>(sourceLeaf.size());
+        header.targetSerial = dst.identity.file.VolumeSerialNumber;
+        header.targetParentId = dst.identity.file.FileId;
+        header.targetRelativeLength = static_cast<DWORD>(dst.relative.size());
+        header.targetLeafLength = static_cast<DWORD>(targetLeaf.size());
+        header.copySize = 1;
+        std::wstring payload = src.identity.volume + src.relative + std::wstring(sourceLeaf) +
+                               dst.identity.volume + dst.relative + std::wstring(targetLeaf);
+        ThinWireOptions options{};
+        options.flags = overlapped ? 1 : 0;
+        if (expected) options.expectedTarget = *expected;
+        const auto deadline = GetTickCount64() + timeoutMs;
+        return !TransferRequest(server.get(), &header, sizeof(header), true, deadline) &&
+               !TransferRequest(server.get(), payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline) &&
+               !TransferRequest(server.get(), &options, sizeof(options), true, deadline) &&
+               !TransferRequest(server.get(), &result, sizeof(result), false, deadline) &&
+               !TransferRequest(server.get(), &reply, sizeof(reply), false, deadline);
     }
 
     bool Disconnect() { return DisconnectNamedPipe(server.get()) != FALSE; }
@@ -3592,11 +3623,120 @@ void CheckDeleteJob(const Directory& source)
 }
 }
 
+
+namespace
+{
+void CheckThinJob(const Directory& source, const Directory& target, const Directory& outside)
+{
+    constexpr auto sourceLeaf = L"thin-source-東.txt";
+    constexpr auto targetLeaf = L"thin-target-日.txt";
+    const auto sourcePath = source.File(sourceLeaf);
+    const auto targetPath = target.File(targetLeaf);
+    Check(WriteByte(sourcePath, 0x51), "thin job creates source fixture");
+    auto sourceFile = Adopt(CreateFileW(sourcePath.c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    FILE_ID_INFO sourceId{};
+    Check(sourceFile && GetFileInformationByHandleEx(sourceFile.get(), FileIdInfo, &sourceId, sizeof(sourceId)),
+          "thin job captures real source identity");
+    sourceFile.reset();
+    JobPipe job;
+    Check(job.Open(), "thin job opens actual dispatcher pipe");
+    DWORD status = ERROR_GEN_FAILURE;
+    ThinWireReply reply{};
+    FILE_ID_INFO wrong = sourceId;
+    wrong.FileId.Identifier[0] ^= 1;
+    Check(job.Thin(source, sourceLeaf, wrong, target, targetLeaf, Operation::ThinOpenSource, nullptr, false, status, reply) &&
+          status == ERROR_FILE_INVALID && !reply.value, "thin source rejects changed file identity");
+
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinOpenSource, nullptr, false, status, reply) &&
+          !status && reply.value, "thin source transfers exact file handle");
+    auto input = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    BYTE byte = 0;
+    DWORD count = 0;
+    Check(input && ReadFile(input.get(), &byte, 1, &count, nullptr) && count == 1 && byte == 0x51,
+          "host reads the real duplicated source handle");
+    byte = 0x52; count = 0;
+    Check(input && !WriteFile(input.get(), &byte, 1, &count, nullptr) && GetLastError() == ERROR_ACCESS_DENIED,
+          "source duplicate does not grant write");
+    input.reset();
+
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetCreate, nullptr, false, status, reply) &&
+          !status && reply.value, "thin target creates and transfers exact file");
+    const FILE_ID_INFO targetId = reply.target;
+    auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    byte = 0x51; count = 0;
+    Check(output && WriteFile(output.get(), &byte, 1, &count, nullptr) && count == 1,
+          "host writes original worker-style data through duplicated target");
+    FILE_DISPOSITION_INFO disposition{TRUE};
+    Check(output && !SetFileInformationByHandle(output.get(), FileDispositionInfo, &disposition, sizeof(disposition)) &&
+          GetLastError() == ERROR_ACCESS_DENIED, "target duplicate does not grant delete");
+    output.reset();
+    Check(HasByte(targetPath, 0x51), "new target contains host-written byte");
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetProbe, nullptr, false, status, reply) &&
+          !status && reply.value, "target probe supplies the existing native metadata handle");
+    auto probe = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    FILE_ID_INFO probed{};
+    Check(probe && GetFileInformationByHandleEx(probe.get(), FileIdInfo, &probed, sizeof(probed)) &&
+          UacRenameLeaf::Detail::SameSource(probed, targetId), "metadata handle can verify target identity");
+    byte = 0x52; count = 0;
+    Check(probe && !WriteFile(probe.get(), &byte, 1, &count, nullptr) && GetLastError() == ERROR_ACCESS_DENIED,
+          "metadata handle does not grant write");
+    probe.reset();
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetCreate, nullptr, false, status, reply) &&
+          status == ERROR_FILE_EXISTS && !reply.value && HasByte(targetPath, 0x51),
+          "native CREATE_NEW collision preserves existing target");
+
+    wrong = targetId;
+    wrong.FileId.Identifier[0] ^= 1;
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetRetry, &wrong, false, status, reply) &&
+          status == ERROR_FILE_INVALID && !reply.value && HasByte(targetPath, 0x51),
+          "thin retry rejects changed target ID and preserves contents");
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetRetry, &targetId, false, status, reply) &&
+          !status && reply.value, "thin retry reopens owned target for reading and writing");
+    output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    byte = 0; count = 0;
+    Check(output && ReadFile(output.get(), &byte, 1, &count, nullptr) && count == 1 && byte == 0x51,
+          "retry handle retains native read access for verification");
+    output.reset();
+
+    Check(job.Thin(source, sourceLeaf, sourceId, outside, targetLeaf, Operation::ThinTargetCreate, nullptr, false, status, reply) &&
+          status == ERROR_ACCESS_DENIED && !reply.value,
+          "same consent refuses another target parent");
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinDiscardTarget, &wrong, false, status, reply) &&
+          status == ERROR_FILE_INVALID && HasByte(targetPath, 0x51),
+          "thin cleanup refuses a mismatched target identity");
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinDiscardTarget, &targetId, false, status, reply) &&
+          !status && !reply.value && GetFileAttributesW(targetPath.c_str()) == INVALID_FILE_ATTRIBUTES,
+          "thin cleanup removes only the created, verified target");
+
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinOpenSource, nullptr, true, status, reply) &&
+          !status && reply.value, "same job transfers an overlapped source handle");
+    input = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    auto event = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    OVERLAPPED io{}; io.hEvent = event.get(); byte = 0; count = 0;
+    BOOL read = input && ReadFile(input.get(), &byte, 1, &count, &io);
+    if (!read && GetLastError() == ERROR_IO_PENDING)
+        read = GetOverlappedResult(input.get(), &io, &count, TRUE);
+    Check(read && count == 1 && byte == 0x51, "duplicated overlapped handle completes real asynchronous read");
+    input.reset();
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinOpenSource, nullptr, false, status, reply) &&
+          !status && reply.value, "prepare a file handle before disconnect");
+    input = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    job.Finish();
+    byte = 0; count = 0;
+    Check(input && ReadFile(input.get(), &byte, 1, &count, nullptr) && count == 1 && byte == 0x51,
+          "transferred handle remains valid after broker dispatcher disconnects");
+    input.reset();
+    Check(DeleteFileW(sourcePath.c_str()) != FALSE, "thin job removes source fixture");
+}
+}
+
 int wmain()
 {
     Directory source, target, outside;
     if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
         return 2;
+    CheckThinJob(source, target, outside);
     CheckListedLeafIdentity(source);
     CheckListedArchiveIdentity(source, outside);
     CheckPanelPreparationPaths(source, outside);

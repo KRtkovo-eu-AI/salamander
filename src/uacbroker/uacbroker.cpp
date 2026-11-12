@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Add typed worker handle transfer requests. | Retain original worker data I/O under a scoped broker session. | #731 | GPT-6 |
 | 2026-11-12 | Recover guarded moves after allocation failure. | Preserve source recovery and report uncertain publication as partial. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Prepare archive reads from a verified listing identity. | Preserve source scope across a separate broker consent. | #731 | GPT-6.1 Sol |
 | 2026-11-12 | Permit scoped FindContent paging. | Reuse one verified consent for metadata pages and file reads. | #731 | GPT-6.1 Terra |
@@ -584,6 +585,26 @@ struct RequestHeader
     DWORD targetSuffixLength = 0;
 };
 static_assert(sizeof(RequestHeader) == 104);
+
+struct ThinWireOptions
+{
+    DWORD flags = 0;
+    DWORD reserved = 0;
+    FILE_ID_INFO expectedTarget{};
+};
+struct ThinWireReply
+{
+    ULONGLONG value = 0;
+    FILE_ID_INFO target{};
+};
+static_assert(sizeof(ThinWireOptions) == 32);
+static_assert(sizeof(ThinWireReply) == 32);
+inline bool IsThinOpen(Operation operation)
+{
+    return operation == Operation::ThinOpenSource || operation == Operation::ThinTargetCreate ||
+           operation == Operation::ThinTargetRetry || operation == Operation::ThinTargetProbe ||
+           operation == Operation::ThinDiscardTarget;
+}
 #ifdef SAM_UAC_PROBE_FAULT_TEST
 // Test-only scheduling seam; no production project defines this macro.
 void OverwriteProbeFaultCheckpoint(unsigned stage);
@@ -2191,13 +2212,280 @@ struct ExactAllocationScope
     UacF7::FileAllocationRequest identity{};
 };
 
+
+struct ThinCreatedTarget
+{
+    FILE_ID_INFO parent{}, source{}, target{};
+    std::wstring leaf;
+};
+struct ThinJobState
+{
+    std::vector<ThinCreatedTarget> created;
+};
+
+Handle OpenThinHostForDup(HANDLE pinnedHost, DWORD pid)
+{
+    if (!LiveInSession(pinnedHost, pid)) return {};
+    constexpr DWORD rights = PROCESS_DUP_HANDLE | PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE;
+    Handle process = Adopt(OpenProcess(rights, FALSE, pid));
+    if (!process && GetLastError() == ERROR_ACCESS_DENIED)
+    {
+        HANDLE rawProcessToken = nullptr;
+        if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE, &rawProcessToken)) return {};
+        auto processToken = Adopt(rawProcessToken);
+        HANDLE rawImpersonation = nullptr;
+        if (!DuplicateTokenEx(processToken.get(), TOKEN_QUERY | TOKEN_ADJUST_PRIVILEGES | TOKEN_IMPERSONATE,
+                              nullptr, SecurityImpersonation, TokenImpersonation, &rawImpersonation)) return {};
+        auto impersonation = Adopt(rawImpersonation);
+        HANDLE rawPrevious = nullptr;
+        const BOOL hadPrevious = OpenThreadToken(GetCurrentThread(), TOKEN_IMPERSONATE | TOKEN_QUERY, TRUE, &rawPrevious);
+        const DWORD previousError = hadPrevious ? ERROR_SUCCESS : GetLastError();
+        if (!hadPrevious && previousError != ERROR_NO_TOKEN) return {};
+        auto previous = Adopt(rawPrevious);
+        if (!SetThreadToken(nullptr, impersonation.get())) return {};
+        LUID privilege{};
+        TOKEN_PRIVILEGES requested{1};
+        if (LookupPrivilegeValueW(nullptr, L"SeDebugPrivilege", &privilege))
+        {
+            requested.Privileges[0].Luid = privilege;
+            requested.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+            SetLastError(ERROR_SUCCESS);
+            if (AdjustTokenPrivileges(impersonation.get(), FALSE, &requested, 0, nullptr, nullptr) &&
+                GetLastError() == ERROR_SUCCESS)
+                process = Adopt(OpenProcess(rights, FALSE, pid));
+        }
+        if (hadPrevious ? !SetThreadToken(nullptr, previous.get()) : !RevertToSelf())
+            std::abort();
+    }
+    if (!process || GetProcessId(process.get()) != pid || !LiveInSession(pinnedHost, pid) ||
+        !LiveInSession(process.get(), pid))
+        return {};
+    return process;
+}
+
+// Request framing and consent scope are shared with the existing transfer job.
+// Only a file object with the role-specific access is duplicated, never the
+// broker process or token. A lost reply can leave a remote handle unclaimed.
+DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWORD hostPid,
+                      ULONGLONG deadline, DWORD& result, UacF7::TransferJobScope& scope,
+                      TreeCopyPins* treePins, ThinJobState& state, ThinWireReply& reply)
+{
+    result = ERROR_INVALID_DATA;
+    reply = {};
+    try
+    {
+        if (header.sourceLength || header.reportProgress || header.targetSuffixLength ||
+            !header.leafLength || !header.targetLeafLength ||
+            header.relativeLength > UacDirectoryLeaf::maxNativeName ||
+            header.targetRelativeLength > UacDirectoryLeaf::maxNativeName ||
+            header.leafLength > UacDirectoryLeaf::maxComponent ||
+            header.targetLeafLength > UacDirectoryLeaf::maxComponent ||
+            header.copySize > UacF7::maxNativeCopyBytes)
+            return ERROR_INVALID_DATA;
+        const size_t primary = volumeLength + header.relativeLength + header.leafLength;
+        std::wstring payload(primary + volumeLength + header.targetRelativeLength + header.targetLeafLength, L'\0');
+        DWORD error = TransferRequest(pipe, payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), false, deadline);
+        if (error) return error;
+        ThinWireOptions options{};
+        error = TransferRequest(pipe, &options, sizeof(options), false, deadline);
+        if (error) return error;
+        if (options.reserved || (options.flags & ~1u))
+            return ERROR_INVALID_DATA;
+        const std::wstring_view data(payload);
+        const auto sourceVolume = data.substr(0, volumeLength);
+        const auto sourceRelative = data.substr(volumeLength, header.relativeLength);
+        const auto sourceLeaf = data.substr(volumeLength + header.relativeLength, header.leafLength);
+        const auto targetVolume = data.substr(primary, volumeLength);
+        const auto targetRelative = data.substr(primary + volumeLength, header.targetRelativeLength);
+        const auto targetLeaf = data.substr(primary + volumeLength + header.targetRelativeLength, header.targetLeafLength);
+        if (sourceVolume.find(L'\0') != std::wstring_view::npos || targetVolume.find(L'\0') != std::wstring_view::npos ||
+            !UacDirectoryLeaf::IsComponent(sourceLeaf) || !UacDirectoryLeaf::IsComponent(targetLeaf))
+            return ERROR_INVALID_DATA;
+
+        UacF7::TransferJobScope requested{Operation::Copy, {header.serial, {}}, {header.targetSerial, {}},
+            std::wstring(sourceVolume) + std::wstring(sourceRelative),
+            std::wstring(targetVolume) + std::wstring(targetRelative)};
+        std::memcpy(requested.source.id, header.parentId.Identifier, sizeof(requested.source.id));
+        std::memcpy(requested.target.id, header.targetParentId.Identifier, sizeof(requested.target.id));
+        if (scope.IsTreeCopy())
+        {
+            if (!treePins || !treePins->source || !treePins->target || scope.NeedsTreeRoot() ||
+                !scope.MatchesTreeEntry(requested, sourceLeaf, targetLeaf))
+                { result = ERROR_ACCESS_DENIED; return ERROR_SUCCESS; }
+        }
+        else if (scope.operation == Operation::Mkdir)
+            scope = requested; // Bind even when a later open fails.
+        else if (!scope.Matches(requested))
+            { result = ERROR_ACCESS_DENIED; return ERROR_SUCCESS; }
+        if (!LiveInSession(host, hostPid)) return ERROR_OPERATION_ABORTED;
+
+        const auto sourceRoot = OpenVolumeRoot(sourceVolume);
+        const auto targetRoot = OpenVolumeRoot(targetVolume);
+        if (!sourceRoot || !targetRoot) { result = ERROR_NOT_SUPPORTED; return ERROR_SUCCESS; }
+        std::vector<Handle> sourcePins, targetPins;
+        HANDLE sourceParent = nullptr, targetParent = nullptr;
+        UacF7::MoveFileIdentity sourceParentId{header.serial, {}}, targetParentId{header.targetSerial, {}};
+        std::memcpy(sourceParentId.id, header.parentId.Identifier, sizeof(sourceParentId.id));
+        std::memcpy(targetParentId.id, header.targetParentId.Identifier, sizeof(targetParentId.id));
+        error = PinPagedDirectory(sourceRoot.get(), sourceRelative, &sourceParentId, sourcePins, sourceParent);
+        if (!error) error = PinPagedDirectory(targetRoot.get(), targetRelative, &targetParentId, targetPins, targetParent);
+        const UacDirectoryLeaf::ParentIdentity expectedSource{{header.serial, header.parentId}, std::wstring(sourceVolume)};
+        const UacDirectoryLeaf::ParentIdentity expectedParent{{header.targetSerial, header.targetParentId}, std::wstring(targetVolume)};
+        if (!error && scope.IsTreeCopy())
+        {
+            error = VerifyTreeParent(treePins->source.get(), scope.sourcePath, requested.sourcePath, expectedSource);
+            if (!error) error = VerifyTreeParent(treePins->target.get(), scope.targetPath, requested.targetPath, expectedParent);
+        }
+        if (error) { result = error; return ERROR_SUCCESS; }
+
+        const bool discard = header.operation == Operation::ThinDiscardTarget;
+        const bool sourceRole = header.operation == Operation::ThinOpenSource;
+        const bool create = header.operation == Operation::ThinTargetCreate;
+        const bool retry = header.operation == Operation::ThinTargetRetry;
+        const bool probe = header.operation == Operation::ThinTargetProbe;
+        const bool overlapped = (options.flags & 1u) != 0;
+        const FILE_ID_INFO expectedFile{header.serial, header.sourceId};
+        HANDLE rawSource = nullptr;
+        error = UacRenameLeaf::Detail::OpenFile(sourceParent, sourceLeaf, rawSource,
+                discard ? 0 : GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OPEN, FILE_SEQUENTIAL_ONLY,
+                nullptr, false, sourceRole && overlapped);
+        auto source = Adopt(rawSource);
+        FILE_ID_INFO openedSource{};
+        if (!error) error = UacRenameLeaf::Detail::ReadSourceIdentity(source.get(), openedSource);
+        if (!error && !UacRenameLeaf::Detail::SameSource(expectedFile, openedSource)) error = ERROR_FILE_INVALID;
+        FILE_BASIC_INFO basic{};
+        LARGE_INTEGER sourceSize{};
+        if (!error && !discard)
+        {
+            error = UacCopyLeaf::Detail::ReadPlainMetadata(source.get(), basic, false,
+                UacCopyLeaf::StreamPolicy::RequireDefault, FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE);
+            if (!error && (!GetFileSizeEx(source.get(), &sourceSize) ||
+                sourceSize.QuadPart < 0 || static_cast<ULONGLONG>(sourceSize.QuadPart) != header.copySize))
+                error = ERROR_FILE_INVALID;
+        }
+        if (error) { result = error; return ERROR_SUCCESS; }
+
+        auto record = state.created.end();
+        if (!sourceRole && !probe)
+            for (auto i = state.created.begin(); i != state.created.end(); ++i)
+                if (UacRenameLeaf::Detail::SameSource(i->parent, expectedParent.file) && i->leaf == targetLeaf)
+                { record = i; break; }
+        if (create && record != state.created.end())
+            { result = ERROR_FILE_EXISTS; return ERROR_SUCCESS; }
+        if ((retry || discard) &&
+            (record == state.created.end() || !UacRenameLeaf::Detail::SameSource(record->source, expectedFile) ||
+             !UacRenameLeaf::Detail::SameSource(record->target, options.expectedTarget)))
+            { result = ERROR_FILE_INVALID; return ERROR_SUCCESS; }
+
+        if (create)
+        {
+            state.created.emplace_back();
+            record = state.created.end() - 1;
+            record->parent = expectedParent.file;
+            record->source = expectedFile;
+            record->leaf.assign(targetLeaf);
+        }
+        Handle file;
+        ACCESS_MASK duplicateAccess = 0;
+        bool madeTarget = false;
+        if (sourceRole)
+        {
+            file = std::move(source);
+            duplicateAccess = GENERIC_READ;
+        }
+        else
+        {
+            HANDLE raw = nullptr;
+            ACCESS_MASK access = discard ? DELETE : probe ? 0 : GENERIC_WRITE | (retry ? GENERIC_READ : 0);
+            const ULONG sharing = probe || discard ? FILE_SHARE_READ | FILE_SHARE_WRITE : 0;
+            const auto open = [&](ULONG disposition) {
+                return UacRenameLeaf::Detail::OpenFile(targetParent, targetLeaf, raw, access, sharing,
+                    disposition, FILE_SEQUENTIAL_ONLY, nullptr, false, overlapped && !discard);
+            };
+            error = open(create ? FILE_CREATE : FILE_OPEN);
+            madeTarget = create && !error;
+            if (retry && (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND))
+            {
+                error = open(FILE_CREATE);
+                madeTarget = !error;
+            }
+            file = Adopt(raw);
+            if (!error && !GetFileInformationByHandleEx(file.get(), FileIdInfo, &reply.target, sizeof(reply.target)))
+                error = GetLastError();
+            if (!error && !madeTarget && (retry || discard) &&
+                !UacRenameLeaf::Detail::SameSource(reply.target, options.expectedTarget)) error = ERROR_FILE_INVALID;
+            FILE_ATTRIBUTE_TAG_INFO attrs{};
+            if (!error && (!GetFileInformationByHandleEx(file.get(), FileAttributeTagInfo, &attrs, sizeof(attrs)) ||
+                (attrs.FileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY |
+                 FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ENCRYPTED))))
+                error = ERROR_NOT_SUPPORTED;
+            duplicateAccess = probe ? 0 : GENERIC_WRITE | (retry ? GENERIC_READ : 0);
+        }
+        const auto cleanupCreated = [&]() -> DWORD {
+            if (!madeTarget) return ERROR_SUCCESS;
+            // A failed identity query cannot authorize unlinking by pathname.
+            if (!reply.target.VolumeSerialNumber) return ERROR_PARTIAL_COPY;
+            file.reset();
+            HANDLE rawDelete = nullptr;
+            DWORD status = UacRenameLeaf::Detail::OpenFile(targetParent, targetLeaf, rawDelete, DELETE,
+                FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OPEN, 0);
+            const auto deletion = Adopt(rawDelete);
+            FILE_ID_INFO actual{};
+            if (!status && (!GetFileInformationByHandleEx(deletion.get(), FileIdInfo, &actual, sizeof(actual)) ||
+                            !UacRenameLeaf::Detail::SameSource(actual, reply.target))) status = ERROR_FILE_INVALID;
+            FILE_DISPOSITION_INFO disposition{TRUE};
+            if (!status && !SetFileInformationByHandle(deletion.get(), FileDispositionInfo, &disposition, sizeof(disposition)))
+                status = GetLastError();
+            return status ? ERROR_PARTIAL_COPY : ERROR_SUCCESS;
+        };
+        if (error)
+        {
+            if (cleanupCreated()) error = ERROR_PARTIAL_COPY;
+            if (create) state.created.pop_back();
+            result = error == ERROR_ALREADY_EXISTS && create ? ERROR_FILE_EXISTS : error;
+            return ERROR_SUCCESS;
+        }
+        if (discard)
+        {
+            FILE_DISPOSITION_INFO disposition{TRUE};
+            if (!SetFileInformationByHandle(file.get(), FileDispositionInfo, &disposition, sizeof(disposition)))
+                { result = GetLastError(); return ERROR_SUCCESS; }
+            state.created.erase(record);
+            result = ERROR_SUCCESS;
+            return ERROR_SUCCESS;
+        }
+        const auto targetProcess = OpenThinHostForDup(host, hostPid);
+        HANDLE remote = nullptr;
+        if (!targetProcess || !LiveInSession(host, hostPid) ||
+            !DuplicateHandle(GetCurrentProcess(), file.get(), targetProcess.get(), &remote,
+                             duplicateAccess, FALSE, 0))
+        {
+            error = targetProcess ? GetLastError() : ERROR_ACCESS_DENIED;
+            if (cleanupCreated()) error = ERROR_PARTIAL_COPY;
+            if (create) state.created.pop_back();
+            result = error;
+            return ERROR_SUCCESS;
+        }
+        if (create || (retry && madeTarget)) record->target = reply.target;
+        reply.value = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(remote));
+        result = ERROR_SUCCESS;
+        return ERROR_SUCCESS;
+    }
+    catch (const std::bad_alloc&)
+    {
+        result = ERROR_NOT_ENOUGH_MEMORY;
+        return ERROR_SUCCESS;
+    }
+}
+
 DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, DWORD hostPid,
                      ULONGLONG& deadline, DWORD& result, Handle& listingRoot, std::vector<BYTE>& snapshot, bool& snapshotRequest, bool& zipUpdate, Operation& listingScope, Handle& archive, UacF7::ArchiveRevision& archiveRevision,
                      UacF7::TransferJobScope* jobScope = nullptr, TreeCopyPins* treePins = nullptr,
                      ExactAllocationScope* exactAllocation = nullptr,
                      PendingOverwriteProbe* pendingOverwrite = nullptr,
                      UacF7::OverwriteProbeReply* overwriteProbeReply = nullptr,
-                     bool* strictOverwriteSession = nullptr, bool* reviewedCommitReply = nullptr)
+                     bool* strictOverwriteSession = nullptr, bool* reviewedCommitReply = nullptr,
+                     ThinJobState* thinState = nullptr, ThinWireReply* thinReply = nullptr)
 {
     RequestHeader header{};
     DWORD received = 0;
@@ -2210,6 +2498,13 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
             *reinterpret_cast<const BYTE*>(&header) == UacRenameLeaf::Detail::transferCancelSignal)
             return ERROR_CANCELLED;
         return error;
+    }
+    if (IsThinOpen(header.operation))
+    {
+        listingScope = header.operation;
+        if (!jobScope || !thinState || !thinReply || (pendingOverwrite && pendingOverwrite->present))
+            return ERROR_ACCESS_DENIED;
+        return ReceiveThinOpen(header, pipe, host, hostPid, deadline, result, *jobScope, treePins, *thinState, *thinReply);
     }
     if (header.operation == Operation::AbortOverwriteProbe)
     {
@@ -3351,6 +3646,7 @@ DWORD ServeTransferJob(const InstallLocation& install, HANDLE pipe, HANDLE host,
     TreeCopyPins treePins;
     PendingOverwriteProbe pendingOverwrite{};
     bool strictOverwriteSession = false;
+    ThinJobState thinState;
     while (LiveInSession(host, hostPid))
     {
         DWORD result = ERROR_GEN_FAILURE;
@@ -3360,11 +3656,13 @@ DWORD ServeTransferJob(const InstallLocation& install, HANDLE pipe, HANDLE host,
         Operation unusedListing = Operation::List;
         UacF7::ArchiveRevision unusedRevision;
         UacF7::OverwriteProbeReply overwriteProbeReply{};
+        ThinWireReply thinReply{};
         bool reviewedCommitReply = false;
         DWORD error = ReceiveRequest(install, pipe, host, hostPid, deadline, result,
                                      unusedRoot, unusedSnapshot, unusedView, unusedZip, unusedListing,
                                      unusedArchive, unusedRevision, &scope, &treePins, nullptr,
-                                     &pendingOverwrite, &overwriteProbeReply, &strictOverwriteSession, &reviewedCommitReply);
+                                     &pendingOverwrite, &overwriteProbeReply, &strictOverwriteSession, &reviewedCommitReply,
+                                     &thinState, &thinReply);
         if (error)
             return error == ERROR_CANCELLED ? ERROR_SUCCESS : error;
         if (unusedListing != Operation::ListCopyTreeSource)
@@ -3372,6 +3670,8 @@ DWORD ServeTransferJob(const InstallLocation& install, HANDLE pipe, HANDLE host,
         const bool isOverwriteProbe = unusedListing == Operation::ProbeOverwrite || unusedListing == Operation::ProbeOverwriteIgnoreAds;
         if (!error && (isOverwriteProbe || reviewedCommitReply))
             error = TransferRequest(pipe, &overwriteProbeReply, sizeof(overwriteProbeReply), true, deadline);
+        if (!error && IsThinOpen(unusedListing))
+            error = TransferRequest(pipe, &thinReply, sizeof(thinReply), true, deadline);
         // The initial probe did not establish a scope. Never let a later
         // request choose a different operation or parent under this consent.
         if (!error && isOverwriteProbe && result != ERROR_SUCCESS && scope.operation == Operation::Mkdir)
@@ -3590,7 +3890,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
                HANDLE zipUpdateFile = nullptr, UacF7::ArchiveRevision* overwriteTarget = nullptr,
                HANDLE* transferJob = nullptr, UacF7::MetadataJobPolicy* metadataPolicy = nullptr,
                UacF7::TransferProgress progress = nullptr, void* progressContext = nullptr, BrokerActivityScope* activity = nullptr,
-               UacF7::OverwriteProbeReply* overwriteProbeReply = nullptr
+               UacF7::OverwriteProbeReply* overwriteProbeReply = nullptr,
+               ThinWireOptions* thinOptions = nullptr, ThinWireReply* thinReply = nullptr
 #endif
 )
 {
@@ -3610,7 +3911,7 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #endif
     const auto probeIoError = [&](const wchar_t* stage, DWORD error) {
 #ifdef SAM_UAC_F7_HOST
-        if (stop || overwriteProbeReply)
+        if (stop || overwriteProbeReply || thinReply)
             result->error = error;
         if (overwriteProbeReply)
             result->unknown = false; // A read-only probe cannot mutate files.
@@ -3721,8 +4022,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
             }
             deadline = GetTickCount64() + timeoutMs;
         }
-        void* extra = metadata ? static_cast<void*>(metadata) : overwriteTarget;
-        const DWORD extraBytes = metadata ? sizeof(*metadata) : sizeof(*overwriteTarget);
+        void* extra = thinOptions ? static_cast<void*>(thinOptions) : metadata ? static_cast<void*>(metadata) : overwriteTarget;
+        const DWORD extraBytes = thinOptions ? sizeof(*thinOptions) : metadata ? sizeof(*metadata) : sizeof(*overwriteTarget);
         error = SendOperationRequest(pipe.get(), *request, *payload, extra, extraBytes, metadataPolicy,
                                      zipBytes || zipUpdateFile, deadline, *result, stop);
         if (!error && zipBytes)
@@ -3765,6 +4066,8 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
                                    progress, progressContext, request->operation, stop);
         if (!error && overwriteProbeReply)
             error = ReadOverwriteProbeReply(pipe.get(), *request, operationError, *overwriteProbeReply, deadline, stop);
+        if (!error && thinReply)
+            error = TransferRequest(pipe.get(), thinReply, sizeof(*thinReply), false, deadline);
         if (!error && (transferJob || copy || UacF7::IsMoveTransfer(request->operation) || tree || zipBytes ||
                        zipUpdateFile))
         {
@@ -5168,6 +5471,193 @@ bool PreparedTransfer::IsInJob(const TransferJobSession& job) const
     const auto entry = JobScope();
     return job.scope.IsTreeCopy() ? job.scope.MatchesTreeEntry(entry, source.leaf, target.leaf)
                                   : job.scope.Matches(entry);
+}
+
+
+ThinCopySession::~ThinCopySession() { Close(); }
+
+void ThinCopySession::CloseLocked()
+{
+    if (shared)
+        shared = nullptr; // Borrowed; its owner controls the original job.
+    owned.Close();
+}
+
+void ThinCopySession::Close()
+{
+    std::lock_guard<std::mutex> guard(gate);
+    CloseLocked();
+}
+
+bool ThinCopySession::IsOpen() const
+{
+    std::lock_guard<std::mutex> guard(gate);
+    return shared ? shared->IsOpen() : owned.IsOpen();
+}
+
+bool ThinCopySession::Matches(const PreparedTransfer& prepared) const
+{
+    std::lock_guard<std::mutex> guard(gate);
+    const auto* job = shared ? shared : &owned;
+    return job->IsOpen() && prepared.IsInJob(*job);
+}
+
+bool ThinCopySession::Attach(TransferJobSession& existing, const PreparedTransfer& prepared)
+{
+    std::lock_guard<std::mutex> guard(gate);
+    if (shared || owned.IsOpen() || !prepared.IsInJob(existing)) return false;
+    shared = &existing; // Must outlive the thin session; caller serializes use.
+    return true;
+}
+
+DWORD ThinCopySession::DiscardTarget(const PreparedTransfer& prepared, const MoveFileIdentity& target)
+{
+    const ThinOpenResult result = Open(nullptr, prepared, ThinOpenKind::Discard, false, false, &target);
+    return result.unknown ? ERROR_PARTIAL_COPY : result.error;
+}
+
+ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepared, ThinOpenKind kind,
+                                     bool overlapped, bool copyAttrs, const MoveFileIdentity* expectedTarget,
+                                     HANDLE cancel)
+{
+    std::lock_guard<std::mutex> guard(gate);
+    ThinOpenResult output;
+    if (copyAttrs || prepared.source.operation != Operation::Copy || prepared.HasDeferredTarget())
+    {
+        output.error = ERROR_NOT_SUPPORTED;
+        return output;
+    }
+    if (cancel && WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0)
+    {
+        output.error = ERROR_CANCELLED;
+        return output;
+    }
+    Operation operation;
+    switch (kind)
+    {
+    case ThinOpenKind::Source: operation = Operation::ThinOpenSource; break;
+    case ThinOpenKind::TargetCreate: operation = Operation::ThinTargetCreate; break;
+    case ThinOpenKind::TargetRetry: operation = Operation::ThinTargetRetry; break;
+    case ThinOpenKind::TargetProbe: operation = Operation::ThinTargetProbe; break;
+    case ThinOpenKind::Discard: operation = Operation::ThinDiscardTarget; break;
+    default: output.error = ERROR_INVALID_PARAMETER; return output;
+    }
+    if ((kind == ThinOpenKind::TargetRetry || kind == ThinOpenKind::Discard) && !expectedTarget)
+    {
+        output.error = ERROR_INVALID_PARAMETER;
+        return output;
+    }
+    auto* job = shared ? shared : &owned;
+    if (job->IsOpen() && !prepared.IsInJob(*job))
+    {
+        output.error = ERROR_ACCESS_DENIED;
+        return output;
+    }
+    if (!job->IsOpen() && (shared || kind == ThinOpenKind::Discard))
+    {
+        output.error = kind == ThinOpenKind::Discard ? ERROR_PARTIAL_COPY : ERROR_BROKEN_PIPE;
+        output.unknown = kind == ThinOpenKind::Discard;
+        return output;
+    }
+    const ComApartment com;
+    InstallLocation install;
+    if (FAILED(com.result) || !install.Open() || !install.MatchesProcess(GetCurrentProcess(), appImage) ||
+        !install.OpenImage(appImage))
+    {
+        output.error = ERROR_ACCESS_DENIED;
+        return output;
+    }
+    try
+    {
+        RequestHeader header{prepared.source.serial, {}, {}, operation,
+            static_cast<DWORD>(prepared.source.relative.size()), static_cast<DWORD>(prepared.source.leaf.size()), 0,
+            prepared.target.serial, {}, static_cast<DWORD>(prepared.target.relative.size()),
+            static_cast<DWORD>(prepared.target.leaf.size()), prepared.size};
+        std::memcpy(header.parentId.Identifier, prepared.source.fileId, sizeof(prepared.source.fileId));
+        std::memcpy(header.sourceId.Identifier, prepared.source.sourceId, sizeof(prepared.source.sourceId));
+        std::memcpy(header.targetParentId.Identifier, prepared.target.fileId, sizeof(prepared.target.fileId));
+        std::wstring payload = prepared.source.volume + prepared.source.relative + prepared.source.leaf +
+                               prepared.target.volume + prepared.target.relative + prepared.target.leaf;
+        ThinWireOptions options{};
+        options.flags = overlapped ? 1u : 0u;
+        if (expectedTarget)
+        {
+            options.expectedTarget.VolumeSerialNumber = expectedTarget->serial;
+            std::memcpy(options.expectedTarget.FileId.Identifier, expectedTarget->id, sizeof(expectedTarget->id));
+        }
+        ThinWireReply reply{};
+        Result result{};
+        if (!job->IsOpen())
+        {
+            job->scope = prepared.JobScope(true);
+            const int launched = RunProbe(install, false, false, owner, &header, &payload, nullptr, &result,
+                nullptr, cancel, nullptr, nullptr, nullptr, nullptr, nullptr, &job->pipe,
+                nullptr, nullptr, nullptr, nullptr, nullptr, &options, &reply);
+            output.declined = launched == Cancelled && result.error == ERROR_CANCELLED;
+        }
+        else
+        {
+            const ULONGLONG deadline = GetTickCount64() + timeoutMs;
+            DWORD error = SendOperationRequest(job->pipe, header, payload, &options, sizeof(options), nullptr,
+                                               false, deadline, result);
+            DWORD operationError = ERROR_GEN_FAILURE;
+            if (!error) error = ReadTransferResult(job->pipe, operationError, deadline, nullptr, nullptr, nullptr, operation);
+            if (!error) error = TransferRequest(job->pipe, &reply, sizeof(reply), false, deadline);
+            if (error)
+            {
+                result.error = error;
+                // The request may have duplicated a handle or created a file.
+                result.unknown = true;
+                job->Close();
+            }
+            else
+                result = TransferReply(operation, operationError, true);
+        }
+        output.error = result.error;
+        output.unknown = result.unknown;
+        if (result.error)
+            return output;
+        if (kind == ThinOpenKind::Discard)
+        {
+            if (reply.value) { output.error = ERROR_INVALID_DATA; output.unknown = true; }
+            return output;
+        }
+        if (!reply.value || reply.value > static_cast<ULONGLONG>(static_cast<ULONG_PTR>(~ULONG_PTR{})))
+        {
+            output.error = ERROR_INVALID_HANDLE;
+            output.unknown = true;
+            job->Close();
+            return output;
+        }
+        HANDLE received = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value));
+        FILE_ID_INFO identity{};
+        const bool same = GetFileType(received) == FILE_TYPE_DISK &&
+            GetFileInformationByHandleEx(received, FileIdInfo, &identity, sizeof(identity)) &&
+            (kind == ThinOpenKind::Source
+                ? identity.VolumeSerialNumber == prepared.source.serial &&
+                  !std::memcmp(identity.FileId.Identifier, prepared.source.sourceId, sizeof(prepared.source.sourceId))
+                : identity.VolumeSerialNumber == reply.target.VolumeSerialNumber &&
+                  !std::memcmp(identity.FileId.Identifier, reply.target.FileId.Identifier, sizeof(reply.target.FileId.Identifier)) &&
+                  identity.VolumeSerialNumber == prepared.target.serial);
+        if (!same)
+        {
+            CloseHandle(received);
+            output.error = ERROR_FILE_INVALID;
+            output.unknown = kind == ThinOpenKind::TargetCreate;
+            return output;
+        }
+        output.file = received;
+        output.error = ERROR_SUCCESS;
+        output.unknown = false;
+        output.targetIdentity.serial = reply.target.VolumeSerialNumber;
+        std::memcpy(output.targetIdentity.id, reply.target.FileId.Identifier, sizeof(output.targetIdentity.id));
+        return output;
+    }
+    catch (const std::bad_alloc&)
+    {
+        output.error = ERROR_NOT_ENOUGH_MEMORY;
+        return output;
+    }
 }
 
 Result PreparedTransfer::Execute(HWND owner, HANDLE cancel, TransferJobSession* job,
