@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Hand thin F5 completion to the main UI thread. | Complete foreground activation before closing progress. | #731 | GPT-6 |
 // | 2026-11-12 | Return thin F5 progress focus without overriding later input. | Keep the native panel active after a short elevated operation. | #731 | GPT-6 |
 // | 2026-11-12 | Guard native singleton overwrite and post-cancel recovery warning. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Guard typed overwrite prompts during nested dispatch. | Keep native prompt payload alive until the worker resumes. | #731 | GPT-6 (Codex) |
@@ -2535,6 +2536,10 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
 
     case WM_USER_PROGRDLGEND: // probably needless on W2K+: we had to delay the dialog termination a bit
     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (ThinHandoffInProgress)
+            return TRUE;
+#endif
         uMsg = WM_COMMAND;
 #ifdef SAM_UAC_THIN_COPY_TEST
         bool thinCompletionSelected = false;
@@ -2604,7 +2609,20 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
             if (NextForegroundWindow != NULL &&
                 ThinProgressIsActive(HWindow, thinCompletionInput) &&
                 ThinProgressReturnTarget(HWindow, MainWindow ? MainWindow->HWindow : nullptr, true) == NextForegroundWindow)
-                SetForegroundWindow(NextForegroundWindow);
+            {
+                const HWND progressWindow = HWindow;
+                const HWND targetWindow = NextForegroundWindow;
+                // A reentrant WM_DESTROY must not run the legacy deferred
+                // activation while this guarded handoff is in flight.
+                NextForegroundWindow = NULL;
+                ThinHandoffInProgress = true;
+                ThinSendMainForegroundHandoff(progressWindow, targetWindow, thinCompletionInput, false);
+                ThinHandoffInProgress = false;
+                // A sent message can reenter and destroy this dialog. Its C++
+                // object stays on the dialog thread's stack until Execute ends.
+                if (!IsWindow(progressWindow) || HWindow != progressWindow)
+                    return TRUE;
+            }
             NextForegroundWindow = NULL;
         }
 #endif

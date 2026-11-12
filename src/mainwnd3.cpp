@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Handle thin F5 focus handoff on the main UI thread. | Complete foreground activation before progress closes. | #731 | GPT-6 |
 // | 2026-11-12 | Gate laboratory copy dispatch by explicit mode and scope. | Exercise native F5 in isolated sync and async peer tests. | #731 | GPT-6 |
 // | 2026-11-12 | Reject repeated test-only copy dispatch. | Prevent reentrant or duplicate test requests from invoking F5 twice. | #731 | GPT-6 |
 // | 2026-11-12 | Gate test-only Retry copy on current panel selection. | Verify the exact fixture in the UI thread immediately before the native copy command. | #731 | GPT-6 |
@@ -21,6 +22,9 @@
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
+#ifdef SAM_UAC_THIN_COPY_TEST
+#include "uac_thin_foreground.h"
+#endif
 #include "common/widepath.h"
 #include "branch_view.h"
 
@@ -4475,6 +4479,10 @@ CMainWindow::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     // pointer step, so keep them on this small, allocation-free path.
     switch (uMsg)
     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+    case thinMainForegroundHandoffMessage:
+        return ThinMainForegroundHandoff(HWindow, reinterpret_cast<HWND>(wParam), static_cast<ULONG_PTR>(lParam));
+#endif
     case WM_GETMINMAXINFO:
     case WM_NCHITTEST:
     case WM_NCMOUSEMOVE:

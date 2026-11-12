@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Test reentrant thin F5 completion. | Guard queue teardown and destroyed progress windows. | #731 | GPT-6 |
 // | 2026-11-12 | Test actual progress completion branch with deterministic windows. | Preserve queue priority and user focus choices. | #731 | GPT-6 |
 #include <windows.h>
 #include <map>
+#include <string>
 #include <cstdio>
 struct Window { DWORD pid=0, thread=0; HWND root=nullptr; bool visible=true,enabled=true,iconic=false; };
 static std::map<HWND,Window> windows;
@@ -12,6 +14,16 @@ static bool inputWorks=true, foregroundSuccess=true;
 static HWND currentForeground=nullptr, activated=nullptr, posted=nullptr, nextZ=nullptr, queueResult=nullptr;
 static unsigned activations=0, posts=0;
 static bool queueChangesInput=false, queueChangesForeground=false;
+static bool simulateDestroy=false, simulateDuplicate=false, ThinHandoffInProgress=false;
+static unsigned queueEnds=0, duplicates=0;
+static std::map<std::pair<HWND,std::wstring>,HANDLE> properties;
+static HWND HWindow=nullptr, NextForegroundWindow=nullptr;
+static BOOL runCompletion();
+static HANDLE fakeGetProp(HWND h,LPCWSTR n) {auto i=properties.find({h,n});return i==properties.end()?nullptr:i->second;}
+static BOOL fakeSetProp(HWND h,LPCWSTR n,HANDLE v) {properties[{h,n}]=v;return TRUE;}
+static HANDLE fakeRemoveProp(HWND h,LPCWSTR n) {auto v=fakeGetProp(h,n);properties.erase({h,n});return v;}
+static BOOL fakeIsWindow(HWND h) {return windows.find(h)!=windows.end();}
+static LRESULT fakeSend(HWND,UINT,WPARAM,LPARAM,UINT,UINT,PDWORD_PTR);
 static HWND window(unsigned n) { return reinterpret_cast<HWND>(static_cast<ULONG_PTR>(n)); }
 static HWND fakeForeground() { return currentForeground; }
 static BOOL fakeInput(PLASTINPUTINFO p) { if(!inputWorks) return FALSE;p->dwTime=inputTime;return TRUE; }
@@ -35,13 +47,31 @@ static BOOL fakePost(HWND h,UINT,WPARAM,LPARAM) {++posts;posted=h;return TRUE;}
 #define IsWindowVisible fakeVisible
 #define IsWindowEnabled fakeEnabled
 #define IsIconic fakeIconic
+#define IsWindow fakeIsWindow
+#define GetPropW fakeGetProp
+#define SetPropW fakeSetProp
+#define RemovePropW fakeRemoveProp
+#define SendMessageTimeoutW fakeSend
 #undef GetNextWindow
 #define GetNextWindow fakeNext
 #define SetForegroundWindow fakeSetForeground
 #undef PostMessage
 #define PostMessage fakePost
 #include "uac_thin_foreground.h"
-static HWND HWindow=nullptr, NextForegroundWindow=nullptr;
+static LRESULT fakeSend(HWND target,UINT message,WPARAM progress,LPARAM cookie,UINT flags,UINT timeout,PDWORD_PTR result)
+{
+    if(message!=thinMainForegroundHandoffMessage || flags!=(SMTO_ABORTIFHUNG|SMTO_ERRORONEXIT) || timeout!=750) return 0;
+    if(simulateDuplicate) { ++duplicates; runCompletion(); }
+    if(simulateDestroy) {
+        // WM_DESTROY's legacy fallback would activate this target if still set.
+        if (NextForegroundWindow && NextForegroundWindow!=currentForeground)
+            fakeSetForeground(NextForegroundWindow);
+        windows.erase(reinterpret_cast<HWND>(progress));HWindow=nullptr;return 0;
+    }
+    DWORD saved=currentThread;currentThread=windows[target].thread;
+    *result=ThinMainForegroundHandoff(target,reinterpret_cast<HWND>(progress),static_cast<ULONG_PTR>(cookie));
+    currentThread=saved;return 1;
+}
 static bool RunningInOwnThread=true, ThinConsentReturned=true, IsInQueue=false;
 static struct { bool AlwaysOnTop=false; } Configuration;
 struct Main { HWND HWindow=nullptr; };
@@ -49,18 +79,20 @@ static Main mainObject; static Main* MainWindow=&mainObject;
 static constexpr UINT WM_USER_PROGRDLGEND=WM_USER+1, WM_USER_FOCUSPROGRDLG=WM_USER+2;
 struct Queue {
     void OperationEnded(HWND,BOOL,HWND* out) {
+        ++queueEnds;
         if(queueChangesInput) ++inputTime;
         if(queueChangesForeground) currentForeground=window(3);
         *out=queueResult;
     }
 };
 static Queue OperationsQueue;
-static void runCompletion() {
+static BOOL runCompletion() {
     UINT uMsg=0;
     switch(WM_USER_PROGRDLGEND) {
 @@CASE@@
     }
     (void)uMsg;
+    return FALSE;
 }
 static unsigned failures=0;
 static void expect(bool value,const char* label) {std::printf("%s: %s\n",value?"PASS":"FAIL",label);if(!value)++failures;}
@@ -69,7 +101,8 @@ static void reset(HWND progress,HWND mainWindow) {
     HWindow=progress;mainObject.HWindow=mainWindow;MainWindow=&mainObject;NextForegroundWindow=nullptr;
     currentPid=10;currentThread=1;inputTime=100;inputWorks=foregroundSuccess=true;currentForeground=progress;
     RunningInOwnThread=ThinConsentReturned=true;IsInQueue=Configuration.AlwaysOnTop=false;
-    activations=posts=0;activated=posted=nextZ=queueResult=nullptr;queueChangesInput=queueChangesForeground=false;
+    activations=posts=queueEnds=duplicates=0;activated=posted=nextZ=queueResult=nullptr;queueChangesInput=queueChangesForeground=false;
+    simulateDestroy=simulateDuplicate=ThinHandoffInProgress=false;properties.clear();
 }
 int main() {
     const HWND progress=window(1),mainWindow=window(2),other=window(3),queued=window(4);
@@ -103,5 +136,12 @@ int main() {
     expect(activations==0 && posts==0,"active modal window is not displaced by completion");
     reset(progress,mainWindow);RunningInOwnThread=false;runCompletion();
     expect(activations==0,"modal progress does not use threaded completion path");
+    reset(progress,mainWindow); IsInQueue=true; simulateDestroy=true;
+    expect(runCompletion()==TRUE && HWindow==nullptr && queueEnds==1 && activations==0,
+           "reentrant destruction stops completion without touching the dead window");
+    reset(progress,mainWindow); IsInQueue=true; simulateDuplicate=true;
+    runCompletion();
+    expect(duplicates==1 && queueEnds==1 && activations==1 && !ThinHandoffInProgress,
+           "reentrant duplicate completion does not end the queue twice");
     std::printf("Failures: %u\n",failures);return failures?1:0;
 }

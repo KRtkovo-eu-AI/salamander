@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Guard thin F5 completion against reentrant handoff. | Avoid duplicate queue completion. | #731 | GPT-6 |
 // | 2026-11-12 | Track scoped thin F5 foreground return. | Avoid restoring focus after later user input. | #731 | GPT-6 |
 // | 2026-11-12 | Track validity of a worker-owned overwrite prompt. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Track typed overwrite prompt lifetime. | Prevent premature worker completion during a modal prompt. | #731 | GPT-6 (Codex) |
@@ -488,6 +489,7 @@ protected:
     HWND NextForegroundWindow; // window that should be foreground after closing this dialog (on XP with service pack 1 and with a top-most window opened the activation may fail after closing the dialog - focus sometimes went to the top-most window instead of Salamander)
 #ifdef SAM_UAC_THIN_COPY_TEST
     bool ThinConsentReturned = false;
+    bool ThinHandoffInProgress = false;
 #endif
 
     BOOL DoNotBeepOnClose; // TRUE = operation cancels because Salamander is exiting; beeping makes no sense
