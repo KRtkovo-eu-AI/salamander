@@ -801,7 +801,7 @@ COMMENT,"portuguese (automatic AI translation)"
 2,180,100,80,14,1,"Cancelar"
 
 [MENU 1100]
-1,1,"□"
+1,1,"&Conectar\tEnter"
 572,1,"&Connect\tEnter"
 1202,1,"&Novo...\tInserir"
 573,1,"C&opy para..."
@@ -810,7 +810,7 @@ COMMENT,"portuguese (automatic AI translation)"
 1201,1,"Move &Up\tAlt+Up Arrow"
 
 [MENU 1101]
-572,1,"□"
+572,1,"&Novo...\tInsert"
 1202,1,"&Novo...\tInserir"
 573,1,"C&opy para..."
 574,1,"Muda&r o Nome...\tF2"
@@ -818,7 +818,7 @@ COMMENT,"portuguese (automatic AI translation)"
 1201,1,"Move &Up\tAlt+Up Arrow"
 
 [MENU 1102]
-1203,1,"□"
+1203,1,"&Desconectar..."
 1358,1,"&Desconectar..."
 0,1,"Mo&strar certificado..."
 1300,1,"Modo de &&&Transferência"
@@ -832,12 +832,12 @@ COMMENT,"portuguese (automatic AI translation)"
 1356,1,"S&how Raw Listing..."
 
 [MENU 1103]
-1205,1,"□"
+1205,1,"&Conectar ao servidor FTP..."
 1217,1,"&Conectar ao servidor FTP..."
 1218,1,"&Organizar Favoritos..."
 
 [MENU 1104]
-1206,1,"□"
+1206,1,"&Mostrar no painel"
 1203,1,"Mo&strar no Painel"
 1204,1,"&Desligar"
 1214,1,"&Adicionar Marcador..."
@@ -858,14 +858,14 @@ COMMENT,"portuguese (automatic AI translation)"
 1357,1,"Registros &FTP\tF1"
 
 [MENU 1106]
-1220,1,"□"
+1220,1,"&Copiar para..."
 1221,1,"&Copiar para..."
 1222,1,"Muda&r o Nome...\tF2"
 1223,1,"Re&move...\tDelete"
 1224,1,"&Importar do Arquivo..."
 
 [MENU 1107]
-697,1,"□"
+697,1,"&Novo...\tInsert"
 698,1,"&Novo...\tInserir"
 1220,1,"&Editar..."
 1221,1,"&Copiar para..."
@@ -876,11 +876,11 @@ COMMENT,"portuguese (automatic AI translation)"
 1224,1,"&Importar do Arquivo..."
 
 [MENU 1108]
-1225,1,"□"
+1225,1,"Mover para &cima\tAlt+Seta para cima"
 1226,1,"&Up\tAlt+Up Arrow"
 
 [MENU 1109]
-0,1,"□"
+0,1,"&Inserir"
 1233,1,"&Inserir"
 1234,1,"Ar&tigo 2.o"
 1235,1,"&Fim da Regra"
@@ -946,60 +946,60 @@ COMMENT,"portuguese (automatic AI translation)"
 1232,1,"&Excluir"
 
 [MENU 1110]
-714,1,"□"
+714,1,"&Novo...\tInsert"
 715,1,"&Novo...\tInserir"
 716,1,"&Editar..."
 1225,1,"Rem&ove...\tDelete"
 1226,1,"Move &Up\tAlt+Up Arrow"
 
 [MENU 1111]
-1,1,"□"
+1,1,"&Tentar novamente"
 1305,1,"&Repetir"
 1304,1,"&Usar diretório existente"
 
 [MENU 1112]
-1,1,"□"
+1,1,"T&entar novamente"
 1306,1,"Inv&estigação"
 1307,1,"&Retomar"
 1304,1,"Resu&me ou Sobrescrever"
 
 [MENU 1113]
-1,1,"□"
+1,1,"&Ignorar"
 1310,1,"&Ignorar"
 1311,1,"&Repetir"
 
 [MENU 1114]
-1,1,"□"
+1,1,"&Excluir"
 1312,1,"&Excluir"
 
 [MENU 1115]
-1,1,"□"
+1,1,"&Tentar novamente"
 1313,1,"&Repetir"
 
 [MENU 1116]
-1,1,"□"
+1,1,"&Tentar novamente"
 1314,1,"Inv&estigação"
 1316,1,"Us&ar o Nome Alternativo"
 
 [MENU 1117]
-1,1,"□"
+1,1,"&Tentar novamente"
 1314,1,"Inv&estigação"
 1316,1,"Us&ar o Nome Alternativo"
 1318,1,"Resu&me ou Sobrescrever"
 
 [MENU 1118]
-1,1,"□"
+1,1,"&Usar modo binário"
 1320,1,"&Usar o modo binário"
 
 [MENU 1119]
-532,1,"□"
+532,1,"&Adicionar..."
 1330,1,"A&dd..."
 1331,1,"&Editar..."
 1332,1,"Exc&luir..."
 1333,1,"&Subir"
 
 [MENU 1120]
-0,1,"□"
+0,1,"&Inserir"
 1340,1,"&Inserir"
 1341,1,"&3xx: (enviar apenas se o servidor necessitar de senha/conta)"
 1342,1,"Cameroon Endereço &&&Proxy"
@@ -1018,22 +1018,22 @@ COMMENT,"portuguese (automatic AI translation)"
 1355,1,"&Excluir"
 
 [MENU 1121]
-1,1,"□"
+1,1,"&Tentar novamente"
 1314,1,"Inv&estigação"
 1316,1,"Us&ar o Nome Alternativo"
 1319,1,"Resu&me ou Sobrescrever"
 
 [MENU 1122]
-1,1,"□"
+1,1,"&Tentar novamente"
 1304,1,"Inv&estigação"
 
 [MENU 1123]
-1,1,"□"
+1,1,"&Tentar novamente"
 1304,1,"Inv&estigação"
 1307,1,"Us&ar o Nome Alternativo"
 
 [MENU 1124]
-1360,1,"□"
+1360,1,"&Desbloquear senha..."
 1361,1,"Desbloq&uear senha..."
 
 [STRINGTABLE 0]

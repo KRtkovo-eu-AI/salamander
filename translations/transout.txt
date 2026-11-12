@@ -1,4 +1,0 @@
-Write-Error: hebrew/automation: Candidate import/validation failed for hebrew/automation. Diagnostika: I:\_projects\salamander\out\localization-openai\localize.log
-
-
-

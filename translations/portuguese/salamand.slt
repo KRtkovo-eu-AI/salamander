@@ -2004,7 +2004,7 @@ SLGINCOMPLETE,""
 6078,1,"&Atalhos de teclado"
 
 [MENU 6011]
-6062,1,"□"
+6062,1,"&Copiar\tCtrl+C"
 6067,1,"&Copy\tCtrl+C"
 6066,1,"C&opy para..."
 6063,1,"Selecion&ar Todos\tCtrl+A"
