@@ -24,6 +24,7 @@ import time
 import uuid
 import winreg
 import uac_thin_process_memory
+import uac_thin_image_preflight
 from uac_thin_registry_isolation_probe import KEY_ALL_ACCESS, absent, check, registry_api
 
 
@@ -369,6 +370,9 @@ def main():
     parser.add_argument("--expected-host-sha256", help="SHA-256 of the verified isolated test build")
     parser.add_argument("--expected-reporter-sha256", help="SHA-256 of its verified isolated reporter")
     parser.add_argument("--expected-broker-image", type=Path, help="verified test broker image for memory samples")
+    parser.add_argument("--expected-broker-sha256", help="SHA-256 of the verified laboratory-only broker")
+    parser.add_argument("--manifest-tool", type=Path, help="Windows SDK mt.exe for laboratory broker verification")
+    parser.add_argument("--lab-unelevated", action="store_true", help="use the isolated non-elevated test peer")
     parser.add_argument("--mode", choices=("sync", "async"), required=True)
     parser.add_argument("--fault", choices=("none", "read", "write"), default="none")
     parser.add_argument("--deny-open", choices=("source", "target", "both"),
@@ -397,6 +401,8 @@ def main():
         parser.error("handle-gated cancellation requires --scenario cancel")
     if args.replace_before_retry and (args.fault == "none" or args.scenario != "copy" or args.collision != "none"):
         parser.error("retry replacement requires a standalone read or write fault")
+    if args.lab_unelevated and (not args.deny_open or not args.expected_broker_sha256 or not args.manifest_tool):
+        parser.error("the laboratory peer requires injected denial, broker hash and Windows SDK manifest tool")
     if not args.run:
         print("Preparation only: host was not started; no fixture was created.")
         return 0
@@ -412,6 +418,10 @@ def main():
     if digest(args.exe).lower() != args.expected_host_sha256.lower() or \
             digest(reporter_source).lower() != args.expected_reporter_sha256.lower():
         raise RuntimeError("test host or reporter hash does not match the verified build")
+    if args.lab_unelevated:
+        uac_thin_image_preflight.validate_images(args.exe, args.exe.parent / "uacbroker.exe",
+                                                args.expected_host_sha256, args.expected_broker_sha256,
+                                                args.manifest_tool)
     magic = "SAM_UAC_TEST_ISOLATION_NONCE".encode("utf-16le")
     if magic not in args.exe.read_bytes() or magic not in reporter_source.read_bytes():
         raise RuntimeError("test host and reporter must both contain the isolation hook")
@@ -422,11 +432,15 @@ def main():
     prefix = "UAC-Thin-F5-" + run_id
     # Do not let a shell's earlier acceptance settings select an unintended
     # test hook, path, marker, or fault in this new process.
-    env = {key: value for key, value in os.environ.items() if not key.upper().startswith("SAM_UAC_TEST_")}
+    env = {key: value for key, value in os.environ.items()
+           if not key.upper().startswith(("SAM_UAC_TEST_", "SAM_UAC_THIN_"))}
     env["SAM_UAC_TEST_COPY_MODE"] = args.mode
     env["SAM_UAC_TEST_FAIL"] = args.fault
     if args.deny_open:
         env["SAM_UAC_TEST_DENY_OPEN"] = args.deny_open
+    if args.lab_unelevated:
+        env["SAM_UAC_THIN_UNELEVATED_TEST"] = "1"
+        env["SAM_UAC_THIN_TEST_INSTALL"] = str(test_exe.parent)
     if args.cancel_after_handle:
         env["SAM_UAC_TEST_HANDLE_ROLE"] = args.cancel_after_handle
     if args.replace_before_retry:
@@ -578,7 +592,15 @@ def main():
                 retry = native.user.GetDlgItem(handle, IDRETRY)
                 old_name = native.user.GetDlgItem(handle, IDS_SOURCENAME)
                 new_name = native.user.GetDlgItem(handle, IDS_TARGETNAME)
-                if old_name and new_name and args.collision != "none" and not collision_answered:
+                prompt_text = native.user.GetDlgItem(handle, IDS_MSGBOX_TEXT)
+                prompt_ok = native.user.GetDlgItem(handle, IDOK)
+                if args.lab_unelevated and prompt_text and prompt_ok and native.text(handle) == "Copy" and \
+                        native.text(prompt_ok).replace("&", "") == "Administrator":
+                    content = native.text(prompt_text)
+                    if str(source_file) not in content or str(destination) not in content:
+                        raise RuntimeError("administrator prompt does not identify both test paths")
+                    native.post(handle, WM_COMMAND, IDOK)
+                elif old_name and new_name and args.collision != "none" and not collision_answered:
                     if source_file.name not in native.text(old_name) or source_file.name not in native.text(new_name):
                         raise RuntimeError("overwrite dialog does not identify the test objects")
                     decision = IDYES if args.collision == "replace" else IDB_SKIP
