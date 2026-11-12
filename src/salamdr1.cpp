@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Allow manual thin F5 pilot to use the existing test profile. | Run the protected-installation prototype without the automated private-hive fixture. | #731 | GPT-6 |
 // | 2026-11-12 | Isolate acceptance-test HKCU before application startup. | Avoid touching a user's configuration in the test-only host. | #731 | GPT-6 |
 // | 2026-11-07 | Defer the periodic Debug heap walk for large Find result sets. | Keep both Find and its worker responsive during large searches. | https://github.com/KRtkovo-eu-AI/salamander/issues/819 | GPT-6 (Codex) |
 // | 2026-11-05 | Survive faulty shell extension SEH when extracting icons. | GetFileIcon shell handlers must not terminate Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/773 | Composer |
@@ -9,7 +10,7 @@
 // | 2026-11-09 | Show Extension Bar at startup on clean configuration. | LoadConfig() returns FALSE on first launch (no registry), skipping the band loop; add Extension Bar creation to the startup recovery path in salamdr1.cpp. | | nvidia/nemotron-3.5-super-vl:free |
 
 #include "precomp.h"
-#ifdef SAM_UAC_THIN_COPY_TEST
+#if defined(SAM_UAC_THIN_COPY_TEST) && !defined(SAM_UAC_THIN_MANUAL_PILOT)
 #include "uac_thin_test_hive.h"
 #endif
 
@@ -271,7 +272,7 @@ static bool IsDriveFreeSpaceHelperLaunch()
 // nas vlastni vstupni bod, o ktery jsme si pozadali linker pomoci pragmy
 int MyEntryPoint()
 {
-#ifdef SAM_UAC_THIN_COPY_TEST
+#if defined(SAM_UAC_THIN_COPY_TEST) && !defined(SAM_UAC_THIN_MANUAL_PILOT)
     if (!UacThinTestHive::Enter(false)) ExitProcess(70);
 #endif
 #ifdef X64_STRESS_TEST
