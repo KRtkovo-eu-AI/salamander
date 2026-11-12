@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Gate laboratory copy dispatch by explicit mode and scope. | Exercise native F5 in isolated sync and async peer tests. | #731 | GPT-6 |
 // | 2026-11-12 | Reject repeated test-only copy dispatch. | Prevent reentrant or duplicate test requests from invoking F5 twice. | #731 | GPT-6 |
 // | 2026-11-12 | Gate test-only Retry copy on current panel selection. | Verify the exact fixture in the UI thread immediately before the native copy command. | #731 | GPT-6 |
 // | 2026-11-11 | Route Branch Stop through its explicit user action. | Keep initial results while preserving refresh cancellation semantics. | #731 | GPT-6.1 Terra |
@@ -4738,14 +4739,21 @@ CMainWindow::WindowProcImpl(UINT uMsg, WPARAM wParam, LPARAM lParam)
                     value.assign(buffer.data(), length);
                     return true;
                 };
-                std::wstring source, target, name, mode, fault;
+                std::wstring source, target, name, mode, fault, laboratory, denied;
+                const bool knownMode = environment(L"SAM_UAC_TEST_COPY_MODE", mode);
+                const bool knownFault = environment(L"SAM_UAC_TEST_FAIL", fault);
+                const bool ordinaryRetry = knownMode && mode == L"sync" && knownFault && fault == L"read";
+                const bool laboratoryCopy = knownMode && (mode == L"sync" || mode == L"async") &&
+                    knownFault && fault == L"none" &&
+                    environment(L"SAM_UAC_THIN_UNELEVATED_TEST", laboratory) && laboratory == L"1" &&
+                    environment(L"SAM_UAC_TEST_DENY_OPEN", denied) &&
+                    (denied == L"source" || denied == L"target" || denied == L"both");
                 CFilesWindow* panel = GetActivePanel();
                 CFilesWindow* other = GetNonActivePanel();
                 if (environment(L"SAM_UAC_TEST_READY_PATH", source) &&
                     environment(L"SAM_UAC_TEST_TARGET_PATH", target) &&
                     environment(L"SAM_UAC_TEST_READY_NAME", name) &&
-                    environment(L"SAM_UAC_TEST_COPY_MODE", mode) && mode == L"sync" &&
-                    environment(L"SAM_UAC_TEST_FAIL", fault) && fault == L"read" &&
+                    (ordinaryRetry || laboratoryCopy) &&
                     panel && panel == LeftPanel && panel->Is(ptDisk) && other &&
                     other == RightPanel && other->Is(ptDisk) && EnablerFilesCopy &&
                     panel->GetPathW() && other->GetPathW() &&
