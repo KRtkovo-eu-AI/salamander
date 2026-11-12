@@ -115,6 +115,8 @@ class Native:
         self.user.GetDlgItem.restype = wintypes.HWND
         self.user.GetWindow.argtypes = [wintypes.HWND, wintypes.UINT]
         self.user.GetWindow.restype = wintypes.HWND
+        self.user.GetPropW.argtypes = [wintypes.HWND, wintypes.LPCWSTR]
+        self.user.GetPropW.restype = wintypes.HANDLE
         self.user.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
         self.user.PostMessageW.restype = wintypes.BOOL
         self.user.SendMessageTimeoutW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM,
@@ -196,6 +198,19 @@ class Native:
 
     def signalled(self, event):
         return self.kernel.WaitForSingleObject(event, 0) == WAIT_OBJECT_0
+
+    def broker_property(self, windows):
+        pairs = set()
+        for window in windows:
+            if not window:
+                continue
+            owner = self.user.GetPropW(window, "SamUacThinTestOwner")
+            pid = self.user.GetPropW(window, "SamUacThinTestBrokerPid")
+            if owner and pid:
+                pairs.add((int(owner), int(pid)))
+        if len(pairs) > 1:
+            raise RuntimeError("multiple authenticated test broker markers are ambiguous")
+        return next(iter(pairs)) if pairs else None
 
 
 def wait_until(condition, process, deadline, label):
@@ -333,13 +348,14 @@ def prepare(root, template, executable, size, long_path, collision, include_repo
     (app / "configstorage.ini").write_text(
         "[Configuration]\r\nStorageType=RegFile\r\nRegFilePath=" + str(config) + "\r\n",
         encoding="ascii", newline="")
-    # The only source entry makes Select All deterministic. A non-repeating
-    # block pattern catches truncation and accidental content substitution.
+    # The only source entry makes Select All deterministic. Each 4-KiB block
+    # has a distinct deterministic pattern, so reordered blocks do not match.
     source_file = source / "01-copy-東.bin"
     with open(windows_long(source_file), "xb") as stream:
-        block = bytes(range(256)) * 4096
-        for unused in range(size):
-            stream.write(block)
+        for megabyte in range(size):
+            for block in range(256):
+                seed = ("uac-thin-f5-%d-%d" % (megabyte, block)).encode("ascii")
+                stream.write(hashlib.sha256(seed).digest() * 128)
     if collision != "none":
         with open(windows_long(target / source_file.name), "xb") as stream:
             stream.write(b"uac-thin-f5-original-target-sentinel")
@@ -352,11 +368,14 @@ def main():
     parser.add_argument("--config-template", type=Path, required=True, help="test-only REGEDIT4 profile")
     parser.add_argument("--expected-host-sha256", help="SHA-256 of the verified isolated test build")
     parser.add_argument("--expected-reporter-sha256", help="SHA-256 of its verified isolated reporter")
+    parser.add_argument("--expected-broker-image", type=Path, help="verified test broker image for memory samples")
     parser.add_argument("--mode", choices=("sync", "async"), required=True)
     parser.add_argument("--fault", choices=("none", "read", "write"), default="none")
     parser.add_argument("--scenario", choices=("copy", "pause", "cancel", "speed"), default="copy")
     parser.add_argument("--cancel-after-handle", choices=("source", "target"),
                         help="test-only gate after a broker handle is accepted")
+    parser.add_argument("--replace-before-retry", choices=("source", "target"),
+                        help="replace only the test fixture after its worker handle is closed")
     parser.add_argument("--collision", choices=("none", "replace", "skip"), default="none")
     parser.add_argument("--long-path", action="store_true", help="prepare multi-component Unicode paths beyond MAX_PATH")
     parser.add_argument("--speed-kib", type=int, default=1024, choices=range(1024, 8193), metavar="1024..8192")
@@ -374,6 +393,8 @@ def main():
         parser.error("collision, fault and progress cases are separate test scenarios")
     if args.cancel_after_handle and args.scenario != "cancel":
         parser.error("handle-gated cancellation requires --scenario cancel")
+    if args.replace_before_retry and (args.fault == "none" or args.scenario != "copy" or args.collision != "none"):
+        parser.error("retry replacement requires a standalone read or write fault")
     if not args.run:
         print("Preparation only: host was not started; no fixture was created.")
         return 0
@@ -404,6 +425,8 @@ def main():
     env["SAM_UAC_TEST_FAIL"] = args.fault
     if args.cancel_after_handle:
         env["SAM_UAC_TEST_HANDLE_ROLE"] = args.cancel_after_handle
+    if args.replace_before_retry:
+        env["SAM_UAC_TEST_RETRY_ROLE"] = args.replace_before_retry
     env["SAM_UAC_TEST_ISOLATION_NONCE"] = run_id
     marker = "Software\\SamandarinThinProbe-" + run_id
     if not absent(marker):
@@ -415,10 +438,6 @@ def main():
     env["APPDATA"] = str(isolated_profile / "AppData" / "Roaming")
     env["LOCALAPPDATA"] = str(isolated_profile / "AppData" / "Local")
     env["TEMP"] = env["TMP"] = str(isolated_profile / "Temp")
-    broker_pid_file = root / "uacbroker.pid"
-    # A future authenticated test-only launcher may publish the actual broker
-    # PID here. Absence means no sample, never a guessed process by name.
-    env["SAM_UAC_TEST_BROKER_PID_FILE"] = str(broker_pid_file)
     native = Native()
     events = {}
     process = None
@@ -430,6 +449,11 @@ def main():
             events[key] = native.make_event(name)
         if args.cancel_after_handle:
             for key in ("HANDLE_EVENT", "HANDLE_RELEASE"):
+                name = "Local\\" + prefix + "-" + key
+                env["SAM_UAC_TEST_" + key] = name
+                events[key] = native.make_event(name)
+        if args.replace_before_retry:
+            for key in ("RETRY_EVENT", "RETRY_RELEASE"):
                 name = "Local\\" + prefix + "-" + key
                 env["SAM_UAC_TEST_" + key] = name
                 events[key] = native.make_event(name)
@@ -470,6 +494,11 @@ def main():
 
         retried = False
         collision_answered = False
+        replaced_before_retry = False
+        replacement_hash = None
+        original_backup_hash = None
+        replacement_error = None
+        backup_path = None
         action = False
         pause_observation = None
         memory_samples = []
@@ -480,15 +509,35 @@ def main():
             if process.poll() is not None:
                 raise RuntimeError("test host exited during copy")
             progress = find_progress(native, process.pid)
+            if args.replace_before_retry and native.signalled(events["RETRY_EVENT"]) and not replaced_before_retry:
+                if not retried:
+                    raise RuntimeError("retry gate appeared before the injected failure was acknowledged")
+                tested = source_file if args.replace_before_retry == "source" else destination
+                if not exists(tested):
+                    raise RuntimeError("expected original test object is absent at retry gate")
+                backup_path = root / ("before-retry-" + args.replace_before_retry + ".bin")
+                if exists(backup_path):
+                    raise RuntimeError("refusing to overwrite an existing backup")
+                original_backup_hash = digest(tested)
+                os.rename(windows_long(tested), windows_long(backup_path))
+                with open(windows_long(tested), "xb") as replacement:
+                    replacement.write(b"uac-thin-f5-retry-replacement-must-remain-unchanged")
+                replacement_hash = digest(tested)
+                replaced_before_retry = True
+                if not native.kernel.SetEvent(events["RETRY_RELEASE"]):
+                    raise ctypes.WinError(ctypes.get_last_error())
             now = time.monotonic()
             if now - last_sample >= 0.5:
                 host_sample = uac_thin_process_memory.sample(process.pid, str(test_exe))
                 broker_sample = {"status": "not_observed", "reason": "no authenticated broker PID"}
-                if broker_pid_file.is_file():
-                    pid_text = broker_pid_file.read_text(encoding="ascii").strip()
-                    if pid_text.isdecimal() and int(pid_text) > 0:
-                        broker_sample = uac_thin_process_memory.sample(int(pid_text), str(test_exe.parent / "uacbroker.exe"))
-                        broker_sample["pid_provenance"] = "test-only PID file; identity handshake not yet implemented"
+                broker_marker = native.broker_property((progress, main_window))
+                if broker_marker:
+                    expected_broker = args.expected_broker_image or (test_exe.parent / "uacbroker.exe")
+                    broker_sample = uac_thin_process_memory.sample(broker_marker[1], str(expected_broker))
+                    if broker_marker != native.broker_property((progress, main_window)):
+                        broker_sample = {"status": "unavailable", "reason": "session marker changed during sample"}
+                    else:
+                        broker_sample["pid_provenance"] = "test-only marker after pipe and token authentication"
                 memory_samples.append({"seconds": now - started, "host": host_sample, "broker": broker_sample})
                 last_sample = now
             accepted = not args.cancel_after_handle or native.signalled(events["HANDLE_EVENT"])
@@ -533,6 +582,13 @@ def main():
                         raise RuntimeError("native overwrite decision is unavailable")
                     native.post(handle, WM_COMMAND, decision)
                     collision_answered = True
+                elif filename and error and replaced_before_retry and "1006" in native.text(error):
+                    shown = native.text(filename)
+                    if source_file.name not in shown:
+                        raise RuntimeError("identity error does not identify the test file")
+                    replacement_error = native.text(error)
+                    # Leave the native error untouched. In particular, Skip's
+                    # cleanup behavior is not assumed safe in this probe.
                 elif filename and error and retry and args.fault != "none" and not retried:
                     shown = native.text(filename)
                     if source_file.name not in shown:
@@ -546,6 +602,10 @@ def main():
             try:
                 if args.scenario == "cancel":
                     matches = action and not find_progress(native, process.pid) and not exists(destination)
+                elif args.replace_before_retry:
+                    tested = source_file if args.replace_before_retry == "source" else destination
+                    matches = replacement_error and exists(tested) and exists(backup_path) and \
+                              digest(tested) == replacement_hash and digest(backup_path) == original_backup_hash
                 else:
                     wanted = original_target if args.collision == "skip" else expected
                     matches = (args.collision == "none" or collision_answered) and \
@@ -568,12 +628,16 @@ def main():
             raise RuntimeError("expected injected failure and Retry were not observed")
         if args.scenario in ("pause", "cancel") and not action:
             raise RuntimeError("the requested native progress action was not observed")
-        if digest(source_file) != expected:
+        if args.replace_before_retry and not replacement_error:
+            raise RuntimeError("expected identity error 1006 was not observed")
+        if args.replace_before_retry != "source" and digest(source_file) != expected:
             raise RuntimeError("source changed")
         result = {"Fixture": str(root), "HostPid": process.pid, "Mode": args.mode, "Scenario": args.scenario,
                   "Fault": args.fault, "Collision": args.collision, "LongPath": args.long_path,
                   "CancelAfterHandle": args.cancel_after_handle,
                   "HandleGateObserved": bool(args.cancel_after_handle and native.signalled(events["HANDLE_EVENT"])),
+                  "RetryReplacement": args.replace_before_retry, "ReplacementSha256": replacement_hash,
+                  "BackupSha256": original_backup_hash, "IdentityError": replacement_error,
                   "CollisionAnswered": collision_answered, "OriginalTargetSha256": original_target,
                   "RetryObserved": retried, "SourceSha256": expected,
                   "TargetSha256": digest(destination) if exists(destination) else None,
