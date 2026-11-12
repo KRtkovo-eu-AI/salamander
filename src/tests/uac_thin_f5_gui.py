@@ -22,7 +22,9 @@ import subprocess
 import sys
 import time
 import uuid
+import winreg
 import uac_thin_process_memory
+from uac_thin_registry_isolation_probe import KEY_ALL_ACCESS, absent, check, registry_api
 
 
 WM_COMMAND = 0x0111
@@ -261,7 +263,26 @@ def confirm_own_cancel(native, process, progress, deadline):
     native.post(question, WM_COMMAND, IDYES)
 
 
-def prepare(root, template, executable, size, long_path, collision):
+def own_hive_ready(hive_path, marker):
+    """Check both child markers only through the private hive's own handle."""
+    if not hive_path.is_file():
+        return False
+    api = registry_api()
+    hive = wintypes.HKEY()
+    status = api.RegLoadAppKeyW(str(hive_path), ctypes.byref(hive), KEY_ALL_ACCESS, 0, 0)
+    if status:
+        return False
+    try:
+        try:
+            with winreg.OpenKey(int(hive.value), marker, 0, winreg.KEY_READ) as key:
+                return all(winreg.QueryValueEx(key, value)[0] == 1 for value in ("Host", "Salmon"))
+        except FileNotFoundError:
+            return False
+    finally:
+        check(api.RegCloseKey(hive), "close test hive observation")
+
+
+def prepare(root, template, executable, size, long_path, collision, include_reporter=False):
     if root.exists():
         raise FileExistsError("refusing to reuse an existing fixture")
     root.mkdir(parents=False)
@@ -281,7 +302,11 @@ def prepare(root, template, executable, size, long_path, collision):
     (app / "lang").mkdir()
     # Copy only the minimum explicit test payload, never the neighboring
     # configstorage.ini, user configuration, plugin registry or build tree.
-    for relative in ("salamand.exe", "uacbroker.exe", "lang/english.slg"):
+    payloads = ["salamand.exe", "uacbroker.exe", "lang/english.slg"]
+    if include_reporter:
+        (app / "utils").mkdir()
+        payloads.append("utils/salmon.exe")
+    for relative in payloads:
         original = executable.parent / relative
         if not original.is_file():
             raise FileNotFoundError("missing required test payload: " + str(original))
@@ -313,6 +338,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exe", type=Path, required=True, help="instrumented test salamand.exe")
     parser.add_argument("--config-template", type=Path, required=True, help="test-only REGEDIT4 profile")
+    parser.add_argument("--expected-host-sha256", help="SHA-256 of the verified isolated test build")
+    parser.add_argument("--expected-reporter-sha256", help="SHA-256 of its verified isolated reporter")
     parser.add_argument("--mode", choices=("sync", "async"), required=True)
     parser.add_argument("--fault", choices=("none", "read", "write"), default="none")
     parser.add_argument("--scenario", choices=("copy", "pause", "cancel", "speed"), default="copy")
@@ -340,14 +367,34 @@ def main():
 
     run_id = uuid.uuid4().hex
     root = base / ("uac-thin-f5-gui-" + run_id)
+    reporter_source = args.exe.parent / "utils" / "salmon.exe"
+    if not reporter_source.is_file() or not args.expected_host_sha256 or not args.expected_reporter_sha256:
+        raise RuntimeError("the independently verified test host and reporter images are required")
+    if digest(args.exe).lower() != args.expected_host_sha256.lower() or \
+            digest(reporter_source).lower() != args.expected_reporter_sha256.lower():
+        raise RuntimeError("test host or reporter hash does not match the verified build")
+    magic = "SAM_UAC_TEST_ISOLATION_NONCE".encode("utf-16le")
+    if magic not in args.exe.read_bytes() or magic not in reporter_source.read_bytes():
+        raise RuntimeError("test host and reporter must both contain the isolation hook")
     source, target, config, source_file, test_exe = prepare(root, args.config_template, args.exe, args.size_mib,
-                                                           args.long_path, args.collision)
+                                                           args.long_path, args.collision, include_reporter=True)
     expected = digest(source_file)
     original_target = digest(target / source_file.name) if args.collision != "none" else None
     prefix = "UAC-Thin-F5-" + run_id
     env = os.environ.copy()
     env["SAM_UAC_TEST_COPY_MODE"] = args.mode
     env["SAM_UAC_TEST_FAIL"] = args.fault
+    env["SAM_UAC_TEST_ISOLATION_NONCE"] = run_id
+    marker = "Software\\SamandarinThinProbe-" + run_id
+    if not absent(marker):
+        raise RuntimeError("test isolation marker already exists in actual HKCU")
+    isolated_profile = root / "profile"
+    for relative in ("AppData/Roaming", "AppData/Local", "Temp"):
+        (isolated_profile / relative).mkdir(parents=True)
+    env["USERPROFILE"] = str(isolated_profile)
+    env["APPDATA"] = str(isolated_profile / "AppData" / "Roaming")
+    env["LOCALAPPDATA"] = str(isolated_profile / "AppData" / "Local")
+    env["TEMP"] = env["TMP"] = str(isolated_profile / "Temp")
     broker_pid_file = root / "uacbroker.pid"
     # A future authenticated test-only launcher may publish the actual broker
     # PID here. Absence means no sample, never a guessed process by name.
@@ -366,6 +413,10 @@ def main():
                                    cwd=str(test_exe.parent), env=env, creationflags=CREATE_NEW_CONSOLE)
         deadline = time.monotonic() + 90
         main_window = wait_until(lambda: native.find_main(process.pid, prefix), process, deadline, "test main window")
+        wait_until(lambda: own_hive_ready(test_exe.parent / "uac-test-hkcu.dat", marker),
+                   process, deadline, "host and Salmon private hive markers")
+        if not absent(marker):
+            raise RuntimeError("isolation marker appeared in actual HKCU")
         native.post(main_window, WM_COMMAND, CM_ACTIVESELECTALL)
         native.post(main_window, WM_COMMAND, CM_COPYFILES)
 
@@ -501,10 +552,9 @@ def main():
                   "MemorySamples": memory_samples, "EnteredDoCopyFile": enter,
                   "EnteredRequestedLoop": chosen, "SystemUacTested": False,
                   "OriginalHostSha256": digest(args.exe), "TestHostSha256": digest(test_exe),
-                  "TemplateSha256": digest(args.config_template)}
-        (root / "result.json").write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
-        print(json.dumps(result, ensure_ascii=False))
-        return 0
+                  "TemplateSha256": digest(args.config_template),
+                  "PrivateHiveHostAndSalmonObserved": True,
+                  "ActualHkcuMarkerAbsentWhileRunning": True}
     finally:
         if process is not None and process.poll() is None:
             if main_window:
@@ -516,6 +566,12 @@ def main():
                 process.wait(timeout=5)
         for handle in events.values():
             native.kernel.CloseHandle(handle)
+    if not absent(marker):
+        raise RuntimeError("isolation marker appeared in actual HKCU after host exit")
+    result["ActualHkcuMarkerAbsentAfterExit"] = True
+    (root / "result.json").write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
 
 
 if __name__ == "__main__":

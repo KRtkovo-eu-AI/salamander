@@ -2,9 +2,21 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Isolate the acceptance-test reporter before its CRT. | Keep the spawned reporter in the same private test hive. | #731 | GPT-6 |
 // | 2026-11-04 | Rename the product to Open Samandarin. | Distinguish this community fork from upstream Open Salamander. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 
 #include "precomp.h"
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+#include "../uac_thin_test_hive.h"
+extern "C" int WinMainCRTStartup();
+#pragma comment(linker, "/ENTRY:UacThinSalmonTestEntry")
+extern "C" int UacThinSalmonTestEntry()
+{
+    if (!UacThinTestHive::Enter(true)) ExitProcess(71);
+    return WinMainCRTStartup();
+}
+#endif
 
 #include <Shlobj.h>
 #include <Shellapi.h>
