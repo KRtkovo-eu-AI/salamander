@@ -4433,6 +4433,12 @@ void ConsentForeground::RestoreThinProgress() const
     if (!thread || process != GetCurrentProcessId() || !IsWindow(owner))
         return;
     const HWND foreground = GetForegroundWindow();
+    // Another Salamander window (including a popup) may have been deliberately
+    // activated while consent was visible. Do not displace it with progress.
+    DWORD foregroundProcess = 0;
+    if (foreground && foreground != owner &&
+        GetWindowThreadProcessId(foreground, &foregroundProcess) && foregroundProcess == process)
+        return;
     LASTINPUTINFO input{sizeof(input)};
     if (!GetLastInputInfo(&input))
         return;
