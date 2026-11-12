@@ -6316,7 +6316,11 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
         }
     }
 #ifdef SAM_UAC_THIN_COPY_TEST
-    if (ctx.IsOperationDone(numOfBlocks) && !copyError && !skipCopy && !copyAgain &&
+    bool allBlocksFree = true;
+    for (const auto state : ctx.BlockState)
+        allBlocksFree = allBlocksFree && state == cbsFree;
+    if (ctx.IsOperationDone(numOfBlocks) && allBlocksFree && ctx.ReadingBlocks == 0 && ctx.WritingBlocks == 0 &&
+        !copyError && !skipCopy && !copyAgain && !*dlgData.CancelWorker &&
         ctx.ReadOffset == ctx.WriteOffset && operationDone == ctx.WriteOffset)
         ThinCopyTestObserve(L"SAM_UAC_TEST_ASYNC_DRAINED_EVENT");
 #endif
