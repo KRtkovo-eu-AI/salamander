@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Observe test-only native read fault and Retry. | Distinguish injected failure from a worker-accepted Retry without changing production flow. | #731 | GPT-6 |
 // | 2026-11-12 | Record test-only denied and broker-open events. | Prove each side of the real worker experiment without changing its error flow. | #731 | GPT-6 |
 // | 2026-11-12 | Observe test-only overlapped I/O completion. | Distinguish issued, completed and drained worker states without changing the production path. | #731 | GPT-6 |
 // | 2026-11-12 | Inject target denial before native creation in test builds. | Keep the real worker fixture free of premature files and leaked handles. | #731 | GPT-6 |
@@ -4887,10 +4888,14 @@ static BOOL ThinCopyTestReadFile(HANDLE file, void* buffer, DWORD size, DWORD* r
     if (ThinCopyTestFailure(L"read", &failed))
     {
         SetLastError(ERROR_READ_FAULT);
+        if (!overlapped)
+            ThinCopyTestObserve(L"SAM_UAC_TEST_SYNC_READ_FAULT_EVENT");
         return FALSE;
     }
     const BOOL result = ReadFile(file, buffer, size, read, overlapped);
     const DWORD error = GetLastError();
+    if (!overlapped && result && read && *read != 0)
+        ThinCopyTestObserve(L"SAM_UAC_TEST_SYNC_READ_COMPLETED_EVENT");
     if (overlapped && (result || error == ERROR_IO_PENDING))
     {
         ThinCopyTestObserve(L"SAM_UAC_TEST_ASYNC_READ_ISSUED_EVENT");
@@ -5131,6 +5136,10 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
             {
             case IDRETRY:
             {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                if (err == ERROR_READ_FAULT)
+                    ThinCopyTestObserve(L"SAM_UAC_TEST_SYNC_READ_RETRY_EVENT");
+#endif
             RETRY_COPY:
 
                 if (in != NULL)
