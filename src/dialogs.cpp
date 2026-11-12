@@ -2540,7 +2540,13 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
         bool thinCompletionSelected = false;
         DWORD thinCompletionInput = 0;
 #endif
-        if (RunningInOwnThread && !Configuration.AlwaysOnTop && GetForegroundWindow() == HWindow)
+        if (RunningInOwnThread &&
+#ifdef SAM_UAC_THIN_COPY_TEST
+            (!Configuration.AlwaysOnTop || ThinConsentReturned) &&
+#else
+            !Configuration.AlwaysOnTop &&
+#endif
+            GetForegroundWindow() == HWindow)
         {
             // Prior to Windows Vista we only called GetNextWindow(), which was enough to reach the next window in the Z-order.
             // Vista introduced new hidden helper windows such as "MSCTFIME UI" and "Default IME" that sit between us and 
