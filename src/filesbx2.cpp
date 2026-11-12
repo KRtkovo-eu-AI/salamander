@@ -1,5 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Keep the panel header visible during listing replacement. | Prevent nested header paints from exposing the temporary empty listing. | | openai/gpt-6-luna-pro |
 // CommentsTranslationProject: TRANSLATED
 
 #include "precomp.h"
@@ -150,6 +153,9 @@ CHeaderLine::~CHeaderLine()
 
 void CHeaderLine::PaintAllItems(HDC hDC, HRGN hUpdateRgn)
 {
+    if (Parent != NULL && Parent->PaintSuppressionCount > 0)
+        return;
+
     if (hUpdateRgn != NULL)
         SelectClipRgn(hDC, hUpdateRgn);
 
@@ -198,6 +204,9 @@ void CHeaderLine::PaintAllItems(HDC hDC, HRGN hUpdateRgn)
 
 void CHeaderLine::PaintItem(HDC hDC, int index, int x)
 {
+    if (Parent != NULL && Parent->PaintSuppressionCount > 0)
+        return;
+
     if (index > Columns->Count)
     {
         TRACE_E("CHeaderLine::PaintItem() index=" << index << " out of range! count=" << Columns->Count);
@@ -514,6 +523,9 @@ CHeaderLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
     case WM_ERASEBKGND:
     {
+        if (Parent != NULL && Parent->PaintSuppressionCount > 0)
+            return TRUE;
+
         if (DarkModeIsWindowsDarkSchemeSelected())
         {
             RECT r;
@@ -533,6 +545,11 @@ CHeaderLine::WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     {
         PAINTSTRUCT ps;
         HDC hDC = HANDLES(BeginPaint(HWindow, &ps));
+        if (Parent != NULL && Parent->PaintSuppressionCount > 0)
+        {
+            HANDLES(EndPaint(HWindow, &ps));
+            return 0;
+        }
         PaintAllItems(hDC, NULL); // repaint the area that needs it
         HANDLES(EndPaint(HWindow, &ps));
         return 0;

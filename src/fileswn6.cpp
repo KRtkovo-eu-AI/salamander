@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Keep packed-file panels visible during shell launch. | Parent the transparent shell helper beside the owner-drawn list instead of over it. | | openai/gpt-6-luna-pro |
 // | 2026-11-10 | Transfer clipboard source lease to disk copy script. | Preserve staged files until asynchronous copy work completes. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
 // | 2026-11-06 | Combine drop scheduling with owned Unicode source paths. | Preserve upstream fixes and Branch View path and lifetime contracts. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 // CommentsTranslationProject: TRANSLATED
@@ -3611,7 +3612,7 @@ void CFilesWindow::ExecuteFromArchive(int index, BOOL edit, HWND editWithMenuPar
         {
             HCURSOR oldCur = SetCursor(LoadCursor(NULL, IDC_WAIT));
             MainWindow->SetDefaultDirectories();
-            ExecuteAssociation(GetListBoxHWND(), buf, s);
+            ExecuteAssociation(MainWindow->HWindow, buf, s);
             SetCursor(oldCur);
         }
     }
