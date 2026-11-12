@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Record viewer drop ownership during recovery. | Distinguish the tested delivered-message cleanup from actual viewer and Shell acceptance. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Document overwrite fault reproduction and publication constraints. | Keep data-preservation failures distinct from a transaction model. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record paged protected Find and identity limits. | Separate broker and local evidence from pending UI and VM validation. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record paged Branch retry and identity boundaries. | Separate real NTFS and pipe evidence from remaining UI and VM acceptance. | #731 | GPT-6 (Codex) |
@@ -819,6 +820,10 @@ Host a broker x64 se sestavily v Debug i Release, sonda v Release a anglický ja
 Pozitivní lokální stage/Publish test používá testovací kontrolu zabezpečení: místní token nemá `SeSecurityPrivilege`, takže skutečný produkční `ProtectedObject` a čtení SACL nejsou tímto testem doloženy. Tyto scénáře, skutečné UAC, popředí, výkon a soukromá paměť hosta i brokeru vyžadují společnou VM akceptaci.
 
 Stejně sestavené Release binárky proti `dbefc233`: `salamand.exe` 5 775 872 → 5 776 896 B, `uacbroker.exe` 1 404 928 → 1 405 952 B, dohromady 7 180 800 → 7 182 848 B (+2 048 B).
+
+## Viewer při čekání na obnovení
+
+Při stavu `WaitForViewerRefresh` viewer nadále ignoruje přetažený soubor, ale nově u již doručené zprávy `WM_DROPFILES` právě jednou uvolní její `HDROP` voláním `DragFinish`. Nativní sonda s výřezem produkční větve prošla **22/22** v x64 i x86, vždy Debug a Release; používá skutečnou frontu Windows, ale `CViewerWindow` i Shell drop simuluje. Zahrnuje i reentrantní doručení během `WM_DESTROY` testovacího okna. Samotná výchozí procedura v sondě `HDROP` neuvolnila. Logy a otisky vstupů jsou v `C:\Samandarin\builds\uac-integrated-hdrop-20261112-evidence`. Zpráva odebraná až po zániku cílového okna, obecná vlastněná data dalších zpráv, skutečný viewer a společná VM akceptace tím prokázány nejsou.
 
 ## Stránkovaný chráněný Find
 
