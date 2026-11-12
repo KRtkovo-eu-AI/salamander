@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Refuse missing or replaced targets on Retry. | Preserve the identity of the target owned by the transfer job. | #731 | GPT-6 |
 // | 2026-11-12 | Exercise typed handle requests over the broker job pipe. | Verify real NTFS handles and scope before worker integration. | #731 | GPT-6 |
 // | 2026-11-12 | Test listed ZIP IDs through the archive dispatcher. | Reject substituted parent and file identities. | #731 | GPT-6.1 Sol |
 // | 2026-11-12 | Carry cursor tokens in pipe fixtures. | Test independent nested page requests. | #731 | GPT-6.1 Terra |
@@ -3911,27 +3912,55 @@ void CheckThinJob(const Directory& source, const Directory& target, const Direct
           !status && !reply.value && GetFileAttributesW(targetPath.c_str()) == INVALID_FILE_ATTRIBUTES,
           "thin cleanup removes only the created, verified target");
 
-    const auto retryLeaf = L"thin-recreated-target.txt";
+    const auto retryLeaf = L"thin-retry-target.txt";
     const auto retryPath = target.File(retryLeaf);
+    const auto parkedPath = target.File(L"thin-retry-original-parked.txt");
     Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinTargetCreate,
           nullptr, false, status, reply, sourceFile.get()) && !status && reply.value,
-          "create a target for missing-file retry");
+          "create an identity-bound target for missing-file retry");
     const auto firstId = reply.target;
     output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    byte = 0x53; count = 0;
+    Check(output && WriteFile(output.get(), &byte, 1, &count, nullptr) && count == 1,
+          "retain a recognizable byte in the original target");
     output.reset();
-    Check(DeleteFileW(retryPath.c_str()) != FALSE, "remove retry fixture before reopen");
+    Check(MoveFileW(retryPath.c_str(), parkedPath.c_str()) != FALSE,
+          "park the exact original target before retry");
+    for (const bool asynchronous : {false, true})
+    {
+        Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinTargetRetry,
+              &firstId, asynchronous, status, reply, sourceFile.get()) &&
+              status == ERROR_FILE_NOT_FOUND && !reply.value &&
+              GetFileAttributesW(retryPath.c_str()) == INVALID_FILE_ATTRIBUTES && HasByte(parkedPath, 0x53),
+              asynchronous ? "overlapped retry refuses missing target without creating one" :
+                             "synchronous retry refuses missing target without creating one");
+    }
+    Check(WriteByte(retryPath, 0x72), "create separate replacement target");
+    for (const bool asynchronous : {false, true})
+    {
+        Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinTargetRetry,
+              &firstId, asynchronous, status, reply, sourceFile.get()) &&
+              status == ERROR_FILE_INVALID && !reply.value && HasByte(retryPath, 0x72) && HasByte(parkedPath, 0x53),
+              asynchronous ? "overlapped retry preserves a replacement identity" :
+                             "synchronous retry preserves a replacement identity");
+    }
+    Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinDiscardTarget,
+          &firstId, false, status, reply) && status == ERROR_FILE_INVALID &&
+          HasByte(retryPath, 0x72) && HasByte(parkedPath, 0x53),
+          "cleanup refuses the replacement and preserves the original");
+    Check(DeleteFileW(retryPath.c_str()) != FALSE && MoveFileW(parkedPath.c_str(), retryPath.c_str()) != FALSE,
+          "restore the exact original target for retry");
     Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinTargetRetry,
           &firstId, false, status, reply, sourceFile.get()) && !status && reply.value,
-          "OPEN_ALWAYS retry recreates an absent owned target");
-    const auto reopenedId = reply.target;
+          "same identity remains retryable after failed missing and replacement attempts");
     output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
-    byte = 0x51; count = 0;
-    Check(output && WriteFile(output.get(), &byte, 1, &count, nullptr) && count == 1,
-          "recreated retry handle is usable for worker writing");
+    byte = 0; count = 0;
+    Check(output && ReadFile(output.get(), &byte, 1, &count, nullptr) && count == 1 && byte == 0x53,
+          "retry reads the original target content");
     output.reset();
     Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinDiscardTarget,
-          &reopenedId, false, status, reply) && !status && GetFileAttributesW(retryPath.c_str()) == INVALID_FILE_ATTRIBUTES,
-          "cleanup accepts returned identity of recreated target");
+          &firstId, false, status, reply) && !status && GetFileAttributesW(retryPath.c_str()) == INVALID_FILE_ATTRIBUTES,
+          "cleanup accepts the same verified original target");
 
     Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinOpenSource, nullptr, true, status, reply) &&
           !status && reply.value, "same job transfers an overlapped source handle");

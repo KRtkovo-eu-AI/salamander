@@ -5,6 +5,7 @@
 | 2026-11-12 | Isolate unelevated integration fixtures from installed builds. | Exercise the worker without modifying the protected installation. | #731 | GPT-6 |
 | 2026-11-12 | Gate unelevated worker integration behind a test-only build. | Exercise the real broker process without claiming a UAC boundary. | #731 | GPT-6 |
 | 2026-11-12 | Expose test-only authenticated broker PID markers. | Measure a singleton job without lending a process handle. | #731 | GPT-6 |
+| 2026-11-12 | Keep broker target Retry bound to the original object. | Do not recreate a missing target under a stale identity. | #731 | GPT-6 |
 | 2026-11-12 | Type distinct worker handle arguments. | Prevent accidental exchange of source and cancel handles. | #731 | GPT-6 |
 | 2026-11-12 | Add typed worker handle transfer requests. | Retain original worker data I/O under a scoped broker session. | #731 | GPT-6 |
 | 2026-11-12 | Recover guarded moves after allocation failure. | Preserve source recovery and report uncertain publication as partial. | #731 | GPT-6 (Codex) |
@@ -2539,11 +2540,10 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             };
             error = open(create ? FILE_CREATE : FILE_OPEN);
             madeTarget = create && !error;
+            // Retry is an identity-bound reopen, never a new-file request.
+            // Preserve the recorded identity and the native missing-file error.
             if (retry && (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND))
-            {
-                error = open(FILE_CREATE);
-                madeTarget = !error;
-            }
+                error = ERROR_FILE_NOT_FOUND;
             file = Adopt(raw);
             if (!error)
             {
@@ -2604,7 +2604,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             result = error;
             return ERROR_SUCCESS;
         }
-        if (create || (retry && madeTarget)) record->target = reply.target;
+        if (create) record->target = reply.target;
         reply.value = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(remote));
         result = ERROR_SUCCESS;
         return ERROR_SUCCESS;

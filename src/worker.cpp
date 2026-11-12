@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-12 | Observe test-only native read fault and Retry. | Distinguish injected failure from a worker-accepted Retry without changing production flow. | #731 | GPT-6 |
+// | 2026-11-12 | Keep target Retry on its recorded identity. | Do not assume a missing broker target was recreated. | #731 | GPT-6 |
 // | 2026-11-12 | Defer target cleanup when cancelling a source open. | Let the copy worker close its live output before verified discard. | #731 | GPT-6 |
 // | 2026-11-12 | Keep experimental scoped-copy cleanup identity-bound. | Preserve targets when close or cleanup cannot be verified. | #731 | GPT-6 |
 // | 2026-11-12 | Record test-only denied and broker-open events. | Prove each side of the real worker experiment without changing its error flow. | #731 | GPT-6 |
@@ -6798,8 +6799,8 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
     }
     if (kind == UacF7::ThinOpenKind::TargetCreate || kind == UacF7::ThinOpenKind::TargetRetry)
     {
-        // Retry can recreate a missing target under OPEN_ALWAYS. The broker
-        // returns and records its new ID, which subsequent cleanup must use.
+        // The broker returns the created target identity or the same
+        // previously recorded identity after a successful reopen.
         target = result.targetIdentity;
         targetKnown = true;
         targetCreatedByBroker = true;
