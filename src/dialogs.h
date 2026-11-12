@@ -488,8 +488,6 @@ protected:
     HWND NextForegroundWindow; // window that should be foreground after closing this dialog (on XP with service pack 1 and with a top-most window opened the activation may fail after closing the dialog - focus sometimes went to the top-most window instead of Salamander)
 #ifdef SAM_UAC_THIN_COPY_TEST
     bool ThinConsentReturned = false;
-    bool ThinCompletionSelected = false;
-    DWORD ThinCompletionInput = 0;
 #endif
 
     BOOL DoNotBeepOnClose; // TRUE = operation cancels because Salamander is exiting; beeping makes no sense

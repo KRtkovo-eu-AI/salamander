@@ -2536,20 +2536,30 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
     case WM_USER_PROGRDLGEND: // probably needless on W2K+: we had to delay the dialog termination a bit
     {
         uMsg = WM_COMMAND;
+#ifdef SAM_UAC_THIN_COPY_TEST
+        bool thinCompletionSelected = false;
+        DWORD thinCompletionInput = 0;
+#endif
         if (RunningInOwnThread && !Configuration.AlwaysOnTop && GetForegroundWindow() == HWindow)
         {
             // Prior to Windows Vista we only called GetNextWindow(), which was enough to reach the next window in the Z-order.
             // Vista introduced new hidden helper windows such as "MSCTFIME UI" and "Default IME" that sit between us and 
             // our window (main, viver, ect.). So we skip hidden windows here.
 #ifdef SAM_UAC_THIN_COPY_TEST
-            const HWND thinTarget = ThinProgressReturnTarget(HWindow,
-                MainWindow ? MainWindow->HWindow : nullptr, ThinConsentReturned);
-            LASTINPUTINFO input{sizeof(input)};
-            if (thinTarget && GetLastInputInfo(&input) && ThinProgressIsActive(HWindow, input.dwTime))
+            if (ThinConsentReturned)
             {
-                NextForegroundWindow = thinTarget;
-                ThinCompletionSelected = true;
-                ThinCompletionInput = input.dwTime;
+                // Do not use the legacy deferred activation for this path if
+                // its target or input snapshot cannot be verified.
+                thinCompletionSelected = true;
+                NextForegroundWindow = NULL;
+                const HWND thinTarget = ThinProgressReturnTarget(HWindow,
+                    MainWindow ? MainWindow->HWindow : nullptr, true);
+                LASTINPUTINFO input{sizeof(input)};
+                if (thinTarget && GetLastInputInfo(&input) && ThinProgressIsActive(HWindow, input.dwTime))
+                {
+                    NextForegroundWindow = thinTarget;
+                    thinCompletionInput = input.dwTime;
+                }
             }
             else
 #endif
@@ -2579,6 +2589,19 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
             }
         }
         IsInQueue = FALSE;
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (thinCompletionSelected)
+        {
+            // EndDialog can hide the progress window before WM_DESTROY. Try
+            // while it is still foreground, after giving the queue priority.
+            // Never defer this activation past a possible user focus switch.
+            if (NextForegroundWindow != NULL &&
+                ThinProgressIsActive(HWindow, thinCompletionInput) &&
+                ThinProgressReturnTarget(HWindow, MainWindow ? MainWindow->HWindow : nullptr, true) == NextForegroundWindow)
+                SetForegroundWindow(NextForegroundWindow);
+            NextForegroundWindow = NULL;
+        }
+#endif
         break;
     }
 
@@ -2947,12 +2970,6 @@ MENU_TEMPLATE_ITEM ProgressDialogMenu2[] =
         // activates the top-most window that is the highest; see \Source\zorder and
         // \Source\windowtest utilities.
         // Issue reported here: https://forum.altap.cz/viewtopic.php?t=2922&start=15
-#ifdef SAM_UAC_THIN_COPY_TEST
-        // Do not steal focus if the user switched windows or provided input
-        // after the completion message chose the target.
-        if (ThinCompletionSelected && !ThinProgressIsActive(HWindow, ThinCompletionInput))
-            NextForegroundWindow = NULL;
-#endif
         if (NextForegroundWindow != NULL && NextForegroundWindow != GetForegroundWindow())
         {
             DWORD pid;
