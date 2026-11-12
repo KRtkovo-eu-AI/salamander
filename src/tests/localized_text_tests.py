@@ -1,5 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Samandarin Contributors
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Validate localized text for every available translation. | Translation expansion made the fixed language count stale. | | openai/gpt-6-luna-pro |
 """Actual bounded localized inserts, hostile directives and pre-confirmation guard."""
 import argparse
 import json
@@ -26,7 +29,7 @@ def main():
         assert match, name
         templates.append((name, match.group(1), resources[resource_id]))
     languages = sorted((root / 'translations').glob('*/salamand.slt'))
-    assert len(languages) == 11, len(languages)
+    assert languages, 'no translation files found'
     for language in languages:
         text = language.read_text(encoding='utf-8-sig')
         for resource_id, count in resources.items():

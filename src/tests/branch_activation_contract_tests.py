@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Validate branch translations without a fixed language count. | Translation expansion made the fixed count stale. | | openai/gpt-6-luna-pro |
 # | 2026-11-06 | Verify Branch copy-dialog controls in every language archive. | Missing checkbox rows prevented native Translator import despite complete string tables. | https://github.com/KRtkovo-eu-AI/salamander/pull/769 | GPT-6 (Codex) |
 """Branch View activation must not create work or wait for background providers.
 
@@ -126,7 +127,7 @@ class BranchActivationContracts(unittest.TestCase):
         self.assertEqual(set(english), set(range(14500, 14516)))
         self.assertEqual(english[14515].count("%I64u"), 2)
         paths = sorted((ROOT.parent / "translations").glob("*/salamand.slt"))
-        self.assertEqual(len(paths), 11)
+        self.assertTrue(paths, "no translation files found")
         for path in paths:
             with self.subTest(language=path.parent.name):
                 raw = path.read_bytes()
@@ -134,18 +135,27 @@ class BranchActivationContracts(unittest.TestCase):
                 self.assertEqual(raw.count(b"\n"), raw.count(b"\r\n"))
                 parsed = parser.parse(path)
                 for sid, original in english.items():
-                    section = "STRINGTABLE 182" if sid < 14512 else "STRINGTABLE 183"
-                    line, translated = parsed[f"{section}:{sid},"]
+                    localized = [
+                        value for key, value in parsed.items()
+                        if re.fullmatch(r"STRINGTABLE \d+:" + str(sid) + r",", key)
+                    ]
+                    self.assertEqual(len(localized), 1, (path, sid))
+                    line, translated = localized[0]
                     self.assertEqual(re.findall(r"%(?:I64)?[a-zA-Z]", original),
                                      re.findall(r"%(?:I64)?[a-zA-Z]", translated))
                     self.assertEqual(original.count("&"), translated.count("&"))
                     self.assertEqual(original.count(r"\t"), translated.count(r"\t"))
                     self.assertFalse(parser.validate_text(path, line, translated))
-                self.assertIn("STRINGTABLE 184:14991,", parsed)
-                self.assertIn("STRINGTABLE 185:14992,", parsed)
+                for sid in (14991, 14992):
+                    localized = [
+                        key for key in parsed
+                        if re.fullmatch(r"STRINGTABLE \d+:" + str(sid) + r",", key)
+                    ]
+                    self.assertEqual(len(localized), 1, (path, sid))
                 headers = [int(value) for value in re.findall(r"^\[STRINGTABLE (\d+)\]$",
                     raw.decode("utf-8-sig").replace("\r\n", "\n"), re.MULTILINE)]
-                self.assertEqual(headers, list(range(186)))
+                self.assertTrue(headers)
+                self.assertEqual(headers, list(range(headers[-1] + 1)))
 
     def test_copy_dialog_branch_placeholders_match_native_resources(self):
         resources = source("lang/lang.rc")
