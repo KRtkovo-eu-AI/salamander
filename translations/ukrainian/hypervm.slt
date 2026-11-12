@@ -6,7 +6,7 @@ VERSION,"1,10,0,197"
 [TRANSLATION]
 LANGID,1058
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"ukrainian (automatic AI translation)"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"ukrainian (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Показує локальні віртуальні машини Hyper-V у панелі."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Показати вікно &Hyper-V машин"
 51,1,"Створити &VHD"
 52,1,"&Підключити VHD"

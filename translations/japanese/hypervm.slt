@@ -6,7 +6,7 @@ VERSION,"1,10,0,197"
 [TRANSLATION]
 LANGID,1041
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"Japanese (ja-JP) UI translation"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"Japanese (ja-JP) UI translation"
 
 [STRINGTABLE 1]
 48,1,"ローカルの Hyper-V 仮想マシンをパネルに表示します。"
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Hyper-V Mac ウィンドウを表示(&H)"
 51,1,"VHD の作成(&V)"
 52,1,"VHD を接続する(&A)"

@@ -6,7 +6,7 @@ VERSION,"0,10,0,197"
 [TRANSLATION]
 LANGID,1049
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Проверяет выпуски GitHub и предлагает открыть последнюю сборку Samandarin."
-49,1,"https://samandarin.net/download"
+49,1,"open.samandarin.netdownload"
 50,1,"Проверить обновления сейчас"
 51,1,"Неожиданное управляемое исключение:"
 52,1,"Не удалось инициализировать управляемый помощник Samandarin.\nПроверьте, что Samandarin.Managed.dll расположен рядом с плагином."

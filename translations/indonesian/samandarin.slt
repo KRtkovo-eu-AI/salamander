@@ -15,7 +15,7 @@ COMMENT,"indonesian (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Memeriksa rilis GitHub dan menawarkan untuk membuka versi Samandarin terbaru."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Periksa pembaruan sekarang"
 51,1,"Pengecualian terkelola yang tidak terduga:"
 52,1,"Tidak dapat menginisialisasi pembantu terkelola Samandarin.\nPastikan Samandarin.Managed.dll berada di samping plugin."

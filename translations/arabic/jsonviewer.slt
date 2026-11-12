@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1025
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"arabic (automatic AI translation)"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"arabic (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"عارض داخلي يعرض مستندات JSON باستخدام واجهة WinForms مُدارة."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"تعذّر إعداد حدث المزامنة المطلوب للعارض."
 51,1,"ملف JSON المحدد كبير جدًا ولا يمكن فتحه. لا تُدعم الملفات التي يتجاوز حجمها 8 ميغابايت."
 

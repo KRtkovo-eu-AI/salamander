@@ -6,7 +6,7 @@ VERSION,"1,10,0,197"
 [TRANSLATION]
 LANGID,1031
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Zeigt lokale Hyper-V-virtuelle Maschinen im Bedienfeld an."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"&Hyper-V-Maschinenfenster anzeigen"
 51,1,"&VHD erstellen"
 52,1,"VHD &einbinden"

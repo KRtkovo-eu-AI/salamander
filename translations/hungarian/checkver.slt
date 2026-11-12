@@ -78,7 +78,7 @@ COMMENT,"Magyar változat"
 218,1,"A plugin az internettel dolgozik.\nMegszakítja ezt az internet feladatot?"
 220,1,"Internet kapcsolat inicializálása..."
 221,1,"Sikertelen inicializálás: %s"
-222,1,"Kapcsolódás a \tuhttps://samandarin.net/\tlhttps://https://samandarin.net/\tn oldalra..."
+222,1,"Kapcsolódás a \tuopen.samandarin.net\tlhttps://open.samandarin.net\tn oldalra..."
 223,1,"Csatlakozás sikertelen: %s"
 
 [STRINGTABLE 2]

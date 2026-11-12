@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1066
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"vietnamese (automatic AI translation)"
 
 [DIALOG 8500]
@@ -23,7 +23,7 @@ COMMENT,"vietnamese (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Trình xem gốc hiển thị tệp văn bản với việc làm nổi Hayes cú pháp Prism.js."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Không thể chuẩn bị sự kiện đồng bộ hóa yêu cầu bởi trình xem."
 52,1,"&Tệp"
 53,1,"&Xem"

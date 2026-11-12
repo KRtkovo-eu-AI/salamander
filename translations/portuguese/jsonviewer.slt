@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1046
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"portuguese (automatic AI translation)"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"portuguese (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Visualizador interno que exibe documentos JSON com uma interface Win Forms gerenciada."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Não foi possível preparar o evento de sincronização exigido pelo visualizador."
 51,1,"O arquivo JSON selecionado é grande demais para abrir. Arquivos maiores que 8 MB não são suportados."
 

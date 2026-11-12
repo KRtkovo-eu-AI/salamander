@@ -6,7 +6,7 @@ VERSION,"1,0,3,197"
 [TRANSLATION]
 LANGID,1025
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"Automatic AI translation"
 
 [DIALOG 490]
@@ -21,9 +21,9 @@ COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 1]
 48,1,"يساعدك هذا المكون الإضافي على إنشاء مكون عارض خاص بك."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"حدث استثناء في DemoView، يرجى إبلاغ المؤلفين!\nإذا كنت تعمل على ملف .DMV عند حدوث الاستثناء،\nفيرجى محاولة إعادة إنتاج الخطأ باستخدام ملف .DMV هذا، وإذا حدث الاستثناء\nمرة أخرى، فأرسل إلينا ملف .DMV هذا (سنحاول إعادة إنتاج الخطأ وإصلاحه).\nشكرًا!"
-51,1,"https://samandarin.net/"
+51,1,"open.samandarin.net"
 52,1,"التكوين مفتوح بالفعل."
 53,1,"بعض نوافذ عارض DemoView مفتوحة. هل تريد إغلاقها؟"
 54,1,"تكوين DemoView"

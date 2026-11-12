@@ -6,7 +6,7 @@ VERSION,"1,10,0,197"
 [TRANSLATION]
 LANGID,1042
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"korean (automatic AI translation)"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"korean (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"패널에 로컬 Hyper-V 가상 머신을 표시합니다."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Hyper-V 기계 창 표시(&H)"
 51,1,"VHD 생성(&V)"
 52,1,"VHD 첨부(&A)"

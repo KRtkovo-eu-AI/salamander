@@ -6,7 +6,7 @@ VERSION,"2,27,0,197"
 [TRANSLATION]
 LANGID,1046
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"portuguese (automatic AI translation)"
 
 [DIALOG 2000]
@@ -21,7 +21,7 @@ COMMENT,"portuguese (automatic AI translation)"
 3005,46,81,62,8,1,"Tipos de Imagens"
 2009,99,81,120,8,1,"Codecs WIC da Microsoft"
 3006,46,92,54,8,1,"Site do Projeto:"
-2010,99,92,160,8,1,"https://samandarin.net/"
+2010,99,92,160,8,1,"open.samandarin.net"
 3004,2,108,339,1,1,""
 
 [DIALOG 2020]

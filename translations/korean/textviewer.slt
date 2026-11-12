@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1042
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"korean (automatic AI translation)"
 
 [DIALOG 8500]
@@ -23,7 +23,7 @@ COMMENT,"korean (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Prism.js 구문 강조 표시로 텍스트 파일을 렌더링하는 네이티브 뷰어입니다."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"뷰어가 요구하는 동기화 이벤트를 준비할 수 없습니다."
 52,1,"파일(&F)"
 53,1,"보기(&V)"

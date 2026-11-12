@@ -6,7 +6,7 @@ VERSION,"2,0,0,197"
 [TRANSLATION]
 LANGID,1032
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"greek (automatic AI translation)"
 
 [DIALOG 490]
@@ -92,7 +92,7 @@ COMMENT,"greek (automatic AI translation)"
 563,215,204,33,14,1,"Κείμενο"
 3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
 3015,277,17,75,8,1,"SetActionOpen"
-557,365,17,83,8,1,"https://samandarin.net/"
+557,365,17,83,8,1,"open.samandarin.net"
 3016,277,27,81,8,1,"SetActionPostCommand"
 558,365,27,55,8,1,"Πείτε κάτι!"
 3017,277,37,81,8,1,"SetActionPostCommand"
@@ -109,9 +109,9 @@ COMMENT,"greek (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Αυτό το πρόσθετο θα σας βοηθήσει να δημιουργήσετε τα δικά σας πρόσθετα."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Παρουσιάστηκε εξαίρεση στο DemoPlug, ενημερώστε τους δημιουργούς!\nΑν χρησιμοποιούσατε αρχείο .dop όταν συνέβη,\nπροσπαθήστε να αναπαραγάγετε το σφάλμα με αυτό το αρχείο και αν επαναληφθεί,\nστείλτε μας το αρχείο .dop (θα αναπαραγάγουμε και θα διορθώσουμε το πρόβλημα).\nΕυχαριστούμε!"
-51,1,"https://samandarin.net/"
+51,1,"open.samandarin.net"
 52,1,"Οι ρυθμίσεις είναι ήδη ανοιχτές."
 53,1,"Ορισμένα παράθυρα προβολής DemoPlug είναι ανοιχτά. Θέλετε να κλείσουν;"
 54,1,"Ρυθμίσεις DemoPlug"

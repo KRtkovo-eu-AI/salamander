@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1028
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"chinesetraditional (automatic AI translation)"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"chinesetraditional (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"使用 WebView2 顯示已轉譯 HTML、Markdown 和網頁文件的檢視器。"
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"無法準備檢視器所需的同步事件。"
 51,1,"選取的檔案太大，無法開啟。不支援大於 32 MB 的檔案。"
 52,1,"檔案(&F)"

@@ -6,7 +6,7 @@ VERSION,"2,0,0,197"
 [TRANSLATION]
 LANGID,1041
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"Japanese (ja-JP) UI translation"
 
 [DIALOG 490]
@@ -92,7 +92,7 @@ COMMENT,"Japanese (ja-JP) UI translation"
 563,215,204,33,14,1,"Text"
 3014,269,4,185,48,1,"CGUIハイパーリンク要約"
 3015,277,17,75,8,1,"SetActionOpen"
-557,365,17,83,8,1,"https://samandarin.net/"
+557,365,17,83,8,1,"open.samandarin.net"
 3016,277,27,81,8,1,"SetActionPostCommand"
 558,365,27,55,8,1,"何か言って！"
 3017,277,37,81,8,1,"SetActionPostCommand"
@@ -109,9 +109,9 @@ COMMENT,"Japanese (ja-JP) UI translation"
 
 [STRINGTABLE 1]
 48,1,"このプラグインは、独自のプラグインを作成するのに役立ちます。"
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"DemoPlug で例外が発生しました。作成者に通知してください!\n例外が発生したときに .dop ファイルを使用したことがある場合は、\nこの .dop ファイルでバグを再現してみてください。例外\nが再び発生した場合は、この .dop ファイルを送信してください (バグを再現して修正します)。\nありがとう!"
-51,1,"https://samandarin.net/"
+51,1,"open.samandarin.net"
 52,1,"構成はすでに開かれています。"
 53,1,"一部の DemoPlug ビューア ウィンドウが開きます。閉じますか?"
 54,1,"デモプラグ構成"

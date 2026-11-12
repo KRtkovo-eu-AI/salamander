@@ -6,7 +6,7 @@ VERSION,"0,3,0,197"
 [TRANSLATION]
 LANGID,1053
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"swedish (automatic AI translation)"
 
 [STRINGTABLE 0]

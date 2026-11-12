@@ -6,7 +6,7 @@ VERSION,"2,0,0,197"
 [TRANSLATION]
 LANGID,1038
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"Automatic AI translation"
 
 [DIALOG 490]
@@ -92,7 +92,7 @@ COMMENT,"Automatic AI translation"
 563,215,204,33,14,1,"Szöveg"
 3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
 3015,277,17,75,8,1,"SetActionOpen"
-557,365,17,83,8,1,"https://samandarin.net/"
+557,365,17,83,8,1,"open.samandarin.net"
 3016,277,27,81,8,1,"SetActionPostCommand"
 558,365,27,55,8,1,"Mondj valamit!"
 3017,277,37,81,8,1,"SetActionPostCommand"
@@ -109,9 +109,9 @@ COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 1]
 48,1,"Ennek a bővítménynek segítenie kell abban, hogy saját bővítményeket készíthessen."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"DemoPlug kivétel történt, kérjük értesítse a fejlesztőket!\nHa .dop fájllal dolgozott, amikor a kivétel történt,\npróbálja meg a hibát reprodukálni ezzel a .dop fájllal, és ha a kivétel\nismét jelentkezik, küldje el nekünk ezt a .dop fájlt (mi reprodukáljuk és kijavítjuk a hibát).\nKöszönjük!"
-51,1,"https://samandarin.net/"
+51,1,"open.samandarin.net"
 52,1,"A konfiguráció már meg van nyitva."
 53,1,"Néhány DemoPlug nézőablak meg van nyitva. Szeretné bezárni őket?"
 54,1,"DemoPlug Konfiguráció"

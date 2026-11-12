@@ -6,7 +6,7 @@ VERSION,"1,10,0,197"
 [TRANSLATION]
 LANGID,1057
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"indonesian (automatic AI translation)"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"indonesian (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Tampilkan mesin virtual Hyper-V lokal di panel."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Lihat &Mesin Virtual Hyper-V"
 51,1,"Buat &VHD"
 52,1,"&Pasang VHD"

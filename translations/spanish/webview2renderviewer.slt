@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,3082
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Visor que muestra HTML, Markdown y documentos web renderizados mediante WebView2."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"No se puede preparar el evento de sincronización necesario para el visor."
 51,1,"El archivo seleccionado es demasiado grande para abrirse. No se admiten archivos de más de 32 MB."
 52,1,"&Archivo"

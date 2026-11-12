@@ -15,7 +15,7 @@ COMMENT,"chinesetraditional (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"檢查 GitHub 發佈版本，並提供開啟最新 Samandarin 版本的選項。"
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"立即檢查更新"
 51,1,"發生未預期的受控例外："
 52,1,"無法初始化 Samandarin 受控輔助元件。\n請確認 Samandarin.Managed.dll 位於外掛程式旁邊。"

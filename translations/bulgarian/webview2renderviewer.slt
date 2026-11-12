@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1026
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"bulgarian (automatic AI translation)"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"bulgarian (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Преглед, който показва визуализирани HTML, Markdown и уеб документи чрез WebView2."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Не може да се подготви необходимото за прегледа събитие за синхронизация."
 51,1,"Избраният файл е твърде голям за отваряне. Файлове над 32 MB не се поддържат."
 52,1,"&Файл"

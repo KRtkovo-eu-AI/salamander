@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1058
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"ukrainian (automatic AI translation)"
 
 [DIALOG 8500]
@@ -23,7 +23,7 @@ COMMENT,"ukrainian (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Вбудований переглядач текстових файлів із підсвічуванням синтаксису Prism.js."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Не вдалося підготувати подію синхронізації, потрібну переглядачу."
 52,1,"&Файл"
 53,1,"&Вигляд"

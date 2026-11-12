@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1057
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"indonesian (automatic AI translation)"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"indonesian (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Penampil untuk menampilkan HTML, Markdown, dan dokumen web yang dirender menggunakan WebView2."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Tidak dapat menyiapkan peristiwa sinkronisasi yang diperlukan oleh penampil."
 51,1,"File yang dipilih terlalu besar untuk dibuka. File yang lebih besar dari 32 MB tidak didukung."
 52,1,"&File"

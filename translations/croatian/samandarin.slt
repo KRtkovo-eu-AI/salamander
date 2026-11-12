@@ -15,7 +15,7 @@ COMMENT,"croatian (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Provjerava izdanja na GitHubu i nudi otvaranje najnovije verzije Samandarina."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Provjeri ima li ažuriranja"
 51,1,"Neočekivana iznimka upravljane komponente:"
 52,1,"Nije moguće pokrenuti upravljani pomoćni modul Samandarina.\nProvjerite nalazi li se Samandarin.Managed.dll uz dodatak."

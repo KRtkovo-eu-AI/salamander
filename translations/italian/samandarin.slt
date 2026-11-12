@@ -15,7 +15,7 @@ COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 1]
 48,1,"Controlla le release di GitHub e offre di aprire l'ultima build di Samandarin."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Controlla aggiornamenti ora"
 51,1,"Eccezione gestita imprevista:"
 52,1,"Impossibile inizializzare l'helper gestito di Samandarin.\nVerifica che Samandarin.Managed.dll si trovi accanto al plug-in."

@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1066
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"vietnamese (automatic AI translation)"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"vietnamese (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Trình xem hiển thị tài liệu HTML, Markdown và web đã được renders bằng WebView2."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Không thể chuẩn bị sự kiện đồng bộ hóa yêu cầu bởi trình xem."
 51,1,"Tệp được chọn quá lớn để mở. Các tệp lớn hơn 32 MB không được hỗ trợ."
 52,1,"&Tệp"

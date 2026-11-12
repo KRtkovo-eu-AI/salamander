@@ -6,7 +6,7 @@ VERSION,"2,27,0,197"
 [TRANSLATION]
 LANGID,1026
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"bulgarian (automatic AI translation)"
 
 [DIALOG 2000]
@@ -21,7 +21,7 @@ COMMENT,"bulgarian (automatic AI translation)"
 3005,46,81,80,8,1,"Типове изображения:"
 2009,99,81,120,8,1,"WIC кодеци на Microsoft"
 3006,46,92,74,8,1,"Уебсайт на проекта:"
-2010,99,92,160,8,1,"https://samandarin.net/"
+2010,99,92,160,8,1,"open.samandarin.net"
 3004,2,108,339,1,1,""
 
 [DIALOG 2020]

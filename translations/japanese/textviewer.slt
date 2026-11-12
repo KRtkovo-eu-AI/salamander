@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1041
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"Japanese (ja-JP) UI translation"
 
 [DIALOG 8500]
@@ -23,7 +23,7 @@ COMMENT,"Japanese (ja-JP) UI translation"
 
 [STRINGTABLE 1]
 48,1,"Prism.js の構文を強調表示してテキスト ファイルをレンダリングするネイティブ ビューア。"
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"ビューアが必要とする同期イベントを準備できません。"
 52,1,"ファイル(&F)"
 53,1,"表示(&V)"

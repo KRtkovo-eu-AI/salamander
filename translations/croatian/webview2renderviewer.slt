@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1050
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"croatian (automatic AI translation)"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"croatian (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Preglednik koji prikazuje renderirane HTML, Markdown i web-dokumente pomoću WebView2."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Nije moguće pripremiti događaj sinkronizacije potreban pregledniku."
 51,1,"Odabrana je datoteka prevelika za otvaranje. Datoteke veće od 32 MB nisu podržane."
 52,1,"&Datoteka"

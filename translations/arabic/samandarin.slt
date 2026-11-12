@@ -15,7 +15,7 @@ COMMENT,"arabic (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"يتحقق من إصدارات GitHub ويتيح فتح أحدث إصدار من Samandarin."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"التحقق من وجود تحديثات الآن"
 51,1,"استثناء غير متوقع في المكوّن المُدار:"
 52,1,"تعذّر تهيئة المكوّن المُدار المساعد لـSamandarin.\nتحقق من وجود Samandarin.Managed.dll بجوار الملحق."

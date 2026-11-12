@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1050
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"croatian (automatic AI translation)"
 
 [DIALOG 8500]
@@ -23,7 +23,7 @@ COMMENT,"croatian (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Izvorni preglednik koji prikazuje tekstualne datoteke s isticanjem sintakse Prism.js."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Nije moguće pripremiti događaj sinkronizacije potreban pregledniku."
 52,1,"&Datoteka"
 53,1,"&Prikaz"

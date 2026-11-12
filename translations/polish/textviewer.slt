@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1045
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"polish (automatic AI translation)"
 
 [DIALOG 8500]
@@ -23,7 +23,7 @@ COMMENT,"polish (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Natywna przeglądarka renderująca pliki tekstowe z podświetlaniem składni Prism.js."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Nie można przygotować zdarzenia synchronizacji wymaganego przez przeglądarkę."
 52,1,"&Plik"
 53,1,"&Widok"

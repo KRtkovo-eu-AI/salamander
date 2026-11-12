@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1057
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"indonesian (automatic AI translation)"
 
 [DIALOG 8500]
@@ -23,7 +23,7 @@ COMMENT,"indonesian (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Penampil bawaan yang merender file teks dengan penyorotan sintaks Prism.js."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Tidak dapat menyiapkan peristiwa sinkronisasi yang diperlukan oleh penampil."
 52,1,"&File"
 53,1,"&Tampilan"

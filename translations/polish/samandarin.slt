@@ -15,7 +15,7 @@ COMMENT,"polish (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Sprawdza wydania na GitHubie i proponuje otwarcie najnowszej kompilacji Samandarin."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Sprawdź aktualizacje teraz"
 51,1,"Nieoczekiwany wyjątek zarządzany:"
 52,1,"Nie można zainicjować zarządzanego pomocnika Samandarin.\nSprawdź, czy Samandarin.Managed.dll znajduje się obok wtyczki."

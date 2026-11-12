@@ -6,7 +6,7 @@ VERSION,"1,0,3,197"
 [TRANSLATION]
 LANGID,1036
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"Automatic AI translation"
 
 [DIALOG 490]
@@ -21,9 +21,9 @@ COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 1]
 48,1,"Ce module doit vous aider à créer votre propre module de visionneuse."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Une exception dans DemoView s'est produite, veuillez en informer les auteurs !\nSi vous avez utilisé un fichier .DMV lorsque l'exception s'est produite,\nveuillez essayer de reproduire le bogue avec ce fichier .DMV et si l'exception\nse reproduit, envoyez-nous ce fichier .DMV (nous reproduirons et corrigerons le bogue).\nMerci !"
-51,1,"https://samandarin.net/"
+51,1,"open.samandarin.net"
 52,1,"La configuration est déjà ouverte."
 53,1,"Des fenêtres de visionneuse DemoView sont ouvertes. Voulez-vous les fermer ?"
 54,1,"Configuration de DemoView"

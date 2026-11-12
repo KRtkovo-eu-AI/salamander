@@ -15,7 +15,7 @@ COMMENT,"korean (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"GitHub 릴리스를 확인하고 최신 Samandarin 빌드를 열도록 제안합니다."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"지금 업데이트 확인"
 51,1,"예기치 않은 관리 코드 예외:"
 52,1,"Samandarin 관리 도우미를 초기화할 수 없습니다.\nSamandarin.Managed.dll이 플러그인 옆에 있는지 확인하세요."

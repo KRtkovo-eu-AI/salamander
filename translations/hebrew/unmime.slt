@@ -6,7 +6,7 @@ VERSION,"1,16,0,197"
 [TRANSLATION]
 LANGID,1037
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"hebrew (automatic AI translation)"
 
 [DIALOG 101]

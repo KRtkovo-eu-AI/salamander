@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1055
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"turkish (automatic AI translation)"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"turkish (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"WebView2 kullanarak işlenmiş HTML, Markdown ve web belgelerini görüntüler."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Görüntüleyicinin gerektirdiği eşitleme olayı hazırlanamadı."
 51,1,"Seçilen dosya açılamayacak kadar büyük. 32 MB üzerindeki dosyalar desteklenmiyor."
 52,1,"&Dosya"

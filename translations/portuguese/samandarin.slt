@@ -15,7 +15,7 @@ COMMENT,"portuguese (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Verifica releases no Git Hub e oferece abrir o build mais recente do Samandarin."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Verificar atualizações agora"
 51,1,"Exceção gerenciada inesperada:"
 52,1,"Não foi possível inicializar o auxiliar gerenciado do Samandarin.\n Verifique se Samandarin.Managed.dll está ao lado do plug-in."

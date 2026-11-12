@@ -6,7 +6,7 @@ VERSION,"3,35,0,197"
 [TRANSLATION]
 LANGID,1066
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"vietnamese (automatic AI translation)"
 
 [STRINGTABLE 0]

@@ -6,7 +6,7 @@ VERSION,"2,0,0,197"
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"Automatic AI translation"
 
 [DIALOG 490]
@@ -92,7 +92,7 @@ COMMENT,"Automatic AI translation"
 563,215,204,33,14,1,"Testo"
 3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
 3015,277,17,75,8,1,"SetActionOpen"
-557,365,17,83,8,1,"https://samandarin.net/"
+557,365,17,83,8,1,"open.samandarin.net"
 3016,277,27,81,8,1,"SetActionPostCommand"
 558,365,27,55,8,1,"Dì qualcosa!"
 3017,277,37,81,8,1,"SetActionPostCommand"
@@ -109,9 +109,9 @@ COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 1]
 48,1,"Questo plug-in dovrebbe aiutarti a creare i tuoi plug-in."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Si è verificata un'eccezione in DemoPlug, informa gli autori!\nSe hai lavorato con un file .dop quando si è verificata l'eccezione,\nprova a riprodurre il bug con questo file .dop e, se l'eccezione\nsi verifica di nuovo, inviaci questo file .dop (lo riprodurremo e correggeremo il bug).\nGrazie!"
-51,1,"https://samandarin.net/"
+51,1,"open.samandarin.net"
 52,1,"La configurazione è già aperta."
 53,1,"Sono aperte alcune finestre di visualizzazione di DemoPlug. Vuoi chiuderle?"
 54,1,"Configurazione DemoPlug"

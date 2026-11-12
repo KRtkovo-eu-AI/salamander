@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1043
 AUTHOR,"KRtekTM"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"automatic translate with gpt-5.4-nano"
 
 [DIALOG 8500]
@@ -23,7 +23,7 @@ COMMENT,"automatic translate with gpt-5.4-nano"
 
 [STRINGTABLE 1]
 48,1,"Native viewer die tekstbestanden rendert met Prism.js-syntaxisaccentuering."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Niet gelukt om het synchronisatiegebeurtenis voor te bereiden dat door de viewer vereist is."
 52,1,"&Bestand"
 53,1,"&Beeld"

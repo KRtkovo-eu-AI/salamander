@@ -6,7 +6,7 @@ VERSION,"1,8,0,197"
 [TRANSLATION]
 LANGID,1046
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"portuguese (automatic AI translation)"
 
 [DIALOG 100]

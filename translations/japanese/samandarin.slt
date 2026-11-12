@@ -15,7 +15,7 @@ COMMENT,"Japanese (ja-JP) UI translation"
 
 [STRINGTABLE 1]
 48,1,"GitHub リリースを確認し、最新の Samandarin ビルドを開くよう提案します。"
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"今すぐアップデートをチェック"
 51,1,"予期しないマネージド例外:"
 52,1,"Samandarin マネージド ヘルパーを初期化できません。\n Samandarin.Manated.dll がプラグインの隣にあることを確認してください。"

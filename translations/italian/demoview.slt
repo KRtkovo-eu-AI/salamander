@@ -6,7 +6,7 @@ VERSION,"1,0,3,197"
 [TRANSLATION]
 LANGID,1040
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"Automatic AI translation"
 
 [DIALOG 490]
@@ -21,9 +21,9 @@ COMMENT,"Automatic AI translation"
 
 [STRINGTABLE 1]
 48,1,"Questo plug-in dovrebbe aiutarti a creare il tuo plug-in di visualizzazione."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"Si è verificata un'eccezione in DemoView. Per favore informare gli autori!\nSe stavi lavorando con un file .DMV quando si è verificata l'eccezione,\nprova a riprodurre il problema con questo file .DMV e se l'eccezione\nsi verifica di nuovo, inviaci questo file .DMV (riprodurremo e correggeremo il bug).\nGrazie!"
-51,1,"https://samandarin.net/"
+51,1,"open.samandarin.net"
 52,1,"La configurazione è già aperta."
 53,1,"Sono aperte alcune finestre di visualizzazione di DemoView. Vuoi chiuderle?"
 54,1,"Configurazione DemoView"

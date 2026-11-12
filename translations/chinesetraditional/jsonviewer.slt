@@ -6,7 +6,7 @@ VERSION,"1,5,0,197"
 [TRANSLATION]
 LANGID,1028
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"chinesetraditional (automatic AI translation)"
 
 [STRINGTABLE 0]
@@ -15,7 +15,7 @@ COMMENT,"chinesetraditional (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"使用受控 WinForms 介面顯示 JSON 文件的內部檢視器。"
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"無法準備檢視器所需的同步事件。"
 51,1,"選取的 JSON 檔案太大，無法開啟。不支援大於 8 MB 的檔案。"
 

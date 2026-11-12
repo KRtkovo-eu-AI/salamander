@@ -6,7 +6,7 @@ VERSION,"1,29,0,197"
 [TRANSLATION]
 LANGID,1058
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"ukrainian (automatic AI translation)"
 
 [DIALOG 100]

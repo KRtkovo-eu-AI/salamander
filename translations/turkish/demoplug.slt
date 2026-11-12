@@ -6,7 +6,7 @@ VERSION,"2,0,0,197"
 [TRANSLATION]
 LANGID,1055
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"turkish (automatic AI translation)"
 
 [DIALOG 490]
@@ -92,7 +92,7 @@ COMMENT,"turkish (automatic AI translation)"
 563,215,204,33,14,1,"Metin"
 3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
 3015,277,17,75,8,1,"SetActionOpen"
-557,365,17,83,8,1,"https://samandarin.net/"
+557,365,17,83,8,1,"open.samandarin.net"
 3016,277,27,81,8,1,"SetActionPostCommand"
 558,365,27,55,8,1,"Bir şey söyle!"
 3017,277,37,81,8,1,"SetActionPostCommand"
@@ -109,9 +109,9 @@ COMMENT,"turkish (automatic AI translation)"
 
 [STRINGTABLE 1]
 48,1,"Bu eklenti kendi eklentilerinizi yapmanıza yardımcı olur."
-49,1,"https://samandarin.net/"
+49,1,"open.samandarin.net"
 50,1,"DemoPlug içinde bir özel durum oluştu, lütfen yazarlara bildirin!\nÖzel durum oluştuğunda bir .dop dosyasıyla çalışıyorsanız\nhatayı bu dosyayla yeniden oluşturmaya çalışın; tekrar oluşursa\n.dop dosyasını bize gönderin (hatayı yeniden oluşturup düzelteceğiz).\nTeşekkürler!"
-51,1,"https://samandarin.net/"
+51,1,"open.samandarin.net"
 52,1,"Yapılandırma zaten açık."
 53,1,"Bazı DemoPlug görüntüleyici pencereleri açık. Kapatılsın mı?"
 54,1,"DemoPlug Yapılandırması"

@@ -6,7 +6,7 @@ VERSION,"2,4,0,197"
 [TRANSLATION]
 LANGID,1026
 AUTHOR,"Open Samandarin"
-WEB,"https://samandarin.net/"
+WEB,"open.samandarin.net"
 COMMENT,"bulgarian (automatic AI translation)"
 
 [DIALOG 1000]
