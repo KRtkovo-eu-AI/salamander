@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Gate unelevated worker integration behind a test-only build. | Exercise the real broker process without claiming a UAC boundary. | #731 | GPT-6 |
 | 2026-11-12 | Expose test-only authenticated broker PID markers. | Measure a singleton job without lending a process handle. | #731 | GPT-6 |
 | 2026-11-12 | Type distinct worker handle arguments. | Prevent accidental exchange of source and cancel handles. | #731 | GPT-6 |
 | 2026-11-12 | Add typed worker handle transfer requests. | Retain original worker data I/O under a scoped broker session. | #731 | GPT-6 |
@@ -3766,13 +3767,21 @@ DWORD ServeTransferJob(const InstallLocation& install, HANDLE pipe, HANDLE host,
     return ERROR_SUCCESS;
 }
 
-int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hostPid)
+int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hostPid
+#ifdef SAM_UAC_THIN_COPY_TEST
+              , bool thinUnelevatedTest = false
+#endif
+)
 {
     HANDLE rawToken = nullptr;
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &rawToken))
         return Report(Untrusted, L"Open broker token", GetLastError());
     const auto token = Adopt(rawToken);
-    if (!Elevated(token.get()))
+    if (!Elevated(token.get())
+#ifdef SAM_UAC_THIN_COPY_TEST
+        && !thinUnelevatedTest
+#endif
+       )
         return Report(Untrusted, L"Broker requires elevation", ERROR_ELEVATION_REQUIRED);
     const auto host = Adopt(OpenProcess(processAccess, FALSE, hostPid));
     const bool appHost = host && install.MatchesProcess(host.get(), appImage);
@@ -3801,6 +3810,10 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
     if (error)
         return IoError(L"Read accept", error);
     const bool transferJob = appHost && Matches(frame, Phase::AcceptTransferJob, capability);
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (thinUnelevatedTest && !transferJob)
+        return Report(Untrusted, L"Test broker requires a transfer job", ERROR_ACCESS_DENIED);
+#endif
     if (!transferJob && !Matches(frame, Phase::Accept, capability))
         return Report(ProtocolError, L"Validate accept", ERROR_INVALID_DATA);
     if (!LiveInSession(host.get(), hostPid))
@@ -4020,7 +4033,14 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
 #endif
         return Report(ProtocolError, L"Verify broker protocol version", ERROR_REVISION_MISMATCH);
     }
-    const auto args = pipeName + L" " + std::to_wstring(GetCurrentProcessId());
+    auto args = pipeName + L" " + std::to_wstring(GetCurrentProcessId());
+#if defined(SAM_UAC_F7_HOST) && defined(SAM_UAC_THIN_COPY_TEST)
+    wchar_t testSwitch[2]{};
+    const bool thinUnelevatedTest = request && IsThinOpen(request->operation) &&
+        GetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", testSwitch, ARRAYSIZE(testSwitch)) == 1 &&
+        testSwitch[0] == L'1';
+    if (thinUnelevatedTest) args += L" --thin-unelevated-test";
+#endif
     SHELLEXECUTEINFOW launch{sizeof(launch)};
     launch.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
 #ifdef SAM_UAC_F7_HOST
@@ -4029,6 +4049,9 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
     launch.hwnd = GetConsoleWindow();
 #endif
     launch.lpVerb = L"runas";
+#if defined(SAM_UAC_F7_HOST) && defined(SAM_UAC_THIN_COPY_TEST)
+    if (thinUnelevatedTest) launch.lpVerb = L"open";
+#endif
     launch.lpFile = exe.c_str();
     launch.lpParameters = args.c_str();
     launch.lpDirectory = install.Directory().c_str();
@@ -4073,7 +4096,12 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
     if (!Matches(frame, Phase::Hello, capability))
         return Report(ProtocolError, L"Validate hello", ERROR_INVALID_DATA);
     bool elevated = false;
-    if (!InspectPipeClient(pipe.get(), elevated) || !elevated || !LiveInSession(child.get(), pid))
+    if (!InspectPipeClient(pipe.get(), elevated) ||
+        (!elevated
+#if defined(SAM_UAC_F7_HOST) && defined(SAM_UAC_THIN_COPY_TEST)
+         && !thinUnelevatedTest
+#endif
+        ) || !LiveInSession(child.get(), pid))
         return Report(Untrusted, L"Verify elevated identification token", ERROR_ACCESS_DENIED);
 
 #if defined(SAM_UAC_F7_HOST) && defined(SAM_UAC_THIN_COPY_TEST)
@@ -6936,7 +6964,12 @@ int wmain(int argc, wchar_t** argv)
     if (!SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32))
         return Report(Failed, L"Restrict DLL lookup", GetLastError());
     const bool registerTree = (argc == 2 || argc == 4) && wcscmp(argv[1], L"--register-tree-target") == 0;
-    if (!registerTree && argc != 3)
+#ifdef SAM_UAC_THIN_COPY_TEST
+    const bool thinUnelevatedTest = argc == 4 && !wcscmp(argv[3], L"--thin-unelevated-test");
+#else
+    constexpr bool thinUnelevatedTest = false;
+#endif
+    if (!registerTree && argc != 3 && !thinUnelevatedTest)
         return Untrusted;
     std::wstring pipeName;
     DWORD hostPid = 0;
@@ -6978,7 +7011,11 @@ int wmain(int argc, wchar_t** argv)
         const DWORD error = slot ? RegisterTreeSlot(install, slot, argv[3]) : RegisterTreeTarget(install);
         return error ? Report(Failed, L"Register tree target", error) : Ok;
     }
-    return RunBroker(install, pipeName.c_str(), hostPid);
+    return RunBroker(install, pipeName.c_str(), hostPid
+#ifdef SAM_UAC_THIN_COPY_TEST
+                     , thinUnelevatedTest
+#endif
+                     );
 #else
     if (!install.MatchesProcess(GetCurrentProcess(), probeImage) || !install.OpenImage(probeImage))
         return Report(Untrusted, L"Verify probe image", ERROR_ACCESS_DENIED);
