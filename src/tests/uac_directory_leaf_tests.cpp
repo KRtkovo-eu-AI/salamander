@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Exercise case-only rename to a free name in a case-sensitive directory. | Verify the exact-object behavior on actual NTFS. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Verify conservative disk overwrite recovery separately from ZIP. | Preserve exact legacy journals and backups without claiming unproved restoration. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Verify time-only metadata on special NTFS files. | Preserve content, streams, permissions and special attributes across the exact-handle update. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Verify anchored case-only renames. | Exercise actual NTFS names, identity checks, collisions, and directory handling. | #731 | GPT-6.1 Terra |
@@ -5675,13 +5676,117 @@ int wmain(int argc, wchar_t** argv)
             const DWORD collision = UacRenameLeaf::RenameVerifiedFile(sensitive.get(), sensitiveId, lowerId,
                                                                       L"case-name", L"CASE-NAME");
             FILE_ID_INFO lowerAfter{}, upperAfter{};
-            const auto afterLower = OpenIdentity(lower, lowerAfter);
-            const auto afterUpper = OpenIdentity(upper, upperAfter);
+            auto afterLower = OpenIdentity(lower, lowerAfter);
+            auto afterUpper = OpenIdentity(upper, upperAfter);
             Check(collision != ERROR_SUCCESS && afterLower && afterUpper &&
                       UacRenameLeaf::Detail::SameSource(lowerAfter, lowerId) &&
                       UacRenameLeaf::Detail::SameSource(upperAfter, upperId) &&
                       !UacRenameLeaf::Detail::SameSource(lowerId, upperId),
                   "case-sensitive collision preserves both distinct identities", collision);
+            afterLower.reset();
+            afterUpper.reset();
+            const HANDLE upperRaw = CreateFileW(upper.c_str(), DELETE | FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_POSIX_SEMANTICS, nullptr);
+            auto upperDelete = Handle(upperRaw == INVALID_HANDLE_VALUE ? nullptr : upperRaw);
+            FILE_ID_INFO deleteId{};
+            FILE_DISPOSITION_INFO disposition{TRUE};
+            if (!upperDelete || !GetFileInformationByHandleEx(upperDelete.get(), FileIdInfo, &deleteId, sizeof(deleteId)) ||
+                !UacRenameLeaf::Detail::SameSource(deleteId, upperId) ||
+                !SetFileInformationByHandle(upperDelete.get(), FileDispositionInfo, &disposition, sizeof(disposition)))
+                return 2;
+            upperDelete.reset();
+            const DWORD renamed = UacRenameLeaf::RenameVerifiedFile(sensitive.get(), sensitiveId, lowerId,
+                                                                     L"case-name", L"CASE-NAME");
+            const HANDLE exactRaw = CreateFileW(upper.c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_POSIX_SEMANTICS, nullptr);
+            const auto exact = Handle(exactRaw == INVALID_HANDLE_VALUE ? nullptr : exactRaw);
+            FILE_ID_INFO renamedId{};
+            Check(renamed == ERROR_SUCCESS && exact &&
+                      GetFileInformationByHandleEx(exact.get(), FileIdInfo, &renamedId, sizeof(renamedId)) &&
+                      UacRenameLeaf::Detail::SameSource(renamedId, lowerId),
+                  "case-only rename to a free exact name preserves identity in a case-sensitive directory", renamed);
+            if (renamed != ERROR_SUCCESS)
+                return 2;
+            const DWORD stale = UacRenameLeaf::RenameVerifiedFile(sensitive.get(), sensitiveId, upperId,
+                                                                    L"CASE-NAME", L"case-name");
+            Check(stale == ERROR_FILE_INVALID, "case-sensitive rename rejects a stale approved source", stale);
+            auto wrongParent = sensitiveId;
+            wrongParent.file.FileId.Identifier[15] ^= 1;
+            const DWORD parentError = UacRenameLeaf::RenameVerifiedFile(sensitive.get(), wrongParent, lowerId,
+                                                                          L"CASE-NAME", L"case-name");
+            Check(parentError == ERROR_FILE_INVALID, "case-sensitive rename rejects a changed parent", parentError);
+
+            HANDLE pinnedRaw = nullptr;
+            const DWORD pinnedError = UacRenameLeaf::Detail::OpenSource(sensitive.get(), L"CASE-NAME", pinnedRaw,
+                DELETE, FILE_SHARE_READ, UacRenameLeaf::MoveKind::RenameFile, true);
+            auto pinned = Handle(pinnedRaw);
+            auto lateTarget = create(lower);
+            FILE_ID_INFO lateId{};
+            if (pinnedError || !pinned || !lateTarget ||
+                !GetFileInformationByHandleEx(lateTarget.get(), FileIdInfo, &lateId, sizeof(lateId)))
+                return 2;
+            lateTarget.reset();
+            const DWORD lateCollision = UacRenameLeaf::Detail::NativeRename(pinned.get(), sensitive.get(), L"case-name");
+            pinned.reset();
+            const HANDLE lateRaw = CreateFileW(lower.c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_POSIX_SEMANTICS, nullptr);
+            auto lateCheck = Handle(lateRaw == INVALID_HANDLE_VALUE ? nullptr : lateRaw);
+            FILE_ID_INFO lateAfter{};
+            Check(lateCollision != ERROR_SUCCESS && lateCheck &&
+                      GetFileInformationByHandleEx(lateCheck.get(), FileIdInfo, &lateAfter, sizeof(lateAfter)) &&
+                      UacRenameLeaf::Detail::SameSource(lateId, lateAfter) &&
+                      GetFileInformationByHandleEx(exact.get(), FileIdInfo, &renamedId, sizeof(renamedId)) &&
+                      UacRenameLeaf::Detail::SameSource(renamedId, lowerId),
+                  "no-replace rename preserves a target created after the source open", lateCollision);
+
+            const std::wstring longLower = std::wstring(240, L'x') + L"-\u6771-a";
+            const std::wstring longUpper = std::wstring(240, L'X') + L"-\u6771-A";
+            const std::wstring longSource = sensitivePath + L"\\" + longLower;
+            const std::wstring longTarget = sensitivePath + L"\\" + longUpper;
+            auto caseLongFile = create(longSource);
+            FILE_ID_INFO longId{};
+            if (!caseLongFile || !GetFileInformationByHandleEx(caseLongFile.get(), FileIdInfo, &longId, sizeof(longId)))
+                return 2;
+            caseLongFile.reset();
+            const DWORD longError = UacRenameLeaf::RenameVerifiedFile(sensitive.get(), sensitiveId, longId,
+                                                                       longLower, longUpper);
+            const HANDLE longRaw = CreateFileW(longTarget.c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_POSIX_SEMANTICS, nullptr);
+            auto longOpened = Handle(longRaw == INVALID_HANDLE_VALUE ? nullptr : longRaw);
+            FILE_ID_INFO longAfter{};
+            Check(longSource.size() > MAX_PATH && longError == ERROR_SUCCESS && longOpened &&
+                      GetFileInformationByHandleEx(longOpened.get(), FileIdInfo, &longAfter, sizeof(longAfter)) &&
+                      UacRenameLeaf::Detail::SameSource(longId, longAfter),
+                  "case-sensitive rename preserves a long Unicode leaf and identity", longError);
+
+            const std::wstring dirLower = sensitivePath + L"\\case-dir";
+            const std::wstring dirUpper = sensitivePath + L"\\CASE-DIR";
+            if (!CreateDirectoryW(dirLower.c_str(), nullptr) || !WriteFixture(dirLower + L"\\child-\u6771", {17}))
+                return 2;
+            HANDLE dirRaw = CreateFileW(dirLower.c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_POSIX_SEMANTICS, nullptr);
+            auto dirHandle = Handle(dirRaw == INVALID_HANDLE_VALUE ? nullptr : dirRaw);
+            FILE_ID_INFO dirId{};
+            if (!dirHandle || !GetFileInformationByHandleEx(dirHandle.get(), FileIdInfo, &dirId, sizeof(dirId)))
+                return 2;
+            dirHandle.reset();
+            const DWORD dirError = UacRenameLeaf::RenameVerifiedFile(sensitive.get(), sensitiveId, dirId,
+                L"case-dir", L"CASE-DIR", UacRenameLeaf::MoveKind::RenameDirectory);
+            dirRaw = CreateFileW(dirUpper.c_str(), FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_POSIX_SEMANTICS, nullptr);
+            auto dirAfter = Handle(dirRaw == INVALID_HANDLE_VALUE ? nullptr : dirRaw);
+            FILE_ID_INFO dirAfterId{};
+            Check(dirError == ERROR_SUCCESS && dirAfter &&
+                      GetFileInformationByHandleEx(dirAfter.get(), FileIdInfo, &dirAfterId, sizeof(dirAfterId)) &&
+                      UacRenameLeaf::Detail::SameSource(dirId, dirAfterId) &&
+                      HasContents(dirUpper + L"\\child-\u6771", {17}),
+                  "case-sensitive directory rename preserves its identity and subtree", dirError);
         }
         else
             std::printf("SKIP: case-sensitive directory setup unavailable (%lu)\n", GetLastError());

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Handle exact case-only renames in case-sensitive directories. | Preserve the anchored identity and no-replace operation without changing case-insensitive behavior. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Verify case-only renames against the same anchored object. | Preserve identity and no-replace semantics for native rename operations. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Move a verified read-only file without changing its attributes. | Extend same-volume F6 while retaining exact identity and no-replace publication. | | GPT-6.1 Sol |
 | 2026-11-11 | Accept hidden and system attributes for an ordinary same-volume move. | Match native F6 eligibility without widening rename or reparse operations. | | GPT-6.1 Sol |
@@ -99,12 +100,13 @@ inline DWORD NativeHardLink(HANDLE source, HANDLE targetParent, std::wstring_vie
 
 inline DWORD OpenFile(HANDLE parent, std::wstring_view leaf, HANDLE& source, ACCESS_MASK extraAccess, ULONG sharing,
                       ULONG disposition, ULONG options, PSECURITY_DESCRIPTOR security = nullptr,
-                      bool allowDirectory = false, bool overlapped = false)
+                      bool allowDirectory = false, bool overlapped = false, bool caseSensitive = false)
 {
     const auto bytes = static_cast<USHORT>(leaf.size() * sizeof(wchar_t));
     UNICODE_STRING objectName{bytes, bytes, const_cast<wchar_t*>(leaf.data())};
     OBJECT_ATTRIBUTES attributes{};
-    InitializeObjectAttributes(&attributes, &objectName, OBJ_CASE_INSENSITIVE | OBJ_DONT_REPARSE, parent, security);
+    InitializeObjectAttributes(&attributes, &objectName,
+                               OBJ_DONT_REPARSE | (caseSensitive ? 0 : OBJ_CASE_INSENSITIVE), parent, security);
     IO_STATUS_BLOCK io{};
     const ACCESS_MASK access = FILE_READ_ATTRIBUTES | (overlapped ? 0 : SYNCHRONIZE) | extraAccess;
     // Leave the type unrestricted for directory operations. The opened object's
@@ -118,10 +120,10 @@ inline DWORD OpenFile(HANDLE parent, std::wstring_view leaf, HANDLE& source, ACC
 }
 
 inline DWORD OpenSource(HANDLE parent, std::wstring_view leaf, HANDLE& source, ACCESS_MASK extraAccess, ULONG sharing,
-                        MoveKind kind = MoveKind::RenameFile)
+                        MoveKind kind = MoveKind::RenameFile, bool caseSensitive = false)
 {
     return OpenFile(parent, leaf, source, extraAccess, sharing, FILE_OPEN, 0, nullptr,
-                    IsDirectory(kind));
+                    IsDirectory(kind), false, caseSensitive);
 }
 
 // Fixed fields of MS-FSCC Mount Point Reparse Data Buffer.
@@ -316,8 +318,15 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
     else if (!SameParent(expectedTarget, actual))
         return ERROR_FILE_INVALID;
 
+    // An exact source open is needed only for a case-only rename when the
+    // pinned parent explicitly reports case-sensitive lookup. If the flag is
+    // unavailable, retain the existing case-insensitive path unchanged.
+    FILE_CASE_SENSITIVE_INFO sensitivity{};
+    const bool exactCase = caseOnly && (kind == MoveKind::RenameFile || kind == MoveKind::RenameDirectory) &&
+        GetFileInformationByHandleEx(parent, FileCaseSensitiveInfo, &sensitivity, sizeof(sensitivity)) &&
+        (sensitivity.Flags & FILE_CS_FLAG_CASE_SENSITIVE_DIR) != 0;
     HANDLE source = nullptr;
-    error = Detail::OpenSource(parent, from, source, DELETE, FILE_SHARE_READ, kind);
+    error = Detail::OpenSource(parent, from, source, DELETE, FILE_SHARE_READ, kind, exactCase);
     if (error != ERROR_SUCCESS)
         return error;
     FILE_ID_INFO actualSource{};
@@ -330,7 +339,7 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
         // designate the approved object, especially in case-sensitive folders.
         // Keep the source pinned while verifying the exact destination alias.
         HANDLE alias = nullptr;
-        error = Detail::OpenSource(targetParent, to, alias, 0, FILE_SHARE_READ | FILE_SHARE_DELETE, kind);
+        error = Detail::OpenSource(targetParent, to, alias, 0, FILE_SHARE_READ | FILE_SHARE_DELETE, kind, exactCase);
         if (!error)
         {
             FILE_ID_INFO aliasIdentity{};
@@ -339,6 +348,8 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
                 error = ERROR_FILE_INVALID;
             CloseHandle(alias);
         }
+        else if (exactCase && error == ERROR_FILE_NOT_FOUND)
+            error = ERROR_SUCCESS; // The exact name is free; NativeRename never replaces a collision.
     }
     if (error == ERROR_SUCCESS && kind == MoveKind::OrdinaryFile)
     {
