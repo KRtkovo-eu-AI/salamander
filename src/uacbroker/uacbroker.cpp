@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Prepare archive reads from a verified listing identity. | Preserve source scope across a separate broker consent. | #731 | GPT-6.1 Sol |
 | 2026-11-12 | Permit scoped FindContent paging. | Reuse one verified consent for metadata pages and file reads. | #731 | GPT-6.1 Terra |
 | 2026-11-12 | Stream identity-bearing metadata pages. | Keep a verified directory handle within one scoped listing session. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
@@ -5247,11 +5248,49 @@ bool ArchiveReadSession::Prepare(const std::wstring& path)
     return prepared.PrepareTarget(path, Operation::ReadArchive, {}, nullptr);
 }
 
+DWORD ArchiveReadSession::PrepareFromListing(ListingSession& listing, const std::wstring& path,
+                                             DWORD expectedAttributes)
+{
+    constexpr DWORD excluded = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DEVICE;
+    if (pipe || prepared.parent || prepared.source || prepared.identityFromListing ||
+        expectedAttributes == INVALID_FILE_ATTRIBUTES || (expectedAttributes & excluded))
+        return ERROR_INVALID_PARAMETER;
+
+    // Prepare into a temporary so an allocation failure never publishes a
+    // partially initialized request that a later call could accidentally use.
+    PreparedLeaf candidate;
+    try
+    {
+        const DWORD error = listing.PrepareLeaf(path, Operation::ReadArchive, {}, candidate, nullptr,
+                                                expectedAttributes);
+        if (error)
+            return error;
+    }
+    catch (const std::bad_alloc&)
+    {
+        return ERROR_NOT_ENOUGH_MEMORY;
+    }
+    if (!candidate.identityFromListing || candidate.parent || candidate.source ||
+        candidate.operation != Operation::ReadArchive)
+        return ERROR_INVALID_DATA;
+
+    prepared.volume.swap(candidate.volume);
+    prepared.relative.swap(candidate.relative);
+    prepared.leaf.swap(candidate.leaf);
+    prepared.serial = candidate.serial;
+    std::memcpy(prepared.fileId, candidate.fileId, sizeof(prepared.fileId));
+    std::memcpy(prepared.sourceId, candidate.sourceId, sizeof(prepared.sourceId));
+    prepared.operation = Operation::ReadArchive;
+    prepared.identityFromListing = true;
+    return ERROR_SUCCESS;
+}
+
 DWORD ArchiveReadSession::Start(HWND owner)
 {
     const ComApartment com;
     InstallLocation install;
-    if (!prepared.parent || pipe || FAILED(com.result) || !install.Open() ||
+    if (prepared.operation != Operation::ReadArchive || (!prepared.parent && !prepared.identityFromListing) ||
+        pipe || FAILED(com.result) || !install.Open() ||
         !install.MatchesProcess(GetCurrentProcess(), appImage) || !install.OpenImage(appImage))
         return ERROR_ACCESS_DENIED;
     RequestHeader header{prepared.serial, {}, {}, Operation::ReadArchive,

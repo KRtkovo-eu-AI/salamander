@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Prepare an archive read from a scoped listing. | Bind archive consent to captured parent and file identities. | #731 | GPT-6.1 Sol |
 | 2026-11-12 | Expose the prepared Find root identity. | Bind paged Find requests to the existing consent. | #731 | GPT-6.1 Terra |
 | 2026-11-12 | Add bounded identity-bearing directory cursors. | Stream verified metadata without the single-listing item cap. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Expose a scoped transfer source and job opening for a reviewed retry. | Reject source substitution and a replaced broker session. | #731 | GPT-6 (Codex) |
@@ -1052,6 +1053,7 @@ public:
     }
 
 private:
+    friend class ArchiveReadSession;
     bool PrepareDirectory(const std::wstring& path, Operation operation);
     DWORD PrepareLeaf(const std::wstring& path, Operation operation, const std::wstring& renameTo,
                       PreparedLeaf& request, const MetadataChange* change = nullptr,
@@ -1079,6 +1081,9 @@ public:
     ArchiveReadSession(const ArchiveReadSession&) = delete;
     ArchiveReadSession& operator=(const ArchiveReadSession&) = delete;
     bool Prepare(const std::wstring& path);
+    // Uses a live List session to capture this file's current parent/file IDs.
+    // These IDs are acquired now, not necessarily when a panel row was shown.
+    DWORD PrepareFromListing(ListingSession& listing, const std::wstring& path, DWORD expectedAttributes);
     DWORD Start(HWND owner);
     bool IsOpen() const { return pipe != nullptr; }
     DWORD BeginRead();

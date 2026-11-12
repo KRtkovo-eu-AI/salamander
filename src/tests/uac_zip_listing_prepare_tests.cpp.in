@@ -1,0 +1,236 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Exercise listing-derived archive preparation. | Verify scope, wire data and NTFS identity checks. | #731 | GPT-6.1 Sol |
+#include <windows.h>
+#include <algorithm>
+#include <atomic>
+#include <cstdio>
+#include <cstring>
+#include <memory>
+#include <mutex>
+#include <new>
+#include <string>
+#include <string_view>
+#include <thread>
+#include <vector>
+#define private public
+#include "@@BROKER_DIR@@/f7pilot.h"
+#undef private
+#include "@@BROKER_DIR@@/listing.h"
+#include "@@BROKER_DIR@@/viewleaf.h"
+#include "@@BROKER_DIR@@/metadataleaf.h"
+#include "@@BROKER_DIR@@/deleteleaf.h"
+#include "@@BROKER_DIR@@/uacprotocol.h"
+
+
+constexpr DWORD timeoutMs = 5000;
+constexpr DWORD copyTimeoutMs = 30000;
+struct CloseHandleDeleter { void operator()(void* h) const { CloseHandle(h); } };
+using Handle = std::unique_ptr<void, CloseHandleDeleter>;
+Handle Adopt(HANDLE h) { return Handle(h == INVALID_HANDLE_VALUE ? nullptr : h); }
+@@GLOBAL_METHODS@@
+using UacF7::Operation;
+@@REQUEST_HEADER@@
+
+// The installation gate and UAC process are seams. Record the actual request
+// emitted by Start; separately exercise the real NTFS identity check below.
+struct ComApartment { HRESULT result = S_OK; };
+struct InstallLocation {
+    bool Open() const { return true; }
+    bool MatchesProcess(HANDLE, const wchar_t*) const { return true; }
+    bool OpenImage(const wchar_t*) const { return true; }
+};
+const wchar_t* appImage = L"test-app";
+RequestHeader recorded{};
+std::wstring recordedPayload;
+void RunProbe(InstallLocation&, bool, bool, HWND, const RequestHeader* header,
+              const std::wstring* payload, void*, UacF7::Result* result, HANDLE*,
+              void*, void*, UacF7::ArchiveRevision*)
+{
+    recorded = *header;
+    recordedPayload = *payload;
+    result->error = ERROR_SUCCESS;
+}
+namespace UacF7 {
+@@MEMBER_METHODS@@
+}
+
+namespace {
+int failures = 0;
+void Check(bool value, const char* message)
+{
+    std::printf("%s: %s\n", value ? "PASS" : "FAIL", message);
+    if (!value) ++failures;
+}
+bool Transfer(HANDLE pipe, void* value, DWORD size, bool send)
+{
+    return TransferRequest(pipe, value, size, send, GetTickCount64() + timeoutMs) == ERROR_SUCCESS;
+}
+struct Pair {
+    Handle client, peer;
+    bool Open()
+    {
+        const std::wstring name = L"\\\\.\\pipe\\uac-zip-listed-" + std::to_wstring(GetCurrentProcessId());
+        client = Adopt(CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+            PIPE_TYPE_MESSAGE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+            1, 4096, 4096, 0, nullptr));
+        if (!client) return false;
+        peer = Adopt(CreateFileW(name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr,
+                                 OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr));
+        return peer != nullptr;
+    }
+};
+DWORD ServeIdentity(HANDLE peer, HANDLE directory)
+{
+    DWORD request = 0;
+    if (!Transfer(peer, &request, sizeof(request), false)) return ERROR_BROKEN_PIPE;
+    if (!(request & UacListing::leafIdentityRequest)) return ERROR_INVALID_DATA;
+    request &= ~UacListing::leafIdentityRequest;
+    if (!request || request > 255) return ERROR_INVALID_DATA;
+    std::wstring name(request, L'\0');
+    if (!Transfer(peer, name.data(), request * sizeof(wchar_t), false)) return ERROR_BROKEN_PIPE;
+    UacDirectoryLeaf::ParentIdentity parent;
+    const auto split = name.find_last_of(L'\\');
+    Handle childParent;
+    DWORD status = ERROR_SUCCESS;
+    if (split != std::wstring::npos) {
+        HANDLE raw = nullptr;
+        status = UacDirectoryLeaf::OpenParentBelowRoot(directory, name.substr(0, split), raw, parent, FILE_LIST_DIRECTORY);
+        childParent = Adopt(raw);
+        name.erase(0, split + 1);
+    } else status = UacDirectoryLeaf::ReadParentIdentity(directory, parent);
+    const HANDLE actualParent = childParent ? childParent.get() : directory;
+    UacListing::LeafIdentity identity{};
+    if (!status) {
+        identity.parent = parent.file.FileId;
+        status = UacListing::CaptureChildId(actualParent, name, false, identity.file, identity.attributes);
+    }
+    if (!Transfer(peer, &status, sizeof(status), true)) return ERROR_BROKEN_PIPE;
+    if (!status && !Transfer(peer, &identity, sizeof(identity), true)) return ERROR_BROKEN_PIPE;
+    return status;
+}
+}
+
+int wmain(int argc, wchar_t** argv)
+{
+    setvbuf(stdout, nullptr, _IONBF, 0);
+    if (argc != 2) return 2;
+    const std::wstring root = std::wstring(argv[1]) + L"\\zip-東";
+    const std::wstring path = root + L"\\archive-日.zip";
+    Check(CreateDirectoryW(root.c_str(), nullptr) != FALSE, "create private test directory");
+    Handle file = Adopt(CreateFileW(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                    nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr));
+    Check(file != nullptr, "create archive fixture");
+    file.reset();
+    Handle directory = Adopt(CreateFileW(root.c_str(), FILE_LIST_DIRECTORY | FILE_TRAVERSE | FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    UacDirectoryLeaf::ParentIdentity parent;
+    Check(directory && !UacDirectoryLeaf::ReadParentIdentity(directory.get(), parent), "capture actual NTFS parent");
+    const DWORD attributes = GetFileAttributesW(path.c_str());
+    Pair pair;
+    Check(pair.Open(), "create local listing transport");
+    UacF7::ListingSession listing;
+    listing.root = root;
+    listing.prepared.operation = UacF7::Operation::List;
+    listing.prepared.volume = parent.volume;
+    std::wstring canonical(32768, L'\0');
+    const DWORD canonicalLength = GetFinalPathNameByHandleW(directory.get(), canonical.data(),
+        static_cast<DWORD>(canonical.size()), VOLUME_NAME_GUID | FILE_NAME_OPENED);
+    Check(canonicalLength > parent.volume.size() && canonicalLength < canonical.size(), "resolve real volume-relative directory");
+    canonical.resize(canonicalLength);
+    const std::wstring realRelative = canonical.substr(parent.volume.size() + 1);
+    listing.prepared.relative = realRelative;
+    listing.prepared.serial = parent.file.VolumeSerialNumber;
+    listing.pipe = pair.client.release();
+    listing.publishedOpen.store(true);
+
+    UacF7::ArchiveReadSession archive;
+    Check(archive.PrepareFromListing(listing, root + L"-outside\\x.zip", attributes) == ERROR_ACCESS_DENIED,
+          "reject path outside listing boundary");
+    Check(archive.PrepareFromListing(listing, path, FILE_ATTRIBUTE_DIRECTORY) == ERROR_INVALID_PARAMETER,
+          "reject directory without broker request");
+    Check(archive.PrepareFromListing(listing, path, FILE_ATTRIBUTE_REPARSE_POINT) == ERROR_INVALID_PARAMETER,
+          "reject reparse without broker request");
+    listing.prepared.operation = UacF7::Operation::CompareContent;
+    Check(archive.PrepareFromListing(listing, path, attributes) == ERROR_ACCESS_DENIED,
+          "a comparison scope cannot mint an archive session");
+    listing.prepared.operation = UacF7::Operation::List;
+    DWORD peerStatus = ERROR_SUCCESS;
+    std::thread mismatchPeer([&] { peerStatus = ServeIdentity(pair.peer.get(), directory.get()); });
+    const DWORD mismatch = archive.PrepareFromListing(listing, path, attributes ^ FILE_ATTRIBUTE_HIDDEN);
+    mismatchPeer.join();
+    Check(mismatch == ERROR_FILE_INVALID && !peerStatus && !archive.prepared.identityFromListing &&
+          archive.prepared.volume.empty(), "attribute mismatch fails without publishing partial identity");
+    std::thread peer([&] { peerStatus = ServeIdentity(pair.peer.get(), directory.get()); });
+    const DWORD prepared = archive.PrepareFromListing(listing, path, attributes);
+    peer.join();
+    Check(!prepared && !peerStatus, "prepare from actual listed NTFS IDs");
+    Check(archive.prepared.operation == UacF7::Operation::ReadArchive && archive.prepared.identityFromListing &&
+          !archive.prepared.parent && archive.prepared.leaf == L"archive-日.zip", "typed read-only identity is published");
+    Check(!archive.Start(nullptr) && recorded.operation == UacF7::Operation::ReadArchive &&
+          !std::memcmp(&recorded.parentId, &parent.file.FileId, sizeof(recorded.parentId)) &&
+          !std::memcmp(&recorded.sourceId, archive.prepared.sourceId, sizeof(recorded.sourceId)) &&
+          recorded.serial == parent.file.VolumeSerialNumber && recorded.relativeLength == realRelative.size() &&
+          recorded.leafLength == archive.prepared.leaf.size() &&
+          recordedPayload == parent.volume + realRelative + L"archive-日.zip",
+          "Start transmits exact real volume, relative parent, leaf and both IDs");
+    Check(archive.PrepareFromListing(listing, path, attributes) == ERROR_INVALID_PARAMETER,
+          "prepared archive cannot be overwritten");
+
+    const std::wstring nested = root + L"\\深い";
+    const std::wstring nestedPath = nested + L"\\nested-東.zip";
+    Check(CreateDirectoryW(nested.c_str(), nullptr) != FALSE, "create Unicode child directory");
+    file = Adopt(CreateFileW(nestedPath.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                             nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr));
+    Check(file != nullptr, "create nested archive");
+    file.reset();
+    const DWORD nestedAttributes = GetFileAttributesW(nestedPath.c_str());
+    UacF7::ArchiveReadSession nestedArchive;
+    std::thread nestedPeer([&] { peerStatus = ServeIdentity(pair.peer.get(), directory.get()); });
+    const DWORD nestedPrepared = nestedArchive.PrepareFromListing(listing, nestedPath, nestedAttributes);
+    nestedPeer.join();
+    if (nestedPrepared || peerStatus)
+        std::printf("nested preparation=%lu peer=%lu\n", nestedPrepared, peerStatus);
+    Check(!nestedPrepared && !peerStatus && !nestedArchive.Start(nullptr) &&
+          recorded.relativeLength == realRelative.size() + 3 &&
+          recordedPayload == parent.volume + realRelative + L"\\深い" + L"nested-東.zip",
+          "Unicode descendant retains its exact real volume-relative parent and leaf");
+    listing.Close();
+    archive.Close();
+    Check(!archive.Start(nullptr) && recordedPayload == parent.volume + realRelative + L"archive-日.zip",
+          "restart after listing and archive closure retains the original prepared identity");
+
+    FILE_ID_INFO expectedSource{};
+    expectedSource.VolumeSerialNumber = archive.prepared.serial;
+    std::memcpy(expectedSource.FileId.Identifier, archive.prepared.sourceId, sizeof(archive.prepared.sourceId));
+    HANDLE opened = nullptr;
+    LARGE_INTEGER size{};
+    FILE_BASIC_INFO basic{};
+    DWORD error = UacViewLeaf::OpenVerifiedRead(directory.get(), parent, expectedSource,
+                                                L"archive-日.zip", GetTickCount64() + timeoutMs, opened, size, basic);
+    Check(!error && opened, "broker verified reader accepts original file");
+    if (opened) CloseHandle(opened);
+    const std::wstring moved = root + L"\\original.zip";
+    Check(MoveFileW(path.c_str(), moved.c_str()) != FALSE, "move original aside");
+    file = Adopt(CreateFileW(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                             nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr));
+    file.reset();
+    opened = nullptr;
+    error = UacViewLeaf::OpenVerifiedRead(directory.get(), parent, expectedSource,
+                                         L"archive-日.zip", GetTickCount64() + timeoutMs, opened, size, basic);
+    Check(error == ERROR_FILE_INVALID && !opened, "reject replacement file at same path");
+    auto wrongParent = parent;
+    wrongParent.file.FileId.Identifier[0] ^= 1;
+    error = UacViewLeaf::OpenVerifiedRead(directory.get(), wrongParent, expectedSource,
+                                         L"original.zip", GetTickCount64() + timeoutMs, opened, size, basic);
+    Check(error == ERROR_FILE_INVALID && !opened, "reject replaced parent identity");
+    DeleteFileW(path.c_str());
+    DeleteFileW(moved.c_str());
+    DeleteFileW(nestedPath.c_str());
+    RemoveDirectoryW(nested.c_str());
+    directory.reset();
+    RemoveDirectoryW(root.c_str());
+    return failures ? 1 : 0;
+}

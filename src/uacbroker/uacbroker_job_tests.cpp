@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Test listed ZIP IDs through the archive dispatcher. | Reject substituted parent and file identities. | #731 | GPT-6.1 Sol |
 // | 2026-11-12 | Carry cursor tokens in pipe fixtures. | Test independent nested page requests. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Exercise verified paged metadata over the dispatcher pipe. | Check scoped cursors without restarting or exposing incomplete pages. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
@@ -301,6 +302,23 @@ public:
             return false;
         snapshot.resize(bytes);
         return !bytes || !TransferRequest(server.get(), snapshot.data(), bytes, false, deadline);
+    }
+
+    bool StartExactArchive(const Directory& pathParent, std::wstring_view leaf,
+                           const FILE_ID_INFO& expectedParent, const FILE_ID_INFO& expectedFile, DWORD& result)
+    {
+        RequestHeader header{};
+        header.serial = expectedParent.VolumeSerialNumber;
+        header.parentId = expectedParent.FileId;
+        header.sourceId = expectedFile.FileId;
+        header.operation = Operation::ReadArchive;
+        header.relativeLength = static_cast<DWORD>(pathParent.relative.size());
+        header.leafLength = static_cast<DWORD>(leaf.size());
+        std::wstring payload = pathParent.identity.volume + pathParent.relative + std::wstring(leaf);
+        const auto deadline = GetTickCount64() + timeoutMs;
+        return !TransferRequest(server.get(), &header, sizeof(header), true, deadline) &&
+               !TransferRequest(server.get(), payload.data(), static_cast<DWORD>(payload.size() * sizeof(wchar_t)), true, deadline) &&
+               !TransferRequest(server.get(), &result, sizeof(result), false, deadline);
     }
 
     bool StartFindRoot(const Directory& parent, std::wstring_view directory,
@@ -639,6 +657,18 @@ void CheckListedArchiveIdentity(const Directory& source, const Directory& outsid
     UacListing::LeafIdentity listed{};
     const bool captured = job.QueryLeafIdentity(leaf, ERROR_SUCCESS, listed);
     const FILE_ID_INFO expected{source.identity.file.VolumeSerialNumber, listed.file};
+    DWORD dispatchResult = ERROR_GEN_FAILURE;
+    JobPipe accepted;
+    Check(captured && accepted.Open(nullptr, nullptr, Operation::List, nullptr, true) &&
+          accepted.StartExactArchive(source, leaf, source.identity.file, expected, dispatchResult) &&
+          dispatchResult == ERROR_SUCCESS, "ReadArchive dispatcher accepts exact listed IDs");
+    accepted.Finish();
+    JobPipe replacedParent;
+    dispatchResult = ERROR_SUCCESS;
+    Check(replacedParent.Open(nullptr, nullptr, Operation::List, nullptr, true) &&
+          replacedParent.StartExactArchive(outside, leaf, source.identity.file, expected, dispatchResult) &&
+          dispatchResult == ERROR_FILE_INVALID, "ReadArchive dispatcher rejects substituted parent");
+    replacedParent.Finish();
     HANDLE raw = nullptr;
     LARGE_INTEGER size{};
     FILE_BASIC_INFO basic{};
@@ -655,6 +685,11 @@ void CheckListedArchiveIdentity(const Directory& source, const Directory& outsid
           "the same archive name in another parent cannot replace the selected file");
     Check(MoveFileW(source.File(leaf).c_str(), source.File(old).c_str()) && WriteByte(source.File(leaf), 44),
           "replace the listed archive after capturing its identity");
+    JobPipe replacedFile;
+    dispatchResult = ERROR_SUCCESS;
+    Check(replacedFile.Open(nullptr, nullptr, Operation::List, nullptr, true) &&
+          replacedFile.StartExactArchive(source, leaf, source.identity.file, expected, dispatchResult) &&
+          dispatchResult == ERROR_FILE_INVALID, "ReadArchive dispatcher rejects substituted file");
     raw = nullptr;
     result = UacViewLeaf::OpenVerifiedRead(source.handle.get(), source.identity, expected, leaf, deadline, raw, size, basic);
     Check(result == ERROR_FILE_INVALID && !raw && HasByte(source.File(leaf), 44) && HasByte(source.File(old), 42),
