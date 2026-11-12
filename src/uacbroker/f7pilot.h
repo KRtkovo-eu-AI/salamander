@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Declare scoped worker file handle transfers. | Keep native copy I/O in the unelevated process. | #731 | GPT-6 |
 | 2026-11-12 | Prepare an archive read from a scoped listing. | Bind archive consent to captured parent and file identities. | #731 | GPT-6.1 Sol |
 | 2026-11-12 | Expose the prepared Find root identity. | Bind paged Find requests to the existing consent. | #731 | GPT-6.1 Terra |
 | 2026-11-12 | Add bounded identity-bearing directory cursors. | Stream verified metadata without the single-listing item cap. | #731 | GPT-6 (Codex) |
@@ -593,6 +594,7 @@ private:
     friend class TransferJobSession;
     friend class ArchiveReadSession;
     friend class PreparedTransfer;
+    friend class ThinCopySession;
     bool PrepareTarget(const std::wstring& path, Operation requested, const std::wstring& renameTo,
                        const MetadataChange* change);
     HANDLE parent = nullptr;
@@ -899,6 +901,7 @@ public:
     bool IgnoresAds() const { return source.operation == Operation::CopyIgnoreAds || source.operation == Operation::CopyOverwriteIgnoreAds; }
 
 private:
+    friend class ThinCopySession;
     struct ScopedUse
     {
         const PreparedTransfer& owner;
@@ -924,6 +927,45 @@ private:
     ArchiveRevision overwriteTarget;
     ULONGLONG size = 0;
 };
+
+
+enum class ThinOpenKind : DWORD { Source = 1, TargetCreate = 2, TargetRetry = 3, TargetProbe = 4 };
+
+struct ThinOpenResult
+{
+    HANDLE file = INVALID_HANDLE_VALUE;
+    DWORD error = ERROR_GEN_FAILURE;
+    bool declined = false;
+    bool unknown = false;
+    MoveFileIdentity targetIdentity{};
+};
+
+// One authenticated broker for one verified pair of parent directories. Open
+// returns only a file handle; the worker retains responsibility for all I/O.
+class ThinCopySession
+{
+public:
+    ThinCopySession() = default;
+    ~ThinCopySession();
+    ThinCopySession(const ThinCopySession&) = delete;
+    ThinCopySession& operator=(const ThinCopySession&) = delete;
+    ThinOpenResult Open(HWND owner, const PreparedTransfer& prepared, ThinOpenKind kind,
+                        bool overlapped, bool copyAttrs, const MoveFileIdentity* expectedTarget,
+                        HANDLE cancel = nullptr);
+    DWORD DiscardTarget(const PreparedTransfer& prepared, const MoveFileIdentity& target);
+    bool IsOpen() const;
+    bool Matches(const PreparedTransfer& prepared) const;
+    void Close();
+
+private:
+    void CloseLocked();
+    mutable std::mutex gate;
+    HANDLE pipe = nullptr;
+    HANDLE broker = nullptr;
+    TransferJobScope scope;
+    ULONGLONG nextSequence = 1;
+};
+
 
 class ElevatedEditor
 {
