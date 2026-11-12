@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Add an explicit singleton-probe boundary seam. | Verify fallback routing without simulating the probe as production. | #731 | GPT-6 |
 // | 2026-11-11 | Exercise a denied Scan Ahead revalidation with Overwrite All. | Never dispatch an unverified target from an injected choice. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise listed target confirmation and unrelated open failures. | Preserve native conflict choices when metadata access is denied. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise actual overwrite confirmation and retry ordering with UI seams. | Preserve Hidden/System decisions and exact-revision retries before broker dispatch. | #731 | GPT-6.1 Sol |
@@ -133,6 +134,19 @@ static bool ExistingMoveNeedsBroker(bool isMove, bool targetExists, const COpera
     return protectedExistingMove;
 }
 @@DECISION@@
+// The real singleton path has a separate named-pipe harness; this seam only
+// checks routing into it when ordinary overwrite preparation is unavailable.
+static SourceOverwriteResult SingletonOutcome = SourceOverwriteResult::Unavailable;
+static bool SingletonTargetDenied = false, SingletonPreviousDecision = false;
+static SourceOverwriteResult TrySingleProbedOverwrite(HWND, const COperation&, COperations&,
+    CQuadWord&, CProgressDlgData&, UacF7::OverwriteApproval&, DWORD&, bool targetDenied,
+    bool previousUserDecision)
+{
+    Events.emplace_back("singleton seam");
+    SingletonTargetDenied = targetDenied;
+    SingletonPreviousDecision = previousUserDecision;
+    return SingletonOutcome;
+}
 #undef SendMessage
 #define SendMessage SendTestMessage
 #define WaitForSingleObject WaitForTestWorker
@@ -153,6 +167,8 @@ static void Reset()
     Answer = ConflictAnswer = IDYES;
     WorkerCancelled = FALSE;
     IdentityValid = PreparationAvailable = true;
+    SingletonOutcome = SourceOverwriteResult::Unavailable;
+    SingletonTargetDenied = SingletonPreviousDecision = false;
     TargetOpenError = ERROR_SUCCESS;
     CurrentRevision = 1; CurrentAttributes = FILE_ATTRIBUTE_HIDDEN;
     Events.clear();
@@ -268,7 +284,13 @@ int main()
         "an unreadable Scan Ahead target cannot use an injected Overwrite All decision");
     Reset(); PreparationAvailable = false;
     Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error) == Outcome::Unavailable &&
-        !Prompts && !Executions, "ineligible overwrite retains the ordinary error flow");
+        Events == std::vector<std::string>{"prepare", "singleton seam"} && !Prompts && !Executions,
+        "an unavailable singleton seam retains the ordinary error flow");
+    Reset(); PreparationAvailable = false; SingletonOutcome = Outcome::Cancelled;
+    Check(TryOverwriteDeniedSource(nullptr, operation, script, progress, fresh, approval, error, true, true) == Outcome::Cancelled &&
+        Events == std::vector<std::string>{"prepare", "singleton seam"} && SingletonTargetDenied && SingletonPreviousDecision &&
+        !Prompts && !Executions,
+        "fallback propagates target denial, earlier decision and singleton result");
     std::printf("%d checks, %d failures\n", Checks, Failures);
     return Failures ? 1 : 0;
 }

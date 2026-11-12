@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Update scoped worker copy contracts. | Check current cancellation, identity and admission boundaries without global token counts. | #731 | GPT-6 |
 # | 2026-11-11 | Check typed ignored-stream overwrite routing. | Keep F5 policy distinct from ordinary copy and F6. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Cover shared copy and move overwrite routing. | Preserve listed source identity and move completion in the common retry. | #731 | GPT-6.1 Sol |
 # | 2026-11-11 | Follow the shared operation selector for compressed moves. | Preserve the exact MoveCompressed route after removing duplicate host selection. | #731 | GPT-6.1 Sol |
@@ -121,10 +122,16 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertIn("(protectedCopy || protectedMove) && (op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE)", builder)
 
         worker = text("worker.cpp")
-        self.assertEqual(worker.count("OPFL_UAC_TRANSFER_ELIGIBLE"), 6)
         for start, end in (("static bool TryTransferWithBroker(", "static bool PrepareWorkerOverwrite("),
-                           ("static bool PrepareWorkerOverwrite(", "struct MoveCopyReceipt")):
+                           ("static bool PrepareWorkerOverwrite(", "enum class SourceOverwriteResult")):
             self.assertIn("!(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE)", section(worker, start, end))
+        probe = section(worker, "static SourceOverwriteResult TrySingleProbedOverwrite(",
+                        "static SourceOverwriteResult TryOverwriteDeniedSource(")
+        self.assertIn("!(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE)", probe)
+        execution = section(worker, "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
+        single = section(execution, "const bool singleProbeJob =", "const bool shareJob =")
+        self.assertIn("script.Count == 1 && op.Opcode == ocCopyFile", single)
+        self.assertIn("(op.OpFlags & OPFL_UAC_TRANSFER_ELIGIBLE)", single)
 
     def test_recursive_copy_creation_uses_only_the_selected_root(self):
         controller = text("fileswn8.cpp")
@@ -259,8 +266,16 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertIn("if (!planned && existing == jobs.end())", transfer)
         self.assertLess(transfer.index("!request.IsInJob(*planned)"), transfer.index("WORKER_DIALOG_UAC_TRANSFER"))
         self.assertIn("return request.IsInJob(job)", transfer)
-        self.assertIn("HANDLE* input = nullptr, bool targetDenied = false)", worker)
-        self.assertIn("success, transferError, &in, true)", worker)
+        transfer_entry = section(worker, "static bool TryTransferWithBroker(", "static bool PrepareWorkerOverwrite(")
+        self.assertIn("HANDLE* input = nullptr, bool targetDenied = false, CreateOnlySourceReceipt* receipt = nullptr)", transfer_entry)
+        self.assertIn("request, error, targetDenied, receipt)", transfer_entry)
+        self.assertIn("merge ? pending->Target.c_str() : targetText.c_str(), !merge && targetDenied", transfer)
+        target_open = section(worker, "!dlgData.SkipAllFileOpenOut && GetLastError() == ERROR_ACCESS_DENIED", "if (in != INVALID_HANDLE_VALUE)")
+        self.assertIn("success, transferError, &in, true, &createOnlyReceipt)", target_open)
+        self.assertLess(dialog.index("prompt.targetDenied && Script->ShieldedTransferTarget"),
+                        dialog.index("ShieldedTransferTarget.reset()"))
+        self.assertLess(dialog.index("MatchesTargetDirectory(*Script->ShieldedTransferTarget)"),
+                        dialog.index("ShieldedTransferTarget.reset()"))
 
     def test_shield_and_transfer_share_the_verified_destination_capture(self):
         preview = section(text("fileswn8.cpp"), "struct TransferElevationPreview", "static bool StartProtectedTreeCopy")
@@ -288,7 +303,7 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertNotIn("error =", refusal)
         copy = section(worker, "BOOL DoCopyFile(", "BOOL DoMoveFile(")
         self.assertLess(copy.index("!dlgData.SkipAllFileOpenOut && GetLastError() == ERROR_ACCESS_DENIED"),
-                        copy.index("success, transferError, &in, true)"))
+                        copy.index("success, transferError, &in, true, &createOnlyReceipt)"))
 
     def test_protected_tree_copies_directory_with_an_opened_identity(self):
         broker = text("uacbroker/uacbroker.cpp")
@@ -312,7 +327,16 @@ class WorkerCopyPathContracts(unittest.TestCase):
         declined = section(transfer, "if (!prompt.approved)", "const HANDLE cancel")
         self.assertIn("jobs.clear();", declined)
         self.assertIn("return true;", declined)
-        self.assertIn("result.unknown || result.error == ERROR_CANCELLED", transfer)
+        cancellation = section(transfer, "const bool cancelled =", "else if (existing != jobs.end()")
+        self.assertIn("WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0", cancellation)
+        self.assertIn("*dlgData.CancelWorker || result.error == ERROR_CANCELLED", cancellation)
+        self.assertIn("if (cancelled || result.unknown)", cancellation)
+        self.assertIn("jobs.clear();", cancellation)
+        self.assertIn("planned->Close();", cancellation)
+        unknown = section(transfer, "if (result.unknown)", "if (result.error != ERROR_SUCCESS)")
+        self.assertIn("WORKER_DIALOG_UAC_TRANSFER_UNKNOWN", unknown)
+        self.assertIn("return true;", unknown)
+        self.assertIn("error = cancelled ? ERROR_CANCELLED : result.error;", transfer)
         self.assertIn("return error == ERROR_CANCELLED || *dlgData.CancelWorker != FALSE;", transfer)
     def test_terminal_worker_error_stops_scan_ahead_and_suppresses_queued_prompts(self):
         worker = section(text("worker.cpp"), "unsigned ThreadWorkerBody(void* parameter)", "FreeScript(script);")
@@ -333,14 +357,15 @@ class WorkerCopyPathContracts(unittest.TestCase):
         requeue = section(code, "void COperations::RequeueChangedConflictItem(", "void COperations::MarkConflictDirectoryPrepared(")
         self.assertIn("CaptureScannedOverwriteRevision(target, info, revision)", requeue)
         self.assertIn("op.ScannedTargetRevision = revision;", requeue)
-        overwrite = section(code, "static bool PrepareWorkerOverwrite(", "struct MoveCopyReceipt")
+        overwrite = section(code, "static bool PrepareWorkerOverwrite(", "enum class SourceOverwriteResult")
         self.assertIn("SameFileRevision(op.ScannedTargetRevision, request.Approval().revision)", overwrite)
         self.assertIn("dlgData.InjectedConflictType != cmctFileExists", overwrite)
         self.assertNotIn("OPFL_COPY_ADS", overwrite)
         broker = section(text("uacbroker/uacbroker.cpp"), "DWORD CopyOverExistingFile(", "DWORD WriteZipUpdate(")
         self.assertIn("StreamPolicy::PreserveNamed", broker)
         self.assertLess(broker.index("CopyOverwriteStreams("), broker.index("UacZipUpdate::Publish("))
-        lease = section(code, "COperation& op = At(*item);", "CConflictLeaseOutcome COperations::FinishParallelCopyLeaseLocked")
+        lease = section(code, "BOOL COperations::LeaseNextParallelCopy(", "CConflictLeaseOutcome COperations::FinishParallelCopyLeaseLocked")
+        self.assertIn("COperation& op = At(item);", lease)
         self.assertIn("op.ScannedTargetRevision.attributes", lease)
         transfer = section(code, "static bool ExecuteWorkerTransfer(", "static bool TryTransferWithBroker(")
         stale = section(transfer, "if (error == ERROR_FILE_INVALID", "return error == ERROR_CANCELLED")
