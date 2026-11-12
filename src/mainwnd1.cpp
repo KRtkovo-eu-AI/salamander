@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Disable entry content actions for the protected listing. | Keep metadata and navigation available. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Observe F5 panel readiness in test builds. | Coordinate the isolated real-worker acceptance test without changing commands. | #731 | GPT-6 |
 // | 2026-11-08 | Enable archive deletion for an open protected ZIP with a verified editor. | Preserve ordinary archive capability checks. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Enable extraction from the protected archive panel. | Keep archive mutations disabled. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-08 | Enable F3 for a protected ZIP entry. | Keep external view and transfer actions on their separate routes. | | GPT-6.1 Sol (Codex) |
