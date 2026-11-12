@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Keep deferred-target contracts with the laboratory worker. | Ensure unsupported parent chains retain the original authorized route. | #731 | GPT-6 |
 # | 2026-11-12 | Update scoped worker copy contracts. | Check current cancellation, identity and admission boundaries without global token counts. | #731 | GPT-6 |
 # | 2026-11-11 | Check typed ignored-stream overwrite routing. | Keep F5 policy distinct from ordinary copy and F6. | #731 | GPT-6.1 Terra |
 # | 2026-11-11 | Cover shared copy and move overwrite routing. | Preserve listed source identity and move completion in the common retry. | #731 | GPT-6.1 Sol |
@@ -386,8 +387,12 @@ class WorkerCopyPathContracts(unittest.TestCase):
         transfer = section(code, "static bool TryTransferWithBroker(", "static bool PrepareWorkerOverwrite(")
         self.assertIn("if (!deferred && !plannedRoot)", transfer)
         self.assertIn("operation, listedSource, deferred)", transfer)
+        thin = section(code, "bool CThinCopyWorker::Configure(", "bool CThinCopyWorker::EnsurePrepared(")
+        self.assertIn("!script.DeferredTransferTarget", thin)
+        self.assertIn("const bool originalTransfer = !thin.active;", code)
+        self.assertIn("const bool originalTransfer = true;", code)
         worker = section(code, "BOOL DoCopyFile(COperation* op", "BOOL DoMoveFile(")
-        pending = section(worker, "if (deferred ||", "BOOL tgtNameCaseCorrected")
+        pending = section(worker, "if (originalTransfer && (deferred ||", "BOOL tgtNameCaseCorrected")
         self.assertIn("!deferred && !copyAsEncrypted", pending)
         self.assertIn("outcome == SourceOverwriteResult::Finished && isMove && skip", pending)
         self.assertIn("TryTransferWithBroker(", pending)
@@ -412,7 +417,7 @@ class WorkerCopyPathContracts(unittest.TestCase):
         self.assertIn("return Outcome::Skipped;", helper)
         self.assertIn("return Outcome::Failed;", helper)
         worker = section(code, "BOOL DoCopyFile(COperation* op", "BOOL DoMoveFile(")
-        deferred = section(worker, "if (deferred || (op->OpFlags & OPFL_UAC_TRANSFER_SOURCE)", "BOOL tgtNameCaseCorrected")
+        deferred = section(worker, "if (originalTransfer && (deferred || (op->OpFlags & OPFL_UAC_TRANSFER_SOURCE)", "BOOL tgtNameCaseCorrected")
         denied = section(worker, "OPEN_IN_ERROR:", "SKIP_OPEN_IN:")
         for path in (deferred, denied):
             self.assertIn("TryOverwriteDeniedSource(", path)
