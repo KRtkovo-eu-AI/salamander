@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Include protected panel handler selection. | Exercise explicit internal viewer identity routing. | #731 | GPT-6 (Codex) |
 # | 2026-11-11 | Exercise Find F3 identity routing against a real NTFS replacement. | Prevent the readable path probe from bypassing a captured identity. | #731 | GPT-6.1 Terra |
 """Run the production Find-view controller with real NTFS IDs and read primitive."""
 import argparse
@@ -21,6 +22,7 @@ def main():
     fixture = fixture.replace('@@CONTROLLER@@', block(source, 'static bool PrepareProtectedViewerSnapshot('))
     fixture = fixture.replace('@@CANDIDATE@@', block(source, 'static bool AllowFindViewerCandidate('))
     fixture = fixture.replace('@@HANDLER_GUARD@@', block(source, 'if (foundView && (!viewer || viewer->ViewerType != VIEWER_INTERNAL))'))
+    fixture = fixture.replace('@@PANEL_HANDLER_GUARD@@', block(source, 'if (panelStillCurrent && (!viewer || viewer->HandlerID != handlerID'))
     assert '@@' not in fixture
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))

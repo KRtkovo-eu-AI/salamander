@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Open Salamander Authors
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
+// | 2026-11-12 | Preserve protected panel identity for explicit internal viewers. | Keep View With on the existing viewer and refuse stale modal state. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Offer verified time-only metadata for one special NTFS file. | Preserve compression, sparsity and encryption without treating untouched controls as changes. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Offer verified elevation for case-only rename. | Let the broker verify an existing target alias without treating it as an overwrite. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Offer verified directory elevation from Quick Rename. | Keep inline rename on the same consent and identity path as F2. | #731 | GPT-6.1 Terra |
@@ -69,6 +70,7 @@
 #include "menu.h"
 #include "edtlbwnd.h"
 #include "common/widepath.h"
+#include "fileactiondisktarget.h"
 #include "filetags.h"
 #include "svg.h"
 
@@ -2330,20 +2332,25 @@ static bool PrepareProtectedViewerSnapshot(HWND parent, const std::wstring* cand
                                            UacF7::ListingSession* protectedListing,
                                            const UacF7::PreparedLeaf* foundView,
                                            std::unique_ptr<std::vector<BYTE>>& snapshot, bool& readable,
-                                           int& enumFileNamesSourceUID, int& enumFileNamesLastFileIndex)
+                                           int& enumFileNamesSourceUID, int& enumFileNamesLastFileIndex,
+                                           const UacF7::PreparedLeaf* panelView = nullptr,
+                                           bool (*panelStillCurrent)(void*) = nullptr, void* panelContext = nullptr)
 {
     const bool eligible = candidate && candidate->size() > 3 && (*candidate)[1] == L':' &&
                           GetDriveTypeW(candidate->substr(0, 3).c_str()) == DRIVE_FIXED;
     if (!eligible)
     {
-        if (foundView)
+        if (foundView || panelView)
             SalMessageBox(parent, GetErrorText(candidate ? ERROR_NOT_SUPPORTED : ERROR_INVALID_NAME),
                           LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
-        return foundView == nullptr;
+        return foundView == nullptr && panelView == nullptr;
     }
 
     UacF7::PreparedLeaf request;
-    const UacF7::PreparedLeaf* prepared = foundView;
+    // Once a protected identity has been captured it must not be bypassed by
+    // reopening a now-readable same-name replacement. Readable panel files
+    // use the ordinary path before such a capture is attempted.
+    const UacF7::PreparedLeaf* prepared = foundView ? foundView : panelView;
     if (!prepared)
     {
         const std::wstring ioName = SalPathAddExtendedPrefixW(candidate->c_str());
@@ -2356,7 +2363,7 @@ static bool PrepareProtectedViewerSnapshot(HWND parent, const std::wstring* cand
         }
         else if (GetLastError() == ERROR_ACCESS_DENIED)
         {
-            if (request.PrepareView(*candidate))
+            if (!panelStillCurrent && request.PrepareView(*candidate))
                 prepared = &request;
             else if (protectedListing)
             {
@@ -2375,8 +2382,12 @@ static bool PrepareProtectedViewerSnapshot(HWND parent, const std::wstring* cand
         const int prompt = foundView ? IDS_UAC_VIEW_VERIFIED_CONFIRM : IDS_UAC_VIEW_CONFIRM;
         if (!ConfirmProtectedRead(parent, IDS_VIEWERTITLE, prompt, *candidate))
             return false;
+        if (panelStillCurrent && !panelStillCurrent(panelContext))
+            return false;
         snapshot = std::make_unique<std::vector<BYTE>>();
         const UacF7::Result result = prepared->ReadViewerSnapshot(parent, *snapshot);
+        if (panelStillCurrent && !panelStillCurrent(panelContext))
+            return false;
         if (result.error != ERROR_SUCCESS || result.unknown)
         {
             if (result.error != ERROR_CANCELLED)
@@ -2396,7 +2407,8 @@ static bool PrepareProtectedViewerSnapshot(HWND parent, const std::wstring* cand
 BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, BOOL returnLock,
                  HANDLE& lock, BOOL& lockOwner, BOOL addToHistory, int enumFileNamesSourceUID,
                  int enumFileNamesLastFileIndex, const std::wstring* protectedCandidate, UacF7::ListingSession* protectedListing,
-                 const UacF7::PreparedLeaf* foundView, bool deniedParent)
+                 const UacF7::PreparedLeaf* foundView, bool deniedParent, const UacF7::PreparedLeaf* panelView,
+                 bool (*panelStillCurrent)(void*), void* panelContext)
 {
     BOOL success = FALSE;
     lock = NULL;
@@ -2493,7 +2505,20 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
         }
     }
 
+    // A protected panel action is bound to the selected internal handler.
+    // The legacy mask fallback remains unchanged for all other entry points.
+    if (panelStillCurrent && (!viewer || viewer->HandlerID != handlerID || viewer->ViewerType != VIEWER_INTERNAL))
+    {
+        SalMessageBox(parent, LoadStr(IDS_UAC_VIEW_IDENTITY_HANDLER_UNSUPPORTED), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
+    }
+
     if (foundView && (!viewer || viewer->ViewerType != VIEWER_INTERNAL))
+    {
+        SalMessageBox(parent, LoadStr(IDS_UAC_VIEW_IDENTITY_HANDLER_UNSUPPORTED), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+        return FALSE;
+    }
+    if (panelView && (!viewer || viewer->ViewerType != VIEWER_INTERNAL))
     {
         SalMessageBox(parent, LoadStr(IDS_UAC_VIEW_IDENTITY_HANDLER_UNSUPPORTED), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
         return FALSE;
@@ -2604,10 +2629,14 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
 
         case VIEWER_INTERNAL:
         {
+            const DWORD selectedHandlerID = viewer->HandlerID;
             std::unique_ptr<std::vector<BYTE>> snapshot;
             bool readable = false;
             if (!PrepareProtectedViewerSnapshot(parent, protectedCandidate, protectedListing, foundView,
-                                                snapshot, readable, enumFileNamesSourceUID, enumFileNamesLastFileIndex))
+                                                snapshot, readable, enumFileNamesSourceUID, enumFileNamesLastFileIndex,
+                                                panelView, panelStillCurrent, panelContext))
+                return FALSE;
+            if (panelStillCurrent && !panelStillCurrent(panelContext))
                 return FALSE;
             if (deniedParent && !readable && !snapshot)
             {
@@ -2615,7 +2644,7 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                 return FALSE;
             }
             if (addToHistory)
-                MainWindow->FileHistory->AddFile(fhitView, viewer->HandlerID, name);
+                MainWindow->FileHistory->AddFile(fhitView, selectedHandlerID, name);
             if (Configuration.SavePosition &&
                 Configuration.WindowPlacement.length != 0)
             {
@@ -3243,6 +3272,57 @@ BOOL CFilesWindow::FillViewWithData(TDirectArray<CViewerMasksItem*>* items)
     return TRUE;
 }
 
+struct ProtectedPanelViewerGuard
+{
+    CMainWindow* main = nullptr;
+    HWND mainWindow = nullptr;
+    CFilesActionDiskTarget source;
+    ULONGLONG listing = 0;
+    DWORD handler = 0xFFFFFFFF;
+    bool armed = false;
+    bool Capture(CFilesWindow* panel, DWORD selectedHandler)
+    {
+        main = MainWindow;
+        if (!main || !IsWindow(main->HWindow) || panel->FilesActionInProgress || !source.Capture(main, panel))
+            return false;
+        mainWindow = main->HWindow;
+        listing = panel->GetListingIdentityGeneration();
+        handler = selectedHandler;
+        panel->FilesActionInProgress = TRUE;
+        armed = true;
+        return IsCurrent();
+    }
+    bool IsCurrent() const
+    {
+        if (!armed || MainWindow != main || !IsWindow(mainWindow) || !source.IsCurrent(main) ||
+            source.Panel->GetListingIdentityGeneration() != listing)
+            return false;
+        bool valid = false, found = false;
+        main->EnterViewerMasksCS();
+        CViewerMasks* masks[] = {main->ViewerMasks, main->AltViewerMasks};
+        for (int group = 0; group < 2 && !found; ++group)
+            if (masks[group])
+                for (int index = 0; index < masks[group]->Count; ++index)
+                    if (masks[group]->At(index)->HandlerID == handler)
+                    {
+                        found = true;
+                        valid = masks[group]->At(index)->ViewerType == VIEWER_INTERNAL;
+                        break;
+                    }
+        main->LeaveViewerMasksCS();
+        return found && valid;
+    }
+    static bool Validate(void* context) { return static_cast<ProtectedPanelViewerGuard*>(context)->IsCurrent(); }
+    ~ProtectedPanelViewerGuard()
+    {
+        if (armed && MainWindow == main && IsWindow(mainWindow))
+        {
+            CFilesWindow* live = CFilesActionDiskTarget::FindLive(main, source.Panel);
+            if (live && live->GetPanelTabId() == source.Tab) live->FilesActionInProgress = FALSE;
+        }
+    }
+};
+
 void CFilesWindow::OnViewFileWith(int index)
 {
     BeginStopRefresh(); // snooper takes a break
@@ -3262,8 +3342,72 @@ void CFilesWindow::OnViewFileWith(int index)
         return;
     }
 
-    ViewFile(NULL, FALSE, items[index]->HandlerID, Is(ptDisk) ? EnumFileNamesSourceUID : -1,
-             -1 /* index determined by focus */);
+    const DWORD selectedHandler = items[index]->HandlerID;
+    const int selectedFile = GetCaretIndex() - Dirs->Count;
+    const DWORD excluded = FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
+                           FILE_ATTRIBUTE_ENCRYPTED | FILE_ATTRIBUTE_OFFLINE;
+    const bool eligibleFile = selectedFile >= 0 && selectedFile < Files->Count &&
+                              !(Files->At(selectedFile).Attr & excluded);
+    if (items[index]->ViewerType == VIEWER_INTERNAL && Is(ptDisk) && !IsBranchView() && eligibleFile && ProtectedListing &&
+        ProtectedListing->Contains(SalPathRemoveExtendedPrefixW(GetPathW())))
+    {
+        // The source and request are fully captured before any consent dialog.
+        // The callback only consults live registries after a modal dispatch.
+        ProtectedPanelViewerGuard guard;
+        try
+        {
+            const int caret = selectedFile;
+            if (guard.Capture(this, selectedHandler))
+            {
+                const CFileData& file = Files->At(caret);
+                const std::wstring path = SalPathRemoveExtendedPrefixW(GetItemFullPathW(file).c_str());
+                if (ProtectedListing->Contains(path))
+                {
+                        const std::wstring ioName = SalPathAddExtendedPrefixW(path.c_str());
+                        HANDLE local = HANDLES_Q(CreateFileW(ioName.c_str(), GENERIC_READ,
+                            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+                            FILE_FLAG_SEQUENTIAL_SCAN, nullptr));
+                        const DWORD localError = local == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
+                        if (local != INVALID_HANDLE_VALUE) HANDLES(CloseHandle(local));
+                        UacF7::PreparedLeaf prepared;
+                        const DWORD error = localError == ERROR_ACCESS_DENIED ?
+                            ProtectedListing->PrepareViewer(path, prepared, file.Attr) : ERROR_SUCCESS;
+                        if (guard.IsCurrent())
+                        {
+                            const std::string encoded = SalWideToMultiBytePath(path.c_str(), CP_UTF8);
+                            if (!encoded.empty())
+                            {
+                                // A failed identity capture never authorizes a name-only fallback,
+                                // even if a same-name replacement is currently readable.
+                                if (error)
+                                    SalMessageBox(HWindow, GetErrorText(error), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+                                else
+                                {
+                                    HANDLE lock = NULL;
+                                    BOOL lockOwner = FALSE;
+                                    ViewFileInt(HWindow, encoded.c_str(), FALSE, selectedHandler, FALSE, lock, lockOwner,
+                                                TRUE, EnumFileNamesSourceUID, caret,
+                                                localError == ERROR_ACCESS_DENIED ? &path : nullptr,
+                                                nullptr, nullptr, false,
+                                                localError == ERROR_ACCESS_DENIED ? &prepared : nullptr,
+                                                ProtectedPanelViewerGuard::Validate, &guard);
+                                }
+                            }
+                        }
+                }
+            }
+            else if (MainWindow && IsWindow(HWindow))
+                SalMessageBox(HWindow, GetErrorText(ERROR_RETRY), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+        }
+        catch (const std::bad_alloc&)
+        {
+            if (guard.IsCurrent())
+                SalMessageBox(HWindow, GetErrorText(ERROR_NOT_ENOUGH_MEMORY), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+        }
+    }
+    else
+        ViewFile(NULL, FALSE, selectedHandler, Is(ptDisk) ? EnumFileNamesSourceUID : -1,
+                 -1 /* index determined by focus */);
 
     EndStopRefresh(); // snooper will start again now
 }

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Carry owned protected panel viewer state. | Validate the source after modal dispatch. | #731 | GPT-6 (Codex) |
 // | 2026-11-10 | Expose optional deferral after a target directory create denial. | Keep plugin and ordinary target parsing on their existing path. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Return Find editor preparation to its window thread. | Keep the synchronous request free of cross-thread consent dialogs. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Carry Find editor owner and item attributes. | Keep the F4 prompt tied to the selected Find result. | #731 | GPT-6.1 Sol |
@@ -672,7 +673,9 @@ BOOL ViewFileInt(HWND parent, const char* name, BOOL altView, DWORD handlerID, B
                  HANDLE& lock, BOOL& lockOwner, BOOL addToHistory, int enumFileNamesSourceUID,
                  int enumFileNamesLastFileIndex, const std::wstring* protectedCandidate = nullptr,
                  UacF7::ListingSession* protectedListing = nullptr,
-                 const UacF7::PreparedLeaf* foundView = nullptr, bool deniedParent = false);
+                 const UacF7::PreparedLeaf* foundView = nullptr, bool deniedParent = false,
+                 const UacF7::PreparedLeaf* panelView = nullptr,
+                 bool (*panelStillCurrent)(void*) = nullptr, void* panelContext = nullptr);
 
 // prevede string ('str' o delce 'len') na unsigned __int64 (muze predchazet
 // znamenko '+'; ignoruje white-spaces na zacatku a konci retezce);

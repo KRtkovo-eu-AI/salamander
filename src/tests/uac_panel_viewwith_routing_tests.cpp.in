@@ -1,0 +1,186 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Test protected panel View With routing. | Verify explicit internal routing without changing other handlers. | #731 | GPT-6 (Codex) |
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <cstdio>
+#include <memory>
+#include <string>
+#include <vector>
+#include <new>
+#define HANDLES_Q(x) (x)
+#define HANDLES(x) (x)
+#define TRACE_E(x) ((void)0)
+constexpr int VIEWER_INTERNAL = 1, VIEWER_EXTERNAL = 2, ptDisk = 1;
+constexpr int IDS_ERRORREADINGFILE = 1;
+static int refreshDepth = 0, fallback = 0, routed = 0, prepareCount = 0, messages = 0;
+static bool capturedRequest = false, invalidateDuringView = false, forceLocalDenied = false;
+static DWORD prepareError = ERROR_SUCCESS;
+static void BeginStopRefresh() { ++refreshDepth; }
+static void EndStopRefresh() { --refreshDepth; }
+static const char* GetErrorText(DWORD) { return "error"; }
+static const char* LoadStr(int) { return "error"; }
+static int SalMessageBox(HWND, const char*, const char*, unsigned) { ++messages; return 0; }
+static std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* path) { return path; }
+static std::wstring SalPathAddExtendedPrefixW(const wchar_t* path) { return path; }
+static std::string SalWideToMultiBytePath(const wchar_t* path, unsigned codepage)
+{
+    const int n = WideCharToMultiByte(codepage, 0, path, -1, nullptr, 0, nullptr, nullptr);
+    if (!n) return {};
+    std::vector<char> result(n);
+    if (!WideCharToMultiByte(codepage, 0, path, -1, result.data(), n, nullptr, nullptr)) return {};
+    return result.data();
+}
+namespace UacF7
+{
+struct PreparedLeaf {};
+struct ListingSession
+{
+    bool contains = true;
+    bool Contains(const std::wstring&) const { return contains; }
+    DWORD PrepareViewer(const std::wstring&, PreparedLeaf&, DWORD) { ++prepareCount; return prepareError; }
+};
+}
+struct CFileData { DWORD Attr = FILE_ATTRIBUTE_ARCHIVE; };
+struct FileArray
+{
+    int Count = 1;
+    CFileData item;
+    CFileData& At(int) { return item; }
+};
+struct CViewerMasksItem { DWORD HandlerID = 17; int ViewerType = VIEWER_INTERNAL; };
+struct CViewerMasks { int Count = 1; CViewerMasksItem* item = nullptr; CViewerMasksItem* At(int) { return item; } };
+template<class T> struct TDirectArray
+{
+    int Count = 1;
+    T value;
+    TDirectArray(int, int) : value(nullptr) {}
+    T& operator[](int) { return value; }
+};
+struct CFilesWindow;
+struct CMainWindow
+{
+    HWND HWindow = nullptr; CFilesWindow* live = nullptr; bool current = true;
+    CViewerMasks* ViewerMasks = nullptr; CViewerMasks* AltViewerMasks = nullptr;
+    void EnterViewerMasksCS() {} void LeaveViewerMasksCS() {}
+};
+static CMainWindow* MainWindow = nullptr;
+struct CFilesWindow
+{
+    HWND HWindow = nullptr;
+    BOOL FilesActionInProgress = FALSE;
+    ULONGLONG tab = 1, generation = 1;
+    int EnumFileNamesSourceUID = 2;
+    FileArray files, dirs;
+    FileArray* Files = &files;
+    FileArray* Dirs = &dirs;
+    std::wstring testPath;
+    std::unique_ptr<UacF7::ListingSession> ProtectedListing = std::make_unique<UacF7::ListingSession>();
+    CViewerMasksItem viewer;
+    bool branch = false;
+    CFilesWindow() { dirs.Count = 0; }
+    bool Is(int type) const { return type == ptDisk; }
+    bool IsBranchView() const { return branch; }
+    ULONGLONG GetListingIdentityGeneration() const { return generation; }
+    ULONGLONG GetPanelTabId() const { return tab; }
+    int GetCaretIndex() const { return 0; }
+    const wchar_t* GetPathW() const { return testPath.c_str(); }
+    std::wstring GetItemFullPathW(const CFileData&) const { return testPath; }
+    bool FillViewWithData(TDirectArray<CViewerMasksItem*>* items) { items->value = &viewer; return true; }
+    void ViewFile(char*, BOOL, DWORD, int, int) { ++fallback; }
+    void OnViewFileWith(int index);
+};
+struct CFilesActionDiskTarget
+{
+    CFilesWindow* Panel = nullptr;
+    ULONGLONG Tab = 0;
+    bool Capture(CMainWindow* main, CFilesWindow* panel)
+    { if (!main || main->live != panel) return false; Panel = panel; Tab = panel->tab; return true; }
+    bool IsCurrent(CMainWindow* main) const
+    { return main && main->current && main->live == Panel && Panel && Panel->tab == Tab; }
+    static CFilesWindow* FindLive(CMainWindow* main, CFilesWindow* expected)
+    { return main && main->live == expected ? expected : nullptr; }
+};
+static BOOL ViewFileInt(HWND, const char*, BOOL, DWORD, BOOL, HANDLE&, BOOL&, BOOL, int, int,
+                        const std::wstring*, UacF7::ListingSession*, const UacF7::PreparedLeaf*, bool,
+                        const UacF7::PreparedLeaf* panelView, bool (*current)(void*), void* context)
+{
+    ++routed;
+    capturedRequest = panelView != nullptr && current && current(context);
+    if (invalidateDuringView && MainWindow && MainWindow->live) ++MainWindow->live->generation;
+    return TRUE;
+}
+static HANDLE LocalProbe(LPCWSTR path, DWORD access, DWORD sharing, LPSECURITY_ATTRIBUTES attributes,
+                         DWORD creation, DWORD flags, HANDLE templateFile)
+{
+    if (forceLocalDenied && access == GENERIC_READ)
+    { SetLastError(ERROR_ACCESS_DENIED); return INVALID_HANDLE_VALUE; }
+    return CreateFileW(path, access, sharing, attributes, creation, flags, templateFile);
+}
+#define CreateFileW LocalProbe
+@@GUARD@@
+@@ROUTE@@
+#undef CreateFileW
+static int checks = 0, failures = 0;
+static void Check(bool value, const char* what)
+{ ++checks; if (!value) { ++failures; std::printf("FAIL: %s\n", what); } }
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc != 2) return 2;
+    const std::wstring file = std::wstring(argv[1]) + L"\\view-\u6771.txt";
+    HANDLE output = CreateFileW(file.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (output == INVALID_HANDLE_VALUE) return 2;
+    CloseHandle(output);
+    HWND window = CreateWindowExW(0, L"STATIC", L"test", 0, 0, 0, 0, 0, nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
+    if (!window) return 2;
+    CFilesWindow panel;
+    panel.HWindow = window; panel.testPath = file;
+    CMainWindow main{window, &panel, true}; MainWindow = &main;
+    CViewerMasks masks; masks.item = &panel.viewer; main.ViewerMasks = &masks;
+    panel.OnViewFileWith(0);
+    Check(routed == 1 && prepareCount == 0 && !capturedRequest && !fallback && refreshDepth == 0 && !panel.FilesActionInProgress,
+          "readable file follows ordinary internal route without capturing identity");
+    forceLocalDenied = true;
+    panel.OnViewFileWith(0);
+    Check(routed == 2 && prepareCount == 1 && capturedRequest && refreshDepth == 0 && !panel.FilesActionInProgress,
+          "denied protected file routes captured identity and releases guard");
+    prepareError = ERROR_BROKEN_PIPE; capturedRequest = false;
+    panel.OnViewFileWith(0);
+    Check(routed == 2 && !capturedRequest && messages == 1 && refreshDepth == 0 && !panel.FilesActionInProgress,
+          "failed identity capture refuses a denied file without pathname fallback");
+    prepareError = ERROR_FILE_INVALID;
+    panel.OnViewFileWith(0);
+    Check(routed == 2 && messages == 2 && !panel.FilesActionInProgress,
+          "a changed identity refuses the same-name file");
+    forceLocalDenied = false; prepareError = ERROR_BROKEN_PIPE;
+    panel.OnViewFileWith(0);
+    Check(routed == 3 && prepareCount == 3 && !capturedRequest && messages == 2,
+          "readable file opens without consulting a failed listing session");
+    prepareError = ERROR_SUCCESS; invalidateDuringView = true;
+    panel.OnViewFileWith(0);
+    Check(routed == 4 && refreshDepth == 0 && !panel.FilesActionInProgress,
+          "modal listing invalidation still releases the live tab guard");
+    invalidateDuringView = false;
+    panel.viewer.ViewerType = VIEWER_EXTERNAL;
+    panel.OnViewFileWith(0);
+    Check(fallback == 1 && routed == 4 && refreshDepth == 0, "external handler keeps existing routing");
+    panel.viewer.ViewerType = -3;
+    panel.OnViewFileWith(0);
+    Check(fallback == 2 && routed == 4 && refreshDepth == 0, "plugin handler keeps existing routing");
+    panel.viewer.ViewerType = VIEWER_INTERNAL; panel.branch = true;
+    panel.OnViewFileWith(0);
+    Check(fallback == 3 && routed == 4, "Branch View remains on its existing route");
+    panel.branch = false; panel.files.item.Attr = FILE_ATTRIBUTE_REPARSE_POINT;
+    panel.OnViewFileWith(0);
+    Check(fallback == 4 && routed == 4, "unsupported link remains on its existing route");
+    panel.files.item.Attr = FILE_ATTRIBUTE_ARCHIVE; panel.FilesActionInProgress = TRUE;
+    panel.OnViewFileWith(0);
+    Check(messages == 3 && routed == 4 && panel.FilesActionInProgress && refreshDepth == 0,
+          "busy panel fails closed without resetting another operation");
+    panel.FilesActionInProgress = FALSE;
+    DestroyWindow(window);
+    if (!DeleteFileW(file.c_str())) return 2;
+    std::printf("Panel View With routing: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}

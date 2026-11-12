@@ -1,0 +1,102 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Exercise the protected panel viewer lifetime guard. | Check stale tabs and shutdown without dereferencing retired panels. | #731 | GPT-6 (Codex) |
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <cstdio>
+
+// The guard itself is production code; the tab registry and panel objects are
+// controlled fixtures. Real CMainWindow shutdown and UI dispatch are not tested.
+struct CFilesWindow
+{
+    BOOL FilesActionInProgress = FALSE;
+    ULONGLONG tab = 1, generation = 1;
+    ULONGLONG GetListingIdentityGeneration() const { return generation; }
+    ULONGLONG GetPanelTabId() const { return tab; }
+};
+constexpr int VIEWER_INTERNAL = 1;
+struct CViewerMasksItem { DWORD HandlerID = 17; int ViewerType = VIEWER_INTERNAL; };
+struct CViewerMasks { int Count = 1; CViewerMasksItem item; CViewerMasksItem* At(int) { return &item; } };
+struct CMainWindow
+{
+    HWND HWindow = nullptr; CFilesWindow* live = nullptr; bool current = true;
+    CViewerMasks* ViewerMasks = nullptr; CViewerMasks* AltViewerMasks = nullptr;
+    void EnterViewerMasksCS() {} void LeaveViewerMasksCS() {}
+};
+static CMainWindow* MainWindow = nullptr;
+struct CFilesActionDiskTarget
+{
+    CFilesWindow* Panel = nullptr;
+    ULONGLONG Tab = 0;
+    bool Capture(CMainWindow* main, CFilesWindow* panel)
+    {
+        if (!main || main->live != panel) return false;
+        Panel = panel; Tab = panel->tab; return true;
+    }
+    bool IsCurrent(CMainWindow* main) const
+    { return main && main->current && main->live == Panel && Panel && Panel->tab == Tab; }
+    static CFilesWindow* FindLive(CMainWindow* main, CFilesWindow* expected)
+    { return main && main->live == expected ? expected : nullptr; }
+};
+@@GUARD@@
+static int checks = 0, failures = 0;
+static void Check(bool value, const char* what)
+{ ++checks; if (!value) { ++failures; std::printf("FAIL: %s\n", what); } }
+int main()
+{
+    HWND window = CreateWindowExW(0, L"STATIC", L"test", 0, 0, 0, 0, 0, nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
+    if (!window) return 2;
+    CFilesWindow panel;
+    CMainWindow main{window, &panel, true};
+    CViewerMasks masks; main.ViewerMasks = &masks;
+    MainWindow = &main;
+    {
+        ProtectedPanelViewerGuard guard;
+        Check(guard.Capture(&panel, 17) && panel.FilesActionInProgress && guard.IsCurrent(), "capture live tab and mark busy");
+        ProtectedPanelViewerGuard nested;
+        Check(!nested.Capture(&panel, 17) && panel.FilesActionInProgress, "busy tab rejects nested capture");
+        masks.item.ViewerType = 2;
+        Check(!guard.IsCurrent(), "changed handler type invalidates captured action");
+        masks.item.ViewerType = VIEWER_INTERNAL;
+        ++masks.item.HandlerID;
+        Check(!guard.IsCurrent(), "removed handler id invalidates captured action");
+        --masks.item.HandlerID;
+        ++panel.generation;
+        Check(!guard.IsCurrent(), "listing replacement invalidates captured panel");
+    }
+    Check(!panel.FilesActionInProgress, "release guard even after listing changes");
+    {
+        ProtectedPanelViewerGuard guard;
+        Check(guard.Capture(&panel, 17), "capture before tab disappears");
+        main.live = nullptr;
+        Check(!guard.IsCurrent(), "retired tab is not current");
+    }
+    Check(panel.FilesActionInProgress, "retired panel is not dereferenced during cleanup");
+    panel.FilesActionInProgress = FALSE; main.live = &panel;
+    {
+        ProtectedPanelViewerGuard guard;
+        Check(guard.Capture(&panel, 17), "capture before tab address is reused");
+        ++panel.tab;
+        Check(!guard.IsCurrent(), "same address with a different tab id is rejected");
+    }
+    Check(panel.FilesActionInProgress, "reused tab state is not reset");
+    panel.FilesActionInProgress = FALSE;
+    {
+        ProtectedPanelViewerGuard guard;
+        Check(guard.Capture(&panel, 17), "capture before main shutdown");
+        MainWindow = nullptr;
+        Check(!guard.IsCurrent(), "shutdown invalidates the callback");
+    }
+    Check(panel.FilesActionInProgress, "shutdown does not dereference saved state");
+    panel.FilesActionInProgress = FALSE; MainWindow = &main;
+    {
+        ProtectedPanelViewerGuard guard;
+        Check(guard.Capture(&panel, 17), "capture before window destruction");
+        DestroyWindow(window);
+        Check(!guard.IsCurrent(), "destroyed owner invalidates the callback");
+    }
+    Check(panel.FilesActionInProgress, "destroyed owner does not permit panel cleanup access");
+    std::printf("Panel viewer guard: %d checks, %d failures\n", checks, failures);
+    return failures ? 1 : 0;
+}

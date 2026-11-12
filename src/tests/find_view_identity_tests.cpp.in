@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Test protected panel viewer fallback and modal invalidation. | Preserve readable files and captured IDs across the internal viewer path. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Exercise the real Find-view routing with a readable NTFS replacement. | Check captured identity before any pathname-only probe. | #731 | GPT-6.1 Terra |
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -16,6 +17,12 @@
 static int probes, preparations, listingPreparations, confirmations, messages;
 static int lastPrompt;
 static bool consent = true, forceDenied = false, forceUnknown = false;
+static bool* testCurrent = nullptr;
+static bool invalidateOnConfirm = false, invalidateOnRead = false;
+static bool forceNonFixed = false;
+static bool PanelCurrent(void* context) { return *static_cast<bool*>(context); }
+static UINT TestDriveType(LPCWSTR root) { return forceNonFixed ? DRIVE_REMOVABLE : ::GetDriveTypeW(root); }
+#define GetDriveTypeW TestDriveType
 constexpr int IDS_UAC_VIEW_IDENTITY_HANDLER_UNSUPPORTED = 1, IDS_ERRORREADINGFILE = 2,
               IDS_VIEWERTITLE = 3, IDS_UAC_VIEW_VERIFIED_CONFIRM = 4, IDS_UAC_VIEW_CONFIRM = 5,
               IDS_UAC_VIEW_UNAVAILABLE = 6;
@@ -33,7 +40,7 @@ static const char* LoadStr(int) { return "test"; }
 static const char* GetErrorText(DWORD) { return "test error"; }
 static int SalMessageBox(HWND, const char*, const char*, unsigned) { ++messages; return 0; }
 static bool ConfirmProtectedRead(HWND, int, int prompt, const std::wstring&)
-{ ++confirmations; lastPrompt = prompt; return consent; }
+{ ++confirmations; lastPrompt = prompt; if (invalidateOnConfirm && testCurrent) *testCurrent = false; return consent; }
 static std::wstring SalPathAddExtendedPrefixW(const wchar_t* path) { return path; }
 
 namespace UacF7 {
@@ -46,8 +53,10 @@ struct PreparedLeaf {
     bool PrepareView(const std::wstring&) { ++preparations; return false; }
     Result ReadViewerSnapshot(HWND, std::vector<BYTE>& snapshot) const {
         if (forceUnknown) return {ERROR_SUCCESS, true};
-        return {UacViewLeaf::ReadVerifiedSnapshot(parent, parentIdentity, fileIdentity, leaf,
-                                                 GetTickCount64() + 5000, snapshot), false};
+        const DWORD error = UacViewLeaf::ReadVerifiedSnapshot(parent, parentIdentity, fileIdentity, leaf,
+                                                             GetTickCount64() + 5000, snapshot);
+        if (invalidateOnRead && testCurrent) *testCurrent = false;
+        return {error, false};
     }
 };
 struct ListingSession {
@@ -57,9 +66,14 @@ struct ListingSession {
 @@CANDIDATE@@
 @@CONTROLLER@@
 constexpr int VIEWER_INTERNAL = 1, VIEWER_EXTERNAL = 2;
-struct FakeViewer { int ViewerType = 0; };
+struct FakeViewer { int ViewerType = 0; DWORD HandlerID = 17; };
 static bool SupportsVerifiedViewer(HWND parent, const UacF7::PreparedLeaf* foundView, const FakeViewer* viewer) {
 @@HANDLER_GUARD@@
+    return true;
+}
+static bool SupportsSelectedPanelHandler(HWND parent, DWORD handlerID, const FakeViewer* viewer,
+                                         bool (*panelStillCurrent)(void*)) {
+@@PANEL_HANDLER_GUARD@@
     return true;
 }
 #undef CreateFileW
@@ -143,6 +157,12 @@ int wmain(int argc, wchar_t** argv) {
           !SupportsVerifiedViewer(nullptr, &verified, nullptr) &&
           SupportsVerifiedViewer(nullptr, nullptr, &external),
           "actual handler guard rejects external and plugin viewers only for verified results");
+    Check(SupportsSelectedPanelHandler(nullptr, 17, &internal, PanelCurrent) &&
+          !SupportsSelectedPanelHandler(nullptr, 18, &internal, PanelCurrent) &&
+          !SupportsSelectedPanelHandler(nullptr, 17, &external, PanelCurrent) &&
+          !SupportsSelectedPanelHandler(nullptr, 17, nullptr, PanelCurrent) &&
+          SupportsSelectedPanelHandler(nullptr, 18, &internal, nullptr),
+          "panel action retains its selected internal handler without changing legacy fallback");
     snapshot.reset(); readable = false;
     Check(PrepareProtectedViewerSnapshot(nullptr, &path, nullptr, nullptr, snapshot, readable, source, index) &&
           readable && probes == 1 && !snapshot, "an ordinary result retains its native readable path probe");
@@ -151,6 +171,55 @@ int wmain(int argc, wchar_t** argv) {
     Check(!PrepareProtectedViewerSnapshot(nullptr, &path, &listing, nullptr, snapshot, readable, source, index) &&
           probes == 2 && preparations == 1 && listingPreparations == 1 && !snapshot,
           "ordinary denied result retains the existing listing fallback and failure");
+
+    bool current = true; testCurrent = &current; forceDenied = false; readable = false;
+    const int beforeConfirmations = confirmations, beforePreparations = preparations;
+    const int beforePanelProbes = probes;
+    Check(!PrepareProtectedViewerSnapshot(nullptr, &path, nullptr, nullptr, snapshot, readable, source, index,
+                                          &verified, PanelCurrent, &current) && snapshot && !readable &&
+          probes == beforePanelProbes && preparations == beforePreparations,
+          "captured panel identity rejects a readable same-name replacement without probing the path");
+    snapshot.reset(); verified.fileIdentity = replacementId;
+    const int afterMismatchConfirmations = confirmations;
+    Check(!PrepareProtectedViewerSnapshot(nullptr, nullptr, nullptr, nullptr, snapshot, readable, source, index,
+                                          &verified, PanelCurrent, &current) && !snapshot &&
+          preparations == beforePreparations,
+          "captured panel identity cannot fall back when the candidate is missing");
+    const std::wstring invalidCandidate = L"not-an-absolute-drive-path";
+    Check(!PrepareProtectedViewerSnapshot(nullptr, &invalidCandidate, nullptr, nullptr, snapshot, readable, source, index,
+                                          &verified, PanelCurrent, &current) && !snapshot &&
+          preparations == beforePreparations,
+          "captured panel identity cannot fall back for an ineligible candidate");
+    forceNonFixed = true;
+    Check(!PrepareProtectedViewerSnapshot(nullptr, &path, nullptr, nullptr, snapshot, readable, source, index,
+                                          &verified, PanelCurrent, &current) && !snapshot &&
+          preparations == beforePreparations,
+          "captured panel identity cannot fall back after the drive type changes");
+    forceNonFixed = false;
+    Check(PrepareProtectedViewerSnapshot(nullptr, &path, nullptr, nullptr, snapshot, readable, source, index,
+                                         nullptr, PanelCurrent, &current) && readable && !snapshot &&
+          confirmations == afterMismatchConfirmations && preparations == beforePreparations &&
+          afterMismatchConfirmations == beforeConfirmations + 1,
+          "ordinary readable panel item opens without an elevated prompt or identity capture");
+    forceDenied = true; readable = false;
+    Check(PrepareProtectedViewerSnapshot(nullptr, &path, nullptr, nullptr, snapshot, readable, source, index,
+                                         nullptr, PanelCurrent, &current) && !readable && !snapshot &&
+          confirmations == afterMismatchConfirmations && preparations == beforePreparations,
+          "a panel without captured identity never recaptures a denied replacement by path");
+    forceDenied = true; readable = false; current = true; invalidateOnConfirm = true;
+    Check(!PrepareProtectedViewerSnapshot(nullptr, &path, nullptr, nullptr, snapshot, readable, source, index,
+                                          &verified, PanelCurrent, &current) && !snapshot && !current &&
+          preparations == beforePreparations,
+          "panel navigation during application consent prevents the broker read");
+    invalidateOnConfirm = false; current = true; invalidateOnRead = true;
+    Check(!PrepareProtectedViewerSnapshot(nullptr, &path, nullptr, nullptr, snapshot, readable, source, index,
+                                          &verified, PanelCurrent, &current) && snapshot && !current,
+          "panel navigation during Windows consent refuses the completed snapshot");
+    snapshot.reset(); invalidateOnRead = false; current = true; readable = false; source = 41; index = 42;
+    Check(PrepareProtectedViewerSnapshot(nullptr, &path, nullptr, nullptr, snapshot, readable, source, index,
+                                         &verified, PanelCurrent, &current) && snapshot && snapshot->size() == 1 &&
+          snapshot->front() == replacement && preparations == beforePreparations && source == -1 && index == -1,
+          "denied panel item uses the captured identity and never reidentifies it by name");
     CloseHandle(parent);
     std::printf("Find viewer identity: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
