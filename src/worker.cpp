@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-12 | Observe test-only native read fault and Retry. | Distinguish injected failure from a worker-accepted Retry without changing production flow. | #731 | GPT-6 |
+// | 2026-11-12 | Keep experimental scoped-copy cleanup identity-bound. | Preserve targets when close or cleanup cannot be verified. | #731 | GPT-6 |
 // | 2026-11-12 | Record test-only denied and broker-open events. | Prove each side of the real worker experiment without changing its error flow. | #731 | GPT-6 |
 // | 2026-11-12 | Observe test-only overlapped I/O completion. | Distinguish issued, completed and drained worker states without changing the production path. | #731 | GPT-6 |
 // | 2026-11-12 | Inject target denial before native creation in test builds. | Keep the real worker fixture free of premature files and leaked handles. | #731 | GPT-6 |
@@ -2389,6 +2390,7 @@ struct CThinCopyWorker
     bool targetKnown = false;
     bool targetCreatedByBroker = false;
     bool suppressLocalCleanup = false;
+    bool cleanupUncertain = false;
     bool sourceVerified = false;
     bool terminal = false;
 
@@ -2401,6 +2403,9 @@ struct CThinCopyWorker
     void RememberSource(HANDLE file, bool force = false);
     void RememberTarget(HANDLE file, bool force = false);
     bool ValidateRetriedTarget(HANDLE file);
+    bool Scoped() const { return active && session != nullptr; }
+    bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);
+    bool CloseScopedTarget(HANDLE& file);
     bool RefuseUnsafeTargetCleanup();
     bool DiscardTarget();
 };
@@ -5014,7 +5019,14 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                         THIN_REMEMBER_TARGET(thin, out);
                         if (wholeFileAllocated)
                             SetEndOfFile(out);     // otherwise on a floppy the remaining bytes would be written
-                        HANDLES(CloseHandle(out)); // close the invalid handle
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (thin && thin->Scoped())
+                        {
+                            if (!thin->CloseScopedTarget(out)) { copyError = TRUE; return; }
+                        }
+                        else
+#endif
+                            HANDLES(CloseHandle(out)); // close the invalid handle
                     }
 #ifdef SAM_UAC_THIN_COPY_TEST
                     ThinCopyTestRetryGate(L"target", dlgData.CancelWorkerEvent);
@@ -5032,7 +5044,15 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                             !CheckTailOfOutFile(NULL, in, out, operationDone, operationDone + CQuadWord(read, 0), FALSE))
                         { // restart the whole operation
                             HANDLES(CloseHandle(in));
-                            HANDLES(CloseHandle(out));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (thin && thin->Scoped())
+                            {
+                                in = NULL;
+                                if (!thin->CloseScopedTarget(out)) { copyError = TRUE; return; }
+                            }
+                            else
+#endif
+                                HANDLES(CloseHandle(out));
                             const bool discarded = THIN_DELETE_TARGET(thin, DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()));
 #ifdef SAM_UAC_THIN_COPY_TEST
                             if (!discarded && thin && thin->terminal)
@@ -5166,7 +5186,15 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                         HANDLES(CloseHandle(in));
                         if (wholeFileAllocated)
                             SetEndOfFile(out); // otherwise on a floppy the remaining bytes would be written
-                        HANDLES(CloseHandle(out));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (thin && thin->Scoped())
+                        {
+                            in = NULL;
+                            if (!thin->CloseScopedTarget(out)) { copyError = TRUE; return; }
+                        }
+                        else
+#endif
+                            HANDLES(CloseHandle(out));
                         const bool discarded = THIN_DELETE_TARGET(thin, DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()));
 #ifdef SAM_UAC_THIN_COPY_TEST
                         if (!discarded && thin && thin->terminal)
@@ -5248,6 +5276,20 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
 #endif
                 allocWholeFileOnStart = 2 /* no */; // skip further attempts on this target disk
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+                if (thin && thin->Scoped())
+                {
+                    if (!thin->CloseScopedTarget(out) || !THIN_DELETE_TARGET(thin, FALSE))
+                    {
+                        copyError = TRUE;
+                        return;
+                    }
+                    HANDLES(CloseHandle(in));
+                    in = NULL;
+                    copyAgain = TRUE;
+                    return;
+                }
+#endif
                 HANDLES(CloseHandle(out));
                 out = NULL;
                 WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL)); // if it somehow became read-only (should never happen), so we know how to handle it
@@ -5701,7 +5743,15 @@ BOOL CCopy_Context::RetryCopyReadErr(DWORD* err, BOOL* copyAgain, BOOL* errAgain
         HANDLES(CloseHandle(*In));
         if (WholeFileAllocated)
             SetEndOfFile(*Out); // otherwise on a floppy the remaining bytes would be written
-        HANDLES(CloseHandle(*Out));
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (Thin && Thin->Scoped())
+        {
+            *In = NULL;
+            if (!Thin->CloseScopedTarget(*Out)) { *errAgain = TRUE; return FALSE; }
+        }
+        else
+#endif
+            HANDLES(CloseHandle(*Out));
         const bool discarded = THIN_DELETE_TARGET(Thin, DeleteFileW(WorkerOperationPathW(Op->TargetName, Op->TargetNameWValid ? Op->TargetNameW.c_str() : NULL).c_str()));
 #ifdef SAM_UAC_THIN_COPY_TEST
         if (!discarded && Thin && Thin->terminal)
@@ -5815,7 +5865,14 @@ BOOL CCopy_Context::RetryCopyWriteErr(DWORD* err, BOOL* copyAgain, BOOL* errAgai
         THIN_REMEMBER_TARGET(Thin, *Out);
         if (WholeFileAllocated)
             SetEndOfFile(*Out);     // otherwise on a floppy the remaining bytes would be written
-        HANDLES(CloseHandle(*Out)); // close the invalid handle
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (Thin && Thin->Scoped())
+        {
+            if (!Thin->CloseScopedTarget(*Out)) { *errAgain = TRUE; return FALSE; }
+        }
+        else
+#endif
+            HANDLES(CloseHandle(*Out)); // close the invalid handle
     }
 #ifdef SAM_UAC_THIN_COPY_TEST
     ThinCopyTestRetryGate(L"target", DlgData->CancelWorkerEvent);
@@ -5847,7 +5904,15 @@ BOOL CCopy_Context::RetryCopyWriteErr(DWORD* err, BOOL* copyAgain, BOOL* errAgai
         if (!ok || !CheckTailOfOutFile(AsyncPar, *In, *Out, WriteOffset, WriteOffset, FALSE))
         {
             HANDLES(CloseHandle(*In));
-            HANDLES(CloseHandle(*Out));
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (Thin && Thin->Scoped())
+            {
+                *In = NULL;
+                if (!Thin->CloseScopedTarget(*Out)) { *errAgain = TRUE; return FALSE; }
+            }
+            else
+#endif
+                HANDLES(CloseHandle(*Out));
             const bool discarded = THIN_DELETE_TARGET(Thin, DeleteFileW(WorkerOperationPathW(Op->TargetName, Op->TargetNameWValid ? Op->TargetNameW.c_str() : NULL).c_str()));
 #ifdef SAM_UAC_THIN_COPY_TEST
             if (!discarded && Thin && Thin->terminal)
@@ -6305,6 +6370,20 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
 
                 while (1)
                 {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    if (thin && thin->Scoped())
+                    {
+                        if (!thin->CloseScopedTarget(out) || !THIN_DELETE_TARGET(thin, FALSE))
+                        {
+                            copyError = TRUE;
+                            return;
+                        }
+                        HANDLES(CloseHandle(in));
+                        in = NULL;
+                        copyAgain = TRUE;
+                        return;
+                    }
+#endif
                     HANDLES(CloseHandle(out));
                     out = NULL;
                     WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL)); // in case it was created as read-only (should never happen) so we can handle it
@@ -6715,9 +6794,18 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
         (dialog.CancelWorkerEvent && WaitForSingleObject(dialog.CancelWorkerEvent, 0) == WAIT_OBJECT_0))
     {
         const bool closed = CloseHandle(result.file) != FALSE; // not registered with HANDLES yet
+        if (!closed)
+        {
+            const DWORD closeError = GetLastError();
+            // The target handle may still be live. Do not ask the broker to
+            // unlink anything until ownership is unambiguous.
+            ReportTargetFailure(closeError);
+            SetLastError(ERROR_PARTIAL_COPY);
+            return INVALID_HANDLE_VALUE;
+        }
         const bool discarded = !targetCreatedByBroker || DiscardTarget();
         terminal = true;
-        SetLastError(closed && discarded ? ERROR_CANCELLED : ERROR_PARTIAL_COPY);
+        SetLastError(discarded ? ERROR_CANCELLED : ERROR_PARTIAL_COPY);
         return INVALID_HANDLE_VALUE;
     }
     return result.file;
@@ -6757,30 +6845,50 @@ bool CThinCopyWorker::ValidateRetriedTarget(HANDLE file)
     return same;
 }
 
+bool CThinCopyWorker::ReportTargetFailure(DWORD error, int caption)
+{
+    if (cleanupUncertain) return false;
+    cleanupUncertain = true;
+    terminal = true;
+    if (*dialog.CancelWorker)
+    {
+        // Generic worker errors are suppressed while cancellation is active;
+        // the existing unknown-result warning remains deliverable.
+        SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, FALSE);
+    }
+    else
+    {
+        int answer = IDCANCEL;
+        char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(caption),
+                        operation.TargetName, GetErrorText(error ? error : ERROR_PARTIAL_COPY)};
+        SendMessage(progress, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
+    }
+    return false;
+}
+
+bool CThinCopyWorker::CloseScopedTarget(HANDLE& file)
+{
+    const bool closed = HANDLES(CloseHandle(file)) != FALSE;
+    const DWORD error = closed ? ERROR_SUCCESS : GetLastError();
+    // A failing CloseHandle cannot safely be reused, closed twice or used as
+    // authority to unlink a pathname. Leave any uncertain object untouched.
+    file = NULL;
+    return closed || ReportTargetFailure(error);
+}
+
 bool CThinCopyWorker::RefuseUnsafeTargetCleanup()
 {
-    terminal = true;
-    int answer = IDCANCEL;
-    char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(IDS_ERRORDELETINGFILE),
-                    operation.TargetName, GetErrorText(ERROR_FILE_INVALID)};
-    SendMessage(progress, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
-    return false;
+    return ReportTargetFailure(ERROR_FILE_INVALID);
 }
 
 bool CThinCopyWorker::DiscardTarget()
 {
+    if (cleanupUncertain) return false;
     if (!targetCreatedByBroker)
         return true;
-    const DWORD error = session && targetKnown ? session->DiscardTarget(*request, target) : ERROR_PARTIAL_COPY;
+    const DWORD error = session && request && targetKnown ? session->DiscardTarget(*request, target) : ERROR_PARTIAL_COPY;
     if (error != ERROR_SUCCESS)
-    {
-        terminal = true;
-        int answer = IDCANCEL;
-        char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(IDS_ERRORDELETINGFILE),
-                        operation.TargetName, GetErrorText(error)};
-        SendMessage(progress, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
-        return false;
-    }
+        return ReportTargetFailure(error);
     targetCreatedByBroker = false;
     targetKnown = false;
     return true;
@@ -7595,6 +7703,18 @@ COPY_AGAIN:
                             SetFilePointer(out, 0, NULL, FILE_BEGIN);
                             SetEndOfFile(out);
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (thin.Scoped())
+                            {
+                                if (!thin.CloseScopedTarget(out) || !THIN_DELETE_TARGET(&thin, FALSE))
+                                {
+                                    HANDLES(CloseHandle(in));
+                                    return FALSE;
+                                }
+                                skipAllocWholeFileOnStart = TRUE;
+                                goto OPEN_TGT_FILE;
+                            }
+#endif
                             HANDLES(CloseHandle(out));
                             out = INVALID_HANDLE_VALUE;
                             WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL)); // in case it was created as read-only (should never happen) so we can handle it
@@ -7646,7 +7766,14 @@ COPY_AGAIN:
                         {
                             if (wholeFileAllocated)
                                 SetEndOfFile(out); // otherwise on a floppy the remaining part of the file would be written
-                            HANDLES(CloseHandle(out));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (thin.Scoped())
+                            {
+                                if (!thin.CloseScopedTarget(out)) return FALSE;
+                            }
+                            else
+#endif
+                                HANDLES(CloseHandle(out));
                         }
                         THIN_DELETE_TARGET(&thin, DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()));
                         return FALSE;
@@ -7664,7 +7791,14 @@ COPY_AGAIN:
                         {
                             if (wholeFileAllocated)
                                 SetEndOfFile(out); // otherwise on a floppy the remaining part of the file would be written
-                            HANDLES(CloseHandle(out));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (thin.Scoped())
+                            {
+                                if (!thin.CloseScopedTarget(out)) return FALSE;
+                            }
+                            else
+#endif
+                                HANDLES(CloseHandle(out));
                         }
                         const bool discarded = THIN_DELETE_TARGET(&thin, DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()));
 #ifdef SAM_UAC_THIN_COPY_TEST
@@ -7875,10 +8009,36 @@ COPY_AGAIN:
                         if (moveReceipt && moveReceipt->sourceCaptured &&
                             (!script->OverwriteOlder || (!ignoreGetFileTimeErr && !ignoreSetFileTimeErr)))
                             moveReceipt->captured = UacF7::CaptureMoveFileIdentity(out, moveReceipt->target, true);
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        const bool thinScopedAttributes = thin.Scoped();
+                        if (thinScopedAttributes)
+                        {
+                            // Set metadata on the still-open exact object;
+                            // never follow the pathname after closing it.
+                            FILE_BASIC_INFO basic{};
+                            basic.FileAttributes = attr | FILE_ATTRIBUTE_ARCHIVE;
+                            if (!SetFileInformationByHandle(out, FileBasicInfo, &basic, sizeof(basic)))
+                            {
+                                const DWORD attributeError = GetLastError();
+                                if (!thin.CloseScopedTarget(out)) return FALSE;
+                                thin.ReportTargetFailure(attributeError, IDS_ERRORCHANGINGATTRS);
+                                return FALSE;
+                            }
+                        }
+#endif
                         if (!HANDLES(CloseHandle(out)))
                         {
                             out = NULL;
                             DWORD err = GetLastError();
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (thinScopedAttributes)
+                            {
+                                // A failed close leaves ownership uncertain;
+                                // never delete or restart using the name.
+                                thin.ReportTargetFailure(err);
+                                return FALSE;
+                            }
+#endif
                             WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
                             if (*dlgData.CancelWorker)
                                 goto COPY_ERROR;
@@ -7915,7 +8075,10 @@ COPY_AGAIN:
                             }
                         }
 
-                        SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), script->CopyAttrs ? attr : (attr | FILE_ATTRIBUTE_ARCHIVE));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        if (!thinScopedAttributes)
+#endif
+                            SetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), script->CopyAttrs ? attr : (attr | FILE_ATTRIBUTE_ARCHIVE));
                     }
 
                     if (script->CopyAttrs) // verify whether the source file attributes were preserved
@@ -8354,6 +8517,20 @@ COPY_AGAIN:
                                 }
                             }
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (thin.Scoped())
+                            {
+                                // Existing conflict targets are not owned by
+                                // ThinCopySession. Until the reviewed overwrite
+                                // protocol is integrated, neither unlink nor
+                                // truncate one through a scoped experiment.
+                                if (in != NULL && in != INVALID_HANDLE_VALUE)
+                                    HANDLES(CloseHandle(in));
+                                in = NULL;
+                                thin.ReportTargetFailure(ERROR_NOT_SUPPORTED, IDS_ERROROPENINGFILE);
+                                return FALSE;
+                            }
+#endif
                             BOOL targetCannotOpenForWrite = FALSE;
                             while (1)
                             {
