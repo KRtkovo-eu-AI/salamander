@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
 // | 2026-11-12 | Observe test-only native read fault and Retry. | Distinguish injected failure from a worker-accepted Retry without changing production flow. | #731 | GPT-6 |
+// | 2026-11-12 | Defer target cleanup when cancelling a source open. | Let the copy worker close its live output before verified discard. | #731 | GPT-6 |
 // | 2026-11-12 | Keep experimental scoped-copy cleanup identity-bound. | Preserve targets when close or cleanup cannot be verified. | #731 | GPT-6 |
 // | 2026-11-12 | Record test-only denied and broker-open events. | Prove each side of the real worker experiment without changing its error flow. | #731 | GPT-6 |
 // | 2026-11-12 | Observe test-only overlapped I/O completion. | Distinguish issued, completed and drained worker states without changing the production path. | #731 | GPT-6 |
@@ -2400,6 +2401,7 @@ struct CThinCopyWorker
     bool Configure(bool isMove, bool copyADS, bool encrypted);
     bool EnsurePrepared();
     HANDLE Open(UacF7::ThinOpenKind kind, bool overlapped);
+    HANDLE CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received);
     void RememberSource(HANDLE file, bool force = false);
     void RememberTarget(HANDLE file, bool force = false);
     bool ValidateRetriedTarget(HANDLE file);
@@ -2546,6 +2548,20 @@ static HANDLE ThinCopyTestDeniedHandle()
     return INVALID_HANDLE_VALUE;
 }
 
+// A local target previously created by this worker must never be recreated
+// before its captured identity has been checked. OPEN_ALWAYS could create a
+// new unrelated file while masquerading as a harmless reopen.
+static HANDLE ThinCopyOpenLocalRetry(CThinCopyWorker* context, bool overlapped)
+{
+    const auto& op = context->operation;
+    return ThinCopyOpened(context,
+        ThinCopyTestDenyReopen(context, true) ? ThinCopyTestDeniedHandle() :
+        HANDLES_Q(CreateFileW(WorkerOperationPathW(op.TargetName, op.TargetNameWValid ? op.TargetNameW.c_str() : NULL).c_str(),
+                              GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING,
+                              FILE_FLAG_SEQUENTIAL_SCAN | (overlapped ? FILE_FLAG_OVERLAPPED : 0), NULL)),
+        UacF7::ThinOpenKind::TargetRetry, overlapped);
+}
+
 #define THIN_REMEMBER_SOURCE(ctx, file) do { if (ctx) (ctx)->RememberSource((file), true); } while (0)
 #define THIN_REMEMBER_TARGET(ctx, file) do { if (ctx) (ctx)->RememberTarget((file), true); } while (0)
 #define THIN_OPEN_SOURCE(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyOpen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped))
@@ -2554,7 +2570,8 @@ static HANDLE ThinCopyTestDeniedHandle()
 #define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) \
     ((ctx) && (ctx)->targetCreatedByBroker ? \
         ThinCopyOpenRetry((ctx), (overlapped)) : \
-        ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), true) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::TargetRetry, (overlapped)))
+        ((ctx) && (ctx)->Scoped() ? ThinCopyOpenLocalRetry((ctx), (overlapped)) : \
+        ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), true) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::TargetRetry, (overlapped))))
 #define THIN_OPEN_TARGET_PROBE(ctx, local) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetProbe, false)
 #define THIN_DELETE_TARGET(ctx, local) \
     ((ctx) && (ctx)->suppressLocalCleanup ? (ctx)->RefuseUnsafeTargetCleanup() : \
@@ -6793,22 +6810,31 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
     if (*dialog.CancelWorker ||
         (dialog.CancelWorkerEvent && WaitForSingleObject(dialog.CancelWorkerEvent, 0) == WAIT_OBJECT_0))
     {
-        const bool closed = CloseHandle(result.file) != FALSE; // not registered with HANDLES yet
-        if (!closed)
-        {
-            const DWORD closeError = GetLastError();
-            // The target handle may still be live. Do not ask the broker to
-            // unlink anything until ownership is unambiguous.
-            ReportTargetFailure(closeError);
-            SetLastError(ERROR_PARTIAL_COPY);
-            return INVALID_HANDLE_VALUE;
-        }
-        const bool discarded = !targetCreatedByBroker || DiscardTarget();
-        terminal = true;
-        SetLastError(discarded ? ERROR_CANCELLED : ERROR_PARTIAL_COPY);
-        return INVALID_HANDLE_VALUE;
+        return CancelReceivedHandle(kind, result.file);
     }
     return result.file;
+}
+
+HANDLE CThinCopyWorker::CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received)
+{
+    // This handle has not yet been registered with HANDLES. Close it exactly
+    // once before deciding whether it was the worker's target itself.
+    if (!CloseHandle(received))
+    {
+        const DWORD closeError = GetLastError();
+        ReportTargetFailure(closeError);
+        SetLastError(ERROR_PARTIAL_COPY);
+        return INVALID_HANDLE_VALUE;
+    }
+    const bool receivedWasTarget = kind == UacF7::ThinOpenKind::TargetCreate ||
+                                   kind == UacF7::ThinOpenKind::TargetRetry;
+    // During a source reopen, or metadata probe, the copy worker can still
+    // own an exclusive writable output. Its COPY_ERROR path must close it and
+    // then perform the identity-bound cleanup; do not race that live handle.
+    const bool discarded = !receivedWasTarget || !targetCreatedByBroker || DiscardTarget();
+    terminal = true;
+    SetLastError(discarded ? ERROR_CANCELLED : ERROR_PARTIAL_COPY);
+    return INVALID_HANDLE_VALUE;
 }
 
 void CThinCopyWorker::RememberSource(HANDLE file, bool force)

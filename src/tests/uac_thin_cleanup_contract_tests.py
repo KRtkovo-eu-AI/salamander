@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Cover deferred source cancellation and safe local retry. | Preserve live targets and reject side-effecting reopen. | #731 | GPT-6 |
 # | 2026-11-12 | Guard scoped-copy cleanup contracts. | Catch reintroduced pathname deletion and unsafe restarts. | #731 | GPT-6 |
 """Structural regression checks; these do not replace actual worker fault tests."""
 from pathlib import Path
@@ -48,11 +49,14 @@ class ScopedCleanupContracts(unittest.TestCase):
         self.assertIn("if (!thinScopedAttributes)", code)
 
     def test_unknown_close_does_not_send_discard(self):
-        code = section("const bool closed = CloseHandle(result.file)", "return result.file;")
-        failure = code.split("if (!closed)", 1)[1].split("const bool discarded", 1)[0]
+        code = section("HANDLE CThinCopyWorker::CancelReceivedHandle(", "void CThinCopyWorker::RememberSource(")
+        failure = code.split("if (!CloseHandle(received))", 1)[1].split("const bool receivedWasTarget", 1)[0]
         self.assertIn("ReportTargetFailure(closeError)", failure)
         self.assertIn("return INVALID_HANDLE_VALUE", failure)
         self.assertNotIn("DiscardTarget()", failure)
+        self.assertIn("kind == UacF7::ThinOpenKind::TargetCreate", code)
+        self.assertIn("kind == UacF7::ThinOpenKind::TargetRetry", code)
+        self.assertIn("!receivedWasTarget || !targetCreatedByBroker || DiscardTarget()", code)
 
     def test_scoped_attributes_use_live_handle(self):
         code = section("const bool thinScopedAttributes = thin.Scoped()", "if (!HANDLES(CloseHandle(out)))")
@@ -66,6 +70,16 @@ class ScopedCleanupContracts(unittest.TestCase):
         self.assertIn("ERROR_NOT_SUPPORTED", code)
         self.assertIn("return FALSE", code)
         self.assertNotIn("DeleteFileW", code)
+
+    def test_scoped_local_retry_does_not_create_before_identity_check(self):
+        code = section("static HANDLE ThinCopyOpenLocalRetry(", "#define THIN_REMEMBER_SOURCE")
+        self.assertIn("GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING", code)
+        self.assertIn("FILE_FLAG_SEQUENTIAL_SCAN | (overlapped ? FILE_FLAG_OVERLAPPED : 0)", code)
+        self.assertNotIn("OPEN_ALWAYS", code.split("return ThinCopyOpened", 1)[1])
+        self.assertIn("UacF7::ThinOpenKind::TargetRetry", code)
+        macro = section("#define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped)", "#define THIN_OPEN_TARGET_PROBE")
+        self.assertIn("(ctx)->Scoped() ? ThinCopyOpenLocalRetry", macro)
+        self.assertIn("ThinCopyOpenRetry", macro)
 
     def test_uncertain_cleanup_is_not_retried(self):
         code = section("bool CThinCopyWorker::DiscardTarget()", "#endif")

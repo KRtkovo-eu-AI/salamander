@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-12 | Cover deferred source cancellation and safe local retry. | Preserve live targets and reject side-effecting reopen. | #731 | GPT-6 |
 # | 2026-11-12 | Exercise scoped cleanup state transitions. | Test failure handling with the actual helper methods and deterministic stubs. | #731 | GPT-6 |
 """Test extracted cleanup methods; this is not a full DoCopyFile test."""
 import argparse
@@ -26,7 +27,12 @@ def main():
     end = worker.index("\n#else", start)
     macro = worker[start:end]
     template = (ROOT / "src/tests/uac_thin_cleanup_methods_tests.cpp.in").read_text(encoding="utf-8")
-    code = template.replace("@@METHODS@@", methods).replace("@@MACRO@@", macro)
+    cancel = worker[worker.index("HANDLE CThinCopyWorker::CancelReceivedHandle("):
+                    worker.index("void CThinCopyWorker::RememberSource(")]
+    local_retry = worker[worker.index("static HANDLE ThinCopyOpenLocalRetry("):
+                         worker.index("#define THIN_REMEMBER_SOURCE")]
+    code = (template.replace("@@METHODS@@", methods).replace("@@CANCEL_METHOD@@", cancel)
+            .replace("@@LOCAL_RETRY@@", local_retry).replace("@@MACRO@@", macro))
     assert "@@" not in code
     env = compiler_environment()
     compiler = shutil.which("cl", path=env.get("PATH"))
