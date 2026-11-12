@@ -1,0 +1,110 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Test consent gForeground transitions without changing the desktop. | Exercise production helper against deterministic Win32 stubs. | #731 | GPT-6 |
+#include <windows.h>
+#include <map>
+#include <cstdio>
+
+struct FakeWindow {
+    DWORD pid = 0, thread = 0;
+    HWND owner = nullptr, root = nullptr, popup = nullptr;
+    bool visible = true, enabled = true, iconic = false;
+};
+static std::map<HWND, FakeWindow> windows;
+static DWORD currentPid = 10, currentThread = 1, inputTime = 100;
+static HWND gForeground = nullptr, activated = nullptr, postedOwner = nullptr;
+static WPARAM postedForeground = 0;
+static LPARAM postedInput = 0;
+static unsigned postCount = 0, activateCount = 0;
+static bool inputWorks = true;
+static HWND window(unsigned n) { return reinterpret_cast<HWND>(static_cast<ULONG_PTR>(n)); }
+static HWND rootOf(HWND h, UINT) { auto it=windows.find(h); return it==windows.end() ? nullptr : (it->second.root ? it->second.root : h); }
+static DWORD windowThread(HWND h, LPDWORD pid) {
+    auto it=windows.find(h);
+    if (pid) *pid=it==windows.end() ? 0 : it->second.pid;
+    return it==windows.end() ? 0 : it->second.thread;
+}
+static DWORD processId() { return currentPid; }
+static DWORD threadId() { return currentThread; }
+static HWND currentForeground() { return gForeground; }
+static HWND ownedWindow(HWND h, UINT) { auto it=windows.find(h); return it==windows.end() ? nullptr : it->second.owner; }
+static BOOL fakeLastInput(PLASTINPUTINFO p) { if (!inputWorks) return FALSE; p->dwTime=inputTime; return TRUE; }
+static BOOL visible(HWND h) { auto it=windows.find(h); return it!=windows.end() && it->second.visible; }
+static BOOL enabled(HWND h) { auto it=windows.find(h); return it!=windows.end() && it->second.enabled; }
+static BOOL iconic(HWND h) { auto it=windows.find(h); return it!=windows.end() && it->second.iconic; }
+static HWND lastPopup(HWND h) { auto it=windows.find(h); return it==windows.end() ? nullptr : it->second.popup; }
+static BOOL activate(HWND h) { ++activateCount; activated=h; gForeground=h; return TRUE; }
+static BOOL post(HWND h, UINT, WPARAM w, LPARAM l) { ++postCount; postedOwner=h; postedForeground=w; postedInput=l; return TRUE; }
+#define GetAncestor rootOf
+#define GetWindowThreadProcessId windowThread
+#define GetCurrentProcessId processId
+#define GetCurrentThreadId threadId
+#define GetForegroundWindow currentForeground
+#define GetWindow ownedWindow
+#define GetLastInputInfo fakeLastInput
+#define IsWindowVisible visible
+#define IsWindowEnabled enabled
+#define IsIconic iconic
+#define GetLastActivePopup lastPopup
+#define SetForegroundWindow activate
+#define PostMessageW post
+
+@@IS_OWNED@@
+namespace UacF7 {
+@@CLASS@@
+@@METHODS@@
+}
+
+static int failures = 0;
+static void expect(bool ok, const char* label) { std::printf("%s: %s\n", ok ? "PASS" : "FAIL", label); if (!ok) ++failures; }
+static void reset() {
+    windows.clear(); currentPid=10; currentThread=1; inputTime=100; inputWorks=true;
+    gForeground=nullptr; activated=nullptr; postedOwner=nullptr; postedForeground=0; postedInput=0;
+    postCount=activateCount=0;
+}
+static void add(HWND h, DWORD pid, DWORD tid) { FakeWindow w; w.pid=pid; w.thread=tid; windows[h]=w; }
+static void deliver() { UacF7::RestoreConsentForeground(postedOwner, reinterpret_cast<HWND>(postedForeground), static_cast<DWORD>(postedInput)); }
+int main() {
+    const HWND progress=window(1), other=window(2), popup=window(3), mainWindow=window(4);
+    reset(); add(progress,10,1); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.Restore(); }
+    expect(activateCount==1 && activated==progress, "same-thread consent restores original progress when no input intervened");
+    reset(); add(progress,10,1); add(other,11,8); add(popup,10,1); windows[popup].owner=progress; windows[progress].popup=popup; gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.Restore(); }
+    expect(activateCount==1 && activated==popup, "active owned modal dialog has priority over owner");
+    reset(); add(progress,10,1); add(other,11,8); gForeground=other;
+    { UacF7::ConsentForeground c(progress); c.Restore(); }
+    expect(activateCount==0 && postCount==0, "unrelated foreground before consent is never stolen");
+    reset(); add(progress,10,2); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.Restore(); }
+    expect(postCount==1 && postedOwner==progress && activateCount==0, "cross-thread restore schedules only to owner");
+    currentThread=2; deliver();
+    expect(activateCount==1 && activated==progress, "unchanged foreground and input permit queued restore");
+    reset(); add(progress,10,2); add(other,11,8); add(mainWindow,10,2); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.Restore(); }
+    currentThread=2; gForeground=mainWindow; deliver();
+    expect(activateCount==0, "changed foreground before queued delivery is respected");
+    reset(); add(progress,10,2); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.Restore(); }
+    currentThread=2; ++inputTime; deliver();
+    expect(activateCount==0, "new user input before queued delivery prevents focus theft");
+    reset(); add(progress,10,2); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; c.Restore(); }
+    currentThread=2; windows.erase(progress); deliver();
+    expect(activateCount==0, "destroyed progress window cannot be activated by stale queued delivery");
+    reset(); add(progress,10,1); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; windows[progress].visible=false; c.Restore(); }
+    expect(activateCount==0, "hidden progress window is not activated");
+    reset(); add(progress,10,1); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; windows[progress].iconic=true; c.Restore(); }
+    expect(activateCount==0, "minimized progress window is not activated");
+    reset(); add(progress,10,1); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; windows[progress].enabled=false; c.Restore(); }
+    expect(activateCount==0, "disabled owner without an enabled popup is not activated");
+    reset(); add(progress,10,1); add(other,11,8); gForeground=progress;
+    { UacF7::ConsentForeground c(progress); gForeground=other; inputWorks=false; c.Restore(); }
+    expect(activateCount==0 && postCount==0, "unavailable last-input information fails closed");
+    std::printf("Failures: %d\n",failures);
+    return failures ? 1 : 0;
+}
