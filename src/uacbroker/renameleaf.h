@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Apply exact case-only lookup to verified links. | Rename reparse entries in sensitive directories without following their targets. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Handle exact case-only renames in case-sensitive directories. | Preserve the anchored identity and no-replace operation without changing case-insensitive behavior. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Verify case-only renames against the same anchored object. | Preserve identity and no-replace semantics for native rename operations. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Move a verified read-only file without changing its attributes. | Extend same-volume F6 while retaining exact identity and no-replace publication. | | GPT-6.1 Sol |
@@ -322,7 +323,10 @@ inline DWORD MoveVerifiedFile(HANDLE parent, const UacDirectoryLeaf::ParentIdent
     // pinned parent explicitly reports case-sensitive lookup. If the flag is
     // unavailable, retain the existing case-insensitive path unchanged.
     FILE_CASE_SENSITIVE_INFO sensitivity{};
-    const bool exactCase = caseOnly && (kind == MoveKind::RenameFile || kind == MoveKind::RenameDirectory) &&
+    const bool exactCaseKind = kind == MoveKind::RenameFile || kind == MoveKind::RenameDirectory ||
+                               kind == MoveKind::RenameSymlink || kind == MoveKind::RenameDirectorySymlink ||
+                               kind == MoveKind::RenameJunction;
+    const bool exactCase = caseOnly && exactCaseKind &&
         GetFileInformationByHandleEx(parent, FileCaseSensitiveInfo, &sensitivity, sizeof(sensitivity)) &&
         (sensitivity.Flags & FILE_CS_FLAG_CASE_SENSITIVE_DIR) != 0;
     HANDLE source = nullptr;

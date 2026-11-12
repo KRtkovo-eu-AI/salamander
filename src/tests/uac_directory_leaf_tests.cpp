@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Exercise exact-case rename of links in a sensitive directory. | Verify identity, collision and raw reparse data without following targets. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Exercise case-only rename to a free name in a case-sensitive directory. | Verify the exact-object behavior on actual NTFS. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Verify conservative disk overwrite recovery separately from ZIP. | Preserve exact legacy journals and backups without claiming unproved restoration. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Verify time-only metadata on special NTFS files. | Preserve content, streams, permissions and special attributes across the exact-handle update. | #731 | GPT-6.1 Terra |
@@ -5787,6 +5788,125 @@ int wmain(int argc, wchar_t** argv)
                       UacRenameLeaf::Detail::SameSource(dirId, dirAfterId) &&
                       HasContents(dirUpper + L"\\child-\u6771", {17}),
                   "case-sensitive directory rename preserves its identity and subtree", dirError);
+
+            // Open the directory entry itself, including dangling links, with exact spelling.
+            const auto openEntry = [](const std::wstring& path, DWORD access) {
+                const HANDLE h = CreateFileW(path.c_str(), access,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+                    FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_POSIX_SEMANTICS, nullptr);
+                return Handle(h == INVALID_HANDLE_VALUE ? nullptr : h);
+            };
+            const auto readReparse = [](HANDLE h, std::vector<BYTE>& data) {
+                data.resize(MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+                DWORD bytes = 0;
+                if (!DeviceIoControl(h, FSCTL_GET_REPARSE_POINT, nullptr, 0, data.data(),
+                                     static_cast<DWORD>(data.size()), &bytes, nullptr))
+                    return false;
+                data.resize(bytes);
+                return true;
+            };
+            const auto fileReferent = moved + L"\\sensitive-referent.txt";
+            const auto dirReferent = fixture + L"\\destination";
+            const auto sentinel = dirReferent + L"\\sensitive-sentinel.txt";
+            if (!WriteFixture(fileReferent, {12, 34}) || !WriteFixture(sentinel, {56, 78}))
+                return 2;
+            const auto exerciseLink = [&](const wchar_t* lowerName, const wchar_t* upperName,
+                                          UacRenameLeaf::MoveKind kind) {
+                const auto lowerPath = sensitivePath + L"\\" + lowerName;
+                const auto upperPath = sensitivePath + L"\\" + upperName;
+                auto lowerLink = openEntry(lowerPath, FILE_READ_ATTRIBUTES);
+                FILE_ID_INFO sourceLinkId{};
+                std::vector<BYTE> before, after;
+                if (!lowerLink || !GetFileInformationByHandleEx(lowerLink.get(), FileIdInfo, &sourceLinkId, sizeof(sourceLinkId)) ||
+                    !readReparse(lowerLink.get(), before))
+                    return false;
+                lowerLink.reset();
+                auto staleId = sourceLinkId;
+                staleId.FileId.Identifier[0] ^= 1;
+                DWORD result = UacRenameLeaf::RenameVerifiedFile(sensitive.get(), sensitiveId, staleId,
+                                                                 lowerName, upperName, kind);
+                auto staleEntry = openEntry(lowerPath, FILE_READ_ATTRIBUTES);
+                FILE_ID_INFO staleActual{};
+                Check(result == ERROR_FILE_INVALID && staleEntry &&
+                          GetFileInformationByHandleEx(staleEntry.get(), FileIdInfo, &staleActual, sizeof(staleActual)) &&
+                          UacRenameLeaf::Detail::SameSource(sourceLinkId, staleActual) &&
+                          readReparse(staleEntry.get(), after) && before == after &&
+                          HasContents(fileReferent, {12, 34}) && HasContents(sentinel, {56, 78}),
+                      "case-sensitive link rename rejects a stale identity and preserves referents", result);
+                staleEntry.reset();
+                auto occupied = create(upperPath);
+                FILE_ID_INFO occupiedId{};
+                if (!occupied || !GetFileInformationByHandleEx(occupied.get(), FileIdInfo, &occupiedId, sizeof(occupiedId)))
+                    return false;
+                occupied.reset();
+                result = UacRenameLeaf::RenameVerifiedFile(sensitive.get(), sensitiveId, sourceLinkId,
+                                                           lowerName, upperName, kind);
+                auto originalEntry = openEntry(lowerPath, FILE_READ_ATTRIBUTES);
+                auto occupiedEntry = openEntry(upperPath, FILE_READ_ATTRIBUTES | DELETE);
+                FILE_ID_INFO originalId{}, targetId{};
+                const bool collisionSafe = result != ERROR_SUCCESS && originalEntry && occupiedEntry &&
+                    GetFileInformationByHandleEx(originalEntry.get(), FileIdInfo, &originalId, sizeof(originalId)) &&
+                    GetFileInformationByHandleEx(occupiedEntry.get(), FileIdInfo, &targetId, sizeof(targetId)) &&
+                    UacRenameLeaf::Detail::SameSource(sourceLinkId, originalId) &&
+                    UacRenameLeaf::Detail::SameSource(occupiedId, targetId) &&
+                    readReparse(originalEntry.get(), after) && before == after &&
+                    HasContents(fileReferent, {12, 34}) && HasContents(sentinel, {56, 78});
+                Check(collisionSafe, "case-sensitive link collision preserves both entries and referents", result);
+                originalEntry.reset();
+                FILE_DISPOSITION_INFO disposition{TRUE};
+                if (!occupiedEntry || !SetFileInformationByHandle(occupiedEntry.get(), FileDispositionInfo, &disposition, sizeof(disposition)))
+                    return false;
+                occupiedEntry.reset();
+                result = UacRenameLeaf::RenameVerifiedFile(sensitive.get(), sensitiveId, sourceLinkId,
+                                                           lowerName, upperName, kind);
+                auto renamedEntry = openEntry(upperPath, FILE_READ_ATTRIBUTES);
+                auto oldEntry = openEntry(lowerPath, FILE_READ_ATTRIBUTES);
+                const DWORD oldError = oldEntry ? ERROR_SUCCESS : GetLastError();
+                FILE_ID_INFO renamedId{};
+                const bool renamed = result == ERROR_SUCCESS && renamedEntry &&
+                    GetFileInformationByHandleEx(renamedEntry.get(), FileIdInfo, &renamedId, sizeof(renamedId)) &&
+                    UacRenameLeaf::Detail::SameSource(sourceLinkId, renamedId) &&
+                    readReparse(renamedEntry.get(), after) && before == after &&
+                    !oldEntry && (oldError == ERROR_FILE_NOT_FOUND || oldError == ERROR_PATH_NOT_FOUND) &&
+                    HasContents(fileReferent, {12, 34}) && HasContents(sentinel, {56, 78});
+                Check(renamed, "case-sensitive free-name link rename preserves identity and raw reparse data", result);
+                return true;
+            };
+
+            if (CreateSymbolicLinkW((sensitivePath + L"\\case-file-link-\u6771").c_str(), fileReferent.c_str(),
+                                    SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE))
+            {
+                if (!exerciseLink(L"case-file-link-\u6771", L"CASE-FILE-LINK-\u6771", UacRenameLeaf::MoveKind::RenameSymlink))
+                    return 2;
+                if (!CreateSymbolicLinkW((sensitivePath + L"\\case-dir-link-\u6771").c_str(), dirReferent.c_str(),
+                                         SYMBOLIC_LINK_FLAG_DIRECTORY | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) ||
+                    !exerciseLink(L"case-dir-link-\u6771", L"CASE-DIR-LINK-\u6771", UacRenameLeaf::MoveKind::RenameDirectorySymlink))
+                    return 2;
+                const std::wstring longLink = std::wstring(240, L'a') + L"-\u6771-a";
+                const std::wstring longLinkUpper = std::wstring(240, L'A') + L"-\u6771-A";
+                if ((sensitivePath + L"\\" + longLink).size() <= MAX_PATH ||
+                    !CreateSymbolicLinkW((sensitivePath + L"\\" + longLink).c_str(), fileReferent.c_str(),
+                                         SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) ||
+                    !exerciseLink(longLink.c_str(), longLinkUpper.c_str(), UacRenameLeaf::MoveKind::RenameSymlink))
+                    return 2;
+            }
+            else
+                std::printf("SKIP: creating case-sensitive symlink fixture unavailable (%lu)\n", GetLastError());
+
+            // Clone the already-owned fixture junction data; the operation never opens the referent.
+            auto donor = openEntry(fixture + L"\\junction", FILE_READ_ATTRIBUTES);
+            std::vector<BYTE> junctionData;
+            const auto junctionPath = sensitivePath + L"\\case-junction";
+            if (!donor || !readReparse(donor.get(), junctionData) || !CreateDirectoryW(junctionPath.c_str(), nullptr))
+                return 2;
+            auto junctionEntry = openEntry(junctionPath, GENERIC_WRITE);
+            DWORD written = 0;
+            if (!junctionEntry || !DeviceIoControl(junctionEntry.get(), FSCTL_SET_REPARSE_POINT,
+                    junctionData.data(), static_cast<DWORD>(junctionData.size()), nullptr, 0, &written, nullptr))
+                return 2;
+            junctionEntry.reset();
+            if (!exerciseLink(L"case-junction", L"CASE-JUNCTION", UacRenameLeaf::MoveKind::RenameJunction))
+                return 2;
         }
         else
             std::printf("SKIP: case-sensitive directory setup unavailable (%lu)\n", GetLastError());
