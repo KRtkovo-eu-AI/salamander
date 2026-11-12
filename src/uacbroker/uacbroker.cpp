@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Isolate unelevated integration fixtures from installed builds. | Exercise the worker without modifying the protected installation. | #731 | GPT-6 |
 | 2026-11-12 | Gate unelevated worker integration behind a test-only build. | Exercise the real broker process without claiming a UAC boundary. | #731 | GPT-6 |
 | 2026-11-12 | Expose test-only authenticated broker PID markers. | Measure a singleton job without lending a process handle. | #731 | GPT-6 |
 | 2026-11-12 | Type distinct worker handle arguments. | Prevent accidental exchange of source and cancel handles. | #731 | GPT-6 |
@@ -484,6 +485,34 @@ public:
 #endif
     bool Open()
     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+        wchar_t enabled[2]{};
+        if (GetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", enabled, ARRAYSIZE(enabled)) == 1 &&
+            enabled[0] == L'1')
+        {
+            wchar_t requested[32768]{};
+            const DWORD length = GetEnvironmentVariableW(L"SAM_UAC_THIN_TEST_INSTALL", requested, ARRAYSIZE(requested));
+            if (!length || length >= ARRAYSIZE(requested) || length < 4 || requested[1] != L':' || requested[2] != L'\\')
+                return false;
+            wchar_t absolute[32768]{};
+            const DWORD full = GetFullPathNameW(requested, ARRAYSIZE(absolute), absolute, nullptr);
+            if (!full || full >= ARRAYSIZE(absolute) || _wcsicmp(requested, absolute) ||
+                GetDriveTypeW(std::wstring(requested, 3).c_str()) != DRIVE_FIXED)
+                return false;
+            auto dir = Adopt(CreateFileW(absolute, FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | READ_CONTROL,
+                FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+                FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, nullptr));
+            FILE_ATTRIBUTE_TAG_INFO attrs{};
+            if (!dir || !GetFileInformationByHandleEx(dir.get(), FileAttributeTagInfo, &attrs, sizeof(attrs)) ||
+                (attrs.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) ||
+                !(attrs.FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+                return false;
+            path = absolute;
+            directory = std::move(dir);
+            thinTestLocation = true;
+            return true;
+        }
+#endif
         PWSTR folder = nullptr;
         if (FAILED(SHGetKnownFolderPath(FOLDERID_ProgramFiles, KF_FLAG_DEFAULT_PATH, nullptr, &folder)))
             return false;
@@ -505,6 +534,15 @@ public:
         auto file = Adopt(CreateFileW(ImagePath(image).c_str(), FILE_READ_DATA | FILE_READ_ATTRIBUTES | READ_CONTROL,
                                       FILE_SHARE_READ, nullptr, OPEN_EXISTING,
                                       FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (thinTestLocation)
+        {
+            FILE_ATTRIBUTE_TAG_INFO attrs{};
+            return file && GetFileInformationByHandleEx(file.get(), FileAttributeTagInfo, &attrs, sizeof(attrs)) &&
+                !(attrs.FileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY))
+                ? std::move(file) : Handle{};
+        }
+#endif
         return file && ProtectedObject(file.get(), false) ? std::move(file) : Handle{};
     }
 
@@ -533,6 +571,9 @@ private:
 
     std::wstring path;
     Handle root, directory;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    bool thinTestLocation = false;
+#endif
 #ifdef SAM_UAC_BROKER_JOB_TEST
     bool testLocation = false;
 #endif
@@ -4057,7 +4098,25 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
     launch.lpDirectory = install.Directory().c_str();
     launch.nShow = SW_HIDE;
 #ifdef SAM_UAC_F7_HOST
+#ifdef SAM_UAC_THIN_COPY_TEST
+    BOOL launched = FALSE;
+    if (thinUnelevatedTest)
+    {
+        // Direct CreateProcess preserves the explicit fixture environment.
+        // This branch is absent from every ordinary host build.
+        std::wstring command = L"\"" + exe + L"\" " + args;
+        STARTUPINFOW startup{}; startup.cb = sizeof(startup);
+        startup.dwFlags = STARTF_USESHOWWINDOW; startup.wShowWindow = SW_HIDE;
+        PROCESS_INFORMATION process{};
+        launched = CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
+                                  nullptr, install.Directory().c_str(), &startup, &process);
+        if (launched) { launch.hProcess = process.hProcess; CloseHandle(process.hThread); }
+    }
+    else
+        launched = LaunchBrokerWithOwner(launch);
+#else
     const BOOL launched = LaunchBrokerWithOwner(launch);
+#endif
 #else
     const BOOL launched = ShellExecuteExW(&launch);
 #endif
