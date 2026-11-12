@@ -2502,6 +2502,18 @@ static bool ThinCopyTestDenyOpen(CThinCopyWorker* context, bool target)
     return InterlockedCompareExchange(target ? &targetInjected : &sourceInjected, 1, 0) == 0;
 }
 
+// Force a retry-only denial without changing fixture ACLs: the separate
+// asInvoker test peer must still be able to inspect the source fixture.
+static bool ThinCopyTestDenyReopen(CThinCopyWorker* context, bool target)
+{
+    if (!context || !context->active)
+        return false;
+    wchar_t mode[16]{};
+    const DWORD length = GetEnvironmentVariableW(L"SAM_UAC_TEST_DENY_REOPEN", mode, _countof(mode));
+    return length && length < _countof(mode) &&
+        (_wcsicmp(mode, L"both") == 0 || _wcsicmp(mode, target ? L"target" : L"source") == 0);
+}
+
 static HANDLE ThinCopyTestDeniedHandle()
 {
     SetLastError(ERROR_ACCESS_DENIED);
@@ -2512,10 +2524,11 @@ static HANDLE ThinCopyTestDeniedHandle()
 #define THIN_REMEMBER_TARGET(ctx, file) do { if (ctx) (ctx)->RememberTarget((file), true); } while (0)
 #define THIN_OPEN_SOURCE(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyOpen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped))
 #define THIN_OPEN_TARGET_CREATE(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyOpen((ctx), true) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::TargetCreate, (overlapped))
+#define THIN_OPEN_SOURCE_RETRY(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped))
 #define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) \
     ((ctx) && (ctx)->targetCreatedByBroker ? \
         ThinCopyOpenRetry((ctx), (overlapped)) : \
-        ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetRetry, (overlapped)))
+        ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), true) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::TargetRetry, (overlapped)))
 #define THIN_OPEN_TARGET_PROBE(ctx, local) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetProbe, false)
 #define THIN_DELETE_TARGET(ctx, local) \
     ((ctx) && (ctx)->suppressLocalCleanup ? (ctx)->RefuseUnsafeTargetCleanup() : \
@@ -2525,6 +2538,7 @@ static HANDLE ThinCopyTestDeniedHandle()
 #define THIN_REMEMBER_SOURCE(ctx, file) ((void)0)
 #define THIN_REMEMBER_TARGET(ctx, file) ((void)0)
 #define THIN_OPEN_SOURCE(ctx, local, overlapped) (local)
+#define THIN_OPEN_SOURCE_RETRY(ctx, local, overlapped) (local)
 #define THIN_OPEN_TARGET_CREATE(ctx, local, overlapped) (local)
 #define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) (local)
 #define THIN_OPEN_TARGET_PROBE(ctx, local) (local)
@@ -5075,7 +5089,7 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                 THIN_REMEMBER_TARGET(thin, out);
                 ThinCopyTestRetryGate(L"source", dlgData.CancelWorkerEvent);
 #endif
-                in = THIN_OPEN_SOURCE(thin, HANDLES_Q(CreateFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str(), GENERIC_READ,
+                in = THIN_OPEN_SOURCE_RETRY(thin, HANDLES_Q(CreateFileW(WorkerOperationPathW(op->SourceName, op->SourceNameWValid ? op->SourceNameW.c_str() : NULL).c_str(), GENERIC_READ,
                                           FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                                           OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL)), false);
                 if (in != INVALID_HANDLE_VALUE) // opened successfully; now adjust the offset
@@ -5591,7 +5605,7 @@ BOOL CCopy_Context::RetryCopyReadErr(DWORD* err, BOOL* copyAgain, BOOL* errAgain
     THIN_REMEMBER_TARGET(Thin, *Out);
     ThinCopyTestRetryGate(L"source", DlgData->CancelWorkerEvent);
 #endif
-    *In = THIN_OPEN_SOURCE(Thin, HANDLES_Q(CreateFileW(WorkerOperationPathW(Op->SourceName, Op->SourceNameWValid ? Op->SourceNameW.c_str() : NULL).c_str(), GENERIC_READ,
+    *In = THIN_OPEN_SOURCE_RETRY(Thin, HANDLES_Q(CreateFileW(WorkerOperationPathW(Op->SourceName, Op->SourceNameWValid ? Op->SourceNameW.c_str() : NULL).c_str(), GENERIC_READ,
                                FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
                                OPEN_EXISTING, AsyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL)), AsyncPar->UseAsyncAlg != FALSE);
     if (*In != INVALID_HANDLE_VALUE) // opened successfully; now adjust the offset
