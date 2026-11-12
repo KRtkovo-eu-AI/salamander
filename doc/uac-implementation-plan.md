@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Document overwrite fault reproduction and publication constraints. | Keep data-preservation failures distinct from a transaction model. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record paged protected Find and identity limits. | Separate broker and local evidence from pending UI and VM validation. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record paged Branch retry and identity boundaries. | Separate real NTFS and pipe evidence from remaining UI and VM acceptance. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Record scoped Branch retry and local evidence. | Distinguish accessible results, protocol checks and remaining VM acceptance. | #731 | GPT-6 (Codex) |
@@ -658,6 +659,10 @@ Na čistém commitu `6580a8e6` prošly x64 i Win32 buildy hosta a brokeru v Debu
 Před rozšířením na více položek je nutné koordinovat i paralelní kopie: vypnutý Scan Ahead sám nezaručuje sériový běh. Jedna session smí mít jen jeden čekající probe; pro další přepisy je třeba zachovat nativní All/Skip All i ověření každé revize a nevracet se po zavedení přísného režimu k neověřenému přepisu. Jde o návrhovou hranici, nikoli hotovou dávkovou podporu.
 
 **Otevřená ochrana existujícího cíle.** Statický audit zjistil, že paralelní `ReplaceTarget` po zkrácení existujícího souboru může při selhání zkusit smazat jeho položku. Sériová `DoCopyFile` také používá přímý přepis a její chybové cesty mohou cíl smazat; samotné přepnutí na sériovou cestu tedy neprokazuje zachování původního obsahu. Úplná ochrana vyžaduje samostatný návrh transakčního publikování a zotavení, včetně identity, nativních konfliktů, souběhu, ACL, ADS a dalších požadovaných metadat. Dosavadní lokální analýza neprokazuje obecnou atomickou obnovu ani skutečné UAC; takové řešení zatím není implementováno.
+
+Nedestruktivní diagnostická sonda `C:\Samandarin\analysis\uac_overwrite_preservation_probe.py` pro `worker.cpp` SHA-256 `1a4bfab08b96239be2f268fce8137b6e60f934c3509bdecb505214aea1c850e5` používá vytažené chybové větve a paměťovou náhradu I/O; sériové zkrácení přes `CREATE_ALWAYS` simuluje. V Debug i Release má 15 úspěšných kontrol a 3 očekávaná selhání zachování původního cíle: paralelní chyba, sériová chyba a sériový Skip. Referenční sekvenční model navíc zachovává původní obsah při stornu nebo změně identity/revize před publikací. Model nepoužívá skutečná vlákna, NTFS ani UAC a nedokazuje atomické publikování; po změně workeru jej musí nahradit test skutečného rozhraní se simulovanými chybami i skutečným izolovaným souborovým systémem.
+
+Brokerové `CopyData` a kontrola revize jsou kandidáty na sdílení, ale existující žurnál vyžaduje chráněnou instalaci a kontrolu vlastníka/ACL. Příprava náhrady navíc pracuje s privilegii pro bezpečnostní deskriptor. Nelze je bezpečně obejít pro běžného uživatele. Stávající helper také odmítá pevné odkazy, zatímco původní přepis mění obsah všech odkazů na stejný objekt; náhrada přejmenováním by změnila tuto sémantiku. Publikace dvěma přejmenováními ani nynější recovery negarantují atomickou automatickou obnovu. Návrh proto musí výslovně vyřešit i tyto hranice a při nemožnosti ověřit bezpečnou náhradu nesmí bez upozornění přejít k přímému zkrácení cíle.
 
 Srovnatelný Release host proti předchozímu buildu má 5 794 816 místo 5 789 184 B (+5 632 B); broker se tímto blokem nemění. Celoprocesové měření soukromé paměti při běžné a elevované úloze zůstává pro společnou akceptaci otevřené.
 
