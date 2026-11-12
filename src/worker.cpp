@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Inject target denial before native creation in test builds. | Keep the real worker fixture free of premature files and leaked handles. | #731 | GPT-6 |
 // | 2026-11-12 | Add isolated native copy acceptance instrumentation. | Exercise the original worker, both I/O loops and Retry without affecting production builds. | #731 | GPT-6 |
 // | 2026-11-12 | Make parallel conflict preflight allocation-safe. | Preserve the destination and release coordinator resources on failure. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Allocate the parallel copy buffer before opening the target. | Preserve an existing target and its links when buffer allocation fails. | #731 | GPT-6 (Codex) |
@@ -2523,7 +2524,7 @@ static HANDLE ThinCopyTestDeniedHandle()
 #define THIN_REMEMBER_SOURCE(ctx, file) do { if (ctx) (ctx)->RememberSource((file), true); } while (0)
 #define THIN_REMEMBER_TARGET(ctx, file) do { if (ctx) (ctx)->RememberTarget((file), true); } while (0)
 #define THIN_OPEN_SOURCE(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyOpen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped))
-#define THIN_OPEN_TARGET_CREATE(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyOpen((ctx), true) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::TargetCreate, (overlapped))
+#define THIN_OPEN_TARGET_CREATE(ctx, local, overlapped) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetCreate, (overlapped))
 #define THIN_OPEN_SOURCE_RETRY(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped))
 #define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) \
     ((ctx) && (ctx)->targetCreatedByBroker ? \
@@ -7346,6 +7347,13 @@ COPY_AGAIN:
                 if (!invalidTgtName)
                 {
                     // GENERIC_READ for 'out' slows asynchronous copying from disk to network (measured 95 MB/s instead of 111 MB/s on Win7 x64 GLAN)
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    // The denial must precede either real CREATE_NEW path: a
+                    // locally-created file or handle must never be discarded.
+                    if (thin.active && ThinCopyTestDenyOpen(&thin, true))
+                        out = ThinCopyTestDeniedHandle();
+                    else
+#endif
                     if (op->TargetNameWValid)
                     {
                         // Both branches register out once in HANDLES_ADD_EX below.
