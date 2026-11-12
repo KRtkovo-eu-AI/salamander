@@ -1,23 +1,44 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Exercise failed move-journal preparation. | Check live cleanup without changing the original source. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Exercise guarded move-job allocation failures. | Ensure source recovery runs after stream-lock exceptions. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Exercise allocation failure in sealed move recovery. | Check partial recovery keeps its durable journal and source. | #731 | GPT-6 (Codex) |
 #define SAM_UAC_MOVE_RECOVERY_EXCEPTION_TEST
+#define SAM_UAC_MOVE_PREPARE_FAILURE_TEST
 #include "../uacbroker/movesourceguard.h"
 #include <sddl.h>
 #include <cstdio>
 
 using Handle = UacMoveSourceJournal::Detail::Handle;
 using UacMoveSourceJournal::RecoveryExceptionPoint;
+using UacMoveSourceJournal::PrepareFailurePoint;
 static bool inject = false, reached = false;
 static RecoveryExceptionPoint pointToThrow{};
+static bool injectPrepare = false, prepareReached = false, failClear = false;
+static PrepareFailurePoint preparePoint{};
 static int checks = 0, failures = 0;
 namespace UacMoveSourceJournal
 {
 void InjectRecoveryException(RecoveryExceptionPoint point)
 {
     if (inject && point == pointToThrow) { reached = true; throw std::bad_alloc{}; }
+}
+DWORD InjectPrepareFailure(PrepareFailurePoint point, HANDLE journal)
+{
+    if (point == PrepareFailurePoint::BeforeClear && failClear)
+        return ERROR_ACCESS_DENIED;
+    if (!injectPrepare || point != preparePoint)
+        return ERROR_SUCCESS;
+    prepareReached = true;
+    if (point == PrepareFailurePoint::BeforeRecord)
+    {
+        const BYTE byte = 0xa5;
+        DWORD written = 0;
+        if (!WriteFile(journal, &byte, 1, &written, nullptr) || written != 1)
+            return ERROR_GEN_FAILURE;
+    }
+    return ERROR_WRITE_FAULT;
 }
 }
 static void Check(bool condition, const char* label)
@@ -93,6 +114,143 @@ int wmain(int argc, wchar_t** argv)
     SECURITY_ATTRIBUTES attributes{sizeof(attributes), security.get(), FALSE};
     PACL seal = nullptr; BOOL present = FALSE, defaulted = FALSE;
     if (!GetSecurityDescriptorDacl(sealSecurity.get(), &present, &seal, &defaulted) || !present || !seal) return 7;
+
+    struct PrepareScenario { PrepareFailurePoint point; const char* label; bool cleanupFails; bool noSeal; bool sealedFault; bool viaCoordinator; bool occupied; };
+    const PrepareScenario prepareCases[] = {
+        {PrepareFailurePoint::BeforeRecord, "short journal header write is cleaned", false, false, false, false, false},
+        {PrepareFailurePoint::AfterRecord, "failure after journal header is cleaned", false, false, false, false, false},
+        {PrepareFailurePoint::AfterDacl, "failure after DACL record is cleaned", false, false, false, false, false},
+        {PrepareFailurePoint::AfterTime, "failure after time record is cleaned", false, false, false, false, false},
+        {PrepareFailurePoint::BeforeFlush, "journal flush failure is cleaned", false, false, false, false, false},
+        {PrepareFailurePoint::AfterRecord, "failed cleanup preserves partial journal and reports uncertainty", true, false, false, false, false},
+        {PrepareFailurePoint::AfterRecord, "unsealed journal write failure is cleaned", false, true, false, false, false},
+        {PrepareFailurePoint::AfterSeal, "failure after sealing retains journal for recovery", false, false, true, false, false},
+        {PrepareFailurePoint::AfterRecord, "coordinator preserves uncertainty after failed cleanup", true, false, false, true, false},
+        {PrepareFailurePoint::AfterRecord, "occupied journal is never cleared", false, false, false, false, true},
+    };
+    for (size_t i = 0; i != sizeof(prepareCases) / sizeof(prepareCases[0]); ++i)
+    {
+        const auto& scenario = prepareCases[i];
+        const std::wstring originalPath = root + L"\\prepare-original-" + std::to_wstring(i);
+        const std::wstring storagePath = root + L"\\prepare-private-" + std::to_wstring(i);
+        const std::wstring sourcePath = originalPath + L"\\source-東.txt";
+        const std::wstring streamPath = sourcePath + L":named-日";
+        const std::wstring journalPath = storagePath + L"\\journal";
+        if (!CreateDirectoryW(originalPath.c_str(), nullptr) || !CreateDirectoryW(storagePath.c_str(), &attributes) ||
+            !WriteFixture(sourcePath, "source content") || !WriteFixture(streamPath, "named stream") ||
+            !SetFileAttributesW(sourcePath.c_str(), FILE_ATTRIBUTE_NORMAL)) return 30;
+        const DWORD initialAttributes = GetFileAttributesW(sourcePath.c_str());
+        if (initialAttributes == INVALID_FILE_ATTRIBUTES || (initialAttributes & FILE_ATTRIBUTE_ARCHIVE)) return 31;
+        Handle parent = Directory(originalPath), storage = Directory(storagePath);
+        Handle journal(CreateFileW(journalPath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, &attributes,
+                                   CREATE_NEW, FILE_FLAG_OPEN_REPARSE_POINT, nullptr), CloseHandle);
+        if (!parent || !storage || journal.get() == INVALID_HANDLE_VALUE) { if (journal.get() == INVALID_HANDLE_VALUE) journal.release(); return 32; }
+        HANDLE rawSource = nullptr;
+        const DWORD open = UacRenameLeaf::Detail::OpenSource(parent.get(), L"source-東.txt", rawSource,
+            DELETE | READ_CONTROL | WRITE_DAC | FILE_READ_DATA | FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ);
+        Handle source(rawSource, CloseHandle);
+        FILE_ID_INFO expected{};
+        auto originalDacl = std::make_unique<UacMoveSourceJournal::Detail::DaclSnapshot>();
+        if (open || UacRenameLeaf::Detail::ReadSourceIdentity(source.get(), expected) || originalDacl->Read(source.get())) return 33;
+        const std::string previousJournal = "already occupied journal";
+        if (scenario.occupied)
+        {
+            DWORD written = 0;
+            if (!WriteFile(journal.get(), previousJournal.data(), static_cast<DWORD>(previousJournal.size()), &written, nullptr) ||
+                written != previousJournal.size() || !FlushFileBuffers(journal.get())) return 37;
+        }
+
+        preparePoint = scenario.point; prepareReached = false; injectPrepare = true; failClear = scenario.cleanupFails;
+        std::wstring alias;
+        unsigned recoveryCalls = 0; bool published = false;
+        DWORD error = ERROR_SUCCESS;
+        if (scenario.viaCoordinator)
+        {
+            error = UacMoveSourceJournal::RunMoveWithRecovery([&]() -> DWORD {
+                const DWORD result = UacMoveSourceJournal::PrepareRecovery(parent.get(), L"source-東.txt", source.get(), expected,
+                                                                             storage.get(), journal.get(), security.get(), alias, seal);
+                source.reset();
+                return result;
+            }, [&]() -> DWORD {
+                ++recoveryCalls;
+                return UacMoveSourceJournal::Recover(parent.get(), storage.get(), journal.get(), security.get());
+            }, published);
+            rawSource = nullptr;
+            const DWORD reopen = UacRenameLeaf::Detail::OpenSource(parent.get(), L"source-東.txt", rawSource,
+                DELETE | READ_CONTROL | WRITE_DAC | FILE_READ_DATA | FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ);
+            source.reset(rawSource);
+            if (reopen) return 38;
+        }
+        else
+            error = UacMoveSourceJournal::PrepareRecovery(parent.get(), L"source-東.txt", source.get(), expected,
+                                                          storage.get(), journal.get(), security.get(), alias, scenario.noSeal ? nullptr : seal);
+        injectPrepare = false; failClear = false;
+        LARGE_INTEGER journalSize{};
+        auto actualDacl = std::make_unique<UacMoveSourceJournal::Detail::DaclSnapshot>();
+        auto expectedDacl = std::make_unique<UacMoveSourceJournal::Detail::DaclSnapshot>(*originalDacl);
+        if (scenario.sealedFault)
+        {
+            expectedDacl->protectedDacl = 1;
+            std::memcpy(expectedDacl->storage, seal, seal->AclSize);
+        }
+        FILE_ID_INFO current{};
+        const DWORD expectedError = scenario.occupied ? static_cast<DWORD>(ERROR_BUSY) :
+            scenario.cleanupFails ? static_cast<DWORD>(ERROR_PARTIAL_COPY) : ERROR_WRITE_FAULT;
+        Check((scenario.occupied ? !prepareReached : prepareReached) && error == expectedError && alias.empty() &&
+              (!scenario.viaCoordinator || recoveryCalls == 1), scenario.label);
+        Check(!actualDacl->Read(source.get()) && actualDacl->Matches(*expectedDacl) &&
+              GetFileInformationByHandleEx(source.get(), FileIdInfo, &current, sizeof(current)) &&
+              UacRenameLeaf::Detail::SameSource(expected, current), "failed preparation preserves identity and expected DACL state");
+        Check(GetFileSizeEx(journal.get(), &journalSize) && ((scenario.cleanupFails || scenario.sealedFault || scenario.occupied) ? journalSize.QuadPart > 0 : journalSize.QuadPart == 0) &&
+              (!scenario.occupied || ReadContent(journal.get()) == previousJournal),
+              "journal reflects successful cleanup or retained uncertain record");
+        source.reset();
+        Check(FileHasContent(sourcePath, "source content") && FileHasContent(streamPath, "named stream"),
+              "failed preparation preserves source data and named stream");
+        journal.reset();
+        journal.reset(CreateFileW(journalPath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr,
+                                  OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+        if (journal.get() == INVALID_HANDLE_VALUE) { journal.release(); return 34; }
+        const auto securityAndAttributesRestored = [&]() {
+            HANDLE raw = CreateFileW(sourcePath.c_str(), READ_CONTROL, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                     nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+            Handle opened(raw == INVALID_HANDLE_VALUE ? nullptr : raw, CloseHandle);
+            auto currentDacl = std::make_unique<UacMoveSourceJournal::Detail::DaclSnapshot>();
+            const DWORD attributesNow = GetFileAttributesW(sourcePath.c_str());
+            return opened && !currentDacl->Read(opened.get()) && currentDacl->Matches(*originalDacl) &&
+                   attributesNow != INVALID_FILE_ATTRIBUTES &&
+                   (attributesNow & FILE_ATTRIBUTE_ARCHIVE) == (initialAttributes & FILE_ATTRIBUTE_ARCHIVE);
+        };
+        Check(GetFileSizeEx(journal.get(), &journalSize) && ((scenario.cleanupFails || scenario.sealedFault || scenario.occupied) ? journalSize.QuadPart > 0 : journalSize.QuadPart == 0) &&
+              (!scenario.occupied || ReadContent(journal.get()) == previousJournal),
+              "journal state survives closing and reopening the handle");
+        if (scenario.cleanupFails || scenario.occupied)
+        {
+            const DWORD recoverError = UacMoveSourceJournal::Recover(parent.get(), storage.get(), journal.get(), security.get());
+            Check(recoverError != ERROR_SUCCESS && FileHasContent(sourcePath, "source content"),
+                  "incomplete record is refused without touching source");
+            if (UacRecoveryJournal::ClearRecord(journal.get())) return 35; // only this owned fixture journal
+        }
+        if (scenario.sealedFault)
+        {
+            const DWORD recoverError = UacMoveSourceJournal::Recover(parent.get(), storage.get(), journal.get(), security.get());
+            Check(recoverError == ERROR_SUCCESS && FileHasContent(sourcePath, "source content") && securityAndAttributesRestored(),
+                  "failure after sealing recovers original security and archive state");
+        }
+        rawSource = nullptr;
+        const DWORD reopen = UacRenameLeaf::Detail::OpenSource(parent.get(), L"source-東.txt", rawSource,
+            DELETE | READ_CONTROL | WRITE_DAC | FILE_READ_DATA | FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ);
+        source.reset(rawSource);
+        if (reopen) return 36;
+        alias.clear();
+        const DWORD retry = UacMoveSourceJournal::PrepareRecovery(parent.get(), L"source-東.txt", source.get(), expected,
+                                                                   storage.get(), journal.get(), security.get(), alias, scenario.noSeal ? nullptr : seal);
+        source.reset();
+        const DWORD recovered = retry ? retry : UacMoveSourceJournal::Recover(parent.get(), storage.get(), journal.get(), security.get());
+        Check(!retry && !recovered && Identity(sourcePath, current) && UacRenameLeaf::Detail::SameSource(expected, current) &&
+              FileHasContent(sourcePath, "source content") && FileHasContent(streamPath, "named stream") && securityAndAttributesRestored(),
+              "a later preparation and recovery preserves source security and data");
+    }
 
     struct Scenario { RecoveryExceptionPoint point; const char* label; bool deleteOriginal, retainedAfter; };
     const Scenario cases[] = {

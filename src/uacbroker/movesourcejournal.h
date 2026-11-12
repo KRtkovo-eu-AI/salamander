@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Retire failed unsealed recovery records. | Avoid blocking later moves after a failed journal preparation. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Coordinate allocation failure with source recovery. | Avoid losing the recovery attempt when a move job throws. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Report allocation failures during source recovery. | Preserve the journal when recovery has only partly completed. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Recover read-only move links and the original Archive bit. | Preserve source attributes and identity after cancellation or hard process exit. | | GPT-6.1 Sol |
@@ -305,6 +306,11 @@ inline DWORD OpenOriginal(HANDLE parent, std::wstring_view leaf, const FILE_ID_I
 }
 }
 
+#ifdef SAM_UAC_MOVE_PREPARE_FAILURE_TEST
+enum class PrepareFailurePoint { BeforeRecord, AfterRecord, AfterDacl, AfterTime, BeforeFlush, BeforeClear, AfterSeal };
+DWORD InjectPrepareFailure(PrepareFailurePoint point, HANDLE journal);
+#endif
+
 // The caller holds an exclusive journal and the verified original file
 // handle, and supplies the exact security descriptor of the private storage.
 // A supplied seal must allow the recovery identity to reopen the file for
@@ -369,27 +375,64 @@ inline DWORD PrepareRecovery(HANDLE parent, std::wstring_view leaf, HANDLE sourc
     std::memcpy(record.volume, original.volume.data(), sizeof(record.volume));
     record.length = static_cast<DWORD>(leaf.size());
     std::memcpy(record.leaf, leaf.data(), leaf.size() * sizeof(wchar_t));
+    // This handle was validated, exclusively held and confirmed empty. Until
+    // Apply is attempted, no seal or recovery link has been installed. Retire
+    // only this newly written record on a known preparation I/O failure.
+    const auto abandonUnsealed = [journal](DWORD failure) -> DWORD {
+#ifdef SAM_UAC_MOVE_PREPARE_FAILURE_TEST
+        DWORD cleanup = InjectPrepareFailure(PrepareFailurePoint::BeforeClear, journal);
+        if (!cleanup)
+            cleanup = UacRecoveryJournal::ClearRecord(journal);
+#else
+        const DWORD cleanup = UacRecoveryJournal::ClearRecord(journal);
+#endif
+        return cleanup ? static_cast<DWORD>(ERROR_PARTIAL_COPY) : failure;
+    };
+#ifdef SAM_UAC_MOVE_PREPARE_FAILURE_TEST
+    if ((error = InjectPrepareFailure(PrepareFailurePoint::BeforeRecord, journal)) != ERROR_SUCCESS)
+        return abandonUnsealed(error);
+#endif
     if ((error = UacRecoveryJournal::WriteRecord(journal, record)) != ERROR_SUCCESS)
-        return error;
+        return abandonUnsealed(error);
+#ifdef SAM_UAC_MOVE_PREPARE_FAILURE_TEST
+    if ((error = InjectPrepareFailure(PrepareFailurePoint::AfterRecord, journal)) != ERROR_SUCCESS)
+        return abandonUnsealed(error);
+#endif
     if (dacl)
     {
         DWORD written = 0;
         if (!WriteFile(journal, dacl.get(), sizeof(*dacl), &written, nullptr))
-            return GetLastError();
+            return abandonUnsealed(GetLastError());
         if (written != sizeof(*dacl))
-            return ERROR_WRITE_FAULT;
+            return abandonUnsealed(ERROR_WRITE_FAULT);
+#ifdef SAM_UAC_MOVE_PREPARE_FAILURE_TEST
+        if ((error = InjectPrepareFailure(PrepareFailurePoint::AfterDacl, journal)) != ERROR_SUCCESS)
+            return abandonUnsealed(error);
+#endif
         if (record.version == clearArchiveVersion)
         {
             if (!WriteFile(journal, &metadata.LastWriteTime.QuadPart, sizeof(LONGLONG), &written, nullptr))
-                return GetLastError();
+                return abandonUnsealed(GetLastError());
             if (written != sizeof(LONGLONG))
-                return ERROR_WRITE_FAULT;
+                return abandonUnsealed(ERROR_WRITE_FAULT);
+#ifdef SAM_UAC_MOVE_PREPARE_FAILURE_TEST
+            if ((error = InjectPrepareFailure(PrepareFailurePoint::AfterTime, journal)) != ERROR_SUCCESS)
+                return abandonUnsealed(error);
+#endif
         }
+#ifdef SAM_UAC_MOVE_PREPARE_FAILURE_TEST
+        if ((error = InjectPrepareFailure(PrepareFailurePoint::BeforeFlush, journal)) != ERROR_SUCCESS)
+            return abandonUnsealed(error);
+#endif
         if (!FlushFileBuffers(journal))
-            return GetLastError();
+            return abandonUnsealed(GetLastError());
     }
     if (dacl && (error = dacl->sealed.Apply(source)) != ERROR_SUCCESS)
         return error;
+#ifdef SAM_UAC_MOVE_PREPARE_FAILURE_TEST
+    if (dacl && (error = InjectPrepareFailure(PrepareFailurePoint::AfterSeal, journal)) != ERROR_SUCCESS)
+        return error;
+#endif
     recoveryName = std::move(alias);
     return ERROR_SUCCESS;
 }
