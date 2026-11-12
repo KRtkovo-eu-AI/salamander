@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Type distinct worker handle arguments. | Prevent accidental exchange of source and cancel handles. | #731 | GPT-6 |
 | 2026-11-12 | Declare scoped worker file handle transfers. | Keep native copy I/O in the unelevated process. | #731 | GPT-6 |
 | 2026-11-12 | Prepare an archive read from a scoped listing. | Bind archive consent to captured parent and file identities. | #731 | GPT-6.1 Sol |
 | 2026-11-12 | Expose the prepared Find root identity. | Bind paged Find requests to the existing consent. | #731 | GPT-6.1 Terra |
@@ -932,6 +933,9 @@ private:
 
 enum class ThinOpenKind : DWORD { Source = 1, TargetCreate = 2, TargetRetry = 3, TargetProbe = 4, Discard = 5 };
 
+struct ThinOpenedSource { HANDLE value = INVALID_HANDLE_VALUE; };
+struct ThinCancelEvent { HANDLE value = nullptr; };
+
 struct ThinOpenResult
 {
     HANDLE file = INVALID_HANDLE_VALUE;
@@ -952,7 +956,7 @@ public:
     ThinCopySession& operator=(const ThinCopySession&) = delete;
     ThinOpenResult Open(HWND owner, const PreparedTransfer& prepared, ThinOpenKind kind,
                         bool overlapped, bool copyAttrs, const MoveFileIdentity* expectedTarget,
-                        HANDLE openedSource = INVALID_HANDLE_VALUE, HANDLE cancel = nullptr);
+                        ThinOpenedSource openedSource = {}, ThinCancelEvent cancel = {});
     DWORD DiscardTarget(const PreparedTransfer& prepared, const MoveFileIdentity& target);
     bool Attach(TransferJobSession& existing, const PreparedTransfer& prepared);
     bool IsOpen() const;

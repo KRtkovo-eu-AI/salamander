@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Type distinct worker handle arguments. | Prevent accidental exchange of source and cancel handles. | #731 | GPT-6 |
 | 2026-11-12 | Add typed worker handle transfer requests. | Retain original worker data I/O under a scoped broker session. | #731 | GPT-6 |
 | 2026-11-12 | Recover guarded moves after allocation failure. | Preserve source recovery and report uncertain publication as partial. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Prepare archive reads from a verified listing identity. | Preserve source scope across a separate broker consent. | #731 | GPT-6.1 Sol |
@@ -5596,14 +5597,16 @@ bool ThinCopySession::Attach(TransferJobSession& existing, const PreparedTransfe
 
 DWORD ThinCopySession::DiscardTarget(const PreparedTransfer& prepared, const MoveFileIdentity& target)
 {
-    const ThinOpenResult result = Open(nullptr, prepared, ThinOpenKind::Discard, false, false, &target, INVALID_HANDLE_VALUE);
+    const ThinOpenResult result = Open(nullptr, prepared, ThinOpenKind::Discard, false, false, &target);
     return result.unknown ? ERROR_PARTIAL_COPY : result.error;
 }
 
 ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepared, ThinOpenKind kind,
                                      bool overlapped, bool copyAttrs, const MoveFileIdentity* expectedTarget,
-                                     HANDLE openedSource, HANDLE cancel)
+                                     ThinOpenedSource opened, ThinCancelEvent cancellation)
 {
+    const HANDLE openedSource = opened.value;
+    const HANDLE cancel = cancellation.value;
     std::lock_guard<std::mutex> guard(gate);
     ThinOpenResult output;
     if (copyAttrs || prepared.source.operation != Operation::Copy || prepared.HasDeferredTarget())
