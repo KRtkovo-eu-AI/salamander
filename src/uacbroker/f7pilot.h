@@ -788,6 +788,7 @@ public:
 private:
     friend class PreparedTransfer;
     friend class PreparedLeaf;
+    friend class ThinCopySession;
     HANDLE pipe = nullptr;
     TransferJobScope scope;
     ULONGLONG openGeneration = 1; // invalidated on every Close, including reopen
@@ -953,6 +954,7 @@ public:
                         bool overlapped, bool copyAttrs, const MoveFileIdentity* expectedTarget,
                         HANDLE cancel = nullptr);
     DWORD DiscardTarget(const PreparedTransfer& prepared, const MoveFileIdentity& target);
+    bool Attach(TransferJobSession& existing, const PreparedTransfer& prepared);
     bool IsOpen() const;
     bool Matches(const PreparedTransfer& prepared) const;
     void Close();
@@ -960,10 +962,8 @@ public:
 private:
     void CloseLocked();
     mutable std::mutex gate;
-    HANDLE pipe = nullptr;
-    HANDLE broker = nullptr;
-    TransferJobScope scope;
-    ULONGLONG nextSequence = 1;
+    TransferJobSession owned;
+    TransferJobSession* shared = nullptr;
 };
 
 
