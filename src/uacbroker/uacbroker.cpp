@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Refuse non-thin launches from laboratory locations. | Prevent accidental elevation of user-writable fixture images. | #731 | GPT-6 |
 | 2026-11-12 | Isolate unelevated integration fixtures from installed builds. | Exercise the worker without modifying the protected installation. | #731 | GPT-6 |
 | 2026-11-12 | Gate unelevated worker integration behind a test-only build. | Exercise the real broker process without claiming a UAC boundary. | #731 | GPT-6 |
 | 2026-11-12 | Expose test-only authenticated broker PID markers. | Measure a singleton job without lending a process handle. | #731 | GPT-6 |
@@ -559,6 +560,9 @@ public:
 
     const std::wstring& Directory() const { return path; }
     HANDLE DirectoryHandle() const { return directory.get(); }
+#ifdef SAM_UAC_THIN_COPY_TEST
+    bool IsThinTestLocation() const { return thinTestLocation; }
+#endif
 
 private:
     static Handle OpenDirectory(const std::wstring& name)
@@ -3814,6 +3818,10 @@ int RunBroker(const InstallLocation& install, const wchar_t* pipeName, DWORD hos
 #endif
 )
 {
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (install.IsThinTestLocation() && !thinUnelevatedTest)
+        return Report(Untrusted, L"Test location requires an unelevated test job", ERROR_ACCESS_DENIED);
+#endif
     HANDLE rawToken = nullptr;
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &rawToken))
         return Report(Untrusted, L"Open broker token", GetLastError());
@@ -4080,6 +4088,11 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
     const bool thinUnelevatedTest = request && IsThinOpen(request->operation) &&
         GetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", testSwitch, ARRAYSIZE(testSwitch)) == 1 &&
         testSwitch[0] == L'1';
+    if (install.IsThinTestLocation() && !thinUnelevatedTest)
+    {
+        result->error = ERROR_ACCESS_DENIED;
+        return Report(Untrusted, L"Test location requires a thin job", ERROR_ACCESS_DENIED);
+    }
     if (thinUnelevatedTest) args += L" --thin-unelevated-test";
 #endif
     SHELLEXECUTEINFOW launch{sizeof(launch)};
