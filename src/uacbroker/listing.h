@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Define bounded verified directory page frames. | Keep streamed metadata confined to a CompareList session. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Measure one pinned file without a directory grant. | Keep standalone file consent limited to metadata for that exact object. | #731 | GPT-6.1 Terra |
 | 2026-11-11 | Measure allocation for one verified file within a read-only scope. | Resolve a denied compressed size without rescanning or exposing file contents. | #731 | GPT-6.1 Terra |
@@ -50,6 +51,24 @@ constexpr DWORD directoryIdentityRequest = 0x04000000;
 constexpr DWORD verifiedListingRequest = 0x02000000;
 constexpr DWORD linkIdentityRequest = 0x01000000;
 constexpr DWORD fileAllocationRequest = 0x00800000;
+constexpr DWORD pagedListingRequest = 0x00400000;
+
+enum class PagedListingOp : DWORD { Open = 1, Next = 2, Close = 3 };
+struct PagedListingFrame
+{
+    PagedListingOp operation;
+    DWORD reserved;
+};
+struct PagedListingReply
+{
+    DWORD error;
+    DWORD count;
+    DWORD done;
+    DWORD reserved;
+    UacF7::MoveFileIdentity identity;
+};
+static_assert(sizeof(PagedListingFrame) == 8);
+static_assert(sizeof(PagedListingReply) == 40);
 
 struct LeafIdentity
 {

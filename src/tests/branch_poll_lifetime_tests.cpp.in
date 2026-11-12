@@ -26,6 +26,13 @@ size_t InitialPreviewCount(size_t discovered, size_t published);
 bool SameSnapshot(const std::vector<Entry>& a, const std::vector<Entry>& b);
 } }
 using namespace Salamander::BranchView;
+namespace Salamander { namespace BranchView { struct DirectoryPager { void* open = nullptr; void* next = nullptr; void* close = nullptr; }; } }
+static void* OpenLocalBranchPage = nullptr;
+static void* NextLocalBranchPage = nullptr;
+static void* CloseLocalBranchPage = nullptr;
+static void* OpenBrokerBranchPage = nullptr;
+static void* NextBrokerBranchPage = nullptr;
+static void* CloseBrokerBranchPage = nullptr;
 
 static int checks = 0, failures = 0, refreshCalls = 0, sortCalls = 0, timerCalls = 0;
 static int directoryStatusCalls = 0, workerCancels = 0, workerStarts = 0, panelDestructors = 0;
@@ -37,6 +44,8 @@ static const int IDS_ERRORTITLE = 1;
 static const int IDS_BRANCH_VIEW = 2;
 static const int IDS_BRANCH_LIST_LIMIT = 3;
 static const int IDS_FIND_INCOMPLETE_PROTECTED_FAILURE = 4;
+static const int IDS_BRANCH_MERGE_UNCERTAIN_DETAIL = 5;
+static const int IDS_BRANCH_IDENTITY_UNAVAILABLE = 6;
 static const char* GetErrorText(DWORD) { return "out of memory"; }
 static const char* LoadStr(int) { return "Error"; }
 static int SalMessageBox(HWND, const char*, const char*, UINT) { ++errorDialogs; return IDOK; }
@@ -68,7 +77,9 @@ static void StartExplorerSortAsync(FakeFiles*, FakeFiles*, int) { ++sortCalls; }
 
 namespace UacF7 {
 struct ListingSession {
+    bool busy = false;
     bool Contains(const std::wstring&) { return true; }
+    bool TryContains(const std::wstring&, bool& contains) { if (busy) return false; contains = true; return true; }
     DWORD List(const std::wstring&, std::vector<WIN32_FIND_DATAW>&, const void* = nullptr) { return ERROR_SUCCESS; }
     bool IsOpen() const { return true; }
 };
@@ -86,6 +97,7 @@ struct FakeWorker {
     ~FakeWorker() { if (real) BranchTestDestroy(real); }
     void Cancel() { ++workerCancels; if (real) BranchTestCancel(real); }
     bool Start(const std::wstring&, bool, bool) { ++workerStarts; return true; }
+    void SetLocalPager(const DirectoryPager&) {}
     void Drain(std::vector<Entry>& out, Progress& status) {
         if (real) BranchTestDrain(real, &out, &status);
         else { out.swap(batch); status = next; }
@@ -96,6 +108,7 @@ struct FakeWorker {
 struct CBranchViewState {
     bool Enabled = true, Applying = false, Dirty = false, PreserveListing = false, HasCompletedSnapshot = false;
     bool ForcePublish = false, Preparing = false, CompletionPending = false, StoppingInitial = false, UseProtectedListing = false, RetryingProtected = false;
+    bool PanelScopePending = false;
     std::shared_ptr<PreparationSession> Preparation;
     std::shared_ptr<PreparationLifetime> PreparationLifetime;
     ULONGLONG Generation = 0;
@@ -111,7 +124,7 @@ struct CBranchViewState {
 struct CFilesWindow {
     HWND HWindow = nullptr;
     CBranchViewState* BranchView = nullptr;
-    std::unique_ptr<UacF7::ListingSession> ProtectedListing;
+    std::shared_ptr<UacF7::ListingSession> ProtectedListing;
     FakeFiles* Files = nullptr;
     FakeFiles* Dirs = nullptr;
     CFilesWindow() : BranchView(new CBranchViewState), Files(new FakeFiles), Dirs(new FakeFiles) {
@@ -194,6 +207,23 @@ int main() {
         Check(refreshCalls == 1 && sortCalls == 1 && panel->BranchView->Entries.size() == 1 &&
               !panel->BranchView->Status.Running && !lifetime->Busy,
               "normal finished scan publishes one snapshot and releases the poll scope");
+        delete panel;
+    }
+    Reset();
+    {
+        auto* panel = Fixture();
+        panel->ProtectedListing = std::make_shared<UacF7::ListingSession>();
+        panel->ProtectedListing->busy = true;
+        panel->BranchView->Refresh.Cancel();
+        panel->BranchView->Refresh.Request(GetTickCount64(), false);
+        panel->BranchView->PanelScopePending = true;
+        panel->PollBranchView();
+        Check(panel->BranchView->PanelScopePending && workerStarts == 0 && timerCalls != 0,
+              "a busy approved session defers Branch start without blocking or starting a fallback");
+        panel->ProtectedListing->busy = false;
+        panel->PollBranchView();
+        Check(!panel->BranchView->PanelScopePending && panel->BranchView->UseProtectedListing && workerStarts == 1,
+              "the deferred Branch scan reuses the approved session once it becomes available");
         delete panel;
     }
     Reset();

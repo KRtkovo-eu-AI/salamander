@@ -4403,6 +4403,9 @@ SLGINCOMPLETE,""
 14716,1,"No se puede verificar la identidad de algunas carpetas protegidas. No se abrieron; la lista está incompleta. Primera carpeta:"
 14717,1,"Una carpeta protegida contiene más de 4096 elementos. Su lista está incompleta."
 
+14719,1,"Branch View - %I64u archivos; el resultado puede estar incompleto"
+14720,1,"La lista de la carpeta se interrumpió y se reanudó. Los archivos pudieron cambiar; la lista puede estar incompleta. Actualícela para comprobarla."
+
 [STRINGTABLE 199]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
 

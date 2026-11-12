@@ -4403,6 +4403,9 @@ SLGINCOMPLETE,""
 14716,1,"Identitatea unor foldere protejate nu poate fi verificată. Acestea nu au fost deschise; lista este incompletă. Primul folder:"
 14717,1,"Un folder protejat conține peste 4096 de elemente. Lista sa este incompletă."
 
+14719,1,"Branch View - %I64u fișiere; rezultatul poate fi incomplet"
+14720,1,"Listarea folderului a fost întreruptă și reluată. Fișierele se pot fi schimbat între timp, deci lista poate fi incompletă. Reîmprospătați pentru verificare."
+
 [STRINGTABLE 199]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."
 

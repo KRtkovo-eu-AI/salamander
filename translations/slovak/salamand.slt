@@ -4403,6 +4403,9 @@ SLGINCOMPLETE,""
 14716,1,"Identitu niektorých chránených priečinkov nemožno overiť. Neboli otvorené; výpis je neúplný. Prvý priečinok:"
 14717,1,"Chránený priečinok obsahuje viac ako 4096 položiek. Jeho výpis je neúplný."
 
+14719,1,"Branch View - %I64u súborov; výsledok môže byť neúplný"
+14720,1,"Výpis priečinka bol prerušený a obnovený. Súbory sa medzitým mohli zmeniť, preto môže byť výsledný výpis neúplný. Overte ho obnovením."
+
 [STRINGTABLE 199]
 14991,1,"Čítanie priradení súborov zo súborového úložiska, čakajte prosím..."
 

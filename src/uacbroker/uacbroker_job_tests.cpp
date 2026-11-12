@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Exercise verified paged metadata over the dispatcher pipe. | Check scoped cursors without restarting or exposing incomplete pages. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Test converted Find identities through the View dispatcher. | Reject readable same-name substitutions before returning bytes. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Reject an overwrite receipt with a stale timestamp on the same file ID. | Preserve both names when listing metadata lags. | #731 | GPT-6.1 Terra |
@@ -488,6 +489,25 @@ public:
         range = {};
         return !TransferRequest(server.get(), &range, sizeof(range), true, deadline) &&
                !TransferRequest(server.get(), &status, sizeof(status), false, deadline) && !status;
+    }
+
+    bool PageRequest(UacListing::PagedListingOp operation, std::wstring_view path,
+                     const UacF7::MoveFileIdentity* identity, UacListing::PagedListingReply& reply,
+                     std::vector<UacF7::PagedListingEntry>& entries)
+    {
+        entries.clear();
+        const auto deadline = GetTickCount64() + timeoutMs;
+        UacListing::PagedListingFrame frame{operation, 0};
+        UacF7::MoveFileIdentity copy = identity ? *identity : UacF7::MoveFileIdentity{};
+        if (!SendFindRequest(UacListing::pagedListingRequest, path, deadline) ||
+            TransferRequest(server.get(), &frame, sizeof(frame), true, deadline) ||
+            (identity && TransferRequest(server.get(), &copy, sizeof(copy), true, deadline)) ||
+            TransferRequest(server.get(), &reply, sizeof(reply), false, deadline) ||
+            reply.count > UacF7::maxPagedListingEntries)
+            return false;
+        entries.resize(reply.count);
+        return !reply.count || !TransferRequest(server.get(), entries.data(),
+            reply.count * static_cast<DWORD>(sizeof(entries[0])), false, deadline);
     }
 
     bool CompareList(std::wstring_view path, const FILE_ID_INFO& expectedIdentity, DWORD expected, std::wstring_view entry = {})

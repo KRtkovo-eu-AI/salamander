@@ -4403,6 +4403,9 @@ SLGINCOMPLETE,""
 14716,1,"De identiteit van sommige beveiligde mappen kan niet worden gecontroleerd. Ze zijn niet geopend; de lijst is onvolledig. Eerste map:"
 14717,1,"Een beveiligde map bevat meer dan 4096 items. De lijst is onvolledig."
 
+14719,1,"Branch View - %I64u bestanden; resultaat mogelijk onvolledig"
+14720,1,"De maplijst is onderbroken en hervat. Bestanden kunnen intussen zijn gewijzigd; de lijst kan onvolledig zijn. Vernieuw om dit te controleren."
+
 [STRINGTABLE 199]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."
 

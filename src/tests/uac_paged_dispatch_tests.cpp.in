@@ -1,0 +1,182 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Exercise scoped identity pages through the real dispatcher. | Check paging, identity and scope without a UAC or UI claim. | #731 | GPT-6 (Codex) |
+@@JOB_FIXTURE@@
+#include <set>
+
+int wmain()
+{
+    Directory root;
+    if (!root.Open(L"paged-root")) return 2;
+    const auto targetPath = root.File(L"paged-\u6771");
+    if (!CreateDirectoryW(targetPath.c_str(), nullptr)) return 3;
+    auto target = Adopt(CreateFileW(targetPath.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    FILE_ID_INFO targetId{};
+    if (!target || !GetFileInformationByHandleEx(target.get(), FileIdInfo, &targetId, sizeof(targetId))) return 4;
+    UacF7::MoveFileIdentity expected{targetId.VolumeSerialNumber};
+    std::memcpy(expected.id, targetId.FileId.Identifier, sizeof(expected.id));
+    for (unsigned i = 0; i < 4104; ++i)
+    {
+        wchar_t leaf[32]{};
+        swprintf_s(leaf, L"\\row-%04u.txt", i);
+        if (!WriteByte(targetPath + leaf, static_cast<BYTE>(i))) return 5;
+    }
+    JobPipe job;
+    if (!job.Open(nullptr, root.handle.get(), Operation::CompareList)) return 6;
+    std::vector<UacF7::PagedListingEntry> rows;
+    UacListing::PagedListingReply reply{};
+    auto wrong = expected;
+    wrong.id[0] ^= 1;
+    Check(job.PageRequest(UacListing::PagedListingOp::Open, L"paged-\u6771", &wrong, reply, rows) &&
+          reply.error == ERROR_FILE_INVALID && rows.empty(), "mismatched directory ID returns no rows");
+    Check(job.PageRequest(UacListing::PagedListingOp::Open, L"..\\outside", &expected, reply, rows) &&
+          reply.error == ERROR_INVALID_NAME && rows.empty(), "paged traversal cannot leave approved root");
+    Check(job.PageRequest(UacListing::PagedListingOp::Open, L"paged-\u6771", &expected, reply, rows) &&
+          !reply.error && reply.identity.serial == expected.serial &&
+          !std::memcmp(reply.identity.id, expected.id, sizeof(expected.id)), "open exact directory identity");
+    Check(job.PageRequest(UacListing::PagedListingOp::Open, L"paged-\u6771", &expected, reply, rows) &&
+          reply.error == ERROR_BUSY, "second cursor cannot replace active cursor");
+    std::set<std::wstring> names;
+    bool complete = false, pagesOk = true;
+    unsigned pages = 0;
+    while (!complete && pages++ < 100)
+    {
+        if (!job.PageRequest(UacListing::PagedListingOp::Next, {}, nullptr, reply, rows) || reply.error ||
+            reply.count != rows.size() || rows.size() > UacF7::maxPagedListingEntries)
+        { pagesOk = false; break; }
+        for (const auto& row : rows)
+        {
+            const BYTE zero[16]{};
+            if (!std::memcmp(row.id, zero, sizeof(zero)) || !names.emplace(row.data.cFileName).second)
+                pagesOk = false;
+        }
+        complete = reply.done != 0;
+    }
+    Check(pagesOk && complete && names.size() == 4104 && pages > 64,
+          "more than 4096 identity-bearing rows arrive once in bounded pages");
+    Check(job.PageRequest(UacListing::PagedListingOp::Next, {}, nullptr, reply, rows) &&
+          reply.error == ERROR_INVALID_STATE && rows.empty(), "completed cursor cannot be read again");
+    Check(job.PageRequest(UacListing::PagedListingOp::Open, L"paged-\u6771", &expected, reply, rows) && !reply.error &&
+          job.PageRequest(UacListing::PagedListingOp::Close, {}, nullptr, reply, rows) && !reply.error &&
+          job.PageRequest(UacListing::PagedListingOp::Next, {}, nullptr, reply, rows) && reply.error == ERROR_INVALID_STATE,
+          "closing one cursor prevents further reads and permits a new one");
+    const bool openedBeforeChange = job.PageRequest(UacListing::PagedListingOp::Open, L"paged-\u6771", &expected, reply, rows) && !reply.error;
+    target.reset();
+    const auto movedTarget = root.File(L"paged-moved");
+    if (openedBeforeChange && MoveFileW(targetPath.c_str(), movedTarget.c_str()))
+    {
+        const bool replaced = CreateDirectoryW(targetPath.c_str(), nullptr) != FALSE;
+        Check(replaced && job.PageRequest(UacListing::PagedListingOp::Next, {}, nullptr, reply, rows) &&
+              reply.error == ERROR_FILE_INVALID && rows.empty(),
+              "a moved directory and same-name replacement cannot provide another page");
+    }
+    else
+    {
+        std::printf("SKIP: moving the open directory is unavailable (%lu)\n", GetLastError());
+        if (openedBeforeChange) job.PageRequest(UacListing::PagedListingOp::Close, {}, nullptr, reply, rows);
+    }
+    const auto current = Adopt(CreateFileW(targetPath.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    FILE_ID_INFO currentId{};
+    if (!current || !GetFileInformationByHandleEx(current.get(), FileIdInfo, &currentId, sizeof(currentId))) return 11;
+    UacF7::MoveFileIdentity panelIdentity{currentId.VolumeSerialNumber};
+    std::memcpy(panelIdentity.id, currentId.FileId.Identifier, sizeof(panelIdentity.id));
+    JobPipe panel;
+    Check(panel.Open(nullptr, root.handle.get(), Operation::List) &&
+          panel.PageRequest(UacListing::PagedListingOp::Open, L"paged-\u6771", &panelIdentity, reply, rows) && !reply.error &&
+          panel.PageRequest(UacListing::PagedListingOp::Close, {}, nullptr, reply, rows) && !reply.error,
+          "the existing read-only panel listing scope admits verified metadata pages");
+    // The ACL is applied only to this disposable fixture and restored through
+    // its already-open handle before the test returns.
+    const auto ancestorPath = root.File(L"traverse-only");
+    const auto childPath = ancestorPath + L"\\child";
+    const auto movedPath = root.File(L"traverse-only-moved");
+    if (!CreateDirectoryW(ancestorPath.c_str(), nullptr) || !CreateDirectoryW(childPath.c_str(), nullptr)) return 7;
+    auto childControl = Adopt(CreateFileW(childPath.c_str(), READ_CONTROL | WRITE_DAC,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    PSECURITY_DESCRIPTOR childDescriptor = nullptr;
+    PACL childDacl = nullptr;
+    BOOL childPresent = FALSE, childDefaulted = FALSE;
+    if (!childControl || !ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(A;;FA;;;WD)",
+            SDDL_REVISION_1, &childDescriptor, nullptr) ||
+        !GetSecurityDescriptorDacl(childDescriptor, &childPresent, &childDacl, &childDefaulted) || !childPresent ||
+        SetSecurityInfo(childControl.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                        nullptr, nullptr, childDacl, nullptr)) return 10;
+    LocalFree(childDescriptor);
+    const auto control = Adopt(CreateFileW(ancestorPath.c_str(), READ_CONTROL | WRITE_DAC,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    PACL oldDacl = nullptr;
+    PSECURITY_DESCRIPTOR oldDescriptor = nullptr, temporaryDescriptor = nullptr;
+    SECURITY_DESCRIPTOR_CONTROL oldFlags{};
+    DWORD revision = 0;
+    if (!control || GetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION,
+                                    nullptr, nullptr, &oldDacl, nullptr, &oldDescriptor) ||
+        !GetSecurityDescriptorControl(oldDescriptor, &oldFlags, &revision) ||
+        !ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:P(D;;0x1;;;WD)(A;;FA;;;WD)",
+                                                               SDDL_REVISION_1, &temporaryDescriptor, nullptr))
+        return 8;
+    PACL temporaryDacl = nullptr;
+    BOOL present = FALSE, defaulted = FALSE;
+    if (!GetSecurityDescriptorDacl(temporaryDescriptor, &present, &temporaryDacl, &defaulted) || !present ||
+        SetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+                        nullptr, nullptr, temporaryDacl, nullptr)) return 9;
+    auto childProbe = Adopt(CreateFileW(childPath.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    if (!childProbe) std::printf("DETAIL: absolute child open=%lu\n", GetLastError());
+    {
+        std::vector<Handle> pins;
+        HANDLE anchored = nullptr;
+        const DWORD pinStatus = PinPagedDirectory(root.handle.get(), L"traverse-only\\child", nullptr, pins, anchored);
+        // Restore the original ACL while the traverse-only pin is still held,
+        // so that the following rename probes share-mode protection rather than
+        // merely rediscovering an ACL denial.
+        const DWORD earlyRestore = SetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION |
+            ((oldFlags & SE_DACL_PROTECTED) ? PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION),
+            nullptr, nullptr, oldDacl, nullptr);
+        childControl.reset();
+        childProbe.reset();
+        const BOOL renamedWhilePinned = pinStatus == ERROR_SUCCESS && MoveFileW(ancestorPath.c_str(), movedPath.c_str());
+        const DWORD pinnedMoveError = renamedWhilePinned ? ERROR_SUCCESS : GetLastError();
+        std::printf("DETAIL: traverse pin=%lu, renameWhilePinned=%d, renameError=%lu, pins=%zu\n",
+                    pinStatus, renamedWhilePinned, pinnedMoveError, pins.size());
+        if (pinStatus && !pins.empty())
+        {
+            FILE_CASE_SENSITIVE_INFO info{};
+            const BOOL queried = GetFileInformationByHandleEx(pins.back().get(), FileCaseSensitiveInfo, &info, sizeof(info));
+            const DWORD queryError = queried ? 0 : GetLastError();
+            HANDLE probe = nullptr;
+            const DWORD childError = UacRenameLeaf::Detail::OpenSource(pins.back().get(), L"child", probe,
+                FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_WRITE, UacRenameLeaf::MoveKind::RenameDirectory, false);
+            if (probe) CloseHandle(probe);
+            std::printf("DETAIL: caseQuery=%d caseError=%lu childOpen=%lu\n", queried, queryError, childError);
+        }
+        Check(pinStatus == ERROR_SUCCESS && earlyRestore == ERROR_SUCCESS && !renamedWhilePinned,
+              "traverse-only ancestor remains pinned during scoped page operation");
+        pins.clear();
+        const BOOL renamedAfter = pinStatus == ERROR_SUCCESS && !renamedWhilePinned &&
+                                  MoveFileW(ancestorPath.c_str(), movedPath.c_str());
+        if (!renamedAfter) std::printf("DETAIL: renameAfter=%d error=%lu\n", renamedAfter, GetLastError());
+        Check(renamedAfter != FALSE, "the same ancestor can move after scoped pins close");
+    }
+    const DWORD restored = SetSecurityInfo(control.get(), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION |
+        ((oldFlags & SE_DACL_PROTECTED) ? PROTECTED_DACL_SECURITY_INFORMATION : UNPROTECTED_DACL_SECURITY_INFORMATION),
+        nullptr, nullptr, oldDacl, nullptr);
+    LocalFree(temporaryDescriptor);
+    LocalFree(oldDescriptor);
+    Check(restored == ERROR_SUCCESS, "restore disposable ancestor DACL");
+    for (const auto scope : {Operation::CompareContent, Operation::Inventory, Operation::FindFile, Operation::FindContent})
+    {
+        JobPipe rejected;
+        Check(rejected.Open(nullptr, root.handle.get(), scope) &&
+              rejected.RejectFindRequest(UacListing::pagedListingRequest),
+              "unrelated scope rejects the paged request before any data");
+    }
+    return failures ? 1 : 0;
+}

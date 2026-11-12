@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Add bounded identity-bearing directory cursors. | Stream verified metadata without the single-listing item cap. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Expose a scoped transfer source and job opening for a reviewed retry. | Reject source substitution and a replaced broker session. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Bind reviewed overwrite to a single live session. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Define scoped two-phase overwrite probe messages. | Tie renewed consent to a broker-observed item. | #731 | GPT-6 (Codex) |
@@ -110,6 +111,8 @@
 
 #include <windows.h>
 #include <cstring>
+#include <atomic>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -194,6 +197,31 @@ struct MoveFileIdentity
 {
     ULONGLONG serial = 0;
     BYTE id[16]{};
+};
+
+// Internal host/broker wire contract. Names and metadata belong to the same
+// directory enumeration record as the 128-bit ID; no plugin ABI is changed.
+constexpr DWORD maxPagedListingEntries = 64;
+struct PagedListingEntry
+{
+    WIN32_FIND_DATAW data{};
+    BYTE id[16]{};
+};
+static_assert(sizeof(PagedListingEntry) == 608);
+
+// Ordinary-token enumeration retains one exact no-follow directory handle.
+class LocalDirectoryCursor
+{
+public:
+    LocalDirectoryCursor() = default;
+    ~LocalDirectoryCursor();
+    LocalDirectoryCursor(const LocalDirectoryCursor&) = delete;
+    LocalDirectoryCursor& operator=(const LocalDirectoryCursor&) = delete;
+    DWORD Open(const std::wstring& path, const MoveFileIdentity* expected, MoveFileIdentity& actual);
+    DWORD Next(std::vector<PagedListingEntry>& entries, bool& done);
+    void Close();
+private:
+    void* cursor = nullptr;
 };
 
 bool CaptureMoveFileIdentity(HANDLE file, MoveFileIdentity& identity, bool requireNtfs = false);
@@ -967,7 +995,7 @@ public:
     bool PrepareExactFindViewer(const std::wstring& path, DWORD attributes, PreparedLeaf& viewer) const;
     bool PrepareAllocationFile(const std::wstring& path, const PreparedLeaf& file);
     bool PrepareFindRoot(const FindRootIdentity& identity, bool readContent);
-    DWORD CaptureFindRoot(const std::wstring& path, FindRootIdentity& identity);
+    DWORD CaptureFindRoot(const std::wstring& path, FindRootIdentity& identity, HANDLE stop = nullptr);
     bool PrepareInventory(const std::wstring& path);
     bool PrepareComparison(const std::wstring& path, bool contents);
     static bool CaptureDirectoryIdentity(const std::wstring& path, MoveFileIdentity& identity);
@@ -984,27 +1012,47 @@ public:
     DWORD ReadContent(ULONGLONG offset, void* buffer, DWORD bytes);
     DWORD CloseContent();
     bool Contains(const std::wstring& path) const;
+    bool TryContains(const std::wstring& path, bool& contains) const
+    {
+        contains = Contains(path);
+        return true;
+    }
     const std::wstring& GetRoot() const { return root; }
     DWORD List(const std::wstring& path, std::vector<WIN32_FIND_DATAW>& entries,
                const MoveFileIdentity* expected = nullptr);
+    DWORD OpenDirectoryCursor(const std::wstring& path, const MoveFileIdentity& expected, MoveFileIdentity& actual,
+                              ULONGLONG& lease, HANDLE stop = nullptr);
+    DWORD NextDirectoryPage(ULONGLONG lease, std::vector<PagedListingEntry>& entries, bool& done, HANDLE stop = nullptr);
+    DWORD CloseDirectoryCursor(ULONGLONG lease, HANDLE stop = nullptr);
     DWORD Inventory(const std::wstring& path, DirectoryInventory& inventory, DirectorySizeDetails* details = nullptr,
                     std::wstring* firstSkipped = nullptr);
     DWORD MeasureFileAllocation(const std::wstring& path, const FileAllocationRequest& identity, ULONGLONG& bytes);
-    bool IsOpen() const { return pipe != nullptr; }
+    bool IsOpen() const { return publishedOpen.load(std::memory_order_acquire); }
+    bool TryIsOpen(bool& open) const
+    {
+        open = IsOpen();
+        return true;
+    }
 
 private:
     bool PrepareDirectory(const std::wstring& path, Operation operation);
     DWORD PrepareLeaf(const std::wstring& path, Operation operation, const std::wstring& renameTo,
                       PreparedLeaf& request, const MetadataChange* change = nullptr,
-                      DWORD expectedAttributes = INVALID_FILE_ATTRIBUTES);
-    DWORD Transfer(void* buffer, DWORD length, bool send, ULONGLONG deadline);
-    DWORD SendPath(const std::wstring& path, DWORD flags, ULONGLONG deadline);
+                      DWORD expectedAttributes = INVALID_FILE_ATTRIBUTES, HANDLE callStop = nullptr);
+    DWORD Transfer(void* buffer, DWORD length, bool send, ULONGLONG deadline, HANDLE callStop = nullptr);
+    DWORD SendPath(const std::wstring& path, DWORD flags, ULONGLONG deadline, HANDLE callStop = nullptr);
     void Close();
     PreparedLeaf prepared;
     std::wstring root;
     HANDLE pipe = nullptr;
     HANDLE stopEvent = nullptr; // borrowed until the Find worker joins
     bool contentOpen = false;
+    ULONGLONG directoryCursorLease = 0;
+    ULONGLONG nextDirectoryCursorLease = 1;
+    bool starting = false;
+    mutable std::recursive_mutex mutex;
+    std::atomic<bool> publishedOpen{false};
+    mutable std::atomic<unsigned> foregroundWaiters{0};
 };
 
 class ArchiveReadSession

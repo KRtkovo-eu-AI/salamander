@@ -4403,6 +4403,9 @@ SLGINCOMPLETE,""
 14716,1,"Impossibile verificare l’identità di alcune cartelle protette. Non sono state aperte; l’elenco è incompleto. Prima cartella:"
 14717,1,"Una cartella protetta contiene più di 4096 elementi. Il suo elenco è incompleto."
 
+14719,1,"Branch View - %I64u file; il risultato potrebbe essere incompleto"
+14720,1,"L’elenco della cartella è stato interrotto e ripreso. I file potrebbero essere cambiati; l’elenco potrebbe essere incompleto. Aggiornarlo per verificare."
+
 [STRINGTABLE 199]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."
 

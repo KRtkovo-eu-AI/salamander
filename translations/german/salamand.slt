@@ -4404,6 +4404,9 @@ SLGINCOMPLETE,""
 14716,1,"Die Identität einiger geschützter Ordner kann nicht überprüft werden. Sie wurden nicht geöffnet; die Liste ist unvollständig. Erster Ordner:"
 14717,1,"Ein geschützter Ordner enthält mehr als 4096 Einträge. Seine Liste ist unvollständig."
 
+14719,1,"Branch View - %I64u Dateien; Ergebnis möglicherweise unvollständig"
+14720,1,"Die Ordnerauflistung wurde unterbrochen und fortgesetzt. Dateien können sich zwischenzeitlich geändert haben; die Liste kann unvollständig sein. Aktualisieren Sie sie zur Überprüfung."
+
 [STRINGTABLE 199]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
 
