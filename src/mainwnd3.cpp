@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Route explicit Refresh to protected archives. | Leave background refresh noninteractive. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Gate test-only Retry copy on current panel selection. | Verify the exact fixture in the UI thread immediately before the native copy command. | #731 | GPT-6 |
 // | 2026-11-11 | Route Branch Stop through its explicit user action. | Keep initial results while preserving refresh cancellation semantics. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Return to the invoking window when admin shell consent is cancelled. | Keep a successful visible shell in the foreground. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Enable clipboard copy from plugin file systems. | The staged-file clipboard path supports plugin FS sources with copy-from-FS service. | https://github.com/KRtkovo-eu-AI/salamander/issues/741 | GPT-6 |
@@ -4696,6 +4697,75 @@ CMainWindow::WindowProcImpl(UINT uMsg, WPARAM wParam, LPARAM lParam)
     SLOW_CALL_STACK_MESSAGE4("CMainWindow::WindowProc(0x%X, 0x%IX, 0x%IX)", uMsg, wParam, lParam);
     switch (uMsg)
     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+    case WM_APP + 512:
+    {
+        // Test-only: no queued UI message can change the selection between
+        // this check and the synchronous native WM_COMMAND dispatch.
+        auto signal = [](const wchar_t* variable) -> bool
+        {
+            wchar_t name[256]{};
+            const DWORD length = GetEnvironmentVariableW(variable, name, _countof(name));
+            if (!length || length >= _countof(name)) return false;
+            HANDLE event = OpenEventW(EVENT_MODIFY_STATE, FALSE, name);
+            if (!event) return false;
+            const BOOL result = SetEvent(event);
+            CloseHandle(event);
+            return result != FALSE;
+        };
+        bool allowed = false;
+        if (wParam == 0 && lParam == 0)
+        {
+            try
+            {
+                auto environment = [](const wchar_t* variable, std::wstring& value) -> bool
+                {
+                    const DWORD size = GetEnvironmentVariableW(variable, nullptr, 0);
+                    if (!size || size > 32768) return false;
+                    std::vector<wchar_t> buffer(size);
+                    const DWORD length = GetEnvironmentVariableW(variable, buffer.data(), size);
+                    if (!length || length >= size) return false;
+                    value.assign(buffer.data(), length);
+                    return true;
+                };
+                std::wstring source, target, name, mode, fault;
+                CFilesWindow* panel = GetActivePanel();
+                CFilesWindow* other = GetNonActivePanel();
+                if (environment(L"SAM_UAC_TEST_READY_PATH", source) &&
+                    environment(L"SAM_UAC_TEST_TARGET_PATH", target) &&
+                    environment(L"SAM_UAC_TEST_READY_NAME", name) &&
+                    environment(L"SAM_UAC_TEST_COPY_MODE", mode) && mode == L"sync" &&
+                    environment(L"SAM_UAC_TEST_FAIL", fault) && fault == L"read" &&
+                    panel && panel == LeftPanel && panel->Is(ptDisk) && other &&
+                    other == RightPanel && other->Is(ptDisk) && EnablerFilesCopy &&
+                    panel->GetPathW() && other->GetPathW() &&
+                    wcscmp(panel->GetPathW(), source.c_str()) == 0 &&
+                    wcscmp(other->GetPathW(), target.c_str()) == 0 && panel->GetSelCount() == 1)
+                {
+                    for (int i = 0; i < panel->Files->Count; ++i)
+                    {
+                        const auto& item = panel->Files->At(i);
+                        const std::wstring itemName = item.UseWideName() ? std::wstring(item.NameW) :
+                            SalMultiByteToWidePath(item.Name, IsValidPathUtf8Text(item.Name) ? CP_UTF8 : CP_ACP);
+                        if (itemName == name && panel->GetSel(panel->Dirs->Count + i))
+                        {
+                            allowed = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (const std::bad_alloc&) { allowed = false; }
+        }
+        if (!allowed || !signal(L"SAM_UAC_TEST_COPY_DISPATCH_EVENT"))
+        {
+            signal(L"SAM_UAC_TEST_COPY_REJECT_EVENT");
+            return 0;
+        }
+        SendMessage(HWindow, WM_COMMAND, CM_COPYFILES, 0);
+        return 0;
+    }
+#endif
     case WM_USER_SALAMANDER_MAIN_THREAD:
     {
         CSalamanderMainThreadCall* call =
