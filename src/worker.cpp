@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Record test-only denied and broker-open events. | Prove each side of the real worker experiment without changing its error flow. | #731 | GPT-6 |
 // | 2026-11-12 | Inject target denial before native creation in test builds. | Keep the real worker fixture free of premature files and leaked handles. | #731 | GPT-6 |
 // | 2026-11-12 | Add isolated native copy acceptance instrumentation. | Exercise the original worker, both I/O loops and Retry without affecting production builds. | #731 | GPT-6 |
 // | 2026-11-12 | Make parallel conflict preflight allocation-safe. | Preserve the destination and release coordinator resources on failure. | #731 | GPT-6 (Codex) |
@@ -2402,6 +2403,8 @@ struct CThinCopyWorker
     bool DiscardTarget();
 };
 
+static void ThinCopyTestSignalPreserve(const wchar_t* variable);
+
 static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::ThinOpenKind kind, bool overlapped)
 {
     // LastError is part of the original worker's error flow, including a
@@ -2471,6 +2474,13 @@ static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::Thin
             HANDLES_ADD_EX(__otQuiet, TRUE, __htFile, __hoCreateFile, elevated, openError, TRUE);
             SetLastError(openError);
         }
+        if (elevated != INVALID_HANDLE_VALUE)
+        {
+            if (kind == UacF7::ThinOpenKind::Source)
+                ThinCopyTestSignalPreserve(L"SAM_UAC_TEST_SOURCE_GRANTED_EVENT");
+            else if (kind == UacF7::ThinOpenKind::TargetCreate)
+                ThinCopyTestSignalPreserve(L"SAM_UAC_TEST_TARGET_GRANTED_EVENT");
+        }
         return elevated;
     }
     SetLastError(error);
@@ -2493,14 +2503,22 @@ static bool ThinCopyTestDenyOpen(CThinCopyWorker* context, bool target)
 {
     if (!context || !context->active)
         return false;
+    const DWORD savedError = GetLastError();
     wchar_t mode[16]{};
     const DWORD length = GetEnvironmentVariableW(L"SAM_UAC_TEST_DENY_OPEN", mode, _countof(mode));
-    if (!length || length >= _countof(mode) ||
-        (_wcsicmp(mode, L"both") != 0 && _wcsicmp(mode, target ? L"target" : L"source") != 0))
-        return false;
-    static volatile LONG sourceInjected = 0;
-    static volatile LONG targetInjected = 0;
-    return InterlockedCompareExchange(target ? &targetInjected : &sourceInjected, 1, 0) == 0;
+    bool injected = false;
+    if (length && length < _countof(mode) &&
+        (_wcsicmp(mode, L"both") == 0 || _wcsicmp(mode, target ? L"target" : L"source") == 0))
+    {
+        static volatile LONG sourceInjected = 0;
+        static volatile LONG targetInjected = 0;
+        injected = InterlockedCompareExchange(target ? &targetInjected : &sourceInjected, 1, 0) == 0;
+        if (injected)
+            ThinCopyTestSignalPreserve(target ? L"SAM_UAC_TEST_TARGET_DENIED_EVENT" :
+                                               L"SAM_UAC_TEST_SOURCE_DENIED_EVENT");
+    }
+    SetLastError(savedError);
+    return injected;
 }
 
 // Force a retry-only denial without changing fixture ACLs: the separate
@@ -4790,6 +4808,14 @@ static void ThinCopyTestSignal(const wchar_t* variable)
         SetEvent(event);
         CloseHandle(event);
     }
+}
+
+// Event observation must not change the error consumed by the worker.
+static void ThinCopyTestSignalPreserve(const wchar_t* variable)
+{
+    const DWORD savedError = GetLastError();
+    ThinCopyTestSignal(variable);
+    SetLastError(savedError);
 }
 
 // Test-only scheduling window: the real UI may cancel before the worker
