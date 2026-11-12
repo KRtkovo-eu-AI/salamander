@@ -19,7 +19,8 @@ def main():
     move = block(read('src/uacbroker/uacbroker.cpp'), 'DWORD MoveAcrossVolumes(')
     assert 'auto recover = [&] { return Recover(sourceParent, storage.get(), journal.get(), security.get()); };' in move
     assert re.search(r'if\s*\(recover\(\)\)\s*return ERROR_PARTIAL_COPY;', move)
-    assert re.search(r'const DWORD rollback = recover\(\);\s*if\s*\(published \|\| rollback\)\s*return ERROR_PARTIAL_COPY;', move)
+    assert 'return RunMoveWithRecovery([&]() -> DWORD {' in move
+    assert '}, recover, published);' in move
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))
     flags = ('/MTd', '/Od', '/D_DEBUG') if args.configuration == 'Debug' else ('/MT', '/O2', '/DNDEBUG')

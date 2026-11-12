@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-12 | Recover guarded moves after allocation failure. | Preserve source recovery and report uncertain publication as partial. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Prepare archive reads from a verified listing identity. | Preserve source scope across a separate broker consent. | #731 | GPT-6.1 Sol |
 | 2026-11-12 | Permit scoped FindContent paging. | Reuse one verified consent for metadata pages and file reads. | #731 | GPT-6.1 Terra |
 | 2026-11-12 | Stream identity-bearing metadata pages. | Keep a verified directory handle within one scoped listing session. | #731 | GPT-6 (Codex) |
@@ -1874,7 +1875,7 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
         return ERROR_INVALID_ACL;
 
     bool published = false;
-    error = [&]() -> DWORD {
+    return RunMoveWithRecovery([&]() -> DWORD {
         const DWORD access = DELETE | READ_CONTROL | WRITE_DAC | FILE_READ_DATA | FILE_READ_EA;
         DWORD status = UacRenameLeaf::Detail::OpenSource(sourceParent, sourceLeaf, raw, access, 0);
         if (status)
@@ -1964,14 +1965,7 @@ DWORD MoveAcrossVolumes(const InstallLocation& install, HANDLE sourceParent,
         status = guard.RetirePublishedSource(sourceParent, storage.get(), journal.get(), security.get(),
                                              targetParent, targetLeaf, target.get(), targetId, nullptr, pipe, deadline);
         return status ? status : UacRecoveryJournal::ClearRecord(journal.get());
-    }();
-    if (error)
-    {
-        const DWORD rollback = recover();
-        if (published || rollback)
-            return ERROR_PARTIAL_COPY;
-    }
-    return error;
+    }, recover, published);
 }
 
 DWORD MoveOverExistingFile(const InstallLocation& install, HANDLE sourceParent,

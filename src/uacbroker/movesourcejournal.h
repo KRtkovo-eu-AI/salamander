@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Coordinate allocation failure with source recovery. | Avoid losing the recovery attempt when a move job throws. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Report allocation failures during source recovery. | Preserve the journal when recovery has only partly completed. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Recover read-only move links and the original Archive bit. | Preserve source attributes and identity after cancellation or hard process exit. | | GPT-6.1 Sol |
 // | 2026-11-09 | Restore the original Archive bit after a compressed F6 rollback. | Record the source write time and repair the attributes on the pinned source. | | GPT-6.1 Sol (Codex) |
@@ -448,7 +449,7 @@ inline DWORD RememberDestination(HANDLE journal, PSECURITY_DESCRIPTOR journalSec
 }
 
 #ifdef SAM_UAC_MOVE_RECOVERY_EXCEPTION_TEST
-enum class RecoveryExceptionPoint { BeforeRecord, AfterRestoreName, AfterAliasRetired };
+enum class RecoveryExceptionPoint { BeforeRecord, AfterRestoreName, AfterAliasRetired, BeforeLockStreams };
 void InjectRecoveryException(RecoveryExceptionPoint point);
 #endif
 
@@ -635,5 +636,30 @@ catch (const std::bad_alloc&)
     // Recovery can already have restored the name or retired an alias. Leave
     // its journal untouched; the caller must report an incomplete outcome.
     return ERROR_NOT_ENOUGH_MEMORY;
+}
+
+// The job owns its source/target pins, so unwinding releases them before the
+// recovery callback runs. An allocation failure has unknown publication state
+// even when recovery succeeds; never convert it to an ordinary cancellation.
+template <class Operation, class Recovery>
+inline DWORD RunMoveWithRecovery(Operation&& operation, Recovery&& recover, const bool& published)
+{
+    DWORD error = ERROR_SUCCESS;
+    try { error = operation(); }
+    catch (const std::bad_alloc&)
+    {
+        try { (void)recover(); }
+        catch (const std::bad_alloc&) {}
+        return ERROR_PARTIAL_COPY;
+    }
+    if (error)
+    {
+        DWORD rollback = ERROR_SUCCESS;
+        try { rollback = recover(); }
+        catch (const std::bad_alloc&) { return ERROR_PARTIAL_COPY; }
+        if (published || rollback)
+            return ERROR_PARTIAL_COPY;
+    }
+    return error;
 }
 }

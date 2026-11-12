@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Add a test-only stream-lock allocation checkpoint. | Exercise source recovery after a move job throws. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Retire read-only move sources through their guarded handles. | Keep attributes intact during publication, cancellation and unlink of the recovery alias. | | GPT-6.1 Sol |
 // | 2026-11-09 | Report bytes during guarded move copy. | Reuse the staged file transfer progress source. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-09 | Accept the compressed move rollback metadata in the durable record. | Keep source retirement compatible with both sealed record layouts. | | GPT-6.1 Sol (Codex) |
@@ -269,6 +270,9 @@ public:
     {
         if (!verifyStage || named || !source)
             return ERROR_INVALID_PARAMETER;
+#ifdef SAM_UAC_MOVE_RECOVERY_EXCEPTION_TEST
+        InjectRecoveryException(RecoveryExceptionPoint::BeforeLockStreams);
+#endif
         auto streams = std::make_unique<NamedSourceStreams>();
         if (DWORD error = streams->Open(source.get(), storage, alias, identity))
             return error;

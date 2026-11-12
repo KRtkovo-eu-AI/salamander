@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Exercise guarded move-job allocation failures. | Ensure source recovery runs after stream-lock exceptions. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Exercise allocation failure in sealed move recovery. | Check partial recovery keeps its durable journal and source. | #731 | GPT-6 (Codex) |
 #define SAM_UAC_MOVE_RECOVERY_EXCEPTION_TEST
-#include "../uacbroker/movesourcejournal.h"
+#include "../uacbroker/movesourceguard.h"
 #include <sddl.h>
 #include <cstdio>
 
@@ -53,6 +54,7 @@ static bool FileExists(const std::wstring& path)
 {
     return GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
 }
+static bool AllowFixture(HANDLE, bool) { return true; } // Test fixture only; not an elevated security verifier.
 static bool Identity(const std::wstring& path, FILE_ID_INFO& id)
 {
     Handle file(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -97,6 +99,7 @@ int wmain(int argc, wchar_t** argv)
         {RecoveryExceptionPoint::BeforeRecord, "before reading the armed record", false, true},
         {RecoveryExceptionPoint::AfterRestoreName, "after restoring the source name", true, false},
         {RecoveryExceptionPoint::AfterAliasRetired, "after retiring the recovery alias", false, false},
+        {RecoveryExceptionPoint::BeforeLockStreams, "move job fails while locking streams", false, false},
     };
     for (size_t i = 0; i != sizeof(cases) / sizeof(cases[0]); ++i)
     {
@@ -108,6 +111,8 @@ int wmain(int argc, wchar_t** argv)
         const std::wstring journalPath = storagePath + L"\\journal";
         if (!CreateDirectoryW(originalPath.c_str(), nullptr) || !CreateDirectoryW(storagePath.c_str(), &attributes) ||
             !WriteFixture(sourcePath, "source content") || !WriteFixture(streamPath, "named stream")) return 8;
+        const DWORD initialAttributes = GetFileAttributesW(sourcePath.c_str());
+        if (initialAttributes == INVALID_FILE_ATTRIBUTES) return 18;
         Handle parent = Directory(originalPath), storage = Directory(storagePath);
         Handle journal(CreateFileW(journalPath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, &attributes,
                                    CREATE_NEW, FILE_FLAG_OPEN_REPARSE_POINT, nullptr), CloseHandle);
@@ -134,23 +139,47 @@ int wmain(int argc, wchar_t** argv)
         if (!FileExists(aliasPath) || FileExists(sourcePath) == scenario.deleteOriginal) return 15;
         const std::string beforeJournal = ReadContent(journal.get());
         if (beforeJournal.empty()) return 16;
+        const bool moveJob = scenario.point == RecoveryExceptionPoint::BeforeLockStreams;
+        const auto journalMatches = [&]() {
+            LARGE_INTEGER size{};
+            return GetFileSizeEx(journal.get(), &size) &&
+                   (moveJob ? size.QuadPart == 0 : ReadContent(journal.get()) == beforeJournal);
+        };
         pointToThrow = scenario.point; reached = false; inject = true;
+        unsigned recoveryCalls = 0; bool published = false;
         DWORD error = ERROR_SUCCESS; bool escaped = false;
-        try { error = UacMoveSourceJournal::Recover(parent.get(), storage.get(), journal.get(), security.get()); }
+        try
+        {
+            if (moveJob)
+            {
+                error = UacMoveSourceJournal::RunMoveWithRecovery([&]() -> DWORD {
+                    UacMoveSourceJournal::SourceGuard guard(initialAttributes, AllowFixture);
+                    const DWORD status = guard.Open(parent.get(), L"source-東.txt", expected, 2);
+                    return status ? status : guard.LockStreams(storage.get(), alias);
+                }, [&]() -> DWORD {
+                    ++recoveryCalls;
+                    return UacMoveSourceJournal::Recover(parent.get(), storage.get(), journal.get(), security.get());
+                }, published);
+            }
+            else error = UacMoveSourceJournal::Recover(parent.get(), storage.get(), journal.get(), security.get());
+        }
         catch (...) { escaped = true; }
         inject = false;
         FILE_ID_INFO current{};
-        Check(reached && !escaped && error == ERROR_NOT_ENOUGH_MEMORY, scenario.label);
+        Check(reached && !escaped && error == (moveJob ? static_cast<DWORD>(ERROR_PARTIAL_COPY) : ERROR_NOT_ENOUGH_MEMORY) &&
+              (!moveJob || recoveryCalls == 1), scenario.label);
         Check(Identity(sourcePath, current) && UacRenameLeaf::Detail::SameSource(expected, current) &&
               FileHasContent(sourcePath, "source content") && FileHasContent(streamPath, "named stream"),
               "fault preserves the original source identity, data and named stream");
         Check(FileExists(aliasPath) == scenario.retainedAfter, "recovery alias reflects the completed partial step");
-        Check(ReadContent(journal.get()) == beforeJournal, "recovery fault leaves the exact journal bytes unchanged");
+        Check(journalMatches(),
+              moveJob ? "coordinator completed recovery and cleared its journal" : "recovery fault leaves the exact journal bytes unchanged");
         journal.reset();
         journal.reset(CreateFileW(journalPath.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr,
                                   OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
         if (journal.get() == INVALID_HANDLE_VALUE) { journal.release(); return 17; }
-        Check(ReadContent(journal.get()) == beforeJournal, "journal bytes survive closing and reopening the handle");
+        Check(journalMatches(),
+              "journal state survives closing and reopening the handle");
         error = UacMoveSourceJournal::Recover(parent.get(), storage.get(), journal.get(), security.get());
         LARGE_INTEGER size{};
         auto restoredDacl = std::make_unique<UacMoveSourceJournal::Detail::DaclSnapshot>();
@@ -163,6 +192,22 @@ int wmain(int argc, wchar_t** argv)
               restored && !restoredDacl->Read(restored.get()) && restoredDacl->Matches(*originalDacl),
               "retry completes recovery with original identity, streams and owner/group/DACL");
     }
+    unsigned calls = 0; bool published = false;
+    DWORD result = UacMoveSourceJournal::RunMoveWithRecovery([]() -> DWORD { return ERROR_ACCESS_DENIED; },
+        [&]() -> DWORD { ++calls; return ERROR_SUCCESS; }, published);
+    Check(result == ERROR_ACCESS_DENIED && calls == 1, "synthetic ordinary job error retains the original error after recovery");
+    calls = 0;
+    result = UacMoveSourceJournal::RunMoveWithRecovery([]() -> DWORD { throw std::bad_alloc{}; },
+        [&]() -> DWORD { ++calls; return ERROR_SUCCESS; }, published);
+    Check(result == ERROR_PARTIAL_COPY && calls == 1, "synthetic allocation failure before source preparation reports partial and recovers once");
+    calls = 0; published = true;
+    result = UacMoveSourceJournal::RunMoveWithRecovery([]() -> DWORD { throw std::bad_alloc{}; },
+        [&]() -> DWORD { ++calls; return ERROR_SUCCESS; }, published);
+    Check(result == ERROR_PARTIAL_COPY && calls == 1, "synthetic allocation failure after publication indication remains partial");
+    calls = 0;
+    result = UacMoveSourceJournal::RunMoveWithRecovery([]() -> DWORD { return ERROR_ACCESS_DENIED; },
+        [&]() -> DWORD { ++calls; throw std::bad_alloc{}; }, published);
+    Check(result == ERROR_PARTIAL_COPY && calls == 1, "synthetic recovery allocation failure remains partial without a second recovery");
     std::printf("%d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }
