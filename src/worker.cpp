@@ -6463,7 +6463,7 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
         ? INVALID_HANDLE_VALUE : *sourceHandle;
     const auto result = session->Open(progress, request, kind, overlapped, false,
         kind == UacF7::ThinOpenKind::TargetRetry ? &target : nullptr,
-        openedSource, dialog.CancelWorkerEvent);
+        UacF7::ThinOpenedSource{openedSource}, UacF7::ThinCancelEvent{dialog.CancelWorkerEvent});
     if (result.unknown)
     {
         terminal = true;
