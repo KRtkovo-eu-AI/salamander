@@ -4713,6 +4713,15 @@ CMainWindow::WindowProcImpl(UINT uMsg, WPARAM wParam, LPARAM lParam)
             CloseHandle(event);
             return result != FALSE;
         };
+        // This process accepts at most one request, including reentrant requests.
+        // Consume even rejected requests; a stale caller must never trigger F5.
+        static bool requested = false;
+        if (requested)
+        {
+            signal(L"SAM_UAC_TEST_COPY_REJECT_EVENT");
+            return 0;
+        }
+        requested = true;
         bool allowed = false;
         if (wParam == 0 && lParam == 0)
         {
