@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Test retained target lifetime over the real job pipe. | Bound retries and release to the verified object and session. | #731 | GPT-6 |
 // | 2026-11-13 | Verify fail-closed thin cleanup and compatibility. | Preserve data on uncertain cleanup and reject mismatched peers. | #731 | GPT-6 |
 // | 2026-11-12 | Test scoped per-request source-parent pins. | Check host denial, file identity and pin lifetime over the real job pipe. | #731 | GPT-6 |
 // | 2026-11-12 | Refuse missing or replaced targets on Retry. | Preserve the identity of the target owned by the transfer job. | #731 | GPT-6 |
@@ -4289,6 +4290,7 @@ void CheckThinBrokerSourceParent(const Directory& source, const Directory& targe
     Check(DeleteFileW(sourcePath.c_str()) != FALSE, "thin job removes source fixture");
 }
 #ifdef SAM_UAC_THIN_COPY_TEST
+#include "uacbroker_thin_retained_tests.inc"
 #include "uacbroker_thin_parent_large_tests.inc"
 #endif
 #include "uacbroker_thin_cleanup_contract_tests.inc"
@@ -4301,6 +4303,7 @@ int wmain()
         return 2;
 #ifdef SAM_UAC_THIN_COPY_TEST
     CheckThinJob(source, target, outside);
+    CheckThinRetainedTarget(source, target, outside);
     CheckThinSourceReadDenied(source, target);
     CheckThinSourceParentDenied(source, target);
     CheckThinVolumeRoot(source);

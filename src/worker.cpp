@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Release the broker's retained target after completed F5. | Preserve the native worker's per-item handle lifetime. | #731 | GPT-6 |
 // | 2026-11-13 | Track issued asynchronous copy I/O before observing cancellation. | Drain pending reads and writes before releasing their buffers and file handles. | #731 | GPT-6 |
 // | 2026-11-13 | Inject a write fault only after completed test I/O. | Exercise Retry after partial native transfer without changing production behavior. | #731 | GPT-6 |
 // | 2026-11-13 | Preserve uncertain thin-copy targets and report unknown completion. | Avoid unsafe cleanup and duplicate dialogs. | #731 | GPT-6 |
@@ -2415,6 +2416,7 @@ struct CThinCopyWorker
     bool CloseScopedTarget(HANDLE& file);
     bool RefuseUnsafeTargetCleanup();
     bool DiscardTarget();
+    void ReleaseTargetPin();
 };
 
 static void ThinCopyTestSignalPreserve(const wchar_t* variable);
@@ -6907,6 +6909,10 @@ bool CThinCopyWorker::ReportTargetFailure(DWORD error, int caption)
     if (cleanupUncertain) return false;
     cleanupUncertain = true;
     terminal = true;
+    // No request may follow a terminal uncertainty. Drop all broker-owned
+    // pins even when the failure occurred before a discard was accepted.
+    // Host duplicates, if any, retain their independent lifetime.
+    if (session) session->Close();
     if (error == ERROR_PARTIAL_COPY || *dialog.CancelWorker)
     {
         // Ordinary errors are suppressed after cancellation; always deliver
@@ -6945,10 +6951,25 @@ bool CThinCopyWorker::DiscardTarget()
         return true;
     const DWORD error = session && request && targetKnown ? session->DiscardTarget(*request, target) : ERROR_PARTIAL_COPY;
     if (error != ERROR_SUCCESS)
+    {
         return ReportTargetFailure(error);
+    }
     targetCreatedByBroker = false;
     targetKnown = false;
     return true;
+}
+
+void CThinCopyWorker::ReleaseTargetPin()
+{
+    if (!targetCreatedByBroker || !targetKnown)
+        return;
+    const DWORD error = session && request ? session->ReleaseTarget(*request, target) : ERROR_BROKEN_PIPE;
+    // Releasing the broker's reference does not revoke host duplicates.
+    // A lost reply is resolved by closing the job, without retrying by name.
+    if (error && session)
+        session->Close();
+    targetCreatedByBroker = false;
+    targetKnown = false;
 }
 #endif
 
@@ -8078,6 +8099,7 @@ COPY_AGAIN:
                             {
                                 const DWORD attributeError = GetLastError();
                                 if (!thin.CloseScopedTarget(out)) return FALSE;
+                                thin.ReleaseTargetPin();
                                 thin.ReportTargetFailure(attributeError, IDS_ERRORCHANGINGATTRS);
                                 return FALSE;
                             }
@@ -8131,6 +8153,10 @@ COPY_AGAIN:
                                 goto COPY_ERROR;
                             }
                         }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+                        thin.ReleaseTargetPin();
+#endif
 
 #ifdef SAM_UAC_THIN_COPY_TEST
                         if (!thinScopedAttributes)

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Add experimental per-target handle release. | Bound a retained retry handle to one verified copy item. | #731 | GPT-6 |
 | 2026-11-13 | Distinguish experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
 | 2026-11-12 | Add scoped thin F5 foreground return. | Coordinate progress focus before worker completion. | #731 | GPT-6 |
 | 2026-11-12 | Expose test-only authenticated broker PID markers. | Measure a singleton job without lending a process handle. | #731 | GPT-6 |
@@ -159,7 +160,7 @@ private:
 void RestoreConsentForeground(HWND owner, HWND foreground, DWORD lastInput);
 bool CanOfferElevation();
 
-enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42, FileAllocation = 43, CopyOverwriteIgnoreAds = 44, ProbeOverwrite = 45, ProbeOverwriteIgnoreAds = 46, AbortOverwriteProbe = 47, ThinOpenSource = 49, ThinTargetCreate = 50, ThinTargetRetry = 51, ThinTargetProbe = 52, ThinDiscardTarget = 53 };
+enum class Operation : DWORD { Mkdir = 1, Rename = 2, Metadata = 3, Delete = 4, List = 5, Copy = 6, Move = 7, CopyTree = 8, CopyIgnoreAds = 9, CopyCompressed = 10, RenameSymlink = 11, RenameDirectorySymlink = 12, RenameJunction = 13, DeleteSymlink = 14, DeleteDirectorySymlink = 15, DeleteJunction = 16, CopySecurity = 17, View = 18, ReadArchive = 19, WriteZipSelection = 20, WriteZipUpdate = 22, CopyOverwrite = 23, FindContent = 24, FindFile = 25, CopyEncrypted = 26, MoveAcrossVolume = 27, FinishCrossVolumeMove = 28, MoveCompressed = 29, CopyCompressedSecurity = 30, RenameDirectory = 31, DeleteDirectory = 32, Inventory = 33, CompareList = 34, CompareContent = 35, MoveDirectory = 36, CopyDirectoryEntry = 37, MergeCopyTree = 38, ListCopyTreeSource = 39, PlanCopyTree = 40, MoveOverwrite = 41, MoveAcrossVolumeOverwrite = 42, FileAllocation = 43, CopyOverwriteIgnoreAds = 44, ProbeOverwrite = 45, ProbeOverwriteIgnoreAds = 46, AbortOverwriteProbe = 47, ThinOpenSource = 49, ThinTargetCreate = 50, ThinTargetRetry = 51, ThinTargetProbe = 52, ThinDiscardTarget = 53, ThinTargetRelease = 54 };
 
 inline constexpr bool IsComparisonScope(Operation operation)
 {
@@ -940,7 +941,7 @@ private:
 };
 
 
-enum class ThinOpenKind : DWORD { Source = 1, TargetCreate = 2, TargetRetry = 3, TargetProbe = 4, Discard = 5 };
+enum class ThinOpenKind : DWORD { Source = 1, TargetCreate = 2, TargetRetry = 3, TargetProbe = 4, Discard = 5, Release = 6 };
 
 struct ThinOpenedSource { HANDLE value = INVALID_HANDLE_VALUE; };
 struct ThinCancelEvent { HANDLE value = nullptr; };
@@ -967,6 +968,7 @@ public:
                         bool overlapped, bool copyAttrs, const MoveFileIdentity* expectedTarget,
                         ThinOpenedSource openedSource = {}, ThinCancelEvent cancel = {});
     DWORD DiscardTarget(const PreparedTransfer& prepared, const MoveFileIdentity& target);
+    DWORD ReleaseTarget(const PreparedTransfer& prepared, const MoveFileIdentity& target);
     bool Attach(TransferJobSession& existing, const PreparedTransfer& prepared);
     bool IsOpen() const;
     bool Matches(const PreparedTransfer& prepared) const;

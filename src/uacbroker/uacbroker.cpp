@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Retain experimental F5 targets until item release. | Keep retry tied to the original exclusive file object. | #731 | GPT-6 |
 | 2026-11-13 | Fail closed on uncertain thin target cleanup and require its safety contract. | Preserve independent writers' data and reject incompatible experimental peers. | #731 | GPT-6 |
 | 2026-11-12 | Pin verified source parents per experimental thin request. | Support protected source directories without exposing privileged directory handles. | #731 | GPT-6 |
 | 2026-11-12 | Order thin F5 consent return before worker completion. | Avoid losing a posted focus return when the progress window closes quickly. | #731 | GPT-6 |
@@ -687,7 +688,7 @@ inline bool IsThinOpen(Operation operation)
 {
     return operation == Operation::ThinOpenSource || operation == Operation::ThinTargetCreate ||
            operation == Operation::ThinTargetRetry || operation == Operation::ThinTargetProbe ||
-           operation == Operation::ThinDiscardTarget;
+           operation == Operation::ThinDiscardTarget || operation == Operation::ThinTargetRelease;
 }
 #ifdef SAM_UAC_PROBE_FAULT_TEST
 // Test-only scheduling seam; no production project defines this macro.
@@ -2314,6 +2315,10 @@ struct ThinCreatedTarget
 {
     FILE_ID_INFO parent{}, source{}, target{};
     std::wstring leaf;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    Handle retained;
+    bool overlapped = false;
+#endif
 };
 struct ThinJobState
 {
@@ -2408,7 +2413,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         // Experimental flag 2 requests an identity-checked broker-owned
         // source-parent pin. Bit 4 identifies the fail-closed cleanup contract;
         // older peers reject this unknown bit before an object is opened.
-        constexpr DWORD allowedThinOptions = 7u;
+        constexpr DWORD allowedThinOptions = 15u;
         if (!(options.flags & 4u)) return ERROR_INVALID_DATA;
 #else
         constexpr DWORD allowedThinOptions = 1u;
@@ -2444,6 +2449,13 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         if (!LiveInSession(host, hostPid)) return ERROR_OPERATION_ABORTED;
 
         const bool discard = header.operation == Operation::ThinDiscardTarget;
+        const bool release = header.operation == Operation::ThinTargetRelease;
+#ifdef SAM_UAC_THIN_COPY_TEST
+        const bool retain = (options.flags & 8u) != 0;
+        if (release && !retain) return ERROR_INVALID_DATA;
+#else
+        if (release) return ERROR_INVALID_DATA;
+#endif
         const bool sourceRole = header.operation == Operation::ThinOpenSource;
         const auto targetRoot = OpenVolumeRoot(targetVolume);
         if (!targetRoot) { result = ERROR_NOT_SUPPORTED; return ERROR_SUCCESS; }
@@ -2457,7 +2469,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         const UacDirectoryLeaf::ParentIdentity expectedParent{{header.targetSerial, header.targetParentId}, std::wstring(targetVolume)};
 #ifdef SAM_UAC_THIN_COPY_TEST
         const bool brokerSourceParent = (options.flags & 2u) != 0;
-        if (brokerSourceParent && (sourceRole || discard || options.sourceParentHandle))
+        if (brokerSourceParent && (sourceRole || discard || release || options.sourceParentHandle))
             return ERROR_INVALID_DATA;
 #endif
         if (sourceRole)
@@ -2471,7 +2483,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             error = sourceRoot ? PinPagedDirectory(sourceRoot.get(), sourceRelative, &sourceParentId, sourcePins, sourceParent)
                                : ERROR_NOT_SUPPORTED;
         }
-        else if (!discard)
+        else if (!discard && !release)
         {
 #ifdef SAM_UAC_THIN_COPY_TEST
             if (brokerSourceParent)
@@ -2557,7 +2569,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
                     nullptr, false, overlapped);
             source = Adopt(rawSource);
         }
-        else if (!discard)
+        else if (!discard && !release)
         {
             if (!options.sourceHandle ||
                 options.sourceHandle > static_cast<ULONGLONG>(static_cast<ULONG_PTR>(~ULONG_PTR{})))
@@ -2571,7 +2583,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         }
         else if (options.sourceHandle)
             return ERROR_INVALID_DATA;
-        if (!discard)
+        if (!discard && !release)
         {
             FILE_ID_INFO openedSource{};
             if (!error && GetFileType(source.get()) != FILE_TYPE_DISK) error = ERROR_INVALID_HANDLE;
@@ -2616,14 +2628,30 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
                 { record = i; break; }
         if (create && record != state.created.end())
             { result = ERROR_FILE_EXISTS; return ERROR_SUCCESS; }
-        if ((retry || discard) &&
+        if ((retry || discard || release) &&
             (record == state.created.end() || !UacRenameLeaf::Detail::SameSource(record->source, expectedFile) ||
              !UacRenameLeaf::Detail::SameSource(record->target, options.expectedTarget)))
             { result = ERROR_FILE_INVALID; return ERROR_SUCCESS; }
 #ifdef SAM_UAC_THIN_COPY_TEST
+        if ((retry || discard || release) && ((bool)record->retained != retain ||
+            (retry && retain && record->overlapped != overlapped)))
+            { result = ERROR_INVALID_DATA; return ERROR_SUCCESS; }
+        if (release)
+        {
+            // Release only the broker's own reference. Already transferred
+            // host handles remain valid and are not revoked by this reply.
+            state.created.erase(record);
+            result = ERROR_SUCCESS;
+            return ERROR_SUCCESS;
+        }
         // The worker has closed its handle. Matching the file ID cannot prove
         // that another writer did not subsequently alter this same object.
-        if (discard) { result = ERROR_PARTIAL_COPY; return ERROR_SUCCESS; }
+        if (discard)
+        {
+            if (retain) state.created.erase(record); // unlock; no pathname deletion
+            result = ERROR_PARTIAL_COPY;
+            return ERROR_SUCCESS;
+        }
 #endif
 
         if (create)
@@ -2635,6 +2663,9 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             record->leaf.assign(targetLeaf);
         }
         Handle file;
+#ifdef SAM_UAC_THIN_COPY_TEST
+        Handle namedWitness;
+#endif
         ACCESS_MASK duplicateAccess = 0;
         bool madeTarget = false, targetIdentityValid = false;
         if (sourceRole)
@@ -2646,12 +2677,32 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         {
             HANDLE raw = nullptr;
             ACCESS_MASK access = discard ? DELETE : probe ? 0 : GENERIC_WRITE | (retry ? GENERIC_READ : 0);
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (create && retain) access |= GENERIC_READ;
+#endif
             const ULONG sharing = probe || discard ? FILE_SHARE_READ | FILE_SHARE_WRITE : 0;
             const auto open = [&](ULONG disposition) {
                 return UacRenameLeaf::Detail::OpenFile(targetParent, targetLeaf, raw, access, sharing,
                     disposition, FILE_SEQUENTIAL_ONLY, nullptr, false, overlapped && !discard);
             };
-            error = open(create ? FILE_CREATE : FILE_OPEN);
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (retry && retain)
+            {
+                // Pin and verify this exact directory entry before duplicating
+                // the held file object; never reopen its data handle by name.
+                HANDLE rawWitness = nullptr;
+                error = UacRenameLeaf::Detail::OpenFile(targetParent, targetLeaf, rawWitness, 0,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OPEN, 0);
+                namedWitness = Adopt(rawWitness);
+                FILE_ID_INFO named{};
+                if (!error && (!GetFileInformationByHandleEx(namedWitness.get(), FileIdInfo, &named, sizeof(named)) ||
+                    !UacRenameLeaf::Detail::SameSource(named, options.expectedTarget))) error = ERROR_FILE_INVALID;
+                if (!error && !DuplicateHandle(GetCurrentProcess(), record->retained.get(), GetCurrentProcess(),
+                    &raw, GENERIC_READ | GENERIC_WRITE, FALSE, 0)) error = GetLastError();
+            }
+            else
+#endif
+                error = open(create ? FILE_CREATE : FILE_OPEN);
             madeTarget = create && !error;
             // Retry is an identity-bound reopen, never a new-file request.
             // Preserve the recorded identity and the native missing-file error.
@@ -2741,7 +2792,17 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             result = error;
             return ERROR_SUCCESS;
         }
-        if (create) record->target = reply.target;
+        if (create)
+        {
+            record->target = reply.target;
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (retain)
+            {
+                record->overlapped = overlapped;
+                record->retained = std::move(file);
+            }
+#endif
+        }
         reply.value = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(remote));
         result = ERROR_SUCCESS;
         return ERROR_SUCCESS;
@@ -5935,6 +5996,12 @@ DWORD ThinCopySession::DiscardTarget(const PreparedTransfer& prepared, const Mov
     return result.unknown ? ERROR_PARTIAL_COPY : result.error;
 }
 
+DWORD ThinCopySession::ReleaseTarget(const PreparedTransfer& prepared, const MoveFileIdentity& target)
+{
+    const ThinOpenResult result = Open(nullptr, prepared, ThinOpenKind::Release, false, false, &target);
+    return result.error;
+}
+
 ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepared, ThinOpenKind kind,
                                      bool overlapped, bool copyAttrs, const MoveFileIdentity* expectedTarget,
                                      ThinOpenedSource opened, ThinCancelEvent cancellation)
@@ -5961,14 +6028,15 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
     case ThinOpenKind::TargetRetry: operation = Operation::ThinTargetRetry; break;
     case ThinOpenKind::TargetProbe: operation = Operation::ThinTargetProbe; break;
     case ThinOpenKind::Discard: operation = Operation::ThinDiscardTarget; break;
+    case ThinOpenKind::Release: operation = Operation::ThinTargetRelease; break;
     default: output.error = ERROR_INVALID_PARAMETER; return output;
     }
-    if ((kind == ThinOpenKind::TargetRetry || kind == ThinOpenKind::Discard) && !expectedTarget)
+    if ((kind == ThinOpenKind::TargetRetry || kind == ThinOpenKind::Discard || kind == ThinOpenKind::Release) && !expectedTarget)
     {
         output.error = ERROR_INVALID_PARAMETER;
         return output;
     }
-    if (kind != ThinOpenKind::Source && kind != ThinOpenKind::Discard &&
+    if (kind != ThinOpenKind::Source && kind != ThinOpenKind::Discard && kind != ThinOpenKind::Release &&
         (!openedSource || openedSource == INVALID_HANDLE_VALUE))
     {
         output.error = ERROR_INVALID_HANDLE;
@@ -5980,7 +6048,7 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
         output.error = ERROR_ACCESS_DENIED;
         return output;
     }
-    if (!job->IsOpen() && (shared || kind == ThinOpenKind::Discard))
+    if (!job->IsOpen() && (shared || kind == ThinOpenKind::Discard || kind == ThinOpenKind::Release))
     {
         output.error = kind == ThinOpenKind::Discard ? ERROR_PARTIAL_COPY : ERROR_BROKEN_PIPE;
         output.unknown = kind == ThinOpenKind::Discard;
@@ -6008,11 +6076,11 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
         ThinWireOptions options{};
         options.flags = overlapped ? 1u : 0u;
 #ifdef SAM_UAC_THIN_COPY_TEST
-        options.flags |= 4u;
+        options.flags |= 12u; // fail-closed cleanup and retained-target contract
 #endif
         Handle pinnedRoot;
         std::vector<Handle> pinnedSourceParents;
-        if (kind != ThinOpenKind::Source && kind != ThinOpenKind::Discard)
+        if (kind != ThinOpenKind::Source && kind != ThinOpenKind::Discard && kind != ThinOpenKind::Release)
         {
 #ifdef SAM_UAC_THIN_COPY_TEST
             SetLastError(ERROR_SUCCESS);
@@ -6109,7 +6177,7 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
         output.unknown = result.unknown;
         if (result.error)
             return output;
-        if (kind == ThinOpenKind::Discard)
+        if (kind == ThinOpenKind::Discard || kind == ThinOpenKind::Release)
         {
             if (reply.value) { output.error = ERROR_INVALID_DATA; output.unknown = true; }
             return output;
