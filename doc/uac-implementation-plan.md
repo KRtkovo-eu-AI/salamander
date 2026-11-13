@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Prepare a separate profile and source for thin F5 OTS acceptance. | Keep the second account from writing the previous test configuration. | #731 | gpt-6.1-terra |
 | 2026-11-13 | Verify asynchronous F5 Retry with the Release reopen candidate. | Record the native worker and final copy evidence. | #731 | gpt-6.1-terra |
 | 2026-11-13 | Exercise synchronous Retry with the current Release reopen candidate. | Separate real worker evidence from broker-internal and OTS claims. | #731 | gpt-6.1-terra |
 | 2026-11-13 | Build the current Release thin reopen pilot for acceptance. | Pair the actual worker and broker from one clean revision. | #731 | gpt-6.1-sol |
@@ -1161,6 +1162,8 @@ Host pro nejistý výsledek znovu používá nativní lokalizované varování, 
 - **Zbývá:** Jde o dílčí důkaz experimentálního Debug x64 páru, nikoli dokončení přepracování UAC. Nebyl ověřen jiný účet správce (OTS), soukromá paměť Release dvojice ani více než 4 096 položek ve skutečném workeru. Nesplynuly tím ani dosud otevřené případy souběhu, ACL/sharingu, nehody při předávání handle a bezpečnostní brána přístupu k procesu brokeru.
 
 ## Tenké F5: průběh a pauza ve VM — 2026-11-13 / GPT-6
+
+- **Příprava jiného správce:** Existující místní účet `SamandarinUacTest` je podle `Get-LocalUser` aktivní. V `C:\Samandarin\builds\uac-thin-ots-reopen-20261113` vznikla oddělená kopie testovací konfigurace a nový 55B zdroj s Unicode názvem; jejich cesty a SHA-256 jsou v `fixture.json`. Žádný proces tohoto účtu, nový chráněný cíl ani UAC se touto přípravou nespustily. Před zkouškou je nutné bezpečně přepnout testovací bootstrap na tuto kopii, připravit přístupná práva pro účet, ověřit identitu běžícího hosta a zajistit přihlášení uživatele bez zpřístupnění hesla agentovi. OTS ani zápis do konfigurace z tohoto účtu nejsou zatím ověřeny.
 
 - **Release kandidát s reopen, asynchronní Retry:** Po zavření synchronního pilotu byla ověřena samostatná fixture s prázdným chráněným cílem. Computer Use v novém procesu PID 8172 spustilo F5 pro `postwrite-async.bin`; uživatel schválil jednu systémovou výzvu, po vložené chybě zápisu 29 bylo zvoleno nativní Retry a následoval návrat do panelu bez další výzvy. Monitor bez timeoutu zaznamenal `Enter`, `Async`, `TargetGranted`, `Completed`, `Fault`, `Retry` a `Drained`; pozorované pořadí pollingu ani závěrečná značka `Drained` samy neprokazují přesný stav všech I/O před Retry. Nezávislý SHA-256 zdroje i cíle je `14593351EED66B53DBB1B2E87FDEC0A1785A6FD5205E356FE183329766E5FF37`. Log `C:\Samandarin\builds\uac-thin-postwrite-fixture-20261113\evidence\reopen-release-async-d3c2788fd12e4293b32795770713fff3.jsonl`. Platí stejné omezení jako u synchronní zkoušky: binárky mají zapnutou reopen variantu, ale značky nerozlišují jednotlivá vnitřní volání brokeru; neověřuje lokálně vytvořený cíl, OTS ani pády. Pilot zůstal otevřený.
 
