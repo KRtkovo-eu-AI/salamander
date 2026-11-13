@@ -1,0 +1,128 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Exercise actual scoped F5 completion branch. | Compare attribute failures with the ordinary worker path. | #731 | GPT-6 |
+#include <windows.h>
+#include <cstdio>
+#include <sstream>
+#include <string>
+#define SAM_UAC_THIN_COPY_TEST
+#define HANDLES(x) (x)
+#define TRACE_E(x) do { std::ostringstream trace; trace << x; } while (0)
+#define WM_USER_DIALOG (WM_APP + 42)
+constexpr int IDS_ERRORWRITINGFILE = 1, IDS_ERRORCHANGINGATTRS = 2;
+constexpr int IDB_SKIPALL = 300, IDB_SKIP = 301;
+
+struct TestState {
+    bool scoped = false, copyAttrs = false, failAttributes = false, failClose = false, failScopedClose = false;
+    int handleAttributes = 0, pathAttributes = 0, closes = 0, releases = 0, reports = 0;
+    DWORD passedAttributes = 0, reportedError = 0;
+    HANDLE attributesHandle = nullptr;
+} state;
+struct TestScript { BOOL CopyAttrs = FALSE; };
+struct TestOperation { char* TargetName = const_cast<char*>("fixture"); bool TargetNameWValid = true; std::wstring TargetNameW = L"fixture"; };
+struct TestDialog { HANDLE WorkerNotSuspended = nullptr; BOOL* CancelWorker = nullptr; BOOL SkipAllFileWrite = FALSE; };
+struct TestThin {
+    bool Scoped() const { return state.scoped; }
+    bool CloseScopedTarget(HANDLE& out) {
+        ++state.closes; out = nullptr;
+        if (state.failScopedClose) { ++state.reports; state.reportedError = ERROR_INVALID_HANDLE; return false; }
+        return true;
+    }
+    void ReleaseTargetPin() { if (state.scoped) ++state.releases; }
+    void ReportTargetFailure(DWORD error, int = 0) { ++state.reports; state.reportedError = error; }
+};
+
+static BOOL MockSetFileInformationByHandle(HANDLE file, FILE_INFO_BY_HANDLE_CLASS kind, LPVOID value, DWORD size)
+{
+    ++state.handleAttributes; state.attributesHandle = file;
+    if (kind != FileBasicInfo || size != sizeof(FILE_BASIC_INFO)) return FALSE;
+    state.passedAttributes = static_cast<FILE_BASIC_INFO*>(value)->FileAttributes;
+    if (state.failAttributes) { SetLastError(ERROR_ACCESS_DENIED); return FALSE; }
+    return TRUE;
+}
+static BOOL MockSetFileAttributesW(LPCWSTR, DWORD attrs)
+{
+    ++state.pathAttributes; state.passedAttributes = attrs;
+    if (state.failAttributes) { SetLastError(ERROR_ACCESS_DENIED); return FALSE; }
+    return TRUE;
+}
+static BOOL MockCloseHandle(HANDLE)
+{
+    ++state.closes;
+    if (state.failClose) { SetLastError(ERROR_INVALID_HANDLE); return FALSE; }
+    return TRUE;
+}
+static BOOL MockDeleteFileW(LPCWSTR) { return FALSE; }
+static std::wstring WorkerOperationPathW(const char*, const wchar_t* exact) { return exact ? exact : L""; }
+static char* LoadStr(int) { static char value[] = "caption"; return value; }
+static char* GetErrorText(DWORD) { static char value[] = "error"; return value; }
+static LRESULT MockSendMessage(HWND, UINT, WPARAM, LPARAM) { return 0; }
+#define SetFileInformationByHandle MockSetFileInformationByHandle
+#define SetFileAttributesW MockSetFileAttributesW
+#define CloseHandle MockCloseHandle
+#define DeleteFileW MockDeleteFileW
+#undef SendMessage
+#define SendMessage MockSendMessage
+
+static BOOL Finish()
+{
+    HANDLE out = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1));
+    DWORD attr = FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_READONLY;
+    TestScript object; object.CopyAttrs = state.copyAttrs; TestScript* script = &object;
+    TestOperation operation; TestOperation* op = &operation;
+    TestThin thin;
+    BOOL cancelled = FALSE;
+    TestDialog dlgData; dlgData.CancelWorker = &cancelled;
+    HWND hProgressDlg = nullptr;
+    if (out != nullptr)
+    {
+@@FINISH_BRANCH@@
+    return TRUE;
+COPY_ERROR:
+    return FALSE;
+SKIP_COPY:
+    return FALSE;
+COPY_AGAIN:
+    return FALSE;
+}
+
+static void Check(bool condition, const char* name, int& failures)
+{
+    std::printf("%s %s\n", condition ? "PASS" : "FAIL", name);
+    if (!condition) ++failures;
+}
+int main()
+{
+    int failures = 0;
+    for (bool attributeFailure : {false, true})
+    {
+        state = {}; state.scoped = true; state.failAttributes = attributeFailure;
+        Check(Finish() && state.handleAttributes == 1 && state.pathAttributes == 0 &&
+              state.attributesHandle == reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1)) &&
+              state.passedAttributes == (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_ARCHIVE) &&
+              state.closes == 1 && state.releases == 1 && state.reports == 0,
+              attributeFailure ? "scoped ordinary attribute failure is ignored after safe handle use" :
+                                 "scoped ordinary attributes are set on the exact handle", failures);
+        state = {}; state.failAttributes = attributeFailure;
+        Check(Finish() && state.handleAttributes == 0 && state.pathAttributes == 1 &&
+              state.closes == 1 && state.releases == 0 && state.reports == 0,
+              attributeFailure ? "native ordinary attribute failure is ignored" :
+                                 "native ordinary attributes use the existing path", failures);
+    }
+    state = {}; state.scoped = true; state.failAttributes = true; state.copyAttrs = true;
+    Check(!Finish() && state.handleAttributes == 1 && state.pathAttributes == 0 &&
+          state.closes == 1 && state.releases == 1 && state.reports == 1 &&
+          state.reportedError == ERROR_ACCESS_DENIED,
+          "hypothetical CopyAttrs=true retains its previous failure handling", failures);
+    state = {}; state.scoped = true; state.failAttributes = true; state.copyAttrs = true; state.failScopedClose = true;
+    Check(!Finish() && state.handleAttributes == 1 && state.pathAttributes == 0 &&
+          state.closes == 1 && state.releases == 0 && state.reports == 1 &&
+          state.reportedError == ERROR_INVALID_HANDLE,
+          "hypothetical CopyAttrs=true stops after uncertain close without another report", failures);
+    state = {}; state.scoped = true; state.failAttributes = true; state.failClose = true;
+    Check(!Finish() && state.closes == 1 && state.releases == 0 && state.reports == 1 &&
+          state.reportedError == ERROR_INVALID_HANDLE && state.pathAttributes == 0,
+          "uncertain close remains a failure and never falls back to pathname", failures);
+    return failures ? 1 : 0;
+}

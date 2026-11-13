@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Preserve native plain-copy attribute failure behavior. | Do not fail a completed scoped copy when ordinary attribute setting is ignored. | #731 | GPT-6 |
 // | 2026-11-13 | Release the broker's retained target after completed F5. | Preserve the native worker's per-item handle lifetime. | #731 | GPT-6 |
 // | 2026-11-13 | Track issued asynchronous copy I/O before observing cancellation. | Drain pending reads and writes before releasing their buffers and file handles. | #731 | GPT-6 |
 // | 2026-11-13 | Inject a write fault only after completed test I/O. | Exercise Retry after partial native transfer without changing production behavior. | #731 | GPT-6 |
@@ -8095,7 +8096,8 @@ COPY_AGAIN:
                             // never follow the pathname after closing it.
                             FILE_BASIC_INFO basic{};
                             basic.FileAttributes = attr | FILE_ATTRIBUTE_ARCHIVE;
-                            if (!SetFileInformationByHandle(out, FileBasicInfo, &basic, sizeof(basic)))
+                            if (!SetFileInformationByHandle(out, FileBasicInfo, &basic, sizeof(basic)) &&
+                                script->CopyAttrs)
                             {
                                 const DWORD attributeError = GetLastError();
                                 if (!thin.CloseScopedTarget(out)) return FALSE;
@@ -8103,6 +8105,9 @@ COPY_AGAIN:
                                 thin.ReportTargetFailure(attributeError, IDS_ERRORCHANGINGATTRS);
                                 return FALSE;
                             }
+                            // For an ordinary copy the original pathname attribute
+                            // update below deliberately ignores failure. Preserve
+                            // that behavior while addressing the exact opened object.
                         }
 #endif
                         if (!HANDLES(CloseHandle(out)))
