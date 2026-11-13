@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Identify accepted thin batch scope. | Preserve consent only when the scope was actually displayed. | #731 | GPT-6 |
 // | 2026-11-13 | Report transfer prompt allocation failures. | Distinguish low memory from a user's refusal. | #731 | GPT-6 |
 // | 2026-11-13 | Show terminal thin-copy errors without retry controls. | Preserve the native caption, target and error when retry is unsafe. | #731 | GPT-6 |
 // | 2026-11-13 | Distinguish experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
@@ -2055,6 +2056,11 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
                 confirm.AliasBtnNames = alias.c_str();
                 prompt.approved = SalMessageBoxEx(&confirm) == IDOK && !CancelWorker;
+#ifdef SAM_UAC_THIN_COPY_TEST
+                prompt.batchScopeShownAndApproved = prompt.approved &&
+                    prompt.kind == UacF7::TransferPromptKind::ThinPlainCopy &&
+                    shareJob && !prompt.request.IsScopedTree();
+#endif
             }
             catch (const std::bad_alloc&)
             {

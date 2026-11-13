@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Retain displayed batch consent after proven prelaunch failure. | Avoid repeating approval on the next matching native F5 item. | #731 | GPT-6 |
 // | 2026-11-13 | Give experimental F5 item custody of the planned job. | Preserve scope and lifetime across native worker I/O. | #731 | GPT-6 |
 // | 2026-11-13 | Preserve consent after proven pre-probe failure. | Allow native retry without reviving a started broker scope. | #731 | GPT-6 |
 // | 2026-11-13 | Propagate transfer prompt allocation failures. | Keep refusal and native operation errors distinct. | #731 | GPT-6 |
@@ -2314,6 +2315,9 @@ struct CProgressDlgData
 #ifdef SAM_UAC_THIN_COPY_TEST
     // The experimental handle transport stays out of the production build.
     std::list<UacF7::ThinCopySession> ThinCopyJobs;
+    // Consent, not a broker job: valid only for the displayed exact batch
+    // scope and consumed before attempting another broker launch.
+    std::optional<UacF7::TransferJobScope> PendingThinConsent;
 #endif
     struct TreeMerge
     {
@@ -2415,6 +2419,7 @@ struct CThinCopyWorker
     // is an explicitly reported pre-probe failure on the first attempt.
     bool scopeMayHaveStarted = false;
     bool pendingConsent = false;
+    bool batchScopeApproved = false;
     bool brokerHandleDelivered = false;
     bool targetContinuityLost = false;
     bool targetKnown = false;
@@ -7058,60 +7063,77 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
                 }
                 try
                 {
-                    const auto source = SalWideToMultiBytePath(
-                        SalPathRemoveExtendedPrefixW(operation.SourceNameW.c_str()).c_str(), CP_UTF8);
-                    const auto targetPath = SalWideToMultiBytePath(
-                        SalPathRemoveExtendedPrefixW(operation.TargetNameW.c_str()).c_str(), CP_UTF8);
-                    UacF7::TransferPrompt prompt{*request, source.c_str(), targetPath.c_str(),
-                        kind != UacF7::ThinOpenKind::Source};
-                    prompt.kind = UacF7::TransferPromptKind::ThinPlainCopy;
-                    SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER,
-                                reinterpret_cast<LPARAM>(&prompt));
-                    if (CancelBeforeElevation())
+                    if (dialog.PendingThinConsent)
                     {
-                        sessions.erase(it);
-                        SetLastError(ERROR_CANCELLED);
-                        return INVALID_HANDLE_VALUE;
+                        const bool eligible = script.Count > 1 && request->CanShareJob() && !request->IsScopedTree();
+                        const bool matches = eligible && dialog.PendingThinConsent->Matches(request->ThinBatchScope());
+                        // Never carry consent across a different scope.
+                        dialog.PendingThinConsent.reset();
+                        if (matches)
+                        {
+                            batchScopeApproved = true;
+                            newlyApproved = true;
+                        }
                     }
-                    const DWORD consentWait = dialog.CancelWorkerEvent ? WaitForSingleObject(dialog.CancelWorkerEvent, 0) : WAIT_FAILED;
-                    const DWORD consentWaitError = !dialog.CancelWorkerEvent ? ERROR_INVALID_HANDLE :
-                        consentWait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
-                    if (consentWait == WAIT_OBJECT_0)
+                    if (!newlyApproved)
                     {
-                        sessions.erase(it);
-                        terminal = true;
-                        SetLastError(ERROR_CANCELLED);
-                        return INVALID_HANDLE_VALUE;
-                    }
-                    if (consentWait != WAIT_TIMEOUT)
-                    {
-                        sessions.erase(it);
-                        SetLastError(consentWaitError ? consentWaitError : ERROR_INVALID_HANDLE);
-                        return INVALID_HANDLE_VALUE;
-                    }
-                    if (prompt.promptError != ERROR_SUCCESS)
-                    {
-                        sessions.erase(it);
-                        SetLastError(prompt.promptError);
-                        return INVALID_HANDLE_VALUE;
-                    }
-                    if (!prompt.approved)
-                    {
-                        sessions.erase(it);
-                        terminal = true;
-                        SetLastError(ERROR_CANCELLED);
-                        return INVALID_HANDLE_VALUE;
+                        const auto source = SalWideToMultiBytePath(
+                            SalPathRemoveExtendedPrefixW(operation.SourceNameW.c_str()).c_str(), CP_UTF8);
+                        const auto targetPath = SalWideToMultiBytePath(
+                            SalPathRemoveExtendedPrefixW(operation.TargetNameW.c_str()).c_str(), CP_UTF8);
+                        UacF7::TransferPrompt prompt{*request, source.c_str(), targetPath.c_str(),
+                            kind != UacF7::ThinOpenKind::Source};
+                        prompt.kind = UacF7::TransferPromptKind::ThinPlainCopy;
+                        SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER,
+                                    reinterpret_cast<LPARAM>(&prompt));
+                        if (CancelBeforeElevation())
+                        {
+                            sessions.erase(it);
+                            SetLastError(ERROR_CANCELLED);
+                            return INVALID_HANDLE_VALUE;
+                        }
+                        const DWORD consentWait = dialog.CancelWorkerEvent ? WaitForSingleObject(dialog.CancelWorkerEvent, 0) : WAIT_FAILED;
+                        const DWORD consentWaitError = !dialog.CancelWorkerEvent ? ERROR_INVALID_HANDLE :
+                            consentWait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+                        if (consentWait == WAIT_OBJECT_0)
+                        {
+                            sessions.erase(it);
+                            terminal = true;
+                            SetLastError(ERROR_CANCELLED);
+                            return INVALID_HANDLE_VALUE;
+                        }
+                        if (consentWait != WAIT_TIMEOUT)
+                        {
+                            sessions.erase(it);
+                            SetLastError(consentWaitError ? consentWaitError : ERROR_INVALID_HANDLE);
+                            return INVALID_HANDLE_VALUE;
+                        }
+                        if (prompt.promptError != ERROR_SUCCESS)
+                        {
+                            sessions.erase(it);
+                            SetLastError(prompt.promptError);
+                            return INVALID_HANDLE_VALUE;
+                        }
+                        if (!prompt.approved)
+                        {
+                            sessions.erase(it);
+                            terminal = true;
+                            SetLastError(ERROR_CANCELLED);
+                            return INVALID_HANDLE_VALUE;
+                        }
+                        batchScopeApproved = prompt.batchScopeShownAndApproved;
+                        newlyApproved = true;
                     }
                 }
                 catch (const std::bad_alloc&)
                 {
                     // No broker has been started for this new entry. Preserve
                     // other batch sessions and report allocation failure.
+                    dialog.PendingThinConsent.reset();
                     sessions.erase(it);
                     SetLastError(ERROR_NOT_ENOUGH_MEMORY);
                     return INVALID_HANDLE_VALUE;
                 }
-                newlyApproved = true;
             }
         }
         session = &*it;
@@ -7126,13 +7148,17 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
     const HANDLE openedSource = kind == UacF7::ThinOpenKind::Source
         ? INVALID_HANDLE_VALUE : *sourceHandle;
     const bool hadStarted = scopeMayHaveStarted;
+    // From this point on a launch may have happened. A matching approval can
+    // be restored only for an explicitly proven pre-probe failure below.
+    dialog.PendingThinConsent.reset();
     scopeMayHaveStarted = true;
     pendingConsent = false;
     const auto result = session->Open(progress, *request, kind, overlapped, false,
         kind == UacF7::ThinOpenKind::TargetRetry ? &target : nullptr,
         UacF7::ThinOpenedSource{openedSource}, UacF7::ThinCancelEvent{dialog.CancelWorkerEvent});
     if (!hadStarted && !brokerHandleDelivered && !targetCreatedByBroker &&
-        result.preProbeFailure && result.error != ERROR_SUCCESS && result.file == INVALID_HANDLE_VALUE &&
+        result.preProbeFailure && result.error != ERROR_SUCCESS && result.error != ERROR_CANCELLED &&
+        result.file == INVALID_HANDLE_VALUE &&
         !result.unknown && !result.declined && !session->IsOpen())
     {
         if (CancelBeforeElevation())
@@ -7153,6 +7179,11 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
         }
         scopeMayHaveStarted = false;
         pendingConsent = true;
+        if (batchScopeApproved && script.Count > 1 && request->CanShareJob() && !request->IsScopedTree())
+        {
+            try { dialog.PendingThinConsent = request->ThinBatchScope(); }
+            catch (const std::bad_alloc&) { dialog.PendingThinConsent.reset(); }
+        }
     }
     if (result.unknown)
     {

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Test retained batch consent across copy items. | Reject changed scopes and ambiguous broker outcomes. | #731 | GPT-6 |
 // | 2026-11-13 | Model experimental planned custody. | Keep retry tests aligned with item-scoped sessions. | #731 | GPT-6 |
 // | 2026-11-13 | Cover returned prelaunch classification. | Preserve consent only when the launcher was not entered. | #731 | GPT-6 |
 // | 2026-11-13 | Test retry after pre-probe errors. | Keep consent and never restart an uncertain scoped operation. | #731 | GPT-6 |
@@ -11,13 +12,34 @@
 #include <list>
 #include <memory>
 #include <new>
+#include <optional>
 #include <string>
 
 namespace UacF7 {
 enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe };
 enum class TransferPromptKind { ThinPlainCopy };
 struct MoveFileIdentity { ULONGLONG serial = 0; unsigned char id[16]{}; };
-struct PreparedTransfer {};
+enum class Operation { Copy, Move, Metadata };
+static Operation TransferJobFamily(Operation operation) { return operation; }
+static bool IsSpecialTimestampFile(DWORD) { return false; }
+struct TransferJobScope {
+    struct Parent { ULONGLONG serial = 1; BYTE id[16]{}; };
+    struct Policy { DWORD set = 0, clear = 0; };
+    struct Change { ULONGLONG created = 0, accessed = 0, modified = 0; DWORD expectedAttributes = 0; };
+    Operation operation = Operation::Copy;
+    Parent source{}, target{};
+    std::wstring sourcePath = L"source", targetPath = L"target", targetSuffix{};
+    Policy policy{}; Change change{};
+@@SCOPE_MATCHES@@
+};
+static bool failScope = false;
+struct PreparedTransfer {
+    TransferJobScope scope{};
+    bool shareable = true, tree = false;
+    bool CanShareJob() const { return shareable; }
+    bool IsScopedTree() const { return tree; }
+    TransferJobScope ThinBatchScope() const { if (failScope) throw std::bad_alloc(); return scope; }
+};
 struct ThinOpenedSource { HANDLE value; };
 struct ThinCancelEvent { HANDLE value; };
 struct ThinOpenResult {
@@ -34,6 +56,7 @@ struct TransferPrompt {
     bool approved = false;
     DWORD promptError = ERROR_SUCCESS;
     TransferPromptKind kind = TransferPromptKind::ThinPlainCopy;
+    bool batchScopeShownAndApproved = false;
 };
 static ThinOpenResult nextResult;
 static int opens = 0;
@@ -55,20 +78,24 @@ struct ThinCopySession {
 };
 }
 struct SourcePlan { std::unique_ptr<UacF7::ThinCopySession> Session; };
-struct Script { SourcePlan* CopySource = nullptr; };
+struct Script { SourcePlan* CopySource = nullptr; int Count = 1; };
 struct Operation { std::wstring SourceNameW = L"source", TargetNameW = L"target"; };
 static HANDLE testEvent = nullptr;
-struct Dialog { std::list<UacF7::ThinCopySession> ThinCopyJobs; BOOL* CancelWorker = nullptr; HANDLE CancelWorkerEvent = testEvent; };
+struct Dialog { std::list<UacF7::ThinCopySession> ThinCopyJobs; std::optional<UacF7::TransferJobScope> PendingThinConsent; BOOL* CancelWorker = nullptr; HANDLE CancelWorkerEvent = testEvent; };
 constexpr UINT WM_USER_DIALOG = WM_USER + 42;
 constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 1;
 static int prompts = 0, reported = 0, waits = 0;
-static bool approval = true, waitOkay = true;
+static bool approval = true, waitOkay = true, scopeShown = false;
 static std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* value) { return value; }
 static std::string SalWideToMultiBytePath(const wchar_t*, UINT) { return "path"; }
 #undef SendMessage
 #define SendMessage Prompt
 static LRESULT Prompt(HWND, UINT, WPARAM, LPARAM value) {
-    ++prompts; reinterpret_cast<UacF7::TransferPrompt*>(value)->approved = approval; return 0;
+    ++prompts;
+    auto* prompt = reinterpret_cast<UacF7::TransferPrompt*>(value);
+    prompt->approved = approval;
+    prompt->batchScopeShownAndApproved = approval && scopeShown;
+    return 0;
 }
 static void ThinCopyTestHandleGate(UacF7::ThinOpenKind, HANDLE) {}
 struct CThinCopyWorker {
@@ -84,7 +111,7 @@ struct CThinCopyWorker {
     bool plannedTaken = false;
     UacF7::MoveFileIdentity target{};
     bool active = true, terminal = false, sourceVerified = true, targetKnown = true;
-    bool scopeMayHaveStarted = false, pendingConsent = false, brokerHandleDelivered = false, targetCreatedByBroker = false;
+    bool scopeMayHaveStarted = false, pendingConsent = false, brokerHandleDelivered = false, targetCreatedByBroker = false, batchScopeApproved = false;
     bool WaitBeforeElevation() {
         ++waits;
         if (CancelBeforeElevation()) return false;
@@ -123,7 +150,7 @@ static void Check(bool value, const char* label, int& failures) {
     std::printf("%s %s\n", value ? "PASS" : "FAIL", label); if (!value) ++failures;
 }
 static void Reset() {
-    prompts = reported = waits = UacF7::opens = 0; approval = waitOkay = true;
+    prompts = reported = waits = UacF7::opens = 0; approval = waitOkay = true; scopeShown = false; UacF7::failScope = false;
     UacF7::nextResult = {}; UacF7::nextSessionOpen = false;
     UacF7::cancelDuringOpen = UacF7::invalidateDuringOpen = false;
 }
@@ -224,6 +251,70 @@ int main() {
         Check(worker.Open(UacF7::ThinOpenKind::Source, false) == INVALID_HANDLE_VALUE &&
               worker.scopeMayHaveStarted && !worker.pendingConsent && prompts == 0,
               "existing batch session never becomes pre-probe again", failures);
+    }
+    {
+        Reset(); scopeShown = true;
+        CThinCopyWorker first; first.dialog.CancelWorker = &cancelled; first.script.Count = 2;
+        UacF7::nextResult.error = ERROR_NOT_ENOUGH_MEMORY; UacF7::nextResult.preProbeFailure = true;
+        first.Open(UacF7::ThinOpenKind::Source, false);
+        Check(first.dialog.PendingThinConsent.has_value() && prompts == 1,
+              "displayed batch scope saved after proven prelaunch failure", failures);
+        CThinCopyWorker next; next.dialog.CancelWorker = &cancelled; next.script.Count = 2;
+        next.dialog.PendingThinConsent = std::move(first.dialog.PendingThinConsent);
+        UacF7::nextResult = {}; UacF7::nextResult.file = file; UacF7::nextResult.error = ERROR_SUCCESS;
+        UacF7::nextSessionOpen = true;
+        Check(next.Open(UacF7::ThinOpenKind::Source, false) == file && prompts == 1 &&
+              !next.dialog.PendingThinConsent && next.scopeMayHaveStarted,
+              "next same-scope item reuses only displayed consent and consumes it before launch", failures);
+    }
+    for (int changed = 0; changed < 6; ++changed) {
+        Reset(); scopeShown = true;
+        CThinCopyWorker first; first.dialog.CancelWorker = &cancelled; first.script.Count = 2;
+        UacF7::nextResult.error = ERROR_NOT_ENOUGH_MEMORY; UacF7::nextResult.preProbeFailure = true;
+        first.Open(UacF7::ThinOpenKind::Source, false);
+        CThinCopyWorker next; next.dialog.CancelWorker = &cancelled; next.script.Count = 2;
+        next.dialog.PendingThinConsent = std::move(first.dialog.PendingThinConsent);
+        auto& scope = next.request->scope;
+        if (changed == 0) ++scope.source.serial;
+        if (changed == 1) ++scope.source.id[0];
+        if (changed == 2) ++scope.target.id[0];
+        if (changed == 3) scope.sourcePath += L"different";
+        if (changed == 4) scope.targetSuffix = L"different";
+        if (changed == 5) scope.operation = UacF7::Operation::Move;
+        approval = false;
+        next.Open(UacF7::ThinOpenKind::Source, false);
+        Check(prompts == 2 && next.terminal && !next.dialog.PendingThinConsent,
+              "changed scope requires new consent and refusal clears it", failures);
+    }
+    for (int mode = 0; mode < 4; ++mode) {
+        Reset(); scopeShown = true;
+        CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled; worker.script.Count = 2;
+        UacF7::nextResult.error = ERROR_NOT_ENOUGH_MEMORY; UacF7::nextResult.preProbeFailure = true;
+        if (mode == 0) scopeShown = false; // shielded OK, no displayed batch scope
+        if (mode == 1) worker.script.Count = 1;
+        if (mode == 2) worker.request->tree = true;
+        if (mode == 3) UacF7::failScope = true;
+        worker.Open(UacF7::ThinOpenKind::Source, false);
+        Check(!worker.dialog.PendingThinConsent, "undisclosed, single, tree or unallocatable scope is not saved", failures);
+    }
+    for (int mode = 0; mode < 4; ++mode) {
+        Reset(); scopeShown = true;
+        CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled; worker.script.Count = 2;
+        UacF7::nextResult.error = mode == 1 || mode == 3 ? ERROR_CANCELLED : ERROR_NOT_ENOUGH_MEMORY;
+        UacF7::nextResult.unknown = mode == 0;
+        UacF7::nextResult.declined = mode == 1;
+        UacF7::nextSessionOpen = mode == 2;
+        UacF7::nextResult.preProbeFailure = true;
+        worker.Open(UacF7::ThinOpenKind::Source, false);
+        Check(!worker.dialog.PendingThinConsent, "unknown, cancellation, refusal or started job cannot restore batch consent", failures);
+    }
+    {
+        Reset(); scopeShown = true;
+        CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled; worker.script.Count = 2;
+        worker.dialog.PendingThinConsent.emplace(); UacF7::failScope = true;
+        worker.Open(UacF7::ThinOpenKind::Source, false);
+        Check(GetLastError() == ERROR_NOT_ENOUGH_MEMORY && !worker.dialog.PendingThinConsent && !prompts,
+              "scope comparison OOM discards pending authority", failures);
     }
     {
         ProbeHarness probe; ProbeJob job{};

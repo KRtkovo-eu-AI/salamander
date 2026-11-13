@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Identify displayed experimental batch consent. | Do not extend shield-only approval to undisclosed scopes. | #731 | GPT-6 |
 | 2026-11-13 | Expose a test-only job-pipe seam. | Exercise client custody against the broker dispatcher. | #731 | GPT-6 |
 | 2026-11-13 | Allow exclusive experimental transfer-job custody. | Reuse one reviewed tree session for the native F5 worker. | #731 | GPT-6 |
 | 2026-11-13 | Distinguish pre-probe thin open failure. | Permit the worker to retry only before the broker can run. | #731 | GPT-6 |
@@ -878,6 +879,9 @@ public:
                    BrokerActivity activity = nullptr) const;
     bool IsInJob(const TransferJobSession& job) const;
     bool CanShareJob() const { return CanShareTransferJob(source.operation); }
+#ifdef SAM_UAC_THIN_COPY_TEST
+    TransferJobScope ThinBatchScope() const { return JobScope(); }
+#endif
     bool IsMove() const { return IsMoveTransfer(source.operation); }
     bool IsDirectoryMove() const { return source.operation == Operation::MoveDirectory; }
     bool IsCrossVolumeMove() const { return UacF7::IsCrossVolumeMove(source.operation); }
@@ -1042,6 +1046,7 @@ struct TransferPrompt
     DWORD promptError = ERROR_SUCCESS;
 #ifdef SAM_UAC_THIN_COPY_TEST
     TransferPromptKind kind = TransferPromptKind::Standard;
+    bool batchScopeShownAndApproved = false;
 #endif
 };
 

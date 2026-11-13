@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Model pending batch scope. | Check low-memory handling without widening consent. | #731 | GPT-6 |
 // | 2026-11-13 | Model experimental planned custody. | Keep prompt tests aligned with item-scoped sessions. | #731 | GPT-6 |
 // | 2026-11-13 | Model pending pre-probe consent. | Keep allocation fault tests aligned with scoped retry state. | #731 | GPT-6 |
 // | 2026-11-13 | Model transfer-prompt UI errors. | Keep extracted worker tests aligned with the internal prompt contract. | #731 | GPT-6 |
@@ -11,12 +12,18 @@
 #include <list>
 #include <memory>
 #include <new>
+#include <optional>
 #include <string>
 
 namespace UacF7 {
 enum class ThinOpenKind { Source, TargetCreate };
 enum class TransferPromptKind { ThinPlainCopy };
-struct PreparedTransfer {};
+struct TransferJobScope { bool Matches(const TransferJobScope&) const { return true; } };
+struct PreparedTransfer {
+    bool CanShareJob() const { return true; }
+    bool IsScopedTree() const { return false; }
+    TransferJobScope ThinBatchScope() const { return {}; }
+};
 struct TransferPrompt {
     PreparedTransfer& request;
     const char* source;
@@ -25,6 +32,7 @@ struct TransferPrompt {
     TransferPromptKind kind = TransferPromptKind::ThinPlainCopy;
     bool approved = false;
     DWORD promptError = ERROR_SUCCESS;
+    bool batchScopeShownAndApproved = false;
 };
 static bool failMatches = false;
 struct ThinCopySession {
@@ -52,8 +60,8 @@ struct SessionList {
 };
 struct SourcePlan { std::unique_ptr<UacF7::ThinCopySession> Session; };
 struct Operation { std::wstring SourceNameW = L"source", TargetNameW = L"target"; };
-struct Script { SourcePlan* CopySource = nullptr; };
-struct Dialog { SessionList ThinCopyJobs; HANDLE CancelWorkerEvent = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1)); };
+struct Script { SourcePlan* CopySource = nullptr; int Count = 1; };
+struct Dialog { SessionList ThinCopyJobs; std::optional<UacF7::TransferJobScope> PendingThinConsent; HANDLE CancelWorkerEvent = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1)); };
 static int conversionStep = 0, failStep = 0, prompts = 0, waits = 0;
 static bool approval = true;
 static bool cancelAfterPrompt = false;
@@ -92,7 +100,7 @@ struct CThinCopyWorker {
     SourcePlan* claimedPlan = nullptr;
     bool plannedTaken = false;
     bool terminal = false;
-    bool pendingConsent = false, scopeMayHaveStarted = false;
+    bool pendingConsent = false, scopeMayHaveStarted = false, batchScopeApproved = false;
     bool WaitBeforeElevation() { ++waits; return true; }
     bool CancelBeforeElevation() {
         if (!cancelAfterPrompt) return false;

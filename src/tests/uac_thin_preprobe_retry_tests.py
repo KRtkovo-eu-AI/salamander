@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Exercise saved batch consent through native open. | Match the actual scope and prelaunch boundaries across items. | #731 | GPT-6 |
 # | 2026-11-13 | Cover verified prelaunch outcomes. | Preserve consent only before the real launcher can run. | #731 | GPT-6 |
 # | 2026-11-13 | Test scoped pre-probe retry state. | Preserve consent without reviving a possibly started broker. | #731 | GPT-6 |
 """Test the extracted worker Open method using stubbed broker outcomes."""
@@ -19,10 +20,15 @@ def main():
     config = parser.parse_args().configuration
     worker_path = ROOT / 'src/worker.cpp'
     transport_path = ROOT / 'src/uacbroker/uacbroker.cpp'
+    header_path = ROOT / 'src/uacbroker/f7pilot.h'
     digest = hashlib.sha256(worker_path.read_bytes()).hexdigest()
     transport_digest = hashlib.sha256(transport_path.read_bytes()).hexdigest()
+    header_digest = hashlib.sha256(header_path.read_bytes()).hexdigest()
     worker = read('src/worker.cpp')
     transport = read('src/uacbroker/uacbroker.cpp')
+    header = read('src/uacbroker/f7pilot.h')
+    scope_start = header.index('    bool Matches(const TransferJobScope& other) const')
+    scope_end = header.index('\n};', scope_start)
     start = worker.index('HANDLE CThinCopyWorker::Open(')
     end = worker.index('HANDLE CThinCopyWorker::CancelReceivedHandle(', start)
     transport_start = transport.index('ThinOpenResult ThinCopySession::Open(')
@@ -54,6 +60,7 @@ def main():
         raise RuntimeError('Unexpected pre-probe result paths')
     template = (ROOT / 'src/tests/uac_thin_preprobe_retry_tests.cpp.in').read_text(encoding='utf-8')
     code = (template.replace('@@ACTUAL_OPEN@@', worker[start:end])
+            .replace('@@SCOPE_MATCHES@@', header[scope_start:scope_end])
             .replace('@@ACTUAL_TRANSPORT_CATCH@@', transport_method[catch_start:])
             .replace('@@ACTUAL_RETURN_CLASSIFICATION@@', transport_method[classification_start:classification_end]))
     if '@@' in code:
@@ -78,8 +85,11 @@ def main():
         raise RuntimeError('worker.cpp changed during test')
     if hashlib.sha256(transport_path.read_bytes()).hexdigest() != transport_digest:
         raise RuntimeError('uacbroker.cpp changed during test')
+    if hashlib.sha256(header_path.read_bytes()).hexdigest() != header_digest:
+        raise RuntimeError('f7pilot.h changed during test')
     print('worker.cpp SHA-256:', digest)
     print('uacbroker.cpp SHA-256:', transport_digest)
+    print('f7pilot.h SHA-256:', header_digest)
     print('Actual CThinCopyWorker::Open and transport catch; boundary checked structurally; broker outcomes are stubs.')
     print('This does not exercise complete DoCopyFile, real IPC, UAC, OTS or VM.')
     return 0

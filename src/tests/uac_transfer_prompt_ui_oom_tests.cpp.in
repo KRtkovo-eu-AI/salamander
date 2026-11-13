@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Verify displayed thin batch consent. | Reject shield-only and undisclosed scopes. | #731 | GPT-6 |
 // | 2026-11-13 | Test transfer UI allocation and cancellation. | Exercise the actual dialog branches with deterministic faults. | #731 | GPT-6 |
 #include <windows.h>
 #include <cstdio>
@@ -12,7 +13,7 @@
 namespace UacF7 {
 enum class TransferPromptKind { Standard, ThinPlainCopy };
 struct PreparedTransfer {
-    bool matches = false;
+    bool matches = false, shareable = true, scopedTree = false;
     bool MatchesTargetDirectory(int) const { return matches; }
     bool IsMove() const { return false; }
     bool IsTree() const { return false; }
@@ -22,8 +23,8 @@ struct PreparedTransfer {
     bool PreservesSecurity() const { return false; }
     bool PreservesCompression() const { return false; }
     bool PreservesEncryption() const { return false; }
-    bool CanShareJob() const { return true; }
-    bool IsScopedTree() const { return false; }
+    bool CanShareJob() const { return shareable; }
+    bool IsScopedTree() const { return scopedTree; }
 };
 struct TransferPrompt {
     PreparedTransfer& request;
@@ -32,6 +33,7 @@ struct TransferPrompt {
     bool targetDenied = false, approved = false;
     DWORD promptError = ERROR_SUCCESS;
     TransferPromptKind kind = TransferPromptKind::Standard;
+    bool batchScopeShownAndApproved = false;
 };
 }
 struct FakeScript { int Count = 2; std::unique_ptr<int> ShieldedTransferTarget; };
@@ -111,6 +113,31 @@ int main() {
     failLoad = 0;
     Check(shielded.approved && !shielded.promptError && !displayCount && !script.ShieldedTransferTarget,
           "matching shielded confirmation bypasses prompt allocation", failures);
+    Check(!shielded.batchScopeShownAndApproved, "shielded OK does not claim displayed batch consent", failures);
+    response = IDOK; request.matches = false;
+    UacF7::TransferPrompt batch{request, src, dst};
+    batch.kind = UacF7::TransferPromptKind::ThinPlainCopy;
+    Dispatch(&script, cancelled, nullptr, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&batch));
+    Check(batch.approved && batch.batchScopeShownAndApproved, "thin batch marker requires accepted displayed scope", failures);
+    for (int mode = 0; mode < 5; ++mode) {
+        UacF7::TransferPrompt prompt{request, src, dst};
+        prompt.kind = UacF7::TransferPromptKind::ThinPlainCopy;
+        script.Count = mode == 0 ? 1 : 2;
+        request.shareable = mode != 1;
+        request.scopedTree = mode == 2;
+        response = mode == 3 ? IDCANCEL : IDOK;
+        if (mode == 4) prompt.kind = UacF7::TransferPromptKind::Standard;
+        Dispatch(&script, cancelled, nullptr, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
+        Check(!prompt.batchScopeShownAndApproved, "single, unshareable, tree, declined or non-thin marker absent", failures);
+    }
+    script.Count = 2; request.shareable = true; request.scopedTree = false; response = IDOK;
+    UacF7::TransferPrompt batchOom{request, src, dst};
+    batchOom.kind = UacF7::TransferPromptKind::ThinPlainCopy;
+    failDialog = true;
+    Dispatch(&script, cancelled, nullptr, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&batchOom));
+    failDialog = false;
+    Check(!batchOom.batchScopeShownAndApproved && batchOom.promptError == ERROR_NOT_ENOUGH_MEMORY,
+          "failed batch dialog grants no consent", failures);
     const HANDLE event = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1));
     errorCount = 0; waitValue = WAIT_TIMEOUT; cancelled = false; displayedError = 0;
     Dispatch(&script, cancelled, event, WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR, ERROR_NOT_ENOUGH_MEMORY);

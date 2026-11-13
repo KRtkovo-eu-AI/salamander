@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Include batch-scope allocation paths. | Keep failure checks aligned with the actual worker selection block. | #731 | GPT-6 |
 # | 2026-11-13 | Include the planned-custody preprocessor boundary. | Keep the extracted prompt block syntactically complete. | #731 | GPT-6 |
 # | 2026-11-13 | Test thin-copy prompt allocation failures. | Exercise the actual session-selection block with deterministic allocation faults. | #731 | GPT-6 |
 """Test extracted scoped-session selection, not whole F5 or UAC."""
@@ -28,7 +29,7 @@ def main():
     block_start = prototype
     block_end = worker.index('    // Pause or cancellation may arrive', block_start)
     block = worker[block_start:block_end]
-    if len(block) > 6000 or 'catch (const std::bad_alloc&)' not in block:
+    if len(block) > 8000 or 'catch (const std::bad_alloc&)' not in block:
         raise RuntimeError('Unexpected scoped session block')
     template = (ROOT / 'src/tests/uac_thin_prompt_alloc_tests.cpp.in').read_text(encoding='utf-8')
     code = template.replace('@@SESSION_BLOCK@@', block)
