@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Reject a retry reply that contradicts the requested identity. | Independently bind the returned handle to the earlier target. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise uncertain thin replies with real handles. | Retire the affected pipe without closing other jobs. | #731 | GPT-6 |
 #include <windows.h>
 #include <cstdio>
@@ -29,7 +30,8 @@ class ThinCopySession {
 public:
     unsigned markersCleared{0};
     ThinOpenResult Classify(TransferJobSession* job, const Prepared& prepared,
-                            ThinOpenKind kind, Result result, Reply reply) {
+                            ThinOpenKind kind, Result result, Reply reply, const Id* expectedTarget = nullptr) {
+        (void)expectedTarget;
         ThinOpenResult output;
 @@ACTUAL_GUARD@@
 @@ACTUAL_CLASSIFICATION@@
@@ -119,6 +121,34 @@ int main() {
                   job.IsOpen() != target && !Valid(file),
                   target ? "uncertain target identity retires job and handle" :
                            "known source identity error preserves job and closes handle");
+        } else if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+        if (*path) DeleteFileW(path);
+    }
+    for (int mismatch : {0, 1, 2}) {
+        wchar_t path[MAX_PATH]{}; HANDLE file = File(path);
+        TransferJobSession job; FILE_ID_INFO identity{};
+        const bool ready = job.Init() && file != INVALID_HANDLE_VALUE &&
+            GetFileInformationByHandleEx(file, FileIdInfo, &identity, sizeof(identity));
+        Check(ready, "create retry response fixture with real file identity");
+        if (ready) {
+            ThinCopySession session;
+            Prepared prepared{}; prepared.target.serial = identity.VolumeSerialNumber;
+            Id expected{}; expected.serial = identity.VolumeSerialNumber;
+            std::memcpy(expected.id, identity.FileId.Identifier, sizeof(expected.id));
+            if (mismatch == 1) expected.id[0] ^= 1;
+            if (mismatch == 2) expected.serial ^= 1;
+            Reply reply{}; reply.value = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(file)); reply.target = identity;
+            auto result = session.Classify(&job, prepared, ThinOpenKind::TargetRetry, {}, reply, &expected);
+            if (mismatch) {
+                Check(result.error == ERROR_FILE_INVALID && result.unknown && !job.IsOpen() && !Valid(file),
+                      mismatch == 1 ? "retry response with a different requested ID is rejected and retired" :
+                                      "retry response with a different requested volume is rejected and retired");
+                if (Valid(file)) CloseHandle(file);
+            } else {
+                Check(!result.error && !result.unknown && result.file == file && job.IsOpen(),
+                      "retry response matching requested identity remains usable");
+                CloseHandle(file);
+            }
         } else if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
         if (*path) DeleteFileW(path);
     }

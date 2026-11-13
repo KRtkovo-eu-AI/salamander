@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Recheck retry replies against the requested target identity. | Reject and retire a session if a returned handle contradicts the original target. | #731 | GPT-6 |
 | 2026-11-13 | Grant thin target probes attribute access. | Supply native overwrite details without granting content access. | #731 | GPT-6 |
 | 2026-11-13 | Add a test-only anchor-open failure seam. | Exercise preservation after target creation without an elevated process. | #731 | GPT-6 |
 | 2026-11-13 | Reject invalid thin-copy cancellation handles. | Do not start or continue a scoped request when cancellation cannot be observed. | #731 | GPT-6 |
@@ -6399,12 +6400,18 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
                   !std::memcmp(identity.FileId.Identifier, prepared.source.sourceId, sizeof(prepared.source.sourceId))
                 : identity.VolumeSerialNumber == reply.target.VolumeSerialNumber &&
                   !std::memcmp(identity.FileId.Identifier, reply.target.FileId.Identifier, sizeof(reply.target.FileId.Identifier)) &&
-                  identity.VolumeSerialNumber == prepared.target.serial);
+                  identity.VolumeSerialNumber == prepared.target.serial) &&
+            (kind != ThinOpenKind::TargetRetry ||
+                (expectedTarget && identity.VolumeSerialNumber == expectedTarget->serial &&
+                 !std::memcmp(identity.FileId.Identifier, expectedTarget->id, sizeof(expectedTarget->id))));
         if (!same)
         {
             CloseHandle(received);
             output.error = ERROR_FILE_INVALID;
-            output.unknown = kind == ThinOpenKind::TargetCreate;
+            // A mismatched retry reply contradicts the saved target even if
+            // the handle agrees with the reply. Retire this job; do not let
+            // later operations silently continue under inconsistent identity.
+            output.unknown = kind == ThinOpenKind::TargetCreate || kind == ThinOpenKind::TargetRetry;
             return output;
         }
         output.file = received;
