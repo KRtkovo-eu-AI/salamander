@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Grant thin target probes attribute access. | Supply native overwrite details without granting content access. | #731 | GPT-6 |
 | 2026-11-13 | Add a test-only anchor-open failure seam. | Exercise preservation after target creation without an elevated process. | #731 | GPT-6 |
 | 2026-11-13 | Reject invalid thin-copy cancellation handles. | Do not start or continue a scoped request when cancellation cannot be observed. | #731 | GPT-6 |
 | 2026-11-13 | Prepare thin target records before publishing them. | Leave the batch state unchanged when allocating a name fails. | #731 | GPT-6 |
@@ -2792,7 +2793,10 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
                     error = ERROR_FILE_INVALID;
             }
 #endif
-            duplicateAccess = probe ? 0 : GENERIC_WRITE | (retry ? GENERIC_READ : 0);
+            // The native conflict dialog reads file times and attributes from
+            // this handle. Zero access permits identity queries but not those
+            // metadata calls; never grant content access for a probe.
+            duplicateAccess = probe ? FILE_READ_ATTRIBUTES : GENERIC_WRITE | (retry ? GENERIC_READ : 0);
         }
         const auto cleanupCreated = [&]() -> DWORD {
             if (!madeTarget) return ERROR_SUCCESS;

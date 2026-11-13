@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Verify overwrite-probe metadata access. | Preserve native conflict details without granting file content access. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise anchor-open failure after target creation. | Verify no target handle escapes and the uncertain file is retained. | #731 | GPT-6 |
 // | 2026-11-13 | Check cancellation before target create and reopen. | Verify the real dispatcher pipe preserves data at both boundaries. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise cancellation handle validation on the real client pipe. | Refuse invalid waits without consuming the approved session. | #731 | GPT-6 |
@@ -147,6 +148,27 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     Check(busy.error == ERROR_SHARING_VIOLATION && !busy.unknown && !busyHandle,
           "retry refuses while the original exclusive writer is still open");
     output.reset();
+    const auto metadata = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetProbe, false, false,
+                                    nullptr, UacF7::ThinOpenedSource{input.get()});
+    auto metadataHandle = Adopt(metadata.file);
+    FILETIME modified{};
+    FILE_ATTRIBUTE_TAG_INFO tag{};
+    BY_HANDLE_FILE_INFORMATION nativeInfo{};
+    LARGE_INTEGER metadataSize{};
+    Check(!metadata.error && !metadata.unknown && metadataHandle &&
+          GetFileTime(metadataHandle.get(), nullptr, nullptr, &modified) &&
+          GetFileInformationByHandle(metadataHandle.get(), &nativeInfo) &&
+          GetFileSizeEx(metadataHandle.get(), &metadataSize) && metadataSize.QuadPart == 1 &&
+          GetFileInformationByHandleEx(metadataHandle.get(), FileAttributeTagInfo, &tag, sizeof(tag)),
+          "target probe supplies timestamp and attributes for the native overwrite dialog");
+    BYTE metadataByte = 0;
+    DWORD metadataCount = 0;
+    Check(metadataHandle && !ReadFile(metadataHandle.get(), &metadataByte, 1, &metadataCount, nullptr) &&
+          GetLastError() == ERROR_ACCESS_DENIED &&
+          !WriteFile(metadataHandle.get(), &metadataByte, 1, &metadataCount, nullptr) &&
+          GetLastError() == ERROR_ACCESS_DENIED,
+          "target probe grants neither content read nor write");
+    metadataHandle.reset();
     const auto cancelledRetry = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetRetry, asynchronous, false,
                                           &created.targetIdentity, UacF7::ThinOpenedSource{input.get()},
                                           UacF7::ThinCancelEvent{cancelledEvent.get()});

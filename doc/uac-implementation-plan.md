@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Supply minimal attributes to the thin conflict probe. | Preserve native overwrite-dialog metadata without content access. | #731 | GPT-6 |
 | 2026-11-13 | Evaluate the first thin-copy prototype against its acceptance gate. | Avoid migrating further operations before F5 meets the requested boundaries. | #731 | GPT-6 |
 | 2026-11-13 | Test failure to open a newly created target's anchor. | Verify uncertain target preservation through the actual dispatcher. | #731 | GPT-6 |
 | 2026-11-13 | Guard received handles when cancellation cannot be checked. | Close the delivered handle and preserve uncertain cleanup reporting. | #731 | GPT-6 |
@@ -1006,6 +1007,8 @@ Místní testy reálného dispatcheru a NTFS prošly v experimentální variant�
 Host pro nejistý výsledek znovu používá nativní lokalizované varování, a to i po Cancel nebo ztrátě odpovědi; nepředává novou pointerovou zprávu ani přesnou cílovou cestu. Výřez skutečných metod se stuby prošel **37 PASS** v Debug i Release (`C:\Samandarin\builds\uac-thin-safety-20261113\cleanup-debug-final.log`, `cleanup-release-final.log`); nejde o celý worker ani VM test. Odpovídající experimentální x64 host i broker byly sestaveny v Debug a Release a ověřeny na protokol 46 a odpovídající role; manifest je v `C:\Samandarin\builds\uac-thin-safety-20261113\verified-pair.json`. Tyto buildy nebyly nasazeny do VM.
 
 ## Experimentální F5: Retry lokálně vytvořeného cíle — 2026-11-13 / GPT-6
+
+- **Metadata pro nativní potvrzení přepisu:** Tenká sonda cíle nyní předává `FILE_READ_ATTRIBUTES`; předchozí nulový přístup v testu neumožnil získat čas a atributy pro existující dialog. Skutečný klient a dispatcher po opravě prošly 35/35 v Debug i Release včetně času, velikosti, atributů a odmítnutí čtení i zápisu obsahu (`C:\Samandarin\builds\uac-thin-probe-native-metadata-20261113`). Před opravou stejná kontrola metadat selhala v obou režimech I/O (`C:\Samandarin\builds\uac-thin-probe-metadata-red-20261113`). Test běží v jednom procesu se stejným tokenem; samotný nativní dialog, chráněný přepis, UAC a VM zůstávají neověřené.
 
 - **Selhání kotvy po vytvoření:** Testovací dispatcher po skutečném založení cíle řízeně vrátí `ERROR_ACCESS_DENIED` při otevírání kotvy. Vrátí nejistý výsledek bez cílového handle a zachová zdroj i prázdný cíl. Celá cílená sada prošla 31/31 v Debug i Release (`C:\Samandarin\builds\uac-thin-anchor-failure-20261113`). Jde o injektovanou chybu před předáním handle v jednom procesu se stejným tokenem, nikoli o skutečné ACL, UAC, jiného správce ani celý F5.
 
