@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Reject unexpected identity fields in control replies. | Avoid accepting a malformed cleanup or release confirmation. | #731 | GPT-6 |
 // | 2026-11-14 | Reject contradictory error replies carrying handle values. | Preserve unrelated host handles and retire the uncertain session. | #731 | GPT-6 |
 // | 2026-11-14 | Reject a retry reply that contradicts the requested identity. | Independently bind the returned handle to the earlier target. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise uncertain thin replies with real handles. | Retire the affected pipe without closing other jobs. | #731 | GPT-6 |
@@ -96,6 +97,20 @@ int main() {
         Check(result.unknown && result.error == ERROR_INVALID_DATA && !job.IsOpen(),
               "malformed control reply retires job");
     }
+    for (auto kind : {ThinOpenKind::Discard, ThinOpenKind::Release}) {
+        for (bool serial : {false, true}) {
+            TransferJobSession job; Check(job.Init(), "create malformed control identity reply pipe");
+            Reply reply{};
+            if (serial) reply.target.VolumeSerialNumber = 1;
+            else reply.target.FileId.Identifier[15] = 1;
+            ThinCopySession session;
+            auto result = session.Classify(&job, {}, kind, {}, reply);
+            Check(result.unknown && result.error == ERROR_INVALID_DATA && !job.IsOpen() &&
+                  session.markersCleared == 1,
+                  serial ? "control reply with unexpected volume is uncertain" :
+                           "control reply with unexpected file ID is uncertain");
+        }
+    }
     {
         TransferJobSession job; Check(job.Init(), "create normal-error pipe");
         ThinCopySession session;
@@ -117,10 +132,10 @@ int main() {
               Valid(unrelatedHandle) && session.markersCleared == 1,
               "error reply carrying a handle retires only its job without closing an untrusted value");
     }
-    {
+    for (auto kind : {ThinOpenKind::Discard, ThinOpenKind::Release}) {
         TransferJobSession job; Check(job.Init(), "create valid-control-reply pipe");
         ThinCopySession session;
-        auto result = session.Classify(&job, {}, ThinOpenKind::Release, {}, {});
+        auto result = session.Classify(&job, {}, kind, {}, {});
         Check(!result.unknown && !result.error && job.IsOpen(), "valid control reply preserves job");
     }
     for (auto kind : {ThinOpenKind::Source, ThinOpenKind::TargetCreate}) {

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Validate empty thin cleanup and release replies. | Reject malformed confirmations instead of accepting uncertain cleanup. | #731 | GPT-6 |
 | 2026-11-14 | Reject contradictory thin error replies with handle values. | Retire uncertain sessions without closing an untrusted handle number. | #731 | GPT-6 |
 | 2026-11-14 | Recheck retry replies against the requested target identity. | Reject and retire a session if a returned handle contradicts the original target. | #731 | GPT-6 |
 | 2026-11-13 | Grant thin target probes attribute access. | Supply native overwrite details without granting content access. | #731 | GPT-6 |
@@ -6388,7 +6389,16 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
 #endif
         if (kind == ThinOpenKind::Discard || kind == ThinOpenKind::Release)
         {
-            if (reply.value) { output.error = ERROR_INVALID_DATA; output.unknown = true; }
+#ifdef SAM_UAC_THIN_COPY_TEST
+            // The experimental broker sends an empty reply for these control
+            // operations. Unexpected identity data cannot confirm cleanup.
+            const FILE_ID_128 emptyId{};
+            if (reply.value || reply.target.VolumeSerialNumber ||
+                std::memcmp(reply.target.FileId.Identifier, emptyId.Identifier, sizeof(emptyId.Identifier)))
+#else
+            if (reply.value)
+#endif
+            { output.error = ERROR_INVALID_DATA; output.unknown = true; }
             return output;
         }
         if (!reply.value || reply.value > static_cast<ULONGLONG>(static_cast<ULONG_PTR>(~ULONG_PTR{})))
