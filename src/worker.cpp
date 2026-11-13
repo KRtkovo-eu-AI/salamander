@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Inject a write fault only after completed test I/O. | Exercise Retry after partial native transfer without changing production behavior. | #731 | GPT-6 |
 // | 2026-11-13 | Preserve uncertain thin-copy targets and report unknown completion. | Avoid unsafe cleanup and duplicate dialogs. | #731 | GPT-6 |
 // | 2026-11-13 | Distinguish experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
 // | 2026-11-12 | Observe test-only native read fault and Retry. | Distinguish injected failure from a worker-accepted Retry without changing production flow. | #731 | GPT-6 |
@@ -4893,10 +4894,13 @@ static void ThinCopyTestRetryGate(const wchar_t* expected, HANDLE cancel)
 
 static bool ThinCopyTestFailure(const wchar_t* expected, volatile LONG* once)
 {
+    const DWORD savedError = GetLastError();
     wchar_t mode[32]{};
     DWORD length = GetEnvironmentVariableW(L"SAM_UAC_TEST_FAIL", mode, _countof(mode));
-    return length && length < _countof(mode) && _wcsicmp(mode, expected) == 0 &&
-           InterlockedCompareExchange(once, 1, 0) == 0;
+    const bool failed = length && length < _countof(mode) && _wcsicmp(mode, expected) == 0 &&
+                        InterlockedCompareExchange(once, 1, 0) == 0;
+    SetLastError(savedError);
+    return failed;
 }
 
 // Observation must not change the error seen by the existing I/O state machine.
@@ -4931,16 +4935,36 @@ static BOOL ThinCopyTestReadFile(HANDLE file, void* buffer, DWORD size, DWORD* r
     return result;
 }
 
+// This marker describes a full nonzero write completed by the operating
+// system, never just an issued or pending asynchronous request. It is
+// process-wide: acceptance needs a fresh process and one copy operation.
+// Async writes can complete out of order; the marker does not establish
+// a contiguous prefix or that all other outstanding I/O has drained.
+static volatile LONG thinTestWriteCompleted = 0;
+static void ThinCopyTestMarkWriteCompleted(bool overlapped)
+{
+    const DWORD savedError = GetLastError();
+    InterlockedExchange(&thinTestWriteCompleted, 1);
+    ThinCopyTestObserve(overlapped ? L"SAM_UAC_TEST_ASYNC_WRITE_COMPLETED_EVENT" :
+                                    L"SAM_UAC_TEST_SYNC_WRITE_COMPLETED_EVENT");
+    SetLastError(savedError);
+}
+
 static BOOL ThinCopyTestWriteFile(HANDLE file, const void* buffer, DWORD size, DWORD* written, OVERLAPPED* overlapped)
 {
     static volatile LONG failed = 0;
-    if (ThinCopyTestFailure(L"write", &failed))
+    if (ThinCopyTestFailure(L"write", &failed) ||
+        (InterlockedCompareExchange(&thinTestWriteCompleted, 0, 0) != 0 &&
+         ThinCopyTestFailure(L"write-after-completion", &failed)))
     {
         SetLastError(ERROR_WRITE_FAULT);
+        ThinCopyTestObserve(L"SAM_UAC_TEST_WRITE_FAULT_EVENT");
         return FALSE;
     }
     const BOOL result = WriteFile(file, buffer, size, written, overlapped);
     const DWORD error = GetLastError();
+    if (!overlapped && result && written && size != 0 && *written == size)
+        ThinCopyTestMarkWriteCompleted(false);
     if (overlapped && (result || error == ERROR_IO_PENDING))
     {
         ThinCopyTestObserve(L"SAM_UAC_TEST_ASYNC_WRITE_ISSUED_EVENT");
@@ -6208,7 +6232,7 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
                         BOOL res = GetOverlappedResult(out, asyncPar->GetOverlapped(i), &bytes, TRUE);
 #ifdef SAM_UAC_THIN_COPY_TEST
                         if (res && bytes != 0 && bytes == ctx.BlockDataLen[i])
-                            ThinCopyTestObserve(L"SAM_UAC_TEST_ASYNC_WRITE_COMPLETED_EVENT");
+                            ThinCopyTestMarkWriteCompleted(true);
 #endif
                         if (!res || bytes != ctx.BlockDataLen[i]) // error
                         {
