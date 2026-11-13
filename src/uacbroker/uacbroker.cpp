@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Return explicit errors when thin handle transfer cannot start. | Never report success from a stale last-error value after host liveness fails. | #731 | GPT-6 |
 | 2026-11-14 | Preserve uncertainty if closing a rejected thin handle fails. | Retire the affected session rather than claiming ownership was resolved. | #731 | GPT-6 |
 | 2026-11-14 | Validate empty thin cleanup and release replies. | Reject malformed confirmations instead of accepting uncertain cleanup. | #731 | GPT-6 |
 | 2026-11-14 | Reject contradictory thin error replies with handle values. | Retire uncertain sessions without closing an untrusted handle number. | #731 | GPT-6 |
@@ -2403,6 +2404,21 @@ DWORD CheckThinParentPath(HANDLE parent, std::wstring_view volume, std::wstring_
     return UacDirectoryLeaf::Equal(path, expected) ? ERROR_SUCCESS : ERROR_FILE_INVALID;
 }
 
+DWORD DuplicateThinToHost(HANDLE host, DWORD hostPid, HANDLE source, DWORD access, HANDLE& remote)
+{
+    remote = nullptr;
+    const auto process = OpenThinHostForDup(host, hostPid);
+    if (!process) return ERROR_ACCESS_DENIED;
+    if (!LiveInSession(host, hostPid)) return ERROR_OPERATION_ABORTED;
+    if (!DuplicateHandle(GetCurrentProcess(), source, process.get(), &remote, access, FALSE, 0))
+    {
+        const DWORD error = GetLastError();
+        remote = nullptr;
+        return error ? error : ERROR_GEN_FAILURE;
+    }
+    return ERROR_SUCCESS;
+}
+
 // Request framing and consent scope are shared with the existing transfer job.
 // Only a file object with the role-specific access is duplicated, never the
 // broker process or token. A lost reply can leave a remote handle unclaimed.
@@ -2848,7 +2864,6 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             result = ERROR_SUCCESS;
             return ERROR_SUCCESS;
         }
-        const auto targetProcess = OpenThinHostForDup(host, hostPid);
         HANDLE remote = nullptr;
 #if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_BROKER_JOB_TEST)
         if (create && activeThinFailCreatedTransfer)
@@ -2861,11 +2876,9 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             return ERROR_SUCCESS;
         }
 #endif
-        if (!targetProcess || !LiveInSession(host, hostPid) ||
-            !DuplicateHandle(GetCurrentProcess(), file.get(), targetProcess.get(), &remote,
-                             duplicateAccess, FALSE, 0))
+        error = DuplicateThinToHost(host, hostPid, file.get(), duplicateAccess, remote);
+        if (error)
         {
-            error = targetProcess ? GetLastError() : ERROR_ACCESS_DENIED;
             if (cleanupCreated()) error = ERROR_PARTIAL_COPY;
             if (create) state.created.pop_back();
             result = error;
