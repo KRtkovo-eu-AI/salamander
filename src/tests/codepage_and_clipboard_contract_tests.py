@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Guard typed ListView UTF-8 adapters. | Prevent generic LPARAM dispatch from interpreting unrelated control payloads as LVITEMA. | | openai/gpt-6-luna-pro |
 # | 2026-11-12 | Guard the standalone wrapper include path. | Keep the PCH-disabled UTF-8 wrapper build covered. | | openai/gpt-6-luna-pro |
 # | 2026-11-12 | Guard Unicode common-control text dispatch. | Prevent ANSI status/list-view messages from corrupting UTF-8 localized text. | | openai/gpt-6-luna-pro |
 # | 2026-11-12 | Guard UTF-8 localized resource loading. | Prevent localized narrow strings from reverting to Windows-locale-dependent bytes. | | openai/gpt-6-luna-pro |
@@ -50,11 +51,20 @@ def main() -> None:
             "ANSI messages must pass through the UTF-8-aware dispatcher")
     require(utf8_header, "SalListViewInsertColumnA((hwnd),",
             "generic list-view column insertion must use its UTF-8-aware wrapper")
+    require(utf8_header, "SalListViewInsertItemA", "list-view insertion must use a typed UTF-8 adapter")
+    require(utf8_header, "SalListViewSetItemA", "list-view updates must use a typed UTF-8 adapter")
+    require(utf8_header, "SalListViewSetItemTextA", "list-view text updates must use a typed UTF-8 adapter")
+    require(utf8_header, "#define ListView_InsertItem", "list-view insertion macro must use the typed adapter")
+    require(utf8_header, "#define ListView_SetItemText", "list-view text macro must use the typed adapter")
     require(utf8_wrappers, "SB_SETTEXTW",
             "localized status-bar text must be sent through the Unicode message")
-    require(utf8_wrappers, "LVM_INSERTITEMW",
+    typed_listview_dispatch = function_slice(
+        utf8_wrappers,
+        "LRESULT SendListViewItemA(",
+        "LRESULT WINAPI SalSendMessageA(")
+    require(typed_listview_dispatch, "LVM_INSERTITEMW",
             "list-view item insertion must use the Unicode message for UTF-8 text")
-    require(utf8_wrappers, "LVM_SETITEMTEXTW",
+    require(typed_listview_dispatch, "LVM_SETITEMTEXTW",
             "list-view subitem text must use the Unicode message for UTF-8 text")
     require(utf8_wrappers, "LVM_INSERTCOLUMNW",
             "localized list-view columns must be inserted through the Unicode message")
@@ -62,8 +72,18 @@ def main() -> None:
             "common-control text must be decoded from UTF-8 before the Unicode message")
     require(utf8_wrappers, "IsWindowClassW(hwnd, STATUSCLASSNAMEW)",
             "status-bar message translation must not intercept unrelated window messages")
-    require(utf8_wrappers, "IsWindowClassW(hwnd, WC_LISTVIEWW)",
-            "list-view message translation must not intercept unrelated window messages")
+    require(typed_listview_dispatch, "IsWindowClassW(hwnd, WC_LISTVIEWW)",
+            "typed list-view adapters must verify their target control class")
+    generic_dispatch = function_slice(
+        utf8_wrappers,
+        "LRESULT WINAPI SalSendMessageA(",
+        "BOOL WINAPI SalExtTextOutA(")
+    require_absent(generic_dispatch, "LVM_",
+                   "generic LPARAM dispatch must not route list-view structure messages")
+    require_absent(generic_dispatch, "LVITEMA",
+                   "generic LPARAM dispatch must not interpret payloads as LVITEMA")
+    require_absent(generic_dispatch, "LVCOLUMNA",
+                   "generic LPARAM dispatch must not interpret payloads as LVCOLUMNA")
     implementation_source = utf8_wrappers
     if implementation_source.index("#define UTF8WRAPPERS_IMPLEMENTATION") > implementation_source.index(r'#include "..\precomp.h"'):
         raise AssertionError("UTF-8 wrapper implementation guard must precede its PCH include")

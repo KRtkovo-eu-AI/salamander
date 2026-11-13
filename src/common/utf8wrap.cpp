@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Use typed ListView adapters for UTF-8 item text. | Avoid interpreting unrelated LPARAM payloads as LVITEMA. | | openai/gpt-6-luna-pro |
 // | 2026-11-12 | Resolve the wrapper header when compiling without PCH. | The standalone wrapper TU must locate the parent application header. | | openai/gpt-6-luna-pro |
 // | 2026-11-12 | Dispatch UTF-8 common-control text as Unicode. | Avoid code-page-dependent localized list and status text. | | openai/gpt-6-luna-pro |
 
@@ -180,16 +181,15 @@ bool IsWindowClassW(HWND hwnd, LPCWSTR expectedClass)
            lstrcmpiW(className, expectedClass) == 0;
 }
 
-LRESULT SendListViewItemMessageA(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT SendListViewItemA(HWND hwnd, UINT message, WPARAM wParam, const LVITEMA* item)
 {
-    const LVITEMA* item = reinterpret_cast<const LVITEMA*>(lParam);
-    if (item == NULL || (item->mask & LVIF_TEXT) == 0 || item->pszText == NULL ||
+    if (!IsWindowClassW(hwnd, WC_LISTVIEWW) || item == NULL || (item->mask & LVIF_TEXT) == 0 || item->pszText == NULL ||
         item->pszText == LPSTR_TEXTCALLBACKA)
-        return ::SendMessageA(hwnd, message, wParam, lParam);
+        return ::SendMessageA(hwnd, message, wParam, reinterpret_cast<LPARAM>(item));
 
     std::wstring wideText;
     if (!Utf8ToWide(item->pszText, -1, wideText))
-        return ::SendMessageA(hwnd, message, wParam, lParam);
+        return ::SendMessageA(hwnd, message, wParam, reinterpret_cast<LPARAM>(item));
 
     static_assert(sizeof(LVITEMA) == sizeof(LVITEMW), "ANSI and Unicode list-view items must share a layout");
     LVITEMW wideItem;
@@ -226,6 +226,25 @@ int WINAPI SalListViewInsertColumnA(HWND hwnd, int column, const LVCOLUMNA* data
     return static_cast<int>(::SendMessageW(hwnd, LVM_INSERTCOLUMNW, column, reinterpret_cast<LPARAM>(&wideColumn)));
 }
 
+int WINAPI SalListViewInsertItemA(HWND hwnd, const LVITEMA* item)
+{
+    return static_cast<int>(SendListViewItemA(hwnd, LVM_INSERTITEMA, 0, item));
+}
+
+BOOL WINAPI SalListViewSetItemA(HWND hwnd, const LVITEMA* item)
+{
+    return static_cast<BOOL>(SendListViewItemA(hwnd, LVM_SETITEMA, 0, item));
+}
+
+void WINAPI SalListViewSetItemTextA(HWND hwnd, int item, int subItem, LPCSTR text)
+{
+    LVITEMA listViewItem = {};
+    listViewItem.mask = LVIF_TEXT;
+    listViewItem.iSubItem = subItem;
+    listViewItem.pszText = const_cast<LPSTR>(text);
+    SendListViewItemA(hwnd, LVM_SETITEMTEXTA, item, &listViewItem);
+}
+
 LRESULT WINAPI SalSendMessageA(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (message == SB_SETTEXTA && IsWindowClassW(hwnd, STATUSCLASSNAMEW) && (wParam & SBT_OWNERDRAW) == 0)
@@ -237,13 +256,6 @@ LRESULT WINAPI SalSendMessageA(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
         if (Utf8ToWide(reinterpret_cast<LPCSTR>(lParam), -1, wideText))
             return ::SendMessageW(hwnd, SB_SETTEXTW, wParam, reinterpret_cast<LPARAM>(wideText.c_str()));
     }
-
-    if (message == LVM_INSERTCOLUMNA && IsWindowClassW(hwnd, WC_LISTVIEWW))
-        return SalListViewInsertColumnA(hwnd, static_cast<int>(wParam), reinterpret_cast<const LVCOLUMNA*>(lParam));
-
-    if (IsWindowClassW(hwnd, WC_LISTVIEWW) &&
-        (message == LVM_INSERTITEMA || message == LVM_SETITEMA || message == LVM_SETITEMTEXTA))
-        return SendListViewItemMessageA(hwnd, message, wParam, lParam);
 
     return ::SendMessageA(hwnd, message, wParam, lParam);
 }
