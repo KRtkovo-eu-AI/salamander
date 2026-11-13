@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Require the retained contract in experimental pipe tests. | Match the current host and reject incompatible older peers. | #731 | GPT-6 |
 // | 2026-11-13 | Test retained target lifetime over the real job pipe. | Bound retries and release to the verified object and session. | #731 | GPT-6 |
 // | 2026-11-13 | Verify fail-closed thin cleanup and compatibility. | Preserve data on uncertain cleanup and reject mismatched peers. | #731 | GPT-6 |
 // | 2026-11-12 | Test scoped per-request source-parent pins. | Check host denial, file identity and pin lifetime over the real job pipe. | #731 | GPT-6 |
@@ -285,7 +286,7 @@ public:
               const FILE_ID_INFO* expected, bool overlapped, DWORD& result, ThinWireReply& reply,
               HANDLE openedSource = INVALID_HANDLE_VALUE, HANDLE openedParent = INVALID_HANDLE_VALUE
 #ifdef SAM_UAC_THIN_COPY_TEST
-              , bool brokerParent = false, DWORD contract = 4u
+              , bool brokerParent = false, DWORD contract = 12u
 #else
               , DWORD contract = 0u
 #endif
@@ -3930,11 +3931,49 @@ void CheckThinBrokerSourceParent(const Directory& source, const Directory& targe
     output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
     output.reset();
     Check(job.Thin(restricted, L"source-日.txt", identity, target,
-        L"thin-broker-parent-target.txt", Operation::ThinTargetRetry, &targetIdentity, true,
+        L"thin-broker-parent-target.txt", Operation::ThinTargetRetry, &targetIdentity, false,
         status, reply, input.get(), INVALID_HANDLE_VALUE, true) && !status && reply.value,
-        "overlapped retry independently repins the source parent");
+        "retry independently repins the source parent in the original I/O mode");
     output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
     output.reset();
+
+    constexpr auto asyncLeaf = L"thin-broker-parent-async-東.txt";
+    const auto asyncPath = target.File(asyncLeaf);
+    Check(job.Thin(restricted, L"source-日.txt", identity, target, asyncLeaf,
+        Operation::ThinTargetCreate, nullptr, true, status, reply, input.get(), INVALID_HANDLE_VALUE, true) &&
+        !status && reply.value, "broker-parent target opens with overlapped I/O");
+    const auto asyncIdentity = reply.target;
+    output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    auto asyncEvent = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    OVERLAPPED asyncWrite{};
+    asyncWrite.hEvent = asyncEvent.get();
+    byte = 0x65;
+    count = 0;
+    BOOL asyncWritten = output && asyncEvent && WriteFile(output.get(), &byte, 1, &count, &asyncWrite);
+    if (!asyncWritten && output && asyncEvent && GetLastError() == ERROR_IO_PENDING)
+        asyncWritten = GetOverlappedResult(output.get(), &asyncWrite, &count, TRUE);
+    Check(asyncWritten && count == 1, "broker-parent overlapped target completes a real write");
+    output.reset();
+    Check(job.Thin(restricted, L"source-日.txt", identity, target, asyncLeaf,
+        Operation::ThinTargetRetry, &asyncIdentity, true, status, reply,
+        input.get(), INVALID_HANDLE_VALUE, true) && !status && reply.value,
+        "broker-parent overlapped retry retains I/O mode and identity");
+    output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    if (asyncEvent) ResetEvent(asyncEvent.get());
+    OVERLAPPED asyncRead{};
+    asyncRead.hEvent = asyncEvent.get();
+    byte = 0;
+    count = 0;
+    BOOL asyncReadOk = output && asyncEvent && ReadFile(output.get(), &byte, 1, &count, &asyncRead);
+    if (!asyncReadOk && output && asyncEvent && GetLastError() == ERROR_IO_PENDING)
+        asyncReadOk = GetOverlappedResult(output.get(), &asyncRead, &count, TRUE);
+    Check(asyncReadOk && count == 1 && byte == 0x65,
+          "broker-parent overlapped retry reads written content");
+    output.reset();
+    Check(job.Thin(restricted, L"source-日.txt", identity, target, asyncLeaf,
+        Operation::ThinTargetRelease, &asyncIdentity, false, status, reply) && !status &&
+        HasByte(asyncPath, 0x65), "broker-parent overlapped target releases without losing content");
+    Check(DeleteFileW(asyncPath.c_str()) != FALSE, "remove broker-parent overlapped fixture");
     auto incorrect = identity;
     incorrect.FileId.Identifier[0] ^= 1;
     Check(job.Thin(restricted, L"source-日.txt", incorrect, target, L"thin-parent-later.txt",
@@ -4174,7 +4213,14 @@ void CheckThinBrokerSourceParent(const Directory& source, const Directory& targe
     Check(output && !SetFileInformationByHandle(output.get(), FileDispositionInfo, &disposition, sizeof(disposition)) &&
           GetLastError() == ERROR_ACCESS_DENIED, "target duplicate does not grant delete");
     output.reset();
+#ifdef SAM_UAC_THIN_COPY_TEST
+    auto locked = Adopt(CreateFileW(targetPath.c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    Check(!locked && GetLastError() == ERROR_SHARING_VIOLATION,
+          "broker retains exclusive target after the host writer closes");
+#else
     Check(HasByte(targetPath, 0x51), "new target contains host-written byte");
+#endif
     Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetProbe, nullptr, false, status, reply, sourceFile.get()) &&
           !status && reply.value, "target probe supplies the existing native metadata handle");
     auto probe = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
@@ -4186,19 +4232,21 @@ void CheckThinBrokerSourceParent(const Directory& source, const Directory& targe
           "metadata handle does not grant write");
     probe.reset();
     Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetCreate, nullptr, false, status, reply, sourceFile.get()) &&
-          status == ERROR_FILE_EXISTS && !reply.value && HasByte(targetPath, 0x51),
+          status == ERROR_FILE_EXISTS && !reply.value,
           "native CREATE_NEW collision preserves existing target");
 
     wrong = targetId;
     wrong.FileId.Identifier[0] ^= 1;
     Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetRetry, &wrong, false, status, reply, sourceFile.get()) &&
-          status == ERROR_FILE_INVALID && !reply.value && HasByte(targetPath, 0x51),
+          status == ERROR_FILE_INVALID && !reply.value,
           "thin retry rejects changed target ID and preserves contents");
     Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetRetry, &targetId, false, status, reply, sourceFile.get()) &&
           !status && reply.value, "thin retry reopens owned target for reading and writing");
     output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
     byte = 0; count = 0;
-    Check(output && ReadFile(output.get(), &byte, 1, &count, nullptr) && count == 1 && byte == 0x51,
+    LARGE_INTEGER beginning{};
+    Check(output && SetFilePointerEx(output.get(), beginning, nullptr, FILE_BEGIN) &&
+          ReadFile(output.get(), &byte, 1, &count, nullptr) && count == 1 && byte == 0x51,
           "retry handle retains native read access for verification");
     output.reset();
 
@@ -4206,8 +4254,13 @@ void CheckThinBrokerSourceParent(const Directory& source, const Directory& targe
           status == ERROR_ACCESS_DENIED && !reply.value,
           "same consent refuses another target parent");
     Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinDiscardTarget, &wrong, false, status, reply) &&
-          status == ERROR_FILE_INVALID && HasByte(targetPath, 0x51),
+          status == ERROR_FILE_INVALID,
           "thin cleanup refuses a mismatched target identity");
+#ifdef SAM_UAC_THIN_COPY_TEST
+    Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinTargetRelease,
+          &targetId, false, status, reply) && !status && HasByte(targetPath, 0x51),
+          "released original target preserves the written byte");
+#endif
 #ifndef SAM_UAC_THIN_COPY_TEST
     Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinDiscardTarget, &targetId, false, status, reply) &&
           !status && !reply.value && GetFileAttributesW(targetPath.c_str()) == INVALID_FILE_ATTRIBUTES,
@@ -4226,6 +4279,25 @@ void CheckThinBrokerSourceParent(const Directory& source, const Directory& targe
     Check(output && WriteFile(output.get(), &byte, 1, &count, nullptr) && count == 1,
           "retain a recognizable byte in the original target");
     output.reset();
+#ifdef SAM_UAC_THIN_COPY_TEST
+    Check(!MoveFileW(retryPath.c_str(), parkedPath.c_str()) && GetLastError() == ERROR_SHARING_VIOLATION,
+          "retained target prevents replacement through the tested rename");
+    Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinTargetRetry,
+          &firstId, true, status, reply, sourceFile.get()) && status == ERROR_INVALID_DATA && !reply.value,
+          "retained retry rejects an altered asynchronous mode");
+    Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinTargetRetry,
+          &firstId, false, status, reply, sourceFile.get()) && !status && reply.value,
+          "same retained identity remains retryable");
+    output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    byte = 0; count = 0;
+    Check(output && SetFilePointerEx(output.get(), beginning, nullptr, FILE_BEGIN) &&
+          ReadFile(output.get(), &byte, 1, &count, nullptr) && count == 1 && byte == 0x53,
+          "retained retry reads the original target content");
+    output.reset();
+    Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinTargetRelease,
+          &firstId, false, status, reply) && !status && HasByte(retryPath, 0x53),
+          "released retry target preserves its content");
+#else
     Check(MoveFileW(retryPath.c_str(), parkedPath.c_str()) != FALSE,
           "park the exact original target before retry");
     for (const bool asynchronous : {false, true})
@@ -4267,6 +4339,8 @@ void CheckThinBrokerSourceParent(const Directory& source, const Directory& targe
           &firstId, false, status, reply) && !status && GetFileAttributesW(retryPath.c_str()) == INVALID_FILE_ATTRIBUTES,
           "cleanup accepts the same verified original target");
 #endif
+
+#endif // SAM_UAC_THIN_COPY_TEST
 
     Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinOpenSource, nullptr, true, status, reply) &&
           !status && reply.value, "same job transfers an overlapped source handle");

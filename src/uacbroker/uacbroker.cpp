@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Require the complete experimental retained-target contract. | Reject older peers before opening or creating any target. | #731 | GPT-6 |
 | 2026-11-13 | Retain experimental F5 targets until item release. | Keep retry tied to the original exclusive file object. | #731 | GPT-6 |
 | 2026-11-13 | Fail closed on uncertain thin target cleanup and require its safety contract. | Preserve independent writers' data and reject incompatible experimental peers. | #731 | GPT-6 |
 | 2026-11-12 | Pin verified source parents per experimental thin request. | Support protected source directories without exposing privileged directory handles. | #731 | GPT-6 |
@@ -2410,11 +2411,12 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         error = TransferRequest(pipe, &options, sizeof(options), false, deadline);
         if (error) return error;
 #ifdef SAM_UAC_THIN_COPY_TEST
-        // Experimental flag 2 requests an identity-checked broker-owned
-        // source-parent pin. Bit 4 identifies the fail-closed cleanup contract;
-        // older peers reject this unknown bit before an object is opened.
+        // Flag 2 requests an identity-checked broker-owned source-parent pin.
+        // Bits 4 and 8 require fail-closed cleanup and retained targets.
+        // Reject incompatible peers before any scope or filesystem operation.
         constexpr DWORD allowedThinOptions = 15u;
-        if (!(options.flags & 4u)) return ERROR_INVALID_DATA;
+        constexpr DWORD requiredThinOptions = 12u;
+        if ((options.flags & requiredThinOptions) != requiredThinOptions) return ERROR_INVALID_DATA;
 #else
         constexpr DWORD allowedThinOptions = 1u;
 #endif
