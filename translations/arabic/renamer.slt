@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\arabic\renamer\renamer.atp"
-TEXTVERSION,"1.16 (x64)"
-VERSION,"1,16,0,197"
+TEXTVERSION,"1.17 (x64)"
+VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,1025
@@ -258,7 +258,7 @@ COMMENT,"arabic (automatic AI translation)"
 1106,1,"يُتوقع تحديد حرف الحشو (حرف واحد)."
 1107,1,"<خطأ اسم جديد: %s>"
 1108,1,"<Invalid value in some input field>"
-1109,1,"<خطأ التعبير النمطي: %s>"
+1109,1,"<خطأ تعبير نمطي: %s>"
 1110,1,"<خطأ Boyer-Moore: %s>"
 1111,1,"<خطأ: %s>"
 1112,1,"لا يوجد خطأ."

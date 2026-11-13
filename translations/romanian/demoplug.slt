@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\romanian\demoplug\demoplug.atp"
-TEXTVERSION,"2.0 (x64)"
-VERSION,"2,0,0,197"
+TEXTVERSION,"2.1 (x64)"
+VERSION,"2,1,0,197"
 
 [TRANSLATION]
 LANGID,1048
@@ -92,7 +92,7 @@ COMMENT,"Automatic AI translation"
 563,215,204,33,14,1,"Text"
 3014,269,4,185,48,1,"CGUIHyperLinkAbstract"
 3015,277,17,75,8,1,"SetActionOpen"
-557,365,17,83,8,1,"open.samandarin.net"
+557,365,17,74,8,1,"open.samandarin.net"
 3016,277,27,81,8,1,"SetActionPostCommand"
 558,365,27,55,8,1,"Spune ceva!"
 3017,277,37,81,8,1,"SetActionPostCommand"

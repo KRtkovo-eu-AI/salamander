@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\portuguese\renamer\renamer.atp"
-TEXTVERSION,"1.16 (x64)"
-VERSION,"1,16,0,197"
+TEXTVERSION,"1.17 (x64)"
+VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,1046
@@ -280,7 +280,7 @@ COMMENT,"portuguese (automatic AI translation)"
 1127,1,"Stack Overflow"
 1128,1,"Expressão compilada necessária."
 1129,1,"Não foi possível iniciar um novo tópico."
-1130,1,"<Erro de substituição: %s>"
+1130,1,"<Erro de padrão: %s>"
 1131,1,"Esperando parênteses de fechamento ou especificação de caso ('inferior', 'superior', 'misto' ou 'stripdia')."
 1132,1,"Esperando parênteses de fechamento."
 1133,1,"Esperando parêntese ou caractere de fechamento ':' seguido pela especificação do caso ('inferior', 'superior', 'misto' ou 'stripdia')."

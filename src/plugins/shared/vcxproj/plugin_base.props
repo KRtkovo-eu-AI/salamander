@@ -35,4 +35,14 @@
       <AdditionalIncludeDirectories>..\shared;..\..\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
   </ItemDefinitionGroup>
+  <!-- Embed English UI resources from lang/lang.rc into the plugin .spl (no separate english.slg needed at runtime). -->
+  <PropertyGroup>
+    <EmbedEnglishLangRc Condition="'$(EmbedEnglishLangRc)' == ''">..\lang\lang.rc</EmbedEnglishLangRc>
+    <EmbedEnglishLangEnabled Condition="'$(EmbedEnglishLangEnabled)' == ''">true</EmbedEnglishLangEnabled>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(EmbedEnglishLangEnabled)' == 'true'">
+    <ResourceCompile Include="$(EmbedEnglishLangRc)" Condition="Exists('$(EmbedEnglishLangRc)')">
+      <PreprocessorDefinitions>SKIP_LANG_VERSIONINFO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+  </ItemGroup>
 </Project>

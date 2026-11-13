@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
-PROJECTNAME,"localization-openai\projects\italian\samandarin\samandarin.atp"
-TEXTVERSION,"0.10 (x64)"
-VERSION,"0,10,0,197"
+PROJECTNAME,"localization-openai\projects\vietnamese\samandarin\samandarin.atp"
+TEXTVERSION,"0.11 (x64)"
+VERSION,"0,11,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -97,7 +97,7 @@ COMMENT,"vietnamese (automatic AI translation)"
 120,1,"Không thể chuẩn bị gói để cài đặt."
 121,1,"Cài đặt tự động chỉ có sẵn cho các gói phát hành .7z chính thức của plugin hoặc tiện ích."
 122,1,"Gói đã sẵn sàng và sẽ được cài đặt sau khi Open Samandarin thoát."
-123,0,"The selected plugin requires these missing dependencies. They will be installed automatically or their web pages will be opened together:\n\n{0}\n\nContinue?"
+123,1,"The selected plugin requires these missing dependencies. They will be installed automatically or their web pages will be opened together:\n\n{0}\n\nContinue?"
 124,1,"A required dependency is missing from the enabled catalogs or does not provide an installation page:\n\n{0}"
 125,1,"Cài đặt tự động yêu cầu bản mã SHA-256 trong danh mục. Danh mục chính thức chưa công bố mã băm cho gói này."
 126,1,"Cài đặt tự động yêu cầu bản mã SHA-256 trong danh mục. Danh mục chính thức chưa công bố mã băm cho gói này."
@@ -129,3 +129,4 @@ COMMENT,"vietnamese (automatic AI translation)"
 148,1,"Kèm theo trình cài đặt"
 149,1,"Updates are available for the following plugins or extensions:\n\n{0}"
 150,1,"Mở Cập nhật Plugin"
+

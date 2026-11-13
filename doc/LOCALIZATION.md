@@ -1,6 +1,9 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Document cleanup of English SLG build seeds. | Keep runtime payloads limited to embedded English resources and shipped translations. | | openrouter/openai/gpt-6-luna-pro |
+| 2026-11-13 | Document plug-in-local language resources. | Keep translations with independently updatable plug-in binaries. | | openrouter/openai/gpt-6-luna-pro |
 | 2026-11-05 | Document FIFO matching for duplicate menu POPUP IDs. | Prevent Internal Viewer and other menu titles from collapsing to Help after rebase. | https://github.com/KRtkovo-eu-AI/salamander/issues/751 | Composer |
+| 2026-11-04 | Document English-in-host and the single langpack.dll shipping model. | Reduce signed .slg files while keeping an English-only minimal install. | | Composer |
 -->
 # How to Translate Samandarin
 
@@ -74,7 +77,7 @@ List plugins that are missing translation archives:
 pwsh -File .\tools\localization\localize.ps1 check
 ```
 
-Build all available language `.slg` files into the completed runtime:
+Build the official language pack into the completed runtime:
 
 ```powershell
 pwsh -File .\tools\localization\localize.ps1 build `
@@ -85,8 +88,28 @@ The `build` command is the release step for language packs. Internally it calls
 `tools/localization/build_language_packs.ps1`, creates a disposable Translator
 workspace, imports committed `translations/<language>/<module>.slt` archives into
 copies of the current English `.slg` files, validates layout, verifies an SLT
-round-trip, and then copies the produced `.slg` files back into the populated
-runtime tree.
+round-trip, copies the produced `.slg` intermediates into the runtime tree, and
+then packs the main application's non-English `.slg` files into the signed PE
+container `lang\langpack.dll` and embeds each plug-in's translations in its
+`plugins\<module>\<module>.spl` (`tools/localization/build_official_langpack.ps1`).
+After successful packing, generated non-English `.slg` intermediates and the
+`english.slg` build seeds are removed from the runtime tree. Rebuild and populate
+the tree before starting another translation session that needs those seeds.
+
+Runtime architecture:
+
+- **English** is embedded in `salamand.exe` and each first-party `.spl` (no
+  `english.slg` required at runtime).
+- **Official non-English Salamander languages** load from `lang\langpack.dll`.
+- **First-party plug-in languages** are embedded in the corresponding `.spl`, so
+  each plug-in update carries its translations with it.
+- **Legacy / third-party plug-ins** may still ship `plugins\<name>\lang\*.slg`;
+  the host keeps that fallback path. Plugin entries in an older `langpack.dll`
+  are also accepted during upgrades.
+
+A minimal install can omit `langpack.dll` and run the main application in English;
+translations for any selected first-party plug-ins are carried in their `.spl` files.
+The Inno Setup task “Additional UI languages” installs the main application pack.
 
 If the committed files under `translations/` already contain the correct text, do
 not re-encode them and do not send them through the translation API again. Build Salamander,
@@ -95,9 +118,8 @@ command above. When a fatal validation error occurs, the script does not copy ne
 `.slg` files into the runtime tree; fix the reported problem and run the build
 again.
 
-This step does not change Salamander's runtime architecture: `.slg` files must be
-correct before the application starts. If round-trip validation fails, it is not
-a warning to ignore — that language pack must not be smoke-tested or shipped.
+If round-trip validation fails, it is not a warning to ignore — that language
+must not be packed into `langpack.dll` or shipped.
 
 Every `.slt` archive must also carry the correct `LANGID` in its `[TRANSLATION]`
 section for the language folder. The batch translation script normalizes this when writing

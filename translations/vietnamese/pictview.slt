@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\vietnamese\pictview\pictview.atp"
-TEXTVERSION,"2.27 (x64)"
-VERSION,"2,27,0,197"
+TEXTVERSION,"2.28 (x64)"
+VERSION,"2,28,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -57,7 +57,7 @@ COMMENT,"vietnamese (automatic AI translation)"
 2062,14,29,218,12,1,"Dùng để truy cập ảnh trước/tiếp theo &"
 3001,6,52,256,65,1,"Bánh chuột"
 2063,14,64,203,12,1,"Dùng để cuộn &hình ảnh"
-2064,14,78,254,12,1,"Dùng để &phóng to ảnh"
+2064,14,78,203,12,1,"Dùng để &phóng to ảnh"
 2065,14,92,218,12,1,"Dùng để xem &ảnh trước/tiếp theo"
 
 [DIALOG 2070]

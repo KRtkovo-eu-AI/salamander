@@ -3909,7 +3909,7 @@ SLGINCOMPLETE,""
 14070,1,"Це внутрішня утиліта Open Samandarin, не запускайте її безпосередньо."
 14071,1,"Неправильна версія Open Samandarin Bug Reporter. Повідомте сюди: https://github.com/KRtkovo-eu-AI/salamander/issues."
 14072,1,"Сталася проблема. Open Samandarin закриється.\nСтворюємо звіт про помилку, зачекайте..."
-14073,0,"Some problem has occured during the bug report creation:\n%s"
+14073,1,"Some problem has occured during the bug report creation:\n%s"
 14074,1,"Не можна створити мінідамп %s. Код: %d."
 14075,1,"Помилка створення мінідампу. Код: %d."
 
@@ -4153,7 +4153,7 @@ SLGINCOMPLETE,""
 14411,1,"&Зміна тегів"
 14412,1,"Властивості Windows"
 14413,1,"Для кількох файлів: невизначений стан — без змін; позначка — встановити; без позначки — видалити."
-14414,0,"First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
+14414,1,"First failure:\nFile: %s\nProperty: %s\nReason: %s (0x%08X)"
 14415,1,"Цей тип файлів не підтримує цю властивість."
 
 [STRINGTABLE 180]

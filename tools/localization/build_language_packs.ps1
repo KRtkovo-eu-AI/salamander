@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Remove English SLG seeds after packaging. | English resources are embedded in the host and plugin binaries. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-05 | Register fifteen major-language translation stubs. | Empty language folders need LANGID metadata before AI batch translation. | | Composer |
 <#
 .SYNOPSIS
@@ -452,9 +453,21 @@ if ($validationWarnings.Count -gt 0)
 if ($fatalFailures -eq 0)
 {
     $langDir = Join-Path $buildRootFull "lang"
-    $coreLangs = Get-ChildItem -LiteralPath $langDir -Filter "*.slg" | ForEach-Object { $_.Name }
+    $coreLangs = Get-ChildItem -LiteralPath $langDir -Filter "*.slg" -ErrorAction SilentlyContinue | ForEach-Object { $_.Name }
     Write-Host ""
-    Write-Host "  Language packs now in runtime lang/: $($coreLangs -join ', ')"
+    Write-Host "  Language .slg intermediates in runtime lang/: $($coreLangs -join ', ')"
+
+    $officialPackScript = Join-Path $scriptDir "build_official_langpack.ps1"
+    if (Test-Path -LiteralPath $officialPackScript)
+    {
+        Write-Host ""
+        Write-Host "Building official langpack.dll from non-English .slg intermediates..."
+        & $officialPackScript -BuildRoot $buildRootFull -RemoveEnglishSlg
+        if (-not $?)
+        {
+            throw "Official language pack build failed."
+        }
+    }
 }
 else
 {

@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\turkish\renamer\renamer.atp"
-TEXTVERSION,"1.16 (x64)"
-VERSION,"1,16,0,197"
+TEXTVERSION,"1.17 (x64)"
+VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,1055
@@ -259,7 +259,7 @@ COMMENT,"turkish (automatic AI translation)"
 1107,1,"<Yeni ad hatası: %s>"
 1108,1,"<Invalid value in some input field>"
 1109,1,"<Düzenli ifade hatası: %s>"
-1110,1,"<Boyer-Moore hata: %s>"
+1110,1,"<Boyer-Moore hatası: %s>"
 1111,1,"<Hata: %s>"
 1112,1,"Hata yok."
 1113,1,"Yetersiz bellek."
@@ -280,7 +280,7 @@ COMMENT,"turkish (automatic AI translation)"
 1127,1,"Yığın taşması"
 1128,1,"Derlenmiş ifade gerekli."
 1129,1,"Yeni iş parçacığı başlatılamıyor."
-1130,1,"<Değiştir desen hatası: %s>"
+1130,1,"<Değiştir deseni hatası: %s>"
 1131,1,"Kapanış parantezi veya harf biçimi belirtimi ('lower', 'upper', 'mixed' veya 'stripdia') bekleniyor."
 1132,1,"Kapanış parantezi bekleniyor."
 1133,1,"Kapanış parantezi veya ':' karakterinden sonra harf biçimi belirtimi ('lower', 'upper', 'mixed' veya 'stripdia') bekleniyor."

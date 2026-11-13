@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\indonesian\zip\zip.atp"
-TEXTVERSION,"1.8 (x64)"
-VERSION,"1,8,0,197"
+TEXTVERSION,"1.9 (x64)"
+VERSION,"1,9,0,197"
 
 [TRANSLATION]
 LANGID,1057
@@ -531,7 +531,7 @@ COMMENT,"indonesian (automatic AI translation)"
 1223,1,"\r\n;tentukan apakah ekstraksi dimulai otomatis saat pengguna menjalankan\r\n;arsip self-extracting\r\n;atur nilainya ke 1 agar ekstraksi dimulai otomatis\r\n\r\n"
 1224,1,"\r\n;tentukan apakah kotak pesan pemberitahuan keberhasilan operasi\r\n;ditampilkan setelah ekstraksi file selesai\r\n;atur nilainya ke 1 untuk menampilkan ringkasan operasi\r\n\r\n"
 1225,1,"\r\n;tentukan apakah dialog utama self-extractor akan ditampilkan\r\n;atur nilainya ke 1 jika dialog utama SFX tidak ingin ditampilkan\r\n;variabel ini hanya berlaku jika 'autostart' diatur ke 1,\r\n;jika tidak nilainya diabaikan\r\n\r\n"
-1226,0,"\r\n;specify whether to overwrite automatically all files in target\r\n;directory\r\n;set its value to 1 if you want the files to be overwritten\r\n;automatically\r\n\r\n"
+1226,1,"\r\n;tentukan apakah akan menimpa otomatis semua file di direktori\r\n;target\r\n;atur nilainya ke 1 jika Anda ingin file ditimpa\r\n;secara otomatis\r\n\r\n"
 1227,1,"\r\n;tentukan apakah direktori tujuan dibuat otomatis tanpa bertanya\r\n;kepada pengguna\r\n;setel ke 1 jika ingin direktori tujuan dibuat\r\n;secara otomatis\r\n\r\n"
 1228,1,"\r\n;program, tautan HTTP, atau dokumen yang dijalankan/dibuka setelah\r\n;ekstraksi file berhasil diselesaikan. Jalur relatif terhadap direktori\r\n;tujuan ekstraksi. Jika menentukan program, argumennya juga dapat\r\n;dicantumkan\r\n\r\n"
 1229,1,"\r\n;paket SFX yang digunakan saat membuat arsip self-extracting\r\n;jalur relatif terhadap direktori tempat zip2sfx.exe berada\r\n\r\n"

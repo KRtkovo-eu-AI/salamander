@@ -1,5 +1,7 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Check removal of English language seeds from release payloads. | Ship embedded English resources without english.slg intermediates. | | openrouter/openai/gpt-6-luna-pro |
+| 2026-11-13 | Update language-pack release checks for plug-in resources. | Verify embedded translations before signing distributable .spl files. | | openrouter/openai/gpt-6-luna-pro |
 | 2026-11-12 | Add the release runbook. | Document the manual Open Samandarin release workflow. | | openai/gpt-6-luna-pro |
 -->
 
@@ -99,7 +101,7 @@ Build the language packs after translation and review have succeeded:
 pwsh -File .\tools\localization\localize.ps1 build -BuildRoot $buildRoot
 ```
 
-The build validates the translation layout and `.slt` round trip. Stop and fix errors instead of shipping packs when validation fails. Confirm the generated `.slg` files are present in the populated runtime. Commit source `.slt` translation files when they are part of the release; do not commit generated `.slg` files or temporary output directories.
+The build validates the translation layout and `.slt` round trip. Stop and fix errors instead of shipping packs when validation fails. Confirm that `lang\langpack.dll` contains the main-application translations and each translated first-party plugin's `.spl` contains its own resources; all generated `.slg` intermediates, including `english.slg` seeds, should have been removed from the runtime tree. Commit source `.slt` translation files when they are part of the release; do not commit generated `.slg` files or temporary output directories. Complete this resource update before signing.
 
 ## 5. Manually test the built project
 
@@ -107,7 +109,7 @@ Test the populated Release_x64 build, not a previous installation or a stale sta
 
 - Start Salamander and check that the main window opens without an error.
 - Check that the released plugins load and their key functions work. Test extensions and the extension runtime when included.
-- Select several generated language packs and check menus, dialogs, accelerators, placeholders, and text clipping.
+- Select several generated languages and check host/plugin menus, dialogs, accelerators, placeholders, and text clipping.
 - Exercise the release-specific fixes/features and any relevant existing regression tests.
 - Check startup and relevant logs for missing files, load errors, or crashes.
 
