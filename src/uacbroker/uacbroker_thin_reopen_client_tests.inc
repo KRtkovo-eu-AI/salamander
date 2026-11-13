@@ -1,0 +1,150 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Exercise a real client and dispatcher reopening an anchored target. | Check retry identity, rights and I/O mode on one test pipe. | #731 | GPT-6 |
+
+// The client and dispatcher run in the same process with the same token.
+// This does not test the worker, peer authentication, UAC or another account.
+void CheckThinClientReopen(const Directory& source, const Directory& target, bool asynchronous)
+{
+    const wchar_t* root = asynchronous ? L"reopen-async-\u6771" : L"reopen-sync-\u6771";
+    constexpr wchar_t leaf[] = L"payload-\u65e5.txt";
+    std::wstring cwd(32768, L'\0');
+    const DWORD length = GetCurrentDirectoryW(static_cast<DWORD>(cwd.size()), cwd.data());
+    if (!length || length >= cwd.size()) { Check(false, "get isolated reopen fixture directory"); return; }
+    cwd.resize(length);
+    if (!SetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", L"1") ||
+        !SetEnvironmentVariableW(L"SAM_UAC_THIN_TEST_INSTALL", cwd.c_str()))
+    { Check(false, "configure existing unelevated client test mode"); return; }
+    const std::wstring sourceRoot = cwd + L"\\source\\" + root;
+    const std::wstring targetRoot = cwd + L"\\target\\" + root;
+    const std::wstring sourcePath = sourceRoot + L"\\" + leaf;
+    const std::wstring targetPath = targetRoot + L"\\" + leaf;
+    const std::wstring parkedPath = targetRoot + L"\\parked-original.txt";
+    Directory from;
+    if (!from.Open(source.File(root).c_str()) || !WriteByte(from.File(leaf), 0x67))
+    { Check(false, "prepare isolated Unicode source for reopen"); return; }
+    UacF7::PreparedTransfer treePlan;
+    if (!treePlan.PrepareTreePlan(sourceRoot, targetRoot))
+    { Check(false, "prepare the actual planned tree scope"); return; }
+    JobPipe pipe;
+    DWORD status = ERROR_GEN_FAILURE;
+    ListingReply listing{};
+    std::vector<UacF7::TreeCopySourceEntry> rows;
+    const bool planned = pipe.Open() &&
+        pipe.Request(Operation::PlanCopyTree, source, root, status, &target, nullptr, nullptr,
+                     false, nullptr, nullptr, 0) && !status &&
+        pipe.ListTreeSource(from, {}, from.identity.file, listing, rows) &&
+        !listing.error && rows.size() == 1 && std::wstring_view(rows.front().data.cFileName) == leaf;
+    Check(planned, "plan and list actual source on the dispatcher pipe for reopen");
+    if (!planned) return;
+    auto handle = pipe.DetachClient();
+    auto job = UacF7::ThinClientPipeTestAccess::Adopt(handle.get(), treePlan);
+    (void)handle.release();
+    UacF7::MoveFileIdentity rootIdentity{};
+    rootIdentity.serial = from.identity.file.VolumeSerialNumber;
+    std::memcpy(rootIdentity.id, from.identity.file.FileId.Identifier, sizeof(rootIdentity.id));
+    UacF7::PreparedLeaf listed;
+    UacF7::PreparedTransfer createRoot;
+    if (!job->PrepareTreeSource({}, rootIdentity, rows.front(), listed) ||
+        !createRoot.Prepare(sourceRoot, targetRoot, 0, Operation::CopyDirectoryEntry))
+    { Check(false, "prepare listed source and target root for reopen"); return; }
+    const auto createdRoot = createRoot.Execute(nullptr, nullptr, job.get());
+    if (createdRoot.error || createdRoot.unknown || job->NeedsTreeRoot())
+    { Check(false, "create planned root before reopening a target"); return; }
+    UacF7::PreparedTransfer request;
+    UacF7::ThinCopySession thin;
+    if (!request.Prepare(sourcePath, targetPath, 1, Operation::Copy, &listed) ||
+        !thin.TakePlanned(job, request))
+    { Check(false, "take actual planned client session for reopen"); return; }
+    const auto opened = thin.Open(nullptr, request, UacF7::ThinOpenKind::Source, false, false, nullptr);
+    auto input = Adopt(opened.file);
+    if (opened.error || opened.unknown || !input)
+    { Check(false, "open verified source through actual client"); return; }
+    const auto created = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, asynchronous, false,
+                                   nullptr, UacF7::ThinOpenedSource{input.get()});
+    auto output = Adopt(created.file);
+    if (created.error || created.unknown || !output)
+    { Check(false, "create anchored target through actual client"); return; }
+
+    auto event = Adopt(CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    OVERLAPPED io{};
+    io.hEvent = event.get();
+    BYTE value = 0;
+    DWORD count = 0;
+    BOOL read = ReadFile(output.get(), &value, 1, &count, asynchronous ? &io : nullptr);
+    DWORD readError = read ? ERROR_SUCCESS : GetLastError();
+    if (!read && readError == ERROR_IO_PENDING)
+    {
+        read = GetOverlappedResult(output.get(), &io, &count, TRUE);
+        readError = read ? ERROR_SUCCESS : GetLastError();
+    }
+    Check(!read && readError == ERROR_ACCESS_DENIED, "initial target handle denies read access");
+    value = 0x67; count = 0;
+    OVERLAPPED writeIo{};
+    writeIo.hEvent = event.get();
+    if (asynchronous && event) ResetEvent(event.get());
+    BOOL written = WriteFile(output.get(), &value, 1, &count, asynchronous ? &writeIo : nullptr);
+    if (!written && GetLastError() == ERROR_IO_PENDING)
+        written = GetOverlappedResult(output.get(), &writeIo, &count, TRUE);
+    Check(written && count == 1, "initial target handle writes the expected byte");
+    if (!written || count != 1) return;
+    if (!asynchronous)
+    {
+        LARGE_INTEGER offset{}; offset.QuadPart = 11;
+        Check(SetFilePointerEx(output.get(), offset, nullptr, FILE_BEGIN) != FALSE,
+              "set original synchronous file object's position");
+    }
+    const auto busy = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetRetry, asynchronous, false,
+                                &created.targetIdentity, UacF7::ThinOpenedSource{input.get()});
+    auto busyHandle = Adopt(busy.file);
+    Check(busy.error == ERROR_SHARING_VIOLATION && !busy.unknown && !busyHandle,
+          "retry refuses while the original exclusive writer is still open");
+    output.reset();
+    UacF7::MoveFileIdentity wrong = created.targetIdentity;
+    wrong.id[0] ^= 1;
+    const auto refused = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetRetry, asynchronous, false,
+                                   &wrong, UacF7::ThinOpenedSource{input.get()});
+    auto refusedHandle = Adopt(refused.file);
+    Check(refused.error == ERROR_FILE_INVALID && !refused.unknown && !refusedHandle,
+          "retry refuses an incorrect expected target identity");
+    const auto reopened = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetRetry, asynchronous, false,
+                                    &created.targetIdentity, UacF7::ThinOpenedSource{input.get()});
+    auto retried = Adopt(reopened.file);
+    Check(!reopened.error && !reopened.unknown && retried, "retry opens the same verified target");
+    if (reopened.error || reopened.unknown || !retried) return;
+    if (!asynchronous)
+    {
+        LARGE_INTEGER zero{}, current{};
+        Check(SetFilePointerEx(retried.get(), zero, &current, FILE_CURRENT) && current.QuadPart == 0,
+              "reopened synchronous file object has an independent initial position");
+    }
+    OVERLAPPED readIo{};
+    readIo.hEvent = event.get();
+    if (asynchronous && event) ResetEvent(event.get());
+    value = 0; count = 0;
+    read = ReadFile(retried.get(), &value, 1, &count, asynchronous ? &readIo : nullptr);
+    if (!read && GetLastError() == ERROR_IO_PENDING)
+        read = GetOverlappedResult(retried.get(), &readIo, &count, TRUE);
+    Check(read && count == 1 && value == 0x67, "reopened target supports native tail verification");
+    retried.reset();
+
+    if (!MoveFileW(targetPath.c_str(), parkedPath.c_str()))
+    { Check(false, "park the anchored target without removing its original identity"); return; }
+    const auto missing = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetRetry, asynchronous, false,
+                                   &created.targetIdentity, UacF7::ThinOpenedSource{input.get()});
+    auto missingHandle = Adopt(missing.file);
+    Check(missing.error == ERROR_FILE_NOT_FOUND && !missing.unknown && !missingHandle &&
+          IsAbsent(targetPath) && HasByte(parkedPath, 0x67), "retry does not recreate a missing target");
+    if (!WriteByte(targetPath, 0x72)) { Check(false, "create replacement fixture"); return; }
+    const auto replaced = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetRetry, asynchronous, false,
+                                    &created.targetIdentity, UacF7::ThinOpenedSource{input.get()});
+    auto replacedHandle = Adopt(replaced.file);
+    Check(replaced.error == ERROR_FILE_INVALID && !replaced.unknown && !replacedHandle &&
+          HasByte(targetPath, 0x72) && HasByte(parkedPath, 0x67),
+          "retry refuses a different object without changing either file");
+    if (!DeleteFileW(targetPath.c_str()) || !MoveFileW(parkedPath.c_str(), targetPath.c_str()))
+    { Check(false, "restore the verified target fixture"); return; }
+    Check(thin.ReleaseTarget(request, created.targetIdentity) == ERROR_SUCCESS && HasByte(targetPath, 0x67),
+          "release closes the anchor and leaves the verified target intact");
+}

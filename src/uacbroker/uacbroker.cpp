@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Prototype an identity-anchored target reopen. | Preserve native Retry opening semantics without lending an exclusive retained writer. | #731 | GPT-6 |
 | 2026-11-13 | Transfer experimental planned sessions into item custody. | Keep one authorized tree pipe without a borrowed lifetime. | #731 | GPT-6 |
 | 2026-11-13 | Retire uncertain experimental thin sessions on every exit. | Never reuse a pipe after an ambiguous operation or malformed response. | #731 | GPT-6 |
 | 2026-11-13 | Preserve thin consent across verified prelaunch failures. | Retry without treating a never-started broker as an uncertain session. | #731 | GPT-6 |
@@ -2421,8 +2422,15 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         // Flag 2 requests an identity-checked broker-owned source-parent pin.
         // Bits 4 and 8 require fail-closed cleanup and retained targets.
         // Reject incompatible peers before any scope or filesystem operation.
+#ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+        // An identity anchor has different sharing and access semantics from
+        // the retained writer. Neither side may silently assume the other.
+        constexpr DWORD allowedThinOptions = 31u;
+        constexpr DWORD requiredThinOptions = 28u;
+#else
         constexpr DWORD allowedThinOptions = 15u;
         constexpr DWORD requiredThinOptions = 12u;
+#endif
         if ((options.flags & requiredThinOptions) != requiredThinOptions) return ERROR_INVALID_DATA;
 #else
         constexpr DWORD allowedThinOptions = 1u;
@@ -2673,7 +2681,11 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         }
         Handle file;
 #ifdef SAM_UAC_THIN_COPY_TEST
+#ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+        Handle targetAnchor;
+#else
         Handle namedWitness;
+#endif
 #endif
         ACCESS_MASK duplicateAccess = 0;
         bool madeTarget = false, targetIdentityValid = false;
@@ -2687,7 +2699,9 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             HANDLE raw = nullptr;
             ACCESS_MASK access = discard ? DELETE : probe ? 0 : GENERIC_WRITE | (retry ? GENERIC_READ : 0);
 #ifdef SAM_UAC_THIN_COPY_TEST
+#ifndef SAM_UAC_THIN_REOPEN_PROTOTYPE
             if (create && retain) access |= GENERIC_READ;
+#endif
 #endif
             const ULONG sharing = probe || discard ? FILE_SHARE_READ | FILE_SHARE_WRITE : 0;
             const auto open = [&](ULONG disposition) {
@@ -2697,6 +2711,17 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
 #ifdef SAM_UAC_THIN_COPY_TEST
             if (retry && retain)
             {
+#ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+                // The anchor pins the object ID without retaining a writer.
+                // A fresh exclusive data open performs the filesystem's
+                // access and sharing checks again, just as native Retry does.
+                FILE_ID_INFO anchored{};
+                if (!GetFileInformationByHandleEx(record->retained.get(), FileIdInfo, &anchored, sizeof(anchored)))
+                    error = GetLastError();
+                else if (!UacRenameLeaf::Detail::SameSource(anchored, options.expectedTarget))
+                    error = ERROR_FILE_INVALID;
+                if (!error) error = open(FILE_OPEN);
+#else
                 // Pin and verify this exact directory entry before duplicating
                 // the held file object; never reopen its data handle by name.
                 HANDLE rawWitness = nullptr;
@@ -2708,6 +2733,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
                     !UacRenameLeaf::Detail::SameSource(named, options.expectedTarget))) error = ERROR_FILE_INVALID;
                 if (!error && !DuplicateHandle(GetCurrentProcess(), record->retained.get(), GetCurrentProcess(),
                     &raw, GENERIC_READ | GENERIC_WRITE, FALSE, 0)) error = GetLastError();
+#endif
             }
             else
 #endif
@@ -2730,6 +2756,23 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
                 (attrs.FileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY |
                  FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ENCRYPTED))))
                 error = ERROR_NOT_SUPPORTED;
+#if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
+            if (!error && create && retain)
+            {
+                // Acquire the second file object while the exclusive creator
+                // still pins this name. OpenFile requests attributes and
+                // SYNCHRONIZE, not data access; it may fail under the ACL.
+                HANDLE rawAnchor = nullptr;
+                error = UacRenameLeaf::Detail::OpenFile(targetParent, targetLeaf, rawAnchor, 0,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, FILE_OPEN, 0);
+                targetAnchor = Adopt(rawAnchor);
+                FILE_ID_INFO anchored{};
+                if (!error && !GetFileInformationByHandleEx(targetAnchor.get(), FileIdInfo, &anchored, sizeof(anchored)))
+                    error = GetLastError();
+                if (!error && !UacRenameLeaf::Detail::SameSource(anchored, reply.target))
+                    error = ERROR_FILE_INVALID;
+            }
+#endif
             duplicateAccess = probe ? 0 : GENERIC_WRITE | (retry ? GENERIC_READ : 0);
         }
         const auto cleanupCreated = [&]() -> DWORD {
@@ -2808,7 +2851,11 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             if (retain)
             {
                 record->overlapped = overlapped;
+#ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+                record->retained = std::move(targetAnchor);
+#else
                 record->retained = std::move(file);
+#endif
             }
 #endif
         }
@@ -6171,7 +6218,11 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
         ThinWireOptions options{};
         options.flags = overlapped ? 1u : 0u;
 #ifdef SAM_UAC_THIN_COPY_TEST
+#ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+        options.flags |= 28u; // fail-closed cleanup and identity-anchored fresh reopen
+#else
         options.flags |= 12u; // fail-closed cleanup and retained-target contract
+#endif
 #endif
         Handle pinnedRoot;
         std::vector<Handle> pinnedSourceParents;
