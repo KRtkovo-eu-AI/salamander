@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Cover received-handle cleanup after invalid cancellation. | Preserve the wait error unless cleanup is uncertain. | #731 | GPT-6 |
 // | 2026-11-13 | Update cleanup fixture for terminal error payloads. | Verify current failure reporting without simulating a retry dialog. | #731 | GPT-6 |
 // | 2026-11-13 | Adapt local reopen test to explicit copy phase. | Keep retry distinct from initial elevation decisions. | #731 | GPT-6 |
 // | 2026-11-13 | Test broker-pin release on every terminal uncertainty. | Keep partial targets without retaining the failed job. | #731 | GPT-6 |
@@ -90,7 +91,7 @@ struct CThinCopyWorker {
     explicit CThinCopyWorker(BOOL* cancelled) : operation{const_cast<char*>("fixture")}, dialog{cancelled} { currentCancellation = cancelled; }
     bool Scoped() const { return active && session != nullptr; }
     HANDLE SimulateOpenResult(FakeResult result);
-    HANDLE CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received);
+    HANDLE CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received, DWORD reason = ERROR_CANCELLED);
     bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);
     bool CloseScopedTarget(HANDLE& file);
     bool RefuseUnsafeTargetCleanup();
@@ -277,6 +278,15 @@ int main()
               "target cancellation closes received target before discard", failures);
     }
     {
+        broker.calls = 0; broker.result = ERROR_SUCCESS; cancelled = FALSE; targetIsOpen = true;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = item.targetKnown = true;
+        HANDLE output = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(200));
+        Check(item.CancelReceivedHandle(UacF7::ThinOpenKind::TargetCreate, output, ERROR_INVALID_HANDLE) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_INVALID_HANDLE && !targetIsOpen && broker.calls == 1 && item.terminal,
+              "invalid cancellation closes the received target and preserves the wait error", failures);
+    }
+    {
         broker.calls = 0; broker.closed = 0; messages = 0; cancelled = TRUE; targetIsOpen = true; closeSucceeds = false;
         CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
         item.targetCreatedByBroker = item.targetKnown = true;
@@ -291,7 +301,7 @@ int main()
         CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
         item.targetCreatedByBroker = item.targetKnown = true;
         HANDLE output = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(200));
-        Check(item.CancelReceivedHandle(UacF7::ThinOpenKind::TargetCreate, output) == INVALID_HANDLE_VALUE &&
+        Check(item.CancelReceivedHandle(UacF7::ThinOpenKind::TargetCreate, output, ERROR_INVALID_HANDLE) == INVALID_HANDLE_VALUE &&
               item.cleanupUncertain && broker.closed == 1 && GetLastError() == ERROR_PARTIAL_COPY,
               "uncertain received-target close releases broker pin without deleting", failures);
         closeSucceeds = true;

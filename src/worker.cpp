@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Reject unobservable cancellation after handle delivery. | Close received handles when the worker cannot check cancellation. | #731 | GPT-6 |
 // | 2026-11-13 | Retain displayed batch consent after proven prelaunch failure. | Avoid repeating approval on the next matching native F5 item. | #731 | GPT-6 |
 // | 2026-11-13 | Give experimental F5 item custody of the planned job. | Preserve scope and lifetime across native worker I/O. | #731 | GPT-6 |
 // | 2026-11-13 | Preserve consent after proven pre-probe failure. | Allow native retry without reviving a started broker scope. | #731 | GPT-6 |
@@ -2501,7 +2502,7 @@ struct CThinCopyWorker
     HANDLE Open(UacF7::ThinOpenKind kind, bool overlapped);
     bool CancelBeforeElevation();
     bool WaitBeforeElevation();
-    HANDLE CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received);
+    HANDLE CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received, DWORD reason = ERROR_CANCELLED);
     void RememberSource(HANDLE file, bool force = false);
     void RememberTarget(HANDLE file, bool force = false);
     bool ValidateRetriedTarget(HANDLE file);
@@ -7216,15 +7217,19 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
     // A valid handle may arrive while cancellation is being signalled. Until
     // it is returned, this method owns it and must release it exactly once.
     ThinCopyTestHandleGate(kind, dialog.CancelWorkerEvent);
-    if (*dialog.CancelWorker ||
-        (dialog.CancelWorkerEvent && WaitForSingleObject(dialog.CancelWorkerEvent, 0) == WAIT_OBJECT_0))
+    const DWORD cancelWait = dialog.CancelWorkerEvent ? WaitForSingleObject(dialog.CancelWorkerEvent, 0) : WAIT_FAILED;
+    const DWORD cancelError = !dialog.CancelWorkerEvent ? ERROR_INVALID_HANDLE :
+        cancelWait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+    if (*dialog.CancelWorker || cancelWait != WAIT_TIMEOUT)
     {
-        return CancelReceivedHandle(kind, result.file);
+        const DWORD reason = *dialog.CancelWorker || cancelWait == WAIT_OBJECT_0 ? ERROR_CANCELLED :
+                             cancelError ? cancelError : ERROR_INVALID_HANDLE;
+        return CancelReceivedHandle(kind, result.file, reason);
     }
     return result.file;
 }
 
-HANDLE CThinCopyWorker::CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received)
+HANDLE CThinCopyWorker::CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received, DWORD reason)
 {
     // This handle has not yet been registered with HANDLES. Close it exactly
     // once before deciding whether it was the worker's target itself.
@@ -7242,7 +7247,7 @@ HANDLE CThinCopyWorker::CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE re
     // then perform the identity-bound cleanup; do not race that live handle.
     const bool discarded = !receivedWasTarget || !targetCreatedByBroker || DiscardTarget();
     terminal = true;
-    SetLastError(discarded ? ERROR_CANCELLED : ERROR_PARTIAL_COPY);
+    SetLastError(discarded ? reason : ERROR_PARTIAL_COPY);
     return INVALID_HANDLE_VALUE;
 }
 

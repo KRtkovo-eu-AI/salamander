@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Cover invalid cancellation after handle delivery. | Reject a received handle when cancellation can no longer be observed. | #731 | GPT-6 |
 // | 2026-11-13 | Test retained batch consent across copy items. | Reject changed scopes and ambiguous broker outcomes. | #731 | GPT-6 |
 // | 2026-11-13 | Model experimental planned custody. | Keep retry tests aligned with item-scoped sessions. | #731 | GPT-6 |
 // | 2026-11-13 | Cover returned prelaunch classification. | Preserve consent only when the launcher was not entered. | #731 | GPT-6 |
@@ -123,7 +124,7 @@ struct CThinCopyWorker {
         if (!*dialog.CancelWorker && WaitForSingleObject(dialog.CancelWorkerEvent, 0) != WAIT_OBJECT_0) return false;
         terminal = true; SetLastError(ERROR_CANCELLED); return true;
     }
-    HANDLE CancelReceivedHandle(UacF7::ThinOpenKind, HANDLE) { terminal = true; SetLastError(ERROR_CANCELLED); return INVALID_HANDLE_VALUE; }
+    HANDLE CancelReceivedHandle(UacF7::ThinOpenKind, HANDLE, DWORD reason = ERROR_CANCELLED) { terminal = true; SetLastError(reason); return INVALID_HANDLE_VALUE; }
     bool ReportTargetFailure(DWORD) { ++reported; terminal = true; return false; }
     HANDLE Open(UacF7::ThinOpenKind kind, bool overlapped);
 };
@@ -217,6 +218,16 @@ int main() {
         Check(worker.Open(UacF7::ThinOpenKind::Source, false) == INVALID_HANDLE_VALUE &&
               GetLastError() == ERROR_INVALID_HANDLE && !worker.pendingConsent && worker.scopeMayHaveStarted &&
               UacF7::opens == 1, "invalid cancel event prevents pending restoration", failures);
+    }
+    {
+        Reset(); CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled;
+        worker.dialog.CancelWorkerEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        if (!worker.dialog.CancelWorkerEvent) return 8;
+        UacF7::nextResult.error = ERROR_SUCCESS; UacF7::nextResult.file = file;
+        UacF7::nextSessionOpen = true; UacF7::invalidateDuringOpen = true;
+        Check(worker.Open(UacF7::ThinOpenKind::Source, false) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_INVALID_HANDLE && worker.terminal && worker.brokerHandleDelivered,
+              "invalid cancel event rejects an already received handle", failures);
     }
     for (int mode = 0; mode < 4; ++mode) {
         Reset(); CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled;
