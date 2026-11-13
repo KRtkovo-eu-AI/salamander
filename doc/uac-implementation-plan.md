@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Compare current experimental Release sizes to the return point. | Preserve exact provenance and flag differences in the measurement. | #731 | gpt-6.1-terra |
 | 2026-11-13 | Record OTS bootstrap setup and restoration. | Preserve the existing test profile when interactive account launch is unavailable. | #731 | gpt-6.1-terra |
 | 2026-11-13 | Prepare a separate profile and source for thin F5 OTS acceptance. | Keep the second account from writing the previous test configuration. | #731 | gpt-6.1-terra |
 | 2026-11-13 | Verify asynchronous F5 Retry with the Release reopen candidate. | Record the native worker and final copy evidence. | #731 | gpt-6.1-terra |
@@ -1163,6 +1164,8 @@ Host pro nejistý výsledek znovu používá nativní lokalizované varování, 
 - **Zbývá:** Jde o dílčí důkaz experimentálního Debug x64 páru, nikoli dokončení přepracování UAC. Nebyl ověřen jiný účet správce (OTS), soukromá paměť Release dvojice ani více než 4 096 položek ve skutečném workeru. Nesplynuly tím ani dosud otevřené případy souběhu, ACL/sharingu, nehody při předávání handle a bezpečnostní brána přístupu k procesu brokeru.
 
 ## Tenké F5: průběh a pauza ve VM — 2026-11-13 / GPT-6
+
+- **Průběžné Release srovnání:** Nezávislé přepočtení návratového bodu `6711757` a kandidáta `6d9e3df0` dalo u hosta 5 908 480 → 5 962 240 B (+53 760 B), u brokeru 1 474 560 → 1 508 864 B (+34 304 B), celkem 7 383 040 → 7 471 104 B (+88 064 B). Obě sestavy používají x64 Release a stejnou cestu MSBuild, ale liší se zdrojovou revizí i přepínači: návratový bod má `/MP2`, kandidát navíc experimentální a testovací makra a dosud obsahuje původní engine. Proto nejde o srovnání hotové implementace ani důkaz konečné úspory. Otisky a konkrétní příkazy jsou v `C:\Samandarin\builds\uac-thin-reopen-current-6d9e3df0\release-size-comparison-6711757.json` a stavových souborech buildů; shodné vstupní manifesty před/po nevylučují přechodnou změnu mezi snímky. Srovnatelné runtime měření paměti obou procesů zůstává otevřené.
 
 - **OTS bootstrap a neprovedené přihlášení:** Oddělený bootstrap byl před nasazením ověřen na 15 syntetických případech a launcher odmítl nesprávný otisk. Po souhlasu uživatele byla přepnuta pouze `configstorage.ini` na kopii `ots.reg`; starý bootstrap byl uložen v `C:\Program Files\Open Samandarin UAC\UAC-Thin-OTS-Bootstrap-Backup-20261113` a nová chráněná testovací fixture zůstala zachována. PowerShell spuštěný pro interaktivní zadání hesla neměl viditelné okno; pouze tento ověřený čekající testovací proces byl ukončen. Computer Use následně odmítlo spustit PowerShell zprávou `product policy blocks this app`. Přihlášení jiného účtu ani F5 tedy neproběhlo. Po dalším souhlasu uživatele byl bootstrap obnoven a jeho nezávislý SHA-256 je `F4967FFFF5240B46119F3D5140E8B514F931E753396BCDFD1352957B6A146AAA`; kopie `ots.reg` má původní `8A4E58E6DFBDDC49BDD4E02D3BE6BF1EA4430F9F90DEC13972C55BD480CF96B7`. Záloha i oddělená fixture zůstaly na místě. Ověření přístupu testovacího účtu, spuštění s jeho SID a kopie s pověřením jiného správce zůstávají otevřené.
 
