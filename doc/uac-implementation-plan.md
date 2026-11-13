@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Record configuration-restoration checkpoints. | Distinguish a released configuration mutex from a fully restored window. | #731 | GPT-6 |
 | 2026-11-13 | Narrow isolated startup to configuration loading. | Separate checkpoint observations from an unproved blocking cause. | #731 | GPT-6 |
 | 2026-11-13 | Record isolated startup checkpoint observations. | Distinguish actual window creation from a visible pilot and UAC acceptance. | #731 | GPT-6 |
 | 2026-11-13 | Record native network reopen boundary. | Do not equate retained-handle duplication with reopening a failed network file. | #731 | GPT-6 |
@@ -957,6 +958,8 @@ Místní testy reálného dispatcheru a NTFS prošly v experimentální variant�
 Host pro nejistý výsledek znovu používá nativní lokalizované varování, a to i po Cancel nebo ztrátě odpovědi; nepředává novou pointerovou zprávu ani přesnou cílovou cestu. Výřez skutečných metod se stuby prošel **37 PASS** v Debug i Release (`C:\Samandarin\builds\uac-thin-safety-20261113\cleanup-debug-final.log`, `cleanup-release-final.log`); nejde o celý worker ani VM test. Odpovídající experimentální x64 host i broker byly sestaveny v Debug a Release a ověřeny na protokol 46 a odpovídající role; manifest je v `C:\Samandarin\builds\uac-thin-safety-20261113\verified-pair.json`. Tyto buildy nebyly nasazeny do VM.
 
 ## Experimentální F5: Retry lokálně vytvořeného cíle — 2026-11-13 / GPT-6
+
+- **Podrobná obnova konfigurace:** Další izolovaný Debug host (24 značek) ve vlastním adresáři bez brokeru prošel při jednorázovém měření získáním a uvolněním konfiguračního mutexu i návratem z `LoadPanelConfig` obou panelů. Značky před ani po explicitních `ChangeDirLite` nepřišly a nepřišla ani značka za celým `LoadConfig` včetně recovery; explicitní větev cest však může být i přeskočena podle výsledku načtení nebo parametrů. Během 25 sekund proces PID 12352 neskončil a Computer Use nenašlo cílitelný panel ani dialog. Záznam `C:\Samandarin\builds\uac-startup-checkpoints24-build-20261113\isolated-startup-v4-1b8d0bc81a56468a94bab86880f97d0a.jsonl` neprokazuje pořadí značek mezi jednotlivými poll cykly ani příčinu chybějící značky, která může znamenat i selhání otevření eventu. Test nebyl proveden na instalovaném pilotu a neověřoval F5 ani UAC.
 
 - **Podrobnější izolovaný start:** Další oddělený host s 12 testovacími značkami `2F0D30C82838A57854A766A16EB16A84715C9F6100F7FA30FADB69579D157473` běžel jako PID 16812; 25sekundový záznam `C:\Samandarin\builds\uac-startup-checkpoints12-build-20261113\isolated-startup-v3-58a4af08e8a0457caa4fe52e0f0a7dca.jsonl` obsahuje značku před `LoadConfig`, nikoli značku za ním a jeho recovery větví. Proces při skončení monitoru stále běžel bez zjištěného `MainWindowHandle`. Značky se čtou pollingem, neautentizují odesílatele a nepřítomnost může znamenat i selhání otevření eventu; měření proto neprokazuje konkrétní blokující volání. Oddělená kopie nemá broker a sdílí části HKCU; není to ověření instalovaného hosta, UAC ani F5.
 
