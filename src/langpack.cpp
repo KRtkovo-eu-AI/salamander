@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Load translated language PEs without a write-share conflict. | LoadLibrary rejected every extracted language module with ERROR_SHARING_VIOLATION. | | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-13 | Prefer language resources embedded in each plug-in module. | Keep plug-in translations with independently updatable .spl files. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-04 | Check the destination bound before reading src in AsciiToUpperCopy. | CodeQL flagged the offset use before the range check. | | Composer |
 // | 2026-11-04 | Implement the official language-pack loader. | English ships in host binaries; non-English languages ship in one signed pack. | | Composer |
 
@@ -52,7 +54,7 @@ struct CEnumLangPackCtx
     int Count;
 };
 
-BOOL CALLBACK EnumLangPackResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName, LONG_PTR lParam)
+BOOL CALLBACK EnumLangPackResNameProc(HMODULE hModule, LPCSTR lpszType, LPSTR lpszName, LONG_PTR lParam)
 {
     CEnumLangPackCtx* ctx = (CEnumLangPackCtx*)lParam;
     if (IS_INTRESOURCE(lpszName))
@@ -175,8 +177,9 @@ HINSTANCE SalLoadLibraryFromMemory(const void* data, DWORD size)
     else
         lstrcat(tempFile, ".slg");
 
-    HANDLE hFile = CreateFile(tempFile, GENERIC_WRITE | GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE,
-                              NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    HANDLE hFile = CreateFile(tempFile, GENERIC_WRITE,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                              NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
     if (hFile == INVALID_HANDLE_VALUE)
     {
         DeleteFile(tempFile);
@@ -188,9 +191,27 @@ HINSTANCE SalLoadLibraryFromMemory(const void* data, DWORD size)
     if (writeOk)
         FlushFileBuffers(hFile);
 
-    HINSTANCE hLib = NULL;
-    if (writeOk)
-        hLib = LoadLibrary(tempFile);
+    // LoadLibrary must reopen the image. Do not keep a writable handle open while
+    // it maps the file, or Windows rejects the image with ERROR_SHARING_VIOLATION.
+    BOOL closeOk = CloseHandle(hFile);
+    hFile = INVALID_HANDLE_VALUE;
+    if (!writeOk || !closeOk)
+    {
+        DeleteFile(tempFile);
+        return NULL;
+    }
+
+    // Keep a read-only delete-on-close handle so the mapped image remains backed
+    // by the temporary file until LoadLibrary releases its mapping.
+    hFile = CreateFile(tempFile, GENERIC_READ | DELETE, FILE_SHARE_READ | FILE_SHARE_DELETE,
+                       NULL, OPEN_EXISTING, FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, NULL);
+    if (hFile == INVALID_HANDLE_VALUE)
+    {
+        DeleteFile(tempFile);
+        return NULL;
+    }
+
+    HINSTANCE hLib = LoadLibrary(tempFile);
 
     // Close the handle so DELETE_ON_CLOSE can remove the file once LoadLibrary's
     // mapping is released (or immediately if LoadLibrary failed).
@@ -208,27 +229,27 @@ HINSTANCE SalOpenLangPackDataFile()
     return LoadLibraryEx(path, NULL, LOAD_LIBRARY_AS_DATAFILE | LOAD_LIBRARY_AS_IMAGE_RESOURCE);
 }
 
-BOOL SalExtractLangPackBlob(HINSTANCE hPackData, const char* languageBase, const char* moduleKey,
-                            void** outData, DWORD* outSize)
+BOOL SalExtractLangResourceBlob(HINSTANCE hResourceModule, const char* languageBase,
+                                const char* moduleKey, void** outData, DWORD* outSize)
 {
     if (outData != NULL)
         *outData = NULL;
     if (outSize != NULL)
         *outSize = 0;
-    if (hPackData == NULL || languageBase == NULL || moduleKey == NULL || outData == NULL || outSize == NULL)
+    if (hResourceModule == NULL || languageBase == NULL || moduleKey == NULL || outData == NULL || outSize == NULL)
         return FALSE;
 
     char resName[128];
     if (!SalMakeLangPackResourceName(languageBase, moduleKey, resName, _countof(resName)))
         return FALSE;
 
-    HRSRC hrsrc = FindResourceA(hPackData, resName, RT_RCDATA);
+    HRSRC hrsrc = FindResourceA(hResourceModule, resName, RT_RCDATA);
     if (hrsrc == NULL)
         return FALSE;
-    DWORD size = SizeofResource(hPackData, hrsrc);
+    DWORD size = SizeofResource(hResourceModule, hrsrc);
     if (size == 0)
         return FALSE;
-    HGLOBAL hglob = LoadResource(hPackData, hrsrc);
+    HGLOBAL hglob = LoadResource(hResourceModule, hrsrc);
     if (hglob == NULL)
         return FALSE;
     const void* data = LockResource(hglob);
@@ -244,12 +265,10 @@ BOOL SalExtractLangPackBlob(HINSTANCE hPackData, const char* languageBase, const
     return TRUE;
 }
 
-int SalEnumLangPackLanguages(const char* moduleKey, SalLangPackEnumCallback callback, void* userData)
+int SalEnumModuleLanguages(HINSTANCE hModule, const char* moduleKey,
+                           SalLangPackEnumCallback callback, void* userData)
 {
-    if (moduleKey == NULL)
-        return 0;
-    HINSTANCE hPack = SalOpenLangPackDataFile();
-    if (hPack == NULL)
+    if (hModule == NULL || moduleKey == NULL)
         return 0;
 
     char modU[64];
@@ -262,9 +281,43 @@ int SalEnumLangPackLanguages(const char* moduleKey, SalLangPackEnumCallback call
     ctx.Callback = callback;
     ctx.UserData = userData;
     ctx.Count = 0;
-    EnumResourceNamesA(hPack, RT_RCDATA, EnumLangPackResNameProc, (LONG_PTR)&ctx);
-    FreeLibrary(hPack);
+    EnumResourceNamesA(hModule, RT_RCDATA, EnumLangPackResNameProc, (LONG_PTR)&ctx);
     return ctx.Count;
+}
+
+int SalEnumLangPackLanguages(const char* moduleKey, SalLangPackEnumCallback callback, void* userData)
+{
+    if (moduleKey == NULL)
+        return 0;
+    HINSTANCE hPack = SalOpenLangPackDataFile();
+    if (hPack == NULL)
+        return 0;
+
+    int count = SalEnumModuleLanguages(hPack, moduleKey, callback, userData);
+    FreeLibrary(hPack);
+    return count;
+}
+
+static HINSTANCE LoadLanguageFromResourceModule(HINSTANCE hResourceModule, HINSTANCE validationModule,
+                                                const char* languageBase, const char* moduleKey)
+{
+    void* blob = NULL;
+    DWORD blobSize = 0;
+    if (!SalExtractLangResourceBlob(hResourceModule, languageBase, moduleKey, &blob, &blobSize))
+        return NULL;
+
+    HINSTANCE hLib = SalLoadLibraryFromMemory(blob, blobSize);
+    free(blob);
+    if (hLib == NULL)
+        return NULL;
+
+    WORD langId = 0;
+    if (!IsSLGFileValid(validationModule, hLib, langId, NULL))
+    {
+        FreeLibrary(hLib);
+        return NULL;
+    }
+    return hLib;
 }
 
 HINSTANCE SalLoadLanguageForModule(HINSTANCE hostModule, const char* moduleKey,
@@ -287,40 +340,30 @@ HINSTANCE SalLoadLanguageForModule(HINSTANCE hostModule, const char* moduleKey,
     char languageBase[64];
     SalLanguageBaseName(slgName, languageBase, _countof(languageBase));
 
-    // 2) Official language pack.
+    // 2) The plug-in's own PE resources keep its translations with the .spl.
+    HINSTANCE hLib = LoadLanguageFromResourceModule(hostModule, hostModule, languageBase, moduleKey);
+    if (hLib != NULL)
+    {
+        if (owned != NULL)
+            *owned = TRUE;
+        return hLib;
+    }
+
+    // 3) Official language pack. Keep this lookup for compatibility with older installs.
     HINSTANCE hPack = SalOpenLangPackDataFile();
     if (hPack != NULL)
     {
-        void* blob = NULL;
-        DWORD blobSize = 0;
-        if (SalExtractLangPackBlob(hPack, languageBase, moduleKey, &blob, &blobSize))
+        hLib = LoadLanguageFromResourceModule(hPack, hostModule, languageBase, moduleKey);
+        FreeLibrary(hPack);
+        if (hLib != NULL)
         {
-            HINSTANCE hLib = SalLoadLibraryFromMemory(blob, blobSize);
-            free(blob);
-            FreeLibrary(hPack);
-            if (hLib != NULL)
-            {
-                WORD langId = 0;
-                if (IsSLGFileValid(hostModule, hLib, langId, NULL))
-                {
-                    if (owned != NULL)
-                        *owned = TRUE;
-                    return hLib;
-                }
-                FreeLibrary(hLib);
-            }
-            else
-            {
-                // fall through to .slg
-            }
-        }
-        else
-        {
-            FreeLibrary(hPack);
+            if (owned != NULL)
+                *owned = TRUE;
+            return hLib;
         }
     }
 
-    // 3) Legacy / 3rd-party .slg next to the host module.
+    // 4) Legacy / 3rd-party .slg next to the host module.
     char path[MAX_PATH];
     if (GetModuleFileName(hostModule, path, MAX_PATH) == 0)
         return NULL;

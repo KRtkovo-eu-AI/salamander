@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Document plug-in-local translation signing. | Require embedded .spl language resources to be signed with their plug-ins. | | openrouter/openai/gpt-6-luna-pro |
 | 2026-11-04 | Document signing langpack.dll instead of hundreds of .slg files. | Official languages ship in one PE. | | Composer |
 -->
 # Code signing
@@ -50,7 +51,7 @@ Use this first to verify that SimplySign, the certificate, SignTool and the scri
 tools\codesign\codesign_certum.cmd --file "H:\_projects\salamander\output\salamander\Release_x64\salamand.exe"
 ```
 
-The script signs only `.exe`, `.dll`, `.spl` and `.slg` files. The official UI language pack is `lang\langpack.dll` (a normal `.dll`, signed with the other binaries). Separate per-language `.slg` files are no longer shipped for first-party modules; `.slg` remains supported for legacy/third-party plug-ins. Before signing, it checks whether the target already has a valid Authenticode signature and skips it if it is already signed. It verifies newly signed files with:
+The script signs only `.exe`, `.dll`, `.spl` and `.slg` files. The main application's official UI language pack is `lang\langpack.dll`; first-party plug-in translations are embedded in each plug-in's `.spl`. Build language resources before signing so the `.spl` signatures cover the translations. Separate per-language `.slg` files are no longer shipped for first-party modules; `.slg` remains supported for legacy/third-party plug-ins. Before signing, it checks whether the target already has a valid Authenticode signature and skips it if it is already signed. It verifies newly signed files with:
 
 ```cmd
 signtool verify /pa /all /v "path\to\file.exe"
@@ -81,7 +82,7 @@ Files that already have a valid Authenticode signature are skipped before signin
 tools\codesign\codesign_certum.cmd --slg-by-lang --payload-dir "H:\_projects\salamander\output\salamander\Release_x64"
 ```
 
-Current first-party releases should only need a normal `--inno-x64` pass (hosts + `langpack.dll`).
+Current first-party releases should only need a normal `--inno-x64` pass (hosts, selected plug-in `.spl` files including their language resources, and `langpack.dll`).
 
 External DLLs are skipped. The exclusion list includes:
 
@@ -94,11 +95,12 @@ External DLLs are skipped. The exclusion list includes:
 ## Release order
 
 1. Build and populate the release payload directory.
-2. Sign a single file with `--file` if you want a smoke test.
-3. Sign the Inno x64 payload with `--inno-x64`. If you need to handle `.slg` files separately, use `--slg-by-lang` with the same payload directory.
-4. Build the Inno installer.
-5. Sign the final installer separately with `--file`.
-6. Verify the final installer with `signtool verify /pa /all /v`.
+2. Build and test language packs so plug-in resources are embedded into `.spl` files before signing.
+3. Sign a single file with `--file` for a smoke test, if needed.
+4. Sign the Inno x64 payload with `--inno-x64`. If you need to handle legacy `.slg` files separately, use `--slg-by-lang` with the same payload directory.
+5. Build the Inno installer.
+6. Sign the final installer separately with `--file`.
+7. Verify the final installer with `signtool verify /pa /all /v`.
 
 Do not modify a signed file after signing it. Any post-signing modification invalidates the Authenticode signature.
 

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Load plug-in translations from each plug-in module. | Ship language resources with independently updatable .spl files. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-04 | Add the official language-pack loader API. | English ships in host binaries; non-English languages ship in one signed pack. | | Composer |
 
 #pragma once
@@ -35,7 +36,7 @@ BOOL SalGetLangPackPath(char* path, int pathSize);
 BOOL SalLanguageModuleIsHost(HINSTANCE hostModule, HINSTANCE hLanguage);
 
 // Loads a language module for 'moduleKey' ("salamand", "zip", ...).
-// Preference: English from host -> official langpack -> lang\*.slg on disk.
+// Preference: English from host -> module resources -> official langpack -> lang\*.slg on disk.
 // When 'owned' is not NULL, it receives TRUE if the caller must FreeLibrary the result.
 HINSTANCE SalLoadLanguageForModule(HINSTANCE hostModule, const char* moduleKey,
                                    const char* slgName, BOOL* owned);
@@ -51,7 +52,11 @@ HINSTANCE SalOpenLangPackDataFile();
 typedef BOOL (*SalLangPackEnumCallback)(const char* languageBase, void* userData);
 int SalEnumLangPackLanguages(const char* moduleKey, SalLangPackEnumCallback callback, void* userData);
 
-// Extracts one module language blob from an open pack datafile into a newly allocated buffer.
+// Extracts one module language blob from a PE module's resources into a newly allocated buffer.
 // Caller frees with free(). Returns FALSE on failure.
-BOOL SalExtractLangPackBlob(HINSTANCE hPackData, const char* languageBase, const char* moduleKey,
-                            void** outData, DWORD* outSize);
+BOOL SalExtractLangResourceBlob(HINSTANCE hResourceModule, const char* languageBase,
+                                const char* moduleKey, void** outData, DWORD* outSize);
+
+// Enumerates language base names in an arbitrary loaded PE module's resources.
+int SalEnumModuleLanguages(HINSTANCE hModule, const char* moduleKey,
+                           SalLangPackEnumCallback callback, void* userData);

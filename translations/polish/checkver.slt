@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\polish\checkver\checkver.atp"
-TEXTVERSION,"1.2.7 (x64)"
-VERSION,"1,2,7,197"
+TEXTVERSION,"1.2.8 (x64)"
+VERSION,"1,2,8,197"
 
 [TRANSLATION]
 LANGID,1045
@@ -10,15 +10,15 @@ WEB,"open.samandarin.net"
 COMMENT,"Automatic AI translation"
 
 [DIALOG 100]
-350,238,1,"Sprawdź nowe wersje"
+338,238,1,"Sprawdź nowe wersje"
 103,161,220,50,14,1,"&Sprawdź"
-2,220,220,76,14,1,"&Zamknij"
-9,279,220,71,14,1,"Pomoc"
+2,220,220,50,14,1,"&Zamknij"
+9,279,220,50,14,1,"Pomoc"
 101,5,5,328,209,1,""
-102,6,220,74,14,1,"&Konfiguruj..."
+102,6,220,60,14,1,"&Konfiguruj..."
 
 [DIALOG 110]
-372,245,1,"Konfiguracja sprawdzania wersji"
+357,245,1,"Konfiguracja sprawdzania wersji"
 400,5,7,101,8,1,"Ustawienia Internetu:"
 124,107,7,190,8,1,""
 123,301,4,50,14,1,"&Zmień"
@@ -39,13 +39,13 @@ COMMENT,"Automatic AI translation"
 126,13,178,270,12,1,"Sprawdzaj wersje &wydawnicze Open Samandarin i wtyczek"
 112,13,190,270,12,1,"Sprawdzaj wersje &beta Open Samandarin i wtyczek"
 125,13,202,270,12,1,"Sprawdzaj wersje &podglądowe Open Samandarin i wtyczek"
-122,6,227,79,14,1,"Ustaw &domyślne"
+122,6,227,60,14,1,"Ustaw &domyślne"
 1,183,227,50,14,1,"OK"
 2,242,227,50,14,1,"Anuluj"
-9,301,227,71,14,1,"Pomoc"
+9,301,227,50,14,1,"Pomoc"
 
 [DIALOG 130]
-325,200,1,"CheckVer: ustawienia Internetu"
+258,200,1,"CheckVer: ustawienia Internetu"
 137,8,8,20,20,1,""
 400,39,7,202,24,1,"CheckVer informuje o najnowszych wersjach Open Samandarin i wtyczek. Do odczytu informacji o nowych wersjach potrzebne jest połączenie z Internetem."
 401,40,38,211,67,1,"Jak łączysz się z Internetem"
@@ -53,14 +53,14 @@ COMMENT,"Automatic AI translation"
 131,47,63,164,12,1,"Łączę się przez &lokalną sieć (LAN)"
 132,47,75,183,12,1,"&Nie łączę się z Internetem"
 402,59,87,202,8,1,"(automatyczne uruchamianie CheckVer zostanie wyłączone)"
-403,40,109,285,55,1,"Protokół internetowy"
+403,40,109,211,55,1,"Protokół internetowy"
 136,47,121,158,12,1,"&HTTP (zalecane)"
 134,47,133,158,12,1,"&FTP"
-135,47,145,220,12,1,"F&TP w trybie transferu pasywnego (przydatne za zaporą)"
+135,47,145,202,12,1,"F&TP w trybie transferu pasywnego (przydatne za zaporą)"
 404,3,174,250,1,1,""
 1,85,181,50,14,1,"OK"
 2,142,181,50,14,1,"Anuluj"
-9,199,181,71,14,1,"Pomoc"
+9,199,181,50,14,1,"Pomoc"
 
 [STRINGTABLE 0]
 190,1,"Sprawdź aktualizacje Open Samandarin i wtyczek."

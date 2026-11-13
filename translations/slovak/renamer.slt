@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\slovak\renamer\renamer.atp"
-TEXTVERSION,"1.16 (x64)"
-VERSION,"1,16,0,197"
+TEXTVERSION,"1.17 (x64)"
+VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,1051
@@ -280,7 +280,7 @@ COMMENT,"Slovenská verzia"
 1127,1,"Preplnenie zásobníka"
 1128,1,"Požadovaný skompilovaný výraz."
 1129,1,"Nie je možné spustiť nové vlákno."
-1130,1,"<Chyba vzoru náhrady: %s>"
+1130,1,"<Chyba vzor nahradenia: %s>"
 1131,1,"Očakávaná uzatvárajúca zátvorka alebo zadanie veľkosti písmen ('lower', 'upper', 'mixed', alebo 'stripdia')."
 1132,1,"Očakávaná uzatvárajúca zátvorka."
 1133,1,"Očakávaná uzatvárajúca zátvorka alebo znak ':' nasledovaný zadaním veľkosti písmen ('lower', 'upper', 'mixed', alebo 'stripdia')."

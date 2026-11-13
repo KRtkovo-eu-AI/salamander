@@ -1,4 +1,5 @@
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Remove duplicate English fallback strings. | The embedded language resource already contains these strings. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-09 | Add English fallback text for lock-aware operation recovery. | Keep the feature available when a language module lacks the new strings. | https://github.com/KRtkovo-eu-AI/salamander/issues/836 | GPT-6 (Codex) |
 // | 2026-11-04 | Put the splash version under the logo, then the fork line, then the copyright. | The version should lead that block, with a gap before the quieter copyright. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
 // | 2026-11-04 | Move splash copyright under the logo and shorten the yellow bar. | The combined copyright overflowed the yellow bar. | https://github.com/KRtkovo-eu-AI/salamander/issues/776 | Grok 4.7 |
@@ -259,25 +260,3 @@ LANGUAGE LANG_NEUTRAL,SUBLANG_NEUTRAL
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
-
-// Default text fallback for language modules predating S27a2.
-#include "texts.rh2"
-STRINGTABLE
-BEGIN
- IDS_FILELAUNCH_ERROR_CODE, "Windows error:"
- IDS_FILELAUNCH_PROGRAM_FAILED, "The program could not be started safely through Windows. It was not retried using another launch method."
- IDS_FILELAUNCH_DOCUMENT_FAILED, "The item could not be opened through Windows Shell. The selected item was not retried using another launch method."
- IDS_FILELAUNCH_LONGPATH_OFF, "Windows long-path setting: disabled."
- IDS_FILELAUNCH_LONGPATH_ON, "Windows long-path setting: enabled. Running processes may still use an earlier cached setting."
- IDS_FILELAUNCH_LONGPATH_UNSET, "Windows long-path setting: not configured (default behavior)."
- IDS_FILELAUNCH_LONGPATH_UNKNOWN, "Windows long-path setting could not be determined."
- IDS_FILELAUNCH_LONGPATH_CAVEAT, "This setting is diagnostic information, not the established cause of this failure. Enabling it does not guarantee support by Shell, security services or the target application."
- IDS_FILELAUNCH_LAUNCH_CLOSE, "Close"
- IDS_FILELAUNCH_LONGPATH_GUIDE_BUTTON, "Windows settings guide"
- IDS_FILELAUNCH_LONGPATH_GUIDE_TITLE, "Windows long-path support"
- IDS_FILELAUNCH_LONGPATH_GUIDE, "An administrator can enable the Windows policy:\nComputer Configuration > Administrative Templates > System > Filesystem > Enable Win32 long paths.\n\nIts registry equivalent is REG_DWORD LongPathsEnabled = 1 under:\nHKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n\nRestart affected applications; restarting Windows may also be necessary. Applications must support long paths themselves. This is not a way to override a security denial, and Shell or the target program may still reject the path. Salamander does not change this setting."
- IDS_FILELOCK_TERMINATE_RETRY, "Terminate and retry"
- IDS_FILELOCK_USED_BY, "The file is in use by: %s"
- IDS_FILELOCK_CONFIRM_TERMINATE, "Terminate these processes and retry?\n\nUnsaved data in these processes may be lost:\n%s"
- IDS_FILELOCK_TERMINATE_FAILED, "Unable to terminate any of the processes using this file."
-END

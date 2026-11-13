@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\japanese\renamer\renamer.atp"
-TEXTVERSION,"1.16 (x64)"
-VERSION,"1,16,0,197"
+TEXTVERSION,"1.17 (x64)"
+VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,1041
@@ -256,7 +256,7 @@ COMMENT,"Japanese (ja-JP) UI translation"
 1104,1,"アライメント ('l') または幅 (正の整数) の指定が必要です。"
 1105,1,"幅の指定が必要です (正の整数)"
 1106,1,"期待されるフィラー仕様 (1 文字)"
-1107,1,"<新しい名前エラー: %s>"
+1107,1,"<新しい名前のエラー: %s>"
 1108,1,"<Invalid value in some input field>"
 1109,1,"<正規表現エラー: %s>"
 1110,1,"<Boyer-Moore エラー: %s>"

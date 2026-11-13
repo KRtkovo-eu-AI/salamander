@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\vietnamese\ftp\ftp.atp"
-TEXTVERSION,"1.38 (x64)"
-VERSION,"1,38,0,197"
+TEXTVERSION,"1.39 (x64)"
+VERSION,"1,39,0,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -116,7 +116,7 @@ COMMENT,"vietnamese (automatic AI translation)"
 9,358,142,50,14,1,"Trợ giúp"
 
 [DIALOG 580]
-596,301,1,"Tùy chọn nâng cao"
+328,301,1,"Tùy chọn nâng cao"
 3000,7,10,54,8,1,"Máy chủ proxy:"
 531,84,8,179,89,1,""
 532,270,7,50,14,1,"&Thêm..."
@@ -308,7 +308,7 @@ COMMENT,"vietnamese (automatic AI translation)"
 9,352,241,50,14,1,"Trợ giúp"
 
 [DIALOG 750]
-421,268,1,""
+398,268,1,""
 751,5,8,48,8,1,""
 752,57,8,336,8,1,""
 753,5,19,48,8,1,""
@@ -340,12 +340,12 @@ COMMENT,"vietnamese (automatic AI translation)"
 769,7,205,383,35,1,""
 770,7,247,70,12,1,"Chỉ &hiện lỗi"
 771,227,247,50,14,1,"&Xử lý lỗi"
-772,284,247,76,14,1,"&Thử lại"
-773,341,247,80,14,1,"&Bỏ qua"
+772,284,247,50,14,1,"&Thử lại"
+773,341,247,50,14,1,"&Bỏ qua"
 778,7,81,150,12,1,"Đóng hộp &thoại này khi thao tác hoàn tất"
 
 [DIALOG 779]
-489,64,1,""
+244,64,1,""
 780,10,9,226,8,1,""
 781,10,19,225,130,1,""
 782,292,47,237,12,1,"&Chỉ thêm vào hàng đợi (không xử lý trong kết nối đang hoạt động)"
@@ -354,7 +354,7 @@ COMMENT,"vietnamese (automatic AI translation)"
 9,157,42,50,14,1,"Trợ giúp"
 
 [DIALOG 785]
-549,61,1,"Xác nhận xóa"
+331,61,1,"Xác nhận xóa"
 1,112,39,50,14,1,"&Có"
 2,169,39,50,14,1,"&Không"
 788,8,8,18,20,1,""
@@ -362,7 +362,7 @@ COMMENT,"vietnamese (automatic AI translation)"
 787,352,40,237,12,1,"&Chỉ thêm vào hàng đợi (không xử lý trong kết nối đang hoạt động)"
 
 [DIALOG 795]
-522,200,1,"Thay đổi thuộc tính"
+278,200,1,"Thay đổi thuộc tính"
 796,7,10,264,8,1,""
 3000,7,26,84,51,1,"Chủ sở hữu"
 3001,97,26,84,51,1,"Nhóm"

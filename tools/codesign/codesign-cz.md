@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Popsat podepisování překladů v pluginech. | Podepisovat vložené jazykové resources společně s pluginem. | | openrouter/openai/gpt-6-luna-pro |
 | 2026-11-04 | Document signing langpack.dll instead of hundreds of .slg files. | Official languages ship in one PE. | | Composer |
 -->
 # Digitální podepisování
@@ -50,7 +51,7 @@ Tímto nejdřív ověřte, že funguje SimplySign, certifikát, SignTool i náš
 tools\codesign\codesign_certum.cmd --file "H:\_projects\salamander\output\salamander\Release_x64\salamand.exe"
 ```
 
-Script podepisuje jen soubory `.exe`, `.dll`, `.spl` a `.slg`. Oficiální jazykový balíček je `lang\langpack.dll` (běžná `.dll`, podepisuje se spolu s ostatními binárkami). Samostatné per-jazykové `.slg` soubory se pro first-party moduly už neshypují; `.slg` zůstává pro legacy/3rd-party pluginy. Před podepsáním ověří, jestli cíl už má platný Authenticode podpis, a pokud už je podepsaný, přeskočí ho. Nově podepsané soubory ověřuje příkazem:
+Script podepisuje jen soubory `.exe`, `.dll`, `.spl` a `.slg`. Oficiální jazykový balíček hlavní aplikace je `lang\langpack.dll`; překlady first-party pluginů jsou vložené v jejich `.spl`. Jazykové resources vložte před podepisováním, aby podpis `.spl` pokrýval i překlady. Samostatné per-jazykové `.slg` soubory se pro first-party moduly už neshypují; `.slg` zůstává pro legacy/3rd-party pluginy. Před podepsáním ověří, jestli cíl už má platný Authenticode podpis, a pokud už je podepsaný, přeskočí ho. Nově podepsané soubory ověřuje příkazem:
 
 ```cmd
 signtool verify /pa /all /v "cesta\k\souboru.exe"
@@ -81,7 +82,7 @@ Soubory, které už mají platný Authenticode podpis, se před podepisováním 
 tools\codesign\codesign_certum.cmd --slg-by-lang --payload-dir "H:\_projects\salamander\output\salamander\Release_x64"
 ```
 
-Aktuální first-party release by měl stačit s běžným `--inno-x64` (hosty + `langpack.dll`).
+Aktuální first-party release by měl stačit s běžným `--inno-x64` (hosty, vybrané `.spl` pluginy včetně jejich jazykových resources a `langpack.dll`).
 
 Externí DLL se přeskakují. Exclusion list obsahuje:
 
@@ -94,10 +95,11 @@ Externí DLL se přeskakují. Exclusion list obsahuje:
 ## Pořadí při release
 
 1. Sestavit a naplnit release payload adresář.
-2. Volitelně otestovat jeden soubor přes `--file`.
-3. Podepsat Inno x64 payload přes `--inno-x64` (hosty včetně `lang\langpack.dll`).
-4. Sestavit Inno installer.
-5. Finální installer podepsat zvlášť přes `--file`.
-6. Finální installer ověřit přes `signtool verify /pa /all /v`.
+2. Sestavit a otestovat jazykové balíčky, aby se resources pluginů vložily do `.spl` ještě před podepisováním.
+3. Pokud je třeba, ověřit podepisování jednoho souboru přes `--file`.
+4. Podepsat Inno x64 payload přes `--inno-x64` (hosty, pluginy i `lang\langpack.dll`). Legacy `.slg` případně podepište zvlášť pomocí `--slg-by-lang` nad stejným payload adresářem.
+5. Sestavit Inno installer.
+6. Finální installer podepsat zvlášť přes `--file`.
+7. Finální installer ověřit přes `signtool verify /pa /all /v`.
 
 Podepsaný soubor už neupravujte. Jakákoliv změna po podepsání zneplatní Authenticode podpis.

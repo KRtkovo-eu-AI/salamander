@@ -1,4 +1,5 @@
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Remove English SLG seeds after packaging. | English resources are embedded in the host and plugin binaries. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-05 | Register fifteen major-language translation stubs. | Empty language folders need LANGID metadata before AI batch translation. | | Composer |
 <#
 .SYNOPSIS
@@ -461,7 +462,7 @@ if ($fatalFailures -eq 0)
     {
         Write-Host ""
         Write-Host "Building official langpack.dll from non-English .slg intermediates..."
-        & $officialPackScript -BuildRoot $buildRootFull
+        & $officialPackScript -BuildRoot $buildRootFull -RemoveEnglishSlg
         if (-not $?)
         {
             throw "Official language pack build failed."

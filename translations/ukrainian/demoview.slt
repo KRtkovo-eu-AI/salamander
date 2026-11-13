@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\ukrainian\demoview\demoview.atp"
-TEXTVERSION,"1.0.3 (x64)"
-VERSION,"1,0,3,197"
+TEXTVERSION,"1.0.4 (x64)"
+VERSION,"1,0,4,197"
 
 [TRANSLATION]
 LANGID,1058
@@ -12,7 +12,7 @@ COMMENT,"Automatic AI translation"
 [DIALOG 490]
 205,61,1,"Переглядач"
 3000,4,6,199,41,1,"Позиція вікна"
-491,11,17,113,12,1,"&Зберегти при закритті"
+491,11,17,91,12,1,"&Зберегти при закритті"
 492,11,29,156,12,1,"&Встановити позицію вікна Salamander"
 
 [STRINGTABLE 0]

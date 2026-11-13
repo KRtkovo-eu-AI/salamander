@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\vietnamese\checkver\checkver.atp"
-TEXTVERSION,"1.2.7 (x64)"
-VERSION,"1,2,7,197"
+TEXTVERSION,"1.2.8 (x64)"
+VERSION,"1,2,8,197"
 
 [TRANSLATION]
 LANGID,1066
@@ -45,7 +45,7 @@ COMMENT,"Automatic AI translation"
 9,301,227,50,14,1,"Giúp"
 
 [DIALOG 130]
-296,200,1,"Cài đặt kết nối Internet của CheckVer"
+258,200,1,"Cài đặt kết nối Internet của CheckVer"
 137,8,8,20,20,1,""
 400,39,7,202,24,1,"Plugin CheckVer thông báo cho bạn về các phiên bản mới nhất của Open Samandarin và plugin. Cần có kết nối Internet để đọc thông tin phiên bản mới."
 401,40,38,211,67,1,"Bạn kết nối Internet bằng cách nào"
@@ -53,7 +53,7 @@ COMMENT,"Automatic AI translation"
 131,47,63,164,12,1,"Tôi kết nối qua &mạng cục bộ (LAN)"
 132,47,75,183,12,1,"Tôi &không kết nối Internet"
 402,59,87,188,8,1,"(khởi động tự động plugin CheckVer sẽ bị tắt)"
-403,40,109,256,55,1,"Giao thức Internet"
+403,40,109,211,55,1,"Giao thức Internet"
 136,47,121,158,12,1,"&HTTP (khuyên dùng)"
 134,47,133,158,12,1,"&FTP"
 135,47,145,196,12,1,"F&TP ở chế độ truyền thụ động (hữu ích sau tường lửa)"

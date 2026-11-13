@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Naming helpers for the official Samandarin language pack (langpack.dll).
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Document shared module resource naming. | Clarify that plug-in resources live in their .spl files. | | openrouter/openai/gpt-6-luna-pro |
+"""Naming helpers for Samandarin language resources.
 
-Resource names inside the pack are RT_RCDATA entries:
+Resource names are RT_RCDATA entries in langpack.dll or a plug-in .spl:
   LP_<LANGUAGE>_<MODULE>
-e.g. LP_CZECH_SALAMAND, LP_GERMAN_ZIP
+  e.g. LP_CZECH_SALAMAND, LP_GERMAN_ZIP
 
 Language and module tokens are uppercased ASCII. The runtime lowers the language
 base name again when enumerating.

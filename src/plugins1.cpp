@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Resolve plug-in language keys from the containing directory. | Match embedded resource names for plug-ins stored in nested directories. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-09 | Mark first-registration viewer rows for configuration merge. | Preserve new plugin defaults across legacy settings load while respecting saved user removals. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-08 | Resolve plugins by stable registry identity. | Provide the canonical association adapter with a session-index lookup that does not depend on row order. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-07 | Preserve user-owned extensions during plugin association cleanup. | Keep upgrade-time ForceRemovePanelArchiver consistent with persistent Configuration provenance. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
@@ -1831,25 +1832,34 @@ static void GetPluginLangPackModuleKey(const char* dllName, char* out, int outSi
     if (dllName == NULL)
         return;
 
-    const char* start = dllName;
-    const char* slash = strpbrk(dllName, "\\/");
-    char temp[MAX_PATH];
-    if (slash != NULL)
+    const char* lastSeparator = NULL;
+    for (const char* p = dllName; *p != 0; p++)
     {
-        size_t len = (size_t)(slash - dllName);
-        if (len >= sizeof(temp))
-            len = sizeof(temp) - 1;
-        memcpy(temp, dllName, len);
-        temp[len] = 0;
-        lstrcpyn(out, temp, outSize);
+        if (*p == '\\' || *p == '/')
+            lastSeparator = p;
+    }
+
+    if (lastSeparator != NULL)
+    {
+        // Use the directory containing the .spl, matching CLanguage::Init even
+        // when Plugin->DLLName contains a nested path such as
+        // extension-runtimes\\javascriptruntime\\javascriptruntime.spl.
+        const char* moduleStart = lastSeparator;
+        while (moduleStart > dllName && moduleStart[-1] != '\\' && moduleStart[-1] != '/')
+            moduleStart--;
+        size_t moduleLen = (size_t)(lastSeparator - moduleStart);
+        size_t copyLen = (size_t)(outSize - 1);
+        if (moduleLen < copyLen)
+            copyLen = moduleLen;
+        memcpy(out, moduleStart, copyLen);
+        out[copyLen] = 0;
         return;
     }
 
-    lstrcpyn(temp, dllName, _countof(temp));
-    char* dot = strrchr(temp, '.');
+    lstrcpyn(out, dllName, outSize);
+    char* dot = strrchr(out, '.');
     if (dot != NULL)
         *dot = 0;
-    lstrcpyn(out, temp, outSize);
 }
 
 HINSTANCE

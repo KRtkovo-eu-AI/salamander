@@ -1,7 +1,7 @@
 ﻿[EXPORTINFO]
 PROJECTNAME,"localization-openai\projects\polish\renamer\renamer.atp"
-TEXTVERSION,"1.16 (x64)"
-VERSION,"1,16,0,197"
+TEXTVERSION,"1.17 (x64)"
+VERSION,"1,17,0,197"
 
 [TRANSLATION]
 LANGID,1045
@@ -258,7 +258,7 @@ COMMENT,"polish (automatic AI translation)"
 1106,1,"Oczekiwano znaku wypełnienia (jedna litera)"
 1107,1,"<Błąd nazwy: %s>"
 1108,1,"<Invalid value in some input field>"
-1109,1,"<Błąd wyrażeń regularnych: %s>"
+1109,1,"<Błąd: wyrażenie regularne %s>"
 1110,1,"<Błąd Boyer-Moore: %s>"
 1111,1,"<Błąd: %s>"
 1112,1,"Brak błędu."

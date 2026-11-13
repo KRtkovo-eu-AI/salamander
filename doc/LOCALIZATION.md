@@ -1,5 +1,7 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Document cleanup of English SLG build seeds. | Keep runtime payloads limited to embedded English resources and shipped translations. | | openrouter/openai/gpt-6-luna-pro |
+| 2026-11-13 | Document plug-in-local language resources. | Keep translations with independently updatable plug-in binaries. | | openrouter/openai/gpt-6-luna-pro |
 | 2026-11-05 | Document FIFO matching for duplicate menu POPUP IDs. | Prevent Internal Viewer and other menu titles from collapsing to Help after rebase. | https://github.com/KRtkovo-eu-AI/salamander/issues/751 | Composer |
 | 2026-11-04 | Document English-in-host and the single langpack.dll shipping model. | Reduce signed .slg files while keeping an English-only minimal install. | | Composer |
 -->
@@ -87,19 +89,27 @@ The `build` command is the release step for language packs. Internally it calls
 workspace, imports committed `translations/<language>/<module>.slt` archives into
 copies of the current English `.slg` files, validates layout, verifies an SLT
 round-trip, copies the produced `.slg` intermediates into the runtime tree, and
-then packs every non-English `.slg` into one signed PE container:
-`lang\langpack.dll` (`tools/localization/build_official_langpack.ps1`).
+then packs the main application's non-English `.slg` files into the signed PE
+container `lang\langpack.dll` and embeds each plug-in's translations in its
+`plugins\<module>\<module>.spl` (`tools/localization/build_official_langpack.ps1`).
+After successful packing, generated non-English `.slg` intermediates and the
+`english.slg` build seeds are removed from the runtime tree. Rebuild and populate
+the tree before starting another translation session that needs those seeds.
 
 Runtime architecture:
 
 - **English** is embedded in `salamand.exe` and each first-party `.spl` (no
   `english.slg` required at runtime).
-- **Official non-English languages** load from `lang\langpack.dll`.
+- **Official non-English Salamander languages** load from `lang\langpack.dll`.
+- **First-party plug-in languages** are embedded in the corresponding `.spl`, so
+  each plug-in update carries its translations with it.
 - **Legacy / third-party plug-ins** may still ship `plugins\<name>\lang\*.slg`;
-  the host keeps that fallback path.
+  the host keeps that fallback path. Plugin entries in an older `langpack.dll`
+  are also accepted during upgrades.
 
-A minimal install can omit `langpack.dll` and run English-only. The Inno Setup
-task “Additional UI languages” installs the pack.
+A minimal install can omit `langpack.dll` and run the main application in English;
+translations for any selected first-party plug-ins are carried in their `.spl` files.
+The Inno Setup task “Additional UI languages” installs the main application pack.
 
 If the committed files under `translations/` already contain the correct text, do
 not re-encode them and do not send them through the translation API again. Build Salamander,
