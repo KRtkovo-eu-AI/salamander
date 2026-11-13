@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Identify caller-context target creation constraints. | Preserve ownership while giving the broker evidence for retry. | #731 | GPT-6 |
 | 2026-11-13 | Check metadata-probe mutation boundaries. | Verify minimal target rights on the actual dispatcher pipe. | #731 | GPT-6 |
 | 2026-11-13 | Record the full metadata-probe build. | Distinguish compilation from a real overwrite acceptance test. | #731 | GPT-6 |
 | 2026-11-13 | Supply minimal attributes to the thin conflict probe. | Preserve native overwrite-dialog metadata without content access. | #731 | GPT-6 |
@@ -1009,6 +1010,8 @@ Místní testy reálného dispatcheru a NTFS prošly v experimentální variant�
 Host pro nejistý výsledek znovu používá nativní lokalizované varování, a to i po Cancel nebo ztrátě odpovědi; nepředává novou pointerovou zprávu ani přesnou cílovou cestu. Výřez skutečných metod se stuby prošel **37 PASS** v Debug i Release (`C:\Samandarin\builds\uac-thin-safety-20261113\cleanup-debug-final.log`, `cleanup-release-final.log`); nejde o celý worker ani VM test. Odpovídající experimentální x64 host i broker byly sestaveny v Debug a Release a ověřeny na protokol 46 a odpovídající role; manifest je v `C:\Samandarin\builds\uac-thin-safety-20261113\verified-pair.json`. Tyto buildy nebyly nasazeny do VM.
 
 ## Experimentální F5: Retry lokálně vytvořeného cíle — 2026-11-13 / GPT-6
+
+- **Kandidát pro původ lokálního cíle:** Pouhé ID cíle dodané hostem brokeru nedokazuje, že ho tato úloha vytvořila. K ověření lze zkoumat vytvoření brokerem pod tokenem původního hosta, nikoli správce, a následnou evidenci stejného objektu v jobu; samotné bajty by dál přenášel worker. Nestačí přepnout token a automaticky použít rodičovský handle otevřený dříve s vyššími právy: jeho vliv na kontrolu přístupu je nutné doložit. Kandidát proto musí znovu otevřít rodiče v kontextu hosta, ověřit shodu s připnutou identitou a zajistit obnovení původního tokenu i při chybě. Je nutné ověřit vlastníka, zděděnou DACL, zakázané vytvoření, záměnu rodiče, jiného správce a chování při neúspěchu získání tokenu; token se nesmí předat hostu. Jde o návrh, nikoli implementaci ani důkaz parity. [Microsoft: impersonace](https://learn.microsoft.com/en-us/windows/desktop/com/impersonation), [NtCreateFile a relativní rodič](https://learn.microsoft.com/windows/win32/api/winternl/nf-winternl-ntcreatefile).
 
 - **Omezení práv sondy:** Reálný dispatcher předal testovacímu klientovi metadata handle, který neumožnil změnit čas ani označit soubor k odstranění; následující Retry a kontrola obsahu prošly. Sada prošla 39/39 v Debug i Release (`C:\Samandarin\builds\uac-thin-probe-rights-20261113`). Oba konce používají tentýž proces a token; nejde o test elevace, skutečného dialogu ani kompletního workeru.
 
