@@ -1,0 +1,70 @@
+# SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+# SPDX-License-Identifier: GPL-2.0-or-later
+# | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Test initial scoped open decisions and cancellation. | Preserve Skip All without suppressing native Retry and probe paths. | #731 | GPT-6 |
+"""Test extracted thin-open logic, not complete DoCopyFile or actual UAC."""
+import argparse
+import hashlib
+from pathlib import Path
+import shutil
+import tempfile
+
+from branch_panel_getters_tests import ROOT, compiler_environment, read, run
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--configuration", choices=("Debug", "Release"), default="Debug")
+    config = parser.parse_args().configuration
+    production = ROOT / "src/worker.cpp"
+    before = hashlib.sha256(production.read_bytes()).hexdigest()
+    worker = read("src/worker.cpp")
+    begin = worker.index("enum class ThinOpenPhase")
+    phase = worker[begin:worker.index("\n", begin)]
+    begin = worker.index("bool CThinCopyWorker::CancelBeforeElevation(")
+    end = worker.index("static HANDLE ThinCopyOpenRetry(", begin)
+    methods = worker[begin:end]
+    begin = worker.index("#define THIN_OPEN_SOURCE(ctx, local, overlapped)")
+    end = worker.index("#define THIN_DELETE_TARGET", begin)
+    macros = worker[begin:end]
+    begin = worker.index("HANDLE CThinCopyWorker::Open(")
+    end = worker.index("HANDLE CThinCopyWorker::CancelReceivedHandle(", begin)
+    open_code = worker[begin:end]
+    before_prepare = open_code.index("CancelBeforeElevation()")
+    prepare = open_code.index("if (!EnsurePrepared())")
+    prompt = open_code.index("SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER")
+    after_prompt = open_code.index("CancelBeforeElevation()", prompt)
+    broker = open_code.index("session->Open(progress", after_prompt)
+    if not before_prepare < prepare < prompt < after_prompt < broker:
+        raise RuntimeError("Initial cancellation is not checked before preparation and before the broker call")
+    template = (ROOT / "src/tests/uac_thin_initial_open_tests.cpp.in").read_text(encoding="utf-8")
+    code = template.replace("@@PHASE@@", phase).replace("@@METHODS@@", methods).replace("@@MACROS@@", macros)
+    if "@@" in code:
+        raise RuntimeError("Missing test template replacement")
+    env = compiler_environment()
+    compiler = shutil.which("cl", path=env.get("PATH"))
+    if not compiler:
+        raise RuntimeError("MSVC cl.exe unavailable")
+    flags = ("/MTd", "/Od", "/D_DEBUG") if config == "Debug" else ("/MT", "/O2", "/DNDEBUG")
+    base = ROOT.parent / "builds"
+    with tempfile.TemporaryDirectory(prefix="uac-thin-initial-open-", dir=base) as temp:
+        source = Path(temp) / "test.cpp"
+        source.write_text(code, encoding="utf-8")
+        exe = Path(temp) / "test.exe"
+        built = run([compiler, "/nologo", "/std:c++17", "/EHsc", "/W4", "/WX", *flags,
+                     str(source), "/Fe:" + str(exe)], cwd=temp, env=env, timeout=60)
+        if built.returncode:
+            return built.returncode
+        result = run([str(exe)], cwd=temp, env=env, timeout=20)
+        if result.returncode:
+            return result.returncode
+    if hashlib.sha256(production.read_bytes()).hexdigest() != before:
+        raise RuntimeError("worker.cpp changed during test")
+    print("worker.cpp SHA-256:", before)
+    print("Actual extracted phase enum, cancellation guard, open wrapper and macros; broker and identity are stubs.")
+    print("Open() cancellation placement is checked structurally; this does not run DoCopyFile or UAC.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,202 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Exercise initial F5 skip and cancellation decisions. | Distinguish initial opens from Retry and metadata probes. | #731 | GPT-6 |
+#include <windows.h>
+#include <cstdio>
+#include <cstring>
+#include <initializer_list>
+
+@@PHASE@@
+namespace UacF7 {
+enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe };
+struct MoveFileIdentity { unsigned long long serial = 0; unsigned char id[16]{}; };
+static bool CaptureMoveFileIdentity(HANDLE, MoveFileIdentity& value) { value = {}; return true; }
+}
+constexpr DWORD OPFL_UAC_TRANSFER_SOURCE = 0x100;
+struct FakeSession { int closes = 0; };
+struct FakeOperation { DWORD OpFlags = 0; };
+struct FakeDialog { BOOL* CancelWorker = nullptr; HANDLE CancelWorkerEvent = nullptr; BOOL SkipAllFileOpenIn = FALSE, SkipAllFileOpenOut = FALSE; };
+struct CThinCopyWorker {
+    FakeOperation operation;
+    FakeDialog dialog;
+    FakeSession* session = nullptr;
+    UacF7::MoveFileIdentity earlierSource{};
+    bool active = true, terminal = false, earlierSourceRequired = false, earlierSourceKnown = false, sourceVerified = true;
+    bool targetCreatedByBroker = false;
+    int openCalls = 0, sourceRemembered = 0, targetRemembered = 0, validationCalls = 0;
+    UacF7::ThinOpenKind lastKind = UacF7::ThinOpenKind::Source;
+    bool lastOverlapped = false;
+    HANDLE opened = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(17));
+    DWORD openedError = ERROR_SUCCESS;
+    bool CancelBeforeElevation();
+    HANDLE Open(UacF7::ThinOpenKind kind, bool overlapped) {
+        ++openCalls; lastKind = kind; lastOverlapped = overlapped;
+        if (CancelBeforeElevation()) return INVALID_HANDLE_VALUE;
+        SetLastError(openedError); return opened;
+    }
+    void RememberSource(HANDLE) { ++sourceRemembered; sourceVerified = true; }
+    void RememberTarget(HANDLE) { ++targetRemembered; }
+    bool ValidateRetriedTarget(HANDLE) { ++validationCalls; return true; }
+    bool Scoped() const { return session != nullptr; }
+};
+static BOOL RealClose(HANDLE file) { return CloseHandle(file); }
+static int closeCalls = 0;
+static BOOL MockClose(HANDLE) { ++closeCalls; return TRUE; }
+#define CloseHandle MockClose
+#define HANDLES(x) (x)
+#define HANDLES_ADD_EX(...) ((void)0)
+static void ThinCopyTestSignalPreserve(const wchar_t*) {}
+@@METHODS@@
+static bool ThinCopyTestDenyOpen(CThinCopyWorker*, bool) { return false; }
+static bool ThinCopyTestDenyReopen(CThinCopyWorker*, bool) { return false; }
+static HANDLE ThinCopyTestDeniedHandle() { SetLastError(ERROR_ACCESS_DENIED); return INVALID_HANDLE_VALUE; }
+static HANDLE ThinCopyOpenRetry(CThinCopyWorker* context, bool overlapped) {
+    return context->Open(UacF7::ThinOpenKind::TargetRetry, overlapped);
+}
+static HANDLE ThinCopyOpenLocalRetry(CThinCopyWorker* context, bool overlapped) {
+    return context->Open(UacF7::ThinOpenKind::TargetRetry, overlapped);
+}
+@@MACROS@@
+static void Check(bool ok, const char* name, int& failures) {
+    std::printf("%s %s\n", ok ? "PASS" : "FAIL", name); if (!ok) ++failures;
+}
+int main() {
+    int failures = 0;
+    BOOL cancelled = FALSE;
+    HANDLE cancelEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!cancelEvent) return 2;
+    FakeSession existing;
+    for (bool shared : {false, true}) {
+        CThinCopyWorker source; source.dialog.CancelWorker = &cancelled; source.dialog.CancelWorkerEvent = cancelEvent;
+        source.dialog.SkipAllFileOpenIn = 2; source.session = shared ? &existing : nullptr;
+        SetLastError(ERROR_ACCESS_DENIED);
+        HANDLE output = THIN_OPEN_SOURCE(&source, INVALID_HANDLE_VALUE, false);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_ACCESS_DENIED && !source.terminal &&
+              source.openCalls == 0 && source.session == (shared ? &existing : nullptr) && existing.closes == 0,
+              shared ? "initial source Skip All preserves approved session" : "initial source Skip All avoids elevation", failures);
+
+        CThinCopyWorker target; target.dialog.CancelWorker = &cancelled; target.dialog.CancelWorkerEvent = cancelEvent;
+        target.dialog.SkipAllFileOpenOut = TRUE; target.session = shared ? &existing : nullptr;
+        SetLastError(ERROR_ACCESS_DENIED);
+        output = THIN_OPEN_TARGET_CREATE(&target, INVALID_HANDLE_VALUE, false);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_ACCESS_DENIED && !target.terminal &&
+              target.openCalls == 0 && target.session == (shared ? &existing : nullptr) && existing.closes == 0,
+              shared ? "initial target Skip All preserves approved session" : "initial target Skip All avoids elevation", failures);
+    }
+    for (DWORD error : {ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND}) {
+        CThinCopyWorker listed; listed.dialog.CancelWorker = &cancelled; listed.operation.OpFlags = OPFL_UAC_TRANSFER_SOURCE;
+        listed.dialog.SkipAllFileOpenIn = TRUE;
+        SetLastError(error);
+        Check(THIN_OPEN_SOURCE(&listed, INVALID_HANDLE_VALUE, false) == INVALID_HANDLE_VALUE &&
+              GetLastError() == error && !listed.terminal && listed.openCalls == 0,
+              "listed initial source Skip All preserves missing-path error", failures);
+    }
+    {
+        CThinCopyWorker source; source.dialog.CancelWorker = &cancelled; source.dialog.SkipAllFileOpenOut = TRUE;
+        SetLastError(ERROR_ACCESS_DENIED);
+        HANDLE output = THIN_OPEN_SOURCE(&source, INVALID_HANDLE_VALUE, false);
+        Check(output == source.opened && source.openCalls == 1 &&
+              source.lastKind == UacF7::ThinOpenKind::Source && !source.terminal,
+              "target open Skip All does not suppress initial source elevation", failures);
+        CThinCopyWorker target; target.dialog.CancelWorker = &cancelled; target.dialog.SkipAllFileOpenIn = TRUE;
+        SetLastError(ERROR_ACCESS_DENIED);
+        output = THIN_OPEN_TARGET_CREATE(&target, INVALID_HANDLE_VALUE, false);
+        Check(output == target.opened && target.openCalls == 1 &&
+              target.lastKind == UacF7::ThinOpenKind::TargetCreate && !target.terminal,
+              "source open Skip All does not suppress initial target elevation", failures);
+    }
+    {
+        CThinCopyWorker source; source.dialog.CancelWorker = &cancelled; source.dialog.SkipAllFileOpenIn = TRUE;
+        SetLastError(ERROR_ACCESS_DENIED);
+        HANDLE output = THIN_OPEN_SOURCE_RETRY(&source, INVALID_HANDLE_VALUE, true);
+        Check(output == source.opened && source.openCalls == 1 &&
+              source.lastKind == UacF7::ThinOpenKind::Source && source.lastOverlapped && !source.terminal,
+              "read Retry is not suppressed by old open Skip All", failures);
+    }
+    {
+        CThinCopyWorker probe; probe.dialog.CancelWorker = &cancelled; probe.dialog.SkipAllFileOpenOut = TRUE;
+        SetLastError(ERROR_ACCESS_DENIED);
+        HANDLE output = THIN_OPEN_TARGET_PROBE(&probe, INVALID_HANDLE_VALUE);
+        Check(output == probe.opened && probe.openCalls == 1 &&
+              probe.lastKind == UacF7::ThinOpenKind::TargetProbe && !probe.terminal,
+              "conflict probe is not suppressed by old open Skip All", failures);
+    }
+    for (bool brokerCreated : {false, true}) {
+        CThinCopyWorker target; target.dialog.CancelWorker = &cancelled; target.dialog.SkipAllFileOpenOut = TRUE;
+        target.session = &existing; target.targetCreatedByBroker = brokerCreated;
+        SetLastError(ERROR_ACCESS_DENIED);
+        HANDLE output = THIN_OPEN_TARGET_RETRY(&target, INVALID_HANDLE_VALUE, true);
+        Check(output == target.opened && target.openCalls == 1 &&
+              target.lastKind == UacF7::ThinOpenKind::TargetRetry && target.lastOverlapped && !target.terminal,
+              brokerCreated ? "retained target Retry is not suppressed by open Skip All" :
+                              "local target Retry is not suppressed by open Skip All", failures);
+    }
+    for (bool eventOnly : {false, true}) {
+        cancelled = eventOnly ? FALSE : TRUE;
+        if (eventOnly && !SetEvent(cancelEvent)) return 3;
+        CThinCopyWorker source; source.dialog.CancelWorker = &cancelled; source.dialog.CancelWorkerEvent = cancelEvent;
+        source.dialog.SkipAllFileOpenIn = TRUE; source.session = &existing;
+        SetLastError(ERROR_ACCESS_DENIED);
+        HANDLE output = THIN_OPEN_SOURCE(&source, INVALID_HANDLE_VALUE, false);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_CANCELLED && source.terminal &&
+              source.openCalls == 0 && source.session == &existing && existing.closes == 0,
+              eventOnly ? "cancel event takes precedence over Skip All" : "cancel flag takes precedence over Skip All", failures);
+        CThinCopyWorker target; target.dialog.CancelWorker = &cancelled; target.dialog.CancelWorkerEvent = cancelEvent;
+        target.dialog.SkipAllFileOpenOut = TRUE; target.session = &existing;
+        SetLastError(ERROR_ACCESS_DENIED);
+        output = THIN_OPEN_TARGET_CREATE(&target, INVALID_HANDLE_VALUE, false);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_CANCELLED && target.terminal &&
+              target.openCalls == 0 && target.session == &existing && existing.closes == 0,
+              eventOnly ? "cancel event prevents initial target elevation" : "cancel flag prevents initial target elevation", failures);
+        CThinCopyWorker retry; retry.dialog.CancelWorker = &cancelled; retry.dialog.CancelWorkerEvent = cancelEvent;
+        retry.dialog.SkipAllFileOpenIn = TRUE; retry.session = &existing;
+        SetLastError(ERROR_ACCESS_DENIED);
+        output = THIN_OPEN_SOURCE_RETRY(&retry, INVALID_HANDLE_VALUE, true);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_CANCELLED && retry.terminal &&
+              retry.openCalls == 0 && retry.session == &existing && existing.closes == 0,
+              eventOnly ? "cancel event prevents source Retry elevation" : "cancel flag prevents source Retry elevation", failures);
+        CThinCopyWorker probe; probe.dialog.CancelWorker = &cancelled; probe.dialog.CancelWorkerEvent = cancelEvent;
+        probe.dialog.SkipAllFileOpenOut = TRUE; probe.session = &existing;
+        SetLastError(ERROR_ACCESS_DENIED);
+        output = THIN_OPEN_TARGET_PROBE(&probe, INVALID_HANDLE_VALUE);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_CANCELLED && probe.terminal &&
+              probe.openCalls == 0 && probe.session == &existing && existing.closes == 0,
+              eventOnly ? "cancel event prevents conflict probe elevation" : "cancel flag prevents conflict probe elevation", failures);
+        CThinCopyWorker retained; retained.dialog.CancelWorker = &cancelled; retained.dialog.CancelWorkerEvent = cancelEvent;
+        retained.targetCreatedByBroker = true; retained.session = &existing;
+        SetLastError(ERROR_ACCESS_DENIED);
+        output = THIN_OPEN_TARGET_RETRY(&retained, INVALID_HANDLE_VALUE, true);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_CANCELLED && retained.terminal &&
+              retained.openCalls == 1 && retained.session == &existing && existing.closes == 0,
+              eventOnly ? "cancel event prevents retained target Retry request" : "cancel flag prevents retained target Retry request", failures);
+        if (eventOnly && !ResetEvent(cancelEvent)) return 4;
+    }
+    cancelled = FALSE;
+    {
+        CThinCopyWorker guard; guard.dialog.CancelWorker = &cancelled; guard.dialog.CancelWorkerEvent = cancelEvent;
+        SetLastError(ERROR_ACCESS_DENIED);
+        Check(!guard.CancelBeforeElevation() && GetLastError() == ERROR_ACCESS_DENIED &&
+              !guard.terminal, "unsignalled cancellation preserves last error", failures);
+        cancelled = TRUE; SetLastError(ERROR_SHARING_VIOLATION);
+        Check(guard.CancelBeforeElevation() && GetLastError() == ERROR_CANCELLED &&
+              guard.terminal, "cancellation guard stops any pending elevation", failures);
+        cancelled = FALSE;
+    }
+    {
+        CThinCopyWorker normal; normal.dialog.CancelWorker = &cancelled; normal.dialog.SkipAllFileOpenIn = TRUE;
+        HANDLE local = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(29)); SetLastError(ERROR_ALREADY_EXISTS);
+        Check(THIN_OPEN_SOURCE(&normal, local, false) == local && GetLastError() == ERROR_ALREADY_EXISTS &&
+              normal.sourceRemembered == 1 && normal.openCalls == 0,
+              "successful ordinary open is not suppressed", failures);
+    }
+    {
+        CThinCopyWorker normal; normal.dialog.CancelWorker = &cancelled; normal.dialog.SkipAllFileOpenIn = TRUE;
+        SetLastError(ERROR_SHARING_VIOLATION);
+        Check(THIN_OPEN_SOURCE(&normal, INVALID_HANDLE_VALUE, false) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_SHARING_VIOLATION && normal.openCalls == 0 && !normal.terminal,
+              "unrelated errors retain original behavior", failures);
+    }
+    Check(RealClose(cancelEvent) != FALSE, "close test cancellation event", failures);
+    return failures ? 1 : 0;
+}

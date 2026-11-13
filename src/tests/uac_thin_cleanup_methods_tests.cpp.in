@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Adapt local reopen test to explicit copy phase. | Keep retry distinct from initial elevation decisions. | #731 | GPT-6 |
 // | 2026-11-13 | Test broker-pin release on every terminal uncertainty. | Keep partial targets without retaining the failed job. | #731 | GPT-6 |
 // | 2026-11-13 | Cover uncertain thin opens and cleanup warnings. | Preserve cancellation reporting and prevent duplicate alerts. | #731 | GPT-6 |
 // | 2026-11-12 | Allocate the test fixture path buffer on the heap. | Avoid a large stack frame in the native probe. | #731 | GPT-6 |
@@ -99,9 +100,11 @@ static bool ThinCopyTestDenyReopen(CThinCopyWorker*, bool) { return false; }
 static HANDLE ThinCopyTestDeniedHandle() { SetLastError(ERROR_ACCESS_DENIED); return INVALID_HANDLE_VALUE; }
 static UacF7::ThinOpenKind lastOpenKind = UacF7::ThinOpenKind::Source;
 static bool lastOverlapped = false;
-static HANDLE ThinCopyOpened(CThinCopyWorker*, HANDLE file, UacF7::ThinOpenKind kind, bool overlapped)
+enum class ThinOpenPhase { Initial, Retry, Probe };
+static ThinOpenPhase lastOpenPhase = ThinOpenPhase::Initial;
+static HANDLE ThinCopyOpened(CThinCopyWorker*, HANDLE file, UacF7::ThinOpenKind kind, bool overlapped, ThinOpenPhase phase)
 {
-    lastOpenKind = kind; lastOverlapped = overlapped; return file;
+    lastOpenKind = kind; lastOverlapped = overlapped; lastOpenPhase = phase; return file;
 }
 @@LOCAL_RETRY@@
 @@MACRO@@
@@ -320,7 +323,8 @@ int main()
             DWORD error = GetLastError();
             Check(missing == INVALID_HANDLE_VALUE && error == ERROR_FILE_NOT_FOUND &&
                   GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES &&
-                  lastOpenKind == UacF7::ThinOpenKind::TargetRetry && lastOverlapped == overlapped,
+                  lastOpenKind == UacF7::ThinOpenKind::TargetRetry && lastOverlapped == overlapped &&
+                  lastOpenPhase == ThinOpenPhase::Retry,
                   "scoped local retry does not create absent target", failures);
         }
         HANDLE created = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -329,7 +333,8 @@ int main()
         {
             HANDLE opened = ThinCopyOpenLocalRetry(&item, overlapped);
             Check(opened != INVALID_HANDLE_VALUE && lastOpenKind == UacF7::ThinOpenKind::TargetRetry &&
-                  lastOverlapped == overlapped, "scoped local retry opens existing target", failures);
+                  lastOverlapped == overlapped && lastOpenPhase == ThinOpenPhase::Retry,
+                  "scoped local retry opens existing target", failures);
             if (opened != INVALID_HANDLE_VALUE) Check(RealClose(opened), "close reopened target", failures);
         }
         Check(DeleteFileW(path.c_str()) != FALSE, "remove owned retry fixture", failures);

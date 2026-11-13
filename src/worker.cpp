@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Respect prior skip and cancellation before scoped opens. | Preserve native batch decisions without suppressing Retry or conflict probes. | #731 | GPT-6 |
 // | 2026-11-13 | Preserve native plain-copy attribute failure behavior. | Do not fail a completed scoped copy when ordinary attribute setting is ignored. | #731 | GPT-6 |
 // | 2026-11-13 | Release the broker's retained target after completed F5. | Preserve the native worker's per-item handle lifetime. | #731 | GPT-6 |
 // | 2026-11-13 | Track issued asynchronous copy I/O before observing cancellation. | Drain pending reads and writes before releasing their buffers and file handles. | #731 | GPT-6 |
@@ -2380,6 +2381,8 @@ struct CProgressDlgData
 };
 
 #ifdef SAM_UAC_THIN_COPY_TEST
+enum class ThinOpenPhase { Initial, Retry, Probe };
+
 // One operation keeps its reviewed identities; sessions live with the batch.
 // The ordinary worker remains responsible for every byte of file I/O.
 struct CThinCopyWorker
@@ -2408,6 +2411,7 @@ struct CThinCopyWorker
     bool Configure(bool isMove, bool copyADS, bool encrypted);
     bool EnsurePrepared();
     HANDLE Open(UacF7::ThinOpenKind kind, bool overlapped);
+    bool CancelBeforeElevation();
     HANDLE CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received);
     void RememberSource(HANDLE file, bool force = false);
     void RememberTarget(HANDLE file, bool force = false);
@@ -2422,7 +2426,23 @@ struct CThinCopyWorker
 
 static void ThinCopyTestSignalPreserve(const wchar_t* variable);
 
-static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::ThinOpenKind kind, bool overlapped)
+bool CThinCopyWorker::CancelBeforeElevation()
+{
+    const DWORD savedError = GetLastError();
+    const bool cancelled = *dialog.CancelWorker ||
+        (dialog.CancelWorkerEvent && WaitForSingleObject(dialog.CancelWorkerEvent, 0) == WAIT_OBJECT_0);
+    if (!cancelled)
+    {
+        SetLastError(savedError);
+        return false;
+    }
+    terminal = true;
+    SetLastError(ERROR_CANCELLED);
+    return true;
+}
+
+static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::ThinOpenKind kind,
+                             bool overlapped, ThinOpenPhase phase)
 {
     // LastError is part of the original worker's error flow, including a
     // successful CREATE_NEW followed by its legacy encryption checks.
@@ -2474,6 +2494,17 @@ static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::Thin
         (error == ERROR_PATH_NOT_FOUND || error == ERROR_FILE_NOT_FOUND);
     if (context->active && (error == ERROR_ACCESS_DENIED || listedSource))
     {
+        if (context->CancelBeforeElevation())
+            return INVALID_HANDLE_VALUE;
+        if (phase == ThinOpenPhase::Initial &&
+            ((kind == UacF7::ThinOpenKind::Source && context->dialog.SkipAllFileOpenIn) ||
+             (kind == UacF7::ThinOpenKind::TargetCreate && context->dialog.SkipAllFileOpenOut)))
+        {
+            // Let the ordinary open-error handler account for this skipped
+            // item. Do not close or alter an already approved batch session.
+            SetLastError(error);
+            return INVALID_HANDLE_VALUE;
+        }
         HANDLE elevated = context->Open(kind, overlapped);
         if (elevated != INVALID_HANDLE_VALUE && kind == UacF7::ThinOpenKind::Source)
         {
@@ -2567,20 +2598,20 @@ static HANDLE ThinCopyOpenLocalRetry(CThinCopyWorker* context, bool overlapped)
         HANDLES_Q(CreateFileW(WorkerOperationPathW(op.TargetName, op.TargetNameWValid ? op.TargetNameW.c_str() : NULL).c_str(),
                               GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_EXISTING,
                               FILE_FLAG_SEQUENTIAL_SCAN | (overlapped ? FILE_FLAG_OVERLAPPED : 0), NULL)),
-        UacF7::ThinOpenKind::TargetRetry, overlapped);
+        UacF7::ThinOpenKind::TargetRetry, overlapped, ThinOpenPhase::Retry);
 }
 
 #define THIN_REMEMBER_SOURCE(ctx, file) do { if (ctx) (ctx)->RememberSource((file), true); } while (0)
 #define THIN_REMEMBER_TARGET(ctx, file) do { if (ctx) (ctx)->RememberTarget((file), true); } while (0)
-#define THIN_OPEN_SOURCE(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyOpen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped))
-#define THIN_OPEN_TARGET_CREATE(ctx, local, overlapped) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetCreate, (overlapped))
-#define THIN_OPEN_SOURCE_RETRY(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped))
+#define THIN_OPEN_SOURCE(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyOpen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped), ThinOpenPhase::Initial)
+#define THIN_OPEN_TARGET_CREATE(ctx, local, overlapped) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetCreate, (overlapped), ThinOpenPhase::Initial)
+#define THIN_OPEN_SOURCE_RETRY(ctx, local, overlapped) ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), false) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::Source, (overlapped), ThinOpenPhase::Retry)
 #define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) \
     ((ctx) && (ctx)->targetCreatedByBroker ? \
         ThinCopyOpenRetry((ctx), (overlapped)) : \
         ((ctx) && (ctx)->Scoped() ? ThinCopyOpenLocalRetry((ctx), (overlapped)) : \
-        ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), true) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::TargetRetry, (overlapped))))
-#define THIN_OPEN_TARGET_PROBE(ctx, local) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetProbe, false)
+        ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), true) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::TargetRetry, (overlapped), ThinOpenPhase::Retry)))
+#define THIN_OPEN_TARGET_PROBE(ctx, local) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetProbe, false, ThinOpenPhase::Probe)
 #define THIN_DELETE_TARGET(ctx, local) \
     ((ctx) && (ctx)->suppressLocalCleanup ? (ctx)->RefuseUnsafeTargetCleanup() : \
         ((ctx) && (ctx)->targetCreatedByBroker ? (ctx)->DiscardTarget() : \
@@ -6746,6 +6777,8 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
         SetLastError(ERROR_OPERATION_ABORTED);
         return INVALID_HANDLE_VALUE;
     }
+    if (CancelBeforeElevation())
+        return INVALID_HANDLE_VALUE;
     if (!EnsurePrepared())
         return INVALID_HANDLE_VALUE;
     if (session && !session->IsOpen())
@@ -6795,7 +6828,7 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
                 prompt.kind = UacF7::TransferPromptKind::ThinPlainCopy;
                 SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER,
                             reinterpret_cast<LPARAM>(&prompt));
-                if (!prompt.approved)
+                if (!prompt.approved || CancelBeforeElevation())
                 {
                     sessions.erase(it);
                     terminal = true;
@@ -6806,6 +6839,10 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
         }
         session = &*it;
     }
+    // Cancellation may arrive while the native Administrator dialog is open.
+    // Do not start the system elevation after the user has already cancelled.
+    if (CancelBeforeElevation())
+        return INVALID_HANDLE_VALUE;
     const HANDLE openedSource = kind == UacF7::ThinOpenKind::Source
         ? INVALID_HANDLE_VALUE : *sourceHandle;
     const auto result = session->Open(progress, *request, kind, overlapped, false,
