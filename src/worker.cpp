@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Track issued asynchronous copy I/O before observing cancellation. | Drain pending reads and writes before releasing their buffers and file handles. | #731 | GPT-6 |
 // | 2026-11-13 | Inject a write fault only after completed test I/O. | Exercise Retry after partial native transfer without changing production behavior. | #731 | GPT-6 |
 // | 2026-11-13 | Preserve uncertain thin-copy targets and report unknown completion. | Avoid unsafe cleanup and duplicate dialogs. | #731 | GPT-6 |
 // | 2026-11-13 | Distinguish experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
@@ -5526,14 +5527,8 @@ BOOL CCopy_Context::StartReading(int blkIndex, DWORD readSize, DWORD* err, BOOL 
     TRACE_I("ReadFile result: " << (opCompleted ? "DONE" : "ASYNC"));
 #endif // ASYNC_COPY_DEBUG_MSG
 
-    if (opCompleted && !Script->ChangeSpeedLimit)                   // when the speed limit can change, this is not a suitable wait point
-        WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
-    if (*DlgData->CancelWorker)
-    {
-        *err = ERROR_CANCELLED;
-        return FALSE; // cancellation will be handled in the error-handling
-    }
-
+    // Once issued, even a pending request must be visible to the cancel
+    // drain before we can return. Its OVERLAPPED and buffer remain in use.
     BlockOffset[blkIndex] = ReadOffset;
     BlockDataLen[blkIndex] = readSize;
     if (!testEOF) // block was cbsFree before calling this method
@@ -5546,6 +5541,13 @@ BOOL CCopy_Context::StartReading(int blkIndex, DWORD readSize, DWORD* err, BOOL 
     BlockTime[blkIndex] = CurTime++;
     FreeBlocks--;
     ReadingBlocks++;
+    if (opCompleted && !Script->ChangeSpeedLimit)                   // when the speed limit can change, this is not a suitable wait point
+        WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+    if (*DlgData->CancelWorker)
+    {
+        *err = ERROR_CANCELLED;
+        return FALSE; // cancellation will be handled in the error-handling
+    }
     return TRUE;
 }
 
@@ -5573,6 +5575,11 @@ BOOL CCopy_Context::StartWriting(int blkIndex, DWORD* err)
     TRACE_I("WriteFile result: " << (opCompleted ? "DONE" : "ASYNC"));
 #endif // ASYNC_COPY_DEBUG_MSG
 
+    // Track the request before cancellation can divert control to the drain.
+    WriteOffset.Value += BlockDataLen[blkIndex];
+    BlockState[blkIndex] = cbsWriting; // block was cbsRead before calling this method
+    BlockTime[blkIndex] = CurTime++;
+    WritingBlocks++;
     if (opCompleted && !Script->ChangeSpeedLimit)                   // when the speed limit can change, this is not a suitable wait point
         WaitForSingleObject(DlgData->WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
     if (*DlgData->CancelWorker)
@@ -5580,11 +5587,6 @@ BOOL CCopy_Context::StartWriting(int blkIndex, DWORD* err)
         *err = ERROR_CANCELLED;
         return FALSE; // cancellation will be handled in the error-handling
     }
-
-    WriteOffset.Value += BlockDataLen[blkIndex];
-    BlockState[blkIndex] = cbsWriting; // block was cbsRead before calling this method
-    BlockTime[blkIndex] = CurTime++;
-    WritingBlocks++;
     return TRUE;
 }
 
