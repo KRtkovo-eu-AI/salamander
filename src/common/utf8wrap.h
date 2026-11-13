@@ -1,6 +1,11 @@
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Provide typed ListView UTF-8 item adapters. | Keep arbitrary SendMessage LPARAM payloads out of LVITEM conversion. | | openai/gpt-6-luna-pro |
+// | 2026-11-12 | Route UTF-8 control text through Unicode messages. | ANSI common controls can decode localized strings using a different code page. | | openai/gpt-6-luna-pro |
+
 #pragma once
 
 #include <windows.h>
+#include <commctrl.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,6 +17,11 @@ BOOL WINAPI SalGetTextExtentPoint32A(HDC hdc, LPCSTR str, int count, LPSIZE size
 BOOL WINAPI SalGetTextExtentExPointA(HDC hdc, LPCSTR str, int count, int maxExtent, LPINT fit, LPINT dx, LPSIZE size);
 int WINAPI SalDrawTextA(HDC hdc, LPCSTR str, int count, LPRECT rect, UINT format);
 int WINAPI SalDrawTextExA(HDC hdc, LPTSTR str, int count, LPRECT rect, UINT format, LPDRAWTEXTPARAMS params);
+LRESULT WINAPI SalSendMessageA(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+int WINAPI SalListViewInsertColumnA(HWND hwnd, int column, const LVCOLUMNA* data);
+int WINAPI SalListViewInsertItemA(HWND hwnd, const LVITEMA* item);
+BOOL WINAPI SalListViewSetItemA(HWND hwnd, const LVITEMA* item);
+void WINAPI SalListViewSetItemTextA(HWND hwnd, int item, int subItem, LPCSTR text);
 
 #ifdef __cplusplus
 }
@@ -42,6 +52,26 @@ int WINAPI SalDrawTextExA(HDC hdc, LPTSTR str, int count, LPRECT rect, UINT form
 #define DrawTextExA SalDrawTextExA
 #undef DrawTextEx
 #define DrawTextEx SalDrawTextExA
+
+#ifndef UNICODE
+#define SendMessageA SalSendMessageA
+#undef SendMessage
+#define SendMessage SalSendMessageA
+
+#undef ListView_InsertColumn
+#define ListView_InsertColumn(hwnd, column, data) \
+    SalListViewInsertColumnA((hwnd), (column), (const LVCOLUMNA*)(data))
+
+#undef ListView_InsertItem
+#define ListView_InsertItem(hwnd, item) SalListViewInsertItemA((hwnd), (item))
+
+#undef ListView_SetItem
+#define ListView_SetItem(hwnd, item) SalListViewSetItemA((hwnd), (item))
+
+#undef ListView_SetItemText
+#define ListView_SetItemText(hwnd, item, subItem, text) \
+    SalListViewSetItemTextA((hwnd), (item), (subItem), (text))
+#endif // !UNICODE
 
 #endif // UTF8WRAPPERS_IMPLEMENTATION
 

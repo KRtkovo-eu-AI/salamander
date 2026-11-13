@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Return localized narrow strings as UTF-8. | Keep resource text consistent with UTF-8-aware UI rendering across Windows locales. | | openai/gpt-6-luna-pro |
 // | 2026-11-09 | Preserve plugin viewer registrations while loading legacy settings. | Plugin Connect runs before persisted viewer rows are loaded, so replacing the table could hide first-start associations. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
 // CommentsTranslationProject: TRANSLATED
 
@@ -41,13 +42,11 @@ C__StrCriticalSection __StrCriticalSection2;
 
 char* LoadStr(int resID, HINSTANCE hInstance)
 {
-    static char buffer[10000]; // buffer for many strings
+    static char buffer[40000]; // UTF-8 buffer for many strings
     static char* act = buffer;
+    static WCHAR wideBuffer[10000];
 
     HANDLES(EnterCriticalSection(&__StrCriticalSection.cs));
-
-    if (10000 - (act - buffer) < 200)
-        act = buffer;
 
     if (hInstance == NULL)
         hInstance = HLanguage;
@@ -57,25 +56,36 @@ char* LoadStr(int resID, HINSTANCE hInstance)
         TRACE_E("LoadStr: hInstance == NULL");
 #endif // _DEBUG
 
-RELOAD:
-    int size = LoadString(hInstance, resID, act, 10000 - (int)(act - buffer));
-    // size contains the number of copied characters without the terminator
+    int size = LoadStringW(hInstance, resID, wideBuffer, _countof(wideBuffer));
     //  DWORD error = GetLastError();
     char* ret;
     if (size != 0 /* || error == NO_ERROR*/) // error is NO_ERROR even if the string does not exist - useless
     {
-        if ((10000 - (act - buffer) == size + 1) && (act > buffer))
+        const int needed = WideCharToMultiByte(CP_UTF8, 0, wideBuffer, size, NULL, 0, NULL, NULL);
+        if (needed > 0 && static_cast<size_t>(needed) + 1 <= sizeof(buffer))
         {
-            // if the string was exactly at the end of the buffer, it may
-            // have been truncated -- if we can move the window
-            // to the beginning of the buffer, load the string once more
-            act = buffer;
-            goto RELOAD;
+            if (sizeof(buffer) - static_cast<size_t>(act - buffer) < static_cast<size_t>(needed) + 1)
+                act = buffer;
+
+            ret = act;
+            const int written = WideCharToMultiByte(CP_UTF8, 0, wideBuffer, size, ret, needed, NULL, NULL);
+            if (written == needed)
+            {
+                ret[written] = 0;
+                act += written + 1;
+            }
+            else
+            {
+                TRACE_E("Error converting string in LoadStr(" << resID << ") to UTF-8: " << GetErrorText(GetLastError()));
+                static char bufferError[] = "ERROR CONVERTING STRING";
+                ret = bufferError;
+            }
         }
         else
         {
-            ret = act;
-            act += size + 1;
+            TRACE_E("Error converting string in LoadStr(" << resID << ") to UTF-8: " << GetErrorText(GetLastError()));
+            static char bufferError[] = "ERROR CONVERTING STRING";
+            ret = bufferError;
         }
     }
     else
