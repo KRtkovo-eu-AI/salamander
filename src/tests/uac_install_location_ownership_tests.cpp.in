@@ -1,0 +1,155 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Test known-folder allocation ownership. | Release the returned COM buffer on success, failure and allocation exceptions. | #731 | GPT-6 |
+#include <windows.h>
+#include <shlobj.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+#include <new>
+#include <string>
+
+static bool failNextNew = false;
+static int injectedFailures = 0;
+void* operator new(std::size_t size)
+{
+    if (failNextNew) { failNextNew = false; ++injectedFailures; throw std::bad_alloc(); }
+    if (void* result = std::malloc(size ? size : 1)) return result;
+    throw std::bad_alloc();
+}
+void operator delete(void* value) noexcept { std::free(value); }
+void operator delete(void* value, std::size_t) noexcept { std::free(value); }
+
+static HRESULT mockFolderResult = S_OK;
+static const wchar_t* folderValue = L"C:\\Program Files\\A long enough test folder for allocation";
+static bool allocateFolder = true, failAfterFolder = false;
+static int calls = 0, frees = 0, unexpectedFrees = 0, directoryCalls = 0, failDirectoryAt = 0;
+static UINT driveType = DRIVE_FIXED;
+static void* outstanding = nullptr;
+
+static HRESULT FakeKnownFolder(REFKNOWNFOLDERID, DWORD, HANDLE, PWSTR* out)
+{
+    ++calls;
+    *out = nullptr;
+    if (allocateFolder)
+    {
+        const size_t bytes = (std::wcslen(folderValue) + 1) * sizeof(wchar_t);
+        *out = static_cast<PWSTR>(CoTaskMemAlloc(bytes));
+        if (!*out) return E_OUTOFMEMORY;
+        std::memcpy(*out, folderValue, bytes);
+        outstanding = *out;
+    }
+    if (failAfterFolder) failNextNew = true;
+    return mockFolderResult;
+}
+static void WINAPI CountedFree(void* value)
+{
+    if (value != outstanding || !value) { ++unexpectedFrees; return; }
+    outstanding = nullptr;
+    ++frees;
+    CoTaskMemFree(value);
+}
+static UINT WINAPI FakeDriveType(LPCWSTR) { return driveType; }
+[[maybe_unused]] static DWORD WINAPI FakeEnvironmentVariable(LPCWSTR, LPWSTR, DWORD) { return 0; }
+
+struct FakeHandle
+{
+    bool valid = false;
+    explicit operator bool() const { return valid; }
+    bool operator!=(std::nullptr_t) const { return valid; }
+    HANDLE get() const { return valid ? GetCurrentProcess() : nullptr; }
+};
+[[maybe_unused]] static FakeHandle Adopt(HANDLE value) { return {value != nullptr && value != INVALID_HANDLE_VALUE}; }
+
+#define SHGetKnownFolderPath FakeKnownFolder
+#define CoTaskMemFree CountedFree
+#define GetDriveTypeW FakeDriveType
+#define GetEnvironmentVariableW FakeEnvironmentVariable
+class InstallLocationFixture
+{
+    std::wstring path;
+    FakeHandle root, directory;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    bool thinTestLocation = false;
+#endif
+    static FakeHandle OpenDirectory(const std::wstring&)
+    {
+        ++directoryCalls;
+        return {directoryCalls != failDirectoryAt};
+    }
+public:
+@@OPEN_METHOD@@
+};
+#undef GetEnvironmentVariableW
+#undef GetDriveTypeW
+#undef CoTaskMemFree
+#undef SHGetKnownFolderPath
+
+static void Reset()
+{
+    mockFolderResult = S_OK;
+    folderValue = L"C:\\Program Files\\A long enough test folder for allocation";
+    allocateFolder = true; failAfterFolder = false; failNextNew = false;
+    calls = frees = unexpectedFrees = directoryCalls = failDirectoryAt = injectedFailures = 0;
+    driveType = DRIVE_FIXED; outstanding = nullptr;
+}
+static void Check(bool value, const char* label, int& failures)
+{
+    std::printf("%s %s\n", value ? "PASS" : "FAIL", label);
+    if (!value) ++failures;
+}
+int main()
+{
+    int failures = 0;
+    {
+        Reset(); InstallLocationFixture test;
+        Check(test.Open() && calls == 1 && frees == 1 && !outstanding && !unexpectedFrees && directoryCalls == 2,
+              "successful open frees COM buffer exactly once", failures);
+    }
+    {
+        Reset(); InstallLocationFixture test; mockFolderResult = S_FALSE;
+        Check(test.Open() && calls == 1 && frees == 1 && !outstanding && !unexpectedFrees,
+              "nonfailure HRESULT with a path follows FAILED semantics", failures);
+    }
+    {
+        Reset(); InstallLocationFixture test; mockFolderResult = E_FAIL;
+        Check(!test.Open() && calls == 1 && frees == 1 && !outstanding && !unexpectedFrees && !directoryCalls,
+              "failed HRESULT with allocated output frees it exactly once", failures);
+    }
+    {
+        Reset(); InstallLocationFixture test; mockFolderResult = E_FAIL; allocateFolder = false;
+        Check(!test.Open() && calls == 1 && !frees && !outstanding && !unexpectedFrees && !directoryCalls,
+              "failed HRESULT with null output is safe", failures);
+    }
+    {
+        Reset(); InstallLocationFixture test; allocateFolder = false;
+        Check(!test.Open() && calls == 1 && !frees && !outstanding && !unexpectedFrees && !directoryCalls,
+              "successful HRESULT with null output fails safely", failures);
+    }
+    {
+        Reset(); InstallLocationFixture test; failAfterFolder = true; bool threw = false;
+        try { (void)test.Open(); } catch (const std::bad_alloc&) { threw = true; }
+        Check(threw && injectedFailures == 1 && calls == 1 && frees == 1 && !outstanding &&
+              !unexpectedFrees && !directoryCalls,
+              "wstring construction bad_alloc frees COM buffer exactly once", failures);
+    }
+    {
+        Reset(); InstallLocationFixture test; folderValue = L"relative";
+        Check(!test.Open() && calls == 1 && frees == 1 && !outstanding && !unexpectedFrees && !directoryCalls,
+              "invalid known-folder path frees buffer", failures);
+    }
+    {
+        Reset(); InstallLocationFixture test; driveType = DRIVE_REMOTE;
+        Check(!test.Open() && calls == 1 && frees == 1 && !outstanding && !unexpectedFrees && !directoryCalls,
+              "non-fixed volume fails and frees buffer", failures);
+    }
+    for (int failure = 1; failure <= 2; ++failure)
+    {
+        Reset(); InstallLocationFixture test; failDirectoryAt = failure;
+        Check(!test.Open() && calls == 1 && frees == 1 && !outstanding && !unexpectedFrees && directoryCalls == failure,
+              failure == 1 ? "root open failure frees buffer" : "install directory failure frees buffer", failures);
+    }
+    return failures ? 1 : 0;
+}

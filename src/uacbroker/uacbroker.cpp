@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Release the known-folder allocation on every exit. | Preserve COM ownership on failed calls and C++ allocation errors. | #731 | GPT-6 |
 | 2026-11-13 | Identify thin failures before broker probing. | Retain prior consent without restarting an uncertain session. | #731 | GPT-6 |
 | 2026-11-13 | Require the complete experimental retained-target contract. | Reject older peers before opening or creating any target. | #731 | GPT-6 |
 | 2026-11-13 | Retain experimental F5 targets until item release. | Keep retry tied to the original exclusive file object. | #731 | GPT-6 |
@@ -530,11 +531,13 @@ public:
             return true;
         }
 #endif
-        PWSTR folder = nullptr;
-        if (FAILED(SHGetKnownFolderPath(FOLDERID_ProgramFiles, KF_FLAG_DEFAULT_PATH, nullptr, &folder)))
+        PWSTR rawFolder = nullptr;
+        const HRESULT folderResult = SHGetKnownFolderPath(FOLDERID_ProgramFiles, KF_FLAG_DEFAULT_PATH, nullptr, &rawFolder);
+        std::unique_ptr<wchar_t, decltype(&CoTaskMemFree)> folder(rawFolder, CoTaskMemFree);
+        if (FAILED(folderResult) || !folder)
             return false;
-        const std::wstring programFiles(folder);
-        CoTaskMemFree(folder);
+        const std::wstring programFiles(folder.get());
+        folder.reset();
         if (programFiles.size() < 3 || programFiles[1] != L':' || programFiles[2] != L'\\' ||
             GetDriveTypeW(programFiles.substr(0, 3).c_str()) != DRIVE_FIXED)
             return false;
