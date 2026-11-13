@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Verify English strings through the host RC chain. | Do not expect duplicate fallback literals in salamand.rc. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-07 | Require the hidden/system filter command in Branch View. | Catch a blocked Ctrl+H before the existing refresh handler. | | GPT-6 (Codex) |
 """Transition gates expose only accepted Branch integrations."""
 from pathlib import Path
@@ -311,14 +312,18 @@ class BranchTransitionContracts(unittest.TestCase):
   self.assertIn('IDS_FILELAUNCH_LONGPATH_CAVEAT',dialog)
   self.assertIn('IDS_FILELAUNCH_LONGPATH_GUIDE',dialog)
   self.assertNotIn('ShellExecute',dialog)
- def test_launch_resource_fallback_and_all_language_records(self):
+ def test_launch_resource_pipeline_and_all_language_records(self):
   import re
   ids=dict((name,int(value)) for name,value in re.findall(r'#define\s+(IDS_FILELAUNCH_\w+)\s+(\d+)',source('texts.rh2')))
   self.assertEqual(set(ids.values()),set(range(14516,14528)))
   english=dict(re.findall(r'\b(IDS_FILELAUNCH_\w+),\s*"([^"\r\n]*)"',source('lang/texts.rc2')))
-  embedded=dict(re.findall(r'\b(IDS_FILELAUNCH_\w+),\s*"([^"\r\n]*)"',source('salamand.rc')))
-  self.assertEqual(english,embedded)
   self.assertEqual(set(english),set(ids))
+  host_project=source('vcxproj/salamand.vcxproj')
+  host_language_rc=source('lang/lang.rc')
+  host_language_rc2=source('lang/lang.rc2')
+  self.assertRegex(host_project,r'<ResourceCompile Include="\.\.\\lang\\lang\.rc"')
+  self.assertIn('#include "lang.rc2"',host_language_rc)
+  self.assertIn('#include "texts.rc2"',host_language_rc2)
   self.assertIn('not the established cause',english['IDS_FILELAUNCH_LONGPATH_CAVEAT'])
   self.assertIn('does not change this setting',english['IDS_FILELAUNCH_LONGPATH_GUIDE'])
   for path in (ROOT.parent/'translations').glob('*/salamand.slt'):
