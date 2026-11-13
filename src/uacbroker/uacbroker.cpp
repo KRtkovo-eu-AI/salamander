@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Retire uncertain experimental thin sessions on every exit. | Never reuse a pipe after an ambiguous operation or malformed response. | #731 | GPT-6 |
 | 2026-11-13 | Preserve thin consent across verified prelaunch failures. | Retry without treating a never-started broker as an uncertain session. | #731 | GPT-6 |
 | 2026-11-13 | Release the known-folder allocation on every exit. | Preserve COM ownership on failed calls and C++ allocation errors. | #731 | GPT-6 |
 | 2026-11-13 | Identify thin failures before broker probing. | Retain prior consent without restarting an uncertain session. | #731 | GPT-6 |
@@ -6059,6 +6060,24 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
     }
     auto* job = shared ? shared : &owned;
 #ifdef SAM_UAC_THIN_COPY_TEST
+    // A reply can be uncertain even when the transport itself completed.
+    // Retire exactly the job used by this request before returning it to its
+    // owner; other batch sessions remain untouched.
+    struct RetireUnknownJob
+    {
+        TransferJobSession* job;
+        ThinOpenResult& output;
+        ThinCopySession& owner;
+        ~RetireUnknownJob()
+        {
+            if (output.unknown)
+            {
+                if (job->IsOpen())
+                    job->Close();
+                owner.ClearMarker();
+            }
+        }
+    } retireUnknownJob{job, output, *this};
     bool preProbeEligible = !shared && !job->IsOpen();
     bool transportEntered = false;
     try
@@ -6217,8 +6236,16 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
         }
         output.error = result.error;
         output.unknown = result.unknown;
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (output.unknown && !output.error)
+            output.error = ERROR_PARTIAL_COPY;
+#endif
         if (result.error)
             return output;
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (output.unknown)
+            return output;
+#endif
         if (kind == ThinOpenKind::Discard || kind == ThinOpenKind::Release)
         {
             if (reply.value) { output.error = ERROR_INVALID_DATA; output.unknown = true; }
