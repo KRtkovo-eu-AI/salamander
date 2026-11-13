@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Compare Release pair with the return point. | Record measured host and broker sizes with explicit prototype limitations. | #731 | GPT-6 |
 | 2026-11-13 | Record the current experimental Release pair. | Separate measured size from the still-missing comparable baseline. | #731 | GPT-6 |
 | 2026-11-13 | Publish complete thin target records only. | Preserve batch state if name allocation fails. | #731 | GPT-6 |
 | 2026-11-13 | Repair cleanup regression fixture. | Restore local coverage of terminal cleanup reporting. | #731 | GPT-6 |
@@ -995,6 +996,8 @@ Místní testy reálného dispatcheru a NTFS prošly v experimentální variant�
 Host pro nejistý výsledek znovu používá nativní lokalizované varování, a to i po Cancel nebo ztrátě odpovědi; nepředává novou pointerovou zprávu ani přesnou cílovou cestu. Výřez skutečných metod se stuby prošel **37 PASS** v Debug i Release (`C:\Samandarin\builds\uac-thin-safety-20261113\cleanup-debug-final.log`, `cleanup-release-final.log`); nejde o celý worker ani VM test. Odpovídající experimentální x64 host i broker byly sestaveny v Debug a Release a ověřeny na protokol 46 a odpovídající role; manifest je v `C:\Samandarin\builds\uac-thin-safety-20261113\verified-pair.json`. Tyto buildy nebyly nasazeny do VM.
 
 ## Experimentální F5: Retry lokálně vytvořeného cíle — 2026-11-13 / GPT-6
+
+- **Release srovnání návratového bodu:** Stejný MSBuild a Release x64 daly na `6711757` host 5 908 480 B a broker 1 474 560 B (celkem 7 383 040 B). Experiment `4d5cb96e` níže má host větší o 54 784 B a broker o 34 304 B, celkem o 89 088 B. Kandidát navíc zapíná tři experimentální makra a zachovává starý engine; rozdíl tedy není měřením výsledné architektury ani úspory. Na obou sestaveních první průchod hosta dosáhl 82s limitu a úspěšně pokračoval inkrementálně. Referenční manifest 8 426 vstupů souhlasil před/po; logy jsou v `C:\Samandarin\builds\uac-thin-release-baseline-6711757`. Běhová paměť, UAC a úplná akceptace zůstávají neověřené.
 
 - **Aktuální Release velikost:** Experimentální x64 host z `4d5cb96e` má 5 963 264 B a broker 1 508 864 B, dohromady 7 472 128 B. Oba se sestavily s makry `SAM_UAC_THIN_COPY_TEST`, `SAM_UAC_THIN_PLANNED_PROTOTYPE` a `SAM_UAC_THIN_REOPEN_PROTOTYPE`; před/po manifest 8 490 zdrojů souhlasil. První průchod hosta dosáhl limitu 82 s a byl ukončen, inkrementální dokončení uspělo. Logy a manifest jsou v `C:\Samandarin\builds\uac-thin-reopen-release-4d5cb96e`. Binárky nebyly nasazeny ani spuštěny; proti dřívějšímu základu nejsou kvůli experimentálním makrům a odlišné revizi plně srovnatelné. Srovnatelný pár před/po a měření paměti obou procesů zůstávají otevřené.
 
