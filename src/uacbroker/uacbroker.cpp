@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Prepare thin target records before publishing them. | Leave the batch state unchanged when allocating a name fails. | #731 | GPT-6 |
 | 2026-11-13 | Prototype an identity-anchored target reopen. | Preserve native Retry opening semantics without lending an exclusive retained writer. | #731 | GPT-6 |
 | 2026-11-13 | Transfer experimental planned sessions into item custody. | Keep one authorized tree pipe without a borrowed lifetime. | #731 | GPT-6 |
 | 2026-11-13 | Retire uncertain experimental thin sessions on every exit. | Never reuse a pipe after an ambiguous operation or malformed response. | #731 | GPT-6 |
@@ -2673,11 +2674,14 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
 
         if (create)
         {
-            state.created.emplace_back();
+            // Build the complete record before adding it to the job: name
+            // allocation can throw and must not leave an incomplete entry.
+            ThinCreatedTarget pending;
+            pending.parent = expectedParent.file;
+            pending.source = expectedFile;
+            pending.leaf.assign(targetLeaf);
+            state.created.emplace_back(std::move(pending));
             record = state.created.end() - 1;
-            record->parent = expectedParent.file;
-            record->source = expectedFile;
-            record->leaf.assign(targetLeaf);
         }
         Handle file;
 #ifdef SAM_UAC_THIN_COPY_TEST

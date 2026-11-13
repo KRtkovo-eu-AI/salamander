@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Publish complete thin target records only. | Preserve batch state if name allocation fails. | #731 | GPT-6 |
 | 2026-11-13 | Repair cleanup regression fixture. | Restore local coverage of terminal cleanup reporting. | #731 | GPT-6 |
 | 2026-11-13 | Prototype an identity-anchored target reopen for thin F5. | Reapply filesystem checks on Retry without retaining an exclusive writer. | #731 | GPT-6 |
 | 2026-11-13 | Retain displayed batch consent across a prelaunch skip. | Avoid repeated approval without widening the authorized scope. | #731 | GPT-6 |
@@ -993,6 +994,8 @@ Místní testy reálného dispatcheru a NTFS prošly v experimentální variant�
 Host pro nejistý výsledek znovu používá nativní lokalizované varování, a to i po Cancel nebo ztrátě odpovědi; nepředává novou pointerovou zprávu ani přesnou cílovou cestu. Výřez skutečných metod se stuby prošel **37 PASS** v Debug i Release (`C:\Samandarin\builds\uac-thin-safety-20261113\cleanup-debug-final.log`, `cleanup-release-final.log`); nejde o celý worker ani VM test. Odpovídající experimentální x64 host i broker byly sestaveny v Debug a Release a ověřeny na protokol 46 a odpovídající role; manifest je v `C:\Samandarin\builds\uac-thin-safety-20261113\verified-pair.json`. Tyto buildy nebyly nasazeny do VM.
 
 ## Experimentální F5: Retry lokálně vytvořeného cíle — 2026-11-13 / GPT-6
+
+- **Evidence cíle při chybě alokace:** Broker nejprve sestaví celý záznam a teprve pak jej vloží do dávky; selhání alokace názvu tak nezanechá neúplný záznam. Existující skutečný klient a dispatcher prošli po změně 22/22 kontrol v Debug i Release (`C:\Samandarin\builds\uac-thin-target-record-20261113`); test používá jednu pipe a stejný proces/token a samotné selhání alokace neinjektuje. Celý worker, UAC ani VM neověřuje.
 
 - **Oprava lokálního testu úklidu:** Zastaralá fixture nyní odpovídá terminálnímu chybovému payloadu a cancel eventu. V Debug i Release prošlo 41 kontrol vyňatých metod workeru; broker, dialog a zavření handle jsou náhrady. Nejde o celý F5, skutečný UAC ani VM.
 
