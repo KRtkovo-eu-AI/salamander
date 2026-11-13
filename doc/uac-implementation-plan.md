@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Check metadata-probe mutation boundaries. | Verify minimal target rights on the actual dispatcher pipe. | #731 | GPT-6 |
 | 2026-11-13 | Record the full metadata-probe build. | Distinguish compilation from a real overwrite acceptance test. | #731 | GPT-6 |
 | 2026-11-13 | Supply minimal attributes to the thin conflict probe. | Preserve native overwrite-dialog metadata without content access. | #731 | GPT-6 |
 | 2026-11-13 | Evaluate the first thin-copy prototype against its acceptance gate. | Avoid migrating further operations before F5 meets the requested boundaries. | #731 | GPT-6 |
@@ -1008,6 +1009,8 @@ Místní testy reálného dispatcheru a NTFS prošly v experimentální variant�
 Host pro nejistý výsledek znovu používá nativní lokalizované varování, a to i po Cancel nebo ztrátě odpovědi; nepředává novou pointerovou zprávu ani přesnou cílovou cestu. Výřez skutečných metod se stuby prošel **37 PASS** v Debug i Release (`C:\Samandarin\builds\uac-thin-safety-20261113\cleanup-debug-final.log`, `cleanup-release-final.log`); nejde o celý worker ani VM test. Odpovídající experimentální x64 host i broker byly sestaveny v Debug a Release a ověřeny na protokol 46 a odpovídající role; manifest je v `C:\Samandarin\builds\uac-thin-safety-20261113\verified-pair.json`. Tyto buildy nebyly nasazeny do VM.
 
 ## Experimentální F5: Retry lokálně vytvořeného cíle — 2026-11-13 / GPT-6
+
+- **Omezení práv sondy:** Reálný dispatcher předal testovacímu klientovi metadata handle, který neumožnil změnit čas ani označit soubor k odstranění; následující Retry a kontrola obsahu prošly. Sada prošla 39/39 v Debug i Release (`C:\Samandarin\builds\uac-thin-probe-rights-20261113`). Oba konce používají tentýž proces a token; nejde o test elevace, skutečného dialogu ani kompletního workeru.
 
 - **Dvojice se sondou metadat:** Debug x64 host a broker z čisté revize `c0c963c3` se třemi experimentálními makry prošly celým sestavením bez výstrah; manifest 8 490 vstupů se před a po shoduje. Host má SHA-256 `9A17C67923B66F09BFB0ADAC75AAC51F7FD783A493E0608851076A73BD28612D`, broker `B1361AE32EBF0DCF9657ADF93361B2BAEE629EC6B3C702CF529817DC7EFB0613`; logy jsou v `C:\Samandarin\builds\uac-thin-overwrite-metadata-build-20261113`. Dvojice nebyla instalována ani spuštěna. Tenká cesta stále odmítá chráněný přepis, takže nejde o jeho akceptaci.
 

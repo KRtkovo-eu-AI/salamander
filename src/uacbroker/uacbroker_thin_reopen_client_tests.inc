@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Check metadata-probe mutation rights. | Verify the broker does not grant time changes or deletion. | #731 | GPT-6 |
 // | 2026-11-13 | Verify overwrite-probe metadata access. | Preserve native conflict details without granting file content access. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise anchor-open failure after target creation. | Verify no target handle escapes and the uncertain file is retained. | #731 | GPT-6 |
 // | 2026-11-13 | Check cancellation before target create and reopen. | Verify the real dispatcher pipe preserves data at both boundaries. | #731 | GPT-6 |
@@ -168,6 +169,16 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
           !WriteFile(metadataHandle.get(), &metadataByte, 1, &metadataCount, nullptr) &&
           GetLastError() == ERROR_ACCESS_DENIED,
           "target probe grants neither content read nor write");
+    FILETIME changed = modified;
+    changed.dwLowDateTime ^= 1;
+    Check(metadataHandle && !SetFileTime(metadataHandle.get(), nullptr, nullptr, &changed) &&
+          GetLastError() == ERROR_ACCESS_DENIED,
+          "target probe cannot change timestamps");
+    FILE_DISPOSITION_INFO disposition{TRUE};
+    Check(metadataHandle && !SetFileInformationByHandle(metadataHandle.get(), FileDispositionInfo,
+                                                       &disposition, sizeof(disposition)) &&
+          GetLastError() == ERROR_ACCESS_DENIED,
+          "target probe cannot delete the existing file");
     metadataHandle.reset();
     const auto cancelledRetry = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetRetry, asynchronous, false,
                                           &created.targetIdentity, UacF7::ThinOpenedSource{input.get()},
