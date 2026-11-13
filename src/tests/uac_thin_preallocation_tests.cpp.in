@@ -1,0 +1,331 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Exercise failed preallocation recovery on exact scoped targets. | Verify safe reuse and fail-closed handling without pathname deletion. | #731 | GPT-6 |
+#include <windows.h>
+#include <cstdio>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#define WM_USER_DIALOG (WM_APP + 104)
+#define WORKER_DIALOG_UAC_THIN_TERMINAL 21
+#define WORKER_DIALOG_UAC_TRANSFER_UNKNOWN 17
+#define IDS_ERRORWRITINGFILE 101
+#define IDS_ERRORDELETINGFILE 102
+#define IDS_UAC_COPY_UNKNOWN 103
+#define IDS_ERRORCOPY 104
+struct CThinTerminalFileError { DWORD error; int caption; const char* target; bool cleanupUncertain; };
+#define SAM_UAC_THIN_COPY_TEST
+#define HANDLES(x) (x)
+#define TRACE_E(x) do { std::ostringstream trace; trace << x; } while (0)
+
+enum class Fault { None, SeekStart, Truncate, SizeQuery, SilentSizeQuery, CancelledSizeQuery, NonzeroSize, SeekCurrent, NonzeroPosition, Close, AlreadyStarted };
+struct State {
+    bool scoped = true, broker = true, failClose = false, cleanupSucceeds = false;
+    Fault fault = Fault::None;
+    int scopedCloses = 0, discards = 0, refused = 0, pathDeletes = 0, continuations = 0, resetCalls = 0;
+    HANDLE expectedTarget = nullptr, signalCancelOnSize = nullptr;
+    int reports = 0, unknownReports = 0, closedSessions = 0; DWORD reportedError = ERROR_SUCCESS;
+    int reportedCaption = 0; std::string reportedTarget;
+} state;
+
+static BOOL MockSetFilePointerEx(HANDLE h, LARGE_INTEGER distance, PLARGE_INTEGER result, DWORD method)
+{
+    ++state.resetCalls;
+    if (h != state.expectedTarget) { SetLastError(ERROR_INVALID_HANDLE); return FALSE; }
+    if ((method == FILE_BEGIN && state.fault == Fault::SeekStart) ||
+        (method == FILE_CURRENT && state.fault == Fault::SeekCurrent)) {
+        SetLastError(ERROR_ACCESS_DENIED); return FALSE;
+    }
+    const BOOL ok = ::SetFilePointerEx(h, distance, result, method);
+    if (ok && method == FILE_CURRENT && state.fault == Fault::NonzeroPosition) result->QuadPart = 1;
+    return ok;
+}
+static BOOL MockSetEndOfFile(HANDLE h)
+{
+    if (state.scoped && state.fault == Fault::Truncate) { SetLastError(ERROR_DISK_FULL); return FALSE; }
+    return ::SetEndOfFile(h);
+}
+static BOOL MockGetFileSizeEx(HANDLE h, PLARGE_INTEGER size)
+{
+    if (state.fault == Fault::SizeQuery || state.fault == Fault::SilentSizeQuery || state.fault == Fault::CancelledSizeQuery) {
+        SetLastError(state.fault == Fault::SizeQuery ? ERROR_ACCESS_DENIED :
+                     state.fault == Fault::SilentSizeQuery ? ERROR_SUCCESS : ERROR_CANCELLED);
+        return FALSE;
+    }
+    const BOOL ok = ::GetFileSizeEx(h, size);
+    if (state.signalCancelOnSize) ::SetEvent(state.signalCancelOnSize);
+    if (ok && state.fault == Fault::NonzeroSize) size->QuadPart = 1;
+    return ok;
+}
+static BOOL MockDeleteFileW(LPCWSTR path) { ++state.pathDeletes; return ::DeleteFileW(path); }
+#define SetFilePointerEx MockSetFilePointerEx
+#define SetEndOfFile MockSetEndOfFile
+#define GetFileSizeEx MockGetFileSizeEx
+#define DeleteFileW MockDeleteFileW
+
+struct FakeDialog { BOOL* CancelWorker = nullptr; HANDLE CancelWorkerEvent = nullptr; };
+struct Operation { const char* TargetName = "fixture"; bool TargetNameWValid = true; std::wstring TargetNameW; };
+struct FakeSession { void Close() { ++state.closedSessions; } };
+struct CThinCopyWorker {
+    FakeDialog& dialog;
+    bool terminal = false, suppressLocalCleanup = false, targetCreatedByBroker = false, dataTransferStarted = false;
+    bool cleanupUncertain = false;
+    FakeSession sessionValue;
+    FakeSession* session = &sessionValue;
+    HWND progress = nullptr;
+    Operation operation;
+    bool Scoped() const { return state.scoped; }
+    bool CancelBeforeElevation();
+    bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);
+    bool CloseScopedTarget(HANDLE& file) {
+        ++state.scopedCloses;
+        if (state.failClose) { file = nullptr; return ReportTargetFailure(ERROR_INVALID_HANDLE); }
+        const BOOL closed = ::CloseHandle(file); file = nullptr; return closed != FALSE;
+    }
+    bool DiscardTarget() { ++state.discards; return state.cleanupSucceeds || ReportTargetFailure(ERROR_PARTIAL_COPY); }
+    bool RefuseUnsafeTargetCleanup() { ++state.refused; return ReportTargetFailure(ERROR_FILE_INVALID); }
+};
+static LRESULT MockSendMessage(HWND, UINT message, WPARAM kind, LPARAM parameter) {
+    if (message == WM_USER_DIALOG && kind == WORKER_DIALOG_UAC_THIN_TERMINAL) {
+        const auto* result = reinterpret_cast<const CThinTerminalFileError*>(parameter);
+        ++state.reports; state.reportedError = result->error; state.reportedCaption = result->caption;
+        state.reportedTarget = result->target ? result->target : "";
+    }
+    if (message == WM_USER_DIALOG && kind == WORKER_DIALOG_UAC_TRANSFER_UNKNOWN) ++state.unknownReports;
+    return 0;
+}
+#undef SendMessage
+#define SendMessage MockSendMessage
+@@HELPER@@
+@@CANCEL@@
+@@REPORT@@
+@@DELETE_MACRO@@
+
+static std::wstring WorkerOperationPathW(const char*, const wchar_t* path) { return path ? path : L""; }
+static void WorkerClearReadOnlyW(const std::wstring&) {}
+static const char* GetErrorText(DWORD) { return "synthetic"; }
+
+static std::string shownText, shownCaption; static unsigned shownFlags = 0;
+static const char* LoadStr(int id) { return id == IDS_UAC_COPY_UNKNOWN ? "unknown" : "native caption"; }
+static int SalMessageBox(HWND, const char* text, const char* caption, unsigned flags) {
+    shownText = text; shownCaption = caption; shownFlags = flags; return IDOK;
+}
+static void RunTerminalDispatch(const CThinTerminalFileError& payload, BOOL CancelWorker = FALSE, HANDLE CancelWorkerEvent = nullptr) {
+    HWND HWindow = nullptr; LPARAM lParam = reinterpret_cast<LPARAM>(&payload);
+    switch (WORKER_DIALOG_UAC_THIN_TERMINAL) {
+@@DISPATCH@@
+    }
+}
+
+struct BranchResult { static constexpr int Continue = 1, Reopen = 2, Error = 0; };
+static int RunBranch(HANDLE& out, HANDLE in, const std::wstring& path, BOOL& skippedAllocation,
+                              CThinCopyWorker& thin)
+{
+    HWND hProgressDlg = nullptr;
+    Operation operation; operation.TargetNameW = path; Operation* op = &operation;
+    BOOL fatal = TRUE, ignoreErr = TRUE;
+    int allocWholeFileOnStart = 0;
+    BOOL skipAllocWholeFileOnStart = FALSE;
+@@FATAL_BRANCH@@
+    (void)allocWholeFileOnStart;
+    skippedAllocation = skipAllocWholeFileOnStart;
+    ++state.continuations;
+    return BranchResult::Continue;
+OPEN_TGT_FILE:
+    skippedAllocation = skipAllocWholeFileOnStart;
+    return BranchResult::Reopen;
+CREATE_ERROR:
+    return BranchResult::Error;
+}
+
+#undef SetFilePointerEx
+#undef SetEndOfFile
+#undef GetFileSizeEx
+#undef DeleteFileW
+
+static bool AppendByte(HANDLE file, bool overlapped)
+{
+    char c = 'x'; DWORD written = 0;
+    if (!overlapped) return ::WriteFile(file, &c, 1, &written, nullptr) && written == 1;
+    OVERLAPPED ov{};
+    ov.hEvent = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!ov.hEvent) return false;
+    BOOL ok = ::WriteFile(file, &c, 1, &written, &ov);
+    if (!ok && GetLastError() == ERROR_IO_PENDING) ok = ::GetOverlappedResult(file, &ov, &written, TRUE);
+    const bool success = ok && written == 1;
+    ::CloseHandle(ov.hEvent);
+    return success;
+}
+static HANDLE CreateTarget(const std::wstring& path, bool overlapped)
+{
+    HANDLE file = ::CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW,
+                                FILE_ATTRIBUTE_NORMAL | (overlapped ? FILE_FLAG_OVERLAPPED : 0), nullptr);
+    if (file == INVALID_HANDLE_VALUE) return file;
+    LARGE_INTEGER length{}; length.QuadPart = 4096;
+    if (!::SetFilePointerEx(file, length, nullptr, FILE_BEGIN) || !::SetEndOfFile(file)) {
+        ::CloseHandle(file); return INVALID_HANDLE_VALUE;
+    }
+    return file;
+}
+static void Check(bool condition, const char* name, int& failures)
+{
+    std::printf("%s %s\n", condition ? "PASS" : "FAIL", name);
+    if (!condition) ++failures;
+}
+int wmain(int argc, wchar_t** argv)
+{
+    if (argc != 2) return 2;
+    const std::wstring root = argv[1]; int failures = 0; int sequence = 0;
+    // Exercise the production terminal-report method, including duplicates and
+    // the UI dispatch extracted from dialogs.cpp. No real window is opened.
+    for (DWORD error : {DWORD(ERROR_ACCESS_DENIED), DWORD(ERROR_SUCCESS), DWORD(ERROR_CANCELLED), DWORD(ERROR_PARTIAL_COPY)}) {
+        BOOL cancel = FALSE; HANDLE event = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        state = {}; FakeDialog dialog{&cancel, event}; CThinCopyWorker thin{dialog};
+        const bool returned = thin.ReportTargetFailure(error, 777);
+        thin.ReportTargetFailure(error, 777);
+        const bool unknown = error == ERROR_PARTIAL_COPY;
+        Check(!returned && thin.terminal && thin.cleanupUncertain && state.closedSessions == 1 &&
+              state.unknownReports == (unknown ? 1 : 0) && state.reports == (unknown ? 0 : 1) &&
+              (unknown || (state.reportedCaption == 777 && state.reportedTarget == "fixture" &&
+               state.reportedError == (error == ERROR_SUCCESS || error == ERROR_CANCELLED ? DWORD(ERROR_GEN_FAILURE) : error))),
+              "terminal report preserves context and emits only one warning", failures);
+        if (event) ::CloseHandle(event);
+    }
+    for (bool eventOnly : {false, true}) {
+        BOOL cancel = eventOnly ? FALSE : TRUE; HANDLE event = ::CreateEventW(nullptr, TRUE, eventOnly, nullptr);
+        state = {}; FakeDialog dialog{&cancel, event}; CThinCopyWorker thin{dialog};
+        thin.ReportTargetFailure(ERROR_ACCESS_DENIED, 777);
+        Check(thin.terminal && state.unknownReports == 1 && !state.reports && state.closedSessions == 1,
+              "cancel reports uncertain cleanup without retry", failures);
+        if (event) ::CloseHandle(event);
+    }
+    shownText.clear(); shownCaption.clear(); shownFlags = 0;
+    const CThinTerminalFileError display{ERROR_ACCESS_DENIED, 777, "fixture", true}; RunTerminalDispatch(display);
+    Check(shownText == "synthetic\n\nfixture" && shownCaption == "native caption" &&
+          shownFlags == (MB_OK | MB_ICONEXCLAMATION), "terminal dispatch preserves title path and error with only OK", failures);
+    const std::string longTarget(3500, 'x');
+    const CThinTerminalFileError longDisplay{ERROR_ACCESS_DENIED, 777, longTarget.c_str(), true};
+    shownText.clear(); shownFlags = 0; RunTerminalDispatch(longDisplay);
+    Check(shownText.rfind("synthetic\n\n", 0) == 0 && shownText.size() < 4096 &&
+          shownText.substr(shownText.size() - 3) == "...", "terminal dispatch bounds and marks a long path", failures);
+    const std::string unicodeTarget = std::string(2999, 'x') + "\xE6\x9D\xB1" + std::string(10, 'x');
+    const CThinTerminalFileError unicodeDisplay{ERROR_ACCESS_DENIED, 777, unicodeTarget.c_str(), true};
+    shownText.clear(); RunTerminalDispatch(unicodeDisplay);
+    Check(shownText == std::string("synthetic\n\n") + std::string(2999, 'x') + "...",
+          "terminal dispatch keeps a complete UTF-8 prefix", failures);
+    for (bool eventOnly : {false, true}) {
+        HANDLE event = ::CreateEventW(nullptr, TRUE, eventOnly, nullptr);
+        shownText.clear(); shownFlags = 0;
+        RunTerminalDispatch(display, eventOnly ? FALSE : TRUE, event);
+        Check(shownText == "unknown" && shownFlags == (MB_OK | MB_ICONEXCLAMATION),
+              "cancel racing an uncertain terminal report still warns", failures);
+        const CThinTerminalFileError cleaned{ERROR_ACCESS_DENIED, 777, "fixture", false};
+        shownText.clear(); shownFlags = 0;
+        RunTerminalDispatch(cleaned, eventOnly ? FALSE : TRUE, event);
+        Check(shownText.empty() && shownFlags == 0, "cancel after verified discard suppresses error", failures);
+        if (event) ::CloseHandle(event);
+    }
+    for (bool asynchronous : {false, true}) {
+        for (bool broker : {false, true}) {
+            const std::wstring path = root + L"\\target-" + std::to_wstring(sequence++) + L".bin";
+            HANDLE out = CreateTarget(path, asynchronous);
+            BOOL cancel = FALSE; HANDLE event = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
+            HANDLE in = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
+            state = {}; state.scoped = true; state.broker = broker; state.expectedTarget = out;
+            FakeDialog dialog{&cancel, event}; CThinCopyWorker thin{dialog}; thin.targetCreatedByBroker = broker;
+            BOOL skip = FALSE;
+            const auto result = out != INVALID_HANDLE_VALUE && event && in ? RunBranch(out, in, path, skip, thin) : BranchResult::Error;
+            LARGE_INTEGER size{}, position{}, zero{};
+            const bool reset = result == BranchResult::Continue && skip && out &&
+                ::GetFileSizeEx(out, &size) && size.QuadPart == 0 &&
+                ::SetFilePointerEx(out, zero, &position, FILE_CURRENT) && position.QuadPart == 0 &&
+                !state.scopedCloses && !state.discards && !state.refused && !state.pathDeletes && state.continuations == 1;
+            const bool writes = reset && AppendByte(out, asynchronous) && ::GetFileSizeEx(out, &size) && size.QuadPart == 1;
+            Check(writes, asynchronous ? (broker ? "broker target resumes overlapped write-only I/O" : "local target resumes overlapped write-only I/O") :
+                                        (broker ? "broker target resumes synchronous write-only I/O" : "local target resumes synchronous write-only I/O"), failures);
+            if (out && out != INVALID_HANDLE_VALUE) ::CloseHandle(out);
+            if (in) ::CloseHandle(in);
+            if (event) ::CloseHandle(event);
+        }
+    }
+    for (Fault fault : {Fault::SeekStart, Fault::Truncate, Fault::SizeQuery, Fault::NonzeroSize, Fault::SeekCurrent, Fault::NonzeroPosition, Fault::Close, Fault::AlreadyStarted}) {
+        for (bool broker : {false, true}) {
+            const std::wstring path = root + L"\\target-" + std::to_wstring(sequence++) + L".bin";
+            HANDLE out = CreateTarget(path, false); HANDLE original = out;
+            BOOL cancel = FALSE; HANDLE event = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
+            HANDLE in = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
+            state = {}; state.scoped = true; state.broker = broker; state.expectedTarget = out;
+            state.failClose = fault == Fault::Close; state.fault = state.failClose ? Fault::SeekStart : fault;
+            FakeDialog dialog{&cancel, event}; CThinCopyWorker thin{dialog}; thin.targetCreatedByBroker = broker;
+            thin.dataTransferStarted = fault == Fault::AlreadyStarted;
+            BOOL skip = FALSE;
+            const auto result = out != INVALID_HANDLE_VALUE && event && in ? RunBranch(out, in, path, skip, thin) : BranchResult::Continue;
+            const bool correctCleanup = fault == Fault::Close ? (!state.discards && !state.refused) :
+                (broker ? state.discards == 1 && !state.refused : state.refused == 1 && !state.discards);
+            Check(result == BranchResult::Error && !state.continuations && !state.pathDeletes && state.scopedCloses == 1 &&
+                  (fault != Fault::AlreadyStarted || state.resetCalls == 0) && correctCleanup &&
+                  ::GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES,
+                  broker ? "failed reset preserves broker target without data continuation" :
+                           "failed reset preserves local target without data continuation", failures);
+            if (fault == Fault::Close && original != INVALID_HANDLE_VALUE) ::CloseHandle(original);
+            if (event) ::CloseHandle(event);
+        }
+    }
+    // Cancel before and during reset: even a successful cleanup may not reopen
+    // a path or resume data transfer. The cleanup outcome here is simulated.
+    for (int cancelCase : {0, 1, 2}) {
+        for (bool cleanupSucceeds : {false, true}) {
+            const std::wstring path = root + L"\\target-" + std::to_wstring(sequence++) + L".bin";
+            HANDLE out = CreateTarget(path, false); BOOL cancel = cancelCase == 0 ? TRUE : FALSE;
+            HANDLE event = ::CreateEventW(nullptr, TRUE, cancelCase == 1 ? TRUE : FALSE, nullptr);
+            HANDLE in = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
+            state = {}; state.scoped = true; state.expectedTarget = out; state.cleanupSucceeds = cleanupSucceeds;
+            if (cancelCase == 2) state.signalCancelOnSize = event;
+            FakeDialog dialog{&cancel, event}; CThinCopyWorker thin{dialog}; thin.targetCreatedByBroker = true;
+            BOOL skip = FALSE;
+            const auto result = out != INVALID_HANDLE_VALUE && event && in ? RunBranch(out, in, path, skip, thin) : BranchResult::Continue;
+            Check(result == BranchResult::Error && thin.terminal && !state.continuations && !state.pathDeletes &&
+                  state.scopedCloses == 1 && state.discards == 1 && state.reports == 0 &&
+                  (cancelCase == 2 ? state.resetCalls > 0 : state.resetCalls == 0) &&
+                  ::GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES,
+                  cleanupSucceeds ? "cancel cannot reopen after successful discard" : "cancel cannot transfer after refused discard", failures);
+            if (event) ::CloseHandle(event);
+        }
+    }
+    // A successful broker discard is simulated; the current broker fails closed.
+    for (Fault fault : {Fault::SizeQuery, Fault::SilentSizeQuery, Fault::CancelledSizeQuery, Fault::NonzeroSize, Fault::NonzeroPosition}) {
+        const std::wstring path = root + L"\\target-" + std::to_wstring(sequence++) + L".bin";
+        HANDLE out = CreateTarget(path, false); BOOL cancel = FALSE;
+        HANDLE event = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        HANDLE in = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        state = {}; state.scoped = true; state.expectedTarget = out;
+        state.cleanupSucceeds = true; state.fault = fault;
+        FakeDialog dialog{&cancel, event}; CThinCopyWorker thin{dialog}; thin.targetCreatedByBroker = true;
+        BOOL skip = FALSE;
+        const auto result = out != INVALID_HANDLE_VALUE && event && in ? RunBranch(out, in, path, skip, thin) : BranchResult::Continue;
+        Check(result == BranchResult::Error && !state.continuations && !state.pathDeletes && state.scopedCloses == 1 &&
+              state.discards == 1 && !state.refused && state.reports == 1 &&
+              state.reportedCaption == IDS_ERRORWRITINGFILE && state.reportedTarget == "fixture" &&
+              state.reportedError == static_cast<DWORD>(fault == Fault::SizeQuery ? ERROR_ACCESS_DENIED :
+                                      fault == Fault::NonzeroSize || fault == Fault::NonzeroPosition ? ERROR_INVALID_DATA : ERROR_GEN_FAILURE) &&
+              ::GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES,
+              "failed reset cannot reopen after simulated successful broker discard", failures);
+        if (event) ::CloseHandle(event);
+    }
+    {
+        const std::wstring path = root + L"\\target-" + std::to_wstring(sequence++) + L".bin";
+        HANDLE out = CreateTarget(path, false); BOOL cancel = FALSE;
+        HANDLE event = ::CreateEventW(nullptr, TRUE, FALSE, nullptr); HANDLE in = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        state = {}; state.scoped = false; state.expectedTarget = out;
+        FakeDialog dialog{&cancel, event}; CThinCopyWorker thin{dialog}; BOOL skip = FALSE;
+        const auto result = out != INVALID_HANDLE_VALUE && event && in ? RunBranch(out, in, path, skip, thin) : BranchResult::Error;
+        Check(result == BranchResult::Reopen && skip && state.pathDeletes == 1 && !state.scopedCloses &&
+              ::GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES,
+              "ordinary path retains delete-and-recreate behavior", failures);
+        if (in) ::CloseHandle(in);
+        if (event) ::CloseHandle(event);
+    }
+    return failures ? 1 : 0;
+}

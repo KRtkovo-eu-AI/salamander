@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Check scoped preallocation reset and failure exit. | Keep the cleanup regression check aligned with handle-based recovery. | #731 | GPT-6 |
 # | 2026-11-12 | Cover deferred source cancellation and safe local retry. | Preserve live targets and reject side-effecting reopen. | #731 | GPT-6 |
 # | 2026-11-12 | Guard scoped-copy cleanup contracts. | Catch reintroduced pathname deletion and unsafe restarts. | #731 | GPT-6 |
 """Structural regression checks; these do not replace actual worker fault tests."""
@@ -32,12 +33,33 @@ class ScopedCleanupContracts(unittest.TestCase):
 
     def test_initial_allocation_cleanup_stops_if_unverified(self):
         worker = section("BOOL DoCopyFile(COperation* op", "BOOL DoMoveFile(")
-        code = worker.split("// try truncating the file to zero", 1)[1].split("script->SetFileStartParams();", 1)[0]
+        code = worker.split("// if possible, allocate the required space for the file", 1)[1].split("script->SetFileStartParams();", 1)[0]
         guard = code.index("if (thin.Scoped())")
-        legacy = code.index("WorkerClearReadOnlyW(")
-        scoped = code[guard:legacy]
-        self.assertIn("!thin.CloseScopedTarget(out) || !THIN_DELETE_TARGET(&thin, FALSE)", scoped)
-        self.assertLess(scoped.index("return FALSE"), scoped.index("goto OPEN_TGT_FILE"))
+        scoped = code[guard:code.index("\n                            else\n#endif", guard)]
+        self.assertIn("!thin.dataTransferStarted && !cancelled", scoped)
+        self.assertIn("ThinCopyResetFailedPreallocation(out)", scoped)
+        self.assertIn("thin.CloseScopedTarget(out)", scoped)
+        self.assertIn("closed && THIN_DELETE_TARGET(&thin, FALSE)", scoped)
+        self.assertIn("WORKER_DIALOG_UAC_THIN_TERMINAL", scoped)
+        self.assertIn("CThinTerminalFileError details{resetError == ERROR_SUCCESS || resetError == ERROR_CANCELLED", scoped)
+        self.assertIn("? ERROR_GEN_FAILURE : resetError", scoped)
+        self.assertIn("return FALSE", scoped)
+        self.assertNotIn("goto OPEN_TGT_FILE", scoped)
+        self.assertNotIn("DeleteFileW", scoped)
+
+    def test_reset_failure_uses_terminal_native_error_dialog(self):
+        dialogs = (Path(__file__).resolve().parents[1] / "dialogs.cpp").read_text(encoding="utf-8-sig")
+        dispatch = dialogs.split("case WORKER_DIALOG_UAC_THIN_TERMINAL:", 1)[1].split("#endif", 1)[0]
+        self.assertIn("GetErrorText(error.error)", dispatch)
+        self.assertIn("MB_OK | MB_ICONEXCLAMATION", dispatch)
+        self.assertNotIn("CFileErrorDlg", dispatch)
+        self.assertNotIn("IDRETRY", dispatch)
+        self.assertNotIn("IDB_SKIP", dispatch)
+        self.assertIn("error.cleanupUncertain", dispatch)
+        self.assertIn("IDS_UAC_COPY_UNKNOWN", dispatch)
+        self.assertIn("CancelWorkerEvent", dispatch)
+        guard = dialogs.split("case WM_USER_DIALOG:", 1)[1].split("if (DelayParallelProgressShow)", 1)[0]
+        self.assertIn("wParam != WORKER_DIALOG_UAC_THIN_TERMINAL", guard)
 
     def test_failed_close_cannot_delete_or_restart(self):
         worker = section("BOOL DoCopyFile(COperation* op", "BOOL DoMoveFile(")

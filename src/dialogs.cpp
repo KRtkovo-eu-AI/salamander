@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Show terminal thin-copy errors without retry controls. | Preserve the native caption, target and error when retry is unsafe. | #731 | GPT-6 |
 // | 2026-11-13 | Distinguish experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
 // | 2026-11-12 | Hand thin F5 completion to the main UI thread. | Complete foreground activation before closing progress. | #731 | GPT-6 |
 // | 2026-11-12 | Return thin F5 progress focus without overriding later input. | Keep the native panel active after a short elevated operation. | #731 | GPT-6 |
@@ -1810,7 +1811,11 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_USER_DIALOG:
     {
         if (CancelWorker && wParam != WORKER_DIALOG_UAC_TREE_RESULT && wParam != WORKER_DIALOG_UAC_TRANSFER_UNKNOWN &&
-            wParam != WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN)
+            wParam != WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN
+#ifdef SAM_UAC_THIN_COPY_TEST
+            && wParam != WORKER_DIALOG_UAC_THIN_TERMINAL
+#endif
+            )
             return TRUE; // other worker prompts are suppressed after cancellation
 
         if (DelayParallelProgressShow)
@@ -2064,6 +2069,38 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                           LoadStr(lParam ? IDS_ERRORMOVE : IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
             break;
         }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+        case WORKER_DIALOG_UAC_THIN_TERMINAL:
+        {
+            const auto& error = *reinterpret_cast<const CThinTerminalFileError*>(lParam);
+            if (CancelWorker || (CancelWorkerEvent && WaitForSingleObject(CancelWorkerEvent, 0) == WAIT_OBJECT_0))
+            {
+                if (error.cleanupUncertain)
+                    SalMessageBox(HWindow, LoadStr(IDS_UAC_COPY_UNKNOWN), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
+                break;
+            }
+            const char* description = GetErrorText(error.error);
+            const char* target = error.target ? error.target : "";
+            // Truncate only on a UTF-8 character boundary; other code pages
+            // may still shorten an unusually long name conservatively.
+            const auto prefix = [](const char* value, size_t limit) {
+                size_t length = strnlen_s(value, limit + 1);
+                if (length <= limit) return length;
+                length = limit;
+                while (length > 0 && (static_cast<unsigned char>(value[length]) & 0xc0) == 0x80) --length;
+                return length;
+            };
+            const size_t descriptionLength = prefix(description, 800);
+            const size_t targetLength = prefix(target, 3000);
+            char text[4096];
+            _snprintf_s(text, _countof(text), _TRUNCATE, "%.*s%s\n\n%.*s%s",
+                        static_cast<int>(descriptionLength), description, description[descriptionLength] ? "..." : "",
+                        static_cast<int>(targetLength), target, target[targetLength] ? "..." : "");
+            SalMessageBox(HWindow, text, LoadStr(error.caption), MB_OK | MB_ICONEXCLAMATION);
+            break;
+        }
+#endif
 
         case WORKER_DIALOG_UAC_TREE_RESULT:
         {

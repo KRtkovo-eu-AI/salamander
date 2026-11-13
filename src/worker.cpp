@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Reuse the exact scoped target after a verified preallocation reset. | Preserve native incremental copying without deleting an uncertain pathname. | #731 | GPT-6 |
 // | 2026-11-13 | Wait for native resume before thin F5 elevation. | Honor pause and cancellation before prompts and broker requests. | #731 | GPT-6 |
 // | 2026-11-13 | Preserve ordinary Retry before any elevated scope. | Track lost source continuity without imposing UAC identity rules on local copying. | #731 | GPT-6 |
 // | 2026-11-13 | Respect prior skip and cancellation before scoped opens. | Preserve native batch decisions without suppressing Retry or conflict probes. | #731 | GPT-6 |
@@ -2403,6 +2404,7 @@ struct CThinCopyWorker
     bool sourceContinuityLost = false;
     bool targetKnown = false;
     bool targetCreatedByBroker = false;
+    bool dataTransferStarted = false;
     bool suppressLocalCleanup = false;
     bool cleanupUncertain = false;
     bool sourceVerified = false;
@@ -2428,6 +2430,20 @@ struct CThinCopyWorker
     bool DiscardTarget();
     void ReleaseTargetPin();
 };
+
+// Called only before data transfer on the still-open target created for this
+// item. Verify the reset instead of deleting and reopening its pathname.
+static bool ThinCopyResetFailedPreallocation(HANDLE file)
+{
+    LARGE_INTEGER zero{}, position{}, size{};
+    if (!SetFilePointerEx(file, zero, &position, FILE_BEGIN)) return false;
+    if (position.QuadPart != 0) { SetLastError(ERROR_INVALID_DATA); return false; }
+    if (!SetEndOfFile(file) || !GetFileSizeEx(file, &size)) return false;
+    if (size.QuadPart != 0) { SetLastError(ERROR_INVALID_DATA); return false; }
+    if (!SetFilePointerEx(file, zero, &position, FILE_CURRENT)) return false;
+    if (position.QuadPart != 0) { SetLastError(ERROR_INVALID_DATA); return false; }
+    return true;
+}
 
 static void ThinCopyTestSignalPreserve(const wchar_t* variable);
 
@@ -7010,11 +7026,13 @@ bool CThinCopyWorker::ReportTargetFailure(DWORD error, int caption)
     if (cleanupUncertain) return false;
     cleanupUncertain = true;
     terminal = true;
+    const bool cancelled = *dialog.CancelWorker ||
+        (dialog.CancelWorkerEvent && WaitForSingleObject(dialog.CancelWorkerEvent, 0) == WAIT_OBJECT_0);
     // No request may follow a terminal uncertainty. Drop all broker-owned
     // pins even when the failure occurred before a discard was accepted.
     // Host duplicates, if any, retain their independent lifetime.
     if (session) session->Close();
-    if (error == ERROR_PARTIAL_COPY || *dialog.CancelWorker)
+    if (error == ERROR_PARTIAL_COPY || cancelled)
     {
         // Ordinary errors are suppressed after cancellation; always deliver
         // the native unknown-result warning when cleanup is uncertain.
@@ -7022,10 +7040,11 @@ bool CThinCopyWorker::ReportTargetFailure(DWORD error, int caption)
     }
     else
     {
-        int answer = IDCANCEL;
-        char* data[] = {reinterpret_cast<char*>(&answer), LoadStr(caption),
-                        operation.TargetName, GetErrorText(error ? error : ERROR_PARTIAL_COPY)};
-        SendMessage(progress, WM_USER_DIALOG, 0, reinterpret_cast<LPARAM>(data));
+        const CThinTerminalFileError details{error == ERROR_SUCCESS || error == ERROR_CANCELLED
+                                                ? ERROR_GEN_FAILURE : error,
+                                            caption, operation.TargetName, true};
+        SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_THIN_TERMINAL,
+                    reinterpret_cast<LPARAM>(&details));
     }
     return false;
 }
@@ -7878,32 +7897,60 @@ COPY_AGAIN:
                                 allocWholeFileOnStart = 2 /* no */; // we will forego further attempts on this target disk
                             }
 
-                            // try truncating the file to zero so closing it does not trigger any unnecessary writes
-                            SetFilePointer(out, 0, NULL, FILE_BEGIN);
-                            SetEndOfFile(out);
-
 #ifdef SAM_UAC_THIN_COPY_TEST
                             if (thin.Scoped())
                             {
-                                if (!thin.CloseScopedTarget(out) || !THIN_DELETE_TARGET(&thin, FALSE))
+                                // Only the first transfer attempt can reuse a
+                                // freshly created target this way. Keep its exact
+                                // handle; require verified reset and no cancellation.
+                                bool cancelled = thin.CancelBeforeElevation();
+                                bool reset = false;
+                                DWORD resetError = ERROR_FILE_INVALID;
+                                if (!thin.dataTransferStarted && !cancelled)
                                 {
+                                    reset = ThinCopyResetFailedPreallocation(out);
+                                    if (!reset) resetError = GetLastError();
+                                    cancelled = thin.CancelBeforeElevation();
+                                }
+                                if (reset && !cancelled)
+                                    skipAllocWholeFileOnStart = TRUE;
+                                else
+                                {
+                                    // Never reopen a pathname after an uncertain reset or
+                                    // cancellation, even if the discard succeeds.
+                                    const bool closed = thin.CloseScopedTarget(out);
+                                    const bool discarded = closed && THIN_DELETE_TARGET(&thin, FALSE);
+                                    if (discarded && !cancelled && !thin.CancelBeforeElevation())
+                                    {
+                                        // Retry requires a new identity-bound target. Until that
+                                        // path is proven safe, report the error without Retry.
+                                        const CThinTerminalFileError details{resetError == ERROR_SUCCESS || resetError == ERROR_CANCELLED
+                                                                                 ? ERROR_GEN_FAILURE : resetError,
+                                                                             IDS_ERRORWRITINGFILE, op->TargetName, false};
+                                        SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_THIN_TERMINAL,
+                                                    reinterpret_cast<LPARAM>(&details));
+                                    }
                                     HANDLES(CloseHandle(in));
                                     return FALSE;
                                 }
-                                skipAllocWholeFileOnStart = TRUE;
-                                goto OPEN_TGT_FILE;
-                            }
-#endif
-                            HANDLES(CloseHandle(out));
-                            out = INVALID_HANDLE_VALUE;
-                            WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL)); // in case it was created as read-only (should never happen) so we can handle it
-                            if (DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()))
-                            {
-                                skipAllocWholeFileOnStart = TRUE;
-                                goto OPEN_TGT_FILE;
                             }
                             else
-                                goto CREATE_ERROR;
+#endif
+                            {
+                                // try truncating the file to zero so closing it does not trigger any unnecessary writes
+                                SetFilePointer(out, 0, NULL, FILE_BEGIN);
+                                SetEndOfFile(out);
+                                HANDLES(CloseHandle(out));
+                                out = INVALID_HANDLE_VALUE;
+                                WorkerClearReadOnlyW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL)); // in case it was created as read-only (should never happen) so we can handle it
+                                if (DeleteFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()))
+                                {
+                                    skipAllocWholeFileOnStart = TRUE;
+                                    goto OPEN_TGT_FILE;
+                                }
+                                else
+                                    goto CREATE_ERROR;
+                            }
                         }
                     }
 
@@ -7912,6 +7959,11 @@ COPY_AGAIN:
                     BOOL copyError = FALSE;
                     BOOL skipCopy = FALSE;
                     BOOL copyAgain = FALSE;
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    // Sticky across COPY_AGAIN / the Lantastic retry: reset
+                    // reuse is permitted only before the first transfer.
+                    thin.dataTransferStarted = true;
+#endif
                     if (useAsyncAlg)
                     {
                         DoCopyFileLoopAsync(asyncPar, in, out, buffer, limitBufferSize, script, dlgData, wholeFileAllocated, op,

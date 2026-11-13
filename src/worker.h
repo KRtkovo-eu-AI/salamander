@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Carry terminal thin-copy error details. | Preserve context without offering unsupported retries. | #731 | GPT-6 |
 // | 2026-11-12 | Select ready conflicts without allocating queues. | Keep the coordinator consistent under memory pressure. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Carry owned prompt data and allocation errors. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Define typed overwrite prompt payload. | Own the native dialog text across modal dispatch. | #731 | GPT-6 (Codex) |
@@ -104,6 +105,16 @@ constexpr WPARAM WORKER_DIALOG_UAC_TREE_RESULT = 16;
 constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER_UNKNOWN = 17;
 constexpr WPARAM WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN = 19;
 constexpr WPARAM WORKER_DIALOG_UAC_OVERWRITE_PROBE = 20;
+#ifdef SAM_UAC_THIN_COPY_TEST
+constexpr WPARAM WORKER_DIALOG_UAC_THIN_TERMINAL = 21;
+struct CThinTerminalFileError
+{
+    DWORD error;
+    int caption;
+    const char* target;
+    bool cleanupUncertain;
+};
+#endif
 
 // Worker-owned during a synchronous typed prompt; the UI copies all strings
 // before entering the modal loop and never retains this object afterwards.
