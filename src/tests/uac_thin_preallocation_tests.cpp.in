@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise terminal warnings for uncertain cleanup. | Preserve the path and reason while explaining an unconfirmed copy. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise failed preallocation recovery on exact scoped targets. | Verify safe reuse and fail-closed handling without pathname deletion. | #731 | GPT-6 |
 #include <windows.h>
 #include <cstdio>
@@ -74,6 +75,7 @@ struct CThinCopyWorker {
     bool cleanupUncertain = false;
     FakeSession sessionValue;
     FakeSession* session = &sessionValue;
+    void* request = nullptr;
     HWND progress = nullptr;
     Operation operation;
     bool Scoped() const { return state.scoped; }
@@ -203,18 +205,21 @@ int wmain(int argc, wchar_t** argv)
     }
     shownText.clear(); shownCaption.clear(); shownFlags = 0;
     const CThinTerminalFileError display{ERROR_ACCESS_DENIED, 777, "fixture", true}; RunTerminalDispatch(display);
-    Check(shownText == "synthetic\n\nfixture" && shownCaption == "native caption" &&
+    Check(shownText == "synthetic\n\nfixture\n\nunknown" && shownCaption == "native caption" &&
           shownFlags == (MB_OK | MB_ICONEXCLAMATION), "terminal dispatch preserves title path and error with only OK", failures);
     const std::string longTarget(3500, 'x');
     const CThinTerminalFileError longDisplay{ERROR_ACCESS_DENIED, 777, longTarget.c_str(), true};
     shownText.clear(); shownFlags = 0; RunTerminalDispatch(longDisplay);
     Check(shownText.rfind("synthetic\n\n", 0) == 0 && shownText.size() < 4096 &&
-          shownText.substr(shownText.size() - 3) == "...", "terminal dispatch bounds and marks a long path", failures);
+          shownText.substr(shownText.size() - 12) == "...\n\nunknown", "terminal dispatch bounds and marks a long path", failures);
     const std::string unicodeTarget = std::string(2999, 'x') + "\xE6\x9D\xB1" + std::string(10, 'x');
     const CThinTerminalFileError unicodeDisplay{ERROR_ACCESS_DENIED, 777, unicodeTarget.c_str(), true};
     shownText.clear(); RunTerminalDispatch(unicodeDisplay);
-    Check(shownText == std::string("synthetic\n\n") + std::string(2999, 'x') + "...",
+    Check(shownText == std::string("synthetic\n\n") + std::string(2999, 'x') + "...\n\nunknown",
           "terminal dispatch keeps a complete UTF-8 prefix", failures);
+    shownText.clear();
+    RunTerminalDispatch({ERROR_ACCESS_DENIED, 777, "fixture", false});
+    Check(shownText == "synthetic\n\nfixture", "verified cleanup does not claim an uncertain result", failures);
     for (bool eventOnly : {false, true}) {
         HANDLE event = ::CreateEventW(nullptr, TRUE, eventOnly, nullptr);
         shownText.clear(); shownFlags = 0;

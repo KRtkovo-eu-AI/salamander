@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Explain uncertain thin-copy cleanup in terminal errors. | Tell users to check a retained destination without weakening identity checks. | #731 | GPT-6 |
 // | 2026-11-13 | Identify accepted thin batch scope. | Preserve consent only when the scope was actually displayed. | #731 | GPT-6 |
 // | 2026-11-13 | Report transfer prompt allocation failures. | Distinguish low memory from a user's refusal. | #731 | GPT-6 |
 // | 2026-11-13 | Show terminal thin-copy errors without retry controls. | Preserve the native caption, target and error when retry is unsafe. | #731 | GPT-6 |
@@ -2136,10 +2137,14 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
             };
             const size_t descriptionLength = prefix(description, 800);
             const size_t targetLength = prefix(target, 3000);
+            const char* warning = error.cleanupUncertain ? LoadStr(IDS_UAC_COPY_UNKNOWN) : "";
+            const size_t warningLength = prefix(warning, 240);
             char text[4096];
-            _snprintf_s(text, _countof(text), _TRUNCATE, "%.*s%s\n\n%.*s%s",
+            _snprintf_s(text, _countof(text), _TRUNCATE, "%.*s%s\n\n%.*s%s%s%.*s%s",
                         static_cast<int>(descriptionLength), description, description[descriptionLength] ? "..." : "",
-                        static_cast<int>(targetLength), target, target[targetLength] ? "..." : "");
+                        static_cast<int>(targetLength), target, target[targetLength] ? "..." : "",
+                        warningLength ? "\n\n" : "", static_cast<int>(warningLength), warning,
+                        warning[warningLength] ? "..." : "");
             SalMessageBox(HWindow, text, LoadStr(error.caption), MB_OK | MB_ICONEXCLAMATION);
             break;
         }
