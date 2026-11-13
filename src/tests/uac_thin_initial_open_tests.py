@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Check resume waits around scoped elevation. | Detect pause regression before preparation, consent and broker I/O. | #731 | GPT-6 |
 # | 2026-11-13 | Test sticky source continuity before elevation. | Keep ordinary Retry behavior without trusting a changed source later. | #731 | GPT-6 |
 # | 2026-11-13 | Test initial scoped open decisions and cancellation. | Preserve Skip All without suppressing native Retry and probe paths. | #731 | GPT-6 |
 """Test extracted thin-open logic, not complete DoCopyFile or actual UAC."""
@@ -37,13 +38,15 @@ def main():
     begin = worker.index("HANDLE CThinCopyWorker::Open(")
     end = worker.index("HANDLE CThinCopyWorker::CancelReceivedHandle(", begin)
     open_code = worker[begin:end]
-    before_prepare = open_code.index("CancelBeforeElevation()")
+    before_prepare = open_code.index("WaitBeforeElevation()")
     prepare = open_code.index("if (!EnsurePrepared())")
     prompt = open_code.index("SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER")
     after_prompt = open_code.index("CancelBeforeElevation()", prompt)
-    broker = open_code.index("session->Open(progress", after_prompt)
-    if not before_prepare < prepare < prompt < after_prompt < broker:
-        raise RuntimeError("Initial cancellation is not checked before preparation and before the broker call")
+    before_prompt = open_code.rfind("WaitBeforeElevation()", prepare, prompt)
+    before_broker = open_code.index("WaitBeforeElevation()", after_prompt)
+    broker = open_code.index("session->Open(progress", before_broker)
+    if not before_prepare < prepare < before_prompt < prompt < after_prompt < before_broker < broker:
+        raise RuntimeError("Pause/cancellation is not checked before preparation, prompt and broker")
     template = (ROOT / "src/tests/uac_thin_initial_open_tests.cpp.in").read_text(encoding="utf-8")
     code = (template.replace("@@PHASE@@", phase).replace("@@METHODS@@", methods)
             .replace("@@PREPARATION@@", preparation).replace("@@REMEMBER_SOURCE@@", remember)
@@ -72,7 +75,7 @@ def main():
     print("worker.cpp SHA-256:", before)
     print("Actual extracted phase enum, cancellation guard, preparation, source identity tracking, open wrapper and macros;")
     print("broker preparation and identity are deterministic stubs.")
-    print("Open() cancellation placement is checked structurally; this does not run DoCopyFile or UAC.")
+    print("Open() pause/cancellation placement is checked structurally; this does not run DoCopyFile or UAC.")
     return 0
 
 

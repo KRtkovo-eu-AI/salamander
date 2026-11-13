@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Wait for native resume before thin F5 elevation. | Honor pause and cancellation before prompts and broker requests. | #731 | GPT-6 |
 // | 2026-11-13 | Preserve ordinary Retry before any elevated scope. | Track lost source continuity without imposing UAC identity rules on local copying. | #731 | GPT-6 |
 // | 2026-11-13 | Respect prior skip and cancellation before scoped opens. | Preserve native batch decisions without suppressing Retry or conflict probes. | #731 | GPT-6 |
 // | 2026-11-13 | Preserve native plain-copy attribute failure behavior. | Do not fail a completed scoped copy when ordinary attribute setting is ignored. | #731 | GPT-6 |
@@ -2415,6 +2416,7 @@ struct CThinCopyWorker
     bool EnsurePrepared();
     HANDLE Open(UacF7::ThinOpenKind kind, bool overlapped);
     bool CancelBeforeElevation();
+    bool WaitBeforeElevation();
     HANDLE CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received);
     void RememberSource(HANDLE file, bool force = false);
     void RememberTarget(HANDLE file, bool force = false);
@@ -2441,6 +2443,39 @@ bool CThinCopyWorker::CancelBeforeElevation()
     }
     terminal = true;
     SetLastError(ERROR_CANCELLED);
+    return true;
+}
+
+bool CThinCopyWorker::WaitBeforeElevation()
+{
+    const DWORD savedError = GetLastError();
+    if (CancelBeforeElevation())
+        return false;
+    // These events belong to the native progress worker. Without both,
+    // neither a paused job nor cancellation can be observed safely.
+    if (!dialog.CancelWorkerEvent || !dialog.WorkerNotSuspended)
+    {
+        SetLastError(ERROR_INVALID_HANDLE);
+        return false;
+    }
+    const HANDLE events[] = {dialog.CancelWorkerEvent, dialog.WorkerNotSuspended};
+    const DWORD wait = WaitForMultipleObjects(2, events, FALSE, INFINITE);
+    if (wait == WAIT_OBJECT_0)
+    {
+        terminal = true;
+        SetLastError(ERROR_CANCELLED);
+        return false;
+    }
+    if (wait != WAIT_OBJECT_0 + 1)
+    {
+        if (wait != WAIT_FAILED)
+            SetLastError(ERROR_GEN_FAILURE);
+        return false;
+    }
+    // Cancel may be signalled alongside resume or just after the wait.
+    if (CancelBeforeElevation())
+        return false;
+    SetLastError(savedError);
     return true;
 }
 
@@ -6794,7 +6829,7 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
         SetLastError(ERROR_OPERATION_ABORTED);
         return INVALID_HANDLE_VALUE;
     }
-    if (CancelBeforeElevation())
+    if (!WaitBeforeElevation())
         return INVALID_HANDLE_VALUE;
     if (!EnsurePrepared())
         return INVALID_HANDLE_VALUE;
@@ -6836,6 +6871,13 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
             }
             if (!planned)
             {
+                if (!WaitBeforeElevation())
+                {
+                    const DWORD waitError = GetLastError();
+                    sessions.erase(it);
+                    SetLastError(waitError);
+                    return INVALID_HANDLE_VALUE;
+                }
                 const auto source = SalWideToMultiBytePath(
                     SalPathRemoveExtendedPrefixW(operation.SourceNameW.c_str()).c_str(), CP_UTF8);
                 const auto targetPath = SalWideToMultiBytePath(
@@ -6856,9 +6898,9 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
         }
         session = &*it;
     }
-    // Cancellation may arrive while the native Administrator dialog is open.
-    // Do not start the system elevation after the user has already cancelled.
-    if (CancelBeforeElevation())
+    // Pause or cancellation may arrive while the native dialog is open.
+    // Do not start the broker until the worker is resumed and not cancelled.
+    if (!WaitBeforeElevation())
         return INVALID_HANDLE_VALUE;
     const HANDLE openedSource = kind == UacF7::ThinOpenKind::Source
         ? INVALID_HANDLE_VALUE : *sourceHandle;

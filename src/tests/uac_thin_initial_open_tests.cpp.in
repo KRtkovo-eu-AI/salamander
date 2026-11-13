@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Include the native resume-wait method in the extracted harness. | Keep scoped open tests aligned with worker synchronization. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise ordinary Retry and sticky source continuity. | Reject later elevation after unknown or changed identity without breaking local copy. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise initial F5 skip and cancellation decisions. | Distinguish initial opens from Retry and metadata probes. | #731 | GPT-6 |
 #include <windows.h>
@@ -41,7 +42,7 @@ struct FakeOperation { DWORD OpFlags = 0; std::wstring SourceNameW, TargetNameW;
 struct FakeScript {};
 struct FakeListed { std::unique_ptr<UacF7::PreparedTransfer> Request; };
 static const FakeListed* ListedTransferSource(const FakeOperation&, const FakeScript&) { return nullptr; }
-struct FakeDialog { BOOL* CancelWorker = nullptr; HANDLE CancelWorkerEvent = nullptr; BOOL SkipAllFileOpenIn = FALSE, SkipAllFileOpenOut = FALSE; };
+struct FakeDialog { BOOL* CancelWorker = nullptr; HANDLE CancelWorkerEvent = nullptr, WorkerNotSuspended = nullptr; BOOL SkipAllFileOpenIn = FALSE, SkipAllFileOpenOut = FALSE; };
 struct CThinCopyWorker {
     FakeOperation operation;
     FakeScript script;
@@ -59,6 +60,7 @@ struct CThinCopyWorker {
     HANDLE opened = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(17));
     DWORD openedError = ERROR_SUCCESS;
     bool CancelBeforeElevation();
+    bool WaitBeforeElevation();
     bool SourceContinuityAllowsElevation() const;
     bool EnsurePrepared();
     HANDLE Open(UacF7::ThinOpenKind kind, bool overlapped) {
