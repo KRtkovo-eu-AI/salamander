@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Handle thin-copy prompt allocation failure. | Preserve earlier sessions and return the actual low-memory error. | #731 | GPT-6 |
 // | 2026-11-13 | Reuse the exact scoped target after a verified preallocation reset. | Preserve native incremental copying without deleting an uncertain pathname. | #731 | GPT-6 |
 // | 2026-11-13 | Wait for native resume before thin F5 elevation. | Honor pause and cancellation before prompts and broker requests. | #731 | GPT-6 |
 // | 2026-11-13 | Preserve ordinary Retry before any elevated scope. | Track lost source continuity without imposing UAC identity rules on local copying. | #731 | GPT-6 |
@@ -6871,8 +6872,17 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
     if (!session)
     {
         auto& sessions = dialog.ThinCopyJobs;
-        auto it = std::find_if(sessions.begin(), sessions.end(),
-            [&](const UacF7::ThinCopySession& item) { return item.IsOpen() && item.Matches(*request); });
+        decltype(sessions.begin()) it;
+        try
+        {
+            it = std::find_if(sessions.begin(), sessions.end(),
+                [&](const UacF7::ThinCopySession& item) { return item.IsOpen() && item.Matches(*request); });
+        }
+        catch (const std::bad_alloc&)
+        {
+            SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+            return INVALID_HANDLE_VALUE;
+        }
         if (it == sessions.end())
         {
             try { it = sessions.emplace(sessions.end()); }
@@ -6894,20 +6904,31 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
                     SetLastError(waitError);
                     return INVALID_HANDLE_VALUE;
                 }
-                const auto source = SalWideToMultiBytePath(
-                    SalPathRemoveExtendedPrefixW(operation.SourceNameW.c_str()).c_str(), CP_UTF8);
-                const auto targetPath = SalWideToMultiBytePath(
-                    SalPathRemoveExtendedPrefixW(operation.TargetNameW.c_str()).c_str(), CP_UTF8);
-                UacF7::TransferPrompt prompt{*request, source.c_str(), targetPath.c_str(),
-                    kind != UacF7::ThinOpenKind::Source};
-                prompt.kind = UacF7::TransferPromptKind::ThinPlainCopy;
-                SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER,
-                            reinterpret_cast<LPARAM>(&prompt));
-                if (!prompt.approved || CancelBeforeElevation())
+                try
                 {
+                    const auto source = SalWideToMultiBytePath(
+                        SalPathRemoveExtendedPrefixW(operation.SourceNameW.c_str()).c_str(), CP_UTF8);
+                    const auto targetPath = SalWideToMultiBytePath(
+                        SalPathRemoveExtendedPrefixW(operation.TargetNameW.c_str()).c_str(), CP_UTF8);
+                    UacF7::TransferPrompt prompt{*request, source.c_str(), targetPath.c_str(),
+                        kind != UacF7::ThinOpenKind::Source};
+                    prompt.kind = UacF7::TransferPromptKind::ThinPlainCopy;
+                    SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER,
+                                reinterpret_cast<LPARAM>(&prompt));
+                    if (!prompt.approved || CancelBeforeElevation())
+                    {
+                        sessions.erase(it);
+                        terminal = true;
+                        SetLastError(ERROR_CANCELLED);
+                        return INVALID_HANDLE_VALUE;
+                    }
+                }
+                catch (const std::bad_alloc&)
+                {
+                    // No broker has been started for this new entry. Preserve
+                    // other batch sessions and report allocation failure.
                     sessions.erase(it);
-                    terminal = true;
-                    SetLastError(ERROR_CANCELLED);
+                    SetLastError(ERROR_NOT_ENOUGH_MEMORY);
                     return INVALID_HANDLE_VALUE;
                 }
             }
