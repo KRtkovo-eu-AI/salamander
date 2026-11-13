@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Keep target continuity loss sticky across Retry. | Prevent later matching opens from clearing the cleanup guard. | #731 | gpt-6.1-terra |
 // | 2026-11-13 | Exercise target continuity before elevation. | Refuse replacements and preserve their cleanup boundary. | #731 | GPT-6 |
 // | 2026-11-13 | Include the native resume-wait method in the extracted harness. | Keep scoped open tests aligned with worker synchronization. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise ordinary Retry and sticky source continuity. | Reject later elevation after unknown or changed identity without breaking local copy. | #731 | GPT-6 |
@@ -370,11 +371,41 @@ int wmain(int argc, wchar_t** argv) {
               pending.targetContinuityLost && pending.suppressLocalCleanup && closeCalls == beforeClose + 1,
               missingIdentity ? "unverifiable pending target is not returned" :
                                 "replacement pending target is not returned", failures);
+        const int beforeSecondClose = closeCalls;
+        output = ThinCopyOpened(&pending, same, UacF7::ThinOpenKind::TargetRetry, false, ThinOpenPhase::Retry);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID &&
+              pending.targetContinuityLost && pending.suppressLocalCleanup && closeCalls == beforeSecondClose + 1,
+              "later matching target cannot clear prior continuity loss", failures);
         int localDeletes = 0;
         Check(!THIN_DELETE_TARGET(&pending, (++localDeletes, true)) && !localDeletes && pending.refusedCleanup == 1,
               "pending target mismatch never deletes a pathname", failures);
         Check(!pending.EnsurePrepared() && GetLastError() == ERROR_FILE_INVALID,
               "target mismatch permanently prevents elevation", failures);
+    }
+    {
+        CThinCopyWorker observed; observed.dialog.CancelWorker = &cancelled;
+        observed.request = std::make_unique<UacF7::PreparedTransfer>();
+        observed.session = &existing;
+        observed.RememberTarget(original, true);
+        observed.RememberTarget(changed, true);
+        HANDLE output = ThinCopyOpened(&observed, changed, UacF7::ThinOpenKind::TargetRetry, false, ThinOpenPhase::Retry);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID &&
+              observed.targetContinuityLost && observed.suppressLocalCleanup,
+              "remembering a replacement cannot authorize its later reopen", failures);
+    }
+    {
+        CThinCopyWorker scoped; scoped.dialog.CancelWorker = &cancelled;
+        scoped.request = std::make_unique<UacF7::PreparedTransfer>();
+        scoped.session = &existing; scoped.scopeMayHaveStarted = true;
+        scoped.RememberTarget(original, true);
+        HANDLE output = ThinCopyOpened(&scoped, changed, UacF7::ThinOpenKind::TargetRetry, false, ThinOpenPhase::Retry);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID &&
+              scoped.targetContinuityLost && scoped.suppressLocalCleanup,
+              "scoped target mismatch marks continuity loss", failures);
+        output = ThinCopyOpened(&scoped, same, UacF7::ThinOpenKind::TargetRetry, false, ThinOpenPhase::Retry);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID &&
+              scoped.targetContinuityLost && scoped.suppressLocalCleanup,
+              "scoped target cannot recover continuity after a mismatch", failures);
     }
     {
         CThinCopyWorker pending; pending.dialog.CancelWorker = &cancelled;

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Preserve target identity loss across Retry. | Prevent later opens from clearing the cleanup guard. | #731 | gpt-6.1-terra |
 // | 2026-11-13 | Reject unobservable cancellation after handle delivery. | Close received handles when the worker cannot check cancellation. | #731 | GPT-6 |
 // | 2026-11-13 | Retain displayed batch consent after proven prelaunch failure. | Avoid repeating approval on the next matching native F5 item. | #731 | GPT-6 |
 // | 2026-11-13 | Give experimental F5 item custody of the planned job. | Preserve scope and lifetime across native worker I/O. | #731 | GPT-6 |
@@ -7294,11 +7295,13 @@ void CThinCopyWorker::RememberTarget(HANDLE file, bool force)
 bool CThinCopyWorker::ValidateRetriedTarget(HANDLE file)
 {
     UacF7::MoveFileIdentity actual{};
-    const bool same = targetKnown && UacF7::CaptureMoveFileIdentity(file, actual) &&
+    const bool same = !targetContinuityLost && targetKnown && UacF7::CaptureMoveFileIdentity(file, actual) &&
         actual.serial == target.serial && std::memcmp(actual.id, target.id, sizeof(target.id)) == 0;
     // The failed reopen may have opened a replacement (or OPEN_ALWAYS may
     // have created one). Never delete that unverified path during cleanup.
-    suppressLocalCleanup = !same;
+    if (!same)
+        targetContinuityLost = true;
+    suppressLocalCleanup = suppressLocalCleanup || !same;
     return same;
 }
 
