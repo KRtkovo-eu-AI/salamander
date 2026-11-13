@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Preserve uncertain thin-copy targets and report unknown completion. | Avoid unsafe cleanup and duplicate dialogs. | #731 | GPT-6 |
 // | 2026-11-13 | Distinguish experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
 // | 2026-11-12 | Observe test-only native read fault and Retry. | Distinguish injected failure from a worker-accepted Retry without changing production flow. | #731 | GPT-6 |
 // | 2026-11-12 | Keep target Retry on its recorded identity. | Do not assume a missing broker target was recreated. | #731 | GPT-6 |
@@ -6783,8 +6784,9 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
         UacF7::ThinOpenedSource{openedSource}, UacF7::ThinCancelEvent{dialog.CancelWorkerEvent});
     if (result.unknown)
     {
-        terminal = true;
-        SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, FALSE);
+        // A lost reply can also mean the broker created the target. Preserve
+        // it and report an unknown result rather than guessing cleanup is safe.
+        ReportTargetFailure(ERROR_PARTIAL_COPY);
         SetLastError(ERROR_PARTIAL_COPY);
         return INVALID_HANDLE_VALUE;
     }
@@ -6879,10 +6881,10 @@ bool CThinCopyWorker::ReportTargetFailure(DWORD error, int caption)
     if (cleanupUncertain) return false;
     cleanupUncertain = true;
     terminal = true;
-    if (*dialog.CancelWorker)
+    if (error == ERROR_PARTIAL_COPY || *dialog.CancelWorker)
     {
-        // Generic worker errors are suppressed while cancellation is active;
-        // the existing unknown-result warning remains deliverable.
+        // Ordinary errors are suppressed after cancellation; always deliver
+        // the native unknown-result warning when cleanup is uncertain.
         SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, FALSE);
     }
     else

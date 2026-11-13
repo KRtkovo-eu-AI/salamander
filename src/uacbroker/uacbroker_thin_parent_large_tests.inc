@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Preserve uncertain large-parent targets. | Verify fail-closed cleanup over the dispatcher. | #731 | GPT-6 |
 // | 2026-11-12 | Exercise large thin-copy parents through the real dispatcher. | Check cursor isolation and cancellation before target creation. | #731 | GPT-6 |
 
 void CheckThinLargeParent(const Directory& source, const Directory& target)
@@ -85,9 +86,8 @@ void CheckThinLargeParent(const Directory& source, const Directory& target)
                   "large-parent target accepts the approved worker write");
             output.reset();
             Check(job.Thin(parent, leaf, sourceId, target, L"thin-large-target.txt", Operation::ThinDiscardTarget,
-                &createdId, false, status, reply) && !status &&
-                GetFileAttributesW(targetPath.c_str()) == INVALID_FILE_ATTRIBUTES,
-                "large-parent target can be cleaned up by its exact identity");
+                &createdId, false, status, reply) && status == ERROR_PARTIAL_COPY && HasByte(targetPath, 0x5a),
+                "large-parent target is preserved when cleanup continuity is uncertain");
         }
         job.Finish();
 

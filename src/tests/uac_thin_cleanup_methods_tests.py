@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Exercise uncertain thin opens and cleanup through the native warning. | Avoid duplicate or suppressed alerts without passing pointers. | #731 | GPT-6 |
 # | 2026-11-12 | Cover deferred source cancellation and safe local retry. | Preserve live targets and reject side-effecting reopen. | #731 | GPT-6 |
 # | 2026-11-12 | Exercise scoped cleanup state transitions. | Test failure handling with the actual helper methods and deterministic stubs. | #731 | GPT-6 |
 """Test extracted cleanup methods; this is not a full DoCopyFile test."""
@@ -31,8 +32,20 @@ def main():
                     worker.index("void CThinCopyWorker::RememberSource(")]
     local_retry = worker[worker.index("static HANDLE ThinCopyOpenLocalRetry("):
                          worker.index("#define THIN_REMEMBER_SOURCE")]
+    dialogs = read("src/dialogs.cpp")
+    start = dialogs.index("        case WORKER_DIALOG_UAC_TRANSFER_UNKNOWN:")
+    end = dialogs.index("        case WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN:", start)
+    warning = dialogs[start:end]
+    start = worker.index("    if (result.unknown)", worker.index("HANDLE CThinCopyWorker::Open("))
+    end = worker.index("    if (result.declined", start)
+    open_unknown = worker[start:end]
+    start = dialogs.index("        if (CancelWorker && wParam != WORKER_DIALOG_UAC_TREE_RESULT")
+    end = dialogs.index("\n", dialogs.index("return TRUE;", start))
+    gate = dialogs[start:end]
     code = (template.replace("@@METHODS@@", methods).replace("@@CANCEL_METHOD@@", cancel)
-            .replace("@@LOCAL_RETRY@@", local_retry).replace("@@MACRO@@", macro))
+            .replace("@@LOCAL_RETRY@@", local_retry).replace("@@MACRO@@", macro)
+            .replace("@@WARNING_CASE@@", warning).replace("@@OPEN_UNKNOWN@@", open_unknown)
+            .replace("@@CANCEL_GATE@@", gate))
     assert "@@" not in code
     env = compiler_environment()
     compiler = shutil.which("cl", path=env.get("PATH"))

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Cover uncertain thin opens and cleanup warnings. | Preserve cancellation reporting and prevent duplicate alerts. | #731 | GPT-6 |
 // | 2026-11-12 | Allocate the test fixture path buffer on the heap. | Avoid a large stack frame in the native probe. | #731 | GPT-6 |
 // | 2026-11-12 | Cover deferred source cancellation and safe local retry. | Preserve live targets and reject side-effecting reopen. | #731 | GPT-6 |
 // | 2026-11-12 | Exercise scoped cleanup state transitions. | Check uncertain close and broker cleanup outcomes without a GUI. | #731 | GPT-6 |
@@ -9,9 +10,12 @@
 #include <string>
 #include <vector>
 #include <cstdio>
+#define SAM_UAC_THIN_COPY_TEST
 
-constexpr int IDS_ERRORDELETINGFILE = 1;
+constexpr int IDS_ERRORDELETINGFILE = 1, IDS_UAC_COPY_UNKNOWN = 2, IDS_UAC_MOVE_UNKNOWN = 3,
+              IDS_ERRORCOPY = 4, IDS_ERRORMOVE = 5;
 constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER_UNKNOWN = 17;
+constexpr WPARAM WORKER_DIALOG_UAC_TREE_RESULT = 16, WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN = 19;
 constexpr UINT WM_TEST_DIALOG = 0x8001;
 #undef WM_USER_DIALOG
 #define WM_USER_DIALOG WM_TEST_DIALOG
@@ -26,9 +30,30 @@ static BOOL MockClose(HANDLE file) {
 }
 #define CloseHandle MockClose
 #define HANDLES(x) (x)
-static char* LoadStr(int) { static char text[] = "failure"; return text; }
-static char* GetErrorText(DWORD) { static char text[] = "error"; return text; }
-static LRESULT MockSendMessage(HWND, UINT, WPARAM kind, LPARAM) { ++messages; lastKind = static_cast<int>(kind); return 0; }
+static char* LoadStr(int id) {
+    static char copy[] = "The copy could not be confirmed as complete. Check the destination before retrying.";
+    static char move[] = "move-unknown";
+    static char generic[] = "failure";
+    return id == IDS_UAC_COPY_UNKNOWN ? copy : id == IDS_UAC_MOVE_UNKNOWN ? move : generic;
+}
+static int systemErrors = 0;
+static char* GetErrorText(DWORD) { ++systemErrors; static char text[] = "error"; return text; }
+static BOOL* currentCancellation = nullptr;
+static std::string warningText;
+static UINT warningFlags = 0;
+static int SalMessageBox(HWND, const char* text, const char*, UINT flags) {
+    warningText = text; warningFlags = flags; return IDOK;
+}
+static LRESULT MockSendMessage(HWND HWindow, UINT, WPARAM wParam, LPARAM lParam) {
+    ++messages; lastKind = static_cast<int>(wParam);
+    const BOOL CancelWorker = currentCancellation && *currentCancellation;
+    @@CANCEL_GATE@@
+    switch (wParam) {
+        @@WARNING_CASE@@
+        default: break;
+    }
+    return 0;
+}
 #undef SendMessage
 #define SendMessage MockSendMessage
 struct FakeSession {
@@ -38,6 +63,7 @@ struct FakeSession {
 };
 struct FakeOperation { char* TargetName; bool TargetNameWValid = false; std::wstring TargetNameW; };
 struct FakeDialog { BOOL* CancelWorker; };
+struct FakeResult { bool unknown; DWORD error; };
 namespace UacF7 { enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe }; }
 struct CThinCopyWorker {
     FakeOperation operation;
@@ -48,8 +74,9 @@ struct CThinCopyWorker {
     int target = 0;
     bool active = true, cleanupUncertain = false, terminal = false;
     bool targetCreatedByBroker = false, targetKnown = false, suppressLocalCleanup = false;
-    explicit CThinCopyWorker(BOOL* cancelled) : operation{const_cast<char*>("fixture")}, dialog{cancelled} {}
+    explicit CThinCopyWorker(BOOL* cancelled) : operation{const_cast<char*>("fixture")}, dialog{cancelled} { currentCancellation = cancelled; }
     bool Scoped() const { return active && session != nullptr; }
+    HANDLE SimulateOpenResult(FakeResult result);
     HANDLE CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received);
     bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);
     bool CloseScopedTarget(HANDLE& file);
@@ -57,6 +84,10 @@ struct CThinCopyWorker {
     bool DiscardTarget();
 };
 @@METHODS@@
+HANDLE CThinCopyWorker::SimulateOpenResult(FakeResult result) {
+@@OPEN_UNKNOWN@@
+    return nullptr;
+}
 @@CANCEL_METHOD@@
 #define HANDLES_Q(x) (x)
 static std::wstring WorkerOperationPathW(const char*, const wchar_t* exact) { return exact ? exact : L""; }
@@ -109,6 +140,57 @@ int main()
         Check(!THIN_DELETE_TARGET(&item, LocalDelete()) && !broker.calls && !localDeletes && item.terminal,
               "missing target identity never requests deletion", failures);
     }
+    for (BOOL cancel : {FALSE, TRUE})
+    {
+        broker.calls = 0; broker.result = ERROR_PARTIAL_COPY; messages = 0; systemErrors = 0;
+        warningText.clear(); warningFlags = 0; cancelled = cancel;
+        CThinCopyWorker item(&cancelled); item.session = &broker; item.request = std::make_unique<int>(1);
+        item.targetCreatedByBroker = item.targetKnown = true;
+        Check(!item.DiscardTarget() && item.terminal && item.cleanupUncertain && broker.calls == 1 &&
+              messages == 1 && lastKind == static_cast<int>(WORKER_DIALOG_UAC_TRANSFER_UNKNOWN) &&
+              warningText == LoadStr(IDS_UAC_COPY_UNKNOWN) &&
+              warningFlags == (MB_OK | MB_ICONEXCLAMATION) && systemErrors == 0,
+              "partial cleanup warning survives cancellation without pointer payload", failures);
+        Check(!item.DiscardTarget() && broker.calls == 1 && messages == 1,
+              "partial cleanup is not retried or reported twice", failures);
+    }
+    {
+        cancelled = FALSE; messages = 0; systemErrors = 0;
+        CThinCopyWorker item(&cancelled);
+        Check(!item.ReportTargetFailure(ERROR_ACCESS_DENIED) && messages == 1 && lastKind == 0 &&
+              systemErrors == 1, "other cleanup errors keep their original dialog", failures);
+    }
+    for (BOOL cancel : {FALSE, TRUE})
+    {
+        cancelled = cancel; messages = 0; systemErrors = 0; warningText.clear();
+        CThinCopyWorker item(&cancelled);
+        SetLastError(ERROR_SUCCESS);
+        Check(item.SimulateOpenResult({true, ERROR_PARTIAL_COPY}) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_PARTIAL_COPY && item.terminal && item.cleanupUncertain &&
+              lastKind == static_cast<int>(WORKER_DIALOG_UAC_TRANSFER_UNKNOWN) && messages == 1 &&
+              warningText == LoadStr(IDS_UAC_COPY_UNKNOWN) &&
+              systemErrors == 0, "partial target creation reports unknown completion after open failure", failures);
+    }
+    {
+        cancelled = FALSE; messages = 0; warningText.clear();
+        CThinCopyWorker item(&cancelled);
+        Check(item.SimulateOpenResult({true, ERROR_BROKEN_PIPE}) == INVALID_HANDLE_VALUE && item.terminal &&
+              item.cleanupUncertain && messages == 1 &&
+              lastKind == static_cast<int>(WORKER_DIALOG_UAC_TRANSFER_UNKNOWN) &&
+              warningText == LoadStr(IDS_UAC_COPY_UNKNOWN),
+              "lost open reply preserves target and reports unknown completion", failures);
+        Check(!item.ReportTargetFailure(ERROR_PARTIAL_COPY) && messages == 1,
+              "subsequent uncertain cleanup does not repeat warning", failures);
+    }
+    for (LPARAM moving : {static_cast<LPARAM>(2), static_cast<LPARAM>(-1)})
+    {
+        cancelled = FALSE; messages = 0; warningText.clear();
+        CThinCopyWorker item(&cancelled);
+        MockSendMessage(nullptr, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_UNKNOWN, moving);
+        Check(messages == 1 && warningText == LoadStr(IDS_UAC_MOVE_UNKNOWN),
+              "noncanonical nonzero BOOL keeps original move warning", failures);
+    }
+    cancelled = FALSE;
     {
         CThinCopyWorker item(&cancelled);
         Check(THIN_DELETE_TARGET(&item, LocalDelete()) && localDeletes == 1,

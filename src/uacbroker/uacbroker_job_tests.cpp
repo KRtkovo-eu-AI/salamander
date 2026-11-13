@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Verify fail-closed thin cleanup and compatibility. | Preserve data on uncertain cleanup and reject mismatched peers. | #731 | GPT-6 |
 // | 2026-11-12 | Test scoped per-request source-parent pins. | Check host denial, file identity and pin lifetime over the real job pipe. | #731 | GPT-6 |
 // | 2026-11-12 | Refuse missing or replaced targets on Retry. | Preserve the identity of the target owned by the transfer job. | #731 | GPT-6 |
 // | 2026-11-12 | Exercise typed handle requests over the broker job pipe. | Verify real NTFS handles and scope before worker integration. | #731 | GPT-6 |
@@ -201,7 +202,7 @@ public:
               Operation findScope = Operation::FindContent,
               const UacCopyLeaf::Detail::CopyPause* copyPause = nullptr, bool exactInitial = false
 #ifdef SAM_UAC_THIN_COPY_TEST
-              , ThinIdentityScanPause* thinPause = nullptr
+              , ThinIdentityScanPause* thinPause = nullptr, bool failCreatedTransfer = false
 #endif
               )
     {
@@ -216,7 +217,7 @@ public:
             return false;
         dispatcher = std::thread([this, name, readyToDispatch, findRoot, findScope, copyPause, exactInitial
 #ifdef SAM_UAC_THIN_COPY_TEST
-                                 , thinPause
+                                 , thinPause, failCreatedTransfer
 #endif
                                  ] {
             const ComApartment com;
@@ -264,11 +265,13 @@ public:
                 UacCopyLeaf::Detail::activePause = copyPause;
 #ifdef SAM_UAC_THIN_COPY_TEST
                 activeThinIdentityScanPause = thinPause;
+                activeThinFailCreatedTransfer = failCreatedTransfer;
 #endif
                 dispatchError = ServeTransferJob(install, peer.get(), GetCurrentProcess(), GetCurrentProcessId(),
                                                  GetTickCount64() + timeoutMs);
 #ifdef SAM_UAC_THIN_COPY_TEST
                 activeThinIdentityScanPause = nullptr;
+                activeThinFailCreatedTransfer = false;
 #endif
             }
         });
@@ -281,7 +284,9 @@ public:
               const FILE_ID_INFO* expected, bool overlapped, DWORD& result, ThinWireReply& reply,
               HANDLE openedSource = INVALID_HANDLE_VALUE, HANDLE openedParent = INVALID_HANDLE_VALUE
 #ifdef SAM_UAC_THIN_COPY_TEST
-              , bool brokerParent = false
+              , bool brokerParent = false, DWORD contract = 4u
+#else
+              , DWORD contract = 0u
 #endif
               )
     {
@@ -300,7 +305,7 @@ public:
         std::wstring payload = src.identity.volume + src.relative + std::wstring(sourceLeaf) +
                                dst.identity.volume + dst.relative + std::wstring(targetLeaf);
         ThinWireOptions options{};
-        options.flags = overlapped ? 1 : 0;
+        options.flags = (overlapped ? 1u : 0u) | contract;
         Handle localParent;
         if (openedSource != INVALID_HANDLE_VALUE)
         {
@@ -3727,7 +3732,7 @@ struct ThinDenyAcl
     }
 };
 
-void CheckThinSourceReadDenied(const Directory& source, const Directory& target)
+[[maybe_unused]] void CheckThinSourceReadDenied(const Directory& source, const Directory& target)
 {
     const auto sourcePath = source.File(L"thin-source-denied.txt");
     const auto targetPath = target.File(L"thin-target-source-denied.txt");
@@ -3754,10 +3759,17 @@ void CheckThinSourceReadDenied(const Directory& source, const Directory& target)
         const auto id = reply.target;
         auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
         output.reset();
+#ifdef SAM_UAC_THIN_COPY_TEST
+        Check(job.Thin(source, L"thin-source-denied.txt", identity, target,
+            L"thin-target-source-denied.txt", Operation::ThinDiscardTarget, &id, false, status, reply) &&
+            status == ERROR_PARTIAL_COPY && GetFileAttributesW(targetPath.c_str()) != INVALID_FILE_ATTRIBUTES,
+            "uncertain target is preserved while source content is denied");
+#else
         Check(job.Thin(source, L"thin-source-denied.txt", identity, target,
             L"thin-target-source-denied.txt", Operation::ThinDiscardTarget, &id, false, status, reply) &&
             !status && GetFileAttributesW(targetPath.c_str()) == INVALID_FILE_ATTRIBUTES,
             "owned target can be discarded while source content is denied");
+#endif
         job.Finish();
     }
     Check(acl.Restore(), "restore denied source fixture ACL");
@@ -3766,7 +3778,7 @@ void CheckThinSourceReadDenied(const Directory& source, const Directory& target)
 }
 
 
-void CheckThinSourceParentDenied(const Directory& source, const Directory& target)
+[[maybe_unused]] void CheckThinSourceParentDenied(const Directory& source, const Directory& target)
 {
     const auto sourceDirPath = source.File(L"thin-denied-parent");
     Directory restricted;
@@ -4004,8 +4016,8 @@ void CheckThinBrokerSourceParent(const Directory& source, const Directory& targe
     Check(input != nullptr, "restore source handle after parent rename test");
     Check(job.Thin(restricted, L"source-日.txt", identity, target,
         L"thin-broker-parent-target.txt", Operation::ThinDiscardTarget, &targetIdentity, false,
-        status, reply) && !status && GetFileAttributesW(targetPath.c_str()) == INVALID_FILE_ATTRIBUTES,
-        "identity-bound cleanup still works after the parent rename test");
+        status, reply) && status == ERROR_PARTIAL_COPY && HasByte(targetPath, 0x65),
+        "uncertain target survives after the parent rename test");
     job.Finish();
 
     // ACL denial is real, but applies to both threads of this fixture. The
@@ -4050,7 +4062,7 @@ void CheckThinBrokerSourceParent(const Directory& source, const Directory& targe
 }
 #endif
 
-void CheckThinTargetNoList(const Directory& source, const Directory& target)
+[[maybe_unused]] void CheckThinTargetNoList(const Directory& source, const Directory& target)
 {
     const auto sourcePath = source.File(L"thin-no-list-source.txt");
     const auto targetDirPath = target.File(L"thin-no-list-target");
@@ -4084,12 +4096,22 @@ void CheckThinTargetNoList(const Directory& source, const Directory& target)
         const auto id = reply.target;
         auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
         output.reset();
+#ifdef SAM_UAC_THIN_COPY_TEST
+        Check(job.Thin(source, L"thin-no-list-source.txt", identity, restricted,
+            L"created.txt", Operation::ThinDiscardTarget, &id, false, status, reply) && status == ERROR_PARTIAL_COPY,
+            "target without list access is preserved when cleanup is uncertain");
+#else
         Check(job.Thin(source, L"thin-no-list-source.txt", identity, restricted,
             L"created.txt", Operation::ThinDiscardTarget, &id, false, status, reply) && !status,
             "target without list access supports verified cleanup");
+#endif
         job.Finish();
     }
     Check(acl.Restore(), "restore no-list target ACL");
+#ifdef SAM_UAC_THIN_COPY_TEST
+    Check(DeleteFileW(restricted.File(L"created.txt").c_str()) != FALSE,
+          "remove preserved no-list target fixture after ACL restoration");
+#endif
     restricted.handle.reset();
     Check(RemoveDirectoryW(targetDirPath.c_str()) != FALSE, "remove no-list target directory");
     input.reset();
@@ -4097,7 +4119,7 @@ void CheckThinTargetNoList(const Directory& source, const Directory& target)
 }
 
 
-void CheckThinJob(const Directory& source, const Directory& target, const Directory& outside)
+[[maybe_unused]] void CheckThinJob(const Directory& source, const Directory& target, const Directory& outside)
 {
     constexpr auto sourceLeaf = L"thin-source-東.txt";
     constexpr auto targetLeaf = L"thin-target-日.txt";
@@ -4185,9 +4207,11 @@ void CheckThinJob(const Directory& source, const Directory& target, const Direct
     Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinDiscardTarget, &wrong, false, status, reply) &&
           status == ERROR_FILE_INVALID && HasByte(targetPath, 0x51),
           "thin cleanup refuses a mismatched target identity");
+#ifndef SAM_UAC_THIN_COPY_TEST
     Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinDiscardTarget, &targetId, false, status, reply) &&
           !status && !reply.value && GetFileAttributesW(targetPath.c_str()) == INVALID_FILE_ATTRIBUTES,
           "thin cleanup removes only the created, verified target");
+#endif
 
     const auto retryLeaf = L"thin-retry-target.txt";
     const auto retryPath = target.File(retryLeaf);
@@ -4221,10 +4245,12 @@ void CheckThinJob(const Directory& source, const Directory& target, const Direct
               asynchronous ? "overlapped retry preserves a replacement identity" :
                              "synchronous retry preserves a replacement identity");
     }
+#ifndef SAM_UAC_THIN_COPY_TEST
     Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinDiscardTarget,
           &firstId, false, status, reply) && status == ERROR_FILE_INVALID &&
           HasByte(retryPath, 0x72) && HasByte(parkedPath, 0x53),
           "cleanup refuses the replacement and preserves the original");
+#endif
     Check(DeleteFileW(retryPath.c_str()) != FALSE && MoveFileW(parkedPath.c_str(), retryPath.c_str()) != FALSE,
           "restore the exact original target for retry");
     Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinTargetRetry,
@@ -4235,9 +4261,11 @@ void CheckThinJob(const Directory& source, const Directory& target, const Direct
     Check(output && ReadFile(output.get(), &byte, 1, &count, nullptr) && count == 1 && byte == 0x53,
           "retry reads the original target content");
     output.reset();
+#ifndef SAM_UAC_THIN_COPY_TEST
     Check(job.Thin(source, sourceLeaf, sourceId, target, retryLeaf, Operation::ThinDiscardTarget,
           &firstId, false, status, reply) && !status && GetFileAttributesW(retryPath.c_str()) == INVALID_FILE_ATTRIBUTES,
           "cleanup accepts the same verified original target");
+#endif
 
     Check(job.Thin(source, sourceLeaf, sourceId, target, targetLeaf, Operation::ThinOpenSource, nullptr, true, status, reply) &&
           !status && reply.value, "same job transfers an overlapped source handle");
@@ -4263,6 +4291,7 @@ void CheckThinJob(const Directory& source, const Directory& target, const Direct
 #ifdef SAM_UAC_THIN_COPY_TEST
 #include "uacbroker_thin_parent_large_tests.inc"
 #endif
+#include "uacbroker_thin_cleanup_contract_tests.inc"
 }
 
 int wmain()
@@ -4270,15 +4299,16 @@ int wmain()
     Directory source, target, outside;
     if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
         return 2;
+#ifdef SAM_UAC_THIN_COPY_TEST
     CheckThinJob(source, target, outside);
     CheckThinSourceReadDenied(source, target);
     CheckThinSourceParentDenied(source, target);
-#ifdef SAM_UAC_THIN_COPY_TEST
     CheckThinVolumeRoot(source);
     CheckThinBrokerSourceParent(source, target);
     CheckThinLargeParent(source, target);
-#endif
     CheckThinTargetNoList(source, target);
+#endif
+    CheckThinCleanupContract(source, target);
     CheckListedLeafIdentity(source);
     CheckListedArchiveIdentity(source, outside);
     CheckPanelPreparationPaths(source, outside);

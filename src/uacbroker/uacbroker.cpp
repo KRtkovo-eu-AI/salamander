@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Fail closed on uncertain thin target cleanup and require its safety contract. | Preserve independent writers' data and reject incompatible experimental peers. | #731 | GPT-6 |
 | 2026-11-12 | Pin verified source parents per experimental thin request. | Support protected source directories without exposing privileged directory handles. | #731 | GPT-6 |
 | 2026-11-12 | Order thin F5 consent return before worker completion. | Avoid losing a posted focus return when the progress window closes quickly. | #731 | GPT-6 |
 | 2026-11-12 | Refuse elevated laboratory fixture processes. | Avoid running user-writable test images with administrative rights. | #731 | GPT-6 |
@@ -679,6 +680,7 @@ struct ThinIdentityScanPause
     unsigned calls = 0;
 };
 thread_local ThinIdentityScanPause* activeThinIdentityScanPause = nullptr;
+thread_local bool activeThinFailCreatedTransfer = false;
 #endif
 static_assert(sizeof(ThinWireReply) == 32);
 inline bool IsThinOpen(Operation operation)
@@ -2404,8 +2406,10 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         if (error) return error;
 #ifdef SAM_UAC_THIN_COPY_TEST
         // Experimental flag 2 requests an identity-checked broker-owned
-        // source-parent pin. An older broker rejects this unknown flag.
-        constexpr DWORD allowedThinOptions = 3u;
+        // source-parent pin. Bit 4 identifies the fail-closed cleanup contract;
+        // older peers reject this unknown bit before an object is opened.
+        constexpr DWORD allowedThinOptions = 7u;
+        if (!(options.flags & 4u)) return ERROR_INVALID_DATA;
 #else
         constexpr DWORD allowedThinOptions = 1u;
 #endif
@@ -2616,6 +2620,11 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             (record == state.created.end() || !UacRenameLeaf::Detail::SameSource(record->source, expectedFile) ||
              !UacRenameLeaf::Detail::SameSource(record->target, options.expectedTarget)))
             { result = ERROR_FILE_INVALID; return ERROR_SUCCESS; }
+#ifdef SAM_UAC_THIN_COPY_TEST
+        // The worker has closed its handle. Matching the file ID cannot prove
+        // that another writer did not subsequently alter this same object.
+        if (discard) { result = ERROR_PARTIAL_COPY; return ERROR_SUCCESS; }
+#endif
 
         if (create)
         {
@@ -2665,6 +2674,11 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         }
         const auto cleanupCreated = [&]() -> DWORD {
             if (!madeTarget) return ERROR_SUCCESS;
+#ifdef SAM_UAC_THIN_COPY_TEST
+            // Reopening by name after this handle closes cannot establish that
+            // the created object has not been altered by an independent writer.
+            return ERROR_PARTIAL_COPY;
+#else
             // A failed identity query cannot authorize unlinking by pathname.
             if (!targetIdentityValid) return ERROR_PARTIAL_COPY;
             file.reset();
@@ -2679,6 +2693,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             if (!status && !SetFileInformationByHandle(deletion.get(), FileDispositionInfo, &disposition, sizeof(disposition)))
                 status = GetLastError();
             return status ? ERROR_PARTIAL_COPY : ERROR_SUCCESS;
+#endif
         };
         if (error)
         {
@@ -2705,6 +2720,17 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         }
         const auto targetProcess = OpenThinHostForDup(host, hostPid);
         HANDLE remote = nullptr;
+#if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_BROKER_JOB_TEST)
+        if (create && activeThinFailCreatedTransfer)
+        {
+            activeThinFailCreatedTransfer = false;
+            if (cleanupCreated()) error = ERROR_PARTIAL_COPY;
+            else error = ERROR_ACCESS_DENIED;
+            state.created.pop_back();
+            result = error;
+            return ERROR_SUCCESS;
+        }
+#endif
         if (!targetProcess || !LiveInSession(host, hostPid) ||
             !DuplicateHandle(GetCurrentProcess(), file.get(), targetProcess.get(), &remote,
                              duplicateAccess, FALSE, 0))
@@ -2750,10 +2776,18 @@ DWORD ReceiveRequest(const InstallLocation& install, HANDLE pipe, HANDLE host, D
     }
     if (IsThinOpen(header.operation))
     {
+#ifndef SAM_UAC_THIN_COPY_TEST
+        // The nonexperimental broker must not accept the old thin protocol:
+        // it cannot guarantee the experimental cleanup safety contract.
+        (void)thinState;
+        (void)thinReply;
+        return ERROR_INVALID_DATA;
+#else
         listingScope = header.operation;
         if (!jobScope || !thinState || !thinReply || (pendingOverwrite && pendingOverwrite->present))
             return ERROR_ACCESS_DENIED;
         return ReceiveThinOpen(header, pipe, host, hostPid, deadline, result, *jobScope, treePins, *thinState, *thinReply);
+#endif
     }
     if (header.operation == Operation::AbortOverwriteProbe)
     {
@@ -5973,6 +6007,9 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
                                prepared.target.volume + prepared.target.relative + prepared.target.leaf;
         ThinWireOptions options{};
         options.flags = overlapped ? 1u : 0u;
+#ifdef SAM_UAC_THIN_COPY_TEST
+        options.flags |= 4u;
+#endif
         Handle pinnedRoot;
         std::vector<Handle> pinnedSourceParents;
         if (kind != ThinOpenKind::Source && kind != ThinOpenKind::Discard)
