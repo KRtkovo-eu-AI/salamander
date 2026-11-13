@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Report transfer prompt allocation failures. | Distinguish low memory from a user's refusal. | #731 | GPT-6 |
 // | 2026-11-13 | Show terminal thin-copy errors without retry controls. | Preserve the native caption, target and error when retry is unsafe. | #731 | GPT-6 |
 // | 2026-11-13 | Distinguish experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
 // | 2026-11-12 | Hand thin F5 completion to the main UI thread. | Complete foreground activation before closing progress. | #731 | GPT-6 |
@@ -2004,54 +2005,90 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
         case WORKER_DIALOG_UAC_TRANSFER:
         {
             auto& prompt = *reinterpret_cast<UacF7::TransferPrompt*>(lParam);
-            if (prompt.targetDenied && Script->ShieldedTransferTarget &&
-                prompt.request.MatchesTargetDirectory(*Script->ShieldedTransferTarget))
+            try
             {
-                Script->ShieldedTransferTarget.reset();
-                prompt.approved = !CancelWorker;
+                if (prompt.targetDenied && Script->ShieldedTransferTarget &&
+                    prompt.request.MatchesTargetDirectory(*Script->ShieldedTransferTarget))
+                {
+                    Script->ShieldedTransferTarget.reset();
+                    prompt.approved = !CancelWorker;
+                    break;
+                }
+                const bool moving = prompt.request.IsMove();
+                const bool tree = prompt.request.IsTree();
+                int confirmText = moving ? IDS_UAC_MOVE_CONFIRM : IDS_UAC_COPY_CONFIRM;
+                if (prompt.request.IsDirectoryMove())
+                    confirmText = IDS_UAC_RENAME_DIRECTORY_CONFIRM;
+                else if (prompt.request.IsOverwrite())
+                    confirmText = prompt.request.IgnoresAds() ? IDS_UAC_COPY_OVERWRITE_IGNORE_ADS_CONFIRM : IDS_UAC_COPY_OVERWRITE_CONFIRM;
+                else if (tree)
+                    confirmText = IDS_UAC_TREE_COPY_CONFIRM;
+                else if (prompt.request.PreservesSecurity())
+                    confirmText = prompt.request.PreservesCompression() ? IDS_UAC_COPY_COMPRESSED_SECURITY_CONFIRM
+                                                                         : IDS_UAC_COPY_SECURITY_CONFIRM;
+                else if (prompt.request.PreservesEncryption())
+                    confirmText = IDS_UAC_COPY_ENCRYPTED_CONFIRM;
+                else if (prompt.request.PreservesCompression())
+                    confirmText = IDS_UAC_COPY_COMPRESSED_CONFIRM;
+                else if (prompt.request.IgnoresAds())
+                    confirmText = IDS_UAC_COPY_IGNORE_ADS_CONFIRM;
+    #ifdef SAM_UAC_THIN_COPY_TEST
+                else if (prompt.kind == UacF7::TransferPromptKind::ThinPlainCopy && !moving && !tree)
+                    confirmText = IDS_UAC_THIN_COPY_CONFIRM;
+    #endif
+                const bool shareJob = Script->Count > 1 && prompt.request.CanShareJob();
+                std::string message = std::string(LoadStr(confirmText)) + "\n\n" +
+                                      prompt.sourcePath + "\n -> " + prompt.targetPath;
+                if (shareJob && !prompt.request.IsScopedTree())
+                {
+                    auto parent = [](std::string_view path) { return path.substr(0, path.rfind('\\') + 1); };
+                    message += std::string("\n\n") + LoadStr(IDS_UAC_TRANSFER_JOB_SCOPE) + "\n" +
+                               std::string(parent(prompt.sourcePath)) + "\n -> " + std::string(parent(prompt.targetPath));
+                }
+                else if (Script->Count > 1 && !prompt.request.IsScopedTree())
+                    message += std::string("\n\n") + LoadStr(IDS_UAC_BATCH_ITEM_SCOPE);
+                const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
+                MSGBOXEX_PARAMS confirm{};
+                confirm.HParent = HWindow;
+                confirm.Text = message.c_str();
+                confirm.Caption = LoadStr(moving ? IDS_MOVE : IDS_COPY);
+                confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
+                confirm.AliasBtnNames = alias.c_str();
+                prompt.approved = SalMessageBoxEx(&confirm) == IDOK && !CancelWorker;
+            }
+            catch (const std::bad_alloc&)
+            {
+                // The worker must not mistake failure to construct the
+                // dialog for a refusal or close previously approved sessions.
+                prompt.approved = false;
+                prompt.promptError = ERROR_NOT_ENOUGH_MEMORY;
+            }
+            break;
+        }
+
+        case WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR:
+        {
+            // This is a pre-broker error, unlike an uncertain transfer
+            // result. Cancellation takes precedence on the UI thread too.
+            if (CancelWorker)
                 break;
-            }
-            const bool moving = prompt.request.IsMove();
-            const bool tree = prompt.request.IsTree();
-            int confirmText = moving ? IDS_UAC_MOVE_CONFIRM : IDS_UAC_COPY_CONFIRM;
-            if (prompt.request.IsDirectoryMove())
-                confirmText = IDS_UAC_RENAME_DIRECTORY_CONFIRM;
-            else if (prompt.request.IsOverwrite())
-                confirmText = prompt.request.IgnoresAds() ? IDS_UAC_COPY_OVERWRITE_IGNORE_ADS_CONFIRM : IDS_UAC_COPY_OVERWRITE_CONFIRM;
-            else if (tree)
-                confirmText = IDS_UAC_TREE_COPY_CONFIRM;
-            else if (prompt.request.PreservesSecurity())
-                confirmText = prompt.request.PreservesCompression() ? IDS_UAC_COPY_COMPRESSED_SECURITY_CONFIRM
-                                                                     : IDS_UAC_COPY_SECURITY_CONFIRM;
-            else if (prompt.request.PreservesEncryption())
-                confirmText = IDS_UAC_COPY_ENCRYPTED_CONFIRM;
-            else if (prompt.request.PreservesCompression())
-                confirmText = IDS_UAC_COPY_COMPRESSED_CONFIRM;
-            else if (prompt.request.IgnoresAds())
-                confirmText = IDS_UAC_COPY_IGNORE_ADS_CONFIRM;
-#ifdef SAM_UAC_THIN_COPY_TEST
-            else if (prompt.kind == UacF7::TransferPromptKind::ThinPlainCopy && !moving && !tree)
-                confirmText = IDS_UAC_THIN_COPY_CONFIRM;
-#endif
-            const bool shareJob = Script->Count > 1 && prompt.request.CanShareJob();
-            std::string message = std::string(LoadStr(confirmText)) + "\n\n" +
-                                  prompt.sourcePath + "\n -> " + prompt.targetPath;
-            if (shareJob && !prompt.request.IsScopedTree())
+            DWORD error = static_cast<DWORD>(lParam);
+            if (!CancelWorkerEvent)
+                error = ERROR_INVALID_HANDLE;
+            else
             {
-                auto parent = [](std::string_view path) { return path.substr(0, path.rfind('\\') + 1); };
-                message += std::string("\n\n") + LoadStr(IDS_UAC_TRANSFER_JOB_SCOPE) + "\n" +
-                           std::string(parent(prompt.sourcePath)) + "\n -> " + std::string(parent(prompt.targetPath));
+                const DWORD wait = WaitForSingleObject(CancelWorkerEvent, 0);
+                if (wait == WAIT_OBJECT_0)
+                    break;
+                if (wait == WAIT_FAILED)
+                {
+                    error = GetLastError();
+                    if (error == ERROR_SUCCESS) error = ERROR_INVALID_HANDLE;
+                }
+                else if (wait != WAIT_TIMEOUT)
+                    error = ERROR_INVALID_HANDLE;
             }
-            else if (Script->Count > 1 && !prompt.request.IsScopedTree())
-                message += std::string("\n\n") + LoadStr(IDS_UAC_BATCH_ITEM_SCOPE);
-            const std::string alias = std::to_string(IDOK) + "\t" + LoadStr(IDS_AS_ADMIN_TITLE);
-            MSGBOXEX_PARAMS confirm{};
-            confirm.HParent = HWindow;
-            confirm.Text = message.c_str();
-            confirm.Caption = LoadStr(moving ? IDS_MOVE : IDS_COPY);
-            confirm.Flags = MSGBOXEX_OKCANCEL | MSGBOXEX_ICONQUESTION | MSGBOXEX_DEFBUTTON2 | MSGBOXEX_SHIELDONOKBTN;
-            confirm.AliasBtnNames = alias.c_str();
-            prompt.approved = SalMessageBoxEx(&confirm) == IDOK && !CancelWorker;
+            SalMessageBox(HWindow, GetErrorText(error), LoadStr(IDS_ERRORCOPY), MB_OK | MB_ICONEXCLAMATION);
             break;
         }
 

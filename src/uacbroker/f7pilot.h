@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Carry transfer prompt errors separately from refusal. | Preserve native error handling when UI allocation fails. | #731 | GPT-6 |
 | 2026-11-13 | Add experimental per-target handle release. | Bound a retained retry handle to one verified copy item. | #731 | GPT-6 |
 | 2026-11-13 | Distinguish experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
 | 2026-11-12 | Add scoped thin F5 foreground return. | Coordinate progress focus before worker completion. | #731 | GPT-6 |
@@ -1019,6 +1020,7 @@ struct TransferPrompt
     bool targetDenied = false;
     Result result{ERROR_CANCELLED, false};
     bool approved = false;
+    DWORD promptError = ERROR_SUCCESS;
 #ifdef SAM_UAC_THIN_COPY_TEST
     TransferPromptKind kind = TransferPromptKind::Standard;
 #endif

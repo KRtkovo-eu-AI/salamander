@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Propagate transfer prompt allocation failures. | Keep refusal and native operation errors distinct. | #731 | GPT-6 |
 // | 2026-11-13 | Handle thin-copy prompt allocation failure. | Preserve earlier sessions and return the actual low-memory error. | #731 | GPT-6 |
 // | 2026-11-13 | Reuse the exact scoped target after a verified preallocation reset. | Preserve native incremental copying without deleting an uncertain pathname. | #731 | GPT-6 |
 // | 2026-11-13 | Wait for native resume before thin F5 elevation. | Honor pause and cancellation before prompts and broker requests. | #731 | GPT-6 |
@@ -6669,6 +6670,31 @@ static bool ExecuteWorkerTransfer(HWND progress, const COperation& op, COperatio
             merge ? pending->Source.c_str() : sourceText.c_str(),
             merge ? pending->Target.c_str() : targetText.c_str(), !merge && targetDenied};
         SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
+        if (*dlgData.CancelWorker)
+        {
+            jobs.clear();
+            error = ERROR_CANCELLED;
+            return true;
+        }
+        const DWORD promptWait = dlgData.CancelWorkerEvent ? WaitForSingleObject(dlgData.CancelWorkerEvent, 0) : WAIT_FAILED;
+        const DWORD promptWaitError = !dlgData.CancelWorkerEvent ? ERROR_INVALID_HANDLE :
+            promptWait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+        if (promptWait == WAIT_OBJECT_0)
+        {
+            jobs.clear();
+            error = ERROR_CANCELLED;
+            return true;
+        }
+        if (promptWait != WAIT_TIMEOUT)
+        {
+            error = promptWaitError ? promptWaitError : ERROR_INVALID_HANDLE;
+            return false;
+        }
+        if (prompt.promptError != ERROR_SUCCESS)
+        {
+            error = prompt.promptError;
+            return false;
+        }
         if (!prompt.approved)
         {
             jobs.clear();
@@ -6915,7 +6941,35 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
                     prompt.kind = UacF7::TransferPromptKind::ThinPlainCopy;
                     SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER,
                                 reinterpret_cast<LPARAM>(&prompt));
-                    if (!prompt.approved || CancelBeforeElevation())
+                    if (CancelBeforeElevation())
+                    {
+                        sessions.erase(it);
+                        SetLastError(ERROR_CANCELLED);
+                        return INVALID_HANDLE_VALUE;
+                    }
+                    const DWORD consentWait = dialog.CancelWorkerEvent ? WaitForSingleObject(dialog.CancelWorkerEvent, 0) : WAIT_FAILED;
+                    const DWORD consentWaitError = !dialog.CancelWorkerEvent ? ERROR_INVALID_HANDLE :
+                        consentWait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+                    if (consentWait == WAIT_OBJECT_0)
+                    {
+                        sessions.erase(it);
+                        terminal = true;
+                        SetLastError(ERROR_CANCELLED);
+                        return INVALID_HANDLE_VALUE;
+                    }
+                    if (consentWait != WAIT_TIMEOUT)
+                    {
+                        sessions.erase(it);
+                        SetLastError(consentWaitError ? consentWaitError : ERROR_INVALID_HANDLE);
+                        return INVALID_HANDLE_VALUE;
+                    }
+                    if (prompt.promptError != ERROR_SUCCESS)
+                    {
+                        sessions.erase(it);
+                        SetLastError(prompt.promptError);
+                        return INVALID_HANDLE_VALUE;
+                    }
+                    if (!prompt.approved)
                     {
                         sessions.erase(it);
                         terminal = true;
@@ -7328,6 +7382,15 @@ static SourceOverwriteResult TrySingleProbedOverwrite(HWND progress, COperation&
         {
             UacF7::TransferPrompt consent{request, sourceText.c_str(), targetText.c_str(), true};
             SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&consent));
+            if (*data.CancelWorker)
+            { error = ERROR_CANCELLED; return Outcome::Cancelled; }
+            const DWORD consentWait = data.CancelWorkerEvent ? WaitForSingleObject(data.CancelWorkerEvent, 0) : WAIT_FAILED;
+            const DWORD consentWaitError = !data.CancelWorkerEvent ? ERROR_INVALID_HANDLE :
+                consentWait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+            if (consentWait == WAIT_OBJECT_0) { error = ERROR_CANCELLED; return Outcome::Cancelled; }
+            if (consentWait != WAIT_TIMEOUT)
+            { error = consentWaitError ? consentWaitError : ERROR_INVALID_HANDLE; return Outcome::Failed; }
+            if (consent.promptError != ERROR_SUCCESS) { error = consent.promptError; return Outcome::Failed; }
             if (!consent.approved) { error = ERROR_CANCELLED; return Outcome::Cancelled; }
             existing = jobs.emplace(jobs.end());
         }
@@ -13482,7 +13545,17 @@ unsigned ThreadWorkerBody(void* parameter)
 
                 UacF7::TransferPrompt prompt{*script->ProtectedTreeTransfer, op->SourceName, op->TargetName, true};
                 SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
-                if (prompt.approved && WaitForSingleObject(cancelWorkerEvent, 0) == WAIT_TIMEOUT)
+                const DWORD promptWait = WaitForSingleObject(cancelWorkerEvent, 0);
+                DWORD promptWaitError = promptWait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+                if (promptWait != WAIT_TIMEOUT && promptWait != WAIT_OBJECT_0 && promptWaitError == ERROR_SUCCESS)
+                    promptWaitError = ERROR_INVALID_HANDLE;
+                if (!*dlgData.CancelWorker && promptWait != WAIT_OBJECT_0 &&
+                    (promptWait != WAIT_TIMEOUT || prompt.promptError != ERROR_SUCCESS))
+                {
+                    prompt.result = {promptWait == WAIT_TIMEOUT ? prompt.promptError : promptWaitError, false};
+                    SendMessage(hProgressDlg, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR, prompt.result.error);
+                }
+                else if (!*dlgData.CancelWorker && prompt.approved && promptWait == WAIT_TIMEOUT)
                 {
                     prompt.result = ExecuteWithNativeTransferProgress(prompt.request, hProgressDlg,
                         cancelWorkerEvent, nullptr, *op, *script, dlgData, totalDone);

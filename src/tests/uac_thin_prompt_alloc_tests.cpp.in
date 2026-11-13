@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Model transfer-prompt UI errors. | Keep extracted worker tests aligned with the internal prompt contract. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise scoped prompt allocation failures. | Preserve existing sessions and report low memory without prompting. | #731 | GPT-6 |
 #include <windows.h>
 #include <algorithm>
@@ -21,6 +22,7 @@ struct TransferPrompt {
     bool targetDenied;
     TransferPromptKind kind = TransferPromptKind::ThinPlainCopy;
     bool approved = false;
+    DWORD promptError = ERROR_SUCCESS;
 };
 static bool failMatches = false;
 struct ThinCopySession {
@@ -48,9 +50,15 @@ struct SessionList {
 struct SourcePlan { std::unique_ptr<UacF7::ThinCopySession> Session; };
 struct Operation { std::wstring SourceNameW = L"source", TargetNameW = L"target"; };
 struct Script { SourcePlan* CopySource = nullptr; };
-struct Dialog { SessionList ThinCopyJobs; };
+struct Dialog { SessionList ThinCopyJobs; HANDLE CancelWorkerEvent = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1)); };
 static int conversionStep = 0, failStep = 0, prompts = 0, waits = 0;
 static bool approval = true;
+static bool cancelAfterPrompt = false;
+static DWORD uiError = ERROR_SUCCESS;
+static DWORD waitStatus = WAIT_TIMEOUT, fakeWaitError = ERROR_INVALID_HANDLE;
+#undef WaitForSingleObject
+#define WaitForSingleObject FakeWait
+static DWORD FakeWait(HANDLE, DWORD) { SetLastError(fakeWaitError); return waitStatus; }
 static std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* value) {
     if (++conversionStep == failStep) throw std::bad_alloc();
     return value;
@@ -63,7 +71,9 @@ constexpr UINT WM_USER_DIALOG = WM_USER + 42;
 constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 1;
 static LRESULT Prompt(HWND, UINT, WPARAM, LPARAM value) {
     ++prompts;
-    reinterpret_cast<UacF7::TransferPrompt*>(value)->approved = approval;
+    auto& prompt = *reinterpret_cast<UacF7::TransferPrompt*>(value);
+    prompt.approved = approval;
+    prompt.promptError = uiError;
     return 0;
 }
 #undef SendMessage
@@ -77,7 +87,12 @@ struct CThinCopyWorker {
     UacF7::ThinCopySession* session = nullptr;
     bool terminal = false;
     bool WaitBeforeElevation() { ++waits; return true; }
-    bool CancelBeforeElevation() { return false; }
+    bool CancelBeforeElevation() {
+        if (!cancelAfterPrompt) return false;
+        terminal = true;
+        SetLastError(ERROR_CANCELLED);
+        return true;
+    }
     HANDLE Open(UacF7::ThinOpenKind kind) {
 @@SESSION_BLOCK@@
         return reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1));
@@ -155,6 +170,46 @@ int main() {
         Check(worker.Open(UacF7::ThinOpenKind::Source) == INVALID_HANDLE_VALUE &&
               GetLastError() == ERROR_CANCELLED && worker.terminal && prompts == 1 && PriorSessionsIntact(worker),
               "declined prompt remains a cancellation", failures);
+    }
+    {
+        CThinCopyWorker worker; Seed(worker);
+        conversionStep = prompts = waits = failStep = 0; approval = false; uiError = ERROR_NOT_ENOUGH_MEMORY;
+        const HANDLE result = worker.Open(UacF7::ThinOpenKind::Source);
+        Check(result == INVALID_HANDLE_VALUE && GetLastError() == ERROR_NOT_ENOUGH_MEMORY &&
+              !worker.terminal && !worker.session && prompts == 1 && PriorSessionsIntact(worker),
+              "UI allocation error is not a refusal and preserves prior sessions", failures);
+        uiError = ERROR_SUCCESS;
+    }
+    {
+        CThinCopyWorker worker; Seed(worker);
+        conversionStep = prompts = waits = failStep = 0; approval = false; uiError = ERROR_NOT_ENOUGH_MEMORY;
+        cancelAfterPrompt = true;
+        const HANDLE result = worker.Open(UacF7::ThinOpenKind::Source);
+        Check(result == INVALID_HANDLE_VALUE && GetLastError() == ERROR_CANCELLED &&
+              worker.terminal && !worker.session && prompts == 1 && PriorSessionsIntact(worker),
+              "actual cancellation wins over UI allocation error", failures);
+        cancelAfterPrompt = false; uiError = ERROR_SUCCESS;
+    }
+    for (int kind = 0; kind < 4; ++kind) {
+        CThinCopyWorker worker; Seed(worker);
+        conversionStep = prompts = waits = failStep = 0; approval = true;
+        waitStatus = kind == 2 ? WAIT_ABANDONED : WAIT_FAILED;
+        fakeWaitError = kind == 1 ? ERROR_SUCCESS : ERROR_INVALID_HANDLE;
+        if (kind == 3) worker.dialog.CancelWorkerEvent = nullptr;
+        const HANDLE result = worker.Open(UacF7::ThinOpenKind::Source);
+        Check(result == INVALID_HANDLE_VALUE && GetLastError() == ERROR_INVALID_HANDLE &&
+              !worker.terminal && !worker.session && prompts == 1 && PriorSessionsIntact(worker),
+              "invalid post-prompt wait fails and preserves prior sessions", failures);
+        waitStatus = WAIT_TIMEOUT;
+    }
+    {
+        CThinCopyWorker worker; Seed(worker);
+        conversionStep = prompts = waits = failStep = 0; approval = true; waitStatus = WAIT_OBJECT_0;
+        const HANDLE result = worker.Open(UacF7::ThinOpenKind::Source);
+        Check(result == INVALID_HANDLE_VALUE && GetLastError() == ERROR_CANCELLED && worker.terminal &&
+              !worker.session && prompts == 1 && PriorSessionsIntact(worker),
+              "post-prompt cancel event prevents broker use", failures);
+        waitStatus = WAIT_TIMEOUT;
     }
     {
         CThinCopyWorker worker; Seed(worker);

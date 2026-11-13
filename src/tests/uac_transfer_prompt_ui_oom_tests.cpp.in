@@ -1,0 +1,134 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Test transfer UI allocation and cancellation. | Exercise the actual dialog branches with deterministic faults. | #731 | GPT-6 |
+#include <windows.h>
+#include <cstdio>
+#include <memory>
+#include <new>
+#include <string>
+#include <string_view>
+
+namespace UacF7 {
+enum class TransferPromptKind { Standard, ThinPlainCopy };
+struct PreparedTransfer {
+    bool matches = false;
+    bool MatchesTargetDirectory(int) const { return matches; }
+    bool IsMove() const { return false; }
+    bool IsTree() const { return false; }
+    bool IsDirectoryMove() const { return false; }
+    bool IsOverwrite() const { return false; }
+    bool IgnoresAds() const { return false; }
+    bool PreservesSecurity() const { return false; }
+    bool PreservesCompression() const { return false; }
+    bool PreservesEncryption() const { return false; }
+    bool CanShareJob() const { return true; }
+    bool IsScopedTree() const { return false; }
+};
+struct TransferPrompt {
+    PreparedTransfer& request;
+    const char* sourcePath;
+    const char* targetPath;
+    bool targetDenied = false, approved = false;
+    DWORD promptError = ERROR_SUCCESS;
+    TransferPromptKind kind = TransferPromptKind::Standard;
+};
+}
+struct FakeScript { int Count = 2; std::unique_ptr<int> ShieldedTransferTarget; };
+enum { IDS_UAC_MOVE_CONFIRM, IDS_UAC_COPY_CONFIRM, IDS_UAC_RENAME_DIRECTORY_CONFIRM,
+       IDS_UAC_COPY_OVERWRITE_IGNORE_ADS_CONFIRM, IDS_UAC_COPY_OVERWRITE_CONFIRM,
+       IDS_UAC_TREE_COPY_CONFIRM, IDS_UAC_COPY_COMPRESSED_SECURITY_CONFIRM,
+       IDS_UAC_COPY_SECURITY_CONFIRM, IDS_UAC_COPY_ENCRYPTED_CONFIRM, IDS_UAC_COPY_COMPRESSED_CONFIRM,
+       IDS_UAC_COPY_IGNORE_ADS_CONFIRM, IDS_UAC_THIN_COPY_CONFIRM, IDS_UAC_TRANSFER_JOB_SCOPE,
+       IDS_UAC_BATCH_ITEM_SCOPE, IDS_AS_ADMIN_TITLE, IDS_MOVE, IDS_COPY, IDS_ERRORCOPY };
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 15, WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR = 22;
+constexpr int MSGBOXEX_OKCANCEL = 1, MSGBOXEX_ICONQUESTION = 2, MSGBOXEX_DEFBUTTON2 = 4, MSGBOXEX_SHIELDONOKBTN = 8;
+struct MSGBOXEX_PARAMS { HWND HParent{}; const char* Text{}; const char* Caption{}; int Flags{}; const char* AliasBtnNames{}; };
+static int displayCount = 0, errorCount = 0, response = IDOK;
+static int loadCount = 0, failLoad = 0;
+static bool failDialog = false;
+static DWORD displayedError = 0, waitValue = WAIT_TIMEOUT, waitError = ERROR_INVALID_HANDLE;
+static const char* LoadStr(int) {
+    if (++loadCount == failLoad) throw std::bad_alloc();
+    return "A sufficiently long localized test string to force allocation in the message and alias";
+}
+static int SalMessageBoxEx(MSGBOXEX_PARAMS*) {
+    if (failDialog) throw std::bad_alloc();
+    ++displayCount; return response;
+}
+static const char* GetErrorText(DWORD error) { displayedError = error; return "error"; }
+static int SalMessageBox(HWND, const char*, const char*, unsigned) { ++errorCount; return IDOK; }
+#undef WaitForSingleObject
+#define WaitForSingleObject FakeWait
+static DWORD FakeWait(HANDLE, DWORD) { SetLastError(waitError); return waitValue; }
+static void Dispatch(FakeScript* Script, bool& CancelWorker, HANDLE CancelWorkerEvent, WPARAM wParam, LPARAM lParam) {
+    HWND HWindow = nullptr;
+    switch (wParam) {
+@@TRANSFER_CASE@@
+@@PROMPT_ERROR_CASE@@
+    default: break;
+    }
+}
+static void Check(bool value, const char* label, int& failures) {
+    std::printf("%s %s\n", value ? "PASS" : "FAIL", label); if (!value) ++failures;
+}
+int main() {
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    int failures = 0;
+    FakeScript script;
+    UacF7::PreparedTransfer request;
+    bool cancelled = false;
+    const char* src = "C:\\source\\a-very-long-test-source-name.txt";
+    const char* dst = "C:\\target\\a-very-long-test-target-name.txt";
+    UacF7::TransferPrompt normal{request, src, dst};
+    loadCount = 0; failLoad = 0; displayCount = 0; response = IDOK;
+    Dispatch(&script, cancelled, nullptr, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&normal));
+    const int totalLoads = loadCount;
+    Check(normal.approved && !normal.promptError && displayCount == 1 && totalLoads > 1,
+          "normal transfer confirmation succeeds", failures);
+    for (int step = 1; step <= totalLoads; ++step) {
+        UacF7::TransferPrompt prompt{request, src, dst};
+        loadCount = 0; failLoad = step; displayCount = 0;
+        Dispatch(&script, cancelled, nullptr, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&prompt));
+        failLoad = 0;
+        Check(!prompt.approved && prompt.promptError == ERROR_NOT_ENOUGH_MEMORY && displayCount == 0,
+              "UI allocation failure returns error before dialog", failures);
+    }
+    UacF7::TransferPrompt dialogFailure{request, src, dst};
+    displayCount = 0; failDialog = true;
+    Dispatch(&script, cancelled, nullptr, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&dialogFailure));
+    failDialog = false;
+    Check(!dialogFailure.approved && dialogFailure.promptError == ERROR_NOT_ENOUGH_MEMORY && !displayCount,
+          "dialog construction failure returns error", failures);
+    UacF7::TransferPrompt declined{request, src, dst};
+    failLoad = 0; displayCount = 0; response = IDCANCEL;
+    Dispatch(&script, cancelled, nullptr, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&declined));
+    Check(!declined.approved && !declined.promptError && displayCount == 1, "user refusal remains distinct", failures);
+    script.ShieldedTransferTarget = std::make_unique<int>(1); request.matches = true;
+    UacF7::TransferPrompt shielded{request, src, dst, true};
+    displayCount = 0; failLoad = 1; loadCount = 0;
+    Dispatch(&script, cancelled, nullptr, WORKER_DIALOG_UAC_TRANSFER, reinterpret_cast<LPARAM>(&shielded));
+    failLoad = 0;
+    Check(shielded.approved && !shielded.promptError && !displayCount && !script.ShieldedTransferTarget,
+          "matching shielded confirmation bypasses prompt allocation", failures);
+    const HANDLE event = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(1));
+    errorCount = 0; waitValue = WAIT_TIMEOUT; cancelled = false; displayedError = 0;
+    Dispatch(&script, cancelled, event, WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR, ERROR_NOT_ENOUGH_MEMORY);
+    Check(errorCount == 1 && displayedError == ERROR_NOT_ENOUGH_MEMORY, "pre-transfer error shown", failures);
+    errorCount = 0; waitValue = WAIT_OBJECT_0;
+    Dispatch(&script, cancelled, event, WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR, ERROR_NOT_ENOUGH_MEMORY);
+    Check(errorCount == 0, "cancel event suppresses pre-transfer error", failures);
+    errorCount = 0; waitValue = WAIT_TIMEOUT; cancelled = true;
+    Dispatch(&script, cancelled, event, WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR, ERROR_NOT_ENOUGH_MEMORY);
+    Check(errorCount == 0, "cancel flag suppresses pre-transfer error", failures);
+    errorCount = 0; waitValue = WAIT_FAILED; waitError = ERROR_INVALID_HANDLE; cancelled = false; displayedError = 0;
+    Dispatch(&script, cancelled, event, WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR, ERROR_NOT_ENOUGH_MEMORY);
+    Check(errorCount == 1 && displayedError == ERROR_INVALID_HANDLE, "wait failure is reported", failures);
+    errorCount = 0; waitValue = WAIT_FAILED; waitError = ERROR_SUCCESS; displayedError = 0;
+    Dispatch(&script, cancelled, event, WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR, ERROR_NOT_ENOUGH_MEMORY);
+    Check(errorCount == 1 && displayedError == ERROR_INVALID_HANDLE, "empty wait failure is normalized", failures);
+    errorCount = 0; waitValue = WAIT_TIMEOUT; displayedError = 0;
+    Dispatch(&script, cancelled, nullptr, WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR, ERROR_NOT_ENOUGH_MEMORY);
+    Check(errorCount == 1 && displayedError == ERROR_INVALID_HANDLE, "missing cancel event is reported", failures);
+    return failures ? 1 : 0;
+}

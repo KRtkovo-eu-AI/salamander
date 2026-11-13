@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Distinguish pre-transfer prompt errors. | Respect cancellation without suppressing uncertain broker results. | #731 | GPT-6 |
 // | 2026-11-13 | Carry terminal thin-copy error details. | Preserve context without offering unsupported retries. | #731 | GPT-6 |
 // | 2026-11-12 | Select ready conflicts without allocating queues. | Keep the coordinator consistent under memory pressure. | #731 | GPT-6 (Codex) |
 // | 2026-11-12 | Carry owned prompt data and allocation errors. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
@@ -105,6 +106,7 @@ constexpr WPARAM WORKER_DIALOG_UAC_TREE_RESULT = 16;
 constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER_UNKNOWN = 17;
 constexpr WPARAM WORKER_DIALOG_UAC_DISK_RECOVERY_UNKNOWN = 19;
 constexpr WPARAM WORKER_DIALOG_UAC_OVERWRITE_PROBE = 20;
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER_PROMPT_ERROR = 22;
 #ifdef SAM_UAC_THIN_COPY_TEST
 constexpr WPARAM WORKER_DIALOG_UAC_THIN_TERMINAL = 21;
 struct CThinTerminalFileError

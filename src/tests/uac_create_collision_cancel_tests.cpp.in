@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Model transfer-prompt UI errors. | Preserve the cancellation fixture against the extended internal prompt contract. | #731 | GPT-6 |
 // | 2026-11-12 | Exercise cancellation and collision in the worker controller. | Check job and receipt lifetime. | #731 | GPT-6 (Codex) |
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -38,7 +39,7 @@ struct PreparedTransfer {
     void SourceIdentities(MoveFileIdentity& source, MoveFileIdentity& parent) const { source.serial = parent.serial = 9; }
     Result Execute(HWND, HANDLE, TransferJobSession*, void*, void*, void (*)(HWND, bool)) { return {}; }
 };
-struct TransferPrompt { PreparedTransfer& request; const char* source; const char* target; bool denied; bool approved = true; };
+struct TransferPrompt { PreparedTransfer& request; const char* source; const char* target; bool denied; bool approved = true; DWORD promptError = ERROR_SUCCESS; };
 bool IsNativePlainCopyFile(DWORD) { return true; }
 }
 struct CQuadWord { ULONGLONG Value = 1; CQuadWord() = default; CQuadWord(DWORD low, DWORD high) : Value((static_cast<ULONGLONG>(high) << 32) | low) {} CQuadWord& operator+=(CQuadWord other) { Value += other.Value; return *this; } };
