@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Repair cleanup regression fixture. | Restore local coverage of terminal cleanup reporting. | #731 | GPT-6 |
 | 2026-11-13 | Prototype an identity-anchored target reopen for thin F5. | Reapply filesystem checks on Retry without retaining an exclusive writer. | #731 | GPT-6 |
 | 2026-11-13 | Retain displayed batch consent across a prelaunch skip. | Avoid repeated approval without widening the authorized scope. | #731 | GPT-6 |
 | 2026-11-13 | Test planned custody against the broker pipe. | Exercise actual client and dispatcher methods with explicitly limited authentication evidence. | #731 | GPT-6 |
@@ -992,6 +993,8 @@ Místní testy reálného dispatcheru a NTFS prošly v experimentální variant�
 Host pro nejistý výsledek znovu používá nativní lokalizované varování, a to i po Cancel nebo ztrátě odpovědi; nepředává novou pointerovou zprávu ani přesnou cílovou cestu. Výřez skutečných metod se stuby prošel **37 PASS** v Debug i Release (`C:\Samandarin\builds\uac-thin-safety-20261113\cleanup-debug-final.log`, `cleanup-release-final.log`); nejde o celý worker ani VM test. Odpovídající experimentální x64 host i broker byly sestaveny v Debug a Release a ověřeny na protokol 46 a odpovídající role; manifest je v `C:\Samandarin\builds\uac-thin-safety-20261113\verified-pair.json`. Tyto buildy nebyly nasazeny do VM.
 
 ## Experimentální F5: Retry lokálně vytvořeného cíle — 2026-11-13 / GPT-6
+
+- **Oprava lokálního testu úklidu:** Zastaralá fixture nyní odpovídá terminálnímu chybovému payloadu a cancel eventu. V Debug i Release prošlo 41 kontrol vyňatých metod workeru; broker, dialog a zavření handle jsou náhrady. Nejde o celý F5, skutečný UAC ani VM.
 
 - **Skutečný klient a dispatcher na jedné pipe:** Cílený test používá skutečné metody `ThinCopySession` a skutečný `ServeTransferJob`: po plánu, výpisu a založení kořene převezme původní job, otevře source i target, uvolní cíl, vrátí stejnou instanci a generaci a opět provede výpis. Ověří také explicitní uzavření session a zachování platnosti již předaného source handle. V Debug i Release prošlo **13/13**; logy, přesné příkazy a hashe jsou v `C:\Samandarin\builds\uac-thin-client-tree-pipe-v3-20261113`. Předání již navázané pipe/scope používá úzký testovací přístup chráněný třemi makry, která byla nastavena shodně v obou překladových jednotkách. Samostatný brokerový test pouze s `SAM_UAC_THIN_COPY_TEST` bez obou dalších maker také prošel **13/13** (`C:\Samandarin\builds\uac-thin-tree-only-triple-guard-20261113`). Klient a dispatcher běží v jednom procesu se stejným tokenem, test nepokrývá ověření handshake, skutečný `DoCopyFile`, systémové UAC ani jiného správce. Uzavření je řízené hostem, nikoli pád brokeru; interní `join` nemá vlastní timeout, úspěšné běhy měly vnější limit 20 sekund. Samotná sonda nedokazuje bezpečné převzetí relace workerem ani dokončení outstanding I/O.
 
