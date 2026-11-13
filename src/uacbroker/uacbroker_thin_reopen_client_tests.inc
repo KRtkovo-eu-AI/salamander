@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Check cancellation before target create and reopen. | Verify the real dispatcher pipe preserves data at both boundaries. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise cancellation handle validation on the real client pipe. | Refuse invalid waits without consuming the approved session. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise a real client and dispatcher reopening an anchored target. | Check retry identity, rights and I/O mode on one test pipe. | #731 | GPT-6 |
 
@@ -74,6 +75,12 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     auto input = Adopt(opened.file);
     if (opened.error || opened.unknown || !input)
     { Check(false, "open verified source through actual client"); return; }
+    const auto cancelledCreate = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, asynchronous, false,
+                                           nullptr, UacF7::ThinOpenedSource{input.get()},
+                                           UacF7::ThinCancelEvent{cancelledEvent.get()});
+    Check(cancelledCreate.error == ERROR_CANCELLED && !cancelledCreate.unknown &&
+          cancelledCreate.file == INVALID_HANDLE_VALUE && IsAbsent(targetPath) && thin.IsOpen(),
+          "cancelled target create leaves no target and preserves the job");
     const auto created = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, asynchronous, false,
                                    nullptr, UacF7::ThinOpenedSource{input.get()});
     auto output = Adopt(created.file);
@@ -114,6 +121,12 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     Check(busy.error == ERROR_SHARING_VIOLATION && !busy.unknown && !busyHandle,
           "retry refuses while the original exclusive writer is still open");
     output.reset();
+    const auto cancelledRetry = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetRetry, asynchronous, false,
+                                          &created.targetIdentity, UacF7::ThinOpenedSource{input.get()},
+                                          UacF7::ThinCancelEvent{cancelledEvent.get()});
+    Check(cancelledRetry.error == ERROR_CANCELLED && !cancelledRetry.unknown &&
+          cancelledRetry.file == INVALID_HANDLE_VALUE && HasByte(targetPath, 0x67) && thin.IsOpen(),
+          "cancelled target retry preserves existing content and the job");
     UacF7::MoveFileIdentity wrong = created.targetIdentity;
     wrong.id[0] ^= 1;
     const auto refused = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetRetry, asynchronous, false,
