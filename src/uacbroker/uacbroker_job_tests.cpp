@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Exercise thin opens in one planned tree job. | Check the existing broker scope on the same pipe. | #731 | GPT-6 |
 // | 2026-11-13 | Require the retained contract in experimental pipe tests. | Match the current host and reject incompatible older peers. | #731 | GPT-6 |
 // | 2026-11-13 | Test retained target lifetime over the real job pipe. | Bound retries and release to the verified object and session. | #731 | GPT-6 |
 // | 2026-11-13 | Verify fail-closed thin cleanup and compatibility. | Preserve data on uncertain cleanup and reject mismatched peers. | #731 | GPT-6 |
@@ -2594,6 +2595,132 @@ void CheckPlannedTreeJob(const Directory& source, const Directory& target, const
           "refuse to merge into a root that appeared after consent");
 }
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+void CheckPlannedTreeThinJob(const Directory& source, const Directory& target, const Directory& outside)
+{
+    constexpr wchar_t root[] = L"thin-planned-\u6771";
+    constexpr wchar_t first[] = L"first-\u65e5.txt";
+    constexpr wchar_t second[] = L"second-\u00e4.txt";
+    Directory from;
+    if (!from.Open(source.File(root).c_str()) || !WriteByte(from.File(first), 0x51) ||
+        !WriteByte(from.File(second), 0x52))
+    {
+        Check(false, "prepare a separate planned-tree thin fixture");
+        return;
+    }
+
+    JobPipe job;
+    DWORD status = ERROR_GEN_FAILURE;
+    ListingReply listing{};
+    std::vector<UacF7::TreeCopySourceEntry> rows;
+    const bool planned = job.Open() &&
+        job.Request(Operation::PlanCopyTree, source, root, status, &target, nullptr, nullptr,
+                    false, nullptr, nullptr, 0) && status == ERROR_SUCCESS &&
+        job.ListTreeSource(from, {}, from.identity.file, listing, rows) &&
+        listing.error == ERROR_SUCCESS && rows.size() == 2 && IsAbsent(target.File(root));
+    Check(planned, "plan and list two thin sources on one live job before creating its root");
+    if (!planned) return;
+
+    const auto findId = [&](const wchar_t* name, FILE_ID_INFO& id) {
+        for (const auto& row : rows)
+            if (std::wstring_view(row.data.cFileName) == name)
+            {
+                id.VolumeSerialNumber = from.identity.file.VolumeSerialNumber;
+                id.FileId = row.id;
+                return true;
+            }
+        return false;
+    };
+    FILE_ID_INFO firstId{}, secondId{};
+    if (!findId(first, firstId) || !findId(second, secondId))
+    {
+        Check(false, "the source listing retains both exact Unicode file identities");
+        return;
+    }
+    ThinWireReply reply{};
+    const bool beforeRoot = job.Thin(from, first, firstId, target, first,
+        Operation::ThinOpenSource, nullptr, false, status, reply) &&
+        status == ERROR_ACCESS_DENIED && !reply.value && IsAbsent(target.File(root));
+    Check(beforeRoot, "thin open is refused before the planned target root exists");
+    if (!beforeRoot) return;
+
+    const bool rootCreated = job.Request(Operation::CopyDirectoryEntry, source, root, status, &target,
+                                         nullptr, nullptr, false, nullptr, nullptr, 0) && !status;
+    Check(rootCreated, "create the approved target root on the original job pipe");
+    if (!rootCreated) return;
+    Directory into;
+    if (!into.Open(target.File(root).c_str(), false))
+    {
+        Check(false, "open the actual created tree root");
+        return;
+    }
+
+    FILE_ID_INFO wrongId = firstId;
+    wrongId.FileId.Identifier[0] ^= 1;
+    const bool badIdentity = job.Thin(from, first, wrongId, into, first, Operation::ThinOpenSource,
+                                     nullptr, false, status, reply) &&
+        status == ERROR_FILE_INVALID && !reply.value && IsAbsent(into.File(first));
+    Check(badIdentity, "thin source refuses a substituted listed file identity");
+    if (!badIdentity) return;
+    const bool badSource = job.Thin(outside, first, firstId, into, first, Operation::ThinOpenSource,
+                                   nullptr, false, status, reply) &&
+        status == ERROR_ACCESS_DENIED && !reply.value && IsAbsent(into.File(first));
+    Check(badSource, "thin source refuses a parent outside the approved source tree");
+    if (!badSource) return;
+    const bool badLeaf = job.Thin(from, first, firstId, into, L"different.txt", Operation::ThinOpenSource,
+                                 nullptr, false, status, reply) &&
+        status == ERROR_ACCESS_DENIED && !reply.value && IsAbsent(into.File(L"different.txt"));
+    Check(badLeaf, "thin source refuses a different target leaf within the approved tree");
+    if (!badLeaf) return;
+
+    const auto copyOne = [&](const wchar_t* leaf, const FILE_ID_INFO& id, BYTE expected) {
+        if (!job.Thin(from, leaf, id, into, leaf, Operation::ThinOpenSource,
+                      nullptr, false, status, reply) || status || !reply.value)
+            return false;
+        auto input = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+        BYTE byte = 0;
+        DWORD transferred = 0;
+        if (!input || !ReadFile(input.get(), &byte, 1, &transferred, nullptr) ||
+            transferred != 1 || byte != expected)
+            return false;
+        transferred = 0;
+        const bool sourceWriteDenied = !WriteFile(input.get(), &byte, 1, &transferred, nullptr) &&
+                                       GetLastError() == ERROR_ACCESS_DENIED;
+        Check(sourceWriteDenied, "scoped thin source handle cannot write");
+        if (!sourceWriteDenied) return false;
+        if (!job.Thin(from, leaf, id, into, leaf, Operation::ThinTargetCreate,
+                      nullptr, false, status, reply, input.get()) || status || !reply.value)
+            return false;
+        const FILE_ID_INFO targetId = reply.target;
+        auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+        transferred = 0;
+        BYTE readBack = 0;
+        const bool targetReadDenied = output && !ReadFile(output.get(), &readBack, 1, &transferred, nullptr) &&
+                                      GetLastError() == ERROR_ACCESS_DENIED;
+        Check(targetReadDenied, "new scoped thin target handle cannot read");
+        if (!targetReadDenied) return false;
+        transferred = 0;
+        const bool written = output && WriteFile(output.get(), &byte, 1, &transferred, nullptr) && transferred == 1;
+        output.reset();
+        if (!written || !job.Thin(from, leaf, id, into, leaf, Operation::ThinTargetRelease,
+                                  &targetId, false, status, reply) || status || reply.value)
+            return false;
+        return HasByte(into.File(leaf), expected) && HasByte(from.File(leaf), expected);
+    };
+    const bool firstCopied = copyOne(first, firstId, 0x51);
+    Check(firstCopied, "first scoped thin source and target use the planned job and preserve their contents");
+    if (!firstCopied) return;
+    const bool secondCopied = copyOne(second, secondId, 0x52);
+    Check(secondCopied, "second scoped thin source and target reuse the same job pipe");
+    if (!secondCopied) return;
+
+    Check(job.Thin(from, first, firstId, outside, first, Operation::ThinOpenSource,
+                   nullptr, false, status, reply) && status == ERROR_ACCESS_DENIED && !reply.value &&
+          IsAbsent(outside.File(first)) && HasByte(into.File(first), 0x51),
+          "the scoped thin job refuses a target outside the approved tree");
+}
+#endif
+
 void CheckNestedTransferJob(const Directory& source, const Directory& target)
 {
     constexpr wchar_t first[] = L"nested-copy-first";
@@ -4370,11 +4497,21 @@ void CheckThinBrokerSourceParent(const Directory& source, const Directory& targe
 #include "uacbroker_thin_cleanup_contract_tests.inc"
 }
 
-int wmain()
+int wmain(int argc, wchar_t** argv)
 {
     Directory source, target, outside;
     if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
         return 2;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (argc == 2 && !wcscmp(argv[1], L"--thin-tree-only"))
+    {
+        CheckPlannedTreeThinJob(source, target, outside);
+        return failures ? 1 : 0;
+    }
+#else
+    (void)argc;
+    (void)argv;
+#endif
 #ifdef SAM_UAC_THIN_COPY_TEST
     CheckThinJob(source, target, outside);
     CheckThinRetainedTarget(source, target, outside);
