@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Preserve ordinary Retry before any elevated scope. | Track lost source continuity without imposing UAC identity rules on local copying. | #731 | GPT-6 |
 // | 2026-11-13 | Respect prior skip and cancellation before scoped opens. | Preserve native batch decisions without suppressing Retry or conflict probes. | #731 | GPT-6 |
 // | 2026-11-13 | Preserve native plain-copy attribute failure behavior. | Do not fail a completed scoped copy when ordinary attribute setting is ignored. | #731 | GPT-6 |
 // | 2026-11-13 | Release the broker's retained target after completed F5. | Preserve the native worker's per-item handle lifetime. | #731 | GPT-6 |
@@ -2398,6 +2399,7 @@ struct CThinCopyWorker
     bool active = false;
     bool earlierSourceRequired = false;
     bool earlierSourceKnown = false;
+    bool sourceContinuityLost = false;
     bool targetKnown = false;
     bool targetCreatedByBroker = false;
     bool suppressLocalCleanup = false;
@@ -2409,6 +2411,7 @@ struct CThinCopyWorker
         : operation(op), script(batch), dialog(data), progress(owner), sourceHandle(source) {}
 
     bool Configure(bool isMove, bool copyADS, bool encrypted);
+    bool SourceContinuityAllowsElevation() const;
     bool EnsurePrepared();
     HANDLE Open(UacF7::ThinOpenKind kind, bool overlapped);
     bool CancelBeforeElevation();
@@ -2458,9 +2461,12 @@ static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::Thin
             if (context->active && context->earlierSourceRequired)
             {
                 UacF7::MoveFileIdentity actual{};
-                if (!context->earlierSourceKnown || !UacF7::CaptureMoveFileIdentity(local, actual) ||
-                    actual.serial != context->earlierSource.serial ||
-                    std::memcmp(actual.id, context->earlierSource.id, sizeof(actual.id)) != 0)
+                const bool same = context->earlierSourceKnown && UacF7::CaptureMoveFileIdentity(local, actual) &&
+                    actual.serial == context->earlierSource.serial &&
+                    std::memcmp(actual.id, context->earlierSource.id, sizeof(actual.id)) == 0;
+                if (!same)
+                    context->sourceContinuityLost = true;
+                if (context->sourceContinuityLost && (context->request || context->session))
                 {
                     HANDLES(CloseHandle(local));
                     SetLastError(ERROR_FILE_INVALID);
@@ -2470,7 +2476,8 @@ static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::Thin
             context->RememberSource(local);
             // Once an elevated scope exists, even an ordinary reopening must
             // not switch the worker to a different same-named object.
-            if (context->active && context->session && !context->sourceVerified)
+            if (context->active && (context->request || context->session) &&
+                (context->sourceContinuityLost || !context->sourceVerified))
             {
                 HANDLES(CloseHandle(local));
                 SetLastError(ERROR_FILE_INVALID);
@@ -6720,18 +6727,27 @@ bool CThinCopyWorker::Configure(bool isMove, bool copyADS, bool encrypted)
     return active;
 }
 
+bool CThinCopyWorker::SourceContinuityAllowsElevation() const
+{
+    if (sourceContinuityLost || (earlierSourceRequired && !earlierSourceKnown))
+    {
+        SetLastError(ERROR_FILE_INVALID);
+        return false;
+    }
+    return true;
+}
+
 bool CThinCopyWorker::EnsurePrepared()
 {
+    if (!SourceContinuityAllowsElevation())
+        return false;
     if (request)
         return true;
     if (sourceHandle && *sourceHandle && *sourceHandle != INVALID_HANDLE_VALUE)
         RememberSource(*sourceHandle, true);
     // A previously opened source must retain its identity across Retry.
-    if (earlierSourceRequired && !earlierSourceKnown)
-    {
-        SetLastError(ERROR_FILE_INVALID);
+    if (!SourceContinuityAllowsElevation())
         return false;
-    }
     try
     {
         const auto* listed = ListedTransferSource(operation, script);
@@ -6755,6 +6771,7 @@ bool CThinCopyWorker::EnsurePrepared()
                              std::memcmp(earlierSource.id, expected.id, sizeof(expected.id)) == 0;
             if (!sourceVerified)
             {
+                sourceContinuityLost = true;
                 SetLastError(ERROR_FILE_INVALID);
                 return false;
             }
@@ -6916,12 +6933,16 @@ void CThinCopyWorker::RememberSource(HANDLE file, bool force)
     if (force)
         earlierSourceRequired = true;
     earlierSourceKnown = UacF7::CaptureMoveFileIdentity(file, earlierSource);
+    if (!earlierSourceKnown)
+        sourceContinuityLost = true;
     if (!request || !earlierSourceKnown)
         return;
     UacF7::MoveFileIdentity expected{}, parent{};
     request->SourceIdentities(expected, parent);
     sourceVerified = earlierSource.serial == expected.serial &&
                      std::memcmp(earlierSource.id, expected.id, sizeof(expected.id)) == 0;
+    if (!sourceVerified)
+        sourceContinuityLost = true;
 }
 
 void CThinCopyWorker::RememberTarget(HANDLE file, bool force)

@@ -1,41 +1,73 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Exercise ordinary Retry and sticky source continuity. | Reject later elevation after unknown or changed identity without breaking local copy. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise initial F5 skip and cancellation decisions. | Distinguish initial opens from Retry and metadata probes. | #731 | GPT-6 |
 #include <windows.h>
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <memory>
+#include <string>
 
 @@PHASE@@
 namespace UacF7 {
 enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe };
+enum class Operation { Copy };
 struct MoveFileIdentity { unsigned long long serial = 0; unsigned char id[16]{}; };
-static bool CaptureMoveFileIdentity(HANDLE, MoveFileIdentity& value) { value = {}; return true; }
+static int captureCalls = 0, prepareCalls = 0;
+static unsigned char preparedSourceId = 1;
+static bool CaptureMoveFileIdentity(HANDLE file, MoveFileIdentity& value) {
+    ++captureCalls;
+    if (file == reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(0x34))) {
+        SetLastError(ERROR_NOT_SUPPORTED); return false;
+    }
+    value = {}; value.serial = 1;
+    value.id[0] = file == reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(0x33)) ? 2 : 1;
+    return true;
+}
+struct PreparedTransfer {
+    bool Prepare(const std::wstring&, const std::wstring&, ULONGLONG, Operation,
+                 const PreparedTransfer*, void*) { ++prepareCalls; return true; }
+    void SourceIdentities(MoveFileIdentity& expected, MoveFileIdentity& parent) const {
+        expected = {}; expected.serial = 1; expected.id[0] = preparedSourceId; parent = {};
+    }
+};
 }
 constexpr DWORD OPFL_UAC_TRANSFER_SOURCE = 0x100;
+constexpr DWORD OPFL_UAC_TRANSFER_LISTED = 0x200;
 struct FakeSession { int closes = 0; };
-struct FakeOperation { DWORD OpFlags = 0; };
+struct FakeOperation { DWORD OpFlags = 0; std::wstring SourceNameW, TargetNameW; struct { ULONGLONG Value = 0; } FileSize; };
+struct FakeScript {};
+struct FakeListed { std::unique_ptr<UacF7::PreparedTransfer> Request; };
+static const FakeListed* ListedTransferSource(const FakeOperation&, const FakeScript&) { return nullptr; }
 struct FakeDialog { BOOL* CancelWorker = nullptr; HANDLE CancelWorkerEvent = nullptr; BOOL SkipAllFileOpenIn = FALSE, SkipAllFileOpenOut = FALSE; };
 struct CThinCopyWorker {
     FakeOperation operation;
+    FakeScript script;
     FakeDialog dialog;
     FakeSession* session = nullptr;
+    HANDLE* sourceHandle = nullptr;
+    std::unique_ptr<UacF7::PreparedTransfer> request;
     UacF7::MoveFileIdentity earlierSource{};
     bool active = true, terminal = false, earlierSourceRequired = false, earlierSourceKnown = false, sourceVerified = true;
+    bool sourceContinuityLost = false;
     bool targetCreatedByBroker = false;
-    int openCalls = 0, sourceRemembered = 0, targetRemembered = 0, validationCalls = 0;
+    int openCalls = 0, targetRemembered = 0, validationCalls = 0;
     UacF7::ThinOpenKind lastKind = UacF7::ThinOpenKind::Source;
     bool lastOverlapped = false;
     HANDLE opened = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(17));
     DWORD openedError = ERROR_SUCCESS;
     bool CancelBeforeElevation();
+    bool SourceContinuityAllowsElevation() const;
+    bool EnsurePrepared();
     HANDLE Open(UacF7::ThinOpenKind kind, bool overlapped) {
         ++openCalls; lastKind = kind; lastOverlapped = overlapped;
         if (CancelBeforeElevation()) return INVALID_HANDLE_VALUE;
+        if (!EnsurePrepared()) return INVALID_HANDLE_VALUE;
         SetLastError(openedError); return opened;
     }
-    void RememberSource(HANDLE) { ++sourceRemembered; sourceVerified = true; }
+    void RememberSource(HANDLE, bool force = false);
     void RememberTarget(HANDLE) { ++targetRemembered; }
     bool ValidateRetriedTarget(HANDLE) { ++validationCalls; return true; }
     bool Scoped() const { return session != nullptr; }
@@ -47,6 +79,8 @@ static BOOL MockClose(HANDLE) { ++closeCalls; return TRUE; }
 #define HANDLES(x) (x)
 #define HANDLES_ADD_EX(...) ((void)0)
 static void ThinCopyTestSignalPreserve(const wchar_t*) {}
+@@PREPARATION@@
+@@REMEMBER_SOURCE@@
 @@METHODS@@
 static bool ThinCopyTestDenyOpen(CThinCopyWorker*, bool) { return false; }
 static bool ThinCopyTestDenyReopen(CThinCopyWorker*, bool) { return false; }
@@ -187,7 +221,7 @@ int main() {
         CThinCopyWorker normal; normal.dialog.CancelWorker = &cancelled; normal.dialog.SkipAllFileOpenIn = TRUE;
         HANDLE local = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(29)); SetLastError(ERROR_ALREADY_EXISTS);
         Check(THIN_OPEN_SOURCE(&normal, local, false) == local && GetLastError() == ERROR_ALREADY_EXISTS &&
-              normal.sourceRemembered == 1 && normal.openCalls == 0,
+              !normal.earlierSourceRequired && normal.openCalls == 0,
               "successful ordinary open is not suppressed", failures);
     }
     {
@@ -196,6 +230,116 @@ int main() {
         Check(THIN_OPEN_SOURCE(&normal, INVALID_HANDLE_VALUE, false) == INVALID_HANDLE_VALUE &&
               GetLastError() == ERROR_SHARING_VIOLATION && normal.openCalls == 0 && !normal.terminal,
               "unrelated errors retain original behavior", failures);
+    }
+    HANDLE original = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(0x31));
+    HANDLE same = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(0x32));
+    HANDLE changed = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(0x33));
+    HANDLE unavailable = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(0x34));
+    {
+        CThinCopyWorker local; local.dialog.CancelWorker = &cancelled;
+        local.RememberSource(original, true);
+        SetLastError(ERROR_ALREADY_EXISTS);
+        HANDLE output = THIN_OPEN_SOURCE_RETRY(&local, same, false);
+        Check(output == same && GetLastError() == ERROR_ALREADY_EXISTS && !local.sourceContinuityLost &&
+              local.earlierSourceKnown && !local.request && !local.session,
+              "same source identity preserves ordinary local Retry and last error", failures);
+        Check(local.EnsurePrepared() && local.request && local.sourceVerified,
+              "unchanged identity still permits preparation for later elevation", failures);
+    }
+    for (bool originalUnavailable : {false, true}) {
+        CThinCopyWorker local; local.dialog.CancelWorker = &cancelled;
+        local.RememberSource(originalUnavailable ? unavailable : original, true);
+        SetLastError(ERROR_ALREADY_EXISTS);
+        HANDLE output = THIN_OPEN_SOURCE_RETRY(&local, originalUnavailable ? same : unavailable, false);
+        Check(output == (originalUnavailable ? same : unavailable) && GetLastError() == ERROR_ALREADY_EXISTS &&
+              local.sourceContinuityLost && !local.request && !local.session,
+              originalUnavailable ? "missing old identity does not break local Retry" :
+                                    "missing reopened identity does not break local Retry", failures);
+        local.RememberSource(same, true);
+        SetLastError(ERROR_ALREADY_EXISTS);
+        Check(THIN_OPEN_SOURCE_RETRY(&local, same, false) == same && local.sourceContinuityLost &&
+              GetLastError() == ERROR_ALREADY_EXISTS,
+              "later matching local Retry cannot clear unknown continuity", failures);
+        const int beforePrepare = UacF7::prepareCalls;
+        SetLastError(ERROR_ACCESS_DENIED);
+        output = THIN_OPEN_TARGET_CREATE(&local, INVALID_HANDLE_VALUE, false);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID &&
+              !local.request && !local.session && UacF7::prepareCalls == beforePrepare,
+              "unknown continuity blocks later elevation before preparation", failures);
+    }
+    {
+        CThinCopyWorker local; local.dialog.CancelWorker = &cancelled;
+        local.RememberSource(original, true);
+        SetLastError(ERROR_ALREADY_EXISTS);
+        HANDLE output = THIN_OPEN_SOURCE_RETRY(&local, changed, false);
+        Check(output == changed && GetLastError() == ERROR_ALREADY_EXISTS && local.sourceContinuityLost &&
+              !local.request && !local.session, "changed identity preserves native local Retry but marks loss", failures);
+        local.RememberSource(changed, true);
+        SetLastError(ERROR_ALREADY_EXISTS);
+        Check(THIN_OPEN_SOURCE_RETRY(&local, changed, false) == changed && local.sourceContinuityLost &&
+              GetLastError() == ERROR_ALREADY_EXISTS,
+              "matching later Retry cannot clear changed continuity", failures);
+        SetLastError(ERROR_ACCESS_DENIED);
+        const int beforePrepare = UacF7::prepareCalls;
+        output = THIN_OPEN_TARGET_CREATE(&local, INVALID_HANDLE_VALUE, true);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID &&
+              !local.request && !local.session && UacF7::prepareCalls == beforePrepare,
+              "changed continuity blocks later elevation before preparation", failures);
+    }
+    for (bool prepared : {false, true}) {
+        CThinCopyWorker scoped; scoped.dialog.CancelWorker = &cancelled;
+        if (prepared) scoped.request = std::make_unique<UacF7::PreparedTransfer>();
+        else scoped.session = &existing;
+        scoped.RememberSource(original, true);
+        const int beforeClose = closeCalls;
+        SetLastError(ERROR_ALREADY_EXISTS);
+        HANDLE output = THIN_OPEN_SOURCE_RETRY(&scoped, changed, false);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID &&
+              scoped.sourceContinuityLost && closeCalls == beforeClose + 1,
+              prepared ? "prepared request rejects changed source identity" :
+                         "existing session rejects changed source identity", failures);
+    }
+    {
+        CThinCopyWorker prepared; prepared.dialog.CancelWorker = &cancelled;
+        prepared.request = std::make_unique<UacF7::PreparedTransfer>();
+        const int beforeClose = closeCalls;
+        SetLastError(ERROR_ALREADY_EXISTS);
+        HANDLE output = THIN_OPEN_SOURCE(&prepared, changed, false);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID &&
+              prepared.sourceContinuityLost && closeCalls == beforeClose + 1,
+              "prepared request rejects a changed source on initial local open", failures);
+    }
+    {
+        CThinCopyWorker local; local.dialog.CancelWorker = &cancelled;
+        HANDLE current = unavailable; local.sourceHandle = &current;
+        const int beforePrepare = UacF7::prepareCalls;
+        SetLastError(ERROR_SUCCESS);
+        Check(!local.EnsurePrepared() && GetLastError() == ERROR_FILE_INVALID &&
+              local.sourceContinuityLost && !local.request && UacF7::prepareCalls == beforePrepare,
+              "identity loss during preparation prevents elevation", failures);
+    }
+    {
+        CThinCopyWorker local; local.dialog.CancelWorker = &cancelled;
+        local.RememberSource(original, true);
+        UacF7::preparedSourceId = 2;
+        SetLastError(ERROR_SUCCESS);
+        Check(!local.EnsurePrepared() && GetLastError() == ERROR_FILE_INVALID &&
+              local.sourceContinuityLost && !local.request,
+              "prepared source mismatch permanently marks continuity loss", failures);
+        const int beforePrepare = UacF7::prepareCalls;
+        UacF7::preparedSourceId = 1;
+        SetLastError(ERROR_SUCCESS);
+        Check(!local.EnsurePrepared() && GetLastError() == ERROR_FILE_INVALID &&
+              local.sourceContinuityLost && !local.request && UacF7::prepareCalls == beforePrepare,
+              "matching identity later cannot clear preparation mismatch", failures);
+    }
+    {
+        CThinCopyWorker prepared; prepared.dialog.CancelWorker = &cancelled;
+        prepared.request = std::make_unique<UacF7::PreparedTransfer>();
+        prepared.sourceContinuityLost = true;
+        SetLastError(ERROR_SUCCESS);
+        Check(!prepared.EnsurePrepared() && GetLastError() == ERROR_FILE_INVALID,
+              "existing request cannot bypass sticky continuity loss", failures);
     }
     Check(RealClose(cancelEvent) != FALSE, "close test cancellation event", failures);
     return failures ? 1 : 0;
