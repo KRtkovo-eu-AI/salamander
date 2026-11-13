@@ -4407,6 +4407,8 @@ SLGINCOMPLETE,""
 14719,1,"Branch View - %I64u Dateien; Ergebnis möglicherweise unvollständig"
 14720,1,"Die Ordnerauflistung wurde unterbrochen und fortgesetzt. Dateien können sich zwischenzeitlich geändert haben; die Liste kann unvollständig sein. Aktualisieren Sie sie zur Überprüfung."
 
+14721,1,"Zugriff verweigert. Diese Datei als Administrator kopieren? Dateien mit alternativen Datenströmen werden in diesem Modus nicht unterstützt."
+
 [STRINGTABLE 199]
 14991,1,"Lese Dateizuordnungen aus dem Dateispeicher, bitte warten..."
 

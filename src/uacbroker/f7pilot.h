@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Distinguish experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
 | 2026-11-12 | Add scoped thin F5 foreground return. | Coordinate progress focus before worker completion. | #731 | GPT-6 |
 | 2026-11-12 | Expose test-only authenticated broker PID markers. | Measure a singleton job without lending a process handle. | #731 | GPT-6 |
 | 2026-11-12 | Type distinct worker handle arguments. | Prevent accidental exchange of source and cancel handles. | #731 | GPT-6 |
@@ -1004,6 +1005,10 @@ private:
     std::vector<HANDLE> pinned;
 };
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+enum class TransferPromptKind { Standard, ThinPlainCopy };
+#endif
+
 struct TransferPrompt
 {
     const PreparedTransfer& request;
@@ -1012,6 +1017,9 @@ struct TransferPrompt
     bool targetDenied = false;
     Result result{ERROR_CANCELLED, false};
     bool approved = false;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    TransferPromptKind kind = TransferPromptKind::Standard;
+#endif
 };
 
 struct DirectoryInventory

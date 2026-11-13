@@ -1,3 +1,4 @@
+// | 2026-11-13 | Localize experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
 // | 2026-11-12 | Describe uncertain partial Branch merges. | Avoid presenting a live retry as an atomic snapshot. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Explain unavailable Find result identity. | Prevent unsafe viewer fallback and suggest a new search. | #731 | GPT-6.1 Terra |
@@ -3399,5 +3400,6 @@
 #define IDS_BRANCH_LIST_LIMIT                        14717
 #define IDS_BRANCH_MERGE_UNCERTAIN                   14719
 #define IDS_BRANCH_MERGE_UNCERTAIN_DETAIL            14720
+#define IDS_UAC_THIN_COPY_CONFIRM                    14721
 
 #endif // __TEXTS_RH2

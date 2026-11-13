@@ -4406,6 +4406,8 @@ SLGINCOMPLETE,""
 14719,1,"Branch View - %I64u fișiere; rezultatul poate fi incomplet"
 14720,1,"Listarea folderului a fost întreruptă și reluată. Fișierele se pot fi schimbat între timp, deci lista poate fi incompletă. Reîmprospătați pentru verificare."
 
+14721,1,"Acces refuzat. Copiați acest fișier ca administrator? Fișierele cu fluxuri de date alternative nu sunt acceptate în acest mod."
+
 [STRINGTABLE 199]
 14991,1,"Citesc asocierile din stocarea fișierelor, vă rugăm așteptați..."
 

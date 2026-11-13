@@ -4406,6 +4406,8 @@ SLGINCOMPLETE,""
 14719,1,"Branch View - %I64u bestanden; resultaat mogelijk onvolledig"
 14720,1,"De maplijst is onderbroken en hervat. Bestanden kunnen intussen zijn gewijzigd; de lijst kan onvolledig zijn. Vernieuw om dit te controleren."
 
+14721,1,"Toegang geweigerd. Dit bestand als beheerder kopiëren? Bestanden met alternatieve gegevensstromen worden in deze modus niet ondersteund."
+
 [STRINGTABLE 199]
 14991,1,"Associaties worden uit de bestandopslag gelezen, even geduld..."
 

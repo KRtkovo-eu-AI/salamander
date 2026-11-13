@@ -1,4 +1,5 @@
-﻿// | 2026-11-12 | Describe uncertain partial Branch merges. | Avoid presenting a live retry as an atomic snapshot. | #731 | GPT-6.1 Terra |
+﻿// | 2026-11-13 | Localize experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
+// | 2026-11-12 | Describe uncertain partial Branch merges. | Avoid presenting a live retry as an atomic snapshot. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Retry denied Branch listings after scoped consent. | Keep partial results and verify listed directory identities. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Explain unavailable Find result identity. | Prevent unsafe viewer fallback and suggest a new search. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Localize verified Find viewer limitations and consent. | Keep file identity and the snapshot choice clear. | #731 | GPT-6.1 Terra |
@@ -2520,6 +2521,7 @@ STRINGTABLE
  IDS_UAC_COPY_OVERWRITE_CONFIRM, "Access was denied. Replace this existing file as an administrator while keeping the destination permissions?"
  IDS_UAC_COPY_OVERWRITE_IGNORE_ADS_CONFIRM, "Access was denied. Replace this file as an administrator while keeping the destination permissions? The replacement will not contain alternate data streams."
  IDS_UAC_COPY_CONFIRM, "Access was denied. Copy this file and its alternate data streams as an administrator?"
+ IDS_UAC_THIN_COPY_CONFIRM, "Access was denied. Copy this file as an administrator? Files with alternate data streams are not supported in this mode."
  IDS_UAC_COPY_IGNORE_ADS_CONFIRM, "Access was denied. Copy this file without its alternate data streams as an administrator?"
  IDS_UAC_COPY_COMPRESSED_CONFIRM, "Access was denied. Copy this file and preserve its NTFS compression as an administrator?"
  IDS_UAC_COPY_SECURITY_CONFIRM, "Access was denied. Copy this file and preserve its NTFS owner, group, and explicit permissions as an administrator?"

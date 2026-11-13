@@ -4408,6 +4408,8 @@ SLGINCOMPLETE,""
 14719,1,"Branch View - %I64u souborů; výsledek může být neúplný"
 14720,1,"Výpis adresáře byl přerušen a obnoven. Soubory se mezitím mohly změnit, proto může být sloučený výpis neúplný. Ověřte jej obnovením."
 
+14721,1,"Přístup byl odepřen. Zkopírovat tento soubor jako správce? Soubory s alternativními datovými proudy nejsou v tomto režimu podporovány."
+
 [STRINGTABLE 199]
 14991,1,"Čtení přidružení souborů ze souborového úložiště, čekejte prosím..."
 

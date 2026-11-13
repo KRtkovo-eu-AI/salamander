@@ -4406,6 +4406,8 @@ SLGINCOMPLETE,""
 14719,1,"Branch View - %I64u fichiers ; résultat potentiellement incomplet"
 14720,1,"La liste du dossier a été interrompue puis reprise. Les fichiers ont pu changer entre-temps ; la liste peut être incomplète. Actualisez-la pour vérifier."
 
+14721,1,"Accès refusé. Copier ce fichier en tant qu’administrateur ? Les fichiers avec des flux de données alternatifs ne sont pas pris en charge dans ce mode."
+
 [STRINGTABLE 199]
 14991,1,"Lecture des associations depuis le stockage de fichiers, veuillez patienter..."
 

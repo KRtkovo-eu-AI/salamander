@@ -4406,6 +4406,8 @@ SLGINCOMPLETE,""
 14719,1,"Branch View - %I64u fájl; az eredmény hiányos lehet"
 14720,1,"A mappa listázása megszakadt, majd folytatódott. A fájlok közben módosulhattak, ezért a lista hiányos lehet. Ellenőrzéshez frissítse."
 
+14721,1,"A hozzáférés megtagadva. Másolja ezt a fájlt rendszergazdaként? Ez a mód nem támogatja az alternatív adatfolyamokat tartalmazó fájlokat."
+
 [STRINGTABLE 199]
 14991,1,"Társítások beolvasása fájltárolóból, kérem várjon..."
 

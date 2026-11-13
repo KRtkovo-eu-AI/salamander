@@ -4406,6 +4406,8 @@ SLGINCOMPLETE,""
 14719,1,"Branch View - %I64u file; il risultato potrebbe essere incompleto"
 14720,1,"L’elenco della cartella è stato interrotto e ripreso. I file potrebbero essere cambiati; l’elenco potrebbe essere incompleto. Aggiornarlo per verificare."
 
+14721,1,"Accesso negato. Copiare questo file come amministratore? In questa modalità non sono supportati i file con flussi di dati alternativi."
+
 [STRINGTABLE 199]
 14991,1,"Lettura associazioni dall'archiviazione file, attendere..."
 

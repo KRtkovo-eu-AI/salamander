@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Distinguish experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
 // | 2026-11-12 | Hand thin F5 completion to the main UI thread. | Complete foreground activation before closing progress. | #731 | GPT-6 |
 // | 2026-11-12 | Return thin F5 progress focus without overriding later input. | Keep the native panel active after a short elevated operation. | #731 | GPT-6 |
 // | 2026-11-12 | Guard native singleton overwrite and post-cancel recovery warning. | Keep this UAC slice reviewable and fail closed. | #731 | GPT-6 (Codex) |
@@ -2023,6 +2024,10 @@ CProgressDialog::DialogProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
                 confirmText = IDS_UAC_COPY_COMPRESSED_CONFIRM;
             else if (prompt.request.IgnoresAds())
                 confirmText = IDS_UAC_COPY_IGNORE_ADS_CONFIRM;
+#ifdef SAM_UAC_THIN_COPY_TEST
+            else if (prompt.kind == UacF7::TransferPromptKind::ThinPlainCopy && !moving && !tree)
+                confirmText = IDS_UAC_THIN_COPY_CONFIRM;
+#endif
             const bool shareJob = Script->Count > 1 && prompt.request.CanShareJob();
             std::string message = std::string(LoadStr(confirmText)) + "\n\n" +
                                   prompt.sourcePath + "\n -> " + prompt.targetPath;

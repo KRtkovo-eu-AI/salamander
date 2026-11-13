@@ -4406,6 +4406,8 @@ SLGINCOMPLETE,""
 14719,1,"Branch View - %I64u archivos; el resultado puede estar incompleto"
 14720,1,"La lista de la carpeta se interrumpió y se reanudó. Los archivos pudieron cambiar; la lista puede estar incompleta. Actualícela para comprobarla."
 
+14721,1,"Acceso denegado. ¿Copiar este archivo como administrador? Este modo no admite archivos con flujos de datos alternativos."
+
 [STRINGTABLE 199]
 14991,1,"Leyendo asociaciones del almacenamiento de archivos, espere por favor..."
 

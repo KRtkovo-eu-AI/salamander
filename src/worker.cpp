@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Distinguish experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
 // | 2026-11-12 | Observe test-only native read fault and Retry. | Distinguish injected failure from a worker-accepted Retry without changing production flow. | #731 | GPT-6 |
 // | 2026-11-12 | Keep target Retry on its recorded identity. | Do not assume a missing broker target was recreated. | #731 | GPT-6 |
 // | 2026-11-12 | Defer target cleanup when cancelling a source open. | Let the copy worker close its live output before verified discard. | #731 | GPT-6 |
@@ -6761,6 +6762,7 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
                     SalPathRemoveExtendedPrefixW(operation.TargetNameW.c_str()).c_str(), CP_UTF8);
                 UacF7::TransferPrompt prompt{*request, source.c_str(), targetPath.c_str(),
                     kind != UacF7::ThinOpenKind::Source};
+                prompt.kind = UacF7::TransferPromptKind::ThinPlainCopy;
                 SendMessage(progress, WM_USER_DIALOG, WORKER_DIALOG_UAC_TRANSFER,
                             reinterpret_cast<LPARAM>(&prompt));
                 if (!prompt.approved)
