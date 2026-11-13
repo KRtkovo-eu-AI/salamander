@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Record native network reopen boundary. | Do not equate retained-handle duplication with reopening a failed network file. | #731 | GPT-6 |
 | 2026-11-13 | Record reviewed startup checkpoint proposal. | Avoid repeating an uninstrumented timeout or misreading missing events. | #731 | GPT-6 |
 | 2026-11-13 | Record retained-target Debug build. | Distinguish a verified build from deployment and live Retry acceptance. | #731 | GPT-6 |
 | 2026-11-13 | Record experimental retained F5 target and local checks. | Separate broker-owned retry continuity from unresolved worker and VM acceptance. | #731 | GPT-6 |
@@ -954,6 +955,8 @@ Místní testy reálného dispatcheru a NTFS prošly v experimentální variant�
 Host pro nejistý výsledek znovu používá nativní lokalizované varování, a to i po Cancel nebo ztrátě odpovědi; nepředává novou pointerovou zprávu ani přesnou cílovou cestu. Výřez skutečných metod se stuby prošel **37 PASS** v Debug i Release (`C:\Samandarin\builds\uac-thin-safety-20261113\cleanup-debug-final.log`, `cleanup-release-final.log`); nejde o celý worker ani VM test. Odpovídající experimentální x64 host i broker byly sestaveny v Debug a Release a ověřeny na protokol 46 a odpovídající role; manifest je v `C:\Samandarin\builds\uac-thin-safety-20261113\verified-pair.json`. Tyto buildy nebyly nasazeny do VM.
 
 ## Experimentální F5: Retry lokálně vytvořeného cíle — 2026-11-13 / GPT-6
+
+- **Síťové Retry — neuzavřená kompatibilita:** Původní worker po chybě zápisu výslovně zavře a znovu otevře cíl i kvůli síťovým připojením. Nový duplikát brokerem drženého file objectu není nové otevření a nemusí obnovit neplatný nebo odpojený SMB handle. Platí to i pro návrh obdobného lokálního retenčního handle; zatím není doložena ekvivalence na síti ani po výpadku. Nativní `OPEN_ALWAYS` při chybějícím jménu navíc může vytvořit nový soubor, zatímco scoped experiment používá bezpečnější `OPEN_EXISTING` a odmítá nejistou identitu; jde o vědomý rozdíl, který vyžaduje návrh uživatelského chování a ověření. Stávající experimentální scoped přepis existujícího cíle záměrně nepodporuje.
 
 - **Diagnostika startu — návrh mimo repozitář:** V `C:\Samandarin\builds\uac-startup-checkpoints-20261113` je nezávisle revidovaný neaplikovaný patch šesti značek kolem `SalmonSetSLG` a vytvoření hlavního okna. Samostatný proces ověřil opt-in přes obě testovací makra, vlastní event a zachování `LastError`; skutečný host, šest eventů mezi procesy, ACL napříč účty ani VM zatím testovány nebyly. Chybějící signál může znamenat i selhání otevření eventu; první značka nezachycuje dřívější start. Značka vytvoření okna nedokazuje viditelnost. Případný řadič musí použít nové vlastní eventy, ověřit PID a řízeně sestavit prostředí, zejména pro případ jiné identity.
 
