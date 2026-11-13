@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Exercise host session custody on a live job pipe. | Test real client requests against the real dispatcher. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise thin opens in one planned tree job. | Check the existing broker scope on the same pipe. | #731 | GPT-6 |
 // | 2026-11-13 | Require the retained contract in experimental pipe tests. | Match the current host and reject incompatible older peers. | #731 | GPT-6 |
 // | 2026-11-13 | Test retained target lifetime over the real job pipe. | Bound retries and release to the verified object and session. | #731 | GPT-6 |
@@ -88,6 +89,24 @@
 
 #include <initializer_list>
 #include <thread>
+
+#if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
+namespace UacF7
+{
+// Only this harness may seed a post-handshake session. Production admission,
+// peer authentication and broker launch are not exercised by this seam.
+struct ThinClientPipeTestAccess
+{
+    static std::unique_ptr<TransferJobSession> Adopt(HANDLE pipe, const PreparedTransfer& plan)
+    {
+        auto job = std::make_unique<TransferJobSession>();
+        job->scope = plan.JobScope(true);
+        job->pipe = pipe;
+        return job;
+    }
+};
+}
+#endif
 
 namespace UacCopyLeaf::Detail
 {
@@ -200,6 +219,10 @@ class JobPipe
 {
 public:
     ~JobPipe() { Finish(); }
+
+#if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
+    Handle DetachClient() { return std::move(server); }
+#endif
 
     bool Open(HANDLE readyToDispatch = nullptr, HANDLE findRoot = nullptr,
               Operation findScope = Operation::FindContent,
@@ -2721,6 +2744,155 @@ void CheckPlannedTreeThinJob(const Directory& source, const Directory& target, c
 }
 #endif
 
+#if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
+void CheckThinClientPlannedTree(const Directory& source, const Directory& target)
+{
+    constexpr wchar_t root[] = L"client-planned-\u6771";
+    constexpr wchar_t leaf[] = L"payload-\u65e5.txt";
+    std::wstring cwd(32768, L'\0');
+    const DWORD length = GetCurrentDirectoryW(static_cast<DWORD>(cwd.size()), cwd.data());
+    if (!length || length >= cwd.size())
+    {
+        Check(false, "obtain the isolated client fixture directory");
+        return;
+    }
+    cwd.resize(length);
+    if (!SetEnvironmentVariableW(L"SAM_UAC_THIN_UNELEVATED_TEST", L"1") ||
+        !SetEnvironmentVariableW(L"SAM_UAC_THIN_TEST_INSTALL", cwd.c_str()))
+    {
+        Check(false, "configure the existing unelevated test install mode");
+        return;
+    }
+    const std::wstring sourceRoot = cwd + L"\\source\\" + root;
+    const std::wstring targetRoot = cwd + L"\\target\\" + root;
+    const std::wstring sourceFile = sourceRoot + L"\\" + leaf;
+    const std::wstring targetFile = targetRoot + L"\\" + leaf;
+    const std::wstring outsideTarget = cwd + L"\\outside\\" + leaf;
+    Directory from;
+    if (!from.Open(source.File(root).c_str()) || !WriteByte(from.File(leaf), 0x67))
+    {
+        Check(false, "prepare the isolated client planned-tree source");
+        return;
+    }
+
+    UacF7::PreparedTransfer treePlan;
+    if (!treePlan.PrepareTreePlan(sourceRoot, targetRoot))
+    {
+        Check(false, "prepare the exact tree scope using the real client");
+        return;
+    }
+    JobPipe pipe;
+    DWORD status = ERROR_GEN_FAILURE;
+    ListingReply listing{};
+    std::vector<UacF7::TreeCopySourceEntry> rows;
+    const bool planned = pipe.Open() &&
+        pipe.Request(Operation::PlanCopyTree, source, root, status, &target, nullptr, nullptr,
+                     false, nullptr, nullptr, 0) && !status &&
+        pipe.ListTreeSource(from, {}, from.identity.file, listing, rows) &&
+        !listing.error && rows.size() == 1 && std::wstring_view(rows.front().data.cFileName) == leaf;
+    Check(planned, "plan and list the source on the real dispatcher pipe");
+    if (!planned) return;
+
+    auto handle = pipe.DetachClient();
+    auto job = UacF7::ThinClientPipeTestAccess::Adopt(handle.get(), treePlan);
+    (void)handle.release(); // Exactly one owner moves to the real client session.
+    auto* const address = job.get();
+    const ULONGLONG generation = job->OpeningGeneration();
+    UacF7::MoveFileIdentity rootIdentity{};
+    rootIdentity.serial = from.identity.file.VolumeSerialNumber;
+    std::memcpy(rootIdentity.id, from.identity.file.FileId.Identifier, sizeof(rootIdentity.id));
+    UacF7::PreparedLeaf listed;
+    UacF7::PreparedTransfer provisional;
+    const bool preparedBeforeRoot = generation && job->NeedsTreeRoot() &&
+        job->PrepareTreeSource({}, rootIdentity, rows.front(), listed) &&
+        provisional.Prepare(sourceFile, outsideTarget, 1, Operation::Copy, &listed);
+    Check(preparedBeforeRoot, "prepare a listed child while the planned root is still absent");
+    if (!preparedBeforeRoot) return;
+    UacF7::ThinCopySession thin;
+    const bool earlyRefusal = !thin.TakePlanned(job, provisional) && job.get() == address &&
+        job->OpeningGeneration() == generation && IsAbsent(target.File(root));
+    Check(earlyRefusal, "refuse client custody before the planned tree root is created");
+    if (!earlyRefusal) return;
+
+    UacF7::PreparedTransfer createRoot;
+    const bool preparedRoot = createRoot.Prepare(sourceRoot, targetRoot, 0, Operation::CopyDirectoryEntry);
+    if (!preparedRoot)
+    {
+        Check(false, "prepare the root creation using the real client");
+        return;
+    }
+    const auto createdRoot = createRoot.Execute(nullptr, nullptr, job.get());
+    const bool rootCreated = !createdRoot.error && !createdRoot.unknown && job->IsOpen() &&
+                             !job->NeedsTreeRoot() && job->OpeningGeneration() == generation;
+    Check(rootCreated, "create the root through the real client and retain the same opening");
+    if (!rootCreated) return;
+
+    UacF7::PreparedTransfer request;
+    const bool ready = request.Prepare(sourceFile, targetFile, 1, Operation::Copy, &listed);
+    Check(ready, "prepare the listed file and actual target through the real client");
+    if (!ready) return;
+    UacF7::PreparedTransfer outside;
+    const bool outsideReady = outside.Prepare(sourceFile, outsideTarget, 1, Operation::Copy, &listed);
+    if (!outsideReady)
+    {
+        Check(false, "prepare the out-of-scope test request");
+        return;
+    }
+    const bool refusedOutside = !thin.TakePlanned(job, outside) && job.get() == address &&
+                                job->OpeningGeneration() == generation;
+    Check(refusedOutside, "refuse out-of-scope custody without moving or replacing the job");
+    if (!refusedOutside) return;
+
+    const bool taken = thin.TakePlanned(job, request) && !job && thin.IsOpen() && thin.Matches(request);
+    Check(taken, "take exclusive custody of the real planned client session");
+    if (!taken) return;
+    const auto opened = thin.Open(nullptr, request, UacF7::ThinOpenKind::Source, false, false, nullptr);
+    auto input = Adopt(opened.file);
+    BYTE value = 0;
+    DWORD count = 0;
+    const bool sourceOpened = !opened.error && !opened.unknown && input &&
+        ReadFile(input.get(), &value, 1, &count, nullptr) && count == 1 && value == 0x67;
+    Check(sourceOpened, "open the verified source through the real client on the original pipe");
+    if (!sourceOpened) return;
+    const auto created = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetCreate, false, false,
+                                   nullptr, UacF7::ThinOpenedSource{input.get()});
+    auto output = Adopt(created.file);
+    count = 0;
+    const bool targetCreated = !created.error && !created.unknown && output &&
+        WriteFile(output.get(), &value, 1, &count, nullptr) && count == 1;
+    Check(targetCreated, "create and write the target through the real client on that pipe");
+    if (!targetCreated) return;
+    output.reset();
+    const bool released = thin.ReleaseTarget(request, created.targetIdentity) == ERROR_SUCCESS;
+    Check(released, "release the actual broker target pin");
+    if (!released) return;
+    job = thin.ReturnPlanned();
+    const bool returned = job && job.get() == address && job->OpeningGeneration() == generation &&
+                          job->IsOpen() && !thin.IsOpen();
+    Check(returned, "return the identical open job and generation to the original owner");
+    if (!returned) return;
+    std::vector<UacF7::TreeCopySourceEntry> again;
+    const bool reused = job->ListTreeSource({}, rootIdentity, again) == ERROR_SUCCESS && again.size() == 1 &&
+        HasByte(targetFile, 0x67) && HasByte(sourceFile, 0x67);
+    Check(reused, "reuse the returned pipe for a real listing with both files intact");
+    if (!reused) return;
+    if (!thin.TakePlanned(job, request))
+    {
+        Check(false, "retake the returned planned session before closing it");
+        return;
+    }
+    thin.Close();
+    job = thin.ReturnPlanned();
+    LARGE_INTEGER start{};
+    count = 0;
+    value = 0;
+    const bool closed = job && job.get() == address && !job->IsOpen() && !job->OpeningGeneration() &&
+        input && SetFilePointerEx(input.get(), start, nullptr, FILE_BEGIN) &&
+        ReadFile(input.get(), &value, 1, &count, nullptr) && count == 1 && value == 0x67;
+    Check(closed, "closing the client pipe returns the closed job without revoking an issued source handle");
+}
+#endif
+
 void CheckNestedTransferJob(const Directory& source, const Directory& target)
 {
     constexpr wchar_t first[] = L"nested-copy-first";
@@ -4503,6 +4675,13 @@ int wmain(int argc, wchar_t** argv)
     if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
         return 2;
 #ifdef SAM_UAC_THIN_COPY_TEST
+#if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
+    if (argc == 2 && !wcscmp(argv[1], L"--thin-client-tree-only"))
+    {
+        CheckThinClientPlannedTree(source, target);
+        return failures ? 1 : 0;
+    }
+#endif
     if (argc == 2 && !wcscmp(argv[1], L"--thin-tree-only"))
     {
         CheckPlannedTreeThinJob(source, target, outside);

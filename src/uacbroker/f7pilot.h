@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Expose a test-only job-pipe seam. | Exercise client custody against the broker dispatcher. | #731 | GPT-6 |
 | 2026-11-13 | Allow exclusive experimental transfer-job custody. | Reuse one reviewed tree session for the native F5 worker. | #731 | GPT-6 |
 | 2026-11-13 | Distinguish pre-probe thin open failure. | Permit the worker to retry only before the broker can run. | #731 | GPT-6 |
 | 2026-11-13 | Carry transfer prompt errors separately from refusal. | Preserve native error handling when UI allocation fails. | #731 | GPT-6 |
@@ -801,6 +802,9 @@ public:
                            const TreeCopySourceEntry& entry, PreparedLeaf& request) const;
 
 private:
+#if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
+    friend struct ThinClientPipeTestAccess;
+#endif
     friend class PreparedTransfer;
     friend class PreparedLeaf;
     friend class ThinCopySession;
@@ -917,6 +921,9 @@ public:
     bool IgnoresAds() const { return source.operation == Operation::CopyIgnoreAds || source.operation == Operation::CopyOverwriteIgnoreAds; }
 
 private:
+#if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
+    friend struct ThinClientPipeTestAccess;
+#endif
     friend class ThinCopySession;
     struct ScopedUse
     {
