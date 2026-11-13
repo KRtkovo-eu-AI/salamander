@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Transfer experimental planned sessions into item custody. | Keep one authorized tree pipe without a borrowed lifetime. | #731 | GPT-6 |
 | 2026-11-13 | Retire uncertain experimental thin sessions on every exit. | Never reuse a pipe after an ambiguous operation or malformed response. | #731 | GPT-6 |
 | 2026-11-13 | Preserve thin consent across verified prelaunch failures. | Retry without treating a never-started broker as an uncertain session. | #731 | GPT-6 |
 | 2026-11-13 | Release the known-folder allocation on every exit. | Preserve COM ownership on failed calls and C++ allocation errors. | #731 | GPT-6 |
@@ -5975,6 +5976,10 @@ void ThinCopySession::CloseLocked()
 #endif
     if (shared)
         shared = nullptr; // Borrowed; its owner controls the original job.
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (planned && planned->IsOpen())
+        planned->Close();
+#endif
     owned.Close();
 }
 
@@ -5987,12 +5992,20 @@ void ThinCopySession::Close()
 bool ThinCopySession::IsOpen() const
 {
     std::lock_guard<std::mutex> guard(gate);
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (planned)
+        return planned->OpeningGeneration() == plannedGeneration && plannedGeneration != 0;
+#endif
     return shared ? shared->IsOpen() : owned.IsOpen();
 }
 
 bool ThinCopySession::Matches(const PreparedTransfer& prepared) const
 {
     std::lock_guard<std::mutex> guard(gate);
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (planned)
+        return plannedGeneration != 0 && planned->OpeningGeneration() == plannedGeneration && prepared.IsInJob(*planned);
+#endif
     const auto* job = shared ? shared : &owned;
     return job->IsOpen() && prepared.IsInJob(*job);
 }
@@ -6005,6 +6018,31 @@ bool ThinCopySession::Attach(TransferJobSession& existing, const PreparedTransfe
     (void)prepared;
     return false;
 }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+bool ThinCopySession::TakePlanned(std::unique_ptr<TransferJobSession>& existing, const PreparedTransfer& prepared)
+{
+    std::lock_guard<std::mutex> guard(gate);
+    if (shared || planned || owned.IsOpen() || !existing || !existing->IsOpen() || existing->NeedsTreeRoot())
+        return false;
+    const ULONGLONG generation = existing->OpeningGeneration();
+    if (!generation || !prepared.IsInJob(*existing))
+        return false;
+    plannedGeneration = generation;
+    planned = std::move(existing);
+    return true;
+}
+
+std::unique_ptr<TransferJobSession> ThinCopySession::ReturnPlanned()
+{
+    std::lock_guard<std::mutex> guard(gate);
+    if (planned && planned->IsOpen() && planned->OpeningGeneration() != plannedGeneration)
+        planned->Close();
+    ClearMarker();
+    plannedGeneration = 0;
+    return std::move(planned);
+}
+#endif
 
 DWORD ThinCopySession::DiscardTarget(const PreparedTransfer& prepared, const MoveFileIdentity& target)
 {
@@ -6060,6 +6098,17 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
     }
     auto* job = shared ? shared : &owned;
 #ifdef SAM_UAC_THIN_COPY_TEST
+    if (planned)
+    {
+        if (!plannedGeneration || planned->OpeningGeneration() != plannedGeneration)
+        {
+            if (planned->IsOpen())
+                planned->Close();
+            output.error = ERROR_BROKEN_PIPE;
+            return output;
+        }
+        job = planned.get();
+    }
     // A reply can be uncertain even when the transport itself completed.
     // Retire exactly the job used by this request before returning it to its
     // owner; other batch sessions remain untouched.
@@ -6078,7 +6127,7 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
             }
         }
     } retireUnknownJob{job, output, *this};
-    bool preProbeEligible = !shared && !job->IsOpen();
+    bool preProbeEligible = !shared && !planned && !job->IsOpen();
     bool transportEntered = false;
     try
     {

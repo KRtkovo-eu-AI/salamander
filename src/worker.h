@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Guard experimental planned copy custody. | Reject reentrant item access to a checked-out session. | #731 | GPT-6 |
 // | 2026-11-13 | Distinguish pre-transfer prompt errors. | Respect cancellation without suppressing uncertain broker results. | #731 | GPT-6 |
 // | 2026-11-13 | Carry terminal thin-copy error details. | Preserve context without offering unsupported retries. | #731 | GPT-6 |
 // | 2026-11-12 | Select ready conflicts without allocating queues. | Keep the coordinator consistent under memory pressure. | #731 | GPT-6 (Codex) |
@@ -511,10 +512,21 @@ public:
     bool DeleteShieldAccepted = false;
     BOOL AllowTransferPilot;
     bool AllowTreeTransfer = false;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    struct ThinCopyPlanAnchor
+    {
+        volatile LONG Claim = 0;
+    };
+#endif
     struct CopySourcePlan
     {
         std::wstring Root, Destination;
         std::unique_ptr<UacF7::TransferJobSession> Session;
+#if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
+        std::shared_ptr<ThinCopyPlanAnchor> ThinAnchor = std::make_shared<ThinCopyPlanAnchor>();
+#elif defined(SAM_UAC_THIN_COPY_TEST)
+        std::shared_ptr<ThinCopyPlanAnchor> ThinAnchor;
+#endif
         bool ElevationDeclined = false;
     };
     std::optional<CopySourcePlan> CopySource;

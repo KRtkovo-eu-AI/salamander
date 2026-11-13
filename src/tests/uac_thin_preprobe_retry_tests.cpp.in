@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Model experimental planned custody. | Keep retry tests aligned with item-scoped sessions. | #731 | GPT-6 |
 // | 2026-11-13 | Cover returned prelaunch classification. | Preserve consent only when the launcher was not entered. | #731 | GPT-6 |
 // | 2026-11-13 | Test retry after pre-probe errors. | Keep consent and never restart an uncertain scoped operation. | #731 | GPT-6 |
 #include <windows.h>
@@ -43,6 +44,7 @@ struct ThinCopySession {
     bool IsOpen() const { return isOpen; }
     bool Matches(const PreparedTransfer&) const { return matches; }
     bool Attach(ThinCopySession&, const PreparedTransfer&) { return false; }
+    bool TakePlanned(std::unique_ptr<ThinCopySession>&, const PreparedTransfer&) { return false; }
     ThinOpenResult Open(HWND, const PreparedTransfer&, ThinOpenKind, bool, bool,
                         const MoveFileIdentity*, ThinOpenedSource, ThinCancelEvent cancel) {
         ++opens; isOpen = nextSessionOpen;
@@ -77,6 +79,9 @@ struct CThinCopyWorker {
     HANDLE* sourceHandle = nullptr;
     std::unique_ptr<UacF7::PreparedTransfer> request = std::make_unique<UacF7::PreparedTransfer>();
     UacF7::ThinCopySession* session = nullptr;
+    UacF7::ThinCopySession plannedSession;
+    SourcePlan* claimedPlan = nullptr;
+    bool plannedTaken = false;
     UacF7::MoveFileIdentity target{};
     bool active = true, terminal = false, sourceVerified = true, targetKnown = true;
     bool scopeMayHaveStarted = false, pendingConsent = false, brokerHandleDelivered = false, targetCreatedByBroker = false;

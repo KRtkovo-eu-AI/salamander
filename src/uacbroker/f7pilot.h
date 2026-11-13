@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Allow exclusive experimental transfer-job custody. | Reuse one reviewed tree session for the native F5 worker. | #731 | GPT-6 |
 | 2026-11-13 | Distinguish pre-probe thin open failure. | Permit the worker to retry only before the broker can run. | #731 | GPT-6 |
 | 2026-11-13 | Carry transfer prompt errors separately from refusal. | Preserve native error handling when UI allocation fails. | #731 | GPT-6 |
 | 2026-11-13 | Add experimental per-target handle release. | Bound a retained retry handle to one verified copy item. | #731 | GPT-6 |
@@ -124,6 +125,7 @@
 #include <atomic>
 #include <array>
 #include <mutex>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -975,6 +977,10 @@ public:
     DWORD DiscardTarget(const PreparedTransfer& prepared, const MoveFileIdentity& target);
     DWORD ReleaseTarget(const PreparedTransfer& prepared, const MoveFileIdentity& target);
     bool Attach(TransferJobSession& existing, const PreparedTransfer& prepared);
+#ifdef SAM_UAC_THIN_COPY_TEST
+    bool TakePlanned(std::unique_ptr<TransferJobSession>& existing, const PreparedTransfer& prepared);
+    std::unique_ptr<TransferJobSession> ReturnPlanned();
+#endif
     bool IsOpen() const;
     bool Matches(const PreparedTransfer& prepared) const;
     void Close();
@@ -988,6 +994,8 @@ private:
     TransferJobSession owned;
     TransferJobSession* shared = nullptr;
 #ifdef SAM_UAC_THIN_COPY_TEST
+    std::unique_ptr<TransferJobSession> planned;
+    ULONGLONG plannedGeneration = 0;
     HWND markerWindow = nullptr;
     DWORD markerPid = 0;
 #endif

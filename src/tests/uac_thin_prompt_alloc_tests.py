@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Include the planned-custody preprocessor boundary. | Keep the extracted prompt block syntactically complete. | #731 | GPT-6 |
 # | 2026-11-13 | Test thin-copy prompt allocation failures. | Exercise the actual session-selection block with deterministic allocation faults. | #731 | GPT-6 |
 """Test extracted scoped-session selection, not whole F5 or UAC."""
 import argparse
@@ -21,6 +22,10 @@ def main():
     worker = read('src/worker.cpp')
     method_start = worker.index('HANDLE CThinCopyWorker::Open(')
     block_start = worker.index('    if (!session)\n', method_start)
+    prototype = worker.rfind('#ifdef SAM_UAC_THIN_PLANNED_PROTOTYPE\n', method_start, block_start)
+    if prototype < 0:
+        raise RuntimeError('Missing prototype guard')
+    block_start = prototype
     block_end = worker.index('    // Pause or cancellation may arrive', block_start)
     block = worker[block_start:block_end]
     if len(block) > 6000 or 'catch (const std::bad_alloc&)' not in block:

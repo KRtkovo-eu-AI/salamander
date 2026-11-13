@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-08 | Stop execution and editing of entries from a listing-only archive. | Require a future authorized extraction path. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Initialize experimental copy-plan custody before dispatch. | Reject allocation failure before publishing work to the worker. | #731 | GPT-6 |
 // | 2026-11-11 | Pass the private workspace identity to recursive file-list generation. | Keep staged output out of the exported tree. | #731 | GPT-6.1 Sol |
 // | 2026-11-11 | Reuse approved panel allocation metadata for multi-selection. | Measure eligible selected files without broadening consent or starting new sessions. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Retain a declined size elevation across the selected batch. | Continue accessible work without widening approved listing scopes. | #731 | GPT-6.1 Terra |
@@ -2383,7 +2384,12 @@ MENU_TEMPLATE_ITEM MsgBoxButtons[] =
     //---
     if (copyTreeEntry && firstLevelDir)
     {
+#if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
+        try { script->CopySource.emplace(); }
+        catch (const std::bad_alloc&) { TRACE_E(LOW_MEMORY); return FALSE; }
+#else
         script->CopySource.emplace();
+#endif
         script->CopySource->Root = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(sourcePath, CP_UTF8).c_str());
         script->CopySource->Destination = SalPathRemoveExtendedPrefixW(SalMultiByteToWidePath(targetPath, CP_UTF8).c_str());
     }

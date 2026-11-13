@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Give experimental F5 item custody of the planned job. | Preserve scope and lifetime across native worker I/O. | #731 | GPT-6 |
 // | 2026-11-13 | Preserve consent after proven pre-probe failure. | Allow native retry without reviving a started broker scope. | #731 | GPT-6 |
 // | 2026-11-13 | Propagate transfer prompt allocation failures. | Keep refusal and native operation errors distinct. | #731 | GPT-6 |
 // | 2026-11-13 | Handle thin-copy prompt allocation failure. | Preserve earlier sessions and return the actual low-memory error. | #731 | GPT-6 |
@@ -124,6 +125,7 @@
 #include <Aclapi.h>
 #include <Ntsecapi.h>
 #include <deque>
+#include <exception>
 #include <new>
 
 // these functions have no header, we must load them dynamically
@@ -2400,6 +2402,10 @@ struct CThinCopyWorker
     HANDLE* sourceHandle;
     std::unique_ptr<UacF7::PreparedTransfer> request;
     UacF7::ThinCopySession* session = nullptr;
+    UacF7::ThinCopySession plannedSession;
+    std::shared_ptr<COperations::ThinCopyPlanAnchor> claimedAnchor;
+    bool plannedTaken = false;
+    int exceptionsAtEntry = std::uncaught_exceptions();
     UacF7::MoveFileIdentity target{}, earlierSource{};
     bool active = false;
     bool earlierSourceRequired = false;
@@ -2421,6 +2427,67 @@ struct CThinCopyWorker
 
     CThinCopyWorker(COperation& op, COperations& batch, CProgressDlgData& data, HWND owner, HANDLE* source)
         : operation(op), script(batch), dialog(data), progress(owner), sourceHandle(source) {}
+
+    ~CThinCopyWorker()
+    {
+        const bool samePlan = claimedAnchor && script.CopySource && script.CopySource->ThinAnchor == claimedAnchor;
+        if (plannedTaken)
+        {
+            // A retained target or stack unwinding cannot leave a live job
+            // for a later item. Closing it does not revoke host file handles.
+            if (targetCreatedByBroker || cleanupUncertain || std::uncaught_exceptions() > exceptionsAtEntry)
+                plannedSession.Close();
+            auto returned = plannedSession.ReturnPlanned();
+            if (samePlan && !script.CopySource->Session)
+                script.CopySource->Session = std::move(returned);
+            else
+            {
+                // Preserve any unexpected new owner and stop the batch; the
+                // checked-out job is destroyed instead of being misassigned.
+                if (returned && returned->IsOpen()) returned->Close();
+                if (dialog.CancelWorker) *dialog.CancelWorker = TRUE;
+                if (dialog.CancelWorkerEvent) SetEvent(dialog.CancelWorkerEvent);
+            }
+        }
+        if (claimedAnchor)
+            InterlockedExchange(&claimedAnchor->Claim, 0);
+    }
+
+    bool ClaimPlan()
+    {
+        if (!script.CopySource) return true;
+        auto* plan = &*script.CopySource;
+        auto anchor = plan->ThinAnchor;
+        if (!anchor)
+        {
+            SetLastError(ERROR_INVALID_DATA);
+            return false;
+        }
+        if (InterlockedCompareExchange(&anchor->Claim, 1, 0) != 0)
+        {
+            SetLastError(ERROR_BUSY);
+            return false;
+        }
+        claimedAnchor = std::move(anchor);
+        return true;
+    }
+
+    bool PlanAvailableForOriginal() const
+    {
+        if (!script.CopySource) return true;
+        const auto anchor = script.CopySource->ThinAnchor;
+        if (!anchor)
+        {
+            SetLastError(ERROR_INVALID_DATA);
+            return false;
+        }
+        if (InterlockedCompareExchange(&anchor->Claim, 0, 0) != 0)
+        {
+            SetLastError(ERROR_BUSY);
+            return false;
+        }
+        return true;
+    }
 
     bool Configure(bool isMove, bool copyADS, bool encrypted);
     bool SourceContinuityAllowsElevation() const;
@@ -6924,6 +6991,35 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
         SetLastError(ERROR_FILE_INVALID);
         return INVALID_HANDLE_VALUE;
     }
+#ifdef SAM_UAC_THIN_PLANNED_PROTOTYPE
+    if (!session)
+    {
+        if (claimedAnchor && (!script.CopySource || script.CopySource->ThinAnchor != claimedAnchor))
+        {
+            SetLastError(ERROR_FILE_INVALID);
+            return INVALID_HANDLE_VALUE;
+        }
+        if (claimedAnchor && script.CopySource->Session)
+        {
+            try
+            {
+                if (!plannedSession.TakePlanned(script.CopySource->Session, *request))
+                {
+                    SetLastError(ERROR_FILE_INVALID);
+                    return INVALID_HANDLE_VALUE;
+                }
+            }
+            catch (const std::bad_alloc&)
+            {
+                SetLastError(ERROR_NOT_ENOUGH_MEMORY);
+                return INVALID_HANDLE_VALUE;
+            }
+            plannedTaken = true;
+            session = &plannedSession;
+            scopeMayHaveStarted = true;
+        }
+    }
+#endif
     if (!session)
     {
         auto& sessions = dialog.ThinCopyJobs;
@@ -7650,9 +7746,6 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
                 CProgressDlgData& dlgData, BOOL copyADS, BOOL copyAsEncrypted,
                 BOOL isMove, CAsyncCopyParams*& asyncPar, MoveCopyReceipt* moveReceipt = nullptr)
 {
-#ifdef SAM_UAC_THIN_COPY_TEST
-    ThinCopyTestSignal(L"SAM_UAC_TEST_ENTER_EVENT");
-#endif
     if (script->CopyAttrs && copyAsEncrypted)
         TRACE_E("DoCopyFile(): unexpected parameter value: copyAsEncrypted is TRUE when script->CopyAttrs is TRUE!");
 
@@ -7665,6 +7758,13 @@ BOOL DoCopyFile(COperation* op, HWND hProgressDlg, void* buffer,
     HANDLE in = INVALID_HANDLE_VALUE;
     CThinCopyWorker thin(*op, *script, dlgData, hProgressDlg, &in);
     thin.Configure(isMove != FALSE, copyADS != FALSE, copyAsEncrypted != FALSE);
+#ifdef SAM_UAC_THIN_PLANNED_PROTOTYPE
+    if (thin.active ? !thin.ClaimPlan() : !thin.PlanAvailableForOriginal())
+    {
+        return FALSE;
+    }
+#endif
+    ThinCopyTestSignal(L"SAM_UAC_TEST_ENTER_EVENT");
     const bool originalTransfer = !thin.active;
 #else
     const bool originalTransfer = true;
