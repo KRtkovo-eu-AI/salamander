@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Cover verified prelaunch outcomes. | Preserve consent only before the real launcher can run. | #731 | GPT-6 |
 # | 2026-11-13 | Test scoped pre-probe retry state. | Preserve consent without reviving a possibly started broker. | #731 | GPT-6 |
 """Test the extracted worker Open method using stubbed broker outcomes."""
 import argparse
@@ -27,19 +28,34 @@ def main():
     transport_start = transport.index('ThinOpenResult ThinCopySession::Open(')
     transport_end = transport.index('\n}\n\nResult PreparedTransfer::Execute(', transport_start)
     transport_method = transport[transport_start:transport_end]
+    probe_start = transport.index('int RunProbe(')
+    probe_end = transport.index('    if (!launched)\n', probe_start)
+    probe_prefix = transport[probe_start:probe_end]
+    initial = probe_prefix.index('if (thinLaunchEntered) *thinLaunchEntered = false;')
+    endpoint = probe_prefix.index('auto pipe = CreateEndpoint(pipeName);')
+    command = probe_prefix.index('std::wstring command =')
+    create_marker = probe_prefix.index('if (thinLaunchEntered) *thinLaunchEntered = true;', command)
+    create_call = probe_prefix.index('launched = CreateProcessW(', create_marker)
+    shell_marker = probe_prefix.index('if (thinLaunchEntered) *thinLaunchEntered = true;', create_call)
+    shell_call = probe_prefix.index('launched = LaunchBrokerWithOwner(', shell_marker)
+    if not initial < endpoint < command < create_marker < create_call < shell_marker < shell_call:
+        raise RuntimeError('Launcher markers no longer bound both launch branches')
     catch_start = transport_method.rindex('    catch (const std::bad_alloc&)')
-    before_probe = transport_method.index('preProbeEligible = false;')
-    first_enter = transport_method.index('transportEntered = true;', before_probe)
-    first_probe = transport_method.index('const int launched = RunProbe(', first_enter)
+    first_probe = transport_method.index('const int launched = RunProbe(')
+    pointer = transport_method.index('&authenticatedPid, &transportEntered', first_probe)
+    classification_start = transport_method.index('            if (transportEntered)\n', pointer)
+    classification_end = transport_method.index('            const HWND markerOwner', classification_start)
+    before_probe = transport_method.index('preProbeEligible = false;', classification_start)
     second_enter = transport_method.index('transportEntered = true;', first_probe)
     next_request = transport_method.index('SendOperationRequest(', second_enter)
-    if not before_probe < first_enter < first_probe < second_enter < next_request < catch_start:
+    if not first_probe < pointer < classification_start < before_probe < classification_end < second_enter < next_request < catch_start:
         raise RuntimeError('Thin transport boundary no longer matches the test')
-    if transport_method.count('output.preProbeFailure = preProbeEligible;') != 3:
+    if transport_method.count('output.preProbeFailure = preProbeEligible;') != 3 or transport_method.count('output.preProbeFailure = true;') != 1:
         raise RuntimeError('Unexpected pre-probe result paths')
     template = (ROOT / 'src/tests/uac_thin_preprobe_retry_tests.cpp.in').read_text(encoding='utf-8')
     code = (template.replace('@@ACTUAL_OPEN@@', worker[start:end])
-            .replace('@@ACTUAL_TRANSPORT_CATCH@@', transport_method[catch_start:]))
+            .replace('@@ACTUAL_TRANSPORT_CATCH@@', transport_method[catch_start:])
+            .replace('@@ACTUAL_RETURN_CLASSIFICATION@@', transport_method[classification_start:classification_end]))
     if '@@' in code:
         raise RuntimeError('Missing source replacement')
     env = compiler_environment()

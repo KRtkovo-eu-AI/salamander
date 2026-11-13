@@ -7039,6 +7039,22 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
         result.preProbeFailure && result.error != ERROR_SUCCESS && result.file == INVALID_HANDLE_VALUE &&
         !result.unknown && !result.declined && !session->IsOpen())
     {
+        if (CancelBeforeElevation())
+            return INVALID_HANDLE_VALUE;
+        const DWORD pendingWait = dialog.CancelWorkerEvent ? WaitForSingleObject(dialog.CancelWorkerEvent, 0) : WAIT_FAILED;
+        const DWORD pendingWaitError = !dialog.CancelWorkerEvent ? ERROR_INVALID_HANDLE :
+            pendingWait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+        if (pendingWait == WAIT_OBJECT_0)
+        {
+            terminal = true;
+            SetLastError(ERROR_CANCELLED);
+            return INVALID_HANDLE_VALUE;
+        }
+        if (pendingWait != WAIT_TIMEOUT)
+        {
+            SetLastError(pendingWaitError ? pendingWaitError : ERROR_INVALID_HANDLE);
+            return INVALID_HANDLE_VALUE;
+        }
         scopeMayHaveStarted = false;
         pendingConsent = true;
     }

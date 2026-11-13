@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Preserve F5 consent through prelaunch failure. | Distinguish local preparation from a possibly started broker. | #731 | GPT-6 |
 | 2026-11-13 | Fix install-location COM buffer ownership. | Avoid leaking the allocation when retry encounters low memory. | #731 | GPT-6 |
 | 2026-11-13 | Preserve scoped consent on proven pre-probe failure. | Allow a native retry without reviving an uncertain broker operation. | #731 | GPT-6 |
 | 2026-11-13 | Record planned-tree session ownership gap. | Keep one approved broker available across native and thin F5 steps. | #731 | GPT-6 |
@@ -983,6 +984,8 @@ Místní testy reálného dispatcheru a NTFS prošly v experimentální variant�
 Host pro nejistý výsledek znovu používá nativní lokalizované varování, a to i po Cancel nebo ztrátě odpovědi; nepředává novou pointerovou zprávu ani přesnou cílovou cestu. Výřez skutečných metod se stuby prošel **37 PASS** v Debug i Release (`C:\Samandarin\builds\uac-thin-safety-20261113\cleanup-debug-final.log`, `cleanup-release-final.log`); nejde o celý worker ani VM test. Odpovídající experimentální x64 host i broker byly sestaveny v Debug a Release a ověřeny na protokol 46 a odpovídající role; manifest je v `C:\Samandarin\builds\uac-thin-safety-20261113\verified-pair.json`. Tyto buildy nebyly nasazeny do VM.
 
 ## Experimentální F5: Retry lokálně vytvořeného cíle — 2026-11-13 / GPT-6
+
+- **Retry při přípravě launcheru:** Experimentální `RunProbe` rozlišuje neúspěšnou místní přípravu pipe, obrazu a argumentů od vstupu do skutečného launcheru. Příznak možného startu se nastavuje před voláním launcheru i testového `CreateProcessW`; po tomto bodě se souhlas nepovažuje za dosud nepoužitý. Před obnovením předběžného souhlasu worker opět kontroluje storno a výsledek čekání. Při tvorbě pipe zároveň RAII uvolňuje převedený SID i při chybě alokace; to zasahuje i běžnou neexperimentální cestu. Výňatkové testy prelaunch prefixu a SID guardu prošly **12/12**, související preprobe Retry **25/25**, initial-open **55/55** a příprava nabídky **17/17** v Debug i Release; strukturální kontrola cleanupu prošla **9/9**. Testy používají stuby endpointu, obrazu, launcherů a části transportu; nevykonávají celé `CreateEndpoint`, skutečnou pipe, broker, F5, UAC ani VM. Plný build včetně běžné varianty se v tomto průchodu neprovedl. Sdílení předběžného souhlasu mezi položkami a předání plánované stromové relace zůstávají neimplementované.
 
 - **Vlastnictví systémové cesty:** `InstallLocation::Open` nyní převezme buffer `SHGetKnownFolderPath` do RAII bezprostředně po volání, uvolní jej také při chybovém HRESULT či výjimce a po úspěšné kopii zachová původní čas jeho uvolnění. Null při úspěšném HRESULT odmítne. Výňatek skutečné metody se simulovaným systémovým dotazem a otevíráním adresářů, skutečným `CoTaskMemAlloc` a počítaným uvolněním prošel **10/10** v Debug a Release pro experimentální i běžný překladový režim; alternativní testovací větev byla v sondě vypnutá. Výstupy jsou v záznamu nástrojů. Nejde o překlad celé binárky ani o test UAC/VM. Podobné volání v přípravě externího editoru zatím touto změnou není pokryto.
 

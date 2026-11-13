@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Preserve thin consent across verified prelaunch failures. | Retry without treating a never-started broker as an uncertain session. | #731 | GPT-6 |
 | 2026-11-13 | Release the known-folder allocation on every exit. | Preserve COM ownership on failed calls and C++ allocation errors. | #731 | GPT-6 |
 | 2026-11-13 | Identify thin failures before broker probing. | Retain prior consent without restarting an uncertain session. | #731 | GPT-6 |
 | 2026-11-13 | Require the complete experimental retained-target contract. | Reject older peers before opening or creating any target. | #731 | GPT-6 |
@@ -4169,10 +4170,11 @@ Handle CreateEndpoint(std::wstring& name)
     PWSTR sid = nullptr;
     if (!ConvertSidToStringSidW(reinterpret_cast<TOKEN_USER*>(user.data())->User.Sid, &sid))
         return {};
+    std::unique_ptr<void, LocalFreeDeleter> sidGuard(sid);
     wchar_t access[16]{};
     swprintf_s(access, L"0x%08lX", pipeAccess);
     std::wstring sddl = std::wstring(L"D:P(A;;") + access + L";;;BA)(A;;GA;;;" + sid + L")";
-    LocalFree(sid);
+    sidGuard.reset();
     PSECURITY_DESCRIPTOR raw = nullptr;
     if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &raw, nullptr))
         return {};
@@ -4280,11 +4282,14 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
                UacF7::OverwriteProbeReply* overwriteProbeReply = nullptr,
                ThinWireOptions* thinOptions = nullptr, ThinWireReply* thinReply = nullptr
 #ifdef SAM_UAC_THIN_COPY_TEST
-               , DWORD* authenticatedThinPid = nullptr
+               , DWORD* authenticatedThinPid = nullptr, bool* thinLaunchEntered = nullptr
 #endif
 #endif
 )
 {
+#if defined(SAM_UAC_F7_HOST) && defined(SAM_UAC_THIN_COPY_TEST)
+    if (thinLaunchEntered) *thinLaunchEntered = false;
+#endif
     HANDLE stop = nullptr;
 #ifdef SAM_UAC_F7_HOST
     // Read-only Find requests may abandon the pipe. Mutating transfers must
@@ -4363,12 +4368,16 @@ int RunProbe(const InstallLocation& install, bool drop, bool badVersion
         STARTUPINFOW startup{}; startup.cb = sizeof(startup);
         startup.dwFlags = STARTF_USESHOWWINDOW; startup.wShowWindow = SW_HIDE;
         PROCESS_INFORMATION process{};
+        if (thinLaunchEntered) *thinLaunchEntered = true;
         launched = CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
                                   nullptr, install.Directory().c_str(), &startup, &process);
         if (launched) { launch.hProcess = process.hProcess; CloseHandle(process.hThread); }
     }
     else
+    {
+        if (thinLaunchEntered) *thinLaunchEntered = true;
         launched = LaunchBrokerWithOwner(launch, request && IsThinOpen(request->operation));
+    }
 #else
     const BOOL launched = LaunchBrokerWithOwner(launch);
 #endif
@@ -6148,19 +6157,20 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
             job->scope = prepared.JobScope(true);
 #ifdef SAM_UAC_THIN_COPY_TEST
             DWORD authenticatedPid = 0;
-            // RunProbe may launch a broker, send a request, or throw after
-            // either action. Never classify any of its outcomes as pre-probe.
-            preProbeEligible = false;
-            transportEntered = true;
 #endif
             const int launched = RunProbe(install, false, false, owner, &header, &payload, nullptr, &result,
                 nullptr, cancel, nullptr, nullptr, nullptr, nullptr, nullptr, &job->pipe,
                 nullptr, nullptr, nullptr, nullptr, nullptr, &options, &reply
 #ifdef SAM_UAC_THIN_COPY_TEST
-                , &authenticatedPid
+                , &authenticatedPid, &transportEntered
 #endif
                 );
 #ifdef SAM_UAC_THIN_COPY_TEST
+            if (transportEntered)
+                preProbeEligible = false;
+            else if (preProbeEligible && launched != Ok && launched != Cancelled &&
+                     result.error != ERROR_SUCCESS && result.error != ERROR_CANCELLED && !result.unknown)
+                output.preProbeFailure = true;
             const HWND markerOwner = owner ? GetAncestor(owner, GA_ROOT) : nullptr;
             if (job->IsOpen() && authenticatedPid && markerOwner && IsWindow(markerOwner) &&
                 !GetPropW(markerOwner, L"SamUacThinTestOwner") &&

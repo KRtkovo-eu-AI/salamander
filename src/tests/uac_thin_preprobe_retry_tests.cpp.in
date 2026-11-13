@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Cover returned prelaunch classification. | Preserve consent only when the launcher was not entered. | #731 | GPT-6 |
 // | 2026-11-13 | Test retry after pre-probe errors. | Keep consent and never restart an uncertain scoped operation. | #731 | GPT-6 |
 #include <windows.h>
 #include <algorithm>
@@ -36,14 +37,18 @@ struct TransferPrompt {
 static ThinOpenResult nextResult;
 static int opens = 0;
 static bool nextSessionOpen = false;
+static bool cancelDuringOpen = false, invalidateDuringOpen = false;
 struct ThinCopySession {
     bool isOpen = false, matches = false;
     bool IsOpen() const { return isOpen; }
     bool Matches(const PreparedTransfer&) const { return matches; }
     bool Attach(ThinCopySession&, const PreparedTransfer&) { return false; }
     ThinOpenResult Open(HWND, const PreparedTransfer&, ThinOpenKind, bool, bool,
-                        const MoveFileIdentity*, ThinOpenedSource, ThinCancelEvent) {
-        ++opens; isOpen = nextSessionOpen; return nextResult;
+                        const MoveFileIdentity*, ThinOpenedSource, ThinCancelEvent cancel) {
+        ++opens; isOpen = nextSessionOpen;
+        if (cancelDuringOpen) SetEvent(cancel.value);
+        if (invalidateDuringOpen) CloseHandle(cancel.value);
+        return nextResult;
     }
 };
 }
@@ -101,12 +106,21 @@ struct ProbeHarness {
 @@ACTUAL_TRANSPORT_CATCH@@
     }
 };
+enum { Ok, Failed, Cancelled };
+struct ProbeResult { DWORD error = ERROR_GEN_FAILURE; bool unknown = false; };
+static bool ReturnedPrelaunch(DWORD error, bool unknown, int launched, bool transportEntered, bool preProbeEligible) {
+    UacF7::ThinOpenResult output;
+    ProbeResult result{error, unknown};
+@@ACTUAL_RETURN_CLASSIFICATION@@
+    return output.preProbeFailure;
+}
 static void Check(bool value, const char* label, int& failures) {
     std::printf("%s %s\n", value ? "PASS" : "FAIL", label); if (!value) ++failures;
 }
 static void Reset() {
     prompts = reported = waits = UacF7::opens = 0; approval = waitOkay = true;
     UacF7::nextResult = {}; UacF7::nextSessionOpen = false;
+    UacF7::cancelDuringOpen = UacF7::invalidateDuringOpen = false;
 }
 int main() {
     int failures = 0; BOOL cancelled = FALSE;
@@ -151,6 +165,26 @@ int main() {
               GetLastError() == ERROR_CANCELLED && worker.terminal && UacF7::opens == 1 && prompts == 1,
               "cancellation while pending never starts broker", failures);
         if (!ResetEvent(testEvent)) return 6;
+    }
+    {
+        Reset(); CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled;
+        UacF7::nextResult.error = ERROR_NOT_ENOUGH_MEMORY; UacF7::nextResult.preProbeFailure = true;
+        UacF7::cancelDuringOpen = true;
+        Check(worker.Open(UacF7::ThinOpenKind::Source, false) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_CANCELLED && worker.terminal && !worker.pendingConsent &&
+              worker.scopeMayHaveStarted && UacF7::opens == 1,
+              "cancel during prelaunch error prevents pending restoration", failures);
+        if (!ResetEvent(testEvent)) return 7;
+    }
+    {
+        Reset(); CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled;
+        worker.dialog.CancelWorkerEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        if (!worker.dialog.CancelWorkerEvent) return 8;
+        UacF7::nextResult.error = ERROR_NOT_ENOUGH_MEMORY; UacF7::nextResult.preProbeFailure = true;
+        UacF7::invalidateDuringOpen = true;
+        Check(worker.Open(UacF7::ThinOpenKind::Source, false) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_INVALID_HANDLE && !worker.pendingConsent && worker.scopeMayHaveStarted &&
+              UacF7::opens == 1, "invalid cancel event prevents pending restoration", failures);
     }
     for (int mode = 0; mode < 4; ++mode) {
         Reset(); CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled;
@@ -206,6 +240,12 @@ int main() {
               live ? "OOM after sending on existing transport is unknown" :
                      "OOM after entering new probe is unknown", failures);
     }
+    Check(ReturnedPrelaunch(ERROR_GEN_FAILURE, false, Failed, false, true), "returned prelaunch failure is retryable", failures);
+    Check(!ReturnedPrelaunch(ERROR_CANCELLED, false, Cancelled, false, true), "cancelled prelaunch is not retryable", failures);
+    Check(!ReturnedPrelaunch(ERROR_GEN_FAILURE, false, Failed, true, true), "entered launcher is not prelaunch", failures);
+    Check(!ReturnedPrelaunch(ERROR_GEN_FAILURE, true, Failed, false, true), "unknown result is not prelaunch", failures);
+    Check(!ReturnedPrelaunch(ERROR_GEN_FAILURE, false, Failed, false, false), "ineligible scope is not prelaunch", failures);
+    Check(!ReturnedPrelaunch(ERROR_SUCCESS, false, Ok, false, true), "success is not prelaunch failure", failures);
     if (!CloseHandle(testEvent)) return 3;
     return failures ? 1 : 0;
 }
