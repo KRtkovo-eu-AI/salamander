@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Inject target-anchor failure in the isolated dispatcher test. | Check the already-created file is preserved. | #731 | GPT-6 |
 // | 2026-11-13 | Test client target reopen on a real dispatcher pipe. | Verify target identity and native handle semantics in sync and async modes. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise host session custody on a live job pipe. | Test real client requests against the real dispatcher. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise thin opens in one planned tree job. | Check the existing broker scope on the same pipe. | #731 | GPT-6 |
@@ -230,6 +231,9 @@ public:
               const UacCopyLeaf::Detail::CopyPause* copyPause = nullptr, bool exactInitial = false
 #ifdef SAM_UAC_THIN_COPY_TEST
               , ThinIdentityScanPause* thinPause = nullptr, bool failCreatedTransfer = false
+#ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+              , bool failAnchorOpen = false
+#endif
 #endif
               )
     {
@@ -245,6 +249,9 @@ public:
         dispatcher = std::thread([this, name, readyToDispatch, findRoot, findScope, copyPause, exactInitial
 #ifdef SAM_UAC_THIN_COPY_TEST
                                  , thinPause, failCreatedTransfer
+#ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+                                 , failAnchorOpen
+#endif
 #endif
                                  ] {
             const ComApartment com;
@@ -293,12 +300,18 @@ public:
 #ifdef SAM_UAC_THIN_COPY_TEST
                 activeThinIdentityScanPause = thinPause;
                 activeThinFailCreatedTransfer = failCreatedTransfer;
+#ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+                activeThinFailAnchorOpen = failAnchorOpen;
+#endif
 #endif
                 dispatchError = ServeTransferJob(install, peer.get(), GetCurrentProcess(), GetCurrentProcessId(),
                                                  GetTickCount64() + timeoutMs);
 #ifdef SAM_UAC_THIN_COPY_TEST
                 activeThinIdentityScanPause = nullptr;
                 activeThinFailCreatedTransfer = false;
+#ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+                activeThinFailAnchorOpen = false;
+#endif
 #endif
             }
         });
@@ -4683,6 +4696,7 @@ int wmain(int argc, wchar_t** argv)
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
     if (argc == 2 && !wcscmp(argv[1], L"--thin-client-reopen-only"))
     {
+        CheckThinAnchorFailure(source, target);
         CheckThinClientReopen(source, target, false);
         CheckThinClientReopen(source, target, true);
         return failures ? 1 : 0;

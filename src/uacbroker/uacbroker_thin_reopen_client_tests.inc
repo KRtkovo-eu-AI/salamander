@@ -1,12 +1,38 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Exercise anchor-open failure after target creation. | Verify no target handle escapes and the uncertain file is retained. | #731 | GPT-6 |
 // | 2026-11-13 | Check cancellation before target create and reopen. | Verify the real dispatcher pipe preserves data at both boundaries. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise cancellation handle validation on the real client pipe. | Refuse invalid waits without consuming the approved session. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise a real client and dispatcher reopening an anchored target. | Check retry identity, rights and I/O mode on one test pipe. | #731 | GPT-6 |
 
 // The client and dispatcher run in the same process with the same token.
 // This does not test the worker, peer authentication, UAC or another account.
+void CheckThinAnchorFailure(const Directory& source, const Directory& target)
+{
+    constexpr wchar_t sourceLeaf[] = L"anchor-failure-source.txt";
+    constexpr wchar_t targetLeaf[] = L"anchor-failure-target.txt";
+    if (!WriteByte(source.File(sourceLeaf), 0x54) || !IsAbsent(target.File(targetLeaf)))
+    { Check(false, "prepare isolated anchor failure fixture"); return; }
+    auto input = Adopt(CreateFileW(source.File(sourceLeaf).c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr));
+    FILE_ID_INFO sourceId{};
+    JobPipe pipe;
+    if (!input || !GetFileInformationByHandleEx(input.get(), FileIdInfo, &sourceId, sizeof(sourceId)) ||
+        !pipe.Open(nullptr, nullptr, Operation::FindContent, nullptr, false, nullptr, false, true))
+    { Check(false, "start isolated anchor failure dispatcher"); return; }
+    DWORD status = ERROR_GEN_FAILURE;
+    ThinWireReply reply{};
+    const bool exchanged = pipe.Thin(source, sourceLeaf, sourceId, target, targetLeaf,
+        Operation::ThinTargetCreate, nullptr, false, status, reply, input.get(), INVALID_HANDLE_VALUE, true, 28u);
+    auto preserved = Adopt(CreateFileW(target.File(targetLeaf).c_str(), FILE_READ_ATTRIBUTES,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr));
+    LARGE_INTEGER size{};
+    Check(exchanged && status == ERROR_PARTIAL_COPY && !reply.value && preserved &&
+          GetFileSizeEx(preserved.get(), &size) && size.QuadPart == 0 && HasByte(source.File(sourceLeaf), 0x54),
+          "anchor-open failure returns no handle and preserves the uncertain target and source");
+}
+
 void CheckThinClientReopen(const Directory& source, const Directory& target, bool asynchronous)
 {
     const wchar_t* root = asynchronous ? L"reopen-async-\u6771" : L"reopen-sync-\u6771";

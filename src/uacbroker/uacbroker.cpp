@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Add a test-only anchor-open failure seam. | Exercise preservation after target creation without an elevated process. | #731 | GPT-6 |
 | 2026-11-13 | Reject invalid thin-copy cancellation handles. | Do not start or continue a scoped request when cancellation cannot be observed. | #731 | GPT-6 |
 | 2026-11-13 | Prepare thin target records before publishing them. | Leave the batch state unchanged when allocating a name fails. | #731 | GPT-6 |
 | 2026-11-13 | Prototype an identity-anchored target reopen. | Preserve native Retry opening semantics without lending an exclusive retained writer. | #731 | GPT-6 |
@@ -693,6 +694,9 @@ struct ThinIdentityScanPause
 };
 thread_local ThinIdentityScanPause* activeThinIdentityScanPause = nullptr;
 thread_local bool activeThinFailCreatedTransfer = false;
+#ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+thread_local bool activeThinFailAnchorOpen = false;
+#endif
 #endif
 static_assert(sizeof(ThinWireReply) == 32);
 inline bool IsThinOpen(Operation operation)
@@ -2768,8 +2772,18 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
                 // still pins this name. OpenFile requests attributes and
                 // SYNCHRONIZE, not data access; it may fail under the ACL.
                 HANDLE rawAnchor = nullptr;
-                error = UacRenameLeaf::Detail::OpenFile(targetParent, targetLeaf, rawAnchor, 0,
-                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, FILE_OPEN, 0);
+#ifdef SAM_UAC_BROKER_JOB_TEST
+                if (activeThinFailAnchorOpen)
+                {
+                    activeThinFailAnchorOpen = false;
+                    error = ERROR_ACCESS_DENIED;
+                }
+                else
+#endif
+                {
+                    error = UacRenameLeaf::Detail::OpenFile(targetParent, targetLeaf, rawAnchor, 0,
+                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, FILE_OPEN, 0);
+                }
                 targetAnchor = Adopt(rawAnchor);
                 FILE_ID_INFO anchored{};
                 if (!error && !GetFileInformationByHandleEx(targetAnchor.get(), FileIdInfo, &anchored, sizeof(anchored)))
