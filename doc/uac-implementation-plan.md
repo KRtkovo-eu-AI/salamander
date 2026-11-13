@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Record reviewed startup checkpoint proposal. | Avoid repeating an uninstrumented timeout or misreading missing events. | #731 | GPT-6 |
 | 2026-11-13 | Record retained-target Debug build. | Distinguish a verified build from deployment and live Retry acceptance. | #731 | GPT-6 |
 | 2026-11-13 | Record experimental retained F5 target and local checks. | Separate broker-owned retry continuity from unresolved worker and VM acceptance. | #731 | GPT-6 |
 | 2026-11-13 | Record read-only reporter handshake observations. | Avoid attributing an unobserved startup wait to a specific component. | #731 | GPT-6 |
@@ -953,6 +954,8 @@ Místní testy reálného dispatcheru a NTFS prošly v experimentální variant�
 Host pro nejistý výsledek znovu používá nativní lokalizované varování, a to i po Cancel nebo ztrátě odpovědi; nepředává novou pointerovou zprávu ani přesnou cílovou cestu. Výřez skutečných metod se stuby prošel **37 PASS** v Debug i Release (`C:\Samandarin\builds\uac-thin-safety-20261113\cleanup-debug-final.log`, `cleanup-release-final.log`); nejde o celý worker ani VM test. Odpovídající experimentální x64 host i broker byly sestaveny v Debug a Release a ověřeny na protokol 46 a odpovídající role; manifest je v `C:\Samandarin\builds\uac-thin-safety-20261113\verified-pair.json`. Tyto buildy nebyly nasazeny do VM.
 
 ## Experimentální F5: Retry lokálně vytvořeného cíle — 2026-11-13 / GPT-6
+
+- **Diagnostika startu — návrh mimo repozitář:** V `C:\Samandarin\builds\uac-startup-checkpoints-20261113` je nezávisle revidovaný neaplikovaný patch šesti značek kolem `SalmonSetSLG` a vytvoření hlavního okna. Samostatný proces ověřil opt-in přes obě testovací makra, vlastní event a zachování `LastError`; skutečný host, šest eventů mezi procesy, ACL napříč účty ani VM zatím testovány nebyly. Chybějící signál může znamenat i selhání otevření eventu; první značka nezachycuje dřívější start. Značka vytvoření okna nedokazuje viditelnost. Případný řadič musí použít nové vlastní eventy, ověřit PID a řízeně sestavit prostředí, zejména pro případ jiné identity.
 
 - **Nová experimentální sestava:** x64 Debug host `F86A3B455395695620E09B48A14C960957ABE20BF50325A63774BC976197563F` a broker `99E998DBAAAE1030E6AB7BED3AA2EF184924D3C25E077E2ADA6A7F139A23A498` byly přeloženy s diagnostikou po zápisu; PE kontrola potvrdila protokol 46, role a přítomnost markerů. Artefakty a úplný manifest jsou v `C:\Samandarin\builds\uac-thin-retained-pair-20261113`. Během buildu se změnil pouze plán, kód zůstal obsahově stejný jako v lokálním commitu `7f9ce62d`. Tato dvojice dosud nebyla nasazena ani spuštěna ve VM.
 
