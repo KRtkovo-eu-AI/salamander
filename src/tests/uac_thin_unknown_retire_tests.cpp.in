@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise failed closure of rejected received handles. | Report ownership uncertainty and retire the affected job. | #731 | GPT-6 |
 // | 2026-11-14 | Reject unexpected identity fields in control replies. | Avoid accepting a malformed cleanup or release confirmation. | #731 | GPT-6 |
 // | 2026-11-14 | Reject contradictory error replies carrying handle values. | Preserve unrelated host handles and retire the uncertain session. | #731 | GPT-6 |
 // | 2026-11-14 | Reject a retry reply that contradicts the requested identity. | Independently bind the returned handle to the earlier target. | #731 | GPT-6 |
@@ -151,6 +152,23 @@ int main() {
                   job.IsOpen() != target && !Valid(file),
                   target ? "uncertain target identity retires job and handle" :
                            "known source identity error preserves job and closes handle");
+        } else if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+        if (*path) DeleteFileW(path);
+    }
+    for (auto kind : {ThinOpenKind::Source, ThinOpenKind::TargetProbe}) {
+        wchar_t path[MAX_PATH]{}; HANDLE file = File(path);
+        TransferJobSession job;
+        const bool ready = job.Init() && file != INVALID_HANDLE_VALUE &&
+            SetHandleInformation(file, HANDLE_FLAG_PROTECT_FROM_CLOSE, HANDLE_FLAG_PROTECT_FROM_CLOSE);
+        Check(ready, "create rejected file handle with protected close");
+        if (ready) {
+            ThinCopySession session;
+            Reply reply{}; reply.value = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(file));
+            auto result = session.Classify(&job, {}, kind, {}, reply);
+            Check(result.error == ERROR_PARTIAL_COPY && result.unknown && !job.IsOpen() && Valid(file),
+                  "failed close of rejected handle reports uncertainty and retires job");
+            SetHandleInformation(file, HANDLE_FLAG_PROTECT_FROM_CLOSE, 0);
+            CloseHandle(file);
         } else if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
         if (*path) DeleteFileW(path);
     }

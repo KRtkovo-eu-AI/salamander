@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Preserve uncertainty if closing a rejected thin handle fails. | Retire the affected session rather than claiming ownership was resolved. | #731 | GPT-6 |
 | 2026-11-14 | Validate empty thin cleanup and release replies. | Reject malformed confirmations instead of accepting uncertain cleanup. | #731 | GPT-6 |
 | 2026-11-14 | Reject contradictory thin error replies with handle values. | Retire uncertain sessions without closing an untrusted handle number. | #731 | GPT-6 |
 | 2026-11-14 | Recheck retry replies against the requested target identity. | Reject and retire a session if a returned handle contradicts the original target. | #731 | GPT-6 |
@@ -6426,12 +6427,14 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
                  !std::memcmp(identity.FileId.Identifier, expectedTarget->id, sizeof(expectedTarget->id))));
         if (!same)
         {
-            CloseHandle(received);
-            output.error = ERROR_FILE_INVALID;
+            const bool closed = CloseHandle(received) != FALSE;
+            output.error = closed ? ERROR_FILE_INVALID : ERROR_PARTIAL_COPY;
             // A mismatched retry reply contradicts the saved target even if
             // the handle agrees with the reply. Retire this job; do not let
             // later operations silently continue under inconsistent identity.
-            output.unknown = kind == ThinOpenKind::TargetCreate || kind == ThinOpenKind::TargetRetry;
+            // A failed close also leaves ownership uncertain for read-only
+            // replies; never retry the close or silently reuse the session.
+            output.unknown = !closed || kind == ThinOpenKind::TargetCreate || kind == ThinOpenKind::TargetRetry;
             return output;
         }
         output.file = received;
