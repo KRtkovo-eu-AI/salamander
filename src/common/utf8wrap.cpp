@@ -1,6 +1,9 @@
-#include "precomp.h"
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-12 | Resolve the wrapper header when compiling without PCH. | The standalone wrapper TU must locate the parent application header. | | openai/gpt-6-luna-pro |
+// | 2026-11-12 | Dispatch UTF-8 common-control text as Unicode. | Avoid code-page-dependent localized list and status text. | | openai/gpt-6-luna-pro |
 
 #define UTF8WRAPPERS_IMPLEMENTATION
+#include "..\precomp.h"
 #include "utf8wrap.h"
 
 #include <cstring>
@@ -170,7 +173,80 @@ bool Utf8ToWide(const char* str, int count, std::wstring& wide)
     return true;
 }
 
+bool IsWindowClassW(HWND hwnd, LPCWSTR expectedClass)
+{
+    WCHAR className[64] = {};
+    return hwnd != NULL && GetClassNameW(hwnd, className, _countof(className)) > 0 &&
+           lstrcmpiW(className, expectedClass) == 0;
+}
+
+LRESULT SendListViewItemMessageA(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    const LVITEMA* item = reinterpret_cast<const LVITEMA*>(lParam);
+    if (item == NULL || (item->mask & LVIF_TEXT) == 0 || item->pszText == NULL ||
+        item->pszText == LPSTR_TEXTCALLBACKA)
+        return ::SendMessageA(hwnd, message, wParam, lParam);
+
+    std::wstring wideText;
+    if (!Utf8ToWide(item->pszText, -1, wideText))
+        return ::SendMessageA(hwnd, message, wParam, lParam);
+
+    static_assert(sizeof(LVITEMA) == sizeof(LVITEMW), "ANSI and Unicode list-view items must share a layout");
+    LVITEMW wideItem;
+    memcpy(&wideItem, item, sizeof(wideItem));
+    wideItem.pszText = const_cast<LPWSTR>(wideText.c_str());
+
+    UINT wideMessage = message;
+    if (message == LVM_INSERTITEMA)
+        wideMessage = LVM_INSERTITEMW;
+    else if (message == LVM_SETITEMA)
+        wideMessage = LVM_SETITEMW;
+    else if (message == LVM_SETITEMTEXTA)
+        wideMessage = LVM_SETITEMTEXTW;
+
+    return ::SendMessageW(hwnd, wideMessage, wParam, reinterpret_cast<LPARAM>(&wideItem));
+}
+
 } // namespace
+
+int WINAPI SalListViewInsertColumnA(HWND hwnd, int column, const LVCOLUMNA* data)
+{
+    if (!IsWindowClassW(hwnd, WC_LISTVIEWW) || data == NULL || (data->mask & LVCF_TEXT) == 0 || data->pszText == NULL ||
+        data->pszText == LPSTR_TEXTCALLBACKA)
+        return static_cast<int>(::SendMessageA(hwnd, LVM_INSERTCOLUMNA, column, reinterpret_cast<LPARAM>(data)));
+
+    std::wstring wideText;
+    if (!Utf8ToWide(data->pszText, -1, wideText))
+        return static_cast<int>(::SendMessageA(hwnd, LVM_INSERTCOLUMNA, column, reinterpret_cast<LPARAM>(data)));
+
+    static_assert(sizeof(LVCOLUMNA) == sizeof(LVCOLUMNW), "ANSI and Unicode list-view columns must share a layout");
+    LVCOLUMNW wideColumn;
+    memcpy(&wideColumn, data, sizeof(wideColumn));
+    wideColumn.pszText = const_cast<LPWSTR>(wideText.c_str());
+    return static_cast<int>(::SendMessageW(hwnd, LVM_INSERTCOLUMNW, column, reinterpret_cast<LPARAM>(&wideColumn)));
+}
+
+LRESULT WINAPI SalSendMessageA(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (message == SB_SETTEXTA && IsWindowClassW(hwnd, STATUSCLASSNAMEW) && (wParam & SBT_OWNERDRAW) == 0)
+    {
+        if (lParam == 0)
+            return ::SendMessageW(hwnd, SB_SETTEXTW, wParam, 0);
+
+        std::wstring wideText;
+        if (Utf8ToWide(reinterpret_cast<LPCSTR>(lParam), -1, wideText))
+            return ::SendMessageW(hwnd, SB_SETTEXTW, wParam, reinterpret_cast<LPARAM>(wideText.c_str()));
+    }
+
+    if (message == LVM_INSERTCOLUMNA && IsWindowClassW(hwnd, WC_LISTVIEWW))
+        return SalListViewInsertColumnA(hwnd, static_cast<int>(wParam), reinterpret_cast<const LVCOLUMNA*>(lParam));
+
+    if (IsWindowClassW(hwnd, WC_LISTVIEWW) &&
+        (message == LVM_INSERTITEMA || message == LVM_SETITEMA || message == LVM_SETITEMTEXTA))
+        return SendListViewItemMessageA(hwnd, message, wParam, lParam);
+
+    return ::SendMessageA(hwnd, message, wParam, lParam);
+}
 
 BOOL WINAPI SalExtTextOutA(HDC hdc, int x, int y, UINT options, const RECT* rect, LPCSTR str, UINT count, const INT* dx)
 {
