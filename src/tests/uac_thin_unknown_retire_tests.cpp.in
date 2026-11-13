@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Reject contradictory error replies carrying handle values. | Preserve unrelated host handles and retire the uncertain session. | #731 | GPT-6 |
 // | 2026-11-14 | Reject a retry reply that contradicts the requested identity. | Independently bind the returned handle to the earlier target. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise uncertain thin replies with real handles. | Retire the affected pipe without closing other jobs. | #731 | GPT-6 |
 #include <windows.h>
@@ -101,6 +102,20 @@ int main() {
         auto result = session.Classify(&job, {}, ThinOpenKind::Source, {ERROR_ACCESS_DENIED, false}, {});
         Check(!result.unknown && result.error == ERROR_ACCESS_DENIED && job.IsOpen() && !session.markersCleared,
               "known error preserves job");
+    }
+    for (auto kind : {ThinOpenKind::Source, ThinOpenKind::TargetCreate, ThinOpenKind::TargetRetry,
+                      ThinOpenKind::TargetProbe, ThinOpenKind::Discard, ThinOpenKind::Release}) {
+        TransferJobSession job, unrelated;
+        const bool ready = job.Init() && unrelated.Init();
+        Check(ready, "create contradictory-error-reply fixture");
+        if (!ready) continue;
+        HANDLE unrelatedHandle = unrelated.write;
+        Reply reply{}; reply.value = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(unrelatedHandle));
+        ThinCopySession session;
+        auto result = session.Classify(&job, {}, kind, {ERROR_ACCESS_DENIED, false}, reply);
+        Check(result.unknown && result.error == ERROR_INVALID_DATA && !job.IsOpen() &&
+              Valid(unrelatedHandle) && session.markersCleared == 1,
+              "error reply carrying a handle retires only its job without closing an untrusted value");
     }
     {
         TransferJobSession job; Check(job.Init(), "create valid-control-reply pipe");

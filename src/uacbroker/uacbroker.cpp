@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Reject contradictory thin error replies with handle values. | Retire uncertain sessions without closing an untrusted handle number. | #731 | GPT-6 |
 | 2026-11-14 | Recheck retry replies against the requested target identity. | Reject and retire a session if a returned handle contradicts the original target. | #731 | GPT-6 |
 | 2026-11-13 | Grant thin target probes attribute access. | Supply native overwrite details without granting content access. | #731 | GPT-6 |
 | 2026-11-13 | Add a test-only anchor-open failure seam. | Exercise preservation after target creation without an elevated process. | #731 | GPT-6 |
@@ -6369,6 +6370,15 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
 #ifdef SAM_UAC_THIN_COPY_TEST
         if (output.unknown && !output.error)
             output.error = ERROR_PARTIAL_COPY;
+        // Failure replies must not claim a transferred handle. Its numeric
+        // value is untrusted and could name an unrelated host handle, so do
+        // not close it here. Retire the job as an uncertain protocol result.
+        if (result.error && reply.value)
+        {
+            output.error = ERROR_INVALID_DATA;
+            output.unknown = true;
+            return output;
+        }
 #endif
         if (result.error)
             return output;
