@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Cover unstarted prepared scope during Retry. | Prevent a missing target from being created before identity validation. | #731 | GPT-6 |
 # | 2026-11-13 | Check scoped preallocation reset and failure exit. | Keep the cleanup regression check aligned with handle-based recovery. | #731 | GPT-6 |
 # | 2026-11-12 | Cover deferred source cancellation and safe local retry. | Preserve live targets and reject side-effecting reopen. | #731 | GPT-6 |
 # | 2026-11-12 | Guard scoped-copy cleanup contracts. | Catch reintroduced pathname deletion and unsafe restarts. | #731 | GPT-6 |
@@ -100,7 +101,7 @@ class ScopedCleanupContracts(unittest.TestCase):
         self.assertNotIn("OPEN_ALWAYS", code.split("return ThinCopyOpened", 1)[1])
         self.assertIn("UacF7::ThinOpenKind::TargetRetry", code)
         macro = section("#define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped)", "#define THIN_OPEN_TARGET_PROBE")
-        self.assertIn("(ctx)->Scoped() ? ThinCopyOpenLocalRetry", macro)
+        self.assertIn("((ctx)->request || (ctx)->session) ? ThinCopyOpenLocalRetry", macro)
         self.assertIn("ThinCopyOpenRetry", macro)
 
     def test_uncertain_cleanup_is_not_retried(self):

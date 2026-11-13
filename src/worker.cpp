@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Preserve consent after proven pre-probe failure. | Allow native retry without reviving a started broker scope. | #731 | GPT-6 |
 // | 2026-11-13 | Propagate transfer prompt allocation failures. | Keep refusal and native operation errors distinct. | #731 | GPT-6 |
 // | 2026-11-13 | Handle thin-copy prompt allocation failure. | Preserve earlier sessions and return the actual low-memory error. | #731 | GPT-6 |
 // | 2026-11-13 | Reuse the exact scoped target after a verified preallocation reset. | Preserve native incremental copying without deleting an uncertain pathname. | #731 | GPT-6 |
@@ -2404,6 +2405,12 @@ struct CThinCopyWorker
     bool earlierSourceRequired = false;
     bool earlierSourceKnown = false;
     bool sourceContinuityLost = false;
+    // Remains true once a broker operation may have started. The sole reset
+    // is an explicitly reported pre-probe failure on the first attempt.
+    bool scopeMayHaveStarted = false;
+    bool pendingConsent = false;
+    bool brokerHandleDelivered = false;
+    bool targetContinuityLost = false;
     bool targetKnown = false;
     bool targetCreatedByBroker = false;
     bool dataTransferStarted = false;
@@ -2417,6 +2424,7 @@ struct CThinCopyWorker
 
     bool Configure(bool isMove, bool copyADS, bool encrypted);
     bool SourceContinuityAllowsElevation() const;
+    bool TargetContinuityAllowsElevation() const;
     bool EnsurePrepared();
     HANDLE Open(UacF7::ThinOpenKind kind, bool overlapped);
     bool CancelBeforeElevation();
@@ -2425,7 +2433,7 @@ struct CThinCopyWorker
     void RememberSource(HANDLE file, bool force = false);
     void RememberTarget(HANDLE file, bool force = false);
     bool ValidateRetriedTarget(HANDLE file);
-    bool Scoped() const { return active && session != nullptr; }
+    bool Scoped() const { return active && session != nullptr && scopeMayHaveStarted; }
     bool ReportTargetFailure(DWORD error, int caption = IDS_ERRORDELETINGFILE);
     bool CloseScopedTarget(HANDLE& file);
     bool RefuseUnsafeTargetCleanup();
@@ -2539,8 +2547,19 @@ static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::Thin
         }
         if (kind == UacF7::ThinOpenKind::TargetCreate)
             context->RememberTarget(local);
-        if (kind == UacF7::ThinOpenKind::TargetRetry && context->active &&
-            context->session && !context->ValidateRetriedTarget(local))
+        if (kind == UacF7::ThinOpenKind::TargetRetry && context->active && !context->Scoped())
+        {
+            if ((context->request || context->session) && !context->ValidateRetriedTarget(local))
+            {
+                context->targetContinuityLost = true;
+                HANDLES(CloseHandle(local));
+                SetLastError(ERROR_FILE_INVALID);
+                return INVALID_HANDLE_VALUE;
+            }
+            context->RememberTarget(local, true);
+        }
+        if (kind == UacF7::ThinOpenKind::TargetRetry && context->Scoped() &&
+            !context->ValidateRetriedTarget(local))
         {
             HANDLES(CloseHandle(local));
             SetLastError(ERROR_FILE_INVALID);
@@ -2669,13 +2688,13 @@ static HANDLE ThinCopyOpenLocalRetry(CThinCopyWorker* context, bool overlapped)
 #define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) \
     ((ctx) && (ctx)->targetCreatedByBroker ? \
         ThinCopyOpenRetry((ctx), (overlapped)) : \
-        ((ctx) && (ctx)->Scoped() ? ThinCopyOpenLocalRetry((ctx), (overlapped)) : \
+        ((ctx) && ((ctx)->request || (ctx)->session) ? ThinCopyOpenLocalRetry((ctx), (overlapped)) : \
         ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), true) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::TargetRetry, (overlapped), ThinOpenPhase::Retry)))
 #define THIN_OPEN_TARGET_PROBE(ctx, local) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetProbe, false, ThinOpenPhase::Probe)
 #define THIN_DELETE_TARGET(ctx, local) \
     ((ctx) && (ctx)->suppressLocalCleanup ? (ctx)->RefuseUnsafeTargetCleanup() : \
         ((ctx) && (ctx)->targetCreatedByBroker ? (ctx)->DiscardTarget() : \
-        ((ctx) && (ctx)->session ? (ctx)->RefuseUnsafeTargetCleanup() : (local))))
+        ((ctx) && ((ctx)->request || (ctx)->session) ? (ctx)->RefuseUnsafeTargetCleanup() : (local))))
 #else
 #define THIN_REMEMBER_SOURCE(ctx, file) ((void)0)
 #define THIN_REMEMBER_TARGET(ctx, file) ((void)0)
@@ -6815,16 +6834,26 @@ bool CThinCopyWorker::SourceContinuityAllowsElevation() const
     return true;
 }
 
+bool CThinCopyWorker::TargetContinuityAllowsElevation() const
+{
+    if (targetContinuityLost)
+    {
+        SetLastError(ERROR_FILE_INVALID);
+        return false;
+    }
+    return true;
+}
+
 bool CThinCopyWorker::EnsurePrepared()
 {
-    if (!SourceContinuityAllowsElevation())
+    if (!SourceContinuityAllowsElevation() || !TargetContinuityAllowsElevation())
         return false;
     if (request)
         return true;
     if (sourceHandle && *sourceHandle && *sourceHandle != INVALID_HANDLE_VALUE)
         RememberSource(*sourceHandle, true);
     // A previously opened source must retain its identity across Retry.
-    if (!SourceContinuityAllowsElevation())
+    if (!SourceContinuityAllowsElevation() || !TargetContinuityAllowsElevation())
         return false;
     try
     {
@@ -6876,7 +6905,7 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
         return INVALID_HANDLE_VALUE;
     if (!EnsurePrepared())
         return INVALID_HANDLE_VALUE;
-    if (session && !session->IsOpen())
+    if (session && !session->IsOpen() && !(pendingConsent && !scopeMayHaveStarted))
     {
         terminal = true;
         SetLastError(ERROR_BROKEN_PIPE);
@@ -6909,6 +6938,7 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
             SetLastError(ERROR_NOT_ENOUGH_MEMORY);
             return INVALID_HANDLE_VALUE;
         }
+        bool newlyApproved = false;
         if (it == sessions.end())
         {
             try { it = sessions.emplace(sessions.end()); }
@@ -6985,9 +7015,13 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
                     SetLastError(ERROR_NOT_ENOUGH_MEMORY);
                     return INVALID_HANDLE_VALUE;
                 }
+                newlyApproved = true;
             }
         }
         session = &*it;
+        pendingConsent = newlyApproved;
+        if (!newlyApproved)
+            scopeMayHaveStarted = true;
     }
     // Pause or cancellation may arrive while the native dialog is open.
     // Do not start the broker until the worker is resumed and not cancelled.
@@ -6995,9 +7029,19 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
         return INVALID_HANDLE_VALUE;
     const HANDLE openedSource = kind == UacF7::ThinOpenKind::Source
         ? INVALID_HANDLE_VALUE : *sourceHandle;
+    const bool hadStarted = scopeMayHaveStarted;
+    scopeMayHaveStarted = true;
+    pendingConsent = false;
     const auto result = session->Open(progress, *request, kind, overlapped, false,
         kind == UacF7::ThinOpenKind::TargetRetry ? &target : nullptr,
         UacF7::ThinOpenedSource{openedSource}, UacF7::ThinCancelEvent{dialog.CancelWorkerEvent});
+    if (!hadStarted && !brokerHandleDelivered && !targetCreatedByBroker &&
+        result.preProbeFailure && result.error != ERROR_SUCCESS && result.file == INVALID_HANDLE_VALUE &&
+        !result.unknown && !result.declined && !session->IsOpen())
+    {
+        scopeMayHaveStarted = false;
+        pendingConsent = true;
+    }
     if (result.unknown)
     {
         // A lost reply can also mean the broker created the target. Preserve
@@ -7017,6 +7061,7 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
         SetLastError(result.error ? result.error : ERROR_INVALID_HANDLE);
         return INVALID_HANDLE_VALUE;
     }
+    brokerHandleDelivered = true;
     if (kind == UacF7::ThinOpenKind::TargetCreate || kind == UacF7::ThinOpenKind::TargetRetry)
     {
         // The broker returns the created target identity or the same
@@ -7082,7 +7127,20 @@ void CThinCopyWorker::RememberTarget(HANDLE file, bool force)
 {
     if (active && file && file != INVALID_HANDLE_VALUE && !targetCreatedByBroker &&
         (force || request))
-        targetKnown = UacF7::CaptureMoveFileIdentity(file, target);
+    {
+        UacF7::MoveFileIdentity actual{};
+        const bool known = UacF7::CaptureMoveFileIdentity(file, actual);
+        if (!known || (targetKnown && (actual.serial != target.serial ||
+            std::memcmp(actual.id, target.id, sizeof(actual.id)) != 0)))
+        {
+            targetContinuityLost = true;
+            // Once a request was prepared, an unverified or replaced target
+            // must never be removed by pathname, even before the broker ran.
+            if (request || session) suppressLocalCleanup = true;
+        }
+        targetKnown = known;
+        if (known) target = actual;
+    }
 }
 
 bool CThinCopyWorker::ValidateRetriedTarget(HANDLE file)

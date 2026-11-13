@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Test scoped target continuity before probe. | Reject substituted targets without elevating or deleting them. | #731 | GPT-6 |
 # | 2026-11-13 | Check resume waits around scoped elevation. | Detect pause regression before preparation, consent and broker I/O. | #731 | GPT-6 |
 # | 2026-11-13 | Test sticky source continuity before elevation. | Keep ordinary Retry behavior without trusting a changed source later. | #731 | GPT-6 |
 # | 2026-11-13 | Test initial scoped open decisions and cancellation. | Preserve Skip All without suppressing native Retry and probe paths. | #731 | GPT-6 |
@@ -30,11 +31,14 @@ def main():
     end = worker.index("HANDLE CThinCopyWorker::Open(", begin)
     preparation = worker[begin:end]
     begin = worker.index("void CThinCopyWorker::RememberSource(")
-    end = worker.index("void CThinCopyWorker::RememberTarget(", begin)
+    end = worker.index("bool CThinCopyWorker::ReportTargetFailure(", begin)
     remember = worker[begin:end]
     begin = worker.index("#define THIN_OPEN_SOURCE(ctx, local, overlapped)")
-    end = worker.index("#define THIN_DELETE_TARGET", begin)
+    end = worker.index("\n#else", worker.index("#define THIN_DELETE_TARGET", begin))
     macros = worker[begin:end]
+    begin = worker.index("static HANDLE ThinCopyOpenLocalRetry(")
+    end = worker.index("\n#define THIN_REMEMBER_SOURCE", begin)
+    local_retry = worker[begin:end].replace("ThinCopyOpenLocalRetry(", "ActualThinCopyOpenLocalRetry(", 1)
     begin = worker.index("HANDLE CThinCopyWorker::Open(")
     end = worker.index("HANDLE CThinCopyWorker::CancelReceivedHandle(", begin)
     open_code = worker[begin:end]
@@ -50,7 +54,7 @@ def main():
     template = (ROOT / "src/tests/uac_thin_initial_open_tests.cpp.in").read_text(encoding="utf-8")
     code = (template.replace("@@PHASE@@", phase).replace("@@METHODS@@", methods)
             .replace("@@PREPARATION@@", preparation).replace("@@REMEMBER_SOURCE@@", remember)
-            .replace("@@MACROS@@", macros))
+            .replace("@@MACROS@@", macros).replace("@@LOCAL_RETRY@@", local_retry))
     if "@@" in code:
         raise RuntimeError("Missing test template replacement")
     env = compiler_environment()
@@ -67,14 +71,19 @@ def main():
                      str(source), "/Fe:" + str(exe)], cwd=temp, env=env, timeout=60)
         if built.returncode:
             return built.returncode
-        result = run([str(exe)], cwd=temp, env=env, timeout=20)
+        fixture = Path(temp) / 'fixture-\u6771'
+        fixture.mkdir()
+        (fixture / 'replacement.txt').write_bytes(b'unchanged target')
+        result = run([str(exe), str(fixture)], cwd=temp, env=env, timeout=20)
         if result.returncode:
             return result.returncode
+        if (fixture / 'missing.txt').exists() or (fixture / 'replacement.txt').read_bytes() != b'unchanged target':
+            raise RuntimeError('Retry modified the missing or replacement fixture')
     if hashlib.sha256(production.read_bytes()).hexdigest() != before:
         raise RuntimeError("worker.cpp changed during test")
     print("worker.cpp SHA-256:", before)
     print("Actual extracted phase enum, cancellation guard, preparation, source identity tracking, open wrapper and macros;")
-    print("broker preparation and identity are deterministic stubs.")
+    print("broker preparation and identity are deterministic stubs; local Retry uses real CreateFileW on NTFS.")
     print("Open() pause/cancellation placement is checked structurally; this does not run DoCopyFile or UAC.")
     return 0
 

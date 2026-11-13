@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Distinguish pre-probe thin open failure. | Permit the worker to retry only before the broker can run. | #731 | GPT-6 |
 | 2026-11-13 | Carry transfer prompt errors separately from refusal. | Preserve native error handling when UI allocation fails. | #731 | GPT-6 |
 | 2026-11-13 | Add experimental per-target handle release. | Bound a retained retry handle to one verified copy item. | #731 | GPT-6 |
 | 2026-11-13 | Distinguish experimental thin copy consent. | Avoid claiming support for alternate streams. | #731 | GPT-6 |
@@ -953,6 +954,9 @@ struct ThinOpenResult
     DWORD error = ERROR_GEN_FAILURE;
     bool declined = false;
     bool unknown = false;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    bool preProbeFailure = false;
+#endif
     MoveFileIdentity targetIdentity{};
 };
 

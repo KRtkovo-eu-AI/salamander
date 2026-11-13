@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Model pending pre-probe consent. | Keep allocation fault tests aligned with scoped retry state. | #731 | GPT-6 |
 // | 2026-11-13 | Model transfer-prompt UI errors. | Keep extracted worker tests aligned with the internal prompt contract. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise scoped prompt allocation failures. | Preserve existing sessions and report low memory without prompting. | #731 | GPT-6 |
 #include <windows.h>
@@ -86,6 +87,7 @@ struct CThinCopyWorker {
     std::unique_ptr<UacF7::PreparedTransfer> request = std::make_unique<UacF7::PreparedTransfer>();
     UacF7::ThinCopySession* session = nullptr;
     bool terminal = false;
+    bool pendingConsent = false, scopeMayHaveStarted = false;
     bool WaitBeforeElevation() { ++waits; return true; }
     bool CancelBeforeElevation() {
         if (!cancelAfterPrompt) return false;

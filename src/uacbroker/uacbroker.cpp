@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Identify thin failures before broker probing. | Retain prior consent without restarting an uncertain session. | #731 | GPT-6 |
 | 2026-11-13 | Require the complete experimental retained-target contract. | Reject older peers before opening or creating any target. | #731 | GPT-6 |
 | 2026-11-13 | Retain experimental F5 targets until item release. | Keep retry tied to the original exclusive file object. | #731 | GPT-6 |
 | 2026-11-13 | Fail closed on uncertain thin target cleanup and require its safety contract. | Preserve independent writers' data and reject incompatible experimental peers. | #731 | GPT-6 |
@@ -6045,27 +6046,39 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
         return output;
     }
     auto* job = shared ? shared : &owned;
-    if (job->IsOpen() && !prepared.IsInJob(*job))
-    {
-        output.error = ERROR_ACCESS_DENIED;
-        return output;
-    }
-    if (!job->IsOpen() && (shared || kind == ThinOpenKind::Discard || kind == ThinOpenKind::Release))
-    {
-        output.error = kind == ThinOpenKind::Discard ? ERROR_PARTIAL_COPY : ERROR_BROKEN_PIPE;
-        output.unknown = kind == ThinOpenKind::Discard;
-        return output;
-    }
-    const ComApartment com;
-    InstallLocation install;
-    if (FAILED(com.result) || !install.Open() || !install.MatchesProcess(GetCurrentProcess(), appImage) ||
-        !install.OpenImage(appImage))
-    {
-        output.error = ERROR_ACCESS_DENIED;
-        return output;
-    }
+#ifdef SAM_UAC_THIN_COPY_TEST
+    bool preProbeEligible = !shared && !job->IsOpen();
+    bool transportEntered = false;
     try
     {
+#endif
+        if (job->IsOpen() && !prepared.IsInJob(*job))
+        {
+            output.error = ERROR_ACCESS_DENIED;
+            return output;
+        }
+        if (!job->IsOpen() && (shared || kind == ThinOpenKind::Discard || kind == ThinOpenKind::Release))
+        {
+            output.error = kind == ThinOpenKind::Discard ? ERROR_PARTIAL_COPY : ERROR_BROKEN_PIPE;
+            output.unknown = kind == ThinOpenKind::Discard;
+            return output;
+        }
+        const ComApartment com;
+        InstallLocation install;
+        if (FAILED(com.result) || !install.Open() || !install.MatchesProcess(GetCurrentProcess(), appImage) ||
+            !install.OpenImage(appImage))
+        {
+            output.error = ERROR_ACCESS_DENIED;
+#ifdef SAM_UAC_THIN_COPY_TEST
+            output.preProbeFailure = preProbeEligible;
+#endif
+            return output;
+        }
+#ifndef SAM_UAC_THIN_COPY_TEST
+    // Preserve the established non-experimental exception boundary.
+    try
+    {
+#endif
         RequestHeader header{prepared.source.serial, {}, {}, operation,
             static_cast<DWORD>(prepared.source.relative.size()), static_cast<DWORD>(prepared.source.leaf.size()), 0,
             prepared.target.serial, {}, static_cast<DWORD>(prepared.target.relative.size()),
@@ -6109,7 +6122,14 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
 #else
             const DWORD parentError = pinError;
 #endif
-            if (parentError) { output.error = parentError; return output; }
+            if (parentError)
+            {
+                output.error = parentError;
+#ifdef SAM_UAC_THIN_COPY_TEST
+                output.preProbeFailure = preProbeEligible;
+#endif
+                return output;
+            }
             options.sourceHandle = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(openedSource));
             options.sourceParentHandle = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(pinnedParent));
         }
@@ -6125,6 +6145,10 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
             job->scope = prepared.JobScope(true);
 #ifdef SAM_UAC_THIN_COPY_TEST
             DWORD authenticatedPid = 0;
+            // RunProbe may launch a broker, send a request, or throw after
+            // either action. Never classify any of its outcomes as pre-probe.
+            preProbeEligible = false;
+            transportEntered = true;
 #endif
             const int launched = RunProbe(install, false, false, owner, &header, &payload, nullptr, &result,
                 nullptr, cancel, nullptr, nullptr, nullptr, nullptr, nullptr, &job->pipe,
@@ -6156,6 +6180,9 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
         else
         {
             const ULONGLONG deadline = GetTickCount64() + timeoutMs;
+#ifdef SAM_UAC_THIN_COPY_TEST
+            transportEntered = true;
+#endif
             DWORD error = SendOperationRequest(job->pipe, header, payload, &options, sizeof(options), nullptr,
                                                false, deadline, result, cancel);
             DWORD operationError = ERROR_GEN_FAILURE;
@@ -6221,6 +6248,19 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
     catch (const std::bad_alloc&)
     {
         output.error = ERROR_NOT_ENOUGH_MEMORY;
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (transportEntered)
+        {
+            // An exception after entering transport cannot prove that the
+            // broker did not receive the final request frame or duplicate a
+            // handle. Close only this job and report an uncertain result.
+            output.unknown = true;
+            job->Close();
+            ClearMarker();
+        }
+        else
+            output.preProbeFailure = preProbeEligible;
+#endif
         return output;
     }
 }

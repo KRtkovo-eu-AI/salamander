@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Exercise target continuity before elevation. | Refuse replacements and preserve their cleanup boundary. | #731 | GPT-6 |
 // | 2026-11-13 | Include the native resume-wait method in the extracted harness. | Keep scoped open tests aligned with worker synchronization. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise ordinary Retry and sticky source continuity. | Reject later elevation after unknown or changed identity without breaking local copy. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise initial F5 skip and cancellation decisions. | Distinguish initial opens from Retry and metadata probes. | #731 | GPT-6 |
@@ -38,7 +39,7 @@ struct PreparedTransfer {
 constexpr DWORD OPFL_UAC_TRANSFER_SOURCE = 0x100;
 constexpr DWORD OPFL_UAC_TRANSFER_LISTED = 0x200;
 struct FakeSession { int closes = 0; };
-struct FakeOperation { DWORD OpFlags = 0; std::wstring SourceNameW, TargetNameW; struct { ULONGLONG Value = 0; } FileSize; };
+struct FakeOperation { DWORD OpFlags = 0; std::wstring SourceNameW, TargetNameW; const char* TargetName = ""; bool TargetNameWValid = true; struct { ULONGLONG Value = 0; } FileSize; };
 struct FakeScript {};
 struct FakeListed { std::unique_ptr<UacF7::PreparedTransfer> Request; };
 static const FakeListed* ListedTransferSource(const FakeOperation&, const FakeScript&) { return nullptr; }
@@ -50,11 +51,12 @@ struct CThinCopyWorker {
     FakeSession* session = nullptr;
     HANDLE* sourceHandle = nullptr;
     std::unique_ptr<UacF7::PreparedTransfer> request;
-    UacF7::MoveFileIdentity earlierSource{};
+    UacF7::MoveFileIdentity earlierSource{}, target{};
     bool active = true, terminal = false, earlierSourceRequired = false, earlierSourceKnown = false, sourceVerified = true;
-    bool sourceContinuityLost = false;
+    bool sourceContinuityLost = false, targetContinuityLost = false;
+    bool scopeMayHaveStarted = false, targetKnown = false, suppressLocalCleanup = false;
     bool targetCreatedByBroker = false;
-    int openCalls = 0, targetRemembered = 0, validationCalls = 0;
+    int openCalls = 0, refusedCleanup = 0;
     UacF7::ThinOpenKind lastKind = UacF7::ThinOpenKind::Source;
     bool lastOverlapped = false;
     HANDLE opened = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(17));
@@ -62,6 +64,7 @@ struct CThinCopyWorker {
     bool CancelBeforeElevation();
     bool WaitBeforeElevation();
     bool SourceContinuityAllowsElevation() const;
+    bool TargetContinuityAllowsElevation() const;
     bool EnsurePrepared();
     HANDLE Open(UacF7::ThinOpenKind kind, bool overlapped) {
         ++openCalls; lastKind = kind; lastOverlapped = overlapped;
@@ -70,13 +73,18 @@ struct CThinCopyWorker {
         SetLastError(openedError); return opened;
     }
     void RememberSource(HANDLE, bool force = false);
-    void RememberTarget(HANDLE) { ++targetRemembered; }
-    bool ValidateRetriedTarget(HANDLE) { ++validationCalls; return true; }
-    bool Scoped() const { return session != nullptr; }
+    void RememberTarget(HANDLE, bool force = false);
+    bool ValidateRetriedTarget(HANDLE);
+    bool RefuseUnsafeTargetCleanup() { ++refusedCleanup; return false; }
+    bool DiscardTarget() { return false; }
+    bool Scoped() const { return active && session != nullptr && scopeMayHaveStarted; }
 };
 static BOOL RealClose(HANDLE file) { return CloseHandle(file); }
 static int closeCalls = 0;
-static BOOL MockClose(HANDLE) { ++closeCalls; return TRUE; }
+static BOOL MockClose(HANDLE file) {
+    ++closeCalls;
+    return GetFileType(file) == FILE_TYPE_DISK ? RealClose(file) : TRUE;
+}
 #define CloseHandle MockClose
 #define HANDLES(x) (x)
 #define HANDLES_ADD_EX(...) ((void)0)
@@ -87,18 +95,25 @@ static void ThinCopyTestSignalPreserve(const wchar_t*) {}
 static bool ThinCopyTestDenyOpen(CThinCopyWorker*, bool) { return false; }
 static bool ThinCopyTestDenyReopen(CThinCopyWorker*, bool) { return false; }
 static HANDLE ThinCopyTestDeniedHandle() { SetLastError(ERROR_ACCESS_DENIED); return INVALID_HANDLE_VALUE; }
+static std::wstring WorkerOperationPathW(const char*, const wchar_t* value) { return value ? value : L""; }
+#define HANDLES_Q(x) (x)
+@@LOCAL_RETRY@@
+static bool useRealLocalRetry = false;
 static HANDLE ThinCopyOpenRetry(CThinCopyWorker* context, bool overlapped) {
     return context->Open(UacF7::ThinOpenKind::TargetRetry, overlapped);
 }
 static HANDLE ThinCopyOpenLocalRetry(CThinCopyWorker* context, bool overlapped) {
+    if (useRealLocalRetry) return ActualThinCopyOpenLocalRetry(context, overlapped);
     return context->Open(UacF7::ThinOpenKind::TargetRetry, overlapped);
 }
 @@MACROS@@
 static void Check(bool ok, const char* name, int& failures) {
     std::printf("%s %s\n", ok ? "PASS" : "FAIL", name); if (!ok) ++failures;
 }
-int main() {
+int wmain(int argc, wchar_t** argv) {
     int failures = 0;
+    if (argc != 2) return 1;
+    const std::wstring fixture = argv[1];
     BOOL cancelled = FALSE;
     HANDLE cancelEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     if (!cancelEvent) return 2;
@@ -342,6 +357,62 @@ int main() {
         SetLastError(ERROR_SUCCESS);
         Check(!prepared.EnsurePrepared() && GetLastError() == ERROR_FILE_INVALID,
               "existing request cannot bypass sticky continuity loss", failures);
+    }
+    for (bool missingIdentity : {false, true}) {
+        CThinCopyWorker pending; pending.dialog.CancelWorker = &cancelled;
+        pending.request = std::make_unique<UacF7::PreparedTransfer>();
+        pending.session = &existing;
+        pending.RememberTarget(original, true);
+        const int beforeClose = closeCalls;
+        HANDLE output = ThinCopyOpened(&pending, missingIdentity ? unavailable : changed,
+            UacF7::ThinOpenKind::TargetRetry, false, ThinOpenPhase::Retry);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_FILE_INVALID &&
+              pending.targetContinuityLost && pending.suppressLocalCleanup && closeCalls == beforeClose + 1,
+              missingIdentity ? "unverifiable pending target is not returned" :
+                                "replacement pending target is not returned", failures);
+        int localDeletes = 0;
+        Check(!THIN_DELETE_TARGET(&pending, (++localDeletes, true)) && !localDeletes && pending.refusedCleanup == 1,
+              "pending target mismatch never deletes a pathname", failures);
+        Check(!pending.EnsurePrepared() && GetLastError() == ERROR_FILE_INVALID,
+              "target mismatch permanently prevents elevation", failures);
+    }
+    {
+        CThinCopyWorker pending; pending.dialog.CancelWorker = &cancelled;
+        pending.request = std::make_unique<UacF7::PreparedTransfer>();
+        pending.session = &existing;
+        pending.RememberTarget(original, true);
+        HANDLE output = ThinCopyOpened(&pending, same, UacF7::ThinOpenKind::TargetRetry, false, ThinOpenPhase::Retry);
+        Check(output == same && !pending.targetContinuityLost && !pending.suppressLocalCleanup,
+              "same pending target passes identity validation", failures);
+        int localDeletes = 0;
+        Check(!THIN_DELETE_TARGET(&pending, (++localDeletes, true)) && !localDeletes && pending.refusedCleanup == 1,
+              "unchanged pending target still refuses unpinned pathname cleanup", failures);
+    }
+    {
+        CThinCopyWorker pending; pending.dialog.CancelWorker = &cancelled;
+        pending.request = std::make_unique<UacF7::PreparedTransfer>();
+        pending.session = &existing;
+        pending.operation.TargetNameW = fixture + L"\\missing.txt";
+        int localAttempts = 0; useRealLocalRetry = true;
+        const HANDLE output = THIN_OPEN_TARGET_RETRY(&pending, (++localAttempts, INVALID_HANDLE_VALUE), false);
+        const DWORD error = GetLastError();
+        useRealLocalRetry = false;
+        Check(output == INVALID_HANDLE_VALUE && error == ERROR_FILE_NOT_FOUND && !localAttempts &&
+              GetFileAttributesW(pending.operation.TargetNameW.c_str()) == INVALID_FILE_ATTRIBUTES,
+              "missing pending target uses OPEN_EXISTING without creating a file", failures);
+    }
+    {
+        CThinCopyWorker pending; pending.dialog.CancelWorker = &cancelled;
+        pending.request = std::make_unique<UacF7::PreparedTransfer>();
+        pending.session = &existing; pending.targetKnown = true;
+        pending.target.serial = 1; pending.target.id[0] = 2;
+        pending.operation.TargetNameW = fixture + L"\\replacement.txt";
+        useRealLocalRetry = true;
+        const HANDLE output = THIN_OPEN_TARGET_RETRY(&pending, INVALID_HANDLE_VALUE, false);
+        const DWORD error = GetLastError();
+        useRealLocalRetry = false;
+        Check(output == INVALID_HANDLE_VALUE && error == ERROR_FILE_INVALID && pending.suppressLocalCleanup &&
+              pending.targetContinuityLost, "replacement pending target is closed before use", failures);
     }
     Check(RealClose(cancelEvent) != FALSE, "close test cancellation event", failures);
     return failures ? 1 : 0;

@@ -1,0 +1,211 @@
+// SPDX-FileCopyrightText: 2026 Open Samandarin Authors
+// SPDX-License-Identifier: GPL-2.0-or-later
+// | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Test retry after pre-probe errors. | Keep consent and never restart an uncertain scoped operation. | #731 | GPT-6 |
+#include <windows.h>
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
+#include <list>
+#include <memory>
+#include <new>
+#include <string>
+
+namespace UacF7 {
+enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe };
+enum class TransferPromptKind { ThinPlainCopy };
+struct MoveFileIdentity { ULONGLONG serial = 0; unsigned char id[16]{}; };
+struct PreparedTransfer {};
+struct ThinOpenedSource { HANDLE value; };
+struct ThinCancelEvent { HANDLE value; };
+struct ThinOpenResult {
+    HANDLE file = INVALID_HANDLE_VALUE;
+    DWORD error = ERROR_GEN_FAILURE;
+    bool declined = false, unknown = false, preProbeFailure = false;
+    MoveFileIdentity targetIdentity{};
+};
+struct TransferPrompt {
+    PreparedTransfer& request;
+    const char* source;
+    const char* target;
+    bool targetDenied;
+    bool approved = false;
+    DWORD promptError = ERROR_SUCCESS;
+    TransferPromptKind kind = TransferPromptKind::ThinPlainCopy;
+};
+static ThinOpenResult nextResult;
+static int opens = 0;
+static bool nextSessionOpen = false;
+struct ThinCopySession {
+    bool isOpen = false, matches = false;
+    bool IsOpen() const { return isOpen; }
+    bool Matches(const PreparedTransfer&) const { return matches; }
+    bool Attach(ThinCopySession&, const PreparedTransfer&) { return false; }
+    ThinOpenResult Open(HWND, const PreparedTransfer&, ThinOpenKind, bool, bool,
+                        const MoveFileIdentity*, ThinOpenedSource, ThinCancelEvent) {
+        ++opens; isOpen = nextSessionOpen; return nextResult;
+    }
+};
+}
+struct SourcePlan { std::unique_ptr<UacF7::ThinCopySession> Session; };
+struct Script { SourcePlan* CopySource = nullptr; };
+struct Operation { std::wstring SourceNameW = L"source", TargetNameW = L"target"; };
+static HANDLE testEvent = nullptr;
+struct Dialog { std::list<UacF7::ThinCopySession> ThinCopyJobs; BOOL* CancelWorker = nullptr; HANDLE CancelWorkerEvent = testEvent; };
+constexpr UINT WM_USER_DIALOG = WM_USER + 42;
+constexpr WPARAM WORKER_DIALOG_UAC_TRANSFER = 1;
+static int prompts = 0, reported = 0, waits = 0;
+static bool approval = true, waitOkay = true;
+static std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* value) { return value; }
+static std::string SalWideToMultiBytePath(const wchar_t*, UINT) { return "path"; }
+#undef SendMessage
+#define SendMessage Prompt
+static LRESULT Prompt(HWND, UINT, WPARAM, LPARAM value) {
+    ++prompts; reinterpret_cast<UacF7::TransferPrompt*>(value)->approved = approval; return 0;
+}
+static void ThinCopyTestHandleGate(UacF7::ThinOpenKind, HANDLE) {}
+struct CThinCopyWorker {
+    Dialog dialog;
+    Script script;
+    Operation operation;
+    HWND progress = nullptr;
+    HANDLE* sourceHandle = nullptr;
+    std::unique_ptr<UacF7::PreparedTransfer> request = std::make_unique<UacF7::PreparedTransfer>();
+    UacF7::ThinCopySession* session = nullptr;
+    UacF7::MoveFileIdentity target{};
+    bool active = true, terminal = false, sourceVerified = true, targetKnown = true;
+    bool scopeMayHaveStarted = false, pendingConsent = false, brokerHandleDelivered = false, targetCreatedByBroker = false;
+    bool WaitBeforeElevation() {
+        ++waits;
+        if (CancelBeforeElevation()) return false;
+        if (!waitOkay) SetLastError(ERROR_INVALID_HANDLE);
+        return waitOkay;
+    }
+    bool EnsurePrepared() { return true; }
+    bool CancelBeforeElevation() {
+        if (!*dialog.CancelWorker && WaitForSingleObject(dialog.CancelWorkerEvent, 0) != WAIT_OBJECT_0) return false;
+        terminal = true; SetLastError(ERROR_CANCELLED); return true;
+    }
+    HANDLE CancelReceivedHandle(UacF7::ThinOpenKind, HANDLE) { terminal = true; SetLastError(ERROR_CANCELLED); return INVALID_HANDLE_VALUE; }
+    bool ReportTargetFailure(DWORD) { ++reported; terminal = true; return false; }
+    HANDLE Open(UacF7::ThinOpenKind kind, bool overlapped);
+};
+@@ACTUAL_OPEN@@
+struct ProbeJob { bool open = false; int closes = 0; void Close() { ++closes; open = false; } };
+struct ProbeHarness {
+    int markersCleared = 0;
+    void ClearMarker() { ++markersCleared; }
+    UacF7::ThinOpenResult Failure(ProbeJob* job, bool preProbeEligible, bool transportEntered) {
+        UacF7::ThinOpenResult output;
+        try { throw std::bad_alloc(); }
+@@ACTUAL_TRANSPORT_CATCH@@
+    }
+};
+static void Check(bool value, const char* label, int& failures) {
+    std::printf("%s %s\n", value ? "PASS" : "FAIL", label); if (!value) ++failures;
+}
+static void Reset() {
+    prompts = reported = waits = UacF7::opens = 0; approval = waitOkay = true;
+    UacF7::nextResult = {}; UacF7::nextSessionOpen = false;
+}
+int main() {
+    int failures = 0; BOOL cancelled = FALSE;
+    testEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!testEvent) return 2;
+    const HANDLE file = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(0x1234));
+    {
+        Reset(); CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled;
+        UacF7::nextResult.error = ERROR_NOT_ENOUGH_MEMORY; UacF7::nextResult.preProbeFailure = true;
+        Check(worker.Open(UacF7::ThinOpenKind::Source, false) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_NOT_ENOUGH_MEMORY && worker.pendingConsent && !worker.scopeMayHaveStarted &&
+              worker.session && prompts == 1 && UacF7::opens == 1, "pre-probe failure keeps approved consent", failures);
+        UacF7::nextResult = {}; UacF7::nextResult.file = file; UacF7::nextResult.error = ERROR_SUCCESS;
+        UacF7::nextSessionOpen = true;
+        Check(worker.Open(UacF7::ThinOpenKind::Source, false) == file && !worker.pendingConsent &&
+              worker.scopeMayHaveStarted && worker.brokerHandleDelivered && prompts == 1 && UacF7::opens == 2,
+              "retry uses same approved session without a second prompt", failures);
+        UacF7::nextSessionOpen = false; worker.session->isOpen = false;
+        Check(worker.Open(UacF7::ThinOpenKind::Source, false) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_BROKEN_PIPE && worker.terminal && UacF7::opens == 2,
+              "closed previously started session cannot restart", failures);
+    }
+    {
+        Reset(); CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled;
+        UacF7::nextResult.error = ERROR_NOT_ENOUGH_MEMORY; UacF7::nextResult.preProbeFailure = true;
+        if (worker.Open(UacF7::ThinOpenKind::Source, false) != INVALID_HANDLE_VALUE) return 4;
+        waitOkay = false;
+        Check(worker.Open(UacF7::ThinOpenKind::Source, false) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_INVALID_HANDLE && worker.pendingConsent && !worker.scopeMayHaveStarted &&
+              prompts == 1 && UacF7::opens == 1, "wait failure preserves pending consent without broker", failures);
+        waitOkay = true; UacF7::nextResult.file = file; UacF7::nextResult.error = ERROR_SUCCESS;
+        UacF7::nextResult.preProbeFailure = false; UacF7::nextSessionOpen = true;
+        Check(worker.Open(UacF7::ThinOpenKind::Source, false) == file && prompts == 1 && UacF7::opens == 2,
+              "retry after wait recovery reuses pending consent", failures);
+    }
+    {
+        Reset(); CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled;
+        UacF7::nextResult.error = ERROR_NOT_ENOUGH_MEMORY; UacF7::nextResult.preProbeFailure = true;
+        if (worker.Open(UacF7::ThinOpenKind::Source, false) != INVALID_HANDLE_VALUE) return 4;
+        if (!SetEvent(testEvent)) return 5;
+        Check(worker.Open(UacF7::ThinOpenKind::Source, false) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_CANCELLED && worker.terminal && UacF7::opens == 1 && prompts == 1,
+              "cancellation while pending never starts broker", failures);
+        if (!ResetEvent(testEvent)) return 6;
+    }
+    for (int mode = 0; mode < 4; ++mode) {
+        Reset(); CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled;
+        if (mode == 0) worker.scopeMayHaveStarted = true;
+        if (mode == 1) worker.brokerHandleDelivered = true;
+        if (mode == 2) worker.targetCreatedByBroker = true;
+        if (mode == 3) UacF7::nextSessionOpen = true;
+        UacF7::nextResult.error = ERROR_NOT_ENOUGH_MEMORY; UacF7::nextResult.preProbeFailure = true;
+        Check(worker.Open(UacF7::ThinOpenKind::Source, false) == INVALID_HANDLE_VALUE &&
+              !worker.pendingConsent && worker.scopeMayHaveStarted,
+              "defensive gate rejects a previously used or open scope", failures);
+    }
+    {
+        Reset(); CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled;
+        UacF7::nextResult.error = ERROR_NOT_ENOUGH_MEMORY; UacF7::nextResult.unknown = true;
+        Check(worker.Open(UacF7::ThinOpenKind::Source, false) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_PARTIAL_COPY && worker.terminal && !worker.pendingConsent &&
+              worker.scopeMayHaveStarted && reported == 1, "unknown result is terminal", failures);
+    }
+    {
+        Reset(); CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled;
+        UacF7::nextResult.error = ERROR_CANCELLED; UacF7::nextResult.declined = true;
+        Check(worker.Open(UacF7::ThinOpenKind::Source, false) == INVALID_HANDLE_VALUE &&
+              GetLastError() == ERROR_CANCELLED && worker.terminal && !worker.pendingConsent,
+              "declined elevation is terminal", failures);
+    }
+    {
+        Reset(); CThinCopyWorker worker; worker.dialog.CancelWorker = &cancelled;
+        UacF7::ThinCopySession prior{}; prior.isOpen = true; prior.matches = true;
+        worker.dialog.ThinCopyJobs.push_back(prior);
+        UacF7::nextResult.error = ERROR_NOT_ENOUGH_MEMORY; UacF7::nextResult.preProbeFailure = true;
+        Check(worker.Open(UacF7::ThinOpenKind::Source, false) == INVALID_HANDLE_VALUE &&
+              worker.scopeMayHaveStarted && !worker.pendingConsent && prompts == 0,
+              "existing batch session never becomes pre-probe again", failures);
+    }
+    {
+        ProbeHarness probe; ProbeJob job{};
+        const auto result = probe.Failure(&job, true, false);
+        Check(result.error == ERROR_NOT_ENOUGH_MEMORY && result.preProbeFailure && !result.unknown &&
+              !job.closes && !probe.markersCleared, "pre-transport OOM keeps fresh consent", failures);
+    }
+    {
+        ProbeHarness probe; ProbeJob job{}; job.open = true;
+        const auto result = probe.Failure(&job, false, false);
+        Check(result.error == ERROR_NOT_ENOUGH_MEMORY && !result.preProbeFailure && !result.unknown &&
+              job.open && !job.closes && !probe.markersCleared, "pre-transport OOM preserves live batch session", failures);
+    }
+    for (bool live : {false, true}) {
+        ProbeHarness probe; ProbeJob job{}; job.open = live;
+        const auto result = probe.Failure(&job, false, true);
+        Check(result.error == ERROR_NOT_ENOUGH_MEMORY && !result.preProbeFailure && result.unknown &&
+              !job.open && job.closes == 1 && probe.markersCleared == 1,
+              live ? "OOM after sending on existing transport is unknown" :
+                     "OOM after entering new probe is unknown", failures);
+    }
+    if (!CloseHandle(testEvent)) return 3;
+    return failures ? 1 : 0;
+}
