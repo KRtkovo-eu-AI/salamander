@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-13 | Cover the custom Pak English resource script. | Keep embedded-English detection consistent for projects overriding the shared RC. | | openrouter/openai/gpt-6-luna-pro |
+# | 2026-11-13 | Check legacy plug-in English resource fallback. | Ensure old plugins continue loading external english.slg resources. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-13 | Check Welcome language choices from embedded packs. | Ensure Manage Configurations lists languages after .slg files are removed. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-13 | Test temporary language-module loading. | Prevent ERROR_SHARING_VIOLATION from hiding packaged translations. | | openrouter/openai/gpt-6-luna-pro |
 # | 2026-11-13 | Check cleanup of English language seeds. | Ensure shipped runtime trees do not retain obsolete english.slg files. | | openrouter/openai/gpt-6-luna-pro |
@@ -20,6 +22,7 @@ def test_langpack_runtime_sources_exist():
     assert (REPO / "src" / "langpack.cpp").is_file()
     text = (REPO / "src" / "langpack.h").read_text(encoding="utf-8", errors="replace")
     assert 'SAL_LANGPACK_FILENAME "langpack.dll"' in text
+    assert 'SAL_LANGPACK_EMBEDDED_ENGLISH_RESOURCE_NAME "OPEN_SAMANDARIN_EMBEDDED_ENGLISH"' in text
     assert "SalLoadLanguageForModule" in text
     assert "SalExtractLangResourceBlob" in text
     assert "SalEnumModuleLanguages" in text
@@ -32,6 +35,23 @@ def test_langpack_runtime_sources_exist():
     assert "EnumResourceNamesA(hModule, RT_RCDATA, EnumLangPackResNameProc" in implementation
     assert "EnumLangPackResNameProc(HMODULE hModule, LPCSTR lpszType, LPSTR lpszName" in implementation
     assert "EnumLangPackResNameProc(HMODULE hModule, LPCTSTR lpszType, LPTSTR lpszName" not in implementation
+
+    legacy_loader = implementation.split("static HINSTANCE LoadLegacyLanguageModule", 1)[1].split(
+        "HINSTANCE SalLoadLanguageForModule", 1
+    )[0]
+    assert '"lang\\\\%s", slgName' in legacy_loader
+    assert "LoadLibrary(path)" in legacy_loader
+    assert "IsSLGFileValid(hostModule, hSlg" in legacy_loader
+
+    english_branch = implementation.split("if (SalIsEnglishLanguageName(slgName))", 1)[1].split(
+        "char languageBase", 1
+    )[0]
+    assert "FindResourceA(hostModule, SAL_LANGPACK_EMBEDDED_ENGLISH_RESOURCE_NAME, RT_RCDATA)" in english_branch
+    assert 'LoadLegacyLanguageModule(hostModule, "english.slg")' in english_branch
+    assert english_branch.index("FindResourceA") < english_branch.index("LoadLegacyLanguageModule")
+
+    lang_rc = (REPO / "src" / "lang" / "lang.rc").read_text(encoding="utf-8", errors="replace")
+    assert '"OPEN_SAMANDARIN_EMBEDDED_ENGLISH" RCDATA' in lang_rc
 
     memory_loader = implementation.split("HINSTANCE SalLoadLibraryFromMemory", 1)[1].split(
         "HINSTANCE SalOpenLangPackDataFile", 1
@@ -71,6 +91,15 @@ def test_host_embeds_english_lang_rc():
     )
     assert "EmbedEnglishLangRc" in props
     assert "SKIP_LANG_VERSIONINFO" in props
+
+    pak_props = (REPO / "src" / "plugins" / "pak" / "vcxproj" / "pak.props").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    pak_lang = (REPO / "src" / "plugins" / "pak" / "spl" / "lang" / "lang.rc").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    assert r"<EmbedEnglishLangRc>..\spl\lang\lang.rc</EmbedEnglishLangRc>" in pak_props
+    assert '"OPEN_SAMANDARIN_EMBEDDED_ENGLISH" RCDATA' in pak_lang
 
 
 def test_host_and_serviceexplorer_do_not_compile_duplicate_fallback_resources():

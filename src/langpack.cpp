@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Load external English modules for legacy plug-ins. | Preserve plug-in UI resources when English is stored in lang\\english.slg. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-13 | Load translated language PEs without a write-share conflict. | LoadLibrary rejected every extracted language module with ERROR_SHARING_VIOLATION. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-13 | Prefer language resources embedded in each plug-in module. | Keep plug-in translations with independently updatable .spl files. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-04 | Check the destination bound before reading src in AsciiToUpperCopy. | CodeQL flagged the offset use before the range check. | | Composer |
@@ -320,6 +321,33 @@ static HINSTANCE LoadLanguageFromResourceModule(HINSTANCE hResourceModule, HINST
     return hLib;
 }
 
+static HINSTANCE LoadLegacyLanguageModule(HINSTANCE hostModule, const char* slgName)
+{
+    if (hostModule == NULL || slgName == NULL || slgName[0] == 0)
+        return NULL;
+
+    char path[MAX_PATH];
+    if (GetModuleFileName(hostModule, path, MAX_PATH) == 0)
+        return NULL;
+    char* slash = strrchr(path, '\\');
+    if (slash == NULL)
+        return NULL;
+    if (_snprintf_s(slash + 1, MAX_PATH - (int)(slash + 1 - path), _TRUNCATE,
+                    "lang\\%s", slgName) <= 0)
+        return NULL;
+
+    HINSTANCE hSlg = LoadLibrary(path);
+    if (hSlg == NULL)
+        return NULL;
+    WORD langId = 0;
+    if (!IsSLGFileValid(hostModule, hSlg, langId, NULL))
+    {
+        FreeLibrary(hSlg);
+        return NULL;
+    }
+    return hSlg;
+}
+
 HINSTANCE SalLoadLanguageForModule(HINSTANCE hostModule, const char* moduleKey,
                                    const char* slgName, BOOL* owned)
 {
@@ -331,7 +359,25 @@ HINSTANCE SalLoadLanguageForModule(HINSTANCE hostModule, const char* moduleKey,
     // 1) English is compiled into the host binary.
     if (SalIsEnglishLanguageName(slgName))
     {
-        // Host resources do not carry SLGIncomplete; treat English as always complete.
+        // Keep embedded English for modern modules, but older third-party plugins
+        // may still store their English resources in lang\english.slg.
+        if (hostModule == GetModuleHandle(NULL) ||
+            FindResourceA(hostModule, SAL_LANGPACK_EMBEDDED_ENGLISH_RESOURCE_NAME, RT_RCDATA) != NULL)
+        {
+            if (owned != NULL)
+                *owned = FALSE;
+            return hostModule;
+        }
+
+        HINSTANCE hLegacyEnglish = LoadLegacyLanguageModule(hostModule, "english.slg");
+        if (hLegacyEnglish != NULL)
+        {
+            if (owned != NULL)
+                *owned = TRUE;
+            return hLegacyEnglish;
+        }
+
+        // Preserve the prior fallback for plugins that have no external English SLG.
         if (owned != NULL)
             *owned = FALSE;
         return hostModule;
@@ -364,24 +410,9 @@ HINSTANCE SalLoadLanguageForModule(HINSTANCE hostModule, const char* moduleKey,
     }
 
     // 4) Legacy / 3rd-party .slg next to the host module.
-    char path[MAX_PATH];
-    if (GetModuleFileName(hostModule, path, MAX_PATH) == 0)
-        return NULL;
-    char* slash = strrchr(path, '\\');
-    if (slash == NULL)
-        return NULL;
-    if (_snprintf_s(slash + 1, MAX_PATH - (int)(slash + 1 - path), _TRUNCATE, "lang\\%s", slgName) <= 0)
-        return NULL;
-
-    HINSTANCE hSlg = LoadLibrary(path);
+    HINSTANCE hSlg = LoadLegacyLanguageModule(hostModule, slgName);
     if (hSlg == NULL)
         return NULL;
-    WORD langId = 0;
-    if (!IsSLGFileValid(hostModule, hSlg, langId, NULL))
-    {
-        FreeLibrary(hSlg);
-        return NULL;
-    }
     if (owned != NULL)
         *owned = TRUE;
     return hSlg;
