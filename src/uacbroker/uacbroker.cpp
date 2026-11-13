@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Reject invalid thin-copy cancellation handles. | Do not start or continue a scoped request when cancellation cannot be observed. | #731 | GPT-6 |
 | 2026-11-13 | Prepare thin target records before publishing them. | Leave the batch state unchanged when allocating a name fails. | #731 | GPT-6 |
 | 2026-11-13 | Prototype an identity-anchored target reopen. | Preserve native Retry opening semantics without lending an exclusive retained writer. | #731 | GPT-6 |
 | 2026-11-13 | Transfer experimental planned sessions into item custody. | Keep one authorized tree pipe without a borrowed lifetime. | #731 | GPT-6 |
@@ -6120,10 +6121,16 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
         output.error = ERROR_NOT_SUPPORTED;
         return output;
     }
-    if (cancel && WaitForSingleObject(cancel, 0) == WAIT_OBJECT_0)
+    if (cancel)
     {
-        output.error = ERROR_CANCELLED;
-        return output;
+        const DWORD wait = WaitForSingleObject(cancel, 0);
+        if (wait != WAIT_TIMEOUT)
+        {
+            output.error = wait == WAIT_OBJECT_0 ? ERROR_CANCELLED :
+                wait == WAIT_FAILED ? GetLastError() : ERROR_INVALID_HANDLE;
+            if (output.error == ERROR_SUCCESS) output.error = ERROR_INVALID_HANDLE;
+            return output;
+        }
     }
     Operation operation;
     switch (kind)

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-13 | Exercise cancellation handle validation on the real client pipe. | Refuse invalid waits without consuming the approved session. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise a real client and dispatcher reopening an anchored target. | Check retry identity, rights and I/O mode on one test pipe. | #731 | GPT-6 |
 
 // The client and dispatcher run in the same process with the same token.
@@ -57,6 +58,18 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     if (!request.Prepare(sourcePath, targetPath, 1, Operation::Copy, &listed) ||
         !thin.TakePlanned(job, request))
     { Check(false, "take actual planned client session for reopen"); return; }
+    auto cancelledEvent = Adopt(CreateEventW(nullptr, TRUE, TRUE, nullptr));
+    if (!cancelledEvent) { Check(false, "create cancellation fixture"); return; }
+    const auto cancelled = thin.Open(nullptr, request, UacF7::ThinOpenKind::Source, false, false, nullptr,
+                                     UacF7::ThinOpenedSource{}, UacF7::ThinCancelEvent{cancelledEvent.get()});
+    Check(cancelled.error == ERROR_CANCELLED && !cancelled.unknown && thin.IsOpen(),
+          "signalled cancellation stops before the broker request");
+    HANDLE invalidEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!invalidEvent || !CloseHandle(invalidEvent)) { Check(false, "create invalid cancellation fixture"); return; }
+    const auto invalid = thin.Open(nullptr, request, UacF7::ThinOpenKind::Source, false, false, nullptr,
+                                   UacF7::ThinOpenedSource{}, UacF7::ThinCancelEvent{invalidEvent});
+    Check(invalid.error == ERROR_INVALID_HANDLE && !invalid.unknown && thin.IsOpen(),
+          "invalid cancellation handle stops before the broker request");
     const auto opened = thin.Open(nullptr, request, UacF7::ThinOpenKind::Source, false, false, nullptr);
     auto input = Adopt(opened.file);
     if (opened.error || opened.unknown || !input)
