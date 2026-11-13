@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-13 | Verify related cleanup paths after sticky target identity fix. | Distinguish local tests and Debug compilation from VM acceptance. | #731 | gpt-6.1-terra |
 | 2026-11-13 | Preserve target continuity loss across experimental F5 Retry. | Reject a later matching open after a target replacement or failed identity query. | #731 | gpt-6.1-terra |
 | 2026-11-13 | Compare current experimental Release sizes to the return point. | Preserve exact provenance and flag differences in the measurement. | #731 | gpt-6.1-terra |
 | 2026-11-13 | Record OTS bootstrap setup and restoration. | Preserve the existing test profile when interactive account launch is unavailable. | #731 | gpt-6.1-terra |
@@ -1165,6 +1166,8 @@ Host pro nejistý výsledek znovu používá nativní lokalizované varování, 
 - **Zbývá:** Jde o dílčí důkaz experimentálního Debug x64 páru, nikoli dokončení přepracování UAC. Nebyl ověřen jiný účet správce (OTS), soukromá paměť Release dvojice ani více než 4 096 položek ve skutečném workeru. Nesplynuly tím ani dosud otevřené případy souběhu, ACL/sharingu, nehody při předávání handle a bezpečnostní brána přístupu k procesu brokeru.
 
 ## Tenké F5: průběh a pauza ve VM — 2026-11-13 / GPT-6
+
+- **Návazné místní kontroly opravy kontinuity:** `uac_thin_cleanup_methods_tests.py` prošel v Debug i Release; zahrnuje odmítnutí nejistého úklidu, zachování lokálního cíle a `OPEN_EXISTING` při Retry. Strukturální `uac_thin_cleanup_contract_tests.py` prošel 9/9. Skutečný Debug `worker.cpp` byl přeložen s experimentální reopen cestou; build hlásil MSB8028 kvůli sdílenému adresáři mezivýstupů, proto nejde o čistou párovou sestavu. Testy metod používají makety brokeru a dialogů a samy neprovádějí celé F5 ani UAC. Dosavadní VM důkazy jsou ze starší binárky a tuto opravu neověřují.
 
 - **Kontinuita cíle při opakovaném Retry:** Experimentální worker po záměně nebo neověřitelném ID lokálně otevřeného cíle už nepřijme pozdější shodné otevření v téže úloze a nesmaže příznak odmítnutí úklidu. Ověření nyní zaznamenává ztrátu kontinuity i v již spuštěné scoped relaci. Doplňkové regresní případy zahrnují návrat původního ID po záměně či chybě identity, záměnu v aktivní relaci a opětovné zaznamenání cizího cíle. Před opravou první dva případy selhaly, po opravě `uac_thin_initial_open_tests.py` prošel v Debug i Release; skutečný `worker.cpp` se přeložil v Release s experimentálními přepínači. Test používá vyňatý skutečný wrapper, deterministické makety identity a brokeru a částečně reálné NTFS otevření; neprovádí celé F5 ani UAC. Dosavadní VM výsledky předchozího buildu tuto novou změnu neověřují. Nejde o opravu chybějícího privilegovaného Retry lokálně vytvořeného cíle.
 
