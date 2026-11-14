@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Reuse a real planned client job for two files. | Verify batch custody and scope across consecutive native handle opens. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Add a targeted client connection-loss case. | Exercise the real session with an external dispatcher. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Probe an idle dispatcher pipe across process death. | Evaluate non-consuming session-loss detection for active F5. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Terminate an external dispatcher before its handle reply. | Observe actual cross-process loss after duplication. | #731 | gpt-6.1-terra |
@@ -2843,6 +2844,7 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
 {
     constexpr wchar_t root[] = L"client-planned-\u6771";
     constexpr wchar_t leaf[] = L"payload-\u65e5.txt";
+    constexpr wchar_t secondLeaf[] = L"second-\u6771.txt";
     std::wstring cwd(32768, L'\0');
     const DWORD length = GetCurrentDirectoryW(static_cast<DWORD>(cwd.size()), cwd.data());
     if (!length || length >= cwd.size())
@@ -2861,9 +2863,12 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
     const std::wstring targetRoot = cwd + L"\\target\\" + root;
     const std::wstring sourceFile = sourceRoot + L"\\" + leaf;
     const std::wstring targetFile = targetRoot + L"\\" + leaf;
+    const std::wstring secondSourceFile = sourceRoot + L"\\" + secondLeaf;
+    const std::wstring secondTargetFile = targetRoot + L"\\" + secondLeaf;
     const std::wstring outsideTarget = cwd + L"\\outside\\" + leaf;
     Directory from;
-    if (!from.Open(source.File(root).c_str()) || !WriteByte(from.File(leaf), 0x67))
+    if (!from.Open(source.File(root).c_str()) || !WriteByte(from.File(leaf), 0x67) ||
+        !WriteByte(from.File(secondLeaf), 0x73))
     {
         Check(false, "prepare the isolated client planned-tree source");
         return;
@@ -2883,9 +2888,17 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
         pipe.Request(Operation::PlanCopyTree, source, root, status, &target, nullptr, nullptr,
                      false, nullptr, nullptr, 0) && !status &&
         pipe.ListTreeSource(from, {}, from.identity.file, listing, rows) &&
-        !listing.error && rows.size() == 1 && std::wstring_view(rows.front().data.cFileName) == leaf;
+        !listing.error && rows.size() == 2;
     Check(planned, "plan and list the source on the real dispatcher pipe");
     if (!planned) return;
+    const auto firstRow = std::find_if(rows.begin(), rows.end(), [&](const auto& entry) {
+        return std::wstring_view(entry.data.cFileName) == leaf;
+    });
+    const auto secondRow = std::find_if(rows.begin(), rows.end(), [&](const auto& entry) {
+        return std::wstring_view(entry.data.cFileName) == secondLeaf;
+    });
+    if (firstRow == rows.end() || secondRow == rows.end())
+    { Check(false, "find both independently listed source files"); return; }
 
     auto handle = pipe.DetachClient();
     auto job = UacF7::ThinClientPipeTestAccess::Adopt(handle.get(), treePlan);
@@ -2898,7 +2911,7 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
     UacF7::PreparedLeaf listed;
     UacF7::PreparedTransfer provisional;
     const bool preparedBeforeRoot = generation && job->NeedsTreeRoot() &&
-        job->PrepareTreeSource({}, rootIdentity, rows.front(), listed) &&
+        job->PrepareTreeSource({}, rootIdentity, *firstRow, listed) &&
         provisional.Prepare(sourceFile, outsideTarget, 1, Operation::Copy, &listed);
     Check(preparedBeforeRoot, "prepare a listed child while the planned root is still absent");
     if (!preparedBeforeRoot) return;
@@ -2966,10 +2979,40 @@ void CheckThinClientPlannedTree(const Directory& source, const Directory& target
     Check(returned, "return the identical open job and generation to the original owner");
     if (!returned) return;
     std::vector<UacF7::TreeCopySourceEntry> again;
-    const bool reused = job->ListTreeSource({}, rootIdentity, again) == ERROR_SUCCESS && again.size() == 1 &&
+    const bool reused = job->ListTreeSource({}, rootIdentity, again) == ERROR_SUCCESS && again.size() == 2 &&
         HasByte(targetFile, 0x67) && HasByte(sourceFile, 0x67);
     Check(reused, "reuse the returned pipe for a real listing with both files intact");
     if (!reused) return;
+    UacF7::PreparedLeaf secondListed;
+    UacF7::PreparedTransfer secondRequest;
+    const bool secondPrepared = job->PrepareTreeSource({}, rootIdentity, *secondRow, secondListed) &&
+        secondRequest.Prepare(secondSourceFile, secondTargetFile, 1, Operation::Copy, &secondListed);
+    Check(secondPrepared, "prepare the second independently listed item in the original scope");
+    if (!secondPrepared || !thin.TakePlanned(job, secondRequest))
+    { Check(false, "take the original job for the second item"); return; }
+    const auto secondOpened = thin.Open(nullptr, secondRequest, UacF7::ThinOpenKind::Source, false, false, nullptr);
+    auto secondInput = Adopt(secondOpened.file);
+    BYTE secondValue = 0; DWORD secondCount = 0;
+    const bool secondRead = !secondOpened.error && !secondOpened.unknown && secondInput &&
+        ReadFile(secondInput.get(), &secondValue, 1, &secondCount, nullptr) && secondCount == 1 && secondValue == 0x73;
+    Check(secondRead, "open the second source on the same scoped client job");
+    if (!secondRead) return;
+    const auto secondCreated = thin.Open(nullptr, secondRequest, UacF7::ThinOpenKind::TargetCreate, false, false,
+                                         nullptr, UacF7::ThinOpenedSource{secondInput.get()});
+    auto secondOutput = Adopt(secondCreated.file);
+    secondCount = 0;
+    const bool secondWritten = !secondCreated.error && !secondCreated.unknown && secondOutput &&
+        WriteFile(secondOutput.get(), &secondValue, 1, &secondCount, nullptr) && secondCount == 1;
+    Check(secondWritten, "write the second target through the same client job");
+    if (!secondWritten) return;
+    secondOutput.reset();
+    if (thin.ReleaseTarget(secondRequest, secondCreated.targetIdentity) != ERROR_SUCCESS)
+    { Check(false, "release the second target pin"); return; }
+    job = thin.ReturnPlanned();
+    Check(job && job.get() == address && job->OpeningGeneration() == generation && job->IsOpen() &&
+          HasByte(secondSourceFile, 0x73) && HasByte(secondTargetFile, 0x73),
+          "both items share the original live job and preserve their contents");
+    if (!job || job.get() != address || job->OpeningGeneration() != generation || !job->IsOpen()) return;
     if (!thin.TakePlanned(job, request))
     {
         Check(false, "retake the returned planned session before closing it");
@@ -4971,6 +5014,11 @@ int wmain(int argc, wchar_t** argv)
         return failures ? 1 : 0;
     }
 #ifdef SAM_UAC_CLIENT_PIPE_HARNESS
+    if (argc == 2 && !wcscmp(argv[1], L"--thin-client-planned-only"))
+    {
+        CheckThinClientPlannedTree(source, target);
+        return failures ? 1 : 0;
+    }
     if (argc == 2 && !wcscmp(argv[1], L"--thin-client-connection-only"))
     {
         CheckThinClientReopen(source, target, false, false, false, false, false, 0, false, true, true);
