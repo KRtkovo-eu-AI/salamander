@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Set one user-owned archive extension independently. | Prevent a File Associations Pack/Unpack override from modifying or losing to a grouped legacy extension row. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-07 | Persist user-owned archive-association extensions. | Let #748 repair only default associations and retain provenance for future per-type configuration. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | OpenAI GPT-5.6 Luna Pro |
 // | 2026-11-05 | Add EnsureExtensionsForPlugin for TAR-family archive association repair. | Restoring .tgz/.tar.gz panel ownership after imported association corruption. | https://github.com/KRtkovo-eu-AI/salamander/issues/748 | Composer |
 // CommentsTranslationProject: TRANSLATED
@@ -669,6 +670,10 @@ public:
     // Marks every extension currently in the row as explicitly user-owned.
     void MarkFormatAsUserOverride(int index);
     BOOL IsUserOverride(int index, const char* extension);
+    // Rehomes one extension into its own row, preserving the other operation
+    // when present and optionally marking the new mapping as user-owned.
+    BOOL SetAssociationTarget(const char* extension, BOOL setPacker, int archiveIndex,
+                              BOOL userOverride);
     void SetOldType(int index, BOOL old) { Formats[index]->OldType = old; }
     void SetUnpackerIndex(int index, int unpackerIndex) { Formats[index]->UnpackerIndex = unpackerIndex; }
     void SetUsePacker(int index, BOOL usePacker) { Formats[index]->UsePacker = usePacker; }

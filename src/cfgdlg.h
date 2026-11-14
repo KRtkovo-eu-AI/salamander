@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Keep user-association ownership on runtime handler rows. | Let file actions select the exact target shown in File Associations ahead of overlapping legacy masks. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-10 | Declare the shared association status resolver. | Keep matrix status text, badge color, and conflict filtering on one provenance calculation. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Separate Apply's selected pattern key from editor field reads. | Prevent a stale or summary Pattern control from overwriting the matrix selection during Apply. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-10 | Allow Apply to read action fields without rereading the pattern editor. | Keep pattern keys from matrix selection separate from Action/Target/Target ID values. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
@@ -147,6 +148,9 @@ struct CViewerMasksItem
     // Transient marker used while plugin registrations are reconciled with saved viewers.
     BOOL RegisteredDuringStartup;
 
+    // Transient provenance for an authoritative File Associations override.
+    BOOL UserAssociationOverride;
+
     CViewerMasksItem(const char* masks, const char* command, const char* arguments, const char* initDir,
                      int viewerType, BOOL oldType);
 
@@ -187,6 +191,9 @@ struct CEditorMasksItem
 
     DWORD HandlerID; // unique ID (valid during the Salamander session)
                      // used to identify the editor when selecting from the history of the file - CFileHistory
+
+    // Transient provenance for an authoritative File Associations override.
+    BOOL UserAssociationOverride;
 
     CEditorMasksItem(char* masks, char* command, char* arguments, char* initDir);
     CEditorMasksItem();

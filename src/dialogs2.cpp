@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Preserve File Associations override ownership in runtime masks. | Keep authoritative per-pattern rows identifiable through array copies and swaps. |  | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-14 | Preserve user-association markers when runtime rows are copied. | Keep explicit per-pattern targets identifiable after staging and commit. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-13 | Populate Manage Configurations languages from embedded packs. | Keep Welcome's language selector working without generated .slg files. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-13 | List languages embedded in the selected plug-in. | Keep the language selector aligned with per-plugin .spl resources. | | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-09 | Copy transient first-registration viewer state. | Let startup merge newly registered extension rows without persisting the marker. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | OpenAI GPT-5.6 Luna Pro |
@@ -44,6 +46,7 @@ CViewerMasksItem::CViewerMasksItem(const char* masks, const char* command, const
     ViewerType = viewerType;
     HandlerID = ViewerHandlerID++;
     RegisteredDuringStartup = FALSE;
+    UserAssociationOverride = FALSE;
     Set(masks, command, arguments, initDir);
     SetViewerLabel("");
 }
@@ -57,6 +60,7 @@ CViewerMasksItem::CViewerMasksItem()
     HandlerID = ViewerHandlerID++;
     OldType = FALSE;
     RegisteredDuringStartup = FALSE;
+    UserAssociationOverride = FALSE;
     Set("", "", "\"$(Name)\"", "$(FullPath)");
     SetViewerLabel("");
 }
@@ -70,6 +74,7 @@ CViewerMasksItem::CViewerMasksItem(CViewerMasksItem& item)
     OldType = item.OldType;
     HandlerID = item.HandlerID;
     RegisteredDuringStartup = item.RegisteredDuringStartup;
+    UserAssociationOverride = item.UserAssociationOverride;
     Set(item.Masks->GetMasksString(), item.Command, item.Arguments, item.InitDir);
     SetViewerLabel(item.ViewerLabel);
 }
@@ -184,6 +189,7 @@ CEditorMasksItem::CEditorMasksItem(char* masks, char* command, char* arguments, 
     Masks = new CMaskGroup;
     Command = Arguments = InitDir = NULL;
     HandlerID = EditorHandlerID++;
+    UserAssociationOverride = FALSE;
     Set(masks, command, arguments, initDir);
 }
 
@@ -193,6 +199,7 @@ CEditorMasksItem::CEditorMasksItem()
     Masks = new CMaskGroup;
     Command = Arguments = InitDir = NULL;
     HandlerID = EditorHandlerID++;
+    UserAssociationOverride = FALSE;
     Set("", "", "\"$(Name)\"", "$(FullPath)");
 }
 
@@ -202,6 +209,7 @@ CEditorMasksItem::CEditorMasksItem(CEditorMasksItem& item)
     Masks = new CMaskGroup;
     Command = Arguments = InitDir = NULL;
     HandlerID = item.HandlerID;
+    UserAssociationOverride = item.UserAssociationOverride;
     Set(item.Masks->GetMasksString(), item.Command, item.Arguments, item.InitDir);
 }
 

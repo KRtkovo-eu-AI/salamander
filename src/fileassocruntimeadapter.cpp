@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Mark and isolate user-selected runtime association targets. | Make Viewer, Alternate View, Editor, Pack, and Unpack honor explicit matrix rows across overlapping and grouped masks. |  | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-14 | Commit only the runtime-association domains changed by the projection. | An unrelated archive-index conflict must not roll back a Viewer, Alternate View, or Editor override. |  | openrouter/openai/gpt-6-luna-pro |
+// | 2026-11-13 | Keep diagnostic conflict candidates out of runtime projection. | An unavailable unselected default must not roll back unrelated user-selected handlers. |  | openrouter/openai/gpt-6-luna-pro |
 // | 2026-11-09 | Put user association targets ahead of copied runtime defaults. | Make first-match viewer/editor lookup honor explicit overrides instead of stale plugin rows. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 |
 // | 2026-11-09 | Resolve Built-in legacy editor associations. | Preserve the configured editor command when an association selects legacy-editor. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
 // | 2026-11-09 | Project saved custom viewers and editors into legacy runtime tables. | Make custom targets selected in the association matrix executable. | https://github.com/KRtkovo-eu-AI/salamander/issues/733 | GPT-6 (Codex) |
@@ -23,6 +26,13 @@ namespace FileAssociations
 namespace
 {
 
+struct StagedArchiveTarget
+{
+    std::string Extension;
+    PanelOperation Operation;
+    int ArchiveIndex;
+};
+
 struct RuntimeAdapterContext
 {
     CMainWindow* MainWindow;
@@ -31,10 +41,14 @@ struct RuntimeAdapterContext
     CViewerMasks StagedAlternateViewers;
     CEditorMasks StagedEditors;
     CPackerFormatConfig StagedPacker;
+    std::vector<StagedArchiveTarget> StagedArchiveTargets;
+    bool PackerLoaded;
+    bool PackerChanged;
 
     RuntimeAdapterContext()
         : MainWindow(NULL), Resolver(NULL), StagedViewers(10, 5),
-          StagedAlternateViewers(10, 5), StagedEditors(10, 5)
+          StagedAlternateViewers(10, 5), StagedEditors(10, 5),
+          PackerLoaded(false), PackerChanged(false)
     {
     }
 };
@@ -63,6 +77,8 @@ bool AddViewerRow(const Association& association, CViewerMasks* destination,
 {
     if (destination == NULL || item == NULL)
         return false;
+    item->UserAssociationOverride =
+        association.AssociationProvenance == Provenance::User ? TRUE : FALSE;
     if (association.AssociationProvenance == Provenance::User)
     {
         // Existing runtime rows are copied to retain their launch metadata.
@@ -99,6 +115,8 @@ bool AddEditorRow(const Association& association, CEditorMasks* destination,
 {
     if (destination == NULL || item == NULL)
         return false;
+    item->UserAssociationOverride =
+        association.AssociationProvenance == Provenance::User ? TRUE : FALSE;
     if (association.AssociationProvenance == Provenance::User)
     {
         RemoveExactEditorRows(destination, association.Pattern);
@@ -272,54 +290,49 @@ bool GetArchiveExtension(const std::string& pattern, std::string* extension)
     return true;
 }
 
-int FindArchiveFormat(CPackerFormatConfig& config, const std::string& extension)
-{
-    for (int i = 0; i < config.GetFormatsCount(); ++i)
-        if (_stricmp(config.GetExt(i), extension.c_str()) == 0)
-            return i;
-    return -1;
-}
-
 bool StageArchiveAssociation(const Association& association, RuntimeAdapterContext* context)
 {
     std::string extension;
     if (context == NULL || !GetArchiveExtension(association.Pattern, &extension))
         return false;
 
-    const int archiveIndex = context->Resolver.LastResolution.RuntimeArchiveIndex;
-    int formatIndex = FindArchiveFormat(context->StagedPacker, extension);
-    if (formatIndex < 0)
+    if (!context->PackerLoaded)
     {
-        formatIndex = context->StagedPacker.AddFormat();
-        if (formatIndex < 0)
+        if (!context->StagedPacker.Load(PackerFormatConfig))
             return false;
-
-        if (association.Operation == PanelOperation::ListUnpack)
-            return context->StagedPacker.SetFormat(formatIndex, extension.c_str(), FALSE, -1,
-                                                   archiveIndex, FALSE) != FALSE;
-        if (association.Operation == PanelOperation::DeletePack)
-            return context->StagedPacker.SetFormat(formatIndex, extension.c_str(), TRUE,
-                                                   archiveIndex, -1, FALSE) != FALSE;
-        return false;
+        context->PackerLoaded = true;
     }
 
+    const int archiveIndex = context->Resolver.LastResolution.RuntimeArchiveIndex;
+    bool staged = false;
     if (association.Operation == PanelOperation::ListUnpack)
+        staged = context->StagedPacker.SetAssociationTarget(
+            extension.c_str(), FALSE, archiveIndex,
+            association.AssociationProvenance == Provenance::User ? TRUE : FALSE) != FALSE;
+    else if (association.Operation == PanelOperation::DeletePack)
+        staged = context->StagedPacker.SetAssociationTarget(
+            extension.c_str(), TRUE, archiveIndex,
+            association.AssociationProvenance == Provenance::User ? TRUE : FALSE) != FALSE;
+    if (staged)
     {
-        context->StagedPacker.SetUnpackerIndex(formatIndex, archiveIndex);
-        return true;
+        context->PackerChanged = true;
+        StagedArchiveTarget target;
+        target.Extension = extension;
+        target.Operation = association.Operation;
+        target.ArchiveIndex = archiveIndex;
+        context->StagedArchiveTargets.push_back(target);
     }
-    if (association.Operation == PanelOperation::DeletePack)
-    {
-        context->StagedPacker.SetUsePacker(formatIndex, TRUE);
-        context->StagedPacker.SetPackerIndex(formatIndex, archiveIndex);
-        return true;
-    }
-    return false;
+    return staged;
 }
 
 bool BeginRuntimeProjection(void* opaque)
 {
     RuntimeAdapterContext* context = static_cast<RuntimeAdapterContext*>(opaque);
+    if (context != NULL)
+    {
+        context->PackerLoaded = false;
+        context->PackerChanged = false;
+    }
     if (context == NULL || context->MainWindow == NULL || context->MainWindow->ViewerMasks == NULL ||
         context->MainWindow->AltViewerMasks == NULL || context->MainWindow->EditorMasks == NULL)
         return false;
@@ -328,6 +341,9 @@ bool BeginRuntimeProjection(void* opaque)
     context->StagedAlternateViewers.DestroyMembers();
     context->StagedEditors.DestroyMembers();
     context->StagedPacker.DeleteAllFormats();
+    context->PackerLoaded = false;
+    context->PackerChanged = false;
+    context->StagedArchiveTargets.clear();
 
     // Preserve complete legacy rows while the canonical record only carries
     // the target identity. User rows are layered onto these staged defaults.
@@ -335,8 +351,6 @@ bool BeginRuntimeProjection(void* opaque)
         !context->StagedAlternateViewers.Load(*context->MainWindow->AltViewerMasks))
         return false;
     if (!context->StagedEditors.Load(*context->MainWindow->EditorMasks))
-        return false;
-    if (!context->StagedPacker.Load(PackerFormatConfig))
         return false;
     return true;
 }
@@ -347,7 +361,11 @@ bool ApplyRuntimeProjection(const Association& association, void* opaque)
     if (context == NULL)
         return false;
 
-    if (association.AssociationProvenance == Provenance::Legacy)
+    // Legacy and Conflict rows describe handlers already copied by
+    // BeginRuntimeProjection. Conflict rows are diagnostic candidates, not
+    // additional targets that should be resolved a second time.
+    if (association.AssociationProvenance == Provenance::Legacy ||
+        association.AssociationProvenance == Provenance::Conflict)
         return true;
 
     switch (association.AssociationCategory)
@@ -385,6 +403,9 @@ void RollbackRuntimeProjection(void* opaque)
     context->StagedAlternateViewers.DestroyMembers();
     context->StagedEditors.DestroyMembers();
     context->StagedPacker.DeleteAllFormats();
+    context->PackerLoaded = false;
+    context->PackerChanged = false;
+    context->StagedArchiveTargets.clear();
 }
 
 bool CommitRuntimeProjection(void* opaque)
@@ -394,13 +415,41 @@ bool CommitRuntimeProjection(void* opaque)
         context->MainWindow->AltViewerMasks == NULL || context->MainWindow->EditorMasks == NULL)
         return false;
 
-    if (!context->StagedPacker.BuildArray())
-        return false;
+    // Viewer/editor-only edits must not be rejected by unrelated archive
+    // extension collisions in the already-active packer configuration.
+    if (context->PackerChanged && !context->StagedPacker.BuildArray())
+    {
+        // BuildArray also reports pre-existing collisions in unrelated legacy
+        // extensions. Accept its usable partial index only when every changed
+        // association resolves to the exact requested packer/unpacker target.
+        for (size_t i = 0; i < context->StagedArchiveTargets.size(); ++i)
+        {
+            const StagedArchiveTarget& target = context->StagedArchiveTargets[i];
+            const std::string probeName = "association-override." + target.Extension;
+            const int format = context->StagedPacker.PackIsArchive(probeName.c_str()) - 1;
+            if (format < 0)
+                return false;
+            if (target.Operation == PanelOperation::ListUnpack)
+            {
+                if (context->StagedPacker.GetUnpackerIndex(format) != target.ArchiveIndex)
+                    return false;
+            }
+            else if (target.Operation == PanelOperation::DeletePack)
+            {
+                if (!context->StagedPacker.GetUsePacker(format) ||
+                    context->StagedPacker.GetPackerIndex(format) != target.ArchiveIndex)
+                    return false;
+            }
+            else
+                return false;
+        }
+    }
 
     context->MainWindow->ViewerMasks->Swap(context->StagedViewers);
     context->MainWindow->AltViewerMasks->Swap(context->StagedAlternateViewers);
     context->MainWindow->EditorMasks->Swap(context->StagedEditors);
-    PackerFormatConfig.Swap(context->StagedPacker);
+    if (context->PackerChanged)
+        PackerFormatConfig.Swap(context->StagedPacker);
     return true;
 }
 
@@ -408,7 +457,8 @@ bool CommitRuntimeProjection(void* opaque)
 
 bool ResolvePluginRuntimeAssociation(const Association& association, void* context)
 {
-    if (association.AssociationProvenance == Provenance::Legacy)
+    if (association.AssociationProvenance == Provenance::Legacy ||
+        association.AssociationProvenance == Provenance::Conflict)
         return true;
 
     PluginRuntimeResolverContext* resolver =
