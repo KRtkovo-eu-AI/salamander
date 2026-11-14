@@ -1,8 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Exercise actual executable-derived location checks. | Verify trusted arbitrary local directories and rejected ancestors. | #731 | GPT-6 |
 # | 2026-11-13 | Test InstallLocation COM ownership. | Exercise actual known-folder handling under allocation failure. | #731 | GPT-6 |
-"""Exercise extracted InstallLocation::Open with controlled known-folder faults."""
+"""Exercise extracted InstallLocation::Open with controlled image paths and directories."""
 import argparse
 import hashlib
 from pathlib import Path
@@ -22,10 +23,12 @@ def main():
     begin = text.index('    bool Open()\n', text.index('class InstallLocation'))
     end = text.index('\n    Handle OpenImage(', begin)
     method = text[begin:end]
-    if 'SHGetKnownFolderPath(FOLDERID_ProgramFiles' not in method:
+    if 'GetModuleFileNameW(nullptr' not in method:
         raise RuntimeError('Unexpected InstallLocation::Open implementation')
     template = (ROOT / 'src/tests/uac_install_location_ownership_tests.cpp.in').read_text(encoding='utf-8')
-    code = template.replace('@@OPEN_METHOD@@', method)
+    image_begin = text.index('    std::wstring ImagePath(', end)
+    image_end = text.index('\n    bool MatchesProcess(', image_begin)
+    code = template.replace('@@OPEN_METHOD@@', method).replace('@@IMAGE_PATH_METHOD@@', text[image_begin:image_end])
     if '@@' in code:
         raise RuntimeError('Missing test template replacement')
     environment = compiler_environment()
@@ -52,7 +55,7 @@ def main():
     if hashlib.sha256(production.read_bytes()).hexdigest() != before:
         raise RuntimeError('uacbroker.cpp changed during test')
     print('uacbroker.cpp SHA-256:', before)
-    print('Actual extracted InstallLocation::Open; known-folder API, directories and COM release are controlled stubs.')
+    print('Actual extracted InstallLocation::Open; image path and directory protection are controlled stubs.')
     print('This is not a complete build, real UAC, or isolated VM acceptance.')
     return 0
 

@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Discover protected UAC pairs from their actual executable directory. | Support trusted locations on fixed local volumes without weakening image checks. | #731 | GPT-6 |
 | 2026-11-14 | Clear readonly on an identified partial target before cleanup. | Preserve the native CopyAttrs cancellation behavior. | #731 | GPT-6 |
 | 2026-11-14 | Restrict experimental CopyAttrs target read access. | Prepare native attribute handling without widening probes or source access. | #731 | GPT-6 |
 | 2026-11-14 | Check the experimental thin session's idle pipe. | Prepare detection of a broker exit without reading a reply. | #731 | gpt-6.1-terra |
@@ -558,21 +559,46 @@ public:
             return true;
         }
 #endif
-        PWSTR rawFolder = nullptr;
-        const HRESULT folderResult = SHGetKnownFolderPath(FOLDERID_ProgramFiles, KF_FLAG_DEFAULT_PATH, nullptr, &rawFolder);
-        std::unique_ptr<wchar_t, decltype(&CoTaskMemFree)> folder(rawFolder, CoTaskMemFree);
-        if (FAILED(folderResult) || !folder)
+        // The host and broker each derive the same directory from their own
+        // loaded image, rather than accepting a pathname supplied over IPC.
+        std::wstring image(32768, L'\0');
+        const DWORD length = GetModuleFileNameW(nullptr, image.data(), static_cast<DWORD>(image.size()));
+        if (!length || length >= image.size())
             return false;
-        const std::wstring programFiles(folder.get());
-        folder.reset();
-        if (programFiles.size() < 3 || programFiles[1] != L':' || programFiles[2] != L'\\' ||
-            GetDriveTypeW(programFiles.substr(0, 3).c_str()) != DRIVE_FIXED)
+        image.resize(length);
+        if (image.compare(0, 4, LR"(\\?\)") == 0)
+            image.erase(0, 4);
+        const size_t separator = image.rfind(L'\\');
+        if (image.size() < 4 || image[1] != L':' || image[2] != L'\\' ||
+            separator == std::wstring::npos || separator < 2 ||
+            GetDriveTypeW(image.substr(0, 3).c_str()) != DRIVE_FIXED)
             return false;
-        root = OpenDirectory(programFiles);
+        const std::wstring leaf = image.substr(separator + 1);
+        if (_wcsicmp(leaf.c_str(), appImage) && _wcsicmp(leaf.c_str(), brokerImage) &&
+            _wcsicmp(leaf.c_str(), probeImage))
+            return false;
+        root = OpenDirectory(image.substr(0, 3), true);
         if (!root)
             return false;
-        path = programFiles + L"\\Open Samandarin UAC";
-        directory = OpenDirectory(path);
+        path = separator == 2 ? image.substr(0, 3) : image.substr(0, separator);
+        if (separator == 2)
+            return true;
+        // Hold each checked ancestor without delete sharing. Checking only
+        // the leaf directory would permit a writable ancestor to replace it.
+        size_t component = 3;
+        while (component < separator)
+        {
+            const size_t next = image.find(L'\\', component);
+            const size_t end = next == std::wstring::npos || next > separator ? separator : next;
+            if (end == component) return false;
+            auto pinned = OpenDirectory(image.substr(0, end));
+            if (!pinned) return false;
+            if (end == separator)
+                directory = std::move(pinned);
+            else
+                ancestors.emplace_back(std::move(pinned));
+            component = end + 1;
+        }
         return directory != nullptr;
     }
 
@@ -593,7 +619,10 @@ public:
         return file && ProtectedObject(file.get(), false) ? std::move(file) : Handle{};
     }
 
-    std::wstring ImagePath(const wchar_t* image) const { return path + L"\\" + image; }
+    std::wstring ImagePath(const wchar_t* image) const
+    {
+        return path + (!path.empty() && path.back() == L'\\' ? L"" : L"\\") + image;
+    }
 
     bool MatchesProcess(HANDLE process, const wchar_t* image) const
     {
@@ -601,26 +630,30 @@ public:
         DWORD length = static_cast<DWORD>(name.size());
         if (!QueryFullProcessImageNameW(process, 0, name.data(), &length))
             return false;
+        name.resize(length);
+        if (name.compare(0, 4, LR"(\\?\)") == 0)
+            name.erase(0, 4);
         return _wcsicmp(name.c_str(), ImagePath(image).c_str()) == 0;
     }
 
     const std::wstring& Directory() const { return path; }
-    HANDLE DirectoryHandle() const { return directory.get(); }
+    HANDLE DirectoryHandle() const { return directory ? directory.get() : root.get(); }
 #ifdef SAM_UAC_THIN_COPY_TEST
     bool IsThinTestLocation() const { return thinTestLocation; }
 #endif
 
 private:
-    static Handle OpenDirectory(const std::wstring& name)
+    static Handle OpenDirectory(const std::wstring& name, bool namespaceOnly = false)
     {
         auto dir = Adopt(CreateFileW(name.c_str(), FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | READ_CONTROL,
                                      FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
                                      FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, nullptr));
-        return dir && ProtectedObject(dir.get(), true) ? std::move(dir) : Handle{};
+        return dir && ProtectedObject(dir.get(), true, namespaceOnly) ? std::move(dir) : Handle{};
     }
 
     std::wstring path;
     Handle root, directory;
+    std::vector<Handle> ancestors;
 #ifdef SAM_UAC_THIN_COPY_TEST
     bool thinTestLocation = false;
 #endif
