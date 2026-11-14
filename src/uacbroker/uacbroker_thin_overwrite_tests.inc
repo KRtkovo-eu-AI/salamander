@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Compare stream queries on native and transferred handles. | Verify the real worker can execute its existing ADS cleanup step. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Compare scoped overwrite with the native file open. | Exercise actual NTFS and dispatcher behavior before worker integration. | #731 | GPT-6 |
 
 // Real pipe and dispatcher, same-token fixture. This does not run DoCopyFile
@@ -75,6 +76,10 @@ void CheckThinOverwrite(const Directory& source, const Directory& target, const 
             auto native = Adopt(CreateFileW(baseline.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
                 FILE_FLAG_SEQUENTIAL_SCAN | (asynchronous ? FILE_FLAG_OVERLAPPED : 0), nullptr));
             Check(native && nativeAfter.Read(baseline), "native CREATE_ALWAYS succeeds");
+            BYTE nativeStreams[4096]{};
+            IO_STATUS_BLOCK nativeIo{};
+            const NTSTATUS nativeStreamStatus = NtQueryInformationFile(native.get(), &nativeIo,
+                nativeStreams, sizeof(nativeStreams), static_cast<FILE_INFORMATION_CLASS>(22));
             native.reset();
             JobPipe job;
             DWORD status = ERROR_GEN_FAILURE;
@@ -84,6 +89,12 @@ void CheckThinOverwrite(const Directory& source, const Directory& target, const 
                     nullptr, asynchronous, status, reply, input.get(), INVALID_HANDLE_VALUE, false, 28u) || status || !reply.value)
             { std::printf("overwrite status=%lu\n", status); Check(false, "overwrite returns real handle"); return; }
             auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+            BYTE brokerStreams[4096]{};
+            IO_STATUS_BLOCK brokerIo{};
+            const NTSTATUS brokerStreamStatus = NtQueryInformationFile(output.get(), &brokerIo,
+                brokerStreams, sizeof(brokerStreams), static_cast<FILE_INFORMATION_CLASS>(22));
+            Check(nativeStreamStatus == 0 && brokerStreamStatus == nativeStreamStatus,
+                "transferred writer supports the same native stream query");
             const auto targetId = reply.target;
             Check(after.Read(path) && UacRenameLeaf::Detail::SameSource(before.id, after.id) &&
                 UacRenameLeaf::Detail::SameSource(before.id, targetId) && after.size == 0 && nativeAfter.size == 0 &&
