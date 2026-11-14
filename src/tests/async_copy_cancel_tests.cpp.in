@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-14 | Exercise native async suspension on connection loss. | Verify a real pending read is drained before error reporting. | #731 | gpt-6.1-terra |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Test synchronous pause with a disconnected session. | Verify native error state and prompt detection before resume. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test paused connection loss with pending I/O. | Verify the native wait can stop before resume. | #731 | gpt-6.1-terra |
 // | 2026-11-13 | Test issued asynchronous I/O at cancellation. | Exercise native state and drain with real pending pipe requests. | #731 | GPT-6 |
 #include <windows.h>
@@ -79,13 +80,16 @@ struct COperations { BOOL ChangeSpeedLimit = FALSE; };
 struct CProgressDlgData { BOOL* CancelWorker = nullptr; HANDLE WorkerNotSuspended = nullptr; };
 struct CThinCopyWorker
 {
-    std::atomic<DWORD> error{ERROR_SUCCESS};
+    std::atomic<DWORD> connectionStatus{ERROR_SUCCESS};
     bool brokerHandleDelivered = true;
+    bool scoped = true;
+    CProgressDlgData dialog{};
     unsigned reports = 0;
     OVERLAPPED* pending = nullptr;
     bool drainedBeforeReport = false;
-    bool Scoped() const { return true; }
-    DWORD CheckTransferConnection() const { return error.load(); }
+    bool Scoped() const { return scoped; }
+    DWORD CheckTransferConnection() const { return connectionStatus.load(); }
+    DWORD WaitTransferResume() const;
     bool ReportTargetFailure(DWORD, int)
     {
         ++reports;
@@ -93,6 +97,7 @@ struct CThinCopyWorker
         return false;
     }
 };
+@@WAIT_RESUME@@
 #define IDS_ERRORREADINGFILE 1
 struct CCopy_Context
 {
@@ -460,7 +465,7 @@ static void TestConnectionLossWithPendingRead()
     const BOOL started = ctx.StartReading(0, 4096, &error, FALSE);
     Check(started && !HasOverlappedIoCompleted(async.GetOverlapped(0)),
           "connection-loss fixture has a real pending read");
-    thin.error = ERROR_BROKEN_PIPE; thin.pending = async.GetOverlapped(0);
+    thin.connectionStatus = ERROR_BROKEN_PIPE; thin.pending = async.GetOverlapped(0);
     const BOOL stopped = ctx.HandleSuspModeAndCancel(&copyError);
     Check(stopped && copyError && thin.reports == 1 && thin.drainedBeforeReport,
           "connection loss drains issued I/O before reporting and stopping");
@@ -492,7 +497,7 @@ static void TestPausedConnectionLoss()
     const BOOL started = ctx.StartReading(0, 4096, &error, FALSE);
     Check(started && !HasOverlappedIoCompleted(async.GetOverlapped(0)), "paused loss has pending read");
     thin.pending = async.GetOverlapped(0);
-    std::thread watcher([&] { Sleep(150); thin.error.store(ERROR_BROKEN_PIPE); Sleep(1500); SetEvent(resumed); });
+    std::thread watcher([&] { Sleep(150); thin.connectionStatus.store(ERROR_BROKEN_PIPE); Sleep(1500); SetEvent(resumed); });
     const ULONGLONG start = GetTickCount64();
     const BOOL stopped = ctx.HandleSuspModeAndCancel(&copyError);
     const ULONGLONG elapsed = GetTickCount64() - start;
@@ -501,6 +506,28 @@ static void TestPausedConnectionLoss()
           "paused worker detects loss and drains pending I/O before resume");
     watcher.join();
     DrainUnexpectedPending(input, async.GetOverlapped(0));
+    CloseHandle(resumed);
+}
+
+static void TestSynchronousPauseConnectionLoss()
+{
+    BOOL cancelled = FALSE;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!resumed) { Check(false, "create sync pause event"); return; }
+    CThinCopyWorker thin;
+    thin.dialog.CancelWorker = &cancelled;
+    thin.dialog.WorkerNotSuspended = resumed;
+    std::thread watcher([&] { Sleep(150); thin.connectionStatus.store(ERROR_BROKEN_PIPE); Sleep(1500); SetEvent(resumed); });
+    const ULONGLONG start = GetTickCount64();
+    const DWORD result = thin.WaitTransferResume();
+    Check(result == ERROR_BROKEN_PIPE && GetTickCount64() - start < 1400 &&
+          WaitForSingleObject(resumed, 0) == WAIT_TIMEOUT,
+          "sync pause detects disconnected session before resume");
+    watcher.join();
+    thin.connectionStatus.store(ERROR_SUCCESS);
+    SetLastError(ERROR_ACCESS_DENIED);
+    Check(thin.WaitTransferResume() == ERROR_SUCCESS && GetLastError() == ERROR_ACCESS_DENIED,
+          "successful sync resume preserves the previous error");
     CloseHandle(resumed);
 }
 
@@ -522,5 +549,6 @@ int wmain(int argc, wchar_t** argv)
     TestCompletedWrite();
     TestConnectionLossWithPendingRead();
     TestPausedConnectionLoss();
+    TestSynchronousPauseConnectionLoss();
     return failures ? 1 : 0;
 }

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Extract the native thin pause wait. | Test synchronous connection-loss handling directly. | #731 | gpt-6.1-terra |
 # | 2026-11-14 | Exercise worker handling of a disconnected thin job. | Check pending I/O is drained before reporting loss. | #731 | gpt-6.1-terra |
 # | 2026-11-13 | Test cancellation after issuing real asynchronous I/O. | Ensure the native copy drain sees pending reads and writes. | #731 | GPT-6 |
 """Exercise extracted native async copy state against real pending pipe I/O."""
@@ -34,13 +35,15 @@ def main():
     free = extract(worker, "void CCopy_Context::FreeBlock(", "void CCopy_Context::DiscardBlocksBehindEOF(")
     drain = extract(worker, "void CCopy_Context::CancelOpPhase1()", "BOOL CCopy_Context::RetryCopyReadErr(")
     suspend = extract(worker, "BOOL CCopy_Context::HandleSuspModeAndCancel(", "void DoCopyFileLoopAsync(")
+    wait_resume = extract(worker, "DWORD CThinCopyWorker::WaitTransferResume()", "bool CThinCopyWorker::CancelBeforeElevation()")
     buffer = re.search(r"^#define ASYNC_COPY_BUF_SIZE \([^\r\n]*", header, re.MULTILINE)
     if not buffer:
         raise RuntimeError("native copy buffer definition missing")
     template = (ROOT / "src/tests/async_copy_cancel_tests.cpp.in").read_text(encoding="utf-8")
     code = (template.replace("@@BUFFER@@", buffer.group(0)).replace("@@ASYNC@@", async_params)
             .replace("@@ENUMS@@", enums).replace("@@ISSUE@@", issue)
-            .replace("@@FREE@@", free).replace("@@DRAIN@@", drain).replace("@@SUSPEND@@", suspend))
+            .replace("@@FREE@@", free).replace("@@DRAIN@@", drain).replace("@@SUSPEND@@", suspend)
+            .replace("@@WAIT_RESUME@@", wait_resume))
     if "@@" in code:
         raise RuntimeError("unexpanded native test placeholder")
     env = compiler_environment()

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Observe thin session loss at native synchronous pause points. | Stop an approved copy without changing ordinary pause behavior. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Check the thin session during an async pause wait. | Drain pending I/O if the broker exits before resume. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Preserve native handling of locally created targets. | Elevated source access must not restrict ordinary target Retry or cleanup. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Check the thin job between native copy operations. | Stop after detected broker loss and drain issued async I/O. | #731 | gpt-6.1-terra |
@@ -2519,6 +2520,7 @@ struct CThinCopyWorker
     HANDLE Open(UacF7::ThinOpenKind kind, bool overlapped);
     bool CancelBeforeElevation();
     bool WaitBeforeElevation();
+    DWORD WaitTransferResume() const;
     HANDLE CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE received, DWORD reason = ERROR_CANCELLED);
     bool RememberSource(HANDLE file, bool force = false);
     void RememberTarget(HANDLE file, bool force = false);
@@ -2553,6 +2555,34 @@ static bool ThinCopyResetFailedPreallocation(HANDLE file)
 }
 
 static void ThinCopyTestSignalPreserve(const wchar_t* variable);
+
+DWORD CThinCopyWorker::WaitTransferResume() const
+{
+    const DWORD saved = GetLastError();
+    if (!Scoped() || !brokerHandleDelivered)
+    {
+        WaitForSingleObject(dialog.WorkerNotSuspended, INFINITE);
+        SetLastError(saved);
+        return ERROR_SUCCESS;
+    }
+    for (;;)
+    {
+        const DWORD wait = WaitForSingleObject(dialog.WorkerNotSuspended, 200);
+        if (*dialog.CancelWorker) return ERROR_CANCELLED;
+        if (wait != WAIT_OBJECT_0 && wait != WAIT_TIMEOUT)
+        {
+            const DWORD error = wait == WAIT_FAILED ? GetLastError() : ERROR_GEN_FAILURE;
+            return error ? error : ERROR_GEN_FAILURE;
+        }
+        const DWORD error = CheckTransferConnection();
+        if (error != ERROR_SUCCESS) return error;
+        if (wait == WAIT_OBJECT_0)
+        {
+            SetLastError(saved);
+            return ERROR_SUCCESS;
+        }
+    }
+}
 
 bool CThinCopyWorker::CancelBeforeElevation()
 {
@@ -5283,6 +5313,19 @@ static BOOL ThinCopyTestWriteFile(HANDLE file, const void* buffer, DWORD size, D
 #define THIN_COPY_WRITE WriteFile
 #endif
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+#define THIN_SYNC_PAUSE(ctx, data, failure) do { \
+    const DWORD pauseError = (ctx) ? (ctx)->WaitTransferResume() : \
+        (WaitForSingleObject((data).WorkerNotSuspended, INFINITE), ERROR_SUCCESS); \
+    if (pauseError != ERROR_SUCCESS) { \
+        if (pauseError != ERROR_CANCELLED) (ctx)->ReportTargetFailure(pauseError, IDS_ERRORREADINGFILE); \
+        (failure) = TRUE; return; \
+    } \
+} while (0)
+#else
+#define THIN_SYNC_PAUSE(ctx, data, failure) WaitForSingleObject((data).WorkerNotSuspended, INFINITE)
+#endif
+
 void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferSize,
                         COperations* script, CProgressDlgData& dlgData, BOOL wholeFileAllocated,
                         COperation* op, const CQuadWord& totalDone, BOOL& copyError, BOOL& skipCopy,
@@ -5331,7 +5374,7 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
             if (read == 0)
                 break;                                                     // EOF
             if (!script->ChangeSpeedLimit)                                 // when the speed limit can change, this is not a suitable wait point
-                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+                THIN_SYNC_PAUSE(thin, dlgData, copyError); // if we should be in suspend mode, wait ...
             if (*dlgData.CancelWorker)
             {
                 copyError = TRUE; // goto COPY_ERROR
@@ -5370,7 +5413,7 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                 DWORD err;
                 err = GetLastError();
 
-                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+                THIN_SYNC_PAUSE(thin, dlgData, copyError); // if we should be in suspend mode, wait ...
                 if (*dlgData.CancelWorker)
                 {
                     copyError = TRUE; // goto COPY_ERROR
@@ -5475,7 +5518,7 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                 }
             }
             if (!script->ChangeSpeedLimit)                                 // when the speed limit can change, this is not a suitable wait point
-                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+                THIN_SYNC_PAUSE(thin, dlgData, copyError); // if we should be in suspend mode, wait ...
             if (*dlgData.CancelWorker)
             {
                 copyError = TRUE; // goto COPY_ERROR
@@ -5485,14 +5528,14 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
             script->AddBytesToSpeedMetersAndTFSandPS(read, FALSE, bufferSize, &limitBufferSize);
 
             if (!script->ChangeSpeedLimit)                                 // when the speed limit can change, this is not a suitable wait point
-                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+                THIN_SYNC_PAUSE(thin, dlgData, copyError); // if we should be in suspend mode, wait ...
             operationDone += CQuadWord(read, 0);
             SetProgressWithoutSuspend(hProgressDlg, CaclProg(operationDone, op->Size),
                                       CaclProg(totalDone + operationDone, script->TotalSize), dlgData);
 
             if (script->ChangeSpeedLimit)                                  // speed limit may change; this is the right place to wait until the
             {                                                              // worker resumes and fetches a fresh copy buffer size
-                WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+                THIN_SYNC_PAUSE(thin, dlgData, copyError); // if we should be in suspend mode, wait ...
                 script->GetNewBufSize(&limitBufferSize, bufferSize);
             }
         }
@@ -5508,7 +5551,7 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
 #endif
             DWORD err;
             err = GetLastError();
-            WaitForSingleObject(dlgData.WorkerNotSuspended, INFINITE); // if we should be in suspend mode, wait ...
+            THIN_SYNC_PAUSE(thin, dlgData, copyError); // if we should be in suspend mode, wait ...
             if (*dlgData.CancelWorker)
             {
                 copyError = TRUE; // goto COPY_ERROR
