@@ -293,8 +293,125 @@ void CheckThinOverwrite(const Directory& source, const Directory& target, const 
         output.reset(); job.Finish();
     }
 
+    // Compare the actual relative overwrite primitive with native CREATE_ALWAYS
+    // before changing the production guard for special NTFS storage attributes.
+    for (int variant = 0; variant != 4; ++variant)
+    {
+        const bool compressed = (variant & 1) != 0, asynchronous = (variant & 2) != 0;
+        const std::wstring leaf = std::wstring(compressed ? L"special-compressed-" : L"special-sparse-") +
+            (asynchronous ? L"async" : L"sync");
+        const auto path = deep.File(leaf);
+        const auto baseline = path + L".native";
+        Check(WriteByte(path, 0x62) && WriteByte(baseline, 0x62) &&
+              WriteByte(path + L":data", 0x64) && WriteByte(baseline + L":data", 0x64),
+              "prepare special storage comparison fixtures");
+        const auto setStorage = [compressed](const std::wstring& name) -> DWORD {
+            auto file = Adopt(CreateFileW(name.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr));
+            if (!file) return GetLastError();
+            DWORD bytes = 0;
+            USHORT format = COMPRESSION_FORMAT_DEFAULT;
+            if (DeviceIoControl(file.get(), compressed ? FSCTL_SET_COMPRESSION : FSCTL_SET_SPARSE,
+                    compressed ? &format : nullptr, compressed ? sizeof(format) : 0, nullptr, 0, &bytes, nullptr))
+                return ERROR_SUCCESS;
+            return GetLastError();
+        };
+        const DWORD actualSetup = setStorage(path), nativeSetup = setStorage(baseline);
+        if (actualSetup || nativeSetup)
+        {
+            if (actualSetup == nativeSetup && (actualSetup == ERROR_NOT_SUPPORTED || actualSetup == ERROR_INVALID_FUNCTION))
+                std::printf("SKIP: filesystem does not support this storage attribute (%lu)\n", actualSetup);
+            else Check(false, "set equivalent special storage attributes");
+            continue;
+        }
+        ThinOverwriteSnapshot before, after, nativeBefore, nativeAfter;
+        Check(before.Read(path) && nativeBefore.Read(baseline), "capture special overwrite identity and security");
+        auto native = Adopt(CreateFileW(baseline.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+                                        FILE_FLAG_SEQUENTIAL_SCAN | (asynchronous ? FILE_FLAG_OVERLAPPED : 0), nullptr));
+        Check(native && nativeAfter.Read(baseline), "native special target overwrite succeeds");
+        native.reset();
+        JobPipe job;
+        DWORD status = ERROR_GEN_FAILURE;
+        ThinWireReply reply{};
+        Check(job.Open() && job.Thin(source, sourceLeaf, sourceId, deep, leaf,
+            Operation::ThinTargetProbe, nullptr, false, status, reply, input.get(),
+            INVALID_HANDLE_VALUE, false, 28u) && !status && reply.value,
+            "special target supplies metadata for native conflict dialog");
+        auto probe = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+        FILE_ATTRIBUTE_TAG_INFO probeAttributes{};
+        Check(probe && GetFileInformationByHandleEx(probe.get(), FileAttributeTagInfo,
+              &probeAttributes, sizeof(probeAttributes)) &&
+              (probeAttributes.FileAttributes & (compressed ? FILE_ATTRIBUTE_COMPRESSED : FILE_ATTRIBUTE_SPARSE_FILE)),
+              "metadata probe retains the original storage attribute");
+        probe.reset();
+        const bool sent = job.Thin(source, sourceLeaf, sourceId, deep, leaf,
+            Operation::ThinTargetOverwrite, nullptr, asynchronous, status, reply, input.get(),
+            INVALID_HANDLE_VALUE, false, 28u);
+        const FILE_ID_INFO targetId = reply.target;
+        auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+        Check(sent && !status && output && after.Read(path), "dispatcher overwrites special target");
+        output.reset();
+        Check(UacRenameLeaf::Detail::SameSource(before.id, after.id) &&
+              UacRenameLeaf::Detail::SameSource(nativeBefore.id, nativeAfter.id) &&
+              before.security == after.security && nativeBefore.security == nativeAfter.security &&
+              after.size == nativeAfter.size && after.basic.FileAttributes == nativeAfter.basic.FileAttributes &&
+              IsAbsent(path + L":data") && IsAbsent(baseline + L":data"),
+              "special relative overwrite matches native identity security attributes size and ADS");
+        Check(job.Thin(source, sourceLeaf, sourceId, deep, leaf, Operation::ThinTargetRetry,
+            &targetId, asynchronous, status, reply, input.get(), INVALID_HANDLE_VALUE, false, 28u) &&
+            !status && reply.value, "special target permits a fresh Retry open");
+        auto retry = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+        retry.reset();
+        Check(job.Thin(source, sourceLeaf, sourceId, deep, leaf, Operation::ThinTargetRelease,
+            &targetId, false, status, reply, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, false, 28u) && !status,
+            "release preserves special target");
+        job.Finish();
+    }
+
+    {
+        Directory compressedParent;
+        if (!compressedParent.Open(deep.File(L"compressed-parent").c_str()))
+        { Check(false, "prepare compressed target parent"); return; }
+        auto directory = Adopt(CreateFileW(compressedParent.path.c_str(), GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr));
+        USHORT format = COMPRESSION_FORMAT_DEFAULT;
+        DWORD bytes = 0;
+        const bool supported = directory && DeviceIoControl(directory.get(), FSCTL_SET_COMPRESSION,
+            &format, sizeof(format), nullptr, 0, &bytes, nullptr);
+        const DWORD setupError = supported ? ERROR_SUCCESS : GetLastError();
+        directory.reset();
+        if (!supported && (setupError == ERROR_NOT_SUPPORTED || setupError == ERROR_INVALID_FUNCTION))
+            std::printf("SKIP: filesystem does not support compressed directories (%lu)\n", setupError);
+        else if (!supported) Check(false, "set compressed target parent");
+        else
+        {
+            JobPipe job;
+            DWORD status = ERROR_GEN_FAILURE;
+            ThinWireReply reply{};
+            const wchar_t* leaf = L"inherited-東.txt";
+            const bool sent = job.Open() && job.Thin(source, sourceLeaf, sourceId, compressedParent, leaf,
+                Operation::ThinTargetCreate, nullptr, false, status, reply, input.get(),
+                INVALID_HANDLE_VALUE, false, 28u);
+            const FILE_ID_INFO targetId = reply.target;
+            auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+            Check(sent && !status && output &&
+                (GetFileAttributesW(compressedParent.File(leaf).c_str()) & FILE_ATTRIBUTE_COMPRESSED),
+                "created target inherits compression without failing the approved create");
+            output.reset();
+            Check(job.Thin(source, sourceLeaf, sourceId, compressedParent, leaf, Operation::ThinTargetRetry,
+                &targetId, false, status, reply, input.get(), INVALID_HANDLE_VALUE, false, 28u) &&
+                !status && reply.value, "inherited compressed target permits Retry");
+            auto retry = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+            retry.reset();
+            Check(job.Thin(source, sourceLeaf, sourceId, compressedParent, leaf, Operation::ThinDiscardTarget,
+                &targetId, false, status, reply, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, false, 28u) &&
+                !status && IsAbsent(compressedParent.File(leaf)), "cleanup removes only created compressed target");
+            job.Finish();
+        }
+    }
+
     for (int scenario = 0; scenario < 7; ++scenario)
     {
+        if (scenario == 3) continue; // sparse overwrite is covered above
         const std::wstring leaf = L"negative-" + std::to_wstring(scenario) + L".txt";
         const auto path = deep.File(leaf);
         Check(WriteByte(path, 0x63) && WriteByte(path + L":data", 0x64), "prepare refusal fixture");
@@ -308,13 +425,6 @@ void CheckThinOverwrite(const Directory& source, const Directory& target, const 
             "set attributes before failed native overwrite");
         if (scenario == 2)
             Check(CreateHardLinkW((path + L".alias").c_str(), path.c_str(), nullptr), "prepare hardlink boundary");
-        if (scenario == 3)
-        {
-            auto file = Adopt(CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr));
-            DWORD bytes = 0;
-            Check(file && DeviceIoControl(file.get(), FSCTL_SET_SPARSE, nullptr, 0, nullptr, 0, &bytes, nullptr),
-                "prepare unsupported sparse target");
-        }
         JobPipe job;
         DWORD status = ERROR_GEN_FAILURE;
         ThinWireReply reply{};

@@ -2480,7 +2480,7 @@ DWORD OpenThinOverwriteTarget(HANDLE parent, std::wstring_view leaf, const FILE_
     if (UacRenameLeaf::Detail::SameSource(identity, source)) return ERROR_SHARING_VIOLATION;
     if (standard.Directory || standard.DeletePending || standard.NumberOfLinks != 1 ||
         (attributes.FileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT |
-            FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ENCRYPTED)))
+            FILE_ATTRIBUTE_ENCRYPTED)))
         return ERROR_NOT_SUPPORTED;
     if (scan)
     {
@@ -2971,9 +2971,12 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             if (!error && !madeTarget && (retry || discard) &&
                 !UacRenameLeaf::Detail::SameSource(reply.target, options.expectedTarget)) error = ERROR_FILE_INVALID;
             FILE_ATTRIBUTE_TAG_INFO attrs{};
+            DWORD unsupportedTarget = FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_ENCRYPTED;
+#if !defined(SAM_UAC_THIN_COPY_TEST) || !defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
+            unsupportedTarget |= FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE;
+#endif
             if (!error && (!GetFileInformationByHandleEx(file.get(), FileAttributeTagInfo, &attrs, sizeof(attrs)) ||
-                (attrs.FileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY |
-                 FILE_ATTRIBUTE_COMPRESSED | FILE_ATTRIBUTE_SPARSE_FILE | FILE_ATTRIBUTE_ENCRYPTED))))
+                (attrs.FileAttributes & unsupportedTarget)))
                 error = ERROR_NOT_SUPPORTED;
 #if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
             if (!error && (create || overwrite) && retain && !targetAnchor)
