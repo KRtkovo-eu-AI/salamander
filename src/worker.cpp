@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Read protected overwrite attributes through the approved session. | Preserve the native hidden and system overwrite confirmations. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Track broker-opened overwrite handles in the native copy worker. | Apply existing cancellation and cleanup ownership to the new target open. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Recheck transient identity failures on native Retry. | Preserve approved identities without treating an unavailable probe as a permanent substitution. | #731 | GPT-6 |
 // | 2026-11-14 | Preserve native overwrite for an unprivileged target. | Keep protected-source copies on the original worker without elevating target mutations. | #731 | GPT-6 |
@@ -2679,6 +2680,30 @@ static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::Thin
     SetLastError(error);
     return INVALID_HANDLE_VALUE;
 }
+// An inaccessible target must not silently bypass the native confirmation
+// for hidden or system files. Probe metadata only, with the existing scope.
+static DWORD ThinCopyTargetAttributes(CThinCopyWorker* context, DWORD attributes, bool& attempted)
+{
+    const DWORD error = GetLastError();
+    attempted = false;
+    if (attributes != INVALID_FILE_ATTRIBUTES || error != ERROR_ACCESS_DENIED || !context || !context->active)
+    {
+        SetLastError(error);
+        return attributes;
+    }
+    attempted = true;
+    HANDLE probe = ThinCopyOpened(context, INVALID_HANDLE_VALUE, UacF7::ThinOpenKind::TargetProbe,
+                                  false, ThinOpenPhase::Probe);
+    if (probe == INVALID_HANDLE_VALUE)
+        return INVALID_FILE_ATTRIBUTES;
+    BY_HANDLE_FILE_INFORMATION information{};
+    const BOOL ok = GetFileInformationByHandle(probe, &information);
+    const DWORD probeError = ok ? ERROR_SUCCESS : GetLastError();
+    HANDLES(CloseHandle(probe));
+    SetLastError(probeError);
+    return ok ? information.dwFileAttributes : INVALID_FILE_ATTRIBUTES;
+}
+
 static HANDLE ThinCopyOpenRetry(CThinCopyWorker* context, bool overlapped)
 {
     HANDLE file = context->Open(UacF7::ThinOpenKind::TargetRetry, overlapped);
@@ -2759,6 +2784,7 @@ static HANDLE ThinCopyOpenLocalRetry(CThinCopyWorker* context, bool overlapped)
         ((ctx) && ((ctx)->request || (ctx)->session) ? ThinCopyOpenLocalRetry((ctx), (overlapped)) : \
         ThinCopyOpened((ctx), ThinCopyTestDenyReopen((ctx), true) ? ThinCopyTestDeniedHandle() : (local), UacF7::ThinOpenKind::TargetRetry, (overlapped), ThinOpenPhase::Retry))))
 #define THIN_OPEN_TARGET_PROBE(ctx, local) ThinCopyOpened((ctx), (local), UacF7::ThinOpenKind::TargetProbe, false, ThinOpenPhase::Probe)
+#define THIN_TARGET_ATTRIBUTES(ctx, local, attempted) ThinCopyTargetAttributes((ctx), (local), (attempted))
 #define THIN_DELETE_TARGET(ctx, local) \
     ((ctx) && (ctx)->NativeOverwrite() ? (local) : \
     ((ctx) && (ctx)->suppressLocalCleanup ? (ctx)->RefuseUnsafeTargetCleanup() : \
@@ -2773,6 +2799,7 @@ static HANDLE ThinCopyOpenLocalRetry(CThinCopyWorker* context, bool overlapped)
 #define THIN_OPEN_TARGET_OVERWRITE(ctx, local, overlapped) (local)
 #define THIN_OPEN_TARGET_RETRY(ctx, local, overlapped) (local)
 #define THIN_OPEN_TARGET_PROBE(ctx, local) (local)
+#define THIN_TARGET_ATTRIBUTES(ctx, local, attempted) (local)
 #define THIN_DELETE_TARGET(ctx, local) (local)
 #endif
 
@@ -9016,7 +9043,19 @@ COPY_AGAIN:
                                 goto NORMAL_ERROR;
                             }
 
-                            DWORD attr = GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str());
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            bool attributeProbeAttempted = false;
+#endif
+                            DWORD attr = THIN_TARGET_ATTRIBUTES(&thin, GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()), attributeProbeAttempted);
+#ifdef SAM_UAC_THIN_COPY_TEST
+                            if (attributeProbeAttempted && attr == INVALID_FILE_ATTRIBUTES && GetLastError() != ERROR_FILE_NOT_FOUND &&
+                                GetLastError() != ERROR_PATH_NOT_FOUND)
+                            {
+                                err = GetLastError();
+                                if (thin.terminal) goto CANCEL_OPEN;
+                                goto NORMAL_ERROR;
+                            }
+#endif
                             if (dlgData.ConflictDecisionInjected && dlgData.InjectedConflictType == cmctFileExists &&
                                 dlgData.InjectedTargetIdentityValid)
                             {
@@ -9067,7 +9106,16 @@ COPY_AGAIN:
                                                                   OPEN_EXISTING, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL)), asyncPar->UseAsyncAlg != FALSE);
                                         if (in == INVALID_HANDLE_VALUE)
                                             goto OPEN_IN_ERROR;
-                                        attr = GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()); // refresh attributes in case the user changed them
+                                        attr = THIN_TARGET_ATTRIBUTES(&thin, GetFileAttributesW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str()), attributeProbeAttempted); // refresh attributes in case the user changed them
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                        if (attributeProbeAttempted && attr == INVALID_FILE_ATTRIBUTES && GetLastError() != ERROR_FILE_NOT_FOUND &&
+                                            GetLastError() != ERROR_PATH_NOT_FOUND)
+                                        {
+                                            err = GetLastError();
+                                            if (thin.terminal) goto CANCEL_OPEN;
+                                            goto NORMAL_ERROR;
+                                        }
+#endif
                                         break;
                                     }
 

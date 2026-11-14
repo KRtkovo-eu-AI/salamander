@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Test protected target attribute fallback. | Preserve the native hidden and system confirmation without requesting file contents. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Include overwrite in the thin-open fixture. | Exercise the new worker target role. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise revalidation after unavailable identity probes. | Preserve fixed identities while allowing safe Retry and blocking terminal ownership states. | #731 | GPT-6 |
 // | 2026-11-14 | Model native overwrite routing. | Keep target retry tests aligned with the worker. | #731 | GPT-6 |
@@ -130,6 +131,33 @@ int wmain(int argc, wchar_t** argv) {
     int failures = 0;
     if (argc != 2) return 1;
     const std::wstring fixture = argv[1];
+    {
+        CThinCopyWorker probe;
+        BOOL cancelled = FALSE;
+        bool attempted = false;
+        probe.dialog.CancelWorker = &cancelled;
+        const std::wstring path = fixture + L"\\replacement.txt";
+        Check(SetFileAttributesW(path.c_str(), FILE_ATTRIBUTE_HIDDEN) != FALSE,
+              "prepare hidden target metadata", failures);
+        probe.opened = CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                   nullptr, OPEN_EXISTING, 0, nullptr);
+        SetLastError(ERROR_ACCESS_DENIED);
+        const DWORD attributes = THIN_TARGET_ATTRIBUTES(&probe, INVALID_FILE_ATTRIBUTES, attempted);
+        Check(attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_HIDDEN) &&
+              attempted && probe.openCalls == 1 && probe.lastKind == UacF7::ThinOpenKind::TargetProbe,
+              "metadata fallback returns hidden flag from target probe", failures);
+        Check(SetFileAttributesW(path.c_str(), FILE_ATTRIBUTE_NORMAL) != FALSE,
+              "restore fixture attributes", failures);
+        probe.openCalls = 0;
+        SetLastError(ERROR_SUCCESS);
+        Check(THIN_TARGET_ATTRIBUTES(&probe, FILE_ATTRIBUTE_ARCHIVE, attempted) == FILE_ATTRIBUTE_ARCHIVE && !attempted && !probe.openCalls,
+              "readable attributes do not start elevation", failures);
+        probe.opened = INVALID_HANDLE_VALUE;
+        probe.openedError = ERROR_CANCELLED;
+        SetLastError(ERROR_ACCESS_DENIED);
+        Check(THIN_TARGET_ATTRIBUTES(&probe, INVALID_FILE_ATTRIBUTES, attempted) == INVALID_FILE_ATTRIBUTES &&
+              attempted && GetLastError() == ERROR_CANCELLED, "failed probe preserves its error", failures);
+    }
     BOOL cancelled = FALSE;
     HANDLE cancelEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     if (!cancelEvent) return 2;
