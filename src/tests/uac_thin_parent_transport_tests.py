@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Exercise a bounded budget on the real client pipe. | Verify repeated lost responses stop further handle requests. | #731 | gpt-6.1-terra |
 # | 2026-11-14 | Run the post-duplication lost-reply case. | Measure repeated unclaimed handles on the real dispatcher pipe. | #731 | gpt-6.1-terra |
 # | 2026-11-14 | Add isolated native overwrite dispatcher cases. | Compare actual NTFS behavior without claiming complete F5 or UAC acceptance. | #731 | GPT-6 |
 # | 2026-11-14 | Run identity-anchored cleanup through the real dispatcher. | Verify own-object deletion, replacement refusal and failed creation handoff. | #731 | GPT-6 |
@@ -27,26 +28,30 @@ def main():
     crash_mode.add_argument('--overwrite-only', action='store_true')
     crash_mode.add_argument('--lost-reply-only', action='store_true')
     crash_mode.add_argument('--client-reopen-only', action='store_true')
+    crash_mode.add_argument('--client-lost-budget-only', action='store_true')
     args = parser.parse_args()
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))
     flags = ('/MTd', '/Od', '/D_DEBUG') if args.configuration == 'Debug' else ('/MT', '/O2', '/DNDEBUG')
-    if args.owned_cleanup_only or args.client_reopen_only or args.overwrite_only or args.lost_reply_only:
+    client_mode = args.client_reopen_only or args.client_lost_budget_only
+    if args.owned_cleanup_only or client_mode or args.overwrite_only or args.lost_reply_only:
         flags += ('/DSAM_UAC_THIN_REOPEN_PROTOTYPE',)
-    if args.client_reopen_only:
+    if client_mode:
         flags += ('/DSAM_UAC_CLIENT_PIPE_HARNESS', '/DSAM_UAC_THIN_PLANNED_PROTOTYPE')
+    if args.client_lost_budget_only:
+        flags += ('/DSAM_UAC_THIN_HANDOFF_TEST_CAP=3',)
     with tempfile.TemporaryDirectory(prefix='uac-thin-parent-') as temp:
-        exe = Path(temp) / ('salamand.exe' if args.client_reopen_only else 'uacbroker_thin_parent_job_tests.exe')
+        exe = Path(temp) / ('salamand.exe' if client_mode else 'uacbroker_thin_parent_job_tests.exe')
         source = ROOT / 'src/uacbroker/uacbroker_thin_parent_job_tests.cpp'
         sources = [str(source)]
-        if args.client_reopen_only:
+        if client_mode:
             client = Path(temp) / 'thin_client.cpp'
             client.write_text('#define SAM_UAC_F7_HOST\n#define SAM_UAC_THIN_COPY_TEST\n'
                               f'#include "{(ROOT / "src/uacbroker/uacbroker.cpp").as_posix()}"\n',
                               encoding='utf-8')
             sources.append(str(client))
         try:
-            if args.client_reopen_only:
+            if client_mode:
                 # PreparedTransfer pins the named host/broker pair even when
                 # this fixture supplies an already-authenticated test pipe.
                 # Build a real broker image; it is not launched by these cases.
@@ -77,6 +82,8 @@ def main():
                 command.append('--thin-lost-reply-only')
             if args.client_reopen_only:
                 command.append('--thin-client-reopen-only')
+            if args.client_lost_budget_only:
+                command.append('--thin-client-lost-budget-only')
             return run(command, cwd=temp, env=env, timeout=25).returncode
         finally:
             root = Path(temp).resolve(strict=True)

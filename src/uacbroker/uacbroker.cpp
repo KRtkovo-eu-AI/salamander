@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Bound uncertain thin-handle deliveries per host process. | Prevent repeatable lost replies from accumulating unbounded handles. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Instrument a lost thin-handle reply in dispatcher tests. | Measure unclaimed handle behavior without altering production requests. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Verify transmitted Scan Ahead evidence before target overwrite. | Preserve the native deferred-conflict check after consent. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Compare deferred conflict evidence on an open target. | Preserve both native Scan Ahead checks before privileged mutation. | #731 | gpt-6.1-terra |
@@ -194,6 +195,9 @@
 #include <string>
 #include <vector>
 #include "f7pilot.h"
+#if defined(SAM_UAC_F7_HOST) && defined(SAM_UAC_THIN_COPY_TEST)
+#include "thin_handoff_budget.h"
+#endif
 #include "uacprotocol.h"
 #ifdef SAM_UAC_F7_HOST
 #pragma comment(lib, "advapi32.lib")
@@ -6350,6 +6354,14 @@ DWORD ThinCopySession::ReleaseTarget(const PreparedTransfer& prepared, const Mov
     return result.error;
 }
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+#if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_HANDOFF_TEST_CAP)
+static ThinHandoffBudget thinHandoffBudget(SAM_UAC_THIN_HANDOFF_TEST_CAP);
+#else
+static ThinHandoffBudget thinHandoffBudget(thinHandoffProcessLimit);
+#endif
+#endif
+
 ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepared, ThinOpenKind kind,
                                      bool overlapped, bool copyAttrs, const MoveFileIdentity* expectedTarget,
                                      ThinOpenedSource opened, ThinCancelEvent cancellation, const ThinScanEvidence* scan)
@@ -6403,6 +6415,18 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
         output.error = ERROR_INVALID_HANDLE;
         return output;
     }
+#ifdef SAM_UAC_THIN_COPY_TEST
+    // Reserve before a request can duplicate a handle into this process. A
+    // lost reply consumes one slot until exit; control requests cannot create
+    // host handles and must remain available to release/clean up targets.
+    const bool needsHandle = kind != ThinOpenKind::Discard && kind != ThinOpenKind::Release;
+    ThinHandoffReservation handoff(thinHandoffBudget, needsHandle, output.unknown);
+    if (!handoff.Acquired())
+    {
+        output.error = ERROR_NOT_ENOUGH_QUOTA;
+        return output;
+    }
+#endif
     auto* job = shared ? shared : &owned;
 #ifdef SAM_UAC_THIN_COPY_TEST
     if (planned)

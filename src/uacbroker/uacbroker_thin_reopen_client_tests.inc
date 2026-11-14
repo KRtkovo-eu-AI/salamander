@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise the real client with an exhausted lost-handle budget. | Bound repeated lost replies and retain control operations. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Observe the actual client after a lost source-handle reply. | Check job retirement while measuring the unclaimed duplicate. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Send deferred evidence through the real thin client. | Cover the Scan Ahead request frame in both I/O modes. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test write-only target reopen through the actual client. | Keep the native overwrite size check from acquiring read access. | #731 | gpt-6.1-terra |
@@ -39,12 +40,13 @@ void CheckThinAnchorFailure(const Directory& source, const Directory& target)
 
 void CheckThinClientReopen(const Directory& source, const Directory& target, bool asynchronous,
                           bool overwrite = false, bool failOverwriteHandoff = false, bool staleScan = false,
-                          bool lostSourceReply = false)
+                          bool lostSourceReply = false, unsigned lostIndex = 0, bool expectBudget = false)
 {
-    const wchar_t* root = lostSourceReply ? L"lost-source-reply" : failOverwriteHandoff ? L"overwrite-failed-\u6771" :
+    std::wstring root = lostSourceReply ? L"lost-source-reply" : failOverwriteHandoff ? L"overwrite-failed-\u6771" :
         staleScan ? (asynchronous ? L"overwrite-stale-async" : L"overwrite-stale-sync") :
         overwrite ? (asynchronous ? L"overwrite-async-\u6771" : L"overwrite-sync-\u6771") :
         (asynchronous ? L"reopen-async-\u6771" : L"reopen-sync-\u6771");
+    if (lostSourceReply) root += std::to_wstring(lostIndex);
     constexpr wchar_t leaf[] = L"payload-\u65e5.txt";
     std::wstring cwd(32768, L'\0');
     const DWORD length = GetCurrentDirectoryW(static_cast<DWORD>(cwd.size()), cwd.data());
@@ -112,6 +114,17 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     auto input = Adopt(opened.file);
     if (lostSourceReply)
     {
+        if (expectBudget)
+        {
+            UacF7::MoveFileIdentity unused{};
+            const DWORD control = thin.ReleaseTarget(request, unused);
+            Check(opened.error == ERROR_NOT_ENOUGH_QUOTA && !opened.unknown && !input && thin.IsOpen() &&
+                  !lostHandle && control == ERROR_FILE_INVALID && HasByte(sourcePath, 0x67) && IsAbsent(targetPath),
+                  "exhausted budget refuses another handle while control requests still run");
+            thin.Close();
+            pipe.Finish();
+            return;
+        }
         const DWORD finished = pipe.Finish();
         HANDLE unclaimed = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(lostHandle));
         Check(opened.error != ERROR_SUCCESS && opened.unknown && !input && !thin.IsOpen() &&

@@ -4953,6 +4953,15 @@ int wmain(int argc, wchar_t** argv)
 #endif
 #if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
+#ifdef SAM_UAC_THIN_HANDOFF_TEST_CAP
+    if (argc == 2 && !wcscmp(argv[1], L"--thin-client-lost-budget-only"))
+    {
+        for (unsigned i = 0; i != 3; ++i)
+            CheckThinClientReopen(source, target, false, false, false, false, true, i);
+        CheckThinClientReopen(source, target, false, false, false, false, true, 3, true);
+        return failures ? 1 : 0;
+    }
+#endif
     if (argc == 2 && !wcscmp(argv[1], L"--thin-client-reopen-only"))
     {
         CheckThinAnchorFailure(source, target);

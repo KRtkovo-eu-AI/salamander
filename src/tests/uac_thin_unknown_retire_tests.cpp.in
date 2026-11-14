@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Cover added overwrite and write-only response roles. | Keep rejected handle ownership tests aligned with the actual client. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise failed closure of rejected received handles. | Report ownership uncertainty and retire the affected job. | #731 | GPT-6 |
 // | 2026-11-14 | Reject unexpected identity fields in control replies. | Avoid accepting a malformed cleanup or release confirmation. | #731 | GPT-6 |
 // | 2026-11-14 | Reject contradictory error replies carrying handle values. | Preserve unrelated host handles and retire the uncertain session. | #731 | GPT-6 |
@@ -12,7 +13,7 @@
 #include <initializer_list>
 #include <new>
 
-enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe, Discard, Release };
+enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe, Discard, Release, TargetOverwrite, TargetReopenWrite };
 struct Id { ULONGLONG serial{}; BYTE id[16]{}; BYTE sourceId[16]{}; };
 struct ThinOpenResult { DWORD error{}; bool unknown{}; HANDLE file{INVALID_HANDLE_VALUE}; Id targetIdentity{}; };
 struct Result { DWORD error{}; bool unknown{}; };
@@ -119,7 +120,7 @@ int main() {
         Check(!result.unknown && result.error == ERROR_ACCESS_DENIED && job.IsOpen() && !session.markersCleared,
               "known error preserves job");
     }
-    for (auto kind : {ThinOpenKind::Source, ThinOpenKind::TargetCreate, ThinOpenKind::TargetRetry,
+    for (auto kind : {ThinOpenKind::Source, ThinOpenKind::TargetCreate, ThinOpenKind::TargetRetry, ThinOpenKind::TargetOverwrite, ThinOpenKind::TargetReopenWrite,
                       ThinOpenKind::TargetProbe, ThinOpenKind::Discard, ThinOpenKind::Release}) {
         TransferJobSession job, unrelated;
         const bool ready = job.Init() && unrelated.Init();
@@ -139,7 +140,7 @@ int main() {
         auto result = session.Classify(&job, {}, kind, {}, {});
         Check(!result.unknown && !result.error && job.IsOpen(), "valid control reply preserves job");
     }
-    for (auto kind : {ThinOpenKind::Source, ThinOpenKind::TargetCreate}) {
+    for (auto kind : {ThinOpenKind::Source, ThinOpenKind::TargetCreate, ThinOpenKind::TargetOverwrite, ThinOpenKind::TargetReopenWrite}) {
         wchar_t path[MAX_PATH]{}; HANDLE file = File(path);
         TransferJobSession job; const bool ready = job.Init() && file != INVALID_HANDLE_VALUE;
         Check(ready, "create real file and identity pipe");
@@ -147,7 +148,7 @@ int main() {
             ThinCopySession session;
             Reply reply{}; reply.value = static_cast<ULONGLONG>(reinterpret_cast<ULONG_PTR>(file));
             auto result = session.Classify(&job, {}, kind, {}, reply);
-            const bool target = kind == ThinOpenKind::TargetCreate;
+            const bool target = kind != ThinOpenKind::Source;
             Check(result.error == ERROR_FILE_INVALID && result.unknown == target &&
                   job.IsOpen() != target && !Valid(file),
                   target ? "uncertain target identity retires job and handle" :
