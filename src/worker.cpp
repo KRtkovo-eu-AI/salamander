@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Observe thin-session loss while waiting for async I/O. | Cancel and drain issued operations before returning to the worker. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Check remaining async pause paths for thin-session loss. | Preserve issued I/O until its native cancel drain completes. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Observe thin session loss at native synchronous pause points. | Stop an approved copy without changing ordinary pause behavior. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Check the thin session during an async pause wait. | Drain pending I/O if the broker exits before resume. | #731 | gpt-6.1-terra |
@@ -5859,6 +5860,9 @@ struct CCopy_Context
     BOOL RetryCopyWriteErr(DWORD* err, BOOL* copyAgain, BOOL* errAgain, const CQuadWord& allocFileSize,
                            const CQuadWord& maxWriteOffset);
     BOOL HandleSuspModeAndCancel(BOOL* copyError, BOOL forceWait = FALSE);
+#ifdef SAM_UAC_THIN_COPY_TEST
+    BOOL WaitForPendingTransfer(HANDLE file, OVERLAPPED* overlapped, DWORD* bytes, BOOL* copyError);
+#endif
 };
 
 BOOL DisableLocalBuffering(CAsyncCopyParams* asyncPar, HANDLE file, DWORD* err)
@@ -6580,6 +6584,46 @@ BOOL CCopy_Context::HandleSuspModeAndCancel(BOOL* copyError, BOOL forceWait)
     return FALSE;
 }
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+BOOL CCopy_Context::WaitForPendingTransfer(HANDLE file, OVERLAPPED* overlapped, DWORD* bytes, BOOL* copyError)
+{
+    if (!Thin || !Thin->Scoped() || !Thin->brokerHandleDelivered)
+    {
+        GetOverlappedResult(file, overlapped, bytes, TRUE);
+        return FALSE;
+    }
+    for (;;)
+    {
+        if (HasOverlappedIoCompleted(overlapped))
+        {
+            GetOverlappedResult(file, overlapped, bytes, TRUE);
+            return FALSE;
+        }
+        const DWORD wait = WaitForSingleObject(overlapped->hEvent, 200);
+        if (*DlgData->CancelWorker)
+        {
+            CancelOpPhase1();
+            CancelOpPhase2(-1);
+            *copyError = TRUE;
+            return TRUE;
+        }
+        DWORD error = wait == WAIT_OBJECT_0 || wait == WAIT_TIMEOUT ? Thin->CheckTransferConnection() :
+            wait == WAIT_FAILED ? GetLastError() : ERROR_GEN_FAILURE;
+        if (wait != WAIT_OBJECT_0 && wait != WAIT_TIMEOUT && error == ERROR_SUCCESS) error = ERROR_GEN_FAILURE;
+        if (error != ERROR_SUCCESS)
+        {
+            CancelOpPhase1();
+            CancelOpPhase2(-1);
+            Thin->ReportTargetFailure(error, IDS_ERRORREADINGFILE);
+            *copyError = TRUE;
+            return TRUE;
+        }
+        // A stale signalled event must not turn the poll into a busy loop.
+        if (wait == WAIT_OBJECT_0 && !HasOverlappedIoCompleted(overlapped)) Sleep(1);
+    }
+}
+#endif
+
 void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, void* buffer, int& limitBufferSize,
                          COperations* script, CProgressDlgData& dlgData, BOOL wholeFileAllocated, COperation* op,
                          const CQuadWord& totalDone, BOOL& copyError, BOOL& skipCopy, HWND hProgressDlg,
@@ -6856,8 +6900,14 @@ void DoCopyFileLoopAsync(CAsyncCopyParams* asyncPar, HANDLE& in, HANDLE& out, vo
             // wait for the oldest pending asynchronous operation to complete here
             // for the source file ('in') this covers: cbsReading, cbsTestingEOF, and cbsDiscarded
             // for the target file ('out') this covers only cbsWriting
+#ifdef SAM_UAC_THIN_COPY_TEST
+            if (ctx.WaitForPendingTransfer(ctx.BlockState[oldestBlockIndex] == cbsWriting ? out : in,
+                                           asyncPar->GetOverlapped(oldestBlockIndex), &bytes, &copyError))
+                return;
+#else
             GetOverlappedResult(ctx.BlockState[oldestBlockIndex] == cbsWriting ? out : in,
                                 asyncPar->GetOverlapped(oldestBlockIndex), &bytes, TRUE);
+#endif
 
 #ifdef ASYNC_COPY_DEBUG_MSG
             char sss[1000];

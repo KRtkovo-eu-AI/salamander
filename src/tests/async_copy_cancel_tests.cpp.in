@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | 2026-11-14 | Exercise native async suspension on connection loss. | Verify a real pending read is drained before error reporting. | #731 | gpt-6.1-terra |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise async wait on connection loss and completion. | Check real pending I/O is drained only after loss. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise all async pause modes and completed-write loss. | Check tracked I/O drains before loss is reported. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test synchronous pause with a disconnected session. | Verify native error state and prompt detection before resume. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test paused connection loss with pending I/O. | Verify the native wait can stop before resume. | #731 | gpt-6.1-terra |
@@ -125,6 +126,7 @@ struct CCopy_Context
     void CancelOpPhase2(int);
     BOOL FinishPauseFailure(BOOL*, int);
     BOOL HandleSuspModeAndCancel(BOOL*, BOOL forceWait = FALSE);
+    BOOL WaitForPendingTransfer(HANDLE, OVERLAPPED*, DWORD*, BOOL*);
 };
 // A pipe is deliberately not seekable. Seeking is not part of this test.
 static BOOL SalSetFilePointer(HANDLE, const CQuadWord&) { return TRUE; }
@@ -515,6 +517,68 @@ static void TestPausedConnectionLoss(bool speedLimitCanChange)
     CloseHandle(resumed);
 }
 
+static void TestPendingWait(bool loseConnection)
+{
+    Pipe pipe;
+    if (!pipe.Open(true, loseConnection ? 95 : 96)) { Check(false, "create async wait pipe"); return; }
+    CAsyncCopyParams async;
+    async.Init(TRUE);
+    if (async.Failed() || !async.Buffers[0]) { Check(false, "allocate async wait buffer"); return; }
+    BOOL cancelled = FALSE, copyError = FALSE;
+    HANDLE input = pipe.server, output = nullptr;
+    HANDLE resumed = CreateEventW(nullptr, TRUE, TRUE, nullptr);
+    if (!resumed) { Check(false, "create async wait resume event"); return; }
+    COperations ops;
+    CProgressDlgData dialog;
+    dialog.CancelWorker = &cancelled; dialog.WorkerNotSuspended = resumed;
+    CThinCopyWorker thin; thin.dialog = dialog;
+    CCopy_Context ctx;
+    ctx.AsyncPar = &async; ctx.DlgData = &dialog; ctx.In = &input; ctx.Out = &output;
+    ctx.Script = &ops; ctx.Thin = &thin;
+    DWORD error = ERROR_SUCCESS, bytes = 0;
+    const BOOL started = ctx.StartReading(0, 1, &error, FALSE);
+    Check(started && !HasOverlappedIoCompleted(async.GetOverlapped(0)), "async wait starts with real pending read");
+    thin.pending = async.GetOverlapped(0);
+    std::thread watcher([&] {
+        Sleep(150);
+        if (loseConnection)
+        {
+            thin.connectionStatus.store(ERROR_BROKEN_PIPE);
+            Sleep(1500);
+            CancelIoEx(input, async.GetOverlapped(0)); // bounded test cleanup if detection fails
+        }
+        else
+        {
+            OVERLAPPED write{};
+            write.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+            BYTE value = 0x42; DWORD written = 0;
+            if (write.hEvent)
+            {
+                const BOOL ok = WriteFile(pipe.client, &value, 1, nullptr, &write);
+                if (ok || GetLastError() == ERROR_IO_PENDING)
+                    GetOverlappedResult(pipe.client, &write, &written, TRUE);
+                CloseHandle(write.hEvent);
+            }
+        }
+    });
+    const ULONGLONG start = GetTickCount64();
+    const BOOL stopped = ctx.WaitForPendingTransfer(input, async.GetOverlapped(0), &bytes, &copyError);
+    const ULONGLONG elapsed = GetTickCount64() - start;
+    if (loseConnection)
+        Check(stopped && copyError && thin.reports == 1 && thin.drainedBeforeReport && elapsed < 1400 &&
+              ctx.ReadingBlocks == 0 && ctx.FreeBlocks == 8,
+              "pending wait detects loss and drains before returning");
+    else
+    {
+        Check(!stopped && !copyError && !thin.reports && bytes == 1,
+              "pending wait returns normal completed read without reporting loss");
+        ctx.CancelOpPhase1(); ctx.CancelOpPhase2(-1);
+    }
+    watcher.join();
+    DrainUnexpectedPending(input, async.GetOverlapped(0));
+    CloseHandle(resumed);
+}
+
 static void TestCompletedWritePauseLoss()
 {
     Pipe pipe;
@@ -601,6 +665,8 @@ int wmain(int argc, wchar_t** argv)
     TestConnectionLossWithPendingRead();
     TestPausedConnectionLoss(false);
     TestPausedConnectionLoss(true);
+    TestPendingWait(true);
+    TestPendingWait(false);
     TestCompletedWritePauseLoss();
     TestSynchronousPauseConnectionLoss();
     return failures ? 1 : 0;
