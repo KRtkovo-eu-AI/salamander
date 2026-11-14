@@ -461,6 +461,23 @@ int wmain(int argc, wchar_t** argv) {
               prepared ? "prepared request rejects changed source identity" :
                          "existing session rejects changed source identity", failures);
     }
+    for (bool prepared : {false, true}) {
+        CThinCopyWorker scoped; scoped.dialog.CancelWorker = &cancelled;
+        if (prepared) scoped.request = std::make_unique<UacF7::PreparedTransfer>();
+        else scoped.session = &existing;
+        scoped.RememberSource(original, true);
+        const int beforeClose = closeCalls;
+        SetLastError(ERROR_ALREADY_EXISTS);
+        HANDLE output = THIN_OPEN_SOURCE_RETRY(&scoped, unavailable, false);
+        Check(output == INVALID_HANDLE_VALUE && GetLastError() == ERROR_NOT_SUPPORTED &&
+              !scoped.sourceContinuityLost && scoped.earlierSourceKnown &&
+              scoped.earlierSource.id[0] == 1 && closeCalls == beforeClose + 1,
+              "failed source identity query reports its own error and preserves authority", failures);
+        scoped.request = std::make_unique<UacF7::PreparedTransfer>();
+        output = THIN_OPEN_SOURCE_RETRY(&scoped, same, false);
+        Check(output == same && scoped.sourceVerified && !scoped.sourceContinuityLost,
+              "a subsequent matching source remains usable", failures);
+    }
     {
         CThinCopyWorker prepared; prepared.dialog.CancelWorker = &cancelled;
         prepared.request = std::make_unique<UacF7::PreparedTransfer>();
@@ -476,7 +493,7 @@ int wmain(int argc, wchar_t** argv) {
         HANDLE current = unavailable; local.sourceHandle = &current;
         const int beforePrepare = UacF7::prepareCalls;
         SetLastError(ERROR_SUCCESS);
-        Check(!local.EnsurePrepared() && GetLastError() == ERROR_FILE_INVALID &&
+        Check(!local.EnsurePrepared() && GetLastError() == ERROR_NOT_SUPPORTED &&
               !local.sourceContinuityLost && !local.request && UacF7::prepareCalls == beforePrepare,
               "unavailable live source query blocks only this preparation attempt", failures);
         current = same;

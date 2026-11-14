@@ -2670,8 +2670,9 @@ static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::Thin
             if (context->active && (context->request || context->session) &&
                 (!identified || !context->sourceVerified))
             {
+                const DWORD identityError = identified ? ERROR_FILE_INVALID : GetLastError();
                 HANDLES(CloseHandle(local));
-                SetLastError(ERROR_FILE_INVALID);
+                SetLastError(identityError ? identityError : ERROR_GEN_FAILURE);
                 return INVALID_HANDLE_VALUE;
             }
         }
@@ -2716,11 +2717,12 @@ static HANDLE ThinCopyOpened(CThinCopyWorker* context, HANDLE local, UacF7::Thin
         HANDLE elevated = context->Open(kind, overlapped);
         if (elevated != INVALID_HANDLE_VALUE && kind == UacF7::ThinOpenKind::Source)
         {
-            context->RememberSource(elevated);
-            if (!context->sourceVerified)
+            const bool identified = context->RememberSource(elevated);
+            if (!identified || !context->sourceVerified)
             {
+                const DWORD identityError = identified ? ERROR_FILE_INVALID : GetLastError();
                 CloseHandle(elevated);
-                SetLastError(ERROR_FILE_INVALID);
+                SetLastError(identityError ? identityError : ERROR_GEN_FAILURE);
                 return INVALID_HANDLE_VALUE;
             }
         }
@@ -7395,10 +7397,7 @@ bool CThinCopyWorker::EnsurePrepared()
     // open source before applying the gate, including on an existing request.
     if (sourceHandle && *sourceHandle && *sourceHandle != INVALID_HANDLE_VALUE &&
         !RememberSource(*sourceHandle, true))
-    {
-        SetLastError(ERROR_FILE_INVALID);
         return false;
-    }
     if (!SourceContinuityAllowsElevation() || !TargetContinuityAllowsElevation())
         return false;
     if (request)
@@ -7763,7 +7762,10 @@ bool CThinCopyWorker::RememberSource(HANDLE file, bool force)
         std::memcmp(actual.id, earlierSource.id, sizeof(actual.id)) != 0))
         sourceContinuityLost = true;
     if (sourceContinuityLost)
+    {
+        SetLastError(ERROR_FILE_INVALID);
         return false;
+    }
     earlierSource = actual;
     earlierSourceKnown = true;
     if (!request)
@@ -7773,7 +7775,10 @@ bool CThinCopyWorker::RememberSource(HANDLE file, bool force)
     sourceVerified = earlierSource.serial == expected.serial &&
                      std::memcmp(earlierSource.id, expected.id, sizeof(expected.id)) == 0;
     if (!sourceVerified)
+    {
         sourceContinuityLost = true;
+        SetLastError(ERROR_FILE_INVALID);
+    }
     return sourceVerified;
 }
 
