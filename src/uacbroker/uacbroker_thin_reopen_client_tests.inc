@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Observe the actual client after a lost source-handle reply. | Check job retirement while measuring the unclaimed duplicate. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Send deferred evidence through the real thin client. | Cover the Scan Ahead request frame in both I/O modes. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test write-only target reopen through the actual client. | Keep the native overwrite size check from acquiring read access. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Reuse actual client Retry cases for overwritten targets. | Check cancellation, fresh opens and cleanup through the new request. | #731 | GPT-6 |
@@ -37,9 +38,10 @@ void CheckThinAnchorFailure(const Directory& source, const Directory& target)
 }
 
 void CheckThinClientReopen(const Directory& source, const Directory& target, bool asynchronous,
-                          bool overwrite = false, bool failOverwriteHandoff = false, bool staleScan = false)
+                          bool overwrite = false, bool failOverwriteHandoff = false, bool staleScan = false,
+                          bool lostSourceReply = false)
 {
-    const wchar_t* root = failOverwriteHandoff ? L"overwrite-failed-\u6771" :
+    const wchar_t* root = lostSourceReply ? L"lost-source-reply" : failOverwriteHandoff ? L"overwrite-failed-\u6771" :
         staleScan ? (asynchronous ? L"overwrite-stale-async" : L"overwrite-stale-sync") :
         overwrite ? (asynchronous ? L"overwrite-async-\u6771" : L"overwrite-sync-\u6771") :
         (asynchronous ? L"reopen-async-\u6771" : L"reopen-sync-\u6771");
@@ -63,11 +65,12 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     if (!treePlan.PrepareTreePlan(sourceRoot, targetRoot))
     { Check(false, "prepare the actual planned tree scope"); return; }
     JobPipe pipe;
+    ULONGLONG lostHandle = 0;
     DWORD status = ERROR_GEN_FAILURE;
     ListingReply listing{};
     std::vector<UacF7::TreeCopySourceEntry> rows;
     const bool planned = pipe.Open(nullptr, nullptr, Operation::FindContent, nullptr, false,
-                                   nullptr, failOverwriteHandoff) &&
+                                   nullptr, failOverwriteHandoff, false, nullptr, lostSourceReply ? &lostHandle : nullptr) &&
         pipe.Request(Operation::PlanCopyTree, source, root, status, &target, nullptr, nullptr,
                      false, nullptr, nullptr, 0) && !status &&
         pipe.ListTreeSource(from, {}, from.identity.file, listing, rows) &&
@@ -107,6 +110,17 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
           "invalid cancellation handle stops before the broker request");
     const auto opened = thin.Open(nullptr, request, UacF7::ThinOpenKind::Source, false, false, nullptr);
     auto input = Adopt(opened.file);
+    if (lostSourceReply)
+    {
+        const DWORD finished = pipe.Finish();
+        HANDLE unclaimed = reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(lostHandle));
+        Check(opened.error != ERROR_SUCCESS && opened.unknown && !input && !thin.IsOpen() &&
+              finished == ERROR_BROKEN_PIPE && unclaimed && GetFileType(unclaimed) == FILE_TYPE_DISK &&
+              HasByte(sourcePath, 0x67) && IsAbsent(targetPath),
+              "actual client retires job but lost reply leaves a host duplicate");
+        if (unclaimed) Check(CloseHandle(unclaimed) != FALSE, "test closes recorded unclaimed source handle");
+        return;
+    }
     if (opened.error || opened.unknown || !input)
     { Check(false, "open verified source through actual client"); return; }
     const auto initialKind = overwrite ? UacF7::ThinOpenKind::TargetOverwrite : UacF7::ThinOpenKind::TargetCreate;

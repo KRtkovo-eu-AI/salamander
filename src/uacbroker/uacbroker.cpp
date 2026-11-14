@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Instrument a lost thin-handle reply in dispatcher tests. | Measure unclaimed handle behavior without altering production requests. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Verify transmitted Scan Ahead evidence before target overwrite. | Preserve the native deferred-conflict check after consent. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Compare deferred conflict evidence on an open target. | Preserve both native Scan Ahead checks before privileged mutation. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Support write-only reopening of an owned target. | Match the worker's post-overwrite open without extra read rights. | #731 | gpt-6.1-terra |
@@ -705,6 +706,7 @@ struct ThinIdentityScanPause
 };
 thread_local ThinIdentityScanPause* activeThinIdentityScanPause = nullptr;
 thread_local bool activeThinFailCreatedTransfer = false;
+thread_local ULONGLONG* activeThinLostReply = nullptr;
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
 thread_local bool activeThinFailAnchorOpen = false;
 thread_local ThinIdentityScanPause* activeThinOverwritePause = nullptr;
@@ -4302,6 +4304,14 @@ DWORD ServeTransferJob(const InstallLocation& install, HANDLE pipe, HANDLE host,
                                      &thinState, &thinReply);
         if (error)
             return error == ERROR_CANCELLED ? ERROR_SUCCESS : error;
+#if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_BROKER_JOB_TEST)
+        if (activeThinLostReply && IsThinOpen(unusedListing) && result == ERROR_SUCCESS && thinReply.value)
+        {
+            *activeThinLostReply = thinReply.value;
+            activeThinLostReply = nullptr;
+            return ERROR_BROKEN_PIPE; // Test-only loss before either reply frame.
+        }
+#endif
         if (unusedListing != Operation::ListCopyTreeSource)
             error = TransferRequest(pipe, &result, sizeof(result), true, deadline);
         const bool isOverwriteProbe = unusedListing == Operation::ProbeOverwrite || unusedListing == Operation::ProbeOverwriteIgnoreAds;
