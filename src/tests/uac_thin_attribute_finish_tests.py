@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Distinguish real API comparison from the stubbed completion branch. | Report the exact extent of filesystem verification. | #731 | GPT-6 |
 # | 2026-11-14 | Include the completion connection guard. | Test both brokered and ordinary targets after a loss. | #731 | GPT-6 |
 # | 2026-11-13 | Compare scoped and ordinary attribute finish behavior. | Preserve native plain-copy failure handling without pathname access. | #731 | GPT-6 |
 """Test the extracted F5 completion branch, not the full worker or UAC."""
@@ -47,7 +48,7 @@ def main():
     if hashlib.sha256(production.read_bytes()).hexdigest() != before:
         raise RuntimeError("worker.cpp changed during test")
     print("worker.cpp SHA-256:", before)
-    print("Actual extracted completion branch; filesystem, dialog, close and broker are deterministic stubs.")
+    print("Separate real-file API comparison; extracted completion branch uses filesystem, dialog, close and broker stubs.")
     print("CopyAttrs=true is hypothetical: Configure currently excludes it from scoped copies.")
     print("This does not exercise the complete DoCopyFile worker, actual identity or ACLs, or UAC.")
     return 0

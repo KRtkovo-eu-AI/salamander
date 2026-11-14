@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Compare real zero-attribute completion APIs. | Preserve the native archive-clearing semantics. | #731 | GPT-6 |
 // | 2026-11-14 | Verify scoped CopyAttrs preserves the archive bit. | Match the original attribute selection. | #731 | GPT-6 |
 // | 2026-11-14 | Exercise loss before scoped attribute completion. | Prevent further metadata writes after a detected broken session. | #731 | GPT-6 |
 // | 2026-11-14 | Model native target attribute completion. | Preserve normal pathname behavior for a locally overwritten target. | #731 | GPT-6 |
@@ -95,6 +96,39 @@ COPY_AGAIN:
     return FALSE;
 }
 
+#undef SetFileInformationByHandle
+#undef SetFileAttributesW
+#undef CloseHandle
+#undef DeleteFileW
+static bool RealZeroAttributesMatch()
+{
+    const wchar_t* paths[] = {L"native-\u6771.tmp", L"handle-\u6771.tmp"};
+    DWORD results[2]{};
+    for (unsigned i = 0; i != 2; ++i)
+    {
+        HANDLE file = CreateFileW(paths[i], GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (file == INVALID_HANDLE_VALUE) return false;
+        bool ok = CloseHandle(file) != FALSE && SetFileAttributesW(paths[i], FILE_ATTRIBUTE_ARCHIVE) != FALSE;
+        if (ok && i == 0)
+            ok = SetFileAttributesW(paths[i], 0) != FALSE;
+        else if (ok)
+        {
+            file = CreateFileW(paths[i], GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+            if (file == INVALID_HANDLE_VALUE) ok = false;
+            else
+            {
+                FILE_BASIC_INFO basic{};
+                basic.FileAttributes = FILE_ATTRIBUTE_NORMAL;
+                ok = SetFileInformationByHandle(file, FileBasicInfo, &basic, sizeof(basic)) != FALSE;
+                ok = CloseHandle(file) != FALSE && ok;
+            }
+        }
+        if (ok) results[i] = GetFileAttributesW(paths[i]);
+        if (!DeleteFileW(paths[i]) || !ok) return false;
+    }
+    return results[0] == FILE_ATTRIBUTE_NORMAL && results[1] == results[0];
+}
+
 static void Check(bool condition, const char* name, int& failures)
 {
     std::printf("%s %s\n", condition ? "PASS" : "FAIL", name);
@@ -103,6 +137,7 @@ static void Check(bool condition, const char* name, int& failures)
 int main()
 {
     int failures = 0;
+    Check(RealZeroAttributesMatch(), "real file APIs agree on clearing the archive attribute", failures);
     state = {}; state.scoped = true; state.connectionLost = true;
     Check(!Finish() && state.handleAttributes == 0 && state.pathAttributes == 0 &&
           state.reports == 1 && state.reportedError == ERROR_BROKEN_PIPE,
