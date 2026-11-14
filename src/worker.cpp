@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Preserve scoped partial targets after terminal session loss. | Do not truncate broker-owned data when cleanup can no longer be verified. | #731 | GPT-6 |
 // | 2026-11-14 | Inject one overwrite denial in the unelevated laboratory build. | Exercise real scoped F5 overwrite without changing fixture ACLs. | #731 | GPT-6 |
 // | 2026-11-14 | Distinguish session loss from uncertain privileged cleanup. | Keep ordinary target cleanup and error reporting native. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Observe thin-session loss while waiting for async I/O. | Cancel and drain issued operations before returning to the worker. | #731 | gpt-6.1-terra |
@@ -8886,7 +8887,11 @@ COPY_AGAIN:
                             HANDLES(CloseHandle(in));
                         if (out != NULL)
                         {
-                            if (wholeFileAllocated)
+                            if (wholeFileAllocated
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                && (!thin.terminal || thin.NativeTarget())
+#endif
+                                )
                                 SetEndOfFile(out); // otherwise on a floppy the remaining part of the file would be written
 #ifdef SAM_UAC_THIN_COPY_TEST
                             if (thin.ScopedTarget())
@@ -8911,7 +8916,11 @@ COPY_AGAIN:
                             HANDLES(CloseHandle(in));
                         if (out != NULL)
                         {
-                            if (wholeFileAllocated)
+                            if (wholeFileAllocated
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                && (!thin.terminal || thin.NativeTarget())
+#endif
+                                )
                                 SetEndOfFile(out); // otherwise on a floppy the remaining part of the file would be written
 #ifdef SAM_UAC_THIN_COPY_TEST
                             if (thin.ScopedTarget())
