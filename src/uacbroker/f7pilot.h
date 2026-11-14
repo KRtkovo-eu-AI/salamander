@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Reuse live panel read grants for viewer snapshots. | Avoid a second elevation for a verified file within the panel scope. | #731 | GPT-6 |
 | 2026-11-14 | Expose an experimental thin transport check. | Detect a disconnected job without consuming protocol data. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Carry deferred overwrite evidence to the broker. | Recheck the native Scan Ahead decision after UAC consent. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Add a write-only fresh target reopen. | Preserve native overwrite probing without granting content read access. | #731 | gpt-6.1-terra |
@@ -1143,6 +1144,7 @@ public:
     DWORD OpenContent(const std::wstring& path, ULONGLONG& size, FILETIME& modified, ArchiveRevision& revision);
     DWORD ReadContent(ULONGLONG offset, void* buffer, DWORD bytes);
     DWORD CloseContent();
+    DWORD ReadViewerSnapshot(const std::wstring& path, const PreparedLeaf& expected, std::vector<BYTE>& snapshot);
     bool Contains(const std::wstring& path) const;
     bool TryContains(const std::wstring& path, bool& contains) const
     {

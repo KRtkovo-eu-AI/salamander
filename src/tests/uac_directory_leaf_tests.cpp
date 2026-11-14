@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Check scoped panel content requests. | Restrict reusable viewer access to named descendants. | #731 | GPT-6 |
 | 2026-11-12 | Exercise exact-case rename of links in a sensitive directory. | Verify identity, collision and raw reparse data without following targets. | #731 | GPT-6 (Codex) |
 | 2026-11-12 | Exercise case-only rename to a free name in a case-sensitive directory. | Verify the exact-object behavior on actual NTFS. | #731 | GPT-6 (Codex) |
 | 2026-11-11 | Verify conservative disk overwrite recovery separately from ZIP. | Preserve exact legacy journals and backups without claiming unproved restoration. | #731 | GPT-6 (Codex) |
@@ -3029,7 +3030,7 @@ static bool CheckFindTagStream()
           "an exact-file Find grant refuses directory listing and inventory");
     Check(ValidRequestScope(Operation::FindContent, 1, false, true) &&
               !ValidRequestScope(Operation::FindContent, 0, false, true) &&
-              !ValidRequestScope(Operation::List, 1, false, true),
+              ValidRequestScope(Operation::List, 1, false, true) && !ValidRequestScope(Operation::List, 0, false, true),
           "directory content reads require a named file and an explicit content grant");
     struct Fixture
     {

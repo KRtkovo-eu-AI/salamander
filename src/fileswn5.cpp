@@ -10,6 +10,7 @@
 // | 2026-11-07 | Offer one-file broker rename in the shared panel rename path. | Keep ordinary rename and overwrite semantics while adding explicit consent. | | GPT-6.1 Sol (Codex) |
 // | 2026-11-07 | Connect native F7 to the protected mkdir pilot. | Offer elevation only for a verified existing parent. | | GPT-6.1 Sol (Codex) |
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Reuse approved panel reads for internal F3. | Avoid a second consent for files already within the live panel scope. | #731 | GPT-6 |
 // | 2026-11-11 | Bind protected Find viewing to its captured identity. | Reject readable replacements and pathname-only handlers. | #731 | GPT-6.1 Terra |
 // | 2026-11-10 | Separate trusted editor preparation from the Find prompt. | Avoid blocking the Find window during the application consent dialog. | #731 | GPT-6.1 Sol |
 // | 2026-11-10 | Reuse explicit editor elevation in Branch View and Find. | Avoid denying eligible F4 requests before the existing editor retry. | #731 | GPT-6.1 Sol |
@@ -2380,6 +2381,29 @@ static bool PrepareProtectedViewerSnapshot(HWND parent, const std::wstring* cand
     }
     if (prepared)
     {
+        const auto* panelRoot = protectedListing ? &protectedListing->GetRoot() : nullptr;
+        const bool inPanelScope = panelRoot && !panelRoot->empty() && candidate->size() > panelRoot->size() &&
+            candidate->compare(0, panelRoot->size(), *panelRoot) == 0 &&
+            (panelRoot->back() == L'\\' || (*candidate)[panelRoot->size()] == L'\\');
+        if (inPanelScope && !protectedListing->IsOpen())
+        {
+            SalMessageBox(parent, GetErrorText(ERROR_BROKEN_PIPE), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+            return false;
+        }
+        if (protectedListing && protectedListing->Contains(*candidate))
+        {
+            if (panelStillCurrent && !panelStillCurrent(panelContext)) return false;
+            snapshot = std::make_unique<std::vector<BYTE>>();
+            const DWORD error = protectedListing->ReadViewerSnapshot(*candidate, *prepared, *snapshot);
+            if (panelStillCurrent && !panelStillCurrent(panelContext)) return false;
+            if (error)
+            {
+                SalMessageBox(parent, GetErrorText(error), LoadStr(IDS_ERRORREADINGFILE), MB_OK | MB_ICONEXCLAMATION);
+                return false;
+            }
+            enumFileNamesSourceUID = enumFileNamesLastFileIndex = -1;
+            return true;
+        }
         const int prompt = foundView ? IDS_UAC_VIEW_VERIFIED_CONFIRM : IDS_UAC_VIEW_CONFIRM;
         if (!ConfirmProtectedRead(parent, IDS_VIEWERTITLE, prompt, *candidate))
             return false;

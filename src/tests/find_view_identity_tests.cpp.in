@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Test panel snapshot reuse and disconnected scopes. | Avoid a second consent while preserving captured identity. | #731 | GPT-6 |
 // | 2026-11-12 | Test protected panel viewer fallback and modal invalidation. | Preserve readable files and captured IDs across the internal viewer path. | #731 | GPT-6 (Codex) |
 // | 2026-11-11 | Exercise the real Find-view routing with a readable NTFS replacement. | Check captured identity before any pathname-only probe. | #731 | GPT-6.1 Terra |
 #define WIN32_LEAN_AND_MEAN
@@ -60,6 +61,14 @@ struct PreparedLeaf {
     }
 };
 struct ListingSession {
+    std::wstring root;
+    bool open = false;
+    const std::wstring& GetRoot() const { return root; }
+    bool IsOpen() const { return open; }
+    bool Contains(const std::wstring& path) const { return open && !root.empty() && path.size() > root.size() && path.compare(0, root.size(), root) == 0 && path[root.size()] == L'\\'; }
+    DWORD ReadViewerSnapshot(const std::wstring&, const PreparedLeaf& leaf, std::vector<BYTE>& snapshot) {
+        return leaf.ReadViewerSnapshot(nullptr, snapshot).error;
+    }
     DWORD PrepareViewer(const std::wstring&, PreparedLeaf&) { ++listingPreparations; return ERROR_ACCESS_DENIED; }
 };
 }
@@ -220,6 +229,16 @@ int wmain(int argc, wchar_t** argv) {
                                          &verified, PanelCurrent, &current) && snapshot && snapshot->size() == 1 &&
           snapshot->front() == replacement && preparations == beforePreparations && source == -1 && index == -1,
           "denied panel item uses the captured identity and never reidentifies it by name");
+    listing.root = root; listing.open = true; snapshot.reset(); source = 41; index = 42;
+    const int beforeShared = confirmations;
+    Check(PrepareProtectedViewerSnapshot(nullptr, &path, &listing, nullptr, snapshot, readable, source, index,
+                                         &verified, PanelCurrent, &current) && snapshot && snapshot->size() == 1 &&
+          snapshot->front() == replacement && confirmations == beforeShared && source == -1 && index == -1,
+          "approved panel session reads the verified file without another consent");
+    listing.open = false; snapshot.reset();
+    Check(!PrepareProtectedViewerSnapshot(nullptr, &path, &listing, nullptr, snapshot, readable, source, index,
+                                          &verified, PanelCurrent, &current) && confirmations == beforeShared,
+          "disconnected panel session fails without prompting again");
     CloseHandle(parent);
     std::printf("Find viewer identity: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

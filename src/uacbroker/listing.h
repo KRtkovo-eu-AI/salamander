@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Permit read-only content in an approved panel scope. | Reuse the live panel grant for its internal viewer. | #731 | GPT-6 |
 | 2026-11-12 | Stream exact thin-copy child identity checks. | Check large directories without losing duplicate detection or cancellation. | #731 | GPT-6 |
 | 2026-11-12 | Give paged directory requests cursor tokens. | Keep nested Find traversal scoped to its exact open handles. | #731 | GPT-6.1 Terra |
 | 2026-11-12 | Define bounded verified directory page frames. | Keep streamed metadata confined to a CompareList session. | #731 | GPT-6 (Codex) |
@@ -93,7 +94,7 @@ inline bool ValidRequestScope(UacF7::Operation scope, DWORD pathLength, bool inv
         return content && !inventory && pathLength == 0;
     if (UacF7::IsComparisonScope(scope))
         return !inventory && (!content || (scope == UacF7::Operation::CompareContent && pathLength != 0));
-    return !content || (scope == UacF7::Operation::FindContent && !inventory && pathLength != 0);
+    return !content || ((scope == UacF7::Operation::FindContent || scope == UacF7::Operation::List) && !inventory && pathLength != 0);
 }
 
 // Root checks remain exclusive to CompareList; the Find roles can verify an

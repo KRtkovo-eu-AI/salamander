@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Exercise panel snapshot over the existing session. | Check repeated reads and identity rejection without launching a broker. | #731 | GPT-6 |
 # | 2026-11-12 | Exercise Stop during a content read with active cursors. | Verify production pipe cancellation releases all leases. | #731 | GPT-6.1 Terra |
 # | 2026-11-12 | Exercise concurrent paged listing client requests. | Verify leases, serialized pipe frames and cancellation. | #731 | GPT-6 (Codex) |
 """Exercise extracted production ListingSession methods with a controlled local pipe peer."""
@@ -26,6 +27,7 @@ def main():
                'bool ListingSession::Contains(', 'DWORD ListingSession::Transfer(',
                'DWORD ListingSession::SendPath(', 'DWORD ListingSession::List(',
                'DWORD ListingSession::OpenContent(', 'DWORD ListingSession::ReadContent(', 'DWORD ListingSession::CloseContent(',
+               'DWORD ListingSession::ReadViewerSnapshot(',
                'DWORD ListingSession::OpenDirectoryCursor(', 'DWORD ListingSession::NextDirectoryPage(',
                'DWORD ListingSession::CloseDirectoryCursor(')
     source = source.replace('@@GLOBAL_METHODS@@', '\n\n'.join(block(production, marker) for marker in globals_))

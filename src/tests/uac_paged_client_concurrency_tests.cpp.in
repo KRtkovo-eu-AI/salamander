@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Test repeated panel snapshots and identity mismatch. | Reuse the established pipe without a new elevation. | #731 | GPT-6 |
 // | 2026-11-12 | Check cursor leases across sessions. | Keep one session from addressing another session's cursor. | #731 | GPT-6.1 Terra |
 // | 2026-11-12 | Test concurrent paged listing client calls. | Bind response frames to leases and cancellation. | #731 | GPT-6 (Codex) |
 #include <windows.h>
@@ -508,6 +509,53 @@ void RetainedLifetime()
     Check(alive && weak.expired() && peerOk && error == ERROR_SUCCESS,
           "worker ownership retains the session after the simulated panel releases it");
 }
+
+void PanelViewerSnapshots()
+{
+    Pair pair;
+    if (!pair.Open(30)) { Check(false, "prepare panel viewer fixture"); return; }
+    auto session = Session(pair);
+    session->prepared.operation = UacF7::Operation::List;
+    UacF7::PreparedLeaf expected;
+    expected.operation = UacF7::Operation::View;
+    expected.serial = 0x12345678;
+    expected.sourceId[0] = 7;
+    std::atomic<bool> peerOk{false};
+    std::thread peer([&] {
+        bool ok = true;
+        for (int i = 0; i != 3 && ok; ++i)
+        {
+            DWORD length = 0, status = ERROR_SUCCESS;
+            ok = Read(pair.peer.get(), &length, sizeof(length)) && (length & UacListing::contentRequest);
+            length &= ~UacListing::contentRequest;
+            std::wstring relative(length, L'\0');
+            ok = ok && Read(pair.peer.get(), relative.data(), length * sizeof(wchar_t));
+            UacF7::ArchiveRevision revision{};
+            revision.serial = 0x12345678; revision.fileId[0] = i == 2 ? 8 : 7; revision.size = 5;
+            ok = ok && Write(pair.peer.get(), &status, sizeof(status)) && Write(pair.peer.get(), &revision, sizeof(revision));
+            UacF7::ArchiveReadRange range{};
+            if (i != 2)
+            {
+                ok = ok && Read(pair.peer.get(), &range, sizeof(range)) && range.size == 5 && range.offset == 0;
+                ok = ok && Write(pair.peer.get(), &status, sizeof(status)) && Write(pair.peer.get(), "hello", 5);
+            }
+            ok = ok && Read(pair.peer.get(), &range, sizeof(range)) && !range.size && !range.offset;
+            ok = ok && Write(pair.peer.get(), &status, sizeof(status));
+        }
+        peerOk = ok;
+    });
+    std::vector<BYTE> snapshot;
+    const DWORD first = session->ReadViewerSnapshot(L"C:\\owned-fixture\\first.txt", expected, snapshot);
+    const bool contents = snapshot.size() == 5 && std::memcmp(snapshot.data(), "hello", 5) == 0;
+    const DWORD second = session->ReadViewerSnapshot(L"C:\\owned-fixture\\second.txt", expected, snapshot);
+    const DWORD mismatch = session->ReadViewerSnapshot(L"C:\\owned-fixture\\changed.txt", expected, snapshot);
+    peer.join();
+    const DWORD outside = session->ReadViewerSnapshot(L"C:\\outside\\file.txt", expected, snapshot);
+    Check(!first && !second && contents && mismatch == ERROR_FILE_INVALID && snapshot.empty() && peerOk && session->IsOpen(),
+          "two verified F3 snapshots reuse the panel pipe and a changed identity is rejected");
+    Check(outside == ERROR_ACCESS_DENIED && NoBytes(pair.peer.get()),
+          "the approved panel session cannot read outside its root");
+}
 }
 
 int main()
@@ -521,6 +569,7 @@ int main()
     PartialPage();
     CloseWaitsForPage();
     RetainedLifetime();
+    PanelViewerSnapshots();
     std::printf("Failures=%d\n", failures);
     return failures ? 1 : 0;
 }

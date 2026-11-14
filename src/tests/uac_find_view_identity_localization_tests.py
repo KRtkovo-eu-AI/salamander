@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Check all current language archives. | Preserve old translations while permitting explicit English fallbacks. | #731 | GPT-6 |
 # | 2026-11-11 | Check protected Find viewer identity explanations. | Preserve the F3 choices and retry guidance in all locales. | #731 | GPT-6.1 Terra |
 """Check protected Find identity messages in the source and every shipped locale."""
 import re
@@ -29,7 +30,7 @@ class FindViewIdentityLocalizationTests(unittest.TestCase):
 
     def test_all_locales(self):
         paths = {path.parent.name: path for path in (ROOT / "translations").glob("*/salamand.slt")}
-        self.assertEqual(set(paths), LOCALES)
+        self.assertTrue(LOCALES.issubset(paths))
         for locale, path in paths.items():
             with self.subTest(locale=locale):
                 raw = path.read_bytes()
@@ -38,7 +39,8 @@ class FindViewIdentityLocalizationTests(unittest.TestCase):
                 text = raw.decode("utf-8-sig")
                 section = text.split("[STRINGTABLE 198]", 1)[1].split("[STRINGTABLE 199]", 1)[0]
                 for number in IDS.values():
-                    pattern = r'^' + str(number) + r',1,"([^"\r\n]+)"\s*$'
+                    state = '1' if locale in LOCALES else '[01]'
+                    pattern = r'^' + str(number) + ',' + state + r',"([^"\r\n]+)"\s*$'
                     rows = re.findall(pattern, text, re.M)
                     self.assertEqual(len(rows), 1, (locale, number))
                     self.assertEqual(len(re.findall(pattern, section, re.M)), 1, (locale, number))

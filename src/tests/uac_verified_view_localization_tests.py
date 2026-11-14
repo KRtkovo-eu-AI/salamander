@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Cover newly added language archives. | Accept explicitly untranslated English fallbacks while retaining existing translation checks. | #731 | GPT-6 |
 # | 2026-11-11 | Check verified-result viewer messages. | Keep consent and handler limitations localized without placeholders. | #731 | GPT-6.1 Terra |
 """Check verified-result F3 resources in the source and every shipped locale."""
 import re
@@ -14,6 +15,18 @@ IDS = {"IDS_UAC_VIEW_IDENTITY_HANDLER_UNSUPPORTED": 14710, "IDS_UAC_VIEW_VERIFIE
 
 
 class VerifiedViewLocalizationTests(unittest.TestCase):
+    def test_panel_consent_discloses_read_access(self):
+        english = 'Access was denied. Read and list this folder and its subfolders as an administrator?'
+        resources = (ROOT / 'src/lang/texts.rc2').read_text(encoding='utf-8-sig')
+        self.assertIn('IDS_UAC_LIST_CONFIRM, "' + english + '"', resources)
+        for path in (ROOT / 'translations').glob('*/salamand.slt'):
+            rows = re.findall(r'^14631,([01]),"([^"\r\n]+)"$', path.read_text(encoding='utf-8-sig'), re.M)
+            self.assertEqual(len(rows), 1, path)
+            if path.parent.name == 'czech':
+                self.assertEqual(rows[0], ('1', 'Přístup byl odepřen. Číst a vypsat tuto složku a její podsložky jako správce?'))
+            else:
+                self.assertEqual(rows[0], ('0', english))
+
     def test_resources(self):
         header = (ROOT / "src/texts.rh2").read_text(encoding="utf-8-sig")
         resources = (ROOT / "src/lang/texts.rc2").read_text(encoding="utf-8-sig")
@@ -28,7 +41,7 @@ class VerifiedViewLocalizationTests(unittest.TestCase):
 
     def test_locales_and_resource_blocks(self):
         paths = {path.parent.name: path for path in (ROOT / "translations").glob("*/salamand.slt")}
-        self.assertEqual(set(paths), LOCALES)
+        self.assertTrue(LOCALES.issubset(paths))
         for locale, path in paths.items():
             with self.subTest(locale=locale):
                 raw = path.read_bytes()
@@ -39,7 +52,8 @@ class VerifiedViewLocalizationTests(unittest.TestCase):
                 headers = [int(n) for n in re.findall(r"^\[STRINGTABLE (\d+)\]$", text, re.M)]
                 self.assertEqual(headers, list(range(len(headers))))
                 for number in IDS.values():
-                    pattern = r'^' + str(number) + r',1,"([^"\r\n]+)"\s*$'
+                    state = '1' if locale in LOCALES else '[01]'
+                    pattern = r'^' + str(number) + ',' + state + r',"([^"\r\n]+)"\s*$'
                     rows = re.findall(pattern, text, re.M)
                     self.assertEqual(len(rows), 1, (locale, number))
                     self.assertEqual(len(re.findall(pattern, section, re.M)), 1, (locale, number))

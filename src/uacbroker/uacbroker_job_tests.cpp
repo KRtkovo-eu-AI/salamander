@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise scoped panel content through the dispatcher. | Verify repeated viewer reads remain within the approved root. | #731 | GPT-6 |
 // | 2026-11-14 | Add actual-client CopyAttrs access cases. | Cover target creation and overwrite without expanding source rights. | #731 | GPT-6 |
 // | 2026-11-14 | Reuse a real planned client job for two files. | Verify batch custody and scope across consecutive native handle opens. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Add a targeted client connection-loss case. | Exercise the real session with an external dispatcher. | #731 | gpt-6.1-terra |
@@ -1076,10 +1077,16 @@ void CheckPanelPreparationFlags(const Directory& source)
                   "Find grants cannot use a typed panel preparation request");
         }
     }
-    JobPipe job;
-    Check(job.Open(nullptr, source.handle.get(), Operation::List) &&
-              job.RejectFindRequest(UacListing::contentRequest | 1),
-          "metadata preparation does not add content access to a List grant");
+    constexpr wchar_t viewerFile[] = L"panel-view-\u6771.txt";
+    Check(WriteByte(source.File(viewerFile), 71), "create a scoped panel viewer fixture");
+    {
+        JobPipe job;
+        Check(job.Open(nullptr, source.handle.get(), Operation::List) &&
+                  job.OpenFindContent(viewerFile) && job.ReadAndCloseFindContent(71) &&
+                  job.OpenFindContent(viewerFile) && job.ReadAndCloseFindContent(71),
+              "one approved List session serves repeated panel viewer reads");
+    }
+    Check(DeleteFileW(source.File(viewerFile).c_str()) != FALSE, "remove the scoped panel viewer fixture");
 }
 
 void CheckPanelPreparationMutationGuards(const Directory& source)

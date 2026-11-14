@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Check refusal across queued Find scopes. | Avoid repeated UAC prompts after a declined search. | #731 | GPT-6 |
 // | 2026-11-11 | Preserve typed incomplete Find reasons across searches. | Keep different omissions distinct without changing current reports. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Exercise the real protected Find queue and limit report. | Preserve Stop and deduplication at capacity. | #731 | GPT-6.1 Terra |
 #include <windows.h>
@@ -148,7 +149,8 @@ using FindProtectedSessions = std::array<UacF7::ListingSession*, maxFindProtecte
 struct FixtureSize { DWORD LoDWord = 0, HiDWord = 0; };
 struct CFoundFilesData { DWORD Attr = 0; FixtureSize Size; FILETIME LastWrite{}; };
 static bool failPrepare, stopAfterPrepare, failStart;
-static int starts, preparations;
+static DWORD finishError;
+static int starts, preparations, finishes, omitted;
 struct FindProtectedRequest {
     std::wstring path;
     CMaskGroup* masks = nullptr;
@@ -166,7 +168,9 @@ struct FindProtectedRequest {
     }
     bool MergeRefinedRow(const WIN32_FIND_DATAW& file) const { return attributes == file.dwFileAttributes; }
     bool Start() { ++starts; return !failStart; }
-    UacF7::ListingSession* Finish(CDuplicateCandidates*) { return nullptr; }
+    UacF7::ListingSession* Finish(CDuplicateCandidates*) { ++finishes; return nullptr; }
+    DWORD BatchFailure() const { return finishError; }
+    void OmitAfterFailure(DWORD) { ++omitted; }
 };
 std::wstring SalPathRemoveExtendedPrefixW(const wchar_t* path) { return path; }
 @@QUEUE@@
@@ -230,6 +234,30 @@ int main() {
           "Stop takes precedence over a full queue");
     ReportFindScopeLimit(&data, "C:\\scope\\33");
     Check(data.logs.size() == 1, "a stopped search emits no later limit log");
+    {
+        CGrepData search; FindProtectedQueue denied;
+        const int previousStarts = starts;
+        Check(denied.Add(&search, L"C:\\root\\first", &mask, TRUE, 0, {}) == FindQueueResult::Added &&
+              denied.Add(&search, L"C:\\root\\second", &mask, TRUE, 0, {}) == FindQueueResult::Added,
+              "two denied siblings queue while ordinary search continues");
+        finishError = ERROR_CANCELLED; finishes = omitted = 0;
+        denied.Finish(nullptr);
+        Check(starts == previousStarts + 1 && finishes == 1 && omitted == 1,
+              "declining first Find consent omits later siblings without starting another request");
+        finishError = ERROR_SUCCESS;
+    }
+    {
+        CGrepData search; FindProtectedQueue disconnected;
+        const int previousStarts = starts;
+        Check(disconnected.Add(&search, L"C:\\root\\one", &mask, TRUE, 0, {}) == FindQueueResult::Added &&
+              disconnected.Add(&search, L"C:\\root\\two", &mask, TRUE, 0, {}) == FindQueueResult::Added,
+              "two denied paths are queued before the session fails");
+        finishError = ERROR_BROKEN_PIPE; finishes = omitted = 0;
+        disconnected.Finish(nullptr);
+        Check(starts == previousStarts + 1 && finishes == 1 && omitted == 1,
+              "a broken Find session does not automatically start another consent");
+        finishError = ERROR_SUCCESS;
+    }
     Check(FindFinalActivity(true, true) == CFindActivity::Stopped &&
           FindFinalActivity(false, true) == CFindActivity::Incomplete &&
           FindFinalActivity(false, false) == CFindActivity::Finished,

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Preserve Find consent refusal across queued scopes. | Avoid asking again for other denied paths in the same search. | #731 | GPT-6 |
 // | 2026-11-14 | Handle Find dialog allocation failure. | Catch the standard allocation exception before restoring the cursor. | #731 | GPT-6 |
 // | 2026-11-12 | Stream protected Find directory pages. | Search wide directories under one identity-bound consent. | #731 | GPT-6.1 Terra |
 // | 2026-11-11 | Remove the aggregate protected Find tree entry cap. | Search independently bounded directories under one approved session. | #731 | GPT-6.1 Terra |
@@ -2138,6 +2139,23 @@ public:
         return session.IsOpen() && !data->Refine && FindDuplicateContent(*data) ? &session : nullptr;
     }
 
+    DWORD BatchFailure() const
+    {
+        if (data->StopSearch) return ERROR_CANCELLED;
+        if (!consent) return ERROR_NOT_ENOUGH_MEMORY;
+        if (consent->result != ERROR_SUCCESS) return consent->result;
+        return session.IsOpen() ? ERROR_SUCCESS : ERROR_BROKEN_PIPE;
+    }
+
+    void OmitAfterFailure(DWORD error)
+    {
+        if (data->StopSearch) return;
+        data->IncompleteReasons |= FindIncompleteProtectedFailure;
+        Log(path, error, singleFile);
+        if (singleFile && data->Refine == 2)
+            PublishSingleFile(nullptr, false);
+    }
+
 private:
     void Log(const std::wstring& entryPath, DWORD error, bool isFile = false)
     {
@@ -2469,9 +2487,17 @@ public:
     FindProtectedSessions Finish(CDuplicateCandidates* candidates)
     {
         FindProtectedSessions sessions{};
+        DWORD batchFailure = ERROR_SUCCESS;
         for (size_t i = 0; i < count; ++i)
         {
+            if (batchFailure)
+            {
+                requests[i]->OmitAfterFailure(batchFailure);
+                requests[i].reset();
+                continue;
+            }
             sessions[i] = requests[i]->Finish(candidates);
+            batchFailure = requests[i]->BatchFailure();
             if (!sessions[i])
                 requests[i].reset();
         }

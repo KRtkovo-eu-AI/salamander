@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Read viewer snapshots through the approved panel session. | Reuse its scoped read grant without relaunching the broker. | #731 | GPT-6 |
 | 2026-11-14 | Discover protected UAC pairs from their actual executable directory. | Support trusted locations on fixed local volumes without weakening image checks. | #731 | GPT-6 |
 | 2026-11-14 | Clear readonly on an identified partial target before cleanup. | Preserve the native CopyAttrs cancellation behavior. | #731 | GPT-6 |
 | 2026-11-14 | Restrict experimental CopyAttrs target read access. | Prepare native attribute handling without widening probes or source access. | #731 | GPT-6 |
@@ -7622,7 +7623,7 @@ DWORD ListingSession::OpenContent(const std::wstring& path, ULONGLONG& size, FIL
     modified = {};
     revision = {};
     if (prepared.operation != Operation::FindFile &&
-        ((prepared.operation != Operation::FindContent && prepared.operation != Operation::CompareContent) ||
+        ((prepared.operation != Operation::FindContent && prepared.operation != Operation::CompareContent && prepared.operation != Operation::List) ||
          path.size() <= root.size()))
         return ERROR_ACCESS_DENIED;
     const auto deadline = GetTickCount64() + timeoutMs;
@@ -7685,6 +7686,38 @@ DWORD ListingSession::CloseContent()
     if (error)
         Close();
     return error ? error : status;
+}
+
+DWORD ListingSession::ReadViewerSnapshot(const std::wstring& path, const PreparedLeaf& expected, std::vector<BYTE>& snapshot)
+{
+    ListingForegroundLock lock(mutex, foregroundWaiters);
+    snapshot.clear();
+    if (prepared.operation != Operation::List || !Contains(path)) return ERROR_ACCESS_DENIED;
+    ULONGLONG size = 0;
+    FILETIME modified{};
+    ArchiveRevision revision{};
+    DWORD error = OpenContent(path, size, modified, revision);
+    if (error) return error;
+    try
+    {
+        if (!expected.MatchesReadSource(revision)) error = ERROR_FILE_INVALID;
+        else if (size > maxViewerSnapshotBytes) error = ERROR_FILE_TOO_LARGE;
+        else
+        {
+            snapshot.resize(static_cast<size_t>(size));
+            for (ULONGLONG offset = 0; !error && offset < size; )
+            {
+                const DWORD count = static_cast<DWORD>((std::min)(size - offset, static_cast<ULONGLONG>(archiveReadBlock)));
+                error = ReadContent(offset, snapshot.data() + static_cast<size_t>(offset), count);
+                offset += count;
+            }
+        }
+    }
+    catch (const std::bad_alloc&) { error = ERROR_NOT_ENOUGH_MEMORY; }
+    const DWORD closeError = CloseContent();
+    if (!error) error = closeError;
+    if (error) snapshot.clear();
+    return error;
 }
 
 DWORD ListingSession::Inventory(const std::wstring& path, DirectoryInventory& inventory, DirectorySizeDetails* details,
