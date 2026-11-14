@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Route plain protected F5 overwrites through the native worker. | Use scoped file handles while retaining native conflict and transfer handling. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Track write-only reopened target handles. | Preserve target identity and cleanup ownership for native overwrite checks. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Read protected overwrite attributes through the approved session. | Preserve the native hidden and system overwrite confirmations. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Track broker-opened overwrite handles in the native copy worker. | Apply existing cancellation and cleanup ownership to the new target open. | #731 | gpt-6.1-terra |
@@ -9245,7 +9246,35 @@ COPY_AGAIN:
                                         dlgData.ConflictTargetChanged = TRUE;
                                         return TRUE;
                                     }
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                    if (thin.active && !thin.targetCreatedByBroker)
+                                        thin.nativeTargetOverwrite = true;
+#endif
                                     out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), access, 0, NULL, CREATE_ALWAYS, fileAttrs, NULL));
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                    if (thin.active && out == INVALID_HANDLE_VALUE && GetLastError() == ERROR_ACCESS_DENIED)
+                                    {
+                                        // Scan Ahead must revalidate after consent as well. Until
+                                        // that identity reaches the broker, report the limitation
+                                        // instead of repeatedly requeuing an unchanged conflict.
+                                        if (dlgData.ConflictDecisionInjected && dlgData.InjectedTargetIdentityValid)
+                                        {
+                                            err = ERROR_NOT_SUPPORTED;
+                                            goto NORMAL_ERROR;
+                                        }
+                                        out = THIN_OPEN_TARGET_OVERWRITE(&thin, out, asyncPar->UseAsyncAlg != FALSE);
+                                        if (out == INVALID_HANDLE_VALUE)
+                                        {
+                                            err = GetLastError();
+                                            if (thin.terminal)
+                                            {
+                                                HANDLES(CloseHandle(in));
+                                                return FALSE;
+                                            }
+                                            goto NORMAL_ERROR;
+                                        }
+                                    }
+#endif
                                     if (out == INVALID_HANDLE_VALUE && fileAttrs != (asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN))
                                     {
                                         if (!ValidateInjectedTargetIdentity(op, dlgData))
@@ -9302,6 +9331,19 @@ COPY_AGAIN:
                                     // on target paths that support ADS also delete ADS on the target file (CREATE_ALWAYS should remove them, but on home W2K and XP they simply stay; no idea why, W2K and XP in VMWare delete ADS normally)
                                     if (script->TargetPathSupADS && !DeleteAllADS(out, op->TargetName))
                                     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                        if (thin.targetCreatedByBroker)
+                                        {
+                                            err = GetLastError();
+                                            if (!thin.CloseScopedTarget(out) || !thin.DiscardTarget())
+                                            {
+                                                HANDLES(CloseHandle(in));
+                                                return FALSE;
+                                            }
+                                            if (!err) err = ERROR_GEN_FAILURE;
+                                            goto NORMAL_ERROR;
+                                        }
+#endif
                                         HANDLES(CloseHandle(out));
                                         out = INVALID_HANDLE_VALUE;
                                         if (chAttr)
@@ -9320,8 +9362,38 @@ COPY_AGAIN:
                                     // if we have not yet tested truncating the file to zero, obtain the new file size
                                     if (mustDeleteFileBeforeOverwrite == 0 /* need test */)
                                     {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                        if (thin.targetCreatedByBroker)
+                                        {
+                                            if (!thin.CloseScopedTarget(out))
+                                            {
+                                                HANDLES(CloseHandle(in));
+                                                return FALSE;
+                                            }
+                                            out = thin.Open(UacF7::ThinOpenKind::TargetReopenWrite, asyncPar->UseAsyncAlg != FALSE);
+                                            if (out != INVALID_HANDLE_VALUE)
+                                            {
+                                                const DWORD openError = GetLastError();
+                                                HANDLES_ADD_EX(__otQuiet, TRUE, __htFile, __hoCreateFile, out, openError, TRUE);
+                                                SetLastError(openError);
+                                            }
+                                            else
+                                            {
+                                                err = GetLastError();
+                                                if (!thin.DiscardTarget() || thin.terminal)
+                                                {
+                                                    HANDLES(CloseHandle(in));
+                                                    return FALSE;
+                                                }
+                                                goto NORMAL_ERROR;
+                                            }
+                                        }
+                                        else
+#endif
+                                        {
                                         HANDLES(CloseHandle(out));
                                         out = HANDLES_Q(CreateFileW(WorkerOperationPathW(op->TargetName, op->TargetNameWValid ? op->TargetNameW.c_str() : NULL).c_str(), access, 0, NULL, OPEN_ALWAYS, asyncPar->GetOverlappedFlag() | FILE_FLAG_SEQUENTIAL_SCAN, NULL));
+                                        }
                                         if (out == INVALID_HANDLE_VALUE) // cannot reopen the target file we just opened, unlikely, try deleting and recreating it
                                         {
                                             targetCannotOpenForWrite = TRUE;
@@ -9337,6 +9409,18 @@ COPY_AGAIN:
                                         }
                                         else
                                         {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                                            if (thin.targetCreatedByBroker)
+                                            {
+                                                err = ERROR_WRITE_FAULT;
+                                                if (!thin.CloseScopedTarget(out) || !thin.DiscardTarget())
+                                                {
+                                                    HANDLES(CloseHandle(in));
+                                                    return FALSE;
+                                                }
+                                                goto NORMAL_ERROR;
+                                            }
+#endif
                                             HANDLES(CloseHandle(out));
                                             out = INVALID_HANDLE_VALUE;
                                             mustDeleteFileBeforeOverwrite = 1 /* yes */; // on error or when the size is non-zero, play it safe...
