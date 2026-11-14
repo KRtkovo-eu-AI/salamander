@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Add a targeted client connection-loss case. | Exercise the real session with an external dispatcher. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Probe an idle dispatcher pipe across process death. | Evaluate non-consuming session-loss detection for active F5. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Terminate an external dispatcher before its handle reply. | Observe actual cross-process loss after duplication. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise lost replies after actual handle duplication. | Measure whether repeated failed sessions leave host handles alive. | #731 | gpt-6.1-terra |
@@ -4969,6 +4970,13 @@ int wmain(int argc, wchar_t** argv)
         CheckThinExternalLostReply(source, target);
         return failures ? 1 : 0;
     }
+#ifdef SAM_UAC_CLIENT_PIPE_HARNESS
+    if (argc == 2 && !wcscmp(argv[1], L"--thin-client-connection-only"))
+    {
+        CheckThinClientReopen(source, target, false, false, false, false, false, 0, false, true, true);
+        return failures ? 1 : 0;
+    }
+#endif
     if (argc == 2 && !wcscmp(argv[1], L"--thin-lost-reply-only"))
     {
         CheckThinLostReply(source, target);

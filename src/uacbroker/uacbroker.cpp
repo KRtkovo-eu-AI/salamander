@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Check the experimental thin session's idle pipe. | Prepare detection of a broker exit without reading a reply. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Schedule a test-only external broker crash before a thin reply. | Verify duplicated handle lifetime across real process termination. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Bound uncertain thin-handle deliveries per host process. | Prevent repeatable lost replies from accumulating unbounded handles. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Instrument a lost thin-handle reply in dispatcher tests. | Measure unclaimed handle behavior without altering production requests. | #731 | gpt-6.1-terra |
@@ -6307,6 +6308,30 @@ bool ThinCopySession::IsOpen() const
 #endif
     return shared ? shared->IsOpen() : owned.IsOpen();
 }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+DWORD ThinCopySession::CheckTransport() const
+{
+    std::lock_guard<std::mutex> guard(gate);
+    const TransferJobSession* job = shared ? shared : &owned;
+    if (planned)
+    {
+        if (!plannedGeneration || planned->OpeningGeneration() != plannedGeneration)
+            return ERROR_BROKEN_PIPE;
+        job = planned.get();
+    }
+    if (!job || !job->pipe)
+        return ERROR_BROKEN_PIPE;
+    DWORD available = 0;
+    if (!PeekNamedPipe(job->pipe, nullptr, 0, nullptr, &available, nullptr))
+    {
+        const DWORD error = GetLastError();
+        return error ? error : ERROR_GEN_FAILURE;
+    }
+    // No response is expected between exchanges. Never consume stray data.
+    return available ? ERROR_INVALID_DATA : ERROR_SUCCESS;
+}
+#endif
 
 bool ThinCopySession::Matches(const PreparedTransfer& prepared) const
 {

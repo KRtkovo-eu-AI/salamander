@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 # SPDX-License-Identifier: GPL-2.0-or-later
 # | Date | Summary | Reason | Ticket | Model |
+# | 2026-11-14 | Run the real client's connection-loss test. | Exercise an idle pipe after a dispatcher process exits. | #731 | gpt-6.1-terra |
 # | 2026-11-14 | Run a cross-process crash before the thin handle reply. | Measure a real broker-process exit after duplication. | #731 | gpt-6.1-terra |
 # | 2026-11-14 | Exercise a bounded budget on the real client pipe. | Verify repeated lost responses stop further handle requests. | #731 | gpt-6.1-terra |
 # | 2026-11-14 | Run the post-duplication lost-reply case. | Measure repeated unclaimed handles on the real dispatcher pipe. | #731 | gpt-6.1-terra |
@@ -32,11 +33,12 @@ def main():
     crash_mode.add_argument('--client-reopen-only', action='store_true')
     crash_mode.add_argument('--client-lost-budget-only', action='store_true')
     crash_mode.add_argument('--client-external-lost-budget-only', action='store_true')
+    crash_mode.add_argument('--client-connection-only', action='store_true')
     args = parser.parse_args()
     env = compiler_environment()
     compiler = shutil.which('cl', path=env.get('PATH'))
     flags = ('/MTd', '/Od', '/D_DEBUG') if args.configuration == 'Debug' else ('/MT', '/O2', '/DNDEBUG')
-    client_mode = args.client_reopen_only or args.client_lost_budget_only or args.client_external_lost_budget_only
+    client_mode = args.client_reopen_only or args.client_lost_budget_only or args.client_external_lost_budget_only or args.client_connection_only
     if args.owned_cleanup_only or client_mode or args.overwrite_only or args.lost_reply_only or args.external_lost_reply_only:
         flags += ('/DSAM_UAC_THIN_REOPEN_PROTOTYPE',)
     if client_mode:
@@ -91,6 +93,8 @@ def main():
                 command.append('--thin-client-lost-budget-only')
             if args.client_external_lost_budget_only:
                 command.append('--thin-client-external-lost-budget-only')
+            if args.client_connection_only:
+                command.append('--thin-client-connection-only')
             return run(command, cwd=temp, env=env, timeout=25).returncode
         finally:
             root = Path(temp).resolve(strict=True)

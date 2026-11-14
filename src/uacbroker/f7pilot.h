@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Expose an experimental thin transport check. | Detect a disconnected job without consuming protocol data. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Carry deferred overwrite evidence to the broker. | Recheck the native Scan Ahead decision after UAC consent. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Add a write-only fresh target reopen. | Preserve native overwrite probing without granting content read access. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Add a thin target overwrite operation. | Let the native F5 worker receive the protected output handle. | #731 | GPT-6 |
@@ -1006,6 +1007,10 @@ public:
     std::unique_ptr<TransferJobSession> ReturnPlanned();
 #endif
     bool IsOpen() const;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    // Called only between protocol exchanges; never consumes a message.
+    DWORD CheckTransport() const;
+#endif
     bool Matches(const PreparedTransfer& prepared) const;
     void Close();
 

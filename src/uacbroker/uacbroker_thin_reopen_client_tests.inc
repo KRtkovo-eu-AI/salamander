@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Probe client connection across dispatcher death. | Verify the actual thin session and delivered handle independently. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise the handoff bound after external broker crashes. | Check client behavior when a separate dispatcher dies before reply. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Exercise the real client with an exhausted lost-handle budget. | Bound repeated lost replies and retain control operations. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Observe the actual client after a lost source-handle reply. | Check job retirement while measuring the unclaimed duplicate. | #731 | gpt-6.1-terra |
@@ -42,7 +43,7 @@ void CheckThinAnchorFailure(const Directory& source, const Directory& target)
 void CheckThinClientReopen(const Directory& source, const Directory& target, bool asynchronous,
                           bool overwrite = false, bool failOverwriteHandoff = false, bool staleScan = false,
                           bool lostSourceReply = false, unsigned lostIndex = 0, bool expectBudget = false,
-                          bool externalLoss = false)
+                          bool externalLoss = false, bool checkTransportCrash = false)
 {
     std::wstring root = lostSourceReply ? L"lost-source-reply" : failOverwriteHandoff ? L"overwrite-failed-\u6771" :
         staleScan ? (asynchronous ? L"overwrite-stale-async" : L"overwrite-stale-sync") :
@@ -74,7 +75,7 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     std::unique_ptr<void, decltype(&UnmapViewOfFile)> crashView(nullptr, UnmapViewOfFile);
     ULONGLONG* crashValue = nullptr;
     std::wstring crashEventName, crashMappingName;
-    if (externalLoss)
+    if (externalLoss && !checkTransportCrash)
     {
         GUID id{}; wchar_t guid[40]{};
         if (FAILED(CoCreateGuid(&id)) || !StringFromGUID2(id, guid, ARRAYSIZE(guid)))
@@ -92,7 +93,7 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     DWORD status = ERROR_GEN_FAILURE;
     ListingReply listing{};
     std::vector<UacF7::TreeCopySourceEntry> rows;
-    const bool planned = (externalLoss ? pipe.OpenExternal(crashEventName.c_str(), crashMappingName.c_str()) :
+    const bool planned = (externalLoss ? (checkTransportCrash ? pipe.OpenExternal() : pipe.OpenExternal(crashEventName.c_str(), crashMappingName.c_str())) :
         pipe.Open(nullptr, nullptr, Operation::FindContent, nullptr, false,
                   nullptr, failOverwriteHandoff, false, nullptr, lostSourceReply ? &lostHandle : nullptr)) &&
         pipe.Request(Operation::PlanCopyTree, source, root, status, &target, nullptr, nullptr,
@@ -134,7 +135,7 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
           "invalid cancellation handle stops before the broker request");
     bool reachedCrash = false, crashed = false;
     std::thread killer;
-    if (externalLoss && !expectBudget)
+    if (externalLoss && !expectBudget && !checkTransportCrash)
         killer = std::thread([&] {
             reachedCrash = WaitForSingleObject(crashReady.get(), 10000) == WAIT_OBJECT_0;
             crashed = pipe.CrashExternal();
@@ -143,6 +144,23 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     if (killer.joinable()) killer.join();
     if (crashValue) { lostHandle = *crashValue; crashView.reset(); crashValue = nullptr; }
     auto input = Adopt(opened.file);
+    if (checkTransportCrash)
+    {
+        Check(!opened.error && input && thin.CheckTransport() == ERROR_SUCCESS,
+              "actual client detects connected dispatcher after handle transfer");
+        const bool crashedNow = pipe.CrashExternal();
+        Check(crashedNow && thin.CheckTransport() == ERROR_BROKEN_PIPE,
+              "actual client detects external dispatcher exit on idle transport");
+        BYTE byte = 0; DWORD bytes = 0;
+        Check(ReadFile(input.get(), &byte, 1, &bytes, nullptr) && bytes == 1 && byte == 0x67,
+              "delivered handle remains independently valid after detected exit");
+        input.reset();
+        thin.Close();
+        Check(thin.CheckTransport() == ERROR_BROKEN_PIPE,
+              "closed client session is not reported as connected");
+        pipe.Finish();
+        return;
+    }
     if (lostSourceReply)
     {
         if (expectBudget)
