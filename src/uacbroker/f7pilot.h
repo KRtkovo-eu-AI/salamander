@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Add a write-only fresh target reopen. | Preserve native overwrite probing without granting content read access. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Add a thin target overwrite operation. | Let the native F5 worker receive the protected output handle. | #731 | GPT-6 |
 | 2026-11-13 | Identify displayed experimental batch consent. | Do not extend shield-only approval to undisclosed scopes. | #731 | GPT-6 |
 | 2026-11-13 | Expose a test-only job-pipe seam. | Exercise client custody against the broker dispatcher. | #731 | GPT-6 |
@@ -957,7 +958,7 @@ private:
 };
 
 
-enum class ThinOpenKind : DWORD { Source = 1, TargetCreate = 2, TargetRetry = 3, TargetProbe = 4, Discard = 5, Release = 6, TargetOverwrite = 7 };
+enum class ThinOpenKind : DWORD { Source = 1, TargetCreate = 2, TargetRetry = 3, TargetProbe = 4, Discard = 5, Release = 6, TargetOverwrite = 7, TargetReopenWrite = 8 };
 
 struct ThinOpenedSource { HANDLE value = INVALID_HANDLE_VALUE; };
 struct ThinCancelEvent { HANDLE value = nullptr; };

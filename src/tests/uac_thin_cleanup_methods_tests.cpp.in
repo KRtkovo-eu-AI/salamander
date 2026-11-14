@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Test cancellation of a write-only reopened target. | Keep the owned-target cleanup path identical to Retry. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Cover cancellation of an overwrite handle. | Verify that owned partial targets follow the existing cleanup path. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Test native overwrite cleanup routing. | Preserve normal deletion only for unprivileged targets. | #731 | GPT-6 |
 // | 2026-11-13 | Cover received-handle cleanup after invalid cancellation. | Preserve the wait error unless cleanup is uncertain. | #731 | GPT-6 |
@@ -80,7 +81,7 @@ struct FakeSession {
 struct FakeOperation { char* TargetName; bool TargetNameWValid = false; std::wstring TargetNameW; };
 struct FakeDialog { BOOL* CancelWorker; HANDLE CancelWorkerEvent = nullptr; };
 struct FakeResult { bool unknown; DWORD error; };
-namespace UacF7 { enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe, TargetOverwrite }; }
+namespace UacF7 { enum class ThinOpenKind { Source, TargetCreate, TargetRetry, TargetProbe, TargetOverwrite, TargetReopenWrite }; }
 struct CThinCopyWorker {
     FakeOperation operation;
     FakeDialog dialog;
@@ -268,7 +269,7 @@ int main()
         Check(item.CloseScopedTarget(output) && THIN_DELETE_TARGET(&item, LocalDelete()),
               "probe owner can subsequently clean up", failures);
     }
-    for (auto role : {UacF7::ThinOpenKind::TargetCreate, UacF7::ThinOpenKind::TargetRetry, UacF7::ThinOpenKind::TargetOverwrite})
+    for (auto role : {UacF7::ThinOpenKind::TargetCreate, UacF7::ThinOpenKind::TargetRetry, UacF7::ThinOpenKind::TargetOverwrite, UacF7::ThinOpenKind::TargetReopenWrite})
     {
         broker.calls = 0; broker.result = ERROR_SUCCESS; messages = 0; cancelled = TRUE;
         targetIsOpen = true;

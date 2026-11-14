@@ -1,5 +1,6 @@
 /*
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Support write-only reopening of an owned target. | Match the worker's post-overwrite open without extra read rights. | #731 | gpt-6.1-terra |
 | 2026-11-14 | Open protected overwrite targets for the native F5 worker. | Preserve kernel overwrite semantics without following a replaced pathname. | #731 | GPT-6 |
 | 2026-11-14 | Clean up identity-anchored thin targets without content exclusivity. | Preserve native cancellation semantics while refusing substituted objects. | #731 | GPT-6 |
 | 2026-11-14 | Return explicit errors when thin handle transfer cannot start. | Never report success from a stale last-error value after host liveness fails. | #731 | GPT-6 |
@@ -2550,7 +2551,7 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
         // An identity anchor has different sharing and access semantics from
         // the retained writer. Neither side may silently assume the other.
-        constexpr DWORD allowedThinOptions = 31u;
+        constexpr DWORD allowedThinOptions = 63u;
         constexpr DWORD requiredThinOptions = 28u;
 #else
         constexpr DWORD allowedThinOptions = 15u;
@@ -2562,6 +2563,10 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
 #endif
         if (options.reserved || (options.flags & ~allowedThinOptions))
             return ERROR_INVALID_DATA;
+#if defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_REOPEN_PROTOTYPE)
+        if ((options.flags & 32u) && header.operation != Operation::ThinTargetRetry)
+            return ERROR_INVALID_DATA;
+#endif
         const std::wstring_view data(payload);
         const auto sourceVolume = data.substr(0, volumeLength);
         const auto sourceRelative = data.substr(volumeLength, header.relativeLength);
@@ -2837,7 +2842,8 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
         else
         {
             HANDLE raw = nullptr;
-            ACCESS_MASK access = discard ? DELETE : probe ? 0 : GENERIC_WRITE | (retry ? GENERIC_READ : 0);
+            ACCESS_MASK access = discard ? DELETE : probe ? 0 : GENERIC_WRITE |
+                (retry && !(options.flags & 32u) ? GENERIC_READ : 0);
 #ifdef SAM_UAC_THIN_COPY_TEST
 #ifndef SAM_UAC_THIN_REOPEN_PROTOTYPE
             if (create && retain) access |= GENERIC_READ;
@@ -2941,7 +2947,8 @@ DWORD ReceiveThinOpen(const RequestHeader& header, HANDLE pipe, HANDLE host, DWO
             // The native conflict dialog reads file times and attributes from
             // this handle. Zero access permits identity queries but not those
             // metadata calls; never grant content access for a probe.
-            duplicateAccess = probe ? FILE_READ_ATTRIBUTES : GENERIC_WRITE | (retry ? GENERIC_READ : 0);
+            duplicateAccess = probe ? FILE_READ_ATTRIBUTES : GENERIC_WRITE |
+                (retry && !(options.flags & 32u) ? GENERIC_READ : 0);
         }
         const auto cleanupCreated = [&]() -> DWORD {
             if (!madeTarget) return ERROR_SUCCESS;
@@ -6315,13 +6322,14 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
     case ThinOpenKind::Source: operation = Operation::ThinOpenSource; break;
     case ThinOpenKind::TargetCreate: operation = Operation::ThinTargetCreate; break;
     case ThinOpenKind::TargetRetry: operation = Operation::ThinTargetRetry; break;
+    case ThinOpenKind::TargetReopenWrite: operation = Operation::ThinTargetRetry; break;
     case ThinOpenKind::TargetProbe: operation = Operation::ThinTargetProbe; break;
     case ThinOpenKind::Discard: operation = Operation::ThinDiscardTarget; break;
     case ThinOpenKind::Release: operation = Operation::ThinTargetRelease; break;
     case ThinOpenKind::TargetOverwrite: operation = Operation::ThinTargetOverwrite; break;
     default: output.error = ERROR_INVALID_PARAMETER; return output;
     }
-    if ((kind == ThinOpenKind::TargetRetry || kind == ThinOpenKind::Discard || kind == ThinOpenKind::Release) && !expectedTarget)
+    if ((kind == ThinOpenKind::TargetRetry || kind == ThinOpenKind::TargetReopenWrite || kind == ThinOpenKind::Discard || kind == ThinOpenKind::Release) && !expectedTarget)
     {
         output.error = ERROR_INVALID_PARAMETER;
         return output;
@@ -6409,6 +6417,7 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
 #ifdef SAM_UAC_THIN_COPY_TEST
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
         options.flags |= 28u; // fail-closed cleanup and identity-anchored fresh reopen
+        if (kind == ThinOpenKind::TargetReopenWrite) options.flags |= 32u;
 #else
         options.flags |= 12u; // fail-closed cleanup and retained-target contract
 #endif
@@ -6578,7 +6587,7 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
                 : identity.VolumeSerialNumber == reply.target.VolumeSerialNumber &&
                   !std::memcmp(identity.FileId.Identifier, reply.target.FileId.Identifier, sizeof(reply.target.FileId.Identifier)) &&
                   identity.VolumeSerialNumber == prepared.target.serial) &&
-            (kind != ThinOpenKind::TargetRetry ||
+            ((kind != ThinOpenKind::TargetRetry && kind != ThinOpenKind::TargetReopenWrite) ||
                 (expectedTarget && identity.VolumeSerialNumber == expectedTarget->serial &&
                  !std::memcmp(identity.FileId.Identifier, expectedTarget->id, sizeof(expectedTarget->id))));
         if (!same)
@@ -6590,7 +6599,7 @@ ThinOpenResult ThinCopySession::Open(HWND owner, const PreparedTransfer& prepare
             // later operations silently continue under inconsistent identity.
             // A failed close also leaves ownership uncertain for read-only
             // replies; never retry the close or silently reuse the session.
-            output.unknown = !closed || kind == ThinOpenKind::TargetCreate || kind == ThinOpenKind::TargetRetry ||
+            output.unknown = !closed || kind == ThinOpenKind::TargetCreate || kind == ThinOpenKind::TargetRetry || kind == ThinOpenKind::TargetReopenWrite ||
                              kind == ThinOpenKind::TargetOverwrite;
             return output;
         }

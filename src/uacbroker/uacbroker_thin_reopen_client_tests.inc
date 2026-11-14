@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Test write-only target reopen through the actual client. | Keep the native overwrite size check from acquiring read access. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Reuse actual client Retry cases for overwritten targets. | Check cancellation, fresh opens and cleanup through the new request. | #731 | GPT-6 |
 // | 2026-11-14 | Verify native cleanup through the real thin client. | Confirm identified partial deletion and cleaned-up preparation failure. | #731 | GPT-6 |
 // | 2026-11-13 | Check metadata-probe mutation rights. | Verify the broker does not grant time changes or deletion. | #731 | GPT-6 |
@@ -172,6 +173,25 @@ void CheckThinClientReopen(const Directory& source, const Directory& target, boo
     Check(busy.error == ERROR_SHARING_VIOLATION && !busy.unknown && !busyHandle,
           "retry refuses while the original exclusive writer is still open");
     output.reset();
+    const auto missingIdentity = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetReopenWrite,
+        asynchronous, false, nullptr, UacF7::ThinOpenedSource{input.get()});
+    Check(missingIdentity.error == ERROR_INVALID_PARAMETER && !missingIdentity.unknown &&
+          missingIdentity.file == INVALID_HANDLE_VALUE && thin.IsOpen(),
+          "write-only reopen requires the approved target identity");
+    const auto writeOnly = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetReopenWrite, asynchronous, false,
+                                    &created.targetIdentity, UacF7::ThinOpenedSource{input.get()});
+    auto writeOnlyHandle = Adopt(writeOnly.file);
+    LARGE_INTEGER writeOnlySize{};
+    BYTE forbiddenByte = 0;
+    DWORD forbiddenCount = 0;
+    OVERLAPPED forbiddenIo{};
+    forbiddenIo.hEvent = event.get();
+    Check(!writeOnly.error && !writeOnly.unknown && writeOnlyHandle &&
+          GetFileSizeEx(writeOnlyHandle.get(), &writeOnlySize) && writeOnlySize.QuadPart == 1 &&
+          !ReadFile(writeOnlyHandle.get(), &forbiddenByte, 1, &forbiddenCount,
+                    asynchronous ? &forbiddenIo : nullptr) && GetLastError() == ERROR_ACCESS_DENIED,
+          "fresh write-only reopen supports size check but denies content read");
+    writeOnlyHandle.reset();
     const auto metadata = thin.Open(nullptr, request, UacF7::ThinOpenKind::TargetProbe, false, false,
                                     nullptr, UacF7::ThinOpenedSource{input.get()});
     auto metadataHandle = Adopt(metadata.file);

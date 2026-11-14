@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Track write-only reopened target handles. | Preserve target identity and cleanup ownership for native overwrite checks. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Read protected overwrite attributes through the approved session. | Preserve the native hidden and system overwrite confirmations. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Track broker-opened overwrite handles in the native copy worker. | Apply existing cancellation and cleanup ownership to the new target open. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Recheck transient identity failures on native Retry. | Preserve approved identities without treating an unavailable probe as a permanent substitution. | #731 | GPT-6 |
@@ -5066,7 +5067,7 @@ static void ThinCopyTestHandleGate(UacF7::ThinOpenKind kind, HANDLE cancel)
     if (!roleLength || roleLength >= _countof(role))
         return;
     const bool matches = kind == UacF7::ThinOpenKind::Source ? _wcsicmp(role, L"source") == 0 :
-        (kind == UacF7::ThinOpenKind::TargetCreate || kind == UacF7::ThinOpenKind::TargetRetry ||
+        (kind == UacF7::ThinOpenKind::TargetCreate || kind == UacF7::ThinOpenKind::TargetRetry || kind == UacF7::ThinOpenKind::TargetReopenWrite ||
          kind == UacF7::ThinOpenKind::TargetOverwrite) &&
         _wcsicmp(role, L"target") == 0;
     if (!matches)
@@ -7188,7 +7189,7 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
     scopeMayHaveStarted = true;
     pendingConsent = false;
     const auto result = session->Open(progress, *request, kind, overlapped, false,
-        kind == UacF7::ThinOpenKind::TargetRetry ? &target : nullptr,
+        (kind == UacF7::ThinOpenKind::TargetRetry || kind == UacF7::ThinOpenKind::TargetReopenWrite) ? &target : nullptr,
         UacF7::ThinOpenedSource{openedSource}, UacF7::ThinCancelEvent{dialog.CancelWorkerEvent});
     if (!hadStarted && !brokerHandleDelivered && !targetCreatedByBroker &&
         result.preProbeFailure && result.error != ERROR_SUCCESS && result.error != ERROR_CANCELLED &&
@@ -7239,7 +7240,7 @@ HANDLE CThinCopyWorker::Open(UacF7::ThinOpenKind kind, bool overlapped)
         return INVALID_HANDLE_VALUE;
     }
     brokerHandleDelivered = true;
-    if (kind == UacF7::ThinOpenKind::TargetCreate || kind == UacF7::ThinOpenKind::TargetRetry ||
+    if (kind == UacF7::ThinOpenKind::TargetCreate || kind == UacF7::ThinOpenKind::TargetRetry || kind == UacF7::ThinOpenKind::TargetReopenWrite ||
         kind == UacF7::ThinOpenKind::TargetOverwrite)
     {
         // The broker returns the created target identity or the same
@@ -7277,7 +7278,7 @@ HANDLE CThinCopyWorker::CancelReceivedHandle(UacF7::ThinOpenKind kind, HANDLE re
         return INVALID_HANDLE_VALUE;
     }
     const bool receivedWasTarget = kind == UacF7::ThinOpenKind::TargetCreate ||
-                                   kind == UacF7::ThinOpenKind::TargetRetry ||
+                                   kind == UacF7::ThinOpenKind::TargetRetry || kind == UacF7::ThinOpenKind::TargetReopenWrite ||
                                    kind == UacF7::ThinOpenKind::TargetOverwrite;
     // During a source reopen, or metadata probe, the copy worker can still
     // own an exclusive writable output. Its COPY_ERROR path must close it and

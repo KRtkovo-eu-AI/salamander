@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Reject a write-only reopen flag on other operations. | Keep the handle-access contract bound to a verified reopen. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Compare stream queries on native and transferred handles. | Verify the real worker can execute its existing ADS cleanup step. | #731 | gpt-6.1-terra |
 // | 2026-11-14 | Compare scoped overwrite with the native file open. | Exercise actual NTFS and dispatcher behavior before worker integration. | #731 | GPT-6 |
 
@@ -271,6 +272,18 @@ void CheckThinOverwrite(const Directory& source, const Directory& target, const 
     else
         std::printf("SKIP symlink-target fixture: Windows error %lu\n", GetLastError());
 
+    {
+        const auto path = deep.File(L"invalid-reopen-option.txt");
+        Check(WriteByte(path, 0x41), "prepare invalid reopen option fixture");
+        JobPipe invalid;
+        DWORD status = ERROR_GEN_FAILURE;
+        ThinWireReply reply{};
+        Check(invalid.Open() && !invalid.Thin(source, sourceLeaf, sourceId, deep, L"invalid-reopen-option.txt",
+            Operation::ThinTargetOverwrite, nullptr, false, status, reply, input.get(),
+            INVALID_HANDLE_VALUE, false, 60u) && HasByte(path, 0x41),
+            "write-only reopen option cannot modify an overwrite target");
+        invalid.Finish();
+    }
     JobPipe missing;
     DWORD status = ERROR_GEN_FAILURE;
     ThinWireReply reply{};
