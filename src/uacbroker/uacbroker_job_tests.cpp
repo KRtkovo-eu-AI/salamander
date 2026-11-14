@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Open Samandarin Authors
 // SPDX-License-Identifier: GPL-2.0-or-later
 // | Date | Summary | Reason | Ticket | Model |
+// | 2026-11-14 | Exercise thin dispatcher across a real process crash. | Verify the lifetime of already transferred handles without claiming UAC acceptance. | #731 | GPT-6 |
 // | 2026-11-13 | Inject target-anchor failure in the isolated dispatcher test. | Check the already-created file is preserved. | #731 | GPT-6 |
 // | 2026-11-13 | Test client target reopen on a real dispatcher pipe. | Verify target identity and native handle semantics in sync and async modes. | #731 | GPT-6 |
 // | 2026-11-13 | Exercise host session custody on a live job pipe. | Test real client requests against the real dispatcher. | #731 | GPT-6 |
@@ -221,6 +222,39 @@ class JobPipe
 {
 public:
     ~JobPipe() { Finish(); }
+
+#ifdef SAM_UAC_THIN_COPY_TEST
+    bool OpenExternal()
+    {
+        GUID id{};
+        if (FAILED(CoCreateGuid(&id))) return false;
+        const auto name = PipeName(id);
+        server = Adopt(CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED |
+            FILE_FLAG_FIRST_PIPE_INSTANCE, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_REJECT_REMOTE_CLIENTS,
+            1, 4096, 4096, 0, nullptr));
+        if (!server) return false;
+        wchar_t image[MAX_PATH]{};
+        const DWORD length = GetModuleFileNameW(nullptr, image, ARRAYSIZE(image));
+        if (!length || length >= ARRAYSIZE(image)) return false;
+        std::wstring command = L"\"" + std::wstring(image) + L"\" --thin-dispatch-child \"" + name +
+            L"\" " + std::to_wstring(GetCurrentProcessId());
+        STARTUPINFOW startup{}; startup.cb = sizeof(startup);
+        PROCESS_INFORMATION process{};
+        if (!CreateProcessW(image, command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
+                            nullptr, nullptr, &startup, &process)) return false;
+        child = Adopt(process.hProcess);
+        CloseHandle(process.hThread);
+        return !Connect(server.get(), GetTickCount64() + timeoutMs);
+    }
+
+    bool CrashExternal()
+    {
+        DWORD code = STILL_ACTIVE;
+        return child && TerminateProcess(child.get(), 99) &&
+               WaitForSingleObject(child.get(), 10000) == WAIT_OBJECT_0 &&
+               GetExitCodeProcess(child.get(), &code) && code == 99;
+    }
+#endif
 
 #if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_COPY_TEST) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
     Handle DetachClient() { return std::move(server); }
@@ -491,6 +525,17 @@ public:
         server.reset();
         if (dispatcher.joinable())
             dispatcher.join();
+#ifdef SAM_UAC_THIN_COPY_TEST
+        if (child)
+        {
+            if (WaitForSingleObject(child.get(), 10000) == WAIT_TIMEOUT)
+            {
+                TerminateProcess(child.get(), 98);
+                WaitForSingleObject(child.get(), 10000);
+            }
+            child.reset();
+        }
+#endif
         return dispatchError;
     }
 
@@ -738,6 +783,9 @@ private:
 
     ULONGLONG pageCursor = 0, nextPageCursor = 1;
     Handle server;
+#ifdef SAM_UAC_THIN_COPY_TEST
+    Handle child;
+#endif
     std::thread dispatcher;
     DWORD dispatchError = ERROR_GEN_FAILURE;
 };
@@ -4682,16 +4730,79 @@ void CheckThinBrokerSourceParent(const Directory& source, const Directory& targe
 #ifdef SAM_UAC_THIN_COPY_TEST
 #include "uacbroker_thin_retained_tests.inc"
 #include "uacbroker_thin_parent_large_tests.inc"
+
+void CheckThinExternalCrash(const Directory& source, const Directory& target)
+{
+    constexpr auto sourceLeaf = L"thin-crash-source-東.txt";
+    constexpr auto targetLeaf = L"thin-crash-target-日.txt";
+    const auto sourcePath = source.File(sourceLeaf);
+    const auto targetPath = target.File(targetLeaf);
+    if (!WriteByte(sourcePath, 0x51)) { Check(false, "create process-crash source"); return; }
+    auto sourceFile = Adopt(CreateFileW(sourcePath.c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr));
+    FILE_ID_INFO identity{};
+    if (!sourceFile || !GetFileInformationByHandleEx(sourceFile.get(), FileIdInfo, &identity, sizeof(identity)))
+    { Check(false, "identify process-crash source"); return; }
+    JobPipe job;
+    if (!job.OpenExternal()) { Check(false, "open external dispatcher"); return; }
+    DWORD result = ERROR_GEN_FAILURE;
+    ThinWireReply reply{};
+    if (!job.Thin(source, sourceLeaf, identity, target, targetLeaf, Operation::ThinOpenSource,
+                  nullptr, false, result, reply) || result || !reply.value)
+    { Check(false, "receive source from external dispatcher"); return; }
+    auto input = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    if (!job.Thin(source, sourceLeaf, identity, target, targetLeaf, Operation::ThinTargetCreate,
+                  nullptr, false, result, reply, sourceFile.get()) || result || !reply.value)
+    { Check(false, "receive target from external dispatcher"); return; }
+    auto output = Adopt(reinterpret_cast<HANDLE>(static_cast<ULONG_PTR>(reply.value)));
+    FILE_ID_INFO actualTarget{};
+    Check(output && GetFileInformationByHandleEx(output.get(), FileIdInfo, &actualTarget, sizeof(actualTarget)) &&
+          UacRenameLeaf::Detail::SameSource(actualTarget, reply.target),
+          "external dispatcher returned the identified target handle");
+    if (!job.CrashExternal()) { Check(false, "terminate exact external dispatcher"); return; }
+    Check(true, "terminate exact external dispatcher");
+    BYTE value = 0; DWORD count = 0;
+    Check(ReadFile(input.get(), &value, 1, &count, nullptr) && count == 1 && value == 0x51,
+          "source handle remains usable after dispatcher process death");
+    value = 0x71; count = 0;
+    Check(WriteFile(output.get(), &value, 1, &count, nullptr) && count == 1,
+          "target handle remains writable after dispatcher process death");
+    output.reset(); input.reset(); sourceFile.reset();
+    Check(HasByte(sourcePath, 0x51) && HasByte(targetPath, 0x71),
+          "source and partial destination survive dispatcher process death");
+    Check(DeleteFileW(sourcePath.c_str()) != FALSE && DeleteFileW(targetPath.c_str()) != FALSE,
+          "remove only dedicated process-crash fixtures");
+}
 #endif
 #include "uacbroker_thin_cleanup_contract_tests.inc"
 }
 
 int wmain(int argc, wchar_t** argv)
 {
+#ifdef SAM_UAC_THIN_COPY_TEST
+    if (argc == 4 && !wcscmp(argv[1], L"--thin-dispatch-child"))
+    {
+        const DWORD hostPid = wcstoul(argv[3], nullptr, 10);
+        const auto host = Adopt(OpenProcess(PROCESS_DUP_HANDLE | PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE,
+                                            FALSE, hostPid));
+        const auto pipe = Adopt(CreateFileW(argv[2], pipeAccess, 0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr));
+        const InstallLocation install(Adopt(CreateFileW(L".", FILE_TRAVERSE | FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr)));
+        if (!host || !pipe || !install.DirectoryHandle() || !ExpectedPipePeer(pipe.get(), host.get(), hostPid, true))
+            return 3;
+        return ServeTransferJob(install, pipe.get(), host.get(), hostPid, GetTickCount64() + timeoutMs) ? 4 : 0;
+    }
+#endif
     Directory source, target, outside;
     if (!source.Open(L"source") || !target.Open(L"target") || !outside.Open(L"outside"))
         return 2;
 #ifdef SAM_UAC_THIN_COPY_TEST
+    if (argc == 2 && !wcscmp(argv[1], L"--thin-process-crash-only"))
+    {
+        CheckThinExternalCrash(source, target);
+        return failures ? 1 : 0;
+    }
 #if defined(SAM_UAC_CLIENT_PIPE_HARNESS) && defined(SAM_UAC_THIN_PLANNED_PROTOTYPE)
 #ifdef SAM_UAC_THIN_REOPEN_PROTOTYPE
     if (argc == 2 && !wcscmp(argv[1], L"--thin-client-reopen-only"))

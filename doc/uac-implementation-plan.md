@@ -1,5 +1,6 @@
 <!--
 | Date | Summary | Reason | Ticket | Model |
+| 2026-11-14 | Test thin dispatcher process death across the actual pipe. | Establish the lifetime of transferred handles without claiming full F5 or UAC coverage. | #731 | GPT-6 |
 | 2026-11-14 | Bound the thin handle escrow design. | Identify lifecycle and authentication requirements before changing the transfer protocol. | #731 | GPT-6 |
 | 2026-11-14 | Correct thin transfer error classification. | Do not send a false success if host liveness changes immediately before duplication. | #731 | GPT-6 |
 | 2026-11-14 | Record the current-pair OTS setup and restoration. | Distinguish verified deployment from the unperformed different-account F5. | #731 | GPT-6 |
@@ -1014,7 +1015,11 @@ Při stavu `WaitForViewerRefresh` viewer nadále ignoruje přetažený soubor, a
 
 ### Kandidát bezpečného předání handle
 
+**Pád samostatného dispatcheru — lokálně ověřeno:** Experimentální `ServeTransferJob` nyní umí testovací fixture spustit v odděleném procesu se skutečnou named pipe a ověřením jejího PID. Host obdržel handle zdroje a nově vytvořeného cíle, zkontroloval ID cíle a ukončil pouze svůj konkrétní testovací proces. Po ověřeném ukončení s návratovým kódem 99 šel zdrojovým handle číst a cílovým dále zapisovat; zdroj i částečný cíl zůstaly zachovány. `uac_thin_parent_transport_tests.py --process-crash-only` prošel v Debug i Release vždy šesti kontrolami; běžná neexperimentální testovací varianta se přeložila v Debug. Oba procesy mají stejný token a odpověď byla přijata **před** ukončením. Test neprovádí `DoCopyFile`, systémové UAC, pád hosta, overlapped I/O ani ztrátu odpovědi mezi duplikací a převzetím; neprokazuje tedy řešení vlastnictví neznámého handle ani následující návrh úschovny.
+
 Po opravě klasifikace chyb v `3770983e` skončil také běžný neexperimentální `uacbroker_transport_tests.py` v Debug i Release s návratovým kódem 0; sada zahrnuje odmítnutí experimentálního thin požadavku běžným dispatcherem. Nejde o systémové UAC ani důkaz bezpečnosti navrženého předání. Při diagnostice OTS je místní účet `SamandarinUacTest` povolený a služba `seclogon` běží; ani jedno samo nevysvětluje předchozí neúspěch přihlášení.
+
+Po doplnění víceprocesové fixture skončila i původní sada `uac_thin_parent_transport_tests.py` v Debug a Release s návratovým kódem 0. Tento samostatný regresní běh nadále používá dispatcher ve vlákně stejného procesu.
 
 Pro dosud nevyřešené okno mezi duplikací a odpovědí stojí za integrační ověření **oddělená úschovna handle**, nikoli uzavírání neznámého číselného handle v hostu. Host by před elevací spustil omezený neprivilegovaný pomocný proces ve svém kontextu a držel k němu pouze nezbytná procesová práva; broker by po ověření jeho skutečné identity a vazby na schválený host duplikoval jednotlivé již omezené souborové handle nejprve do tohoto procesu. Teprve po přijetí odpovědi by host převzal přesně identifikovaný handle a úschovnu uzavřel. Při ztrátě odpovědi by ukončení úschovny uvolnilo její neznámé reference, aniž by broker naslepo zavíral mezitím znovupoužitou hodnotu v hlavním procesu. Pravidla Windows pro duplicitní handle a životnost procesu jsou popsána v [DuplicateHandle](https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-duplicatehandle) a [Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects).
 
