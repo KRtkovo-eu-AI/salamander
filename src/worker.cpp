@@ -5285,14 +5285,20 @@ static void ThinCopyTestObserve(const wchar_t* name)
     SetLastError(error);
 }
 
+// A completed nonzero write arms post-write faults in either I/O direction.
+// This flag is test-only and must not treat an issued request as completion.
+static volatile LONG thinTestWriteCompleted = 0;
+
 static BOOL ThinCopyTestReadFile(HANDLE file, void* buffer, DWORD size, DWORD* read, OVERLAPPED* overlapped)
 {
     static volatile LONG failed = 0;
-    if (ThinCopyTestFailure(L"read", &failed))
+    if (ThinCopyTestFailure(L"read", &failed) ||
+        (InterlockedCompareExchange(&thinTestWriteCompleted, 0, 0) != 0 &&
+         ThinCopyTestFailure(L"read-after-write", &failed)))
     {
         SetLastError(ERROR_READ_FAULT);
-        if (!overlapped)
-            ThinCopyTestObserve(L"SAM_UAC_TEST_SYNC_READ_FAULT_EVENT");
+        ThinCopyTestObserve(overlapped ? L"SAM_UAC_TEST_ASYNC_READ_FAULT_EVENT" :
+                                      L"SAM_UAC_TEST_SYNC_READ_FAULT_EVENT");
         return FALSE;
     }
     const BOOL result = ReadFile(file, buffer, size, read, overlapped);
@@ -5314,7 +5320,6 @@ static BOOL ThinCopyTestReadFile(HANDLE file, void* buffer, DWORD size, DWORD* r
 // process-wide: acceptance needs a fresh process and one copy operation.
 // Async writes can complete out of order; the marker does not establish
 // a contiguous prefix or that all other outstanding I/O has drained.
-static volatile LONG thinTestWriteCompleted = 0;
 static void ThinCopyTestMarkWriteCompleted(bool overlapped)
 {
     const DWORD savedError = GetLastError();

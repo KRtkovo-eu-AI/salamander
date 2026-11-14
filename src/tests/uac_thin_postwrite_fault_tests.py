@@ -60,7 +60,7 @@ def main():
                     cwd=temp, env=env, timeout=50)
         if built.returncode:
             return built.returncode
-        for mode in ("write", "write-after-completion", "async", "read", "read-pending", "none"):
+        for mode in ("write", "write-after-completion", "async", "read", "read-pending", "read-after-write", "read-after-write-async", "none"):
             result = run([str(exe), mode], cwd=temp, env=env, timeout=15)
             if result.returncode:
                 return result.returncode

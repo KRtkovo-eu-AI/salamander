@@ -174,6 +174,36 @@ int wmain(int argc, wchar_t** argv)
               Count(L"SAM_UAC_TEST_SYNC_READ_COMPLETED_EVENT") == 1,
               "legacy read mode delegates next read and preserves status");
     }
+    else if (std::wcscmp(argv[1], L"read-after-write") == 0 || std::wcscmp(argv[1], L"read-after-write-async") == 0)
+    {
+        const bool asynchronous = std::wcscmp(argv[1], L"read-after-write-async") == 0;
+        Check(SetMode(L"read-after-write"), "enable read failure after completed write");
+        char buffer[8]{}; DWORD received = 0;
+        nextResult = TRUE; nextBytes = sizeof(buffer); nextError = 96;
+        Check(ThinCopyTestReadFile(nullptr, buffer, sizeof(buffer), &received, nullptr) &&
+              readCalls == 1 && GetLastError() == 96, "read before completed write is delegated");
+        nextBytes = 3;
+        Check(Write(8, &written, nullptr) && Count(syncDone) == 0, "short write does not arm read failure");
+        if (asynchronous)
+        {
+            completionResult = TRUE; completionBytes = 8; completionError = 98;
+            Check(InvokeCompletion(8) && Count(asyncDone) == 1, "completed async write arms read failure");
+        }
+        else
+        {
+            nextBytes = 8;
+            Check(Write(8, &written, nullptr) && Count(syncDone) == 1, "completed sync write arms read failure");
+        }
+        const wchar_t* readFault = asynchronous ? L"SAM_UAC_TEST_ASYNC_READ_FAULT_EVENT" : L"SAM_UAC_TEST_SYNC_READ_FAULT_EVENT";
+        Check(!ThinCopyTestReadFile(nullptr, buffer, sizeof(buffer), asynchronous ? nullptr : &received,
+                                    asynchronous ? &operation : nullptr) &&
+              GetLastError() == ERROR_READ_FAULT && readCalls == 1 && Count(readFault) == 1,
+              "next read fails once and signals the correct I/O mode");
+        nextResult = TRUE; nextBytes = sizeof(buffer); nextError = 99;
+        Check(ThinCopyTestReadFile(nullptr, buffer, sizeof(buffer), &received, nullptr) &&
+              readCalls == 2 && GetLastError() == 99 && Count(readFault) == 1,
+              "later read is delegated and preserves status");
+    }
     else if (std::wcscmp(argv[1], L"read-pending") == 0)
     {
         Check(SetMode(L"none"), "disable read failure for pending test");
