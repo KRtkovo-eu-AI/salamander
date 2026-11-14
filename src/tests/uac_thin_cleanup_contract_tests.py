@@ -31,6 +31,19 @@ class ScopedCleanupContracts(unittest.TestCase):
         self.assertIn("return;", guard)
         self.assertGreater(code.index("case IDRETRY:", write), write)
 
+    def test_sync_retry_checks_connection_before_reopen(self):
+        code = section("void DoCopyFileLoopOrig(", "enum CCopy_BlkState")
+        write_retry = code.split("case IDRETRY: // on a network", 1)[1].split("if (out != NULL)", 1)[0]
+        read_retry = code.split("            RETRY_COPY:", 1)[1].split("if (in != NULL)", 1)[0]
+        for fragment, caption in ((write_retry, "IDS_ERRORWRITINGFILE"),
+                                  (read_retry, "IDS_ERRORREADINGFILE")):
+            with self.subTest(caption=caption):
+                self.assertIn("#ifdef SAM_UAC_THIN_COPY_TEST", fragment)
+                self.assertIn("thin->CheckTransferConnection()", fragment)
+                self.assertIn("thin->ReportTransferLoss(connectionError, " + caption + ")", fragment)
+                self.assertIn("copyError = TRUE", fragment)
+                self.assertIn("return;", fragment)
+
     def test_sync_and_async_allocation_restart_are_guarded(self):
         for name, end in (("DoCopyFileLoopOrig(", "enum CCopy_BlkState"),
                           ("void DoCopyFileLoopAsync(", "static UacF7::Result ExecuteWithNativeTransferProgress")):

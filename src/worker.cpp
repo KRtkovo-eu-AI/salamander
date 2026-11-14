@@ -5459,6 +5459,18 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
                 {
                 case IDRETRY: // on a network we must reopen the handle; local access forbids it due to sharing
                 {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                    if (thin)
+                    {
+                        const DWORD connectionError = thin->CheckTransferConnection();
+                        if (connectionError != ERROR_SUCCESS)
+                        {
+                            thin->ReportTransferLoss(connectionError, IDS_ERRORWRITINGFILE);
+                            copyError = TRUE;
+                            return;
+                        }
+                    }
+#endif
                     if (out != NULL)
                     {
                         THIN_REMEMBER_TARGET(thin, out);
@@ -5607,6 +5619,18 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
 #endif
             RETRY_COPY:
 
+#ifdef SAM_UAC_THIN_COPY_TEST
+                if (thin)
+                {
+                    const DWORD connectionError = thin->CheckTransferConnection();
+                    if (connectionError != ERROR_SUCCESS)
+                    {
+                        thin->ReportTransferLoss(connectionError, IDS_ERRORREADINGFILE);
+                        copyError = TRUE;
+                        return;
+                    }
+                }
+#endif
                 if (in != NULL)
                 {
                     THIN_REMEMBER_SOURCE(thin, in);
