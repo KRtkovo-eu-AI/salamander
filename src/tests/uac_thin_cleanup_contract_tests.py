@@ -19,6 +19,18 @@ def section(start, end):
 
 
 class ScopedCleanupContracts(unittest.TestCase):
+    def test_sync_retry_checks_connection_before_each_write(self):
+        code = section("void DoCopyFileLoopOrig(", "enum CCopy_BlkState")
+        write = code.index("THIN_COPY_WRITE(out, buffer, read, &written, NULL)")
+        loop = code.rfind("while (1)", 0, write)
+        guard = code[loop:write]
+        self.assertIn("#ifdef SAM_UAC_THIN_COPY_TEST", guard)
+        self.assertIn("thin->CheckTransferConnection()", guard)
+        self.assertIn("thin->ReportTransferLoss(error, IDS_ERRORWRITINGFILE)", guard)
+        self.assertIn("copyError = TRUE", guard)
+        self.assertIn("return;", guard)
+        self.assertGreater(code.index("case IDRETRY:", write), write)
+
     def test_sync_and_async_allocation_restart_are_guarded(self):
         for name, end in (("DoCopyFileLoopOrig(", "enum CCopy_BlkState"),
                           ("void DoCopyFileLoopAsync(", "static UacF7::Result ExecuteWithNativeTransferProgress")):

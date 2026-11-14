@@ -5400,6 +5400,21 @@ void DoCopyFileLoopOrig(HANDLE& in, HANDLE& out, void* buffer, int& limitBufferS
 
             while (1)
             {
+#ifdef SAM_UAC_THIN_COPY_TEST
+                // Retry can return from a user dialog after the broker has
+                // exited. Recheck before every write, not only before the
+                // initial attempt, while the transferred handles still work.
+                if (thin)
+                {
+                    const DWORD error = thin->CheckTransferConnection();
+                    if (error != ERROR_SUCCESS)
+                    {
+                        thin->ReportTransferLoss(error, IDS_ERRORWRITINGFILE);
+                        copyError = TRUE;
+                        return;
+                    }
+                }
+#endif
                 if (THIN_COPY_WRITE(out, buffer, read, &written, NULL) &&
                     read == written)
                 {
